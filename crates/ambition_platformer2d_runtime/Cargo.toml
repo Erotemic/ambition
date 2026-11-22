@@ -87,6 +87,7 @@ ambition_persistence = { path = "../ambition_persistence" }
 ambition_menu = { path = "../ambition_menu", optional = true }
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 ambition_items = { path = "../ambition_items" }
+ambition_binding = { path = "../ambition_binding" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 # The live camera state (eased view, shake, finishing zoom) and its systems.
 ambition_camera_presentation = { path = "../ambition_camera_presentation" }

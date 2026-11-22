@@ -21,7 +21,7 @@ use ambition_characters::control::{DrivingParticipant, PlayerSlot, SlotControls}
 use ambition_platformer2d_core::{BodyKinematics, ControlFrame};
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_portal2d::{FirePortalGenerator, PortalGenerator, TogglePortalGenerator};
-use ambition_sim_view::affordances::{InteractVariant, NearestInteractable};
+use ambition_platformer2d_interaction::InteractSelection;
 
 pub fn pick_aim(control: &ControlFrame, facing: f32) -> Vec2 {
     let aim = Vec2::new(control.aim_x, control.aim_y);
@@ -42,7 +42,8 @@ pub fn pick_aim(control: &ControlFrame, facing: f32) -> Vec2 {
 /// portal input set so the core fire and toggle see the intents in the same
 /// frame.
 pub fn portal_input_adapter_system(
-    nearest: Option<Res<NearestInteractable>>,
+    // What each body's Interact press is selected for (interaction I1).
+    selection: Option<Res<InteractSelection>>,
     controlled: Res<ControlledSubject>,
     // The controller's slot frame (the sanctioned per-slot input source).
     slots: Res<SlotControls>,
@@ -85,21 +86,16 @@ pub fn portal_input_adapter_system(
         };
         let slot = driver.map_or(PlayerSlot::PRIMARY, |driver| driver.0);
         let control = slots.get(slot);
-        // Color toggle: Interact, but only when no genuine interactable (door / NPC /
-        // switch) claims the press — matching the HUD label.
+        // Color toggle: Interact, but only when the press is selected for
+        // nothing else (a body, a switch, a chest, a door, boarding or
+        // getting off a mount). THIS body's selection, from gameplay, not
+        // the prompt's: a composition without the prompt toggles the same way.
+        //
+        // It is still a prediction: this adapter runs in `PlayerSimulation`, and
+        // the interaction road spends the press later, in `FeatureInteraction`.
+        // Routing the toggle through one attempt with the press's owner is I2.
         if control.interact_pressed {
-            // This body's reach, not seat zero's. The singleton
-            // `NearestInteractable.0` answers for one controlled subject, so inside
-            // this loop it would let seat zero's position suppress or allow seat one's
-            // toggle.
-            //
-            // It is still a prediction: this adapter runs in `PlayerSimulation`, and
-            // the interaction road spends the press later, in `FeatureInteraction`.
-            // Both use the same `strict_intersects` reach, which keeps the prediction
-            // right.
-            let claimed = nearest
-                .as_deref()
-                .is_some_and(|n| !matches!(n.for_body(subject), InteractVariant::None));
+            let claimed = selection.as_deref().is_some_and(|selection| selection.of(subject).is_some());
             if !claimed {
                 toggle.write(TogglePortalGenerator { body: subject });
             }

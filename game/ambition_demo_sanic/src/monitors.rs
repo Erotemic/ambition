@@ -329,15 +329,16 @@ pub fn break_monitor_boxes(
                 }
                 name if name.starts_with(SPEED_MONITOR) => {
                     let shoes = crate::rules::sanic_rules().speed_shoes;
-                    // The shoes are effects on the momentum the body rides: the
-                    // kernel resolves them over the authored params and spends
-                    // them, so a second pair only restarts the clock. The super
+                    // The shoes are ONE application on the momentum the body
+                    // rides, two numbers under one interval: the kernel
+                    // resolves them over the authored params and spends the
+                    // interval, so a second pair only restarts the clock. The super
                     // form authors its own speed, so it takes no shoes.
                     if worn.id() != SUPER_SANIC_CHARACTER_ID && matches!(model, ae::MotionModel::SurfaceMomentum(_)) {
-                        effects.apply(SPEED_SHOES, ae::NumericAttribute::TopSpeed,
-                            ae::NumericOp::Mul(shoes.top_speed_factor), shoes.seconds);
-                        effects.apply(SPEED_SHOES, ae::NumericAttribute::GroundAccel,
-                            ae::NumericOp::Mul(shoes.accel_factor), shoes.seconds);
+                        effects.grant(SPEED_SHOES, &[
+                            (ae::NumericAttribute::TopSpeed, ae::NumericOp::Mul(shoes.top_speed_factor)),
+                            (ae::NumericAttribute::GroundAccel, ae::NumericOp::Mul(shoes.accel_factor)),
+                        ], shoes.seconds);
                     }
                 }
                 other => {

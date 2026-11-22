@@ -105,6 +105,16 @@ outcome. An old index cannot select a different new entry. Delete repeated path
 scans and entry-by-trigger matching as each consumer takes the prepared relation.
 This is a host execution projection, not another dispatcher or interpreter.
 
+**First slice (2026-11-22).** `run_phase` now groups the phase's queued
+invocations by `(port, selector)` once, keeping queue order inside each
+group. Each admitted entry reads only its own trigger's group, so an entry
+no longer scans the whole queue; the order is still entry-major, then queue
+order. Not yet done: preparing the trigger spans and entry lookup at
+admission (the phase's entries are still filtered from `Admitted::entries`
+each run), the `Unavailable` receipt check (a scan of the phase's entries
+for each receipted invocation), and `Candidate::bound` in the inbox (a
+linear entry search per candidate).
+
 ### Share an address view at each lifecycle cut
 
 [`ObjectIndex::capture`](../../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/object_refs.rs)
@@ -147,6 +157,16 @@ policies separate; they do not use this strict row-cardinality law.
 Native facts already use `EventRoutes` and skip publication work when no route
 exists. Preserve those paths. Install the common fact collector once; each new
 native source must not add another all-mailbox scan.
+
+**Done (2026-11-22).** Each `install_native_source` used to install its own
+`collect::<EventMailbox>(Lane::Fact)` system, so the nine fact ports
+(activated, defeated, broken, collected, born, crossed, crossing refused,
+retired, signal) ran nine identical scans of every mailbox each tick. Each
+scan pushed the same `Lane::Fact` onto the receiver's lane list. The first
+source now installs the collector. Later sources call the host's new
+`offer_extension_trigger`, which records the trigger offer for admission
+with no adapter system. A new fact port adds no scan. Deriving active receiver
+work from the journals (below) is still open.
 
 Derive active receiver work from the canonical journals. Keep delivery-ready rows,
 retry rows, incomplete calls with active-time deadlines, unbound handlers waiting

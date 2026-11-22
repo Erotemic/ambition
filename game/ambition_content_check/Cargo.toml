@@ -1,0 +1,19 @@
+[package]
+name = "ambition_content_check"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The content check binary: the engine's content CLI composed with Ambition's own schemas. Above the schema library, so a schema consumer does not reach the CLI."
+
+# The check binary composes content schemas and the runtime sheet inspector.
+# It needs no window, renderer device or game host.
+[dependencies]
+ambition_content_cli = { path = "../../crates/ambition_content_cli" }
+ambition_content_schemas = { path = "../ambition_content_schemas" }
+
+[[bin]]
+name = "ambition_content_check"
+path = "src/main.rs"
+test = false
+bench = false

@@ -612,7 +612,7 @@ fn mary_os_parts_are_placed_by_her_body_rigs_pose() {
                     // Every rig part a shared frame draws rides a joint. (A row
                     // the rig does not author, `death` or `shrink`, draws parts
                     // nothing here measures.)
-                    let name = drawn.track.map(|track| flipbook.tracks[usize::from(track)].as_str()).unwrap_or("?");
+                    let name = drawn.track.map(|track| flipbook.tracks()[usize::from(track)].as_str()).unwrap_or("?");
                     if name.starts_with("overlay:") {
                         continue;
                     }
@@ -676,7 +676,7 @@ fn scouts_named_parts_are_placed_by_his_body_rigs_pose() {
             let unplaced: Vec<PartDraw> = frame.iter().map(|draw| PartDraw { at: Vec2::ZERO, rotation: 0.0, ..*draw }).collect();
             posed.place(&unplaced, &joints, &mut placed);
             for (drawn, from_pose) in frame.iter().zip(&placed) {
-                let Some(name) = drawn.track.map(|track| flipbook.tracks[usize::from(track)].as_str()) else { continue };
+                let Some(name) = drawn.track.map(|track| flipbook.tracks()[usize::from(track)].as_str()) else { continue };
                 if !named.contains_key(name) {
                     continue;
                 }
@@ -803,7 +803,7 @@ fn a_landing_swings_scouts_arms_down_and_leaves_the_body_as_drawn() {
             // The whole-part tracks, whose pivots sit on their joints (within
             // a fraction of a pixel); a `~mirror` half is placed off its pivot.
             let at = |draws: &[PartDraw], track: &str| {
-                let track = flipbook.tracks.iter().position(|name| name == track).unwrap() as u16;
+                let track = flipbook.tracks().iter().position(|name| name == track).unwrap() as u16;
                 draws.iter().find(|d| d.track == Some(track)).unwrap().at
             };
             let (u, l, h) = (format!("{side}_arm_u"), format!("{side}_arm_l"), format!("{side}_hand"));

@@ -298,6 +298,27 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             sim,
             interact_ecs_actors_and_switches.in_set(FeatureInteractionSet::Actuate),
         );
+        // What each driven body's Interact press is for (interaction I1):
+        // selected here, with the gameplay that executes it, from the
+        // domains' own availability, once this tick's input has settled which
+        // body each seat drives. The prompt draws it, and the contextual
+        // consumers act on it: the mount boards or leaves what is selected
+        // (`MountsCommandeered`), and the portal's colour toggle (in
+        // `PlayerSimulation`) yields to any selection.
+        app.init_resource::<ambition_platformer2d_interaction::InteractSelection>()
+            .init_resource::<ambition_mount::MountPresses>()
+            .add_systems(
+                sim,
+                (
+                    ambition_platformer2d_actor_monolith::body::select_interactions
+                        .in_set(ambition_platformer2d_interaction::InteractSelectionSet)
+                        .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerInput)
+                        .after(ambition_characters::control::PrimarySlotInputCommit),
+                    ambition_platformer2d_actor_monolith::body::project_mount_presses
+                        .after(ambition_platformer2d_interaction::InteractSelectionSet)
+                        .before(ambition_mount::MountsCommandeered),
+                ),
+            );
         // A script's walk to a mark, on the blanked frame: a held body is
         // walked by the script and not by the stick. In the gate, so every
         // consumer of finished control reads the walk.

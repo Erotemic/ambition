@@ -67,16 +67,60 @@ pub struct CapturedBy {
     /// captor's live facing and motion frame every tick, so a capture survives
     /// the captor turning around and survives arbitrary gravity.
     ///
-    /// Measured from the captor's position, or from [`Self::hold_attachment`]
+    /// Measured from the captor's position, or from [`Self::hold_point`]
     /// when the hold rides one.
     pub hold_offset_local: ae::Vec2,
-    /// The attachment of the CAPTOR's body rig the hold rides (a jaw, a
-    /// hand), by its index in the rig (`PreparedBodyRig::attachment_index`).
-    /// The art package states the point on a joint; the captor's pose places
-    /// it each tick (`BodyRigPose`), so the held body is where the captor's
-    /// jaw is DRAWN, in each frame of its clip. `None`: the hold is measured
-    /// from the captor's position.
-    pub hold_attachment: Option<u16>,
+    /// The named point of the CAPTOR's body rig the hold rides (a jaw, a
+    /// hand). The art package states the point on a joint; the captor's pose
+    /// places it each tick (`BodyRigPose`), so the held body is where the
+    /// captor's jaw is DRAWN, in each frame of its clip. `None`: the hold is
+    /// measured from the captor's position, a deliberate root anchor.
+    pub hold_point: Option<HoldPoint>,
+}
+
+/// A named point of a captor's rig, bound to the slot it had when the hold
+/// was made (body anchors, A2).
+///
+/// The NAME is the meaning; the slot is a cache of where the name was. A rig
+/// replaced in use (a redraw, a reload, a retracted rig) can give that slot to
+/// another point, so the slot is used only while it still carries the name,
+/// and a rig that no longer states the name ends the hold rather than holding
+/// the body somewhere else ([`HoldPoint::in_rig`]).
+///
+/// The name is kept as a stable key (FNV-1a of the name's bytes) so the
+/// relation stays `Copy` and restores identically on every peer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct HoldPoint {
+    pub slot: u16,
+    pub name: u64,
+}
+
+impl HoldPoint {
+    /// The stable key of an attachment name.
+    pub fn key(name: &str) -> u64 {
+        name.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3))
+    }
+
+    /// The point `name` of `rig`, or `None` when the rig does not state it.
+    pub fn of(rig: &ambition_characters::actor::PreparedBodyRig, name: &str) -> Option<Self> {
+        let slot = u16::try_from(rig.attachment_index(name)?).ok()?;
+        Some(Self { slot, name: Self::key(name) })
+    }
+
+    /// This point's slot in `rig` NOW: its bound slot while that still carries
+    /// the name, else the slot that does (a rig redrawn in another order),
+    /// else `None` (the rig no longer states the point). The scan runs only
+    /// when the bound slot stopped naming the point.
+    pub fn in_rig(self, rig: &ambition_characters::actor::PreparedBodyRig) -> Option<Self> {
+        let names = |slot: usize| rig.attachments().get(slot).map(|point| Self::key(&point.name));
+        if names(usize::from(self.slot)) == Some(self.name) {
+            return Some(self);
+        }
+        (0..rig.attachments().len())
+            .find(|slot| names(*slot) == Some(self.name))
+            .and_then(|slot| u16::try_from(slot).ok())
+            .map(|slot| Self { slot, ..self })
+    }
 }
 
 impl bevy::ecs::entity::MapEntities for CapturedBy {
@@ -151,9 +195,9 @@ pub struct CaptureCarryRequested {
     pub captor: Entity,
     /// Where the captive rides from now on, captor-body-local.
     pub hold_offset: ae::Vec2,
-    /// The attachment of the captor's rig that offset is measured from
-    /// ([`CapturedBy::hold_attachment`]); `None`: from the captor's position.
-    pub hold_attachment: Option<u16>,
+    /// The point of the captor's rig that offset is measured from
+    /// ([`CapturedBy::hold_point`]); `None`: from the captor's position.
+    pub hold_point: Option<HoldPoint>,
 }
 
 /// A pummel impact targeting the captive already selected by the relationship.
@@ -212,7 +256,7 @@ mod tests {
             .spawn(CapturedBy {
                 captor,
                 hold_offset_local: ae::Vec2::new(16.0, -2.0),
-                hold_attachment: None,
+                hold_point: None,
             })
             .id();
 
@@ -255,7 +299,7 @@ mod tests {
         let mut held = CapturedBy {
             captor: before,
             hold_offset_local: ae::Vec2::new(16.0, -2.0),
-            hold_attachment: None,
+            hold_point: None,
         };
         held.map_entities(&mut ToFixed(after));
         assert_eq!(

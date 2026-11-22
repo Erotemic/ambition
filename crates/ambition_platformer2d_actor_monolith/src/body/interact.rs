@@ -18,7 +18,7 @@ use ambition_combat::components::{
 };
 use ambition_encounter::switches::{SwitchActivated, SwitchFeature};
 use ambition_persistence::quest::QuestAdvanceRequested;
-use ambition_platformer2d_interaction::{InteractCandidate, InteractKind, InteractReach, interact_order, pose_interact};
+use ambition_platformer2d_interaction::{InteractOperation, InteractReach, pose_interact};
 use ambition_vfx::vfx::VfxWriter;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::*;
@@ -76,9 +76,37 @@ mod no_dialogue {
 }
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
+pub mod selection;
+
+/// What a talk to this body enters and who it is to: the dialogue node its
+/// authored payload names (the generic conversation for none) and the
+/// listener's character id (its placement id when it names no character).
+fn talk_of<'a>(interaction: &'a ActorInteraction, identity: &'a ActorIdentity) -> (&'a str, &'a str) {
+    let interactable = &interaction.interactable;
+    let dialogue_id = npc_talk_dialogue_id(match &interactable.kind {
+        ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
+        _ => None,
+    });
+    (dialogue_id, interactable.character_id().unwrap_or(&identity.id))
+}
+
+/// The seat a conversation opened by a body driven from `slot` belongs to.
+/// The `ParticipantId` <-> `PlayerSlot` correspondence lives in one place
+/// (`crate::participant_seat`), and that place is this crate.
+fn input_owner_of(slot: Option<ambition_characters::control::PlayerSlot>) -> ambition_input::InputOwner {
+    slot.map_or(ambition_input::InputOwner::Primary, |slot| {
+        ambition_input::InputOwner::Participant(crate::participant_seat::participant_of(slot))
+    })
+}
+
 /// The bodies Interact can talk to: peaceful feature actors with a
-/// conversation payload. The same filter [`interact_ecs_actors_and_switches`]
-/// talks through, read by a door that must know whether the press is its own.
+/// conversation payload, in reach, with a conversation the acting seat can
+/// open now. The selection ([`selection::select_interactions`]) asks it,
+/// and so the prompt, the door and the executors follow it; the conversation part is the dialogue domain's own decision
+/// (`ambition_conversation::conversation_entry`), the one the opening asks.
+///
+/// So a self-conversation with no authored branch, or a body talking to
+/// another seat, is not offered, and does not take a door's press.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct TalkableBodies<'w, 's> {
     bodies: Query<
@@ -95,30 +123,81 @@ pub struct TalkableBodies<'w, 's> {
                 Has<ambition_combat::components::RequiresFacing>,
                 Option<&'static ambition_combat::components::ActorAggression>,
             ),
+            (&'static ActorIdentity, &'static ActorInteraction),
         ),
-        (
-            With<ActorInteraction>,
-            With<ActorIdentity>,
-            With<FeatureSimEntity>,
-        ),
+        With<FeatureSimEntity>,
     >,
+    /// The acting body's own payload and identity, which say who it speaks as.
+    speakers: Query<'w, 's, (Option<&'static ActorInteraction>, Option<&'static ActorIdentity>)>,
+    // `Option`: a composition without the dialogue domain has no
+    // conversation to offer, so no body is talkable, as the press finds.
+    #[cfg(feature = "dialogue")]
+    conversation: Option<ambition_conversation::ConversationAvailability<'w, 's>>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
 }
 
 impl TalkableBodies<'_, '_> {
-    /// The distance from `subject`'s position to the nearest body its press
-    /// can talk to ([`InteractReach::can_talk_to`]), if there is one.
-    pub fn nearest_in_reach(&self, subject: Entity, reach: &InteractReach) -> Option<f32> {
+    /// The bodies `subject`'s press can talk to now, with their centres. `door`
+    /// is the distance to the door it stands in, which keeps the press from a
+    /// body no nearer ([`InteractReach::a_door_keeps_the_press`]).
+    pub fn talkers(&self, subject: Entity, reach: &InteractReach, door: Option<f32>) -> Vec<(Entity, Vec2)> {
+        let Some((speaker_id, owner)) = self.speaker(subject) else {
+            return Vec::new();
+        };
         self.bodies
             .iter()
-            .filter(|(entity, aabb, disposition, health, (out_of_play, plane, requires_facing, aggression))| {
+            .filter(|(entity, aabb, disposition, health, (out_of_play, plane, requires_facing, aggression), _)| {
                 *entity != subject
-                    && ambition_combat::util::talk_refusal(**disposition, *aggression, *health, *out_of_play, *plane)
-                        .is_none()
+                    && ambition_combat::util::talk_refusal(**disposition, *aggression, *health, *out_of_play, *plane).is_none()
                     && reach.can_talk_to(self.rooms.of(*entity), aabb, *requires_facing)
+                    && !InteractReach::a_door_keeps_the_press(door, aabb.center.distance(reach.pos()))
             })
-            .map(|(_, aabb, ..)| aabb.center.distance(reach.pos()))
-            .min_by(f32::total_cmp)
+            .filter(|(entity, .., (identity, interaction))| {
+                let (dialogue_id, listener_id) = talk_of(interaction, identity);
+                self.has_conversation(subject, *entity, dialogue_id, &speaker_id, listener_id, owner)
+            })
+            .map(|(entity, aabb, ..)| (entity, aabb.center))
+            .collect()
+    }
+
+    /// The live rooms, for the selection's other targets.
+    pub(crate) fn rooms(&self) -> &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'_, '_> {
+        &self.rooms
+    }
+
+    /// Who `subject` speaks as, and the seat its conversation would belong to.
+    #[cfg(feature = "dialogue")]
+    fn speaker(&self, subject: Entity) -> Option<(String, ambition_input::InputOwner)> {
+        let conversation = self.conversation.as_ref()?;
+        let (interaction, identity) = self.speakers.get(subject).unwrap_or((None, None));
+        let speaker = conversation.speaker_id(subject, interaction, identity)?;
+        Some((speaker, input_owner_of(conversation.driving_slot(subject))))
+    }
+
+    #[cfg(not(feature = "dialogue"))]
+    fn speaker(&self, _subject: Entity) -> Option<(String, ambition_input::InputOwner)> {
+        let _ = &self.speakers;
+        None
+    }
+
+    #[cfg(feature = "dialogue")]
+    fn has_conversation(
+        &self,
+        subject: Entity,
+        talker: Entity,
+        dialogue_id: &str,
+        speaker_id: &str,
+        listener_id: &str,
+        owner: ambition_input::InputOwner,
+    ) -> bool {
+        self.conversation
+            .as_ref()
+            .is_some_and(|conversation| conversation.available(subject, talker, dialogue_id, speaker_id, listener_id, owner).is_ok())
+    }
+
+    #[cfg(not(feature = "dialogue"))]
+    fn has_conversation(&self, _: Entity, _: Entity, _: &str, _: &str, _: &str, _: ambition_input::InputOwner) -> bool {
+        false
     }
 }
 
@@ -223,7 +302,7 @@ pub fn interact_ecs_actors_and_switches(
     // than a body to talk to, or not.
     // And the tick and the quest-cause log, which date a talk in the talker's
     // room (ISL-2d).
-    (mut switch_activated, rooms, seats, tick, mut quest_causes, objects, mut committed): (
+    (mut switch_activated, rooms, seats, tick, mut quest_causes, objects, mut committed, selection): (
         MessageWriter<SwitchActivated>,
         ambition_platformer2d_world::rooms::LiveRoomSpecs,
         Query<&ambition_characters::control::DrivingParticipant>,
@@ -231,6 +310,8 @@ pub fn interact_ecs_actors_and_switches(
         Option<ResMut<ambition_combat::events::QuestCausesInRooms>>,
         ambition_platformer2d_shared_tangle::lifecycle::LiveObjects,
         MessageWriter<ambition_platformer2d_interaction::ActivationCommitted>,
+        // What each body's press is selected for, at the input cut.
+        Option<Res<ambition_platformer2d_interaction::InteractSelection>>,
     ),
     mut vfx: VfxWriter,
 ) {
@@ -277,33 +358,26 @@ pub fn interact_ecs_actors_and_switches(
             dialogue.speaker_id(subject, interactions.get(subject).ok(), identities.get(subject).ok(),
             )
         });
-        // THE NEAREST THING IN REACH TAKES THE PRESS: a person standing at a
-        // terminal no longer hides it. The prompt (`update_nearest_interactable`)
-        // asks the same order (`interact_order`).
-        let candidate = |kind, center, entity| InteractCandidate {
-            kind,
-            preference: reach.preference(center),
-            id: (objects.reference(entity), entity),
+        // THE PRESS GOES TO WHAT IT IS SELECTED FOR (interaction I2). The
+        // selection (`selection::select_interactions`) ranked what the press
+        // reaches at the input cut, with each domain's availability; this
+        // executes a Talk or an Activate at its own cut and revalidates the
+        // target. A target refused here (another seat opened the
+        // conversation since, or the body moved out of reach) leaves the
+        // press unspent for the next cut: a higher target that appeared since
+        // does not steal it, and no lower one is taken instead.
+        let selected = selection.as_deref().and_then(|selection| selection.of(subject));
+        let selected_target = |operation: InteractOperation| {
+            selected.filter(|selected| selected.operation == operation).and_then(|selected| selected.target)
         };
-        let talkers = actors
-            .iter()
-            .filter(|(entity, aabb, disposition, _, _, health, (out_of_play, plane, requires_facing, aggression))| {
-                ambition_combat::util::talk_refusal(**disposition, *aggression, *health, *out_of_play, *plane).is_none()
-                    && reach.can_talk_to(live_rooms.of(*entity), aabb, *requires_facing)
-                    && !InteractReach::a_door_keeps_the_press(door, aabb.center.distance(subject_kin.pos))
-            })
-            .map(|(entity, aabb, ..)| candidate(InteractKind::Talk, aabb.center, entity));
-        let touched = switches
-            .iter()
-            .filter(|(entity, _, aabb, _, _, requires_facing)| reach.touches(live_rooms.of(*entity), aabb, *requires_facing))
-            .map(|(entity, _, aabb, ..)| candidate(InteractKind::Activate, aabb.center, entity));
-        let order = interact_order(talkers.chain(touched));
-        let of_kind = |kind| order.iter().filter(move |offer| offer.kind == kind).map(|offer| offer.id.1);
-        for (actor_entity, aabb, disposition, identity, interaction_payload, health, (out_of_play, plane, requires_facing, aggression),
-        ) in of_kind(InteractKind::Talk).filter_map(|entity| actors.get(entity).ok())
+        // `continue` below leaves the press unspent and goes on to the next
+        // body: a body's press is selected for one operation, so nothing else
+        // of this body's is to be tried.
+        if let Some((actor_entity, aabb, disposition, identity, interaction_payload, health, (out_of_play, plane, requires_facing, aggression),
+        )) = selected_target(InteractOperation::Talk).and_then(|entity| actors.get(entity).ok())
         {
             let (Some(speaker_id), Some(dialogue)) = (speaker_id.as_deref(), dialogue.as_mut()) else {
-                break;
+                continue;
             };
             // A hostile actor gates dialogue off (an ally fighting beside the
             // player still talks); a dead one is an intangible corpse and
@@ -318,12 +392,7 @@ pub fn interact_ecs_actors_and_switches(
             {
                 continue;
             }
-            let dialogue_id = npc_talk_dialogue_id(match &interactable.kind {
-                ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => dialogue_id.as_deref(),
-                _ => None,
-            });
-            let listener_id =
-                interactable.character_id().unwrap_or(&identity.id);
+            let (dialogue_id, listener_id) = talk_of(interaction_payload, identity);
 
             // THE DIALOGUE DECISION IS THE DIALOGUE DOMAIN'S. Whether this pair
             // has anything to say — a self-conversation needs an authored `__self`
@@ -336,14 +405,7 @@ pub fn interact_ecs_actors_and_switches(
             // no trace — no banner, no flags, no quest pump, no mode flip. WHOSE conversation
             // this is, decided here because the `ParticipantId` ↔ `PlayerSlot` correspondence
             // lives in exactly one place (`crate::participant_seat`) and that place is this crate.
-            let input_owner = dialogue.driving_slot(subject).map_or(
-                ambition_input::InputOwner::Primary,
-                |slot| {
-                    ambition_input::InputOwner::Participant(
-                        crate::participant_seat::participant_of(slot),
-                    )
-                },
-            );
+            let input_owner = input_owner_of(dialogue.driving_slot(subject));
             if !dialogue.open_between(
                 subject,
                 actor_entity,
@@ -417,7 +479,7 @@ pub fn interact_ecs_actors_and_switches(
             // flipped. Unlike the switch loop below, that is the right scope.
             return;
         }
-        for switch_entity in of_kind(InteractKind::Activate) {
+        if let Some(switch_entity) = selected_target(InteractOperation::Activate) {
             let Ok((switch_entity, name, aabb, switch, mut activation_state, requires_facing)) = switches.get_mut(switch_entity) else { continue; };
             let room = live_rooms.of(switch_entity);
             if !reach.touches(room, aabb, requires_facing) {
@@ -444,10 +506,10 @@ pub fn interact_ecs_actors_and_switches(
                 color: [0.84, 0.95, 1.0, 0.82],
                 kind: ParticleKind::Spark,
             });
-            // ⛔ Switch activation is per-target and PER BODY: `break`, not `return`.
-            // As a `return` this ended the SYSTEM, so seat a flipping its switch
-            // stopped seat b flipping a different one.
-            break;
+            // ⛔ Switch activation is per-target and PER BODY: this body's turn
+            // ends here, and the next body's begins (a `return` here once ended
+            // the SYSTEM, so seat a flipping its switch stopped seat b flipping
+            // a different one).
         }
     }
 }

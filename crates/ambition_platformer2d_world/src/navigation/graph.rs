@@ -123,6 +123,59 @@ pub struct NavGraph {
     pub flight: Option<FlightMap>,
     /// The links that leave each surface.
     out: Vec<Vec<usize>>,
+    /// The surfaces each surface reaches ([`Self::reach_from`]), found the
+    /// first time it is asked and kept: the graph does not change once built.
+    reach: Vec<std::sync::OnceLock<Box<[usize]>>>,
+}
+
+/// What a body's movement does in empty space: its traversal envelope and,
+/// for a body that flies, its flight law. Each is measured in a probe world
+/// of its own, so it depends on the body and its motion frame and on no
+/// room: a graph built in a second room need not measure it again.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NavMotion {
+    pub envelope: TraversalEnvelope,
+    pub flight: Option<ae::navigation::FlightLaw>,
+}
+
+impl NavMotion {
+    /// Measure `body` under `frame`. `None` when the envelope cannot be
+    /// measured (see [`TraversalEnvelope::measure`]): the body has no graph.
+    pub fn measure(body: &BodyClusterScratch, frame: MotionFrame) -> Option<Self> {
+        let envelope = TraversalEnvelope::measure(body, frame, EnvelopeProbe::default())?;
+        let flight = body.abilities.abilities.fly.then(|| measure_flight(body, frame)).flatten();
+        Some(Self { envelope, flight })
+    }
+}
+
+/// An arrival waiting in [`NavGraph::route`]'s search: the cheapest first,
+/// and of two as cheap the lower state index, so ties never depend on the
+/// order they were pushed.
+#[derive(Clone, Copy)]
+struct RouteOpen {
+    cost: f32,
+    state: usize,
+}
+
+impl PartialEq for RouteOpen {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == std::cmp::Ordering::Equal
+    }
+}
+
+impl Eq for RouteOpen {}
+
+impl PartialOrd for RouteOpen {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for RouteOpen {
+    // Reversed: `BinaryHeap` pops its greatest.
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other.cost.total_cmp(&self.cost).then(other.state.cmp(&self.state))
+    }
 }
 
 impl NavGraph {
@@ -161,7 +214,21 @@ impl NavGraph {
         frame: MotionFrame,
         pool: Option<&bevy_tasks::TaskPool>,
     ) -> Option<Self> {
-        let envelope = TraversalEnvelope::measure(body, frame, EnvelopeProbe::default())?;
+        Self::build_measured(world, exits, body, frame, &NavMotion::measure(body, frame)?, pool)
+    }
+
+    /// [`Self::build_on`] with the body's [`NavMotion`] already measured: a
+    /// caller that builds one body's graph in several rooms measures its
+    /// motion once. `motion` must be `NavMotion::measure(body, frame)`.
+    pub fn build_measured(
+        world: &World,
+        exits: &[ae::Aabb],
+        body: &BodyClusterScratch,
+        frame: MotionFrame,
+        motion: &NavMotion,
+        pool: Option<&bevy_tasks::TaskPool>,
+    ) -> Option<Self> {
+        let envelope = &motion.envelope;
         let nav = NavFrame { side: frame.side(), down: frame.down() };
         let half = Vec2::new(envelope.body_width * 0.5, envelope.body_height * 0.5);
         let slope_pieces = chain_walks(world, nav).pieces;
@@ -186,14 +253,11 @@ impl NavGraph {
             apex_rise: apex,
             jump_reach,
             out: vec![Vec::new(); surfaces.len()],
+            reach: (0..surfaces.len()).map(|_| std::sync::OnceLock::new()).collect(),
             surfaces,
             links: Vec::new(),
             cost: BuildCost::default(),
-            flight: verbs
-                .fly
-                .then(|| measure_flight(body, frame))
-                .flatten()
-                .map(|law| FlightMap::build(world, exits, half, law)),
+            flight: motion.flight.map(|law| FlightMap::build(world, exits, half, law)),
         };
         // The links that leave each surface are a pure function of the graph
         // so far, so the surfaces are taken on the compute pool, one to a task,
@@ -532,6 +596,22 @@ impl NavGraph {
     /// The surfaces a body on `from` can get to, `from` first, in the order
     /// the search finds them.
     pub fn reachable_from(&self, from: usize) -> Vec<usize> {
+        self.reach_from(from).to_vec()
+    }
+
+    /// [`Self::reachable_from`], searched once for each origin a caller asks
+    /// about and kept with the graph: the advisor asks it for each waypoint,
+    /// placement and errand of each body each tick.
+    pub fn reach_from(&self, from: usize) -> &[usize] {
+        self.reach[from].get_or_init(|| self.search_reach(from).into_boxed_slice())
+    }
+
+    /// Can a body on `from` get to `to`?
+    pub fn reaches(&self, from: usize, to: usize) -> bool {
+        self.reach_from(from).contains(&to)
+    }
+
+    fn search_reach(&self, from: usize) -> Vec<usize> {
         let mut seen = vec![false; self.surfaces.len()];
         let mut order = vec![from];
         seen[from] = true;
@@ -549,39 +629,65 @@ impl NavGraph {
         order
     }
 
-    /// The links of the fastest route from `feet` to `goal`, both on surfaces.
+    /// The links of the fastest route from `feet` to `goal`, both on
+    /// surfaces, under the graph's cost model: each leg's measured cost, and
+    /// a walk at run speed from where the body stands to the next takeoff and
+    /// from the last landing to `goal`. Empty when both are on one surface
+    /// (the body walks).
+    ///
+    /// A search state is an ARRIVAL (the start, or the landing of one link),
+    /// not a surface: the next walk depends on where on the surface the body
+    /// stands, so a cheaper arrival does not rule out a dearer one somewhere
+    /// else on the same surface. This is the fastest route over the admitted
+    /// legs, not the fastest physical motion: each leg is measured from rest,
+    /// and the build keeps one preferred leg per surface pair.
     pub fn route(&self, feet: Vec2, goal: Vec2) -> Option<Vec<usize>> {
         let (from, to) = (self.surface_at(feet)?, self.surface_at(goal)?);
-        // Cost to each surface, where the body stands on it then, and the
-        // link it came by. The surfaces are few: no heap.
-        let mut best: Vec<Option<(f32, f32, Option<usize>)>> = vec![None; self.surfaces.len()];
-        let mut done = vec![false; self.surfaces.len()];
-        best[from] = Some((0.0, self.frame.along(feet), None));
-        loop {
-            let current = (0..self.surfaces.len())
-                .filter(|index| !done[*index])
-                .filter_map(|index| best[index].map(|(cost, ..)| (index, cost)))
-                .min_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(&b.0)))
-                .map(|(index, _)| index)?;
-            if current == to {
+        if from == to {
+            return Some(Vec::new());
+        }
+        let start = self.links.len();
+        let goal_along = self.frame.along(goal);
+        let arrival = |state: usize| match state == start {
+            true => (from, self.frame.along(feet)),
+            false => (self.links[state].to, self.frame.along(self.links[state].leg.land)),
+        };
+        // Cost to each arrival and the arrival it came from.
+        let mut best: Vec<Option<(f32, usize)>> = vec![None; start + 1];
+        let mut done = vec![false; start + 1];
+        let mut open = std::collections::BinaryHeap::new();
+        best[start] = Some((0.0, start));
+        open.push(RouteOpen { cost: 0.0, state: start });
+        let mut finish: Option<(f32, usize)> = None;
+        while let Some(RouteOpen { cost, state }) = open.pop() {
+            if done[state] {
+                continue;
+            }
+            if finish.is_some_and(|(total, _)| total <= cost) {
                 break;
             }
-            done[current] = true;
-            let (cost, at, _) = best[current]?;
-            for index in &self.out[current] {
+            done[state] = true;
+            let (surface, at) = arrival(state);
+            if surface == to {
+                let total = cost + (goal_along - at).abs() / self.run_speed;
+                if finish.is_none_or(|(known, _)| total < known) {
+                    finish = Some((total, state));
+                }
+            }
+            for index in &self.out[surface] {
                 let link = &self.links[*index];
-                let walk = (self.frame.along(link.leg.start) - at).abs() / self.run_speed;
-                let total = cost + walk + link.cost;
-                if best[link.to].is_none_or(|(known, ..)| total < known) {
-                    best[link.to] = Some((total, self.frame.along(link.leg.land), Some(*index)));
+                let total = cost + (self.frame.along(link.leg.start) - at).abs() / self.run_speed + link.cost;
+                if !done[*index] && best[*index].is_none_or(|(known, _)| total < known) {
+                    best[*index] = Some((total, state));
+                    open.push(RouteOpen { cost: total, state: *index });
                 }
             }
         }
+        let (_, mut state) = finish?;
         let mut route = Vec::new();
-        let mut at = to;
-        while let Some((_, _, Some(link))) = best[at] {
-            route.push(link);
-            at = self.links[link].from;
+        while state != start {
+            route.push(state);
+            state = best[state]?.1;
         }
         route.reverse();
         Some(route)
@@ -617,7 +723,7 @@ impl NavGraph {
     pub fn place_beside(&self, feet: Vec2, point: Vec2, beside: f32, depth: f32) -> Option<Vec2> {
         let from = self.surface_at(feet)?;
         let under = self.surface_under(point, depth)?;
-        if !self.reachable_from(from).contains(&under) {
+        if !self.reaches(from, under) {
             return None;
         }
         let along = self.frame.along(point);
@@ -647,7 +753,7 @@ impl NavGraph {
         let Some(from) = self.surface_at(feet) else {
             return (points, 0);
         };
-        let mut reachable = self.reachable_from(from);
+        let mut reachable = self.reach_from(from).to_vec();
         reachable.sort_by_key(|surface| mix(seed ^ (*surface as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)));
         reachable.truncate(NAV_WAYPOINTS);
         for (slot, surface) in reachable.iter().enumerate() {

@@ -104,6 +104,17 @@ impl SimId {
         Self(format!("{}/{sequence}", spawner.0))
     }
 
+    /// Was this id minted by [`SimId::spawned`] for `spawner`? The reader
+    /// of that encoding, kept beside it: `<spawner>/<sequence>` and nothing
+    /// after the sequence (a spawned body's own spawn is its, not the
+    /// spawner's).
+    pub fn spawned_by(&self, spawner: &SimId) -> bool {
+        self.0
+            .strip_prefix(spawner.0.as_str())
+            .and_then(|rest| rest.strip_prefix('/'))
+            .is_some_and(|sequence| !sequence.is_empty() && sequence.bytes().all(|byte| byte.is_ascii_digit()))
+    }
+
     /// A DEATH DROP: the object a defeated body left behind, by which drop it is.
     ///
     /// ⭐ DERIVED, not sequenced, and the drop road's own provenance already

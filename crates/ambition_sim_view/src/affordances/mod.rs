@@ -44,17 +44,9 @@ impl Plugin for AffordancesPlugin {
         app.init_resource::<NearestInteractable>().add_systems(
             sim,
             update_nearest_interactable
-                // It reads the controlled body's position against feature
-                // volumes, so it runs after this tick's input has settled which
-                // body is controlled.
-                .after(ambition_characters::control::PrimarySlotInputCommit)
+                // The label names gameplay's selection of this tick.
+                .after(ambition_platformer2d_interaction::InteractSelectionSet)
                 .in_set(AffordancesSystemSet::Compute),
-        );
-        app.init_resource::<ambition_mount::InteractPressesClaimed>().add_systems(
-            sim,
-            interactable_proximity::claim_interact_presses
-                .after(AffordancesSystemSet::Compute)
-                .before(ambition_mount::MountsCommandeered),
         );
     }
 }

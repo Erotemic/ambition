@@ -219,13 +219,8 @@ impl CommandCatalog {
             ));
         }
         for (spec, arg) in expected.iter().zip(args) {
-            if arg.kind() != spec.kind {
-                return CommandOutcome::refused(format!(
-                    "`{id}` argument `{}` is a {:?}, got a {:?}",
-                    spec.name,
-                    spec.kind,
-                    arg.kind()
-                ));
+            if let Some(why) = spec.kind.refuses(arg) {
+                return CommandOutcome::refused(format!("`{id}` argument `{}` {why}", spec.name));
             }
         }
         (row.run)(world, args, context)

@@ -151,8 +151,6 @@ pub fn detect_room_transition_system(
             &ambition_platformer2d_core::BodyKinematics,
             Option<&ae::SweepSample>,
             Option<&ambition_characters::control::DrivingParticipant>,
-            // The frame the body faces in: the Interact reach's facing gate.
-            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
             // A body in a passage is already going through a door.
             bevy::prelude::Has<super::passage::ZonePassage>,
         ),
@@ -168,7 +166,8 @@ pub fn detect_room_transition_system(
     // (not-rollback-registered) multi-tick load machine on a speculative frame.
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     mut pending_lifecycle: ResMut<crate::lifecycle_commit::PendingLifecycleCommit>,
-    talkable: ambition_platformer2d_actor_monolith::body::TalkableBodies,
+    // What each seat's press is selected for, at the input cut.
+    selection: Option<Res<ambition_platformer2d_interaction::InteractSelection>>,
     // A room whose game plays passages: a door or a gate starts one, and the
     // passage records the crossing when its going-in ends (`passage`).
     passage_rules: ambition_platformer2d_world::governing_rules::RulesOf<super::passage::ZonePassageRules>,
@@ -192,7 +191,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
                 else { return false; };
             if sim_ids.id_of(entity).as_ref() != Some(&vote.body)
                 || rooms.live().of(entity) != vote.body.room { return false; }
-            let Ok((kin, _, _, _, in_passage)) = bodies.get(entity) else { return false; };
+            let Ok((kin, _, _, in_passage)) = bodies.get(entity) else { return false; };
             if in_passage { return false; }
             let Some(definition) = rooms.definition_of(entity) else { return false; };
             let Some(zone) = rooms.rooms().spec(definition).loading_zones.iter()
@@ -217,7 +216,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
         let Some(subject_entity) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, seat) else {
             continue;
         };
-        let Ok((kin, sweep, driver, frame, in_passage)) = bodies.get(subject_entity) else {
+        let Ok((kin, sweep, driver, in_passage)) = bodies.get(subject_entity) else {
             continue;
         };
         if in_passage {
@@ -300,20 +299,19 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
             }
             continue;
         };
-        // A body the press can talk to, nearer than the door, keeps the press: an
-        // NPC standing in front of a door is talked to, and the door is used from
-        // its own side. The conversation opens later this tick, in the feature
-        // interaction phase.
-        if voted_zone.is_none() && matches!(zone.zone.activation, LoadingZoneActivation::Door) {
-            let door = ambition_platformer2d_world::rooms::door_distance(zone.zone.aabb, kin.pos);
-            let reach = ambition_platformer2d_interaction::InteractReach::of(kin, sweep, frame, rooms.live().of(subject_entity),
-            );
-            if talkable.nearest_in_reach(subject_entity, &reach).is_some_and(|talk| {
-                !ambition_platformer2d_interaction::InteractReach::a_door_keeps_the_press(Some(door), talk,
-                    )
-            }) {
-                continue;
-            }
+        // A door takes the press only when the press is selected for it
+        // (`select_interactions`, interaction I2): a body to talk to nearer
+        // than the door, a switch or a chest in reach, or a mount a body on
+        // foot can board takes it instead, and the door is used from its own
+        // side. The press stays buffered, so the door is used on a later
+        // tick when nothing else is selected.
+        if voted_zone.is_none()
+            && matches!(zone.zone.activation, LoadingZoneActivation::Door)
+            && !selection.as_deref().and_then(|selection| selection.of(subject_entity)).is_some_and(|selected| {
+                selected.operation == ambition_platformer2d_interaction::InteractOperation::Use
+            })
+        {
+            continue;
         }
         // Portal check: if this zone is registered as a portal, the
         // portal's own phase must be `On` for traversal to be allowed.
@@ -388,7 +386,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
             for slot in &group {
                 let Some(entity) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, *slot)
                     else { available = false; break; };
-                if bodies.get(entity).map_or(true, |(_, _, _, _, in_passage)| in_passage)
+                if bodies.get(entity).map_or(true, |(_, _, _, in_passage)| in_passage)
                     || sim_state.holds(slot.0 as usize) { available = false; break; }
                 let Some(body) = sim_ids.id_of(entity) else { available = false; break; };
                 if *slot != seat {

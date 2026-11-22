@@ -235,7 +235,7 @@ impl<T: Clone> Layered<T> {
 /// time something asks what is near a place.
 struct Base<T> {
     items: Vec<T>,
-    grids: [OnceLock<Grid>;2],
+    grids: [OnceLock<RangeGrid>;2],
 }
 
 impl<T> Base<T> {
@@ -258,84 +258,14 @@ impl<T> std::ops::Deref for Base<T> {
     }
 }
 
-use ambition_geometry::spatial::Spatial;
-
-/// Where the entries of a list are: each grid cell, the entries whose bounds
-/// reach it, in list order.
-struct Grid {
-    cell: f32,
-    cells: Vec<((i32, i32), Vec<u32>)>,
-    /// Indexed entries, once, in source order.
-    all: Vec<u32>,
-    /// Entries too big to file by cell (more than this many cells): asked
-    /// every time.
-    large: Vec<u32>,
-}
-
-const GRID_CELL: f32 = 128.0;
-const GRID_LARGE_CELLS: i64 = 256;
-
-impl Grid {
-    fn cells_of(&self, b: Aabb) -> (i32, i32, i32, i32) {
-        let lo = (b.min / self.cell).floor();
-        let hi = (b.max / self.cell).floor();
-        (lo.x as i32, lo.y as i32, hi.x as i32, hi.y as i32)
-    }
-
-    fn build<T: Spatial>(items: &[T], swept: bool) -> Self {
-        let mut grid = Self { cell: GRID_CELL, cells: Default::default(), all: Vec::new(), large: Vec::new() };
-        let mut cells = std::collections::BTreeMap::<(i32, i32), Vec<u32>>::new();
-        for (i, item) in items.iter().enumerate() {
-            let (x0, y0, x1, y1) = grid.cells_of(if swept { item.swept_bounds() } else { item.spatial_bounds() });
-            let large = (i64::from(x1)-i64::from(x0)+1).saturating_mul(i64::from(y1)-i64::from(y0)+1) > GRID_LARGE_CELLS;
-            if large || (x0 <= x1 && y0 <= y1) {
-                grid.all.push(i as u32);
-            }
-            if large {
-                grid.large.push(i as u32);
-                continue;
-            }
-            for x in x0..=x1 {
-                for y in y0..=y1 {
-                    cells.entry((x, y)).or_default().push(i as u32);
-                }
-            }
-        }
-        grid.cells = cells.into_iter().collect();
-        grid
-    }
-
-    /// The entries whose cells meet `region`, each once, in list order.
-    fn near(&self, region: Aabb) -> Vec<u32> {
-        let (x0, y0, x1, y1) = self.cells_of(region);
-        if (i64::from(x1)-i64::from(x0)+1).saturating_mul(i64::from(y1)-i64::from(y0)+1) > GRID_LARGE_CELLS * 16 {
-            return self.all.clone();
-        }
-        let mut found: Vec<u32> = self.large.clone();
-        for x in x0..=x1 {
-            let first = self.cells.binary_search_by_key(&(x, y0), |(key, _)| *key);
-            if y0 == y1 {
-                if let Ok(index) = first { found.extend_from_slice(&self.cells[index].1); }
-                continue;
-            }
-            let first = first.unwrap_or_else(|insertion| insertion);
-            for (key, entries) in &self.cells[first..] {
-                if key.0 != x || key.1 > y1 { break; }
-                found.extend_from_slice(entries);
-            }
-        }
-        // Cell lookup order must not change contact order.
-        found.sort_unstable();
-        found.dedup();
-        found
-    }
-}
+use ambition_geometry::spatial::{touches, RangeGrid, Spatial};
 
 impl<T: Spatial> Layered<T> {
     /// The base entries near `region`, not hidden, by base index.
     fn base_near(&self, region: Aabb, swept: bool) -> Vec<u32> {
         let cache = &self.base.grids[usize::from(swept)];
-        let grid = cache.get_or_init(|| Grid::build(&self.base.items,swept));
+        let grid = cache.get_or_init(|| RangeGrid::build(self.base.items.iter()
+            .map(|item| if swept { item.swept_bounds() } else { item.spatial_bounds() })));
         let mut near = grid.near(region);
         near.retain(|i| self.hidden.binary_search(i).is_err() && touches(
             if swept { self.base.items[*i as usize].swept_bounds() } else { self.base.items[*i as usize].spatial_bounds() },region));
@@ -390,11 +320,6 @@ impl<T: Spatial> Layered<T> {
         }
         self.added.retain(|value| !(touches(value.spatial_bounds(), region) && hide(value)));
     }
-}
-
-/// Do the two boxes share a point (a flat line's box has no area)?
-fn touches(a: Aabb, b: Aabb) -> bool {
-    a.min.x <= b.max.x && b.min.x <= a.max.x && a.min.y <= b.max.y && b.min.y <= a.max.y
 }
 
 /// The box around `points`.

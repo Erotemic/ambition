@@ -20,19 +20,19 @@ title: creator_intro
     <<jump creator_intro__gauge>>
 <<elseif condition("world.flag_set", "intro_questions_done")>>
     <<if condition("world.flag_set", "intro_returning_to_bench")>>
-        <<if condition("actor.arrived", "npc_creator")>>
+        <<if condition("actor.arrived", "@talker")>>
             <<jump creator_intro__ready>>
         <<else>>
             Creator: I'll meet you at the bench. I need to put this down first.
         <<endif>>
     <<else>>
         Creator: I'll be at the bench when you're ready to finish. Come over when you've had enough practice.
-        <<command "actor.walk_to" "npc_creator" "intro_bench_station" "keeps_to_its_tasks">>
+        <<command "actor.walk_to" "@talker" "intro_bench_station" "keeps_to_its_tasks">>
         <<command "world.set_flag" "intro_returning_to_bench" true>>
     <<endif>>
 <<elseif condition("world.flag_set", "intro_training_complete")>>
     Creator: How does the knee feel? No clicking? Good. Come over to the bench when you're ready for my questions.
-    <<command "actor.walk_to" "npc_creator" "intro_bench_station" "keeps_to_its_tasks">>
+    <<command "actor.walk_to" "@talker" "intro_bench_station" "keeps_to_its_tasks">>
     -> Ask your questions.
         <<jump creator_intro__questions>>
     -> Could we do the training run again?
@@ -82,7 +82,7 @@ title: creator_intro__training
 <<present_speaker "npc_creator">>
 <<portrait_clip "talking">>
 <<command "world.set_flag" "intro_returning_to_bench" false>>
-<<command "actor.walk_to" "npc_creator" "intro_practice_station" "keeps_to_its_tasks">>
+<<command "actor.walk_to" "@talker" "intro_practice_station" "keeps_to_its_tasks">>
 Creator: I'll stand by the cart. Walk left to the low block marked LOAD TEST, then jump onto it.
 Creator: Use your movement controls to move, and Jump to leave the ground. Hold Jump a little longer for more height. You only need one jump here.
 Creator: Close this box and try it. You can come back to me for a reminder, or stop whenever you want.
@@ -115,7 +115,7 @@ Creator: Last one. Is there anything you want to ask me?
 Creator: That's enough for the notebook. Take a look around. I'll be at the bench when you're ready to finish.
 <<command "world.set_flag" "intro_questions_done" true>>
 <<command "world.set_flag" "intro_returning_to_bench" true>>
-<<command "actor.walk_to" "npc_creator" "intro_bench_station" "keeps_to_its_tasks">>
+<<command "actor.walk_to" "@talker" "intro_bench_station" "keeps_to_its_tasks">>
 ===
 
 title: creator_intro__ready

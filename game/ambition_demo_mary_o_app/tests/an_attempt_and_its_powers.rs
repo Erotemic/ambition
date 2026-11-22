@@ -151,9 +151,9 @@ fn a_death_takes_back_her_powers() {
         let world = app.world_mut();
         let mut q = world.query_filtered::<Entity, With<PrimaryPlayer>>();
         let player = q.iter(world).next().expect("a player");
-        world.entity_mut(player).insert(Empowered::for_seconds(
-            ambition_demo_mary_o::star::COSMIC_QUASAR_SUPER_STATE,
-            999.0,
+        world.entity_mut(player).insert((
+            ambition_demo_mary_o::star::PocketQuasar { remaining: 999.0 },
+            ambition_demo_mary_o::star::QUASAR_GRANT,
         ));
     }
     for _ in 0..20 {
@@ -175,7 +175,8 @@ fn a_death_takes_back_her_powers() {
         "she never grew, so a death that leaves her small proves nothing"
     );
 
-    // ⛔ UNTOUCHABLE refuses the kill, so the super-state is dropped first. The
+    // ⛔ UNTOUCHABLE refuses the kill, so the quasar's GRANT is dropped first;
+    // the quasar itself is left burning, for the death to retire. The
     // EQUIPMENT — the thing under test — is left exactly as the player earned it.
     {
         let world = app.world_mut();
@@ -211,15 +212,15 @@ fn a_death_takes_back_her_powers() {
     );
     let world = app.world_mut();
     let mut q = world
-        .query_filtered::<(Option<&WornEquipment>, Option<&Empowered>), With<PrimaryPlayer>>();
-    let (worn, empowered) = q.iter(world).next().expect("a player");
+        .query_filtered::<(Option<&WornEquipment>, Option<&Empowered>, Has<ambition_demo_mary_o::star::PocketQuasar>), With<PrimaryPlayer>>();
+    let (worn, empowered, quasar) = q.iter(world).next().expect("a player");
     assert!(
         worn.is_none_or(|w| w.rows.is_empty()),
         "the attempt's equipment survived her death: {:?}",
         worn.map(|w| w.rows.iter().map(|r| r.id.clone()).collect::<Vec<_>>())
     );
     assert!(
-        empowered.is_none(),
+        empowered.is_none() && !quasar,
         "the quasar super-state survived her death"
     );
 }

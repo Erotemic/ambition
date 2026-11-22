@@ -59,7 +59,7 @@ pub(crate) fn drawn_hand_this_tick(
         .frame(row, frame)
         .expect("the selected frame")
         .iter()
-        .find(|draw| draw.track.is_some_and(|index| flipbook.tracks[usize::from(index)] == track))
+        .find(|draw| draw.track.is_some_and(|index| flipbook.tracks()[usize::from(index)] == track))
         .unwrap_or_else(|| panic!("`{sheet}` row `{row}` frame {frame} draws no `{track}`"))
         .at;
     (row.to_string(), frame, art_point_in_world(body, pixels, world_per_pixel))

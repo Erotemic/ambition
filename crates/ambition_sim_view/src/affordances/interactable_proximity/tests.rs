@@ -1,5 +1,6 @@
 //! The prompt names what the press reaches: the same live room, door rule and
 //! facing gate as the interact systems (review 2026-10-08, findings 2 and 3).
+//! The selection is gameplay's (`select_interactions`); the prompt names it.
 
 use super::*;
 use ambition_platformer2d_core as ae;
@@ -8,10 +9,20 @@ use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomIns
 /// Where the body stands. It is 24 by 40 and faces right.
 const BODY: ae::Vec2 = ae::Vec2::new(100.0, 100.0);
 
+/// The prompt for a person in reach: Talk where the composition has the
+/// dialogue domain, and nothing where it has no conversation to offer.
+fn talk() -> InteractVariant {
+    if cfg!(feature = "dialogue") { InteractVariant::Talk } else { InteractVariant::None }
+}
+
 /// One thing in reach of the body, for one arm.
 #[derive(Clone, Copy)]
 enum Thing {
     Npc,
+    /// A person who is the character the body wears, in a project that
+    /// authored nothing for a body to say to itself.
+    #[cfg(feature = "dialogue")]
+    Myself,
     Chest,
     Switch,
     /// A switch the body must face.
@@ -62,8 +73,15 @@ fn prompt(arm: Arm) -> InteractVariant {
     for room in rooms {
         app.world_mut().spawn((RoomInstanceRoot, room, definition));
     }
-    app.init_resource::<NearestInteractable>();
-    app.add_systems(Update, update_nearest_interactable);
+    app.init_resource::<NearestInteractable>()
+        .init_resource::<ambition_platformer2d_interaction::InteractSelection>();
+    #[cfg(feature = "dialogue")]
+    app.init_resource::<ambition_conversation::ActiveConversation>()
+        .init_resource::<ambition_dialog::DialogueNodeIndex>();
+    app.add_systems(
+        Update,
+        (ambition_platformer2d_actor_monolith::body::select_interactions, update_nearest_interactable).chain(),
+    );
 
     app.world_mut().spawn((
         ambition_platformer2d_core::BodyKinematics { material: Default::default(),
@@ -75,10 +93,38 @@ fn prompt(arm: Arm) -> InteractVariant {
         ambition_platformer2d_shared_tangle::markers::PlayerEntity,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayer,
         InRoomInstance(rooms[0]),
+        // Who the body speaks as, which a conversation needs.
+        ambition_characters::actor::CharacterForm::new("player_robot_v3"),
     ));
     let at = BODY + ae::Vec2::new(arm.offset, 0.0);
     let aabb = ae::Aabb::new(at, ae::Vec2::new(16.0, 24.0));
+    #[cfg(feature = "dialogue")]
+    if matches!(arm.thing, Thing::Myself) {
+        app.world_mut().resource_mut::<ambition_dialog::DialogueNodeIndex>().populate(["hub_guide".to_owned()]);
+    }
     let thing = match arm.thing {
+        #[cfg(feature = "dialogue")]
+        Thing::Myself => {
+            let interactable = ambition_interaction::Interactable::new(
+                "pedestal",
+                "Talk",
+                aabb,
+                ambition_interaction::InteractionKind::Npc {
+                    character_id: Some("player_robot_v3".into()),
+                    dialogue_id: Some("hub_guide".into()),
+                    patrol_radius: 0.0,
+                    patrol_path_id: None,
+                    brain_override: None,
+                },
+            );
+            app.world_mut()
+                .spawn((
+                    ActorInteraction { interactable },
+                    ActorDisposition::Peaceful,
+                    ambition_combat::components::ActorIdentity::new("pedestal", "Robot"),
+                ))
+                .id()
+        }
         Thing::Npc => {
             let interactable = ambition_interaction::Interactable::new(
                 "guide",
@@ -140,7 +186,12 @@ fn a_door_nearer_than_the_person_takes_the_talk_prompt() {
             prompt(npc),
             prompt(Arm { door: Some(16.0), ..npc }),
         ),
-        (InteractVariant::Use, InteractVariant::Talk, InteractVariant::Talk),
+        (
+            InteractVariant::Use,
+            talk(),
+            // Without the dialogue domain no person is talkable, so the door takes it.
+            if cfg!(feature = "dialogue") { InteractVariant::Talk } else { InteractVariant::Use },
+        ),
         "(door at 2 px, no door, door at 16 px), with the person at 10 px: the prompt"
     );
 }
@@ -164,7 +215,7 @@ fn a_thing_in_the_other_live_room_gives_no_prompt() {
         (prompts(true), prompts(false)),
         (
             [InteractVariant::None, InteractVariant::None, InteractVariant::None],
-            [InteractVariant::Talk, InteractVariant::Open, InteractVariant::Activate],
+            [talk(), InteractVariant::Open, InteractVariant::Activate],
         ),
         "([person, chest, switch] in the other live room, the same in the body's own room): the prompt"
     );
@@ -184,5 +235,29 @@ fn a_facing_gated_switch_gives_no_prompt_from_behind() {
         ),
         (InteractVariant::None, InteractVariant::Activate, InteractVariant::Activate),
         "(gated behind, gated ahead, ungated behind): the prompt"
+    );
+}
+
+/// ⭐ I1: A PERSON THE BODY HAS NOTHING TO SAY TO IS NOT OFFERED, AND DOES NOT
+/// KEEP A DOOR'S PRESS. The person is the character the body wears and the
+/// project authored no `__self` node, so the dialogue domain would open
+/// nothing (`conversation_entry`). The prompt used to say Talk there, from
+/// reach alone, and a door 16 px away (farther than the person) lost the
+/// press to that conversation. The controls: an ordinary person in the same
+/// place gives Talk, and keeps the press from the farther door.
+#[cfg(feature = "dialogue")]
+#[test]
+fn a_person_with_nothing_to_say_gives_no_prompt_and_keeps_no_door() {
+    let myself = Arm::beside(Thing::Myself);
+    let npc = Arm::beside(Thing::Npc);
+    assert_eq!(
+        (
+            prompt(myself),
+            prompt(Arm { door: Some(16.0), ..myself }),
+            prompt(npc),
+            prompt(Arm { door: Some(16.0), ..npc }),
+        ),
+        (InteractVariant::None, InteractVariant::Use, InteractVariant::Talk, InteractVariant::Talk),
+        "(myself, myself with a door at 16 px, a person, a person with a door at 16 px): the prompt"
     );
 }

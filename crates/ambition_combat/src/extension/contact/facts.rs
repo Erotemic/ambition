@@ -68,13 +68,13 @@ struct PhysicalPiece {
 }
 
 struct Envelope { sample: usize, bounds: ae::Aabb }
-impl ae::spatial::Spatial for Envelope {
-    fn spatial_bounds(&self) -> ae::Aabb { self.bounds }
-}
 
 type PartitionKey = (Option<SessionScopeId>, Option<LiveRoomInstance>);
+/// A partition's material pieces and the range grid over their bounds: no
+/// overlay, since a partition is built once and only read.
 struct ContactPartition {
-    material: ae::layered::Layered<Envelope>,
+    material: Vec<Envelope>,
+    grid: ae::spatial::RangeGrid,
     refused: Vec<usize>,
 }
 
@@ -88,7 +88,8 @@ fn contact_partitions(samples: &[Sample]) -> std::collections::BTreeMap<Partitio
         }
     }
     partitions.into_iter().map(|(key, (material, refused))| {
-        (key, ContactPartition {material: material.into(), refused})
+        let grid = ae::spatial::RangeGrid::build(material.iter().map(|envelope| envelope.bounds));
+        (key, ContactPartition {material, grid, refused})
     }).collect()
 }
 
@@ -97,7 +98,9 @@ impl ContactPartition {
         // Unknown material must still report an incomplete read in this partition.
         let mut near = self.refused.clone();
         for piece in &recipient.pieces {
-            near.extend(self.material.near(piece.volume.bounds()).iter().map(|envelope| envelope.sample));
+            let region = piece.volume.bounds();
+            near.extend(self.grid.near(region).into_iter().map(|i| &self.material[i as usize])
+                .filter(|envelope| ae::spatial::touches(envelope.bounds, region)).map(|envelope| envelope.sample));
         }
         // Grid cells and multiple portal pieces must not change identity order.
         near.sort_unstable();

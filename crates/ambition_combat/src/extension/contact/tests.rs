@@ -66,7 +66,12 @@ fn app_with(run: fn(&mut Invocation<'_>) -> Result<(), Fault>) -> App {
             trigger: TriggerBinding { port: BodyContactPort::KEY, selector: WALKER.into() },
             reads: vec![],
             writes: vec![],
-            requests: vec![ContactBouncePort::KEY, BodyDefeatPort::KEY, ambition_combat_port::HoldStatusPort::KEY],
+            requests: vec![
+                ContactBouncePort::KEY,
+                BodyDefeatPort::KEY,
+                ambition_combat_port::HoldStatusPort::KEY,
+                ControlHoldPort::KEY,
+            ],
             after: vec![],
             limits: Limits { max_requests: 4 },
             on_idle: IdlePolicy::Invoke,
@@ -258,6 +263,77 @@ fn contact_rules_follow_the_body_for_all_controller_pairs_and_status_bindings() 
             }
         }
     }
+}
+
+/// The fixture's other rule: hold the touched body's control.
+fn hold(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    inv.submit::<ControlHoldPort>(ambition_combat_port::ControlHold { held: true })
+}
+
+/// ⭐ 6a FOLLOW-UP: A HOLD BELONGS TO THE LIVE ATTACHMENT. A body-contact rule
+/// bound through a status holds its body under the body's live occurrence
+/// and its module. When the status ends, the hold is withdrawn on a tick
+/// that submits nothing. A body with no live occurrence (no session) is
+/// refused instead of being held under a made-up issuer. A body remade under
+/// the same name is another occurrence, so its predecessor's claim key does
+/// not name it.
+#[test]
+fn a_hold_is_withdrawn_when_its_attachment_is_no_longer_bound() {
+    use ambition_characters::control::{ControlHold, ControlHolds, HoldClaims};
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        InRoomInstance, LiveRoomInstance, ObjectOccurrence, RoomInstanceRoot, SessionScopeId, SessionScopedEntity,
+    };
+    let mut app = app_with(hold);
+    let session = SessionScopedEntity(SessionScopeId(1));
+    app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::from_ordinal(0), session));
+    let held_by = |app: &App, body: Entity| {
+        app.world().get::<HoldClaims>(body).map(|claims| {
+            claims.0.iter().filter_map(|(key, _)| key.attachment_issuer().map(|(at, module)| (at, module.to_owned()))).collect::<Vec<_>>()
+        })
+    };
+    let claimed = |app: &App, body: Entity| app.world().get::<ControlHolds>(body).is_some_and(|holds| holds.holds(ControlHold::Claimed));
+    let recipient = walker(&mut app, "unbound_brain", ae::Vec2::new(100.0, 900.0));
+    app.world_mut()
+        .entity_mut(recipient)
+        .insert((crate::extension::status::BodyStatuses(vec![WALKER.into()]), session, InRoomInstance(LiveRoomInstance::from_ordinal(0))));
+    let toucher = player(&mut app, "toucher", on_head(100.0), ae::Vec2::new(0.0, 200.0));
+    app.world_mut().entity_mut(toucher).insert((session, InRoomInstance(LiveRoomInstance::from_ordinal(0))));
+    app.world_mut().run_schedule(Sim);
+    let occurrence = app.world().get::<ObjectOccurrence>(recipient).copied().expect("the hold allocated the body's occurrence");
+    let own = occurrence.reference(SessionScopeId(1));
+    let issuers = held_by(&app, recipient).expect("the status-bound rule holds its body");
+    assert_eq!(issuers.len(), 1);
+    assert_eq!((issuers[0].0.sequence, issuers[0].0.room, issuers[0].1.as_str()), (own.sequence, own.allocation_room, "test::stomp"));
+    assert!(claimed(&app, recipient));
+
+    // The status ends: nothing binds the rule, nothing is submitted, and the
+    // hold goes anyway.
+    app.world_mut().entity_mut(recipient).remove::<crate::extension::status::BodyStatuses>();
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(held_by(&app, recipient), None, "the unbound attachment's claim is withdrawn");
+    assert!(!claimed(&app, recipient));
+
+    // A body remade under the same name is a new occurrence.
+    app.world_mut().despawn(recipient);
+    let remade = walker(&mut app, "unbound_brain", ae::Vec2::new(100.0, 900.0));
+    app.world_mut()
+        .entity_mut(remade)
+        .insert((crate::extension::status::BodyStatuses(vec![WALKER.into()]), session, InRoomInstance(LiveRoomInstance::from_ordinal(0))));
+    app.world_mut().run_schedule(Sim);
+    let issuers = held_by(&app, remade).expect("the remade body is held");
+    assert_ne!(issuers[0].0.sequence, own.sequence, "the predecessor's key does not name the remade body");
+
+    // No session: no live occurrence, so no hold. Its toucher has no session
+    // either, so the two touch and the rule does submit.
+    let stray = walker(&mut app, "unbound_brain", ae::Vec2::new(400.0, 900.0));
+    app.world_mut().entity_mut(stray).insert(crate::extension::status::BodyStatuses(vec![WALKER.into()]));
+    player(&mut app, "beside", on_head(400.0), ae::Vec2::new(0.0, 200.0));
+    app.world_mut().run_schedule(Sim);
+    assert!(
+        app.world().resource::<ContactTouchers>().0.iter().any(|(body, ..)| *body == stray),
+        "the premise: the stray was touched, so its rule ran"
+    );
+    assert_eq!(held_by(&app, stray), None, "a state with no live occurrence is refused, not held as \"\"");
 }
 
 #[test]

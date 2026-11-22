@@ -180,6 +180,29 @@ physical reflection and turned gravity each act once. A refused pose follows
 the existing owner's refusal path without partial state or a second write.
 Use the existing mount and capture fixtures; add no generic relation harness.
 
+**First slice landed (2026-11-22).** The pure step lives with the body math:
+`BodyKinematics::root_placing(point, at)` returns `at - L(point)`, using the
+body's own linear material map.
+- **Mount.** The saddle pin maps the seat through the mount's map
+  (`mount::seat_in_world`: the seat mirrored by the mount's facing, then the
+  mount's scale, turn and parity). It maps the rider's soles through the
+  rider's map. `saddle_world_offset` and its combined `seat - rider half`
+  offset are gone, and so is the pin's read of the mount's gravity frame: the
+  mount's material turn carries the seat once.
+- **Capture.** The hold anchor goes through `rig_point_in_world` (rig feet,
+  facing, the captor's material). The declared gravity-relative hold offset
+  is added in its own basis and never goes through the material again. The
+  private rig-feet, facing and frame reconstruction is gone.
+- **Refusal.** A map that cannot be evaluated refuses through each owner's
+  existing path (`DismountReason::PoseRefused`, `release_capture`).
+- **Witnesses.** `ambition_mount` `saddle_tests`: the −45 arithmetic and a
+  rider at its own scale; facing mirrors only the side; reflection and facing
+  each act once; a turned pair turns once. `player_pilots_mount_end_to_end`
+  asks the same two maps.
+
+Open from A1: the capture's root fallback for an absent pose (A2), and a
+capture witness at unequal scales.
+
 ### A2 — sampled named points and invalidation
 
 Move capture's named jaw/hand through the same point query. Replace its naked
@@ -188,6 +211,33 @@ Extend the existing authored seat work through this query, without a second
 table. Check a moving jaw, slot reorder, rig removal, missing current pose,
 and rollback. No case may silently select a different point or use yesterday's
 pose as the current one. Admission remains `BodyPoseAdmission`, not the query.
+
+**Capture slice landed (2026-11-22).** `CapturedBy::hold_point` is now a
+`HoldPoint { slot, name }`, where `name` is a stable FNV-1a key of the
+attachment name, so the relation stays `Copy` and restores identically on
+every peer. It replaces the naked `u16` slot. The capture owner uses the slot
+only while it still carries the name (`HoldPoint::in_rig`):
+- A rig redrawn with the points in another order rebinds to the name's new
+  slot.
+- A rig that no longer states the name, or a captor with no rig, ends the
+  hold through `release_capture`.
+- With no pose of the point this tick, the captive is not written. Before,
+  it was put at the captor's root.
+- A map failure refuses the hold.
+
+The rig's own slot check stands in for a generation receipt here, because it
+also catches a rig replaced in use without a content reload (the T-rex test
+inserts one). No codec change: `CapturedBy` is a cloned component.
+Witnesses: `a_hold_point_follows_its_name_across_a_replaced_rig`, and
+`a_hold_at_a_point_of_a_rig_with_no_pose_leaves_the_captive_where_it_is`
+(it replaces the test that asserted the root fallback).
+
+Open from A2:
+- The authored seat work through the same point query.
+- Telling a pose not resolved for the CURRENT rig apart from a stale one.
+  The schedule orders the pose before the hold, but nothing records which rig
+  a pose was resolved from.
+- A rollback witness through a rig replacement.
 
 ### A3 — point velocity when a consumer needs it
 

@@ -226,6 +226,7 @@ dependencies = [
  "ambition_demo_smash_app",
  "ambition_entity_catalog",
  "ambition_menu_kaleidoscope",
+ "ambition_persistence",
  "ambition_platformer2d",
  "ambition_sim_harness",
  "avian2d",
@@ -457,6 +458,7 @@ dependencies = [
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_assets",
  "ambition_platformer2d_core",
+ "ambition_platformer2d_interaction",
  "ambition_platformer2d_items",
  "ambition_platformer2d_ldtk",
  "ambition_platformer2d_runtime",
@@ -483,6 +485,14 @@ dependencies = [
  "serde_json",
  "tempfile",
  "yarnspinner",
+]
+
+[[package]]
+name = "ambition_content_check"
+version = "0.1.0"
+dependencies = [
+ "ambition_content_cli",
+ "ambition_content_schemas",
 ]
 
 [[package]]
@@ -531,7 +541,6 @@ dependencies = [
 name = "ambition_content_schemas"
 version = "0.1.0"
 dependencies = [
- "ambition_content_cli",
  "ambition_content_pack",
  "ambition_htn",
  "ron 0.11.0",
@@ -1246,6 +1255,7 @@ dependencies = [
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_vfx",
+ "ambition_world_items",
  "bevy",
  "bevy-inspector-egui",
  "bevy_ecs",
@@ -1557,6 +1567,7 @@ dependencies = [
  "ambition_abilities",
  "ambition_asset_manager",
  "ambition_audio",
+ "ambition_binding",
  "ambition_body_seed",
  "ambition_boss_encounter",
  "ambition_boss_special_port",
@@ -1637,6 +1648,7 @@ dependencies = [
  "ambition_combat",
  "ambition_conversation",
  "ambition_cutscene",
+ "ambition_dialog",
  "ambition_encounter",
  "ambition_entity_catalog",
  "ambition_held_items",

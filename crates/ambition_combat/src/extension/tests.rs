@@ -442,13 +442,16 @@ fn a_hold_at_a_point_the_rig_does_not_state_catches_nothing() {
     );
 }
 
-/// A HOLD AT A NAMED POINT, BEFORE THE RIG HAS A POSE, IS AT THE CENTRE.
+/// A HOLD AT A NAMED POINT, BEFORE THE RIG HAS A POSE, LEAVES THE CAPTIVE
+/// WHERE IT IS (body anchors, A2).
 ///
 /// A rig is posed in the combat window of its first tick. A seize before that
-/// has a point by name and no place for it yet. The captive is held from the
-/// captor's centre for that tick, and from the point on the next.
+/// has a point by name and no place for it yet. The captive is not moved for
+/// that tick, and is held from the point on the next: the captor's centre is
+/// not the jaw, and putting the body there would be holding it at another
+/// point.
 #[test]
-fn a_hold_at_a_point_of_a_rig_with_no_pose_is_measured_from_the_centre() {
+fn a_hold_at_a_point_of_a_rig_with_no_pose_leaves_the_captive_where_it_is() {
     assert_eq!(
         held_from_the_captor(
             JawCaptor {
@@ -458,8 +461,46 @@ fn a_hold_at_a_point_of_a_rig_with_no_pose_is_measured_from_the_centre() {
             Some("jaw"),
             [3.0, 2.0]
         ),
-        Some(ae::Vec2::new(3.0, 2.0)),
+        Some(ae::Vec2::new(30.0, 0.0)),
     );
+}
+
+/// A rig of one joint with attachments named `names`, in that order.
+fn named_points(names: &[&str]) -> ambition_characters::actor::PreparedBodyRig {
+    use ambition_characters::actor::body_rig::{BodyRigDefinition, JointPose, RigAttachment, RigClip, RigJoint};
+    let frame = vec![JointPose { translation: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0) }];
+    BodyRigDefinition {
+        joints: vec![RigJoint { name: "head".to_string(), parent: None }],
+        attachments: names
+            .iter()
+            .map(|name| RigAttachment { name: name.to_string(), joint: "head".to_string(), offset: (0.0, 0.0) })
+            .collect(),
+        hurt_parts: Vec::new(),
+        clips: std::collections::BTreeMap::from([(
+            "idle".to_string(),
+            RigClip { looping: true, frame_duration_s: 0.1, frames: vec![frame] },
+        )]),
+    }
+    .prepare()
+    .expect("a valid rig")
+}
+
+/// ⭐ A NAMED HOLD POINT IS NEVER QUIETLY ANOTHER POINT (body anchors, A2).
+/// Bound to `jaw` in slot 1, it keeps slot 1 while that is still the jaw; a
+/// rig redrawn with the points in another order moves it to the jaw's new
+/// slot rather than to whatever now sits in slot 1; and a rig that no longer
+/// states a jaw gives no point at all (the capture owner ends the hold).
+#[test]
+fn a_hold_point_follows_its_name_across_a_replaced_rig() {
+    use crate::capture::HoldPoint;
+    let first = named_points(&["hand", "jaw"]);
+    let jaw = HoldPoint::of(&first, "jaw").expect("the first rig states a jaw");
+    assert_eq!(jaw.slot, 1);
+    assert_eq!(jaw.in_rig(&first), Some(jaw), "the bound slot still names the jaw");
+    let reordered = named_points(&["jaw", "hand", "tail"]);
+    assert_eq!(jaw.in_rig(&reordered), Some(HoldPoint { slot: 0, ..jaw }), "the jaw moved to slot 0, and slot 1 is now the hand");
+    assert_eq!(jaw.in_rig(&named_points(&["hand", "tail"])), None, "a rig with no jaw gives no point");
+    assert_eq!(HoldPoint::of(&first, "tail"), None, "a point the rig does not state cannot be bound");
 }
 
 /// `ambition.body.attachments` gives each named point of a posed rig from the

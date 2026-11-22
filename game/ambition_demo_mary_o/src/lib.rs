@@ -1234,6 +1234,7 @@ pub fn install_mary_o_content(app: &mut App) {
                 "content.mary_o_flag_sequence",
                 rollback_probes::flag_sequence,
             )
+            .rollback_component_clone::<star::PocketQuasar>("ambition_demo_mary_o", "content.mary_o_pocket_quasar")
             // It is engine state now — `DeathInterlude` / `OutOfPlay` on the body — and the engine
             // registers it, so a game that states death rules cannot forget to make them
             // rollback-safe. ADR 0033.) A snake's shell phase is the shell module's record on
@@ -1647,6 +1648,9 @@ impl Plugin for MaryORulesPlugin {
         // `CombatSet::Resolve`, inside `CoreSimulation` — which precedes BOTH
         // phases, so the hit lands on the next frame either way.
         let after_the_star = (
+            // The quasar's own clock first: a star that burns out this tick
+            // has withdrawn its grant before contact harm reads it.
+            star::burn_pocket_quasars,
             ambition_platformer2d::combat::empowerment::apply_contact_harm,
             // Before the theme is decided, not after: victory ENDS the quasar,
             // so by the time `play_star_music` looks there is one claimant
@@ -1797,8 +1801,9 @@ fn tick_level_clock(
 /// `intro_card`); the power ladder is one more.
 ///
 /// ⚠ BOTH POWER CLASSES, because they are held differently: the durable ladder
-/// is worn equipment, and the quasar has already been spent into a timed
-/// `Empowered` state that no longer has an equipment row to remove.
+/// is worn equipment, and the quasar has already been spent into its own
+/// application (`star::PocketQuasar`) that no longer has an equipment row to
+/// remove.
 fn spend_lives_on_death(
     mut level: bevy::prelude::Query<&mut MaryOLevelState>,
     bodies: bevy::prelude::Query<
@@ -1811,6 +1816,7 @@ fn spend_lives_on_death(
     mut worn: bevy::prelude::Query<
         &mut ambition_platformer2d::characters::equipment::WornEquipment,
     >,
+    grants: bevy::prelude::Query<Option<&ambition_platformer2d::combat::empowerment::Empowered>>,
     mut commands: bevy::prelude::Commands,
 ) {
     // Drain unconditionally: the cursor must advance even on a frame with no
@@ -1851,11 +1857,10 @@ fn spend_lives_on_death(
     if let Ok(mut worn) = worn.get_mut(body) {
         worn.rows.clear();
     }
-    // The quasar was already spent out of the worn set into a timed state, so
-    // clearing the rows above cannot reach it.
-    commands
-        .entity(body)
-        .remove::<ambition_platformer2d::combat::empowerment::Empowered>();
+    // The quasar was already spent out of the worn set into its own
+    // application, so clearing the rows above cannot reach it: retire it
+    // (and only its own grant).
+    star::retire_quasar(&mut commands, body, grants.get(body).ok().flatten());
 }
 
 /// Running out of time is a death, so it goes out the same door.

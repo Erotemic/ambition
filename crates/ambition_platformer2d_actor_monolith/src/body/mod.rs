@@ -101,6 +101,7 @@ pub use damage::apply_feature_hit_events;
 use ambition_combat::fade::withdraw_faded_contact;
 pub use telegraph_rows::{NOTICE_ROW, TELEGRAPH_ROW_WRITER, WINDUP_ROW, pin_telegraph_rows, telegraph_row};
 pub use interact::{TalkableBodies, interact_ecs_actors_and_switches};
+pub use interact::selection::{InteractTargets, project_mount_presses, select_interactions};
 pub use pet::{
     PET_SECONDS, PET_WALK_SPEED, PetBeat, PetRequested, PetStage, advance_pet_beats,
     apply_pet_requests, project_pet_holds,

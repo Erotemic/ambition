@@ -165,7 +165,7 @@ impl PosedParts {
         tolerance_rad: f32,
     ) -> Self {
         let joints = rig.joint_names().len();
-        let mut samples: Vec<Vec<Vec<BindingSample>>> = vec![vec![Vec::new(); joints]; flipbook.tracks.len()];
+        let mut samples: Vec<Vec<Vec<BindingSample>>> = vec![vec![Vec::new(); joints]; flipbook.tracks().len()];
         let mut frames = 0;
         let mut world = Vec::new();
         for row in flipbook.clip_names() {
@@ -205,7 +205,7 @@ impl PosedParts {
         let mut bindings = Vec::with_capacity(samples.len());
         let mut parts = BTreeMap::new();
         for (track, by_joint) in samples.iter().enumerate() {
-            let named_joint = flipbook.tracks.get(track)
+            let named_joint = flipbook.tracks().get(track)
                 .and_then(|name| named.get(name))
                 .and_then(|joint| rig.joint_names().iter().position(|known| known == joint));
             // The joint: the art's, or the stillest within the tolerance.

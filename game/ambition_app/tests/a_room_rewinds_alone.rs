@@ -894,9 +894,21 @@ fn without_the_retraction_the_window_s_regrowth_time_stays() {
 /// 2. A confirmed grant gives one cell, and two uses on one tick compete for
 ///    it: one body is healed, the other refused.
 /// 3. A use whose body the cell does nothing for at its cut (no health)
-///    returns the cell.
+///    returns the cell when the cut is confirmed.
 /// 4. A rewind of Bob's room across the cut where his cell was spent heals
-///    him again in the replay without taking a second cell.
+///    him again in the replay without taking a second cell; the cell is
+///    consumed once the cut is confirmed.
+///
+/// The follow-up (authority under pressure):
+///
+/// 5. Alice's predicted room spends its proposal credits; one more grant is
+///    refused, not held and not given now. Bob's room keeps all its credits.
+///    Her rewind takes the grants back, and Bob's use finds no cell.
+/// 6. With Bob's credits spent, his use of a committed cell is refused: the
+///    bag and his health are as they were.
+/// 7. A cell allocated to a body it does nothing for stays out of the bag
+///    while its cut is unconfirmed, with Bob's credits spent. A rewind of his
+///    room over the cut disposes of it again, and it returns once.
 #[test]
 fn the_shared_bag_decides_each_cell_once_its_tick_is_confirmed() {
     use ambition_hosted_world::bevy_replicon::prelude::{ClientId, FromClient, RepliconPlugins, ServerPlugin};
@@ -904,7 +916,9 @@ fn the_shared_bag_decides_each_cell_once_its_tick_is_confirmed() {
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
     use ambition_platformer2d::item::{Item, ItemGrantRequested, OwnedItems};
-    use ambition_platformer2d::item_runtime::committed_bag::HeldBagOperations;
+    use ambition_platformer2d::item_runtime::committed_bag::{
+        cell_takes_effect, proposing_room, HeldBagOperations, PROPOSAL_CREDITS_PER_ROOM,
+    };
     use ambition_platformer2d::items::ItemUseRequested;
     use bevy::app::PluginGroup as _;
 
@@ -970,9 +984,10 @@ fn the_shared_bag_decides_each_cell_once_its_tick_is_confirmed() {
         host.world().resource::<HeldBagOperations>().decisions().iter().map(|row| row.outcome).collect()
     };
     let rewinds = |host: &Platformer2dSimHarness| host.world().resource::<RoomRollbackStats>().rewinds;
-    let grant = |host: &mut Platformer2dSimHarness| {
-        host.world_mut().write_message(ItemGrantRequested { item: Item::HealthCell, count: 1, participant: Some(PlayerSlot(0)) });
+    let grant_from = |host: &mut Platformer2dSimHarness, seat: u8, item: Item| {
+        host.world_mut().write_message(ItemGrantRequested { item, count: 1, participant: Some(PlayerSlot(seat)) });
     };
+    let grant = |host: &mut Platformer2dSimHarness| grant_from(host, 0, Item::HealthCell);
     let use_cell = |host: &mut Platformer2dSimHarness, seat: u8| {
         host.world_mut().write_message(ItemUseRequested { participant: PlayerSlot(seat), item: Item::HealthCell });
     };
@@ -1017,7 +1032,7 @@ fn the_shared_bag_decides_each_cell_once_its_tick_is_confirmed() {
     use_cell(&mut host, 0);
     use_cell(&mut host, 1);
     both(&mut host, 3);
-    assert_eq!(&outcomes(&host)[1..], ["granted", "allocated", "bag_empty"]);
+    assert_eq!(&outcomes(&host)[1..], ["granted", "allocated", "bag_empty", "consumed"]);
     let healed = [hp(&host, alice), hp(&host, bob)].iter().filter(|hp| **hp > Some(1)).count();
     assert_eq!((cells(&host), healed), (0, 1), "one cell, one heal");
 
@@ -1030,7 +1045,7 @@ fn the_shared_bag_decides_each_cell_once_its_tick_is_confirmed() {
     use_cell(&mut host, 1);
     let health = host.world_mut().entity_mut(bob).take::<BodyHealth>().expect("Bob has health");
     both(&mut host, 4);
-    assert_eq!(&outcomes(&host)[4..], ["granted", "allocated", "returned"]);
+    assert_eq!(&outcomes(&host)[5..], ["granted", "allocated", "returned"]);
     assert_eq!(cells(&host), 1, "the refused heal lost no cell");
     host.world_mut().entity_mut(bob).insert(health);
     both(&mut host, 2);
@@ -1049,7 +1064,7 @@ fn the_shared_bag_decides_each_cell_once_its_tick_is_confirmed() {
         send(&mut host, 0, tick, quiet());
     }
     host.app_mut().update();
-    assert_eq!(&outcomes(&host)[7..], ["allocated"], "the use is decided once its tick is confirmed");
+    assert_eq!(&outcomes(&host)[8..], ["allocated"], "the use is decided once its tick is confirmed");
     let after_heal = hp(&host, bob);
     assert!(after_heal > Some(1), "the allocated cell heals Bob at its cut");
     // Bob's late input rewinds his room to before the cut, and the replay
@@ -1064,8 +1079,107 @@ fn the_shared_bag_decides_each_cell_once_its_tick_is_confirmed() {
     host.app_mut().update();
     assert!(rewinds(&host) > before, "the premise: Bob's late input rewinds his room");
     both(&mut host, 3);
-    assert_eq!(&outcomes(&host)[7..], ["allocated"], "the replay decides nothing again");
+    assert_eq!(&outcomes(&host)[8..], ["allocated", "consumed"], "the replay decides nothing again; the cut settles once");
     assert_eq!((cells(&host), hp(&host, bob)), (0, after_heal), "one cell spent, Bob healed once, in the replay as before it");
+
+    let room_of = |host: &Platformer2dSimHarness, body: Entity| proposing_room(host.world(), body).expect("a room that rewinds alone");
+    let credits = |host: &Platformer2dSimHarness, room, tick| host.world().resource::<HeldBagOperations>().credits(room, tick);
+    let tick_now = |host: &Platformer2dSimHarness| host.world().resource::<SimTick>().0;
+    let (alice_room, bob_room) = (room_of(&host, alice), room_of(&host, bob));
+    let late = |host: &mut Platformer2dSimHarness, seat: usize, gap: u64| {
+        let before = rewinds(host);
+        let now = next(host);
+        send(host, seat, gap, step());
+        for tick in gap + 1..=now {
+            send(host, seat, tick, quiet());
+        }
+        send(host, 1 - seat, now, quiet());
+        host.app_mut().update();
+        assert!(rewinds(host) > before, "the premise: the late input rewinds seat {seat}'s room");
+    };
+
+    // 5. Alice's room spends its credits; one more grant is refused.
+    let decided = outcomes(&host).len();
+    let alices_gap = next(&host);
+    only(&mut host, 1, 1);
+    for _ in 0..PROPOSAL_CREDITS_PER_ROOM {
+        grant(&mut host);
+    }
+    only(&mut host, 1, 1);
+    let filled_at = tick_now(&host);
+    assert_eq!(credits(&host, alice_room, filled_at), 0, "Alice's room spent its credits");
+    assert_eq!(credits(&host, bob_room, filled_at), PROPOSAL_CREDITS_PER_ROOM, "another room's queue spends none of Bob's");
+    grant(&mut host);
+    only(&mut host, 1, 1);
+    assert_eq!(held(&host), PROPOSAL_CREDITS_PER_ROOM, "the grant past her credits is refused, not held");
+    assert_eq!(cells(&host), 0, "and not given now either");
+    use_cell(&mut host, 1);
+    only(&mut host, 1, 1);
+    late(&mut host, 0, alices_gap);
+    both(&mut host, 3);
+    assert_eq!(held(&host), 0);
+    assert_eq!(&outcomes(&host)[decided..], ["bag_empty"], "no grant a rewind took back funded Bob's use");
+    assert_eq!(cells(&host), 0);
+
+    // 6. With Bob's credits spent, his use of a committed cell is refused.
+    grant(&mut host);
+    both(&mut host, 3);
+    assert_eq!(cells(&host), 1, "the premise: one committed cell");
+    hurt(&mut host, bob);
+    both(&mut host, 1);
+    let decided = outcomes(&host).len();
+    let bobs_gap = next(&host);
+    only(&mut host, 0, 1);
+    for _ in 0..PROPOSAL_CREDITS_PER_ROOM {
+        grant_from(&mut host, 1, Item::HealthCell);
+    }
+    only(&mut host, 0, 1);
+    assert_eq!(credits(&host, bob_room, tick_now(&host)), 0, "Bob's room spent its credits");
+    use_cell(&mut host, 1);
+    only(&mut host, 0, 1);
+    assert_eq!(held(&host), PROPOSAL_CREDITS_PER_ROOM, "the use is refused, not held");
+    assert_eq!((cells(&host), hp(&host, bob)), (1, Some(1)), "the refused use took no cell and healed no one");
+    late(&mut host, 1, bobs_gap);
+    both(&mut host, 3);
+    assert_eq!((held(&host), outcomes(&host).len()), (0, decided), "his rewind took the grants back; nothing was decided");
+    assert_eq!((cells(&host), hp(&host, bob)), (1, Some(1)));
+
+    // 7. A Mana Cell allocated to Bob, who holds no Mana, stays out of the
+    //    bag until its cut is confirmed, then returns once.
+    assert!(!cell_takes_effect(host.world(), bob, Item::ManaCell), "the premise: a Mana Cell does nothing for Bob");
+    grant_from(&mut host, 0, Item::ManaCell);
+    both(&mut host, 3);
+    let manas = |host: &Platformer2dSimHarness| host.world().resource::<OwnedItems>().count(Item::ManaCell);
+    let committed = manas(&host);
+    assert!(committed >= 1, "the premise: a committed Mana Cell");
+    let decided = outcomes(&host).len();
+    let alices_gap = next(&host);
+    host.world_mut().write_message(ItemUseRequested { participant: PlayerSlot(1), item: Item::ManaCell });
+    only(&mut host, 1, 2);
+    let bobs_gap = next(&host);
+    for _ in 0..4 {
+        host.app_mut().update();
+    }
+    let now = next(&host);
+    for tick in alices_gap..=now {
+        send(&mut host, 0, tick, quiet());
+    }
+    host.app_mut().update();
+    assert_eq!(&outcomes(&host)[decided..], ["allocated"], "the use is decided while Bob's room is predicted");
+    for _ in 0..PROPOSAL_CREDITS_PER_ROOM {
+        grant_from(&mut host, 1, Item::HealthCell);
+    }
+    host.app_mut().update();
+    assert_eq!(credits(&host, bob_room, tick_now(&host)), 0, "the premise: Bob's credits are spent");
+    assert_eq!(manas(&host), committed - 1, "the unused cell is not refunded before its cut is confirmed");
+    assert_eq!(host.world().resource::<HeldBagOperations>().open_allocations(), 1);
+    // His late input rewinds his room over the cut and confirms it in the
+    // same update: the replay disposes of the cell again, and it settles once.
+    late(&mut host, 1, bobs_gap);
+    assert_eq!(&outcomes(&host)[decided..], ["allocated", "returned"], "one debit, one settlement");
+    both(&mut host, 3);
+    assert_eq!(&outcomes(&host)[decided..], ["allocated", "returned"], "a settled allocation does not settle again");
+    assert_eq!((manas(&host), host.world().resource::<HeldBagOperations>().open_allocations()), (committed, 0));
 }
 
 /// Not a shipped flag: the world sets no flag of this name.

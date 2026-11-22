@@ -554,8 +554,17 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
             .get_resource::<ambition_sim_schedule::SimulationReplayState>()
             .is_some_and(|replay| replay.replaying_history);
 
+        // Bucket the queue by trigger once, keeping queue order in each
+        // bucket: an entry visits only the invocations of its own trigger,
+        // in entry-major order and queue order within it, as before.
+        let mut by_trigger: HashMap<(&PortKey, &str), Vec<usize>> = HashMap::new();
+        for (index, invocation) in pending.iter().enumerate() {
+            by_trigger.entry((&invocation.port, invocation.selector.as_ref())).or_default().push(index);
+        }
+        let entries: Vec<&AdmittedEntry> = admitted.entries_in(&phase).collect();
+
         for invocation in pending.iter().filter(|invocation| invocation.receipt.is_some()) {
-            if !admitted.entries_in(&phase).any(|entry| {
+            if !entries.iter().any(|entry| {
                 invocation.entry.as_ref().is_some_and(|path| path.as_ref() == entry.path)
                     && invocation.port == entry.descriptor.trigger.port
                     && invocation.selector == entry.descriptor.trigger.selector
@@ -564,12 +573,14 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
             }
         }
 
-        for entry in admitted.entries_in(&phase) {
+        for entry in entries {
             let descriptor = &entry.descriptor;
+            let Some(bucket) = by_trigger.get(&(&descriptor.trigger.port, descriptor.trigger.selector.as_ref())) else {
+                continue;
+            };
             let path: Arc<str> = Arc::from(entry.path.as_str());
-            for (invocation, pace) in pending.iter().zip(&paces).filter(|(p, _)| {
-                p.port == descriptor.trigger.port && p.selector == descriptor.trigger.selector
-                    && p.entry.as_ref().is_none_or(|path| path.as_ref() == entry.path)
+            for (invocation, pace) in bucket.iter().map(|&index| (&pending[index], &paces[index])).filter(|(p, _)| {
+                p.entry.as_ref().is_none_or(|path| path.as_ref() == entry.path)
             }) {
                 let dt = dt * pace;
                 if world.get_entity(invocation.scope.subject).is_err()

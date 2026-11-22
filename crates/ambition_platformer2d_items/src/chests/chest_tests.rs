@@ -22,8 +22,42 @@ fn app() -> App {
     app.add_message::<ambition_damage::healing::BodyHealRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxInRoom>();
-    app.add_systems(Update, open_ecs_chests);
+    app.init_resource::<ambition_platformer2d_interaction::InteractSelection>();
+    app.add_systems(Update, (select_touched_chests, open_ecs_chests).chain());
     app
+}
+
+/// The selection, for chests only: each body's press is for the nearest
+/// closed chest it touches in its own live room. Production's selection
+/// (`select_interactions`, in the monolith above this crate) ranks chests
+/// by this rule among everything else a press reaches; the executor here
+/// follows whatever is selected and revalidates it.
+fn select_touched_chests(
+    bodies: bevy::prelude::Query<
+        (Entity, &BodyKinematics),
+        bevy::prelude::Or<(bevy::prelude::With<PlayerEntity>, bevy::prelude::With<ambition_characters::control::DrivingParticipant>)>,
+    >,
+    chests: bevy::prelude::Query<(Entity, &CenteredAabb, Option<&Opened>), bevy::prelude::With<ChestFeature>>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    mut selection: bevy::prelude::ResMut<ambition_platformer2d_interaction::InteractSelection>,
+) {
+    selection.0.clear();
+    for (body, kin) in &bodies {
+        let reach = ambition_platformer2d_interaction::InteractReach::of(kin, None, None, rooms.of(body));
+        let nearest = chests
+            .iter()
+            .filter(|(chest, aabb, opened)| opened.is_none() && reach.touches(rooms.of(*chest), aabb, false))
+            .min_by(|a, b| reach.preference(a.1.center).total_cmp(&reach.preference(b.1.center)).then(a.0.cmp(&b.0)));
+        if let Some((chest, ..)) = nearest {
+            selection.0.insert(
+                body,
+                ambition_platformer2d_interaction::InteractSelected {
+                    operation: ambition_platformer2d_interaction::InteractOperation::Open,
+                    target: Some(chest),
+                },
+            );
+        }
+    }
 }
 
 fn player(app: &mut App, pos: ae::Vec2, buffered: bool) -> Entity {
@@ -521,5 +555,43 @@ fn two_bodies_on_one_chest_in_one_tick_are_paid_once() {
         paid.iter().sum::<u32>(),
         7,
         "one chest holding 7 paid {paid:?} across the two bodies that pressed on one tick"
+    );
+}
+
+/// I2: THE CHEST OPENS ONLY WHAT THE PRESS IS SELECTED FOR, REVALIDATED. A
+/// selection of a chest the body no longer touches (it was selected at the
+/// input cut, and the body moved) opens nothing and leaves the press unspent
+/// for the next cut. The control: the same selection of the chest it touches
+/// opens it and spends the press.
+#[test]
+fn a_stale_selection_opens_nothing_and_keeps_the_press() {
+    let opens = |chest_at: ae::Vec2| -> (bool, bool) {
+        let mut app = App::new();
+        app.insert_resource(GameplayBanner::default());
+        app.init_resource::<SlotInteractionState>();
+        app.add_message::<SetFlagsRequested>();
+        app.add_message::<ambition_damage::healing::BodyHealRequested>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<VfxInRoom>();
+        app.add_systems(Update, open_ecs_chests);
+        let body = player(&mut app, ae::Vec2::new(64.0, 64.0), true);
+        let c = chest(&mut app, "c1", chest_at);
+        let mut selection = ambition_platformer2d_interaction::InteractSelection::default();
+        selection.0.insert(
+            body,
+            ambition_platformer2d_interaction::InteractSelected {
+                operation: ambition_platformer2d_interaction::InteractOperation::Open,
+                target: Some(c),
+            },
+        );
+        app.insert_resource(selection);
+        app.update();
+        let buffered = app.world().resource::<SlotInteractionState>().primary().interact_buffer_timer > 0.0;
+        (app.world().get::<Opened>(c).is_some(), buffered)
+    };
+    assert_eq!(
+        (opens(ae::Vec2::new(400.0, 64.0)), opens(ae::Vec2::new(64.0, 64.0))),
+        ((false, true), (true, false)),
+        "((opened, press still buffered) for a selected chest out of reach, the same for one touched)"
     );
 }

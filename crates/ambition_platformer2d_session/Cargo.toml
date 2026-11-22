@@ -11,7 +11,7 @@ default = []
 # The conversation domain: the dialogue visit count kept in the save, and the
 # conversation a retired session leaves behind. A composition without
 # dialogue links neither crate.
-dialogue = ["dep:ambition_conversation"]
+dialogue = ["dep:ambition_conversation", "ambition_platformer2d_actor_monolith/dialogue"]
 portal = ["dep:ambition_portal2d", "ambition_platformer2d_actor_monolith/portal"]
 
 [dependencies]
@@ -56,6 +56,8 @@ serde.workspace = true
 serde_json = "1"
 
 [dev-dependencies]
+# The compiled-node index a conversation decision reads, for the door fixtures.
+ambition_dialog = { path = "../ambition_dialog" }
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
 ambition_body_seed = { path = "../ambition_body_seed", features = ["test-support"] }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world", features = ["test-support"] }

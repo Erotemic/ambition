@@ -273,7 +273,11 @@ B releases, and the body is free.
 
 ### 6a follow-up — bind the live occurrence and restore the authority
 
-**State: PLANNED completion before 6b/6c.** Keep `OwnedTerms<T>`, independent
+**State: identity and withdrawal IMPLEMENTED 2026-11-21 for the
+body-contact producer (receipt at the end of this section). The restore
+projection is stated as a snapshot-resident compatibility projection, not
+rebuilt. Status re-application on one tick and portable detach are open.**
+Keep `OwnedTerms<T>`, independent
 native hold bits, deterministic pose priority and the recorded overlap
 witness. The term stores are the useful implemented mechanism; source
 identity and lifecycle still need to meet the selected model above.
@@ -381,6 +385,56 @@ case must identify whether it uses the native lifecycle or a newly supported
 portable detach path. This completes 6a's boundary, then enables 6b/6c; it
 does not introduce a dynamic reducer registry or a general effect language.
 
+#### Follow-up receipt (2026-11-21)
+
+**Identity.** `Issuer::Attachment` now carries an `OccurrenceKey`: session,
+allocation room and sequence of the state's live `ObjectOccurrence`. It no
+longer carries `SimId` text. In
+[contact](../../../crates/ambition_combat/src/extension/contact.rs),
+`submitter_key` allocates the state's occurrence through
+`ensure_object_occurrence`; the counter and stamp rewind with the room. A
+state with no session or identity is refused with a warning, so no `""`
+issuer is made up. Entries of one module on one state share the issuer, and
+a remade object is another issuer.
+
+**Withdrawal.** `withdraw_unbound_attachment_claims` runs on every tick of
+`body_contact`, whether or not anything was submitted. It is installed
+through the new host hook `install_extension_lowering_maintenance`, which
+sits after the submitted lowerings and is not gated on the outbox. It visits
+only bodies that carry a hold or pose claim, and withdraws each attachment
+claim that names the body's own occurrence once that module is no longer
+bound there (its status ended or its brain changed).
+
+**Scope.** In today's production, every `ControlHoldPort` / `PosePinPort`
+submitter is a body-contact entry whose state scope is the body it holds.
+Claims another object issued are left to their owner, and native claims are
+untouched.
+
+**Witness.** `extension::contact::tests::a_hold_is_withdrawn_when_its_attachment_is_no_longer_bound`
+uses the real host and adapters:
+1. A status-bound rule holds its body under the body's occurrence and module.
+2. The status ends, and on a tick that submits nothing the claim and the
+   `Claimed` bit go.
+3. A body remade under the same name gets a different occurrence.
+4. A touched body with no session submits, and is refused rather than held.
+
+The native lifecycle supplies the replacement; no portable detach operation
+exists.
+
+**Restore.** `HoldClaims` / `ControlHolds` and `PoseClaims` /
+`ActorAnimOverride` stay snapshot-resident pairs. They are registered in one
+snapshot and restored together, and the claim helpers are their only
+writers. The `Claimed` bit and the winning pose are therefore a derived
+projection that must restore atomically with its claims. It is not rebuilt
+at the restore boundary, and no divergent restore was observed.
+
+**Open:**
+- A status that ends and is re-applied before the next maintenance pass
+  keeps one issuer key. Status applications have no occurrence of their
+  own.
+- The transferred-grant rule (6b) is not exercised.
+- The Rhai path is exercised only through the existing Mary-O/Sanic lanes.
+
 ### 6b. Make one native interval supply several domains
 
 Use Mary-O's pocket quasar in `game/ambition_demo_mary_o/src/star.rs`.
@@ -397,6 +451,30 @@ the presence of any `Empowered` value.
 Keep the current refresh behavior and the current native damage path.
 Contact harm continues to submit ordinary hits. A grant does not become a
 second combat reducer. A permanent super form remains a character fact.
+
+**6b landed (2026-11-22).** The pocket quasar is one application on the
+body: `star::PocketQuasar { remaining }` owns the star's single interval.
+- **Clock.** `burn_pocket_quasars` runs it at the room's pace.
+- **Defense and contact.** They read the quasar's held grant
+  (`QUASAR_GRANT`, `Empowered` with no clock of its own), so the grant can
+  neither outlive nor undercut the interval. Contact harm still submits
+  ordinary hits through `apply_contact_harm`.
+- **Music and the shader.** `star_music_is_owed`, `play_star_music` and the
+  three shader queries observe `PocketQuasar`, not any `Empowered`.
+- **Retirement.** Course completion and death call `retire_quasar`, which
+  removes the application and withdraws the grant only while it is still
+  the quasar's. An empowerment another granter holds stays (witness:
+  `victory_retires_the_quasar_and_not_another_granters_empowerment`).
+- **Transfer.** Admission spends the token the tick it is collected, so the
+  pickup's consumption cannot end the star. Re-collecting refreshes the
+  interval.
+- **Other granters.** A body already empowered by another granter keeps that
+  grant: the quasar burns (theme and look) without overwriting it.
+- **Rollback.** Schema 528 (`content.mary_o_pocket_quasar`).
+
+Open: `Empowered` remains one slot per body. Two simultaneous granters do not
+compose; the second keeps the first's traits. A typed contribution set waits
+for a second real granter.
 
 ### 6c. Reuse the protocol for numeric and capability channels
 
@@ -415,6 +493,25 @@ The existing numeric fold and typed ability/defense laws remain useful.
 Extract only the shared identity, owned-term storage and lifecycle operations
 that these customers need. Do not add a status language or periodic behavior
 scheduler. A later poison effect sends damage requests to combat.
+
+**6c numeric slice landed (2026-11-22).** `BodyEffects` holds one
+`EffectApplication { source, terms, remaining_s }` per source:
+- **One interval for all terms.** It may carry two terms on one attribute.
+  `grant(source, terms, seconds)` sets or replaces the whole application.
+  `apply` is the one-term form: it replaces that attribute's term and
+  restarts the one interval. `end_on` drops one attribute's terms and keeps
+  the rest on their clock. The fold is unchanged.
+- **Speed Shoes migrated.** They are one `grant` of two terms (top speed,
+  ground acceleration) under one interval. Before, each attribute was a
+  timed entry with its own clock.
+- **Rollback.** Schema 529, codec shape re-recorded.
+- **Witness.** `an_application_owns_one_interval_for_all_its_terms`.
+
+Open from 6c:
+- A lend plus a ceiling from one application: ability contributions still
+  key a single contribution per source.
+- Folding the script hold/pose claims and the native interval onto this
+  storage. The four ownership protocols are not yet one.
 
 ## Evidence required for completion
 

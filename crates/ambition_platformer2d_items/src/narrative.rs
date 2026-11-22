@@ -40,7 +40,9 @@ fn narrative_write(
 /// Under one rollback authority the grant enters the bag on its tick. A
 /// conversation in a room that rewinds alone proposes it to the committed
 /// bag instead ([`crate::committed_bag`]): no other room can spend it until
-/// its tick is confirmed, and a rewind of the room drops the proposal.
+/// its tick is confirmed, and a rewind of the room drops the proposal. A
+/// grant the bag refuses (no authority, no credits) is not given: it is
+/// logged, never applied on this tick instead.
 pub fn apply_item_grants(
     world: &mut World,
     requests: &mut bevy::ecs::system::SystemState<ReplayMessageReader<ItemGrantRequested>>,
@@ -54,10 +56,11 @@ pub fn apply_item_grants(
             .and_then(|body| world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(body))
             .zip(tick)
             .map(|(room, tick)| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room: room.0, tick });
-        if let Some(room) = body.and_then(|body| crate::committed_bag::proposing_room(world, body)) {
-            let written = ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.unwrap_or(0) };
-            let grant = crate::committed_bag::BagOperation::Grant { item: request.item, count: request.count };
-            if crate::committed_bag::propose(world, written, grant) {
+        match crate::committed_bag::admit_grant(world, body, request.item, request.count) {
+            crate::committed_bag::BagAdmission::Immediate => {}
+            crate::committed_bag::BagAdmission::Held => continue,
+            crate::committed_bag::BagAdmission::Refused(why) => {
+                warn!(target: "crate::narrative", "give_item: {}x {:?} was refused ({why})", request.count, request.item);
                 continue;
             }
         }
@@ -251,7 +254,8 @@ impl BagUsesInRooms {
 /// A body in a room that rewinds alone proposes the use to the committed bag
 /// ([`crate::committed_bag`]): the cell and its effect come together on the
 /// tick the bag allocates it, so the body never spends a cell another room's
-/// rewind can take back.
+/// rewind can take back. A refused use leaves the bag and the body as they
+/// were.
 pub fn apply_item_uses(
     world: &mut World,
     requests: &mut bevy::ecs::system::SystemState<ReplayMessageReader<ambition_items::ItemUseRequested>>,
@@ -266,11 +270,11 @@ pub fn apply_item_uses(
             warn!(target: "crate::narrative", "a use of {item:?} was asked for, and it is not a consumable");
             continue;
         }
-        let id = world.get::<ambition_platformer2d_shared_tangle::sim_id::SimId>(body).cloned();
-        let tick = world.get_resource::<ambition_time::SimTick>().map(|tick| tick.0);
-        if let (Some(room), Some(id), Some(tick)) = (crate::committed_bag::proposing_room(world, body), id, tick) {
-            let written = ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick };
-            if crate::committed_bag::propose(world, written, crate::committed_bag::BagOperation::Use { item, body: id }) {
+        match crate::committed_bag::admit_use(world, body, item) {
+            crate::committed_bag::BagAdmission::Immediate => {}
+            crate::committed_bag::BagAdmission::Held => continue,
+            crate::committed_bag::BagAdmission::Refused(why) => {
+                warn!(target: "crate::narrative", "a use of {item:?} was refused ({why})");
                 continue;
             }
         }

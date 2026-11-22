@@ -346,7 +346,19 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 521 -> 522: the playing cutscenes are a list, one per room, each with its own
 // skip hold (`cutscene.skip_hold` is gone); the room log keeps each room's.
 // 522 -> 523: FighterStocks encodes the damage a respawn comes back on.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 523;
+// 523 -> 524: a cutscene script encodes its roles, and a playing cutscene (and
+// the room log's state) the bodies its roles were bound to (SS7).
+// 524 -> 525: a cutscene's playback encodes whether its presentation was
+// skipped (SS8).
+// 525 -> 526: the interaction selection is a derived resource of gameplay
+// (`derived.interact_selection`, I1).
+// 526 -> 527: the mount's press projection names what each selected press
+// does (`derived.mount_presses`), replacing the claimed-press list (I2).
+// 527 -> 528: Mary-O's pocket quasar is its own application on the body
+// (`content.mary_o_pocket_quasar`), owning the star's one interval (6b).
+// 528 -> 529: `BodyEffects` encodes one application per source, its terms
+// under one interval, instead of a timed instance per (source, attribute) (6c).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 529;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

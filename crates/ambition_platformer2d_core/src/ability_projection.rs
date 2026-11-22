@@ -65,7 +65,10 @@ impl AbilityContributions {
         let mut lent = base;
         let mut ceiling = AbilitySet::ALL;
         let mut access = AbilitySet::ALL;
-        let mut permissions = AbilitySet::NONE;
+        // `None`, not `AbilitySet::NONE`: that set keeps the permissions every
+        // kit has (`ranged`, `blink_slow`), so starting the grant union there
+        // would lift a room's withheld shot with no grant present.
+        let mut permissions: Option<AbilitySet> = None;
         for (_, contribution) in &self.entries {
             match *contribution {
                 AbilityContribution::Lend(set) => lent = lent.union(set),
@@ -73,11 +76,12 @@ impl AbilityContributions {
                 AbilityContribution::AccessCeiling(set) => access = access.intersect(set),
                 AbilityContribution::AccessGrant(set) => {
                     lent = lent.union(set);
-                    permissions = permissions.union(set);
+                    permissions = Some(permissions.map_or(set, |granted| granted.union(set)));
                 },
             }
         }
-        lent.intersect(ceiling).intersect(access.union(permissions))
+        let access = permissions.map_or(access, |granted| access.union(granted));
+        lent.intersect(ceiling).intersect(access)
     }
 }
 

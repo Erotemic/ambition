@@ -326,6 +326,8 @@ ambition_items = { path = "../ambition_items" }
 # Participant identity and semantic input contexts.
 ambition_input = { path = "../ambition_input" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+# Chests, which the interaction selection offers beside bodies and switches.
+ambition_world_items = { path = "../ambition_world_items" }
 ambition_persistence = { path = "../ambition_persistence" }
 # Reusable dialogue runtime (E1c): DialogState view model + typewriter reveal +
 # input systems + the bevy_yarnspinner bridge and binding-installer seam. The

@@ -91,9 +91,9 @@ fn shield_attack_puts_the_portal_gun_down_like_any_item() {
 /// Seat one's portal toggle is decided by SEAT ONE's surroundings.
 ///
 /// ⛔⛔ IT WAS DECIDED BY SEAT ZERO'S. The adapter loops over every driven body
-/// and asked the singleton `NearestInteractable.0` — one answer computed from
-/// one `ControlledSubject` — whether an ordinary interaction had claimed the
-/// press. Found by the 2026-08-31 GPT review. Both failures are real:
+/// and asked the prompt's singleton answer — one answer computed from one
+/// `ControlledSubject` — whether an ordinary interaction had claimed the
+/// press. It asks gameplay's per-body selection (`InteractSelection`) now. Found by the 2026-08-31 GPT review. Both failures are real:
 /// seat zero near a chest SUPPRESSED seat one's toggle, and seat zero standing
 /// clear let seat one both toggle and interact.
 ///
@@ -103,7 +103,7 @@ fn shield_attack_puts_the_portal_gun_down_like_any_item() {
 /// cannot be read — only anticipated from the same reach test.
 #[test]
 fn one_seats_surroundings_do_not_decide_another_seats_toggle() {
-    use ambition_sim_view::affordances::{InteractVariant, NearestInteractable};
+    use ambition_platformer2d_interaction::{InteractOperation, InteractSelected, InteractSelection};
 
     fn toggles_for(near_zero: bool, near_one: bool) -> Vec<Entity> {
         let mut app = App::new();
@@ -145,21 +145,16 @@ fn one_seats_surroundings_do_not_decide_another_seats_toggle() {
         let one = spawn(&mut app, 1, 900.0);
         app.insert_resource(ControlledSubject(Some(zero)));
 
-        // The proximity answer, staged per body — the fact the adapter reads.
-        let mut by_body = std::collections::HashMap::new();
+        // The selection, staged per body — the fact the adapter reads.
+        let chest = InteractSelected { operation: InteractOperation::Open, target: None };
+        let mut selection = InteractSelection::default();
         if near_zero {
-            by_body.insert(zero, InteractVariant::Open);
+            selection.0.insert(zero, chest);
         }
         if near_one {
-            by_body.insert(one, InteractVariant::Open);
+            selection.0.insert(one, chest);
         }
-        // `.0` is seat zero's, exactly as the producer computes it.
-        let seat_zero = if near_zero {
-            InteractVariant::Open
-        } else {
-            InteractVariant::None
-        };
-        app.insert_resource(NearestInteractable(seat_zero, by_body));
+        app.insert_resource(selection);
 
         app.add_systems(Update, portal_input_adapter_system);
         app.update();

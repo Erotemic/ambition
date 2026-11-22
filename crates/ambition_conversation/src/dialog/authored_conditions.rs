@@ -5,14 +5,16 @@
 //! remains only for facts the catalog cannot answer.
 //!
 //! The bridge supports exactly one authored argument because Yarn function arity is fixed. Raw
-//! Yarn strings are not coerced into `ParamKind::Reference`; reference conditions are refused
-//! until an authored reference representation can produce a validated `SimId`.
+//! Yarn strings are not coerced into `ParamKind::Reference`. A `ParamKind::Individual` parameter
+//! takes a character id or a role the conversation binds (`@talker`, `@initiator`).
+
 
 use bevy::prelude::*;
 use bevy_yarnspinner::prelude::{DialogueRunner, YarnValue};
 
 use ambition_platformer2d_shared_tangle::authored_logic::{
-    AuthoredArg, ConditionCatalog, ConditionId, ConditionOutcome, ParamKind,
+    prepare_authored_arg, AuthoredArg, ConditionCatalog, ConditionId, ConditionOutcome, ParamKind,
+    RoleBindings,
 };
 
 /// The name authored `.yarn` content spells this verb.
@@ -76,8 +78,9 @@ fn ask_condition(In((raw_id, raw_arg)): In<(String, YarnValue)>, world: &mut Wor
             .and_then(|(active, instance)| active.of_instance(&instance))
             .map_or("<no live conversation>", |live| live.instance.node()),
     );
+    let roles = crate::dialog::conversation_roles(crate::speaking_conversation_instance(world).as_ref());
     let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-        let args = match prepare_argument(&catalog, &id, raw_arg) {
+        let args = match prepare_argument(&catalog, &id, raw_arg, &roles) {
             Ok(args) => args,
             Err(refusal) => return refusal,
         };
@@ -116,6 +119,7 @@ fn prepare_argument(
     catalog: &ConditionCatalog,
     id: &ConditionId,
     value: YarnValue,
+    roles: &RoleBindings,
 ) -> Result<Vec<AuthoredArg>, ConditionOutcome> {
     // Re-writing that message here would be a second, worse copy of it.
     let Some(descriptor) = catalog.describe(id) else {
@@ -132,6 +136,10 @@ fn prepare_argument(
         (ParamKind::Name, YarnValue::String(name)) => AuthoredArg::Name(name),
         (ParamKind::Number, YarnValue::Number(number)) => AuthoredArg::Number(number as f64),
         (ParamKind::Truth, YarnValue::Boolean(truth)) => AuthoredArg::Truth(truth),
+        (ParamKind::Individual, YarnValue::String(text)) => {
+            let arg = prepare_authored_arg(id.as_str(), param, &text).map_err(ConditionOutcome::unanswerable)?;
+            return roles.bind_args(&[arg]).map_err(ConditionOutcome::unanswerable);
+        }
         (ParamKind::Reference, _) => {
             return Err(ConditionOutcome::unanswerable(
                 crate::dialog::reference_is_not_authorable_by_dialogue(

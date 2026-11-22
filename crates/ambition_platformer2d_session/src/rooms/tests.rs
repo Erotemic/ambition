@@ -1382,7 +1382,12 @@ fn app_with_a_door(
             );
         }
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_systems(Update, detect_room_transition_system);
+        // A door takes a press selected for it: the selection runs first.
+        app.init_resource::<ambition_platformer2d_interaction::InteractSelection>();
+        app.add_systems(
+            Update,
+            (ambition_platformer2d_actor_monolith::body::select_interactions, detect_room_transition_system).chain(),
+        );
 
         // The press is armed directly rather than by running the input producer:
         // the subject here is what the CONSUMER does with a live buffer, and
@@ -1509,6 +1514,9 @@ fn an_undriven_home_body_in_a_door_is_not_crossed_for_anyone() {
 ///
 /// The door asked a copy of the talk rule with no live-room check and no
 /// facing gate, so a person the press could not reach held the door shut.
+///
+/// And only a person the body has a conversation with (I1): without the
+/// dialogue domain no person is talkable, so the door takes every press.
 #[test]
 fn only_a_person_the_press_can_talk_to_keeps_a_doors_press() {
     use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -1541,6 +1549,13 @@ fn only_a_person_the_press_can_talk_to_keeps_a_doors_press() {
         app.world_mut()
             .entity_mut(body)
             .insert(InRoomInstance(LiveRoomInstance::ACTIVATION));
+        #[cfg(feature = "dialogue")]
+        {
+            // Who the body speaks as, and the conversation facts the door asks.
+            app.world_mut().entity_mut(body).insert(ambition_characters::actor::CharacterForm::new("player_robot_v3"));
+            app.init_resource::<ambition_conversation::ActiveConversation>()
+                .init_resource::<ambition_dialog::DialogueNodeIndex>();
+        }
         let person_at = at + ae::Vec2::new(if behind_and_gated { -2.0 } else { 2.0 }, 0.0);
         let person = app
             .world_mut()
@@ -1576,7 +1591,7 @@ fn only_a_person_the_press_can_talk_to_keeps_a_doors_press() {
     };
     assert_eq!(
         (crosses(false, false), crosses(true, false), crosses(false, true)),
-        (false, true, true),
+        (!cfg!(feature = "dialogue"), true, true),
         "(person in the body's room, person in the other live room, gated person behind the body): \
          the door took the press"
     );
@@ -1651,7 +1666,12 @@ fn a_crossing_reads_the_crossing_bodys_own_live_room() {
         app.init_resource::<ambition_time::WorldTime>();
         app.init_resource::<crate::lifecycle_commit::PendingLifecycleCommit>();
         app.add_message::<ambition_sfx::OwnedSfxMessage>();
-        app.add_systems(Update, detect_room_transition_system);
+        // A door takes a press selected for it: the selection runs first.
+        app.init_resource::<ambition_platformer2d_interaction::InteractSelection>();
+        app.add_systems(
+            Update,
+            (ambition_platformer2d_actor_monolith::body::select_interactions, detect_room_transition_system).chain(),
+        );
         let body = app
             .world_mut()
             .spawn((

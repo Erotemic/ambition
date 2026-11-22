@@ -110,6 +110,16 @@ impl ConversationInstanceId {
     pub fn node(&self) -> &str {
         &self.node
     }
+
+    /// The body that opened the conversation, when it has an identity.
+    pub fn initiator(&self) -> Option<&SimId> {
+        self.initiator.as_ref()
+    }
+
+    /// The body spoken to, when it has an identity.
+    pub fn talker(&self) -> Option<&SimId> {
+        self.talker.as_ref()
+    }
 }
 
 impl std::fmt::Display for ConversationInstanceId {

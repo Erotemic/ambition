@@ -1437,7 +1437,7 @@ fn draw_no_limbs(
         let mut slots: Vec<String> = presentation
             .pages
             .flipbook
-            .tracks
+            .tracks()
             .iter()
             .filter_map(|name| name.strip_prefix("limb:")?.split(':').next().map(str::to_owned))
             .filter(|slot| unseen(slot))

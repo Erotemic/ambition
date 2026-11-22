@@ -100,6 +100,20 @@ that start at rest, walks use distance/run speed, and graph construction
 retains one preferred leg per surface pair. Keep those approximation limits
 explicit. Fixing search state does not certify discarded leg variants.
 
+**Fixed (2026-11-22).** `NavGraph::route` now searches arrivals: the start,
+or the landing of one link (`links.len() + 1` states, with a binary heap
+ordered by cost and then state index). It ends with the walk from the last
+landing to the goal point, and it stops only when no open arrival can beat
+the cheapest finished route. Witnesses in `navigation/graph/tests.rs`:
+- the table above (route by X, cost 3; the direct way costs 102);
+- a dearer link that lands by the goal beats a cheaper one 900 px away;
+- on a five-surface graph, all 20 ordered surface pairs agree with an
+  exhaustive enumeration of link chains.
+
+Same-surface queries still return an empty route (the body walks). The
+model limits above are unchanged: legs are measured from rest, and the build
+keeps one leg per surface pair.
+
 ### Lift route state to movement anchors
 
 Prepare takeoff and landing anchors on each standing span. Admitted legs
@@ -227,6 +241,29 @@ A room geometry edit invalidates room legs; it need not repeat an unchanged
 empty-world motion experiment. Never key this by character name, net
 acceleration, or rounded movement parameters.
 
+**First slice (2026-11-22).** `NavMotion` holds the traversal envelope and,
+for a body that flies, its flight law. Both are measured in probe worlds of
+their own. `NavGraph::build_measured` builds a room's graph from a measured
+motion, and `build_on` is now measure-then-build. `NavGraphCache` keeps
+motions by the graph key minus its room: the exact spec, abilities, size,
+base size and whole motion frame, which is how the graph key is already
+keyed. The advisor's `graph_of` uses `get_or_build_measured`, so a body
+navigating several rooms measures its motion once. Witness:
+`a_body_built_in_two_rooms_measures_its_motion_once` (both graphs equal a
+fresh build; a body of another size is measured again).
+
+Still open: the seat autopilot builds on a background task and still
+measures for each graph.
+
+**Demanded reachability (2026-11-22).** `NavGraph::reach_from` searches a
+surface's reach the first time it is asked for and keeps it with the graph
+(one `OnceLock` per surface; the graph does not change once built).
+`reaches(from, to)` answers membership from it. The advisor's waypoint,
+placement and errand checks, `place_beside` and `waypoints` read the kept
+answer, so they no longer allocate and search each time. `reachable_from`
+remains, as a copy. Witness: `a_surfaces_reach_is_searched_once_and_kept`.
+Reusing seeded waypoint selection is not done.
+
 The [advisor](../../../crates/ambition_platformer2d_actor_monolith/src/body/navigation.rs)
 asks `reachable_from` through waypoints, target placement and errands.
 That routine allocates and traverses the graph each time. Retain ordered
@@ -248,6 +285,17 @@ rebuild all 17 on each tick. Treat currently admitted demand separately from
 the spare derived cache. Pin selected graphs for their live use, then use
 bounded retention for inactive reuse. Name memory and activation bounds; a
 larger constant alone does not establish a working-set policy.
+
+**Done (2026-11-22).** `NavGraphCache::begin_demand` starts a cycle; a key
+asked for through `get_or_build*` since then is demanded and is never
+evicted. `capacity` now bounds the spare graphs: past it the oldest spare
+graph goes, and with none spare the cache grows to its demand. The activation
+bound is the number of distinct live keys; the memory bound for inactive
+graphs is `capacity` (16 for the advisor). The advisor begins a cycle each
+tick. The seat autopilot never begins one and keeps its plain FIFO. Witness:
+`graphs_asked_for_each_tick_are_not_evicted_before_their_next_use` (17
+keys at capacity 16 build once over two ticks; a key no longer asked for is
+the one evicted).
 
 ### Delivery and evidence
 

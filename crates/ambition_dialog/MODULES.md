@@ -13,10 +13,11 @@
 | [`continuity`](src/continuity.rs) | What ends a conversation that the world keeps running through. |
 | [`runtime`](src/runtime.rs) | `DialogState` — the dialogue UI read model. |
 | [`settings`](src/settings.rs) | Each game's dialogue timing and input rules. |
+| [`slots`](src/slots.rs) | Conversations beside the main one (SIMULATION-ISLANDS N2). |
 | [`speech_sfx`](src/speech_sfx.rs) | Dialogue typewriter SFX selection and throttling. |
 | [`systems`](src/systems.rs) | Dialogue Bevy systems: input translation + the typewriter reveal tick. |
 
-_9 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_10 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

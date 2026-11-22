@@ -1,8 +1,9 @@
 # Interaction opportunities and accepted activation
 
-**State:** PLANNED, 2026-11-21. Source reviewed at `b91b29d35935`;
-planning follows `9e5e1e06`. These are source findings and a proposed contract,
-not a new runtime result. [The queue](../queue.md) selects the bounded work.
+**State:** I1 landed 2026-11-22 (below, "I1 landed"); I2's first slice
+landed the same day (below, "I2 first slice").
+Source reviewed at `b91b29d35935`; planning follows `9e5e1e06`.
+[The queue](../queue.md) selects the bounded work.
 
 ## Shared operation
 
@@ -193,6 +194,53 @@ and gameplay adapters' imports of the presentation classification. Preserve
 current no-self-node and held-by-another-seat outcomes, the door rule and
 the source occurrence selected by each body.
 
+**I1 landed (2026-11-22).**
+
+- **One conversation decision.** `ambition_conversation::conversation_entry`
+  answers whether a pair has a conversation a seat can open, and which node
+  it enters: not held by another seat, and a self-conversation only with an
+  authored `__self` node. It is effect-free. `DialogueDispatch::open_between`
+  opens through it, and `ConversationAvailability` (read-only) asks it
+  without opening.
+- **Talkers are offered only with a conversation.** The monolith's
+  `TalkableBodies` (`body/interact.rs`) filters talkers by that decision
+  (`talkers`, `nearest_in_reach`), with the speaker and seat rules the
+  opening uses (`talk_of`, `input_owner_of`). So the door's talk-priority
+  query no longer lets an unavailable conversation keep a press. A
+  composition without the dialogue domain offers no talker, as the press
+  already found.
+- **Selection is gameplay's.** `select_interactions`
+  (`body/interact/selection.rs`) writes `InteractSelection` (in
+  `ambition_platformer2d_interaction`) for every driven body and the
+  controlled subject. It is installed by the runtime's world schedule in
+  `PlayerInput`, after `PrimarySlotInputCommit` (`InteractSelectionSet`), and
+  registered as a derived rollback resource (schema 526). The precedence is
+  stated on that function: what the press reaches, then a rider's door before
+  dismount, a body on foot's boarding before the door. `InteractTargets` is
+  the one choice of target, which the selection and the reach observer
+  (`interaction.reach`) both ask.
+- **The prompt projects it.** `sim_view`'s `update_nearest_interactable` now
+  only names the selection (`InteractVariant`, a mount by its identity).
+  `chosen_in_reach` and the prompt's mount and pilot queries are deleted.
+- **Consumers read gameplay, not the prompt.** `claim_interact_presses`
+  (feeding `InteractPressesClaimed` for the mount owner) moved to the
+  monolith and reads the selection (`claims_the_press`: talk, a switch, a
+  chest, a door; boarding and getting off are the mount's own). The portal
+  colour toggle yields to any selection, mount operations included, as it
+  yielded to any prompt before, and orders after the selection. So both
+  work with no prompt plugin installed.
+
+The witness is `a_person_with_nothing_to_say_gives_no_prompt_and_keeps_no_door`
+(sim_view): a person who is the body's own character, in a project with no
+`__self` node, gives no Talk, and a farther door keeps its press. An
+ordinary person in the same place gives Talk and keeps the press from the
+door.
+
+Still open, and I2's: the executor (`interact_ecs_actors_and_switches`)
+keeps its own fallthrough over candidates and revalidates by the same
+rules, not through the selected attempt. The portal toggle still predicts the
+interaction's later consumption. Doors keep their own zone selection.
+
 ### I2 — route the competing contextual consumers
 
 Use talk/switch/chest, door, mount and the existing portal mode toggle as the
@@ -200,6 +248,60 @@ bounded customer set. Give the selected attempt and owner result one path;
 remove raw-edge consumption and predicted claim side channels as each caller
 migrates. State the read and consume cuts and the same-tick ordering above.
 Use current public schedule milestones; no universal command buffer is needed.
+
+**I2 first slice (2026-11-22): the executors and the door act on the
+selected attempt.**
+
+- The talk/switch executor (`interact_ecs_actors_and_switches`) executes
+  only the body's selected Talk or Activate target, revalidated at its own
+  cut (`FeatureInteraction`). Its own candidate ordering is deleted. A
+  target refused at that cut leaves the press buffered for the next
+  arbitration: a higher target that appeared since does not steal it, and no
+  lower one is taken instead. So two actors that selected one free talker
+  settle through the conversation owner, and the second waits.
+- The chest executor (`open_ecs_chests`) opens only the selected chest,
+  revalidated (closed, not falling, not opened this pass, touched). Its own
+  `interact_order` is deleted. Witness:
+  `a_stale_selection_opens_nothing_and_keeps_the_press`.
+- A press-activated door crosses only when the press is selected for `Use`.
+  The door's own talk-priority query (`TalkableBodies::nearest_in_reach`)
+  is deleted. So a switch, a chest or a boardable mount in reach now also
+  keeps a door's press, by the selection's stated precedence; before, only
+  a talker did. A busy lifecycle slot still leaves the tap buffered.
+- `select_interactions` takes the room specs as `Option`, so a
+  composition with no room set still selects (no rooms, no doors) instead of
+  skipping the system.
+
+Read and consume cuts: selection in `PlayerInput` after
+`PrimarySlotInputCommit`; the portal toggle in `PlayerSimulation`; the door
+in `RoomTransition`; boarding in `CombatSet::Settle`; talk, switch and
+chest in `FeatureInteraction`. Each consumer reads the same tick's
+selection.
+
+**I2 second slice (2026-11-22): the mount acts on the selected attempt.**
+`InteractPressesClaimed` is replaced by `ambition_mount::MountPresses`. It is
+the selection projected for the mount owner (`project_mount_presses`): each
+body selected to `Ride` a mount maps to `Board(mount)`, and each body selected
+to `Dismount` maps to `Dismount`. `commandeer_mounts` acts only on those:
+- It boards the selected mount once `can_commandeer` still admits it at
+  `MountsCommandeered`. That is the legality filter split out of
+  `nearest_commandeerable`.
+- It dismounts a rider selected to get off.
+- It does nothing for a press the selection gave elsewhere, or a selection
+  the body's state no longer matches.
+
+The mount's own nearest-mount choice is gone, and so is
+`InteractSelection::claims_the_press`. A composition with no interaction
+owner selects nothing, so no press boards (the mount lib test now states its
+selection). Schema 527.
+
+Still open:
+
+- The portal toggle still reads its raw edge and yields to any selection.
+  It owns no selected operation, so nothing correlates its owner's outcome
+  (board refused, no generator) back to an attempt.
+- No witness yet exercises retirement, possession or room replay of a
+  selected attempt.
 
 **Acceptance:** the same installed gameplay composition works without the
 prompt plugin; an unavailable self-conversation does not falsely claim the

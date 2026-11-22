@@ -8,6 +8,7 @@
 |---|---|
 | [`abilities`](src/abilities.rs) | Optional movement/combat capabilities. |
 | [`ability_projection`](src/ability_projection.rs) | The body's effective verbs, projected from its base and what live situations contribute. |
+| [`applications`](src/applications.rs) | Who owns a contribution to a body: independently revocable applications. |
 | [`body_clusters`](src/body_clusters.rs) | Authoritative movement-state components shared by every actor body. |
 | [`carried_component`](src/carried_component.rs) | A component a character's body carries from the batch that builds it. |
 | [`cast`](src/cast.rs) | Shared swept collision primitives. |
@@ -42,7 +43,7 @@
 | [`walkable_lines`](src/walkable_lines.rs) | A body that walks stands on a slope: the room's surface lines are ground for the ordinary (axis-swept) body too, as one-way floors. |
 | [`world`](src/world.rs) | Generated sandbox room data. |
 
-_35 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_36 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

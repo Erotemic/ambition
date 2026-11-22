@@ -129,6 +129,21 @@ authoring helper that expresses that batch. Do not add another port, runtime
 state machine, file format or crate for this slice. Preserve the current
 native defeat, retirement, durable world-count and gate behavior.
 
+**Landed (2026-11-22).** The shipped script
+(`examples/projects/bridge_warden/modules/bridge_warden.rhai`) now creates the
+warden with its `ward` binding in the same `create_actors` node. The binding
+names the posts by their local keys (`#{local: "north"}`), so binding and
+subscriptions are complete when the batch commits, and no post can fall
+before the warden is listening. Removed: the indexing into the result vector,
+the `attach_behaviors` follow-up, the `attached` entry and its state field.
+`made` keeps the refusal check and records what was made. The test's inline
+caller makes the warden the same way. Its own `clearer` watch is still
+attached after creation, because the caller is an existing body outside the
+batch, which is an external reference, not a local one. No helper was needed:
+the declaration is one function. Witnesses: the five `scripted_bridge_warden`
+tests, unchanged in what they assert (defeats, retirements, world count, the
+gate in the next room, the live edit, the portable-module methods).
+
 ### W2 — bind a mechanism with different domain parts
 
 Use a lift, two switches and a door as the second customer. The switches bind

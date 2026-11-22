@@ -156,7 +156,9 @@ world-post admission.
    slice is implemented with four hosted cases. Completion remains open:
    [CW2 follow-up](engine/causal-world-commit.md#cw2-follow-up--preserve-authority-under-pressure)
    removes eager grant, spend and refund on queue refusal, and keeps each
-   committed allocation owned through use or return. Source-owned admission
+   committed allocation owned through use or return (implemented 2026-11-21:
+   typed admission, per-room credits, settlement at the confirmed cut; three
+   pressure cases added to the hosted witness; retirement not yet exercised). Source-owned admission
    credits replay at their recorded cuts; today's foreign queue cannot
    change an old outcome. Prove pressure, destination replay and source
    retirement before extending this road to more domains. Unrelated local
@@ -166,31 +168,53 @@ world-post admission.
    holds and poses are claims keyed by application; a transform's expiry
    withdraws only its own pose). Complete the
    [occurrence and restore boundary](engine/actor-effects-and-modifier-composition.md#6a-follow-up--bind-the-live-occurrence-and-restore-the-authority)
-   before phases 6b/6c expand it. Retiring a source cannot revoke a replacement
+   before phases 6b/6c expand it (identity and withdrawal implemented
+   2026-11-21 for the body-contact producer; the restore projection is
+   stated as snapshot-resident; same-tick status re-application is open). Retiring a source cannot revoke a replacement
    at the same authored address; derived masks and winners rebuild from the
    restored claims before their next read. Then share one interval across
-   native and numeric/capability contributions.
+   native and numeric/capability contributions. (6b landed 2026-11-22: Mary-O's pocket
+   quasar is one application, `PocketQuasar`, whose one interval feeds
+   defense/contact through a held grant and music/shader by observation;
+   retirement withdraws only its own grant. 6c's numeric slice too: an
+   effect source is one application with one interval over any terms, and
+   Speed Shoes are one grant.)
 3. [Linking L1/L2](engine/capability-linking-and-prepared-facets.md#bounded-implementation-slices)
    removes the repeated equipped-repertoire interpretation, then binds a
    mixed mechanical candidate. L3's pure cutscene consumer is an independent
    dependency experiment; L4 measures each actual cut. BOSS-CHARACTER's
-   common seed continues without waiting for these packets.
+   common seed continues without waiting for these packets. (L1 first slice
+   landed 2026-11-22: `scale_moveset` is the one all-or-nothing scale rule
+   that `WornKit::of` and `moveset_in` share, and the spawn Grant asks
+   `WornKit::of`, and finalization checks each scale by that rule. Open: the
+   link-context binding and an equipment-change witness.)
 4. [World composition W1/W2](engine/reusable-authored-world-composition.md#implementation-slices)
    uses existing local references, then a different mechanism. General format
-   work follows only if the operation is shared. Producer-validity delegation
+   work follows only if the operation is shared. (W1 landed 2026-11-22: the Bridge Warden is made with its binding to the
+   posts' local keys; no result indexing or follow-up attach.) Producer-validity delegation
    follows the existing [asset owner](engine/asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings).
 5. [Body anchors A1/A2](engine/body-anchor-bindings.md#delivery-packets-and-proof)
    replace private saddle/capture point conversion with two independently
    mapped endpoints, then bind sampled named points to their admitted rig.
-   Keep mount, capture and custody laws separate.
+   Keep mount, capture and custody laws separate. (A1 landed 2026-11-22:
+   `root_placing` plus each owner's own map; the saddle's combined offset and
+   capture's private conversion are gone. A2's capture slice landed too: a
+   named hold point is
+   bound by name, rebinds on a reordered rig, and ends the hold when the rig
+   loses it.)
 6. [Story SS7/SS8](engine/story-sequences.md#own-each-admitted-playback-before-binding-its-roles)
    first gives each admitted cutscene run an owner occurrence. A request
    follows that run's transitions; it cannot start from the presence of an
    earlier run or remain pending through a later one. Preserve waiting-only
    trigger coalescing, seen policy and independent room rewind. Bind roles
    and per-beat answers to that same occurrence, then settle required
-   gameplay after skip. Use Creator dialogue and intro choreography for
-   roles and settlement. No universal sequencer.
+   gameplay after skip, replacing the blanket skip-all-commands promise with
+   domain settlement for the scene's actual required outcomes. Use Creator
+   dialogue and intro choreography for roles and settlement. No universal
+   sequencer. (Landed 2026-11-21: roles in conversations, the brute and
+   doorway scenes; a skip keeps the cursor and its `WaitFor`s, and the brute
+   scene waits on the bomb's impact, `actor.throw_landed`. A required
+   result's own failure policy waits for a scene that needs one.)
    [O6a/O6b](engine/authored-gameplay-logic-and-orchestration.md#o6--bind-invocation-roles-through-the-existing-call-boundary)
    adds the existing merchant as an independent first context customer:
    wallet questions and purchase requests select the same payer policy.
@@ -200,6 +224,13 @@ world-post admission.
    moves availability/selection below the prompt and shares one attempt
    across competing contextual consumers. Preserve gesture provenance,
    eligible windows, domain acceptance and explicit read/consume cuts.
+   (I1 landed 2026-11-22: one conversation decision for the prompt, the
+   door and the opening; selection is gameplay's `InteractSelection`, which
+   the prompt projects and the mount and portal consumers read. I2's first
+   slice landed the same day: the talk/switch and chest executors and the
+   door act on the selected target, revalidated at their own cuts. The
+   mount followed: it boards or leaves only what is selected
+   (`MountPresses`). The portal toggle's outcome correlation remains.)
 8. [Native completion AC1/AC2](engine/native-action-completion.md) reuses the
    actual construction receipt for summon identity and initialization, and
    separates cancellation identity from pending-work capacity. Check the
@@ -254,16 +285,25 @@ recipe/save data that did not change.
 links E1–E6 to their existing domain owners. Portal implementation remains
 under [PORTAL-SIMILARITY](#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 
-**Next action:** compile immutable clip properties as an independent
-bounded slice (the duplicate projectile source preparation is removed,
-2026-11-21: walls and recipients read one prepared leg). Prepare ordered
-extension dispatch and remove duplicate fact collectors, then share correct
-occurrence views and derive active journal work. Navigation first defines
-one standing experiment that preserves physical units and fixes the route
-cost-state reduction, then reuses motion envelopes and graph query work.
-Temporary stance/cooldown belongs to live leg entry, not per-tick graph
-rebuilding. The [E4 owner](engine/platformer-navigation-and-reachability.md#define-the-standing-experiment-before-caching-it)
-gives the scaled-body witness, deletion targets and cost falsifiers.
+**Next action:** the duplicate projectile source preparation is removed
+(2026-11-21: walls and recipients read one prepared leg). Clip whole-body
+eligibility and per-track semantic roles are prepared with the flipbook
+(PVS-1 first slice, 2026-11-22). Next in E2 are frame track correspondence
+indexes and retaining the prepared rig and binding from admission. The
+duplicate fact collectors are removed (one EventMailbox scan for all native
+fact ports, 2026-11-22), and `run_phase` buckets its queue by trigger once.
+Next, prepare dispatch spans and entry lookup at admission, then share correct
+occurrence views and derive active journal work. Navigation's cost-state
+reduction is fixed (2026-11-22: route searches arrivals and charges the final
+walk), and the advisor measures a body's motion once across rooms
+(`NavMotion`, 2026-11-22). The graph cache pins the graphs demanded each
+tick, and a surface's reach is searched once and kept (2026-11-22). Next:
+anchor-lifted route state (fixed edge costs, reusable destination queries)
+and motion reuse in the seat autopilot. The newly selected
+[scale law](engine/scale-relative-gameplay.md) also changes canonical
+gravity response. E4 retains material and the complete resolved frame;
+navigation must not create its own gravity multiplier or preserve the old
+controls-only product policy.
 
 [E6 / IR1–IR4](engine/item-recipes-and-live-continuity.md) first retains the
 physical recipe chosen at mint, then removes the live → save → live recipe
@@ -277,15 +317,12 @@ writes, confirmation, save-owner identity and checkpoint retention remain
 explicit. Measure with persistence enabled; current autosave can otherwise
 rewrite the whole file on each confirmed moving frame.
 
-The newly selected [scale law](engine/scale-relative-gameplay.md) also changes
-canonical gravity response. E4 retains material and the complete resolved
-frame; navigation must not create its own gravity multiplier or preserve the
-old controls-only product policy.
-
 The follow-up [data-structure packets K1–K3](engine/data-structure-kernels.md#delivery-and-deletion-criteria)
 make bounds queries and strict unique lookup independent optimization targets
-in the existing foundations. Extract the current range grid for world and
-contact consumers; share occurrence/binding ambiguity reduction. Compare
+in the existing foundations. The range grid is extracted for world and
+contact consumers (K1, `ambition_geometry::spatial::RangeGrid`), and the
+occurrence/binding ambiguity reduction is shared (K2,
+`ambition_binding::cardinality`), both 2026-11-22. Next is K3: compare
 direct scans with indexed implementations before selecting target/workload
 policies. Preserve all domain lifetime and acceptance rules.
 
@@ -319,10 +356,11 @@ phase systems and their local state, while sharing projectile and status
 reducer bodies. CB4 makes each command select its real dependencies, then
 proves the reusable harness and game provider cuts separately.
 
-**Next action:** CB1 and CB2 can run independently. For CB3, begin with the
-projectile and held-status customers; preserve ordered staging and action
-results. For CB4, begin with the offline item report and one real harness
-consumer. Try explicit optional feature families before adding packages.
+**Next action:** CB1 is done (2026-11-22: the checker is its own package above
+the schema library). CB2 can run independently. CB3's projectile and held-status customers share
+one reducer body each across phases (2026-11-22). For CB4, the offline item report builds without the game (2026-11-22,
+`--no-default-features`); next, make `game` default-off in the launch
+descriptors and cut one real harness consumer. Try explicit optional feature families before adding packages.
 Do not move tool binaries back into app integration-test builds.
 
 **Acceptance:** an independent schema consumer excludes the checker; the

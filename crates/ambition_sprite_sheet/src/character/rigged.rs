@@ -116,6 +116,9 @@ pub struct RigSpriteClip {
     frames: Vec<(u32, u32)>,
     /// Each frame's opacity; empty for a clip whose frames are opaque.
     frame_opacity: Vec<f32>,
+    /// [`RiggedSpriteAsset::row_draws_the_body_whole`], read once from every
+    /// frame when the flipbook is prepared: its inputs are immutable.
+    draws_body_whole: bool,
 }
 
 impl RigSpriteClip {
@@ -143,7 +146,11 @@ pub struct RiggedSpriteAsset {
     pub parts: Vec<RigPart>,
     /// The semantic name of each track a draw's `track` indexes (a rig part's
     /// name: `torso`, `near_arm`; `overlay:<layer>` for an effect layer).
-    pub tracks: Vec<String>,
+    /// Private, so it cannot change apart from [`Self::track_roles`].
+    tracks: Vec<String>,
+    /// What each track's name says it is, read once when the flipbook is
+    /// prepared, so a sample does not re-read names per draw.
+    track_roles: Arc<[TrackRoles]>,
     /// How far, in sheet pixels, the art any draw makes reaches past the
     /// frame on its farthest side (0 when every draw stays inside): the room a
     /// composited cell needs around the frame so it clips nothing.
@@ -239,6 +246,46 @@ pub fn is_limb_track(name: &str, slot: &str) -> bool {
 /// whose pivot the head turns about?
 fn is_head_pivot_track(name: &str) -> bool {
     name.split(['_', ':', '~']).next() == Some("head")
+}
+
+/// What a track's name says it is, for the sampling operators that join or
+/// move draws by role ([`RiggedSpriteAsset::legs_under`],
+/// [`RiggedSpriteAsset::face_as`], [`RiggedSpriteAsset::layer_over`],
+/// [`RiggedSpriteAsset::head_turned_as`]). Each bit is one of the name
+/// predicates above, applied once to the name.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct TrackRoles(u8);
+
+impl TrackRoles {
+    const LOWER_BODY: u8 = 1 << 0;
+    const HIP: u8 = 1 << 1;
+    const EXPRESSION: u8 = 1 << 2;
+    const LAYER_ANCHOR: u8 = 1 << 3;
+    const BEHIND: u8 = 1 << 4;
+    const HEAD: u8 = 1 << 5;
+    const HEAD_PIVOT: u8 = 1 << 6;
+
+    fn of(name: &str) -> Self {
+        let mut bits = 0;
+        for (role, holds) in [
+            (Self::LOWER_BODY, is_lower_body_track(name)),
+            (Self::HIP, is_hip_track(name)),
+            (Self::EXPRESSION, is_expression_track(name)),
+            (Self::LAYER_ANCHOR, is_layer_anchor_track(name)),
+            (Self::BEHIND, name.split(['_', ':', '~']).any(|word| word == "behind")),
+            (Self::HEAD, is_head_track(name)),
+            (Self::HEAD_PIVOT, is_head_pivot_track(name)),
+        ] {
+            if holds {
+                bits |= role;
+            }
+        }
+        Self(bits)
+    }
+
+    fn of_all(tracks: &[String]) -> Arc<[Self]> {
+        tracks.iter().map(|name| Self::of(name)).collect()
+    }
 }
 
 /// The four corners of a part's quad, from its pivot.
@@ -603,8 +650,26 @@ impl RiggedSpriteAsset {
                     tween: clip.tween,
                     frames,
                     frame_opacity: clip.frame_opacity.iter().map(|v| v.clamp(0.0, 1.0)).collect(),
+                    draws_body_whole: false,
                 },
             );
+        }
+        // The body's parts are the tracks the first `idle` frame draws.
+        let key = |draw: &PartDraw| draw.track.unwrap_or(draw.part);
+        let body: BTreeSet<u16> = clips
+            .get("idle")
+            .map(|idle: &RigSpriteClip| {
+                let (start, len) = idle.frames[0];
+                draws[start as usize..(start + len) as usize].iter().map(key).collect()
+            })
+            .unwrap_or_default();
+        for clip in clips.values_mut() {
+            clip.draws_body_whole = clip.frame_opacity.iter().all(|opacity| *opacity >= 1.0)
+                && clip.frames.iter().all(|(start, len)| {
+                    draws[*start as usize..(*start + *len) as usize]
+                        .iter()
+                        .all(|draw| draw.color[3] >= 254 || !body.contains(&key(draw)))
+                });
         }
         let mut tween_targets = vec![None; draws.len()];
         for clip in clips.values().filter(|clip| clip.tween != ClipTween::Step) {
@@ -631,6 +696,7 @@ impl RiggedSpriteAsset {
             realize: published.realize,
             parts,
             wound_tracks: (0..published.tracks.len()).filter(|i| is_wound_track(&published.tracks[*i])).map(|i| i as u16).collect(),
+            track_roles: TrackRoles::of_all(&published.tracks),
             tracks: published.tracks,
             clips: Arc::new(clips),
             baked_clips: Arc::new(baked_clips),
@@ -798,14 +864,8 @@ impl RiggedSpriteAsset {
         if self.tween_into(legs_row, index, t, scratch).is_none() {
             return false;
         }
-        let lower = |draw: &PartDraw| {
-            draw.track.and_then(|track| self.tracks.get(usize::from(track))).is_some_and(|name| is_lower_body_track(name))
-        };
-        let hips = |draws: &[PartDraw]| {
-            draws.iter().find(|draw| {
-                draw.track.and_then(|track| self.tracks.get(usize::from(track))).is_some_and(|name| is_hip_track(name))
-            }).map(|draw| draw.at)
-        };
+        let lower = |draw: &PartDraw| self.draw_is(draw, TrackRoles::LOWER_BODY);
+        let hips = |draws: &[PartDraw]| draws.iter().find(|draw| self.draw_is(draw, TrackRoles::HIP)).map(|draw| draw.at);
         let (Some(upper_hips), Some(legs_hips)) = (hips(out), hips(scratch)) else {
             return false;
         };
@@ -835,7 +895,7 @@ impl RiggedSpriteAsset {
     /// Whether any track of this flipbook is a face ([`is_expression_track`]):
     /// without one, [`Self::face_as`] has nothing to change.
     pub fn has_expression_tracks(&self) -> bool {
-        self.tracks.iter().any(|name| is_expression_track(name))
+        self.track_roles.iter().any(|roles| roles.0 & TrackRoles::EXPRESSION != 0)
     }
 
     /// Give the face of the draws in `out` the expression of frame `index` of
@@ -855,9 +915,7 @@ impl RiggedSpriteAsset {
         let Some(face) = self.frame(row, index) else {
             return false;
         };
-        let expression = |draw: &PartDraw| {
-            draw.track.and_then(|track| self.tracks.get(usize::from(track))).is_some_and(|name| is_expression_track(name))
-        };
+        let expression = |draw: &PartDraw| self.draw_is(draw, TrackRoles::EXPRESSION);
         let mut changed = false;
         for draw in out.iter_mut().filter(|draw| expression(draw)) {
             if let Some(winced) = face.iter().find(|other| other.track == draw.track) {
@@ -890,23 +948,14 @@ impl RiggedSpriteAsset {
         let Some(layer) = self.frame(row, index) else {
             return false;
         };
-        let anchor = |draws: &[PartDraw]| {
-            draws
-                .iter()
-                .find(|draw| draw.track.and_then(|track| self.tracks.get(usize::from(track))).is_some_and(|name| is_layer_anchor_track(name)))
-                .map(|draw| draw.at)
-        };
+        let anchor = |draws: &[PartDraw]| draws.iter().find(|draw| self.draw_is(draw, TrackRoles::LAYER_ANCHOR)).map(|draw| draw.at);
         let now = anchor(out);
         let moved = match (now, self.frame("idle", 0).and_then(anchor)) {
             (Some(now), Some(rest)) => now - rest,
             _ => Vec2::ZERO,
         };
         let axis = now.map_or(0.0, |now| now.x);
-        let behind = |draw: &PartDraw| {
-            draw.track
-                .and_then(|track| self.tracks.get(usize::from(track)))
-                .is_some_and(|name| name.split(['_', ':', '~']).any(|word| word == "behind"))
-        };
+        let behind = |draw: &PartDraw| self.draw_is(draw, TrackRoles::BEHIND);
         let placed = |draw: &PartDraw| {
             let at = draw.at + moved;
             match mirrored {
@@ -953,8 +1002,8 @@ impl RiggedSpriteAsset {
         let Some(clip) = self.clips.get(look_row) else {
             return false;
         };
-        let name_of = |draw: &PartDraw| draw.track.and_then(|track| self.tracks.get(usize::from(track))).map(String::as_str);
-        let Some(pivot) = out.iter().find(|draw| name_of(draw).is_some_and(is_head_pivot_track)).copied() else {
+        let head_pivot = |draw: &&PartDraw| self.draw_is(draw, TrackRoles::HEAD_PIVOT);
+        let Some(pivot) = out.iter().find(head_pivot).copied() else {
             return false;
         };
         let angle = |index: usize| {
@@ -962,7 +1011,7 @@ impl RiggedSpriteAsset {
             frame
                 .iter()
                 .find(|draw| draw.track == pivot.track)
-                .or_else(|| frame.iter().find(|draw| name_of(draw).is_some_and(is_head_pivot_track)))
+                .or_else(|| frame.iter().find(head_pivot))
                 .map(|draw| draw.rotation)
         };
         let last = clip.frames.len().saturating_sub(1);
@@ -973,7 +1022,7 @@ impl RiggedSpriteAsset {
         };
         let turn = shorter_turn(level, from + shorter_turn(from, to) * at.fract());
         let (c, s) = (turn.cos(), turn.sin());
-        for draw in out.iter_mut().filter(|draw| name_of(draw).is_some_and(is_head_track)) {
+        for draw in out.iter_mut().filter(|draw| self.draw_is(draw, TrackRoles::HEAD)) {
             // Clockwise with +y down, as a draw turns.
             let off = draw.at - pivot.at;
             draw.at = pivot.at + Vec2::new(c * off.x - s * off.y, s * off.x + c * off.y);
@@ -1005,20 +1054,30 @@ impl RiggedSpriteAsset {
     /// field: the engine's teleport warp ([`BodyWarp`]) takes apart a body
     /// that is drawn whole. A sheet that fades or takes apart its own body in
     /// those rows already has a blink, and a second one over it is wrong.
+    ///
+    /// Prepared with the flipbook from every frame of the clip (a frame the
+    /// body never samples still decides it), so asking costs one lookup.
     pub fn row_draws_the_body_whole(&self, row: &str) -> bool {
-        let Some(clip) = self.clips.get(row) else {
-            return false;
-        };
-        if clip.frame_opacity.iter().any(|opacity| *opacity < 1.0) {
-            return false;
-        }
-        let key = |draw: &PartDraw| draw.track.unwrap_or(draw.part);
-        let body: Vec<u16> = self.frame("idle", 0).unwrap_or_default().iter().map(key).collect();
-        clip.frames.iter().all(|(start, len)| {
-            self.draws[*start as usize..(*start + *len) as usize]
-                .iter()
-                .all(|draw| draw.color[3] >= 254 || !body.contains(&key(draw)))
-        })
+        self.clips.get(row).is_some_and(|clip| clip.draws_body_whole)
+    }
+
+    /// The semantic name of each track a draw's `track` indexes (a rig part's
+    /// name: `torso`, `near_arm`; `overlay:<layer>` for an effect layer).
+    pub fn tracks(&self) -> &[String] {
+        &self.tracks
+    }
+
+    /// This flipbook with its tracks named `tracks`, and their roles read
+    /// again from the new names.
+    pub fn with_tracks(self, tracks: Vec<String>) -> Self {
+        Self { track_roles: TrackRoles::of_all(&tracks), tracks, ..self }
+    }
+
+    /// Is `draw` on a track whose name has `role`?
+    fn draw_is(&self, draw: &PartDraw, role: u8) -> bool {
+        draw.track
+            .and_then(|track| self.track_roles.get(usize::from(track)))
+            .is_some_and(|roles| roles.0 & role != 0)
     }
 
     /// How far, in sheet pixels, `draws` reach past this flipbook's frame on

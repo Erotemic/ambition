@@ -338,6 +338,12 @@ pub trait ExtensionAppExt {
         adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
     ) -> &mut Self;
 
+    /// Offer trigger port `P` in `phase` without an adapter of its own: a
+    /// collector already installed for the phase queues its invocations.
+    /// Several ports read from one journal install that collector once, not
+    /// one identical scan per port.
+    fn offer_extension_trigger<P: Port>(&mut self, phase: Phase, owner: &'static str) -> &mut Self;
+
     /// Install observation port `P` in `phase`, with the domain projection
     /// that answers it.
     fn install_extension_observation<P: Port>(
@@ -411,6 +417,16 @@ pub trait ExtensionAppExt {
         phase: Phase,
         owner: &'static str,
         adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+    ) -> &mut Self;
+
+    /// Add a domain system at `phase`'s lowering boundary, after the
+    /// submitted requests, that runs on EVERY tick of the phase, whether or
+    /// not anything was submitted: the place a domain withdraws what an
+    /// attachment that is no longer bound had applied. It offers no port.
+    fn install_extension_lowering_maintenance<M>(
+        &mut self,
+        phase: Phase,
+        systems: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
     ) -> &mut Self;
 
     /// Declare a module. Admission runs in `Plugin::finish`.
@@ -634,12 +650,18 @@ impl ExtensionAppExt for App {
         owner: &'static str,
         adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
     ) -> &mut Self {
+        self.offer_extension_trigger::<P>(phase.clone(), owner);
+        let (schedule, _) = installation(self);
+        self.add_systems(schedule, adapter.in_set(ExtensionSet::Collect(phase)))
+    }
+
+    fn offer_extension_trigger<P: Port>(&mut self, phase: Phase, owner: &'static str) -> &mut Self {
         let (schedule, mut installation) = installation(self);
         installation
             .offers
             .push(offer::<P>(PortRole::Trigger, phase.clone(), owner));
         ensure_phase(self, schedule, &phase);
-        self.add_systems(schedule, adapter.in_set(ExtensionSet::Collect(phase)))
+        self
     }
 
     fn install_extension_observation<P: Port>(
@@ -718,6 +740,19 @@ impl ExtensionAppExt for App {
             phase.clone(),
             owner,
             adapter.in_set(ExtensionSet::LowerSubmitted(phase)),
+        )
+    }
+
+    fn install_extension_lowering_maintenance<M>(
+        &mut self,
+        phase: Phase,
+        systems: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+    ) -> &mut Self {
+        let (schedule, _) = installation(self);
+        ensure_phase(self, schedule, &phase);
+        self.add_systems(
+            schedule,
+            systems.in_set(ExtensionSet::Lower(phase.clone())).after(ExtensionSet::LowerSubmitted(phase)),
         )
     }
 

@@ -31,6 +31,7 @@ pub fn install_for_body_contact(app: &mut App) {
     app.install_extension_submitted_request::<ContactThreatPort, _>(BODY_CONTACT, "ambition_combat", lower_contact_threats);
     app.install_extension_submitted_request::<ControlHoldPort, _>(BODY_CONTACT, "ambition_combat", lower_control_holds);
     app.install_extension_submitted_request::<PosePinPort, _>(BODY_CONTACT, "ambition_combat", lower_pose_pins);
+    app.install_extension_lowering_maintenance(BODY_CONTACT, withdraw_unbound_attachment_claims);
     app.install_extension_submitted_request::<KineticHazardPort, _>(BODY_CONTACT, "ambition_combat", lower_kinetic_hazards);
     app.install_extension_retirement_request::<BodyDefeatPort, _>(BODY_CONTACT, "ambition_combat", lower_body_defeats);
 }
@@ -137,54 +138,74 @@ pub fn lower_contact_threats(
     }
 }
 
+/// The live occurrence of `entity`, allocated on first need (the counter
+/// and the stamp rewind with its room). `None` when it has no session or no
+/// identity to allocate from.
+fn live_occurrence(world: &mut World, entity: Entity) -> Option<ambition_platformer2d_core::applications::OccurrenceKey> {
+    let session = world.get::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity>(entity)?.0;
+    let reference = ambition_platformer2d_shared_tangle::lifecycle::ensure_object_occurrence(world, entity)?.reference(session);
+    Some(ambition_platformer2d_core::applications::OccurrenceKey {
+        session: reference.session,
+        room: reference.allocation_room,
+        sequence: reference.sequence,
+    })
+}
+
 /// The application a submission belongs to: the attachment that submitted
-/// it (the occurrence whose records it keeps, and its module). Two entries of
-/// one attachment share it; another attachment never does.
+/// it, by the live occurrence of the state whose records it keeps and its
+/// module. Two entries of one attachment share it; another attachment, or
+/// the same module on a remade object, never does. `None` (a refusal) when
+/// the state has no live occurrence: no empty issuer is made up.
 fn submitter_key<T>(
+    world: &mut World,
     submitted: &ambition_extension_host::Submitted<T>,
-    ids: &Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-) -> ambition_platformer2d_core::applications::ApplicationKey {
-    let occurrence = ids.get(submitted.state_scope).map_or("", |id| id.as_str());
-    ambition_platformer2d_core::applications::ApplicationKey::attachment(
+) -> Option<ambition_platformer2d_core::applications::ApplicationKey> {
+    let occurrence = live_occurrence(world, submitted.state_scope)?;
+    Some(ambition_platformer2d_core::applications::ApplicationKey::attachment(
         occurrence,
         ambition_platformer2d_core::applications::module_of_entry(&submitted.entry),
-    )
+    ))
 }
 
 /// The body holds its control under the submitting attachment's claim, or
 /// that attachment lets its claim go. Another attachment's claim, and every
 /// native hold, stay.
-pub fn lower_control_holds(
-    mut commands: Commands,
-    mut outbox: ResMut<ExtensionOutbox>,
-    bodies: Query<Entity>,
-    ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-) {
+pub fn lower_control_holds(world: &mut World) {
     use ambition_characters::control::{claim_hold_as, release_hold_as};
-    for submitted in outbox.drain::<ControlHoldPort>(&BODY_CONTACT) {
-        if !bodies.contains(submitted.scope) {
+    let submitted: Vec<_> = world.resource_mut::<ExtensionOutbox>().drain::<ControlHoldPort>(&BODY_CONTACT);
+    for submitted in submitted {
+        if world.get_entity(submitted.scope).is_err() {
             continue;
         }
-        let key = submitter_key(&submitted, &ids);
+        let Some(key) = submitter_key(world, &submitted) else {
+            warn!("extension entry {} asked to hold a body, and its state has no live occurrence; refused", submitted.entry);
+            continue;
+        };
+        let mut commands = world.commands();
         if submitted.value.held {
             claim_hold_as(&mut commands, submitted.scope, key);
         } else {
             release_hold_as(&mut commands, submitted.scope, key);
         }
+        world.flush();
     }
 }
 
 /// The body is drawn in one row of its sheet under the submitting
 /// attachment's pose claim, or that attachment withdraws its pose. A row the
 /// game does not know is refused.
-pub fn lower_pose_pins(
-    mut commands: Commands,
-    mut outbox: ResMut<ExtensionOutbox>,
-    ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-) {
+pub fn lower_pose_pins(world: &mut World) {
     use ambition_sprite_sheet::character::{claim_pose, release_pose, CharacterAnim, PoseTerm, SCRIPT_POSE_PRIORITY};
-    for submitted in outbox.drain::<PosePinPort>(&BODY_CONTACT) {
-        let key = submitter_key(&submitted, &ids);
+    let submitted: Vec<_> = world.resource_mut::<ExtensionOutbox>().drain::<PosePinPort>(&BODY_CONTACT);
+    for submitted in submitted {
+        if world.get_entity(submitted.scope).is_err() {
+            continue;
+        }
+        let Some(key) = submitter_key(world, &submitted) else {
+            warn!("extension entry {} asked to pose a body, and its state has no live occurrence; refused", submitted.entry);
+            continue;
+        };
+        let mut commands = world.commands();
         match submitted.value.row.as_deref() {
             None => release_pose(&mut commands, submitted.scope, key),
             Some(row) => match CharacterAnim::from_name(row) {
@@ -192,7 +213,81 @@ pub fn lower_pose_pins(
                 None => warn!("extension entry {} asked to pin the row {row:?}, which no sheet has; refused", submitted.entry),
             },
         }
+        world.flush();
     }
+}
+
+/// Withdraw each hold and pose a body-contact attachment applied to its body
+/// once that attachment is no longer bound there (its status ended, its
+/// brain changed). A body-contact attachment keeps its records on the body
+/// it is attached to, so its claims name the body's own live occurrence.
+/// Runs on every tick of the phase, whether or not anything was submitted,
+/// over the bodies that carry a claim. A claim another object issued is not
+/// this phase's to judge, and a native claim is its owner's.
+pub fn withdraw_unbound_attachment_claims(world: &mut World) {
+    use ambition_characters::control::{release_hold_as, HoldClaims};
+    use ambition_platformer2d_core::applications::{module_of_entry, ApplicationKey};
+    use ambition_platformer2d_shared_tangle::lifecycle::{ObjectOccurrence, SessionScopedEntity};
+    use ambition_sprite_sheet::character::{release_pose, PoseClaims};
+    let mut state = world.query_filtered::<(
+        Entity,
+        Option<&HoldClaims>,
+        Option<&PoseClaims>,
+        Option<&ObjectOccurrence>,
+        Option<&SessionScopedEntity>,
+        Option<&super::status::BodyStatuses>,
+        Option<&crate::actor_tuning::ActorConfig>,
+    ), Or<(With<HoldClaims>, With<PoseClaims>)>>();
+    let world_ref: &World = world;
+    let selectors: Vec<(String, String)> = world_ref
+        .resource::<AdmittedExtensions>()
+        .0
+        .entries
+        .iter()
+        .filter(|entry| entry.descriptor.trigger.port == BodyContactPort::KEY)
+        .map(|entry| (entry.descriptor.trigger.selector.to_string(), module_of_entry(&entry.path).to_owned()))
+        .collect();
+    let mut withdrawn: Vec<(Entity, ApplicationKey, bool)> = Vec::new();
+    for (body, holds, poses, occurrence, session, statuses, config) in state.iter(world_ref) {
+        let (Some(occurrence), Some(session)) = (occurrence, session) else {
+            continue;
+        };
+        let own = occurrence.reference(session.0);
+        let mut keys: Vec<&str> = statuses.map_or_else(Vec::new, |statuses| statuses.0.iter().map(String::as_str).collect());
+        if let Some(crate::actor_tuning::ActorConfig {
+            brain: ambition_entity_catalog::placements::CharacterBrain::Custom(key),
+            ..
+        }) = config
+        {
+            keys.push(key.as_str());
+        }
+        let bound = |module: &str| selectors.iter().any(|(selector, owner)| owner == module && keys.contains(&selector.as_str()));
+        let claims = holds
+            .into_iter()
+            .flat_map(|claims| claims.0.iter().map(|(key, _)| (key, true)))
+            .chain(poses.into_iter().flat_map(|claims| claims.0.iter().map(|(key, _)| (key, false))));
+        for (key, hold) in claims {
+            let Some((issuer, module)) = key.attachment_issuer() else {
+                continue;
+            };
+            let mine = issuer.session == own.session && issuer.room == own.allocation_room && issuer.sequence == own.sequence;
+            if mine && !bound(module) {
+                withdrawn.push((body, key.clone(), hold));
+            }
+        }
+    }
+    if withdrawn.is_empty() {
+        return;
+    }
+    let mut commands = world.commands();
+    for (body, key, hold) in withdrawn {
+        if hold {
+            release_hold_as(&mut commands, body, key);
+        } else {
+            release_pose(&mut commands, body, key);
+        }
+    }
+    world.flush();
 }
 
 /// The body is a hazard this tick: a contact hit of its own extent where it

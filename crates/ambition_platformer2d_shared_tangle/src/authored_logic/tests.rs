@@ -138,6 +138,47 @@ fn a_mistyped_argument_is_refused_with_a_reason_an_author_can_act_on() {
     assert!(wrong_kind.contains("occurrence"), "{wrong_kind}");
 }
 
+const WHO: ParamSpec = ParamSpec { name: "who", kind: ParamKind::Individual, summary: "a character or a role" };
+
+fn who_is_carried(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    match &args[0] {
+        AuthoredArg::Reference(_) => is_carried(world, args),
+        AuthoredArg::Name(_) => ConditionOutcome::unanswerable("a population, not this body"),
+        _ => ConditionOutcome::unanswerable("not a body"),
+    }
+}
+
+/// A role prepares as itself, is asked as the one body its invocation bound,
+/// and an unbound role is refused, never read as the character's population.
+#[test]
+fn a_role_is_the_body_its_invocation_bound() {
+    let mut app = App::new();
+    app.publish_condition(
+        ConditionDescriptor { id: ConditionId::new("custody", "who_carried"), summary: "a test condition", params: &[WHO] },
+        who_is_carried,
+    );
+    app.world_mut().spawn((SimId::placement("bob"), Carried));
+    app.world_mut().spawn(SimId::placement("ann"));
+    let catalog = app.world().resource::<ConditionCatalog>().clone();
+    let ask = AuthoredAsk::new("probe", "a test");
+    let call = catalog.prepare_line("custody.who_carried @talker").unwrap();
+    assert_eq!(call.args(), &[AuthoredArg::Role("talker".into())]);
+
+    let ConditionOutcome::Unanswerable(unbound) = catalog.ask(app.world(), &call, &ask) else {
+        panic!("an unbound role must not be asked");
+    };
+    assert!(unbound.contains("@talker"), "{unbound}");
+    let refused = call.bound(&RoleBindings::default().bind("initiator", SimId::placement("bob"))).unwrap_err();
+    assert!(refused.contains("@talker") && refused.contains("@initiator"), "{refused}");
+
+    let to_bob = call.bound(&RoleBindings::default().bind("talker", SimId::placement("bob"))).unwrap();
+    assert!(catalog.ask(app.world(), &to_bob, &ask).is_satisfied());
+    let to_ann = call.bound(&RoleBindings::default().bind("talker", SimId::placement("ann"))).unwrap();
+    assert!(!catalog.ask(app.world(), &to_ann, &ask).is_satisfied());
+    assert_eq!(catalog.prepare_line("custody.who_carried npc_bob").unwrap().args(), &[AuthoredArg::Name("npc_bob".into())]);
+    assert!(catalog.prepare_line("custody.who_carried @").is_err());
+}
+
 /// TWO DOMAINS CANNOT OWN ONE ID, AND IT FAILS AT STARTUP.
 ///
 /// the alternative is that the winner is whichever plugin built last — a bug

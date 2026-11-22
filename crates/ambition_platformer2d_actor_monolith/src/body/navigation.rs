@@ -120,7 +120,12 @@ impl RoomNavigation {
         if !self.in_use.contains(&key) {
             self.in_use.push(key);
         }
-        self.graphs.get_or_build(key, || NavGraph::build(world, &key.probe_body(), frame))
+        // The body's motion is measured once whatever room: only the room's
+        // legs are built here.
+        self.graphs.get_or_build_measured(key, |motion| {
+            NavGraph::build_measured(world, &[], &key.probe_body(), frame, motion,
+                bevy::tasks::ComputeTaskPool::try_get().map(|pool| &**pool))
+        })
     }
 }
 
@@ -173,6 +178,7 @@ pub fn advise_navigation(
 ) {
     advice.by_body.clear();
     cache.in_use.clear();
+    cache.graphs.begin_demand();
     cache.by_body.clear();
     for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand, visit, config, origin) in &bodies {
         let Some(request) = brain.navigation_request() else {
@@ -254,7 +260,7 @@ pub fn advise_navigation(
                 return ErrandSight::None;
             };
             match graph.surface_under(visit.place, TARGET_DEPTH) {
-                Some(under) if graph.reachable_from(from).contains(&under) => {
+                Some(under) if graph.reaches(from, under) => {
                     ErrandSight::At(graph.point_on(under, graph.frame.along(visit.place)))
                 }
                 _ => ErrandSight::NoRoute,
@@ -268,7 +274,7 @@ pub fn advise_navigation(
                     return ErrandSight::None;
                 };
                 let reached = |at: ae::Vec2, depth: f32| {
-                    graph.surface_under(at, depth).filter(|under| graph.reachable_from(from).contains(under))
+                    graph.surface_under(at, depth).filter(|under| graph.reaches(from, *under))
                 };
                 match super::errand::errand_item_at(errand, live_room, &rooms, &items) {
                     // Not in this room: in another live room, through the zone
@@ -302,7 +308,7 @@ pub fn advise_navigation(
                         }
                     }
                     Some(at) => match graph.surface_under(at, TARGET_DEPTH) {
-                        Some(under) if graph.reachable_from(from).contains(&under) => {
+                        Some(under) if graph.reaches(from, under) => {
                             ErrandSight::At(graph.point_on(under, graph.frame.along(at)))
                         }
                         _ => ErrandSight::NoRoute,

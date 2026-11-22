@@ -49,7 +49,12 @@ fn fixture(mode: PartyTravelMode, activation: LoadingZoneActivation) -> (App, [E
         ae::BodyKinematics { material: Default::default(), pos: ae::Vec2::new(500.0, 100.0), vel: ae::Vec2::ZERO,
             canonical_size: ae::Vec2::new(28.0, 46.0), facing: 1.0 },
     )).id());
-    app.add_systems(Update, detect_room_transition_system);
+    // A door takes a press selected for it: the selection runs first.
+    app.init_resource::<ambition_platformer2d_interaction::InteractSelection>();
+    app.add_systems(
+        Update,
+        (ambition_platformer2d_actor_monolith::body::select_interactions, detect_room_transition_system).chain(),
+    );
     (app, bodies)
 }
 

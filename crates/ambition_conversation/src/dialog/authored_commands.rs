@@ -5,7 +5,8 @@
 //! runner executes outside rollback simulation, so it never mutates gameplay state
 //! directly. Yarn command arguments arrive as text and are parsed according to the
 //! published descriptor. Raw Yarn strings cannot satisfy `ParamKind::Reference`;
-//! references require prepared `SimId` values.
+//! a `ParamKind::Individual` parameter takes a character id or a role the
+//! conversation binds (`@talker`, `@initiator`).
 
 use bevy::prelude::*;
 use bevy_yarnspinner::prelude::DialogueRunner;
@@ -86,7 +87,8 @@ fn request_authored_command(
         return;
     };
     let authored = [a0, a1, a2];
-    match prepare_arguments(descriptor, &authored) {
+    let roles = crate::dialog::conversation_roles(conversation.live().map(|live| &live.instance));
+    match prepare_arguments(descriptor, &authored).and_then(|args| roles.bind_args(&args)) {
         Ok(args) => narrative.write(RunAuthoredCommand::new(
             id,
             args,

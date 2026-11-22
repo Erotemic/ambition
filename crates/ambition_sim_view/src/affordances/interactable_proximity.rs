@@ -1,17 +1,11 @@
-//! Nearest-interactable proximity query.
+//! The Interact prompt's label, per driven body.
 //!
-//! Walks every feature entity that can be interacted with (peaceful
-//! NPCs, switches, intact chests) and reports the closest one
-//! overlapping the player's AABB. The result feeds
-//! [`super::resolvers::resolve_interact`] via the [`super::WorldView`]
-//! the affordance compute system builds each frame.
-//!
-//! It asks the rule the press asks
-//! ([`ambition_platformer2d_interaction::InteractReach`]): the
-//! same reach, live room, facing gate and door rule as
-//! [`ambition_platformer2d_actor_monolith::body::interact_ecs_actors_and_switches`]
-//! and [`ambition_platformer2d_items::chests::open_ecs_chests`]. So
-//! the label says "Talk" only where the press talks.
+//! The selection is gameplay's (`ambition_platformer2d_actor_monolith::body::select_interactions`,
+//! interaction I1): what each body's press is for, from the domains' own
+//! availability, rebuilt with the gameplay that executes the press. This
+//! module only names it ([`InteractVariant`]), so a composition without the
+//! prompt selects the same operation, and the label says "Talk" only where
+//! the press talks.
 
 use bevy::prelude::*;
 
@@ -19,7 +13,6 @@ use super::variants::InteractVariant;
 use ambition_combat::{ActorDisposition, ActorInteraction};
 use ambition_encounter::switches::SwitchFeature;
 use ambition_platformer2d_core::CenteredAabb;
-use ambition_platformer2d_interaction::{InteractCandidate, InteractKind, InteractReach, interact_order};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_world_items::containers::ChestFeature;
@@ -55,8 +48,8 @@ impl NearestInteractable {
     }
 }
 
-/// The bodies a prompt can name Talk for: the population the press talks to
-/// (`interact_ecs_actors_and_switches`), with what [`talk_refusal`] reads.
+/// The bodies the reach observer explains (`interaction_reach_observer`):
+/// the population the press talks to, with what [`talk_refusal`] reads.
 ///
 /// [`talk_refusal`]: ambition_combat::util::talk_refusal
 pub(crate) type Talkers<'w, 's> = Query<
@@ -76,7 +69,7 @@ pub(crate) type Talkers<'w, 's> = Query<
     (With<FeatureSimEntity>, With<ActorInteraction>, With<ambition_combat::components::ActorIdentity>),
 >;
 
-/// The chests a prompt can name Open for.
+/// The chests the reach observer explains.
 pub(crate) type Chests<'w, 's> = Query<
     'w,
     's,
@@ -89,7 +82,7 @@ pub(crate) type Chests<'w, 's> = Query<
     (With<FeatureSimEntity>, With<ChestFeature>),
 >;
 
-/// The switches a prompt can name Activate for.
+/// The switches the reach observer explains.
 pub(crate) type Switches<'w, 's> = Query<
     'w,
     's,
@@ -101,25 +94,6 @@ pub(crate) type Switches<'w, 's> = Query<
     (With<FeatureSimEntity>, With<SwitchFeature>),
 >;
 
-/// The mounts a prompt can name Ride for, with the name it says.
-pub(crate) type Mounts<'w, 's> = Query<
-    'w,
-    's,
-    (
-        Entity,
-        &'static ambition_mount::Mountable,
-        &'static ambition_platformer2d_core::BodyKinematics,
-        Option<&'static ambition_mount::MountSlot>,
-        Option<&'static ambition_mount::MountReservedFor>,
-        Option<&'static ambition_characters::actor::BodyHealth>,
-        Option<&'static ambition_combat::components::ActorIdentity>,
-    ),
->;
-
-/// What a body may pilot, and what it rides now.
-pub(crate) type Pilots<'w, 's> =
-    Query<'w, 's, (Option<&'static ambition_mount::CanPilot>, bevy::prelude::Has<ambition_mount::RidingOn>)>;
-
 /// A body's kinematics, last step and frame: what its reach is built from.
 pub(crate) type Reaching = (
     &'static ambition_platformer2d_core::BodyKinematics,
@@ -127,16 +101,14 @@ pub(crate) type Reaching = (
     Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
 );
 
-/// Rebuild [`NearestInteractable`] each frame from what each driven body's
-/// press reaches.
+/// Rebuild [`NearestInteractable`] from gameplay's selection
+/// ([`InteractSelection`]): the label of what each driven body's press is
+/// for, and seat zero's, the one on the screen. A mount is named by its
+/// identity.
 ///
-/// The prompt follows the body the player is DRIVING (the home avatar, or a
-/// possessed actor), matching [`ambition_platformer2d_actor_monolith::body::interact_ecs_actors_and_switches`],
-/// which resolves the interaction against the same controlled subject — so the
-/// "Talk / Open / Activate" label appears exactly where the interact would fire.
+/// [`InteractSelection`]: ambition_platformer2d_interaction::InteractSelection
 pub fn update_nearest_interactable(
     controlled: Option<Res<ControlledSubject>>,
-    bodies: Query<Reaching>,
     primary: Query<
         Entity,
         (
@@ -144,67 +116,39 @@ pub fn update_nearest_interactable(
             With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
         ),
     >,
-    actors: Talkers,
-    chests: Chests,
-    switches: Switches,
-    mounts: Mounts,
-    pilots: Pilots,
     driven: Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
-    // The live rooms, and the doors in them: the press's room and door rules.
-    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
-    // The stable identities that break a tie, as the press breaks it.
-    objects: ambition_platformer2d_shared_tangle::lifecycle::LiveObjects,
+    selection: Option<Res<ambition_platformer2d_interaction::InteractSelection>>,
+    names: Query<&ambition_combat::components::ActorIdentity>,
     mut out: ResMut<NearestInteractable>,
 ) {
+    use ambition_platformer2d_interaction::InteractOperation;
     let variant_of = |body: Entity| {
-        bodies.get(body).ok().map(|(kin, step, frame)| {
-            let reach = InteractReach::of(kin, step, frame, rooms.live().of(body));
-            let door = rooms.nearest_door_under(body, reach.collision_box(), reach.pos());
-            let (licence, riding) = pilots.get(body).unwrap_or((None, false));
-            // The press goes to what it reaches first: a body, a switch, a
-            // chest. After them, a body that rides gives it to the door it
-            // stands in before getting off — the one press would otherwise both
-            // leave and bail, and the mount stay behind — and a body on foot
-            // boards a mount before the door, since a mount crosses with its
-            // rider (and the door a body has just come in by does not take
-            // the press back). `ambition_mount::InteractPressesClaimed` tells
-            // the mount which presses are not its own.
-            let target = chosen_in_reach(&reach, door, rooms.live(), &objects, &actors, &chests, &switches)
-                .map(|(_, variant)| variant);
-            let ride = || {
-                let licence = licence?;
-                let candidates = mounts.iter().map(|(e, m, k, s, r, h, _)| (e, m, k, s, r, h));
-                let mount = ambition_mount::nearest_commandeerable(body, licence, kin, candidates, &[])?;
-                let name = mounts.get(mount).ok().and_then(|row| row.6).map_or("mount", |identity| identity.name());
-                Some(InteractVariant::Ride(name.to_string().into()))
-            };
-            let door = || door.map(|_| InteractVariant::Use);
-            let chosen = if riding {
-                target.or_else(door).or(Some(InteractVariant::Dismount))
-            } else {
-                target.or_else(ride).or_else(door)
-            };
-            chosen.unwrap_or(InteractVariant::None)
-        })
+        let Some(selected) = selection.as_deref().and_then(|selection| selection.of(body)) else {
+            return InteractVariant::None;
+        };
+        match selected.operation {
+            InteractOperation::Talk => InteractVariant::Talk,
+            InteractOperation::Activate => InteractVariant::Activate,
+            InteractOperation::Open => InteractVariant::Open,
+            InteractOperation::Use => InteractVariant::Use,
+            InteractOperation::Dismount => InteractVariant::Dismount,
+            InteractOperation::Ride => {
+                let name = selected.target.and_then(|mount| names.get(mount).ok()).map_or("mount", |identity| identity.name());
+                InteractVariant::Ride(name.to_string().into())
+            }
+        }
     };
     // ⭐⭐ EVERY DRIVEN BODY, not just the one holding the primary seat. The
     // label on screen is still seat zero's, but a consumer deciding something
     // about a PARTICULAR body needs that body's answer — see the type's doc.
     let mut by_body: std::collections::HashMap<Entity, InteractVariant> =
-        std::collections::HashMap::new();
-    for body in &driven {
-        if let Some(variant) = variant_of(body) {
-            by_body.insert(body, variant);
-        }
-    }
-
+        driven.iter().map(|body| (body, variant_of(body))).collect();
     let subject = controlled
         .and_then(|subject| subject.0)
         .or_else(|| primary.single().ok());
-    // The primary body may not be a driving participant in a bare fixture, so
-    // its own answer is computed here rather than assumed to be in the map.
-    let chosen = match subject.and_then(|subject| variant_of(subject).map(|variant| (subject, variant))) {
-        Some((subject, variant)) => {
+    let chosen = match subject {
+        Some(subject) => {
+            let variant = variant_of(subject);
             by_body.insert(subject, variant.clone());
             variant
         }
@@ -212,77 +156,6 @@ pub fn update_nearest_interactable(
     };
     if out.0 != chosen || out.1 != by_body {
         *out = NearestInteractable(chosen, by_body);
-    }
-}
-
-/// What ONE body's press is for, with the prompt that names it: the first
-/// target of [`interact_order`] over what the press reaches. `door` is the
-/// distance to the door the body stands in, if any: a door the press is for
-/// takes it from a body to talk to ([`InteractReach::a_door_keeps_the_press`]),
-/// and the prompt then names what else the press reaches.
-///
-/// ⭐ ONE FUNCTION SO EVERY BODY GETS THE SAME ANSWER. Inlining it per caller is
-/// how a second seat ends up asking a slightly different question from the first.
-pub(crate) fn chosen_in_reach(
-    reach: &InteractReach,
-    door: Option<f32>,
-    rooms: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-    objects: &ambition_platformer2d_shared_tangle::lifecycle::LiveObjects,
-    actors: &Talkers,
-    chests: &Chests,
-    switches: &Switches,
-) -> Option<(Entity, InteractVariant)> {
-    let candidate = |kind, center, entity| InteractCandidate {
-        kind,
-        preference: reach.preference(center),
-        id: (objects.reference(entity), entity),
-    };
-    let talkers = actors
-        .iter()
-        .filter(|(entity, aabb, disposition, aggression, health, out_of_play, plane, requires_facing)| {
-            ambition_combat::util::talk_refusal(**disposition, *aggression, *health, *out_of_play, *plane).is_none()
-                && reach.can_talk_to(rooms.of(*entity), aabb, *requires_facing)
-                && !InteractReach::a_door_keeps_the_press(door, aabb.center.distance(reach.pos()))
-        })
-        .map(|(entity, aabb, ..)| candidate(InteractKind::Talk, aabb.center, entity));
-    let switches = switches
-        .iter()
-        .filter(|(entity, aabb, requires_facing)| reach.touches(rooms.of(*entity), aabb, *requires_facing))
-        .map(|(entity, aabb, _)| candidate(InteractKind::Activate, aabb.center, entity));
-    // A chest has no facing gate: its spec has no `requires_facing`.
-    let chests = chests
-        .iter()
-        .filter(|(entity, aabb, opened, falling)| opened.is_none() && !falling && reach.touches(rooms.of(*entity), aabb, false))
-        .map(|(entity, aabb, ..)| candidate(InteractKind::Open, aabb.center, entity));
-    let first = interact_order(talkers.chain(switches).chain(chests)).into_iter().next()?;
-    let variant = match first.kind {
-        InteractKind::Talk => InteractVariant::Talk,
-        InteractKind::Activate => InteractVariant::Activate,
-        InteractKind::Open => InteractVariant::Open,
-    };
-    Some((first.id.1, variant))
-}
-
-/// Which driven bodies' Interact press a door, a body, a switch or a chest
-/// takes this tick, for the mount owner ([`ambition_mount::InteractPressesClaimed`]).
-pub fn claim_interact_presses(
-    nearest: Res<NearestInteractable>,
-    mut claimed: ResMut<ambition_mount::InteractPressesClaimed>,
-) {
-    let mut bodies: Vec<Entity> = nearest
-        .1
-        .iter()
-        .filter(|(_, variant)| {
-            !matches!(
-                variant,
-                InteractVariant::None | InteractVariant::ModeSwitch | InteractVariant::Ride(_) | InteractVariant::Dismount
-            )
-        })
-        .map(|(body, _)| *body)
-        .collect();
-    bodies.sort();
-    if claimed.0 != bodies {
-        claimed.0 = bodies;
     }
 }
 

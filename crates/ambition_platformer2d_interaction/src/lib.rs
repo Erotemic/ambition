@@ -3,11 +3,11 @@
 use ambition_platformer2d_core::{AabbExt, CenteredAabb, snapshot::{SnapshotState, Reader, put_bytes}};
 use bevy::prelude::*;
 
-/// What one body's Interact press reaches. The one rule for the press
-/// ([`interact_ecs_actors_and_switches`], `open_ecs_chests`), for the door
-/// that shares the press ([`TalkableBodies`]) and for the prompt
-/// (`ambition_sim_view::update_nearest_interactable`), so the prompt names
-/// what the press does. Before, the prompt asked a copy with no live-room
+/// What one body's Interact press reaches. The one rule for the selection
+/// (`select_interactions`, which the prompt, the door and the mount follow)
+/// and for each executor's revalidation at its own cut
+/// (`interact_ecs_actors_and_switches`, `open_ecs_chests`), so the prompt
+/// names what the press does. Before, the prompt asked a copy with no live-room
 /// check, no door rule and no facing gate (review 2026-10-08).
 #[derive(Clone, Copy, Debug)]
 pub struct InteractReach {
@@ -199,6 +199,67 @@ pub fn interact_order<Id: Ord>(candidates: impl IntoIterator<Item = InteractCand
     }
     order
 }
+
+/// The operation one body's Interact press is selected for. Talking,
+/// activating and opening are the three [`InteractKind`]s of what the press
+/// reaches; boarding a mount, using the door the body stands in and getting
+/// off what it rides are the contextual operations that take the press when
+/// nothing in reach does. The precedence between them is stated where the
+/// selection is made, not read from this order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum InteractOperation {
+    Talk,
+    Activate,
+    Open,
+    /// Board the target mount.
+    Ride,
+    /// Use the door the body stands in. No target body.
+    Use,
+    /// Get off what the body rides. No target body.
+    Dismount,
+}
+
+impl From<InteractKind> for InteractOperation {
+    fn from(kind: InteractKind) -> Self {
+        match kind {
+            InteractKind::Talk => Self::Talk,
+            InteractKind::Activate => Self::Activate,
+            InteractKind::Open => Self::Open,
+        }
+    }
+}
+
+/// What one body's press is selected for at the selection cut: the
+/// operation and, when it has one, the target body or object.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InteractSelected {
+    pub operation: InteractOperation,
+    pub target: Option<Entity>,
+}
+
+/// Each driven body's selected interaction, rebuilt every tick by the
+/// gameplay composition from the domains' own availability facts (a talker
+/// with no conversation to have is not offered). The prompt draws its label
+/// from it, and a contextual consumer that yields to an ordinary interaction
+/// (a portal's colour toggle, a mount's boarding) asks it. A body with no
+/// entry has nothing its press is for.
+///
+/// It is a read model, not a reservation: the operation's owner revalidates
+/// its target when it acts.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct InteractSelection(pub std::collections::HashMap<Entity, InteractSelected>);
+
+impl InteractSelection {
+    /// What `body`'s press is selected for, if anything.
+    pub fn of(&self, body: Entity) -> Option<InteractSelected> {
+        self.0.get(&body).copied()
+    }
+
+}
+
+/// The set that rebuilds [`InteractSelection`]. Its readers run after it.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InteractSelectionSet;
 
 /// Play the interact gesture on the body that ACTED.
 pub fn pose_interact(

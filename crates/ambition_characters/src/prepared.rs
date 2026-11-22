@@ -1364,28 +1364,63 @@ pub struct PreparedCharacterDefinition {
 
 impl PreparedCharacterDefinition {
     /// The moves this character carries as a game that plays in `scale`
-    /// reads them: that scale's damage and that scale's verbs over the one
-    /// table. `None` when it carries no moves.
+    /// reads them: that scale's facets over the one table
+    /// ([`Self::scale_moveset`]). `None` when it carries no moves.
     ///
     /// What a seat in that scale wears (`WornKit::of` with no borrowed kit).
     /// A tool or a test that asks what a fighter's button plays on a
     /// platform-fighter stage reads this, and not `kit.projectable_moveset()`:
     /// that is the character at home.
     pub fn moveset_in(&self, scale: crate::move_damage::DamageScale) -> Option<MovesetContract> {
-        let mut moveset = self.kit.projectable_moveset()?.clone();
-        if let Some(damage) = self.scaled_move_damage.get(&scale) {
-            moveset = crate::move_damage::move_damage_over(damage, moveset.clone()).unwrap_or(moveset);
+        let moveset = self.kit.projectable_moveset()?.clone();
+        Some(self.scale_moveset(moveset.clone(), scale).unwrap_or(moveset))
+    }
+
+    /// `moveset` as a game that plays in `scale` reads it: that scale's
+    /// damage, verbs, clocks and knockback, in that order, over the same
+    /// moves. THE ONE PLACE THE SCALE'S FACETS ARE APPLIED (linking L1): the
+    /// kit a body wears (`WornKit::of`) and a tool's question
+    /// ([`Self::moveset_in`]) both ask it, so they cannot apply a different
+    /// order or a different failure rule.
+    ///
+    /// All or nothing: when any facet names a move or verb the table does not
+    /// have, the scale is refused with every problem, and the caller keeps the
+    /// unscaled moves, so a body never plays a mix of two games' values.
+    /// Preparation reports the same problems on the published value
+    /// ([`Self::unresolved_references`]). A scale with no facets is the moves
+    /// unchanged.
+    pub fn scale_moveset(
+        &self,
+        moveset: MovesetContract,
+        scale: crate::move_damage::DamageScale,
+    ) -> Result<MovesetContract, Vec<String>> {
+        let mut problems = Vec::new();
+        let mut moveset = moveset;
+        let mut apply = |moveset: &mut MovesetContract, step: Result<MovesetContract, Vec<String>>| match step {
+            Ok(scaled) => *moveset = scaled,
+            Err(found) => problems.extend(found),
+        };
+        if let Some(damage) = self.scaled_move_damage.get(&scale).filter(|facet| !facet.is_empty()) {
+            let step = crate::move_damage::move_damage_over(damage, moveset.clone());
+            apply(&mut moveset, step);
         }
-        if let Some(verbs) = self.scaled_verbs.get(&scale) {
-            moveset = crate::move_damage::verb_moves_over(verbs, moveset.clone()).unwrap_or(moveset);
+        if let Some(verbs) = self.scaled_verbs.get(&scale).filter(|facet| !facet.is_empty()) {
+            let step = crate::move_damage::verb_moves_over(verbs, moveset.clone());
+            apply(&mut moveset, step);
         }
-        if let Some(timing) = self.scaled_move_timing.get(&scale) {
-            moveset = crate::move_damage::move_timing_over(timing, moveset.clone()).unwrap_or(moveset);
+        if let Some(timing) = self.scaled_move_timing.get(&scale).filter(|facet| !facet.is_empty()) {
+            let step = crate::move_damage::move_timing_over(timing, moveset.clone());
+            apply(&mut moveset, step);
         }
-        if let Some(knockback) = self.scaled_move_knockback.get(&scale) {
-            moveset = crate::move_damage::move_knockback_over(knockback, moveset.clone()).unwrap_or(moveset);
+        if let Some(knockback) = self.scaled_move_knockback.get(&scale).filter(|facet| !facet.is_empty()) {
+            let step = crate::move_damage::move_knockback_over(knockback, moveset.clone());
+            apply(&mut moveset, step);
         }
-        Some(moveset)
+        if problems.is_empty() {
+            Ok(moveset)
+        } else {
+            Err(problems)
+        }
     }
 }
 
@@ -1803,33 +1838,6 @@ fn prepare_character(
             false
         }
     });
-    // A scale's damage is applied to this moveset by a match, so a move it
-    // names that the moveset does not have, or a list of the wrong length, is
-    // checked here with the moveset beside it.
-    for (scale, damage) in &definition.scaled_move_damage {
-        let moveset = definition.moveset.clone().unwrap_or_default();
-        if let Err(problems) = crate::move_damage::move_damage_over(damage, moveset) {
-            unresolved.extend(problems.into_iter().map(|problem| format!("{}: {problem}", scale.0)));
-        }
-    }
-    for (scale, verbs) in &definition.scaled_verbs {
-        let moveset = definition.moveset.clone().unwrap_or_default();
-        if let Err(problems) = crate::move_damage::verb_moves_over(verbs, moveset) {
-            unresolved.extend(problems.into_iter().map(|problem| format!("{}: {problem}", scale.0)));
-        }
-    }
-    for (scale, timing) in &definition.scaled_move_timing {
-        let moveset = definition.moveset.clone().unwrap_or_default();
-        if let Err(problems) = crate::move_damage::move_timing_over(timing, moveset) {
-            unresolved.extend(problems.into_iter().map(|problem| format!("{}: {problem}", scale.0)));
-        }
-    }
-    for (scale, knockback) in &definition.scaled_move_knockback {
-        let moveset = definition.moveset.clone().unwrap_or_default();
-        if let Err(problems) = crate::move_damage::move_knockback_over(knockback, moveset) {
-            unresolved.extend(problems.into_iter().map(|problem| format!("{}: {problem}", scale.0)));
-        }
-    }
     let prepared = PreparedCharacterOverrides {
         id: definition.id.as_str().to_string(),
         display_name: definition.display_name,
@@ -2087,7 +2095,7 @@ fn finalize_character(
             .standing_height
             .or_else(|| row.body_kind.default_standing_height()),
     });
-    PreparedCharacterDefinition {
+    let mut prepared = PreparedCharacterDefinition {
         // HEALTH FOLDS LIKE EVERY OTHER KIT FIELD, and it is the last one
         // that did not. The catalog row has carried `max_health: Option<i32>`
         // with exactly this `None`-means-unauthored meaning since it was added,
@@ -2229,7 +2237,26 @@ fn finalize_character(
         vfx_dependencies,
         checked,
         unresolved,
+    };
+    // A match applies each scale to the moves this kit carries, so each scale
+    // is checked here by the rule the match uses (`scale_moveset`), over the
+    // same moves: a scale naming a move only the action set derives fits, and
+    // a character with no moves reports every move a scale names.
+    let scales: std::collections::BTreeSet<_> = prepared
+        .scaled_move_damage
+        .keys()
+        .chain(prepared.scaled_verbs.keys())
+        .chain(prepared.scaled_move_timing.keys())
+        .chain(prepared.scaled_move_knockback.keys())
+        .copied()
+        .collect();
+    let moves = prepared.kit.projectable_moveset().cloned().unwrap_or_default();
+    for scale in scales {
+        if let Err(problems) = prepared.scale_moveset(moves.clone(), scale) {
+            prepared.unresolved.extend(problems.into_iter().map(|problem| format!("{}: {problem}", scale.0)));
+        }
     }
+    prepared
 }
 
 /// Resolve the character's autonomous policy.

@@ -106,7 +106,7 @@ an engine Rust source, a build or the served page's refresh rebuilds it in
 release mode, then reads the catalog again. `--no-cargo` turns that off. By hand:
 
 ```bash
-cargo build --release -p ambition_content_schemas --bin ambition_content_check
+cargo build --release -p ambition_content_check --bin ambition_content_check
 ```
 
 It needs no window, graphics device, or game host.
@@ -163,7 +163,7 @@ Build the content tool once, then use it without Cargo for content edits and
 asset generation:
 
 ```bash
-cargo build -p ambition_content_schemas --bin ambition_content_check
+cargo build -p ambition_content_check --bin ambition_content_check
 ```
 
 Preflight never starts Cargo. It reports a missing or old protocol with the

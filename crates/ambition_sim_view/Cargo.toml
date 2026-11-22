@@ -21,7 +21,7 @@ input = ["ambition_input/input"]
 portal = ["ambition_platformer2d_actor_monolith/portal"]
 # The dialogue read model (`DialogView`): what a dialogue box shows, from the
 # conversation and the dialogue runner. A game without dialogue links neither.
-dialogue = ["dep:ambition_dialog", "dep:ambition_conversation"]
+dialogue = ["dep:ambition_dialog", "dep:ambition_conversation", "ambition_platformer2d_actor_monolith/dialogue"]
 
 [dependencies]
 ambition_world_port = { path = "../ambition_world_port" }

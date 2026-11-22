@@ -49,28 +49,79 @@ pub fn pocket_quasar() -> EquipmentRow {
 pub const COSMIC_QUASAR_SUPER_STATE: Empowerment =
     Empowerment::UNTOUCHABLE.with(Empowerment::HARMS_ON_CONTACT);
 
+/// A pocket quasar burning on a body: ONE application with one interval,
+/// which supplies several domains (effects 6b). Defense and contact read its
+/// empowerment grant ([`QUASAR_GRANT`]), presentation and the star theme read
+/// this component, and none of them keeps its own clock.
+///
+/// The interval is the BODY's once admitted: the token is spent the tick it
+/// is collected, so nothing about the pickup can end the star. Course
+/// completion and death retire the quasar, and only the quasar: an
+/// empowerment some other granter owns is not theirs to take
+/// ([`retire_quasar`]).
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct PocketQuasar {
+    /// Seconds of star left.
+    pub remaining: f32,
+}
+
+/// The empowerment a burning quasar grants, held for exactly as long as the
+/// quasar burns. HELD, not timed: the quasar's interval is the only clock, so
+/// the grant cannot outlive or undercut it.
+pub const QUASAR_GRANT: Empowered = Empowered { remaining: None, traits: COSMIC_QUASAR_SUPER_STATE };
+
+/// End `body`'s quasar: the application, and its grant if the grant is still
+/// the quasar's.
+pub(crate) fn retire_quasar(commands: &mut Commands, body: Entity, grant: Option<&Empowered>) {
+    let mut body = commands.entity(body);
+    body.remove::<PocketQuasar>();
+    if grant == Some(&QUASAR_GRANT) {
+        body.remove::<Empowered>();
+    }
+}
+
 /// Collecting the quasar lights the super state.
 ///
 /// Reads the worn set rather than a collect message, for the same reason
 /// `sync_grown_form` does: the worn set is the one place "what does she have"
 /// has an answer. The token is spent in the same breath — the STATE's lifetime
-/// is its own timer, never the item's, so nothing holds a reference to a pickup
-/// that has already been collected.
+/// is its own interval, never the item's, so nothing holds a reference to a
+/// pickup that has already been collected.
 ///
 /// Re-collecting during a star REFRESHES it: two quasars in ten seconds is one
-/// longer star as far as the player can tell.
+/// longer star as far as the player can tell. A body already empowered by
+/// another granter keeps that grant: the quasar still burns (its theme and
+/// its look) without overwriting what it does not own.
 pub fn begin_star_power(
     mut commands: Commands,
-    mut players: Query<(Entity, &mut WornEquipment), With<PlayerEntity>>,
+    mut players: Query<(Entity, &mut WornEquipment, Option<&Empowered>), With<PlayerEntity>>,
 ) {
-    for (body, mut worn) in &mut players {
+    for (body, mut worn, grant) in &mut players {
         // Read first: `unequip` takes `&mut`, which marks `WornEquipment`
         // changed on every tick, and each change re-folds the repertoire.
         if worn.wears(POCKET_QUASAR_ID) && worn.unequip(POCKET_QUASAR_ID).is_some() {
-            commands.entity(body).try_insert(Empowered::for_seconds(
-                COSMIC_QUASAR_SUPER_STATE,
-                crate::rules::mary_o_rules().star_seconds,
-            ));
+            let mut body = commands.entity(body);
+            body.try_insert(PocketQuasar { remaining: crate::rules::mary_o_rules().star_seconds });
+            if grant.is_none_or(|grant| *grant == QUASAR_GRANT) {
+                body.try_insert(QUASAR_GRANT);
+            }
+        }
+    }
+}
+
+/// The quasar's one clock. It runs at the body's room pace, as every
+/// empowerment clock does, and the quasar burns out at zero.
+pub fn burn_pocket_quasars(
+    mut commands: Commands,
+    time: Res<ambition_platformer2d::time::WorldTime>,
+    freeze: ambition_platformer2d::platformer::lifecycle::RoomFreeze,
+    mut quasars: Query<(Entity, &mut PocketQuasar, Option<&Empowered>)>,
+) {
+    let dt = time.sim_dt();
+    for (body, mut quasar, grant) in &mut quasars {
+        quasar.remaining -= dt * freeze.scale_of(body);
+        if quasar.remaining <= 0.0 {
+            retire_quasar(&mut commands, body, grant);
         }
     }
 }
@@ -100,7 +151,7 @@ pub fn end_star_power_at_victory(
     mut commands: Commands,
     rooms: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     sequences: Query<(Entity, &crate::flag::FlagSequence)>,
-    empowered: Query<Entity, (With<Empowered>, With<PlayerEntity>)>,
+    quasars: Query<(Entity, Option<&Empowered>), (With<PocketQuasar>, With<PlayerEntity>)>,
 ) {
     let won: Vec<_> = sequences
         .iter()
@@ -110,17 +161,18 @@ pub fn end_star_power_at_victory(
     if won.is_empty() {
         return;
     }
-    for body in &empowered {
+    for (body, grant) in &quasars {
         if won.contains(&rooms.of(body)) {
-            commands.entity(body).remove::<Empowered>();
+            retire_quasar(&mut commands, body, grant);
         }
     }
 }
 
-/// Run condition of [`play_star_music`]: a body is empowered, or a star claim
-/// stands that may be owed a release.
+/// Run condition of [`play_star_music`]: a quasar burns, or a star claim
+/// stands that may be owed a release. The quasar, not any empowerment: a
+/// body empowered by something else is not playing the star.
 pub fn star_music_is_owed(
-    stars: Query<(), With<Empowered>>,
+    stars: Query<(), With<PocketQuasar>>,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
             ambition_platformer2d::encounter::EncounterMusicRequest,
@@ -134,9 +186,9 @@ pub fn star_music_is_owed(
 /// beats use — claimed while it burns, released when it ends, so the level theme
 /// returns on its own with no restore bookkeeping here.
 ///
-/// The claim is in the live room of each empowered body.
+/// The claim is in the live room of each body with a burning quasar.
 pub fn play_star_music(
-    stars: Query<Entity, With<Empowered>>,
+    stars: Query<Entity, With<PocketQuasar>>,
     live: ambition_platformer2d::platformer::lifecycle::LiveRooms,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
@@ -186,7 +238,7 @@ mod tests {
         // real composition makes. The clock itself is no longer this harness's to schedule:
         // `EmpowermentLifecyclePlugin` installs it in `EmpowermentExpiry`, which is the whole
         // point of.
-        app.add_systems(Update, begin_star_power);
+        app.add_systems(Update, (begin_star_power, burn_pocket_quasars).chain());
         app.add_plugins(
             ambition_platformer2d::combat::empowerment::EmpowermentLifecyclePlugin,
         );
@@ -330,11 +382,7 @@ mod victory_tests {
             let mut app = App::new();
             let body = app
                 .world_mut()
-                .spawn((
-                    PrimaryPlayer,
-                    PlayerEntity,
-                    Empowered::for_seconds(COSMIC_QUASAR_SUPER_STATE, 10.0),
-                ))
+                .spawn((PrimaryPlayer, PlayerEntity, PocketQuasar { remaining: 10.0 }, QUASAR_GRANT))
                 .id();
             app.world_mut().spawn(FlagSequence {
                 phase,
@@ -363,7 +411,7 @@ mod victory_tests {
         }
         let player = |app: &mut App, room| {
             app.world_mut()
-                .spawn((PlayerEntity, InRoomInstance(room), Empowered::for_seconds(COSMIC_QUASAR_SUPER_STATE, 10.0)))
+                .spawn((PlayerEntity, InRoomInstance(room), PocketQuasar { remaining: 10.0 }, QUASAR_GRANT))
                 .id()
         };
         let first = player(&mut app, won);
@@ -384,5 +432,23 @@ mod victory_tests {
             [false, false, true],
             "(first player of the room, second player of the room, a player of another room)"
         );
+    }
+
+    /// ⭐ VICTORY RETIRES THE QUASAR, NOT SOMEBODY ELSE'S EMPOWERMENT (effects
+    /// 6b). A body whose empowerment another granter holds keeps it when the
+    /// flag ends her quasar; the quasar's own grant goes with the quasar.
+    #[test]
+    fn victory_retires_the_quasar_and_not_another_granters_empowerment() {
+        let foreign = Empowered::held(Empowerment::UNTOUCHABLE);
+        let mut app = App::new();
+        let ours = app.world_mut().spawn((PlayerEntity, PocketQuasar { remaining: 10.0 }, QUASAR_GRANT)).id();
+        let theirs = app.world_mut().spawn((PlayerEntity, PocketQuasar { remaining: 10.0 }, foreign)).id();
+        app.world_mut().spawn(FlagSequence { phase: FlagPhase::Sliding { score: 400 }, ..Default::default() });
+        app.add_systems(Update, end_star_power_at_victory);
+        app.update();
+        let world = app.world();
+        assert!(world.get::<PocketQuasar>(ours).is_none() && world.get::<Empowered>(ours).is_none(), "her quasar and its grant end");
+        assert!(world.get::<PocketQuasar>(theirs).is_none(), "the other body's quasar ends too");
+        assert_eq!(world.get::<Empowered>(theirs), Some(&foreign), "but the empowerment another granter holds stays");
     }
 }

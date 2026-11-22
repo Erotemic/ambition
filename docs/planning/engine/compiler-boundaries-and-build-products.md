@@ -71,6 +71,19 @@ the work. None of the packets below selects broad rollback or Serde erasure.
 
 ## CB1 — Put the game checker above its schema library
 
+**Done (2026-11-22).** `game/ambition_content_check` now owns the
+`ambition_content_check` binary and its executable test
+(`the_shipped_pack.rs`, with the engine-only refusal control). It depends on
+`ambition_content_cli` and `ambition_content_schemas`. The schema library
+has no normal or dev dependency on the CLI and no binary target, and
+`cargo tree -p ambition_content_schemas -e normal` names no
+`ambition_content_cli` or `ambition_engine_schemas`. Repointed to
+`-p ambition_content_check`: the package guard route, the editor build
+command, the packaged-asset-guard doc and the validation recipe.
+`AMBITION_CONTENT_BIN` and the binary name are unchanged. No compile-time or
+size result is claimed. The Android adapter audit is still a separate
+subtask.
+
 **Execution owner:** `ambition_content_schemas` and the game-owned checker
 frontend. The pure-domain extraction in capability-linking L4 is separate;
 this packet can remove the reverse frontend edge before that work lands.
@@ -192,6 +205,17 @@ is selected to force a desired report.
 
 ## CB3 — Share domain lowering after the phase-specific drain
 
+**First two customers done (2026-11-22).** `lower_projectile_spawns::<L>`
+now only drains its port for `L::PHASE`, makes its own lazy writer state
+after the empty check, and calls the non-generic `apply_projectile_spawns`.
+That function validates, writes, applies and answers each submission in
+order, using the wrapper's `SpawnState`. `lower_held_statuses::<L>` drains
+and calls the non-generic `apply_held_statuses`, which stages per body in
+submission order (a let-go then a hold in one drain keeps the hold), writes
+each final set once, and retracts the clocks of released statuses. Phase
+marker types, system wrappers and per-phase local state are unchanged. No
+emitted-code measurement is claimed.
+
 **Execution owner:** combat's projectile-emission and status adapters. Their
 native systems and payloads stay in their current domains.
 
@@ -246,6 +270,21 @@ attributes. Stop if sharing requires another interpreter, cross-phase batching
 or changed Local lifetime. Those are different behavioral changes.
 
 ## CB4 — Select command dependencies and the harness's actual services
+
+**First slice (2026-11-22).** `ambition_app_tools` has an explicit `game`
+feature family holding the app, facade, harness, content, Smash, Bevy UI,
+image and Avian dependencies, all now optional. The 22 bins that simulate or
+capture declare `required-features = ["game"]`. `item_report` imports
+`ambition_persistence` from its owner and builds with
+`--no-default-features`. That graph has no app, facade, content or renderer
+crate (529 `cargo tree` lines against 3224 for the default selection), and
+the binary runs and refuses a missing save as before. Persistence still
+brings core, input and windowed Bevy, so it is not called renderer-free.
+
+`game` is still a default, so every existing launch descriptor works
+unchanged. Making it genuinely default-off means updating those descriptors
+to name it; that is the next step, together with the harness's facade
+defaults and one real harness consumer. No compile-time result is claimed.
 
 **Execution owner:** `ambition_app_tools` command packaging and
 `ambition_sim_harness` dependency selection, coordinated with supported launch

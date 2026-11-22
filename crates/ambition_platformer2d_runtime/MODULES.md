@@ -22,6 +22,7 @@
 | [`cutscene`](src/cutscene.rs) | Cutscene playback runtime (the systems that drive the scripts). |
 | [`death_fee`](src/death_fee.rs) | What a participant's death costs (PLAYER-DEATH, Q174's default): the gate network's insurance takes its fee ([`DeathFee`]) from the wallet, and the coins it took lie where the body was taken until someone fetches them. |
 | [`death_look`](src/death_look.rs) | A participant's death, drawn: the game's [`DeathLook`] effect where the body is taken when its death window opens, and the other where it comes back into play (PLAYER-DEATH). |
+| [`drawn_ledges`](src/drawn_ledges.rs) | A mount's ledges and slope that follow its art (`CharacterMount::drawn_ledges`, `CharacterMount::slope_follows`) read the row and frame the mount is drawn in. |
 | [`durable_save_horizon`](src/durable_save_horizon.rs) | Host installation of the durable save horizon. |
 | [`effect_bus`](src/effect_bus.rs) | Apply typed flag, quest, switch, and audio effects. |
 | [`extension_composition`](src/extension_composition.rs) | The extension host in the platformer composition (fast-iteration I4). |
@@ -67,8 +68,9 @@
 | [`world_overlay`](src/world_overlay.rs) | Feature collision-world overlay rebuilt from ECS-owned world geometry. |
 | [`world_posts`](src/world_posts.rs) | The committed world road between rollback islands: `post_world_signal`. |
 | [`world_schedule`](src/world_schedule.rs) | Cross-domain simulation assembly for world objects, matches, and gameplay effects. |
+| [`world_values`](src/world_values.rs) | Named world values: state the durable save keeps and every room reads. |
 
-_61 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_63 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

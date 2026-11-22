@@ -13,11 +13,13 @@
 //! cargo run -p ambition_app_tools --bin item_report -- [--save PATH] explain ID
 //! ```
 //!
+//! It needs no game: `--no-default-features` builds it on persistence alone.
+//!
 //! `--save` defaults to the sandbox save under the platform data directory.
 //! `audit` exits 1 when it finds a problem, so a script can gate on it.
 
-use ambition_platformer2d::persistence::save::{load_save, save_path};
-use ambition_platformer2d::persistence::save_data::{
+use ambition_persistence::save::{load_save, save_path};
+use ambition_persistence::save_data::{
     AmbitionGameSaveData, PersistedCustody, PersistedMintedItem, PersistedOccurrence, PersistedWhereabouts,
 };
 

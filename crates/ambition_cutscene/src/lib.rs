@@ -94,13 +94,15 @@ pub enum CutsceneBeat {
     /// Run a prepared authored command (`actor.leave_through goblin_raider
     /// barn_door runs_where_sent`, `encounter.start encounter:raid`), the
     /// vocabulary a Yarn `<<command>>` and a room line use. Instant, and a
-    /// consequence: a skip still runs it. The line is prepared against the
+    /// consequence: a skip still runs it, in its place in the order. The line is prepared against the
     /// installed commands when the library loads, and refused there.
     Command { line: String },
     /// Hold until the prepared condition line is true (`actor.gone
     /// goblin_raider`), or for `seconds_at_most`, whichever is first: a
     /// scene that waits on the world cannot wait forever on a world that
-    /// did something else. Shows nothing; a skip passes it.
+    /// did something else. Shows nothing. A skip still waits on it (SS8): it
+    /// is how a scene says its next beat depends on an arrival, a spawn, a
+    /// departure or an impact, which a skip cannot hurry.
     WaitFor { condition: String, seconds_at_most: f32 },
 }
 
@@ -157,7 +159,7 @@ impl CutsceneRuntime {
     ///
     /// A finished runtime or an out-of-range beat index has no presentation.
     pub fn presentation(&self) -> CutscenePresentation {
-        if self.finished {
+        if self.finished || self.skipping {
             return CutscenePresentation::default();
         }
         let Some(beat) = self.script.beats.get(self.beat_index) else {
@@ -286,6 +288,18 @@ impl CutsceneBeat {
     }
 }
 
+/// Who plays one of a script's roles (SS7). The runtime binds the role to one
+/// live body when the scene starts, and the scene's calls name it `@role`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RoleCast {
+    /// The one live body of this character in the scene's room (in the
+    /// world, for a scene of the whole world). None, or more than one, leaves
+    /// the role unbound and every call naming it refused.
+    Character(String),
+    /// The body of this placement.
+    Placement(String),
+}
+
 /// A complete cutscene: ordered beats + an id + an optional "seen"
 /// flag. Sandbox systems can skip a cutscene that's already been
 /// played by checking `AmbitionGameSaveData::flag(seen_flag)`.
@@ -305,6 +319,9 @@ pub struct CutsceneScript {
     /// script does not carry it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub starts_when: Option<String>,
+    /// The roles its calls name as `@role`, and who plays each.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub roles: Vec<(String, RoleCast)>,
 }
 
 impl CutsceneScript {
@@ -314,6 +331,7 @@ impl CutsceneScript {
             beats,
             seen_flag: None,
             starts_when: None,
+            roles: Vec::new(),
         }
     }
 
@@ -338,6 +356,11 @@ pub struct CutsceneRuntime {
     pub elapsed: f32,
     /// True after the last beat finishes. Caller drops the runtime.
     pub finished: bool,
+    /// The presentation was skipped (SS8): no picture, no hold on the
+    /// players, and every beat passes at once except a `WaitFor`, which
+    /// still waits for its answer or its longest hold. The scene's gameplay
+    /// work keeps its order and its dependencies.
+    pub skipping: bool,
 }
 
 impl CutsceneRuntime {
@@ -348,6 +371,18 @@ impl CutsceneRuntime {
             beat_index: 0,
             elapsed: 0.0,
             finished: false,
+            skipping: false,
+        }
+    }
+
+    /// Skip the presentation (SS8). A skip ends the show, not the story: the
+    /// rest of the script still runs in order on the following ticks, its
+    /// `WaitFor` beats still waiting on what they wait for, so a command is
+    /// never asked before the arrival, spawn or departure it depends on. The
+    /// scene completes (and is marked seen) when its last beat passes.
+    pub fn begin_skip(&mut self) {
+        if !self.finished {
+            self.skipping = true;
         }
     }
 
@@ -376,6 +411,9 @@ impl CutsceneRuntime {
             return out;
         }
         let dt = dt.max(0.0);
+        if self.skipping {
+            return self.tick_skipped(dt, holds);
+        }
         // First-frame entry into a beat: emit `BeatEntered`.
         if self.elapsed == 0.0 {
             if let Some(beat) = self.script.beats.get(self.beat_index).cloned() {
@@ -426,22 +464,27 @@ impl CutsceneRuntime {
         out
     }
 
-    /// Cancel and skip remaining beats. A skip passes over the SHOW, not
-    /// the story: the remaining beats' consequences (their flags and falls)
-    /// are emitted, then `Skipped`, so the caller applies them and marks the
-    /// cutscene seen. A skipped death that left its character standing, or a
-    /// skipped flag that left a door shut, would make skipping a choice
-    /// about the world.
-    pub fn skip(&mut self) -> Vec<CutsceneEvent> {
-        if self.finished {
-            return Vec::new();
+    /// A skipped scene's tick: every beat passes at once, in order, until a
+    /// `WaitFor` whose condition does not hold and whose longest hold has not
+    /// run out, or the end.
+    fn tick_skipped(&mut self, dt: f32, holds: impl Fn(&str) -> bool) -> Vec<CutsceneEvent> {
+        let mut out = Vec::new();
+        while let Some(beat) = self.script.beats.get(self.beat_index).cloned() {
+            if self.elapsed == 0.0 {
+                out.extend(beat.consequence());
+                out.push(CutsceneEvent::BeatEntered { index: self.beat_index, beat: beat.clone() });
+            }
+            if let CutsceneBeat::WaitFor { condition, seconds_at_most } = &beat {
+                self.elapsed += dt;
+                if !(holds(condition) || self.elapsed >= *seconds_at_most) {
+                    return out;
+                }
+            }
+            self.beat_index += 1;
+            self.elapsed = 0.0;
         }
         self.finished = true;
-        // An instant beat is entered and passed on one tick, so the beats
-        // from `beat_index` on have not been applied.
-        let mut out: Vec<CutsceneEvent> =
-            self.script.beats.get(self.beat_index..).unwrap_or_default().iter().filter_map(CutsceneBeat::consequence).collect();
-        out.push(CutsceneEvent::Skipped);
+        out.push(CutsceneEvent::Completed);
         out
     }
 }
@@ -456,7 +499,6 @@ pub enum CutsceneEvent {
     /// A `Command` beat: run the prepared command line, in the cutscene's
     /// room.
     CommandAsked { line: String },
-    Skipped,
     Completed,
 }
 
@@ -491,6 +533,10 @@ pub struct PlayingCutscene {
     /// for a cutscene of the whole world. A room's cutscene holds the players
     /// in that room and not the others (ISL-1b).
     pub room: Option<u32>,
+    /// Its roles, each bound when it started to one body's identity (the
+    /// `SimId` text the runtime minted). Rollback state: a rewind keeps the
+    /// bodies the scene began with.
+    pub roles: Vec<(String, String)>,
     /// How long the answering seat has held cancel over this cutscene, in
     /// SIMULATION seconds. The skip fires when it reaches
     /// [`CutsceneSettings::skip_hold_seconds`]; the overlay draws its progress.
@@ -506,14 +552,20 @@ impl PlayingCutscene {
     /// before any tick, so a cutscene snapshotted the frame it starts is not
     /// blank.
     pub fn new(runtime: CutsceneRuntime, room: Option<u32>) -> Self {
-        Self { presentation: runtime.presentation(), runtime, room, skip_hold: 0.0 }
+        Self { presentation: runtime.presentation(), runtime, room, roles: Vec::new(), skip_hold: 0.0 }
+    }
+
+    /// This cutscene with its roles bound.
+    pub fn with_roles(mut self, roles: Vec<(String, String)>) -> Self {
+        self.roles = roles;
+        self
     }
 
     /// Does this cutscene hold a body in the live room `room` (by its
     /// ordinal)? A cutscene of the whole world holds every body; a room's
     /// holds the bodies in its room, and a body whose room cannot be told.
     pub fn holds(&self, room: Option<u32>) -> bool {
-        self.room.is_none() || room.is_none() || self.room == room
+        !self.runtime.skipping && (self.room.is_none() || room.is_none() || self.room == room)
     }
 
     /// The seat that answers this cutscene, out of `seats` (each seat with
@@ -656,18 +708,24 @@ impl ActiveCutscene {
 pub struct CutsceneState {
     pub runtime: CutsceneRuntime,
     pub room: u32,
+    pub roles: Vec<(String, String)>,
     pub skip_hold: f32,
 }
 
 impl CutsceneState {
     /// The state of a room's playing cutscene; `None` for the world's.
     pub fn of(cutscene: &PlayingCutscene) -> Option<Self> {
-        Some(Self { runtime: cutscene.runtime.clone(), room: cutscene.room?, skip_hold: cutscene.skip_hold })
+        Some(Self {
+            runtime: cutscene.runtime.clone(),
+            room: cutscene.room?,
+            roles: cutscene.roles.clone(),
+            skip_hold: cutscene.skip_hold,
+        })
     }
 
     /// The cutscene this state plays again, its picture with it.
     pub fn playing(self) -> PlayingCutscene {
-        PlayingCutscene { skip_hold: self.skip_hold, ..PlayingCutscene::new(self.runtime, Some(self.room)) }
+        PlayingCutscene { skip_hold: self.skip_hold, roles: self.roles, ..PlayingCutscene::new(self.runtime, Some(self.room)) }
     }
 }
 
@@ -1017,21 +1075,9 @@ mod tests {
         assert!(runtime.finished);
     }
 
-    #[test]
-    fn skip_terminates_immediately() {
-        let mut runtime = CutsceneRuntime::new(intro());
-        let _ = runtime.tick(0.0, false);
-        let evs = runtime.skip();
-        assert!(evs.contains(&CutsceneEvent::Skipped));
-        assert!(runtime.finished);
-        // Subsequent ticks are no-ops.
-        let evs = runtime.tick(1.0, true);
-        assert!(evs.is_empty());
-    }
-
     /// A skip passes over the show and keeps the story: the flags and falls
-    /// of the beats it skipped are still emitted, before `Skipped`; the
-    /// beats already played are not emitted again.
+    /// of the beats it skipped are still emitted, in order; the beats
+    /// already played are not emitted again.
     #[test]
     fn a_skip_keeps_the_flags_and_falls_it_skipped() {
         let script = CutsceneScript::new(
@@ -1048,14 +1094,61 @@ mod tests {
         assert!(played.contains(&CutsceneEvent::FlagWritten { id: "before".into(), on: true }));
         let _ = runtime.tick(0.0, false);
         assert!(matches!(runtime.current_beat(), Some(CutsceneBeat::Dialogue { .. })));
+        runtime.begin_skip();
+        let consequences: Vec<CutsceneEvent> = runtime
+            .tick(0.1, false)
+            .into_iter()
+            .filter(|event| !matches!(event, CutsceneEvent::BeatEntered { .. }))
+            .collect();
         assert_eq!(
-            runtime.skip(),
+            consequences,
             vec![
                 CutsceneEvent::CharacterFell { character: "npc_creator".into() },
                 CutsceneEvent::FlagWritten { id: "after".into(), on: true },
-                CutsceneEvent::Skipped,
+                CutsceneEvent::Completed,
             ]
         );
+        assert!(runtime.finished);
+        assert!(runtime.tick(1.0, true).is_empty(), "a finished runtime is a no-op");
+    }
+
+    /// A skipped presentation still runs the story in order (SS8): the
+    /// commands before a `WaitFor` are asked at once, the `WaitFor` still
+    /// waits for its answer, and nothing after it is asked early.
+    #[test]
+    fn a_skipped_scene_still_waits_for_what_it_waits_for() {
+        let script = CutsceneScript::new(
+            "doorway",
+            vec![
+                CutsceneBeat::Dialogue { speaker_character_id: String::new(), speaker: "A".into(), text: "B".into() },
+                CutsceneBeat::Command { line: "walk".into() },
+                CutsceneBeat::WaitFor { condition: "arrived".into(), seconds_at_most: 8.0 },
+                CutsceneBeat::Dialogue { speaker_character_id: String::new(), speaker: "C".into(), text: "D".into() },
+                CutsceneBeat::Command { line: "release".into() },
+            ],
+        );
+        let asked = |events: &[CutsceneEvent]| -> Vec<String> {
+            events
+                .iter()
+                .filter_map(|event| match event {
+                    CutsceneEvent::CommandAsked { line } => Some(line.clone()),
+                    _ => None,
+                })
+                .collect()
+        };
+        let mut runtime = CutsceneRuntime::new(script);
+        let _ = runtime.tick(0.0, false);
+        runtime.begin_skip();
+        assert_eq!(runtime.presentation(), CutscenePresentation::default(), "a skipped scene shows nothing");
+        let events = runtime.tick_asking(0.1, false, |_| false);
+        assert_eq!(asked(&events), ["walk"]);
+        assert!(!runtime.finished, "the skip waits for the arrival");
+        let events = runtime.tick_asking(0.1, false, |_| false);
+        assert!(asked(&events).is_empty(), "nothing after the wait is asked before it is answered");
+        let events = runtime.tick_asking(0.1, false, |condition| condition == "arrived");
+        assert_eq!(asked(&events), ["release"]);
+        assert!(runtime.finished);
+        assert!(events.contains(&CutsceneEvent::Completed));
     }
 
     #[test]
@@ -1239,6 +1332,20 @@ mod snapshot {
             for beat in &self.beats {
                 beat.encode(out);
             }
+            put_u32(out, self.roles.len() as u32);
+            for (role, cast) in &self.roles {
+                put_str(out, role);
+                match cast {
+                    RoleCast::Character(character) => {
+                        put_u32(out, 0);
+                        put_str(out, character);
+                    }
+                    RoleCast::Placement(placement) => {
+                        put_u32(out, 1);
+                        put_str(out, placement);
+                    }
+                }
+            }
         }
 
         fn decode(reader: &mut Reader<'_>) -> Option<Self> {
@@ -1254,11 +1361,23 @@ mod snapshot {
             for _ in 0..count {
                 beats.push(CutsceneBeat::decode(reader)?);
             }
+            let count = reader.u32()?;
+            let mut roles = Vec::with_capacity((count as usize).min(16));
+            for _ in 0..count {
+                let role = reader.str()?.to_owned();
+                let cast = match reader.u32()? {
+                    0 => RoleCast::Character(reader.str()?.to_owned()),
+                    1 => RoleCast::Placement(reader.str()?.to_owned()),
+                    _ => return None,
+                };
+                roles.push((role, cast));
+            }
             Some(Self {
                 id,
                 beats,
                 seen_flag,
                 starts_when: None,
+                roles,
             })
         }
     }
@@ -1309,10 +1428,28 @@ mod snapshot {
         }
     }
 
+    fn put_roles(roles: &[(String, String)], out: &mut Vec<u8>) {
+        put_u32(out, roles.len() as u32);
+        for (role, id) in roles {
+            put_str(out, role);
+            put_str(out, id);
+        }
+    }
+
+    fn roles(reader: &mut Reader<'_>) -> Option<Vec<(String, String)>> {
+        let count = reader.u32()? as usize;
+        let mut roles = Vec::with_capacity(count.min(16));
+        for _ in 0..count {
+            roles.push((reader.str()?.to_owned(), reader.str()?.to_owned()));
+        }
+        Some(roles)
+    }
+
     fn put_runtime_state(runtime: &CutsceneRuntime, out: &mut Vec<u8>) {
         put_u32(out, runtime.beat_index as u32);
         put_f32(out, runtime.elapsed);
         put_bool(out, runtime.finished);
+        put_bool(out, runtime.skipping);
         put_f32(out, runtime.settings.skip_hold_seconds);
     }
 
@@ -1322,6 +1459,7 @@ mod snapshot {
             beat_index: reader.u32()? as usize,
             elapsed: reader.f32()?,
             finished: reader.bool()?,
+            skipping: reader.bool()?,
             settings: CutsceneSettings { skip_hold_seconds: reader.f32()? },
         })
     }
@@ -1339,6 +1477,7 @@ mod snapshot {
                     }
                     None => put_bool(out, false),
                 }
+                put_roles(&cutscene.roles, out);
                 put_f32(out, cutscene.skip_hold);
             }
         }
@@ -1351,7 +1490,8 @@ mod snapshot {
                 let script = std::sync::Arc::new(CutsceneScript::decode(reader)?);
                 let runtime = runtime_state(reader, script)?;
                 let room = if reader.bool()? { Some(reader.u32()?) } else { None };
-                playing.push(PlayingCutscene { skip_hold: reader.f32()?, ..PlayingCutscene::new(runtime, room) });
+                let roles = roles(reader)?;
+                playing.push(PlayingCutscene { roles, skip_hold: reader.f32()?, ..PlayingCutscene::new(runtime, room) });
             }
             Some(Self { playing })
         }
@@ -1367,6 +1507,7 @@ mod snapshot {
                     put_u32(out, script);
                     put_runtime_state(&state.runtime, out);
                     put_u32(out, state.room);
+                    put_roles(&state.roles, out);
                     put_f32(out, state.skip_hold);
                 }
                 _ => put_bool(out, false),
@@ -1379,7 +1520,9 @@ mod snapshot {
             }
             let script = scripts.get(reader.u32()? as usize)?.clone();
             let runtime = runtime_state(reader, script)?;
-            Some(Some(Self { runtime, room: reader.u32()?, skip_hold: reader.f32()? }))
+            let room = reader.u32()?;
+            let roles = roles(reader)?;
+            Some(Some(Self { runtime, room, roles, skip_hold: reader.f32()? }))
         }
     }
 

@@ -182,7 +182,7 @@ fn a_crouched_laser_keeps_its_lit_visor_and_leaves_the_posed_eye() {
     let content = sim.world().resource::<ambition_platformer2d::sprite_sheet::SpriteContent>();
     let art = ambition_platformer2d::sprite_sheet::character::rigged::RiggedSpriteAsset::baked(content, "player_robot_v3").unwrap();
     let row = art.clip("eye_laser_crouch").expect("the crouched firing row is published");
-    assert!(art.frame("eye_laser_crouch", 0).unwrap().iter().any(|draw| draw.track.is_some_and(|track| art.tracks[usize::from(track)] == "visor_fill")),
+    assert!(art.frame("eye_laser_crouch", 0).unwrap().iter().any(|draw| draw.track.is_some_and(|track| art.tracks()[usize::from(track)] == "visor_fill")),
         "the squashed head still draws its lit visor");
     assert!(row.frame_count() > 0);
     sim.step_n(ambition_app::AgentAction { projectile_held: true, ..base() }, 8);

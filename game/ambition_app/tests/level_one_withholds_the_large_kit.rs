@@ -1,7 +1,9 @@
 //! LEVEL-1-KIT: level 1 withholds everything past run, one jump and the
 //! strike, the shot included (each room's `withheld_verbs`, written into the player's body as a
 //! ceiling contribution). The control is the same robot in the hub, whose
-//! rooms withhold nothing: it has its whole kit.
+//! rooms withhold nothing: it has its whole kit. Both run with the developer's
+//! "Unlock all abilities" switch off: it is on by default and lifts every
+//! room's withheld verbs (`playtest_ability_access`).
 
 use ambition_app::{AmbitionSim as _, Platformer2dSimHarness};
 use ambition_platformer2d::engine_core::{AbilityBase, AbilitySet, BodyAbilities};
@@ -12,6 +14,9 @@ use crate::common::{base, fixed_60hz_room_options};
 /// The player's authored kit and its effective one, a few ticks into `room`.
 fn kit_in(room: &str) -> (AbilitySet, AbilitySet) {
     let mut sim = Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(room)).expect("the room boots");
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet>()
+        .unlock_all_abilities = false;
     for _ in 0..5 {
         sim.step(base());
     }

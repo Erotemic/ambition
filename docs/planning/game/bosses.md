@@ -28,6 +28,7 @@ build, not necessarily current HEAD; revalidate before reopening a fix.
 | Hall of Bosses | Verify whether main-game boss copies need conversion to `practice` without changing hall-only bosses' story semantics |
 | GNU-ton | Review remaining presentation, line/limb, arena/practice, tests, tuning and GPU issues against [`gnu-ton-fight-debts.md`](gnu-ton-fight-debts.md) and current phase-3 implementation |
 | Smirking Behemoth / Mode Collapse | Optional eye-beam material/aim tell; bespoke degenerating Mode Collapse music |
+| Supreme Leader | Q182/Q183; his own cue and War Room backdrop; human playtest and tuning |
 
 ## The design language
 
@@ -517,6 +518,99 @@ captures, never movement authority.
 - Ensure a warded part-based body still shows its ring through all pose
   and mirror changes; evaluate the baked fallback and actor-generic hit-face
   expression seam rather than duplicating the boss-only path.
+
+## The Supreme Leader — total control (built 2026-11-21)
+
+The ruler of the Nazi Dimension's regime, from the concept sheet
+`assets/concept_art/misc/Supreme Leader Character Design Sheet.png`. He is
+**not** Wolfenstein, and he is not fought in Castle Godwin (which is not the
+capital). His name, his history and where in the dimension he is fought are
+**open** ([Q182](../awaiting-maintainer-decision.md#q182--where-in-the-nazi-dimension-is-the-supreme-leader-fought),
+[Q183](../awaiting-maintainer-decision.md#q183--who-is-the-supreme-leader)); nothing here settles them.
+The regime fought the Gate Authority to a stalemate; the fight does not
+retell it.
+
+**The failed objective function: total control.** He tries to control every
+part of the battlefield. His orders go through a **Command Uplink**, a mast
+he calls down into the room; while it stands a tether runs from its dish to
+his sceptre and he cannot be hurt while he gives an order. The plan is
+brittle: break the uplink and his orders still go out, but nothing answers
+them. He stands with a hand to his ear, shouting into it ("report"), open to
+every blow. The player beats him by turning his own system into his
+weakness, not by out-damaging a wave of summons: there is one uplink at a
+time, and the uplinks never come back by themselves.
+
+**The look.** A long black coat with a broad crimson front band, a
+cream stripe and a gold edge; a high collar flaring behind his head; a
+crimson cape lined in cream; a gold aiguillette; black gloves, crimson
+cuffs, tall black boots. Dark swept-back hair with one grey streak, clean
+shaven. The regime's sigil is an invented mark, a winged arrow rising on a
+gold disc. No real uniform, insignia or person is copied. His sceptre is a
+gold staff whose ring holds a crimson orb: a gate device.
+
+### Phases
+
+| phase (HP) | name | his network | what changes |
+|---|---|---|---|
+| intro | the address | the first uplink comes down at the west end | he addresses the room, arm thrown out; his name card |
+| 1 (100–65%) | the Command | the west uplink, its lines firing east | the lines and the decree (orders), precision and the sweep (his own) |
+| beat | the Contingency | the west uplink is sent away; a new one comes down at the east end | the lines now come from the other side |
+| 2 (65–30%) | the Disruption | the east uplink | the crossfire and the gate step join; the decree marks five places, precision fires four bolts |
+| beat | the Emergency Powers | the uplink is drained into his sceptre and goes | he grows (1.1x); a red crackle stays on him |
+| enrage (<30%) | the Emergency Powers | none: no order needs one now | the Mandate and its overheat; chained gate steps; five bolts |
+| defeat | | | he goes down on one knee on his sceptre, defiant; the orb opens a gate behind him and he falls back through it. He is beaten and gone, not dead, and the regime stands |
+
+No phase is an invulnerability phase: his guard holds only while an order
+runs through a standing uplink, and only the beats between phases (1.8 s)
+are not fought.
+
+### The moves (each a `Special` that `ambition_content_modules::supreme_leader` performs)
+
+| key (seed) | what it is | the tell | the dodge | the window |
+|---|---|---|---|---|
+| `sl_lines` (sweep) — order | the uplink's low line down the room (22 over the floor), then its high line (104) 0.55 s later | he points at the uplink; red sight lines from both pods to the wall | jump the low line, be down again before the high one; or be behind the uplink, or on a ledge | the rest after it; with the uplink broken, the whole order is a "report" window |
+| `sl_decree` (projectile rain) — order | reticles under you and either side (five in phase 2); a shell falls on each, one after another | the sceptre raised; red reticle lines from the ceiling | leave the marks | the rest after it |
+| `sl_crossfire` (beam) — order, phase 2 | the high pod's sight line follows you, locks, and fires along the lock | the tracking line, then a lock flash and cue | leave the locked line | the rest after it |
+| `sl_precision` (spread volley) | the sceptre levelled; 3/4/5 bolts that lead you | the aim pose and its sight line | dash or walk across them; a parry turns each one back on him | the rest after it |
+| `sl_sweep` (slam) | the sceptre wound back and swung through everything in front of him | the wind-up | back off, or be behind him | his follow-through (0.45 s) and the rest |
+| `sl_gate_step` (dash through), phase 2 on | a violet ring opens past you; he steps out of it and sweeps toward you | the ring growing, his cape swirling round him | leave the ring's side of you | the follow-through |
+| `sl_mandate` (zone denial), the signature, enrage | the orb's beam swept from high in front of him down to the floor at his feet, 720 long | feet planted, sceptre out in both hands, the orb blazing; a sight line along the first angle and its full reach | get behind him, or past its reach | the sceptre overheats and vents: the long window (1.8 s rest) |
+
+### Where and how
+
+- **The War Room** (`hall_supreme_leader_war_room`, `evil.ldtk`), a room of
+  its own at the bottom of the dimension's world file, joined to no other
+  room. Until Q182 is answered its only way in is the **Hall of Bosses**
+  door on the lower floor (`hall_to_supreme_leader_portal`) with its life
+  switch. It is his one placement (`hall.supreme_leader`), so it is a real
+  encounter, not a practice copy: beating him drops his chest (400) and is
+  saved. Generator:
+  `game/ambition_map_assets/ambition_content/generators/war_room/make_specs.py`.
+  The room is 1920 x 768: a flat floor, two ledges a double jump up, a bar
+  over the middle a double jump over them. It wears the regime's castle
+  skin and backdrop until it has its own.
+- **Art:** the renderer's `supreme_leader` (16 rows, 640 x 480 frames),
+  `command_uplink`, and the shots `supreme_leader_bolt` and
+  `supreme_leader_shell` (`projectiles/regime_shots.py`).
+- **Data:** `npc_supreme_leader` and `npc_command_uplink`
+  (`character_catalog.ron`; the uplink takes 6 blows, then 8, and nothing
+  staggers it); the `supreme_leader` profile (`boss_profiles.ron`); the
+  encounter (`boss_encounters/supreme_leader.ron`, 90 HP, transition 65%,
+  enrage 30%); his sheet (`boss_sheets.ron`), art keys, seed instances; the
+  music binding to the regime's `tritone_decree` (`music_cues.ron`). A
+  `sight` line look (`ambition_vfx`) draws every sight line and reticle.
+- **Multiplayer and replay:** everything he fires is a room volume, a ray
+  or a projectile: it meets every participant. His state is the
+  conductor's record on his body, derived each tick from the pattern and his
+  encounter, so a rollback replays it.
+
+### Remaining work and decisions
+
+- Q182 (where he is fought, and the capital) and Q183 (his name and
+  history).
+- A cue of his own, and a War Room backdrop of its own.
+- Human playtest and tuning: the uplink's blows, the lines' heights against
+  every body, the Mandate's reach.
 
 ## The Mockingbird — air chase (proposed 2026-10-06, Jon; built 2026-10-06)
 

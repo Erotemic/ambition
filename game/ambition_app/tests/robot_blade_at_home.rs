@@ -238,7 +238,7 @@ fn a_swing_in_flight_keeps_the_jets() {
     // The picture: the swing's row with the flight row under it draws jets.
     let flipbook = RiggedSpriteAsset::baked(&sprite_content, "player_robot_v3").expect("the robot's part flipbook is published");
     let jets = |draws: &[ambition_platformer2d::sprite_sheet::character::rigged::PartDraw]| {
-        draws.iter().filter(|draw| draw.track.is_some_and(|track| flipbook.tracks[usize::from(track)].contains("jet"))).count()
+        draws.iter().filter(|draw| draw.track.is_some_and(|track| flipbook.tracks()[usize::from(track)].contains("jet"))).count()
     };
     let (mut drawn, mut scratch) = (Vec::new(), Vec::new());
     flipbook.tween_into(&clip.clip, 1, 0.0, &mut drawn).expect("the swing's row");

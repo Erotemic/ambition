@@ -20,6 +20,7 @@ pub mod hunny;
 pub mod inugami;
 pub mod mockingbird;
 pub mod specials;
+pub mod supreme_leader;
 pub mod wolfenstein;
 #[cfg(feature = "ui")]
 pub mod yarn;
@@ -166,6 +167,7 @@ pub fn boss_catalog_fragment_from(sprite_content: &ambition_platformer2d::sprite
     .with_birth_kit(hunny::HUNNY_ID, "ambition.hunny.birth.v1", sprite_content, hunny::birth)
     .with_birth_kit(mockingbird::MOCKINGBIRD_ID, "ambition.mockingbird.birth.v1", sprite_content, mockingbird::birth)
     .with_birth_kit(wolfenstein::WOLFENSTEIN_ID, "ambition.wolfenstein.birth.v1", sprite_content, wolfenstein::birth)
+    .with_birth_kit(supreme_leader::SUPREME_LEADER_ID, "ambition.supreme_leader.birth.v1", sprite_content, supreme_leader::birth)
     .with_birth_kit(inugami::INUGAMI_ID, "ambition.inugami.birth.v1", sprite_content, inugami::birth)
     .with_birth_kit(cut_rope::CUT_ROPE_BOSS_ID, "ambition.cut_rope.birth.v1", sprite_content, cut_rope::birth);
     Ok(fragment)

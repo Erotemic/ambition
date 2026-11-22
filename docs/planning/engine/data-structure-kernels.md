@@ -83,6 +83,22 @@ avoid specializing the heavy algorithm for each gameplay payload.
 
 ## K1 — snapshot bounds queries
 
+**Range extraction landed (2026-11-22).** The grid moved from a private
+`Grid` in `core::layered` to `ambition_geometry::spatial::RangeGrid`, built
+from an iterator of bounds. It comes with:
+- the exact reference `scan_touching`;
+- the inclusive `touches` predicate;
+- a test: grid candidates filtered by `touches` equal the scan, for small,
+  cell-straddling, flat and large entries, and for small, flat,
+  wide and huge regions.
+
+`Layered` keeps its shared base, hidden rows, additions and the two lazy
+(current and swept) grids, and delegates the cell algorithm. Contact
+partitions now hold their envelopes, a `RangeGrid` and the refused list
+directly. The unused `Layered` overlay wrapper is gone. Cell size, the
+large-entry rule and the huge-region fallback are unchanged. No
+representation was chosen by measurement (K3).
+
 ### Exact bounds results and conservative candidates
 
 A range result is exact with respect to the supplied closed AABBs. Touching
@@ -163,6 +179,22 @@ become a new gameplay refusal. A compact structure's capacity is not the
 gameplay output limit.
 
 ## K2 — ambiguity-preserving frozen lookup
+
+**Landed (2026-11-22).** `ambition_binding::cardinality` holds
+`Cardinality<V>` (`Missing`, `Unique(V)`, `Ambiguous`), the `scan`
+reference, and `FrozenLookup<K, V>` (a tree map indexed once, with borrowed
+key lookup). It counts rows, so a repeated identical row is ambiguous.
+Migrated customers:
+- `ObjectIndex` (and the scan in `resolve`), which maps the result onto
+  `ObjectLookupError`;
+- the behavior-binding index in `object_behaviors::call`;
+- `AuthoredObjectIndex`, where `Unique(None)` stays apart from `Missing`
+  for an unpublished root.
+
+Each owner keeps its own domain errors and capture timing. Their three
+private reducers are deleted. The kernel's own test checks the index against
+the scan on missing, unique, repeated-identical, conflicting and `None` rows.
+No measurement selects another representation yet (K3).
 
 The shared operation asks how many input rows have a key. Its result is
 `Missing`, `Unique(value)` or `Ambiguous`. This is a proposed kernel result,

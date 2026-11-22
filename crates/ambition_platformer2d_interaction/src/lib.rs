@@ -3,11 +3,11 @@
 use ambition_platformer2d_core::{AabbExt, CenteredAabb, snapshot::{SnapshotState, Reader, put_bytes}};
 use bevy::prelude::*;
 
-/// What one body's Interact press reaches. The one rule for the press
-/// ([`interact_ecs_actors_and_switches`], `open_ecs_chests`), for the door
-/// that shares the press ([`TalkableBodies`]) and for the prompt
-/// (`ambition_sim_view::update_nearest_interactable`), so the prompt names
-/// what the press does. Before, the prompt asked a copy with no live-room
+/// What one body's Interact press reaches. The one rule for the selection
+/// (`select_interactions`, which the prompt, the door and the mount follow)
+/// and for each executor's revalidation at its own cut
+/// (`interact_ecs_actors_and_switches`, `open_ecs_chests`), so the prompt
+/// names what the press does. Before, the prompt asked a copy with no live-room
 /// check, no door rule and no facing gate (review 2026-10-08).
 #[derive(Clone, Copy, Debug)]
 pub struct InteractReach {

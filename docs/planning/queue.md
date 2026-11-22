@@ -182,7 +182,10 @@ world-post admission.
    eligible windows, domain acceptance and explicit read/consume cuts.
    (I1 landed 2026-11-22: one conversation decision for the prompt, the
    door and the opening; selection is gameplay's `InteractSelection`, which
-   the prompt projects and the mount and portal consumers read. I2 is next.)
+   the prompt projects and the mount and portal consumers read. I2's first
+   slice landed the same day: the talk/switch and chest executors and the
+   door act on the selected target, revalidated at their own cuts. The mount
+   and portal outcome correlation remains.)
 
 **Acceptance:** a selected domain fact has one binder; independent holds and
 poses retire separately; another room cannot act on a world cause that can

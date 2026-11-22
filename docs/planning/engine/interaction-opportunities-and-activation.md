@@ -1,6 +1,7 @@
 # Interaction opportunities and accepted activation
 
-**State:** I1 landed 2026-11-22 (below, "I1 landed"); I2 is planned.
+**State:** I1 landed 2026-11-22 (below, "I1 landed"); I2's first slice
+landed the same day (below, "I2 first slice").
 Source reviewed at `b91b29d35935`; planning follows `9e5e1e06`.
 [The queue](../queue.md) selects the bounded work.
 
@@ -239,6 +240,47 @@ bounded customer set. Give the selected attempt and owner result one path;
 remove raw-edge consumption and predicted claim side channels as each caller
 migrates. State the read and consume cuts and the same-tick ordering above.
 Use current public schedule milestones; no universal command buffer is needed.
+
+**I2 first slice (2026-11-22): the executors and the door act on the
+selected attempt.**
+
+- The talk/switch executor (`interact_ecs_actors_and_switches`) executes
+  only the body's selected Talk or Activate target, revalidated at its own
+  cut (`FeatureInteraction`). Its own candidate ordering is deleted. A
+  target refused at that cut leaves the press buffered for the next
+  arbitration: a higher target that appeared since does not steal it, and no
+  lower one is taken instead. So two actors that selected one free talker
+  settle through the conversation owner, and the second waits.
+- The chest executor (`open_ecs_chests`) opens only the selected chest,
+  revalidated (closed, not falling, not opened this pass, touched). Its own
+  `interact_order` is deleted. Witness:
+  `a_stale_selection_opens_nothing_and_keeps_the_press`.
+- A press-activated door crosses only when the press is selected for `Use`.
+  The door's own talk-priority query (`TalkableBodies::nearest_in_reach`)
+  is deleted. So a switch, a chest or a boardable mount in reach now also
+  keeps a door's press, by the selection's stated precedence; before, only
+  a talker did. A busy lifecycle slot still leaves the tap buffered.
+- `select_interactions` takes the room specs as `Option`, so a
+  composition with no room set still selects (no rooms, no doors) instead of
+  skipping the system.
+
+Read and consume cuts: selection in `PlayerInput` after
+`PrimarySlotInputCommit`; the portal toggle in `PlayerSimulation`; the door
+in `RoomTransition`; boarding in `CombatSet::Settle`; talk, switch and
+chest in `FeatureInteraction`. Each consumer reads the same tick's
+selection.
+
+Still open:
+
+- The mount still reads the raw Interact edge and picks its mount with
+  the same `nearest_commandeerable` the selection used. It yields through
+  `InteractPressesClaimed`, which is now a projection of the selection, not
+  the prompt.
+- The portal toggle still reads its raw edge and yields to any selection.
+  Neither correlates its owner's outcome (board refused, no generator) back
+  to an attempt.
+- No witness yet exercises retirement, possession or room replay of a
+  selected attempt.
 
 **Acceptance:** the same installed gameplay composition works without the
 prompt plugin; an unavailable self-conversation does not falsely claim the

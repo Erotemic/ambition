@@ -112,13 +112,15 @@ pub fn select_interactions(
     )>,
     pilots: Query<(Option<&ambition_mount::CanPilot>, Has<ambition_mount::RidingOn>)>,
     // The live rooms and the doors in them: the press's room and door rules.
-    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    // `Option`: a composition with no room set still selects (no rooms, no
+    // doors) rather than skipping the whole system.
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     mut out: ResMut<InteractSelection>,
 ) {
     let selected_for = |body: Entity| -> Option<InteractSelected> {
         let (kin, step, frame) = bodies.get(body).ok()?;
-        let reach = InteractReach::of(kin, step, frame, rooms.live().of(body));
-        let door = rooms.nearest_door_under(body, reach.collision_box(), reach.pos());
+        let reach = InteractReach::of(kin, step, frame, rooms.as_ref().and_then(|rooms| rooms.live().of(body)));
+        let door = rooms.as_ref().and_then(|rooms| rooms.nearest_door_under(body, reach.collision_box(), reach.pos()));
         let target = targets
             .chosen(body, &reach, door)
             .map(|(entity, kind)| InteractSelected { operation: kind.into(), target: Some(entity) });

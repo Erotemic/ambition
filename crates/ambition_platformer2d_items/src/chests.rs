@@ -72,10 +72,11 @@ pub fn open_ecs_chests(
     // walk-over pickup hands to `grant_pickup`.
     mut heals: MessageWriter<ambition_damage::healing::BodyHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
-    (mut owned, items, objects): (
+    // And what each body's press is selected for (interaction I2).
+    (mut owned, items, selection): (
         Option<ResMut<ambition_items::OwnedItems>>,
         ambition_items::ItemCatalogRead,
-        ambition_platformer2d_shared_tangle::lifecycle::LiveObjects,
+        Option<Res<ambition_platformer2d_interaction::InteractSelection>>,
     ),
     // What a chest gave: a retracted defeat takes back a boss reward
     // chest's, and a restore keeps an ordinary chest's while one of the
@@ -125,26 +126,27 @@ pub fn open_ecs_chests(
             subject_frame,
             rooms.of(subject),
         );
-        // The press opens the chest that `interact_order` puts first, as the
-        // prompt names it.
-        let order = ambition_platformer2d_interaction::interact_order(
-            chests
-                .iter()
-                .filter(|(entity, _, _, aabb, _, opened, falling, ..)| {
+        // The press opens the chest it is selected for
+        // (`select_interactions`, which ranked it against bodies, switches,
+        // doors and mounts at the input cut), revalidated here: still closed,
+        // not falling, not opened by another body this pass, and touched. A
+        // chest refused here leaves the press unspent for the next cut.
+        let selected = selection
+            .as_deref()
+            .and_then(|selection| selection.of(subject))
+            .filter(|selected| selected.operation == ambition_platformer2d_interaction::InteractOperation::Open)
+            .and_then(|selected| selected.target)
+            .filter(|chest| {
+                chests.get(*chest).is_ok_and(|(entity, _, _, aabb, _, opened, falling, ..)| {
                     // A chest has no facing gate: its spec has no `requires_facing`.
                     falling.is_none()
                         && opened.is_none()
-                        && !opened_this_pass.contains(entity)
-                        && reach.touches(rooms.of(*entity), aabb, false)
+                        && !opened_this_pass.contains(&entity)
+                        && reach.touches(rooms.of(entity), aabb, false)
                 })
-                .map(|(entity, _, _, aabb, ..)| ambition_platformer2d_interaction::InteractCandidate {
-                    kind: ambition_platformer2d_interaction::InteractKind::Open,
-                    preference: reach.preference(aabb.center),
-                    id: (objects.reference(entity), entity),
-                }),
-        );
+            });
         if let Some((entity, id, name, aabb, chest, _, _, boss_reward, chest_sim_id, origin)) =
-            order.first().and_then(|offer| chests.get(offer.id.1).ok())
+            selected.and_then(|chest| chests.get(chest).ok())
         {
             commands.entity(entity).insert(Opened);
             opened_this_pass.push(entity);

@@ -10,6 +10,9 @@ use bevy::prelude::{App, NextState, Update};
 /// asks the live room whether a door is nearer than a body to talk to, and
 /// production installs the room set with the session.
 pub(super) fn install_a_room_without_doors(app: &mut App) {
+    // And the selection the executor follows, which production installs
+    // beside the room set.
+    app.init_resource::<ambition_platformer2d_interaction::InteractSelection>();
     let world = ae::World::new("room", ae::Vec2::new(640.0, 480.0), ae::Vec2::ZERO, Vec::new());
     ambition_platformer2d_world::rooms::insert_room_set(
         app.world_mut(),
@@ -110,6 +113,8 @@ fn buffered_interact_toggles_an_adjacent_switch() {
     app.add_systems(
         Update,
         (
+            // The press goes to what it is selected for: the selection runs first.
+            selection::select_interactions,
             interact_ecs_actors_and_switches,
             ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
@@ -209,6 +214,8 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
     app.add_systems(
         Update,
         (
+            // The press goes to what it is selected for: the selection runs first.
+            selection::select_interactions,
             interact_ecs_actors_and_switches,
             ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
@@ -296,6 +303,8 @@ fn a_visitor_gets_the_pedestals_ordinary_node() {
     app.add_systems(
         Update,
         (
+            // The press goes to what it is selected for: the selection runs first.
+            selection::select_interactions,
             interact_ecs_actors_and_switches,
             ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
@@ -325,6 +334,8 @@ fn wearing_the_pedestals_character_enters_the_self_branch() {
     app.add_systems(
         Update,
         (
+            // The press goes to what it is selected for: the selection runs first.
+            selection::select_interactions,
             interact_ecs_actors_and_switches,
             ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
@@ -365,6 +376,8 @@ fn self_talk_without_a_self_branch_is_suppressed_without_a_trace() {
     app.add_systems(
         Update,
         (
+            // The press goes to what it is selected for: the selection runs first.
+            selection::select_interactions,
             interact_ecs_actors_and_switches,
             ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
@@ -415,6 +428,8 @@ fn an_unpopulated_node_index_never_suppresses() {
     app.add_systems(
         Update,
         (
+            // The press goes to what it is selected for: the selection runs first.
+            selection::select_interactions,
             interact_ecs_actors_and_switches,
             ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
@@ -457,7 +472,7 @@ fn interaction_app() -> App {
     //  the possession reconcile is deliberately NOT here: it only moves the
     // primary seat between a home avatar and a possessed body, and no possession
     // happens in this fixture.
-    app.add_systems(Update, interact_ecs_actors_and_switches);
+    app.add_systems(Update, (selection::select_interactions, interact_ecs_actors_and_switches).chain());
     app
 }
 
@@ -740,6 +755,8 @@ fn a_body_talks_only_to_the_npc_of_its_own_live_room() {
     app.add_systems(
         Update,
         (
+            // The press goes to what it is selected for: the selection runs first.
+            selection::select_interactions,
             interact_ecs_actors_and_switches,
             ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )
@@ -832,6 +849,7 @@ fn a_facing_gated_person_is_not_talked_to_from_behind() {
         app.add_systems(
             Update,
             (
+                selection::select_interactions,
                 interact_ecs_actors_and_switches,
                 ambition_conversation::project_the_dialog_ui_from_the_conversation,
             )
@@ -865,7 +883,7 @@ fn a_talk_is_dated_in_the_talkers_room() {
     }
     let player = spawn_interaction_player_wearing(&mut app, center, "goblin");
     app.world_mut().entity_mut(player).insert(InRoomInstance(rooms[1]));
-    app.add_systems(Update, interact_ecs_actors_and_switches);
+    app.add_systems(Update, (selection::select_interactions, interact_ecs_actors_and_switches).chain());
     app.update();
 
     let dated = Some(RoomWrite { room: rooms[1], tick: 7 });

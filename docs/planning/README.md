@@ -228,6 +228,9 @@ links to.
 - [`engine/portal-parts-similarity-and-chirality.md`](engine/portal-parts-similarity-and-chirality.md)
   Portal delivery owner: exact material, admitted topology/motion, conservative
   query preparation and per-observer presentation; bounded P1–P6 work.
+- [`engine/scale-relative-gameplay.md`](engine/scale-relative-gameplay.md)
+  Same ordinary motion/action timing at different material scales; canonical
+  body units, resolved world frames, contacts and relation consumers.
 - [`engine/portal-pair-identity-and-aperture.md`](engine/portal-pair-identity-and-aperture.md)
   Directed occurrence, per-connection map law, atomic edits and scoped leases.
 - [`engine/portals-are-moving-frames.md`](engine/portals-are-moving-frames.md)
@@ -271,6 +274,9 @@ links to.
 
 - [`engine/render-animation-and-vfx.md`](engine/render-animation-and-vfx.md) —
   presentation ownership and body-owned drawables.
+- [`engine/presentation-order-and-25d-rendering.md`](engine/presentation-order-and-25d-rendering.md)
+  Cart interior slots and whole-appearance order; shared samples with
+  optional Bevy 3D cards/meshes beside current 2D views.
 - [`engine/sprite-renderer.md`](engine/sprite-renderer.md)
 - [`engine/external-art-library-migration.md`](engine/external-art-library-migration.md)
   — shared content libraries and explicit game selection.

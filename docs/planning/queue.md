@@ -88,6 +88,13 @@ carries closed campaigns. Unselected or customer-gated plans live in
    combat and map rows below are independent bounded work, not a second
    priority list; select them after correctness constraints are respected.
 
+The 2026-11-21 follow-up selects
+[SCALE-FEEL](#scale-feel--the-same-body-behavior-at-a-different-scale) and
+[PRESENTATION-COMPOSITION](#presentation-composition--order-appearances-and-add-a-25d-view)
+as bounded movement/presentation work within this product order. Fix ordinary
+scaled behavior and cart order through their current owners; the optional
+3D view follows the shared sampling boundary and does not block those fixes.
+
 Current source may be ahead of these dated ordering decisions. Do not treat
 old measurements as an obligation to redo completed work. Detailed
 architecture proposals in
@@ -220,6 +227,11 @@ cost-state reduction, then reuses motion envelopes and graph query work.
 Temporary stance/cooldown belongs to live leg entry, not per-tick graph
 rebuilding. The [E4 owner](engine/platformer-navigation-and-reachability.md#define-the-standing-experiment-before-caching-it)
 gives the scaled-body witness, deletion targets and cost falsifiers.
+
+The newly selected [scale law](engine/scale-relative-gameplay.md) also changes
+canonical gravity response. E4 retains material and the complete resolved
+frame; navigation must not create its own gravity multiplier or preserve the
+old controls-only product policy.
 
 The follow-up [data-structure packets K1–K3](engine/data-structure-kernels.md#delivery-and-deletion-criteria)
 make bounds queries and strict unique lookup independent optimization targets
@@ -2974,6 +2986,11 @@ static contact-velocity reconstruction and the AABB snag authority after the
 accepted motion contract is in place. P5/P6 complete observer identity,
 chart transport and demand/ready-image capture without replacing working pools.
 
+The follow-up [SCALE-FEEL](#scale-feel--the-same-body-behavior-at-a-different-scale)
+supplies the selected consumer-unit law; [PRESENTATION-COMPOSITION](#presentation-composition--order-appearances-and-add-a-25d-view)
+supplies local appearance order and a later 3D rendering consumer. Keep P2/P3
+time/contact and P5/P6 observer/capture authority here.
+
 **Acceptance:** the accepted operation binds its actual scope, topology/time
 selection, restrictions, path and final state; later readers do not infer a
 different operation. Existing unequal-aperture, material/parity, multi-limb,
@@ -2986,6 +3003,67 @@ Retiring a held lease on ordinary room travel is current lifecycle work; it
 does not require cross-island live portals. Preserve the authored lab and
 current boss/common-body work. The older static kernel continuation receipt
 is not evidence of moving-map residual time or completed multi-view support.
+
+### SCALE-FEEL — the same body behavior at a different scale
+
+**State:** PLANNED, maintainer-selected 2026-11-21; source `f41218979625`.
+
+**Failure / customer:** canonical controls scale but ordinary body gravity
+does not, changing jump time and relative height. Fixed contact bands,
+self-motion events, projectile/item gravity and relation anchors also have
+incomplete unit ownership. The current half-scale portal customer must keep
+normal action timing at its new size. This is source analysis, not a new
+runtime reproduction.
+
+**Owner:** [scale-relative gameplay](engine/scale-relative-gameplay.md).
+SR1–SR3 use the existing frame, movement, combat, item and relation owners.
+P2/P3 keep portal time/contact authority; E4 keeps the standing experiment.
+
+**Next action:** SR1 converts canonical gravity response at the shared frame
+resolver and brings runtime/probe inputs into agreement. The kernel consumes
+the resolved world frame unchanged. SR2 classifies support/ledge/crawler
+bands and destination-relative exit assistance. SR3 completes the listed
+action, splash, free-mover and relation consumers. Keep authored mass and
+damage policies; do not scale every world vector or add another solver.
+
+**Acceptance:** equivalent scenes at `0.5`, `1` and `2` retain normalized
+nonzero motion and action timing. Use the real frame writer, a near-boundary
+contact, source/victim combat units and actual relation/crossing witnesses.
+A fixed world field/platform keeps its own meaning when only the actor
+scales. Preserve canonical tuning, numeric refusal and the identity fast
+path. A gravity-only repair does not close the whole packet.
+
+### PRESENTATION-COMPOSITION — order appearances and add a 2.5D view
+
+**State:** PLANNED, maintainer-selected 2026-11-21; source `f41218979625`.
+
+**Failure / customer:** Scout must appear behind the cart panel inside and
+in front outside. Current seating writes root z 14.45 behind panel 14.5,
+while a hit flash adds 1.5 and a wielded item uses player z. Equal-root rig
+parts can interleave. Numeric z also controls portal carry eligibility.
+The future 2.5D consumer must coexist with current 2D authoring/rendering.
+These are source deductions; no new image or device measurement was made.
+
+**Owner:** [presentation order and optional 2.5D rendering](engine/presentation-order-and-25d-rendering.md).
+PVS-2 retains visual sampling; portal P5/P6 retains projection/capture.
+
+**Next action:** PO1 gives the cart an ordered interior slot and places the
+whole body appearance, held art and applicable effects through one exact
+owner/room relation. Resolve placement before drawable writers. PO2 extends
+that authority to common consumers and removes numeric-z classification as
+those consumers migrate. RV1 extracts a complete shared sample before sprite
+materialization and isolates each view's camera. RV2 draws one orthographic
+3D card/cart-mesh view beside 2D; RV3 integrates portals and required effects
+before general rollout. Keep 2D the default and 3D optional.
+
+**Acceptance:** actual parts, flash and held art order correctly inside,
+jumping within and outside the cart; overlapping appearances, two carts and
+same-named actors in two rooms retain exact ownership. Prepared local order
+and bounded changed-instance checks avoid an all-room relation solve. Either,
+both or no renderer leaves simulation unchanged; equal requested samples
+have equal meaning without forcing headless sampling. Inspect both views in
+one real window. A no-portal pilot cannot claim full portal support. Measure
+sample reuse, draws, CPU/GPU work and retained bytes before claiming savings.
 
 ### PORTAL-STRUCTURAL-FX — sprite and particle effects ignore the panes (done)
 

@@ -62,9 +62,12 @@ its near side. A portal does not create a second logical body.
 - Whole bodies must fit. A refused continuation cannot escape as an uncut
   successful part. Independent grants, attacks or contacts do not multiply
   merely because their material has several images.
-- The world owns world gravity. A material-relative quantity follows its
-  explicit transformation law. Geometric scaling does not imply conservation
-  of mass, kinetic energy or authored damage.
+- The world owns gravity direction, zone selection and world-authored fields.
+  The selected [scale-relative gameplay contract](scale-relative-gameplay.md)
+  converts canonical body gravity response with material scale, together
+  with controls, to keep normal action timing at the new size. A resolved
+  world frame or already mapped vector is not scaled again. Geometric scaling
+  does not imply conservation of mass, kinetic energy or authored damage.
 - Ray reach stays in its initial chart. Each world segment consumes its
   distance divided by cumulative scale. An exit nudge cannot spend authored
   reach or skip the first nearby hit; keep the implemented exact-face start.
@@ -79,6 +82,15 @@ The [material-domain page](portals-a-body-in-two-places.md) defines motion,
 owned reach, visibility and source-domain distinctions. The
 [causal world plan](causal-world-commit.md) applies when a consequence leaves
 an independently revisable history.
+
+**Follow-up selected at `f41218979625`, 2026-11-21:** ordinary scaled
+behavior is now an explicit product target, beyond geometric transit.
+[SR1–SR3](scale-relative-gameplay.md) complete consumer units through existing
+owners. [Presentation order and optional 2.5D rendering](presentation-order-and-25d-rendering.md)
+adds cart membership and logical appearance order, then a second Bevy render
+consumer. P2/P3 retain motion/contact authority; P5/P6 retain portal observer,
+capture and readiness authority. These customers do not create a second
+portal implementation queue.
 
 These packets preserve current overlap contact for melee strikes and guards.
 [Q172](../awaiting-maintainer-decision.md#q172--do-melee-strikes-and-guards-need-swept-continuous-contact)

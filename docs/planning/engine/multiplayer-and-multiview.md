@@ -76,12 +76,22 @@ A local view owns presentation facts such as:
 - viewport rectangle;
 - camera/reference-frame policy;
 - camera easing/resolved snapshot;
+- selected installed renderer and its concrete camera/projection realization;
 - presentation profile/safe-area where required;
 - optional local participant ownership/association.
 
 The mapping is not one-player-one-camera. A view may frame several participants;
 a participant may have no local view on a remote client; inspection/spectator
 views may have no controlling participant.
+
+The selected [2D/2.5D work](presentation-order-and-25d-rendering.md) uses two
+local views of one simulation as its first composition witness. One view can
+use sprites while another uses 3D cards/meshes. Observer/layout policy stays
+shared; only the selected adapter writes a view's concrete camera. Do not
+let the current XY/Z-rotation follower overwrite a 3D camera. A single mixed
+world view needs one depth/compositing owner; independently stacked 2D and
+3D passes do not interleave object depths. Portal capture views retain the
+existing observer/path scope and readiness contract.
 
 ### View grouping
 

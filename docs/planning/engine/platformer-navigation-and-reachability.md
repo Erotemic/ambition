@@ -136,8 +136,9 @@ dimensions while changing the physical body those dimensions describe.
 This changes the movement law. In
 [`step_admitted_motion`](../../../crates/ambition_platformer2d_core/src/movement/kernel.rs),
 material scale converts canonical control speeds, accelerations, jump speeds
-and ability distances to world units. World gravity does not scale with
-them. A half-scale actor has half the authored jump speed in world units;
+and ability distances to world units. The reviewed runtime leaves ordinary
+gravity response unscaled. A half-scale actor has half the authored jump
+speed in world units;
 the current graph probe has the smaller box but the unscaled jump speed.
 The same kernel cannot make these inputs equivalent. The existing
 [`material-scale fixture`](../../../crates/ambition_platformer2d_core/src/movement/kernel/tests.rs)
@@ -145,6 +146,11 @@ states the control/gravity distinction, and the shipped
 [`80/40 portal pair`](../../../game/ambition_app/tests/portal_similarity_slice.rs)
 is a current customer for a body that remains at half scale after crossing.
 Those are source fixtures, not fresh test results from this review.
+
+The maintainer now selects [the same timing at different scale](scale-relative-gameplay.md).
+The frame owner will convert canonical body gravity response too. Keep this
+new target separate from the current-source observation above: a resolved
+world frame remains resolved, and world-authored fields retain their units.
 
 **Decision:** navigation owns one explicit standing experiment description.
 Construct both the cache key and the probe from it. It describes a reusable
@@ -160,10 +166,13 @@ it cannot silently borrow the standing experiment's result.
 | Position, velocity, temporary stance and maneuver history | Set the declared standing start state. These resets define the question; they do not prove applicability from every live state. |
 | Room geometry, observed feet and goal | Geometry selects the room graph. Feet and goal remain live query inputs, outside the reusable motion experiment. |
 
-Keep unit conversion in the movement owner. Carry the admitted material into
-the scratch body so that the existing kernel performs that conversion. Do
-not multiply gravity, duplicate `for_material` in navigation, or bake scaled
-parameters into a body that the kernel will scale again.
+Keep unit conversion with each physical owner. Carry admitted material into
+the scratch body so that the existing kernel converts canonical controls.
+Use the shared frame derivation for canonical gravity response and retain
+its decomposed result. Do not multiply a resolved frame, duplicate
+`for_material` in navigation, or bake scaled parameters into a body that
+the kernel will scale again. The same standing experiment drives key and
+probe under the selected scale law.
 
 The orientation boundary needs an explicit first slice.
 [`TraversalEnvelope::measure`](../../../crates/ambition_platformer2d_world/src/navigation/envelope.rs)

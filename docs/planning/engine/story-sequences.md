@@ -3,12 +3,13 @@
 **State:** SS1, SS2, SS4's first form and SS3's death record landed
 2026-11-14 (below, "What landed"); SS3's `present_when` landed 2026-11-17
 with its first customer, the game show's goat and car (below); SS5 landed
-2026-11-14; SS6 is covered by SS1 and SS4 (below). **SS7–SS8 are in
-progress** (reviewed 2026-11-21 against production `b91b29d35935`): bind
-authored calls to their actual participants, and distinguish skipping
-presentation from completing gameplay work. SS7 step 1 landed for
-conversations on 2026-11-21 (below, "SS7 progress"), and step 2 (scene
-roles and the brute scene) the same day; step 3 and SS8 remain.
+2026-11-14; SS6 is covered by SS1 and SS4 (below). **SS7 and SS8 landed
+2026-11-21** (reviewed that day against production `b91b29d35935`):
+authored calls bind to their actual participants, and a skip ends the
+presentation without completing the gameplay work for it. SS7 step 1 is
+conversations (below, "SS7 progress"), step 2 scene roles and the brute
+scene, step 3 the doorway scene. SS8 is below ("SS8 landed"). The open
+items each records are listed with it.
 Asked by Jon on 2026-11-14 after playing level 1: "do we have
 an expressive enough way to codify these authored sequences that doesn't
 require recompile of the engine? Because now that we are starting to author
@@ -80,8 +81,8 @@ own binding/admission point (SS7). None needs a new scripting language.
 - **SS2. Cutscene beats over the shared vocabulary.** `Command { line }` runs
   a prepared command; `WaitFor { condition, seconds_at_most }` holds the beat
   until the condition is true. The cutscene keeps its own cursor and rollback
-  state. Current skip emits remaining commands alongside flags and falls;
-  SS8 replaces the assumption that this also completes their gameplay work.
+  state. A skip runs the remaining beats in order and still waits on each
+  `WaitFor` (SS8, landed 2026-11-21).
 - **SS3. Lasting presence.** `NpcSpawn` takes `present_when` and
   `fallen_when` conditions, so the Creator lies where he fell on every later
   visit, and a villager who has left is gone. **First part landed
@@ -187,8 +188,8 @@ own binding/admission point (SS7). None needs a new scripting language.
   its `beaten_at` floor (a death trait: blows take it no lower, so a body
   that the story needs alive is beaten there rather than killed).
 - **SS2, cutscene beats** (`crates/ambition_cutscene`):
-  `Command { line }` runs a prepared command in the cutscene's room (current
-  skip still queues it; the completion gap is SS8), `WaitFor { condition, seconds_at_most }` holds until the
+  `Command { line }` runs a prepared command in the cutscene's room (a skip
+  still runs it, in order; SS8), `WaitFor { condition, seconds_at_most }` holds until the
   condition is true or for its longest hold. Every `Command`, `WaitFor` and
   `starts_when` line is prepared against the installed catalogs whenever the
   library changes (at start and at each reload) and refused there, naming
@@ -335,8 +336,20 @@ Still open:
 - Conditions carry no room, so a bound condition with two live bodies of
   one identity is unanswerable rather than room-resolved.
 - The conversation command bridge still supplies no room.
-- Step 3 (the doorway raiders bound as a cohort after their spawn) is next.
 - Reload rebinding is not exercised.
+
+**SS7 step 3 (2026-11-21): the doorway scene.** `intro_raid_at_the_door`
+binds `@creator` at its start and directs the Creator through it. The raiders
+are deliberately not bound: they do not exist when the scene starts.
+`npc_lab_raider` stays a live population query of the scene's room, the
+crowd the scene forms up and turns, which is the broadcast form's old
+meaning. It is asked only after the scene waits for their spawn
+(`actor.count_is npc_lab_raider 3`).
+
+Capturing a cohort at that milestone would need a mid-scene binding beat.
+That waits for a scene that must act on those particular members after the
+crowd has changed. SS8's dependency on the spawn before directing the cohort
+is unchanged.
 
 Bindings are rollback-owned invocation state, resolved through current live
 objects at the invocation cut. Retirement refuses the old reference; it must
@@ -418,6 +431,68 @@ must preserve the existing action/room-lifetime guarantees. Completion and
 presentation-dismissal state must be distinguished where the seen flag gates
 later story. This work adds neither a universal sequencer nor a global story
 transaction.
+
+**SS8 landed (2026-11-21).** A skip ends the presentation and keeps the
+script's cursor. `CutsceneRuntime::begin_skip` marks the playback skipping
+(rollback state: schema 525). From then on the scene shows nothing, holds no
+player (`PlayingCutscene::holds`), and passes every beat at once, in order,
+except a `WaitFor`. A `WaitFor` still waits for its answer or its longest
+hold. The seen flag is written at completion, by the one ending
+(`end_cutscene`), not when the skip is asked. The blanket rule is deleted:
+`CutsceneRuntime::skip`, which emitted every remaining command at once and
+ended the scene, and its `Skipped` event. One authored sequence serves both
+the played and the skipped scene.
+
+A plain `Wait` is a delay, and a skip drops it. A scene whose next beat
+depends on a result must wait on that result. The brute scene had one such
+dependency written as a delay: the bomb must burst before the Creator is
+released to his own mind, which would dodge it. The 1.4 s delay after the
+throw is now `WaitFor actor.throw_landed @brute`.
+
+A second dependency is easy to break by "fixing" it. A body a playing scene
+holds is invulnerable (`project_cutscene_hold`, `Invulnerability::CUTSCENE`)
+unless it is on its way somewhere (a pending `Visit`). The bomb hurts the
+Creator in normal play because it is thrown while he is still walking to the
+bench. Waiting for his arrival before the throw (tried first) made him held,
+and so immune, when the bomb burst. The skipped scene holds no body, so only
+the normal-play arm caught it.
+
+`actor.throw_landed` is new. It answers from the thrown items themselves: an
+item minted by `SimId::spawned` of the thrower, `ReleasedAs::Throw`, still
+moving or with a lit fuse. So a thrower that has left still answers for its
+throw. A thrower that still holds what it could throw has not thrown yet,
+and the answer is no. That clause is load-bearing: a scene's command is a
+request applied after the scene answers its next wait, so the first answer
+after a throw beat can come before the bomb exists. Without the clause,
+"nothing in the air" held at once, the Creator was let go before the blast,
+and he dodged it in normal play. The same timing applies to any wait that
+follows a command: the condition must be false before the command takes
+effect, not only after. The doorway scene already waited on its results:
+`actor.arrived @creator`, the raiders' spawn (`actor.count_is
+npc_lab_raider 3`) before `form_up`, and their arrival. So a skip before
+`intro_raiders_coming` still directs the cohort only after it exists.
+
+Witnesses:
+
+- The unit test `a_skipped_scene_still_waits_for_what_it_waits_for`, and
+  `a_skip_keeps_the_flags_and_falls_it_skipped` rewritten over `begin_skip`.
+- `a_skipped_brute_scene_ends_the_raid_as_a_played_one_does`. It holds
+  cancel from the scene's first tick and asserts normal play's outcome: the
+  case taken, the brute gone, the three raiders fallen, and the Creator
+  wounded by the bomb but alive.
+- Still open: a scene's harm to a body it holds depends on that body being
+  on its way somewhere. A scene that means to hurt a body standing still has
+  no way to say so.
+
+Still open:
+
+- A `WaitFor` that times out proceeds, as before. No scene yet needs a
+  required result with its own failure policy (refusal and unanswerable told
+  apart from timeout).
+- A skip cancels no scene-owned work, because none is pending as a
+  scene-owned operation. A launched bomb is committed world work and flies on.
+- The shell's own sequence skip (`ShellSequenceCommand::Skip`) is another
+  runtime, with no gameplay commands, and is unchanged.
 
 ## Acceptance for the first slice (SS1 + SS2)
 

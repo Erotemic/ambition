@@ -331,6 +331,14 @@ pub(crate) fn publish_actor_vocabulary(app: &mut App) {
         },
         gone,
     );
+    app.publish_condition(
+        ConditionDescriptor {
+            id: ConditionId::new("actor", "throw_landed"),
+            summary: "the character holds nothing to throw, and nothing it threw is still in the air or lit",
+            params: &[CHARACTER],
+        },
+        throw_landed,
+    );
 }
 
 /// The bodies of `character` in `room` (every live room when `None`), with
@@ -1043,6 +1051,63 @@ fn gone(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
         ConditionOutcome::Satisfied
     } else {
         ConditionOutcome::NotSatisfied(WhyNot::new("actor.gone", character, format!("{live} live")))
+    }
+}
+
+/// Has what `who` threw (`actor.throw`) come down? A thrown item is still
+/// in the air while it moves, and a thrown bomb is still to come while its
+/// fuse burns; one that burst is gone, and one that was caught is no longer
+/// thrown. The items answer by their identity (`SimId::spawned` of the
+/// thrower), so a thrower that has since left still answers for its throw.
+///
+/// ⚠ A thrower that still holds what it could throw has not thrown yet, and
+/// the answer is no. A scene's command is a request applied after the scene
+/// asks its next wait, so on the first answer after a throw beat the item may
+/// not exist yet: "nothing is in the air" must not be read as "it landed"
+/// before the throw has happened.
+///
+/// It is the result a scene waits for when what follows the throw depends on
+/// its impact (the brute's bomb must have burst before the Creator is let go
+/// to his own mind, which would dodge it); a fixed delay is not that result,
+/// and a skipped scene has no delays.
+fn throw_landed(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    let throwers: Vec<SimId> = match Who::of(&args[0]) {
+        Some(Who::Body(id)) => vec![id.clone()],
+        Some(Who::Character(character)) => {
+            let Some(mut bodies) = world.try_query::<(&CharacterForm, &SimId)>() else {
+                return ConditionOutcome::Satisfied;
+            };
+            bodies.iter(world).filter(|(worn, _)| worn.0.as_str() == character).map(|(_, id)| id.clone()).collect()
+        }
+        None => return ConditionOutcome::Unanswerable("`actor.throw_landed` takes a character".into()),
+    };
+    let still_holding = world.try_query::<(&SimId, &ambition_combat::held_items::HeldItem)>().is_some_and(|mut holders| {
+        holders.iter(world).any(|(id, _)| throwers.contains(id))
+    });
+    if still_holding {
+        let who = throwers.first().map_or_else(String::new, SimId::to_string);
+        return ConditionOutcome::NotSatisfied(WhyNot::new("actor.throw_landed", who, "it has not thrown yet".to_owned()));
+    }
+    let Some(mut items) = world.try_query::<(
+        &SimId,
+        &ae::BodyKinematics,
+        &ambition_held_items::ReleasedAs,
+        bevy::prelude::Has<ambition_abilities::ranged::bomb::BombFuse>,
+    )>() else {
+        return ConditionOutcome::Satisfied;
+    };
+    let coming = items
+        .iter(world)
+        .filter(|(id, _, released, _)| {
+            released.0 == ambition_held_items::Release::Throw && throwers.iter().any(|thrower| id.spawned_by(thrower))
+        })
+        .filter(|(_, kinematics, _, lit)| *lit || kinematics.vel.length_squared() > 1.0)
+        .count();
+    if coming == 0 {
+        ConditionOutcome::Satisfied
+    } else {
+        let who = throwers.first().map_or_else(String::new, SimId::to_string);
+        ConditionOutcome::NotSatisfied(WhyNot::new("actor.throw_landed", who, format!("{coming} still coming down")))
     }
 }
 

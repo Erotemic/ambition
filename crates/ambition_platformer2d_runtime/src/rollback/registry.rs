@@ -348,7 +348,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 522 -> 523: FighterStocks encodes the damage a respawn comes back on.
 // 523 -> 524: a cutscene script encodes its roles, and a playing cutscene (and
 // the room log's state) the bodies its roles were bound to (SS7).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 524;
+// 524 -> 525: a cutscene's playback encodes whether its presentation was
+// skipped (SS8).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 525;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

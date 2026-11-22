@@ -486,7 +486,9 @@ pub fn tick_active_cutscene(
         };
 
         let runtime = &mut cutscene.runtime;
-        let skip = if seat.cancel_held {
+        let skip = if runtime.skipping {
+            false
+        } else if seat.cancel_held {
             cutscene.skip_hold += dt;
             cutscene.skip_hold >= runtime.settings.skip_hold_seconds
         } else {
@@ -505,7 +507,7 @@ pub fn tick_active_cutscene(
         #[cfg(not(feature = "dialogue"))]
         let beat_dt = dt;
         #[cfg(feature = "dialogue")]
-        if let Some(ambition_cutscene::CutsceneBeat::Dialogue { text, .. }) = runtime.current_beat() {
+        if let Some(ambition_cutscene::CutsceneBeat::Dialogue { text, .. }) = runtime.current_beat().filter(|_| !runtime.skipping) {
             let policy = dialogue_settings.in_live_room(room.map(
                 ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal,
             )).copied().unwrap_or_default();
@@ -529,22 +531,16 @@ pub fn tick_active_cutscene(
             }
         }
 
+        // SS8: the show is skipped, not the story. The rest of the script
+        // runs on from here with no presentation and no hold on the players:
+        // its commands in order, each `WaitFor` still waiting on the arrival,
+        // spawn or departure it names (or its longest hold), and the scene is
+        // marked seen when its last beat passes, not when the skip is asked.
         if skip {
-            // The show is skipped, not the story: the rest of the script's
-            // flags and falls still happen.
-            let mut flags = Vec::new();
-            for event in runtime.skip() {
-                match event {
-                    CutsceneEvent::FlagWritten { id, on } => flags.push((id, on)),
-                    CutsceneEvent::CharacterFell { character } => fall(&character, &mut flags),
-                    CutsceneEvent::CommandAsked { line } => command(&line),
-                    _ => {}
-                }
-            }
-            flags.extend(end_cutscene(cutscene).map(|seen| (seen, true)));
-            write_cutscene_flags(flags, written, requests.as_deref_mut(), &mut save);
-            continue;
+            runtime.begin_skip();
+            cutscene.skip_hold = 0.0;
         }
+        let runtime = &mut cutscene.runtime;
 
         let waiting = CutsceneWaitKey { room, script: script_id.clone(), beat: runtime.beat_index };
         let events = runtime.tick_asking(beat_dt, dismiss, |_| wait.holds(&waiting));
@@ -563,7 +559,7 @@ pub fn tick_active_cutscene(
                 CutsceneEvent::FlagWritten { id, on } => flags.push((id, on)),
                 CutsceneEvent::CharacterFell { character } => fall(&character, &mut flags),
                 CutsceneEvent::CommandAsked { line } => command(&line),
-                CutsceneEvent::Skipped | CutsceneEvent::Completed => {
+                CutsceneEvent::Completed => {
                     completed = true;
                 }
             }

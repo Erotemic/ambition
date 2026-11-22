@@ -49,11 +49,23 @@ fn a_bomb_flies(world: &mut World) -> bool {
 }
 
 /// A walker that watches the Creator's health from the tick a bomb is first
-/// in the world: the scene plays inside the raid's walk.
+/// in the world: the scene plays inside the raid's walk. With `skip`, it holds
+/// cancel while the brute's scene plays, as a player skipping it does.
 struct Watching<'a, 'b> {
     pad: &'a mut Pad<'b>,
+    skip: bool,
+    skipped: bool,
     thrown_at: Option<i32>,
     after: i32,
+}
+
+/// The brute's scene, if it plays: whether its presentation is skipped.
+fn brute_scene(world: &World) -> Option<bool> {
+    world
+        .resource::<ambition_platformer2d::cutscene::ActiveCutscene>()
+        .iter()
+        .find(|playing| playing.runtime.script.id == "intro_brute_takes_the_case")
+        .map(|playing| playing.runtime.skipping)
 }
 
 impl crate::common::walk::Walker for Watching<'_, '_> {
@@ -63,7 +75,10 @@ impl crate::common::walk::Walker for Watching<'_, '_> {
     fn world_mut(&mut self) -> &mut World {
         self.pad.world_mut()
     }
-    fn step(&mut self, press: Press) {
+    fn step(&mut self, mut press: Press) {
+        let scene = brute_scene(self.pad.world());
+        self.skipped |= scene == Some(true);
+        press.cancel = self.skip && scene == Some(false);
         self.pad.step(press);
         let health = creator_health(self.pad.world_mut());
         if self.thrown_at.is_none() && a_bomb_flies(self.pad.world_mut()) {
@@ -77,6 +92,20 @@ impl crate::common::walk::Walker for Watching<'_, '_> {
 
 #[test]
 fn the_raid_brute_takes_the_case_and_bombs_the_creator() {
+    the_brute_scene_ends_the_raid(false);
+}
+
+/// STORY SEQUENCES SS8: skipping the brute's scene skips its show, not its
+/// story. The skip holds cancel from the scene's first tick, before the
+/// shove, the walk, the throw and the departure; the scene still waits on
+/// the Creator reaching the bench, the bomb bursting and the brute going,
+/// and its outcome is normal play's.
+#[test]
+fn a_skipped_brute_scene_ends_the_raid_as_a_played_one_does() {
+    the_brute_scene_ends_the_raid(true);
+}
+
+fn the_brute_scene_ends_the_raid(skip: bool) {
     let mut sim = ambition_app::Platformer2dSimHarness::new_with_options(fixed_60hz_room_options("intro_wake_room"))
         .expect("the workshop boots");
     sim.step_n(base(), 30);
@@ -85,7 +114,7 @@ fn the_raid_brute_takes_the_case_and_bombs_the_creator() {
     let mut pad = Pad::new(&mut sim);
     // The Creator's health as the bomb leaves the brute's hand, and the
     // least of it after.
-    let mut watching = Watching { pad: &mut pad, thrown_at: None, after: i32::MAX };
+    let mut watching = Watching { pad: &mut pad, skip, skipped: false, thrown_at: None, after: i32::MAX };
     through_the_raid(&mut watching, RaidStart::Door).unwrap_or_else(|why| panic!("the raid: {why}"));
     // The raid is won the tick he goes; the scene sees him gone on its next
     // tick, and the Creator's last words follow.
@@ -95,7 +124,8 @@ fn the_raid_brute_takes_the_case_and_bombs_the_creator() {
         }
         watching.step(Press { confirm: frame % 10 == 0, ..Press::default() });
     }
-    let (thrown_at, after) = (watching.thrown_at, watching.after);
+    let (skipped, thrown_at, after) = (watching.skipped, watching.thrown_at, watching.after);
+    assert_eq!(skipped, skip, "the premise: the scene was skipped exactly when the walker held cancel");
     assert!(flag(sim.world(), "intro_brute_scene_seen"), "the brute's scene played; brutes live and fallen: {:?}", bodies_of(sim.world_mut(), "npc_raid_brute"));
     assert!(flag(sim.world(), "intro_case_taken"), "the yard gate's flag is set");
     assert_eq!(bodies_of(sim.world_mut(), "npc_lab_raider"), (0, 3), "the three raiders fell");

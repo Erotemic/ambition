@@ -172,6 +172,10 @@ world-post admission.
    commands and conditions, using Creator dialogue and intro choreography.
    It replaces the blanket skip-all-commands promise with domain settlement
    for the scene's actual required outcomes. No universal sequencer.
+   (Landed 2026-11-21: roles in conversations, the brute and doorway
+   scenes; a skip keeps the cursor and its `WaitFor`s, and the brute scene
+   waits on the bomb's impact, `actor.throw_landed`. A required result's own
+   failure policy waits for a scene that needs one.)
 7. [Interaction I1/I2](engine/interaction-opportunities-and-activation.md#bounded-delivery)
    moves availability/selection below the prompt and shares one attempt
    across competing contextual consumers. Preserve gesture provenance,

@@ -100,12 +100,18 @@
             Command(line: "actor.walk_to @creator intro_bench_station keeps_to_its_tasks"),
             Dialogue(speaker: "Creator", speaker_character_id: "npc_creator",
                 text: "Get away from my bench!"),
+            // The bomb is thrown while he is still on his way to the bench:
+            // a body the scene holds still is spared harm, and one on its
+            // way somewhere is not. It must have burst before he is let go
+            // (`actor.throw_landed`): a wait on the result, not a delay,
+            // since a skipped scene has no delays (SS8) and this still holds
+            // it.
             Command(line: "actor.hold @brute bomb"),
             Command(line: "actor.face @brute @creator"),
             Command(line: "actor.pose @brute throw_forward hold"),
             Wait(seconds: 0.3),
             Command(line: "actor.throw @brute @creator"),
-            Wait(seconds: 1.4),
+            WaitFor(condition: "actor.throw_landed @brute", seconds_at_most: 3.0),
             SetFlag(id: "intro_case_taken", on: true),
             Command(line: "actor.release @creator"),
             Command(line: "actor.release @brute"),
@@ -122,10 +128,13 @@
     // wait at the doorway until the last line is dismissed.
     (
         id: "intro_raid_at_the_door",
+        // The Creator is bound as the scene starts. The raiders stay named by
+        // kind: `form_up` gathers every raider in the room, not one of them.
+        roles: [("creator", Character("npc_creator"))],
         beats: [
             SetFlag(id: "intro_training_active", on: false),
-            Command(line: "actor.walk_to npc_creator intro_bench_station keeps_to_its_tasks"),
-            WaitFor(condition: "actor.arrived npc_creator", seconds_at_most: 8.0),
+            Command(line: "actor.walk_to @creator intro_bench_station keeps_to_its_tasks"),
+            WaitFor(condition: "actor.arrived @creator", seconds_at_most: 8.0),
             Dialogue(speaker: "Creator", speaker_character_id: "npc_creator",
                 text: "Someone's at the door. Were you expecting anyone?"),
             SetFlag(id: "intro_raiders_coming", on: true),
@@ -136,8 +145,8 @@
             Wait(seconds: 0.2),
             Command(line: "actor.form_up npc_lab_raider intro_raider_station 160 keeps_to_its_tasks"),
             WaitFor(condition: "actor.arrived npc_lab_raider", seconds_at_most: 8.0),
-            Command(line: "actor.face npc_lab_raider npc_creator"),
-            Command(line: "actor.face npc_creator npc_lab_raider"),
+            Command(line: "actor.face npc_lab_raider @creator"),
+            Command(line: "actor.face @creator npc_lab_raider"),
             Dialogue(speaker: "Raider", speaker_character_id: "npc_lab_raider",
                 text: "The case on the bench. Hand it over."),
             Dialogue(speaker: "Creator", speaker_character_id: "npc_creator",
@@ -149,7 +158,7 @@
                 text: "It's got the robot. Take the case."),
             Dialogue(speaker: "Creator", speaker_character_id: "npc_creator",
                 text: "Scout. Stay behind me."),
-            Command(line: "actor.release npc_creator"),
+            Command(line: "actor.release @creator"),
             Command(line: "actor.release npc_lab_raider"),
         ],
         seen_flag: Some("intro_raiders_coming"),

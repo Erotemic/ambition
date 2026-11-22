@@ -41,6 +41,9 @@ pub struct Press {
     pub confirm: bool,
     /// Press Attack.
     pub attack: bool,
+    /// Hold cancel: held long enough, it skips a playing cutscene. Only the
+    /// pad walker holds it.
+    pub cancel: bool,
 }
 
 /// A session that a player's input steps one frame at a time.
@@ -90,6 +93,7 @@ impl Walker for Pad<'_> {
             dash: press.dash,
             confirm: press.confirm,
             attack: press.attack,
+            cancel_held: press.cancel,
             ..crate::common::base()
         });
     }

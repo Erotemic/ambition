@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v522
+ggrs-rollback-schema-v525
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -42,6 +42,7 @@ actor.errand	component-clone	Errand	bevy_ggrs clone snapshot; value-probed for l
 actor.faction	component-clone	ActorFaction	bevy_ggrs clone snapshot; not in the session checksum
 actor.held_control_frame	component-clone	HeldControlFrame	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.held_item	component-clone	HeldItem	bevy_ggrs clone snapshot; not in the session checksum
+actor.hold_claims	component-clone	HoldClaims	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.identity	component-clone	ActorIdentity	bevy_ggrs clone snapshot; not in the session checksum
 actor.identity_kit	component-clone	IdentityKit	bevy_ggrs clone snapshot; not in the session checksum
 actor.interaction	component-clone	ActorInteraction	bevy_ggrs clone snapshot; not in the session checksum
@@ -63,6 +64,7 @@ actor.perception_memory	component-canonical	PerceptionMemory	bevy_ggrs canonical
 actor.persona_baseline	component-clone	PersonaBaseline	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.pet_beat	component-clone	PetBeat	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.policy	component-clone	ActorPolicy	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+actor.pose_claims	component-clone	PoseClaims	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.posed	component-clone	Posed	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.projected_character_kit	component-clone	ProjectedCharacterKit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.proper_time_scale	component-canonical	ProperTimeScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -216,6 +218,7 @@ derived.global_transform	derived	GlobalTransform	Bevy transform propagation rebu
 derived.gravity_zones	derived	GravityZones	rebuilt from authoritative GravityZone components before body integration
 derived.guard_volumes	derived	GuardVolumes	placed from the worn character's guards, its art and its clocks every tick, before any strike is resolved
 derived.input_stream_recorder	derived	InputStreamRecorder	tick-addressed recording: a resimulation rewrites its own tail, so the stream needs no restore — and snapshotting it made frame N cost N
+derived.interact_presses_claimed	derived	InteractPressesClaimed	rebuilt each tick from the interact read model before mounts are commandeered
 derived.item_body	derived	ItemBody	item capability properties installed before the item's physics step
 derived.item_body_presence	derived	BodyInStorage	world presence derived from item custody before spatial queries
 derived.limb_bond_start	derived	LimbBondStart	written again each tick from its game's rollback state before any reader

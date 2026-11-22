@@ -152,6 +152,19 @@ These changes add no universal relationship graph, action transaction or
 resource law; the existing resource/effect plans already own their distinct
 composition work. Each packet deletes a concrete repeated interpretation.
 
+### Reusable data-structure operations
+
+The [kernel plan](data-structure-kernels.md) makes existing foundation
+operations independent optimization targets. Geometry owns shared bounds
+queries; a separate module in the binding foundation owns strict unique
+lookup over a frozen relation. Direct/reference and indexed implementations
+agree on ordering, duplicates, numeric meaning, refusal and snapshot lifetime.
+
+The domain retains publication and mutation authority. Selection happens
+before optional preparation, and measurement includes construction, queries
+and result consumption. This extends the existing libraries without choosing
+a catch-all utility crate or a second lifecycle service.
+
 ## Converged shape
 
 Code against these facts. Each one is in source and has a guard.

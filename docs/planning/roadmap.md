@@ -230,6 +230,13 @@ These refine the existing engine work within the order below; they do not
 replace product priorities or claim a measured speedup. The separate portable
 prepared-content-artifact hold remains in force.
 
+[Shared data-structure kernels](engine/data-structure-kernels.md) add an
+independent optimization boundary within that program: bounds queries in
+geometry and strict unique lookup in the binding foundation. Direct and
+indexed implementations share observable results. Target-specific selection
+includes preparation, query count and consumption; it does not require a new
+utility umbrella or alter domain ownership.
+
 The priorities below are scored on two axes. The first is authority
 decomposition: which crate owns the fact, what may mutate it, one lifecycle,
 dependency direction. The second is capability composability: can this capability

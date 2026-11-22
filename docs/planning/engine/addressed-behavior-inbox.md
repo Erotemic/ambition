@@ -127,6 +127,14 @@ they remove repeated builds. The full capture remains a synchronous fallback.
 Do not rebuild unconditionally for every consumer, reuse a pre-flush snapshot
 after births, or let a cold cache answer that a live object is retired.
 
+The [frozen lookup kernel](data-structure-kernels.md#k2--ambiguity-preserving-frozen-lookup)
+shares the repeated missing/unique/ambiguous row reduction in occurrence and
+private-binding indexes. Authored placements can retain `Unique(None)` for an
+unpublished root. It does not own capture timing or replace the lifecycle view
+above. A duplicate-row tombstone cannot support incremental removal without
+retained membership or a rebuild. Keep authored alias and registry duplicate
+policies separate; they do not use this strict row-cardinality law.
+
 ### Derive ready and waiting work from the journals
 
 Native facts already use `EventRoutes` and skip publication work when no route

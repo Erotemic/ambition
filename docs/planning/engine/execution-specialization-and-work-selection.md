@@ -153,10 +153,18 @@ stays in P2/P4/P6; this table does not create a second portal queue.
 | E2: compiled visual facts and staged images | [Runtime part animation](runtime-rigged-sprite-animation.md), sheet preparation and renderer | Whole-clip invariant scans, stable track joins, source rasterization caused only by finishing changes | Exact sample/space, complete appearance key, cell versus page dependency |
 | E3: prepared dispatch and active delivery | [Addressed behavior](addressed-behavior-inbox.md), extension admission, lifecycle and inbox owners | Entry-by-trigger matching, repeated occurrence capture, duplicate and idle mailbox scans | Entry-major serial order, fresh observations, replay visibility and active-time deadlines |
 | E4: prepared navigation states | [Navigation](platformer-navigation-and-reachability.md), motion envelope and route owners | Repeated environment-independent probes and graph reachability work; incorrect merging of arrival states | Current graph cost model versus physical optimality; complete publication independent of worker timing |
+| E5: shared data-structure kernels | [Kernel plan](data-structure-kernels.md), geometry and binding foundations | Private range-grid mechanics, repeated ambiguity reducers and optional setup for lightly queried snapshots | Exact versus conservative output, ordering/ties, row-cardinality law and complete preparation cost |
 
 Each packet identifies the old interpretation or repeated operation to delete.
 Start with a production consumer. A new generic wrapper with the same scans,
 allocations and full-domain invalidation is not completion.
+
+E5 gives direct scans and indexed implementations one operation contract.
+The scan can also be the cheapest shipping path. Choose before optional
+setup; a linear leaf inside an already built tree does not remove construction.
+The kernel does not decide when a lifecycle view changes or what an unknown
+material envelope means. Independent benchmarks include the adapters that
+normalize candidates and order results for the production consumer.
 
 ### Existing wins remain in place
 

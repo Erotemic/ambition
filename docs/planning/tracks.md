@@ -438,6 +438,11 @@ before promotion.
   [The owner](engine/execution-specialization-and-work-selection.md) links
   bounded domain packets and the [queue](queue.md#execution-cost--specialize-gameplay-work-at-its-actual-inputs)
   selects them. No always-on reference solver or generic cache framework.
+- **Data-structure kernels (within EXECUTION-COST).** Shared bounds queries
+  and strict unique lookup become independently measured operations in the
+  geometry and binding foundations. [The owner](engine/data-structure-kernels.md)
+  specifies interchangeable results, direct/reference implementations and
+  measured selection before optional preparation. Preserve domain lifetimes.
 - ▢ **Review follow-ups requiring a fresh measurement.** Cold/warm rig table
   preparation memory and frame stalls; human acceptance for robot
   crouch/turn/double jump (REVIEW-1014); rendered portal-piece frame cost

@@ -150,7 +150,7 @@ green.
 The maintainer's 2026-11-21 efficiency direction is explicit: preserve full
 expressiveness and a reference evaluator, while gameplay uses proven cheap
 cases. The [execution contract](execution-specialization-and-work-selection.md)
-sets that boundary and selects E1–E4. Reference evaluation can run offline;
+sets that boundary and selects E1–E5. Reference evaluation can run offline;
 it is not a second solver paid on every live operation.
 
 Current source exposes concrete work to remove:
@@ -176,6 +176,27 @@ the claimed work boundary. Cache warmth must not select a different accepted
 simulation result, refusal or delivery time. See the execution contract for
 operational versus high-precision reference comparison. A whole-room or
 whole-population scan hidden in a new preparation step is not a completed cut.
+
+### Selected — independent data-structure measurements
+
+The [kernel plan](data-structure-kernels.md) selects bounds-query algorithms
+and strict unique lookup in existing foundation libraries. The current
+spatial tree, private layered-world grid and repeated ambiguity reducers
+supply production consumers. Direct scans remain both reference operations
+and possible shipping paths.
+
+Measure the entire useful lifetime of a published input: preparation, updates,
+queries, exact filtering/order and result consumption, plus retained/scratch
+memory. Compare outputs through the production operation before comparing
+time. Include query count and invalidation; population alone cannot select
+an index. Existing grid and targeting receipts establish workload tradeoffs,
+not universal thresholds for release or mobile targets.
+
+Keep focused benchmark targets with the owning kernels and receipts in the
+measurements submodule. Reuse current comparison tests and consumer fixtures.
+An isolated kernel win needs a representative consumer check before it is an
+engine performance claim. Do not make all backend/target combinations a new
+mandatory suite. Compile/code-size effects remain separate measurements.
 
 ### P1 — weak-GPU raster/quality attribution
 

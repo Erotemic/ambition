@@ -310,6 +310,9 @@ links to.
 - [`engine/execution-specialization-and-work-selection.md`](engine/execution-specialization-and-work-selection.md)
   — full/reference semantics with fast gameplay paths; prepare fixed relations
   and select active query, visual, behavior and navigation work.
+- [`engine/data-structure-kernels.md`](engine/data-structure-kernels.md)
+  — interchangeable bounds-query and unique-lookup operations, with independent
+  measurements of preparation, queries and consumption.
 - [`engine/runtime-frame-history.md`](engine/runtime-frame-history.md)
 - [`engine/project-build-and-distribution.md`](engine/project-build-and-distribution.md)
 - [`engine/godot-class-2d-capability.md`](engine/godot-class-2d-capability.md) —

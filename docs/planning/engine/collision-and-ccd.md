@@ -88,6 +88,17 @@ full-turn and repeated-link cases are correctness witnesses even before a new
 performance measurement. Other broad spatial optimization remains gated by its
 own customer and measured cost.
 
+## Shared bounds-query implementations
+
+The [shared bounds-query kernel](data-structure-kernels.md#k1--snapshot-bounds-queries)
+extracts the existing layered-world grid for use by both world queries and
+script contact partitions. Keep exact bounds filtering and canonical snapshot
+order before a potentially refusing or limited consumer. Unknown material
+bounds and deliberate global queries retain conservative fallbacks; a finite-only
+tree cannot erase them. The world overlay still owns its shared base,
+visibility, current/swept inputs and cache retirement. Alternative backends
+follow their own workload measurements, not a broad collision rewrite.
+
 ## Contact versus strict overlap is a caller policy
 
 The swept primitive can add touching contacts to a strict-overlap endpoint test.

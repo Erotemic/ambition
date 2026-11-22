@@ -178,7 +178,7 @@ addressed behavior repeats static joins and population scans; navigation
 discards an arrival position that its own cost law still reads.
 
 **Owner:** [execution specialization and work selection](engine/execution-specialization-and-work-selection.md)
-links E1–E4 to their existing domain owners. Portal implementation remains
+links E1–E5 to their existing domain owners. Portal implementation remains
 under [PORTAL-SIMILARITY](#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 
 **Next action:** remove duplicate projectile source preparation and compile
@@ -187,12 +187,24 @@ extension dispatch and remove duplicate fact collectors, then share correct
 occurrence views and derive active journal work. Navigation first fixes its
 cost-state reduction, then reuses motion envelopes and graph query work.
 
+The follow-up [data-structure packets K1–K3](engine/data-structure-kernels.md#delivery-and-deletion-criteria)
+make bounds queries and strict unique lookup independent optimization targets
+in the existing foundations. Extract the current range grid for world and
+contact consumers; share occurrence/binding ambiguity reduction. Compare
+direct scans with indexed implementations before selecting target/workload
+policies. Preserve all domain lifetime and acceptance rules.
+
 **Acceptance:** ordinary operations select the cheapest supported local case;
 adding unrelated portals, installed entries or dormant receivers does not add
 exact work to that operation. Preparation preserves order, samples, scope and
 refusals; cache availability cannot alter publication. Every claimed saving
 names removed work and measures its relevant cost. Retain an offline/reference
 comparison without running a shadow general evaluator on every gameplay query.
+
+For K1–K3, interchangeable implementations agree on numeric policy, ordering,
+duplicates, unknown/invalid input and snapshot lifetime. Measure setup and
+consumption as well as queries; delete the private grid, unused contact
+overlay wrapper and repeated ambiguity reducers as their callers migrate.
 
 ### BOSS-CHARACTER — one character path for bosses
 

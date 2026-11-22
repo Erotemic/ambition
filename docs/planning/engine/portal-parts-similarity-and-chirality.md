@@ -331,37 +331,158 @@ Preserve these distinctions:
 - An improved algorithm may resolve an old work refusal. It may not convert
   an unproved route to an accepted miss or bypass the body's declared policy.
 
-### Reuse preparation where the inputs are the same
+### Reuse preparation and specialize execution
 
-The current curved scene already caches fixed poses. Several cell queries
-still prepare related room-link and material data independently. Build on the
-existing cache rather than adding a second geometric authority.
+Follow the [execution specialization and work selection contract](execution-specialization-and-work-selection.md).
+The general material meaning and the cost of obtaining an answer are separate
+design concerns. Keep full declared expressiveness available for reference
+evaluation; make ordinary gameplay select a proven cheaper execution path.
 
-Separate reusable room input from per-source query work:
+The existing implementation already filters reachable links, caches fixed
+aperture poses, specializes affine cells, uses primitive contact for an uncut
+cell and queries separate cell envelopes through spatial indices. Preserve
+those gains. The [November 12 correction](../../../dev/reviews/portal-stall-handoff-2026-11-12.md)
+also stopped repeated expensive refused motion; adding accepted history must
+not undo that containment.
 
-| Reusable input | Required key / invalidation |
+#### Three responsibilities
+
+| Responsibility | Required behavior |
 | --- | --- |
-| Validated canonical shape and local bounds | Source geometry revision |
-| Directed relation and aperture motion coefficients | Scoped topology version and accepted motion sample |
-| Room collider index and motion envelope | That owner's published geometry/motion revision |
-| Query cells and contact interpretation | Exact material/source motion, interval, topology selection, mode and budget |
-| Presentation cut/image work | The selected observer, drawable/sample and ready source image |
+| Material semantics | Canonical shape, admitted topology and convention, finite openings, time/winding, chart/path identity, contact ownership, overlap rules, body budgets and typed refusal. |
+| Reference execution | Expensive unpruned relation evaluation and general geometry for offline/debug comparison; permitted to report an unresolved numerical result. |
+| Production execution | Conservative local selection, proven specializations and bounded remaining general work under the same material contract. |
 
-Keep live queries tied to their immutable input values while they are in use.
-A rollback restore or a late topology edit cannot make an old index mean a
-new relation. Cache eviction changes cost, not selected mechanics.
+The reference is not an always-on shadow query or an automatic unbounded
+fallback after a gameplay work limit. An offline higher-precision calculation
+can diagnose a mathematical or conditioning error; it does not silently redefine
+the engine's operational rounding, stable tie order or boundary ownership.
+Compare production specializations with the operational reference under those
+same rules. Cache warmth or eviction cannot decide whether an operation
+commits, defers or exhausts its work allowance. Cold and warm paths need the
+same deterministic publication/continuation policy; retain prepared inputs
+required by admitted live state under their owner's lifetime contract. A new
+algorithm may resolve an old work refusal; it may not turn an unresolved
+route into an accepted miss or bypass authored material limits.
 
-Use a compact inline result for an ordinary no-portal shape or one unchanged
-material image. Static translation and affine motion remain analytical
-specializations; curved aperture or source motion uses the existing bounded
-solver. Choose a fast case from the admitted inputs, not from player kind,
-a room name or the mere fact that a portal plugin is installed.
+#### Select work before exact root and cell queries
 
-The useful optimization removes repeated validation, map preparation, source
-projection, temporary cells or capture work. A new crate or generic callback
-layer without one of those removals is not this change. If extraction becomes
-useful, pure shape/frame/query contracts remain below the ECS adapters, under
-the [capability linking plan](capability-linking-and-prepared-facets.md).
+Prepare admitted relation coefficients and conservative swept-aperture bounds
+once per changed topology/motion snapshot. Index those bounds. Root trajectory
+and finite material queries select their candidates from this shared input,
+then retain their distinct exact crossing/fit and partition predicates.
+Full turns and remote pivots need their complete conservative envelopes.
+
+Today [`MaterialCast::motion_admission`](../../../crates/ambition_platformer2d_core/src/frame/material_cast.rs)
+searches every supplied link before `reachable_links` narrows cell work.
+Axis collision calls this search before
+`cells` can call it again. Keep the prepared root result explicitly, including
+**searched and no crossing**, with its interval and relation generation.
+Pass the result to cell construction and the accepted motion operation.
+Delete repeated endpoint sorting, partner lookup and later root rediscovery
+as those consumers migrate to the same admitted relation/root witness.
+
+A query with no local aperture candidates performs no exact root solves for
+distant portals. Distant aperture motion cannot make its cell program curved;
+the source's own turn or collider motion may still require curved contact.
+A conservative revisit remains a new image/interval/allowance question; an
+index is not permission to restore the one-visited-bit rule. If uncertainty
+retains a genuinely broad candidate set, charge its work to that operation's
+bound. Do not expand every ordinary body's work to all room links just because
+one operation is difficult.
+
+#### Keep specializations inside the common material authority
+
+| Proven query class | Execution |
+| --- | --- |
+| Uncut primitive with linear relative motion | Inline single material image and native primitive contact. |
+| Static/translation or affine cuts and maps | Existing analytical builders/contact, including instant snapshots of turning apertures. |
+| A proved shared rigid motion | Factor out that motion where the remaining geometry/cuts become static or affine. |
+| Genuinely curved relative motion | Existing bounded continuous solver with full winding and conservative bounds. |
+
+Choose from admitted inputs and active dependencies, not player kind, room
+name, capability installation or a tolerance that treats a real turn as zero.
+A common-frame specialization needs a shared admitted motion law or exact
+algebraic proof. Matching velocity at one instant is insufficient. The source
+trajectory, relevant cuts and ordering predicates, and queried collider must
+all have suitable residual laws in that frame before contact becomes static
+or affine. Host-local opening geometry alone does not establish that for a
+free body. Start with aperture/face relations already recognized by
+[`line_parts` and `excludes_rigid`](../../../crates/ambition_platformer2d_core/src/frame/material_cast/arcs.rs);
+preserve each body's eligibility and path mask. Keep the uncarved solid
+authoritative and independent nearby obstacles intact. Transform query
+geometry and contact derivatives without changing the owner's force law.
+
+The curved evaluator should also follow the expression it evaluates.
+[`Scene::states`](../../../crates/ambition_platformer2d_core/src/frame/material_cast/arcs.rs)
+currently samples every selected link even for a map-only request. Prepare
+the cell's path, active cuts, holes and ordering predecessors
+once. Map/velocity evaluation needs the path; cut evaluation also needs those
+predecessors. Share their results within one time/interval evaluation instead
+of repeatedly building all-link pose vectors. Keep fixed-pose caching and
+existing whole-interval exclusions. Do not accumulate an unbounded cache of
+adaptive sample timestamps.
+
+#### Prepare a leg once and retain compact history
+
+| Reusable input | Required identity / invalidation |
+| --- | --- |
+| Validated canonical shape and local bounds | Source geometry revision. |
+| Relation coefficients and aperture envelopes | Scoped topology version and accepted motion sample. |
+| Collider index and host-local opening geometry | Owning geometry/motion revision and admitted relation identity. |
+| Prepared source leg, root result and cells | Exact material/source curve, interval, relation selection, overlap mode and body budget. |
+| Observer cut/image | Observer, drawable/sample and ready source image. |
+
+World contact, recipient contact and payload interpretation should borrow the
+same prepared leg. Projectiles currently prepare source cells for recipients
+and rebuild them inside [`query_world_collision`](../../../crates/ambition_platformer2d_shared_tangle/src/projectile/collision.rs);
+remove that duplicate first. This sharing can start independently of the
+broader candidate-propagation correction.
+Items rebuild the accepted prefix after a world sweep. Return the admitted
+prepared prefix with its contact/witness where the inputs match.
+
+A restriction keeps the original curve and clock, closed event strata,
+initial-overlap behavior and prefix-only budget admission. A refused suffix
+must not prevent an earlier valid solid stop. First reuse successful prepared
+prefixes under the existing search; incremental temporal-frontier reuse needs
+its own proof before it replaces that search. A root rebase creates a new leg.
+
+Retained motion stores compact geometry provenance, source curves, intervals,
+accepted path/maps and relation generations. Keep the ordinary one-leg case
+inline. Heavy cell/scene graphs are transient, bounded query products shared
+at an exact reader cut; they are not copied into permanent per-body rollback
+history or retained for each observer. Views keep compact crossing projections
+through their cursor. A rollback or topology edit must not change the meaning
+of an input still borrowed by a query.
+
+#### Preserve bounded, truthful refusal continuation
+
+Work allowance bounds algorithmic effort; hop, piece and scale policy bound
+supported material meaning. Preserve the owner's deterministic admitted
+prefix/restriction or refusal recovery, and make later readers consume it.
+Do not restore repeated full-speed attempts of the same refused operation on
+every tick. Reusing a refusal requires identical relevant inputs; changed
+source, host motion, topology or budget asks a new question. A numerical
+failure does not itself prove a wall or authorize a shared topology mutation.
+Preserve the movement owner's named per-operation narrowed recovery: its
+accepted restriction belongs to that operation and its history, and later
+readers must not reopen it or mistake it for a global pair edit.
+
+Host/aperture admission uses accepted occupancy/path dependencies and swept
+envelopes to find affected bodies. It must not rebuild every body's cells for
+each moving host. No affected material is a cheap result, with room identity
+and body/relation occurrence preserved. This is an index over the same
+accepted material, not a second occupancy authority.
+
+Verify contact/path identity, rounding/tie rules, typed admission and rollback
+alongside cost. Use no-portal, local static, genuinely curved, revisiting-chain,
+remote-pivot and repeated-refusal cases. Adding moving links outside the
+conservatively reachable query geometry must not increase exact root/cell
+work; world plus recipient queries must prepare an unchanged source leg once.
+Measure matched shipped-host timing
+separately from geometry work counts and offline reference time. Extend the
+existing owner fixtures and receipts; do not add a permanent shadow solver or
+generic benchmarking/guard framework for this work.
 
 ## Presentation is a query of one complete observer chart
 
@@ -446,16 +567,25 @@ reuse; a moved caster never edits foreign-room endpoints.
 Extend the existing refusal fixture through the real post-movement transit.
 Add a translating exit at a nonterminal crossing time and a projectile hitting
 a target before/after that target crosses. Preserve one shared world clock,
-remaining interval and domain-specific force/contact policy.
+remaining interval and domain-specific force/contact policy. Retain compact
+leg provenance and crossing facts, with the ordinary single leg inline;
+heavy cell/scene products live only through their query readers. Preserve
+bounded refusal continuation and bind any named narrowed recovery to the
+accepted operation instead of retrying an unchanged expensive refusal forever.
 
 **Delete:** independent crossing rediscovery and final-pose history collapse
-for migrated continuous motion. Keep discrete arrival distinct.
+for migrated continuous motion. Retain the root result, including a searched
+absence, so construction and later readers do not repeat that work. Keep
+discrete arrival distinct.
 **Accept:** refused routes stay refused; static maps retain their behavior;
 moving maps include residual motion; later readers see the completed legs;
 multiple crossings, late aperture birth, zero-progress bounds and replay keep
 ordered outcomes. A completed path retains its selected topology intervals.
 A driven host gets refusal before its aperture would create invalid
 occupancy; host, aperture and affected material cannot commit separately.
+Find affected material through admitted occupancy/path dependencies rather
+than rebuilding every body's cells for each host. Views retain compact
+crossing projections without keeping full collision programs resident.
 
 ### P3 — One physical contact witness through response
 
@@ -473,17 +603,31 @@ contact correction cannot push the body through another obstacle.
 ### P4 — Conservative query planning and proven fast cases
 
 **Owner:** core material query preparation and the room geometry adapter.
-First turn the full-turn and repeated-A examples into owning Rust witnesses.
+Two bounded cuts can start independently. First share the projectile's
+prepared source leg between world and recipient contact, removing the
+demonstrated duplicate without changing candidate selection. Separately turn
+the full-turn and repeated-A examples into owning Rust witnesses; correct
+curved bounds and state propagation while preserving local work selection.
 Compare the selected query with the complete eligible link set for its
-supported result, including the contact/refusal difference. Fix curved bounds
-and state propagation before adding shared preparation. Then specialize the
-no-portal, static and affine cases.
+supported result, including the contact/refusal difference. The exhaustive
+mode tests candidate selection, not the shared narrow phase's correctness.
+Retain the no-portal, static and affine cases throughout. Then compile exact
+cell dependencies and admit further relative-motion specializations only
+where their conditions hold. Host-local opening preparation does not itself
+prove that a free body's contact is affine.
 
-**Delete:** endpoint-only visited exclusion, repeated immutable preparation
-and avoidable whole-image/cell allocations at the migrated consumers.
+**Delete:** endpoint-only visited exclusion, duplicate world/recipient source
+cell construction, repeated immutable/root preparation and irrelevant
+all-link pose evaluation at the migrated consumers.
 **Accept:** alternate paths and revisits cannot hide a reachable opening;
-adding an unrelated moving portal does not force a local straight query into
-the curved solver; source/clock/topology changes invalidate the right value.
+adding moving portals outside the conservatively reachable query geometry
+does not force a local straight query into the curved solver or exact root
+search; one unchanged source leg serves world
+and recipient contact. A valid prefix remains admissible before a refused
+suffix. Source/clock/topology changes invalidate the right value; cold/warm
+preparation preserves deterministic results and refusal continuation. Use
+offline reference checks and production work counts separately, including
+repeated refused traffic; no always-on general shadow query is introduced.
 
 ### P5 — Observer chart and ordered handoff
 

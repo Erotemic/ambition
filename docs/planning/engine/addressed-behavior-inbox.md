@@ -28,7 +28,13 @@ a taken pickup (`object_collected`) by the pickup owner at the take
 Authored signals (`emit_signal`, 2026-11-19) use
 the same mailbox under the `object_signal` port. A post across rollback
 islands (`post_world_signal`, 2026-11-19) reaches the same subscriptions
-through the committed world road below. Retirement facts remain open.
+through the committed world road below. Retirement notifications also use this
+mailbox through `ObjectRetiredPort`. The end-of-tick
+[`publish_retirements`](../../../crates/ambition_platformer2d_runtime/src/behavior_events.rs)
+pass finds subscribed source occurrences that no longer resolve and retains
+`RetirementsHeard` state per receiver to avoid repeated notification. This
+implements a notification path; it does not prove committed cross-island
+retirement semantics. The authority boundary below still applies.
 
 ## Keep the meanings distinct
 
@@ -57,6 +63,114 @@ other delivery phases, retain the spent tick and count in recipient-owned
 rollback state. One `max_per_tick` bound must cover all addressed payloads and
 phases. Separate per-lane counters or a non-rewound local counter would break
 that contract.
+
+## Prepared routing and active delivery work
+
+**State:** planned from source review at `aef73be10f3d`; no new runtime or
+performance result. This applies the common
+[execution specialization contract](execution-specialization-and-work-selection.md).
+The [extension host](extension-state-and-execution.md#invocation-protocol-and-scheduling)
+owns compiled dispatch. Lifecycle and inbox owners supply address views and
+active journal work. Keep the current serial behavior as the reference.
+
+### Compile the fixed handler relations
+
+`AdmittedExtensions` and installed codec maps already use `Arc`; authored move
+flows already share their specification. Preserve that work. The remaining
+[host path](../../../crates/ambition_extension_host/src/exec.rs) matches phase
+entries against pending triggers and resolves entry, method, supplier and schema
+keys again during execution.
+
+The extension host prepares ordered trigger spans, entry lookup and the static
+supplier/schema/reply relations when it admits the generation. Behavior
+preparation binds named methods through that result. Keep source names for
+diagnostics and later rebinding; a generation-local index is not a saved identity.
+
+Bucket queued triggers once, then execute in the existing admitted entry order
+and original queue order within each entry. Do not batch mutable observations
+across ordered commits. Each invocation still reads at its declared cut, stages
+its bounded writes, checks dynamic output and settles only after host commit.
+Keep the existing pace sampling and request-lowering order.
+
+A module publication replaces these bindings with the admitted generation.
+Rebind retained symbolic addresses or report the existing unavailable/unbound
+outcome. An old index cannot select a different new entry. Delete repeated path
+scans and entry-by-trigger matching as each consumer takes the prepared relation.
+This is a host execution projection, not another dispatcher or interpreter.
+
+### Share an address view at each lifecycle cut
+
+[`ObjectIndex::capture`](../../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/object_refs.rs)
+is a useful reference, but event publication, recipient selection and call
+completion rebuild it at separate consumers. `resolve_object` scans occurrences
+for one known reference. `object_behaviors::call` also rebuilds every private
+behavior binding before it handles its request list.
+
+The lifecycle owner supplies one immutable occurrence view per read cut; the
+behavior owner supplies the private binding relation. Build or update these
+views after the structural flush that defines that cut. Births, retirement,
+reconstruction and address changes invalidate the affected relation before the
+next reader. A candidate construction is absent until its publication barrier
+commits. `ObjectPublished` observers must see the fully published batch.
+
+Keep occurrence identity, current residency and query visibility distinct.
+Ownership, travel and replay visibility changes update the operation's scope
+view; they do not by themselves require a new occurrence-address relation.
+Apply the room-replay visibility and authority rules, including foreign entities
+hidden with `Disabled`. Preserve ambiguous, retired, foreign-session and
+unpublished results. Capability absence does not remove an object from the
+address population. Private state follows its current owner through travel
+and entity reconstruction.
+
+Start with shared snapshots at declared cuts, then use lifecycle updates where
+they remove repeated builds. The full capture remains a synchronous fallback.
+Do not rebuild unconditionally for every consumer, reuse a pre-flush snapshot
+after births, or let a cold cache answer that a live object is retired.
+
+### Derive ready and waiting work from the journals
+
+Native facts already use `EventRoutes` and skip publication work when no route
+exists. Preserve those paths. Install the common fact collector once; each new
+native source must not add another all-mailbox scan.
+
+Derive active receiver work from the canonical journals. Keep delivery-ready rows,
+retry rows, incomplete calls with active-time deadlines, unbound handlers waiting
+for a binding change, and frozen work distinct. A subscription with an empty
+mailbox needs no delivery work. An acknowledged method can still own an unfinished
+call and must remain in wait/lifetime maintenance.
+
+Queueing, settlement and lifecycle transitions update this derived work set.
+Advance existing active wait/retry sets and process due wake conditions; do not
+reclassify every mailbox when the simulation tick advances. The set contains
+addresses and eligibility, not copied domain payloads. Rollback rebuilds it from
+restored journals before delivery. Bevy change ticks alone cannot establish that
+it is current. Preserve later-cut eligibility (`written < now`), one attempt per
+permitted tick, lane-local sequences, shared receiver budgets and settlement
+after commit. Frozen rooms retain work and do not spend active wait time. Unbound
+handlers can wake on the relevant generation change; fault retries keep their
+existing policy.
+
+No asynchronous worker-ready flag may decide whether a canonical delivery runs.
+An invalidated address/work projection is rebuilt synchronously or uses the
+reference pass. Preparation may change cost, not observable eligibility.
+
+### Bounded migration and evidence
+
+1. Prepare host dispatch spans and method bindings; delete repeated matching at
+   the migrated consumer. Compare mixed broadcast and directed invocations with
+   shared state against the current serial order, including a missing handler
+   after reload and a fault that discards writes and requests.
+2. Share occurrence/binding views across one publication/read cut. Exercise
+   same-batch construction, retirement, duplicate identity, reconstruction and
+   independent room replay before replacing the reference lookup there.
+3. Derive active receiver work. Use the existing private behavior, shared-budget,
+   cancellation and replay customers with many unrelated dormant subscriptions.
+   Check active-time expiration through freeze and resume.
+
+Record handler comparisons, index builds, visited receivers and allocations as
+well as time. Keep native and portable output equal. The
+[extension evidence plan](extension-iteration-evidence.md) owns measurement; this
+section does not add a new queue, state format, global registry or guard suite.
 
 ## Native subscriptions and authored signals
 

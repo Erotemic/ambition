@@ -150,6 +150,33 @@ and pinned product versions intact; a narrow authoring consumer excludes its
 native adapter. State which axis each packet proves. Code, runtime behavior
 and compile-time performance remain separate evidence.
 
+### EXECUTION-COST — specialize gameplay work at its actual inputs
+
+**State:** PLANNED, 2026-11-21 efficiency follow-through. Preserve the product
+order above. This selects bounded work; it reports no new runtime measurement.
+
+**Failure / customer:** one projectile leg prepares equivalent source cells
+twice; ordinary animation evaluates immutable clip facts during presentation;
+addressed behavior repeats static joins and population scans; navigation
+discards an arrival position that its own cost law still reads.
+
+**Owner:** [execution specialization and work selection](engine/execution-specialization-and-work-selection.md)
+links E1–E4 to their existing domain owners. Portal implementation remains
+under [PORTAL-SIMILARITY](#portal-similarity--canonical-parts-and-scaled-mirror-portals).
+
+**Next action:** remove duplicate projectile source preparation and compile
+immutable clip properties as independent bounded slices. Prepare ordered
+extension dispatch and remove duplicate fact collectors, then share correct
+occurrence views and derive active journal work. Navigation first fixes its
+cost-state reduction, then reuses motion envelopes and graph query work.
+
+**Acceptance:** ordinary operations select the cheapest supported local case;
+adding unrelated portals, installed entries or dormant receivers does not add
+exact work to that operation. Preparation preserves order, samples, scope and
+refusals; cache availability cannot alter publication. Every claimed saving
+names removed work and measures its relevant cost. Retain an offline/reference
+comparison without running a shadow general evaluator on every gameplay query.
+
 ### BOSS-CHARACTER — one character path for bosses
 
 **State:** in progress. Slice 1 and slice 2 (2a, 2b, 2c) are done (2026-11-21). The

@@ -304,6 +304,29 @@ execution is an optimization only when declared accesses and deterministic buffe
 merging establish identical results; it is not achieved by running opaque callbacks
 concurrently and sorting their damage afterward.
 
+### Prepared dispatch preserves each invocation's read cut
+
+Under the [execution specialization contract](execution-specialization-and-work-selection.md),
+admission owns the prepared entry lookup, ordered trigger spans and static
+supplier/schema/reply relationships. The existing admitted metadata and codec
+maps already use `Arc`; preserve their sharing. Bind handles to that admitted
+generation, and rebind retained symbolic addresses when a new generation is
+published. A removed handler follows the existing unavailable/unbound outcome;
+an old ordinal must not select a new handler.
+
+Bucket pending triggers once, then execute in admitted entry order and original
+queue order within each entry. Keep the current pace sampling and native request
+lowering order. Each invocation obtains fresh observations at its declared read
+cut after earlier ordered commits. Do not batch mutable observations across
+those commits. Prepared dispatch removes repeated relation lookup; it does not
+remove dynamic output validation, bounded write staging or fault discard.
+
+The [addressed inbox plan](addressed-behavior-inbox.md#prepared-routing-and-active-delivery-work)
+owns lifecycle-correct address views and journal-derived ready/waiting work.
+Those projections are derived from canonical state. Cache or worker availability
+cannot decide whether an invocation runs; use synchronous preparation or the
+existing serial path when a projection is unavailable.
+
 ### Queries
 
 Domain ports expose deliberate immutable projections: body pose/velocity and

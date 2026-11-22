@@ -424,6 +424,13 @@ before promotion.
   [the queue](queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals)
   selects work. Do not revive a one-pair host workaround or the old claim
   that retained portal rendering pools are missing.
+- **Execution cost (selected via EXECUTION-COST).** Full/reference semantics
+  remain available while gameplay selects local specializations. Prepare
+  immutable clip and dispatch relationships; retain correct occurrence views;
+  process active journal work; retain arrival state for navigation cost.
+  [The owner](engine/execution-specialization-and-work-selection.md) links
+  bounded domain packets and the [queue](queue.md#execution-cost--specialize-gameplay-work-at-its-actual-inputs)
+  selects them. No always-on reference solver or generic cache framework.
 - ▢ **Review follow-ups requiring a fresh measurement.** Cold/warm rig table
   preparation memory and frame stalls; human acceptance for robot
   crouch/turn/double jump (REVIEW-1014); rendered portal-piece frame cost

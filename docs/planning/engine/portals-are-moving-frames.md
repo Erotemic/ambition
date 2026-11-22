@@ -168,6 +168,15 @@ readers finish; retain its compact crossing projection separately for views
 records a discontinuity and the real travel preceding it; it must not draw
 a physical segment across the relocation gap.
 
+Full path means compact source/interval/relation provenance and accepted
+outcomes, not stored copies of every solver cell. Keep a single leg inline;
+share heavy prepared query values only through their exact reader cut. World,
+recipient and payload consumers reuse one prepared leg where their meanings
+agree, including the root-search result when no crossing was found. Prefix
+reuse must preserve the original clock and admit an earlier valid prefix
+without requiring a refused suffix. The delivery plan owns the
+[preparation and specialization contract](portal-parts-similarity-and-chirality.md#reuse-preparation-and-specialize-execution).
+
 Bind history to the body occurrence, simulation tick/rollback generation and
 accepted aperture snapshot. Store the maps or stable directed identities
 needed to interpret it without resolving against a later topology. The
@@ -187,7 +196,10 @@ advancement follows its explicit owner clock.
 The later portal phase projects accepted overlap, input and cue facts. It
 does not discover a new physical trajectory from completed endpoints or
 reopen links excluded by the accepted fallback. Keep the existing playable
-refusal recovery and explicit portal-close eviction policy.
+refusal recovery and explicit portal-close eviction policy. A numerical
+failure does not itself prove a physical wall or authorize a shared topology
+edit. A named narrowed recovery is per operation, retained with its accepted
+history; its cost containment and meaning survive the migration.
 
 ## Driven aperture motion is admitted before the host commits
 

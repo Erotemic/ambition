@@ -210,6 +210,16 @@ not establish the newly selected moving, temporal and multiview cases.
 
 ## Engineering priority order
 
+The 2026-11-21 efficiency follow-through is
+[execution specialization and work selection](engine/execution-specialization-and-work-selection.md).
+It gives the full/reference model and gameplay implementations distinct jobs.
+Selected domain work removes repeated query preparation, invariant animation
+analysis, static dispatch resolution and inactive delivery scans. Navigation
+also retains arrival position in its cost state, enabling valid route reuse.
+These refine the existing engine work within the order below; they do not
+replace product priorities or claim a measured speedup. The separate portable
+prepared-content-artifact hold remains in force.
+
 The priorities below are scored on two axes. The first is authority
 decomposition: which crate owns the fact, what may mutate it, one lifecycle,
 dependency direction. The second is capability composability: can this capability

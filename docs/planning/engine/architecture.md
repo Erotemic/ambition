@@ -115,6 +115,21 @@ per-observer demand and complete image-source reuse address redundant capture.
 Do not claim a new compile-time boundary or speedup until its actual consumer
 and resolved dependencies are measured.
 
+### Execution cost follows selected inputs
+
+The [execution specialization plan](execution-specialization-and-work-selection.md)
+adds a cost rule to the ownership changes above: immutable semantics prepare
+their runtime relationships, and live work follows actual operations. A full
+reference model can remain available offline while production uses local,
+proved specializations. The selected customers are portal query reuse, compiled
+visual relations, admitted handler dispatch, occurrence/active-journal views
+and navigation states that retain arrival position.
+
+These use the existing domain owners. A generic framework that retains all
+the old scans or makes every caller execute the general case does not satisfy
+the change. Preparation, semantic lifetime and work selection must agree;
+warm caches and background completion cannot change simulation outcomes.
+
 ## Converged shape
 
 Code against these facts. Each one is in source and has a guard.

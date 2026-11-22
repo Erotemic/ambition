@@ -273,7 +273,7 @@ links to.
 - [`engine/character-texel-density.md`](engine/character-texel-density.md) —
   sheet pixels per world unit; the cast rollout is on hold.
 - [`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md)
-  — rigged sprites (on in the shipped game).
+  — rigged sprites, compiled visual relations and staged image invalidation.
 - [`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md) —
   Mary-O drawn entirely from parts: gaps, validation, interpolation, phases.
 - [`engine/semantic-part-rendering-and-ragdolls.md`](engine/semantic-part-rendering-and-ragdolls.md)
@@ -303,6 +303,9 @@ links to.
 - [`engine/prevalidated-content-artifacts.md`](engine/prevalidated-content-artifacts.md)
   — content validated ahead of time for fast admission; deferred.
 - [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md)
+- [`engine/execution-specialization-and-work-selection.md`](engine/execution-specialization-and-work-selection.md)
+  — full/reference semantics with fast gameplay paths; prepare fixed relations
+  and select active query, visual, behavior and navigation work.
 - [`engine/runtime-frame-history.md`](engine/runtime-frame-history.md)
 - [`engine/project-build-and-distribution.md`](engine/project-build-and-distribution.md)
 - [`engine/godot-class-2d-capability.md`](engine/godot-class-2d-capability.md) —

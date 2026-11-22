@@ -145,6 +145,38 @@ green.
 
 ## Current work
 
+### Selected — specialize execution and remove inactive work
+
+The maintainer's 2026-11-21 efficiency direction is explicit: preserve full
+expressiveness and a reference evaluator, while gameplay uses proven cheap
+cases. The [execution contract](execution-specialization-and-work-selection.md)
+sets that boundary and selects E1–E4. Reference evaluation can run offline;
+it is not a second solver paid on every live operation.
+
+Current source exposes concrete work to remove:
+
+| Customer | Current cost mechanism | Selected owner |
+| --- | --- | --- |
+| One projectile leg | Source cells built for recipients, then rebuilt for world contact; root admission can search twice | Portal P2/P4 |
+| Ordinary part animation | Immutable whole-clip predicates and stable track relationships interpreted at frame time | Runtime rigged animation PVS-1/PVS-2 |
+| Whole-body image effects | A finishing-only change can redraw unchanged source parts | Runtime rigged animation PVS-3 |
+| One addressed behavior | Entry-by-trigger matching, repeated occurrence-index captures and duplicate/idle mailbox collection | Addressed behavior delivery |
+| Navigation | Empty-world envelope measured per room graph; repeated reachability; route state drops arrival position needed by cost | Navigation E4 |
+
+These are source-derived mechanisms, not a new performance baseline. Begin
+with sharing successful projectile preparation, compiled clip properties and
+the duplicate collector. Broader preparation, active-journal scheduling and
+navigation route reuse retain their owning correctness and lifetime work.
+Preserve recent portal filtering, refusal recovery, retained image storage,
+shared admitted metadata and the November 18–20 fixes above.
+
+Measure preparation cost, steady work and invalidation separately. Extra
+unused vocabulary, dormant objects or unrelated geometry are controls for
+the claimed work boundary. Cache warmth must not select a different accepted
+simulation result, refusal or delivery time. See the execution contract for
+operational versus high-precision reference comparison. A whole-room or
+whole-population scan hidden in a new preparation step is not a completed cut.
+
 ### P1 — weak-GPU raster/quality attribution
 
 Maintain representative weak-GPU/software-raster measurements that separately

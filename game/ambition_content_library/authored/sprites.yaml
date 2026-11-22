@@ -33,6 +33,7 @@ baked_pages:
   gnu_ton_scholar_boss: "Boss art (boss_art_keys.ron): publishes no part flipbook."
   gram_reaper: "Boss art (boss_art_keys.ron): publishes no part flipbook."
   marshal_gallus: "Boss art (boss_art_keys.ron): publishes no part flipbook."
+  supreme_leader: "Boss art (boss_art_keys.ron): publishes no part flipbook."
 
 # The clips a part-first target's flipbook tweens, where they differ from
 # the default locomotion loops (walk, run, crouch_walk, climb, swim): each a

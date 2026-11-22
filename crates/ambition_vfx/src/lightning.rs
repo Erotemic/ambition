@@ -109,6 +109,20 @@ impl LightningLook {
         contact_glow: 0.0,
     };
 
+    /// A sight line: where a shot is about to go. Thin, dead straight and
+    /// red, grown out from its source so the eye follows it to the end.
+    pub const SIGHT: LightningLook = LightningLook {
+        glow: [1.0, 0.18, 0.12, 0.4],
+        core: [1.0, 0.72, 0.66, 0.9],
+        width: 0.8,
+        glow_scale: 3.0,
+        jag: 0.0,
+        forks: 0,
+        flicker_s: 0.1,
+        grow_s: 0.14,
+        contact_glow: 8.0,
+    };
+
     /// The look a module names on the lightning ports, or `None`.
     pub fn named(name: &str) -> Option<LightningLook> {
         Some(match name {
@@ -116,6 +130,7 @@ impl LightningLook {
             "force" => Self::FORCE,
             "spark_gap" => Self::SPARK_GAP,
             "aura" => Self::AURA,
+            "sight" => Self::SIGHT,
             _ => return None,
         })
     }
@@ -168,7 +183,7 @@ mod tests {
 
     #[test]
     fn every_named_look_is_found_and_an_unknown_one_is_not() {
-        for name in ["strike", "force", "spark_gap", "aura"] {
+        for name in ["strike", "force", "spark_gap", "aura", "sight"] {
             assert!(LightningLook::named(name).is_some(), "{name}");
         }
         assert_eq!(LightningLook::named("plasma"), None);

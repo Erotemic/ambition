@@ -555,6 +555,20 @@
             ],
         ),
         (
+            // The Supreme Leader: the regime's own song until a cue of his
+            // own is written; its intro under his address.
+            boss_id: "supreme_leader",
+            cue_id: "tritone_decree",
+            phase_states: [
+                (phase: "Intro", state: "intro"),
+                (phase: "Phase1", state: "decree"),
+                (phase: "Transition", state: "decree"),
+                (phase: "Phase2", state: "decree"),
+                (phase: "Stagger", state: "decree"),
+                (phase: "Enrage", state: "decree"),
+            ],
+        ),
+        (
             boss_id: "wolfenstein_boss",
             cue_id: "galvanic_march",
             phase_states: [

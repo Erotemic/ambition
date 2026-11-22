@@ -1,0 +1,27 @@
+// Boss encounter spec: the Supreme Leader, in the War Room
+// (`docs/planning/game/bosses.md`, "The Supreme Leader"). His moves are in
+// `assets/data/boss_profiles.ron` and his conductor in
+// `ambition_content_modules::supreme_leader` (his Command Uplink, his beats);
+// his art in `boss_sheets.ron`.
+//
+// Music: until a cue of his own is written he plays the regime's own,
+// `tritone_decree`, bound to his phases in `assets/audio/music_cues.ron`
+// (`boss_bindings`).
+(
+    id: "supreme_leader",
+    name: "The Supreme Leader",
+    max_hp: 90,
+    // The Command to 65%, the Disruption to 30%, then the Emergency Powers.
+    phase1_to_transition_hp: 0.65,
+    phase2_to_enrage_hp: 0.3,
+    // His address, and the uplink called down into it (`supreme_leader::INTRO_S`).
+    intro_seconds: 2.88,
+    // The Contingency and the Emergency Powers (`supreme_leader::BEAT_S`).
+    transition_seconds: 1.8,
+    music_intro: "",
+    music_phase1: "",
+    music_phase2: "",
+    music_enrage: "",
+    // The blow that beats him hangs time while the gate takes him.
+    slow_motion_finish: true,
+)

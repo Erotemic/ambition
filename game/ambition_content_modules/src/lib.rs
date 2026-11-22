@@ -39,6 +39,7 @@ pub mod seismic_stomp;
 pub mod sentry;
 pub mod shockwave;
 mod strike;
+pub mod supreme_leader;
 pub mod trex;
 pub mod volley;
 pub mod vortex;
@@ -79,6 +80,7 @@ pub const MODULES: &[fn() -> ambition_extension_sdk::ModuleDescriptor] = &[
     seismic_stomp::module,
     sentry::module,
     shockwave::module,
+    supreme_leader::module,
     trex::module,
     volley::module,
     vortex::module,

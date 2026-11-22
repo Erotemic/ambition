@@ -16,9 +16,9 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 
 /// Rooms whose bosses have no conductor that stages a card: the Clockwork
-/// Warden has no conductor; the T-rex and the Flying Spaghetti Monster have
-/// conductors that stage nothing.
-const ROOMS: [&str; 3] = ["basement_boss", "trex_arena", "flying_spaghetti_monster_arena"];
+/// Warden has no conductor; the T-rex, the Flying Spaghetti Monster and the
+/// Supreme Leader have conductors that stage nothing.
+const ROOMS: [&str; 4] = ["basement_boss", "trex_arena", "flying_spaghetti_monster_arena", "hall_supreme_leader_war_room"];
 
 fn untouchable_player(sim: &mut Platformer2dSimHarness) {
     let world = sim.world_mut();

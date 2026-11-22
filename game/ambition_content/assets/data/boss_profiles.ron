@@ -2923,4 +2923,192 @@
             size: (52.0, 52.0),
         ),
     ),
+
+    // The Supreme Leader (2026-11-21; `docs/planning/game/bosses.md`, "The
+    // Supreme Leader"). His pattern decides which move and when;
+    // `ambition_content_modules::supreme_leader` performs each one, runs his
+    // Command Uplink (his orders go through it, and he is guarded while they
+    // do) and stages his beats. Three acts: the COMMAND (his uplink at the
+    // west end; orders and his own sceptre), the DISRUPTION (a new uplink at
+    // the east end; the crossfire and the gate step join), and the EMERGENCY
+    // POWERS (the uplink drained into his sceptre; the Mandate, its overheat
+    // the long window, and the gate step chained). Every move has one dodge
+    // and a window after it; a broken uplink turns every order into a window.
+    "supreme_leader": (
+        id: "supreme_leader",
+        character: "npc_supreme_leader",
+        title: Some("Everything According to Plan"),
+        reward_ability: None,
+        signature_gauntlet: None,
+        // He does not drift on his own: the conductor walks him.
+        movement: AnchorSway(
+            x_radius: 0.0,
+            y_bob: 0.0,
+            x_frequency: 0.0,
+            y_frequency: 0.0,
+            chase_scale: 0.0,
+            chase_limit: 0.0,
+            speed: 0.0,
+        ),
+        strike_speed_scale: 1.0,
+        macro_tuning: (
+            too_close_distance: 0.0,
+            too_far_distance: 0.0,
+            engage_distance: 0.0,
+            approach_duration_s: 0.0,
+            retreat_duration_s: 0.0,
+            engage_max_duration_s: 0.0,
+            approach_speed_scale: 1.0,
+            retreat_speed_scale: 1.0,
+            retreat_distance: 0.0,
+        ),
+        attacks: [
+            Special("sl_lines"),
+            Special("sl_decree"),
+            Special("sl_crossfire"),
+            Special("sl_precision"),
+            Special("sl_sweep"),
+            Special("sl_gate_step"),
+            Special("sl_mandate"),
+        ],
+        attack_cooldown: 1.0,
+        attack_windup: 0.6,
+        attack_active: 0.4,
+        attack_damage: 2,
+        // His body hurts nobody: his moves do.
+        body_damage: 0,
+        attack_pattern: Scripted(
+            // PHASE 1, THE COMMAND: an order, his own answer to where you
+            // are, an order, his own answer again.
+            phase1: (steps: [
+                Rest(duration: 0.6),
+                Telegraph(profile: Special("sl_lines"), duration: 1.0,
+                    telegraph: Some((pose: Some("order"), cue: Some("faction.military.radio_chirp")))),
+                Strike(profile: Special("sl_lines"), duration: 1.0),
+                Rest(duration: 0.9),
+                Select(table: [
+                    (weight: 1.5, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("sl_sweep"), duration: 0.6,
+                            telegraph: Some((pose: Some("sweep"), cue: Some("swing.charge_release")))),
+                        Strike(profile: Special("sl_sweep"), duration: 0.35),
+                        Rest(duration: 0.8),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("sl_precision"), duration: 0.75,
+                            telegraph: Some((pose: Some("aim"), cue: Some("projectile.energy_orb.charge")))),
+                        Strike(profile: Special("sl_precision"), duration: 0.9),
+                        Rest(duration: 0.9),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerAbove), steps: [
+                        Telegraph(profile: Special("sl_decree"), duration: 1.1,
+                            telegraph: Some((pose: Some("decree"), cue: Some("boss.mockingbird.charge_fan")))),
+                        Strike(profile: Special("sl_decree"), duration: 1.2),
+                        Rest(duration: 1.1),
+                    ]),
+                ]),
+                Telegraph(profile: Special("sl_decree"), duration: 1.1,
+                    telegraph: Some((pose: Some("decree"), cue: Some("boss.mockingbird.charge_fan")))),
+                Strike(profile: Special("sl_decree"), duration: 1.2),
+                Rest(duration: 1.1),
+                Select(table: [
+                    (weight: 1.5, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("sl_sweep"), duration: 0.6,
+                            telegraph: Some((pose: Some("sweep"), cue: Some("swing.charge_release")))),
+                        Strike(profile: Special("sl_sweep"), duration: 0.35),
+                        Rest(duration: 0.8),
+                    ]),
+                    (weight: 1.0, when: None, steps: [
+                        Telegraph(profile: Special("sl_precision"), duration: 0.75,
+                            telegraph: Some((pose: Some("aim"), cue: Some("projectile.energy_orb.charge")))),
+                        Strike(profile: Special("sl_precision"), duration: 0.9),
+                        Rest(duration: 0.9),
+                    ]),
+                ]),
+            ]),
+            // PHASE 2, THE DISRUPTION: the crossfire and the gate step join;
+            // the decree marks five places.
+            phase2: (steps: [
+                Telegraph(profile: Special("sl_crossfire"), duration: 1.1,
+                    telegraph: Some((pose: Some("order"), cue: Some("boss.mockingbird.charge")))),
+                Strike(profile: Special("sl_crossfire"), duration: 0.45),
+                Rest(duration: 0.9),
+                Telegraph(profile: Special("sl_gate_step"), duration: 0.65,
+                    telegraph: Some((pose: Some("gate_out"), cue: Some("world.portal.enter")))),
+                Strike(profile: Special("sl_gate_step"), duration: 0.8),
+                Rest(duration: 0.8),
+                Telegraph(profile: Special("sl_lines"), duration: 0.9,
+                    telegraph: Some((pose: Some("order"), cue: Some("faction.military.radio_chirp")))),
+                Strike(profile: Special("sl_lines"), duration: 1.0),
+                Rest(duration: 0.8),
+                Select(table: [
+                    (weight: 1.5, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("sl_sweep"), duration: 0.55,
+                            telegraph: Some((pose: Some("sweep"), cue: Some("swing.charge_release")))),
+                        Strike(profile: Special("sl_sweep"), duration: 0.35),
+                        Rest(duration: 0.7),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("sl_precision"), duration: 0.7,
+                            telegraph: Some((pose: Some("aim"), cue: Some("projectile.energy_orb.charge")))),
+                        Strike(profile: Special("sl_precision"), duration: 0.9),
+                        Rest(duration: 0.8),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerAbove), steps: [
+                        Telegraph(profile: Special("sl_decree"), duration: 1.0,
+                            telegraph: Some((pose: Some("decree"), cue: Some("boss.mockingbird.charge_fan")))),
+                        Strike(profile: Special("sl_decree"), duration: 1.2),
+                        Rest(duration: 1.0),
+                    ]),
+                ]),
+                Telegraph(profile: Special("sl_decree"), duration: 1.0,
+                    telegraph: Some((pose: Some("decree"), cue: Some("boss.mockingbird.charge_fan")))),
+                Strike(profile: Special("sl_decree"), duration: 1.2),
+                Rest(duration: 1.0),
+                Telegraph(profile: Special("sl_gate_step"), duration: 0.6,
+                    telegraph: Some((pose: Some("gate_out"), cue: Some("world.portal.enter")))),
+                Strike(profile: Special("sl_gate_step"), duration: 0.8),
+                Rest(duration: 0.9),
+            ]),
+            // THE EMERGENCY POWERS: the Mandate, then the overheat (the long
+            // window); the gate step twice; five bolts.
+            enrage: (steps: [
+                Telegraph(profile: Special("sl_mandate"), duration: 1.0,
+                    telegraph: Some((pose: Some("mandate"), cue: Some("vfx.projectile_polygon.charge_build")))),
+                Strike(profile: Special("sl_mandate"), duration: 1.6),
+                Rest(duration: 1.8),
+                Telegraph(profile: Special("sl_gate_step"), duration: 0.55,
+                    telegraph: Some((pose: Some("gate_out"), cue: Some("world.portal.enter")))),
+                Strike(profile: Special("sl_gate_step"), duration: 0.8),
+                Rest(duration: 0.45),
+                Telegraph(profile: Special("sl_gate_step"), duration: 0.55,
+                    telegraph: Some((pose: Some("gate_out"), cue: Some("world.portal.enter")))),
+                Strike(profile: Special("sl_gate_step"), duration: 0.8),
+                Rest(duration: 0.8),
+                Telegraph(profile: Special("sl_precision"), duration: 0.6,
+                    telegraph: Some((pose: Some("aim"), cue: Some("projectile.energy_orb.charge")))),
+                Strike(profile: Special("sl_precision"), duration: 0.9),
+                Rest(duration: 0.8),
+                Select(table: [
+                    (weight: 1.5, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("sl_sweep"), duration: 0.5,
+                            telegraph: Some((pose: Some("sweep"), cue: Some("swing.charge_release")))),
+                        Strike(profile: Special("sl_sweep"), duration: 0.35),
+                        Rest(duration: 0.7),
+                    ]),
+                    (weight: 1.0, when: None, steps: [
+                        Telegraph(profile: Special("sl_precision"), duration: 0.6,
+                            telegraph: Some((pose: Some("aim"), cue: Some("projectile.energy_orb.charge")))),
+                        Strike(profile: Special("sl_precision"), duration: 0.9),
+                        Rest(duration: 0.8),
+                    ]),
+                ]),
+            ]),
+        ),
+        // His chest: the fight is over when the gate takes him.
+        reward: DropChest(
+            pickup: Currency(amount: 400),
+            offset: (0.0, 30.0),
+            size: (52.0, 52.0),
+        ),
+    ),
 }

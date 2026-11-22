@@ -169,6 +169,7 @@ mod inugami_fight;
 mod math_town_interiors;
 mod spectral_wolf;
 mod castle_godwin_variants;
+mod supreme_leader_fight;
 mod wolfenstein_fight;
 mod the_trex_is_drawn_from_his_parts;
 mod cut_rope_victory_identity;

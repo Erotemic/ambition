@@ -13,7 +13,7 @@ use crate::ray::Spot;
 /// Port card:
 ///
 /// * **Operation** — draw a bolt of the named `look` (`"strike"`, `"force"`,
-///   `"spark_gap"`) from `from` to `to`, held `hold_s` seconds. LEASED by
+///   `"spark_gap"`, `"sight"`) from `from` to `to`, held `hold_s` seconds. LEASED by
 ///   `key`: the same key asked again renews the bolt and moves its ends, so
 ///   a channel asked every tick is one bolt. `glow` recolours the halo. An
 ///   unknown look is refused and logged. A [`crate::ray::Spot::Part`] end

@@ -105,6 +105,14 @@
         "gallus_whistle": ["whistle"],
         "gallus_lasso": ["lasso"],
         "gallus_high_noon": ["high_noon", "quickdraw"],
+        // The Supreme Leader: each move's row on his sheet.
+        "sl_lines": ["order"],
+        "sl_decree": ["decree"],
+        "sl_crossfire": ["order"],
+        "sl_precision": ["aim"],
+        "sl_sweep": ["sweep"],
+        "sl_gate_step": ["gate_out", "gate_in", "sweep"],
+        "sl_mandate": ["mandate", "overheat"],
     },
     // The sheet rows each geometry strike claims. The first row is the
     // canonical runtime key; the others are row-name aliases, so a

@@ -348,3 +348,43 @@ long, and hard to steer.
 
 **Owner:** the Sanic demo's feel (`game/ambition_demo_sanic`) and the
 movement kernel's momentum law.
+
+## Q182 — Where in the Nazi Dimension is the Supreme Leader fought?
+
+**Context (2026-11-21, [the Supreme Leader](game/bosses.md#the-supreme-leader--total-control-built-2026-11-21)).**
+His fight is built and playable in its own room, the War Room
+(`hall_supreme_leader_war_room` in `evil.ldtk`), reached only from the Hall
+of Bosses. Castle Godwin is not the dimension's capital, and the capital is
+not designed yet. Until a story room exists the Hall copy is his one
+placement (`hall.supreme_leader`): a real encounter, not a practice copy.
+
+**Options:**
+
+* **(a) Keep him Hall-only until the capital is designed** (recommended
+  default): nothing changes; the War Room stays reachable only from the
+  Hall.
+* **(b) Name the capital and a route now:** a generator for the capital
+  joins the War Room (or a story copy of it) to the dimension's rooms. The
+  Hall copy becomes a practice copy at its own placement, as the other
+  bosses' are.
+
+**Owner:** the Nazi Dimension's map (`generators/war_room/`,
+`generators/castle_godwin/`) and `docs/planning/game/bosses.md`.
+
+## Q183 — Who is the Supreme Leader?
+
+**Context (2026-11-21).** He is shown and spoken of only by his title. The
+art, his barks and his docs settle no name and no personal history (his
+relation to the regime's founding, how he came to lead it). The regime
+fought the Gate Authority to a stalemate; that is the one fact the fight
+uses.
+
+**Options:**
+
+* **(a) Keep the title only** (recommended default): "The Supreme Leader"
+  on his card, in the catalog and in the Hall.
+* **(b) Give him a name and a history:** the catalog's `display_name`, the
+  encounter's `name`, his Hall barks and any dialogue change with it.
+
+**Owner:** `character_catalog.ron` (`npc_supreme_leader`),
+`boss_encounters/supreme_leader.ron`, `docs/planning/game/bosses.md`.

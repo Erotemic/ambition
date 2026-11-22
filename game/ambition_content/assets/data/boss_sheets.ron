@@ -1150,4 +1150,103 @@
         authored_faces_left: false,
         parts: None,
     ),
+    // The Supreme Leader (renderer `supreme_leader`): rows in the PNG's
+    // order. His conductor pins every row by name
+    // (`ambition_content_modules::supreme_leader::drawn_row`); the `BossAnim`
+    // of each is the engine's fallback only. The published body rect (his
+    // idle, 144 x 322 px) is his 64 x 150 box: 0.466 units a pixel, so the
+    // 480 px frame draws 224 tall, `collision_scale` 1.49 over the box.
+    "supreme_leader": (
+        label_width: 100,
+        frame_width: 640,
+        frame_height: 480,
+        rows: [
+            // idle
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.13,
+            )),
+            // walk
+            (DashEcho, (
+                frame_count: 8,
+                duration_secs: 0.11,
+            )),
+            // order
+            (SpikeHalo, (
+                frame_count: 12,
+                duration_secs: 0.075,
+            )),
+            // decree
+            (FloorSlam, (
+                frame_count: 12,
+                duration_secs: 0.075,
+            )),
+            // aim
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.07,
+            )),
+            // sweep
+            (SideSweep, (
+                frame_count: 10,
+                duration_secs: 0.06,
+            )),
+            // gate_out
+            (Rest, (
+                frame_count: 8,
+                duration_secs: 0.06,
+            )),
+            // gate_in
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.06,
+            )),
+            // report
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.1,
+            )),
+            // mandate
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.07,
+            )),
+            // overheat
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.1,
+            )),
+            // address
+            (Rest, (
+                frame_count: 12,
+                duration_secs: 0.12,
+            )),
+            // emergency
+            (Rest, (
+                frame_count: 14,
+                duration_secs: 0.08,
+            )),
+            // turn
+            (Rest, (
+                frame_count: 6,
+                duration_secs: 0.07,
+            )),
+            // hurt
+            (Hit, (
+                frame_count: 3,
+                duration_secs: 0.09,
+            )),
+            // death
+            (Death, (
+                frame_count: 20,
+                duration_secs: 0.09,
+            )),
+        ],
+        collision_scale: 1.4907,
+        feet_anchor_y: 0.0,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+        parts: None,
+    ),
 }

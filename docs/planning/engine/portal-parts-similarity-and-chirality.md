@@ -593,11 +593,22 @@ the defined outcome is that the replacement opens
 still-held control fizzling). Two held pairs that trade places in one tick
 still resolve in submission order.
 
-**Remaining:** a recast slot reuses its link (`held_pair_link` is per
-owner/module/slot), so the new pair gets the old channel and a body's
-`PortalTransitCooldown { pair }` can alias it; give each opening an
-occurrence. Publish the accepted/refused outcome of a held request to its
-module. Close or rebind the lease when the caster changes rooms.
+**Second slice done (2026-11-22).** A recast slot reuses its link
+(`held_pair_link` is per owner/module/slot), so the new pair resolves the old
+channel; the only per-body record that named the old occurrence by channel was
+`PortalTransitCooldown { pair }`. A pair the lowering closes now ends the
+cooldowns of its room that name it or its partner
+(`a_released_pair_ends_the_cooldowns_that_name_it`, a foreign cooldown as
+control); a straddled pair is never closed, so `PortalTransit.straddling`
+cannot alias. The lease is of the holder's room: a holder that moved to the
+other live room releases the pair it left there and its ask opens a pair in
+its own room, so a moved caster never edits another room's ends
+(`a_holder_that_changes_rooms_leaves_its_pair_behind_closed`). A pair a body
+still straddles in the old room is kept, unedited, until it is empty.
+
+**Remaining:** publish the accepted/refused outcome of a held request to its
+module (a reply port: opened, fizzled, refused for no identity/room), so a
+module stops re-asking a spent slot by its own bookkeeping.
 
 ### P2 — Accepted motion, root transitions and retained history
 

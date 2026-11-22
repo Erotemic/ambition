@@ -252,14 +252,24 @@ fn lower_held_portal_pairs<L: LowersIn>(
     others: Query<(Entity, &PlacedPortal), Without<HeldPortalOf>>,
     mut transits: ReplayMessageReader<crate::PortalBodyTransited>,
     straddlers: Query<(Entity, &crate::PortalTransit)>,
+    cooling: Query<(Entity, &crate::PortalTransitCooldown)>,
 ) {
     let submitted = outbox.drain::<HeldPortalPairPort>(&L::PHASE);
     // Ends this system closes this tick. A despawn is a command, so the
     // queries still hold them; an asked pair is judged against what stays,
     // so a pair released this tick does not refuse its replacement.
     let mut retiring: Vec<Entity> = Vec::new();
+    // ⛔ A pair's lease is of its holder's room. A holder that moved to
+    // another live room no longer holds the pair it left behind: the pair is
+    // released there, and its ask opens a new pair in the holder's room, so a
+    // moved caster never edits another room's ends.
+    let foreign = |owner: Entity, r: &HeldPortalPairRecord| {
+        rooms.get(r.ends[0]).is_ok_and(|end| Some(end.0) != live.of(owner))
+    };
     let asked = |owner: Entity, r: &HeldPortalPairRecord| {
-        live.allows(owner) && submitted.iter().any(|s| s.scope == owner && module_of(&s.entry) == &*r.module && s.value.slot == r.slot)
+        live.allows(owner)
+            && !foreign(owner, r)
+            && submitted.iter().any(|s| s.scope == owner && module_of(&s.entry) == &*r.module && s.value.slot == r.slot)
     };
     // Where bodies came out this tick: a transit names its exit point, which
     // is the exit end's centroid, and not the end.
@@ -334,6 +344,22 @@ fn lower_held_portal_pairs<L: LowersIn>(
         .filter(|(entity, _)| !retiring.contains(entity))
         .map(|(entity, portal)| (entity, rooms.get(entity).ok().map(|r| r.0), portal.clone()))
         .collect();
+    // ⛔ A closed pair's occurrence ends with it. A body's cooldown names the
+    // pair it crossed by channel, and a pair opened later in its room (its
+    // slot asked again) can resolve to the same channel: the cooldown would
+    // hold the body out of a pair it never crossed.
+    let closed: Vec<(Option<LiveRoomInstance>, PortalChannel)> = retiring
+        .iter()
+        .filter_map(|end| portals.get(*end).ok().map(|(_, _, portal, _)| (live.of(*end), portal.channel)))
+        .collect();
+    if !closed.is_empty() {
+        for (body, cooldown) in &cooling {
+            let room = live.of(body);
+            if closed.iter().any(|(r, channel)| *r == room && (cooldown.pair == *channel || cooldown.pair == channel.partner())) {
+                commands.entity(body).remove::<crate::PortalTransitCooldown>();
+            }
+        }
+    }
     let mut fizzled: Vec<(Entity, Arc<str>, u32)> = Vec::new();
     let mut new: Vec<(Entity, Vec<HeldPortalPairRecord>)> = Vec::new();
     for s in &submitted {
@@ -351,7 +377,8 @@ fn lower_held_portal_pairs<L: LowersIn>(
             .ok()
             .and_then(|(_, h)| h.0.iter().find(|r| &*r.module == module_of(&s.entry) && r.slot == pair.slot).cloned());
         if let Some(record) = held {
-            if record.spent {
+            // Kept only for a straddler in the room it was left in.
+            if record.spent || foreign(s.scope, &record) {
                 continue;
             }
             let room = live.of(s.scope);

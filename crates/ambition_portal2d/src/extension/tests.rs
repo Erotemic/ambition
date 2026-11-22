@@ -685,6 +685,53 @@ fn a_pair_asked_where_a_released_pair_was_opens_the_same_tick() {
     }
 }
 
+/// P1: a closed pair takes its cooldowns with it. A body that crossed the
+/// held pair keeps a cooldown naming its channel; the pair's slot asked again
+/// resolves to the same channel, so a kept cooldown would refuse the body a
+/// pair it never crossed. The control names another pair and stays.
+#[test]
+fn a_released_pair_ends_the_cooldowns_that_name_it() {
+    let mut app = finished_app();
+    app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION));
+    let room = InRoomInstance(LiveRoomInstance::ACTIVATION);
+    let holder = app.world_mut().spawn((Asks(100), SimId::placement("a"), room)).id();
+    app.world_mut().run_schedule(Sim);
+    app.world_mut().run_schedule(Sim);
+    let channel = portals(&mut app)[0].3;
+    assert!(channel != crate::UNRESOLVED_LINK_CHANNEL, "the pair resolved a channel");
+    let cooldown = |pair| crate::PortalTransitCooldown { remaining: 10.0, pair };
+    let crossed = app.world_mut().spawn((cooldown(channel.partner()), room)).id();
+    let other = app.world_mut().spawn((cooldown(crate::PortalChannel::Gun(crate::color::PortalGunColor::BLUE)), room)).id();
+    app.world_mut().get_mut::<Asks>(holder).unwrap().0 = 0;
+    app.world_mut().run_schedule(Sim);
+    assert!(portals(&mut app).is_empty(), "the pair closed");
+    assert!(app.world().get::<crate::PortalTransitCooldown>(crossed).is_none(), "its cooldown ended with it");
+    assert!(app.world().get::<crate::PortalTransitCooldown>(other).is_some(), "another pair's cooldown stays");
+}
+
+/// P1: a pair's lease is of its holder's room. The holder moves to the other
+/// live room and keeps asking: the pair it left is released there, and a pair
+/// opens in its new room. Before, the ask moved the ends in the room it left.
+#[test]
+fn a_holder_that_changes_rooms_leaves_its_pair_behind_closed() {
+    let mut app = finished_app();
+    let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+    for room in rooms {
+        app.world_mut().spawn((RoomInstanceRoot, room));
+    }
+    let holder = app.world_mut().spawn((Asks(100), SimId::placement("a"), InRoomInstance(rooms[0]))).id();
+    app.world_mut().run_schedule(Sim);
+    app.world_mut().run_schedule(Sim);
+    assert!(portals(&mut app).iter().all(|row| row.1 == rooms[0]) && portals(&mut app).len() == 2, "open in the first room");
+    app.world_mut().entity_mut(holder).insert(InRoomInstance(rooms[1]));
+    app.world_mut().get_mut::<Asks>(holder).unwrap().0 = 300;
+    app.world_mut().run_schedule(Sim);
+    app.world_mut().run_schedule(Sim);
+    let open = portals(&mut app);
+    assert_eq!(open.len(), 2, "one pair: {open:?}");
+    assert!(open.iter().all(|row| row.1 == rooms[1]), "the pair is in the holder's new room: {open:?}");
+}
+
 #[test]
 fn a_pair_asked_across_an_open_portal_fizzles() {
     let mut app = finished_app();

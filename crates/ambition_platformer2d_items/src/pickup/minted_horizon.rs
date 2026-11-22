@@ -12,7 +12,7 @@ use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use bevy::prelude::{
     App, Commands, Component, Entity, IntoScheduleConfigs, Plugin, Query, Res, ResMut,
-    Resource, With,
+    Resource, Vec2, With,
 };
 
 use ambition_persistence::save::AmbitionGameSave;
@@ -30,9 +30,11 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use super::{GroundItem, ItemCustody};
 
 /// Everything a restore needs to make one runtime-minted instance again, and
-/// deliberately nothing more. See the module docs for why each of the two fields
-/// is load-bearing and why there is no third.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// deliberately nothing more: its provenance, its spec reference, and the
+/// canonical extent its mint chose (IR1). Without the extent a regrown 14 × 11
+/// coconut came back as a 36 × 36 body; the spec does not carry it, because
+/// two roads mint one spec at different sizes.
+#[derive(Clone, Debug, PartialEq)]
 pub struct MintedItemDescription {
     /// Where it came from — carried forward verbatim so the rebuilt occurrence
     /// states the same spawner the original did.
@@ -40,6 +42,33 @@ pub struct MintedItemDescription {
     /// The authored id of the item's spec: a reference into the item catalog,
     /// resolved by [`held_spec_by_id`](super::held_spec_by_id) at restore time.
     pub held_item: String,
+    /// The canonical half extent its mint chose ([`GroundItem::half_extent`]).
+    pub half_extent: Vec2,
+}
+
+impl MintedItemDescription {
+    /// The persisted words of [`Self::half_extent`]: exact `f32` bits, so a
+    /// save compares equal to the value it was written from.
+    pub fn half_extent_words(&self) -> [u32; 2] {
+        [self.half_extent.x.to_bits(), self.half_extent.y.to_bits()]
+    }
+
+    /// The row's extent words: `None` for the default minted extent, which is
+    /// what `None` reads back as. So a row loaded from an older save, rebuilt
+    /// at the default, writes back the row it was read from, and loading a save
+    /// does not change it.
+    pub fn persisted_half_extent(&self) -> Option<[u32; 2]> {
+        (self.half_extent != ambition_held_items::MINTED_ITEM_HALF_EXTENT).then(|| self.half_extent_words())
+    }
+
+    /// The extent a persisted row names. A row written before v12 names none:
+    /// such a build rebuilt every mint at [`MINTED_ITEM_HALF_EXTENT`], and the
+    /// mint's own extent was never stored, so that is the value it keeps.
+    pub fn half_extent_of_row(words: Option<[u32; 2]>) -> Vec2 {
+        words.map_or(ambition_held_items::MINTED_ITEM_HALF_EXTENT, |[x, y]| {
+            Vec2::new(f32::from_bits(x), f32::from_bits(y))
+        })
+    }
 }
 
 /// How to rebuild each runtime-minted instance remembered at the last
@@ -104,6 +133,9 @@ impl MintedItemBaseline {
             // the spelling the plan dumps and snapshot blobs already use.
             put_str(&mut bytes, &description.origin.canonical_summary());
             put_str(&mut bytes, &description.held_item);
+            for word in description.half_extent_words() {
+                put_u64(&mut bytes, u64::from(word));
+            }
         }
         checksum_bytes(&bytes)
     }
@@ -995,6 +1027,7 @@ pub fn adopt_checkpoint_baselines_from_save(
                             sequence: row.sequence,
                         },
                         held_item: row.held_item.clone(),
+                        half_extent: MintedItemDescription::half_extent_of_row(row.half_extent),
                     },
                 )
             })
@@ -1067,6 +1100,7 @@ impl MintedItemRows<'_, '_> {
                     parent: parent.as_str().to_string(),
                     sequence: *sequence,
                     held_item: description.held_item.clone(),
+                    half_extent: description.persisted_half_extent(),
                 })
             })
             .collect();
@@ -1198,6 +1232,7 @@ pub fn live_minted_descriptions(
                     MintedItemDescription {
                         origin: origin.clone(),
                         held_item: ground.spec.id.clone(),
+                        half_extent: ground.half_extent,
                     },
                 )
             })
@@ -1300,11 +1335,49 @@ mod tests {
                     sequence: 0,
                 },
                 held_item: "javelin".into(),
+                half_extent: Vec2::splat(18.0),
             }),
         );
         assert!(baseline
             .description_of(&SimId::placement("ground_axe"))
             .is_none());
+    }
+
+    /// IR1: the extent a mint chose is part of its description, and survives
+    /// the persisted row. A regrown coconut is a 7 × 5.5 half extent; before,
+    /// the capture kept only provenance and spec, and every rebuild made a
+    /// 36 × 36 body. A row that names no extent (pre-v12) keeps the default
+    /// the old build rebuilt it at.
+    #[test]
+    fn a_mint_keeps_the_extent_it_was_made_at() {
+        let mut app = horizon_world();
+        let tree = SimId::placement("palm");
+        let coconut = SimId::spawned(&tree, 3);
+        let holder = app.world_mut().spawn_empty().id();
+        let spec = ambition_characters::brain::HeldItemSpec {
+            id: "coconut".into(), melee: None, ranged: None,
+            use_behavior: ambition_characters::brain::HeldUseBehavior::ThrowOnUse,
+        };
+        app.world_mut().spawn((
+            coconut.clone(),
+            SpawnOrigin::Dynamic { parent: tree, sequence: 3 },
+            GroundItem::at_rest(spec, Vec2::new(4.0, 9.0), Vec2::new(7.0, 5.5)),
+            ItemCustody::Held { holder },
+            RoomScopedEntity,
+        ));
+        app.world_mut().write_message(CheckpointCommitted);
+        app.update();
+        let described = minted_baseline(&app).description_of(&coconut).unwrap().clone();
+        assert_eq!(described.half_extent, Vec2::new(7.0, 5.5), "the capture keeps the mint's extent");
+        let words = described.half_extent_words();
+        assert_eq!(MintedItemDescription::half_extent_of_row(Some(words)), described.half_extent,
+            "the persisted words are the exact extent");
+        assert_eq!(MintedItemDescription::half_extent_of_row(None), ambition_held_items::MINTED_ITEM_HALF_EXTENT,
+            "a row that names no extent keeps the default it was rebuilt at");
+        assert_eq!(described.persisted_half_extent(), Some(words), "a non-default extent is written");
+        let default = MintedItemDescription { half_extent: ambition_held_items::MINTED_ITEM_HALF_EXTENT, ..described };
+        assert_eq!(default.persisted_half_extent(), None,
+            "the default writes the row an older save holds, so a load does not change the save");
     }
 
     /// A mint that appears AFTER the commit is not in the baseline.

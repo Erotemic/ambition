@@ -1315,6 +1315,7 @@ mod save_checksum_tests {
                     parent: "boss".into(),
                     sequence: i as u64,
                     held_item: "gauntlet".into(),
+                    half_extent: None,
                 })
                 .collect(),
         );

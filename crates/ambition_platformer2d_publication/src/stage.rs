@@ -3331,6 +3331,7 @@ mod tests {
         minted.adopt([(id.clone(), MintedItemDescription {
             origin: ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic {
                 parent: SimId::placement("maker"), sequence: 1 }, held_item: "gun_sword".into(),
+            half_extent: ae::Vec2::new(7.0, 5.5),
         })].into_iter().collect());
         let plan = prepare_in_world_with_minted(&sprites, &world, 0, &ledger, Some(&minted)).unwrap();
         let outlook = ledger.outlook_for("east");

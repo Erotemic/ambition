@@ -837,8 +837,8 @@ impl RoomFeatureConstructionPlan {
                                             name: format!("Ground item: {}", description.held_item),
                                             held_item: description.held_item.clone(),
                                             pos: at,
-                                            half_extent:
-                                                ambition_held_items::MINTED_ITEM_HALF_EXTENT,
+                                            // The extent its mint chose (IR1).
+                                            half_extent: description.half_extent,
                                         },
                                         held,
                                     },

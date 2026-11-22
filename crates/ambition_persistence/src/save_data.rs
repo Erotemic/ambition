@@ -321,6 +321,10 @@ pub struct PersistedMintedItem {
     pub parent: String,
     pub sequence: u64,
     pub held_item: String,
+    /// The canonical half extent its mint chose, as exact `f32` bit words
+    /// (v12). `None` is a row from an older build, which never stored it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub half_extent: Option<[u32; 2]>,
 }
 
 /// Where the player resumes: the last checkpoint they touched.
@@ -518,13 +522,13 @@ pub struct PersistedBodyModuleRecord {
 /// v4 adds `occurrences`, `custody` and `minted_items` — the durable horizon.
 /// v5 adds `module_records`. v6 adds `lives`. v7 adds `day_clock`. v8 adds
 /// `bookings`. v9 adds checkpoint material. v10 adds `body_module_records`.
-/// v11 adds `world_values`.
+/// v11 adds `world_values`. v12 adds each minted item's canonical extent.
 ///
 /// The bump is on an additive change. With `#[serde(default)]`, a v4 file loads
 /// with an empty list, which is the correct reading. The bump makes a v5 file
 /// `FromTheFuture` to a v4 build, so that build does not overwrite it and drop
 /// the records it cannot read.
-pub const CURRENT_SAVE_VERSION: u32 = 11;
+pub const CURRENT_SAVE_VERSION: u32 = 12;
 
 /// What a file with no `version` field actually is: written by a build from
 /// before the field existed, i.e. v1.
@@ -1044,6 +1048,9 @@ impl AmbitionGameSaveData {
                 9 => {}
                 // v10 → v11: additive; no world values is correct for a v10 file.
                 10 => {}
+                // v11 → v12: additive. A v11 minted row names no extent; it was
+                // rebuilt at the default minted extent, which it keeps.
+                11 => {}
                 // A version bump without a migration step is an incompatibility,
                 // not a panic. The caller preserves the bytes and uses defaults.
                 other => {
@@ -1191,6 +1198,7 @@ mod tests {
                         parent: "p".into(),
                         sequence: 0,
                         held_item: "h".into(),
+                        half_extent: None,
                     }],
                 )
             }),
@@ -1325,6 +1333,7 @@ mod tests {
             parent: "player:0".into(),
             sequence: 3,
             held_item: "javelin".into(),
+            half_extent: None,
         }]);
 
         let text = ron::ser::to_string_pretty(&s, ron::ser::PrettyConfig::default())
@@ -1511,6 +1520,7 @@ mod tests {
             parent: "player:0".into(),
             sequence: 0,
             held_item: "javelin".into(),
+            half_extent: None,
         });
 
         s.reset_all();
@@ -1537,6 +1547,7 @@ mod tests {
             parent: "placement:parent".to_owned(),
             sequence: 1,
             held_item: "torch".to_owned(),
+            half_extent: None,
         };
         save.set_durable_horizon(
             vec![PersistedOccurrence::new(

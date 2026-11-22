@@ -136,6 +136,15 @@ commit; completion does not add a permanent object registry. Existing action
 recipient lookup still has its current cost; AC1 removes summon inference
 scans, not every lookup in the action system.
 
+### AC1 first slice done (2026-11-22)
+
+`apply_summon_effects` keeps the `ConstructionReceipt` that
+`ConstructionPlan::commit` returns, and reads the mount reservation and the
+birth statuses from `receipt.entity(id)`. The two post-commit scans of every
+live `SimId` are gone. The ride correlation (the reply carried through the
+summon request, and deletion of `RideSummons`, the counter prediction and
+`answer_ride_summons`) and the limbed-host preflight remain AC1's open work.
+
 ## AC2 — Cancel without reserving more pending work
 
 ### Failure and customer

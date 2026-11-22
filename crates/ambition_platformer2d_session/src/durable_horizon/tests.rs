@@ -188,6 +188,7 @@ fn a_load_seeds_every_domain_baseline_and_requests_the_resume() {
                 parent: "slot:0".into(),
                 sequence: 0,
                 held_item: "javelin".into(),
+                half_extent: None,
             }],
         );
         app.world_mut().resource_mut::<AmbitionGameSave>().0 = data;
@@ -215,6 +216,8 @@ fn a_load_seeds_every_domain_baseline_and_requests_the_resume() {
                 sequence: 0,
             },
             held_item: "javelin".into(),
+            // The fixture's row names no extent (a pre-v12 row): the default.
+            half_extent: MintedItemDescription::half_extent_of_row(None),
         }),
         "the item-domain durable adopter restores provenance with the description",
     );
@@ -396,6 +399,7 @@ fn dormant_world(n: usize) -> App {
             parent: "boss".into(),
             sequence: i as u64,
             held_item: Default::default(),
+            half_extent: None,
         })
         .collect();
     let placed = (0..n)
@@ -594,6 +598,7 @@ fn a_load_writes_its_checkpoint_onto_the_session_it_builds() {
             parent: "slot:0".into(),
             sequence: 0,
             held_item: "javelin".into(),
+            half_extent: None,
         }],
     );
     let horizon = CandidateDurableHorizon::from_save(&data);

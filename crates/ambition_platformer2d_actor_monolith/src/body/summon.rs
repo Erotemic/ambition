@@ -258,7 +258,9 @@ pub fn apply_summon_effects(
             }
         }
 
-        {
+        // ⭐ AC1: THE RECEIPT NAMES EACH BODY THIS COMMIT BUILT. Reservation and
+        // birth statuses read it, not a scan of live identities afterwards.
+        let receipt = {
             let mut commands = world.commands();
             let mut ctx = ambition_platformer2d_shared_tangle::construction::ConstructionExecCtx {
                 commands: &mut commands,
@@ -268,8 +270,8 @@ pub fn apply_summon_effects(
                 // A summoned minion is a runtime occurrence the save never names.
                 facts: &ambition_platformer2d_construction::PersistedFates::unrecorded(),
             };
-            plan.commit(&mut ctx);
-        }
+            plan.commit(&mut ctx)
+        };
         world.flush();
 
         // ⭐⭐ CONSTRUCTION RESERVES THE MOUNT; IT DOES NOT BOARD IT. This used
@@ -290,16 +292,7 @@ pub fn apply_summon_effects(
         // `SimId::spawned` is what the request below derives — so the
         // reservation can name its rider without a channel or a follow-up tick.
         for (rider, mount_id, ride) in board_after_commit {
-            let mount = {
-                let mut q = world.query::<(
-                    bevy::prelude::Entity,
-                    &ambition_platformer2d_shared_tangle::sim_id::SimId,
-                )>();
-                q.iter(world)
-                    .find(|(_, id)| **id == mount_id)
-                    .map(|(entity, _)| entity)
-            };
-            match mount {
+            match receipt.entity(&mount_id) {
                 Some(mount) => {
                     bevy::log::info!(
                         target: "ambition::mount",
@@ -316,21 +309,14 @@ pub fn apply_summon_effects(
                 }
                 None => bevy::log::warn!(
                     target: "ambition_platformer2d::construction",
-                    "summon `{mount_id:?}` asked to be ridden but no body with that identity \
-                     exists after the commit",
+                    "summon `{mount_id:?}` asked to be ridden but the commit built no body \
+                     with that identity",
                 ),
             }
         }
 
         for (id, mut kinds) in holds_after_commit {
-            let body = {
-                let mut q = world.query::<(
-                    bevy::prelude::Entity,
-                    &ambition_platformer2d_shared_tangle::sim_id::SimId,
-                )>();
-                q.iter(world).find(|(_, sim)| **sim == id).map(|(entity, _)| entity)
-            };
-            match body {
+            match receipt.entity(&id) {
                 Some(body) => {
                     // The status store keeps its kinds sorted and unique.
                     kinds.sort();
@@ -341,8 +327,8 @@ pub fn apply_summon_effects(
                 }
                 None => bevy::log::warn!(
                     target: "ambition_platformer2d::construction",
-                    "summon `{id:?}` asked to hold statuses but no body with that identity \
-                     exists after the commit",
+                    "summon `{id:?}` asked to hold statuses but the commit built no body \
+                     with that identity",
                 ),
             }
         }

@@ -74,6 +74,22 @@ all share one deletion rule. The existing custody/occurrence authorities decide
 what persists. A no-record state can mean 'as authored' under the owning domain;
 it is not a general instruction to remint every dynamic spawn on re-entry.
 
+## Open item recipe and capture completion
+
+The source review at `f41218979625` finds an incomplete input, not a missing
+construction framework: a runtime item's retained description omits its
+canonical extent. The two reconstruction roads then supply a common 36 × 36
+body even when the mint used different geometry.
+[IR1](item-recipes-and-live-continuity.md#ir1--retain-the-recipe-chosen-at-mint)
+makes both roads consume the same item-owned recipe and pinned content.
+
+IR2/IR3 separate native continuity from its save encoding. A live body owns
+its current pose. Preparation consumes a frozen domain capture, with item
+center/body-feet conventions and the operation's retention policy preserved.
+Keep target-input revalidation at room commit and the accepted checkpoint's
+pinned inputs. This changes the facts supplied to the existing transaction;
+it does not create another constructor or publication bracket.
+
 ## Linked domain inputs, one construction transaction
 
 **Planned 2026-11-21:** [capability linking and prepared facets](capability-linking-and-prepared-facets.md)

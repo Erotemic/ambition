@@ -77,8 +77,9 @@ component.
 - Spawn and reset share one baseline: `ActorResources::reset_to_start` restores
   the declarations the seat was built from.
 - `BodyMana`, `ResetMeter` and the implicit move meter are deleted. <!-- cite-ok: deleted names -->
-  `ResourceMeter` survives only as the value type of non-body meters (projectile
-  ammo).
+  `ResourceMeter` still backs `ProjectileSpawner`, which is owned by the
+  body's `PlayerProjectileState`. This projectile ammunition is body resource
+  state; it is not an in-flight projectile's meter. It has not joined the bank.
 
 Guards: `a_body_without_mana_cannot_spend_it`,
 `no_stated_rate_refills_nothing_and_no_pool_gains_mana`,
@@ -92,6 +93,51 @@ layout, `ResourceLayout::slot`; every shipped layout holds one resource, so the
 search is one comparison), `PreparedActorResourcePlanId` and the plan arena
 (R10, R13, R14), layout migration during play, and the main-game multi-resource
 slice (Phase 4).
+
+### Completion customer: the existing charge-shot resource
+
+**Open scope correction at `f41218979625`, 2026-11-21.** The remaining charge
+path already supplies a second body resource. In `ambition_projectiles`,
+`PlayerProjectileState::default` creates a full capacity of 8 with a refill
+rate of 1.5 per second; `ProjectileKind::cost` prices the three shot kinds at
+1, 3 and 5. `sync_charge_projectile_capability` removes this state when charge
+execution is removed and recreates its default state when charge returns.
+That reset follows from source. The review found no ruling that makes it an
+intended refill rule or a demonstrated gameplay exploit.
+
+Bring the balance and prices into this plan under their own resource
+identity. Preserve Mana and shot ammunition as independent pools. Declare
+the shot resource only for compositions that own it. Make resource retention
+on capability removal/regrant explicit, rather than letting a controller
+component's presence decide it by accident.
+
+Keep charge recognition, shot buffering, kind selection and cooldown with
+their existing owners. Only the pool, price terms and resource binding join
+the common bank. Regeneration policy stays outside storage. A display is a
+projection, not another meter.
+
+Also include one real portable ability. Today `Wielder::mana`,
+`SpendManaPort` and `abilities::extension::Costs { mana, cooldown }` still
+expose Mana-specific payment, while moveset costs already name resources.
+Use the existing resource identities/cost terms at that domain boundary.
+Do not declare the multi-resource authoring path complete while only the
+moveset frontend can express it. This is payment vocabulary work inside the
+current owner; extension state-on-acceptance remains owned by
+[extension execution](extension-state-and-execution.md).
+
+`ambition_projectile_combat::systems::Firing::fire` already proposes its spend
+on a copied spawner. An origin or physical-preparation refusal leaves the
+live ammunition/cooldown unchanged. There is a remaining gap: it installs
+the proposed spawner before calling `ProjectileWriter::write` and ignores
+that writer's Boolean result. The writer can still refuse, for example when
+the emission services are absent.
+
+The migration must publish bank/cooldown changes and the fired outcome only
+after both physical preparation and synchronous native emission admission
+succeed. A refused emission leaves the bank/cooldown unchanged. Admission
+does not promise that the projectile survives later lifecycle changes, and
+does not imply an automatic refund on later retirement. A shared resource
+law still needs the operation's exact acceptance boundary.
 
 ## Concepts
 
@@ -333,6 +379,11 @@ capability fill and drain, rollback encode size and time, and scheduler
 serialization. Record which commands run for each content edit. Select the
 physical layout and write the measurements here before Phase 1.
 
+Use the existing charge-shot path and one portable ability as the concrete
+main-game customers for the binding proof below. Do not add another synthetic
+bank benchmark in their place. This does not reopen the landed Mana/Limit
+migration or make all named resources mandatory on every actor.
+
 **Phase 1 — authoring and preparation:** stable identity, checked shape,
 declarations, deterministic layout, layout-specific handles, binding validation,
 the selected bank, rollback registration with validated decode, inspection that
@@ -347,6 +398,10 @@ preparation.
 abilities on different resources, one multi-resource ability, one progression or
 loadout efficiency rule, and no engine edit when names, capacities, bindings or
 base costs change. If a new identity needs an engine edit, reopen the design.
+Include charge-shot ammunition beside Mana, and exercise the actual charge,
+portable-ability and moveset payment roads. State the removal/regrant policy.
+Delete the charge spawner's private balance and hardcoded price path after
+the common bindings supply them; retain its charge/cooldown behavior.
 
 ## Acceptance
 
@@ -360,6 +415,11 @@ base costs change. If a new identity needs an engine edit, reopen the design.
   partially; trigger and cancel agree; payment precedes destructive changes.
 - **Lifecycle:** explicit initial state; stock policy outside the pool; exact
   checkpoint restore; migration by stable id; explicit removal policy.
+- **Existing emitters:** refused origin/physical preparation or native emission
+  leaves its resource and cooldown unchanged; an admitted emission pays once.
+  Capability removal and
+  regrant follow the declared resource policy. Portable and moveset costs
+  name the same resource identities without sharing unrelated balances.
 - **Rollback and peers:** exact rewind; repeated payment and fill on
   resimulation; values feed the checksum; peers derive the same slots;
   permutation does not change layout; R13 agreement and separation arms; a

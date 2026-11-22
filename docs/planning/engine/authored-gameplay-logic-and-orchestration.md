@@ -201,6 +201,122 @@ SS8 also makes application and completion distinct for scene skipping. Reuse
 the existing native action outcomes. The shared command catalog does not
 decide how a throw, departure or scene completes.
 
+#### O6a — bind the merchant's question and action to the same subject
+
+**Open, source review at `f41218979625`:** the current merchant supplies a
+smaller customer than a new role-authoring surface. In
+`game/ambition_content/src/yarn_vocabulary.rs`, `ask_can_afford` asks the
+global condition form and `ask_wallet_balance` reads `PrimaryPlayer`.
+`wallet_conditions.rs` also selects the primary body. However, `buy_item`
+and `sell_item` use the executing `RunnerConversation`'s input-owner seat,
+and `platformer2d_items::narrative` charges that seat's driven body.
+
+With 100 coins on the primary body and 0 on seat 1, seat 1's 8-coin merchant
+option can open and then refuse. Reverse the balances and an affordable
+option can close. This follows from source; it was not run in this review.
+The amount parser is already shared. The selected subject is not.
+
+Use the existing `SubjectConditionEvaluator`, `publish_subject_condition`
+and prepared condition boundary. Resolve the conversation's payer policy
+once per read/consume cut and pass the selected body to body-relative
+questions. Keep these meanings separate:
+
+| Meaning | Required behavior |
+| --- | --- |
+| Source attribution | `AuthoredAsk` identifies the node or source that asked; its string is not a body reference |
+| Invocation context | The executing conversation supplies its occurrence, input owner and bound roles |
+| Question subject | The domain's declared receiver selects the body or other occurrence whose state answers the question |
+| Action authority | The domain rechecks the request against current state at acceptance |
+
+Global world questions stay global. A required subject that cannot be
+resolved answers `Unanswerable`; it does not silently become a primary-body
+query. Keep the current explicit scripted/no-participant payer policy, or
+bind an explicit payer role when that customer needs one. An initiator,
+speaker and input owner are not interchangeable.
+
+Extend one existing query entry to retain both provenance and subject.
+`ConditionCatalog::ask_for` currently bypasses the global path's verdict
+diagnostics; using it directly would lose source attribution. Select the
+receiver form at preparation where possible, then dispatch through the same
+diagnostic boundary. Numeric `wallet_balance` uses the same subject resolver;
+it does not require turning the condition catalog into a numeric registry.
+If that numeric read has no subject, apply its explicit adapter refusal or
+presentation policy. A display fallback is not a proved gameplay balance.
+
+The preview and action share a payer-selection policy, not a stored Entity
+from an earlier option display. A possession change or a spend between those
+cuts requires a fresh lookup and a fresh decision. Keep the path bounded to
+the selected subject; no per-actor offer table or per-frame query cache is
+needed. The merchant correction can land before all of SS7's role binding.
+
+#### O6b — preserve an unanswered question through the dialogue decision
+
+**Open, same source review:** the native `ConditionOutcome` distinguishes
+`Satisfied`, `NotSatisfied(WhyNot)` and `Unanswerable`. The Yarn adapter in
+`ambition_conversation/src/dialog/authored_conditions.rs` returns only
+`outcome.is_satisfied()`. Thus an unanswered question becomes false, and
+`not condition(...)` turns it into true. An ordinary `else` also merges an
+answered negative with a missing answer.
+
+The shipped `sandbox/intro.yarn` uses negated encounter/flag questions and a
+compound flag question. This proves a real authoring customer for the lost
+verdict; it does not prove that those installed intro domains currently fail
+to answer. The existing missing/malformed-question test covers a positive
+`if` and an informational `else`, so it does not prove the negated case.
+
+The supported gameplay gate must keep the result until it selects an arm:
+
+| Native result | Supported gameplay decision |
+| --- | --- |
+| `Satisfied` | The positive arm is eligible |
+| `NotSatisfied` | The explicit answered-negative arm is eligible |
+| `Unanswerable` | The selected refusal/abort path; no arm may treat it as an answered negative |
+
+Use an outcome-valued binding over Yarn's existing scalar/string values and
+migrate the actual gameplay gates to explicit positive and answered-negative
+comparisons, with an explicit refusal path. Bind a result once for the
+decision; do not re-query the domain separately for each arm. Consume that
+result in the current runner's immediate, non-yielding decision. Ordinary
+Yarn variables are shared between runners. If a result must survive a line,
+option or wait, use explicitly runner-local transient storage and discard it
+when the decision ends. It must not become a shared variable or a cross-beat
+query cache. Compound gates
+must preserve an unanswered operand when that operand is needed to decide
+the gate. Include provider aliases such as `can_afford`, not only the generic
+`condition` function. Keep presentation-only fallback policy explicit.
+
+This is a bounded adapter/content migration. It does not make arbitrary Yarn
+Boolean expressions preserve three verdicts. In the supported authoring
+surface, negative gameplay branches must test the answered-negative result;
+`!= satisfied`, Boolean negation and a catch-all `else` are not substitutes.
+Use the current authoring/compiler boundary to identify unsupported uses as
+the relevant files migrate. Do not add a new expression language.
+
+An alternative can preserve the Boolean syntax only after proving a
+synchronous host refusal that stops the current continuation before a branch
+or command executes. The local `RunnerFunction::call_with_world` returns a
+`YarnValue`, not `Result`; the current pending-close path is not that proof.
+Do not plan an imaginary `return Err` or assume a next-update close prevents
+commands in the current continuation.
+
+#### O6 delivery and removal
+
+Land O6a first with the real two-seat merchant. The
+[item exchange packet](item-custody-and-accounting.md#a7-exchange--one-rule-for-an-offer-and-its-accepted-exchange)
+then makes the offer ask about the same concrete exchange that acceptance
+will evaluate. Preview remains advisory; it reserves no coins or quantities.
+These corrections do not wait for the general verdict migration.
+
+For O6b, extend the real-Yarn harness with all three outcomes, the current
+positive/negative/compound forms, and a downstream gameplay command marker.
+An unanswered required question must not reach that command. Static ID and
+arity checks cannot prove a live subject or domain state exists.
+
+Remove the merchant's private primary-wallet selection and the migrated
+gates' Boolean verdict collapse. Retain one source-attributed call boundary,
+the existing condition catalog, and domain-owned action outcomes. The result
+is a reusable invocation contract, not a new dialogue sequencer.
+
 ## Determinism and lifetime
 
 Prepared program data is immutable. If a future authored rule has mutable

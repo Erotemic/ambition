@@ -206,6 +206,9 @@ links to.
 - [`engine/character-authoring-package.md`](engine/character-authoring-package.md)
 - [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md)
   — occurrence, custody and entitlement.
+- [`engine/item-recipes-and-live-continuity.md`](engine/item-recipes-and-live-continuity.md)
+  — sufficient reconstruction recipes, one live pose owner, and durable
+  capture that does not rebuild dormant data on each motion tick (planned).
 - [`engine/participant-action-system.md`](engine/participant-action-system.md)
 - [`engine/interaction-opportunities-and-activation.md`](engine/interaction-opportunities-and-activation.md)
   — domain-owned opportunities, prompt projections and accepted gesture consumption.

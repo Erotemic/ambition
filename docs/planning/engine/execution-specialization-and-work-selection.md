@@ -158,6 +158,7 @@ stays in P2/P4/P6; this table does not create a second portal queue.
 | E3: prepared dispatch and active delivery | [Addressed behavior](addressed-behavior-inbox.md), extension admission, lifecycle and inbox owners | Entry-by-trigger matching, repeated occurrence capture, duplicate and idle mailbox scans | Entry-major serial order, fresh observations, replay visibility and active-time deadlines |
 | E4: prepared navigation states | [Navigation](platformer-navigation-and-reachability.md), motion envelope and route owners | Competing body projections, stance-driven graph builds, repeated environment-independent probes and graph queries; incorrect merging of arrival states | Physical units and a declared standing start; current graph cost model versus physical optimality; complete publication independent of worker timing |
 | E5: shared data-structure kernels | [Kernel plan](data-structure-kernels.md), geometry and binding foundations | Private range-grid mechanics, repeated ambiguity reducers and optional setup for lightly queried snapshots | Exact versus conservative output, ordering/ties, row-cardinality law and complete preparation cost |
+| E6: native item continuity and explicit export | [Item recipes](item-recipes-and-live-continuity.md), A7 and OW3 | Whole-world map copies on active motion, dormant recipe decode/encode feedback, repeated occurrence DTO projection | One live pose owner, sufficient recipe, accepted capture cut, room-local rewind and separate custody/retention policy |
 
 Each packet identifies the old interpretation or repeated operation to delete.
 Start with a production consumer. A new generic wrapper with the same scans,
@@ -169,6 +170,17 @@ setup; a linear leaf inside an already built tree does not remove construction.
 The kernel does not decide when a lifecycle view changes or what an unknown
 material envelope means. Independent benchmarks include the adapters that
 normalize candidates and order results for the production consumer.
+
+E6 first fixes recipe sufficiency (IR1), then moves native readers to the
+typed owner before removing the mirror (IR2/IR3). Compare one moving item
+with increasing dormant populations. Count recipe/baseline copies, root
+container work, encoding and hashing. Unchanged-world cache results are not
+evidence for this changed-position case. A full save export remains
+proportional to its output; ordinary local motion must not force that export.
+IR4 selects a finite pose-only output interval while preserving prompt
+semantic writes. Without this explicit policy change, current autosave can
+still request a full file on each changed confirmed frame. Measure native
+simulation and actual persistent output separately, with persistence enabled.
 
 ### Existing wins remain in place
 

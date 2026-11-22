@@ -117,6 +117,12 @@ budget is stored, because a budget with no consumer is not a policy.
 - Dormant records add no all-world walk to an idle tick: the custody projection
   reads a custody index, and the save mirrors walk dormant rows only when an
   input changed (FI9).
+  **Open at `f41218979625`:** an active item's exact position is such an
+  input on every moving tick. It invalidates recipe work that does not depend
+  on position. [IR1–IR4](item-recipes-and-live-continuity.md) retain sufficient
+  native recipes and keep current pose in the body, with explicit captures
+  at retirement, checkpoint and save boundaries. Quiet-tick measurements
+  do not establish the moving-item cost beside dormant rooms.
 - A room has at most one live room, so the durable rows can name a place by
   its room id (`outlook_for(room)`, `WorldTimeSchedule`). The
   publication verifier refuses an open or a replace into a room another live
@@ -128,12 +134,16 @@ budget is stored, because a budget with no consumer is not a policy.
   never part of it, so an instanced copy of a room names its bodies by
   `(LiveRoomInstance, SimId)`; lifting `DefinitionAlreadyLive` also needs the
   durable rows above to stop naming a place by room id alone.
-- A rollback frame does not copy or hash unchanged dormant rows. The save's
-  rows, the ledger and `WorldTimeSchedule` are `Arc`-shared with
+- The save's occurrence/recipe arrays, the ledger and `WorldTimeSchedule`
+  share unchanged allocations with
   checksums kept per allocation (M2; the schedule 2026-10-02, measured 2.0 ms
   per snapshot at 10,000 records before). Census of the readers that walk
   dormant rows: the custody projection reads an index, the save mirror walks
   only when its key changed, and the rest run at a commit or a restore.
+  This does not cover every snapshot representation. `MintedItemBaseline`
+  still deep-clones and hashes its map, and the rest of SaveData still has
+  serialization work. IR2/IR3 include recipe baselines and identify the
+  remaining cost rather than claiming that `Arc` removes all history work.
 
 ### Logical time while a room is not live (OW5)
 
@@ -284,6 +294,7 @@ an old finding against current source before promoting it.
 
 | Remaining obligation | Scope and acceptance | Disposition |
 | --- | --- | --- |
+| **Native recipes and live continuity** | IR1 preserves a mint's physical recipe; IR2 moves native readers off the save codec; IR3 captures domain placement at accepted boundaries and removes motion-driven dormant work. Preserve room rewind, same-tick exit/checkpoint and item-center/body-feet conventions. | Selected in A7 and EXECUTION-COST; [owner](item-recipes-and-live-continuity.md) |
 | **Subject-scoped sole-room readers** | Revisit `restore_checkpoint_on_session_start` (normally one-room only), `rebuild_ldtk_runtime_spine_index` (currently one `active_area`; simulation state must not depend on which peer is primary), and the fixture-only `room: None` gravity fallback in `drive_wave_encounters` if a real two-room customer uses them. Preserve one-room behavior. | Conditional, not a generic `Single` removal campaign |
 | **Multi-instance identity** | `FeatureViewIndex` keys by bare `FeatureId`; maps of authored bodies likewise collapse two *simultaneous instances of the same definition*. Current crossings join an already-live destination and `DefinitionAlreadyLive` rejects duplicates. Before lifting that rule, key live occurrence and durable location consistently by instance and prove twin-body/view survival. | Deferred until instanced rooms are a supported product customer |
 | **Local join, leave and recovery** | The Q153 second-seat join path exists. Remaining menu leave, fallen-seat return-by-crossing sync witness, interact/button prompts that show only primary, and declared per-seat readouts must work without losing control, inventory or capabilities. | Follow `LOCAL-PLAY-MODES`, the UI owners and [local co-op](local-coop-integration.md) |

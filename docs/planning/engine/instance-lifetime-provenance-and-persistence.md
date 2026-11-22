@@ -42,6 +42,10 @@ operations demonstrate a real reusable core.
   resident versus nonresident world state.
 - [`item-custody-and-accounting.md`](item-custody-and-accounting.md) — item
   occurrence, inventory and physical custody.
+- [`item-recipes-and-live-continuity.md`](item-recipes-and-live-continuity.md)
+  — the item recipe chosen at creation, one live pose owner, and frozen
+  captures for dormant/checkpoint/save state. Provenance alone is not a
+  sufficient construction description.
 
 ## Still-open questions
 

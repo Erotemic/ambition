@@ -88,6 +88,14 @@ prepared operation identity and source bindings stay prepared, while the
 selected body reads current local availability. Do not enumerate every action
 for every actor or rebuild a global opportunity table to serve one Interact.
 
+The [A7 merchant exchange](item-custody-and-accounting.md#a7-exchange--one-rule-for-an-offer-and-its-accepted-exchange)
+is a concrete offer customer: its item owner checks the complete exchange
+against the selected bag and payer, and acceptance uses the same pure rule
+on current state. Money alone does not prove capacity, and general possession
+does not prove a sale can remove a stored quantity. Keep those laws in the
+item owner. Shared availability does not require moving them into gesture
+arbitration or treating a preview as a reservation.
+
 ## One attempt, explicit consumption and fallback
 
 The participant input owner creates the buffered gesture as it does today.

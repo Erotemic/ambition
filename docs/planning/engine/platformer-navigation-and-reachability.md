@@ -141,6 +141,21 @@ A room geometry edit invalidates room legs; it need not repeat an unchanged
 empty-world motion experiment. Never key this by character name, net
 acceleration, or rounded movement parameters.
 
+**First slice (2026-11-22).** `NavMotion` holds the traversal envelope and,
+for a body that flies, its flight law. Both are measured in probe worlds of
+their own. `NavGraph::build_measured` builds a room's graph from a measured
+motion, and `build_on` is now measure-then-build. `NavGraphCache` keeps
+motions by the graph key minus its room: the exact spec, abilities, size,
+base size and whole motion frame, which is how the graph key is already
+keyed. The advisor's `graph_of` uses `get_or_build_measured`, so a body
+navigating several rooms measures its motion once. Witness:
+`a_body_built_in_two_rooms_measures_its_motion_once` (both graphs equal a
+fresh build; a body of another size is measured again).
+
+Still open: the seat autopilot builds on a background task and still
+measures for each graph, and demanded reachability and the FIFO working set
+are not done yet.
+
 The [advisor](../../../crates/ambition_platformer2d_actor_monolith/src/body/navigation.rs)
 asks `reachable_from` through waypoints, target placement and errands.
 That routine allocates and traverses the graph each time. Retain ordered

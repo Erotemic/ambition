@@ -910,3 +910,35 @@ fn a_route_costs_what_trying_every_chain_costs() {
     }
     assert_eq!(compared, 20);
 }
+
+/// ⭐ A BODY'S MOTION IS MEASURED ONCE, WHATEVER ROOM (E4 step 2). The cache
+/// builds one walker's graph in two rooms and measures its envelope once;
+/// each graph is the one a fresh `build` makes. A second body (another
+/// size) is measured again: the motion is the body's, not the cache's.
+#[test]
+fn a_body_built_in_two_rooms_measures_its_motion_once() {
+    let body = walker();
+    let envelope = TraversalEnvelope::measure(&body, normal_frame(), EnvelopeProbe::default()).expect("measured");
+    let level_gap = envelope.landing_lead(0.0).expect("a level jump lands");
+    let rooms = [room(envelope.apex_rise(), level_gap), room(envelope.apex_rise(), level_gap * 0.5)];
+    use crate::navigation::{NavGraphCache, NavGraphKey};
+    let mut cache = NavGraphCache::with_capacity(4);
+    let key_of = |world: &World, size: Vec2| {
+        NavGraphKey::new(world, &[], body.model.spec(), body.abilities.abilities, size, body.base_size, normal_frame())
+    };
+    let size = body.kinematics.canonical_size;
+    for world in &rooms {
+        let key = key_of(world, size);
+        let kept = cache
+            .get_or_build_measured(key, |motion| NavGraph::build_measured(world, &[], &key.probe_body(), normal_frame(), motion, None))
+            .expect("a graph")
+            .clone();
+        let fresh = NavGraph::build(world, &key.probe_body(), normal_frame()).expect("a graph");
+        assert_eq!((kept.surfaces, kept.links, kept.out), (fresh.surfaces, fresh.links, fresh.out));
+    }
+    assert_ne!(key_of(&rooms[0], size), key_of(&rooms[1], size), "premise: two rooms");
+    assert_eq!(cache.motion_measures(), 1, "the walker's motion was measured again in the second room");
+    let bigger = key_of(&rooms[0], size * 1.5);
+    let _ = cache.get_or_build_measured(bigger, |motion| NavGraph::build_measured(&rooms[0], &[], &bigger.probe_body(), normal_frame(), motion, None));
+    assert_eq!(cache.motion_measures(), 2, "control: another body is measured");
+}

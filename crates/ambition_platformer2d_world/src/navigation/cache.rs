@@ -12,7 +12,7 @@ use ambition_platformer2d_core as ae;
 use ae::movement::MotionModelSpec;
 use ae::{AbilitySet, Aabb, BodyBaseSize, BodyClusterScratch, MotionFrame, Vec2, World};
 
-use super::NavGraph;
+use super::{NavGraph, NavMotion};
 use crate::collision::{GeometryRevision, RoomCollision};
 
 /// What one graph is a function of.
@@ -66,6 +66,12 @@ impl NavGraphKey {
         self.room
     }
 
+    /// What the body's [`NavMotion`] is a function of: this key without its
+    /// room.
+    fn motion_key(&self) -> NavMotionKey {
+        NavMotionKey { spec: self.spec, abilities: self.abilities, size: self.size, base_size: self.base_size, frame: self.frame }
+    }
+
     /// The probe body the graph is built for: the tuning with no history. A
     /// graph is not a fact about what a body was doing when it was asked for.
     pub fn probe_body(&self) -> BodyClusterScratch {
@@ -77,17 +83,69 @@ impl NavGraphKey {
     }
 }
 
+/// What one body's [`NavMotion`] is a function of: a [`NavGraphKey`]
+/// without its room.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct NavMotionKey {
+    spec: MotionModelSpec,
+    abilities: AbilitySet,
+    size: Vec2,
+    base_size: BodyBaseSize,
+    frame: MotionFrame,
+}
+
 /// Graphs by [`NavGraphKey`], at most `capacity`; the oldest goes first. A
 /// key with no graph (the body has none there) is kept too, so it is not
-/// built again.
+/// built again. Beside them, at most `capacity` bodies' [`NavMotion`]s,
+/// measured once for each body and frame whatever room their graph is in.
 pub struct NavGraphCache {
     graphs: Vec<(NavGraphKey, Option<NavGraph>)>,
+    motions: Vec<(NavMotionKey, Option<NavMotion>)>,
     capacity: usize,
+    motion_measures: u64,
 }
 
 impl NavGraphCache {
     pub fn with_capacity(capacity: usize) -> Self {
-        Self { graphs: Vec::with_capacity(capacity), capacity: capacity.max(1) }
+        Self { graphs: Vec::with_capacity(capacity), motions: Vec::new(), capacity: capacity.max(1), motion_measures: 0 }
+    }
+
+    /// How many times a body's motion was measured. For tests and instruments.
+    pub fn motion_measures(&self) -> u64 {
+        self.motion_measures
+    }
+
+    /// The motion of `key`'s body, kept or measured now.
+    fn motion(&mut self, key: &NavGraphKey) -> Option<&NavMotion> {
+        let motion_key = key.motion_key();
+        let index = match self.motions.iter().position(|(known, _)| *known == motion_key) {
+            Some(index) => index,
+            None => {
+                self.motion_measures += 1;
+                let motion = NavMotion::measure(&key.probe_body(), key.frame);
+                if self.motions.len() >= self.capacity {
+                    self.motions.remove(0);
+                }
+                self.motions.push((motion_key, motion));
+                self.motions.len() - 1
+            }
+        };
+        self.motions[index].1.as_ref()
+    }
+
+    /// The kept answer for `key`, or `build(motion)` kept and returned, with
+    /// the body's motion measured once whatever room `key` names.
+    pub fn get_or_build_measured(
+        &mut self,
+        key: NavGraphKey,
+        build: impl FnOnce(&NavMotion) -> Option<NavGraph>,
+    ) -> Option<&NavGraph> {
+        if let Some(index) = self.graphs.iter().position(|(known, _)| *known == key) {
+            return self.graphs[index].1.as_ref();
+        }
+        let graph = self.motion(&key).and_then(build);
+        self.insert(key, graph);
+        self.graphs.last().and_then(|(_, graph)| graph.as_ref())
     }
 
     pub fn len(&self) -> usize {

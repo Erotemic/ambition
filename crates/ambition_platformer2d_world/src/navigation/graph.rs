@@ -125,6 +125,26 @@ pub struct NavGraph {
     out: Vec<Vec<usize>>,
 }
 
+/// What a body's movement does in empty space: its traversal envelope and,
+/// for a body that flies, its flight law. Each is measured in a probe world
+/// of its own, so it depends on the body and its motion frame and on no
+/// room: a graph built in a second room need not measure it again.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NavMotion {
+    pub envelope: TraversalEnvelope,
+    pub flight: Option<ae::navigation::FlightLaw>,
+}
+
+impl NavMotion {
+    /// Measure `body` under `frame`. `None` when the envelope cannot be
+    /// measured (see [`TraversalEnvelope::measure`]): the body has no graph.
+    pub fn measure(body: &BodyClusterScratch, frame: MotionFrame) -> Option<Self> {
+        let envelope = TraversalEnvelope::measure(body, frame, EnvelopeProbe::default())?;
+        let flight = body.abilities.abilities.fly.then(|| measure_flight(body, frame)).flatten();
+        Some(Self { envelope, flight })
+    }
+}
+
 /// An arrival waiting in [`NavGraph::route`]'s search: the cheapest first,
 /// and of two as cheap the lower state index, so ties never depend on the
 /// order they were pushed.
@@ -191,7 +211,21 @@ impl NavGraph {
         frame: MotionFrame,
         pool: Option<&bevy_tasks::TaskPool>,
     ) -> Option<Self> {
-        let envelope = TraversalEnvelope::measure(body, frame, EnvelopeProbe::default())?;
+        Self::build_measured(world, exits, body, frame, &NavMotion::measure(body, frame)?, pool)
+    }
+
+    /// [`Self::build_on`] with the body's [`NavMotion`] already measured: a
+    /// caller that builds one body's graph in several rooms measures its
+    /// motion once. `motion` must be `NavMotion::measure(body, frame)`.
+    pub fn build_measured(
+        world: &World,
+        exits: &[ae::Aabb],
+        body: &BodyClusterScratch,
+        frame: MotionFrame,
+        motion: &NavMotion,
+        pool: Option<&bevy_tasks::TaskPool>,
+    ) -> Option<Self> {
+        let envelope = &motion.envelope;
         let nav = NavFrame { side: frame.side(), down: frame.down() };
         let half = Vec2::new(envelope.body_width * 0.5, envelope.body_height * 0.5);
         let slope_pieces = chain_walks(world, nav).pieces;
@@ -219,11 +253,7 @@ impl NavGraph {
             surfaces,
             links: Vec::new(),
             cost: BuildCost::default(),
-            flight: verbs
-                .fly
-                .then(|| measure_flight(body, frame))
-                .flatten()
-                .map(|law| FlightMap::build(world, exits, half, law)),
+            flight: motion.flight.map(|law| FlightMap::build(world, exits, half, law)),
         };
         // The links that leave each surface are a pure function of the graph
         // so far, so the surfaces are taken on the compute pool, one to a task,

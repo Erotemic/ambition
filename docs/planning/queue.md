@@ -237,7 +237,9 @@ fact ports, 2026-11-22), and `run_phase` buckets its queue by trigger once.
 Next, prepare dispatch spans and entry lookup at admission, then share correct
 occurrence views and derive active journal work. Navigation's cost-state
 reduction is fixed (2026-11-22: route searches arrivals and charges the final
-walk). Next it reuses motion envelopes and graph query work.
+walk), and the advisor measures a body's motion once across rooms
+(`NavMotion`, 2026-11-22). Next it reuses demanded reachability and fixes the
+graph cache's FIFO working set.
 
 The follow-up [data-structure packets K1–K3](engine/data-structure-kernels.md#delivery-and-deletion-criteria)
 make bounds queries and strict unique lookup independent optimization targets

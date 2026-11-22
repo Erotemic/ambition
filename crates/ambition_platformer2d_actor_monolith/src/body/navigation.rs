@@ -120,7 +120,12 @@ impl RoomNavigation {
         if !self.in_use.contains(&key) {
             self.in_use.push(key);
         }
-        self.graphs.get_or_build(key, || NavGraph::build(world, &key.probe_body(), frame))
+        // The body's motion is measured once whatever room: only the room's
+        // legs are built here.
+        self.graphs.get_or_build_measured(key, |motion| {
+            NavGraph::build_measured(world, &[], &key.probe_body(), frame, motion,
+                bevy::tasks::ComputeTaskPool::try_get().map(|pool| &**pool))
+        })
     }
 }
 

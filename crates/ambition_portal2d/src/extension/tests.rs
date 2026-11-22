@@ -654,6 +654,37 @@ fn a_held_pair_asked_onto_another_portal_closes() {
     assert_eq!(portals(&mut app).len(), 2, "and it stays closed while it is asked");
 }
 
+/// P1: a replacement at the place of a pair released the same tick opens.
+/// The released ends are despawned by command, so the overlap test still
+/// saw them, and the replacement fizzled against a pair that was closing.
+/// The control asks B's pair while A still holds the place.
+#[test]
+fn a_pair_asked_where_a_released_pair_was_opens_the_same_tick() {
+    for release in [true, false] {
+        let mut app = finished_app();
+        app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION));
+        let room = InRoomInstance(LiveRoomInstance::ACTIVATION);
+        let first = app.world_mut().spawn((Asks(100), SimId::placement("a"), room)).id();
+        let second = app.world_mut().spawn((Asks(0), SimId::placement("b"), room)).id();
+        app.world_mut().run_schedule(Sim);
+        app.world_mut().run_schedule(Sim);
+        assert_eq!(portals(&mut app).len(), 2, "A's pair is open");
+        if release {
+            app.world_mut().get_mut::<Asks>(first).unwrap().0 = 0;
+        }
+        app.world_mut().get_mut::<Asks>(second).unwrap().0 = 100;
+        app.world_mut().run_schedule(Sim);
+        app.world_mut().run_schedule(Sim);
+        let open = portals(&mut app);
+        let of = |id: char| open.iter().filter(|(owner, ..)| owner.ends_with(id)).count();
+        if release {
+            assert_eq!((of('a'), of('b')), (0, 2), "B's pair replaces A's: {open:?}");
+        } else {
+            assert_eq!((of('a'), of('b')), (2, 0), "with A still there, B's pair fizzles: {open:?}");
+        }
+    }
+}
+
 #[test]
 fn a_pair_asked_across_an_open_portal_fizzles() {
     let mut app = finished_app();

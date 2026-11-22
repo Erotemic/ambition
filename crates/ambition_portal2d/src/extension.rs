@@ -254,6 +254,10 @@ fn lower_held_portal_pairs<L: LowersIn>(
     straddlers: Query<(Entity, &crate::PortalTransit)>,
 ) {
     let submitted = outbox.drain::<HeldPortalPairPort>(&L::PHASE);
+    // Ends this system closes this tick. A despawn is a command, so the
+    // queries still hold them; an asked pair is judged against what stays,
+    // so a pair released this tick does not refuse its replacement.
+    let mut retiring: Vec<Entity> = Vec::new();
     let asked = |owner: Entity, r: &HeldPortalPairRecord| {
         live.allows(owner) && submitted.iter().any(|s| s.scope == owner && module_of(&s.entry) == &*r.module && s.value.slot == r.slot)
     };
@@ -278,6 +282,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
                         e.try_despawn();
                     }
                 }
+                retiring.extend(record.ends);
                 record.spent = true;
             }
         }
@@ -300,6 +305,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
                         e.try_despawn();
                     }
                 }
+                retiring.extend(r.ends);
             }
             keep
         });
@@ -313,6 +319,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
             .is_ok_and(|(_, held)| held.0.iter().any(|r| r.ends.contains(&portal)));
         if !held {
             commands.entity(portal).try_despawn();
+            retiring.push(portal);
         }
     }
 
@@ -324,6 +331,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
     let mut open: Vec<(Entity, Option<LiveRoomInstance>, PlacedPortal)> = others
         .iter()
         .chain(portals.iter().map(|(entity, _, portal, _)| (entity, &*portal)))
+        .filter(|(entity, _)| !retiring.contains(entity))
         .map(|(entity, portal)| (entity, rooms.get(entity).ok().map(|r| r.0), portal.clone()))
         .collect();
     let mut fizzled: Vec<(Entity, Arc<str>, u32)> = Vec::new();
@@ -353,6 +361,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
                         e.try_despawn();
                     }
                 }
+                open.retain(|(entity, ..)| !record.ends.contains(entity));
                 fizzled.push((s.scope, record.module.clone(), record.slot));
                 continue;
             }

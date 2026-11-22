@@ -566,6 +566,27 @@ held-open records and geometry-based pair-use matching as each path migrates.
 one defined outcome; old and new occurrences cannot alias through channel
 reuse; a moved caster never edits foreign-room endpoints.
 
+**First slice done (2026-11-22).** `ClearPortals` carries the reset's room
+(`None` only for a New Game, or a reset whose room cannot be told), and
+`clear_portals_on_reset` clears the gun pairs and transit cooldowns of that
+room alone. The content bridge names the room of the replay's subject, else
+the sole live room. Witnesses: `a_reset_of_one_live_room_spares_the_other_rooms_pair`
+(portal core) and `a_manual_reset_clears_the_room_of_its_subject` (bridge).
+Same-place replacement: the held-pair lowering judged an asked pair against
+ends it had just released, because a despawn is a command and the queries
+still held them; the replacement fizzled and stayed spent. The ends it closes
+this tick, and a held pair that fizzles, now leave the overlap set first, so
+the defined outcome is that the replacement opens
+(`a_pair_asked_where_a_released_pair_was_opens_the_same_tick`, with the
+still-held control fizzling). Two held pairs that trade places in one tick
+still resolve in submission order.
+
+**Remaining:** a recast slot reuses its link (`held_pair_link` is per
+owner/module/slot), so the new pair gets the old channel and a body's
+`PortalTransitCooldown { pair }` can alias it; give each opening an
+occurrence. Publish the accepted/refused outcome of a held request to its
+module. Close or rebind the lease when the caster changes rooms.
+
 ### P2 — Accepted motion, root transitions and retained history
 
 **Owner:** core motion authority with portal adapter and free-mover consumers.

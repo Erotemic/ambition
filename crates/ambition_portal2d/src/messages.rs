@@ -68,9 +68,31 @@ pub struct TogglePortalGenerator {
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TogglePortalGeneratorsActive;
 
-/// Portal-owned reset intent: clear placed portals and body transit cooldowns.
-#[derive(Message, Clone, Copy, Debug)]
-pub struct ClearPortals;
+/// Portal-owned reset intent: clear the gun-owned portals and body transit
+/// cooldowns of one live room.
+///
+/// A reset is of a room: with two live rooms, Bob's pair stays when Alice
+/// retries hers. `None` names no room, and clears every room: a New Game,
+/// which restarts the whole session, or a reset whose room cannot be told.
+#[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ClearPortals {
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+}
+
+impl ClearPortals {
+    /// Clear the portals of every live room.
+    pub const EVERYWHERE: Self = Self { room: None };
+
+    /// Clear the portals of `room`.
+    pub fn of(room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance) -> Self {
+        Self { room: Some(room) }
+    }
+
+    /// Does this reset reach something in `room`?
+    pub fn reaches(&self, room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> bool {
+        self.room.is_none() || self.room == room
+    }
+}
 
 /// Outcome emitted when [`PortalFireIntent`] spawns a portal shot.
 #[derive(Message, Clone, Copy, Debug)]

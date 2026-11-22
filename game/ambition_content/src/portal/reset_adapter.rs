@@ -18,15 +18,27 @@ use ambition_portal2d::ClearPortals;
 /// `clear_portals_on_reset` either way). Runs in `PortalSet::RoomReset` before
 /// `clear_portals_on_reset`, so the clear happens the same frame the room reset
 /// fires.
+///
+/// The clear is of the reset's room: the live room of the body the replay is
+/// for, else the sole live room. A New Game (a manual checkpoint restore)
+/// restarts the whole session and clears every room, as does a reset whose
+/// room cannot be told.
 pub fn bridge_room_reset_to_clear_portals(
     mut resets: ambition_combat::events::AdmittedReplays,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut clear: MessageWriter<ClearPortals>,
 ) {
-    // Clear the gun portals only if at least one reset this frame was deliberate.
     // A death (`PlayerDeath`) leaves every portal in place.
-    let manual = resets.read().any(|r| r.reason == RoomResetReason::Manual);
-    if manual {
-        clear.write(ClearPortals);
+    let mut scopes: Vec<ClearPortals> = Vec::new();
+    for reset in resets.read().filter(|r| r.reason == RoomResetReason::Manual) {
+        let room = if reset.to_checkpoint { None } else { reset.subject.as_ref().and_then(|s| s.room).or_else(|| live.sole()) };
+        let scope = ClearPortals { room };
+        if !scopes.contains(&scope) {
+            scopes.push(scope);
+        }
+    }
+    for scope in scopes {
+        clear.write(scope);
     }
 }
 
@@ -61,5 +73,32 @@ mod tests {
             !clears_for(RoomResetReason::PlayerDeath),
             "a death reset must NOT emit ClearPortals (gun portals survive a death)"
         );
+    }
+
+    /// P1: the clear names the room of the body the reset is for, so the
+    /// other live room keeps its pair; a New Game names none.
+    #[test]
+    fn a_manual_reset_clears_the_room_of_its_subject() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{LiveBodyId, LiveRoomInstance, RoomInstanceRoot};
+        use ambition_platformer2d_shared_tangle::sim_id::SimId;
+        let rooms = [LiveRoomInstance::ACTIVATION, LiveRoomInstance::ACTIVATION.next()];
+        let emitted = |replay: RoomReplayAdmitted| {
+            let mut app = App::new();
+            app.add_message::<RoomReplayAdmitted>();
+            app.add_message::<ClearPortals>();
+            app.add_systems(Update, bridge_room_reset_to_clear_portals);
+            for room in rooms {
+                app.world_mut().spawn((RoomInstanceRoot, room));
+            }
+            app.world_mut().write_message(replay);
+            app.update();
+            let mut messages = app.world_mut().resource_mut::<bevy::ecs::message::Messages<ClearPortals>>();
+            messages.drain().collect::<Vec<_>>()
+        };
+        let mut retry = RoomReplayAdmitted::because(RoomResetReason::Manual);
+        retry.subject = Some(LiveBodyId::new(SimId::placement("alice"), Some(rooms[1])));
+        assert_eq!(emitted(retry), [ClearPortals::of(rooms[1])], "a retry clears its own room");
+        let new_game = RoomReplayAdmitted::because(RoomResetReason::Manual).to_the_checkpoint();
+        assert_eq!(emitted(new_game), [ClearPortals::EVERYWHERE], "a New Game clears every room");
     }
 }

@@ -2975,7 +2975,11 @@ Its [implementation plan](engine/portal-parts-similarity-and-chirality.md#implem
 owns P1–P6 and links the detailed contracts. The source counterexamples have
 not been reproduced by a new Rust/game run in this review.
 
-**Next action:** start P1 with scoped reset and same-place replacement; start
+**Next action:** P1's first slice is done (2026-11-22): a manual reset clears
+the gun pairs and cooldowns of its own live room, and a held pair asked where
+a pair was released the same tick opens. P1 continues with channel-reuse
+aliasing of a recast slot, the published accepted/refused state and the lease
+on room transfer. Start
 P2 with the existing max-hops-zero recovery fixture extended through generic
 transit, then a moving exit and retained target trajectory. P4 can independently
 prove/fix full-turn bounds and repeated-link candidate exclusion. P3 removes

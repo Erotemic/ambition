@@ -38,22 +38,11 @@ owner · `WAIT` do not expand the architecture for this yet.
 
 ## Smash-local P0: raw two-fighter combat semantics
 
-This gate is the highest-priority Smash work (maintainer priority). While an
-unblocked `S0.*` row is open, do not select another Smash feature, stage,
-match-rule, roster, presentation, item, training or CPU row because it is smaller
-or easier. Take the packets in order.
-
-Only three things preempt the gate inside the Smash lane:
-
-1. a correctness regression that prevents a gate row from being implemented or
-   measured;
-2. instrumentation required to prove a gate row on the production road;
-3. an explicit maintainer decision.
-
-The gate is Smash-local. It does not reorder unrelated Ambition programs. Scope
-is the raw movement, contact and reaction interaction between fighters. Stage
-layout, hazards, match rules, UI, content breadth and presentation polish do not
-count toward it.
+**Closed on 2026-11-20.** The rows below retain the raw-combat gate's
+implementation receipts. They do not prove the later action, clock, animation
+or recovery crossings audited at `34b4ab0b7f4f`. Do not reopen S0 to select
+those repairs. The current post-gate order is [§17](#17-current-implementation-order),
+with the main Ambition work ahead of Smash-only polish.
 
 | Order | packet | status | open work / closure contract |
 |---|---|---|---|
@@ -70,35 +59,18 @@ count toward it.
 **Gate acceptance:** a packet closes only when production-path tests exercise the
 interaction, Smash rules or content select the behavior where required, rollback
 identity and order are deterministic, and no character-ID branch exists. An
-`S0.*` label on a row below means the gate overrides that section's order.
+`S0.*` label below records that completed scope; it does not reopen the gate.
 
-### Execution packets for the remaining gate
+### Completed gate and follow-up
 
-Use **one packet per change** and update its `S0.*` table row. Every new
-mechanic needs production-path and rollback evidence plus an authored Smash
-customer where required; an isolated kernel test does not close it.
+The gate has no remaining execution packet. Preserve the rows' production
+witnesses and authored customers. Damage-threshold armor is complete; the
+knockback-threshold variant remains deferred, as recorded in
+[tracks](../tracks.md#deferred-smash-semantics).
 
-1. **S0.1 is enabled:** use match reports and play feedback to refine the
-   authored damage window. The engine default remains off for other games.
-2. **S0.3 is complete:** shared contact policy and authored customers ship
-   in `c6a65c250`. Keep ordinary defaults and grounded capture rules.
-3. **S0.7 is complete:** robot v3 authors a crawl; a noncrawler is planted,
-   at spawn and after a stock respawn.
-4. **S0.4 is closed:** airborne grabs are out of scope. Aerial tether moves
-   use ordinary hit volumes, separate from standing captures.
-   **S0.5 damage-threshold armor is complete**; its
-   knockback-threshold extension is deferred in [tracks](../tracks.md#deferred-smash-semantics),
-   not a blocker for this gate. **S0.8 is complete** (paralysis, bury, freeze, crumple), and so is S0.9
-   (seeker, lifesteal): the S0 gate is closed. Next: re-measure this inventory
-   against HEAD and write the post-gate order (§17).
-
-**After S0:** CPU adoption is not a general movement rewrite. Run the shipped
-`fighter_brain_ladder.ron` through `match-report --ladder` and `capture-probe`,
-pick one underused family (smash, shield, grab), and add only its missing
-observation/option. UI defects SD-01–SD-07 belong to
-[SMASH-DEFECTS](../queue.md#smash-defects--select-screen-respawn-and-result-lifecycle)
-and [its source review](smash-defect-review-2026-10-31.md) unless they block an
-S0 witness.
+The next pass checks action continuity and actual recovery before additional
+CPU move-use scoring or roster breadth. See [§17](#17-current-implementation-order).
+UI lifecycle receipts remain with [SMASH-DEFECTS](../queue.md#smash-defects--select-screen-respawn-and-result-lifecycle).
 
 ## Scope and implementation rules
 
@@ -165,7 +137,9 @@ Preserve these and build new features on their seams.
 | Charge storage | ✔ | M | E1 | `MoveChargeSpec::stores`, opt-in; decided in `cancel_move_playback`. Customer: Projectile Polygon's power ball. |
 | Jab 1 → 2 → 3 chains | ✔ | — | E1 | Held Attack continues only to a successor the window names. |
 | Rapid jab + finisher | ✔ | — | E1 | `MoveSpec::repeat: Option<MoveLoop>`. |
-| Combat action buffer | ✔ | M | E1 | `BodyActionBuffer` (attack, grab, pogo, special); spent only when action acceptance accepts. |
+| Combat action buffer | ◐ | M | E1 | Storage and spend through `BodyActionBuffer` are built. Current body restrictions do not all reach move admission; ACT1 closes that crossing. |
+| Reaction interruption and action admission | ◐ | M | E2 | [ACT1](../engine/body-action-execution.md#act1--accept-and-interrupt-actions-at-the-owning-cut): accepted reaction, live permission and landing settlement must agree with move starts and teardown. |
+| Local hitlag and proper-time execution | ◐ | M | E2 | [ACT2](../engine/body-action-execution.md#act2--resolve-body-action-time-once-per-step): per-body movement and move clocks disagree; a primary-body global freeze can mask it. |
 | Move invulnerability windows | ✔ | S | E1 | `WindowTag::Invuln` → `Invulnerability::MOVE`; teleports author it via `TeleportParams::intangible_s`. |
 | Move super-armor windows | ✔ | M | E1 | `ArmorPolicy::Super`. |
 | Damage-threshold armor | ✔ | M | E1 | `S0.5`: `WindowTag::ArmorUnder`. |
@@ -194,6 +168,11 @@ Preserve these and build new features on their seams.
 | Pivot smash | ✔ | S/M | E1 | Falls out of the turnaround in `resolve_attack_gestures`. |
 
 ## 2. Defense, shield, evade, and tech
+
+Floor tech/getup contacts are built. Their full timed execution is partial:
+[ACT3](../engine/body-action-execution.md#act3--give-floor-recovery-its-own-episode)
+separates action duration, travel and vulnerability. This does not reopen
+ordinary dodge commitment or the S0 hit-property work.
 
 | Feature | Status | Effort | Engine | Notes |
 |---|---:|---:|---:|---|
@@ -406,6 +385,11 @@ stage beside the others rather than editing one, and keep the shared envelope
 
 ## 12. Presentation and audio
 
+Reaction anchors and limited blends are built.
+[CLIP1/CLIP2](smash-expressive-fighter-poses.md#clip1--carry-the-beat-through-the-existing-clip-request)
+first fixes the event clock, authored loop rule and selected art. Continue
+with cast/audio acceptance only after that distinction is visible.
+
 | Feature | Status | Effort | Engine | Notes |
 |---|---:|---:|---:|---|
 | Dizzy stars | ✔ | — | — | |
@@ -432,6 +416,11 @@ stage beside the others rather than editing one, and keep the shared envelope
 | Rollback reproduction capture | ◐ | C | E2 | Extend existing trace/replay seams only. |
 
 ## 14. CPU adoption
+
+Current source exposes an execution gap before further scoring work:
+[REC1–REC3](../engine/fighter-brain.md#rec1--execute-the-recovery-after-the-move-starts).
+A CPU can select a recovery whose required motor control it never supplies.
+Complete that path before using a move-start count as proof of adoption.
 
 Simulation is controller-agnostic, so new mechanics work for CPU bodies. Add only
 the smallest option or observation support that makes a mechanic reachable.
@@ -569,32 +558,44 @@ means coordinated work, not a prerequisite.
 
 ## 17. Current implementation order
 
-The `S0.*` gate closed on 2026-11-20 (S0.9 last). The inventory was re-measured
-against HEAD the same day: eleven rows marked absent or partial had shipped
-with customers (windbox, tether recovery, carry, counter, reflector, absorber,
-remote mine, resource meter, tap-jump; vacuum and self-cost are partial). The
-post-gate order, each step one coherent customer at a time:
+**Priority set 2026-11-22:** prepare a polished Smash demo after the main
+Ambition improvements. Shared fixes with a current Ambition customer can run
+in their existing engine/presentation lanes first. This order does not move
+D72 above the flagship.
 
-1. **CPU adoption** ("After S0" above, §14): run the ladder through
-   `match-report --ladder` and `capture-probe`, pick one underused family
-   (smash, shield, grab) and add only its missing observation or option. A
-   headless match waits for entry music, so this needs a machine with the
-   music registry.
-2. **Strike-seam rows that reuse S0.8/S0.9 seams** (E1, settled policy):
-   ✔ 2026-11-20. Hit-grab and recoil on hit shipped; the ledge-trump
-   commitment window had already shipped (`ledge_trump_lockout`). The
-   grab-release fact waits for a presentation consumer (step 4).
-3. **Training and match-rule knobs** that need no new semantics: timer
-   selector, random stage, handicap / starting damage, reset fighters / set
-   percent and frame-data display, all ✔ 2026-11-21.
-4. **Presentation and audio** rows (§12), which wait on art and sound more than
-   on code; take them with the feel audit.
+The `S0.*` gate closed on 2026-11-20. Preserve those receipts. The
+post-gate hit-grab/recoil and training/rule-selector slices also shipped;
+do not repeat them to satisfy an old priority paragraph.
 
-Items wait on Jon (§8: *"we don't need items in smash right now"*): when
-they are wanted, start with item attribution (thrown-item damage through
-normal hit attribution, thrower/KO attribution, catch, lifetime). Design calls
-stay out of this order until ruled: which fighter pulls (vacuum),
-George's TRUE/FALSE stance (Q81), a separate stage-select screen, Final Smash.
+When Smash work is selected:
 
-A cheap lower row is not higher priority. A shipped-but-unreached mechanic is not
-higher priority because it is frustrating.
+1. Establish shared action permission/interruption and coherent action time:
+   [ACT1/ACT2](../engine/body-action-execution.md). These have ordinary
+   Ambition customers. Do not tune frame advantage around a move clock
+   that advances while its owner is held.
+2. Complete one timed tech/getup and the existing clip request:
+   [ACT3](../engine/body-action-execution.md#act3--give-floor-recovery-its-own-episode)
+   and [CLIP1/CLIP2](smash-expressive-fighter-poses.md#clip1--carry-the-beat-through-the-existing-clip-request).
+   The Ambition landing/recoil and binding slices can precede the Smash-only
+   floor work. Keep defense, commitment, motion and visual lifetime distinct.
+3. Complete actual CPU recovery:
+   [REC1](../engine/fighter-brain.md#rec1--execute-the-recovery-after-the-move-starts)
+   plus only the forecast/execution follow-up needed for the chosen return.
+   Other REC2/REC3 work remains separately selectable. The reported Admiral
+   case is the first customer. This can proceed beside visual work; it does
+   not wait for the whole roster to have new art.
+4. Run the [bounded demo acceptance pass](smash-feel-audit-2026-10-29.md#a-bounded-demo-acceptance-pass-after-the-shared-fixes).
+   Fill art gaps that remain after the actual request and clock are correct.
+   Review transitions, motion character, sound, camera and controls together.
+5. Then remeasure the shipped ladder and choose one evidenced strategy or
+   move-adoption gap. Start with a trace, not another scorer term. Use
+   `match-report --ladder` and `capture-probe`; a real round needs its
+   entry assets. Do not activate tactics or rollout just to raise a score.
+
+This is a dependency order for a bounded product pass, not a requirement to
+finish every shared architecture plan before testing a fighter.
+
+Items still wait on Jon's stated scope in §8. Product choices such as a
+stance, separate stage select or cinematic super retain their existing
+decision owners. The reviewed source does not establish that the shark needs
+a speed, damage or lease nerf; tune its power after its real execution works.

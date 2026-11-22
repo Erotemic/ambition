@@ -2,7 +2,8 @@
 
 **Status:** Base pose art and wiring are complete. Remaining visual work is selected in
 [POSE-CONTINUITY](../queue.md#pose-continuity--one-visual-transition-path-after-the-completed-base-poses) (2026-10-31).
-**First customer:** Smash Siblings; later use in Ambition's campaign.
+**Current shared customers:** Scout and campaign bodies in Ambition; fighters in Smash.
+The original base-pose pass used Smash first. CLIP1/CLIP2 below are shared work.
 **Scope:** Character art and visual presentation only. This is not an AI or combat-rules project.
 **Reference:** The Melee reconstruction at `/home/joncrall/code/melee`, not a requirement to copy Melee's animations or timings.
 
@@ -36,7 +37,7 @@ The launches go through the launch gateway a hit uses, the run and the teeter us
 
 Old/new contact sheets at the full tier and at about gameplay scale (0.35): `reaction_review` with the fallback rows interleaved (`launch,launch_up,...,walk_stop,run_stop`). The weakest changes at gameplay scale are pugnacious's `run_stop` and `hit_low`.
 
-**Second pass and close (2026-10-31).** A harder `run_stop` and `hit_low` on all three fighters, and the beast rears back to brake (renderer `4ac311e`, `4183e06`). Smash keeps drawing fighters between ticks (`interpolate_poses`). **Phase 1 and Phase 2 exit gates: met.** Next: Phase 3 continuity, and the backlog (getups matching the prone orientation, `teeter_start`, wall and ceiling tech art).
+**Second pass and close (2026-10-31).** A harder `run_stop` and `hit_low` on all three fighters, and the beast rears back to brake (renderer `4ac311e`, `4183e06`). Smash keeps drawing fighters between ticks (`interpolate_poses`). **Phase 1 and Phase 2 exit gates: met.** Next: Phase 3 continuity, and the backlog (getups matching the prone orientation, `teeter_start`, wall/ceiling tech routing and art review).
 
 ## Decision and outcome
 
@@ -80,38 +81,26 @@ Melee's precise animation parameters are not the target. The lesson is the delib
 
 **Ambition's launch posing is a deliberate departure.** This plan chooses upward, horizontal and downward launch silhouettes from the **launch direction**, where Melee's `DamageFlyHi/N/Lw` follow the struck hurtbox. Direction is what a viewer reads in flight, and it is already available to presentation. It is a design choice, not a reproduction.
 
-## Evidence from the current Ambition art
+## Current art foundation
 
-**Audit source:** Ambition source snapshot `ambition-agent-source-20261030T193907Z-f34bb10815eb`, dated 2026-10-30, re-checked 2026-10-31. The numbers below count source JSON, not finished visual quality or successful runtime selection.
+The three Polygon libraries are `fighting_polygon_v1`,
+`fighting_brawler_v1` and `projectile_beast_v1`, under the renderer's
+`data/motion/humanoid/`. Their character bindings select each rig's motion.
+The October base-pose pass replaced selected shared sequences with distinct
+launch, hit, prone, tech, teeter and stop art. Current source includes
+`run_stop`; the old claims that teeter aliases look-up and tech aliases
+walk-stop are superseded.
 
-The three relevant motion libraries are under:
+The old counts and duplicate-key census remain in Git history. They are not
+a current missing-art list. The committed `clip_alias_audit` compares
+keyed sequences; a distinct sequence still needs review at game scale.
+CLIP1/CLIP2 checks whether the runtime selects and times the existing art
+before a new source-art pass.
 
-`tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/motion/humanoid/`
-
-- `fighting_polygon_v1`: Pointed Polygon.
-- `fighting_brawler_v1`: Pugnacious Polygon.
-- `projectile_beast_v1`: Projectile Polygon.
-
-Their character bindings are in `data/characters/{pointed_polygon,pugnacious_polygon,projectile_polygon}/*.motion.json`. Each library contains **136 named clip JSON files** and **16 separately named pose JSON files**. Counting the serialized `state` or `pose` entries in each clip's `pose_keys` gives **99 distinct keyed sequences** for Pointed and Pugnacious and **100** for Projectile. This is not a count of unique visual silhouettes: named pose references, clip timing, interpolation, and rendering can change the visible result.
-
-The duplicate-key evidence is more useful than the raw count. All six groups below reproduce in all three libraries:
-
-| Existing clips | Current source relationship | Art implication |
-| --- | --- | --- |
-| `launch`, `meteor`, `shield_break_fall` | Identical keyed pose sequences | A meteor does not have its own directional body shape. |
-| `hit`, `impact`, `shield_hit`, `prone_damage`, `grabbed_pummel` | Identical keyed pose sequences | Distinct hit events share one recoil movement. |
-| `idle_look_up`, `loss`, `teeter` | Identical keyed pose sequences | The teeter hold has no dedicated balance movement. |
-| `air_land`, `ceiling_tech`, `tech`, `walk_stop` | Identical keyed pose sequences | A floor tech does not have a distinct braced body shape. |
-| `getup_roll`, `grab_escape`, `spot_dodge`, `tech_roll`, `trip_roll` | Identical keyed pose sequences | Several different escapes share one roll. |
-| `knockdown`, `sleep_start`, `trip_fall` | Identical keyed pose sequences | Floor reactions lack independent body language. |
-
-These groups were found by comparing keyed transforms in all three libraries. The clips can still have different playback durations. The audit does not claim that every pair looks identical at every timestamp. No library has a `run_stop` clip.
-
-There is real work to preserve: `teeter_start`, `ledge_catch`, `ledge_grab`, `ledge_climb`, `ledge_getup`, `ledge_jump`, `ledge_drop`, `land_hard`, `wall_tech`, `tumble`, and other clips already exist. Do not redraw these only because they have separate names. Review their silhouettes first.
-
-The canonical `data/fighter_motion_vocabulary.yaml` has **271 motion labels**, of which **196** have `fighter_core` scope. It already names high/mid/low/aerial hit reactions, directional launches, face-up/down prone reactions, floor-tech variants, and a distinct teeter hold. Its own policy says full variation coverage is aspirational and several labels can share one baseline slot. We now want to replace a selected set of those shared baselines with real art.
-
-The authored motion contract is documented in `tools/ambition_sprite2d_renderer/docs/authoring/motion_ir_v1.md`: SVG owns rig geometry and part bindings; motion JSON owns named poses, clips, key times, and transform deltas. `PreparedCharacterMotion` feeds the existing sheet publisher. Use that contract. Do not create a new pose format.
+Use the renderer's current motion vocabulary and declared source authority.
+SVG/rig geometry, procedural motion programs and prepared motion products
+have different edit owners; [SA1](../engine/asset-authoring-and-prepared-media.md#sa1--editable-sources-and-disposable-sprite-projections)
+owns that boundary. No new pose format is required.
 
 ### The existing pose generator
 
@@ -203,16 +192,22 @@ Use the existing clip-selection seam instead of introducing 341 new gameplay sta
 
 | Family | Proposed presentation routing | Existing facts or missing input |
 | --- | --- | --- |
-| Launch direction | Choose up / horizontal / down from the launched body's velocity; retain tumble when applicable. | **Exists.** `BodyPoseView.vel` and the actor's kinematics carry the movement direction to presentation. Use the per-fighter read-model, not `LaunchedBodiesView`, which is a pooled VFX view. Do not recompute combat knockback. |
+| Launch direction | Select up / horizontal / down from the accepted launch. | Built: `BodyMotionFacts::launched` retains launch-time direction. Do not reclassify it from later falling velocity or a pooled VFX view. |
 | Hit region and severity | Select the authored recoil from accepted hit processing. | Built: `BodyCombat::struck_height` records the accepted contact height; the shared clip selector reads it. Do not recompute damage or treat an overlap as an accepted hit. |
 | Prone orientation | Select the prone orientation and matching getup. | The movement owner publishes `BodyMotionFacts::prone_face_down` and `BodyMotionFacts::getup`. Remaining orientation-specific art belongs to POSE-CONTINUITY. |
 | Teeter | Play an entry, then a held teeter pose; interrupt on movement or fall. | `BodyMotionFacts::teetering` exists. Recheck the current pose clock before adding an entry timer or `teeter_start` art. |
 | Floor tech | Select a tech clip after a successful tech. | Built: the movement owner publishes the getup kind and the shared selector routes the tech and roll families. |
 | Run brake | Select `run_stop` after a run and `walk_stop` after a walk. | Built: `StopClock` carries the shared stop rule for human and CPU bodies. Do not select it from `BodyMotionFacts::skidding`. |
 
-The principal routing point is `crates/ambition_character_sprites/src/anim/mod.rs`, especially `body_state_clip()` (around lines 330-430) and the common animation selection path. `body_state_clip()` explicitly states that `tech`, `tech_roll`, and `getup_roll` collapse because the available facts do not distinguish them. `pick_body_anim()` already checks `teetering` (around lines 566-589), but does not select the start clip separately.
+The common selector is `body_state_clip` in
+`crates/ambition_character_sprites/src/anim/mod.rs`. It already distinguishes
+tech, tech roll and getup roll. CLIP1 fixes their clock and occurrence;
+CLIP2 keeps wall and ceiling tech distinct.
 
-Keep one rule for player and actor bodies. The two relevant readers are `crates/ambition_sim_view/src/pose_view.rs` (`BodyPoseView`) and `crates/ambition_sim_view/src/anim_index.rs` (`ActorAnimFrame`). The player path supports upper-body moves with continuing locomotion legs (`pose_view.rs:645-659`), while the actor path creates its active-move `ClipRequest` without the same leg request (`anim_index.rs:421-424`). Check and unify this visual behavior while wiring the new poses; do not create a player-only workaround.
+Smash seats use the shared `BodyPoseView`, including upper-body clips over
+locomotion legs. Ordinary campaign `ActorAnimFrame` requests still lack that
+leg request. Treat this as a bounded campaign presentation follow-up, not a
+human-versus-CPU Smash split. Keep one semantic rule through both readers.
 
 `crates/ambition_combat/src/hitbox/mod.rs:36-46` defines `LandedBodyHit` with a world contact point, but that message means geometric overlap. `ResolvedBodyHit` (from line 67) means the hit was accepted. The localized-impact cue must come from the accepted hit, with stable replay and rollback behavior. Keep gameplay outcomes authoritative.
 
@@ -228,6 +223,149 @@ The new clips can first run through the **existing sampled sheet and part-flipbo
 
 ## Phase 3 - Improve continuity and body weight (polish)
 
+### CLIP1 — Carry the beat through the existing clip request
+
+**State:** PLANNED from source `34b4ab0b7f4f`, 2026-11-22.
+Renderer source: `2b52adb65a3235c6b1f4f9fc4954ee31cc7b2bb8`.
+The archive has no generated visual payload. These are source findings,
+not a review of the currently published pictures.
+
+**Shared first customers:** Scout's landing and repeated recoil in Ambition;
+the Admiral's recovery and tumble in Smash. The previous interpolation,
+carriage blend, planted-hand and follow-through work remains implemented.
+
+A row name does not identify the event that selected it, the event's duration
+or the row's end rule. Preserve those facts through `ClipRequest`.
+Use the existing `Phase` and `Seconds` request paths. Add occurrence and
+end-policy facts where the current request loses them; do not add a second
+animation graph.
+
+| Source | Current result |
+| --- | --- |
+| [`ClipRequest::from_chain`](../../../crates/ambition_sim_view/src/anim_index.rs), [pose producer](../../../crates/ambition_sim_view/src/pose_view.rs) | Non-move reactions carry no authoritative clock or occurrence; move clips already carry phase |
+| [`CharacterAnimator::request_clip`](../../../crates/ambition_sprite_sheet/src/character/animator.rs) | Selecting the same resolved row preserves its cursor, even for a new hit or launch |
+| [Landing overlay](../../../crates/ambition_platformer2d_actor_monolith/src/body/movement_fx.rs), [Scout motion source](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/player_robot_v3_motion.py) | Soft/hard landing holds last 160/340 ms; the selected authored clips last 492/760 ms |
+| [Getup facts](../../../crates/ambition_platformer2d_core/src/movement/facts.rs), [Admiral motion source](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/_pirate_admiral_fighter.py) | The 300 ms invulnerability selects recovery art; authored getup/getup roll last 504/406 ms |
+| [Sheet row](../../../crates/ambition_sprite_sheet/src/lib.rs), [prepared part clip](../../../crates/ambition_sprite_sheet/src/character/rigged.rs), [part publisher](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/authoring/part_flipbook.py) | Sheet/part clip metadata drops authored looping, although the semantic rig can retain it |
+| [Rig presentation](../../../crates/ambition_render/src/rendering/actors/rigged.rs), [animation adapter](../../../crates/ambition_render/src/rendering/actors/animation.rs) | Blend/follow-through use raw render delta; the animation uses entity presentation time |
+
+The landing durations do not prove that gameplay holds should grow. The
+visual request currently ends before its clip reaches its authored exit.
+Map the intended contact/settling beat to the clip, or deliberately revise the
+art. Art duration must not determine collision, landing lag or input permission.
+
+**Implementation:**
+
+1. The domain that accepts the reaction, landing or maneuver supplies its
+   occurrence and elapsed time or phase. Restart once for a new occurrence
+   even when it resolves to the same row. Preserve phase for the same
+   occurrence and semantic beat. Launch can become tumble, and guard break
+   has several beats; each needs its declared local origin or phase.
+   Preserve the selected-source rule already used by pins: a missing pin
+   retains the base request's clock, occurrence and end policy; a changed
+   base reaction must not restart an unchanged pinned row. Do not infer a new
+   event from a timer increase or restart on every render request.
+2. Keep the event's lifetime separate from defense. For tech/getup, consume
+   [ACT3's recovery episode](../engine/body-action-execution.md#act3--give-floor-recovery-its-own-episode).
+   A shorter invulnerability window must not end the recovery picture.
+   Scout's ordinary visual landing can use its existing contact beat; it
+   does not need to wait for ACT3.
+3. Preserve the authored loop/one-shot rule in the existing published and
+   prepared row metadata. The Admiral's tumble explicitly loops; Polygon
+   tumble explicitly does not. A global rule for a row named `tumble`
+   would override one of those sources. Replace name-based `row_loops`
+   inference where explicit metadata now owns the answer. Keep a documented
+   fallback for a source that declares no rule, and migrate touched sources.
+   An owner-supplied phase or seconds request remains authoritative. Authored
+   looping is the sheet-clock default, not permission to wrap a phase-driven
+   attack.
+4. State the visual transition policy by semantic beat, independent of whether
+   the caller used a `CharacterAnim` enum or an explicit row. Keep immediate
+   impact/contact, an authored settling interval, loop continuation, a new-hit
+   restart and an interruptible carriage blend as distinct operations.
+   A named recoil must not bypass the chosen policy merely because it is named.
+5. Advance pose modifiers on the pose's declared clock. Consume
+   [ACT2's local hold](../engine/body-action-execution.md#act2--resolve-body-action-time-once-per-step)
+   for an action-linked reaction; use entity presentation time for ordinary
+   carriage, and wall time only for a deliberately independent visual effect
+   or preview. Sample accumulated owner time; never add a fixed simulation
+   step once per rendered frame. Do not let a paused clip finish a live 70 ms blend or 180 ms
+   follow-through through raw render delta.
+6. Preserve the selected content generation and existing part-first pipeline.
+   Prepare bindings and end policy once. Do not parse a rig, allocate a clip
+   program or scan all rows per body and frame.
+
+An appearance may start from the last compatible drawn pose. That does not
+authorize a blanket crossfade through a hit, attack-active window, dodge or
+death. Existing raster/scale-sign tween limits remain. A decorative tumble
+does not rotate the physical body. Simulation geometry continues to use its
+own deterministic pose/landmark authority.
+
+**Remove:** row-name-as-event identity, defense-timer-as-recovery duration,
+duplicated end-rule inference, and raw-delta advancement for pose-linked
+modifiers. Keep the existing clip selector, animator, limited blends and
+prepared assets.
+
+**Proof:** a real repeated same-region hit must restart once; a soft/hard
+landing must reach its intended exit without delaying control; the Admiral's
+loop and Polygon's one-shot must keep their distinct source rules. During one
+pause/slow interval, the pose and its modifiers must follow the declared
+clock. Observe the current game's selected bundle at game scale.
+`smash_reaction_poses` is still a useful row-routing test; its helper manually
+cancels moves, so use ACT1's real-hit crossing to prove the reaction itself.
+
+### CLIP2 — Bind the art the author already supplied
+
+**State:** PLANNED, same source review. This is a small companion to CLIP1.
+
+Two inspected routes lose an authored distinction:
+
+- Full chargen publication includes `land`, but the ordinary soft landing
+  requests `LandRecovery`, whose enum binding does not recognize `land`
+  and can fall back to idle. Odile and Coulomba select the full row set.
+  Source: [chargen sheets](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/chargen/sheets.py),
+  [animation names](../../../crates/ambition_sprite_sheet/src/character/anim.rs)
+  and [character catalog](../../../game/ambition_content/assets/data/character_catalog.ron).
+- `body_state_clip` maps both `WallTech` and `CeilingTech` to
+  `wall_tech`. The three Polygon motion libraries have distinct keyed
+  wall and ceiling clips; George authors both too. Source:
+  [selector](../../../crates/ambition_character_sprites/src/anim/mod.rs),
+  [Polygon motion](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/motion/humanoid)
+  and [George motion](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/_george_booul_fighter.py).
+
+Decide the intended contact versus recovery meaning, then bind the existing
+landing row through the current alias/request mechanism where those meanings
+agree. Request ceiling tech separately, with an explicit fallback for a
+family that has no such art. Preserve the shipped `hit`/`hurt` and
+`idle`/`rest` aliases. Do not require every rig to publish the same rows.
+
+Use one ordinary campaign landing and one Polygon ceiling tech to prove the
+selector reaches the existing art. Extend the current clip trace to retain
+requested meaning, selected row, occurrence, clock and frame when needed.
+An inventory that counts file names cannot prove this binding.
+
+### Review through the actual request
+
+Use the current `AMBITION_CLIP_TRACE`, `reaction_review`,
+`clip_alias_audit`, moveset inspector and game captures. Do not add another
+visual test service. `pose_transitions.py` compares selected source row
+pairs and their last frames; the game may interrupt earlier or choose another
+row. Feed a production request/exit into that review when testing a transition.
+`campaign_sheet_gaps.py` checks reaction chains; it does not prove ordinary
+landing enum binding.
+
+Keep authoring work in the sprite renderer submodule, then update its pin
+through the normal policy. Do not repair a generated JSON file that a Python
+motion source will overwrite. Existing
+[SA1/SA2](../engine/asset-authoring-and-prepared-media.md) owns source/edit
+authority and motion-to-rig units. Existing E2 owns prepared rig/binding reuse.
+Those are valid separate tasks, not measured causes of the reported jaggedness.
+
+Start with the two shared customers above. A cast-wide choreography pass
+follows the shared fixes and remains below the main Ambition work.
+
+### Existing continuity work and receipts
+
 Only after the silhouettes appear in the game, improve how one pose becomes another:
 
 1. Blend compatible clip changes at joint level while preserving hit-contact timing and clear attack silhouettes.
@@ -236,7 +374,11 @@ Only after the silhouettes appear in the game, improve how one pose becomes anot
 4. Bring upper/lower body composition, facing, interruption, and rollback-reset policy into one shared presentation path.
 5. Evaluate part merging, joint binding, quality tiers, portal rendering, and off-cell bounds before enabling arbitrary procedural joint offsets.
 
-**Known future technical limit:** `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/authoring/part_flipbook.py:1347-1403` enables smooth part-transform interpolation by default only for selected locomotion loops; other published clips step. `crates/ambition_sprite_sheet/src/character/animator.rs:443-466` resets the frame when the clip changes. These are polish issues, not reasons to postpone new art.
+**Tween policy:** the part publisher honors a target's declared
+`tween_rows`; selected locomotion loops are its fallback. Other rows can
+already opt in. Keep raster and transform compatibility checks. The animator
+resets on a resolved row change; CLIP1 adds the missing occurrence/beat rule.
+Do not turn all clips into tweens to repair that missing rule.
 
 **Known runtime pose limit:** `crates/ambition_sprite_sheet/src/character/rigged/posed.rs:77-182` can place parts from joints, but binds parts by matching sampled animation frames within a tolerance. `crates/ambition_render/src/rendering/actors/rigged.rs:1019-1027` needs a baked body rig for that path. The audited Polygon publishers call `build_sheet()` and `publish_rig_flipbook()`, but do not publish that body-rig product. Part optimization can also merge always-rigid neighboring tracks (`part_flipbook.py:1675+`). If Phase 3 needs independent runtime joint control, first publish a suitable **visual** rig and stable semantic part bindings. Do not enable experimental gameplay-rig hurt geometry as a side effect. Do not front-load this bridge into Phase 1 or 2.
 
@@ -280,8 +422,8 @@ interrupted blend goes on from where it is. A move clip and the poses that
 read by being sharp (slash and the attacks, land hard, blink, death, dodge)
 step as before; a body out of view starts clean when it is seen. Witnesses:
 `a_clip_blend_slides_the_new_poses_parts_from_where_the_old_pose_drew_them`,
-`a_change_between_carriage_poses_blends_and_a_strike_does_not`. Still open:
-planted contacts (item 2) and follow-through (item 3).
+`a_change_between_carriage_poses_blends_and_a_strike_does_not`. Planted contacts (item 2) and follow-through (item 3)
+landed in the November 18 work below.
 
 **Contacts measured (2026-11-14, Scout's published parts, last frame of A
 to the first of B).** Where a clip ends naturally, the feet are already
@@ -293,25 +435,15 @@ interrupted with that foot down. The hands of a ledge catch slide 24 to 31
 px from the fall's raised hands (`fall -> ledge_catch`, `fall ->
 ledge_grab`) during the 0.07 s blend.
 
-**Why items 2 and 3 wait for the visual rig.** Each part of the flipbook
-is its own sprite at its own pivot, and nothing ties a foot to its shin or
-a hand to its forearm at runtime. Holding a foot or a hand still while the
-rest of its limb blends would open a gap at the joint; a follow-through
-offset on the arms or the head is the same kind of procedural offset item
-5 says to evaluate first. Both need the parts placed from joints
-(`PosedParts`, which binds tracks to a baked body rig), and Scout's bundle
-publishes no body rig (`player_robot_v3_*`: actor, parts, portraits and
-spritesheet only). So the bridge in **Known runtime pose limit** comes
-first: publish a visual rig for the reference fighter with stable part
-bindings, on a publishing machine; then plant a contact by solving its
-limb to the held point, and give the arms and head their follow-through
-on the joints.
+**Visual rig prerequisite: complete for Scout.** The November 18 rig,
+part bindings, planted hands and follow-through below supersede the earlier
+instruction to wait for a rig. Do not repeat that work for CLIP1/CLIP2.
 
 **The visual rig and its part bindings (2026-11-18).** Scout publishes a
-body rig (`_player_robot_v3_body_rig.py`): the fifteen bones of his side
+body rig (`_player_robot_v3_body_rig.py`): the fifteen bones of their side
 rig document as world frames from the feet (no parents: the torso and head
 squash and the head flips on the part alone, which a parent-local frame
-could only state with a shear), for his side rows and their mirrors. Left
+could only state with a shear), for their side rows and their mirrors. Left
 out: the back rows, the turns (front and back frames inside a side row) and
 the pure side rows, whose rig hangs the shared limb rasters a few degrees
 and about a pixel apart. The rig names each part track's joint
@@ -371,7 +503,7 @@ and 144 Hz.
 
 ## Phase 4 - Expand expressive coverage after the first playable pass
 
-Review the rest of Melee's motion vocabulary and Ambition's `fighter_motion_vocabulary.yaml` by physical event family, not by raw state count. Add new bases only when the current rig cannot make the event legible. Give different fighters their own stance and recoil style after the shared pose language works. The same visual system must later serve Ambition campaign characters, but no campaign conversion belongs in this first pass.
+Review the rest of Melee's motion vocabulary and Ambition's `fighter_motion_vocabulary.yaml` by physical event family, not by raw state count. Add new bases only when the current rig cannot make the event legible. Give different fighters their own stance and recoil style after the shared pose language works. The original base-art pass used Smash first. Campaign rollout below and the shared CLIP1/CLIP2 consumers now use the same visual system; no broad campaign conversion is required for those two slices.
 
 ### Roster rollout (Jon, 2026-10-31: "everyone really")
 
@@ -424,7 +556,8 @@ Left: the hand-made rigs' state poses (each its own motion module), the four
 `full`-row residents, and the poses no campaign sheet draws (`pet`, the
 shield break, the dodges, `grab_hold`).
 
-The game already draws `turnaround` in the new facing over `TURN_SECS` (`ambition_sim_view::pose_view`) on the player road. A sheet's turn row must therefore END on its side view.
+Both `BodyPoseView` and ordinary actor animation carry the turn clock. The
+turn is drawn in the new facing, so its row must end on that side view.
 
 ## Risks and constraints
 
@@ -457,16 +590,18 @@ The game already draws `turnaround` in the new facing over `TURN_SECS` (`ambitio
 - `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/{pointed_polygon,pugnacious_polygon,projectile_polygon}/` - rig bindings.
 - `tools/ambition_sprite2d_renderer/docs/authoring/motion_ir_v1.md` - pose/clip contract, schema checks, and the Godot pose editor workflow.
 - `tools/ambition_sprite2d_renderer/tests/test_motion_ir.py`, `tests/test_pointed_polygon_target.py`, `tests/test_pugnacious_polygon_target.py`, `tests/test_projectile_polygon_target.py` - focused authoring validation.
-- `crates/ambition_character_sprites/src/anim/mod.rs` - current animation selection and tech/getup limitation.
+- `crates/ambition_character_sprites/src/anim/mod.rs` - current semantic selection; CLIP1/CLIP2 own the request and binding gaps.
 - `crates/ambition_platformer2d_core/src/movement/facts.rs` - authoritative movement facts, including `teetering` (and `skidding`, which is false for `AxisSwept` walkers).
-- `crates/ambition_platformer2d_core/src/movement/knockdown.rs` - prone state, currently without orientation.
+- `crates/ambition_platformer2d_core/src/movement/knockdown.rs` - prone orientation and floor-recovery authority.
 - `crates/ambition_combat/src/hitbox/mod.rs` - difference between overlap and accepted hit; `victim_pieces`.
 - `crates/ambition_sim_view/src/pose_view.rs` (`BodyPoseView`: `vel`, `turn_secs`, `stop_secs`) and `anim_index.rs` - player and actor presentation readers.
 - `docs/planning/engine/runtime-rigged-sprite-animation.md` and `semantic-part-rendering-and-ragdolls.md` - current art/render contracts and future rig work.
 
 **Checks:**
 
-- **Clip-alias audit:** the committed alias-audit script (Phase 1 source-authoring task). Until it exists, the method is: load each library's `clips/*.clip.json`, extract the ordered `pose_keys[*].state` or `pose_keys[*].pose` values, and group clips by identical ordered sequences; report timing differences separately. It is a planning baseline, not a visual comparison.
+- **Clip-alias audit:** use the committed `devtools/clip_alias_audit.py`.
+  It compares ordered keyed states and reports timing differences. It does
+  not prove visual quality or runtime selection.
 - **Source validation:** `motion_ir_v1.md` documents `motion_ir_tool validate`, the generated Godot pose-sheet workflow, and its headless export round-trip check.
 - **Publication:** the existing renderer, target tests, and the renderer submodule's own suite. Do not require a new art editor or a new animation schema.
 

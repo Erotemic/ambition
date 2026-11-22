@@ -35,10 +35,29 @@ body given the same authored state and control intent.
 Do not create a second authority because one game needs richer presentation or
 a new reaction type.
 
-The names live in three crates. What a move *is* is authored data in
-`ambition_entity_catalog` (`MoveSpec`, `MoveWindow`, `HitVolume`). What a hit
-*does* is `ambition_combat` (`capture`, `CapturedBy`). What a body will *accept*
-is `ambition_platformer2d_core` (`BodyActionBuffer`).
+Move definitions live in `ambition_entity_catalog`; execution and capture
+live in `ambition_combat`. Pure movement and buffered presses live in
+`ambition_platformer2d_core`, and body reaction state lives in
+`ambition_characters`. The adapter composes those facts at acceptance.
+`BodyActionBuffer` stores a request; its presence does not itself authorize
+the action.
+
+## Shared action execution and game policy
+
+The [ACT1–ACT3 plan](body-action-execution.md) records current gaps between
+the owners above. A stored press is intent, not accepted action; a damage
+connect is not necessarily an interrupting reaction; invulnerability does not
+state the full recovery duration. Preserve current typed owners and make
+those crossings explicit. The plan is proposed work, not a claim that the
+new permission, interval and episode contracts already exist.
+
+Ambition can select Smash-like hitlag, launch, buffering and escape mechanics
+without adopting percent damage, stocks, blast bounds or all floor-game
+rules. Keep rules at their current room/game owner and fighter timing at its
+authored body/move owner. A shared mechanism takes the selected policy; it
+must not ask whether the current game or body is named Smash or Scout.
+A small Ambition real-hit/landing witness and a Smash local-hitlag/recovery
+witness prove more than copying the whole demo into another provider.
 
 ## Authored attack reach and matchup behavior (Q168; 2026-11-06)
 

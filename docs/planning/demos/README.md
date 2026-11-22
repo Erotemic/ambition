@@ -15,7 +15,7 @@ Index of this directory:
 |---|---|---|---|
 | [Sanic](sanic.md) | surface-momentum movement beside AABB platforming | built (three acts) | `./run_game.sh sanic` |
 | [Super Mary-O](super-mary-o.md) | classic axis-swept AABB platforming, items, room transitions | built (three levels) | `./run_game.sh mary-o` |
-| [Super Smash Siblings](super-smash-siblings.md) | body-generic combat, participants, fighter brain | active; `S0.*` gate open | `./run_game.sh smash` |
+| [Super Smash Siblings](super-smash-siblings.md) | body-generic combat, participants, fighter brain | S0 closed; shared continuity fixes and later demo polish planned | `./run_game.sh smash` |
 | [Hollow Lite](hollow-lite.md) | encounters and the boss-design pipeline | not built | — |
 | [TwinTrack](twintrack.md) | multi-view observers, reference-frame presentation | built, parked | `./run_game.sh twintrack` |
 

@@ -1,9 +1,9 @@
 # Advanced fighter brain — evaluation, difficulty and regression contract
 
-**State:** architecturally stable; product calibration open. The major brain
-architecture regressions have been diagnosed. Remaining work is representative
-evaluation, explicit difficulty/roster decisions, and product tuning backed by a
-trace that names the responsible decision.
+**State:** the reactive option architecture remains in use. The 2026-11-22
+source review identifies a missing recovery execution path (REC1–REC3 below),
+beside the existing evaluation and tuning work. A selected move is not proof
+that the body executes the forecast or reaches safety.
 
 This page is the current brain/evaluation contract. The large fixed-seed tables,
 null-control runs, superseded ladder hypotheses and investigation chronology are
@@ -600,6 +600,201 @@ add specials to fill input slots. The real Robot's moves are authored when it
 becomes game content. Neither is an AI architecture question.
 
 ## Current work
+
+### REC1 — Execute the recovery after the move starts
+
+**State:** PLANNED, source review at `34b4ab0b7f4f`, 2026-11-22.
+The reported Admiral death was not reproduced. The traced source establishes
+a failure path consistent with the report; lease expiry, launch, mount death
+and a refused saddle pose remain distinct possible causes in a match.
+
+**Priority:** the next recovery-correctness slice when BRAIN/Smash work is
+selected. It does not preempt the main Ambition work. Shared observation and
+motor adapters belong to the engine; named ride behavior and tuning remain
+authored content. General use by another game does not require a second brain.
+
+#### Source chain
+
+| Boundary | Source and current behavior |
+| --- | --- |
+| Authored move | [Admiral moveset](../../../game/ambition_content/assets/data/movesets/pirate_admiral.ron): `call_the_shark` summons at 0.18 s, ends at 0.34 s and advertises a 5 s, 650 px sustained route |
+| Forecast | [`RecoveryLens::carried`](../../../crates/ambition_combat/src/brain/fighter/recovery.rs): move the rider instantly toward nearby geometry by scalar reach, zero velocity, then run a falling-body probe; do not simulate the ride |
+| Input | [`MovementVerb::Recover`](../../../crates/ambition_combat/src/brain/fighter/decision.rs): write walking axes and press/hold jump; no flight velocity target |
+| Control mode | [Snapshot construction](../../../crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs): `actor_aerial` sees the mount, but Fighter does not use it and the motion law still comes from the rider |
+| Motor | [Mount steering](../../../crates/ambition_mount/src/lib.rs) forwards `velocity_target`; [flight integration](../../../crates/ambition_platformer2d_actor_monolith/src/body/movement.rs) uses that target instead of walking axes |
+| Release | [Native shark status](../../../game/ambition_demo_smash_modules/src/shark.rs): jump or burst aboard produces `DismountWhy::Bailed` |
+| Existing witness | [`two_admirals_ride_their_own_sharks_at_the_same_time`](../../../game/ambition_app/tests/smash_ride.rs) stops when both first board. Its comment permits the CPU to be off again within twenty frames |
+
+Preventing the jump edge alone is incomplete: the fighter would still send
+no flight target. Reducing shark speed or lease duration would not repair
+this execution path.
+
+The native lease starts after boarding and spends room-scaled simulation time.
+It is not the move's 0.34 s proper-time clock. The optional summon receipt in
+[`answer_ride_summons`](../../../crates/ambition_abilities/src/ride.rs)
+means the mount exists, not that the rider boarded or reached safety.
+[AC1](native-action-completion.md) owns that construction receipt; do not
+redefine it as a successful recovery.
+
+#### Three small owners
+
+| Fact | Owner | Must not duplicate |
+| --- | --- | --- |
+| Selected attempt | Fighter state: chosen move/binding, intended support or release region, phase and progress needed to continue or replan | Lease, health, movement model or mount relation |
+| Controlled motor | Native observation: actual controlled body's identity, center, velocity, frame, law and current control grant | Another motor or character-specific controller |
+| Physical outcome | Existing move, reservation, mount, pose and contact owners | A brain Boolean that claims boarding or recovery |
+
+The rider's pinned velocity is zero even while the mount moves, and its ground
+state is invalidated. A flight controller needs the carrier's velocity to
+brake. A voluntary release from the accepted saddle pose currently starts without
+inherited carrier velocity. The release forecast must also preserve any
+native pending launch; the kernel applies that launch after the pose hold
+ends. Do not zero it or invent inherited momentum.
+
+Project these as live own-body/owned-relation facts, following Q167. Keep
+terrain and foes under their existing perception policy. Retain the selected
+attempt across decision intervals and rollback. It is a short execution
+record, not a copy of all physical state or a second utility planner.
+
+#### Execution
+
+| Phase | Next fact required |
+| --- | --- |
+| Start and await | Confirm move acceptance, then reservation/boarding. No ride before the move's summon beat is not failure |
+| Follow | Observe the actual carrier and grant; emit a world-space flight target through ordinary `ActorControl` |
+| Prepare release | Reach a region from which the real rider can regain support/ledge, with time and clearance remaining |
+| Release and regain | Observe the relation end and the rider's own support or ledge; only then report success and resume ordinary combat |
+
+Use the existing
+[`follow_flight` and `FlightLaw`](../../../crates/ambition_platformer2d_core/src/navigation.rs)
+for bounded following and stopping-distance control. Convert its axes through
+the carrier's frame and scale the normalized axes by `FlightLaw.top_speed`
+to form the existing world-space velocity target. Let the existing mount
+and movement systems execute it. The low-level follower may continue each
+tick; new tactical choices still obey the brain's decision policy. Do not
+replace the fighter brain when it boards.
+
+While aboard, only the permitted release policy may emit a jump or burst
+release edge. A later dodge/tech overlay must not add one accidentally.
+Native launch or control loss still wins. Awaiting boarding retains the
+ordinary movement that the active move permits; it is not already a ride.
+
+Adapt semantics, not whole input structs:
+
+- The follower can press jump to descend through a one-way surface. Copying
+  that edge to this rider would bail again. The first corridor can avoid
+  that descent; a later drop-through customer needs a motor-level drop
+  distinct from the rider's release gesture.
+- A generic interact press is not currently a CPU dismount. Mount selection
+  is computed for `DrivingParticipant`. Expose the mechanic's permitted
+  release at its native adapter, or initially hold over safe support until
+  its existing lease releases it. Do not assume every flyer leaves on jump.
+- The current [`FlightMap`](../../../crates/ambition_platformer2d_world/src/navigation/flight.rs)
+  covers the room interior. A live offstage fighter may be outside it but
+  inside the blast bounds. Use a bounded observed return corridor for this
+  customer; a room-grid `NoRoute` is not proof that recovery is impossible.
+- Account for both mount and rider clearance, saddle offset and the accepted
+  pose. A single merged box can reject a useful route; a mount-only box can
+  promise a route the rider cannot pass. Reuse current mount clearance
+  authority rather than a new collision solver.
+
+End or replan on rejected admission, expired/refused reservation, changed or
+lost grant/relation, mount death, launch, leaving play, pose refusal, lease
+expiry, lost support target, inadequate remaining time or stalled progress.
+Read native refusal/dismount reasons. Advance progress/stall budgets only
+when the controlled motor receives simulation time; a paused or held motor
+is not stuck. Read the native lease rather than keeping another countdown.
+Ordinary target-loss/no-hostile early
+returns must not discard an active survival execution.
+
+#### Proof and removal
+
+Reuse the real offstage CPU setup in `smash_ride`. Let the shipped brain
+supply all input after setup. Continue through board, steer, release, own
+support/ledge, retained stock and resumed ordinary action. Mirror the starting
+side. Record dismount cause and emitted control on failure. Preserve the
+existing first-boarding test as the narrower reservation/identity proof.
+
+Add one carrier-loss or short-lease interruption case to show that the stale
+attempt ends and remaining legal recovery can be selected. Do not require a
+whole ladder tournament to prove this path.
+
+Replace competing jump/burst emission while an aboard recovery owns those
+release edges. Do not infer completion from move end, summon receipt or
+reached flight point.
+Keep the native relation, lease, control routing and flight law.
+
+### REC2 — Execute the policy the forecast evaluated
+
+**State:** PLANNED follow-up to REC1; no new planner is selected.
+
+The mismatch is broader than the shark. The
+[core recovery probe](../../../crates/ambition_platformer2d_core/src/movement/recovery.rs)
+returns successful `steps` and `effort`. Fighter consumes only
+`regained()` and the route index. The searched drift/jump effort presses
+again at the apex; live Recover presses at each decision. A successful search
+is evidence for the searched policy, not for a different input sequence.
+
+Keep the selected binding together with the target and executable effort that
+the estimate used. Execute that bounded policy through current control.
+Replan when current facts invalidate its assumptions. A scalar reach can
+remain a cheap estimate; it must not stand for a completed timed ride.
+
+Distinguish these results in the existing recovery API:
+
+- a supported policy found a route under stated inputs;
+- a bounded supported search found none;
+- this external motion or current state is not modeled.
+
+The last result must not silently veto a legal recovery or pretend to prove
+success. A teleport's resolved destination, a burst's effort, a portal pair
+and a timed ride have different execution contracts. Start with the mounted
+family, then retain the successful kernel effort for an ordinary burst/jump
+customer. Resolve additional families through their current owners only when
+needed. Do not interpret arbitrary modules in the planner.
+
+Use full production simulation in an offline scenario as the reference for
+the bounded forecast. Runtime following stays cheap; it need not simulate a
+five-second ride every steering tick.
+
+Replace the shared scalar `carrying => carried` success path for each
+migrated family, and remove synthetic equivalence tests that treat teleport
+and a five-second ride as the same motion. Use paired forecast/execution
+through the same inputs and current movement law.
+
+### REC3 — Preserve live motion inputs and prepare only demanded queries
+
+**State:** source-backed follow-up, no performance result claimed.
+Owner of reusable capability/geometry preparation:
+[platformer navigation](platformer-navigation-and-reachability.md).
+
+`RecoveryLens::scratch` currently constructs a fresh axis-swept body from
+tuning and size. That loses a surface-momentum/crawler law, current maneuver
+state, full frame acceleration and base-size distinction. The core probe
+already accepts `BodyClusterScratch` and calls the ordinary kernel.
+Supply truthful inputs to that API instead of building another simulator.
+
+Completed E4 already keys navigation by the actual law, abilities, canonical
+and base size, full frame and geometry/exits stamp, reuses standing motion
+measurements and retains current graph demand. Reuse that ownership. A
+history-free standing experiment is not a snapshot of a falling or hurt body;
+share preparation without confusing those two questions.
+`NavMotion::measure` currently requires a standing traversal envelope
+before measuring flight. Expose its existing flight measurement through that
+owner if needed; do not impose the standing requirement on a permanent flyer
+or copy the measurement into Fighter.
+
+The current fighter decision also lowers a recovery world before it knows
+whether recovery, a candidate survival check or enabled rollout will use it.
+Prepare that query lazily. Reuse perceived geometry for its valid lifetime;
+replan active flight on changed goal, observed geometry, law/subject or
+stalled progress. Do not rebuild a world and search all efforts on every
+steering tick. Do not cache by fighter name.
+
+First measure construction/search counts on a normal grounded decision and
+an unchanged active flight. For motion fidelity, use one real non-axis-swept
+or changed-frame customer and compare forecast with execution. The target is
+less unused work and truthful inputs; no FPS gain is asserted.
 
 ### Tactical intent experiment (deferred, not active BRAIN work)
 

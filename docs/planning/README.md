@@ -221,6 +221,9 @@ links to.
 ### Engine: combat, movement and world
 
 - [`engine/combat-model.md`](engine/combat-model.md)
+- [`engine/body-action-execution.md`](engine/body-action-execution.md) —
+  current action permission, coherent execution time and optional floor
+  recovery episodes; shared Ambition/Smash corrections.
 - [`engine/combat-reception-and-injury.md`](engine/combat-reception-and-injury.md) —
   one finalized hit outcome, and the distinct struck surface and health
   recipient in GNU's limb injury.

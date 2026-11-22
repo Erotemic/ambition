@@ -95,6 +95,13 @@ as bounded movement/presentation work within this product order. Fix ordinary
 scaled behavior and cart order through their current owners; the optional
 3D view follows the shared sampling boundary and does not block those fixes.
 
+The 2026-11-22 Smash review keeps D72 and Smash-only demo polish behind the
+main Ambition work. Shared action/time corrections ACT1/ACT2 stay within
+ARCHITECTURE-COMPOSITION; shared landing/recoil/clip binding stays within
+POSE-CONTINUITY. Neither selection promotes the full Smash roadmap.
+The [inventory order](demos/smash-parity-inventory.md#17-current-implementation-order)
+and [feel acceptance](demos/smash-feel-audit-2026-10-29.md) state the later pass.
+
 Current source may be ahead of these dated ordering decisions. Do not treat
 old measurements as an obligation to redo completed work. Detailed
 architecture proposals in
@@ -132,6 +139,9 @@ The 2026-11-22 review of the same source adds AC1/AC2 native action completion
 and cancellation, and CR1/CR2 combat reception and limb injury. Preserve the
 earlier implementation receipts; these packets address composition cases
 those receipts did not prove.
+The later review at `34b4ab0b7f4f` adds ACT1/ACT2 below. It preserves
+the now-landed CR1 and AC2 first slices, E2's prepared clip facts and E4's
+navigation work. No new runtime result is claimed.
 
 **Observed:** schema values can lower before their imports resolve; body and
 candidate contexts collect optional domain catalogs; several live-contribution
@@ -250,8 +260,23 @@ world-post admission.
    block; a damaging boss hit and a lethal home-body strike now connect once,
    with zero hitlag.)
 
-**Acceptance:** a selected domain fact has one binder; independent holds and
-poses retire separately; another room cannot act on a world cause that can
+9. [Body action ACT1/ACT2](engine/body-action-execution.md) makes current
+   body permission reach every applicable start/spend cut, settles landing
+   before replacement admission, and retires a move on its actual interrupting
+   reaction. CR1's narrow actual-reaction follow-on supplies the result; CR2 is
+   independent. Resolve the execution interval once through the current time
+   owners so local hitlag/proper time reaches movement and move playback,
+   with separate expiry clocks. Remove the primary-body freeze shortcut that
+   bypasses room policy. First customers are ordinary Ambition reaction and
+   landing, plus Smash local hitlag. ACT3 floor choreography remains a later
+   Smash customer; it is not part of this row's required completion.
+
+**Acceptance:** body permission governs the actual action spend; a refused
+press has no accepted-action side effects; an applicable hitlag or held
+reaction suspends move execution and movement on the same action interval;
+authored world freeze remains
+available through its room policy. A selected domain fact has one binder;
+independent holds and poses retire separately; another room cannot act on a world cause that can
 still disappear; a rejected mechanical candidate leaves the active selection
 and pinned product versions intact; a narrow authoring consumer excludes its
 native adapter. Two anchor spaces align without merging relation laws;
@@ -1115,13 +1140,21 @@ checks; `level ownership status` names an owner for every room of every world.
 
 ### POSE-CONTINUITY — one visual transition path after the completed base poses
 
-**State:** the foundational Smash art and wiring gates are complete. Phase 3
-continuity and campaign-only coverage remain open.
+**State:** foundational Smash art/wiring and the recorded continuity slices
+are built. CLIP1/CLIP2 now address the remaining request/clock/binding
+crossings with immediate Ambition and Smash customers.
 
 **Owner:** sprite-sheet animation and rig presentation, with renderer-authored
 visual bindings. Design: [expressive poses, Phase 3](demos/smash-expressive-fighter-poses.md#phase-3---improve-continuity-and-body-weight-polish).
 
-**Next action:** the measurement is done (2026-11-14, Scout:
+**Next action:** [CLIP1/CLIP2](demos/smash-expressive-fighter-poses.md#clip1--carry-the-beat-through-the-existing-clip-request):
+carry occurrence, semantic beat, owner time and authored loop rule through
+the existing clip request; align pose-modifier clocks; bind existing landing
+and ceiling-tech art. Start with Scout's Ambition landing/recoil and the
+Admiral's reaction clips. ACT3 owns the later full tech/getup episode. Do not
+repeat completed rigs/blends or require a roster-wide art pass.
+
+**Retained receipts:** the measurement is done (2026-11-14, Scout:
 [Phase 3 table](demos/smash-expressive-fighter-poses.md#phase-3---improve-continuity-and-body-weight-polish),
 `scripts/measure/pose_transitions.py`): 6 of 34 transitions pop at their
 end, all out of the airborne `fall` pose or the ledge climb, and 7 more only
@@ -2960,9 +2993,18 @@ remain in force.
 
 ### BRAIN — finish truthful fighter attack selection
 
-**Owner:** fighter combat options and [brain behavior](engine/fighter-tactical-intent.md)
-only where the current production option resolver needs geometry, not a
-reactivation of the paused tactical-intent experiment.
+**Owner:** [fighter brain](engine/fighter-brain.md) for action selection and
+recovery execution. The [tactical-intent experiment](engine/fighter-tactical-intent.md)
+remains paused.
+
+**Next recovery work when this lane is selected:** [REC1](engine/fighter-brain.md#rec1--execute-the-recovery-after-the-move-starts)
+must carry the Admiral's selected ride through flight and actual return to
+support. Existing Recover presses the ride's bail edge and supplies no
+flight target. Reuse the current control and flight law, then complete the
+forecast/execution follow-up needed for that return. Other REC2/REC3 work
+stays separately selectable. This corrects execution before more scoring or
+ladder tuning. It does not move BRAIN above the
+current flagship order.
 
 **State:** whiff memory, startup-as-first-live-hit, pure-counter valuation,
 stop-distance and coast-distance features are implemented. The 2026-10-13
@@ -3064,9 +3106,10 @@ fixed-range or stale-view brain workaround.
    on as it stands, L3 buys nothing this rig can see. That matches the
    ladder file's own note: rollout stays zero "until rollout fidelity is
    good enough". The top of the ladder will not rise by flipping the
-   field. The road to a stronger top rung is rollout fidelity (FB6, §12.3's
-   stated omissions), not ladder rows. Road 4 is measured; re-running the
-   adjacent pairs with more seeds would only sharpen the step sizes.
+   field. Inside this George mirror experiment, a useful rollout needs
+   better fidelity before activation. That result does not test mounted
+   recovery or make rollout a prerequisite for REC1. Road 4 is measured;
+   more adjacent-pair seeds would only sharpen the step sizes.
 
 **Acceptance:** representative CPUs choose movement-compatible attacks
 across their authored kits without replacing attack admission with a second
@@ -3074,18 +3117,24 @@ rule, a reach floor, or fighter-specific evaluator exceptions.
 
 ### D72 — continue Smash parity from the inventory
 
-**Owner:** [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md).
+**Owner:** [Smash inventory](demos/smash-parity-inventory.md).
+**State:** later product pass, behind the main Ambition improvements
+(maintainer direction, 2026-11-22). The S0 gate is closed. Preserve its
+receipts; do not select another parity feature merely to keep the gate busy.
 
-**Current state:** the inventory is the source of feature/parity truth. Do not
-turn this queue row back into a chronological parity diary.
+**Next implementation when selected:** follow
+[§17](demos/smash-parity-inventory.md#17-current-implementation-order).
+Use shared ACT1/ACT2 and CLIP1/CLIP2 from their engine owners, then one timed
+floor recovery and actual CPU return. Review a bounded short match before
+more roster art, strategy tuning or feature breadth. The
+[feel owner](demos/smash-feel-audit-2026-10-29.md) states the demo acceptance;
+it is not another feature ledger.
 
-**Next implementation:** take the next inventory row whose policy is settled,
-implement it on the production path, update that inventory row and add the
-production acceptance witness.
-
-**Blocked where applicable by:** product rows named by the inventory. (Q62
-and Q89 were ruled on 2026-10-04: Q62 is the LDTK-SEMANTIC-DIFF task, and a
-stand-in may keep an incomplete kit.)
+**Acceptance:** the chosen short demo has coherent action/reaction timing,
+readable landing/roll/launch transitions and a CPU recovery that reaches
+support. Headless checks establish mechanics; timed captures and human play
+establish the presentation and feel. Product decisions and intentionally thin
+stand-ins retain the inventory's existing rulings.
 
 ### PORTAL-SIMILARITY — canonical parts and scaled mirror portals
 

@@ -4,16 +4,16 @@
 rollback** customer; its gameplay must not require installing persistent-world/multi-room state
 or an authoritative hosted-world backend. A rollback match remains one synchronization extent.
 See [ADR 0036](../../adr/0036-synchronization-is-an-optional-game-capability.md).
-**State:** active product push; serious engine customer and possible future
-first-class game. Ambition remains the flagship and primary product driver.
+**State:** serious secondary game and possible future first-class game.
+The S0 feature gate closed on 2026-11-20. A polished demo pass is planned
+behind the main Ambition improvements (maintainer direction, 2026-11-22).
 
-**Current Smash priority:** close the
-[`S0.*` raw two-fighter combat-semantics gate](smash-parity-inventory.md#smash-local-p0-raw-two-fighter-combat-semantics)
-before any other Smash work. It outranks roster breadth, stages, match rules,
-items, training tools, presentation polish, CPU polish and character novelty
-inside the Smash lane. Only a blocker to implement or measure the gate, or an
-explicit maintainer decision, preempts it. It does not reorder unrelated Ambition
-programs.
+**Current priority:** shared action, time and presentation corrections with
+current Ambition customers can proceed in their existing engine lanes.
+Smash-only recovery tuning, choreography and demo polish stay later.
+[Inventory §17](smash-parity-inventory.md#17-current-implementation-order)
+owns the order; the [feel review](smash-feel-audit-2026-10-29.md)
+owns the bounded play and visual acceptance.
 
 ## Purpose
 
@@ -111,22 +111,26 @@ engine-wide single-camera rule.
 
 | # | checkpoint | status |
 |---|---|---|
-| 1 | **Core fight:** attacks, shield, grab, dodge, movement, launch, recovery, ledges, tech, stocks, respawn and feedback support a fun short match. | ◐ The basic loop works. The `S0.*` interaction gate is open. |
+| 1 | **Core fight:** attacks, shield, grab, dodge, movement, launch, recovery, ledges, tech, stocks, respawn and feedback support a fun short match. | ◐ The S0 interaction gate is closed. Action continuity, floor recovery and readable timing remain under ACT1–ACT3/CLIP1. |
 | 2 | **Roster depth:** several fighters exercise distinct reusable move semantics without character-ID engine branches. | ✔ Roster depth holds. Roster reach in the standalone demo is thinner: two stand-ins share one contract with four specials and two unanswered special presses. A stand-in may stay incomplete (Q89 ruling, 2026-10-04). |
 | 3 | **Local play:** two or more humans join, select fighters and finish matches with CPUs. | ✔ `smash_tool select-walkthrough` drives the real select screen headlessly and prints what it shows. |
 | 4 | **Stage breadth:** several stages change spacing and recovery decisions, including one kinematic-platform customer. | ◐ Three stages (flat, platforms, narrow) differ on two axes. No kinematic-platform stage yet. |
 | 5 | **Match completeness:** stage select, rule selection, results/rematch, training/tuning. | ✔ Stage and stock cycles on the select screen, rematch, and the `smash_tool` probes. |
-| 6 | **CPU adoption:** the fighter brain uses and answers the roster's mechanics without a Smash-only AI stack. | ◐ The brain answers shields and ledges. Censuses found it rarely uses smashes, shield or grab, and it cannot perceive a capture it is not part of (see the inventory's *Shipped but unreached*). |
+| 6 | **CPU adoption:** the fighter brain uses and answers the roster's mechanics without a Smash-only AI stack. | ◐ REC1 first completes selected recovery through actual return to support. Remeasure strategy/adoption after that; old censuses remain dated inputs in the inventory. |
 
 ## Exit
 
-Smash graduates from acceptance demo to a strong game slice only after the
-`S0.*` gate closes. After that, adding a fighter, stage or rule normally means
-authoring content or extending one reusable semantic owner; CPU and human
-fighters obey the same body laws; the characters stay ordinary Ambition
-characters outside the ruleset; and a short local match is fun without developer
-interpretation. Stage, roster or match completeness cannot substitute for an open
-`S0.*` packet.
+The S0 gate is a completed feature receipt. A strong game slice must also
+complete its action/reaction transitions, keep clocks and pictures coherent,
+and let its CPUs execute their chosen recoveries. The
+[bounded acceptance pass](smash-feel-audit-2026-10-29.md#a-bounded-demo-acceptance-pass-after-the-shared-fixes)
+checks those crossings in a short local match before more content breadth.
+
+Adding a fighter, stage or rule should normally mean authored content or one
+reusable semantic extension. Human and CPU fighters obey the same body laws;
+characters remain ordinary Ambition characters outside the ruleset. Ambition
+can select shared hitlag, launch, buffering and recovery mechanics without
+installing Smash's stocks, percent policy, blast bounds or match shell.
 
 ## How to run
 

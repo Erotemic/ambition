@@ -9,6 +9,12 @@ and this document records why.
 Revised from the v0.1 proposal (GPT) after review against the repository;
 §2 lists what changed and why.
 
+**2026-11-22 ordering:** the new [REC1–REC3 recovery execution](fighter-brain.md#rec1--execute-the-recovery-after-the-move-starts)
+and [ACT1/ACT2 action/time corrections](body-action-execution.md) do not
+reactivate this experiment. A mounted CPU that never emits flight control
+cannot be repaired by a better spacing score. Complete the relevant native
+execution first. The existing failed tactical gate remains a separate result.
+
 ## 1. What the reactive brain already has (reuse, do not rebuild)
 
 | Capability | Where |

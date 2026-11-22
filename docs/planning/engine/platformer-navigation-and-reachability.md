@@ -376,17 +376,23 @@ looks like coverage.
 
 ## Important correction from fighter measurements
 
-The fighter `recovery_below` experiment does **not** validate the rollout/recovery
-integration.
+The earlier fighter `recovery_below` experiment exposed a decision/
+integration defect, not a need for a private navigation engine. That
+level-6 regression is recorded as closed in
+[fighter brain](fighter-brain.md#level-6-recovery-integration-regression-is-closed).
+Do not resume its old trace as current work.
 
-With the shipped rollout enabled, level 6 fails the controlled fixture 45/45;
-with rollout disabled it succeeds 45/45. `RecoveryLens` did not change that
-outcome. The current next step is a fighter decision trace, owned by
-[`fighter-brain.md`](fighter-brain.md).
+The 2026-11-22 [REC1–REC3 review](fighter-brain.md#rec1--execute-the-recovery-after-the-move-starts)
+identifies a different crossing: a forecast can select motion that the live
+controller does not execute. Preserve E4's completed arrival-state search,
+motion measurement and cache work. Supply actual live model/frame/state to
+the existing recovery probe, preserve a usable forecast policy, and prepare
+only demanded queries. A standing capability experiment and a falling-body
+snapshot remain different inputs.
 
-Do not respond by redesigning generic navigation or by adding a Smash-specific
-"committed fall means dead" heuristic. A body may still recover through drift,
-jumps, flight, walls, ledges, recovery moves, impulses, portals or grapples.
+A body may recover through drift, jumps, flight, walls, ledges, recovery
+moves, impulses, portals or grapples. Bounded search failure, unsupported
+motion and physical impossibility must not become one answer.
 
 ## The first slice: a surface graph a brain can follow (2026-10-09)
 

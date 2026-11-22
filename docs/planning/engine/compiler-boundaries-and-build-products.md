@@ -84,52 +84,20 @@ command, the packaged-asset-guard doc and the validation recipe.
 size result is claimed. The Android adapter audit is still a separate
 subtask.
 
-**Execution owner:** `ambition_content_schemas` and the game-owned checker
-frontend. The pure-domain extraction in capability-linking L4 is separate;
-this packet can remove the reverse frontend edge before that work lands.
+**Retained boundary:** schema definitions, lowerings and the sole
+`ambition_schemas()` list stay in
+[the schema library](../../../game/ambition_content_schemas/src/lib.rs).
+[The checker entry](../../../game/ambition_content_check/src/main.rs) and
+[its executable integration test](../../../game/ambition_content_check/tests/the_shipped_pack.rs)
+now live in the checker package. The test retains the engine-only refusal
+control. Do not move the checker into the desktop-heavy app-tools package
+or restore the schema library's reverse CLI dependency.
 
-**Start from the actual dependency and callers.**
-[The schema manifest](../../../game/ambition_content_schemas/Cargo.toml)
-normally imports `ambition_content_cli`. Its
-[library](../../../game/ambition_content_schemas/src/lib.rs) only defines the
-schema modules and `ambition_schemas()`; the CLI call is in
-[the checker main](../../../game/ambition_content_schemas/src/main.rs).
-[Ambition content](../../../game/ambition_content/Cargo.toml) imports that
-library for real runtime values. Consequently the schema library reaches
-[the CLI](../../../crates/ambition_content_cli/Cargo.toml), which reaches
-[aggregate engine schemas](../../../crates/ambition_engine_schemas/Cargo.toml)
-and full native domain owners.
-
-Give the checker a narrow game-owned command package. Keep all schema
-definitions, lowerings and the sole `ambition_schemas()` list in the library.
-The generic engine CLI must not depend on the game's schemas. Moving the
-checker into the current desktop-heavy `ambition_app_tools` package would
-substitute a larger dependency problem.
-
-Move [the executable integration test](../../../game/ambition_content_schemas/tests/the_shipped_pack.rs)
-with the checker: it uses `CARGO_BIN_EXE_ambition_content_check` and proves
-that the engine-only CLI refuses the game-owned schema. Schema-only tests
-remain with their values. Update the package route in
-[package_asset_guard.py](../../../scripts/package/package_asset_guard.py)
-and the supported command descriptors/docs; retain `AMBITION_CONTENT_BIN`
-as the already-built checker path.
-
-**Delete:** the schema library's normal CLI dependency and its checker target.
-Keep a CLI dev-dependency only if an actual remaining test needs it. A gated
-bin with a nonoptional dependency does not make this cut. An optional feature
-can narrow an isolated build, but a separately owned frontend avoids unioning
-its command dependencies back into the reusable schema package.
-
-**Accept:** the checker accepts/refuses the same packs, reports the same schema
-identity, and preserves advisory/strict asset and package-input behavior.
-An independent normal schema consumer no longer reaches the CLI. Editing CLI
-argument handling does not rebuild that consumer. Use its resolved graph and
-actual compiler work, not an empty App or the all-workspace feature union.
-
-**Stop/falsifier:** list any surviving path before claiming a consumer cut.
-If native owners remain through another intended dependency, do not report
-their absence or duplicate their schema types to force the result. Timing
-and binary-size improvements remain separate measurements.
+The completed move is `29720575`. The native game's prebuilt content
+command remains intentional; the Android adapter below is a separate open
+subtask. A dependency cut is not a measured compile-time or size saving.
+Use an independent consumer's resolved graph and actual compiler work for
+that claim.
 
 ### Preserve the native validator; scope Android separately
 

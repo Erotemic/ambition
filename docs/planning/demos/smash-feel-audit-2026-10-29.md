@@ -10,6 +10,83 @@ measurements and superseded R/P implementation diary are in Git history. The
 status below records the subsequent October 30 work, **not a fresh claim about
 HEAD**. Revalidate affected code, data and subjective feel before changing it.
 
+## November 22 review: complete the action before more cast polish
+
+**Baseline:** `34b4ab0b7f4f5a950a52e6031423e76b5e75f6ac`; renderer
+`2b52adb65a3235c6b1f4f9fc4954ee31cc7b2bb8`.
+This pass reviewed production code, authored motion and plans. Cargo and the
+generated visual payload are absent in the audit environment. No current
+match, frame-time result, capture or visual acceptance is claimed.
+
+The S0 feature gate is closed. It did not prove every crossing from input to
+reaction to pose. The current reports about abrupt motion and the Admiral's
+failed recovery lead to the following owner tasks:
+
+| Question | Current source finding | Plan |
+| --- | --- | --- |
+| May the body start or continue the action? | Movement-only reaction gates do not govern ordinary move starts; native flinch lacks ordinary playback teardown; landing lag settles after Trigger | [ACT1](../engine/body-action-execution.md#act1--accept-and-interrupt-actions-at-the-owning-cut) |
+| Which interval did it execute? | Movement, moves and reaction expiry disagree under local hitlag/proper time; a primary-body global freeze can mask this | [ACT2](../engine/body-action-execution.md#act2--resolve-body-action-time-once-per-step) |
+| What owns a tech/getup until it ends? | Invulnerability and a one-time velocity stand in for the recovery episode | [ACT3](../engine/body-action-execution.md#act3--give-floor-recovery-its-own-episode) |
+| Which event and phase does the picture show? | Named non-move requests lose occurrence/clock and authored loop rules; some landing/ceiling art is not selected | [CLIP1/CLIP2](smash-expressive-fighter-poses.md#clip1--carry-the-beat-through-the-existing-clip-request) |
+| Does a selected recovery actually return the body? | The CPU offers a timed ride as scalar carry, emits walking input and presses the ride's bail edge | [REC1–REC3](../engine/fighter-brain.md#rec1--execute-the-recovery-after-the-move-starts) |
+
+These are source-established boundary gaps. The reported Admiral match has
+no trace in this review; its exact dismount cause remains unverified.
+
+**Priority:** the main Ambition work remains first. ACT1/ACT2 and the
+Ambition landing/recoil/binding parts of CLIP1/CLIP2 are eligible shared work
+in their existing engine/presentation lanes. ACT3, fighter recovery
+execution, cast choreography and demo tuning remain later Smash work.
+One engine implementation can serve both games without making the entire
+Smash polish pass an Ambition dependency.
+[Inventory §17](smash-parity-inventory.md#17-current-implementation-order)
+is the only Smash execution order.
+
+### What to inspect before calling an animation missing
+
+Trace the accepted action or reaction, its occurrence and clock, the semantic
+pose requested, the published row selected and its actual exit frame.
+Then decide whether the defect is mechanics, selection, timing or source art.
+A contact sheet cannot show that the game cuts a 492 ms landing clip after a
+160 ms request. A row-routing test that manually cancels the old move cannot
+prove a real hit performs that cancellation. The owner plans link those
+current sources and narrow witnesses.
+
+Retain the completed reaction anchors, root interpolation, limited carriage
+blends, Scout's visual rig/planted hands/follow-through, and E2's prepared
+clip/track metadata. This review does not select another interpolation
+framework, a complete skeleton conversion or more frames for every fighter.
+
+### A bounded demo acceptance pass, after the shared fixes
+
+Use existing tools and actual matches. Start with a small representative
+set: Scout for ordinary Ambition/shared fighter motion; the Admiral for
+mounted recovery and a different art family; one Polygon for explicit
+reaction phases. Add a fighter only for a distinct failure or visual question.
+
+| Sequence | What the reviewer must be able to see and do |
+| --- | --- |
+| Hit to launch to floor | An active victim move ends when the reaction interrupts it; local freeze, launch, stun, tumble and landing show the same timing; a second hit restarts its own recoil |
+| Tech/getup/roll to action | Contact is immediate, the chosen recovery travels coherently, vulnerability and control return on their authored windows, and the picture reaches the intended exit |
+| CPU offstage return | The real brain starts, controls and ends recovery; the rider regains support with its stock. A boarding frame or move start is not the result |
+| Short local bout | Both players can read startup, contact, recovery, shield and escape; camera and cues support that reading; another fighter's hit does not stop the stage unless the game asks |
+
+Trace mechanical discrepancies first. Then review silhouettes and transition
+timing at the actual camera scale, with the selected quality tier and both
+facings. Keep impacts and active attacks sharp. Use 60/144 Hz comparison only
+to test the touched visual clock, not as a new whole-roster gate.
+
+Only after execution is sound should a before/after move-use census guide
+CPU scoring, difficulty or shark power. Preserve the paused tactical-intent
+experiment and disabled rollout policy. A short real match and a focused
+failed return are more relevant here than making an arbitrary tournament
+win-rate threshold green.
+
+The acceptance is a readable, controllable short match on the chosen roster,
+with any remaining defect named. Headless checks protect mechanics; human
+play and timed captures decide whether the result feels polished. More
+roster slots, stages, items or cinematic systems are not prerequisites.
+
 ## Built by the end of the recorded feel pass
 
 | Packet | Recorded implemented shape | Remaining acceptance |
@@ -68,6 +145,9 @@ play, not a regression in the implemented finishing-blow trigger.
 
 ### CPU / F0 — Residual engagement and recovery
 
+REC1–REC3 above are the current source-backed recovery follow-up. The
+October counts below remain historical inputs, not the new diagnosis.
+
 The measured October 30 changes reduced whiff rates and corrected several
 self-KO sources, but some Sanic and Stargan left-ledge falls remained. On the
 lower difficulty rung, 300 ms old foe motion could also cause dash-dance and
@@ -79,15 +159,19 @@ stale-view decision mistakes from an opponent changing trajectory after the
 last perceived frame. Do not enforce a uniform reach floor or specific duel
 win rate (Q168).
 
-### Simulation clock — Follow up only with a current reproducer
+### Earlier simulation-clock receipt
 
-The old CPU run found that frame-phase-dependent fractional simulation steps
-could make identical seeds diverge. The recorded `SimStepPeriod` fix gave six
-identical fresh-process runs of the sampled polygon pair. Keep that witness.
-`world_freezes_on_hit: false` removed global hit slow-motion in Smash, not in
-every other ruleset; other games may still ease a global freeze against wall
-time. Revisit that only if a current deterministic/rollback or feel witness
-shows a problem. Owner: [simulation authority](../engine/simulation-authority-and-determinism.md).
+The October pass found fractional simulation steps tied to frame phase.
+Its recorded `SimStepPeriod` fix gave six identical fresh-process runs of
+the sampled Polygon pair. Preserve that witness; revisit that old diagnosis
+only with a current reproducer.
+
+The authored `world_freezes_on_hit: false` policy selects local hitlag for
+Smash. It does not prove that every clock consumer obeys it. The November 22
+ACT2 source review found the separate primary-body global-freeze shortcut
+and the local movement/playback mismatch. ACT2 is already selected and does
+not wait for another selection of the old determinism task. The time owner
+remains [simulation authority](../engine/simulation-authority-and-determinism.md).
 
 ## Focused evidence and acceptance
 

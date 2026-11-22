@@ -319,9 +319,15 @@ These are opportunities, not migration work.
 - ▢ **Ambition open-world production.** Primary product driver. Owners:
   [`game/open-world-roadmap.md`](game/open-world-roadmap.md) and
   [`game/systemic-progression.md`](game/systemic-progression.md).
-- ▢ **Super Smash Siblings.** Current executable work belongs in `queue.md`;
-  standing feature truth belongs in
-  [`demos/smash-parity-inventory.md`](demos/smash-parity-inventory.md).
+- ▢ **Super Smash Siblings demo quality.** The S0 feature gate is closed.
+  The next product pass follows the main Ambition improvements: one coherent
+  hit/recovery/landing sequence, actual CPU return to support, then cast
+  choreography and tuning. Shared action/time and clip fixes with a current
+  Ambition customer remain eligible in their existing engine lanes.
+  [Inventory §17](demos/smash-parity-inventory.md#17-current-implementation-order)
+  owns order; [feel acceptance](demos/smash-feel-audit-2026-10-29.md)
+  owns the bounded review. Promote a Smash-only slice when D72 is selected,
+  not because shared engine code now exists.
 - ▢ **TwinTrack.** Future multiview/reference-frame customer; currently lower
   priority than the main games.
 - ▢ **Sanic / Super Mary-O / Hollow Lite.** Keep their focused acceptance lists as

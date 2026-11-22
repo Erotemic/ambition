@@ -195,7 +195,7 @@ against them.
 | Attach to target or terrain | C4 stick, Pikmin latch | capture and mount relationships | [Two-ended anchor binding](body-anchor-bindings.md) is selected for current saddle/capture point conversion; future stick/latch laws stay domain-owned | Relationship or world owner |
 | Reactive defense | counters, Revenge | Shipped: `ParriedBodyHit` + `smash.counter`; the stance is a module (`ambition.combat.parry_window`), and so is its answer (`hit_reaction`: `ambition.combat.parried` names the parry a live bound window caught, `ambition.combat.answer_parry` presses an arbitrary technique). A counter is a trigger | - | Combat |
 | Control impairment | Sing, sleep | Shipped: `sleep_timer` as a named cause in the hard lock, plus `smash.sleep` | Mash escape | Combat or status owner |
-| Local time alteration | Witch Time | `ProperTimeScale`; move and hurtbox clocks use entity proper time | A proper-time completeness audit (locomotion, animation, playback, recovery and status clocks) | Time + consuming domains |
+| Local time alteration | Witch Time | `ProperTimeScale`; move and hurtbox clocks use entity proper time | [ACT2](body-action-execution.md#act2--resolve-body-action-time-once-per-step): movement, local hitlag, move execution and expiry intervals | Time + consuming domains |
 | Timed stat modifiers | Deep Breathing, Monado | some tuning, armor, invulnerability | Scoped modifiers applied by the owner of the affected quantity; no stat-writing god system | Owner of the quantity |
 | Character meters | Limit, MP, fuel, ammo | Declared resources in `ActorResources` (Mana, Limit); `ResourceMeter` for a meter that is not a body's (projectile ammo) | Content-defined resources with prepared handles and atomic costs | Character + [resource owner](composable-actor-resources.md) |
 | Conditional move variants | Limit specials, KO Punch | move gates, repertoire resolution | State-conditioned move binding in one action-selection authority | Moveset resolution |
@@ -300,11 +300,14 @@ No fighter-specific system writes projectile position.
 **Status.** Do not answer Sing with a status scripting framework. Use existing
 lock machinery where the semantics match. Sleep has its own named cause.
 
-**Witch Time** is a completeness test: run it as a proper-time audit so that
-locomotion, animation, move playback, recovery clocks and status clocks agree
-about the victim's local time. First re-derive whether home-body movement still
-integrates with the world `sim_dt` while combat timelines use
-`entity_dt(ProperTimeScale)`.
+**Local time and hitlag:** the source review at `34b4ab0b7f4f` makes the
+older completeness audit concrete. [ACT2](body-action-execution.md#act2--resolve-body-action-time-once-per-step)
+supplies one effective execution interval to movement and move playback,
+preserves each hold's expiry clock, and removes the primary-body shortcut
+that bypasses the room's world-freeze policy. Witch Time remains an authored
+proper-time customer. TechniqueFlow consumes its move's clock; it does not
+become a new clock owner. Do not freeze buffer aging or every status timer
+without an explicit policy.
 
 **Resources** have a focused owner: [composable actor
 resources](composable-actor-resources.md) (stable content identity -> validated

@@ -162,6 +162,20 @@ control).
 reaction (each road still chooses when to call `connect`); the lethal
 home-body unit witness; the phase-immunity control on a constructed boss.
 
+### Immediate consumer: action interruption
+
+[ACT1](body-action-execution.md#act1--accept-and-interrupt-actions-at-the-owning-cut)
+uses the remaining actual-reaction part of CR1. The result must say whether
+the resolved reaction interrupts the victim's move. Damage or connect alone
+cannot decide this for armor, windboxes or boss policy. Make that small
+result unconditional gameplay data; the current causal diagnostic outcome
+is not present as such in every build. Capture the victim's affected move
+occurrence before a deferred consumer could see a replacement.
+
+This does not reopen reporter-owned connect/block or depend on CR2 injury
+routing. Complete only the outcome needed by the real action/reaction
+crossing, at the established hit-resolution cut.
+
 ## CR2 — Route limb injury without an HP mailbox
 
 ### Failure and customer

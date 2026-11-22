@@ -215,53 +215,6 @@ duplicates, unknown/invalid input and snapshot lifetime. Measure setup and
 consumption as well as queries; delete the private grid, unused contact
 overlay wrapper and repeated ambiguity reducers as their callers migrate.
 
-### BOSS-CHARACTER — one character path for bosses
-
-**State:** in progress. Slice 1 and slice 2 (2a, 2b, 2c) are done (2026-11-21). The
-[owner plan](engine/boss-character-unification.md#slice-1-record-2026-11-21)
-records the identity mapping, the construction dimensions and a headless frame
-baseline. Each boss profile names its `character`, and the pack refuses a name
-no character row answers. Marshal Gallus, the Clockwork Warden, Mode Collapse,
-the Gram Reaper and the Overflow have character rows and Hall stands. The
-temporary inspector bridge is deleted. A boss's body, corpse and health come
-from its character and its encounter (`scale`, `max_hp`); the profile's
-`combat_size` and `corpse` are gone. The common seed builds the boss body
-(`role_blueprint`, `compose_boss_role`), and the body carries `CharacterForm`.
-Next is slice 3: consume the common identity everywhere and remove `voice`.
-**Defect:** boss construction bypasses the prepared character body path. Hall
-entries duplicate some boss characters; others, including Gallus, are absent.
-**Next:** follow [the owner plan](engine/boss-character-unification.md), starting
-with the identity mapping and a headless baseline. Compose boss attributes on
-character instances; keep multi-character encounters separate. Do not enlarge
-ordinary characters or add boss work to their tick.
-**Acceptance:** Hall and fight use one prepared character and common body
-construction; existing fights and encounter persistence pass; ordinary actors
-have no added boss state or runtime cost; delete the temporary inspector bridge.
-
-# NOTE: MAYBE STALE RECTIFY
-
-### BOSS-CHARACTER — one character path for bosses
-
-**State:** in progress. Slice 1 and slice 2 (2a, 2b, 2c) are done (2026-11-21). The
-[owner plan](engine/boss-character-unification.md#slice-1-record-2026-11-21)
-records the identity mapping, the construction dimensions and a headless frame
-baseline. Each boss profile names its `character`, and the pack refuses a name
-no character row answers. Marshal Gallus, the Clockwork Warden, Mode Collapse,
-the Gram Reaper and the Overflow have character rows and Hall stands. The
-temporary inspector bridge is deleted. A boss's body, corpse and health come
-from its character and its encounter (`scale`, `max_hp`); the profile's
-`combat_size` and `corpse` are gone. The common seed builds the boss body
-(`role_blueprint`, `compose_boss_role`), and the body carries `CharacterForm`.
-Next is slice 3: consume the common identity everywhere and remove `voice`.
-**Defect:** boss construction bypasses the prepared character body path. Hall
-entries duplicate some boss characters; others, including Gallus, are absent.
-**Next:** follow [the owner plan](engine/boss-character-unification.md), starting
-with the identity mapping and a headless baseline. Compose boss attributes on
-character instances; keep multi-character encounters separate. Do not enlarge
-ordinary characters or add boss work to their tick.
-**Acceptance:** Hall and fight use one prepared character and common body
-construction; existing fights and encounter persistence pass; ordinary actors
-have no added boss state or runtime cost; delete the temporary inspector bridge.
 ### BOSS-CHARACTER — one character path for bosses — ✅ DONE 2026-11-21
 
 **Done 2026-11-21.** A boss is an instance of its prepared character. Each

@@ -5,6 +5,7 @@
 
 pub mod conditions;
 pub mod match_spawn;
+pub mod committed_bag;
 pub mod narrative;
 pub mod persist;
 pub mod pickup;

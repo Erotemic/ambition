@@ -131,7 +131,10 @@ world-post admission.
    (done 2026-11-21: the dependent-reader case is a measured failing baseline
    on the shared bag, and a held world-value write reports `Admitted`, then
    its real decision under the same ticket), then migrate one native atomic
-   item use through CW2. This precedes
+   item use through CW2 (done 2026-11-21: a cell grant and a cell use from a
+   room that rewinds alone are proposals the committed bag decides once
+   their tick is confirmed; four cases in one hosted witness; source
+   retirement not yet exercised). This precedes
    extending eager shared writes to more domains; unrelated local work continues.
 2. [Effects phase 6a](engine/actor-effects-and-modifier-composition.md#6a-preserve-issuer-identity-in-control-and-pose)
    preserves independent hold and pose issuers. Phases 6b/6c extend that same

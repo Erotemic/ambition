@@ -37,29 +37,36 @@ fn narrative_write(
 
 /// Grant what a conversation gave. (sim)
 ///
-/// Dated in the room of the seat whose conversation gave it, so a rewind of
-/// that room takes the grant back (ISL-2d) and its replay gives it again.
+/// Under one rollback authority the grant enters the bag on its tick. A
+/// conversation in a room that rewinds alone proposes it to the committed
+/// bag instead ([`crate::committed_bag`]): no other room can spend it until
+/// its tick is confirmed, and a rewind of the room drops the proposal.
 pub fn apply_item_grants(
-    mut requests: ReplayMessageReader<ItemGrantRequested>,
-    mut owned: ResMut<OwnedItems>,
-    items: ambition_items::ItemCatalogRead,
-    (drivers, rooms, tick, mut log, mut since): (
-        Query<(Entity, &DrivingParticipant)>,
-        Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-        Option<Res<ambition_time::SimTick>>,
-        Option<ResMut<BagUsesInRooms>>,
-        Option<ResMut<crate::pickup::BagChangesSinceCheckpoint>>,
-    ),
+    world: &mut World,
+    requests: &mut bevy::ecs::system::SystemState<ReplayMessageReader<ItemGrantRequested>>,
 ) {
-    for request in requests.read() {
-        let before = owned.count(request.item);
-        owned.grant(items.get(), request.item, request.count);
-        let gained = owned.count(request.item) - before;
-        let written = narrative_write(request.participant, &drivers, &rooms, tick.as_deref());
-        if let (Some(written), Some(log)) = (written, log.as_deref_mut()) {
-            log.record_gain(written, request.item, gained);
+    let Ok(mut reader) = requests.get_mut(world) else { return; };
+    let requests: Vec<ItemGrantRequested> = reader.read().copied().collect();
+    for request in requests {
+        let body = request.participant.and_then(|participant| driven_body_in(world, participant));
+        let tick = world.get_resource::<ambition_time::SimTick>().map(|tick| tick.0);
+        let written = body
+            .and_then(|body| world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(body))
+            .zip(tick)
+            .map(|(room, tick)| ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room: room.0, tick });
+        if let Some(room) = body.and_then(|body| crate::committed_bag::proposing_room(world, body)) {
+            let written = ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick: tick.unwrap_or(0) };
+            let grant = crate::committed_bag::BagOperation::Grant { item: request.item, count: request.count };
+            if crate::committed_bag::propose(world, written, grant) {
+                continue;
+            }
         }
-        if let Some(since) = since.as_deref_mut() {
+        let Some(before) = world.get_resource::<OwnedItems>().map(|bag| bag.count(request.item)) else { continue; };
+        world.resource_scope(|world, mut owned: Mut<OwnedItems>| {
+            owned.grant(ambition_items::item_catalog(world), request.item, request.count);
+        });
+        let gained = world.resource::<OwnedItems>().count(request.item) - before;
+        if let Some(mut since) = world.get_resource_mut::<crate::pickup::BagChangesSinceCheckpoint>() {
             since.record(crate::pickup::BagChange {
                 item: Some(request.item),
                 gained,
@@ -143,12 +150,12 @@ pub const HEALTH_CELL_HEAL: i32 = 4;
 /// How much Mana one Mana Cell restores.
 pub const MANA_CELL_RESTORE: f32 = 40.0;
 
-/// The cells bodies used from the shared bag, with the room each body was in
-/// and the tick (ISL-2d): a rewind of that room puts each back in the bag,
-/// since the use's effect is on the body, which the room's snapshot rewound,
-/// and its replay uses again what it uses again. And what a conversation in
-/// a room added to the bag (a grant, a purchase), which the rewind takes
-/// back; a sale's item is a use. Kept within the rewind horizon
+/// What a merchant's deal took from the shared bag, with the room and the
+/// tick (ISL-2d): a rewind of that room puts it back, since the deal's other
+/// side is in the room's snapshot, and its replay deals again. And what a
+/// purchase added, which the rewind takes back. Cell grants and uses do not
+/// write here: in a room that rewinds alone they take the committed road
+/// ([`crate::committed_bag`]). Kept within the rewind horizon
 /// ([`ambition_platformer2d_shared_tangle::lifecycle::ROOM_REWIND_HORIZON_TICKS`]).
 ///
 /// Rollback state with a real value: a use writes it on a tick.
@@ -240,54 +247,37 @@ impl BagUsesInRooms {
 /// The item is spent and its effect applied on one tick, so the bag and the
 /// body cannot disagree after a rewind. A body that holds no Mana keeps its
 /// Mana Cell: there is nothing for the cell to restore.
-#[allow(clippy::too_many_arguments)]
+///
+/// A body in a room that rewinds alone proposes the use to the committed bag
+/// ([`crate::committed_bag`]): the cell and its effect come together on the
+/// tick the bag allocates it, so the body never spends a cell another room's
+/// rewind can take back.
 pub fn apply_item_uses(
-    mut requests: ReplayMessageReader<ambition_items::ItemUseRequested>,
-    mut owned: ResMut<OwnedItems>,
-    mut heals: MessageWriter<ambition_damage::healing::BodyHealRequested>,
-    drivers: Query<(Entity, &DrivingParticipant)>,
-    health: Query<(), With<ambition_characters::actor::BodyHealth>>,
-    mut banks: Query<&mut ambition_platformer2d_core::resources::ActorResources>,
-    // Each use, with the user's room and the tick: a rewind of that room
-    // puts the item back (ISL-2d).
-    (rooms, tick, mut uses): (
-        Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-        Option<Res<ambition_time::SimTick>>,
-        Option<ResMut<BagUsesInRooms>>,
-    ),
+    world: &mut World,
+    requests: &mut bevy::ecs::system::SystemState<ReplayMessageReader<ambition_items::ItemUseRequested>>,
 ) {
     use ambition_items::Item;
-    for request in requests.read() {
-        let Some(body) = driven_body(request.participant, &drivers) else { continue; };
-        let mut used = |item: Item| {
-            if let (Ok(room), Some(tick), Some(uses)) = (rooms.get(body), tick.as_deref(), uses.as_deref_mut()) {
-                uses.record(ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room: room.0, tick: tick.0 }, item);
+    let Ok(mut reader) = requests.get_mut(world) else { return; };
+    let requests: Vec<ambition_items::ItemUseRequested> = reader.read().copied().collect();
+    for request in requests {
+        let Some(body) = driven_body_in(world, request.participant) else { continue; };
+        let item = request.item;
+        if !matches!(item, Item::HealthCell | Item::ManaCell) {
+            warn!(target: "crate::narrative", "a use of {item:?} was asked for, and it is not a consumable");
+            continue;
+        }
+        let id = world.get::<ambition_platformer2d_shared_tangle::sim_id::SimId>(body).cloned();
+        let tick = world.get_resource::<ambition_time::SimTick>().map(|tick| tick.0);
+        if let (Some(room), Some(id), Some(tick)) = (crate::committed_bag::proposing_room(world, body), id, tick) {
+            let written = ambition_platformer2d_shared_tangle::lifecycle::RoomWrite { room, tick };
+            if crate::committed_bag::propose(world, written, crate::committed_bag::BagOperation::Use { item, body: id }) {
+                continue;
             }
-        };
-        match request.item {
-            Item::HealthCell => {
-                if health.contains(body) && owned.take(Item::HealthCell, 1) > 0 {
-                    used(Item::HealthCell);
-                    heals.write(ambition_damage::healing::BodyHealRequested::new(HEALTH_CELL_HEAL, body));
-                }
-            }
-            Item::ManaCell => {
-                let Ok(mut bank) = banks.get_mut(body) else {
-                    continue;
-                };
-                if let Some(mana) = bank.level_of_mut(&ambition_abilities::mana::MANA) {
-                    if owned.take(Item::ManaCell, 1) > 0 {
-                        used(Item::ManaCell);
-                        mana.refill(MANA_CELL_RESTORE);
-                    }
-                }
-            }
-            other => {
-                warn!(
-                    target: "crate::narrative",
-                    "a use of {other:?} was asked for, and it is not a consumable"
-                );
-            }
+        }
+        if crate::committed_bag::cell_takes_effect(world, body, item)
+            && world.get_resource_mut::<OwnedItems>().is_some_and(|mut bag| bag.take(item, 1) > 0)
+        {
+            crate::committed_bag::apply_cell_effect(world, body, item);
         }
     }
 }
@@ -402,6 +392,17 @@ pub fn wear_item(
         }
     }
     Ok(())
+}
+
+fn driven_body_in(world: &mut World, participant: PlayerSlot) -> Option<Entity> {
+    let mut drivers = world.query::<(Entity, &DrivingParticipant)>();
+    let mut candidates = drivers.iter(world).filter(|(_, driver)| driver.0 == participant);
+    let (body, _) = candidates.next()?;
+    if candidates.next().is_some() {
+        warn!("item request refused: multiple bodies drive participant {participant:?}");
+        return None;
+    }
+    Some(body)
 }
 
 fn driven_body(participant: PlayerSlot, drivers: &Query<(Entity, &DrivingParticipant)>) -> Option<Entity> {

@@ -883,155 +883,189 @@ fn without_the_retraction_the_window_s_regrowth_time_stays() {
     assert!((due - window - 4.0).abs() < 0.1, "the window's due time went without the retraction: {due} for a take at {window}");
 }
 
-/// ISL-2d, a cell used from the shared bag: Alice (in `basement_breakables`,
-/// Bob in the hub) uses a health cell in the window. The room rewinds to
-/// before it and replays without the use. Returns the bag's health cells at
-/// N, after the use, and after the replay.
-fn a_cell_used_only_before_the_rewind(retract: bool) -> [u32; 3] {
-    use crate::pickup_regrowth_across_rooms::{HUB, ROOM as CELL_ROOM};
-    use ambition_platformer2d::item::{Item, OwnedItems};
-    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
-        HUB,
-        CELL_ROOM,
-        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
-        crate::breakable_respawn_across_rooms::cross_to,
-    );
-    for _ in 0..10 {
-        sim.app_mut().update();
-    }
-    let (room, bobs) = where_they_are(&mut sim);
-    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
-    let cells = |sim: &Platformer2dSimHarness| sim.world().resource::<OwnedItems>().count(Item::HealthCell);
-
-    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
-    let entities = of_room(sim.world_mut(), room);
-    let mut saved = rows.save(sim.world(), &entities);
-    let at_n = clock(sim.world());
-    let at_n_cells = cells(&sim);
-
-    sim.world_mut().write_message(ambition_platformer2d::items::ItemUseRequested {
-        participant: ambition_platformer2d::characters::control::PlayerSlot(0),
-        item: Item::HealthCell,
-    });
-    for _ in 0..10 {
-        sim.step(crate::common::base());
-    }
-    let after_use = cells(&sim);
-
-    let hidden = of_room(sim.world_mut(), bobs);
-    for entity in &hidden {
-        sim.world_mut().entity_mut(*entity).insert(Disabled);
-    }
-    let now = of_room(sim.world_mut(), room);
-    rows.restore(sim.world_mut(), &mut saved, &now);
-    set_clock(sim.world_mut(), at_n);
-    if retract {
-        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
-    }
-    for _ in 0..10 {
-        sim.step(crate::common::base());
-    }
-    for entity in &hidden {
-        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
-    }
-    let after_replay = cells(&sim);
-    sim.world_mut().insert_resource(rows);
-    [at_n_cells, after_use, after_replay]
-}
-
-/// ISL-2d: a room that rewinds puts back in the bag the cells its bodies
-/// used after the tick it was saved at.
+/// ⭐ CW2: THE SHARED BAG DECIDES EACH CELL ONCE, WHEN NO REPLAY CAN TAKE ITS
+/// TICK BACK. On a host that rewinds guest rooms, Alice (hub) and Bob (lab)
+/// share the bag. A grant or a cell use from either room is a proposal the
+/// bag decides when its tick is confirmed:
+///
+/// 1. A grant Alice's room may still rewind is not in the bag, so Bob's use
+///    cannot spend it. Her late input rewinds her room, the replay does not
+///    grant, and Bob's use is refused. Nothing was minted to repair it.
+/// 2. A confirmed grant gives one cell, and two uses on one tick compete for
+///    it: one body is healed, the other refused.
+/// 3. A use whose body the cell does nothing for at its cut (no health)
+///    returns the cell.
+/// 4. A rewind of Bob's room across the cut where his cell was spent heals
+///    him again in the replay without taking a second cell.
 #[test]
-fn a_rewound_room_puts_back_the_cell_its_replay_does_not_use() {
-    let [at_n, after_use, after_replay] = a_cell_used_only_before_the_rewind(true);
-    assert_eq!(after_use + 1, at_n, "premise: the use spends one cell (at N {at_n}, after {after_use})");
-    assert_eq!(after_replay, at_n, "the replay did not use the cell, and the bag says it did");
-}
+fn the_shared_bag_decides_each_cell_once_its_tick_is_confirmed() {
+    use ambition_hosted_world::bevy_replicon::prelude::{ClientId, FromClient, RepliconPlugins, ServerPlugin};
+    use ambition_hosted_world::{GuestInput, GuestSeat, HostedRole, HostedWorldPlugin, RewindsGuestRooms, RoomRollbackStats};
+    use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::characters::control::{DrivingParticipant, PlayerSlot};
+    use ambition_platformer2d::item::{Item, ItemGrantRequested, OwnedItems};
+    use ambition_platformer2d::item_runtime::committed_bag::HeldBagOperations;
+    use ambition_platformer2d::items::ItemUseRequested;
+    use bevy::app::PluginGroup as _;
 
-/// The control: without the retraction the cell stays spent. Run it beside
-/// the witness when the retraction changes; it is not a suite member.
-#[test]
-#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
-fn without_the_retraction_the_cell_stays_spent() {
-    let [_, after_use, after_replay] = a_cell_used_only_before_the_rewind(false);
-    assert_eq!(after_replay, after_use, "the cell came back without the retraction");
-}
-
-/// ISL-2d, a conversation's grant: Alice (in `basement_breakables`, Bob in
-/// the hub) is given a health cell by her conversation in the window
-/// (`<<give_item>>`, which names her seat). The room rewinds to before it
-/// and replays without the grant. Returns the bag's health cells at N, after
-/// the grant, and after the replay.
-fn a_grant_given_only_before_the_rewind(retract: bool) -> [u32; 3] {
-    use crate::pickup_regrowth_across_rooms::{HUB, ROOM as GRANT_ROOM};
-    use ambition_platformer2d::item::{Item, OwnedItems};
-    let (mut sim, _) = crate::two_players_two_live_rooms::alice_leaves_bob_in(
-        HUB,
-        GRANT_ROOM,
-        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
-        crate::breakable_respawn_across_rooms::cross_to,
-    );
-    for _ in 0..10 {
-        sim.app_mut().update();
+    let mut host = Platformer2dSimHarness::build(fixed_60hz_room_options(ROOM), |app, options| {
+        ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+        app.add_plugins((RepliconPlugins.set(ServerPlugin::new(bevy::prelude::PostUpdate)), HostedWorldPlugin { role: HostedRole::Host }));
+        app.finish();
+        app.cleanup();
+        Ok(())
+    })
+    .expect("the room boots");
+    bob_beside_alice(&mut host, ROOM, Some(PlayerSlot(1)));
+    for _ in 0..20 {
+        host.drive_seat(0, ControlFrame::default());
+        host.drive_seat(1, ControlFrame::default());
+        host.app_mut().update();
     }
-    let (room, bobs) = where_they_are(&mut sim);
-    let (room, bobs) = (room.expect("Alice has a room"), bobs.flatten().expect("Bob has a room"));
-    let cells = |sim: &Platformer2dSimHarness| sim.world().resource::<OwnedItems>().count(Item::HealthCell);
-    // Room in the stack for one more.
-    sim.world_mut().resource_mut::<OwnedItems>().take(Item::HealthCell, 1);
-
-    let rows = sim.world_mut().remove_resource::<RoomSnapshotRows>().expect("the host keeps the room rows");
-    let entities = of_room(sim.world_mut(), room);
-    let mut saved = rows.save(sim.world(), &entities);
-    let at_n = clock(sim.world());
-    let at_n_cells = cells(&sim);
-
-    sim.world_mut().write_message(ambition_platformer2d::item::ItemGrantRequested {
-        item: Item::HealthCell,
-        count: 1,
-        participant: Some(ambition_platformer2d::characters::control::PlayerSlot(0)),
-    });
-    for _ in 0..10 {
-        sim.step(crate::common::base());
+    alice_on_the_hub_door(&mut host);
+    for frame in 1..=60 {
+        host.drive_seat(0, alice_leaves(frame));
+        host.drive_seat(1, ControlFrame::default());
+        host.app_mut().update();
     }
-    let after_grant = cells(&sim);
+    let (hub, lab) = where_they_are(&mut host);
+    assert!(hub.is_some() && lab.flatten().is_some() && hub != lab.flatten(), "the premise: two rooms");
 
-    let hidden = of_room(sim.world_mut(), bobs);
-    for entity in &hidden {
-        sim.world_mut().entity_mut(*entity).insert(Disabled);
-    }
-    let now = of_room(sim.world_mut(), room);
-    rows.restore(sim.world_mut(), &mut saved, &now);
-    set_clock(sim.world_mut(), at_n);
-    if retract {
-        ambition_platformer2d::platformer::lifecycle::retract_room_writes(sim.world_mut(), room, at_n.0 .0);
-    }
-    for _ in 0..10 {
-        sim.step(crate::common::base());
-    }
-    for entity in &hidden {
-        sim.world_mut().entity_mut(*entity).remove::<Disabled>();
-    }
-    let after_replay = cells(&sim);
-    sim.world_mut().insert_resource(rows);
-    [at_n_cells, after_grant, after_replay]
-}
+    host.world_mut().insert_resource(RewindsGuestRooms);
+    let clients = [0, 1].map(|seat| host.world_mut().spawn(GuestSeat(PlayerSlot(seat))).id());
+    let send = |host: &mut Platformer2dSimHarness, seat: usize, tick: u64, frame: ControlFrame| {
+        host.world_mut().write_message(FromClient {
+            client_id: ClientId::Client(clients[seat]),
+            message: GuestInput { sequence: tick, tick, frame },
+        });
+    };
+    let next = |host: &Platformer2dSimHarness| host.world().resource::<SimTick>().0 + 1;
+    let quiet = ControlFrame::default;
+    let step = || ControlFrame { axis_x: 1.0, ..Default::default() };
+    let both = |host: &mut Platformer2dSimHarness, ticks: usize| {
+        for _ in 0..ticks {
+            let tick = next(host);
+            send(host, 0, tick, quiet());
+            send(host, 1, tick, quiet());
+            host.app_mut().update();
+        }
+    };
+    let only = |host: &mut Platformer2dSimHarness, seat: usize, ticks: usize| {
+        for _ in 0..ticks {
+            let tick = next(host);
+            send(host, seat, tick, quiet());
+            host.app_mut().update();
+        }
+    };
+    let body = |host: &mut Platformer2dSimHarness, seat: u8| {
+        let world = host.world_mut();
+        world.query::<(Entity, &DrivingParticipant)>().iter(world).find(|(_, driver)| driver.0 == PlayerSlot(seat)).unwrap().0
+    };
+    let (alice, bob) = (body(&mut host, 0), body(&mut host, 1));
+    let hp = |host: &Platformer2dSimHarness, body: Entity| host.world().get::<BodyHealth>(body).map(|health| health.health.current);
+    let hurt = |host: &mut Platformer2dSimHarness, body: Entity| host.world_mut().get_mut::<BodyHealth>(body).unwrap().health.current = 1;
+    let cells = |host: &Platformer2dSimHarness| host.world().resource::<OwnedItems>().count(Item::HealthCell);
+    let held = |host: &Platformer2dSimHarness| host.world().resource::<HeldBagOperations>().len();
+    let outcomes = |host: &Platformer2dSimHarness| -> Vec<&'static str> {
+        host.world().resource::<HeldBagOperations>().decisions().iter().map(|row| row.outcome).collect()
+    };
+    let rewinds = |host: &Platformer2dSimHarness| host.world().resource::<RoomRollbackStats>().rewinds;
+    let grant = |host: &mut Platformer2dSimHarness| {
+        host.world_mut().write_message(ItemGrantRequested { item: Item::HealthCell, count: 1, participant: Some(PlayerSlot(0)) });
+    };
+    let use_cell = |host: &mut Platformer2dSimHarness, seat: u8| {
+        host.world_mut().write_message(ItemUseRequested { participant: PlayerSlot(seat), item: Item::HealthCell });
+    };
 
-/// ISL-2d: a room that rewinds takes back what its conversation gave after
-/// the tick it was saved at.
-#[test]
-fn a_rewound_room_takes_back_the_grant_its_conversation_gave() {
-    let [at_n, after_grant, after_replay] = a_grant_given_only_before_the_rewind(true);
-    assert_eq!(after_grant, at_n + 1, "premise: the grant gives one cell (at N {at_n}, after {after_grant})");
-    assert_eq!(after_replay, at_n, "the replay's conversation gave nothing, and the bag keeps the cell");
-}
+    let all = cells(&host);
+    host.world_mut().resource_mut::<OwnedItems>().take(Item::HealthCell, all);
+    hurt(&mut host, alice);
+    hurt(&mut host, bob);
+    both(&mut host, 5);
+    assert_eq!((cells(&host), hp(&host, alice), hp(&host, bob)), (0, Some(1), Some(1)), "the premise: an empty bag, two hurt bodies");
 
-/// The control: without the retraction the cell stays given.
-#[test]
-#[ignore = "control for the witness above; run with --ignored when the retraction changes"]
-fn without_the_retraction_the_given_cell_stays() {
-    let [_, after_grant, after_replay] = a_grant_given_only_before_the_rewind(false);
-    assert_eq!(after_replay, after_grant, "the cell went without the retraction");
+    // 1. Alice's input stops arriving. Her conversation's grant and Bob's
+    //    use are held: the bag does not show the grant, Bob is not healed.
+    let alices_gap = next(&host);
+    only(&mut host, 1, 3);
+    grant(&mut host);
+    only(&mut host, 1, 1);
+    use_cell(&mut host, 1);
+    only(&mut host, 1, 1);
+    assert_eq!(held(&host), 2, "the grant and the use wait for Alice's input");
+    assert_eq!((cells(&host), hp(&host, bob)), (0, Some(1)), "a grant a replay may take back is not in the bag");
+    // Her late input differs from the prediction: her room rewinds to before
+    // the grant, and the replay does not grant.
+    let before = rewinds(&host);
+    let now = next(&host);
+    send(&mut host, 0, alices_gap, step());
+    for tick in alices_gap + 1..=now {
+        send(&mut host, 0, tick, quiet());
+    }
+    send(&mut host, 1, now, quiet());
+    host.app_mut().update();
+    assert!(rewinds(&host) > before, "the premise: Alice's late input rewinds her room");
+    both(&mut host, 3);
+    assert_eq!(held(&host), 0);
+    assert_eq!(outcomes(&host), vec!["bag_empty"], "the grant never was; Bob's use found no cell");
+    assert_eq!((cells(&host), hp(&host, bob)), (0, Some(1)), "nothing minted, nothing healed");
+
+    // 2. A confirmed grant gives one cell; two uses on one tick compete.
+    grant(&mut host);
+    both(&mut host, 3);
+    assert_eq!(cells(&host), 1, "the confirmed grant is in the bag");
+    use_cell(&mut host, 0);
+    use_cell(&mut host, 1);
+    both(&mut host, 3);
+    assert_eq!(&outcomes(&host)[1..], ["granted", "allocated", "bag_empty"]);
+    let healed = [hp(&host, alice), hp(&host, bob)].iter().filter(|hp| **hp > Some(1)).count();
+    assert_eq!((cells(&host), healed), (0, 1), "one cell, one heal");
+
+    // 3. A body the cell does nothing for at its cut leaves the cell unused,
+    //    and the cell returns.
+    grant(&mut host);
+    both(&mut host, 3);
+    hurt(&mut host, alice);
+    hurt(&mut host, bob);
+    use_cell(&mut host, 1);
+    let health = host.world_mut().entity_mut(bob).take::<BodyHealth>().expect("Bob has health");
+    both(&mut host, 4);
+    assert_eq!(&outcomes(&host)[4..], ["granted", "allocated", "returned"]);
+    assert_eq!(cells(&host), 1, "the refused heal lost no cell");
+    host.world_mut().entity_mut(bob).insert(health);
+    both(&mut host, 2);
+
+    // 4. Bob's use is decided while his room is still predicted: Alice's
+    //    input lags the use, and Bob's stops after it.
+    let alices_gap = next(&host);
+    use_cell(&mut host, 1);
+    only(&mut host, 1, 2);
+    let bobs_gap = next(&host);
+    for _ in 0..4 {
+        host.app_mut().update();
+    }
+    let now = next(&host);
+    for tick in alices_gap..=now {
+        send(&mut host, 0, tick, quiet());
+    }
+    host.app_mut().update();
+    assert_eq!(&outcomes(&host)[7..], ["allocated"], "the use is decided once its tick is confirmed");
+    let after_heal = hp(&host, bob);
+    assert!(after_heal > Some(1), "the allocated cell heals Bob at its cut");
+    // Bob's late input rewinds his room to before the cut, and the replay
+    // spends the allocation again.
+    let before = rewinds(&host);
+    let now = next(&host);
+    send(&mut host, 1, bobs_gap, step());
+    for tick in bobs_gap + 1..=now {
+        send(&mut host, 1, tick, quiet());
+    }
+    send(&mut host, 0, now, quiet());
+    host.app_mut().update();
+    assert!(rewinds(&host) > before, "the premise: Bob's late input rewinds his room");
+    both(&mut host, 3);
+    assert_eq!(&outcomes(&host)[7..], ["allocated"], "the replay decides nothing again");
+    assert_eq!((cells(&host), hp(&host, bob)), (0, after_heal), "one cell spent, Bob healed once, in the replay as before it");
 }
 
 /// Not a shipped flag: the world sets no flag of this name.

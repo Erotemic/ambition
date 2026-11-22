@@ -407,11 +407,13 @@ not throw); with the mint retraction poisoned it reads `(1, 0, ["slot:0/0
 Consumed"])`, and its ignored control keeps the bag spent.
 
 The other bag writers, read 2026-11-10: a body's **cell use**
-(`apply_item_uses`) is a room write, now recorded with the body's room and
-tick in `BagUsesInRooms` (rollback state, `item.bag_uses_in_rooms`, bounded by
-the rewind horizon) and put back by its retractor; witness
-`a_rewound_room_puts_back_the_cell_its_replay_does_not_use`, with an ignored
-control. A **conversation's grant** and a **shop transaction**
+(`apply_item_uses`) was a room write, recorded with the body's room and
+tick in `BagUsesInRooms` and put back by its retractor. **Superseded
+2026-11-21 (CW2):** a cell use or grant from a room that rewinds alone is a
+proposal the committed bag decides once its tick is confirmed
+([causal-world-commit](causal-world-commit.md#cw2--one-native-shared-item-operation-uses-the-committed-road)).
+The undo could not take back what another room did with the cell. A
+**conversation's grant** and a **shop transaction**
 (`apply_item_grants`, `apply_shop_transactions`) waited for the
 conversation to be a room's; done 2026-11-11 (see "Its grants and sales"
 under ISL-1b below). The census's "conditions' take" was a test's
@@ -837,13 +839,15 @@ but not its cost); world writes in the window (ISL-2d); bytes.
    always Player 1's, so Bob buying from a merchant in his room spent
    Alice's coins), and the bag's change is dated in that body's room in
    `BagUsesInRooms` (a purchase or grant as a gain, a sale's item as a use;
-   schema 455), so a rewind of the room takes it back. The wallet is on the
+   schema 455), so a rewind of the room takes it back. (Since CW2,
+   2026-11-21, a grant from a room that rewinds alone is a proposal decided
+   when its tick is confirmed; a sale still writes here.) The wallet is on the
    body and rewinds with the room. Witnesses:
    `a_merchant_deals_with_the_seat_whose_conversation_it_is` (red with the
    payer poisoned back to Player 1, after a first cut whose buy and sell at
    one price cancelled on either wallet) and
-   `a_rewound_room_takes_back_the_grant_its_conversation_gave`, with an
-   ignored control.
+   `a_rewound_room_takes_back_the_grant_its_conversation_gave` (replaced by
+   CW2's `the_shared_bag_decides_each_cell_once_its_tick_is_confirmed`).
 
    **The one cutscene (2026-11-11, ISL-1b):** a playing cutscene captured
    every participant's input, so a room's entry cutscene (or a boss's intro)

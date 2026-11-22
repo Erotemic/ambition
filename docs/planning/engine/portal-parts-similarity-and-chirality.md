@@ -434,10 +434,15 @@ adaptive sample timestamps.
 | Observer cut/image | Observer, drawable/sample and ready source image. |
 
 World contact, recipient contact and payload interpretation should borrow the
-same prepared leg. Projectiles currently prepare source cells for recipients
-and rebuild them inside [`query_world_collision`](../../../crates/ambition_platformer2d_shared_tangle/src/projectile/collision.rs);
-remove that duplicate first. This sharing can start independently of the
-broader candidate-propagation correction.
+same prepared leg. Projectiles prepared source cells for recipients and
+rebuilt them inside [`query_world_collision`](../../../crates/ambition_platformer2d_shared_tangle/src/projectile/collision.rs).
+**Removed 2026-11-21 (E1):** the projectile system passes its leg's source
+cells to `query_world_collision_in`. The two builds were the same cast: the
+canonical box, the material map, the line from the leg start, the interval,
+the prefix and reported initial overlap. `query_world_collision` keeps
+building its own cells for callers without prepared ones. No time was
+measured: the removed work is one source-cell build (with its reachable-link
+search) per projectile leg.
 Items rebuild the accepted prefix after a world sweep. Return the admitted
 prepared prefix with its contact/witness where the inputs match.
 

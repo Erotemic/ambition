@@ -66,22 +66,8 @@ fn at_contact(contact: &MaterialCastHit, reason: NumericFault) -> Refusal {
     }
 }
 
-/// Cast a translated body during `time`, an interval of the world tick.
-/// Blocks use their published displacement. Return the selected collider
-/// and a checked candidate response. Query failure and response failure stay
-/// separate. A refusal changes no body state.
-#[allow(clippy::too_many_arguments)]
-pub fn query_world_collision<'w>(
-    before: BodyKinematics,
-    after: BodyKinematics,
-    game: ProjectileGameplay,
-    world: &'w ae::World,
-    gravity_dir: Vec2,
-    dt: f32,
-    time:std::ops::Range<f64>,
-    travel: ae::LinearTravel,
-    admission: Option<MotionAdmission<'_>>,
-) -> Result<ProjectileWorldContact<'w>, Refusal> {
+/// The body facts a world query needs, checked before any geometry is built.
+fn checked(before: BodyKinematics, after: BodyKinematics, gravity_dir: Vec2) -> Result<(), Refusal> {
     if !before.vel.is_finite()
         || !after.vel.is_finite()
         || !gravity_dir.is_finite()
@@ -95,11 +81,34 @@ pub fn query_world_collision<'w>(
     if before.material != after.material || before.canonical_size != after.canonical_size {
         return Err(numeric(NumericFault::InvalidFrame));
     }
-    let half = before.canonical_size * 0.5;
-    if half.min_element() == 0.0 {
+    if (before.canonical_size * 0.5).min_element() == 0.0 {
         return Err(numeric(NumericFault::Underflow));
     }
-    let shape = ae::CombatVolume::aabb(ae::Aabb::new(Vec2::ZERO, half));
+    Ok(())
+}
+
+/// Cast a translated body during `time`, an interval of the world tick.
+/// Blocks use their published displacement. Return the selected collider
+/// and a checked candidate response. Query failure and response failure stay
+/// separate. A refusal changes no body state.
+///
+/// Builds the leg's source cells; a caller that already prepared them for
+/// this leg (the projectile system, for its recipients) asks
+/// [`query_world_collision_in`] instead.
+#[allow(clippy::too_many_arguments)]
+pub fn query_world_collision<'w>(
+    before: BodyKinematics,
+    after: BodyKinematics,
+    game: ProjectileGameplay,
+    world: &'w ae::World,
+    gravity_dir: Vec2,
+    dt: f32,
+    time:std::ops::Range<f64>,
+    travel: ae::LinearTravel,
+    admission: Option<MotionAdmission<'_>>,
+) -> Result<ProjectileWorldContact<'w>, Refusal> {
+    checked(before, after, gravity_dir)?;
+    let shape = ae::CombatVolume::aabb(ae::Aabb::new(Vec2::ZERO, before.canonical_size * 0.5));
     let (delta, until) = travel.line(before.pos, after.pos).map_err(numeric)?;
     let cast = MaterialCast::new(
         MaterialPrimitive {
@@ -110,9 +119,28 @@ pub fn query_world_collision<'w>(
         delta,
         time,
     ).with_initial_overlap(InitialOverlap::Report).prefix(until)?;
+    let cells = cast.cells(admission)?;
+    query_world_collision_in(before, after, game, world, gravity_dir, dt, delta, &cells, admission)
+}
+
+/// [`query_world_collision`] over source cells the caller prepared for this
+/// leg: the body's canonical box from `before.pos` along `delta`, with
+/// initial overlap reported, over the leg's interval and prefix.
+#[allow(clippy::too_many_arguments)]
+pub fn query_world_collision_in<'w>(
+    before: BodyKinematics,
+    after: BodyKinematics,
+    game: ProjectileGameplay,
+    world: &'w ae::World,
+    gravity_dir: Vec2,
+    dt: f32,
+    delta: Vec2,
+    cells: &ae::frame::material_cast::MaterialCastCells<'_>,
+    admission: Option<MotionAdmission<'_>>,
+) -> Result<ProjectileWorldContact<'w>, Refusal> {
+    checked(before, after, gravity_dir)?;
     let down = super::body::projectile_down(gravity_dir);
-    let cells=cast.cells(admission)?;
-    let contact = world.first_material_contact(&cells, |collider, _, hit| {
+    let contact = world.first_material_contact(cells, |collider, _, hit| {
         let one_way = match collider {
             MaterialCollider::Block(block) => {
                 if !ae::collision_semantics::is_full_collision_surface(block.kind)

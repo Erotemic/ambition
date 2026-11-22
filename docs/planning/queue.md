@@ -172,7 +172,9 @@ world-post admission.
 5. [Body anchors A1/A2](engine/body-anchor-bindings.md#delivery-packets-and-proof)
    replace private saddle/capture point conversion with two independently
    mapped endpoints, then bind sampled named points to their admitted rig.
-   Keep mount, capture and custody laws separate.
+   Keep mount, capture and custody laws separate. (A1 landed 2026-11-22:
+   `root_placing` plus each owner's own map; the saddle's combined offset and
+   capture's private conversion are gone.)
 6. [Story SS7/SS8](engine/story-sequences.md) binds occurrence roles across
    commands and conditions, using Creator dialogue and intro choreography.
    It replaces the blanket skip-all-commands promise with domain settlement

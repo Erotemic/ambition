@@ -804,11 +804,6 @@ pub fn sync_riders_to_mounts(
     mounts: Query<
         (
             &Mountable,
-            // The mount's per-tick resolved frame: the saddle offset rotates
-            // with the PAIR's reference frame (the rider orbits the mount under
-            // a gravity flip instead of floating off the saddle in fixed screen
-            // space), and the constraint's frame authority is the carrying body.
-            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &ae::BodyKinematics,
             &ambition_characters::actor::BodyHealth,
             // A mount with no left/right variant keeps its saddle where it is
@@ -829,7 +824,7 @@ pub fn sync_riders_to_mounts(
         mut rider_sweep,
     ) in &mut riders
     {
-        let Ok((mountable, mount_frame, mount_kin, mount_health, mount_unmirrored)) = mounts.get(riding.mount) else {
+        let Ok((mountable, mount_kin, mount_health, mount_unmirrored)) = mounts.get(riding.mount) else {
             continue;
         };
         if !mount_health.alive() || !rider_health.alive() {
@@ -844,23 +839,26 @@ pub fn sync_riders_to_mounts(
         // integrator can't drift the rider off the mount on the
         // next frame.
         //
-        // The saddle offset is authored in the mount's local frame; rotate it into
-        // world space by the pair's gravity frame. See `saddle_world_offset`.
-        let frame = mount_frame.basis();
-        // The rider stands on the seat: its centre is half ITS height above it,
-        // in the mount's frame.
-        let rider_centre = mountable.seat - ae::Vec2::new(0.0, desired.size().y * 0.5);
-        let rider_local = saddle_world_offset(
-            rider_centre,
-            ae::mirror_side(mount_kin.facing, mount_unmirrored),
-            frame,
-        );
+        // The rider's soles meet the seat, each point through its OWN body's
+        // map: the seat through the mount's (its scale, turn and parity), the
+        // soles through the rider's. A combined offset in one body's frame
+        // gets an unequal pair wrong (body anchors, A1).
+        let soles = ae::Vec2::new(0.0, desired.canonical_size.y * 0.5);
+        let placed = seat_in_world(mountable.seat, mount_kin, mount_unmirrored)
+            .and_then(|seat| desired.root_placing(soles, seat));
         // ADR 0020 saddle pin = the external-constraint authority (ADR 0024):
-        // the mount owns the rider's pose while mounted.
-        desired.pos = mount_kin.pos + rider_local;
-        desired.vel = ae::Vec2::ZERO;
-        desired.facing = mount_kin.facing;
-        if poses.constrain(rider, &mut rider_kin, rider_sweep.as_deref_mut(), desired).is_err() {
+        // the mount owns the rider's pose while mounted. A map that cannot be
+        // evaluated refuses the pose, as the authority's own refusal does.
+        let refused = match placed {
+            Ok(pos) => {
+                desired.pos = pos;
+                desired.vel = ae::Vec2::ZERO;
+                desired.facing = mount_kin.facing;
+                poses.constrain(rider, &mut rider_kin, rider_sweep.as_deref_mut(), desired).is_err()
+            }
+            Err(_) => true,
+        };
+        if refused {
             dissolve_ride(&mut commands, rider, riding.mount, DismountReason::PoseRefused,
                 slots.get_mut(riding.mount).ok().as_deref_mut(), &mut left);
             continue;
@@ -2170,169 +2168,105 @@ pub struct RideRefused {
     pub mount: Entity,
 }
 
-/// Where the rider's centre sits, relative to the mount's centre, in WORLD units.
+/// Where `seat` (a [`Mountable::seat`]: on the mount, `+x` toward the side
+/// it faces, `+y` toward its feet) is in the world: mirrored by the mount's
+/// facing, then placed through the mount's material map, so the mount's
+/// physical scale, turn and reflection each act on it once.
 ///
-/// `rider_centre` is in the mount's LOCAL frame — `+x` toward the
-/// mount's facing side, `+y` toward its feet — so under rotated gravity it has
-/// to be rotated into the world before it can be added to a world position.
-/// That rotation is the whole of this function.
-///
-/// ⛔⛔ IT USED TO CARRY A MASS-WEIGHTED CENTRE-OF-GRAVITY TERM, AND THAT TERM
-/// WAS A NO-OP WHERE IT WORKED AND A BUG WHERE IT DID NOT:
-///
-/// ```text
-/// let cog_local  = rider_offset * w_rider;                        // LOCAL
-/// let rider_local = cog_local + frame.to_world(rider_offset - cog_local);
-/// //                ^^^^^^^^^ local     ^^^^^^^^^^^^^^^^^^^^^^^^^ world
-/// ```
-///
-/// Under default gravity `to_world` is the identity, so the two terms collapse
-/// to `rider_offset` and the masses cancel exactly — the weighting had never
-/// changed a single pixel. Under ROTATED gravity the unrotated `cog_local` term
-/// stays pinned to SCREEN axes while the rest of the pair turns, so the rider
-/// slides off the saddle by an amount that grows with the mass ratio.
-///
-/// ⭐⭐ AND THE INTENT IT WAS REACHING FOR CANNOT BE EXPRESSED HERE AT ALL. A
-/// pair rotating rigidly about a shared centre of mass moves BOTH bodies about
-/// one world-space point. This constraint owns the RIDER's pose and nothing
-/// else — the mount's position is written by the mount's own movement — so
-/// pivoting only the rider is not that rotation under any mass ratio. A
-/// constraint with authority over one body cannot implement a two-body
-/// transform, and the honest thing is to say so rather than approximate it.
-///
-/// ⇒ what this pin means is exactly *"the rider is at the authored mount-local
-/// saddle offset"*, and that is what it now computes.
-pub fn saddle_world_offset(
-    rider_centre: ambition_platformer2d_core::Vec2,
-    facing: f32,
-    frame: ambition_platformer2d_core::AccelerationFrame,
-) -> ambition_platformer2d_core::Vec2 {
-    // ⛔⛔ THE MIRROR, AND WITHOUT IT THIS FUNCTION'S OWN DOC WAS A LIE.
-    // `AccelerationFrame` knows gravity-relative side and down; it knows nothing
-    // about which way the mount is looking. So a saddle authored at `x = +5`
-    // stayed on the same GRAVITY-relative side when the mount turned around —
-    // while four lines from the call site the rider is given
-    // `rider_kin.facing = mount_kin.facing`. A rider that turns with its mount
-    // and does not move with it has swapped shoulders, which is not a saddle.
-    //
-    // ⭐ INVISIBLE TODAY because every authored mount uses `x = 0`, and a
-    // rotated-gravity arm that never flips facing cannot see it either. It is
-    // fixed now rather than when the first lateral saddle is authored, because
-    // by then the wrong answer would be baked into the authored number.
-    //
-    // ⛔ `signum` OF A FACING THAT MAY BE ZERO IS ZERO, which would collapse the
-    // lateral offset instead of mirroring it. A neutral facing keeps the
-    // authored side.
-    let side = if facing < 0.0 { -1.0 } else { 1.0 };
-    frame.to_world(ambition_platformer2d_core::Vec2::new(
-        rider_centre.x * side,
-        rider_centre.y,
-    ))
+/// ⭐ THE MIRROR IS THE MOUNT'S FACING, AND ONLY IT. The material knows the
+/// body's turn and parity, not which way it looks, while the rider is given
+/// the mount's facing; a lateral seat that did not mirror would swap the
+/// rider's shoulder when the mount turned. A neutral facing keeps the
+/// authored side, and a mount with no left/right variant keeps its seat
+/// where it is drawn.
+pub fn seat_in_world(
+    seat: ae::Vec2,
+    mount: &ae::BodyKinematics,
+    unmirrored: bool,
+) -> Result<ae::Vec2, ambition_platformer2d_core::frame::NumericFault> {
+    let side = ae::mirror_side(mount.facing, unmirrored);
+    mount.material_map()?.point(ae::Vec2::new(seat.x * side, seat.y))
 }
 
 #[cfg(test)]
 mod saddle_tests {
     use super::*;
-    use ambition_platformer2d_core::{AccelerationFrame, Vec2};
+    use ae::frame::BodyMaterial;
+    use ambition_platformer2d_core::Vec2;
 
-    /// ⛔⛔ THE SADDLE HOLDS UNDER ROTATED GRAVITY, and the offset has BOTH
-    /// components on purpose.
-    ///
-    /// An offset that is purely along one local axis cannot tell a correct
-    /// rotation from a partial one: the missing component is where the error
-    /// lands. This one is `(3, -11)` — beside and above the mount's centre,
-    /// which is what a saddle actually is.
-    ///
-    /// ⭐ THE INVARIANT IS A LENGTH AND TWO PROJECTIONS. Rotating a vector may
-    /// not change how long it is, and the authored components must come back
-    /// out along the frame's own side/up — which is the statement "the rider
-    /// sits in the saddle" said in a way that does not depend on which way the
-    /// world is pointing.
-    #[test]
-    fn the_saddle_offset_rotates_with_the_pair_and_keeps_its_authored_shape() {
-        let offset = Vec2::new(3.0, -11.0);
-        // Feet toward world +x: a wall-walker on a right-hand wall.
-        let sideways = AccelerationFrame::new(Vec2::new(1.0, 0.0));
-        let world = saddle_world_offset(offset, 1.0, sideways);
-
-        assert!(
-            (world.length() - offset.length()).abs() < 1e-4,
-            "the saddle offset changed LENGTH when the pair rotated, so it is \
-             not a rotation: authored {:?}, world {:?}",
-            offset,
-            world
-        );
-        assert!(
-            (world.dot(sideways.side) - offset.x).abs() < 1e-4,
-            "the authored SIDE component did not come back out along the \
-             frame's side axis"
-        );
-        assert!(
-            (world.dot(sideways.down) - offset.y).abs() < 1e-4,
-            "the authored TOWARD-FEET component did not come back out along the \
-             frame's down axis"
-        );
+    fn body(pos: Vec2, canonical: Vec2, material: BodyMaterial, facing: f32) -> ae::BodyKinematics {
+        ae::BodyKinematics { pos, canonical_size: canonical, material, facing, ..Default::default() }
     }
 
-    /// ⛔⛔ AND THE SADDLE TURNS WITH THE MOUNT.
-    ///
-    /// `AccelerationFrame` knows gravity, not facing, so `to_world` alone left a
-    /// laterally-authored saddle on the same GRAVITY-relative side when the
-    /// mount turned around — while the constraint four lines away hands the
-    /// rider `mount_kin.facing`. A rider that turns with its mount and does not
-    /// move with it has swapped shoulders.
-    ///
-    /// ⭐ THE TWO ASSERTIONS ARE THE TWO HALVES: the side component MUST flip
-    /// and the toward-feet component MUST NOT. A test that only checked "the
-    /// answer changed" would pass for a mirror that flipped both, which is a
-    /// rider standing on its head.
-    #[test]
-    fn a_lateral_saddle_mirrors_with_the_mounts_facing_and_nothing_else_does() {
-        let offset = Vec2::new(3.0, -11.0);
-        let sideways = AccelerationFrame::new(Vec2::new(1.0, 0.0));
-        let right = saddle_world_offset(offset, 1.0, sideways);
-        let left = saddle_world_offset(offset, -1.0, sideways);
+    fn scaled(scale: f32) -> BodyMaterial { BodyMaterial::new(scale, bevy::math::Mat2::IDENTITY).unwrap() }
 
-        assert!(
-            (right.dot(sideways.side) + left.dot(sideways.side)).abs() < 1e-4,
-            "the saddle's SIDE component did not flip when the mount turned, so a \
-             rider authored on one shoulder stays on the gravity-side it started \
-             on while facing the other way"
-        );
-        assert!(
-            (right.dot(sideways.down) - left.dot(sideways.down)).abs() < 1e-4,
-            "the saddle's TOWARD-FEET component moved when the mount merely \
-             turned around — a mount facing left does not put its rider under it"
-        );
+    /// Where the saddle pin puts a rider's root.
+    fn rider_root(mount: &ae::BodyKinematics, seat: Vec2, rider: &ae::BodyKinematics, unmirrored: bool) -> Vec2 {
+        let soles = Vec2::new(0.0, rider.canonical_size.y * 0.5);
+        rider.root_placing(soles, seat_in_world(seat, mount, unmirrored).unwrap()).unwrap()
     }
 
-    /// ⭐ A NEUTRAL FACING KEEPS THE AUTHORED SIDE. `signum(0.0)` is zero, and
-    /// multiplying by it would collapse the lateral offset to nothing rather
-    /// than mirroring it — a rider snapping to the mount's centre line the
-    /// instant its facing passed through zero.
+    /// ⭐ EACH ENDPOINT KEEPS ITS OWN SCALE (the plan's arithmetic witness).
+    /// A seat `(0,-50)` on a mount at half scale is 25 above its root; a
+    /// rider 40 tall at full scale has its soles 20 below its own: its root
+    /// goes to -45. The old combined offset (`seat - rider half`, in the
+    /// mount's frame) gave -70; mapping that offset through the mount gave -35.
     #[test]
-    fn a_neutral_facing_does_not_collapse_the_saddle() {
-        let offset = Vec2::new(3.0, -11.0);
-        let frame = AccelerationFrame::new(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR);
-        assert_eq!(saddle_world_offset(offset, 0.0, frame), offset);
+    fn unequal_scales_give_the_two_endpoint_answer() {
+        let mount = body(Vec2::ZERO, Vec2::new(100.0, 100.0), scaled(0.5), 1.0);
+        let rider = body(Vec2::new(500.0, 500.0), Vec2::new(20.0, 40.0), scaled(1.0), 1.0);
+        let root = rider_root(&mount, Vec2::new(0.0, -50.0), &rider, false);
+        assert!((root - Vec2::new(0.0, -45.0)).length() < 1e-4, "{root:?}");
+        // And the rider's own scale acts on its own soles only.
+        let big = body(Vec2::ZERO, Vec2::new(20.0, 40.0), scaled(2.0), 1.0);
+        let root = rider_root(&mount, Vec2::new(0.0, -50.0), &big, false);
+        assert!((root - Vec2::new(0.0, -65.0)).length() < 1e-4, "{root:?}");
     }
 
-    /// ⭐ THE PREMISE GUARD FOR THE ARM ABOVE, and the measurement that
-    /// condemned the mass term: under DEFAULT gravity the rotation is the
-    /// identity. So every arm that only ever ran at default gravity — which is
-    /// every mount arm in the tree — agreed with the broken math exactly, and
-    /// no amount of default-gravity coverage could ever have caught it.
+    /// ⭐ A LATERAL SEAT MIRRORS WITH THE MOUNT'S FACING AND NOTHING ELSE DOES:
+    /// the side flips, the height does not. A neutral facing keeps the
+    /// authored side, and a mount with no left/right variant keeps its seat
+    /// where it is drawn.
     #[test]
-    fn default_gravity_leaves_the_authored_offset_alone() {
-        let offset = Vec2::new(3.0, -11.0);
-        assert_eq!(
-            saddle_world_offset(
-                offset,
-                1.0,
-                AccelerationFrame::new(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR)
-            ),
-            offset
-        );
+    fn a_lateral_seat_mirrors_with_the_mounts_facing_only() {
+        let seat = Vec2::new(3.0, -11.0);
+        let at = |facing: f32, unmirrored: bool| {
+            seat_in_world(seat, &body(Vec2::ZERO, Vec2::splat(20.0), BodyMaterial::IDENTITY, facing), unmirrored).unwrap()
+        };
+        assert_eq!(at(1.0, false), seat);
+        assert_eq!(at(-1.0, false), Vec2::new(-3.0, -11.0));
+        assert_eq!(at(0.0, false), seat, "a neutral facing keeps the authored side");
+        assert_eq!(at(-1.0, true), seat, "an unmirrored mount keeps its seat where it is drawn");
+    }
+
+    /// ⭐ PHYSICAL REFLECTION AND FACING EACH ACT ONCE: a mount whose material
+    /// is reflected and which faces left flips its lateral seat twice, back to
+    /// the authored side; either alone flips it once.
+    #[test]
+    fn reflection_and_facing_each_act_once() {
+        let seat = Vec2::new(3.0, -11.0);
+        let reflected = BodyMaterial::new(1.0, bevy::math::Mat2::from_cols(Vec2::new(-1.0, 0.0), Vec2::new(0.0, 1.0))).unwrap();
+        let at = |material, facing| seat_in_world(seat, &body(Vec2::ZERO, Vec2::splat(20.0), material, facing), false).unwrap();
+        assert!((at(reflected, 1.0) - Vec2::new(-3.0, -11.0)).length() < 1e-4);
+        assert!((at(reflected, -1.0) - seat).length() < 1e-4);
+    }
+
+    /// ⭐ A TURNED PAIR TURNS ONCE: a mount turned a quarter (its feet toward
+    /// world +x, a wall walker) carries its seat round with it, keeping the
+    /// seat's length and its two authored components along the turned side
+    /// and down; a rider turned the same way stands on it along that down.
+    #[test]
+    fn a_turned_pair_turns_once() {
+        let turned = BodyMaterial::IDENTITY.turned(-std::f64::consts::FRAC_PI_2).unwrap();
+        let (side, down) = (turned.orthogonal().x_axis, turned.orthogonal().y_axis);
+        let seat = Vec2::new(3.0, -11.0);
+        let mount = body(Vec2::ZERO, Vec2::splat(100.0), turned, 1.0);
+        let world = seat_in_world(seat, &mount, false).unwrap();
+        assert!((world.length() - seat.length()).abs() < 1e-4, "{world:?}");
+        assert!((world.dot(side) - seat.x).abs() < 1e-4 && (world.dot(down) - seat.y).abs() < 1e-4, "{world:?}");
+        let rider = body(Vec2::ZERO, Vec2::new(20.0, 40.0), turned, 1.0);
+        let root = rider_root(&mount, seat, &rider, false);
+        assert!(((world - root).dot(down) - 20.0).abs() < 1e-4, "the soles are half the rider below its root, along its down");
     }
 }
 

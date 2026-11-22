@@ -190,6 +190,16 @@ impl BodyKinematics {
         self.material.at(self.pos)
     }
 
+    /// Where this body's root goes so that its canonical `point` lands on
+    /// `at`: `at - L(point)`, with `L` this body's own linear material map
+    /// (its scale, turn and parity, once). The second half of a two-body
+    /// alignment: the caller maps the other body's point through THAT body's
+    /// map, so each endpoint keeps its own scale (body anchors, A1). A
+    /// proposal only: the pose authority still admits or refuses it.
+    pub fn root_placing(self, point: Vec2, at: Vec2) -> Result<Vec2, crate::frame::NumericFault> {
+        Ok(at - self.material.at(Vec2::ZERO)?.point(point)?)
+    }
+
     /// The canonical body box, before its physical material transform.
     pub fn canonical_box(self) -> Result<crate::CombatVolume, crate::frame::NumericFault> {
         use crate::frame::NumericFault;

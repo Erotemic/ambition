@@ -2893,26 +2893,35 @@ fn pose_captives(
         let frame = captor_frame
             .map(|f| f.basis())
             .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
-        // The hold anchor is captor-body-local: mirror by the captor's live
-        // facing, then rotate into its frame. So a captor that turns around
-        // swings its captive across, and a captor under flipped gravity holds it
-        // overhead — both for free, because the anchor was never a world offset.
+        // Two parts in two declared bases (body anchors, A1):
         //
-        // A hold that rides an attachment of the captor's rig starts from
-        // that point of the captor's pose THIS tick (its jaw, where its art
-        // draws it), placed from the captor's centre as its hurt parts are.
-        // With no pose to ask, the hold is measured from the captor's centre.
-        let origin = held
+        // - the ANCHOR, a point of the captor's body: the attachment its rig
+        //   draws THIS tick (its jaw), placed through the captor's own map
+        //   (`rig_point_in_world`: rig feet, facing, then its physical scale,
+        //   turn and parity, once), as its hurt parts are; with no pose to
+        //   ask, the captor's root;
+        // - the hold OFFSET from it, gravity-relative by declaration
+        //   (`CapturedBy::hold_offset_local`): mirrored by the captor's
+        //   facing, then turned into its gravity frame, and never through the
+        //   material again.
+        //
+        // The captive's own anchor is its root, so its root is that point.
+        let anchor = held
             .hold_attachment
             .and_then(|index| captor_pose?.attachments.get(usize::from(index)).copied())
-            .map_or(ae::Vec2::ZERO, |at| crate::body_rig::rig_feet_from_centre(captor_feet, Some(captor_kin)) + at);
-        let local = ae::Vec2::new(
-            (origin.x + held.hold_offset_local.x) * captor_kin.facing,
-            origin.y + held.hold_offset_local.y,
-        );
-        let pos = captor_kin.pos + frame.to_world(local);
-        let desired = ae::BodyKinematics { pos, vel: captor_kin.vel, ..*kin };
-        if poses.constrain(entity, &mut kin, sweep.as_deref_mut(), desired).is_err() {
+            .map_or(Ok(captor_kin.pos), |at| crate::body_landmarks::rig_point_in_world(at, captor_feet, captor_kin));
+        let offset = ae::Vec2::new(held.hold_offset_local.x * captor_kin.facing, held.hold_offset_local.y);
+        let refused = match anchor {
+            Ok(anchor) => {
+                let desired = ae::BodyKinematics { pos: anchor + frame.to_world(offset), vel: captor_kin.vel, ..*kin };
+                poses.constrain(entity, &mut kin, sweep.as_deref_mut(), desired).is_err()
+            }
+            // A captor whose map cannot be evaluated refuses the hold, as the
+            // pose authority's own refusal does.
+            Err(_) => true,
+        };
+        let pos = kin.pos;
+        if refused {
             release_capture(&mut commands, entity, Some(&mut ground), holds.get_mut(entity).ok().as_deref_mut());
             continue;
         }

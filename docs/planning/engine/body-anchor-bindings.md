@@ -180,6 +180,29 @@ physical reflection and turned gravity each act once. A refused pose follows
 the existing owner's refusal path without partial state or a second write.
 Use the existing mount and capture fixtures; add no generic relation harness.
 
+**First slice landed (2026-11-22).** The pure step lives with the body math:
+`BodyKinematics::root_placing(point, at)` returns `at - L(point)`, using the
+body's own linear material map.
+- **Mount.** The saddle pin maps the seat through the mount's map
+  (`mount::seat_in_world`: the seat mirrored by the mount's facing, then the
+  mount's scale, turn and parity). It maps the rider's soles through the
+  rider's map. `saddle_world_offset` and its combined `seat - rider half`
+  offset are gone, and so is the pin's read of the mount's gravity frame: the
+  mount's material turn carries the seat once.
+- **Capture.** The hold anchor goes through `rig_point_in_world` (rig feet,
+  facing, the captor's material). The declared gravity-relative hold offset
+  is added in its own basis and never goes through the material again. The
+  private rig-feet, facing and frame reconstruction is gone.
+- **Refusal.** A map that cannot be evaluated refuses through each owner's
+  existing path (`DismountReason::PoseRefused`, `release_capture`).
+- **Witnesses.** `ambition_mount` `saddle_tests`: the −45 arithmetic and a
+  rider at its own scale; facing mirrors only the side; reflection and facing
+  each act once; a turned pair turns once. `player_pilots_mount_end_to_end`
+  asks the same two maps.
+
+Open from A1: the capture's root fallback for an absent pose (A2), and a
+capture witness at unequal scales.
+
 ### A2 — sampled named points and invalidation
 
 Move capture's named jaw/hand through the same point query. Replace its naked

@@ -176,14 +176,10 @@ fn a_player_pilots_a_mount_end_to_end() {
     );
     let world = sim.world_mut();
     let seat = world.get::<ambition_platformer2d::mount::Mountable>(mount).expect("the shark is mountable").seat;
-    let facing = world.get::<BodyKinematics>(mount).expect("the mount has a body").facing;
-    let rider_height = world.get::<BodyKinematics>(rider).expect("the rider has a body").size().y;
-    let saddled = mount_after
-        + ambition_platformer2d::mount::saddle_world_offset(
-            seat - ae::Vec2::new(0.0, rider_height * 0.5),
-            facing,
-            ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR),
-        );
+    let mount_kin = *world.get::<BodyKinematics>(mount).expect("the mount has a body");
+    let facing = mount_kin.facing;
+    let rider_kin = *world.get::<BodyKinematics>(rider).expect("the rider has a body");
+    let saddled = saddled_root(&mount_kin, seat, world.get::<ae::Unmirrored>(mount).is_some(), &rider_kin);
     assert!(
         rider_after.distance(saddled) < 2.0 && rider_after.y < mount_after.y,
         "the player rider stays welded above the mount at its seat: rider {rider_after:?}, \
@@ -506,12 +502,8 @@ mod constrained_motion {
             let mount_kin = sim.world().get::<BodyKinematics>(mount).unwrap();
             let rider_kin = sim.world().get::<BodyKinematics>(rider).unwrap();
             let seat = sim.world().get::<Mountable>(mount).unwrap().seat;
-            let expected = mount_kin.pos
-                + ambition_platformer2d::mount::saddle_world_offset(
-                    seat - ae::Vec2::new(0.0, rider_kin.size().y * 0.5),
-                    mount_kin.facing,
-                    ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR),
-                );
+            let unmirrored = sim.world().get::<ae::Unmirrored>(mount).is_some();
+            let expected = saddled_root(mount_kin, seat, unmirrored, rider_kin);
             assert!(
                 rider_kin.pos.distance(expected) < 0.001,
                 "the rider did not follow its mount"
@@ -697,4 +689,12 @@ fn commandeering_and_getting_off_replay_under_the_sync_test() {
     sim.step_n(AgentAction::default(), 12);
     assert_eq!(sim.rollback_health(), Ok(()), "getting off resimulated to a different world");
     assert!(sim.world_mut().get::<RidingOn>(home).is_none(), "the press did not get off");
+}
+
+/// Where the saddle pin puts `rider`'s root: its soles on the mount's seat,
+/// each point through its own body's map (`mount::seat_in_world`,
+/// `BodyKinematics::root_placing`).
+fn saddled_root(mount: &BodyKinematics, seat: ae::Vec2, unmirrored: bool, rider: &BodyKinematics) -> ae::Vec2 {
+    let seat = ambition_platformer2d::mount::seat_in_world(seat, mount, unmirrored).expect("the mount's map evaluates");
+    rider.root_placing(ae::Vec2::new(0.0, rider.canonical_size.y * 0.5), seat).expect("the rider's map evaluates")
 }

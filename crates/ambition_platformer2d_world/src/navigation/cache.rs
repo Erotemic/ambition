@@ -94,20 +94,54 @@ struct NavMotionKey {
     frame: MotionFrame,
 }
 
-/// Graphs by [`NavGraphKey`], at most `capacity`; the oldest goes first. A
-/// key with no graph (the body has none there) is kept too, so it is not
-/// built again. Beside them, at most `capacity` bodies' [`NavMotion`]s,
-/// measured once for each body and frame whatever room their graph is in.
+/// Graphs by [`NavGraphKey`]. A key with no graph (the body has none there)
+/// is kept too, so it is not built again. Beside them, at most `capacity`
+/// bodies' [`NavMotion`]s, measured once for each body and frame whatever
+/// room their graph is in.
+///
+/// THE WORKING SET. A graph asked for through `get_or_build*` since the last
+/// [`Self::begin_demand`] is DEMANDED, and is never the one evicted:
+/// `capacity` bounds the spare graphs, not the ones in live use. Past
+/// `capacity`, the oldest spare graph goes first; with none spare, the cache
+/// grows to its demand (so 17 graphs asked for in turn each tick are built
+/// once, not evicted before their next use and built again every tick). A
+/// caller that never begins a demand cycle has a plain FIFO.
 pub struct NavGraphCache {
     graphs: Vec<(NavGraphKey, Option<NavGraph>)>,
     motions: Vec<(NavMotionKey, Option<NavMotion>)>,
+    demanded: Vec<NavGraphKey>,
     capacity: usize,
     motion_measures: u64,
+    builds: u64,
 }
 
 impl NavGraphCache {
     pub fn with_capacity(capacity: usize) -> Self {
-        Self { graphs: Vec::with_capacity(capacity), motions: Vec::new(), capacity: capacity.max(1), motion_measures: 0 }
+        Self {
+            graphs: Vec::with_capacity(capacity),
+            motions: Vec::new(),
+            demanded: Vec::new(),
+            capacity: capacity.max(1),
+            motion_measures: 0,
+            builds: 0,
+        }
+    }
+
+    /// Start a demand cycle (a tick): the graphs asked for from now on are
+    /// the ones in use, and the rest are spare.
+    pub fn begin_demand(&mut self) {
+        self.demanded.clear();
+    }
+
+    /// How many graphs `get_or_build*` built. For tests and instruments.
+    pub fn builds(&self) -> u64 {
+        self.builds
+    }
+
+    fn demand(&mut self, key: NavGraphKey) {
+        if !self.demanded.contains(&key) {
+            self.demanded.push(key);
+        }
     }
 
     /// How many times a body's motion was measured. For tests and instruments.
@@ -140,12 +174,14 @@ impl NavGraphCache {
         key: NavGraphKey,
         build: impl FnOnce(&NavMotion) -> Option<NavGraph>,
     ) -> Option<&NavGraph> {
+        self.demand(key);
         if let Some(index) = self.graphs.iter().position(|(known, _)| *known == key) {
             return self.graphs[index].1.as_ref();
         }
+        self.builds += 1;
         let graph = self.motion(&key).and_then(build);
         self.insert(key, graph);
-        self.graphs.last().and_then(|(_, graph)| graph.as_ref())
+        self.graphs.iter().find(|(known, _)| *known == key).and_then(|(_, graph)| graph.as_ref())
     }
 
     pub fn len(&self) -> usize {
@@ -169,16 +205,20 @@ impl NavGraphCache {
             return;
         }
         if self.graphs.len() >= self.capacity {
-            self.graphs.remove(0);
+            if let Some(spare) = self.graphs.iter().position(|(known, _)| !self.demanded.contains(known)) {
+                self.graphs.remove(spare);
+            }
         }
         self.graphs.push((key, graph));
     }
 
     /// The kept answer for `key`, or `build()` kept and returned.
     pub fn get_or_build(&mut self, key: NavGraphKey, build: impl FnOnce() -> Option<NavGraph>) -> Option<&NavGraph> {
+        self.demand(key);
         let index = match self.graphs.iter().position(|(known, _)| *known == key) {
             Some(index) => index,
             None => {
+                self.builds += 1;
                 self.insert(key, build());
                 self.graphs.len() - 1
             }
@@ -436,6 +476,36 @@ mod tests {
 
     fn room(blocks: Vec<ae::Block>) -> World {
         World::new("room", Vec2::new(800.0, 600.0), Vec2::ZERO, blocks)
+    }
+
+    /// ⭐ THE WORKING SET IS PINNED (E4). Capacity 16, and 17 distinct
+    /// graphs asked for in turn each tick: a FIFO evicts each one before
+    /// its next use and builds all 17 every tick. Demanded graphs are not
+    /// evicted, so the second tick builds none. The control: a graph no
+    /// longer asked for is spare, and it is the one that goes.
+    #[test]
+    fn graphs_asked_for_each_tick_are_not_evicted_before_their_next_use() {
+        let body = BodyClusterScratch::new_with_abilities(Vec2::ZERO, AbilitySet::NONE);
+        let key = |room: u64| {
+            NavGraphKey::from_stamp(room, body.model.spec(), body.abilities.abilities, Vec2::splat(16.0), body.base_size, MotionFrame::from_direction(Vec2::Y, 980.0))
+        };
+        let mut cache = NavGraphCache::with_capacity(16);
+        for _tick in 0..2 {
+            cache.begin_demand();
+            for room in 0..17 {
+                let _ = cache.get_or_build(key(room), || None);
+            }
+        }
+        assert_eq!(cache.builds(), 17, "a graph in use was evicted and built again");
+        assert_eq!(cache.len(), 17, "the cache grew to its demand");
+        // The control: room 0 is no longer asked for, so a new graph evicts it.
+        cache.begin_demand();
+        for room in 1..18 {
+            let _ = cache.get_or_build(key(room), || None);
+        }
+        assert_eq!(cache.builds(), 18);
+        assert!(cache.get(&key(0)).is_none(), "the spare graph stayed");
+        assert!(cache.get(&key(1)).is_some());
     }
 
     fn floor() -> ae::Block {

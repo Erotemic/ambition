@@ -178,6 +178,7 @@ pub fn advise_navigation(
 ) {
     advice.by_body.clear();
     cache.in_use.clear();
+    cache.graphs.begin_demand();
     cache.by_body.clear();
     for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand, visit, config, origin) in &bodies {
         let Some(request) = brain.navigation_request() else {

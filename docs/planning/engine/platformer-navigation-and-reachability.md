@@ -178,6 +178,17 @@ the spare derived cache. Pin selected graphs for their live use, then use
 bounded retention for inactive reuse. Name memory and activation bounds; a
 larger constant alone does not establish a working-set policy.
 
+**Done (2026-11-22).** `NavGraphCache::begin_demand` starts a cycle; a key
+asked for through `get_or_build*` since then is demanded and is never
+evicted. `capacity` now bounds the spare graphs: past it the oldest spare
+graph goes, and with none spare the cache grows to its demand. The activation
+bound is the number of distinct live keys; the memory bound for inactive
+graphs is `capacity` (16 for the advisor). The advisor begins a cycle each
+tick. The seat autopilot never begins one and keeps its plain FIFO. Witness:
+`graphs_asked_for_each_tick_are_not_evicted_before_their_next_use` (17
+keys at capacity 16 build once over two ticks; a key no longer asked for is
+the one evicted).
+
 ### Delivery and evidence
 
 1. Extend the route owner with the two-arrival witness and a final-goal walk.

@@ -260,7 +260,7 @@ pub fn advise_navigation(
                 return ErrandSight::None;
             };
             match graph.surface_under(visit.place, TARGET_DEPTH) {
-                Some(under) if graph.reachable_from(from).contains(&under) => {
+                Some(under) if graph.reaches(from, under) => {
                     ErrandSight::At(graph.point_on(under, graph.frame.along(visit.place)))
                 }
                 _ => ErrandSight::NoRoute,
@@ -274,7 +274,7 @@ pub fn advise_navigation(
                     return ErrandSight::None;
                 };
                 let reached = |at: ae::Vec2, depth: f32| {
-                    graph.surface_under(at, depth).filter(|under| graph.reachable_from(from).contains(under))
+                    graph.surface_under(at, depth).filter(|under| graph.reaches(from, *under))
                 };
                 match super::errand::errand_item_at(errand, live_room, &rooms, &items) {
                     // Not in this room: in another live room, through the zone
@@ -308,7 +308,7 @@ pub fn advise_navigation(
                         }
                     }
                     Some(at) => match graph.surface_under(at, TARGET_DEPTH) {
-                        Some(under) if graph.reachable_from(from).contains(&under) => {
+                        Some(under) if graph.reaches(from, under) => {
                             ErrandSight::At(graph.point_on(under, graph.frame.along(at)))
                         }
                         _ => ErrandSight::NoRoute,

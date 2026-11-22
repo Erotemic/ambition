@@ -123,6 +123,9 @@ pub struct NavGraph {
     pub flight: Option<FlightMap>,
     /// The links that leave each surface.
     out: Vec<Vec<usize>>,
+    /// The surfaces each surface reaches ([`Self::reach_from`]), found the
+    /// first time it is asked and kept: the graph does not change once built.
+    reach: Vec<std::sync::OnceLock<Box<[usize]>>>,
 }
 
 /// What a body's movement does in empty space: its traversal envelope and,
@@ -250,6 +253,7 @@ impl NavGraph {
             apex_rise: apex,
             jump_reach,
             out: vec![Vec::new(); surfaces.len()],
+            reach: (0..surfaces.len()).map(|_| std::sync::OnceLock::new()).collect(),
             surfaces,
             links: Vec::new(),
             cost: BuildCost::default(),
@@ -592,6 +596,22 @@ impl NavGraph {
     /// The surfaces a body on `from` can get to, `from` first, in the order
     /// the search finds them.
     pub fn reachable_from(&self, from: usize) -> Vec<usize> {
+        self.reach_from(from).to_vec()
+    }
+
+    /// [`Self::reachable_from`], searched once for each origin a caller asks
+    /// about and kept with the graph: the advisor asks it for each waypoint,
+    /// placement and errand of each body each tick.
+    pub fn reach_from(&self, from: usize) -> &[usize] {
+        self.reach[from].get_or_init(|| self.search_reach(from).into_boxed_slice())
+    }
+
+    /// Can a body on `from` get to `to`?
+    pub fn reaches(&self, from: usize, to: usize) -> bool {
+        self.reach_from(from).contains(&to)
+    }
+
+    fn search_reach(&self, from: usize) -> Vec<usize> {
         let mut seen = vec![false; self.surfaces.len()];
         let mut order = vec![from];
         seen[from] = true;
@@ -703,7 +723,7 @@ impl NavGraph {
     pub fn place_beside(&self, feet: Vec2, point: Vec2, beside: f32, depth: f32) -> Option<Vec2> {
         let from = self.surface_at(feet)?;
         let under = self.surface_under(point, depth)?;
-        if !self.reachable_from(from).contains(&under) {
+        if !self.reaches(from, under) {
             return None;
         }
         let along = self.frame.along(point);
@@ -733,7 +753,7 @@ impl NavGraph {
         let Some(from) = self.surface_at(feet) else {
             return (points, 0);
         };
-        let mut reachable = self.reachable_from(from);
+        let mut reachable = self.reach_from(from).to_vec();
         reachable.sort_by_key(|surface| mix(seed ^ (*surface as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)));
         reachable.truncate(NAV_WAYPOINTS);
         for (slot, surface) in reachable.iter().enumerate() {

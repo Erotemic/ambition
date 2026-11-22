@@ -239,7 +239,9 @@ occurrence views and derive active journal work. Navigation's cost-state
 reduction is fixed (2026-11-22: route searches arrivals and charges the final
 walk), and the advisor measures a body's motion once across rooms
 (`NavMotion`, 2026-11-22). The graph cache pins the graphs demanded each
-tick (2026-11-22). Next it reuses demanded reachability.
+tick, and a surface's reach is searched once and kept (2026-11-22). Next:
+anchor-lifted route state (fixed edge costs, reusable destination queries)
+and motion reuse in the seat autopilot.
 
 The follow-up [data-structure packets K1–K3](engine/data-structure-kernels.md#delivery-and-deletion-criteria)
 make bounds queries and strict unique lookup independent optimization targets

@@ -808,6 +808,7 @@ fn stated_graph(surfaces: &[(f32, f32, f32)], links: &[(usize, usize, f32, f32, 
         links,
         cost: BuildCost::default(),
         flight: None,
+        reach: (0..out.len()).map(|_| std::sync::OnceLock::new()).collect(),
         out,
     }
 }
@@ -941,4 +942,23 @@ fn a_body_built_in_two_rooms_measures_its_motion_once() {
     let bigger = key_of(&rooms[0], size * 1.5);
     let _ = cache.get_or_build_measured(bigger, |motion| NavGraph::build_measured(&rooms[0], &[], &bigger.probe_body(), normal_frame(), motion, None));
     assert_eq!(cache.motion_measures(), 2, "control: another body is measured");
+}
+
+/// A surface's reach is searched once and kept: the second ask returns the
+/// same slice, and every kept answer is the search's own (`from` first, in
+/// search order). The control: a surface no link leaves reaches only itself.
+#[test]
+fn a_surfaces_reach_is_searched_once_and_kept() {
+    let graph = stated_graph(
+        &[(0.0, 0.0, 0.0), (0.0, 100.0, 50.0), (200.0, 200.0, 100.0), (500.0, 500.0, 150.0)],
+        &[(0, 1, 0.0, 0.0, 1.0), (0, 2, 0.0, 200.0, 1.5), (2, 1, 200.0, 100.0, 0.5), (1, 3, 100.0, 500.0, 1.0)],
+    );
+    for from in 0..graph.surfaces.len() {
+        let first = graph.reach_from(from);
+        assert_eq!(first, graph.search_reach(from).as_slice());
+        assert!(std::ptr::eq(first, graph.reach_from(from)), "{from}: searched again");
+    }
+    assert_eq!(graph.reach_from(0), &[0, 1, 2, 3]);
+    assert_eq!(graph.reach_from(3), &[3], "control: G leads nowhere");
+    assert!(graph.reaches(2, 3) && !graph.reaches(3, 0));
 }

@@ -153,8 +153,16 @@ navigating several rooms measures its motion once. Witness:
 fresh build; a body of another size is measured again).
 
 Still open: the seat autopilot builds on a background task and still
-measures for each graph, and demanded reachability and the FIFO working set
-are not done yet.
+measures for each graph.
+
+**Demanded reachability (2026-11-22).** `NavGraph::reach_from` searches a
+surface's reach the first time it is asked for and keeps it with the graph
+(one `OnceLock` per surface; the graph does not change once built).
+`reaches(from, to)` answers membership from it. The advisor's waypoint,
+placement and errand checks, `place_beside` and `waypoints` read the kept
+answer, so they no longer allocate and search each time. `reachable_from`
+remains, as a copy. Witness: `a_surfaces_reach_is_searched_once_and_kept`.
+Reusing seeded waypoint selection is not done.
 
 The [advisor](../../../crates/ambition_platformer2d_actor_monolith/src/body/navigation.rs)
 asks `reachable_from` through waypoints, target placement and errands.

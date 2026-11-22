@@ -21,6 +21,17 @@ reconciliation initializes the next step without erasing that trajectory.
 Portal-free single-leg motion stays the cheap complete case. This is selected
 engine work, not a reason to reopen settled movement tuning.
 
+## Scale-relative behavior selected 2026-11-21
+
+The maintainer wants the same ordinary movement and action timing at different
+material scales. [Scale-relative gameplay](scale-relative-gameplay.md) owns
+SR1–SR3: canonical controls and gravity response scale together, followed by
+contact affordances and concrete action/relation consumers. The frame resolver
+publishes world acceleration once; the kernel must not rescale the completed
+frame or an already mapped carried vector. Navigation consumes the same
+standing physical experiment. Preserve identity fast paths, canonical
+parameters, dimensionless phase rules and the P2/P3 time/contact owners.
+
 ## Remaining
 
 ### A crawler on a wall reports an unturned box (found 2026-11-11)

@@ -1,8 +1,9 @@
 # Render, animation and VFX — Engine 1.0 program
 
 **State:** OPEN. The built-in semantic presentation road and the body-owned
-drawable schedule are built. Remaining work adds persistent emitters and new
-providers only when a real effect requires them.
+drawable schedule are built. Selected work now includes shared appearance
+order for the cart/body/effect customers and optional Bevy 3D presentation
+beside the current 2D tools. Other emitters/providers still need a real effect.
 
 ## Scope
 
@@ -27,6 +28,12 @@ game) are owned by
 Per-live-room drawing (each entity drawn in its own live room's band and view)
 is owned by [`open-world-runtime-and-residency.md`](open-world-runtime-and-residency.md)
 ("The view half").
+
+Selected 2026-11-21: [presentation order and optional 2.5D rendering](presentation-order-and-25d-rendering.md)
+owns scene placement, named local slots and the second concrete rendering
+consumer. Fix the cart in the current renderer first. Mechanical `DepthPlane`,
+room visibility, appearance order and mesh thickness retain separate meaning.
+Gameplay remains 2D and independent of either installed renderer.
 
 ## Authority contract
 
@@ -82,6 +89,12 @@ body-owned drawable producer/update
 The boundary is the `BodyOwnedDrawableSync` set (`ambition_render::rendering`).
 `folded_mesh::FoldedMeshSync` runs after it. A new body-owned drawable writer
 joins the set. Do not order a new overlay against concrete foreign systems.
+
+The selected appearance-order work adds an explicit earlier dependency:
+resolve placement before part and effect realization. `BodyOwnedDrawableSync`
+contains those writers; membership in the set alone does not order them.
+Keep the finalization-to-folded/carry edge. Carry eligibility must also stop
+depending on a drawable's numeric z when logical order lowering replaces it.
 
 ### A portal window is over the play plane
 
@@ -199,16 +212,18 @@ lasers)." What is built:
     `VfxMessage::Lightning` / `LightningAura`;
   - leased by key: asked again it holds and follows, unasked it fades;
   - nothing of it is in rollback.
-- **Every mesh built on the CPU goes through one writer**
-  (`folded_mesh::FoldedMesh`). A producer writes its triangles into the
-  world, unfolded, and never writes a mesh itself. The writer then:
+- **CPU-built planar line/effect meshes use the shared folded writer**
+  (`folded_mesh::FoldedMesh`). Their producers publish unfolded world-space
+  triangles. The writer then:
   - cuts them where the room's pairs cut a volume and carries each part out
     of the other end (the same `pieces`, so the drawn line is where the ray
     hurts);
   - cuts out of each pane what is behind it from the viewer (`behind_pane`,
     the far-side rule for sprites).
 
-  So a line effect cannot be added that ignores portals.
+  So a line effect cannot be added that ignores portals. The optional 3D
+  adapter owns its separate mesh realization and joins portal capture/clip
+  support through the [presentation composition plan](presentation-order-and-25d-rendering.md).
 - **Quality:**
   - with no screen-shader budget, or on Android, only the white core is
     drawn: no halo, forks, aura or contact light;

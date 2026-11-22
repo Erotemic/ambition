@@ -11,7 +11,9 @@ steps; [the queue](../queue.md) selects work.
 contract is in [capability linking and prepared facets](capability-linking-and-prepared-facets.md).
 This page owns how its results form one content generation. The changes below
 are planned work, based on source at `6895e5168638`; they are not an
-implementation or timing receipt.
+implementation or timing receipt. The SDK/demo publication follow-up below
+uses source at `f41218979625` and completes the already planned App-owned
+selection cut.
 
 ## The contract
 
@@ -540,22 +542,150 @@ whether the prior scene is unchanged, recovered or stopped.
 - **The home body of an unprepared starting id.** `session::setup` still builds
   the home body (an empty kit, named after the id, reported). Refusing it is a
   session-admission question: the session then has no body to drive.
-- A demo pack reloads in a running demo between sessions, for the schemas
-  the demo reads where it uses them
-  (`ambition_platformer2d::content::live_reload`, 2026-10-16), and for the
-  schemas it read once at start and states again at the publication (each
-  demo's `room_rules`, through `restate_room_rules`; the prop sheets,
-  platform looks, projectile looks and pickup art, restating only the
-  pack's own rows; the music and SFX, through `publish_provider_audio`; the
-  cast, as one revision with its catalog). Every schema of the three demo
-  packs takes part; a schema a demo reads at start with no restater is
-  refused and costs a restart. A change to schemas read at use reaches a
-  live demo session where the rollback timeline allows it (no timeline: at
-  once; a timeline this host owns: at once, with a rebase; otherwise at the
-  session's end). Open: a restated schema inside a live session.
+- The SDK/demo reload path needs coherent publication of prepared domain
+  products as well as App-owned selection. The bounded cut below completes
+  that contract. Support for restated schemas inside a live session remains
+  separate work; it is not added by fixing publication between sessions.
 - Measure source read, changed-section preparation, candidate construction,
   activation, scenario reset and first observed behavior separately (M0).
   Fixtures FI1-FI4 in [acceptance](fast-iteration-acceptance.md).
+
+### SDK/demo publication — admit owner products before selection
+
+**Source follow-up, 2026-11-21 (`f41218979625`).** The current SDK watcher in
+[`content::live_reload`](../../../crates/ambition_platformer2d/src/content/live_reload.rs)
+selects the new pack in `publish_the_staged_pack_between_sessions`, increments
+its publication count, and then invokes schema restaters. A restater returns
+`()`. Audio, owned-row and cast callbacks can catch a domain refusal and keep
+the prior product. The watcher still reports `published`. Main Ambition's
+prepared generation path already separates these stages; this gap is in the
+reusable SDK/demo path. The failure trace below is deduced from source, not
+a fresh runtime reproduction.
+
+For a small witness, compose two valid audio providers. Edit one pack so that
+it claims the other provider's track id with a different asset path, and
+change a live rules value in the same revision. Pack compilation can succeed:
+the foreign App catalog is not part of that local schema check. The watcher
+selects the pack; audio's
+[`AudioCatalogRegistry::with_replaced`](../../../crates/ambition_audio/src/catalog.rs)
+then refuses the composition. New rules and old audio remain selected, yet
+the receipt says published. Moving `EmbeddedPack.current` into an App resource
+alone does not fix this sequence.
+
+**Decision:** a schema is an input; the publication unit is an owner's
+prepared product. Select affected products from the changed input-schema set,
+prepare each product once, and admit the complete pack replacement before any
+visible publication. Keep the existing owners and retained generation handles.
+
+| Product | Existing inputs and owner operation |
+| --- | --- |
+| Provider audio | Music and SFX schemas jointly produce one composed audio catalog. `with_replaced` builds the candidate; `publish_revised_audio` installs it. |
+| Provider cast | Character catalog, movesets and fighter data jointly produce one admitted cast with its candidate catalog. Keep character definition/admission in `ambition_characters`. |
+| Provider-owned presentation or rule rows | Each existing catalog admits its owned replacement rows. Its prepared result includes removals and the ownership bookkeeping that will become current at commit. |
+
+Current audio registration attaches a whole-audio callback to each schema;
+an edit to music and SFX runs it twice. Cast registration likewise stages the
+whole cast for each changed input schema. The product boundary removes those
+duplicate operations. This is a source-visible work reduction, not a measured
+reload-latency result. Product registration states its supported inputs and
+absence/removal rules; an unsupported schema still refuses or requires the
+existing restart policy.
+
+#### Prepare privately; publish under the existing authority
+
+For the first implementation, prepare and commit one watched pack at a time
+inside the existing exclusive between-session publication operation. The
+next pack prepares against the composed catalogs that are current after the
+prior successful commit. Do not prepare all watches from the frame's initial
+catalog clones and later install them: a whole-registry candidate could erase
+another pack's accepted change. A refusal of pack B does not undo a committed
+pack A. A revision that only validates with changes to several packs needs an
+explicit grouped candidate through the existing generation path; sharing a
+frame does not create such a group.
+
+Preparation reads one frozen pack and the current App context. A product
+that depends on another changed product reads its candidate value. In the
+cast, build the candidate character catalog before folding/admitting its
+definitions. These known owner calls and their order are sufficient; do not
+add a configurable dependency graph or another generation coordinator.
+
+Do not call today's `CastReload::restage` as a preflight. Its
+[`staging road`](../../../crates/ambition_characters/src/prepared.rs)
+writes and drains the shared `StagedCastRevision`, and its failure path can
+remove that resource. Factor the existing admission core to take an explicit,
+privately owned revision buffer, read-only current context and candidate
+catalog, and return the existing admitted revision. Keep private character
+staging types in their owner. Existing staging adapters can call this same
+core; preparation must not consume another caller's edits or temporarily
+replace live resources. Prepare shared cast vocabulary once per candidate,
+as the main content path already does, rather than once per character.
+
+Apply the same narrow split to other rows. For example, `PropSheets` can
+admit its rows on a private clone; asset realization and its existing
+placeholder behavior follow authoritative publication. Pure audio candidate
+construction already exists. Keep each owner's admission rules there; the
+SDK coordinator must not duplicate catalog collision or cast validity rules.
+
+After every affected product admits, install the pack selection and all
+authoritative prepared values at one visibility boundary. No selected product
+can return an ordinary content refusal after the first visible mutation.
+Refresh presentation projections, apply the existing timeline policy, update
+owned-row/built-row bookkeeping, and only then advance the publication count
+and success receipt. The boundary must cover observers and hooks that read
+related catalogs; an exclusive function alone is not proof that synchronous
+hooks cannot see a partial selection. Restoring the old pack pointer after a
+callback failure cannot undo catalogs an earlier callback already changed.
+
+If preparation later spans frames, retain the domain facts it used and
+recheck them before commit. The first synchronous cut does not need a new
+epoch system for those facts. It does need one consistent base during
+preparation and publication. Read-only source fingerprints remain a no-op
+path; gameplay never walks the product dependency set.
+
+#### Complete App-owned selection without ambient leaf lookups
+
+The remaining
+[P5 step 4 cut 2](runtime-authoring-audit-2026-11-14/execution-plan.md#p5-complete-revision-persistence-and-target-loading)
+already replaces the process-wide mutable pack selection. Keep immutable
+compiled source reuse process-wide where valid; select and retain the active
+generation in the App/session that admitted it. App A cannot publish rules or
+catalogs into App B merely because they use the same embedded source.
+
+Bind a typed rules view once at an operation or system boundary. Pass normal
+borrowed rows into pure helpers; retain a generation handle when a row must
+outlive that call. Do not require every leaf accessor to query the World.
+Current [`EmbeddedPack::prepared`](../../../crates/ambition_platformer2d/src/lib.rs)
+takes a shared lock and clones an `Arc` for each call. Operation-bound views
+can remove that repeated selection work while making the App owner explicit.
+No runtime saving is claimed until the relevant caller path is measured.
+
+#### Delivery, deletion and acceptance
+
+1. Add the valid-pack/foreign-audio-collision witness above through the
+   actual watcher publication path, including the simultaneous rules edit.
+   A refusal keeps the old pack, rules, audio and publication count, and
+   reports the refusing owner/id.
+2. Prepare one product per affected owner and retain its admitted result.
+   Extract private cast preparation as described above. Delete duplicate
+   per-schema whole-product callbacks and swallowed post-publication
+   refusals. An edit to both audio schemas prepares/commits audio once; a
+   character-plus-moveset edit prepares/commits the cast once. Check removal
+   of an owned row, and preserve foreign rows.
+3. Publish selection and products together. A later product refusal leaves
+   all affected products and their ownership trackers unchanged. Two watched
+   packs that publish in one frame retain both accepted changes; a held
+   candidate, if introduced, cannot overwrite a foreign change made after
+   its admission.
+4. Finish App-owned operation views through the existing demo consumers.
+   Use two Apps with the same embedded pack: reloading A must not change B's
+   selected rules, catalogs, session identity or rollback baseline. Retained
+   old-generation rows remain valid until their last reader retires.
+
+Preserve `only_live`, local timeline rebase, remote generation and shell
+preparation policy. This cut does not permit cast/catalog restatement inside
+a live session or lift the prepared-artifact serialization hold. Acceptance
+uses a few production-path refusal/publication cases, not a new reload
+framework or a matrix over every schema.
 
 ### Sprite source identity and live presentation refresh
 

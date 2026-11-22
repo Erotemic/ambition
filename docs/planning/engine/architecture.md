@@ -152,6 +152,69 @@ These changes add no universal relationship graph, action transaction or
 resource law; the existing resource/effect plans already own their distinct
 composition work. Each packet deletes a concrete repeated interpretation.
 
+### Native state and authored decisions
+
+The further source review at `f41218979625` identifies three places where a
+boundary discards a fact that its consumer still needs:
+
+- [Item recipes and live continuity](item-recipes-and-live-continuity.md)
+  retains the physical description chosen at mint. Both reconstruction
+  roads consume it. Current pose stays in the live body; accepted captures
+  supply dormant/checkpoint/save positions. This removes the live → save →
+  live recipe loop and the whole-world invalidation caused by local motion.
+  A separate output policy coalesces pose-only saves while preserving prompt
+  accepted semantic writes; moving the encoder alone does not remove its cost.
+- [O6 invocation context and verdicts](authored-gameplay-logic-and-orchestration.md#o6--bind-invocation-roles-through-the-existing-call-boundary)
+  makes a merchant's question name the same payer policy as its action, and
+  keeps an unanswered condition from becoming an answered negative.
+  [A7 exchange](item-custody-and-accounting.md#a7-exchange--one-rule-for-an-offer-and-its-accepted-exchange)
+  makes offer checks and accepted shop/procedural exchanges share the same
+  item-domain law. History retention stays with the native caller.
+- [ISL-1b module completion](island-rollback-and-compact-peer-input.md#isl-1b-completion--one-room-step-for-module-owned-work)
+  gives native lifetime, continuous Tick and pull integration the same room
+  step as script progress. The existing `ScopePace` receipt covers only the
+  invocation side of that boundary.
+
+The [resource plan](composable-actor-resources.md#completion-customer-the-existing-charge-shot-resource)
+also includes the existing body's charge-shot ammunition. It is a separate
+resource, still stored in the emitter today. Resource presence and retention
+must not be an accidental consequence of a controller component's presence.
+
+These are extensions of current owners. Retain one native fact or domain
+calculation and let its consumers project what they need. Shared calculation
+does not make a preview authoritative, a save DTO canonical, or two rooms
+share a rollback history. IR1, O6a and the module-clock repair are bounded
+correctness slices. IR2/IR3 change storage and capture ownership; measure
+their whole cost, including snapshots and checksums. No new compile-time or
+runtime speedup is claimed by this review.
+
+### Native outcomes preserve the operation
+
+The 2026-11-22 review of production source `f41218979625` selects two
+further boundaries. An object's later existence is not its construction
+result, and missing HP is not a retained strike.
+
+[AC1/AC2](native-action-completion.md) uses the existing construction receipt
+to bind a summon reply to its actual body, after the supported body and
+required initialization are complete. The receipt proves allocation identity;
+the constructor must also reject unsupported families before mutation.
+Cancellation keeps its own identity and result but does not reserve another
+pending-work slot from the pool it is meant to release.
+
+[CR1/CR2](combat-reception-and-injury.md) separates surface reception, health
+recipient and physical reaction within one resolved hit. Native scripts,
+move confirms and damage credit project that result instead of depending on
+separate publication calls. GNU's limb injury is the concrete second customer:
+an open fist is the struck surface and the scholar accepts the injury through
+the common boss health policy. Its one-blow opening, clash response and injury
+cap are explicit. No limb health debit/heal is needed to carry the hit.
+
+These packets remove guesses, scans and duplicate result construction. They
+extend current domain owners and add no universal transaction, damage graph,
+new utility package or mandatory dynamic dispatch. The one-hop limb relation
+is optional; ordinary bodies keep the direct path. No compile-time, binary-size
+or frame-time improvement is claimed without measurement.
+
 ### Reusable data-structure operations
 
 The [kernel plan](data-structure-kernels.md) makes existing foundation

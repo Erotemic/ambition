@@ -30,6 +30,85 @@ remains required: queue pressure still selects eager bag writes or refunds.
 Preserve the dated receipts below without treating them as proof of admission
 pressure, allocation conservation or source retirement.
 
+## ISL-1b completion — one room step for module-owned work
+
+**Open, source review at `f41218979625`, 2026-11-21.** The earlier `ScopePace`
+receipt establishes the script invocation's room time. It does not establish
+the same clock for every native part of that module entity.
+
+`runtime/src/extension_composition.rs` supplies `ScopePace` from `RoomFreeze`.
+The extension host multiplies `Invocation.dt` by that pace. However,
+`ambition_abilities/src/module_entity.rs` still uses the shared
+`WorldTime.sim_dt` in two native roads:
+
+- `queue_module_entity_ticks` advances age and remaining lifetime, then
+  queues surviving entities, without their room's pace.
+- `lower_body_pulls` integrates `min(rate × dt, 1)` with the shared step,
+  although its recipients are restricted to the source entity's room.
+
+The entity already has room/session ownership and can outlive its spawner.
+The missing shared fact is that entity's room gameplay step.
+
+### Current customers and failure
+
+The linked Sentry module has a five-second native lifetime and script-local
+arming/firing progress. With two live rooms and a pace of 0.25 in its room,
+five shared gameplay seconds give the script only 1.25 room seconds before
+native expiry. In the one-room case, the shared clock carries the slowdown,
+so the mismatch depends on whether an unrelated second room is live.
+
+Vortex emits a pull before it subtracts `inv.dt` from its script clock. While
+its room is held and another room advances, the native Tick producer can
+still queue it. The invocation gets zero room dt, but native pull lowering
+uses positive shared dt. The pull and native expiry can therefore advance
+while the script's room clock is stopped. These are source deductions from
+`game/ambition_content_modules/src/{sentry,vortex}.rs` and the native paths,
+not a new gameplay run or a measured shot count.
+
+### Bounded change
+
+Use the existing `WorldTime` plus `RoomFreeze` policy to derive a room
+gameplay step for the entity. Keep this as a read of canonical state. Do not
+add an authoritative clock component or infer the room from the spawner's
+current location.
+
+1. Use that step for module age and native lifetime. Queue continuous
+   `ModuleEntityTick` only when that entity's step is positive. Preserve the
+   existing age/decrement/expiry order; do not add fractional final ticks.
+2. Resolve the step once per pull request, before visiting targets. Apply
+   `min(rate × source_room_dt, 1)` once. This operation is a fraction of the
+   remaining gap per room second; it is not an impulse. Recipients are in
+   the same room. Applying recipient `ProperTimeScale` as well would change
+   the law and add a second time factor.
+3. Keep `ScopePace` as the room-agnostic host hook. The runtime adapter and
+   native entity systems must consume the same room-time policy. One-room
+   slowdown must not be multiplied twice. Preserve the current counting of
+   hidden/disabled replay roots when deriving the shared versus room pace.
+4. Keep discrete requests, replies, cancellation and lifecycle admission
+   available at zero dt where their own contract permits them. This is not
+   a blanket suppression of every zero-dt module invocation.
+5. Read pace from the restored simulation state during rewind. A cache must
+   not supply another cut's pace. Avoid repeating room-count/pace searches
+   inside the per-target loop; no new global clock cache is required.
+
+Lifetime and behavior cadence remain separate state. Their agreement comes
+from using the same step, not from merging their timers. Session time,
+unscaled hitstop expiry, body proper time, room time and presentation time
+retain their existing meanings. The configurable tick-rate plan is separate.
+
+**Acceptance:** extend the existing module-entity harness through the real
+collect → invoke → lower schedule with two rooms. Slow, hold and resume one
+room; use Sentry/Vortex to check native age, script progress and pull motion.
+Rewind the affected room and compare the same results while the other room
+continues. Keep the one-room case as a control. The held room must not spend
+lifetime or integrate a continuous pull. Discrete replies still follow their
+own policy. The existing two-room target-isolation test does not establish
+this clock contract.
+
+**Remove:** direct shared-step reads from these room-owned age/expiry and
+pull integrations, and the shared-positive-step gate that stands in for
+each entity's tick eligibility. No new time framework or speedup is claimed.
+
 ## Why this work was selected, and what it measured
 
 Until 2026-11-10 `ambition_platformer2d_rollback_ggrs/src/peer_input.rs` serialized a fixed-width `PeerInput` of **168 bytes per player per frame** at wire identity 8: **72 bytes** of `ControlFrame` plus **96 bytes** of `PeerVerdict` (operation, two content identities, plan digest, verdict), paid even when no room operation was pending. Wire identity 9 replaces the verdict with an 8-byte `PeerVerdictToken`, so a `PeerInput` is **80 bytes**. See [the result below](#result-2026-11-10).

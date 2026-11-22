@@ -272,6 +272,30 @@ whether to request it recreates the dependency cycle. Preserve first-use
 readiness and the explicit proxy/non-view fallback before narrowing the
 current room-wide eager demand.
 
+## Shared appearance order and a second rendering consumer
+
+The [presentation composition plan](presentation-order-and-25d-rendering.md)
+is selected from the cart, part/effect ordering and 2.5D customers at
+`f41218979625`. Keep three facts separate: source appearance order,
+observer-relative pane overlap, and pass/capture dependency. A local
+appearance's stable rank and occurrence tie must survive projection.
+Current carry compresses roots to an exit z band and collapses equal source
+z; its free-drawable loop also uses `z <= PORTAL_EXIT_COPY_TOP` to exclude
+ground/copies. Migrate eligibility as a source/pass role when changing rank
+lowering. It must not be inferred from the new order value.
+
+The current Sprite/Mesh2d/Text2d source recognition, Camera2d capture and
+Material2d clipping do not provide Mesh3d support. P5/P6 remain the integration
+owner: each installed realization consumes the same material partition,
+path, view scope, source order and readiness meaning. Keep complete family
+capture and PV4's planned complete-image specialization. A flat color image
+cannot supply independently interleavable internal depth to a 3D consumer.
+
+The first 3D cart pilot can explicitly omit portals. General rollout must
+cover two observers of one room and cannot silently omit 3D carried objects.
+Do not replace the world's window/foreground composition policy with a
+private depth adjustment on each drawable.
+
 ## Delivery packets
 
 These are slices of the main portal program, not a second queue.

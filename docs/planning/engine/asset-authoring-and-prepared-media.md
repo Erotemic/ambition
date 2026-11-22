@@ -45,6 +45,19 @@ the media meaning that a consumer must receive. These are separate contracts:
 a current render can still be paired with incorrect game timing; a valid
 published rig can still have an unclear editable source.
 
+## Additional presentation consumer
+
+**Additional selected consumer, 2026-11-21:** the
+[2.5D cart pilot](presentation-order-and-25d-rendering.md#authoring-and-installation)
+uses current part textures plus optional mesh/material products. Extend the
+existing cart source and provider look with named composition places and a
+small authored mesh binding; do not require all sprite authors to change
+formats. Preserve source identity, canonical geometry units, quality and
+immutable publication. A view or other demanding consumer selects residency;
+installing a second renderer alone does not load its richer products. The
+2D authoring and preview tools remain supported. Visual depth/thickness is
+authored meaning, not a reinterpretation of existing numeric z bands.
+
 ## SA1 — editable sources and disposable sprite projections
 
 ### Evidence

@@ -266,6 +266,13 @@ For example, a visually rich torso may contain multiple layers while the physics
 
 ## Target presentation architecture
 
+**Selected extension, 2026-11-21:** [presentation order and optional 2.5D rendering](presentation-order-and-25d-rendering.md)
+adds a Bevy 3D card/mesh consumer beside the normal 2D path below. Both consume
+the same admitted part identity, pose and local appearance. Their GPU and
+camera resources remain separate. This does not change 2D simulation or make
+the ragdoll plan a 3D physics migration. Local paint order and cart membership
+come from shared presentation facts; semantic limbs can remain independent.
+
 The intended normal path is:
 
 ```text

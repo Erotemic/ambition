@@ -74,6 +74,38 @@ all share one deletion rule. The existing custody/occurrence authorities decide
 what persists. A no-record state can mean 'as authored' under the owning domain;
 it is not a general instruction to remint every dynamic spawn on re-entry.
 
+## Open item recipe and capture completion
+
+The source review at `f41218979625` finds an incomplete input, not a missing
+construction framework: a runtime item's retained description omits its
+canonical extent. The two reconstruction roads then supply a common 36 × 36
+body even when the mint used different geometry.
+[IR1](item-recipes-and-live-continuity.md#ir1--retain-the-recipe-chosen-at-mint)
+makes both roads consume the same item-owned recipe and pinned content.
+
+IR2/IR3 separate native continuity from its save encoding. A live body owns
+its current pose. Preparation consumes a frozen domain capture, with item
+center/body-feet conventions and the operation's retention policy preserved.
+Keep target-input revalidation at room commit and the accepted checkpoint's
+pinned inputs. This changes the facts supplied to the existing transaction;
+it does not create another constructor or publication bracket.
+
+## Open native summon completion
+
+[AC1](native-action-completion.md#ac1--complete-summons-from-the-construction-receipt)
+completes the relation between an admitted summon and its result. The ride
+adapter predicts the shared allocator's next ID from only its own requests,
+then polls existence. Mixed native/portable summons can make that prediction
+name another body. The executor already has the exact `ConstructionReceipt`.
+Retain it for reservation, birth statuses and the result subject, then publish
+completion after initialization and counter advance.
+
+The receipt proves which root was allocated, not that an unsupported recipe
+populated it. Move the current limbed-minion refusal into preflight before
+birth. This bounded correction keeps current whole-batch refusal and the
+existing construction guarantees. Boarding and later survival remain mount
+lifetime decisions. No second allocator or constructor is needed.
+
 ## Linked domain inputs, one construction transaction
 
 **Planned 2026-11-21:** [capability linking and prepared facets](capability-linking-and-prepared-facets.md)

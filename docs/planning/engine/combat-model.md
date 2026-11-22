@@ -94,6 +94,15 @@ CPU-vs-CPU or player-play regression, not to appease an overconstrained test.
 
 ## Preferred reusable seams
 
+The planned [reception and injury packets](combat-reception-and-injury.md)
+complete native outcome publication. CR1 makes accepted reception, move
+confirm and actual reaction projections of one result; damaging boss hits
+and lethal home-body hits currently miss the connect stream. CR2 uses that
+result to separate GNU's struck limb from the scholar's health reception.
+Keep surface contact, recipient defenses, physical reaction and move credit
+distinct. A limb's missing HP is not a hit queue, and a boss needs no launch
+to report accepted injury. Ordinary bodies keep the direct path.
+
 For direct projectile contact, the [contact protocol](projectile-contact-protocol.md)
 is the detailed owner: actual travel segments, published geometry, compound
 object surfaces, same-step interception and later identity-targeted reception.

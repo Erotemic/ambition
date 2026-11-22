@@ -1,6 +1,6 @@
 # GNU-ton and the gravity patent dispute
 
-**Status:** User-favored story direction (2026-11-21), not a finalized plot. This note records the core conflict and a few possible consequences. Details of the technology, settlements, legal system, and character outcomes remain open.
+**Status:** User-favored story direction (2026-11-21), with later discussion updates; not a finalized plot. This note records the core conflict and a few possible consequences. Details of the technology, settlements, legal system, and character outcomes remain open.
 
 ## Core story — user-favored
 
@@ -24,22 +24,28 @@ Do not turn the game into a lecture on patents or settle all intellectual-proper
 
 - **GNU-ton:** Brilliant, proud, and once motivated by discovery and the creation of a livable world. He now treats his achievement as a claim to authority over other people's work. Keep him competent and personally attached to his world; he is not simply a fraud or a parody of Isaac Newton's biography.
 - **Nikobolt Tesseract:** Independent co-discoverer of artificial gravity in this story, not a thief of GNU-ton's design. He wants people to be able to inhabit and improve the alternative world. His exact research approach remains open.
-- **Coulomba Tesseract:** Existing Science Dimension character who could test the competing systems, document independent development, investigate consequences, or take another role. Do not reduce her to a witness by default; decide her contribution later.
-- **GNU2:** Loves GNU-ton. That affection is genuine and does not settle the rights and wrongs of GNU-ton's actions. Preserve the reported boss-fight beat in which GNU2 cradles GNU-ton and revives him with a **golden apple**. Survival is not absolution.
+- **Coulomba Tesseract:** GNU-ton's **former collaborator and lover** (user-favored). She may have her own specialty in message magic and communication networks, and may have an independent role in the two settlements or the dispute; do not reduce her to a witness. The exact relation to Nikobolt and how much she contributed remain open.
+- **GNU1:** The *existing* boss scene uses **GNU1**, not GNU2, in a golden-apple revival. **That resurrection framing is now disfavored.** Prefer GNU-ton standing down after defeat, or briefly losing consciousness and recovering without a miracle. GNU1 may help him up, but need not anchor an emotional revival scene.
 - **Scout:** May visit both worlds, learn why residents prefer different systems, witness an enforcement attempt, and ultimately fight GNU-ton. The confrontation could culminate at the existing **Gravity Works** boss arena; do not silently relocate or rewrite that encounter.
 
 ## An earned change, not instant forgiveness
 
-- The defeat and golden-apple revival offer GNU-ton a chance to reconsider; they do not automatically redeem him.
+- **Defeat without death** gives GNU-ton an opportunity to reconsider; it does not automatically redeem him. He can remain proud, difficult and genuinely accomplished while making meaningful changes.
 - A meaningful change would require him to **withdraw the enforcement action**, stop trying to suppress Tesseract's independent system, and help repair damage he caused. He can still build excellent equipment, run his world, earn a living, defend genuine authorship, and remain infuriatingly proud.
-- A possible later reward is **GNU Punch**: GNU2 teaches Scout a portal-assisted punch, with GNU-ton helping work out the mechanics. It can become a freely shared technique, possibly under a playfully GNU-like license. Punching Nazis later would be a welcome payoff, not the entire purpose of the arc.
+- A possible later reward is **GNU Punch**: a portal-assisted attack with **GNU2's fist** appearing through a portal, perhaps taught with GNU-ton's help. It can become a freely shared technique, possibly under a playfully GNU-like license. Punching Nazis later would be a welcome payoff, not the entire purpose of the arc.
+
+## Later possibilities (November 21 discussion)
+
+- **[User-proposed; open]** The newly established **Business Dimension** might resolve patent disputes through **trial by combat**. A serious patent proceeding could explain why the confrontation happens, but whether it is connected to the existing Gravity Works arena, who acts as litigant, and what a legal verdict decides are all open. GNU-ton must also face the consequences of his enforcement independently of the fight's outcome.
+- **[User-favored; not canon]** GNU-ton's **apple orchards** might ultimately supply fruit for the Creator's future apple pie. The Creator has not completed the first step of creating the universe. Do not use a golden apple to revive GNU-ton just to force this connection; the orchard can stand as a quieter background detail.
+- **[Correction]** Earlier brainstorming attributed the revival to GNU2. The current fight uses **GNU1**; the user now prefers **no resurrection**. The redemption arc remains, with genuine actions and not instant absolution.
 
 ## Open decisions
 
 - What exactly does the Gravity Frame do: amplify, orient, generate, or stabilize gravity? How is it powered, bounded, and maintained?
 - Are the worlds small natural planetoids, constructed habitats, or something else? How do their residents live differently, and what compromises do they accept?
-- Who governs patent enforcement, and what authority permits GNU-ton to act by force?
-- How do Nikobolt and Coulomba share scientific credit and responsibility? What is GNU2's own view of the dispute?
+- Who governs patent enforcement, and what authority permits GNU-ton to act by force? Does trial by combat apply, and if so, what can it lawfully decide?
+- How do Nikobolt and Coulomba share scientific credit and responsibility? How does their relationship to GNU-ton affect the dispute? What does GNU1 think, and what role might GNU2 have?
 - What concrete action earns GNU-ton renewed trust? Does he ever fully change?
 
 **Related notes:** [GNU-ton fight ideas](2026-11-21-gnu-ton-fight-ideas.md), [story and world directions](story_and_world_directions_2026-11-18.md), [GNU-ton fighter planning](../planning/game/gnu-ton-fighter.md).

@@ -149,6 +149,10 @@ there is no all-crates extraction program.
 - ▢ **Render/animation/VFX.** Extend semantic presentation cues, backend
   separation and quality behavior from product pressure. Owner:
   [`engine/render-animation-and-vfx.md`](engine/render-animation-and-vfx.md).
+- ▢ **Appearance order and optional 2.5D (selected).** Give the cart named
+  interior placement for an entire appearance, then share sampled art between
+  current 2D and optional Bevy 3D views. Mechanical depth remains independent.
+  Owner: [`engine/presentation-order-and-25d-rendering.md`](engine/presentation-order-and-25d-rendering.md).
 - ▢ **Inspection/diagnostics/workbench.** Build read-only discoverability from
   domain-contributed descriptors rather than a new simulation authority. Owner:
   [`engine/inspection-diagnostics-and-workbench.md`](engine/inspection-diagnostics-and-workbench.md). Completed effective-geometry/F1 coverage is recorded in [`GEOMETRY-OBSERVABILITY`](queue.md#geometry-observability--render-the-effective-geometry-behind-gameplay---done-2026-11-17), not as another independent backlog program.
@@ -431,6 +435,12 @@ before promotion.
   [the queue](queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals)
   selects work. Do not revive a one-pair host workaround or the old claim
   that retained portal rendering pools are missing.
+- **Scale-relative gameplay (selected via SCALE-FEEL).** Keep ordinary
+  movement and action timing at different material scales. Convert canonical
+  gravity response with controls, then contact bands and existing action/
+  relation quantities. World fields and already resolved values keep their
+  meaning. [The owner](engine/scale-relative-gameplay.md) defines SR1–SR3;
+  the portal motion/contact authorities remain in P2/P3.
 - **Execution cost (selected via EXECUTION-COST).** Full/reference semantics
   remain available while gameplay selects local specializations. Prepare
   immutable clip and dispatch relationships; retain correct occurrence views;

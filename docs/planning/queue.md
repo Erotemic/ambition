@@ -36,8 +36,9 @@ carries closed campaigns. Unselected or customer-gated plans live in
    its `present_when` landed 2026-11-17 (the game show's goat and car are
    actors in their closets); SS5 (cutscene camera pans that
    hold until released) landed the same day, as did `actor.face`/`actor.pose`; SS6 (retreat) is
-   covered by SS1+SS4 (the raid's escape is one). Story sequences are
-   done. Dark
+   covered by SS1+SS4 (the raid's escape is one). These first slices are
+   done; SS7/SS8 below complete playback identity, role binding and gameplay
+   settlement. Dark
    rooms and the first tunnel (under Hobford, the mill wheel to the hollow
    oak) are [dark rooms and tunnels](engine/dark-rooms-and-tunnels.md): the
    player's glow by quality tier, DR1 (room darkness: the catacombs and
@@ -87,6 +88,13 @@ carries closed campaigns. Unselected or customer-gated plans live in
    combat and map rows below are independent bounded work, not a second
    priority list; select them after correctness constraints are respected.
 
+The 2026-11-21 follow-up selects
+[SCALE-FEEL](#scale-feel--the-same-body-behavior-at-a-different-scale) and
+[PRESENTATION-COMPOSITION](#presentation-composition--order-appearances-and-add-a-25d-view)
+as bounded movement/presentation work within this product order. Fix ordinary
+scaled behavior and cart order through their current owners; the optional
+3D view follows the shared sampling boundary and does not block those fixes.
+
 Current source may be ahead of these dated ordering decisions. Do not treat
 old measurements as an obligation to redo completed work. Detailed
 architecture proposals in
@@ -113,6 +121,17 @@ within the product order above. The anchor, role and interaction follow-up
 below reviews production source `b91b29d35935`. The implementation follow-up
 at `3ed50e318392` keeps the CW1, CW2 and Effects 6a receipts and identifies
 the remaining authority boundaries below. It reports no new runtime result.
+The follow-up at `f41218979625` supplies the missing cutscene playback
+occurrence for SS7/SS8. The SDK publication completion is selected in
+[I2/I3](#i2i3--finish-independent-content-authoring-and-safe-reload).
+The further review of that same production source adds A7 item recipes and
+native continuity, O6 merchant subject/verdict completion, and native module
+room-time completion under SIMULATION-ISLANDS. These are planning changes;
+they do not claim newer engine source or runtime results.
+The 2026-11-22 review of the same source adds AC1/AC2 native action completion
+and cancellation, and CR1/CR2 combat reception and limb injury. Preserve the
+earlier implementation receipts; these packets address composition cases
+those receipts did not prove.
 
 **Observed:** schema values can lower before their imports resolve; body and
 candidate contexts collect optional domain catalogs; several live-contribution
@@ -179,17 +198,28 @@ world-post admission.
    mapped endpoints, then bind sampled named points to their admitted rig.
    Keep mount, capture and custody laws separate. (A1 landed 2026-11-22:
    `root_placing` plus each owner's own map; the saddle's combined offset and
-   capture's private conversion are gone. A2's capture slice landed too: a named hold point is
+   capture's private conversion are gone. A2's capture slice landed too: a
+   named hold point is
    bound by name, rebinds on a reordered rig, and ends the hold when the rig
    loses it.)
-6. [Story SS7/SS8](engine/story-sequences.md) binds occurrence roles across
-   commands and conditions, using Creator dialogue and intro choreography.
-   It replaces the blanket skip-all-commands promise with domain settlement
-   for the scene's actual required outcomes. No universal sequencer.
-   (Landed 2026-11-21: roles in conversations, the brute and doorway
-   scenes; a skip keeps the cursor and its `WaitFor`s, and the brute scene
-   waits on the bomb's impact, `actor.throw_landed`. A required result's own
-   failure policy waits for a scene that needs one.)
+6. [Story SS7/SS8](engine/story-sequences.md#own-each-admitted-playback-before-binding-its-roles)
+   first gives each admitted cutscene run an owner occurrence. A request
+   follows that run's transitions; it cannot start from the presence of an
+   earlier run or remain pending through a later one. Preserve waiting-only
+   trigger coalescing, seen policy and independent room rewind. Bind roles
+   and per-beat answers to that same occurrence, then settle required
+   gameplay after skip, replacing the blanket skip-all-commands promise with
+   domain settlement for the scene's actual required outcomes. Use Creator
+   dialogue and intro choreography for roles and settlement. No universal
+   sequencer. (Landed 2026-11-21: roles in conversations, the brute and
+   doorway scenes; a skip keeps the cursor and its `WaitFor`s, and the brute
+   scene waits on the bomb's impact, `actor.throw_landed`. A required
+   result's own failure policy waits for a scene that needs one.)
+   [O6a/O6b](engine/authored-gameplay-logic-and-orchestration.md#o6--bind-invocation-roles-through-the-existing-call-boundary)
+   adds the existing merchant as an independent first context customer:
+   wallet questions and purchase requests select the same payer policy.
+   Preserve three verdicts through supported Yarn gameplay gates; an
+   unanswered condition must not become an answered negative.
 7. [Interaction I1/I2](engine/interaction-opportunities-and-activation.md#bounded-delivery)
    moves availability/selection below the prompt and shares one attempt
    across competing contextual consumers. Preserve gesture provenance,
@@ -201,15 +231,37 @@ world-post admission.
    door act on the selected target, revalidated at their own cuts. The
    mount followed: it boards or leaves only what is selected
    (`MountPresses`). The portal toggle's outcome correlation remains.)
+8. [Native completion AC1/AC2](engine/native-action-completion.md) reuses the
+   actual construction receipt for summon identity and initialization, and
+   separates cancellation identity from pending-work capacity. Check the
+   existing unsupported limbed-summon refusal before allocation. Delete ID
+   prediction, next-tick existence polling and post-commit identity scans.
+   These packets can ship independently of the earlier composition work.
+   [Combat CR1](engine/combat-reception-and-injury.md#cr1--finalize-one-native-hit-outcome)
+   finalizes reception, connect and actual reaction from one captured
+   operation, including damaging boss and lethal home-body hits. Then
+   [CR2](engine/combat-reception-and-injury.md#cr2--route-limb-injury-without-an-hp-mailbox)
+   replaces GNU's missing-HP transfer with one optional surface-to-recipient
+   relation. Keep one injury per opening, explicit injury cap, distinct clash
+   acceptance and the stated same-cut timing change. No general damage graph.
 
 **Acceptance:** a selected domain fact has one binder; independent holds and
 poses retire separately; another room cannot act on a world cause that can
 still disappear; a rejected mechanical candidate leaves the active selection
 and pinned product versions intact; a narrow authoring consumer excludes its
 native adapter. Two anchor spaces align without merging relation laws;
-authored commands and waits keep their selected participants; skipping does
+play requests follow only their admitted run; authored commands and waits
+keep their selected participants; skipping does
 not equate a queued request with its completed gameplay outcome; removing
 the prompt does not change the same installed interaction domains' rules.
+The merchant's offer and action use the same subject policy and item-domain
+exchange law. A required unanswered question cannot authorize its negative
+gameplay arm.
+Mixed summons report the exact created body, and a full pending mailbox can
+still cancel admitted work. A hit's native reception and move confirm agree
+without inventing a physical reaction. GNU's fist impact retains its striker
+and recipient policy without spending/healing fictitious limb HP or giving
+two confirms for one strike.
 State which axis each packet proves. Code, runtime behavior
 and compile-time performance remain separate evidence.
 
@@ -221,10 +273,16 @@ order above. This selects bounded work; it reports no new runtime measurement.
 **Failure / customer:** one projectile leg prepares equivalent source cells
 twice; ordinary animation evaluates immutable clip facts during presentation;
 addressed behavior repeats static joins and population scans; navigation
-discards an arrival position that its own cost law still reads.
+discards an arrival position that its own cost law still reads. The follow-up
+at `f41218979625` also finds that graph probes turn a physical world size
+into canonical geometry and lose material scale, while the two consumers
+disagree about stance.
+The further review of that source finds another invalidation error: one live
+item's position change copies the global occurrence map and rebuilds dormant
+recipe/save data that did not change.
 
 **Owner:** [execution specialization and work selection](engine/execution-specialization-and-work-selection.md)
-links E1–E5 to their existing domain owners. Portal implementation remains
+links E1–E6 to their existing domain owners. Portal implementation remains
 under [PORTAL-SIMILARITY](#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 
 **Next action:** the duplicate projectile source preparation is removed
@@ -241,7 +299,23 @@ walk), and the advisor measures a body's motion once across rooms
 (`NavMotion`, 2026-11-22). The graph cache pins the graphs demanded each
 tick, and a surface's reach is searched once and kept (2026-11-22). Next:
 anchor-lifted route state (fixed edge costs, reusable destination queries)
-and motion reuse in the seat autopilot.
+and motion reuse in the seat autopilot. The newly selected
+[scale law](engine/scale-relative-gameplay.md) also changes canonical
+gravity response. E4 retains material and the complete resolved frame;
+navigation must not create its own gravity multiplier or preserve the old
+controls-only product policy.
+
+[E6 / IR1–IR4](engine/item-recipes-and-live-continuity.md) first retains the
+physical recipe chosen at mint, then removes the live → save → live recipe
+loop. Keep current pose in the body and capture domain placement at accepted
+retirement/checkpoint/save cuts. Move every native reader before removing the
+mirror. Count whole-map copies, baseline/hash work and export rows while one
+item moves beside increasing dormant populations. The correctness packet IR1
+can land independently of the later storage change.
+IR4 then coalesces pose-only disk output at a finite interval. Prompt semantic
+writes, confirmation, save-owner identity and checkpoint retention remain
+explicit. Measure with persistence enabled; current autosave can otherwise
+rewrite the whole file on each confirmed moving frame.
 
 The follow-up [data-structure packets K1–K3](engine/data-structure-kernels.md#delivery-and-deletion-criteria)
 make bounds queries and strict unique lookup independent optimization targets
@@ -392,13 +466,22 @@ slices 1 to 4 and the decisions.
 
 **Measured 2026-11-10 (ISL-2e):** a hosted world that predicts its guest and rewinds only his room on a late input ends where an on-time run ends, at 9.4–16.3 ms of host update a frame (the late-applying host: 8.4–9.9; each GGRS peer: 33–48) ([result](engine/island-rollback-and-compact-peer-input.md#isl-2e-measured-2026-11-10-what-room-level-rollback-costs-a-hosted-world)).
 
-**Done 2026-11-14 ([result](engine/island-rollback-and-compact-peer-input.md#the-room-rollback-host-in-production-2026-11-14)):** the room rollback host is production code (`ambition_hosted_world::room_rollback`, `RewindsGuestRooms`, on in the visible app's `--host-world`): guest input stamped with the host tick, per-seat input history and prediction, a save of each guest-only room every tick, and on a late input that differs a rewind of that room alone (clock, channels, ISL-2d retraction, other rooms hidden) with a replay to now. In the witness, 26 rewinds over 150 frames of late input end where the on-time run ends, body for body. Done 2026-11-14: a rewind in a room the host's player shares (`a_guests_late_input_rewinds_a_room_the_host_shares`): the host seat replays what its devices gave each tick, and the impact freeze is saved with the clock; Alice fighting Bob ends exactly where the on-time run ends. Done 2026-11-14: a replay presents nothing (its sounds, visuals and shakes were presented when the ticks first ran; measured 21 sounds and 28 visuals against 14 and 16 on time before, equal after). Channel handling now preserves pending live work through a separate replay stream (2026-11-16, `74e86f475`). Done 2026-11-14: a guest's late crossing joins the live room (a replay publishes a boundary with its ticks unconfirmed, the eager crossing path honours it, and no room is rewound while a crossing is recorded or loading); before, it built a second hub. Done 2026-11-17 ([result](engine/island-rollback-and-compact-peer-input.md), the paragraph "Every writer in the rewinding schedule is classified"): every resource writer in the rewinding schedule is classified, with the census (`check_sim_schedule_resource_writers_are_room_classified.py`) at 0 and its ceiling at 0. On the way: gate phases, portal frames, hits, gestures, switch presses, flags, provocations and possession rewind with their room; checkpoint commits and the gate network are live-only; no replay spans a live checkpoint or lifecycle intent; and no room replays alone during a match. Measured 2026-11-18 ([result](engine/island-rollback-and-compact-peer-input.md#a-rewinds-cost-on-a-release-build-over-a-real-link-2026-11-18)): on a release build over UDP through a delaying relay, a rewind costs about 2–2.6 ms plus 1.7–2.4 ms a replayed tick; at a 100 ms round trip (about 7 ticks a rewind) a rewind frame costs 19–22 ms mean, over the 60 Hz budget, against 3.5–4.2 ms without one. Done 2026-11-18 ([result](engine/island-rollback-and-compact-peer-input.md#run-ahead-a-guests-input-arrives-before-its-tick-2026-11-18)): NA-3 run-ahead: the host reports how early each guest's inputs arrive (`InputMargin`) and the guest leads its stamps so they arrive a tick early; over the same link the rewinds fall from about 84 to 3 or 4 in 600 frames at every delay, with the lead settling at 3, 5 and 9 ticks for 0, 25 and 50 ms each way. Done 2026-11-18 ([result](engine/island-rollback-and-compact-peer-input.md#the-live-confirmed-frame-boundary-on-a-hosted-host-2026-11-18)): a host that rewinds guest rooms publishes the confirmed-frame boundary every live tick (a tick is confirmed once each guest's input stamped after it has arrived), so the confirmed-frame observers act only on ticks no late input can replay; no rewind in the late-input witnesses replays a confirmed tick. Done 2026-11-19 ([result](engine/hosted-world-networking-experiment.md#a-guest-that-predicts-its-own-body-2026-11-19)): a guest that predicts its own body in production (`PredictsOwnBody`, `--predict-own-body`). Its own tick is its input's stamp. It saves its room each tick, and when the host's row of its body (dated by `RowTick`) differs from its prediction for that tick, it restores the room and replays (the host's `replay_room`). With 3 frames each way Bob turns on the guest's own frame against 8–9 frames for a sleeping guest. While nothing touches him, 150 of 150 rows agree. Alice's strikes are corrected by replay (42 corrections), and the run ends equal to the host. **Done 2026-11-20:** the last couplings (one conversation and one cutscene per world), in the slices N1–N4 of the [narrative plan](engine/island-rollback-and-compact-peer-input.md#narrative-per-room-the-plan-2026-11-20): one live conversation per seat, logged and rewound per room, each on its own Yarn runner and drawn in its own seat's box; one cutscene per room. **Projectile ids, resolved by reading 2026-11-20:** a shot's identity is `SimId::spawned(owner, owner's SimIdCounter)` (`mint_spawned_sim_ids`), one stream per spawner. The global `ProjectileSeqCounter` is only the total order that minting and the projectile step sort by. A room replay mints the window's shots after every shot the save kept, in their original relative order, so the room's order and its shots' ids are those of the on-time run. ISL-2c's witness (Alice's shots in the rewound window end where they did) is the replay case. No per-room sequence is needed. Meanwhile: ISL-2c (the hit on an NPC is done: `a_rewound_room_hurts_its_enemy_again`; an NPC life's ledger writes are done 2026-11-11: the rows mirror the rewound life, and the bookings a room's bodies add are taken back by its rewind); ISL-1b's couplings are done, each with a witness that an event in one room leaves the other unchanged (2026-11-11: bullet time slows Player 1's room only; a room's impact hold and clock scale rewind with it on its root's `RoomPace`; a room's rewind puts back its conversation, `ConversationsInRooms`, and its cutscene, `CutscenesInRooms`; a room's cutscene holds only its own room's players and dates its flags in its room; a conversation's grants and sales are its seat's, paid from that body's wallet and dated in its room). Since N3 and N4, conversations run one per seat and cutscenes one per room. Nothing else is open on the clocks: a module entry's `dt` follows its scope's room (2026-11-11, `ScopePace`), and the match clock, banners, room transitions and passages and the gate network stay on the shared pace by ruling (each is the session's, presentation, or spans two rooms). The fight's own clocks (strike windows, cooldowns, fuses) and, since 2026-11-11, the body-local and room-local ones follow the room through `RoomFreeze` (`ambition_platformer2d_shared_tangle::lifecycle`): items, platforms, breakables, mounts, mana, pets, captures, hazards, death interludes, boss phases, encounter waves and scripts, trails, and a room's cutscene.
+**Done 2026-11-14 ([result](engine/island-rollback-and-compact-peer-input.md#the-room-rollback-host-in-production-2026-11-14)):** the room rollback host is production code (`ambition_hosted_world::room_rollback`, `RewindsGuestRooms`, on in the visible app's `--host-world`): guest input stamped with the host tick, per-seat input history and prediction, a save of each guest-only room every tick, and on a late input that differs a rewind of that room alone (clock, channels, ISL-2d retraction, other rooms hidden) with a replay to now. In the witness, 26 rewinds over 150 frames of late input end where the on-time run ends, body for body. Done 2026-11-14: a rewind in a room the host's player shares (`a_guests_late_input_rewinds_a_room_the_host_shares`): the host seat replays what its devices gave each tick, and the impact freeze is saved with the clock; Alice fighting Bob ends exactly where the on-time run ends. Done 2026-11-14: a replay presents nothing (its sounds, visuals and shakes were presented when the ticks first ran; measured 21 sounds and 28 visuals against 14 and 16 on time before, equal after). Channel handling now preserves pending live work through a separate replay stream (2026-11-16, `74e86f475`). Done 2026-11-14: a guest's late crossing joins the live room (a replay publishes a boundary with its ticks unconfirmed, the eager crossing path honours it, and no room is rewound while a crossing is recorded or loading); before, it built a second hub. Done 2026-11-17 ([result](engine/island-rollback-and-compact-peer-input.md), the paragraph "Every writer in the rewinding schedule is classified"): every resource writer in the rewinding schedule is classified, with the census (`check_sim_schedule_resource_writers_are_room_classified.py`) at 0 and its ceiling at 0. On the way: gate phases, portal frames, hits, gestures, switch presses, flags, provocations and possession rewind with their room; checkpoint commits and the gate network are live-only; no replay spans a live checkpoint or lifecycle intent; and no room replays alone during a match. Measured 2026-11-18 ([result](engine/island-rollback-and-compact-peer-input.md#a-rewinds-cost-on-a-release-build-over-a-real-link-2026-11-18)): on a release build over UDP through a delaying relay, a rewind costs about 2–2.6 ms plus 1.7–2.4 ms a replayed tick; at a 100 ms round trip (about 7 ticks a rewind) a rewind frame costs 19–22 ms mean, over the 60 Hz budget, against 3.5–4.2 ms without one. Done 2026-11-18 ([result](engine/island-rollback-and-compact-peer-input.md#run-ahead-a-guests-input-arrives-before-its-tick-2026-11-18)): NA-3 run-ahead: the host reports how early each guest's inputs arrive (`InputMargin`) and the guest leads its stamps so they arrive a tick early; over the same link the rewinds fall from about 84 to 3 or 4 in 600 frames at every delay, with the lead settling at 3, 5 and 9 ticks for 0, 25 and 50 ms each way. Done 2026-11-18 ([result](engine/island-rollback-and-compact-peer-input.md#the-live-confirmed-frame-boundary-on-a-hosted-host-2026-11-18)): a host that rewinds guest rooms publishes the confirmed-frame boundary every live tick (a tick is confirmed once each guest's input stamped after it has arrived), so the confirmed-frame observers act only on ticks no late input can replay; no rewind in the late-input witnesses replays a confirmed tick. Done 2026-11-19 ([result](engine/hosted-world-networking-experiment.md#a-guest-that-predicts-its-own-body-2026-11-19)): a guest that predicts its own body in production (`PredictsOwnBody`, `--predict-own-body`). Its own tick is its input's stamp. It saves its room each tick, and when the host's row of its body (dated by `RowTick`) differs from its prediction for that tick, it restores the room and replays (the host's `replay_room`). With 3 frames each way Bob turns on the guest's own frame against 8–9 frames for a sleeping guest. While nothing touches him, 150 of 150 rows agree. Alice's strikes are corrected by replay (42 corrections), and the run ends equal to the host. **Done 2026-11-20:** the then-selected narrative couplings (one conversation and one cutscene per world), in the slices N1–N4 of the [narrative plan](engine/island-rollback-and-compact-peer-input.md#narrative-per-room-the-plan-2026-11-20): one live conversation per seat, logged and rewound per room, each on its own Yarn runner and drawn in its own seat's box; one cutscene per room. **Projectile ids, resolved by reading 2026-11-20:** a shot's identity is `SimId::spawned(owner, owner's SimIdCounter)` (`mint_spawned_sim_ids`), one stream per spawner. The global `ProjectileSeqCounter` is only the total order that minting and the projectile step sort by. A room replay mints the window's shots after every shot the save kept, in their original relative order, so the room's order and its shots' ids are those of the on-time run. ISL-2c's witness (Alice's shots in the rewound window end where they did) is the replay case. No per-room sequence is needed. Meanwhile: ISL-2c (the hit on an NPC is done: `a_rewound_room_hurts_its_enemy_again`; an NPC life's ledger writes are done 2026-11-11: the rows mirror the rewound life, and the bookings a room's bodies add are taken back by its rewind); the previously enumerated ISL-1b couplings have receipts, each with a witness that an event in one room leaves the other unchanged (2026-11-11: bullet time slows Player 1's room only; a room's impact hold and clock scale rewind with it on its root's `RoomPace`; a room's rewind puts back its conversation, `ConversationsInRooms`, and its cutscene, `CutscenesInRooms`; a room's cutscene holds only its own room's players and dates its flags in its room; a conversation's grants and sales are its seat's, paid from that body's wallet and dated in its room). Since N3 and N4, conversations run one per seat and cutscenes one per room. The earlier invocation-clock receipt is narrower than the native module completion below: a module entry's `dt` follows its scope's room (2026-11-11, `ScopePace`), and the match clock, banners, room transitions and passages and the gate network stay on the shared pace by ruling (each is the session's, presentation, or spans two rooms). The fight's own clocks (strike windows, cooldowns, fuses) and, since 2026-11-11, the body-local and room-local ones follow the room through `RoomFreeze` (`ambition_platformer2d_shared_tangle::lifecycle`): items, platforms, breakables, mounts, mana, pets, captures, hazards, death interludes, boss phases, encounter waves and scripts, trails, and a room's cutscene.
 
 **Review fixes, 2026-11-16:** `74e86f475` preserves other rooms' saved history, message buffers and reader positions, and suspends foreign conversation and cutscene work. The six production host tests include two guest rooms with late inputs, pending heals, active or queued narrative work, and seat reuse. `dc98fbc71` separates input sample order from tick estimates, merges button edges within a tick, bounds timestamps, clears retired-seat history, and allocates seats from the session roster with retry. The [room replay contract](../systems/room-replay.md) defines state ownership.
 
 **Narrative per room ([plan](engine/island-rollback-and-compact-peer-input.md#narrative-per-room-the-plan-2026-11-20)):** N1 (2026-11-20) keys live conversations by seat and body; N2 (2026-11-20) gives each live conversation its own Yarn runner on a shared variable store, its commands naming their own conversation. N3 (2026-11-20) draws a dialogue box per seat over its own view and lifts the refusal of a second seat's talk; N4 (2026-11-20) plays a cutscene per room, each on its own seat, pace, hold, rewind and view. The narrative plan is done.
 
 **Acceptance:** per the owner's ISL-2–ISL-4 acceptance, with every step's cost measured against the App-wide baseline; Smash keeps its single rollback domain.
+
+**Native module-clock completion, open at `f41218979625`:**
+[ISL-1b](engine/island-rollback-and-compact-peer-input.md#isl-1b-completion--one-room-step-for-module-owned-work)
+uses the module entity's room step for native age/lifetime, positive-step Tick
+eligibility and pull integration. The host's `ScopePace` already covers the
+script side. Use Sentry/Vortex through the actual two-room schedule, including
+hold/resume and rewind. Preserve discrete zero-dt operations, one-room
+slowdown and the existing session/presentation clock policies. This is a
+bounded completion of the clock contract, not a new time framework.
 
 ### RADIANT-NPC-HTN — authored NPC lives and replaceable planning — ✅ DONE 2026-11-17
 
@@ -2726,17 +2809,19 @@ is run after it.
 
 ### I2/I3 — finish independent content authoring and safe reload
 
-**Owner:** [extension model](engine/extension-model.md) and
-[fast iteration implementation](engine/fast-iteration-implementation.md).
+**Owner:** [extension model](engine/extension-model.md),
+[fast iteration implementation](engine/fast-iteration-implementation.md), and
+the [SDK publication cut](engine/content-generation-and-reload.md#sdkdemo-publication--admit-owner-products-before-selection).
 
-**Built:** app-scoped pack selection; admitted generation publication;
+**Built in main Ambition:** app-scoped pack selection; admitted generation publication;
 no-op/stale/superseded edit handling; reload for moves, characters, audio,
 cutscenes and quests; native/WASM procedural modules; `actor_think` S1-S3;
 held traversal modules; and the `body_contact` extension route. Do not
 re-enqueue the old missing-reload-family list or repeat the completed brain
-migration.
+migration. The SDK/demo path retains old generation readers, but still has
+process-wide selection and callbacks that can refuse after selecting a pack.
 
-**Next action:** the named `body_contact` customers are done (2026-11-19).
+**Contact customer receipt:** the named `body_contact` customers are done (2026-11-19).
 The Sanic badnik's contact is a module, and its toucher roll and
 contact-harm facts are asked of their owners through
 `sanic.contact.touchers`. The Mary-O snake shell is a module that keeps its
@@ -2745,9 +2830,24 @@ the new `body_contact` requests. The plant is a brain
 and pose customer, not a contact rule. Recheck which customers are still native
 before migrating them.
 
-**Acceptance:** authored changes publish exactly once at an admitted
-generation; stale generations are refused; these customers run through their
-supported module road without a native duplicate or second source of truth.
+**Next action (source `f41218979625`, 2026-11-21):** complete SDK/demo P5
+step 4 cut 2 at the owner above. A valid pack can fail App audio/cast
+composition after its rules are already selected and still report published.
+Prepare each owner product once from all of its changed input schemas;
+admit all affected values before changing selection. Extract private cast
+preparation, then publish products and App-local selection under the existing
+boundary. Bind rules at operation boundaries, without World lookups in every
+leaf helper. This selects the concrete SDK coherence defect, not all open
+migrations in the older runtime-authoring audit.
+
+**Acceptance:** a foreign-audio collision plus a rules edit leaves the old
+pack and all affected products selected, with one refusal and no published
+count. Multi-schema audio/cast edits prepare each product once. Same-frame
+watchers retain each other's accepted provider rows. Two Apps with one
+embedded source keep independent selections and timelines. Existing local
+rebase, remote generation and retained-reader rules continue; no new
+live-session restatement policy is implied. The completed module customers
+keep their supported road without a native duplicate.
 
 ### A7 — make item occurrence authority explicit where it carries a real invariant
 
@@ -2794,9 +2894,27 @@ Death drops already share one road (`spawn_death_drop`); reward policy only
 reads outcomes (pickup grant source, chest rewards). One asymmetry is recorded:
 match items have identity and no provenance.
 
-**Next implementation:** centralize only the occurrence decisions that share an
-actual invariant (identity, custody, provenance, rollback ownership). Do not add a
-generic request bus merely to reduce writer count.
+**Next implementation, source follow-up at `f41218979625`:**
+
+1. [IR1](engine/item-recipes-and-live-continuity.md#ir1--retain-the-recipe-chosen-at-mint)
+   retains the actual physical recipe at mint and makes both reconstruction
+   roads consume it. Current 32 × 32 weapon drops and 14 × 11 regrown
+   coconuts rebuild at 36 × 36 because the description lost their extent.
+2. IR2 moves dormant recipe readers off the save codec. IR3 keeps active
+   pose in the live body, captures retained state at accepted boundaries and
+   removes motion-driven dormant work. Preserve the atomic horizon receipt
+   below, existing room rewind and domain placement conventions. E6 owns
+   the cost evidence; there is no measured speedup yet.
+   IR4 separately reduces pose-only output frequency. It preserves prompt
+   semantic writes and adds the required graceful switch/quit capture.
+3. [A7 exchange](engine/item-custody-and-accounting.md#a7-exchange--one-rule-for-an-offer-and-its-accepted-exchange)
+   makes shop offer checks and accepted exchanges share the existing pure
+   `InventoryExchange` law. Pair it with O6a's actual payer. Keep narrative
+   and procedural history retention separate and preserve CW2's open causal
+   work. This slice can proceed independently of IR2/IR3.
+
+Centralize only a real invariant. The recipe does not require moving all
+minting sites behind a generic request bus.
 
 **Acceptance:** reward policy consumes accepted occurrence outcomes and cannot
 become an alternative minting authority; every remaining occurrence creator has
@@ -2830,8 +2948,10 @@ otherwise and is corrected.
 named a custody row held over a spent chest and a mint with no minted row,
 and exited 1. A live-world view is not built.
 
-The owner page's open-work rows are all done or decided; A7's acceptance
-held by read above.
+The earlier A7 acceptance held by read above. It did not establish recipe
+sufficiency, moving-world cost or agreement between shop and native exchange
+laws. Those follow-ups are open; the earlier horizon and custody receipts
+remain in force.
 
 ### BRAIN — finish truthful fighter attack selection
 
@@ -2987,6 +3107,11 @@ static contact-velocity reconstruction and the AABB snag authority after the
 accepted motion contract is in place. P5/P6 complete observer identity,
 chart transport and demand/ready-image capture without replacing working pools.
 
+The follow-up [SCALE-FEEL](#scale-feel--the-same-body-behavior-at-a-different-scale)
+supplies the selected consumer-unit law; [PRESENTATION-COMPOSITION](#presentation-composition--order-appearances-and-add-a-25d-view)
+supplies local appearance order and a later 3D rendering consumer. Keep P2/P3
+time/contact and P5/P6 observer/capture authority here.
+
 **Acceptance:** the accepted operation binds its actual scope, topology/time
 selection, restrictions, path and final state; later readers do not infer a
 different operation. Existing unequal-aperture, material/parity, multi-limb,
@@ -2999,6 +3124,67 @@ Retiring a held lease on ordinary room travel is current lifecycle work; it
 does not require cross-island live portals. Preserve the authored lab and
 current boss/common-body work. The older static kernel continuation receipt
 is not evidence of moving-map residual time or completed multi-view support.
+
+### SCALE-FEEL — the same body behavior at a different scale
+
+**State:** PLANNED, maintainer-selected 2026-11-21; source `f41218979625`.
+
+**Failure / customer:** canonical controls scale but ordinary body gravity
+does not, changing jump time and relative height. Fixed contact bands,
+self-motion events, projectile/item gravity and relation anchors also have
+incomplete unit ownership. The current half-scale portal customer must keep
+normal action timing at its new size. This is source analysis, not a new
+runtime reproduction.
+
+**Owner:** [scale-relative gameplay](engine/scale-relative-gameplay.md).
+SR1–SR3 use the existing frame, movement, combat, item and relation owners.
+P2/P3 keep portal time/contact authority; E4 keeps the standing experiment.
+
+**Next action:** SR1 converts canonical gravity response at the shared frame
+resolver and brings runtime/probe inputs into agreement. The kernel consumes
+the resolved world frame unchanged. SR2 classifies support/ledge/crawler
+bands and destination-relative exit assistance. SR3 completes the listed
+action, splash, free-mover and relation consumers. Keep authored mass and
+damage policies; do not scale every world vector or add another solver.
+
+**Acceptance:** equivalent scenes at `0.5`, `1` and `2` retain normalized
+nonzero motion and action timing. Use the real frame writer, a near-boundary
+contact, source/victim combat units and actual relation/crossing witnesses.
+A fixed world field/platform keeps its own meaning when only the actor
+scales. Preserve canonical tuning, numeric refusal and the identity fast
+path. A gravity-only repair does not close the whole packet.
+
+### PRESENTATION-COMPOSITION — order appearances and add a 2.5D view
+
+**State:** PLANNED, maintainer-selected 2026-11-21; source `f41218979625`.
+
+**Failure / customer:** Scout must appear behind the cart panel inside and
+in front outside. Current seating writes root z 14.45 behind panel 14.5,
+while a hit flash adds 1.5 and a wielded item uses player z. Equal-root rig
+parts can interleave. Numeric z also controls portal carry eligibility.
+The future 2.5D consumer must coexist with current 2D authoring/rendering.
+These are source deductions; no new image or device measurement was made.
+
+**Owner:** [presentation order and optional 2.5D rendering](engine/presentation-order-and-25d-rendering.md).
+PVS-2 retains visual sampling; portal P5/P6 retains projection/capture.
+
+**Next action:** PO1 gives the cart an ordered interior slot and places the
+whole body appearance, held art and applicable effects through one exact
+owner/room relation. Resolve placement before drawable writers. PO2 extends
+that authority to common consumers and removes numeric-z classification as
+those consumers migrate. RV1 extracts a complete shared sample before sprite
+materialization and isolates each view's camera. RV2 draws one orthographic
+3D card/cart-mesh view beside 2D; RV3 integrates portals and required effects
+before general rollout. Keep 2D the default and 3D optional.
+
+**Acceptance:** actual parts, flash and held art order correctly inside,
+jumping within and outside the cart; overlapping appearances, two carts and
+same-named actors in two rooms retain exact ownership. Prepared local order
+and bounded changed-instance checks avoid an all-room relation solve. Either,
+both or no renderer leaves simulation unchanged; equal requested samples
+have equal meaning without forcing headless sampling. Inspect both views in
+one real window. A no-portal pilot cannot claim full portal support. Measure
+sample reuse, draws, CPU/GPU work and retained bytes before claiming savings.
 
 ### PORTAL-STRUCTURAL-FX — sprite and particle effects ignore the panes (done)
 

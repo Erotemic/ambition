@@ -231,8 +231,12 @@ Use the same checked contact witness for approach eligibility, impact speed,
 surface carry and response. Unit directions, normals and carried vectors
 retain their own transformation laws; drift is not added to a direction.
 
-World gravity and world-authored fields stay in world units. Body-carried
-acceleration follows material. Preserve each movement owner's declared
+World-selected gravity direction and explicit world fields retain their
+meaning. The [scale-relative gameplay contract](scale-relative-gameplay.md)
+converts canonical body gravity response once before publishing a resolved
+world frame. Body-carried acceleration is converted at creation or chart
+transfer, not multiplied by cumulative scale on each read. Preserve each
+movement owner's declared
 integration law: the current projectile age and force kick happen once per
 tick. A leg loop must not apply the full force kick, timers or ability ticks
 again. If a policy samples forces between legs, it states those sample cuts

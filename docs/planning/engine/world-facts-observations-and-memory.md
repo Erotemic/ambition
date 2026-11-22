@@ -26,7 +26,7 @@ encounters, bosses, quests, dialogue visits, checkpoint, inventory-saved), not a
 key-value map. Its fields are `pub(crate)` behind readers and named setters, so
 no other crate writes a durable fact by assignment. Paired setters keep one
 fact whole: `set_inventory` also sets `inventory_saved`, and
-`set_durable_horizon` writes occurrences with custody.
+`set_durable_horizon` writes occurrences, custody and minted descriptions.
 `scripts/measure/durable_fact_writers.py` lists who writes each family.
 
 Authored rules read facts through the condition catalog. Each domain publishes
@@ -38,10 +38,10 @@ its own conditions beside the systems that write the fact:
 | `boss.cleared` | the save (keyed by authored encounter id) | `ambition_boss_encounter` |
 | `encounter.cleared` | the save | `ambition_encounter_features` |
 | `quest.active` | the save | `game/ambition_content` (the game publishes it) |
-| `inventory.holds` | live ECS | `actor_monolith/items` |
+| `inventory.holds` | live ECS | `ambition_platformer2d_items/conditions.rs` |
 | `custody.is_held` | live ECS | `ambition_held_items` |
-| `wallet.can_afford` | live `BodyWallet` | `actor_monolith/items/wallet_conditions.rs` |
-| `body.can`, `body.fits` | live ECS | `actor_monolith/body_conditions.rs` |
+| `wallet.can_afford` | live `BodyWallet` | `ambition_platformer2d_items/wallet_conditions.rs` |
+| `body.can`, `body.fits` | live ECS | `ambition_abilities/body_conditions.rs` |
 
 The save is the durable mirror of the rule-readable surface, not the surface
 itself. A rule asking "does the player hold X" wants the live hand. The facts
@@ -52,6 +52,22 @@ conditions read.
 `wallet.can_afford` reads the price through `ambition_items::shop::authored_price`,
 the same reading `<<buy_item>>` uses, so a price the guard refuses is a price the
 transaction refuses. A no-wallet composition answers `Unanswerable`, not `false`.
+
+**Open correction at `f41218979625`:** sharing the price parser does not bind
+the same purse. The condition and `wallet_balance()` still read the primary
+body; a live merchant command charges its conversation's input-owner body.
+[O6a](authored-gameplay-logic-and-orchestration.md#o6a--bind-the-merchants-question-and-action-to-the-same-subject)
+uses the existing subject evaluator and retains source attribution. World
+questions remain global; a missing required subject must not select a
+different body. A shop offer also needs the
+[item owner's exchange decision](item-custody-and-accounting.md#a7-exchange--one-rule-for-an-offer-and-its-accepted-exchange),
+which includes stack capacity and exact payout.
+
+The native third verdict must survive its consumer.
+[O6b](authored-gameplay-logic-and-orchestration.md#o6b--preserve-an-unanswered-question-through-the-dialogue-decision)
+corrects the Yarn adapter's Boolean collapse. `Unanswerable` cannot authorize
+a negative gameplay arm through `not` or a catch-all `else`. This is missing
+domain/subject evidence, not character belief or a new world-fact family.
 
 `dialog_visits`, `checkpoint`, `minted_items` and `inventory_saved` publish no
 condition. Do not publish one per field: `inventory_saved` and `minted_items`

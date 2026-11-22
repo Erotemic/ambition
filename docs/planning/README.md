@@ -160,6 +160,9 @@ links to.
 
 - [`engine/addressed-behavior-inbox.md`](engine/addressed-behavior-inbox.md) —
   shared delivery and the remaining subscription, signal and transaction contracts.
+- [`engine/native-action-completion.md`](engine/native-action-completion.md) —
+  native summon completion from construction receipts, and cancellation
+  without a spare pending-work slot.
 
 - [`engine/first-class-procedural-game-authoring.md`](engine/first-class-procedural-game-authoring.md) — completion contract for Rhai, WASM Rust, and linked Rust game modules.
 - [`engine/extension-model.md`](engine/extension-model.md) — the model and its
@@ -206,6 +209,9 @@ links to.
 - [`engine/character-authoring-package.md`](engine/character-authoring-package.md)
 - [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md)
   — occurrence, custody and entitlement.
+- [`engine/item-recipes-and-live-continuity.md`](engine/item-recipes-and-live-continuity.md)
+  — sufficient reconstruction recipes, one live pose owner, and durable
+  capture that does not rebuild dormant data on each motion tick (planned).
 - [`engine/participant-action-system.md`](engine/participant-action-system.md)
 - [`engine/interaction-opportunities-and-activation.md`](engine/interaction-opportunities-and-activation.md)
   — domain-owned opportunities, prompt projections and accepted gesture consumption.
@@ -215,6 +221,9 @@ links to.
 ### Engine: combat, movement and world
 
 - [`engine/combat-model.md`](engine/combat-model.md)
+- [`engine/combat-reception-and-injury.md`](engine/combat-reception-and-injury.md) —
+  one finalized hit outcome, and the distinct struck surface and health
+  recipient in GNU's limb injury.
 - [`engine/expressive-move-capabilities.md`](engine/expressive-move-capabilities.md)
 - [`engine/performer-up-b-the-wire.md`](engine/performer-up-b-the-wire.md) —
   built; feel is open.
@@ -228,6 +237,9 @@ links to.
 - [`engine/portal-parts-similarity-and-chirality.md`](engine/portal-parts-similarity-and-chirality.md)
   Portal delivery owner: exact material, admitted topology/motion, conservative
   query preparation and per-observer presentation; bounded P1–P6 work.
+- [`engine/scale-relative-gameplay.md`](engine/scale-relative-gameplay.md)
+  Same ordinary motion/action timing at different material scales; canonical
+  body units, resolved world frames, contacts and relation consumers.
 - [`engine/portal-pair-identity-and-aperture.md`](engine/portal-pair-identity-and-aperture.md)
   Directed occurrence, per-connection map law, atomic edits and scoped leases.
 - [`engine/portals-are-moving-frames.md`](engine/portals-are-moving-frames.md)
@@ -271,6 +283,9 @@ links to.
 
 - [`engine/render-animation-and-vfx.md`](engine/render-animation-and-vfx.md) —
   presentation ownership and body-owned drawables.
+- [`engine/presentation-order-and-25d-rendering.md`](engine/presentation-order-and-25d-rendering.md)
+  Cart interior slots and whole-appearance order; shared samples with
+  optional Bevy 3D cards/meshes beside current 2D views.
 - [`engine/sprite-renderer.md`](engine/sprite-renderer.md)
 - [`engine/external-art-library-migration.md`](engine/external-art-library-migration.md)
   — shared content libraries and explicit game selection.

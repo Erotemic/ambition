@@ -463,6 +463,16 @@ and coordinate space. Bind each reader's track selection when its request or
 program changes; retain independent reader leases. Separate world placement from
 local draws, so root motion does not rebuild an unchanged local part selection.
 
+The selected [2D/2.5D presentation work](presentation-order-and-25d-rendering.md)
+adds a second consumer of this sample. Extract it before the current driver's
+`Sprite`/`Anchor` and slot writes. Retain the baked alternative, full appearance
+and group-operation meaning, provenance and unavailable state. Share one
+interpretation and presentation clock/state for equal inputs; each concrete
+renderer owns its GPU resources and completion. Do not use the current
+`PartSetDraws` alone as the new contract: it contains placed 2D output, omits
+full tint/opacity and does not represent every baked-row result. No sample
+must be materialized when no view or other reader demands it.
+
 Simulation hurt geometry/attachments and interpolated or finished presentation
 can have different clocks and authorities. They may share immutable definitions
 and pure sampling functions. They must not share a result merely because its row

@@ -227,6 +227,12 @@ tested immediate-geometry policy replaces it.
 
 ## Contact admission, interception and damage are separate results
 
+The planned [CR1/CR2 outcome work](combat-reception-and-injury.md) retains
+this boundary. A routed limb hit keeps the real fist contact and its one
+flight disposition. The later native receiver can apply injury to a distinct
+scholar occurrence through a one-hop relation. It must not enqueue a second
+ordinary hit, repeat geometry selection, or give the attack two confirms.
+
 A direct contact fixes its recipient before damage. At contact time:
 
 1. Reject ineligible factions, dead/retired targets, intentional intangible

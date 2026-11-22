@@ -11,6 +11,8 @@ persistent occurrence behavior across residency and restore are built and
 guarded. The atomic durable-horizon write is done (2026-11-21). This page owns A7
 (separate item custody and accounting from lifecycle orchestration) in the
 [frontier](actor-monolith-work-frontier.md).
+The follow-up at `f41218979625` selects sufficient item recipes, native
+continuity, and one exchange rule for shops and procedural callers below.
 
 ## Scope
 
@@ -19,6 +21,8 @@ deliberate `Attack` press. That is `ambition_held_items`. The **touched** half
 (a `WorldItem` you walk into) is `ambition_world_items`; see
 `crates/ambition_world_items/MODULES.md`. Both are "items" and "pickups".
 `ItemPickupSet` belongs to the pressed half only.
+This page also owns the accounting boundary over stored quantities. A shop
+exchange does not, by itself, transfer a held physical occurrence.
 
 ## Goal
 
@@ -132,6 +136,7 @@ Found by every production `SpawnOrigin::Dynamic` site and every runtime
 | Authored placements | construction and publication (`AuthoredOccurrences`) | authored | `Authored` / `ProviderStaged` | the room's record is what rebuilds it |
 | Death drops (coin, heart, ability pickup, weapon parcel) | `ambition_platformer2d_items::loot::spawn_death_drop`, the one road all four drop sites call | anonymous, except the weapon (`SimId::death_drop`, derived from its parent) | `Dynamic { parent, sequence }` | a quantity drop is settled by `OwnedItems`; a weapon becomes a carried object, and every durable road that gives it back is keyed by `SimId` |
 | A thrown inventory item | `ambition_held_items::throw_held_item_system` | `SimId::spawned(thrower, counter)` | `Dynamic` | throwing turns a quantity into an instance, and an instance owes an identity; the edge of the open `ItemCustody` inventory leg |
+| A regrown authored item | `ambition_platformer2d_items::regrowth`, through `loot::grow_ground_item` | a child of the authored source and its growth sequence | `Dynamic` | the growth rule selects the source's physical recipe and creates a new occurrence; its canonical extent can differ from an inventory throw |
 | Match item spawns | `ambition_platformer2d_items::match_spawn::spawn_match_items` | `SimId::match_spawn(match ordinal, ordinal)` | none | the match's rules own the table; the identity is derived from terms two peers agree on, with no counter |
 | Sanic's scattered rings | `ambition_demo_sanic::scatter_rings_on_hit` | one `SimId` per ring | `Dynamic { parent: the player }` | the game's ring-loss rule: a quantity it turns into instances it can take back |
 | A summoned minion | `ambition_platformer2d_construction::summoned_minion_request` | spawned | `Dynamic` | an actor, not an item: construction owns it |
@@ -145,6 +150,13 @@ One asymmetry: match items carry an identity and no `SpawnOrigin`, so a
 provenance-keyed reader cannot see them. That is stated at the site as
 session-only (2026-11-21): they end with the match's session, and no
 checkpoint saves a match. Items are off in Smash by Jon's call.
+
+The original census did not establish that a retained mint description is
+sufficient. The [IR1 review](item-recipes-and-live-continuity.md#ir1--retain-the-recipe-chosen-at-mint)
+finds that a description loses the creator's canonical extent, and both
+restore roads substitute 36 × 36. Regrown coconuts and ordinary weapon drops
+provide different original sizes. Retain the recipe at its existing creator;
+do not centralize all creators merely to fix reconstruction.
 
 ## Invariants
 
@@ -208,7 +220,9 @@ Gaps the matrix shows:
   is equipped again from the grid (`ambition_platformer2d_items::persist`).
 - **A door crossing reads M from the save**, not from `MintedItemBaseline`,
   so re-entering a room that holds an unattended mint depends on the save
-  mirror (inferred from code, untested).
+  mirror (confirmed by the `f41218979625` source review; no new runtime run).
+  [IR2](item-recipes-and-live-continuity.md#ir2--read-native-item-continuity)
+  moves this reader and dormant-drop retraction to the native recipe owner.
 - **Durable restore has two roads**: the in-sim `DurableRestoreSet` chain and
   the candidate road (`CandidateDurableHorizon`), which leaves out
   `OwnedItemsBaseline` deliberately.
@@ -218,6 +232,10 @@ Gaps the matrix shows:
 | Item | Work | Acceptance |
 | --- | --- | --- |
 | Atomic durable horizon | **Done 2026-11-21.** `set_minted_items` is gone. `set_durable_horizon(occurrences, custody, minted)` writes all three and keeps a minted row only when its occurrence is among the rows. The item domain still owns what a minted row means (`MintedItemRows`, a system parameter in `minted_horizon.rs`); the session's `persist_occurrence_horizon_to_save` asks it for the rows and writes them in the same call, behind the same change key. Witness: `no_minted_row_names_an_occurrence_the_save_does_not_hold` (persistence) | One write; the guard becomes a property of the writer, not only a fixture test |
+| Sufficient mint recipe | **Planned IR1:** retain the physical recipe selected at creation and share it between room and custody reconstruction | A non-default-size occurrence preserves identity and canonical geometry through both restore roads |
+| Native recipe and continuity authority | **Planned IR2/IR3:** read typed recipes while entities are dormant; keep live pose in the body; capture at accepted boundaries | One moving item does not decode dormant recipes or rebuild their save rows each tick; checkpoint, exit and rewind retain their selected cuts |
+| Durable output selection | **Planned IR4:** preserve prompt semantic writes and coalesce pose-only writes with a finite persistence interval | Continuous movement does not trigger full-file output each frame; confirmation, save ownership and checkpoint policy stay intact |
+| Shop/native exchange | **Planned below:** one pure check and apply rule over the selected bag and wallet | Subject-bound offer checks and accepted operations share eligibility; exact payout and refusal leave no partial changes |
 | `durably_held` width | **Decided 2026-11-21: it stays the component.** It matches `ItemCustody`, so it holds items lying on the ground too. An `InCustody` row for such an item only reaches the file while the ledger says `InCustody`, and the item domain can rebuild both variants, so the width costs nothing a load cannot answer. Narrowing it to `Held` drops rows, the direction that loses an item | Decided explicitly; dropping a save row is the dangerous direction |
 | Lifetime matrix | **Done 2026-10-22**, above | Each row names its owner and phase |
 | Orphaned holder | **Done 2026-11-17**: the item comes back where it was taken (`return_released_items`); a carrying body's death mints no weapon copy (`FeatureHitWriters::carries_an_object`). Witness: `an_item_whose_holder_is_gone_comes_back_where_it_was_taken` | An item outlives its holder in exactly one stated way |
@@ -225,6 +243,108 @@ Gaps the matrix shows:
 | Menu equip | **Done (re-read 2026-11-21).** The menu writes a stamped `ItemEquipRequested`; `apply_hand_requests` applies it in the sim through `change_hand`, the road a script's `equip` takes. A bag-backed hand is stated session-only in `ambition_platformer2d_items::persist` | One equip road, or the menu's stated as session-only |
 | Item carve boundary | See below | The proofs below |
 | Agent surface | **Built 2026-11-21, over a save file:** `cargo run -p ambition_app_tools --bin item_report -- [--save PATH] where ID \| list [--room R] [--body B] \| audit \| explain ID`. It reports an occurrence's disposition, the body holding it, a mint's provenance and definition, and the bag's counts; `audit` names the rows a load cannot honour (custody without its row or held while placed, a mint with no minted row, a duplicate row) and exits 1. An authored item's definition is its room's record, which the report names rather than reads. A live-world view is not built | Reports definition, stack identity, occurrence, custody owner, provenance and disposition |
+
+### A7 exchange — one rule for an offer and its accepted exchange
+
+**Planned, source review at `f41218979625`, 2026-11-21.**
+`ambition_items::transaction::InventoryExchange` already owns atomic stored
+quantity and wallet exchange. `shop::{buy,sell}` implement separate laws,
+while merchant options ask still other questions. The current paths disagree:
+
+| Customer | Current result | Shared domain rule needed |
+| --- | --- | --- |
+| Buy a Health Cell with enough money but a full stack | `can_afford(8)` opens the option; purchase refuses | Check the complete offered exchange, including capacity |
+| Sell a Gun-Sword that is held but absent from the bag | `inventory.holds` can open the option; sale cannot remove a stored quantity | Check the quantity source that the sale actually consumes |
+| Sell a cell for 4 with a wallet at `i32::MAX - 2` | Shop removes the cell, credits only 2 and reports `Sold` | Exact payout or refusal before either owner changes |
+
+`inventory.holds` is a valid general possession question. It includes
+physical hands and can see another driven body's held item. Do not change
+its meaning to make it a sale check. A physical-object sale would need an
+explicit custody exchange; that is not what today's bag sale does.
+
+#### Shared calculation, separate acceptance cuts
+
+Lower buy and sell into the existing `InventoryExchange` terms. Keep a thin
+shop terms constructor and the current narrative request transport. Catalog
+spelling resolves at its current adapter: `item_by_dialog_id` for dialogue,
+`item_by_id` for portable calls. Capacity and exact payout stay in the pure
+item owner.
+
+Expose the item-and-price check through a typed shop binding over that
+owner, or deliberately extend the existing prepared-call adapter. The current
+generic Yarn `condition(id, arg)` accepts one domain argument and cannot
+carry both terms. Do not encode them into a query string or add an offer
+registry to work around that adapter limit.
+
+Extract one private calculation behind two public operations:
+
+- `check(catalog, bag, wallet)` reads current state and returns the existing
+  `ExchangeRefusal` or success. It publishes no change.
+- `apply(catalog, bag, wallet)` runs the same calculation against its current
+  borrowed inputs, then immediately installs the result and returns
+  `ExchangeApplied`.
+
+The calculation can retain today's small fixed-bag copy. The preview does
+not return a later commit token or reserve currency. Acceptance always
+evaluates current state again. Bind the payer through
+[O6a](authored-gameplay-logic-and-orchestration.md#o6a--bind-the-merchants-question-and-action-to-the-same-subject);
+a correct exchange against the wrong wallet still gives the wrong offer.
+
+Preserve the exchange order: validate and total repeated terms; require
+payment before receipt; remove item costs before grants; require every grant
+to fit. Do not net terms first. One owned item cannot fund a cost of two just
+because the same operation grants two back. Five coins cannot fund a payment
+of ten just because ten will later be received.
+
+Keep `ItemChange { removed: u32, added: u32 }`. Catalog stack limits are `u32`
+and have no unlimited sentinel. A signed `i32` quantity delta would narrow
+that domain. Merchant supply is currently unlimited because neither road
+has a merchant-stock leg; this packet adds no stock system.
+
+#### State the policy changes
+
+This migration is not behavior-equivalent in every old corner case. The
+proposed policy follows the existing exchange law:
+
+| Case | Selected policy |
+| --- | --- |
+| Payout overflows the wallet | Refuse the whole sale; no partial credit |
+| Free grant to a body whose wallet is in debt | No positive coin cost means no funds requirement |
+| Negative price | Refuse at the shared price boundary; remove the native sale's implicit clamp to zero |
+| Reserved/placeholder catalog slot | Refuse through the existing `is_real` rule |
+| Multiple reasons to refuse | Use the exchange owner's deterministic refusal order; do not keep a second shop order |
+
+Both Yarn buy/sell commands already reject negative authored prices. The
+native signed-price path needs the same explicit conversion before unsigned
+exchange terms. Keep whole-coin wallet semantics, including supported debt;
+this is not an actor resource meter.
+
+#### Keep history ownership with the caller
+
+`platformer2d_items::narrative::apply_shop_transactions` records
+`BagChangeRetention::NarrativeFacts`. The world-facing
+`platformer2d_items::inventory::apply` records `RoomOwners` and has different
+scope requirements. Share the pure exchange and actual change receipt, not
+the complete world-facing wrapper. Each adapter keeps its provenance,
+retention, application timing and row grouping.
+
+The shared bag still has the [CW2](causal-world-commit.md) migration. This
+packet neither completes causal isolation nor adds another eager write path
+on admission refusal. A future committed merchant operation uses the same
+pure rule inside its selected authority boundary.
+
+**Remove:** independent shop buy/sell arithmetic, the duplicate `ShopTx`
+outcome after callers use `Result<ExchangeApplied, ExchangeRefusal>`, and
+narrative before/after reconstruction of changes the receipt already names.
+Replace merchant wallet-only and possession-only offer guards with the
+subject-bound exchange check. Keep the general questions for other callers.
+
+**Acceptance:** reuse the two-seat merchant witness from O6. Add the concrete
+full-stack, held-only item and exact-payout refusal cases to the existing
+exchange/merchant fixtures. Change state between preview and consume and
+check that acceptance re-evaluates it. Verify that both history adapters keep
+their current retention and that no failed exchange changes either owner.
+No new global offer registry, cache or economy framework is needed.
 
 ### Item carve boundary
 

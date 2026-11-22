@@ -257,6 +257,7 @@ fn a_second_session_does_not_inherit_the_first_sessions_occurrence_ledger() {
                             sequence: 0,
                         },
                         held_item: "axe".to_owned(),
+                        half_extent: ambition_platformer2d::item_runtime::pickup::minted_horizon::MintedItemDescription::half_extent_of_row(None),
                     },
                 )]
                 .into_iter()

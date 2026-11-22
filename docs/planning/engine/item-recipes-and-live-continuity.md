@@ -141,6 +141,30 @@ both the room and missing-custody roads. Preserve occurrence, recipe and
 canonical geometry. Include a regrown shipped coconut as the authored-input
 case. No portal is needed to expose this defect.
 
+### IR1 first slice done (2026-11-22)
+
+The proved missing fact, canonical extent, is now part of the occurrence's
+recipe. `GroundItem::half_extent` is the extent its mint chose (every mint
+goes through `GroundItem::released`, which already took it), the capture
+copies it into `MintedItemDescription`, the checksum includes it, and
+`PersistedMintedItem` carries it as exact `f32` bit words (save v12), and
+writes no words for the default extent, which is what an absent field reads
+back as. That keeps the round trip stable: a row from an older save is
+rebuilt at the default and written back unchanged. (Writing the default as
+words changed every loaded save once, and the refused-candidate fixture in
+`an_edit_reaches_the_shipped_game` caught the extra candidate cycle.) Both
+reconstruction roads, the custody restore in `pickup` and the room
+construction in `publication`, build at `description.half_extent`; the
+universal `MINTED_ITEM_HALF_EXTENT` survives only at the mint sites that
+choose it and as the stated value of a pre-v12 row, which never stored its
+extent and was rebuilt at that default. Witness:
+`a_mint_keeps_the_extent_it_was_made_at` (a 7 × 5.5 coconut, its persisted
+words, and the pre-v12 row). The rollback codec shape is unchanged (the item
+and baseline roll back by clone).
+
+**Open in IR1:** an end-to-end room and custody reconstruction witness with a
+shipped regrown coconut, and naming the other retained item fields.
+
 ## IR2 — read native item continuity
 
 Make typed item recipes available while their entities are absent. Do not

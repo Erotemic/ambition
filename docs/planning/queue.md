@@ -316,7 +316,9 @@ loop. Keep current pose in the body and capture domain placement at accepted
 retirement/checkpoint/save cuts. Move every native reader before removing the
 mirror. Count whole-map copies, baseline/hash work and export rows while one
 item moves beside increasing dormant populations. The correctness packet IR1
-can land independently of the later storage change.
+can land independently of the later storage change. (IR1's extent slice landed 2026-11-22: a
+minted item keeps the canonical extent its mint chose, through the save and
+both reconstruction roads.)
 IR4 then coalesces pose-only disk output at a finite interval. Prompt semantic
 writes, confirmation, save-owner identity and checkpoint retention remain
 explicit. Measure with persistence enabled; current autosave can otherwise

@@ -301,6 +301,7 @@ fn delayed_preparation_keeps_the_mint_descriptions_selected_at_admission() {
             parent: "fixture-maker".into(),
             sequence: 4,
             held_item: "original".into(),
+            half_extent: None,
         }],
     );
     world.insert_resource(save);

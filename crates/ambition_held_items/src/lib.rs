@@ -360,6 +360,10 @@ impl bevy::ecs::entity::MapEntities for ItemCustody {
 #[non_exhaustive]
 pub struct GroundItem {
     pub spec: HeldItemSpec,
+    /// The canonical half extent chosen when this occurrence was made: part of
+    /// its recipe (IR1). Its body's `canonical_size` starts as twice this, and
+    /// a reconstruction builds it again at this extent, not at a universal one.
+    pub half_extent: Vec2,
 }
 
 /// The item and its initial physical state enter the world together.
@@ -378,7 +382,7 @@ impl GroundItem {
     pub fn released(spec: HeldItemSpec, pos: Vec2, vel: Vec2, half_extent: Vec2) -> GroundItemBundle {
         let body = BodyKinematics { pos, vel, canonical_size: half_extent * 2.0, ..Default::default() };
         let sweep = ae::SweepSample::at_tick_end(body, Vec2::ZERO);
-        GroundItemBundle { item: Self { spec }, body, sweep }
+        GroundItemBundle { item: Self { spec, half_extent }, body, sweep }
     }
 }
 

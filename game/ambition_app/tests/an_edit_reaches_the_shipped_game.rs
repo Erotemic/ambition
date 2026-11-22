@@ -755,6 +755,7 @@ fn the_shipped_app_never_holds_two_session_roots_across_a_handoff() {
                 parent: "placement:ground_gun_sword".to_string(),
                 sequence: 1,
                 held_item: "ground_gun_sword".to_string(),
+                half_extent: None,
             }],
         );
     }
@@ -2768,6 +2769,7 @@ fn a_candidate_reconstructs_a_mint_only_its_own_save_describes() {
                 parent: "placement:ground_gun_sword".to_string(),
                 sequence: 1,
                 held_item: "javelin".to_string(),
+                half_extent: None,
             }],
         );
     }

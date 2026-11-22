@@ -15,7 +15,6 @@ use ambition_characters::brain::HeldItemSpec;
 use ambition_combat::hand::RepertoireQuery;
 use ambition_held_items::{
     equip_held_spec, held_spec_by_id, unequip_held, GroundItem, ItemCustody,
-    MINTED_ITEM_HALF_EXTENT,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_platformer2d_shared_tangle::schedule::{HeldItemStep, ItemPickupSet, SimScheduleExt};
@@ -351,7 +350,8 @@ pub fn restore_custody_to_checkpoint(
                     // the instant before custody applies, exactly as the
                     // authored arm's authored position is.
                     Vec2::ZERO,
-                    MINTED_ITEM_HALF_EXTENT,
+                    // The extent its mint chose (IR1), never a universal one.
+                    description.half_extent,
                     format!("Ground item: {}", description.held_item),
                     spec,
                 )),

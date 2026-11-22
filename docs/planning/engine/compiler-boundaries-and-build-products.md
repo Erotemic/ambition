@@ -260,6 +260,21 @@ or changed Local lifetime. Those are different behavioral changes.
 
 ## CB4 — Select command dependencies and the harness's actual services
 
+**First slice (2026-11-22).** `ambition_app_tools` has an explicit `game`
+feature family holding the app, facade, harness, content, Smash, Bevy UI,
+image and Avian dependencies, all now optional. The 22 bins that simulate or
+capture declare `required-features = ["game"]`. `item_report` imports
+`ambition_persistence` from its owner and builds with
+`--no-default-features`. That graph has no app, facade, content or renderer
+crate (529 `cargo tree` lines against 3224 for the default selection), and
+the binary runs and refuses a missing save as before. Persistence still
+brings core, input and windowed Bevy, so it is not called renderer-free.
+
+`game` is still a default, so every existing launch descriptor works
+unchanged. Making it genuinely default-off means updating those descriptors
+to name it; that is the next step, together with the harness's facade
+defaults and one real harness consumer. No compile-time result is claimed.
+
 **Execution owner:** `ambition_app_tools` command packaging and
 `ambition_sim_harness` dependency selection, coordinated with supported launch
 and test lanes. The Ambition provider's presentation cut is a separate proof.

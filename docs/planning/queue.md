@@ -285,8 +285,9 @@ proves the reusable harness and game provider cuts separately.
 **Next action:** CB1 is done (2026-11-22: the checker is its own package above
 the schema library). CB2 can run independently. For CB3, begin with the
 projectile and held-status customers; preserve ordered staging and action
-results. For CB4, begin with the offline item report and one real harness
-consumer. Try explicit optional feature families before adding packages.
+results. For CB4, the offline item report builds without the game (2026-11-22,
+`--no-default-features`); next, make `game` default-off in the launch
+descriptors and cut one real harness consumer. Try explicit optional feature families before adding packages.
 Do not move tool binaries back into app integration-test builds.
 
 **Acceptance:** an independent schema consumer excludes the checker; the

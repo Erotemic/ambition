@@ -226,6 +226,7 @@ dependencies = [
  "ambition_demo_smash_app",
  "ambition_entity_catalog",
  "ambition_menu_kaleidoscope",
+ "ambition_persistence",
  "ambition_platformer2d",
  "ambition_sim_harness",
  "avian2d",

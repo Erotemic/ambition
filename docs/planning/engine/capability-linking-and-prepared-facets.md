@@ -293,6 +293,38 @@ motion and other mutable state follow the existing owner's transition policy.
 An equipment change selects the new repertoire without changing ContentEpoch.
 Use the current body and action witnesses at the narrowest useful crossing.
 
+**First slice landed (2026-11-22).** The trace found one repertoire fold
+(`repertoire::effective_repertoire`, which the hand and construction both call)
+but two copies of the scale's move decisions. `WornKit::of` applied the
+scale's damage, verbs, clocks and knockback one after another, each with its
+own fallback. `PreparedCharacterDefinition::moveset_in` applied the same four
+in its own chain. The spawn Grant also read `PreparedKit::baseline` itself
+instead of asking the kit compiler.
+`PreparedCharacterDefinition::scale_moveset` is now the one place the scale's
+facets are applied. It is all or nothing: if any facet names a move or verb
+the table lacks, the whole scale is refused with every problem, and the caller
+keeps the unscaled moves. A body never plays one game's damage with another
+game's verbs. `WornKit::of` and `moveset_in` both call it, and the Grant asks
+`WornKit::of(prepared, SeatTerms::default())`, so only the kit compiler reads
+the baseline. Finalization now checks each scale with the same rule, over the
+moves the kit carries. Before, preparation checked each facet separately
+against the authored table, so a facet naming a move that only the action set
+derives was reported even though it fits at the seat.
+Witness: `a_scale_with_one_bad_facet_is_refused_whole`
+(`ambition_characters`). Action-scheme selection is not a kit decision: it is
+the per-frame scheme over `BodyAbilities` (DUP-CHARACTER-KIT). It needs no
+change here.
+
+Still open from L1:
+- **Step 3: the link context.** The kit is still compiled from the prepared
+  registry, not from a selected link context.
+- **A content test helper keeps its own reading.**
+  `ambition_content::authored_movesets::on_a_platform_fighter_stage` applies
+  only damage and verbs, straight from the pack's facet. It needs no app.
+  Its two percent-comparison customers do not read clocks or knockback.
+- **No equipment-change witness.** Nothing yet checks that an equipment
+  change leaves `ContentEpoch` unchanged.
+
 This is not a requirement to extract every actor facet. Resource-plan work must
 consume this composition context rather than build a second actor compiler.
 `BOSS-CHARACTER` continues to give bosses the common body plus an optional role;

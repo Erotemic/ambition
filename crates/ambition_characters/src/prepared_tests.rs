@@ -3204,3 +3204,48 @@ fn a_catalog_wallet_is_a_birth_fact_with_an_explicit_definition_override() {
         CharacterDefinition::new("without_wallet", "No wallet", "test"), &bindings).prepared;
     assert_eq!(absent.starting_wallet, None);
 }
+
+/// ⭐ LINKING L1: A SCALE IS APPLIED ALL OR NOTHING, BY ONE RULE. The stage's
+/// damage for `jab` fits the moves, but its verbs name a move the table does
+/// not have. The scale is refused with that problem, and the moves a seat in
+/// that scale reads are the character's own, not its damage with its home
+/// verbs (the mix two games' values make). The control: the damage alone
+/// applies.
+#[test]
+fn a_scale_with_one_bad_facet_is_refused_whole() {
+    use crate::brain::ActionSet;
+    let prepared = |verbs: &[(&str, &str)]| {
+        let mut definition = CharacterDefinition::new("robot", "Robot", "demo")
+            .with_action_set(ActionSet::default())
+            .with_moveset(moveset_with(&[], vec![slash("jab", "swing", "hit")]));
+        definition.scaled_move_damage =
+            [(crate::smash_fighter::FIGHTER_DAMAGE, [("jab".to_string(), vec![7])].into_iter().collect())].into_iter().collect();
+        if !verbs.is_empty() {
+            definition.scaled_verbs = [(
+                crate::smash_fighter::FIGHTER_DAMAGE,
+                verbs.iter().map(|(verb, id)| (verb.to_string(), id.to_string())).collect(),
+            )]
+            .into_iter()
+            .collect();
+        }
+        prepare_and_finalize_for_test(definition, &CharacterBindings::default()).prepared
+    };
+    let good = prepared(&[]);
+    let bad = prepared(&[("attack", "no_such_move")]);
+    let home = bad.kit.projectable_moveset().cloned().expect("the robot carries moves");
+    assert_ne!(
+        good.moveset_in(crate::smash_fighter::FIGHTER_DAMAGE),
+        good.kit.projectable_moveset().cloned(),
+        "the control: the stage's damage alone applies"
+    );
+    assert!(
+        bad.scale_moveset(home.clone(), crate::smash_fighter::FIGHTER_DAMAGE)
+            .is_err_and(|problems| problems.iter().any(|p| p.contains("no_such_move"))),
+        "a scale whose verbs name a missing move is refused, naming it"
+    );
+    assert_eq!(
+        bad.moveset_in(crate::smash_fighter::FIGHTER_DAMAGE),
+        Some(home),
+        "a refused scale leaves the character's own moves, not its damage with its home verbs"
+    );
+}

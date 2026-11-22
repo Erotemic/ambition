@@ -12,7 +12,7 @@
 use ambition_characters::brain::action_set::IdentityKit;
 use ambition_characters::brain::{ActionSet, RangedExecution};
 use ambition_characters::prepared::{overlay_authored_moves, PreparedCharacterDefinition};
-use ambition_characters::move_damage::{move_damage_over, move_knockback_over, move_timing_over, verb_moves_over, DamageScale};
+use ambition_characters::move_damage::DamageScale;
 use ambition_entity_catalog::MovesetContract;
 
 use crate::moveset::build_actor_moveset;
@@ -98,60 +98,22 @@ impl WornKit {
             // The prepared baseline, exactly as the spawn grant writes it.
             None => prepared.kit.baseline(),
         };
-        let scaled = terms
-            .move_damage
-            .and_then(|scale| prepared.scaled_move_damage.get(&scale))
-            .filter(|damage| !damage.is_empty());
-        let derived = match scaled {
-            Some(damage) => {
-                match move_damage_over(damage, derived.clone()) {
-                    Ok(moveset) => moveset,
-                    // Preparation already reported this on the published value
-                    // (`unresolved_references`). The body keeps one game's damage
-                    // for every move rather than a mix of two.
-                    Err(problems) => {
-                        bevy::log::error!(
-                            "character '{}' keeps its moveset damage on this stage: {problems:?}",
-                            prepared.id.as_str(),
-                        );
-                        derived
-                    }
-                }
-            }
-            None => derived,
-        };
-        // The stage's verbs, over the same moves: which move a button plays
-        // in this game.
-        let verbs = terms.move_damage.and_then(|scale| prepared.scaled_verbs.get(&scale)).filter(|verbs| !verbs.is_empty());
-        let derived = match verbs {
-            Some(verbs) => match verb_moves_over(verbs, derived.clone()) {
-                Ok(moveset) => moveset,
-                // Preparation reported this (`unresolved_references`). The
-                // body keeps one game's verbs.
+        // The stage's scale over the same moves: its damage, the move each
+        // button plays, its clocks and knockback, by the one rule
+        // (`PreparedCharacterDefinition::scale_moveset`). Resolved here and not
+        // at seating, so a fighter that re-wears its character during the match
+        // keeps the stage's values.
+        let derived = match terms.move_damage {
+            Some(scale) => match prepared.scale_moveset(derived.clone(), scale) {
+                Ok(scaled) => scaled,
+                // Preparation already reported this on the published value
+                // (`unresolved_references`). The body keeps its moveset's own
+                // values for every move rather than a mix of two games'.
                 Err(problems) => {
-                    bevy::log::error!("character '{}' keeps its moveset's verbs on this stage: {problems:?}", prepared.id.as_str());
-                    derived
-                }
-            },
-            None => derived,
-        };
-        let timing = terms.move_damage.and_then(|scale| prepared.scaled_move_timing.get(&scale)).filter(|timing| !timing.is_empty());
-        let derived = match timing {
-            Some(timing) => match move_timing_over(timing, derived.clone()) {
-                Ok(moveset) => moveset,
-                Err(problems) => {
-                    bevy::log::error!("character '{}' keeps its moveset's clocks on this stage: {problems:?}", prepared.id.as_str());
-                    derived
-                }
-            },
-            None => derived,
-        };
-        let knockback = terms.move_damage.and_then(|scale| prepared.scaled_move_knockback.get(&scale)).filter(|kb| !kb.is_empty());
-        let derived = match knockback {
-            Some(knockback) => match move_knockback_over(knockback, derived.clone()) {
-                Ok(moveset) => moveset,
-                Err(problems) => {
-                    bevy::log::error!("character '{}' keeps its moveset's knockback on this stage: {problems:?}", prepared.id.as_str());
+                    bevy::log::error!(
+                        "character '{}' keeps its moveset's own values on this stage: {problems:?}",
+                        prepared.id.as_str(),
+                    );
                     derived
                 }
             },

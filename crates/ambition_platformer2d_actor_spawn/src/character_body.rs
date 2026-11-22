@@ -451,23 +451,21 @@ pub fn grant_prepared_character_body(sprite_content: &ambition_sprite_sheet::Spr
             granted: GrantedBodyFacts::of(&sprite_content, prepared, movement_tuning),
         });
         // CONSTRUCTION writes the kit; `apply_worn_character_gameplay` writes it
-        // again only on a real transition (a re-wear, a stale cast). Both read
-        // `PreparedKit::baseline` and the character's `ranged_execution`, so the
-        // two writers cannot disagree about what a character wears — see
+        // again only on a real transition (a re-wear, a stale cast). Both ask
+        // the one kit compiler, `WornKit::of` (linking L1), so the two writers
+        // cannot disagree about what a character wears — see
         // `a_moves_only_character_is_granted_and_reworn_as_one_kit`.
         if kit == KitOwnership::Grant {
-            // The prepared baseline — the same one `WornKit::of` returns —
-            // for every character, authored action set or not. A character that
-            // authored only moves used to get them as a live `ActorMoveset` over
-            // the seed's EMPTY `IdentityKit`, so the next repertoire fold erased
-            // them.
-            let (action_set, moveset) = prepared.kit.baseline();
+            // The kit of a body in no match, for every character, authored
+            // action set or not. A character that authored only moves used to
+            // get them as a live `ActorMoveset` over the seed's EMPTY
+            // `IdentityKit`, so the next repertoire fold erased them.
+            //
             // THE BASELINE AND THE LIVE PAIR, FROM ONE RESOLUTION: the live
             // `ActionSet` + `ActorMoveset` are the repertoire fold of this
             // identity and the hand, so a body granted while holding
             // something is not written empty-handed and folded again later.
-            let identity =
-                ambition_characters::brain::action_set::IdentityKit::of(action_set, moveset);
+            let identity = ambition_combat::worn_kit::WornKit::of(prepared, Default::default()).identity;
             let live = ambition_characters::repertoire::effective_repertoire(&identity, None, hand);
             scope.insert((
                 identity,

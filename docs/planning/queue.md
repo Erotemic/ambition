@@ -159,7 +159,11 @@ world-post admission.
    removes the repeated equipped-repertoire interpretation, then binds a
    mixed mechanical candidate. L3's pure cutscene consumer is an independent
    dependency experiment; L4 measures each actual cut. BOSS-CHARACTER's
-   common seed continues without waiting for these packets.
+   common seed continues without waiting for these packets. (L1 first slice
+   landed 2026-11-22: `scale_moveset` is the one all-or-nothing scale rule
+   that `WornKit::of` and `moveset_in` share, and the spawn Grant asks
+   `WornKit::of`, and finalization checks each scale by that rule. Open: the
+   link-context binding and an equipment-change witness.)
 4. [World composition W1/W2](engine/reusable-authored-world-composition.md#implementation-slices)
    uses existing local references, then a different mechanism. General format
    work follows only if the operation is shared. Producer-validity delegation

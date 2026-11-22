@@ -388,7 +388,9 @@ stage beside the others rather than editing one, and keep the shared envelope
 Reaction anchors and limited blends are built.
 [CLIP1/CLIP2](smash-expressive-fighter-poses.md#clip1--carry-the-beat-through-the-existing-clip-request)
 first fixes the event clock, authored loop rule and selected art. Continue
-with cast/audio acceptance only after that distinction is visible.
+with [CLIP3's source-time map](smash-expressive-fighter-poses.md#clip3--preserve-source-motion-under-ruleset-retiming)
+so a ruleset retime preserves the authored motion beat. Cast/audio
+acceptance follows those distinctions.
 
 | Feature | Status | Effort | Engine | Notes |
 |---|---:|---:|---:|---|
@@ -573,16 +575,23 @@ When Smash work is selected:
    [ACT1/ACT2](../engine/body-action-execution.md). These have ordinary
    Ambition customers. Do not tune frame advantage around a move clock
    that advances while its owner is held.
+   Include the [CR1 reaction refinement](../engine/combat-reception-and-injury.md#bind-a-hits-reaction-to-its-accepted-reception)
+   for the selected status-hit customer; a contact is not accepted reaction.
 2. Complete one timed tech/getup and the existing clip request:
    [ACT3](../engine/body-action-execution.md#act3--give-floor-recovery-its-own-episode)
    and [CLIP1/CLIP2](smash-expressive-fighter-poses.md#clip1--carry-the-beat-through-the-existing-clip-request).
+   [CLIP3](smash-expressive-fighter-poses.md#clip3--preserve-source-motion-under-ruleset-retiming)
+   can proceed independently: selected attack timing must keep its source
+   motion beat before a timing/animation polish pass.
    The Ambition landing/recoil and binding slices can precede the Smash-only
    floor work. Keep defense, commitment, motion and visual lifetime distinct.
 3. Complete actual CPU recovery:
    [REC1](../engine/fighter-brain.md#rec1--execute-the-recovery-after-the-move-starts)
    plus only the forecast/execution follow-up needed for the chosen return.
    Other REC2/REC3 work remains separately selectable. The reported Admiral
-   case is the first customer. This can proceed beside visual work; it does
+   return is the first customer: use the accepted move, effective carrier routing, checked
+   connector and real rider support; subject-passable gates are not support.
+   This can proceed beside visual work; it does
    not wait for the whole roster to have new art.
 4. Run the [bounded demo acceptance pass](smash-feel-audit-2026-10-29.md#a-bounded-demo-acceptance-pass-after-the-shared-fixes).
    Fill art gaps that remain after the actual request and clock are correct.

@@ -25,9 +25,12 @@ failed recovery lead to the following owner tasks:
 | Question | Current source finding | Plan |
 | --- | --- | --- |
 | May the body start or continue the action? | Movement-only reaction gates do not govern ordinary move starts; native flinch lacks ordinary playback teardown; landing lag settles after Trigger | [ACT1](../engine/body-action-execution.md#act1--accept-and-interrupt-actions-at-the-owning-cut) |
-| Which interval did it execute? | Movement, moves and reaction expiry disagree under local hitlag/proper time; a primary-body global freeze can mask this | [ACT2](../engine/body-action-execution.md#act2--resolve-body-action-time-once-per-step) |
+| What did the attempted action actually select? | AI legality tests playback only; native admission can refuse or choose `when_refused`, while own-move observation lacks the definition | [ACT1 offer](../engine/body-action-execution.md#an-offer-and-an-accepted-action-must-name-the-same-move) |
+| Which interval did it execute? | Movement, moves, physical pose and reaction expiry disagree under local holds; zero delta also does not stop every flow/cadence operation | [ACT2](../engine/body-action-execution.md#act2--resolve-body-action-time-once-per-step) |
+| Which hit owns the reaction? | Overlap dispatches status callbacks before the native defense result; a later callback can replace the current launch without naming the accepted hit | [CR1 reaction data](../engine/combat-reception-and-injury.md#bind-a-hits-reaction-to-its-accepted-reception) |
 | What owns a tech/getup until it ends? | Invulnerability and a one-time velocity stand in for the recovery episode | [ACT3](../engine/body-action-execution.md#act3--give-floor-recovery-its-own-episode) |
-| Which event and phase does the picture show? | Named non-move requests lose occurrence/clock and authored loop rules; some landing/ceiling art is not selected | [CLIP1/CLIP2](smash-expressive-fighter-poses.md#clip1--carry-the-beat-through-the-existing-clip-request) |
+| Which event and phase does the picture show? | Reaction identity/loop metadata is lost; charge/pin fallback can discard the selected source's clock or mask; some existing art is not selected | [CLIP1/CLIP2](smash-expressive-fighter-poses.md#clip1--carry-the-beat-through-the-existing-clip-request) |
+| Does retiming preserve the drawn contact beat? | Windows are retimed piecewise; the clip uses total-duration normalization, which denotes a different source beat | [CLIP3](smash-expressive-fighter-poses.md#clip3--preserve-source-motion-under-ruleset-retiming) |
 | Does a selected recovery actually return the body? | The CPU offers a timed ride as scalar carry, emits walking input and presses the ride's bail edge | [REC1–REC3](../engine/fighter-brain.md#rec1--execute-the-recovery-after-the-move-starts) |
 
 These are source-established boundary gaps. The reported Admiral match has
@@ -35,7 +38,8 @@ no trace in this review; its exact dismount cause remains unverified.
 
 **Priority:** the main Ambition work remains first. ACT1/ACT2 and the
 Ambition landing/recoil/binding parts of CLIP1/CLIP2 are eligible shared work
-in their existing engine/presentation lanes. ACT3, fighter recovery
+in their existing engine/presentation lanes. CR1's native reaction and
+CLIP3's reusable source-time binding refine those same owners. ACT3, fighter recovery
 execution, cast choreography and demo tuning remain later Smash work.
 One engine implementation can serve both games without making the entire
 Smash polish pass an Ambition dependency.
@@ -51,6 +55,15 @@ A contact sheet cannot show that the game cuts a 492 ms landing clip after a
 160 ms request. A row-routing test that manually cancels the old move cannot
 prove a real hit performs that cancellation. The owner plans link those
 current sources and narrow witnesses.
+
+The Admiral's forward smash demonstrates why more drawing alone is not the
+next step. Source motion places its active span at 0.34–0.42 s in a 0.80 s
+move. The Smash facet selects 0.30–0.35 s in 0.90 s. At first active, current
+normalization requests source phase 0.3333 instead of 0.425. The phase error
+is established by code and authored data; frame quantization and the art's
+intentional lead require a capture before judging the visible error.
+Preserve that source coordinate through preparation before retuning the
+artist's anticipation to compensate for it.
 
 Retain the completed reaction anchors, root interpolation, limited carriage
 blends, Scout's visual rig/planted hands/follow-through, and E2's prepared
@@ -70,6 +83,12 @@ reaction phases. Add a fighter only for a distinct failure or visual question.
 | Tech/getup/roll to action | Contact is immediate, the chosen recovery travels coherently, vulnerability and control return on their authored windows, and the picture reaches the intended exit |
 | CPU offstage return | The real brain starts, controls and ends recovery; the rider regains support with its stock. A boarding frame or move start is not the result |
 | Short local bout | Both players can read startup, contact, recovery, shield and escape; camera and cues support that reading; another fighter's hit does not stop the stage unless the game asks |
+
+The bounded pass must also distinguish a refused hit from its physical
+contact effect, and an unavailable primary move from its accepted fallback.
+These are mechanics checks within the selected sequences, not new roster
+or tournament gates. The optional strike-pulse history improvement remains
+in the combat reservoir; no shipped roster failure was established for it.
 
 Trace mechanical discrepancies first. Then review silhouettes and transition
 timing at the actual camera scale, with the selected quality tier and both

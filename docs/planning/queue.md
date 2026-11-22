@@ -97,7 +97,7 @@ scaled behavior and cart order through their current owners; the optional
 
 The 2026-11-22 Smash review keeps D72 and Smash-only demo polish behind the
 main Ambition work. Shared action/time corrections ACT1/ACT2 stay within
-ARCHITECTURE-COMPOSITION; shared landing/recoil/clip binding stays within
+ARCHITECTURE-COMPOSITION; shared landing/recoil/clip and source-time binding stays within
 POSE-CONTINUITY. Neither selection promotes the full Smash roadmap.
 The [inventory order](demos/smash-parity-inventory.md#17-current-implementation-order)
 and [feel acceptance](demos/smash-feel-audit-2026-10-29.md) state the later pass.
@@ -142,6 +142,10 @@ those receipts did not prove.
 The later review at `34b4ab0b7f4f` adds ACT1/ACT2 below. It preserves
 the now-landed CR1 and AC2 first slices, E2's prepared clip facts and E4's
 navigation work. No new runtime result is claimed.
+The deeper review of the same source refines these owners: ACT1's offer
+must name the action execution can accept; ACT2 separates live maintenance
+from elapsed progression; CR1 settles static hit reactions at native
+reception. CLIP3 retains source motion under selected move retiming.
 
 **Observed:** schema values can lower before their imports resolve; body and
 candidate contexts collect optional domain catalogs; several live-contribution
@@ -259,14 +263,23 @@ world-post admission.
    (CR1 first slice landed 2026-11-22: the hit reporter owns connect and
    block; a damaging boss hit and a lethal home-body strike now connect once,
    with zero hitlag.)
+   The [reaction-data refinement](engine/combat-reception-and-injury.md#bind-a-hits-reaction-to-its-accepted-reception)
+   moves the four static hit-reaction choices into prepared native hit data.
+   A contact callback must not install a status from an ignored strike or
+   replace a different hit's launch. Preserve physical-contact effects and
+   independently admitted status capabilities.
 
 9. [Body action ACT1/ACT2](engine/body-action-execution.md) makes current
    body permission reach every applicable start/spend cut, settles landing
    before replacement admission, and retires a move on its actual interrupting
    reaction. CR1's narrow actual-reaction follow-on supplies the result; CR2 is
    independent. Resolve the execution interval once through the current time
-   owners so local hitlag/proper time reaches movement and move playback,
-   with separate expiry clocks. Remove the primary-body freeze shortcut that
+   owners so local hitlag/proper time reaches movement, move playback and
+   physical pose sampling, with separate expiry clocks. Keep live sustain
+   contributions distinct from cadence and flow progression. The same
+   admission owner supplies a non-spending resolved-action offer to the
+   brain; acceptance rechecks it and publishes actual move identity.
+   Remove the primary-body freeze shortcut that
    bypasses room policy. First customers are ordinary Ambition reaction and
    landing, plus Smash local hitlag. ACT3 floor choreography remains a later
    Smash customer; it is not part of this row's required completion.
@@ -1141,17 +1154,21 @@ checks; `level ownership status` names an owner for every room of every world.
 ### POSE-CONTINUITY — one visual transition path after the completed base poses
 
 **State:** foundational Smash art/wiring and the recorded continuity slices
-are built. CLIP1/CLIP2 now address the remaining request/clock/binding
+are built. CLIP1–CLIP3 address the remaining request/clock/binding
 crossings with immediate Ambition and Smash customers.
 
-**Owner:** sprite-sheet animation and rig presentation, with renderer-authored
+**Owner:** move preparation/playback for source timing, sprite-sheet animation
+and rig presentation for the selected picture, with renderer-authored
 visual bindings. Design: [expressive poses, Phase 3](demos/smash-expressive-fighter-poses.md#phase-3---improve-continuity-and-body-weight-polish).
 
 **Next action:** [CLIP1/CLIP2](demos/smash-expressive-fighter-poses.md#clip1--carry-the-beat-through-the-existing-clip-request):
 carry occurrence, semantic beat, owner time and authored loop rule through
-the existing clip request; align pose-modifier clocks; bind existing landing
-and ceiling-tech art. Start with Scout's Ambition landing/recoil and the
-Admiral's reaction clips. ACT3 owns the later full tech/getup episode. Do not
+complete candidates in the existing clip request; align pose-modifier
+clocks; bind existing landing and ceiling-tech art. In parallel,
+[CLIP3](demos/smash-expressive-fighter-poses.md#clip3--preserve-source-motion-under-ruleset-retiming)
+retains a prepared map from selected move time to the authored source beat.
+Start with Scout's Ambition landing/recoil and the Admiral's reaction and
+retimed forward smash. ACT3 owns the later full tech/getup episode. Do not
 repeat completed rigs/blends or require a roster-wide art pass.
 
 **Retained receipts:** the measurement is done (2026-11-14, Scout:
@@ -3000,7 +3017,9 @@ remains paused.
 **Next recovery work when this lane is selected:** [REC1](engine/fighter-brain.md#rec1--execute-the-recovery-after-the-move-starts)
 must carry the Admiral's selected ride through flight and actual return to
 support. Existing Recover presses the ride's bail edge and supplies no
-flight target. Reuse the current control and flight law, then complete the
+flight target. Use ACT1's actual action offer/identity, effective motor
+routing and a checked entry/release region. Reuse the current control and
+flight law, then complete the
 forecast/execution follow-up needed for that return. Other REC2/REC3 work
 stays separately selectable. This corrects execution before more scoring or
 ladder tuning. It does not move BRAIN above the
@@ -3124,7 +3143,8 @@ receipts; do not select another parity feature merely to keep the gate busy.
 
 **Next implementation when selected:** follow
 [§17](demos/smash-parity-inventory.md#17-current-implementation-order).
-Use shared ACT1/ACT2 and CLIP1/CLIP2 from their engine owners, then one timed
+Use shared ACT1/ACT2, the CR1 reaction refinement and CLIP1–CLIP3 from their
+engine owners, then one timed
 floor recovery and actual CPU return. Review a bounded short match before
 more roster art, strategy tuning or feature breadth. The
 [feel owner](demos/smash-feel-audit-2026-10-29.md) states the demo acceptance;

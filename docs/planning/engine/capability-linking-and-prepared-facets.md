@@ -316,6 +316,11 @@ the per-frame scheme over `BodyAbilities` (DUP-CHARACTER-KIT). It needs no
 change here.
 
 Still open from L1:
+- **Retain source timing through specialization.**
+  [CLIP3](../demos/smash-expressive-fighter-poses.md#clip3--preserve-source-motion-under-ruleset-retiming)
+  keeps the prepared map from selected move time to source motion time and
+  validates the specialized product. The one `scale_moveset` owner is built;
+  total-duration clip normalization is not a complete nonuniform retime.
 - **Step 3: the link context.** The kit is still compiled from the prepared
   registry, not from a selected link context.
 - **A content test helper keeps its own reading.**

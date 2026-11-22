@@ -185,6 +185,15 @@ In particular, a transform beat uses the unscaled simulation-step duration
 so that its own slowdown does not extend it. `WorldTime::wall_dt` is a
 per-step snapshot; no new OS-clock read belongs in this state.
 
+[ACT2](body-action-execution.md#sustain-lifetime-and-cadence-need-separate-facts)
+adds a concrete consumer distinction: a held move's sustain signal keeps
+its live contribution, while its cadence spends only the selected action
+interval. Current extension `ScopePace` supplies room pace, not this action
+interval. Pass the needed interval with that invocation; do not replace the
+global module clock. A scale-zero effect must still expire on its declared
+world/room clock. Storage on a body does not make that body's stopped action
+clock the effect's lifetime authority.
+
 Publication follows the existing semantic phases. State exactly when a request
 takes effect. For example, a control request submitted in `BODY_CONTACT`
 currently affects the next brain read; this work must not silently move it

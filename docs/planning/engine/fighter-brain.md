@@ -641,7 +641,7 @@ redefine it as a successful recovery.
 | Fact | Owner | Must not duplicate |
 | --- | --- | --- |
 | Selected attempt | Fighter state: chosen move/binding, intended support or release region, phase and progress needed to continue or replan | Lease, health, movement model or mount relation |
-| Controlled motor | Native observation: actual controlled body's identity, center, velocity, frame, law and current control grant | Another motor or character-specific controller |
+| Controlled motor | Native observation: actual controlled body's identity, center, velocity, frame, law and effective current routing | Another motor or character-specific controller |
 | Physical outcome | Existing move, reservation, mount, pose and contact owners | A brain Boolean that claims boarding or recovery |
 
 The rider's pinned velocity is zero even while the mount moves, and its ground
@@ -656,14 +656,30 @@ terrain and foes under their existing perception policy. Retain the selected
 attempt across decision intervals and rollback. It is a short execution
 record, not a copy of all physical state or a second utility planner.
 
+Static grant is not effective routing. `steer_mount_from_rider` preserves
+`CommandedMove` travel and forwards only rider facing even on a mount with
+`ControlGrant::Total`. Expose that current native routing decision. A carried
+body whose steering is masked is different from a body whose requested
+motion meets a wall. Preserve the script's authority; the recovery follower
+must wait or replan under its real remaining lease, not fight the script.
+
 #### Execution
 
 | Phase | Next fact required |
 | --- | --- |
-| Start and await | Confirm move acceptance, then reservation/boarding. No ride before the move's summon beat is not failure |
-| Follow | Observe the actual carrier and grant; emit a world-space flight target through ordinary `ActorControl` |
+| Start and await | Observe the actual accepted move identity/occurrence, then reservation/boarding. No ride before the move's summon beat is not failure |
+| Follow | Observe the actual carrier and effective routing; emit a world-space flight target through ordinary `ActorControl` |
 | Prepare release | Reach a region from which the real rider can regain support/ledge, with time and clearance remaining |
-| Release and regain | Observe the relation end and the rider's own support or ledge; only then report success and resume ordinary combat |
+| Release and regain | Observe relation end and the rider's own intended support or ledge; only then report success and resume ordinary combat |
+
+Use [ACT1's non-spending offer](body-action-execution.md#an-offer-and-an-accepted-action-must-name-the-same-move)
+for the candidate. Current `ActionLegality::Now` tests playback cancellation
+only, and current `OwnMoveFact` names no move definition. The primary move
+can be refused or replaced by its authored fallback. An instance change
+alone cannot prove the forecast recovery started. Preserve the actual move
+identity in observation, follow the supported contract that exists, and
+replan when it differs. A missing or changed offer is not permission to
+force a private AI move start.
 
 Use the existing
 [`follow_flight` and `FlightLaw`](../../../crates/ambition_platformer2d_core/src/navigation.rs)
@@ -697,6 +713,28 @@ Adapt semantics, not whole input structs:
   pose. A single merged box can reject a useful route; a mount-only box can
   promise a route the rider cannot pass. Reuse current mount clearance
   authority rather than a new collision solver.
+
+The first connector needs its own check. `FlightMap::route`/`free_near` can
+snap to a free cell; `route_to` then prepends the real start without proving
+that connector clear. Enlarging the room grid does not make this safe.
+Validate the full connector from the observed pose to the first route node
+through the existing sweep/admission operation, using the applicable mount
+and rider clearance. The runtime rider-clearance adapter can clamp
+or detour the desired velocity; observe the motion it actually accepted and
+replan on loss of progress. That adapter is not a certificate for a whole
+compound route. Its current `rooms.single()` lookup must use the motor's
+live room when this shared adapter is corrected; another live room must not
+silently remove rider clearance.
+
+Use the existing `route_into` region and the flight follower's low-speed
+arrival condition for a release region. Derive the region from the accepted
+saddle/rider placement and the native release law, including a pending
+launch. A point reached by the carrier is not yet a recovered rider. If the
+selected goal is stage support, touching a temporary carrier that will
+depart does not complete it. Other authored goals can permit a moving
+platform. Keep this target condition in the selected attempt, and report
+the actual contact identity where the current probe returns only
+`RegainedSupport`/`RegainedLedge`; do not add a global `safe` Boolean.
 
 End or replan on rejected admission, expired/refused reservation, changed or
 lost grant/relation, mount death, launch, leaving play, pose refusal, lease
@@ -737,6 +775,9 @@ is evidence for the searched policy, not for a different input sequence.
 
 Keep the selected binding together with the target and executable effort that
 the estimate used. Execute that bounded policy through current control.
+Anchor its steps to the native acceptance, boarding or release cut selected
+by that recovery family. Candidate selection, reaction delay, input buffering
+and startup must not silently consume the effort the forecast evaluated.
 Replan when current facts invalidate its assumptions. A scalar reach can
 remain a cheap estimate; it must not stand for a completed timed ride.
 
@@ -774,6 +815,16 @@ state, full frame acceleration and base-size distinction. The core probe
 already accepts `BodyClusterScratch` and calls the ordinary kernel.
 Supply truthful inputs to that API instead of building another simulator.
 
+Geometry must also preserve the subject's meaning. `RecoveryLens::from_view`
+currently lowers every `PerceivedSolid` and ignores `open_for_self`. That
+field says a gate is passable for this body while it can still block the
+body's projectile. Existing floor queries already respect it. The recovery
+forecast can therefore land on a gate the real body passes through. Preserve
+the existing subject-specific passability when lowering the permitted
+perception snapshot; do not copy projectile collision policy or reveal
+unseen terrain to make the estimate succeed. Include that meaning in the
+existing query's validity key where it can change.
+
 Completed E4 already keys navigation by the actual law, abilities, canonical
 and base size, full frame and geometry/exits stamp, reuses standing motion
 measurements and retains current graph demand. Reuse that ownership. A
@@ -795,6 +846,11 @@ First measure construction/search counts on a normal grounded decision and
 an unchanged active flight. For motion fidelity, use one real non-axis-swept
 or changed-frame customer and compare forecast with execution. The target is
 less unused work and truthful inputs; no FPS gain is asserted.
+
+Use one perceived gate in open and closed states with ordinary ground as a
+control. Forecast and production motion must use the same body-passability
+meaning. This is a small additional geometry crossing, not a second world
+model or a requirement to rebuild every navigation query each tick.
 
 ### Tactical intent experiment (deferred, not active BRAIN work)
 

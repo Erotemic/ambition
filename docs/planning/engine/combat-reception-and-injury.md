@@ -1,9 +1,10 @@
 # Combat reception and injury ownership
 
-**State:** PLANNED, 2026-11-22. Source reviewed at production commit
-`f412189796254f280e9f5018b685314b6994060c`, with planning overlays through
-`d5b1e9d28e8ec3d19a1f7adf532ac614b8f63a99`. No runtime or performance
-result is claimed.
+**State:** PARTLY IMPLEMENTED, with planned follow-ups, 2026-11-22.
+Source rechecked at `34b4ab0b7f4f5a950a52e6031423e76b5e75f6ac`.
+CR1's first publication slice is done; its actual-reaction finalization,
+the reaction-data refinement below and CR2 remain planned. No runtime or
+performance result is claimed by this review.
 **Selection:** [ARCHITECTURE-COMPOSITION](../queue.md#architecture-composition--link-owned-facts-and-preserve-causal-boundaries).
 **Contracts:** [combat model](combat-model.md),
 [projectile contact](projectile-contact-protocol.md), and
@@ -31,9 +32,9 @@ Neither packet changes contact geometry or requires a general damage graph.
 | Source | Established fact |
 | --- | --- |
 | [`BodyHitReporter`, `BodyHitResolved`](../../../crates/ambition_damage/src/reception.rs) | Native reception retains source and victim identities before retirement |
-| [`BodyHitResolution`, `publish_resolved_hit`](../../../crates/ambition_damage/src/lib.rs) | Health/defense decisions and native connect publication are separate operations |
+| [`BodyHitResolution`](../../../crates/ambition_damage/src/lib.rs), [`BodyHitReporter::connect`](../../../crates/ambition_damage/src/reception.rs) | Health/defense decisions and native connect publication remain separate operations within the reporter contract |
 | [`apply_actor_hit`](../../../crates/ambition_platformer2d_actor_monolith/src/body/damage/actor_hit.rs) | Actor reception is reported before reaction; a second call later publishes connect or block |
-| [`apply_boss_hit`, `apply_entity_boss_damage`](../../../crates/ambition_platformer2d_actor_monolith/src/body/damage/boss_hit.rs) | Boss damage publishes reception, but does not publish the native connect used by moves |
+| [`apply_boss_hit`, `apply_entity_boss_damage`](../../../crates/ambition_platformer2d_actor_monolith/src/body/damage/boss_hit.rs) | The completed first slice now reports damaging boss connect with actual amount and zero hitlag |
 | [`mark_move_playback_resolved_hits`](../../../crates/ambition_combat/src/moveset/mod.rs) | `connected_hit` reads `ResolvedBodyHit`; `landed_hit` is a different overlap fact |
 | [`mount_view`, `pass_limb_blows`](../../../crates/ambition_boss_encounter/src/conduct.rs) | GNU's limb damage is reconstructed from missing HP, healed, and directly subtracted from the scholar |
 | [GNU conductor](../../../game/ambition_content_modules/src/gnu_ton/conductor.rs) | `lost_health` drives a one-blow opening rule and separate clash behavior |
@@ -46,25 +47,13 @@ that receipt; this is a different boundary.
 
 ### Failure and customer
 
-A vulnerable boss can lose HP and publish a native `Damaged` reception,
-while the attacking move's `connected_hit` remains false. The boss road
-never calls `publish_resolved_hit`. The common feature aftermath marks only
-`landed_hit`, and the normal actor receiver excludes `BossConfig`, so it
-cannot supply the missing result.
-
-The home-body lethal-damage arm in `ambition_damage` also skips native
-connect publication after reporting `Damaged`. This is the same boundary
-error: an accepted injury does not stop being a hit when the receiver takes
-the death branch instead of the ordinary reaction branch.
-
-This reaches authored gameplay. The
-[Performer](../../../game/ambition_content/assets/data/movesets/performer.ron)
-uses `OnHit`; the
-[Goblin](../../../game/ambition_content/assets/data/movesets/goblin.ron)
-uses `Connected`. An attack can thus damage a boss, stop being a whiff, and
-still fail its connected condition. The same native stream feeds attacker
-recoil and damage-credit consumers. This conclusion follows from the
-production writers and readers; it has not been reproduced in a running host.
+The missing boss and lethal home-body connect publications were repaired
+by the first slice below. Do not reopen them. The remaining boundary is
+that receivers still decide separately when to publish reception, connect
+and reaction. ACT1 needs the actual interruption decision, and the authored
+reaction refinement below needs to settle a hit's intended reaction at the
+same native cut. `OnHit`/`Connected` consumers and impact feedback remain
+customers of one honest final result.
 
 ### Shared operation
 
@@ -132,13 +121,13 @@ questions and are not redundant events.
 
 ### Proof
 
-Extend the [native damage tests](../../../crates/ambition_platformer2d_actor_monolith/src/body/damage/tests.rs)
-with one move-attributed hit on a constructed vulnerable boss. Run the
-actual move-confirm consumer. Require HP loss, one accepted reception and
-one connect with the same attacker, move occurrence and resolved amount.
-Repeat with phase immunity and require no connect. Retain the existing guard
-and wallet-shield cases as controls, one zero-damage reaction case, and a
-lethal home-body strike which reports its injury without inventing a launch.
+Preserve the completed move-attributed boss witness in the
+[native damage tests](../../../crates/ambition_platformer2d_actor_monolith/src/body/damage/tests.rs).
+The remaining finalization work must keep one reception and one connect
+with the same attacker, move occurrence and resolved amount. Complete the
+phase-immunity and lethal home-body controls where still absent. Use the
+existing guard/wallet and zero-damage cases when changing their finalization;
+do not rerun the closed missing-connect investigation.
 
 No broad new matrix is required. The risk is inconsistent outcome publication,
 not all combat tuning. Report publication and lookup counts if cost is
@@ -175,6 +164,117 @@ occurrence before a deferred consumer could see a replacement.
 This does not reopen reporter-owned connect/block or depend on CR2 injury
 routing. Complete only the outcome needed by the real action/reaction
 crossing, at the established hit-resolution cut.
+
+### Bind a hit's reaction to its accepted reception
+
+**State:** PLANNED CR1 refinement from the deeper review. This is shared
+engine work, independent of CR2 and of the later Smash polish pass.
+
+The current authored status path starts from contact, not the resolved hit:
+
+| Boundary | Current fact |
+| --- | --- |
+| [`apply_hitbox_damage`](../../../crates/ambition_combat/src/hitbox/mod.rs) | Emits `HitEvent` and `LandedBodyHit` before the receiver's shield, ordinary i-frame and armor decisions |
+| [`dispatch_landed_hit_effects`](../../../crates/ambition_combat/src/on_hit.rs) | Emits the authored effect for that contact without the later reception result |
+| [`queue_strikes`](../../../crates/ambition_combat/src/extension/reaction.rs) | Invokes `StruckPort` with victim, contact, striker and params, but no accepted-hit or reaction identity |
+| `lower_burials` / `lower_crumples` in the same adapter | Remove the body's current staged launch and stun, then install the status if the body is grounded |
+| [Home-body receiver](../../../crates/ambition_damage/src/lib.rs) | Drains stored hits next step; the ordinary reaction can clear a status installed on the earlier contact step |
+
+The normal target-volume publication does not remove ordinary damage
+i-frames or active shields. A contacted body can therefore receive one of
+these statuses after native reception ignored or blocked the hit. The home
+receiver also marks later events in its batch ignored; their contact effects
+still have no such result to consult. Preserve that receiver's arbitration
+when fixing effect delivery. Do not make every event accepted as a side effect.
+
+The burial/crumple operation names a body, not the reaction it claims to
+replace. Another accepted hit can have changed that body's launch before
+the callback runs. A later mutation of the current launch cannot establish
+which hit it replaced. Rechecking current invulnerability is also wrong:
+the accepted hit can itself have charged it.
+
+**Selected design:** put the four simple on-hit reaction choices in prepared
+hit data and resolve them inside ordinary native reception. The shipped
+`smash.paralyze`, `smash.bury`, `smash.freeze` and `smash.crumple` modules
+only forward an authored duration to an engine operation. They do not need
+a later procedural invocation to express that data. Keep the reusable
+choice with the existing hit/reaction vocabulary; content selects it without
+an engine branch on a Smash key or character name.
+
+Keep reaction intent beside the optional launch, not inside it. The current
+reaction function returns early when no knockback exists or armor absorbs
+it. That must not silently discard an independently authored status.
+Evaluate the native defense/armor policy for that intent explicitly; the
+absence of a launch is not permission to bypass armor or proof that no
+reaction was requested.
+
+The native receiver performs these steps for one admitted hit:
+
+1. Resolve its actual surface/defense decision using the existing owner.
+   Ignored and blocked hits do not install these body reactions. Retain
+   armor interaction and protected-body policy explicitly. Applied damage
+   greater than zero is not the eligibility test: zero-damage reactions and
+   accepted damage without flinch both exist.
+2. Choose the final ordinary or modified reaction using that receiver's
+   stance and capabilities. Burial/crumple require its grounded snapshot;
+   an airborne target keeps its ordinary reaction. Paralysis holds motion
+   and delays stun/launch; encasement blocks control while motion continues.
+   Preserve the existing distinct meanings and mash policies.
+3. End prior statuses that this accepted reaction ends, then install this
+   hit's selected status and launch together. Decide what actually interrupts
+   the victim. A later hit sees the committed result in the existing reception
+   order; an earlier callback cannot overwrite that later hit's launch.
+4. Finalize reception, credit and actual reaction once, then let ACT1 and
+   the other existing consumers act on that result. Keep accepted reciprocal
+   contacts and the current actor/home resolution cuts.
+
+Do not apply ordinary mutation and then repair the body from a generic
+after-hit callback. Preparation validates the typed reaction and duration.
+The ordinary payload remains the direct fast path. A module that constructs
+a strike may select the same data before contact; no inline VM call, dynamic
+reaction registry or general effect graph is required. Keep body reaction
+timers with their current native owner and ACT2's declared clocks.
+
+Distinguish this reaction data from real aftermath. Pogo is a physical
+contact response and must not start requiring HP loss. A mark, reward or
+other procedural effect can depend on accepted reception or another explicit
+native outcome. Carry the required outcome and captured effect context to
+that invocation; do not join unrelated messages by victim alone or guess
+acceptance from absence. Copy the needed context before a hitbox retires.
+Use the existing pending hit carrier when a receiver crosses a step. Do not
+add a second persistent event history.
+
+For the touched effects, make the trigger condition explicit at their
+existing prepared binding. Do not move every `on_hit` effect wholesale from
+contact to damage, and do not create a universal predicate language.
+Ordinary standalone status operations can remain when their semantics are
+an independently admitted spell or grant. They must not claim to replace a
+specific hit's reaction through an unqualified body write. Remove the four
+static forwarding paths after their content migrates; keep procedural
+capabilities on their semantic merits.
+
+**Proof:** run one authored status hit through actual native reception with
+an ordinary target, an ignored/blocked control and the supported armor
+control. Repeat the accepted case on the home-body route; the selected
+status must follow its own hit's reaction there too. Include a second hit
+that replaces the first reaction, and an ignored second event that must
+install nothing. Reuse existing native/module fixtures. The current
+paralysis fixture's linked/loaded module variants do not test the two native
+receivers; directly writing `OnHitEffectMessage` skips this failure boundary.
+Retain a contact-only pogo control. No full roster matrix is required.
+
+This removes redundant parameter decoding and module dispatch for these
+static reactions, but no speedup has been measured. Select it with CR1's
+actual-result work so ACT1 consumes the final reaction, not an intermediate
+launch that a later callback is expected to undo.
+
+**Separate native-capture follow-up:** `lower_struck_seizes` clears launch
+and stun before its `CaptureAttemptRequested` has succeeded. An accepted
+hit is not an accepted capture. Commit that replacement only with native
+capture acquisition, retaining the original reaction on refusal. This is
+fallible relation work under [native action completion](native-action-completion.md),
+not a fifth duration status or a prerequisite for migrating the four simple
+reaction choices.
 
 ## CR2 — Route limb injury without an HP mailbox
 

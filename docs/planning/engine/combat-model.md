@@ -115,8 +115,11 @@ CPU-vs-CPU or player-play regression, not to appease an overconstrained test.
 
 The planned [reception and injury packets](combat-reception-and-injury.md)
 complete native outcome publication. CR1 makes accepted reception, move
-confirm and actual reaction projections of one result; damaging boss hits
-and lethal home-body hits currently miss the connect stream. CR2 uses that
+confirm and actual reaction projections of one result. The missing damaging
+boss and lethal home-body connects are repaired; preserve that first-slice
+receipt. The [reaction-data refinement](combat-reception-and-injury.md#bind-a-hits-reaction-to-its-accepted-reception)
+places a hit's static reaction choice at native reception and keeps physical
+contact aftermath distinct. CR2 uses that
 result to separate GNU's struck limb from the scholar's health reception.
 Keep surface contact, recipient defenses, physical reaction and move credit
 distinct. A limb's missing HP is not a hit queue, and a boss needs no launch
@@ -129,6 +132,49 @@ Do not replace this with a generic damageability marker or broadcast re-query.
 Its sampled-target sweep does not claim full dynamic CCD. Move-confirmation
 latency and checked flow execution are owned by
 [authored technique admission](authored-technique-admission.md).
+
+### A strike pulse owns its contact memory
+
+**State:** unselected bounded follow-up from source `34b4ab0b7f4f`.
+This is not a required demo fix or a measured speedup.
+
+The existing rule treats one connected active interval as one strike pulse,
+but victim memory lives on each hitbox entity. Playback copies it across
+exact adjacent window edges; the hit sweep propagates it to sibling volumes
+after all contacts. A late overlapping window can therefore start with no
+history of a victim reached earlier in that same pulse. Skipping an
+intermediate keyframe can also break an exact-edge handoff. Sources:
+[`advance_move_playback`](../../../crates/ambition_combat/src/moveset/mod.rs),
+[`HitboxHits`](../../../crates/ambition_combat/src/strike.rs) and
+[`apply_hitbox_damage`](../../../crates/ambition_combat/src/hitbox/mod.rs).
+These are supported-model counterexamples; this audit did not establish one
+in the currently shipped roster.
+
+Prepare pulse membership for the existing contiguous/overlapping active
+interval semantics. Keep one victim history per move occurrence/pulse, with
+the repeat-lap identity needed for a rearmed pulse. Current geometry volumes
+refer to that history. Preserve the authored rank that selects a winning
+overlapping volume. Geometry priority, contact consumption and accepted
+health/reaction are different facts. Keep the current consumed-contact rule
+through ignored or blocked reception; do not redefine it as damage received.
+
+This removes per-volume history clones, exit-time handoff unions and the
+after-sweep sibling propagation. Retain detached projectile/fixed-strike
+ownership and repeating windbox policy. Canonical pulse memory must restore
+through rollback even if no intermediate geometry entity was instantiated.
+Use the existing small history representation until measurements justify
+another data structure; this does not select a collections framework.
+
+One late-volume fixture should reach the same victim once across a pulse
+and again on a deliberately new pulse. Keep the earlier-ranked overlap
+control and repeat behavior. The no-hold ordinary path must not allocate a
+new ledger per volume. Measure history copies and lookups before claiming
+a performance gain.
+
+Temporal coverage is separate. A pulse identity does not make endpoint
+sampling see every short window or every loop crossing. Select a bounded
+crossing/substep rule if a customer needs it. Materializing skipped windows
+at the final body pose is not continuous contact along the traveled path.
 
 
 The Smash inventory's `P01`–`P14` index is the current product-driven list of

@@ -127,6 +127,53 @@ The pure permission value must not add a combat dependency to the movement
 kernel. The body adapter supplies the resolved input or restriction. Queries
 may share a helper without storing a second authoritative permission component.
 
+### An offer and an accepted action must name the same move
+
+The deeper source review found a second admission consumer. The actor
+adapter's `attack_kit_of` calls `legality_of`, which checks only playback and
+cancel windows. It publishes the primary move's geometry and recovery route
+as `ActionLegality::Now`. Actual admission also checks resource meters,
+recovery charges, held permission and weapon readiness. It can select the
+one-hop `when_refused` variant. Goblin's charged dive and uncharged fallback
+are an existing customer. A forecast of the primary move is not a forecast
+of that accepted variant.
+
+Expose a non-spending action offer from the existing combat admission owner.
+Give it the same semantic request and current body facts as acceptance. It
+returns the resolved prepared move, or a typed refusal, using the same body,
+cancel, affordability and fallback rules. A body-level permission is one
+input to this operation; it is not the complete offer. Keep the existing
+one-hop fallback limit and do not invent fallback on every kind of refusal.
+
+Use the resolved move's frame data and recovery contract in the existing
+attack-kit projection. Keep static geometry prepared; read changing
+availability at the current observation cut. Borrow prepared values or
+handles instead of cloning a move program for each AI candidate. The offer
+does not reserve resources, spend a buffer, turn the body or promise that a
+later request will succeed. Acceptance rechecks current facts and commits
+its existing costs and side effects once.
+
+`OwnMoveFact` currently contains only occurrence and contact. Add compact
+prepared move identity to that existing observation. REC1 must observe the
+move and control relation that actually started. A new occurrence alone
+cannot distinguish a fallback, another buffered move or a posture-dependent
+selection. A matching definition also does not prove exact press causality
+when identical requests coexist. Reuse accepted-request identity where it
+already exists; otherwise follow the actual supported action and replan.
+Do not add a durable button-receipt journal for this customer.
+
+This projection is knowledge of the body's own capabilities. It does not
+expose an opponent's hidden state or bypass the controller's normal input
+path. The actor adapter composes the combat-owned operation; the character
+brain does not gain a dependency on combat execution or a copy of its gates.
+
+**Witness:** use the authored charged/uncharged fallback through the normal
+request path. The offered move's identity and recovery data must agree with
+the move accepted under unchanged facts. Change the bank or body restriction
+between observation and acceptance; require a valid new result and no spend
+from the old offer. Reuse the existing fallback/admission tests and add only
+the missing projection crossing.
+
 ### Remove
 
 Remove independent start predicates after their consumers use the common
@@ -195,8 +242,12 @@ the common interval before taking the union. A zero proper-time rate needs an
 explicit zero-action case, not division by zero. Preserve the existing
 tick-granular contact model; this is not a new continuous event solver.
 
-Use the resulting budget for movement, move timeline/charge/flow and, when
-present, floor recovery. Replace the raw world intervals at both body
+Use the resulting budget for movement, move timeline/charge/flow,
+`BodyPoseClock` and, when present, floor recovery. The physical pose clock
+in `advance_body_pose_clocks` currently advances without local hitlag. It
+feeds authored hurt profiles, semantic rigs and landmarks, so fixing the
+rendered picture alone leaves gameplay sampling on a different beat.
+Replace the raw world intervals at both body
 integration entry points. Keep their current ordering and one-time event
 consumption. State the activation cut for a new hold created after the
 budget was sampled. In the current schedule, a hit resolved after move
@@ -227,6 +278,76 @@ playback at 60 versus 144 Hz. For a body with no local hold, action time is
 the existing proper interval. No dynamic clock graph, map lookup per timer or callback framework
 is needed.
 
+### A paused action still has a live state
+
+Setting playback delta to zero is not the complete fix. The current
+`advance_move_playback` can still emit sustain effects, traverse instantaneous
+flow nodes and fire an unfired event at time zero. A blanket early return
+would also skip maintenance of live strike and defense state. Use these
+separate rules inside the existing update:
+
+| Operation | Rule during a body action hold |
+| --- | --- |
+| Input observation | Keep the selected aim, release, DI, mash and buffering rules; observation does not itself accept an action |
+| Existing strike, defense and held contribution | Keep the current state present, attached to its owner and reconstructed after rollback; preserve its hit memory |
+| Timeline, charge and move-owned cadence | Spend only the released action interval, according to that operation's clock |
+| Contact-enabled move flow | Retain the occurrence's contact latch; take the continuation at the next eligible action update |
+| Native contact already accepted | Settle it at its current receiver cut; do not defer ordinary damage or reaction until the attacker's flow resumes |
+
+A charge hold is different from a body action hold. It can spend positive
+action time on charge while its timeline remains fixed. Do not decide flow
+eligibility from the charge-adjusted timeline delta alone. Preserve existing
+input/release semantics without awarding charge for held body time.
+
+Use an explicit endpoint convention at exact hold expiry. The body may
+accept an action once permission has returned at that cut, and may emit its
+instantaneous entry once. It gets no elapsed action time from the preceding
+fully held interval. An already-live held action must not replay entry work.
+Room/mode suspension remains a separate permission; a zero delta is not
+enough to infer either an accepted entry or an ended action.
+
+### Sustain lifetime and cadence need separate facts
+
+The Officer counter and capture reach use sustain as a level signal:
+their window remains present. Apple rain uses repeated invocations to spend
+a projectile cadence. The extension host currently gives these handlers
+world time times room pace, without body action time. Suppressing sustain
+on a held body can withdraw a live stance or trigger an idle reset; keeping
+it with the old delta can produce shots while the move is paused.
+
+Retain the sustain occurrence and its live contribution. Carry the selected
+action or timeline interval to a move-owned cadence through the existing
+technique invocation. A refresh signal does not authorize another elapsed
+step. Keep maintenance work distinct from a new imperative attempt, such as
+a capture acquisition, and apply that native owner's selected eligibility
+at the attempt cut. Do not globally replace `ScopePace` or `Invocation::dt`.
+The self-ending time-dilation module deliberately uses world/room time and
+can select scale zero. A shark lease, a detached projectile and a target's
+status also retain their declared clocks and lifetimes. Use the existing
+[effect ownership contract](actor-effects-and-modifier-composition.md#activation-clocks-and-read-cuts).
+
+### Input precision does not own a floor episode
+
+The home-body adapter writes its responsive input interval into
+`InputState.control_dt`. The kernel uses that override in `tick_knockdown`,
+which spends tumble, prone, getup invulnerability and tech timers together.
+Ordinary actor input normally leaves the override zero. Passing action time
+to motion alone does not repair this difference.
+
+At the existing kernel seam, separate input observation/leniency from
+maneuver progression. Existing tumble/prone progression must use the
+selected action interval in ACT2; do not defer that repair until ACT3.
+ACT3's duration and pose phase use the same contract. Tech
+press lifetime and lockout keep an explicit selected policy. Preserve
+precision blink and other deliberate input-clock behavior; do not remove
+`control_dt` or move every input timer onto action time.
+
+The kernel also clamps a positive movement interval to 1/30 second. This
+packet must state the supported normal-step/rate range. It does not establish
+arbitrary high-rate equivalence or solve skipped combat windows. A bounded
+substep or event-crossing policy needs its own customer; spawning all skipped
+hitboxes at the final pose would not reproduce contacts along the path.
+
 ### Remove
 
 Remove separate reconstruction of the held fraction in move, movement and
@@ -240,7 +361,8 @@ it does not create another time service.
 
 Use a real local-hitlag hit in a CPU-only Smash match, where global observer
 freeze cannot mask the result. Compare body travel, move time, charge/flow
-and the start of hitstun across the hold. The uninvolved fighter or stage
+and the physical pose sample across the hold, then the start of hitstun.
+The uninvolved fighter or stage
 object must continue. Repeat the same controlled sequence with a human seat;
 the gameplay clocks must agree.
 
@@ -249,6 +371,13 @@ room/global freeze selected by Ambition. Check that hitstop still expires,
 stun spends only the released interval, and authored world freeze survives.
 A prior test with only manually seeded timers or global freeze cannot prove
 this local crossing.
+
+At a touched sustain boundary, keep one live defense/reach through the hold
+and require a move-owned cadence and latched flow to resume once without
+extra progress. Retain the scale-zero self-expiry control. Exercise the home
+adapter with a nonzero input-clock override for one floor episode; a core
+fixture with `control_dt == 0` does not cover it. Reuse existing fixtures
+for these distinct crossings instead of adding a clock matrix campaign.
 
 Report changed intervals and event counts. No frame-time improvement or binary
 size reduction is claimed by this plan.
@@ -287,7 +416,15 @@ accepted-path and contact rules. Do not force every action onto a root-motion
 curve or every movement model into the axis-swept floor game.
 
 A tech jump, getup attack, ordinary stand and roll may have different rules.
-A getup attack enters the normal move owner at its permitted cut. A resolved interrupting reaction,
+A getup attack enters the normal move owner at its permitted cut. Current
+`MovementOp::GetupAttack` has no combat consumer; the FX adapter ignores it,
+and the raw attack can independently select an ordinary move. The comment
+that combat answers this operation does not establish a handoff. Publish a
+movement-selected request with the episode's authority, then let normal
+combat admission accept it. Its own recovery lock must permit that declared
+exit. Spend the originating press once; it must not also start a second
+ordinary attack. The movement kernel must not gain its own strike runtime.
+A resolved interrupting reaction,
 capture, leaving support and leaving play terminate or transfer the episode
 under their explicit policy. Damage through armor or a flinchless contact
 does not end it merely because health changed. Do not clear it merely because invulnerability ended.
@@ -332,3 +469,9 @@ needed to see acceptance, occurrence, clock, interruption and completion.
 Tests should protect the repaired crossings; visual and controller review
 decide feel. A selected row, a spawned effect or a first boarding frame is
 not proof that the associated action completed.
+
+[CLIP3](../demos/smash-expressive-fighter-poses.md#clip3--preserve-source-motion-under-ruleset-retiming)
+is a separate preparation correction. ACT2 determines how much selected
+action time may pass. CLIP3 determines which source motion beat that time
+denotes. The physical pose clock, visual fallback and prepared motion map
+must retain their own meanings; none replaces the others.

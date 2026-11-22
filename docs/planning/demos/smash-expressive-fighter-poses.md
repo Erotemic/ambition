@@ -3,8 +3,10 @@
 **Status:** Base pose art and wiring are complete. Remaining visual work is selected in
 [POSE-CONTINUITY](../queue.md#pose-continuity--one-visual-transition-path-after-the-completed-base-poses) (2026-10-31).
 **Current shared customers:** Scout and campaign bodies in Ambition; fighters in Smash.
-The original base-pose pass used Smash first. CLIP1/CLIP2 below are shared work.
-**Scope:** Character art and visual presentation only. This is not an AI or combat-rules project.
+The original base-pose pass used Smash first. CLIP1–CLIP3 below are shared work.
+**Scope:** Character art, presentation selection and prepared source-time
+bindings. CLIP3 also corrects the source sample consumed by admitted physical
+pose/geometry. Combat balance and AI policy remain with their own plans.
 **Reference:** The Melee reconstruction at `/home/joncrall/code/melee`, not a requirement to copy Melee's animations or timings.
 
 ## Implementation status (2026-10-30)
@@ -244,6 +246,7 @@ animation graph.
 | --- | --- |
 | [`ClipRequest::from_chain`](../../../crates/ambition_sim_view/src/anim_index.rs), [pose producer](../../../crates/ambition_sim_view/src/pose_view.rs) | Non-move reactions carry no authoritative clock or occurrence; move clips already carry phase |
 | [`CharacterAnimator::request_clip`](../../../crates/ambition_sprite_sheet/src/character/animator.rs) | Selecting the same resolved row preserves its cursor, even for a new hit or launch |
+| [`ClipRequest::ahead_of`, `with_pin`](../../../crates/ambition_sim_view/src/anim_index.rs) | Charge fallback discards the base time/mask; pin handling repairs base time but can apply the pin's mask when its row is absent |
 | [Landing overlay](../../../crates/ambition_platformer2d_actor_monolith/src/body/movement_fx.rs), [Scout motion source](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/player_robot_v3_motion.py) | Soft/hard landing holds last 160/340 ms; the selected authored clips last 492/760 ms |
 | [Getup facts](../../../crates/ambition_platformer2d_core/src/movement/facts.rs), [Admiral motion source](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/_pirate_admiral_fighter.py) | The 300 ms invulnerability selects recovery art; authored getup/getup roll last 504/406 ms |
 | [Sheet row](../../../crates/ambition_sprite_sheet/src/lib.rs), [prepared part clip](../../../crates/ambition_sprite_sheet/src/character/rigged.rs), [part publisher](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/authoring/part_flipbook.py) | Sheet/part clip metadata drops authored looping, although the semantic rig can retain it |
@@ -261,9 +264,11 @@ art. Art duration must not determine collision, landing lag or input permission.
    even when it resolves to the same row. Preserve phase for the same
    occurrence and semantic beat. Launch can become tumble, and guard break
    has several beats; each needs its declared local origin or phase.
-   Preserve the selected-source rule already used by pins: a missing pin
-   retains the base request's clock, occurrence and end policy; a changed
-   base reaction must not restart an unchanged pinned row. Do not infer a new
+   Resolve a complete candidate: row preference chain, clock, occurrence/
+   beat, end/transition rule and channel mask. The current bounded stack is
+   pin, charge and base action/reaction. A missing upper candidate leaves
+   the lower candidate's entire payload intact. An unchanged selected pin
+   must not restart because the base reaction changed. Do not infer a new
    event from a timer increase or restart on every render request.
 2. Keep the event's lifetime separate from defense. For tech/getup, consume
    [ACT3's recovery episode](../engine/body-action-execution.md#act3--give-floor-recovery-its-own-episode).
@@ -306,6 +311,17 @@ duplicated end-rule inference, and raw-delta advancement for pose-linked
 modifiers. Keep the existing clip selector, animator, limited blends and
 prepared assets.
 
+This is more than adding fields to the current flat row chain. `ahead_of`
+currently clears `time`, `row_clock` and `legs`. The charge request uses it,
+so a missing charge row loses the held move's phase and advances on sheet
+time before returning to move phase at release. `with_pin` separately
+restores base time but assigns a mask before knowing which row won. Replace
+these exceptional metadata repairs with candidate selection. Two candidates
+may resolve to the same row and still have different owners; aliases within
+one candidate must not change its owner. Remove the single exceptional
+`row_clock` slot when the complete candidate makes it redundant. Bind
+candidates against prepared content; do not allocate a new graph per frame.
+
 **Proof:** a real repeated same-region hit must restart once; a soft/hard
 landing must reach its intended exit without delaying control; the Admiral's
 loop and Polygon's one-shot must keep their distinct source rules. During one
@@ -313,6 +329,10 @@ pause/slow interval, the pose and its modifiers must follow the declared
 clock. Observe the current game's selected bundle at game scale.
 `smash_reaction_poses` is still a useful row-routing test; its helper manually
 cancels moves, so use ACT1's real-hit crossing to prove the reaction itself.
+Use a held charge with no charge row, then an optional missing pin above it,
+to check that the base phase and mask survive both fallbacks. A resolving
+pin is the positive control. Require one continuous release, not a cursor
+reset inferred only from row equality.
 
 ### CLIP2 — Bind the art the author already supplied
 
@@ -343,6 +363,103 @@ Use one ordinary campaign landing and one Polygon ceiling tech to prove the
 selector reaches the existing art. Extend the current clip trace to retain
 requested meaning, selected row, occurrence, clock and frame when needed.
 An inventory that counts file names cannot prove this binding.
+
+### CLIP3 — Preserve source motion under ruleset retiming
+
+**State:** PLANNED from the same source review. This is shared preparation
+and playback work. It does not wait for ACT3 or a cast-wide art pass.
+
+The current retimer changes gameplay windows by a piecewise map, but the
+clip still receives `selected_time / selected_pictured_duration`. Those
+operations preserve different beats. The Admiral supplies a concrete case:
+
+| Forward smash | First active | Last active | Total |
+| --- | --- | --- | --- |
+| Source move and motion | 0.34 s | 0.42 s | 0.80 s |
+| Smash timing facet | 0.30 s | 0.35 s | 0.90 s |
+
+At the selected first active instant, the current clip phase is 0.3333.
+The corresponding source phase is 0.425. The former samples source time
+about 0.2667 s instead of 0.34 s. This proves a coordinate disagreement.
+The source art leads the strike slightly and samples frame midpoints;
+this audit has not measured its visible pixel error in the game.
+
+Sources: [`move_timing_over`](../../../crates/ambition_characters/src/move_damage.rs),
+[`scale_moveset`](../../../crates/ambition_characters/src/prepared.rs),
+[`MoveSpec::phase_at`](../../../crates/ambition_entity_catalog/src/lib.rs),
+[Admiral move](../../../game/ambition_content/assets/data/movesets/pirate_admiral.ron),
+[Smash timing](../../../game/ambition_content/assets/data/fighters/npc_pirate_admiral.ron),
+and [authored motion](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/_pirate_admiral_moves.py).
+The existing retime test checks windows/events and lag, not the motion sample.
+
+**Implementation:** retain a compact monotone map between selected action
+time and source motion time in the immutable prepared move. The current
+retimer needs only its few segment boundaries. At selected time `t`, sample
+the source clip through the inverse map and the source's pictured end.
+Keep the direct identity path when no retime applies. Preparation owns this
+map; render code must not reconstruct it from active-window names.
+
+Use exactly one coordinate conversion for each consumer:
+
+| Consumer | Coordinate and conversion |
+| --- | --- |
+| Playback, active/cancel windows and event firing | Selected gameplay seconds; already retimed, so do not inverse-map them again |
+| Source-authored move hurt keys | Inverse-map lookup to source seconds, or retime the prepared keys once; choose one |
+| Raster/part clip, admitted semantic rig and baked landmarks | Source clip phase, including the source `Settled` boundary |
+| Source sheet hit-area track | Convert its declared sampling instant through the source map; if its API takes row seconds, use phase times that row's duration |
+| Explicit charge hold instant, repeat endpoints and absolute window/event instants | Apply the forward map at preparation |
+| Charge budget, loop duration, flow timeout and external lease | Preserve the declared owner's duration, or explicitly specialize it; these are not instants on the move timeline |
+
+The explicit `hold_at_s` is currently not retimed. A source hurt profile
+also reads playback time directly. The Admiral has no authored hurt profile,
+so the latter is a supported-composition gap, not an Admiral hurtbox finding.
+The sheet hit-area API expects row seconds while its caller supplies a move
+window instant. Current source comments describe coarse per-row tracks;
+do not claim a shipped per-frame defect. Frame-duration rounding alone is
+enough reason not to assume row duration equals source move duration.
+Preserve the sampling cut: current strike geometry is sampled at window
+entry and retained for that window. Convert that selected entry instant;
+do not silently replace the shape with current rendered-frame geometry.
+See [hurt selection](../../../crates/ambition_combat/src/hurtbox_resolution.rs),
+[landmarks](../../../crates/ambition_combat/src/body_landmarks.rs),
+[rig sampling](../../../crates/ambition_combat/src/body_rig.rs) and
+[sheet hit-area selection](../../../crates/ambition_character_sprites/src/attack_hitbox.rs).
+
+Keep physical geometry bound to its admitted source program. A visual
+fallback must not choose a different damage program or make simulation
+depend on a loaded sprite. Decorative motion and physical pose can project
+the same semantic beat differently under explicit bindings. All gameplay
+sampling remains available headlessly.
+
+Preserve repeats, charge and settlement. A repeat returns through the same
+map; a charge hold keeps the same source pose while its charge budget runs.
+`Settled` can release the picture before the action ends. A fallback can use
+the same source phase or an explicit prepared beat binding; do not infer a
+new map from row spelling at runtime.
+
+Validate the prepared product. Find active bounds by temporal extrema, or
+validate an explicit chronological-order contract; current vector order is
+not proof. Preserve authored volume priority when doing so. Collapsed active
+or tail intervals have no unique inverse: refuse a collapse that must
+preserve a live source span, or state its boundary selection explicitly.
+Do not divide by zero or promise to preserve a beat with no selected time.
+Do not recursively retime every field whose name ends in `_s`.
+
+**Remove:** total-duration normalization as the source sample for a
+nonuniform retime, repeated per-consumer clock guesses, and comments in the
+retimer/inspector that claim this already preserves the drawn swing.
+Keep the completed facet/preparation owner, authored geometry and phase
+driven presentation. No new animation graph or runtime retiming interpreter
+is required.
+
+**Proof:** extend the existing unequal-segment retime test. Source phase
+must agree at mapped contact boundaries, an explicit charge hold and a
+source profile key. Check the identity path and a repeat/settled boundary
+where touched. In the existing inspector, review the Admiral's first active,
+last active and first actionable steps under source and Smash timing using
+the actual prepared sample. This validates phase correspondence; controller
+and visual review still decide whether the authored anticipation and recovery
+feel good.
 
 ### Review through the actual request
 

@@ -390,6 +390,20 @@ the existing recovery probe, preserve a usable forecast policy, and prepare
 only demanded queries. A standing capability experiment and a falling-body
 snapshot remain different inputs.
 
+Preserve subject-specific geometry too. Fighter's recovery lowering drops
+`PerceivedSolid::open_for_self`, so its body probe can collide with or stand
+on a gate that body passes. Reuse the existing passability contract and
+perception scope. The same gate can still block a projectile; that is not
+the body's query.
+
+For mounted flight, observe effective control routing and both bodies'
+clearance. A snapped free grid cell does not certify the connector from the
+actual start, and a carrier reaching a point does not establish a released
+rider's support. REC1 uses existing sweeps, `route_into` and flight stopping
+behavior for these boundaries. Its first return needs only the applicable
+parts of REC2/REC3; it does not wait for a new general planner or all motion
+families.
+
 A body may recover through drift, jumps, flight, walls, ledges, recovery
 moves, impulses, portals or grapples. Bounded search failure, unsupported
 motion and physical impossibility must not become one answer.

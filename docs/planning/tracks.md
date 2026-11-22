@@ -288,6 +288,13 @@ These are opportunities, not migration work.
 
 ## Combat, AI and behavior reservoir
 
+- ▢ **Strike pulse contact memory.** Prepare pulse membership and keep one
+  history per occurrence/pulse instead of copying per-volume victim sets.
+  The deeper audit found supported overlapping/skipped-window counterexamples,
+  but no current roster reproduction or measured speedup. This remains
+  separate from ACT2 and demo acceptance. Owner:
+  [combat pulse contract](engine/combat-model.md#a-strike-pulse-owns-its-contact-memory).
+
 - ▢ **Boss animation vocabulary fold.** Converge remaining boss animation/frame
   vocabulary when a current boss/product customer needs it.
 - ▢ **Dialogue continuity.** Body-generic interruption, separation and

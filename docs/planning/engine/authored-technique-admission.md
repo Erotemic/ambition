@@ -256,6 +256,19 @@ nodes; every taken edge resets elapsed wait. Contact has priority over timeout.
 Contact signals are latched per move occurrence; two `Wait`s on one latched
 signal can both succeed. Do not clear a shared latch on read.
 
+The planned [ACT2 execution rule](body-action-execution.md#a-paused-action-still-has-a-live-state)
+defines eligibility during a body hold. Preserve the contact latch and
+current live contributions; do not traverse a new flow continuation merely
+because instantaneous nodes can run with zero delta. A charge hold can have
+positive action time and zero timeline delta, so those tests are distinct.
+Entry work runs once at its accepted occurrence/cut. Native contact
+settlement remains at its receiver cut and does not wait for flow.
+
+Sustain declares that a window remains present. A move-owned cadence uses
+its selected elapsed interval, not the number of refresh invocations.
+ACT2 supplies that contract through the existing invocation seam; it does
+not change every module's independent expiry clock.
+
 ### Delivery phases
 
 Move and flow emission happen before hit resolution. A hit confirmed in

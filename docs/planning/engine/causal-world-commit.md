@@ -370,7 +370,11 @@ confirmation alone, so it commits without its room. No run has shown it.
 
 ### CW2 follow-up — preserve authority under pressure
 
-**State: PLANNED completion of CW2, before expanding its pattern.** The receipt
+**State: IMPLEMENTED for admission, credits and settlement (2026-11-21);
+source and recipient retirement are not yet exercised.** The record is the
+"Completion receipt" at the end of this section. The plan as written follows.
+
+The receipt
 above establishes the cases it names. Source inspection at `3ed50e318392`
 found the following definite branches; the pressure/replay witnesses below
 have not been run by this review.
@@ -538,6 +542,64 @@ within that authority; allocation conservation holds under pressure, replay
 and retirement. Delete the eager-on-refusal fallthroughs and replace anonymous
 return minting with the item owner's identified settlement. Retain CW1/CW2's
 historical receipts and add the completion evidence beside them.
+
+#### Completion receipt (2026-11-21)
+
+[committed_bag](../../../crates/ambition_platformer2d_items/src/committed_bag.rs)
+now classifies the authority before admitting. `admit_grant` and
+`admit_use` return a typed `BagAdmission`:
+- `Immediate`: one rollback authority, so the caller applies it this tick.
+- `Held`: a room that rewinds alone.
+- `Refused`: one of `no_authority`, `no_identity`, `no_tick` or
+  `credits_spent`.
+
+[narrative](../../../crates/ambition_platformer2d_items/src/narrative.rs)
+logs a refusal and applies nothing. The eager-on-refusal fallthroughs are
+deleted. Neither caller has an outcome road back to its author yet: a refused
+narrative grant is a warning, not a reported result.
+
+**Credits.** Each room has `PROPOSAL_CREDITS_PER_ROOM` (16) proposal
+credits. A proposal takes one when made and returns it at its decision's
+tick. `HeldBagOperations::credits(room, tick)` counts only that room's own
+proposals made by the tick and not decided by it. Decisions are retained for
+the rewind horizon, so a replayed tick sees the balance it saw live. Another
+room's queue cannot change it.
+
+**Identity.** A proposal is identified by its room, tick and order among that
+room's proposals on the tick.
+
+**Allocations.** `BagOperation::Return` is gone. A use's allocation reserves
+its own settlement row (`MAX_ALLOCATIONS` = 64) before the debit. When no row
+is free it is refused with `settlement_full` and nothing is debited. The
+body's room records a disposition, used or unused, at the cut. A replay of
+the cut recomputes the disposition without another debit. When the cut is
+confirmed the recorded disposition settles once: `consumed`, or `returned`
+to the bag. Nothing is refunded earlier, and an open allocation never
+expires.
+
+The hosted witness
+`a_room_rewinds_alone::the_shared_bag_decides_each_cell_once_its_tick_is_confirmed`
+keeps its four CW2 cases and adds three:
+1. Alice's predicted room spends its 16 credits. The 17th grant is refused,
+   neither held nor given, and Bob's room keeps all its credits. Her rewind
+   takes the grants back, and Bob's use finds no cell.
+2. With Bob's credits spent, his use of a committed cell is refused, with
+   the bag and his health unchanged.
+3. A Mana Cell is allocated to Bob, who holds no Mana. It stays out of the
+   bag while its cut is unconfirmed and his credits are spent. His rewind
+   over the cut disposes of it again, and it settles `returned` exactly once.
+
+Not exercised:
+- Source-room or recipient retirement before confirmation. A retired room's
+  proposals are still decided; an allocation whose body is gone settles
+  `returned`.
+- Whether a live-room ordinal can be reused, which would let an old address
+  name a new body.
+- Recipient identity is still `SimId` plus room, not a stable occurrence.
+- Admission replay is checked through `credits()`, not through a replayed
+  admission (the witness's requests are injected messages a replay does not
+  repeat).
+- Crossing an acknowledgement cut after the decision row has retired.
 
 ### CW3 — Route world consequences through their actual owners
 

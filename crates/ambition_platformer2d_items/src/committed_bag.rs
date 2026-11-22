@@ -5,35 +5,53 @@
 //! rewinds with it. When a room rewinds alone, another room may read the bag
 //! between the write and the rewind. An undo of the write cannot undo what
 //! that reader did with it, so the bag takes no write from such a room until
-//! the writing tick is confirmed:
+//! the writing tick is confirmed.
 //!
-//! - A room's grant or cell use is a proposal, private to its room. A rewind
-//!   of the room drops the proposals it made after its save, and its replay
-//!   proposes again what it does again.
-//! - On the live tick that confirms a proposal's tick, the bag decides it
-//!   once, in the order proposals were made: a grant enters the bag; a use
-//!   takes one cell from the committed bag (an allocation to the body that
-//!   asked) or is refused when the bag has none.
-//! - An allocation is spent in the body's room on that tick (the cut): the
-//!   heal or the Mana together with the cell. A body the cell would do
-//!   nothing for (gone from the room, no health, no Mana) leaves the cell
-//!   unused, and the room proposes its return, which commits like any other
-//!   proposal. A replay of the room that runs the cut spends the allocation
-//!   again by the same rule, without taking another cell from the bag.
+//! - **Authority selects the road; admission only accepts or refuses on it.**
+//!   [`admit_grant`] / [`admit_use`] classify the request: a body under one
+//!   rollback authority applies now ([`BagAdmission::Immediate`]); a body in
+//!   a room that rewinds alone is held ([`BagAdmission::Held`]); a request
+//!   whose authority, identity or tick cannot be told under independent
+//!   rooms is refused. A refusal never falls through to an immediate write.
+//! - **Each room spends its own proposal credits.** A room holds at most
+//!   [`PROPOSAL_CREDITS_PER_ROOM`] proposals in flight. A proposal takes a
+//!   credit when it is made and gives it back at its decision's cut. The
+//!   balance at a tick is counted from that room's own proposals and the
+//!   decisions on them (kept for the rewind horizon), so a replay of the room
+//!   meets the admissions it met before, whatever another room has queued
+//!   since. A request past the room's credits is refused.
+//! - **The bag decides on confirmation.** On the live tick that confirms a
+//!   proposal's tick the bag decides it once, by (tick, room, order within
+//!   the room's tick): a grant enters the bag; a use takes one cell (an
+//!   allocation) or is refused (`bag_empty`, or `settlement_full` when no
+//!   allocation row can be reserved, with no debit).
+//! - **An allocation owns its cell until it is settled.** The allocation is
+//!   disposed of in the body's room at its cut: used (the heal or the Mana)
+//!   or unused (the body is gone, or the cell does nothing for it). The
+//!   disposition belongs to the room's history: a replay of the cut
+//!   recomputes it, without another debit. When the cut is confirmed the
+//!   recorded disposition settles once: an unused cell goes back to the bag,
+//!   a used one is consumed. Nothing is refunded before that, and an open
+//!   allocation never expires.
 //!
-//! The owner page is `docs/planning/engine/causal-world-commit.md` (CW2).
+//! The owner page is `docs/planning/engine/causal-world-commit.md` (CW2 and
+//! its follow-up).
 
 use bevy::prelude::*;
 
 use ambition_items::{Item, OwnedItems};
 use ambition_platformer2d_core::ConfirmedFrameBoundary;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    simulation_island, InRoomInstance, LiveRoomInstance, RoomReplay, RoomWrite, SimulationIsland, ROOM_REWIND_HORIZON_TICKS,
+    simulation_island, InRoomInstance, LiveRoomInstance, RoomReplay, RoomWrite, SimulationIsland, SimulationIslands,
+    ROOM_REWIND_HORIZON_TICKS,
 };
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
-/// The most proposals held for confirmation at once.
-pub const MAX_HELD_BAG_OPERATIONS: usize = 64;
+/// How many proposals one room may have in flight.
+pub const PROPOSAL_CREDITS_PER_ROOM: usize = 16;
+/// How many allocations may be open or kept as receipts at once. A use that
+/// cannot reserve its row is refused before the bag is debited.
+pub const MAX_ALLOCATIONS: usize = 64;
 
 /// What a room asked of the shared bag.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -42,41 +60,77 @@ pub enum BagOperation {
     Grant { item: Item, count: u32 },
     /// The body `body` uses one `item` (a cell).
     Use { item: Item, body: SimId },
-    /// An allocated cell its body did not use goes back.
-    Return { item: Item },
 }
 
-/// The bag's decision on one confirmed proposal.
+/// How the bag took one request.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BagAdmission {
+    /// One rollback authority: the caller applies it on this tick.
+    Immediate,
+    /// Held for the bag's decision once its tick is confirmed.
+    Held,
+    /// Refused, with nothing written and no effect: `no_authority`,
+    /// `no_identity`, `no_tick` or `credits_spent`.
+    Refused(&'static str),
+}
+
+/// One proposal's identity: the room and tick that made it, and its order
+/// among that room's proposals on that tick.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ProposalId {
+    pub written: RoomWrite,
+    pub order: u32,
+}
+
+/// The bag's decision on one confirmed proposal, or the settlement of one
+/// allocation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BagDecision {
-    /// The live tick it was decided on.
+    /// The live tick it was decided on: the proposal's credit returns to its
+    /// room here.
     pub tick: u64,
-    /// The proposal, with the room and tick that made it.
-    pub written: RoomWrite,
+    pub id: ProposalId,
     pub operation: BagOperation,
-    /// `granted`, `allocated`, `returned`, or the refusal `bag_empty`.
+    /// A decision: `granted`, `allocated`, or the refusals `bag_empty` and
+    /// `settlement_full`. A settlement: `consumed` or `returned`.
     pub outcome: &'static str,
+}
+
+impl BagDecision {
+    fn settles(&self) -> bool {
+        matches!(self.outcome, "consumed" | "returned")
+    }
 }
 
 #[derive(Clone, Debug)]
 struct Proposed {
-    written: RoomWrite,
+    id: ProposalId,
     operation: BagOperation,
 }
 
-/// One cell the bag gave a body, spent in its room at `cut`.
+/// What the body's room did with an allocated cell at its cut.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Disposition {
+    Used,
+    Unused,
+}
+
+/// One cell the bag gave a body, disposed of in its room at `cut`.
 #[derive(Clone, Debug)]
 struct Allocated {
+    id: ProposalId,
     cut: u64,
-    room: LiveRoomInstance,
     body: SimId,
     item: Item,
+    disposition: Disposition,
+    settled: bool,
 }
 
 /// Proposals from rooms that rewind alone, waiting for their tick to be
-/// confirmed; the allocations a replay of their room spends again; and the
-/// bag's decisions. Allocations and decisions are kept for the rewind
-/// horizon ([`ROOM_REWIND_HORIZON_TICKS`]).
+/// confirmed; the allocations the bag made and their dispositions; and the
+/// bag's decisions. Settled allocations and decisions are kept for the
+/// rewind horizon ([`ROOM_REWIND_HORIZON_TICKS`]); an open allocation is
+/// kept until it settles.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct HeldBagOperations {
     proposed: Vec<Proposed>,
@@ -92,13 +146,27 @@ impl HeldBagOperations {
     pub fn is_empty(&self) -> bool {
         self.proposed.is_empty()
     }
-    /// The bag's decisions within the rewind horizon, in the order made.
+    /// The bag's decisions and settlements within the rewind horizon, in
+    /// the order made.
     pub fn decisions(&self) -> &[BagDecision] {
         &self.decided
+    }
+    /// Allocations not yet settled.
+    pub fn open_allocations(&self) -> usize {
+        self.allocated.iter().filter(|row| !row.settled).count()
     }
     /// Whether [`settle_bag_operations`] has anything to do.
     pub fn busy(&self) -> bool {
         !self.proposed.is_empty() || !self.allocated.is_empty()
+    }
+    /// The credits `room` has left at `tick`: its proposals made by then
+    /// that were not yet decided by then. Counted from the room's own
+    /// history, so a replay of the room meets the balance it met before.
+    pub fn credits(&self, room: LiveRoomInstance, tick: u64) -> usize {
+        let made_by = |id: &ProposalId| id.written.room == room && id.written.tick <= tick;
+        let waiting = self.proposed.iter().filter(|row| made_by(&row.id)).count();
+        let deciding = self.decided.iter().filter(|row| !row.settles() && made_by(&row.id) && row.tick > tick).count();
+        PROPOSAL_CREDITS_PER_ROOM.saturating_sub(waiting + deciding)
     }
 }
 
@@ -110,16 +178,57 @@ pub fn proposing_room(world: &World, body: Entity) -> Option<LiveRoomInstance> {
     }
 }
 
-/// Hold `operation` from the room and tick in `written` until that tick is
-/// confirmed. False, with a warning, when the store is full.
-pub fn propose(world: &mut World, written: RoomWrite, operation: BagOperation) -> bool {
-    let mut store = world.get_resource_or_init::<HeldBagOperations>();
-    if store.proposed.len() >= MAX_HELD_BAG_OPERATIONS {
-        warn!(target: "crate::committed_bag", "bag proposal refused, the queue is full: {operation:?}");
-        return false;
+/// The rollback authority a request from `body` belongs to: `Ok(None)` for
+/// one authority, `Ok(Some(room))` for a room that rewinds alone, and a
+/// refusal when independent rooms are on and the request names no body
+/// whose room can be told.
+fn authority(world: &World, body: Option<Entity>) -> Result<Option<LiveRoomInstance>, &'static str> {
+    let independent = world.get_resource::<SimulationIslands>().is_some_and(|policy| (policy.0)(world));
+    match body.and_then(|body| simulation_island(world, body)) {
+        Some(SimulationIsland::Room(_, room)) => Ok(Some(room)),
+        Some(SimulationIsland::Session(_)) => Ok(None),
+        None if independent => Err("no_authority"),
+        None => Ok(None),
     }
-    store.proposed.push(Proposed { written, operation });
-    true
+}
+
+/// Admit a conversation's grant from `body`'s seat. An immediate grant is
+/// the caller's to apply.
+pub fn admit_grant(world: &mut World, body: Option<Entity>, item: Item, count: u32) -> BagAdmission {
+    match authority(world, body) {
+        Err(why) => BagAdmission::Refused(why),
+        Ok(None) => BagAdmission::Immediate,
+        Ok(Some(room)) => hold(world, room, BagOperation::Grant { item, count }),
+    }
+}
+
+/// Admit `body`'s use of one `item`. An immediate use is the caller's to
+/// apply.
+pub fn admit_use(world: &mut World, body: Entity, item: Item) -> BagAdmission {
+    match authority(world, Some(body)) {
+        Err(why) => BagAdmission::Refused(why),
+        Ok(None) => BagAdmission::Immediate,
+        Ok(Some(room)) => match world.get::<SimId>(body).cloned() {
+            Some(id) => hold(world, room, BagOperation::Use { item, body: id }),
+            None => BagAdmission::Refused("no_identity"),
+        },
+    }
+}
+
+/// Hold `operation` from `room` on this tick, spending one of its credits.
+fn hold(world: &mut World, room: LiveRoomInstance, operation: BagOperation) -> BagAdmission {
+    let Some(tick) = world.get_resource::<ambition_time::SimTick>().map(|tick| tick.0) else {
+        return BagAdmission::Refused("no_tick");
+    };
+    let mut store = world.get_resource_or_init::<HeldBagOperations>();
+    if store.credits(room, tick) == 0 {
+        warn!(target: "crate::committed_bag", "bag proposal refused, {room:?} has no credits left: {operation:?}");
+        return BagAdmission::Refused("credits_spent");
+    }
+    let written = RoomWrite { room, tick };
+    let order = store.proposed.iter().filter(|row| row.id.written == written).count() as u32;
+    store.proposed.push(Proposed { id: ProposalId { written, order }, operation });
+    BagAdmission::Held
 }
 
 /// Whether one `item` does anything for `body`: a Health Cell for a body with
@@ -152,37 +261,41 @@ pub fn apply_cell_effect(world: &mut World, body: Entity, item: Item) {
     }
 }
 
-/// On a live tick, decide every proposal whose tick is confirmed. While a
-/// room replays, spend again the allocations it was given on the tick now
-/// running. (sim)
+/// On a live tick, decide every proposal whose tick is confirmed, then
+/// settle every allocation whose cut is confirmed. While a room replays,
+/// dispose again of the allocations it was given on the tick now running.
+/// (sim)
 pub fn settle_bag_operations(world: &mut World) {
     if world.contains_resource::<RoomReplay>() {
-        spend_allocations_again(world);
+        dispose_again(world);
     } else {
         decide_confirmed(world);
+        settle_confirmed(world);
     }
 }
 
+fn confirmed(world: &World, tick: u64) -> bool {
+    world.get_resource::<ConfirmedFrameBoundary>().is_none_or(|boundary| boundary.is_confirmed(tick as i32))
+}
+
 fn decide_confirmed(world: &mut World) {
-    let boundary = world.get_resource::<ConfirmedFrameBoundary>().copied();
     let now = world.resource::<ambition_time::SimTick>().0;
+    let boundary = world.get_resource::<ConfirmedFrameBoundary>().copied();
     let mut store = world.resource_mut::<HeldBagOperations>();
     let kept = |tick: u64| tick.saturating_add(ROOM_REWIND_HORIZON_TICKS) >= now;
-    store.allocated.retain(|row| kept(row.cut));
+    store.allocated.retain(|row| !row.settled || kept(row.cut));
     store.decided.retain(|row| kept(row.tick));
     let (mut ready, waiting): (Vec<Proposed>, Vec<Proposed>) = std::mem::take(&mut store.proposed)
         .into_iter()
-        .partition(|row| boundary.is_none_or(|boundary| boundary.is_confirmed(row.written.tick as i32)));
+        .partition(|row| boundary.is_none_or(|boundary| boundary.is_confirmed(row.id.written.tick as i32)));
     store.proposed = waiting;
-    // In the order they were made: by tick, then by room. A room's own
-    // proposals on one tick keep the order its replay makes them in.
-    ready.sort_by_key(|row| (row.written.tick, row.written.room.ordinal()));
+    ready.sort_by_key(|row| (row.id.written.tick, row.id.written.room.ordinal(), row.id.order));
     for row in ready {
         let outcome = decide(world, now, &row);
-        info!(target: "crate::committed_bag", "{:?} from {:?} -> {outcome}", row.operation, row.written);
+        info!(target: "crate::committed_bag", "{:?} from {:?} -> {outcome}", row.operation, row.id);
         world.resource_mut::<HeldBagOperations>().decided.push(BagDecision {
             tick: now,
-            written: row.written,
+            id: row.id,
             operation: row.operation,
             outcome,
         });
@@ -211,61 +324,98 @@ fn decide(world: &mut World, now: u64, row: &Proposed) -> &'static str {
             }
             "granted"
         }
-        BagOperation::Return { item } => {
-            world.resource_mut::<OwnedItems>().put_back(*item, 1);
-            "returned"
-        }
         BagOperation::Use { item, body } => {
+            // Reserve the row that settles the allocation before debiting.
+            if world.resource::<HeldBagOperations>().allocated.len() >= MAX_ALLOCATIONS {
+                return "settlement_full";
+            }
             if world.resource_mut::<OwnedItems>().take(*item, 1) == 0 {
                 return "bag_empty";
             }
-            let allocated = Allocated { cut: now, room: row.written.room, body: body.clone(), item: *item };
-            spend(world, &allocated);
+            let mut allocated =
+                Allocated { id: row.id, cut: now, body: body.clone(), item: *item, disposition: Disposition::Unused, settled: false };
+            allocated.disposition = dispose(world, &allocated);
             world.resource_mut::<HeldBagOperations>().allocated.push(allocated);
             "allocated"
         }
     }
 }
 
-/// The body's room spends one allocation at its cut: the effect, or, for a
-/// body the cell does nothing for, the cell's return.
-fn spend(world: &mut World, allocated: &Allocated) {
+/// The body's room disposes of one allocation at its cut: the effect, for a
+/// body the cell does something for; otherwise the cell stays unused. The
+/// body is the one carrying the identity in the proposing room.
+fn dispose(world: &mut World, allocated: &Allocated) -> Disposition {
+    let room = allocated.id.written.room;
     let body = world
         .query::<(Entity, &SimId, &InRoomInstance)>()
         .iter(world)
-        .find(|(_, id, room)| **id == allocated.body && room.0 == allocated.room)
+        .find(|(_, id, at)| **id == allocated.body && at.0 == room)
         .map(|(body, ..)| body);
     match body {
-        Some(body) if cell_takes_effect(world, body, allocated.item) => apply_cell_effect(world, body, allocated.item),
-        _ => {
-            let written = RoomWrite { room: allocated.room, tick: allocated.cut };
-            let rewinds_alone = body.is_none_or(|body| proposing_room(world, body).is_some());
-            if !rewinds_alone || !propose(world, written, BagOperation::Return { item: allocated.item }) {
-                world.resource_mut::<OwnedItems>().put_back(allocated.item, 1);
-            }
+        Some(body) if cell_takes_effect(world, body, allocated.item) => {
+            apply_cell_effect(world, body, allocated.item);
+            Disposition::Used
         }
+        _ => Disposition::Unused,
     }
 }
 
-fn spend_allocations_again(world: &mut World) {
+/// Settle each open allocation whose cut is confirmed, by the disposition
+/// its room recorded: an unused cell goes back to the bag.
+fn settle_confirmed(world: &mut World) {
+    let now = world.resource::<ambition_time::SimTick>().0;
+    let due: Vec<usize> = {
+        let store = world.resource::<HeldBagOperations>();
+        (0..store.allocated.len()).filter(|&at| !store.allocated[at].settled && confirmed(world, store.allocated[at].cut)).collect()
+    };
+    for at in due {
+        let row = {
+            let mut store = world.resource_mut::<HeldBagOperations>();
+            store.allocated[at].settled = true;
+            store.allocated[at].clone()
+        };
+        let outcome = match row.disposition {
+            Disposition::Used => "consumed",
+            Disposition::Unused => {
+                world.resource_mut::<OwnedItems>().put_back(row.item, 1);
+                "returned"
+            }
+        };
+        info!(target: "crate::committed_bag", "allocation {:?} -> {outcome}", row.id);
+        world.resource_mut::<HeldBagOperations>().decided.push(BagDecision {
+            tick: now,
+            id: row.id,
+            operation: BagOperation::Use { item: row.item, body: row.body },
+            outcome,
+        });
+    }
+}
+
+fn dispose_again(world: &mut World) {
     let replay = *world.resource::<RoomReplay>();
     let now = world.resource::<ambition_time::SimTick>().0;
-    let rows: Vec<Allocated> = world
-        .resource::<HeldBagOperations>()
-        .allocated
-        .iter()
-        .filter(|row| row.cut == now && replay.allows(Some(row.room)))
-        .cloned()
-        .collect();
-    for row in rows {
-        spend(world, &row);
+    let due: Vec<usize> = {
+        let store = world.resource::<HeldBagOperations>();
+        (0..store.allocated.len())
+            .filter(|&at| {
+                let row = &store.allocated[at];
+                !row.settled && row.cut == now && replay.allows(Some(row.id.written.room))
+            })
+            .collect()
+    };
+    for at in due {
+        let row = world.resource::<HeldBagOperations>().allocated[at].clone();
+        let disposition = dispose(world, &row);
+        world.resource_mut::<HeldBagOperations>().allocated[at].disposition = disposition;
     }
 }
 
 /// A rewind of `room` to `saved_at` drops the proposals it made after it.
+/// Their credits come back with them; the decided ones were confirmed, so
+/// the rewind cannot reach them.
 pub fn retract_room(world: &mut World, room: LiveRoomInstance, saved_at: u64) {
     if let Some(mut store) = world.get_resource_mut::<HeldBagOperations>() {
-        store.proposed.retain(|row| !row.written.retracted_by(room, saved_at));
+        store.proposed.retain(|row| !row.id.written.retracted_by(room, saved_at));
     }
 }
 

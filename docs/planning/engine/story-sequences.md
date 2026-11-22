@@ -3,7 +3,11 @@
 **State:** SS1, SS2, SS4's first form and SS3's death record landed
 2026-11-14 (below, "What landed"); SS3's `present_when` landed 2026-11-17
 with its first customer, the game show's goat and car (below); SS5 landed
-2026-11-14; SS6 is covered by SS1 and SS4 (below). Asked by Jon on 2026-11-14 after playing level 1: "do we have
+2026-11-14; SS6 is covered by SS1 and SS4 (below). **SS7–SS8 are planned**
+(reviewed 2026-11-21 against production `b91b29d35935`): bind authored calls
+to their actual participants, and distinguish skipping presentation from
+completing gameplay work. Neither is implemented by this planning update.
+Asked by Jon on 2026-11-14 after playing level 1: "do we have
 an expressive enough way to codify these authored sequences that doesn't
 require recompile of the engine? Because now that we are starting to author
 story sequences, it likely will start to become more important."
@@ -20,7 +24,7 @@ commands.
 | Piece | Where it is authored | What it can do |
 |---|---|---|
 | Dialogue | Yarn (`assets/dialogue/**.yarn`) | branches on conditions (`condition("encounter.cleared", ...)`), choices, `<<wait>>`, variables, `<<command ...>>` with prepared commands, speakers and portraits. It reloads live (`content_watch::YarnSourceWatch`) |
-| Cutscenes | `assets/data/cutscenes/*.ron` | a straight list of beats: `Dialogue`, `Wait`, `Fade`, `Banner`, `SetFlag`, `Fall` (a scripted death). `CameraPan` advances its timer and moves no camera (unfinished). A `seen_flag` plays it once |
+| Cutscenes | `assets/data/cutscenes/*.ron` | a straight list of dialogue, waits, authored commands/conditions, flags and scripted deaths; camera pan/release, fade and banner presentation. A `seen_flag` plays it once |
 | Triggers | LDtk entities (generators) | `CutsceneTrigger` (a volume; `after_encounter`), `EncounterTrigger`, `Switch` (`on_activate` command line), `LockWall` (`gated_by` condition) |
 | Room lines | LDtk level fields | `entry_cutscene`; `while_live` (a command line asked each tick) and its condition `while_live_when` |
 | Encounters | `assets/data/encounters/*.ron` | waves of spawns, each with a position and a delay; the encounter's own lock wall; a linked switch to restart it |
@@ -31,7 +35,10 @@ sets a flag, the room's `while_live_when` lets its `while_live` line start
 the raid, the encounter walks the raiders in, the bar breaks on a flag, and
 the Creator's last words are a cutscene whose `Fall` beat kills him.
 
-## Gaps level 1 ran into
+## Historical gaps from level 1 (2026-11-14)
+
+These motivated SS1–SS6; the receipts below describe what subsequently
+landed. Current work is SS7–SS8, after those receipts.
 
 1. **Actors cannot be directed.** No beat or command makes a character walk
    to a place, leave through a door, turn, take a pose or appear. The raid
@@ -58,9 +65,9 @@ the Creator's last words are a cutscene whose `Fall` beat kills him.
 
 ## Proposal, in order
 
-Each step is content-facing vocabulary that a domain owns, prepared and
-refused at load like the existing commands. None of them is a scripting
-language.
+Each step is content-facing vocabulary that a domain owns. Static calls are
+prepared against installed descriptors; live references and state have their
+own binding/admission point (SS7). None needs a new scripting language.
 
 - **SS1. Actor commands.** `actor.walk_to <character> <zone|point>`,
   `actor.leave_through <character> <zone>` (walk to an exit and go),
@@ -70,9 +77,9 @@ language.
   content. Yarn can use them at once through `<<command>>`.
 - **SS2. Cutscene beats over the shared vocabulary.** `Command { line }` runs
   a prepared command; `WaitFor { condition, seconds_at_most }` holds the beat
-  until the condition is true. The cutscene keeps its own cursor, as now, so
-  rollback and skip stay where they are. A skip applies the commands it
-  passes, as it applies `SetFlag` and `Fall` today.
+  until the condition is true. The cutscene keeps its own cursor and rollback
+  state. Current skip emits remaining commands alongside flags and falls;
+  SS8 replaces the assumption that this also completes their gameplay work.
 - **SS3. Lasting presence.** `NpcSpawn` takes `present_when` and
   `fallen_when` conditions, so the Creator lies where he fell on every later
   visit, and a villager who has left is gone. **First part landed
@@ -178,8 +185,8 @@ language.
   its `beaten_at` floor (a death trait: blows take it no lower, so a body
   that the story needs alive is beaten there rather than killed).
 - **SS2, cutscene beats** (`crates/ambition_cutscene`):
-  `Command { line }` runs a prepared command in the cutscene's room (a skip
-  still runs it), `WaitFor { condition, seconds_at_most }` holds until the
+  `Command { line }` runs a prepared command in the cutscene's room (current
+  skip still queues it; the completion gap is SS8), `WaitFor { condition, seconds_at_most }` holds until the
   condition is true or for its longest hold. Every `Command`, `WaitFor` and
   `starts_when` line is prepared against the installed catalogs whenever the
   library changes (at start and at each reload) and refused there, naming
@@ -210,6 +217,146 @@ language.
   last words, out to the lane, back in; the workshop is built again, a new
   body, lying where he fell.
 
+## Remaining work: bound calls and gameplay completion
+
+### SS7 — bind roles once for an authored invocation
+
+**Current source:** actor commands select bodies by character name through
+[`direction::cast_in`](../../../crates/ambition_platformer2d_actor_monolith/src/body/direction.rs),
+optionally in the command's room. `arrived`, `gone` and `beaten` independently
+query the matching population without that room context. The
+[`cutscene adapter`](../../../crates/ambition_platformer2d_runtime/src/cutscene.rs)
+carries a room into commands, but its wait answers are keyed by raw condition
+text. The same line cannot have independent answers for two bound scenes.
+
+Yarn has the same missing binding stage: the
+[`conversation instance`](../../../crates/ambition_conversation/src/instance.rs)
+already identifies its initiator and talker, while the generic
+[`command`](../../../crates/ambition_conversation/src/dialog/authored_commands.rs)
+and [condition](../../../crates/ambition_conversation/src/dialog/authored_conditions.rs)
+bridges refuse reference parameters and ask through character-name arguments.
+The command bridge does not supply the conversation's room. Its refusal of
+raw strings as identities is correct; the missing operation is binding an
+authored role to an identity the caller already owns.
+
+**Decision:** prepare a reusable call, then bind its invocation's explicit
+roles and context. A character kind, a population query, a bound occurrence
+and an operation issued to that occurrence are distinct. The shared
+authored-call boundary carries the bindings/context into both commands and
+conditions; cutscenes and conversations retain their own cursor, ledger and
+authority. This page owns the first delivery through both frontends.
+
+Use existing occurrence references and lexical construction bindings from
+[reusable authored composition](reusable-authored-world-composition.md).
+`AuthoredArg::Reference` currently carries SimId and native object ports use
+ObjectRef: adapt explicitly through the existing live resolver at the domain
+boundary, without creating a third lifetime identity. A room-local place
+name remains a place; static content names remain content names. Role lookup
+does not grant a command permission to mutate the object.
+
+The first two customers are the Creator's
+[`intro.yarn`](../../../game/ambition_content/assets/dialogue/sandbox/intro.yarn)
+conversation and the brute's
+[`intro.ron`](../../../game/ambition_content/assets/data/cutscenes/intro.ron)
+choreography. Instead of repeatedly spelling `npc_creator`, the conversation
+can address its talker and ask about that same body. A scene binds its Creator
+and brute roles and uses those references throughout. An illustrative
+`actor.arrived(@talker)` is a proposed binding meaning, not current syntax.
+
+1. Prepare one individual reference parameter through the shared call
+   boundary, and bind it from the existing conversation talker and one scene
+   placement. A required unique binding refuses absent/ambiguous targets with
+   source context. Do not silently choose the first body of that character.
+2. Migrate the Creator dialogue and brute scene. Address condition answers by
+   playing occurrence and prepared call/beat, deleting the raw-line answer
+   conflation and repeated individual population selection. Preserve the
+   narrative ledger and current command/action-reply runner.
+3. Bind the doorway raiders as a cohort **after** their spawn milestone. They
+   do not exist at scene start. State whether each group binding captures
+   members at that point or is deliberately a live population query. Keep
+   existing broadcast forms as explicit adapters with their old meaning.
+
+Bindings are rollback-owned invocation state, resolved through current live
+objects at the invocation cut. Retirement refuses the old reference; it must
+not discover a replacement of the same character. Reconstruction of the same
+occurrence retains its role. Reload follows the admitted-program lifetime;
+it cannot silently rebind active roles by name. Binding identity never freezes
+health, position, form, friendship or permission. Reuse the existing read
+index; do not rescan/rebind every scene on every tick.
+
+Two live rooms with the same script and character kinds must act and wait
+independently. A form change must not hand a role to another body. Keep
+population counts, nearest-enemy selection and intentional crowd commands as
+queries. “Departed this room,” “retired,” and “no matching live body exists”
+remain different questions: a directed actor can leave into another live room.
+Likewise, observing an actor's current arrived Visit is not proof that a
+particular requested walk completed; correlated completion belongs to the
+existing [domain action-outcome protocol](extension-domain-contracts.md).
+
+### SS8 — skip presentation; settle stated gameplay obligations
+
+**Current source:** `CutsceneBeat::consequence` and `CutsceneRuntime::skip`
+in [ambition_cutscene](../../../crates/ambition_cutscene/src/lib.rs) emit all
+remaining Command beats together. The runtime adapter queues them, writes
+the seen flag and removes the scene. `WaitFor` also advances identically on
+satisfaction or timeout. These describe the implementation, not a guarantee
+that skipping preserves its intended gameplay outcome.
+
+The brute script exposes the distinction. `direction::send` applies a Visit
+and returns `Done`; `leave_through_zones` later performs the actual transfer
+or departure. `direction::throw` launches a held item with a 0.45–0.85 second
+flight; item/contact/combat owners later determine its impact. Removing all
+time issues walking, throwing, releasing and leaving together. A release can
+remove the just-issued Visit; the throw starts from the current positions,
+not the positions the skipped walk would have reached. The normal-play
+[raid witness](../../../game/ambition_app/tests/the_raid_brute_takes_the_case.rs)
+checks departure and a wounded but living Creator, not skip equivalence.
+
+**Decision:** a skip ends optional presentation; it does not prove remaining
+work completed. Keep the cutscene's existing cursor and explicit obligations
+until their owning domains settle them. Immediate flag/fall consequences can
+retain their simple path. A cosmetic delay can disappear; a dependency on
+arrival, creation, departure or impact needs the relevant result. A deliberate
+best-effort wait may time out and proceed. A required result must distinguish
+satisfaction from refusal, an unanswerable condition and timeout, with an
+explicit failure/abort policy; none silently becomes successful completion.
+A flag's applied result establishes that fact, not completion of a population
+change triggered by it. The doorway scene still needs the actual spawn/binding
+milestone before it directs the new cohort.
+
+The first operation owners are navigation/transfer for **leave through a
+zone**, and held-item/contact for **throw**. Identify the specific result each
+scene requires before adding vocabulary: command application, departure,
+launch and impact differ. Use existing typed requests, action replies and
+cancellation policies; do not add a generic completion enum or pending-work
+registry. A fast settlement is available only if its domain supplies an
+admitted operation with defined semantics. The scene may not infer a teleport,
+damage event or inventory transfer by executing commands with time removed.
+
+An already-launched projectile is committed work: ending the presentation
+neither erases it nor launches it again. Cancel pending scene-owned work only
+under its domain's policy. Release presentation/control contributions under
+the [source-lifetime contract](actor-effects-and-modifier-composition.md),
+without dropping an outstanding gameplay obligation or retaining a whole-room
+presentation hold merely because work is pending. Do not advance the whole
+World extra ticks to finish a skipped scene.
+
+Delivery uses two shipped cases. For the brute, compare normal play and skip
+before/after the throw and before departure against the stated story outcome;
+define the result if the required movement or impact fails. For the doorway
+scene, skip before `intro_raiders_coming` must preserve the dependency on
+spawning/binding the raiders before directing them. An arbitrary longer delay
+does not establish that dependency.
+
+Delete the blanket skip-all-commands consequence rule and “seen on queue
+emission” for scenes carrying outstanding gameplay work. Keep one authored
+sequence interpretation; do not maintain a second skip script that must be
+kept in sync. Rewind while pending, target retirement and skip after acceptance
+must preserve the existing action/room-lifetime guarantees. Completion and
+presentation-dismissal state must be distinguished where the seen flag gates
+later story. This work adds neither a universal sequencer nor a global story
+transaction.
+
 ## Acceptance for the first slice (SS1 + SS2)
 
 The raid's last raider, at one left, runs out of the barn door with the
@@ -217,5 +364,7 @@ case (a cutscene with `Command` beats using `actor.leave_through`; met
 2026-11-14, and since 2026-11-17 the brute does it, above). The
 Creator's last words then play, and the siding's crate is the case the
 goblins carried. It is written entirely in content files, with no engine
-change after the slice lands. A misspelled actor or zone is refused when
-the pack loads, naming the file.
+change after the slice lands. Static verb/argument errors are diagnosed when
+the library loads. Current actor/zone names are checked at execution; SS7
+adds explicit invocation binding and its diagnostics without claiming that
+all live objects exist at pack-load time.

@@ -207,6 +207,8 @@ links to.
 - [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md)
   — occurrence, custody and entitlement.
 - [`engine/participant-action-system.md`](engine/participant-action-system.md)
+- [`engine/interaction-opportunities-and-activation.md`](engine/interaction-opportunities-and-activation.md)
+  — domain-owned opportunities, prompt projections and accepted gesture consumption.
 - [`engine/control-authority-and-ai-policy.md`](engine/control-authority-and-ai-policy.md)
 - [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md)
 
@@ -223,18 +225,17 @@ links to.
 - [`engine/slopes-feet-ride-surfaces.md`](engine/slopes-feet-ride-surfaces.md)
   A proposal (2026-10-11): a body on the ground keeps a support that
   lasts; its shape says how it sits on it. Not built; one decision open.
-- [`engine/portals-one-transit-for-every-mover.md`](engine/portals-one-transit-for-every-mover.md)
-  Nothing teleports: props and projectiles straddle and cross as bodies
-  do, and a seam lab (a gauge prop, a scenario matrix) measures it.
-- [`engine/portal-pair-identity-and-aperture.md`](engine/portal-pair-identity-and-aperture.md) — paired-portal identity and aperture design.
-- [`engine/portal-parts-similarity-and-chirality.md`](engine/portal-parts-similarity-and-chirality.md) — selected exact-part/Sim2 portal scaling, chirality and IEEE 754 numerical-failure plan.
-- [`engine/portals-a-body-in-two-places.md`](engine/portals-a-body-in-two-places.md)
-  A body straddling a portal is hit, hurts and collides on both sides, with
-  no hacks (Jon, 2026-10-16).
+- [`engine/portal-parts-similarity-and-chirality.md`](engine/portal-parts-similarity-and-chirality.md)
+  Portal delivery owner: exact material, admitted topology/motion, conservative
+  query preparation and per-observer presentation; bounded P1–P6 work.
+- [`engine/portal-pair-identity-and-aperture.md`](engine/portal-pair-identity-and-aperture.md)
+  Directed occurrence, per-connection map law, atomic edits and scoped leases.
 - [`engine/portals-are-moving-frames.md`](engine/portals-are-moving-frames.md)
-  A portal is a rigid frame that moves: its host's published motion,
-  transit in its own frame, captures that are drawn where they were taken.
-  Built 2026-10-15.
+  Accepted event-time motion, contact kinematics and retained trajectories.
+- [`engine/portals-a-body-in-two-places.md`](engine/portals-a-body-in-two-places.md)
+  Canonical material and distinct motion, reach, visibility and art domains.
+- [`engine/portals-one-transit-for-every-mover.md`](engine/portals-one-transit-for-every-mover.md)
+  Complete observer charts, ordered handoff, demand and ready capture sources.
 - [`engine/collision-and-ccd.md`](engine/collision-and-ccd.md)
 - [`engine/kinematic-world-objects.md`](engine/kinematic-world-objects.md)
 - [`engine/platformer-navigation-and-reachability.md`](engine/platformer-navigation-and-reachability.md)
@@ -246,6 +247,8 @@ links to.
 - [`engine/relativity.md`](engine/relativity.md)
 - [`engine/frame-awareness.md`](engine/frame-awareness.md) — maintainer
   manifesto.
+- [`engine/body-anchor-bindings.md`](engine/body-anchor-bindings.md)
+  — align independently mapped body points; retain domain relation policies.
 - [`engine/slower-light.md`](engine/slower-light.md) — deferred 3D direction.
 
 ### Engine: AI, perception and dialogue
@@ -274,7 +277,7 @@ links to.
 - [`engine/character-texel-density.md`](engine/character-texel-density.md) —
   sheet pixels per world unit; the cast rollout is on hold.
 - [`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md)
-  — rigged sprites (on in the shipped game).
+  — rigged sprites, compiled visual relations and staged image invalidation.
 - [`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md) —
   Mary-O drawn entirely from parts: gaps, validation, interpolation, phases.
 - [`engine/semantic-part-rendering-and-ragdolls.md`](engine/semantic-part-rendering-and-ragdolls.md)
@@ -304,6 +307,12 @@ links to.
 - [`engine/prevalidated-content-artifacts.md`](engine/prevalidated-content-artifacts.md)
   — content validated ahead of time for fast admission; deferred.
 - [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md)
+- [`engine/execution-specialization-and-work-selection.md`](engine/execution-specialization-and-work-selection.md)
+  — full/reference semantics with fast gameplay paths; prepare fixed relations
+  and select active query, visual, behavior and navigation work.
+- [`engine/data-structure-kernels.md`](engine/data-structure-kernels.md)
+  — interchangeable bounds-query and unique-lookup operations, with independent
+  measurements of preparation, queries and consumption.
 - [`engine/runtime-frame-history.md`](engine/runtime-frame-history.md)
 - [`engine/project-build-and-distribution.md`](engine/project-build-and-distribution.md)
 - [`engine/godot-class-2d-capability.md`](engine/godot-class-2d-capability.md) —

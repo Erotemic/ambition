@@ -1,284 +1,319 @@
-# One portal transit for every mover, measured by a seam lab - an engine plan
+# One portal transit, presented in every view
 
-**Status:** S1–S3 BUILT 2026-10-16; S4 in progress (see "S4" and "Open"). It follows
-[portals are moving frames](portals-are-moving-frames.md).
+**Status:** the common mover and drawable roads are built; the view work below
+is **PLANNED**, from source review of `b91b29d35935` on 2026-11-21.
+[Portal parts, similarity and chirality](portal-parts-similarity-and-chirality.md)
+is the delivery owner. This page owns presentation handoff, observer geometry
+and capture lifetime. [Moving frames](portals-are-moving-frames.md) owns the
+motion interval and continuation details; this page does not define another
+crossing machine.
 
-Jon, 2026-10-15:
-- "Nothing should teleport instantly. Portals should work the same for every object that
-  moves."
-- "I would love to get it to the point where we actually can get rid of seams and to have
-  arbitrary game characters, props, and projectiles work with portals perfectly."
-- "It might be helpful to build a prop with a grid or other measurable patterns on it so we
-  can use it to measure how seemless portals actually are. We should have steps to see how
-  these objects pass through portals with different cases and velocities. Although maybe not
-  all of these run in the default test suite."
+## Product contract and current receipts
 
-## Current implementation (after 2026-10-16)
+The maintainer's October 15–25 direction remains binding: every mover uses
+portals, arbitrary drawables work without a game-specific portal adapter,
+material is drawn on both sides while crossing, and the view has no seam.
+An **open window captures every presented frame at every quality tier**.
+Quality tiers retain the configured view-matched pixel density and may cap
+the number of open captures. An older picture beside current material is not
+a valid cheaper open window. The carry's separate byte budget may reduce its
+source-image resolution or use material proxies; that is not permission to
+reduce window density by tier. The gauge/seam lab and `capture_scene` remain
+the existing tools for visible evidence.
 
-Kernel bodies, ground items and projectiles use the shared portal transit
-machine with one cooldown/event road. Projectiles no longer teleport inline;
-free bodies and projectile/ground-item presentation can straddle and be cut
-at the seam. The seam lab exists as
-`scripts/measure/portal_seam_lab.py` and is not a default test.
+| Current mechanism | Keep; do not rebuild it as new work |
+| --- | --- |
+| Shared `PortalTransit` / `PortalBodyTransited` road | Kernel, loose-item and projectile integrations use the common transfer authority; remaining-time motion is owned by the moving-frame plan. |
+| Canonical material partitions and admitted `Sim2` maps | Body, attack and picture geometry share map/cut operations; physical domains and art extents may differ. |
+| Universal drawable carry | Top-level Sprite, Mesh2d and Text2d sources are eligible by geometry; explicit families follow their root. No new effect kind needs portal opt-in. |
+| Independent family roots and depths | R4 stopped merging independent bodies into one raster source. Preserve their identity, cut root and order. |
+| `ClipQuadPool`, reused targets and material proxies | Entities/materials/meshes already persist; same-size targets reuse storage and idle targets retire. The carry's 32 MiB default budget reduces resolution then draws admitted proxies. |
+| Per-view camera state and focused scale | The camera resolver adopts `CameraFocus2d::scale` immediately after ordinary zoom easing. Use this once; do not add a second portal scale multiplier. |
+| Cached composed-body images | Source images wait for their own GPU work before resting. Readiness is an existing mechanism, not an assumed one-frame delay. |
 
-The older gaps in the one-transit baseline were fixed; the measurement,
-portal continuity and presentation problems in **Open** below are separate,
-unresolved obligations. The October 16 results are a dated baseline, not a
-current visual-parity guarantee.
+Source owners: `ambition_portal2d::{transit,view}`, core `frame::{similarity,thread}`,
+`ambition_portal2d_presentation::{carry,clip_material,view_cones}`, and
+`ambition_sim_view::camera_snapshot`. The
+[November review receipt](../../../dev/reviews/portal-correctness-and-cost-review-2026-11-10.md)
+and [GNU limb image receipt](../../../dev/ambition_dev_measurements/summaries/portal-gnu-limb-render-20261111.md)
+record completed fixes and their limits. The October seam-lab measurements are
+historical controls, retained in Git; they do not certify today's cameras,
+multiple views or target hardware.
 
-## Steps
+## One presented chart per observer
 
-- **S1. The seam lab: measure first.**
-  - **A gauge prop:** an authored PNG with a grid and corner marks in colours that appear
-    nowhere else in the lab. It is a ground item that can be thrown.
-  - **`capture_scene` flags:**
-    - one that launches the player at a velocity;
-    - one that spawns an item at a point with a velocity.
-  - **A scenario matrix** (`scripts/measure/portal_seam_lab.py`, not in the default suite):
-    - movers: the robot, the gauge, a projectile;
-    - pairs: floor↔floor, floor↔wall, wall↔wall, slope↔wall, a moving plank, a spinning plank;
-    - speeds: slow, medium, fast.
-  - **Metrics, per frame:**
-    - **Conservation:** the gauge's visible pixel area, which must not dip or double at the
-      crossing.
-    - **Continuity:** the grid's lines on both sides of the seam.
-    - **Window pops:** `portal_cone_trace.py`.
-  - The baseline is taken before S2.
-- **S2. One transit for every mover.**
-  - A typed adapter per body representation runs the same machine, with the same
-    `PortalTransit` and cooldown components, the same carves and the same
-    `PortalBodyTransited` event.
-  - Projectiles drop the inline teleport and record a `SweepSample`. Ground items straddle
-    and cross like bodies.
-- **S3. Drawn split.** Projectile and item visuals are cut at the seam, as the body pieces
-  are.
-- **S4. Re-measure, then fix what the numbers show.** Commit the lab's report.
+**Planned invariant:** a portal window is a projection for a particular observer
+through a directed portal path. A room/channel alone cannot identify it.
+Two views of one room can have different eyes, facing, viewport, roll and
+occlusion. Two paths reaching one endpoint can have different maps and clips.
+The endpoint occurrence and topology snapshot come from the topology owner in
+[the pair plan](portal-pair-identity-and-aperture.md); rendering must not mint a
+parallel pair identity. A new pose does not create a new endpoint occurrence.
 
-## What landed (2026-10-16)
+The shared presented sample names the observer and scene lifetime, selected
+source pose/time, crossing cursor, physical viewport and already-resolved
+policy. It keeps the persistent observer chart distinct from the final
+projection after shake and finishing zoom. Footprint clipping, source capture
+and density use the actual final projection; continuity transports the
+persistent chart and applies transient effects once, without accumulating
+them into the next anchor. Diagnostic targets and zone names add no authority.
 
-The gauge-based seam lab, common free-body/projectile transit and cut
-visuals landed. `publish_transiting_drawn_bodies` supplies visual seam facts;
-`capture_scene --tick-per-frame` and the portal trace tools inspect the
-first crossing. Do not restore the removed inline projectile teleport path.
-The remaining continuity, coverage and target-speed issues are in **Open**.
+The gameplay visibility eye, body extent and facing are also explicit facts
+at the selected source sample. They are not the eased/clamped camera center.
+A complete chart must not replace body-eye LOS with camera-origin LOS or
+change authored turn-away behavior. These facts and the final projection
+travel in one coherent sample, with parallax consuming its declared camera
+placement. Resolve a room's portal mode for that observer's room; one
+active-room rule resource cannot govern independent rooms correctly.
 
-## Measured (2026-10-16, `high`, windows off)
+Current source loses necessary facts:
 
-| | before (teleport) | after |
-|---|---|---|
-| A floor↔floor | jumps 225 px in a frame | 0.96 / 0.96 / 0.99 of the gauge drawn (slow / medium / fast) |
-| D floor↔wall | jumps 230–350 px | 0.94 / 0.93 / 0.92 |
-| E slope↔wall | jumps 400–480 px | 0.93 / 0.93 / 0.92 |
-| B wall↔wall | jumps ~200 px | 0.76 / 0.86 / 0.67 |
-| door (thin wall) | — | ~0.75 |
-| F moving plank | jumps ~300 px | 0.47 / 0.71 / 0.76 |
-| G spinning plank | jumps ~250 px | 0.53 / 0.30 / 0.39 |
+- `platformer2d_host::portal::sync_portal_viewer` publishes views in id order;
+  `PortalViewers::publish` refuses a second eye in the same room.
+  `PortalViewRig` identifies `(room, channel)`. Existing rig tests explicitly
+  pin that restriction; two-room tests do not establish same-room multiview.
+- `PortalCameraContinuityHostView::capture` keeps center and visible extent,
+  but drops camera rotation. `camera_follow` applies that rotation to the
+  real camera. `portal_window_clip_rect` still clips an axis-aligned rectangle,
+  and `portal_capture_camera_frame` maps global X instead of the observer basis.
+- `GameplayScreenDensity` reads the global gameplay rectangle or a first main
+  camera, rather than the actual observer's physical viewport.
 
-No crossing vanishes, and no frame falls back to a whole copy.
+The missing basis has an exact counterexample: an 800×450 view rolled 90°
+sees x±225,y±400 about its center; portal clipping keeps x±400,y±225. A visible
+window slice at y=300 disappears before rasterization. Clipping to the actual
+convex screen footprint and transporting its basis fixes the cause; extra
+AABB padding does not make capture coordinates correct at arbitrary angles.
 
-## S4 (2026-10-16)
+Bind depth-one observer×endpoint projections first. A view's pane, private
+capture layers and parallax copies all belong to that binding. In particular,
+`rendering::parallax::sync_portal_capture_parallax_layers` currently copies every
+room's root panels into every rig, and channel-derived private masks alias
+between rooms. Filter source panels by the projection's scene and give each
+live projection a private backend binding. Preserve the rule that foreground
+parallax is drawn by the main view only, not copied through a window.
 
-- **A turned item no longer snaps upright.** A pair that turns what it carries (a plank, a
-  floor to a wall) drew the far-side piece turned, then put the item back upright on the
-  transfer: a 45° snap on G. Ground items now carry `ActorRoll`. A crossing adds the pair's
-  turn, as it does for a body, and the item rights itself at the actor rate
-  (`right_ground_items`, `ease_roll`). Upright is the screen's, as items are drawn.
-- **A shot no longer vanishes after it crosses.** The visibility resolver released its hide
-  without restoring `Visibility`, on the rule that every body has a per-frame visibility
-  owner. A shot's visual has none, so it stayed hidden for the rest of its flight, on every
-  pair. The resolver now restores a hide that nothing wrote over.
-- **The lab:**
-  - It films at `low`. At `high`, bloom spreads a lamp's or a portal line's light over the
-    gauge's colours, and that measured as a dip: F and G read 0.26–0.83 at `high` and
-    0.97–0.98 at `low`.
-  - It counts a blend of the gauge's two colours, so a whole gauge holds within 3% from
-    frame to frame (8% before).
-  - It sends the gauge as a shot (`--movers shot`, the projectile look `seam_gauge`) and
-    launches the robot (`--movers robot`, `capture_scene --player-at X,Y@T:VX,VY`). The
-    robot is measured against a clean plate.
-  - Kernel bodies log `ambition_portal::transit_trace` as free bodies do.
+## Ordered crossings and explicit cuts
 
-Gauge thrown, `low`, the share of it drawn while it crosses (least / most):
+Let `C` map pre-effect screen coordinates into the persistent observer chart
+and let `H` be an admitted crossing map. Instantaneous chart continuity of
+corresponding points requires:
 
-| | slow | medium | fast |
-|---|---|---|---|
-| A floor↔floor | 0.97 / 1.05 | 0.98 / 1.02 | 0.98 / 1.03 |
-| B wall↔wall | 0.90 / 1.06 | 0.94 / 1.05 | 0.88 / 0.96 |
-| C floor↔ceiling | 0.96 / 1.03 | 0.92 / 1.02 | 0.94 / 1.01 |
-| D floor↔wall | 0.99 / 1.01 | 0.97 / 1.02 | 0.99 / 1.02 |
-| door | 0.91 / 1.06 | 0.94 / 1.07 | 0.89 / 1.05 |
-| E slope↔wall | 0.93 / 1.03 | 0.93 / 1.01 | 0.98 / 1.03 |
-| F moving plank | 0.98 / 1.03 | 0.98 / 1.02 | 0.98 / 1.04 |
-| G spinning plank | 0.97 / 1.03 | 0.97 / 1.04 | 0.91 / 0.98 |
+`C_after = H ∘ C_before`, or `P_after ∘ H = P_before` for the inverse
+pre-effect projection `P`.
 
-Shot (the gauge's look, 300 px/s) and robot, `low` (least / most):
+Transport the complete chart, not just its center. Apply the selected final
+presentation effects once on either side of this relation; their intentional
+change over time is separate from a chart discontinuity. The existing focused
+camera-scale adoption participates in the chart result exactly once.
+Overview/director framing is explicit observer policy; it cannot accidentally
+inherit a focus-only assumption.
 
-| | shot | robot slow | robot medium | robot fast |
-|---|---|---|---|---|
-| A floor↔floor | 0.95 / 1.03 | 0.96 / 1.00 | 0.93 / 0.98 | 0.97 / 1.00 |
-| B wall↔wall | 0.92 / 1.00 | missed | missed | 0.93 / 1.19 |
-| C floor↔ceiling | 0.98 / 1.07 | 0.98 / 1.05 | 0.97 / 1.04 | 0.98 / 1.01 |
-| D floor↔wall | 0.96 / 1.06 | 0.99 / 1.01 | 1.00 / 1.03 | 0.99 / 1.01 |
-| door | 0.98 / 1.04 | missed | missed | 0.93 / 1.13 |
-| E slope↔wall | 0.99 / 1.04 | missed | missed | missed |
-| F moving plank | 0.96 / 1.01 | (plate) | (plate) | (plate) |
-| G spinning plank | 0.98 / 1.02 | (plate) | (plate) | (plate) |
+`apply_portal_camera_continuity` currently drains all transfer messages, selects
+one previous camera center, then maps **that same center** for each transfer.
+It maps the ease target sequentially but overwrites the anchor. Two translations
+of +100 and +200 between presentations therefore store C+200 instead of C+300.
+Several fixed ticks can precede one presentation even when a mover crosses
+only once per tick. Fold the motion owner's ordered admitted transfers once,
+using their sampled maps; do not reconstruct the chain from the last pair,
+current endpoints or event/query iteration without its declared ordering.
 
-"missed": the launch did not carry the robot through the opening (on E it stood in the
-plane). "(plate)": the plank moves, so the clean plate does not hold and the numbers are
-not of the robot.
+Resolve each view's source pose and crossing cursor together. Fold only the
+accepted transitions between its previous cursor and the chosen presented
+sample, not every simulation event available. An interpolated pose can trail
+the latest simulation crossing; an extrapolated pose cannot invent an
+unadmitted transfer. The view's chart, follow target and foreground carry
+consume that same fold. Subject binding, scene lifetime and presentation
+branch are part of its identity.
 
-## Review fixes (2026-10-16)
+Project compact crossing receipts while motion history is available, and
+retain them until the relevant cursors consume them or explicitly cut. This
+does not retain every contact cell and full tick history for a slow observer.
+Bound retention; if a cursor loses its required history, declare the view cut
+rather than reconstructing a path from current endpoints.
 
-A source review of S1-S4 found these. Each has a test in `ambition_portal2d`
-(`body_contract_tests.rs`), the projectile tests or the content portal tests.
+On a subject/room/session change, an explicit director cut, missing history,
+or abandonment of the presented rollback branch, discard the old anchor and
+rebase to the accepted presented sample. A body still straddling a
+pair is not a request to replay its transfer. Presentation history is derived;
+it adds neither rollback authority nor another crossing event.
 
-- **A shot's leg ends at a portal.** The stepper resolved walls and bodies along the whole
-  leg in the room the shot was leaving, and the transit took it a tick later. Contacts now
-  stop where its centre enters a paired opening (`first_portal_crossing`).
-- **A held item is not a free body.** Custody derives `BodyInStorage` before spatial reads. A held item opens, crosses and straddles nothing, and its straddle ends.
-- **A crossing that skipped `Begin` straddles the exit**, so it is drawn cut as every
-  crossing is.
-- **A straddle ends when the last pair closes.** The transit returned early with no portal
-  placed, so `PortalTransit` stayed and kept withholding wall verbs.
-- **Each body has a sweep** (`SweepSample`), **and a closing plane pushes it clear**
-  (`evict_straddlers_on_portal_change`).
-- **Closing planes are taken in a fixed order** (room, then channel), not hash-map order.
-- **Host depth is the host's.** Measured through moving blocks where they are; a portal on a
-  bare line (a plank) has depth 0, so the rescue does not take a body under the plank.
-- **One host pose a tick** (`PortalSet::Pose`). The platforms advance
-  (`MovingPlatformsAdvanced`), the hosted apertures take their pose, the links resolve, the
-  carves are cut, and then the bodies integrate. Before, the carve was cut from the last
-  tick's pose: on F it lagged the plank by 0.54 px and 0.4° (`a_moving_portal_is_carved_where_it_is`).
-  The lab after it (`low`): every pair crossed, gauge dip 0.88-0.995, shot 0.92-0.985.
+### Reflection is a policy boundary, not an angle
 
-## The snag, and a cone that eases out behind you (2026-10-16)
+**Proposed Continuous contract:** transport the full finite `Sim2`, including
+scale and reflection, and retain the transported chart parity for this view.
+It remains that chart until another accepted map or an explicit view reframe
+changes it. This can change reflected presentation; it never reflects the
+shared physical world again and never rewrites authoritative controls.
 
-Jon: a body completes a crossing only if all of it passes through the opening; where part
-would go through and part around, it snags on the ends, like a rope.
+An orientation-reversing map changes the sign of the camera basis determinant.
+No continuous nonsingular interpolation can restore an unmirrored positive
+basis: the determinant would have to pass through zero. Angle or quaternion
+easing cannot provide this transition. Current `CameraChartTransit` carries
+only a roll; `camera_roll_for_portal_transit` returns zero for reflected
+opposite-wall pairs even though their map flips a tangent coordinate.
 
-- **The rule** (`snag.rs`): a body that straddles a portal cuts the portal's plane along one
-  segment, and that segment must be in the opening. Past an end the plane is the host, from
-  either side, before the body's centre crosses and after (the exit's plane is the same seam).
-  A body that came at the plane from one side goes back to it along the normal; one that slid
-  along the plane goes back to the end. It is a no-worse rule: a box that already cut the plane
-  past an end (its feet standing into a slope beside the opening) is held where it was, not
-  pushed, so the kernel's feet rule on slopes does not jitter.
-- **Where:** `PortalSet::Frame`, after eviction and before transit, for all independent bodies
-  (`snag_straddlers`). A body is read whether or not it
-  straddles yet: one step can take it across the plane.
-- **Measured on E:** the robot sunk in the slope's opening and walking right is held at the end
-  (x stays at 2974.9 while it holds right), and goes through only when it fits. Walking up the
-  slope past the end is unchanged. The lab is unchanged on every pair.
-- **Later:** the rule is for a box. A physics body answers the same question with its own
-  contact against the plane beyond the ends.
-- **Cones:** a viewer turned away from a portal keeps its window within `turned_away_reach`
-  (40 px, body edge to the opening), fading with the distance, so where a body came out eases
-  out as it walks away.
+[WorldFixed and SubjectFrame](../../systems/camera-reference-frames.md) remain
+per-view orientation goals. A policy that also requires an unmirrored result
+must explicitly select a **parity-restoring cut/fade/reframe**, with its own
+handoff boundary; it cannot describe that restoration as continuous easing.
+Keep the existing **Pop** option for an intentional camera cut. Do not silently
+make a requested Continuous reflection fall back to Pop, and do not infer input
+frame from camera parity. The first implementation must represent these choices
+explicitly and demonstrate the continuity claim of the selected one.
 
-## Crossings begin from the face (2026-10-16)
+Retire or replace the unused `view::map_viewpoint_frame` angle-only API rather
+than moving production onto it: it omits scale/parity and simply adds angles
+even when its view map reflects. Use exact composition of the appropriate
+maps; a virtual LOS eye construction and a physical body map remain named
+different operations where their definitions differ.
 
-Jon's frames (`screenshots/frame-step`, ticks 4786-4824): the robot came up through E's slope
-from behind, stood with its feet behind the plane past the opening's lower end, and was taken
-at tick 4824, its centre 0.1 px past the plane. Three rules now:
+## Capture demand and ready pictures
 
-- **The back of a pair** (`PortalBackside`, rollback-registered, schema v353). A body not
-  crossing that cuts a paired opening's plane with its centre behind it is on the back of
-  that pair, as a body coming up through a one-way platform is. While it is, the pair does
-  not begin its crossing, open its hole for it, snag it, take it, or show it a window. It
-  is cleared once the body is wholly past the plane. So a floor portal on a one-way platform
-  can be jumped up through, and then fallen through once cleared (measured on E: rising through
-  stays `Idle`; rising past it, it begins at tick 42 and lands through at 60).
-- **Whole, or not at all** (`fits_through`): every transfer (centre crossing, rescue, sweep)
-  asks that where the body cuts the plane is in the opening.
-- **The snag's no-worse rule** now holds the part past an end on its side: it may go no deeper
-  into the side it is not on (it could sink before, which is how tick 4824 happened).
+A desired view, an allocated target, a scheduled capture and a completed
+usable picture are distinct. Keep this state in the presentation owner.
+Desired work and storage admission precede allocation; readiness gates
+exposure or dependent consumption, not allocation. A source producer may
+need an allocated target before it can produce a ready picture.
+A render dependency may produce the picture before its consumer in the same
+presented frame; readiness does not prescribe an extra CPU round trip or a
+fixed one-frame delay. A scheduled but unavailable pipeline is not ready.
 
-Frame 4810 drew only the robot's feet: the crossing it began from behind cut the sprite at the
-seam. A body on the back has no crossing and is drawn whole (measured in the capture).
+| State | Meaning |
+| --- | --- |
+| Desired | The observer/path has a nonempty clipped domain and the authored policy wants a window. No texture allocation is implied. |
+| Admitted | Current-frame capture work and storage have been assigned for this projection. Required source images/dependencies are identified. |
+| Ready/open | The matching completed picture can be composited for this presented sample. Every open view is current. |
+| Non-view/retired | The pane uses the explicitly selected non-view fallback or no window, and releases obsolete dependencies/targets. The physical portal remains unchanged. |
 
-## A crossing hands the window over whole (2026-10-16)
+Today `sync_portal_view_cones` allocates a target for every paired endpoint,
+even shut ones. Its global active-camera cap does not bound retained bytes.
+Existing rigs claim it in ECS iteration order. A newly created over-budget rig
+can have an opaque nonempty pane, an inactive camera, and `captured=None`:
+there is no usable picture behind the material. Later rigs can also remain
+stale indefinitely while earlier rigs remain open. These are concrete lifetime
+and admission problems, not evidence that fragments lack a pool.
 
-Jon's frame-step capture (ticks 10555-10585, the looping corridor c146/c147: two ends that
-face each other across 256 px of floor). On the crossing frame the exit window eased in from
-nothing, so the real scene past the exit showed for frames before the picture of where the
-body had been came back. Two causes:
+Admit open work from explicit observer/path demand, with deterministic
+priority and required crossing views first. A tier may bound the admitted
+open set; excess views must use the declared non-view presentation, never an
+uninitialized or stale opaque picture pretending to be a live view. Preserve
+current seam priority, including an explicitly accounted temporary capture
+allowance if a crossing needs it. Budget loss must not close a physical portal,
+remove an admitted material piece, or change collision.
 
-- The takeover asked the eye whether it came through (`came_through`: behind the partner's
-  plane). Ends that face each other leave the eye in front of both after a crossing, so it
-  said no. The window of the end the body crossed into (`PortalViewer::crossed_into`, from
-  the sim's `PortalTransit`) takes over now.
-- A window that takes over eased in from its partner's blend. It is the picture of where the
-  viewer just was, which was drawn whole, so it takes over whole (`eased_blend`).
+A completed image carries its source scene, observer/path, sampled map,
+capture frame and content/dependency version. Publish it only to the request
+that still owns those facts. Retirement/replacement, another scene, observer
+rebinding or an abandoned branch cannot adopt an old completion. Current
+`PortalViewRig::captured` already retains the capture frame and adjusts UVs
+when showing a held picture; retain that provenance fact, but remove stale
+held pictures as an open-window quality policy. Reuse without a new raster
+only when the relevant source semantics are actually unchanged and the result
+is equivalent to this frame's capture. Age alone is never such evidence.
 
-Measured (`capture_scene portal_lab player`, `high`): the exit window covers the corridor on
-the crossing frame.
+### Visibility and nested views
 
-## Open
+Keep authored Static/Dynamic modes, turn-away behavior and the near-face
+opening response. Separate their appearance mask from geometric coverage.
+`compute_cone` currently reduces 1/3 aperture sample rays per body corner to
+one fraction, then grows a full-aperture trapezoid. Cover only the left end,
+then only the right: equal fractions can generate identical windows although
+the visible mouth regions differ. Increasing ray count after discarding its
+locations cannot recover those regions. This is approximate visibility, even
+with the half-plane assist off; avoid calling it exact LOS geometry.
 
-- **The foreground parallax layer** (z 45, in front of the play) was copied into every
-  capture, so a window drew it twice: the far side's copy inside, the near side's over it.
-  Captures draw the backdrop only now (`seen_through_a_portal`). The foreground's place is
-  the camera's place in the room, so a 256 px camera jump through a pair moved it ~49 px
-  (Jon's lamp). The camera continuity now adds each crossing's move to
-  `PortalParallaxCarry`; the foreground is placed from the camera less the carry, which
-  eases to nothing as the camera travels from where the crossing put it (e-fold per
-  128 px), not with time: a still camera never slides it. Measured: on the crossing frame
-  the foreground's screen offset moves 0.88 px, as on every frame of the walk. With the
-  camera standing still for 90 frames after the c141 crossing the carry stays at 249 of
-  256 px (the time ease had spent it in two seconds); the crossing's stored camera point
-  equals the main camera's transform on that frame.
-- **`capture_scene` cannot measure a crossing's background.** It pins its camera to a
-  player snapshot after `camera_follow` and without the portal camera continuity, so at the
-  c146/c147 crossing its camera moved 226.4 px, not 256: every backdrop patch is 66 screen
-  px off, at every depth. The host view now samples the pinned camera (the window anchors
-  agree with the frame), but the continuity is still the game's alone. Jon's frames, which
-  have it, show the left of the screen unchanged across the crossing.
-- **A strip at the screen edge** on the crossing frame: the exit window's capture does not
-  reach the new edge of the screen for one frame (black at `high` in the capture).
-- **The seam sliver** (Jon's frames 7→8 at c146/c147): the near-portal window was a
-  trapezoid whose side rays stopped at ~86.6° (far corners at a 1e5 clamp, world-size deep;
-  `WindowShape` capped turns at 1.55 rad), so a wedge beside the face past each end of the
-  opening was never the far side's, and it changed sides at the crossing (measured: 1–2 px
-  at the ends, ~11 px 155 px above). Now a window is pulled flush with the face as the
-  body's edge closes the last 24 px to the opening (`ConePlan::flush`, by position, not
-  time); past `MAX_TURN` a side's near end goes out along the face, so flush is the whole
-  half-plane. Unverified in the game.
-- **A ledge flush with an opening's end drops the body standing on it** (Jon's frames
-  17–21, c146's top end = the ledge top, y 208). Its feet graze the capture face, the body
-  opens the hole, the carve takes the ledge's top from under it, it sinks 0.6 px into the
-  opening, and the snag's no-worse rule pushes it 2.3–4.5 px back and stops it: a fall and a
-  land every two ticks. Now a body opens a portal, and begins a transit, only when it is in
-  line with the opening (`snag::in_line_with`: its span along the face within the opening);
-  measured: it walks off the ledge at full speed when its back edge passes the corner, and
-  lands once.
-  The "falling through" branch of the rule had no such check, so a body standing on the
-  c130 ramp past the opening's end, settling into the line, opened it and fell and landed
-  every other tick (Jon 2026-10-16). Now no body that is not in line opens it.
-- **A short hop was drawn a hop ahead** (Jon's frames 13→14, the thin-wall door c142/c143,
-  16 px). The frame-clock smoothing (`PresentedPose`) guesses a teleport only past ~50 px,
-  so it took the hop for a step and extrapolated it. The host now declares each portal
-  transit (`DeclaredPoseWarps`); a declared body keeps its pace along its new velocity.
-- **Host openings are body-scoped.** Actor and item carve views use
-  `PortalHolePass` and the reader's body identity. Readers without that
-  identity see the host whole. Projectiles use `World::first_material_sweep`
-  with their own `MotionAdmission` and the uncarved room (c69a7c1bd). The
-  material cells define the opening. The guard
-  `a_projectile_hits_far_side_geometry_before_its_root_transits` stops a shot
-  on a real obstacle two pixels outside the exit before its root transits.
-- **Two ends that face each other** show a picture in a picture; one level of recursion leaves
-  a strip at the far edge that the next frame shows as a window.
+A geometric visibility result retains visible aperture intervals/regions and
+maps their clipped beams into the source scene. It can use core similarity
+and half-plane operations, with its own sight-blocking policy. It is not a
+physical material partition, and art overhangs/visibility do not inherit body
+snag rules. Shared immutable room occluder data and spatial candidates replace
+per-eye copies and a whole-room AABB scan for every sampled ray. Retain sample
+time and geometry revisions so moving hosts/occluders invalidate the right
+result; topology identity alone is insufficient.
 
-- **The robot's launch on the wall and slope pairs.** Hands-off, the kernel's air stop
-  assist (3750 px/s²) stops a 150 px/s launch in about 3 px. The lab should hold the move
-  toward the portal, or aim from a measured flight.
-- **A measure of the robot on a moving pair.** It needs a plate that moves with the plank,
-  or a robot drawn in colours of its own.
-- **The wall pairs (B, the door) lose up to 12% of the gauge.** It is less than before, and
-  not yet traced.
-- **Velocities beyond 900 px/s.**
-- **Closed:**
-  - Cut pieces sampling the texture differently: at 3× on film the grid runs across the seam
-    unbroken (A). The lost lines were the old colour test, which counted only pure cells.
-  - A plank drawn over what comes out of it: a plain plank draws at `WORLD_Z_BLOCK + 4`,
-    behind every body. The F and G dips were bloom.
+True nested views expand these observer/path projections with a finite
+admitted depth/work bound. A child is captured from the parent's transported
+chart and clipped domain; dependencies are rendered before their consumers.
+Current positive `recursion_depth` enables texture feedback of windows made
+for the original eye, not a deeper view, and is disabled for multiple rooms
+to avoid channel-layer aliasing. Keep default depth zero until the path model
+exists. Do not make depth-one correctness depend on implementing arbitrary
+recursion, or preserve stale feedback as the implementation of depth two.
+
+## One piece geometry, two image sources
+
+The current common carry is the correct fallback for arbitrary drawables.
+Its source family, material domain, partition/cuts and transformed output are
+the same whether its image comes from a live raster capture or an already
+complete local image. This is a producer specialization, not object opt-in.
+
+`declare_portal_body_demand` currently requests composed images for every
+animated root in every portal room, and carry then rasterizes each carried
+family again. The November GNU witness records 12.125 MiB of carry targets
+and 51.2578125 MiB of upstream image-pair descriptors outside that budget;
+its six upstream image cameras were already resting. Those are historical
+software-renderer resource descriptors, not device timings or a new baseline.
+
+Start with a plain Sprite or existing `DeclaredFrame` whose whole appearance
+is represented by its texture, UVs, anchor, flip, tint and alpha semantics.
+A completed composed-body image can follow when it proves coverage of the
+whole requested family. Unrepresented children, gear, glow, custom materials
+or time-dependent shaders retain the universal family capture. Do not merge
+independent roots/depths, silently omit an overlay, or recreate per-game
+portal renderer branches. Source-domain image bounds may exceed the collider.
+
+World placement and a portal's changing cuts do not by themselves change
+local source pixels. Animation, relative member transforms and material/image
+inputs do. Reuse the image with those dependencies, then feed the same clipped
+material path. Early demand comes from available geometry/appearance facts
+before the image producer; asking whether the image already exists to decide
+whether to request it recreates the dependency cycle. Preserve first-use
+readiness and the explicit proxy/non-view fallback before narrowing the
+current room-wide eager demand.
+
+## Delivery packets
+
+These are slices of the main portal program, not a second queue.
+
+1. **PV1 — complete observer binding.** Publish persistent chart, final
+   projection/viewport and distinct gameplay eye/facing together; keep every
+   observer of a room; bind depth-one panes,
+   parallax, pixel density and governing rules to it. Delete first-eye room
+   grouping and channel-derived private ownership. Witness two observers of
+   one room with different rolls and cover, plus two live rooms with identical
+   channel names and different backdrops. The 90° footprint counterexample
+   must keep the visible slice and correct UVs.
+2. **PV2 — ordered chart handoff.** Consume the motion owner's ordered admitted
+   maps with the cursor of the same presented source pose/time. Retain compact
+   receipts until consumption or an explicit cut. Carry view state consistently;
+   separate full Continuous transport, ordinary orientation response and an
+   explicit parity-restoring transition. Delete map-every-event-from-old-center
+   and angle-only chart authority. Witness two translations between frames,
+   unequal apertures using the existing focused scale, a reflected asymmetric
+   landmark, and view rebinding/rollback correction. No physical/input state
+   changes because of the camera policy.
+3. **PV3 — admitted capture dependencies.** Make desired/admitted/ready/retired
+   images explicit before material exposure. Admit demand before allocation;
+   gate exposure on readiness. Refresh every open view at its configured
+   view-matched density, retire completion receipts by their owner,
+   and apply an explicit non-view fallback under pressure. Delete all-endpoint
+   eager targets, query-order allocation and stale-open feedback. Establish
+   depth-one readiness before adding path-derived nested views. An allocated
+   but never drawn target must never become an opaque view.
+4. **PV4 — reuse local image sources.** Feed a proven complete source image
+   through the common cut/map path, leaving universal family capture intact.
+   Then reduce eager composed-body demand and redundant raster passes.
+   Compare the same asymmetric source with overlays, independent family depths,
+   scaled/reflected cuts, first publication and teardown. Delete only producer
+   work whose full appearance is already represented.
+
+The existing seam lab measures crossings and grid continuity; app camera and
+rig tests cover the source-level examples. Pixel area must be interpreted
+through physical scale and camera projection. Record current visible-host
+CPU/GPU/resource evidence for the selected slice; the October timings and
+November llvmpipe films do not establish hardware frame-time savings.
+[Render/VFX R8](render-animation-and-vfx.md#r8---portal-fragment-lifetime-and-measured-render-churn)
+and [performance](performance-and-iteration.md) own integration and cost
+attribution. Preserve `BodyOwnedDrawableSync` and carry's current-frame
+PostUpdate-before-extraction boundary throughout.

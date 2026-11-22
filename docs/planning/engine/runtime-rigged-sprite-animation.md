@@ -1,9 +1,12 @@
 # Articulated body rigs and runtime part animation
 
-**State:** BUILT, with two switches. Rigged sprites (the visual half) are on in
-the shipped game. Body rigs (the gameplay half: hurt parts and attachments) are
-built and off by default. The open work is a hardware-GPU measurement and the
-rollout decisions below.
+**State:** BUILT baseline, with PLANNED execution specialization below.
+Rigged sprites (the visual half) are on in the shipped game. Body rigs (the
+gameplay half: hurt parts and attachments) are built and off by default.
+The planned visual work compiles stable clip/track relations, retains prepared
+bindings, shares samples at the same presentation cut, and separates source
+raster from finishing invalidation. Hardware measurements and gameplay rig
+rollout retain their separate gates.
 
 Related owners:
 
@@ -48,10 +51,10 @@ Keep shared rasters. See [the filter contract](../../../dev/benchmark-candidates
 `BodyRigAdmission` is read where a cast is registered, because an admitted rig
 changes the character's content fingerprint, which a rollback timeline compares.
 
-Flipbook publishers today: the five pirates (every row from parts) and Mary-O's
-three forms (walk from parts, every other row baked).
-Moving Mary-O to every row from parts (and lifting two non-goals below for
-her): [`mary-o-part-realization.md`](mary-o-part-realization.md).
+Flipbook coverage is determined by the selected publication. Each admitted
+flipbook declares its part and baked rows. The
+[Mary-O realization plan](mary-o-part-realization.md) records the part-first
+migration; the earlier five-pirate/three-form list is not a current corpus census.
 
 ### Body rig (gameplay)
 
@@ -88,37 +91,50 @@ her): [`mary-o-part-realization.md`](mary-o-part-realization.md).
   both, or a row the sheet does not have.
 - Pages ride on the sheet realization (`CharacterSpriteAsset::rigged`), so the
   sheet's demand, quality and retirement roads own them.
-- `ambition_render::rendering::actors::rigged` draws a rigged root.
-  `CharacterAnimator` still selects row, frame and facing. One presentation
-  owner follows the root, with `max_draws` reusable child slots. A frame change
-  does not spawn or despawn slots. The root keeps its baked sprite at zero
-  alpha as the parity oracle.
+- `CharacterAnimator` selects row, frame and facing. The rigged driver retains
+  one presentation owner and reusable part slots per body. Ordinary part
+  presentation draws those slots directly; the root carries no drawable image
+  on that road. Required whole-body effects or image consumers request
+  composition, with the existing hold and page-retirement policies.
+- A parts-only realization does not request or retain baked pages.
+  `character_sprites::assets::parts_only_realization` keeps frame-layout metadata
+  with `NO_BAKED_IMAGE`; a hybrid requests only pages referenced by its baked
+  rows. Baked art can remain an offline parity reference without becoming
+  mandatory resident art.
 - A body changes to its parts only when every part page is ready, in one frame.
   A tier change keeps the old parts until the new pages are ready. A re-wear
   drops the old character's parts at once.
-- A baked clip of a hybrid draws from the root: the root takes its tint back and
-  the slots hide, with no jump in place or timing.
-- Portals: the rigged root is the portal candidate, drawn from its baked frame.
-  `PortalPieceTint` states its visible tint. The owner is `PresentationOf(root)`
-  and hides with the root.
+- A baked clip of a hybrid draws through the root and hides its part slots,
+  preserving the shared row/frame clock and placement.
+- Portals operate on the body's current drawable family through the carry
+  capture/proxy road; far-side windows render scene sources. They do not
+  require every rigged body to retain a baked frame. Completed-image reuse is
+  proposed work, with complete drawable coverage retained. The current and
+  planned contracts belong to
+  [portal presentation](portals-one-transit-for-every-mover.md) and
+  [material presentation](portals-a-body-in-two-places.md).
 - Multiview: slots take their root's render layers. A second view adds no
   presentation entities.
 - `StanceSquash` reaches the parts through the owner's transform.
 
-### Measured economics
+### Historical economics
 
-- Pirate part pages save about 38% of raw texture pixels against the baked
-  sheet. `tests/test_pirate_part_flipbook.py` (renderer repo) requires at least
-  35% and the parity bound on every frame.
-- While the root keeps its baked sheet resident, a rigged character holds about
-  1.62x its baked texture bytes.
-- ECS cost is about 1.1 us per rigged actor per frame, linear. Each actor is 2 +
-  `max_draws` entities.
-- On llvmpipe, 100 rigged actors cost about 3x the baked frame time. The cost
-  follows sprite count and batch count (each rigged actor makes two batches,
-  because the zero-alpha root splits the part page's batch), not fill rate. A
-  software rasterizer does vertex work on the CPU, so this does not give the
-  cost on a player's machine.
+The following figures record earlier flipbook experiments, not current
+residency or frame cost: approximately 38% fewer raw pirate part pixels;
+1.62x baked texture bytes while both realizations remained resident;
+approximately 1.1 us ECS work per actor/frame; and approximately 3x baked
+frame time for 100 rigged actors on llvmpipe. Their publication, residency
+and rendering conditions predate the current part-first and demand-driven
+composition paths. The former zero-alpha baked root is not a current
+explanation for batching cost.
+
+Retain these results as historical receipts. Current comparisons must identify
+the selected publication, resident realizations, direct/composed demand,
+hardware and quality settings. The benchmark entry points below remain
+measurement tools, not evidence that those historical ratios still hold.
+[Performance and iteration](performance-and-iteration.md) owns current cost
+attribution; [semantic-part rendering](semantic-part-rendering-and-ragdolls.md)
+owns direct-versus-composed rendering decisions.
 
 Bench: `crates/ambition_render/examples/rigged_sprite_bench.rs` (`--render`,
 `--views 2`, `--tiny`). Matrix on real hardware:
@@ -348,14 +364,143 @@ render transforms.
   draw bounds and slot visibility. None participates in rollback.
 - Headless simulation never depends on images or rendering.
 
+## Planned — compile visual relations and select work by stage
+
+**Status: PLANNED (2026-11-21 source audit, `aef73be1`).** This page owns
+the animation/presentation specialization below. The shared contract is
+[execution specialization and work selection](execution-specialization-and-work-selection.md).
+The [semantic-part plan](semantic-part-rendering-and-ragdolls.md) continues
+to own semantic part identity, effect coverage and the optional cell compositor.
+
+### Current evidence and retained mechanisms
+
+The renderer already retains part slots, avoids unchanged slot writes, rests
+unchanged atlas pages after GPU readiness, and retires empty trailing pages.
+Nov18 retained admitted part tables and removed realization-time decoding and
+warm-up workers. Preserve these receipts; this is not another pooling campaign.
+
+The remaining work is selected too late or by too broad a dependency:
+
+| Current source | Work repeated despite stable inputs |
+| --- | --- |
+| `rigged.rs::body_warp` and `RiggedSpriteAsset::row_draws_the_body_whole` | Without the preview override, ordinary owners invoke a whole-clip predicate before determining whether they have a warp. Intact clips scan all their draws; missing or fading clips can exit early. Composed bodies invoke it again. Its inputs are immutable flipbook data. |
+| `RiggedSpriteAsset::{legs_under,face_as,layer_over,head_turned_as}` | Samples reinterpret semantic track names and search other draw lists. Legs/expression joins can scan one frame for each draw of another. |
+| `baked_sheet_rons::prepare_sheet_table`, `bind_posed_parts` | Admission prepares a rig and drops the value; rendering reparses/prepares it and measures the visual binding. The renderer's binding cache is cleared by any `GameAssets` change. Existing presentations retain their Arc, but a later new owner can redo an unchanged binding. |
+| `frame_draws`, `posed_reach`, `part_set::answer` | Procedural poses can be sampled twice; readers rebuild name-based answers and local transforms before final equality prevents writes. |
+| `drive_rigged_presentations` | Opacity/HSV/warp parameter changes set the same page dirty flag as source draws and run both source and finishing cameras. The terminal held-warp case already has a finishing-only exception. |
+
+Owners are `ambition_sprite_sheet/src/character/rigged*`,
+`ambition_sprite_sheet/src/baked_sheet_rons.rs`, and
+`ambition_render/src/rendering/actors/rigged*`. These are source work claims,
+not current frame-time measurements.
+
+### PVS-1 — retain a compiled visual program
+
+Extend the immutable flipbook preparation that already creates tween targets.
+Retain exact per-clip whole-body/warp facts, per-track semantic role membership,
+and frame track correspondence/anchor indexes. Keep current ordering, first-match
+rules and missing-track fallbacks; do not assume unique draw occurrences without
+establishing that invariant. Dynamic row selection, wounds, expressions and pose
+remain runtime inputs. Do not enumerate their Cartesian product.
+
+Retain the prepared rig from admission. Bind visual tracks to that exact rig
+and flipbook mechanical program once per demanded compatible definition pair,
+including named bindings, limbs and binding-algorithm identity. Use the existing
+[preparation/readiness lifecycle](asset-preparation-and-residency.md); no new
+process-wide name cache, live-World lookup, or metadata warm-up subsystem.
+Unused definitions need not acquire visual bindings.
+
+A quality tier changes page/rect realization while `for_tier` preserves part
+identity, full-resolution geometry and draw programs. It can share the mechanical
+binding. Replacing the rig, tracks or mechanical table invalidates that binding;
+loading unrelated parallax or prop art does not. Old readers retain their admitted
+generation. Unbound tracks retain authored-frame fallback.
+
+**Acceptance:** whole-body decisions agree for opaque, self-fading, whole-frame
+fading and translucent non-body effects; track operators preserve paint order,
+mirrors, missing rows and hybrid baked clips. A pinned-sample comparison that
+adds unsampled frames must preserve the compiled whole-body eligibility: those
+frames are inputs to that predicate. Preparation computes these properties once
+per admitted program, rather than once per body per presented frame. Report
+preparation and retained-memory costs separately from runtime work removed.
+
+### PVS-2 — sample once for consumers at the same presentation cut
+
+A simple stepped frame with no active modifiers may borrow its admitted draw
+slice. The general path still performs tween, legs, head, expression, layer,
+wounds, blend, follow-through and procedural pose in the current order. Keep
+reusable scratch for dynamic results; do not quantize phases or suppress clocks.
+
+Publish one local sampled result for slot drawing, actual sample bounds and
+part-set readers when they request identical program, time/phase, dynamic inputs
+and coordinate space. Bind each reader's track selection when its request or
+program changes; retain independent reader leases. Separate world placement from
+local draws, so root motion does not rebuild an unchanged local part selection.
+
+Simulation hurt geometry/attachments and interpolated or finished presentation
+can have different clocks and authorities. They may share immutable definitions
+and pure sampling functions. They must not share a result merely because its row
+and integer frame match, and gameplay must never depend on a renderer's output.
+An arbitrary `PartPose` must match the compiled rig topology.
+
+The sampled-output identity includes every input an active local operator reads,
+including independent layer clocks and blend/follow-through state. Appearance
+inputs belong to the stage that consumes them: direct slot tint needs full RGBA,
+while a composed root quad's tint does not invalidate untinted local draws or
+source pixels. Current direct equality retains only RGB although slot tint uses
+alpha; do not carry that omission into the new contract. Room/layer, visibility,
+demand and world transform retain their own updates when local geometry stays equal.
+
+**Acceptance:** a held stepped frame does no new local interpretation while a
+changing layer/pose still does; bounds and drawing use the same final sample;
+rewear, rewind/cut, quality replacement, part↔baked rows and reader add/remove
+select correct outputs. Keep the general operator sequence as the behavioral
+reference for specialization equivalence within its contract; known cache-key
+defects are not outputs to preserve.
+
+### PVS-3 — separate source raster and finishing invalidation
+
+First retain existing whole-page rendering and split its dirty states. Source
+pixels depend on the sampled draws, source image/realization revisions, ownership,
+cell placement and source compositing settings. Finished pixels depend on that
+source revision plus opacity/HSV/warp and finishing settings. World placement
+changes neither picture. A pure finishing change must not redraw source parts.
+
+GPU completion belongs to the relevant revision: equal CPU inputs do not certify
+a first, replaced, reused or evicted target. Finishing may reuse only completed
+source pixels for the required revision. Preserve delayed-image/pipeline readiness
+and exact color-space, alpha and draw-order behavior.
+
+Then measure remaining page amplification under the semantic-part plan's existing
+Phase 4. Pages may remain allocation units while cells become refresh units:
+clear dirty cells completely, redraw their complete ordered source content, and
+finish affected cells. Keep the exact whole-page fallback when many cells change
+or the backend cannot efficiently preserve partial targets. Partial refresh
+requires an explicit rendering mechanism; existing whole-page cameras do not
+provide it for free. No camera per body.
+
+Containment must cover the final sample and filtering fringe. Published tween
+envelopes do not prove arbitrary pose/layer/blend transformations. Direct drawing
+is a valid fallback only when no active consumer requires group composition.
+When one does, provide an adequate group target or declare the output unavailable
+under the existing containment owner's policy; do not silently drop its effect
+or clip parts to make refresh cheap. A moved/disappeared part or reused cell
+must leave no old pixels.
+
+**Acceptance:** identical output for one changed cell beside held cells,
+all-changing pages, opacity/HSV/warp-only changes, removal/reuse, source replacement,
+page retirement and GPU readiness delay. Measure source draws, finishing pixels,
+passes and retained bytes independently. Direct parts remain the default; true
+group opacity and other whole-body consumers keep exact demanded composition.
+
 ## Open work
 
 | Item | Work | Acceptance |
 | --- | --- | --- |
 | Hardware GPU run | Run `scripts/measure/rig_packet8_gpu_bench.py` on a machine with a hardware GPU | `report.md` returned; the decision below continues |
-| Root batch split | If batches matter on hardware, stop drawing the zero-alpha root. The root must stay the portal candidate, so its size and frame need another road to the portal | One batch per part page across actors |
+| Root batch split | Retained receipt: the direct part road gives the root `NO_BAKED_IMAGE`; portal presentation uses the current drawable family. A new hardware study must measure current batching | Preserve drawable ownership and optional exact group composition |
 | Instance buffer | Only if sprite count is too expensive on hardware, replace the slot realization with an instance buffer. Keep `RiggedSpriteAsset`, `BodyRigDefinition` and semantic animation unchanged | Measured gain on hardware |
-| Sheet residency | The saving needs the baked sheet page to retire while parts draw, and the portal to draw parts first | Rigged character resident bytes below baked |
+| Sheet residency | Retained receipt: parts-only realizations never request baked pages; hybrids request only their baked-row pages. Measure the selected current realization | Preserve omitted baked-page demand; report part, required baked and composed-target bytes separately |
 | Body rig rollout | `BodyRigAdmission` is off. Turning it on changes shipped hurt geometry and the content fingerprint | Maintainer go-ahead; app suite green with it on |
 | More rigid parts | Pirate dynamic limb/neck geometry is one overlay per frame. Convert more of it to reusable parts only if useful | Saving above the 38% floor |
 | Semantic landmarks (Q41) | ✅ The query, the pet, the player fireball, the three track families with an authored gesture hand, and the hand muzzle with the held-item place, for a match seat too (2026-10-05). See "Semantic landmarks (Q41)" | ✅ A pet hand meets the authored contact point (`a_pet_hand_meets_the_contact_point.rs`: 1.4 world units; 15.2 on the box mark). Open: no consumer reads sprite bounds |

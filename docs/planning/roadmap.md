@@ -172,6 +172,16 @@ selects the bounded work.
 | Authored structures can be reused | Bind stable local child keys and explicit external slots through current construction; prove two different mechanisms before adding a general format. |
 | Incremental preparation is sound and explorable | Derive inspection and reuse from definition uses, actual input observations and immutable product selection. Retain selected mechanical product versions through publication. |
 
+The later source review at `b91b29d35935` adds bounded composition work:
+[two-ended body anchors](engine/body-anchor-bindings.md),
+[occurrence-bound scene roles](engine/story-sequences.md), and
+[interaction opportunities](engine/interaction-opportunities-and-activation.md).
+These share point evaluation, participant binding and accepted gesture
+selection while domain movement and mutation stay separate. Story SS8 also
+corrects the assumption that skipping all waits can complete arbitrary
+gameplay commands. This refines authoring and G2/G4 within the existing order;
+it does not select a universal relation, transaction or sequencing framework.
+
 The linking work improves G1/G3 and the G5 consumer boundary. Contribution
 ownership and local assemblies improve G2. Derived binding explanations
 improve G4. The causal correction applies when those mechanics cross
@@ -188,7 +198,44 @@ edit loop. No numerical compile-time improvement follows from this review.
 The [prevalidated-artifact hold](engine/prevalidated-content-artifacts.md)
 remains in force.
 
+### Portal correctness and composition follow-through
+
+The deeper source review at `b91b29d35935` selects a bounded completion of
+existing spatial authority through
+[PORTAL-SIMILARITY](queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals).
+Canonical material and moving-frame algebra exist. Their callers still need
+one accepted operation with scope, topology/time selection and retained path.
+
+The [delivery plan](engine/portal-parts-similarity-and-chirality.md) links six
+packets: topology/lease edits; event-time motion; complete contact response;
+conservative query planning and specialization; observer chart transport;
+and capture demand/readiness/source reuse. These are native engine capability
+work under G2/G5, with provenance exposed through existing G4 inspection.
+They preserve ordinary actor, item, projectile, limb and drawable paths.
+
+Local continuous portals remain independent of cross-island transport. Closing
+a caster's old-room lease during ordinary travel is required now. New device
+and matched performance evidence is still owed; old static-map witnesses do
+not establish the newly selected moving, temporal and multiview cases.
+
 ## Engineering priority order
+
+The 2026-11-21 efficiency follow-through is
+[execution specialization and work selection](engine/execution-specialization-and-work-selection.md).
+It gives the full/reference model and gameplay implementations distinct jobs.
+Selected domain work removes repeated query preparation, invariant animation
+analysis, static dispatch resolution and inactive delivery scans. Navigation
+also retains arrival position in its cost state, enabling valid route reuse.
+These refine the existing engine work within the order below; they do not
+replace product priorities or claim a measured speedup. The separate portable
+prepared-content-artifact hold remains in force.
+
+[Shared data-structure kernels](engine/data-structure-kernels.md) add an
+independent optimization boundary within that program: bounds queries in
+geometry and strict unique lookup in the binding foundation. Direct and
+indexed implementations share observable results. Target-specific selection
+includes preparation, query count and consumption; it does not require a new
+utility umbrella or alter domain ownership.
 
 The priorities below are scored on two axes. The first is authority
 decomposition: which crate owns the fact, what may mutate it, one lifecycle,

@@ -145,6 +145,59 @@ green.
 
 ## Current work
 
+### Selected — specialize execution and remove inactive work
+
+The maintainer's 2026-11-21 efficiency direction is explicit: preserve full
+expressiveness and a reference evaluator, while gameplay uses proven cheap
+cases. The [execution contract](execution-specialization-and-work-selection.md)
+sets that boundary and selects E1–E5. Reference evaluation can run offline;
+it is not a second solver paid on every live operation.
+
+Current source exposes concrete work to remove:
+
+| Customer | Current cost mechanism | Selected owner |
+| --- | --- | --- |
+| One projectile leg | Source cells built for recipients, then rebuilt for world contact; root admission can search twice | Portal P2/P4 |
+| Ordinary part animation | Immutable whole-clip predicates and stable track relationships interpreted at frame time | Runtime rigged animation PVS-1/PVS-2 |
+| Whole-body image effects | A finishing-only change can redraw unchanged source parts | Runtime rigged animation PVS-3 |
+| One addressed behavior | Entry-by-trigger matching, repeated occurrence-index captures and duplicate/idle mailbox collection | Addressed behavior delivery |
+| Navigation | Empty-world envelope measured per room graph; repeated reachability; route state drops arrival position needed by cost | Navigation E4 |
+
+These are source-derived mechanisms, not a new performance baseline. Begin
+with sharing successful projectile preparation, compiled clip properties and
+the duplicate collector. Broader preparation, active-journal scheduling and
+navigation route reuse retain their owning correctness and lifetime work.
+Preserve recent portal filtering, refusal recovery, retained image storage,
+shared admitted metadata and the November 18–20 fixes above.
+
+Measure preparation cost, steady work and invalidation separately. Extra
+unused vocabulary, dormant objects or unrelated geometry are controls for
+the claimed work boundary. Cache warmth must not select a different accepted
+simulation result, refusal or delivery time. See the execution contract for
+operational versus high-precision reference comparison. A whole-room or
+whole-population scan hidden in a new preparation step is not a completed cut.
+
+### Selected — independent data-structure measurements
+
+The [kernel plan](data-structure-kernels.md) selects bounds-query algorithms
+and strict unique lookup in existing foundation libraries. The current
+spatial tree, private layered-world grid and repeated ambiguity reducers
+supply production consumers. Direct scans remain both reference operations
+and possible shipping paths.
+
+Measure the entire useful lifetime of a published input: preparation, updates,
+queries, exact filtering/order and result consumption, plus retained/scratch
+memory. Compare outputs through the production operation before comparing
+time. Include query count and invalidation; population alone cannot select
+an index. Existing grid and targeting receipts establish workload tradeoffs,
+not universal thresholds for release or mobile targets.
+
+Keep focused benchmark targets with the owning kernels and receipts in the
+measurements submodule. Reuse current comparison tests and consumer fixtures.
+An isolated kernel win needs a representative consumer check before it is an
+engine performance claim. Do not make all backend/target combinations a new
+mandatory suite. Compile/code-size effects remain separate measurements.
+
 ### P1 — weak-GPU raster/quality attribution
 
 Maintain representative weak-GPU/software-raster measurements that separately
@@ -373,30 +426,46 @@ contracts. Present the same topology through normal and Potato art tiers.
 Compare cold realization, second entry and an edit while the room is live.
 No game crate should maintain a parallel skin/tessellation implementation.
 
-### Portal fragments create entities and materials on every presentation frame
+### Portal work follows visible projections and source images
 
-The portal pieces use a deliberately rebuilt representation. That
-simplicity is reasonable for correctness, but it has a measurable cost to
-investigate, not an assumed performance emergency: the carry
-(`crates/ambition_portal2d_presentation/src/carry.rs`; the far-side
-compositor is retired, 2026-11-13) and `src/visuals.rs` rebuild derived pieces every update and add
-new `PortalClipMaterial` assets when clipped pieces are generated. A still
-source can thus allocate even when its transform and sheet are unchanged.
+**Current source, 2026-11-21:** the carry already retains piece entities,
+materials and meshes in `clip_material::ClipQuadPool`; unchanged appearance
+and geometry do not replace their assets. Same-size targets are reused and
+idle targets retire through `carry::resources`. The October far-side churn
+measurement concerns a retired compositor. Do not build another retained
+fragment framework to solve that historical finding.
 
-Benchmark stable and animated portals under the same graphics settings,
-visible cameras, and fixed simulation steps. Collect frame-time distribution,
-entity spawn/despawn, distinct and retained material handles, mesh allocations,
-GPU draw calls, and peak resident bytes over a long run. Compare no panes,
-one pane, and two panes; then room unload, camera switch, rollback and
-quality downgrade. Disable candidate/pane work separately to attribute the
-cost. A drop in CPU time with no material gain is not proof that a retained
-reconciler is worthwhile; a material residency increase without a live
-reference leak is not yet proof of a leak.
+The live structural work is in
+[portal view/capture delivery](portals-one-transit-for-every-mover.md#delivery-packets):
+complete observer/path/room binding, desired versus ready pictures, and image
+source reuse. Window rigs currently allocate a target for every paired end,
+even shut ones; `max_active_captures` bounds running cameras, not bytes. An
+over-budget rig can expose an opaque pane before its first capture or retain
+an indefinitely stale image. Admit current-frame open views explicitly and
+use the declared non-view fallback for excess demand. An **open** window
+refreshes every presented frame; texture age is not a quality tier.
 
-If the traced cost is significant, hand the lifetime fix to
-[render/VFX R8](render-animation-and-vfx.md#r8---portal-fragment-lifetime-and-measured-render-churn),
-not to each portal-using game. Preserve the presentation-only nature of the
-pieces and the portal-visibility arbitration while optimizing.
+Count source images and their finishing passes, live/held window targets and
+carry targets separately before attributing total memory. The November GNU
+image receipt records five carry families at 12.125 MiB of target descriptors
+plus 51.2578125 MiB of upstream image-pair descriptors outside that budget;
+these are dated software-renderer resource facts, not device frame-time
+measurements. A completed local image can remove a second family raster pass
+only when it includes the whole requested appearance. Keep the universal
+capture fallback and independent family roots/depths.
+
+Remaining CPU work includes repeated clipping before pool comparison,
+unconditional open-window mesh writes, room-wide occluder copies/ray scans
+and family traversal; remaining render work includes source composition and
+capture passes. Resolve their ownership and demand first, then compare the
+same visible scene, views, quality and motion with the removed work. Preserve
+admitted geometry, source-image readiness and the current-frame finalization
+boundary. [Render/VFX R8](render-animation-and-vfx.md#r8---portal-fragment-lifetime-and-measured-render-churn)
+owns the presentation integration; individual games do not add private
+portal optimizations. The
+[GNU image receipt](../../../dev/ambition_dev_measurements/summaries/portal-gnu-limb-render-20261111.md)
+and [portal review](../../../dev/reviews/portal-correctness-and-cost-review-2026-11-10.md)
+state the existing measurement limits; displayed-host/device costs remain open.
 
 ## Acceptance
 

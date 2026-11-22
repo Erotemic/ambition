@@ -94,6 +94,77 @@ prepared facet, native consumer and refusal. Feed that projection to the
 existing query/editor tools. Do not create a second manually maintained
 concept catalog or require a new planning document to author each mechanic.
 
+### Portal review: accepted operations retain their meaning
+
+The source review at `b91b29d35935` applies the same ownership principle to
+spatial state. The [portal delivery plan](portal-parts-similarity-and-chirality.md)
+keeps the existing material algebra and replaces reconstruction from reduced
+facts: channel as lifetime, end pose as trajectory, static mapped vector as
+moving-frame contact velocity, and camera rectangle as presented observer.
+
+A domain's accepted operation retains its scope, selected geometry, physical
+time and result. Completed trajectory and next-step initialization have
+separate consumers. Topology occurrence, topology revision, sampled pose and
+source image are separate identities. The view's visibility eye and final
+projection are separate facts. These distinctions allow owners to share
+prepared data and remove repeated decisions without one global spatial graph.
+
+P1–P6 name current writers, crossings, failures and removals. Pure query
+specializations and prepared-input reuse address repeated runtime work;
+per-observer demand and complete image-source reuse address redundant capture.
+Do not claim a new compile-time boundary or speedup until its actual consumer
+and resolved dependencies are measured.
+
+### Execution cost follows selected inputs
+
+The [execution specialization plan](execution-specialization-and-work-selection.md)
+adds a cost rule to the ownership changes above: immutable semantics prepare
+their runtime relationships, and live work follows actual operations. A full
+reference model can remain available offline while production uses local,
+proved specializations. The selected customers are portal query reuse, compiled
+visual relations, admitted handler dispatch, occurrence/active-journal views
+and navigation states that retain arrival position.
+
+These use the existing domain owners. A generic framework that retains all
+the old scans or makes every caller execute the general case does not satisfy
+the change. Preparation, semantic lifetime and work selection must agree;
+warm caches and background completion cannot change simulation outcomes.
+
+### Further composition: bind the relation that gameplay means
+
+The follow-up at production source `b91b29d35935` selects three narrower
+shared operations:
+
+- [Body anchors](body-anchor-bindings.md) align a selected point on each
+  independently transformed body. Mount, capture and custody keep their
+  own movement, orientation, release and lifetime rules.
+- [Authored roles](story-sequences.md) bind a scene or conversation's actual
+  participants, so its commands and conditions name the same occurrences.
+  A character kind, fixed cohort and live population query remain distinct.
+- [Interaction opportunities](interaction-opportunities-and-activation.md)
+  put domain availability and gesture arbitration below the prompt. An offer
+  describes what can be requested; its owner still decides acceptance.
+
+The story plan also corrects blanket skip-by-command-emission. A scene's
+presentation can end while accepted gameplay work still needs its own
+settlement. Shared references and results do not require a shared sequencer.
+These changes add no universal relationship graph, action transaction or
+resource law; the existing resource/effect plans already own their distinct
+composition work. Each packet deletes a concrete repeated interpretation.
+
+### Reusable data-structure operations
+
+The [kernel plan](data-structure-kernels.md) makes existing foundation
+operations independent optimization targets. Geometry owns shared bounds
+queries; a separate module in the binding foundation owns strict unique
+lookup over a frozen relation. Direct/reference and indexed implementations
+agree on ordering, duplicates, numeric meaning, refusal and snapshot lifetime.
+
+The domain retains publication and mutation authority. Selection happens
+before optional preparation, and measurement includes construction, queries
+and result consumption. This extends the existing libraries without choosing
+a catch-all utility crate or a second lifecycle service.
+
 ## Converged shape
 
 Code against these facts. Each one is in source and has a guard.

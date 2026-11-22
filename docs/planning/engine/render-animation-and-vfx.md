@@ -346,61 +346,56 @@ single camera is not enough evidence.
 
 ### R8 - portal fragment lifetime and measured render churn
 
-*The far-side compositor measured here is retired (2026-11-13: a portal
-window draws over the play plane). The transit half is the carry.*
+**Current baseline, 2026-11-21:** retained fragment storage is already built.
+`ambition_portal2d_presentation::clip_material::ClipQuadPool` reuses entities,
+materials and meshes, replacing appearance/geometry assets only when changed.
+Carry targets reuse same-size storage and retire idle images plus hidden
+bindings. Window rigs update in place. Do not introduce a second retained
+reconciler or claim that current carry spawns all pieces every frame.
 
-**Measured (2026-10-12), headless, the far-side compositor:** a far-covered
-body for 600 frames (300 still, 300 moving) makes 2 pieces a frame (1200
-in all) and a new material for each; with the asset store's own handle
-tracking (`AssetPlugin`) at most 4 materials are live, so there is churn
-and no growth. A test-side leak (keeping each piece's handle) gives 1200
-live and fails the guard, so the instrument sees retention. Test:
-`ambition_portal2d_presentation far_side
-far_side_pieces_are_made_each_frame_and_their_materials_do_not_grow`.
-Not measured: frame time and GPU cost (no renderer in this harness), the
-transit pieces of `visuals.rs`, two panes and two cameras. The agent VM
-cannot measure the GPU half: it has no GPU (checked 2026-10-12: no
-`/dev/dri`, and Vulkan lists no device), so its offscreen device is a
-software rasterizer. So a retained
-reconciliation is not justified by growth; only frame time could justify
-it. The text below is the case as found.
+The October 12 headless measurement observed the now-retired far-side
+compositor: 1,200 pieces/material creations in 600 frames, at most four live
+materials under ordinary asset lifetime tracking. It established churn,
+not a leak or GPU bottleneck. Its implementation and numbers are historical
+receipts, not the current work list. The
+[November review](../../../dev/reviews/portal-correctness-and-cost-review-2026-11-10.md)
+and [composed-image receipt](../../../dev/ambition_dev_measurements/summaries/portal-gnu-limb-render-20261111.md)
+record the later independent-family, storage-budget and image-readiness fixes.
 
-**Source, `ed0d1ccd`:**
-`ambition_portal2d_presentation/src/far_side.rs:62-94` discards every
-`PortalFarSidePiece` before reconstructing the participating fragments;
-`visuals.rs:117-151` does the same for `PortalBodyPiece`. Both builders
-create `PortalClipMaterial` assets inside their per-frame spawn paths.
-This is **definite entity/material churn**, not by itself proof of a GPU
-regression or unbounded asset retention. In particular, the far-side
-module explicitly explains why its fragments are derived, not simulation
-state: pose, atlas and clipping must follow the source each frame.
+**Planned integration:** use the presentation slices in
+[one transit, every view](portals-one-transit-for-every-mover.md#delivery-packets),
+under the main [portal program](portal-parts-similarity-and-chirality.md):
 
-**Preferred presentation contract:** a source-owned, view/room/pane-scoped
-reconciliation record may retain only derived fragment entities/materials.
-Do not cache the source's authoritative pose or make a second rollback
-component. On a changed `DeclaredFrame`, atlas page, texture, flip, transform,
-portal clip plane, quality mode, render layer or camera scope, mutate the
-owned fragments' appearance; when a source stops participating, remove
-exactly its fragments and associated hide reason. Use source and fragment
-roles in the key; an ECS entity alone is not an exported stable save identity.
-A removal/reappearance of the source must not accidentally reattach its old
-fragments to an unrelated new entity.
+- A complete per-observer presented chart drives window clipping, source
+  capture, viewport density and parallax. Same-room views retain their own
+  projections; different rooms cannot share channel-derived private masks.
+- Fold ordered accepted crossing maps once, with scene/observer/branch
+  lifetime. Continuous transport includes scale and parity; restoration to
+  an unmirrored view is an explicitly selected cut/fade/reframe, never angle
+  easing or a silent downgrade to Pop. Camera policy does not change input.
+- A desired pane, allocated target and completed usable image are distinct.
+  Bind only a matching ready picture. Every open window refreshes this frame;
+  excess capture demand selects a declared non-view fallback. Stale or never
+  rendered textures cannot masquerade as a live view. Retirement invalidates
+  pending completions as well as visible fragments.
+- Feed a proven complete local image through the existing material cut/map
+  path. Keep universal family capture for every other drawable; image-source
+  specialization cannot add object opt-in or lose children, gear or effects.
+  Preserve independent roots, source depths and physical/art-domain differences.
 
-**Order of work:** instrument first: steady 600-frame stationary case,
-animated character, straddling transit, two panes, two cameras, body
-teardown and rollback correction. Record piece spawn/despawn, material and
-mesh creation, live asset counts and CPU/GPU frame costs on a documented
-quality/target profile. Then choose either a retained-fragment reconciler
-where the result is measurable or a consciously bounded rebuild where the
-extra complexity is not justified. Preserve the existing source-hiding,
-last-pose and portal-candidate publication contracts. The already-known
-multi-camera pane selection problem is a *different* issue; this task does
-not silently claim to solve it.
+Keep `BodyOwnedDrawableSync` and the carry's PostUpdate ordering before asset
+extraction, camera updates and transform propagation. Reuse of source pixels
+is distinct from reuse of placement/cut results: movement may leave appearance
+unchanged, while an animation/material edit can change pixels at a fixed pose.
+Use the source's existing appearance/dependency facts, not an authoritative
+pose cache or a new rollback component. A branch/scene replacement cannot
+reattach an old derived image to another live occurrence.
 
-**Poison:** after a retained path is chosen, force a fresh `materials.add`
-for each unchanged source on every `Update`; the steady-state allocation
-witness fails. Delete a portal/source; all derived fragments and hide
-claims must retire by the correct presentation boundary.
+Cost attribution now concerns CPU clip recomputation/mesh uploads, image
+demand, redundant raster passes and complete capture storage. Keep the
+historical measurements qualified; hardware frame-time improvement remains
+to be measured on the selected visible host. The pool's existence is neither
+missing implementation nor proof that these other costs are small.
 
 ## Acceptance
 

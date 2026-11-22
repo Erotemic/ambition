@@ -57,6 +57,120 @@ only, not physical reachability. It has no production reader yet. So:
   `ambition_encounter_features/src/lock_walls.rs`) until something reads the
   first.
 
+## Planned E4 — retain the state needed by route cost
+
+**Source review, 2026-11-21 (`b91b29d35935`):** this is selected structural
+work under [execution specialization and work selection](execution-specialization-and-work-selection.md).
+The existing graph and kernel rollouts remain the foundation. This review
+did not run a new navigation census or game. The numeric example below is
+an arithmetic witness of the search reduction, not a shipped-room result.
+
+### A surface is a connectivity node, but arrival position affects cost
+
+[`NavGraph::route`](../../../crates/ambition_platformer2d_world/src/navigation/graph.rs)
+keeps one `best(cost, arrival_along, predecessor)` and one `done` bit per
+surface. Its next-edge cost includes the walk from `arrival_along` to that
+leg's takeoff. A cheaper arrival does not dominate a dearer arrival at a
+different place. The cheaper prefix can require a much longer next walk.
+
+For an abstract admitted graph with run speed 1, use these leg costs and
+positions. Each intermediate leg starts where the prior leg in its path
+lands, except for the stated walk on M.
+
+| Route segment | Cost | Arrival or departure on M |
+| --- | --- | --- |
+| S to M | 1 | Arrives at 0 |
+| S to X to M | 1.5 + 0.5 | Arrives at 100 |
+| M to G | 1 | Departs at 100 |
+
+The current surface reduction retains M at cost 1 and position 0, discards
+M at cost 2 and position 100, and returns cost 102. Retaining both arrival
+states finds cost 3. A separate arithmetic evaluation of this reduction
+confirms the difference. `route` also stops when it reaches the goal surface,
+before charging the final walk to the requested goal point.
+
+This is a defect in the current graph cost model's fastest-route claim.
+It is not a claim of fastest physical motion: leg costs come from rollouts
+that start at rest, walks use distance/run speed, and graph construction
+retains one preferred leg per surface pair. Keep those approximation limits
+explicit. Fixing search state does not certify discarded leg variants.
+
+### Lift route state to movement anchors
+
+Prepare takeoff and landing anchors on each standing span. Admitted legs
+connect their exact anchors with their current costs. On a span that the
+current graph treats as walk-connected, sorted adjacent anchors connect by
+the same walk-distance cost. This represents the full pairwise walking
+distance with a linear chain, rather than a dense walking clique.
+
+Attach the current feet and clamped goal point at query time using the
+existing surface-selection and arrival rules. Include the terminal walk.
+Keep stable link/anchor tie rules; allocation order cannot select a route.
+If a future cost reads another fact, such as arrival velocity or platform
+phase, its state must retain that fact or declare the approximation. Do not
+merge two states solely because they name the same platform.
+
+The graph's boolean reachability may still use the surface projection under
+its present walk-connectivity assumption. That cheaper projection is valid
+for reachability even though it loses information needed by route cost.
+This is the specialization boundary: share one admitted graph, then use the
+smallest state that preserves the question being answered.
+
+### Prepare reusable questions at their own lifetime
+
+[`NavGraph::build_on`](../../../crates/ambition_platformer2d_world/src/navigation/graph.rs)
+remeasures `TraversalEnvelope` for each room graph, although the envelope
+uses an independent probe world. Prepare it by the exact canonical probe
+body, movement law, full motion frame and `EnvelopeProbe` inputs. Retain
+kernel/follower semantic identity if an offline product is later stored.
+A room geometry edit invalidates room legs; it need not repeat an unchanged
+empty-world motion experiment. Never key this by character name, net
+acceleration, or rounded movement parameters.
+
+The [advisor](../../../crates/ambition_platformer2d_actor_monolith/src/body/navigation.rs)
+asks `reachable_from` through waypoints, target placement and errands.
+That routine allocates and traverses the graph each time. Retain ordered
+reachability or membership for demanded origin surfaces in the immutable
+graph. Reuse seeded waypoint selection only for the same graph, origin and
+choice seed. Feet and goal observation remain live inputs.
+
+The lifted cost graph permits reusable destination queries with fixed edge
+costs. Start with the demanded goal set and exact dynamic attachments; do not
+precompute an unbounded all-pairs table or enumerate every possible actor
+loadout. Two actors share a goal result only when their admitted graph,
+observed goal and route policy agree. A shared target entity does not prove
+that their perception samples agree.
+
+[`NavGraphCache`](../../../crates/ambition_platformer2d_world/src/navigation/cache.rs)
+has a bounded FIFO. The advisor retains 16 graphs; a repeated ordered scan
+of 17 distinct demanded keys can evict each one before its next use and
+rebuild all 17 on each tick. Treat currently admitted demand separately from
+the spare derived cache. Pin selected graphs for their live use, then use
+bounded retention for inactive reuse. Name memory and activation bounds; a
+larger constant alone does not establish a working-set policy.
+
+### Delivery and evidence
+
+1. Extend the route owner with the two-arrival witness and a final-goal walk.
+   Prepare the anchor graph and compare against an exhaustive small-state
+   search over the same admitted legs. Keep the kernel/follower and explicit
+   cost-model limits; delete the one-best-arrival-per-surface assumption.
+2. Split envelope preparation from room graph construction and retain
+   demanded reachability results. Compare cold and reused results for a
+   changed room, two equal-net but different full frames, changed body size
+   and a changed movement law. Keep the existing cache-drop replay witness.
+3. Retain actual live demand and share demanded destination work. Exercise
+   the over-capacity ordered key set, a moving observed goal, retirement and
+   graph replacement. Measure probes, builds, search work and retained bytes
+   before choosing more elaborate reuse.
+
+Derived preparation must not make worker completion an input to a brain.
+Publish complete selected values at a deterministic readiness boundary or
+use the synchronous exact query for this graph contract. Do not expose a
+partly built graph or make cache eviction mean `NoRoute`. In-memory factoring
+is the first slice. Portable graph serialization and whole-content artifact
+admission are separate work; this packet does not lift their existing hold.
+
 ## The room graph is navigable by its doors
 
 Runtime routes can use doors and gates in one search:

@@ -192,7 +192,7 @@ against them.
 | Projectile interception | reflector, absorber | Shipped: `ProjectileInterception::{Reflect, Consume}`; the reflector uses the same `parrying()` window as the melee seam | - | Projectile |
 | Pocket or storage | Pocket | ownership and projectile identity | Immutable stored payload; respawn through projectile authority | Fighter state + projectile |
 | Persistent traps | C4, mine | Shipped: the trap names its owner by `MatchSeat` (rollback state) | General occurrence identity for steerable projectiles | Owning entity domain |
-| Attach to target or terrain | C4 stick, Pikmin latch | capture and mount relationships | Stable attachment substrate, once several customers overlap | Relationship or world owner |
+| Attach to target or terrain | C4 stick, Pikmin latch | capture and mount relationships | [Two-ended anchor binding](body-anchor-bindings.md) is selected for current saddle/capture point conversion; future stick/latch laws stay domain-owned | Relationship or world owner |
 | Reactive defense | counters, Revenge | Shipped: `ParriedBodyHit` + `smash.counter`; the stance is a module (`ambition.combat.parry_window`), and so is its answer (`hit_reaction`: `ambition.combat.parried` names the parry a live bound window caught, `ambition.combat.answer_parry` presses an arbitrary technique). A counter is a trigger | - | Combat |
 | Control impairment | Sing, sleep | Shipped: `sleep_timer` as a named cause in the hard lock, plus `smash.sleep` | Mash escape | Combat or status owner |
 | Local time alteration | Witch Time | `ProperTimeScale`; move and hurtbox clocks use entity proper time | A proper-time completeness audit (locomotion, animation, playback, recovery and status clocks) | Time + consuming domains |

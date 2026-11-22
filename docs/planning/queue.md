@@ -109,7 +109,8 @@ or updating their source. Check with
 **State:** PLANNED (architecture review, 2026-11-21). Source baseline
 `6895e516863872eb6d38093a27225ed8e2973d70`; no implementation or new
 performance result is claimed. This row selects bounded architecture work
-within the product order above.
+within the product order above. The anchor, role and interaction follow-up
+below reviews production source `b91b29d35935`.
 
 **Observed:** schema values can lower before their imports resolve; body and
 candidate contexts collect optional domain catalogs; several live-contribution
@@ -151,14 +152,116 @@ world-post admission.
    uses existing local references, then a different mechanism. General format
    work follows only if the operation is shared. Producer-validity delegation
    follows the existing [asset owner](engine/asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings).
+5. [Body anchors A1/A2](engine/body-anchor-bindings.md#delivery-packets-and-proof)
+   replace private saddle/capture point conversion with two independently
+   mapped endpoints, then bind sampled named points to their admitted rig.
+   Keep mount, capture and custody laws separate.
+6. [Story SS7/SS8](engine/story-sequences.md) binds occurrence roles across
+   commands and conditions, using Creator dialogue and intro choreography.
+   It replaces the blanket skip-all-commands promise with domain settlement
+   for the scene's actual required outcomes. No universal sequencer.
+7. [Interaction I1/I2](engine/interaction-opportunities-and-activation.md#bounded-delivery)
+   moves availability/selection below the prompt and shares one attempt
+   across competing contextual consumers. Preserve gesture provenance,
+   eligible windows, domain acceptance and explicit read/consume cuts.
 
 **Acceptance:** a selected domain fact has one binder; independent holds and
 poses retire separately; another room cannot act on a world cause that can
 still disappear; a rejected mechanical candidate leaves the active selection
 and pinned product versions intact; a narrow authoring consumer excludes its
-native adapter. State which axis each packet proves. Code, runtime behavior
+native adapter. Two anchor spaces align without merging relation laws;
+authored commands and waits keep their selected participants; skipping does
+not equate a queued request with its completed gameplay outcome; removing
+the prompt does not change the same installed interaction domains' rules.
+State which axis each packet proves. Code, runtime behavior
 and compile-time performance remain separate evidence.
 
+### EXECUTION-COST — specialize gameplay work at its actual inputs
+
+**State:** PLANNED, 2026-11-21 efficiency follow-through. Preserve the product
+order above. This selects bounded work; it reports no new runtime measurement.
+
+**Failure / customer:** one projectile leg prepares equivalent source cells
+twice; ordinary animation evaluates immutable clip facts during presentation;
+addressed behavior repeats static joins and population scans; navigation
+discards an arrival position that its own cost law still reads.
+
+**Owner:** [execution specialization and work selection](engine/execution-specialization-and-work-selection.md)
+links E1–E5 to their existing domain owners. Portal implementation remains
+under [PORTAL-SIMILARITY](#portal-similarity--canonical-parts-and-scaled-mirror-portals).
+
+**Next action:** remove duplicate projectile source preparation and compile
+immutable clip properties as independent bounded slices. Prepare ordered
+extension dispatch and remove duplicate fact collectors, then share correct
+occurrence views and derive active journal work. Navigation first fixes its
+cost-state reduction, then reuses motion envelopes and graph query work.
+
+The follow-up [data-structure packets K1–K3](engine/data-structure-kernels.md#delivery-and-deletion-criteria)
+make bounds queries and strict unique lookup independent optimization targets
+in the existing foundations. Extract the current range grid for world and
+contact consumers; share occurrence/binding ambiguity reduction. Compare
+direct scans with indexed implementations before selecting target/workload
+policies. Preserve all domain lifetime and acceptance rules.
+
+**Acceptance:** ordinary operations select the cheapest supported local case;
+adding unrelated portals, installed entries or dormant receivers does not add
+exact work to that operation. Preparation preserves order, samples, scope and
+refusals; cache availability cannot alter publication. Every claimed saving
+names removed work and measures its relevant cost. Retain an offline/reference
+comparison without running a shadow general evaluator on every gameplay query.
+
+For K1–K3, interchangeable implementations agree on numeric policy, ordering,
+duplicates, unknown/invalid input and snapshot lifetime. Measure setup and
+consumption as well as queries; delete the private grid, unused contact
+overlay wrapper and repeated ambiguity reducers as their callers migrate.
+
+### BOSS-CHARACTER — one character path for bosses
+
+**State:** in progress. Slice 1 and slice 2 (2a, 2b, 2c) are done (2026-11-21). The
+[owner plan](engine/boss-character-unification.md#slice-1-record-2026-11-21)
+records the identity mapping, the construction dimensions and a headless frame
+baseline. Each boss profile names its `character`, and the pack refuses a name
+no character row answers. Marshal Gallus, the Clockwork Warden, Mode Collapse,
+the Gram Reaper and the Overflow have character rows and Hall stands. The
+temporary inspector bridge is deleted. A boss's body, corpse and health come
+from its character and its encounter (`scale`, `max_hp`); the profile's
+`combat_size` and `corpse` are gone. The common seed builds the boss body
+(`role_blueprint`, `compose_boss_role`), and the body carries `CharacterForm`.
+Next is slice 3: consume the common identity everywhere and remove `voice`.
+**Defect:** boss construction bypasses the prepared character body path. Hall
+entries duplicate some boss characters; others, including Gallus, are absent.
+**Next:** follow [the owner plan](engine/boss-character-unification.md), starting
+with the identity mapping and a headless baseline. Compose boss attributes on
+character instances; keep multi-character encounters separate. Do not enlarge
+ordinary characters or add boss work to their tick.
+**Acceptance:** Hall and fight use one prepared character and common body
+construction; existing fights and encounter persistence pass; ordinary actors
+have no added boss state or runtime cost; delete the temporary inspector bridge.
+
+# NOTE: MAYBE STALE RECTIFY
+
+### BOSS-CHARACTER — one character path for bosses
+
+**State:** in progress. Slice 1 and slice 2 (2a, 2b, 2c) are done (2026-11-21). The
+[owner plan](engine/boss-character-unification.md#slice-1-record-2026-11-21)
+records the identity mapping, the construction dimensions and a headless frame
+baseline. Each boss profile names its `character`, and the pack refuses a name
+no character row answers. Marshal Gallus, the Clockwork Warden, Mode Collapse,
+the Gram Reaper and the Overflow have character rows and Hall stands. The
+temporary inspector bridge is deleted. A boss's body, corpse and health come
+from its character and its encounter (`scale`, `max_hp`); the profile's
+`combat_size` and `corpse` are gone. The common seed builds the boss body
+(`role_blueprint`, `compose_boss_role`), and the body carries `CharacterForm`.
+Next is slice 3: consume the common identity everywhere and remove `voice`.
+**Defect:** boss construction bypasses the prepared character body path. Hall
+entries duplicate some boss characters; others, including Gallus, are absent.
+**Next:** follow [the owner plan](engine/boss-character-unification.md), starting
+with the identity mapping and a headless baseline. Compose boss attributes on
+character instances; keep multi-character encounters separate. Do not enlarge
+ordinary characters or add boss work to their tick.
+**Acceptance:** Hall and fight use one prepared character and common body
+construction; existing fights and encounter persistence pass; ordinary actors
+have no added boss state or runtime cost; delete the temporary inspector bridge.
 ### BOSS-CHARACTER — one character path for bosses — ✅ DONE 2026-11-21
 
 **Done 2026-11-21.** A boss is an instance of its prepared character. Each
@@ -2773,29 +2876,37 @@ stand-in may keep an incomplete kit.)
 
 ### PORTAL-SIMILARITY — canonical parts and scaled mirror portals
 
-**Failure / customer:** unequal apertures and reflected bodies need one
-physical material model for partial contact, combat and presentation. The
-playable 80/40 slice and chained-limb witnesses pass. Full PSIM acceptance
-remains open.
+**Failure / customer:** the material/Sim2 foundation and playable 80/40 slice
+are implemented, but several consumers reconstruct scope, trajectory or view
+meaning from a smaller projection. The 2026-11-21 source review at
+`b91b29d35935` selects corrections to topology/lifetime, accepted motion,
+conservative query preparation and complete observer views.
 
-**Owner:** [portal parts, similarity, chirality, and numerical failure plan](engine/portal-parts-similarity-and-chirality.md).
+**Owner:** [portal delivery plan](engine/portal-parts-similarity-and-chirality.md).
+Its [implementation plan](engine/portal-parts-similarity-and-chirality.md#implementation-plan)
+owns P1–P6 and links the detailed contracts. The source counterexamples have
+not been reproduced by a new Rust/game run in this review.
 
-**Next action:** continue implementation and testing on main. Native material
-repair and support are fixed in `5f07fbb17`; independent captures and room
-identity are fixed in `ae8f2b07a` and `b499e5090`. Adaptive capture storage
-and material-proxy overflow are fixed in `1d551594b`. Measure portal-free
-runtime cost and hardware/device capture cost. Complete the
-remaining motion, geometry, numeric-fault and device requirements in the owner's
-[implementation plan](engine/portal-parts-similarity-and-chirality.md#implementation-plan)
-and its [status](engine/portal-parts-similarity-and-chirality.md).
-This is local to one live simulation room; cross-island live portals are not
-an implicit dependency.
+**Next action:** start P1 with scoped reset and same-place replacement; start
+P2 with the existing max-hops-zero recovery fixture extended through generic
+transit, then a moving exit and retained target trajectory. P4 can independently
+prove/fix full-turn bounds and repeated-link candidate exclusion. P3 removes
+static contact-velocity reconstruction and the AABB snag authority after the
+accepted motion contract is in place. P5/P6 complete observer identity,
+chart transport and demand/ready-image capture without replacing working pools.
 
-**Acceptance:** all five PSIM slices have production-path and deterministic
-witnesses; authored mismatched apertures scale correctly in both directions;
-part geometry, collision, combat and masking agree; reflection persists as
-correct actor chirality after transit; bounded rejected numeric transforms
-show the typed IEEE 754 effect without poisoning simulation or replay.
+**Acceptance:** the accepted operation binds its actual scope, topology/time
+selection, restrictions, path and final state; later readers do not infer a
+different operation. Existing unequal-aperture, material/parity, multi-limb,
+refusal and replay behavior remains covered. Each selected packet removes
+its replaced interpretation. Capture/device and matched performance evidence
+remain separate gates; no new speedup is claimed.
+
+**Scope:** continuous physical portals stay within one live simulation room.
+Retiring a held lease on ordinary room travel is current lifecycle work; it
+does not require cross-island live portals. Preserve the authored lab and
+current boss/common-body work. The older static kernel continuation receipt
+is not evidence of moving-map residual time or completed multi-view support.
 
 ### PORTAL-STRUCTURAL-FX — sprite and particle effects ignore the panes (done)
 

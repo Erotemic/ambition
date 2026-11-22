@@ -94,6 +94,13 @@ prepared facts, native interpretation and dependency inversion. Further facet
 moves follow a demonstrated repeated interpretation or independent consumer;
 there is no all-crates extraction program.
 
+- ▢ **Shared gameplay bindings.** Select two-ended
+  [body anchor alignment](engine/body-anchor-bindings.md),
+  [scene/conversation occurrence roles and skip settlement](engine/story-sequences.md),
+  and [domain interaction opportunities](engine/interaction-opportunities-and-activation.md)
+  under ARCHITECTURE-COMPOSITION. Share the relation each consumer needs;
+  keep movement, lifetime, sequencing and acceptance with their owners.
+
 - ▢ **Capability/runtime composition.** Continue when a minimal consumer inherits
   a capability it did not request or a real host needs substitution. Owner:
   [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
@@ -415,20 +422,37 @@ before promotion.
   waits for a published pose/rig attachment. Owners:
   [`engine/mary-o-part-realization.md`](engine/mary-o-part-realization.md)
   and [`engine/runtime-rigged-sprite-animation.md`](engine/runtime-rigged-sprite-animation.md).
-- **Multi-link portal host (selected via PORTAL-SIMILARITY).** The
-  general canonical-part / similarity implementation now explicitly owns
-  GNU-ton's two simultaneous links and chained third link. Do not schedule
-  the older one-pair host workaround separately; see
-  [`queue.md`](queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals)
-  and [the owner plan](engine/portal-parts-similarity-and-chirality.md).
+- **Portal spatial contracts (selected via PORTAL-SIMILARITY).** Keep the
+  implemented canonical material, unequal apertures and independent/chained
+  limbs. Next complete occurrence-scoped topology edits, event-time root
+  motion with retained history, conservative candidate propagation and
+  complete observer charts with demand/ready capture sources. The
+  [delivery plan](engine/portal-parts-similarity-and-chirality.md) owns P1–P6;
+  [the queue](queue.md#portal-similarity--canonical-parts-and-scaled-mirror-portals)
+  selects work. Do not revive a one-pair host workaround or the old claim
+  that retained portal rendering pools are missing.
+- **Execution cost (selected via EXECUTION-COST).** Full/reference semantics
+  remain available while gameplay selects local specializations. Prepare
+  immutable clip and dispatch relationships; retain correct occurrence views;
+  process active journal work; retain arrival state for navigation cost.
+  [The owner](engine/execution-specialization-and-work-selection.md) links
+  bounded domain packets and the [queue](queue.md#execution-cost--specialize-gameplay-work-at-its-actual-inputs)
+  selects them. No always-on reference solver or generic cache framework.
+- **Data-structure kernels (within EXECUTION-COST).** Shared bounds queries
+  and strict unique lookup become independently measured operations in the
+  geometry and binding foundations. [The owner](engine/data-structure-kernels.md)
+  specifies interchangeable results, direct/reference implementations and
+  measured selection before optional preparation. Preserve domain lifetimes.
 - ▢ **Review follow-ups requiring a fresh measurement.** Cold/warm rig table
   preparation memory and frame stalls; human acceptance for robot
   crouch/turn/double jump (REVIEW-1014); rendered portal-piece frame cost
   (IN6); feature-index instance key only when one definition is live twice
   (IN1); profile large-room terrain skin setup only if still slow;
   `StageView::room_toward` on rotated gravity (REVIEW-1013); a held
-  portal pair crossing rooms (REVIEW-1012) only when a real customer
-  needs it; human front-idle/combat and fighter-pad acceptance. The
+  continuous portal pair crossing rooms (REVIEW-1012) only when a real
+  customer needs it; human front-idle/combat and fighter-pad acceptance.
+  Ordinary room travel must already retire or explicitly rebind a held
+  portal lease; that source-confirmed lifetime work is selected in P1. The
   second-instance door-routing policy (REVIEW-1011) also needs a live
   instance-creating customer. Owner:
   [`triage/2026-10-11-integration-source-audit.md`](triage/2026-10-11-integration-source-audit.md)
@@ -438,10 +462,11 @@ before promotion.
   measure GPU upload cost, byte-based residency, retained CPU images and the
   remaining loading-timer regression on a real target profile. Owner:
   [`engine/readiness-driven-room-transitions.md`](engine/readiness-driven-room-transitions.md).
-- ▢ **Portal presentation seams (S4).** Recheck portal edge strips,
-  parallax continuity and mobile frame cost after the mechanical transit
-  tests, rather than repeating completed body transport. Owner:
-  [`engine/portals-one-transit-for-every-mover.md`](engine/portals-one-transit-for-every-mover.md).
+- ▢ **Portal observer and capture work (P5/P6).** Same-room multiview,
+  rolled viewport clipping, ordered crossing samples, scoped parallax and
+  admitted ready images are explicit customers. Preserve current window
+  pixel density/freshness and retained pools; measure CPU/GPU work separately.
+  Detail: [view/capture contract](engine/portals-one-transit-for-every-mover.md).
 - ▢ **Movement/portal policy witness.** Finish the portal/gravity-zone
   behavior witness when that movement slice is selected. Block-to-chain
   crawl transfer remains customer-gated, not a default engine expansion.

@@ -233,7 +233,8 @@ eligibility and per-track semantic roles are prepared with the flipbook
 (PVS-1 first slice, 2026-11-22). Next in E2 are frame track correspondence
 indexes and retaining the prepared rig and binding from admission. The
 duplicate fact collectors are removed (one EventMailbox scan for all native
-fact ports, 2026-11-22). Prepare ordered extension dispatch, then share correct
+fact ports, 2026-11-22), and `run_phase` buckets its queue by trigger once.
+Next, prepare dispatch spans and entry lookup at admission, then share correct
 occurrence views and derive active journal work. Navigation first fixes its
 cost-state reduction, then reuses motion envelopes and graph query work.
 

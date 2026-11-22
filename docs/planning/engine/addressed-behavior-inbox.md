@@ -98,6 +98,16 @@ outcome. An old index cannot select a different new entry. Delete repeated path
 scans and entry-by-trigger matching as each consumer takes the prepared relation.
 This is a host execution projection, not another dispatcher or interpreter.
 
+**First slice (2026-11-22).** `run_phase` now groups the phase's queued
+invocations by `(port, selector)` once, keeping queue order inside each
+group. Each admitted entry reads only its own trigger's group, so an entry
+no longer scans the whole queue; the order is still entry-major, then queue
+order. Not yet done: preparing the trigger spans and entry lookup at
+admission (the phase's entries are still filtered from `Admitted::entries`
+each run), the `Unavailable` receipt check (a scan of the phase's entries
+for each receipted invocation), and `Candidate::bound` in the inbox (a
+linear entry search per candidate).
+
 ### Share an address view at each lifecycle cut
 
 [`ObjectIndex::capture`](../../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/object_refs.rs)

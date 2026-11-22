@@ -71,6 +71,19 @@ the work. None of the packets below selects broad rollback or Serde erasure.
 
 ## CB1 — Put the game checker above its schema library
 
+**Done (2026-11-22).** `game/ambition_content_check` now owns the
+`ambition_content_check` binary and its executable test
+(`the_shipped_pack.rs`, with the engine-only refusal control). It depends on
+`ambition_content_cli` and `ambition_content_schemas`. The schema library
+has no normal or dev dependency on the CLI and no binary target, and
+`cargo tree -p ambition_content_schemas -e normal` names no
+`ambition_content_cli` or `ambition_engine_schemas`. Repointed to
+`-p ambition_content_check`: the package guard route, the editor build
+command, the packaged-asset-guard doc and the validation recipe.
+`AMBITION_CONTENT_BIN` and the binary name are unchanged. No compile-time or
+size result is claimed. The Android adapter audit is still a separate
+subtask.
+
 **Execution owner:** `ambition_content_schemas` and the game-owned checker
 frontend. The pure-domain extraction in capability-linking L4 is separate;
 this packet can remove the reverse frontend edge before that work lands.

@@ -10,6 +10,7 @@
 | [`anim_index`](src/anim_index.rs) | The per-actor POSE index + the per-boss FRAME index (E4 slices 3, 7, 19): id-keyed read-models rebuilt once per sim tick; presentation animates from these snapshots and never borrows the live clusters. |
 | [`attack_vfx_view`](src/attack_vfx_view.rs) | Resolved attack-art facts for presentation. |
 | [`body_geometry_observer`](src/body_geometry_observer.rs) | Native body and projectile material, from the shared geometry query. |
+| [`camera_policy`](src/camera_policy.rs) | The view-owned camera policy adapter. |
 | [`camera_snapshot`](src/camera_snapshot.rs) | Pure 2D camera-follow snapshot policy. |
 | [`combat_geometry_observer`](src/combat_geometry_observer.rs) | The combat read model's geometry, for observation (GOBS-1, `docs/planning/engine/geometry-observability-and-f1.md`). |
 | [`combat_geometry_view`](src/combat_geometry_view.rs) | Body-generic combat geometry for observers. |
@@ -27,7 +28,7 @@
 | [`trail_snapshot`](src/trail_snapshot.rs) | Trail geometry captured on the presentation clock. |
 | [`view_index`](src/view_index.rs) | `FeatureViewIndex` resource and the per-frame rebuild pass. |
 
-_20 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_21 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

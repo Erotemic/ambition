@@ -27,8 +27,9 @@
 | [`stages`](src/stages.rs) | The `smash_stages` schema: Smash's stages, as data in its pack (`assets/data/smash_stages.ron`). |
 | [`tether`](src/tether.rs) | The tether reel, end to end in this game. |
 | [`text`](src/text.rs) | The lines Smash shows, as data in its pack (`assets/data/smash_text.ron`): the match's cards, the select screen, the pause offer and the launcher row. |
+| [`training`](src/training.rs) | Training knobs: put the fighters back where they started, and say what percent they stand on. |
 
-_21 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_22 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

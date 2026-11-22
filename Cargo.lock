@@ -487,6 +487,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_content_check"
+version = "0.1.0"
+dependencies = [
+ "ambition_content_cli",
+ "ambition_content_schemas",
+]
+
+[[package]]
 name = "ambition_content_cli"
 version = "0.1.0"
 dependencies = [
@@ -532,7 +540,6 @@ dependencies = [
 name = "ambition_content_schemas"
 version = "0.1.0"
 dependencies = [
- "ambition_content_cli",
  "ambition_content_pack",
  "ambition_htn",
  "ron 0.11.0",

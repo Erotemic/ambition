@@ -4,22 +4,13 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "The schemas Ambition's own pack names beside the engine's, and the content check binary that composes both."
+description = "The schemas Ambition's own pack names beside the engine's. The check binary that composes them with the content CLI is `ambition_content_check`, above this library."
 
-# The check binary composes content schemas and the runtime sheet inspector.
-# It needs no window, renderer device or game host.
 [dependencies]
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
-ambition_content_cli = { path = "../../crates/ambition_content_cli" }
 serde = { workspace = true }
 ambition_htn = { path = "../../crates/ambition_htn" }
 
 [dev-dependencies]
 # The schema tests write their fixtures as the authored RON.
 ron = { workspace = true }
-
-[[bin]]
-name = "ambition_content_check"
-path = "src/main.rs"
-test = false
-bench = false

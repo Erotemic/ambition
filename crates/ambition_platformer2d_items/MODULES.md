@@ -8,6 +8,7 @@
 |---|---|
 | [`bundles`](src/bundles.rs) | Component bundles for the static feature entities the feature layer owns. |
 | [`chests`](src/chests.rs) | Player → static-chest open path on the ECS feature side. |
+| [`committed_bag`](src/committed_bag.rs) | The shared bag's committed road for rooms that rewind alone (CW2). |
 | [`conditions`](src/conditions.rs) | Authored inventory conditions. |
 | [`construction`](src/construction.rs) | Lower authored placements into live domain state. |
 | [`encounter_rewards`](src/encounter_rewards.rs) | Reward-chest sync for cleared MOB encounters (the wave/`EncounterMob` kind). |
@@ -23,7 +24,7 @@
 | [`starting_bag`](src/starting_bag.rs) | The bag that a session begins with. |
 | [`wallet_conditions`](src/wallet_conditions.rs) | Authored WALLET conditions — "can the player pay for this?" |
 
-_16 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_17 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

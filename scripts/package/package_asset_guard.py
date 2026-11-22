@@ -118,7 +118,7 @@ PACK_MANIFEST = "pack.ron"
 # schema). `AMBITION_CONTENT_BIN` names a built one; the default builds it on
 # first use and costs milliseconds after.
 CONTENT_COMPILER = (
-    "cargo", "run", "--quiet", "-p", "ambition_content_schemas", "--bin", "ambition_content_check", "--",
+    "cargo", "run", "--quiet", "-p", "ambition_content_check", "--bin", "ambition_content_check", "--",
 )
 CONTENT_COMPILER_ENV = "AMBITION_CONTENT_BIN"
 PACK_SOURCE_ORIGIN = f"pack-source:{PACK_MANIFEST}"

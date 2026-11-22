@@ -43,7 +43,7 @@ does not pattern-match those files. It runs the content compiler and takes its
 answer:
 
 ```bash
-cargo run -q -p ambition_content_schemas --bin ambition_content_check -- \
+cargo run -q -p ambition_content_check --bin ambition_content_check -- \
     game/ambition_content/assets --no-asset-check --package-inputs
 ```
 

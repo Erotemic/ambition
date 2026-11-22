@@ -282,7 +282,8 @@ phase systems and their local state, while sharing projectile and status
 reducer bodies. CB4 makes each command select its real dependencies, then
 proves the reusable harness and game provider cuts separately.
 
-**Next action:** CB1 and CB2 can run independently. For CB3, begin with the
+**Next action:** CB1 is done (2026-11-22: the checker is its own package above
+the schema library). CB2 can run independently. For CB3, begin with the
 projectile and held-status customers; preserve ordered staging and action
 results. For CB4, begin with the offline item report and one real harness
 consumer. Try explicit optional feature families before adding packages.

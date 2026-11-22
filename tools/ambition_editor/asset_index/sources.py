@@ -150,7 +150,7 @@ def _content(repo: Path, profile: str, out: Path, binary: Path | None = None) ->
     return report
 
 
-BUILD_BINARY = "cargo build --release -p ambition_content_schemas --bin ambition_content_check"
+BUILD_BINARY = "cargo build --release -p ambition_content_check --bin ambition_content_check"
 
 
 def _stale_binary(repo: Path, binary: Path) -> list[str]:

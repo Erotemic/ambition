@@ -7,7 +7,7 @@ it.
 
 ```bash
 # build the validator once; it links no game and no Bevy renderer
-cargo build -p ambition_content_schemas --bin ambition_content_check
+cargo build -p ambition_content_check --bin ambition_content_check
 
 # then run it again after each content edit
 ./target/debug/ambition_content_check game/ambition_content/assets \

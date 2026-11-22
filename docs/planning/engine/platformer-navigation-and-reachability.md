@@ -339,6 +339,135 @@ in a complete admitted graph are different facts. Preserve the distinctions
 needed by the current consumer without adding an exact runtime search or a
 new planner framework.
 
+## Static geometry coverage — native support before finite preparation
+
+**E4 follow-up at `00bf92c22142`, 2026-11-22.** This is a source audit,
+with concrete geometry constructions below. No new native route, test or
+timing run was performed. Preserve the landed arrival-state search, motion
+reuse, reachability reuse and demanded-graph retention receipts.
+
+The next boundary is upstream of route search. Native movement rollouts
+cannot recover a support that candidate preparation removed. Nor can they
+repair a flight occupancy map that omitted a native solid family.
+
+### Three different interpretations of stationary geometry
+
+| Consumer | Current source rule | Missing native distinction |
+| --- | --- | --- |
+| [`chain_walks`](../../../crates/ambition_platformer2d_world/src/navigation/surfaces.rs) | A flat requires `filled` or a painted/solid polygon beneath it. `solid_polygons` includes `earth`. | Presentation fill does not create mechanical support or a solid interior. |
+| [`standing_surfaces`](../../../crates/ambition_platformer2d_world/src/navigation/surfaces.rs) | The whole polygon AABB becomes a final forbidden standing interval. | Bounds select possible obstacles; a non-box shape does not occupy every point in its bounds. |
+| [`FlightMap::build`](../../../crates/ambition_platformer2d_world/src/navigation/flight.rs) | Blocks, exits and room boundaries populate clearance; chains are absent. | A stationary closed Solid chain still blocks native motion. |
+
+[`SurfaceChain`](../../../crates/ambition_platformer2d_core/src/world.rs)
+explicitly marks `filled`, `earth` and `hidden` as presentation data.
+Native [material support](../../../crates/ambition_platformer2d_core/src/walkable_lines.rs)
+uses line faces, outward normals, body material and contact. Full-solid chain
+contact uses native shape geometry. A Ground chain's painted interior is not
+that of a closed Solid chain.
+
+The navigation module explains why it excluded bare lines: admitting stacked
+disk tops made graph construction expensive. Its 23 ms / 4.9 s example is a
+historical source comment, not a current measurement. Preserve finite work
+selection. Express it as navigation policy instead of visual fill.
+
+### The useful split: native candidates, admitted work, covered answer
+
+1. Discover native support and occupancy under the current body experiment
+   and stationary geometry scope. Retain the actual face direction, solid/
+   one-way meaning and source shape. Presentation data cannot change this
+   candidate set.
+2. Select the finite supports, anchors, movements and local clearance work
+   that this navigation profile prepares. Cheap support discovery need not
+   schedule a native jump rollout between every pair.
+3. Publish a complete result for that selected coverage. An endpoint or
+   primitive outside it differs from a route search exhausted within it.
+   Cache residency and worker completion order cannot select the meaning.
+
+This is the concrete geometry customer for E4's existing distinction between
+unsupported, incomplete and no route. Keep that distinction through
+[`advise_navigation`](../../../crates/ambition_platformer2d_actor_monolith/src/body/navigation.rs):
+it currently turns a missing target surface into `ErrandSight::NoRoute`.
+[`settle_errands`](../../../crates/ambition_platformer2d_actor_monolith/src/body/errand.rs)
+and [`settle_visits`](../../../crates/ambition_platformer2d_actor_monolith/src/body/visit.rs)
+make that terminal. `NavGraph::next` also calls a missing goal
+`Unreachable`.
+
+A consumer may explicitly decline work outside its supported profile. It need
+not wait forever or run exhaustive motion search. It must retain why it
+declined instead of presenting an unexamined endpoint as an exhausted
+admitted route. `NoRoute` remains a result within the stated policy, not a
+proof that no physically possible motion exists.
+
+Keep coverage narrow enough to use. Start with primitive families, stationary
+scope, the selected body experiment, demanded endpoints/supports and completion
+of the admitted preparation. Do not create a general proof language or a
+universal spatial query service.
+
+Finite demand may omit destinations, support anchors and candidate movements.
+It must not make unchecked obstacles transparent along an admitted movement
+or flight corridor. Within the declared static world, a relevant native
+blocker must be checked, proven irrelevant by bounds, conservatively blocked
+under the stated policy, or leave the query unsupported. An omitted support
+and an unchecked obstacle are different coverage facts. Flight needs this
+distinction even where no native movement rollout validates its grid route.
+
+### Native clearance with cheap box paths
+
+Retain the existing AABB interval and grid-marking fast paths, including their
+declared margins and grid resolution. Exact shape membership at a queried
+position does not by itself certify continuous travel between samples.
+For an admitted non-box obstacle, use its bounds to find candidate spans or
+cells, then refine against native shape occupancy before removing them.
+Standing and flight can share that narrow geometry operation where the
+questions agree. Their support, hazard margin and one-way policies remain
+separate.
+
+The first flight correction includes stationary closed Solid chains. Preserve
+directional support rules for Ground/one-way surfaces; do not turn every line
+into a full wall to simplify the grid. Declared clearance margins may remain
+conservative. An undeclared entire bounding rectangle is not the same policy.
+Do not run a full-world material cast for every empty cell.
+
+The advisor's authored-room approximation and the seat autopilot's stationary
+overlay remain explicit scopes. This packet does not add moving-platform,
+dynamic-gate or portal-transition planning. In particular, replacing every
+input with `solids_for(subject)` is incorrect: current holes, glue and gate/
+contact permissions describe present contact state. Freezing them across a
+hypothetical route does not supply future passability. A future transition
+model must ask the native owner at the right state.
+
+### First witnesses and deletion
+
+Use one existing visit/errand or seat-autopilot customer. Establish these
+small geometry/control pairs before broad room testing:
+
+| Construction | Required distinction |
+| --- | --- |
+| A still open Ground chain from (40,200) to (360,200), empty earth, body 20×40; toggle only `filled` | Native support and navigation eligibility under the same declared policy stay the same. If omitted by policy, the reason is explicit. |
+| Floor top y=300; body 20×40 with feet (120,300); Solid triangle (100,200),(200,200),(200,300) | The box x=110..130, y=260..300 is clear below-left of the diagonal. Replacing the triangle with its full bounding rectangle makes the same position blocked. |
+| In an 800×600 room, a stationary closed Solid chain wall x=390..410, y=0..600; body half-size (10,20) | Flight clearance blocks the wall as native movement does. An equal-bounds block is the control. |
+| A real target support deliberately outside selected preparation | The native request reports unsupported coverage or follows an explicit fallback; it does not become an unexplained terminal `NoRoute`. |
+
+The triangle currently removes feet interval x=90..210 before any rollout.
+The chain wall currently leaves its interior cells free. These are
+source-derived expectations for the first implementation witnesses.
+
+Keep an ordinary box-only room as the direct-path control. On the stacked-line
+case, count discovered supports, admitted motion edges, native rollouts,
+graph builds, retained bytes and cold/reused work. A correct support projection
+must not restore eager all-pairs disk jumps. Choose a bounded demand policy,
+then measure its actual cost rather than increasing cache constants.
+
+**Delete after migration:** painted-earth/fill authority over support and
+obstruction, polygon bounds as final shape occupancy, undocumented chain
+omission in flight, and terminal outcome conversion that erases needed
+coverage meaning. Keep current E4/K1 caches and keys unless an actual input
+changes; this review established no stale-cache correctness defect there.
+
+[World geometry](world-geometry-and-spatial-semantics.md) records the shared
+query law. This refinement stays in navigation under EXECUTION-COST and
+does not depend on completing portal or environment queries.
+
 ## The room graph is navigable by its doors
 
 Runtime routes can use doors and gates in one search:

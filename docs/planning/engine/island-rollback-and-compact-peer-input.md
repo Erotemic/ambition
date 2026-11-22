@@ -45,6 +45,26 @@ barrier and CW4 finality optimization are not prerequisites for the first
 same-room native guest correction proof. Preserve the existing room-replay
 receipts below without extending their claims to arbitrary guest mechanics.
 
+## Derived publication during partial replay
+
+**Source follow-up at `00bf92c22142`, 2026-11-22.**
+[Portal T3](portal-pair-identity-and-aperture.md#t3-refinement--a-publication-replaces-only-its-declared-population)
+owns a concrete gap in the derived-state contract. Body/portal geometry
+publishers clear their global publication while replay hides foreign rooms.
+Unhiding those rooms does not republish their geometry. PostUpdate carry and
+the native material observer can read that incomplete state before another
+full fixed step.
+
+Rebuild or replace only the population whose geometry was sampled; preserve
+foreign live publication and retire actual old occurrences explicitly. The
+first witness inspects an unchanged straddler in B immediately after rewinding
+A. This is independent of guest prediction and cross-island portals.
+
+Keep the completed writer census and replay receipts below. Classification as
+Derived does not prove publication coverage after a partial run. A source-text
+census change alone cannot repair this behavior. T3 gives the owner fix and
+cost check; ISL supplies the real replay path.
+
 ## ISL-1b completion — one room step for module-owned work
 
 **Open, source review at `f41218979625`, 2026-11-21.** The earlier `ScopePace`

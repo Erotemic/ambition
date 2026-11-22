@@ -852,6 +852,41 @@ control. Forecast and production motion must use the same body-passability
 meaning. This is a small additional geometry crossing, not a second world
 model or a requirement to rebuild every navigation query each tick.
 
+#### Ranged-action query follow-up
+
+**Source customer at `00bf92c22142`, 2026-11-22; planned continuation of
+REC3, not a new priority.** The older
+[`tick_smash` state machine](../../../crates/ambition_combat/src/brain/smash/mod.rs)
+uses `WorldView::line_of_fire` to keep or reject a substituted ranged attack.
+[That query](../../../crates/ambition_characters/src/perception.rs) casts a
+0.5-half-extent sight probe from the body's root through perceived block
+AABBs. It lacks the selected shot's finite material and contact policy.
+
+[Native projectile contact](../../../crates/ambition_platformer2d_shared_tangle/src/projectile/collision.rs)
+uses canonical finite material, native block/chain geometry and
+`WorldHitPolicy`. An `ExpireOnContact` shot can stop at a one-way surface
+which the sight predicate always ignores. A narrow corridor can pass the
+sight probe but stop the actual shot. Sharing source AABBs does not make
+these questions equivalent.
+
+Keep sight/point occlusion for its declared readers. For this ranged-action
+customer, supply the selected native muzzle, material, contact policy and
+supported forecast interval to an owner query. Start with a straight
+unpartitioned shot. Compare its answer with native execution for the one-way
+and finite-width cases. Preserve the intentional distinction between a gate
+open for this body and a gate open for its shot.
+
+Use only the terrain admitted by the brain's perception policy. Where that
+projection omits a required chain or topology fact, retain an unsupported/
+unknown result or extend the permitted projection. Do not read hidden live
+terrain to make a forecast exact. Prepare only a candidate that needs this
+answer and keep ordinary equivalent straight-shot queries cheap.
+
+Delete the selected customer's claim that a sight ray proves shot passage.
+The native projectile/contact foundation remains closed. This is the
+action-specific counterpart of REC3's body-passability correction; it does
+not reopen tactical intent, all-family rollout or general Smash polish.
+
 ### Tactical intent experiment (deferred, not active BRAIN work)
 
 The first measured gate did not pass. The maintainer paused this experiment;

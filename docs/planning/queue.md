@@ -355,6 +355,13 @@ gravity response. E4 retains material and the complete resolved frame;
 navigation must not create its own gravity multiplier or preserve the old
 controls-only product policy.
 
+The `00bf92c22142` [static geometry follow-up](engine/platformer-navigation-and-reachability.md#static-geometry-coverage--native-support-before-finite-preparation)
+keeps native support/occupancy separate from finite navigation preparation.
+Remove presentation-fill authority and shape-bound approximations at the
+demonstrated consumers. Preserve ordinary box paths, bounded edge preparation
+and the distinction between unsupported coverage and an exhausted admitted
+route. Existing E4 receipts remain closed.
+
 [E6 / IR1–IR4](engine/item-recipes-and-live-continuity.md) first retains the
 physical recipe chosen at mint, then removes the live → save → live recipe
 loop. Keep current pose in the body and capture domain placement at accepted
@@ -3196,11 +3203,10 @@ Its [implementation plan](engine/portal-parts-similarity-and-chirality.md#implem
 owns P1–P6 and links the detailed contracts. The source counterexamples have
 not been reproduced by a new Rust/game run in this review.
 
-**Next action:** P1's first slice is done (2026-11-22): a manual reset clears
-the gun pairs and cooldowns of its own live room, and a held pair asked where
-a pair was released the same tick opens. Its second slice ends a closed
-pair's cooldowns (no channel-reuse aliasing) and closes the lease on room
-transfer; P1 ends with the published accepted/refused state. Start
+**Next action:** P1's first two slices are done (2026-11-22): scoped reset
+and same-position held recast; released-pair cooldown cleanup and held lease
+release on room transfer. Its owner retains those receipts. P1 still needs
+the published accepted/refused reply to the requesting module. Start
 P2 with the existing max-hops-zero recovery fixture extended through generic
 transit, then a moving exit and retained target trajectory. P4 can independently
 prove/fix full-turn bounds and repeated-link candidate exclusion. P3 removes
@@ -3212,6 +3218,14 @@ The follow-up [SCALE-FEEL](#scale-feel--the-same-body-behavior-at-a-different-sc
 supplies the selected consumer-unit law; [PRESENTATION-COMPOSITION](#presentation-composition--order-appearances-and-add-a-25d-view)
 supplies local appearance order and a later 3D rendering consumer. Keep P2/P3
 time/contact and P5/P6 observer/capture authority here.
+
+The `00bf92c22142` [query audit](engine/world-geometry-and-spatial-semantics.md)
+adds two bounded continuations in this lane. T3 preserves foreign geometry
+publication when one room replays; prove it before another full fixed step.
+Current material overlap makes water membership and physical switch touch
+read accepted parts, retaining their maps for response and preference.
+Keep discrete sampling, strict overlap and exact-box fast paths. These cuts
+do not wait for all P2–P6 work or select a universal zone redesign.
 
 **Acceptance:** the accepted operation binds its actual scope, topology/time
 selection, restrictions, path and final state; later readers do not infer a

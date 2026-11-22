@@ -178,6 +178,66 @@ Previewing has no side effects. A script or AI can call the same native
 operation with an explicit target; it need not invent a participant or borrow
 the primary seat's gesture to obtain the same domain legality.
 
+## Physical touch retains its admitted material map
+
+**Source follow-up at `00bf92c22142`, 2026-11-22; planned.** Landed I1/I2
+already give selection, execution revalidation and inspection one owner.
+[`InteractReach`](../../../crates/ambition_platformer2d_interaction/src/lib.rs)
+still uses the whole root AABB for chest/switch touch, and the root position,
+frame and front for facing and preference.
+
+A stationary portal straddler can physically touch a far-side switch that
+the root box misses. A switch inside the clipped-away portion of that box
+can pass the same query without any body material touching it.
+[Present material occupancy](world-geometry-and-spatial-semantics.md#present-material-occupancy)
+is the shared native query with water/climb contact. It supplies admitted
+physical parts and their maps; interaction retains its own policy.
+
+Return the admitted overlap witness, not only `any(part.touches(target))`.
+Facing and preference must compare body and target in one chart. For example,
+map the target back through the admitted part's path, then use the body's
+declared reference geometry in that chart. A union boolean would lose which
+map justified the decision.
+
+Do not keep `front()`'s current use of `reach.half_size().x` as the extent
+along the body's side axis. `kinematics.aabb()` is a world-axis envelope.
+A physical half-size (10,20) turned a quarter-turn has envelope half-size
+(20,10); the current formula advances 20 along its side instead of 10.
+Derive the front from canonical/body-frame geometry or the existing native
+extent projected onto the actual side direction. Keep the ordinary unrotated
+rule. Root recharting with unchanged physical material must not change target
+preference; mapped targets and the body's reference use the same units.
+
+When more than one admitted part reaches a target, select its eligible
+witness deterministically under the interaction policy, then keep one
+candidate for that target/operation. Preserve existing kind precedence and
+stable target tie order. Do not let part enumeration give one chest two
+attempts or change which operation spends the press.
+
+Start with a physical switch. Preserve strict overlap and the ordinary
+unpartitioned box path. Talk reach, door occupancy, boarding and pickup
+domains are not implicitly changed by this migration.
+
+The selected witness records why selection admitted the target at its read
+cut. It grants no later permission. I2 still revalidates that same target
+at the owner's consume cut; a moved target or changed portal map requires
+a current query. Refusal keeps the current buffer/selection law. No lower
+candidate takes over outside the existing arbitration policy.
+
+First prove far-side touch, clipped-away-root refusal and ordinary touch.
+Add one turned/reflected facing case and a competing-target preference case
+to show that the map survives beyond overlap. A rigid/similarity rechart keeps
+the same selected physical target. A rotated face-only contact with overlapping
+bounds retains strict-overlap behavior. Use the existing
+[interaction observer](../../../crates/ambition_sim_view/src/interaction_reach_observer.rs)
+to show the owner's actual parts, target and refusal; do not add a display
+geometry calculation.
+
+Delete root-box touch authority for migrated cut material. Retain current
+selection and executor ownership. This is a bounded material-consumer
+continuation under PORTAL-SIMILARITY, not a restart of I1/I2 or a new
+interaction registry.
+
 ## Bounded delivery
 
 ### I1 — one conversation decision, one interaction owner

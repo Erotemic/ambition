@@ -711,6 +711,26 @@ at the selected consumers. Preserve existing pools.
 pictures, capacity has a visible defined fallback, and ordinary sprites,
 meshes, text, children and independent limbs retain portal coverage/depth.
 
+### Material consumers at the existing sample
+
+The `00bf92c22142` follow-up selects two bounded continuations under this
+delivery owner:
+
+- [T3 publication coverage](portal-pair-identity-and-aperture.md#t3-refinement--a-publication-replaces-only-its-declared-population)
+  preserves foreign room geometry during partial replay. Its first native
+  witness needs no complete connection-ID migration or new motion solver.
+- [Present material occupancy](world-geometry-and-spatial-semantics.md#present-material-occupancy)
+  makes discrete water contact and physical switch touch use admitted body
+  parts. The result retains its native region/target and map for response,
+  facing and preference. Keep ordinary exact-box paths and reuse the existing
+  core partition; do not reconnect copied/glued world authority.
+
+These queries can use current supported snapshot-local admission. They do
+not wait for all P2–P6 work, nor redefine samples inside an accepted interval.
+P2 still owns chronology; P3 owns moving contact; this follow-up owns the
+missing interpretation at the existing sample. Navigation's independent
+static-geometry correction remains with E4.
+
 P1's scope repairs and P4's exclusion correction can start independently.
 P2 establishes the chronology consumed by P3 and camera handoff; the rolled
 viewport and view-identity portions of P5 do not need to wait for it. P6 uses

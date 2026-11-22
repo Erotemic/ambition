@@ -187,9 +187,11 @@ slices. Only `queue.md` promotes them.
 - ▢ **Kinematic-world second customer.** Reopen moving/dynamic-geometry work only
   when a new customer requires the unresolved geometric-displacement versus
   surface-drag distinction.
-- ▢ **Compositional spatial semantics.** Reopen when a real customer crosses
-  existing surface-semantic axes, repeats shared zone identity/provenance
-  plumbing or is blocked by a closed engine spatial switch. Owner:
+- **Focused spatial query contracts.** The `00bf92c22142` audit supplies
+  concrete material-overlap and partial-publication customers under
+  PORTAL-SIMILARITY, and static support/occupancy coverage under E4. Keep their
+  existing execution lanes. Broad surface/zone unification remains deferred
+  until a mechanic requires it. Owner:
   [`engine/world-geometry-and-spatial-semantics.md`](engine/world-geometry-and-spatial-semantics.md).
 - ▢ **Provider-defined actions through the physical/UI seam.** The producer side
   exists; promote when a customer needs a semantic-action reader plus finite

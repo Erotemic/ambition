@@ -1,10 +1,11 @@
 # Architectural audit frontier
 
-**State:** audit map and research priorities, 2026-11-22. Runtime source:
-`34b4ab0b7f4f5a950a52e6031423e76b5e75f6ac`. Planning baseline:
-`4c5853c4c697b6a036e26aed618cef72ce100f15`, including the preceding shared
-action/Smash and input/life/history reviews. The hosted-prediction audit
-extends this map on the same runtime source; no newer runtime was supplied.
+**State:** audit map and research priorities, 2026-11-22. Latest source:
+`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass audits effective
+geometry across consumers and partial replay. This head includes the preceding
+planning overlays and the agents' IR1 item-recipe and AC1 construction-receipt
+work. Earlier input/life/history and hosted-prediction findings below came
+from `34b4ab0b7f4f`; they remain separate owner work.
 
 This page answers where another deep audit is likely to add useful guidance.
 It is not an execution queue, a claim that a subsystem has no defects, or a
@@ -22,7 +23,7 @@ ever read that code.
 
 | Boundary | Existing owner and coverage | Remaining reason to return |
 | --- | --- | --- |
-| Portal geometry, connection identity and material authority | [Portal connection](portal-pair-identity-and-aperture.md), [world geometry](world-geometry-and-spatial-semantics.md) | Cross-consumer query meaning and invalidation; do not repeat the general portal redesign |
+| Portal geometry, connection identity and material authority | [Portal connection](portal-pair-identity-and-aperture.md), [world geometry](world-geometry-and-spatial-semantics.md), [navigation coverage](platformer-navigation-and-reachability.md#static-geometry-coverage--native-support-before-finite-preparation) | Native witnesses for material overlap, static geometry coverage and partial publication; do not repeat the general portal redesign |
 | Body scale, native motion and presentation order | [Scale behavior](scale-relative-gameplay.md), [presentation](presentation-order-and-25d-rendering.md) | Implementation evidence or a consumer whose frame/appearance contract is still missing |
 | Actions, combat reception, hit time, pose and recovery | [Body actions](body-action-execution.md), [combat reception](combat-reception-and-injury.md), [Smash quality](../demos/super-smash-siblings.md) | A new native completion or prediction customer; preserve the completed first slices |
 | Resource/value ownership, effects and shared world writes | [Causal world commit](causal-world-commit.md), [effects](actor-effects-and-modifier-composition.md), [custody](item-custody-and-accounting.md) | Historical membership, new world-owner operations and endpoint retirement |
@@ -34,10 +35,11 @@ ever read that code.
 
 Input history and dormant plan completion had less explicit treatment than
 these boundaries before the preceding pass. Hosted room transfer was already
-selected as ISL-3; that pass sharpened its history cut. The next pass traced
-hosted guest prediction, formerly the first candidate below.
+selected as ISL-3; that pass sharpened its history cut. Later passes traced
+hosted guest prediction and effective geometry, each then the first candidate.
+Their unresolved implementation work stays with the domain owners.
 
-## Findings added by this pass
+## Findings retained from recent passes
 
 ### Input is a request with a stable execution cut
 
@@ -136,7 +138,42 @@ second physics implementation, new transport, or generalized event journal.
 Source counterexamples are established; the new native witnesses and cost
 measurements are planned, not executed in this audit.
 
-## Area audited without another architecture packet
+### A spatial result must retain the meaning of its evidence
+
+**Latest owner:** [world geometry and query meaning](world-geometry-and-spatial-semantics.md).
+Three bounded corrections came from the `00bf92c22142` source:
+
+1. **Current occupied material.** Water/climb reads and physical interaction
+   still use a complete root AABB. A stationary portal straddler can miss a
+   real far-side contact or accept one in a clipped-away root portion. Share
+   the native material-overlap query and retain the admitted map. Water
+   metrics, native climb-region passability, facing and target preference
+   remain domain rules. Keep discrete timing and direct exact-box paths.
+2. **Native geometry before finite navigation.** Visual fill admits support,
+   polygon bounds erase clear standing places, and flight occupancy omits
+   stationary Solid chains. Native candidates, selected preparation and
+   answer coverage are distinct. An unprepared support is not an exhausted
+   route; an unchecked blocker cannot become free space. Keep the finite
+   cost policy without encoding it through painted earth.
+3. **Publication coverage during partial replay.** A correct rebuild over
+   visible room A clears global geometry from hidden B. Unhiding B can
+   expose the missing partition before a full tick. T3 owns scoped
+   replacement or a correct pure full republish; ISL supplies the witness.
+   Derived classification alone does not prove covered population.
+
+These are source-supported counterexamples with planned native witnesses.
+No new Rust build, gameplay reproduction or cost measurement was performed.
+They refine existing owners and execution lanes. They do not select a
+universal collider, zone hierarchy, global revision bus or always-on exact
+reference solver.
+
+The older Smash state's thin `line_of_fire` probe also lacks selected-shot
+geometry and world-contact policy. This is a bounded
+[REC3 ranged-action customer](fighter-brain.md#ranged-action-query-follow-up),
+using permitted perception, not another architecture packet or a higher
+priority for Smash polish.
+
+## Areas audited without another architecture packet
 
 Reload and asset realization were inspected against the existing plans.
 
@@ -151,12 +188,20 @@ publication. The existing [reload](content-generation-and-reload.md) and
 invalidation, private preparation, coherent publication, App-owned selection,
 mechanical revision pinning, and retain/rebind/retire policy.
 
-This pass found no additional high-value boundary to justify another reload
+That pass found no additional high-value boundary to justify another reload
 plan. A small process-lifetime string pool is not evidence that full content
 generations leak; no cost was measured. Revisit this area with a specific
 failed generation/selection case, rather than adding another registry.
 
-The source review also checked the existing perception/knowledge ownership
+The geometry pass inspected composed collision-cache keys, room replacement,
+overlay retraction and moving-platform publication. It found no new stale-cache
+correctness case: root identity, source change ticks and relevant overlay
+meaning are already represented. Empty platform sets already avoid a needless
+change tick. Keep the K1 spatial-index and E4 cache receipts. Foreign cache
+eviction during replay may add reconstruction work; measure it with the T3
+customer before changing retention.
+
+The source reviews also checked the existing perception/knowledge ownership
 map, but did not trace enough social or observer behavior to promote a new
 finding there. Those questions remain candidates below.
 
@@ -166,32 +211,7 @@ These are research questions, not established defects or selected work.
 Each starts from an existing owner and a concrete consumer. An audit is
 successful if it rules out a proposed abstraction as well as if it finds one.
 
-### 1. Effective geometry as a query contract across consumers
-
-**Why high value:** movement, attacks, interaction, navigation and diagnostics
-need related geometry with different acceptance rules. Earlier portal and
-recovery work covers parts of this, but does not by itself prove that all
-consumers ask the same spatial question at the same admitted revision.
-
-Start with [world geometry](world-geometry-and-spatial-semantics.md),
-[collision/CCD](collision-and-ccd.md), [geometry diagnostics](geometry-observability-and-f1.md)
-and [navigation](platformer-navigation-and-reachability.md). Follow one
-moving portal-bearing or subject-passable surface through a query, replay
-restore and derived-index rebuild.
-
-Determine which meaning is canonical shape, subject-specific passability,
-effective carved material, attack acceptance, or a conservative broad phase.
-Check whether cache keys and invalidation include the actual room/content/
-geometry state they depend on. Establish whether replay-hidden roots and
-moving geometry can enter a derived query from the wrong cut.
-
-**Useful artifact:** the smallest shared query contract and dependency table
-that deletes repeated interpretation, plus a counterexample/control pair.
-Do not build a universal collider, require full reference geometry per
-gameplay tick, or create a data-structure package before finding a repeated
-algorithm with a measurable cost.
-
-### 2. Relationship endpoints through transfer, replacement and retirement
+### 1. Relationship endpoints through transfer, replacement and retirement
 
 **Why high value:** mount, capture, held item, tether and spawned-action
 relations can share coordinate bindings while retaining different lifetime
@@ -212,7 +232,7 @@ which native owner must detach, cancel, transfer or preserve the relation.
 binding/admission rule, with one migrated relation. Do not infer a generic
 entity graph from a shared pair of IDs, or make attachment imply ownership.
 
-### 3. Observation, attention and durable social knowledge
+### 2. Observation, attention and durable social knowledge
 
 **Why high value:** tactical belief, social knowledge and planner conditions
 answer different questions about truth, access and time. The dormant
@@ -236,7 +256,7 @@ evidence/time/identity and an authoring example. Avoid a universal fact
 database, an all-event journal, or extending decaying tactical memory into
 permanent social truth.
 
-### 4. Shared observers, provider actions and control ownership changes
+### 3. Shared observers, provider actions and control ownership changes
 
 **Why high value:** a body frame, a seat's observer frame and a render camera
 are distinct authorities. The present input correction leaves shared-camera

@@ -14,6 +14,13 @@ discrete enter/exit reads with `thin_region_warnings` for tunnelable authoring.
 Ledge probing follows resolved wall contact. Manual pickup remains button-gated
 overlap; a future automatic collector needs an explicit swept-trigger policy.
 
+[Present material occupancy](world-geometry-and-spatial-semantics.md#present-material-occupancy)
+corrects the occupied shape at the existing water/climb read cut. A clipped
+root box can produce false presence or miss a real far-side part. This is
+separate from tunnelling between samples. Keep discrete timing and strict
+interior overlap; a face-contact predicate is not equivalent. Region response
+and source-bound climb passability remain with their native owners.
+
 `GeoId`/`GeoFaceRef`, portal frame/aperture vocabulary and moving-host mapping are
 existing infrastructure. The collision-invariant oracle remains an on-demand
 room/seed/tick diagnostic. Do not replace these mechanisms merely to unify names.

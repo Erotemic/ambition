@@ -98,6 +98,87 @@ Sources: [`BodyGeometry`](../../../crates/ambition_platformer2d_shared_tangle/sr
 [`placement.rs`](../../../crates/ambition_portal2d/src/placement.rs),
 [`transit.rs`](../../../crates/ambition_portal2d/src/transit.rs).
 
+### T3 refinement — a publication replaces only its declared population
+
+**Source follow-up at `00bf92c22142`, 2026-11-22.** The body and portal
+publishers clear global `BodyGeometry` maps, then refill them from ordinary
+queries. Hosted `replay_room` hides every foreign room with `Disabled`.
+Those queries therefore contain only the replayed population. At replay end,
+the host removes `Disabled` without rebuilding the geometry publication.
+
+The accepted native facts of room B can remain unchanged while a replay of A
+erases B's material maps, links and straddlers from that publication. Even
+portal-free A runs the publishers. An App update need not run another full
+fixed step after its PreUpdate rewind. In that interval,
+[portal carry](../../../crates/ambition_portal2d_presentation/src/carry.rs)
+in PostUpdate cannot find B's carried part through `body_pieces`.
+The headless
+[body material observer](../../../crates/ambition_sim_view/src/body_geometry_observer.rs)
+can expose the same lost partition. This observer passes current body material
+explicitly, so its demonstrated cause is absent links/straddlers, not a
+`MissingMaterial` refusal.
+
+This is a source-supported publication defect. No new render run or native
+replay witness was executed by the audit. It does not establish that ordinary
+movement reads corrupt state, or that the partition algorithm is wrong.
+
+**Required owner contract:** a publisher replaces geometry only for the
+room/population and simulation cut that it actually publishes. Hidden foreign
+rooms are not retired or empty rooms.
+
+- Replace the replayed room's materials, budgets, admitted links and
+  straddlers coherently. Remove old entities from that room when restore
+  replaces its population. Do not keep their abandoned-branch maps.
+- Preserve each foreign room's live publication while it does not execute.
+  Room retirement explicitly removes that room's entries. A full live run
+  may still replace the full admitted population.
+- Keep pre-motion material/aperture admission and post-motion material/
+  straddler refresh distinct. Do not combine a new body pose with a stale
+  occurrence or a different topology selection.
+- An intentionally portal-disabled room must still clear its own old portal
+  publication. Do not confuse that admitted capability change with a foreign
+  room hidden only for replay.
+- Queries without a room in existing local/test compositions need an explicit
+  unscoped population policy. They must not become a wildcard that clears all
+  room-owned geometry.
+
+Prefer scoped replacement inside the existing owner. Its per-room partitions
+can retain foreign entries and allocations. A bounded initial fix can instead
+republish the complete pure projection after visibility is restored and before
+any outside consumer. Such a rebuild must use current admitted native facts;
+it cannot advance gameplay, choose new topology, or change the physical-time
+sample. Do not save and restore the old whole `BodyGeometry`: that would put
+room A's abandoned branch back after its correction.
+
+The owner need not expose a generic publication registry. Use existing live
+room identity and construction/restore results. Snapshot-local indices remain
+cheap; retained readers bind them to the accepted publication. The occurrence
+work in T2 supplies stronger retained identity, but the partial-replay repair
+need not wait for a complete connection migration.
+
+**First witness:** two live rooms; B has a native body across a supported
+portal pair. Correct and replay A through the ordinary host path, then inspect
+B before another full fixed step. B's native state and partition stay the
+same; A's publication reflects its correction. A full-tick-after-replay control
+explains why the current incomplete publication can go unnoticed. Then use the
+same owner fixture to check replacement/retirement and intentional portal
+disable, rather than building a general replay matrix.
+
+**Delete:** global clear/refill semantics applied to a partial query and any
+assumption that the next live tick repairs an externally visible publication.
+Extend the existing observer; rendering must not reconstruct topology.
+
+**Cost:** count rows rebuilt/copied when one room replays beside a populated
+foreign room. Scoped replacement can avoid a full-world rebuild, but this audit
+claims no measured speedup. Composed collision-cache retirement can also evict
+hidden foreign roots; its keys still preserve correctness. Measure that extra
+rebuild work before changing retention. Do not reopen its valid input keys.
+
+[ISL](island-rollback-and-compact-peer-input.md#derived-publication-during-partial-replay)
+owns replay integration. Keep its completed writer-classification receipt:
+being derived permits reconstruction, but reconstruction is valid only for
+the population and cut it actually covered.
+
 ### The connection owns its map convention
 
 The [2026-08-08 maintainer decision](../maintainer-decisions.md) requires
@@ -311,7 +392,7 @@ ownership; it does not claim these mechanisms have landed.
 | --- | --- | --- |
 | T1: scoped lifetime | Portal domain reset/lease consumer; Ambition reset and item adapters supply scoped intent; lifecycle publication supplies accepted transfer | Alice's retry or transfer leaves Bob's topology intact. Refusal preserves source leases. Delete unit scope loss and global pair-number liveness. |
 | T2: occurrence identity | Portal domain binds pair/end identity; portal simulation plugin owns its state and rollback declarations | Reuse cannot retarget an old latch. Delete geometry/exit-position identity joins; channels become a temporary projection. |
-| T3: one adjacency snapshot | Portal publisher writes accepted links; host schedules it before consumers | Every query names its snapshot. Delete independent passages/raycast enumeration and repeated partner discovery; retain compact indexed kernel access. |
+| T3: one adjacency snapshot | Portal publisher writes accepted links; host schedules scoped publication before consumers | Every query names its snapshot and covered population. Partial replay preserves foreign publication. Delete independent enumeration, repeated partner discovery and partial-query global clearing; retain compact indexed kernel access. |
 | T4: topology edit admission | Portal domain consumes held/shot/host/reset edits; material owner supplies occupancy; host declares publication boundaries | Invalid edits preserve accepted material and both ends. Start with held recast and gun refire, then delete direct ordinary close/replace mutations in adapters. |
 | T5: authored binding | Portal authored facet links local references and map convention; construction binds occurrences | Malformed executable pairs fail before publication. Delete raw room-wide local-name grouping and obsolete palette restrictions. |
 

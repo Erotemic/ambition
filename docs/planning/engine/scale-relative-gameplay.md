@@ -120,6 +120,11 @@ Retain the current root-body environment sampling in this packet. P2 owns
 any later change to sampling cuts inside an accepted interval. Do not
 integrate gravity independently for each spatial image of a partial body.
 
+The separate [present material occupancy](world-geometry-and-spatial-semantics.md#present-material-occupancy)
+packet corrects which material touches water/climb regions at today's sample.
+It does not change that clock or make SCALE-FEEL wait for continuous region
+integration. Preserve one body response and the region owner's metric meaning.
+
 ### Navigation is the same physical experiment
 
 The [standing experiment](platformer-navigation-and-reachability.md#define-the-standing-experiment-before-caching-it)

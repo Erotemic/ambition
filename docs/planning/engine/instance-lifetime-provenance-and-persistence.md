@@ -107,3 +107,21 @@ A mutable dormant ledger cannot be read as an unregistered simulation oracle.
 Use admitted immutable revisions or registered active state. Candidate attempts
 own cleanup, not durable namespace. See [state/execution](extension-state-and-execution.md)
 and [open-world planning](open-world-runtime-and-residency.md).
+
+## A relation must survive its endpoints' transitions
+
+**Planned refinement, source `00bf92c22142`:**
+[REL1–REL4](relationship-endpoints-and-transitions.md) distinguish native
+admission, active relation state, prospective transfer companions and exit
+context. Two existing endpoints can cease to share the spatial or replay
+domain in which their relation was admitted. A value ignored while held can
+still be needed when the holder ends.
+
+Keep the current lifetime foundation. `InCustodyOf` projects current
+residency custody; an arbitrary NPC departure or a possessed body's return
+home needs the transfer's actual cohort. A remembered reset association
+does not authorize an active ride. A receipt for new construction does not
+prove that retained live relations remain valid after selective movement.
+Native owners decide preserve, release or refuse at the accepted boundary,
+before required endpoint context is lost. The coordinator supplies scoped
+transition facts; it does not acquire the domains' lifetime policy.

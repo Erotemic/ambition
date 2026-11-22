@@ -254,8 +254,13 @@ Petting uses a side-axis walk mark and preserves floor height (`body/pet.rs:
 92–114,283–300`); point evaluation can help it without turning it into a pin.
 The current grapple module is a cast and velocity impulse, not a rope solver.
 
-Physical attachment also does not imply travel custody. `body_custody.rs:
-74–83` omits capture and makes mount travel follow its rider, opposite to
-saddle placement. Keep these explicit domain relations. No universal parent
+Physical attachment also does not imply travel custody. `body_custody.rs`
+omits capture and makes mount travel follow its rider, opposite to saddle
+placement. The [endpoint audit](relationship-endpoints-and-transitions.md)
+shows that its fighter-only reason for omitting capture is now stale, and
+that current custody is insufficient for arbitrary departure roots. REL3
+resolves native relation disposition at accepted transfer; it does not add
+automatic capture custody or change A1/A2's completed geometry. Keep these
+explicit domain relations. No universal parent
 tree, lifetime graph, joint solver, whole-world relation pass, or automatic
 inheritance of collision, support, control and material is part of this work.

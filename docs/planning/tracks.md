@@ -60,6 +60,14 @@ boundaries have received a deep source review and ranks the next research
 questions. Its candidates are not selected implementation work. Use it to
 choose an audit before adding another architecture packet.
 
+The 2026-11-22 [endpoint audit](engine/relationship-endpoints-and-transitions.md)
+refines selected ARCHITECTURE-COMPOSITION and A7 work. Its current-residency
+versus prospective-transfer distinction is shared, while capture, ride,
+possession and item disposition remain native. Broader durable relationships,
+cross-room summon delivery and generic graph/index work stay unselected;
+the live cohort fixes do not establish their contracts. The next research
+candidate is observation and durable social knowledge in the audit frontier.
+
 ### Persistent systemic world
 
 - ▢ **Open-world residency beyond live rooms.** Several live rooms exist.

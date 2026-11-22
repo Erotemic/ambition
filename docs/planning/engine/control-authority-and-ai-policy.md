@@ -79,6 +79,23 @@ The first handoff may suspend and re-anchor prediction. A transport marker
 must not become another writer of possession/claim policy, and updating a
 driver field must not reconstruct a possessed actor as a home avatar.
 
+## Planned possession companion at a retained-source crossing
+
+The `00bf92c22142` [endpoint audit](relationship-endpoints-and-transitions.md#two-transfer-witnesses-expose-the-same-missing-operation)
+finds a missing membership companion. When a possessed target crosses and
+another seat retains its source room, current custody closure moves the
+target without its inactive home. Release copies the target's position into
+home, but does not change home's `InRoomInstance`. The solitary crossing
+receipt remains valid: source retirement moves all surviving source bodies.
+
+Control supplies the inactive home as a native membership companion of the
+target's accepted transfer. [REL3](relationship-endpoints-and-transitions.md#rel3--prepare-a-transfer-cohort-and-native-relation-dispositions)
+keeps that separate from arrival pose: home is not a second driven arrival.
+Release still places it at the target at rest. Do not add a reverse custody
+edge, replace the body with the participant, or reopen the control-claim
+split. Prove Alice's crossing while Bob retains the source, then release away
+from arrival; inspect both room stamps and the one driving assignment.
+
 ## Where the writers are
 
 | authority | crate / module | production writers |

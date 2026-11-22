@@ -146,6 +146,10 @@ The deeper review of the same source refines these owners: ACT1's offer
 must name the action execution can accept; ACT2 separates live maintenance
 from elapsed progression; CR1 settles static hit reactions at native
 reception. CLIP3 retains source motion under selected move retiming.
+The endpoint review at `00bf92c22142` adds REL1–REL3 beside the completed
+anchor slices and REL4 under A7. These share native admission and accepted
+transition cuts; they do not promote a general relationship framework or
+Smash-only work.
 
 **Observed:** schema values can lower before their imports resolve; body and
 candidate contexts collect optional domain catalogs; several live-contribution
@@ -216,6 +220,20 @@ world-post admission.
    named hold point is
    bound by name, rebinds on a reordered rig, and ends the hold when the rig
    loses it.)
+   [REL1/REL2](engine/relationship-endpoints-and-transitions.md#rel1--capture-owns-admission-at-every-ingress)
+   next close native admission bypasses: capture reserves both endpoints;
+   mount admission establishes common scope and an active pair, and accepts
+   one end before publishing it. Preserve reset associations separately from
+   active riding and delete adapter-only end deduplication.
+   [REL3](engine/relationship-endpoints-and-transitions.md#rel3--prepare-a-transfer-cohort-and-native-relation-dispositions)
+   prepares companions from each transfer's actual roots, including an NPC
+   rider's mount and a possessed body's inactive home. Admit the required
+   destination configuration and native relation disposition after final
+   preflight. A split capture releases only on success. Prove a retained
+   source with two seats, an NPC rider arrival without test-side mount
+   placement, and a late refusal with no relation changes. Use the existing
+   publication and direct NPC departure owners; keep unsupported dormant
+   cohorts refused. A7 owns the item exit/handoff refinement below.
 6. [Story SS7/SS8](engine/story-sequences.md#own-each-admitted-playback-before-binding-its-roles)
    first gives each admitted cutscene run an owner occurrence. A request
    follows that run's transitions; it cannot start from the presence of an
@@ -2983,12 +3001,13 @@ Death drops already share one road (`spawn_death_drop`); reward policy only
 reads outcomes (pickup grant source, chest rewards). One asymmetry is recorded:
 match items have identity and no provenance.
 
-**Next implementation, source follow-up at `f41218979625`:**
+**Next implementation, updated against `00bf92c22142`:**
 
 1. [IR1](engine/item-recipes-and-live-continuity.md#ir1--retain-the-recipe-chosen-at-mint)
-   retains the actual physical recipe at mint and makes both reconstruction
-   roads consume it. Current 32 × 32 weapon drops and 14 × 11 regrown
-   coconuts rebuild at 36 × 36 because the description lost their extent.
+   has retained canonical extent and both reconstruction readers since
+   2026-11-22. Keep its [first-slice receipt](engine/item-recipes-and-live-continuity.md#ir1-first-slice-done-2026-11-22).
+   The shipped native reconstruction witness and other retained fields
+   remain open; do not redo the extent migration.
 2. IR2 moves dormant recipe readers off the save codec. IR3 keeps active
    pose in the live body, captures retained state at accepted boundaries and
    removes motion-driven dormant work. Preserve the atomic horizon receipt
@@ -2996,6 +3015,15 @@ match items have identity and no provenance.
    the cost evidence; there is no measured speedup yet.
    IR4 separately reduces pose-only output frequency. It preserves prompt
    semantic writes and adds the required graceful switch/quit capture.
+   [REL4](engine/relationship-endpoints-and-transitions.md#rel4--retain-exit-context-and-authorize-endpoint-succession)
+   adds held-item exit context to those selected cuts: missing reconstruction
+   must not replace the orphan fallback with zero, and accepted transfer
+   must give it explicit destination meaning. Keep same-room return-where-taken
+   behavior, bind-time material and actual release admission; no per-tick
+   hand-pose mirror. Scope custodian resolution to the selected population
+   and use accepted succession for publication handoffs, so a same-ID holder
+   in another live instance is untouched. Preserve A10's existing receipt
+   ownership and refusal behavior.
 3. [A7 exchange](engine/item-custody-and-accounting.md#a7-exchange--one-rule-for-an-offer-and-its-accepted-exchange)
    makes shop offer checks and accepted exchanges share the existing pure
    `InventoryExchange` law. Pair it with O6a's actual payer. Keep narrative
@@ -3424,6 +3452,14 @@ Witness: `a_raider_s_shark_is_the_protagonist_s_once_the_raider_is_down`
 (app_it).
 
 **Next action:** Jon rides a raider's shark by hand in the sky lookout.
+
+**Native follow-up, source `00bf92c22142`:**
+[REL2/REL3](engine/relationship-endpoints-and-transitions.md#rel2--distinguish-an-active-ride-and-admit-its-transitions-once)
+are selected under ARCHITECTURE-COMPOSITION. They preserve these customer
+receipts while separating an active ride from reset intent, completing
+scope admission, emitting one accepted end and preparing a coherent
+destination for a mounted transfer. They do not require the remaining
+`MountedBrainCache` customer or reopen possession claim ownership.
 
 **Acceptance:** the customer mounts, the mount obeys the rider, and on
 dismount the mount runs the brain it had before; the same after a rewind.

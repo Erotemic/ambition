@@ -232,8 +232,10 @@ Gaps the matrix shows:
 | Item | Work | Acceptance |
 | --- | --- | --- |
 | Atomic durable horizon | **Done 2026-11-21.** `set_minted_items` is gone. `set_durable_horizon(occurrences, custody, minted)` writes all three and keeps a minted row only when its occurrence is among the rows. The item domain still owns what a minted row means (`MintedItemRows`, a system parameter in `minted_horizon.rs`); the session's `persist_occurrence_horizon_to_save` asks it for the rows and writes them in the same call, behind the same change key. Witness: `no_minted_row_names_an_occurrence_the_save_does_not_hold` (persistence) | One write; the guard becomes a property of the writer, not only a fixture test |
-| Sufficient mint recipe | **Planned IR1:** retain the physical recipe selected at creation and share it between room and custody reconstruction | A non-default-size occurrence preserves identity and canonical geometry through both restore roads |
+| Sufficient mint recipe | **IR1 extent slice done 2026-11-22:** the selected extent is retained and both reconstruction roads consume it; keep the [receipt](item-recipes-and-live-continuity.md#ir1-first-slice-done-2026-11-22). Native end-to-end reconstruction and other retained fields remain open | A non-default-size occurrence preserves identity and canonical geometry through both restore roads |
 | Native recipe and continuity authority | **Planned IR2/IR3:** read typed recipes while entities are dormant; keep live pose in the body; capture at accepted boundaries | One moving item does not decode dormant recipes or rebuild their save rows each tick; checkpoint, exit and rewind retain their selected cuts |
+| Held exit context | **Planned REL4 with IR2/IR3:** retain the placement used if a holder disappears, including its chart; rebuild it and explicitly admit its transfer policy | A missing held mint does not later release at zero; crossing does not reinterpret source coordinates in the destination |
+| Scoped custodian handoff | **Planned REL4 with A10:** retain the old live occurrence and use accepted reconstruction/succession to resolve its replacement | One publication cannot strip a same-ID, same-spec holder in another live room; legitimate replacement still works |
 | Durable output selection | **Planned IR4:** preserve prompt semantic writes and coalesce pose-only writes with a finite persistence interval | Continuous movement does not trigger full-file output each frame; confirmation, save ownership and checkpoint policy stay intact |
 | Shop/native exchange | **Planned below:** one pure check and apply rule over the selected bag and wallet | Subject-bound offer checks and accepted operations share eligibility; exact payout and refusal leave no partial changes |
 | `durably_held` width | **Decided 2026-11-21: it stays the component.** It matches `ItemCustody`, so it holds items lying on the ground too. An `InCustody` row for such an item only reaches the file while the ledger says `InCustody`, and the item domain can rebuild both variants, so the width costs nothing a load cannot answer. Narrowing it to `Held` drops rows, the direction that loses an item | Decided explicitly; dropping a save row is the dangerous direction |
@@ -243,6 +245,25 @@ Gaps the matrix shows:
 | Menu equip | **Done (re-read 2026-11-21).** The menu writes a stamped `ItemEquipRequested`; `apply_hand_requests` applies it in the sim through `change_hand`, the road a script's `equip` takes. A bag-backed hand is stated session-only in `ambition_platformer2d_items::persist` | One equip road, or the menu's stated as session-only |
 | Item carve boundary | See below | The proofs below |
 | Agent surface | **Built 2026-11-21, over a save file:** `cargo run -p ambition_app_tools --bin item_report -- [--save PATH] where ID \| list [--room R] [--body B] \| audit \| explain ID`. It reports an occurrence's disposition, the body holding it, a mint's provenance and definition, and the bag's counts; `audit` names the rows a load cannot honour (custody without its row or held while placed, a mint with no minted row, a duplicate row) and exits 1. An authored item's definition is its room's record, which the report names rather than reads. A live-world view is not built | Reports definition, stack identity, occurrence, custody owner, provenance and disposition |
+
+### Held state must retain the next legal exit
+
+**Planned, source `00bf92c22142`:**
+[REL4](relationship-endpoints-and-transitions.md#rel4--retain-exit-context-and-authorize-endpoint-succession)
+adds a continuation obligation beside the completed orphan and IR1 receipts.
+Missing held-mint reconstruction uses a zero body position because hand pose
+supplies the current view. Orphan release later uses that stored position.
+A crossing likewise changes the carried item's room without changing that
+fallback. Preserve same-room return-where-taken behavior, retain checkpoint
+exit context, and prepare an explicit destination fallback at accepted
+cross-room transfer. This is not another per-frame pose projection.
+
+The same packet qualifies publication handoffs and checkpoint custodian
+resolution by their admitted population. Bare authored ID lookup across all
+live rooms can select a same-definition twin. A retained old `Entity` alone
+cannot follow reconstruction either; native succession must authorize the
+new endpoint. Keep handoffs publication-owned and discard only the refused
+publication's effects. Spec equality is not evidence of occurrence identity.
 
 ### A7 exchange — one rule for an offer and its accepted exchange
 

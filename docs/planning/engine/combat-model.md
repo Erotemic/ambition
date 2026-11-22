@@ -186,11 +186,31 @@ missing reusable semantics. In combat, the important families are:
 - live consumption of authored invulnerability/armor windows;
 - block-contact cancel conditions;
 - the body-owned combat action buffer;
-- one capture acquisition policy feeding the existing capture relationship;
+- one structural capture admission law, with native entry policies, feeding
+  the existing capture relationship;
 - resolved combat facts/events for presentation.
 
 The inventory owns whether each is shipped, partial, or absent. Do not duplicate
 that status here.
+
+### Capture admission and endpoint disposition
+
+**Planned, source `00bf92c22142`:** [REL1](relationship-endpoints-and-transitions.md#rel1--capture-owns-admission-at-every-ingress)
+closes a native adapter bypass. Fighter acquisition reserves both endpoints;
+`lower_body_holds` reserves only new captors and can grant competing native
+holds on one victim or permit a captured boss to seize another body. Sharing
+`begin_capture` shares mutation, not the matching invariant its readers need.
+Admit both endpoints before side effects at each existing drain cut. Keep
+fighter mutual-grab parry and each producer's targeting rules separate.
+
+[REL3](relationship-endpoints-and-transitions.md#rel3--prepare-a-transfer-cohort-and-native-relation-dispositions)
+ends a hold when an accepted transfer separates its endpoints or an endpoint
+retires. Generic boss holds now reach ordinary room compositions; existence
+alone no longer proves common space. Use native release before source
+context is lost, after final refusal checks. Refused travel preserves the
+hold. A cheap current-room guard prevents a bad pose but does not replace
+that lifecycle outcome. Keep A2 named-anchor rebinding and rollback entity
+remapping; no new capture occurrence ID is required by these witnesses.
 
 ## A form's shorter global hitstop belongs at hit resolution
 

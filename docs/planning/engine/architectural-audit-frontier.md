@@ -1,8 +1,10 @@
 # Architectural audit frontier
 
 **State:** audit map and research priorities, 2026-11-22. Latest source:
-`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass audits effective
-geometry across consumers and partial replay. This head includes the preceding
+`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass audits relation
+admission, endpoint transitions and retained exit context. It follows the
+effective-geometry audit at documentation commit `f533f6c03070`; the runtime
+source is unchanged. This head includes the preceding
 planning overlays and the agents' IR1 item-recipe and AC1 construction-receipt
 work. Earlier input/life/history and hosted-prediction findings below came
 from `34b4ab0b7f4f`; they remain separate owner work.
@@ -28,6 +30,7 @@ ever read that code.
 | Actions, combat reception, hit time, pose and recovery | [Body actions](body-action-execution.md), [combat reception](combat-reception-and-injury.md), [Smash quality](../demos/super-smash-siblings.md) | A new native completion or prediction customer; preserve the completed first slices |
 | Resource/value ownership, effects and shared world writes | [Causal world commit](causal-world-commit.md), [effects](actor-effects-and-modifier-composition.md), [custody](item-custody-and-accounting.md) | Historical membership, new world-owner operations and endpoint retirement |
 | Construction, residency and reconstitution | [Construction](construction-and-reconstitution.md), [residency](open-world-runtime-and-residency.md) | Transfers across independent histories and supported dormant execution |
+| Relationship admission and endpoint lifetime | [REL1–REL4](relationship-endpoints-and-transitions.md), with capture, mount, control and item owners | Native witnesses for actual transfer cohorts/configurations, late refusal, reset state and orphan continuation; do not repeat the general anchor or ID audit |
 | Content preparation, linking and authoring | [Linking](capability-linking-and-prepared-facets.md), [prepared media](asset-authoring-and-prepared-media.md), [asset delivery](asset-library-editor-and-delivery.md) | A demonstrated generation/publication gap or a repeated interpretation still outside its owner |
 | Compiler, dependency and product boundaries | [Compiler/build products](compiler-boundaries-and-build-products.md), [runtime composition](capability-and-runtime-composition.md) | Fresh compile/link/size measurements after the planned cuts |
 | Narrative roles, interaction and native completion | [Story](story-sequences.md), [interaction](interaction-opportunities-and-activation.md), [native actions](native-action-completion.md) | An actual lost invocation/result/role boundary, not a general task framework |
@@ -37,7 +40,10 @@ Input history and dormant plan completion had less explicit treatment than
 these boundaries before the preceding pass. Hosted room transfer was already
 selected as ISL-3; that pass sharpened its history cut. Later passes traced
 hosted guest prediction and effective geometry, each then the first candidate.
-Their unresolved implementation work stays with the domain owners.
+Their unresolved implementation work stays with the domain owners. The
+relationship pass below takes the next candidate through native admission,
+transfer, reset and reconstruction. It leaves the separate social-knowledge
+and observer/control questions open.
 
 ## Findings retained from recent passes
 
@@ -140,7 +146,7 @@ measurements are planned, not executed in this audit.
 
 ### A spatial result must retain the meaning of its evidence
 
-**Latest owner:** [world geometry and query meaning](world-geometry-and-spatial-semantics.md).
+**Owner:** [world geometry and query meaning](world-geometry-and-spatial-semantics.md).
 Three bounded corrections came from the `00bf92c22142` source:
 
 1. **Current occupied material.** Water/climb reads and physical interaction
@@ -172,6 +178,49 @@ geometry and world-contact policy. This is a bounded
 [REC3 ranged-action customer](fighter-brain.md#ranged-action-query-follow-up),
 using permitted perception, not another architecture packet or a higher
 priority for Smash polish.
+
+### Relations need accepted transitions and sufficient continuation
+
+**Latest owner:** [relationship endpoints and transitions](relationship-endpoints-and-transitions.md).
+The hard boundary is between current relation state and a proposed change
+to its endpoints. The native owners need a shared operation cut, not shared
+ownership policy.
+
+Current custody grows beneath session/possession travelers. Native NPC
+departure can start elsewhere, so a room-scoped rider can move without its
+mount. A possessed target can also move while its inactive home stays in a
+source retained by another participant. Releasing then copies destination
+coordinates into a home still assigned to the source. Prepare the actual
+cohort from native policy, and distinguish membership-only companions from
+active pairs that need a consistent destination pose. The existing mounted
+crossing fixture manually pins the mount; its survival receipt does not
+prove native arrival configuration.
+
+A capture admitted in one room can split at transfer while both bodies
+survive. Ordinary maintenance retains it; replay can release it when the
+foreign captor is hidden. Resolve a split hold at final transfer admission,
+after the last application preflight, before source context is destroyed.
+Do not add captive custody or foreign-room replay reads as a repair.
+
+The same law sharpens entry and exit. Shared `begin_capture` mutation does
+not stop the native hold adapter from bypassing fighter endpoint matching.
+Mount admission omits common residence, `RidingOn` can mean reset intent,
+and two end requests can publish two ends for one ride. Make those decisions
+native; keep different targeting, reset and control policies explicit.
+
+Held reconstruction exposes a continuation loss: the current hand view
+works while stored fallback position is zero. A later orphan release reads
+that value. Retain exit placement and its chart at the item owner; prepare
+an explicit destination fallback on accepted transfer and admit actual
+materialization against the then-current context. Also scope custodian
+handoffs to the old occurrence and an authorized successor, instead of
+resolving bare authored IDs across every live room.
+
+REL1–REL3 refine ARCHITECTURE-COMPOSITION; REL4 refines A7/IR2/IR3 and A10's
+existing receipt boundary. All new witnesses are planned. No runtime build,
+gameplay reproduction or speedup is claimed. Preserve IR1, AC1's first slice,
+AC2, A1/A2 and I1/I2. There is no new universal relation manager, durable
+mount graph or per-frame all-body scan.
 
 ## Areas audited without another architecture packet
 
@@ -211,28 +260,7 @@ These are research questions, not established defects or selected work.
 Each starts from an existing owner and a concrete consumer. An audit is
 successful if it rules out a proposed abstraction as well as if it finds one.
 
-### 1. Relationship endpoints through transfer, replacement and retirement
-
-**Why high value:** mount, capture, held item, tether and spawned-action
-relations can share coordinate bindings while retaining different lifetime
-laws. The existing anchor work solves two-ended geometry; it does not imply
-one common answer when an endpoint disappears or changes authority.
-
-Start with [body anchors](body-anchor-bindings.md), [custody](item-custody-and-accounting.md),
-[native actions](native-action-completion.md), [effects](actor-effects-and-modifier-composition.md)
-and [construction](construction-and-reconstitution.md). Trace one relation
-through death, form replacement, possession and room transfer; compare a
-second relation only where it exposes a different disposition.
-
-Separate issuer, current controller, physical attachment, custody and
-lifetime owner. Ask which endpoint identity survives each transition and
-which native owner must detach, cancel, transfer or preserve the relation.
-
-**Useful artifact:** a disposition matrix and the narrowest reusable endpoint
-binding/admission rule, with one migrated relation. Do not infer a generic
-entity graph from a shared pair of IDs, or make attachment imply ownership.
-
-### 2. Observation, attention and durable social knowledge
+### 1. Observation, attention and durable social knowledge
 
 **Why high value:** tactical belief, social knowledge and planner conditions
 answer different questions about truth, access and time. The dormant
@@ -256,7 +284,7 @@ evidence/time/identity and an authoring example. Avoid a universal fact
 database, an all-event journal, or extending decaying tactical memory into
 permanent social truth.
 
-### 3. Shared observers, provider actions and control ownership changes
+### 2. Shared observers, provider actions and control ownership changes
 
 **Why high value:** a body frame, a seat's observer frame and a render camera
 are distinct authorities. The present input correction leaves shared-camera

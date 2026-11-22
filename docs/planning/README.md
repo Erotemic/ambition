@@ -201,6 +201,9 @@ links to.
 - [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md)
   — shared vocabulary.
 - [`engine/instance-lifetime-provenance-and-persistence.md`](engine/instance-lifetime-provenance-and-persistence.md)
+- [`engine/relationship-endpoints-and-transitions.md`](engine/relationship-endpoints-and-transitions.md)
+  — native relation admission, prospective transfer cohorts, active versus
+  reset state, and retained exit context (planned, source audit 2026-11-22).
 - [`engine/room-transition-loading.md`](engine/room-transition-loading.md)
 - [`engine/readiness-driven-room-transitions.md`](engine/readiness-driven-room-transitions.md) — readiness and visual transition follow-ups.
 - [`engine/asset-preparation-and-residency.md`](engine/asset-preparation-and-residency.md)

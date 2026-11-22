@@ -239,6 +239,14 @@ source retained by another seat is still affected even when not retired.
 Preparation and publication validate the same membership facts. Networking
 must not maintain a second independently inferred room list.
 
+The `00bf92c22142` [REL3 refinement](relationship-endpoints-and-transitions.md#rel3--prepare-a-transfer-cohort-and-native-relation-dispositions)
+completes that input: current custody misses some arbitrary NPC companions
+and a possessed body's inactive home. Derive the native cohort before fixing
+this footprint, and include relation effects on endpoints that stay behind.
+An accepted split capture must release at the transfer cut; otherwise replay
+can treat its hidden foreign captor as gone while forward simulation retains
+the hold. Do not enlarge replay visibility to conceal an invalid relation.
+
 Keep foreign lifecycle preparation and publication suspended while an
 unrelated room replays. A world with hidden roots cannot supply the live
 discovery that an operation's plan requires. Retain that operation and its

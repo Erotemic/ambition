@@ -239,10 +239,18 @@ publication would install, and `apply_world_replacement` applies to the same
 entity that was verified. The commit boundary compares the plan's generation with
 the `ActiveContentBinding` on the target root.
 
-There is no projected relation-endpoint check, because it would be vacuous:
-`ConstructionPlan::commit` resolves both endpoints of every planned relation from
-its own receipt, and any other endpoint is `unreachable!`. If relations ever gain a
-live endpoint, that check becomes required.
+There is no extra endpoint check for relations minted within one construction
+receipt: `ConstructionPlan::commit` resolves both endpoints from that receipt,
+and any other endpoint is `unreachable!`. Keep this local proof. If a planned
+new relation gains an external live endpoint, verify that endpoint too.
+
+It does not prove validity of **existing** relations touching retained arrivals
+or retiring bodies. The `00bf92c22142` audit found capture room splits,
+possession return homes left in retained sources, and handoffs that resolve a
+holder by bare authored ID. [REL3/REL4](relationship-endpoints-and-transitions.md#rel3--prepare-a-transfer-cohort-and-native-relation-dispositions)
+add native disposition of those relations at final acceptance. The actual
+cohort precedes source retention and history-footprint decisions. An accepted
+intent slot is not permission to release a relation before publication.
 
 `stage::construct_room_candidate` is one exclusive-world command that consults
 `opening_refused` and builds nothing when the opening refused. A refusal that has
@@ -271,6 +279,16 @@ CALLERS   every effect that means the operation happened is queued behind
 - A road's effects include everything the system does, not only the writes inside
   its transaction. Developer status messages and rollback restarts are effects.
   Audit the whole system when you add a road.
+- Planned endpoint disposition obeys this same boundary: finish all refusal
+  checks first, execute native releases while source context exists, and make
+  those writes visible before endpoint retirement or new-room readers. Keep
+  the final application preflight in scope: `apply_world_replacement` still
+  checks arrivals and publication sinks after promotion starts. A new release
+  placed at the earlier promotion seam would be too early. Keep
+  external effects of candidate sessions frozen until their actual adoption.
+  A scoped holder handoff follows an explicit accepted successor, never a
+  global `SimId` scan. These are new customers of A10, not a second publication
+  protocol or a reopen of its completed demolition.
 - There is one activation road: an activation with no prepared candidate panics.
 
 ### Candidate session exits

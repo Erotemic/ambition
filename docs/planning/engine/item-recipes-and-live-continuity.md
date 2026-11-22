@@ -28,6 +28,7 @@ These facts have different meanings and change rates:
 | Occurrence recipe | The selected definition and required instance choices, including canonical geometry | Item owner; selected at mint or explicit migration |
 | Identity and disposition | Which occurrence exists, its custody and its room | Existing occurrence/custody owners; accepted transitions |
 | Current pose | Where a live body is now | `BodyKinematics` in that room's simulation |
+| Held exit context | Where and how the occurrence can re-enter the world if its holder ends | Item custody; binding, accepted transfer and selected retention cuts |
 | Dormant state | The fields retained when a room gives up live ownership | Existing residency/retention boundary |
 | Durable export | The retained facts at one accepted save or checkpoint cut | Session coordinates; domain owners supply their records |
 
@@ -189,6 +190,13 @@ move the only retained recipe from SaveData into a live-only component.
 - Export occurrence, custody and recipe families from the same accepted
   cut. Preserve the atomic association established by `set_durable_horizon`:
   no recipe may survive in the file without the occurrence it describes.
+- Include the native exit context selected for a held occurrence. A recipe
+  can rebuild its extent without recovering its orphan fallback placement.
+  [REL4](relationship-endpoints-and-transitions.md#rel4--retain-exit-context-and-authorize-endpoint-succession)
+  proves that missing-mint reconstruction at zero loses a later legal exit.
+  Resolve the retained custodian within the admitted restore population,
+  with explicit succession where needed; a global bare-ID body map is not
+  that population.
 - Move every simulation reader off the serialized recipe family before
   removing its per-tick mirror. Scheduling serialization in `Update` while
   leaving room preparation dependent on it would supply stale authority.
@@ -218,6 +226,13 @@ dependency evidence.
 Keep the live pose in `BodyKinematics`. Existing room rollback already saves
 and restores it. A mutable room snapshot that also receives every live pose
 would introduce another authority and another synchronization step.
+
+For a held item, distinguish the hand-derived view from the stored body that
+current orphan release uses. That stored placement is required exit context,
+not disposable stale pose. Retain it at the selected cuts and prepare its
+destination meaning on accepted transfer, as REL4 states. Preserve the
+same-room orphan receipt; do not keep a duplicate hand pose current each tick
+to repair a boundary-only loss.
 
 Keep the small identity/disposition and room lookup needed for routing.
 Change it for creation, custody, transfer and retirement, not for ordinary

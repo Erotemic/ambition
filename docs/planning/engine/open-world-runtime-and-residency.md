@@ -83,6 +83,19 @@ a dialogue, a replay or a hazard respawn stops or resets session-wide state
 (the clock, gravity, `GameMode`) only when no other live room is in play.
 `RoomTransitionCooldown` is one countdown per seat.
 
+**Planned cohort correction, source `00bf92c22142`:** current custody is not
+the full prospective companion set for every transfer root. A normal
+room-scoped NPC rider can depart through direction/errand without its mount;
+a possessed body can leave its inactive home in a source room retained by
+another seat. [REL3](relationship-endpoints-and-transitions.md#rel3--prepare-a-transfer-cohort-and-native-relation-dispositions)
+prepares native companions from the actual roots, distinguishes membership
+from arrival pose, and resolves relations that cross the cohort boundary.
+An active rider/mount needs one admitted destination configuration before
+the next saddle pin; the inactive possession home needs membership only.
+Apply the same domain decisions at publication and direct live-room crossing
+cuts. Preserve their distinct authorization and dormant-execution limits.
+Do not make every physical attachment into custody or durable state.
+
 ### Residency claims (OW4)
 
 A live room is held by each driven body stamped into it.
@@ -286,6 +299,13 @@ Use the existing prepare/admit/commit road. At a confirmed boundary:
 
 Failure before publication keeps previous ownership. Records that influence
 future ticks join the rollback model or a pinned deterministic input revision.
+
+The relation refinement above distinguishes representation retirement from
+terminal death and reset. In particular, an accepted live mount cohort does
+not make that ride durably reconstructible. Preserve the errand road's
+refusal of unsupported dormant cohorts; do not remove it after adding the
+missing live companions. Native owners must retain or release the facts that
+remain observable after demotion, including an item's later exit context.
 
 Ordinary peer room crossing commits on shared GGRS input frames without a
 session-wide hold or rebase. Checkpoint restore and explicit world rebuild

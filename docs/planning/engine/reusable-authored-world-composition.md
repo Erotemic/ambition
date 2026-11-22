@@ -108,6 +108,13 @@ native damage and defeat. An assembly does not interpret those mechanics or
 add a universal spawn dispatcher. LDtk and scripts can be frontends to the same
 prepared construction operation.
 
+An invocation can bind existing objects through the same occurrence vocabulary
+without constructing them. [Story SS7](story-sequences.md) selects lexical
+roles for a scene and conversation. Definition/local-child names, a bound
+invocation role and a live population query are different values. The shared
+operation is checked reference binding; construction publication and narrative
+playback remain separate owners.
+
 ## Implementation slices
 
 ### W1 — express one complete creation using the existing local map

@@ -136,6 +136,18 @@ and is not refused), `a_spawner_says_its_cooldown_then_its_meter`, and
 `a_charge_body_carries_its_fireballs_readiness` (the control is a body with
 the same spawner that does not charge: it reads its floor).
 
+## Contextual interaction decisions belong to gameplay
+
+The [interaction opportunity plan](interaction-opportunities-and-activation.md)
+extends the current Interact customer. Domain availability, target selection
+and accepted gesture consumption move below `sim_view`; prompts become their
+projection. Input continues to own participant routing and gesture generation.
+Preserve raw Interact versus Up shortcuts, fresh-edge versus buffered
+eligibility, and each domain's consume cut. A shared attempt does not give
+every operation the same gesture policy. Dialogue, mount and lifecycle owners
+still admit their own requests. This does not restore the deleted all-button
+affordance table or put body/domain concepts into `ambition_input`.
+
 ## Menu activation policy
 
 Pointer activation already shares `MenuTapMode` policy across current menu

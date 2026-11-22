@@ -130,6 +130,28 @@ the old scans or makes every caller execute the general case does not satisfy
 the change. Preparation, semantic lifetime and work selection must agree;
 warm caches and background completion cannot change simulation outcomes.
 
+### Further composition: bind the relation that gameplay means
+
+The follow-up at production source `b91b29d35935` selects three narrower
+shared operations:
+
+- [Body anchors](body-anchor-bindings.md) align a selected point on each
+  independently transformed body. Mount, capture and custody keep their
+  own movement, orientation, release and lifetime rules.
+- [Authored roles](story-sequences.md) bind a scene or conversation's actual
+  participants, so its commands and conditions name the same occurrences.
+  A character kind, fixed cohort and live population query remain distinct.
+- [Interaction opportunities](interaction-opportunities-and-activation.md)
+  put domain availability and gesture arbitration below the prompt. An offer
+  describes what can be requested; its owner still decides acceptance.
+
+The story plan also corrects blanket skip-by-command-emission. A scene's
+presentation can end while accepted gameplay work still needs its own
+settlement. Shared references and results do not require a shared sequencer.
+These changes add no universal relationship graph, action transaction or
+resource law; the existing resource/effect plans already own their distinct
+composition work. Each packet deletes a concrete repeated interpretation.
+
 ## Converged shape
 
 Code against these facts. Each one is in source and has a guard.

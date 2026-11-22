@@ -94,6 +94,13 @@ prepared facts, native interpretation and dependency inversion. Further facet
 moves follow a demonstrated repeated interpretation or independent consumer;
 there is no all-crates extraction program.
 
+- ▢ **Shared gameplay bindings.** Select two-ended
+  [body anchor alignment](engine/body-anchor-bindings.md),
+  [scene/conversation occurrence roles and skip settlement](engine/story-sequences.md),
+  and [domain interaction opportunities](engine/interaction-opportunities-and-activation.md)
+  under ARCHITECTURE-COMPOSITION. Share the relation each consumer needs;
+  keep movement, lifetime, sequencing and acceptance with their owners.
+
 - ▢ **Capability/runtime composition.** Continue when a minimal consumer inherits
   a capability it did not request or a real host needs substitution. Owner:
   [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).

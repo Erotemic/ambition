@@ -109,7 +109,8 @@ or updating their source. Check with
 **State:** PLANNED (architecture review, 2026-11-21). Source baseline
 `6895e516863872eb6d38093a27225ed8e2973d70`; no implementation or new
 performance result is claimed. This row selects bounded architecture work
-within the product order above.
+within the product order above. The anchor, role and interaction follow-up
+below reviews production source `b91b29d35935`.
 
 **Observed:** schema values can lower before their imports resolve; body and
 candidate contexts collect optional domain catalogs; several live-contribution
@@ -142,12 +143,28 @@ world-post admission.
    uses existing local references, then a different mechanism. General format
    work follows only if the operation is shared. Producer-validity delegation
    follows the existing [asset owner](engine/asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings).
+5. [Body anchors A1/A2](engine/body-anchor-bindings.md#delivery-packets-and-proof)
+   replace private saddle/capture point conversion with two independently
+   mapped endpoints, then bind sampled named points to their admitted rig.
+   Keep mount, capture and custody laws separate.
+6. [Story SS7/SS8](engine/story-sequences.md) binds occurrence roles across
+   commands and conditions, using Creator dialogue and intro choreography.
+   It replaces the blanket skip-all-commands promise with domain settlement
+   for the scene's actual required outcomes. No universal sequencer.
+7. [Interaction I1/I2](engine/interaction-opportunities-and-activation.md#bounded-delivery)
+   moves availability/selection below the prompt and shares one attempt
+   across competing contextual consumers. Preserve gesture provenance,
+   eligible windows, domain acceptance and explicit read/consume cuts.
 
 **Acceptance:** a selected domain fact has one binder; independent holds and
 poses retire separately; another room cannot act on a world cause that can
 still disappear; a rejected mechanical candidate leaves the active selection
 and pinned product versions intact; a narrow authoring consumer excludes its
-native adapter. State which axis each packet proves. Code, runtime behavior
+native adapter. Two anchor spaces align without merging relation laws;
+authored commands and waits keep their selected participants; skipping does
+not equate a queued request with its completed gameplay outcome; removing
+the prompt does not change the same installed interaction domains' rules.
+State which axis each packet proves. Code, runtime behavior
 and compile-time performance remain separate evidence.
 
 ### EXECUTION-COST — specialize gameplay work at its actual inputs

@@ -97,6 +97,13 @@ not general geometry or lifetime semantics.**
 
 ### Open: pose authority, attachments and future physics
 
+The selected [body anchor binding](body-anchor-bindings.md) work supplies the
+shared point operation for current mounts and captures: align independently
+mapped parent and child points, then admit the relation owner's pose. A named
+point retains its rig generation and sample meaning through form or rig changes.
+This extends the existing landmark contract; it does not require ragdoll
+physics or make every visual layer a physical relationship.
+
 `rigged::PosedParts` can bind flipbook tracks to body-rig joints, and
 `rigged::PartPose` lets a provider drive parts from joint frames without
 changing the drawing road. Mary-O's three forms measure near-exact agreement;

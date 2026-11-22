@@ -172,6 +172,16 @@ selects the bounded work.
 | Authored structures can be reused | Bind stable local child keys and explicit external slots through current construction; prove two different mechanisms before adding a general format. |
 | Incremental preparation is sound and explorable | Derive inspection and reuse from definition uses, actual input observations and immutable product selection. Retain selected mechanical product versions through publication. |
 
+The later source review at `b91b29d35935` adds bounded composition work:
+[two-ended body anchors](engine/body-anchor-bindings.md),
+[occurrence-bound scene roles](engine/story-sequences.md), and
+[interaction opportunities](engine/interaction-opportunities-and-activation.md).
+These share point evaluation, participant binding and accepted gesture
+selection while domain movement and mutation stay separate. Story SS8 also
+corrects the assumption that skipping all waits can complete arbitrary
+gameplay commands. This refines authoring and G2/G4 within the existing order;
+it does not select a universal relation, transaction or sequencing framework.
+
 The linking work improves G1/G3 and the G5 consumer boundary. Contribution
 ownership and local assemblies improve G2. Derived binding explanations
 improve G4. The causal correction applies when those mechanics cross

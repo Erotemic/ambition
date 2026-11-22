@@ -207,6 +207,8 @@ links to.
 - [`engine/item-custody-and-accounting.md`](engine/item-custody-and-accounting.md)
   — occurrence, custody and entitlement.
 - [`engine/participant-action-system.md`](engine/participant-action-system.md)
+- [`engine/interaction-opportunities-and-activation.md`](engine/interaction-opportunities-and-activation.md)
+  — domain-owned opportunities, prompt projections and accepted gesture consumption.
 - [`engine/control-authority-and-ai-policy.md`](engine/control-authority-and-ai-policy.md)
 - [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md)
 
@@ -245,6 +247,8 @@ links to.
 - [`engine/relativity.md`](engine/relativity.md)
 - [`engine/frame-awareness.md`](engine/frame-awareness.md) — maintainer
   manifesto.
+- [`engine/body-anchor-bindings.md`](engine/body-anchor-bindings.md)
+  — align independently mapped body points; retain domain relation policies.
 - [`engine/slower-light.md`](engine/slower-light.md) — deferred 3D direction.
 
 ### Engine: AI, perception and dialogue

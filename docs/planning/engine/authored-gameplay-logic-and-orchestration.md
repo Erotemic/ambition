@@ -179,6 +179,28 @@ same result once. Poison: update `BodyHealth` from the demo's castle-system
 callback, or register the cutscene inside a simulation tick; the boundary
 test must reject the duplicate authority. Do not add a universal sequencer.
 
+### O6 — bind invocation roles through the existing call boundary
+
+**Planned from the 2026-11-21 source review:**
+[story SS7](story-sequences.md) supplies two customers: Creator Yarn dialogue
+and intro cutscene direction. Their commands and conditions need the same
+occurrence-bound participants and room context. Preparation validates a role
+parameter; the scene/conversation binds it through the existing occurrence
+resolver. A raw string still cannot forge a reference, so O2's refusal remains
+correct for unbound text.
+
+Extend the current prepared-call boundary and its command/condition context.
+Keep required/optional roles, fixed cohorts and live population queries
+distinct. Bind later-spawned actors at their actual creation milestone; do not
+require every role at scene start. Playback and conversation owners retain
+their separate cursors and rollback state. This is the invocation counterpart
+to [construction's local references](reusable-authored-world-composition.md),
+not another global name registry or a new target-query language.
+
+SS8 also makes application and completion distinct for scene skipping. Reuse
+the existing native action outcomes. The shared command catalog does not
+decide how a throw, departure or scene completes.
+
 ## Determinism and lifetime
 
 Prepared program data is immutable. If a future authored rule has mutable

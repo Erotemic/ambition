@@ -2,8 +2,9 @@
 
 **State:** OPEN, narrow.
 
-The original participant/input migration is largely landed. This plan owns only
-remaining participant-context and provider-action architecture.
+The original participant/input migration is largely landed. This plan owns
+remaining participant-context and provider-action work, plus the admitted
+input and body-interpretation boundaries below.
 
 ## Landed model
 
@@ -147,6 +148,164 @@ eligibility, and each domain's consume cut. A shared attempt does not give
 every operation the same gesture policy. Dialogue, mount and lifecycle owners
 still admit their own requests. This does not restore the deleted all-button
 affordance table or put body/domain concepts into `ambition_input`.
+
+## Input history and body interpretation
+
+**State:** PLANNED from source `34b4ab0b7f4f`, 2026-11-22. These are shared
+Ambition/Smash boundaries. They do not reopen the participant migration or
+[ACT1/ACT2](body-action-execution.md). Input selects a request; those owners
+decide action permission and elapsed execution.
+
+### IN1 — record and replay at the same admitted input cut
+
+The current `ControlFrame` carries several meanings: a device sample, a
+tick's admitted input, body-interpreted control, and what remains after a
+consumer spends an edge. The recorder and replay reader use different cuts.
+
+| Source | Established boundary |
+| --- | --- |
+| [Device capture](../../../crates/ambition_platformer2d_runtime/src/input.rs), [GGRS input](../../../crates/ambition_platformer2d_rollback_ggrs/src/session.rs) | Render-rate samples enter a latch; the backend admits its fixed-tick frame before simulation interpretation |
+| [`shape_seat_frame`](../../../crates/ambition_platformer2d_actor_monolith/src/control/queries.rs) | Simulation edits both `SlotControls` and `SeatRawFrames` |
+| [Player schedule](../../../crates/ambition_platformer2d_runtime/src/player_schedule.rs), [recorder](../../../crates/ambition_platformer2d_runtime/src/input_stream.rs) | Capture occurs after reset consumption, direction gestures and portal shaping |
+| [Harness `step_frame`](../../../crates/ambition_sim_harness/src/runtime.rs), [input driver](../../../crates/ambition_platformer2d_runtime/src/input_drive.rs) | Recorded frames return through the ordinary input seam before those transformations |
+
+There is a concrete lost cause. Ambition's
+[`apply_player_reset_input_system`](../../../game/ambition_app/src/app/sim_systems.rs)
+clears `reset_pressed` in both tables, then requests a room replay. Its
+[registration](../../../game/ambition_app/src/app/plugins.rs) precedes the
+recorder. The recorded frame therefore lacks the request. No recorder reset
+hook supplies a new initial state; `InputStream::push` only replaces a
+speculative tail or restarts at an earlier tick. The current replay fixture
+uses run/jump/burst, where this distinction does not arise. This is a source
+finding; an accepted reset and decoded replay were not run in this audit.
+
+**Contract:** establish one immutable per-seat input value after sample
+coalescing and backend admission, before body-dependent interpretation or
+consumption. Record that value and inject replay at that same cut. A GGRS
+prediction and its later correction each supply the value for their tick;
+the existing tail rewrite records the corrected history. A plain driver and
+a hosted seat supply the same semantic stage through their existing adapters.
+
+| Value | Owner and lifetime |
+| --- | --- |
+| Physical/context-filtered samples | Device/participant input; may arrive several times before a tick |
+| Admitted seat input | Backend/driver input cut; immutable for that execution of the tick |
+| Held-direction and gesture state | Existing deterministic body/participant owners; restored for replay |
+| Resolved body control and remaining consumable edges | Current simulation execution; derived from the admitted input and native state |
+
+A reset, interaction or movement guard can alter its working result without
+erasing its cause. Reuse existing actor-control values and gesture owners.
+Remove writes from simulation interpretation back into raw proposals as
+their consumers move. Do not duplicate every table indefinitely or create
+a durable button journal. UI-only actions retain their host/UI owner.
+
+The artifact must name its capture stage. Existing post-shaped streams
+cannot silently acquire the new pre-interpretation meaning under the same
+version. They can remain forensic observations. A replayable segment also
+needs its matching initial simulation/content context; this packet does not
+make a mid-session input file a complete checkpoint.
+
+**First slice and removal:** publish the admitted value for every backend
+and driver at a simulation-side cut, then record it under that execution's
+assigned `SimTick`. Merely moving the recorder earlier is insufficient:
+latchless hosts currently publish `SlotControls` later, while early readers
+can use `SeatRawFrames`. Predicted and corrected executions must both enter
+this cut. Do not record at render/device capture or packet receipt, before
+the tick executes. Move or split `record_input_stream` there, retain
+speculative-tail replacement, and remove the claim that recording consumed
+control is sufficient for ordinary re-injection. Keep a distinct
+post-interpretation trace only where it answers a diagnostic question. This
+is a publication/order correction, not another input service or network
+protocol replacement.
+
+**Proof:** extend the existing recorder/decoded-stream/harness fixture with
+one accepted manual room replay and one real portal transit with held input.
+Check the resulting lifecycle/body state and retained gesture/guard state.
+Keep ordinary motion as the control. A final position alone does not prove
+that the next tick will interpret the same held input.
+
+### IN2 — resolve the input frame before applying a physical constraint
+
+[`warp_portal_input`](../../../crates/ambition_platformer2d_runtime/src/portal_seat.rs)
+maps raw axes through world-space portal normals and removes their inward
+component. It does not read the frame mode or the body's resolved frame.
+The [frame owner](../../../crates/ambition_geometry/src/reference_frame.rs)
+gives a concrete counterexample: under `BodyRelativeStrict`, down `(1,0)`
+has side `(0,-1)`. For an exit normal `(1,0)`:
+
+| Raw stick | Resolved world direction | Current raw-axis guard |
+| --- | --- | --- |
+| `(0,-1)` | `(-1,0)`, inward | Dot is zero; retains the inward input |
+| `(-1,0)` | `(0,1)`, tangent | Dot is negative; removes tangential input |
+
+This is a coordinate proof, not a captured gameplay result. Current guard
+fixtures use ordinary X-axis input. The shaped axes also feed ordinary
+attack direction in [the player translator](../../../crates/ambition_characters/src/brain/player.rs).
+A movement protection can thus change another verb's meaning.
+
+**Contract:** resolve admitted input for the uniquely driven body under the
+frame policy carried by that input and the body's native motion frame.
+Apply a declared held-direction continuation and emergence constraint to
+the locomotion channel in explicit local/world coordinates. Existing
+`ActorControlFrame` separates locomotion, attack axis and world velocity
+target. Keep action aim and interaction gestures with their own declared
+policy. Do not infer that all verbs share movement's continuation.
+
+Constrain a command the selected motion law can realize. For an axis-swept
+grounded body, local Y can mean descend/crouch rather than a freely commanded
+travel velocity. A world-space projection must not invent jump/crouch input
+or treat that body as a two-axis flyer. Keep expressibility with the native
+movement/control adapter; the old world-X-only check is not its definition.
+
+[`HeldControlFrame`](../../../crates/ambition_platformer2d_actor_monolith/src/control/participant_input.rs)
+already keeps held direction through gravity turns. `PortalInputWarp` keeps
+a second raw anchor and portal normals. Make these operations compose once:
+the continuation retains its reference mapping, and an accepted transit
+supplies the map under which that held movement continues. Do not transform
+raw axes, then implicitly transform the result again in the body translator.
+Keep release, redirection, driver change and mode change as explicit end cuts.
+
+Retain the accepted map or equivalent bounded linear value. Reading the
+current global portal convention against old normals is not the map of the
+accepted transit, especially under the planned per-connection law. Stick
+magnitude is dimensionless; portal scale must not multiply it. Do not bake
+body-dependent direction at device capture or read an eased render camera
+from deterministic simulation. The existing bounded frame helpers suffice.
+
+**Remove:** raw-axis/world-normal tests, shared input mutation used to guard
+only movement, and redundant gravity/portal continuation state when the
+selected representation replaces it. Preserve the default world-fixed
+behavior and existing held-through-gravity comfort policy.
+
+**Proof:** use the inward/tangent pair above, ordinary gravity as control,
+one held stick through a portal and gravity turn, and a directional attack
+at that boundary. The expected aim policy must be explicit. Extend current
+release/redirection and two-seat cases only where their boundary changes.
+This does not reopen the portal geometry solver.
+
+### IN3 — coalesce a qualified press as one value
+
+The smaller correction is in
+[`ControlFrame::merge_sample`](../../../crates/ambition_platformer2d_core/src/control_frame.rs).
+Strength merges by `Smash > Tilt > Auto`, source presence uses OR, and aim
+direction comes from the latest aim-stick press. Smash-left followed by
+Tilt-right within one tick therefore produces Smash-right, which neither
+press requested. A later held modifier can also raise an earlier hint.
+
+Keep the bounded one-attack-opportunity policy, but select a complete winning
+press: strength, source policy and any edge-bound direction. A C-stick press
+carries its captured vector; an ordinary attack can retain its existing
+policy of reading the movement level at interpretation. Do not freeze every
+attack's direction as an incidental buffering change. Priority may remain,
+provided it chooses that whole press. Latest held levels are a separate
+value; a neutral sample must not erase an earlier qualified edge.
+Preserve the existing same-sample C-stick/button arbitration. There is no
+need for an unbounded event queue.
+
+Verify two distinct qualified presses within one tick and the existing
+neutral/recentered case. Coordinate any changed encoded fields with the
+wire identity and stream-version owners. IN1's semantic stage change is not
+covered merely by a field-layout check.
 
 ## Menu activation policy
 

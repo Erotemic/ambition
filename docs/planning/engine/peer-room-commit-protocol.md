@@ -14,6 +14,12 @@ current GGRS host. It does not provide independent rollback histories for
 separate regions. The requirements for those histories remain in
 [architecture reassessment](architecture-reassessment-and-composable-multiplayer.md).
 
+The [hosted ISL-3 refinement](island-rollback-and-compact-peer-input.md#isl-3-refinement--history-membership-and-scoped-transfer-cuts)
+retains this receipt while defining the different independent-history cut:
+affected source and destination histories, participant membership, and
+unrelated-room replay during preparation. A shared GGRS timeline's no-hold
+crossing does not establish that hosted contract.
+
 ## Replay witnesses
 
 `79826e053` adds four single-host witnesses. They apply the shared room

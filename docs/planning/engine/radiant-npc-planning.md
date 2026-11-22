@@ -1,7 +1,8 @@
 # Radiant NPC planning — authored lives on a replaceable planner
 
-**State:** OPEN. Slice 1 is done (2026-11-10): the core is chosen and built
-(`crates/ambition_htn`); nothing drives a body with it yet. This page owns the plan for
+**State:** Initial capability built: slices 1–7 have completion receipts below.
+The dormant-completion refinement is planned and remains separately selectable.
+This page owns the plan for
 [RADIANT-NPC-HTN](../queue.md#radiant-npc-htn--authored-npc-lives-and-replaceable-planning---done-2026-11-17).
 **Related:** [agentic character runtime](agentic-character-runtime.md) (the
 layering: facts → observations → goals → policy → typed action),
@@ -71,12 +72,13 @@ Rules the boundary keeps:
   workbench) is reserved by one NPC at a time through a typed claim in the
   simulation, not by the planner's belief; a lost claim is a `Refused` that
   causes a replan.
-- **Offscreen life is the whereabouts row, advanced by schedule.** An NPC in
-  a room that is not live is not simulated frame by frame. Its row records
-  where its schedule puts it at the current clock, so a room built later puts
-  it there. The "meaningful offscreen life" acceptance is met by schedule
-  arithmetic plus the facts its tasks would have changed, not by a hidden
-  simulation.
+- **Offscreen life has an explicit schedule policy.** An NPC in a room that
+  is not live is not simulated frame by frame. Its planner proposes tasks;
+  the declared dormant executor admits placement and decides which tasks
+  completed within the available time. Its row carries those outcomes.
+  Schedule placement and aggregate object hours can remain approximations,
+  but a selected plan alone does not prove every predicted effect occurred.
+  See the dormant-completion refinement below.
 - **Explainable.** The executor keeps the method chain and the failed
   preconditions of the last plan, for a headless inspector and for dialogue
   ("why are you here?").
@@ -412,6 +414,137 @@ A source review of the slices above found lifecycle gaps. Fixed:
   and the executor holds `Arc<dyn LifePlanner>` per domain and depends on
   the contract only. Navigation and the verbs' execution do not change with
   the planner. A second planner (utility scoring) implements the same trait.
+
+## Dormant completion — execute a supported prefix of the plan
+
+**State:** PLANNED, source `34b4ab0b7f4f`, 2026-11-22. This refines slice 5's
+contract. Its completed witnesses prove schedule placement and aggregate
+object booking. They do not prove total actor time, native task completion,
+or historical observations. Keep those receipts closed.
+
+### Why this is an execution boundary
+
+[`LifePlanner`](../../../crates/ambition_life_planning/src/lib.rs) proposes
+steps. The [HTN search](../../../crates/ambition_htn/src/plan.rs) applies their
+effects to predicted facts while searching. The executor calls `step_done`
+only when it decides that a step completed. That call is the boundary
+between a predicted fact and a settled local outcome.
+
+The live and dormant roads currently make that decision differently:
+
+| Owner in [`body::life`](../../../crates/ambition_platformer2d_actor_monolith/src/body/life.rs) | Current decision |
+| --- | --- |
+| `carry_out`, `hold` | A walk needs a valid place and `VisitOutcome::Arrived`; a timed step completes only when due |
+| `live_lives` | A new hour replaces the old plan before `carry_out` settles it |
+| `catch_up` | Every step of each missed-hour plan receives `step_done` |
+| `held_by`, `plan_an_hour_away` | Check hours per claimed object, but no total sequential actor-time budget |
+| `facts_to_plan_by` | Historical `Free` uses hour bookings; historical `Present` reads who is present now |
+
+The [schema](../../../game/ambition_content_schemas/src/npc_lives.rs) accepts
+finite nonnegative hold durations. A valid plan can claim A, work for 0.75 h,
+release A, then claim B and work for 0.75 h. Each object fits its hour, so
+catch-up credits both completions. One actor has completed 1.5 h of sequential
+work within 1 h. Live execution cannot do that even with travel time ignored.
+An unclaimed timed step bypasses object budgeting entirely.
+
+There is also a destination boundary. Live `go_to` refuses a missing place.
+Missed-hour catch-up applies all its effects without that check. Current-hour
+leading walks also finish before `place_named` resolves their final location.
+Failure can leave no placement but keep facts that claim arrival. Omitting
+path simulation does not justify completing an unavailable destination.
+
+The shipped [scientists](../../../game/ambition_content/assets/data/npc_lives.ron)
+use local `ate`, `talked` and experiment-count facts. This audit has not shown
+duplicated items or world production. Their existing completion boundary
+needs correction before the planned real object-use path inherits it.
+
+### LIFE1 — bound completion by the actor's admitted interval
+
+Keep the existing hourly schedule policy. Give dormant execution one actor-
+time budget in existing `DayClock` schedule hours for the interval it
+represents; this is not the body-action clock from ACT2. Evaluate a finite
+ordered prefix of steps using their existing semantics and declared
+approximation. Apply
+local completion effects only for steps that completed. A declared hold is
+a valid timed activity; it does not need a new operation catalog.
+
+Object capacity and actor time are independent constraints. In the example,
+A completes after 0.75 h. B consumes the remaining 0.25 h, with no completion
+effect. Book B's consumed 0.25 h and release it when the hourly policy cancels
+the suffix. Do not book the requested full 0.75 h, or lose the consumed time
+because the task did not finish. An earlier refused place or claim must not
+reserve the unused suffix's capacity.
+
+Replace whole-plan upfront booking with admitted-prefix booking. Keep the
+current deterministic actor order and aggregate-hours rule. This is still
+not a timetable or a claim of exact equivalence to all live interleavings.
+Shared booking authority remains with
+[causal world commit](causal-world-commit.md); do not add another ledger or
+extend shared-store subtraction as the solution.
+
+Set one exact-boundary convention: a completion due at the hour cut settles
+before hourly replacement, unless the activity explicitly declares expiry
+as cancellation. Use the same convention live and dormant. The current
+new-hour-before-`carry_out` order can discard a due completion; this is an
+intentional ordering correction, not an incidental `<=` change. At a tick
+that crosses the hour, settle old-step work only through that exact cut.
+Calling all of `carry_out` with the tick's later `now` could complete work
+due after the cut or start the suffix that the hourly policy discards.
+
+Cancellation at an hour or demotion boundary remains a valid first policy.
+Settle the consumed interval and claim usage, then cancel the unfinished
+activity and replan when eligible. Persistent continuation is separate work;
+this slice requires no new durable activity cursor or save schema.
+
+### LIFE2 — admit placement and historical inputs before their effects
+
+Resolve each named schedule destination before granting its placement or
+completion effects. Stop at the first refused step under the selected
+policy. Checking only the final place lets a later valid target hide an
+earlier failure. Preserve the completed prefix and its spent capacity.
+
+An author can permit schedule placement without a physical route. State that
+meaning: it establishes the admitted placement, not a successful native
+`Visit`. Native movement still requires its native completion result. Do not
+run a second hidden physics world to prove the schedule approximation.
+
+A historical `Present` question needs a stated source. Use supported calendar
+or retained facts, an explicitly selected current-snapshot approximation,
+or suspend/refuse the offline evaluation whose required input is unavailable.
+The current scientists may keep a declared reconstruction-time presence
+approximation; the inspector must name it as such. Do not silently call it
+past knowledge. Missing historical evidence must not become `false`, since
+a negative condition would then claim absence. No general observation
+journal is required for this customer.
+
+When real `use` is implemented, its domain's admission and completion decide
+world effects. The planner's predicted postconditions are not authority to
+spend an item or alter a machine. Keep that future operation above the same
+native interaction seam used by scripts and other controllers. Do not make
+it a prerequisite for correcting the current timed activities.
+
+### First implementation and proof
+
+Use one existing scientist with two stationary timed work steps to expose
+actor time. Keep other NPCs and observation-triggered alternate plans out of
+that witness: idle replanning on a released claim is a separate scheduling
+question. Assert completed local facts and consumed object hours, including
+the partial final step. Retain the existing two-scientist booking case as
+the narrower aggregate-capacity control.
+
+Use the existing returning-life path for a missing destination, and cover
+the selected exact-hour convention in the same elapsed-execution helper.
+The current live `NoPlace` test does not exercise dormant completion.
+Inspect which observation source was used for one past-hour condition.
+Do not demand equal trajectories, a new planner benchmark, or a full NPC
+population test for these boundaries.
+
+**Remove:** unconditional all-step completion in the migrated catch-up road,
+whole-plan reservations for an unexecuted suffix, and arrival effects before
+destination admission. Keep the pure planner, current `Life`/ledger owner,
+hourly policy and cheap schedule placement. The
+[open-world activity contract](open-world-runtime-and-residency.md#activity-policy-and-deterministic-inputs)
+owns the larger suspension/reconstruction choice.
 
 ## Acceptance
 

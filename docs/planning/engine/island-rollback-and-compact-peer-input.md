@@ -167,6 +167,139 @@ The input shrank by 52%, and the link traffic barely moved. GGRS XORs each input
 
 **Acceptance:** two distinct active areas and at least one stitched multi-LDtk active area pass continuous-versus-isolated physics witnesses; rewinding one populated island cannot rewind another or revoke committed world facts. A local or peer-driven loading-zone crossing transfers a controlled body, equipment and persistence exactly once and the destination becomes the only authority. A live portal within one island still supports continuous projectile/body interaction; authoring a live portal whose endpoints lie in different islands yields a clear deterministic refusal. Per-island P2P input subscriptions demonstrably omit unrelated island input streams. Whole-session checkpoint and forced rebuild remain separately correct, with measured cost rather than asserted zero overhead.
 
+## ISL-3 refinement — history membership and scoped transfer cuts
+
+**State:** PLANNED refinement from source `34b4ab0b7f4f`, 2026-11-22.
+Room replay is built. Its hosted finality and crossing barriers still have
+session scope. Preserve the completed isolation and shared-timeline GGRS
+receipts; they do not prove this independent-history transfer boundary.
+
+### Current boundary and its reason
+
+| Source | Current behavior |
+| --- | --- |
+| [`GuestInputs::confirmed_through`, `publish_live_boundary`](../../../crates/ambition_hosted_world/src/room_rollback.rs) | Publish one boundary from the least-confirmed guest seat, regardless of its room |
+| `drive_guests_and_save_rooms` in the same file | Any pending/loading lifecycle crossing clears every room's saved history |
+| `take_arrived_inputs`, `a_crossing_is_under_way` | Any such crossing refuses every room rewind; late input is associated with the guest's current room |
+| [`RoomTransferPlan`](../../../crates/ambition_platformer2d_session/src/rooms/residency.rs), [lifecycle intent](../../../crates/ambition_platformer2d_session/src/lifecycle_commit.rs) | Already describe sources, destination join, retirement, participants and companion transfers |
+
+The broad crossing barrier prevents a real failure: replay hides other
+rooms, so preparing a crossing there once failed to find a live destination
+and constructed a duplicate. Removing that barrier without replacing its
+contract would restore the failure. Filtering it only to the initiating
+room is also insufficient. A join changes the destination's population,
+custody and input membership as well as the source's.
+
+A seat's current room cannot answer which history owns its older input.
+Likewise, source finality must describe the history that produced an
+operation. A seat that has left that history must not make its unresolved
+prefix final merely by disappearing from a current-room query.
+
+### ISL-3a — retain the transfer footprint and its membership cut
+
+Derive the affected histories from the existing lifecycle intent and
+`RoomTransferPlan`. Include all transferring members' source histories,
+an already-live destination and affected retirement/rebuild scopes. A
+source retained by another seat is still affected even when not retired.
+Preparation and publication validate the same membership facts. Networking
+must not maintain a second independently inferred room list.
+
+Keep foreign lifecycle preparation and publication suspended while an
+unrelated room replays. A world with hidden roots cannot supply the live
+discovery that an operation's plan requires. Retain that operation and its
+readiness outside the replay; resume it on the live cut. This suspension
+does not require dropping the unrelated room's saved history.
+
+The first correction can retain a confirmed barrier for the affected
+histories. Their required prefixes must settle before ownership changes.
+Unrelated histories continue to record and replay. State any affected-room
+hold as a policy; do not discard provisional state and call it confirmed.
+Keep the conservative global confirmation query until a scoped one is
+proved. This slice does not depend on the CW4 optimization below.
+
+Keep the saved state and inputs needed to correct the affected pre-cut
+prefixes. Suspend lifecycle publication during replay, but permit those
+corrections before the cut; alternatively, establish the cut from an already
+confirmed, restored prefix. Scoping today's blanket replay refusal to the
+affected rooms and waiting for the watermark is insufficient: it could
+declare a mispredicted state final without applying the corrected input.
+
+At successful publication, change body/custody ownership and participant
+input membership at one explicit cut. Retire only the affected pre-cut
+history. Retain enough membership information to interpret a late sample
+from before that cut. It either reaches its original history under the
+supported replay rule or receives the declared late-input disposition;
+it must not execute against the new room just because the body is there now.
+Failure before publication leaves the prior owners intact.
+
+Use existing session, live-room, operation and sequence identities where
+they distinguish the histories. Add an epoch only if a retained sample can
+otherwise alias a replaced history. Keep the one-operation coordinator;
+concurrent arbitrary crossings are not needed to isolate unrelated rooms.
+Checkpoint and whole-session rebuild retain their broader barrier.
+
+**Proof:** keep a real A-to-B operation pending while C, outside the transfer
+footprint, receives changed late input. C must replay to the on-time result
+and retain history through success or failure of the transfer. Then join a
+live B with samples on both sides of the cut: one destination occurrence,
+one custody owner, and no old-source gesture interpreted in B. Reuse the
+host's existing two-guest-room and lifecycle fixtures. Include a late
+correction that changes or withdraws the crossing's own trigger before
+publication. Only the corrected decision may mutate the destination.
+
+A later transfer that does not hold an affected destination needs a retained
+native import at its destination input cut, including its construction and
+custody result. Replaying that import is additional work. Keeping B's old
+snapshots alone does not establish it, and it is not required for ISL-3a.
+
+### ISL-3b / CW4 — ask finality of the history that produced the request
+
+This refines [CW4](causal-world-commit.md#cw4--replace-the-global-confirmation-floor-only-when-useful),
+which remains an optimization after causal correctness. The current global
+minimum is conservative. A late guest in B can delay an operation from A
+even when B cannot rewind A; this is coupling, not evidence of unsafe early
+commit.
+
+Answer source finality using the operation's history identity, tick and
+retained participant membership at that cut. Existing `RoomWrite` carries
+room and tick; use the lifecycle owner for any additional history meaning.
+Do not replace the global minimum with a lookup of current occupants.
+Membership change is itself an admitted boundary, so a departed seat's
+earlier uncertainty remains attached to its old prefix until settled.
+
+Keep a session/world aggregate for checkpoints and operations that require
+several histories. An operation spanning histories must name their required
+prefixes or use the committed transfer road. Unknown scope is not confirmed.
+Single-history GGRS keeps its direct boundary.
+
+Start with one existing held world-value or post operation. Its source
+finality admits the request to the world owner; that owner still decides
+acceptance. Destination delivery retains the recorded result and read cut
+under CW3. Source finality, domain acceptance and recipient replay are
+three different boundaries.
+
+**Proof:** delay B while A's required prefix is known. A's operation reaches
+domain admission; B's still waits. Receiving-room replay sees its original
+admitted result. A whole-world checkpoint retains its full-scope wait.
+Measure commit latency and retained history before claiming a performance
+gain. Do not require an all-domain migration to prove this query.
+
+### Late-input disposition at a refused replay
+
+The source contains a smaller defect beside this design. A too-old or
+unseated input is moved to a later tick, but the refused-replay and no-saved-
+snapshot branches only increment `not_rewound`. The input stays at its old
+tick, and `input_for` later calls `levels_only`, which removes its edges.
+The comment promising next-tick application is not implemented there.
+
+Give these cases one explicit disposition: replay, move the still-undelivered
+edge contribution to an admitted later tick, or refuse it by policy. Keep
+the decision once through the existing sequence identity. Do not retime a
+whole merged old-tick frame: it can include earlier edges already consumed.
+Preserve the newly arrived sample or its new edge contribution. This can be
+fixed before the larger transfer work. It needs one refused/no-save case
+with a prior consumed edge as control, not a new transport campaign.
+
 ## ISL-1 result (2026-11-10): what has a room
 
 Fixture: `game/ambition_app/tests/room_rollback_census.rs`,

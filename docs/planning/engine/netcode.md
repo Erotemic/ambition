@@ -278,6 +278,14 @@ rollback dump, the fingerprint and `rollback_codec_shape.txt` do not describe it
 fields. `INPUT_STREAM_VERSION` versions recorded replay files and exempts added
 fields by design; it does not cover the peer payload.
 
+Field layout and input meaning are separate contracts. The
+[IN1 recording cut](participant-action-system.md#in1--record-and-replay-at-the-same-admitted-input-cut)
+requires an immutable admitted seat input before body interpretation and
+edge consumption, with replay entering that same simulation cut. Current
+post-shaped recordings need an explicit old-format/forensic meaning; a
+wire-layout ratchet alone cannot make them pre-interpretation replay input.
+Preserve the existing backend adapters and speculative-tail replacement.
+
 - **Identity and ratchet.** `CONTROL_FRAME_WIRE_IDENTITY` names the shape.
   `the-peer-input-payload-may-not-move-without-its-identity`
   (`scripts/checks/check_absence_contracts.py`) ratchets the field list in declaration

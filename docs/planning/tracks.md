@@ -55,6 +55,11 @@ ownership model. The
 architecture packet gates. Work already selected in `queue.md` is not repeated
 here.
 
+The [audit frontier](engine/architectural-audit-frontier.md) records which
+boundaries have received a deep source review and ranks the next research
+questions. Its candidates are not selected implementation work. Use it to
+choose an audit before adding another architecture packet.
+
 ### Persistent systemic world
 
 - ▢ **Open-world residency beyond live rooms.** Several live rooms exist.
@@ -287,6 +292,14 @@ These are opportunities, not migration work.
   when a real tree benefits; do not migrate runtime content merely to use it.
 
 ## Combat, AI and behavior reservoir
+
+- ▢ **Dormant NPC completion.** Before extending authored timed lives or
+  implementing real world-object use, admit only the elapsed plan prefix
+  supported by total actor time, object capacity and destination validity.
+  State the source of historical observations. Keep the completed Radiant
+  slices closed and hourly cancellation/restart valid; no general activity
+  framework is selected. Owner:
+  [LIFE1/LIFE2](engine/radiant-npc-planning.md#dormant-completion--execute-a-supported-prefix-of-the-plan).
 
 - ▢ **Strike pulse contact memory.** Prepare pulse membership and keep one
   history per occurrence/pulse instead of copying per-volume victim sets.

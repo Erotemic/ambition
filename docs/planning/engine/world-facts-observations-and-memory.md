@@ -105,6 +105,14 @@ heard event Y, received item Z, witnessed gate opening. No durable
 representation exists. The save records what is true, not what happened or who
 could have seen it.
 
+Time of evaluation is part of this distinction. The
+[dormant NPC refinement](radiant-npc-planning.md#life2--admit-placement-and-historical-inputs-before-their-effects)
+finds that past-hour `Present` currently reads who is in the room now. Name
+that reconstruction-time approximation, supply supported historical facts,
+or decline the evaluation. Unknown history is not an answered absence. The
+planner's predicted postconditions are likewise not settled world truth.
+This bounded customer does not require a general observation journal.
+
 ### Memory/belief
 
 Actor-specific retained interpretation of observations. It may be incomplete,

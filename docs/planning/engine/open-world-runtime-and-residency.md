@@ -258,6 +258,15 @@ Event-driven processing uses an admitted logical clock, input facts and wake
 conditions. Persist and rewind its counters and next-event state at the owning
 lifetime. Do not ship a second physics solver for dormant rooms.
 
+The first concrete elapsed-execution refinement is
+[NPC dormant completion](radiant-npc-planning.md#dormant-completion--execute-a-supported-prefix-of-the-plan).
+A planner's predicted effects become settled local facts only for the
+supported completed prefix. Account for total actor time separately from
+object capacity, admit schedule destinations before arrival effects, and
+declare the evidence used for historical conditions. Hourly cancellation
+and restart remain valid; this does not require durable activity cursors or
+exact hidden movement.
+
 ## Promotion and demotion
 
 Use the existing prepare/admit/commit road. At a confirmed boundary:

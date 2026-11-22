@@ -117,6 +117,13 @@ Query and view consumers read that connection's resolved map. Delete the
 query-global convention as they migrate; adding an authored field alone
 cannot make mixed-convention paths correct.
 
+Held movement is another consumer of the accepted map.
+[IN2](participant-action-system.md#in2--resolve-the-input-frame-before-applying-a-physical-constraint)
+resolves body-relative input before a world-space emergence constraint and
+retains the transit's mapping for continuation. A later global setting must
+not reinterpret an old transit. Keep dimensionless stick magnitude and
+per-verb policy separate from the portal's physical similarity transform.
+
 ## Edits of topology are one domain operation
 
 Opening, replacement, resizing, release, owner loss and host loss change a

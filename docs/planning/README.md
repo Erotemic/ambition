@@ -119,6 +119,9 @@ links to.
 
 ### Engine: architecture
 
+- [`engine/architectural-audit-frontier.md`](engine/architectural-audit-frontier.md)
+  — source-backed audit coverage, the 2026-11-22 input/life/history findings,
+  and ranked questions for the next deep audit; not an execution queue.
 - [`engine/architecture-reassessment-and-composable-multiplayer.md`](engine/architecture-reassessment-and-composable-multiplayer.md) — cross-document review of optional rollback, peer multiplayer, simulation islands, physical objects and crate-boundary tradeoffs (proposed; not queued).
 - [`engine/architecture.md`](engine/architecture.md) — the owner page: converged
   shape, the rules workspace policies cite, decomposition doctrine, target

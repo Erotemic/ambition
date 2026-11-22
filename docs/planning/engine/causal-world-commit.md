@@ -641,6 +641,15 @@ retained history; do not claim independent progress from a per-room label.
 This packet is an optimization of an established contract. It must not
 weaken confirmation to make a queue appear faster.
 
+The [ISL-3 refinement](island-rollback-and-compact-peer-input.md#isl-3b--cw4--ask-finality-of-the-history-that-produced-the-request)
+defines the required membership meaning: query the history and participant
+membership that produced the request, including unresolved prefixes of
+seats that have since left. A current-room occupant lookup is insufficient.
+Keep aggregate finality for whole-world checkpoints. The preceding scoped
+transfer barrier can ship with conservative global finality; it does not
+depend on this optimization. Source finality, domain acceptance and delivery
+into a recipient's replay history remain separate cuts.
+
 ## Integration and deletions
 
 | Existing plan | Revision |

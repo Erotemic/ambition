@@ -284,6 +284,13 @@ world-post admission.
    landing, plus Smash local hitlag. ACT3 floor choreography remains a later
    Smash customer; it is not part of this row's required completion.
 
+10. [Input IN1/IN2](engine/participant-action-system.md#input-history-and-body-interpretation)
+    defines one admitted input cut for recording and replay, then resolves
+    body coordinates before a locomotion-only emergence constraint. Preserve
+    held-direction continuity and each verb's policy. This is shared engine
+    work from the source `34b4ab0b7f4f` audit; it does not promote Smash-only
+    polish. IN3 records the smaller qualified-press coalescing correction.
+
 **Acceptance:** body permission governs the actual action spend; a refused
 press has no accepted-action side effects; an applicable hitlag or held
 reaction suspends move execution and movement on the same action interval;
@@ -525,6 +532,15 @@ script side. Use Sentry/Vortex through the actual two-room schedule, including
 hold/resume and rewind. Preserve discrete zero-dt operations, one-room
 slowdown and the existing session/presentation clock policies. This is a
 bounded completion of the clock contract, not a new time framework.
+
+**ISL-3 refinement, source `34b4ab0b7f4f`:** the
+[history-membership cut](engine/island-rollback-and-compact-peer-input.md#isl-3-refinement--history-membership-and-scoped-transfer-cuts)
+derives affected source/destination histories from the existing transfer
+plan. Retain their confirmed barrier first while unrelated rooms keep
+history and replay; keep foreign lifecycle work out of hidden-world replay.
+Body/custody and input membership change at one publication cut. CW4's
+scoped finality query remains a later optimization, not a prerequisite.
+The owner also records a smaller late-input edge disposition correction.
 
 ### RADIANT-NPC-HTN — authored NPC lives and replaceable planning — ✅ DONE 2026-11-17
 

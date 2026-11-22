@@ -522,8 +522,101 @@ pub fn row_loops(name: &str) -> bool {
 ///
 /// It lives here, not in the actor crate, because it only wraps this crate's
 /// vocabulary and all its readers sit above the actor crate.
+///
+/// Written only as the projection of [`PoseClaims`]: the winning claim's
+/// row, or no override when nothing claims the body.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActorAnimOverride(pub CharacterAnim);
+
+/// One application's proposed pose: the row, and its priority. The highest
+/// priority wins; equal priorities fall to the lower application key, never
+/// to the order the claims arrived in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PoseTerm {
+    pub anim: CharacterAnim,
+    pub priority: i8,
+}
+
+/// A scripted pose's priority.
+pub const SCRIPT_POSE_PRIORITY: i8 = 0;
+
+/// The poses applications propose for a body, one per application key.
+/// A losing proposal is kept, so it shows when the winner lets go.
+#[derive(bevy::prelude::Component, Clone, Debug, PartialEq)]
+pub struct PoseClaims(pub ambition_platformer2d_core::applications::OwnedTerms<PoseTerm>);
+
+impl PoseClaims {
+    /// The proposal shown: highest priority, then lowest key.
+    pub fn winner(&self) -> Option<CharacterAnim> {
+        let mut best: Option<PoseTerm> = None;
+        for (_, term) in self.0.iter() {
+            if best.is_none_or(|best| term.priority > best.priority) {
+                best = Some(*term);
+            }
+        }
+        best.map(|term| term.anim)
+    }
+
+    /// Entity-free value projection.
+    pub fn checksum(&self) -> u64 {
+        self.0.checksum(|term, out| {
+            ambition_platformer2d_core::snapshot::put_str(out, &format!("{:?}", term.anim));
+            ambition_platformer2d_core::snapshot::put_i32(out, i32::from(term.priority));
+        })
+    }
+}
+
+fn project_pose(entity: &mut bevy::prelude::EntityWorldMut) {
+    let winner = entity.get::<PoseClaims>().and_then(PoseClaims::winner);
+    match winner {
+        Some(anim) if entity.get::<ActorAnimOverride>() != Some(&ActorAnimOverride(anim)) => {
+            entity.insert(ActorAnimOverride(anim));
+        }
+        Some(_) => {}
+        None => {
+            entity.remove::<(ActorAnimOverride, PoseClaims)>();
+        }
+    }
+}
+
+/// **`key` proposes `term` for this body**, replacing its own earlier
+/// proposal and leaving every other application's.
+pub fn claim_pose(
+    commands: &mut bevy::prelude::Commands,
+    body: bevy::prelude::Entity,
+    key: ambition_platformer2d_core::applications::ApplicationKey,
+    term: PoseTerm,
+) {
+    commands.entity(body).queue_silenced(move |mut entity: bevy::prelude::EntityWorldMut| {
+        match entity.get_mut::<PoseClaims>() {
+            Some(mut claims) => {
+                if !claims.0.claim(key, term) {
+                    return;
+                }
+            }
+            None => {
+                let mut claims = ambition_platformer2d_core::applications::OwnedTerms::default();
+                claims.claim(key, term);
+                entity.insert(PoseClaims(claims));
+            }
+        }
+        project_pose(&mut entity);
+    });
+}
+
+/// **`key` withdraws its pose, and only its pose.**
+pub fn release_pose(
+    commands: &mut bevy::prelude::Commands,
+    body: bevy::prelude::Entity,
+    key: ambition_platformer2d_core::applications::ApplicationKey,
+) {
+    commands.entity(body).queue_silenced(move |mut entity: bevy::prelude::EntityWorldMut| {
+        let released = entity.get_mut::<PoseClaims>().is_some_and(|mut claims| claims.0.release(&key));
+        if released {
+            project_pose(&mut entity);
+        }
+    });
+}
 
 /// The suffix of an authored row for a compact stance.
 pub const CROUCH_VARIANT_SUFFIX: &str = "_crouch";

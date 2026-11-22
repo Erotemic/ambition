@@ -137,7 +137,10 @@ world-post admission.
    retirement not yet exercised). This precedes
    extending eager shared writes to more domains; unrelated local work continues.
 2. [Effects phase 6a](engine/actor-effects-and-modifier-composition.md#6a-preserve-issuer-identity-in-control-and-pose)
-   preserves independent hold and pose issuers. Phases 6b/6c extend that same
+   preserves independent hold and pose issuers (done 2026-11-21: holds and
+   poses are claims keyed by application; a transform's expiry withdraws only
+   its own pose; claim withdrawal on attachment retirement is still open).
+   Phases 6b/6c extend that same
    ownership operation to a native interval and numeric/capability channels.
 3. [Linking L1/L2](engine/capability-linking-and-prepared-facets.md#bounded-implementation-slices)
    removes the repeated equipped-repertoire interpretation, then binds a

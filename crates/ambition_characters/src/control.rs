@@ -527,7 +527,7 @@ pub fn struggling_this_tick(captured_for: f32, dt: f32) -> bool {
 /// Authorities that may overlap use distinct bits so releasing one hold cannot
 /// release another.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[repr(u8)]
+#[repr(u16)]
 pub enum ControlHold {
     /// A scripted level beat drives the body: a death fall, a flagpole slide, a
     /// goal brake, an act-clear.
@@ -552,6 +552,11 @@ pub enum ControlHold {
     /// A cutscene plays for the body's room: nobody in the room acts while it
     /// talks, so a hostile does not strike a player the dialogue holds still.
     Cutscene = 1 << 7,
+    /// One or more applications hold the body, each under its own key
+    /// ([`HoldClaims`]): a behaviour attachment, or a native owner that
+    /// names its application. Projected from the claims, so one issuer's
+    /// release leaves another's claim holding.
+    Claimed = 1 << 8,
 }
 
 /// Authorities currently suppressing ordinary control. Holds are claims on a
@@ -562,27 +567,27 @@ pub enum ControlHold {
 /// There is no `Default` so an empty set cannot be inserted; each subsystem
 /// releases only its own bit, and releasing the last removes the component.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ControlHolds(u8);
+pub struct ControlHolds(u16);
 
 impl ControlHolds {
     /// A body held by exactly one authority.
     pub fn only(hold: ControlHold) -> Self {
-        Self(hold as u8)
+        Self(hold as u16)
     }
 
     /// Claim this hold. Idempotent: claiming twice is claiming once, because a
     /// claim is a fact about an authority and not a counter that can leak.
     pub fn claim(&mut self, hold: ControlHold) {
-        self.0 |= hold as u8;
+        self.0 |= hold as u16;
     }
 
     /// Release this hold, and ONLY this hold.
     pub fn release(&mut self, hold: ControlHold) {
-        self.0 &= !(hold as u8);
+        self.0 &= !(hold as u16);
     }
 
     pub fn holds(&self, hold: ControlHold) -> bool {
-        self.0 & (hold as u8) != 0
+        self.0 & (hold as u16) != 0
     }
 
     /// Nobody is holding this body: ordinary control comes back.
@@ -591,7 +596,7 @@ impl ControlHolds {
     }
 
     /// Claim bits for rollback checksum projection; authority identity is part of state.
-    pub fn bits(&self) -> u8 {
+    pub fn bits(&self) -> u16 {
         self.0
     }
 }
@@ -626,6 +631,52 @@ pub fn release_control_hold(
     }
 }
 
+/// The applications holding a body, one claim per application key. Present
+/// exactly while some application holds it; its presence is projected into
+/// [`ControlHold::Claimed`].
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct HoldClaims(pub ambition_platformer2d_core::applications::OwnedTerms<()>);
+
+/// **`key` holds this body**, beside every other application and authority.
+pub fn claim_hold_as(commands: &mut Commands, body: Entity, key: ambition_platformer2d_core::applications::ApplicationKey) {
+    commands.entity(body).queue_silenced(move |mut entity: EntityWorldMut| {
+        match entity.get_mut::<HoldClaims>() {
+            Some(mut claims) => {
+                claims.0.claim(key, ());
+            }
+            None => {
+                let mut claims = ambition_platformer2d_core::applications::OwnedTerms::default();
+                claims.claim(key, ());
+                entity.insert(HoldClaims(claims));
+            }
+        }
+        match entity.get_mut::<ControlHolds>() {
+            Some(mut holds) => holds.claim(ControlHold::Claimed),
+            None => {
+                entity.insert(ControlHolds::only(ControlHold::Claimed));
+            }
+        }
+    });
+}
+
+/// **`key` lets the body go, and only `key`.** Control comes back when the
+/// last application and the last authority have let go.
+pub fn release_hold_as(commands: &mut Commands, body: Entity, key: ambition_platformer2d_core::applications::ApplicationKey) {
+    commands.entity(body).queue_silenced(move |mut entity: EntityWorldMut| {
+        let Some(mut claims) = entity.get_mut::<HoldClaims>() else { return };
+        if !claims.0.release(&key) || !claims.0.is_empty() {
+            return;
+        }
+        entity.remove::<HoldClaims>();
+        if let Some(mut holds) = entity.get_mut::<ControlHolds>() {
+            holds.release(ControlHold::Claimed);
+            if holds.is_empty() {
+                entity.remove::<ControlHolds>();
+            }
+        }
+    });
+}
+
 /// **Every hold on this body ends: it is back in play.**
 ///
 /// ⛔ **for a RESET, never for a release.** A body that respawned or restarted
@@ -635,7 +686,7 @@ pub fn release_control_hold(
 pub fn clear_control_holds(commands: &mut Commands, body: Entity) {
     commands
         .entity(body)
-        .try_remove::<ControlHolds>();
+        .try_remove::<(ControlHolds, HoldClaims)>();
 }
 
 mod acting;

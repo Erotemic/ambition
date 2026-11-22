@@ -12,6 +12,13 @@ where
         OWNER,
         "actor.anim_override",
     );
+    // The poses applications propose, by key: the override is their
+    // projection, so a rewind restores each proposal with its owner.
+    registrar.rollback_component_clone_probed::<crate::character::PoseClaims>(
+        OWNER,
+        "actor.pose_claims",
+        crate::character::PoseClaims::checksum,
+    );
     registrar.rollback_component_clone::<crate::character::SpritePosedBody>(
         OWNER,
         "actor.sprite_posed_body",

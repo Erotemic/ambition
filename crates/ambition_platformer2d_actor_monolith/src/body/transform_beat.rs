@@ -9,7 +9,7 @@
 use bevy::prelude::*;
 
 use ambition_characters::actor::BodyHealth;
-use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim, PinnedRow};
+use ambition_sprite_sheet::character::{CharacterAnim, PinnedRow};
 use ambition_time::{ClockDomain, WorldTime};
 
 use ambition_time::time_control::{ClockRequester, ClockScaleRequest};
@@ -178,9 +178,15 @@ pub fn run_transform_beats(
         }
 
         if still_running {
-            commands
-                .entity(entity)
-                .try_insert(ActorAnimOverride(beat.policy.anim));
+            // Its own pose claim, above a scripted pose: the transformation
+            // shows while it runs, and a pose another owner proposed shows
+            // again when it ends.
+            ambition_sprite_sheet::character::claim_pose(
+                &mut commands,
+                entity,
+                TRANSFORM_POSE,
+                ambition_sprite_sheet::character::PoseTerm { anim: beat.policy.anim, priority: TRANSFORM_POSE_PRIORITY },
+            );
             continue;
         }
 
@@ -195,12 +201,16 @@ pub fn run_transform_beats(
                     .set(ambition_characters::actor::Invulnerability::TRANSFORMING, false);
             }
         }
-        commands
-            .entity(entity)
-            .remove::<ActorAnimOverride>()
-            .remove::<TransformBeat>();
+        ambition_sprite_sheet::character::release_pose(&mut commands, entity, TRANSFORM_POSE);
+        commands.entity(entity).remove::<TransformBeat>();
     }
 }
+
+/// The transform beat's pose application on a body.
+const TRANSFORM_POSE: ambition_platformer2d_core::applications::ApplicationKey =
+    ambition_platformer2d_core::applications::ApplicationKey::native("transform_beat");
+/// A transformation's pose shows over a scripted one.
+const TRANSFORM_POSE_PRIORITY: i8 = 10;
 
 /// Register the beat.
 ///
@@ -241,6 +251,7 @@ pub fn body_is_transforming(beat: Option<&TransformBeat>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_sprite_sheet::character::ActorAnimOverride;
 
     fn app() -> App {
         let mut app = App::new();
@@ -256,6 +267,69 @@ mod tests {
     fn advance(app: &mut App, seconds: f32) {
         app.world_mut().resource_mut::<WorldTime>().set_wall_dt(seconds);
         app.update();
+    }
+
+    /// 6a: two attachments hold one body and propose poses; a native
+    /// transformation runs over them. Each release and expiry withdraws only
+    /// its own claim.
+    #[test]
+    fn each_owner_withdraws_only_its_own_hold_and_pose() {
+        use ambition_characters::control::{claim_hold_as, release_hold_as, ControlHold, ControlHolds};
+        use ambition_platformer2d_core::applications::ApplicationKey;
+        use ambition_sprite_sheet::character::{claim_pose, release_pose, PoseClaims, PoseTerm, SCRIPT_POSE_PRIORITY};
+        let mut app = app();
+        let body = app.world_mut().spawn_empty().id();
+        let (a, b) = (ApplicationKey::attachment("placement:bob", "probe::a"), ApplicationKey::attachment("placement:bob", "probe::b"));
+        let apply = |app: &mut App, edit: &dyn Fn(&mut Commands)| {
+            let mut queue = bevy::ecs::world::CommandQueue::default();
+            edit(&mut Commands::new(&mut queue, app.world()));
+            queue.apply(app.world_mut());
+        };
+        let pose = |app: &App| app.world().get::<ActorAnimOverride>(body).map(|o| o.0);
+        let held = |app: &App| app.world().get::<ControlHolds>(body).is_some_and(|holds| holds.holds(ControlHold::Claimed));
+
+        // Both attachments hold and pose; B's key sorts after A's, and the
+        // tie goes to the lower key whatever order the claims came in.
+        apply(&mut app, &|commands| {
+            claim_hold_as(commands, body, b.clone());
+            claim_pose(commands, body, b.clone(), PoseTerm { anim: CharacterAnim::Crouch, priority: SCRIPT_POSE_PRIORITY });
+            claim_hold_as(commands, body, a.clone());
+            claim_pose(commands, body, a.clone(), PoseTerm { anim: CharacterAnim::Taunt, priority: SCRIPT_POSE_PRIORITY });
+        });
+        assert!(held(&app));
+        assert_eq!(pose(&app), Some(CharacterAnim::Taunt), "an explicit tie rule, not arrival order");
+
+        // A lets go: B still holds the body, and B's pose shows.
+        apply(&mut app, &|commands| {
+            release_hold_as(commands, body, a.clone());
+            release_pose(commands, body, a.clone());
+        });
+        assert!(held(&app), "A's release must not release B's hold");
+        assert_eq!(pose(&app), Some(CharacterAnim::Crouch), "B's pose is still proposed");
+
+        // A transformation runs over B's pose and ends: only its own pose goes.
+        app.world_mut().entity_mut(body).insert(TransformBeatRequested(TransformBeatPolicy {
+            duration: 0.2,
+            anim: CharacterAnim::Grow,
+            clock_scale: 1.0,
+            untouchable: false,
+            clip: None,
+        }));
+        advance(&mut app, 0.1);
+        assert_eq!(pose(&app), Some(CharacterAnim::Grow), "the transformation shows over a scripted pose");
+        advance(&mut app, 0.2);
+        assert!(app.world().get::<TransformBeat>(body).is_none());
+        assert_eq!(pose(&app), Some(CharacterAnim::Crouch), "the expiry left B's pose");
+        assert!(held(&app));
+
+        // B lets go: nothing holds or poses the body.
+        apply(&mut app, &|commands| {
+            release_hold_as(commands, body, b.clone());
+            release_pose(commands, body, b.clone());
+        });
+        assert!(app.world().get::<ControlHolds>(body).is_none(), "control comes back with the last claim");
+        assert_eq!(pose(&app), None);
+        assert!(app.world().get::<PoseClaims>(body).is_none());
     }
 
     #[test]

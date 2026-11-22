@@ -137,38 +137,58 @@ pub fn lower_contact_threats(
     }
 }
 
-/// The body holds its control as a scripted beat, or lets that hold go.
+/// The application a submission belongs to: the attachment that submitted
+/// it (the occurrence whose records it keeps, and its module). Two entries of
+/// one attachment share it; another attachment never does.
+fn submitter_key<T>(
+    submitted: &ambition_extension_host::Submitted<T>,
+    ids: &Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+) -> ambition_platformer2d_core::applications::ApplicationKey {
+    let occurrence = ids.get(submitted.state_scope).map_or("", |id| id.as_str());
+    ambition_platformer2d_core::applications::ApplicationKey::attachment(
+        occurrence,
+        ambition_platformer2d_core::applications::module_of_entry(&submitted.entry),
+    )
+}
+
+/// The body holds its control under the submitting attachment's claim, or
+/// that attachment lets its claim go. Another attachment's claim, and every
+/// native hold, stay.
 pub fn lower_control_holds(
     mut commands: Commands,
     mut outbox: ResMut<ExtensionOutbox>,
-    mut holds: Query<Option<&mut ambition_characters::control::ControlHolds>>,
+    bodies: Query<Entity>,
+    ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
 ) {
-    use ambition_characters::control::{claim_control_hold, release_control_hold, ControlHold};
+    use ambition_characters::control::{claim_hold_as, release_hold_as};
     for submitted in outbox.drain::<ControlHoldPort>(&BODY_CONTACT) {
-        let Ok(mut held) = holds.get_mut(submitted.scope) else {
+        if !bodies.contains(submitted.scope) {
             continue;
-        };
+        }
+        let key = submitter_key(&submitted, &ids);
         if submitted.value.held {
-            claim_control_hold(&mut commands, submitted.scope, ControlHold::Sequence);
+            claim_hold_as(&mut commands, submitted.scope, key);
         } else {
-            release_control_hold(&mut commands, submitted.scope, held.as_deref_mut(), ControlHold::Sequence);
+            release_hold_as(&mut commands, submitted.scope, key);
         }
     }
 }
 
-/// The body is drawn in one row of its sheet, or as the shared picker
-/// chooses. A row the game does not know is refused.
-pub fn lower_pose_pins(mut commands: Commands, mut outbox: ResMut<ExtensionOutbox>) {
-    use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
+/// The body is drawn in one row of its sheet under the submitting
+/// attachment's pose claim, or that attachment withdraws its pose. A row the
+/// game does not know is refused.
+pub fn lower_pose_pins(
+    mut commands: Commands,
+    mut outbox: ResMut<ExtensionOutbox>,
+    ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+) {
+    use ambition_sprite_sheet::character::{claim_pose, release_pose, CharacterAnim, PoseTerm, SCRIPT_POSE_PRIORITY};
     for submitted in outbox.drain::<PosePinPort>(&BODY_CONTACT) {
+        let key = submitter_key(&submitted, &ids);
         match submitted.value.row.as_deref() {
-            None => {
-                commands.entity(submitted.scope).try_remove::<ActorAnimOverride>();
-            }
+            None => release_pose(&mut commands, submitted.scope, key),
             Some(row) => match CharacterAnim::from_name(row) {
-                Some(anim) => {
-                    commands.entity(submitted.scope).try_insert(ActorAnimOverride(anim));
-                }
+                Some(anim) => claim_pose(&mut commands, submitted.scope, key, PoseTerm { anim, priority: SCRIPT_POSE_PRIORITY }),
                 None => warn!("extension entry {} asked to pin the row {row:?}, which no sheet has; refused", submitted.entry),
             },
         }

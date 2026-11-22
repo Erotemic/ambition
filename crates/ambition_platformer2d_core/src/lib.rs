@@ -5,6 +5,7 @@
 //! [`body_clusters::BodyClusterScratch`] as the non-ECS form of that same state.
 
 pub mod abilities;
+pub mod applications;
 pub mod ability_projection;
 pub mod body_clusters;
 pub mod carried_component;

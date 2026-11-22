@@ -160,8 +160,10 @@ ambition_extension_sdk::port_record! {
 /// Hold this invocation's recipient's control, or let it go.
 ///
 /// * **Operation** — a held body is a scripted beat: its brain does not
-///   drive it (`ControlHold::Sequence`). Letting go releases only this hold;
-///   another holder's stays.
+///   drive it. The hold is the submitting attachment's own claim
+///   (`HoldClaims`, projected as `ControlHold::Claimed`): letting go
+///   releases only that claim; another attachment's claim and every native
+///   hold stay.
 /// * **Owner** — the control gate (`ControlHolds`).
 /// * **Time** — `body_contact`; the brain reads the hold from the next tick.
 pub struct ControlHoldPort;
@@ -181,8 +183,11 @@ ambition_extension_sdk::port_record! {
 ///
 /// * **Operation** — `row` names a character animation (`retreat`,
 ///   `boxed_idle`, `peek`, `emerge`, ...). A row the game does not know is
-///   refused. `None` releases the pin.
-/// * **Owner** — the actor presentation (`ActorAnimOverride`).
+///   refused. `None` releases the pin. The pin is the submitting
+///   attachment's own pose claim (`PoseClaims`): releasing it leaves another
+///   owner's pose, and a native pose of higher priority (a transformation)
+///   shows over it while it runs.
+/// * **Owner** — the actor presentation (`ActorAnimOverride`, the winning claim).
 /// * **Time** — `body_contact`; drawn from this tick.
 pub struct PosePinPort;
 #[derive(Clone, Debug, PartialEq)]

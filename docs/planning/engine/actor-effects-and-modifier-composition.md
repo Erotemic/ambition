@@ -231,6 +231,40 @@ pose and defense contributions. A later script pose must survive. Replace the
 per-adapter source encodings with the common application identity and typed
 owned terms. Do not fix this with one new `ControlHold` bit per script.
 
+**6a record (2026-11-21).** The common application identity is
+`ambition_platformer2d_core::applications`:
+
+- `Issuer` is either `Native(name)` or `Attachment { occurrence, module }`.
+- `ApplicationKey` is an issuer plus a local key.
+- `OwnedTerms<T>` holds one term per key in key order. It never stores an
+  `Entity` and never uses arrival order.
+- A script submission's key is the `SimId` text of its state scope plus the
+  `provider::module` of its entry. Two entries of one attachment share it.
+
+| Domain | Storage | Projection | Writers |
+| --- | --- | --- | --- |
+| Holds | `HoldClaims` | `ControlHold::Claimed`, cleared with the last claim | `lower_control_holds` claims and releases under the submitter's key |
+| Poses | `PoseClaims` | `ActorAnimOverride` is the winner: highest priority, then lowest key | `lower_pose_pins` at `SCRIPT_POSE_PRIORITY` 0; `TransformBeat` under `native("transform_beat")` at 10 |
+
+- **Holds.** The script adapter no longer shares the native `Sequence` bit.
+  Native authorities keep their own bits.
+- **Poses.** Losing proposals are kept, so they show again when the winner
+  withdraws. `TransformBeat`'s untouchability stays its own invulnerability
+  reason.
+- **Rollback.** Both stores are rollback components, probed by value.
+
+Witness: `transform_beat::tests::each_owner_withdraws_only_its_own_hold_and_pose`.
+Two attachment keys hold and pose one body. The tie goes to the lower key
+whatever order the claims arrive in. A releases, and B's hold and pose
+remain. A transformation shows over B's pose, and its expiry leaves B's pose.
+B releases, and the body is free.
+
+**Not yet:**
+
+- The Rhai real path is not run. The adapters only map a submission to its
+  key, and the key rule is unit-tested in core.
+- An attachment that retires does not yet withdraw its claims.
+
 ### 6b. Make one native interval supply several domains
 
 Use Mary-O's pocket quasar in `game/ambition_demo_mary_o/src/star.rs`.

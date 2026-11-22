@@ -132,8 +132,8 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
         health.health.max
     );
     assert!(
-        body.get::<ControlHolds>().is_some_and(|holds| holds.holds(ControlHold::Sequence)),
-        "the shelled snake is held in place: its shell cycle holds its control"
+        body.get::<ControlHolds>().is_some_and(|holds| holds.holds(ControlHold::Claimed)),
+        "the shelled snake is held in place: its shell module claims its control"
     );
     assert_eq!(body.get::<BodyCombat>().unwrap().recoil_lock_timer, 0.0, "the shell wrote the hit reaction's recoil lock");
     assert!(threat(&app), "and inert: a resting shell is safe to walk up to and kick");

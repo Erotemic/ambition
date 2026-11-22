@@ -124,6 +124,14 @@ where
         "actor.control_holds",
         |holds| u64::from(holds.bits()),
     );
+    // The applications holding a body, by key: a rewind gives each issuer
+    // back its own claim, and two peers that agree a body is held and
+    // disagree by whom are a desync.
+    registrar.rollback_component_clone_probed::<crate::control::HoldClaims>(
+        OWNER,
+        "actor.hold_claims",
+        |claims| claims.0.checksum(|_, _| {}),
+    );
     registrar
         .rollback_component_clone::<crate::actor::BodyAnimFacts>(OWNER, "actor.animation_facts");
     registrar.rollback_component_clone::<crate::actor::ActorFaction>(OWNER, "actor.faction");

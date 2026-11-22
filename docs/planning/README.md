@@ -301,6 +301,10 @@ links to.
 - [`engine/asset-library-editor-and-delivery.md`](engine/asset-library-editor-and-delivery.md)
   — authored assets, immutable publication, inspector evolution, cleanup and content updates.
 - [`engine/asset-library-implementation-review.md`](engine/asset-library-implementation-review.md) — asset selection, publication and inspector findings.
+- [`engine/asset-authoring-and-prepared-media.md`](engine/asset-authoring-and-prepared-media.md)
+  — editable sprite sources, explicit motion units, producer-owned music
+  playback facts, and SFX layer preparation; links the selected script-context
+  and map-candidate packets (planned 2026-11-21).
 - [`engine/sprite-bundle-publication.md`](engine/sprite-bundle-publication.md) — sprite publication design and remaining work.
 - [`engine/tooling-layout-and-editor-consolidation.md`](engine/tooling-layout-and-editor-consolidation.md) — developer tool ownership and layout.
 - [`engine/headless-verification.md`](engine/headless-verification.md)

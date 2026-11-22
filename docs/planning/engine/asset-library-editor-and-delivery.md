@@ -32,6 +32,10 @@ runtime asset loader, content compiler or game package system.
   [inspection and workbench](inspection-diagnostics-and-workbench.md) own tool
   discovery and user interfaces. The current [asset inspector](../../tools/asset-inspector.md)
   is the first asset editor surface.
+- [Asset authoring and prepared media](asset-authoring-and-prepared-media.md)
+  owns editable sprite sources, motion-space binding, producer-owned music
+  playback facts, and common SFX layer meaning. These extend source and
+  consumer contracts; they do not replace this plan's validity/store owners.
 - [Project build and distribution](project-build-and-distribution.md) owns the
   complete executable and game release workflow. This plan owns only the
   asset-store and content-update part of that workflow.
@@ -168,7 +172,14 @@ A normal focused publish should:
    while copying, if a digest is required for that product.
 4. Publish a new selection by reading bundle manifests, without rereading the
    bytes of unchanged bundles.
-5. Keep the old selection if the requested publish does not complete.
+5. Keep the old selection if that selection commit does not complete. An
+   overall batch can fail after its declared policy selects a successful
+   subset; report that committed result and retain old entries for failures.
+
+The batch policy belongs to the producer. Sprite's successful-subset policy
+and scenery's accept-before-select policy can both satisfy this contract.
+Do not infer an all-or-nothing request from the atomicity of one selection
+write. A5.2 reports the actual accepted and selected results.
 
 These steps describe the target, not a claim that every current producer does
 all five. Source freshness may be unknown; an unknown value is not a refusal.
@@ -331,6 +342,23 @@ This work does not open the hold on
 no serialized prepared-content cache, validation certificate, universal
 intermediate format, new editor or cross-tool dependency service.
 
+### Media semantics travel with the selected product
+
+The [MA1 music packet](asset-authoring-and-prepared-media.md#ma1--export-playback-facts-link-game-music-policy)
+adds a producer-owned playback description to the selected media. Old usable
+audio retains its corresponding old clock, section, and layer facts. New
+source timing cannot be paired with retained audio merely because the cue ID
+matches. This is a product association, not a requirement to render stale
+media or rehash payloads at startup. Game state bindings link to that selected
+description under the normal content-generation policy.
+
+[A5.2](authoring-and-tools.md#a52---carry-context-and-execution-results-across-clients)
+adds owner execution receipts for editor repair. Keep built, accepted, and
+selected states distinct. Sprite and scenery keep their existing batch
+policies; one producer's failure does not erase another's successful receipt.
+This reports publication work. It is neither a second freshness certificate
+nor an atomic gameplay activation.
+
 ## The editor surface
 
 The asset inspector can grow into an asset browser and editor workbench. Keep
@@ -350,6 +378,12 @@ The first useful workflows are:
 - Distinguish use by the selected game from repository-wide use. A game may
   use more than one library, and the inspector must not silently use a
   different library than its content checker.
+
+The current CLI and served preflight do not yet carry identical selected
+context. A5.2 resolves pack/library/tool selection once and carries it through
+inspect and repair. A shared Python function alone is insufficient when an
+HTTP caller supplies different defaults. Keep the context explicit without
+requiring deep availability work merely to display it.
 
 Later workflows can add safe rename/move operations, drag-and-drop bindings,
 batch import settings, undo and edit transactions. Do not make runtime loading

@@ -75,6 +75,16 @@ make every fighter fact use one file format.
 
 A game should not become a second character database.
 
+The character's source can span SVG, motion, procedural code, and gameplay
+facets while remaining one discoverable package. The
+[asset authoring plan](asset-authoring-and-prepared-media.md) selects the
+upstream sprite boundary: SA1 identifies editable source and disposable
+projections; SA2 resolves motion units independently of raster size. A shared
+pose edit must name the other bindings it affects. A rig editor must not
+silently write a generated projection as if it were that source. Neither
+packet moves combat semantics into the sprite submodule or makes motion IR
+mandatory for procedural characters.
+
 [Composable actor resources](composable-actor-resources.md) applies this same
 ownership split to resources. Character authoring can state which optional
 resources a character has. A capability owns the meaning of a resource role and

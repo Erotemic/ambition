@@ -720,6 +720,48 @@ this VM lacks four, so release composition refuses here before and after.
 all media. Missing required files have a useful diagnostic. Android, Steam
 Deck and static web release packages still pass their final asset contracts.
 
+### ASSET-AUTHORING — edit owned sources and prepare the meaning once
+
+**State:** PLANNED (source review, 2026-11-21). Baseline `3ed50e318392`.
+This row selects bounded authoring work. It does not reorder the maintainer's
+intro/network priorities or reopen completed publication/tooling campaigns.
+
+**Owners:** [asset authoring and prepared media](engine/asset-authoring-and-prepared-media.md),
+[authoring and tools A5.2](engine/authoring-and-tools.md#a52---carry-context-and-execution-results-across-clients),
+and [LDtk L4.1](engine/ldtk-authoring-and-world-tools.md#l41--prepare-the-complete-edit-before-writing-source).
+
+**Evidence:** sprite rebuilds have different rules for keeping GUI edits;
+motion-library compatibility is tested through a raster conversion; game
+music re-authors producer timing/product facts; SFX backends interpret one
+layer-duration field differently. Served preflight loses selected pack/tool
+context, repair drops partial outcome information, and map commands can
+write before repair/validation succeeds. The owner pages name source paths
+and distinguish direct findings from unmeasured effects.
+
+| Packet | First action | Acceptance and removal |
+| --- | --- | --- |
+| A5.2 | Carry explicit context through CLI/HTTP preflight, then compose sprite/scenery receipts | Same-name rooms in two packs resolve correctly; later failure retains earlier outcomes; remove default-profile reconstruction and inferred `generated` results |
+| L4.1 | Finalize an entity move and a level clone before writing | Reviewed candidate is committed; refusal writes nothing; tracked source links survive; delete post-commit repair/validation |
+| SA1 | Edit one existing motion-bound character through its source; then separate robot source blocks | A rebuild preserves the edit; inspect does not overwrite source; remove writes to disposable projections and selected merge-back logic |
+| SA2 | Bind motion units explicitly for Director/Director Boss | A uniform coordinate change preserves frame-space trajectories and measurements; replace raster-factor equality as compatibility proof |
+| MA1 | Export music playback facts and link Hobford, then Dinosaur | One authored clock drives transitions; old audio retains old timing; remove duplicate game timing/paths and the migrated registry parser |
+| FX1 | Prepare common layer timing for synth/noise/Faust | Local control spans agree; intentional cropping stays explicit; remove backend duration precedence; review audible corrections |
+
+**Execution:** A5.2 context plumbing and L4.1 can begin independently of media
+schema work. SA1/SA2 share the sprite authoring owner and should coordinate
+their binding edits. MA1 and FX1 stay in separate audio owners. For each
+packet, implement its first customer and remove the displaced interpretation
+before expanding to more content. Preserve existing source formats where
+they remain the right owner.
+
+**Acceptance:** use the owner page's bounded proof, including cheap
+source-only inspection. Do not substitute a new catalog, full-library render,
+render-speed claim, or corpus migration for that proof. No media was rendered
+and no cost saving was measured during this planning review. Music's current
+Hobford lengths agree; tempo-map support is an expressive gap, not a newly
+reproduced playback failure. FX1 may deliberately correct the old cropped
+ramps and must label that sonic change.
+
 ### GEOMETRY-OBSERVABILITY — render the effective geometry behind gameplay — ✅ DONE 2026-11-17
 
 **Done:** `ce8fbaf68` connects the real F1 host to shared geometry reports,
@@ -1153,6 +1195,10 @@ suspension, mute and one-shot completion from defects.
 **Acceptance:** a reproduced unintended death/respawn gap is repaired with a
 regression witness, or the observed event is classified with concrete playback
 evidence. Keep diagnostics independent of playback repair.
+
+**Separate authoring work:** [MA1](engine/asset-authoring-and-prepared-media.md#ma1--export-playback-facts-link-game-music-policy)
+links producer playback facts to game policy. It does not explain the open
+death/respawn gap or replace this row's audible reproduction requirement.
 
 ### GATE-REDIAL — a new address closes the old wormhole and opens a new one (done)
 

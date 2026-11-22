@@ -85,6 +85,16 @@ The review artifact contains the semantic diff and validation result, not a
 second manually curated copy of all source. Include source edits in the normal
 version-control workflow; generated products carry provenance to those sources.
 
+Two current customers make this contract concrete:
+
+- [L4.1](ldtk-authoring-and-world-tools.md#l41--prepare-the-complete-edit-before-writing-source)
+  prepares the final normalized LDtk candidate before entity move or level
+  clone writes it. Preview includes the selected repair/validation policy.
+- [SA1](asset-authoring-and-prepared-media.md#sa1--editable-sources-and-disposable-sprite-projections)
+  makes sprite source ownership explicit. A save to a disposable rig is not
+  a source edit; a sampled procedural clip is not a lossless write-back to
+  its program. Frontends use the selected family's source operation.
+
 ## A4 - preparation diagnostics and admission
 
 Preparation rejects unknown/uninstalled references, conflicting definitions,
@@ -162,6 +172,116 @@ tests pass. The Art world plan resolves all room references. See the
 [workflow](../../../tools/ambition_editor/README.md#prepare-assets-for-a-scenario).
 Do not parse Rust test source, keep per-test asset lists, use fallback geometry,
 or claim full-library readiness from a partial setup.
+
+### A5.2 - carry context and execution results across clients
+
+**State:** PLANNED, source baseline `3ed50e318392`, 2026-11-21. A5.1 remains
+done. This packet fixes two boundaries in its existing CLI/editor route.
+
+**Evidence:**
+[`asset_index/build.py`](../../../tools/ambition_editor/asset_index/build.py)
+passes `--profile`, `--content-binary`, and `--renderer-python` into CLI
+preflight. It also passes the selected options into page construction and
+background refresh. The server's
+[`/api/asset-preflight`](../../../tools/ambition_editor/asset_index/server.py)
+handler passes only selectors and purpose to `collect`, which defaults to
+the Ambition pack and default tools. A page for another pack can therefore
+resolve a shared room name in the wrong pack.
+
+Library selection does reach current subprocesses through
+`AMBITION_CONTENT_LIBRARY`; it is not dropped in the same way. It is still
+ambient process state rather than part of the operation's explicit subject.
+The returned report carries content/scope/publication identities, but repair
+does not bind its route to those report values.
+
+#### Selected context
+
+Resolve a small operation context at the CLI or server boundary. It names
+the repository, selected pack/profile, library manifest, content inspector,
+and producer interpreter/route. Pass it through collection and repair. Keep
+observed source, content, and publication revisions in the result, separate
+from the choice of subject. Do not use a broad Git revision as all of these
+identities.
+
+The page and report identify that context. The handler retains it. An old
+page for another context returns a conflict rather than silently resolving
+its names against the new subject. This includes a cached page shown while
+the selected profile's index refresh runs.
+
+Pass library and tool selection to children through explicit arguments or a
+request-local environment copy. Do not switch process-global environment
+while serving concurrent operations. The owner still parses its library and
+determines product needs. Command discovery stays read-only; it does not
+become an operation dispatcher.
+
+Constructing and displaying context requires no renderer imports, device,
+sample bank, or Cargo build. Metadata queries run only when the selected
+operation needs them. Keep A5.1's scoped availability queries.
+
+Define which request the client makes:
+
+- **Repair current scope:** recollect current missing products for the same
+  selected subject. An unrelated publication change need not refuse it.
+- **Apply an exact source draft:** require the relevant original input
+  revisions, as in A3. Do not silently recompute a different edit.
+
+These are distinct operations. Do not make global generation equality a
+new gate for ordinary missing-only repair.
+
+#### Execution receipts from the producer
+
+[`generate_missing`](../../../tools/ambition_editor/asset_index/preflight.py)
+currently appends every requested unit to `generated` after a subprocess
+returns success. A missing-only operation can instead reuse a product that
+another author just published. If the later scenery call fails, the caller
+loses the earlier successful sprite result.
+
+The owners also have different valid batch behavior:
+
+- sprite `publication.build` can select successful replacements, retain old
+  bundles for failed targets, and then report batch failure;
+- `scenery_publication` can accept completed bundles, fail another unit, and
+  exit before changing the selected publication.
+
+Extend each owner's existing result/machine-output boundary. For each unit,
+report requested action, actual build/reuse/refusal/failure, accepted bundle
+if any, and selection before/after at that owner's commit boundary. Acceptance
+and selection are distinct fields, not one success flag. Keep the actual
+recipe snapshot and its source/tool evidence. A later read of current
+selection cannot attribute another concurrent writer's work to this request.
+
+Machine mode returns parseable result data for normal refusal or partial
+failure even when the exit status is nonzero. If a killed or crashed producer
+returns no receipt, report its outcome as unavailable or unconfirmed.
+Recollection can establish current readiness, but cannot attribute another
+writer's publication to that request. Progress and diagnostic logs do not
+corrupt result data. CLI text and
+HTTP output render the same owner result. Adapt the actual callers when this
+result shape changes; do not retain a second outcome authority.
+
+Preflight composes receipts in execution order, retaining earlier successful
+work after a later failure. It can recollect the remaining scope. It must not
+infer success from requested names, parse human logs, or compute freshness
+itself. Keep each producer's existing batch-selection policy. Do not undo
+valid immutable bundles or claim an atomic operation across producers.
+
+**First change:** wire the resolved context through CLI, server, page, and
+repair. **Second change:** add sprite/scenery receipts and compose them in
+preflight. These are small operation values and existing owner APIs, not a
+new job database or workflow engine.
+
+**Delete:** default-profile reconstruction in the HTTP operation; dependence
+on ambient selection in the migrated path; the inferred `generated` list;
+and exception handling that discards prior producer results. Do not migrate
+unrelated read-only helpers merely for signature consistency.
+
+**Acceptance:** two packs share a room ID but require different products;
+CLI and HTTP choose the same products for each explicit context. Both honor
+the selected library, binary, and interpreter. An old-context page refuses
+execution. A reused product is reported as reused. A later scenery failure
+retains the successful sprite receipt, and an accepted-but-unselected scenery
+bundle is not described as usable selection. Use bounded fake owner/store
+fixtures; this proof needs no full-library render or new engine build.
 
 ## A6 - concise review artifacts
 

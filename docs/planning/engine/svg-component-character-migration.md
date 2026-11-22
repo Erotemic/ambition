@@ -32,6 +32,14 @@ long-term visual source while keeping Python as the freeform animation and
 composition language. Bones, FK, IK, keyframes, and constraints are optional
 helpers inside that model; they are not the required representation of a pose.
 
+The existing SVG/motion-library binding is another valid motion source for a
+family that benefits from editable pose/clip data. A generated `RigDocument`
+can be its disposable projection. The
+[SA1/SA2 authoring packets](asset-authoring-and-prepared-media.md) make the
+editable owner and motion/rig/raster spaces explicit. They do not replace a
+procedural pose program or imply that sampled output can be written back to
+that program without loss.
+
 The migration targets two equivalence levels:
 
 1. the same authored appearance and animation, with no intentional redesign;
@@ -178,6 +186,12 @@ The proof closes only when the SVGs are pleasant to edit, the comparison report
 is useful, and the migrated code deletes more target-specific geometry than the
 shared system adds.
 
+For any chosen rig/motion pilot, the review also identifies which source a
+frontend edits, which projections can be rebuilt, and which coordinate space
+each motion delta uses. Rebuilding geometry must preserve authored motion;
+changing raster scale alone must not select a different motion unit. These
+are per-target acceptance conditions, not an order to migrate the roster.
+
 ### P3 — opportunistic migration
 
 Convert families when a character is already being redesigned, fixed, or
@@ -189,6 +203,11 @@ the shipping authority until each target reaches its accepted equivalence bar.
 After a target ships from SVG and remains accepted, delete the superseded
 anatomical drawing code, compatibility adapters, and migration-only fixtures.
 Do not leave two permanent authoring authorities for the same character.
+
+Delete the migrated target's implicit preserve-old-generated-fields merge
+once those fields have an explicit source owner. Retain procedural source
+that still owns distinct motion/effect semantics. One selected output
+authority does not require every target to use the same source representation.
 
 ## Relationship to profiling
 

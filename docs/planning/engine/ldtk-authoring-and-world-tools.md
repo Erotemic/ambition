@@ -158,6 +158,113 @@ For common operations, tools should express the author's intent:
 
 The generated `.ldtk` remains ordinary editor-compatible data.
 
+### L4.1 — prepare the complete edit before writing source
+
+**State:** PLANNED after review of `3ed50e318392`, 2026-11-21. This is the
+first concrete map customer for
+[A3's staged edit contract](authoring-and-tools.md#a3---intent-level-mutation-and-reviewable-plans).
+Start with entity move and level clone; do not rewrite all map tools.
+
+**Evidence:**
+[`LdtkTransaction.write_if_changed`](../../../tools/ambition_ldtk_tools/ambition_ldtk_tools/ldtk/transaction.py)
+returns before finalization on dry-run.
+[`write_project`](../../../tools/ambition_ldtk_tools/ambition_ldtk_tools/ldtk/io.py)
+then normalizes the project only during the actual write. Both
+[`edit/move.py`](../../../tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/move.py)
+and
+[`edit/level_clone.py`](../../../tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/level_clone.py)
+write the source before `run_repair_and_validate` launches repair in place
+and validation. A validation failure can therefore leave a modified source.
+These commands do not yet implement the same final-candidate preview/apply
+contract; level clone also needs that explicit preview surface.
+
+#### Candidate preparation
+
+Extend the existing `LdtkTransaction` and `PatchOp` seam. In order:
+
+1. Load the selected source and record its bytes/revision and owning target.
+2. Apply the ordered semantic operations in memory. Keep current move/clone
+   identity and native `EntityRef` remapping rules.
+3. Run the selected normalization/repair policy on that candidate.
+4. Validate it with the relevant existing validators and original source
+   context. Relative paths, vocabulary, and linked worlds resolve from that
+   context, not an arbitrary temporary directory.
+5. Serialize with `dump_editor_style`. Produce one final byte candidate,
+   semantic diff, diagnostic result, and declared write set.
+
+Preview displays this result. Apply installs this result. It does not rerun
+a different repair pass after changing source. Reuse the existing semantic
+diff and validator; do not add another identity matcher or JSON diff engine.
+Keep source-relative diagnostics when validation accepts an in-memory project.
+
+Validation policy remains explicit. The transaction currently avoids a full
+world gate for local edits, and layer rules rely on that behavior. A local
+operation can validate its affected structure/references and show existing
+unrelated findings. A command that chooses full validation retains that
+requirement. Do not turn a local move into authority to repair unrelated
+rooms, drop authored fields, or change room ownership.
+
+#### Commit and source mounts
+
+The input source and declared destination are different roles. For in-place
+editing they name the same file; `--output` names a separate destination.
+Retain that explicit destination rather than redirecting it to the source.
+Record whether the destination existed when preparation began.
+
+Before writing, check the relevant source inputs and the resolved destination
+against the prepared revisions or expected absence. If either changed, return a conflict
+with the candidate available for review. Do not silently rebase the operation
+or install a candidate prepared with different validation inputs. Specify
+the participating-writer coordination used for the check/write interval; a
+hash check followed by a rename is not atomic compare-and-swap against an
+arbitrary external editor.
+
+For the repository's mounted worlds, the map-submodule
+[source mount rule](../../../game/ambition_map_assets/README.md)
+is load-bearing: game paths are tracked symlinks. Renaming a temporary file
+over the consuming link replaces the link, not the owning map source. Resolve
+and verify the physical file in `game/ambition_map_assets`, stage any replacement
+there, and retain the logical source path for diagnostics and references.
+Refuse a dangling or changed mount. Successful commit preserves the link.
+Ordinary `--ldtk` files, external projects, and explicit output paths remain
+supported. They use the same verified-target rule without a requirement to
+live in that submodule. Stage beside the actual target in either case.
+
+Begin with one file. A batch of related operations shares one load and one
+finalization, but retains operation order; identity allocation and edits are
+not generally commutative. A later multi-file operation needs staged recovery
+and a declared write set. Individual atomic replaces do not make the whole
+operation atomic.
+
+#### Migration and acceptance
+
+Move `entity move` and `level clone` to this boundary and delete their
+post-commit repair/validate subprocess sequence. Preserve clone's fresh
+internal IDs and move's existing identities. Other commands can adopt the
+boundary when they need it, with their own validation scope.
+
+**Acceptance:** preview and commit have the same semantic result; refusal
+writes nothing; a changed source or mount causes a conflict; a valid commit
+preserves tracked symlinks; unchanged final bytes cause no rewrite. Internal
+clone references and cross-level move references keep their existing meaning.
+A local operation with an explicit local policy still works in a project with
+unrelated validation findings. Small existing LDtk fixtures suffice; no game
+build or render is needed.
+
+**Follow-on customer:** a multi-room generator can prepare ordered room edits,
+painting, links, and ownership records as one candidate set. Today
+`generator_survey.py` runs a generator against live worlds and then restores
+them from Git. Move that survey to candidate outputs only after the generator
+accepts an explicit workspace/output context. Do not run the current survey
+on a shared working tree as a proof for this planning packet.
+
+Keep [one owner per room](../game/world-composition.md): adopted rooms remain
+LDtk-owned; generated-room guards and placement ownership remain. Do not add
+per-field mixed ownership or reset the generation record after a hand edit.
+`area_authoring.carry_identities` already preserves and remaps identities on
+stable regeneration. This review does not select a new fingerprint/identity
+replacement or claim that native references alone cause false adoption.
+
 ### L5 — hot reload and transaction quality
 
 Hot reload should use the same compiler/preparation diagnostics as cold load,

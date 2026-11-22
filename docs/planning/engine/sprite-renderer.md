@@ -11,10 +11,11 @@ the body and its hitbox cannot silently disagree.
 
 > Plural authoring, one validated published-asset contract.
 
-The runtime contract is the generated result: sprite-sheet image pages,
-animation and frame layout, measured or authored actor metadata, and canonical
-review output. A character's internal construction is not part of that
-contract.
+The runtime contract is the generated result: part atlas/draw tables for
+part-based characters, sheet pages where required, animation/frame layout,
+and measured or authored actor metadata. Whole-frame reference output is
+on demand under the completed [part-first plan](part-first-publication.md).
+A character's internal construction is not part of that contract.
 
 The tool keeps distinct authoring families because they express different
 artistic needs: imperative per-character PIL, YAML/config-driven generators,
@@ -40,6 +41,16 @@ bespoke targets into a common pose model or rig.
 - **The publishing boundary is universal.** Registry, generation, validation,
   install and runtime consumers work on sheets and metadata without knowing
   which family produced them.
+- **Editable source and generated projection are distinct.** A target's
+  owner says what a save changes. Source inspection does not rebuild a
+  tracked rig. The existing motion binding is one authoring path; procedural
+  programs and standalone authored rigs remain valid. See
+  [SA1](asset-authoring-and-prepared-media.md#sa1--editable-sources-and-disposable-sprite-projections).
+- **Motion units are not output pixels.** The binding resolves library
+  motion into rig units before sampling. Raster conversion remains a
+  presentation choice; it does not prove body-proportion compatibility.
+  [SA2](asset-authoring-and-prepared-media.md#sa2--make-motion-space-conversion-explicit)
+  replaces the current equal-raster-factor test with a bounded unit proof.
 - **Dependencies stay at the edges.** The core uses only Pillow and the
   standard library (`test_core_minimal_deps`). PySide6 and rich live in the
   GUI and CLI only.
@@ -116,6 +127,12 @@ effects to its portrait too. Remaining portrait work is per-character art.
 
 ## Open
 
+- **Source ownership and motion spaces:** SA1/SA2 above are selected
+  bounded work after the 2026-11-21 source review. They preserve plural
+  families, immutable publication, part-first output, and the held
+  cast-wide texel-density rollout. A target-result preview uses family
+  composition, including clip history when an effect requires it; a raw
+  rig preview identifies its narrower scope.
 - **Melee hitbox-agreement tooling** (a melee animation and its hitbox visibly
   agree) needs a spec from Jon: overlay-to-verify, or hitbox follows the
   authored part.

@@ -23,7 +23,7 @@ use ambition_projectiles::ProjectileGameplay;
 use ambition_projectiles::diagnostics::log_press_diagnostics;
 use ambition_projectiles::entity::{LiveProjectile, ProjectileOwner, ProjectileSeq};
 use ambition_projectiles::state::{PlayerProjectileState, ProjectileTraceEvent};
-use ambition_projectiles::{WorldHitOutcome, query_world_collision};
+use ambition_projectiles::{WorldHitOutcome, query_world_collision_in};
 use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart};
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxMessage;
@@ -1010,8 +1010,10 @@ pub fn step_projectiles(
         };
 
         candidate.pos = contact_end;
-        let world_contact = match query_world_collision(
-            before, candidate, candidate_game, collision_world, gravity_dir, dt,leg_time..1.0, travel,
+        // The walls read the source cells the recipients read: one prepared
+        // leg, the same line, interval and prefix.
+        let world_contact = match query_world_collision_in(
+            before, candidate, candidate_game, collision_world, gravity_dir, dt, attempted_delta, &source_cells,
             admission,
         ) {
             Ok(response) => response,

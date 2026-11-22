@@ -198,8 +198,9 @@ discards an arrival position that its own cost law still reads.
 links E1–E5 to their existing domain owners. Portal implementation remains
 under [PORTAL-SIMILARITY](#portal-similarity--canonical-parts-and-scaled-mirror-portals).
 
-**Next action:** remove duplicate projectile source preparation and compile
-immutable clip properties as independent bounded slices. Prepare ordered
+**Next action:** compile immutable clip properties as an independent
+bounded slice (the duplicate projectile source preparation is removed,
+2026-11-21: walls and recipients read one prepared leg). Prepare ordered
 extension dispatch and remove duplicate fact collectors, then share correct
 occurrence views and derive active journal work. Navigation first fixes its
 cost-state reduction, then reuses motion envelopes and graph query work.

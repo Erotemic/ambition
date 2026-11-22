@@ -70,12 +70,15 @@ fn retire_sources(
 }
 
 fn cancel_actions(world: &mut World) {
-    use action_results::{publish_action_result, cancel_action};
+    use action_results::{begin_action_control, cancel_action, settle_action_control};
+    use ambition_extension_sdk::Port;
     let submitted = world.resource_mut::<ExtensionOutbox>().drain::<CancelActionPort>(&ACTOR_THINK);
     for submitted in submitted {
         let request = submitted.value;
-        let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<CancelActionPort>(
-            world, submitted.state_scope, &submitted.entry, &request);
+        let Some(action) = CancelActionPort::action(&request) else { continue };
+        // ⛔ Not ordinary admission: a cancellation takes no pending slot, so
+        // a caller whose 32 slots are full can still cancel one of them.
+        let dispatch = begin_action_control(world, submitted.state_scope, &submitted.entry, &action);
         if !dispatch.execute { continue; }
         let authorized = submitted.entry.rsplit_once('/').map(|(module, _)| module)
             == request.ticket.entry.rsplit_once('/').map(|(module, _)| module);
@@ -86,6 +89,6 @@ fn cancel_actions(world: &mut World) {
             Ok(()) => (ActionStage::Applied, "action_canceled"),
             Err(code) => (ActionStage::Rejected, code),
         };
-        publish_action_result(world, dispatch.reply.as_ref(), stage, true, code, "", Vec::new());
+        settle_action_control(world, dispatch.reply.as_ref(), &action, stage, code);
     }
 }

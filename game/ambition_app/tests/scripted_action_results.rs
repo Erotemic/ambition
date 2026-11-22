@@ -301,7 +301,8 @@ fn tick() {
     if this.state.memory.sent { return; }
     let originals = [];
     for row in this.observe.action_history.entries {
-        if row.result.stage == "submitted" && row.result.ticket.entry == "cancel_probe::commands/ask" {
+        if row.result.stage == "submitted" && row.result.ticket.entry == "cancel_probe::commands/ask"
+            && row.result.ticket.domain != "test.filler" {
             originals.push(row.result.ticket);
         }
     }
@@ -348,6 +349,13 @@ fn result() {
                 changes: vec![(flag.into(), true)], reply: Some(reply), written: None,
             });
         }
+    }
+    // AC2: the caller's pending slots are full when it cancels. Request 13
+    // is already terminal, so three originals and these 29 fill all 32; a
+    // cancellation takes no slot, and must still reach its target.
+    for request in 20..49 {
+        begin_action(world, root, "cancel_probe::commands/ask", "test.filler",
+            Some(&ReplyTo {request, selector: "cancel_probe::commands/result".into()}), 0).reply.unwrap();
     }
     sim.rebase_rollback_history().unwrap();
     sim.step_n(AgentAction::default(), 30);

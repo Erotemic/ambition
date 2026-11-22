@@ -207,6 +207,23 @@ Resuming the receiver must not invoke the canceled method. Retry the same
 request and then a reused request with another payload. Use the existing
 journal/replay tests for bounded history, rollback and authorization refusal.
 
+### AC2 done (2026-11-22)
+
+`ActionMailbox` admits a request as work or as control. Both share the
+identity checks (payload reuse, retained retry, stale watermark) and write the
+submitted row; only work takes a pending slot and meets the 32-slot bound.
+`begin_action_control` and `settle_action_control` are the control path, and
+`cancel_actions` uses them instead of ordinary admission, recording its
+terminal `Applied`/`Rejected` row directly. The target stays pending until its
+native owner accepts and publishes `Canceled`. Witnesses: the mailbox unit
+`a_full_mailbox_still_admits_a_control_request` (identical retry finds the
+retained result; ordinary work is still refused), and the app fixture
+`cancellation_reports_refusals_and_suppresses_native_flag_work_after_replay`,
+which now fills the caller's 32 slots (29 fillers beside the three pending
+originals) before it cancels, under GGRS sync-test replay. The paused
+same-authority receiver case with object calls is not added: the fixture's
+full mailbox exercises the same admission path.
+
 ## Delivery order and limits
 
 AC1 and AC2 can ship independently. Both retain existing owners and delete a

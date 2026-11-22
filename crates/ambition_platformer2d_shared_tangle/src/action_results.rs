@@ -153,6 +153,68 @@ pub fn begin_action(
     reply: Option<&ReplyTo>,
     signature: u64,
 ) -> ActionDispatch {
+    begin_action_as(world, scope, entry, domain, reply, signature, Admission::Work)
+}
+
+/// Start a request that controls work already admitted (a cancellation).
+/// It has its own identity, retry and result, but takes no pending slot:
+/// the pending bound limits outstanding native work, not the ability to
+/// control it, so a caller whose mailbox is full can still cancel. It
+/// finishes inside the step that starts it, by [`settle_action_control`].
+pub fn begin_action_control(
+    world: &mut World,
+    scope: Entity,
+    entry: &str,
+    action: &ActionSubmission<'_>,
+) -> ActionDispatch {
+    begin_action_as(world, scope, entry, action.domain, Some(action.reply), action.signature(), Admission::Control)
+}
+
+/// Record the terminal result of a request started by [`begin_action_control`].
+pub fn settle_action_control(
+    world: &mut World,
+    reply: Option<&ActionReply>,
+    action: &ActionSubmission<'_>,
+    stage: ActionStage,
+    code: impl Into<String>,
+) {
+    let Some(reply) = reply else { return };
+    let Some(entity) = reply.recipient.resolve(world) else { return };
+    let now = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
+    if let Some(mut mailbox) = world.get_mut::<ActionMailbox>(entity) {
+        mailbox.record(
+            ActionResult {
+                ticket: reply.ticket.clone(),
+                stage,
+                terminal: true,
+                tick: now,
+                code: code.into(),
+                message: String::new(),
+                subjects: Vec::new(),
+            },
+            action.reply.selector.clone(),
+            action.signature(),
+        );
+    }
+}
+
+/// Whether a request is native work that waits in a pending slot, or the
+/// control of work already admitted.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Admission {
+    Work,
+    Control,
+}
+
+fn begin_action_as(
+    world: &mut World,
+    scope: Entity,
+    entry: &str,
+    domain: &str,
+    reply: Option<&ReplyTo>,
+    signature: u64,
+    admission: Admission,
+) -> ActionDispatch {
     let Some(reply) = reply else {
         return ActionDispatch {
             execute: true,
@@ -174,7 +236,7 @@ pub fn begin_action(
     world.entity_mut(scope).entry::<ActionMailbox>().or_default();
     let recipient = ActionRecipient::of(world, scope);
     let started = world.get_mut::<ActionMailbox>(scope).unwrap()
-        .begin(occurrence, entry, domain, reply, signature, now);
+        .begin_as(occurrence, entry, domain, reply, signature, now, admission);
     let ActionStart::New(ticket) = started else {
         return ActionDispatch {
             execute: false,
@@ -425,6 +487,7 @@ impl ActionMailbox {
 
     /// Reserve one action before the domain dispatches work. Retries retain
     /// the original occurrence and cannot repeat a mutation.
+    #[cfg(test)]
     fn begin(
         &mut self,
         scope: ObjectOccurrence,
@@ -433,6 +496,23 @@ impl ActionMailbox {
         reply: &ReplyTo,
         signature: u64,
         now: u64,
+    ) -> ActionStart {
+        self.begin_as(scope, entry, domain, reply, signature, now, Admission::Work)
+    }
+
+    /// [`Self::begin`], or the control of admitted work, which shares the
+    /// request's identity checks (reuse, retry, stale watermark) and takes
+    /// no pending slot.
+    #[allow(clippy::too_many_arguments)]
+    fn begin_as(
+        &mut self,
+        scope: ObjectOccurrence,
+        entry: &str,
+        domain: &str,
+        reply: &ReplyTo,
+        signature: u64,
+        now: u64,
+        admission: Admission,
     ) -> ActionStart {
         let producer = self.producer(entry, domain);
         if let Some(pending) = self.producers[producer]
@@ -470,7 +550,10 @@ impl ActionMailbox {
             return ActionStart::Rejected;
         }
         self.producers[producer].high_watermark = Some(reply.request);
-        if self
+        // ⛔ A control request takes no pending slot and is not bounded by
+        // them; it keeps the submitted row its readers see.
+        let control = admission == Admission::Control;
+        if !control && self
             .producers
             .iter()
             .map(|p| p.pending.len())
@@ -489,12 +572,14 @@ impl ActionMailbox {
             return ActionStart::Rejected;
         }
         let ticket = self.ticket(scope, entry, domain, reply.request);
-        self.producers[producer].pending.push(PendingAction {
-            ticket: ticket.clone(),
-            signature,
-            selector: reply.selector.clone(),
-            stage: ActionStage::Submitted,
-        });
+        if !control {
+            self.producers[producer].pending.push(PendingAction {
+                ticket: ticket.clone(),
+                signature,
+                selector: reply.selector.clone(),
+                stage: ActionStage::Submitted,
+            });
+        }
         self.record(
             ActionResult {
                 ticket: ticket.clone(),
@@ -778,6 +863,29 @@ mod tests {
             "too_many_pending_actions"
         );
     }
+    /// AC2: a full mailbox can still control its work. With every pending
+    /// slot taken, a control request (a cancellation) gets an occurrence, its
+    /// identical retry finds its retained result instead of running again,
+    /// and ordinary work is still refused.
+    #[test]
+    fn a_full_mailbox_still_admits_a_control_request() {
+        let mut mailbox = ActionMailbox::default();
+        let tickets: Vec<_> = (0..PENDING_LIMIT as u32).map(|request| start(&mut mailbox, request)).collect();
+        let scope = ObjectOccurrence { room: Some(0), generation: 0 };
+        let cancel = ReplyTo { request: 0, selector: "test::actions/canceled".into() };
+        let ActionStart::New(control) = mailbox.begin_as(scope, "test::actions/cancel", "actions.cancel", &cancel, 7, 10, Admission::Control) else {
+            panic!("a control request is admitted with every slot taken");
+        };
+        assert!(!mailbox.is_pending(&control), "it takes no pending slot");
+        mailbox.record(ActionResult { ticket: control.clone(), stage: ActionStage::Applied, terminal: true, tick: 10,
+            code: "action_canceled".into(), message: String::new(), subjects: Vec::new() }, cancel.selector.clone(), 7);
+        assert_eq!(mailbox.begin_as(scope, "test::actions/cancel", "actions.cancel", &cancel, 7, 11, Admission::Control),
+            ActionStart::Existing(control), "an identical retry finds the retained result");
+        assert_eq!(mailbox.begin(scope, "test::actions/ask", "test.domain", &reply(PENDING_LIMIT as u32), 100, 11),
+            ActionStart::Rejected, "ordinary work is still bounded");
+        assert!(tickets.iter().all(|ticket| mailbox.is_pending(ticket)));
+    }
+
     #[test]
     fn deferred_work_cannot_complete_in_a_recreated_body_with_the_same_identity() {
         use crate::lifecycle::{RoomInstanceRoot, SessionScopeId};

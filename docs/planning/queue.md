@@ -237,6 +237,8 @@ world-post admission.
    existing unsupported limbed-summon refusal before allocation. Delete ID
    prediction, next-tick existence polling and post-commit identity scans.
    These packets can ship independently of the earlier composition work.
+   (AC2 landed 2026-11-22: a cancellation is a control request with its own
+   identity and result and no pending slot, so a full caller can cancel.)
    [Combat CR1](engine/combat-reception-and-injury.md#cr1--finalize-one-native-hit-outcome)
    finalizes reception, connect and actual reaction from one captured
    operation, including damaging boss and lethal home-body hits. Then

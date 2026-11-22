@@ -203,6 +203,10 @@ state unchanged. The cancellation callback uses the same commit and retry
 contract as any other action callback. Retrying the same cancellation request
 does not repeat its native operation.
 
+A cancellation takes no pending slot. A caller with all 32 of its pending
+actions outstanding can still cancel one of them; the cancellation keeps its
+own identity, retry and result rows, and finishes in the step that admits it.
+
 The target must belong to this scope and module. Refusal codes distinguish
 `cancel_foreign_module`, `cancel_unknown_ticket`, `cancel_already_terminal`,
 `cancel_unknown_domain`, `cancel_unsupported`, `cancel_application_started`,

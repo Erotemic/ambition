@@ -14,6 +14,8 @@
 //! Resolvers and reports use stable sorted order so identical content produces
 //! identical diagnostics regardless of upstream iteration order.
 
+pub mod cardinality;
+
 use std::marker::PhantomData;
 use std::sync::Arc;
 

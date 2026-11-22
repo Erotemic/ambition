@@ -1,6 +1,6 @@
 //! Scoped placement lookup from native construction provenance.
 
-use std::collections::BTreeMap;
+use ambition_binding::cardinality::{Cardinality, FrozenLookup};
 use bevy::prelude::*;
 use ambition_extension_sdk::ObjectRef;
 use crate::construction::SpawnOrigin;
@@ -13,28 +13,30 @@ pub enum AuthoredLookupError { Absent, Ambiguous, Unpublished }
 /// Rebuild it after construction, travel or retirement.
 pub struct AuthoredObjectIndex {
     objects: ObjectIndex,
-    rows: BTreeMap<(SessionScopeId, LiveRoomInstance, String, String), Vec<Option<ObjectRef>>>,
+    /// Each authored root by its placement; `None` for a root not yet
+    /// published (it has no occurrence).
+    rows: FrozenLookup<(SessionScopeId, LiveRoomInstance, String, String), Option<ObjectRef>>,
 }
 impl AuthoredObjectIndex {
     pub fn capture(world: &World) -> Self {
-        let mut rows = BTreeMap::<_, Vec<_>>::new();
+        let mut rows = Vec::new();
         if let Some(mut objects) = world.try_query::<(Entity, &SessionScopedEntity, &InRoomInstance, &SpawnOrigin)>() {
             for (entity, session, room, origin) in objects.iter(world) {
                 let SpawnOrigin::Authored {source, instance} = origin else { continue; };
-                rows.entry((session.0, room.0, source.clone(), instance.clone())).or_default()
-                    .push(world.get::<ObjectOccurrence>(entity).map(|stamp| stamp.reference(session.0)));
+                rows.push(((session.0, room.0, source.clone(), instance.clone()),
+                    world.get::<ObjectOccurrence>(entity).map(|stamp| stamp.reference(session.0))));
             }
         }
-        Self {objects: ObjectIndex::capture(world), rows}
+        Self {objects: ObjectIndex::capture(world), rows: FrozenLookup::from_rows(rows)}
     }
     pub fn resolve(&self, session: SessionScopeId, room: LiveRoomInstance, source: &str, placement: &str)
         -> Result<ObjectRef, AuthoredLookupError> {
-        match self.rows.get(&(session, room, source.into(), placement.into())).map(Vec::as_slice) {
-            None | Some([]) => Err(AuthoredLookupError::Absent),
-            Some([Some(reference)]) => self.objects.resolve(session, *reference).map(|_| *reference).map_err(|problem|
+        match self.rows.get(&(session, room, source.into(), placement.into())) {
+            Cardinality::Missing => Err(AuthoredLookupError::Absent),
+            Cardinality::Unique(Some(reference)) => self.objects.resolve(session, *reference).map(|_| *reference).map_err(|problem|
                 if problem == ObjectLookupError::Ambiguous { AuthoredLookupError::Ambiguous } else { AuthoredLookupError::Unpublished }),
-            Some([None]) => Err(AuthoredLookupError::Unpublished),
-            Some(_) => Err(AuthoredLookupError::Ambiguous),
+            Cardinality::Unique(None) => Err(AuthoredLookupError::Unpublished),
+            Cardinality::Ambiguous => Err(AuthoredLookupError::Ambiguous),
         }
     }
 }

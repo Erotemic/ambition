@@ -246,7 +246,8 @@ and motion reuse in the seat autopilot.
 The follow-up [data-structure packets K1–K3](engine/data-structure-kernels.md#delivery-and-deletion-criteria)
 make bounds queries and strict unique lookup independent optimization targets
 in the existing foundations. Extract the current range grid for world and
-contact consumers; share occurrence/binding ambiguity reduction. Compare
+contact consumers. The occurrence/binding ambiguity reduction is shared (K2,
+`ambition_binding::cardinality`, 2026-11-22). Compare
 direct scans with indexed implementations before selecting target/workload
 policies. Preserve all domain lifetime and acceptance rules.
 

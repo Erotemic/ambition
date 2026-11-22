@@ -1559,6 +1559,7 @@ dependencies = [
  "ambition_abilities",
  "ambition_asset_manager",
  "ambition_audio",
+ "ambition_binding",
  "ambition_body_seed",
  "ambition_boss_encounter",
  "ambition_boss_special_port",

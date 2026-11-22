@@ -2,6 +2,7 @@
 
 use super::{ObjectOccurrence, SessionScopeId, SessionScopedEntity};
 use ambition_extension_sdk::ObjectRef;
+use ambition_binding::cardinality::{self, Cardinality, FrozenLookup};
 use bevy::{ecs::system::SystemParam, prelude::*};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -16,36 +17,34 @@ fn resolve<'a>(session: SessionScopeId, reference: ObjectRef,
     -> Result<Entity, ObjectLookupError> {
     if !reference.is_bound() { return Err(ObjectLookupError::Unbound); }
     if reference.session != session.0 { return Err(ObjectLookupError::ForeignSession); }
-    let mut found = objects.filter(|(_, owner, occurrence)| address(owner, occurrence) == reference);
-    let entity = found.next().ok_or(ObjectLookupError::Retired)?.0;
-    if found.next().is_some() { return Err(ObjectLookupError::Ambiguous); }
-    Ok(entity)
+    let rows = objects.map(|(entity, owner, occurrence)| (address(owner, occurrence), entity));
+    by_cardinality(cardinality::scan(rows, &reference))
+}
+
+fn by_cardinality(found: Cardinality<Entity>) -> Result<Entity, ObjectLookupError> {
+    match found {
+        Cardinality::Unique(entity) => Ok(entity),
+        Cardinality::Ambiguous => Err(ObjectLookupError::Ambiguous),
+        Cardinality::Missing => Err(ObjectLookupError::Retired),
+    }
 }
 
 /// A native read-cut index. Capture it again after births or retirement.
-pub struct ObjectIndex(std::collections::BTreeMap<ObjectRef, Option<Entity>>);
+pub struct ObjectIndex(FrozenLookup<ObjectRef, Entity>);
 impl ObjectIndex {
     fn from_objects<'a>(objects: impl Iterator<Item = (Entity, &'a SessionScopedEntity, &'a ObjectOccurrence)>) -> Self {
-        let mut index = std::collections::BTreeMap::new();
-        for (entity, owner, occurrence) in objects {
-            index.entry(address(owner, occurrence)).and_modify(|found| *found = None).or_insert(Some(entity));
-        }
-        Self(index)
+        Self(FrozenLookup::from_rows(objects.map(|(entity, owner, occurrence)| (address(owner, occurrence), entity))))
     }
     pub fn capture(world: &World) -> Self {
         match world.try_query::<(Entity, &SessionScopedEntity, &ObjectOccurrence)>() {
             Some(mut objects) => Self::from_objects(objects.iter(world)),
-            None => Self(std::collections::BTreeMap::new()),
+            None => Self(FrozenLookup::default()),
         }
     }
     pub fn resolve(&self, session: SessionScopeId, reference: ObjectRef) -> Result<Entity, ObjectLookupError> {
         if !reference.is_bound() { return Err(ObjectLookupError::Unbound); }
         if reference.session != session.0 { return Err(ObjectLookupError::ForeignSession); }
-        match self.0.get(&reference) {
-            Some(Some(entity)) => Ok(*entity),
-            Some(None) => Err(ObjectLookupError::Ambiguous),
-            None => Err(ObjectLookupError::Retired),
-        }
+        by_cardinality(self.0.get(&reference).map(|entity| *entity))
     }
 }
 

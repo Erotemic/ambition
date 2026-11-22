@@ -164,6 +164,22 @@ gameplay output limit.
 
 ## K2 — ambiguity-preserving frozen lookup
 
+**Landed (2026-11-22).** `ambition_binding::cardinality` holds
+`Cardinality<V>` (`Missing`, `Unique(V)`, `Ambiguous`), the `scan`
+reference, and `FrozenLookup<K, V>` (a tree map indexed once, with borrowed
+key lookup). It counts rows, so a repeated identical row is ambiguous.
+Migrated customers:
+- `ObjectIndex` (and the scan in `resolve`), which maps the result onto
+  `ObjectLookupError`;
+- the behavior-binding index in `object_behaviors::call`;
+- `AuthoredObjectIndex`, where `Unique(None)` stays apart from `Missing`
+  for an unpublished root.
+
+Each owner keeps its own domain errors and capture timing. Their three
+private reducers are deleted. The kernel's own test checks the index against
+the scan on missing, unique, repeated-identical, conflicting and `None` rows.
+No measurement selects another representation yet (K3).
+
 The shared operation asks how many input rows have a key. Its result is
 `Missing`, `Unique(value)` or `Ambiguous`. This is a proposed kernel result,
 not a replacement for existing domain error enums.

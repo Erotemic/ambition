@@ -336,10 +336,8 @@ fn attach(world: &mut World) {
 fn call(world: &mut World) {
     let requests = world.resource_mut::<ExtensionOutbox>().drain::<CallObjectPort>(&ACTOR_THINK);
     let mut query = world.query::<(Entity, &ObjectScopeOwner, &BehaviorInstance)>();
-    let mut bindings = BTreeMap::new();
-    for (entity, owner, instance) in query.iter(world) {
-        bindings.entry((owner.0, instance.key.clone())).and_modify(|found| *found = None).or_insert(Some(entity));
-    }
+    let bindings = ambition_binding::cardinality::FrozenLookup::from_rows(
+        query.iter(world).map(|(entity, owner, instance)| ((owner.0, instance.key.clone()), entity)));
     for submitted in requests {
         let request = submitted.value;
         let dispatch = action_results::begin_action_request::<CallObjectPort>(world, submitted.state_scope, &submitted.entry, &request);
@@ -350,7 +348,7 @@ fn call(world: &mut World) {
             let caller = object_reference(world, submitted.scope).ok_or("caller_without_identity")?;
             let limits = limits(world, entity);
             let data = checked_data(&request.data, limits.max_data_bytes).ok_or("call_data_bound")?;
-            let state = bindings.get(&(request.target, request.binding.clone())).copied().flatten()
+            let state = *bindings.get(&(request.target, request.binding.clone())).unique()
                 .ok_or("behavior_not_bound")?;
             let instance = world.get::<BehaviorInstance>(state).unwrap();
             let method = instance.methods.iter().find(|method| method.name == request.method).ok_or("method_not_bound")?;

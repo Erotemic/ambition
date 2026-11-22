@@ -273,7 +273,11 @@ B releases, and the body is free.
 
 ### 6a follow-up — bind the live occurrence and restore the authority
 
-**State: PLANNED completion before 6b/6c.** Keep `OwnedTerms<T>`, independent
+**State: identity and withdrawal IMPLEMENTED 2026-11-21 for the
+body-contact producer (receipt at the end of this section). The restore
+projection is stated as a snapshot-resident compatibility projection, not
+rebuilt. Status re-application on one tick and portable detach are open.**
+Keep `OwnedTerms<T>`, independent
 native hold bits, deterministic pose priority and the recorded overlap
 witness. The term stores are the useful implemented mechanism; source
 identity and lifecycle still need to meet the selected model above.
@@ -380,6 +384,56 @@ with the same claims and projections at each declared read. The replacement
 case must identify whether it uses the native lifecycle or a newly supported
 portable detach path. This completes 6a's boundary, then enables 6b/6c; it
 does not introduce a dynamic reducer registry or a general effect language.
+
+#### Follow-up receipt (2026-11-21)
+
+**Identity.** `Issuer::Attachment` now carries an `OccurrenceKey`: session,
+allocation room and sequence of the state's live `ObjectOccurrence`. It no
+longer carries `SimId` text. In
+[contact](../../../crates/ambition_combat/src/extension/contact.rs),
+`submitter_key` allocates the state's occurrence through
+`ensure_object_occurrence`; the counter and stamp rewind with the room. A
+state with no session or identity is refused with a warning, so no `""`
+issuer is made up. Entries of one module on one state share the issuer, and
+a remade object is another issuer.
+
+**Withdrawal.** `withdraw_unbound_attachment_claims` runs on every tick of
+`body_contact`, whether or not anything was submitted. It is installed
+through the new host hook `install_extension_lowering_maintenance`, which
+sits after the submitted lowerings and is not gated on the outbox. It visits
+only bodies that carry a hold or pose claim, and withdraws each attachment
+claim that names the body's own occurrence once that module is no longer
+bound there (its status ended or its brain changed).
+
+**Scope.** In today's production, every `ControlHoldPort` / `PosePinPort`
+submitter is a body-contact entry whose state scope is the body it holds.
+Claims another object issued are left to their owner, and native claims are
+untouched.
+
+**Witness.** `extension::contact::tests::a_hold_is_withdrawn_when_its_attachment_is_no_longer_bound`
+uses the real host and adapters:
+1. A status-bound rule holds its body under the body's occurrence and module.
+2. The status ends, and on a tick that submits nothing the claim and the
+   `Claimed` bit go.
+3. A body remade under the same name gets a different occurrence.
+4. A touched body with no session submits, and is refused rather than held.
+
+The native lifecycle supplies the replacement; no portable detach operation
+exists.
+
+**Restore.** `HoldClaims` / `ControlHolds` and `PoseClaims` /
+`ActorAnimOverride` stay snapshot-resident pairs. They are registered in one
+snapshot and restored together, and the claim helpers are their only
+writers. The `Claimed` bit and the winning pose are therefore a derived
+projection that must restore atomically with its claims. It is not rebuilt
+at the restore boundary, and no divergent restore was observed.
+
+**Open:**
+- A status that ends and is re-applied before the next maintenance pass
+  keeps one issuer key. Status applications have no occurrence of their
+  own.
+- The transferred-grant rule (6b) is not exercised.
+- The Rhai path is exercised only through the existing Mary-O/Sanic lanes.
 
 ### 6b. Make one native interval supply several domains
 

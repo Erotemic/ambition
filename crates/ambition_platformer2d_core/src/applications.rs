@@ -12,16 +12,27 @@
 
 use std::sync::Arc;
 
+/// One live object occurrence: its session and its allocation (the room
+/// that allocated it, if any, and the sequence there). Not a semantic
+/// address: an object retired and made again under the same name is a new
+/// occurrence.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct OccurrenceKey {
+    pub session: u64,
+    pub room: Option<u32>,
+    pub sequence: u64,
+}
+
 /// The owner that issued an application.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Issuer {
     /// A native mechanic, by its stable name (`transform_beat`).
     Native(&'static str),
-    /// A behaviour attachment: the stable occurrence of the object whose
+    /// A behaviour attachment: the live occurrence of the state whose
     /// records it keeps, and its `provider::module` path. Two entries of one
-    /// attachment are one issuer; the same module attached to two objects
-    /// is two.
-    Attachment { occurrence: Arc<str>, module: Arc<str> },
+    /// attachment are one issuer; the same module attached to two objects is
+    /// two, and so is the same module on a remade object.
+    Attachment { occurrence: OccurrenceKey, module: Arc<str> },
 }
 
 /// One independently revocable application: its issuer and the issuer's
@@ -39,12 +50,20 @@ impl ApplicationKey {
     }
 
     /// An attachment's one application of a kind (its hold, its pose).
-    pub fn attachment(occurrence: &str, module: &str) -> Self {
-        Self { issuer: Issuer::Attachment { occurrence: occurrence.into(), module: module.into() }, local: 0 }
+    pub fn attachment(occurrence: OccurrenceKey, module: &str) -> Self {
+        Self { issuer: Issuer::Attachment { occurrence, module: module.into() }, local: 0 }
+    }
+
+    /// The attachment that issued it, when an attachment did.
+    pub fn attachment_issuer(&self) -> Option<(OccurrenceKey, &str)> {
+        match &self.issuer {
+            Issuer::Attachment { occurrence, module } => Some((*occurrence, module)),
+            Issuer::Native(_) => None,
+        }
     }
 
     fn checksum_into(&self, out: &mut Vec<u8>) {
-        use crate::snapshot::{put_str, put_u32};
+        use crate::snapshot::{put_str, put_u32, put_u64};
         match &self.issuer {
             Issuer::Native(name) => {
                 put_u32(out, 0);
@@ -52,7 +71,15 @@ impl ApplicationKey {
             }
             Issuer::Attachment { occurrence, module } => {
                 put_u32(out, 1);
-                put_str(out, occurrence);
+                put_u64(out, occurrence.session);
+                match occurrence.room {
+                    Some(room) => {
+                        put_u32(out, 1);
+                        put_u32(out, room);
+                    }
+                    None => put_u32(out, 0),
+                }
+                put_u64(out, occurrence.sequence);
                 put_str(out, module);
             }
         }
@@ -141,9 +168,11 @@ impl<T> OwnedTerms<T> {
 mod tests {
     use super::*;
 
+    const BOB: OccurrenceKey = OccurrenceKey { session: 1, room: Some(0), sequence: 7 };
+
     #[test]
     fn a_release_withdraws_only_its_own_application() {
-        let (a, b) = (ApplicationKey::attachment("placement:bob", "p::a"), ApplicationKey::attachment("placement:bob", "p::b"));
+        let (a, b) = (ApplicationKey::attachment(BOB, "p::a"), ApplicationKey::attachment(BOB, "p::b"));
         let mut terms = OwnedTerms::default();
         assert!(terms.claim(a.clone(), 1));
         assert!(terms.claim(b.clone(), 2));
@@ -157,8 +186,14 @@ mod tests {
     fn entries_of_one_attachment_are_one_issuer() {
         assert_eq!(module_of_entry("prov::shell/on_hit"), "prov::shell");
         assert_eq!(
-            ApplicationKey::attachment("o", module_of_entry("prov::shell/start")),
-            ApplicationKey::attachment("o", module_of_entry("prov::shell/finish")),
+            ApplicationKey::attachment(BOB, module_of_entry("prov::shell/start")),
+            ApplicationKey::attachment(BOB, module_of_entry("prov::shell/finish")),
         );
+    }
+
+    #[test]
+    fn a_remade_occurrence_is_another_issuer() {
+        let remade = OccurrenceKey { sequence: 8, ..BOB };
+        assert_ne!(ApplicationKey::attachment(BOB, "p::shell"), ApplicationKey::attachment(remade, "p::shell"));
     }
 }

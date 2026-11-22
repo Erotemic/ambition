@@ -279,7 +279,8 @@ mod tests {
         use ambition_sprite_sheet::character::{claim_pose, release_pose, PoseClaims, PoseTerm, SCRIPT_POSE_PRIORITY};
         let mut app = app();
         let body = app.world_mut().spawn_empty().id();
-        let (a, b) = (ApplicationKey::attachment("placement:bob", "probe::a"), ApplicationKey::attachment("placement:bob", "probe::b"));
+        let bob = ambition_platformer2d_core::applications::OccurrenceKey { session: 1, room: Some(0), sequence: 3 };
+        let (a, b) = (ApplicationKey::attachment(bob, "probe::a"), ApplicationKey::attachment(bob, "probe::b"));
         let apply = |app: &mut App, edit: &dyn Fn(&mut Commands)| {
             let mut queue = bevy::ecs::world::CommandQueue::default();
             edit(&mut Commands::new(&mut queue, app.world()));

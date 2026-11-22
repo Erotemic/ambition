@@ -413,6 +413,16 @@ pub trait ExtensionAppExt {
         adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
     ) -> &mut Self;
 
+    /// Add a domain system at `phase`'s lowering boundary, after the
+    /// submitted requests, that runs on EVERY tick of the phase, whether or
+    /// not anything was submitted: the place a domain withdraws what an
+    /// attachment that is no longer bound had applied. It offers no port.
+    fn install_extension_lowering_maintenance<M>(
+        &mut self,
+        phase: Phase,
+        systems: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+    ) -> &mut Self;
+
     /// Declare a module. Admission runs in `Plugin::finish`.
     fn add_extension_module(&mut self, module: ModuleDescriptor) -> &mut Self {
         self.add_declared_extension_module(module.into())
@@ -718,6 +728,19 @@ impl ExtensionAppExt for App {
             phase.clone(),
             owner,
             adapter.in_set(ExtensionSet::LowerSubmitted(phase)),
+        )
+    }
+
+    fn install_extension_lowering_maintenance<M>(
+        &mut self,
+        phase: Phase,
+        systems: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
+    ) -> &mut Self {
+        let (schedule, _) = installation(self);
+        ensure_phase(self, schedule, &phase);
+        self.add_systems(
+            schedule,
+            systems.in_set(ExtensionSet::Lower(phase.clone())).after(ExtensionSet::LowerSubmitted(phase)),
         )
     }
 

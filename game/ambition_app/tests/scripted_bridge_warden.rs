@@ -75,6 +75,14 @@ fn declare() {
 fn actor(key, character, at, allegiance, holds, state) {
     #{key: key, character: character, at: at, allegiance: allegiance, holds: holds, state: state}
 }
+// The warden is made watching the posts made beside it (their keys).
+fn warden(node) {
+    node.bindings = [#{key: "ward", references: #{north: #{local: "north"}, south: #{local: "south"}},
+        methods: [#{name: "down", entry: "bridge::warden/down"}, #{name: "gone", entry: "bridge::warden/gone"}],
+        subscriptions: [#{key: "north", source: "north", method: "down"}, #{key: "south", source: "south", method: "down"},
+            #{key: "north_gone", source: "north", method: "gone"}, #{key: "south_gone", source: "south", method: "gone"}]}];
+    node
+}
 fn post(label, p, dx) {
     actor(label, "goblin", [p[0] + dx, p[1] - 40.0], "enemy", ["bridge.post"],
         [#{schema: "post", value: #{label: label, ticks: 0}}])
@@ -89,12 +97,12 @@ fn run() {
     }
     if caller.step == 3 {
         this.requests.push(request("create_actors", #{reply: #{request: 1, selector: "bridge::warden/made"},
-            actors: [actor("warden", "practice_sandbag", [p[0] - 200.0, p[1] - 40.0], "neutral", [], []),
+            actors: [warden(actor("warden", "practice_sandbag", [p[0] - 200.0, p[1] - 40.0], "neutral", [], [])),
                 post("north", p, 260.0), post("south", p, 420.0)]}));
     }
     // Strike both posts where they were made (260 and 420 to the right),
     // before they walk off: native blasts, credited to the caller.
-    if caller.attached == 2 && caller.step == 25 {
+    if caller.attached == 1 && caller.step == 25 {
         for dx in [260.0, 420.0] {
             this.requests.push(request("blast", #{center: [p[0] + dx, p[1] - 40.0], half_extent: [72.0, 160.0],
                 damage: 999, knockback: 0.0, lifetime_s: 0.05, credit: this.observe.credit}));
@@ -113,16 +121,12 @@ fn made() {
     if this.trigger.code != "actors_created" { throw this.trigger.message; }
     let made = this.trigger.subjects.map(|subject| subject.object);
     this.state.caller.made = made;
-    let posts = #{north: made[1], south: made[2]};
-    let watch = [#{key: "north", source: "north", method: "down"}, #{key: "south", source: "south", method: "down"},
-        #{key: "north_gone", source: "north", method: "gone"}, #{key: "south_gone", source: "south", method: "gone"}];
-    this.requests.push(request("attach_behaviors", #{target: made[0], bindings: [#{key: "ward", references: posts,
-        methods: [#{name: "down", entry: "bridge::warden/down"}, #{name: "gone", entry: "bridge::warden/gone"}],
-        subscriptions: watch}], reply: #{request: 1, selector: "bridge::warden/attached"}}));
+    // The caller is not one of the bodies it made, so its own watch over the
+    // posts is attached once they exist.
     this.requests.push(request("attach_behaviors", #{target: this.state.caller.me, bindings: [#{key: "clearer",
-        references: posts, methods: [#{name: "clear", entry: "bridge::warden/clear"}],
+        references: #{north: made[1], south: made[2]}, methods: [#{name: "clear", entry: "bridge::warden/clear"}],
         subscriptions: [#{key: "north", source: "north", method: "clear"}, #{key: "south", source: "south", method: "clear"}]}],
-        reply: #{request: 2, selector: "bridge::warden/attached"}}));
+        reply: #{request: 1, selector: "bridge::warden/attached"}}));
 }
 fn attached() {
     if this.trigger.stage == "rejected" { throw this.trigger.message; }
@@ -244,7 +248,7 @@ fn the_warden_lowers_the_bridge_and_the_next_room_opens() {
     let faults = sim.world().resource::<ExtensionFaults>();
     assert_eq!(faults.total, 0, "{:?}", faults.recent.first());
     let caller = sim.world().get::<BodyRecords>(player).unwrap().get(&SchemaKey::new("bridge", "caller", 1)).cloned().unwrap();
-    assert_eq!(caller.get(FieldRef(3)).unwrap(), &Value::U32(2), "the premise: both watches attached");
+    assert_eq!(caller.get(FieldRef(3)).unwrap(), &Value::U32(1), "the premise: the caller's watch attached (the warden's came with it)");
     let posts = records(&mut sim, "post");
     assert!(posts.is_empty(), "both posts were retired with their state");
     let ward = records(&mut sim, "ward");

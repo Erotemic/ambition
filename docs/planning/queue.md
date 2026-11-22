@@ -166,7 +166,8 @@ world-post admission.
    link-context binding and an equipment-change witness.)
 4. [World composition W1/W2](engine/reusable-authored-world-composition.md#implementation-slices)
    uses existing local references, then a different mechanism. General format
-   work follows only if the operation is shared. Producer-validity delegation
+   work follows only if the operation is shared. (W1 landed 2026-11-22: the Bridge Warden is made with its binding to the
+   posts' local keys; no result indexing or follow-up attach.) Producer-validity delegation
    follows the existing [asset owner](engine/asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings).
 5. [Body anchors A1/A2](engine/body-anchor-bindings.md#delivery-packets-and-proof)
    replace private saddle/capture point conversion with two independently

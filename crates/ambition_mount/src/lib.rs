@@ -1165,21 +1165,39 @@ pub const COMMANDEER_REACH: f32 = 16.0;
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct MountsCommandeered;
 
-/// The bodies whose Interact press something other than a mount takes this
-/// tick — a door they stand in, a body to talk to, a switch, a chest.
-/// [`commandeer_mounts`] neither boards nor bails for them.
+/// What a body's Interact press does on a mount this tick, as the
+/// interaction owner selected it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MountPress {
+    /// Board this mount.
+    Board(Entity),
+    /// Get off the mount the body rides.
+    Dismount,
+}
+
+/// The bodies whose Interact press is the mount's this tick, and what it
+/// does: the interaction owner's selection, projected for this crate
+/// (`InteractSelection`, written by the monolith's `select_interactions` and
+/// projected by its `project_mount_presses`). Sorted by body.
 ///
-/// ⛔ WRITTEN BY THE INTERACTION SELECTION, NOT HERE: which target a press is
-/// for is the interaction owner's rule (`InteractSelection`, written by the
-/// monolith's `select_interactions` and read into this by its
-/// `claim_interact_presses`; the prompt only names it), and this crate does
-/// not know doors.
-/// A rider possessed to use a door was bailed off its giant by the same press
-/// that took it through, and its mount was left in the room behind
-/// (`the_whole_attachment_closure_is_recorded_as_being_in_custody`). Empty in a
-/// composition without that owner: every press is the mount's there.
+/// ⛔ THE MOUNT DOES NOT CHOOSE. Which target a press is for is the
+/// interaction owner's rule, which also knows the door a rider stands in
+/// and the body beside it to talk to; [`commandeer_mounts`] acts on what is
+/// selected here, revalidated at its own cut ([`can_commandeer`]). A body not
+/// listed is somebody else's press, or nobody's. A rider possessed to use a
+/// door was once bailed off its giant by the same press that took it
+/// through, and its mount was left in the room behind
+/// (`the_whole_attachment_closure_is_recorded_as_being_in_custody`). A
+/// composition with no interaction owner selects nothing, so no press boards.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq, Eq)]
-pub struct InteractPressesClaimed(pub Vec<Entity>);
+pub struct MountPresses(pub Vec<(Entity, MountPress)>);
+
+impl MountPresses {
+    /// What `body`'s press does on a mount, if it is the mount's.
+    pub fn of(&self, body: Entity) -> Option<MountPress> {
+        self.0.binary_search_by_key(&body, |(listed, _)| *listed).ok().map(|index| self.0[index].1)
+    }
+}
 
 /// One mount a pilot might commandeer, as [`nearest_commandeerable`] reads it.
 pub type CommandeerCandidate<'a> = (
@@ -1191,13 +1209,35 @@ pub type CommandeerCandidate<'a> = (
     Option<&'a ambition_characters::actor::BodyHealth>,
 );
 
-/// The mount `pilot`'s Interact would board: the nearest living, riderless,
-/// unreserved (or reserved for it) mount its licence covers, within
-/// [`COMMANDEER_REACH`] of its box, ties by entity order; never one in `taken`.
-///
-/// ⭐ ONE RULE FOR THE PRESS AND THE PROMPT. [`commandeer_mounts`] boards what
-/// this names and the Interact prompt names the same mount, so the label says
-/// "Ride" only where the press rides.
+/// May `pilot` board `candidate` by hand now: a living, riderless mount its
+/// licence covers, unreserved (or reserved for it), within
+/// [`COMMANDEER_REACH`] of its box, and not one in `taken`. The legality both
+/// the selection ([`nearest_commandeerable`]) and the press's own cut
+/// ([`commandeer_mounts`]) ask.
+pub fn can_commandeer(
+    pilot: Entity,
+    licence: &CanPilot,
+    pilot_kin: &ae::BodyKinematics,
+    candidate: CommandeerCandidate<'_>,
+    taken: &[Entity],
+) -> bool {
+    let (mount, mountable, kin, slot, held, health) = candidate;
+    let reach = pilot_kin.half_extent() + ae::Vec2::splat(COMMANDEER_REACH);
+    let gap = (kin.pos - pilot_kin.pos).abs();
+    let within = reach + kin.half_extent();
+    mount != pilot
+        && !taken.contains(&mount)
+        && licence.can_pilot(&mountable.class)
+        && slot.is_none_or(|slot| slot.rider.is_none())
+        && held.is_none_or(|held| held.rider == pilot)
+        && health.is_none_or(|h| h.alive())
+        && gap.x <= within.x
+        && gap.y <= within.y
+}
+
+/// The mount `pilot`'s Interact would board: the nearest one it may
+/// ([`can_commandeer`]), ties by entity order. The interaction owner's
+/// selection asks this; the press boards what was selected.
 pub fn nearest_commandeerable<'a>(
     pilot: Entity,
     licence: &CanPilot,
@@ -1205,23 +1245,9 @@ pub fn nearest_commandeerable<'a>(
     mounts: impl IntoIterator<Item = CommandeerCandidate<'a>>,
     taken: &[Entity],
 ) -> Option<Entity> {
-    let alive = |health: Option<&ambition_characters::actor::BodyHealth>| health.is_none_or(|h| h.alive());
-    let reach = pilot_kin.half_extent() + ae::Vec2::splat(COMMANDEER_REACH);
     mounts
         .into_iter()
-        .filter(|(mount, mountable, kin, slot, held, health)| {
-            *mount != pilot
-                && !taken.contains(mount)
-                && licence.can_pilot(&mountable.class)
-                && slot.is_none_or(|slot| slot.rider.is_none())
-                && held.is_none_or(|held| held.rider == pilot)
-                && alive(*health)
-                && {
-                    let gap = (kin.pos - pilot_kin.pos).abs();
-                    let within = reach + kin.half_extent();
-                    gap.x <= within.x && gap.y <= within.y
-                }
-        })
+        .filter(|candidate| can_commandeer(pilot, licence, pilot_kin, *candidate, taken))
         .min_by(|a, b| {
             a.2.pos
                 .distance_squared(pilot_kin.pos)
@@ -1231,11 +1257,12 @@ pub fn nearest_commandeerable<'a>(
         .map(|(mount, ..)| mount)
 }
 
-/// Commandeer a mount by hand: a body that presses Interact beside a living,
-/// riderless mount its [`CanPilot`] licence covers boards it, through
-/// [`board`] (so every legality rule is the same one); the nearest such mount
-/// wins, ties by entity order. A body already riding that presses Interact
-/// asks to get off ([`DismountReason::RiderBailed`]).
+/// Commandeer a mount by hand: a body whose Interact press is selected to
+/// board a mount ([`MountPresses`]) boards it, through [`board`] (so every
+/// legality rule is the same one), once the mount is still one it may take
+/// at this cut ([`can_commandeer`]); a press selected to get off asks to
+/// ([`DismountReason::RiderBailed`]). A refused board leaves the press
+/// unconsumed by any other mount: the selection named this one.
 ///
 /// ⭐ THE MOUNT KEEPS ITS OWN BRAIN. Nothing here swaps, stores or rebuilds
 /// it: while ridden, [`steer_mount_from_rider`] drives the mount's locomotion
@@ -1267,38 +1294,47 @@ pub fn commandeer_mounts(
         Option<&ambition_characters::actor::BodyHealth>,
     )>,
     mut dismounts: MessageWriter<DismountRequested>,
-    claimed: Option<bevy::prelude::Res<InteractPressesClaimed>>,
+    selected: Option<bevy::prelude::Res<MountPresses>>,
 ) {
+    let Some(selected) = selected else {
+        return;
+    };
     let alive = |health: Option<&ambition_characters::actor::BodyHealth>| health.is_none_or(|h| h.alive());
-    let taken_elsewhere = |pilot: Entity| claimed.as_deref().is_some_and(|claimed| claimed.0.contains(&pilot));
     let mut pressing: Vec<_> = pilots
         .iter()
-        .filter(|(pilot, _, control, _, _, health, _)| {
-            control.0.interact_pressed && alive(*health) && !taken_elsewhere(*pilot)
-        })
+        .filter(|(_, _, control, _, _, health, _)| control.0.interact_pressed && alive(*health))
+        .filter_map(|pilot| selected.of(pilot.0).map(|press| (pilot, press)))
         .collect();
-    pressing.sort_by(|a, b| match (a.6, b.6) {
+    pressing.sort_by(|(a, _), (b, _)| match (a.6, b.6) {
         (Some(x), Some(y)) => x.cmp(y).then(a.0.cmp(&b.0)),
         (Some(_), None) => std::cmp::Ordering::Less,
         (None, Some(_)) => std::cmp::Ordering::Greater,
         (None, None) => a.0.cmp(&b.0),
     });
     let mut taken: Vec<Entity> = Vec::new();
-    for (pilot, licence, _, pilot_kin, riding, _, _) in pressing {
-        if riding.is_some() {
-            dismounts.write(DismountRequested { rider: pilot, reason: DismountReason::RiderBailed });
-            continue;
-        }
-        let nearest = nearest_commandeerable(pilot, licence, pilot_kin, &mounts, &taken);
-        let Some(mount) = nearest else {
-            continue;
-        };
-        taken.push(mount);
-        commands.queue(move |world: &mut bevy::prelude::World| {
-            if !board(world, pilot, mount) {
-                bevy::log::debug!(target: "ambition::mount", "commandeer refused: mount={mount:?} pilot={pilot:?}");
+    for ((pilot, licence, _, pilot_kin, riding, _, _), press) in pressing {
+        match (press, riding.is_some()) {
+            (MountPress::Dismount, true) => {
+                dismounts.write(DismountRequested { rider: pilot, reason: DismountReason::RiderBailed });
             }
-        });
+            (MountPress::Board(mount), false) => {
+                let Ok(candidate) = mounts.get(mount) else {
+                    continue;
+                };
+                if !can_commandeer(pilot, licence, pilot_kin, candidate, &taken) {
+                    continue;
+                }
+                taken.push(mount);
+                commands.queue(move |world: &mut bevy::prelude::World| {
+                    if !board(world, pilot, mount) {
+                        bevy::log::debug!(target: "ambition::mount", "commandeer refused: mount={mount:?} pilot={pilot:?}");
+                    }
+                });
+            }
+            // A selection the body's state no longer matches (it boarded or
+            // was thrown off since): nothing to do with this press.
+            _ => {}
+        }
     }
 }
 
@@ -2045,10 +2081,10 @@ where
     const OWNER: &str = env!("CARGO_PKG_NAME");
 
     registrar.rollback_component_clone::<CanPilot>(OWNER, "mount.can_pilot");
-    registrar.declare_rollback_derived_resource::<InteractPressesClaimed>(
+    registrar.declare_rollback_derived_resource::<MountPresses>(
         OWNER,
-        "derived.interact_presses_claimed",
-        "rebuilt each tick from the interact read model before mounts are commandeered",
+        "derived.mount_presses",
+        "rebuilt each tick from the interaction selection before mounts are commandeered",
     );
     registrar.rollback_component_clone_entity_set::<MountSlot>(OWNER, "mount.slot", |slot| {
         slot.rider.into_iter().collect()
@@ -2479,11 +2515,39 @@ mod dismount_claim_tests {
     fn interact_commandeers_a_riderless_mount_and_gets_off_again() {
         use ambition_characters::control::ActorControl;
         use ambition_platformer2d_shared_tangle::sim_id::SimId;
+        // The interaction owner's selection, as far as mounts go: a rider's
+        // press gets it off, a body on foot boards the nearest mount it may.
+        // This crate does not select (`MountPresses`); the double stands in
+        // for the monolith's `select_interactions` + `project_mount_presses`.
+        #[allow(clippy::type_complexity)]
+        fn select(
+            pilots: bevy::prelude::Query<(Entity, &CanPilot, &ae::BodyKinematics, Has<RidingOn>)>,
+            mounts: bevy::prelude::Query<(
+                Entity,
+                &Mountable,
+                &ae::BodyKinematics,
+                Option<&MountSlot>,
+                Option<&MountReservedFor>,
+                Option<&ambition_characters::actor::BodyHealth>,
+            )>,
+            mut presses: bevy::prelude::ResMut<MountPresses>,
+        ) {
+            let mut selected: Vec<_> = pilots
+                .iter()
+                .filter_map(|(pilot, licence, kin, riding)| match riding {
+                    true => Some((pilot, MountPress::Dismount)),
+                    false => nearest_commandeerable(pilot, licence, kin, &mounts, &[]).map(|mount| (pilot, MountPress::Board(mount))),
+                })
+                .collect();
+            selected.sort_by_key(|(pilot, _)| *pilot);
+            presses.0 = selected;
+        }
         fn new_app() -> App {
             let mut app = App::new();
             app.add_message::<DismountRequested>();
             app.add_message::<RiderDismounted>();
-            app.add_systems(Update, (commandeer_mounts, apply_dismount_requests).chain());
+            app.init_resource::<MountPresses>();
+            app.add_systems(Update, (select, commandeer_mounts, apply_dismount_requests).chain());
             app
         }
         fn body(app: &mut App, x: f32) -> Entity {

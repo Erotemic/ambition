@@ -302,10 +302,11 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // selected here, with the gameplay that executes it, from the
         // domains' own availability, once this tick's input has settled which
         // body each seat drives. The prompt draws it, and the contextual
-        // consumers yield to it: the portal's colour toggle (in
-        // `PlayerSimulation`) and the mount's boarding (`MountsCommandeered`).
+        // consumers act on it: the mount boards or leaves what is selected
+        // (`MountsCommandeered`), and the portal's colour toggle (in
+        // `PlayerSimulation`) yields to any selection.
         app.init_resource::<ambition_platformer2d_interaction::InteractSelection>()
-            .init_resource::<ambition_mount::InteractPressesClaimed>()
+            .init_resource::<ambition_mount::MountPresses>()
             .add_systems(
                 sim,
                 (
@@ -313,7 +314,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                         .in_set(ambition_platformer2d_interaction::InteractSelectionSet)
                         .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerInput)
                         .after(ambition_characters::control::PrimarySlotInputCommit),
-                    ambition_platformer2d_actor_monolith::body::claim_interact_presses
+                    ambition_platformer2d_actor_monolith::body::project_mount_presses
                         .after(ambition_platformer2d_interaction::InteractSelectionSet)
                         .before(ambition_mount::MountsCommandeered),
                 ),

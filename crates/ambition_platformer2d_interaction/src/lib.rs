@@ -255,19 +255,6 @@ impl InteractSelection {
         self.0.get(&body).copied()
     }
 
-    /// Is `body`'s press selected for an ordinary interaction (talk, a
-    /// switch, a chest, a door)? The mount owner yields to these: boarding
-    /// and getting off are its own operations. A consumer that owns none of
-    /// the operations (the portal's colour toggle) yields to any selection
-    /// ([`Self::of`]).
-    pub fn claims_the_press(&self, body: Entity) -> bool {
-        self.of(body).is_some_and(|selected| {
-            matches!(
-                selected.operation,
-                InteractOperation::Talk | InteractOperation::Activate | InteractOperation::Open | InteractOperation::Use
-            )
-        })
-    }
 }
 
 /// The set that rebuilds [`InteractSelection`]. Its readers run after it.

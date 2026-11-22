@@ -150,14 +150,21 @@ pub fn select_interactions(
     }
 }
 
-/// Which driven bodies' Interact press an ordinary interaction (a body, a
-/// switch, a chest, a door) takes this tick, for the mount owner
-/// ([`ambition_mount::InteractPressesClaimed`]): read off the selection, not
-/// off the prompt.
-pub fn claim_interact_presses(selection: Res<InteractSelection>, mut claimed: ResMut<ambition_mount::InteractPressesClaimed>) {
-    let mut bodies: Vec<Entity> = selection.0.keys().copied().filter(|body| selection.claims_the_press(*body)).collect();
-    bodies.sort();
-    if claimed.0 != bodies {
-        claimed.0 = bodies;
+/// The presses the mount owner acts on this tick, and what each does
+/// ([`ambition_mount::MountPresses`]): the bodies selected to ride a mount or
+/// to get off one, read off the selection.
+pub fn project_mount_presses(selection: Res<InteractSelection>, mut presses: ResMut<ambition_mount::MountPresses>) {
+    let mut projected: Vec<(Entity, ambition_mount::MountPress)> = selection
+        .0
+        .iter()
+        .filter_map(|(body, selected)| match (selected.operation, selected.target) {
+            (InteractOperation::Ride, Some(mount)) => Some((*body, ambition_mount::MountPress::Board(mount))),
+            (InteractOperation::Dismount, _) => Some((*body, ambition_mount::MountPress::Dismount)),
+            _ => None,
+        })
+        .collect();
+    projected.sort_by_key(|(body, _)| *body);
+    if presses.0 != projected {
+        presses.0 = projected;
     }
 }

@@ -352,7 +352,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // skipped (SS8).
 // 525 -> 526: the interaction selection is a derived resource of gameplay
 // (`derived.interact_selection`, I1).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 526;
+// 526 -> 527: the mount's press projection names what each selected press
+// does (`derived.mount_presses`), replacing the claimed-press list (I2).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 527;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

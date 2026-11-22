@@ -193,8 +193,9 @@ world-post admission.
    door and the opening; selection is gameplay's `InteractSelection`, which
    the prompt projects and the mount and portal consumers read. I2's first
    slice landed the same day: the talk/switch and chest executors and the
-   door act on the selected target, revalidated at their own cuts. The mount
-   and portal outcome correlation remains.)
+   door act on the selected target, revalidated at their own cuts. The
+   mount followed: it boards or leaves only what is selected
+   (`MountPresses`). The portal toggle's outcome correlation remains.)
 
 **Acceptance:** a selected domain fact has one binder; independent holds and
 poses retire separately; another room cannot act on a world cause that can

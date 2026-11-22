@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v526
+ggrs-rollback-schema-v527
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -218,12 +218,12 @@ derived.global_transform	derived	GlobalTransform	Bevy transform propagation rebu
 derived.gravity_zones	derived	GravityZones	rebuilt from authoritative GravityZone components before body integration
 derived.guard_volumes	derived	GuardVolumes	placed from the worn character's guards, its art and its clocks every tick, before any strike is resolved
 derived.input_stream_recorder	derived	InputStreamRecorder	tick-addressed recording: a resimulation rewrites its own tail, so the stream needs no restore — and snapshotting it made frame N cost N
-derived.interact_presses_claimed	derived	InteractPressesClaimed	rebuilt each tick from the interact read model before mounts are commandeered
 derived.interact_selection	derived	InteractSelection	rebuilt each tick from the domains' availability after input commits, before any Interact consumer
 derived.item_body	derived	ItemBody	item capability properties installed before the item's physics step
 derived.item_body_presence	derived	BodyInStorage	world presence derived from item custody before spatial queries
 derived.limb_bond_start	derived	LimbBondStart	written again each tick from its game's rollback state before any reader
 derived.module_entity_touchers	derived	ModuleEntityTouchers	written again in each tick's module_entity_tick collect and read only by that tick's lowering
+derived.mount_presses	derived	MountPresses	rebuilt each tick from the interaction selection before mounts are commandeered
 derived.native_event_routes	derived	EventRoutes	Subscription insertion and removal update the source index, including canonical snapshot restoration.
 derived.navigation_advice	derived	NavigationAdvice	rebuilt in the Observe phase from the room's surface graph, each body and its brain's goal
 derived.nearest_interactable	derived	NearestInteractable	proximity read model recomputed per frame

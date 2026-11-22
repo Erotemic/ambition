@@ -270,15 +270,28 @@ in `RoomTransition`; boarding in `CombatSet::Settle`; talk, switch and
 chest in `FeatureInteraction`. Each consumer reads the same tick's
 selection.
 
+**I2 second slice (2026-11-22): the mount acts on the selected attempt.**
+`InteractPressesClaimed` is replaced by `ambition_mount::MountPresses`. It is
+the selection projected for the mount owner (`project_mount_presses`): each
+body selected to `Ride` a mount maps to `Board(mount)`, and each body selected
+to `Dismount` maps to `Dismount`. `commandeer_mounts` acts only on those:
+- It boards the selected mount once `can_commandeer` still admits it at
+  `MountsCommandeered`. That is the legality filter split out of
+  `nearest_commandeerable`.
+- It dismounts a rider selected to get off.
+- It does nothing for a press the selection gave elsewhere, or a selection
+  the body's state no longer matches.
+
+The mount's own nearest-mount choice is gone, and so is
+`InteractSelection::claims_the_press`. A composition with no interaction
+owner selects nothing, so no press boards (the mount lib test now states its
+selection). Schema 527.
+
 Still open:
 
-- The mount still reads the raw Interact edge and picks its mount with
-  the same `nearest_commandeerable` the selection used. It yields through
-  `InteractPressesClaimed`, which is now a projection of the selection, not
-  the prompt.
 - The portal toggle still reads its raw edge and yields to any selection.
-  Neither correlates its owner's outcome (board refused, no generator) back
-  to an attempt.
+  It owns no selected operation, so nothing correlates its owner's outcome
+  (board refused, no generator) back to an attempt.
 - No witness yet exercises retirement, possession or room replay of a
   selected attempt.
 

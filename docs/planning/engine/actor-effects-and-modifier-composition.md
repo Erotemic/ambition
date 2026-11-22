@@ -1,9 +1,10 @@
 # Actor effects and modifier composition
 
-**State:** numeric phases 0–5 DONE (2026-11-16). Phase 6 below is PLANNED
-(2026-11-21). It replaces the former instruction to wait for a new status
-effect. The current control and pose ports already expose the ownership
-problem. [The queue](../queue.md) selects execution order.
+**State:** numeric phases 0–5 DONE (2026-11-16). Effects6a's typed claim stores
+and own-key release are implemented (`d577ffc5`, 2026-11-21); its live
+occurrence, retirement and restore boundary remain open. The follow-up below
+precedes PLANNED 6b/6c. Source review at `3ed50e318392` adds no new runtime
+receipt. [The queue](../queue.md) selects execution order.
 
 **Scope:** source-owned contributions, their application lifetime, and their
 typed projections into actor semantics. Resources and payments stay with
@@ -34,7 +35,7 @@ concerns who owns a contribution, not another numeric modifier engine.
 
 The source review at `6895e5168638` found these representations:
 
-| Source owner | Current identity or lifetime | Limit |
+| Source owner | Initial identity or lifetime | Limit at that baseline |
 | --- | --- | --- |
 | `crates/ambition_platformer2d_core/src/effects.rs` | One operation and timer per `(EffectSource, NumericAttribute)` | One application cannot both add and multiply the same attribute. Its second operation replaces the first. Several attributes repeat the lifetime. |
 | `crates/ambition_platformer2d_core/src/ability_projection.rs` | One `AbilityContribution` variant per static source name | A source cannot both lend swimming and impose a flight ceiling without extra source names. Those names need coordinated withdrawal. |
@@ -42,11 +43,16 @@ The source review at `6895e5168638` found these representations:
 | `crates/ambition_platformer2d_actor_monolith/src/body/transform_beat.rs` and the pose port in `combat::extension::contact` | Both write or remove `ActorAnimOverride` | A transform's expiry can remove a pose supplied by another owner. `PinnedRow.writer` only partly solves this for named clips. |
 | `crates/ambition_combat/src/empowerment.rs` | One `Empowered` value with one timer and trait set | Independent temporary grants cannot coexist. A form and one grant can coexist through `empowerment_of`. |
 
-These are source-derived counterexamples. This review did not run a new
-simulation. For control, the sequence is sufficient to expose the mismatch:
+These were source-derived counterexamples at the initial baseline. For
+control, the sequence is sufficient to expose that implementation's mismatch:
 A holds, B holds, A releases, and the shared bit is clear. A and B are
 independent loaded owners on the same body. The port's
 contract says another holder remains held.
+
+Effects6a subsequently replaced the shared script hold bit and competing pose
+setters with typed per-application claims. Its receipt below establishes
+own-key withdrawal; the follow-up addresses the remaining identity/lifetime
+boundary rather than proposing those stores again.
 
 The earlier plan already allowed one effect to contribute to several
 domains. That statement is insufficient. The current APIs also collapse
@@ -264,6 +270,116 @@ B releases, and the body is free.
 - The Rhai real path is not run. The adapters only map a submission to its
   key, and the key rule is unit-tested in core.
 - An attachment that retires does not yet withdraw its claims.
+
+### 6a follow-up — bind the live occurrence and restore the authority
+
+**State: PLANNED completion before 6b/6c.** Keep `OwnedTerms<T>`, independent
+native hold bits, deterministic pose priority and the recorded overlap
+witness. The term stores are the useful implemented mechanism; source
+identity and lifecycle still need to meet the selected model above.
+
+#### Preserve the actual attachment occurrence
+
+[submitter_key](../../../crates/ambition_combat/src/extension/contact.rs)
+currently uses the state scope's `SimId` text and substitutes `""` when no
+ID exists. [Issuer::Attachment](../../../crates/ambition_platformer2d_core/src/applications.rs)
+calls this string an occurrence, but a semantic state address and a live
+attachment occurrence are different facts.
+
+[Behavior attachment](../../../crates/ambition_platformer2d_runtime/src/object_behaviors.rs)
+already allocates an `ObjectOccurrence` for every private binding state.
+Its [owned_object_state_id](../../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/object_scope.rs)
+instead derives a `SimId` from the owner ObjectRef and binding key. Two live
+bindings of one module have different keys and are already distinct;
+attachment admission rejects a duplicate live binding key. Do not describe
+that supported composition as currently colliding.
+
+If a binding is retired and recreated under the same key on the same owner,
+its semantic state ID repeats while its actual occurrence changes. The
+current key would let old withdrawal and new claims share an identity. This
+is a required retirement/replacement witness for this follow-up, not a
+demonstrated current portable script path: no portable detach operation was
+found in the reviewed source. Native lifecycle and future detach support
+must not freeze the semantic-address alias into the application contract.
+
+Bind a script issuer to its admitted state occurrence and session. Reuse
+the existing occurrence contract; [ActionRecipient](../../../crates/ambition_platformer2d_shared_tangle/src/action_results.rs)
+already distinguishes exact occurrence from optional semantic subject text.
+The application adapter needs that identity law, not the mailbox requirement
+of `ActionRecipient::resolve`. Missing required identity is a refusal; do not
+manufacture an empty issuer. Preserve a start/completion entry pair's ability
+to address one application without giving another attachment that authority.
+
+Native owners keep explicit native identity and declared target/source
+lifetime. Their existing one-application key remains sufficient until their
+stacking policy requires independent local keys. A diagnostic module path,
+invocation sequence or mutable entity address is not a replacement occurrence.
+Changing the key representation must retain an explicit deterministic pose
+tie policy; it must not replace key ordering with insertion order.
+
+#### Withdraw by the declared lifetime, not by provenance alone
+
+Complete source-bound hold/pose withdrawal at the existing attachment or
+scope retirement boundary. Track the affected applications through that
+lifecycle; do not add a whole-world scan or separate domain cleanup clocks.
+A retired source cannot later revoke the replacement attachment's claims.
+The extension host's `RequestStage::Retire` runs only when its phase has
+submitted work. Its name does not make it a source-lifetime maintenance
+boundary: withdrawal must also run when no script request was submitted.
+
+This rule must not revoke a granted native interval merely because its
+pickup, caster or original script retired. The accepted target/room/session
+lifetime remains authoritative for transferred grants. Sharing an issuer
+does not force all its independently requested holds and poses to become
+one inseparable interval.
+
+For 6b, one quasar application owns one interval and supplies typed defense,
+contact and music contributions. Domains keep their reduction/read policies;
+they do not each copy the expiry clock. Preserve current refresh behavior.
+When an interval uses data-defined prepared meaning, retain that immutable
+meaning for the application's replay lifetime under
+[capability linking](capability-linking-and-prepared-facets.md) and
+[content generations](content-generation-and-reload.md). Do not reinterpret
+an old application through a newly active catalog. Simple unit holds and
+native enum-valued pose claims do not need a content-generation handle solely
+to fit this model. Content meaning and live occurrence allocation are distinct.
+
+#### Restore claims, then publish their projections before the declared reads
+
+Current [character rollback registration](../../../crates/ambition_characters/src/rollback_registration.rs)
+stores `ControlHolds` and `HoldClaims`; current
+[sprite rollback registration](../../../crates/ambition_sprite_sheet/src/rollback_registration.rs)
+stores `ActorAnimOverride` and `PoseClaims`. The Claimed bit and winning
+pose are therefore stored alongside their source terms. The current command
+helpers update them together; this review found no production pose writer
+bypassing those helpers and demonstrated no divergent-restore failure.
+
+Complete the authority boundary before adding multi-domain intervals:
+restore authoritative applications/typed claims, then rebuild affected
+projections at the restore/deferred-publication boundary before their first
+consumer. Native control-hold bits remain their owners' authoritative facts;
+only `ControlHold::Claimed` derives from `HoldClaims`. Keep typed
+consumer components rather than making every domain query a generic effect bag.
+
+If a compatibility projection remains snapshot-resident during migration,
+state its derived status and atomic restoration requirement. Remove its
+independent authoritative restoration only when the replacement projection
+cut exists. [claim_pose](../../../crates/ambition_sprite_sheet/src/character/anim.rs)
+returns early for an unchanged term, so the next identical submission is not
+a substitute for rebuilding a cleared/restored winner.
+
+Control and pose retain their existing distinct read cuts: a hold affects
+the next ordinary brain read, while a pose can affect the current drawn tick.
+A shared application identity does not erase that schedule distinction.
+
+**Exit:** use the real submission adapter for independent bindings and shared
+start/completion entries; refuse missing identity; retire and recreate a
+binding without old releases reaching the new one; preserve target-owned
+grants after issuer retirement; rewind across acquisition and retirement
+with the same claims and projections at each declared read. The replacement
+case must identify whether it uses the native lifecycle or a newly supported
+portable detach path. This completes 6a's boundary, then enables 6b/6c; it
+does not introduce a dynamic reducer registry or a general effect language.
 
 ### 6b. Make one native interval supply several domains
 

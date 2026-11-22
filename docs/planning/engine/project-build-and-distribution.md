@@ -325,6 +325,35 @@ The minimal external fixture exercises supported APIs and real simulation. Do
 not use in-workspace defaults or test-support backdoors to make an external
 profile look independent.
 
+### Executable selection must reach the dependency graph
+
+The review at `3ed50e318392` selects concrete follow-through in
+[CB1 and CB4](compiler-boundaries-and-build-products.md). A command consumes
+reusable schemas; the schema library must not import the command runner
+because both happen to share one Cargo package. Keep one schema list and
+validator, with the executable and its executable tests at the frontend.
+The native game's existing `content` command remains an explicit consumer.
+Removing the reverse library edge does not remove that separate product choice.
+
+An offline file report, a composed simulation and an offscreen capture have
+different dependency requirements. Start by making optional command families
+default-off and selecting their features in the supported launchers. Split
+packages only when feature union or test ownership prevents that boundary.
+Keep the earlier separation of tool binaries from app integration tests.
+
+The reusable harness must also request its actual capabilities. Its optional
+capture feature cannot exclude rendering while another edge enables facade
+defaults that include rendering. A narrower harness and a narrower Ambition
+provider are separate cuts. Keep the same provider preparation, mechanical
+metadata and admitted generation in headless and visible consumers.
+
+Report four different results: services installed, packages compiled,
+code/data retained in the linked artifact, and bytes delivered to the player.
+No window proves none of the last three. A dependency removal can help
+iteration even when the linker already discards its unused code. Use
+[CB2 and CB3](compiler-boundaries-and-build-products.md) for the separate
+question of repeated code generation inside a selected product.
+
 ## B7 delivery detail: measure the whole changed path
 
 M0 must attribute source generation, pure build/codegen/link, changed-section

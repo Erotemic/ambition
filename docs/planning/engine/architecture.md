@@ -165,6 +165,33 @@ before optional preparation, and measurement includes construction, queries
 and result consumption. This extends the existing libraries without choosing
 a catch-all utility crate or a second lifecycle service.
 
+### Implementation review: keep selection and authority explicit
+
+The follow-up source review at `3ed50e318392` includes the first committed
+bag and effect-claim implementations. It selects these completion boundaries:
+
+- [CW2 follow-up](causal-world-commit.md#cw2-follow-up--preserve-authority-under-pressure)
+  classifies the rollback authority before queue admission. A full queue
+  cannot turn a room proposal into an immediate shared-world mutation.
+  An allocated item retains its custody obligation until use or return is
+  settled under the declared authority. Admission capacity also has a
+  history: source credits and their returned acknowledgements cannot be
+  reconstructed from another room's present queue during replay.
+- [Effects 6a follow-up](actor-effects-and-modifier-composition.md#6a-follow-up--bind-the-live-occurrence-and-restore-the-authority)
+  distinguishes an attachment's semantic address from its live occurrence.
+  Source claims restore as authority; their derived hold bit and pose winner
+  rebuild before their consumers. Native hold reasons remain authoritative.
+- [Compiler boundaries](compiler-boundaries-and-build-products.md) keep
+  type-dependent validation and Bevy system identity at small typed adapters.
+  Schedule installation and phase-independent domain work use the concrete
+  values those adapters produce. Executables select their required
+  dependencies; a reusable schema library does not import its checker.
+
+These are different contracts. Do not turn the common need for an identity
+and a result into a universal transaction, effect or service registry.
+The selected cuts make a caller's obligations explicit while leaving each
+domain's reduction, ordering and fast path with that domain.
+
 ## Converged shape
 
 Code against these facts. Each one is in source and has a guard.

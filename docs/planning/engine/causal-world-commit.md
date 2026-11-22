@@ -1,8 +1,11 @@
 # Causal world changes across independent simulation histories
 
-**State:** PLANNED architecture correction (2026-11-21). No implementation or
-new runtime result is claimed by this review. The source baseline is
-6895e516863872eb6d38093a27225ed8e2973d70. [The queue](../queue.md) selects work.
+**State:** CW1 and the ordinary-path CW2 pilot are implemented (`87c2170e`,
+`317287c2`, 2026-11-21). CW2 completion remains open: the source review at
+`3ed50e318392` found admission-pressure paths that still mutate the shared bag
+eagerly. The follow-up below precedes expansion to other world owners. CW3/CW4
+remain PLANNED. The historical receipts are retained; this review ran no new
+runtime witness. [The queue](../queue.md) selects work.
 
 **Owners:** room history and confirmation remain in the selected host. Items,
 quests, flags and world values keep their typed mutation owners. This plan owns
@@ -35,7 +38,7 @@ the existing world-post admission pattern. It does not require a general
 distributed transaction framework or an event-sourced replacement for every
 store.
 
-## Why the current shared-store plan is insufficient
+## Why the original shared-store plan was insufficient
 
 The [ISL-2d design](island-rollback-and-compact-peer-input.md) chose immediate
 world writes plus retraction. It explains how to undo an append, a keyed
@@ -56,11 +59,12 @@ flag has the same limit: a different room may already have opened a door,
 spawned an enemy or advanced a script because the flag was visible. A
 commutative update does not make arbitrary readers commutative.
 
-This is a source-derived counterexample to the plan, not a new measured
-runtime failure. The present witnesses mostly prove a writer's own replay.
-The first implementation slice must run the dependent-reader case.
+This was a source-derived counterexample at the initial review baseline,
+`6895e516863872eb6d38093a27225ed8e2973d70`. CW1 subsequently ran the
+dependent-reader case and recorded the failure below. CW2 changed the ordinary
+cell path; it did not complete every admission and retirement case.
 
-### Source evidence
+### Initial source evidence and subsequent corrections
 
 | Existing owner | What it establishes | Limit relevant to this plan |
 | --- | --- | --- |
@@ -68,13 +72,13 @@ The first implementation slice must run the dependent-reader case.
 | [RoomWrite and retractors](../../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/room_writes.rs) | Room/tick provenance and ordered undo helpers | They track writes, not foreign reads or causal dependents |
 | [Hosted room replay](../../../crates/ambition_hosted_world/src/room_rollback.rs) | One room can restore and replay while other rooms are hidden | Hiding another room during replay does not undo its earlier observations |
 | [world_posts](../../../crates/ambition_platformer2d_runtime/src/world_posts.rs) | Holds speculative posts, records recipient admission, repeats admission at the original replay tick | This is a useful existing pattern, not yet a complete world-state mutation service |
-| [world_values](../../../crates/ambition_platformer2d_runtime/src/world_values.rs) | Holds writes from independent rooms until confirmation | Held rows lack the final reply identity; a later refusal is only logged |
+| [world_values](../../../crates/ambition_platformer2d_runtime/src/world_values.rs) | Holds writes from independent rooms until confirmation | At the initial baseline, held rows lacked final reply identity and later refusals were only logged; CW1 corrected this |
 | [ActionMailbox / ActionReply](../../../crates/ambition_platformer2d_shared_tangle/src/action_results.rs) | Scoped action identity, pending work and typed result stages | A held world operation must retain this identity through its final decision |
 
-The current world-value adapter reports terminal **Applied** for
-**world_value_held**. Its actual compare-and-set can later fail at confirmation.
-Keep the useful confirmation mechanism; change the outcome contract so a
-caller can distinguish pending acceptance from a performed world change.
+The initial world-value adapter reported terminal **Applied** for
+**world_value_held**, although its compare-and-set could later fail at
+confirmation. CW1 now preserves the useful confirmation mechanism and reports
+nonterminal **Admitted**, followed by the actual decision under the same ticket.
 
 ## The three state spaces
 
@@ -363,6 +367,177 @@ No script port uses an item, so the native appliers are the only callers.
 **Not yet exercised:** source retirement (the proposing room unloads before
 confirmation). A proposal is keyed by room and tick and is decided by
 confirmation alone, so it commits without its room. No run has shown it.
+
+### CW2 follow-up — preserve authority under pressure
+
+**State: PLANNED completion of CW2, before expanding its pattern.** The receipt
+above establishes the cases it names. Source inspection at `3ed50e318392`
+found the following definite branches; the pressure/replay witnesses below
+have not been run by this review.
+
+| Current source | Admission-pressure behavior |
+| --- | --- |
+| [committed_bag::propose](../../../crates/ambition_platformer2d_items/src/committed_bag.rs) | Returns `false` when 64 proposals are retained |
+| [apply_item_grants / apply_item_uses](../../../crates/ambition_platformer2d_items/src/narrative.rs) | Continue only after a successful proposal; refusal falls through to immediate bag mutation and, for use, the local effect |
+| [committed_bag::spend](../../../crates/ambition_platformer2d_items/src/committed_bag.rs) | A refused `Return` proposal falls through to immediate `put_back`, even for a room that rewinds alone |
+
+The grant/use inverse-log writes were deleted by CW2. These fallback mutations
+therefore neither wait for confirmation nor acquire the old retraction entry.
+This repeats the dependent-reader problem under pressure; it is not a reason
+to restore shared-world undo. A full queue cannot change rollback authority.
+
+#### Classify the authority, then admit within it
+
+The item owner selects the execution road from explicit source authority:
+one shared rollback history, an independently rewinding history, or refusal
+because required authority/address evidence is unavailable. Admission failure
+cannot select another road. In particular, a missing room-operation identity,
+target occurrence or required tick does not authorize the immediate path.
+
+Use a typed domain outcome that distinguishes immediate application, held
+admission and hard refusal, instead of a boolean that means both “not held”
+and “safe to apply now.” The existing
+[world-value admission](../../../crates/ambition_platformer2d_runtime/src/world_values.rs)
+already classifies authority before returning `world_write_queue_full` or
+`writer_without_authority`; use that separation without copying its payloads.
+
+For a new grant/use that exceeds admission capacity, the selected policy is
+hard refusal with no shared mutation or local mechanical effect. A caller
+may submit a later new attempt under its domain policy. Do not silently run
+the request eagerly or leave a consumed input looking like applied work.
+Menu/participant adapters resolve their subject and report the outcome; the
+same item-owner operation must remain usable by native body/object callers.
+The single-history path keeps its existing same-tick behavior.
+
+This is a deliberate behavior correction for overflow and missing authority.
+A narrative grant or other caller must receive the refusal; it must not
+record successful fulfillment merely because it emitted the request. Reuse
+the existing domain/action outcome road where it supplies that meaning.
+
+#### Admission capacity belongs to the replay contract
+
+Hard refusal alone is not the complete model. If a replay rechecks today's
+shared proposal queue, another room's pending work can change Held to Refused
+for the same source inputs. The source can branch on that result. This is an
+unrecorded cross-history observation even though refusal changed no bag value.
+It is a design consequence of the replay contract, not a newly run failure.
+
+Use a bounded proposal budget owned by the source history for this packet.
+A proposal consumes a credit; its recorded decision or acknowledgement cut
+returns the credit. These transitions restore with the source history.
+Bound aggregate storage when admitting source/history epochs. Do not infer
+the replayed credit balance by counting today's globally retained rows, even
+if filtered to one room: an earlier proposal may now be committed and gone
+while its acknowledgement had not yet arrived at the replayed tick.
+
+The confirmed world owner can still refuse an allocation because its own
+settlement capacity is full. It records that decision once and delivers it
+at the source/recipient cut; no debit precedes reservation of that state.
+This is different from source-side proposal admission. The same distinction
+applies to world-value admission when its queue refusal is visible to replayed
+behavior. Its existing typed authority classification is useful, but is not
+proof that a shared pending-count read is a replay-stable budget.
+
+An alternative is a host-owned admission decision retained as an explicit
+external input. That policy may keep a refusal even after the foreign proposal
+that occupied capacity is withdrawn. This packet selects source-owned credits
+instead; do not introduce that stronger host-service policy implicitly.
+Keep the accounting with the existing histories and typed domain operations.
+This does not require a general distributed flow-control service.
+
+#### An allocation owns value until its disposition is settled
+
+A committed debit creates an identified item allocation: the originating
+operation, exact recipient occurrence, admitted local cut and outstanding
+quantity. Reuse stable occurrence identity, not the current `SimId` spelling;
+the bag decides what that address may receive. Changing address representation
+does not make an allocation follow a migrating body into another history.
+Keep the declared destination-cut policy explicit.
+
+Several uses can occur in one room on one tick. Room/tick provenance is not
+their operation identity. A return names the allocation it discharges; it is
+not an unqualified `Return { item }` that can create value independently.
+The item owner retains one canonical debit/disposition record for the replay
+and duplicate-delivery horizon, with the existing stale-work cutoff rule.
+
+The allocation's debit is committed; its local use/return choice can still be
+provisional until the recipient cut confirms. Replay repeats the local
+effect or proposed return from that allocation without another debit. At
+committed settlement it is consumed or returned once, never both. Returning
+value changes the shared bag only at that settlement boundary.
+
+Record that provisional disposition in the recipient's history at the cut.
+It rewinds and recomputes with that history; the world debit does not.
+Confirmation settles the recorded disposition. It must not re-evaluate
+eligibility against the body's newer state. A body that loses its health or
+Mana capability after accepting a cell has not made that earlier use unused.
+A terminal disposition cannot reopen on repeated delivery. Recipient replay
+still reapplies the authorized local result at its original cut without a
+second world debit; a global consumed marker must not skip that local replay.
+
+Unlike a new request, an already issued allocation cannot be discarded when
+a return queue is full. Its owner retains the pending return obligation
+(or reserves that obligation's capacity when allocating). Pressure must
+neither refund the bag eagerly nor lose the cell. Do not infer terminal
+consumption merely from having emitted a heal request; retain the current
+domain rule for whether that local effect was accepted.
+
+Reserve the bounded state needed to settle an allocation before debiting the
+bag. If that capacity is unavailable, refuse the new allocation without a
+debit. Outstanding value does not expire with old replay receipts. Only a
+settled allocation can retire after its supported replay/duplicate horizon;
+keep the stale-work cutoff so an old return cannot become a new grant after
+its detailed receipt is gone. This bounds admission without dropping an
+existing custody obligation.
+
+This is item custody/accounting, with typed outcomes and a concrete conserved
+quantity. It does not install a generic transaction coordinator in the host
+or turn health, Mana and all world values into one mutation protocol.
+
+#### Completion witnesses and retirement
+
+- Fill the source's declared proposal capacity (the current shared bound is
+  64), then request a grant: the extra request is refused without exposing a
+  cell. Rewind the source and let
+  another room attempt a use; no speculative grant can fund its effect.
+- Under the same pressure, request use of a committed cell: hard refusal
+  leaves both bag and body unchanged. Missing required identity follows
+  refusal, not eager execution.
+- Allocate a cell, then replay its recipient cut into an ineligible body
+  while ordinary proposal capacity is full. The outstanding allocation
+  settles through its reserved return obligation. No eager refund is visible
+  to other rooms.
+- Replay again across use/refusal and settle the cut: one original debit can
+  fund one accepted effect or one committed return. It cannot fund both,
+  return twice, or debit twice. Preserve the recorded ordinary CW2 cases.
+- Replay the same source inputs and admitted decision cuts after another
+  room fills or drains its pending queue. Admission outcomes and source
+  credits remain the same. Also cross the original acknowledgement cut after
+  the global row has retired: the source gets no early or duplicate credit.
+
+In the current implementation's counterexample, recipient replay need not
+free a proposal slot: the first run may have used the allocation without
+proposing a return, and retained proposals can belong to other rooms. Live
+confirmation instead removes a use proposal before it can produce a return.
+The selected design avoids this competition: foreign pending work does not
+spend source-owned credits, and an issued allocation retains settlement state.
+
+Source retirement remains unresolved by the existing receipt. Specify and
+exercise a valid proposal whose source room retires before confirmation,
+alongside recipient retirement/replacement before its cut. Source retirement
+does not itself erase a confirmed obligation; an old recipient address cannot
+redirect value to its replacement. Refuse a newly unclassifiable request
+without conflating it with an already admitted proposal.
+Room retirement must supply a final disposition or explicitly transfer the
+obligation and the authority that can settle it. Merely keeping the record
+does not supply missing confirmation evidence, and disappearance is not
+proof of a confirmed unused cell.
+
+**Exit:** authority determines execution; admission only accepts or refuses
+within that authority; allocation conservation holds under pressure, replay
+and retirement. Delete the eager-on-refusal fallthroughs and replace anonymous
+return minting with the item owner's identified settlement. Retain CW1/CW2's
+historical receipts and add the completion evidence beside them.
 
 ### CW3 — Route world consequences through their actual owners
 

@@ -221,6 +221,22 @@ rather than maintaining a second lifecycle model.
 Keep the repository's target-bind/headroom policy in every repeated-Cargo entry
 point.
 
+The source review at `3ed50e318392` selects
+[compiler boundaries and build products](compiler-boundaries-and-build-products.md).
+Two type parameters can stop at a smaller boundary: a port type after it
+constructs its codec and Bevy system configuration, and a phase marker after
+it selects its typed request batch. Keep the typed entrypoints and distinct
+phase systems. Share the schedule installer and each domain's substantial
+reducer body. These cuts do not add per-request virtual dispatch.
+
+The same review found two dependency-selection problems. The game schema
+library imports its checker frontend, and command packages activate desktop
+or capture dependencies for offline or simulation work. CB1 and CB4 name
+the exact edges, surviving dependency paths and supported consumers. They
+do not establish a smaller native player merely by removing a library edge.
+CB2 and CB3 test the concrete specialization cuts above. These are source
+findings; this review supplies no new build or binary measurement.
+
 The 2026-11-21 [linking plan](capability-linking-and-prepared-facets.md)
 selects a structural hypothesis: pure schema and binding work should not
 import the native ECS interpreter merely to describe authored content.

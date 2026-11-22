@@ -24,6 +24,12 @@ independent rooms are isolated. Keep the selected room topology, transport
 work and successful local replay proofs. Execute CW1-CW3 at the shared-world
 boundary before extending that boundary to more gameplay domains.
 
+At source `3ed50e318392`, CW1 and the ordinary CW2 cell path are implemented.
+The [CW2 completion packet](causal-world-commit.md#cw2-follow-up--preserve-authority-under-pressure)
+remains required: queue pressure still selects eager bag writes or refunds.
+Preserve the dated receipts below without treating them as proof of admission
+pressure, allocation conservation or source retirement.
+
 ## Why this work was selected, and what it measured
 
 Until 2026-11-10 `ambition_platformer2d_rollback_ggrs/src/peer_input.rs` serialized a fixed-width `PeerInput` of **168 bytes per player per frame** at wire identity 8: **72 bytes** of `ControlFrame` plus **96 bytes** of `PeerVerdict` (operation, two content identities, plan digest, verdict), paid even when no room operation was pending. Wire identity 9 replaces the verdict with an 8-byte `PeerVerdictToken`, so a `PeerInput` is **80 bytes**. See [the result below](#result-2026-11-10).

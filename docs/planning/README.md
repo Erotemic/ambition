@@ -307,6 +307,9 @@ links to.
 - [`engine/prevalidated-content-artifacts.md`](engine/prevalidated-content-artifacts.md)
   — content validated ahead of time for fast admission; deferred.
 - [`engine/performance-and-iteration.md`](engine/performance-and-iteration.md)
+- [`engine/compiler-boundaries-and-build-products.md`](engine/compiler-boundaries-and-build-products.md)
+  — typed adapters with shared implementations, executable dependency selection,
+  and bounded compile-time and binary-size experiments.
 - [`engine/execution-specialization-and-work-selection.md`](engine/execution-specialization-and-work-selection.md)
   — full/reference semantics with fast gameplay paths; prepare fixed relations
   and select active query, visual, behavior and navigation work.

@@ -110,7 +110,9 @@ or updating their source. Check with
 `6895e516863872eb6d38093a27225ed8e2973d70`; no implementation or new
 performance result is claimed. This row selects bounded architecture work
 within the product order above. The anchor, role and interaction follow-up
-below reviews production source `b91b29d35935`.
+below reviews production source `b91b29d35935`. The implementation follow-up
+at `3ed50e318392` keeps the CW1, CW2 and Effects 6a receipts and identifies
+the remaining authority boundaries below. It reports no new runtime result.
 
 **Observed:** schema values can lower before their imports resolve; body and
 candidate contexts collect optional domain catalogs; several live-contribution
@@ -131,18 +133,24 @@ world-post admission.
    [CW1](engine/causal-world-commit.md#cw1--prove-the-dependent-reader-case-and-complete-held-outcomes)
    (done 2026-11-21: the dependent-reader case is a measured failing baseline
    on the shared bag, and a held world-value write reports `Admitted`, then
-   its real decision under the same ticket), then migrate one native atomic
-   item use through CW2 (done 2026-11-21: a cell grant and a cell use from a
-   room that rewinds alone are proposals the committed bag decides once
-   their tick is confirmed; four cases in one hosted witness; source
-   retirement not yet exercised). This precedes
-   extending eager shared writes to more domains; unrelated local work continues.
+   its real decision under the same ticket). The first CW2 cell grant/use
+   slice is implemented with four hosted cases. Completion remains open:
+   [CW2 follow-up](engine/causal-world-commit.md#cw2-follow-up--preserve-authority-under-pressure)
+   removes eager grant, spend and refund on queue refusal, and keeps each
+   committed allocation owned through use or return. Source-owned admission
+   credits replay at their recorded cuts; today's foreign queue cannot
+   change an old outcome. Prove pressure, destination replay and source
+   retirement before extending this road to more domains. Unrelated local
+   work continues.
 2. [Effects phase 6a](engine/actor-effects-and-modifier-composition.md#6a-preserve-issuer-identity-in-control-and-pose)
-   preserves independent hold and pose issuers (done 2026-11-21: holds and
-   poses are claims keyed by application; a transform's expiry withdraws only
-   its own pose; claim withdrawal on attachment retirement is still open).
-   Phases 6b/6c extend that same
-   ownership operation to a native interval and numeric/capability channels.
+   preserves independent hold and pose issuers (pilot implemented 2026-11-21:
+   holds and poses are claims keyed by application; a transform's expiry
+   withdraws only its own pose). Complete the
+   [occurrence and restore boundary](engine/actor-effects-and-modifier-composition.md#6a-follow-up--bind-the-live-occurrence-and-restore-the-authority)
+   before phases 6b/6c expand it. Retiring a source cannot revoke a replacement
+   at the same authored address; derived masks and winners rebuild from the
+   restored claims before their next read. Then share one interval across
+   native and numeric/capability contributions.
 3. [Linking L1/L2](engine/capability-linking-and-prepared-facets.md#bounded-implementation-slices)
    removes the repeated equipped-repertoire interpretation, then binds a
    mixed mechanical candidate. L3's pure cutscene consumer is an independent
@@ -214,6 +222,44 @@ For K1–K3, interchangeable implementations agree on numeric policy, ordering,
 duplicates, unknown/invalid input and snapshot lifetime. Measure setup and
 consumption as well as queries; delete the private grid, unused contact
 overlay wrapper and repeated ambiguity reducers as their callers migrate.
+
+### BUILD-BOUNDARIES — share implementation after typed selection
+
+**State:** PLANNED (source review at `3ed50e318392`, 2026-11-21).
+This is developer-iteration work within the product order above. No new
+compile-time, runtime or binary-size result is claimed.
+
+**Failure / customer:** the game schema library normally imports the
+aggregate CLI that consumes it; the tool package selects desktop/capture
+dependencies for offline and headless commands; port and phase generics
+carry type selection into substantial work that depends only on values.
+
+**Owner:** [compiler boundaries and build products](engine/compiler-boundaries-and-build-products.md).
+CB1 removes the schema-to-checker edge. CB2 converts typed port metadata and
+Bevy systems before shared schedule installation. CB3 retains distinct
+phase systems and their local state, while sharing projectile and status
+reducer bodies. CB4 makes each command select its real dependencies, then
+proves the reusable harness and game provider cuts separately.
+
+**Next action:** CB1 and CB2 can run independently. For CB3, begin with the
+projectile and held-status customers; preserve ordered staging and action
+results. For CB4, begin with the offline item report and one real harness
+consumer. Try explicit optional feature families before adding packages.
+Do not move tool binaries back into app integration-test builds.
+
+**Acceptance:** an independent schema consumer excludes the checker; the
+selected offline/simulation command does not activate unrelated capture
+features; shared implementations retain port codecs, phase identities,
+local state, publication order and domain results. Record surviving paths
+when a complete renderer cut is not yet achieved. Use existing compile and
+monomorphization tools to distinguish source fanout, emitted code, link cost
+and delivered bytes. A simpler source boundary alone is not a speed claim.
+
+The curved-contact callback experiment remains conditional under portal P4.
+Do not erase the ordinary collision path, replace domain codecs with a
+generic value tree, or redesign rollback from old mono counts. Keep each
+experiment only for an observed cost or a simpler boundary with no material
+runtime regression; report which reason supports it.
 
 ### BOSS-CHARACTER — one character path for bosses — ✅ DONE 2026-11-21
 

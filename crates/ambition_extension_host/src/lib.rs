@@ -574,6 +574,10 @@ fn offer<P: Port>(role: PortRole, phase: Phase, owner: &'static str) -> PortOffe
     }
 }
 
+/// The typed half of request installation: check the port, choose its codec
+/// and convert the adapter, then hand plain values to
+/// [`install_request_values`], which owns the schedule topology once for
+/// every port.
 fn install_request<'a, P: Port, M>(
     app: &'a mut App,
     phase: Phase,
@@ -581,16 +585,25 @@ fn install_request<'a, P: Port, M>(
     adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
     stage: RequestStage,
 ) -> &'a mut App {
+    let offer = offer::<P>(PortRole::Request, phase.clone(), owner);
+    install_request_values(app, phase, offer, exec::RequestCodec::of::<P>(), adapter.into_configs(), stage)
+}
+
+fn install_request_values(
+    app: &mut App,
+    phase: Phase,
+    offer: PortOffer,
+    codec: exec::RequestCodec,
+    adapter: bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::ScheduleSystem>,
+    stage: RequestStage,
+) -> &mut App {
+    let key = offer.key.clone();
     let (schedule, mut installation) = installation(app);
-    installation
-        .offers
-        .push(offer::<P>(PortRole::Request, phase.clone(), owner));
-    installation
-        .request_codecs
-        .insert(P::KEY, exec::RequestCodec::of::<P>());
+    installation.offers.push(offer);
+    installation.request_codecs.insert(key.clone(), codec);
     let previous = installation
         .last_request
-        .insert((phase.clone(), stage), P::KEY);
+        .insert((phase.clone(), stage), key.clone());
     ensure_phase(app, schedule, &phase);
     let parent = match stage {
         RequestStage::Lower => ExtensionSet::Lower(phase.clone()),
@@ -605,7 +618,7 @@ fn install_request<'a, P: Port, M>(
                 .run_if(move |outbox: Res<ExtensionOutbox>| outbox.holds_phase(&submitted)),
         );
     }
-    let set = ExtensionSet::LowerPort(phase.clone(), P::KEY);
+    let set = ExtensionSet::LowerPort(phase.clone(), key);
     app.configure_sets(schedule, set.clone().in_set(parent));
     if let Some(previous) = previous {
         app.configure_sets(
@@ -650,18 +663,13 @@ impl ExtensionAppExt for App {
         owner: &'static str,
         adapter: impl IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
     ) -> &mut Self {
-        self.offer_extension_trigger::<P>(phase.clone(), owner);
-        let (schedule, _) = installation(self);
-        self.add_systems(schedule, adapter.in_set(ExtensionSet::Collect(phase)))
+        let offer = offer::<P>(PortRole::Trigger, phase.clone(), owner);
+        install_trigger_values(self, phase, offer, Some(adapter.into_configs()))
     }
 
     fn offer_extension_trigger<P: Port>(&mut self, phase: Phase, owner: &'static str) -> &mut Self {
-        let (schedule, mut installation) = installation(self);
-        installation
-            .offers
-            .push(offer::<P>(PortRole::Trigger, phase.clone(), owner));
-        ensure_phase(self, schedule, &phase);
-        self
+        let offer = offer::<P>(PortRole::Trigger, phase.clone(), owner);
+        install_trigger_values(self, phase, offer, None)
     }
 
     fn install_extension_observation<P: Port>(
@@ -798,12 +806,43 @@ impl ExtensionAppExt for App {
 mod tests;
 
 fn install_observation<'a, P: Port>(app: &'a mut App, phase: Phase, owner: &'static str, supplier: Supplier) -> &'a mut App {
+    let offer = offer::<P>(PortRole::Observation, phase.clone(), owner);
+    install_observation_values(app, phase, offer, supplier, ambition_extension_sdk::encode_erased::<P>)
+}
+
+/// The untyped half of observation installation: the boxed supplier and the
+/// port's encoder are already plain values.
+fn install_observation_values(
+    app: &mut App,
+    phase: Phase,
+    offer: PortOffer,
+    supplier: Supplier,
+    encode: ambition_extension_sdk::EncodeFn,
+) -> &mut App {
+    let key = offer.key.clone();
     let (schedule, mut installed) = installation(app);
-    installed.offers.push(offer::<P>(PortRole::Observation, phase.clone(), owner));
+    installed.offers.push(offer);
     ensure_phase(app, schedule, &phase);
-    app.world_mut().resource_mut::<ExtensionInstallation>().suppliers
-        .insert(P::KEY, (supplier, ambition_extension_sdk::encode_erased::<P>));
+    app.world_mut().resource_mut::<ExtensionInstallation>().suppliers.insert(key, (supplier, encode));
     app
+}
+
+/// The untyped half of trigger installation: record the offer, make sure
+/// the phase's sets exist, and add the converted collector, if this port
+/// has one of its own.
+fn install_trigger_values(
+    app: &mut App,
+    phase: Phase,
+    offer: PortOffer,
+    adapter: Option<bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::ScheduleSystem>>,
+) -> &mut App {
+    let (schedule, mut installation) = installation(app);
+    installation.offers.push(offer);
+    ensure_phase(app, schedule, &phase);
+    match adapter {
+        Some(adapter) => app.add_systems(schedule, adapter.in_set(ExtensionSet::Collect(phase))),
+        None => app,
+    }
 }
 
 pub mod observer_delivery;

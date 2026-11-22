@@ -567,7 +567,7 @@ fn jaw_from_him(sim: &mut Platformer2dSimHarness, rig: &ambition_platformer2d::c
 /// along his jaw: what a redraw that moves the point publishes.
 fn move_the_jaw_of_his_rig(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, sim: &mut Platformer2dSimHarness, along: f32) {
     use ambition_platformer2d::combat::body_rig::BodyRig;
-    let text = ambition_platformer2d::sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, "trex_enemy").expect("his published rig");
+    let text = ambition_platformer2d::sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, "trex_enemy_gameplay").expect("his published gameplay rig (`bosses::trex::body_rig`)");
     let mut rig = ambition_platformer2d::characters::actor::BodyRigDefinition::from_published_ron(text).expect("his rig parses");
     let jaw = rig.attachments.iter_mut().find(|point| point.name == "jaw").expect("his rig states a `jaw` attachment");
     jaw.offset.0 += along;

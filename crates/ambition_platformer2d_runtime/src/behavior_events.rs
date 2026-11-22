@@ -49,9 +49,16 @@ fn install_source<P: Port>(app: &mut App, owner: &'static str, selector: &str, t
     assert_eq!(P::ROLE, ambition_extension_sdk::PortRole::Trigger);
     let source = NativeSource {port: P::KEY, selector: selector.into(), topical, dispatch: dispatch::<P>};
     let mut sources = app.world_mut().get_resource_or_init::<NativeSources>();
+    let first = sources.0.is_empty();
     assert!(sources.0.insert(P::KEY.to_string(), source).is_none(), "a native event has one source contract");
-    app.install_extension_trigger::<P, _>(ACTOR_THINK, owner,
-        crate::behavior_inbox::collect::<EventMailbox>(crate::behavior_inbox::Lane::Fact));
+    // Every fact port is read from the one EventMailbox journal: the first
+    // source installs its collector, and later ones only offer their port.
+    if first {
+        app.install_extension_trigger::<P, _>(ACTOR_THINK, owner,
+            crate::behavior_inbox::collect::<EventMailbox>(crate::behavior_inbox::Lane::Fact));
+    } else {
+        app.offer_extension_trigger::<P>(ACTOR_THINK, owner);
+    }
 }
 fn dispatch<P: Port>(invocations: &mut ExtensionInvocations, entry: &str, selector: &str,
     scope: InvocationScope, bytes: &[u8], receipt: InvocationReceipt)

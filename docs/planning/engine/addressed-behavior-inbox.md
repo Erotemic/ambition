@@ -141,6 +141,16 @@ Native facts already use `EventRoutes` and skip publication work when no route
 exists. Preserve those paths. Install the common fact collector once; each new
 native source must not add another all-mailbox scan.
 
+**Done (2026-11-22).** Each `install_native_source` used to install its own
+`collect::<EventMailbox>(Lane::Fact)` system, so the nine fact ports
+(activated, defeated, broken, collected, born, crossed, crossing refused,
+retired, signal) ran nine identical scans of every mailbox each tick. Each
+scan pushed the same `Lane::Fact` onto the receiver's lane list. The first
+source now installs the collector. Later sources call the host's new
+`offer_extension_trigger`, which records the trigger offer for admission
+with no adapter system. A new fact port adds no scan. Deriving active receiver
+work from the journals (below) is still open.
+
 Derive active receiver work from the canonical journals. Keep delivery-ready rows,
 retry rows, incomplete calls with active-time deadlines, unbound handlers waiting
 for a binding change, and frozen work distinct. A subscription with an empty

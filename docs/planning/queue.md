@@ -150,6 +150,10 @@ The endpoint review at `00bf92c22142` adds REL1–REL3 beside the completed
 anchor slices and REL4 under A7. These share native admission and accepted
 transition cuts; they do not promote a general relationship framework or
 Smash-only work.
+The observation review of the same source adds OBS1–OBS3: native exact
+evidence admission, memory/report semantics and declared knowledge demand
+for module controllers. It also refines SS7's opening scope. Durable social
+knowledge and generated dialogue remain unselected.
 
 **Observed:** schema values can lower before their imports resolve; body and
 candidate contexts collect optional domain catalogs; several live-contribution
@@ -247,6 +251,10 @@ world-post admission.
    doorway scenes; a skip keeps the cursor and its `WaitFor`s, and the brute
    scene waits on the bomb's impact, `actor.throw_landed`. A required
    result's own failure policy waits for a scene that needs one.)
+   Complete the [conversation opening scope](engine/story-sequences.md#qualify-a-conversation-by-its-opening-scope):
+   identical authored participants in different live room instances must
+   not share a conversation identity, runner or end result. Preserve the
+   existing ledger and independence from mutable input ownership.
    [O6a/O6b](engine/authored-gameplay-logic-and-orchestration.md#o6--bind-invocation-roles-through-the-existing-call-boundary)
    adds the existing merchant as an independent first context customer:
    wallet questions and purchase requests select the same payer policy.
@@ -309,6 +317,25 @@ world-post admission.
     work from the source `34b4ab0b7f4f` audit; it does not promote Smash-only
     polish. IN3 records the smaller qualified-press coalescing correction.
 
+11. [Observation OBS1](engine/bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary)
+    makes the tactical direct-observation set govern native memory refresh
+    and direct acquisition, not only rich-view construction. Stop the
+    tactical path's uncapped cheap fold and preserve the separate cheap
+    and intentional omniscient contracts. Retention over time is a separate
+    budget. [OBS2](engine/world-facts-observations-and-memory.md#obs2--preserve-evidence-meaning-through-memory-and-communication)
+    carries observed liveness and source/cut through sight, report and hit
+    reconciliation. A position-confidence comparison cannot discard an
+    accepted hit's hostility; stale memory cannot mint fresh firsthand
+    reports; a crew report cannot make its subject target itself. Preserve
+    native Settle timing, pirate crew assistance and existing saved hostility.
+    Then [OBS3](engine/agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers)
+    resolves native plus module observation demand before one domain
+    projection is built. Prove a selected sighted module with a native
+    `None` fallback and an explicitly authoritative module as control.
+    Keep today's world-rule ports and controller gate. Streaming top-K is
+    an owner-local measured option after admission is correct; neither a
+    new collection package nor a durable social-memory system is required.
+
 **Acceptance:** body permission governs the actual action spend; a refused
 press has no accepted-action side effects; an applicable hitlag or held
 reaction suspends move execution and movement on the same action interval;
@@ -330,6 +357,12 @@ still cancel admitted work. A hit's native reception and move confirm agree
 without inventing a physical reaction. GNU's fist impact retains its striker
 and recipient policy without spending/healing fictitious limb HP or giving
 two confirms for one strike.
+The tactical cap bounds direct evidence admitted/refreshed, while legitimate
+old memory may remain. An observed death disconfirms pursuit without revealing
+an offscreen death. Report source/cut and subject survive delivery. A sighted
+module receives the chosen belief projection without a live-position fallback;
+explicit authoritative controllers keep their contract. Equal authored pairs
+in separate rooms keep distinct conversation occurrences.
 State which axis each packet proves. Code, runtime behavior
 and compile-time performance remain separate evidence.
 

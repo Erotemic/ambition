@@ -65,8 +65,14 @@ refines selected ARCHITECTURE-COMPOSITION and A7 work. Its current-residency
 versus prospective-transfer distinction is shared, while capture, ride,
 possession and item disposition remain native. Broader durable relationships,
 cross-room summon delivery and generic graph/index work stay unselected;
-the live cohort fixes do not establish their contracts. The next research
-candidate is observation and durable social knowledge in the audit frontier.
+the live cohort fixes do not establish their contracts.
+
+The following [observation audit](engine/world-facts-observations-and-memory.md)
+selects OBS1–OBS3 under ARCHITECTURE-COMPOSITION. It repairs native direct
+evidence admission, source-aware tactical memory/crew reports and module
+observation demand. It does not select a durable social-memory store, theft
+law, recognition system or model-backed dialogue. The next research candidate
+is shared observers and control ownership changes in the audit frontier.
 
 ### Persistent systemic world
 
@@ -145,13 +151,19 @@ there is no all-crates extraction program.
 ### World facts, orchestration and agentic characters
 
 - ▢ **Deterministic world facts + observations/memory.** Keep simulation truth
-  separate from what a character observed or believes. Use
+  separate from what a character observed or believes. OBS1–OBS3 are selected
+  bounded corrections, not a new reservoir checklist. Promote durable social
+  knowledge only with a concrete recognized-incident/dialogue customer and
+  stated room/death/checkpoint/replay/save horizons. Preserve existing narrow
+  Player-hostility and per-seat dialogue-visit policy. Use
   `scripts/measure/authored_route_gates.py` for route-condition measurements instead of
   copying counts into planning. Owner:
   [`engine/world-facts-observations-and-memory.md`](engine/world-facts-observations-and-memory.md).
-- ▢ **Agentic character runtime.** Typed actions/dialogue should consume world
-  truth; model-backed realtime characters must enter through participant seams
-  rather than nondeterministic tick mutation. Owner:
+- ▢ **Agentic character runtime.** Policies consume the knowledge projection
+  their role permits and propose typed intent through ordinary action admission.
+  Module-backed brains already exist; OBS3 supplies the shared observation
+  demand boundary. Remote/model acceptance, persistent goals and generated
+  dialogue remain separate customer-gated work. Owner:
   [`engine/agentic-character-runtime.md`](engine/agentic-character-runtime.md).
 - ▢ **Authored gameplay orchestration.** Generalize beyond prepared calls only
   when a real customer needs a reusable rule representation. Owner:

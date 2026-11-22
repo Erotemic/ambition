@@ -1,10 +1,10 @@
 # Architectural audit frontier
 
 **State:** audit map and research priorities, 2026-11-22. Latest source:
-`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass audits relation
-admission, endpoint transitions and retained exit context. It follows the
-effective-geometry audit at documentation commit `f533f6c03070`; the runtime
-source is unchanged. This head includes the preceding
+`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass audits observer
+evidence, attention, tactical memory, module knowledge and social retention.
+It follows the relationship audit at documentation commit `86821d315d0a`;
+the runtime source is unchanged. This head includes the preceding
 planning overlays and the agents' IR1 item-recipe and AC1 construction-receipt
 work. Earlier input/life/history and hosted-prediction findings below came
 from `34b4ab0b7f4f`; they remain separate owner work.
@@ -31,6 +31,7 @@ ever read that code.
 | Resource/value ownership, effects and shared world writes | [Causal world commit](causal-world-commit.md), [effects](actor-effects-and-modifier-composition.md), [custody](item-custody-and-accounting.md) | Historical membership, new world-owner operations and endpoint retirement |
 | Construction, residency and reconstitution | [Construction](construction-and-reconstitution.md), [residency](open-world-runtime-and-residency.md) | Transfers across independent histories and supported dormant execution |
 | Relationship admission and endpoint lifetime | [REL1–REL4](relationship-endpoints-and-transitions.md), with capture, mount, control and item owners | Native witnesses for actual transfer cohorts/configurations, late refusal, reset state and orphan continuation; do not repeat the general anchor or ID audit |
+| Observer evidence, tactical knowledge and social retention | [OBS1](bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary), [OBS2 and horizons](world-facts-observations-and-memory.md), [module demand OBS3](agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers) | Native over-cap, dead/lost-sight, report and module-provider witnesses; durable incident/recognition work only with a concrete later dialogue customer |
 | Content preparation, linking and authoring | [Linking](capability-linking-and-prepared-facets.md), [prepared media](asset-authoring-and-prepared-media.md), [asset delivery](asset-library-editor-and-delivery.md) | A demonstrated generation/publication gap or a repeated interpretation still outside its owner |
 | Compiler, dependency and product boundaries | [Compiler/build products](compiler-boundaries-and-build-products.md), [runtime composition](capability-and-runtime-composition.md) | Fresh compile/link/size measurements after the planned cuts |
 | Narrative roles, interaction and native completion | [Story](story-sequences.md), [interaction](interaction-opportunities-and-activation.md), [native actions](native-action-completion.md) | An actual lost invocation/result/role boundary, not a general task framework |
@@ -41,9 +42,10 @@ these boundaries before the preceding pass. Hosted room transfer was already
 selected as ISL-3; that pass sharpened its history cut. Later passes traced
 hosted guest prediction and effective geometry, each then the first candidate.
 Their unresolved implementation work stays with the domain owners. The
-relationship pass below takes the next candidate through native admission,
-transfer, reset and reconstruction. It leaves the separate social-knowledge
-and observer/control questions open.
+relationship pass below takes its candidate through native admission,
+transfer, reset and reconstruction. The following observation pass traces
+native sight, accepted hits, crew delivery and saved hostility. The separate
+shared-observer/control transition question remains the next candidate.
 
 ## Findings retained from recent passes
 
@@ -222,6 +224,59 @@ gameplay reproduction or speedup is claimed. Preserve IR1, AC1's first slice,
 AC2, A1/A2 and I1/I2. There is no new universal relation manager, durable
 mount graph or per-frame all-body scan.
 
+### An observation is admitted evidence, not a confidence score
+
+**Owners:** [OBS1](bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary),
+[OBS2](world-facts-observations-and-memory.md#obs2--preserve-evidence-meaning-through-memory-and-communication)
+and [OBS3](agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers).
+
+The tactical view keeps 16 actors, but the native decision path also selects
+the cheap branch and folds every visible peer into memory. Those exact
+memories can become crew reports. The measured view cap is real; it does
+not certify bounded direct evidence or reporting. The first correction
+routes tactical direct acquisition and memory refresh through the same
+admitted set while preserving cheap target belief and intentional
+omniscience. Old memory, a report or a hit can legitimately name an actor
+outside current attention.
+
+The memory row then loses evidence meaning. It drops observed liveness,
+uses position confidence to decide whether an attributed hit changes
+hostility, and treats confidence 1 as proof of a recent sight. A possessed
+caller can retain old full-confidence memory while its autonomous fold is
+skipped, then keep reporting it from its current location. A caller's
+relative hostility can also make a report's subject believe it is its own
+foe. These are source-derived sequences, not executed gameplay receipts.
+
+Keep the sample source/cut distinct from a prediction and its confidence.
+Carry observed liveness through the fold; retain a hit's independently
+established contribution; give crew reports subject identity and their
+original sight cut, then apply the receiver's existing assistance policy.
+Do not turn these small rules into a generic evidence graph, permanent
+incident journal or reputation system. Preserve Settle timing, room clearing,
+direct-only reporting intent and the pirate crew customer.
+
+Module controllers expose the same ownership gap from the other side.
+Native demand comes from the native brain alone; `ActorThink.target`
+separately rereads the target's live position. Resolve effective native/
+module demand before one domain-owned projection is prepared. Offer a
+selected sighted contract without narrowing today's authoritative world
+rules or making a narrow module allocate a tactical view.
+
+The social-state trace found deliberate saved Player hostility and seat
+dialogue visits with different checkpoint horizons. It did not establish a
+general theft/witness/recognition road. Preserve those policies and select
+durable incident promotion only with its first actual dialogue customer.
+A smaller independent [SS7 refinement](story-sequences.md#qualify-a-conversation-by-its-opening-scope)
+captures opening room scope so equal authored pairs in two live instances
+cannot share conversation identity.
+
+The first useful performance changes are removing duplicate native work
+and, if measured, selecting K borrowed candidates without sorting an N-row
+temporary. Full sorting can remain the reference oracle. This pass does
+not claim flat total room cost, a speedup, or a need for a data-structure
+library. The plans specify native witnesses and controls, not an additional
+test campaign.
+
 ## Areas audited without another architecture packet
 
 Reload and asset realization were inspected against the existing plans.
@@ -250,9 +305,18 @@ change tick. Keep the K1 spatial-index and E4 cache receipts. Foreign cache
 eviction during replay may add reconstruction work; measure it with the T3
 customer before changing retention.
 
-The source reviews also checked the existing perception/knowledge ownership
-map, but did not trace enough social or observer behavior to promote a new
-finding there. Those questions remain candidates below.
+The observation pass also checked Radiant's room-rule observations and
+fighter reaction timing. Radiant's current room-wide facts are intentional
+executor inputs; LIFE1/LIFE2 already own dormant historical evaluation.
+LIFE2 now records one concrete implementation trap: missing HTN operands
+currently satisfy `Ne`, so omitting unavailable history alone is unsafe.
+No second historical-facts program is selected.
+
+Fighter engagement/pursuit deliberately reads a current admitted target
+while tactical choice reads delayed perception. Existing guards cover that
+policy. The mixed timing is not a newly found leakage defect. Production
+world-value, body-query and whereabouts observation ports also remain
+authoritative controls; the SDK label `Observation` does not mean NPC sight.
 
 ## Ranked candidates for the next audit
 
@@ -260,31 +324,7 @@ These are research questions, not established defects or selected work.
 Each starts from an existing owner and a concrete consumer. An audit is
 successful if it rules out a proposed abstraction as well as if it finds one.
 
-### 1. Observation, attention and durable social knowledge
-
-**Why high value:** tactical belief, social knowledge and planner conditions
-answer different questions about truth, access and time. The dormant
-`Present` finding is a concrete small example; it does not yet establish a
-design for durable knowledge.
-
-Start with [bounded perception](bounded-perception-and-attention.md),
-[world facts and memory](world-facts-observations-and-memory.md),
-[orchestration](authored-gameplay-logic-and-orchestration.md) and
-[character perception](../../../crates/ambition_characters/src/perception.rs).
-
-Follow one witnessed theft or hostile act through perception, attention,
-dialogue and later return. Determine what was observed, what was attended
-to, which identity was recognized, what can be inferred or told to another
-actor, and what remains after room retirement or checkpoint restoration.
-Keep unknown, forgotten and known-false separate when the consumer needs
-that distinction.
-
-**Useful artifact:** one native observation-to-knowledge path with explicit
-evidence/time/identity and an authoring example. Avoid a universal fact
-database, an all-event journal, or extending decaying tactical memory into
-permanent social truth.
-
-### 2. Shared observers, provider actions and control ownership changes
+### 1. Shared observers, provider actions and control ownership changes
 
 **Why high value:** a body frame, a seat's observer frame and a render camera
 are distinct authorities. The present input correction leaves shared-camera

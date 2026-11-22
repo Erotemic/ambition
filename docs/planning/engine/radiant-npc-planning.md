@@ -517,6 +517,14 @@ past knowledge. Missing historical evidence must not become `false`, since
 a negative condition would then claim absence. No general observation
 journal is required for this customer.
 
+**2026-11-22 source refinement:** simply omitting an unavailable fact does
+not make this safe. [`ambition_htn::plan::holds`](../../../crates/ambition_htn/src/plan.rs)
+currently makes `Ne` true when either operand is missing. Refuse/suspend
+the affected historical evaluation before that Boolean comparison, or carry
+the unavailable verdict through the supported condition path. Do not change
+all ordinary HTN inequality semantics incidentally. Include a missing-history
+negative arm in LIFE2's existing witness.
+
 When real `use` is implemented, its domain's admission and completion decide
 world effects. The planner's predicted postconditions are not authority to
 spend an item or alter a machine. Keep that future operation above the same

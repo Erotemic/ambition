@@ -350,6 +350,46 @@ whole queue each tick and compare each ask against them. Work follows actual
 admissions/transitions and their interested replies. Cutscene counts can be
 small; no frame-time saving is claimed without measurement.
 
+#### Qualify a conversation by its opening scope
+
+**Source refinement at `00bf92c22142`, 2026-11-22.** Preserve the existing
+conversation occurrence, role bindings, ledger and continuations. Complete
+its identity with the opening live-room scope; do not replace it with a
+new task or conversation framework.
+
+[`ConversationInstanceId`](../../../crates/ambition_conversation/src/instance.rs)
+contains opening tick, node, bare initiator/talker `SimId` values and the
+dialogue context. [`open_between`](../../../crates/ambition_conversation/src/opening.rs)
+does not capture the opening room. Existing `LiveBodyId` names a body by
+its `SimId` and live room precisely because separate instances can contain
+the same authored placements.
+
+Two different seats can control equivalent authored initiator placements
+in two live instances of one room and open the same node with equivalent
+talkers/context on the same tick. Their body entities and seats differ, so
+[`ActiveConversation::open`](../../../crates/ambition_conversation/src/authority.rs)
+keeps both. Their minted IDs are equal: `of_instance` finds the first,
+and `close_instance` removes both. Runner routing and the
+[narrative ledger](../../../crates/ambition_conversation/src/ledger.rs)
+also depend on that identity. This is a source-derived counterexample,
+not a newly run two-room reproduction.
+
+Capture the opening scope in the identity, or use the existing qualified
+endpoint identities. Keep that scope stable through redirection and
+continuation; do not re-key from participants' current location or mutable
+`InputOwner`. Opening scope distinguishes the conversation occurrence.
+It does not replace the existing live endpoint resolver or prevent a
+supported participant from moving. No UUID, new global counter or extra
+per-tick room scan is needed.
+
+Prove this through the real opening and narrative-end path: use duplicate
+authored placements in two rooms, distinct driving seats, equal tick/node/
+context, and assert that ending one conversation leaves the other's runner,
+input owner and pending work intact. Different home `slot:0`/`slot:1`
+identities are a control, not the failing arm. Preserve replay equality and
+the existing rule that a control handoff does not create a new conversation.
+Update the existing identity codec/checksum where its representation changes.
+
 #### Bind participants and calls
 
 **Current source:** actor commands select bodies by character name through
@@ -360,15 +400,17 @@ query the matching population without that room context. The
 carries a room into commands, but its wait answers are keyed by raw condition
 text. The same line cannot have independent answers for two bound scenes.
 
-Yarn has the same missing binding stage: the
+The original Yarn binding gap was addressed by the progress receipts below. The
 [`conversation instance`](../../../crates/ambition_conversation/src/instance.rs)
-already identifies its initiator and talker, while the generic
+names its initiator and talker, with the opening-scope refinement above still
+open. The generic
 [`command`](../../../crates/ambition_conversation/src/dialog/authored_commands.rs)
 and [condition](../../../crates/ambition_conversation/src/dialog/authored_conditions.rs)
-bridges refuse reference parameters and ask through character-name arguments.
-The command bridge does not supply the conversation's room. Its refusal of
-raw strings as identities is correct; the missing operation is binding an
-authored role to an identity the caller already owns.
+bridges now bind authored `@roles` through the existing instance and shared
+call boundary. They still refuse raw reference parameters, which must not
+become an alternate string-to-identity route. The command bridge's missing
+conversation room context is a separate remaining qualification issue;
+do not reopen the completed role-binding receipt to address it.
 
 **Decision:** prepare a reusable call, then bind its invocation's explicit
 roles and context. A character kind, a population query, a bound occurrence
@@ -400,7 +442,8 @@ and brute roles and uses those references throughout. An illustrative
    source context. Do not silently choose the first body of that character.
 2. Migrate the Creator dialogue and brute scene. Address cutscene condition
    answers by the admitted playback occurrence above and prepared call/beat;
-   conversation calls retain their existing conversation-instance identity.
+   conversation calls retain their existing conversation occurrence, qualified
+   by its captured opening scope as above.
    Delete raw-line answer conflation and repeated individual population
    selection. Preserve the
    narrative ledger and current command/action-reply runner.

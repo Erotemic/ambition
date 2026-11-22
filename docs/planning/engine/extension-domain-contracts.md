@@ -91,8 +91,23 @@ Each port crate names only the SDK (workspace policies
 adapter (`ambition_boss_encounter::extension`, `ambition_combat::extension`,
 `ambition_combat::projectile_spawn::extension`, `ambition_abilities::extension` and
 `ambition_abilities::ride`, `ambition_portal2d::extension`).
-`extension_composition::install_ports` is the one list of offered ports. No
-production observation port exists yet; every module reads its trigger.
+`extension_composition::install_ports` is the composition's offer list;
+read the installed owner adapters rather than treating this summary as an
+exhaustive current census. Production observation ports now exist, including
+`WorldValuesPort`, body-query results and whereabouts. World-value and
+body-query paths have loaded consumers; whereabouts has a native supplier
+and the owner witness `each_reference_is_told_where_the_world_says_it_is`.
+`BodyQueryResult` already carries observation tick, room, phase and
+truncation; whereabouts explicitly reports where the world says a reference
+is now. Their contracts are authoritative mechanism reads.
+
+The SDK label `Observation` describes delivery, not evidence that an NPC
+saw the value. `ActorThink.target` likewise currently gives the target's
+live position. [OBS3](agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers)
+selects a limited-knowledge controller route and resolves native/module
+observation demand before acquisition. Keep scope, representation need and
+decision timing explicit in that offer; the executor must not infer them
+from a port's delivery role or build its own world snapshot.
 
 ## Source routes for further ports
 

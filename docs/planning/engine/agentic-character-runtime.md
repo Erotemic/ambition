@@ -1,6 +1,9 @@
 # Agentic character runtime — Engine 1.0 program
 
-**State:** OPEN / LATER — architecture direction is useful now; implementation should wait for actor/navigation/world-fact foundations.
+**State:** OPEN / LATER for general agentic characters. OBS3 below is a
+bounded current controller-authoring correction, reviewed at runtime
+`00bf92c22142` on 2026-11-22. It does not select an LLM provider or a general
+goal framework.
 
 ## Current state
 
@@ -8,42 +11,31 @@
 |---|---|
 | authoritative world and actor facts | exists: `world_facts`, `WorldFactConditionsPlugin` |
 | observations and memory | exist: `WorldMemory`, `PerceptionMemory`, `AgentObservation`, `CombatObservation` |
-| goals | absent |
+| goals | Radiant authors scheduled work; broader persistent character goals remain unresolved |
 | navigation and reachability over world geometry | in one room, for one body: exists since 2026-10-09 (a surface graph checked in the kernel, and a brain that follows it). Between rooms: absent. Owner: [`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md) |
-| planner or policy | exists but closed (see below) |
+| planner or policy | native catalogs plus a live module-backed custom-brain route; shared observation demand is missing (below) |
 | typed engine action intent | exists and is live: `ActionRequest` in `ActorActionMessage`, consumed by traversal abilities, `brain_effects.rs` and `ambition_held_items` |
 
-The implementation waits for two things, not one:
+Two different boundaries remain:
 
-1. **Navigation between rooms.** In-room navigation landed 2026-10-09 (the
-   owner page has "The first slice"). The other reachability code that exists
-   is not world navigation:
-   `reachable_from_start` / `reaches_finish` in `ambition_entity_catalog` walk
-   an authored flow graph, the rollback session walks the system dependency
-   graph, and the fighter recovery code reasons over local perceived terrain.
-2. **An open policy seam.** `CharacterBrainTemplate`
-   (`crates/ambition_characters/src/brain/mod.rs`) is a closed enum of nine
-   variants (`StandStill`, `Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`,
-   `ChargeCrash`, `Smash`, `Aerial`, `Fighter`) with no trait object, registry
-   or `Custom` arm. A new policy provider must therefore edit
-   `ambition_characters`, and an LLM adapter crate cannot supply a brain. No
-   plan owns this work; it changes a type, not a subsystem.
+1. **World navigation and execution.** In-room navigation exists; the
+   [navigation owner](platformer-navigation-and-reachability.md) owns broader
+   routes. Authored flow reachability, system dependency graphs and local
+   fighter recovery are different services. A planned route still needs
+   native action admission/completion.
+2. **Knowledge across policy providers.** Native templates remain catalog
+   types, but `CharacterBrain::Custom` can already select a module through
+   [`queue_actor_thinks`](../../../crates/ambition_combat/src/extension/think.rs).
+   Mary-O's Laden Swallow and Void Lizard use it. The trigger runs after native
+   control publication and before the shared control gate. The missing
+   abstraction is an effective observation demand and knowledge policy,
+   not the absence of all module-backed policy.
 
-   MEASURED 2026-10-09, the cost of the closed seam: the `Roam` brain, one new
-   policy, is ten edits in six files of two crates, and its own file. In `ambition_characters`:
-   the `StateMachineCfg` variant, its hostility, its perception requirement and
-   its dispatch (`state_machine/mod.rs`), its label and its authored-equality
-   arm (`brain/mod.rs`), the `BrainPreset` variant (`entry.rs`), its resolver
-   arm (`resolver.rs`) and its checksum cursor (`snapshot_impls.rs`). In the
-   actor monolith: the second dispatcher's exhaustive match (`brain_tick.rs`).
-   The compiler finds each one, which is the good half. The bad half is that a
-   game cannot add a policy from its own crate. `Roam` is a catalog-preset
-   brain (`BrainPreset` / `StateMachineCfg`); it is not a
-   `CharacterBrainTemplate`, so an enemy archetype cannot name it.
-
-`entity_catalog::placements::CharacterBrain::Custom(String)` is not that seam.
-It names a character archetype, whose `BrainProfile.template` resolves back to
-one of the nine variants.
+The 2026-10-09 `Roam` receipt—ten edits in six files of two crates plus its
+own file—describes adding a native catalog policy. Preserve that historical
+cost, but do not use it to justify another provider registry after the
+module route has landed. General remote/model decisions still need their
+own deterministic acceptance and replay contract.
 
 ## Goal
 
@@ -56,20 +48,115 @@ game".
 
 ## Layering
 
-```text
-authoritative world + actor facts
-        ↓
-observations / memory / goals
-        ↓
-planner or policy
-        ↓
-typed engine action intent
-        ↓
-ordinary actor/control/interact systems
-```
+The domain projects authoritative world/actor facts into the policy's
+permitted observations and retained memory. A planner reads those plus its
+goals and emits typed engine intent. Ordinary actor/control/interact owners
+admit and execute that intent. A world-rule module can receive an explicit
+authoritative read contract without making every character omniscient.
 
 LLM-backed reasoning, scripted planners, utility AI and deterministic fallback
 brains should be interchangeable policy providers above the same action seam.
+
+## OBS3 — resolve observation demand across controller providers
+
+### Current source and the missing choice
+
+Native [decision wiring](../../../crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs)
+asks only `brain_ref.perception_requirement()`.
+`enforce_empty_belief_for_none` clears memory for a native brain with no
+perception demand. A sighted belief overrides that call's local
+`BrainSnapshot`; it does not change global `ActorTarget`.
+
+Later, `queue_actor_thinks` resolves `ActorTarget.entity` to current
+`BodyKinematics` and publishes the position in
+[`ActorThink.target`](../../../crates/ambition_combat_port/src/think.rs).
+That is the port's documented authoritative contract. The Laden Swallow
+has native `Aerial` steering plus module fire; its
+[`over` predicate](../../../game/ambition_demo_mary_o_modules/src/laden_swallow.rs)
+uses the live trigger target. One body can therefore steer from sighted
+belief while firing from current world position. This is a real
+compositional difference, not proof that the current long-range firing
+policy is unwanted.
+
+A limited-knowledge module cannot repair this by merely reading
+`PerceptionMemory`: its native fallback could be `StandStill`/`None`,
+and the memory would not be maintained. Conversely, making every custom
+brain tactical would force cheap modules to pay for rich views and would
+silently change world-rule behavior.
+
+### Bounded implementation
+
+Resolve the body's effective observation demand from its native policy and
+admitted module consumers before acquisition. Keep three answers distinct:
+
+| Contract | Selected by | Consequence |
+| --- | --- | --- |
+| Knowledge scope | The controller/domain binding | Sighted actor knowledge or an explicit authoritative/world-rule read |
+| Representation need | The actual consumer | None, narrow target evidence or the existing tactical view |
+| Decision timing | The consuming policy | Which current, remembered or delayed cut this decision may read |
+
+A module's representation request cannot grant itself broader knowledge.
+Use the existing compiled/admitted binding to carry the choice; do not
+rescan every module descriptor inside every actor's decision or place
+visibility policy in the generic executor. Recompute effective demand when
+the controller/binding changes, including replacement and reload. Removing
+the last consumer restores the zero-perception path.
+
+The perception owner prepares one domain projection for the selected cut.
+Native brains and a sighted module use that projection or its narrow
+target subset. The extension host routes/encodes it. Keep the borrowed
+`TargetBelief` path; a module needing one target does not require a
+`WorldView`. [OBS1](bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary)
+and [OBS2](world-facts-observations-and-memory.md#obs2--preserve-evidence-meaning-through-memory-and-communication)
+own admission and evidence meaning.
+
+Preserve today's `ActorThink` contract for existing consumers, or migrate
+one selected content policy with an explicit version/authoring change.
+Supply the sighted route through a domain offer/binding whose contract names
+its scope, cut and absence behavior. A missing required projection is
+unavailable; an admitted projection with no target means no target evidence,
+not that the room has no foe. Do not fall back to `ActorTarget.entity`
+when the sighted projection is empty.
+
+The world-value, body-query and whereabouts ports remain authoritative
+mechanism APIs. `queue_group_thinks` and the shipped
+[`swallows.rhai`](../../../game/ambition_content/rhai/swallows.rhai)
+already operate as a group rule. They do not automatically become
+independent per-bird perception queries. Trusted native modules remain
+trusted code; a delivery label is not an access-control sandbox.
+
+Keep existing decision-specific timing. Fighter engagement/pursuit
+deliberately uses current admitted target knowledge, while tactical
+choice uses `DelayedPerception::perceive`
+([`tick_fighter_owned`](../../../crates/ambition_combat/src/brain/fighter/decision.rs)).
+The `a_fighter_with_an_engagement_notices_its_foe_before_it_fights` and
+`borrowed_and_owned_fighter_world_views_remain_equivalent` guards document
+that distinction. Do not impose one latency on all decisions.
+
+### Native customer, proof and deletion
+
+Extend the existing [loaded custom-brain fixture](../../../game/ambition_app/tests/a_custom_brain_module_fires_through_the_gate.rs)
+with one explicitly sighted policy. With a visible foe, native and module
+decisions share the admitted target. Move the foe outside the viewport
+but keep it alive in the same room: the module may use the declared pursuit
+estimate, not its new authoritative position. Repeat with a native
+`None` fallback to prove the module's demand owns maintenance.
+
+Keep an explicitly authoritative module as a control; it still receives
+the live target. Remove the sighted module demand to prove the empty
+fast path returns. Use the existing possession, control-gate and rollback
+roads for the selected policy. The
+[Laden Swallow Rust/Rhai fixtures](../../../game/ambition_demo_mary_o_app/tests/the_laden_swallow_is_a_module.rs)
+remain controls for their current authored rule, not permission to change
+every shipped module's knowledge.
+
+Delete the direct live-target reread from the sighted route and duplicate
+per-body acquisition/maintenance. Keep explicit authoritative routes where
+their existing content needs them. The projection is derived; retained
+belief and module state follow their current rollback owners. No new
+crate, generic `WorldSnapshot`, remote-model adapter or per-frame dynamic
+registry is required by this packet. Measure performance only if a later
+optimization claim needs it.
 
 ## Requirements
 

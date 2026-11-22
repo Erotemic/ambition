@@ -65,6 +65,11 @@ The existing graph and kernel rollouts remain the foundation. This review
 did not run a new navigation census or game. The numeric example below is
 an arithmetic witness of the search reduction, not a shipped-room result.
 
+**Follow-up at `f41218979625`, 2026-11-21:** the standing probe also drops
+physical material scale. Correct its input contract before sharing its
+envelope across more rooms or actors. This is source evidence, not a new
+runtime failure reproduction or a timing result.
+
 ### A surface is a connectivity node, but arrival position affects cost
 
 [`NavGraph::route`](../../../crates/ambition_platformer2d_world/src/navigation/graph.rs)
@@ -116,12 +121,98 @@ for reachability even though it loses information needed by route cost.
 This is the specialization boundary: share one admitted graph, then use the
 smallest state that preserves the question being answered.
 
+### Define the standing experiment before caching it
+
+The current
+[`NavGraphKey::probe_body`](../../../crates/ambition_platformer2d_world/src/navigation/cache.rs)
+creates a default, identity-material body and assigns the key's `size` to
+`canonical_size`. Both consumers supply a world size. The
+[`advisor`](../../../crates/ambition_platformer2d_actor_monolith/src/body/navigation.rs)
+uses the live stance size; the
+[`autopilot`](../../../crates/ambition_platformer2d/src/autopilot.rs)
+uses standing base size times material scale. Thus the probe keeps a box's
+dimensions while changing the physical body those dimensions describe.
+
+This changes the movement law. In
+[`step_admitted_motion`](../../../crates/ambition_platformer2d_core/src/movement/kernel.rs),
+material scale converts canonical control speeds, accelerations, jump speeds
+and ability distances to world units. World gravity does not scale with
+them. A half-scale actor has half the authored jump speed in world units;
+the current graph probe has the smaller box but the unscaled jump speed.
+The same kernel cannot make these inputs equivalent. The existing
+[`material-scale fixture`](../../../crates/ambition_platformer2d_core/src/movement/kernel/tests.rs)
+states the control/gravity distinction, and the shipped
+[`80/40 portal pair`](../../../game/ambition_app/tests/portal_similarity_slice.rs)
+is a current customer for a body that remains at half scale after crossing.
+Those are source fixtures, not fresh test results from this review.
+
+**Decision:** navigation owns one explicit standing experiment description.
+Construct both the cache key and the probe from it. It describes a reusable
+question about this physical body at an admitted standing start. A separate
+current-state continuation can use the live state when a customer needs it;
+it cannot silently borrow the standing experiment's result.
+
+| Input class | Standing experiment rule |
+| --- | --- |
+| Motion specification, abilities, canonical standing dimensions and required base-size facts | Retain the exact admitted values. Character name and world AABB are insufficient. |
+| Material scale and required shape/control mapping | Preserve physical units. State the supported orientation and parity mapping; normalize only when the same experiment and its application are preserved. |
+| Full motion frame and probe settings | Retain gravity separately from external acceleration, and keep the actual step/probe inputs. Equal net acceleration is insufficient. |
+| Position, velocity, temporary stance and maneuver history | Set the declared standing start state. These resets define the question; they do not prove applicability from every live state. |
+| Room geometry, observed feet and goal | Geometry selects the room graph. Feet and goal remain live query inputs, outside the reusable motion experiment. |
+
+Keep unit conversion in the movement owner. Carry the admitted material into
+the scratch body so that the existing kernel performs that conversion. Do
+not multiply gravity, duplicate `for_material` in navigation, or bake scaled
+parameters into a body that the kernel will scale again.
+
+The orientation boundary needs an explicit first slice.
+[`TraversalEnvelope::measure`](../../../crates/ambition_platformer2d_world/src/navigation/envelope.rs)
+currently admits cardinal frames and measures extents through `size()`,
+which does not include material turn. Crawler support and righting can change
+that turn during live motion. Copying every live angle into the graph key
+could cause a new graph every tick. Admit a stated aligned standing geometry
+and control mapping first. Normalize a transient orientation only under
+that start contract; otherwise return a specific unsupported experiment.
+Do not substitute identity material and return a success-shaped result.
+The standing profile can remain cached while the live body is crouched or
+righting. Only the existing physical authority admits the live shape or turn;
+leg entry waits until the body satisfies its stated start conditions.
+
+Profile equality is also not leg-entry proof. The current
+[`NavLeg` follower](../../../crates/ambition_platformer2d_core/src/navigation.rs)
+starts Commit from a grounded body near `leg.start`, with a bounded side
+velocity. The graph rollout instead starts a fresh body at zero velocity,
+settles it, and probes a finite set of start offsets. State and check the
+standing-entry facts needed for a retained leg, including its admitted
+geometry/control mapping. A normal live transient can wait or reapproach;
+it does not by itself invalidate the reusable standing graph. These remain
+bounded rollout witnesses under a stated controller, not a proof over every
+velocity, ability history or input sequence.
+
+Keep maneuver readiness at that live entry boundary too.
+[`Grounded refresh`](../../../crates/ambition_platformer2d_core/src/body_clusters.rs)
+can restore dash charges without clearing its cooldown, while a fresh probe
+starts with no cooldown. A `DashHop` leg still needs the movement owner's
+actual [dash admission](../../../crates/ambition_platformer2d_core/src/movement/abilities.rs).
+Do not put the ticking cooldown in the graph key or
+assume grounded means ready. Start with the verbs this graph uses and retain
+existing wait/replan behavior; this does not require a new full-state proof
+framework.
+
+Migrate the advisor and autopilot together. Delete the separate `BodyTuning`
+reduction, world-size-as-canonical-size construction, and competing stance
+policies. The autopilot already uses standing size to avoid repeated builds
+during crouch/drop-through; the advisor must use the same projection when it
+asks the same standing question. Do not replace these reductions with a hash
+of the whole scratch body or all ticking components.
+
 ### Prepare reusable questions at their own lifetime
 
 [`NavGraph::build_on`](../../../crates/ambition_platformer2d_world/src/navigation/graph.rs)
 remeasures `TraversalEnvelope` for each room graph, although the envelope
-uses an independent probe world. Prepare it by the exact canonical probe
-body, movement law, full motion frame and `EnvelopeProbe` inputs. Retain
+uses an independent probe world. Prepare it by the standing experiment
+defined above: canonical geometry, physical units, movement law, full motion
+frame and `EnvelopeProbe` inputs. Retain
 kernel/follower semantic identity if an offline product is later stored.
 A room geometry edit invalidates room legs; it need not repeat an unchanged
 empty-world motion experiment. Never key this by character name, net
@@ -151,15 +242,28 @@ larger constant alone does not establish a working-set policy.
 
 ### Delivery and evidence
 
-1. Extend the route owner with the two-arrival witness and a final-goal walk.
+1. Establish the standing experiment at both consumers. Use one owner-level
+   scaled-body control/envelope witness and one actual graph/follower ledge
+   case, with an unscaled control. Choose the ledge from kernel observations,
+   not a continuous formula assumed to match the discrete simulation. An
+   equal-world-size pair with different canonical size/material scale must
+   not share a result merely because its boxes match. Check that an ordinary
+   crouch/drop-through does not rebuild the standing graph, while a physical
+   scale change selects the correct new experiment.
+2. Extend the route owner with the two-arrival witness and a final-goal walk.
    Prepare the anchor graph and compare against an exhaustive small-state
    search over the same admitted legs. Keep the kernel/follower and explicit
    cost-model limits; delete the one-best-arrival-per-surface assumption.
-2. Split envelope preparation from room graph construction and retain
+   This search correction can proceed independently of the input correction.
+3. Split envelope preparation from room graph construction and retain
    demanded reachability results. Compare cold and reused results for a
    changed room, two equal-net but different full frames, changed body size
-   and a changed movement law. Keep the existing cache-drop replay witness.
-3. Retain actual live demand and share demanded destination work. Exercise
+   and a changed movement law. Include the physical-scale distinction from
+   step 1. Keep the existing cache-drop replay witness. Count envelope
+   preparations, graph builds and retained bytes for alternating stance,
+   crossing scale, and two rooms that share the same experiment. Reject a
+   design that adds graph misses for each ordinary support/righting change.
+4. Retain actual live demand and share demanded destination work. Exercise
    the over-capacity ordered key set, a moving observed goal, retirement and
    graph replacement. Measure probes, builds, search work and retained bytes
    before choosing more elaborate reuse.
@@ -170,6 +274,13 @@ use the synchronous exact query for this graph contract. Do not expose a
 partly built graph or make cache eviction mean `NoRoute`. In-memory factoring
 is the first slice. Portable graph serialization and whole-content artifact
 admission are separate work; this packet does not lift their existing hold.
+
+Keep refusal meanings bounded too. `NoRoute` can mean that the admitted
+navigation policy found no route; it does not prove that no physical motion
+exists. Unsupported experiment, incomplete preparation and an absent route
+in a complete admitted graph are different facts. Preserve the distinctions
+needed by the current consumer without adding an exact runtime search or a
+new planner framework.
 
 ## The room graph is navigable by its doors
 

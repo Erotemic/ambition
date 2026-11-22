@@ -221,6 +221,134 @@ own binding/admission point (SS7). None needs a new scripting language.
 
 ### SS7 — bind roles once for an authored invocation
 
+#### Own each admitted playback before binding its roles
+
+**Source follow-up at `f41218979625`, 2026-11-21:** an explicit cutscene
+request is currently answered from the presence of its script id and room,
+not from the run admitted for that request. This is a source-derived failure
+sequence; no new game run or timing measurement was made in this review.
+
+[`lower_cutscenes`](../../../crates/ambition_platformer2d_runtime/src/story_script.rs)
+queues a trigger and separately stores `CutsceneAsk { id, room, ticket,
+began }`. `answer_cutscene_asks` scans active and queued definitions. Presence
+means started; absence after `began` means ended. The
+[`queue`](../../../crates/ambition_cutscene/src/lib.rs)
+coalesces identical waiting triggers, but does not join active playback.
+The observer runs after queue drain and before playback tick.
+
+For a repeatable script S in room R, let request A be playing when request B
+arrives. B queues a later run, but the observer sees A and reports B started.
+After A ends, queue drain starts B before the observer runs again. A's reply
+then remains pending through B's run. The queue asks for one operation while
+the observer answers for another. Reordering the observer does not restore
+the missing identity.
+
+**Decision:** the cutscene owner assigns an occurrence to each admitted run.
+Pending and active playback retain it. Admission identifies which occurrence
+the caller created or joined; owner transitions establish its progress.
+Reuse that same occurrence for SS7 role/beat bindings and SS8 obligations.
+
+| Value | Meaning and policy |
+| --- | --- |
+| Script definition | Reusable content. It does not identify one run. |
+| Trigger coalescing key | Existing policy for equivalent waiting demand, such as entry and volume triggers for the same script and room. |
+| Playback occurrence | One admitted run through queueing, start and terminal disposition. Its owner retains it through rewind. |
+| Action ticket | One caller's request and reply destination. Multiple tickets can follow one occurrence only because admission joins them to it. |
+| Seen flag | Durable narrative policy. It is neither a playback identity nor evidence that this caller's operation started. |
+
+Preserve waiting-only coalescing in the first slice. A request for S/R while
+A is active joins an already waiting S/R occurrence or creates one. It does
+not implicitly join A. Native entry/volume producers can keep the inexpensive
+fire-and-forget adapter; it uses the same admission. A queued occurrence that
+is later passed over by the seen check reports not-played for its own
+interested tickets, never completion inferred from an earlier run.
+
+Repeatable uses of one definition must be independent in different rooms.
+The current
+[`drain_cutscene_triggers`](../../../crates/ambition_platformer2d_runtime/src/cutscene.rs)
+adds global `active.plays(id)` exclusion to room capacity. Remove that
+definition exclusion for repeatable scripts. Preserve it for scripts with a
+seen flag in this slice: otherwise two rooms can start the same globally
+once-only scene before either writes the flag. Keep room capacity and
+world-scene exclusivity. Do not introduce a new reservation policy across
+different definitions that happen to share a flag.
+
+Emit start and terminal facts at the actual playback transitions. The runtime
+bridge binds existing
+[`ActionReply`/`ActionMailbox`](../../../crates/ambition_platformer2d_shared_tangle/src/action_results.rs)
+destinations to the admitted occurrence. Keep `CutsceneAsks` as bounded
+caller-owned occurrence/ticket associations, without `began`. A narrow
+runtime bridge can publish into the existing native action journal at start,
+natural end, skip and queue refusal; a returned domain transition value is
+enough where borrowing needs separation. Keep reply types and extension host
+dependencies out of the pure cutscene owner. No new event bus or persistent
+transition journal is needed. Prune retired ticket associations on admission
+and transition so that removing polling does not leave the ask limit full.
+
+Preserve ordered start and end facts when an empty scene does both in one
+tick. Recording end at its actual transition removes today's extra observer
+tick. Deliver through the established later action-read cut; never execute
+script handlers inline. Existing action journals carry delivery through
+replay; a non-rewinding message drain is not a replacement for that contract.
+
+This is semantic state, not an address cache. Full snapshots already encode
+queue and playback, while room restoration through `CutscenesInRooms`
+currently restores active cutscene state. The occurrence allocation state,
+pending queue membership and reply associations must follow the same room
+rewind as their playback. A new process-wide counter, or a counter restored
+only on a whole-world rewind, would couple independent room histories. Use
+the existing room/session occurrence scope and deterministic owner-local
+sequence state, or an allocation rule with the same demonstrated properties.
+Keep world-scoped playback explicit. A reply from an old run must not reach
+a replacement caller with the same authored name.
+
+Extend the existing room owner log/retractor, or use registered state on its
+room root; adding a key only to the active-playback codec is insufficient.
+Restore room-owned pending membership and its order without changing other
+rooms or the relative order around world-scene queue barriers. Do not copy
+future admissions from the live frontier queue into a replay. Native entry,
+volume and world-condition producers are currently disabled during room
+replay; this packet does not claim to fix every missed native trigger. Prove
+the replayable scripted A/B request across the pending boundary. If that
+requires a native-trigger policy change, state and select it separately.
+
+A playback occurrence is a cutscene's run key, not another identity for an
+actor. Role references keep the existing SimId/ObjectRef boundary below.
+Likewise, ticket retirement does not end the scene; current cutscene request
+cancellation is unsupported. This slice does not add cancellation or change
+the current presentation-end meaning of `cutscene_ended`. SS8 states the
+separate gameplay settlement change.
+
+**First delivery:**
+
+1. Give admitted waiting and active cutscenes the owner occurrence, and make
+   queue admission return created/joined/refused. Preserve the stated queue,
+   seen-flag and world-scene policies.
+2. Bind current play tickets to it and answer from owner transitions. Delete
+   `CutsceneAsk.began`, the per-tick join of cloned active script ids and
+   queued triggers, and the requirement that presence polling sit between
+   queue drain and playback tick. Reuse bounded action delivery and its
+   existing replay/retirement rules.
+3. Feed that owner occurrence into the role and condition work below.
+   Preserve it in both whole-world and independent-room restore. Do not make
+   the current request-correlation fix wait for all SS8 settlement work.
+
+Extend the existing
+[`scripted_cutscene_outcomes`](../../../game/ambition_app/tests/scripted_cutscene_outcomes.rs)
+witness with overlapping A/B requests: B cannot start early, and A cannot
+wait through B. Include empty-scene start/end, duplicate waiting native
+triggers, independent repeatable use in two rooms, and the retained seen-flag
+exclusion. Rewind across queue/start/end and rewind one room while another
+continues; each ticket must retain its admitted occurrence. These are bounded
+semantic cases, not a matrix over every authored scene.
+
+The work removed is explicit: replies no longer clone active names and the
+whole queue each tick and compare each ask against them. Work follows actual
+admissions/transitions and their interested replies. Cutscene counts can be
+small; no frame-time saving is claimed without measurement.
+
+#### Bind participants and calls
+
 **Current source:** actor commands select bodies by character name through
 [`direction::cast_in`](../../../crates/ambition_platformer2d_actor_monolith/src/body/direction.rs),
 optionally in the command's room. `arrived`, `gone` and `beaten` independently
@@ -267,9 +395,11 @@ and brute roles and uses those references throughout. An illustrative
    boundary, and bind it from the existing conversation talker and one scene
    placement. A required unique binding refuses absent/ambiguous targets with
    source context. Do not silently choose the first body of that character.
-2. Migrate the Creator dialogue and brute scene. Address condition answers by
-   playing occurrence and prepared call/beat, deleting the raw-line answer
-   conflation and repeated individual population selection. Preserve the
+2. Migrate the Creator dialogue and brute scene. Address cutscene condition
+   answers by the admitted playback occurrence above and prepared call/beat;
+   conversation calls retain their existing conversation-instance identity.
+   Delete raw-line answer conflation and repeated individual population
+   selection. Preserve the
    narrative ledger and current command/action-reply runner.
 3. Bind the doorway raiders as a cohort **after** their spawn milestone. They
    do not exist at scene start. State whether each group binding captures
@@ -323,6 +453,16 @@ explicit failure/abort policy; none silently becomes successful completion.
 A flag's applied result establishes that fact, not completion of a population
 change triggered by it. The doorway scene still needs the actual spawn/binding
 milestone before it directs the new cohort.
+
+Attach those obligations to the SS7 playback occurrence. Keep the occurrence
+after optional presentation ends while its stated gameplay work is pending.
+A later run of the same script cannot inherit its replies, role bindings or
+obligations. Distinguish presentation dismissal from gameplay settlement in
+the existing action contract when this slice changes the current completion
+meaning; do not infer either event from absence in `ActiveCutscene`.
+For a play request whose contract includes required gameplay, dismissal
+cannot terminally complete its ticket. Settle or fail that ticket from the
+stated obligations; a retired ticket cannot receive a second completion.
 
 The first operation owners are navigation/transfer for **leave through a
 zone**, and held-item/contact for **throw**. Identify the specific result each

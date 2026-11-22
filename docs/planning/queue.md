@@ -36,8 +36,9 @@ carries closed campaigns. Unselected or customer-gated plans live in
    its `present_when` landed 2026-11-17 (the game show's goat and car are
    actors in their closets); SS5 (cutscene camera pans that
    hold until released) landed the same day, as did `actor.face`/`actor.pose`; SS6 (retreat) is
-   covered by SS1+SS4 (the raid's escape is one). Story sequences are
-   done. Dark
+   covered by SS1+SS4 (the raid's escape is one). These first slices are
+   done; SS7/SS8 below complete playback identity, role binding and gameplay
+   settlement. Dark
    rooms and the first tunnel (under Hobford, the mill wheel to the hollow
    oak) are [dark rooms and tunnels](engine/dark-rooms-and-tunnels.md): the
    player's glow by quality tier, DR1 (room darkness: the catacombs and
@@ -113,6 +114,9 @@ within the product order above. The anchor, role and interaction follow-up
 below reviews production source `b91b29d35935`. The implementation follow-up
 at `3ed50e318392` keeps the CW1, CW2 and Effects 6a receipts and identifies
 the remaining authority boundaries below. It reports no new runtime result.
+The follow-up at `f41218979625` supplies the missing cutscene playback
+occurrence for SS7/SS8. The SDK publication completion is selected in
+[I2/I3](#i2i3--finish-independent-content-authoring-and-safe-reload).
 
 **Observed:** schema values can lower before their imports resolve; body and
 candidate contexts collect optional domain catalogs; several live-contribution
@@ -164,10 +168,14 @@ world-post admission.
    replace private saddle/capture point conversion with two independently
    mapped endpoints, then bind sampled named points to their admitted rig.
    Keep mount, capture and custody laws separate.
-6. [Story SS7/SS8](engine/story-sequences.md) binds occurrence roles across
-   commands and conditions, using Creator dialogue and intro choreography.
-   It replaces the blanket skip-all-commands promise with domain settlement
-   for the scene's actual required outcomes. No universal sequencer.
+6. [Story SS7/SS8](engine/story-sequences.md#own-each-admitted-playback-before-binding-its-roles)
+   first gives each admitted cutscene run an owner occurrence. A request
+   follows that run's transitions; it cannot start from the presence of an
+   earlier run or remain pending through a later one. Preserve waiting-only
+   trigger coalescing, seen policy and independent room rewind. Bind roles
+   and per-beat answers to that same occurrence, then settle required
+   gameplay after skip. Use Creator dialogue and intro choreography for
+   roles and settlement. No universal sequencer.
 7. [Interaction I1/I2](engine/interaction-opportunities-and-activation.md#bounded-delivery)
    moves availability/selection below the prompt and shares one attempt
    across competing contextual consumers. Preserve gesture provenance,
@@ -178,7 +186,8 @@ poses retire separately; another room cannot act on a world cause that can
 still disappear; a rejected mechanical candidate leaves the active selection
 and pinned product versions intact; a narrow authoring consumer excludes its
 native adapter. Two anchor spaces align without merging relation laws;
-authored commands and waits keep their selected participants; skipping does
+play requests follow only their admitted run; authored commands and waits
+keep their selected participants; skipping does
 not equate a queued request with its completed gameplay outcome; removing
 the prompt does not change the same installed interaction domains' rules.
 State which axis each packet proves. Code, runtime behavior
@@ -192,7 +201,10 @@ order above. This selects bounded work; it reports no new runtime measurement.
 **Failure / customer:** one projectile leg prepares equivalent source cells
 twice; ordinary animation evaluates immutable clip facts during presentation;
 addressed behavior repeats static joins and population scans; navigation
-discards an arrival position that its own cost law still reads.
+discards an arrival position that its own cost law still reads. The follow-up
+at `f41218979625` also finds that graph probes turn a physical world size
+into canonical geometry and lose material scale, while the two consumers
+disagree about stance.
 
 **Owner:** [execution specialization and work selection](engine/execution-specialization-and-work-selection.md)
 links E1–E5 to their existing domain owners. Portal implementation remains
@@ -202,8 +214,12 @@ under [PORTAL-SIMILARITY](#portal-similarity--canonical-parts-and-scaled-mirror-
 bounded slice (the duplicate projectile source preparation is removed,
 2026-11-21: walls and recipients read one prepared leg). Prepare ordered
 extension dispatch and remove duplicate fact collectors, then share correct
-occurrence views and derive active journal work. Navigation first fixes its
+occurrence views and derive active journal work. Navigation first defines
+one standing experiment that preserves physical units and fixes the route
 cost-state reduction, then reuses motion envelopes and graph query work.
+Temporary stance/cooldown belongs to live leg entry, not per-tick graph
+rebuilding. The [E4 owner](engine/platformer-navigation-and-reachability.md#define-the-standing-experiment-before-caching-it)
+gives the scaled-body witness, deletion targets and cost falsifiers.
 
 The follow-up [data-structure packets K1–K3](engine/data-structure-kernels.md#delivery-and-deletion-criteria)
 make bounds queries and strict unique lookup independent optimization targets
@@ -2684,17 +2700,19 @@ is run after it.
 
 ### I2/I3 — finish independent content authoring and safe reload
 
-**Owner:** [extension model](engine/extension-model.md) and
-[fast iteration implementation](engine/fast-iteration-implementation.md).
+**Owner:** [extension model](engine/extension-model.md),
+[fast iteration implementation](engine/fast-iteration-implementation.md), and
+the [SDK publication cut](engine/content-generation-and-reload.md#sdkdemo-publication--admit-owner-products-before-selection).
 
-**Built:** app-scoped pack selection; admitted generation publication;
+**Built in main Ambition:** app-scoped pack selection; admitted generation publication;
 no-op/stale/superseded edit handling; reload for moves, characters, audio,
 cutscenes and quests; native/WASM procedural modules; `actor_think` S1-S3;
 held traversal modules; and the `body_contact` extension route. Do not
 re-enqueue the old missing-reload-family list or repeat the completed brain
-migration.
+migration. The SDK/demo path retains old generation readers, but still has
+process-wide selection and callbacks that can refuse after selecting a pack.
 
-**Next action:** the named `body_contact` customers are done (2026-11-19).
+**Contact customer receipt:** the named `body_contact` customers are done (2026-11-19).
 The Sanic badnik's contact is a module, and its toucher roll and
 contact-harm facts are asked of their owners through
 `sanic.contact.touchers`. The Mary-O snake shell is a module that keeps its
@@ -2703,9 +2721,24 @@ the new `body_contact` requests. The plant is a brain
 and pose customer, not a contact rule. Recheck which customers are still native
 before migrating them.
 
-**Acceptance:** authored changes publish exactly once at an admitted
-generation; stale generations are refused; these customers run through their
-supported module road without a native duplicate or second source of truth.
+**Next action (source `f41218979625`, 2026-11-21):** complete SDK/demo P5
+step 4 cut 2 at the owner above. A valid pack can fail App audio/cast
+composition after its rules are already selected and still report published.
+Prepare each owner product once from all of its changed input schemas;
+admit all affected values before changing selection. Extract private cast
+preparation, then publish products and App-local selection under the existing
+boundary. Bind rules at operation boundaries, without World lookups in every
+leaf helper. This selects the concrete SDK coherence defect, not all open
+migrations in the older runtime-authoring audit.
+
+**Acceptance:** a foreign-audio collision plus a rules edit leaves the old
+pack and all affected products selected, with one refusal and no published
+count. Multi-schema audio/cast edits prepare each product once. Same-frame
+watchers retain each other's accepted provider rows. Two Apps with one
+embedded source keep independent selections and timelines. Existing local
+rebase, remote generation and retained-reader rules continue; no new
+live-session restatement policy is implied. The completed module customers
+keep their supported road without a native duplicate.
 
 ### A7 — make item occurrence authority explicit where it carries a real invariant
 

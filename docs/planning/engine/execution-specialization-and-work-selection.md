@@ -92,7 +92,7 @@ cache miss into authoritative gameplay as a different refusal.
 | Object occurrence and private behavior binding | Construction, retirement, reconstruction or binding changes commit | The address through the operation's visibility/authority view |
 | Pending delivery and deadline work | Journal/lifecycle changes update membership; active waits/retries advance and due conditions wake | Receivers with relevant work |
 | Portal query coefficients and local candidates | Published geometry/motion changes; one source interval is selected | Shared preparation and the narrowest applicable solver |
-| Navigation motion envelope and retained graph | Their exact movement/frame/probe or geometry inputs change | Reachability and routes over the selected immutable value |
+| Navigation motion envelope and retained graph | Their admitted standing experiment, physical units, full frame/probe or geometry inputs change | Reachability and routes over the selected immutable value |
 
 Do not hash, sort or rebuild the full input merely to ask whether a prepared
 value changed. The owning publication supplies identity/revision with the
@@ -136,11 +136,15 @@ another identical mailbox scan. An active projection preserves unresolved
 calls, deadlines, retry and freeze semantics; an empty mailbox is not the
 only inactive case.
 
-**Navigation:** use the state that the cost law actually reads. Surface identity
-is enough for the current boolean reachability relation; cost also reads the
-arrival position on that surface. Retaining that position allows fixed edge
-costs and reusable route work. Merging states before they are equivalent can
-make both the result and its cache wrong.
+**Navigation:** preserve the experiment before reusing its result. A smaller
+world box is not equivalent to a body with smaller physical control units.
+The [navigation owner](platformer-navigation-and-reachability.md#define-the-standing-experiment-before-caching-it)
+defines one standing projection for both the key and the actual probe; it
+keeps material scale while stating which transient start facts it resets.
+Then use the state that the cost law actually reads. Surface identity is
+enough for the current boolean reachability relation; cost also reads arrival
+position. Retaining that position allows fixed edge costs and reusable route
+work. Neither reduction proves applicability from an arbitrary live state.
 
 ## Selected domain packets
 
@@ -152,7 +156,7 @@ stays in P2/P4/P6; this table does not create a second portal queue.
 | E1: prepared portal queries | [Portal delivery](portal-parts-similarity-and-chirality.md), core cast preparation and native callers | Repeated root search, duplicate source-cell builds, irrelevant pose evaluation | Local fast cases, bounded refusal continuation, compact retained history |
 | E2: compiled visual facts and staged images | [Runtime part animation](runtime-rigged-sprite-animation.md), sheet preparation and renderer | Whole-clip invariant scans, stable track joins, source rasterization caused only by finishing changes | Exact sample/space, complete appearance key, cell versus page dependency |
 | E3: prepared dispatch and active delivery | [Addressed behavior](addressed-behavior-inbox.md), extension admission, lifecycle and inbox owners | Entry-by-trigger matching, repeated occurrence capture, duplicate and idle mailbox scans | Entry-major serial order, fresh observations, replay visibility and active-time deadlines |
-| E4: prepared navigation states | [Navigation](platformer-navigation-and-reachability.md), motion envelope and route owners | Repeated environment-independent probes and graph reachability work; incorrect merging of arrival states | Current graph cost model versus physical optimality; complete publication independent of worker timing |
+| E4: prepared navigation states | [Navigation](platformer-navigation-and-reachability.md), motion envelope and route owners | Competing body projections, stance-driven graph builds, repeated environment-independent probes and graph queries; incorrect merging of arrival states | Physical units and a declared standing start; current graph cost model versus physical optimality; complete publication independent of worker timing |
 | E5: shared data-structure kernels | [Kernel plan](data-structure-kernels.md), geometry and binding foundations | Private range-grid mechanics, repeated ambiguity reducers and optional setup for lightly queried snapshots | Exact versus conservative output, ordering/ties, row-cardinality law and complete preparation cost |
 
 Each packet identifies the old interpretation or repeated operation to delete.

@@ -205,6 +205,17 @@ is selected to force a desired report.
 
 ## CB3 — Share domain lowering after the phase-specific drain
 
+**First two customers done (2026-11-22).** `lower_projectile_spawns::<L>`
+now only drains its port for `L::PHASE`, makes its own lazy writer state
+after the empty check, and calls the non-generic `apply_projectile_spawns`.
+That function validates, writes, applies and answers each submission in
+order, using the wrapper's `SpawnState`. `lower_held_statuses::<L>` drains
+and calls the non-generic `apply_held_statuses`, which stages per body in
+submission order (a let-go then a hold in one drain keeps the hold), writes
+each final set once, and retracts the clocks of released statuses. Phase
+marker types, system wrappers and per-phase local state are unchanged. No
+emitted-code measurement is claimed.
+
 **Execution owner:** combat's projectile-emission and status adapters. Their
 native systems and payloads stay in their current domains.
 

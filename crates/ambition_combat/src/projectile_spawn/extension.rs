@@ -84,6 +84,17 @@ fn lower_projectile_spawns<L: LowersIn>(world: &mut World, mut state: Local<Opti
         return;
     }
     let state = state.get_or_insert_with(|| SystemState::new(world));
+    apply_projectile_spawns(world, state, requests);
+}
+
+/// Validate, emit and answer each drained projectile request, in submission
+/// order. One body for every phase: the phase wrapper above only drains its
+/// own port and keeps its own lazily made writer state.
+fn apply_projectile_spawns(
+    world: &mut World,
+    state: &mut SpawnState,
+    requests: Vec<ambition_extension_host::Submitted<<ProjectileSpawnPort as ambition_extension_sdk::Port>::Value>>,
+) {
     for submitted in requests {
         let dispatch = ambition_platformer2d_shared_tangle::action_results::begin_action_request::<ProjectileSpawnPort>(
             world, submitted.state_scope, &submitted.entry, &submitted.value);

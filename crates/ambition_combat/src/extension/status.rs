@@ -161,14 +161,28 @@ pub fn queue_status_ticks(
 /// The requests of a tick are applied to one staged copy per body before any
 /// is written back, so a let-go and a later hold of one kind leave it held.
 pub fn lower_held_statuses<L: LowersIn>(
-    mut commands: Commands,
+    commands: Commands,
     mut outbox: ResMut<ExtensionOutbox>,
+    holders: Query<&mut BodyStatuses>,
+    clocks: Query<&mut StatusClocks>,
+    bodies: Query<(), With<ae::BodyKinematics>>,
+) {
+    let requests = outbox.drain::<HoldStatusPort>(&L::PHASE);
+    apply_held_statuses(commands, requests, holders, clocks, bodies);
+}
+
+/// Stage each drained hold or let-go per body in submission order, then
+/// write each body's final set once and retract the clocks of what it let
+/// go. One body for every phase; the wrapper above only drains.
+fn apply_held_statuses(
+    mut commands: Commands,
+    requests: Vec<ambition_extension_host::Submitted<<HoldStatusPort as ambition_extension_sdk::Port>::Value>>,
     mut holders: Query<&mut BodyStatuses>,
     mut clocks: Query<&mut StatusClocks>,
     bodies: Query<(), With<ae::BodyKinematics>>,
 ) {
     let mut staged: BTreeMap<Entity, Vec<String>> = BTreeMap::new();
-    for submitted in outbox.drain::<HoldStatusPort>(&L::PHASE) {
+    for submitted in requests {
         let hold = submitted.value;
         if hold.kind.is_empty() {
             warn!("extension entry {} asked to hold a status with no kind; refused", submitted.entry);

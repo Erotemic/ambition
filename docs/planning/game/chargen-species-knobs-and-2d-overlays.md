@@ -216,6 +216,29 @@ Every species has `head.muzzle` (0.6 to 1.4) and `head.ears` (`default`,
   Nagisa), and 2816 generated records keep every older field.
 - Every species named in the queue row now has its own knobs. None is
   one-sided, so no left cells were needed.
+- **rabbit, bear, ram, owl** (new heads with their knobs, 2026-11-21):
+  - rabbit (`head.ear_length`, `head.ear_lop`): long ears from the crown,
+    upright, or turned out and hanging beside the face from `ear_lop`
+    0.5 up; a pink nose, the split lip, buck teeth, whiskers.
+  - bear (`head.ear_size`): a broad skull, a short blunt muzzle, small eyes
+    and small round ears.
+  - ram (`head.horns`, `head.horn_style`, `head.beard`): a long face with
+    the eyes set on the sides and horizontal bar pupils, ears held out
+    sideways, and a wool poll that is pale whatever the face's colour.
+    Horns are a ram's `curl` (back, down and forward round the ear) or a
+    goat's `swept` arc; `horns` 0 is a polled head. The beard is drawn
+    only when `beard` is above 0.
+  - owl (`head.ear_tufts`, `head.disc`): a round head, a facial disc of
+    pale feathers round two forward eyes, rimmed dark (`disc` 0 for no
+    rim), a short hooked beak, and feather tufts (`ear_tufts` 0 for
+    none).
+  - The rabbit's and bear's crown tuft is the coat, only tinged by the
+    hair colour.
+  - Knobs are drawn after every older field, and species is never drawn
+    from the seed. Measured against the renderer before the change:
+    1800 generated records are identical (the nine older species, 200
+    seeds each), and so are 36 drawings (four seeds of each, the SVG with
+    its spec CDATA stripped).
 
 ## Game scale check (2026-11-18)
 

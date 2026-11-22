@@ -77,7 +77,19 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 ambition_platformer2d_items::narrative::apply_item_grants.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemGrantRequested>),
                 ambition_platformer2d_items::narrative::apply_shop_transactions
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::shop::ShopTransactionRequested>),
-                ambition_platformer2d_items::narrative::apply_item_uses.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemUseRequested>),
+                (
+                    ambition_platformer2d_items::narrative::apply_item_uses.run_if(ambition_platformer2d_core::a_message_waits::<ambition_items::ItemUseRequested>),
+                    // The committed bag decides what rooms that rewind alone
+                    // proposed once their ticks are confirmed, and spends each
+                    // allocated cell in its body's room (CW2): before the heal
+                    // applier, so the heal lands on the tick the cell is spent.
+                    ambition_platformer2d_items::committed_bag::settle_bag_operations.run_if(
+                        |store: Option<bevy::prelude::Res<ambition_platformer2d_items::committed_bag::HeldBagOperations>>| {
+                            store.is_some_and(|store| store.busy())
+                        },
+                    ),
+                )
+                    .chain(),
                 // An equip is worn (an ability) or held (a weapon, the gun).
                 (
                     (
@@ -396,9 +408,24 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             "resource.quest_causes_in_rooms",
             crate::effect_bus::retract_room_quest_causes,
         );
-        // The cells used from the bag: a rewound room puts back those its
-        // bodies used after the tick it was saved at, and takes out what its
-        // conversations added to it (ISL-2d).
+        // What a merchant's deal took from or added to the bag: a rewound
+        // room puts back what it took after the tick it was saved at, and
+        // takes out what it added (ISL-2d). Cell grants and uses from a room
+        // that rewinds alone are proposals the committed bag decides once
+        // their tick is confirmed (CW2); a rewound room drops its own.
+        app.init_resource::<ambition_platformer2d_items::committed_bag::HeldBagOperations>();
+        ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+            app,
+            "resource.held_bag_operations",
+            ambition_platformer2d_items::committed_bag::retract_room,
+        );
+        app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>();
+        app.add_systems(
+            bevy::prelude::Update,
+            ambition_platformer2d_items::committed_bag::forget
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate)
+                .run_if(bevy::prelude::on_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>),
+        );
         ambition_platformer2d_shared_tangle::lifecycle::register_room_write_log::<ambition_platformer2d_items::narrative::BagUsesInRooms>(app);
         ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
             app,

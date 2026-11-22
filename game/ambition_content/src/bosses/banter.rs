@@ -113,33 +113,6 @@ fn jitter_interval(bark: ambition_content_schemas::rules::IdleBark, seed: &str, 
 mod tests {
     use super::*;
 
-    /// A boss's `voice` is a reference the compiler resolves: a voice that
-    /// names no character refuses the pack, so a misspelling cannot make a
-    /// boss silent.
-    #[test]
-    fn a_boss_voice_that_names_no_character_refuses_the_pack() {
-        const FILE: &str = "data/boss_encounters/gnu_ton_rider.ron";
-        const VOICE: &str = r#"voice: Some("npc_gnu_ton_boss")"#;
-        let edited = |to: &'static str| {
-            crate::pack::compile_pack_with(move |path: &str, text: String| {
-                if path != FILE {
-                    return text;
-                }
-                assert_eq!(text.matches(VOICE).count(), 1, "the edit anchor");
-                text.replace(VOICE, to)
-            })
-        };
-        edited(r#"voice: Some("npc_pirate_admiral")"#).expect("another character is a voice");
-        let failure = format!(
-            "{:?}",
-            edited(r#"voice: Some("npc_nobody")"#).expect_err("a voice naming nothing refuses the pack")
-        );
-        assert!(
-            failure.contains("UnresolvedReference") && failure.contains("npc_nobody"),
-            "{failure}"
-        );
-    }
-
     #[test]
     fn jitter_interval_stays_within_band() {
         let bark = crate::tuning::shipped().boss_idle_bark;

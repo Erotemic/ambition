@@ -35,8 +35,22 @@ pub fn describe(pack: &PreparedContentPack) -> Value {
         .map(|rows| rows.iter().map(|(id, row)| (id.clone(), row.target(id).to_owned())).collect::<BTreeMap<_, _>>());
     let platforms = ambition_sprite_sheet::prop_sheets::lowered_platform_looks(pack)
         .map(|rows| rows.iter().map(|(id, row)| (id.clone(), row.sheet.as_ref().unwrap_or(id).clone())).collect::<BTreeMap<_, _>>());
+    // Each boss's image by behaviour: its character's, as the boss catalog
+    // draws it, beside the art keys' own sheets (a fallback, a mount).
     let bosses = lowered_rules::<ambition_boss_encounter::BossArtKeys>(pack, ambition_boss_encounter::pattern::content_schema::BOSS_ART_KEYS_SCHEMA)
-        .map(|keys| &keys.sprite_filenames);
+        .map(|keys| {
+            let mut images = keys.sprite_filenames.clone();
+            let characters = ambition_characters::actor::character_catalog::content_schema::lowered_catalog(pack);
+            for (id, behavior) in ambition_boss_encounter::pattern::content_schema::lowered_boss_profiles(pack).into_iter().flatten() {
+                let image = characters
+                    .and_then(|catalog| catalog.characters.get(&behavior.character))
+                    .and_then(ambition_boss_encounter::boss_image_of_character);
+                if let Some(image) = image {
+                    images.entry(id.clone()).or_insert(image);
+                }
+            }
+            images
+        });
     let world_items = ambition_items::content_schema::world_item_art::lowered_world_item_art(pack)
         .map(|rows| rows.iter().map(|(id, row)| (id.clone(), row.path.clone())).collect::<BTreeMap<_, _>>());
     let encounters = ambition_encounter::content_schema::lowered_encounter_waves(pack)

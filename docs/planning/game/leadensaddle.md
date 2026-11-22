@@ -90,6 +90,10 @@ money.
 `assets/concept_art/misc/Marshal Gallus “Rocq” Character Sheet-2.png`).** A
 stout man with a rooster's head and a rooster's feet, dressed as a
 gunfighter. The sprite (`targets/characters/marshal_gallus.py`) follows it.
+His first draft (2026-11-20: a robot rooster with a boiler-plate chest and a
+steam whistle for a voice) is kept as the first look of his lineage,
+`marshal_gallus_v1` (renderer `data/lineage_variants.yaml`,
+`design_history/lineages.yaml`). It is rendered for review, not shipped.
 
 | Part | What it is |
 | --- | --- |

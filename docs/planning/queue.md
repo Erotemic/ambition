@@ -128,8 +128,14 @@ world-post admission.
 **Next bounded work:**
 
 1. At the active independent-room boundary, run
-   [CW1](engine/causal-world-commit.md#cw1--prove-the-dependent-reader-case-and-complete-held-outcomes),
-   then migrate one native atomic item use through CW2. This precedes
+   [CW1](engine/causal-world-commit.md#cw1--prove-the-dependent-reader-case-and-complete-held-outcomes)
+   (done 2026-11-21: the dependent-reader case is a measured failing baseline
+   on the shared bag, and a held world-value write reports `Admitted`, then
+   its real decision under the same ticket), then migrate one native atomic
+   item use through CW2 (done 2026-11-21: a cell grant and a cell use from a
+   room that rewinds alone are proposals the committed bag decides once
+   their tick is confirmed; four cases in one hosted witness; source
+   retirement not yet exercised). This precedes
    extending eager shared writes to more domains; unrelated local work continues.
 2. [Effects phase 6a](engine/actor-effects-and-modifier-composition.md#6a-preserve-issuer-identity-in-control-and-pose)
    preserves independent hold and pose issuers. Phases 6b/6c extend that same
@@ -229,6 +235,43 @@ ordinary characters or add boss work to their tick.
 construction; existing fights and encounter persistence pass; ordinary actors
 have no added boss state or runtime cost; delete the temporary inspector bridge.
 
+# NOTE: MAYBE STALE RECTIFY
+
+### BOSS-CHARACTER — one character path for bosses
+
+**State:** in progress. Slice 1 and slice 2 (2a, 2b, 2c) are done (2026-11-21). The
+[owner plan](engine/boss-character-unification.md#slice-1-record-2026-11-21)
+records the identity mapping, the construction dimensions and a headless frame
+baseline. Each boss profile names its `character`, and the pack refuses a name
+no character row answers. Marshal Gallus, the Clockwork Warden, Mode Collapse,
+the Gram Reaper and the Overflow have character rows and Hall stands. The
+temporary inspector bridge is deleted. A boss's body, corpse and health come
+from its character and its encounter (`scale`, `max_hp`); the profile's
+`combat_size` and `corpse` are gone. The common seed builds the boss body
+(`role_blueprint`, `compose_boss_role`), and the body carries `CharacterForm`.
+Next is slice 3: consume the common identity everywhere and remove `voice`.
+**Defect:** boss construction bypasses the prepared character body path. Hall
+entries duplicate some boss characters; others, including Gallus, are absent.
+**Next:** follow [the owner plan](engine/boss-character-unification.md), starting
+with the identity mapping and a headless baseline. Compose boss attributes on
+character instances; keep multi-character encounters separate. Do not enlarge
+ordinary characters or add boss work to their tick.
+**Acceptance:** Hall and fight use one prepared character and common body
+construction; existing fights and encounter persistence pass; ordinary actors
+have no added boss state or runtime cost; delete the temporary inspector bridge.
+### BOSS-CHARACTER — one character path for bosses — ✅ DONE 2026-11-21
+
+**Done 2026-11-21.** A boss is an instance of its prepared character. Each
+profile names its `character`, and the pack refuses a name no row answers.
+The Hall shows every boss character, and the inspector bridge is deleted.
+The common seed builds the boss body, sized once through the character at
+the encounter's `scale` and `max_hp` (`before_sizing`, `size_from_character`,
+`compose_boss_role`). The body carries `CharacterForm`. A boss speaks as its
+character (`voice` is deleted), and a boss sheet draws its character's image.
+The bill name stays the placement's, as an occurrence fact. Headless frame cost
+equals the baseline within noise, and the Hall's ordinary characters cost what
+they did. The [owner plan](engine/boss-character-unification.md) records
+slices 1 to 4 and the decisions.
 
 ### SCRIPT-COMPLETION — author gameplay scenarios without an engine build — ✅ DONE 2026-11-20
 

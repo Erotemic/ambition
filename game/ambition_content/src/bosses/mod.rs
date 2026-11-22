@@ -106,9 +106,10 @@ pub fn seed_library_of(
 /// * `boss_sheets.ron` — `BossSheetSpec` lives in `ambition_sprite_sheet`, which
 ///   pulls `bevy_render`; migrating it needs the same placement analysis the
 ///   profile vocabulary got, not just a handler;
-/// * `boss_art_keys.ron` — the sprite file of each sheet and the rows each
-///   special and each geometry strike claims. It is authored data, and no
-///   schema owns it yet.
+/// * `boss_art_keys.ron` — the sprite file of each sheet no boss character
+///   draws (the fallback sheet, the giant mount's) and the rows each special
+///   and each geometry strike claims. A boss's own sheet is its character's
+///   image.
 ///
 /// Stated here rather than left implied, because "the boss content goes through
 /// the compiler" is the kind of half-true claim this whole effort exists to stop
@@ -141,7 +142,11 @@ pub fn boss_catalog_fragment_from(sprite_content: &ambition_platformer2d::sprite
     let encounters = ambition_boss_encounter::pattern::content_schema::lowered_boss_encounters(pack)
         .ok_or("the pack carries no lowered boss encounters")?
         .clone();
-    let fragment = ambition_boss_encounter::BossCatalogFragment::from_prepared(
+    // A boss wears its character's image: the catalog draws each boss sheet
+    // from the character the behaviour is an instance of.
+    let characters = ambition_characters::actor::character_catalog::content_schema::lowered_catalog(pack)
+        .ok_or("the pack carries no lowered character catalog")?;
+    let fragment = ambition_boss_encounter::BossCatalogFragment::from_prepared_with_characters(
         crate::AMBITION_CONTENT_PROVIDER,
         Some("clockwork_warden"),
         Some("gradient_sentinel"),
@@ -150,6 +155,7 @@ pub fn boss_catalog_fragment_from(sprite_content: &ambition_platformer2d::sprite
         &crate::pack::source_text(BOSS_SHEETS_SOURCE_PATH, BOSS_SHEETS_RON_STATIC),
         ambition_content_pack::lowered_rules::<ambition_boss_encounter::BossArtKeys>(pack, ambition_boss_encounter::pattern::content_schema::BOSS_ART_KEYS_SCHEMA)
             .ok_or("the pack carries no lowered boss art keys")?.clone(),
+        Some(characters),
     )
     .map_err(|error| error.to_string())?
     // The conducted bosses are built with their conductors, and the behemoth

@@ -245,6 +245,47 @@ about which functions may mention RoomWrite.
 the two-room causal case is an explicit failing baseline or a demonstrated
 existing refusal, not an assumed result.
 
+**CW1 record (2026-11-21).**
+
+*The dependent-reader case is an explicit failing baseline.* The probe used
+the two-room fixture of `a_room_rewinds_alone.rs` (Alice in
+`basement_breakables`, Bob in the hub) with an empty bag. Alice's conversation
+grants a health cell in a window her room later rewinds. Bob spends it, and
+his hp goes from 1 to 2. Alice's room then rewinds with the retractors and
+replays without the grant. Results:
+
+| Point | Bag | Bob's hp |
+| --- | --- | --- |
+| At N | 0 | 1 |
+| After Alice's grant | 1 | 1 |
+| After Bob's use | 0 | 2 |
+| After Alice's replay | 0 | 2 |
+
+The item owner (`OwnedItems`, through `apply_item_uses`) let Bob spend a
+grant that a later input removed. The grant's inverse could not take back a
+cell that was gone. So Bob kept a heal paid for by a cell that never existed,
+as the table above predicts. CW2 replaces this road. The probe was deleted
+after this measurement.
+
+*World values cannot be read before they are final.* An island's write is
+held, and no reader sees it until its tick is confirmed (the existing
+`a_world_count_from_a_rewinding_room_applies_once_when_confirmed`). The
+dependent-reader defect is the shared stores that write eagerly: the bag,
+flags and quest steps.
+
+*A held write is not reported as applied.* `world_values` now answers a held
+write `Admitted`, which is not terminal, and keeps the writer's
+`ActionReply` with it. When the tick is confirmed, the world applies the
+write and tells the writer, under the same ticket, `Applied` or the real
+refusal. A replay of the writer's room repeats that decision at the tick it
+was first told, into the mailbox its rewind restored
+(`HeldWorldWrites::decided`, kept for the rewind horizon). The island witness
+now holds three writes in one window: a count and two compare-and-sets
+against revision 0. Each writer hears `admitted` and no outcome while held.
+At confirmation the count reports `world_count_added`, the first set reports
+`world_value_set`, and the second reports `revision_changed`. The value is the
+first set's, at revision 1.
+
 ### CW2 — One native shared-item operation uses the committed road
 
 Choose one cell grant/spend path in
@@ -272,6 +313,56 @@ room-owned reversible data where it is still correct.
 **Exit:** dependent grant/spend, two competing spends, source retirement,
 source replay and destination replay agree with one canonical item decision.
 No quantity is minted to repair an already exposed speculative grant.
+
+**CW2 record (2026-11-21).** The cell grant (`<<give_item>>`,
+`apply_item_grants`) and the cell use (Health and Mana Cells,
+`apply_item_uses`) take the committed road when the body is in a room that
+rewinds alone. The owner is `ambition_platformer2d_items::committed_bag`.
+
+- **Proposal.** The applier proposes `Grant` or `Use { body: SimId }` under
+  the body's room and tick. A rewind of that room drops the proposals it made
+  after its save (retractor `resource.held_bag_operations`). Its replay
+  proposes again what it does again.
+- **Decision.** On the live tick that confirms a proposal's tick, the bag
+  decides it once. Order is by tick, then by room. A grant enters the bag. A
+  use takes one cell from the committed bag, or is refused `bag_empty`. The
+  bag reads no room's speculative state to decide.
+- **Allocation and cut.** An allocated cell is spent in the proposing room on
+  that tick: the effect together with the cell. If the cell does nothing for
+  the body there (gone from the room, no health, no Mana), the room proposes
+  `Return`, which commits like any proposal. A replay of the room that runs
+  the cut spends the allocation again by the same rule, and takes no second
+  cell.
+- **One authority.** With one rollback authority (local play, GGRS) both
+  appliers keep their same-tick write.
+- **Visible latency.** A held use shows the cell in the bag until the bag
+  decides it, which is the input confirmation latency of the slowest guest.
+  This is the plan's visible responsiveness choice. Pending presentation (a
+  dimmed cell) is not built.
+
+Deleted: the grant and use writes into `BagUsesInRooms`, and with them the
+retraction tests (`a_rewound_room_puts_back_the_cell_its_replay_does_not_use`,
+`a_rewound_room_takes_back_the_grant_its_conversation_gave` and their ignored
+controls). Those tests modelled an island rewind without the island policy.
+A merchant's deal still writes `BagUsesInRooms` and keeps its retractor:
+the deal's wallet side is in the room's snapshot, and moving it to the
+committed road is a later packet.
+
+Witness: `a_room_rewinds_alone::the_shared_bag_decides_each_cell_once_its_tick_is_confirmed`.
+It runs on a hosted host that rewinds guest rooms, with Alice in the hub and
+Bob in the lab:
+
+| Case | What happens | Result |
+| --- | --- | --- |
+| CW1's dependent case | Alice's grant, then Bob's use, while Alice's input is late; her late input rewinds her room | Bag 0; Bob's hp stays 1; decision `bag_empty`; no mint |
+| Competing spends | A confirmed grant (bag 1), then uses by Alice and Bob on one tick | `granted, allocated, bag_empty`; one heal |
+| Refused heal | Bob's health is removed before his cut | `allocated, returned`; bag back to 1 |
+| Destination replay | Bob's use is decided while his room is predicted; his late input rewinds the room across the cut | Healed again in the replay; one cell spent; no second decision |
+
+No script port uses an item, so the native appliers are the only callers.
+**Not yet exercised:** source retirement (the proposing room unloads before
+confirmation). A proposal is keyed by room and tick and is decided by
+confirmation alone, so it commits without its room. No run has shown it.
 
 ### CW3 — Route world consequences through their actual owners
 

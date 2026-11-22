@@ -85,6 +85,11 @@ particular physical manifestation being indestructible.
   keys detonation to a seat (`PlacedMine { owner_seat }`) while the object is
   an ordinary `GroundItem`. An opponent can hold it while it remains the
   placer's to set off.
+- **The shared bag across rooms that rewind alone (CW2, 2026-11-21).** A
+  cell grant or cell use from such a room is a proposal
+  (`ambition_platformer2d_items::committed_bag`). The bag decides it once
+  its tick is confirmed, and spends an allocated cell in the body's room at
+  that tick. See [causal-world-commit](causal-world-commit.md#cw2--one-native-shared-item-operation-uses-the-committed-road).
 - **Possession moves the driver, not the goods.** `OwnedItems` is session
   scope and the hand is body scope, so possession transfers nothing.
 

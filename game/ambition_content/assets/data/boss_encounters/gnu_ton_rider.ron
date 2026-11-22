@@ -31,8 +31,6 @@
     music_phase1: "",
     music_phase2: "",
     music_enrage: "",
-    // He speaks with the `npc_gnu_ton_boss` row's barks: Newton's voice.
-    voice: Some("npc_gnu_ton_boss"),
     // His successor in the arena (GNU2, `gnu2.ron`) joins his last phase:
     // the beat before it opens the pair that calls it.
     successors_wake: Enraged,

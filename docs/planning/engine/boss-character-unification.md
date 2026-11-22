@@ -1,7 +1,7 @@
 # Boss characters: one identity and one construction path
 
-**State:** ready for handoff. Scope set by Jon on 2026-11-20.
-**Queue:** [BOSS-CHARACTER](../queue.md#boss-character--one-character-path-for-bosses).
+**State:** done 2026-11-21 (slices 1–4 recorded below). Scope set by Jon on 2026-11-20.
+**Queue:** [BOSS-CHARACTER](../queue.md#boss-character--one-character-path-for-bosses---done-2026-11-21).
 **Related:** [boss system](boss-system.md),
 [one body, one path](../../concepts/one-body-one-path.md),
 [actor content](../../systems/actors-brains-and-character-content.md).
@@ -333,6 +333,62 @@ Lanes run: the lib tests of `ambition_platformer2d_actor_spawn`,
 failures were already red before 2c: `gnu_ton_in_a_match` and the two T-rex
 drawing tests.
 
+**3a record (2026-11-21).** A boss speaks as its character. The encounter's
+`voice` is deleted. `BossConfig::bark` reads the profile's `character`, which
+the pack already refuses when it names no row. This is the deliberate change
+the 2a step named: the Mockingbird, the Flying Spaghetti Monster, the T-Rex
+(on hit only), the Hunny Horror and Wolfenstein now speak their rows' `on_hit`
+and `idle` lines in their fights. The Warden, the Gram Reaper, Mode Collapse,
+the Overflow, Marshal Gallus, the Behemoth and GNU2 have no lines and stay
+silent.
+
+GNU-ton's row now draws what his fight wears: its manifest is
+`gnu_ton_scholar_boss`, the same sheet as the boss art key, and its
+`standing_height` is his fight body's 105.2. The fused picture of the scholar
+on the giant left the Hall. The giant has its own row and stand. Now every
+boss art key names the same sheet as its character's manifest.
+
+Four display names generated from sprite targets were wrong, and the Hall
+showed them: "Trex Enemy", "Mockingbird Boss", "Flying Spaghetti Monster
+Boss" and "Gnu Ton Boss". They are now "T-Rex", "Mockingbird", "Flying
+Spaghetti Monster" and "GNU-ton (Boss)".
+
+*Decision: the bill name stays the placement's.* The name card, health bar,
+banner and encounter progress read `BossConfig::name`, which is the
+placement's `name`. A test of billing by the character's display name failed
+on two counts:
+* Display names are unique in a composition (the catalog validator), and a
+  form that is the same person in the fight cannot share its base's name.
+  `npc_gnu_ton` is "GNU-ton", so his boss form cannot be.
+* A room may bill a boss by an occurrence name: the Warden is "System Boss" in
+  `first_system_boss`, which `behavior.rs` documents.
+
+So the bill is an occurrence fact, like `scale`. The subject's identity is its
+`CharacterForm`, and its health is its `BodyHealth`, so the bar keeps no second
+pool and no second identity.
+
+**3b record (2026-11-21).** A boss sheet draws its character's image.
+`BossCatalogFragment::from_prepared_with_characters` names the image of each
+behaviour's sheet: the `spritesheet` of the character the behaviour is an
+instance of, from the pack's lowered character catalog. Fourteen of the
+sixteen `sprite_filenames` entries in `boss_art_keys.ron` are deleted. Two
+remain, for sheets no boss character draws: the fallback Gradient Sentinel and
+the giant GNU-ton rides. Naming an image for a sheet a character draws is
+refused (`SpriteFilenameBesideCharacter`). The asset-scope export lists each
+boss's image by the same rule (`boss_image_of_character`), so the editor's
+preflight still finds every boss's art. The sheet's frame grid and its rows
+(`boss_sheets.ron`) stay boss data. A boss's row vocabulary is not a
+character's, and the plan does not merge animation enums.
+
+**3c record (2026-11-21).** Construction builds no provisional body.
+`BossClusterScratch::before_sizing` builds the encounter, health and config at
+the placement box, and `size_from_character` sizes the body once. The boss
+sheet's own body (`resolve_sheet_body`) is read there only when the
+character's sheet states no body. `BossClusterScratch::new` stays the
+constructor for callers that hold no prepared cast: unit fixtures, the
+geometry-debug tool and content validation. Construction no longer sizes from
+the sheet and then overwrites the result.
+
 **Headless frame baseline** (tree `feb420d2a`). Measured with
 `scripts/measure/headless_room_frame.sh`: the `profiling` build without Tracy,
 2000 ticks, 3 reps, and the median of the census windows (ms per frame). The
@@ -345,8 +401,52 @@ slice 4 can re-run the same build on the same machine.
 | `you_have_to_cut_the_rope` (Smirking Behemoth) | 3.94 | 3.95 | 3.87 | 1.73 | 1.07–1.12 |
 | `frontier_ore_corral` (Marshal Gallus) | 4.42 | 4.41 | 4.57 | 1.89–2.00 | 1.16–1.25 |
 
-Not yet recorded: hurt volumes and action repertoire per pose. These come from
-the app-level scenarios in slice 4, through the real encounter paths.
+**Slice 4: cost (2026-11-21, tree `da60968d5`).** Same script settings: the
+`profiling` build without Tracy, 2000 ticks, 3 reps, the median of the census
+windows (ms per frame).
+
+| Room | Rep 1 | Rep 2 | Rep 3 | PreUpdate | Update | Baseline median |
+| --- | --- | --- | --- | --- | --- | --- |
+| `hall_of_characters` | 30.52 | 28.91 | 29.28 | 16.0–16.7 | 9.3–9.9 | 29.66 |
+| `you_have_to_cut_the_rope` | 3.80 | 3.92 | 3.77 | 1.60–1.69 | 1.10–1.14 | 3.94 |
+| `frontier_ore_corral` | 4.25 | 4.53 | 4.49 | 1.83–1.88 | 1.18–1.28 | 4.42 |
+
+Every difference is inside the spread between reps. The Hall, which holds the
+ordinary characters, costs what it did, so ordinary actors gained no boss
+work. The boss rooms show no measurable frame change either way. The
+duplicate work removed was at construction:
+* the provisional health of 18 that activation rewrote (2b);
+* the boss road's own cluster (2c);
+* the sheet body that construction sized and then overwrote (3c).
+
+None of it ran per frame, so no frame gain is claimed.
+
+The kept baseline binary could not be re-run beside the new one. A dev build
+compiles its content from the repository path baked in at build time
+(`ambition_content::pack::source_root`), and today's data has fields the
+`feb420d2a` pack refuses (`character`, `escort`, `scale`). Pointing
+`BEVY_ASSET_ROOT` at an extract of that commit's assets does not redirect the
+pack. So the comparison is against the recorded baseline table, on the same
+machine, script and build settings. A future binary baseline must keep a
+source checkout of its commit, or embed its content with
+`--features ambition_content/static_content`.
+
+**Behaviour (slice 4).** The real encounter paths were checked by each slice's
+app_it lane, not by a separate table:
+* Gallus's phases and death (`leadensaddle`, `gallus`);
+* a shared-art sentinel (`warden`, `boss_sheet`);
+* the articulated Flying Spaghetti Monster (`fsm_fight`);
+* the T-Rex (`trex`);
+* Wolfenstein's transformation (`wolfenstein`, `inugami`);
+* GNU-ton, his mount and GNU2's portal (`gnu_ton_fight`, `the_gnu_ton_handle`);
+* possession specials (`boss_possession`);
+* rewind retraction (`boss_replay_retraction`);
+* the Hall (`hall_of`).
+
+Their pose-derived hurt geometry and death policy pass. The failures left in
+those lanes were red before this work: `gnu_ton_in_a_match` and two T-Rex
+drawing tests. A per-pose table of hurt volumes was not written. The lanes
+assert the geometry, and a table would be a second copy of it.
 
 Keep each integration slice coherent. A temporary migration seam must have a
 short `TODO(compat-remove)` with its replacement and deletion condition. Do not

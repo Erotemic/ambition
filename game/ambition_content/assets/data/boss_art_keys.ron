@@ -3,31 +3,17 @@
 // boss crate's test catalog, so the two cannot disagree.
 (
     sprite_filenames: {
+        // A boss's own sheet is its character's image (the catalog reads it
+        // from the character the behaviour is an instance of). These are the
+        // sheets no boss character draws.
+        //
         // The three sentinels (Jon, 2026-10-18: "each can be used to make some of
         // the non unique bosses unique-ish"): the Gradient Sentinel is the sheet a
-        // boss without art of its own wears, the Warden and Mode Collapse each
-        // wear one of the other two.
+        // boss without art of its own wears; the Warden and Mode Collapse wear
+        // the other two, as their characters.
         "gradient_sentinel": "gradient_sentinel_boss_spritesheet.png",
-        "clockwork_warden": "clockwork_warden_boss_spritesheet.png",
-        "mode_collapse_boss": "hooded_sentinel_boss_spritesheet.png",
-        "mockingbird": "mockingbird_boss_v2_spritesheet.png",
-        "smirking_behemoth_boss": "smirking_behemoth_boss_spritesheet.png",
+        // The giant GNU-ton rides: a mount, not a boss.
         "giant_gnu": "gnu_ton_boss/giant_gnu_spritesheet.png",
-        "gnu2": "gnu_ton_boss/giant_gnu2_spritesheet.png",
-        // The scholar as the boss wears him: his boss rows, then the rows of
-        // his duel (the renderer's target `gnu_ton_scholar_boss`, the same
-        // drawing as the fighter `npc_gnu_ton`).
-        "gnu_ton_rider": "gnu_ton_scholar_boss_spritesheet.png",
-        "flying_spaghetti_monster_boss": "flying_spaghetti_monster_boss_spritesheet.png",
-        "trex_boss": "trex_enemy_spritesheet.png",
-        "hunny_horror_boss": "hunny_horror_boss_spritesheet.png",
-        "gram_reaper_boss": "gram_reaper_spritesheet.png",
-        "wolfenstein_boss": "wolfenstein_spritesheet.png",
-        "wolfenstein_inugami": "wolfenstein_inugami_spritesheet.png",
-        // The final boss (renderer target `bossofthegame_boss`).
-        "bossofthegame": "bossofthegame_boss_spritesheet.png",
-        // Marshal Gallus (renderer target `marshal_gallus`).
-        "marshal_gallus": "marshal_gallus_spritesheet.png",
     },
     special_animation_rows: {
         "overfit_volley": ["spike_halo", "eye_beam"],

@@ -145,6 +145,9 @@ fn declare() {
             #{tag: 2, name: "line", kind: "f32"},
             #{tag: 3, name: "added", kind: "u32"},
             #{tag: 4, name: "code", kind: "text 32"},
+            #{tag: 5, name: "admitted", kind: "u32"},
+            #{tag: 6, name: "gate_a", kind: "text 32"},
+            #{tag: 7, name: "gate_b", kind: "text 32"},
         ]},
         #{key: "tally", attachment: "session", fields: [
             #{tag: 1, name: "changes", kind: "u32"},
@@ -152,8 +155,10 @@ fn declare() {
         ]},
     ], entries: [
         #{key: "tick", phase: "technique_execution", trigger: #{port: "status_tick", selector: "world_island_probe.go"},
-          writes: ["root"], requests: ["add_world_count"], limit: 1},
+          writes: ["root"], requests: ["add_world_count", "set_world_value"], limit: 3},
         #{key: "sent", phase: "actor_think", trigger: #{port: "action_result", selector: "sent"}, writes: ["root"]},
+        #{key: "gate_a", phase: "actor_think", trigger: #{port: "action_result", selector: "gate_a"}, writes: ["root"]},
+        #{key: "gate_b", phase: "actor_think", trigger: #{port: "action_result", selector: "gate_b"}, writes: ["root"]},
         #{key: "tally", phase: "actor_think", trigger: #{port: "world_value_changed", selector: "crossings"}, writes: ["tally"]},
     ]}
 }
@@ -167,10 +172,25 @@ fn tick() {
         this.state.root.added += 1;
         this.requests.push(request("add_world_count", #{key: "crossings", delta: 1,
             reply: #{request: 1, selector: "world_island_probe::count/sent"}}));
+        // Two compare-and-sets against one revision: one applies, the other
+        // meets the changed revision when the world decides them.
+        this.requests.push(request("set_world_value", #{key: "gate", value: 1, expect: 0,
+            reply: #{request: 2, selector: "world_island_probe::count/gate_a"}}));
+        this.requests.push(request("set_world_value", #{key: "gate", value: 2, expect: 0,
+            reply: #{request: 3, selector: "world_island_probe::count/gate_b"}}));
     }
 }
 fn sent() {
     if this.trigger.terminal { this.state.root.code = this.trigger.code; }
+    else if this.trigger.stage == "admitted" { this.state.root.admitted += 1; }
+}
+fn gate_a() {
+    if this.trigger.terminal { this.state.root.gate_a = this.trigger.code; }
+    else if this.trigger.stage == "admitted" { this.state.root.admitted += 1; }
+}
+fn gate_b() {
+    if this.trigger.terminal { this.state.root.gate_b = this.trigger.code; }
+    else if this.trigger.stage == "admitted" { this.state.root.admitted += 1; }
 }
 fn tally() {
     this.state.tally.changes += 1;
@@ -255,7 +275,7 @@ fn a_world_count_from_a_rewinding_room_applies_once_when_confirmed() {
     let mut speculative = false;
     for _ in 0..40 {
         host.app_mut().update();
-        speculative |= held(&host) == 1;
+        speculative |= held(&host) > 0;
         if speculative && bob_x(&mut host) > line + 8.0 { break; }
     }
     assert!(speculative, "the premise: the predicted walk crossed the line and wrote");
@@ -281,7 +301,7 @@ fn a_world_count_from_a_rewinding_room_applies_once_when_confirmed() {
         let tick = next(&host);
         send(&mut host, 1, tick, right());
         host.app_mut().update();
-        if held(&host) == 1 { sent_at = Some(host.world().resource::<SimTick>().0); break; }
+        if held(&host) > 0 { sent_at = Some(host.world().resource::<SimTick>().0); break; }
     }
     let sent_at = sent_at.expect("Bob walked past the line and wrote");
     for _ in 0..3 {
@@ -289,9 +309,15 @@ fn a_world_count_from_a_rewinding_room_applies_once_when_confirmed() {
         send(&mut host, 1, tick, ControlFrame::default());
         host.app_mut().update();
     }
-    assert_eq!(held(&host), 1, "held while Alice's input for the writing tick has not come");
+    assert_eq!(held(&host), 3, "held while Alice's input for the writing tick has not come");
     assert_eq!(count(&mut host), None);
-    assert_eq!(root(&host).unwrap().get(FieldRef(3)).unwrap(), &Value::Text("world_value_held".into()));
+    // ⭐ HELD IS NOT APPLIED. Each writer heard `admitted`, which is not
+    // terminal, and no outcome yet.
+    let field = |host: &Platformer2dSimHarness, at: usize| root(host).unwrap().get(FieldRef(at)).unwrap().clone();
+    assert_eq!(field(&host, 4), Value::U32(3), "each of the three writes heard it was admitted");
+    for at in [3, 5, 6] {
+        assert_eq!(field(&host, at), Value::Text(String::new()), "no write has an outcome while it is held");
+    }
 
     // Alice's input confirms the tick, and the next live tick applies it.
     send(&mut host, 0, sent_at + 1, ControlFrame::default());
@@ -305,6 +331,14 @@ fn a_world_count_from_a_rewinding_room_applies_once_when_confirmed() {
     }
     assert_eq!(count(&mut host), Some((ambition_platformer2d::extension::sdk::script::ScriptValue::Int(1), 1)),
         "counted once, at revision 1");
+    // The world's decisions, under the tickets the writers hold: the count
+    // applied, the first compare-and-set applied, and the second met the
+    // revision the first wrote.
+    assert_eq!(field(&host, 3), Value::Text("world_count_added".into()));
+    assert_eq!(field(&host, 5), Value::Text("world_value_set".into()));
+    assert_eq!(field(&host, 6), Value::Text("revision_changed".into()));
+    let gate = world_values(host.world_mut()).values.into_iter().find(|row| row.key == "gate").map(|row| (row.value, row.revision));
+    assert_eq!(gate, Some((ambition_platformer2d::extension::sdk::script::ScriptValue::Int(1), 1)), "the first set holds");
     let tally = SchemaKey::new("world_island_probe", "tally", 1);
     let world = host.world_mut();
     let heard: Vec<_> = world.query::<&ambition_platformer2d::extension::SessionRecords>().iter(world)

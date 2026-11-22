@@ -6,7 +6,11 @@
 //! play, GGRS) that is the writing tick itself; a room that rewinds alone
 //! (SIMULATION-ISLANDS) has its write held until the confirmed boundary
 //! passes the writing tick, and a rewind of that room takes back what it
-//! wrote after its save. So a value is never written by a tick that is later
+//! wrote after its save. A held write's writer hears `Admitted`, which is not
+//! terminal, then the world's decision under the same ticket: `Applied`, or
+//! the refusal the write meets then (a compare-and-set whose revision another
+//! write changed). A replay of the writer's room tells it that decision again
+//! on the tick it was first told. So a value is never written by a tick that is later
 //! simulated differently, and the save, which a room replay does not rewind,
 //! is its store.
 //!
@@ -34,16 +38,47 @@ pub const MAX_PENDING_WORLD_CHANGES: usize = 64;
 #[derive(Clone, Debug)]
 enum Write { Set { value: ScriptValue, expect: Option<u32> }, Add(i32) }
 
+/// A write held for confirmation, with the reply its writer waits on: the
+/// writer was told only that it was admitted, and hears the world's decision
+/// (applied, or the refusal it meets then) under the same ticket.
 #[derive(Clone, Debug)]
-struct Held { write: RoomWrite, key: String, op: Write }
+struct Held {
+    write: RoomWrite,
+    key: String,
+    op: Write,
+    reply: Option<ambition_platformer2d_shared_tangle::action_results::ActionReply>,
+}
 
-/// Writes from rooms that rewind alone, waiting for their tick to be confirmed.
+/// What admission did with a write that passed its checks.
+enum Admission {
+    /// The world applied it now.
+    Applied(&'static str),
+    /// Held until its tick is confirmed: pending, not yet a world change.
+    Held(&'static str),
+}
+
+/// One decision the world told a held write's writer, by the live tick it
+/// was told on: a replay of the writer's room that runs that tick tells it
+/// again, into the mailbox its rewind restored.
+#[derive(Clone, Debug)]
+struct Decided {
+    tick: u64,
+    reply: ambition_platformer2d_shared_tangle::action_results::ActionReply,
+    stage: ActionStage,
+    code: &'static str,
+}
+
+/// Writes from rooms that rewind alone, waiting for their tick to be
+/// confirmed, and the decisions told to their writers.
 #[derive(Resource, Default)]
-pub struct HeldWorldWrites(Vec<Held>);
+pub struct HeldWorldWrites { held: Vec<Held>, decided: Vec<Decided> }
 
 impl HeldWorldWrites {
-    pub fn len(&self) -> usize { self.0.len() }
-    pub fn is_empty(&self) -> bool { self.0.is_empty() }
+    /// Writes waiting for their tick to be confirmed.
+    pub fn len(&self) -> usize { self.held.len() }
+    pub fn is_empty(&self) -> bool { self.held.is_empty() }
+    /// Decisions a replay of a writer's room can still tell again.
+    pub fn decided(&self) -> usize { self.decided.len() }
 }
 
 /// The applied writes the session's entries have not heard yet.
@@ -109,7 +144,8 @@ fn apply(world: &mut World, key: &str, op: &Write) -> Result<&'static str, &'sta
 }
 
 /// Check a write, then apply it now, or hold it when its room rewinds alone.
-fn admit(world: &mut World, scope: Entity, key: &str, op: Write) -> Result<&'static str, &'static str> {
+fn admit(world: &mut World, scope: Entity, key: &str, op: Write,
+    reply: Option<&ambition_platformer2d_shared_tangle::action_results::ActionReply>) -> Result<Admission, &'static str> {
     if !valid_world_key(key) { return Err("invalid_world_key"); }
     if let Write::Set { value, .. } = &op {
         let checked = crate::object_behaviors::checked_data(value, MAX_WORLD_VALUE_BYTES).ok_or("world_value_bound")?;
@@ -117,12 +153,13 @@ fn admit(world: &mut World, scope: Entity, key: &str, op: Write) -> Result<&'sta
     }
     match simulation_island(world, scope) {
         Some(SimulationIsland::Room(_, room)) => {
-            if world.resource::<HeldWorldWrites>().0.len() >= MAX_HELD_WORLD_WRITES { return Err("world_write_queue_full"); }
+            if world.resource::<HeldWorldWrites>().held.len() >= MAX_HELD_WORLD_WRITES { return Err("world_write_queue_full"); }
             let tick = world.resource::<ambition_time::SimTick>().0;
-            world.resource_mut::<HeldWorldWrites>().0.push(Held {write: RoomWrite {room, tick}, key: key.to_owned(), op});
-            Ok("world_value_held")
+            world.resource_mut::<HeldWorldWrites>().held.push(Held {write: RoomWrite {room, tick}, key: key.to_owned(), op,
+                reply: reply.cloned()});
+            Ok(Admission::Held("world_value_held"))
         }
-        Some(SimulationIsland::Session(_)) => apply(world, key, &op),
+        Some(SimulationIsland::Session(_)) => apply(world, key, &op).map(Admission::Applied),
         None => Err("writer_without_authority"),
     }
 }
@@ -134,7 +171,7 @@ fn lower_sets<L: ambition_extension_host::LowersIn>(world: &mut World) {
         let dispatch = begin_action_request::<SetWorldValuePort>(world, submitted.state_scope, &submitted.entry, &request);
         if !dispatch.execute { continue; }
         let result = admit(world, submitted.scope, &request.key,
-            Write::Set {value: request.value.clone(), expect: request.expect});
+            Write::Set {value: request.value.clone(), expect: request.expect}, dispatch.reply.as_ref());
         answer(world, dispatch.reply.as_ref(), result);
     }
 }
@@ -145,44 +182,67 @@ fn lower_adds<L: ambition_extension_host::LowersIn>(world: &mut World) {
         let request = submitted.value;
         let dispatch = begin_action_request::<AddWorldCountPort>(world, submitted.state_scope, &submitted.entry, &request);
         if !dispatch.execute { continue; }
-        let result = admit(world, submitted.scope, &request.key, Write::Add(request.delta));
+        let result = admit(world, submitted.scope, &request.key, Write::Add(request.delta), dispatch.reply.as_ref());
         answer(world, dispatch.reply.as_ref(), result);
     }
 }
 
-fn answer(world: &mut World, reply: Option<&ambition_platformer2d_shared_tangle::action_results::ActionReply>, result: Result<&'static str, &'static str>) {
-    let (stage, code) = match result {
-        Ok(code) => (ActionStage::Applied, code),
-        Err(code) => (ActionStage::Rejected, code),
+/// A held write is `Admitted` and not terminal: the writer hears its real
+/// outcome when the world decides it ([`apply_confirmed_writes`]).
+fn answer(world: &mut World, reply: Option<&ambition_platformer2d_shared_tangle::action_results::ActionReply>, result: Result<Admission, &'static str>) {
+    let (stage, terminal, code) = match result {
+        Ok(Admission::Applied(code)) => (ActionStage::Applied, true, code),
+        Ok(Admission::Held(code)) => (ActionStage::Admitted, false, code),
+        Err(code) => (ActionStage::Rejected, true, code),
     };
-    publish_action_result(world, reply, stage, true, code, "", Vec::new());
+    publish_action_result(world, reply, stage, terminal, code, "", Vec::new());
 }
 
 /// On a live tick: apply every held write whose tick is confirmed, in the
-/// order they were written. A held write the value refuses now (a changed
-/// revision, a full store) is dropped with a warning: its writer was told
-/// only that it was held.
+/// order they were written, and tell each writer the world's decision: the
+/// write applied, or the refusal it met now (a changed revision, a full
+/// store). Its writer was told only that it was admitted.
 fn apply_confirmed_writes(world: &mut World) {
     let boundary = world.get_resource::<ConfirmedFrameBoundary>().copied();
-    let held = std::mem::take(&mut world.resource_mut::<HeldWorldWrites>().0);
+    let now = world.resource::<ambition_time::SimTick>().0;
+    let mut store = world.resource_mut::<HeldWorldWrites>();
+    store.decided.retain(|row| row.tick.saturating_add(ROOM_REWIND_HORIZON_TICKS) >= now);
+    let held = std::mem::take(&mut store.held);
     let (ready, waiting): (Vec<Held>, Vec<Held>) = held.into_iter()
         .partition(|write| boundary.is_none_or(|boundary| boundary.is_confirmed(write.write.tick as i32)));
-    world.resource_mut::<HeldWorldWrites>().0 = waiting;
+    store.held = waiting;
     for write in ready {
-        if let Err(code) = apply(world, &write.key, &write.op) {
-            warn!(key = write.key, code, "A held world value write was refused when it was applied.");
-        }
+        let (stage, code) = match apply(world, &write.key, &write.op) {
+            Ok(code) => (ActionStage::Applied, code),
+            Err(code) => (ActionStage::Rejected, code),
+        };
+        let Some(reply) = write.reply else { continue; };
+        publish_action_result(world, Some(&reply), stage, true, code, "", Vec::new());
+        world.resource_mut::<HeldWorldWrites>().decided.push(Decided {tick: now, reply, stage, code});
+    }
+}
+
+/// While a room replays: tell each writer in it again the decision it was
+/// told on the tick now running. The rewind restored its mailbox from before.
+fn retell_in_replay(world: &mut World) {
+    let Some(replay) = world.get_resource::<RoomReplay>().copied() else { return; };
+    let now = world.resource::<ambition_time::SimTick>().0;
+    let rows: Vec<Decided> = world.resource::<HeldWorldWrites>().decided.iter().filter(|row| row.tick == now).cloned().collect();
+    for row in rows {
+        let Some(entity) = row.reply.recipient.resolve(world) else { continue; };
+        if !replay.allows(object_scope_room(world, entity)) { continue; }
+        publish_action_result(world, Some(&row.reply), row.stage, true, row.code, "", Vec::new());
     }
 }
 
 /// A rewind of `room` to `saved_at` takes back the writes it made after it.
 fn retract_held_writes(world: &mut World, room: LiveRoomInstance, saved_at: u64) {
     if let Some(mut held) = world.get_resource_mut::<HeldWorldWrites>() {
-        held.0.retain(|write| !write.write.retracted_by(room, saved_at));
+        held.held.retain(|write| !write.write.retracted_by(room, saved_at));
     }
 }
 
-fn forget_held_writes(mut held: ResMut<HeldWorldWrites>) { held.0.clear(); }
+fn forget_held_writes(mut held: ResMut<HeldWorldWrites>) { *held = HeldWorldWrites::default(); }
 
 /// Invoke the entries listening to each change, at the session, and empty the mailbox.
 fn queue_changes(world: &mut World) {
@@ -306,6 +366,8 @@ pub(crate) fn install(app: &mut App) {
     app.add_message::<SessionScopeActivated>();
     app.add_systems(Update, forget_held_writes.in_set(SessionScopeSet::Activate).run_if(on_message::<SessionScopeActivated>));
     let schedule = app.sim_schedule();
-    app.add_systems(schedule, apply_confirmed_writes.run_if(not(resource_exists::<RoomReplay>))
-        .in_set(Platformer2dSimulationPhase::GameplayEffects));
+    app.add_systems(schedule, (
+        apply_confirmed_writes.run_if(not(resource_exists::<RoomReplay>)),
+        retell_in_replay.run_if(resource_exists::<RoomReplay>),
+    ).in_set(Platformer2dSimulationPhase::GameplayEffects));
 }

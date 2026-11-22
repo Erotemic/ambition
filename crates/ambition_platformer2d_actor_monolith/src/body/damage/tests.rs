@@ -3305,7 +3305,7 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
             },
         );
         if !voiced {
-            boss.config.seed.encounter.voice = None;
+            boss.config.behavior.character = "npc_nobody".to_string();
         }
         let boss_entity = app.world_mut().spawn((
             FeatureSimEntity,
@@ -3336,7 +3336,7 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
         app.world().resource::<Said>().0.clone()
     }
     assert_eq!(strike_gnu_ton(&sprite_content, true), vec!["Counterfeit.".to_string()], "the voiced boss's first hit line");
-    assert_eq!(strike_gnu_ton(&sprite_content, false), Vec::<String>::new(), "a boss with no voice is silent");
+    assert_eq!(strike_gnu_ton(&sprite_content, false), Vec::<String>::new(), "a boss whose character has no row is silent");
 }
 
 #[test]

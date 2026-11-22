@@ -588,6 +588,7 @@ fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
 #[test]
 fn active_metadata_returns_active_room_metadata() {
     let m1 = RoomMetadata {
+        camera_policy: None,
         biome: Some("hub".into()),
         music_track: Some("hub_loop".into()),
         fight_music_track: None,
@@ -612,6 +613,7 @@ fn active_metadata_returns_active_room_metadata() {
         boss_reward_drop: None,
     };
     let m2 = RoomMetadata {
+        camera_policy: None,
         biome: Some("cave".into()),
         music_track: Some("cave_loop".into()),
         fight_music_track: None,
@@ -661,6 +663,7 @@ fn room_metadata_is_empty_false_when_any_field_set() {
     assert!(!m.is_empty());
 
     let m = RoomMetadata {
+        camera_policy: None,
         biome: None,
         music_track: Some("loop".into()),
         fight_music_track: None,
@@ -709,6 +712,7 @@ fn room_metadata_is_empty_false_when_any_field_set() {
 #[test]
 fn room_metadata_merge_preserves_existing_values() {
     let mut a = RoomMetadata {
+        camera_policy: None,
         biome: Some("hub".into()),
         music_track: None,
         fight_music_track: None,
@@ -733,6 +737,7 @@ fn room_metadata_merge_preserves_existing_values() {
         boss_reward_drop: None,
     };
     let b = RoomMetadata {
+        camera_policy: None,
         biome: Some("CONFLICT".into()),        // ignored — a.biome wins
         music_track: Some("hub_loop".into()),  // takes effect — a.music_track was None
         fight_music_track: Some("boss_loop".into()), // takes effect — a had none

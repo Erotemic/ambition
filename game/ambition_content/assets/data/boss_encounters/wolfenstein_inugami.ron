@@ -35,7 +35,6 @@
     music_phase1: "iron_toccata",
     music_phase2: "iron_toccata",
     music_enrage: "iron_toccata",
-    voice: Some("npc_wolfenstein_inugami"),
     // Its killing blow ends the whole fight: time hangs while it falls
     // (`ambition_boss_encounter::finish`).
     slow_motion_finish: true,

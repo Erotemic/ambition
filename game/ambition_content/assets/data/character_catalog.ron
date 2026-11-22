@@ -3880,7 +3880,7 @@
         hall_dialogue_id: Some("hall_npc_raid_enforcer"),
         ),
         "npc_flying_spaghetti_monster_boss": (
-            display_name: "Flying Spaghetti Monster Boss",
+            display_name: "Flying Spaghetti Monster",
             manifest: "sprites/flying_spaghetti_monster_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -4007,10 +4007,17 @@
         hall_dialogue_id: Some("hall_npc_girdle"),
         ),
         "npc_gnu_ton_boss": (
-            display_name: "Gnu Ton Boss",
-            manifest: "sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.ron",
+            // Display names are unique, and `npc_gnu_ton` is "GNU-ton". The
+            // fight bills him by his placement's name.
+            display_name: "GNU-ton (Boss)",
+            // The drawing his fight wears: the scholar alone. The giant he
+            // rides is its own character (`npc_giant_gnu`), with its own stand.
+            manifest: "sprites/gnu_ton_scholar_boss_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
+            // His size in his fight, his primary context: the scholar's body
+            // drawn in the arenas' 54 x 96 BossSpawn.
+            standing_height: Some(105.2),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -4242,7 +4249,7 @@
         hall_dialogue_id: Some("hall_npc_mantis_lancer"),
         ),
         "npc_mockingbird_boss": (
-            display_name: "Mockingbird Boss",
+            display_name: "Mockingbird",
             manifest: "sprites/mockingbird_boss_v2_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -4601,7 +4608,7 @@
         hall_dialogue_id: Some("hall_npc_trent"),
         ),
         "npc_trex_enemy": (
-            display_name: "Trex Enemy",
+            display_name: "T-Rex",
             manifest: "sprites/trex_enemy_spritesheet.ron",
             tier: Basement,
             body_kind: Wide,
@@ -11715,8 +11722,10 @@
             manifest: "sprites/math_show_goat_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
-            // The prop was 80 high, horns and all.
-            standing_height: Some(80.0),
+            // 44 high, hooves to horn tips: a big nanny goat (about 1.1 m)
+            // beside a person's 68. The closet prop's 80 stood her taller
+            // than the townsfolk.
+            standing_height: Some(44.0),
             composition: None,
             default_brain: "grazing_roam",
             default_action_set: "peaceful",
@@ -11737,8 +11746,9 @@
             manifest: "sprites/math_show_car_spritesheet.ron",
             tier: MainHall,
             body_kind: Wide,
-            // The prop was 90 high to the top of the bow.
-            standing_height: Some(90.0),
+            // 60 high, tyres to the top of the bow, and about 220 long: a
+            // fifties convertible (about 1.4 m by 5.5 m) beside a person's 68.
+            standing_height: Some(60.0),
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",

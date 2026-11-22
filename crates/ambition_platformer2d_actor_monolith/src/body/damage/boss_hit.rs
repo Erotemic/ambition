@@ -217,6 +217,13 @@ pub(crate) fn apply_boss_hit(
     // death settles.
     let resolution = apply_entity_boss_damage(boss.status, health, combat, wallet_shield, amount);
     writers.receptions.record(boss_entity, event, resolution);
+    // ⭐ CR1: A BOSS THAT LOSES HP WAS HIT. The move that hurt it connected,
+    // with the amount applied; a boss takes the blow without a launch or a
+    // freeze, so its reaction is none (zero hitlag, an explicit result). An
+    // invulnerable phase, a guard and a wallet keep their own decisions.
+    if matches!(resolution, ambition_damage::BodyHitResolution::Damaged { .. }) {
+        writers.receptions.connect(boss_entity, event, resolution, 0.0);
+    }
     let killed = matches!(resolution, ambition_damage::BodyHitResolution::Damaged { died: true, .. });
     let wallet_spent = match resolution {
         ambition_damage::BodyHitResolution::WalletShielded { spent } => Some(spent),

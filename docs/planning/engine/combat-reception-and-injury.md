@@ -144,6 +144,24 @@ No broad new matrix is required. The risk is inconsistent outcome publication,
 not all combat tuning. Report publication and lookup counts if cost is
 measured; this packet makes no frame-time or binary-size promise.
 
+### CR1 first slice done (2026-11-22)
+
+`BodyHitReporter` owns the move outcome beside the reception record:
+`connect(body, hit, resolution, hitlag)` and `block(body, hit)` build
+`ResolvedBodyHit` and `BlockedBodyHit` from the hit the road resolved, and the
+`resolved`/`blocked` writer fields and the free `publish_resolved_hit` /
+`publish_blocked_hit` helpers are gone from both roads. A damaging boss hit
+now connects once with the applied amount and zero hitlag; an accepted lethal
+home-body strike connects once with zero hitlag before the death arm, with no
+launch invented. A guarded boss, an invulnerable phase and a wallet keep their
+own decisions (no connect). Witness: `a_damaging_boss_hit_confirms_the_move_that_landed_it`
+(attacker, move occurrence 7, amount equal to the HP lost; a guarded boss as
+control).
+
+**Open in CR1:** a single finalization taking surface decision and actual
+reaction (each road still chooses when to call `connect`); the lethal
+home-body unit witness; the phase-immunity control on a constructed boss.
+
 ## CR2 — Route limb injury without an HP mailbox
 
 ### Failure and customer

@@ -246,6 +246,9 @@ world-post admission.
    replaces GNU's missing-HP transfer with one optional surface-to-recipient
    relation. Keep one injury per opening, explicit injury cap, distinct clash
    acceptance and the stated same-cut timing change. No general damage graph.
+   (CR1 first slice landed 2026-11-22: the hit reporter owns connect and
+   block; a damaging boss hit and a lethal home-body strike now connect once,
+   with zero hitlag.)
 
 **Acceptance:** a selected domain fact has one binder; independent holds and
 poses retire separately; another room cannot act on a world cause that can

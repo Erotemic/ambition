@@ -121,15 +121,9 @@ pub struct FeatureHitWriters<'w, 's> {
     pub defeats: Option<MessageWriter<'w, ambition_platformer2d_shared_tangle::lifecycle::DefeatCommitted>>,
     /// The addressed identity of the defeated body and its attacker.
     pub objects: ambition_platformer2d_shared_tangle::lifecycle::LiveObjects<'w, 's>,
-    /// The hit's RESULT, for the simulation — the match freeze reads it.
-    /// `Option` for the reason spelled out on the player-side twin.
-    pub resolved: Option<MessageWriter<'w, ambition_combat::hitbox::ResolvedBodyHit>>,
-    /// The strikes a GUARD ate, for the simulation — a move asking whether IT
-    /// connected reads this beside `resolved` and never infers a block from a
-    /// missing connect. `Option` for the same reason as `resolved`.
-    pub blocked: Option<MessageWriter<'w, ambition_combat::hitbox::BlockedBodyHit>>,
     pub receptions: ambition_damage::reception::BodyHitReporter<'w, 's>,
-    /// The LAUNCH the reaction produced. Same `Option` rule as above.
+    /// The LAUNCH the reaction produced. `Option`: a beat a headless fixture
+    /// need not register (see `BodyHitReporter`'s connect writer).
     #[cfg(feature = "causal")]
     pub reactions: Option<MessageWriter<'w, ambition_damage::BodyReactionApplied>>,
     /// Refactor 3: spawning loot/respawns on a hit is a one-liner

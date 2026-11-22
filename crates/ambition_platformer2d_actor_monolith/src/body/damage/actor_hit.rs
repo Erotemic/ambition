@@ -400,12 +400,7 @@ pub(crate) fn apply_actor_hit(
             // cannot read that absence as "blocked", because on the player road
             // the resolution arrives a frame later and absence would also mean
             // "not decided yet". So the block says its own name.
-            ambition_damage::publish_blocked_hit(
-                writers.blocked.as_mut(),
-                actor_entity,
-                event.attacker,
-                event.attacker_move_instance,
-            );
+            writers.receptions.block(actor_entity, event);
             return true;
         }
         if let ambition_damage::BodyHitResolution::WalletShielded { spent } = resolution {
@@ -502,15 +497,7 @@ pub(crate) fn apply_actor_hit(
             // the fact the match freeze reads. Beside the reaction because THAT
             // is where the hitlag exists: publishing beside the resolution
             // instead reported zero for every hit.
-            ambition_damage::publish_resolved_hit(
-                writers.resolved.as_mut(),
-                actor_entity,
-                event.attacker,
-                combat.hitstop_timer,
-                event.source.clone(),
-                resolution,
-                event.attacker_move_instance,
-            );
+            writers.receptions.connect(actor_entity, event, resolution, combat.hitstop_timer);
             #[cfg(feature = "causal")]
             if let Some(reactions) = writers.reactions.as_mut() {
                 reactions.write(ambition_damage::BodyReactionApplied {

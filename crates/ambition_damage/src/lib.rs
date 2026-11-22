@@ -463,23 +463,11 @@ pub struct BodyDeathWriters<'w, 's> {
     /// do not fire together: an `Unbounded` fighter is knocked out without dying
     /// in the world's sense at all.
     pub knockouts: MessageWriter<'w, ambition_combat::stocks::BodyKnockedOut>,
-    /// The hit's RESULT, for the simulation — the match freeze reads it. Rides
-    /// this bundle for the same reason the causal one below does: same two
-    /// places, same moment, same value.
-    ///
-    /// ⛔ `Option` DESPITE BEING SIMULATION, and the reason is narrow: what it
-    /// drives is a BEAT. `request_impact_hitstop_on_resolved_hits` already
-    /// degrades to no freeze when a headless fixture installs no feel tuning,
-    /// and twenty-five hand-built fixtures should not have to learn that a
-    /// screen freeze exists. Every real composition registers it in
-    /// `SimCoreResourcesPlugin`, so the degradation never reaches a game.
-    pub resolved: Option<MessageWriter<'w, ambition_combat::hitbox::ResolvedBodyHit>>,
-    /// The strikes a GUARD ate, for the simulation — a move asking whether IT
-    /// connected reads this beside `resolved` and never infers a block from a
-    /// missing connect. `Option` for the same reason as `resolved`.
-    pub blocked: Option<MessageWriter<'w, ambition_combat::hitbox::BlockedBodyHit>>,
+    /// The reception decision and the move's outcome (connect or block), for
+    /// the simulation: the match freeze and a move's `Connected` read them.
     pub receptions: reception::BodyHitReporter<'w, 's>,
-    /// The LAUNCH the reaction produced. Same `Option` rule as above.
+    /// The LAUNCH the reaction produced. `Option`: a beat a headless fixture
+    /// need not register (see `BodyHitReporter`'s connect writer).
     #[cfg(feature = "causal")]
     pub reactions: Option<MessageWriter<'w, BodyReactionApplied>>,
 }
@@ -636,12 +624,7 @@ pub(crate) fn handle_player_damage_events(
             // ⭐ AND THE SIMULATION IS TOLD, not just the player. A move's own
             // `OnHit` cancel used to confirm on a blocked strike because the only
             // channel it could read meant OVERLAP; the block is decided HERE.
-            publish_blocked_hit(
-                death_writers.blocked.as_mut(),
-                player_entity,
-                damage.attacker,
-                damage.attacker_move_instance,
-            );
+            death_writers.receptions.block(player_entity, &damage);
             false
         }
         // A3: a worn armor row (mushroom-analog) absorbed the hit. No HP change,
@@ -703,15 +686,7 @@ pub(crate) fn handle_player_damage_events(
                         strike_weight,
                         pose_held,
                     );
-                    publish_resolved_hit(
-                        death_writers.resolved.as_mut(),
-                        player_entity,
-                        damage.attacker,
-                        combat.hitstop_timer,
-                        damage.source.clone(),
-                        resolution,
-                        damage.attacker_move_instance,
-                    );
+                    death_writers.receptions.connect(player_entity, &damage, resolution, combat.hitstop_timer);
                     publish_reaction(death_writers, player_entity, reaction);
                     false
                 }
@@ -748,6 +723,10 @@ pub(crate) fn handle_player_damage_events(
                     attacker: damage.attacker,
                 },
             });
+            // ⭐ CR1: AN ACCEPTED LETHAL STRIKE IS STILL A HIT. The move that
+            // landed it connected; the body dies instead of reacting, so the
+            // reaction it earned is none: zero hitlag, and no launch invented.
+            death_writers.receptions.connect(player_entity, &damage, resolution, 0.0);
             // The caller's `bool` is "did this reaction relocate the body". It
             // never does now — nothing here moves anything.
             false
@@ -801,15 +780,7 @@ pub(crate) fn handle_player_damage_events(
                     strike_weight,
                     pose_held,
                 );
-                publish_resolved_hit(
-                    death_writers.resolved.as_mut(),
-                    player_entity,
-                    damage.attacker,
-                    combat.hitstop_timer,
-                    damage.source.clone(),
-                    resolution,
-                    damage.attacker_move_instance,
-                );
+                death_writers.receptions.connect(player_entity, &damage, resolution, combat.hitstop_timer);
                 publish_reaction(death_writers, player_entity, reaction);
                 false
             }
@@ -960,58 +931,6 @@ fn publish_reaction(
 ) {
     if let Some(reactions) = writers.reactions.as_mut() {
         reactions.write(BodyReactionApplied { body, reaction });
-    }
-}
-
-/// ⭐⭐ THE HIT'S RESULT, announced for the SIMULATION. Called where the reaction
-/// has been APPLIED, because that is where the hitlag exists: `resolve_body_hit`
-/// decides whether the hit lands, and the reaction is what charges the freeze.
-/// Publishing beside the resolution instead reported `0` for every hit, which is
-/// the first thing this was measured doing.
-///
-/// ⛔ UNCONDITIONAL, and that is why it is not folded into `publish_reaction`
-/// beside it: that one is `#[cfg(feature = "causal")]` and compiles to nothing in
-/// a shipping build. An instrument may vanish; a beat may not.
-/// Say that a guard consumed this strike.
-///
-/// ⛔ THE COUNTERPART OF [`publish_resolved_hit`], AND THE REASON BOTH EXIST: a
-/// consumer asking *"did my move connect"* cannot tell a block from a
-/// not-yet-resolved overlap by absence, because the actor road resolves on the
-/// overlap frame and the player road on the next one. Each outcome says its own
-/// name.
-pub fn publish_blocked_hit(
-    blocked: Option<&mut MessageWriter<'_, ambition_combat::hitbox::BlockedBodyHit>>,
-    victim: bevy::prelude::Entity,
-    attacker: Option<bevy::prelude::Entity>,
-    attacker_move_instance: Option<u32>,
-) {
-    if let Some(blocked) = blocked {
-        blocked.write(ambition_combat::hitbox::BlockedBodyHit {
-            victim,
-            attacker,
-            attacker_move_instance,
-        });
-    }
-}
-
-pub fn publish_resolved_hit(
-    resolved: Option<&mut MessageWriter<'_, ambition_combat::hitbox::ResolvedBodyHit>>,
-    victim: bevy::prelude::Entity,
-    attacker: Option<bevy::prelude::Entity>,
-    hitlag_seconds: f32,
-    source: ambition_combat::HitSource,
-    resolution: BodyHitResolution,
-    attacker_move_instance: Option<u32>,
-) {
-    if let Some(resolved) = resolved {
-        resolved.write(ambition_combat::hitbox::ResolvedBodyHit {
-            victim,
-            attacker,
-            hitlag_seconds,
-            source,
-            damage: resolution.damage_applied(),
-            attacker_move_instance,
-        });
     }
 }
 

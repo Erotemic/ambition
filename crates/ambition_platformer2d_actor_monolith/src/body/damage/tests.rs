@@ -3339,6 +3339,65 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
     assert_eq!(strike_gnu_ton(&sprite_content, false), Vec::<String>::new(), "a boss whose character has no row is silent");
 }
 
+/// CR1: a boss that loses HP was hit, so the move that hurt it connected:
+/// one `ResolvedBodyHit` with the attacker, the move occurrence and the
+/// amount applied, and zero hitlag (a boss takes the blow without a launch).
+/// The boss road used to record a `Damaged` reception and no connect, so a
+/// move's `Connected` condition failed on a blow that took HP. The guarded
+/// boss is the control: an honest clang, no HP and no connect.
+#[test]
+fn a_damaging_boss_hit_confirms_the_move_that_landed_it() {
+    use ambition_combat::hitbox::ResolvedBodyHit;
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    for guarded in [false, true] {
+        let mut app = App::new();
+        app.insert_resource(sprite_content.clone());
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        install_hit_reaction_consumers(&mut app);
+        app.add_systems(Update, apply_feature_hit_events);
+        let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 60.0));
+        let mut boss = ambition_boss_encounter::BossClusterScratch::new(&sprite_content,
+            ambition_boss_encounter::test_boss_catalog(), "gnu_ton", "GNU-ton", aabb,
+            ambition_entity_catalog::placements::BossBrain::PhaseScript { script_id: "gnu_ton_rider".to_string() },
+        );
+        boss.status.guarded = guarded;
+        let hp_before = boss.health.current();
+        let boss_entity = app.world_mut().spawn((
+            FeatureSimEntity,
+            FeatureId::new("gnu_ton"),
+            CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
+            ambition_combat::components::DamageableVolumes::world_box(aabb),
+            ambition_characters::actor::BodyCombat::default(),
+            boss.into_components(),
+        )).id();
+        let attacker = app.world_mut().spawn_empty().id();
+        app.world_mut().write_message(HitEvent {
+            origin: None, properties: Default::default(), contact: None, pieces: Vec::new(),
+            strike_sfx: None, volume: aabb.into(), damage: 2, source: HitSource::Melee,
+            attacker: Some(attacker), room: None, target: HitTarget::Feature(boss_entity),
+            mode: HitMode::Knockback, knockback: None, ignored_targets: Vec::new(),
+            attacker_move_instance: Some(7),
+        });
+        app.update();
+        let hp_after = app.world().get::<ambition_characters::actor::BodyHealth>(boss_entity).unwrap().current();
+        let messages = app.world().resource::<bevy::prelude::Messages<ResolvedBodyHit>>();
+        let connects: Vec<_> = messages.get_cursor().read(messages).cloned().collect();
+        if guarded {
+            assert_eq!(hp_after, hp_before, "a guarded boss takes no HP");
+            assert!(connects.is_empty(), "a turned blow is not a connect: {connects:?}");
+        } else {
+            assert!(hp_after < hp_before, "the boss lost HP");
+            assert_eq!(connects.len(), 1, "one connect: {connects:?}");
+            let hit = &connects[0];
+            assert_eq!((hit.victim, hit.attacker, hit.attacker_move_instance), (boss_entity, Some(attacker), Some(7)));
+            assert_eq!(hit.damage, hp_before - hp_after, "the amount the boss took");
+            assert_eq!(hit.hitlag_seconds, 0.0, "a boss earns no freeze");
+        }
+    }
+}
+
 #[test]
 fn a_resolved_feature_recipient_is_not_selected_again_from_its_current_box() {
     for contact in [None, Some(ambition_combat::events::HitContact {

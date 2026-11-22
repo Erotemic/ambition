@@ -212,6 +212,33 @@ table. Check a moving jaw, slot reorder, rig removal, missing current pose,
 and rollback. No case may silently select a different point or use yesterday's
 pose as the current one. Admission remains `BodyPoseAdmission`, not the query.
 
+**Capture slice landed (2026-11-22).** `CapturedBy::hold_point` is now a
+`HoldPoint { slot, name }`, where `name` is a stable FNV-1a key of the
+attachment name, so the relation stays `Copy` and restores identically on
+every peer. It replaces the naked `u16` slot. The capture owner uses the slot
+only while it still carries the name (`HoldPoint::in_rig`):
+- A rig redrawn with the points in another order rebinds to the name's new
+  slot.
+- A rig that no longer states the name, or a captor with no rig, ends the
+  hold through `release_capture`.
+- With no pose of the point this tick, the captive is not written. Before,
+  it was put at the captor's root.
+- A map failure refuses the hold.
+
+The rig's own slot check stands in for a generation receipt here, because it
+also catches a rig replaced in use without a content reload (the T-rex test
+inserts one). No codec change: `CapturedBy` is a cloned component.
+Witnesses: `a_hold_point_follows_its_name_across_a_replaced_rig`, and
+`a_hold_at_a_point_of_a_rig_with_no_pose_leaves_the_captive_where_it_is`
+(it replaces the test that asserted the root fallback).
+
+Open from A2:
+- The authored seat work through the same point query.
+- Telling a pose not resolved for the CURRENT rig apart from a stale one.
+  The schedule orders the pose before the hold, but nothing records which rig
+  a pose was resolved from.
+- A rollback witness through a rig replacement.
+
 ### A3 — point velocity when a consumer needs it
 
 Add derivative evaluation at a declared continuous cut when an actual release

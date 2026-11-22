@@ -677,24 +677,19 @@ fn seize_reach(
 /// go on the tick it was caught.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 /// The attachment of `captor`'s body rig that a hold names, as the capture
-/// relation keeps it (`CapturedBy::hold_attachment`). `Ok(None)`: the hold
+/// relation keeps it (`CapturedBy::hold_point`). `Ok(None)`: the hold
 /// names no point. `Err`: it names a point this body's rig does not state (or
 /// the body has no rig), and the hold is refused: a held body at the wrong
 /// point is worse than no hold.
-fn hold_attachment(
+fn hold_point(
     rigs: &Query<&crate::body_rig::BodyRig>,
     captor: Entity,
     hold_at: Option<&str>,
-) -> Result<Option<u16>, ()> {
+) -> Result<Option<crate::capture::HoldPoint>, ()> {
     let Some(name) = hold_at else {
         return Ok(None);
     };
-    rigs.get(captor)
-        .ok()
-        .and_then(|rig| rig.0.attachment_index(name))
-        .and_then(|index| u16::try_from(index).ok())
-        .map(Some)
-        .ok_or(())
+    rigs.get(captor).ok().and_then(|rig| crate::capture::HoldPoint::of(&rig.0, name)).map(Some).ok_or(())
 }
 
 fn lower_body_holds(
@@ -741,7 +736,7 @@ fn lower_body_holds(
                 if held.is_some() {
                     continue;
                 }
-                let Ok(hold_attachment) = hold_attachment(&rigs, captor, hold_at.as_deref()) else {
+                let Ok(hold_point) = hold_point(&rigs, captor, hold_at.as_deref()) else {
                     warn!(
                         "extension entry {} asked to seize at `{}`, a point the body rig of {captor:?} does not state; refused",
                         s.entry,
@@ -816,7 +811,7 @@ fn lower_body_holds(
                     captor,
                     victim,
                     ae::Vec2::from(hold_offset),
-                    hold_attachment,
+                    hold_point,
                     hold_s,
                     playbacks.get_mut(victim).ok(),
                     budgets.get_mut(victim).ok(),
@@ -826,7 +821,7 @@ fn lower_body_holds(
                 if held.is_none() {
                     continue;
                 }
-                let Ok(hold_attachment) = hold_attachment(&rigs, captor, hold_at.as_deref()) else {
+                let Ok(hold_point) = hold_point(&rigs, captor, hold_at.as_deref()) else {
                     warn!(
                         "extension entry {} asked to carry at `{}`, a point the body rig of {captor:?} does not state; refused",
                         s.entry,
@@ -837,7 +832,7 @@ fn lower_body_holds(
                 carries.write(crate::capture::CaptureCarryRequested {
                     captor,
                     hold_offset: ae::Vec2::from(hold_offset),
-                    hold_attachment,
+                    hold_point,
                 });
             }
             BodyHold::Pummel { damage } => {

@@ -174,7 +174,9 @@ world-post admission.
    mapped endpoints, then bind sampled named points to their admitted rig.
    Keep mount, capture and custody laws separate. (A1 landed 2026-11-22:
    `root_placing` plus each owner's own map; the saddle's combined offset and
-   capture's private conversion are gone.)
+   capture's private conversion are gone. A2's capture slice landed too: a named hold point is
+   bound by name, rebinds on a reordered rig, and ends the hold when the rig
+   loses it.)
 6. [Story SS7/SS8](engine/story-sequences.md) binds occurrence roles across
    commands and conditions, using Creator dialogue and intro choreography.
    It replaces the blanket skip-all-commands promise with domain settlement

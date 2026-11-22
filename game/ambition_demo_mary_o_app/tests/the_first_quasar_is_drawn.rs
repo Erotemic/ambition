@@ -26,7 +26,6 @@ use bevy::sprite_render::MeshMaterial2d;
 
 use ambition_demo_mary_o::quasar_shader::MaryOQuasarMaterial;
 use ambition_demo_mary_o_app::{build_windowed_demo_app_entering, RenderMode};
-use ambition_platformer2d::combat::empowerment::Empowered;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::render::rendering::actors::rigged::RiggedPresentedBy;
 use ambition_platformer2d::sprite_sheet::character::rigged::FrameInSprite;
@@ -86,9 +85,9 @@ fn shown_overlays(app: &mut App) -> Vec<Handle<Image>> {
 }
 
 fn give_the_quasar(app: &mut App, player: Entity, seconds: f32) {
-    app.world_mut().entity_mut(player).insert(Empowered::for_seconds(
-        ambition_demo_mary_o::star::COSMIC_QUASAR_SUPER_STATE,
-        seconds,
+    app.world_mut().entity_mut(player).insert((
+        ambition_demo_mary_o::star::PocketQuasar { remaining: seconds },
+        ambition_demo_mary_o::star::QUASAR_GRANT,
     ));
 }
 

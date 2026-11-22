@@ -452,6 +452,30 @@ Keep the current refresh behavior and the current native damage path.
 Contact harm continues to submit ordinary hits. A grant does not become a
 second combat reducer. A permanent super form remains a character fact.
 
+**6b landed (2026-11-22).** The pocket quasar is one application on the
+body: `star::PocketQuasar { remaining }` owns the star's single interval.
+- **Clock.** `burn_pocket_quasars` runs it at the room's pace.
+- **Defense and contact.** They read the quasar's held grant
+  (`QUASAR_GRANT`, `Empowered` with no clock of its own), so the grant can
+  neither outlive nor undercut the interval. Contact harm still submits
+  ordinary hits through `apply_contact_harm`.
+- **Music and the shader.** `star_music_is_owed`, `play_star_music` and the
+  three shader queries observe `PocketQuasar`, not any `Empowered`.
+- **Retirement.** Course completion and death call `retire_quasar`, which
+  removes the application and withdraws the grant only while it is still
+  the quasar's. An empowerment another granter holds stays (witness:
+  `victory_retires_the_quasar_and_not_another_granters_empowerment`).
+- **Transfer.** Admission spends the token the tick it is collected, so the
+  pickup's consumption cannot end the star. Re-collecting refreshes the
+  interval.
+- **Other granters.** A body already empowered by another granter keeps that
+  grant: the quasar burns (theme and look) without overwriting it.
+- **Rollback.** Schema 528 (`content.mary_o_pocket_quasar`).
+
+Open: `Empowered` remains one slot per body. Two simultaneous granters do not
+compose; the second keeps the first's traits. A typed contribution set waits
+for a second real granter.
+
 ### 6c. Reuse the protocol for numeric and capability channels
 
 Migrate one current numeric source through the same ownership and lifetime

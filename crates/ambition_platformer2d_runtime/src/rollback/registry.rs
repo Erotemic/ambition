@@ -354,7 +354,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // (`derived.interact_selection`, I1).
 // 526 -> 527: the mount's press projection names what each selected press
 // does (`derived.mount_presses`), replacing the claimed-press list (I2).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 527;
+// 527 -> 528: Mary-O's pocket quasar is its own application on the body
+// (`content.mary_o_pocket_quasar`), owning the star's one interval (6b).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 528;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

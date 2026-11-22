@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v527
+ggrs-rollback-schema-v528
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -165,6 +165,7 @@ content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapsh
 content.mary_o_level_state	component-clone	MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_pocket_quasar	component-clone	PocketQuasar	bevy_ggrs clone snapshot; not in the session checksum
 content.mary_o_snake_plant_out	component-clone	SnakePlantOut	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_spent_power_blocks	resource-clone-custom-checksum	SpentPowerBlocks	bevy_ggrs clone snapshot + an order-independent checksum over the spent ids
 content.pending_cut_rope_room_replay	resource-clone-custom-checksum	PendingCutRopeRoomReplay	the dialogue-authored room replay, latched until the conversation ends

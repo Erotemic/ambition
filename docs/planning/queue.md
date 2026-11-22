@@ -128,6 +128,10 @@ The further review of that same production source adds A7 item recipes and
 native continuity, O6 merchant subject/verdict completion, and native module
 room-time completion under SIMULATION-ISLANDS. These are planning changes;
 they do not claim newer engine source or runtime results.
+The 2026-11-22 review of the same source adds AC1/AC2 native action completion
+and cancellation, and CR1/CR2 combat reception and limb injury. Preserve the
+earlier implementation receipts; these packets address composition cases
+those receipts did not prove.
 
 **Observed:** schema values can lower before their imports resolve; body and
 candidate contexts collect optional domain catalogs; several live-contribution
@@ -196,6 +200,19 @@ world-post admission.
    moves availability/selection below the prompt and shares one attempt
    across competing contextual consumers. Preserve gesture provenance,
    eligible windows, domain acceptance and explicit read/consume cuts.
+8. [Native completion AC1/AC2](engine/native-action-completion.md) reuses the
+   actual construction receipt for summon identity and initialization, and
+   separates cancellation identity from pending-work capacity. Check the
+   existing unsupported limbed-summon refusal before allocation. Delete ID
+   prediction, next-tick existence polling and post-commit identity scans.
+   These packets can ship independently of the earlier composition work.
+   [Combat CR1](engine/combat-reception-and-injury.md#cr1--finalize-one-native-hit-outcome)
+   finalizes reception, connect and actual reaction from one captured
+   operation, including damaging boss and lethal home-body hits. Then
+   [CR2](engine/combat-reception-and-injury.md#cr2--route-limb-injury-without-an-hp-mailbox)
+   replaces GNU's missing-HP transfer with one optional surface-to-recipient
+   relation. Keep one injury per opening, explicit injury cap, distinct clash
+   acceptance and the stated same-cut timing change. No general damage graph.
 
 **Acceptance:** a selected domain fact has one binder; independent holds and
 poses retire separately; another room cannot act on a world cause that can
@@ -209,6 +226,11 @@ the prompt does not change the same installed interaction domains' rules.
 The merchant's offer and action use the same subject policy and item-domain
 exchange law. A required unanswered question cannot authorize its negative
 gameplay arm.
+Mixed summons report the exact created body, and a full pending mailbox can
+still cancel admitted work. A hit's native reception and move confirm agree
+without inventing a physical reaction. GNU's fist impact retains its striker
+and recipient policy without spending/healing fictitious limb HP or giving
+two confirms for one strike.
 State which axis each packet proves. Code, runtime behavior
 and compile-time performance remain separate evidence.
 

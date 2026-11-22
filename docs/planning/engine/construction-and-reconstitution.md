@@ -90,6 +90,22 @@ Keep target-input revalidation at room commit and the accepted checkpoint's
 pinned inputs. This changes the facts supplied to the existing transaction;
 it does not create another constructor or publication bracket.
 
+## Open native summon completion
+
+[AC1](native-action-completion.md#ac1--complete-summons-from-the-construction-receipt)
+completes the relation between an admitted summon and its result. The ride
+adapter predicts the shared allocator's next ID from only its own requests,
+then polls existence. Mixed native/portable summons can make that prediction
+name another body. The executor already has the exact `ConstructionReceipt`.
+Retain it for reservation, birth statuses and the result subject, then publish
+completion after initialization and counter advance.
+
+The receipt proves which root was allocated, not that an unsupported recipe
+populated it. Move the current limbed-minion refusal into preflight before
+birth. This bounded correction keeps current whole-batch refusal and the
+existing construction guarantees. Boarding and later survival remain mount
+lifetime decisions. No second allocator or constructor is needed.
+
 ## Linked domain inputs, one construction transaction
 
 **Planned 2026-11-21:** [capability linking and prepared facets](capability-linking-and-prepared-facets.md)

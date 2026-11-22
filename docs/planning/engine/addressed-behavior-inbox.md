@@ -51,6 +51,13 @@ stay with `BehaviorInstance`. Their records use the same progress transitions
 and host receipts. This avoids converting native typed outcomes into an opaque
 bus and avoids changes to unrelated working gameplay.
 
+The source follow-up [AC1/AC2](native-action-completion.md) corrects two
+producers, not this delivery pass. Summon completion comes from the native
+construction result, not later existence. Synchronous cancellation keeps its
+correlated result without reserving another pending slot; a full work pool
+must not prevent control of work already admitted. Preserve the shared
+delivery budget, journal bound and later-cut callback rules.
+
 ## Read cuts and budgets
 
 Each source must declare its first eligible read cut. Calls and outcomes now

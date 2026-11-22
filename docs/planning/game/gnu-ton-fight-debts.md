@@ -403,7 +403,27 @@ Found 2026-10-11 with the fist of the fighter's smash attacks
   effect smaller and stronger. That needs a look at each effect, with the
   hit sparks first: they are combat feel.
 
+### 15. Missing limb HP stands in for the blow
+
+**Open, source review 2026-11-22 at `f41218979625`.** The conductor reads
+`MountLimb.lost_health`, then `pass_limb_blows` heals the fist and directly
+subtracts the deficit from the scholar. This loses the striker and move,
+and bypasses the ordinary recipient's floor and wallet policy.
+
+[CR1/CR2](../engine/combat-reception-and-injury.md) owns the correction. Keep
+the real fist as the struck surface and the scholar as the health recipient.
+Native opening state admits one injury and retains its result for the next
+conductor read. The shared health owner applies phase/floor/defense rules.
+Keep clash acceptance separate: a clash can recoil even when the scholar
+refuses injury. The plan states the injury cap, proposed same-cut timing,
+port authority and deletion of the health-debit/heal protocol. It does not
+make the giant damageable or change portal geometry.
+
 ## An order
+
+The native outcome work in debt 15 can proceed beside the art and portal
+work below. CR1 is the small shared publication correction; CR2 then changes
+the limb injury protocol. Use the existing conductor and real strike fixture.
 
 1. Determine the arena-terminal policy and record its source of truth (13).
    The gate should not depend on a dead body's retained ECS entity.

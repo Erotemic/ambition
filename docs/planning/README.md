@@ -160,6 +160,9 @@ links to.
 
 - [`engine/addressed-behavior-inbox.md`](engine/addressed-behavior-inbox.md) —
   shared delivery and the remaining subscription, signal and transaction contracts.
+- [`engine/native-action-completion.md`](engine/native-action-completion.md) —
+  native summon completion from construction receipts, and cancellation
+  without a spare pending-work slot.
 
 - [`engine/first-class-procedural-game-authoring.md`](engine/first-class-procedural-game-authoring.md) — completion contract for Rhai, WASM Rust, and linked Rust game modules.
 - [`engine/extension-model.md`](engine/extension-model.md) — the model and its
@@ -218,6 +221,9 @@ links to.
 ### Engine: combat, movement and world
 
 - [`engine/combat-model.md`](engine/combat-model.md)
+- [`engine/combat-reception-and-injury.md`](engine/combat-reception-and-injury.md) —
+  one finalized hit outcome, and the distinct struck surface and health
+  recipient in GNU's limb injury.
 - [`engine/expressive-move-capabilities.md`](engine/expressive-move-capabilities.md)
 - [`engine/performer-up-b-the-wire.md`](engine/performer-up-b-the-wire.md) —
   built; feel is open.

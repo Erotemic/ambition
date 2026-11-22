@@ -251,7 +251,7 @@ mod tests {
             let drawn = |draws: &[crate::character::rigged::PartDraw], landmark: Landmark| {
                 draws.iter().position(|draw| {
                     draw.track.is_some_and(|track| {
-                        landmark_tracks(landmark).contains(&flipbook.tracks[usize::from(track)].as_str())
+                        landmark_tracks(landmark).contains(&flipbook.tracks()[usize::from(track)].as_str())
                     })
                 })
             };
@@ -379,7 +379,7 @@ mod tests {
                             .iter()
                             .find(|draw| {
                                 draw.track.is_some_and(|track| {
-                                    landmark_tracks(landmark).contains(&flipbook.tracks[usize::from(track)].as_str())
+                                    landmark_tracks(landmark).contains(&flipbook.tracks()[usize::from(track)].as_str())
                                 })
                             })
                             .map(|draw| draw.at);

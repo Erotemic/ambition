@@ -139,7 +139,7 @@ pub(super) fn answer(
     let mut answers: BTreeMap<String, Vec<PlacedPart>> =
         request.asks.keys().map(|reader| (reader.clone(), Vec::new())).collect();
     for (index, draw) in draws.iter().enumerate() {
-        let Some(name) = draw.track.and_then(|track| flipbook.tracks.get(usize::from(track))) else {
+        let Some(name) = draw.track.and_then(|track| flipbook.tracks().get(usize::from(track))) else {
             continue;
         };
         let readers: Vec<&String> =

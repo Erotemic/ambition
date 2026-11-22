@@ -424,6 +424,32 @@ frames are inputs to that predicate. Preparation computes these properties once
 per admitted program, rather than once per body per presented frame. Report
 preparation and retained-memory costs separately from runtime work removed.
 
+**First slice (2026-11-22, clip and track facts).** `RiggedSpriteAsset`
+preparation now keeps two immutable facts it used to re-derive per sample:
+
+- Each `RigSpriteClip` carries `draws_body_whole`, computed over every frame
+  against the body tracks of the first `idle` frame (the same rule as before).
+  `row_draws_the_body_whole`, which `body_warp` calls for every owner every
+  frame, is now one clip lookup instead of a scan of all the clip's draws
+  with a linear body search per draw.
+- A per-track `TrackRoles` bit set (lower body, hip, expression, layer
+  anchor, `behind`, head, head pivot) is read once from the track names.
+  `legs_under`, `face_as`, `layer_over`, `head_turned_as` and
+  `has_expression_tracks` test a bit rather than splitting and matching the
+  name of each draw.
+
+`tracks` is private now. Readers use `tracks()`, and the one test that
+renamed tracks uses `with_tracks`, which reads the roles again, so the role
+table cannot drift from the names. `for_tier` clones the `Arc`s, so a tier
+shares both facts. The retained cost is one byte per track and one bool per
+clip. Wounds already had their prepared index (`wound_tracks`). No frame-time
+measurement is claimed.
+
+Still open in PVS-1: frame track correspondence indexes (the legs and face
+joins still scan the other frame for each draw), and retaining the prepared
+rig and visual binding from admission (`prepare_sheet_table`,
+`bind_posed_parts`).
+
 ### PVS-2 — sample once for consumers at the same presentation cut
 
 A simple stepped frame with no active modifiers may borrow its admitted draw

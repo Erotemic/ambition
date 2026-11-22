@@ -149,7 +149,7 @@ pub(crate) fn drawn_at(sprite_content: &ambition_platformer2d::sprite_sheet::Spr
         .frame(row, frame)
         .expect("the frame")
         .iter()
-        .find(|draw| draw.track.is_some_and(|index| flipbook.tracks[usize::from(index)] == track))
+        .find(|draw| draw.track.is_some_and(|index| flipbook.tracks()[usize::from(index)] == track))
         .unwrap_or_else(|| panic!("`{target}` row `{row}` frame {frame} draws no `{track}`"))
         .at
 }

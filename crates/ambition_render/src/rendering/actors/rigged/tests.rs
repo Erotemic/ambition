@@ -1792,7 +1792,7 @@ fn the_driver_answers_each_reader_with_its_own_tracks() {
     settle(&mut app);
     let tracks: Vec<String> = {
         let owner = owner(&app, root);
-        app.world().get::<RiggedPresentation>(owner).unwrap().pages.flipbook.tracks.clone()
+        app.world().get::<RiggedPresentation>(owner).unwrap().pages.flipbook.tracks().to_vec()
     };
     assert!(tracks.len() >= 2, "the premise: the raider has two tracks");
     let (a, b) = (tracks[0].clone(), tracks[1].clone());
@@ -1935,10 +1935,9 @@ fn a_frame_drawn_again_unchanged_writes_nothing() {
 #[test]
 fn a_limb_drawn_apart_and_the_body_under_and_over_it_draw_each_part_once_in_order() {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
-    let mut flipbook = RiggedSpriteAsset::baked(&sprite_content, "pirate_raider").expect("a published flipbook");
-    flipbook.tracks = ["body", "limb:hand_left:upper", "limb:hand_left:fist", "epaulette", "head"]
-        .map(str::to_owned)
-        .to_vec();
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "pirate_raider").expect("a published flipbook").with_tracks(
+        ["body", "limb:hand_left:upper", "limb:hand_left:fist", "epaulette", "head"].map(str::to_owned).to_vec(),
+    );
     let draw = |track: Option<u16>| PartDraw { at: Vec2::ZERO, scale: Vec2::ONE, rotation: 0.0, part: 0, track, color: [255; 4] };
     let draws: Vec<PartDraw> = [Some(0), Some(1), Some(2), Some(3), Some(4), None].map(draw).to_vec();
     let tracks = |mask: RiggedTrackMask| mask.keep(&flipbook, &draws).iter().map(|d| d.track).collect::<Vec<_>>();

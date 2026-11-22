@@ -91,7 +91,7 @@ impl RiggedTrackMask {
     pub(super) fn keep(&self, flipbook: &RiggedSpriteAsset, draws: &[PartDraw]) -> Vec<PartDraw> {
         let of_limbs = |draw: &PartDraw| {
             draw.track
-                .and_then(|track| flipbook.tracks.get(usize::from(track)))
+                .and_then(|track| flipbook.tracks().get(usize::from(track)))
                 .is_some_and(|name| self.limbs.iter().any(|slot| is_limb_track(name, slot)))
         };
         let first = draws.iter().position(of_limbs);
@@ -115,7 +115,7 @@ impl RiggedTrackMask {
 /// Does the flipbook of this presentation name the parts of the limb `slot`?
 /// A body that does not is cut as one picture.
 pub fn limb_tracks_drawn(presentation: &RiggedPresentation, slot: &str) -> bool {
-    presentation.pages.flipbook.tracks.iter().any(|name| is_limb_track(name, slot))
+    presentation.pages.flipbook.tracks().iter().any(|name| is_limb_track(name, slot))
 }
 
 /// On the picture of one limb of a body: the body's root, and the limb's slot.

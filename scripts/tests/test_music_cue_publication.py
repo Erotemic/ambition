@@ -49,6 +49,7 @@ def music(tmp_path, monkeypatch):
             folder.mkdir(parents=True)
             (folder / "full.ogg").write_bytes(data)
             (folder / "manifest.json").write_text("review")
+            (folder / f"{selected_cue}.adaptive_manifest.json").write_text(json.dumps({"music_playback": {"identity": data.decode()}}))
             if extra:
                 (folder / "intro.ogg").write_bytes(b"intro")
         (root / "audio/music_registry.ron").write_text("authored registry")
@@ -74,6 +75,9 @@ def test_replacing_one_cue_keeps_another_and_a_stale_render_keeps_the_selection(
     music.publish("alpha", b"second")
     paths = music.store.paths()
     assert paths["audio/music/generated/alpha/full.ogg"].read_bytes() == b"second"
+    description = paths["audio/music/generated/alpha/alpha.adaptive_manifest.json"]
+    assert json.loads(description.read_text())["music_playback"]["identity"] == "second"
+    assert "audio/music/generated/alpha/manifest.json" not in paths
     assert "audio/music/generated/alpha/intro.ogg" not in paths
     assert paths["audio/music/generated/beta/full.ogg"] == beta
     assert beta.read_bytes() == b"other"

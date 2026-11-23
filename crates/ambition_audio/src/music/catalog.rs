@@ -192,6 +192,9 @@ impl AdaptiveMusicCatalogRegistry {
         // same neutral cue/state vocabulary while resolving different assets;
         // the active audio context selects one complete catalog.
         self.next_generation += 1;
+        for (cue, description) in catalog.ungenerated() {
+            warn!("music provider {provider_id:?}: cue {cue:?} is unavailable until {description:?} is generated");
+        }
         self.generations
             .insert(provider_id.clone(), self.next_generation);
         self.providers.insert(provider_id, catalog);

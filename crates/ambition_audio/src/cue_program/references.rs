@@ -7,20 +7,22 @@ use crate::cue_spec::*;
 /// binding's entry state on a section that loops (the director would never
 /// leave it). In the order given, so one input gives one report.
 pub(super) fn cue_reference_errors(
+    cues: &[MusicCueSpec],
     linked: &[LinkedMusicCue<'_>],
     bindings: &[EncounterMusicBinding],
     room_bindings: &[RoomMusicBinding],
     boss_bindings: &[BossMusicBinding],
 ) -> Vec<String> {
-    let cues: Vec<&MusicCueSpec> = linked.iter().map(|cue| cue.spec).collect();
     let mut errors = Vec::new();
-    for linked_cue in linked {
-        let cue = linked_cue.spec;
-        let sections = linked_cue
-            .sections
-            .iter()
-            .map(|section| section.id.as_str())
-            .collect::<std::collections::BTreeSet<_>>();
+    for cue in cues {
+        let linked_cue = linked.iter().find(|linked| linked.spec.id == cue.id);
+        let sections = linked_cue.map(|linked| {
+            linked
+                .sections
+                .iter()
+                .map(|section| section.id.as_str())
+                .collect::<std::collections::BTreeSet<_>>()
+        });
         let layers = cue
             .layers
             .iter()
@@ -33,7 +35,11 @@ pub(super) fn cue_reference_errors(
             .collect::<std::collections::BTreeSet<_>>();
 
         for state in &cue.states {
-            if !sections.contains(state.section_id.as_str()) {
+            if state.section_id.trim().is_empty()
+                || sections
+                    .as_ref()
+                    .is_some_and(|sections| !sections.contains(state.section_id.as_str()))
+            {
                 errors.push(format!(
                     "cue '{}' state '{}' references unknown section '{}'",
                     cue.id, state.id, state.section_id
@@ -58,7 +64,7 @@ pub(super) fn cue_reference_errors(
             }
         }
 
-        for section in &linked_cue.sections {
+        for section in linked_cue.into_iter().flat_map(|cue| &cue.sections) {
             for source in &section.sources {
                 if !layers.contains(source.layer_id.as_str()) {
                     errors.push(format!(
@@ -159,10 +165,12 @@ pub(super) fn cue_reference_errors(
             let loops = linked
                 .iter()
                 .find(|linked| linked.spec.id == cue.id)
-                .expect("linked cue")
-                .sections
-                .iter()
-                .any(|section| section.id == state.section_id && section.looped);
+                .is_some_and(|linked| {
+                    linked
+                        .sections
+                        .iter()
+                        .any(|section| section.id == state.section_id && section.looped)
+                });
             if field == "entry_state" && loops {
                 errors.push(format!(
                     "room binding '{}' entry_state '{}' is on a section of cue '{}' that loops",

@@ -19,7 +19,10 @@ pub struct SelectedMusicMedia {
 
 /// The selected media needed by one authored music catalog.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct MusicMediaCatalog(BTreeMap<String, SelectedMusicMedia>);
+pub struct MusicMediaCatalog {
+    selected: BTreeMap<String, SelectedMusicMedia>,
+    ungenerated: BTreeSet<String>,
+}
 
 impl MusicMediaCatalog {
     pub fn from_snapshot<'a>(
@@ -27,8 +30,13 @@ impl MusicMediaCatalog {
         references: impl IntoIterator<Item = &'a str>,
     ) -> Result<Self, Vec<String>> {
         let mut catalog = BTreeMap::new();
+        let mut ungenerated = BTreeSet::new();
         let mut errors = Vec::new();
         for path in references.into_iter().collect::<BTreeSet<_>>() {
+            if !snapshot.files.contains_key(path) && generated_reference(snapshot, path) {
+                ungenerated.insert(path.to_owned());
+                continue;
+            }
             match SelectedMusicMedia::read(snapshot, path) {
                 Ok(media) => {
                     catalog.insert(path.to_owned(), media);
@@ -37,15 +45,35 @@ impl MusicMediaCatalog {
             }
         }
         if errors.is_empty() {
-            Ok(Self(catalog))
+            Ok(Self {
+                selected: catalog,
+                ungenerated,
+            })
         } else {
             Err(errors)
         }
     }
 
     pub fn get(&self, reference: &str) -> Option<&SelectedMusicMedia> {
-        self.0.get(reference)
+        self.selected.get(reference)
     }
+
+    pub fn is_ungenerated(&self, reference: &str) -> bool {
+        self.ungenerated.contains(reference)
+    }
+}
+
+fn generated_reference(snapshot: &LibrarySnapshot, reference: &str) -> bool {
+    let Some((library, logical)) = reference
+        .strip_prefix("content://")
+        .and_then(|path| path.split_once('/'))
+    else {
+        return false;
+    };
+    validation::relative(logical)
+        && snapshot.libraries.get(library).is_some_and(|library| {
+            !library.is_embedded() && library.producer_of(logical) == Some("music")
+        })
 }
 
 impl SelectedMusicMedia {

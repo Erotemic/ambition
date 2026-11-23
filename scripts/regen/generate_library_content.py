@@ -301,7 +301,9 @@ def runtime_member(family: str, path: Path, config: dict) -> bool:
     if family == "fonts":
         return path.suffix.lower() in {".ttf", ".otf", ".woff", ".woff2"} or "licenses" in path.parts
     if family == "music":
-        return path.suffix.lower() in {".ogg", ".wav", ".flac"} or path.as_posix() == config["registry"]
+        return (path.suffix.lower() in {".ogg", ".wav", ".flac"}
+                or path.name == f"{path.parent.name}.adaptive_manifest.json"
+                or path.as_posix() == config["registry"])
     return path.suffix.lower() not in {".txt", ".json"} or family == "sfx"
 
 

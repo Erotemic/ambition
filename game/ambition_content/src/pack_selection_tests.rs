@@ -952,7 +952,15 @@ fn the_shipped_pack_compiles_without_its_generated_content() {
         .filter(|diagnostic| diagnostic.code == ambition_content_pack::DiagnosticCode::UngeneratedSource)
         .collect();
     let sources: Vec<&str> = ungenerated.iter().filter_map(|diagnostic| diagnostic.source.as_deref()).collect();
-    assert_eq!(sources, ["audio/music_registry.ron"], "the absent music registry is not loud");
+    assert!(sources.contains(&"audio/music_registry.ron"), "the absent music registry is not loud: {sources:?}");
+    let cues = ambition_audio::content_schema::lowered_music_cues(&pack).expect("the authored music policies");
+    assert!(cues.ungenerated().next().is_some(), "published programs have no generated descriptions");
+    for (cue, _) in cues.ungenerated() {
+        assert!(cues.cue(cue).is_none());
+        assert!(cues.room_bindings().iter().all(|binding| binding.cue_id != cue));
+        assert!(cues.encounter_bindings().iter().all(|binding| binding.cue_id != cue));
+        assert!(cues.boss_bindings().iter().all(|binding| binding.cue_id != cue));
+    }
     // The bosses and encounters still name their tracks. Those references
     // are not checked, and one warning says so.
     assert!(

@@ -8,6 +8,13 @@ pub struct MusicPlaybackCommands<'w> {
 }
 
 impl MusicPlaybackCommands<'_> {
+    pub(super) fn predecessor(
+        &self,
+        entry: super::playback::MusicEntry,
+        use_id: super::playback::MusicPlaybackUse,
+    ) -> Option<super::playback::MusicPlaybackOccurrence> {
+        self.playback.predecessor(entry, use_id)
+    }
     pub(super) fn scheduling_window(&self) -> Option<super::playback::MusicSchedulingWindow> {
         self.playback.scheduling
     }
@@ -22,11 +29,13 @@ impl MusicPlaybackCommands<'_> {
     pub(super) fn section_group(
         &self,
         entry: super::playback::MusicEntry,
+        use_id: super::playback::MusicPlaybackUse,
         cue: &str,
         section: &str,
     ) -> Option<&super::playback::MusicPlaybackGroup> {
         self.playback.groups().find(|group| {
             group.entry == entry
+                && group.use_id() == use_id
                 && matches!(group.phase, super::playback::MusicGroupPhase::Running | super::playback::MusicGroupPhase::Retiring)
                 && matches!(&group.product, MusicProduct::Section { cue: c, section: s, .. } if c == cue && s == section)
         })
@@ -39,14 +48,19 @@ impl MusicPlaybackCommands<'_> {
     pub(super) fn section_completed(
         &self,
         entry: super::playback::MusicEntry,
+        use_id: super::playback::MusicPlaybackUse,
         cue: &str,
         section: &str,
     ) -> bool {
-        self.playback.completed_product().is_some_and(|(completed, product)| {
-            completed == entry
-                && matches!(product, MusicProduct::Section { cue: c, section: s, .. }
+        self.playback.use_completed(entry, use_id)
+            && self
+                .playback
+                .completed_product()
+                .is_some_and(|(completed, product)| {
+                    completed == entry
+                        && matches!(product, MusicProduct::Section { cue: c, section: s, .. }
                     if c == cue && s == section)
-        })
+                })
     }
 
     pub(super) fn pending_for(&self, entry: super::playback::MusicEntry) -> bool {
@@ -110,6 +124,7 @@ impl MusicPlaybackCommands<'_> {
         assets: &LoadedMusicCueAssets,
         state: &PreparedMusicState,
         fade_seconds: f32,
+        use_id: super::playback::MusicPlaybackUse,
         start_after: Option<super::playback::MusicStartAfter>,
     ) {
         let voices = section
@@ -141,6 +156,7 @@ impl MusicPlaybackCommands<'_> {
         }
         self.playback.request(MusicPlaybackRequest {
             start_after,
+            use_id,
             entry,
             goal_revision,
             product: MusicProduct::Section {
@@ -170,6 +186,7 @@ impl MusicPlaybackCommands<'_> {
     ) {
         self.playback.request(MusicPlaybackRequest {
             start_after: None,
+            use_id: Default::default(),
             entry,
             goal_revision,
             product: MusicProduct::Track {

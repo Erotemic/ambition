@@ -63,6 +63,7 @@ impl Output {
     fn request(&self, id: &str, layers: usize, looped: bool) -> MusicPlaybackRequest {
         MusicPlaybackRequest {
             start_after: None,
+            use_id: Default::default(),
             entry: MusicEntry(1),
             goal_revision: 1,
             product: MusicProduct::Track {

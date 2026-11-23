@@ -32,17 +32,21 @@ pub(super) fn drive_adaptive_cue_state(
     let same_request = director.active_cue_id.as_deref() == Some(cue.id.as_str())
         && director.requested_state_id.as_deref() == Some(target_state.id.as_str());
     if !same_request {
-        director.continuation_state_id = None;
+        director.continuation = None;
         director.pending_state = None;
     }
     director.requested_state_id = Some(target_state.id.clone());
     // A held game request must not rewind the continuation of a completed one-shot.
     let target_state = director
-        .continuation_state_id
-        .as_deref()
-        .and_then(|id| cue.state(id))
+        .continuation
+        .as_ref()
+        .and_then(|next| cue.state(&next.state_id))
         .unwrap_or(target_state);
     let completed = same_request
+        && director
+            .continuation
+            .as_ref()
+            .is_none_or(|next| next.use_id == director.playback_use)
         && director.mode == MusicDirectorMode::AdaptiveIntro
         && director.current_state_id.as_deref() == Some(target_state.id.as_str())
         && cue
@@ -61,7 +65,15 @@ pub(super) fn drive_adaptive_cue_state(
             .as_deref()
             .and_then(|id| cue.state(id))
             .map(|next| {
-                director.continuation_state_id = Some(next.id.clone());
+                if let Some(predecessor) = director
+                    .entry
+                    .and_then(|entry| channels.predecessor(entry, director.playback_use))
+                {
+                    director.continuation = Some(super::super::state::MusicContinuation {
+                        state_id: next.id.clone(),
+                        use_id: super::super::playback::MusicPlaybackUse::After(predecessor),
+                    });
+                }
                 next
             })
             .unwrap_or(target_state)
@@ -112,6 +124,32 @@ pub(super) fn drive_adaptive_cue_state(
             channels,
             selection.crossfade_s,
         );
+        return;
+    }
+
+    if let Some(use_id) = director
+        .continuation
+        .as_ref()
+        .filter(|next| next.use_id != director.playback_use)
+        .map(|next| next.use_id)
+    {
+        if director.transport_completed
+            && cue.playback.exhausted == crate::music_policy::MusicExhaustionPolicy::Finish
+        {
+            return;
+        }
+        if ready {
+            director.playback_use = use_id;
+            start_adaptive_state(
+                director,
+                selection,
+                cue,
+                target_state,
+                assets,
+                channels,
+                cue.playback.continuation_crossfade_seconds,
+            );
+        }
         return;
     }
 
@@ -172,7 +210,7 @@ pub(super) fn drive_adaptive_cue_state(
     }
 
     if director.transport_completed
-        && director.continuation_state_id.is_some()
+        && director.continuation.is_some()
         && cue.playback.exhausted == crate::music_policy::MusicExhaustionPolicy::Finish
     {
         return;
@@ -233,10 +271,7 @@ pub(super) fn drive_adaptive_cue_state(
     }
     if outro {
         if let Some(gains) = &cue.ending_wait_gains {
-            channels.mix_current_section(
-                director.entry.expect("a selected music entry"),
-                gains,
-            );
+            channels.mix_current_section(director.entry.expect("a selected music entry"), gains);
         }
     }
     let fade = if outro {
@@ -316,7 +351,9 @@ pub(super) fn drive_adaptive_cue_state(
                     observed_seconds: position,
                 })
             });
-        let Some(selected) = plan.as_mut() else { return };
+        let Some(selected) = plan.as_mut() else {
+            return;
+        };
         selected.observed_seconds = position;
         let end = selected.exit_seconds;
         director.pending_state = plan;
@@ -330,6 +367,7 @@ pub(super) fn drive_adaptive_cue_state(
                 assets,
                 target_state,
                 fade,
+                director.playback_use,
                 Some(super::super::playback::MusicStartAfter {
                     occurrence,
                     seconds: end,
@@ -460,6 +498,7 @@ fn schedule_continuation(
         assets,
         target,
         cue.playback.continuation_crossfade_seconds,
+        super::super::playback::MusicPlaybackUse::After(current.occurrence),
         Some(start),
     );
     true
@@ -494,6 +533,7 @@ fn start_adaptive_state(
         assets,
         target_state,
         crossfade_seconds,
+        director.playback_use,
         None,
     );
     director.active_cue_id = Some(cue.id.clone());

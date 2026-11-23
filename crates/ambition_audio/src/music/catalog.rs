@@ -352,7 +352,7 @@ mod provider_registry_tests {
                         }],
                     }],
                     outro_state: None,
-                    post_clear_bridge_state: None,
+                    ending_wait_mix_state: None,
                     runtime_balance_overrides: Vec::new(),
                 }],
                 ..default()

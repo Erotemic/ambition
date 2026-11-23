@@ -23,8 +23,10 @@ pub struct MusicCueSpec {
     pub states: Vec<MusicStateSpec>,
     #[serde(default)]
     pub outro_state: Option<String>,
+    /// Apply this state's gains to the running section while an ending waits.
+    /// This does not start the state's section.
     #[serde(default)]
-    pub post_clear_bridge_state: Option<String>,
+    pub ending_wait_mix_state: Option<String>,
     /// Optional per-state runtime layer-balance table, authored with
     /// the cue (legacy stem-balance data for multi-stem cues; cues
     /// that play one mastered `full` layer per section leave this
@@ -181,6 +183,7 @@ pub struct BossMusicBinding {
 }
 
 /// Control a one-shot section when its scene phase changes.
+/// Playback continues on its own clock during scene pause and scale changes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MusicPhasePolicy {
     /// Let the current section reach its musical end.

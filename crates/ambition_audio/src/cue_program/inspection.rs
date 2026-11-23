@@ -16,7 +16,7 @@ impl PreparedMusicCues {
             json!({
                 "id": cue.id, "media_identity": cue.media_identity, "playback": cue.playback,
                 "sections": sections, "states": cue.states,
-                "outro_state": cue.outro_state, "post_clear_bridge_state": cue.post_clear_bridge_state,
+                "outro_state": cue.outro_state, "ending_wait_gains": cue.ending_wait_gains,
             })
         }).collect();
         json!({
@@ -27,6 +27,17 @@ impl PreparedMusicCues {
             "boss_bindings": self.boss_bindings,
             "room_phase_tracks": self.room_phase_tracks,
             "supported_timing": [MusicTimingRequirement::FrameDriven],
+            "execution": {
+                "clock": "IndependentPlayback",
+                "scene_pause": "Continue",
+                "scene_scale": "KeepPlaybackRate",
+                "entry": "SectionStart",
+                "loop_release": "WholeProductFade",
+                "ending_wait_mix": "GainsOnly",
+            },
+            "unsupported_operations": [
+                "ScheduledPickup", "IndependentLoopTail", "BridgeOverlay", "JoinScenePosition",
+            ],
             "maximum_voices_per_group": MAX_MUSIC_LAYERS,
             "maximum_overlap_groups": crate::music_policy::MAX_MUSIC_PLAYBACK_GROUPS,
             "readiness": "Prepared definitions do not prove decode, voice admission, or speaker output.",

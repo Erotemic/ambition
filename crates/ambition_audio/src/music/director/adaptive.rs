@@ -87,7 +87,7 @@ pub(super) fn drive_adaptive_cue_state(
             &cue.id,
             &target_state.section_id,
             &target_state.gains,
-            Some((&target_state.id, selection.phase_policy)),
+            (&target_state.id, selection.phase_policy),
         );
         if let Some(plan) = &mut director.pending_state {
             plan.goal_revision = director.goal_revision;
@@ -135,7 +135,7 @@ pub(super) fn drive_adaptive_cue_state(
             &cue.id,
             &target_state.section_id,
             &target_state.gains,
-            Some((&target_state.id, selection.phase_policy)),
+            (&target_state.id, selection.phase_policy),
         );
         return;
     }
@@ -164,7 +164,7 @@ pub(super) fn drive_adaptive_cue_state(
                 &cue.id,
                 &target_state.section_id,
                 &target_state.gains,
-                Some((&target_state.id, selection.phase_policy)),
+                (&target_state.id, selection.phase_policy),
             );
             director.current_state_id = Some(target_state.id.clone());
             return;
@@ -232,22 +232,10 @@ pub(super) fn drive_adaptive_cue_state(
         return;
     }
     if outro {
-        if let Some(bridge) = cue
-            .post_clear_bridge_state
-            .as_deref()
-            .and_then(|id| cue.state(id))
-        {
-            channels.set_section_gains(
+        if let Some(gains) = &cue.ending_wait_gains {
+            channels.mix_current_section(
                 director.entry.expect("a selected music entry"),
-                director.goal_revision,
-                provider_id,
-                &cue.id,
-                director
-                    .current_section_id
-                    .as_deref()
-                    .unwrap_or(&bridge.section_id),
-                &bridge.gains,
-                None,
+                gains,
             );
         }
     }
@@ -447,7 +435,7 @@ fn schedule_continuation(
             &cue.id,
             &target.section_id,
             &target.gains,
-            Some((&target.id, selection.phase_policy)),
+            (&target.id, selection.phase_policy),
         );
         return true;
     }

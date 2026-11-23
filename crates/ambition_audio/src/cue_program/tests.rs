@@ -59,7 +59,7 @@ fn authored() -> AuthoredMusicCues {
                 }],
             }],
             outro_state: None,
-            post_clear_bridge_state: None,
+            ending_wait_mix_state: None,
             runtime_balance_overrides: vec![],
         }],
         room_bindings: vec![RoomMusicBinding {
@@ -76,6 +76,7 @@ fn authored() -> AuthoredMusicCues {
 #[test]
 fn preparation_resolves_paths_slots_and_total_gains() {
     let mut source = authored();
+    source.cues[0].ending_wait_mix_state = Some("song".into());
     source.cues[0]
         .runtime_balance_overrides
         .push(MusicStateBalanceOverride {
@@ -95,6 +96,7 @@ fn preparation_resolves_paths_slots_and_total_gains() {
         cue.state("song").unwrap().gains,
         [0.0, 0.0, 0.3, 0.0, 0.0, 0.0]
     );
+    assert_eq!(cue.ending_wait_gains, Some([0.0, 0.0, 0.3, 0.0, 0.0, 0.0]));
     assert_eq!(prepared.binding_for_room("room").unwrap().cue_id, cue.id);
 
     let mut source = authored();

@@ -342,6 +342,21 @@ impl MusicPlayback {
         self.outcome = MusicRequestOutcome::Pending;
     }
 
+    pub(crate) fn mix_current_section(&mut self, entry: MusicEntry, gains: &[f32; MAX_LAYERS]) {
+        let current = self.current;
+        let Some(group) = self.groups.iter_mut().flatten().find(|group| {
+            Some(group.occurrence) == current
+                && group.entry == entry
+                && group.phase == MusicGroupPhase::Running
+                && matches!(group.product, MusicProduct::Section { .. })
+        }) else {
+            return;
+        };
+        for (voice, source) in group.voices.iter_mut().zip(&group.request.voices) {
+            voice.gain = gains[source.slot];
+        }
+    }
+
     pub(crate) fn set_section_gains(
         &mut self,
         entry: MusicEntry,
@@ -349,10 +364,10 @@ impl MusicPlayback {
         provider: &str,
         cue: &str,
         section: &str,
-        gains: &[f32],
-        association: Option<(&str, MusicPhasePolicy)>,
+        gains: &[f32; MAX_LAYERS],
+        association: (&str, MusicPhasePolicy),
     ) {
-        if association.is_some() && self.desired.as_ref().is_none_or(|request| {
+        if self.desired.as_ref().is_none_or(|request| {
             request.entry != entry || !matches!(&request.product,
                 MusicProduct::Section { provider: p, cue: c, section: s, .. } if p == provider && c == cue && s == section)
         }) {
@@ -372,10 +387,8 @@ impl MusicPlayback {
             return;
         }
         request.goal_revision = goal_revision;
-        if let Some((state, policy)) = association {
-            request.state_id = Some(state.to_owned());
-            request.phase_policy = policy;
-        }
+        request.state_id = Some(association.0.to_owned());
+        request.phase_policy = association.1;
         for voice in &mut request.voices {
             voice.gain = gains[voice.slot];
         }

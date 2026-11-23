@@ -133,7 +133,7 @@ pub(crate) fn authored(products: MusicProductSet, layers: &[&str]) -> AuthoredMu
                     .collect(),
             }],
             outro_state: None,
-            post_clear_bridge_state: None,
+            ending_wait_mix_state: None,
             runtime_balance_overrides: vec![],
         }],
         ..Default::default()

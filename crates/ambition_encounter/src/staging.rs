@@ -23,10 +23,7 @@ pub struct EncounterLockWall(pub LockWallSpec);
 #[derive(Component, Clone, Copy, Debug)]
 pub struct EncounterCameraZoom(pub f32);
 
-/// Base-tier music track requested while in flight (the
-/// [`EncounterMusicRequest`](crate::EncounterMusicRequest) `base_track`
-/// source). A focused fight's `priority_track` still outranks it; an
-/// encounter with adaptive stems authors no track and drives the adaptive
-/// director instead.
+/// Base-tier track of this encounter occurrence while it is in flight.
+/// The source keeps its identity when presentation selects an adaptive program.
 #[derive(Component, Clone, Debug)]
 pub struct EncounterTrack(pub String);

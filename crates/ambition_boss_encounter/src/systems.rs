@@ -3,7 +3,7 @@
 //! `populate_boss_encounter_registry` (startup) loads the read-only profile
 //! catalog. `update_boss_encounters` (per sim tick) seeds and wakes bosses in
 //! every live room, ticks each phase machine, publishes events, mirrors phase
-//! HP/phase onto the boss ECS clusters, manages the adaptive-music request, and
+//! HP/phase onto the boss ECS clusters and
 //! syncs reward chests. `boss_phase_transition_feedback` consumes the
 //! `BossPhaseChanged` edge that driver announces and fires camera shake, a
 //! `DamageBox` shockwave and scream VFX on dramatic transitions.
@@ -16,9 +16,6 @@ use ambition_cutscene::CutsceneTriggerQueue;
 use ambition_persistence::quest::QuestRegistry;
 
 use super::{BossCatalog, BossEncounterRegistry, default_boss_profiles, events::publish_events};
-
-/// This system's claim on the encounter layer's priority music tier.
-pub const BOSS_MUSIC_OWNER: &str = "boss_encounter";
 
 pub fn populate_boss_encounter_registry(
     catalog: Res<BossCatalog>,
@@ -55,16 +52,13 @@ pub fn populate_boss_encounter_registry(
 
 /// Drive every boss's entity-local phase mechanism: seed from the encounter
 /// the boss was built with (`BossConfig::seed`), wake, tick the `ActorPhaseState`, resolve death (save + quest), keep
-/// the adaptive-music request live, and sync reward chests.
+/// reward state live, and sync reward chests.
 /// The body's `BodyHealth` and `BossEncounter.encounter` are the source of truth.
 pub fn update_boss_encounters(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
     mut banner: ResMut<ambition_combat::GameplayBanner>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
-    mut music_request: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
-        ambition_encounter::EncounterMusicRequest,
-    >,
     mut quests: ResMut<QuestRegistry>,
     // `Option`: a composition without cutscenes (`Capability::Cutscenes`
     // omitted) has no queue and nothing to play a boss intro.
@@ -142,17 +136,6 @@ pub fn update_boss_encounters(
     // transitions do not fire while the sim is stopped.
     let shared_dt = world_time.sim_dt();
 
-    // Active-fight music track (first fighting boss wins) and reward anchors,
-    // collected per boss and grouped by the boss's live room. Anchors are
-    // (placement_id, archetype_id, spawn): "cleared" and rewards are keyed by
-    // placement. The music is still one track for the session: a view per
-    // player is P5.
-    // The active fight's track of each live room: a boss claims the music of
-    // the room it fights in (customer 2).
-    let mut active_music_tracks: std::collections::BTreeMap<
-        Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-        String,
-    > = std::collections::BTreeMap::new();
     let mut boss_anchors: std::collections::BTreeMap<
         ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
         Vec<crate::BossRewardAnchor>,
@@ -397,18 +380,6 @@ pub fn update_boss_encounters(
             }
         }
 
-        // Collect the active-fight music and the reward anchor
-        // (placement_id, archetype_id, spawn): the reward sync keys the chest
-        // and looted flag by placement and resolves the DropChest reward via
-        // the archetype profile.
-        let phase_elapsed = feature.status.encounter.as_ref().map_or(0.0, |p| p.phase_elapsed);
-        if let Some(track) = phase_music_track(&spec, phase, phase_elapsed) {
-            if !track.is_empty() {
-                active_music_tracks
-                    .entry(rooms.live().of(boss_entity))
-                    .or_insert_with(|| track.to_string());
-            }
-        }
         // A boss in no live room drops nothing: no room is simulated there.
         if let Some(room) = geometry
             .room_of(boss_entity)
@@ -426,22 +397,6 @@ pub fn update_boss_encounters(
         }
     }
 
-    // Music-request lifetime: keep each room's active boss track up; clear it
-    // in each room where no boss is in an active-fight phase (defeated, or the player left the
-    // room), so room music resumes. Guarded by
-    // `boss_music_plays_during_the_fight` and
-    // `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music`.
-    //
-    // Release only this system's own claim. It has no run condition, so the
-    // "no boss is fighting" arm runs every frame of every game; clearing the
-    // whole tier would silence every other music claimant.
-    music_request.release_priority_where(BOSS_MUSIC_OWNER, |_, room| {
-        !active_music_tracks.contains_key(&room)
-    });
-    let now = sim_tick.as_ref().map_or(0, |tick| tick.0);
-    for (room, track) in active_music_tracks {
-        music_request.claim_priority(room, BOSS_MUSIC_OWNER, track, now);
-    }
 
     // A live room that hosts another room's boss reward: its chest falls in
     // from the top of this room, over its middle.
@@ -529,7 +484,7 @@ pub fn notify_bosses_on_mount_death(
 /// it, from its authored spec. `None` for `Dormant` / `Death` (no boss music —
 /// room music resumes), and for the part of the intro before
 /// `music_intro_from`.
-fn phase_music_track(
+pub(crate) fn phase_music_track(
     spec: &crate::BossEncounterSpec,
     phase: crate::BossEncounterPhase,
     elapsed: f32,

@@ -17,7 +17,7 @@ where
     registrar.rollback_component_clone_checksum::<crate::EncounterMusicRequest>(
         OWNER,
         "root.encounter_music_request",
-        "each room's music candidates (source, track, tick began) and base track, in key order",
+        "each room's source, tier, attempt, start tick, and optional track, in key order",
         crate::EncounterMusicRequest::checksum,
     );
     registrar.rollback_component_clone::<crate::Encounter>(OWNER, "encounter.identity");

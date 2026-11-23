@@ -1119,9 +1119,9 @@ fn the_encounter_track_clears_even_on_a_frame_with_no_player_body() {
         .entity_mut(root)
         .get_mut::<ambition_encounter::EncounterMusicRequest>()
         .unwrap()
-        .set_base_tracks([(None, "first_goblin_tune_v2".to_string())]);
+        .claim_base(None, ambition_encounter::MusicSource::instance("encounter", "old"), "first_goblin_tune_v2", 0);
 
-    app.add_systems(Update, crate::apply_wave_encounter_effects);
+    app.add_systems(Update, crate::publish_encounter_music);
     app.update();
 
     assert_eq!(

@@ -15,7 +15,7 @@
 //!
 //! `apply_wave_encounter_effects` (Progression, after the reducer) reacts to
 //! lifecycle EVENTS: switch auto-green + mob cleanup + banner + quest on
-//! completion, reward-chest sync, music request, presentation read-model, save
+//! completion, reward-chest sync, presentation read-model, save
 //! projection, and the trace sink.
 
 use bevy::prelude::*;
@@ -26,7 +26,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::SessionCommands;
 
 use ambition_encounter::{
     Encounter, EncounterCommand, EncounterCommandKind, EncounterEvent, EncounterEventMsg,
-    EncounterLifecycle, EncounterMusicRequest, EncounterParticipants,
+    EncounterLifecycle, EncounterParticipants,
     EncounterView, EncounterWaves, WAVES_EXHAUSTED_SIGNAL,
 };
 
@@ -543,7 +543,7 @@ pub fn drive_wave_encounters(
 /// Wave EFFECT adapter (Progression, after the generic reducer): reacts to
 /// this frame's lifecycle events and projects wave-encounter state onto its
 /// consumers — switch auto-green + celebration + quest + mob cleanup on
-/// completion, reward-chest sync, music request, presentation read-model,
+/// completion, reward-chest sync, presentation read-model,
 /// save projection, and the trace sink for every encounter event.
 pub fn apply_wave_encounter_effects(
     // Not `mut`: this adapter stopped spawning when the reward sync left.
@@ -562,9 +562,6 @@ pub fn apply_wave_encounter_effects(
         &ambition_platformer2d_core::BodyKinematics,
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
-    mut music_request: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
-        EncounterMusicRequest,
-    >,
     mut encounter_view: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<EncounterView>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut banner_requests: MessageWriter<ambition_combat::events::GameplayBannerRequested>,
@@ -576,7 +573,7 @@ pub fn apply_wave_encounter_effects(
         Option<&ambition_encounter::EncounterCameraZoom>,
         Option<&ambition_encounter::EncounterTrack>,
     )>,
-    // The live room of each staged encounter, whose music it asks for.
+    // The live room of each staged encounter.
     live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     // Each clear from a room, with the tick: a rewind of that room puts back
     // what it wrote (ISL-2d).
@@ -618,34 +615,6 @@ pub fn apply_wave_encounter_effects(
             }
         }
     }
-    // ⛔⛔ ABOVE THE PLAYER-BODY GUARD, AND THAT IS THE POINT. This sat BELOW
-    // it, so the sentence above — "writing the base source every frame,
-    // including `None`" — described a property the code did not have.
-    // `player_body_q` is empty during a DEATH and across a ROOM TRANSITION,
-    // which is exactly when an encounter stops being in flight, so the track
-    // LATCHED at its last value and kept playing into the next room.
-    // ⇒ It reads only `staged`; nothing between the guard and here touched the
-    // player body, so the guard never protected this projection — it only
-    // sequenced it.
-    // Jon 2026-09-06: "the music changes in a way I was not expecting and
-    // seems to get into some sort of stuck state."
-
-    // Music: in each live room, pick the first encounter currently in flight
-    // with an authored track and request it (the base-priority source of the
-    // shared `EncounterMusicRequest`); a room with none gets none. Generic over the
-    // lifecycle + staging policy (E12). Writing the base source every frame —
-    // including `None` — is safe: `desired_track()` ranks `priority_track`
-    // above `base_track`, so this can't clobber a concurrent focused fight's
-    // music.
-    let active_tracks = staged.iter().filter_map(|(occurrence, lifecycle, _, track)| {
-        if lifecycle.phase().in_flight() {
-            track.map(|t| (live.of(occurrence), t.0.clone()))
-        } else {
-            None
-        }
-    });
-    music_request.set_base_tracks(active_tracks);
-
     if player_body_q.is_empty() {
         return;
     }

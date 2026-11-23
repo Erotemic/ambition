@@ -9,7 +9,7 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_platformer2d_core::snapshot::{
-    put_bool, put_f32, put_str, put_u32, put_u8, Reader, SnapshotResolve, SnapshotState,
+    put_bool, put_f32, put_str, put_u32, put_u64, put_u8, Reader, SnapshotResolve, SnapshotState,
 };
 
 impl SnapshotState for crate::EncounterLifecycle {
@@ -19,6 +19,7 @@ impl SnapshotState for crate::EncounterLifecycle {
         if let P::Starting { remaining } = self.phase {
             put_f32(out, remaining);
         }
+        put_u64(out, self.attempt);
         put_f32(out, self.intro_seconds);
         put_f32(out, self.elapsed_active);
         // BTreeSet iterates sorted — canonical blob bytes by construction.
@@ -40,6 +41,7 @@ impl SnapshotState for crate::EncounterLifecycle {
             4 => P::Failed,
             _ => return None,
         };
+        let attempt = r.u64()?;
         let intro_seconds = r.f32()?;
         let elapsed_active = r.f32()?;
         let n = r.u32()? as usize;
@@ -49,6 +51,7 @@ impl SnapshotState for crate::EncounterLifecycle {
         }
         Some(crate::EncounterLifecycle {
             phase,
+            attempt,
             intro_seconds,
             elapsed_active,
             signals,

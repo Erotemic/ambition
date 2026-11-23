@@ -1,41 +1,22 @@
-//! Session-owned encounter music intent.
-//!
-//! Each source writes or releases its own claim. The focused encounter
-//! takes precedence over base arena music, which takes precedence over
-//! room music. A source must release its claim even when it stops
-//! producing events or its actor despawns. Clearing a whole priority
-//! tier would also erase claims that belong to other sources.
-//!
-//! Claims are scoped to the live room. Readers choose the strongest
-//! claimed tier among participant rooms, with the primary seat breaking
-//! ties. A roomless fixture uses the roomless tier.
-
-use bevy::prelude::Component;
+//! Music claims owned by their source and live room.
 
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+use bevy::prelude::Component;
+use std::collections::{BTreeMap, BTreeSet};
 
-/// Encounter music claims per live room.
-/// Claims are owner-checked; readers use the highest active tier.
 #[derive(Component, Default, Debug, Clone)]
 pub struct EncounterMusicRequest {
-    rooms: std::collections::BTreeMap<Option<LiveRoomInstance>, RoomMusicTiers>,
+    rooms: BTreeMap<Option<LiveRoomInstance>, BTreeMap<MusicSource, SourceClaim>>,
 }
 
-/// Who claims the music of a room: a kind of source and which source of that
-/// kind. A kind with one source (the boss music, Mary-O's star) is its kind
-/// alone, from `&'static str`. A kind with many sources names each one by a
-/// durable id, so two of them in one room are two candidates: two encounter
-/// scripts (`MusicSource::instance`). The id must survive a rewind, so it is
-/// a `SimId` and not an ECS `Entity`.
+/// A stable source identity. The instance is a simulation identity, never an entity handle.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MusicSource {
     kind: &'static str,
-    /// Empty for a kind with one source.
     instance: String,
 }
 
 impl MusicSource {
-    /// The source `instance` of the kind `kind`.
     pub fn instance(kind: &'static str, instance: impl Into<String>) -> Self {
         Self {
             kind,
@@ -43,9 +24,11 @@ impl MusicSource {
         }
     }
 
-    /// The kind of this source.
     pub fn kind(&self) -> &'static str {
         self.kind
+    }
+    pub fn instance_id(&self) -> &str {
+        &self.instance
     }
 }
 
@@ -55,64 +38,71 @@ impl From<&'static str> for MusicSource {
     }
 }
 
-/// The two tiers of one live room.
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-struct RoomMusicTiers {
-    /// The priority candidates (a focused fight, e.g. a boss), one for each
-    /// source that claims this room. Any of them overrides `base_track`.
-    /// Each source owns its own candidate, so a release takes out only that
-    /// candidate and the others stay (review 2026-10-05, P6).
-    claims: std::collections::BTreeMap<MusicSource, PriorityClaim>,
-    /// Lower-priority encounter track (a wave / arena lockdown). Written every
-    /// frame — `Some(track)` while in flight, `None` otherwise — so its
-    /// per-frame `None` can never override a priority claim.
-    base_track: Option<String>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum MusicClaimTier {
+    Base = 1,
+    Focused = 2,
 }
 
-/// One source's claim on the priority tier of a room.
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct PriorityClaim {
-    track: String,
-    /// The simulation tick on which this source began to claim the room. A
-    /// source that claims again keeps it, so a source that states its claim
-    /// on each tick does not move ahead of the others.
+struct SourceClaim {
+    track: Option<String>,
+    tier: MusicClaimTier,
     began: u64,
+    attempt: u64,
 }
 
-impl RoomMusicTiers {
-    fn is_empty(&self) -> bool {
-        self.claims.is_empty() && self.base_track.is_none()
-    }
+/// One live occurrence published by a domain owner.
+#[derive(Debug, Clone)]
+pub struct MusicOccurrence {
+    pub room: Option<LiveRoomInstance>,
+    pub source_id: String,
+    pub attempt: u64,
+    pub track: Option<String>,
+}
 
-    /// The claim that plays: the one that began latest, because the newest
-    /// fight is the one the player looks at. Of claims that began on one
-    /// tick, the source that sorts first (by kind, then by instance). Both
-    /// are values, not the order in which the systems ran.
-    fn winning_claim(&self) -> Option<&PriorityClaim> {
-        self.claims
-            .iter()
-            .max_by(|(owner_a, a), (owner_b, b)| a.began.cmp(&b.began).then(owner_b.cmp(owner_a)))
-            .map(|(_, claim)| claim)
-    }
+/// The complete candidate before presentation selects a musical program.
+#[derive(Debug, Clone, Copy)]
+pub struct MusicRequestCandidate<'a> {
+    pub room: Option<LiveRoomInstance>,
+    pub source: &'a MusicSource,
+    pub track: Option<&'a str>,
+    pub tier: MusicClaimTier,
+    pub began: u64,
+    pub attempt: u64,
 }
 
 impl EncounterMusicRequest {
-    /// The winning desired track of `room`: the higher-priority tier beats the
-    /// base tier, and either beats the room default (resolved downstream in
-    /// the intent adapter).
-    pub fn desired_track(&self, room: Option<LiveRoomInstance>) -> Option<&str> {
-        let tiers = self.rooms.get(&room)?;
-        tiers
-            .winning_claim()
-            .map(|claim| claim.track.as_str())
-            .or(tiers.base_track.as_deref())
+    fn claim(
+        &mut self,
+        room: Option<LiveRoomInstance>,
+        source: MusicSource,
+        track: Option<String>,
+        tier: MusicClaimTier,
+        attempt: Option<u64>,
+        now: u64,
+    ) {
+        let claims = self.rooms.entry(room).or_default();
+        if let Some(claim) = claims.get_mut(&source) {
+            if attempt.is_some_and(|attempt| attempt != claim.attempt) {
+                claim.attempt = attempt.expect("a new attempt is present");
+                claim.began = now;
+            }
+            claim.track = track;
+            claim.tier = tier;
+        } else {
+            claims.insert(
+                source,
+                SourceClaim {
+                    track,
+                    tier,
+                    began: now,
+                    attempt: attempt.unwrap_or(now),
+                },
+            );
+        }
     }
 
-    /// Claim the priority tier of `room` for `owner`, on simulation tick
-    /// `now`. This is `owner`'s candidate in that room: a claim by another
-    /// source does not replace it, and the claim that began latest plays
-    /// (see `RoomMusicTiers::winning_claim`). A source that claims again
-    /// keeps the tick it began on, also when it changes its track.
     pub fn claim_priority(
         &mut self,
         room: Option<LiveRoomInstance>,
@@ -120,105 +110,156 @@ impl EncounterMusicRequest {
         track: impl Into<String>,
         now: u64,
     ) {
-        let owner = owner.into();
-        let track = track.into();
-        let tiers = self.rooms.entry(room).or_default();
-        match tiers.claims.get_mut(&owner) {
-            Some(claim) => {
-                if claim.track != track {
-                    claim.track = track;
-                }
-            }
-            None => {
-                tiers.claims.insert(owner, PriorityClaim { track, began: now });
-            }
+        self.claim(
+            room,
+            owner.into(),
+            Some(track.into()),
+            MusicClaimTier::Focused,
+            None,
+            now,
+        );
+    }
+
+    pub fn claim_base(
+        &mut self,
+        room: Option<LiveRoomInstance>,
+        owner: impl Into<MusicSource>,
+        track: impl Into<String>,
+        now: u64,
+    ) {
+        self.claim(
+            room,
+            owner.into(),
+            Some(track.into()),
+            MusicClaimTier::Base,
+            None,
+            now,
+        );
+    }
+
+    /// Replace this domain's occurrence claims. Other domains keep their claims.
+    pub fn publish_occurrences(
+        &mut self,
+        kind: &'static str,
+        tier: MusicClaimTier,
+        now: u64,
+        occurrences: impl IntoIterator<Item = MusicOccurrence>,
+    ) {
+        let mut active = BTreeSet::new();
+        for occurrence in occurrences {
+            let source = MusicSource::instance(kind, occurrence.source_id);
+            active.insert((occurrence.room, source.clone()));
+            self.claim(
+                occurrence.room,
+                source,
+                occurrence.track,
+                tier,
+                Some(occurrence.attempt),
+                now,
+            );
         }
+        self.release_priority_where(kind, |source, room| {
+            !active.contains(&(room, source.clone()))
+        });
     }
 
-    /// Release the priority tier of `room`, but only if `owner` still holds
-    /// it. A source with nothing to say says nothing, rather than silencing
-    /// whoever does.
-    pub fn release_priority(&mut self, room: Option<LiveRoomInstance>, owner: impl Into<MusicSource>) {
+    pub fn candidates(&self) -> impl Iterator<Item = MusicRequestCandidate<'_>> {
+        self.rooms.iter().flat_map(|(room, claims)| {
+            claims
+                .iter()
+                .map(move |(source, claim)| MusicRequestCandidate {
+                    room: *room,
+                    source,
+                    track: claim.track.as_deref(),
+                    tier: claim.tier,
+                    began: claim.began,
+                    attempt: claim.attempt,
+                })
+        })
+    }
+
+    fn winning_track(
+        &self,
+        room: Option<LiveRoomInstance>,
+        tier: Option<MusicClaimTier>,
+    ) -> Option<&str> {
+        self.candidates()
+            .filter(|candidate| {
+                candidate.room == room
+                    && tier.is_none_or(|tier| candidate.tier == tier)
+                    && candidate.track.is_some()
+            })
+            .max_by(|a, b| {
+                (a.tier, a.began)
+                    .cmp(&(b.tier, b.began))
+                    .then_with(|| b.source.cmp(a.source))
+            })
+            .and_then(|candidate| candidate.track)
+    }
+
+    /// A track projection for simulation consumers. Program selection reads all candidates.
+    pub fn desired_track(&self, room: Option<LiveRoomInstance>) -> Option<&str> {
+        self.winning_track(room, None)
+    }
+
+    pub fn priority_track(&self, room: Option<LiveRoomInstance>) -> Option<&str> {
+        self.winning_track(room, Some(MusicClaimTier::Focused))
+    }
+
+    pub fn base_track(&self, room: Option<LiveRoomInstance>) -> Option<&str> {
+        self.winning_track(room, Some(MusicClaimTier::Base))
+    }
+
+    pub fn claim_of(
+        &self,
+        room: Option<LiveRoomInstance>,
+        owner: impl Into<MusicSource>,
+    ) -> Option<&str> {
+        self.rooms.get(&room)?.get(&owner.into())?.track.as_deref()
+    }
+
+    pub fn release_priority(
+        &mut self,
+        room: Option<LiveRoomInstance>,
+        owner: impl Into<MusicSource>,
+    ) {
         let owner = owner.into();
-        self.release_priority_where(owner.kind(), |source, claimed| *source == owner && claimed == room);
+        self.release_priority_where(owner.kind(), |source, claimed| {
+            *source == owner && claimed == room
+        });
     }
 
-    /// Release each claim of a source of the kind `kind` in each room for
-    /// which `release` is true. A kind that states the claims of all its
-    /// sources each frame releases here the sources and rooms it has nothing
-    /// to say for.
     pub fn release_priority_where(
         &mut self,
         kind: &'static str,
         mut release: impl FnMut(&MusicSource, Option<LiveRoomInstance>) -> bool,
     ) {
-        for (room, tiers) in &mut self.rooms {
-            tiers
-                .claims
-                .retain(|source, _| source.kind() != kind || !release(source, *room));
+        for (room, claims) in &mut self.rooms {
+            claims.retain(|source, _| source.kind() != kind || !release(source, *room));
         }
-        self.rooms.retain(|_, tiers| !tiers.is_empty());
+        self.rooms.retain(|_, claims| !claims.is_empty());
     }
 
-    /// Whether a source of the kind `kind` claims any room: a kind that
-    /// releases with [`Self::release_priority_where`] has nothing to release
-    /// while this is false.
     pub fn holds_claims_of_kind(&self, kind: &str) -> bool {
-        self.rooms.values().any(|tiers| tiers.claims.keys().any(|source| source.kind() == kind))
+        self.candidates()
+            .any(|candidate| candidate.source.kind() == kind)
     }
 
-    /// The priority track that plays in `room`, if any, and WHO is not on
-    /// offer: a caller that wants to change the tier goes through
-    /// [`Self::claim_priority`] or [`Self::release_priority`] so the owner
-    /// check cannot be skipped.
-    pub fn priority_track(&self, room: Option<LiveRoomInstance>) -> Option<&str> {
-        self.rooms.get(&room)?.winning_claim().map(|claim| claim.track.as_str())
+    pub fn priority_of(&self, room: Option<LiveRoomInstance>) -> u8 {
+        self.candidates()
+            .filter(|candidate| candidate.room == room)
+            .map(|candidate| candidate.tier as u8)
+            .max()
+            .unwrap_or(0)
     }
 
-    /// The track of `owner`'s own candidate in `room`, whether or not it is
-    /// the one that plays.
-    pub fn claim_of(&self, room: Option<LiveRoomInstance>, owner: impl Into<MusicSource>) -> Option<&str> {
-        Some(self.rooms.get(&room)?.claims.get(&owner.into())?.track.as_str())
-    }
-
-    /// Publish the BASE tier of every room: each room in `tracks` gets its
-    /// track and every other room gets none. Unowned on purpose: it is
-    /// rewritten every frame, and [`Self::desired_track`] ranks the priority
-    /// tier above it, so a per-frame `None` here can never silence a focused
-    /// fight.
-    pub fn set_base_tracks(
-        &mut self,
-        tracks: impl IntoIterator<Item = (Option<LiveRoomInstance>, String)>,
-    ) {
-        for tiers in self.rooms.values_mut() {
-            tiers.base_track = None;
-        }
-        for (room, track) in tracks {
-            let tiers = self.rooms.entry(room).or_default();
-            if tiers.base_track.is_none() {
-                tiers.base_track = Some(track);
-            }
-        }
-        self.rooms.retain(|_, tiers| !tiers.is_empty());
-    }
-
-    pub fn base_track(&self, room: Option<LiveRoomInstance>) -> Option<&str> {
-        self.rooms.get(&room)?.base_track.as_deref()
-    }
-
-    /// Entity-free value projection, for the peer checksum: each room with a
-    /// claim, its priority candidates (source, track, the tick each began)
-    /// and its base track. All are in key order, so two peers with one state
-    /// give one value whatever order their systems claimed in.
-    ///
-    /// Every claimer writes this component during play, so a presence probe
-    /// (one count, whatever the claims are) could not see two peers that
-    /// disagree about which music a room asks for.
     pub fn checksum(&self) -> u64 {
-        use ambition_platformer2d_core::snapshot::{checksum_bytes, put_opt_str, put_str, put_u32, put_u64, put_u8};
+        use ambition_platformer2d_core::snapshot::{
+            checksum_bytes, put_opt_str, put_str, put_u32, put_u64, put_u8,
+        };
         let mut bytes = Vec::new();
         put_u64(&mut bytes, self.rooms.len() as u64);
-        for (room, tiers) in &self.rooms {
+        for (room, claims) in &self.rooms {
             match room {
                 Some(room) => {
                     put_u8(&mut bytes, 1);
@@ -226,27 +267,17 @@ impl EncounterMusicRequest {
                 }
                 None => put_u8(&mut bytes, 0),
             }
-            put_u64(&mut bytes, tiers.claims.len() as u64);
-            for (source, claim) in &tiers.claims {
-                put_str(&mut bytes, source.kind);
-                put_str(&mut bytes, &source.instance);
-                put_str(&mut bytes, &claim.track);
+            put_u64(&mut bytes, claims.len() as u64);
+            for (source, claim) in claims {
+                put_str(&mut bytes, source.kind());
+                put_str(&mut bytes, source.instance_id());
+                put_u8(&mut bytes, claim.tier as u8);
+                put_u64(&mut bytes, claim.attempt);
                 put_u64(&mut bytes, claim.began);
+                put_opt_str(&mut bytes, claim.track.as_deref());
             }
-            put_opt_str(&mut bytes, tiers.base_track.as_deref());
         }
         checksum_bytes(&bytes)
-    }
-
-    /// The authored priority of what `room` asks to play (Q72): 2 for a
-    /// focused fight's claim (a boss), 1 for an encounter's base track, 0 for
-    /// no claim, where the room's own ambient music plays.
-    pub fn priority_of(&self, room: Option<LiveRoomInstance>) -> u8 {
-        match self.rooms.get(&room) {
-            Some(tiers) if !tiers.claims.is_empty() => 2,
-            Some(tiers) if tiers.base_track.is_some() => 1,
-            _ => 0,
-        }
     }
 }
 
@@ -257,20 +288,92 @@ mod tests {
     /// The peer checksum sees each part of a claim, and not the order of the
     /// claims. The control: the same claims made in the other order.
     #[test]
+    fn occurrence_publication_keeps_each_source_and_its_attempt() {
+        let room = Some(LiveRoomInstance::ACTIVATION);
+        let rows = |reverse: bool, attempt: u64| {
+            let mut rows = vec![
+                MusicOccurrence {
+                    room,
+                    source_id: "a".into(),
+                    attempt,
+                    track: Some("first".into()),
+                },
+                MusicOccurrence {
+                    room,
+                    source_id: "b".into(),
+                    attempt: 1,
+                    track: Some("second".into()),
+                },
+            ];
+            if reverse {
+                rows.reverse();
+            }
+            rows
+        };
+        let publish = |reverse| {
+            let mut request = EncounterMusicRequest::default();
+            request.publish_occurrences("boss", MusicClaimTier::Focused, 5, rows(reverse, 1));
+            request
+        };
+        let mut request = publish(false);
+        assert_eq!(request.candidates().count(), 2);
+        assert_eq!(request.desired_track(room), Some("first"));
+        assert_eq!(request.checksum(), publish(true).checksum());
+        request.publish_occurrences("boss", MusicClaimTier::Focused, 9, rows(false, 1));
+        assert!(request.candidates().all(|candidate| candidate.began == 5));
+        let previous = request.checksum();
+        request.publish_occurrences("boss", MusicClaimTier::Focused, 10, rows(false, 2));
+        let restarted = request
+            .candidates()
+            .find(|candidate| candidate.source.instance_id() == "a")
+            .unwrap();
+        assert_eq!((restarted.attempt, restarted.began), (2, 10));
+        assert_ne!(request.checksum(), previous);
+        request.claim_priority(room, "scene", "scene_track", 11);
+        request.publish_occurrences("boss", MusicClaimTier::Focused, 12, []);
+        assert_eq!(request.candidates().count(), 1);
+        assert_eq!(request.desired_track(room), Some("scene_track"));
+    }
+
+    #[test]
+    fn an_adaptive_only_source_has_identity_and_priority_without_a_track() {
+        let room = Some(LiveRoomInstance::ACTIVATION);
+        let mut request = EncounterMusicRequest::default();
+        request.publish_occurrences(
+            "boss",
+            MusicClaimTier::Focused,
+            5,
+            [MusicOccurrence {
+                room,
+                source_id: "placement:wolf".into(),
+                attempt: 3,
+                track: None,
+            }],
+        );
+        let source = request.candidates().next().unwrap();
+        assert_eq!(
+            (source.source.instance_id(), source.attempt, source.track),
+            ("placement:wolf", 3, None)
+        );
+        assert_eq!(request.priority_of(room), 2);
+        assert_eq!(request.desired_track(room), None);
+    }
+
+    #[test]
     fn the_checksum_sees_each_part_of_a_claim_and_not_its_order() {
         let room = Some(LiveRoomInstance::ACTIVATION);
         let state = |edit: &dyn Fn(&mut EncounterMusicRequest)| {
             let mut music = EncounterMusicRequest::default();
             music.claim_priority(room, "boss", "boss_theme", 3);
             music.claim_priority(room, MusicSource::instance("script", "a"), "a_theme", 4);
-            music.set_base_tracks([(room, "arena".to_string())]);
+            music.claim_base(room, "arena", "arena", 0);
             edit(&mut music);
             music.checksum()
         };
         let base = state(&|_| {});
         let reordered = {
             let mut music = EncounterMusicRequest::default();
-            music.set_base_tracks([(room, "arena".to_string())]);
+            music.claim_base(room, "arena", "arena", 0);
             music.claim_priority(room, MusicSource::instance("script", "a"), "a_theme", 4);
             music.claim_priority(room, "boss", "boss_theme", 3);
             music.checksum()
@@ -278,13 +381,17 @@ mod tests {
         let differs = [
             state(&|music| music.claim_priority(room, "boss", "other_theme", 9)),
             state(&|music| music.release_priority(room, "boss")),
-            state(&|music| music.claim_priority(room, MusicSource::instance("script", "b"), "a_theme", 4)),
-            state(&|music| music.set_base_tracks([(room, "other".to_string())])),
+            state(&|music| {
+                music.claim_priority(room, MusicSource::instance("script", "b"), "a_theme", 4)
+            }),
+            state(&|music| music.claim_base(room, "arena", "other", 0)),
             state(&|music| {
                 music.release_priority(room, "boss");
                 music.claim_priority(room, "boss", "boss_theme", 5);
             }),
-            state(&|music| music.claim_priority(room.map(|room| room.next()), "boss", "boss_theme", 3)),
+            state(&|music| {
+                music.claim_priority(room.map(|room| room.next()), "boss", "boss_theme", 3)
+            }),
         ]
         .map(|checksum| checksum != base);
         assert_eq!(
@@ -305,17 +412,24 @@ mod tests {
         let second = first.map(LiveRoomInstance::next);
         let mut music = EncounterMusicRequest::default();
         music.claim_priority(second, "boss", "boss_theme", 0);
-        music.set_base_tracks([(first, "wave_theme".to_string())]);
+        music.claim_base(first, "arena", "wave_theme", 0);
         assert_eq!(
             (music.desired_track(first), music.desired_track(second)),
             (Some("wave_theme"), Some("boss_theme"))
         );
         music.release_priority(first, "boss");
         music.release_priority(second, "someone_else");
-        assert_eq!(music.desired_track(second), Some("boss_theme"), "the claim stays");
+        assert_eq!(
+            music.desired_track(second),
+            Some("boss_theme"),
+            "the claim stays"
+        );
         music.release_priority(second, "boss");
-        music.set_base_tracks([]);
-        assert_eq!((music.desired_track(first), music.desired_track(second)), (None, None));
+        music.release_priority(first, "arena");
+        assert_eq!(
+            (music.desired_track(first), music.desired_track(second)),
+            (None, None)
+        );
         assert!(music.rooms.is_empty(), "a room with no claim is not stored");
     }
 
@@ -329,7 +443,11 @@ mod tests {
         let mut music = EncounterMusicRequest::default();
         music.claim_priority(room, "boss", "boss_theme", 10);
         music.claim_priority(room, "intro", "intro_theme", 20);
-        assert_eq!(music.desired_track(room), Some("intro_theme"), "control: the later claim plays");
+        assert_eq!(
+            music.desired_track(room),
+            Some("intro_theme"),
+            "control: the later claim plays"
+        );
         music.release_priority(room, "intro");
         assert_eq!(music.desired_track(room), Some("boss_theme"));
     }

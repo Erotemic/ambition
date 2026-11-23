@@ -50,6 +50,8 @@ mod specs;
 #[cfg(test)]
 mod sprite_sheet_tests;
 mod systems;
+mod music;
+pub use music::{publish_boss_music, BOSS_MUSIC_SOURCE_KIND};
 
 mod roster;
 #[cfg(test)]
@@ -216,6 +218,9 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression)
                 .in_set(boss_capability),
         );
+        app.add_systems(sim, publish_boss_music
+            .in_set(ProgressionSet::BossHazards)
+            .after(ambition_encounter::EncounterLifecycleSet));
         app.add_systems(
             sim,
             (

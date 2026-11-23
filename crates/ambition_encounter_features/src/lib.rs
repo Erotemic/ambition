@@ -19,6 +19,8 @@
 use ambition_encounter::{Encounter, EncounterLifecycleSet};
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 pub mod conditions;
+mod music;
+pub use music::publish_encounter_music;
 pub mod loading;
 pub mod lock_walls;
 pub mod switch_index;
@@ -123,6 +125,9 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             "resource.encounter_clears_in_rooms",
             room_writes::retract_room_encounter_clears,
         );
+        app.add_systems(sim, publish_encounter_music.in_set(ENCOUNTERS)
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::Progression)
+            .after(EncounterLifecycleSet));
         app.add_systems(
             sim,
             (apply_wave_encounter_effects, apply_encounter_cleanup)

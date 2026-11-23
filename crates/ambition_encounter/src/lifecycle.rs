@@ -92,6 +92,8 @@ pub struct EncounterLifecycle {
     /// ⛔ `pub(crate)` ON PURPOSE -- outside this crate, read it with
     /// [`EncounterLifecycle::phase`]. See the type's doc for who may write it.
     pub(crate) phase: EncounterPhase,
+    /// The accepted Start count. Reset keeps it; snapshot restore restores it.
+    pub(crate) attempt: u64,
     /// Authored intro window (seconds spent in `Starting` after a `Start`
     /// command before the encounter goes `Active`). Definition datum, set at
     /// spawn; `0.0` skips straight to `Active`.
@@ -106,6 +108,8 @@ pub struct EncounterLifecycle {
 }
 
 impl EncounterLifecycle {
+    pub fn attempt(&self) -> u64 { self.attempt }
+
     /// The current phase. Read-only by construction: see the type's doc for why
     /// the field is sealed.
     pub fn phase(&self) -> EncounterPhase {
@@ -154,6 +158,7 @@ impl EncounterLifecycle {
         match command {
                 EncounterCommandKind::Start => {
                     if matches!(self.phase, EncounterPhase::Inactive) {
+                        self.attempt = self.attempt.checked_add(1).expect("encounter attempt space exhausted");
                         self.elapsed_active = 0.0;
                         self.signals.clear();
                         self.phase = if self.intro_seconds > 0.0 {
@@ -609,6 +614,12 @@ mod tests {
             None,
         );
         assert_eq!(lc.phase, EncounterPhase::Active);
+        assert_eq!(lc.attempt(), 2, "Reset and Start in one tick create another attempt");
+        let encoded = ambition_platformer2d_core::snapshot::encode_state(&lc);
+        let restored: EncounterLifecycle = ambition_platformer2d_core::snapshot::decode_state(&encoded).unwrap();
+        assert_eq!(restored.attempt(), 2);
+        lc.reduce(0.0, [&EncounterCommandKind::Start], &none, None);
+        assert_eq!(lc.attempt(), 2, "a held Start does not create another attempt");
     }
 
     #[test]

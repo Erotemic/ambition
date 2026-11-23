@@ -1140,7 +1140,7 @@ fn the_cut_rope_fight_runs_in_its_own_live_room() {
 /// live.
 ///
 /// It asks for this owner's own candidate (`claim_of`), not for the track
-/// that plays: in the arena the generic boss owner (`BOSS_MUSIC_OWNER`) began
+/// that plays: in the arena the boss occurrence began
 /// its claim later, so its track plays. The arena arm does not run ticks.
 #[test]
 fn the_cut_rope_music_claim_is_released_when_no_live_room_is_its_room() {

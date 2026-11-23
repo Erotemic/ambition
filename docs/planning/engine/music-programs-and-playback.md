@@ -644,6 +644,11 @@ command boundary, not only director mode/gain fields.
 **Owners:** native music intent, encounter/boss/wave publication, frontend
 selection, and the existing scoped claim owner.
 
+**Progress:** simulation publication now keeps each source and its canonical
+encounter attempt. Bosses and encounters no longer collapse to one source
+per room. Adaptive-only sources have no required simple-track placeholder.
+The single presentation goal and ending handoff are the next part of MUS2.
+
 Publish occurrence candidates with one priority law. Lower simple choices
 to the one-source program and executor. Resolve destination selection and
 old-owner release together. Keep the outgoing ending separate from the

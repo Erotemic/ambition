@@ -24,6 +24,9 @@ Inactive -> Starting { remaining } -> Active -> Completed | Failed
 An `EncounterCommand` requests transitions. The lifecycle reducer owns phase
 changes; consumers read `phase()` rather than writing it. Wave progress and
 other encounter-specific facts live in their own policy/state components.
+Each accepted `Start` increments the lifecycle's attempt count. A repeated
+`Start` keeps that count. `Reset` keeps it until another start, including a
+reset and start in one tick. Snapshot restore restores the count.
 
 The provider's `boss_encounters/<id>.ron` describes an encounter's numeric and
 music configuration, while `boss_profiles.ron` describes the boss's behavior.
@@ -40,6 +43,13 @@ supply the surrounding experience.
 - Progression/save: durable completion and rewards.
 - Presentation: music, camera, UI, dialogue, and VFX reacting to encounter
   facts. Presentation does not decide the outcome.
+
+Music publication keeps every live source, its room, its attempt, its tier,
+and its optional simple track. An adaptive-only fight still has a source.
+The boss publisher reads the generic encounter attempt after lifecycle
+reduction. The generic encounter publisher runs without an event or player
+body. Each publisher withdraws only its own absent sources. Track getters
+are projections of these records; they do not remove losing candidates.
 
 Room departure, encounter reset, and snapshot restoration must not leave
 stale participants or duplicate a one-shot reward. Prefer canonical room and

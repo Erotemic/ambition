@@ -358,7 +358,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // (`content.mary_o_pocket_quasar`), owning the star's one interval (6b).
 // 528 -> 529: `BodyEffects` encodes one application per source, its terms
 // under one interval, instead of a timed instance per (source, attribute) (6c).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 529;
+// Encounter lifecycle snapshots include the attempt count; music claims include each source and attempt.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 530;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

@@ -60,15 +60,14 @@ impl Plugin for PortalSchedulePlugin {
                 .after(ambition_platformer2d_shared_tangle::gravity::GravityZonesCollected),
         );
 
-        // InputWarp: input rewrite in the player-input phase, after
-        // interaction input and before the finalized primary frame is published
-        // to SlotControls (the Move-axis-fix window), gated to gameplay.
+        // InputWarp: the portal guards on a driven body's RESOLVED control,
+        // so after the seat's input is translated into it (IN2) and before any
+        // control gate or the body's integration reads it. Gated to gameplay.
         app.configure_sets(
             sim,
             PortalSet::InputWarp
                 .in_set(Platformer2dSimulationPhase::PlayerInput)
-                .after(ambition_platformer2d_actor_monolith::control::InteractionInputBuffered)
-                .before(ambition_characters::control::PrimarySlotInputCommit)
+                .after(ambition_platformer2d_actor_monolith::control::ControlledBrainTick)
                 .run_if(gameplay_allowed),
         );
 

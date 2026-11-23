@@ -13,20 +13,37 @@ use ambition_portal2d::{
 };
 
 use super::warp_portal_input;
+use ambition_characters::actor::control::ActorControlFrame as ActorFrame;
+use ambition_characters::control::ActorControl;
+use ambition_platformer2d_core::LocalAxes;
 
-/// Seat-local input surface read and written by the portal warp.
-fn hold_x(app: &mut App, axis_x: f32) {
+/// Hold the seat's stick at `axis_x` and, standing in for the translator
+/// (`tick_controlled_brains`), write the driven body's control from it as
+/// that translation does every tick: the guard reads the stick for its hold
+/// and rewrites the resolved control.
+fn hold_x(app: &mut App, body: Entity, axis_x: f32) {
     let mut raw = app.world_mut().resource_mut::<SeatRawFrames>();
     let mut frame = raw.get(PlayerSlot::PRIMARY);
     frame.axis_x = axis_x;
     raw.set(PlayerSlot::PRIMARY, frame);
+    translate(app, body, Vec2::new(axis_x, 0.0));
 }
 
-fn seat_axis_x(app: &App) -> f32 {
-    app.world()
-        .resource::<SeatRawFrames>()
-        .get(PlayerSlot::PRIMARY)
-        .axis_x
+/// Write `local` as the body's resolved locomotion and movement-aimed attack.
+fn translate(app: &mut App, body: Entity, local: Vec2) {
+    let mut control = ActorFrame::neutral();
+    control.locomotion = LocalAxes::from_vec(local);
+    control.attack_axis = LocalAxes::from_vec(local);
+    control.facing = if local.x.abs() > 0.01 { local.x.signum() } else { 0.0 };
+    app.world_mut().entity_mut(body).insert(ActorControl(control));
+}
+
+fn locomotion(app: &App, body: Entity) -> Vec2 {
+    app.world().get::<ActorControl>(body).map_or(Vec2::ZERO, |c| c.0.locomotion.vec())
+}
+
+fn seat_axis_x(app: &App, body: Entity) -> f32 {
+    locomotion(app, body).x
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -141,11 +158,11 @@ fn only_the_driven_body_is_marked_and_guarded_on_arrival() {
             "{who:?}: the emergence guard"
         );
         // The next tick, a hold back into the exit wall (the exit faces +x) is
-        // stripped from the seat's frame while the guard is fresh.
-        hold_x(&mut app, -1.0);
+        // stripped from the driven body's movement while the guard is fresh.
+        hold_x(&mut app, body, -1.0);
         app.update();
-        let kept = seat_axis_x(&app);
-        assert_eq!(kept.abs() < 0.01, marked, "{who:?}: the seat's hold into the exit wall, {kept}");
+        let kept = seat_axis_x(&app, body);
+        assert_eq!(kept.abs() < 0.01, marked, "{who:?}: the hold into the exit wall, {kept}");
     }
 }
 
@@ -171,11 +188,11 @@ fn portal_input_warp_transforms_held_input_then_clears() {
         ))
         .id();
 
-    // Still holding right → input is warped to LEFT (keeps you moving out).
-    hold_x(&mut app, 1.0);
+    // Still holding right → movement is warped to LEFT (keeps you moving out).
+    hold_x(&mut app, player, 1.0);
     app.update();
     assert!(
-        seat_axis_x(&app) < -0.5,
+        seat_axis_x(&app, player) < -0.5,
         "held right is warped to left while the warp is active"
     );
     assert!(
@@ -184,7 +201,7 @@ fn portal_input_warp_transforms_held_input_then_clears() {
     );
 
     // Release movement → warp drops, input passes through untouched next frame.
-    hold_x(&mut app, 0.0);
+    hold_x(&mut app, player, 0.0);
     app.update();
     assert!(
         app.world().get::<PortalInputWarp>(player).is_none(),
@@ -197,7 +214,7 @@ fn portal_input_warp_transforms_held_input_then_clears() {
         n_out: Vec2::new(-1.0, 0.0),
         anchor: Vec2::new(1.0, 0.0),
     });
-    hold_x(&mut app, -1.0);
+    hold_x(&mut app, player, -1.0);
     app.update();
     assert!(
         app.world().get::<PortalInputWarp>(player).is_none(),
@@ -218,7 +235,7 @@ fn emission_guard_follows_the_possessed_body() {
     // actor carries the seat and is the one emerging from a right-wall portal
     // (exit normal LEFT, into the room).
     app.world_mut().spawn((PlayerEntity, PrimaryPlayer));
-    let _possessed = app
+    let possessed = app
         .world_mut()
         .spawn((
             DrivingParticipant(PlayerSlot::PRIMARY),
@@ -230,11 +247,11 @@ fn emission_guard_follows_the_possessed_body() {
         .id();
 
     // Holding RIGHT (back into the wall) is stripped for the DRIVEN body.
-    hold_x(&mut app, 1.0);
+    hold_x(&mut app, possessed, 1.0);
     app.update();
     assert!(
-        seat_axis_x(&app).abs() < 0.01,
-        "the POSSESSED body's emergence guard shapes the input stream"
+        seat_axis_x(&app, possessed).abs() < 0.01,
+        "the POSSESSED body's emergence guard shapes its movement"
     );
 }
 
@@ -259,18 +276,59 @@ fn emission_guard_strips_input_pushing_back_into_the_exit_wall() {
         ))
         .id();
     // Holding RIGHT (back into the wall) is stripped so physics carries you out.
-    hold_x(&mut app, 1.0);
+    hold_x(&mut app, player, 1.0);
     app.update();
     assert!(
-        seat_axis_x(&app).abs() < 0.01,
+        seat_axis_x(&app, player).abs() < 0.01,
         "input pushing back into the exit wall is stripped during emergence"
     );
+    // ...from movement only: the attack the same stick aimed keeps its side.
+    assert_eq!(
+        app.world().get::<ActorControl>(player).unwrap().0.attack_axis.vec(),
+        Vec2::X,
+        "the emergence guard is a movement constraint; it re-aimed an attack"
+    );
     // Holding LEFT (the emergence direction) passes through untouched.
-    hold_x(&mut app, -1.0);
+    hold_x(&mut app, player, -1.0);
     app.update();
     assert!(
-        seat_axis_x(&app) < -0.5,
+        seat_axis_x(&app, player) < -0.5,
         "input in the emergence direction is preserved"
     );
-    let _ = player;
+}
+
+/// IN2: the emergence guard strips the push into the exit wall in the body's
+/// RESOLVED frame. Under down `(1,0)` a flyer's local `(0,-1)` is world
+/// `(-1,0)`, straight into an exit facing `+x`, and local `(-1,0)` is world
+/// `(0,1)`, along the wall. The old raw-axis guard kept the first and removed
+/// the second. A walker cannot travel along its local Y, so the guard leaves
+/// that axis alone rather than invent a crouch or a jump.
+#[test]
+fn the_emergence_guard_reads_the_bodys_resolved_frame() {
+    let after = |local: Vec2, flying: bool| {
+        let mut app = App::new();
+        app.init_resource::<SeatRawFrames>();
+        app.init_resource::<SlotControls>();
+        app.init_resource::<PortalTuning>();
+        app.add_systems(Update, warp_portal_input);
+        let mut frame = ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
+        frame.publish_resolved_frame(ambition_platformer2d_core::MotionFrame::from_direction(Vec2::X, 1.0));
+        let body = app
+            .world_mut()
+            .spawn((
+                DrivingParticipant(PlayerSlot::PRIMARY),
+                frame,
+                ambition_platformer2d_core::BodyFlightState { fly_enabled: flying, ..Default::default() },
+                PortalEmission { exit_normal: Vec2::X, timer: 1.0 },
+            ))
+            .id();
+        translate(&mut app, body, local);
+        app.update();
+        locomotion(&app, body)
+    };
+    let inward = Vec2::new(0.0, -1.0);
+    let tangent = Vec2::new(-1.0, 0.0);
+    assert!(after(inward, true).length() < 0.01, "a flyer's push into the exit wall survived");
+    assert_eq!(after(tangent, true), tangent, "a flyer's travel along the wall was removed");
+    assert_eq!(after(inward, false), inward, "a walker's local Y is not travel; the guard changed it");
 }

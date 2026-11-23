@@ -89,16 +89,38 @@ pub fn guard_the_driven_body_after_portal_transit(
     }
 }
 
-/// Apply the two input guards to the frame of the seat that drives each
-/// guarded body: the same-wall held-input warp (soft: it drops when the hold is
-/// released or clearly changes direction) and the emergence guard (held input
-/// cannot push back into the exit wall while the guard is fresh). Both are mild,
-/// so a portal never feels like a hard input latch.
+/// Apply the two portal input guards to the LOCOMOTION of each guarded body a
+/// seat drives (IN2): the same-wall held-input warp (soft: it drops when the
+/// hold is released or clearly changes direction) and the emergence guard
+/// (held movement cannot push back into the exit wall while the guard is
+/// fresh). Both are mild, so a portal never feels like a hard input latch.
 ///
-/// Per seat: each guarded body names its own [`DrivingParticipant`], and the
-/// guards shape that seat's frame through `shape_seat_frame`.
-/// [`guard_the_driven_body_after_portal_transit`] inserts the guards on a
-/// crossing.
+/// ⭐ AFTER THE TRANSLATION, ON THE BODY'S RESOLVED CONTROL. These guards used
+/// to rewrite the seat's raw stick against world-space portal normals, which
+/// ignored the stick's frame mode: under `BodyRelativeStrict` with down
+/// `(1,0)`, raw `(0,-1)` is world `(-1,0)`, so the raw-axis strip kept an
+/// inward push and removed a tangential one. And every verb read the shared
+/// stick, so a movement guard changed an attack's direction. Here the body's
+/// `locomotion` is taken to world space through the body's own resolved frame,
+/// guarded there, and brought back.
+///
+/// The policies, explicitly:
+/// - the warp continues a HELD stick, so it applies to locomotion, the flyer's
+///   velocity target, the facing request and an attack aimed by the movement
+///   stick. A C-stick attack keeps its own aim;
+/// - the emergence strip is a physical constraint on travel, so it applies to
+///   locomotion and the velocity target only;
+/// - a body that is not flying cannot command travel along its local Y (that
+///   axis means crouch or descend), so neither guard changes it: only the side
+///   component follows the world-space result.
+///
+/// ⛔ ONLY A FRAME THE TRANSLATOR WROTE THIS TICK. `ActorControl` is latched; a
+/// guard applied to a value it already guarded would warp it twice. A system
+/// does not see its own writes as changes, so `is_changed` is exactly "the
+/// seat's translation wrote it since this guard last ran".
+///
+/// Per seat: each guarded body names its own [`DrivingParticipant`], whose
+/// raw stick decides whether the hold continues.
 ///
 /// [`DrivingParticipant`]: ambition_characters::control::DrivingParticipant
 pub fn warp_portal_input(
@@ -107,71 +129,91 @@ pub fn warp_portal_input(
     tuning: Res<PortalTuning>,
     latches: Option<Res<ambition_characters::control::SlotControlLatches>>,
     rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
-    mut slots: ResMut<ambition_characters::control::SlotControls>,
-    mut raw: ResMut<ambition_characters::control::SeatRawFrames>,
+    slots: Res<ambition_characters::control::SlotControls>,
+    raw: Res<ambition_characters::control::SeatRawFrames>,
     mut bodies: Query<(
         Entity,
         &ambition_characters::control::DrivingParticipant,
+        &mut ambition_characters::control::ActorControl,
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        Option<&ambition_platformer2d_core::BodyFlightState>,
         Option<&PortalInputWarp>,
         Option<&mut PortalEmission>,
     )>,
 ) {
     let sim_dt = time.as_deref().map_or(0.0, |t| t.sim_dt());
-    for (entity, driver, warp, emission) in &mut bodies {
+    for (entity, driver, mut control, resolved, flight, warp, emission) in &mut bodies {
         if warp.is_none() && emission.is_none() {
             continue;
         }
-        let slot = driver.0;
         let frame = ambition_platformer2d_actor_monolith::control::seat_frame_this_tick(
             latches.as_deref(),
             rollback.as_deref(),
             &slots,
             &raw,
-            slot,
+            driver.0,
         );
-        let mut dir = bevy::prelude::Vec2::new(frame.axis_x, frame.axis_y);
-
-        // Same-wall held-input warp: a hold that survives the crossing is mapped
-        // through the portal, and one that is released or clearly redirected
-        // drops the guard.
-        if let Some(warp) = warp {
-            if dir.length() < tuning.input_held_epsilon {
+        // The seat's own stick says whether the hold continues: released or
+        // clearly turned, the warp drops.
+        let stick = Vec2::new(frame.axis_x, frame.axis_y);
+        let mut warp = warp.copied();
+        if let Some(held) = warp {
+            let released = stick.length() < tuning.input_held_epsilon;
+            let turned = held.anchor.length() > 0.01
+                && stick.normalize_or_zero().dot(held.anchor.normalize_or_zero()) < tuning.input_warp_keep_cos;
+            if released || turned {
                 commands.entity(entity).remove::<PortalInputWarp>();
-            } else if warp.anchor.length() > 0.01
-                && dir.normalize_or_zero().dot(warp.anchor.normalize_or_zero())
-                    < tuning.input_warp_keep_cos
-            {
-                commands.entity(entity).remove::<PortalInputWarp>();
-            } else {
-                dir = portal_map_vec(dir, warp.n_in, warp.n_out, tuning.convention.map_convention());
+                warp = None;
             }
         }
-
-        // Emergence guard: strip held input that pushes back into the exit wall
-        // while it is fresh.
+        let mut inward_normal = None;
         if let Some(mut emission) = emission {
             emission.timer -= sim_dt;
             if emission.timer <= 0.0 {
                 commands.entity(entity).remove::<PortalEmission>();
             } else {
-                let into = dir.dot(emission.exit_normal);
-                if into < 0.0 {
-                    dir -= into * emission.exit_normal;
-                }
+                inward_normal = Some(emission.exit_normal);
             }
         }
-
-        ambition_platformer2d_actor_monolith::control::shape_seat_frame(
-            latches.as_deref(),
-            rollback.as_deref(),
-            &mut slots,
-            &mut raw,
-            slot,
-            |frame| {
-                frame.axis_x = dir.x;
-                frame.axis_y = dir.y;
-            },
-        );
+        if (warp.is_none() && inward_normal.is_none()) || !control.is_changed() {
+            continue;
+        }
+        let basis = resolved.copied().unwrap_or_default().basis();
+        let free = flight.is_some_and(|flight| flight.fly_enabled);
+        let convention = tuning.convention.map_convention();
+        let warped = |world: Vec2| match warp {
+            Some(held) => portal_map_vec(world, held.n_in, held.n_out, convention),
+            None => world,
+        };
+        let emerging = |world: Vec2| match inward_normal {
+            Some(normal) => world - world.dot(normal).min(0.0) * normal,
+            None => world,
+        };
+        // A local command through a world-space guard, keeping the local Y of
+        // a body that cannot travel along it.
+        let guard_local = |local: Vec2, guard: &dyn Fn(Vec2) -> Vec2| {
+            let out = basis.to_local(guard(basis.to_world(local)));
+            if free { out } else { Vec2::new(out.x, local.y) }
+        };
+        let frame_out = &mut control.0;
+        let before = frame_out.locomotion.vec();
+        let after = guard_local(before, &|world| emerging(warped(world)));
+        frame_out.locomotion = ambition_platformer2d_core::LocalAxes::from_vec(after);
+        // The flyer's command is world-space already.
+        frame_out.velocity_target =
+            ambition_platformer2d_core::WorldVec2(emerging(warped(frame_out.velocity_target.0)));
+        if warp.is_some() {
+            // The facing request follows the continued hold.
+            if frame_out.facing != 0.0 {
+                frame_out.facing = if after.x.abs() > 0.01 { after.x.signum() } else { 0.0 };
+            }
+            // An attack the movement stick aimed continues with it; a C-stick
+            // attack keeps its own aim.
+            if frame_out.attack_axis.vec() == before {
+                frame_out.attack_axis =
+                    ambition_platformer2d_core::LocalAxes::from_vec(guard_local(before, &warped));
+            }
+        }
     }
 }
 

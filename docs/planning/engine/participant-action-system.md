@@ -335,6 +335,28 @@ at that boundary. The expected aim policy must be explicit. Extend current
 release/redirection and two-seat cases only where their boundary changes.
 This does not reopen the portal geometry solver.
 
+**First slice done (2026-11-23): the guards act on resolved control.**
+`warp_portal_input` no longer rewrites the seat's raw stick. It runs after
+`ControlledBrainTick` and guards the driven body's `ActorControl`: the
+locomotion goes to world space through the body's `ResolvedMotionFrame`, is
+warped and stripped there, and comes back. The aim policy is explicit: the
+held-stick warp continues locomotion, the flyer's `velocity_target`, the
+facing request and an attack aimed by the movement stick; a C-stick attack
+keeps its own aim; the emergence strip constrains travel only, so no attack
+is re-aimed by it. A body that is not flying keeps its local Y, so neither
+guard invents a crouch or a jump. `ActorControl` is latched, so the guard
+acts only on a frame the translator wrote since its last run (`is_changed`).
+Guard: `the_emergence_guard_reads_the_bodys_resolved_frame` (the
+inward/tangent pair above for a flyer, and a walker's local Y); the
+raw-axis fixtures now read the body's locomotion, and the plain-gravity
+strip also checks that the attack keeps its side.
+
+Still open: the warp reads the current global convention against the
+transit's normals rather than a map retained from the accepted transit, and
+a portal transit that also turns gravity could map a held stick through
+both `HeldControlFrame` and the warp. The proof through a real transit with
+a held stick and a gravity turn is not yet written.
+
 ### Tentative curved-world held direction
 
 [CV4](curved-surfaces-and-local-gravity.md#held-input-needs-an-explicit-continuation-rule)

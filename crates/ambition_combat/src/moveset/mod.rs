@@ -138,6 +138,10 @@ pub struct MoveEventMessage {
     /// HOW this event is oriented — the sibling of [`Self::world_offset`],
     /// resolved from the SAME two authorities in the same expression.
     pub world_pose: ambition_vfx::FxPose,
+    /// For a `Ranged` event, the source the emitting use was admitted with
+    /// ([`MovePlayback::ranged_source`]), stamped by the emitter for the reason
+    /// `move_instance` is. `None` for every other kind.
+    pub ranged_source: Option<ambition_characters::brain::action_set::RangedActionSpec>,
 }
 
 /// This actor is playing a move. Insert to start; the system removes it when
@@ -300,6 +304,12 @@ pub struct MovePlayback {
     /// to prevent. And so does the point a brain aimed at (`at`): the whole
     /// request is kept, not a copy of some of its fields.
     pub aim: Option<ambition_characters::actor::control::ActorFireRequest>,
+    /// The ranged source this use was admitted to fire (ACT1): the weapon a
+    /// move brandishes for itself, else the body's own ranged action at
+    /// acceptance. Its fire events carry it, so a source swapped in during
+    /// windup cannot fire under this use's admission. `None` for a move that
+    /// fires nothing, or a body that had no ranged action when it started.
+    pub ranged_source: Option<ambition_characters::brain::action_set::RangedActionSpec>,
     /// The last DIRECTION THE PLAYER ASKED FOR since this move began, in the
     /// owner's LOCAL frame — `None` while the stick has not left neutral once.
     ///
@@ -638,6 +648,15 @@ impl MovePlayback {
     /// ⚠ The caller reads [`MoveOccurrence::next`]. This function does no
     /// arithmetic, so there is one place that decides what the next number is.
     #[must_use]
+    /// Bind the ranged source this use was admitted with.
+    pub fn firing(
+        mut self,
+        source: Option<ambition_characters::brain::action_set::RangedActionSpec>,
+    ) -> Self {
+        self.ranged_source = source;
+        self
+    }
+
     pub fn at_occurrence(mut self, occurrence: u32) -> Self {
         self.instance = occurrence;
         self
@@ -766,6 +785,7 @@ impl MovePlayback {
             instance: 0,
             connected_hit: false,
             blocked_hit: false,
+            ranged_source: None,
             live_boxes: Vec::new(),
             fired,
             hit_targets: Vec::new(),
@@ -1585,6 +1605,9 @@ pub fn advance_move_playback(
                     move_id: pb.spec.id.clone(),
                     move_instance: pb.instance,
                     presentation_source: presentation_source.clone(),
+                    ranged_source: (ev.kind == MoveEventKind::Ranged)
+                        .then(|| pb.ranged_source.clone())
+                        .flatten(),
                     kind: ev.kind.clone(),
                     world_offset,
                     world_pose,
@@ -1612,6 +1635,7 @@ pub fn advance_move_playback(
                     
                         presentation_source: presentation_source.clone(),
                         kind: MoveEventKind::Effect(effect.clone()),
+                        ranged_source: None,
                     });
                 }
             }
@@ -1666,6 +1690,7 @@ pub fn advance_move_playback(
                     
                             presentation_source: presentation_source.clone(),
                             kind: MoveEventKind::Effect(effect.clone()),
+                            ranged_source: None,
                         });
                         pb.flow_node = *then;
                         pb.flow_wait_s = 0.0;
@@ -2583,6 +2608,10 @@ struct StartingMove<'a, 'cw, 'cs> {
     /// refire floor or no ranged action, which is every move that fires
     /// nothing.
     weapon: Option<(&'a mut RangedRefire, f32)>,
+    /// The body's own ranged action as it stands at acceptance. A move that
+    /// fires binds its emission source here (ACT1), unless it brandishes an
+    /// item of its own (`MoveSpec::equips`), which is resolved here too.
+    body_ranged: Option<&'a ambition_characters::brain::action_set::RangedActionSpec>,
     /// The occurrence number THIS move takes, from [`MoveOccurrence::next`].
     ///
     /// ⛔ THE CALLER READS THE BODY'S COUNTER. It is not derived from the
@@ -2628,9 +2657,23 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         weapon,
         gesture_window,
         banked_charge,
+        body_ranged,
     } = m;
     // Asked before `spec` is handed to the playback below.
     let fires_ranged = move_fires_ranged(&spec);
+    // THE EMISSION SOURCE THIS USE WAS ADMITTED WITH (ACT1). The weapon a move
+    // brandishes for itself, else the body's own ranged action now. Bound to
+    // the use, so a form or equipment change during windup cannot fire a new
+    // source under this one's admission.
+    let ranged_source = fires_ranged
+        .then(|| {
+            spec.equips
+                .as_deref()
+                .and_then(ambition_characters::brain::held_item_by_id)
+                .and_then(|item| item.ranged)
+                .or_else(|| body_ranged.cloned())
+        })
+        .flatten();
     if spec.gates.recovery.spends() {
         if let Some(mut jump) = jump {
             jump.recovery_charges = jump.recovery_charges.saturating_sub(1);
@@ -2717,7 +2760,8 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
             .with_aimed_stick(aimed_stick)
             .with_attack_intent(attack_intent)
             .started_in_stance(started_grounded)
-            .charged_by_gesture_resuming(started_by, banked_charge),
+            .charged_by_gesture_resuming(started_by, banked_charge)
+            .firing(ranged_source),
     );
     // ACCEPTED — the proposal is over. A buffered press that starts a move must
     // not start the next one behind it.
@@ -3872,6 +3916,7 @@ pub fn trigger_moveset_moves(
                 jump: jumps.get_mut(entity).ok(),
                 meter: meters.get_mut(entity).ok(),
                 weapon: refire.as_deref_mut().zip(refire_s),
+                body_ranged: action_set.and_then(|set| set.ranged.as_ref()),
                 gesture_window: (special_turn_ticks > 0)
                     .then(|| {
                         gesture_state
@@ -3996,6 +4041,7 @@ pub fn trigger_moveset_moves(
                 jump: jumps.get_mut(entity).ok(),
                 meter: meters.get_mut(entity).ok(),
                 weapon: refire.as_deref_mut().zip(refire_s),
+                body_ranged: action_set.and_then(|set| set.ranged.as_ref()),
                 gesture_window: (special_turn_ticks > 0)
                     .then(|| {
                         gesture_state
@@ -4316,18 +4362,10 @@ pub fn dispatch_move_events(
     mut events: ReplayMessageReader<MoveEventMessage>,
     positions: Query<&ae::BodyKinematics>,
     ranged_owners: Query<(
-        &ambition_characters::brain::action_set::ActionSet,
         &ActorControl,
         // A3: the owner's worn equipment, so a worn Move/Verb-scoped modifier
         // scales the shot's damage/speed at fire (trigger-resolve).
         Option<&ambition_characters::equipment::WornEquipment>,
-        // The weapon THIS MOVE drew, if it drew one, and what is actually in
-        // the hand. Two reads because they answer different questions: the
-        // brandish says WHOSE the item is, `HeldItem` says WHAT it is — and
-        // duplicating the id onto the brandish would be a second authority for
-        // a fact one component already owns.
-        Option<&crate::held_items::MoveBrandishedItem>,
-        Option<&crate::held_items::HeldItem>,
     )>,
     // The move that is playing, for the aim it was STARTED with. See
     // `MovePlayback::aim`.
@@ -4419,35 +4457,18 @@ pub fn dispatch_move_events(
                 });
             }
             MoveEventKind::Ranged => {
-                // The owner's ranged CAPABILITY + LIVE aim supply the concrete shot;
-                // the move stays content-free.
-                let Ok((actions_set, control, worn, brandished, held)) =
-                    ranged_owners.get(ev.owner)
-                else {
+                // The source this use was ADMITTED with, stamped on the event
+                // by its emitter (ACT1); live aim supplies the direction. A
+                // move that drew a weapon (`MoveSpec::equips`) bound that
+                // weapon at acceptance, so the gun-sword still fires the
+                // gun-sword. ⛔ NOT re-read from the body here: a form or
+                // equipment change during windup would fire the new source
+                // under this use's admission, or skip the promised shot.
+                let Ok((control, worn)) = ranged_owners.get(ev.owner) else {
                     continue;
                 };
-                // ⭐⭐ A MOVE THAT DREW A WEAPON FIRES THAT WEAPON. `MoveSpec::equips`
-                // put it in the hand at the start of this move, and the shot a
-                // player sees leave the barrel has to be the barrel's shot — the
-                // admiral's gun-sword is not his pistol, and firing the pistol's
-                // numbers out of a drawn gun-sword is the kind of disagreement
-                // nobody can see and everybody feels.
-                //
-                // ⛔ SCOPED TO THE BRANDISH, not to "is anything held". A pirate
-                // raider carries a gun-sword all match and its ranged verb is
-                // reached the way it always was; only an item a MOVE drew for
-                // itself displaces the body's own weapon, and only while that
-                // move plays.
-                let brandished_ranged = brandished
-                    .filter(|brandish| {
-                        playbacks
-                            .get(ev.owner)
-                            .is_ok_and(|pb| pb.spec.id == brandish.move_id)
-                    })
-                    .and(held)
-                    .and_then(|item| item.spec.ranged.clone());
-                let Some(mut spec) = brandished_ranged.or_else(|| actions_set.ranged.clone()) else {
-                    continue; // owner has no ranged weapon — the move fires nothing
+                let Some(mut spec) = ev.ranged_source.clone() else {
+                    continue; // admitted with no ranged source — the move fires nothing
                 };
                 // The move's table states the shot's damage in its own game
                 // (`MoveSpec::shot_damage`); the weapon's is its own game's.

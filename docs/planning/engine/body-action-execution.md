@@ -165,9 +165,24 @@ replacement, `resolve_aerial_landings` then charges the lag, and from the next
 tick the lock refuses. What remains is an aerial whose own cancel window
 permits a move on its landing tick; that start still precedes the landing.
 
+**A ranged use fires the source it was admitted with (2026-11-23).** At
+acceptance `start_move` binds `MovePlayback::ranged_source`: the weapon the
+move brandishes for itself (`MoveSpec::equips`, resolved through the held-item
+table at that moment), else the body's own ranged action. The emitter stamps it
+on the `Ranged` `MoveEventMessage` beside `move_instance`, and
+`dispatch_move_events` builds the shot from it. The late brandish and
+`ActionSet` lookup are gone, so a weapon replaced during windup cannot fire under
+the old admission, and a move admitted with no source fires nothing. Live aim,
+worn modifiers, `shot_damage` and the charge ladder still resolve at the fire
+beat as before. The source is in the playback checksum (schema 534). Guard:
+`a_ranged_move_fires_the_source_it_was_admitted_with` (A admitted, B swapped
+in during windup, A's numbers leave). Not yet done: interrupting the use when
+its admitted source's live dependency (a dropped brandish, a removed form) is
+gone; today the bound shot still fires.
+
 Still open: boss and scripted starts asking the same question (step 2), that
 cancel-window remainder of step 3, locomotion escapes authorized before their
-spend (step 4), the action offer, and the committed emission basis below.
+spend (step 4), and the action offer.
 
 ### An offer and an accepted action must name the same move
 

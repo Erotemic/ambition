@@ -246,7 +246,7 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
     app.add_systems(Update, (dispatch_move_events, capture).chain());
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage {
+        .write(MoveEventMessage { ranged_source: None,
             // A fixture plays one authored use. Instance 0 is the first.
             move_instance: 0,
             world_offset: ae::Vec2::ZERO,
@@ -287,7 +287,7 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
     // this instead".
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage {
+        .write(MoveEventMessage { ranged_source: None,
             // A fixture plays one authored use. Instance 0 is the first.
             move_instance: 0,
             world_offset: ae::Vec2::ZERO,
@@ -359,7 +359,7 @@ fn a_moves_cosmetic_effect_is_asked_for_in_its_owners_live_room() {
             .id();
         app.world_mut()
             .resource_mut::<Messages<MoveEventMessage>>()
-            .write(MoveEventMessage {
+            .write(MoveEventMessage { ranged_source: None,
                 move_instance: 0,
                 world_offset: ae::Vec2::ZERO,
                 owner,
@@ -2080,7 +2080,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
         .id();
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage {
+        .write(MoveEventMessage { ranged_source: None,
             // A fixture plays one authored use. Instance 0 is the first.
             move_instance: 0,
             world_offset: ae::Vec2::ZERO,
@@ -2094,7 +2094,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
         });
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage {
+        .write(MoveEventMessage { ranged_source: None,
             // A fixture plays one authored use. Instance 0 is the first.
             move_instance: 0,
             world_offset: ae::Vec2::ZERO,
@@ -2205,7 +2205,7 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
         .id();
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage {
+        .write(MoveEventMessage { ranged_source: Some(RangedActionSpec::bolt(240.0, 3)),
             // A fixture plays one authored use. Instance 0 is the first.
             move_instance: 0,
             world_offset: ae::Vec2::ZERO,
@@ -2292,7 +2292,7 @@ fn a_moves_shot_carries_the_instance_from_the_event_not_the_live_playback() {
         .id();
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage {
+        .write(MoveEventMessage { ranged_source: Some(RangedActionSpec::bolt(240.0, 3)),
             // The use that fires the shot. It is not 7 on purpose.
             move_instance: 3,
             world_offset: ae::Vec2::ZERO,
@@ -2367,7 +2367,7 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
         .id();
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage {
+        .write(MoveEventMessage { ranged_source: Some(RangedActionSpec::bolt(240.0, 3)),
             // A fixture plays one authored use. Instance 0 is the first.
             move_instance: 0,
             world_offset: ae::Vec2::ZERO,
@@ -2449,7 +2449,7 @@ fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
             .id();
         app.world_mut()
             .resource_mut::<Messages<MoveEventMessage>>()
-            .write(MoveEventMessage {
+            .write(MoveEventMessage { ranged_source: Some(RangedActionSpec::bolt(240.0, 3)),
                 // A fixture plays one authored use. Instance 0 is the first.
                 move_instance: 0,
                 world_offset: ae::Vec2::ZERO,
@@ -8097,7 +8097,7 @@ fn a_released_charge_reaches_the_ranged_action_the_dispatcher_emits() {
             .id();
         app.world_mut()
             .resource_mut::<Messages<MoveEventMessage>>()
-            .write(MoveEventMessage {
+            .write(MoveEventMessage { ranged_source: Some(cannon.clone()),
                 // A fixture plays one authored use. Instance 0 is the first.
                 move_instance: 0,
                 world_offset: ae::Vec2::ZERO,
@@ -10826,4 +10826,78 @@ fn a_press_during_a_hard_lock_waits_in_its_buffer_and_hitstun_alone_does_not_ref
         Some("swat"),
         "the buffered press did not start once the lock ended (hitstun alone remains)"
     );
+}
+
+/// ACT1: a ranged move fires the source it was ADMITTED with. The body's
+/// weapon is replaced by B during the windup; the shot that leaves is A's,
+/// and its numbers prove it.
+#[test]
+fn a_ranged_move_fires_the_source_it_was_admitted_with() {
+    use ambition_characters::actor::control::ActorFireRequest;
+    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
+    use ambition_characters::control::ActorControl;
+
+    let a = RangedActionSpec::bolt(240.0, 3);
+    let b = RangedActionSpec::bolt(500.0, 9);
+    let contract = build_actor_moveset(None, None, Some(&a), None).expect("a ranged moveset");
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.insert_resource(
+        super::super::authored_volumes::AuthoredAttackVolumeResolver::new(test_blade_resolver),
+    );
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<VfxInRoom>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_vfx::FxRequest>();
+    app.add_message::<ambition_characters::brain::ActorActionMessage>();
+    app.init_resource::<WorldTime>();
+    app.world_mut().resource_mut::<WorldTime>().set_sim_dt(0.016);
+    app.world_mut().resource_mut::<WorldTime>().set_wall_dt(0.016);
+    app.add_systems(
+        Update,
+        (
+            resolve_attack_gestures,
+            buffer_combat_action_presses,
+            trigger_moveset_moves,
+            advance_move_playback,
+            dispatch_move_events,
+        )
+            .chain(),
+    );
+    let mut control = ActorControl::default();
+    control.0.fire = Some(ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0)));
+    let body = app
+        .world_mut()
+        .spawn((
+            ActorMoveset(contract),
+            control,
+            ActionSet { ranged: Some(a.clone()), ..Default::default() },
+            ActorFaction::Enemy,
+            ae::BodyKinematics { material: Default::default(),
+                pos: ae::Vec2::ZERO,
+                vel: ae::Vec2::ZERO,
+                canonical_size: ae::Vec2::new(16.0, 24.0),
+                facing: 1.0,
+            },
+        ))
+        .id();
+    app.update();
+    assert!(app.world().get::<MovePlayback>(body).is_some(), "the fire intent started the ranged move");
+    // The swap: a form or equipment change hands the body weapon B mid-windup.
+    app.world_mut().get_mut::<ActionSet>(body).unwrap().ranged = Some(b);
+    app.world_mut().get_mut::<ActorControl>(body).unwrap().0.fire = None;
+    let mut fired = Vec::new();
+    for _ in 0..120 {
+        app.update();
+        fired.extend(
+            app.world_mut()
+                .resource_mut::<Messages<ambition_characters::brain::ActorActionMessage>>()
+                .drain()
+                .filter_map(|m| match m.request {
+                    ActionRequest::Ranged { spec, .. } => Some(spec.damage),
+                    _ => None,
+                }),
+        );
+    }
+    assert_eq!(fired, vec![a.damage], "the shot did not leave with the admitted source's numbers");
 }

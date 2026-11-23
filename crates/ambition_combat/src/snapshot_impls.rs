@@ -296,6 +296,18 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
         // deleted; the anim picker, the HUD and the brain read it through the
         // derived swing view, so two peers disagreeing about it have diverged.
         put_attack_intent(out, self.attack_intent);
+        // The ranged source this use was admitted with (ACT1) is state: two
+        // peers whose in-flight move would fire different weapons have
+        // diverged. Its identity is the numbers the shot is built from.
+        match &self.ranged_source {
+            Some(source) => {
+                put_bool(out, true);
+                put_i32(out, source.damage);
+                put_f32(out, source.speed);
+                put_f32(out, source.refire_s);
+            }
+            None => put_bool(out, false),
+        }
     }
 }
 

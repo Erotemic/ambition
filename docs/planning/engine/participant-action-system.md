@@ -406,8 +406,12 @@ priming operation had to cross into `ambition_input`. A temporary probe
 through `populate_seat_control_frames` (burst trigger held at 1.0) measured,
 old sampler / fix: held through a pause, on return: press / none; release
 and repress inside the pause: press / none; held across a rebind: press /
-none; a real repress after return: press / press. It was removed. Open: the
-local producer retirement cut below.
+none; a real repress after return: press / press. It was removed. The
+local producer retirement cut below is done too (2026-11-23):
+`seat_input_participants_for_roster` neutralizes the retired seat's own
+`SeatRawFrames` row and resets its latch beside the despawn (a probe with a
+pending jump press read neutral in both after the sweep; the old sweep
+wrote neither). IN4 is complete.
 
 #### Native failures and their controls
 

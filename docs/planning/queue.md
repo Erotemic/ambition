@@ -384,7 +384,8 @@ world-post admission.
     local simulation change needs no new peer-wire representation. IN4
     can ship independently (its capture and rebind crossings landed
     2026-11-23: `SeatSourceEdges` follows valid samples and resyncs after an
-    invalid one; producer retirement is open); IN5's supply interruption coordinates with
+    invalid one; the retired seat's raw row and latch go with it: IN4 is
+    done); IN5's supply interruption coordinates with
     IN1 and the wire/stream owners. Do not select a new provider transport
     merely to complete P2's unused publisher.
 

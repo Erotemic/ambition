@@ -207,6 +207,9 @@ pub fn seat_input_participants_for_roster(
     offer: Option<Res<ambition_input::LocalSeatOffer>>,
     existing: Query<(Entity, &InputParticipant)>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    // The retired seat's own rows: its last raw frame and its pending latch.
+    mut raw: Option<ResMut<ambition_characters::control::SeatRawFrames>>,
+    mut latches: Option<ResMut<ambition_characters::control::SlotControlLatches>>,
 ) {
     // The persisted preset, so a seat claimed with the KEYBOARD gets the layout
     // its player actually chose rather than preset zero.
@@ -256,6 +259,17 @@ pub fn seat_input_participants_for_roster(
             // The match is over, or this seat left it. A participant with no
             // seat still holds an `ActionState` that keeps writing its slot.
             commands.entity(entity).despawn();
+            // Its raw row and pending latch are this producer's too: the
+            // commit republishes every raw row, so a row left behind would
+            // carry the last edge it wrote past the latch's next drain. A
+            // remote, harness or authored producer's row is not this one's.
+            let slot = ambition_platformer2d_actor_monolith::participant_seat::player_slot_of(participant.id);
+            if let Some(raw) = raw.as_deref_mut() {
+                raw.set(slot, ambition_platformer2d_core::ControlFrame::default());
+            }
+            if let Some(latches) = latches.as_deref_mut() {
+                latches.reset(slot);
+            }
         }
     }
 

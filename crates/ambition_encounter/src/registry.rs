@@ -102,8 +102,10 @@ impl bevy::prelude::Plugin for EncounterRegistryPlugin {
         // The generic clock mirror the reducer reads (the host overwrites it
         // each frame; init never clobbers a pre-inserted resource).
         app.init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>();
+        app.init_resource::<ambition_time::SimTick>();
         app.add_message::<crate::lifecycle::EncounterCommand>();
         app.add_message::<crate::events::EncounterEventMsg>();
+        app.add_message::<crate::events::EncounterRelease>();
         // this domain's authored VERB, published beside the message it writes.
         // Adding it edited no central enum — see `authored_commands`.
         crate::authored_commands::publish_authored_commands(app);

@@ -79,6 +79,22 @@ impl<M: Message> ExternalEffectJournal<M> {
         self.pending.insert(frame, intents);
     }
 
+    /// Add a replayed room's output after its old writes have been retracted.
+    fn record_room_replay(&mut self, frame: i32, session: u64, intents: Vec<M>) {
+        self.reset_if_new_session(session);
+        if !intents.is_empty() {
+            self.pending.entry(frame).or_default().extend(intents);
+        }
+    }
+
+    /// Retract pending source writes. Other sources keep their pending output.
+    fn retract(&mut self, mut invalid: impl FnMut(&M) -> bool) {
+        self.pending.retain(|_, intents| {
+            intents.retain(|intent| !invalid(intent));
+            !intents.is_empty()
+        });
+    }
+
     /// Take every intent whose frame is now settled, oldest frame first.
     pub fn take_confirmed(&mut self, boundary: &ConfirmedFrameBoundary) -> Vec<M> {
         self.reset_if_new_session(boundary.session);
@@ -137,9 +153,15 @@ pub fn journal_sim_effects<M: Message>(world: &mut World) {
     let boundary = world.resource::<ConfirmedFrameBoundary>();
     let (frame, session) = (boundary.current, boundary.session);
     let intents: Vec<M> = world.resource_mut::<Messages<M>>().drain().collect();
+    let room_replay = world.contains_resource::<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>();
     let mut journal = world.resource_mut::<ExternalEffectJournal<M>>();
     let lifted = journal.lifted.take();
-    journal.record(frame, session, intents);
+    if room_replay {
+        // The room retractor removed this room's abandoned output. Other rooms stay.
+        journal.record_room_replay(frame, session, intents);
+    } else {
+        journal.record(frame, session, intents);
+    }
     if let Some(lifted) = lifted {
         *world.resource_mut::<Messages<M>>() = lifted;
     }
@@ -251,6 +273,7 @@ impl<M: Message> Plugin for ExternalEffectQuarantinePlugin<M> {
             sim,
             open_every_sim_effect_outbox
                 .in_set(ExternalEffectSet::OpenOutbox)
+                .after(ambition_platformer2d_core::ConfirmedFrameBoundaryPublished)
                 .before(GameplaySimulationRoot)
                 .run_if(speculating),
         )
@@ -313,6 +336,7 @@ pub trait PresentationEffectVisitor {
 /// | `FireworksRequest` | `process_fireworks_requests` (`Update`) | spawns a visual sequence |
 /// | `DebrisBurstMessage` | `physics_spawn_debris_messages` (`Update`) | spawns physics debris |
 /// | `CameraShakeRequest` | `apply_camera_shake_requests` (`Update`) | moves the screen |
+/// | `EncounterRelease` | music goal selection | ends an admitted musical occurrence |
 ///
 /// Deliberately absent: `DamageBoxRequest`, `SummonRequest` and `ProjectileSpawnRequest`, whose readers are
 /// all sim-side despite the effect-shaped names.
@@ -329,6 +353,21 @@ pub fn for_each_presentation_effect(app: &mut App, visitor: &mut impl Presentati
     visitor.visit::<CameraShakeRequest>(app);
     visitor.visit::<FinishZoomRequest>(app);
     visitor.visit::<KnockoutBeatRequested>(app);
+    visitor.visit::<ambition_encounter::EncounterRelease>(app);
+}
+
+/// A hosted room release waits for confirmation and retracts with its source room.
+pub fn quarantine_room_encounter_releases(app: &mut App) {
+    if !app.is_plugin_added::<ExternalEffectQuarantinePlugin<ambition_encounter::EncounterRelease>>() {
+        app.add_plugins(ExternalEffectQuarantinePlugin::<ambition_encounter::EncounterRelease>::default());
+    }
+    ambition_platformer2d_shared_tangle::lifecycle::register_room_write_retractor(
+        app, "presentation.encounter_releases", |world, room, saved_at| {
+            if let Some(mut journal) = world.get_resource_mut::<ExternalEffectJournal<ambition_encounter::EncounterRelease>>() {
+                journal.retract(|release| release.room == Some(room) && release.tick > saved_at);
+            }
+        },
+    );
 }
 
 /// Quarantine every presentation-facing effect family

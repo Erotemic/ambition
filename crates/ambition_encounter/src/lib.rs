@@ -28,7 +28,7 @@ pub mod timeline;
 pub mod waves;
 
 pub use entity::{Encounter, EncounterView};
-pub use events::{EncounterEvent, EncounterEventMsg};
+pub use events::{EncounterEvent, EncounterEventMsg, EncounterRelease, EncounterReleaseReason};
 pub use lifecycle::{
     reduce_encounter_lifecycles, EncounterCommand, EncounterCommandKind, EncounterLifecycle,
     EncounterLifecycleSet, EncounterPhase,

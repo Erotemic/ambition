@@ -47,6 +47,7 @@ fn spawn_request_app() -> App {
         .resource_mut::<bevy::prelude::Messages<ambition_encounter::EncounterEventMsg>>()
         .write(ambition_encounter::EncounterEventMsg::new(
             "test_encounter",
+            1,
             ambition_encounter::EncounterEvent::SpawnCommand {
                 id: "wave_mob_1".to_string(),
                 character: Some("fixture_striker".to_string()),

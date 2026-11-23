@@ -3,7 +3,8 @@
 **State:** implementation in progress, 2026-11-22.
 Reviewed source: `6d100f9d9e0d557fe4ae3dad61acd5aef71f684e`.
 MUS1's bounded playback executor landed in `d4147e4c`; per-source music
-publication and canonical attempts landed in `6d100f9d`. Unified goal
+publication and canonical attempts landed in `6d100f9d`. Release facts now
+retain their transition attempt and pass through host confirmation. Unified goal
 selection, owned endings and prepared timing remain open. Music renderer:
 `186a13f8115752a4bbdb4955fb9e46483562a2d4`.
 The supplied exit log has UTC timestamps on 2026-11-23. Its executable
@@ -200,14 +201,15 @@ explicit session/provider silence remains authoritative.
 ### Preserve release cause separately from the latest goal
 
 Current candidates state who can request music now. They do not explain
-why a previously admitted attempt ended. At this head,
+why a previously admitted attempt ended. The
 [`reduce_encounter_lifecycles`](../../../crates/ambition_encounter/src/lifecycle.rs)
 can accept Complete, Reset and Start before presentation reads the result.
-Its final event-publication loop runs after all commands, and
+It now stamps each accepted transition before the next command. Both
 [`EncounterEventMsg`](../../../crates/ambition_encounter/src/events.rs)
-does not carry attempt identity. Current music publishers withdraw terminal
-sources. Reading the latest attempt, or treating absence as victory, cannot
-recover the earlier transition honestly.
+and the separate presentation-only `EncounterRelease` carry the correct
+attempt. The release also retains the source `SimId`, session, room, producing
+tick and reason. Music publishers still withdraw terminal sources. Selection
+must match the release to admitted playback instead of treating absence as victory.
 
 Capture source/occurrence, attempt and accepted release reason at the
 transition that produces that fact, before reset or retirement can erase
@@ -708,6 +710,10 @@ selection, and the existing scoped claim owner.
 encounter attempt. Bosses and encounters no longer collapse to one source
 per room. Adaptive-only sources have no required simple-track placeholder.
 The single presentation goal and ending handoff are the next part of MUS2.
+Release publication now preserves each transition's attempt and cause.
+GGRS defers only the presentation projection. The hosted host uses its live
+confirmation boundary and retracts only the replayed room's pending releases.
+Ordinary encounter messages remain available to simulation readers.
 
 Publish occurrence candidates with one priority law. Lower simple choices
 to the one-source program and executor. Resolve destination selection and

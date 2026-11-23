@@ -539,10 +539,6 @@ impl PlatformerPreparation<'_> {
             return None;
         }
         self.complete(transaction, PREPARE_SFX_WORK_ID);
-        let deliberate_silence = !authored.expects_music
-            && !authored.expects_procedural_sfx
-            && !music_ready
-            && !procedural_sfx_ready;
 
         #[cfg(feature = "audio")]
         let prepared_cues = candidate_adaptive_cues_for(
@@ -555,6 +551,12 @@ impl PlatformerPreparation<'_> {
         #[cfg(not(feature = "audio"))]
         let prepared_cues: Option<ambition_audio::cue_program::PreparedMusicCues> = None;
         let adaptive_cues_ready = prepared_cues.is_some();
+        let deliberate_silence = !authored.expects_music
+            && !authored.expects_procedural_sfx
+            && !authored.expects_adaptive_cues
+            && !music_ready
+            && !procedural_sfx_ready
+            && !adaptive_cues_ready;
         #[cfg(feature = "audio")]
         if authored.expects_adaptive_cues && !adaptive_cues_ready {
             self.fail(
@@ -3184,6 +3186,110 @@ mod tests {
         assert!(app
             .world()
             .contains_resource::<PreparedPlatformerSessions>());
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn cue_only_preparation_does_not_report_deliberate_silence() {
+        use ambition_game_shell::{
+            ProviderPreparationPlan, ShellCommand, ShellHostConfiguration, ShellRouteCatalog,
+            ShellRouteId, ShellRouteSpec, ShellRouter,
+        };
+        use bevy::ecs::system::SystemState;
+
+        let authored = ron::from_str(
+            r#"(
+            cues: [(
+                id: "ambient", relative_volume: 1.0,
+                media: Inline(asset_root: "audio", bpm: 120.0, beats_per_bar: 4.0,
+                    sections: [(id: "song", duration_beats: 4.0, looped: true,
+                        sources: [(layer_id: "full", path: "ambient.ogg")])]),
+                layers: [(id: "full", slot: 0)],
+                states: [(id: "song", section_id: "song", gains: [(layer_id: "full", gain: 1.0)])],
+            )],
+        )"#,
+        )
+        .unwrap();
+        let cues =
+            ambition_audio::cue_program::PreparedMusicCues::prepare(authored, &Default::default())
+                .unwrap();
+        for (has_cues, expects_cues) in [(true, true), (true, false), (false, false)] {
+            let mut app = App::new();
+            let characters = character_registry(false, CHARACTER_B);
+            app.insert_resource(characters.assemble().unwrap().catalog)
+                .insert_resource(characters)
+                .init_resource::<ambition_sprite_sheet::SpriteContent>()
+                .init_resource::<ContentEpochSequence>()
+                .init_resource::<PreparedPlatformerSessions>()
+                .init_resource::<PlatformerStreamingReadiness>()
+                .add_message::<ambition_load::LoadCommand>();
+            let mut fragments = PlatformerAuthoredCatalogRegistry::default();
+            let mut declaration = AuthoredCatalogFragments::new("alpha", "same-provider");
+            declaration.expects_adaptive_cues = expects_cues;
+            fragments.try_register("fixture", declaration).unwrap();
+            app.insert_resource(fragments);
+            let mut audio = ambition_audio::catalog::AudioCatalogRegistry::default();
+            audio
+                .register(
+                    ambition_audio::catalog::AudioCatalogFragment::new("same-provider", None, None)
+                        .unwrap(),
+                )
+                .unwrap();
+            app.insert_resource(audio);
+            let mut adaptive = ambition_audio::music::AdaptiveMusicCatalogRegistry::default();
+            if has_cues {
+                adaptive.register("same-provider", cues.clone()).unwrap();
+            }
+            app.insert_resource(adaptive);
+
+            let mut routes = ShellRouteCatalog::default();
+            routes.register(
+                ShellRouteSpec::new("game", "fixture").preparing_with(
+                    ProviderPreparationPlan::new("Prepare", "ready", "Ready")
+                        .required("publish", "Publish"),
+                ),
+            );
+            let mut prepared = PreparedSessionRegistry::default();
+            let transaction = ShellRouter::default()
+                .apply(
+                    ShellCommand::GoTo(ShellRouteId::new("game")),
+                    &routes,
+                    &ShellHostConfiguration::default(),
+                    &mut ambition_load::LoadCoordinator::default(),
+                    &mut prepared,
+                )
+                .into_iter()
+                .find_map(|event| match event {
+                    ShellEvent::PreparationRequested(transaction) => Some(transaction),
+                    _ => None,
+                })
+                .unwrap();
+            app.insert_resource(prepared);
+            let mut preparation = SystemState::<PlatformerPreparation>::new(app.world_mut());
+            let identity = preparation
+                .get_mut(app.world_mut())
+                .unwrap()
+                .prepare(&transaction, fixture_source(128.0))
+                .expect("the cue-only session prepares");
+            let session = app
+                .world()
+                .resource::<PreparedPlatformerSessions>()
+                .peek(&identity)
+                .unwrap();
+            assert!(!session.report.music_ready);
+            assert!(!session.report.procedural_sfx_ready);
+            assert_eq!(session.report.adaptive_cues_ready, has_cues);
+            assert_eq!(session.report.deliberate_silence, !has_cues);
+            assert_eq!(
+                session
+                    .music
+                    .cues
+                    .as_ref()
+                    .and_then(|cues| cues.cue("ambient"))
+                    .is_some(),
+                has_cues
+            );
+        }
     }
 
     const CHARACTER_A: &str = r#"(

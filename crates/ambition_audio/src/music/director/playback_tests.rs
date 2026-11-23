@@ -1436,3 +1436,74 @@ fn simple_tracks_and_explicit_preloads_have_separate_source_lifetimes() {
             })
     );
 }
+
+#[test]
+fn diagnostics_observe_prepared_sources_without_a_playback_cache_entry() {
+    use crate::music::diagnostics::{
+        MusicPlaybackDiagnostics, MusicPlaybackStatus, observe_music_playback,
+    };
+    use bevy::ecs::system::RunSystemOnce;
+
+    let (mut app, prepared) = fixture();
+    app.insert_resource(LoadedMusicCueAssets::default())
+        .init_resource::<crate::selection::ActiveAudioSelection>()
+        .init_resource::<MusicPlaybackDiagnostics>()
+        .insert_resource(crate::web_unlock::AudioUnlockState {
+            unlocked: true,
+            ..default()
+        })
+        .insert_resource(crate::output::AudioOutputMode::Device);
+    let observe = |app: &mut App| {
+        app.world_mut()
+            .resource_mut::<Time<Real>>()
+            .advance_by(Duration::from_secs_f64(0.25));
+        app.world_mut()
+            .run_system_once(observe_music_playback)
+            .unwrap();
+        app.world()
+            .resource::<MusicPlaybackDiagnostics>()
+            .status
+            .clone()
+            .unwrap()
+    };
+
+    assert_eq!(observe(&mut app), MusicPlaybackStatus::Loading);
+    decode(&mut app, &prepared[0]);
+    assert_eq!(observe(&mut app), MusicPlaybackStatus::Loading);
+    decode(&mut app, &prepared[1]);
+    assert_eq!(observe(&mut app), MusicPlaybackStatus::BackendSilent);
+    assert!(
+        app.world()
+            .resource::<LoadedMusicCueAssets>()
+            .sources
+            .is_empty()
+    );
+
+    let registry = crate::spec::MusicRegistry {
+        default_track: "ambient".into(),
+        tracks: vec![crate::spec::MusicTrack {
+            id: "ambient".into(),
+            display_name: "Ambient".into(),
+            asset_path: Some("audio/ambient.ogg".into()),
+            one_shot: false,
+        }],
+    };
+    let library = AudioLibrary::new(&registry, None);
+    let prepared_track = library
+        .preload_track("ambient", app.world().resource::<AssetServer>())
+        .unwrap();
+    app.insert_resource(library);
+    let mut target = selection("", "", "room", 0, 10);
+    target.choice = MusicChoice::Track("ambient".into());
+    publish(&mut app, target);
+    assert_eq!(observe(&mut app), MusicPlaybackStatus::Loading);
+    decode(&mut app, &prepared_track);
+    assert_eq!(observe(&mut app), MusicPlaybackStatus::BackendSilent);
+    assert!(
+        app.world()
+            .resource::<AudioLibrary>()
+            .resolved_track_handle("ambient")
+            .is_none()
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 0);
+}

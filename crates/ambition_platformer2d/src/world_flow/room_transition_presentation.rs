@@ -337,6 +337,11 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
                 .after(LoadPresentationSet::Actions)
                 .before(LoadPresentationSet::Finalize),
         );
+    #[cfg(feature = "audio")]
+    app.init_resource::<super::music_preparation::RoomMusicPreparation>()
+        .add_systems(Update, super::music_preparation::prepare_room_music
+            .after(prefetch_neighbor_room_preparation_system)
+            .after(super::first_room_art::prepare_first_room_art_system));
 }
 
 /// Synchronize each transaction's cover and loading foreground.

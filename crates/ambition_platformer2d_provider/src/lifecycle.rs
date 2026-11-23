@@ -544,18 +544,17 @@ impl PlatformerPreparation<'_> {
             && !music_ready
             && !procedural_sfx_ready;
 
-        // ⛔ THE CANDIDATE'S CUES, NOT THE APP'S: see [`adaptive_cues_ready_for`].
         #[cfg(feature = "audio")]
-        let adaptive_cues_ready = adaptive_cues_ready_for(
-            self.adaptive_catalogs
-                .as_deref()
-                .is_some_and(|catalogs| catalogs.catalog_for(authored.audio_provider.as_str()).is_some()),
+        let prepared_cues = candidate_adaptive_cues_for(
+            self.adaptive_catalogs.as_deref()
+                .and_then(|catalogs| catalogs.catalog_for(authored.audio_provider.as_str())),
             self.content_inputs.2.as_deref(),
             transaction.barrier.load_id.as_str(),
             authored.audio_provider.as_str(),
-        );
+        ).cloned();
         #[cfg(not(feature = "audio"))]
-        let adaptive_cues_ready = false;
+        let prepared_cues: Option<ambition_audio::cue_program::PreparedMusicCues> = None;
+        let adaptive_cues_ready = prepared_cues.is_some();
         #[cfg(feature = "audio")]
         if authored.expects_adaptive_cues && !adaptive_cues_ready {
             self.fail(
@@ -718,20 +717,19 @@ impl PlatformerPreparation<'_> {
         // `self.registry` mutably.
         let frozen_cast = self.candidate_cast_for(transaction);
         let frozen_catalog = candidate_catalog;
-        let startup_music = self.audio_for(transaction).music_for(authored.audio_provider.as_str())
-            .filter(|_| !report.deliberate_silence)
-            .and_then(|music| {
-                let room = content.source().room_set().activation_spec();
-                room.metadata.music_track.as_deref().and_then(|id| music.track(id))
-                    .or_else(|| music.track(&music.default_track)).cloned()
-            });
+        let music = ambition_audio::catalog::PreparedMusicCatalog {
+            provider_id: authored.audio_provider.to_string(),
+            music: self.audio_for(transaction).music_for(authored.audio_provider.as_str())
+                .filter(|_| !report.deliberate_silence).cloned(),
+            cues: prepared_cues,
+        };
         let identity = self.sessions.0.publish(
             transaction,
             PreparedPlatformerSession {
                 content,
                 report,
                 character_catalog: frozen_catalog,
-                startup_music,
+                music,
                 // ⛔ FROZEN HERE, in the same system that took the identity, so
                 // the two cannot describe different worlds.
                 // ⛔ THE TRANSACTION'S OWN CANDIDATE, never the App's
@@ -1204,22 +1202,16 @@ pub(crate) fn candidate_audio_for<'a>(
         .unwrap_or(active)
 }
 
-/// Does `provider` have adaptive cues in the generation `load_id`'s transaction
-/// publishes? `active` is the App's answer (generation N), used when the
-/// transaction's claim is ours and carries no cue change, or when there is no
-/// claim at all. A stranger's claim is never read.
+/// The cue definitions that this transaction will publish for `provider`.
 #[cfg(feature = "audio")]
-pub(crate) fn adaptive_cues_ready_for(
-    active: bool,
-    pending: Option<&ambition_platformer2d_runtime::PendingGenerationInputs>,
+pub(crate) fn candidate_adaptive_cues_for<'a>(
+    active: Option<&'a ambition_audio::cue_program::PreparedMusicCues>,
+    pending: Option<&'a ambition_platformer2d_runtime::PendingGenerationInputs>,
     load_id: &str,
     provider: &str,
-) -> bool {
-    match pending
-        .and_then(|claim| claim.adaptive_providers_for(load_id))
-        .flatten()
-    {
-        Some(providers) => providers.contains(provider),
+) -> Option<&'a ambition_audio::cue_program::PreparedMusicCues> {
+    match pending.and_then(|claim| claim.adaptive_cues_for(load_id)).flatten() {
+        Some(catalogs) => catalogs.get(provider),
         None => active,
     }
 }
@@ -1688,8 +1680,8 @@ struct PreparedPlatformerRecord {
 /// same successful validation/assembly transaction.
 #[derive(Clone)]
 pub struct PreparedPlatformerSession {
-    /// The first music cue from this generation's catalog and entry room.
-    pub startup_music: Option<ambition_audio::spec::MusicTrack>,
+    /// Music definitions for this generation, retained through room preparation.
+    pub music: ambition_audio::catalog::PreparedMusicCatalog,
     pub content: PreparedContent,
     pub report: PlatformerPreparationReport,
     /// The mechanics frozen during preparation. Construction must use these
@@ -2034,6 +2026,7 @@ fn prepare_candidate_platformer_session(
         default_character.as_str(),
         pending.route_id.clone(),
     );
+    builder.commands.entity(candidate.root).insert(prepared.music.clone());
     let hold = candidate_session_hold(activation_id);
     gates.register(hold.clone(), evaluator);
     holds.hold(pending.route_id.clone(), hold);
@@ -3110,7 +3103,7 @@ mod tests {
             bosses: None,
             catalog: None,
             audio: None,
-            adaptive_providers: None,
+            adaptive_cues: None,
         }
     }
 
@@ -4275,7 +4268,7 @@ mod mechanical_registries_reach_the_identity {
             bosses: None,
             catalog: None,
             audio: None,
-            adaptive_providers: None,
+            adaptive_cues: None,
         };
 
         // ⛔ THE ASSERTION THE ARM IS FOR.
@@ -4357,7 +4350,7 @@ mod mechanical_registries_reach_the_identity {
             bosses: None,
             catalog: None,
             audio: Some(candidate.clone()),
-            adaptive_providers: None,
+            adaptive_cues: None,
         };
         assert!(
             candidate_audio_for(&live, Some(&mine), "shell.game.7")
@@ -4384,15 +4377,12 @@ mod mechanical_registries_reach_the_identity {
             .is_some());
     }
 
-    /// ⛔⛤ **PREPARE N+1'S ADAPTIVE CUES, NOT THE ONES THE APP STILL HAS.**
-    ///
-    /// A pack without its cue file compiles, so a reload can drop a provider's
-    /// whole adaptive catalog. Preparation asked the App's registry (N), found
-    /// the catalog, admitted the session, and the commit then published a
-    /// registry without it: the provider expects adaptive cues and has none.
     #[cfg(feature = "audio")]
     #[test]
     fn a_transaction_is_prepared_against_its_own_candidate_adaptive_cues_not_the_apps() {
+        let active = ambition_audio::cue_program::PreparedMusicCues::prepare(
+            Default::default(), &Default::default(),
+        ).unwrap();
         let claim = |providers: Option<&[&str]>| ambition_platformer2d_runtime::PendingGenerationInputs {
             load_id: "shell.game.7".to_string(),
             identity: "pack 2 cfp1:bb".to_string(),
@@ -4400,29 +4390,19 @@ mod mechanical_registries_reach_the_identity {
             bosses: None,
             catalog: None,
             audio: None,
-            adaptive_providers: providers
-                .map(|ids| ids.iter().map(|id| id.to_string()).collect()),
+            adaptive_cues: providers.map(|ids| ids.iter()
+                .map(|id| (id.to_string(), active.clone())).collect()),
         };
-        // ⭐ THE PREMISE FIRST: the App has the provider's cues (`active`), the
-        // candidate has none.
         let drops = claim(Some(&[]));
-        assert!(
-            !adaptive_cues_ready_for(true, Some(&drops), "shell.game.7", "provider"),
-            "the transaction was prepared against the App's cues, which its own commit removes",
-        );
-        // ⛔ A STRANGER'S CANDIDATE IS NOT A FALLBACK.
-        assert!(
-            adaptive_cues_ready_for(true, Some(&drops), "shell.game.8", "provider"),
-            "an unrelated preparation read a candidate it never owned",
-        );
-        // A candidate that names the provider is ready even where the App has none.
+        assert!(candidate_adaptive_cues_for(Some(&active), Some(&drops), "shell.game.7", "provider").is_none());
+        assert!(candidate_adaptive_cues_for(Some(&active), Some(&drops), "shell.game.8", "provider").is_some());
         let adds = claim(Some(&["provider"]));
-        assert!(adaptive_cues_ready_for(false, Some(&adds), "shell.game.7", "provider"));
-        // ⚠ OUR CLAIM CARRYING NO CUE CHANGE: the App's answer is this transaction's own.
+        let selected = candidate_adaptive_cues_for(None, Some(&adds), "shell.game.7", "provider").unwrap();
+        assert!(std::ptr::eq(selected, &adds.adaptive_cues.as_ref().unwrap()["provider"]));
         let unchanged = claim(None);
-        assert!(adaptive_cues_ready_for(true, Some(&unchanged), "shell.game.7", "provider"));
-        assert!(!adaptive_cues_ready_for(false, Some(&unchanged), "shell.game.7", "provider"));
-        assert!(adaptive_cues_ready_for(true, None, "shell.game.7", "provider"));
+        assert!(candidate_adaptive_cues_for(Some(&active), Some(&unchanged), "shell.game.7", "provider").is_some());
+        assert!(candidate_adaptive_cues_for(None, Some(&unchanged), "shell.game.7", "provider").is_none());
+        assert!(candidate_adaptive_cues_for(Some(&active), None, "shell.game.7", "provider").is_some());
     }
 
     /// ⛔⛤ **A DEVELOPER'S POPULATION CAP CHANGES THE ROSTER AND MUST CHANGE THE

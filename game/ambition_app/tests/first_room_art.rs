@@ -105,3 +105,69 @@ fn the_starting_characters_sheet_is_decoded_before_the_route_activates() {
         sheet.pages.len()
     );
 }
+
+#[cfg(feature = "audio")]
+#[test]
+fn a_dormant_wolfenstein_has_his_entrance_decoded_before_he_claims_music() {
+    use ambition_platformer2d::audio::{catalog::PreparedMusicCatalog, library::KiraAudioSource};
+    use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounter, BossEncounterPhase};
+    use ambition_platformer2d::platformer::lifecycle::session_world_component;
+
+    let mut app = crate::shell_host_rendered::rendered_app_in_room(
+        VisibleRenderMode::NoWindow,
+        Some("castle_godwin_throne"),
+    );
+    for _ in 0..30 {
+        step(&mut app);
+    }
+    app.world_mut().write_message(ShellCommand::GoTo(
+        ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
+    ));
+    let mut decoded = false;
+    for _ in 0..1200 {
+        step(&mut app);
+        let sleeping = app
+            .world_mut()
+            .query::<(&BossConfig, &BossEncounter)>()
+            .iter(app.world())
+            .find(|(config, _)| config.behavior.id == "wolfenstein_boss")
+            .map(|(_, state)| state.encounter_phase());
+        let Some(phase) = sleeping else { continue };
+        assert_eq!(phase, BossEncounterPhase::Dormant);
+        let Some(music) = session_world_component::<PreparedMusicCatalog>(app.world()) else {
+            continue;
+        };
+        let cues = music
+            .cues
+            .as_ref()
+            .expect("the session has its prepared cues");
+        let binding = cues.binding_for_boss("wolfenstein_boss").unwrap();
+        let cue = cues.cue(&binding.cue_id).unwrap();
+        let server = app.world().resource::<AssetServer>();
+        let assets = app.world().resource::<Assets<KiraAudioSource>>();
+        decoded = ["Intro", "Phase1"].into_iter().all(|phase| {
+            let state = cue.state(binding.state_in(phase).unwrap()).unwrap();
+            let section = cue.section(&state.section_id).unwrap();
+            !section.sources.is_empty()
+                && section.sources.iter().all(|source| {
+                    server
+                        .get_handle::<KiraAudioSource>(source.path.clone())
+                        .is_some_and(|handle| assets.contains(handle.id()))
+                })
+        });
+        if decoded {
+            break;
+        }
+    }
+    assert!(
+        decoded,
+        "the dormant boss's entrance and immediate continuation did not decode"
+    );
+    let sources =
+        session_world_component::<ambition_platformer2d::encounter::EncounterMusicRequest>(
+            app.world(),
+        )
+        .unwrap();
+    assert!(!sources.candidates().any(|source| source.source.kind()
+        == ambition_platformer2d::boss_encounter::BOSS_MUSIC_SOURCE_KIND));
+}

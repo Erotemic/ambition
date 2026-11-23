@@ -3,6 +3,8 @@
 mod first_room_art;
 mod first_room_cover;
 mod parallax_residency;
+#[cfg(feature = "audio")]
+mod music_preparation;
 mod room_transition_assets;
 mod room_transition_presentation;
 mod transition_surfaces;

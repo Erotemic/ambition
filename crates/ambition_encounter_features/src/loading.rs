@@ -62,59 +62,63 @@ pub fn load_encounter_specs_from_rooms(
     // markers exactly as an unrecognised trigger id always did.
     waves: Option<&ambition_encounter::EncounterWaveBook>,
 ) -> Vec<(String, EncounterSpec, PersistedEncounterState)> {
-    let mut out = Vec::new();
-    for room in rooms {
-        let Some(trigger) = room.encounter_triggers.first() else {
-            continue;
-        };
-        // An unset `id` means "name it after the area", which is a fact the room
-        // has and the IR deliberately does not.
-        let trigger_id = if trigger.id.trim().is_empty() {
-            room.id.clone()
-        } else {
-            trigger.id.trim().to_string()
-        };
-        let camera_zoom = trigger.camera_zoom.unwrap_or(1.2);
-        let trigger_min = [trigger.min.x, trigger.min.y];
-        let trigger_size = [trigger.size.x, trigger.size.y];
-
-        // The lock wall marker (one per area, optional). A wall that authors
-        // `gated_by` is a gate with its own condition: it is not the
-        // encounter's, wherever it is in the room's list.
-        let lock_wall = room.lock_walls.iter().find(|wall| wall.gated_by.is_none()).map(|wall| LockWallSpec {
-            min: [wall.min.x, wall.min.y],
-            size: [wall.size.x, wall.size.y],
-        });
-
-        let authored = authored_encounter_waves(waves, &trigger_id);
-        let waves = authored
-            .clone()
-            .unwrap_or_else(|| fallback_waves_from_enemy_spawns(room));
-
-        let spec = EncounterSpec {
-            id: trigger_id.clone(),
-            room_id: room.id.clone(),
-            waves,
-            trigger_min,
-            trigger_size,
-            camera_zoom,
-            lock_wall,
-            intro_seconds: 2.5,
-            // Authored encounters (those with a wave-book entry) are driven by
-            // generated_music.rs (intro → adaptive stem loops → outro), signalled
-            // by an empty track id; marker-only encounters use the shared loop.
-            music_track: if authored.is_some() {
-                String::new()
-            } else {
-                "pulse_drift_voyage".into()
-            },
-            reward: ambition_encounter::spec::default_encounter_reward(),
-        };
-        let persisted = save.encounter(&trigger_id);
-        out.push((trigger_id, spec, persisted));
-    }
-    out
+    rooms.iter().filter_map(|room| {
+        let spec = prepare_room_encounter(room, waves)?;
+        let persisted = save.encounter(&spec.id);
+        Some((spec.id.clone(), spec, persisted))
+    }).collect()
 }
+
+/// Resolve the encounter that this room will construct, without spawning it.
+pub fn prepare_room_encounter(
+    room: &ambition_platformer2d_world::rooms::RoomSpec,
+    waves: Option<&ambition_encounter::EncounterWaveBook>,
+) -> Option<EncounterSpec> {
+    let trigger = room.encounter_triggers.first()?;
+    // An unset `id` means "name it after the area", which is a fact the room
+    // has and the IR deliberately does not.
+    let trigger_id = if trigger.id.trim().is_empty() {
+        room.id.clone()
+    } else {
+        trigger.id.trim().to_string()
+    };
+    let camera_zoom = trigger.camera_zoom.unwrap_or(1.2);
+    let trigger_min = [trigger.min.x, trigger.min.y];
+    let trigger_size = [trigger.size.x, trigger.size.y];
+
+    // The lock wall marker (one per area, optional). A wall that authors
+    // `gated_by` is a gate with its own condition: it is not the
+    // encounter's, wherever it is in the room's list.
+    let lock_wall = room.lock_walls.iter().find(|wall| wall.gated_by.is_none()).map(|wall| LockWallSpec {
+        min: [wall.min.x, wall.min.y],
+        size: [wall.size.x, wall.size.y],
+    });
+
+    let authored = authored_encounter_waves(waves, &trigger_id);
+    let waves = authored
+        .clone()
+        .unwrap_or_else(|| fallback_waves_from_enemy_spawns(room));
+
+    Some(EncounterSpec {
+        id: trigger_id.clone(),
+        room_id: room.id.clone(),
+        waves,
+        trigger_min,
+        trigger_size,
+        camera_zoom,
+        lock_wall,
+        intro_seconds: 2.5,
+        // Authored encounters (those with a wave-book entry) are driven by
+        // generated_music.rs (intro → adaptive stem loops → outro), signalled
+        // by an empty track id; marker-only encounters use the shared loop.
+        music_track: if authored.is_some() {
+            String::new()
+        } else {
+            "pulse_drift_voyage".into()
+        },
+        reward: ambition_encounter::spec::default_encounter_reward(),
+    })
+ }
 
 /// The mob `kind` string for an authored brain — the inverse of the map
 /// reader's `parse_enemy_brain`.

@@ -88,10 +88,12 @@ units. His Intro maps immediately to `galvanic_march/awaken`; it has no
 authored music-delay field. The 16-beat section at 116 BPM is about 8.276
 seconds. Both the encounter and conductor use an 8.28-second intro.
 
-Adaptive media is requested only when Play first wins. All cue sources are
-requested then; only the selected section's decoded sources gate its start.
-Provider readiness proves catalog registration. The room/neighbor asset
-manifest proves image readiness. Neither proves that this intro is decoded.
+Room preparation now requests the ambient opening, known placed fight
+entrances and their immediate continuations. It uses the incoming session's
+frozen catalog and the existing bounded neighbor selection. The local startup
+barrier waits for its ambient opening. Anticipated fights do not hold gameplay
+or publish music claims. Catalog linkage, media decode and voice admission
+remain separate facts.
 
 The encounter and conductor can advance before the audio begins. If the
 intro becomes ready later, it can start its full length after the scene has
@@ -781,11 +783,22 @@ then requests its own successor. It does not request distant sections.
 Verification covers delayed opening decode, partial entrances, chained sections,
 phase projection, delayed simple tracks and the authored Wolfenstein binding.
 
-Starts remain frame-driven and best effort. Native scheduling, room/residency
-prefetch, scene deadlines and the remaining transition recipes stay open.
+Incoming sessions now retain their prepared tracks and cue definitions before
+publication. Their session roots retain that same catalog. Local room preparation
+loads the ambient opening, known boss and wave entrances, and immediate
+continuations for incoming, live, selected neighboring and transition-target
+rooms. One source-path cache retains their handles across activation and releases
+its departed-room sources. The neighbor choice comes from the existing bounded
+room preparation policy. Startup waits for the selected ambient opening, including
+all required adaptive layers. Anticipated fights grant no playback claim.
+Verification covers real WAV decode, frozen catalog selection, handle reuse
+and retirement. The rendered host decodes Wolfenstein's opening and first
+combat section while he is dormant and has no music claim.
 
-Prefetch the known opening and imminent continuation without granting
-claims. Keep catalog, decode, admission, and start facts distinct. Add the
+Starts remain frame-driven and best effort. Native scheduling, scene deadlines
+and the remaining transition recipes stay open.
+
+Keep catalog, decode, admission, and start facts distinct. Add the
 small boundary/entry/late-policy plan and a defined transport origin.
 Ordinary playback can remain best effort; stronger requests need verified
 native capability. Link any scene duration derived from music during
@@ -848,11 +861,11 @@ executable marker policy when that content is selected.
 ## Verification limits and future acceptance
 
 The original review used static reads and the supplied log. Implementation
-now has native recording, goal selection and plugin checks. The assembled
-app and capture tool compile. The shipped host's multi-provider route check
-reached Ambition and returned to the launcher, then failed at Sanic's track;
-this checkout lacks the generated Sanic and Mary-O tracks. That full route
-check remains open. No device or listening acceptance was performed.
+now has native recording, goal selection, decoder preparation and plugin checks.
+The shipped host's multi-provider music route check passes with this checkout's
+generated assets. The rendered host also prepares Wolfenstein's entrance while
+he is dormant. These checks do not establish device timing or audible continuity.
+No device or listening acceptance was performed.
 The current recording path consumes the executor's actual voice commands;
 it does not execute Kira drains or establish speaker-audible output. The
 historical mode-only bank tests did not establish that old command ordering.

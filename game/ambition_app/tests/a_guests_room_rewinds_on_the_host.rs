@@ -228,6 +228,93 @@ fn two_guest_rooms_keep_their_histories_when_both_rewind() {
     assert!(differing(&on_time, &late).is_empty(), "both rooms must reach the on-time result");
 }
 
+/// A corrected completion retracts only its room's pending release.
+#[test]
+fn a_room_replay_retracts_its_music_release_and_preserves_the_other_room() {
+    use ambition_platformer2d::encounter::{
+        Encounter, EncounterCommand, EncounterCommandKind, EncounterLifecycle,
+        EncounterLifecycleSet, EncounterParticipants, EncounterRelease, EncounterReleaseReason,
+    };
+    use ambition_platformer2d::platformer::lifecycle::{
+        live_session_scope, InRoomInstance, RoomReplay, SessionScopedEntity,
+    };
+    use ambition_platformer2d::platformer::schedule::{GameplaySimulationRoot, PlayerInputSet, SimScheduleExt};
+    use ambition_platformer2d::characters::control::SlotControls;
+    use ambition_platformer2d::time::SimTick;
+    use bevy::ecs::message::MessageCursor;
+    use bevy::prelude::*;
+
+    #[derive(Resource)]
+    struct CompleteAt(u64);
+    fn complete(
+        at: Res<CompleteAt>, tick: Res<SimTick>, controls: Res<SlotControls>,
+        replay: Option<Res<RoomReplay>>, encounters: Query<(&Encounter, &InRoomInstance)>,
+        mut commands: MessageWriter<EncounterCommand>,
+    ) {
+        if tick.0 != at.0 { return; }
+        for (encounter, room) in &encounters {
+            if !encounter.id.starts_with("music_release_")
+                || replay.as_ref().is_some_and(|replay| !replay.allows(Some(room.0)))
+                || (encounter.id == "music_release_a" && controls.get(PlayerSlot(0)).axis_x != 0.0)
+            {
+                continue;
+            }
+            commands.write(EncounterCommand::new(&encounter.id, EncounterCommandKind::Complete).in_room(Some(room.0)));
+        }
+    }
+
+    let (mut host, apart) = host_with_rooms(Alice::Apart);
+    assert!(apart);
+    let (first, second) = where_they_are(&mut host);
+    let rooms = [first.unwrap(), second.flatten().unwrap()];
+    let session = live_session_scope(host.world()).unwrap();
+    let sources = ["music_release_a", "music_release_b"].map(SimId::encounter);
+    for ((name, source), room) in ["music_release_a", "music_release_b"].into_iter().zip(&sources).zip(rooms) {
+        let mut lifecycle = EncounterLifecycle::default();
+        lifecycle.reduce(0.0, [&EncounterCommandKind::Start], &EncounterParticipants::default(), None);
+        host.world_mut().spawn((Encounter::new(name), lifecycle, source.clone(), InRoomInstance(room), SessionScopedEntity(session)));
+    }
+    host.world_mut().insert_resource(RewindsGuestRooms);
+    let client = host.world_mut().spawn(GuestSeat(PlayerSlot(0))).id();
+    let tick = host.world().resource::<SimTick>().0 + 2;
+    host.world_mut().insert_resource(CompleteAt(tick));
+    let sim = host.app_mut().sim_schedule();
+    host.app_mut().add_systems(sim, complete.in_set(GameplaySimulationRoot)
+        .after(PlayerInputSet::Device).before(EncounterLifecycleSet));
+    let mut reader = MessageCursor::<EncounterRelease>::default();
+    for _ in 0..5 { host.app_mut().update(); }
+    assert_eq!(reader.read(host.world().resource::<Messages<EncounterRelease>>()).count(), 0,
+        "predicted completions must wait for confirmation");
+
+    let send = |host: &mut Platformer2dSimHarness, tick| {
+        host.world_mut().write_message(FromClient {
+            client_id: ClientId::Client(client),
+            message: GuestInput { sequence: tick, tick, frame: ControlFrame { axis_x: 1.0, ..Default::default() } },
+        });
+    };
+    let live = EncounterRelease {
+        source: SimId::encounter("music_release_live"), session, room: Some(rooms[1]),
+        attempt: 7, tick: tick - 1, reason: EncounterReleaseReason::Failed,
+    };
+    host.world_mut().write_message(live.clone());
+    send(&mut host, tick);
+    host.app_mut().update();
+    assert_eq!(host.world().resource::<RoomRollbackStats>().rewinds, 1);
+    assert_eq!(reader.read(host.world().resource::<Messages<EncounterRelease>>()).cloned().collect::<Vec<_>>(), [live],
+        "the live stream and its reader must survive replay");
+    let next = host.world().resource::<SimTick>().0 + 1;
+    send(&mut host, next);
+    let mut released = Vec::new();
+    for _ in 0..3 {
+        host.app_mut().update();
+        released.extend(reader.read(host.world().resource::<Messages<EncounterRelease>>()).cloned());
+    }
+    assert_eq!(released, [EncounterRelease {
+        source: sources[1].clone(), session, room: Some(rooms[1]), attempt: 1, tick,
+        reason: EncounterReleaseReason::Completed,
+    }]);
+}
+
 /// A pending heal in the other room must survive a guest room's replay.
 #[test]
 fn a_room_rewind_preserves_another_rooms_pending_heal() {

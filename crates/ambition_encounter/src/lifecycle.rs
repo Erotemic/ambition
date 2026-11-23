@@ -353,12 +353,16 @@ pub fn reduce_encounter_lifecycles(
     dt: Res<ambition_platformer2d_shared_tangle::time::SimDt>,
     mut commands_in: ReplayMessageReader<EncounterCommand>,
     mut events_out: MessageWriter<EncounterEventMsg>,
+    mut releases: MessageWriter<crate::EncounterRelease>,
+    tick: Res<ambition_time::SimTick>,
     mut encounters: Query<(
         Entity,
         &Encounter,
         &mut EncounterLifecycle,
         Option<&EncounterParticipants>,
         Option<&EncounterObjective>,
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity>,
     )>,
     // Which occurrence a command is for: its id AND its live room (see
     // `crate::occurrence`).
@@ -382,12 +386,25 @@ pub fn reduce_encounter_lifecycles(
             .push(command);
     }
     let no_participants = EncounterParticipants::default();
-    for (entity, encounter, mut lifecycle, participants, objective) in &mut encounters {
+    for (entity, encounter, mut lifecycle, participants, objective, source, session) in &mut encounters {
         let room = live.of(entity);
+        let mut publish = |event, attempt| {
+            if let (Some(source), Some(session), Some(reason)) =
+                (source, session, crate::EncounterReleaseReason::from_event(&event))
+            {
+                releases.write(crate::EncounterRelease {
+                    source: source.clone(), session: session.0, room, attempt, tick: tick.0, reason,
+                });
+            }
+            events_out.write(EncounterEventMsg::new(encounter.id.clone(), attempt, event).in_room(room));
+        };
         let commands = by_occurrence.remove(&(encounter.id.as_str(), room)).unwrap_or_default();
         let mut events = Vec::new();
         for command in commands {
             let accepted = lifecycle.apply_command(&command.kind, &mut events);
+            for event in events.drain(..) {
+                publish(event, lifecycle.attempt());
+            }
             replies.publish(command.reply.as_ref(),
                 if accepted { ambition_extension_sdk::action::ActionStage::Applied } else { ambition_extension_sdk::action::ActionStage::Rejected },
                 true, if accepted { "encounter_applied" } else { "encounter_phase_refused" }, "", vec![ambition_extension_sdk::action::ActionSubject::named(encounter.id.clone())]);
@@ -399,7 +416,7 @@ pub fn reduce_encounter_lifecycles(
             objective,
         ));
         for event in events {
-            events_out.write(EncounterEventMsg::new(encounter.id.clone(), event).in_room(room));
+            publish(event, lifecycle.attempt());
         }
     }
     for commands in by_occurrence.values() {
@@ -632,6 +649,48 @@ mod tests {
         assert_eq!(lc.to_persisted(), PersistedEncounterState::Cleared);
     }
     #[test]
+    fn native_events_keep_the_attempt_that_accepted_each_transition() {
+        for terminal in [EncounterCommandKind::Complete, EncounterCommandKind::Fail] {
+            let mut app = App::new();
+            app.init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>()
+                .init_resource::<ambition_time::SimTick>()
+                .add_message::<EncounterCommand>()
+                .add_message::<EncounterEventMsg>()
+                .add_message::<crate::EncounterRelease>()
+                .add_systems(Update, reduce_encounter_lifecycles);
+            let source = ambition_platformer2d_shared_tangle::sim_id::SimId::encounter("trial");
+            let session = ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(3);
+            let occurrence = app.world_mut().spawn((
+                Encounter::new("trial"), EncounterLifecycle::default(), source.clone(),
+                ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity(session),
+            )).id();
+            app.world_mut().write_message(EncounterCommand::new("trial", EncounterCommandKind::Start));
+            app.update();
+            app.world_mut().resource_mut::<Messages<EncounterEventMsg>>().clear();
+            app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 9;
+            let reason = match terminal {
+                EncounterCommandKind::Complete => EncounterEvent::Completed,
+                EncounterCommandKind::Fail => EncounterEvent::Failed,
+                _ => unreachable!(),
+            };
+            for command in [terminal, EncounterCommandKind::Reset, EncounterCommandKind::Start] {
+                app.world_mut().write_message(EncounterCommand::new("trial", command));
+            }
+            app.update();
+            let events: Vec<_> = app.world_mut().resource_mut::<Messages<EncounterEventMsg>>().drain()
+                .filter(|message| matches!(message.event, EncounterEvent::Completed | EncounterEvent::Failed | EncounterEvent::Reset | EncounterEvent::Started))
+                .map(|message| (message.attempt, message.event)).collect();
+            let released_reason = crate::EncounterReleaseReason::from_event(&reason).unwrap();
+            assert_eq!(events, [(1, reason), (1, EncounterEvent::Reset), (2, EncounterEvent::Started)]);
+            let releases: Vec<_> = app.world_mut().resource_mut::<Messages<crate::EncounterRelease>>().drain().collect();
+            assert_eq!(releases, [released_reason, crate::EncounterReleaseReason::Reset].map(|reason| crate::EncounterRelease {
+                source: source.clone(), session, room: None, attempt: 1, tick: 9, reason,
+            }));
+            assert_eq!(app.world().get::<EncounterLifecycle>(occurrence).unwrap().attempt(), 2);
+        }
+    }
+
+    #[test]
     fn native_replies_follow_the_applied_phase_or_the_lost_target() {
         use ambition_extension_sdk::action::{ActionStage, ReplyTo};
         use ambition_platformer2d_shared_tangle::{
@@ -644,6 +703,7 @@ mod tests {
             .init_resource::<ambition_time::SimTick>()
             .add_message::<EncounterCommand>()
             .add_message::<EncounterEventMsg>()
+            .add_message::<crate::EncounterRelease>()
             .add_systems(Update, reduce_encounter_lifecycles);
         let session = SessionScopedEntity(SessionScopeId(1));
         let room = LiveRoomInstance::ACTIVATION;

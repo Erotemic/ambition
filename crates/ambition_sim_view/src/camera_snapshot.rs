@@ -773,16 +773,29 @@ pub fn resolve_follow_camera_snapshot(
         && input.must_frame_world.is_none()
         && (input.cutscene.is_none() || !intent.honor_director)
     {
-        let framing = input.screen_framing.unwrap_or_default();
+        // Recovery keeps the body ON SCREEN: the whole view is its region and
+        // the body box its only protected extent. The deadzone and look-ahead
+        // belong to the eased goal above; enforced here, after the response,
+        // they would move the view at the runner's speed with no easing.
+        //
+        // The window is measured from the SUBJECT (`desired` is its anchor). Measured
+        // from the presented center itself, it ignored where the subject was:
+        // it was a no-op without a lead, and with one it pushed the view a
+        // lead's excess ahead every frame, which the ease state kept.
+        let padding = input
+            .screen_framing
+            .map_or(ae::Vec2::ZERO, |framing| framing.subject_padding_px);
         presented = apply_soft_subject_framing(
-            presented,
+            input.focus.stable_center(),
             presented,
             input.focus,
             visible_view,
             orthographic_scale,
             CameraScreenFraming {
                 active: true,
-                ..framing
+                subject_safe_region: NormalizedScreenRegion::FULL,
+                subject_padding_px: padding,
+                look_ahead_seconds: 0.0,
             },
             rotation_radians,
         );

@@ -1498,6 +1498,10 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
     // rather than inherit silence.
     const NOT_REWOUND: &[(&str, &str)] = &[
         (
+            "ambition_encounter::events::EncounterRelease",
+            "presentation-only release facts pass through the confirmed effect journal; simulation readers use EncounterEventMsg, so their cursors stay on the simulation path",
+        ),
+        (
             "ambition_platformer2d_rollback_ggrs::lifecycle_commit::PeerRoomCommit",
             "the confirmed room receipt is read only in PreUpdate; the simulation writes \
              through the effect outbox, and its journal drops abandoned predictions on load",

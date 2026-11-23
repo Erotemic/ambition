@@ -512,7 +512,7 @@ pub fn strike_with_limbs(
         }
         let hitbox = commands
             .spawn((
-                Hitbox {
+                Hitbox { status: None,
                     properties: Default::default(),
                     strike_sfx: None,
                     owner: limb,

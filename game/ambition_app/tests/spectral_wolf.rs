@@ -127,7 +127,7 @@ fn it_fades_between_its_bites_and_bursts_into_wisps() {
     let volume: ae::CombatVolume = ae::Aabb::new(at, ae::Vec2::new(48.0, 48.0)).into();
     {
         use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
-        sim.world_mut().write_message(HitEvent {
+        sim.world_mut().write_message(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,

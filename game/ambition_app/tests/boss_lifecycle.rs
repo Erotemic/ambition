@@ -133,7 +133,7 @@ pub(crate) fn kill_boss_with_a_real_hit(
             // A volume around the boss rather than a point: the hit is resolved
             // against the victim's own collision box, and a zero-area box at the
             // centre is a different question from "something struck it".
-            sim.world_mut().write_message(HitEvent {
+            sim.world_mut().write_message(HitEvent { status: None,
                 origin: None,
                 properties: Default::default(),
                 contact: None,

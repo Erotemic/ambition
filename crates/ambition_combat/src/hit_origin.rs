@@ -111,7 +111,7 @@ mod tests {
             .id();
         world
             .run_system_once(move |mut hits: HitWriter| {
-                hits.write(HitEvent {
+                hits.write(HitEvent { status: None,
                     origin: None,
                     properties: Default::default(),
                     contact: None,

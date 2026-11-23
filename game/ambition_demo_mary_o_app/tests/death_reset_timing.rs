@@ -133,7 +133,7 @@ pub(crate) fn deal_a_lethal_hit(app: &mut App) -> usize {
             (her, kin.pos, health.current())
         };
         let volume: ae::CombatVolume = ae::Aabb::new(at, Vec2::new(40.0, 40.0)).into();
-        app.world_mut().write_message(HitEvent {
+        app.world_mut().write_message(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,

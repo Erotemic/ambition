@@ -1289,7 +1289,7 @@
                         // NEUTRAL — `light_argument`. The speed of light is the same in every
                         // frame: no impulse, no drift, a fixed cone that does not care what he was
                         // doing when he threw it. A body it catches is paralyzed for 0.6 s
-                        // (`smash.paralyze`), and its launch waits for the end of it.
+                        // (status `Paralyze`), and its launch waits for the end of it.
                         (
                             id: "light_argument",
                             display_name: None,
@@ -1327,15 +1327,11 @@
                                             knockback_growth: Some(0.0),
                                             launch_dir: Some((0.9, -0.45)),
                                             reaction: None,
-                                            on_hit: Some((
-                                                // The photoelectric effect: the light knocks
-                                                // the electrons loose and the body that took
-                                                // it is held, crackling, for a moment.
-                                                key: "smash.paralyze",
-                                                params: ({
-                                                    "duration_s": 0.6,
-                                                }),
-                                            )),
+                                            // The photoelectric effect: the light knocks
+                                            // the electrons loose and the body that took
+                                            // it is held, crackling, for a moment.
+                                            status: Some((kind: Paralyze, duration_s: 0.6)),
+                                            on_hit: None,
                                             vfx: Some("slash_arc"),
                                             hit_sfx: Some("player.hit"),
                                         ),

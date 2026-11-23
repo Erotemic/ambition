@@ -85,7 +85,7 @@ fn a_feature_remainder_never_damages_bodies() {
     let actor_entity = spawn_hostile_actor(&mut app);
     let neighbor = spawn_hostile_actor(&mut app);
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -163,7 +163,7 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
         let victim = spawn_hostile_actor(&mut app);
         // A non-lethal (damage 1 vs health 5) hit PRE-RESOLVED to this enemy —
         // an enemy-vs-enemy contact, `HitTarget::Body`.
-        app.world_mut().write_message(HitEvent {
+        app.world_mut().write_message(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,
@@ -264,7 +264,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
             .unwrap()
             .health
             .current;
-        app.world_mut().write_message(HitEvent {
+        app.world_mut().write_message(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,
@@ -335,7 +335,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
     let actor_entity = spawn_hostile_actor(&mut app);
     let bystander = spawn_hostile_actor(&mut app);
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -400,7 +400,7 @@ fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player
     let shell = app.world_mut().spawn_empty().id();
     let victim = spawn_hostile_actor(&mut app);
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -481,7 +481,7 @@ fn an_outcome_naming_another_occurrence_credits_no_move() {
 
     let victim = spawn_hostile_actor(&mut app); // HP 5
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -562,7 +562,7 @@ fn an_unclaimed_outcome_credits_no_move() {
 
     let victim = spawn_hostile_actor(&mut app); // HP 5
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -616,7 +616,7 @@ fn a_hit_with_no_generation_is_not_resolved() {
     app.add_systems(Update, apply_feature_hit_events);
 
     let actor_entity = spawn_hostile_actor(&mut app); // HP 5
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -663,7 +663,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
 
     // First slash: 2 damage → 3 HP, still alive.
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -701,7 +701,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         .damage_invuln_timer = 0.0;
 
     // Lethal slash: 5 damage → dead through the normal kill path.
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -756,7 +756,7 @@ fn a_killed_body_plays_the_death_cue_its_character_authors() {
                 death_sound: authored.map(str::to_string),
                 ..Default::default()
             });
-        app.world_mut().write_message(HitEvent {
+        app.world_mut().write_message(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,
@@ -859,7 +859,7 @@ fn debris_rooms_of_a_kill_in_the_second_room(
             .entity_mut(enemy)
             .insert(ambition_platformer2d_shared_tangle::sim_id::SimId::placement("kernel_guide"));
     }
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -1080,7 +1080,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
 
         let body = spawn_talkable_npc(&mut app, hp);
         let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-        app.world_mut().write_message(HitEvent {
+        app.world_mut().write_message(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,
@@ -1151,7 +1151,7 @@ fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
                 .insert(ambition_combat::components::ActiveCombatant);
         }
         let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-        app.world_mut().write_message(HitEvent {
+        app.world_mut().write_message(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,
@@ -1220,7 +1220,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
 
     let actor_entity = spawn_hostile_actor(&mut app); // HP 5
     let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    let slash = || HitEvent {
+    let slash = || HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -1307,7 +1307,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
             .unwrap()
             .surface_normal = ae::Vec2::new(1.0, 0.0);
     }
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -1418,7 +1418,7 @@ fn player_slash_shatters_a_breakable() {
         .unwrap()
         .broken());
 
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -1767,7 +1767,7 @@ fn slash_knockback(center: ae::Vec2, dir: f32) -> ambition_combat::events::HitKn
 }
 
 fn slash_at(victim: bevy::prelude::Entity, center: ae::Vec2, damage: i32) -> HitEvent {
-    HitEvent {
+    HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -1993,7 +1993,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
     let feel = ambition_combat::feel::Platformer2dFeelTuningMonolith::default();
     // Attacker to the LEFT of the victim (victim at origin): expect a launch
     // toward +x with the feel-tuned enemy knockback, rising (world -y).
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -2106,7 +2106,7 @@ fn a_hit_knocks_a_hanging_actor_off_the_ledge_with(
         }));
     }
 
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -2228,7 +2228,7 @@ fn a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent() {
         dash.charges_available = 0;
     }
 
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -2325,7 +2325,7 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
             app.world_mut().spawn_empty().id()
         };
         let center = ae::Vec2::ZERO;
-        app.world_mut().write_message(HitEvent {
+        app.world_mut().write_message(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,
@@ -2399,7 +2399,7 @@ fn an_actor_targeted_hit_damages_only_the_named_actor() {
     // Two hostile actors at the same spot (overlapping). HP 5 each.
     let victim = spawn_hostile_actor(&mut app);
     let bystander = spawn_hostile_actor(&mut app);
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -2466,7 +2466,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
         .expect("the attacker is playing a move")
         .instance;
     let volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -2570,7 +2570,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         .expect("hostile fixture publishes body kinematics")
         .pos = enemy_center;
 
-    let hitbox = ambition_combat::strike::Hitbox {
+    let hitbox = ambition_combat::strike::Hitbox { status: None,
         properties: Default::default(),
         // An ordinary hit, not a gust.
         strike_sfx: None,
@@ -2661,7 +2661,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
             .unwrap()
             .health
             .current = start_hp;
-        app.world_mut().write_message(HitEvent {
+        app.world_mut().write_message(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,
@@ -2710,7 +2710,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
     app.add_systems(Update, apply_feature_hit_events);
 
     let body = spawn_talkable_npc(&mut app, 1);
-    app.world_mut().write_message(HitEvent {
+    app.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,
@@ -2813,7 +2813,7 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
             ))
             .id();
 
-        app.world_mut().write_message(HitEvent {
+        app.world_mut().write_message(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,
@@ -3129,7 +3129,7 @@ fn the_hostile_turn_follows_the_per_body_threshold_not_the_spawn_default() {
                     .expect("the fixture body carries combat reaction state");
                 combat.decay_reaction_timers(10.0, 10.0);
             }
-            app.world_mut().write_message(HitEvent {
+            app.world_mut().write_message(HitEvent { status: None,
                 origin: None,
                 properties: Default::default(),
                 contact: None,
@@ -3232,7 +3232,7 @@ fn a_struck_body_barks_as_the_character_it_is_wearing() {
         app.world_mut()
             .entity_mut(e)
             .insert(ambition_characters::actor::CharacterForm::new(worn));
-        app.world_mut().write_message(HitEvent {
+        app.world_mut().write_message(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,
@@ -3315,7 +3315,7 @@ fn a_struck_boss_speaks_the_hit_lines_of_its_voice() {
             ambition_characters::actor::BodyCombat::default(),
             boss.into_components(),
         )).id();
-        app.world_mut().write_message(HitEvent {
+        app.world_mut().write_message(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,
@@ -3373,7 +3373,7 @@ fn a_damaging_boss_hit_confirms_the_move_that_landed_it() {
             boss.into_components(),
         )).id();
         let attacker = app.world_mut().spawn_empty().id();
-        app.world_mut().write_message(HitEvent {
+        app.world_mut().write_message(HitEvent { status: None,
             origin: None, properties: Default::default(), contact: None, pieces: Vec::new(),
             strike_sfx: None, volume: aabb.into(), damage: 2, source: HitSource::Melee,
             attacker: Some(attacker), room: None, target: HitTarget::Feature(boss_entity),
@@ -3415,7 +3415,7 @@ fn a_resolved_feature_recipient_is_not_selected_again_from_its_current_box() {
             CenteredAabb::new(ae::Vec2::splat(500.0), ae::Vec2::ONE),
             ambition_breakables::BreakableFeature::new(ambition_interaction::Breakable::new("moved_crate", 1)),
         )).id();
-        app.world_mut().write_message(HitEvent {
+        app.world_mut().write_message(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact, volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::ONE).into(), pieces: Vec::new(),
@@ -3449,4 +3449,45 @@ fn resolved_hit_damage_comes_from_health_resolution_instead_of_the_proposed_amou
         assert_eq!(actor_hp(&app, victim), if shielded { 5 } else { 2 });
         if shielded { assert_eq!(app.world().get::<BodyWallet>(victim).unwrap().balance, 0); }
     }
+}
+
+/// CR1: the actor receiver installs a hit's status only for a hit it accepts.
+/// An i-framed repeat is ignored, so its status is too.
+#[test]
+fn an_actor_installs_a_hits_status_only_when_it_accepts_the_hit() {
+    let strike = |invulnerable: bool| -> f32 {
+        let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        install_hit_reaction_consumers(&mut app);
+        app.add_systems(Update, apply_feature_hit_events);
+        let victim = spawn_hostile_actor(&mut app);
+        if invulnerable {
+            app.world_mut().get_mut::<ambition_characters::actor::BodyCombat>(victim).unwrap().damage_invuln_timer = 0.5;
+        }
+        app.world_mut().write_message(HitEvent {
+            status: Some(ambition_entity_catalog::HitStatus { kind: ambition_entity_catalog::HitStatusKind::Paralyze, duration_s: 0.6 }),
+            origin: None,
+            properties: Default::default(),
+            contact: None,
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage: 1,
+            source: HitSource::Contact,
+            attacker: None,
+            room: None,
+            target: HitTarget::Body(victim),
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+        app.update();
+        app.world().get::<ambition_characters::actor::BodyCombat>(victim).unwrap().paralysis_timer
+    };
+    assert_eq!(strike(false), 0.6, "an accepted hit holds its victim");
+    assert_eq!(strike(true), 0.0, "an ignored hit installed its status");
 }

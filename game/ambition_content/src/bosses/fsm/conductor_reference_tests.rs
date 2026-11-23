@@ -297,7 +297,7 @@ fn play(sfx: &mut BodySfxWriter, body: Entity, id: &'static str, pos: Vec2) {
 /// A volume riding the bell.
 fn riding_hitbox(owner: Entity, offset: Vec2, half: Vec2, shape: Option<ae::VolumeShape>, damage: i32, knockback: HitboxKnockback, launch_dir: Option<Vec2>, life: f32) -> impl Bundle {
     (
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner,

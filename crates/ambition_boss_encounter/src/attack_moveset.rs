@@ -112,7 +112,7 @@ pub fn boss_attack_moveset(
                 .map(|aabb| {
                     let c = aabb.center();
                     let h = aabb.half_size();
-                    HitVolume {
+                    HitVolume { status: None,
                         properties: Default::default(),
                         // An ordinary hit, not a gust.
                         hit_sfx: None,

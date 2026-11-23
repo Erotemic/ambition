@@ -473,7 +473,7 @@ pub(crate) fn apply_actor_hit(
                 gravity_dir,
                 boss_hit,
                 k.as_ref(),
-                event.damage, event.properties,
+                event.damage, event.properties, event.status,
                 di_input_local,
                 ambition_combat::hit_reaction::VictimStance {
                     grounded: em.ground.on_ground,

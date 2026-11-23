@@ -1419,7 +1419,7 @@ pub fn step_projectiles(
                 let knock_dir = (contact.target_position.unwrap_or(victim_body.center()) - source_in_victim).dot(side).signum();
                 let knock_dir = if knock_dir == 0.0 { 1.0 } else { knock_dir };
                 let impact_pos = contact.hit.point;
-                feature_damage.write(HitEvent {
+                feature_damage.write(HitEvent { status: None,
                     origin: hit_origin.clone(),
                     properties: game.properties,
                     contact: Some(ambition_combat::events::HitContact::from(&contact.hit)),
@@ -1499,7 +1499,7 @@ pub fn step_projectiles(
                     continue 'projectiles;
                 }
             } else if let Some(contact) = feature_contact.as_ref() {
-                let direct = HitEvent {
+                let direct = HitEvent { status: None,
                     origin: hit_origin.clone(),
                     properties: game.properties,
                     contact: Some(ambition_combat::events::HitContact::from(&contact.contact.hit)),

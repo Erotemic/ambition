@@ -17,19 +17,15 @@
 | [`placements`](src/placements.rs) | Pure authored placement schema lowered into runtime behavior by higher layers. |
 | [`smash_bolt`](src/smash_bolt.rs) | Authored payload for the steerable bolt technique. |
 | [`smash_bomb`](src/smash_bomb.rs) | Authored payload for dropping a bomb. |
-| [`smash_bury`](src/smash_bury.rs) | Authored payload for a burial applied by a damaging hit. |
 | [`smash_capture`](src/smash_capture.rs) | Platform-fighter capture vocabulary: grab, pummel, and throw. |
 | [`smash_counter`](src/smash_counter.rs) | Authored payload for a counter stance. |
-| [`smash_crumple`](src/smash_crumple.rs) | Authored payload for a crumple applied by a damaging hit. |
 | [`smash_flyline`](src/smash_flyline.rs) | Authored payload for a flyline recovery. |
-| [`smash_freeze`](src/smash_freeze.rs) | Authored payload for a freeze applied by a damaging hit. |
 | [`smash_hit_grab`](src/smash_hit_grab.rs) | Authored payload for a hit-grab: a strike that seizes the body it struck. |
 | [`smash_homing`](src/smash_homing.rs) | Authored payload for a homing dash. |
 | [`smash_lifesteal`](src/smash_lifesteal.rs) | Authored payload for lifesteal: a strike that mends the body that struck. |
 | [`smash_limit`](src/smash_limit.rs) | Authored Limit-meter fill policy and the technique that fills the meter directly. |
 | [`smash_mark`](src/smash_mark.rs) | Authored payload for a delayed mark applied by a damaging hit. |
 | [`smash_mine`](src/smash_mine.rs) | Authored payload for a remotely triggered mine. |
-| [`smash_paralyze`](src/smash_paralyze.rs) | Authored payload for a paralysis applied by a damaging hit. |
 | [`smash_portal`](src/smash_portal.rs) | Authored payload for placing a linked portal pair as a recovery. |
 | [`smash_recoil`](src/smash_recoil.rs) | Authored payload for recoil: a strike that costs the body that struck. |
 | [`smash_repertoire`](src/smash_repertoire.rs) | Standard Smash action grammar and repertoire bookkeeping. |

@@ -773,7 +773,7 @@ fn a_subscribed_method_hears_the_defeat_of_its_source_once() {
         let session = ambition_platformer2d::platformer::lifecycle::SessionScopeId(foe.session);
         let body = ambition_platformer2d::platformer::lifecycle::resolve_object(sim.world(), session, foe).unwrap();
         let volume = sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(body).unwrap().aabb().into();
-        sim.world_mut().write_message(HitEvent {
+        sim.world_mut().write_message(HitEvent { status: None,
             origin: None, properties: Default::default(), contact: None, pieces: Vec::new(), strike_sfx: None,
             volume, damage: 999, source: HitSource::Contact, attacker: Some(player), room: None,
             target: HitTarget::Body(body), mode: HitMode::Knockback, knockback: None, ignored_targets: Vec::new(),
@@ -1012,7 +1012,7 @@ fn a_subscribed_method_hears_its_barrier_break_once() {
     use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
     // A strike that names the barrier: its volume is not read.
     let volume = sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(player).unwrap().aabb().into();
-    sim.world_mut().write_message(HitEvent {
+    sim.world_mut().write_message(HitEvent { status: None,
         origin: None, properties: Default::default(), contact: None, pieces: Vec::new(), strike_sfx: None,
         volume, damage: 999, source: HitSource::Contact, attacker: Some(player), room: None,
         target: HitTarget::Feature(entity), mode: HitMode::Knockback, knockback: None, ignored_targets: Vec::new(),
@@ -1151,7 +1151,7 @@ fn a_room_entered_again_is_a_new_copy_and_only_its_own_watch_hears_its_barrier()
         "the old copy's barrier left with its room");
     let entity = ambition_platformer2d::platformer::lifecycle::resolve_object(sim.world(), session, new).unwrap();
     let volume = sim.world().get::<ambition_platformer2d::engine_core::BodyKinematics>(player).unwrap().aabb().into();
-    sim.world_mut().write_message(HitEvent {
+    sim.world_mut().write_message(HitEvent { status: None,
         origin: None, properties: Default::default(), contact: None, pieces: Vec::new(), strike_sfx: None,
         volume, damage: 999, source: HitSource::Contact, attacker: Some(player), room: None,
         target: HitTarget::Feature(entity), mode: HitMode::Knockback, knockback: None, ignored_targets: Vec::new(),

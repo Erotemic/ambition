@@ -819,7 +819,7 @@ fn a_riding_request_keeps_world_geometry_then_follows_body_material() {
                 lifetime_s: 0.1, name: "material strike".into(),
             };
             let (offset, half_extent, shape) = canonical_riding_shape(&body, &request).unwrap();
-            let strike = crate::strike::Hitbox {
+            let strike = crate::strike::Hitbox { status: None,
                 properties: Default::default(),
                 owner: Entity::PLACEHOLDER, source: crate::strike::HitSide::Boss,
                 anchor: crate::strike::HitboxAnchor::FollowOwner { local_offset: offset },

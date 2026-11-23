@@ -56,7 +56,7 @@ pub fn thrown_items_strike(
                 continue;
             }
             struck_any = true;
-            hits.write(HitEvent {
+            hits.write(HitEvent { status: None,
                 origin: None,
                 properties: Default::default(),
                 contact: None,

@@ -76,6 +76,58 @@ pub enum ArmorInteraction {
     Bypass,
 }
 
+/// A body status an accepted hit installs as part of its reaction, with the
+/// time it lasts. The receiver resolves it inside its own reception: an
+/// ignored or blocked hit installs nothing, and armor that absorbs the hit's
+/// launch absorbs its status too.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HitStatus {
+    pub kind: HitStatusKind,
+    /// Seconds, above 0 and at most [`HitStatusKind::max_s`].
+    pub duration_s: f32,
+}
+
+/// The four on-hit statuses.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HitStatusKind {
+    /// Holds the body's motion and delays its stun and launch; a mash buys
+    /// time back.
+    Paralyze,
+    /// Drives a standing body into the floor in place of its launch. A body in
+    /// the air keeps its ordinary reaction.
+    Bury,
+    /// Encases the body: no control, while its motion (the launch) continues.
+    Freeze,
+    /// A standing body sags and then collapses, in place of its launch. A body
+    /// in the air keeps its ordinary reaction.
+    Crumple,
+}
+
+impl HitStatusKind {
+    /// The longest status a hit may author. A held body cannot act, so a
+    /// longer one is a stock lost with no counterplay but the mash.
+    pub const fn max_s(self) -> f32 {
+        match self {
+            Self::Paralyze => 2.0,
+            Self::Bury | Self::Freeze => 2.5,
+            Self::Crumple => 1.5,
+        }
+    }
+
+    /// Whether this status replaces the hit's launch, and so needs a standing
+    /// body to happen at all.
+    pub const fn replaces_launch(self) -> bool {
+        matches!(self, Self::Bury | Self::Crumple)
+    }
+}
+
+impl HitStatus {
+    pub fn is_valid(self) -> bool {
+        self.duration_s.is_finite() && self.duration_s > 0.0 && self.duration_s <= self.kind.max_s()
+    }
+}
+
 /// Each volume has its own policy. Missing fields preserve an ordinary hit.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]

@@ -298,7 +298,7 @@ mod tests {
         // are stated so the sweep's order is the fixture's, not the allocator's.
         for (owner, id) in [(a, "vol_a"), (b, "vol_b"), (c, "vol_c")] {
             app.world_mut().spawn((
-                ambition_combat::strike::Hitbox {
+                ambition_combat::strike::Hitbox { status: None,
                     properties: Default::default(),
                     strike_sfx: None,
                     owner,
@@ -388,7 +388,7 @@ mod tests {
             let b = fighter("b");
             for (owner, id) in [(a, "vol_a"), (b, "vol_b")] {
                 app.world_mut().spawn((
-                    ambition_combat::strike::Hitbox {
+                    ambition_combat::strike::Hitbox { status: None,
                         properties: Default::default(),
                         strike_sfx: None,
                         owner,
@@ -509,7 +509,7 @@ mod tests {
 
     fn a_strike_volume(app: &mut App, owner: Entity, id: &str, damage: i32) {
         app.world_mut().spawn((
-            ambition_combat::strike::Hitbox {
+            ambition_combat::strike::Hitbox { status: None,
                 properties: Default::default(),
                 strike_sfx: None,
                 owner,
@@ -853,7 +853,7 @@ mod tests {
             start_s: 0.02,
             end_s: 0.30,
             tag: ambition_entity_catalog::WindowTag::Active,
-            volumes: vec![ambition_entity_catalog::HitVolume {
+            volumes: vec![ambition_entity_catalog::HitVolume { status: None,
                 properties: Default::default(),
                 shape: ambition_entity_catalog::VolumeShape::Rect {
                     // Reaching FORWARD, and wide enough that two fighters 30px apart

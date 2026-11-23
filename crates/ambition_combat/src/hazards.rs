@@ -140,7 +140,7 @@ pub fn apply_hazard_contacts(
             // per-tick resolved frame.
             let side = resolved_frame.basis().side;
             let knockback_dir = (pos - hazard.pos).dot(side).signum();
-            hit_events.write(HitEvent {
+            hit_events.write(HitEvent { status: None,
                 origin: None,
                 properties: Default::default(),
                 contact: None,
@@ -188,7 +188,7 @@ pub fn apply_hazard_contacts(
             }
             // CM8: same hazard strike sound, carried to the victim-side reaction;
             // the actor's knockback + feedback position derive from the event.
-            hit_events.write(HitEvent {
+            hit_events.write(HitEvent { status: None,
                 origin: None,
                 properties: Default::default(),
                 contact: None,

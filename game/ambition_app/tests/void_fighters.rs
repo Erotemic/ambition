@@ -217,7 +217,7 @@ fn a_void_fighter_struck_by_a_foe_it_cannot_see_turns_to_it_and_comes() {
     let before = fighter(&mut sim).expect("the fighter");
     assert!(before.playing.is_none() && !before.noticing, "premise: it is idle: {before:?}");
     let (shooter, target) = (entity_of_player(&mut sim), entity_of_fighter(&mut sim));
-    sim.world_mut().write_message(HitEvent {
+    sim.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,

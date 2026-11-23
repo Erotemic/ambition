@@ -588,13 +588,14 @@ const ZONE_WALL_REACH: f32 = 96.0;
 /// [`BodyBarrier`]: ambition_platformer2d_shared_tangle::feature_overlay::BodyBarrier
 pub fn contribute_loading_zone_walls(
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
-    drivers: Query<(Entity, Option<&ambition_mount::RidingOn>), bevy::prelude::With<ambition_characters::control::DrivingParticipant>>,
+    drivers: Query<Entity, bevy::prelude::With<ambition_characters::control::DrivingParticipant>>,
+    rides: ambition_mount::ActiveRides,
     bodies: Query<(Entity, &ae::BodyKinematics)>,
     mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays,
 ) {
     let travellers: Vec<Entity> = drivers
         .iter()
-        .flat_map(|(driver, riding)| std::iter::once(driver).chain(riding.map(|riding| riding.mount)))
+        .flat_map(|driver| std::iter::once(driver).chain(rides.mount_of(driver)))
         .collect();
     // Each live room's zones, and the bodies near each.
     let mut walls: Vec<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, ae::Block, Vec<Entity>)> = Vec::new();

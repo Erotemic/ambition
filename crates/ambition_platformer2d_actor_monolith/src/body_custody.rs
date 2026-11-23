@@ -22,7 +22,9 @@ use crate::control::possession::PossessionState;
 pub fn project_body_custody(
     mut commands: Commands,
     state: Res<PossessionState>,
-    riders: Query<(Entity, &ambition_mount::RidingOn)>,
+    // The active rides only: a dead rider's ride record does not carry the
+    // mount whose saddle it has left.
+    rides: ambition_mount::ActiveRides,
     limbs: Query<(Entity, &Limb)>,
     // `RoomScopedEntity`, NOT `RoomResident`, and the difference is a TICK. `RoomResident`
     // excludes anything wearing `InCustodyOf` — the very marker this system writes — so reading it
@@ -77,9 +79,9 @@ pub fn project_body_custody(
     // and a versus stage has no room changes. Adding the edge would be a rule
     // for a state nothing can reach, which is how a carry list grows entries
     // nobody can test.
-    let edges: Vec<(Entity, Entity)> = riders
-        .iter()
-        .map(|(rider, riding)| (riding.mount, rider))
+    let edges: Vec<(Entity, Entity)> = rides
+        .pairs()
+        .map(|(rider, mount)| (mount, rider))
         .chain(limbs.iter().map(|(limb, attached)| (limb, attached.of)))
         .filter(|(attachment, anchor)| {
             existing.get(*attachment).is_ok() && existing.get(*anchor).is_ok()

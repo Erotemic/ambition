@@ -272,7 +272,7 @@ pub fn observe_music_playback(
                                     (!decoded.contains(handle.id())).then(|| {
                                         format!(
                                             "{} {:?}",
-                                            cue.source_path(source),
+                                            source.path,
                                             asset_server.get_load_state(handle.id())
                                         )
                                     })

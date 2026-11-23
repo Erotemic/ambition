@@ -155,7 +155,7 @@ pub struct AdmittedMusic {
 #[derive(Debug, Clone)]
 pub(super) struct MusicEnding {
     pub admitted: AdmittedMusic,
-    pub cue: std::sync::Arc<MusicCueSpec>,
+    pub cue: std::sync::Arc<PreparedMusicCue>,
     pub started: bool,
     pub elapsed: f32,
     pub duration: f32,
@@ -181,7 +181,7 @@ pub struct MusicDirectorState {
     pub seconds_in_mode: f32,
     pub seconds_in_loop: f32,
     pub(super) selection: Option<MusicSelection>,
-    pub(super) prepared_cue: Option<std::sync::Arc<MusicCueSpec>>,
+    pub(super) prepared_cue: Option<std::sync::Arc<PreparedMusicCue>>,
     pub(super) entry: Option<super::playback::MusicEntry>,
     pub(super) transport_completed: bool,
     pub(super) admitted: Option<AdmittedMusic>,

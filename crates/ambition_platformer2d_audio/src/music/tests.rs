@@ -136,9 +136,9 @@ fn fixture(override_track: bool) -> (App, Entity, [LiveRoomInstance; 2]) {
         .id();
     app.world_mut().spawn(InputParticipant::primary());
     insert_session_world_component(app.world_mut(), EncounterMusicRequest::default());
-    let catalog = MusicCueCatalog::from_parts(
-        vec![cue("fight_program"), cue("destination")],
-        vec![EncounterMusicBinding {
+    let catalog = MusicCueCatalog::prepare(ambition_audio::cue_spec::AuthoredMusicCues {
+        cues: vec![cue("fight_program"), cue("destination")],
+        encounter_bindings: vec![EncounterMusicBinding {
             encounter_id: "fight".into(),
             cue_id: "fight_program".into(),
             starting_state: "intro".into(),
@@ -146,22 +146,24 @@ fn fixture(override_track: bool) -> (App, Entity, [LiveRoomInstance; 2]) {
             wave2_reinforced_state: None,
             cleared_state: "outro".into(),
         }],
-    )
-    .with_boss_bindings(vec![BossMusicBinding {
-        boss_id: "wolfenstein_boss".into(),
-        cue_id: "fight_program".into(),
-        phase_states: vec![BossPhaseState {
-            phase: "Phase1".into(),
-            state: "song".into(),
+        boss_bindings: vec![BossMusicBinding {
+            boss_id: "wolfenstein_boss".into(),
+            cue_id: "fight_program".into(),
+            phase_states: vec![BossPhaseState {
+                phase: "Phase1".into(),
+                state: "song".into(),
+            }],
         }],
-    }])
-    .with_room_bindings(vec![RoomMusicBinding {
-        room_id: "chapel".into(),
-        cue_id: "destination".into(),
-        state: "song".into(),
-        entry_state: None,
-        fight_state: None,
-    }]);
+        room_bindings: vec![RoomMusicBinding {
+            room_id: "chapel".into(),
+            cue_id: "destination".into(),
+            state: "song".into(),
+            entry_state: None,
+            fight_state: None,
+        }],
+        ..default()
+    })
+    .unwrap();
     let mut catalogs = AdaptiveMusicCatalogRegistry::default();
     catalogs.register("game", catalog).unwrap();
     app.insert_resource(catalogs)

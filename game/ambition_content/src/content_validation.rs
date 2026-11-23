@@ -232,7 +232,7 @@ fn validate_room_phase_tracks(
     let Some(authored) = ambition_audio::content_schema::lowered_music_cues(pack) else {
         return;
     };
-    for row in &authored.room_phase_tracks {
+    for row in authored.room_phase_tracks() {
         if !rooms.iter().any(|room| room.id == row.room_id) {
             report.extend_errors([format!("room music by the time of day: no room is called {:?}", row.room_id)]);
         }

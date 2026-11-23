@@ -724,99 +724,123 @@ fn lower_body_holds(
     mut throws: MessageWriter<crate::capture::CaptureThrowRequested>,
     tuning: crate::rules::CombatTuningOf,
 ) {
-    // One seize per captor per tick, and a captor holds one body.
-    let mut seized: Vec<Entity> = Vec::new();
-    for s in outbox.drain::<BodyHoldPort>(&BOSS_CONDUCT) {
+    // The structural law every capture ingress shares: committed holds at both
+    // ends, then each seize this drain admits. A captured body seizes nobody
+    // and a captor is seized by nobody.
+    let mut occupancy = crate::capture::CaptureOccupancy::committed(&captives);
+    let submitted = outbox.drain::<BodyHoldPort>(&BOSS_CONDUCT);
+
+    // Each seize is resolved against the settled state, then admitted in the
+    // declared priority, so delivery order cannot select a winner and a
+    // refused seize does nothing to its victim.
+    struct Seize {
+        captor: Entity,
+        victim: Entity,
+        hold_offset: ae::Vec2,
+        hold_point: Option<crate::capture::HoldPoint>,
+        hold_s: f32,
+    }
+    let mut proposals: Vec<Seize> = Vec::new();
+    for s in &submitted {
+        let BodyHold::Seize { reach_offset, reach_half, ref hold_at, hold_offset, hold_s } = s.value else {
+            continue;
+        };
         let captor = s.scope;
-        let held = crate::capture::captive_of(captor, &captives).or_else(|| {
-            seized.contains(&captor).then_some(Entity::PLACEHOLDER)
-        });
-        match s.value {
-            BodyHold::Seize { reach_offset, reach_half, hold_at, hold_offset, hold_s } => {
-                if held.is_some() {
-                    continue;
-                }
-                let Ok(hold_point) = hold_point(&rigs, captor, hold_at.as_deref()) else {
-                    warn!(
-                        "extension entry {} asked to seize at `{}`, a point the body rig of {captor:?} does not state; refused",
-                        s.entry,
-                        hold_at.as_deref().unwrap_or_default()
-                    );
-                    continue;
-                };
-                let Ok((kin, faction, driver, team, captor_frame)) = captors.get(captor) else {
-                    warn!("extension entry {} asked {:?}, which is no body, to seize; refused", s.entry, captor);
-                    continue;
-                };
-                let room = tuning.room_of(captor);
-                let friendly_fire = tuning.in_room(room).unwrap_or_default().damage_policy();
-                // The reach is a box on the captor's own axes, as the hold
-                // point is (`constrain_captives`): mirror by its facing, then
-                // turn into its frame. A captor under sideways gravity
-                // reaches along its own floor, and its box lies along it.
-                let (centre, half) = seize_reach(
-                    kin,
-                    captor_frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down()),
-                    ae::Vec2::from(reach_offset),
-                    ae::Vec2::from(reach_half),
-                );
-                let reach = ae::CenteredAabb::new(centre, half).aabb();
-                let already: std::collections::BTreeSet<Entity> = captives
-                    .iter()
-                    .flat_map(|(victim, held)| [victim, held.captor])
-                    .chain(seized.iter().copied())
-                    .collect();
-                let mut candidates: Vec<(f32, &ambition_platformer2d_shared_tangle::sim_id::SimId, Entity)> =
-                    Vec::new();
-                for victim in &target_state.p0() {
-                    if victim.entity == captor || already.contains(&victim.entity) || tuning.room_of(victim.entity) != room {
-                        continue;
-                    }
-                    if victim.is_corpse() || victim.is_intangible() {
-                        continue;
-                    }
-                    if combat.get(victim.entity).is_ok_and(|c| c.is_knocked()) {
-                        continue;
-                    }
-                    if !crate::targeting::damage_lands_between(
-                        tuning.relations(),
-                        crate::targeting::Combatant { faction: *faction, driver, team },
-                        crate::targeting::Combatant {
-                            faction: *victim.faction,
-                            driver: victim.driver,
-                            team: victim.team,
-                        },
-                        friendly_fire,
-                        None,
-                        victim.entity,
-                    ) {
-                        continue;
-                    }
-                    let body = victim.aabb.aabb();
-                    if !bevy::math::bounding::IntersectsVolume::intersects(&reach, &body) {
-                        continue;
-                    }
-                    let Ok(id) = identities.get(victim.entity) else {
-                        continue;
-                    };
-                    candidates.push((ae::AabbExt::center(body).distance_squared(centre), id, victim.entity));
-                }
-                candidates.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(b.1)));
-                let Some(&(_, _, victim)) = candidates.first() else {
-                    continue;
-                };
-                seized.push(captor);
-                crate::capture::systems::begin_capture(
-                    &mut commands,
-                    captor,
-                    victim,
-                    ae::Vec2::from(hold_offset),
-                    hold_point,
-                    hold_s,
-                    playbacks.get_mut(victim).ok(),
-                    budgets.get_mut(victim).ok(),
-                );
+        if !occupancy.is_free(captor) {
+            continue;
+        }
+        let Ok(hold_point) = hold_point(&rigs, captor, hold_at.as_deref()) else {
+            warn!(
+                "extension entry {} asked to seize at `{}`, a point the body rig of {captor:?} does not state; refused",
+                s.entry,
+                hold_at.as_deref().unwrap_or_default()
+            );
+            continue;
+        };
+        let Ok((kin, faction, driver, team, captor_frame)) = captors.get(captor) else {
+            warn!("extension entry {} asked {:?}, which is no body, to seize; refused", s.entry, captor);
+            continue;
+        };
+        let room = tuning.room_of(captor);
+        let friendly_fire = tuning.in_room(room).unwrap_or_default().damage_policy();
+        // The reach is a box on the captor's own axes, as the hold point is
+        // (`constrain_captives`): mirror by its facing, then turn into its
+        // frame. A captor under sideways gravity reaches along its own floor,
+        // and its box lies along it.
+        let (centre, half) = seize_reach(
+            kin,
+            captor_frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down()),
+            ae::Vec2::from(reach_offset),
+            ae::Vec2::from(reach_half),
+        );
+        let reach = ae::CenteredAabb::new(centre, half).aabb();
+        let mut candidates: Vec<(f32, &ambition_platformer2d_shared_tangle::sim_id::SimId, Entity)> = Vec::new();
+        for victim in &target_state.p0() {
+            if victim.entity == captor || !occupancy.is_free(victim.entity) || tuning.room_of(victim.entity) != room {
+                continue;
             }
+            if victim.is_corpse() || victim.is_intangible() {
+                continue;
+            }
+            if combat.get(victim.entity).is_ok_and(|c| c.is_knocked()) {
+                continue;
+            }
+            if !crate::targeting::damage_lands_between(
+                tuning.relations(),
+                crate::targeting::Combatant { faction: *faction, driver, team },
+                crate::targeting::Combatant {
+                    faction: *victim.faction,
+                    driver: victim.driver,
+                    team: victim.team,
+                },
+                friendly_fire,
+                None,
+                victim.entity,
+            ) {
+                continue;
+            }
+            let body = victim.aabb.aabb();
+            if !bevy::math::bounding::IntersectsVolume::intersects(&reach, &body) {
+                continue;
+            }
+            let Ok(id) = identities.get(victim.entity) else {
+                continue;
+            };
+            candidates.push((ae::AabbExt::center(body).distance_squared(centre), id, victim.entity));
+        }
+        candidates.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(b.1)));
+        let Some(&(_, _, victim)) = candidates.first() else {
+            continue;
+        };
+        proposals.push(Seize { captor, victim, hold_offset: ae::Vec2::from(hold_offset), hold_point, hold_s });
+    }
+    crate::capture::sort_by_capture_priority(&mut proposals, |seize| (seize.captor, seize.victim), &identities);
+    let mut admitted: Vec<Entity> = Vec::new();
+    for seize in proposals {
+        if !occupancy.admit(seize.captor, seize.victim) {
+            continue;
+        }
+        admitted.push(seize.captor);
+        crate::capture::systems::begin_capture(
+            &mut commands,
+            seize.captor,
+            seize.victim,
+            seize.hold_offset,
+            seize.hold_point,
+            seize.hold_s,
+            playbacks.get_mut(seize.victim).ok(),
+            budgets.get_mut(seize.victim).ok(),
+        );
+    }
+
+    for s in submitted {
+        let captor = s.scope;
+        // A hold this drain admitted is held for the verbs after it, though
+        // its relation is not inserted yet.
+        let held = crate::capture::captive_of(captor, &captives)
+            .or_else(|| admitted.contains(&captor).then_some(Entity::PLACEHOLDER));
+        match s.value {
+            BodyHold::Seize { .. } => {}
             BodyHold::Carry { hold_at, hold_offset } => {
                 if held.is_none() {
                     continue;

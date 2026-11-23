@@ -858,16 +858,22 @@ pub fn report_sim_phase_census(
     // Perception census: what each viewer kept. `Decide` cost follows `kept`, not
     // room population. `visible` is peers inside the viewport; `kept` is what the
     // attention budget let through (equal until the budget binds, see
-    // `TACTICAL_ATTENTION`).
+    // `TACTICAL_ATTENTION`). `admitted` is the exact direct rows folded into
+    // memory, `rich` the constructed view rows, `retained` the memory rows
+    // after the fold and `reports` the eligible crew reports per view.
     // The phases in `unmeasured=` have no declared order, so they have no bucket.
     if let Some(census) = ambition_characters::perception::census::drain() {
         row.push_str(&format!(
-            " views={} offered={:.1} visible={:.1} kept={:.1} kept_max={}",
+            " views={} offered={:.1} visible={:.1} kept={:.1} kept_max={} admitted={:.1} rich={:.1} retained={:.1} reports={:.2}",
             census.views,
             census.offered_mean,
             census.visible_mean,
             census.kept_mean,
-            census.kept_max
+            census.kept_max,
+            census.admitted_mean,
+            census.rich_mean,
+            census.retained_mean,
+            census.reports_per_view
         ));
     }
     row.push_str(" unmeasured=");

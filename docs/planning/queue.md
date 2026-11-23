@@ -268,10 +268,14 @@ world-post admission.
    bound by name, rebinds on a reordered rig, and ends the hold when the rig
    loses it.)
    [REL1/REL2](engine/relationship-endpoints-and-transitions.md#rel1--capture-owns-admission-at-every-ingress)
-   next close native admission bypasses: capture reserves both endpoints;
+   close native admission bypasses: capture reserves both endpoints;
    mount admission establishes common scope and an active pair, and accepts
    one end before publishing it. Preserve reset associations separately from
-   active riding and delete adapter-only end deduplication.
+   active riding and delete adapter-only end deduplication. (Landed
+   2026-11-23: `CaptureOccupancy` is the one capture law at both ingresses;
+   `BoardCase::refusal` with `ExecutionScope` is the one board law;
+   `ActiveRides` is the active pair; a ride ends once per tick and the
+   adapter's deduplication is gone.)
    [REL3](engine/relationship-endpoints-and-transitions.md#rel3--prepare-a-transfer-cohort-and-native-relation-dispositions)
    prepares companions from each transfer's actual roots, including an NPC
    rider's mount and a possessed body's inactive home. Admit the required
@@ -390,16 +394,16 @@ world-post admission.
     merely to complete P2's unused publisher.
 
 11. [Observation OBS1](engine/bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary)
-    makes the tactical direct-observation set govern native memory refresh
-    and direct acquisition, not only rich-view construction. Stop the
-    tactical path's uncapped cheap fold and preserve the separate cheap
-    and intentional omniscient contracts. Retention over time is a separate
-    budget. [OBS2](engine/world-facts-observations-and-memory.md#obs2--preserve-evidence-meaning-through-memory-and-communication)
-    carries observed liveness and source/cut through sight, report and hit
-    reconciliation. A position-confidence comparison cannot discard an
-    accepted hit's hostility; stale memory cannot mint fresh firsthand
-    reports; a crew report cannot make its subject target itself. Preserve
-    native Settle timing, pirate crew assistance and existing saved hostility.
+    landed 2026-11-23 (`6fe56fb12`): a `TacticalWorld` body admits,
+    refreshes, acquires and reports exactly its attended set; the cheap
+    road and omniscient target are unchanged. Open: a `TargetBelief`
+    direct-evidence budget and retention over time.
+    [OBS2](engine/world-facts-observations-and-memory.md#obs2--preserve-evidence-meaning-through-memory-and-communication)
+    landed 2026-11-23 (`4488b2d65`, schema 531): memory carries observed
+    liveness and evidence source/`SimTick` cut; a hit keeps its hostility
+    beside a better sighting; only a preceding-step sight is reported; a
+    report cannot name its listener. Settle timing, crew assistance and
+    saved hostility are unchanged.
     Then [OBS3](engine/agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers)
     resolves native plus module observation demand before one domain
     projection is built. Prove a selected sighted module with a native

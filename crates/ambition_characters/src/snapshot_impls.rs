@@ -1290,6 +1290,7 @@ fn read_attack_gesture_intent(
 /// cannot run until it rewinds.
 impl SnapshotState for crate::perception::PerceptionMemory {
     fn encode(&self, out: &mut Vec<u8>) {
+        use crate::perception::EvidenceSource;
         put_bool(out, self.0.room().is_some());
         put_u32(out, self.0.room().unwrap_or(0));
         let rows: Vec<_> = self.0.entries().collect();
@@ -1300,12 +1301,22 @@ impl SnapshotState for crate::perception::PerceptionMemory {
             put_vec2(out, m.vel);
             m.faction.encode(out);
             put_bool(out, m.hostile_to_self);
+            put_bool(out, m.alive);
             put_f32(out, m.last_seen);
             put_f32(out, m.confidence);
+            put_u8(
+                out,
+                match m.source {
+                    EvidenceSource::Sight => 0,
+                    EvidenceSource::Report => 1,
+                    EvidenceSource::Hit => 2,
+                },
+            );
+            put_u64(out, m.cut);
         }
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        use crate::perception::{RememberedActor, WorldMemory};
+        use crate::perception::{EvidenceSource, RememberedActor, WorldMemory};
         let has_room = r.bool()?;
         let ordinal = r.u32()?;
         let room = has_room.then_some(ordinal);
@@ -1320,8 +1331,16 @@ impl SnapshotState for crate::perception::PerceptionMemory {
                     vel: r.vec2()?,
                     faction: crate::actor::ActorFaction::decode(r)?,
                     hostile_to_self: r.bool()?,
+                    alive: r.bool()?,
                     last_seen: r.f32()?,
                     confidence: r.f32()?,
+                    source: match r.u8()? {
+                        0 => EvidenceSource::Sight,
+                        1 => EvidenceSource::Report,
+                        2 => EvidenceSource::Hit,
+                        _ => return None,
+                    },
+                    cut: r.u64()?,
                 },
             ));
         }

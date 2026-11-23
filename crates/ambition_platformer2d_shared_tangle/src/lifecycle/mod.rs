@@ -61,7 +61,7 @@ pub use object_occurrence::{BrokenCommitted, CollectedCommitted, DefeatCommitted
 pub(crate) use object_occurrence::ObjectOccurrenceSequence;
 pub use reset_slots::{ContentDialogueFollowupSet, ContentRoomReplayResetSet, ContentRoomResetSet};
 pub use room_instance::{
-    InRoomInstance, LiveBodies,
+    ExecutionScope, ExecutionScopes, InRoomInstance, LiveBodies,
     LiveBodyId, LiveRoomInstance,
     LiveRoomOf, LiveRooms, RoomInstanceRoot, SoleLiveRoom, TransactionRooms, activation_room_root,
     insert_live_room_component, live_room_of, live_room_root, live_room_root_for, sole_live_room_component,

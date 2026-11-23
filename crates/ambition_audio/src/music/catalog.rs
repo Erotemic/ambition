@@ -6,170 +6,7 @@ pub use crate::cue_spec::{
     MusicStateBalanceOverride, MusicStateSpec, RoomMusicBinding, RoomPhaseTrack,
 };
 
-#[derive(Resource, Clone, Debug, PartialEq)]
-pub struct MusicCueCatalog {
-    pub(super) cues: HashMap<String, MusicCueSpec>,
-    pub(super) encounter_bindings: Vec<EncounterMusicBinding>,
-    pub(super) room_bindings: Vec<RoomMusicBinding>,
-    pub(super) boss_bindings: Vec<BossMusicBinding>,
-    pub(super) room_phase_tracks: Vec<RoomPhaseTrack>,
-    encounter_index: HashMap<String, usize>,
-    boss_index: HashMap<String, usize>,
-    room_index: HashMap<String, usize>,
-}
-
-impl MusicCueCatalog {
-    /// Build a catalog from host-authored parts. The HOST owns which
-    /// cues exist and which encounters bind to them; this crate only
-    /// plays them.
-    pub fn from_parts(
-        cues: Vec<MusicCueSpec>,
-        encounter_bindings: Vec<EncounterMusicBinding>,
-    ) -> Self {
-        let cues = cues
-            .into_iter()
-            .map(|cue| (cue.id.clone(), cue))
-            .collect::<HashMap<_, _>>();
-        let encounter_index = encounter_bindings
-            .iter()
-            .enumerate()
-            .map(|(i, b)| (b.encounter_id.clone(), i))
-            .collect();
-        Self {
-            encounter_index,
-            boss_index: HashMap::new(),
-            room_index: HashMap::new(),
-            cues,
-            encounter_bindings,
-            room_bindings: Vec::new(),
-            boss_bindings: Vec::new(),
-            room_phase_tracks: Vec::new(),
-        }
-    }
-
-    /// The same catalog with the host's boss -> cue bindings.
-    pub fn with_boss_bindings(mut self, boss_bindings: Vec<BossMusicBinding>) -> Self {
-        self.boss_index = boss_bindings
-            .iter()
-            .enumerate()
-            .map(|(i, b)| (b.boss_id.clone(), i))
-            .collect();
-        self.boss_bindings = boss_bindings;
-        self
-    }
-
-    /// The host's boss -> cue bindings (read by the host's intent-mapping
-    /// adapter).
-    pub fn boss_bindings(&self) -> &[BossMusicBinding] {
-        &self.boss_bindings
-    }
-
-    /// The same catalog with the host's room -> cue bindings.
-    pub fn with_room_bindings(mut self, room_bindings: Vec<RoomMusicBinding>) -> Self {
-        self.room_index = room_bindings
-            .iter()
-            .enumerate()
-            .map(|(i, b)| (b.room_id.clone(), i))
-            .collect();
-        self.room_bindings = room_bindings;
-        self
-    }
-
-    /// The same catalog with the host's tracks of rooms by the time of day.
-    pub fn with_room_phase_tracks(mut self, rows: Vec<RoomPhaseTrack>) -> Self {
-        self.room_phase_tracks = rows;
-        self
-    }
-
-    /// The track room `room_id` plays in the phase of the day named `phase`,
-    /// if the host authored one.
-    pub fn room_phase_track(&self, room_id: &str, phase: &str) -> Option<&str> {
-        self.room_phase_tracks
-            .iter()
-            .find(|row| row.room_id == room_id && row.phase == phase)
-            .map(|row| row.track.as_str())
-    }
-
-    /// Every authored track of a room by the time of day.
-    pub fn room_phase_tracks(&self) -> &[RoomPhaseTrack] {
-        &self.room_phase_tracks
-    }
-
-    /// Whether room `room_id` has any track by the time of day.
-    pub fn room_follows_the_day(&self, room_id: &str) -> bool {
-        self.room_phase_tracks
-            .iter()
-            .any(|row| row.room_id == room_id)
-    }
-
-    /// The host's room -> cue bindings (read by the host's intent-mapping
-    /// adapter).
-    pub fn room_bindings(&self) -> &[RoomMusicBinding] {
-        &self.room_bindings
-    }
-
-    pub fn cue(&self, id: &str) -> Option<&MusicCueSpec> {
-        self.cues.get(id)
-    }
-
-    /// Whether `state_id` is the outro state of the cue `cue_id`.
-    pub fn is_outro_state(&self, cue_id: &str, state_id: &str) -> bool {
-        self.cues
-            .get(cue_id)
-            .is_some_and(|cue| cue.outro_state.as_deref() == Some(state_id))
-    }
-
-    /// The ids of every adaptive cue this catalog defines. A provider registers
-    /// these through [`AdaptiveMusicCatalogRegistry`] so the music authority
-    /// can gate adaptive playback to the cues that provider actually authored.
-    pub fn cue_ids(&self) -> impl Iterator<Item = &str> {
-        self.cues.keys().map(String::as_str)
-    }
-
-    /// The host's encounter -> cue bindings (read by the host's
-    /// intent-mapping adapter).
-    pub fn encounter_bindings(&self) -> &[EncounterMusicBinding] {
-        &self.encounter_bindings
-    }
-
-    /// Append an encounter -> cue binding (host-side catalog assembly /
-    /// test fixtures).
-    pub fn add_encounter_binding(&mut self, binding: EncounterMusicBinding) {
-        self.encounter_index
-            .insert(binding.encounter_id.clone(), self.encounter_bindings.len());
-        self.encounter_bindings.push(binding);
-    }
-
-    /// Validate internal cue/state/layer/binding references.
-    ///
-    /// This is intentionally independent of the audio backend: it checks the
-    /// authored adaptive-music graph before the director tries to resolve a
-    /// state or play a layer source at runtime.
-    pub fn validate_references(&self) -> Vec<String> {
-        // In id order, so one catalog gives one report.
-        let mut cues: Vec<&MusicCueSpec> = self.cues.values().collect();
-        cues.sort_by(|a, b| a.id.cmp(&b.id));
-        crate::cue_spec::cue_reference_errors(
-            cues,
-            &self.encounter_bindings,
-            &self.room_bindings,
-            &self.boss_bindings,
-        )
-    }
-
-    /// Find the prepared binding for an authored encounter.
-    pub fn binding_for_encounter(&self, id: &str) -> Option<&EncounterMusicBinding> {
-        self.encounter_index
-            .get(id)
-            .map(|i| &self.encounter_bindings[*i])
-    }
-    pub fn binding_for_boss(&self, id: &str) -> Option<&BossMusicBinding> {
-        self.boss_index.get(id).map(|i| &self.boss_bindings[*i])
-    }
-    pub fn binding_for_room(&self, id: &str) -> Option<&RoomMusicBinding> {
-        self.room_index.get(id).map(|i| &self.room_bindings[*i])
-    }
-}
+pub use crate::cue_program::PreparedMusicCues as MusicCueCatalog;
 
 #[derive(Resource, Clone, Default)]
 pub struct LoadedMusicCueAssets {
@@ -232,7 +69,7 @@ impl LoadedMusicCueAssets {
         &mut self,
         provider_id: &str,
         generation: u64,
-        cue: &MusicCueSpec,
+        cue: &PreparedMusicCue,
         asset_server: &AssetServer,
     ) {
         for section in &cue.sections {
@@ -244,7 +81,7 @@ impl LoadedMusicCueAssets {
                     &section.id,
                     &source.layer_id,
                 );
-                let rel = cue.source_path(source);
+                let rel = source.path.clone();
                 if !self.holds(&key, &rel) {
                     let handle = asset_server.load(rel.clone());
                     self.sources.insert(key, (rel, handle));
@@ -257,7 +94,7 @@ impl LoadedMusicCueAssets {
         &self,
         provider_id: &str,
         generation: u64,
-        cue: &MusicCueSpec,
+        cue: &PreparedMusicCue,
         section_id: &str,
         decoded: &Assets<KiraAudioSource>,
     ) -> bool {
@@ -318,27 +155,13 @@ pub struct AdaptiveMusicCatalogRegistry {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AdaptiveMusicCatalogError {
     EmptyProviderId,
-    InvalidCatalog {
-        provider_id: String,
-        errors: Vec<String>,
-    },
-    DuplicateProvider {
-        provider_id: String,
-    },
+    DuplicateProvider { provider_id: String },
 }
 
 impl std::fmt::Display for AdaptiveMusicCatalogError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::EmptyProviderId => write!(f, "adaptive music provider id must not be empty"),
-            Self::InvalidCatalog {
-                provider_id,
-                errors,
-            } => write!(
-                f,
-                "adaptive music catalog '{provider_id}' is invalid: {}",
-                errors.join("; ")
-            ),
             Self::DuplicateProvider { provider_id } => write!(
                 f,
                 "adaptive music provider '{provider_id}' registered different definitions twice"
@@ -358,13 +181,6 @@ impl AdaptiveMusicCatalogRegistry {
         let provider_id = provider_id.into();
         if provider_id.trim().is_empty() {
             return Err(AdaptiveMusicCatalogError::EmptyProviderId);
-        }
-        let errors = catalog.validate_references();
-        if !errors.is_empty() {
-            return Err(AdaptiveMusicCatalogError::InvalidCatalog {
-                provider_id,
-                errors,
-            });
         }
         if let Some(existing) = self.providers.get(&provider_id) {
             if existing == &catalog {
@@ -405,13 +221,6 @@ impl AdaptiveMusicCatalogRegistry {
         let mut next = self.clone();
         match catalog {
             Some(catalog) => {
-                let errors = catalog.validate_references();
-                if !errors.is_empty() {
-                    return Err(AdaptiveMusicCatalogError::InvalidCatalog {
-                        provider_id: provider_id.to_string(),
-                        errors,
-                    });
-                }
                 if next.providers.get(provider_id) != Some(&catalog) {
                     next.next_generation += 1;
                     next.generations
@@ -488,8 +297,8 @@ mod provider_registry_tests {
     use bevy::prelude::App;
 
     fn catalog(cue_id: &str, path: &str) -> MusicCueCatalog {
-        MusicCueCatalog::from_parts(
-            vec![MusicCueSpec {
+        MusicCueCatalog::prepare(crate::cue_spec::AuthoredMusicCues {
+            cues: vec![MusicCueSpec {
                 id: cue_id.to_owned(),
                 asset_root: "audio/adaptive".to_owned(),
                 bpm: 120.0,
@@ -521,8 +330,9 @@ mod provider_registry_tests {
                 post_clear_bridge_state: None,
                 runtime_balance_overrides: Vec::new(),
             }],
-            Vec::new(),
-        )
+            ..default()
+        })
+        .unwrap()
     }
 
     #[test]
@@ -560,8 +370,8 @@ mod provider_registry_tests {
             .sections[0]
             .sources[0]
             .path;
-        assert_eq!(a_path, "a.ogg");
-        assert_eq!(b_path, "b.ogg");
+        assert_eq!(a_path, "audio/adaptive/a.ogg");
+        assert_eq!(b_path, "audio/adaptive/b.ogg");
     }
 
     #[test]
@@ -583,7 +393,7 @@ mod provider_registry_tests {
             .sections[0]
             .sources[0]
             .path;
-        assert_eq!(path, "a.ogg");
+        assert_eq!(path, "audio/adaptive/a.ogg");
     }
 
     fn first_path(registry: &AdaptiveMusicCatalogRegistry, provider: &str, cue: &str) -> String {
@@ -610,45 +420,16 @@ mod provider_registry_tests {
             .with_replaced("a", Some(catalog("a_cue", "a_v2.ogg")))
             .expect("a valid catalog replaces the provider's");
 
-        assert_eq!(first_path(&next, "a", "a_cue"), "a_v2.ogg");
+        assert_eq!(first_path(&next, "a", "a_cue"), "audio/adaptive/a_v2.ogg");
         assert_eq!(
             first_path(&next, "b", "b_cue"),
-            "b.ogg",
+            "audio/adaptive/b.ogg",
             "another provider's catalog survived"
         );
         assert_eq!(
             first_path(&registry, "a", "a_cue"),
-            "a.ogg",
+            "audio/adaptive/a.ogg",
             "⛔ building the candidate changed the live registry"
-        );
-    }
-
-    /// An invalid candidate is refused as `register` refuses it, and a refusal
-    /// is a value: nothing about the receiver changed.
-    #[test]
-    fn replacing_with_a_dangling_catalog_is_refused() {
-        let mut registry = AdaptiveMusicCatalogRegistry::default();
-        registry.register("a", catalog("a_cue", "a.ogg")).unwrap();
-        let mut broken = catalog("a_cue", "a.ogg");
-        broken.add_encounter_binding(EncounterMusicBinding {
-            encounter_id: "fight".to_owned(),
-            cue_id: "no_such_cue".to_owned(),
-            starting_state: "main".to_owned(),
-            wave_states: Vec::new(),
-            wave2_reinforced_state: None,
-            cleared_state: "main".to_owned(),
-        });
-        let error = registry.with_replaced("a", Some(broken)).unwrap_err();
-        assert!(
-            matches!(error, AdaptiveMusicCatalogError::InvalidCatalog { .. }),
-            "{error:?}"
-        );
-        assert_eq!(first_path(&registry, "a", "a_cue"), "a.ogg");
-        assert_eq!(
-            registry
-                .with_replaced(" ", Some(catalog("x", "x.ogg")))
-                .unwrap_err(),
-            AdaptiveMusicCatalogError::EmptyProviderId
         );
     }
 
@@ -701,14 +482,13 @@ mod provider_registry_tests {
         .init_asset::<KiraAudioSource>();
         let server = app.world().resource::<AssetServer>().clone();
         let cue_of = |file: &str| {
-            let mut cue = catalog("a_cue", file)
+            let cue = catalog("a_cue", file)
                 .cue("a_cue")
                 .expect("the cue the helper authored")
                 .clone();
-            cue.asset_root = "audio/adaptive".to_owned();
             cue
         };
-        let key = |cue: &MusicCueSpec| {
+        let key = |cue: &PreparedMusicCue| {
             let section = &cue.sections[0];
             MusicSourceKey::new("a", 1, &cue.id, &section.id, &section.sources[0].layer_id)
         };

@@ -566,8 +566,10 @@ pub enum PerceptionRequirement {
     TargetBelief,
     /// The tactical view: the stage, terrain, projectiles, portals, and the
     /// actors this body ATTENDS TO — at most [`TACTICAL_ATTENTION`] of them,
-    /// the rest folded into [`AttentionRemainder`]. See
-    /// `bounded-perception-and-attention.md`.
+    /// the rest folded into [`AttentionRemainder`]. The attended actors are
+    /// also the body's whole direct evidence this tick: memory refresh,
+    /// direct acquisition and crew reports read that set, not the visible
+    /// crowd. See `bounded-perception-and-attention.md`.
     TacticalWorld,
 }
 
@@ -587,7 +589,7 @@ pub enum PerceptionRequirement {
 /// budget caps that term; a fighter attending to sixteen costs what the hall
 /// costs today whatever the crowd around it.
 ///
-/// ⛔ SELECTION IS DETERMINISTIC AND HOSTILES COME FIRST: a foe is never
+/// ⛔ SELECTION IS DETERMINISTIC AND LIVING HOSTILES COME FIRST: a foe is never
 /// displaced from attention by a nearer friend, so `nearest_hostile()` on the
 /// capped view is the same foe the uncapped view would name (pinned by test).
 /// Ties break on distance, then on id, so two peers' input order never
@@ -603,9 +605,9 @@ pub const TACTICAL_ATTENTION: usize = 16;
 pub struct AttentionRemainder {
     /// Visible actors beyond the cap, all factions.
     pub actors: usize,
-    /// Of those, hostile to this body.
+    /// Of those, alive and hostile to this body.
     pub hostiles: usize,
-    /// Squared distance to the nearest hostile that did NOT make the cut, if
+    /// Squared distance to the nearest living hostile that did NOT make the cut, if
     /// any — the pressure a crowd exerts even when nothing in it is attended.
     pub nearest_unattended_hostile_dist_sq: Option<f32>,
 }
@@ -1163,20 +1165,44 @@ fn segment_blocked(
     })
 }
 
-/// What a controller believes about an actor it has seen — the unit of
-/// [`WorldMemory`]. Position is the last *directly perceived* position; a brain
-/// pursuing a vanished target heads here.
+/// What established a [`RememberedActor`] row.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum EvidenceSource {
+    /// This body admitted a direct sight of the actor.
+    #[default]
+    Sight,
+    /// A crew member reported its own direct sight of the actor.
+    Report,
+    /// The actor struck this body.
+    Hit,
+}
+
+/// What a controller believes about an actor — the unit of [`WorldMemory`].
+///
+/// `pos` is the pursuit estimate: the position at the evidence cut, advanced
+/// by `vel` for every decided step since then without new evidence. It is the
+/// direct sample only while `cut` is the most recent fold's step; the direct
+/// report rule ([`WorldMemory::direct_reports`]) reads only such rows, so a
+/// report never carries an extrapolated position as a sighting.
 #[derive(Clone, Copy, Debug)]
 pub struct RememberedActor {
     pub pos: ae::Vec2,
     pub vel: ae::Vec2,
     pub faction: ActorFaction,
     pub hostile_to_self: bool,
+    /// Whether the actor was alive at the evidence cut. An observed death
+    /// disconfirms pursuit; a death nobody observed changes nothing here.
+    pub alive: bool,
     /// Sim time the actor was last directly in view.
     pub last_seen: f32,
     /// Belief confidence in `[0, 1]`: `1.0` while in view, decaying once it
     /// leaves (invariant I6). A brain weights pursuit by this.
     pub confidence: f32,
+    /// What established the current position and liveness evidence.
+    pub source: EvidenceSource,
+    /// The simulation step (`SimTick`) of that evidence. For a report it is
+    /// the caller's original sight step, not the step it was heard.
+    pub cut: u64,
 }
 
 /// The per-controller belief that outlives the viewport (invariant I6). Keyed by
@@ -1231,6 +1257,9 @@ pub struct SeenActor<'a> {
     pub vel: ae::Vec2,
     pub faction: ActorFaction,
     pub hostile_to_self: bool,
+    /// Alive at this sight. A seen corpse is admitted: it disconfirms a
+    /// prior living belief.
+    pub alive: bool,
 }
 
 impl WorldMemory {
@@ -1248,9 +1277,10 @@ impl WorldMemory {
     /// — but it does not need a `WorldView` to do so, and building one costs a
     /// `PerceivedActor` per peer. This overload keeps every existing caller
     /// unchanged while the cheap road feeds the same logic from borrowed peers.
-    pub fn update(&mut self, view: &WorldView, dt: f32) {
+    pub fn update(&mut self, view: &WorldView, cut: u64, dt: f32) {
         self.update_from_seen(
             view.sim_time,
+            cut,
             dt,
             view.actors.iter().map(|a| SeenActor {
                 id: a.id.as_str(),
@@ -1258,6 +1288,7 @@ impl WorldMemory {
                 vel: a.vel,
                 faction: a.faction,
                 hostile_to_self: a.hostile_to_self,
+                alive: a.alive,
             }),
         );
     }
@@ -1282,7 +1313,8 @@ impl WorldMemory {
     /// ⚠ `Clone` ON THE ITERATOR, because the fold is genuinely two passes: the
     /// membership set first, then the refresh. A single-pass version would have
     /// to allocate the set it already builds.
-    pub fn update_from_seen<'a, I>(&mut self, sim_time: f32, dt: f32, seen_actors: I)
+    /// `cut` is the simulation step of this observation.
+    pub fn update_from_seen<'a, I>(&mut self, sim_time: f32, cut: u64, dt: f32, seen_actors: I)
     where
         I: Iterator<Item = SeenActor<'a>> + Clone,
     {
@@ -1338,8 +1370,11 @@ impl WorldMemory {
                 vel: a.vel,
                 faction: a.faction,
                 hostile_to_self: a.hostile_to_self,
+                alive: a.alive,
                 last_seen: now,
                 confidence: 1.0,
+                source: EvidenceSource::Sight,
+                cut,
             };
             match self.actors.get_mut(a.id) {
                 Some(remembered) => *remembered = fresh,
@@ -1354,20 +1389,36 @@ impl WorldMemory {
     /// it sees for itself always wins, and fading on the same half-life.
     pub const HEARSAY_CONFIDENCE: f32 = 0.5;
 
-    /// Hostiles in view THIS tick (full confidence) — what a body can call out.
-    /// Hearsay never reaches full confidence, so a rumour is not re-told.
-    pub fn hostiles_in_view(&self) -> impl Iterator<Item = (&str, &RememberedActor)> {
+    /// The living hostiles this body directly saw at step `cut` — what it can
+    /// call out as firsthand.
+    ///
+    /// ⛔ THE CUT, NOT CONFIDENCE, MAKES A SIGHTING FRESH. A body that stops
+    /// deciding (a participant drives it) stops folding, so its last sight
+    /// keeps confidence `1.0` indefinitely. The caller passes the preceding
+    /// step's cut: a row from an older fold is not reported, and a skipped
+    /// decision does not extend it. A heard or struck row is not a sight, so
+    /// hearsay is never retold as firsthand.
+    pub fn direct_reports(&self, cut: u64) -> impl Iterator<Item = (&str, &RememberedActor)> {
         self.actors
             .iter()
-            .filter(|(_, m)| m.hostile_to_self && m.confidence >= 1.0)
+            .filter(move |(_, m)| {
+                m.source == EvidenceSource::Sight && m.cut == cut && m.hostile_to_self && m.alive
+            })
             .map(|(id, m)| (id.as_str(), m))
     }
 
-    /// Take in a sighting an ally called out. Kept only when it is more
-    /// confident than what this body already believes about that actor, so a
-    /// body that can see the foe itself is never overruled by word of it.
+    /// Take in a sighting an ally called out.
+    ///
+    /// - An observed death at the report's cut or later is not undone by it.
+    /// - Otherwise the report is kept only when it is more confident than
+    ///   what this body already believes, so a body that can see the actor
+    ///   itself is never overruled by word of it.
+    ///
+    /// Reports of one subject at one cut carry the same facts, so delivery
+    /// order cannot change the result.
     pub fn hear(&mut self, id: &str, heard: RememberedActor) {
         match self.actors.get_mut(id) {
+            Some(known) if !known.alive && known.cut >= heard.cut => {}
             Some(known) if known.confidence >= heard.confidence => {}
             Some(known) => *known = heard,
             None => {
@@ -1381,17 +1432,26 @@ impl WorldMemory {
     pub const STRUCK_CONFIDENCE: f32 = Self::HEARSAY_CONFIDENCE;
 
     /// Take in the foe that struck this body. A body that is hit knows it has
-    /// a foe and where the blow came from, seen or not; a sighting it already
-    /// holds is kept ([`Self::hear`]).
+    /// a foe and where the blow came from, seen or not.
+    ///
+    /// ⛔ TWO FACTS, MERGED SEPARATELY. The hostile act is established by the
+    /// hit whatever this body believed about the striker, so it always sets
+    /// `hostile_to_self`. The position is kept from better evidence: a more
+    /// confident row already held keeps its position, liveness and cut.
     pub fn struck_by(&mut self, id: &str, striker: RememberedActor) {
-        self.hear(
-            id,
-            RememberedActor {
-                hostile_to_self: true,
-                confidence: Self::STRUCK_CONFIDENCE,
-                ..striker
-            },
-        );
+        let struck = RememberedActor {
+            hostile_to_self: true,
+            confidence: Self::STRUCK_CONFIDENCE,
+            source: EvidenceSource::Hit,
+            ..striker
+        };
+        match self.actors.get_mut(id) {
+            Some(known) if known.confidence >= struck.confidence => known.hostile_to_self = true,
+            Some(known) => *known = struck,
+            None => {
+                self.actors.insert(id.to_string(), struck);
+            }
+        }
     }
 
     /// What we remember about a specific actor, if anything.
@@ -1407,10 +1467,12 @@ impl WorldMemory {
     /// two foes at equal confidence resolve the same way on every run. That is not a
     /// tiebreak anyone would *choose*; it is a tiebreak that EXISTS, which is the
     /// whole requirement (ADR 0023).
+    ///
+    /// A hostile last observed dead is not a pursuit target.
     pub fn last_known_hostile(&self) -> Option<&RememberedActor> {
         self.actors
             .values()
-            .filter(|m| m.hostile_to_self)
+            .filter(|m| m.hostile_to_self && m.alive)
             .max_by(|a, b| {
                 a.confidence
                     .partial_cmp(&b.confidence)

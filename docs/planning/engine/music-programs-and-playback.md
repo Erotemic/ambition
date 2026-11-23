@@ -332,17 +332,17 @@ rows when migrating them; a new preset's defaults must be explicit.
 
 ### Clock and marker preparation
 
-Every supported MusicIR frontend exposes its compiler-owned clock. V1
-already renders a tempo map but sets `CompiledScore.exact_metadata` to
-`None`. V2/V3 retain richer exact metadata. Adapt those compiler facts;
-do not add another YAML interpreter or infer a variable clock from average
-BPM. V3 procedural generator clips have narrower clock restrictions than
-exact clips; inspection must state the supported form.
+Every supported MusicIR frontend now exposes its compiler clock through
+`CompiledScore.clock`. V1 retains `exact_metadata: None` and projects its
+procedural tempo map. V2/V3 project the exact meter and tempo owners. Native
+preparation must consume these facts; it must not parse YAML or infer a
+variable clock from average BPM. V3 procedural generator clips have narrower
+clock restrictions than exact clips; inspection states that limit.
 
-Display chapters, entry markers, and legal exits are different roles.
-The current playback plan drops exit markers. V3 validation also rejects
-`valid_exit_local_bars` although exact-score lowering can preserve it.
-Make the public authoring form and its supported lowering agree.
+Display chapters, entry markers, and legal exits are different roles. Source
+preparation now retains bar exits and V3 admits `valid_exit_local_bars`.
+Encoded products retain the resolved frames. The native transition planner
+does not yet consume these markers.
 
 Use the same cut and rounding as the selected product. For the current
 global cut convention, a local marker frame is:
@@ -751,6 +751,11 @@ command boundary, without requiring another native music executor.
 **Owners:** native transport, existing room/residency demand, prepared game
 scene policy; MA1 supplies producer facts.
 
+**Producer progress:** all compiler frontends now expose their clock through
+`CompiledScore.clock`. Source inspection and fresh render publication export
+body ends, frame origins, bar exits, gain bases and retained material. These
+facts are not yet linked into the native director or residency demand.
+
 Prefetch the known opening and imminent continuation without granting
 claims. Keep catalog, decode, admission, and start facts distinct. Add the
 small boundary/entry/late-policy plan and a defined transport origin.
@@ -774,6 +779,17 @@ remain later native acceptance, not claims of a recording sink.
 ### MUS4 — make authoring recipes strict and inspectable
 
 **Owners:** MusicIR/compiler/exporter and native cue preparation.
+
+**Producer progress:** `cue playback` inspects V1–V3 without synthesis. Source
+validation checks typed exits and event form ownership. Encoded products
+retain their measured frames and render identity through publication.
+
+**Native progress:** content compilation lowers `PreparedMusicCues`. Direct
+registration and reload accept that same type. Preparation rejects duplicate
+IDs and slots, invalid numbers, empty playable sections, missing references,
+and audible layers without sources. It resolves source paths and total gain
+arrays once. The director retains that prepared cue with its generation.
+Encoded-product linking and recipe migration remain open.
 
 Expose compiler clock and typed marker support for every supported
 frontend. Make final product construction and support limits explicit.
@@ -831,13 +847,13 @@ to `00bf92c2`; it is not a description of these current files.
 | --- | --- |
 | Exact playback ownership, retry and entry equivalence | [playback](../../../crates/ambition_audio/src/music/playback.rs): `MusicPlayback`, `MusicPlaybackRequest::can_continue`; [adaptive director](../../../crates/ambition_audio/src/music/director/adaptive.rs): `drive_adaptive_cue_state` |
 | Selection adapters and output interpretation | [director](../../../crates/ambition_audio/src/music/director/mod.rs); [diagnostics](../../../crates/ambition_audio/src/music/diagnostics.rs); [state](../../../crates/ambition_audio/src/music/state.rs) |
-| Device/recording commands | [commands](../../../crates/ambition_audio/src/music/commands.rs): `MusicPlaybackCommands`; [playback](../../../crates/ambition_audio/src/music/playback.rs): `MusicVoiceOutput`; [output](../../../crates/ambition_audio/src/output.rs); [gains](../../../crates/ambition_audio/src/music/director/gains.rs); [instance control](../../../crates/ambition_audio/src/spatial.rs) |
+| Device/recording commands | [commands](../../../crates/ambition_audio/src/music/commands.rs): `MusicPlaybackCommands`; [playback](../../../crates/ambition_audio/src/music/playback.rs): `MusicVoiceOutput`; [output](../../../crates/ambition_audio/src/output.rs); [instance control](../../../crates/ambition_audio/src/spatial.rs) |
 | Mix authority and legacy mastering | [environment mix](../../../crates/ambition_platformer2d_audio/src/environment.rs); [user mix](../../../crates/ambition_platformer2d_audio/src/music/mod.rs); [mastering policy](../../../tools/ambition_music_renderer/ambition_music_renderer/processing/mastering.py) |
 | Current candidates and unified goal selection | [intent](../../../crates/ambition_platformer2d_audio/src/music/intent.rs); [claims](../../../crates/ambition_encounter/src/music.rs): `publish_occurrences`; [boss publication](../../../crates/ambition_boss_encounter/src/music.rs); [wave publication](../../../crates/ambition_encounter_features/src/music.rs) |
 | Transition reason, attempt and presentation delivery | [lifecycle](../../../crates/ambition_encounter/src/lifecycle.rs): `reduce_encounter_lifecycles`; [events](../../../crates/ambition_encounter/src/events.rs): `EncounterEventMsg`; [external effects](../../../crates/ambition_platformer2d_runtime/src/external_effects.rs): `ExternalEffectJournal` |
 | Actual game policy | [cue catalog](../../../game/ambition_content/assets/audio/music_cues.ron), 315–355, 403–430, 498–504, 572–585; [Wolfenstein](../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_boss.ron); [Inugami](../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_inugami.ron); [conductor](../../../game/ambition_content_modules/src/wolfenstein.rs), 724–742 and 1547–1551 |
-| Readiness versus catalog registration | [cue assets](../../../crates/ambition_audio/src/music/catalog.rs), 178–215; [provider lifecycle](../../../crates/ambition_platformer2d_provider/src/lifecycle.rs), 504–575 and 1207–1224; [room assets](../../../crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs), 39–93 and 1432 onward |
-| Native preparation paths | [cue spec](../../../crates/ambition_audio/src/cue_spec.rs), 244–313; [content schema](../../../crates/ambition_audio/src/content_schema.rs), 169–210 and 280–319; [catalog registration](../../../crates/ambition_audio/src/music/catalog.rs), 22–29 and 283–343 |
+| Readiness versus catalog registration | [cue assets](../../../crates/ambition_audio/src/music/catalog.rs): `LoadedMusicCueAssets`; [provider lifecycle](../../../crates/ambition_platformer2d_provider/src/lifecycle.rs), 504–575 and 1207–1224; [room assets](../../../crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs), 39–93 and 1432 onward |
+| Native preparation paths | [cue preparation](../../../crates/ambition_audio/src/cue_program.rs); [authored data](../../../crates/ambition_audio/src/cue_spec.rs); [content schema](../../../crates/ambition_audio/src/content_schema.rs); [catalog registration](../../../crates/ambition_audio/src/music/catalog.rs) |
 | Compiler/frontends | [compile](../../../tools/ambition_music_renderer/ambition_music_renderer/musicir/compile.py); [V1 projection](../../../tools/ambition_music_renderer/ambition_music_renderer/render/score_layers.py), 1414–1528; [exact clock](../../../tools/ambition_music_renderer/ambition_music_renderer/render/exact_score.py); [V3 validation](../../../tools/ambition_music_renderer/ambition_music_renderer/validation/v3.py), 121–124 and 1052–1073 |
 | Product construction and identity | [playback layers](../../../tools/ambition_music_renderer/ambition_music_renderer/render/playback_layers.py), 81–315; [dependencies](../../../tools/ambition_music_renderer/ambition_music_renderer/render/dependencies.py), 423–450; [publication](../../../tools/ambition_music_renderer/ambition_music_renderer/cli.py), 413–503 |
 

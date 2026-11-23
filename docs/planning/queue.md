@@ -1677,8 +1677,8 @@ remain an independent observer.
 
 **State:** IMPLEMENTING. The common native playback executor owns simple and
 adaptive voice lifetimes, cancellation, admission, retirement, bounded retry,
-and recording output. User and environment gain use that same owner. Scene
-time policy remains open. Per-source boss/wave publication, canonical
+and recording output. User and environment gain use that same owner.
+Per-source boss/wave publication, canonical
 encounter attempts and adaptive-only heard-room priority landed at
 `6d100f9d`; preserve them in unified selection. The baseline diagnosis
 used source `00bf92c22142` and the supplied Wolfenstein departure log, 2026-11-22.
@@ -1695,10 +1695,14 @@ exits, reentry, and a committed death restore. The PCM contains the selected
 Tritone layers. No intermediate military track is selected.
 `828fb4155` releases an ending completed during a host stall. `b60a3b918`
 checks Hobford's shipped ending and room successor in native software capture.
+`6715d352d` checks independent native music through scene pause and slow motion.
+`2aee2e597` makes ending wait mixes explicit and applies them to the owned current
+section. Inspection states the supported operations and rejects stronger timing.
 
-**Next action:** finish scene pause/scale policy. Keep pickup, independent-tail
-and bridge support explicit at preparation
-and inspection. These operations need their declared product and native facts.
+**Next action:** finish MA1's compiler-owned score inventory and remove the
+registry script's line-based YAML interpretation. Keep further pickup,
+independent-tail and bridge capabilities in the authored-customer reservoir.
+Current preparation and inspection must keep their support limits explicit.
 
 **Follow-through:** MUS3 prepares known entrances and plans transitions
 against declared end/clock/late-entry semantics. MUS4 makes common recipes

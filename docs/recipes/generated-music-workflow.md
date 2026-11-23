@@ -79,6 +79,17 @@ requirements fail preparation because the current native adapter cannot
 promise them. Pickup scheduling and independent tail release are not admitted
 by this policy surface.
 
+`ending_wait_mix_state` selects gains for the current section while an ending
+waits for its exit. It does not start the referenced state's section. The
+preparer resolves these gains once. A bridge overlay needs a separate admitted
+playback operation and is not supported by this field.
+
+Music uses an independent playback clock during scene pause and slow motion.
+`--inspect-music` reports this policy, section-start entry, whole-product loop
+release, and unsupported pickup, independent-tail, overlay and scene-position
+entry operations. Retained material in a product does not grant native support
+for an operation.
+
 ## One-cue loop
 
 ```bash
@@ -180,6 +191,13 @@ in a separate capture. It sends Start and Complete through the workshop raid's
 encounter lifecycle, plays the shipped 28-second Aftermath, and checks the room
 successor. It does not play through the full raid story. Select one test per
 capture; separate device instances must not write to the same capture file.
+
+The opt-in
+`native_music::scene_pause_and_slow_motion_keep_the_native_music_clock_independent`
+test uses the developer slow-motion control and the real scene timer. It checks
+that music continues while the scene is paused, keeps its playback rate while
+the scene slows, and retains its occurrence when the scene reaches combat.
+This test needs the default `dev_tools` feature. Run it in a separate capture.
 
 The opt-in `native_canceling_a_prepared_entry_cancels_its_predecessors_stop`
 test checks cancellation. Run it in a separate capture. The old source must

@@ -39,17 +39,10 @@ pub fn drive_music_director(
     let (Some(mut director), Some(mut assets)) = (director, assets) else {
         return;
     };
-    let mut retained = Vec::with_capacity(2);
-    if let Some(selection) = &director.selection {
-        retained.push((selection.provider.as_str(), selection.generation));
+    assets.retire_unused();
+    if let Some(library) = library.as_deref_mut() {
+        library.retire_unused();
     }
-    if let Some(ending) = &director.ending {
-        retained.push((
-            ending.admitted.selection.provider.as_str(),
-            ending.admitted.selection.generation,
-        ));
-    }
-    assets.retire_generations(&catalogs, &retained);
     let running = current_is_running(&director, &channels);
     let dt = if running { time.delta_secs() } else { 0.0 };
     director.position_seconds = channels

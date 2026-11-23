@@ -137,7 +137,8 @@ impl From<SoundCue> for SoundCueKey {
 #[derive(Clone)]
 struct TrackSource {
     asset_path: String,
-    handle: Option<Handle<KiraAudioSource>>,
+    handle: Handle<KiraAudioSource>,
+    requested: bool,
 }
 
 #[derive(Clone)]
@@ -148,20 +149,21 @@ pub struct MusicTrackRuntime {
     /// Plays once and stops instead of looping; see
     /// [`crate::spec::MusicTrack::one_shot`].
     pub one_shot: bool,
-    source: TrackSource,
+    asset_path: String,
 }
 
 impl MusicTrackRuntime {
     /// Logical asset path for diagnostics. The live handle comes from
     /// `resolve_track_handle`.
     pub fn asset_path(&self) -> &str {
-        &self.source.asset_path
+        &self.asset_path
     }
 }
 
 #[derive(Resource)]
 pub struct AudioLibrary {
     music_tracks: Vec<MusicTrackRuntime>,
+    sources: std::collections::HashMap<String, TrackSource>,
 }
 
 /// Player-selected simple music track: the radio station. While a station is
@@ -190,9 +192,8 @@ impl RadioStationState {
 }
 
 impl AudioLibrary {
-    /// Build the resident audio cache and the playback-state read model from the
-    /// same registry in one operation. Hosts may still preload the returned
-    /// state's active track before inserting both resources.
+    /// Build track metadata and the playback read model from one registry.
+    /// A preparation owner can retain a preload handle until playback starts.
     pub fn new_with_playback_state(
         music_registry: &MusicRegistry,
         resolve_track_path: Option<&dyn Fn(&str) -> Option<String>>,
@@ -218,15 +219,12 @@ impl AudioLibrary {
                 id: track.id.clone(),
                 display_name: track.display_name.clone(),
                 one_shot: track.one_shot,
-                source: TrackSource {
-                    asset_path: resolve_track_path
-                        .and_then(|resolve| resolve(&track.id))
-                        .unwrap_or_else(|| track.resolved_asset_path()),
-                    handle: None,
-                },
+                asset_path: resolve_track_path
+                    .and_then(|resolve| resolve(&track.id))
+                    .unwrap_or_else(|| track.resolved_asset_path()),
             })
             .collect();
-        Self { music_tracks }
+        Self { music_tracks, sources: Default::default() }
     }
 
     /// Replace one provider's tracks, for a reload of that provider's pack:
@@ -256,24 +254,21 @@ impl AudioLibrary {
                 .music_tracks
                 .iter_mut()
                 .find(|known| known.id == track.id);
-            // A track whose file did not move keeps its loaded handle.
-            let handle = known
-                .as_ref()
-                .filter(|known| known.source.asset_path == asset_path)
-                .and_then(|known| known.source.handle.clone());
             let generation = known.as_ref().map_or(1, |track| track.generation + 1);
             let runtime = MusicTrackRuntime {
                 generation,
                 id: track.id.clone(),
                 display_name: track.display_name.clone(),
                 one_shot: track.one_shot,
-                source: TrackSource { asset_path, handle },
+                asset_path,
             };
             match known {
                 Some(known) => *known = runtime,
                 None => self.music_tracks.push(runtime),
             }
         }
+        self.sources.retain(|id, source| self.music_tracks.iter()
+            .any(|track| track.id == *id && track.asset_path == source.asset_path));
     }
 
     pub fn track(&self, id: &str) -> Option<&MusicTrackRuntime> {
@@ -282,10 +277,9 @@ impl AudioLibrary {
 
     /// Return an already-resolved playable handle without starting a load.
     ///
-    /// A host that preloads a track can put the exact handle in an
-    /// activation-readiness manifest without mutable access to the library.
+    /// Explicit preparation uses `preload_track` and retains its returned handle.
     pub fn resolved_track_handle(&self, id: &str) -> Option<Handle<KiraAudioSource>> {
-        self.track(id).and_then(|track| track.source.handle.clone())
+        self.sources.get(id).map(|source| source.handle.clone())
     }
 
     pub fn track_count(&self) -> usize {
@@ -365,20 +359,27 @@ impl AudioLibrary {
         track_id: &str,
         asset_server: &AssetServer,
     ) -> Option<(Handle<KiraAudioSource>, bool)> {
-        let track = self
-            .music_tracks
-            .iter_mut()
-            .find(|track| track.id == track_id)?;
-        if track.source.handle.is_none() {
-            track.source.handle = Some(asset_server.load(track.source.asset_path.clone()));
+        let track = self.music_tracks.iter().find(|track| track.id == track_id)?;
+        if self.sources.get(track_id).is_none_or(|source| source.asset_path != track.asset_path) {
+            self.sources.insert(track_id.to_owned(), TrackSource {
+                asset_path: track.asset_path.clone(),
+                handle: asset_server.load(track.asset_path.clone()),
+                requested: true,
+            });
         }
-        Some((track.source.handle.clone()?, track.one_shot))
+        let source = self.sources.get_mut(track_id).expect("resolved track");
+        source.requested = true;
+        Some((source.handle.clone(), track.one_shot))
     }
 
-    /// Warm a file-backed track's handle before likely use (for example when
-    /// the radio menu highlights it).
-    pub fn preload_track(&mut self, track_id: &str, asset_server: &AssetServer) {
-        let _ = self.resolve_track_handle(track_id, asset_server);
+    /// Retain this handle until playback or another preparation owner holds the source.
+    pub fn preload_track(&self, track_id: &str, asset_server: &AssetServer) -> Option<Handle<KiraAudioSource>> {
+        Some(asset_server.load(self.track(track_id)?.asset_path().to_owned()))
+    }
+
+    /// Keep the last director update's source demand.
+    pub(crate) fn retire_unused(&mut self) {
+        self.sources.retain(|_, source| std::mem::replace(&mut source.requested, false));
     }
 }
 
@@ -500,12 +501,10 @@ mod tests {
                     id: id.to_string(),
                     display_name: id.to_string(),
                     one_shot: false,
-                    source: TrackSource {
-                        asset_path: path.to_string(),
-                        handle: None,
-                    },
+                    asset_path: path.to_string(),
                 })
                 .collect(),
+            sources: Default::default(),
         }
     }
 

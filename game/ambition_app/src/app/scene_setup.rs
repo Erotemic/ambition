@@ -21,7 +21,6 @@ use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 #[cfg(feature = "audio")]
 pub fn install_audio_library(
     commands: &mut Commands,
-    asset_server: &AssetServer,
     catalog: &Platformer2dAssetCatalog,
     music_registry: &MusicRegistry,
 ) {
@@ -33,14 +32,10 @@ pub fn install_audio_library(
             &ambition_platformer2d::asset_manager::platformer_assets::ids::music_track(id),
         )
     };
-    let (mut audio_library, music_state) = AudioLibrary::new_with_playback_state(
+    let (audio_library, music_state) = AudioLibrary::new_with_playback_state(
         music_registry,
         Some(&resolve_track_path),
     );
-    // Direct startup and shell activation can now include the initial track in
-    // their real readiness evidence. Only the selected first track is warmed;
-    // the rest of the catalog remains lazy.
-    audio_library.preload_track(music_state.active_track(), asset_server);
     commands.insert_resource(audio_library);
     commands.insert_resource(music_state);
 }

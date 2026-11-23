@@ -795,6 +795,14 @@ Verification covers real WAV decode, frozen catalog selection, handle reuse
 and retirement. The rendered host decodes Wolfenstein's opening and first
 combat section while he is dormant and has no music claim.
 
+Native track and section caches now retain only the last director update's
+source demand. An outgoing playback group retains its exact source handles
+through retirement. Explicit preloads return a handle for their preparation
+or preview owner to retain. Direct startup holds its source in the startup
+manifest and releases that manifest when the cover retires. Verification
+checks cache retirement, source survival during fades, final Bevy asset removal,
+and preload-to-playback ownership.
+
 Starts remain frame-driven and best effort. Native scheduling, scene deadlines
 and the remaining transition recipes stay open.
 

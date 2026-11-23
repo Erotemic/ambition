@@ -519,13 +519,9 @@ fn adaptive_cue_catalogs_of(cues: &AdaptiveCues) -> Option<std::collections::BTr
 
 /// Publish a reload's adaptive music catalog.
 ///
-/// One resource, read each frame by the intent system and the director, so the
-/// replacement is the whole publication: a cue's authority (`authorize_cues`)
-/// is derived from the catalog each frame and holds no copy. What the director
-/// caches (`LoadedMusicCueAssets`) is keyed by the asset path, so a cue whose
-/// file changed is requested again on its next play. A cue that is playing keeps
-/// the layers it started with until the director next shuts it down or changes
-/// state.
+/// New demand uses the published generation. Admitted playback retains its
+/// prepared cue and exact source handles while the native caches retire unused
+/// entries. A catalog replacement does not release those voices.
 fn publish_adaptive_cues(world: &mut bevy::ecs::world::World, cues: AdaptiveCues) {
     #[cfg(feature = "audio")]
     if let Some(registry) = cues {

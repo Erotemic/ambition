@@ -1,6 +1,6 @@
 use super::*;
 use crate::cue_spec::{MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec};
-use crate::music::catalog::MusicSourceKey;
+use crate::music::catalog::{LoadedMusicSource, MusicSourceKey};
 use crate::music::playback::{MusicPlayback, RecordedMusicOutput};
 use crate::selection::MusicAuthority;
 use bevy::asset::AssetApp;
@@ -65,6 +65,9 @@ fn authored_cues(bpm: f32) -> crate::cue_spec::AuthoredMusicCues {
     };
     let mut destination = cue.clone();
     destination.id = "destination".into();
+    if let MusicCueMedia::Inline { asset_root, .. } = &mut destination.media {
+        *asset_root = "content://library/destination".into();
+    }
     crate::cue_spec::AuthoredMusicCues {
         cues: vec![cue, destination],
         ..default()
@@ -96,11 +99,11 @@ fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
             for source in &section.sources {
                 let handle = app
                     .world()
-                    .resource::<Assets<KiraAudioSource>>()
-                    .reserve_handle();
+                    .resource::<AssetServer>()
+                    .load(source.path.clone());
                 loaded.sources.insert(
                     MusicSourceKey::new("game", 1, &cue.id, &section.id, &source.layer_id),
-                    (source.path.clone(), handle.clone()),
+                    LoadedMusicSource::new(source.path.clone(), handle.clone()),
                 );
                 handles.push(handle);
             }
@@ -194,11 +197,17 @@ fn publish(app: &mut App, selection: MusicSelection) {
         .resource_mut::<MusicIntent>()
         .publish(MusicGoal::Play(selection));
 }
+#[derive(Resource)]
+struct PreparedFixtureSources {
+    _handles: Vec<Handle<KiraAudioSource>>,
+}
+
 fn decoded() -> App {
     let (mut app, handles) = fixture();
-    for handle in handles {
-        decode(&mut app, &handle);
+    for handle in &handles {
+        decode(&mut app, handle);
     }
+    app.insert_resource(PreparedFixtureSources { _handles: handles });
     app
 }
 
@@ -773,31 +782,44 @@ fn a_published_variable_clock_controls_the_running_sections_handoff() {
     let catalog = MusicCueCatalog::prepare(policy, &media).unwrap();
     let (mut app, _) = fixture();
     let mut assets = LoadedMusicCueAssets::default();
+    let mut prepared_sources = Vec::new();
     for cue in catalog.cues() {
         for section in &cue.sections {
             for source in &section.sources {
                 let product = source.product.as_ref().unwrap();
                 let handle = app
-                    .world_mut()
+                    .world()
+                    .resource::<AssetServer>()
+                    .load(source.path.clone());
+                app.world_mut()
                     .resource_mut::<Assets<KiraAudioSource>>()
-                    .add(KiraAudioSource {
-                        sound: StaticSoundData {
-                            sample_rate: product.sample_rate,
-                            frames: vec![Frame::new(0.0, 0.0); product.frames as usize].into(),
-                            settings: StaticSoundSettings::default(),
-                            slice: None,
+                    .insert(
+                        handle.id(),
+                        KiraAudioSource {
+                            sound: StaticSoundData {
+                                sample_rate: product.sample_rate,
+                                frames: vec![Frame::new(0.0, 0.0); product.frames as usize].into(),
+                                settings: StaticSoundSettings::default(),
+                                slice: None,
+                            },
                         },
-                    });
+                    )
+                    .unwrap();
+                prepared_sources.push(handle.clone());
                 assets.sources.insert(
                     MusicSourceKey::new("game", 1, &cue.id, &section.id, &source.layer_id),
-                    (source.path.clone(), handle),
+                    LoadedMusicSource::new(source.path.clone(), handle),
                 );
             }
         }
     }
     let mut catalogs = AdaptiveMusicCatalogRegistry::default();
     catalogs.register("game", catalog).unwrap();
-    app.insert_resource(catalogs).insert_resource(assets);
+    app.insert_resource(catalogs)
+        .insert_resource(assets)
+        .insert_resource(PreparedFixtureSources {
+            _handles: prepared_sources,
+        });
     publish(&mut app, selection("trail", "song", "room", 0, 10));
     frames(&mut app, 6);
     let position = app
@@ -1232,4 +1254,185 @@ fn a_second_phase_change_can_cancel_a_submitted_section_without_losing_the_admit
         matches!(&director.admitted().unwrap().selection.choice, MusicChoice::Cue { state, .. } if state == "intro")
     );
     assert_eq!(app.world().resource::<RecordedMusicOutput>().resumed, 4);
+}
+
+#[test]
+fn unused_cue_sources_leave_the_cache_while_outgoing_voices_retain_them() {
+    let mut app = decoded();
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    frames(&mut app, 4);
+    let old_sources: Vec<_> = ["bed", "tune"]
+        .into_iter()
+        .map(|layer| {
+            app.world()
+                .resource::<LoadedMusicCueAssets>()
+                .get("game", 1, "trail", "song", layer)
+                .unwrap()
+                .id()
+        })
+        .collect();
+    app.world_mut()
+        .resource_mut::<PreparedFixtureSources>()
+        ._handles
+        .retain(|handle| !old_sources.contains(&handle.id()));
+    publish(&mut app, selection("destination", "song", "room", 0, 10));
+    for _ in 0..4 {
+        step(&mut app, 0.0);
+    }
+    let assets = app.world().resource::<LoadedMusicCueAssets>();
+    assert!(assets.get("game", 1, "trail", "song", "bed").is_none());
+    assert!(
+        assets
+            .get("game", 1, "destination", "song", "bed")
+            .is_some()
+    );
+    assert_eq!(assets.sources.len(), 2);
+    assert!(
+        app.world()
+            .resource::<MusicPlayback>()
+            .groups()
+            .any(|group| {
+                group.phase == MusicGroupPhase::Retiring
+                    && matches!(&group.product,
+            MusicProduct::Section { cue, .. } if cue == "trail")
+            })
+    );
+    assert!(old_sources.iter().all(|id| {
+        app.world()
+            .resource::<Assets<KiraAudioSource>>()
+            .contains(*id)
+    }));
+    app.world_mut()
+        .resource_mut::<MusicIntent>()
+        .publish(MusicGoal::Silence {
+            context: Some(ambition_sfx::AudioContextOwner::Direct),
+            reason: MusicSilenceReason::NoEligibleChoice,
+        });
+    step(&mut app, 0.0);
+    step(&mut app, 0.0);
+    assert!(
+        app.world()
+            .resource::<LoadedMusicCueAssets>()
+            .sources
+            .is_empty()
+    );
+    step(&mut app, 1.0);
+    for _ in 0..4 {
+        step(&mut app, 0.0);
+    }
+    assert!(old_sources.iter().all(|id| {
+        !app.world()
+            .resource::<Assets<KiraAudioSource>>()
+            .contains(*id)
+    }));
+}
+
+#[test]
+fn simple_tracks_and_explicit_preloads_have_separate_source_lifetimes() {
+    let mut app = decoded();
+    let registry = crate::spec::MusicRegistry {
+        default_track: "ambient".into(),
+        tracks: ["ambient", "radio"]
+            .into_iter()
+            .map(|id| crate::spec::MusicTrack {
+                id: id.into(),
+                display_name: id.into(),
+                asset_path: Some(format!("audio/{id}.ogg")),
+                one_shot: false,
+            })
+            .collect(),
+    };
+    let mut library = AudioLibrary::new(&registry, None);
+    let ambient = library
+        .resolve_track_handle("ambient", app.world().resource::<AssetServer>())
+        .unwrap();
+    decode(&mut app, &ambient);
+    let ambient_id = ambient.id();
+    drop(ambient);
+    let preview = library
+        .preload_track("radio", app.world().resource::<AssetServer>())
+        .unwrap();
+    decode(&mut app, &preview);
+    let radio_id = preview.id();
+    app.insert_resource(library);
+    let mut authority = MusicAuthority::governed(["ambient".into(), "radio".into()]);
+    authority.authorize_cues(["trail".into(), "destination".into()]);
+    app.world_mut().resource_mut::<MusicIntent>().authority = authority;
+    let mut target = selection("", "", "radio", 0, 400);
+    target.choice = MusicChoice::Track("ambient".into());
+    publish(&mut app, target.clone());
+    frames(&mut app, 4);
+    assert!(
+        app.world()
+            .resource::<AudioLibrary>()
+            .resolved_track_handle("radio")
+            .is_none()
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 1);
+    assert!(
+        app.world()
+            .resource::<Assets<KiraAudioSource>>()
+            .contains(radio_id)
+    );
+    target.choice = MusicChoice::Track("radio".into());
+    publish(&mut app, target);
+    for _ in 0..4 {
+        step(&mut app, 0.0);
+    }
+    drop(preview);
+    assert!(
+        app.world()
+            .resource::<AudioLibrary>()
+            .resolved_track_handle("ambient")
+            .is_none()
+    );
+    assert!(
+        app.world()
+            .resource::<Assets<KiraAudioSource>>()
+            .contains(ambient_id)
+    );
+    assert!(
+        app.world()
+            .resource::<MusicPlayback>()
+            .groups()
+            .any(|group| {
+                group.phase == MusicGroupPhase::Retiring
+                    && matches!(&group.product,
+            MusicProduct::Track { id, .. } if id == "ambient")
+            })
+    );
+    step(&mut app, 1.0);
+    for _ in 0..4 {
+        step(&mut app, 0.0);
+    }
+    assert!(
+        !app.world()
+            .resource::<Assets<KiraAudioSource>>()
+            .contains(ambient_id)
+    );
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    for _ in 0..4 {
+        step(&mut app, 0.0);
+    }
+    assert!(
+        app.world()
+            .resource::<AudioLibrary>()
+            .resolved_track_handle("radio")
+            .is_none()
+    );
+    assert!(
+        app.world()
+            .resource::<Assets<KiraAudioSource>>()
+            .contains(radio_id)
+    );
+    assert!(
+        app.world()
+            .resource::<MusicPlayback>()
+            .groups()
+            .any(|group| {
+                group.phase == MusicGroupPhase::Retiring
+                    && matches!(&group.product,
+            MusicProduct::Track { id, .. } if id == "radio")
+            })
+    );
 }

@@ -1244,6 +1244,10 @@ pub fn advance_move_playback(
         // The quad the body is drawn at: an authored blade is drawn in frame
         // pixels, so it is scaled by the art's own quad, not a re-derived one.
         Option<&crate::components::ActorRenderSize>,
+        // ACT2: a body in hitlag or held in place gives its move the same
+        // frozen step its travel takes. The strike volume and its hit memory
+        // stay live; only the timeline, charge and flow stand still.
+        Option<&ambition_characters::actor::BodyCombat>,
     )>,
     // IS ATTACK STILL DOWN? The body-generic resolved gesture, produced by
     // `resolve_attack_gestures` earlier in this same tick — never a device and
@@ -1289,6 +1293,7 @@ pub fn advance_move_playback(
         mut motion,
         mut effects,
         drawn,
+        reactions,
     ) in &mut players
     {
         let drawn_quad = drawn.map(|quad| quad.0);
@@ -1329,7 +1334,12 @@ pub fn advance_move_playback(
         // ADR 0011: entity dt collapses to sim dt when the actor carries no
         // ProperTimeScale — undilated actors are the identity case. A
         // connect's room holds the moves of its bodies (ISL-1b).
-        let dt = world_time.entity_dt(scale.copied().unwrap_or_default()) * freeze.scale_of(owner);
+        let held = reactions.is_some_and(ambition_characters::actor::BodyCombat::action_is_held);
+        let dt = if held {
+            0.0
+        } else {
+            world_time.entity_dt(scale.copied().unwrap_or_default()) * freeze.scale_of(owner)
+        };
         let t_prev = playback.t;
         // THE CHARGE HOLD. A chargeable use walks its ordinary timeline to the
         // authored hold point and stands there while Attack is held. The proper
@@ -1488,7 +1498,10 @@ pub fn advance_move_playback(
             // `ev.at_s > t_prev` bound is unsatisfiable for an event at 0.0 on the
             // first advance, where `t_prev` is also 0.0. It added nothing except
             // that hole.
-            if !pb.fired[idx] && ev.at_s <= t {
+            // A held body fires nothing: the only event a frozen clock could
+            // reach is a fresh move's entry at 0.0, and it fires once, on the
+            // step the hold releases.
+            if !held && !pb.fired[idx] && ev.at_s <= t {
                 pb.fired[idx] = true;
                 // AUTHORED SELF-MOTION IS SIMULATION, so it lands HERE and
                 // is not announced as a message.
@@ -1664,7 +1677,9 @@ pub fn advance_move_playback(
         // writes `pb.flow_node` while reading the graph; bumping a refcount buys
         // exactly the same borrow split for no allocation.
         let spec = std::sync::Arc::clone(&pb.spec);
-        if let Some(flow) = spec.flow.as_ref() {
+        // A held body takes no flow step: its contact latch stays on the
+        // playback and the continuation runs on the step the hold releases.
+        if let Some(flow) = spec.flow.as_ref().filter(|_| !held) {
             pb.flow_wait_s += dt;
             // ⛔ A HARD STEP BUDGET, and it is the node count. `Emit` and
             // `Branch` resolve within the tick, so a cycle through them with no

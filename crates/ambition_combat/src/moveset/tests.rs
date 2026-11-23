@@ -778,6 +778,40 @@ fn an_event_authored_at_the_first_instant_is_not_pre_fired() {
     );
 }
 
+/// ACT2: a body in hitlag gives its move the same frozen step its travel
+/// takes. The timeline stands still and the move's event waits; once the
+/// freeze lifts the clock resumes from where it stood.
+#[test]
+fn a_move_stands_still_while_its_owner_is_in_hitlag() {
+    let (mut app, _victim) = app_with_victim();
+    let attacker = spawn_attacker(
+        &mut app,
+        ae::Vec2::new(0.0, 100.0),
+        ae::Vec2::new(28.0, 46.0),
+        one_tick_sfx_move("act2.freeze"),
+    );
+    app.world_mut().entity_mut(attacker).insert(ambition_characters::actor::BodyCombat {
+        hitstop_timer: 0.1,
+        ..Default::default()
+    });
+    run_seconds(&mut app, 0.05);
+    let held = app.world().get::<MovePlayback>(attacker).expect("move live");
+    assert_eq!(held.t, 0.0, "the move advanced through its owner's hitlag");
+    assert!(!held.fired[0], "an event fired while the move was frozen");
+    app.world_mut()
+        .get_mut::<ambition_characters::actor::BodyCombat>(attacker)
+        .expect("combat")
+        .hitstop_timer = 0.0;
+    app.update();
+    let released = app.world().get::<MovePlayback>(attacker).expect("move live");
+    assert!(
+        (released.t - 0.016).abs() < 1e-6,
+        "the released move spent {} s, not one step",
+        released.t
+    );
+    assert!(released.fired[0], "the event did not fire once the freeze lifted");
+}
+
 fn one_tick_sfx_move(cue: &str) -> MoveSpec {
     let mut spec = simple_melee(&SimpleMeleeParams::default());
     spec.events = vec![MoveEvent {

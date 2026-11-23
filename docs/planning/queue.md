@@ -395,6 +395,14 @@ world-post admission.
    tumble only through its accepted move. Open: scripted starts, the jump
    escapes before their spend, the landing-tick cancel-window remainder,
    and interrupting a bound shot whose source is gone.)
+   (ACT2 first slice 2026-11-23: a body in hitlag or held in place stands
+   its move timeline, charge, events, flow and physical pose clock still,
+   the same step its travel freezes (`BodyCombat::action_is_held`); live
+   strike volumes and hit memory stay. Stun thaws on a unit-correct
+   released interval (`released_action_dt`). Open: one pre-decay budget
+   shared by travel, move and stun at the expiry step; the primary-hitstop
+   world-clock shortcut; sustain cadence; floor progression on action time;
+   CPU-only and human-seat Smash acceptance.)
 
 10. [Input IN1/IN2](engine/participant-action-system.md#input-history-and-body-interpretation)
     defines one admitted input cut for recording and replay, then resolves

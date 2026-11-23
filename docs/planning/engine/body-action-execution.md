@@ -554,6 +554,34 @@ arbitrary high-rate equivalence or solve skipped combat windows. A bounded
 substep or event-crossing policy needs its own customer; spawning all skipped
 hitboxes at the final pose would not reproduce contacts along the path.
 
+### First slice done (2026-11-23)
+
+A body's action hold is one predicate, `BodyCombat::action_is_held`
+(hitlag or held in place). It is read after reactions decay, as the body
+step reads it. `advance_move_playback` spends no timeline, charge or flow
+time while it holds. No event fires and no flow node runs; a fresh move's
+entry event fires once on the release step. The live strike volume and its
+hit memory are untouched, and sustain keeps emitting as a level signal.
+`advance_body_pose_clocks` holds the physical pose clock the same way.
+Before this, an attacker froze for the hitlag it earned on contact while
+its swing kept running, so the swing ended early relative to its body.
+
+`BodyCombat::released_action_dt` resolves the proper time a step releases
+after hitstop (unscaled seconds) and paralysis (proper seconds), as
+`max(0, min(proper - r*h, proper - p))`. Stun and recoil lock thaw on it,
+which replaces `proper - max(h, p)`; the two agree at `r == 1`.
+
+Still open:
+
+- Travel and moves still take a whole step on the step a freeze expires,
+  while stun takes the released fraction. One pre-decay budget, rebuilt at
+  the reaction cut, should feed all three.
+- The primary-hitstop world-clock shortcut.
+- Sustain cadence.
+- Floor progression on action time (`control_dt`).
+- The CPU-only and human-seat Smash acceptance. This VM cannot seat a
+  Smash round, so that acceptance has to run elsewhere.
+
 ### Remove
 
 Remove separate reconstruction of the held fraction in move, movement and

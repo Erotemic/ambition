@@ -555,6 +555,37 @@ impl BodyCombat {
         self.hitstop_timer > 0.0
     }
 
+    /// Whether this body's ACTION clock is held this step: in hitlag or held
+    /// in place. It is the same freeze its travel takes in the body step, so a
+    /// move's timeline, charge and flow and the physical pose clock stand
+    /// still while the body does. Read after [`Self::decay_reaction_timers`].
+    pub fn action_is_held(&self) -> bool {
+        self.is_in_hitlag() || self.is_held_in_place()
+    }
+
+    /// The proper time this step releases to a body's recovery once its holds
+    /// are spent, read BEFORE [`Self::decay_reaction_timers`] decrements them.
+    ///
+    /// Each hold is spent in its own units: hitstop in unscaled seconds,
+    /// paralysis in proper seconds. With a proper-time rate `r = proper /
+    /// unscaled`, hitstop `h` leaves `r * max(0, unscaled - h)`, not
+    /// `proper - h`; the two agree only at `r == 1`. A zero rate releases
+    /// nothing.
+    pub fn released_action_dt(&self, proper_dt: f32, unscaled_dt: f32) -> f32 {
+        let hitstop = self.hitstop_timer.max(0.0);
+        let paralysis = self.paralysis_timer.max(0.0);
+        // The hitstop remainder as proper seconds. With no unscaled step a
+        // positive hitstop holds the whole of it.
+        let hitstop_proper = if unscaled_dt > 0.0 {
+            proper_dt * (hitstop / unscaled_dt)
+        } else if hitstop > 0.0 {
+            f32::INFINITY
+        } else {
+            0.0
+        };
+        (proper_dt - hitstop_proper.max(paralysis)).max(0.0)
+    }
+
     pub fn vulnerable(&self) -> bool {
         self.damage_invuln_timer <= 0.0
     }
@@ -600,7 +631,7 @@ impl BodyCombat {
         // the stun.
         // A paralysis is a longer freeze of the same kind: the stun waits for
         // it as it waits for the hitlag.
-        let thawed_dt = (proper_dt - self.hitstop_timer.max(self.paralysis_timer).max(0.0)).max(0.0);
+        let thawed_dt = self.released_action_dt(proper_dt, unscaled_dt);
         self.damage_invuln_timer = (self.damage_invuln_timer - proper_dt).max(0.0);
         self.hit_flash = (self.hit_flash - proper_dt).max(0.0);
         self.struck_recently = (self.struck_recently - proper_dt).max(0.0);

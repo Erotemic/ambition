@@ -90,7 +90,7 @@ pub use slow::{SlowBodies, SlowBodiesPort};
 pub use custody::{ReleaseItem, ReleaseItemPort, TakeItem, TakeItemPort, TAKE_REACH};
 pub use group::{GroupItem, GroupMember, GroupThink, GroupThinkPort, Steer, SteerPort};
 pub use whereabouts::{Standing, Whereabouts, WhereaboutsPort};
-pub use think::{ActorFire, ActorFirePort, ActorThink, ActorThinkPort};
+pub use think::{ActorFire, ActorFirePort, ActorSightedThinkPort, ActorThink, ActorThinkPort};
 pub use wielded::{
     AimCast, AimCastPort, AimHit, BodySound, BodySoundPort, MarkPort, MarkView, SetMark, SetMarkPort, SpendMana,
     SpendManaPort, WieldedAlternatePort, WieldedUsePort, Wielder, AIM_CAST_REACH,

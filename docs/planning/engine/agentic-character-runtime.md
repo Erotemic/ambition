@@ -158,6 +158,39 @@ crate, generic `WorldSnapshot`, remote-model adapter or per-frame dynamic
 registry is required by this packet. Measure performance only if a later
 optimization claim needs it.
 
+### First slice done (2026-11-23)
+
+The knowledge scope is carried by the admitted binding. A module that binds
+the new trigger port `ambition.actor.think_sighted`
+(`ActorSightedThinkPort`) declares its body's own sight as its knowledge;
+`ambition.actor.think` stays the authoritative contract, unchanged.
+
+- **Demand.** `resolve_module_observation_demand` (combat extension, in
+  `ActorDecisionSet::Prepare`) gives a body whose custom key a sighted entry
+  binds a `ModuleObservation { demand: TargetBelief }`, and removes it when no
+  such consumer is left, which restores the zero-perception road. It compares
+  before writing; a replaced or reloaded binding is picked up the next tick.
+- **Maintenance and projection.** The actor decision perceives for
+  `native.union(module demand)`, so the module's demand owns maintenance even
+  over a native `StandStill`. It publishes the target it admitted
+  (`ModuleObservation::believed`): `Some(None)` is no target evidence,
+  `None` is not yet prepared. An `Omniscient` body's projection is its
+  global target, which its own policy already grants.
+- **Delivery.** `queue_sighted_actor_thinks` hands that projection to the
+  module. A body with no prepared projection is not invoked; there is no
+  fallback to `ActorTarget.entity`'s live position.
+
+Proof: `a_sighted_module_brain_reads_its_bodys_belief_and_an_authoritative_one_the_live_target`
+(fixture `aimer`: a sighted entry over a `StandStill` sandbag, an
+authoritative entry as control). With the foe in view both aim at it; with
+the foe moved far out of view in the same room, the authoritative module
+aims at its new position and the sighted one at its body's estimate. The
+Laden Swallow fixtures stay controls for their authoritative rule.
+
+Still open: a `TacticalWorld` module demand and the decision-timing contract
+(a delayed cut for a module), and the rollback/possession crossings of the
+sighted route beyond the shared decision.
+
 ## Requirements
 
 - typed action vocabulary rather than free-form mutation;

@@ -438,6 +438,9 @@ world-post admission.
     report cannot name its listener. Settle timing, crew assistance and
     saved hostility are unchanged.
     Then [OBS3](engine/agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers)
+    (first slice landed 2026-11-23: `ambition.actor.think_sighted` carries a
+    sighted binding; its demand maintains the body's belief and the module
+    reads that projection, never the live target)
     resolves native plus module observation demand before one domain
     projection is built. Prove a selected sighted module with a native
     `None` fallback and an explicitly authoritative module as control.

@@ -335,6 +335,21 @@ Port `ambition.actor.think@2`, trigger: read as `this.trigger`.
 | `target` | [x, y] or () | Where its target is now, or `()` when it has none. |
 | `placement` | text or () | The id of the placement that built it, or `()` for a body no placement built. |
 
+## `actor_think_sighted`
+
+Port `ambition.actor.think_sighted@1`, trigger: read as `this.trigger`.
+
+| field | value | meaning |
+|---|---|---|
+| `position` | [x, y] | The body's centre (world units, +Y down). |
+| `velocity` | [x, y] | Its velocity (world units per second). |
+| `size` | [x, y] | Its box, width and height. |
+| `facing` | number | The way it faces: `1.0` is +x, `-1.0` is -x. |
+| `on_ground` | bool | Whether it stands on the ground. |
+| `health` | integer (i32) | Its health. |
+| `target` | [x, y] or () | Where its target is now, or `()` when it has none. |
+| `placement` | text or () | The id of the placement that built it, or `()` for a body no placement built. |
+
 ## `fire`
 
 Port `ambition.actor.fire@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.

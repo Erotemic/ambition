@@ -10,8 +10,9 @@
 
 use ambition_characters::actor::control::ActorFireRequest;
 use ambition_characters::actor::BodyHealth;
+use ambition_characters::perception::{ModuleObservation, PerceptionRequirement};
 use ambition_characters::control::{ActorControl, DrivingParticipant};
-use ambition_combat_port::{ActorFirePort, ActorThink, ActorThinkPort};
+use ambition_combat_port::{ActorFirePort, ActorSightedThinkPort, ActorThink, ActorThinkPort};
 use ambition_entity_catalog::placements::CharacterBrain;
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
 use ambition_extension_sdk::phases::ACTOR_THINK;
@@ -32,67 +33,75 @@ pub fn install_for_actor_think(app: &mut App) {
         "ambition_combat",
         queue_actor_thinks.run_if(ambition_extension_host::trigger_is_bound::<ActorThinkPort>),
     );
+    // OBS3: the same decision with the body's own sight as its knowledge.
+    app.install_extension_trigger::<ActorSightedThinkPort, _>(
+        ACTOR_THINK,
+        "ambition_combat",
+        queue_sighted_actor_thinks.run_if(ambition_extension_host::trigger_is_bound::<ActorSightedThinkPort>),
+    );
     app.install_extension_submitted_request::<ActorFirePort, _>(ACTOR_THINK, "ambition_combat", lower_actor_fires);
     super::status::install_for_actor_think(app);
 }
 
-/// One invocation for each live body whose custom brain key is bound, each
-/// tick with a gameplay step, in the order of the body's simulation identity,
-/// so a rewind invokes them in the same order. A rewind makes new entities, so
-/// an `Entity` does not decide the order.
-#[allow(clippy::type_complexity)]
-pub fn queue_actor_thinks(
-    admitted: Res<AdmittedExtensions>,
-    time: Res<ambition_time::WorldTime>,
-    mut invocations: ResMut<ExtensionInvocations>,
-    bodies: Query<
-        (
-            Entity,
-            &ActorConfig,
-            &ae::BodyKinematics,
-            Option<&ae::BodyGroundState>,
-            &BodyHealth,
-            Option<&ActorTarget>,
-            Option<&SimId>,
-            Option<&FeatureId>,
-        ),
-        (Without<PlayerEntity>, Without<DrivingParticipant>),
-    >,
-    tracked: Query<&ae::BodyKinematics>,
-) {
-    if time.sim_dt() <= 0.0 {
-        return;
-    }
-    let bound: Vec<&str> = admitted
+/// The bodies a custom-brain trigger invokes, and the facts it reads.
+type ThinkingBodies<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        &'static ActorConfig,
+        &'static ae::BodyKinematics,
+        Option<&'static ae::BodyGroundState>,
+        &'static BodyHealth,
+        Option<&'static ActorTarget>,
+        Option<&'static SimId>,
+        Option<&'static FeatureId>,
+        Option<&'static ModuleObservation>,
+    ),
+    (Without<PlayerEntity>, Without<DrivingParticipant>),
+>;
+
+/// The keys port `P` binds among the admitted entries.
+fn bound_keys<P: Port>(admitted: &AdmittedExtensions) -> Vec<&str> {
+    admitted
         .0
         .entries
         .iter()
-        .filter(|e| e.descriptor.trigger.port == ActorThinkPort::KEY)
+        .filter(|e| e.descriptor.trigger.port == P::KEY)
         .map(|e| e.descriptor.trigger.selector.as_ref())
-        .collect();
+        .collect()
+}
+
+/// One invocation of `P` for each live body whose custom brain key `P` binds,
+/// in the order of the body's simulation identity, so a rewind invokes them in
+/// the same order. A rewind makes new entities, so an `Entity` does not decide
+/// the order. `target` answers where the body's target is for this port, or
+/// `None` to leave the body uninvoked this tick.
+fn queue_thinks<P: Port<Value = ActorThink>>(
+    admitted: &AdmittedExtensions,
+    invocations: &mut ExtensionInvocations,
+    bodies: &ThinkingBodies,
+    target: impl Fn(Option<&ActorTarget>, Option<&ModuleObservation>) -> Option<Option<[f32; 2]>>,
+) {
+    let bound = bound_keys::<P>(admitted);
     if bound.is_empty() {
         return;
     }
     let mut thinking: Vec<_> = bodies
         .iter()
-        .filter_map(|(entity, config, kin, ground, health, target, id, placement)| match &config.brain {
-            CharacterBrain::Custom(key) if bound.contains(&key.as_str()) && health.alive() => {
-                Some((entity, key.clone(), kin, ground, health, target, id, placement))
-            }
-            _ => None,
+        .filter(|(_, config, _, _, health, ..)| {
+            matches!(&config.brain, CharacterBrain::Custom(key) if bound.contains(&key.as_str())) && health.alive()
         })
         .collect();
     thinking.sort_by(|a, b| a.6.map(SimId::as_str).cmp(&b.6.map(SimId::as_str)));
-    for (entity, key, kin, ground, health, target, _, placement) in thinking {
-        // The target where it is now: `ActorTarget` holds where the body last
-        // saw it.
-        let target = target
-            .and_then(|t| t.entity)
-            .and_then(|tracked_body| tracked.get(tracked_body).ok())
-            .map(|body| [body.pos.x, body.pos.y]);
-        invocations.trigger::<ActorThinkPort>(
+    for (entity, config, kin, ground, health, actor_target, _, placement, observation) in thinking {
+        let CharacterBrain::Custom(key) = &config.brain else { continue };
+        let Some(target) = target(actor_target, observation) else {
+            continue;
+        };
+        invocations.trigger::<P>(
             &ACTOR_THINK,
-            key,
+            key.clone(),
             entity,
             None,
             false,
@@ -107,6 +116,82 @@ pub fn queue_actor_thinks(
                 placement: placement.map(|placement| placement.as_str().to_owned()),
             },
         );
+    }
+}
+
+/// [`ActorThinkPort`]: the authoritative road. The target is where the body's
+/// `ActorTarget` is NOW, whatever the body can see.
+pub fn queue_actor_thinks(
+    admitted: Res<AdmittedExtensions>,
+    time: Res<ambition_time::WorldTime>,
+    mut invocations: ResMut<ExtensionInvocations>,
+    bodies: ThinkingBodies,
+    tracked: Query<&ae::BodyKinematics>,
+) {
+    if time.sim_dt() <= 0.0 {
+        return;
+    }
+    queue_thinks::<ActorThinkPort>(&admitted, &mut invocations, &bodies, |target, _| {
+        Some(
+            target
+                .and_then(|t| t.entity)
+                .and_then(|tracked_body| tracked.get(tracked_body).ok())
+                .map(|body| [body.pos.x, body.pos.y]),
+        )
+    });
+}
+
+/// [`ActorSightedThinkPort`] (OBS3): the target the body's own perception
+/// admitted this tick (`ModuleObservation::believed`). A body whose belief
+/// has not been prepared is not invoked; an empty belief is `None`, never the
+/// target's live position.
+pub fn queue_sighted_actor_thinks(
+    admitted: Res<AdmittedExtensions>,
+    time: Res<ambition_time::WorldTime>,
+    mut invocations: ResMut<ExtensionInvocations>,
+    bodies: ThinkingBodies,
+) {
+    if time.sim_dt() <= 0.0 {
+        return;
+    }
+    queue_thinks::<ActorSightedThinkPort>(&admitted, &mut invocations, &bodies, |_, observation| {
+        let believed = observation?.believed?;
+        Some(believed.map(|pos| [pos.x, pos.y]))
+    });
+}
+
+/// Resolve each custom-brain body's MODULE observation demand from the
+/// admitted bindings (OBS3), before the actor decision reads it: a body whose
+/// key a sighted think entry binds demands `TargetBelief`; a body no such
+/// consumer is left for loses the component, which restores the
+/// zero-perception road. Compares before writing, so an unchanged demand
+/// costs no change tick; a replaced or reloaded binding is picked up the next
+/// tick it runs.
+pub fn resolve_module_observation_demand(
+    mut commands: Commands,
+    admitted: Option<Res<AdmittedExtensions>>,
+    mut bodies: Query<(Entity, &ActorConfig, Option<&mut ModuleObservation>)>,
+) {
+    let sighted = admitted.as_deref().map(bound_keys::<ActorSightedThinkPort>).unwrap_or_default();
+    for (entity, config, observation) in &mut bodies {
+        let demand = match &config.brain {
+            CharacterBrain::Custom(key) if sighted.contains(&key.as_str()) => PerceptionRequirement::TargetBelief,
+            _ => PerceptionRequirement::None,
+        };
+        match (demand, observation) {
+            (PerceptionRequirement::None, Some(_)) => {
+                commands.entity(entity).remove::<ModuleObservation>();
+            }
+            (PerceptionRequirement::None, None) => {}
+            (demand, Some(mut observation)) => {
+                if observation.demand != demand {
+                    observation.demand = demand;
+                }
+            }
+            (demand, None) => {
+                commands.entity(entity).insert(ModuleObservation { demand, believed: None });
+            }
+        }
     }
 }
 

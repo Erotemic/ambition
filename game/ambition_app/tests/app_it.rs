@@ -127,6 +127,7 @@ mod boss_draw_cursor;
 mod a_boss_special_runs_on_the_extension_host;
 mod the_behemoth_shoots_from_its_eyes;
 mod a_custom_brain_module_fires_through_the_gate;
+mod a_sighted_module_brain_reads_its_bodys_belief;
 mod a_loaded_module_keeps_session_state;
 mod a_script_module_runs_without_a_build;
 mod the_raid_brute_takes_the_case;

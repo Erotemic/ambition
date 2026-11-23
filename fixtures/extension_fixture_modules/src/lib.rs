@@ -26,7 +26,7 @@ mod object_worker;
 mod bridge_warden;
 
 use ambition_combat_port::{
-    ActorFire, ActorFirePort, ActorThink, ActorThinkPort, DamageBox, DamageBoxPort, WieldedUsePort, Wielder,
+    ActorFire, ActorFirePort, ActorSightedThinkPort, ActorThink, ActorThinkPort, DamageBox, DamageBoxPort, WieldedUsePort, Wielder,
 };
 use ambition_extension_sdk::{
     phases::{ACTOR_THINK, WIELDED_USE}, record, CodeIdentity, EntryCode, EntryDescriptor, Fault, IdlePolicy, Invocation, Limits,
@@ -366,6 +366,63 @@ fn think(inv: &mut Invocation<'_>) -> Result<(), Fault> {
     Ok(())
 }
 
+/// The custom brain key `aimer`'s authoritative entry binds.
+pub const AIMER_BRAIN: &str = "fixture_aimer";
+/// The custom brain key `aimer`'s SIGHTED entry binds (OBS3).
+pub const SIGHTED_AIMER_BRAIN: &str = "fixture_sighted_aimer";
+
+/// `aimer` fires at the target its trigger names, so the shot's direction
+/// says which knowledge the module received: `aim` binds the authoritative
+/// `ActorThinkPort` (the target where it is now), `sighted_aim` binds
+/// `ActorSightedThinkPort` (the target this body's perception admitted).
+pub fn aimer() -> ModuleDescriptor {
+    let entry = |key: &'static str, port, selector: &'static str, run| EntryDescriptor {
+        replies: Vec::new(),
+        key: key.into(),
+        phase: ACTOR_THINK,
+        trigger: TriggerBinding { port, selector: selector.into() },
+        reads: Vec::new(),
+        writes: Vec::new(),
+        requests: vec![ActorFirePort::KEY],
+        after: Vec::new(),
+        limits: Limits { max_requests: 1 },
+        on_idle: IdlePolicy::Invoke,
+        run: EntryCode::Native(run),
+    };
+    ModuleDescriptor {
+        key: ModuleKey::new(PROVIDER, "aimer"),
+        api: API_VERSION,
+        code: CodeIdentity::StaticNative {
+            build: None,
+            crate_name: env!("CARGO_PKG_NAME").into(),
+            version: env!("CARGO_PKG_VERSION").into(),
+        },
+        schemas: Vec::new(),
+        entries: vec![
+            entry("aim", ActorThinkPort::KEY, AIMER_BRAIN, aim),
+            entry("sighted_aim", ActorSightedThinkPort::KEY, SIGHTED_AIMER_BRAIN, sighted_aim),
+        ],
+    }
+}
+
+fn fire_at(inv: &mut Invocation<'_>, body: &ActorThink) -> Result<(), Fault> {
+    if let Some(target) = body.target {
+        let direction = (Vec2::from(target) - Vec2::from(body.position)).normalize_or_zero();
+        inv.submit::<ActorFirePort>(ActorFire { direction: direction.into() })?;
+    }
+    Ok(())
+}
+
+fn aim(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let body = inv.trigger::<ActorThinkPort>()?.clone();
+    fire_at(inv, &body)
+}
+
+fn sighted_aim(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+    let body = inv.trigger::<ActorSightedThinkPort>()?.clone();
+    fire_at(inv, &body)
+}
+
 record! {
     /// A callback retains live addresses in portable state.
     pub struct ObjectMemory = SchemaKey::new(PROVIDER, "object_refs.memory", 1);
@@ -402,7 +459,7 @@ fn object_ref_result(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 }
 
 /// Every module this crate provides, as constructors.
-pub const MODULES: &[fn() -> ModuleDescriptor] = &[session_tally, trail_loop, thinker, object_refs, object_worker::module,
+pub const MODULES: &[fn() -> ModuleDescriptor] = &[session_tally, trail_loop, thinker, aimer, object_refs, object_worker::module,
     bridge_warden::module];
 
 #[cfg(test)]

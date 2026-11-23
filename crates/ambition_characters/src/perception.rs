@@ -625,6 +625,39 @@ impl PerceptionRequirement {
     pub fn needs_target_belief(self) -> bool {
         matches!(self, Self::TargetBelief | Self::TacticalWorld)
     }
+
+    /// The demand that serves both consumers: the richer of the two.
+    pub fn union(self, other: Self) -> Self {
+        let rank = |need: Self| match need {
+            Self::None => 0,
+            Self::TargetBelief => 1,
+            Self::TacticalWorld => 2,
+        };
+        if rank(other) > rank(self) { other } else { self }
+    }
+}
+
+/// What a body's admitted MODULE consumers demand of its perception, and the
+/// projection the perception owner prepared for them this tick (OBS3).
+///
+/// The combat extension resolves `demand` from the module bindings admitted
+/// for the body's controller (a sighted think binding asks for
+/// `TargetBelief`) and removes the component when no consumer is left, which
+/// restores the zero-perception road. The native decision maintains memory
+/// for the UNION of its own brain's need and this one, so a module's demand
+/// owns maintenance even over a native `None` fallback. A module's request
+/// cannot grant itself broader knowledge: it receives what this body sees.
+///
+/// Derived each tick before it is read, so it is not rollback state.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct ModuleObservation {
+    /// The module consumers' demand.
+    pub demand: PerceptionRequirement,
+    /// The believed target the native decision admitted this tick: `None`
+    /// before one has been prepared (unavailable), `Some(None)` when the body
+    /// believes in no target (no target evidence, not an empty room), and
+    /// `Some(Some(pos))` otherwise.
+    pub believed: Option<Option<ae::Vec2>>,
 }
 
 /// Everything a body perceives this tick — the headless, controller-neutral

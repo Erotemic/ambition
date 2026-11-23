@@ -339,6 +339,9 @@ pub fn tick_actor_brains(
                 // fresh `WorldView` so its brain can pursue a foe that has left the
                 // viewport. `Brain` requires it, so `None` is a body with no brain.
                 Option<&mut ambition_characters::perception::PerceptionMemory>,
+                // OBS3: what an admitted module consumer demands of this body's
+                // perception, and the projection prepared for it below.
+                Option<&mut ambition_characters::perception::ModuleObservation>,
                 // A seated match fighter keeps omniscient senses, and so does a
                 // body summoned into a fight; see `perception::perception_of`.
                 (
@@ -449,7 +452,7 @@ pub fn tick_actor_brains(
     let observation_cut = perceived.cut();
     let preceding_cut = observation_cut.checked_sub(1);
     let mut crew_calls = Vec::new();
-    for (entity, .., (body, _, faction, _, memory, (seated, summoned), ..)) in actors.iter() {
+    for (entity, .., (body, _, faction, _, memory, _, (seated, summoned), ..)) in actors.iter() {
         let (Some(body), Some(memory)) = (body, memory) else {
             continue;
         };
@@ -496,6 +499,7 @@ pub fn tick_actor_brains(
             faction,
             aggression,
             mut perception_memory,
+            mut module_observation,
             (seated, summoned),
             moveset,
             playback,
@@ -757,7 +761,15 @@ pub fn tick_actor_brains(
                         }
                     }
                     // Tactical queries use the same collision world as movement.
-                    let perception_need = brain_ref.perception_requirement();
+                    // OBS3: the native brain's need and its module consumers'
+                    // demand, resolved once, so the module's demand owns
+                    // maintenance even over a native brain that perceives nothing.
+                    let perception_need = brain_ref.perception_requirement().union(
+                        module_observation.as_deref().map_or(
+                            ambition_characters::perception::PerceptionRequirement::None,
+                            |observation| observation.demand,
+                        ),
+                    );
                     super::super::perception::enforce_empty_belief_for_none(
                         perception_need,
                         perception_memory.as_deref_mut(),
@@ -849,6 +861,16 @@ pub fn tick_actor_brains(
                                 snapshot.target_alive = false;
                             }
                             None => {}
+                        }
+                        // OBS3: the module consumer reads the target this
+                        // decision admitted. An `Omniscient` body's knowledge is
+                        // its global target, which the snapshot already holds.
+                        if let Some(observation) = module_observation.as_deref_mut() {
+                            let projection =
+                                Some(snapshot.target_alive.then_some(snapshot.target_pos));
+                            if observation.believed != projection {
+                                observation.believed = projection;
+                            }
                         }
                         world_view
                     } else {

@@ -25,6 +25,39 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   at the start of the phase, and its target's position now.
 pub struct ActorThinkPort;
 
+/// The trigger port marker for a SIGHTED custom brain (OBS3).
+///
+/// Port card:
+///
+/// * **Operation** — as [`ActorThinkPort`], for a custom brain key whose
+///   binding declares the body's own sight as its knowledge scope.
+/// * **Knowledge** — the target is the one the body's perception admitted
+///   this tick: what it sees, or the pursuit estimate it keeps for a foe it
+///   lost sight of. `None` is no target evidence, not an empty room. There is
+///   no fallback to the target's live position. Binding this port is what
+///   makes the body maintain that belief, even under a native brain that
+///   perceives nothing.
+/// * **Owner** — `ambition_combat::extension::think`; the projection is the
+///   actor decision's (`ModuleObservation`).
+/// * **Time** — `actor_think`, after the decision that prepared the belief.
+///   A body whose belief has not been prepared yet is not invoked.
+/// * **Read model** — [`ActorThink`].
+pub struct ActorSightedThinkPort;
+
+impl Port for ActorSightedThinkPort {
+    const KEY: PortKey = PortKey::new("ambition.actor.think_sighted", 1);
+    const ROLE: PortRole = PortRole::Trigger;
+    type Value = ActorThink;
+
+    fn encode(v: &ActorThink, out: &mut Vec<u8>) {
+        ambition_extension_sdk::structure::put(v, out)
+    }
+
+    fn decode(r: &mut WireReader<'_>) -> Result<ActorThink, WireError> {
+        ambition_extension_sdk::structure::read(r)
+    }
+}
+
 /// What a custom brain reads about its body.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActorThink {
@@ -80,6 +113,7 @@ ambition_extension_sdk::port_record! {
 }
 
 ambition_extension_sdk::script_port!(ActorThinkPort);
+ambition_extension_sdk::script_port!(ActorSightedThinkPort);
 
 /// The request port marker for a body's fire intent.
 ///

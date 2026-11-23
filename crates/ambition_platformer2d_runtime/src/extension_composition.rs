@@ -83,6 +83,14 @@ pub fn install_ports(app: &mut App) {
     ambition_portal2d::extension::install_for_boss_conduct(app);
     // actor_think
     ambition_combat::extension::install_for_actor_think(app);
+    // OBS3: a module's observation demand is resolved before the actor
+    // decision maintains and projects the body's belief for it.
+    let sim = app.sim_schedule();
+    app.add_systems(
+        sim,
+        ambition_combat::extension::think::resolve_module_observation_demand
+            .in_set(ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet::Prepare),
+    );
     ambition_abilities::extension::install_for_actor_think(app);
     // A room's group decides in one invocation (P4: the coconut swallows).
     ambition_abilities::group::install(app);
@@ -363,6 +371,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_combat_port::PullBodiesPort>("pull_bodies")
         .add::<ambition_combat_port::LaunchToucherPort>("launch_toucher")
         .add::<ambition_combat_port::ActorThinkPort>("actor_think")
+        .add::<ambition_combat_port::ActorSightedThinkPort>("actor_think_sighted")
         .add::<ambition_combat_port::ActorFirePort>("fire")
         .add::<ambition_combat_port::SetVelocityPort>("velocity")
         .add::<ambition_combat_port::ObserverSlowPort>("observer_slow")

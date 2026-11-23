@@ -177,7 +177,7 @@ mod capability_isolation_tests {
             crate::PortalBackside { channel },
             crate::PortalTransitCooldown { pair: channel, remaining: 1.0 },
             crate::PortalEmission { exit_normal: Vec2::X, timer: 1.0 },
-            crate::PortalInputWarp { n_in: Vec2::X, n_out: -Vec2::X, anchor: Vec2::X },
+            crate::PortalInputWarp { map: bevy::math::Mat2::IDENTITY, anchor: Vec2::X },
         ));
         let mut rules = DeclaredRules::<UsedCapabilities>::default();
         rules.declare(RulesScope::EveryRoom, UsedCapabilities::ALL.without(Capability::Portals));

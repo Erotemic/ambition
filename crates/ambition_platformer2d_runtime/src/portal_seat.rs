@@ -11,7 +11,6 @@ use bevy::prelude::*;
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak;
-use ambition_portal2d::pieces::portal_map_vec;
 use ambition_portal2d::{
     BodyTeleported, PortalBodyTransited, PortalEmission, PortalInputWarp, PortalTuning,
 };
@@ -81,8 +80,7 @@ pub fn guard_the_driven_body_after_portal_transit(
         // use as ordinary movement.
         if ev.input_warp && held.length() > tuning.input_held_epsilon {
             commands.entity(ev.body).insert(PortalInputWarp {
-                n_in: ev.transfer.enter.frame.normal,
-                n_out: ev.transfer.exit.frame.normal,
+                map: ev.transfer.map.orthogonal(),
                 anchor: held,
             });
         }
@@ -180,9 +178,8 @@ pub fn warp_portal_input(
         }
         let basis = resolved.copied().unwrap_or_default().basis();
         let free = flight.is_some_and(|flight| flight.fly_enabled);
-        let convention = tuning.convention.map_convention();
         let warped = |world: Vec2| match warp {
-            Some(held) => portal_map_vec(world, held.n_in, held.n_out, convention),
+            Some(held) => held.map * world,
             None => world,
         };
         let emerging = |world: Vec2| match inward_normal {

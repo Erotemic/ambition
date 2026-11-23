@@ -351,10 +351,12 @@ inward/tangent pair above for a flyer, and a walker's local Y); the
 raw-axis fixtures now read the body's locomotion, and the plain-gravity
 strip also checks that the attack keeps its side.
 
-Still open: the warp reads the current global convention against the
-transit's normals rather than a map retained from the accepted transit, and
-a portal transit that also turns gravity could map a held stick through
-both `HeldControlFrame` and the warp. The proof through a real transit with
+The warp retains the accepted transit's map: `PortalInputWarp.map` is the
+orthogonal part of `PortalTransfer::map`, without its scale, in place of the
+two normals the convention was read against again each tick.
+
+Still open: a portal transit that also turns gravity could map a held stick
+through both `HeldControlFrame` and the warp. The proof through a real transit with
 a held stick and a gravity turn is not yet written.
 
 ### Tentative curved-world held direction

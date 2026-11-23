@@ -405,7 +405,8 @@ world-post admission.
     (done 2026-11-23: a tick's attack press is chosen whole from one sample).
     IN2's first slice landed 2026-11-23: the portal guards act on the driven
     body's resolved control, in its own frame, and no longer re-aim attacks;
-    a retained transit map and the gravity-turn composition stay open.
+    the warp keeps the accepted transit's orthogonal map. The gravity-turn
+    composition stays open.
     [IN4/IN5](engine/participant-action-system.md#input-continuity-across-routing-and-control-changes)
     refine the same owner at `00bf92c22142`. Observe valid physical samples
     before context filtering and treat rebind reset samples as invalid;

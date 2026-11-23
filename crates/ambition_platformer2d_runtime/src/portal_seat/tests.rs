@@ -181,8 +181,7 @@ fn portal_input_warp_transforms_held_input_then_clears() {
             PrimaryPlayer,
             DrivingParticipant(PlayerSlot::PRIMARY),
             PortalInputWarp {
-                n_in: Vec2::new(-1.0, 0.0),
-                n_out: Vec2::new(-1.0, 0.0),
+                map: Mat2::from_diagonal(Vec2::new(-1.0, 1.0)),
                 anchor: Vec2::new(1.0, 0.0),
             },
         ))
@@ -210,8 +209,7 @@ fn portal_input_warp_transforms_held_input_then_clears() {
 
     // Re-arm, then press a clearly different direction (left) → warp drops.
     app.world_mut().entity_mut(player).insert(PortalInputWarp {
-        n_in: Vec2::new(-1.0, 0.0),
-        n_out: Vec2::new(-1.0, 0.0),
+        map: Mat2::from_diagonal(Vec2::new(-1.0, 1.0)),
         anchor: Vec2::new(1.0, 0.0),
     });
     hold_x(&mut app, player, -1.0);

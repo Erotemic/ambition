@@ -608,10 +608,11 @@ pub fn reconcile_transited_bodies(
 /// `warp_portal_input`.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalInputWarp {
-    /// Entry and exit portal normals. Held movement is mapped through the
-    /// tangent-preserving portal map.
-    pub n_in: Vec2,
-    pub n_out: Vec2,
+    /// The orthogonal part of the ACCEPTED transit's map
+    /// (`PortalTransfer::map`), retained so the hold continues under the map
+    /// it crossed by rather than the convention read again later (IN2). A
+    /// stick's magnitude is dimensionless, so the portal's scale is not kept.
+    pub map: bevy::math::Mat2,
     /// Raw (un-warped) movement direction held when the warp was set; the warp
     /// drops once the live raw input releases or clearly diverges from this.
     pub anchor: Vec2,

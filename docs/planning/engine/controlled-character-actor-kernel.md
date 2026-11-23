@@ -173,6 +173,16 @@ rebind as an unpossessed NPC; possession itself changes no intrinsic form.
 Explicit role/home/match terms remain in force, and a skin changes no
 mechanical configuration.
 
+Where a form change withdraws an action source or input binding, settle
+that affected continuation at the admitted change. Use
+[ACT1](body-action-execution.md#a-committed-emission-retains-its-admission-basis)
+for an accepted emission's source and spent admission, and
+[IN5](participant-action-system.md#same-body-binding-replacement-is-a-local-handoff)
+for pending input work that loses its release route. Retaining the playing
+move alone does not retain those bindings. An unchanged effective binding
+preserves its native state; no full actor reset or fresh construction is
+part of this operation.
+
 Retraction must read what the old application owned. Keep enough of that
 fact in the current applied/grant record; do not recover it by looking up
 the old ID in a new registry. The existing death-trait refresh does that

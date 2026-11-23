@@ -389,11 +389,16 @@ The required laws are:
   remain live facts at their existing cuts.
 - Preserve accepted action, charge, buffered-shot and refire state under
   the execution owner's retain/cancel policy. Rebuilding a static table
-  does not itself reset or transfer that work. The selected owner gates
-  new control input; it must not implicitly stop advancement of existing
-  native execution. The current charge consumer can advance clocks and
-  buffered shots under neutral input. Disabling fresh charge attempts
-  does not by itself cancel those shots or erase a held charge.
+  does not itself reset or transfer that work. An accepted ranged emission
+  follows [ACT1's retained admission basis](body-action-execution.md#a-committed-emission-retains-its-admission-basis).
+  Withdrawing an input binding settles its pending input-dependent work
+  through [IN5's local handoff](participant-action-system.md#same-body-binding-replacement-is-a-local-handoff)
+  before routing solely to the replacement. Keeping charge state without
+  its release route is not retention. The selected owner gates new input;
+  it must not implicitly stop advancement of other native execution. The
+  current charge consumer can advance clocks and buffered shots under
+  neutral input. Use those native continuation rules; do not reset the
+  controller component or every action because the repertoire changed.
 
 Do not add an independently mutable executor flag beside two authorities
 that can drift. Extend the current folded product and its publication.

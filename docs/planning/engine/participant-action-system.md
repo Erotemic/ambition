@@ -566,6 +566,67 @@ menu state from replayed possession or charge execution. Reuse the existing
 relation; no global device epoch, new action bus or universal cancellation
 registry is required.
 
+#### Same-body binding replacement is a local handoff
+
+**Planning refinement, runtime source `6d100f9d9e0d`, 2026-11-22.** A form
+or loadout can change the semantic receiver while the participant, driven
+body and eligible input supply stay the same. The per-seat interruption
+fact above cannot by itself express this body-local transition.
+
+The shipped Fireball and Eye Laser rows share the `projectile` exclusive
+slot in the [item catalog](../../../game/ambition_content/assets/data/items.ron).
+An admitted [equip](../../../crates/ambition_platformer2d_items/src/narrative.rs)
+can replace that slot while a native Fireball charge is pending.
+[`gate_body_control`](../../../crates/ambition_platformer2d_actor_monolith/src/control/acceptance.rs)
+then derives the new scheme, and
+[`resolve_control_slots`](../../../crates/ambition_characters/src/action_scheme.rs)
+routes held/release to Eye Laser while clearing the raw projectile fields.
+The native charge capability/state remain installed. Their consumer sees
+neutral input, which does not take `PlayerProjectileState.charging`.
+Release under Laser and return to Fireball with neutral input can therefore
+leave the original charge pending. This trace does not rely on opening the
+equipment menu; its UI capture may independently cancel under IN5.
+
+At the native old/new composition cut, settle the input-dependent work whose
+binding is withdrawn before routing solely through the replacement. For the
+pending native Fireball charge, extend IN5's proposed first policy: cancel
+without firing. An unrelated equipment change with the same effective
+Projectile binding preserves the charge. Compare the selected source,
+executor and continuation meaning, not a whole-character revision or only
+the new scheme after the old answer has been discarded.
+
+If a product deliberately retains that charge, it must retain a compatible
+route that can receive its real release and selected aim. Keeping the state
+while all controls go only to the new binding cannot implement retention.
+Settle through the existing native owner at the transition, or retain the
+bounded prior binding it needs. Do not synthesize a physical release, flush
+unrelated controls, or withdraw the participant's whole input supply.
+Removing a technique from the current route is not itself an owner teardown.
+
+Incoming activation keeps its own policy. Eye Laser's
+[`burn_tick_of`](../../../game/ambition_content_modules/src/eye_laser.rs)
+deliberately starts from `pressed || held`; preserve that level-start rule.
+A press-started replacement gets no fabricated press. No universal
+release-before-reuse rule follows from this handoff.
+
+Keep committed moves, buffered-shot admission, refire and banked progress
+under the [action owner's continuation rules](body-action-execution.md#a-committed-emission-retains-its-admission-basis).
+Canceling the pending input charge is not removal/reset of its whole
+controller component or resource pool. A released projectile has its own
+lifetime. The composition change already enters through simulation, so
+record/restore the affected native state under its body/room owner; this
+handoff needs no additional peer-wire epoch or host-only cancellation queue.
+
+**Witness:** begin charge, replace Projectile with Eye Laser through an
+admitted same-body equip, release under Laser, and restore Fireball with
+neutral input. The old pending charge ends at replacement without a shot
+or stale aim state; a later real press works. Keep an unrelated equipment
+change as the charge-preserving control and Eye Laser held activation as
+the incoming-policy control. Extend the native loadout/charge crossing,
+including restoration across its admitted cut, rather than add a pure
+edge recognizer test. This local transition can land without waiting for
+IN1's changed per-seat wire representation.
+
 #### First proof and deletion
 
 Through native input and possession, keep Down+Interact held across focus

@@ -316,16 +316,15 @@ one meter into all resources, and do not replace the declared resources with a s
 Fill, decay, stock and efficiency policy stays with the capability or ruleset
 that owns the rule.
 
-**Forms** wait for a customer. When one arrives, one authority resolves the
-whole bundle at once:
-
-```text
-ResolvedForm -> moveset -> body tuning -> hurtbox/body shape
-             -> movement traits -> available abilities -> presentation identity
-```
-
-Independent systems that each change one part, with no single answer to "what
-form is this fighter in?", is the wrong implementation.
+**Forms** already have a native `CharacterForm` authority and the Hall's
+sheep-to-cloud customer. Follow
+[FORM-REBIND](controlled-character-actor-kernel.md#form-rebind--admit-and-apply-the-complete-intrinsic-form):
+admit the selected form before publication, then apply its resolved
+intrinsic configuration through the existing body, ability and movement
+owners. Preserve explicit role terms and live state under their owners.
+Use ACT1/IN5 for affected action and input continuations at replacement.
+A skin or possession changes no intrinsic form. Do not add a second
+`ResolvedForm` authority or rebuild a live body through spawn initialization.
 
 **Summons** have three levels. Summon plus mount is proven (the shark). A
 Phantom-like attacker needs a `SummonedBy` relation, lifetime, damageability,

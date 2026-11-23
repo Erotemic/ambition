@@ -174,6 +174,89 @@ between observation and acceptance; require a valid new result and no spend
 from the old offer. Reuse the existing fallback/admission tests and add only
 the missing projection crossing.
 
+### A committed emission retains its admission basis
+
+**Planning refinement, runtime source `6d100f9d9e0d`, 2026-11-22.**
+[`MovePlayback`](../../../crates/ambition_combat/src/moveset/mod.rs)
+already retains an `Arc<MoveSpec>` for the whole use; `MoveCharge` also
+retains the selected charge policy. Preserve those native owners. They do
+not yet capture every dependency of a later `Ranged` event.
+
+At move acceptance, the trigger/cancel roads check the current
+`ActionSet.ranged` readiness and live-shot limit, and `start_move` arms its
+refire floor. Later, `dispatch_move_events` resolves the then-current ranged
+source or the move's brandished weapon. It sends
+[`RangedCommitment::CommittedMove`](../../../crates/ambition_characters/src/brain/action_set/mod.rs)
+with a move occurrence, but no selected weapon binding. The
+[projectile consumer](../../../crates/ambition_platformer2d_actor_monolith/src/body/brain_effects.rs)
+therefore skips the new source's readiness checks. A form/equipment change
+can retain the move while replacing that source. The old occurrence answers
+whose shot this is; it does not prove that the selected weapon was admitted.
+
+A bounded witness uses A with no live-shot limit, B with a limit of one,
+and one existing body-owned weapon shot. Accept a ranged move under A,
+replace the effective source with B during windup, then reach its fire
+event. Current dispatch can emit B under A's admission. Replacing it with
+no ranged source instead skips the promised event. This is a static source
+counterexample, not a reproduced play session.
+
+For the first affected ranged-move slice, retain the selected emission
+source and its admission basis with the accepted use. Resolve a move's
+prospective `equips` brandish when establishing that basis: capturing only
+the body's pre-start default weapon would break the gun-sword behavior the
+dispatcher deliberately supports. Keep the prepared mechanical source or
+bounded native binding available for the use and its rollback lifetime.
+Do not retain an entire actor snapshot or clone its complete repertoire.
+
+Keep the binding times explicit:
+
+| Fact | Binding rule |
+| --- | --- |
+| Move program, charge policy and occurrence | Retain from accepted start, as the native playback already does |
+| Emission source and readiness already spent | Bind to the accepted use, including its authored brandish; an unrelated replacement cannot inherit that admission |
+| Aim and physical muzzle placement | Keep the existing live/captured-aim precedence and current body/attachment geometry |
+| Declared per-fire equipment modifiers and move `shot_damage` | Preserve their existing trigger-resolution order; changing admission binding does not freeze all modifiers |
+| Later projectile birth and required live custody | Keep native geometry/admission and lifetime checks; a commitment is no immunity to interruption or missing physical dependencies |
+
+At a form, equipment or hand transition, the action owner must keep the
+admitted binding, explicitly admit a replacement basis, or interrupt that
+use through its native teardown before another dependent event executes.
+The first slice can retain the admitted source where its live dependencies
+remain valid and use the existing interruption policy otherwise. A product
+that wants a continuing action to adopt the new source must state and admit
+that transition. Equal move IDs or payload values are not that decision.
+Scope the commitment to the gates actually discharged; do not turn it into
+permission to bypass all later checks.
+
+Settled move costs and recovery/refire spends stay with their accepted
+operation. Rebuilding a component neither refunds them nor pays them again.
+Any payment for an explicitly new commitment goes through its own native
+acceptance. A future resource-plan change cannot reinterpret an old paid
+role through its new binding. A retained operation that still needs a future
+payment must have a compatible live-bank binding, or take its declared
+rebind/refusal/interruption path; keeping the old immutable plan alone does
+not keep a removed live resource available.
+
+Do not group all unfinished work as a paid action. Native
+[`BufferedShot`](../../../crates/ambition_projectiles/src/state.rs) is an
+unspent retry: `Firing::fire` rechecks cooldown and resource admission when
+it fires. `StoredMoveCharge` preserves elapsed hold seconds and deliberately
+clamps them to the selected resume policy. Keep those native continuation
+rules and independently released projectile lifetimes. A pending input
+charge has a separate
+[binding-withdrawal rule](participant-action-system.md#same-body-binding-replacement-is-a-local-handoff).
+
+**Delivery and witness:** bind one accepted ranged emission at the current
+start/dispatch boundary and remove its implicit latest-weapon substitution.
+Exercise the A-to-B windup change and a source removal through the native
+repertoire/form path. Observe the old admitted source, an explicitly admitted
+replacement, or an owned interruption; never B under A's admission or an
+unexplained missing shot. Include one authored brandish and the existing
+live-aim/modifier behavior as controls. Restore across the composition cut
+with the same operation binding. This is a small ACT1 continuation correction;
+it can land before the broader linking program and needs no new transaction
+framework or roster-wide test campaign.
+
 ### Remove
 
 Remove independent start predicates after their consumers use the common
@@ -480,7 +563,7 @@ does not make a Smash-only floor polish task a new top priority.
 
 | Packet | Can begin after | First customer | Cost boundary |
 | --- | --- | --- | --- |
-| ACT1 | Narrow actual-reaction follow-on to CR1; no CR2 dependency | Ambition hard reaction/landing and Smash buffered moves | Fixed-size permission projection at current acceptance cuts |
+| ACT1 | Reaction interruption: narrow CR1 follow-on. Emission binding: existing admission/dispatch. No CR2 dependency | Ambition hard reaction/landing, Smash buffered moves, and equipment change during windup | Fixed-size permission projection at current acceptance cuts; bounded source binding with the affected use |
 | ACT2 | Existing time/room owners; can proceed beside ACT1 | Smash local hitlag, Ambition reaction/time effects | One step budget; identity path for an unheld body |
 | ACT3 | ACT1/ACT2 | One Smash tech and getup roll | One active episode; no per-frame allocation or roster scan |
 

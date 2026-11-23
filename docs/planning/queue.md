@@ -355,6 +355,10 @@ world-post admission.
    contributions distinct from cadence and flow progression. The same
    admission owner supplies a non-spending resolved-action offer to the
    brain; acceptance rechecks it and publishes actual move identity.
+   An accepted ranged emission retains its
+   [admission basis](engine/body-action-execution.md#a-committed-emission-retains-its-admission-basis)
+   across a form/equipment change; a replacement source needs its own
+   admission. Include authored brandish selection and preserve live aim.
    Remove the primary-body freeze shortcut that
    bypasses room policy. First customers are ordinary Ambition reaction and
    landing, plus Smash local hitlag. ACT3 floor choreography remains a later
@@ -374,9 +378,13 @@ world-post admission.
     input cut, including capture/resume between ticks. Withdraw a pending
     fireball charge without firing at supply/driver loss, before accepting
     a later fresh edge. Keep committed body moves and ACT2 action holds
-    distinct. IN4 can ship independently; IN5 coordinates with IN1 and the
-    wire/stream owners. Do not select a new provider transport merely to
-    complete P2's unused publisher.
+    distinct. [Same-body binding replacement](engine/participant-action-system.md#same-body-binding-replacement-is-a-local-handoff)
+    also settles a pending charge whose release route is withdrawn. Keep
+    unchanged bindings and the incoming action's activation policy. This
+    local simulation change needs no new peer-wire representation. IN4
+    can ship independently; IN5's supply interruption coordinates with
+    IN1 and the wire/stream owners. Do not select a new provider transport
+    merely to complete P2's unused publisher.
 
 11. [Observation OBS1](engine/bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary)
     makes the tactical direct-observation set govern native memory refresh
@@ -1760,6 +1768,8 @@ changed flight policy under current permissions at the native cut,
 including when effective bits stay unchanged. Keep live movement state.
 Remove the duplicate Mary-O cosmic AirJump lend only after the common
 rebind covers that composition.
+Apply the existing ACT1/IN5 continuation rules when this admitted change
+also replaces an action source or input binding; preserve unaffected work.
 
 **Acceptance:** a refused N/N+1 form request preserves native facts and
 beats at the refusal cut. A fresh cloud and an ordinary sheep transformed

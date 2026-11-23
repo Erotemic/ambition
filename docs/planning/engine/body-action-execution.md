@@ -165,7 +165,7 @@ replacement, `resolve_aerial_landings` then charges the lag, and from the next
 tick the lock refuses. What remains is an aerial whose own cancel window
 permits a move on its landing tick; that start still precedes the landing.
 
-**A ranged use fires the source it was admitted with (2026-11-23).** At
+**A ranged use retains its selected source (2026-11-23).** At
 acceptance `start_move` binds `MovePlayback::ranged_source`: the weapon the
 move brandishes for itself (`MoveSpec::equips`, resolved through the held-item
 table at that moment), else the body's own ranged action. The emitter stamps it
@@ -176,7 +176,11 @@ the old admission, and a move admitted with no source fires nothing. Live aim,
 worn modifiers, `shot_damage` and the charge ladder still resolve at the fire
 beat as before. The source is in the playback checksum (schema 534). Guard:
 `a_ranged_move_fires_the_source_it_was_admitted_with` (A admitted, B swapped
-in during windup, A's numbers leave). Not yet done: interrupting the use when
+in during windup, A's numbers leave). This proves source retention, not that
+the prospective brandish supplied admission and spend. The
+[implementation follow-through](#act1-follow-through--resolve-the-request-before-spending)
+closes that distinction and the final-event payload. Also not yet done:
+interrupting the use when
 its admitted source's live dependency (a dropped brandish, a removed form) is
 gone; today the bound shot still fires.
 
@@ -189,16 +193,18 @@ through `trigger_moveset_moves`; outside test fixtures, no other production
 road constructs a `MovePlayback`. Guard:
 `a_locked_boss_starts_its_intended_move_only_when_the_lock_ends`.
 
-**The attack kit is offered by the trigger's admission (2026-11-23).**
+**The attack kit shares affordability and fallback selection (2026-11-23).**
 `moveset::MoveAdmission` holds what a start is decided on (the body's locks,
 recovery charges, held fact, refire floor, live-shot room and meters).
 `affords` is the four affordances both trigger roads ask, and `offer` returns,
-borrowed and without spending, the move a press would start: the pressed move,
+borrowed and without spending, the affordable selection: the pressed move,
 its authored `when_refused` variant, or nothing. `MoveAdmissionReads` (a
 `SystemParam` beside it) builds one for a body from the reads its movement
-clusters do not carry. The actor adapter's `attack_kit_of` takes it, so each
-candidate names the move that would actually start, with that move's frame
-data and recovery route. A press the body would refuse is offered as the new
+clusters do not carry. The actor adapter's `attack_kit_of` takes it, so the
+candidate names the selected affordable variant, with its frame data and
+recovery route. Contextual cancel eligibility still needs the requested
+identity, as the follow-through below establishes. A refused affordability
+offer uses the new
 `ActionLegality::Refused`, which the fighter's options already exclude by
 reading only `Now`. To stay under Bevy's parameter limit, `tick_actor_brains`
 folded the mount carrier read into its read-only `bodies` query. Guards:
@@ -359,6 +365,61 @@ live-aim/modifier behavior as controls. Restore across the composition cut
 with the same operation binding. This is a small ACT1 continuation correction;
 it can land before the broader linking program and needs no new transaction
 framework or roster-wide test campaign.
+
+### ACT1 follow-through — resolve the request before spending
+
+**Open residuals from static review of `1bef25200e00`, 2026-11-23.** The
+[implementation review](implementation-review-2026-11-23.md#combat--resolve-the-attempt-and-retain-the-emitted-use)
+gives the production traces. Keep the landed source retention, move identity
+and interruption work. Complete the native boundaries below.
+
+**Selection and admission.** `trigger_moveset_moves` and
+`MoveAdmissionReads::admission` compute live-shot room from `ActionSet.ranged`
+before selecting a candidate. `start_move` then resolves its `equips` weapon,
+but spends the refire interval passed from the old body source. The shipped
+Admiral's pistol uses 1.1 seconds and its drawn gun-sword explicitly uses
+0.0 seconds; retaining the gun-sword does not make the pistol's spend correct.
+
+The offer has a second ordering gap. Production checks a cancel window
+against requested move X before choosing an affordable `when_refused` Y.
+`attack_kit_of` chooses Y first and checks that window against Y. A window
+that permits only X can execute Y while the forecast says it is blocked.
+
+Resolve one native attempt with distinct requested binding/cancel names,
+selected move, and selected ranged source. Preserve production ordering:
+contextual permission for the request, then candidate-specific affordability
+and the bounded fallback. Resolve each candidate's prospective brandish
+before its weapon gates. Use the same source for live-shot admission, refire
+spend, forecast frame data and accepted playback. Keep the body's existing
+refire state and policy; no per-weapon cooldown map is implied.
+
+The offer borrows prepared values and spends nothing. Actual acceptance
+resolves against its current mutable facts before teardown or payment. Do
+not treat a previous offer as permission. Route the touched grab projection
+through this owner too; its separate `capture_candidate` path currently
+bypasses `MoveAdmission`. Remove the projection's independent cancel/fallback
+ordering and candidate-independent weapon Boolean. Do not fix only the
+fallback-ID call while leaving another copy of the selection rule.
+
+**Emission after completion.** A `Ranged` event at `duration_s` is valid.
+`advance_move_playback` emits it, then removes the finished playback before
+the chained dispatcher runs. The event keeps its source and occurrence,
+but dispatch still rereads `shot_damage`, charge fraction and captured start
+aim from the current playback. An occurrence check cannot recover a removed
+value. Stamp those bounded use facts in the ranged event while its emitter
+has them. Keep the order: source plus move damage override, current worn
+modifiers, then charge scaling. Keep live fire input ahead of captured aim,
+and current muzzle/body geometry. Remove the three late playback lookups;
+do not extend playback lifetime or retain a whole actor to serve an event.
+
+**Delivery:** finish shared selection/admission first; the emitting-use
+payload can land independently. Extend existing native crossings with a
+prospective brandish whose cadence/limit differs from the body source, an
+X-only cancel to affordable fallback Y, and a valid endpoint shot carrying
+damage, charge and captured aim. The reverse Y-only window must still refuse
+the X request. Keep the existing windup-swap and live-modifier controls.
+These are distinct facts at native phases, not one permanent universal action
+object. No new executor, actor compiler or broad test campaign is required.
 
 ### Remove
 

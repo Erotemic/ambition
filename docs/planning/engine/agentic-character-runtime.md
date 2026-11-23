@@ -1,9 +1,9 @@
 # Agentic character runtime — Engine 1.0 program
 
-**State:** OPEN / LATER for general agentic characters. OBS3 below is a
-bounded current controller-authoring correction, reviewed at runtime
-`00bf92c22142` on 2026-11-22. It does not select an LLM provider or a general
-goal framework.
+**State:** OPEN / LATER for general agentic characters. OBS3's first
+controller-authoring slice landed. Static review of `1bef25200e00` on
+2026-11-23 leaves current-product eligibility open below. This does not
+select an LLM provider or a general goal framework.
 
 ## Current state
 
@@ -13,7 +13,7 @@ goal framework.
 | observations and memory | exist: `WorldMemory`, `PerceptionMemory`, `AgentObservation`, `CombatObservation` |
 | goals | Radiant authors scheduled work; broader persistent character goals remain unresolved |
 | navigation and reachability over world geometry | in one room, for one body: exists since 2026-10-09 (a surface graph checked in the kernel, and a brain that follows it). Between rooms: absent. Owner: [`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md) |
-| planner or policy | native catalogs plus a live module-backed custom-brain route; shared observation demand is missing (below) |
+| planner or policy | native catalogs plus authoritative and sighted module-backed custom-brain routes; shared demand exists, current-product eligibility remains open (OBS3 below) |
 | typed engine action intent | exists and is live: `ActionRequest` in `ActorActionMessage`, consumed by traversal abilities, `brain_effects.rs` and `ambition_held_items` |
 
 Two different boundaries remain:
@@ -27,9 +27,9 @@ Two different boundaries remain:
    types, but `CharacterBrain::Custom` can already select a module through
    [`queue_actor_thinks`](../../../crates/ambition_combat/src/extension/think.rs).
    Mary-O's Laden Swallow and Void Lizard use it. The trigger runs after native
-   control publication and before the shared control gate. The missing
-   abstraction is an effective observation demand and knowledge policy,
-   not the absence of all module-backed policy.
+   control publication and before the shared control gate. OBS3 now resolves
+   shared demand and offers a sighted route. Current decision eligibility,
+   richer representation needs and delayed cuts remain separate follow-ups.
 
 The 2026-10-09 `Roam` receipt—ten edits in six files of two crates plus its
 own file—describes adding a native catalog policy. Preserve that historical
@@ -59,13 +59,15 @@ brains should be interchangeable policy providers above the same action seam.
 
 ## OBS3 — resolve observation demand across controller providers
 
-### Current source and the missing choice
+### Current source and the knowledge boundary
 
 Native [decision wiring](../../../crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs)
-asks only `brain_ref.perception_requirement()`.
-`enforce_empty_belief_for_none` clears memory for a native brain with no
-perception demand. A sighted belief overrides that call's local
-`BrainSnapshot`; it does not change global `ActorTarget`.
+resolves the union of native and module demand before acquisition.
+`enforce_empty_belief_for_none` clears memory only when that effective
+demand is empty. A sighted belief overrides the call's local `BrainSnapshot`;
+it does not change global `ActorTarget`. The sighted module receives the
+admitted target projection. Its availability must also belong to the current
+decision, as the follow-through below explains.
 
 Later, `queue_actor_thinks` resolves `ActorTarget.entity` to current
 `BodyKinematics` and publishes the position in
@@ -78,11 +80,10 @@ belief while firing from current world position. This is a real
 compositional difference, not proof that the current long-range firing
 policy is unwanted.
 
-A limited-knowledge module cannot repair this by merely reading
-`PerceptionMemory`: its native fallback could be `StandStill`/`None`,
-and the memory would not be maintained. Conversely, making every custom
-brain tactical would force cheap modules to pay for rich views and would
-silently change world-rule behavior.
+A sighted module's demand now maintains `PerceptionMemory` even over a
+native `StandStill`/`None` fallback. Keep this union and the distinct
+knowledge contracts. Making every custom brain tactical would force cheap
+modules to pay for rich views and would change world-rule behavior.
 
 ### Bounded implementation
 
@@ -187,9 +188,55 @@ the foe moved far out of view in the same room, the authoritative module
 aims at its new position and the sighted one at its body's estimate. The
 Laden Swallow fixtures stay controls for their authoritative rule.
 
-Still open: a `TacticalWorld` module demand and the decision-timing contract
+Current-product eligibility remains open as described below. Also open: a
+`TacticalWorld` module demand and the decision-timing contract
 (a delayed cut for a module), and the rollback/possession crossings of the
 sighted route beyond the shared decision.
+
+### OBS3 follow-through — publish availability for this decision
+
+**Static review of `1bef25200e00`, 2026-11-23.** Stable module demand and
+the product prepared for the current decision have different lifetimes.
+[`resolve_module_observation_demand`](../../../crates/ambition_combat/src/extension/think.rs)
+keeps `believed` when demand is unchanged. Native decision excludes a
+`Dormant` body and can also skip unavailable senses/world facts. The sighted
+queue nevertheless accepts any retained `Some` as a current projection.
+
+The existing sighted aimer gives a complete source witness: decide while
+awake with a target, then enter dormancy. Dormancy retracts `ActorControl`,
+but no native decision replaces the prior belief. The module invokes from
+that old value, submits `ActorFire`, and lowering restores fire before the
+ordinary control gate. A healthy, ready armed body can emit through the
+normal projectile path. The new autonomous decision is the defect; dormancy
+does not invalidate an already accepted action or independent projectile.
+
+Keep the demand union and its empty fast path. Publish a current decision
+product only for bodies admitted by the native decision owner. Invalidate
+the prior product at each execution before producer eligibility filters,
+including a skipped body, or qualify it by an equivalent existing execution
+boundary. A `SimTick` equality alone is insufficient when that same tick is
+replayed and a derived component survives. Keep retained perception memory
+under its current owner; do not turn this projection into rollback truth.
+
+An old remembered position can be a valid result of a new decision. An old
+projection is not proof that this decision ran. Keep those facts distinct.
+
+Both custom-body think routes must receive native decision eligibility.
+Preserve the authoritative port's live-target knowledge and the sighted
+port's admitted belief. Use the common body decision publication for that
+eligibility, rather than copy its query filters into each trigger or teach
+the generic extension executor about dormancy. No live-target fallback,
+global epoch or general observation registry is needed.
+
+The first slice can use the existing Prepare/Decide/Publish-to-ACTOR_THINK
+boundary and bounded module-consumer state. Unchanged demand need not be
+recompiled, and bodies with no module demand need no rich world view. Remove
+the retained-value-as-current test at the sighted queue. Extend the existing
+aimer crossing with awake-to-dormant-to-awake: the skipped tick publishes no
+decision and no fresh module fire, then waking uses a fresh admitted product.
+Include a skipped producer at the existing restore crossing; do not create
+a new controller matrix. Delayed perception cuts and TacticalWorld demand
+remain separate customers.
 
 ## Requirements
 

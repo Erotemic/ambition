@@ -1,21 +1,17 @@
 # Architectural audit frontier
 
-**State:** audit map and research priorities, 2026-11-22. Latest source:
-`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest static pass follows
-curved ground, visual footing and tentative local-gravity mechanics after
-planning commit `23bf0a94a41d`; the runtime source is unchanged. It finds a
-missing support-to-picture handoff and separates the frame's continuous
-representation from the ordinary walker's cardinal collision assumptions.
-The preceding moving-world pass established GNU's lost shape/phase facts
-and distinct consumers of shared path geometry. Cross-version saved-content
-compatibility is
-deferred to 2027 by the maintainer; it is not the next audit. The preceding
-passes covered authored omission/override, music transitions and static
-operation contracts.
-This head includes the preceding planning overlays and the agents'
-IR1 item-recipe and AC1 construction-receipt
-work. Earlier input/life/history and hosted-prediction findings below came
-from `34b4ab0b7f4f`; they remain separate owner work.
+**State:** audit map and research priorities, 2026-11-23. Latest reviewed
+source: `1bef25200e002f01b6afdbc7033e3f00b1ec0b72`, compared with
+`6d100f9d9e0d557fe4ae3dad61acd5aef71f684e`.
+The [implementation review](implementation-review-2026-11-23.md) checks the
+agents' native action, input, observation and music changes and the exported
+measurement evidence. It retains their progress and gives bounded corrections
+under ACT1, IN2, OBS3 and the existing music owner. New implementation evidence
+is more useful now than another general review of the same planning corpus.
+
+Earlier curve/local-gravity candidates remain tentative. Moving-support,
+path, input-history and hosted-prediction work stays with its existing owner.
+Cross-version saved-content compatibility remains deferred to 2027.
 
 This page answers where another deep audit is likely to add useful guidance.
 It is not an execution queue, a claim that a subsystem has no defects, or a
@@ -45,7 +41,7 @@ ever read that code.
 | Source input, control handoffs and independent observers | [IN1–IN5](participant-action-system.md), [control](control-authority-and-ai-policy.md), [MV1/M3](multiplayer-and-multiview.md) | Native capture/rebind, charge interruption, prediction and independent-view witnesses; provider P2 and shared-view input policy only with their selected consumers |
 | Content preparation, linking and authoring | [Linking](capability-linking-and-prepared-facets.md), [prepared media](asset-authoring-and-prepared-media.md), [asset delivery](asset-library-editor-and-delivery.md) | A demonstrated generation/publication gap or a repeated interpretation still outside its owner |
 | Authored selection through native application | [L1 family selection](capability-linking-and-prepared-facets.md#select-attack-families-before-materializing-moves), [empty geometry](combat-model.md#preserve-an-authored-empty-geometry-sample), [FORM-REBIND](controlled-character-actor-kernel.md#form-rebind--admit-and-apply-the-complete-intrinsic-form) | Implementation evidence for explicit empty, edit locality and intrinsic rebind; future preset syntax needs a real removal/override customer |
-| Musical policy, product semantics, and playback | [MUS1–MUS4](music-programs-and-playback.md), [MA1](asset-authoring-and-prepared-media.md#ma1--export-playback-facts-link-game-music-policy) | Selected work is complete: native ownership, entrance/door and ending captures, scene time policy, and producer inventory. Deeper capabilities need selected products and support, not another general audio audit |
+| Musical policy, product semantics, and playback | [MUS1–MUS4](music-programs-and-playback.md), [MA1](asset-authoring-and-prepared-media.md#ma1--export-playback-facts-link-game-music-policy) | Native ownership, route/ending captures, scene policy and producer inventory landed. The [same-product continuation residual](music-programs-and-playback.md#a-continuation-use-is-distinct-from-its-scheduling-deadline) uses that owner; deeper timing capabilities still need selected products |
 | Static operation contracts and source discovery | [SC1](capability-and-runtime-composition.md#sc1--select-rule-subjects-inside-the-work-gate), [strike origin](combat-reception-and-injury.md#carry-attack-origin-through-strike-creation-and-contact), [named animation binding](runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows), [A2 coverage](authoring-and-tools.md#static-source-coverage) | Missing relations at actual operation boundaries; preserve native fast paths instead of adding a descriptive framework |
 | Compiler, dependency and product boundaries | [Compiler/build products](compiler-boundaries-and-build-products.md), [runtime composition](capability-and-runtime-composition.md) | Fresh compile/link/size measurements after the planned cuts |
 | Narrative roles, interaction and native completion | [Story](story-sequences.md), [interaction](interaction-opportunities-and-activation.md), [native actions](native-action-completion.md) | An actual lost invocation/result/role boundary, not a general task framework |

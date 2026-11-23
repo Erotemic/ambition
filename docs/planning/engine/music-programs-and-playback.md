@@ -1,7 +1,9 @@
 # Music programs and owned playback
 
-**State:** MUS1–MUS4 and the selected MA1 migration are complete, 2026-11-23.
-Reviewed source: `6d100f9d9e0d557fe4ae3dad61acd5aef71f684e`.
+**State:** selected MUS1–MUS4 and MA1 implementation landed, 2026-11-23.
+Static follow-through at `1bef25200e002f01b6afdbc7033e3f00b1ec0b72`
+identifies one [same-product continuation residual](#a-continuation-use-is-distinct-from-its-scheduling-deadline).
+The prior review used `6d100f9d9e0d557fe4ae3dad61acd5aef71f684e`.
 MUS1's bounded playback executor landed in `d4147e4c`; per-source music
 publication and canonical attempts landed in `6d100f9d`. Release facts now
 retain their transition attempt and pass through host confirmation. One scoped
@@ -61,9 +63,10 @@ admission, bounded retry and terminal results for simple and adaptive music.
 Keep that owner. Do not ask an agent to recreate it from the old diagnosis.
 The unified goal reduction below removes the independent simple-resume path.
 
-Native acceptance still needs the locked `bevy_kira_audio 0.26.0` /
-`kira 0.12.4` adapter and the reported route. A command or instance flag
-does not prove audible continuity. The old simple-track warning did not
+Native software-capture receipts below cover the locked
+`bevy_kira_audio 0.26.0` / `kira 0.12.4` adapter and the reported route.
+A command or instance flag alone does not prove audible continuity.
+The old simple-track warning did not
 identify the adaptive stop; the image decode, frame spike and missing
 `SimId` messages do not establish causes of the sustained gap. The old
 source and log analysis remain in Git history.
@@ -251,7 +254,7 @@ transient candidate that presentation did not admit.
 Compatible product data is necessary for reuse, but does not decide whether
 an entry should start again. Current
 [`MusicPlaybackRequest::can_continue`](../../../crates/ambition_audio/src/music/playback.rs)
-compares entry, product, looping and source handles. Repeating it preserves retry
+compares entry, `start_after`, product, looping and source handles. Repeating it preserves retry
 and exhausted state; a completed one-shot deliberately stays complete.
 The adaptive director also recognizes held requests by cue/state. Adding
 an attempt only to an outer candidate leaves those decisions unchanged.
@@ -275,6 +278,47 @@ the entry/occurrence that produced them.
 This is a MUS2 extension of the native MUS1 boundary, not another playback
 executor or repair watchdog. Product equality can remain a cheap compatibility
 check after the transition's meaning is known.
+
+### A continuation use is distinct from its scheduling deadline
+
+**Open residual from static review of `1bef25200e00`, 2026-11-23.**
+`MusicStateSpec::next_state` promises to start that state when its one-shot ends.
+Preparation permits A -> B where both states name the same non-looped
+section X. This is a supported graph, not a reported Castle Godwin failure.
+
+If the director observes A in time, `schedule_continuation` gives B a
+`MusicStartAfter` naming A's occurrence. If A starts and completes between
+host observations, its retained completion selects B through
+[`drive_adaptive_cue_state`](../../../crates/ambition_audio/src/music/director/adaptive.rs).
+The equal-section branch only updates gains and current state. No B use
+starts; the executor's desired outcome remains terminal. A later successor
+can also consume that retained completion without B having played.
+
+Calling `start_adaptive_state` unconditionally is insufficient:
+`MusicPlaybackRequest::can_continue` can still equate an unscheduled B with
+completed A. The optional native deadline currently also distinguishes
+their uses. That makes semantic execution depend on host observation timing.
+
+Resolve a `next_state` edge as a new use even when its product is identical.
+Retain its predecessor/selected transition identity separately from the
+optional native start deadline, through preparation, late readiness, missed
+scheduling and bounded retry. Choose that use once; repeated reduction of
+the same edge must not mint another use or consume completion twice. Keep
+the outer `MusicEntry` and claim, which still own ending and release policy.
+Use the existing bounded director/executor state, not a second event journal.
+
+An ordinary live same-section state change still adjusts its mix without
+restart. Therefore adding every state ID to request equivalence is also
+incorrect. Product compatibility follows the selected transition's meaning.
+The prior occurrence's completion cannot complete a new use of the same
+section. Self-repeat uses the same rule; no special same-name branch is needed.
+
+Extend the existing short-completion/host-stall crossing with A -> B on the
+same section, under `StartReadyTarget`, plus a live mix-only state change as
+the no-restart control. B executes once with and without early scheduling.
+Retain the native captures, source-demand retirement and supported timing
+limits already established. This closes a MUS2/MUS3 boundary; it does not
+replace the native executor or reopen stronger timing work.
 
 ## Contract 2 — a prepared program describes possible playback
 

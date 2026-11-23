@@ -1195,3 +1195,33 @@ NDR-115 to parody a NDR-114 Bicentennial Man
 Need an Asimov parody.
 
 Also need MAL-9000 for HAL-9000 parody, with Clarke and Kubrick. 
+
+----
+
+
+I'm noticing a trend of people just avoiding anything LLM generated online, and
+while I guess I understand some of it, I can't help but feel its a stance that
+let's them cling to an extreme edge without doing the hard work of figuring out
+where the moral boundary should actually lie. I really think that putting it
+all the way on the edge is just a mental shortcut because you know the edge is
+"safe" with respect to that line. And I can't help but think they are just
+shooting themselves in the foot - at least if they want to actually accomplish
+anything. Like maybe you do all your own code, but not pulling in a dependency
+because it might have LLM generated code in it? That seems a bit extreme to me.
+There is value in human generated code, even if its slower. Just like there is
+value in me typing these original brainstorm notes instead of letting the LLM
+just do whatever it wants with manifests, clerks, ledgers, wardens, and all the
+other themes it seems to strongly gravitate towards - some of which I let it -
+but I digress. But cutting yourself off from the world, is something else, as
+if there is a big security flaw in LLM generated code. I don't see it really.
+Could it be there? Maybe. But it seems more like paranoia than well founded
+concern, just because something has non zero probability does not mean it has
+non-negligible probability, and that is a mistake I see online so much of the time.
+Now, to self-critique a bit here, I can't actually claim that LLM generated
+code containing some fatal flaw that takes down everything after some time
+doesn't exist. It harkens back to the Ken Thompson's reflections on trusting
+trust. I'm not sure if we can make a parallel to this with gates, maybe there
+are people who avoid any goods and services that have any dependency chain on
+goods delivered via the gate. E.g. adventurers won't use swords built with new
+tech, and different people have different reasons for it, some good but
+questionable, some misguided, and others just to fit into a social circle. 

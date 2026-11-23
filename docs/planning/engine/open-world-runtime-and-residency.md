@@ -47,7 +47,7 @@ A session holds one or more **live rooms**. Each live room is one entity.
 | The rule "which room is this entity in" | `LiveRooms::of` (its stamp, else the sole live room); `live_room_of` for identity (its stamp only) |
 | Per-room reads | `LiveRoomOf<T>`, `LiveRoomSpecs` (`definition_in`, `left_by`), `CollisionWorld::room(..)`, `RulesOf<T>` |
 | Ambient gravity | `BaseGravity`: the turned live rooms only, keyed by `Option<LiveRoomInstance>`. A switch turns its own room; a body reads its own room's (else the sole room's); a replay forgets its room; a crossing that leaves a room standing forgets the room left when it retires. Gravity and force zones carry their room too (`zone_acts_in`) |
-| Music | `EncounterMusicRequest` keeps simple claims in two tiers per live room. `the_room_the_music_plays_for` selects the participants' room with the highest `priority_of`, then the primary seat's on a tie (Q150, Q72). Conversation music is released when the heard authored room changes. Adaptive bindings still use a separate reduction: adaptive-only bosses can miss this tier, and boss/wave paths lose individual occurrences. [MUS2](music-programs-and-playback.md#mus2--select-one-occurrence-owned-goal-for-all-music) completes authored candidate priority across both payloads. The developer's gravity cycle turns the primary seat's room (`PrimaryLiveRoom`) |
+| Music | Boss and wave publication retains each source and encounter attempt. One `MusicGoal` reduction selects simple and adaptive choices across local listening rooms, with authored priority, primary-seat ties and source recency (Q150, Q72). Conversation music is released when the heard authored room changes. [MUS2](music-programs-and-playback.md#mus2--select-one-occurrence-owned-goal-for-all-music) owns the completed selection contract. The developer's gravity cycle turns the primary seat's room (`PrimaryLiveRoom`) |
 | A recall mark | `PlayerMark` keeps the live room it was dropped in: a recall from any other room does nothing, and its beacon is drawn in its own room. Decided 2026-10-02 (a position names a place only with its room); before, a recall after a crossing moved the body to the old coordinates in the new room |
 | Encounter camera zoom | `EncounterView` keeps the zoom per live room (`set_camera_zooms`, `camera_zoom_in`); each view reads the zoom of the room it frames |
 | The one-live-room read (named debt) | `SoleLiveRoom<T>`, `SoleLiveRoomSpec`, `RoomOverlays::sole()` (`SoleLiveRoomMut` is deleted) |
@@ -219,11 +219,12 @@ Each player sees their own live room:
 The banner is still one per session and follows the primary seat. The Q150
 ruling (2026-10-03) makes the HUD per participant, also on one merged screen,
 and the music an authored-priority choice across local participants with the
-primary participant as the tie-break. The simple heard-room tier selection
-is built, and so is the built-in vitals HUD per view. Adaptive-only priority
-and within-room occurrence selection remain
-[music residuals](music-programs-and-playback.md#selection-creates-an-unnecessary-intermediate-track);
-see the open work below. Do not reopen the completed room filter.
+primary participant as the tie-break. The heard-room selection and built-in
+vitals HUD per view are built. `6d100f9d` completed adaptive-only priority and
+per-source encounter publication; the unified goal now selects both payloads.
+The [music receipt](music-programs-and-playback.md#unified-selection-removes-the-intermediate-track)
+owns the selection guards and later playback work. Do not reopen the
+completed room filter or create a second music selector in residency.
 
 ## Ownership table
 
@@ -330,8 +331,7 @@ an old finding against current source before promoting it.
 | **Subject-scoped sole-room readers** | Revisit `restore_checkpoint_on_session_start` (normally one-room only), `rebuild_ldtk_runtime_spine_index` (currently one `active_area`; simulation state must not depend on which peer is primary), and the fixture-only `room: None` gravity fallback in `drive_wave_encounters` if a real two-room customer uses them. Preserve one-room behavior. | Conditional, not a generic `Single` removal campaign |
 | **Multi-instance identity** | `FeatureViewIndex` keys by bare `FeatureId`; maps of authored bodies likewise collapse two *simultaneous instances of the same definition*. Current crossings join an already-live destination and `DefinitionAlreadyLive` rejects duplicates. Before lifting that rule, key live occurrence and durable location consistently by instance and prove twin-body/view survival. | Deferred until instanced rooms are a supported product customer |
 | **Local join, leave and recovery** | The Q153 second-seat join path exists. Remaining menu leave, fallen-seat return-by-crossing sync witness, interact/button prompts that show only primary, and declared per-seat readouts must work without losing control, inventory or capabilities. | Follow `LOCAL-PLAY-MODES`, the UI owners and [local co-op](local-coop-integration.md) |
-| **Per-seat HUD, readouts and remote locality** | View vitals and multi-seat P1/P2 labels work; `HudReadouts` for Mary-O coins/Sanic rings remain session-wide, and remote peers need client-local layout rather than treating every seat as local. Preserve completed vitals and simple heard-room tier selection. | UI/network backlog; the separate music residual is below |
-| **Music candidates retain occurrences and priority** | Adaptive-only fights must enter the same authored priority reduction as simple claims. Preserve live owner/attempt through boss and wave publication; remove query-first and archetype-only selection. Losing-owner release cannot stop the winner. | Selected [MUS2](music-programs-and-playback.md#mus2--select-one-occurrence-owned-goal-for-all-music); retain Q72/Q150 room and primary-seat semantics |
+| **Per-seat HUD, readouts and remote locality** | View vitals and multi-seat P1/P2 labels work; `HudReadouts` for Mary-O coins/Sanic rings remain session-wide, and remote peers need client-local layout rather than treating every seat as local. Preserve completed vitals and heard-room music selection. | UI/network backlog |
 | **Death-horizon records** | Q151/Q161: when one participant dies, other participants' boss outcomes, rewards, placed pickups, breaks, and item custody in both live and dormant rooms must survive under one horizon rule. Named witnesses exist; remaining durability/accounting residuals belong to `BAG-RECORD-HORIZON`. | Selected elsewhere; no duplicate death-reset campaign |
 | **Pickup restock (future customer)** | `WorldTimeSchedule` already supports broken blocks and authored `AfterSeconds` pickups in dormant rooms; `Never` pickups remain consumed. Shops presently have no stock to run out of, so restocking has no customer. Q154 ruled `OnRoomReload` remains the default; `Never` must be authored. | Deferred until authored limited-stock shop exists |
 | **Residency claims and budgets (OW4)** | Driven bodies hold rooms. Views/pending transitions need claims or a capacity/eviction policy only when a measured consumer requires them; cancellation/reentry must not evict a room still held by another claimant. | Deferred; no speculative budget layer |

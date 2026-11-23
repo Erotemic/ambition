@@ -342,9 +342,10 @@ locomotion goes to world space through the body's `ResolvedMotionFrame`, is
 warped and stripped there, and comes back. The aim policy is explicit: the
 held-stick warp continues locomotion, the flyer's `velocity_target`, the
 facing request and an attack aimed by the movement stick; a C-stick attack
-keeps its own aim; the emergence strip constrains travel only, so no attack
-is re-aimed by it. A body that is not flying keeps its local Y, so neither
-guard invents a crouch or a jump. `ActorControl` is latched, so the guard
+is intended to keep its own aim. The emergence strip does not write attack
+aim. The current source still infers the aim source from equal vectors and
+passes posture Y through its travel projection; the follow-through below
+corrects both. `ActorControl` is latched, so the guard
 acts only on a frame the translator wrote since its last run (`is_changed`).
 Guard: `the_emergence_guard_reads_the_bodys_resolved_frame` (the
 inward/tangent pair above for a flyer, and a walker's local Y); the
@@ -358,6 +359,43 @@ two normals the convention was read against again each tick.
 Still open: a portal transit that also turns gravity could map a held stick
 through both `HeldControlFrame` and the warp. The proof through a real transit with
 a held stick and a gravity turn is not yet written.
+
+#### IN2 follow-through — retain direction meaning through the guard
+
+**Static review of `1bef25200e00`, 2026-11-23.**
+[`tick_player_brain`](../../../crates/ambition_characters/src/brain/player.rs)
+knows whether it selected captured aim-stick direction or the movement
+axis. `warp_portal_input` later infers that choice from
+`attack_axis == locomotion`. A C-stick attack and the movement stick can
+both resolve to `(1,0)`; a held reflection then reverses that independent
+attack. A different C-stick vector survives. Equality cannot carry the
+selected source.
+
+Retain the actual translator choice in the resolved control value, or keep
+the guard at a boundary that still owns it. Use a small semantic distinction
+between movement-derived and independent aim. Preserve the existing fallback
+when an aim-stick qualifier has no valid direction. Do not reinterpret the
+raw device again downstream or change wire identity merely to add a derived
+control fact. Remove the vector-equality inference.
+
+The same guard converts the walker's whole `(x,y)` into world travel, then
+restores its old Y. Restoring Y cannot undo its contribution to the new X.
+With down `(r,r)`, side `(r,-r)`, `r = sqrt(1/2)`, exit normal `(-1,0)`
+and pure posture input `(0,1)`, the emergence projection produces local
+X `-0.5`. The guard returns `(-0.5,1)`: crouch/descend invents side travel.
+This is a static valid-frame counterexample, not a measured room symptom.
+
+Project only travel that the current motor can express. Keep posture/descend
+outside that physical vector; a flyer still has two travel axes. Apply the
+selected attack-aim policy to its own vector, without using the walker's
+posture-preserving projection as an aim rule. Reuse the native motor/frame
+adapter; no curved-world or gravity-field program is required.
+
+Extend the existing translator-to-guard crossing with a real C-stick press
+equal to the movement vector, plus the oblique-frame posture example.
+Keep movement-derived aim, free flight and ordinary gravity as controls.
+The accepted-map retention remains correct. The separately open
+portal-plus-gravity-turn composition remains separate work.
 
 ### Tentative curved-world held direction
 

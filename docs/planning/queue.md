@@ -197,6 +197,12 @@ world-post admission.
 
 **Next bounded work:**
 
+The [implementation review of `1bef25200e00`](engine/implementation-review-2026-11-23.md)
+checks the agents' work against the native paths. Its corrections stay in
+ACT1, IN2, OBS3 and the music row below; it adds no separate priority order.
+Read the relevant counterexample before treating a shared helper or retained
+value as completion of that owner's contract.
+
 1. At the active independent-room boundary, run
    [CW1](engine/causal-world-commit.md#cw1--prove-the-dependent-reader-case-and-complete-held-outcomes)
    (done 2026-11-21: the dependent-reader case is a measured failing baseline
@@ -387,12 +393,16 @@ world-post admission.
    victim's move use it captured at reception; armor, gusts, damage-only
    ticks, deaths and boss hits do not. Ordinary move starts ask the body's
    reaction and guard locks through one rule shared with the input gate,
-   and a refused press keeps its buffer. A ranged use fires the source it
-   was admitted with, carried on its fire event (schema 534). Boss attack
-   starts wait out the same lock. A brain's attack kit is offered by the
-   trigger's admission (`MoveAdmission::offer`), and its observed use
+   and a refused press keeps its buffer. A ranged use retains its selected
+   source on its fire event (schema 534). Boss attack
+   starts wait out the same lock. A brain's attack kit shares the trigger's
+   affordability and fallback selection (`MoveAdmission::offer`), and its observed use
    names the started move (`OwnMoveFact.spec`). An attack acts out of a
-   tumble only through its accepted move. Open: scripted starts, the jump
+   tumble only through its accepted move. The
+   [ACT1 follow-through](engine/body-action-execution.md#act1-follow-through--resolve-the-request-before-spending)
+   completes prospective-source admission/spend, request-versus-fallback
+   cancel eligibility, and use facts carried by a final-step shot. Other
+   open work: scripted starts, the jump
    escapes before their spend, the landing-tick cancel-window remainder,
    and interrupting a bound shot whose source is gone.)
    (ACT2 first slice 2026-11-23: a body in hitlag or held in place stands
@@ -413,9 +423,11 @@ world-post admission.
     polish. IN3 records the smaller qualified-press coalescing correction
     (done 2026-11-23: a tick's attack press is chosen whole from one sample).
     IN2's first slice landed 2026-11-23: the portal guards act on the driven
-    body's resolved control, in its own frame, and no longer re-aim attacks;
-    the warp keeps the accepted transit's orthogonal map. The gravity-turn
-    composition stays open.
+    body's resolved control, in its own frame; the warp keeps the accepted
+    transit's orthogonal map. The
+    [IN2 follow-through](engine/participant-action-system.md#in2-follow-through--retain-direction-meaning-through-the-guard)
+    retains actual aim-source selection and keeps posture outside physical
+    travel projection. The gravity-turn composition stays open.
     [IN4/IN5](engine/participant-action-system.md#input-continuity-across-routing-and-control-changes)
     refine the same owner at `00bf92c22142`. Observe valid physical samples
     before context filtering and treat rebind reset samples as invalid;
@@ -449,7 +461,9 @@ world-post admission.
     Then [OBS3](engine/agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers)
     (first slice landed 2026-11-23: `ambition.actor.think_sighted` carries a
     sighted binding; its demand maintains the body's belief and the module
-    reads that projection, never the live target)
+    reads that projection, never the live target; the
+    [OBS3 follow-through](engine/agentic-character-runtime.md#obs3-follow-through--publish-availability-for-this-decision)
+    makes its availability current when native decision skips a body)
     resolves native plus module observation demand before one domain
     projection is built. Prove a selected sighted module with a native
     `None` fallback and an explicitly authoritative module as control.
@@ -1695,7 +1709,8 @@ with [MA1](engine/asset-authoring-and-prepared-media.md#ma1--export-playback-fac
 for producer facts. [Diagnostics](../systems/music-playback-diagnostics.md)
 remain an independent observer.
 
-**State:** done, 2026-11-23.
+**State:** selected campaign landed, 2026-11-23; one continuation residual
+is open after static implementation review.
 
 **Receipt:** fresh music could stop its own bank, destination
 selection could resume an intermediate track, and fight media loaded at entry.
@@ -1713,6 +1728,14 @@ independent tails and bridge overlays need an authored customer and supported
 products. Physical-speaker and listening acceptance remain separate.
 The older unexplained death/respawn case did not recur in the native route;
 its historical cause remains unknown.
+
+**Next:** [retain continuation-use identity independently of scheduling](engine/music-programs-and-playback.md#a-continuation-use-is-distinct-from-its-scheduling-deadline).
+A valid A -> B one-shot graph that reuses a section can skip B if A completes
+before the host observes it running. Use the current bounded playback owner;
+preserve ordinary live mix changes without restart. **Acceptance:** the same
+section's B use executes once through both scheduled and late-completion
+paths. Extend the existing short-completion witness; keep the shipped-route
+capture receipts and stronger-timing deferrals.
 
 ### GATE-REDIAL — a new address closes the old wormhole and opens a new one (done)
 

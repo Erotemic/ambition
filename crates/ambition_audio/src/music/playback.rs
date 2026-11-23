@@ -234,7 +234,7 @@ pub struct MusicPlayback {
     desired: Option<MusicPlaybackRequest>,
     groups: [Option<MusicPlaybackGroup>; MAX_GROUPS],
     current: Option<MusicPlaybackOccurrence>,
-    current_completion: Option<(MusicEntry, MusicProduct)>,
+    current_completion: Option<MusicCompletion>,
     next_occurrence: u64,
     next_entry: u64,
     pub revision: u64,
@@ -259,7 +259,7 @@ impl MusicPlayback {
     pub(super) fn completed_product(&self) -> Option<(MusicEntry, &MusicProduct)> {
         self.current_completion
             .as_ref()
-            .map(|(entry, product)| (*entry, product))
+            .map(|completed| (completed.entry, &completed.product))
     }
 
     /// Withdraw unsent work. An admitted outgoing group can finish or be replaced.
@@ -468,6 +468,19 @@ impl MusicPlayback {
             if !output.ready_to_start() && group.phase == MusicGroupPhase::Submitted {
                 group.submitted_at = now;
             }
+            if group.phase == MusicGroupPhase::Submitted
+                && !group.request.looped
+                && group
+                    .transport_origin
+                    .zip(transport_now)
+                    .is_some_and(|(origin, time)| time >= origin)
+                && observations
+                    .iter()
+                    .all(|state| matches!(state, VoiceObservation::Stopped))
+            {
+                // A scheduled voice can finish between host observations.
+                group.phase = MusicGroupPhase::Running;
+            }
             if group.phase == MusicGroupPhase::Submitted {
                 if observations.iter().any(|state| {
                     matches!(state, VoiceObservation::Absent | VoiceObservation::Stopped)
@@ -636,7 +649,14 @@ impl MusicPlayback {
                     group.terminal = Some(reason);
                     if self.current == Some(group.occurrence) {
                         if complete {
-                            self.current_completion = Some((group.entry, group.product.clone()));
+                            self.current_completion = Some(MusicCompletion {
+                                occurrence: group.occurrence,
+                                entry: group.entry,
+                                product: group.product.clone(),
+                                state_id: group.request.state_id.clone(),
+                                phase_policy: group.request.phase_policy,
+                                scheduled: group.request.start_after.is_some(),
+                            });
                         }
                         self.current = None;
                     }
@@ -786,6 +806,16 @@ enum VoiceObservation {
     Playing(f64),
     Stopping(f64),
     Stopped,
+}
+
+#[derive(Debug)]
+struct MusicCompletion {
+    occurrence: MusicPlaybackOccurrence,
+    entry: MusicEntry,
+    product: MusicProduct,
+    state_id: Option<String>,
+    phase_policy: MusicPhasePolicy,
+    scheduled: bool,
 }
 
 trait MusicVoiceOutput {
@@ -1077,6 +1107,10 @@ pub fn advance_music_playback(
         now: time.elapsed_secs_f64(),
     };
     let previous = playback.current().map(|group| group.occurrence);
+    let previous_completion = playback
+        .current_completion
+        .as_ref()
+        .map(|completed| completed.occurrence);
     playback.advance(&mut sink, time.elapsed_secs_f64(), mix.effective_music());
     if let Some(director) = director.as_deref_mut() {
         if let Some(group) = playback.current().filter(|group| {
@@ -1119,6 +1153,28 @@ pub fn advance_music_playback(
                     entry: group.entry,
                     selection,
                 });
+            }
+        }
+        if let Some(completed) = playback.current_completion.as_ref().filter(|completed| {
+            Some(completed.entry) == director.entry
+                && completed.scheduled
+                && previous_completion != Some(completed.occurrence)
+        }) {
+            if let MusicProduct::Section { cue, section, .. } = &completed.product {
+                director.active_cue_id = Some(cue.clone());
+                director.current_section_id = Some(section.clone());
+                director.current_state_id = completed.state_id.clone();
+                director.continuation_state_id = completed.state_id.clone();
+                director.active_phase_policy = completed.phase_policy;
+                director.position_seconds = None;
+                director.pending_state = None;
+                director.mode = if director.prepared_cue.as_ref().is_some_and(|cue| {
+                    cue.outro_state.is_some() && cue.outro_state == completed.state_id
+                }) {
+                    MusicDirectorMode::AdaptiveOutro
+                } else {
+                    MusicDirectorMode::AdaptiveIntro
+                };
             }
         }
         if director.admitted.as_ref().is_some_and(|admitted| {

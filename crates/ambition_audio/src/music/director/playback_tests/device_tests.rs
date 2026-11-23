@@ -176,3 +176,59 @@ fn native_canceling_a_prepared_entry_cancels_its_predecessors_stop() {
     run_for(&mut app, 1.0);
     assert_running(&app, "trail", "later");
 }
+
+#[test]
+#[ignore = "uses the native audio device; run with an explicit output or capture device"]
+fn a_native_short_continuation_finishes_once_between_host_observations() {
+    let mut authored = authored_cues(240.0);
+    for cue in &mut authored.cues {
+        cue.playback.continuation_crossfade_seconds = Some(0.0);
+        if let MusicCueMedia::Inline { sections, .. } = &mut cue.media {
+            sections[0].duration_beats = 2.0;
+            sections[1].duration_beats = 0.02;
+            sections[1].looped = false;
+        }
+    }
+    let catalog = MusicCueCatalog::prepare(authored, &Default::default()).unwrap();
+    let (mut app, handles) =
+        fixture_catalog_output(catalog, crate::output::AudioOutputMode::Device);
+    app.finish();
+    app.cleanup();
+    for (index, handle) in handles.iter().enumerate().take(4) {
+        decode_tone(&mut app, handle, index);
+        let count = if index < 2 { 24000 } else { 240 };
+        let mut sources = app.world_mut().resource_mut::<Assets<KiraAudioSource>>();
+        let mut source = sources.get_mut(handle).unwrap();
+        source.sound.frames = source.sound.frames[..count].to_vec().into();
+    }
+    let mut prepared = false;
+    for _ in 0..60 {
+        run_for(&mut app, 0.001);
+        prepared = app
+            .world()
+            .resource::<MusicPlayback>()
+            .groups()
+            .any(|group| {
+                group.scheduled_state() == Some("song") && group.transport_origin.is_some()
+            });
+        if prepared {
+            break;
+        }
+    }
+    assert!(
+        prepared,
+        "the short continuation was not admitted before its deadline"
+    );
+    std::thread::sleep(Duration::from_secs_f64(0.8));
+    run_for(&mut app, 0.05);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+    assert_eq!(
+        app.world().resource::<MusicPlayback>().outcome(),
+        super::super::super::playback::MusicRequestOutcome::Completed
+    );
+    let director = app.world().resource::<MusicDirectorState>();
+    assert_eq!(director.current_state_id.as_deref(), Some("song"));
+    assert!(director.transport_completed);
+    run_for(&mut app, 0.2);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+}

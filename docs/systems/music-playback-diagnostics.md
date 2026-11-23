@@ -23,6 +23,9 @@ are faults to inspect.
 The observer does not restart playback or change content to hide a fault.
 
 The common `MusicPlayback` executor owns simple tracks and adaptive groups.
+One `MusicGoal` selects tracks and cues. The report records the selected goal
+revision and the revision admitted by the current group. A revision can change
+without a new voice when compatible playback keeps its position.
 It keeps one pending choice, at most two groups, and at most twelve reserved
 voices. A submitted voice remains reserved until its terminal result. Slots
 do not identify playback. Cancellation and retirement target exact handles.
@@ -34,7 +37,12 @@ instance arrives later, the executor stops that exact instance. Partial
 admission cancels the complete group. Admission absence, a five-second
 admission timeout, and an unexpected loop stop permit one retry for the current
 choice. An unresolved canceled voice keeps its reservation after timeout.
-A completed one-shot does not restart from a held choice.
+A completed one-shot does not restart from a held entry. A fresh entry has
+its own completion and retry state, even when it uses the same media.
+
+An ending retains its admitted entry, owner and cue generation. The latest
+goal selects its successor. A release for an old owner cannot end the new
+owner's music. Ending media has a finite readiness wait and a named result.
 
 Music gain has one writer. The executor combines user and environment gain,
 source gain, and the occurrence's transition envelope. Recording consumes the

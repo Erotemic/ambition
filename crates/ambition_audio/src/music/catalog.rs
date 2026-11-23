@@ -1,9 +1,9 @@
 use super::*;
 
 pub use crate::cue_spec::{
-    BossMusicBinding, BossPhaseState, EncounterMusicBinding, MusicCueSpec, MusicLayerGainSpec,
-    MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec, MusicStateBalanceOverride, MusicStateSpec,
-    RoomMusicBinding, RoomPhaseTrack, BOSS_PHASE_KEYS,
+    BOSS_PHASE_KEYS, BossMusicBinding, BossPhaseState, EncounterMusicBinding, MusicCueSpec,
+    MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec,
+    MusicStateBalanceOverride, MusicStateSpec, RoomMusicBinding, RoomPhaseTrack,
 };
 
 #[derive(Resource, Clone, Debug, PartialEq)]
@@ -13,6 +13,9 @@ pub struct MusicCueCatalog {
     pub(super) room_bindings: Vec<RoomMusicBinding>,
     pub(super) boss_bindings: Vec<BossMusicBinding>,
     pub(super) room_phase_tracks: Vec<RoomPhaseTrack>,
+    encounter_index: HashMap<String, usize>,
+    boss_index: HashMap<String, usize>,
+    room_index: HashMap<String, usize>,
 }
 
 impl MusicCueCatalog {
@@ -27,7 +30,15 @@ impl MusicCueCatalog {
             .into_iter()
             .map(|cue| (cue.id.clone(), cue))
             .collect::<HashMap<_, _>>();
+        let encounter_index = encounter_bindings
+            .iter()
+            .enumerate()
+            .map(|(i, b)| (b.encounter_id.clone(), i))
+            .collect();
         Self {
+            encounter_index,
+            boss_index: HashMap::new(),
+            room_index: HashMap::new(),
             cues,
             encounter_bindings,
             room_bindings: Vec::new(),
@@ -38,6 +49,11 @@ impl MusicCueCatalog {
 
     /// The same catalog with the host's boss -> cue bindings.
     pub fn with_boss_bindings(mut self, boss_bindings: Vec<BossMusicBinding>) -> Self {
+        self.boss_index = boss_bindings
+            .iter()
+            .enumerate()
+            .map(|(i, b)| (b.boss_id.clone(), i))
+            .collect();
         self.boss_bindings = boss_bindings;
         self
     }
@@ -50,6 +66,11 @@ impl MusicCueCatalog {
 
     /// The same catalog with the host's room -> cue bindings.
     pub fn with_room_bindings(mut self, room_bindings: Vec<RoomMusicBinding>) -> Self {
+        self.room_index = room_bindings
+            .iter()
+            .enumerate()
+            .map(|(i, b)| (b.room_id.clone(), i))
+            .collect();
         self.room_bindings = room_bindings;
         self
     }
@@ -76,7 +97,9 @@ impl MusicCueCatalog {
 
     /// Whether room `room_id` has any track by the time of day.
     pub fn room_follows_the_day(&self, room_id: &str) -> bool {
-        self.room_phase_tracks.iter().any(|row| row.room_id == room_id)
+        self.room_phase_tracks
+            .iter()
+            .any(|row| row.room_id == room_id)
     }
 
     /// The host's room -> cue bindings (read by the host's intent-mapping
@@ -85,7 +108,7 @@ impl MusicCueCatalog {
         &self.room_bindings
     }
 
-    pub(super) fn cue(&self, id: &str) -> Option<&MusicCueSpec> {
+    pub fn cue(&self, id: &str) -> Option<&MusicCueSpec> {
         self.cues.get(id)
     }
 
@@ -112,6 +135,8 @@ impl MusicCueCatalog {
     /// Append an encounter -> cue binding (host-side catalog assembly /
     /// test fixtures).
     pub fn add_encounter_binding(&mut self, binding: EncounterMusicBinding) {
+        self.encounter_index
+            .insert(binding.encounter_id.clone(), self.encounter_bindings.len());
         self.encounter_bindings.push(binding);
     }
 
@@ -124,19 +149,25 @@ impl MusicCueCatalog {
         // In id order, so one catalog gives one report.
         let mut cues: Vec<&MusicCueSpec> = self.cues.values().collect();
         cues.sort_by(|a, b| a.id.cmp(&b.id));
-        crate::cue_spec::cue_reference_errors(cues, &self.encounter_bindings, &self.room_bindings, &self.boss_bindings)
+        crate::cue_spec::cue_reference_errors(
+            cues,
+            &self.encounter_bindings,
+            &self.room_bindings,
+            &self.boss_bindings,
+        )
     }
 
-    /// Find the binding that maps an encounter id to its adaptive
-    /// cue. Used by tests + tooling that want to inspect which cue
-    /// will fire for a given encounter; the live `resolve_adaptive_directive`
-    /// iterates `encounter_bindings` directly so future bindings drop
-    /// in without touching the resolver.
-    #[allow(dead_code)]
-    pub(super) fn binding_for_encounter(&self, id: &str) -> Option<&EncounterMusicBinding> {
-        self.encounter_bindings
-            .iter()
-            .find(|binding| binding.encounter_id == id)
+    /// Find the prepared binding for an authored encounter.
+    pub fn binding_for_encounter(&self, id: &str) -> Option<&EncounterMusicBinding> {
+        self.encounter_index
+            .get(id)
+            .map(|i| &self.encounter_bindings[*i])
+    }
+    pub fn binding_for_boss(&self, id: &str) -> Option<&BossMusicBinding> {
+        self.boss_index.get(id).map(|i| &self.boss_bindings[*i])
+    }
+    pub fn binding_for_room(&self, id: &str) -> Option<&RoomMusicBinding> {
+        self.room_index.get(id).map(|i| &self.room_bindings[*i])
     }
 }
 
@@ -153,6 +184,7 @@ impl LoadedMusicCueAssets {
     pub(super) fn get(
         &self,
         provider_id: &str,
+        generation: u64,
         cue_id: &str,
         section_id: &str,
         layer_id: &str,
@@ -160,11 +192,25 @@ impl LoadedMusicCueAssets {
         self.sources
             .get(&MusicSourceKey::new(
                 provider_id,
+                generation,
                 cue_id,
                 section_id,
                 layer_id,
             ))
             .map(|(_, handle)| handle.clone())
+    }
+
+    pub(super) fn retire_generations(
+        &mut self,
+        catalogs: &AdaptiveMusicCatalogRegistry,
+        retained: &[(&str, u64)],
+    ) {
+        self.sources.retain(|key, _| {
+            key.generation == catalogs.generation(&key.provider_id)
+                || retained.iter().any(|(provider, generation)| {
+                    *provider == key.provider_id && *generation == key.generation
+                })
+        });
     }
 
     /// Does the cache hold `key` for exactly this asset path? A different path
@@ -185,12 +231,19 @@ impl LoadedMusicCueAssets {
     pub(super) fn ensure_cue_loaded(
         &mut self,
         provider_id: &str,
+        generation: u64,
         cue: &MusicCueSpec,
         asset_server: &AssetServer,
     ) {
         for section in &cue.sections {
             for source in &section.sources {
-                let key = MusicSourceKey::new(provider_id, &cue.id, &section.id, &source.layer_id);
+                let key = MusicSourceKey::new(
+                    provider_id,
+                    generation,
+                    &cue.id,
+                    &section.id,
+                    &source.layer_id,
+                );
                 let rel = cue.source_path(source);
                 if !self.holds(&key, &rel) {
                     let handle = asset_server.load(rel.clone());
@@ -203,32 +256,46 @@ impl LoadedMusicCueAssets {
     pub(super) fn section_ready(
         &self,
         provider_id: &str,
+        generation: u64,
         cue: &MusicCueSpec,
         section_id: &str,
         decoded: &Assets<KiraAudioSource>,
     ) -> bool {
         cue.section(section_id).is_some_and(|section| {
             section.sources.iter().all(|source| {
-                self.get(provider_id, &cue.id, &section.id, &source.layer_id)
-                    .is_some_and(|handle| decoded.contains(handle.id()))
+                self.get(
+                    provider_id,
+                    generation,
+                    &cue.id,
+                    &section.id,
+                    &source.layer_id,
+                )
+                .is_some_and(|handle| decoded.contains(handle.id()))
             })
         })
     }
-
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(super) struct MusicSourceKey {
     provider_id: String,
+    generation: u64,
     cue_id: String,
     section_id: String,
     layer_id: String,
 }
 
 impl MusicSourceKey {
-    pub(super) fn new(provider_id: &str, cue_id: &str, section_id: &str, layer_id: &str) -> Self {
+    pub(super) fn new(
+        provider_id: &str,
+        generation: u64,
+        cue_id: &str,
+        section_id: &str,
+        layer_id: &str,
+    ) -> Self {
         Self {
             provider_id: provider_id.to_string(),
+            generation,
             cue_id: cue_id.to_string(),
             section_id: section_id.to_string(),
             layer_id: layer_id.to_string(),
@@ -244,6 +311,8 @@ impl MusicSourceKey {
 #[derive(Resource, Clone, Debug, Default)]
 pub struct AdaptiveMusicCatalogRegistry {
     providers: std::collections::BTreeMap<String, MusicCueCatalog>,
+    generations: std::collections::BTreeMap<String, u64>,
+    next_generation: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -306,6 +375,9 @@ impl AdaptiveMusicCatalogRegistry {
         // Cue ids are provider-local. Two providers may deliberately use the
         // same neutral cue/state vocabulary while resolving different assets;
         // the active audio context selects one complete catalog.
+        self.next_generation += 1;
+        self.generations
+            .insert(provider_id.clone(), self.next_generation);
         self.providers.insert(provider_id, catalog);
         Ok(())
     }
@@ -340,6 +412,11 @@ impl AdaptiveMusicCatalogRegistry {
                         errors,
                     });
                 }
+                if next.providers.get(provider_id) != Some(&catalog) {
+                    next.next_generation += 1;
+                    next.generations
+                        .insert(provider_id.to_owned(), next.next_generation);
+                }
                 next.providers.insert(provider_id.to_string(), catalog);
             }
             None => {
@@ -347,6 +424,10 @@ impl AdaptiveMusicCatalogRegistry {
             }
         }
         Ok(next)
+    }
+
+    pub fn generation(&self, provider_id: &str) -> u64 {
+        self.generations.get(provider_id).copied().unwrap_or(0)
     }
 
     pub fn catalog_for(&self, provider_id: &str) -> Option<&MusicCueCatalog> {
@@ -530,7 +611,11 @@ mod provider_registry_tests {
             .expect("a valid catalog replaces the provider's");
 
         assert_eq!(first_path(&next, "a", "a_cue"), "a_v2.ogg");
-        assert_eq!(first_path(&next, "b", "b_cue"), "b.ogg", "another provider's catalog survived");
+        assert_eq!(
+            first_path(&next, "b", "b_cue"),
+            "b.ogg",
+            "another provider's catalog survived"
+        );
         assert_eq!(
             first_path(&registry, "a", "a_cue"),
             "a.ogg",
@@ -554,10 +639,15 @@ mod provider_registry_tests {
             cleared_state: "main".to_owned(),
         });
         let error = registry.with_replaced("a", Some(broken)).unwrap_err();
-        assert!(matches!(error, AdaptiveMusicCatalogError::InvalidCatalog { .. }), "{error:?}");
+        assert!(
+            matches!(error, AdaptiveMusicCatalogError::InvalidCatalog { .. }),
+            "{error:?}"
+        );
         assert_eq!(first_path(&registry, "a", "a_cue"), "a.ogg");
         assert_eq!(
-            registry.with_replaced(" ", Some(catalog("x", "x.ogg"))).unwrap_err(),
+            registry
+                .with_replaced(" ", Some(catalog("x", "x.ogg")))
+                .unwrap_err(),
             AdaptiveMusicCatalogError::EmptyProviderId
         );
     }
@@ -582,16 +672,20 @@ mod provider_registry_tests {
     #[test]
     fn a_cached_cue_source_is_stale_when_its_path_changed() {
         let mut assets = LoadedMusicCueAssets::default();
-        let key = MusicSourceKey::new("a", "a_cue", "loop", "full");
-        assets
-            .sources
-            .insert(key.clone(), ("audio/adaptive/a.ogg".to_owned(), Handle::default()));
+        let key = MusicSourceKey::new("a", 1, "a_cue", "loop", "full");
+        assets.sources.insert(
+            key.clone(),
+            ("audio/adaptive/a.ogg".to_owned(), Handle::default()),
+        );
         assert!(assets.holds(&key, "audio/adaptive/a.ogg"));
         assert!(
             !assets.holds(&key, "audio/adaptive/a_v2.ogg"),
             "the entry for the old path answered for the new one"
         );
-        assert!(!assets.holds(&MusicSourceKey::new("a", "a_cue", "loop", "other"), "audio/adaptive/a.ogg"));
+        assert!(!assets.holds(
+            &MusicSourceKey::new("a", 1, "a_cue", "loop", "other"),
+            "audio/adaptive/a.ogg"
+        ));
     }
 
     /// ⛔ The same, through the loader the music directive actually calls: a
@@ -616,25 +710,32 @@ mod provider_registry_tests {
         };
         let key = |cue: &MusicCueSpec| {
             let section = &cue.sections[0];
-            MusicSourceKey::new("a", &cue.id, &section.id, &section.sources[0].layer_id)
+            MusicSourceKey::new("a", 1, &cue.id, &section.id, &section.sources[0].layer_id)
         };
 
         let mut assets = LoadedMusicCueAssets::default();
         let before = cue_of("a.ogg");
-        assets.ensure_cue_loaded("a", &before, &server);
+        assets.ensure_cue_loaded("a", 1, &before, &server);
         let first = assets.sources[&key(&before)].1.clone();
-        assets.ensure_cue_loaded("a", &before, &server);
-        assert_eq!(assets.sources[&key(&before)].1, first, "an unchanged cue was requested twice");
+        assets.ensure_cue_loaded("a", 1, &before, &server);
+        assert_eq!(
+            assets.sources[&key(&before)].1,
+            first,
+            "an unchanged cue was requested twice"
+        );
 
         let after = cue_of("a_v2.ogg");
-        assets.ensure_cue_loaded("a", &after, &server);
+        assets.ensure_cue_loaded("a", 1, &after, &server);
         let (path, handle) = &assets.sources[&key(&after)];
-        assert_eq!(path, "audio/adaptive/a_v2.ogg", "the cache kept the replaced file's path");
+        assert_eq!(
+            path, "audio/adaptive/a_v2.ogg",
+            "the cache kept the replaced file's path"
+        );
         assert_ne!(*handle, first, "the replaced file was never requested");
 
         for path in ["content://other/audio/a.ogg", "game://audio/a.ogg"] {
             let qualified = cue_of(path);
-            assets.ensure_cue_loaded("a", &qualified, &server);
+            assets.ensure_cue_loaded("a", 1, &qualified, &server);
             let (loaded, handle) = &assets.sources[&key(&qualified)];
             assert_eq!(loaded, path);
             assert_eq!(handle.path().unwrap().to_string(), path);

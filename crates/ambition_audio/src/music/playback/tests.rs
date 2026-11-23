@@ -58,7 +58,13 @@ impl MusicVoiceOutput for Output {
 impl Output {
     fn request(&self, id: &str, layers: usize, looped: bool) -> MusicPlaybackRequest {
         MusicPlaybackRequest {
-            product: MusicProduct::Track(id.into()),
+            entry: MusicEntry(1),
+            goal_revision: 1,
+            product: MusicProduct::Track {
+                provider: "game".into(),
+                generation: 1,
+                id: id.into(),
+            },
             looped,
             fade_seconds: 0.0,
             voices: (0..layers)
@@ -92,11 +98,20 @@ fn fresh_playback_cannot_be_stopped_by_either_previous_storage_slot() {
             playback.advance(&mut output, frame as f64 * 0.1, 1.0);
         }
         let current = playback.current().unwrap();
-        assert_eq!(current.product, MusicProduct::Track("destination".into()));
+        assert_eq!(
+            current.product,
+            MusicProduct::Track {
+                provider: "game".into(),
+                generation: 1,
+                id: "destination".into()
+            }
+        );
         assert_eq!(current.phase, MusicGroupPhase::Running);
-        assert!(current
-            .instances()
-            .all(|handle| output.resumed.contains(handle) && !output.stopped.contains(handle)));
+        assert!(
+            current
+                .instances()
+                .all(|handle| output.resumed.contains(handle) && !output.stopped.contains(handle))
+        );
         assert_eq!(playback.reserved_voices(), 3);
     }
 }
@@ -130,9 +145,10 @@ fn late_canceled_submissions_keep_their_reservations_and_only_stop_their_own_voi
         output.states.insert(handle.id(), VoiceObservation::Paused);
     }
     playback.advance(&mut output, 10.1, 1.0);
-    assert!(old
-        .iter()
-        .all(|handle| output.stopped.contains(handle) && !output.resumed.contains(handle)));
+    assert!(
+        old.iter()
+            .all(|handle| output.stopped.contains(handle) && !output.resumed.contains(handle))
+    );
     assert!(second.iter().all(|handle| !output.stopped.contains(handle)));
     for frame in 102..108 {
         playback.advance(&mut output, frame as f64 * 0.1, 1.0);
@@ -141,7 +157,11 @@ fn late_canceled_submissions_keep_their_reservations_and_only_stop_their_own_voi
     }
     assert_eq!(
         playback.current().unwrap().product,
-        MusicProduct::Track("latest".into())
+        MusicProduct::Track {
+            provider: "game".into(),
+            generation: 1,
+            id: "latest".into()
+        }
     );
 }
 
@@ -164,7 +184,7 @@ fn partial_admission_retires_the_group_and_exhausts_a_bounded_retry() {
     assert!(output.resumed.is_empty());
     assert_eq!(output.stopped.len(), 2);
     assert_eq!(playback.reserved_voices(), 0);
-    assert!(playback.exhausted);
+    assert!(playback.outcome().is_terminal());
     assert_eq!(
         playback.last_terminal.unwrap().1,
         MusicTerminalReason::AdmissionAbsent
@@ -281,7 +301,7 @@ fn admission_timeout_does_not_forget_unresolved_voice_reservations() {
     playback.advance(&mut output, 5.0, 1.0);
     playback.advance(&mut output, 10.0, 1.0);
     assert_eq!(playback.reserved_voices(), 12);
-    assert!(playback.exhausted);
+    assert!(playback.outcome().is_terminal());
     assert_eq!(
         playback.last_terminal.unwrap().1,
         MusicTerminalReason::AdmissionTimeout
@@ -298,6 +318,7 @@ fn an_outgoing_sections_mix_cannot_overwrite_its_successor() {
     let mut output = Output::default();
     let mut ending = output.request("ending", 1, false);
     ending.product = MusicProduct::Section {
+        generation: 1,
         provider: "game".into(),
         cue: "fight".into(),
         section: "ending".into(),
@@ -315,7 +336,7 @@ fn an_outgoing_sections_mix_cannot_overwrite_its_successor() {
         .next()
         .unwrap()
         .clone();
-    playback.set_section_gains("game", "fight", "ending", &[0.1; MAX_LAYERS]);
+    playback.set_section_gains(1, "game", "fight", "ending", &[0.1; MAX_LAYERS]);
     playback.advance(&mut output, 1.2, 1.0);
     assert_eq!(
         output
@@ -327,4 +348,37 @@ fn an_outgoing_sections_mix_cannot_overwrite_its_successor() {
             .1,
         1.0
     );
+}
+
+#[test]
+fn a_fresh_entry_resets_completion_with_identical_one_voice_media() {
+    let mut playback = MusicPlayback::default();
+    let mut output = Output::default();
+    let mut request = output.request("one_shot", 1, false);
+    request.entry = playback.new_entry();
+    playback.request(request.clone());
+    playback.advance(&mut output, 0.0, 1.0);
+    playback.advance(&mut output, 0.1, 1.0);
+    let old = playback
+        .current()
+        .unwrap()
+        .instances()
+        .next()
+        .unwrap()
+        .clone();
+    output.states.insert(old.id(), VoiceObservation::Stopped);
+    playback.advance(&mut output, 1.0, 1.0);
+    assert_eq!(playback.outcome(), MusicRequestOutcome::Completed);
+    playback.request(request.clone());
+    playback.advance(&mut output, 2.0, 1.0);
+    assert!(playback.current().is_none());
+    request.entry = playback.new_entry();
+    playback.request(request.clone());
+    playback.advance(&mut output, 3.0, 1.0);
+    playback.advance(&mut output, 3.1, 1.0);
+    output.states.insert(old.id(), VoiceObservation::Stopped);
+    playback.advance(&mut output, 4.0, 1.0);
+    assert_eq!(playback.current().unwrap().entry, request.entry);
+    assert_eq!(playback.outcome(), MusicRequestOutcome::Pending);
+    assert_eq!(playback.reserved_voices(), 1);
 }

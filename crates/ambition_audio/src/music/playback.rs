@@ -10,11 +10,20 @@ const MAX_RETRIES: u8 = 1;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MusicPlaybackOccurrence(pub u64);
 
+/// A selected entry has its own completion and retry scope.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MusicEntry(pub u64);
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MusicProduct {
-    Track(String),
+    Track {
+        provider: String,
+        generation: u64,
+        id: String,
+    },
     Section {
         provider: String,
+        generation: u64,
         cue: String,
         section: String,
     },
@@ -29,6 +38,8 @@ pub(crate) struct MusicVoiceSource {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct MusicPlaybackRequest {
+    pub entry: MusicEntry,
+    pub goal_revision: u64,
     pub product: MusicProduct,
     pub voices: Vec<MusicVoiceSource>,
     pub looped: bool,
@@ -36,8 +47,9 @@ pub(crate) struct MusicPlaybackRequest {
 }
 
 impl MusicPlaybackRequest {
-    fn same_product(&self, other: &Self) -> bool {
-        self.product == other.product
+    fn can_continue(&self, other: &Self) -> bool {
+        self.entry == other.entry
+            && self.product == other.product
             && self.looped == other.looped
             && self.voices.len() == other.voices.len()
             && self
@@ -56,6 +68,19 @@ pub enum MusicTerminalReason {
     AdmissionAbsent,
     AdmissionTimeout,
     UnexpectedStop,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MusicRequestOutcome {
+    #[default]
+    Pending,
+    Completed,
+    Failed(MusicTerminalReason),
+}
+impl MusicRequestOutcome {
+    pub fn is_terminal(self) -> bool {
+        !matches!(self, Self::Pending)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -99,6 +124,7 @@ impl Envelope {
 
 #[derive(Clone, Debug)]
 pub struct MusicPlaybackGroup {
+    pub entry: MusicEntry,
     pub occurrence: MusicPlaybackOccurrence,
     pub product: MusicProduct,
     pub phase: MusicGroupPhase,
@@ -111,6 +137,10 @@ pub struct MusicPlaybackGroup {
 }
 
 impl MusicPlaybackGroup {
+    pub fn goal_revision(&self) -> u64 {
+        self.request.goal_revision
+    }
+
     pub fn reserved_voices(&self) -> usize {
         self.voices.len()
     }
@@ -136,14 +166,51 @@ pub struct MusicPlayback {
     desired: Option<MusicPlaybackRequest>,
     groups: [Option<MusicPlaybackGroup>; MAX_GROUPS],
     current: Option<MusicPlaybackOccurrence>,
+    current_completion: Option<(MusicEntry, MusicProduct)>,
     next_occurrence: u64,
+    next_entry: u64,
     pub revision: u64,
     retries: u8,
-    exhausted: bool,
+    outcome: MusicRequestOutcome,
     pub last_terminal: Option<(MusicPlaybackOccurrence, MusicTerminalReason)>,
 }
 
 impl MusicPlayback {
+    pub(crate) fn new_entry(&mut self) -> MusicEntry {
+        self.next_entry = self
+            .next_entry
+            .checked_add(1)
+            .expect("music entry identity exhausted");
+        MusicEntry(self.next_entry)
+    }
+
+    pub fn outcome(&self) -> MusicRequestOutcome {
+        self.outcome
+    }
+
+    pub(super) fn completed_product(&self) -> Option<(MusicEntry, &MusicProduct)> {
+        self.current_completion
+            .as_ref()
+            .map(|(entry, product)| (*entry, product))
+    }
+
+    /// Withdraw unsent work. An admitted outgoing group can finish or be replaced.
+    pub(crate) fn defer(&mut self) {
+        if self.desired.take().is_some() {
+            self.revision = self.revision.wrapping_add(1);
+        }
+        self.outcome = MusicRequestOutcome::Pending;
+        for group in self
+            .groups
+            .iter_mut()
+            .flatten()
+            .filter(|group| group.phase == MusicGroupPhase::Submitted)
+        {
+            group.phase = MusicGroupPhase::Canceled;
+            group.terminal = Some(MusicTerminalReason::Canceled);
+        }
+    }
+
     pub fn groups(&self) -> impl Iterator<Item = &MusicPlaybackGroup> {
         self.groups.iter().filter_map(Option::as_ref)
     }
@@ -159,7 +226,7 @@ impl MusicPlayback {
                 && self
                     .desired
                     .as_ref()
-                    .is_some_and(|request| request.same_product(&group.request))
+                    .is_some_and(|request| request.can_continue(&group.request))
         })
     }
 
@@ -172,15 +239,16 @@ impl MusicPlayback {
         if self
             .desired
             .as_ref()
-            .is_some_and(|old| old.same_product(&request))
+            .is_some_and(|old| old.can_continue(&request))
         {
             for group in self.groups.iter_mut().flatten() {
-                if group.request.same_product(&request)
+                if group.request.can_continue(&request)
                     && matches!(
                         group.phase,
                         MusicGroupPhase::Running | MusicGroupPhase::Submitted
                     )
                 {
+                    group.request.goal_revision = request.goal_revision;
                     for (voice, source) in group.voices.iter_mut().zip(&request.voices) {
                         voice.gain = source.gain;
                     }
@@ -192,11 +260,12 @@ impl MusicPlayback {
         self.desired = Some(request);
         self.revision = self.revision.wrapping_add(1);
         self.retries = 0;
-        self.exhausted = false;
+        self.outcome = MusicRequestOutcome::Pending;
     }
 
     pub(crate) fn set_section_gains(
         &mut self,
+        goal_revision: u64,
         provider: &str,
         cue: &str,
         section: &str,
@@ -205,21 +274,23 @@ impl MusicPlayback {
         let Some(request) = &mut self.desired else {
             return;
         };
-        if !matches!(&request.product, MusicProduct::Section { provider: p, cue: c, section: s }
+        if !matches!(&request.product, MusicProduct::Section { provider: p, cue: c, section: s, .. }
             if p == provider && c == cue && s == section)
         {
             return;
         }
+        request.goal_revision = goal_revision;
         for voice in &mut request.voices {
             voice.gain = gains[voice.slot];
         }
         for group in self.groups.iter_mut().flatten() {
-            if group.request.same_product(request)
+            if group.request.can_continue(request)
                 && matches!(
                     group.phase,
                     MusicGroupPhase::Running | MusicGroupPhase::Submitted
                 )
             {
+                group.request.goal_revision = goal_revision;
                 for (voice, source) in group.voices.iter_mut().zip(&request.voices) {
                     voice.gain = source.gain;
                 }
@@ -228,6 +299,8 @@ impl MusicPlayback {
     }
 
     pub(crate) fn silence(&mut self) {
+        self.current_completion = None;
+        self.outcome = MusicRequestOutcome::Pending;
         if self.desired.take().is_some() {
             self.revision = self.revision.wrapping_add(1);
         }
@@ -243,7 +316,7 @@ impl MusicPlayback {
         if self.retries < MAX_RETRIES {
             self.retries += 1;
         } else {
-            self.exhausted = true;
+            self.outcome = MusicRequestOutcome::Failed(reason);
         }
     }
 
@@ -255,7 +328,7 @@ impl MusicPlayback {
             let desired = self
                 .desired
                 .as_ref()
-                .is_some_and(|request| request.same_product(&group.request));
+                .is_some_and(|request| request.can_continue(&group.request));
             if group.phase == MusicGroupPhase::Submitted && !desired {
                 group.phase = MusicGroupPhase::Canceled;
                 group.terminal = Some(MusicTerminalReason::Canceled);
@@ -299,6 +372,7 @@ impl MusicPlayback {
                     }
                     group.phase = MusicGroupPhase::Running;
                     group.envelope.began = now;
+                    self.current_completion = None;
                     self.current = Some(group.occurrence);
                     for voice in &group.voices {
                         output.resume(&voice.handle);
@@ -332,11 +406,14 @@ impl MusicPlayback {
                     group.phase = MusicGroupPhase::Canceled;
                     group.terminal = Some(reason);
                     if self.current == Some(group.occurrence) {
+                        if complete {
+                            self.current_completion = Some((group.entry, group.product.clone()));
+                        }
                         self.current = None;
                     }
                     if desired {
                         if complete {
-                            self.exhausted = true;
+                            self.outcome = MusicRequestOutcome::Completed;
                             self.last_terminal = Some((group.occurrence, reason));
                         } else {
                             self.failed(group.occurrence, reason);
@@ -392,9 +469,9 @@ impl MusicPlayback {
             return;
         };
         if !output.ready_to_start()
-            || self.exhausted
+            || self.outcome.is_terminal()
             || self.groups().any(|group| {
-                group.request.same_product(request)
+                group.request.can_continue(request)
                     && matches!(
                         group.phase,
                         MusicGroupPhase::Running | MusicGroupPhase::Submitted
@@ -429,6 +506,7 @@ impl MusicPlayback {
             })
             .collect();
         self.groups[slot] = Some(MusicPlaybackGroup {
+            entry: request.entry,
             occurrence,
             product: request.product.clone(),
             phase: MusicGroupPhase::Submitted,
@@ -612,6 +690,7 @@ pub fn advance_music_playback(
     mix: Res<MusicMix>,
     output: Option<Res<crate::output::AudioOutputMode>>,
     mut base: Option<ResMut<MusicPlaybackState>>,
+    mut director: Option<ResMut<MusicDirectorState>>,
     unlock: Option<Res<crate::web_unlock::AudioUnlockState>>,
     conditions: Option<Res<crate::output::AudioPlaybackConditions>>,
 ) {
@@ -631,10 +710,32 @@ pub fn advance_music_playback(
         now: time.elapsed_secs_f64(),
     };
     playback.advance(&mut sink, time.elapsed_secs_f64(), mix.effective_music());
+    if let Some(director) = director.as_deref_mut() {
+        if let Some(group) = playback.current().filter(|group| {
+            group.phase == MusicGroupPhase::Running && Some(group.entry) == director.entry
+        }) {
+            if let Some(selection) = director.selection.clone() {
+                director.admitted = Some(AdmittedMusic {
+                    entry: group.entry,
+                    selection,
+                });
+            }
+        }
+        if director.admitted.as_ref().is_some_and(|admitted| {
+            !playback.groups().any(|group| {
+                group.entry == admitted.entry && group.phase == MusicGroupPhase::Running
+            })
+        }) {
+            director.admitted = None;
+        }
+        director.transport_completed = playback.completed_product().is_some_and(|(entry, product)|
+            Some(entry) == director.entry && matches!(product,
+                MusicProduct::Section { cue, section, .. } if director.active_cue_id.as_ref() == Some(cue) && director.current_section_id.as_ref() == Some(section)));
+    }
     if let Some(base) = base.as_deref_mut() {
         let track = base.active_track().to_owned();
         base.set_instance(playback.current().and_then(|group| match &group.product {
-            MusicProduct::Track(id) if *id == track => group.instances().next().cloned(),
+            MusicProduct::Track { id, .. } if *id == track => group.instances().next().cloned(),
             _ => None,
         }));
     }

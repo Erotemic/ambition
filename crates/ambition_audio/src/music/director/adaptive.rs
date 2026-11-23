@@ -1,5 +1,4 @@
 use super::gains::gains_for_state;
-use super::simple::resume_simple_music;
 use super::timing::{seconds_until_next_bar, seconds_until_next_phrase_marker};
 use super::*;
 
@@ -13,9 +12,7 @@ pub(in crate::music) fn should_restart_adaptive(
     let same_cue = director_active_cue == Some(cue_id);
     let mode_lost_adaptive = matches!(
         director_mode,
-        MusicDirectorMode::SimpleTrack
-            | MusicDirectorMode::Idle
-            | MusicDirectorMode::AdaptiveFinished
+        MusicDirectorMode::SimpleTrack | MusicDirectorMode::Idle
     );
     let outro_to_active =
         same_cue && director_mode == MusicDirectorMode::AdaptiveOutro && !target_state_is_outro;
@@ -35,12 +32,14 @@ pub(super) fn intro_has_ended(seconds_in_mode: f32, duration: f32, dt: f32) -> b
 pub(super) fn drive_adaptive_cue_state(
     director: &mut MusicDirectorState,
     provider_id: &str,
+    generation: u64,
     cue: &MusicCueSpec,
     target_state: &MusicStateSpec,
     assets: &LoadedMusicCueAssets,
     decoded: &Assets<KiraAudioSource>,
     channels: &mut MusicPlaybackCommands,
     dt: f32,
+    entry_crossfade_s: f32,
 ) {
     let same_request = director.active_cue_id.as_deref() == Some(cue.id.as_str())
         && director.requested_state_id.as_deref() == Some(target_state.id.as_str());
@@ -60,7 +59,8 @@ pub(super) fn drive_adaptive_cue_state(
         && cue
             .section(&target_state.section_id)
             .is_some_and(|section| {
-                intro_has_ended(director.seconds_in_mode, section.duration_seconds(cue), dt)
+                director.transport_completed
+                    || intro_has_ended(director.seconds_in_mode, section.duration_seconds(cue), dt)
             });
     let target_state = if completed {
         target_state
@@ -77,7 +77,13 @@ pub(super) fn drive_adaptive_cue_state(
     };
     // Start a section only when all its layers are decoded. Later sections
     // load in parallel and must not delay the opening or stop the current bank.
-    if !assets.section_ready(provider_id, cue, &target_state.section_id, decoded) {
+    if !assets.section_ready(
+        provider_id,
+        generation,
+        cue,
+        &target_state.section_id,
+        decoded,
+    ) {
         return;
     }
     if should_restart_adaptive(
@@ -89,11 +95,12 @@ pub(super) fn drive_adaptive_cue_state(
         start_adaptive_state(
             director,
             provider_id,
+            generation,
             cue,
             target_state,
             assets,
             channels,
-            INTRO_TO_LOOP_CROSSFADE_SECONDS,
+            entry_crossfade_s,
         );
         return;
     }
@@ -102,6 +109,7 @@ pub(super) fn drive_adaptive_cue_state(
         director.current_state_id.as_deref() == Some(target_state.id.as_str());
     if current_state_matches {
         channels.set_section_gains(
+            director.goal_revision,
             provider_id,
             &cue.id,
             &target_state.section_id,
@@ -127,6 +135,7 @@ pub(super) fn drive_adaptive_cue_state(
     if let Some(current_section_id) = director.current_section_id.as_deref() {
         if current_section_id == target_section.id {
             channels.set_section_gains(
+                director.goal_revision,
                 provider_id,
                 &cue.id,
                 &target_state.section_id,
@@ -141,6 +150,7 @@ pub(super) fn drive_adaptive_cue_state(
         queue_or_fire_outro(
             director,
             provider_id,
+            generation,
             cue,
             target_state,
             assets,
@@ -157,7 +167,8 @@ pub(super) fn drive_adaptive_cue_state(
             .and_then(|id| cue.section(id));
         let intro_done = current_section
             .map(|section| {
-                intro_has_ended(director.seconds_in_mode, section.duration_seconds(cue), dt)
+                director.transport_completed
+                    || intro_has_ended(director.seconds_in_mode, section.duration_seconds(cue), dt)
             })
             .unwrap_or(true);
         if !intro_done {
@@ -171,6 +182,7 @@ pub(super) fn drive_adaptive_cue_state(
         start_adaptive_state(
             director,
             provider_id,
+            generation,
             cue,
             target_state,
             assets,
@@ -198,6 +210,7 @@ pub(super) fn drive_adaptive_cue_state(
             start_adaptive_state(
                 director,
                 provider_id,
+                generation,
                 cue,
                 target_state,
                 assets,
@@ -232,6 +245,7 @@ pub(super) fn drive_adaptive_cue_state(
 fn queue_or_fire_outro(
     director: &mut MusicDirectorState,
     provider_id: &str,
+    generation: u64,
     cue: &MusicCueSpec,
     target_state: &MusicStateSpec,
     assets: &LoadedMusicCueAssets,
@@ -265,6 +279,7 @@ fn queue_or_fire_outro(
     if let Some(bridge_state_id) = cue.post_clear_bridge_state.as_deref() {
         if let Some(bridge) = cue.state(bridge_state_id) {
             channels.set_section_gains(
+                director.goal_revision,
                 provider_id,
                 &cue.id,
                 director
@@ -283,6 +298,7 @@ fn queue_or_fire_outro(
             start_adaptive_state(
                 director,
                 provider_id,
+                generation,
                 cue,
                 target_state,
                 assets,
@@ -298,6 +314,7 @@ fn queue_or_fire_outro(
 fn start_adaptive_state(
     director: &mut MusicDirectorState,
     provider_id: &str,
+    generation: u64,
     cue: &MusicCueSpec,
     target_state: &MusicStateSpec,
     assets: &LoadedMusicCueAssets,
@@ -321,14 +338,24 @@ fn start_adaptive_state(
     } else {
         crossfade_seconds
     };
-    channels.play_section(provider_id, cue, section, assets, gains, fade);
+    channels.play_section(
+        director.entry.expect("a selected music entry"),
+        director.goal_revision,
+        provider_id,
+        generation,
+        cue,
+        section,
+        assets,
+        gains,
+        fade,
+    );
     director.active_cue_id = Some(cue.id.clone());
     director.current_state_id = Some(target_state.id.clone());
     director.current_section_id = Some(section.id.clone());
     director.seconds_in_mode = 0.0;
     director.seconds_in_loop = 0.0;
     director.pending_state = None;
-    director.default_resume_started = false;
+    director.transport_completed = false;
     director.mode = if is_outro_target(cue, target_state) {
         MusicDirectorMode::AdaptiveOutro
     } else if section.looped {
@@ -336,88 +363,6 @@ fn start_adaptive_state(
     } else {
         MusicDirectorMode::AdaptiveIntro
     };
-}
-
-pub(super) fn drive_outro_tail(
-    director: &mut MusicDirectorState,
-    cue: &MusicCueSpec,
-    channels: &mut MusicPlaybackCommands,
-    library: &mut AudioLibrary,
-    asset_server: &AssetServer,
-    music_state: &mut MusicPlaybackState,
-    simple_track_candidates: &[String],
-) {
-    if director.mode != MusicDirectorMode::AdaptiveOutro {
-        return;
-    }
-    let duration = director
-        .current_section_id
-        .as_deref()
-        .and_then(|id| cue.section(id))
-        .map(|section| section.duration_seconds(cue))
-        .unwrap_or(0.0);
-    if !director.default_resume_started
-        && director.seconds_in_mode >= (duration - DEFAULT_RETURN_OVERLAP_SECONDS).max(0.0)
-    {
-        // Start the base track under the adaptive outro tail. The mode stays
-        // AdaptiveOutro until the outro ends (below); only then does it become
-        // AdaptiveFinished and the cue identity clear. Setting
-        // `mode = SimpleTrack` here would break the same-cue restart rule; see
-        // `resume_simple_music`.
-        resume_simple_music(
-            director,
-            library,
-            asset_server,
-            music_state,
-            channels,
-            simple_track_candidates,
-            false,
-        );
-        director.default_resume_started = true;
-    }
-    if director.seconds_in_mode >= duration {
-        info!(
-            target: MUSIC_LOG_TARGET,
-            "finish_adaptive_outro cue={} t={:.3}",
-            cue.id,
-            director.seconds_in_mode,
-        );
-        director.mode = MusicDirectorMode::AdaptiveFinished;
-        director.clear_active_cue();
-    }
-}
-
-pub(super) fn shutdown_adaptive_cue(
-    director: &mut MusicDirectorState,
-    channels: &mut MusicPlaybackCommands,
-    library: &mut AudioLibrary,
-    asset_server: &AssetServer,
-    music_state: &mut MusicPlaybackState,
-    simple_track_candidates: &[String],
-) {
-    info!(
-        target: MUSIC_LOG_TARGET,
-        "shutdown_adaptive_cue cue={:?} mode={:?} state={:?} section={:?}",
-        director.active_cue_id,
-        director.mode,
-        director.current_state_id,
-        director.current_section_id,
-    );
-    channels.silence();
-    director.clear_active_cue();
-    director.mode = MusicDirectorMode::Idle;
-    director.pending_state = None;
-    // The adaptive cue identity is cleared here, so resume_simple_music may
-    // set the mode to SimpleTrack.
-    resume_simple_music(
-        director,
-        library,
-        asset_server,
-        music_state,
-        channels,
-        simple_track_candidates,
-        true,
-    );
 }
 
 fn is_outro_target(cue: &MusicCueSpec, state: &MusicStateSpec) -> bool {

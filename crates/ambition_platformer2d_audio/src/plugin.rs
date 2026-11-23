@@ -17,18 +17,16 @@ use bevy::prelude::*;
 use bevy_kira_audio::prelude::AudioControl;
 
 use super::environment::{
-    apply_audio_environment, detect_audio_environment, smooth_audio_environment, AudioEnvironment,
+    AudioEnvironment, apply_audio_environment, detect_audio_environment, smooth_audio_environment,
 };
 use ambition_audio::audio_play_sfx_messages;
-use ambition_audio::library::{
-    start_default_music_when_ready, DefaultMusicStarted, SfxChannel,
-};
+use ambition_audio::library::SfxChannel;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    simulation_authorized, ActiveSessionScope, InitialGameplayReadiness, SessionGatedSimulation,
+    ActiveSessionScope, InitialGameplayReadiness, SessionGatedSimulation, simulation_authorized,
 };
 
 /// Public Bevy plugin: installs the Kira backend, channel resources,
-/// per-frame audio systems, and the deferred music-start poller.
+/// per-frame sound playback, and music goal publication.
 ///
 /// Visible builds register this via the sandbox's presentation install
 /// chain in `app/plugins.rs::add_presentation_plugins`. Headless / RL
@@ -38,25 +36,38 @@ pub struct Platformer2dAudioPlugin;
 
 impl Plugin for Platformer2dAudioPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_sets(PostUpdate, (
-            ambition_sfx::SfxPresentationSet::Listeners,
-            ambition_sfx::SfxPresentationSet::Playback,
-            ambition_sfx::SfxPresentationSet::Attenuation,
-        ).chain().before(bevy_kira_audio::AudioSystemSet::PlayTypedChannels));
-        app.add_systems(PostUpdate, ambition_audio::spatial::update_sfx_attenuation
-            .in_set(ambition_sfx::SfxPresentationSet::Attenuation)
-            .run_if(|shots: Res<ambition_audio::spatial::SfxOneShots>, loops: Res<ambition_audio::SfxLoopPlayback>|
-                !shots.0.is_empty() || loops.has_voices()));
+        app.configure_sets(
+            PostUpdate,
+            (
+                ambition_sfx::SfxPresentationSet::Listeners,
+                ambition_sfx::SfxPresentationSet::Playback,
+                ambition_sfx::SfxPresentationSet::Attenuation,
+            )
+                .chain()
+                .before(bevy_kira_audio::AudioSystemSet::PlayTypedChannels),
+        );
+        app.add_systems(
+            PostUpdate,
+            ambition_audio::spatial::update_sfx_attenuation
+                .in_set(ambition_sfx::SfxPresentationSet::Attenuation)
+                .run_if(
+                    |shots: Res<ambition_audio::spatial::SfxOneShots>,
+                     loops: Res<ambition_audio::SfxLoopPlayback>| {
+                        !shots.0.is_empty() || loops.has_voices()
+                    },
+                ),
+        );
         app.init_resource::<ambition_audio::AudioOutputMode>()
             .add_plugins(ambition_audio::AmbitionAudioBackendPlugin)
             .add_message::<ambition_audio::selection::AudioContextChanged>()
+            .add_message::<ambition_encounter::EncounterRelease>()
+            .add_message::<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated>()
             .add_plugins(ambition_audio::SfxBankAssetPlugin)
             // Browser AudioContext unlock telemetry.
             .add_plugins(ambition_audio::web_unlock::WebAudioUnlockPlugin)
             .init_resource::<ambition_audio::library::RadioStationState>()
             .init_resource::<ambition_audio::render::ProviderSfxHandleCache>()
             .init_resource::<AudioEnvironment>()
-            .init_resource::<DefaultMusicStarted>()
             .add_ambition_audio_channel::<SfxChannel>()
             // ⭐ NO PROFILING MARKS HERE. They bracketed this one system from
             // inside the kernel, which made a SIMULATION crate depend on a
@@ -69,25 +80,6 @@ impl Plugin for Platformer2dAudioPlugin {
                 ambition_audio::music::load_music_cues
                     .in_set(ambition_platformer2d_shared_tangle::schedule::AudioInitSet)
                     .after(ambition_platformer2d_shared_tangle::schedule::PresentationSetupSet),
-            )
-            // Deferred music start: polls each Update for (a) user
-            // gesture observed (AudioUnlockState) and (b) the default
-            // music track's asset handle finished loading. On wasm the
-            // gesture gate is what prevents `play()` from no-op'ing
-            // against a suspended AudioContext; on desktop the gate
-            // flips during Startup so behavior matches the old direct-
-            // startup system.
-            // Deferred first-play is a DIRECT-ENTRY convenience: it auto-starts
-            // the resident default track. Under a session-routed host the
-            // director owns music per activation (driven by
-            // `ActiveAudioSelection`), and frontend routes own their explicit
-            // title/menu audio profile, so this must not fire there.
-            .add_systems(
-                Update,
-                start_default_music_when_ready
-                    .in_set(ambition_audio::library::DefaultMusicStart)
-                    .before(crate::music::compute_music_intent)
-                    .run_if(music_auto_start_when_ungated),
             )
             .add_systems(
                 PostUpdate,
@@ -143,57 +135,53 @@ impl Plugin for Platformer2dAudioPlugin {
             // catalog; the reusable music core consumes the synced
             // `MusicMix` + the inserted catalog (Stage 20 / B1 seam).
             .init_resource::<ambition_audio::MusicMix>()
-            // Unified director: resolves room/encounter simple tracks and
-            // adaptive cue states behind one music intent layer. Runs after
-            // `compute_music_intent` so the intent is fresh this frame; the
-            // mix sync runs first so the director sees this frame's volume.
+            // Publish the gameplay goal after all simulation source facts.
             .add_systems(
                 Update,
                 (
                     crate::music::release_narrative_music_on_room_change,
                     crate::music::compute_music_intent,
-                    ambition_audio::music::drive_music_director,
                 )
                     .chain()
-                    // Gameplay music only drives while the simulation is
-                    // authorized. Direct visible startup may additionally hold
-                    // the initial-presentation readiness gate closed; session-
-                    // routed hosts sleep at frontend/title routes. In either
-                    // case a stale room/encounter candidate cannot switch the
-                    // base channel before gameplay authority exists.
                     .run_if(simulation_authorized)
-                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
+                    .in_set(ambition_audio::music::MusicGoalPublication)
+                    .after(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot),
             )
-            // Reset all activation-local audio request/director state on both
-            // gameplay and frontend transitions. This runs outside the gameplay
-            // gate so returning home clears ownership immediately.
+            // Clear old requests before the new session can author requests.
             .add_systems(
                 Update,
                 reset_audio_request_state_on_context_change
-                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation)
+                    .in_set(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Activate)
+                    .before(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
                     .before(audio_play_sfx_messages)
                     .before(crate::music::compute_music_intent)
                     .before(apply_frontend_music_policy),
             )
-            // Apply the frontend audio policy: the frame the simulation
-            // deauthorizes (Quit to Home), stop every gameplay music channel
-            // once, reset the director so no previous session's music lingers,
-            // then start the host's title theme if one is configured (else
-            // deliberate silence). Ungated so it can observe the transition;
-            // latched so it acts exactly once per frontend entry (no thrash).
+            // Context authority and frontend goals also run outside gameplay.
             .add_systems(
                 Update,
                 apply_frontend_music_policy
-                    .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
+                    .before(crate::music::compute_music_intent)
+                    .in_set(ambition_audio::music::MusicGoalPublication)
+                    .after(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot),
             );
+        app.add_systems(
+            Update,
+            ambition_audio::music::drive_music_director
+                .after(ambition_audio::music::MusicGoalPublication)
+                .after(apply_frontend_music_policy),
+        );
         // After the backend plugin, which owns the channel store on a device.
         ambition_audio::music::add_music_playback(app);
         app.init_resource::<ambition_audio::music::diagnostics::MusicPlaybackDiagnostics>()
             .add_systems(Update, publish_audio_readiness)
-            .add_systems(PostUpdate, ambition_audio::music::diagnostics::observe_music_playback
-                .after(bevy_kira_audio::AudioSystemSet::PlayTypedChannels)
-                .after(bevy_kira_audio::AudioSystemSet::PlayDynamicChannels)
-                .after(ambition_audio::music::playback::advance_music_playback));
+            .add_systems(
+                PostUpdate,
+                ambition_audio::music::diagnostics::observe_music_playback
+                    .after(bevy_kira_audio::AudioSystemSet::PlayTypedChannels)
+                    .after(bevy_kira_audio::AudioSystemSet::PlayDynamicChannels)
+                    .after(ambition_audio::music::playback::advance_music_playback),
+            );
     }
 }
 
@@ -204,221 +192,117 @@ fn publish_audio_readiness(
     roots: Query<&ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
     mut conditions: ResMut<ambition_audio::output::AudioPlaybackConditions>,
 ) {
-    conditions.initial_presentation_ready = readiness.as_deref().is_none_or(|ready| ready.is_ready());
+    conditions.initial_presentation_ready =
+        readiness.as_deref().is_none_or(|ready| ready.is_ready());
     conditions.music_context_required = simulation_authorized(gate, readiness, scope, roots);
 }
 
 #[derive(SystemParam)]
-struct AudioRequestState<'w, 's> {
-    encounter: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
-            'w,
-            's,
-            ambition_encounter::EncounterMusicRequest,
-        >,
-    >,
+struct AudioRequestState<'w> {
     radio: Option<ResMut<'w, ambition_audio::library::RadioStationState>>,
     narrative: Option<ResMut<'w, ambition_conversation::NarrativeMusicRequest>>,
-    intent: Option<ResMut<'w, ambition_audio::music::MusicIntent>>,
-    director: Option<ResMut<'w, ambition_audio::music::MusicDirectorState>>,
-    music_playback: Option<ResMut<'w, ambition_audio::library::MusicPlaybackState>>,
     sfx_playback: Option<ResMut<'w, ambition_audio::render::SfxPlaybackState>>,
-    default_started: Option<ResMut<'w, DefaultMusicStarted>>,
 }
 
-/// Reset activation-local audio requests exactly when the shell audio owner
-/// changes. The bundle keeps the mutable request components behind one Bevy parameter, well below
-/// the system argument limit, while making same-provider relaunch as fresh as a
-/// cross-provider switch.
+/// Clear old requests before the new session publishes its requests.
 fn reset_audio_request_state_on_context_change(
     mut changes: MessageReader<ambition_audio::selection::AudioContextChanged>,
+    mut activated: MessageReader<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionScopeActivated,
+    >,
     selection: Res<ambition_audio::selection::ActiveAudioSelection>,
     sfx_channel: Res<bevy_kira_audio::prelude::AudioChannel<SfxChannel>>,
-    mut layer_channels: ambition_audio::music::MusicPlaybackCommands,
-    frontend: Option<Res<ambition_audio::selection::FrontendAudioRegistry>>,
     mut state: AudioRequestState,
 ) {
     let current = selection.owner();
     let reset = changes
         .read()
-        .any(|change| change.current == current && change.previous != change.current);
-    if !reset {
+        .filter(|change| change.current == current && change.previous != change.current)
+        .count() > 0;
+    let session_reset = activated.read().count() > 0;
+    if !reset && !session_reset {
         return;
     }
 
-    // The title theme can OUTLIVE this reset — see `title_theme_keeps_playing`.
-    // Everything else here still runs: the encounter/radio requests and the
-    // intent are activation-local by definition, and it is only the song that is
-    // the same song.
-    let keep_base_track = match (
-        frontend
-            .as_deref()
-            .and_then(|frontend| frontend.in_effect()),
-        state.music_playback.as_deref(),
-    ) {
-        (Some(profile), Some(playback)) => ambition_audio::music::title_theme_keeps_playing(
-            profile.title_track(),
-            current,
-            playback,
-        ),
-        _ => false,
-    };
-    if let Some(encounter) = state.encounter.as_deref_mut() {
-        **encounter = Default::default();
-    }
     if let Some(radio) = state.radio.as_deref_mut() {
         *radio = Default::default();
     }
     if let Some(narrative) = state.narrative.as_deref_mut() {
         narrative.clear();
     }
-    if let Some(intent) = state.intent.as_deref_mut() {
-        *intent = Default::default();
+    if let Some(sfx) = state.sfx_playback.as_deref_mut() {
+        sfx.last_played = None;
     }
-    if !keep_base_track {
-        match (&mut state.director, &mut state.music_playback) {
-            (Some(director), Some(playback)) => {
-                ambition_audio::music::silence_music_backend(
-                    &mut layer_channels,
-                    &mut **director,
-                    &mut **playback,
-                );
-            }
-            (director, playback) => {
-                if let Some(director) = director.as_deref_mut() {
-                    *director = Default::default();
-                }
-                if let Some(playback) = playback.as_deref_mut() {
-                    playback.silence();
-                }
-            }
-        }
-    }
-    // SFX channels are activation-owned too.
     sfx_channel.stop();
-    if let Some(playback) = state.sfx_playback.as_deref_mut() {
-        playback.last_played = None;
-    }
-    if let Some(started) = state.default_started.as_deref_mut() {
-        started.0 = false;
-    }
 }
 
-/// Run condition: auto-start the resident default music track only when this App
-/// is NOT a session-routed host (no [`SessionGatedSimulation`] marker). A
-/// session-routed host starts music per activation through the director +
-/// `ActiveAudioSelection`; frontend routes use their explicit host profile.
-fn music_auto_start_when_ungated(
-    gate: Option<Res<SessionGatedSimulation>>,
-    readiness: Option<Res<InitialGameplayReadiness>>,
-) -> bool {
-    direct_music_auto_start_allowed(
-        gate.is_some(),
-        readiness.as_deref().map(|readiness| readiness.is_ready()),
-    )
-}
-
-fn direct_music_auto_start_allowed(session_gated: bool, initial_ready: Option<bool>) -> bool {
-    !session_gated && initial_ready.unwrap_or(true)
-}
-
-/// Apply the current frontend shell activation's audio profile.
-///
-/// Frontend audio is not an exception to authority: the shell bridge selects an
-/// exact [`ambition_sfx::AudioContextOwner::Frontend`] context, whose preferred
-/// title track and menu-SFX allowlist come from `FrontendAudioProfile`. On every
-/// frontend activation change this system stops gameplay channels, resets the
-/// director, and starts that context's title track (or deliberate silence).
-/// Direct-entry apps remain unaffected because they do not install the session-routing marker;
-/// their separate initial-reveal gate only delays the normal direct music start.
-#[allow(clippy::too_many_arguments)]
+/// Frontend policy publishes through the same goal as gameplay.
 fn apply_frontend_music_policy(
-    gate: Option<Res<SessionGatedSimulation>>,
-    readiness: Option<Res<InitialGameplayReadiness>>,
-    scope: Option<Res<ActiveSessionScope>>,
-    roots: Query<&ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
-    mut layer_channels: ambition_audio::music::MusicPlaybackCommands,
-    library: Option<ResMut<ambition_audio::library::AudioLibrary>>,
-    asset_server: Res<AssetServer>,
     selection: Res<ambition_audio::selection::ActiveAudioSelection>,
-    frontend: Option<Res<ambition_audio::selection::FrontendAudioRegistry>>,
-    emission: Res<ambition_sfx::SfxEmissionContext>,
-    director: Option<ResMut<ambition_audio::music::MusicDirectorState>>,
-    music_state: Option<ResMut<ambition_audio::library::MusicPlaybackState>>,
+    library: Option<Res<ambition_audio::library::AudioLibrary>>,
+    catalogs: Res<ambition_audio::music::AdaptiveMusicCatalogRegistry>,
     mut intent: ResMut<ambition_audio::music::MusicIntent>,
-    mut started: ResMut<DefaultMusicStarted>,
-    mut applied_owner: Local<Option<ambition_sfx::AudioContextOwner>>,
 ) {
-    // A closed direct-start reveal gate is not a frontend route. Frontend
-    // music policy exists only in session-routed hosts; direct entry merely
-    // waits to start its normal track until the first coherent frame reveals.
-    let Some(gate) = gate else {
-        *applied_owner = None;
-        return;
-    };
-    if simulation_authorized(Some(gate), readiness, scope, roots) {
-        *applied_owner = None;
-        return;
-    }
-    let owner = emission.owner();
-    if *applied_owner == owner {
-        return;
-    }
-    let (Some(mut director), Some(mut music_state), Some(mut library)) =
-        (director, music_state, library)
-    else {
-        *applied_owner = owner;
-        return;
-    };
-
-    // The title theme outlives frontend churn — ONE rule, stated once beside the
-    // silencer it exempts.
-    if ambition_audio::music::title_theme_keeps_playing(
-        frontend
-            .as_deref()
-            .and_then(|frontend| frontend.in_effect())
-            .and_then(|profile| profile.title_track()),
-        owner,
-        &music_state,
-    ) {
-        *applied_owner = owner;
-        return;
-    }
-
-    ambition_audio::music::silence_music_backend(
-        &mut layer_channels,
-        &mut director,
-        &mut music_state,
-    );
-    intent.simple_track_candidates.clear();
-    intent.adaptive = None;
-    // Keep the deferred first-play latched shut at the frontend; a fresh
-    // session re-selects and the director restarts music from the selection.
-    started.0 = true;
-
-    // Host title theme, if any: loop it on the base music channel. Absent policy
-    // (or an unresolvable track) leaves the frontend deliberately silent.
-    if matches!(owner, Some(ambition_sfx::AudioContextOwner::Frontend(_))) {
-        if let Some(track_id) = selection.preferred_track() {
-            if selection.music_authority().allows(track_id) {
-                ambition_audio::library::switch_to_music_track(
-                    &mut library, &asset_server, &mut music_state, &mut layer_channels, track_id,
-                );
-            }
+    use ambition_audio::music::*;
+    let owner = selection.owner();
+    intent.context = owner;
+    intent.outgoing = None;
+    if selection.is_changed()
+        || catalogs.is_changed()
+        || intent.provider_id.as_deref() != selection.provider_id()
+    {
+        intent.provider_id = selection.provider_id().map(str::to_owned);
+        let mut authority = selection.music_authority();
+        if let Some(catalog) = selection
+            .provider_id()
+            .and_then(|provider| catalogs.catalog_for(provider))
+        {
+            authority.authorize_cues(catalog.cue_ids().map(str::to_owned));
         }
+        intent.authority = authority;
     }
-    *applied_owner = owner;
+    if matches!(
+        owner,
+        Some(
+            ambition_sfx::AudioContextOwner::Gameplay(_) | ambition_sfx::AudioContextOwner::Direct
+        )
+    ) {
+        return;
+    }
+    let Some(id) = selection.preferred_track() else {
+        intent.publish(MusicGoal::Silence {
+            context: owner,
+            reason: MusicSilenceReason::FrontendHasNoMusic,
+        });
+        return;
+    };
+    let (Some(library), Some(context), Some(provider)) =
+        (library.as_deref(), owner, selection.provider_id())
+    else {
+        return;
+    };
+    let Some(track) = library.track(id) else {
+        return;
+    };
+    intent.publish(MusicGoal::Play(MusicSelection {
+        provider: provider.into(),
+        generation: track.generation,
+        claim: MusicClaim {
+            context,
+            session: None,
+            scope: None,
+            source: "frontend".into(),
+            attempt: 0,
+        },
+        release_owner: None,
+        choice: MusicChoice::Track(id.into()),
+        continuity: MusicContinuity::SharedProgram,
+        entry_policy: MusicEntryPolicy::ContinueCompatible,
+        priority: 0,
+        crossfade_s: 0.22,
+        completed_state: None,
+    }));
 }
 
 #[cfg(test)]
-mod startup_readiness_tests {
-    use super::direct_music_auto_start_allowed;
-
-    #[test]
-    fn direct_music_waits_for_initial_readiness_without_becoming_frontend() {
-        assert!(!direct_music_auto_start_allowed(false, Some(false)));
-        assert!(direct_music_auto_start_allowed(false, Some(true)));
-        assert!(direct_music_auto_start_allowed(false, None));
-        assert!(!direct_music_auto_start_allowed(true, Some(true)));
-    }
-}
+mod tests;

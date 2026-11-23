@@ -849,9 +849,15 @@ fn a_published_variable_clock_controls_the_running_sections_handoff() {
     step(&mut app, 3.0 - position);
     publish(&mut app, selection("trail", "later", "room", 0, 10));
     step(&mut app, 0.0);
-    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 1);
+    assert_eq!(
+        app.world().resource::<MusicDirectorState>().current_section_id.as_deref(),
+        Some("body")
+    );
     step(&mut app, 2.9);
-    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 1);
+    assert_eq!(
+        app.world().resource::<MusicDirectorState>().current_section_id.as_deref(),
+        Some("body")
+    );
     step(&mut app, 0.2);
     frames(&mut app, 6);
     assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 2);
@@ -926,7 +932,7 @@ fn an_undecoded_target_misses_its_exit_and_waits_for_the_next_one() {
             .as_deref(),
         Some("song")
     );
-    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 2);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
     step(&mut app, 3.5);
     frames(&mut app, 4);
     assert_eq!(
@@ -940,7 +946,7 @@ fn an_undecoded_target_misses_its_exit_and_waits_for_the_next_one() {
 }
 
 #[test]
-fn an_observed_loop_boundary_has_no_extra_minimum_delay() {
+fn a_missed_native_admission_uses_the_next_allowed_exit_without_moving_it() {
     let mut app = decoded();
     publish(&mut app, selection("trail", "song", "room", 0, 10));
     frames(&mut app, 7);
@@ -962,6 +968,16 @@ fn an_observed_loop_boundary_has_no_extra_minimum_delay() {
             .resource::<MusicDirectorState>()
             .current_section_id
             .as_deref(),
+        Some("song")
+    );
+    assert_eq!(
+        app.world().resource::<MusicDirectorState>().pending_transition().unwrap().exit_seconds,
+        8.0
+    );
+    step(&mut app, 3.25);
+    frames(&mut app, 4);
+    assert_eq!(
+        app.world().resource::<MusicDirectorState>().current_state_id.as_deref(),
         Some("later")
     );
 }
@@ -1053,7 +1069,10 @@ fn withdrawing_a_transition_discards_its_old_exit() {
             .as_deref(),
         Some("song")
     );
-    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 2);
+    assert_eq!(
+        app.world().resource::<MusicDirectorState>().pending_transition().unwrap().exit_seconds,
+        8.0
+    );
 }
 
 #[test]
@@ -1245,7 +1264,7 @@ fn a_second_phase_change_can_cancel_a_submitted_section_without_losing_the_admit
         .unwrap()
         .position_seconds
         .unwrap();
-    step(&mut app, 4.0 - position);
+    step(&mut app, 3.0 - position);
     step(&mut app, 0.0);
     publish(&mut app, selection("trail", "later", "fight", 1, 200));
     step(&mut app, 0.0);
@@ -1976,4 +1995,30 @@ fn a_new_occurrence_cancels_the_old_admitted_future_continuation() {
         Some("destination")
     );
     assert_eq!(playback.reserved_voices(), 2);
+}
+
+#[test]
+fn a_prepared_native_exit_has_no_host_frame_delay_at_its_boundary() {
+    let mut app = decoded();
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    frames(&mut app, 7);
+    let position = app.world().resource::<MusicPlayback>()
+        .current().unwrap().position_seconds.unwrap();
+    step(&mut app, 3.0 - position);
+    publish(&mut app, selection("trail", "later", "room", 0, 10));
+    step(&mut app, 0.0);
+    step(&mut app, 0.0);
+    assert_eq!(
+        app.world().resource::<MusicDirectorState>().current_state_id.as_deref(),
+        Some("song")
+    );
+    assert_eq!(
+        app.world().resource::<MusicDirectorState>().pending_transition().unwrap().exit_seconds,
+        4.0
+    );
+    step(&mut app, 1.0);
+    assert_eq!(
+        app.world().resource::<MusicDirectorState>().current_state_id.as_deref(),
+        Some("later")
+    );
 }

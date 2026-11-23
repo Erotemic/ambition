@@ -8,6 +8,9 @@ pub struct MusicPlaybackCommands<'w> {
 }
 
 impl MusicPlaybackCommands<'_> {
+    pub(super) fn scheduling_window(&self) -> Option<super::playback::MusicSchedulingWindow> {
+        self.playback.scheduling
+    }
     pub(super) fn new_entry(&mut self) -> super::playback::MusicEntry {
         self.playback.new_entry()
     }

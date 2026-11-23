@@ -232,3 +232,28 @@ fn a_native_short_continuation_finishes_once_between_host_observations() {
     run_for(&mut app, 0.2);
     assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
 }
+
+#[test]
+#[ignore = "uses the native audio device; run with an explicit output or capture device"]
+fn a_native_loop_exit_runs_after_several_passes_during_a_host_stall() {
+    let mut authored = authored_cues(240.0);
+    for cue in &mut authored.cues {
+        cue.playback.section_crossfade_seconds = Some(0.0);
+    }
+    let catalog = MusicCueCatalog::prepare(authored, &Default::default()).unwrap();
+    let (mut app, handles) = fixture_catalog_output(catalog, crate::output::AudioOutputMode::Device);
+    app.finish();
+    app.cleanup();
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    for (index, handle) in handles.iter().enumerate() {
+        decode_tone(&mut app, handle, index);
+    }
+    run_for(&mut app, 3.4);
+    assert_running(&app, "trail", "song");
+    publish(&mut app, selection("trail", "later", "room", 0, 10));
+    run_for(&mut app, 0.04);
+    std::thread::sleep(Duration::from_secs_f64(1.2));
+    run_for(&mut app, 0.05);
+    assert_running(&app, "trail", "later");
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+}

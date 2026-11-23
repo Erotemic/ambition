@@ -34,6 +34,14 @@ pub(crate) struct MusicStartAfter {
     pub seconds: f64,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(super) struct MusicSchedulingWindow {
+    /// Native time at the last executor update.
+    pub now_seconds: f64,
+    /// Minimum native start time. Admission must check it again after preparation.
+    pub not_before_seconds: f64,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MusicProduct {
     Track {
@@ -231,6 +239,7 @@ impl MusicPlaybackGroup {
 /// One pending choice and at most two submitted, running, or retiring groups.
 #[derive(Resource, Default, Debug)]
 pub struct MusicPlayback {
+    pub(super) scheduling: Option<MusicSchedulingWindow>,
     desired: Option<MusicPlaybackRequest>,
     groups: [Option<MusicPlaybackGroup>; MAX_GROUPS],
     current: Option<MusicPlaybackOccurrence>,
@@ -411,6 +420,10 @@ impl MusicPlayback {
 
     fn advance(&mut self, output: &mut impl MusicVoiceOutput, now: f64, master: f32) {
         let transport_now = output.transport_time();
+        self.scheduling = transport_now.map(|time| MusicSchedulingWindow {
+            now_seconds: time,
+            not_before_seconds: time + output.start_lead_seconds(),
+        });
         let envelope_now = transport_now.unwrap_or(now);
         for slot in 0..MAX_GROUPS {
             let Some(mut group) = self.groups[slot].take() else {

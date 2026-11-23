@@ -80,6 +80,18 @@ pub(super) fn drive_adaptive_cue_state(
         .entry
         .is_some_and(|entry| channels.scheduled_state(entry, &target_state.id))
     {
+        channels.set_section_gains(
+            director.entry.expect("a selected music entry"),
+            director.goal_revision,
+            provider_id,
+            &cue.id,
+            &target_state.section_id,
+            &target_state.gains,
+            Some((&target_state.id, selection.phase_policy)),
+        );
+        if let Some(plan) = &mut director.pending_state {
+            plan.goal_revision = director.goal_revision;
+        }
         return;
     }
     if should_restart_adaptive(
@@ -282,17 +294,75 @@ pub(super) fn drive_adaptive_cue_state(
         &cue.playback.section_exit
     };
     let asset_seconds = current.file_duration_seconds();
+    let occurrence = current.occurrence;
+    if let Some((origin, window)) = current
+        .transport_origin
+        .zip(channels.scheduling_window())
+        .filter(|_| *exit != crate::music_policy::MusicExitRule::Immediate)
+    {
+        let position = (window.now_seconds - origin).max(0.0);
+        let earliest = (window.not_before_seconds - origin).max(position);
+        let clock = MusicTransitionClock::Transport {
+            origin_seconds: origin,
+        };
+        let mut plan = director
+            .pending_state
+            .take()
+            .filter(|plan| {
+                plan.clock == clock
+                    && plan.occurrence == occurrence
+                    && plan.goal_revision == director.goal_revision
+                    && plan.state_id == target_state.id
+                    && plan.exit_seconds >= earliest
+            })
+            .or_else(|| {
+                let delay = section.delay_to_exit(exit, earliest, asset_seconds)?;
+                Some(MusicTransitionPlan {
+                    clock,
+                    exit: exit.clone(),
+                    fade_seconds: fade,
+                    state_id: target_state.id.clone(),
+                    goal_revision: director.goal_revision,
+                    occurrence,
+                    exit_seconds: earliest + delay,
+                    observed_seconds: position,
+                })
+            });
+        let Some(selected) = plan.as_mut() else { return };
+        selected.observed_seconds = position;
+        let end = selected.exit_seconds;
+        director.pending_state = plan;
+        if ready {
+            channels.play_section(
+                director.entry.expect("a selected music entry"),
+                director.goal_revision,
+                selection,
+                cue,
+                target_section,
+                assets,
+                target_state,
+                fade,
+                Some(super::super::playback::MusicStartAfter {
+                    occurrence,
+                    seconds: end,
+                }),
+            );
+        }
+        return;
+    }
     let mut pending = director
         .pending_state
         .take()
         .filter(|pending| {
-            pending.state_id == target_state.id
+            pending.clock == MusicTransitionClock::FileCursor
+                && pending.state_id == target_state.id
                 && pending.occurrence == current.occurrence
                 && pending.goal_revision == director.goal_revision
         })
         .or_else(|| {
             let delay = section.delay_to_exit(exit, position, asset_seconds)?;
             Some(MusicTransitionPlan {
+                clock: MusicTransitionClock::FileCursor,
                 exit: exit.clone(),
                 fade_seconds: fade,
                 state_id: target_state.id.clone(),
@@ -370,6 +440,15 @@ fn schedule_continuation(
         seconds: end,
     };
     if channels.scheduled_state(current.entry, &target.id) {
+        channels.set_section_gains(
+            current.entry,
+            director.goal_revision,
+            &selection.provider,
+            &cue.id,
+            &target.section_id,
+            &target.gains,
+            Some((&target.id, selection.phase_policy)),
+        );
         return true;
     }
     if !assets.section_ready(

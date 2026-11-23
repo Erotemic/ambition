@@ -229,13 +229,23 @@ impl MusicDirectorState {
 
 #[derive(Debug, Clone)]
 pub struct MusicTransitionPlan {
+    pub clock: MusicTransitionClock,
     pub exit: crate::music_policy::MusicExitRule,
     pub fade_seconds: f32,
     pub goal_revision: u64,
     pub state_id: String,
     pub occurrence: super::playback::MusicPlaybackOccurrence,
+    /// Source seconds in `clock` coordinates.
     pub exit_seconds: f64,
     pub observed_seconds: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MusicTransitionClock {
+    /// Wrapped file position for outputs without a native clock.
+    FileCursor,
+    /// Elapsed native time from the source start, including all loop passes.
+    Transport { origin_seconds: f64 },
 }
 
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]

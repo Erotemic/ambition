@@ -335,6 +335,25 @@ at that boundary. The expected aim policy must be explicit. Extend current
 release/redirection and two-seat cases only where their boundary changes.
 This does not reopen the portal geometry solver.
 
+### Tentative curved-world held direction
+
+[CV4](curved-surfaces-and-local-gravity.md#held-input-needs-an-explicit-continuation-rule)
+adds an unselected product decision, not a change to IN2's current comfort
+contract. `hold_stick_through_turns` interprets the current held stick in
+the retained press-time frame. An unchanged stick keeps its original world
+direction; small analog changes still steer in that retained frame. On a
+continuously turning planet, that differs from interpreting the command in
+the current local frame, even when body-relative mode is selected.
+
+If that scene is selected, state which continuation policy it wants.
+Preserve the existing discrete-gravity-flip customer; do not infer policy
+from angular change per tick. A policy transition ends/rebases the hold at
+the admitted input/control boundary, with the existing history and driver
+ownership. Keep camera easing and aim policy separate. Future acceptance
+must include a held full circuit, release/repress at another orientation
+and the existing flip-zone behavior. A fixed-camera human-only proof is
+sufficient; new device routing or a generic input framework is not needed.
+
 ### IN3 — coalesce a qualified press as one value
 
 The smaller correction is in

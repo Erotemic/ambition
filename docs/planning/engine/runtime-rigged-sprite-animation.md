@@ -83,8 +83,11 @@ migration; the earlier five-pirate/three-form list is not a current corpus censu
 ### Rigged sprite (visual)
 
 - The published format is an offline-solved **transform flipbook**:
-  `<target>_parts.png` and `<target>_parts.ron`. No Python, SVG, IK or vector
-  deformation runs in the game. Each quality tier has its own table
+  `<target>_parts.png` and `<target>_parts.ron`. Python, SVG and vector
+  deformation remain offline. Runtime `PosedParts::hold` already has a
+  bounded two-bone solve for authored contact targets during pose blends;
+  current `CharacterAnim::planted_contacts` selects ledge-grab hands.
+  That is not a terrain-foot solver. Each quality tier has its own table
   (`<target>.<tier>`) with its own part rects and `texel_scale`; a part keeps
   its full-resolution size and pivot at every tier.
   `scripts/regen/generate_visual_quality_variants.py` publishes tier atlases by
@@ -119,6 +122,21 @@ migration; the earlier five-pirate/three-form list is not a current corpus censu
 - Multiview: slots take their root's render layers. A second view adds no
   presentation entities.
 - `StanceSquash` reaches the parts through the owner's transform.
+
+### Tentative terrain foot placement
+
+[CV1](curved-surfaces-and-local-gravity.md#cv1--ground-the-picture-from-accepted-support)
+first restores the existing slope goal through one shared support-derived
+visual root placement. Direct parts, composition and baked fallback must
+agree. Physical body placement and righting remain native movement facts.
+
+If separate boot contact is later selected, reuse the prepared part/limb
+facilities. The robot's current foot attachments are ankles, so name the
+sole contact offsets and stance phase before solving feet to terrain.
+Require reach/pelvis limits, support-relative planting on moving surfaces,
+release and unsupported-row fallback. Cosmetic feet do not require
+gameplay `BodyRigAdmission`. A general runtime IK framework or a rig for
+every character remains outside this optional customer.
 
 ### Historical economics
 
@@ -679,7 +697,9 @@ headless (`capture_scene` can show them).
 - Replacing all baked sheets, or requiring every character to have a rig.
 - Rendered pixels or sprite transforms as gameplay authority.
 - Articulated rigid bodies for movement or stance collision.
-- Runtime Python, SVG, IK or vector deformation.
+- Runtime Python, SVG or vector deformation; a general terrain/body IK
+  system without a selected customer. The small existing blend-contact
+  solve is part of the current presentation road.
 - General skeletal interpolation before a customer needs it.
 - Fully physical locomotion, or gameplay-authoritative ragdoll without a
   mechanic.

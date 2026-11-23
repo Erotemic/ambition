@@ -57,6 +57,22 @@ only, not physical reachability. It has no production reader yet. So:
   `ambition_encounter_features/src/lock_walls.rs`) until something reads the
   first.
 
+## Tentative spatial gravity: the field is part of the experiment
+
+[Curved surfaces and local gravity](curved-surfaces-and-local-gravity.md#navigation-and-room-rules-need-the-field-along-the-route)
+does not select a new navigation program. Current `TraversalEnvelope::measure`
+rejects noncardinal frames; retaining a whole `MotionFrame` in a cache key
+does not establish a position-varying field along a future route.
+
+When an autonomous planetary actor is selected, candidate legs must run
+against the same bounded field and geometry as native movement, evaluated
+at the body's changing positions/times. Equal initial down does not make
+two such experiments equal. More per-angle cache entries cannot supply
+the missing environment law. Keep support/branch connectivity separate
+from feasibility, and retain complete experiment inputs under the existing
+native rollout and static-geometry owners. A human-only circular proof can
+precede this work and must not claim to establish general NPC navigation.
+
 ## Planned E4 — retain the state needed by route cost
 
 **Source review, 2026-11-21 (`b91b29d35935`):** this is selected structural

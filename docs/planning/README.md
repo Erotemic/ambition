@@ -244,8 +244,13 @@ links to.
   The debts of the GNU-ton giant (2026-10-11) and the design that pays
   them: a sheet says each place on its body. Not built.
 - [`engine/slopes-feet-ride-surfaces.md`](engine/slopes-feet-ride-surfaces.md)
-  A proposal (2026-10-11): a body on the ground keeps a support that
-  lasts; its shape says how it sits on it. Not built; one decision open.
+  Fixed slopes and rigid moving lines are built; lasting support and true
+  supported paths remain. Selected SUP1 will retain GNU's changing shape and
+  source phase. The picture-on-middle goal still needs its pose handoff.
+- [`engine/curved-surfaces-and-local-gravity.md`](engine/curved-surfaces-and-local-gravity.md)
+  Tentative decision aid: grounded appearance, compiled curves, finite-body
+  paths, continuous local-frame walking and an optional static planet.
+  No new queue selection; attraction, adhesion and posture stay distinct.
 - [`engine/portal-parts-similarity-and-chirality.md`](engine/portal-parts-similarity-and-chirality.md)
   Portal delivery owner: exact material, admitted topology/motion, conservative
   query preparation and per-observer presentation; bounded P1–P6 work.

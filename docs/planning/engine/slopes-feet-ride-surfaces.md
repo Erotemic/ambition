@@ -19,10 +19,23 @@ that shape change waits for a customer is met. Preserve the completed
 walker, mount-displacement and tilted-ledge work below. No new engine run,
 test, render or performance result is claimed.
 
+**Curves and grounded appearance (tentative, 2026-11-22):**
+[Curved surfaces and local gravity](curved-surfaces-and-local-gravity.md)
+separates the existing hill-contact goal from optional curve authoring,
+continuous local-frame walking and a static planetary proof. The source
+already has curve-to-chain preparation. It does not yet establish ordinary
+walking under continuously turning gravity. None of CV1–CV5 is selected
+in the queue by that investigation; SUP1 retains its current selection.
+
 ## The defaults this work takes (2026-10-15; feel is Jon's, each is a knob)
 
 - The foot span is the width of the box (the proposal's default, below).
-  The picture is put down onto the surface under its middle.
+  The intended picture placement is onto the surface under its middle.
+  Static review at `00bf92c22142` finds no selected-support input in the
+  current body pose/quad placement road. [CV1](curved-surfaces-and-local-gravity.md#cv1--ground-the-picture-from-accepted-support)
+  states the missing handoff, its bounded visual offset, and the separate
+  choice of root tilt or terrain feet. This sentence is a goal, not a
+  completed visual acceptance receipt.
 - A walker's speed on a slope is its speed ACROSS the floor: up or down a
   ramp it covers the same ground per second as on the flat.
 - A segment steeper than a walker's limit (default 50 degrees) is not ground
@@ -409,9 +422,8 @@ two faults in that, and both are right:
 
 ### What each mover owns: how it sits, how it travels, when it lets go
 
-- **A walker (the ordinary body).** OPEN, AND THE FIRST THING TO DECIDE:
-  how its box sits on a slope. The proposal is a FOOT SPAN: a length along
-  the bottom of its box, and the body rests on the highest point of the
+- **A walker (the ordinary body).** The current default above is a full
+  FOOT SPAN along the bottom of its box. The body rests on the highest point of the
   surface under that span.
   - With the span as wide as the box, no part of the box is under the
     slope, and a flat box top is the same rule (a body with any part over
@@ -430,8 +442,12 @@ two faults in that, and both are right:
 - **A rider (Sanic).** A circle. Around a sharp convex corner its middle
   goes on an arc about the corner, one radius out: the offset path of a
   circle, not the line itself. Its launch at a crest is from the load on
-  the surface, `g_press - v² κ`, with the curvature `κ` taken over a
-  stated length in world units, so the count of points does not change it.
+  the surface, `g_press - v² κ`, with speed and outward-crest curvature
+  measured on the same **center path**. State the world-length window used
+  to estimate curvature so the count of points does not decide release.
+  [CV2's finite-body distinction](curved-surfaces-and-local-gravity.md#a-support-curve-is-not-the-path-of-a-finite-body)
+  explains why source arc distance and center distance differ, even for a
+  smooth curve. A new smooth `frame_at` alone does not complete phase D.
   This is its own improvement, not a condition for a walker on a ramp.
 - **A crawler.** It holds to a surface on purpose, walls and ceilings
   also. It keeps its law; it takes the shared support.

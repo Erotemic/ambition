@@ -94,9 +94,24 @@ under E2/PVS-1. The smaller
 [A2 coverage correction](engine/authoring-and-tools.md#static-source-coverage)
 keeps source navigation honest about submodule roots and missing corpora.
 These improve local native contracts without a new execution framework,
-registry or collection library. The next unselected audit questions concern
-authored omission/override laws and saved references across content changes.
-Actual performance ranking still needs measurements.
+registry or collection library. Subsequent passes covered authored
+omission/override and moving supports. The current
+[audit frontier](engine/architectural-audit-frontier.md) retains the next
+research questions. Cross-version saved-content compatibility is deferred
+to 2027. Actual performance ranking still needs measurements.
+
+### Curved ground and local gravity
+
+- ▢ [Curved surfaces and local gravity](engine/curved-surfaces-and-local-gravity.md)
+  is tentative. CV1 states the existing hill-picture goal's missing
+  support-to-pose handoff. CV2 prepares authored curves with bounded native
+  geometry. CV3 first makes continuous down an honest ordinary-walker
+  capability; CV4 can then prove one static circular world. CV5 adds a
+  named surface field only if a scene needs it. No CV card is selected by
+  this audit, and SUP1's current moving-support work is independent.
+  Decide attraction versus attachment, airborne behavior and physical
+  posture before generalizing. Exact analytic curves, broad field
+  composition, terrain feet and planetary AI are separate choices.
 
 ### Persistent systemic world
 

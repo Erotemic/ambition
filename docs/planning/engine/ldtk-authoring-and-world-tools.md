@@ -71,6 +71,28 @@ The next phase consolidates these into a coherent authoring product.
    the embedded copy `build.rs` makes of each world `data/worlds.ron` lists) to
    know what the game loads.
 
+## Tentative curve and local-gravity authoring
+
+[Curved surfaces and local gravity](curved-surfaces-and-local-gravity.md)
+is a decision aid, not a selected extension to this program. Existing
+`SurfaceRamp`, `SurfaceLoop`, `AttachedLoop::route` and terrain profile
+tools already prepare curved source into native geometry.
+
+If CV2 or a planetary scene is selected, extend this semantic authoring
+road with one source recipe, a declared solid side and typed references.
+Prepare native bounds, adjacency, source parameters and mechanical error
+limits. Objects placed on the boundary must use the prepared gameplay
+answer, as the Sanic painted-height authoring already does. Render quality
+and camera zoom must not resample collision geometry.
+
+The author should be able to draw a hill, place an object on it, or name a
+surface that attracts within a region. Inspection must show the prepared
+boundary, field eligibility and ambiguous branches. A curve is not itself
+a movement law; gravity attraction is not attachment. Keep those choices
+explicit and validate them before publication. Do not expose segment count
+as the ordinary control for movement smoothness or add a new runtime curve
+interpreter/editor before the customer selects it.
+
 ## First vertical slice: moving platforms
 
 Moving platforms are **already controllable from LDtk**. Current conversion

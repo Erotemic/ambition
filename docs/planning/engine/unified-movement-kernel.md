@@ -32,9 +32,41 @@ frame or an already mapped carried vector. Navigation consumes the same
 standing physical experiment. Preserve identity fast paths, canonical
 parameters, dimensionless phase rules and the P2/P3 time/contact owners.
 
+## Continuous local gravity: a tentative capability gate
+
+Static review at `00bf92c22142` finds a distinction between the frame
+representation and ordinary walker behavior. `AccelerationFrame` admits
+continuous directions, but `movement/integration.rs` chooses gravity-X
+whenever `down.x != 0`, while `collision_semantics::gravity_axis` chooses
+the dominant component. An off-axis direction can give opposite roles.
+Changing that one condition would still leave cardinal response, repair
+and some AABB feet/one-way assumptions.
+
+[CV3](curved-surfaces-and-local-gravity.md#cv3--make-continuous-down-an-honest-walker-capability)
+proposes a bounded adaptation inside the existing kernel: explicit leg
+direction and role, exact material projections, coherent response and
+admitted righting, with cardinal specializations retained. Existing
+arbitrary-vector material casts are useful foundations. They do not prove
+the complete controller. Start with a fixed tilted frame before a radial
+field. Do not add a second whole-tick mover, rotate/copy the entire world,
+or silently make all walkers adhesive.
+
+The [decision aid](curved-surfaces-and-local-gravity.md) keeps ordinary
+hill presentation, curve compilation, spatial attraction and attachment
+separate. This is tentative and unselected; a human-only planetary proof
+does not require general navigation or a field-composition framework.
+
 ## Remaining
 
 ### A crawler on a wall reports an unturned box (found 2026-11-11)
+
+**Current-source qualification (2026-11-22):** this is a historical
+failure receipt. `try_motion` now rights `Riding`/`Attached` material
+toward the contact normal through `admit_body_righting` before committing
+the candidate. The earlier claim that attachment never turns material is
+not a description of that current path. Recheck the named witness before
+treating the old failure as live. This static audit did not run it and does
+not certify every crawler corner or body-footprint consumer.
 
 `02cabae983` moved a body's turn into its material (`BodyMaterial`) and
 removed the separate surface-upright state; `write_sweep_sample` now records

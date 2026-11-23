@@ -2,11 +2,13 @@
 
 **State:** audit map and research priorities, 2026-11-22. Latest source:
 `00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest static pass follows
-moving supports and authored paths after planning commit `e389726ea716`;
-the runtime source is unchanged. GNU supplies a changing-length support
-and a source-phase clock that the native motion record does not preserve.
-Hazards, platforms and authored patrol routes expose different consumers
-of shared spatial geometry. Cross-version saved-content compatibility is
+curved ground, visual footing and tentative local-gravity mechanics after
+planning commit `23bf0a94a41d`; the runtime source is unchanged. It finds a
+missing support-to-picture handoff and separates the frame's continuous
+representation from the ordinary walker's cardinal collision assumptions.
+The preceding moving-world pass established GNU's lost shape/phase facts
+and distinct consumers of shared path geometry. Cross-version saved-content
+compatibility is
 deferred to 2027 by the maintainer; it is not the next audit. The preceding
 passes covered authored omission/override, music transitions and static
 operation contracts.
@@ -34,6 +36,7 @@ ever read that code.
 | Portal geometry, connection identity and material authority | [Portal connection](portal-pair-identity-and-aperture.md), [world geometry](world-geometry-and-spatial-semantics.md), [navigation coverage](platformer-navigation-and-reachability.md#static-geometry-coverage--native-support-before-finite-preparation) | Native witnesses for material overlap, static geometry coverage and partial publication; do not repeat the general portal redesign |
 | Body scale, native motion and presentation order | [Scale behavior](scale-relative-gameplay.md), [presentation](presentation-order-and-25d-rendering.md) | Implementation evidence or a consumer whose frame/appearance contract is still missing |
 | Moving support and authored spatial paths | [SUP1](slopes-feet-ride-surfaces.md#sup1--keep-a-changing-supports-material-motion), [PATH1/PATH2](kinematic-world-objects.md#path1--prepare-one-spatial-path-law) | Native source-phase/host-cut, shape-history and route-intent witnesses; preserve rigid fast paths and distinct movement policy |
+| Curved ground, grounded art and local gravity | [Tentative CV1–CV5](curved-surfaces-and-local-gravity.md), existing slope and frame owners | Decide the product before selecting work; finite-body paths, exact support, attraction and adhesion remain distinct. No new queue selection |
 | Actions, combat reception, hit time, pose and recovery | [Body actions](body-action-execution.md), [combat reception](combat-reception-and-injury.md), [Smash quality](../demos/super-smash-siblings.md) | A new native completion or prediction customer; preserve the completed first slices |
 | Resource/value ownership, effects and shared world writes | [Causal world commit](causal-world-commit.md), [effects](actor-effects-and-modifier-composition.md), [custody](item-custody-and-accounting.md) | Historical membership, new world-owner operations and endpoint retirement |
 | Construction, residency and reconstitution | [Construction](construction-and-reconstitution.md), [residency](open-world-runtime-and-residency.md) | Transfers across independent histories and supported dormant execution |
@@ -551,6 +554,37 @@ mutating advance-to-end API would also obstruct M2's host admission.
 No new utility crate, universal motion graph or deformable-body solver is
 selected. These are source-supported gaps with future native acceptance,
 not gameplay reproductions or measured compile/runtime improvements.
+
+### A curve does not choose a body's contact, gravity or posture
+
+**Owner:** [Curved surfaces and local gravity](curved-surfaces-and-local-gravity.md),
+with the existing slope, movement, pose and authoring owners. CV1–CV5 are
+tentative candidates, not selected implementation work.
+
+An ordinary robot stands its full physical shape on a slope while its
+picture receives body/stance/art placement without the selected support
+patch. This can leave the visual middle above the hill. Preserve accepted
+contact through one bounded presentation placement; root tilt and separate
+boot solving remain distinct choices. GNU additionally maps its native
+hump and art differently inside their shared endpoints. Neither finding
+is a reproduction of the maintainer's view, and neither is a reason to
+make ordinary hills change gravity.
+
+Source curves already compile into chains. A finite circle's center path
+is offset from the source curve, so its speed and curvature do not equal
+the source arc's values. Current Sanic vertex demand is sensitive to
+subdivision; existing slope phase D owns that law. More samples and a
+smooth normal alone do not establish correct movement.
+
+The frame representation supports arbitrary directions, but the ordinary
+walker's integration and collision code assign different cardinal roles
+to some noncardinal vectors. Native arbitrary-vector material casts and
+righting are foundations for a bounded adaptation, not evidence that a
+radial field alone completes planetary walking. Attraction, intentional
+adhesion, airborne orientation and observer up need explicit choices.
+Start with existing hill appearance or one human-controlled static-circle
+proof; field graphs, analytic curve CCD and general planetary navigation
+remain optional. The next unrelated audit candidate below is unchanged.
 
 ## Areas audited without another architecture packet
 

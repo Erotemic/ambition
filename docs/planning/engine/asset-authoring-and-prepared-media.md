@@ -459,9 +459,13 @@ use the local span. An explicit longer source can be cropped. Rendering and
 numeric safety values through `game_sfx_fixed_v1`, which does not use cue IDs.
 Guard: 53 tests, native Faust PCM pitch measurement, exact PCM after a fixed-policy
 rename, and source preparation of all 840 active cues without native imports.
-Both recipes rendered locally at 48 kHz. Other recipes retain their selected
-legacy safety policy. Source preparation does not prove plugin controls or
-speaker output. No listening acceptance is claimed.
+The normal SFX publication command rendered all 840 active cues and passed
+coverage checks. Accepted publication `a230dd39d24866ad71b8b8b34ab25ac4914e53aea5192a922a2d164920c065f8`
+contains the corrected bank. Both named payloads match their rendered WAV files
+byte for byte and decode as 48 kHz stereo, with 12480 and 10560 frames.
+Other recipes retain their selected legacy safety policy. Source preparation
+does not prove plugin controls or speaker output. No listening acceptance is
+claimed.
 
 ### Evidence before preparation
 

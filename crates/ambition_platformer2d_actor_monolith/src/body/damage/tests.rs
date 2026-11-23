@@ -3491,3 +3491,66 @@ fn an_actor_installs_a_hits_status_only_when_it_accepts_the_hit() {
     assert_eq!(strike(false), 0.6, "an accepted hit holds its victim");
     assert_eq!(strike(true), 0.0, "an ignored hit installed its status");
 }
+
+/// ACT1: a real launch through the actor receiver ends the move its victim
+/// was playing; the same hit on an armored body leaves the move, though the
+/// damage lands (which is what says the hit was delivered at all).
+#[test]
+fn a_launching_hit_ends_its_victims_move_and_armor_keeps_it() {
+    use ambition_combat::moveset::{MovePlayback, SimpleMeleeParams, simple_melee};
+
+    let strike = |armor: ambition_characters::actor::ArmorPolicy| -> (bool, i32) {
+        let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+        app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
+        install_hit_reaction_consumers(&mut app);
+        app.add_systems(
+            Update,
+            (apply_feature_hit_events, ambition_combat::moveset::mark_move_playback_resolved_hits).chain(),
+        );
+        let victim = spawn_hostile_actor(&mut app);
+        app.world_mut()
+            .entity_mut(victim)
+            .insert(MovePlayback::new(simple_melee(&SimpleMeleeParams::default()), 1.0));
+        app.world_mut().get_mut::<ambition_characters::actor::BodyCombat>(victim).unwrap().armor = armor;
+        app.world_mut().write_message(HitEvent {
+            status: None,
+            origin: None,
+            properties: Default::default(),
+            contact: None,
+            pieces: Vec::new(),
+            strike_sfx: None,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage: 1,
+            source: HitSource::Melee,
+            attacker: None,
+            room: None,
+            target: HitTarget::Body(victim),
+            mode: HitMode::Knockback,
+            knockback: Some(ambition_combat::HitKnockback {
+                reaction: ae::hit_response::HitReaction::Strike,
+                dir: 1.0,
+                magnitude: ae::hit_response::HitKnockbackMagnitude::LaunchSpeed(600.0),
+                source_pos: ae::Vec2::ZERO,
+                impact_pos: ae::Vec2::new(10.0, 0.0),
+                launch_dir: None,
+                follow: None,
+                guard: Default::default(),
+            }),
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+        app.update();
+        (
+            app.world().get::<MovePlayback>(victim).is_some(),
+            app.world().get::<BodyHealth>(victim).unwrap().current(),
+        )
+    };
+    let (playing, health) = strike(ambition_characters::actor::ArmorPolicy::None);
+    assert!(health < 5 && !playing, "the launched victim kept its move (health {health})");
+    let (playing, health) = strike(ambition_characters::actor::ArmorPolicy::Super);
+    assert!(health < 5, "the armored hit was not delivered (health {health})");
+    assert!(playing, "armor that absorbed the launch ended the move");
+}

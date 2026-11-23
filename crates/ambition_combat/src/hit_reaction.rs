@@ -45,6 +45,35 @@ pub type BodyReactionOutcome = BodyReaction;
 #[cfg(not(feature = "causal"))]
 pub type BodyReactionOutcome = ();
 
+/// Does armor take this hit's authority (its launch and its status)? The
+/// percent is paid either way; this is the reaction's question, shared with
+/// [`reaction_interrupts`] so the two cannot disagree.
+pub fn armor_absorbs_hit(properties: ambition_hit_spec::HitProperties, combat: &BodyCombat, damage: i32) -> bool {
+    properties.armor != ambition_hit_spec::ArmorInteraction::Bypass && combat.armor.absorbs(damage)
+}
+
+/// Does this accepted hit interrupt what the body was doing (ACT1)?
+///
+/// Asked of the same facts [`apply_body_hit_reaction`] reads, before it runs:
+/// a launch or an installed status interrupts; armor that absorbs the hit, a
+/// gust and a damage-only tick do not. Accepted damage is not the test, since
+/// armor accepts damage without interrupting. A burial or crumple only takes
+/// a standing body, so one struck in the air with no launch is not interrupted.
+pub fn reaction_interrupts(
+    knockback: Option<&crate::HitKnockback>,
+    properties: ambition_hit_spec::HitProperties,
+    status: Option<ambition_hit_spec::HitStatus>,
+    combat: &BodyCombat,
+    damage: i32,
+    grounded: bool,
+) -> bool {
+    if knockback.is_some_and(|k| k.is_windbox()) || armor_absorbs_hit(properties, combat, damage) {
+        return false;
+    }
+    knockback.is_some()
+        || status.is_some_and(|status| status.is_valid() && (grounded || !status.kind.replaces_launch()))
+}
+
 /// Install a holding status (paralysis or freeze) for at least its time: a
 /// longer hold the body already has stands.
 fn hold_for(combat: &mut BodyCombat, status: ambition_hit_spec::HitStatus) {
@@ -246,7 +275,7 @@ pub fn apply_body_hit_reaction(
     // `armored: true` exactly; a `Damage` threshold absorbs a small hit and lets
     // a big one through, which is the whole of S0.5's damage half. The percent
     // is already paid either way — armor is about AUTHORITY, not damage.
-    let armor_absorbs = properties.armor != ambition_hit_spec::ArmorInteraction::Bypass && combat.armor.absorbs(damage);
+    let armor_absorbs = armor_absorbs_hit(properties, combat, damage);
     // ═══ THE HIT'S STATUS ═══════════════════════════════════════════════════
     //
     // Part of THIS hit's reaction, so it follows the same authority: armor that
@@ -1404,6 +1433,25 @@ mod hit_status_tests {
 
     /// Armor that absorbs the launch absorbs the status; a bypassing hit
     /// installs it through armor; a gust installs none.
+    #[test]
+    fn a_reaction_interrupts_only_when_it_launches_or_holds() {
+        let ordinary = ambition_hit_spec::HitProperties::default();
+        let plain = BodyCombat::default();
+        let interrupts = |knockback: Option<&crate::HitKnockback>, status, combat: &BodyCombat, grounded| {
+            reaction_interrupts(knockback, ordinary, status, combat, 12, grounded)
+        };
+        assert!(interrupts(Some(&knockback()), None, &plain, true), "a launch interrupts");
+        assert!(!interrupts(None, None, &plain, true), "a damage-only tick does not");
+        assert!(interrupts(None, status(HitStatusKind::Paralyze, 0.6), &plain, false), "a hold with no launch does");
+        assert!(interrupts(None, status(HitStatusKind::Bury, 1.0), &plain, true), "a burial of a standing body does");
+        assert!(!interrupts(None, status(HitStatusKind::Bury, 1.0), &plain, false), "a burial cannot take a body in the air");
+        let mut gust = knockback();
+        gust.reaction = ae::hit_response::HitReaction::Windbox;
+        assert!(!interrupts(Some(&gust), None, &plain, true), "a gust does not");
+        let armored = BodyCombat { armor: ArmorPolicy::Super, ..Default::default() };
+        assert!(!interrupts(Some(&knockback()), status(HitStatusKind::Paralyze, 0.6), &armored, true), "armor that absorbs the hit does not");
+    }
+
     #[test]
     fn armor_and_a_gust_decide_the_status_with_the_launch() {
         let armored = BodyCombat { armor: ArmorPolicy::Super, ..Default::default() };

@@ -208,7 +208,7 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
     }));
     let hitter = fighter(&mut dealt);
     let hurt = fighter(&mut dealt);
-    dealt.world_mut().write_message(ResolvedBodyHit {
+    dealt.world_mut().write_message(ResolvedBodyHit { interrupted_move: None,
         victim: hurt,
         attacker: Some(hitter),
         hitlag_seconds: 0.0,
@@ -237,7 +237,7 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
     }));
     let a = fighter(&mut taken);
     let b = fighter(&mut taken);
-    taken.world_mut().write_message(ResolvedBodyHit {
+    taken.world_mut().write_message(ResolvedBodyHit { interrupted_move: None,
         victim: b,
         attacker: Some(a),
         hitlag_seconds: 0.0,

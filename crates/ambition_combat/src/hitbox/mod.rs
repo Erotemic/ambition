@@ -122,6 +122,12 @@ pub struct ResolvedBodyHit {
     /// ⛔ `None` MEANS NO MOVE CLAIMED THIS, never "instance 0": this channel
     /// also carries contact attrition, hazards and the blast zone.
     pub attacker_move_instance: Option<u32>,
+    /// The VICTIM's move use this reaction interrupted (ACT1), captured by the
+    /// receiver when it decided the reaction. `None` when the reaction does
+    /// not interrupt (armor, a gust, a damage-only tick, a death) or the body
+    /// was playing no move. Carried as the occurrence, not as a flag, so a
+    /// verdict read after the victim started another move cancels nothing.
+    pub interrupted_move: Option<u32>,
 }
 
 /// A strike a GUARD consumed.

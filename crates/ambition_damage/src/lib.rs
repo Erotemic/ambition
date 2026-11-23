@@ -528,6 +528,8 @@ pub(crate) fn handle_player_damage_events(
     // Does another authority own where this body is (`PoseOwnedExternally`)?
     // Then a knockback stages its launch and writes no velocity.
     pose_held: bool,
+    // The use of the move this body is playing, for the reaction to interrupt.
+    playing_move: Option<u32>,
 ) -> bool {
     let Some(damage) = damage_events.first().cloned() else {
         return false;
@@ -609,6 +611,17 @@ pub(crate) fn handle_player_damage_events(
                 });
         }
     }
+    // Read before the reaction runs, from the facts it will read (ACT1).
+    let interrupted_move = playing_move.filter(|_| {
+        ambition_combat::hit_reaction::reaction_interrupts(
+            damage.knockback.as_ref(),
+            damage.properties,
+            damage.status,
+            combat,
+            damage.damage,
+            clusters.ground.on_ground,
+        )
+    });
     match resolution {
         BodyHitResolution::Ignored | BodyHitResolution::Protected => false,
         BodyHitResolution::Blocked => {
@@ -686,7 +699,7 @@ pub(crate) fn handle_player_damage_events(
                         strike_weight,
                         pose_held,
                     );
-                    death_writers.receptions.connect(player_entity, &damage, resolution, combat.hitstop_timer);
+                    death_writers.receptions.connect(player_entity, &damage, resolution, combat.hitstop_timer, interrupted_move);
                     publish_reaction(death_writers, player_entity, reaction);
                     false
                 }
@@ -726,7 +739,7 @@ pub(crate) fn handle_player_damage_events(
             // ⭐ CR1: AN ACCEPTED LETHAL STRIKE IS STILL A HIT. The move that
             // landed it connected; the body dies instead of reacting, so the
             // reaction it earned is none: zero hitlag, and no launch invented.
-            death_writers.receptions.connect(player_entity, &damage, resolution, 0.0);
+            death_writers.receptions.connect(player_entity, &damage, resolution, 0.0, None);
             // The caller's `bool` is "did this reaction relocate the body". It
             // never does now — nothing here moves anything.
             false
@@ -780,7 +793,7 @@ pub(crate) fn handle_player_damage_events(
                     strike_weight,
                     pose_held,
                 );
-                death_writers.receptions.connect(player_entity, &damage, resolution, combat.hitstop_timer);
+                death_writers.receptions.connect(player_entity, &damage, resolution, combat.hitstop_timer, interrupted_move);
                 publish_reaction(death_writers, player_entity, reaction);
                 false
             }
@@ -1371,7 +1384,12 @@ pub fn apply_player_hit_events(
             // The published maneuver projection (dodge i-frames, blink grace),
             // and whether another authority owns where the body is (a saddle):
             // nested, so the tuple stays inside Bevy's width.
-            (&ae::BodyMotionFacts, bevy::prelude::Has<ae::PoseOwnedExternally>),
+            // …and the move it is playing, whose use a reaction can interrupt (ACT1).
+            (
+                &ae::BodyMotionFacts,
+                bevy::prelude::Has<ae::PoseOwnedExternally>,
+                Option<&ambition_combat::moveset::MovePlayback>,
+            ),
         ),
         (
             bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
@@ -1412,7 +1430,7 @@ pub fn apply_player_hit_events(
         control,
         resolved_frame,
         mut motion_model,
-        (facts, pose_held),
+        (facts, pose_held, playing),
     ) in &mut player_q
     {
         // The walls of this player's own live room (OW1 cut 7p). This read the
@@ -1498,6 +1516,7 @@ pub fn apply_player_hit_events(
             &mut motion_model,
             facts,
             pose_held,
+            playing.map(|playback| playback.instance),
         );
         // Class-B transit authority (`docs/concepts/movement-collision.md`). Death and the
         // hazard safe-respawn both teleport the victim; recorded here because

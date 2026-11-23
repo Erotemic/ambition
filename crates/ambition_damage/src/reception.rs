@@ -86,6 +86,9 @@ impl BodyHitReporter<'_, '_> {
         hit: &ambition_combat::HitEvent,
         resolution: BodyHitResolution,
         hitlag_seconds: f32,
+        // The victim's move use this reaction interrupted, decided by the
+        // caller from `reaction_interrupts` and its own playback read.
+        interrupted_move: Option<u32>,
     ) {
         if let Some(resolved) = self.resolved.as_mut() {
             resolved.write(ambition_combat::hitbox::ResolvedBodyHit {
@@ -95,6 +98,7 @@ impl BodyHitReporter<'_, '_> {
                 source: hit.source.clone(),
                 damage: resolution.damage_applied(),
                 attacker_move_instance: hit.attacker_move_instance,
+                interrupted_move,
             });
         }
     }

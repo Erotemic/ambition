@@ -3407,7 +3407,7 @@ fn a_late_connect_is_not_credited_to_the_move_that_replaced_the_one_that_earned_
 
     // FRAME N+1. Jab #1's verdict arrives, naming the only thing the channel can
     // name: the attacker.
-    app.world_mut().write_message(ResolvedBodyHit {
+    app.world_mut().write_message(ResolvedBodyHit { interrupted_move: None,
         damage: 7,
         victim,
         attacker: Some(fighter),
@@ -3454,7 +3454,7 @@ fn a_late_connect_does_reach_the_move_that_earned_it_when_nothing_replaced_it() 
 
     app.update();
     let playing = app.world().get::<MovePlayback>(fighter).unwrap().instance;
-    app.world_mut().write_message(ResolvedBodyHit {
+    app.world_mut().write_message(ResolvedBodyHit { interrupted_move: None,
         damage: 7,
         victim,
         attacker: Some(fighter),
@@ -3516,7 +3516,7 @@ fn a_verdict_no_move_claims_reaches_no_move() {
     let victim = app.world_mut().spawn_empty().id();
     app.update();
 
-    app.world_mut().write_message(ResolvedBodyHit {
+    app.world_mut().write_message(ResolvedBodyHit { interrupted_move: None,
         damage: 7,
         victim,
         attacker: Some(fighter),
@@ -3560,7 +3560,7 @@ fn a_playback_learns_connect_and_block_from_the_resolvers_own_channels() {
     let untouched = app.world_mut().spawn(MovePlayback::new(swat(), 1.0)).id();
     let victim = app.world_mut().spawn_empty().id();
 
-    app.world_mut().write_message(ResolvedBodyHit {
+    app.world_mut().write_message(ResolvedBodyHit { interrupted_move: None,
         damage: 7,
         victim,
         attacker: Some(struck),
@@ -3583,7 +3583,7 @@ fn a_playback_learns_connect_and_block_from_the_resolvers_own_channels() {
     });
     // ⛔ AND ONE WITH NO ATTACKER — a hazard or the blast zone. It must reach no
     // playback at all rather than the first one the query yields.
-    app.world_mut().write_message(ResolvedBodyHit {
+    app.world_mut().write_message(ResolvedBodyHit { interrupted_move: None,
         damage: 7,
         victim,
         attacker: None,
@@ -10742,4 +10742,50 @@ fn any_body_that_leaves_play_loses_its_move_however_it_left() {
         assert!(app.world().get::<MovePlayback>(body).is_none());
         assert!(app.world().get_entity(volume).is_err());
     }
+}
+
+/// ACT1: a reaction that interrupted the victim's move ends THAT use of it.
+/// The verdict names the occurrence, so one read after the victim started
+/// another move leaves the new one playing.
+#[test]
+fn an_interrupting_reaction_ends_the_victims_move_and_only_that_use() {
+    use crate::hitbox::{BlockedBodyHit, ResolvedBodyHit};
+
+    let mut app = App::new();
+    app.add_message::<ResolvedBodyHit>();
+    app.add_message::<BlockedBodyHit>();
+    app.add_systems(Update, mark_move_playback_resolved_hits);
+    let victim = app.world_mut().spawn(MovePlayback::new(swat(), 1.0)).id();
+    app.update();
+    let first = app.world().get::<MovePlayback>(victim).unwrap().instance;
+    let verdict = |interrupted_move| ResolvedBodyHit {
+        interrupted_move,
+        damage: 3,
+        victim,
+        attacker: None,
+        hitlag_seconds: 0.05,
+        source: crate::HitSource::Melee,
+        attacker_move_instance: None,
+    };
+
+    // A connect that did not interrupt (armor, a gust) leaves the move.
+    app.world_mut().write_message(verdict(None));
+    app.update();
+    assert!(app.world().get::<MovePlayback>(victim).is_some(), "a non-interrupting connect ended the move");
+
+    // A stale verdict naming the earlier use leaves the replacement.
+    app.world_mut()
+        .entity_mut(victim)
+        .insert(MovePlayback::new(swat(), 1.0).at_occurrence(first + 1));
+    app.world_mut().write_message(verdict(Some(first)));
+    app.update();
+    assert_eq!(
+        app.world().get::<MovePlayback>(victim).map(|pb| pb.instance),
+        Some(first + 1),
+        "a verdict for the earlier use cancelled the move that replaced it"
+    );
+
+    app.world_mut().write_message(verdict(Some(first + 1)));
+    app.update();
+    assert!(app.world().get::<MovePlayback>(victim).is_none(), "the interrupted use is still playing");
 }

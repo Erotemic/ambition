@@ -222,7 +222,7 @@ pub(crate) fn apply_boss_hit(
     // freeze, so its reaction is none (zero hitlag, an explicit result). An
     // invulnerable phase, a guard and a wallet keep their own decisions.
     if matches!(resolution, ambition_damage::BodyHitResolution::Damaged { .. }) {
-        writers.receptions.connect(boss_entity, event, resolution, 0.0);
+        writers.receptions.connect(boss_entity, event, resolution, 0.0, None);
     }
     let killed = matches!(resolution, ambition_damage::BodyHitResolution::Damaged { died: true, .. });
     let wallet_spent = match resolution {

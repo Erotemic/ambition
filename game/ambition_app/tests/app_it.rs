@@ -11,7 +11,7 @@
 //! Shared fixtures live in `mod common`, referenced as `crate::common::*`.
 
 mod common;
-mod native_castle_music;
+mod native_music;
 mod a_scripted_lever_spends_its_barrier;
 mod playtest_ability_access;
 mod lightning_is_authored_in_rhai;

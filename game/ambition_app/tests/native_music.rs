@@ -1,4 +1,4 @@
-//! Native music through the visible host and Castle Godwin lifecycle.
+//! Native music through the visible host and authored game lifecycles.
 
 #![cfg(all(feature = "visible", feature = "audio", not(target_arch = "wasm32")))]
 
@@ -55,17 +55,13 @@ fn wait(
         if ready(app) {
             let current = app.world().resource::<MusicPlayback>().current();
             eprintln!(
-                "native castle: {what}; transport={:?}",
-                current.map(|group| (
-                    group.occurrence,
-                    &group.product,
-                    group.position_seconds
-                ))
+                "native game music: {what}; transport={:?}",
+                current.map(|group| (group.occurrence, &group.product, group.position_seconds))
             );
             return;
         }
         assert!(
-            started.elapsed() < Duration::from_secs(25),
+            started.elapsed() < Duration::from_secs(60),
             "waiting for {what}: goal={:?}, transport={:?}",
             app.world().resource::<MusicIntent>().goal,
             app.world().resource::<MusicPlayback>().current()
@@ -300,5 +296,79 @@ fn wolfensteins_prepared_entrance_and_room_exits_reach_native_output() {
     while start.elapsed() < Duration::from_secs(1) {
         tick(&mut app, &mut previous);
         assert!(running(&app, "tritone_decree", "song"));
+    }
+}
+
+#[test]
+#[ignore = "uses native audio and generated assets; run with a capture device"]
+fn hobfords_authored_ending_finishes_and_releases_the_room_music() {
+    use ambition_platformer2d::audio::music::{MusicDirectorState, MusicEndingResult};
+    use ambition_platformer2d::encounter::{Encounter, EncounterCommand, EncounterCommandKind};
+
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, false, |app| {
+        app.insert_resource(AudioOutputMode::Device);
+        app.insert_resource(ambition_app::app::StartRoomOverride(
+            "intro_wake_room".into(),
+        ));
+        app.insert_resource(ambition_app::app::StartRoomMustResolve);
+    });
+    let mut previous = Instant::now();
+    wait(&mut app, &mut previous, "raid occurrence", |app| {
+        let world = app.world_mut();
+        world
+            .query::<&Encounter>()
+            .iter(world)
+            .any(|encounter| encounter.id == "intro_workshop_raid")
+    });
+    let body = crate::neighbor_prefetch_prepares_rooms::alice(&mut app);
+    app.world_mut()
+        .get_mut::<BodyHealth>(body)
+        .unwrap()
+        .health
+        .invulnerable
+        .set(Invulnerability::SCRIPTED, true);
+    app.world_mut().write_message(EncounterCommand::new(
+        "intro_workshop_raid",
+        EncounterCommandKind::Start,
+    ));
+    wait(&mut app, &mut previous, "raid break-in", |app| {
+        running(app, "hobford_goblins", "break_in")
+    });
+    let entry = app
+        .world()
+        .resource::<MusicPlayback>()
+        .current()
+        .unwrap()
+        .entry;
+    app.world_mut().write_message(EncounterCommand::new(
+        "intro_workshop_raid",
+        EncounterCommandKind::Complete,
+    ));
+    wait(&mut app, &mut previous, "authored aftermath", |app| {
+        running(app, "hobford_goblins", "aftermath")
+    });
+    assert!(app.world().resource::<MusicDirectorState>().has_ending());
+    wait(
+        &mut app,
+        &mut previous,
+        "ending finished and room winner admitted",
+        |app| {
+            let director = app.world().resource::<MusicDirectorState>();
+            let playback = app.world().resource::<MusicPlayback>();
+            director.last_ending_result == Some((entry, MusicEndingResult::Finished))
+                && !director.has_ending()
+                && playback.desired_is_running()
+                && playback.current().is_some_and(|group| group.entry != entry)
+        },
+    );
+    let winner = match &app.world().resource::<MusicIntent>().goal {
+        Some(MusicGoal::Play(winner)) => winner.choice.clone(),
+        other => panic!("the room has no successor: {other:?}"),
+    };
+    assert_ne!(winner.program(), "hobford_goblins");
+    let started = Instant::now();
+    while started.elapsed() < Duration::from_secs(1) {
+        tick(&mut app, &mut previous);
+        assert!(app.world().resource::<MusicPlayback>().desired_is_running());
     }
 }

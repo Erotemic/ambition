@@ -1127,11 +1127,12 @@ fn a_requirement_of_none_empties_a_belief_it_stopped_maintaining() {
             pos: ae::Vec2::new(100.0, 0.0),
             faction: ActorFaction::Boss,
             hostile_to_self: true,
+            alive: true,
             ..Default::default()
         }],
         ..Default::default()
     };
-    memory.0.update(&view, 1.0 / 60.0);
+    memory.0.update(&view, 0, 1.0 / 60.0);
     assert!(
         memory.0.last_known_hostile().is_some(),
         "premise: the body believes in a hostile before its brain changes"
@@ -1558,6 +1559,7 @@ fn a_target_belief_body_still_pursues_a_foe_it_has_lost_sight_of() {
             &relations,
             perception,
             0.0,
+            0,
             dt,
             Some(memory),
         )
@@ -1635,7 +1637,7 @@ fn the_tactical_attention_cap_bounds_the_evidence_a_body_admits() {
         peers.push(peer("beyond", ae::Vec2::new(4000.0, 180.0), ActorFaction::Boss));
         peers
     };
-    let decide = |peers: &[PerceptionPeer], memory: &mut PerceptionMemory, now: f32| {
+    let decide = |peers: &[PerceptionPeer], memory: &mut PerceptionMemory, step: u64| {
         super::perceive_for_decision(
             Need::TacticalWorld,
             &viewer,
@@ -1645,7 +1647,8 @@ fn the_tactical_attention_cap_bounds_the_evidence_a_body_admits() {
             &[],
             &relations,
             perception,
-            now,
+            step as f32 * dt,
+            step,
             dt,
             Some(memory),
         )
@@ -1653,7 +1656,8 @@ fn the_tactical_attention_cap_bounds_the_evidence_a_body_admits() {
     let remembered = |memory: &PerceptionMemory| -> BTreeSet<String> {
         memory.0.entries().map(|(id, _)| id.to_string()).collect()
     };
-    let called = |memory: &PerceptionMemory| -> BTreeSet<String> {
+    // The calls made on the step after `seen_at`.
+    let called = |memory: &PerceptionMemory, seen_at: u64| -> BTreeSet<String> {
         let mut calls = Vec::new();
         crew_calls(
             bevy::prelude::Entity::PLACEHOLDER,
@@ -1662,6 +1666,7 @@ fn the_tactical_attention_cap_bounds_the_evidence_a_body_admits() {
             Some(ActorFaction::Enemy),
             perception,
             &memory.0,
+            Some(seen_at),
             &mut calls,
         );
         calls.into_iter().map(|call| call.foe).collect()
@@ -1671,7 +1676,7 @@ fn the_tactical_attention_cap_bounds_the_evidence_a_body_admits() {
     // Above the cap: 17 visible foes, 16 admitted.
     let crowd = foes(TACTICAL_ATTENTION + 1);
     let mut memory = PerceptionMemory::default();
-    let (view, _) = decide(&crowd, &mut memory, 0.0);
+    let (view, _) = decide(&crowd, &mut memory, 1);
     assert_eq!(view.actors.len(), TACTICAL_ATTENTION, "premise: the rich view is capped");
     assert_eq!(view.remainder.actors, 1, "premise: the farthest foe is counted, not kept");
     let attended: BTreeSet<String> = view.actors.iter().map(|a| a.id.clone()).collect();
@@ -1681,27 +1686,27 @@ fn the_tactical_attention_cap_bounds_the_evidence_a_body_admits() {
         attended,
         "memory refreshed a foe the attention budget left out"
     );
-    assert_eq!(called(&memory), attended, "the crew call named an unattended foe");
+    assert_eq!(called(&memory, 1), attended, "the crew call named an unattended foe");
 
     // Below the cap: every visible foe is admitted, the far one is not.
     let few = foes(5);
     let mut memory = PerceptionMemory::default();
-    decide(&few, &mut memory, 0.0);
+    decide(&few, &mut memory, 1);
     assert_eq!(remembered(&memory), expected(5), "below the cap a visible foe was not admitted");
-    assert_eq!(called(&memory), expected(5));
+    assert_eq!(called(&memory, 1), expected(5));
 
     // Prior memory outside today's attention: retained and decaying.
     let last = format!("foe{TACTICAL_ATTENTION:02}");
     let alone: Vec<PerceptionPeer> = crowd.iter().filter(|p| p.id == last).cloned().collect();
     let mut memory = PerceptionMemory::default();
-    decide(&alone, &mut memory, 0.0);
+    decide(&alone, &mut memory, 1);
     assert_eq!(memory.0.get(&last).map(|m| m.confidence), Some(1.0), "premise: it was seen");
-    decide(&crowd, &mut memory, dt);
+    decide(&crowd, &mut memory, 2);
     let kept = memory.0.get(&last).expect("the cap erased an old memory as if forgotten");
     assert!(kept.confidence < 1.0, "the cap refreshed an unattended foe as if seen");
-    assert_eq!(kept.last_seen, 0.0, "the unattended foe was stamped as seen now");
+    assert_eq!(kept.last_seen, dt, "the unattended foe was stamped as seen now");
     assert!(
-        !called(&memory).contains(&last),
+        !called(&memory, 2).contains(&last),
         "an unattended foe was called out as a fresh sighting"
     );
 }
@@ -1873,7 +1878,7 @@ fn a_session_that_cannot_decide_senses_takes_the_body_out_of_the_decision() {
 /// The subject puts the listener in #1, and it hears nothing.
 #[test]
 fn a_crew_call_is_not_heard_in_another_live_room() {
-    use ambition_characters::perception::{RememberedActor, WorldMemory};
+    use ambition_characters::perception::{SeenActor, WorldMemory};
     use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
     let first = LiveRoomInstance::ACTIVATION;
     let heard_in = |listener_room: LiveRoomInstance| {
@@ -1881,16 +1886,18 @@ fn a_crew_call_is_not_heard_in_another_live_room() {
         let (caller, listener) = (world.spawn_empty().id(), world.spawn_empty().id());
         let pos = ae::Vec2::new(100.0, 100.0);
         let mut seen = WorldMemory::default();
-        seen.hear(
-            "foe",
-            RememberedActor {
+        seen.update_from_seen(
+            0.0,
+            1,
+            1.0 / 60.0,
+            std::iter::once(SeenActor {
+                id: "foe",
                 pos,
                 vel: ae::Vec2::ZERO,
                 faction: ActorFaction::Player,
                 hostile_to_self: true,
-                last_seen: 0.0,
-                confidence: 1.0,
-            },
+                alive: true,
+            }),
         );
         let mut calls = Vec::new();
         crew_calls(
@@ -1900,14 +1907,194 @@ fn a_crew_call_is_not_heard_in_another_live_room() {
             Some(ActorFaction::Enemy),
             Perception::Sighted { viewport_half: DEFAULT_VIEWPORT_HALF },
             &seen,
+            Some(1),
             &mut calls,
         );
         let mut heard = WorldMemory::default();
-        hear_crew(&calls, listener, Some(listener_room), pos, Some(ActorFaction::Enemy), &mut heard);
+        hear_crew(&calls, listener, Some("listener"), Some(listener_room), pos, Some(ActorFaction::Enemy), &mut heard);
         heard.get("foe").is_some()
     };
     assert!(heard_in(first), "control: an ally in the caller's room hears the call");
     assert!(!heard_in(first.next()), "an ally in another live room heard the call");
+}
+
+/// OBS2: an observed death disconfirms pursuit; a death nobody observed does
+/// not. Driven through both native roads (`perceive_for_decision`).
+///
+/// A foe seen alive and then seen dead is no target. A foe seen alive that
+/// leaves view and dies there is still pursued at its last known position:
+/// the body has no evidence of the death. A nearer corpse does not hide a
+/// farther living foe, and the attended corpse still reaches memory.
+#[test]
+fn an_observed_death_disconfirms_pursuit_and_an_unobserved_one_does_not() {
+    use ambition_characters::perception::PerceptionRequirement as Need;
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let perception = Perception::Sighted { viewport_half: DEFAULT_VIEWPORT_HALF };
+    let dt = 1.0 / 60.0;
+    let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    let at = |id: &str, x: f32, alive: bool| {
+        let mut row = peer(id, ae::Vec2::new(x, 180.0), ActorFaction::Boss);
+        row.alive = alive;
+        row
+    };
+    let decide = |need, peers: &[PerceptionPeer], memory: &mut PerceptionMemory, step: u64| {
+        super::perceive_for_decision(
+            need,
+            &viewer,
+            peers,
+            &[],
+            &world,
+            &[],
+            &relations,
+            perception,
+            step as f32 * dt,
+            step,
+            dt,
+            Some(memory),
+        )
+        .1
+    };
+    let there = Some(Some(ae::Vec2::new(300.0, 180.0)));
+    for need in [Need::TargetBelief, Need::TacticalWorld] {
+        let mut memory = PerceptionMemory::default();
+        assert_eq!(decide(need, &[at("foe", 300.0, true)], &mut memory, 1), there, "{need:?}: premise");
+        assert_eq!(
+            decide(need, &[at("foe", 300.0, false)], &mut memory, 2),
+            Some(None),
+            "{need:?}: a foe seen dead is still pursued"
+        );
+
+        let mut memory = PerceptionMemory::default();
+        decide(need, &[at("foe", 300.0, true)], &mut memory, 1);
+        assert_eq!(
+            decide(need, &[at("foe", 4000.0, false)], &mut memory, 2),
+            there,
+            "{need:?}: an offscreen death was revealed to the body"
+        );
+
+        let mut memory = PerceptionMemory::default();
+        assert_eq!(
+            decide(need, &[at("corpse", 150.0, false), at("living", 400.0, true)], &mut memory, 1),
+            Some(Some(ae::Vec2::new(400.0, 180.0))),
+            "{need:?}: a nearer corpse was acquired over a living foe"
+        );
+        assert!(
+            memory.0.get("corpse").is_some_and(|row| !row.alive),
+            "{need:?}: the attended death did not reach memory"
+        );
+    }
+}
+
+/// OBS2: old memory cannot mint a fresh firsthand crew report.
+///
+/// A sharing caller sees a foe at step 5. A participant then drives it, so it
+/// stops folding and its sight keeps confidence 1. Moved within the same room
+/// at step 7, it calls nothing: only a sight from the preceding step is a
+/// report. Controls: the same caller reports on step 6; an autonomous caller
+/// that lost sight reports nothing; one that still sees reports; a row it only
+/// heard is never retold.
+#[test]
+fn stale_memory_cannot_mint_a_fresh_crew_report() {
+    use ambition_characters::perception::{SeenActor, WorldMemory};
+    let dt = 1.0 / 60.0;
+    let perception = Perception::Sighted { viewport_half: DEFAULT_VIEWPORT_HALF };
+    let here = ae::Vec2::new(100.0, 100.0);
+    let moved = ae::Vec2::new(400.0, 100.0);
+    let foe = SeenActor {
+        id: "foe",
+        pos: ae::Vec2::new(200.0, 100.0),
+        vel: ae::Vec2::ZERO,
+        faction: ActorFaction::Player,
+        hostile_to_self: true,
+        alive: true,
+    };
+    let mut world = bevy::prelude::World::new();
+    let (caller, listener) = (world.spawn_empty().id(), world.spawn_empty().id());
+    let calls_at = |memory: &WorldMemory, pos: ae::Vec2, now: u64| {
+        let mut calls = Vec::new();
+        crew_calls(caller, None, pos, Some(ActorFaction::Enemy), perception, memory, now.checked_sub(1), &mut calls);
+        calls
+    };
+    let mut memory = WorldMemory::default();
+    memory.update_from_seen(5.0 * dt, 5, dt, std::iter::once(foe));
+
+    assert_eq!(calls_at(&memory, here, 6).len(), 1, "control: a fresh sight is reported");
+    assert_eq!(memory.get("foe").map(|row| row.confidence), Some(1.0), "premise: frozen at full confidence");
+    assert!(calls_at(&memory, moved, 7).is_empty(), "a frozen sight was reported as fresh");
+
+    let mut lost = memory.clone();
+    lost.update_from_seen(6.0 * dt, 6, dt, std::iter::empty());
+    assert!(calls_at(&lost, here, 7).is_empty(), "control: a lost sight is not reported");
+    let mut still = memory.clone();
+    still.update_from_seen(6.0 * dt, 6, dt, std::iter::once(foe));
+    assert_eq!(calls_at(&still, here, 7).len(), 1, "control: a continued sight is reported");
+
+    let mut heard = WorldMemory::default();
+    hear_crew(&calls_at(&memory, here, 6), listener, Some("listener"), None, here, Some(ActorFaction::Enemy), &mut heard);
+    assert!(heard.get("foe").is_some(), "premise: the listener heard the call");
+    assert!(calls_at(&heard, here, 6).is_empty(), "hearsay was retold as firsthand");
+}
+
+/// OBS2: a crew report cannot make its subject target itself, and delivery
+/// order does not change belief.
+///
+/// A caller holds a grudge against its crew mate `mate`, so it reports `mate`
+/// as its foe, beside an ordinary foe. A third ally adopts both reports: that
+/// is the crew's assistance policy. `mate` itself hears the ordinary foe and
+/// refuses the report about itself. Two callers' reports delivered in either
+/// order give the same memory.
+#[test]
+fn a_crew_report_never_makes_its_subject_target_itself() {
+    use ambition_characters::perception::{SeenActor, WorldMemory};
+    let dt = 1.0 / 60.0;
+    let perception = Perception::Sighted { viewport_half: DEFAULT_VIEWPORT_HALF };
+    let here = ae::Vec2::new(100.0, 100.0);
+    let mut world = bevy::prelude::World::new();
+    let [first_caller, second_caller, third, mate] = [(); 4].map(|_| world.spawn_empty().id());
+    let sight = |id, x: f32| SeenActor {
+        id,
+        pos: ae::Vec2::new(x, 100.0),
+        vel: ae::Vec2::ZERO,
+        faction: ActorFaction::Enemy,
+        hostile_to_self: true,
+        alive: true,
+    };
+    let calls_of = |caller, seen: &[SeenActor<'static>]| {
+        let mut memory = WorldMemory::default();
+        memory.update_from_seen(dt, 1, dt, seen.iter().copied());
+        let mut calls = Vec::new();
+        crew_calls(caller, None, here, Some(ActorFaction::Enemy), perception, &memory, Some(1), &mut calls);
+        calls
+    };
+    let first = calls_of(first_caller, &[sight("mate", 150.0), sight("foe", 300.0)]);
+    let second = calls_of(second_caller, &[sight("foe", 300.0), sight("zeta", 250.0)]);
+    let hear = |listener, listener_id, calls: &[CrewCall]| {
+        let mut memory = WorldMemory::default();
+        hear_crew(calls, listener, Some(listener_id), None, here, Some(ActorFaction::Enemy), &mut memory);
+        memory
+    };
+
+    let ally = hear(third, "third", &first);
+    assert!(
+        ally.get("mate").is_some_and(|row| row.hostile_to_self),
+        "the third ally lost the crew's assistance"
+    );
+    assert!(ally.get("foe").is_some_and(|row| row.hostile_to_self));
+    let subject = hear(mate, "mate", &first);
+    assert!(subject.get("mate").is_none(), "a report made its subject its own foe");
+    assert!(subject.get("foe").is_some(), "control: the subject still hears the other foe");
+
+    let forward: Vec<CrewCall> = first.iter().chain(&second).cloned().collect();
+    let backward: Vec<CrewCall> = second.iter().chain(&first).rev().cloned().collect();
+    let entries = |memory: &WorldMemory| format!("{:?}", memory.entries().collect::<Vec<_>>());
+    let (a, b) = (hear(third, "third", &forward), hear(third, "third", &backward));
+    assert_eq!(entries(&a), entries(&b), "delivery order changed the belief");
+    assert_eq!(
+        a.last_known_hostile().map(|row| row.pos),
+        b.last_known_hostile().map(|row| row.pos)
+    );
 }
 
 /// Tactical memory is room-local (GPT review of OW1 cut 5).
@@ -1933,19 +2120,20 @@ fn a_memory_from_another_live_room_is_not_a_pursuit_target() {
         vel: ae::Vec2::ZERO,
         faction: ActorFaction::Enemy,
         hostile_to_self: true,
+        alive: true,
     };
     let nobody = || std::iter::empty::<SeenActor<'static>>();
     let remembered_in_first = || {
         let mut memory = PerceptionMemory::default();
         memory.0.enter_room(Some(0));
-        memory.0.update_from_seen(0.0, dt, std::iter::once(x_at(p)));
+        memory.0.update_from_seen(0.0, 0, dt, std::iter::once(x_at(p)));
         memory
     };
 
     // Control: the body stays in #0 and pursues where it last saw `x`.
     let mut stays = remembered_in_first();
     assert!(!stays.0.enter_room(Some(0)), "staying in a room forgot its memory");
-    stays.0.update_from_seen(dt, dt, nobody());
+    stays.0.update_from_seen(dt, 0, dt, nobody());
     assert_eq!(
         belief_from_nearest(sighted, None, Some(&mut stays)),
         Some(Some(p)),
@@ -1955,7 +2143,7 @@ fn a_memory_from_another_live_room_is_not_a_pursuit_target() {
     // Subject: retagged to #1, it sees nobody, and P is not a target.
     let mut moved = remembered_in_first();
     assert!(moved.0.enter_room(Some(1)), "the retag forgot nothing");
-    moved.0.update_from_seen(dt, dt, nobody());
+    moved.0.update_from_seen(dt, 0, dt, nobody());
     assert_eq!(
         belief_from_nearest(sighted, None, Some(&mut moved)),
         Some(None),
@@ -1963,8 +2151,8 @@ fn a_memory_from_another_live_room_is_not_a_pursuit_target() {
     );
 
     // Duplicate: #1's own `x` is seen at Q and lost. The belief is Q.
-    moved.0.update_from_seen(2.0 * dt, dt, std::iter::once(x_at(q)));
-    moved.0.update_from_seen(3.0 * dt, dt, nobody());
+    moved.0.update_from_seen(2.0 * dt, 0, dt, std::iter::once(x_at(q)));
+    moved.0.update_from_seen(3.0 * dt, 0, dt, nobody());
     assert_eq!(
         belief_from_nearest(sighted, None, Some(&mut moved)).flatten().map(|pos| pos.x),
         Some(q.x),

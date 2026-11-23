@@ -188,7 +188,7 @@ fn memory_retains_target_after_it_leaves_view() {
         sim_time: 0.0,
         ..Default::default()
     };
-    mem.update(&in_view, 1.0 / 60.0);
+    mem.update(&in_view, 0, 1.0 / 60.0);
     assert_eq!(mem.get("boss").map(|m| m.confidence), Some(1.0));
 
     // Now it leaves view: empty actor list, several ticks pass. The target is
@@ -197,7 +197,7 @@ fn memory_retains_target_after_it_leaves_view() {
     empty.actors.clear();
     for i in 0..30 {
         empty.sim_time = (i as f32 + 1.0) / 60.0;
-        mem.update(&empty, 1.0 / 60.0);
+        mem.update(&empty, 0, 1.0 / 60.0);
     }
     let remembered = mem
         .last_known_hostile()
@@ -241,7 +241,7 @@ fn memory_refreshes_an_actor_that_is_still_in_view() {
         sim_time: 0.0,
         ..Default::default()
     };
-    mem.update(&view, 1.0 / 60.0);
+    mem.update(&view, 0, 1.0 / 60.0);
     assert_eq!(
         mem.get("boss").map(|m| m.pos),
         Some(ae::Vec2::new(100.0, 0.0))
@@ -250,7 +250,7 @@ fn memory_refreshes_an_actor_that_is_still_in_view() {
     // It walks, staying in view the whole time.
     view.actors[0].pos = ae::Vec2::new(160.0, 20.0);
     view.sim_time = 1.0 / 60.0;
-    mem.update(&view, 1.0 / 60.0);
+    mem.update(&view, 0, 1.0 / 60.0);
 
     let remembered = mem.get("boss").expect("still remembered");
     assert_eq!(
@@ -288,14 +288,14 @@ fn re_seeing_a_faded_actor_restores_its_confidence() {
         sim_time: 0.0,
         ..Default::default()
     };
-    mem.update(&view, 1.0 / 60.0);
+    mem.update(&view, 0, 1.0 / 60.0);
 
     // Out of sight long enough to fade, but not to be forgotten.
     let mut gone = view.clone();
     gone.actors.clear();
     for i in 0..30 {
         gone.sim_time = (i as f32 + 1.0) / 60.0;
-        mem.update(&gone, 1.0 / 60.0);
+        mem.update(&gone, 0, 1.0 / 60.0);
     }
     let faded = mem.get("boss").expect("not forgotten yet").confidence;
     assert!(
@@ -304,7 +304,7 @@ fn re_seeing_a_faded_actor_restores_its_confidence() {
     );
 
     view.sim_time = 1.0;
-    mem.update(&view, 1.0 / 60.0);
+    mem.update(&view, 0, 1.0 / 60.0);
     assert_eq!(
         mem.get("boss").map(|m| m.confidence),
         Some(1.0),
@@ -330,11 +330,11 @@ fn memory_forgets_after_long_absence() {
         sim_time: 0.0,
         ..Default::default()
     };
-    mem.update(&view, 1.0 / 60.0);
+    mem.update(&view, 0, 1.0 / 60.0);
     view.actors.clear();
     // ~20s of absence at the 3s half-life takes confidence well below the floor.
     for _ in 0..40 {
-        mem.update(&view, 0.5);
+        mem.update(&view, 0, 0.5);
     }
     assert!(
         mem.is_empty(),
@@ -609,7 +609,7 @@ fn a_tie_between_two_remembered_hostiles_breaks_the_same_way_every_time() {
     };
 
     let mut first = WorldMemory::default();
-    first.update(&view, 0.016);
+    first.update(&view, 0, 0.016);
     let winner = first.last_known_hostile().expect("someone is remembered");
     assert_eq!(
         winner.pos.x, 1.0,
@@ -619,7 +619,7 @@ fn a_tie_between_two_remembered_hostiles_breaks_the_same_way_every_time() {
     // Same inputs, a fresh map, many times: one answer.
     for _ in 0..64 {
         let mut again = WorldMemory::default();
-        again.update(&view, 0.016);
+        again.update(&view, 0, 0.016);
         assert_eq!(
             again.last_known_hostile().map(|m| m.pos.x),
             Some(winner.pos.x),
@@ -633,7 +633,7 @@ fn a_tie_between_two_remembered_hostiles_breaks_the_same_way_every_time() {
         actors: vec![foe("mu", 3.0)],
         ..Default::default()
     };
-    first.update(&seen_only_mu, 1.0);
+    first.update(&seen_only_mu, 0, 1.0);
     assert_eq!(
         first.last_known_hostile().map(|m| m.pos.x),
         Some(3.0),
@@ -819,6 +819,10 @@ fn two_floors_at_one_height_are_told_apart_by_the_body_and_not_by_the_list() {
 /// band is measured from. 8 bytes; it is `None` for a body with no attack, so
 /// a zero would be a sentinel. At 14.4 peers a view is ~1.6 KB.
 ///
+/// `RememberedActor` is 40 since OBS2 (2026-11-23): `alive`, the evidence
+/// source and its `SimTick` cut (8 bytes, aligned). Without them a seen death
+/// refreshed a living belief and a frozen sight was reported as fresh.
+///
 /// ⚠ It is also the number the "per-build cost rises with population" open
 /// question is argued over — see the measurements journal. 88 bytes × 14.4 peers
 /// was ~1.27 KB per actor's view (104 bytes: ~1.5 KB), which FITS L1, and that
@@ -834,7 +838,7 @@ fn the_perception_structs_do_not_silently_widen() {
     assert_eq!(std::mem::size_of::<PerceivedSolid>(), 20);
     assert_eq!(
         std::mem::size_of::<RememberedActor>(),
-        28,
+        40,
         "RememberedActor is stored per remembered peer per actor"
     );
 }
@@ -882,13 +886,14 @@ fn folding_memory_from_peers_matches_folding_it_from_a_view() {
             vel: a.vel,
             faction: a.faction,
             hostile_to_self: a.hostile_to_self,
+            alive: a.alive,
         })
     };
 
     let mut from_view = WorldMemory::default();
     let mut from_peers = WorldMemory::default();
-    from_view.update(&view, 0.016);
-    from_peers.update_from_seen(view.sim_time, 0.016, seen());
+    from_view.update(&view, 0, 0.016);
+    from_peers.update_from_seen(view.sim_time, 0, 0.016, seen());
     assert_memories_agree(&from_view, &from_peers, "the first fold");
 
     // ⭐ NOW LOSE SIGHT OF EVERYTHING AND DECAY. This is the arm that matters:
@@ -899,8 +904,8 @@ fn folding_memory_from_peers_matches_folding_it_from_a_view() {
         ..WorldView::default()
     };
     for _ in 0..40 {
-        from_view.update(&empty, 0.05);
-        from_peers.update_from_seen(empty.sim_time, 0.05, std::iter::empty());
+        from_view.update(&empty, 0, 0.05);
+        from_peers.update_from_seen(empty.sim_time, 0, 0.05, std::iter::empty());
     }
     assert_memories_agree(&from_view, &from_peers, "after 40 ticks of not seeing");
 
@@ -950,25 +955,140 @@ fn a_heard_sighting_fills_a_gap_and_never_overrules_sight() {
         vel: ae::Vec2::ZERO,
         faction: ActorFaction::Player,
         hostile_to_self: true,
+        alive: true,
         last_seen: 1.0,
         confidence: 1.0,
+        source: EvidenceSource::Sight,
+        cut: 7,
     };
-    let heard = RememberedActor { pos: ae::Vec2::new(99.0, 99.0), confidence: WorldMemory::HEARSAY_CONFIDENCE, ..seen };
+    let heard = RememberedActor {
+        pos: ae::Vec2::new(99.0, 99.0),
+        confidence: WorldMemory::HEARSAY_CONFIDENCE,
+        source: EvidenceSource::Report,
+        ..seen
+    };
 
     let mut deaf = WorldMemory::default();
     deaf.hear("player", heard);
     assert_eq!(deaf.last_known_hostile().map(|m| m.pos), Some(heard.pos), "word of a foe is a belief");
-    assert_eq!(deaf.hostiles_in_view().count(), 0, "hearsay is not re-told");
+    assert_eq!(deaf.direct_reports(7).count(), 0, "hearsay is not re-told");
 
     let mut sighted = WorldMemory::default();
     sighted.update_from_seen(
         1.0,
+        7,
         1.0 / 60.0,
-        [SeenActor { id: "player", pos: seen.pos, vel: seen.vel, faction: seen.faction, hostile_to_self: true }].into_iter(),
+        [SeenActor { id: "player", pos: seen.pos, vel: seen.vel, faction: seen.faction, hostile_to_self: true, alive: true }]
+            .into_iter(),
     );
     sighted.hear("player", heard);
     assert_eq!(sighted.last_known_hostile().map(|m| m.pos), Some(seen.pos), "what it sees wins");
-    assert_eq!(sighted.hostiles_in_view().count(), 1, "and what it sees it can call out");
+    assert_eq!(sighted.direct_reports(7).count(), 1, "and what it sees it can call out");
+    assert_eq!(sighted.direct_reports(8).count(), 0, "but only at the cut it saw it");
+}
+
+/// OBS2: an attributed hit keeps its hostile act even when the body holds a
+/// better position estimate of the striker.
+///
+/// The body saw a non-hostile actor recently, then that actor struck it from
+/// outside view. The hit's hostility survives; the more confident sighting
+/// keeps its position. The control is a striker the body never saw: it is
+/// remembered where the blow came from.
+#[test]
+fn an_attributed_hit_keeps_its_hostility_beside_a_better_sighting() {
+    let dt = 1.0 / 60.0;
+    let seen_at = ae::Vec2::new(40.0, 0.0);
+    let struck_from = ae::Vec2::new(900.0, 0.0);
+    let mut memory = WorldMemory::default();
+    memory.update_from_seen(
+        0.0,
+        1,
+        dt,
+        [SeenActor {
+            id: "neighbour",
+            pos: seen_at,
+            vel: ae::Vec2::ZERO,
+            faction: ActorFaction::Npc,
+            hostile_to_self: false,
+            alive: true,
+        }]
+        .into_iter(),
+    );
+    memory.update_from_seen(dt, 2, dt, std::iter::empty());
+    assert!(memory.last_known_hostile().is_none(), "premise: a neighbour is not a foe");
+    let striker = RememberedActor {
+        pos: struck_from,
+        vel: ae::Vec2::ZERO,
+        faction: ActorFaction::Npc,
+        hostile_to_self: true,
+        alive: true,
+        last_seen: 2.0 * dt,
+        confidence: 1.0,
+        source: EvidenceSource::Hit,
+        cut: 2,
+    };
+    memory.struck_by("neighbour", striker);
+    let row = memory.get("neighbour").expect("the striker is remembered");
+    assert!(row.hostile_to_self, "a position comparison discarded the hit's hostility");
+    assert_eq!(row.pos, seen_at, "the hit replaced a better position estimate");
+    assert_eq!(row.source, EvidenceSource::Sight);
+    assert_eq!(memory.last_known_hostile().map(|m| m.pos), Some(seen_at));
+
+    let mut unseen = WorldMemory::default();
+    unseen.struck_by("neighbour", striker);
+    let row = unseen.get("neighbour").expect("control: an unseen striker is remembered");
+    assert_eq!((row.pos, row.confidence), (struck_from, WorldMemory::STRUCK_CONFIDENCE));
+    assert!(row.hostile_to_self);
+}
+
+/// OBS2: an observed death is not undone by an older report of a living
+/// target, and is no pursuit target. A newer report is admitted once the
+/// death has faded below word of mouth.
+#[test]
+fn an_observed_death_rejects_an_older_living_report() {
+    let dt = 1.0 / 60.0;
+    let at = ae::Vec2::new(60.0, 0.0);
+    let sight = |alive| SeenActor {
+        id: "foe",
+        pos: at,
+        vel: ae::Vec2::ZERO,
+        faction: ActorFaction::Player,
+        hostile_to_self: true,
+        alive,
+    };
+    let report = |cut| RememberedActor {
+        pos: ae::Vec2::new(300.0, 0.0),
+        vel: ae::Vec2::ZERO,
+        faction: ActorFaction::Player,
+        hostile_to_self: true,
+        alive: true,
+        last_seen: 0.0,
+        confidence: WorldMemory::HEARSAY_CONFIDENCE,
+        source: EvidenceSource::Report,
+        cut,
+    };
+    let mut memory = WorldMemory::default();
+    memory.update_from_seen(0.0, 9, dt, [sight(true)].into_iter());
+    memory.update_from_seen(dt, 10, dt, [sight(false)].into_iter());
+    assert!(memory.last_known_hostile().is_none(), "a seen corpse is still pursued");
+
+    // Decay the death below hearsay so confidence alone would admit word.
+    for step in 11..=20 {
+        memory.update_from_seen(step as f32, step, 1.0, std::iter::empty());
+    }
+    assert!(memory.get("foe").expect("premise: still remembered").confidence < WorldMemory::HEARSAY_CONFIDENCE);
+    memory.hear("foe", report(9));
+    memory.hear("foe", report(10));
+    assert!(
+        memory.last_known_hostile().is_none(),
+        "an older or simultaneous report of a living foe undid an observed death"
+    );
+    memory.hear("foe", report(21));
+    assert_eq!(
+        memory.last_known_hostile().map(|m| m.pos),
+        Some(ae::Vec2::new(300.0, 0.0)),
+        "control: a newer living report is admitted"
+    );
 }
 
 /// A GATE OPEN FOR THIS BODY IS NOT GROUND AND STILL STOPS ITS SHOTS (Q54).

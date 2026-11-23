@@ -440,7 +440,11 @@ pub fn tick_actor_brains(
     // system may become conditional on a player existing again.
 
     // A CREW SHARES WHAT IT SEES — see `perception::CrewCall`. The calls are
-    // last tick's sightings, gathered before any body decides this tick.
+    // the preceding step's direct sightings, gathered before any body decides
+    // this tick. A body that did not decide on that step (a participant
+    // drives it) has no sighting from it to call.
+    let observation_cut = perceived.cut();
+    let preceding_cut = observation_cut.checked_sub(1);
     let mut crew_calls = Vec::new();
     for (entity, .., (body, _, faction, _, memory, (seated, summoned), ..)) in actors.iter() {
         let (Some(body), Some(memory)) = (body, memory) else {
@@ -465,6 +469,7 @@ pub fn tick_actor_brains(
                 faction.copied(),
                 perception,
                 &memory.0,
+                preceding_cut,
                 &mut crew_calls,
             );
         }
@@ -563,6 +568,7 @@ pub fn tick_actor_brains(
                     crate::body::perception::hear_crew(
                         &crew_calls,
                         this_actor_entity,
+                        perceived.peer(this_actor_entity).map(|peer| peer.id.as_str()),
                         room,
                         body.kin.pos,
                         faction.copied(),
@@ -811,6 +817,7 @@ pub fn tick_actor_brains(
                                 relations,
                                 perception_policy,
                                 sim_now,
+                                observation_cut,
                                 dt,
                                 perception_memory.as_deref_mut(),
                             );

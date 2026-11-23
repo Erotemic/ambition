@@ -359,7 +359,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 528 -> 529: `BodyEffects` encodes one application per source, its terms
 // under one interval, instead of a timed instance per (source, attribute) (6c).
 // Encounter lifecycle snapshots include the attempt count; music claims include each source and attempt.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 530;
+// 530 -> 531: a remembered actor encodes its observed liveness and its
+// evidence source and cut (OBS2).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 531;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

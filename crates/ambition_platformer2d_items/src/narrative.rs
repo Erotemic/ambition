@@ -110,10 +110,11 @@ pub fn apply_shop_transactions(
     ),
 ) {
     for request in requests.read() {
-        let payer = match request.participant {
-            Some(participant) => driven_body(participant, &drivers),
-            None => primary.single().ok(),
-        };
+        let payer = payer_among(
+            request.participant,
+            drivers.iter().map(|(body, driver)| (body, driver.0)),
+            primary.iter(),
+        );
         let Some(mut wallet) = payer.and_then(|payer| wallets.get_mut(payer).ok()) else {
             continue;
         };
@@ -407,6 +408,41 @@ fn driven_body_in(world: &mut World, participant: PlayerSlot) -> Option<Entity> 
         return None;
     }
     Some(body)
+}
+
+/// Who pays for a shop transaction: the body driving the conversation's
+/// seat, or with no seat the one primary player. One rule for the purchase
+/// (`apply_shop_transactions`) and every question asked before it
+/// ([`shop_payer`]), so an offer and its purchase ask one purse. Two bodies
+/// driving one seat, or two primaries, name no payer.
+pub fn payer_among(
+    participant: Option<PlayerSlot>,
+    drivers: impl IntoIterator<Item = (Entity, PlayerSlot)>,
+    primary: impl IntoIterator<Item = Entity>,
+) -> Option<Entity> {
+    let mut candidates: Box<dyn Iterator<Item = Entity>> = match participant {
+        Some(participant) => Box::new(drivers.into_iter().filter(move |(_, seat)| *seat == participant).map(|(body, _)| body)),
+        None => Box::new(primary.into_iter()),
+    };
+    let payer = candidates.next()?;
+    if candidates.next().is_some() {
+        warn!("shop payer refused: more than one body answers for {participant:?}");
+        return None;
+    }
+    Some(payer)
+}
+
+/// [`payer_among`] read off a world, for a question asked before the purchase.
+pub fn shop_payer(world: &World, participant: Option<PlayerSlot>) -> Option<Entity> {
+    let drivers: Vec<(Entity, PlayerSlot)> = world
+        .try_query::<(Entity, &DrivingParticipant)>()
+        .map(|mut query| query.iter(world).map(|(body, driver)| (body, driver.0)).collect())
+        .unwrap_or_default();
+    let primary: Vec<Entity> = world
+        .try_query_filtered::<Entity, (With<BodyWallet>, With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>)>()
+        .map(|mut query| query.iter(world).collect())
+        .unwrap_or_default();
+    payer_among(participant, drivers, primary)
 }
 
 fn driven_body(participant: PlayerSlot, drivers: &Query<(Entity, &DrivingParticipant)>) -> Option<Entity> {

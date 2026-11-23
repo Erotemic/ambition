@@ -480,7 +480,29 @@ impl ConditionCatalog {
         args: &[AuthoredArg],
         asked_by: &AuthoredAsk,
     ) -> ConditionOutcome {
-        let outcome = self.answer(world, id, args);
+        let outcome = self.answer(world, id, args, None);
+        self.record(world, id, args, asked_by, &outcome);
+        outcome
+    }
+
+    /// [`Self::evaluate`] asked of one subject: the same checks and the same
+    /// recorded verdict, answered by the domain's subject form. A condition
+    /// with no subject form is unanswerable here; it does not fall back to the
+    /// population answer, which would be a claim about a different body.
+    pub fn evaluate_of(
+        &self,
+        world: &World,
+        id: &ConditionId,
+        subject: bevy::prelude::Entity,
+        args: &[AuthoredArg],
+        asked_by: &AuthoredAsk,
+    ) -> ConditionOutcome {
+        let outcome = self.answer(world, id, args, Some(subject));
+        self.record(world, id, args, asked_by, &outcome);
+        outcome
+    }
+
+    fn record(&self, world: &World, id: &ConditionId, args: &[AuthoredArg], asked_by: &AuthoredAsk, outcome: &ConditionOutcome) {
         // ⛔⛤ **ONE DOOR, ONE RECORDER — AND THAT INCLUDES THE REFUSALS THIS
         // FUNCTION ISSUES ITSELF.** A misspelled id and a wrong argument kind
         // never reach a domain, so an evaluator-side recorder would miss
@@ -496,7 +518,6 @@ impl ConditionCatalog {
                 stamp: verdict_stamp(world),
             }));
         }
-        outcome
     }
 
     /// Whether `id` can be asked of one subject.
@@ -521,7 +542,13 @@ impl ConditionCatalog {
 
     /// The answer itself, with no diagnostic on the path: arity, kinds, then
     /// the owning domain.
-    fn answer(&self, world: &World, id: &ConditionId, args: &[AuthoredArg]) -> ConditionOutcome {
+    fn answer(
+        &self,
+        world: &World,
+        id: &ConditionId,
+        args: &[AuthoredArg],
+        subject: Option<bevy::prelude::Entity>,
+    ) -> ConditionOutcome {
         let Some(row) = self.rows.get(id) else {
             return ConditionOutcome::unanswerable(format!(
                 "no condition `{id}` is published; the installed engine knows {} others",
@@ -546,7 +573,11 @@ impl ConditionCatalog {
                 return ConditionOutcome::unanswerable(format!("`{id}` argument `{}` {why}", spec.name));
             }
         }
-        (row.evaluate)(world, args)
+        match (subject, row.evaluate_for) {
+            (None, _) => (row.evaluate)(world, args),
+            (Some(subject), Some(evaluate_for)) => evaluate_for(world, subject, args),
+            (Some(_), None) => ConditionOutcome::unanswerable(format!("`{id}` cannot be asked of one subject")),
+        }
     }
 }
 

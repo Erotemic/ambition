@@ -60,22 +60,9 @@ pub fn can_afford_descriptor() -> ConditionDescriptor {
 /// broke; it has no notion of money at all, and answering "cannot afford"
 /// would be a confident claim about a world with no currency.
 pub fn can_afford(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
-    let Some(price) = args[0].as_number() else {
-        return ConditionOutcome::unanswerable("`price` must be a number");
-    };
-    // ⛔⛔ ONE READING OF THE PRICE, SHARED WITH THE ACTION. `ambition_items::
-    // shop::authored_price` is what `<<buy_item>>` builds its request from, so
-    // a price this refuses is a price the transaction refuses. When the two
-    // disagreed, a guard answering NO sat in front of an action that then
-    // succeeded — `can_afford(25.7)` false while `buy_item "x" 25.7` charged 25.
-    let coins = match ambition_items::shop::authored_price(price) {
+    let coins = match price_of(args) {
         Ok(coins) => coins,
-        Err(problem) => {
-            return ConditionOutcome::unanswerable(format!(
-                "`{price}` is not a price: {}",
-                problem.observed()
-            ))
-        }
+        Err(refusal) => return refusal,
     };
     let Some(mut wallets) = world.try_query_filtered::<&BodyWallet, With<PrimaryPlayer>>() else {
         return ConditionOutcome::unanswerable(
@@ -105,6 +92,34 @@ pub fn can_afford(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     })
 }
 
+/// The price a `wallet.can_afford` asks about, read the way `<<buy_item>>`
+/// reads it (`ambition_items::shop::authored_price`), so a price this
+/// refuses is a price the transaction refuses.
+fn price_of(args: &[AuthoredArg]) -> Result<i32, ConditionOutcome> {
+    let Some(price) = args[0].as_number() else {
+        return Err(ConditionOutcome::unanswerable("`price` must be a number"));
+    };
+    ambition_items::shop::authored_price(price).map_err(|problem| {
+        ConditionOutcome::unanswerable(format!("`{price}` is not a price: {}", problem.observed()))
+    })
+}
+
+/// `wallet.can_afford` asked of one payer: that body's own purse. The
+/// conversation selects the payer with [`crate::narrative::shop_payer`], the
+/// rule the shop charges by, so the offer and the purchase ask one purse.
+pub fn can_afford_for(world: &World, payer: bevy::prelude::Entity, args: &[AuthoredArg]) -> ConditionOutcome {
+    let coins = match price_of(args) {
+        Ok(coins) => coins,
+        Err(refusal) => return refusal,
+    };
+    let Some(balance) = world.get::<BodyWallet>(payer).map(|wallet| wallet.balance) else {
+        return ConditionOutcome::unanswerable("the payer has no wallet");
+    };
+    ConditionOutcome::from_bool(balance >= coins, || {
+        WhyNot::new("wallet.can_afford", format!("{coins}"), format!("the payer's wallet holds {balance}"))
+    })
+}
+
 /// Publishes the wallet domain's conditions.
 ///
 /// One plugin for one registration line, matching the inventory's and the
@@ -115,7 +130,7 @@ pub struct WalletConditionsPlugin;
 impl bevy::prelude::Plugin for WalletConditionsPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use ambition_platformer2d_shared_tangle::authored_logic::PublishCondition;
-        app.publish_condition(can_afford_descriptor(), can_afford);
+        app.publish_subject_condition(can_afford_descriptor(), can_afford, can_afford_for);
     }
 }
 

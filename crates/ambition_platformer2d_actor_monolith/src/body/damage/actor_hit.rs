@@ -170,6 +170,9 @@ pub(crate) fn apply_actor_hit(
     // Jon, 2026-08-24: *"not have barks happen every time a character is hit.
     // Make it a more rare event."* `true` is every world that declared no rate.
     bark_allowed: bool,
+    // The use of the move this body is playing, for the reaction to interrupt
+    // (ACT1). Read by the caller, which holds the move query.
+    playing_move: Option<u32>,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.spawn_scope_from(actor_entity);
@@ -464,6 +467,17 @@ pub(crate) fn apply_actor_hit(
             // actor staggers exactly like the player.
             let pos = em.kin.pos;
             let facing = em.kin.facing;
+            // Read before the reaction runs, from the facts it will read.
+            let interrupted_move = playing_move.filter(|_| {
+                ambition_combat::hit_reaction::reaction_interrupts(
+                    k.as_ref(),
+                    event.properties,
+                    event.status,
+                    combat,
+                    event.damage,
+                    em.ground.on_ground,
+                )
+            });
             let reaction = ambition_combat::hit_reaction::apply_body_hit_reaction(
                 &mut em.kin.vel,
                 &mut em.flight,
@@ -497,7 +511,7 @@ pub(crate) fn apply_actor_hit(
             // the fact the match freeze reads. Beside the reaction because THAT
             // is where the hitlag exists: publishing beside the resolution
             // instead reported zero for every hit.
-            writers.receptions.connect(actor_entity, event, resolution, combat.hitstop_timer);
+            writers.receptions.connect(actor_entity, event, resolution, combat.hitstop_timer, interrupted_move);
             #[cfg(feature = "causal")]
             if let Some(reactions) = writers.reactions.as_mut() {
                 reactions.write(ambition_damage::BodyReactionApplied {

@@ -794,6 +794,7 @@ pub fn apply_feature_hit_events(
                 bark_draw.allows(
                     &resolved_rules,
                     writers.identities.get(actor_entity).ok()),
+                attacker_moves.get(actor_entity).ok().map(|playback| playback.instance),
                 &mut writers,
             ) {
                 actor_hit_this_event = true;

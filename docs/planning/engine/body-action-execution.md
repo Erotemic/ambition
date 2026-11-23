@@ -127,6 +127,29 @@ The pure permission value must not add a combat dependency to the movement
 kernel. The body adapter supplies the resolved input or restriction. Queries
 may share a helper without storing a second authoritative permission component.
 
+### ACT1 first slice done: a hit retires the move it interrupted (2026-11-23)
+
+Steps 5 and 6 above. `hit_reaction::reaction_interrupts` decides, from the
+facts `apply_body_hit_reaction` reads, whether an accepted hit interrupts:
+a launch or an installed status does, while armor that absorbs the hit, a gust
+and a damage-only tick do not. Both reactions share one armor test
+(`armor_absorbs_hit`). Each receiver asks this before the reaction runs and
+captures the victim's playing move use. The home receiver reads it in its own
+body query; the actor receiver reads it from the move query its system already
+holds. The receiver passes that use to `BodyHitReporter::connect`, which carries
+it as `ResolvedBodyHit::interrupted_move` (gameplay data in every build, not
+the `causal` outcome). `mark_move_playback_resolved_hits` retires that playback
+through `cancel_move_playback(.., Interrupted)` only when the instance still
+matches, so a verdict read after the victim started another move cancels
+nothing. A lethal hit and a boss hit report no interruption: death and the boss
+conductor own their own teardown. Already settled contacts and released
+projectiles are untouched. Guards: `a_reaction_interrupts_only_when_it_launches_or_holds`
+(rule), `an_interrupting_reaction_ends_the_victims_move_and_only_that_use`
+(occurrence), `a_launching_hit_ends_its_victims_move_and_armor_keeps_it`
+(actor receiver, armor control). Still open: the common body-action permission
+at every start cut (steps 1 to 4 and 7), the action offer, and the committed
+emission basis below.
+
 ### An offer and an accepted action must name the same move
 
 The deeper source review found a second admission consumer. The actor

@@ -383,6 +383,9 @@ world-post admission.
    bypasses room policy. First customers are ordinary Ambition reaction and
    landing, plus Smash local hitlag. ACT3 floor choreography remains a later
    Smash customer; it is not part of this row's required completion.
+   (ACT1 first slice landed 2026-11-23: an interrupting reaction retires the
+   victim's move use it captured at reception; armor, gusts, damage-only
+   ticks, deaths and boss hits do not.)
 
 10. [Input IN1/IN2](engine/participant-action-system.md#input-history-and-body-interpretation)
     defines one admitted input cut for recording and replay, then resolves

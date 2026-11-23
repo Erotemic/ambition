@@ -4225,11 +4225,23 @@ pub fn mark_move_playback_landed_hits(
 /// window opens one frame later than it used to. That is the whole cost of
 /// asking a true question instead of a cheap one.
 pub fn mark_move_playback_resolved_hits(
+    mut commands: Commands,
     mut connects: ReplayMessageReader<crate::hitbox::ResolvedBodyHit>,
     mut blocks: ReplayMessageReader<crate::hitbox::BlockedBodyHit>,
     mut playbacks: Query<&mut MovePlayback>,
 ) {
     for connect in connects.read() {
+        // ACT1: the VICTIM's move ends when the reaction interrupted it. The
+        // receiver named the use it interrupted, so a verdict read after the
+        // victim started another move leaves that one alone. Contacts the old
+        // move already settled stay settled; its future windows go.
+        if let Some(interrupted) = connect.interrupted_move {
+            if let Ok(mut pb) = playbacks.get_mut(connect.victim) {
+                if pb.instance == interrupted {
+                    cancel_move_playback(&mut commands, connect.victim, &mut pb, MoveEnd::Interrupted);
+                }
+            }
+        }
         // ⛔ `HitSource` is not filtered here on purpose. A move's playback is
         // only ever the attacker of its own strike, so a hazard or a blast zone
         // — which name no attacker — cannot reach a playback at all.

@@ -28,7 +28,7 @@ fn land_a_hit(app: &mut App, hitlag: f32) {
 
 fn land_a(app: &mut App, hitlag: f32, source: crate::HitSource) {
     let victim = app.world_mut().spawn_empty().id();
-    app.world_mut().write_message(ResolvedBodyHit {
+    app.world_mut().write_message(ResolvedBodyHit { interrupted_move: None,
         damage: 7,
         victim,
         // The hitstop consumer does not ask WHO landed it — a connect freezes

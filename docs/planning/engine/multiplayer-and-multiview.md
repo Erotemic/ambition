@@ -319,8 +319,12 @@ rolls the session back (Q151, amended 2026-10-19).
 `ControlPrompt` and the banner are one per session and follow the primary seat.
 The Q150 ruling (2026-10-03) makes HUD state per participant, also when views
 merge onto one screen, so no "primary-player HUD" arbitration exists. Local
-music is chosen by authored priority across the participants, the primary
-participant breaking a tie (built). The built-in vitals HUD is per view: each
+music uses authored priority across local participants, with the primary
+participant breaking a tie. The simple heard-room tier selection is built.
+[MUS2](music-programs-and-playback.md#mus2--select-one-occurrence-owned-goal-for-all-music)
+closes the remaining adaptive-only priority and within-room occurrence
+gaps; it does not replace the completed room filter or tie rule.
+The built-in vitals HUD is per view: each
 `LocalView` carries `ViewHudFacts`, the meters of the body it follows, and has
 its own HUD in its own column. On a merged screen, the first view that names
 nothing carries `SharedViewHudFacts`: each other seat whose body is in the
@@ -328,6 +332,11 @@ controlled body's live room and that no view follows, with its own HUD
 stacked in that view. Open: the declared readouts (`HudReadouts`) are one per
 session; stacked HUDs carry no participant name; and every seat counts as
 local, so an online peer would show a remote seat's HUD (A4).
+
+The same future locality authority must supply music's local listening
+participants. Remote seats must not arbitrate another client's output.
+Music decode/device readiness remains presentation state and must not
+become a peer-room commit condition.
 
 Resolve this with
 [`participant-action-system.md`](participant-action-system.md) from product/UI

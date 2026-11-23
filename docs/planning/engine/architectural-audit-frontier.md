@@ -1,10 +1,12 @@
 # Architectural audit frontier
 
 **State:** audit map and research priorities, 2026-11-22. Latest source:
-`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass audits static
-comprehension through room-rule scope, native strike origin, sprite source
-binding and navigation coverage. It follows the observer/input audit at
-documentation commit `6a1c54efecc6`; the runtime source is unchanged.
+`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass audits music
+selection, playback ownership, prepared timing, and authoring after the
+reported Wolfenstein door/entrance failures. It follows the static-contract
+planning commit `adc7db486346`; the runtime source is unchanged.
+That preceding pass covered room-rule scope, native strike origin, sprite
+source binding, and navigation coverage.
 This head includes the preceding planning overlays and the agents'
 IR1 item-recipe and AC1 construction-receipt
 work. Earlier input/life/history and hosted-prediction findings below came
@@ -35,6 +37,7 @@ ever read that code.
 | Observer evidence, tactical knowledge and social retention | [OBS1](bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary), [OBS2 and horizons](world-facts-observations-and-memory.md), [module demand OBS3](agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers) | Native over-cap, dead/lost-sight, report and module-provider witnesses; durable incident/recognition work only with a concrete later dialogue customer |
 | Source input, control handoffs and independent observers | [IN1–IN5](participant-action-system.md), [control](control-authority-and-ai-policy.md), [MV1/M3](multiplayer-and-multiview.md) | Native capture/rebind, charge interruption, prediction and independent-view witnesses; provider P2 and shared-view input policy only with their selected consumers |
 | Content preparation, linking and authoring | [Linking](capability-linking-and-prepared-facets.md), [prepared media](asset-authoring-and-prepared-media.md), [asset delivery](asset-library-editor-and-delivery.md) | A demonstrated generation/publication gap or a repeated interpretation still outside its owner |
+| Musical policy, product semantics, and playback | [MUS1–MUS4](music-programs-and-playback.md), [MA1](asset-authoring-and-prepared-media.md#ma1--export-playback-facts-link-game-music-policy) | Locked-backend admission/timing evidence and native entrance/door acceptance; deeper capabilities need selected products and support, not another general audio audit |
 | Static operation contracts and source discovery | [SC1](capability-and-runtime-composition.md#sc1--select-rule-subjects-inside-the-work-gate), [strike origin](combat-reception-and-injury.md#carry-attack-origin-through-strike-creation-and-contact), [named animation binding](runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows), [A2 coverage](authoring-and-tools.md#static-source-coverage) | Missing relations at actual operation boundaries; preserve native fast paths instead of adding a descriptive framework |
 | Compiler, dependency and product boundaries | [Compiler/build products](compiler-boundaries-and-build-products.md), [runtime composition](capability-and-runtime-composition.md) | Fresh compile/link/size measurements after the planned cuts |
 | Narrative roles, interaction and native completion | [Story](story-sequences.md), [interaction](interaction-opportunities-and-activation.md), [native actions](native-action-completion.md) | An actual lost invocation/result/role boundary, not a general task framework |
@@ -49,9 +52,11 @@ relationship pass below takes its candidate through native admission,
 transfer, reset and reconstruction. The following observation pass traces
 native sight, accepted hits, crew delivery and saved hostility. The next
 pass takes the separate shared-observer/control transition question through
-native sampling, admission, pending action and view resolution. The latest
-pass asks whether those kinds of operation can be understood through their
-local contracts. Implementation claims need native evidence; further static
+native sampling, admission, pending action and view resolution. The static
+contract pass asks whether those operations retain their local meaning.
+The music pass below follows one reported transition through selection,
+submission, retirement, clocks, and source/product preparation.
+Implementation claims need native evidence; further static
 reasoning does not. Source coverage is not runtime completion.
 
 ## Findings retained from recent passes
@@ -407,6 +412,37 @@ All counterexamples in this pass come from static reading. The plans keep
 the completed S2, A12, reporter, boss/character and prepared clip receipts
 within their demonstrated scope. No engine, renderer, build, gameplay test
 or benchmark ran. No speedup, compile-time or binary-size result is claimed.
+
+### Music needs an owned transition between complete goals
+
+**Owner:** [music programs and owned playback](music-programs-and-playback.md).
+
+The exit log matches a source failure in which shutdown keeps bank B,
+fresh playback starts A, and cleanup then stops A. Present stopped handles
+also defeat the missing-instance retry. The preceding policy reduction
+temporarily resumes a simple room track because an ownerless boss release
+prevents selection of the destination's adaptive cue on that frame.
+These findings justify a focused native music owner beyond MA1's export work.
+
+MUS1 captures playback occurrences and actual handles, including pending
+and partial admission, retirement, environment gain, and a recording sink
+that consumes commands. MUS2 publishes one scoped candidate population for
+simple and adaptive music, preserving attempt identity, authored priority,
+room overrides, and continuity. An ending belongs to the outgoing occurrence;
+its successor comes from current arbitration.
+
+MUS3 separates gameplay, host, transport, and score/product time and prepares
+known entrances before their deadline. The fight-opening delay remains
+unproved by the exit-only log. MUS4 makes common recipes strict without
+requiring a score clock for a simple AssetEnd track. MA1 retains compiler
+clock and product ownership: a folded loop ring cannot become an independent
+tail through scheduling, and matching file origins cannot prove synchronized
+device starts.
+
+No backend, device, or audible reproduction ran. Keep the older unexplained
+death/respawn case separate. The selected correction uses native records,
+fixed layer storage, one-source specialization, and bounded command work.
+It does not require a universal music graph or a new audio crate.
 
 ## Areas audited without another architecture packet
 

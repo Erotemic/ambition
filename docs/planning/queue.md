@@ -1073,6 +1073,13 @@ packet, implement its first customer and remove the displaced interpretation
 before expanding to more content. Preserve existing source formats where
 they remain the right owner.
 
+**Music refinement, 2026-11-22:** MA1 still owns compiler clock and product
+facts. [MUS1–MUS4](engine/music-programs-and-playback.md#implementation-cuts-and-deletion-conditions)
+own occurrence selection, accepted playback, transition execution, and
+strict cue recipes. The reported Wolfenstein handoff does not need to wait
+for a full clock/export migration. Keep Hobford/Dinosaur as MA1's first
+customers; add Galvanic/Tritone at the native handoff.
+
 **Acceptance:** use the owner page's bounded proof, including cheap
 source-only inspection. Do not substitute a new catalog, full-library render,
 render-speed claim, or corpus migration for that proof. No media was rendered
@@ -1508,28 +1515,52 @@ focused harnesses and a rendered two-controller main-game playthrough.
 **Separate work:** menu leave is LOCAL-PLAY-MODES; participant recovery is
 COOP-RECOVERY and PARTNER-RECOVERY. Do not duplicate their lifecycle rules here.
 
-### Music playback gaps — diagnosis ready; death gap cause open
+### Music playback — owned handoffs and prepared entrances
 
-**Owner:** [music playback diagnostics](../systems/music-playback-diagnostics.md)
-and the game/audio integration path.
+**Owner:** [music programs and owned playback](engine/music-programs-and-playback.md),
+with [MA1](engine/asset-authoring-and-prepared-media.md#ma1--export-playback-facts-link-game-music-policy)
+for producer facts. [Diagnostics](../systems/music-playback-diagnostics.md)
+remain an independent observer.
 
-**State:** request-versus-Kira instance observations and audio-context warnings
-exist (`534a92549`, `b170a9238`). Dinosaur treetops and tar pits adaptive
-binding gaps were fixed (`0f5b40487`). The death/respawn gap has **not** been
-explained by these repairs.
+**State:** PLANNED from static source `00bf92c22142` and the supplied
+Wolfenstein departure log, 2026-11-22. Shutdown retains bank B; a fresh
+adaptive start chooses A and then queues a stop for A. The present retry
+predicate misses accepted-but-stopped voices. The log matches this command
+sequence; no backend or audible reproduction ran here. Fight-entry media
+is requested only when selected, which exposes a separate preparation/timing
+gap. The exit excerpt does not prove the cause of startup silence.
 
-**Next action:** reproduce a visible death/respawn music gap with the
-instrumented run; correlate request, selected source, decoder, Kira instance,
-audio context and speaker-audible playback. Separate intentional silence,
-suspension, mute and one-shot completion from defects.
+**Next action:** implement MUS1's bounded, occurrence-owned playback groups
+and common device/recording command boundary. Then MUS2 resolves one scoped
+musical goal for simple and adaptive sources, including live boss/wave
+occurrences and authored priority. Remove ownerless release and the
+temporary simple-track resume between the old fight and destination cue.
+Recheck source before editing; other agents may have changed the code.
 
-**Acceptance:** a reproduced unintended death/respawn gap is repaired with a
-regression witness, or the observed event is classified with concrete playback
-evidence. Keep diagnostics independent of playback repair.
+**Follow-through:** MUS3 prepares known entrances and plans transitions
+against declared end/clock/late-entry semantics. MUS4 makes common recipes
+strict and inspectable. MA1 supplies compiler-owned clocks and selected
+product facts. Native sample timing, independent release tails, and stingers
+need their stated product/backend support; they do not block MUS1.
 
-**Separate authoring work:** [MA1](engine/asset-authoring-and-prepared-media.md#ma1--export-playback-facts-link-game-music-policy)
-links producer playback facts to game policy. It does not explain the open
-death/respawn gap or replace this row's audible reproduction requirement.
+**Acceptance:** old retirements and canceled submissions cannot stop or
+adopt a new occurrence. Partial admission and an unexpectedly stopped
+desired loop have explicit bounded outcomes. Departure selects the current
+destination once; a losing/failed source cannot silence it. Adaptive-only
+fights obey the same room priority as simple tracks. A late entrance follows
+its authored policy without replaying a superseded intro. Preserve shared
+cue continuity, one-shot continuation, endings, and new-attempt identity.
+Prove those properties at the command/selection boundary; later native
+acceptance must establish locked-backend and audible behavior on the
+reported fight/door route. This planning audit ran neither.
+
+**Retained receipt and separate evidence:** request-versus-instance and
+audio-context observations exist (`534a92549`, `b170a9238`); Dinosaur
+binding gaps were fixed (`0f5b40487`). The older death/respawn gap remains
+unexplained. Correlate its own request, decode, admission, context, and
+speaker evidence when that case can be reproduced. Do not mark it solved
+from the distinct departure trace or make a new runtime run a prerequisite
+for static ownership work.
 
 ### GATE-REDIAL — a new address closes the old wormhole and opens a new one (done)
 

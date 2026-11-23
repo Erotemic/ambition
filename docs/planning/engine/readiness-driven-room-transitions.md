@@ -128,6 +128,23 @@ colour, a wipe from any side.
    than the time the foreground was already up is invisible to the slow-machine
    arm (poisoned in, it stayed green); the code and this plan hold it.
 
+### Anticipated music demand
+
+**Static refinement, 2026-11-22:** current room manifests and neighbour
+prefetch cover images, while provider music readiness proves catalog
+registration. Adaptive sources are requested only when Play wins.
+[MUS3](music-programs-and-playback.md#mus3--prepare-entrances-and-plan-transitions-on-the-correct-clock)
+adds known ambient/fight entrances and imminent continuations to the
+existing bounded preparation demand, with exact accepted product identity.
+Preparation grants no playback claim and does not load the whole catalog.
+
+Room publication still determines the listening scope. Local decode,
+backend admission, and device unlock are distinct presentation facts; they
+must not gate peer simulation. A scene that needs local presentation
+readiness uses this owner and a bounded failure policy, not a second room
+transaction or an indefinite wait for audio. The music owner defines
+whether the current group may continue and which late entry is valid.
+
 ## Problem statement
 
 The recent Hall load exposed two forms of policy leakage.

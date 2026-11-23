@@ -48,6 +48,12 @@ a trigger-driven property of the entity.
   keyed by runtime id, never by the archetype `encounter_id`. Two identical
   bosses must not share HP, phase or music. Canary:
   `two_same_archetype_bosses_have_independent_encounter_state`.
+  The 2026-11-22 static music audit found a remaining consumer gap:
+  simple publication keeps a first track per room, while adaptive selection
+  keeps archetype/phase and drops the occurrence.
+  [MUS2](music-programs-and-playback.md#mus2--select-one-occurrence-owned-goal-for-all-music)
+  removes both reductions and retains attempt identity through playback.
+  HP/phase ownership and the existing boss state machine remain intact.
 - **Phases are optional data.** A boss carries a possibly empty list of phase
   triggers; empty means a plain tough enemy. Adding or removing phases is a data
   edit. The phase vocabulary is Dormant, Intro, Phase1, Transition, Phase2,

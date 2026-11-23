@@ -262,6 +262,12 @@ guessed conversion.
 
 ## MA1 — export playback facts; link game music policy
 
+**Refinement, 2026-11-22:** MA1 owns compiler/export facts.
+[Music programs and owned playback](music-programs-and-playback.md) owns
+candidate selection, native occurrence lifetime, transition execution, and
+cue recipes. Its reported handoff defect can be corrected before the full
+MA1 migration. Keep the boundaries separate and use one prepared link.
+
 ### Evidence
 
 The music compiler owns the score clock and form. Its
@@ -340,6 +346,48 @@ selection. Retaining old audio also retains its old playback facts. Linking
 new source timing to old selected audio under the same cue ID is invalid.
 Use the existing bundle and content-generation owners for this association.
 
+### Frontend clocks, product capabilities, and strict linking
+
+The later static audit at `00bf92c22142` found that V1 already renders
+tempo maps but sets `CompiledScore.exact_metadata` to `None`. V2/V3 retain
+exact clock metadata. Expose each compiler's clock through one projection;
+do not infer the V1 clock from initial/average BPM. Keep V3 generator-clip
+clock limits visible beside the richer exact-clip support.
+
+Retain typed entry/exit roles separately from display chapters. The current
+playback plan drops exit markers, and V3's public form validation rejects
+`valid_exit_local_bars` although lowering can copy it. Resolve supported
+markers into the actual product's frame origin using the same cut and
+rounding as the render. Publish musical facts and final media facts as
+distinct inspection levels.
+
+A tail folded into a loop head is not an independently playable release
+tail. A folded lead-in repairs the repeat seam; it is not a scheduled
+destination pickup. State which material each product retains. Add a
+separate entry/exit product only when a requested operation needs it.
+Current ring validation checks adjacency without compiled event ownership;
+validate the declared note-free region against its actual events. Source
+validation cannot prove acoustic decay quality.
+
+Use one pure native preparer for content compilation, direct registration,
+and reload. Reject duplicate IDs/slots before map collection, empty playable
+sections, missing required sources, incompatible layer/product facts,
+invalid continuations, and unsupported synchronization requests. Resolve
+game references and gains to prepared IDs and total arrays. A simple
+whole-asset loop or AssetEnd one-shot needs no musical clock; richer
+operations add only the facts they require.
+
+The product identity must include playback/mix settings, not just compiled
+notes. Reuse the existing render dependencies and accepted-bundle identity.
+Decoded readiness and matching layer origins do not prove a synchronized
+native start. MUS1/MUS3 own that distinct admission/transport evidence.
+Keep compiler-side clock/marker/ring checks separate from native linking;
+the latter does not need the score's note events. Preserve V1/V2's existing
+mastering/regeneration policy and selected audio. New recipes use composition
+mastering; changing an older product's mastering is a separate reviewed edit.
+Full source paths and the bounded recipes are in the
+[music owner](music-programs-and-playback.md#contract-2--a-prepared-program-describes-possible-playback).
+
 ### First implementation and deletion
 
 1. Expose a music-owned inspect/export operation using `CompiledScore` and
@@ -350,8 +398,9 @@ Use the existing bundle and content-generation owners for this association.
    Remove their duplicated numeric clock, loop, and generated-path values
    from game source. Preserve game policy and current selected products.
 3. Make director timing query prepared playback facts. Keep the cheap
-   constant-grid path and the existing director. This packet does not add a
-   sample-accurate device scheduler.
+   constant-grid path and native music ownership. MUS1–MUS3 replace the
+   displaced playback/transition authority; MA1 does not add a sample-accurate
+   device scheduler.
 4. Have the owner export cue inventory and one-shot/product roles. Remove the
    corresponding line-based YAML interpretation from
    `scripts/regen/regen_music_registry.py` when its caller uses that export.
@@ -363,8 +412,12 @@ schedule without a numeric RON edit. A one-shot advances at musical end while
 its tail follows the declared policy. A layer-gain change keeps all layers at
 one loop position. A changed source cannot silently retime retained old
 audio. Unknown section/layer references fail before activation. Test the
-clock/plan without rendering; use the existing recording backend for scheduled
-transitions. Device timing requires separate evidence.
+clock/plan without rendering. MUS1's recording consumer must process the
+same command decisions as the device adapter for transition/ownership
+acceptance; existing mode assertions alone cannot prove command execution.
+Device timing requires separate evidence. Hobford and Dinosaur remain the
+first customers. Galvanic/Tritone add the reported handoff; `fable` and
+`billions_and_billions` add source-only V1/V3 variable-clock inspection.
 
 ## FX1 — prepare SFX layer meaning before backend execution
 

@@ -372,7 +372,19 @@ These are opportunities, not migration work.
 - ✖ **Falling sand.** Code removed 2026-10-11 (Jon); not a work item. A
   reimplementation is a new design. Owner: [`engine/falling-sand.md`](engine/falling-sand.md).
 - ▢ **Per-route music.** Preserve as a product capability; do not revive a closed
-  audio campaign as its execution authority.
+  audio campaign as its execution authority. Use the
+  [music program/lifecycle owner](engine/music-programs-and-playback.md)
+  behind each selected frontend route.
+- ▢ **Further musical transition capabilities.** The
+  [selected music row](queue.md#music-playback--owned-handoffs-and-prepared-entrances)
+  addresses handoff ownership, candidate arbitration, prepared entrances,
+  and common recipes. Phase-preserving cross-product entry, independent loop
+  release tails, scheduled pickups, and layered stingers need the product
+  facts, bounded voice budget, and native support stated in
+  [MUS3/MUS4](engine/music-programs-and-playback.md#authoring-interface-and-rejection).
+  Select each with an authored customer. Do not silently approximate an
+  unsupported request, require middleware parity before fixing ownership,
+  or add a generic transition graph/VM.
 
 ## Boss-encounter content acceptance reservoir
 
@@ -444,7 +456,9 @@ Do not promote these until the trigger exists:
   a stage theme and a winner-card theme. Declare them as two frontend-audio
   routes (`FrontendAudioProfile`, `FrontendAudioRegistry` in
   `crates/ambition_audio/src/selection.rs`) instead of a process-global music
-  switch through `MusicDirectorState`. `provider` and `experience` share string
+  switch through `MusicDirectorState`. The route supplies authority and a
+  goal to the [common music lifecycle](engine/music-programs-and-playback.md);
+  it does not install a second track executor. `provider` and `experience` share string
   vocabulary by maintainer decision; do not start a rename from this item.
 - **Dormant `GatePortalRegistry` cluster:** a real authored gate-portal customer
   or maintainer decision that the feature is dead. Revalidate production

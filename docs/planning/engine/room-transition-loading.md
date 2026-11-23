@@ -115,6 +115,14 @@ A room transition requests what the next room needs through the asset
 preparation/residency authority, not ad hoc eager loading. Do not prefetch
 every neighbour.
 
+[MUS3](music-programs-and-playback.md#mus3--prepare-entrances-and-plan-transitions-on-the-correct-clock)
+adds anticipated music entrances and immediate continuations through that
+same bounded demand. The current manifest is image-based; music catalog
+registration is not decoded-media readiness. Preparation must not claim
+playback, select a winner, or make local audio hardware a simulation/peer
+commit requirement. The music transport owns the permitted overlap and
+late-entry result.
+
 Current shape:
 
 - Neighbour prefetch is bounded: `NEIGHBOR_PREFETCH_ROOM_BUDGET = 4`

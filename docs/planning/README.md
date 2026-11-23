@@ -293,6 +293,9 @@ links to.
 
 ### Engine: presentation, UI and multiplayer
 
+- [`engine/music-programs-and-playback.md`](engine/music-programs-and-playback.md)
+  — scoped musical goals, owned playback groups, prepared timing, and strict
+  intro/loop/ending/layer recipes; static Wolfenstein handoff audit.
 - [`engine/render-animation-and-vfx.md`](engine/render-animation-and-vfx.md) —
   presentation ownership and body-owned drawables.
 - [`engine/presentation-order-and-25d-rendering.md`](engine/presentation-order-and-25d-rendering.md)

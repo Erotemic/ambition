@@ -1114,6 +1114,22 @@ pub enum DismountReason {
     MountLost,
 }
 
+impl DismountReason {
+    /// Which cause names a ride's one end when several ask for it on one
+    /// tick: a loss of a party first, then an end forced on the rider, then
+    /// the clock, then the rider's own choice.
+    pub fn precedence(self) -> u8 {
+        match self {
+            Self::MountLost => 5,
+            Self::RiderLeftPlay => 4,
+            Self::RiderLaunched => 3,
+            Self::PoseRefused => 2,
+            Self::LeaseExpired => 1,
+            Self::RiderBailed => 0,
+        }
+    }
+}
+
 /// "Take this rider out of its saddle."
 ///
 /// ⭐ A REQUEST RATHER THAN A CALL, because the causes are plural and live in
@@ -1628,7 +1644,20 @@ pub fn apply_dismount_requests(
     mut mounts: Query<&mut MountSlot>,
     mut left: MessageWriter<RiderDismounted>,
 ) {
+    // ONE END PER RIDE. Two causes can ask for one ride in one tick (a bail
+    // and a lease running out), and both read the `RidingOn` whose removal
+    // is deferred. The causes are resolved here: each ride ends once, for
+    // its most consequential cause (`DismountReason::precedence`), in the
+    // order its first request was written.
+    let mut ends: Vec<DismountRequested> = Vec::new();
     for request in requests.read() {
+        match ends.iter_mut().find(|end| end.rider == request.rider) {
+            Some(end) if request.reason.precedence() > end.reason.precedence() => end.reason = request.reason,
+            Some(_) => {}
+            None => ends.push(*request),
+        }
+    }
+    for request in ends {
         let Ok((riding, mut aabb, mut kin, baseline)) = riders.get_mut(request.rider)
         else {
             continue;
@@ -2896,6 +2925,36 @@ mod dismount_claim_tests {
             .drain()
             .collect();
         assert_eq!(announced, vec![RiderDismounted { rider, mount, reason: DismountReason::RiderBailed }]);
+    }
+
+    /// A ride ends once. A bail and a lease running out on one tick both ask
+    /// for the same ride while its removal is deferred; the mount owner
+    /// admits one end, named by the cause of higher precedence, and
+    /// announces one empty saddle.
+    #[test]
+    fn a_bail_and_an_expired_lease_on_one_tick_end_the_ride_once() {
+        let mut app = App::new();
+        app.add_message::<DismountRequested>();
+        app.add_message::<RiderDismounted>();
+        app.add_systems(Update, apply_dismount_requests);
+        let mount = app.world_mut().spawn_empty().id();
+        let rider = app
+            .world_mut()
+            .spawn((
+                RidingOn { mount },
+                SpawnBaseline { pos: Vec2::ZERO, size: Vec2::new(24.0, 40.0) },
+                ambition_platformer2d_core::BodyKinematics::default(),
+                ambition_platformer2d_core::CenteredAabb::from_center_size(Vec2::ZERO, Vec2::new(24.0, 40.0)),
+            ))
+            .id();
+        app.world_mut().entity_mut(mount).insert(MountSlot { rider: Some(rider) });
+        app.world_mut().write_message(DismountRequested { rider, reason: DismountReason::RiderBailed });
+        app.world_mut().write_message(DismountRequested { rider, reason: DismountReason::LeaseExpired });
+        app.update();
+        let announced: Vec<RiderDismounted> =
+            app.world_mut().resource_mut::<bevy::ecs::message::Messages<RiderDismounted>>().drain().collect();
+        assert_eq!(announced, vec![RiderDismounted { rider, mount, reason: DismountReason::LeaseExpired }]);
+        assert!(app.world().get::<RidingOn>(rider).is_none(), "the ride did not end");
     }
 
     /// A reservation whose rider has no body is refused, and says so

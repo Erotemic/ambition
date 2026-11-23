@@ -243,17 +243,10 @@ fn room_of(world: &World, scope: Entity) -> Option<BodyRoom> {
     Some(BodyRoom { size })
 }
 
-/// Ask the mount system to take each rider off, once per rider per tick.
+/// Ask the mount system to take each rider off. The mount system ends each
+/// ride once, whatever number of requests name it (`apply_dismount_requests`).
 fn lower_dismounts(mut outbox: ResMut<ExtensionOutbox>, mut dismounts: MessageWriter<DismountRequested>) {
-    // The mount system applies every request it reads, and a second one for
-    // a rider whose first is still deferred would announce a second empty
-    // saddle.
-    let mut asked: Vec<Entity> = Vec::new();
     for submitted in outbox.drain::<DismountPort>(&TECHNIQUE_EXECUTION) {
-        if asked.contains(&submitted.scope) {
-            continue;
-        }
-        asked.push(submitted.scope);
         let reason = match submitted.value.why {
             DismountWhy::Bailed => DismountReason::RiderBailed,
             DismountWhy::Launched => DismountReason::RiderLaunched,

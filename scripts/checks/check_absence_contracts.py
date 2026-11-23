@@ -1793,7 +1793,7 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
         # that measures less than it says and reports the success condition.
         crate = source.relative_to(root).parts[1]
         for match in re.findall(
-            r"impl SnapshotState for ([A-Za-z0-9_:<>]+)", text
+            r"impl (?:[A-Za-z_][A-Za-z0-9_]*::)*SnapshotState for ([A-Za-z0-9_:<>]+)", text
         ):
             # `crate::Foo` inside `ambition_platformer2d_actor_monolith` IS `ambition_platformer2d_actor_monolith::Foo`;
             # collapse the doubled prefix so the frozen name reads like a path.

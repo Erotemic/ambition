@@ -751,6 +751,11 @@ command boundary, without requiring another native music executor.
 **Owners:** native transport, existing room/residency demand, prepared game
 scene policy; MA1 supplies producer facts.
 
+**Producer progress:** all compiler frontends now expose their clock through
+`CompiledScore.clock`. Source inspection and fresh render publication export
+body ends, frame origins, bar exits, gain bases and retained material. These
+facts are not yet linked into the native director or residency demand.
+
 Prefetch the known opening and imminent continuation without granting
 claims. Keep catalog, decode, admission, and start facts distinct. Add the
 small boundary/entry/late-policy plan and a defined transport origin.
@@ -774,6 +779,11 @@ remain later native acceptance, not claims of a recording sink.
 ### MUS4 — make authoring recipes strict and inspectable
 
 **Owners:** MusicIR/compiler/exporter and native cue preparation.
+
+**Producer progress:** `cue playback` inspects V1–V3 without synthesis. Source
+validation checks typed exits and event form ownership. Encoded products
+retain their measured frames and render identity through publication. The
+common strict native preparer and recipe migration remain open.
 
 Expose compiler clock and typed marker support for every supported
 frontend. Make final product construction and support limits explicit.

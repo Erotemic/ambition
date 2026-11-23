@@ -262,6 +262,16 @@ guessed conversion.
 
 ## MA1 — export playback facts; link game music policy
 
+**Progress, 2026-11-23 (music renderer `96d6ded`):** `CompiledScore.clock` projects each compiler's
+clock. `cue playback` inspects bodies, file spans, bar exits and frame plans
+without synthesis. Fresh renders export encoded product identities, frame
+counts, gain bases and ring construction. Publication checks the copied media
+and records runtime paths. The source plan and encoded evidence remain
+separate. Native linking and the Hobford/Dinosaur data migration remain open.
+Exact event ownership now survives timing variation across form boundaries.
+Shared ring export excludes incoming pickup attacks while it retains the
+declared file span. Generic PCM and encoded-product checks cover this rule.
+
 **Refinement, 2026-11-22:** MA1 owns compiler/export facts.
 [Music programs and owned playback](music-programs-and-playback.md) owns
 candidate selection, native occurrence lifetime, transition execution, and

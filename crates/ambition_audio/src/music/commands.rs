@@ -38,6 +38,14 @@ impl MusicPlaybackCommands<'_> {
         })
     }
 
+    pub(super) fn scheduled_state(&self, entry: super::playback::MusicEntry, state: &str) -> bool {
+        self.playback.groups().any(|group| {
+            group.entry == entry
+                && group.phase == super::playback::MusicGroupPhase::Submitted
+                && group.scheduled_state() == Some(state)
+        })
+    }
+
     pub(super) fn defer(&mut self) {
         self.playback.defer();
     }
@@ -77,6 +85,7 @@ impl MusicPlaybackCommands<'_> {
         assets: &LoadedMusicCueAssets,
         state: &PreparedMusicState,
         fade_seconds: f32,
+        start_after: Option<super::playback::MusicStartAfter>,
     ) {
         let voices = section
             .sources
@@ -106,6 +115,7 @@ impl MusicPlaybackCommands<'_> {
             return;
         }
         self.playback.request(MusicPlaybackRequest {
+            start_after,
             entry,
             goal_revision,
             product: MusicProduct::Section {
@@ -134,6 +144,7 @@ impl MusicPlaybackCommands<'_> {
         fade_seconds: f32,
     ) {
         self.playback.request(MusicPlaybackRequest {
+            start_after: None,
             entry,
             goal_revision,
             product: MusicProduct::Track {

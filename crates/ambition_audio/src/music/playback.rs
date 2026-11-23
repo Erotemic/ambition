@@ -7,12 +7,29 @@ const MAX_GROUPS: usize = crate::music_policy::MAX_MUSIC_PLAYBACK_GROUPS;
 const ADMISSION_TIMEOUT_SECONDS: f64 = 5.0;
 const MAX_RETRIES: u8 = 1;
 
+/// A native music clock with one tick per second.
+#[derive(Resource)]
+pub struct MusicTransportClock(pub(crate) bevy_kira_audio::kira::clock::ClockHandle);
+
+impl MusicTransportClock {
+    fn seconds(&self) -> f64 {
+        let time = self.0.time();
+        time.ticks as f64 + time.fraction
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MusicPlaybackOccurrence(pub u64);
 
 /// A selected entry has its own completion and retry scope.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MusicEntry(pub u64);
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct MusicStartAfter {
+    pub occurrence: MusicPlaybackOccurrence,
+    pub seconds: f64,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MusicProduct {
@@ -59,6 +76,7 @@ pub(crate) struct MusicVoiceSource {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct MusicPlaybackRequest {
+    pub start_after: Option<MusicStartAfter>,
     pub entry: MusicEntry,
     pub goal_revision: u64,
     pub product: MusicProduct,
@@ -73,6 +91,7 @@ pub(crate) struct MusicPlaybackRequest {
 impl MusicPlaybackRequest {
     fn can_continue(&self, other: &Self) -> bool {
         self.entry == other.entry
+            && self.start_after == other.start_after
             && self.product == other.product
             && self.looped == other.looped
             && self.voices.len() == other.voices.len()
@@ -93,6 +112,7 @@ pub enum MusicTerminalReason {
     AdmissionTimeout,
     UnexpectedStop,
     SourceMismatch,
+    MissedStart,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -150,6 +170,10 @@ impl Envelope {
 
 #[derive(Clone, Debug)]
 pub struct MusicPlaybackGroup {
+    retiring_for: Option<MusicPlaybackOccurrence>,
+    cancel_retirement: bool,
+    /// The requested start time on the output's transport clock.
+    pub(crate) transport_origin: Option<f64>,
     pub entry: MusicEntry,
     pub occurrence: MusicPlaybackOccurrence,
     pub product: MusicProduct,
@@ -165,6 +189,11 @@ pub struct MusicPlaybackGroup {
 }
 
 impl MusicPlaybackGroup {
+    pub(super) fn scheduled_state(&self) -> Option<&str> {
+        self.request
+            .start_after
+            .and(self.request.state_id.as_deref())
+    }
     pub(super) fn file_duration_seconds(&self) -> Option<f64> {
         let mut voices = self.voices.iter();
         let mut duration = voices.next()?.shape?.seconds();
@@ -379,6 +408,8 @@ impl MusicPlayback {
     }
 
     fn advance(&mut self, output: &mut impl MusicVoiceOutput, now: f64, master: f32) {
+        let transport_now = output.transport_time();
+        let envelope_now = transport_now.unwrap_or(now);
         for slot in 0..MAX_GROUPS {
             let Some(mut group) = self.groups[slot].take() else {
                 continue;
@@ -409,6 +440,22 @@ impl MusicPlayback {
                 }
             }
             let observations = &observations[..group.voices.len()];
+            if group.cancel_retirement {
+                // Kira reads resume before stop in one block. Wait for its stop read.
+                if observations
+                    .iter()
+                    .all(|state| matches!(state, VoiceObservation::Stopping(_)))
+                {
+                    for voice in &group.voices {
+                        output.cancel_retirement(&voice.handle);
+                    }
+                    group.cancel_retirement = false;
+                } else if observations.iter().any(|state| {
+                    matches!(state, VoiceObservation::Stopped | VoiceObservation::Absent)
+                }) {
+                    group.cancel_retirement = false;
+                }
+            }
             let shapes_ready = group.voices.iter().all(|voice| voice.shape.is_some());
             if group.phase == MusicGroupPhase::Submitted && shapes_ready {
                 let common = group.voices[0].shape;
@@ -442,41 +489,133 @@ impl MusicPlayback {
                     group.phase = MusicGroupPhase::Canceled;
                     group.terminal = Some(MusicTerminalReason::AdmissionAbsent);
                     self.failed(group.occurrence, MusicTerminalReason::AdmissionAbsent);
-                } else if observations
-                    .iter()
-                    .all(|state| matches!(state, VoiceObservation::Paused))
+                } else if group.transport_origin.is_none()
+                    && observations
+                        .iter()
+                        .all(|state| matches!(state, VoiceObservation::Paused))
                     && output.ready_to_start()
                     && shapes_ready
                 {
-                    if let Some(old) = self.current {
-                        for previous in self
-                            .groups
-                            .iter_mut()
-                            .flatten()
-                            .filter(|other| other.occurrence == old)
-                        {
-                            previous.phase = MusicGroupPhase::Retiring;
-                            previous.terminal = Some(MusicTerminalReason::Replaced);
-                            previous.envelope = Envelope {
-                                from: previous.envelope.value(now),
-                                to: 0.0,
-                                began: now,
-                                seconds: group.request.fade_seconds,
-                            };
+                    let origin = group.request.start_after.and_then(|start| {
+                        self.groups()
+                            .find(|source| source.occurrence == start.occurrence)
+                            .and_then(|source| source.transport_origin)
+                            .map(|origin| origin + start.seconds)
+                    });
+                    if group.request.start_after.is_some()
+                        && origin.zip(transport_now).is_none_or(|(origin, current)| {
+                            origin < current + output.start_lead_seconds()
+                        })
+                    {
+                        group.phase = MusicGroupPhase::Canceled;
+                        group.terminal = Some(MusicTerminalReason::MissedStart);
+                        self.failed(group.occurrence, MusicTerminalReason::MissedStart);
+                    } else {
+                        group.transport_origin = origin.or_else(|| {
+                            transport_now.map(|time| time + output.start_lead_seconds())
+                        });
+                        group.envelope.began = group.transport_origin.unwrap_or(envelope_now);
+                        for voice in &group.voices {
+                            output.gain(&voice.handle, master * voice.gain);
+                            output.resume(
+                                &voice.handle,
+                                group.transport_origin,
+                                group.request.fade_seconds,
+                            );
+                        }
+                        if output.native_envelopes() {
+                            if let Some((start, origin)) =
+                                group.request.start_after.zip(group.transport_origin)
+                            {
+                                for previous in self
+                                    .groups
+                                    .iter_mut()
+                                    .flatten()
+                                    .filter(|previous| previous.occurrence == start.occurrence)
+                                {
+                                    previous.retiring_for = Some(group.occurrence);
+                                    previous.cancel_retirement = false;
+                                    for voice in &mut previous.voices {
+                                        output.retire_at(
+                                            &voice.handle,
+                                            origin,
+                                            group.request.fade_seconds,
+                                        );
+                                        voice.stop_sent = true;
+                                    }
+                                }
+                            }
+                        }
+                        if group.transport_origin.is_none() {
+                            // Outputs without a native clock retain immediate admission.
+                            group.phase = MusicGroupPhase::Running;
                         }
                     }
-                    group.phase = MusicGroupPhase::Running;
-                    group.envelope.began = now;
-                    self.current_completion = None;
-                    self.current = Some(group.occurrence);
-                    for voice in &group.voices {
-                        output.resume(&voice.handle);
-                    }
-                } else if now - group.submitted_at >= ADMISSION_TIMEOUT_SECONDS {
+                } else if now - group.submitted_at >= ADMISSION_TIMEOUT_SECONDS
+                    && group.transport_origin.is_none()
+                {
                     group.phase = MusicGroupPhase::Canceled;
                     group.terminal = Some(MusicTerminalReason::AdmissionTimeout);
                     self.failed(group.occurrence, MusicTerminalReason::AdmissionTimeout);
                 }
+                if group
+                    .transport_origin
+                    .zip(transport_now)
+                    .is_some_and(|(origin, time)| time > origin + ADMISSION_TIMEOUT_SECONDS)
+                    && !observations
+                        .iter()
+                        .all(|state| matches!(state, VoiceObservation::Playing(_)))
+                {
+                    group.phase = MusicGroupPhase::Canceled;
+                    group.terminal = Some(MusicTerminalReason::AdmissionTimeout);
+                    self.failed(group.occurrence, MusicTerminalReason::AdmissionTimeout);
+                }
+            }
+            let start_observed = group.transport_origin.is_some_and(|origin| {
+                transport_now.is_some_and(|time| time >= origin)
+                    && (!output.native_envelopes()
+                        || observations
+                            .iter()
+                            .all(|state| matches!(state, VoiceObservation::Playing(_))))
+            });
+            if desired
+                && (start_observed || group.phase == MusicGroupPhase::Running)
+                && self.current != Some(group.occurrence)
+                && !matches!(
+                    group.phase,
+                    MusicGroupPhase::Canceled | MusicGroupPhase::Retiring
+                )
+            {
+                if let Some(old) = self.current {
+                    for previous in self
+                        .groups
+                        .iter_mut()
+                        .flatten()
+                        .filter(|other| other.occurrence == old)
+                    {
+                        previous.retiring_for = None;
+                        previous.cancel_retirement = false;
+                        previous.phase = MusicGroupPhase::Retiring;
+                        previous.terminal = Some(MusicTerminalReason::Replaced);
+                        previous.envelope = Envelope {
+                            from: previous.envelope.value(envelope_now),
+                            to: 0.0,
+                            began: envelope_now,
+                            seconds: group.request.fade_seconds,
+                        };
+                        if output.native_envelopes() {
+                            for voice in &mut previous.voices {
+                                if !voice.stop_sent {
+                                    output.retire(&voice.handle, group.request.fade_seconds);
+                                }
+                                voice.stop_sent = true;
+                            }
+                        }
+                    }
+                }
+                group.phase = MusicGroupPhase::Running;
+                self.current_completion = None;
+                self.current = Some(group.occurrence);
             }
             if matches!(
                 group.phase,
@@ -486,7 +625,9 @@ impl MusicPlayback {
                     observations
                         .iter()
                         .try_fold(f64::INFINITY, |position, state| match state {
-                            VoiceObservation::Playing(next) if next.is_finite() && *next >= 0.0 => {
+                            VoiceObservation::Playing(next) | VoiceObservation::Stopping(next)
+                                if next.is_finite() && *next >= 0.0 =>
+                            {
                                 Some(position.min(*next))
                             }
                             _ => None,
@@ -524,10 +665,23 @@ impl MusicPlayback {
                     }
                 }
             }
-            if group.phase == MusicGroupPhase::Retiring && group.envelope.done(now) {
+            if group.phase == MusicGroupPhase::Retiring && group.envelope.done(envelope_now) {
                 group.phase = MusicGroupPhase::Canceled;
             }
             if group.phase == MusicGroupPhase::Canceled {
+                // A canceled successor cannot retain its predecessor's stop.
+                for previous in self
+                    .groups
+                    .iter_mut()
+                    .flatten()
+                    .filter(|previous| previous.retiring_for == Some(group.occurrence))
+                {
+                    previous.retiring_for = None;
+                    previous.cancel_retirement = true;
+                    for voice in &mut previous.voices {
+                        voice.stop_sent = false;
+                    }
+                }
                 let mut accounted = true;
                 for (voice, observation) in group.voices.iter_mut().zip(observations) {
                     match observation {
@@ -555,9 +709,13 @@ impl MusicPlayback {
                 }
             } else if matches!(
                 group.phase,
-                MusicGroupPhase::Running | MusicGroupPhase::Retiring
+                MusicGroupPhase::Running | MusicGroupPhase::Retiring | MusicGroupPhase::Submitted
             ) {
-                let envelope = group.envelope.value(now);
+                let envelope = if output.native_envelopes() {
+                    1.0
+                } else {
+                    group.envelope.value(envelope_now)
+                };
                 for voice in &mut group.voices {
                     let gain = master * voice.gain * envelope;
                     if voice.last_gain != Some(gain) {
@@ -610,6 +768,9 @@ impl MusicPlayback {
             })
             .collect();
         self.groups[slot] = Some(MusicPlaybackGroup {
+            retiring_for: None,
+            cancel_retirement: false,
+            transport_origin: None,
             entry: request.entry,
             occurrence,
             product: request.product.clone(),
@@ -634,12 +795,25 @@ enum VoiceObservation {
     Queued,
     Absent,
     Paused,
+    Waiting,
     Playing(f64),
-    Stopping,
+    Stopping(f64),
     Stopped,
 }
 
 trait MusicVoiceOutput {
+    fn transport_time(&self) -> Option<f64> {
+        None
+    }
+    fn start_lead_seconds(&self) -> f64 {
+        0.0
+    }
+    fn native_envelopes(&self) -> bool {
+        false
+    }
+    fn retire(&mut self, _handle: &Handle<AudioInstance>, _seconds: f32) {}
+    fn retire_at(&mut self, _handle: &Handle<AudioInstance>, _start: f64, _seconds: f32) {}
+    fn cancel_retirement(&mut self, _handle: &Handle<AudioInstance>) {}
     fn ready_to_start(&self) -> bool {
         true
     }
@@ -651,7 +825,7 @@ trait MusicVoiceOutput {
         handle: &Handle<AudioInstance>,
         source: &Handle<KiraAudioSource>,
     ) -> Option<MusicSourceShape>;
-    fn resume(&mut self, handle: &Handle<AudioInstance>);
+    fn resume(&mut self, handle: &Handle<AudioInstance>, start: Option<f64>, fade: f32);
     fn gain(&mut self, handle: &Handle<AudioInstance>, gain: f32);
     fn stop(&mut self, handle: &Handle<AudioInstance>);
     fn release(&mut self, handle: &Handle<AudioInstance>);
@@ -676,6 +850,7 @@ pub struct RecordedMusicOutput {
 }
 
 struct KiraMusicOutput<'a> {
+    clock: Option<&'a MusicTransportClock>,
     channels: &'a DynamicAudioChannels,
     decoded: &'a Assets<KiraAudioSource>,
     instances: &'a mut Assets<AudioInstance>,
@@ -688,6 +863,53 @@ struct KiraMusicOutput<'a> {
 const OUTPUT_CHANNEL: &str = "ambition.music.occurrences";
 
 impl MusicVoiceOutput for KiraMusicOutput<'_> {
+    fn transport_time(&self) -> Option<f64> {
+        if self.mode.emits_to_device() {
+            self.clock.map(MusicTransportClock::seconds)
+        } else {
+            Some(self.now)
+        }
+    }
+
+    fn start_lead_seconds(&self) -> f64 {
+        // This lead defines a new origin. It does not move an existing exit.
+        if self.mode.emits_to_device() {
+            0.03
+        } else {
+            0.0
+        }
+    }
+
+    fn native_envelopes(&self) -> bool {
+        self.mode.emits_to_device()
+    }
+
+    fn retire(&mut self, handle: &Handle<AudioInstance>, seconds: f32) {
+        self.recording.stopped += 1;
+        if let Some(mut voice) = self.instances.get_mut(handle) {
+            voice.stop(AudioTween::linear(std::time::Duration::from_secs_f32(
+                seconds,
+            )));
+        }
+    }
+
+    fn retire_at(&mut self, handle: &Handle<AudioInstance>, start: f64, seconds: f32) {
+        self.recording.stopped += 1;
+        if let Some((clock, mut voice)) = self.clock.zip(self.instances.get_mut(handle)) {
+            voice.stop_at(
+                bevy_kira_audio::kira::clock::ClockTime::from_ticks_f64(&clock.0, start).into(),
+                AudioTween::linear(std::time::Duration::from_secs_f32(seconds)),
+            );
+        }
+    }
+
+    fn cancel_retirement(&mut self, handle: &Handle<AudioInstance>) {
+        self.recording.resumed += 1;
+        if let Some(mut voice) = self.instances.get_mut(handle) {
+            voice.resume(AudioTween::linear(std::time::Duration::ZERO));
+        }
+    }
+
     fn shape(
         &self,
         handle: &Handle<AudioInstance>,
@@ -714,7 +936,11 @@ impl MusicVoiceOutput for KiraMusicOutput<'_> {
         self.recording.submitted += 1;
         if self.mode.emits_to_device() {
             let mut command = self.channels.channel(OUTPUT_CHANNEL).play(source.clone());
-            command.paused().with_volume(amplitude_to_decibels(0.0));
+            // Hold sample zero until the common resume time.
+            command
+                .paused()
+                .with_playback_rate(0.0)
+                .with_volume(amplitude_to_decibels(0.0));
             if looped {
                 command.looped();
             }
@@ -742,6 +968,7 @@ impl MusicVoiceOutput for KiraMusicOutput<'_> {
                 Some(voice) if voice.stopped => VoiceObservation::Stopped,
                 Some(voice) => match voice.started {
                     None => VoiceObservation::Paused,
+                    Some(started) if self.now < started => VoiceObservation::Waiting,
                     Some(started)
                         if !voice.looped && self.now - started >= voice.shape.seconds() =>
                     {
@@ -759,12 +986,11 @@ impl MusicVoiceOutput for KiraMusicOutput<'_> {
             Some(PlaybackState::Playing { position } | PlaybackState::Resuming { position }) => {
                 VoiceObservation::Playing(position)
             }
-            Some(
-                PlaybackState::Paused { .. }
-                | PlaybackState::WaitingToResume { .. }
-                | PlaybackState::Pausing { .. },
-            ) => VoiceObservation::Paused,
-            Some(PlaybackState::Stopping { .. }) => VoiceObservation::Stopping,
+            Some(PlaybackState::Paused { .. } | PlaybackState::Pausing { .. }) => {
+                VoiceObservation::Paused
+            }
+            Some(PlaybackState::WaitingToResume { .. }) => VoiceObservation::Waiting,
+            Some(PlaybackState::Stopping { position }) => VoiceObservation::Stopping(position),
             Some(PlaybackState::Stopped) => VoiceObservation::Stopped,
             _ if self.channels.channel(OUTPUT_CHANNEL).state(handle) == PlaybackState::Queued => {
                 VoiceObservation::Queued
@@ -773,14 +999,24 @@ impl MusicVoiceOutput for KiraMusicOutput<'_> {
         }
     }
 
-    fn resume(&mut self, handle: &Handle<AudioInstance>) {
+    fn resume(&mut self, handle: &Handle<AudioInstance>, start: Option<f64>, fade: f32) {
         self.recording.resumed += 1;
         if self.mode.emits_to_device() {
             if let Some(mut voice) = self.instances.get_mut(handle) {
-                voice.resume(AudioTween::default());
+                voice.set_playback_rate(1.0, AudioTween::linear(std::time::Duration::ZERO));
+                let tween = AudioTween::linear(std::time::Duration::from_secs_f32(fade));
+                if let Some((clock, start)) = self.clock.zip(start) {
+                    voice.resume_at(
+                        bevy_kira_audio::kira::clock::ClockTime::from_ticks_f64(&clock.0, start)
+                            .into(),
+                        tween,
+                    );
+                } else {
+                    voice.resume(tween);
+                }
             }
         } else if let Some(voice) = self.recording.voices.get_mut(&handle.id()) {
-            voice.started = Some(self.now);
+            voice.started = Some(start.unwrap_or(self.now));
         }
     }
 
@@ -809,7 +1045,7 @@ impl MusicVoiceOutput for KiraMusicOutput<'_> {
     }
 }
 
-/// Observe the last drain before submitting new work. Device timing is best effort.
+/// Observe the last drain and admit bounded work on the output's clock.
 pub fn advance_music_playback(
     mut playback: ResMut<MusicPlayback>,
     mut recording: ResMut<RecordedMusicOutput>,
@@ -823,6 +1059,7 @@ pub fn advance_music_playback(
     mut director: Option<ResMut<MusicDirectorState>>,
     unlock: Option<Res<crate::web_unlock::AudioUnlockState>>,
     conditions: Option<Res<crate::output::AudioPlaybackConditions>>,
+    clock: Option<Res<MusicTransportClock>>,
 ) {
     let mode = output.as_deref().copied().unwrap_or_default();
     let can_start = !mode.emits_to_device()
@@ -831,6 +1068,7 @@ pub fn advance_music_playback(
                 .as_ref()
                 .is_none_or(|conditions| !conditions.device_suspended));
     let mut sink = KiraMusicOutput {
+        clock: clock.as_deref(),
         channels: &channels,
         decoded: &decoded,
         instances: &mut instances,
@@ -839,6 +1077,7 @@ pub fn advance_music_playback(
         can_start,
         now: time.elapsed_secs_f64(),
     };
+    let previous = playback.current().map(|group| group.occurrence);
     playback.advance(&mut sink, time.elapsed_secs_f64(), mix.effective_music());
     if let Some(director) = director.as_deref_mut() {
         if let Some(group) = playback.current().filter(|group| {
@@ -848,6 +1087,9 @@ pub fn advance_music_playback(
             if let Some(mut selection) = director.selection.clone() {
                 // A queued section cannot replace the admitted section's state or policy.
                 if let MusicProduct::Section { cue, section, .. } = &group.product {
+                    if previous != Some(group.occurrence) && group.request.start_after.is_some() {
+                        director.continuation_state_id = group.request.state_id.clone();
+                    }
                     if director.current_section_id.as_ref() != Some(section) {
                         director.pending_state = None;
                     }

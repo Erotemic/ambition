@@ -133,7 +133,9 @@ Use a browser check only for web audio/device changes.
 
 Use the opt-in device test to check the locked Bevy/Kira command drain and
 mixer. The test delays decode beyond the intro, selects the current phase,
-then checks two fresh cue handoffs and an explicit stop.
+then checks two fresh cue handoffs and an explicit stop. It stalls the host
+for one second across a prepared join. The source has a half-second tail;
+the native clock must stop it and start the next section at the prepared end.
 
 ```bash
 CARGO_INCREMENTAL=0 cargo test -p ambition_audio --features kira,content_pack --lib --no-run
@@ -150,3 +152,9 @@ configuration for its child process. A pipe reader limits the null device to
 Listen to the PCM or inspect its spectrum to check the two source tones per
 section. Backend admission and a nonzero file alone do not prove continuity.
 This capture does not verify physical speakers or the complete game route.
+
+The opt-in `native_canceling_a_prepared_entry_cancels_its_predecessors_stop`
+test checks cancellation. Run it in a separate capture. The old source must
+continue past its withdrawn stop while the replacement is not ready.
+Native starts and fades use Kira's processing resolution. The preparer still
+rejects `SampleAccurate` and `PhasePreserving` requests.

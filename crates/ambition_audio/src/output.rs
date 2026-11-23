@@ -73,6 +73,21 @@ impl Plugin for AmbitionAudioBackendPlugin {
         match mode {
             AudioOutputMode::Device => {
                 app.add_plugins(KiraAudioPlugin);
+                let clock = app
+                    .world_mut()
+                    .non_send_mut::<bevy_kira_audio::AudioOutput>()
+                    .manager()
+                    .and_then(|manager| {
+                        manager
+                            .add_clock(bevy_kira_audio::kira::clock::ClockSpeed::TicksPerSecond(
+                                1.0,
+                            ))
+                            .ok()
+                    });
+                if let Some(mut clock) = clock {
+                    clock.start();
+                    app.insert_resource(crate::music::playback::MusicTransportClock(clock));
+                }
             }
             AudioOutputMode::Recording => {
                 // This is the asset half of bevy_kira_audio::AudioPlugin. The

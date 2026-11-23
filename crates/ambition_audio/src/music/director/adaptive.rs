@@ -76,6 +76,12 @@ pub(super) fn drive_adaptive_cue_state(
         &target_state.section_id,
         decoded,
     );
+    if director
+        .entry
+        .is_some_and(|entry| channels.scheduled_state(entry, &target_state.id))
+    {
+        return;
+    }
     if should_restart_adaptive(
         director.active_cue_id.as_deref(),
         director.mode,
@@ -100,6 +106,15 @@ pub(super) fn drive_adaptive_cue_state(
     let current_state_matches =
         director.current_state_id.as_deref() == Some(target_state.id.as_str());
     if current_state_matches {
+        if let Some(next) = target_state
+            .next_state
+            .as_deref()
+            .and_then(|id| cue.state(id))
+        {
+            if schedule_continuation(director, selection, cue, next, assets, decoded, channels) {
+                return;
+            }
+        }
         director.active_phase_policy = selection.phase_policy;
         channels.set_section_gains(
             director.entry.expect("a selected music entry"),
@@ -168,6 +183,17 @@ pub(super) fn drive_adaptive_cue_state(
         return;
     }
     if director.mode == MusicDirectorMode::AdaptiveIntro && !outro {
+        if schedule_continuation(
+            director,
+            selection,
+            cue,
+            target_state,
+            assets,
+            decoded,
+            channels,
+        ) {
+            return;
+        }
         let intro_done = director
             .current_section_id
             .as_deref()
@@ -303,6 +329,75 @@ pub(super) fn drive_adaptive_cue_state(
     }
 }
 
+fn schedule_continuation(
+    director: &MusicDirectorState,
+    selection: &MusicSelection,
+    cue: &PreparedMusicCue,
+    target: &PreparedMusicState,
+    assets: &LoadedMusicCueAssets,
+    decoded: &Assets<KiraAudioSource>,
+    channels: &mut MusicPlaybackCommands,
+) -> bool {
+    let Some(current) = channels.current().filter(|group| {
+        Some(group.entry) == director.entry
+            && group.phase == MusicGroupPhase::Running
+            && group.transport_origin.is_some()
+    }) else {
+        return false;
+    };
+    let Some(section) = director
+        .current_section_id
+        .as_deref()
+        .and_then(|id| cue.section(id))
+        .filter(|section| !section.looped)
+    else {
+        return false;
+    };
+    let Some(end) = section
+        .musical_duration_seconds
+        .or_else(|| current.file_duration_seconds())
+    else {
+        return false;
+    };
+    if director
+        .position_seconds
+        .is_some_and(|position| position >= end)
+    {
+        return false;
+    }
+    let start = super::super::playback::MusicStartAfter {
+        occurrence: current.occurrence,
+        seconds: end,
+    };
+    if channels.scheduled_state(current.entry, &target.id) {
+        return true;
+    }
+    if !assets.section_ready(
+        &selection.provider,
+        selection.generation,
+        cue,
+        &target.section_id,
+        decoded,
+    ) {
+        return false;
+    }
+    let Some(target_section) = cue.section(&target.section_id) else {
+        return false;
+    };
+    channels.play_section(
+        director.entry.expect("a selected music entry"),
+        director.goal_revision,
+        selection,
+        cue,
+        target_section,
+        assets,
+        target,
+        cue.playback.continuation_crossfade_seconds,
+        Some(start),
+    );
+    true
+}
+
 fn start_adaptive_state(
     director: &mut MusicDirectorState,
     selection: &MusicSelection,
@@ -332,6 +427,7 @@ fn start_adaptive_state(
         assets,
         target_state,
         crossfade_seconds,
+        None,
     );
     director.active_cue_id = Some(cue.id.clone());
     director.active_phase_policy = selection.phase_policy;

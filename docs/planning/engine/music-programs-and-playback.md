@@ -803,6 +803,12 @@ manifest and releases that manifest when the cover retires. Verification
 checks cache retirement, source survival during fades, final Bevy asset removal,
 and preload-to-playback ownership.
 
+`8dc1ee09f` includes adaptive cues in provider silence reports. Playback
+diagnostics read decode readiness by the prepared source path, including sources
+held by room preparation or explicit preloads. Native cache membership does not
+prove whether another owner holds decoded media. Guard: 136 audio tests and
+49 provider tests, including real preparation and ECS observations.
+
 Starts remain frame-driven and best effort. Native scheduling, scene deadlines
 and the remaining transition recipes stay open.
 

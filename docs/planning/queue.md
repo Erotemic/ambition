@@ -309,7 +309,9 @@ world-post admission.
    Preserve three verdicts through supported Yarn gameplay gates; an
    unanswered condition must not become an answered negative.
    (O6a landed 2026-11-23: the merchant's `can_afford`/`wallet_balance`
-   ask the purse `buy_item` charges, by one payer rule.)
+   ask the purse `buy_item` charges, by one payer rule. O6b landed the same
+   day: gates with a negative arm ask `verdict(…)`, compare its word and
+   refuse an unanswered question.)
 7. [Interaction I1/I2](engine/interaction-opportunities-and-activation.md#bounded-delivery)
    moves availability/selection below the prompt and shares one attempt
    across competing contextual consumers. Preserve gesture provenance,

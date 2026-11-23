@@ -1603,7 +1603,8 @@ fn every_shipped_boss_gate_names_a_shipped_boss_placement() {
         .iter()
         .flat_map(|(_, text)| ambition_content::dialogue::yarn::executable_regions(text))
         .filter_map(|(_, region)| {
-            let rest = region.split_once("boss_cleared(")?.1;
+            // `boss_cleared_verdict(id)` asks the same boss (O6b).
+            let rest = region.split_once("boss_cleared(").or_else(|| region.split_once("boss_cleared_verdict("))?.1;
             let inner = rest.trim_start().strip_prefix('"')?;
             let close = inner.find('"')?;
             Some(inner[..close].to_string())

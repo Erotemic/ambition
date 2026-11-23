@@ -353,3 +353,185 @@ Silent.
          counter rather than of the refusal"
     );
 }
+
+// ===== O6b: a gameplay gate keeps the unanswered verdict ========
+
+/// The answers the ledger domain gives: present and true is `Satisfied`,
+/// present and false is `NotSatisfied`, absent is `Unanswerable`.
+#[derive(Resource, Default)]
+struct Ledger(std::collections::HashMap<String, bool>);
+
+const ENTRY: ParamSpec = ParamSpec { name: "entry", kind: ParamKind::Name, summary: "the ledger entry asked about" };
+
+fn entry_descriptor() -> ConditionDescriptor {
+    ConditionDescriptor { id: ConditionId::new("ledger", "entry"), summary: "the named ledger entry is set", params: &[ENTRY] }
+}
+
+thread_local! {
+    static LEDGER_ASKS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+fn entry(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    LEDGER_ASKS.with(|asks| asks.set(asks.get() + 1));
+    let name = args[0].as_name().unwrap_or_default();
+    match world.resource::<Ledger>().0.get(name) {
+        Some(set) => ConditionOutcome::from_bool_unexplained(*set),
+        None => ConditionOutcome::unanswerable(format!("the ledger has no entry {name:?}")),
+    }
+}
+
+/// What `<<mark>>` ran: the downstream gameplay command an arm reaches.
+#[derive(Resource, Default)]
+struct Marks(Vec<String>);
+
+fn install_mark(commands: &mut Commands, runner: &mut bevy_yarnspinner::prelude::DialogueRunner, _: &ambition_dialog::YarnStateMirror) {
+    let mark = commands.register_system(|In(tag): In<String>, mut marks: ResMut<Marks>| marks.0.push(tag));
+    runner.commands_mut().add_command("mark", mark);
+}
+
+/// The two-way gameplay gate in its supported form: a positive arm, an
+/// answered-negative arm, and a refusal for the third verdict.
+const GATE: &str = "\
+title: Start
+---
+<<if verdict(\"ledger.entry\", \"paid\") == \"satisfied\">>
+    <<mark \"positive\">>
+<<elseif verdict(\"ledger.entry\", \"paid\") == \"not_satisfied\">>
+    <<mark \"negative\">>
+<<else>>
+    <<stop>>
+<<endif>>
+<<mark \"after\">>
+Done.
+===
+";
+
+fn ledger_app(source: &str, entries: &[(&str, bool)]) -> App {
+    let mut app = crate::dialog::yarn_harness::app_running(source, &[super::install_condition_binding, install_mark]);
+    app.init_resource::<Marks>();
+    app.insert_resource(Ledger(entries.iter().map(|(name, set)| ((*name).to_string(), *set)).collect()));
+    app.publish_condition(entry_descriptor(), entry);
+    app
+}
+
+fn marks(app: &App) -> Vec<String> {
+    app.world().resource::<Marks>().0.clone()
+}
+
+/// Run the node until it stops issuing commands (each command yields a frame).
+fn run_out(app: &mut App) {
+    start(app, "Start");
+    for _ in 0..6 {
+        app.update();
+    }
+}
+
+/// Each verdict selects its own arm, and an unanswered question reaches no
+/// gameplay command at all, not even the one after the gate.
+#[test]
+fn each_verdict_selects_its_own_arm_and_an_unanswered_one_reaches_no_command() {
+    for (entries, expected) in [
+        (&[("paid", true)][..], vec!["positive", "after"]),
+        (&[("paid", false)][..], vec!["negative", "after"]),
+        (&[][..], vec![]),
+    ] {
+        let mut app = ledger_app(GATE, entries);
+        run_out(&mut app);
+        assert_eq!(marks(&app), expected, "ledger {entries:?}");
+    }
+}
+
+/// The arms of one decision ask the domain once: the second arm reads the
+/// answer the first bound. The next decision, a frame later, asks again.
+#[test]
+fn a_decision_asks_its_question_once() {
+    LEDGER_ASKS.with(|asks| asks.set(0));
+    let mut app = ledger_app(GATE, &[("paid", false)]);
+    run_out(&mut app);
+    assert_eq!(marks(&app), vec!["negative", "after"]);
+    assert_eq!(LEDGER_ASKS.with(std::cell::Cell::get), 1, "both arms asked the domain");
+
+    // Two decisions on one question, a command apart: the second is a new
+    // continuation and sees the ledger as it is then.
+    const TWICE: &str = "\
+title: Start
+---
+<<if verdict(\"ledger.entry\", \"paid\") == \"satisfied\">>
+    <<mark \"first: paid\">>
+<<elseif verdict(\"ledger.entry\", \"paid\") == \"not_satisfied\">>
+    <<mark \"first: unpaid\">>
+<<endif>>
+<<if verdict(\"ledger.entry\", \"paid\") == \"satisfied\">>
+    <<mark \"second: paid\">>
+<<elseif verdict(\"ledger.entry\", \"paid\") == \"not_satisfied\">>
+    <<mark \"second: unpaid\">>
+<<endif>>
+===
+";
+    LEDGER_ASKS.with(|asks| asks.set(0));
+    let mut app = ledger_app(TWICE, &[("paid", false)]);
+    start(&mut app, "Start");
+    assert_eq!(marks(&app), vec!["first: unpaid"]);
+    app.world_mut().resource_mut::<Ledger>().0.insert("paid".into(), true);
+    for _ in 0..4 {
+        app.update();
+    }
+    assert_eq!(marks(&app), vec!["first: unpaid", "second: paid"]);
+    assert_eq!(LEDGER_ASKS.with(std::cell::Cell::get), 2, "one ask per decision");
+}
+
+/// A compound gate refuses when an operand it needs is unanswered, and decides
+/// without one it does not need.
+#[test]
+fn a_compound_gate_keeps_an_unanswered_operand_it_needs() {
+    // `found and not checked`, as the intro's gauge gate.
+    const COMPOUND: &str = "\
+title: Start
+---
+<<if verdict(\"ledger.entry\", \"found\") == \"satisfied\" and verdict(\"ledger.entry\", \"checked\") == \"not_satisfied\">>
+    <<mark \"gauge\">>
+<<elseif (verdict(\"ledger.entry\", \"found\") == \"unanswerable\" and verdict(\"ledger.entry\", \"checked\") != \"satisfied\") or (verdict(\"ledger.entry\", \"found\") == \"satisfied\" and verdict(\"ledger.entry\", \"checked\") == \"unanswerable\")>>
+    <<stop>>
+<<else>>
+    <<mark \"other\">>
+<<endif>>
+===
+";
+    for (entries, expected) in [
+        (&[("found", true), ("checked", false)][..], vec!["gauge"]),
+        (&[("found", true), ("checked", true)][..], vec!["other"]),
+        (&[("found", false)][..], vec!["other"]),
+        (&[("found", true)][..], vec![]),
+        (&[("checked", false)][..], vec![]),
+        (&[("checked", true)][..], vec!["other"]),
+    ] {
+        let mut app = ledger_app(COMPOUND, entries);
+        run_out(&mut app);
+        assert_eq!(marks(&app), expected, "ledger {entries:?}");
+    }
+}
+
+/// Why the Boolean form is for positive gates only: `not condition(…)` turns
+/// an unanswered question into an answered no and reaches the command.
+#[test]
+fn a_negated_boolean_condition_reads_an_unanswered_question_as_no() {
+    const NEGATED: &str = "\
+title: Start
+---
+<<if not condition(\"ledger.entry\", \"paid\")>>
+    <<mark \"negative\">>
+<<endif>>
+===
+";
+    let mut app = ledger_app(NEGATED, &[]);
+    run_out(&mut app);
+    assert_eq!(marks(&app), vec!["negative"]);
+}
+
+/// `verdict` returns its word to any Yarn expression, not only a comparison.
+#[test]
+fn the_verdict_verb_reaches_authored_yarn() {
+    let mut app = ledger_app("title: Start\n---\n<<mark {verdict(\"ledger.entry\", \"paid\")}>>\n===\n", &[("paid", true)]);
+    run_out(&mut app);
+    assert_eq!(marks(&app), vec!["satisfied"]);
+}

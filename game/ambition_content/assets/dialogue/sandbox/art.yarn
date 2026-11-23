@@ -22,11 +22,13 @@ title: art_context
 
 title: art_curator
 ---
-<<if condition("world.flag_set", "art_pigment_cyan") and condition("world.flag_set", "art_pigment_magenta") and condition("world.flag_set", "art_pigment_yellow")>>
+<<if verdict("world.flag_set", "art_pigment_cyan") == "satisfied" and verdict("world.flag_set", "art_pigment_magenta") == "satisfied" and verdict("world.flag_set", "art_pigment_yellow") == "satisfied">>
 The Curator: All three. Cyan, magenta, yellow. Every colour in this world is some of each.
 The Curator: The gate at the end of the garden will know them. Go and see what nobody finished.
-<<else>>
+<<elseif verdict("world.flag_set", "art_pigment_cyan") == "not_satisfied" or verdict("world.flag_set", "art_pigment_magenta") == "not_satisfied" or verdict("world.flag_set", "art_pigment_yellow") == "not_satisfied">>
 The Curator: Welcome to the Painter's Plaza. Mind the easel. It is the gate, and it is also an easel. We are not good at one thing at a time.
+<<else>>
+    <<stop>>
 <<endif>>
 -> What is this place?
     The Curator: The Art dimension. Here a thing that somebody makes keeps going after they stop. Doodles walk. Statues think about it. Ink has opinions.

@@ -213,10 +213,12 @@ Kernel Guide: All three should be on one page. The option below comes after the 
 
 title: hub_guide__test_flag
 ---
-<<if condition("world.flag_set", "kernel_guide_demo_flag")>>
+<<if verdict("world.flag_set", "kernel_guide_demo_flag") == "satisfied">>
     Kernel Guide: The condition catalog reads world.flag_set(kernel_guide_demo_flag) = TRUE.
-<<else>>
+<<elseif verdict("world.flag_set", "kernel_guide_demo_flag") == "not_satisfied">>
     Kernel Guide: The condition catalog reads world.flag_set(kernel_guide_demo_flag) = FALSE.
+<<else>>
+    Kernel Guide: Nobody could answer that question. The log says why.
 <<endif>>
 Kernel Guide: condition() reads the world-fact domain directly. Toggle the flag, return to the menu, then open this test again and check the value.
 -> Set the flag.
@@ -258,10 +260,12 @@ Kernel Guide: Stub command. Check stderr for the trace; no item is granted yet.
 
 title: hub_guide__test_checkpoint
 ---
-<<if condition("world.flag_set", "kernel_guide_banked_flag")>>
+<<if verdict("world.flag_set", "kernel_guide_banked_flag") == "satisfied">>
     Kernel Guide: The banked flag is set. A death since the bank kept it, and the potion with it.
-<<else>>
+<<elseif verdict("world.flag_set", "kernel_guide_banked_flag") == "not_satisfied">>
     Kernel Guide: A checkpoint said in a conversation banks what the conversation did, as one: a flag, an item and where you stand.
+<<else>>
+    Kernel Guide: Nobody could answer that question. The log says why.
 <<endif>>
 -> Set the flag, take a potion and bank both.
     <<command "world.set_flag" "kernel_guide_banked_flag" true>>
@@ -292,10 +296,12 @@ Kernel Guide: Stub command. It records the chest id but does not spawn a chest y
 
 title: hub_guide__test_boss
 ---
-<<if boss_cleared("cove.mockingbird")>>
+<<if boss_cleared_verdict("cove.mockingbird") == "satisfied">>
     Kernel Guide: boss_cleared("cove.mockingbird") returned TRUE. The cove uses its after-treasure dialogue now.
-<<else>>
+<<elseif boss_cleared_verdict("cove.mockingbird") == "not_satisfied">>
     Kernel Guide: boss_cleared("cove.mockingbird") returned FALSE. The encounter is Dormant or InProgress.
+<<else>>
+    Kernel Guide: Nobody could answer that question. The log says why.
 <<endif>>
 -> Back to test menu.
     <<jump hub_guide__test>>
@@ -314,10 +320,12 @@ title: hub_guide__test_visit
 
 title: hub_guide__test_quest
 ---
-<<if quest_active("pirate_treasure")>>
+<<if quest_active_verdict("pirate_treasure") == "satisfied">>
     Kernel Guide: quest_active("pirate_treasure") returned TRUE: Pirate Treasure is InProgress.
-<<else>>
+<<elseif quest_active_verdict("pirate_treasure") == "not_satisfied">>
     Kernel Guide: quest_active("pirate_treasure") returned FALSE: Pirate Treasure is NotStarted or Completed.
+<<else>>
+    Kernel Guide: Nobody could answer that question. The log says why.
 <<endif>>
 -> Back to test menu.
     <<jump hub_guide__test>>
@@ -325,10 +333,12 @@ title: hub_guide__test_quest
 
 title: hub_guide__test_inv
 ---
-<<if condition("inventory.holds", "HealthPotion")>>
+<<if verdict("inventory.holds", "HealthPotion") == "satisfied">>
     Kernel Guide: condition("inventory.holds", "HealthPotion") returned TRUE. The condition catalog read the live inventory.
-<<else>>
+<<elseif verdict("inventory.holds", "HealthPotion") == "not_satisfied">>
     Kernel Guide: condition("inventory.holds", "HealthPotion") returned FALSE. There is no Health Cell in the inventory.
+<<else>>
+    Kernel Guide: Nobody could answer that question. The log says why.
 <<endif>>
 -> Back to test menu.
     <<jump hub_guide__test>>

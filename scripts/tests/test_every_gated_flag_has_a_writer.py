@@ -75,6 +75,10 @@ YARN_WRITE = re.compile(r'(?:set_flag|clear_flag)"?\s+"([A-Za-z0-9_]+)"')
 # writer (`ambition_cutscene::CutsceneBeat::SetFlag`).
 CUTSCENES = REPO / "game/ambition_content/assets/data/cutscenes"
 CUTSCENE_WRITE = re.compile(r'SetFlag\(\s*id:\s*"([A-Za-z0-9_]+)"\s*,\s*on:\s*true')
+# A script's `story_command` request, `line: "world.set_flag <flag> true"` —
+# the scripting road's writer (`cloud_sheep.rhai` sets `hobford_sheep_clouded`).
+SCRIPTS = REPO / "game/ambition_content/rhai"
+SCRIPT_WRITE = re.compile(r'world\.set_flag\s+([A-Za-z0-9_]+)\s+true')
 
 
 def _authored_reads() -> dict[str, list[str]]:
@@ -110,6 +114,8 @@ def _writable() -> set[str]:
         names.update(YARN_WRITE.findall(path.read_text(encoding="utf-8", errors="replace")))
     for path in sorted(CUTSCENES.rglob("*.ron")):
         names.update(CUTSCENE_WRITE.findall(path.read_text(encoding="utf-8", errors="replace")))
+    for path in sorted(SCRIPTS.rglob("*.rhai")):
+        names.update(SCRIPT_WRITE.findall(path.read_text(encoding="utf-8", errors="replace")))
     # A `PickupSpawn` whose `kind` is `flag:<name>` sets that flag when it is
     # collected (`PickupKind::StoryFlag`).
     for path in sorted(WORLDS.glob("*.ldtk")):

@@ -34,6 +34,8 @@ use ambition_persistence::save::AmbitionGameSave;
 use ambition_dialog::YarnStateMirror;
 
 use ambition_conversation::NarrativeInputWriter;
+use ambition_conversation::dialog::authored_conditions::decided;
+use ambition_platformer2d_shared_tangle::authored_logic::{AuthoredArg, ConditionCatalog, ConditionId, ConditionOutcome};
 
 /// The host installer: registers Ambition's generic Yarn vocabulary
 /// (commands + functions) on the runner. Pushed into
@@ -493,80 +495,86 @@ fn asking_node(
     )
 }
 
+/// Ask the catalog's `id` question with one name argument, from a named alias.
+/// A missing catalog is unanswerable, not a no.
+fn ask_named(world: &mut World, alias: &str, id: &str, name: String) -> ConditionOutcome {
+    let Some(condition) = ConditionId::parse(id) else {
+        return ConditionOutcome::unanswerable(format!("{id:?} is not a condition id"));
+    };
+    if !world.contains_resource::<ConditionCatalog>() {
+        bevy::log::warn!(
+            target: "ambition_content::yarn_vocabulary",
+            "{alias}({name:?}): no condition catalog in this composition",
+        );
+        return ConditionOutcome::unanswerable("no condition catalog in this composition");
+    }
+    let asked_by = asking_node(world);
+    let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
+        catalog.evaluate(world, &condition, &[AuthoredArg::Name(name.clone())], &asked_by)
+    });
+    if let ConditionOutcome::Unanswerable(reason) = &outcome {
+        bevy::log::warn!(
+            target: "ambition_content::yarn_vocabulary",
+            "{alias}({name:?}) in {asked_by:?} is unanswerable: {reason}",
+        );
+    }
+    outcome
+}
+
 /// `boss_cleared(id)` — ask the boss domain's published condition.
 ///
-/// The third answer collapses as the catalog specifies: Yarn's `<<if>>` needs
-/// a bool, and "unanswerable" is not satisfied, so the branch stays closed.
-/// Same rule as `condition(id, arg)`.
+/// The Boolean alias is for positive gates: *unanswerable is not satisfied*,
+/// so a branch nobody can answer stays closed. A gate with a negative arm asks
+/// `boss_cleared_verdict(id)`.
 fn ask_boss_cleared(In(id): In<String>, world: &mut World) -> bool {
-    use ambition_platformer2d_shared_tangle::authored_logic::{
-        AuthoredArg, ConditionCatalog, ConditionId,
-    };
-    let Some(condition) = ConditionId::parse("boss.cleared") else {
-        return false;
-    };
-    if !world.contains_resource::<ConditionCatalog>() {
-        bevy::log::warn!(
-            target: "ambition_content::yarn_vocabulary",
-            "boss_cleared({id:?}): no condition catalog in this composition",
-        );
-        return false;
-    }
-    let asked_by = asking_node(world);
-    let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-        catalog.evaluate(world, &condition, &[AuthoredArg::Name(id.clone())], &asked_by)
-    });
-    outcome.is_satisfied()
+    ask_named(world, "boss_cleared", "boss.cleared", id).is_satisfied()
 }
 
-/// `quest_active(id)` — ask the quest domain's published condition.
-///
-/// Same collapse rule as [`ask_boss_cleared`]: Yarn's `<<if>>` needs a bool and
-/// *unanswerable is not satisfied*, so a branch nobody can answer stays closed.
+/// `boss_cleared_verdict(id)` — the same question, answered with its verdict
+/// word once per decision.
+fn ask_boss_cleared_verdict(In(id): In<String>, world: &mut World) -> String {
+    decided(world, format!("boss.cleared {id:?}"), |world| ask_named(world, "boss_cleared_verdict", "boss.cleared", id))
+        .to_string()
+}
+
+/// `quest_active(id)` — ask the quest domain's published condition, for
+/// positive gates (as [`ask_boss_cleared`]).
 fn ask_quest_active(In(id): In<String>, world: &mut World) -> bool {
-    use ambition_platformer2d_shared_tangle::authored_logic::{
-        AuthoredArg, ConditionCatalog, ConditionId,
-    };
-    let Some(condition) = ConditionId::parse("quest.active") else {
-        return false;
-    };
-    if !world.contains_resource::<ConditionCatalog>() {
-        bevy::log::warn!(
-            target: "ambition_content::yarn_vocabulary",
-            "quest_active({id:?}): no condition catalog in this composition",
-        );
-        return false;
-    }
-    let asked_by = asking_node(world);
-    let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-        catalog.evaluate(world, &condition, &[AuthoredArg::Name(id.clone())], &asked_by)
-    });
-    outcome.is_satisfied()
+    ask_named(world, "quest_active", "quest.active", id).is_satisfied()
 }
 
-/// `can_afford(price)` — ask the wallet domain's published condition.
+/// `quest_active_verdict(id)` — the same question as a verdict word.
+fn ask_quest_active_verdict(In(id): In<String>, world: &mut World) -> String {
+    decided(world, format!("quest.active {id:?}"), |world| ask_named(world, "quest_active_verdict", "quest.active", id))
+        .to_string()
+}
+
+/// `can_afford(price)` — ask the wallet domain's published condition about the
+/// conversation's payer, for positive gates.
 ///
-/// `can_afford` returns a boolean, so it belongs in the condition catalog
-/// (unlike `wallet_balance`, which returns a number).
-///
-/// Behaviour follows the simulation:
 /// - a fractional price is compared in `f64`, so 25 coins cannot buy a 25.7
 ///   item;
 /// - a negative price is an authoring slip, reported as unanswerable (so the
 ///   branch stays closed).
 fn ask_can_afford(In(price): In<f32>, world: &mut World) -> bool {
-    use ambition_platformer2d_shared_tangle::authored_logic::{
-        AuthoredArg, ConditionCatalog, ConditionId,
-    };
+    can_afford_outcome(world, price).is_satisfied()
+}
+
+/// `can_afford_verdict(price)` — the same question as a verdict word.
+fn ask_can_afford_verdict(In(price): In<f32>, world: &mut World) -> String {
+    decided(world, format!("wallet.can_afford {price:?}"), |world| can_afford_outcome(world, price)).to_string()
+}
+
+fn can_afford_outcome(world: &mut World, price: f32) -> ConditionOutcome {
     let Some(condition) = ConditionId::parse("wallet.can_afford") else {
-        return false;
+        return ConditionOutcome::unanswerable("\"wallet.can_afford\" is not a condition id");
     };
     if !world.contains_resource::<ConditionCatalog>() {
         bevy::log::warn!(
             target: "ambition_content::yarn_vocabulary",
             "can_afford({price}): no condition catalog in this composition",
         );
-        return false;
+        return ConditionOutcome::unanswerable("no condition catalog in this composition");
     }
     let asked_by = asking_node(world);
     // The purse `<<buy_item>>` would charge: this conversation's seat's body
@@ -577,9 +585,9 @@ fn ask_can_afford(In(price): In<f32>, world: &mut World) -> bool {
             target: "ambition_content::yarn_vocabulary",
             "can_afford({price}) in {asked_by:?}: no single body pays for this conversation",
         );
-        return false;
+        return ConditionOutcome::unanswerable("no single body pays for this conversation");
     };
-    let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
+    world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
         catalog.evaluate_of(
             world,
             &condition,
@@ -587,8 +595,7 @@ fn ask_can_afford(In(price): In<f32>, world: &mut World) -> bool {
             &[AuthoredArg::Number(f64::from(price))],
             &asked_by,
         )
-    });
-    outcome.is_satisfied()
+    })
 }
 
 /// The body a purchase in the speaking conversation charges: its seat's body
@@ -645,6 +652,14 @@ pub fn register_functions(
     let can_afford = commands.register_system(ask_can_afford);
     runner.library_mut().add_function("can_afford", can_afford);
     // `wallet_balance` reads the live `BodyWallet` through a registered system.
+    // Each Boolean alias has a verdict form for gates with a negative arm
+    // (O6b): `boss_cleared_verdict(id) == "not_satisfied"`.
+    let boss_cleared_verdict = commands.register_system(ask_boss_cleared_verdict);
+    runner.library_mut().add_function("boss_cleared_verdict", boss_cleared_verdict);
+    let quest_active_verdict = commands.register_system(ask_quest_active_verdict);
+    runner.library_mut().add_function("quest_active_verdict", quest_active_verdict);
+    let can_afford_verdict = commands.register_system(ask_can_afford_verdict);
+    runner.library_mut().add_function("can_afford_verdict", can_afford_verdict);
     let wallet_balance = commands.register_system(ask_wallet_balance);
     runner.library_mut().add_function("wallet_balance", wallet_balance);
 

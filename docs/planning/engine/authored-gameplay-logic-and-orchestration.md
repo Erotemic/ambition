@@ -279,6 +279,35 @@ needed. The merchant correction can land before all of SS7's role binding.
 
 #### O6b — preserve an unanswered question through the dialogue decision
 
+**Done 2026-11-23.** `verdict(id, arg)` (in
+`ambition_conversation/src/dialog/authored_conditions.rs`) answers with the
+verdict word: `"satisfied"`, `"not_satisfied"` or `"unanswerable"`. Each
+Boolean alias has a verdict form: `boss_cleared_verdict`,
+`quest_active_verdict` and `can_afford_verdict` (`yarn_vocabulary.rs`).
+`decided` binds each answer once for the runner's current continuation. A
+runner continues at most once a frame, so the binding is keyed by speaking
+runner and frame and is discarded with the decision. It is not a Yarn
+variable.
+
+The 44 shipped `<<if>>` statements with another arm moved to verdicts, and
+so did the three negated asks. Each question's `"unanswerable"` takes a
+refusal arm before the next question is asked. The last question's negative
+is an explicit `"not_satisfied"` arm, and the final `<<else>>` refuses. A
+gameplay gate refuses with `<<stop>>`. The Kernel Guide's diagnostic pages
+are presentation only: there the refusal arm says that nobody could answer.
+
+The intro's compound `found and not checked` refuses when an operand it
+needs is unanswered. Positive-only gates and option gates keep the Boolean
+forms, because an unanswered question there hides the branch.
+
+The real-Yarn harness proves the three arms, one ask per decision, the
+compound, and a downstream `<<mark>>` command that an unanswered question
+never reaches. `dialogue_lint::no_shipped_gate_reads_an_unanswered_question_as_no`
+refuses two things in shipped content: a negated Boolean ask, and a Boolean
+ask in an `<<if>>` that has another arm.
+
+The text below is the plan as written.
+
 **Open, same source review:** the native `ConditionOutcome` distinguishes
 `Satisfied`, `NotSatisfied(WhyNot)` and `Unanswerable`. The Yarn adapter in
 `ambition_conversation/src/dialog/authored_conditions.rs` returns only

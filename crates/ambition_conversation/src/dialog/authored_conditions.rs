@@ -20,6 +20,66 @@ use ambition_platformer2d_shared_tangle::authored_logic::{
 /// The name authored `.yarn` content spells this verb.
 pub const YARN_FUNCTION_NAME: &str = "condition";
 
+/// The verdict-valued verb: `verdict(id, arg)` names the answer instead of
+/// collapsing it to a bool (O6b).
+pub const VERDICT_FUNCTION_NAME: &str = "verdict";
+
+/// The three words a verdict function returns. A gameplay gate compares
+/// against [`SATISFIED`] for its positive arm and [`NOT_SATISFIED`] for its
+/// negative arm, and refuses on [`UNANSWERABLE`]; `not condition(…)`,
+/// `!= "satisfied"` and a catch-all `<<else>>` would each read an unanswered
+/// question as an answered no.
+pub const SATISFIED: &str = "satisfied";
+pub const NOT_SATISFIED: &str = "not_satisfied";
+pub const UNANSWERABLE: &str = "unanswerable";
+
+/// The word a verdict function returns for `outcome`.
+pub fn verdict_word(outcome: &ConditionOutcome) -> &'static str {
+    match outcome {
+        ConditionOutcome::Satisfied => SATISFIED,
+        ConditionOutcome::NotSatisfied(_) => NOT_SATISFIED,
+        ConditionOutcome::Unanswerable(_) => UNANSWERABLE,
+    }
+}
+
+/// The answers each runner has bound in its current continuation.
+///
+/// A Yarn decision has no local variables, so its arms each call the verdict
+/// function; this keeps those calls one question. A runner continues at most
+/// once per frame (a line, an option or a command yields to the next update),
+/// so an answer stamped with an earlier frame belongs to a finished decision
+/// and is discarded. Ordinary Yarn variables would be shared by every runner
+/// and outlive the decision.
+#[derive(Resource, Default)]
+pub struct DecisionVerdicts {
+    frame: u32,
+    bound: Vec<(Option<Entity>, String, &'static str)>,
+}
+
+/// Ask `question` once for the speaking runner's current decision: the first
+/// call runs `ask`, later calls in the same continuation read its answer.
+///
+/// `question` must name everything the answer depends on (the condition id
+/// and its argument). Without a frame clock (`FrameCount`) nothing tells one
+/// continuation from the next, so every call asks.
+pub fn decided(world: &mut World, question: String, ask: impl FnOnce(&mut World) -> ConditionOutcome) -> &'static str {
+    let Some(frame) = world.get_resource::<bevy::diagnostic::FrameCount>().map(|frame| frame.0) else {
+        return verdict_word(&ask(world));
+    };
+    let runner = world.get_resource::<ambition_dialog::SpeakingRunner>().and_then(|speaking| speaking.0);
+    let mut verdicts = world.get_resource_or_insert_with(DecisionVerdicts::default);
+    if verdicts.frame != frame {
+        verdicts.frame = frame;
+        verdicts.bound.clear();
+    }
+    if let Some((_, _, word)) = verdicts.bound.iter().find(|(by, asked, _)| *by == runner && *asked == question) {
+        return word;
+    }
+    let word = verdict_word(&ask(world));
+    world.resource_mut::<DecisionVerdicts>().bound.push((runner, question, word));
+    word
+}
+
 /// Install the one generic condition verb on a freshly built runner.
 ///
 /// Pushed into [`ambition_dialog::YarnContentBindings`] by
@@ -33,6 +93,15 @@ pub fn install_condition_binding(
 ) {
     let ask = commands.register_system(ask_condition);
     runner.library_mut().add_function(YARN_FUNCTION_NAME, ask);
+    let verdict = commands.register_system(ask_verdict);
+    runner.library_mut().add_function(VERDICT_FUNCTION_NAME, verdict);
+}
+
+/// `verdict(id, arg)` — the same question as `condition(id, arg)`, answered
+/// with its verdict word, once per decision ([`decided`]).
+fn ask_verdict(In((raw_id, raw_arg)): In<(String, YarnValue)>, world: &mut World) -> String {
+    let question = format!("{raw_id} {raw_arg:?}");
+    decided(world, question, |world| ask_outcome(&raw_id, raw_arg, world)).to_string()
 }
 
 /// `condition(id, arg)` — ask whichever domain published `id`.
@@ -48,13 +117,21 @@ pub fn install_condition_binding(
 /// way [`ConditionOutcome::is_satisfied`] specifies — *unanswerable is not
 /// satisfied* — which leaves an unanswerable gate CLOSED. the other direction
 /// would open a door in exactly the world where the question is least understood.
+///
+/// The Boolean form is for positive gates only: a gate with an answered-negative
+/// arm asks [`ask_verdict`] instead.
 fn ask_condition(In((raw_id, raw_arg)): In<(String, YarnValue)>, world: &mut World) -> bool {
-    let Some(id) = ConditionId::parse(&raw_id) else {
+    ask_outcome(&raw_id, raw_arg, world).is_satisfied()
+}
+
+/// Ask the catalog, logging a refusal or a no.
+fn ask_outcome(raw_id: &str, raw_arg: YarnValue, world: &mut World) -> ConditionOutcome {
+    let Some(id) = ConditionId::parse(raw_id) else {
         warn!(
             target: "crate::dialog::authored_conditions",
             "condition({raw_id:?}, …): not a `domain.question` id; nothing was asked",
         );
-        return false;
+        return ConditionOutcome::unanswerable(format!("{raw_id:?} is not a `domain.question` id"));
     };
     if !world.contains_resource::<ConditionCatalog>() {
         warn!(
@@ -62,7 +139,7 @@ fn ask_condition(In((raw_id, raw_arg)): In<(String, YarnValue)>, world: &mut Wor
             "condition({raw_id:?}, …): no domain in this composition has published \
              any condition, so there is nothing to ask",
         );
-        return false;
+        return ConditionOutcome::unanswerable("no domain in this composition has published any condition");
     }
     // ⭐ **WHICH NODE ASKED, read from the live conversation rather than
     // invented.** The verdict ring records who asked, and *"a dialogue node"*
@@ -103,7 +180,7 @@ fn ask_condition(In((raw_id, raw_arg)): In<(String, YarnValue)>, world: &mut Wor
         }
         ConditionOutcome::Satisfied => {}
     }
-    outcome.is_satisfied()
+    outcome
 }
 
 /// Turn one Yarn value into the [`AuthoredArg`] the published descriptor

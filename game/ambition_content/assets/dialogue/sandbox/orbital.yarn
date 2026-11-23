@@ -15,26 +15,30 @@ title: orbital_context
 
 title: station_okafor
 ---
-<<if condition("world.flag_set", "orbital_consignment_cleared")>>
+<<if verdict("world.flag_set", "orbital_consignment_cleared") == "satisfied">>
     Officer Okafor: Lane's open. Crate 0447 went on the Remainder at shift change.
     -> Anything else held?
         Officer Okafor: Always. Not today's problem. Hamid wanted someone in the spur; your pass is on the hatch.
     -> Who sees your passenger lists?
         Officer Okafor: Customs. There was a request to sort them by home dimension and send them to another office. No signature on it. I sent it back.
     -> ⟨step away⟩
-<<elseif condition("world.flag_set", "orbital_manifest_signed")>>
+<<elseif verdict("world.flag_set", "orbital_consignment_cleared") == "unanswerable">>
+    <<stop>>
+<<elseif verdict("world.flag_set", "orbital_manifest_signed") == "satisfied">>
     Officer Okafor: A signature from the Math town. "Twelve lenses. Finite." He underlined finite.
     -> Clear the crate.
         <<command "world.set_flag" "orbital_consignment_cleared" true>>
         <<command "world.set_flag" "orbital_spur_pass" true>>
         Officer Okafor: Stamped. The pen opens and the lane to the bay with it. One more thing: Hamid needs someone in the damaged spur who does not breathe. I put a pass on the hatch.
     -> Not yet.
-<<elseif condition("world.flag_set", "orbital_consignment_query")>>
+<<elseif verdict("world.flag_set", "orbital_manifest_signed") == "unanswerable">>
+    <<stop>>
+<<elseif verdict("world.flag_set", "orbital_consignment_query") == "satisfied">>
     Officer Okafor: Still need a count I can stamp. Surveyor's Office, Math town. Ask for Canter.
     -> Where is the Math town?
         Officer Okafor: Through the ring and up the stairs from its gate hall. The office is on the second terrace.
     -> ⟨step away⟩
-<<else>>
+<<elseif verdict("world.flag_set", "orbital_consignment_query") == "not_satisfied">>
     Officer Okafor: Customs. Crate 0447 in my pen is survey lenses from the Math town, for the Remainder. The manifest gives the count as "aleph-null". I cannot clear an infinite crate.
     -> I can ask the sender.
         <<command "world.set_flag" "orbital_consignment_query" true>>
@@ -44,19 +48,21 @@ title: station_okafor
     -> Who reads the arrival records?
         Officer Okafor: My shift and the checkpoint. Had a request from an office I'd never heard of. They can come down here and show me a badge.
     -> ⟨step away⟩
+<<else>>
+    <<stop>>
 <<endif>>
 ===
 
 title: station_reyes
 ---
-<<if condition("world.flag_set", "orbital_consignment_cleared")>>
+<<if verdict("world.flag_set", "orbital_consignment_cleared") == "satisfied">>
     Captain Reyes: 0447 is aboard. We burn for the survey moon at shift change. Thanks for fetching a number.
     -> Why does the moon need lenses?
         Captain Reyes: To map it. Then someone will want a ring there, and I will be out of work. Good.
     -> Have you flown near the gravity works?
         Captain Reyes: Once. Survey instruments gave me two horizons. I steered by the stars and stayed well clear.
     -> ⟨step away⟩
-<<else>>
+<<elseif verdict("world.flag_set", "orbital_consignment_cleared") == "not_satisfied">>
     Captain Reyes: That pen on the gate deck holds my lenses. Without them the survey is blind.
     -> What do you haul?
         Captain Reyes: Whatever the ring brings that has to go where no ring is. Moons, mines, the slow places.
@@ -66,6 +72,8 @@ title: station_reyes
         Captain Reyes: Two weeks out, two back. We bring batteries, food, water. They send us rocks in labeled bags.
         Captain Reyes: It's a decent job, when customs lets us do it.
     -> ⟨step away⟩
+<<else>>
+    <<stop>>
 <<endif>>
 ===
 
@@ -86,19 +94,21 @@ Bo Lindqvist: Ring throughput is down a third since they doubled the passenger s
 
 title: station_rahimi
 ---
-<<if condition("world.flag_set", "switch_orbital_spur_breaker_used")>>
+<<if verdict("world.flag_set", "switch_orbital_spur_breaker_used") == "satisfied">>
     Hamid Rahimi: Power is back in the spur. The crawlers went quiet when the breaker closed. I owe you.
     -> What broke them?
         Hamid Rahimi: Their orders. "Repair anything damaged." The storm damaged everything. They kept cutting.
     -> Is the rest of the station all right?
         Hamid Rahimi: Better than yesterday. The gravity-works people want their instruments back now. They can collect them themselves.
     -> ⟨step away⟩
-<<elseif condition("world.flag_set", "orbital_spur_pass")>>
+<<elseif verdict("world.flag_set", "switch_orbital_spur_breaker_used") == "unanswerable">>
+    <<stop>>
+<<elseif verdict("world.flag_set", "orbital_spur_pass") == "satisfied">>
     Hamid Rahimi: Okafor logged your pass. The spur took a storm last cycle. Breaker's tripped at the far end.
     -> What is in there?
         Hamid Rahimi: No air, live cable under the deck, and maintenance crawlers that do not stop. Reset the breaker if you can.
     -> ⟨step away⟩
-<<else>>
+<<elseif verdict("world.flag_set", "orbital_spur_pass") == "not_satisfied">>
     Hamid Rahimi: Service deck. Don't touch anything that hums.
     -> What is behind the hatch?
         Hamid Rahimi: The old spur. Damaged. Shut until customs signs off on someone with a pass and no lungs.
@@ -108,6 +118,8 @@ title: station_rahimi
         Hamid Rahimi: Inspected a power feed once. Spent an hour holding onto my tools. They've got floors facing every direction.
         Hamid Rahimi: If you go out there, take a good grip on whatever you bring.
     -> ⟨step away⟩
+<<else>>
+    <<stop>>
 <<endif>>
 ===
 

@@ -727,7 +727,13 @@ fn every_condition_an_authored_yarn_file_asks_is_published_by_the_engine() {
         // tuned. Prose is excluded by structure now, so a `condition(` that
         // IS evaluated is checked however it is spaced.
         for (_line, region) in ambition_content::dialogue::yarn::executable_regions(text) {
-            for rest in region.split("condition(").skip(1) {
+            // `verdict(id, arg)` asks the same catalog question (O6b); an
+            // alias's `_verdict` form is not the generic verb.
+            let generic_verdicts = region
+                .match_indices("verdict(")
+                .filter(|(at, _)| !region[..*at].ends_with(|c: char| c == '_' || c.is_alphanumeric()))
+                .map(|(at, verb)| &region[at + verb.len()..]);
+            for rest in region.split("condition(").skip(1).chain(generic_verdicts) {
                 let after = rest.trim_start();
                 let Some(inner) = after.strip_prefix('"') else {
                     continue;
@@ -1043,7 +1049,8 @@ fn every_authored_boss_cleared_call_names_a_real_boss_placement() {
     let mut asked = 0usize;
     for (name, text) in ambition_content::dialogue::yarn::yarn_sources() {
         for (line, region) in ambition_content::dialogue::yarn::executable_regions(text) {
-            for rest in region.split("boss_cleared(").skip(1) {
+            // `boss_cleared_verdict(id)` asks the same boss (O6b).
+            for rest in region.split("boss_cleared(").skip(1).chain(region.split("boss_cleared_verdict(").skip(1)) {
                 let Some(inner) = rest.trim_start().strip_prefix('"') else {
                     continue;
                 };

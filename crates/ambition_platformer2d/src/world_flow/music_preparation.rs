@@ -191,7 +191,7 @@ pub(super) fn prepare_room_music(
     rooms: Option<crate::world::rooms::LiveRoomSpecs>,
     frozen: Option<SessionWorldRef<PreparedMusicCatalog>>,
     mechanics: Option<Res<crate::construction::mechanics::SessionMechanics>>,
-    bosses: Option<Res<BossCatalog>>,
+    bosses: Res<BossCatalog>,
     waves: Option<Res<crate::encounter::EncounterWaveBook>>,
     prefetch: Res<super::room_transition_assets::RoomPreparationPrefetchState>,
     transition: Option<Res<crate::runtime::room_transition::RoomTransitionLoadState>>,
@@ -277,7 +277,7 @@ pub(super) fn prepare_room_music(
         || mechanics
             .as_ref()
             .is_some_and(|mechanics| mechanics.is_changed())
-        || (frozen.is_none() && bosses.as_ref().is_some_and(|bosses| bosses.is_changed()))
+        || (frozen.is_none() && bosses.is_changed())
     {
         preparation.rooms.clear();
     }
@@ -288,7 +288,7 @@ pub(super) fn prepare_room_music(
     let bosses = if frozen.is_some() {
         mechanics.as_deref().map(|mechanics| &mechanics.bosses)
     } else {
-        bosses.as_deref()
+        Some(&*bosses)
     };
     let mut resident = BTreeSet::new();
     if let Some((rooms, catalog, bosses)) = rooms

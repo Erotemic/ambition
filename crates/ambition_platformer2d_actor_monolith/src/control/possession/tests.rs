@@ -568,6 +568,10 @@ fn a_mount_travels_with_a_piloted_rider_and_not_with_an_ai_one() {
         RoomScopedEntity,
         ambition_mount::RidingOn { mount: ai_mount },
     ));
+    // Both halves of each pair, as construction wires them: custody follows
+    // only an active ride, whose saddle names its rider back.
+    app.world_mut().entity_mut(piloted_mount).insert(ambition_mount::saddle_holding(rider));
+    app.world_mut().entity_mut(ai_mount).insert(ambition_mount::saddle_holding(ai_rider));
 
     hold_down_interact(&mut app, true);
     app.update();

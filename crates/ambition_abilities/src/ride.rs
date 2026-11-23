@@ -15,7 +15,7 @@ use ambition_combat_port::{
 };
 use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox};
 use ambition_extension_sdk::phases::TECHNIQUE_EXECUTION;
-use ambition_mount::{DismountReason, DismountRequested, MountReservedFor, MountSlot, RidingOn};
+use ambition_mount::{DismountReason, DismountRequested, MountReservedFor, MountSlot};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
 use ambition_platformer2d_shared_tangle::schedule::{ActorDecisionSet, GameplayGated, PlayerInputSet, SimScheduleExt};
@@ -200,9 +200,10 @@ fn answer_ride_summons(world: &mut World) {
 
 /// What `scope` rides (`ambition.body.ride`).
 fn ride_of(world: &World, scope: Entity) -> Option<Ride> {
-    if let Some(riding) = world.get::<RidingOn>(scope) {
-        let mount_alive =
-            world.get::<ambition_characters::actor::BodyHealth>(riding.mount).is_some_and(|health| health.alive());
+    // In a saddle: the active ride, not a ride record a dead rider keeps for
+    // its revival.
+    if let Some(mount) = ambition_mount::active_mount_in(world, scope) {
+        let mount_alive = world.get::<ambition_characters::actor::BodyHealth>(mount).is_some_and(|health| health.alive());
         return Some(Ride::Aboard { mount_alive });
     }
     let Some(mut reservations) = world.try_query::<&MountReservedFor>() else {
@@ -242,17 +243,10 @@ fn room_of(world: &World, scope: Entity) -> Option<BodyRoom> {
     Some(BodyRoom { size })
 }
 
-/// Ask the mount system to take each rider off, once per rider per tick.
+/// Ask the mount system to take each rider off. The mount system ends each
+/// ride once, whatever number of requests name it (`apply_dismount_requests`).
 fn lower_dismounts(mut outbox: ResMut<ExtensionOutbox>, mut dismounts: MessageWriter<DismountRequested>) {
-    // The mount system applies every request it reads, and a second one for
-    // a rider whose first is still deferred would announce a second empty
-    // saddle.
-    let mut asked: Vec<Entity> = Vec::new();
     for submitted in outbox.drain::<DismountPort>(&TECHNIQUE_EXECUTION) {
-        if asked.contains(&submitted.scope) {
-            continue;
-        }
-        asked.push(submitted.scope);
         let reason = match submitted.value.why {
             DismountWhy::Bailed => DismountReason::RiderBailed,
             DismountWhy::Launched => DismountReason::RiderLaunched,

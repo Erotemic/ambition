@@ -26,14 +26,20 @@ fn a_rider_and_its_mount_read_the_ride() {
     assert_eq!(saddle_of(&world, mount), Some(Saddle { ridden: false, awaiting: true }));
 
     world.entity_mut(mount).remove::<MountReservedFor>().insert(MountSlot { rider: Some(rider) });
-    world.entity_mut(rider).insert(RidingOn { mount });
+    world.entity_mut(rider).insert(ambition_mount::RidingOn { mount });
     assert_eq!(ride_of(&world, rider), Some(Ride::Aboard { mount_alive: true }));
     assert_eq!(saddle_of(&world, mount), Some(Saddle { ridden: true, awaiting: false }));
+
+    // A record whose saddle no longer names the rider (a dead rider's, kept
+    // for its revival) is no ride.
+    world.entity_mut(mount).insert(MountSlot { rider: None });
+    assert_eq!(ride_of(&world, rider), Some(Ride::None), "a ride record with a freed saddle reads as aboard");
+    world.entity_mut(mount).insert(MountSlot { rider: Some(rider) });
 
     world.get_mut::<BodyHealth>(mount).unwrap().damage(40);
     assert_eq!(ride_of(&world, rider), Some(Ride::Aboard { mount_alive: false }), "a dead mount still lives");
     world.despawn(mount);
-    assert_eq!(ride_of(&world, rider), Some(Ride::Aboard { mount_alive: false }), "a gone mount still lives");
+    assert_eq!(ride_of(&world, rider), Some(Ride::None), "a gone mount has no saddle to be in");
 }
 
 /// A body reads its presses' edges, whether it tumbles, and its room's size.

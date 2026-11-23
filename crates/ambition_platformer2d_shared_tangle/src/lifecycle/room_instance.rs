@@ -200,6 +200,72 @@ impl LiveRooms<'_, '_> {
     }
 }
 
+/// The physical space an entity runs in, for a relation whose two ends must
+/// be in one: a live room of a session, or the session itself in a
+/// composition that has no live room.
+///
+/// ⚠ TWO UNKNOWN ROOMS ARE NOT ONE ROOM. With two live rooms, an entity whose
+/// room cannot be told ([`LiveRooms::of`] is `None`) has no scope, and it
+/// shares none, not even with another such entity. Only a composition with no
+/// live room at all is roomless.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExecutionScope {
+    /// One live room, in the session of the entity (if it has one).
+    Room(Option<super::SessionScopeId>, LiveRoomInstance),
+    /// A composition with no live room: the session is the whole space.
+    Roomless(Option<super::SessionScopeId>),
+}
+
+impl ExecutionScope {
+    /// The scope of an entity in `room` ([`LiveRooms::of`]) and `session`,
+    /// while `live_rooms` rooms are live. `None` when it cannot be told.
+    pub fn resolve(room: Option<LiveRoomInstance>, live_rooms: usize, session: Option<super::SessionScopeId>) -> Option<Self> {
+        match room {
+            Some(room) => Some(Self::Room(session, room)),
+            None if live_rooms == 0 => Some(Self::Roomless(session)),
+            None => None,
+        }
+    }
+
+    /// Whether two scopes are one. An unknown scope shares none.
+    pub fn shared(a: Option<Self>, b: Option<Self>) -> bool {
+        a.zip(b).is_some_and(|(a, b)| a == b)
+    }
+
+    /// The scope of `entity` in a world, by the rule of [`ExecutionScopes`].
+    pub fn in_world(world: &World, entity: Entity) -> Option<Self> {
+        let live: Vec<LiveRoomInstance> = world
+            .try_query_filtered::<&LiveRoomInstance, With<RoomInstanceRoot>>()
+            .map(|mut roots| roots.iter(world).copied().collect())
+            .unwrap_or_default();
+        let root = || world.get::<RoomInstanceRoot>(entity).and(world.get::<LiveRoomInstance>(entity)).copied();
+        let room = world
+            .get::<InRoomInstance>(entity)
+            .map(|stamp| stamp.0)
+            .or_else(root)
+            .or_else(|| (live.len() == 1).then(|| live[0]));
+        Self::resolve(room, live.len(), world.get::<super::SessionScopedEntity>(entity).map(|scoped| scoped.0))
+    }
+}
+
+/// The execution scope of each entity ([`ExecutionScope`]), for a system.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct ExecutionScopes<'w, 's> {
+    rooms: LiveRooms<'w, 's>,
+    sessions: bevy::prelude::Query<'w, 's, &'static super::SessionScopedEntity>,
+}
+
+impl ExecutionScopes<'_, '_> {
+    /// The scope of `entity`, or `None` when it cannot be told.
+    pub fn of(&self, entity: Entity) -> Option<ExecutionScope> {
+        ExecutionScope::resolve(self.rooms.of(entity), self.rooms.count(), self.sessions.get(entity).ok().map(|scoped| scoped.0))
+    }
+
+    /// Whether `a` and `b` run in one physical space.
+    pub fn share(&self, a: Entity, b: Entity) -> bool {
+        ExecutionScope::shared(self.of(a), self.of(b))
+    }
+}
 
 /// The live rooms one room transaction's world is made of: the room it
 /// replaces, and the room it mints.

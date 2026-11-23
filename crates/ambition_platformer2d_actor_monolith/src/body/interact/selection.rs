@@ -102,15 +102,12 @@ pub fn select_interactions(
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
     targets: InteractTargets,
-    mounts: Query<(
-        Entity,
-        &ambition_mount::Mountable,
-        &ambition_platformer2d_core::BodyKinematics,
-        Option<&ambition_mount::MountSlot>,
-        Option<&ambition_mount::MountReservedFor>,
-        Option<&ambition_characters::actor::BodyHealth>,
-    )>,
-    pilots: Query<(Option<&ambition_mount::CanPilot>, Has<ambition_mount::RidingOn>)>,
+    // A mount is offered when the mount domain's board law admits the pair,
+    // which includes one execution scope: a mount at the same coordinates in
+    // another live room is not beside the body.
+    mounts: Query<(Entity, &ambition_platformer2d_core::BodyKinematics), With<ambition_mount::Mountable>>,
+    board: ambition_mount::BoardFacts,
+    rides: ambition_mount::ActiveRides,
     // The live rooms and the doors in them: the press's room and door rules.
     // `Option`: a composition with no room set still selects (no rooms, no
     // doors) rather than skipping the whole system.
@@ -124,13 +121,12 @@ pub fn select_interactions(
         let target = targets
             .chosen(body, &reach, door)
             .map(|(entity, kind)| InteractSelected { operation: kind.into(), target: Some(entity) });
-        let (licence, riding) = pilots.get(body).unwrap_or((None, false));
         let ride = || {
-            let mount = ambition_mount::nearest_commandeerable(body, licence?, kin, mounts.iter(), &[])?;
+            let mount = ambition_mount::nearest_commandeerable(body, kin, &board, mounts.iter(), &[])?;
             Some(InteractSelected { operation: InteractOperation::Ride, target: Some(mount) })
         };
         let use_door = || door.map(|_| InteractSelected { operation: InteractOperation::Use, target: None });
-        if riding {
+        if rides.mount_of(body).is_some() {
             target
                 .or_else(use_door)
                 .or(Some(InteractSelected { operation: InteractOperation::Dismount, target: None }))

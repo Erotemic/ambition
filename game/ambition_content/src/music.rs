@@ -22,6 +22,17 @@ pub fn music_cue_catalog_from(
 mod tests {
     use super::*;
 
+    #[test]
+    fn wolfensteins_opening_follows_his_phase_and_his_transition_finishes() {
+        use ambition_audio::cue_spec::{AuthoredMusicCues, MusicPhasePolicy};
+        let authored: AuthoredMusicCues = ron::from_str(&crate::pack::pack_source_text("audio/music_cues.ron")).unwrap();
+        let binding = authored.boss_bindings.iter().find(|binding| binding.boss_id == "wolfenstein_boss").unwrap();
+        for phase in &binding.phase_states {
+            let expected = if phase.phase == "Intro" { MusicPhasePolicy::FollowPhase } else { MusicPhasePolicy::CompleteSection };
+            assert_eq!(phase.policy, expected, "{}", phase.phase);
+        }
+    }
+
     const CUES: &str = "audio/music_cues.ron";
 
     /// The pack with one edit to the cue file.

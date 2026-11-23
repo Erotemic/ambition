@@ -19,15 +19,16 @@ pub(in crate::music) fn should_restart_adaptive(
 
 pub(super) fn drive_adaptive_cue_state(
     director: &mut MusicDirectorState,
-    provider_id: &str,
-    generation: u64,
+    selection: &MusicSelection,
     cue: &PreparedMusicCue,
     target_state: &PreparedMusicState,
-    assets: &LoadedMusicCueAssets,
+    assets: &mut LoadedMusicCueAssets,
+    server: &AssetServer,
     decoded: &Assets<KiraAudioSource>,
     channels: &mut MusicPlaybackCommands,
-    entry_crossfade_s: f32,
 ) {
+    let provider_id = selection.provider.as_str();
+    let generation = selection.generation;
     let same_request = director.active_cue_id.as_deref() == Some(cue.id.as_str())
         && director.requested_state_id.as_deref() == Some(target_state.id.as_str());
     if !same_request {
@@ -65,6 +66,7 @@ pub(super) fn drive_adaptive_cue_state(
     } else {
         target_state
     };
+    assets.ensure_state_loaded(provider_id, generation, cue, target_state, server);
     let ready = assets.section_ready(
         provider_id,
         generation,
@@ -83,13 +85,12 @@ pub(super) fn drive_adaptive_cue_state(
         }
         start_adaptive_state(
             director,
-            provider_id,
-            generation,
+            selection,
             cue,
             target_state,
             assets,
             channels,
-            entry_crossfade_s,
+            selection.crossfade_s,
         );
         return;
     }
@@ -97,12 +98,15 @@ pub(super) fn drive_adaptive_cue_state(
     let current_state_matches =
         director.current_state_id.as_deref() == Some(target_state.id.as_str());
     if current_state_matches {
+        director.active_phase_policy = selection.phase_policy;
         channels.set_section_gains(
+            director.entry.expect("a selected music entry"),
             director.goal_revision,
             provider_id,
             &cue.id,
             &target_state.section_id,
             &target_state.gains,
+            Some((&target_state.id, selection.phase_policy)),
         );
         return;
     }
@@ -123,12 +127,15 @@ pub(super) fn drive_adaptive_cue_state(
 
     if let Some(current_section_id) = director.current_section_id.as_deref() {
         if current_section_id == target_section.id {
+            director.active_phase_policy = selection.phase_policy;
             channels.set_section_gains(
+                director.entry.expect("a selected music entry"),
                 director.goal_revision,
                 provider_id,
                 &cue.id,
                 &target_state.section_id,
                 &target_state.gains,
+                Some((&target_state.id, selection.phase_policy)),
             );
             director.current_state_id = Some(target_state.id.clone());
             return;
@@ -136,6 +143,22 @@ pub(super) fn drive_adaptive_cue_state(
     }
 
     let outro = is_outro_target(cue, target_state);
+    if director.mode == MusicDirectorMode::AdaptiveIntro
+        && director.active_phase_policy == MusicPhasePolicy::FollowPhase
+    {
+        if ready {
+            start_adaptive_state(
+                director,
+                selection,
+                cue,
+                target_state,
+                assets,
+                channels,
+                selection.crossfade_s,
+            );
+        }
+        return;
+    }
     if director.mode == MusicDirectorMode::AdaptiveIntro && !outro {
         let intro_done = director
             .current_section_id
@@ -150,8 +173,7 @@ pub(super) fn drive_adaptive_cue_state(
         if intro_done && ready {
             start_adaptive_state(
                 director,
-                provider_id,
-                generation,
+                selection,
                 cue,
                 target_state,
                 assets,
@@ -168,6 +190,7 @@ pub(super) fn drive_adaptive_cue_state(
             .and_then(|id| cue.state(id))
         {
             channels.set_section_gains(
+                director.entry.expect("a selected music entry"),
                 director.goal_revision,
                 provider_id,
                 &cue.id,
@@ -176,6 +199,7 @@ pub(super) fn drive_adaptive_cue_state(
                     .as_deref()
                     .unwrap_or(&bridge.section_id),
                 &bridge.gains,
+                None,
             );
         }
     }
@@ -188,8 +212,7 @@ pub(super) fn drive_adaptive_cue_state(
         if ready {
             start_adaptive_state(
                 director,
-                provider_id,
-                generation,
+                selection,
                 cue,
                 target_state,
                 assets,
@@ -245,8 +268,7 @@ pub(super) fn drive_adaptive_cue_state(
         if ready {
             start_adaptive_state(
                 director,
-                provider_id,
-                generation,
+                selection,
                 cue,
                 target_state,
                 assets,
@@ -261,8 +283,7 @@ pub(super) fn drive_adaptive_cue_state(
 
 fn start_adaptive_state(
     director: &mut MusicDirectorState,
-    provider_id: &str,
-    generation: u64,
+    selection: &MusicSelection,
     cue: &PreparedMusicCue,
     target_state: &PreparedMusicState,
     assets: &LoadedMusicCueAssets,
@@ -280,8 +301,10 @@ fn start_adaptive_state(
         return;
     };
 
-    let gains = target_state.gains;
-    let fade = if director.mode == MusicDirectorMode::AdaptiveIntro && section.looped {
+    let fade = if director.mode == MusicDirectorMode::AdaptiveIntro
+        && section.looped
+        && director.active_phase_policy == MusicPhasePolicy::CompleteSection
+    {
         0.0
     } else {
         crossfade_seconds
@@ -289,15 +312,15 @@ fn start_adaptive_state(
     channels.play_section(
         director.entry.expect("a selected music entry"),
         director.goal_revision,
-        provider_id,
-        generation,
+        selection,
         cue,
         section,
         assets,
-        gains,
+        target_state,
         fade,
     );
     director.active_cue_id = Some(cue.id.clone());
+    director.active_phase_policy = selection.phase_policy;
     director.current_state_id = Some(target_state.id.clone());
     director.current_section_id = Some(section.id.clone());
     director.position_seconds = None;

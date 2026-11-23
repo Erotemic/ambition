@@ -41,6 +41,9 @@ pub(crate) struct MusicPlaybackRequest {
     pub entry: MusicEntry,
     pub goal_revision: u64,
     pub product: MusicProduct,
+    /// The state submitted with these voices.
+    pub state_id: Option<String>,
+    pub phase_policy: MusicPhasePolicy,
     pub voices: Vec<MusicVoiceSource>,
     pub looped: bool,
     pub fade_seconds: f32,
@@ -251,6 +254,8 @@ impl MusicPlayback {
                     )
                 {
                     group.request.goal_revision = request.goal_revision;
+                    group.request.state_id = request.state_id.clone();
+                    group.request.phase_policy = request.phase_policy;
                     for (voice, source) in group.voices.iter_mut().zip(&request.voices) {
                         voice.gain = source.gain;
                     }
@@ -267,21 +272,38 @@ impl MusicPlayback {
 
     pub(crate) fn set_section_gains(
         &mut self,
+        entry: MusicEntry,
         goal_revision: u64,
         provider: &str,
         cue: &str,
         section: &str,
         gains: &[f32],
+        association: Option<(&str, MusicPhasePolicy)>,
     ) {
+        if association.is_some() && self.desired.as_ref().is_none_or(|request| {
+            request.entry != entry || !matches!(&request.product,
+                MusicProduct::Section { provider: p, cue: c, section: s, .. } if p == provider && c == cue && s == section)
+        }) {
+            if let Some(request) = self.current().filter(|group| group.entry == entry && matches!(&group.product,
+                MusicProduct::Section { provider: p, cue: c, section: s, .. } if p == provider && c == cue && s == section))
+                .map(|group| group.request.clone()) {
+                self.request(request);
+            }
+        }
         let Some(request) = &mut self.desired else {
             return;
         };
-        if !matches!(&request.product, MusicProduct::Section { provider: p, cue: c, section: s, .. }
+        if request.entry != entry
+            || !matches!(&request.product, MusicProduct::Section { provider: p, cue: c, section: s, .. }
             if p == provider && c == cue && s == section)
         {
             return;
         }
         request.goal_revision = goal_revision;
+        if let Some((state, policy)) = association {
+            request.state_id = Some(state.to_owned());
+            request.phase_policy = policy;
+        }
         for voice in &mut request.voices {
             voice.gain = gains[voice.slot];
         }
@@ -293,6 +315,8 @@ impl MusicPlayback {
                 )
             {
                 group.request.goal_revision = goal_revision;
+                group.request.state_id = request.state_id.clone();
+                group.request.phase_policy = request.phase_policy;
                 for (voice, source) in group.voices.iter_mut().zip(&request.voices) {
                     voice.gain = source.gain;
                 }
@@ -732,7 +756,36 @@ pub fn advance_music_playback(
         if let Some(group) = playback.current().filter(|group| {
             group.phase == MusicGroupPhase::Running && Some(group.entry) == director.entry
         }) {
-            if let Some(selection) = director.selection.clone() {
+            director.position_seconds = group.position_seconds;
+            if let Some(mut selection) = director.selection.clone() {
+                // A queued section cannot replace the admitted section's state or policy.
+                if let MusicProduct::Section { cue, section, .. } = &group.product {
+                    if director.current_section_id.as_ref() != Some(section) {
+                        director.pending_state = None;
+                    }
+                    director.active_cue_id = Some(cue.clone());
+                    director.current_section_id = Some(section.clone());
+                    director.current_state_id = group.request.state_id.clone();
+                    director.active_phase_policy = group.request.phase_policy;
+                    director.mode = if director.prepared_cue.as_ref().is_some_and(|cue| {
+                        cue.outro_state.is_some() && cue.outro_state == group.request.state_id
+                    }) {
+                        MusicDirectorMode::AdaptiveOutro
+                    } else if group.request.looped {
+                        MusicDirectorMode::AdaptiveLoop
+                    } else {
+                        MusicDirectorMode::AdaptiveIntro
+                    };
+                    if let MusicChoice::Cue { state, entry, .. } = &mut selection.choice {
+                        *state = group
+                            .request
+                            .state_id
+                            .clone()
+                            .expect("a section has its state");
+                        *entry = None;
+                    }
+                    selection.phase_policy = group.request.phase_policy;
+                }
                 director.admitted = Some(AdmittedMusic {
                     entry: group.entry,
                     selection,

@@ -146,15 +146,38 @@ fn frontend_kind(app: &mut App, kind: FrontendPresentationKind) -> usize {
         .count()
 }
 
-/// The track the music director currently has on the base channel (empty =
-/// silence). This is the REAL playback state the director writes, not merely the
-/// selection — `build_visible_app` composes the actual audio director against
-/// the in-memory recording backend, so no physical audio device is opened.
+/// The director's selected base track. The music test also waits for admission.
 fn active_music_track(app: &App) -> String {
     app.world()
         .resource::<ambition_platformer2d::audio::library::MusicPlaybackState>()
         .active_track()
         .to_string()
+}
+
+/// Wait for the selected base track to reach the recording transport.
+fn settle_base_music(app: &mut App) {
+    use ambition_platformer2d::audio::music::{MusicChoice, MusicGoal, MusicIntent, playback::{MusicPlayback, MusicProduct}};
+    let started = std::time::Instant::now();
+    loop {
+        app.update();
+        let intent = app.world().resource::<MusicIntent>();
+        let transport = app.world().resource::<MusicPlayback>();
+        let realized = match intent.goal.as_ref() {
+            Some(MusicGoal::Play(selected)) => match &selected.choice {
+                MusicChoice::Track(id) => transport.desired_is_running() && transport.current().is_some_and(|group| {
+                    matches!(&group.product, MusicProduct::Track { provider, generation, id: playing }
+                        if provider == &selected.provider && *generation == selected.generation && playing == id)
+                }),
+                MusicChoice::Cue { .. } => false,
+            },
+            Some(MusicGoal::Silence { .. }) => transport.groups().next().is_none(),
+            None => false,
+        };
+        if realized { return; }
+        assert!(started.elapsed() < crate::common::ACTIVATION_CEILING,
+            "music did not realize: goal={:?}, transport={:?}", intent.goal, transport.current());
+        std::thread::sleep(Duration::from_millis(2));
+    }
 }
 
 fn assert_recording_audio_output(app: &App) {
@@ -434,13 +457,13 @@ fn rendered_ownership_across_the_title_and_two_games() {
 /// - Ambition gameplay plays an Ambition-authored gameplay track (not the theme);
 /// - Quit to Home restores the frontend theme;
 /// - Sanic gameplay plays Sanic's own track — never Ambition's residue;
-/// - Mary-O gameplay is DELIBERATELY silent (a music-less provider stops
-///   playback rather than retaining the previous track).
+/// - Mary-O gameplay plays its own authored theme.
 #[test]
 fn provider_relative_music_drives_the_base_channel() {
     let mut app = rendered_app();
     assert_recording_audio_output(&app);
     settle(&mut app);
+    settle_base_music(&mut app);
     // The host's configured theme, read from the host rather than hardcoded:
     // which song plays is content, and pinning the name here would mean editing
     // this test every time the title music changes. What is worth asserting is
@@ -464,6 +487,7 @@ fn provider_relative_music_drives_the_base_channel() {
         ambition_content::provider::AMBITION_GAMEPLAY_ROUTE.into(),
     ));
     settle(&mut app);
+    settle_base_music(&mut app);
     let ambition_track = active_music_track(&app);
     assert!(
         !ambition_track.is_empty() && ambition_track != title,
@@ -474,6 +498,7 @@ fn provider_relative_music_drives_the_base_channel() {
     // Quit to Home restores the frontend theme.
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
+    settle_base_music(&mut app);
     assert_eq!(
         active_music_track(&app),
         title,
@@ -485,6 +510,7 @@ fn provider_relative_music_drives_the_base_channel() {
     app.world_mut()
         .write_message(ShellCommand::GoTo("sanic_gameplay".into()));
     settle(&mut app);
+    settle_base_music(&mut app);
     assert_eq!(
         active_music_track(&app),
         "you_are_too_slow",
@@ -493,6 +519,7 @@ fn provider_relative_music_drives_the_base_channel() {
 
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
+    settle_base_music(&mut app);
     assert_eq!(active_music_track(&app), title);
 
     // Mary-O authors its own "Support Theme": provider-relative audio switches
@@ -500,6 +527,7 @@ fn provider_relative_music_drives_the_base_channel() {
     app.world_mut()
         .write_message(ShellCommand::GoTo("mary_o_gameplay".into()));
     settle(&mut app);
+    settle_base_music(&mut app);
     assert_eq!(
         active_music_track(&app),
         "support_theme",

@@ -525,7 +525,7 @@
             boss_id: "wolfenstein_boss",
             cue_id: "galvanic_march",
             phase_states: [
-                (phase: "Intro", state: "awaken"),
+                (phase: "Intro", state: "awaken", policy: FollowPhase),
                 (phase: "Phase1", state: "march"),
                 (phase: "Transition", state: "unleash"),
                 // ⛔ Not `howl` or `storm`: those states are a theremin's howl

@@ -348,6 +348,7 @@ fn ungenerated_programs_keep_policy_checks_and_publish_no_playable_bindings() {
         boss_id: "boss".into(),
         cue_id: "program".into(),
         phase_states: vec![BossPhaseState {
+            policy: Default::default(),
             phase: "Intro".into(),
             state: "song".into(),
         }],

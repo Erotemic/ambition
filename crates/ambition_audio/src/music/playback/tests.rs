@@ -65,6 +65,8 @@ impl Output {
                 generation: 1,
                 id: id.into(),
             },
+            state_id: None,
+            phase_policy: MusicPhasePolicy::default(),
             looped,
             fade_seconds: 0.0,
             voices: (0..layers)
@@ -336,7 +338,15 @@ fn an_outgoing_sections_mix_cannot_overwrite_its_successor() {
         .next()
         .unwrap()
         .clone();
-    playback.set_section_gains(1, "game", "fight", "ending", &[0.1; MAX_LAYERS]);
+    playback.set_section_gains(
+        MusicEntry(1),
+        1,
+        "game",
+        "fight",
+        "ending",
+        &[0.1; MAX_LAYERS],
+        None,
+    );
     playback.advance(&mut output, 1.2, 1.0);
     assert_eq!(
         output

@@ -497,11 +497,13 @@ Prepare the known opening before its scene deadline. When it becomes
 realizable, compare its goal revision and current gameplay phase again.
 A prepared but superseded `awaken` must not start after `march` has won.
 
-Use a small explicit late-entry policy: enter the current requested state;
-join a declared musical position/boundary if supported; or deliberately
-play a full entrance. Wolfenstein needs this choice at his scene binding.
-Preserve his intended intro-to-fight coordination without removing
-Inugami's authored delayed entrance.
+Phase bindings now select `FollowPhase` or `CompleteSection` for a one-shot.
+`FollowPhase` accepts the current requested phase when its target is ready.
+`CompleteSection` lets the admitted section finish. Wolfenstein's Intro uses
+`FollowPhase`; his `unleash` retains `CompleteSection`. Inugami retains his
+separate delayed track entrance. A queued section does not replace the admitted
+state or its policy. Joining a declared musical position still needs explicit
+product and native support.
 
 If a scene's authored duration should come from a score span, link that
 finite value during content preparation. Gameplay then uses its pinned
@@ -770,8 +772,17 @@ seconds from published frame counts. Recording output models the same file-curso
 Verification: focused director and executor tests cover host-clock jumps,
 paused voices, missed decode exits, withdrawn plans and exact boundaries.
 
-Starts remain frame-driven and best effort. Native scheduling, residency
-demand, scene deadlines and explicit transition policies remain open.
+Phase bindings now declare whether a one-shot follows the scene phase or
+finishes its section. Native requests retain the state and policy with their
+voices. The admitted group projects that state back to the director. A second
+phase change can cancel a submitted section without losing the running section.
+Selection requests the opening and one immediate continuation. Each continuation
+then requests its own successor. It does not request distant sections.
+Verification covers delayed opening decode, partial entrances, chained sections,
+phase projection, delayed simple tracks and the authored Wolfenstein binding.
+
+Starts remain frame-driven and best effort. Native scheduling, room/residency
+prefetch, scene deadlines and the remaining transition recipes stay open.
 
 Prefetch the known opening and imminent continuation without granting
 claims. Keep catalog, decode, admission, and start facts distinct. Add the

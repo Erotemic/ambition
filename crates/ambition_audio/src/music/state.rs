@@ -66,6 +66,7 @@ pub struct MusicSelection {
     pub choice: MusicChoice,
     pub continuity: MusicContinuity,
     pub entry_policy: MusicEntryPolicy,
+    pub phase_policy: MusicPhasePolicy,
     pub priority: u16,
     pub crossfade_s: f32,
     pub completed_state: Option<String>,
@@ -180,6 +181,7 @@ pub struct MusicDirectorState {
     pub last_ending_result: Option<(super::playback::MusicEntry, MusicEndingResult)>,
     pub position_seconds: Option<f64>,
     pub(super) selection: Option<MusicSelection>,
+    pub(super) active_phase_policy: MusicPhasePolicy,
     pub(super) prepared_cue: Option<std::sync::Arc<PreparedMusicCue>>,
     pub(super) entry: Option<super::playback::MusicEntry>,
     pub(super) transport_completed: bool,
@@ -210,6 +212,7 @@ impl MusicDirectorState {
     pub(super) fn clear_active_cue(&mut self) {
         self.transport_completed = false;
         self.prepared_cue = None;
+        self.active_phase_policy = MusicPhasePolicy::default();
         self.active_cue_id = None;
         self.current_state_id = None;
         self.current_section_id = None;

@@ -155,6 +155,7 @@ fn selection(cue: &str, state: &str, source: &str, attempt: u64, priority: u16) 
         } else {
             MusicEntryPolicy::ContinueCompatible
         },
+        phase_policy: MusicPhasePolicy::default(),
         priority,
         crossfade_s: 0.22,
         completed_state: (attempt > 0).then(|| "outro".into()),
@@ -912,6 +913,8 @@ fn an_observed_loop_boundary_has_no_extra_minimum_delay() {
     step(&mut app, 0.0);
     publish(&mut app, selection("trail", "later", "room", 0, 10));
     step(&mut app, 0.0);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+    frames(&mut app, 3);
     assert_eq!(
         app.world()
             .resource::<MusicDirectorState>()
@@ -919,7 +922,6 @@ fn an_observed_loop_boundary_has_no_extra_minimum_delay() {
             .as_deref(),
         Some("later")
     );
-    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
 }
 
 #[test]
@@ -1010,4 +1012,224 @@ fn withdrawing_a_transition_discards_its_old_exit() {
         Some("song")
     );
     assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 2);
+}
+
+#[test]
+fn a_phase_binding_controls_whether_an_admitted_one_shot_finishes() {
+    for policy in [
+        MusicPhasePolicy::CompleteSection,
+        MusicPhasePolicy::FollowPhase,
+    ] {
+        let mut app = decoded();
+        let mut opening = selection("trail", "intro", "fight", 1, 200);
+        opening.phase_policy = policy;
+        publish(&mut app, opening);
+        frames(&mut app, 6);
+        let director = app.world().resource::<MusicDirectorState>();
+        assert!(director.admitted().is_some());
+        assert!(director.position_seconds.unwrap() < 4.0);
+        publish(&mut app, selection("trail", "song", "fight", 1, 200));
+        step(&mut app, 0.0);
+        assert_eq!(
+            app.world().resource::<RecordedMusicOutput>().submitted,
+            if policy == MusicPhasePolicy::FollowPhase {
+                4
+            } else {
+                2
+            }
+        );
+        frames(&mut app, 3);
+        let expected = if policy == MusicPhasePolicy::FollowPhase {
+            "song"
+        } else {
+            "intro"
+        };
+        assert_eq!(
+            app.world()
+                .resource::<MusicDirectorState>()
+                .current_state_id
+                .as_deref(),
+            Some(expected)
+        );
+    }
+}
+
+#[test]
+fn delayed_preparation_starts_the_current_phase_and_never_replays_the_old_opening() {
+    let (mut app, handles) = fixture();
+    let mut opening = selection("trail", "intro", "fight", 1, 200);
+    opening.phase_policy = MusicPhasePolicy::FollowPhase;
+    publish(&mut app, opening);
+    frames(&mut app, 24);
+    publish(&mut app, selection("trail", "song", "fight", 1, 200));
+    for handle in &handles[..2] {
+        decode(&mut app, handle);
+    }
+    frames(&mut app, 4);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 0);
+    for handle in &handles[2..4] {
+        decode(&mut app, handle);
+    }
+    frames(&mut app, 4);
+    let director = app.world().resource::<MusicDirectorState>();
+    assert_eq!(director.current_state_id.as_deref(), Some("song"));
+    assert!(director.admitted().is_some());
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 2);
+}
+
+#[test]
+fn the_active_phase_policy_survives_waiting_for_the_next_sections_decoder() {
+    let (mut app, handles) = fixture();
+    for handle in &handles[..2] {
+        decode(&mut app, handle);
+    }
+    let mut opening = selection("trail", "intro", "fight", 1, 200);
+    opening.phase_policy = MusicPhasePolicy::FollowPhase;
+    publish(&mut app, opening);
+    frames(&mut app, 6);
+    publish(&mut app, selection("trail", "song", "fight", 1, 200));
+    frames(&mut app, 2);
+    for handle in &handles[2..4] {
+        decode(&mut app, handle);
+    }
+    step(&mut app, 0.0);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+    frames(&mut app, 2);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_state_id
+            .as_deref(),
+        Some("song")
+    );
+}
+
+#[test]
+fn selection_prepares_the_opening_and_its_continuation_without_distant_sections() {
+    let (mut app, _) = fixture();
+    let mut authored = authored_cues(60.0);
+    for cue in &mut authored.cues {
+        if let MusicCueMedia::Inline { asset_root, .. } = &mut cue.media {
+            *asset_root = "audio/fixture".into();
+        }
+    }
+    for cue in &mut authored.cues {
+        if let MusicCueMedia::Inline { sections, .. } = &mut cue.media {
+            sections
+                .iter_mut()
+                .find(|section| section.id == "song")
+                .unwrap()
+                .looped = false;
+        }
+        cue.states
+            .iter_mut()
+            .find(|state| state.id == "song")
+            .unwrap()
+            .next_state = Some("later".into());
+    }
+    let catalog =
+        MusicCueCatalog::prepare(authored, &crate::music_media::MusicMediaCatalog::default())
+            .unwrap();
+    let mut catalogs = AdaptiveMusicCatalogRegistry::default();
+    catalogs.register("game", catalog).unwrap();
+    app.insert_resource(catalogs)
+        .insert_resource(LoadedMusicCueAssets::default());
+    step(&mut app, 0.0);
+    let assets = app.world().resource::<LoadedMusicCueAssets>();
+    assert_eq!(assets.sources.len(), 4);
+    for (section, wanted) in [
+        ("intro", true),
+        ("song", true),
+        ("later", false),
+        ("outro", false),
+    ] {
+        assert_eq!(
+            assets
+                .sources
+                .contains_key(&MusicSourceKey::new("game", 1, "trail", section, "bed")),
+            wanted
+        );
+    }
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 0);
+    assert!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .admitted()
+            .is_none()
+    );
+    let opening_handles: Vec<_> = ["intro", "song"]
+        .into_iter()
+        .flat_map(|section| {
+            ["bed", "tune"]
+                .into_iter()
+                .map(move |layer| (section, layer))
+        })
+        .map(|(section, layer)| assets.get("game", 1, "trail", section, layer).unwrap())
+        .collect();
+    for handle in &opening_handles {
+        decode(&mut app, handle);
+    }
+    frames(&mut app, 22);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_state_id
+            .as_deref(),
+        Some("song")
+    );
+    let continuation: Vec<_> = ["bed", "tune"]
+        .into_iter()
+        .map(|layer| {
+            app.world()
+                .resource::<LoadedMusicCueAssets>()
+                .get("game", 1, "trail", "later", layer)
+                .unwrap()
+        })
+        .collect();
+    for handle in &continuation {
+        decode(&mut app, handle);
+    }
+    frames(&mut app, 20);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_state_id
+            .as_deref(),
+        Some("later")
+    );
+}
+
+#[test]
+fn a_second_phase_change_can_cancel_a_submitted_section_without_losing_the_admitted_one() {
+    let mut app = decoded();
+    publish(&mut app, selection("trail", "song", "fight", 1, 200));
+    frames(&mut app, 6);
+    let position = app
+        .world()
+        .resource::<MusicPlayback>()
+        .current()
+        .unwrap()
+        .position_seconds
+        .unwrap();
+    step(&mut app, 4.0 - position);
+    step(&mut app, 0.0);
+    publish(&mut app, selection("trail", "later", "fight", 1, 200));
+    step(&mut app, 0.0);
+    let admitted = app
+        .world()
+        .resource::<MusicDirectorState>()
+        .admitted()
+        .unwrap();
+    assert!(
+        matches!(&admitted.selection.choice, MusicChoice::Cue { state, .. } if state == "song")
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+    publish(&mut app, selection("trail", "intro", "fight", 1, 200));
+    frames(&mut app, 5);
+    let director = app.world().resource::<MusicDirectorState>();
+    assert_eq!(director.current_state_id.as_deref(), Some("intro"));
+    assert!(
+        matches!(&director.admitted().unwrap().selection.choice, MusicChoice::Cue { state, .. } if state == "intro")
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().resumed, 4);
 }

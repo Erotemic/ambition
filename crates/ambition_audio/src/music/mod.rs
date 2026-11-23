@@ -44,8 +44,8 @@ pub use catalog::{
     AdaptiveMusicCatalogAppExt, AdaptiveMusicCatalogError, AdaptiveMusicCatalogRegistry,
     BOSS_PHASE_KEYS, BossMusicBinding, BossPhaseState, EncounterMusicBinding, LoadedMusicCueAssets,
     MusicCueCatalog, MusicCueMedia, MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec,
-    MusicLayerSpec, MusicProductSet, MusicSectionSpec, MusicStateBalanceOverride, MusicStateSpec,
-    RoomMusicBinding,
+    MusicLayerSpec, MusicPhasePolicy, MusicProductSet, MusicSectionSpec, MusicStateBalanceOverride,
+    MusicStateSpec, RoomMusicBinding,
 };
 pub use commands::MusicPlaybackCommands;
 pub use director::{drive_music_director, load_music_cues};

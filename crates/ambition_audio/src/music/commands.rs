@@ -1,8 +1,6 @@
 use super::playback::{MusicPlayback, MusicPlaybackRequest, MusicProduct, MusicVoiceSource};
 use super::*;
 
-pub(super) type LayerGains = [f32; MAX_LAYERS];
-
 /// Submit musical choices to the common occurrence owner.
 #[derive(SystemParam)]
 pub struct MusicPlaybackCommands<'w> {
@@ -50,26 +48,34 @@ impl MusicPlaybackCommands<'_> {
 
     pub(super) fn set_section_gains(
         &mut self,
+        entry: super::playback::MusicEntry,
         goal_revision: u64,
         provider: &str,
         cue: &str,
         section: &str,
         gains: &[f32],
+        association: Option<(&str, MusicPhasePolicy)>,
     ) {
-        self.playback
-            .set_section_gains(goal_revision, provider, cue, section, gains);
+        self.playback.set_section_gains(
+            entry,
+            goal_revision,
+            provider,
+            cue,
+            section,
+            gains,
+            association,
+        );
     }
 
     pub(super) fn play_section(
         &mut self,
         entry: super::playback::MusicEntry,
         goal_revision: u64,
-        provider: &str,
-        generation: u64,
+        selection: &MusicSelection,
         cue: &PreparedMusicCue,
         section: &PreparedMusicSection,
         assets: &LoadedMusicCueAssets,
-        gains: LayerGains,
+        state: &PreparedMusicState,
         fade_seconds: f32,
     ) {
         let voices = section
@@ -79,13 +85,13 @@ impl MusicPlaybackCommands<'_> {
                 let slot = source.slot;
                 Some(MusicVoiceSource {
                     source: assets.get(
-                        provider,
-                        generation,
+                        &selection.provider,
+                        selection.generation,
                         &cue.id,
                         &section.id,
                         &source.layer_id,
                     )?,
-                    gain: gains[slot],
+                    gain: state.gains[slot],
                     slot,
                 })
             })
@@ -97,11 +103,13 @@ impl MusicPlaybackCommands<'_> {
             entry,
             goal_revision,
             product: MusicProduct::Section {
-                provider: provider.into(),
-                generation,
+                provider: selection.provider.clone(),
+                generation: selection.generation,
                 cue: cue.id.clone(),
                 section: section.id.clone(),
             },
+            state_id: Some(state.id.clone()),
+            phase_policy: selection.phase_policy,
             voices,
             looped: section.looped,
             fade_seconds,
@@ -127,6 +135,8 @@ impl MusicPlaybackCommands<'_> {
                 generation,
                 id: track.into(),
             },
+            state_id: None,
+            phase_policy: MusicPhasePolicy::default(),
             voices: vec![MusicVoiceSource {
                 source,
                 gain: 1.0,

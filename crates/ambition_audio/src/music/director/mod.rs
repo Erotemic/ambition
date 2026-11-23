@@ -335,7 +335,6 @@ fn drive_selection(
                     .map(|cue| std::sync::Arc::new(cue.clone()))
             });
             let Some(cue) = cue else { return };
-            assets.ensure_cue_loaded(&target.provider, target.generation, &cue, server);
             let requested = if fresh {
                 entry.as_deref().unwrap_or(state)
             } else {
@@ -345,6 +344,13 @@ fn drive_selection(
                 return;
             };
             if fresh {
+                assets.ensure_state_loaded(
+                    &target.provider,
+                    target.generation,
+                    &cue,
+                    target_state,
+                    server,
+                );
                 if !assets.section_ready(
                     &target.provider,
                     target.generation,
@@ -364,14 +370,13 @@ fn drive_selection(
             director.prepared_cue = Some(cue.clone());
             adaptive::drive_adaptive_cue_state(
                 director,
-                &target.provider,
-                target.generation,
+                target,
                 &cue,
                 target_state,
                 assets,
+                server,
                 decoded,
                 channels,
-                target.crossfade_s,
             );
             logging::log_periodic_state(director, &cue, dt);
         }

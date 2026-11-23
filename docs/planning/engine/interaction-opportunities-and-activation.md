@@ -355,11 +355,21 @@ The mount's own nearest-mount choice is gone, and so is
 owner selects nothing, so no press boards (the mount lib test now states its
 selection). Schema 527.
 
-Still open:
+**I2 third slice (2026-11-23): the portal toggle answers its press.**
 
-- The portal toggle still reads its raw edge and yields to any selection.
-  It owns no selected operation, so nothing correlates its owner's outcome
-  (board refused, no generator) back to an attempt.
+The toggle keeps its own gesture: a fresh Interact edge with nothing
+selected. It never takes the buffered press, which an Up door shortcut also
+fills. `portal_toggle_system` now answers each toggle with
+`PortalGeneratorToggled`, whose outcome is `Toggled`, `NoGenerator` or
+`Inactive`. `spend_accepted_toggle_presses` (content) spends the body's
+buffered press only for `Toggled`. Before this, the toggle's tap stayed
+buffered, so walking into a door or a talker inside the buffer window spent
+the same tap a second time. A refused toggle leaves the press to the
+interaction road. Witness:
+`an_accepted_toggle_spends_the_press_and_a_refused_one_keeps_it`.
+Schema 533.
+
+Still open:
 - No witness yet exercises retirement, possession or room replay of a
   selected attempt.
 

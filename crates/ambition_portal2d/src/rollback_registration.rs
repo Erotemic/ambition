@@ -152,6 +152,8 @@ where
     registrar.clear_message_on_rollback::<crate::FirePortalGenerator>(OWNER, "message.fire_portal_generator");
     registrar
         .clear_message_on_rollback::<crate::TogglePortalGenerator>(OWNER, "message.toggle_portal_generator");
+    registrar
+        .clear_message_on_rollback::<crate::PortalGeneratorToggled>(OWNER, "message.portal_generator_toggled");
     registrar.clear_message_on_rollback::<crate::TogglePortalGeneratorsActive>(
         OWNER,
         "message.toggle_portal_generators_active",

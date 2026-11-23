@@ -16,7 +16,7 @@ use ambition_portal2d::{
 use super::ability_adapter::withhold_wall_verbs_during_transit;
 use super::carve_adapter::{bridge_portal_carves, sync_portal_host_depths};
 use super::fire_adapter::resolve_portal_fire_intent;
-use super::input_adapter::portal_input_adapter_system;
+use super::input_adapter::{portal_input_adapter_system, spend_accepted_toggle_presses};
 use super::inventory_adapter::reconcile_portal_generators;
 use super::reset_adapter::bridge_room_reset_to_clear_portals;
 use super::sfx_adapter::play_portal_sfx;
@@ -149,6 +149,15 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::InputAdapter)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerSimulation)
                 .after(portal_input_adapter_system),
+        );
+
+        // The toggle's answer settles its press: an accepted toggle spends it.
+        app.add_systems(
+            sim,
+            spend_accepted_toggle_presses
+                .run_if(ambition_platformer2d_core::a_message_waits::<ambition_portal2d::PortalGeneratorToggled>)
+                .in_set(GameplayGated)
+                .after(ambition_portal2d::portal_toggle_system),
         );
 
         // Whatever holds the portal gun is a portal generator, and a gun lying

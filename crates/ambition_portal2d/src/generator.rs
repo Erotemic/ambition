@@ -9,7 +9,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use super::color::PortalGunColor;
-use super::messages::{TogglePortalGenerator, TogglePortalGeneratorsActive};
+use super::messages::{PortalGeneratorToggled, PortalToggleOutcome, TogglePortalGenerator, TogglePortalGeneratorsActive};
 
 /// A portal generator: the pair it opens and which end of it opens next.
 ///
@@ -61,14 +61,18 @@ impl Default for PortalGenerator {
 pub fn portal_toggle_system(
     mut toggles: ReplayMessageReader<TogglePortalGenerator>,
     mut generators: Query<&mut PortalGenerator>,
+    mut answers: MessageWriter<PortalGeneratorToggled>,
 ) {
     for toggle in toggles.read() {
-        let Ok(mut generator) = generators.get_mut(toggle.body) else {
-            continue;
+        let outcome = match generators.get_mut(toggle.body) {
+            Err(_) => PortalToggleOutcome::NoGenerator,
+            Ok(generator) if !generator.active => PortalToggleOutcome::Inactive,
+            Ok(mut generator) => {
+                generator.next_color = generator.next_color.other();
+                PortalToggleOutcome::Toggled
+            }
         };
-        if generator.active {
-            generator.next_color = generator.next_color.other();
-        }
+        answers.write(PortalGeneratorToggled { body: toggle.body, outcome });
     }
 }
 

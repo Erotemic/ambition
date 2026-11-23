@@ -40,6 +40,7 @@ impl Plugin for PortalGeneratorPlugin {
         let sim = app.sim_schedule();
         app.add_message::<FirePortalGenerator>();
         app.add_message::<TogglePortalGenerator>();
+        app.add_message::<super::messages::PortalGeneratorToggled>();
         app.add_message::<TogglePortalGeneratorsActive>();
 
         // The toggles run before the fire, so a press that toggles and a press

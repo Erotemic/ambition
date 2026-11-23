@@ -322,7 +322,9 @@ world-post admission.
    slice landed the same day: the talk/switch and chest executors and the
    door act on the selected target, revalidated at their own cuts. The
    mount followed: it boards or leaves only what is selected
-   (`MountPresses`). The portal toggle's outcome correlation remains.)
+   (`MountPresses`). The portal toggle followed on 2026-11-23: the
+   generator answers each toggle, and only a toggle that turned it spends
+   the press.)
 8. [Native completion AC1/AC2](engine/native-action-completion.md) reuses the
    actual construction receipt for summon identity and initialization, and
    separates cancellation identity from pending-work capacity. Check the

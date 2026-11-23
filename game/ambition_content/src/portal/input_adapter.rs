@@ -91,9 +91,11 @@ pub fn portal_input_adapter_system(
         // getting off a mount). THIS body's selection, from gameplay, not
         // the prompt's: a composition without the prompt toggles the same way.
         //
-        // It is still a prediction: this adapter runs in `PlayerSimulation`, and
-        // the interaction road spends the press later, in `FeatureInteraction`.
-        // Routing the toggle through one attempt with the press's owner is I2.
+        // The toggle takes only a fresh Interact edge, never the buffered
+        // press an Up door shortcut also fills. The generator answers
+        // (`PortalGeneratorToggled`), and `spend_accepted_toggle_presses`
+        // spends the press only for a toggle that turned the generator, so a
+        // refused toggle leaves it to the interaction road.
         if control.interact_pressed {
             let claimed = selection.as_deref().is_some_and(|selection| selection.of(subject).is_some());
             if !claimed {
@@ -112,6 +114,23 @@ pub fn portal_input_adapter_system(
                 aim: pick_aim(&control, kin.facing),
                 body: subject,
             });
+        }
+    }
+}
+
+/// Spend the buffered Interact press of each body whose generator turned.
+///
+/// The toggle's tap fills the body's interact buffer like any tap. Left
+/// there, the same tap could open a door or a conversation a few ticks later
+/// when the body walks into one, so the toggle that accepted it spends it. A
+/// refused toggle (no generator, or one switched off) leaves the press.
+pub fn spend_accepted_toggle_presses(
+    mut answers: ambition_platformer2d_core::replay_messages::ReplayMessageReader<ambition_portal2d::PortalGeneratorToggled>,
+    mut acting: ambition_characters::control::ActingParticipant,
+) {
+    for answer in answers.read() {
+        if answer.outcome == ambition_portal2d::PortalToggleOutcome::Toggled {
+            acting.consume_interact(answer.body);
         }
     }
 }
@@ -281,4 +300,51 @@ mod tests {
             "each shot must originate at its own firer: {origins:?}"
         );
     }
+
+    /// An Interact tap with nothing selected: the generator answers, and only
+    /// a toggle that turned it spends the tap's buffered press.
+    #[test]
+    fn an_accepted_toggle_spends_the_press_and_a_refused_one_keeps_it() {
+        use ambition_characters::control::SlotInteractionState;
+        use ambition_portal2d::{PortalGeneratorToggled, PortalToggleOutcome};
+
+        let run = |active: bool| -> (bool, Vec<PortalToggleOutcome>, bool) {
+            let mut app = App::new();
+            app.add_message::<FirePortalGenerator>();
+            app.add_message::<TogglePortalGenerator>();
+            app.add_message::<PortalGeneratorToggled>();
+            let mut slots = SlotControls::default();
+            let mut frame = ambition_platformer2d_core::ControlFrame::default();
+            frame.interact_pressed = true;
+            slots.set(PlayerSlot::PRIMARY, frame);
+            app.insert_resource(slots);
+            // The tap's buffer, as input fills it.
+            let mut gestures = SlotInteractionState::default();
+            gestures.get_mut(PlayerSlot::PRIMARY).expect("primary slot").interact_buffer_timer = 0.15;
+            app.insert_resource(gestures);
+            let generator = PortalGenerator { active, ..PortalGenerator::default() };
+            let before = generator.next_color;
+            let body = app
+                .world_mut()
+                .spawn((DrivingParticipant(PlayerSlot::PRIMARY), BodyKinematics::default(), generator))
+                .id();
+            app.insert_resource(ControlledSubject(Some(body)));
+            app.add_systems(
+                Update,
+                (portal_input_adapter_system, ambition_portal2d::portal_toggle_system, spend_accepted_toggle_presses)
+                    .chain(),
+            );
+            app.update();
+            let turned = app.world().get::<PortalGenerator>(body).unwrap().next_color != before;
+            let world = app.world();
+            let messages = world.resource::<Messages<PortalGeneratorToggled>>();
+            let outcomes = messages.iter_current_update_messages().map(|answer| answer.outcome).collect();
+            let kept = world.resource::<SlotInteractionState>().get(PlayerSlot::PRIMARY).buffered();
+            (turned, outcomes, kept)
+        };
+
+        assert_eq!(run(true), (true, vec![PortalToggleOutcome::Toggled], false), "an accepted toggle spends its press");
+        assert_eq!(run(false), (false, vec![PortalToggleOutcome::Inactive], true), "a refused toggle keeps its press");
+    }
+
 }

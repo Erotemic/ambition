@@ -86,8 +86,27 @@ fn native_output_survives_cold_decode_and_repeated_fresh_handoffs() {
     for (index, handle) in handles.iter().enumerate() {
         decode_tone(&mut app, handle, index);
     }
+    app.update();
+    let submitted_sound = app
+        .world()
+        .resource::<Assets<KiraAudioSource>>()
+        .get(&handles[2])
+        .unwrap()
+        .sound
+        .clone();
+    app.world_mut()
+        .resource_mut::<Assets<KiraAudioSource>>()
+        .get_mut(&handles[2])
+        .unwrap()
+        .sound
+        .frames = vec![Frame::new(0.0, 0.0); 96000].into();
     run_for(&mut app, 2.0);
     assert_running(&app, "trail", "song");
+    app.world_mut()
+        .resource_mut::<Assets<KiraAudioSource>>()
+        .get_mut(&handles[2])
+        .unwrap()
+        .sound = submitted_sound;
 
     publish(&mut app, selection("destination", "intro", "room", 1, 10));
     run_for(&mut app, 0.5);
@@ -112,6 +131,16 @@ fn native_output_survives_cold_decode_and_repeated_fresh_handoffs() {
         .resource::<MusicDirectorState>()
         .admitted()
         .is_none());
+    assert_eq!(app.world().resource::<MusicPlayback>().reserved_voices(), 0);
+    assert!(app.world().resource::<Assets<AudioInstance>>().is_empty());
+    assert_eq!(
+        app.world_mut()
+            .non_send_mut::<bevy_kira_audio::AudioOutput>()
+            .manager()
+            .unwrap()
+            .num_sub_tracks(),
+        0
+    );
 }
 
 #[test]
@@ -133,7 +162,9 @@ fn native_canceling_a_prepared_entry_cancels_its_predecessors_stop() {
         .any(|group| group.scheduled_state() == Some("song")));
 
     publish(&mut app, selection("trail", "later", "room", 0, 10));
-    run_for(&mut app, 0.8);
+    run_for(&mut app, 0.001);
+    std::thread::sleep(Duration::from_secs_f64(0.8));
+    run_for(&mut app, 0.01);
     let director = app.world().resource::<MusicDirectorState>();
     assert_eq!(director.current_section_id.as_deref(), Some("intro"));
     assert!(director
@@ -144,4 +175,85 @@ fn native_canceling_a_prepared_entry_cancels_its_predecessors_stop() {
     }
     run_for(&mut app, 1.0);
     assert_running(&app, "trail", "later");
+}
+
+#[test]
+#[ignore = "uses the native audio device; run with an explicit output or capture device"]
+fn a_native_short_continuation_finishes_once_between_host_observations() {
+    let mut authored = authored_cues(240.0);
+    for cue in &mut authored.cues {
+        cue.playback.continuation_crossfade_seconds = Some(0.0);
+        if let MusicCueMedia::Inline { sections, .. } = &mut cue.media {
+            sections[0].duration_beats = 2.0;
+            sections[1].duration_beats = 0.02;
+            sections[1].looped = false;
+        }
+    }
+    let catalog = MusicCueCatalog::prepare(authored, &Default::default()).unwrap();
+    let (mut app, handles) =
+        fixture_catalog_output(catalog, crate::output::AudioOutputMode::Device);
+    app.finish();
+    app.cleanup();
+    for (index, handle) in handles.iter().enumerate().take(4) {
+        decode_tone(&mut app, handle, index);
+        let count = if index < 2 { 24000 } else { 240 };
+        let mut sources = app.world_mut().resource_mut::<Assets<KiraAudioSource>>();
+        let mut source = sources.get_mut(handle).unwrap();
+        source.sound.frames = source.sound.frames[..count].to_vec().into();
+    }
+    let mut prepared = false;
+    for _ in 0..60 {
+        run_for(&mut app, 0.001);
+        prepared = app
+            .world()
+            .resource::<MusicPlayback>()
+            .groups()
+            .any(|group| {
+                group.scheduled_state() == Some("song") && group.transport_origin.is_some()
+            });
+        if prepared {
+            break;
+        }
+    }
+    assert!(
+        prepared,
+        "the short continuation was not admitted before its deadline"
+    );
+    std::thread::sleep(Duration::from_secs_f64(0.8));
+    run_for(&mut app, 0.05);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+    assert_eq!(
+        app.world().resource::<MusicPlayback>().outcome(),
+        super::super::super::playback::MusicRequestOutcome::Completed
+    );
+    let director = app.world().resource::<MusicDirectorState>();
+    assert_eq!(director.current_state_id.as_deref(), Some("song"));
+    assert!(director.transport_completed);
+    run_for(&mut app, 0.2);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+}
+
+#[test]
+#[ignore = "uses the native audio device; run with an explicit output or capture device"]
+fn a_native_loop_exit_runs_after_several_passes_during_a_host_stall() {
+    let mut authored = authored_cues(240.0);
+    for cue in &mut authored.cues {
+        cue.playback.section_crossfade_seconds = Some(0.0);
+    }
+    let catalog = MusicCueCatalog::prepare(authored, &Default::default()).unwrap();
+    let (mut app, handles) = fixture_catalog_output(catalog, crate::output::AudioOutputMode::Device);
+    app.finish();
+    app.cleanup();
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    for (index, handle) in handles.iter().enumerate() {
+        decode_tone(&mut app, handle, index);
+    }
+    run_for(&mut app, 3.4);
+    assert_running(&app, "trail", "song");
+    publish(&mut app, selection("trail", "later", "room", 0, 10));
+    run_for(&mut app, 0.04);
+    std::thread::sleep(Duration::from_secs_f64(1.2));
+    run_for(&mut app, 0.05);
+    assert_running(&app, "trail", "later");
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
 }

@@ -345,7 +345,7 @@ clock restrictions than exact clips; inspection states that limit.
 Display chapters, entry markers, and legal exits are different roles. Source
 preparation now retains bar exits and V3 admits `valid_exit_local_bars`.
 Encoded products retain the resolved frames. The native transition planner
-does not yet consume these markers.
+queries these prepared bar and named-exit boundaries.
 
 Use the same cut and rounding as the selected product. For the current
 global cut convention, a local marker frame is:
@@ -483,9 +483,11 @@ occurrence. No new bus framework is required.
 
 The director reads the matching occurrence's file cursor. Native output uses
 Kira observations and one shared Kira clock. A ready one-shot continuation is
-admitted before its predecessor's prepared end. That clock schedules its resume,
-the predecessor's stop and their native fades. Cancellation withdraws both
-operations. Recording output uses an explicit host-clock model.
+admitted before its predecessor's prepared end. That clock schedules its resume
+and the predecessor's exit envelope. Each bounded playback group owns one native
+track. The track's exit gain is separate from the voices' entry fades and user
+mix. Withdrawal replaces the exit command directly. Native instances are stopped
+and released after retirement. Recording output uses an explicit host-clock model.
 Host time owns loading deadlines and diagnostics. A requested mixer-clock origin
 or a frame that observes Playing is not proof of the first audible sample.
 Keep submission, admission observation and requested transport origin separate.
@@ -674,9 +676,9 @@ retry, and recording output. User and environment gain enter this owner.
 Native route acceptance remains open. MUS2 has removed split selection and
 simple-resume authority; MUS3 still owns prepared timing.
 
-**Remaining:** establish locked-adapter drain/cancel behavior and native route
-acceptance, with an honest timing guarantee. Keep existing simple/adaptive
-entry points as adapters into this one executor while MUS2 unifies selection.
+**Remaining:** native route acceptance, with an honest timing guarantee.
+Native group cancellation and resource release have explicit device tests.
+Keep simple/adaptive entry points as adapters into this one executor.
 Compatibility observations stay projections, not additional owners. Native
 acceptance is not a prerequisite for the static selection work.
 
@@ -819,10 +821,17 @@ revision. Admitted voices retain source frame counts through asset reload.
 Guard: 146 audio tests cover named exits across loop wraps, delayed targets,
 exhausted sections, ending handoff and layer alignment before resume.
 
-Ready one-shot continuations now use native scheduling. Other exits remain
-frame-driven and best effort. Stronger timing requests fail during preparation.
-General exit scheduling, scene deadlines, pickups, independent tails and bridge
-overlays stay open.
+`1c9f96ca3` adds native scheduling for prepared section and ending exits.
+Plans use elapsed source transport across loop passes. A missed admission
+deadline selects another allowed exit; it does not move the chosen boundary.
+Guard: 149 audio tests and an explicit native loop-exit test with a host stall.
+The baseline keeps the old section; the fix switches to the target tones.
+PCM inspection finds no silent 10 ms windows across that exit.
+
+Ready one-shot continuations also use native scheduling. Immediate exits and
+outputs without a native clock retain immediate or frame-driven admission.
+Stronger timing requests fail during preparation. Scene deadlines, pickups,
+independent tails and bridge overlays stay open.
 
 Keep catalog, decode, admission, and start facts distinct. Add the
 small boundary/entry/late-policy plan and a defined transport origin.
@@ -904,15 +913,21 @@ two fresh cue handoffs, then silence after an explicit stop. Guard: 146 default
 audio tests and the separate native test. Spectrum inspection confirms the
 section tones. The baseline capture exposed 20–30 ms of silence at file-end joins.
 
-`781520aba` schedules ready one-shot continuations and predecessor stops on one
-native clock. It holds sample zero through admission and cancels withdrawn stops
-after Kira acknowledges them. The
+`781520aba` introduced native scheduling for ready one-shot continuations.
+`9ccde6c6f` replaces scheduled instance stops with native group exit envelopes.
+Entry fades no longer freeze when an exit is prepared, and withdrawal does not
+wait for host acknowledgement. The executor holds sample zero through admission. The
 [pinned adapter patch](../../../third_party/bevy_kira_audio/PATCHES.md) exposes
-the existing manager and instance scheduling controls. Guard: 148 audio tests,
-38 intent-adapter tests, 35 workspace policy tests and two explicit native tests.
+the existing manager, native instance wrapper and scheduled resume. Guard: 148 audio tests,
+38 intent-adapter tests, 35 workspace policy tests and three explicit native tests.
 PCM checks find no silent 10 ms windows across the prepared joins, including a
-one-second host stall and a source tail. Cancellation preserves the old audio
-past a withdrawn stop. Mixer resolution is not a sample-accuracy guarantee.
+one-second host stall and a source tail. Cancellation followed immediately by a
+host stall preserves the old audio past its withdrawn exit. Source replacement
+before admission cannot change the submitted frames. Silence releases all native
+instances and group tracks. Mixer resolution is not a sample-accuracy guarantee.
+`dab9fbbac` retains completion facts when a scheduled short section starts and
+finishes between host observations. The director advances its state once. Guard:
+a native 5 ms continuation across a host stall completes without duplicate plays.
 General exits and the complete game route remain open.
 No physical-speaker or listening acceptance was performed.
 The current recording path consumes the executor's actual voice commands;

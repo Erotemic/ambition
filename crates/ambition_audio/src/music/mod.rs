@@ -9,7 +9,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::log::{debug, info, warn};
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::{
-    AudioControl, AudioInstance, AudioSource as KiraAudioSource, AudioTween, DynamicAudioChannels,
+    AudioInstance, AudioSource as KiraAudioSource, AudioTween,
     PlaybackState,
 };
 
@@ -39,7 +39,7 @@ pub use catalog::{
 pub use commands::MusicPlaybackCommands;
 pub use director::{drive_music_director, load_music_cues};
 pub use playback::add_music_playback;
-pub use state::MusicTransitionPlan;
+pub use state::{MusicTransitionClock, MusicTransitionPlan};
 pub use state::{
     AdmittedMusic, MusicChoice, MusicClaim, MusicContinuity, MusicDirectorMode, MusicDirectorState,
     MusicDisposition, MusicEndingResult, MusicEntryPolicy, MusicGoal, MusicGoalPublication,

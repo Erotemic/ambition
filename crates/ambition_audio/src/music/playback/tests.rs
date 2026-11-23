@@ -23,7 +23,7 @@ impl MusicVoiceOutput for Output {
     fn ready(&self, _: &Handle<KiraAudioSource>) -> bool {
         true
     }
-    fn submit(&mut self, _: &Handle<KiraAudioSource>, _: bool) -> Handle<AudioInstance> {
+    fn submit(&mut self, _: MusicPlaybackOccurrence, _: &Handle<KiraAudioSource>, _: bool) -> Handle<AudioInstance> {
         let handle = self.handles.reserve_handle();
         self.states.insert(
             handle.id(),

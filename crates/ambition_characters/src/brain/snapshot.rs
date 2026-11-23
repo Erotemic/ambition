@@ -297,13 +297,25 @@ pub struct GuardFact {
 }
 
 /// One use of a move by this body, as the combat authority records it.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct OwnMoveFact {
     /// Which use of a move this is on this body: it changes at each start,
     /// also when a move is started again over itself.
     pub instance: u32,
+    /// The move this use plays: the one acceptance started, which may be the
+    /// pressed move's authored fallback rather than the move pressed. A new
+    /// `instance` alone cannot say which. The playback's own handle, shared.
+    pub spec: std::sync::Arc<ambition_entity_catalog::MoveSpec>,
     /// What this use has touched so far.
     pub contact: ambition_entity_catalog::MoveContact,
+}
+
+impl OwnMoveFact {
+    /// The started move's stable id, comparable with an offered candidate's
+    /// [`crate::brain::attack_kit::AttackCandidate::move_id`].
+    pub fn move_id(&self) -> &str {
+        &self.spec.id
+    }
 }
 
 impl BrainSnapshot {

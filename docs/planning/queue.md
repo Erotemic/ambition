@@ -388,10 +388,12 @@ world-post admission.
    ticks, deaths and boss hits do not. Ordinary move starts ask the body's
    reaction and guard locks through one rule shared with the input gate,
    and a refused press keeps its buffer. A ranged use fires the source it
-   was admitted with, carried on its fire event (schema 534). Open: boss
-   and scripted starts, locomotion escapes before their spend, the
-   landing-tick cancel-window remainder, the action offer, and interrupting
-   a bound shot whose source is gone.)
+   was admitted with, carried on its fire event (schema 534). Boss attack
+   starts wait out the same lock. A brain's attack kit is offered by the
+   trigger's admission (`MoveAdmission::offer`), and its observed use
+   names the started move (`OwnMoveFact.spec`). Open: scripted starts,
+   locomotion escapes before their spend, the landing-tick cancel-window
+   remainder, and interrupting a bound shot whose source is gone.)
 
 10. [Input IN1/IN2](engine/participant-action-system.md#input-history-and-body-interpretation)
     defines one admitted input cut for recording and replay, then resolves

@@ -248,7 +248,7 @@ pub fn tick_fighter_owned(
                         binding,
                         watch_ticks: move_ticks.saturating_add(state.perception.delay_ticks() as u32),
                         refuse_ticks: move_ticks,
-                        before: snapshot.own_move.map(|playing| playing.instance),
+                        before: snapshot.own_move.as_ref().map(|playing| playing.instance),
                         instance: None,
                         landed: false,
                     });
@@ -326,7 +326,7 @@ fn watch_the_own_attack(state: &mut FighterState, snapshot: &BrainSnapshot) {
     let Some(own) = state.own_attack.as_mut() else {
         return;
     };
-    let playing = snapshot.own_move;
+    let playing = snapshot.own_move.as_ref();
     let mut over = false;
     match (own.instance, playing) {
         (None, Some(now)) if Some(now.instance) != own.before => {

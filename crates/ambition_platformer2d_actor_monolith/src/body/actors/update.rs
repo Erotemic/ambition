@@ -2517,6 +2517,7 @@ fn build_enemy_brain_snapshot(
         // it: a brain learns from this whether its own attack hit.
         own_move: playback.map(|pb| ambition_characters::brain::OwnMoveFact {
             instance: pb.instance,
+            spec: pb.spec.clone(),
             contact: pb.contact(),
         }),
         crowding,

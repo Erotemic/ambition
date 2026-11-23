@@ -2043,6 +2043,7 @@ fn drive(
     for tick in 0..ticks {
         snapshot.own_move = started.filter(|at| tick - at < move_ticks).map(|at| OwnMoveFact {
             instance,
+            spec: played("jab"),
             contact: ambition_entity_catalog::MoveContact {
                 overlapped: body.lands && tick - at >= 3,
                 connected: body.lands && tick - at >= 3,
@@ -2060,6 +2061,30 @@ fn drive(
         }
     }
     (presses, state)
+}
+
+/// The move a body's own use plays, as the combat authority hands it over.
+fn played(id: &str) -> std::sync::Arc<ambition_entity_catalog::MoveSpec> {
+    std::sync::Arc::new(ambition_entity_catalog::MoveSpec {
+        id: id.to_string(),
+        display_name: None,
+        clip: ambition_entity_catalog::ClipBinding { clip: "attack".to_string(), fallbacks: Vec::new() },
+        duration_s: 0.35,
+        windows: Vec::new(),
+        events: Vec::new(),
+        gates: Default::default(),
+        start_impulse: None,
+        charge_mult: 1.0,
+        move_charge: None,
+        charge_gesture: Default::default(),
+        repeat: None,
+        landing_lag_s: None,
+        autocancel_after_s: None,
+        sprite_spin_hz: None,
+        equips: None,
+        shot_damage: None,
+        flow: None,
+    })
 }
 
 /// The armed kit with a second, weaker move bound on another direction.
@@ -2144,7 +2169,7 @@ fn the_move_playing_at_the_press_is_not_the_pressed_move() {
     let (snapshot, jab, _) = jab_and_poke();
     let (cfg, mut state) = rig(immediate_profile());
     let touched = ambition_entity_catalog::MoveContact { overlapped: true, connected: true, blocked: false };
-    let playing = |instance: u32, contact| Some(OwnMoveFact { instance, contact });
+    let playing = |instance: u32, contact| Some(OwnMoveFact { instance, spec: played("jab"), contact });
     state.own_attack = Some(OwnAttack {
         binding: jab,
         watch_ticks: 40,

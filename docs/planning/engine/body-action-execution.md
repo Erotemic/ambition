@@ -203,12 +203,20 @@ data and recovery route. A press the body would refuse is offered as the new
 reading only `Now`. To stay under Bevy's parameter limit, `tick_actor_brains`
 folded the mount carrier read into its read-only `bodies` query. Guards:
 `an_offer_names_the_move_the_trigger_would_start_and_spends_nothing` and
-`a_locked_bodys_kit_offers_its_moves_as_refused`. `OwnMoveFact` does not yet
-carry the started move's identity (the REC1 half of this section).
+`a_locked_bodys_kit_offers_its_moves_as_refused`.
 
-Still open: that cancel-window remainder of step 3, locomotion escapes authorized before their
-spend (step 4, which can now ask the offer), and the started move's identity
-on `OwnMoveFact`.
+**The observed use names its move (2026-11-23).** `OwnMoveFact.spec` is the
+playing use's own `Arc<MoveSpec>` handle, cloned from `MovePlayback.spec` by
+the actor adapter, and `OwnMoveFact::move_id` compares it with an offered
+candidate's `move_id`. A fallback, another buffered move or a
+posture-dependent selection now reads as the move it is, not only as a new
+`instance`. The fact is no longer `Copy`; the fighter borrows it. No reader
+changes behavior yet: REC1 is the customer that follows the started move or
+replans when it differs. The projection is the playback's handle itself, so
+the offer test above is the identity crossing.
+
+Still open: that cancel-window remainder of step 3, and locomotion escapes
+authorized before their spend (step 4, which can now ask the offer).
 
 ### An offer and an accepted action must name the same move
 

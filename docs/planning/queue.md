@@ -302,11 +302,14 @@ world-post admission.
    identical authored participants in different live room instances must
    not share a conversation identity, runner or end result. Preserve the
    existing ledger and independence from mutable input ownership.
+   (Landed 2026-11-23: the instance id carries its opening live room.)
    [O6a/O6b](engine/authored-gameplay-logic-and-orchestration.md#o6--bind-invocation-roles-through-the-existing-call-boundary)
    adds the existing merchant as an independent first context customer:
    wallet questions and purchase requests select the same payer policy.
    Preserve three verdicts through supported Yarn gameplay gates; an
    unanswered condition must not become an answered negative.
+   (O6a landed 2026-11-23: the merchant's `can_afford`/`wallet_balance`
+   ask the purse `buy_item` charges, by one payer rule.)
 7. [Interaction I1/I2](engine/interaction-opportunities-and-activation.md#bounded-delivery)
    moves availability/selection below the prompt and shares one attempt
    across competing contextual consumers. Preserve gesture provenance,

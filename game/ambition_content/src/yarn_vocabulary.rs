@@ -296,7 +296,12 @@ pub fn cmd_checkpoint(
 fn talking_seat(
     conversation: &ambition_conversation::RunnerConversation,
 ) -> Option<ambition_characters::control::PlayerSlot> {
-    match conversation.input_owner()? {
+    seat_of(conversation.input_owner()?)
+}
+
+/// The seat an input owner names: a conversation every seat drives names none.
+fn seat_of(owner: ambition_input::InputOwner) -> Option<ambition_characters::control::PlayerSlot> {
+    match owner {
         ambition_input::InputOwner::Participant(id) => Some(ambition_characters::control::PlayerSlot(id.slot())),
         ambition_input::InputOwner::Primary => Some(ambition_characters::control::PlayerSlot::PRIMARY),
         ambition_input::InputOwner::AllParticipants => None,
@@ -564,15 +569,38 @@ fn ask_can_afford(In(price): In<f32>, world: &mut World) -> bool {
         return false;
     }
     let asked_by = asking_node(world);
+    // The purse `<<buy_item>>` would charge: this conversation's seat's body
+    // (`shop_payer`, the shop's own rule), never the primary body for a
+    // second seat's conversation.
+    let Some(payer) = conversation_payer(world) else {
+        bevy::log::warn!(
+            target: "ambition_content::yarn_vocabulary",
+            "can_afford({price}) in {asked_by:?}: no single body pays for this conversation",
+        );
+        return false;
+    };
     let outcome = world.resource_scope::<ConditionCatalog, _>(|world, catalog| {
-        catalog.evaluate(
+        catalog.evaluate_of(
             world,
             &condition,
+            payer,
             &[AuthoredArg::Number(f64::from(price))],
             &asked_by,
         )
     });
     outcome.is_satisfied()
+}
+
+/// The body a purchase in the speaking conversation charges: its seat's body
+/// by the shop's rule (`shop_payer`). Read at each question, never kept
+/// between the offer and the purchase.
+fn conversation_payer(world: &World) -> Option<bevy::prelude::Entity> {
+    let owner = world
+        .get_resource::<ambition_conversation::ActiveConversation>()
+        .zip(ambition_conversation::speaking_conversation_instance(world))
+        .and_then(|(active, instance)| active.of_instance(&instance))
+        .map(|live| live.input_owner);
+    ambition_platformer2d_items::narrative::shop_payer(world, owner.and_then(seat_of))
 }
 
 /// `wallet_balance()` — the player's coins, read from the wallet itself.
@@ -581,19 +609,13 @@ fn ask_can_afford(In(price): In<f32>, world: &mut World) -> bool {
 /// number, but a registered system can. The live `BodyWallet` is the one
 /// authority.
 ///
-/// Exactly one wallet, as in `wallet.can_afford` and
-/// `apply_shop_transactions`. A world with two primary purses has no single
-/// balance to report.
+/// The purse is the conversation's payer, the one `can_afford` asks and
+/// `<<buy_item>>` charges. With no single payer the line shows 0: a display
+/// value, not a balance any gate reads.
 fn ask_wallet_balance(In(()): In<()>, world: &mut World) -> f32 {
-    let mut wallets = world.query_filtered::<
-        &ambition_characters::actor::BodyWallet,
-        bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
-    >();
-    let mut found = wallets.iter(world);
-    match (found.next().map(|w| w.balance), found.next()) {
-        (Some(balance), None) => balance as f32,
-        _ => 0.0,
-    }
+    conversation_payer(world)
+        .and_then(|payer| world.get::<ambition_characters::actor::BodyWallet>(payer))
+        .map_or(0.0, |wallet| wallet.balance as f32)
 }
 
 /// Build closures around the shared mirror and register the remaining

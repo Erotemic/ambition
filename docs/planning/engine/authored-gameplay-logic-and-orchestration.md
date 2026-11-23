@@ -203,6 +203,34 @@ decide how a throw, departure or scene completes.
 
 #### O6a — bind the merchant's question and action to the same subject
 
+**Done 2026-11-23.** The shop's payer rule is now one function,
+`ambition_platformer2d_items::narrative::payer_among`: the body driving
+the conversation's seat, or with no seat the one primary. Two candidates
+name no payer.
+
+- **Shop:** `apply_shop_transactions` charges by it.
+- **Questions:** `shop_payer` reads the same rule off a world for a
+  question asked before the purchase.
+- **Subject form:** `wallet.can_afford` publishes `can_afford_for` (that
+  body's own purse).
+- **Catalog:** `ConditionCatalog::evaluate_of` asks a subject through the
+  same checks and the same recorded verdict as `evaluate`. A condition with
+  no subject form is unanswerable there, not answered for the population.
+- **Yarn:** `can_afford(n)` and `wallet_balance()` select the payer from the
+  speaking conversation's input owner at each read. Nothing is stored
+  between the offer and the purchase. With no single payer, `can_afford`
+  answers false (logged) and the balance line shows 0.
+
+A temporary probe was then removed. With 100 coins on the primary and 0 on
+seat 1, the old global answer for an 8-coin offer was satisfied and the
+payer answer was not. Reversed, the old answer refused and the payer answer
+allowed. Both times the payer was seat 1's body, the purse `buy_item`
+charges. The generic `condition("wallet.can_afford", n)` form keeps the
+primary-wallet population answer; no shipped Yarn uses it. The two-seat
+merchant was not driven through a live session here.
+
+The audit as written:
+
 **Open, source review at `f41218979625`:** the current merchant supplies a
 smaller customer than a new role-authoring surface. In
 `game/ambition_content/src/yarn_vocabulary.rs`, `ask_can_afford` asks the

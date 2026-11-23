@@ -268,10 +268,14 @@ world-post admission.
    bound by name, rebinds on a reordered rig, and ends the hold when the rig
    loses it.)
    [REL1/REL2](engine/relationship-endpoints-and-transitions.md#rel1--capture-owns-admission-at-every-ingress)
-   next close native admission bypasses: capture reserves both endpoints;
+   close native admission bypasses: capture reserves both endpoints;
    mount admission establishes common scope and an active pair, and accepts
    one end before publishing it. Preserve reset associations separately from
-   active riding and delete adapter-only end deduplication.
+   active riding and delete adapter-only end deduplication. (Landed
+   2026-11-23: `CaptureOccupancy` is the one capture law at both ingresses;
+   `BoardCase::refusal` with `ExecutionScope` is the one board law;
+   `ActiveRides` is the active pair; a ride ends once per tick and the
+   adapter's deduplication is gone.)
    [REL3](engine/relationship-endpoints-and-transitions.md#rel3--prepare-a-transfer-cohort-and-native-relation-dispositions)
    prepares companions from each transfer's actual roots, including an NPC
    rider's mount and a possessed body's inactive home. Admit the required

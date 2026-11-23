@@ -1,6 +1,7 @@
 # Relationship endpoints and accepted transitions
 
-**State:** PLANNED, source audit 2026-11-22. Runtime source:
+**State:** REL1 and REL2 LANDED 2026-11-23 (receipts in their sections);
+REL3 and REL4 PLANNED. Source audit 2026-11-22. Runtime source:
 `00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The preceding geometry overlay is
 `f533f6c030701e2e52346496cbd72142d495194d`; it changes documentation only.
 The counterexamples below follow native value and control paths. They are
@@ -162,6 +163,17 @@ one victim and attempt B → C while A holds B. Vary delivery order under the
 same declared priority. No refused grant performs side effects. Single
 native carry and fighter mutual parry are controls.
 
+**Landed 2026-11-23 (`cb705720a`).** `capture::CaptureOccupancy` is the one
+structural law: committed holds at both ends, then both ends of each edge a
+cut admits. `sort_by_capture_priority` is the declared priority (captor
+`SimId`, then victim). The native seize resolves its proposals against
+settled state and admits them in that priority; the captor-only `seized`
+list is gone. The fighter grab asks the same law, so a body that holds
+somebody is no longer caught. Witness:
+`a_seize_admits_one_capture_per_body_in_its_declared_priority`
+(`ambition_combat` extension tests); the fighter parry and matching tests
+are the controls.
+
 ## REL2 — distinguish an active ride and admit its transitions once
 
 Expose one mount-owned active-ride view for steering, pinning, observations,
@@ -202,6 +214,36 @@ NPC's reset association reports no active ride, then revival re-admits it
 when the saddle is available. Keep the existing commandeer and possession
 death receipts. No demonstrated same-pair leave/reboard ABA case requires
 a new relation occurrence token in this slice.
+
+**Landed 2026-11-23 (`66e7d2386`, `e49d9dbd5`).**
+
+- `lifecycle::ExecutionScope` states one physical space: a live room of a
+  session, or the session in a composition with no live room. With two live
+  rooms, two bodies of unknown room share none.
+- `ambition_mount::BoardCase::refusal` is the one board law (liveness,
+  role, licence, other ride, saddle, reservation, one scope). The selection
+  adds reach (`nearest_commandeerable`), `board` asks it again at its write
+  cut, a reservation that finds its rider apart ends with `RideRefused`, and
+  the rearm ends a record the law refuses.
+- `active_mount` / `ActiveRides`: a `RidingOn` whose mount's saddle names
+  the rider back. Steering, the saddle pin, the `ambition.body.ride`
+  observation, interaction selection, custody travel and the zone walls
+  read it; boss conduct still reads the association. The reset association
+  stays `RidingOn` without a separate component: it has one writer, and the
+  active view gives each reader one meaning.
+- `apply_dismount_requests` ends each ride once per tick, named by
+  `DismountReason::precedence`; the ability adapter's `asked` list is gone.
+
+Witnesses: `a_mount_in_another_live_room_is_neither_offered_nor_boarded`,
+`a_reservation_does_not_board_a_rider_in_another_room`,
+`two_unknown_rooms_are_not_one_room`,
+`a_bail_and_an_expired_lease_on_one_tick_end_the_ride_once` (mount lib) and
+the active-ride assertions in
+`a_dead_rider_frees_the_saddle_and_its_revival_takes_it_back`.
+Open: the saddle pin's own `PoseRefused` end is still a second writer of
+`RiderDismounted`; it is safe because a dissolve empties the saddle at once
+and the pin reads only an active ride. Form/control revalidation of an
+active ride's licence is not done here.
 
 ## REL3 — prepare a transfer cohort and native relation dispositions
 

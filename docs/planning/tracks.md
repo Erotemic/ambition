@@ -198,7 +198,8 @@ there is no all-crates extraction program.
 
 - ▢ **Deterministic world facts + observations/memory.** Keep simulation truth
   separate from what a character observed or believes. OBS1–OBS3 are selected
-  bounded corrections, not a new reservoir checklist. Promote durable social
+  bounded corrections, not a new reservoir checklist; OBS1 and OBS2 landed
+  2026-11-23, OBS3 is open. Promote durable social
   knowledge only with a concrete recognized-incident/dialogue customer and
   stated room/death/checkpoint/replay/save horizons. Preserve existing narrow
   Player-hostility and per-seat dialogue-visit policy. Use

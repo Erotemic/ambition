@@ -6,11 +6,10 @@ budget that bounds it. **Ruling:**
 **Related:** [fighter brain](fighter-brain.md),
 [world facts](world-facts-observations-and-memory.md).
 
-**Source follow-up:** `00bf92c22142`, 2026-11-22. The rich-view cap is
-implemented; its native belief/reporting boundary is not yet complete.
-OBS1 below refines that implementation claim without reopening the
-earlier allocation and dense-room receipts. No new runtime or timing
-result was produced by this audit.
+**Source follow-up:** `00bf92c22142`, 2026-11-22. The rich-view cap was
+implemented; its native belief/reporting boundary was not. OBS1 closed
+that boundary on 2026-11-23 (`6fe56fb12`) without reopening the earlier
+allocation and dense-room receipts. No timing result is claimed.
 
 ## The rule
 
@@ -27,8 +26,8 @@ brain's view was about 89% of decision cost in a 130-body room.
 | Increment | State | Where |
 | --- | --- | --- |
 | 1. A brain declares what it needs | landed | `PerceptionRequirement` (`None` / `TargetBelief` / `TacticalWorld`) in `ambition_characters::perception`; the `None` gate in `body/actors/update.rs` |
-| 2. Cheap target belief | representation landed; native dispatch refinement open | `perception::nearest_hostile_peer` borrows the peer slice and allocates nothing. Seven of nine brain templates declare `TargetBelief`; only `Smash` and `Fighter` need a `WorldView`. The native loop nevertheless also takes the cheap branch for `TacticalWorld`. |
-| 3. Attention budget | rich-view cap landed; OBS1 open | `build_world_view` keeps at most `TACTICAL_ATTENTION` (16) peers, ranked hostile first, then squared distance, then id. The rest is `WorldView.remainder: AttentionRemainder { actors, hostiles, nearest_unattended_hostile_dist_sq }`. Native exact memory refresh is currently uncapped. |
+| 2. Cheap target belief | landed | `perception::nearest_hostile_peer` borrows the peer slice and allocates nothing. Seven of nine brain templates declare `TargetBelief`; only `Smash` and `Fighter` need a `WorldView`. Native dispatch is by the actual requirement (`perceive_for_decision`). |
+| 3. Attention budget | landed for direct evidence (OBS1) | `build_world_view` keeps at most `TACTICAL_ATTENTION` (16) peers, ranked living hostiles first, then squared distance, then id. The rest is `WorldView.remainder: AttentionRemainder { actors, hostiles, nearest_unattended_hostile_dist_sq }`. A `TacticalWorld` body refreshes memory for, acquires from and reports exactly that kept set. |
 | 4. Bounded crowd representation | open | see "Target representation" |
 
 Standing facts:
@@ -37,8 +36,8 @@ Standing facts:
   "hostile" (`peer_is_visible_to_body`, `peer_is_hostile_to_body`). Guards:
   `a_cheap_belief_agrees_with_the_view_it_replaces`,
   `a_cheap_belief_sees_a_same_faction_grudge_the_way_the_view_does`.
-  These do not establish liveness parity: cheap acquisition does not filter
-  dead peers, while `WorldView::hostiles` does. OBS2 owns the correction.
+  Both roads also reject a dead candidate and fold a seen death into memory
+  (OBS2: `an_observed_death_disconfirms_pursuit_and_an_unobserved_one_does_not`).
 - `WorldMemory` decays everything not seen this tick, so the cheap road still
   feeds the memory a seen set (`update_from_seen`). A cheap road that skipped
   the memory update would break pursuit of a remembered foe.
@@ -46,94 +45,51 @@ Standing facts:
   from its seat and the session's one extent). `PerceptionExtentOverride` is a
   per-world development knob, read once at App build.
 - The attention cut must be deterministic because admitted evidence feeds
-  `WorldMemory`, which is rollback state. The current native wiring below
-  bypasses the kept set even though the view builder and ADR describe that
-  intended boundary.
+  `WorldMemory`, which is rollback state.
 - A resolved hit updates perception memory in `CombatSet::Settle`, before the
   snapshot. `ResolvedBodyHit` is cleared on rewind, so its consequence cannot
   wait for the next tick. Guard: `contact_state_survives_real_rewind_and_resimulation`
   in [the contact replay](../../../game/ambition_app/tests/rollback_contact.rs).
 - Budget guards: `a_crowd_is_attended_to_hostiles_first_and_the_rest_is_counted`,
-  `below_the_attention_cap_the_view_is_what_it_always_was`.
-  Both exercise view construction, not the whole native decision/crew path.
+  `below_the_attention_cap_the_view_is_what_it_always_was` (view construction),
+  and `the_tactical_attention_cap_bounds_the_evidence_a_body_admits` (the
+  native admission and crew path).
 
 ## OBS1 — make attention the native evidence admission boundary
 
-### The native bypass
+**Landed 2026-11-23, `6fe56fb12`.** A `TacticalWorld` body built its
+bounded view and then also took the cheap road, folding every visible
+peer into memory: with 17 visible foes it built 16 rich actors, refreshed
+17 exact memories, and could call all 17 out to its crew.
+[`perceive_for_decision`](../../../crates/ambition_platformer2d_actor_monolith/src/body/perception.rs)
+now owns per-body admission. `TacticalWorld` folds exactly the attended
+view; `TargetBelief` keeps the borrowed cheap road and builds no view;
+`Perception::Omniscient` keeps its global target (belief `None`). The
+`None` fast path is unchanged.
 
-In [`tick_actor_brains`](../../../crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs),
-`PerceptionRequirement::needs_target_belief()` is true for both
-`TargetBelief` and `TacticalWorld`. The latter first builds the bounded
-view, then also builds `cheap`. Its memory fold iterates every visible
-`view_peers` row; belief selects the `Some(cheap)` branch. The
-`believed_target(&world_view)` branch that would fold the kept set is
-unreachable on this path.
+Guard: `the_tactical_attention_cap_bounds_the_evidence_a_body_admits`.
+Seventeen foes: memory and the next crew call name the 16 attended. Below
+the cap all are admitted. A peer outside the viewport is never admitted;
+another live room's peer is never offered
+(`a_viewer_perceives_only_the_bodies_of_its_own_live_room`). A prior
+memory of the unattended foe decays and stays a pursuit candidate; it is
+not refreshed as seen and not called out. The cheap-road pursuit guard
+(`a_target_belief_body_still_pursues_a_foe_it_has_lost_sight_of`) drives
+both native roads through the same function.
 
-With empty memory and 17 visible live hostile peers, a tactical body
-therefore builds 16 rich actors and one remainder count, but refreshes
-17 exact memories. If it shares sightings, the next native crew pass can
-name all 17. The census reports the view's 16; it does not count exact
-memory refreshes. This is a source-derived sequence. Below-cap parity and
-the existing dense view-count receipt both remain valid.
+The census row adds `admitted` (exact rows folded), `rich` (view rows
+built), `retained` (memory rows after the fold) and `reports` (eligible
+crew calls per view). `offered` and `visible` stay separate.
 
-The bounded direct-observation set must govern exact sight, direct target
-acquisition and direct memory refresh together. It need not contain every
-actor the body can pursue: a prior memory, a valid report or an attributed
-hit can legitimately name an actor outside current attention. Those are
-separate evidence inputs with their own meaning.
+**Still open:**
 
-### Smallest delivery
-
-1. Dispatch by the actual requirement. `TacticalWorld` must stop taking
-   the unrestricted cheap fold. Its existing bounded view can feed memory
-   and direct acquisition immediately; select borrowed peers once if the
-   native extraction can avoid duplicating work. Do not make a temporary
-   world view merely to support the cheap requirement.
-2. Keep `TargetBelief`'s borrowed, no-rich-record path and pursuit receipt.
-   Its current broad seen fold is not proof of a bounded admission contract.
-   Before changing that population, specify its small direct-evidence budget
-   and retained-target policy, then prove the intended behavior. That is an
-   explicit behavior/replay change, not an incidental result of reusing the
-   tactical helper. The first repair may retain today's cheap semantics
-   while clearly limiting its claim to tactical admission.
-3. Carry observed liveness into the small memory input. Direct acquisition
-   rejects a dead candidate, but an attended death still reaches memory to
-   disconfirm a prior living target. [OBS2](world-facts-observations-and-memory.md#obs2--preserve-evidence-meaning-through-memory-and-communication)
-   defines the sight/report/hit merge rules and source cut. Absence from
-   attention is not evidence of death or absence from the room.
-4. Preserve `Perception::Omniscient` and its declared global-target policy
-   for seated/summoned bodies. Scope and representation demand are distinct.
-   A bounded tactical view must not silently narrow intentional omniscience.
-5. Keep the zero-consumer fast path. [OBS3](agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers)
-   makes the effective demand include admitted module consumers. A native
-   fallback's `None` is sufficient to clear memory only when no other
-   installed consumer requires it.
-
-The same pure actor data and native adapter remain the owners. There is no
-new sensor registry, per-observer ECS hierarchy or all-world snapshot. The
-short-lived admitted set is derived; `PerceptionMemory` remains canonical.
-Keep the existing room and viewport guards and the same source predicates.
-
-### Proof at the crossing that currently fails
-
-Use the real decision path with a sighted tactical body, empty memory and
-17 distinguishable live foes. Assert the admitted exact rows, refreshed
-memory and next crew report subjects, not only `WorldView.actors.len()`.
-A below-cap arm must retain its existing behavior; a peer outside the
-viewport or in a different live room remains excluded.
-
-Also seed a legitimate prior memory that is outside today's attention.
-It may decay and remain a pursuit candidate; the cap must not erase it as
-if forgotten, refresh it as if seen, or report it as a new firsthand sight.
-This separates per-tick evidence admission from retention over time.
-Use the existing pursuit guard for the cheap road. OBS2 owns the liveness
-and report controls rather than duplicating them here.
-
-Extend the existing optional census to expose the counts that decide this
-contract: exact direct rows admitted/refreshed, rich actors constructed,
-retained memories and eligible direct reports. Keep `offered` and
-`visible` separate. A capped view alone cannot certify bounded native
-memory work. Do not add a shipping trace or an event log per peer.
+- `TargetBelief` still admits every visible peer. Before changing that
+  population, specify its direct-evidence budget and retained-target
+  policy and prove it; that is a behavior/replay change.
+- [OBS3](agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers)
+  makes the effective demand include admitted module consumers.
+- Retention over time (how many old memories a body keeps) is a separate
+  budget.
 
 ### Cost model and the useful local optimization
 
@@ -236,8 +192,8 @@ scripts/measure/measure_perception_density.sh
 ```
 
 The census row reports `offered`, `visible` (density before the cut) and `kept`
-(rich actors after the cut). It does not currently count native memory
-refreshes, retained history or report fanout. In a sparse room the viewport bounds `kept`
+(rich actors after the cut), and since OBS1 `admitted`, `rich`, `retained`
+and `reports`. In a sparse room the viewport bounds `kept`
 near 14, so a sparse room cannot show why attention is needed. In a dense room
 `kept` tracks population until the budget caps it at 16. Guard:
 `offered_saturates_when_bodies_are_spread_grows_when_dense_and_the_budget_caps_kept`
@@ -266,7 +222,7 @@ the Hall instead; keep it as a control, not as the dense room.
 `kept` equals `visible` up to 12 bodies and stops at 16 from 25 to 200, while
 `visible` climbs to 141.7 (`--room dense_melee_pit --brain "" --extents
 shipped --populations ...`; the table is on the queue row). That is the
-rich-view structural clause measured in a dense room; OBS1 adds the missing
+rich-view structural clause measured in a dense room; OBS1 added the
 native admission witness. The empirical clause — decision
 cost flat with the budget and rising without it — still needs interleaved
 timing arms on a quiet machine.

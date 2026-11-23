@@ -15,11 +15,8 @@ pub const MAX_MUSIC_LAYERS: usize = 6;
 #[serde(deny_unknown_fields)]
 pub struct MusicCueSpec {
     pub id: String,
-    pub asset_root: String,
-    pub bpm: f32,
-    pub beats_per_bar: f32,
+    pub media: MusicCueMedia,
     pub relative_volume: f32,
-    pub sections: Vec<MusicSectionSpec>,
     pub layers: Vec<MusicLayerSpec>,
     pub states: Vec<MusicStateSpec>,
     #[serde(default)]
@@ -34,13 +31,37 @@ pub struct MusicCueSpec {
     pub runtime_balance_overrides: Vec<MusicStateBalanceOverride>,
 }
 
-impl MusicCueSpec {
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub enum MusicCueMedia {
+    Inline {
+        asset_root: String,
+        bpm: f32,
+        beats_per_bar: f32,
+        sections: Vec<MusicSectionSpec>,
+    },
+    Published {
+        description: String,
+        products: MusicProductSet,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MusicProductSet {
+    MasteredFull,
+    GroupedLayers,
+}
+
+impl MusicCueMedia {
     /// Resolve a source relative to the cue root. A qualified source keeps its owner.
     pub(crate) fn source_path(&self, source: &MusicLayerSourceSpec) -> String {
-        if source.path.contains("://") || self.asset_root.is_empty() {
+        let Self::Inline { asset_root, .. } = self else {
+            unreachable!("inline source path")
+        };
+        if source.path.contains("://") || asset_root.is_empty() {
             source.path.clone()
         } else {
-            format!("{}/{}", self.asset_root.trim_end_matches('/'), source.path)
+            format!("{}/{}", asset_root.trim_end_matches('/'), source.path)
         }
     }
 }

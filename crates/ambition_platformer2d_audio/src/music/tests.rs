@@ -6,8 +6,8 @@ use ambition_audio::{
     spec::{MusicRegistry, MusicTrack},
 };
 use ambition_boss_encounter::{
-    BossEncounterPhase,
     test_support::{test_boss_config, test_boss_status},
+    BossEncounterPhase,
 };
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_encounter::{
@@ -18,8 +18,8 @@ use ambition_input::participant::InputParticipant;
 use ambition_platformer2d_shared_tangle::{
     body::PrimaryBody,
     lifecycle::{
-        InRoomInstance, LiveRoomInstance, RoomInstanceRoot, insert_session_world_component,
-        session_world_component, session_world_component_mut,
+        insert_session_world_component, session_world_component, session_world_component_mut,
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
     },
     sim_id::SimId,
 };
@@ -29,22 +29,24 @@ use bevy::prelude::*;
 fn cue(id: &str) -> MusicCueSpec {
     MusicCueSpec {
         id: id.into(),
-        asset_root: "audio/fixture".into(),
-        bpm: 120.0,
-        beats_per_bar: 4.0,
+        media: MusicCueMedia::Inline {
+            asset_root: "audio/fixture".into(),
+            bpm: 120.0,
+            beats_per_bar: 4.0,
+            sections: ["intro", "song", "outro"]
+                .into_iter()
+                .map(|id| MusicSectionSpec {
+                    id: id.into(),
+                    duration_beats: 4.0,
+                    looped: id == "song",
+                    sources: vec![MusicLayerSourceSpec {
+                        layer_id: "full".into(),
+                        path: format!("{id}.ogg"),
+                    }],
+                })
+                .collect(),
+        },
         relative_volume: 1.0,
-        sections: ["intro", "song", "outro"]
-            .into_iter()
-            .map(|id| MusicSectionSpec {
-                id: id.into(),
-                duration_beats: 4.0,
-                looped: id == "song",
-                sources: vec![MusicLayerSourceSpec {
-                    layer_id: "full".into(),
-                    path: format!("{id}.ogg"),
-                }],
-            })
-            .collect(),
         layers: vec![MusicLayerSpec {
             id: "full".into(),
             slot: 0,
@@ -136,33 +138,36 @@ fn fixture(override_track: bool) -> (App, Entity, [LiveRoomInstance; 2]) {
         .id();
     app.world_mut().spawn(InputParticipant::primary());
     insert_session_world_component(app.world_mut(), EncounterMusicRequest::default());
-    let catalog = MusicCueCatalog::prepare(ambition_audio::cue_spec::AuthoredMusicCues {
-        cues: vec![cue("fight_program"), cue("destination")],
-        encounter_bindings: vec![EncounterMusicBinding {
-            encounter_id: "fight".into(),
-            cue_id: "fight_program".into(),
-            starting_state: "intro".into(),
-            wave_states: vec!["song".into()],
-            wave2_reinforced_state: None,
-            cleared_state: "outro".into(),
-        }],
-        boss_bindings: vec![BossMusicBinding {
-            boss_id: "wolfenstein_boss".into(),
-            cue_id: "fight_program".into(),
-            phase_states: vec![BossPhaseState {
-                phase: "Phase1".into(),
-                state: "song".into(),
+    let catalog = MusicCueCatalog::prepare(
+        ambition_audio::cue_spec::AuthoredMusicCues {
+            cues: vec![cue("fight_program"), cue("destination")],
+            encounter_bindings: vec![EncounterMusicBinding {
+                encounter_id: "fight".into(),
+                cue_id: "fight_program".into(),
+                starting_state: "intro".into(),
+                wave_states: vec!["song".into()],
+                wave2_reinforced_state: None,
+                cleared_state: "outro".into(),
             }],
-        }],
-        room_bindings: vec![RoomMusicBinding {
-            room_id: "chapel".into(),
-            cue_id: "destination".into(),
-            state: "song".into(),
-            entry_state: None,
-            fight_state: None,
-        }],
-        ..default()
-    })
+            boss_bindings: vec![BossMusicBinding {
+                boss_id: "wolfenstein_boss".into(),
+                cue_id: "fight_program".into(),
+                phase_states: vec![BossPhaseState {
+                    phase: "Phase1".into(),
+                    state: "song".into(),
+                }],
+            }],
+            room_bindings: vec![RoomMusicBinding {
+                room_id: "chapel".into(),
+                cue_id: "destination".into(),
+                state: "song".into(),
+                entry_state: None,
+                fight_state: None,
+            }],
+            ..default()
+        },
+        &ambition_audio::music_media::MusicMediaCatalog::default(),
+    )
     .unwrap();
     let mut catalogs = AdaptiveMusicCatalogRegistry::default();
     catalogs.register("game", catalog).unwrap();
@@ -502,10 +507,18 @@ fn a_complete_room_projection_without_eligible_music_retires_the_old_goal() {
 #[test]
 fn a_remote_primary_body_cannot_clear_the_local_rooms_narrative_request() {
     let (mut app, remote, rooms) = fixture(false);
-    app.add_systems(Update, super::release_narrative_music_on_room_change.before(compute_music_intent));
-    app.world_mut().entity_mut(remote).insert((DrivingParticipant(PlayerSlot(9)), InRoomInstance(rooms[1])));
-    app.world_mut().spawn((DrivingParticipant(PlayerSlot(0)), InRoomInstance(rooms[1])));
-    app.world_mut().resource_mut::<ambition_conversation::NarrativeMusicRequest>().request("narrative");
+    app.add_systems(
+        Update,
+        super::release_narrative_music_on_room_change.before(compute_music_intent),
+    );
+    app.world_mut()
+        .entity_mut(remote)
+        .insert((DrivingParticipant(PlayerSlot(9)), InRoomInstance(rooms[1])));
+    app.world_mut()
+        .spawn((DrivingParticipant(PlayerSlot(0)), InRoomInstance(rooms[1])));
+    app.world_mut()
+        .resource_mut::<ambition_conversation::NarrativeMusicRequest>()
+        .request("narrative");
     app.update();
     assert_eq!(winner(&app).choice, MusicChoice::Track("narrative".into()));
     app.world_mut().entity_mut(remote).insert(InRoomInstance(rooms[0]));

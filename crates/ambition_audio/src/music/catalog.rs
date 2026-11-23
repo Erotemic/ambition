@@ -1,9 +1,9 @@
 use super::*;
 
 pub use crate::cue_spec::{
-    BOSS_PHASE_KEYS, BossMusicBinding, BossPhaseState, EncounterMusicBinding, MusicCueSpec,
-    MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec,
-    MusicStateBalanceOverride, MusicStateSpec, RoomMusicBinding, RoomPhaseTrack,
+    BossMusicBinding, BossPhaseState, EncounterMusicBinding, MusicCueMedia, MusicCueSpec,
+    MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec, MusicProductSet, MusicSectionSpec,
+    MusicStateBalanceOverride, MusicStateSpec, RoomMusicBinding, RoomPhaseTrack, BOSS_PHASE_KEYS,
 };
 
 pub use crate::cue_program::PreparedMusicCues as MusicCueCatalog;
@@ -297,41 +297,46 @@ mod provider_registry_tests {
     use bevy::prelude::App;
 
     fn catalog(cue_id: &str, path: &str) -> MusicCueCatalog {
-        MusicCueCatalog::prepare(crate::cue_spec::AuthoredMusicCues {
-            cues: vec![MusicCueSpec {
-                id: cue_id.to_owned(),
-                asset_root: "audio/adaptive".to_owned(),
-                bpm: 120.0,
-                beats_per_bar: 4.0,
-                relative_volume: 1.0,
-                sections: vec![MusicSectionSpec {
-                    id: "loop".to_owned(),
-                    duration_beats: 4.0,
-                    looped: true,
-                    sources: vec![MusicLayerSourceSpec {
-                        layer_id: "full".to_owned(),
-                        path: path.to_owned(),
+        MusicCueCatalog::prepare(
+            crate::cue_spec::AuthoredMusicCues {
+                cues: vec![MusicCueSpec {
+                    id: cue_id.to_owned(),
+                    media: MusicCueMedia::Inline {
+                        asset_root: "audio/adaptive".to_owned(),
+                        bpm: 120.0,
+                        beats_per_bar: 4.0,
+                        sections: vec![MusicSectionSpec {
+                            id: "loop".to_owned(),
+                            duration_beats: 4.0,
+                            looped: true,
+                            sources: vec![MusicLayerSourceSpec {
+                                layer_id: "full".to_owned(),
+                                path: path.to_owned(),
+                            }],
+                        }],
+                    },
+                    relative_volume: 1.0,
+                    layers: vec![MusicLayerSpec {
+                        id: "full".to_owned(),
+                        slot: 0,
                     }],
-                }],
-                layers: vec![MusicLayerSpec {
-                    id: "full".to_owned(),
-                    slot: 0,
-                }],
-                states: vec![MusicStateSpec {
-                    id: "main".to_owned(),
-                    section_id: "loop".to_owned(),
-                    next_state: None,
-                    gains: vec![MusicLayerGainSpec {
-                        layer_id: "full".to_owned(),
-                        gain: 1.0,
+                    states: vec![MusicStateSpec {
+                        id: "main".to_owned(),
+                        section_id: "loop".to_owned(),
+                        next_state: None,
+                        gains: vec![MusicLayerGainSpec {
+                            layer_id: "full".to_owned(),
+                            gain: 1.0,
+                        }],
                     }],
+                    outro_state: None,
+                    post_clear_bridge_state: None,
+                    runtime_balance_overrides: Vec::new(),
                 }],
-                outro_state: None,
-                post_clear_bridge_state: None,
-                runtime_balance_overrides: Vec::new(),
-            }],
-            ..default()
-        })
+                ..default()
+            },
+            &crate::music_media::MusicMediaCatalog::default(),
+        )
         .unwrap()
     }
 

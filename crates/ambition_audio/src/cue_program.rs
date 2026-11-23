@@ -5,7 +5,9 @@ use std::collections::BTreeMap;
 use bevy::prelude::Resource;
 
 use crate::cue_spec::*;
+use crate::music_media::{MusicMediaCatalog, PreparedMusicClock};
 
+mod media;
 mod references;
 mod validation;
 use validation::validation_errors;
@@ -28,8 +30,7 @@ pub struct PreparedMusicCues {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreparedMusicCue {
     pub id: String,
-    pub bpm: f32,
-    pub beats_per_bar: f32,
+    pub media_identity: Option<PreparedMusicMediaIdentity>,
     pub sections: Vec<PreparedMusicSection>,
     pub states: Vec<PreparedMusicState>,
     pub outro_state: Option<String>,
@@ -39,9 +40,21 @@ pub struct PreparedMusicCue {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct PreparedMusicMediaIdentity {
+    pub cue_id: String,
+    pub description_path: String,
+    pub compiled_score_fingerprint: String,
+    pub render_fingerprint: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct PreparedMusicSection {
     pub id: String,
     pub duration_seconds: f32,
+    pub file_duration_seconds: Option<f64>,
+    pub clock: PreparedMusicClock,
+    pub markers: Vec<crate::music_media::MusicFrameMarker>,
+    pub retained_material: Option<crate::music_media::MusicRetainedMaterial>,
     pub looped: bool,
     pub sources: Vec<PreparedMusicSource>,
 }
@@ -51,6 +64,7 @@ pub struct PreparedMusicSource {
     pub layer_id: String,
     pub slot: usize,
     pub path: String,
+    pub product: Option<crate::music_media::MusicEncodedProduct>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -72,16 +86,25 @@ impl PreparedMusicCue {
     pub fn state(&self, id: &str) -> Option<&PreparedMusicState> {
         self.state_index.get(id).map(|index| &self.states[*index])
     }
-
-    #[cfg(feature = "kira")]
-    pub(crate) fn seconds_per_bar(&self) -> f32 {
-        self.beats_per_bar * 60.0 / self.bpm
-    }
 }
 
 impl PreparedMusicCues {
-    pub fn prepare(authored: AuthoredMusicCues) -> Result<Self, Vec<String>> {
-        let errors = validation_errors(&authored);
+    pub fn prepare(
+        authored: AuthoredMusicCues,
+        media: &MusicMediaCatalog,
+    ) -> Result<Self, Vec<String>> {
+        let mut errors = Vec::new();
+        let mut linked = Vec::new();
+        for cue in &authored.cues {
+            match media::link(cue, media) {
+                Ok(cue) => linked.push(cue),
+                Err(error) => errors.push(format!("cue {:?}: {error}", cue.id)),
+            }
+        }
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+        errors.extend(validation_errors(&authored, &linked));
         if !errors.is_empty() {
             return Err(errors);
         }
@@ -89,8 +112,7 @@ impl PreparedMusicCues {
         let room_index = index(authored.room_bindings.iter().map(|b| &b.room_id));
         let boss_index = index(authored.boss_bindings.iter().map(|b| &b.boss_id));
         Ok(Self {
-            cues: authored
-                .cues
+            cues: linked
                 .into_iter()
                 .map(|cue| {
                     let cue = prepare_cue(cue);
@@ -158,13 +180,10 @@ fn index<'a>(ids: impl Iterator<Item = &'a String>) -> BTreeMap<String, usize> {
     ids.enumerate().map(|(i, id)| (id.clone(), i)).collect()
 }
 
-fn prepare_cue(cue: MusicCueSpec) -> PreparedMusicCue {
-    let slots: BTreeMap<_, _> = cue
-        .layers
-        .iter()
-        .map(|layer| (layer.id.as_str(), layer.slot))
-        .collect();
-    let section_index = index(cue.sections.iter().map(|section| &section.id));
+fn prepare_cue(linked: media::LinkedMusicCue) -> PreparedMusicCue {
+    let cue = linked.spec;
+    let slots = linked.slots;
+    let section_index = index(linked.sections.iter().map(|section| &section.id));
     let state_index = index(cue.states.iter().map(|state| &state.id));
     let states = cue
         .states
@@ -175,7 +194,7 @@ fn prepare_cue(cue: MusicCueSpec) -> PreparedMusicCue {
                 gains[slots[gain.layer_id.as_str()]] = gain.gain * cue.relative_volume;
             }
             // A mastered full mix retains the renderer's balance.
-            if !(cue.layers.len() == 1 && slots.contains_key("full")) {
+            if !linked.mastered_full {
                 if let Some(balance) = cue
                     .runtime_balance_overrides
                     .iter()
@@ -194,32 +213,13 @@ fn prepare_cue(cue: MusicCueSpec) -> PreparedMusicCue {
             }
         })
         .collect();
-    let sections = cue
-        .sections
-        .iter()
-        .map(|section| PreparedMusicSection {
-            id: section.id.clone(),
-            duration_seconds: section.duration_beats * 60.0 / cue.bpm,
-            looped: section.looped,
-            sources: section
-                .sources
-                .iter()
-                .map(|source| PreparedMusicSource {
-                    layer_id: source.layer_id.clone(),
-                    slot: slots[source.layer_id.as_str()],
-                    path: cue.source_path(source),
-                })
-                .collect(),
-        })
-        .collect();
     PreparedMusicCue {
-        id: cue.id,
-        bpm: cue.bpm,
-        beats_per_bar: cue.beats_per_bar,
-        sections,
+        id: cue.id.clone(),
+        media_identity: linked.identity,
+        sections: linked.sections,
         states,
-        outro_state: cue.outro_state,
-        post_clear_bridge_state: cue.post_clear_bridge_state,
+        outro_state: cue.outro_state.clone(),
+        post_clear_bridge_state: cue.post_clear_bridge_state.clone(),
         section_index,
         state_index,
     }

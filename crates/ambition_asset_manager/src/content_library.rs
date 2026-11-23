@@ -58,6 +58,8 @@ pub struct LibraryFile {
     pub logical: String,
     pub data: LibraryFileData,
     pub generation: Option<String>,
+    /// The digest recorded by the accepted publication.
+    pub sha256: Option<String>,
     address: String,
 }
 
@@ -231,7 +233,7 @@ impl ContentLibrary {
         if let Some(files) = self.embedded {
             return Ok(files.iter().map(|file| (file.path.to_string(), LibraryFile {
                 library: self.manifest.id.clone(), logical: file.path.to_string(),
-                data: LibraryFileData::Embedded(file.bytes), generation: None,
+                data: LibraryFileData::Embedded(file.bytes), generation: None, sha256: None,
                 address: format!("content://{}/{}", self.manifest.id, file.path),
             })).collect());
         }
@@ -242,6 +244,7 @@ impl ContentLibrary {
                 if files.contains_key(logical) { return Err(format!("Authored asset {logical:?} collides with its published product")); }
                 files.insert(logical.to_owned(), LibraryFile { library: self.manifest.id.clone(),
                     logical: logical.to_owned(), data: LibraryFileData::Native(physical), generation: selected.generation.clone(),
+                    sha256: Some(selected.files[logical].sha256.clone()),
                     address: format!("content://{}/__art/{}", self.manifest.id, selected.files[logical].path) });
             }
         }
@@ -259,7 +262,7 @@ impl ContentLibrary {
                     continue;
                 }
                 let file = LibraryFile { library: self.manifest.id.clone(), logical: logical.clone(),
-                    data: LibraryFileData::Native(physical), generation: None,
+                    data: LibraryFileData::Native(physical), generation: None, sha256: None,
                     address: format!("content://{}/{logical}", self.manifest.id) };
                 if let Some(previous) = files.insert(logical.clone(), file) {
                     return Err(format!("Library `{}` declares `{logical}` twice: {:?} and {:?}",

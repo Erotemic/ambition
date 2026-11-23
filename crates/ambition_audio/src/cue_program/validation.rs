@@ -1,7 +1,8 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
+use super::media::LinkedMusicCue;
+use super::{references::cue_reference_errors, DAY_PHASE_KEYS};
 use crate::cue_spec::*;
-use super::{DAY_PHASE_KEYS, references::cue_reference_errors};
 
 fn check_ids<'a>(label: &str, ids: impl Iterator<Item = &'a str>, errors: &mut Vec<String>) {
     let mut seen = BTreeSet::new();
@@ -25,9 +26,12 @@ fn check_level(label: &str, value: f32, master: f32, errors: &mut Vec<String>) {
     }
 }
 
-pub(super) fn validation_errors(authored: &AuthoredMusicCues) -> Vec<String> {
+pub(super) fn validation_errors(
+    authored: &AuthoredMusicCues,
+    linked: &[LinkedMusicCue],
+) -> Vec<String> {
     let mut errors = cue_reference_errors(
-        &authored.cues,
+        linked,
         &authored.encounter_bindings,
         &authored.room_bindings,
         &authored.boss_bindings,
@@ -84,22 +88,12 @@ pub(super) fn validation_errors(authored: &AuthoredMusicCues) -> Vec<String> {
             ));
         }
     }
-    for cue in &authored.cues {
+    for linked in linked {
+        let cue = linked.spec;
         let label = format!("cue {:?}", cue.id);
-        if !cue.bpm.is_finite()
-            || cue.bpm <= 0.0
-            || !cue.beats_per_bar.is_finite()
-            || cue.beats_per_bar <= 0.0
-            || !(cue.beats_per_bar * 60.0 / cue.bpm).is_finite()
-            || cue.beats_per_bar * 60.0 / cue.bpm <= 0.0
-        {
-            errors.push(format!(
-                "{label}: tempo and bar length must be finite and above zero"
-            ));
-        }
         check_level(&label, cue.relative_volume, 1.0, &mut errors);
         for (kind, empty) in [
-            ("sections", cue.sections.is_empty()),
+            ("sections", linked.sections.is_empty()),
             ("layers", cue.layers.is_empty()),
             ("states", cue.states.is_empty()),
         ] {
@@ -109,12 +103,7 @@ pub(super) fn validation_errors(authored: &AuthoredMusicCues) -> Vec<String> {
         }
         check_ids(
             &format!("{label} sections"),
-            cue.sections.iter().map(|section| section.id.as_str()),
-            &mut errors,
-        );
-        check_ids(
-            &format!("{label} layers"),
-            cue.layers.iter().map(|layer| layer.id.as_str()),
+            linked.sections.iter().map(|section| section.id.as_str()),
             &mut errors,
         );
         check_ids(
@@ -122,25 +111,8 @@ pub(super) fn validation_errors(authored: &AuthoredMusicCues) -> Vec<String> {
             cue.states.iter().map(|state| state.id.as_str()),
             &mut errors,
         );
-        let mut slots = BTreeSet::new();
-        for layer in &cue.layers {
-            if layer.slot >= MAX_MUSIC_LAYERS || !slots.insert(layer.slot) {
-                errors.push(format!(
-                    "{label}: layer {:?} has duplicate or out-of-range slot {}",
-                    layer.id, layer.slot
-                ));
-            }
-        }
-        for section in &cue.sections {
+        for section in &linked.sections {
             let label = format!("{label} section {:?}", section.id);
-            let seconds = section.duration_beats * 60.0 / cue.bpm;
-            if !section.duration_beats.is_finite()
-                || section.duration_beats <= 0.0
-                || !seconds.is_finite()
-                || seconds <= 0.0
-            {
-                errors.push(format!("{label}: duration must be finite and above zero"));
-            }
             if section.sources.is_empty() {
                 errors.push(format!("{label}: no playable sources"));
             }
@@ -191,7 +163,7 @@ pub(super) fn validation_errors(authored: &AuthoredMusicCues) -> Vec<String> {
             for gain in &state.gains {
                 check_level(&label, gain.gain, cue.relative_volume, &mut errors);
             }
-            if let Some(section) = cue
+            if let Some(section) = linked
                 .sections
                 .iter()
                 .find(|section| section.id == state.section_id)
@@ -199,7 +171,7 @@ pub(super) fn validation_errors(authored: &AuthoredMusicCues) -> Vec<String> {
                 if section.looped && state.next_state.is_some() {
                     errors.push(format!("{label}: a loop cannot reach next_state"));
                 }
-                let full = cue.layers.len() == 1 && cue.layers[0].id == "full";
+                let full = linked.mastered_full;
                 let balance = cue
                     .runtime_balance_overrides
                     .iter()
@@ -238,4 +210,25 @@ pub(super) fn validation_errors(authored: &AuthoredMusicCues) -> Vec<String> {
         }
     }
     errors
+}
+
+pub(super) fn layer_slots(layers: &[MusicLayerSpec]) -> Result<BTreeMap<&str, usize>, String> {
+    let mut slots = BTreeMap::new();
+    let mut occupied = BTreeSet::new();
+    for layer in layers {
+        if layer.id.is_empty()
+            || layer.id.trim() != layer.id
+            || slots.contains_key(layer.id.as_str())
+        {
+            return Err(format!("invalid or duplicate layer id {:?}", layer.id));
+        }
+        if layer.slot >= MAX_MUSIC_LAYERS || !occupied.insert(layer.slot) {
+            return Err(format!(
+                "layer {:?} has duplicate or out-of-range slot {}",
+                layer.id, layer.slot
+            ));
+        }
+        slots.insert(layer.id.as_str(), layer.slot);
+    }
+    Ok(slots)
 }

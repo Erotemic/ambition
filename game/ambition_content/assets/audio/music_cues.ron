@@ -12,22 +12,24 @@
     cues: [
         (
             id: "first_goblin_tune_v2",
-            asset_root: "audio/music/generated/first_goblin_tune_v2",
-            bpm: 132.0,
-            beats_per_bar: 4.0,
-            // Stacked layers sum hotter than the one-channel room tracks, so
-            // keep this conservative.
+            media: Inline(
+                asset_root: "audio/music/generated/first_goblin_tune_v2",
+                bpm: 132.0,
+                beats_per_bar: 4.0,
+                // Stacked layers sum hotter than the one-channel room tracks, so
+                // keep this conservative.
+                sections: [
+                    (id: "intro", duration_beats: 16.0, looped: false, sources: [(layer_id: "full", path: "adaptive/intro/intro.full.ogg")]),
+                    (id: "wave1", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "adaptive/wave1/wave1.full.ogg")]),
+                    (id: "wave2", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "adaptive/wave2/wave2.full.ogg")]),
+                    (id: "wave3", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "adaptive/wave3/wave3.full.ogg")]),
+                    (id: "recap_loop", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "adaptive/recap_loop/recap_loop.full.ogg")]),
+                    (id: "outro", duration_beats: 16.0, looped: false, sources: [(layer_id: "full", path: "adaptive/outro/outro.full.ogg")]),
+                ],
+                // One mastered layer. Add per-stem layers again only when the
+                // renderer masters per-stem outputs and each stem is audible.
+            ),
             relative_volume: 1.0,
-            sections: [
-                (id: "intro", duration_beats: 16.0, looped: false, sources: [(layer_id: "full", path: "adaptive/intro/intro.full.ogg")]),
-                (id: "wave1", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "adaptive/wave1/wave1.full.ogg")]),
-                (id: "wave2", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "adaptive/wave2/wave2.full.ogg")]),
-                (id: "wave3", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "adaptive/wave3/wave3.full.ogg")]),
-                (id: "recap_loop", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "adaptive/recap_loop/recap_loop.full.ogg")]),
-                (id: "outro", duration_beats: 16.0, looped: false, sources: [(layer_id: "full", path: "adaptive/outro/outro.full.ogg")]),
-            ],
-            // One mastered layer. Add per-stem layers again only when the
-            // renderer masters per-stem outputs and each stem is audible.
             layers: [(id: "full", slot: 0)],
             states: [
                 (id: "intro", section_id: "intro", next_state: Some("wave1"), gains: [(layer_id: "full", gain: 1.0)]),
@@ -50,16 +52,18 @@
             // town in the Leaden Saddle, on one motif, the saddle. The rooms
             // choose the section (`room_bindings`).
             id: "leaden_saddle",
-            asset_root: "audio/music/generated/leaden_saddle",
-            bpm: 96.0,
-            beats_per_bar: 4.0,
+            media: Inline(
+                asset_root: "audio/music/generated/leaden_saddle",
+                bpm: 96.0,
+                beats_per_bar: 4.0,
+                sections: [
+                    (id: "dry_dock", duration_beats: 128.0, looped: true, sources: [(layer_id: "full", path: "playback/dry_dock/dry_dock.full.ogg")]),
+                    (id: "wet_whistle", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/wet_whistle/wet_whistle.full.ogg")]),
+                    (id: "refinery_shift", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/refinery_shift/refinery_shift.full.ogg")]),
+                    (id: "mesa_top", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/mesa_top/mesa_top.full.ogg")]),
+                ],
+            ),
             relative_volume: 1.0,
-            sections: [
-                (id: "dry_dock", duration_beats: 128.0, looped: true, sources: [(layer_id: "full", path: "playback/dry_dock/dry_dock.full.ogg")]),
-                (id: "wet_whistle", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/wet_whistle/wet_whistle.full.ogg")]),
-                (id: "refinery_shift", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/refinery_shift/refinery_shift.full.ogg")]),
-                (id: "mesa_top", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/mesa_top/mesa_top.full.ogg")]),
-            ],
             layers: [(id: "full", slot: 0)],
             states: [
                 (id: "dry_dock", section_id: "dry_dock", gains: [(layer_id: "full", gain: 1.0)]),
@@ -75,16 +79,18 @@
             // into the town's saddle motif. His phases choose the section
             // (`boss_bindings`); the standoff and the sundown play one time.
             id: "marshal_gallus_showdown",
-            asset_root: "audio/music/generated/marshal_gallus_showdown",
-            bpm: 132.0,
-            beats_per_bar: 4.0,
+            media: Inline(
+                asset_root: "audio/music/generated/marshal_gallus_showdown",
+                bpm: 132.0,
+                beats_per_bar: 4.0,
+                sections: [
+                    (id: "standoff", duration_beats: 32.0, looped: false, sources: [(layer_id: "full", path: "playback/standoff/standoff.full.ogg")]),
+                    (id: "duel", duration_beats: 128.0, looped: true, sources: [(layer_id: "full", path: "playback/duel/duel.full.ogg")]),
+                    (id: "high_noon", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/high_noon/high_noon.full.ogg")]),
+                    (id: "sundown", duration_beats: 40.0, looped: false, sources: [(layer_id: "full", path: "playback/sundown/sundown.full.ogg")]),
+                ],
+            ),
             relative_volume: 1.0,
-            sections: [
-                (id: "standoff", duration_beats: 32.0, looped: false, sources: [(layer_id: "full", path: "playback/standoff/standoff.full.ogg")]),
-                (id: "duel", duration_beats: 128.0, looped: true, sources: [(layer_id: "full", path: "playback/duel/duel.full.ogg")]),
-                (id: "high_noon", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/high_noon/high_noon.full.ogg")]),
-                (id: "sundown", duration_beats: 40.0, looped: false, sources: [(layer_id: "full", path: "playback/sundown/sundown.full.ogg")]),
-            ],
             layers: [(id: "full", slot: 0)],
             states: [
                 (id: "standoff", section_id: "standoff", next_state: Some("duel"), gains: [(layer_id: "full", gain: 1.0)]),
@@ -100,16 +106,18 @@
             // station and street, its inn and trestle, and Sprocket Row, on
             // one motif, the detour.
             id: "halfway_siding",
-            asset_root: "audio/music/generated/halfway_siding",
-            bpm: 88.0,
-            beats_per_bar: 4.0,
+            media: Inline(
+                asset_root: "audio/music/generated/halfway_siding",
+                bpm: 88.0,
+                beats_per_bar: 4.0,
+                sections: [
+                    (id: "platform", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/platform/platform.full.ogg")]),
+                    (id: "lie_down", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/lie_down/lie_down.full.ogg")]),
+                    (id: "trestle", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/trestle/trestle.full.ogg")]),
+                    (id: "sprocket", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/sprocket/sprocket.full.ogg")]),
+                ],
+            ),
             relative_volume: 1.0,
-            sections: [
-                (id: "platform", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/platform/platform.full.ogg")]),
-                (id: "lie_down", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/lie_down/lie_down.full.ogg")]),
-                (id: "trestle", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/trestle/trestle.full.ogg")]),
-                (id: "sprocket", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/sprocket/sprocket.full.ogg")]),
-            ],
             layers: [(id: "full", slot: 0)],
             states: [
                 (id: "platform", section_id: "platform", gains: [(layer_id: "full", gain: 1.0)]),
@@ -123,14 +131,16 @@
             // (scores/active/clinker_flats.music.yaml): the yard and the works,
             // and the Row on the way to the railhead.
             id: "clinker_flats",
-            asset_root: "audio/music/generated/clinker_flats",
-            bpm: 76.0,
-            beats_per_bar: 4.0,
+            media: Inline(
+                asset_root: "audio/music/generated/clinker_flats",
+                bpm: 76.0,
+                beats_per_bar: 4.0,
+                sections: [
+                    (id: "works", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/works/works.full.ogg")]),
+                    (id: "row", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/row/row.full.ogg")]),
+                ],
+            ),
             relative_volume: 1.0,
-            sections: [
-                (id: "works", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/works/works.full.ogg")]),
-                (id: "row", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/row/row.full.ogg")]),
-            ],
             layers: [(id: "full", slot: 0)],
             states: [
                 (id: "works", section_id: "works", gains: [(layer_id: "full", gain: 1.0)]),
@@ -141,14 +151,16 @@
             // The train robbery (scores/active/the_rustler.music.yaml): the
             // Number 9 freight at speed, and the outlaw engine at its head.
             id: "the_rustler",
-            asset_root: "audio/music/generated/the_rustler",
-            bpm: 152.0,
-            beats_per_bar: 4.0,
+            media: Inline(
+                asset_root: "audio/music/generated/the_rustler",
+                bpm: 152.0,
+                beats_per_bar: 4.0,
+                sections: [
+                    (id: "boxcars", duration_beats: 128.0, looped: true, sources: [(layer_id: "full", path: "playback/boxcars/boxcars.full.ogg")]),
+                    (id: "rustler", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/rustler/rustler.full.ogg")]),
+                ],
+            ),
             relative_volume: 1.0,
-            sections: [
-                (id: "boxcars", duration_beats: 128.0, looped: true, sources: [(layer_id: "full", path: "playback/boxcars/boxcars.full.ogg")]),
-                (id: "rustler", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/rustler/rustler.full.ogg")]),
-            ],
             layers: [(id: "full", slot: 0)],
             states: [
                 (id: "boxcars", section_id: "boxcars", gains: [(layer_id: "full", gain: 1.0)]),
@@ -167,20 +179,22 @@
             // per section, slices of one composition master: the valley
             // measures -27.1 dB RMS, the brute -17.9 dB, peak -3.3 dBFS.
             id: "hobford_goblins",
-            asset_root: "audio/music/generated/hobford_goblins",
-            bpm: 120.0,
-            beats_per_bar: 4.0,
+            media: Inline(
+                asset_root: "audio/music/generated/hobford_goblins",
+                bpm: 120.0,
+                beats_per_bar: 4.0,
+                sections: [
+                    (id: "lurking", duration_beats: 128.0, looped: true, sources: [(layer_id: "full", path: "playback/lurking/lurking.full.ogg")]),
+                    (id: "shadowed", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/shadowed/shadowed.full.ogg")]),
+                    // Plays to its end (the door gives way on its last beat),
+                    // then the march.
+                    (id: "break_in", duration_beats: 32.0, looped: false, sources: [(layer_id: "full", path: "playback/break_in/break_in.full.ogg")]),
+                    (id: "raid", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/raid/raid.full.ogg")]),
+                    (id: "brute", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/brute/brute.full.ogg")]),
+                    (id: "aftermath", duration_beats: 56.0, looped: false, sources: [(layer_id: "full", path: "playback/aftermath/aftermath.full.ogg")]),
+                ],
+            ),
             relative_volume: 1.0,
-            sections: [
-                (id: "lurking", duration_beats: 128.0, looped: true, sources: [(layer_id: "full", path: "playback/lurking/lurking.full.ogg")]),
-                (id: "shadowed", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/shadowed/shadowed.full.ogg")]),
-                // Plays to its end (the door gives way on its last beat),
-                // then the march.
-                (id: "break_in", duration_beats: 32.0, looped: false, sources: [(layer_id: "full", path: "playback/break_in/break_in.full.ogg")]),
-                (id: "raid", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/raid/raid.full.ogg")]),
-                (id: "brute", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/brute/brute.full.ogg")]),
-                (id: "aftermath", duration_beats: 56.0, looped: false, sources: [(layer_id: "full", path: "playback/aftermath/aftermath.full.ogg")]),
-            ],
             layers: [(id: "full", slot: 0)],
             states: [
                 (id: "lurking", section_id: "lurking", gains: [(layer_id: "full", gain: 1.0)]),
@@ -209,28 +223,30 @@
             // stems before the master chain. Measure with the renderer's
             // dev/measure_playback_layers.py before you change a gain.
             id: "dinosaur_liberators_adaptive",
-            asset_root: "audio/music/generated/dinosaur_liberators_adaptive",
-            bpm: 110.0,
-            beats_per_bar: 4.0,
-            // The fight state peaks 0.3 dB under full scale at a volume of
-            // one (measured); this leaves it 1.2 dB.
+            media: Inline(
+                asset_root: "audio/music/generated/dinosaur_liberators_adaptive",
+                bpm: 110.0,
+                beats_per_bar: 4.0,
+                // The fight state peaks 0.3 dB under full scale at a volume of
+                // one (measured); this leaves it 1.2 dB.
+                sections: [
+                    // Plays one time, to its end, when the cue starts.
+                    (id: "intro", duration_beats: 32.0, looped: false, sources: [
+                        (layer_id: "bed", path: "playback/intro/intro.bed.ogg"),
+                        (layer_id: "tune", path: "playback/intro/intro.tune.ogg"),
+                    ]),
+                    (id: "song", duration_beats: 256.0, looped: true, sources: [
+                        (layer_id: "bed", path: "playback/song/song.bed.ogg"),
+                        (layer_id: "tune", path: "playback/song/song.tune.ogg"),
+                        (layer_id: "drums", path: "playback/song/song.drums.ogg"),
+                        (layer_id: "crunch", path: "playback/song/song.crunch.ogg"),
+                        (layer_id: "horn", path: "playback/song/song.horn.ogg"),
+                        (layer_id: "second", path: "playback/song/song.second.ogg"),
+                    ]),
+                ],
+                // In the order the level adds them.
+            ),
             relative_volume: 0.9,
-            sections: [
-                // Plays one time, to its end, when the cue starts.
-                (id: "intro", duration_beats: 32.0, looped: false, sources: [
-                    (layer_id: "bed", path: "playback/intro/intro.bed.ogg"),
-                    (layer_id: "tune", path: "playback/intro/intro.tune.ogg"),
-                ]),
-                (id: "song", duration_beats: 256.0, looped: true, sources: [
-                    (layer_id: "bed", path: "playback/song/song.bed.ogg"),
-                    (layer_id: "tune", path: "playback/song/song.tune.ogg"),
-                    (layer_id: "drums", path: "playback/song/song.drums.ogg"),
-                    (layer_id: "crunch", path: "playback/song/song.crunch.ogg"),
-                    (layer_id: "horn", path: "playback/song/song.horn.ogg"),
-                    (layer_id: "second", path: "playback/song/song.second.ogg"),
-                ]),
-            ],
-            // In the order the level adds them.
             layers: [
                 // Arpeggio guitar, bass, organ and piano.
                 (id: "bed", slot: 0),
@@ -274,19 +290,21 @@
             // terraces -28.2 dB RMS, peak -11.4 dBFS; gate square -27.6 dB,
             // peak -9.0 dBFS. The lofi room tracks are -27.0 and -29.4 dB.
             id: "shoulders_at_rest",
-            asset_root: "audio/music/generated/shoulders_at_rest",
-            bpm: 88.0,
-            beats_per_bar: 4.0,
+            media: Inline(
+                asset_root: "audio/music/generated/shoulders_at_rest",
+                bpm: 88.0,
+                beats_per_bar: 4.0,
+                sections: [
+                    (id: "town", duration_beats: 192.0, looped: true, sources: [
+                        (layer_id: "bed", path: "playback/town/town.bed.ogg"),
+                        (layer_id: "tune", path: "playback/town/town.tune.ogg"),
+                        (layer_id: "harp", path: "playback/town/town.harp.ogg"),
+                        (layer_id: "groove", path: "playback/town/town.groove.ogg"),
+                        (layer_id: "comp", path: "playback/town/town.comp.ogg"),
+                    ]),
+                ],
+            ),
             relative_volume: 1.0,
-            sections: [
-                (id: "town", duration_beats: 192.0, looped: true, sources: [
-                    (layer_id: "bed", path: "playback/town/town.bed.ogg"),
-                    (layer_id: "tune", path: "playback/town/town.tune.ogg"),
-                    (layer_id: "harp", path: "playback/town/town.harp.ogg"),
-                    (layer_id: "groove", path: "playback/town/town.groove.ogg"),
-                    (layer_id: "comp", path: "playback/town/town.comp.ogg"),
-                ]),
-            ],
             layers: [
                 // Double bass, electric piano, strings.
                 (id: "bed", slot: 0),
@@ -311,37 +329,39 @@
             // (`boss_bindings`). Awaken and unleash do not loop: each plays
             // to its end, then the phase's own loop starts.
             id: "galvanic_march",
-            asset_root: "audio/music/generated/galvanic_march",
-            bpm: 116.0,
-            beats_per_bar: 4.0,
+            media: Inline(
+                asset_root: "audio/music/generated/galvanic_march",
+                bpm: 116.0,
+                beats_per_bar: 4.0,
+                sections: [
+                    (id: "awaken", duration_beats: 16.0, looped: false, sources: [
+                        (layer_id: "bed", path: "playback/awaken/awaken.bed.ogg"),
+                        (layer_id: "drums", path: "playback/awaken/awaken.drums.ogg"),
+                        (layer_id: "tune", path: "playback/awaken/awaken.tune.ogg"),
+                    ]),
+                    (id: "march", duration_beats: 64.0, looped: true, sources: [
+                        (layer_id: "bed", path: "playback/march/march.bed.ogg"),
+                        (layer_id: "drums", path: "playback/march/march.drums.ogg"),
+                        (layer_id: "tune", path: "playback/march/march.tune.ogg"),
+                    ]),
+                    (id: "unleash", duration_beats: 8.0, looped: false, sources: [
+                        (layer_id: "bed", path: "playback/unleash/unleash.bed.ogg"),
+                        (layer_id: "drums", path: "playback/unleash/unleash.drums.ogg"),
+                        (layer_id: "tune", path: "playback/unleash/unleash.tune.ogg"),
+                    ]),
+                    (id: "howl", duration_beats: 64.0, looped: true, sources: [
+                        (layer_id: "bed", path: "playback/howl/howl.bed.ogg"),
+                        (layer_id: "drums", path: "playback/howl/howl.drums.ogg"),
+                        (layer_id: "tune", path: "playback/howl/howl.tune.ogg"),
+                    ]),
+                    (id: "storm", duration_beats: 64.0, looped: true, sources: [
+                        (layer_id: "bed", path: "playback/storm/storm.bed.ogg"),
+                        (layer_id: "drums", path: "playback/storm/storm.drums.ogg"),
+                        (layer_id: "tune", path: "playback/storm/storm.tune.ogg"),
+                    ]),
+                ],
+            ),
             relative_volume: 1.0,
-            sections: [
-                (id: "awaken", duration_beats: 16.0, looped: false, sources: [
-                    (layer_id: "bed", path: "playback/awaken/awaken.bed.ogg"),
-                    (layer_id: "drums", path: "playback/awaken/awaken.drums.ogg"),
-                    (layer_id: "tune", path: "playback/awaken/awaken.tune.ogg"),
-                ]),
-                (id: "march", duration_beats: 64.0, looped: true, sources: [
-                    (layer_id: "bed", path: "playback/march/march.bed.ogg"),
-                    (layer_id: "drums", path: "playback/march/march.drums.ogg"),
-                    (layer_id: "tune", path: "playback/march/march.tune.ogg"),
-                ]),
-                (id: "unleash", duration_beats: 8.0, looped: false, sources: [
-                    (layer_id: "bed", path: "playback/unleash/unleash.bed.ogg"),
-                    (layer_id: "drums", path: "playback/unleash/unleash.drums.ogg"),
-                    (layer_id: "tune", path: "playback/unleash/unleash.tune.ogg"),
-                ]),
-                (id: "howl", duration_beats: 64.0, looped: true, sources: [
-                    (layer_id: "bed", path: "playback/howl/howl.bed.ogg"),
-                    (layer_id: "drums", path: "playback/howl/howl.drums.ogg"),
-                    (layer_id: "tune", path: "playback/howl/howl.tune.ogg"),
-                ]),
-                (id: "storm", duration_beats: 64.0, looped: true, sources: [
-                    (layer_id: "bed", path: "playback/storm/storm.bed.ogg"),
-                    (layer_id: "drums", path: "playback/storm/storm.drums.ogg"),
-                    (layer_id: "tune", path: "playback/storm/storm.tune.ogg"),
-                ]),
-            ],
             layers: [
                 // Strings, organ, choir, tuba and timpani.
                 (id: "bed", slot: 0),
@@ -371,17 +391,19 @@
             // when he falls. One mastered `full` layer per section, so the
             // renderer owns loudness, as for the radio's version.
             id: "standing_on_shoulders_v2_adaptive",
-            asset_root: "audio/music/generated/standing_on_shoulders_v2_adaptive",
-            bpm: 88.0,
-            beats_per_bar: 4.0,
+            media: Inline(
+                asset_root: "audio/music/generated/standing_on_shoulders_v2_adaptive",
+                bpm: 88.0,
+                beats_per_bar: 4.0,
+                sections: [
+                    // The intro's file runs on past its 24 beats with its ring,
+                    // which sounds as the director fades it out under the loop.
+                    (id: "intro", duration_beats: 24.0, looped: false, sources: [(layer_id: "full", path: "playback/intro/intro.full.ogg")]),
+                    (id: "fight", duration_beats: 292.0, looped: true, sources: [(layer_id: "full", path: "playback/fight/fight.full.ogg")]),
+                    (id: "outro", duration_beats: 20.0, looped: false, sources: [(layer_id: "full", path: "playback/outro/outro.full.ogg")]),
+                ],
+            ),
             relative_volume: 1.0,
-            sections: [
-                // The intro's file runs on past its 24 beats with its ring,
-                // which sounds as the director fades it out under the loop.
-                (id: "intro", duration_beats: 24.0, looped: false, sources: [(layer_id: "full", path: "playback/intro/intro.full.ogg")]),
-                (id: "fight", duration_beats: 292.0, looped: true, sources: [(layer_id: "full", path: "playback/fight/fight.full.ogg")]),
-                (id: "outro", duration_beats: 20.0, looped: false, sources: [(layer_id: "full", path: "playback/outro/outro.full.ogg")]),
-            ],
             layers: [(id: "full", slot: 0)],
             states: [
                 (id: "intro", section_id: "intro", next_state: Some("fight"), gains: [(layer_id: "full", gain: 1.0)]),
@@ -401,22 +423,24 @@
             // the song measures -17.7 dB RMS, peak -0.4 dBFS at a gain of one,
             // so the cue plays at 0.8.
             id: "tritone_decree",
-            asset_root: "audio/music/generated/tritone_decree",
-            bpm: 140.0,
-            beats_per_bar: 4.0,
+            media: Inline(
+                asset_root: "audio/music/generated/tritone_decree",
+                bpm: 140.0,
+                beats_per_bar: 4.0,
+                sections: [
+                    (id: "intro", duration_beats: 32.0, looped: false, sources: [
+                        (layer_id: "band", path: "playback/intro/intro.band.ogg"),
+                        (layer_id: "orchestra", path: "playback/intro/intro.orchestra.ogg"),
+                        (layer_id: "lead", path: "playback/intro/intro.lead.ogg"),
+                    ]),
+                    (id: "song", duration_beats: 256.0, looped: true, sources: [
+                        (layer_id: "band", path: "playback/song/song.band.ogg"),
+                        (layer_id: "orchestra", path: "playback/song/song.orchestra.ogg"),
+                        (layer_id: "lead", path: "playback/song/song.lead.ogg"),
+                    ]),
+                ],
+            ),
             relative_volume: 0.8,
-            sections: [
-                (id: "intro", duration_beats: 32.0, looped: false, sources: [
-                    (layer_id: "band", path: "playback/intro/intro.band.ogg"),
-                    (layer_id: "orchestra", path: "playback/intro/intro.orchestra.ogg"),
-                    (layer_id: "lead", path: "playback/intro/intro.lead.ogg"),
-                ]),
-                (id: "song", duration_beats: 256.0, looped: true, sources: [
-                    (layer_id: "band", path: "playback/song/song.band.ogg"),
-                    (layer_id: "orchestra", path: "playback/song/song.orchestra.ogg"),
-                    (layer_id: "lead", path: "playback/song/song.lead.ogg"),
-                ]),
-            ],
             layers: [
                 // Rhythm guitars, bass, drums.
                 (id: "band", slot: 0),

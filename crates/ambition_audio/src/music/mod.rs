@@ -13,7 +13,7 @@ use bevy_kira_audio::prelude::{
     PlaybackState,
 };
 
-use crate::library::{AudioLibrary, MusicPlaybackState, amplitude_to_decibels};
+use crate::library::{amplitude_to_decibels, AudioLibrary, MusicPlaybackState};
 use crate::mix::MusicMix;
 
 pub const MUSIC_LOG_TARGET: &str = "ambition_music";
@@ -43,9 +43,10 @@ pub mod state;
 
 pub use catalog::{
     AdaptiveMusicCatalogAppExt, AdaptiveMusicCatalogError, AdaptiveMusicCatalogRegistry,
-    BOSS_PHASE_KEYS, BossMusicBinding, BossPhaseState, EncounterMusicBinding, LoadedMusicCueAssets,
-    MusicCueCatalog, MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec,
-    MusicSectionSpec, MusicStateBalanceOverride, MusicStateSpec, RoomMusicBinding,
+    BossMusicBinding, BossPhaseState, EncounterMusicBinding, LoadedMusicCueAssets, MusicCueCatalog,
+    MusicCueMedia, MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec,
+    MusicProductSet, MusicSectionSpec, MusicStateBalanceOverride, MusicStateSpec, RoomMusicBinding,
+    BOSS_PHASE_KEYS,
 };
 pub use commands::MusicPlaybackCommands;
 pub use director::{drive_music_director, load_music_cues};

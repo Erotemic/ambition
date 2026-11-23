@@ -174,8 +174,10 @@ pub fn compile(
     let mut defining_schemas: BTreeSet<SchemaId> = BTreeSet::new();
     // Keep every fragment, in declared order. The aggregation stage decides
     // which becomes the runtime artifact, after all sources are read.
-    let mut fragments: BTreeMap<SchemaId, Vec<(String, std::sync::Arc<dyn std::any::Any + Send + Sync>)>> =
-        BTreeMap::new();
+    let mut fragments: BTreeMap<
+        SchemaId,
+        Vec<(String, std::sync::Arc<dyn std::any::Any + Send + Sync>)>,
+    > = BTreeMap::new();
 
     for source in &draft.sources {
         let registration = registry
@@ -186,6 +188,7 @@ pub fn compile(
             text: &source.text,
             schema: &source.schema,
             namespace,
+            libraries: draft.selected_libraries.as_ref(),
         };
         let mut outcome = FacetOutcome::default();
         registration.handler.check(&facet, &mut outcome);
@@ -501,12 +504,25 @@ pub fn compile(
     // ── asset resolution ─────────────────────────────────────────────────
     let mut prepared_assets: BTreeMap<String, AssetProvenance> = BTreeMap::new();
     for need in &asset_needs {
-        if assets.contains(&need.path) {
+        let library_file = draft
+            .selected_libraries
+            .as_ref()
+            .and_then(|snapshot| snapshot.files.get(&need.path));
+        let library_present = library_file.is_some_and(|file| match &file.data {
+            ambition_asset_manager::content_library::LibraryFileData::Native(path) => {
+                path.is_file()
+            }
+            ambition_asset_manager::content_library::LibraryFileData::Embedded(_) => true,
+        });
+        if library_present || assets.contains(&need.path) {
             prepared_assets
                 .entry(need.path.clone())
                 .or_insert_with(|| AssetProvenance {
                     path: need.path.clone(),
-                    root: assets.label(),
+                    root: library_file.filter(|_| library_present).map_or_else(
+                        || assets.label(),
+                        |file| format!("content://{}", file.library),
+                    ),
                     required_by: Vec::new(),
                 })
                 .required_by

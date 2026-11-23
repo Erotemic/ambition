@@ -9,10 +9,12 @@
 | [`bank_asset`](src/bank_asset.rs) | Provider-qualified SFX bank loading and playback. |
 | [`catalog`](src/catalog.rs) | App-local authored-audio catalogs contributed by experience providers. |
 | [`content_schema`](src/content_schema.rs) | Authored-content schemas for the audio capability. |
+| [`cue_program`](src/cue_program.rs) | Validate authored music and resolve its sources, indices, and layer gains. |
 | [`cue_spec`](src/cue_spec.rs) | Adaptive music cues as authored data: the cue graph (sections, layers, states) and the encounter and room bindings that choose a cue. |
-| [`library`](src/library.rs) | Authored-audio playback library: typed SFX cue table, lazily-loaded pre-rendered music tracks, the music/SFX Kira channels, and the track-switch/radio/default-start helpers. |
+| [`library`](src/library.rs) | Authored-audio playback library: typed SFX cue table, lazily-loaded pre-rendered music tracks, SFX channels, and radio requests. |
 | [`mix`](src/mix.rs) | Host-supplied mix levels. |
 | [`music`](src/music/mod.rs) | Music selection, prepared cue data, and owned native playback. |
+| [`music_media`](src/music_media/mod.rs) | Import playback facts and media from one accepted library snapshot. |
 | [`output`](src/output.rs) | Runtime selection of the audio backend and final output side effect. |
 | [`render`](src/render.rs) | Provider-relative SFX source resolution and Kira adapters. |
 | [`selection`](src/selection.rs) | App-local active audio context. |
@@ -21,7 +23,7 @@
 | [`spec`](src/spec.rs) | Audio data schema: the authored (RON) shapes for procedural SFX and pre-rendered music. |
 | [`web_unlock`](src/web_unlock.rs) | Cross-platform audio-start readiness. |
 
-_14 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

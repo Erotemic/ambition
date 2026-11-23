@@ -1,22 +1,43 @@
 use super::*;
 
+fn sections(cue: &mut MusicCueSpec) -> &mut Vec<MusicSectionSpec> {
+    let MusicCueMedia::Inline { sections, .. } = &mut cue.media else {
+        panic!("inline fixture")
+    };
+    sections
+}
+fn bpm(cue: &mut MusicCueSpec) -> &mut f32 {
+    let MusicCueMedia::Inline { bpm, .. } = &mut cue.media else {
+        panic!("inline fixture")
+    };
+    bpm
+}
+fn meter(cue: &mut MusicCueSpec) -> &mut f32 {
+    let MusicCueMedia::Inline { beats_per_bar, .. } = &mut cue.media else {
+        panic!("inline fixture")
+    };
+    beats_per_bar
+}
+
 fn authored() -> AuthoredMusicCues {
     AuthoredMusicCues {
         cues: vec![MusicCueSpec {
             id: "cue".into(),
-            asset_root: "content://library/music".into(),
-            bpm: 120.0,
-            beats_per_bar: 4.0,
-            relative_volume: 0.5,
-            sections: vec![MusicSectionSpec {
-                id: "loop".into(),
-                duration_beats: 8.0,
-                looped: true,
-                sources: vec![MusicLayerSourceSpec {
-                    layer_id: "bed".into(),
-                    path: "bed.ogg".into(),
+            media: MusicCueMedia::Inline {
+                asset_root: "content://library/music".into(),
+                bpm: 120.0,
+                beats_per_bar: 4.0,
+                sections: vec![MusicSectionSpec {
+                    id: "loop".into(),
+                    duration_beats: 8.0,
+                    looped: true,
+                    sources: vec![MusicLayerSourceSpec {
+                        layer_id: "bed".into(),
+                        path: "bed.ogg".into(),
+                    }],
                 }],
-            }],
+            },
+            relative_volume: 0.5,
             layers: vec![
                 MusicLayerSpec {
                     id: "bed".into(),
@@ -60,10 +81,13 @@ fn preparation_resolves_paths_slots_and_total_gains() {
             state_id: "song".into(),
             layer_gains: vec![("bed".into(), 0.6)],
         });
-    let prepared = PreparedMusicCues::prepare(source).unwrap();
+    let prepared =
+        PreparedMusicCues::prepare(source, &crate::music_media::MusicMediaCatalog::default())
+            .unwrap();
     let cue = prepared.cue("cue").unwrap();
     let section = cue.section("loop").unwrap();
     assert_eq!(section.duration_seconds, 4.0);
+    assert_eq!(section.file_duration_seconds, None);
     assert_eq!(section.sources[0].slot, 2);
     assert_eq!(section.sources[0].path, "content://library/music/bed.ogg");
     assert_eq!(
@@ -73,8 +97,10 @@ fn preparation_resolves_paths_slots_and_total_gains() {
     assert_eq!(prepared.binding_for_room("room").unwrap().cue_id, cue.id);
 
     let mut source = authored();
-    source.cues[0].sections[0].sources[0].path = "game://music/bed.ogg".into();
-    let prepared = PreparedMusicCues::prepare(source).unwrap();
+    sections(&mut source.cues[0])[0].sources[0].path = "game://music/bed.ogg".into();
+    let prepared =
+        PreparedMusicCues::prepare(source, &crate::music_media::MusicMediaCatalog::default())
+            .unwrap();
     assert_eq!(
         prepared.cue("cue").unwrap().sections[0].sources[0].path,
         "game://music/bed.ogg"
@@ -89,13 +115,15 @@ fn a_mastered_full_mix_keeps_its_state_gain() {
         id: "full".into(),
         slot: 3,
     }];
-    cue.sections[0].sources[0].layer_id = "full".into();
+    sections(cue)[0].sources[0].layer_id = "full".into();
     cue.states[0].gains[0].layer_id = "full".into();
     cue.runtime_balance_overrides = vec![MusicStateBalanceOverride {
         state_id: "song".into(),
         layer_gains: vec![("full".into(), 10.0)],
     }];
-    let prepared = PreparedMusicCues::prepare(source).unwrap();
+    let prepared =
+        PreparedMusicCues::prepare(source, &crate::music_media::MusicMediaCatalog::default())
+            .unwrap();
     assert_eq!(prepared.cue("cue").unwrap().states[0].gains[3], 0.4);
 }
 
@@ -104,16 +132,25 @@ fn duplicate_definitions_cannot_alias_a_playback_slot_or_hide_an_invalid_cue() {
     let edits: &[fn(&mut AuthoredMusicCues)] = &[
         |source| {
             let mut duplicate = source.cues[0].clone();
-            duplicate.bpm = 0.0;
+            *bpm(&mut duplicate) = 0.0;
             source.cues.insert(0, duplicate);
         },
-        |source| { let duplicate = source.cues[0].sections[0].clone(); source.cues[0].sections.push(duplicate); },
-        |source| { let duplicate = source.cues[0].states[0].clone(); source.cues[0].states.push(duplicate); },
-        |source| { let duplicate = source.cues[0].layers[0].clone(); source.cues[0].layers.push(duplicate); },
+        |source| {
+            let duplicate = sections(&mut source.cues[0])[0].clone();
+            sections(&mut source.cues[0]).push(duplicate);
+        },
+        |source| {
+            let duplicate = source.cues[0].states[0].clone();
+            source.cues[0].states.push(duplicate);
+        },
+        |source| {
+            let duplicate = source.cues[0].layers[0].clone();
+            source.cues[0].layers.push(duplicate);
+        },
         |source| source.cues[0].layers[1].slot = 2,
         |source| source.cues[0].layers[1].slot = MAX_MUSIC_LAYERS,
         |source| {
-            let section = &mut source.cues[0].sections[0];
+            let section = &mut sections(&mut source.cues[0])[0];
             section.sources.push(section.sources[0].clone());
         },
         |source| {
@@ -125,26 +162,30 @@ fn duplicate_definitions_cannot_alias_a_playback_slot_or_hide_an_invalid_cue() {
     for edit in edits {
         let mut source = authored();
         edit(&mut source);
-        assert!(PreparedMusicCues::prepare(source).is_err());
+        assert!(PreparedMusicCues::prepare(
+            source,
+            &crate::music_media::MusicMediaCatalog::default()
+        )
+        .is_err());
     }
 }
 
 #[test]
 fn an_unexecutable_graph_is_refused_before_registration() {
     let edits: &[fn(&mut MusicCueSpec)] = &[
-        |cue| cue.bpm = f32::NAN,
-        |cue| cue.bpm = 0.0,
-        |cue| cue.beats_per_bar = f32::INFINITY,
+        |cue| *bpm(cue) = f32::NAN,
+        |cue| *bpm(cue) = 0.0,
+        |cue| *meter(cue) = f32::INFINITY,
         |cue| cue.relative_volume = -1.0,
         |cue| {
             cue.relative_volume = f32::MAX;
             cue.states[0].gains[0].gain = f32::MAX;
         },
-        |cue| cue.sections[0].duration_beats = f32::INFINITY,
-        |cue| cue.sections[0].duration_beats = 0.0,
-        |cue| cue.sections[0].sources.clear(),
+        |cue| sections(cue)[0].duration_beats = f32::INFINITY,
+        |cue| sections(cue)[0].duration_beats = 0.0,
+        |cue| sections(cue)[0].sources.clear(),
         |cue| cue.states.clear(),
-        |cue| cue.sections[0].sources[0].path.clear(),
+        |cue| sections(cue)[0].sources[0].path.clear(),
         |cue| cue.states[0].gains[0].gain = f32::NAN,
         |cue| {
             cue.states[0].gains.push(MusicLayerGainSpec {
@@ -178,7 +219,11 @@ fn an_unexecutable_graph_is_refused_before_registration() {
     for edit in edits {
         let mut source = authored();
         edit(&mut source.cues[0]);
-        assert!(PreparedMusicCues::prepare(source).is_err());
+        assert!(PreparedMusicCues::prepare(
+            source,
+            &crate::music_media::MusicMediaCatalog::default()
+        )
+        .is_err());
     }
 }
 
@@ -198,7 +243,11 @@ fn day_phase_and_boss_phase_rows_have_one_meaning() {
         phase: "night".into(),
         track: "quiet".into(),
     }];
-    let prepared = PreparedMusicCues::prepare(source.clone()).unwrap();
+    let prepared = PreparedMusicCues::prepare(
+        source.clone(),
+        &crate::music_media::MusicMediaCatalog::default(),
+    )
+    .unwrap();
     assert_eq!(prepared.room_phase_track("room", "night"), Some("quiet"));
     assert_eq!(
         prepared
@@ -211,8 +260,15 @@ fn day_phase_and_boss_phase_rows_have_one_meaning() {
     duplicate
         .room_phase_tracks
         .push(source.room_phase_tracks[0].clone());
-    assert!(PreparedMusicCues::prepare(duplicate).is_err());
+    assert!(PreparedMusicCues::prepare(
+        duplicate,
+        &crate::music_media::MusicMediaCatalog::default()
+    )
+    .is_err());
     let duplicate = source.boss_bindings[0].phase_states[0].clone();
     source.boss_bindings[0].phase_states.push(duplicate);
-    assert!(PreparedMusicCues::prepare(source).is_err());
+    assert!(
+        PreparedMusicCues::prepare(source, &crate::music_media::MusicMediaCatalog::default())
+            .is_err()
+    );
 }

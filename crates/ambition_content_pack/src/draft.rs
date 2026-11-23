@@ -71,6 +71,8 @@ pub struct ContentPackDraft {
     /// library source that is absent ([`ContentPackManifest::take_ungenerated`]).
     /// [`crate::compile`] puts them on the prepared pack.
     pub warnings: Vec<Diagnostic>,
+    /// Files admitted together for schema preparation.
+    pub selected_libraries: Option<ambition_asset_manager::content_library::LibrarySnapshot>,
 }
 
 impl ContentPackDraft {
@@ -164,6 +166,7 @@ impl ContentPackDraft {
             sources: read,
             collapsed_aliases: Vec::new(),
             warnings: Vec::new(),
+            selected_libraries: None,
         })
     }
 
@@ -191,21 +194,39 @@ impl ContentPackDraft {
         Ok(draft)
     }
 
-    fn read_located(
-        root: PathBuf,
-        manifest: ContentPackManifest,
-    ) -> Result<Self, CompileFailure> {
+    fn read_located(root: PathBuf, manifest: ContentPackManifest) -> Result<Self, CompileFailure> {
         let mut diagnostics = Vec::new();
         let mut sources: Vec<SourceFile> = Vec::new();
         let mut collapsed_aliases = Vec::new();
         let mut by_canonical: BTreeMap<PathBuf, usize> = BTreeMap::new();
+        let selected_libraries = Self::read_libraries(&root, &manifest)?;
 
         for declaration in &manifest.sources {
-            let path = match declaration.resolve_path(&root, &manifest) {
+            let located = match &declaration.library {
+                Some(library) => selected_libraries
+                    .files
+                    .get(&format!("content://{library}/{}", declaration.path))
+                    .and_then(|file| file.native_path())
+                    .map(|path| path.to_path_buf())
+                    .ok_or_else(|| {
+                        format!(
+                            "selected library {library:?} does not supply source {:?}",
+                            declaration.path
+                        )
+                    }),
+                None => Ok(root.join(&declaration.path)),
+            };
+            let path = match located {
                 Ok(path) => path,
                 Err(error) => {
-                    diagnostics.push(Diagnostic::error(DiagnosticCode::MalformedSource, CompileStage::Parse, error)
-                        .in_source(&declaration.path));
+                    diagnostics.push(
+                        Diagnostic::error(
+                            DiagnosticCode::MalformedSource,
+                            CompileStage::Parse,
+                            error,
+                        )
+                        .in_source(&declaration.path),
+                    );
                     continue;
                 }
             };
@@ -293,6 +314,32 @@ impl ContentPackDraft {
             sources,
             collapsed_aliases,
             warnings: Vec::new(),
+            selected_libraries: Some(selected_libraries),
+        })
+    }
+
+    fn read_libraries(
+        root: &Path,
+        manifest: &ContentPackManifest,
+    ) -> Result<ambition_asset_manager::content_library::LibrarySnapshot, CompileFailure> {
+        use ambition_asset_manager::content_library::{ContentLibraries, ContentLibrary};
+        let read = || -> Result<_, String> {
+            let mut libraries = ContentLibraries::default();
+            for path in &manifest.libraries {
+                libraries.insert(ContentLibrary::read(root.join(path))?)?;
+            }
+            libraries.snapshot()
+        };
+        read().map_err(|error| {
+            CompileFailure::new(
+                CompileStage::Parse,
+                vec![Diagnostic::error(
+                    DiagnosticCode::MalformedSource,
+                    CompileStage::Parse,
+                    error,
+                )
+                .in_source("pack.ron")],
+            )
         })
     }
 }

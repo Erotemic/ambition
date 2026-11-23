@@ -13,6 +13,7 @@ fn check(text: &str) -> FacetOutcome {
         text,
         schema: &schema,
         namespace: &namespace,
+        libraries: None,
     };
     let mut out = FacetOutcome::default();
     RoomRulesSchema.check(&facet, &mut out);

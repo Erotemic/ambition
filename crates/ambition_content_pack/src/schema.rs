@@ -34,6 +34,8 @@ pub struct FacetSource<'a> {
     pub text: &'a str,
     pub schema: &'a SchemaId,
     pub namespace: &'a ModuleNamespace,
+    /// The same admitted files for every facet in this compile.
+    pub libraries: Option<&'a ambition_asset_manager::content_library::LibrarySnapshot>,
 }
 
 impl FacetSource<'_> {

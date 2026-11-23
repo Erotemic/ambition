@@ -15,7 +15,8 @@ use ambition_content_pack::{
 };
 
 use crate::cue_program::PreparedMusicCues;
-use crate::cue_spec::AuthoredMusicCues;
+use crate::cue_spec::{AuthoredMusicCues, MusicCueMedia};
+use crate::music_media::MusicMediaCatalog;
 use crate::spec::{MusicRegistry, SfxRegistry};
 
 /// The capability that owns both schemas here.
@@ -40,7 +41,7 @@ pub const ROOM_MUSIC_BINDING_SCHEMA: &str = "room_music_binding";
 pub const BOSS_MUSIC_BINDING_SCHEMA: &str = "boss_music_binding";
 
 pub const MUSIC_REGISTRY_VERSION: SchemaVersion = SchemaVersion(1);
-pub const MUSIC_CUE_CATALOG_VERSION: SchemaVersion = SchemaVersion(1);
+pub const MUSIC_CUE_CATALOG_VERSION: SchemaVersion = SchemaVersion(2);
 pub const SFX_REGISTRY_VERSION: SchemaVersion = SchemaVersion(1);
 
 fn canonical<T: std::fmt::Debug>(value: &T) -> String {
@@ -177,22 +178,47 @@ impl ContentSchemaHandler for MusicCueCatalogSchema {
             }
         };
 
+        let references: Vec<_> = authored
+            .cues
+            .iter()
+            .filter_map(|cue| match &cue.media {
+                MusicCueMedia::Published { description, .. } => Some(description.as_str()),
+                MusicCueMedia::Inline { .. } => None,
+            })
+            .collect();
+        let media = if references.is_empty() {
+            MusicMediaCatalog::default()
+        } else {
+            let Some(snapshot) = facet.libraries else {
+                out.report(facet.diagnostic(
+                    DiagnosticCode::MalformedSource,
+                    "published music needs an explicit selected library snapshot",
+                ));
+                return;
+            };
+            match MusicMediaCatalog::from_snapshot(snapshot, references) {
+                Ok(media) => media,
+                Err(errors) => {
+                    for error in errors {
+                        out.report(facet.diagnostic(DiagnosticCode::MalformedSource, error));
+                    }
+                    return;
+                }
+            }
+        };
         out.define(
             facet.content_id("catalog"),
             canonical(&authored.room_phase_tracks),
         );
         for cue in &authored.cues {
-            let id = facet.content_id_in(MUSIC_CUE_SCHEMA, &cue.id);
-            out.define(id.clone(), canonical(cue));
-            for section in &cue.sections {
-                for source in &section.sources {
-                    out.need_asset(AssetRequirement::new(
-                        cue.source_path(source),
-                        id.clone(),
-                        "sections.sources.path",
-                    ));
-                }
-            }
+            let product = match &cue.media {
+                MusicCueMedia::Published { description, .. } => media.get(description),
+                MusicCueMedia::Inline { .. } => None,
+            };
+            out.define(
+                facet.content_id_in(MUSIC_CUE_SCHEMA, &cue.id),
+                canonical(&(cue, product)),
+            );
         }
         for binding in &authored.encounter_bindings {
             out.define(
@@ -213,8 +239,21 @@ impl ContentSchemaHandler for MusicCueCatalogSchema {
             );
         }
 
-        match PreparedMusicCues::prepare(authored) {
-            Ok(prepared) if !out.failed() => out.lower(prepared),
+        match PreparedMusicCues::prepare(authored, &media) {
+            Ok(prepared) if !out.failed() => {
+                for cue in prepared.cues() {
+                    for section in &cue.sections {
+                        for source in &section.sources {
+                            out.need_asset(AssetRequirement::new(
+                                &source.path,
+                                facet.content_id_in(MUSIC_CUE_SCHEMA, &cue.id),
+                                "media",
+                            ));
+                        }
+                    }
+                }
+                out.lower(prepared);
+            }
             Ok(_) => {}
             Err(errors) => {
                 for message in errors {

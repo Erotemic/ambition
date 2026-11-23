@@ -1427,7 +1427,12 @@ pub fn integrate_sim_bodies(
             // The player query below has always read this. Two roads, one
             // question — see the `playing_a_move` note on `ActorMut::update`,
             // which is the same defect on the same function.
-            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            //
+            // ACT2: and the share of this step its action may spend.
+            (
+                bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                Option<&ambition_characters::actor::BodyActionStep>,
+            ),
         ),
         (
             With<FeatureSimEntity>,
@@ -1479,6 +1484,8 @@ pub fn integrate_sim_bodies(
             (
                 bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
                 bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
+                // ACT2: the share of this step its action may spend.
+                Option<&ambition_characters::actor::BodyActionStep>,
             ),
         ),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
@@ -1512,7 +1519,7 @@ pub fn integrate_sim_bodies(
         playback,
         authored_tuning,
         envelope,
-        out_of_play,
+        (out_of_play, action_step),
     )| {
         let Some(mut cq) = clusters else {
             return;
@@ -1525,6 +1532,7 @@ pub fn integrate_sim_bodies(
         };
         let feature_world: &ambition_platformer2d_core::World = &feature_world;
         let mut em = cq.as_actor_mut();
+        let action_share = ambition_characters::actor::BodyActionStep::share(action_step, &combat);
         let effects = integrate_actor_body(
             actor_entity,
             &mut em,
@@ -1549,7 +1557,7 @@ pub fn integrate_sim_bodies(
             // is many ticks long.
             motion_facts.tumbling,
             out_of_play,
-            dt * freeze.scale_of(actor_entity),
+            dt * freeze.scale_of(actor_entity) * action_share,
             *feel_tuning,
             authored_tuning.map(|t| t.0),
             &mut frame_out,
@@ -1598,7 +1606,7 @@ pub fn integrate_sim_bodies(
         mut motion_facts,
         playback,
         authored_tuning,
-        (out_of_play, pose_owned_externally),
+        (out_of_play, pose_owned_externally, action_step),
     )| {
         // Per-body feel: an authored protagonist keeps its own tuning; the
         // sandbox protagonist tracks the live inspector sliders. This is the
@@ -1614,6 +1622,7 @@ pub fn integrate_sim_bodies(
         let feature_world: &ambition_platformer2d_core::World = &feature_world;
         let mut clusters = cluster_item.as_clusters_mut();
         let player_motion_frame = resolved_frame.get();
+        let action_share = ambition_characters::actor::BodyActionStep::share(action_step, &combat);
         crate::body::integration::integrate_home_body(
             control.0,
             feature_world,
@@ -1634,7 +1643,7 @@ pub fn integrate_sim_bodies(
             player_feel,
             playback.map_or(1.0, |pb| pb.motion_scale_now()),
             frame_dt,
-            scaled_dt * freeze.scale_of(player_entity),
+            scaled_dt * freeze.scale_of(player_entity) * action_share,
             // The move itself, not merely whether one is playing: only a
             // RECOVERY postpones helplessness, which is why the derivation reads
             // the spec's gate rather than the component's presence.

@@ -367,7 +367,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // (`message.portal_generator_toggled`), cleared on rollback (I2).
 // 533 -> 534: a move playback encodes the ranged source its use was admitted
 // with (`MovePlayback::ranged_source`, ACT1).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 534;
+// 534 -> 535: a body's action share for the step (`derived.body_action_step`,
+// ACT2) and a module's observation (`derived.module_observation`, OBS3) are
+// declared derived components.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 535;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

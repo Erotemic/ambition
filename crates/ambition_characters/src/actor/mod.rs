@@ -15,7 +15,7 @@ pub mod ai;
 pub mod body;
 pub use body::{
     WALL_JUMP_ANIM_HOLD_SECS,
-    advance_body_anim_overlays, ArmorPolicy, BodyAnimFacts, BodyCombat, BodyHealth, BodyWallet,
+    advance_body_anim_overlays, ArmorPolicy, BodyActionStep, BodyAnimFacts, BodyCombat, BodyHealth, BodyWallet,
     BodyWalletShield, DeathPolicy,
 };
 pub mod body_rig;

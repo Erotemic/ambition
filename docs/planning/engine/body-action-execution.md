@@ -554,22 +554,39 @@ arbitrary high-rate equivalence or solve skipped combat windows. A bounded
 substep or event-crossing policy needs its own customer; spawning all skipped
 hitboxes at the final pose would not reproduce contacts along the path.
 
-### First slice done (2026-11-23)
+### First slices done (2026-11-23)
 
-A body's action hold is one predicate, `BodyCombat::action_is_held`
-(hitlag or held in place). It is read after reactions decay, as the body
-step reads it. `advance_move_playback` spends no timeline, charge or flow
-time while it holds. No event fires and no flow node runs; a fresh move's
-entry event fires once on the release step. The live strike volume and its
-hit memory are untouched, and sustain keeps emitting as a level signal.
-`advance_body_pose_clocks` holds the physical pose clock the same way.
-Before this, an attacker froze for the hitlag it earned on contact while
-its swing kept running, so the swing ended early relative to its body.
-
-`BodyCombat::released_action_dt` resolves the proper time a step releases
-after hitstop (unscaled seconds) and paralysis (proper seconds), as
+A body's action time is resolved once per step. `advance_body_reactions`
+reads the reaction timers before they decay and writes `BodyActionStep`,
+the share of the step's proper interval the body's action may spend:
+`BodyCombat::released_action_share`, which is `released_action_dt` over
+the proper interval. `released_action_dt` spends hitstop in unscaled
+seconds and paralysis in proper seconds:
 `max(0, min(proper - r*h, proper - p))`. Stun and recoil lock thaw on it,
-which replaces `proper - max(h, p)`; the two agree at `r == 1`.
+replacing `proper - max(h, p)`; the two agree at `r == 1`.
+
+`BodyActionStep::share` is what each reader multiplies its own proper
+interval by. A body held in place reads zero. A body built after the
+reaction cut falls back to its post-decay hitlag. The readers are:
+
+- both body integration roads (actor and home), as travel;
+- `advance_move_playback`, for timeline, charge and flow;
+- `advance_body_pose_clocks`, for the physical pose clock.
+
+On the step a freeze expires, travel, the move and the stun therefore all
+spend the same released remainder. N frames of hitlag now give N frozen
+ticks. Before this, travel and the move took the whole expiry step while
+the stun took none of it.
+
+While the share is zero, a move fires no event and runs no flow node; a
+fresh move's entry event fires once on the release step. The live strike
+volume and its hit memory are untouched, and sustain keeps emitting as a
+level signal. Before this, an attacker froze for the hitlag it earned on
+contact while its swing kept running, so the swing ended early relative
+to its body.
+
+`BodyActionStep` and OBS3's `ModuleObservation` are declared
+rollback-derived components.
 
 The clock ladder no longer has a rung for the observed body's hitlag. A
 world freeze on a connect comes only from the room's `world_freezes_on_hit`
@@ -582,11 +599,11 @@ They also did so in a CPU-only match.
 
 Still open:
 
-- Travel and moves still take a whole step on the step a freeze expires,
-  while stun takes the released fraction. One pre-decay budget, rebuilt at
-  the reaction cut, should feed all three.
 - Sustain cadence.
 - Floor progression on action time (`control_dt`).
+- Ordinary actor and home integration read the room interval without the
+  body's `ProperTimeScale`. The share is applied on top of that interval,
+  so a dilated body's travel still runs on the room's rate.
 - The CPU-only and human-seat Smash acceptance. This VM cannot seat a
   Smash round, so that acceptance has to run elsewhere.
 

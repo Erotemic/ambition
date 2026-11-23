@@ -1,23 +1,43 @@
 //! Body reaction clocks for every controller and body role.
 
-use ambition_characters::actor::BodyCombat;
+use ambition_characters::actor::{BodyActionStep, BodyCombat};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_time::{ProperTimeScale, WorldTime};
 use bevy::prelude::*;
 
 /// Advance each body's recovery before control acceptance and body execution.
 /// Hitstop uses the unscaled step so a freeze cannot stop its own expiry.
+///
+/// It also resolves the step's action share ([`BodyActionStep`]) from the
+/// timers as they stand BEFORE they decay, which is the only cut that still
+/// knows how much of this step the freeze held.
 pub fn advance_body_reactions(
     time: Res<WorldTime>,
-    mut bodies: Query<(bevy::prelude::Entity, &mut BodyCombat, Option<&ProperTimeScale>), With<BodyKinematics>>,
+    mut commands: Commands,
+    mut bodies: Query<
+        (
+            bevy::prelude::Entity,
+            &mut BodyCombat,
+            Option<&ProperTimeScale>,
+            Option<&mut BodyActionStep>,
+        ),
+        With<BodyKinematics>,
+    >,
     // A connect's room holds its bodies' recovery too (ISL-1b).
     freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
-    for (entity, mut combat, scale) in &mut bodies {
-        combat.decay_reaction_timers(
-            time.entity_dt(ProperTimeScale::or_default(scale)) * freeze.scale_of(entity),
-            time.wall_dt(),
-        );
+    for (entity, mut combat, scale, step) in &mut bodies {
+        let proper_dt = time.entity_dt(ProperTimeScale::or_default(scale)) * freeze.scale_of(entity);
+        let resolved = BodyActionStep { released: combat.released_action_share(proper_dt, time.wall_dt()) };
+        match step {
+            Some(mut step) => {
+                step.set_if_neq(resolved);
+            }
+            None => {
+                commands.entity(entity).insert(resolved);
+            }
+        }
+        combat.decay_reaction_timers(proper_dt, time.wall_dt());
     }
 }
 

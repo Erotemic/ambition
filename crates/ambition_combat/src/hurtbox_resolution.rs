@@ -324,7 +324,7 @@ pub fn advance_body_pose_clocks(
     mut bodies: Query<(
         Entity,
         (
-            &ambition_characters::actor::BodyCombat,
+            (&ambition_characters::actor::BodyCombat, Option<&ambition_characters::actor::BodyActionStep>),
             Option<&ambition_platformer2d_core::BodyGroundState>,
             Option<&ambition_platformer2d_core::BodyModeState>,
             Option<&ambition_time::ProperTimeScale>,
@@ -337,18 +337,16 @@ pub fn advance_body_pose_clocks(
         &mut BodyPoseClock,
     )>,
 ) {
-    for (entity, (combat, ground, body_mode, scale), (kinematics, facts, frame), mut clock) in &mut bodies {
+    for (entity, ((combat, step), ground, body_mode, scale), (kinematics, facts, frame), mut clock) in &mut bodies {
         // The body's OWN proper time, the same clock `advance_move_playback` uses.
         // A dilated body's hitstun profile and its move profile must not disagree
         // about how much time passed, or a bullet-time hit resolves against a
         // silhouette from a different instant.
         // A body whose action is held (hitlag, held in place) holds its pose
         // clock with it, as its move and its travel do (ACT2).
-        let dt = if combat.action_is_held() {
-            0.0
-        } else {
-            world_time.entity_dt(scale.copied().unwrap_or_default()) * freeze.scale_of(entity)
-        };
+        let dt = world_time.entity_dt(scale.copied().unwrap_or_default())
+            * freeze.scale_of(entity)
+            * ambition_characters::actor::BodyActionStep::share(step, combat);
         let pose = body_pose(
             combat.hitstun_timer > 0.0,
             body_mode.is_some_and(|m| {

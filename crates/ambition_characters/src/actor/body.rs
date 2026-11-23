@@ -555,12 +555,18 @@ impl BodyCombat {
         self.hitstop_timer > 0.0
     }
 
-    /// Whether this body's ACTION clock is held this step: in hitlag or held
-    /// in place. It is the same freeze its travel takes in the body step, so a
-    /// move's timeline, charge and flow and the physical pose clock stand
-    /// still while the body does. Read after [`Self::decay_reaction_timers`].
-    pub fn action_is_held(&self) -> bool {
-        self.is_in_hitlag() || self.is_held_in_place()
+    /// The share of this step's proper interval the body's action may spend,
+    /// in `[0, 1]`: [`Self::released_action_dt`] over `proper_dt`. Read BEFORE
+    /// the timers decay. A step with no proper time releases all of nothing,
+    /// unless a hold is running.
+    pub fn released_action_share(&self, proper_dt: f32, unscaled_dt: f32) -> f32 {
+        if proper_dt > 0.0 {
+            (self.released_action_dt(proper_dt, unscaled_dt) / proper_dt).clamp(0.0, 1.0)
+        } else if self.hitstop_timer > 0.0 || self.paralysis_timer > 0.0 {
+            0.0
+        } else {
+            1.0
+        }
     }
 
     /// The proper time this step releases to a body's recovery once its holds
@@ -681,6 +687,39 @@ impl BodyCombat {
         // A body put back to spawn is out of the honey.
         self.slow_timer = 0.0;
         self.slow_scale = 0.0;
+    }
+}
+
+/// ACT2: the share of this step's interval a body's ACTION may spend, resolved
+/// once at the reaction cut before hitstop and paralysis decay
+/// (`advance_body_reactions`). Travel, move playback and the physical pose
+/// clock each scale their own proper interval by it, so all three resume on
+/// the step the stun starts to thaw instead of each reconstructing the held
+/// fraction. Derived every step; a rollback rebuilds it at the same cut.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct BodyActionStep {
+    pub released: f32,
+}
+
+impl Default for BodyActionStep {
+    fn default() -> Self {
+        Self { released: 1.0 }
+    }
+}
+
+impl BodyActionStep {
+    /// The share a reader spends this step. A body held in place spends none;
+    /// a body with no resolved step yet (built after the reaction cut) falls
+    /// back to the post-decay hold, as the body step reads it.
+    pub fn share(step: Option<&Self>, combat: &BodyCombat) -> f32 {
+        if combat.is_held_in_place() {
+            return 0.0;
+        }
+        match step {
+            Some(step) => step.released,
+            None if combat.is_in_hitlag() => 0.0,
+            None => 1.0,
+        }
     }
 }
 
@@ -807,6 +846,20 @@ impl BodyAnimFacts {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// ACT2: a freeze that ends inside a step releases the rest of it in
+    /// proper time. Hitstop is spent in unscaled seconds, so at a proper rate
+    /// of 0.5 a 0.004 s remainder of a 0.016 s step leaves 0.012 unscaled
+    /// seconds, which is 0.006 proper seconds, not `0.008 - 0.004`.
+    #[test]
+    fn a_freeze_that_ends_inside_a_step_releases_the_rest_in_proper_time() {
+        let ending = BodyCombat { hitstop_timer: 0.004, ..Default::default() };
+        assert!((ending.released_action_dt(0.008, 0.016) - 0.006).abs() < 1e-7);
+        assert!((ending.released_action_share(0.008, 0.016) - 0.75).abs() < 1e-6);
+        let held = BodyCombat { hitstop_timer: 0.02, ..Default::default() };
+        assert_eq!(held.released_action_share(0.016, 0.016), 0.0);
+        assert_eq!(BodyCombat::default().released_action_share(0.016, 0.016), 1.0);
+    }
 
     /// Shared reaction decay advances every timer and clamps at zero.
     #[test]

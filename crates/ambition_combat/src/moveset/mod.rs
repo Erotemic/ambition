@@ -1247,7 +1247,7 @@ pub fn advance_move_playback(
         // ACT2: a body in hitlag or held in place gives its move the same
         // frozen step its travel takes. The strike volume and its hit memory
         // stay live; only the timeline, charge and flow stand still.
-        Option<&ambition_characters::actor::BodyCombat>,
+        Option<(&ambition_characters::actor::BodyCombat, Option<&ambition_characters::actor::BodyActionStep>)>,
     )>,
     // IS ATTACK STILL DOWN? The body-generic resolved gesture, produced by
     // `resolve_attack_gestures` earlier in this same tick — never a device and
@@ -1334,12 +1334,11 @@ pub fn advance_move_playback(
         // ADR 0011: entity dt collapses to sim dt when the actor carries no
         // ProperTimeScale — undilated actors are the identity case. A
         // connect's room holds the moves of its bodies (ISL-1b).
-        let held = reactions.is_some_and(ambition_characters::actor::BodyCombat::action_is_held);
-        let dt = if held {
-            0.0
-        } else {
-            world_time.entity_dt(scale.copied().unwrap_or_default()) * freeze.scale_of(owner)
-        };
+        let share = reactions.map_or(1.0, |(combat, step)| {
+            ambition_characters::actor::BodyActionStep::share(step, combat)
+        });
+        let held = share <= 0.0;
+        let dt = world_time.entity_dt(scale.copied().unwrap_or_default()) * freeze.scale_of(owner) * share;
         let t_prev = playback.t;
         // THE CHARGE HOLD. A chargeable use walks its ordinary timeline to the
         // authored hold point and stands there while Attack is held. The proper

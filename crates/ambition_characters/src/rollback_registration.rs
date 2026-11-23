@@ -18,6 +18,16 @@ where
         OWNER,
         "actor.perception_memory",
     );
+    registrar.declare_rollback_derived_component::<crate::actor::BodyActionStep>(
+        OWNER,
+        "derived.body_action_step",
+        "re-derived from the body's restored reaction timers and the step's clocks at the reaction cut, before any reader",
+    );
+    registrar.declare_rollback_derived_component::<crate::perception::ModuleObservation>(
+        OWNER,
+        "derived.module_observation",
+        "demand re-derived from the admitted modules each step; the projection from the restored PerceptionMemory in the body's decision",
+    );
     registrar.declare_rollback_derived_component::<crate::actor::BodyWalletShield>(
         OWNER,
         "derived.wallet_shield",

@@ -10943,3 +10943,36 @@ fn an_offer_names_the_move_the_trigger_would_start_and_spends_nothing() {
     assert_eq!(offer(&rich, true), None, "a locked body is offered nothing");
     assert_eq!(rich, test_bank(50.0), "an offer spent the meter");
 }
+
+/// ACT1 step 4: an attack press acts out of a tumble only through the move it
+/// starts. The kernel used to end the tumble on the bare press, before the
+/// trigger could refuse it, so a locked body kept the escape without the move.
+#[test]
+fn only_an_accepted_move_acts_out_of_a_tumble() {
+    let after_a_press = |locked: bool| {
+        let (mut app, body) = buffer_app(swat_moveset(), 0.5);
+        let mut model = ae::MotionModel::axis_swept(ae::AxisSweptParams::default());
+        let ae::MotionModel::AxisSwept(axis) = &mut model else { unreachable!() };
+        // Tumbling, and past the launch's helpless window.
+        axis.state.tumble_until_landing = true;
+        axis.state.tumble_timer = 0.0;
+        app.world_mut().entity_mut(body).insert(model);
+        if locked {
+            app.world_mut().entity_mut(body).insert(ambition_characters::actor::BodyCombat {
+                recoil_lock_timer: 1.0,
+                ..Default::default()
+            });
+        }
+        set_frame(&mut app, body, |f| {
+            f.melee_pressed = true;
+            f.melee_held = true;
+        });
+        app.update();
+        let ae::MotionModel::AxisSwept(axis) = app.world().get::<ae::MotionModel>(body).unwrap() else {
+            unreachable!()
+        };
+        (playing(&app, body), axis.state.tumble_until_landing)
+    };
+    assert_eq!(after_a_press(false), (Some("swat".to_string()), false), "an accepted swat acts out");
+    assert_eq!(after_a_press(true), (None, true), "a refused press kept the tumble's escape");
+}

@@ -437,17 +437,22 @@ pub(super) fn tick_knockdown(
             return without_evade(input);
         }
         // control comes back before the tumble does. Once the helpless
-        // window has passed, a jump / attack / evade press ACTS OUT of the
-        // tumble — the escape that makes a launch a situation rather than a
-        // sentence — and the landing that follows is an ordinary one.
+        // window has passed, a jump press ACTS OUT of the tumble — the escape
+        // that makes a launch a situation rather than a sentence — and the
+        // landing that follows is an ordinary one.
         if !helpless {
             // not the evade button. While tumbling that press already
             // MEANS tech, and letting it also mean "act out of tumble" would
             // make the tech unreachable: every timed press would cancel the
             // tumble it was trying to survive, so the landing it was aimed at
-            // was never a knockdown in the first place. Jump and attack are the
-            // act-out verbs; the evade stays the floor game's.
-            if input.jump_pressed() || input.attack_pressed {
+            // was never a knockdown in the first place.
+            //
+            // ⛔ NOR THE ATTACK PRESS, which this kernel cannot accept. A move
+            // the action authority refuses (a lock, an unaffordable cost, no
+            // move bound) must not buy the escape, so the move's acceptance
+            // ends the tumble instead: `MotionModel::act_out_of_tumble` (ACT1
+            // step 4).
+            if input.jump_pressed() {
                 state.tumble_until_landing = false;
                 state.tech_press_timer = 0.0;
                 return input;

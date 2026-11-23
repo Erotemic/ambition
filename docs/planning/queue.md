@@ -391,9 +391,10 @@ world-post admission.
    was admitted with, carried on its fire event (schema 534). Boss attack
    starts wait out the same lock. A brain's attack kit is offered by the
    trigger's admission (`MoveAdmission::offer`), and its observed use
-   names the started move (`OwnMoveFact.spec`). Open: scripted starts,
-   locomotion escapes before their spend, the landing-tick cancel-window
-   remainder, and interrupting a bound shot whose source is gone.)
+   names the started move (`OwnMoveFact.spec`). An attack acts out of a
+   tumble only through its accepted move. Open: scripted starts, the jump
+   escapes before their spend, the landing-tick cancel-window remainder,
+   and interrupting a bound shot whose source is gone.)
 
 10. [Input IN1/IN2](engine/participant-action-system.md#input-history-and-body-interpretation)
     defines one admitted input cut for recording and replay, then resolves

@@ -3219,7 +3219,9 @@ pub fn trigger_moveset_moves(
     // Where the out-of-shield rule is authored: the body's own movement policy
     // carries its shield tuning. `None` for a bare test body, which then has no
     // rule and behaves exactly as it did.
-    shield_policies: Query<&ae::MotionModel>,
+    // Taken mutably for one write: an accepted move is what acts out of a
+    // tumble (`MotionModel::act_out_of_tumble`, ACT1 step 4).
+    mut motion_models: Query<&mut ae::MotionModel>,
     // What this body banked by being interrupted mid-charge. See
     // `StoredMoveCharge`; empty for every fighter that has never charged a
     // storing move.
@@ -3394,7 +3396,7 @@ pub fn trigger_moveset_moves(
         // THE OUT-OF-SHIELD RULE, read once for this body's press. Whether a
         // raised guard is a launching platform or a wall comes from the body's
         // own authored policy — never from a list of moves that get exceptions.
-        let oos_policy = shield_policies
+        let oos_policy = motion_models
             .get(entity)
             .ok()
             .and_then(|model| model.shield_tuning().out_of_shield);
@@ -4000,6 +4002,11 @@ pub fn trigger_moveset_moves(
                 let _ = before;
             }
             arm_brain_swing_pacing(&mut brain_paced, entity, proposer);
+            // ACT1 step 4: the accepted move, not the press, ends a tumble
+            // whose helpless window has passed.
+            if let Ok(mut model) = motion_models.get_mut(entity) {
+                model.act_out_of_tumble();
+            }
             start_move(StartingMove {
                 commands: &mut commands,
                 entity,
@@ -4128,6 +4135,11 @@ pub fn trigger_moveset_moves(
                 .filter(|stored| stored.move_id == spec.id)
                 .map(|stored| stored.held_s);
             arm_brain_swing_pacing(&mut brain_paced, entity, proposer);
+            // ACT1 step 4: the accepted move, not the press, ends a tumble
+            // whose helpless window has passed.
+            if let Ok(mut model) = motion_models.get_mut(entity) {
+                model.act_out_of_tumble();
+            }
             start_move(StartingMove {
                 commands: &mut commands,
                 entity,

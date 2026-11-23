@@ -215,8 +215,20 @@ changes behavior yet: REC1 is the customer that follows the started move or
 replans when it differs. The projection is the playback's handle itself, so
 the offer test above is the identity crossing.
 
-Still open: that cancel-window remainder of step 3, and locomotion escapes
-authorized before their spend (step 4, which can now ask the offer).
+**An attack acts out of a tumble only through its accepted move (2026-11-23).**
+Step 4's attack half. `tick_knockdown` no longer ends a tumble on the bare
+attack press; the trigger calls the kernel's `MotionModel::act_out_of_tumble`
+at both start cuts, after the move is accepted, so a locked, unaffordable or
+unbound press leaves the tumble and the knockdown it lands in. The operation
+refuses while the launch still holds the body helpless. The trigger runs
+after the kernel's step, which decremented that window, so the acceptance
+can act out one tick earlier than the kernel's own read did. The jump
+act-out stays the kernel's own verb. Guard:
+`only_an_accepted_move_acts_out_of_a_tumble`.
+
+Still open: that cancel-window remainder of step 3; the jump half of step 4
+(a tumble ends on a jump press the kernel then cannot spend, and a move's
+jump/burst cancel is considered after movement).
 
 ### An offer and an accepted action must name the same move
 

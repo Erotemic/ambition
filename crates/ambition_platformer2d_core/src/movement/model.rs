@@ -793,6 +793,29 @@ impl MotionModel {
         }
     }
 
+    /// End this body's tumble because an action it pressed was ACCEPTED.
+    /// Returns whether a tumble ended: `false` while the launch still holds it
+    /// helpless, when it is not tumbling, and for a policy with no tumble.
+    ///
+    /// The jump act-out is this kernel's own verb and stays in
+    /// `tick_knockdown`; a move is accepted by the action authority after the
+    /// kernel steps, so that authority calls this at its start cut. A press
+    /// it refuses leaves the tumble, and the knockdown it lands in, alone.
+    pub fn act_out_of_tumble(&mut self) -> bool {
+        match self {
+            Self::AxisSwept(axis) => {
+                let state = &mut axis.state;
+                if !state.tumble_until_landing || state.tumble_timer > 0.0 {
+                    return false;
+                }
+                state.tumble_until_landing = false;
+                state.tech_press_timer = 0.0;
+                true
+            }
+            Self::SurfaceMomentum(_) | Self::AdhesiveCrawler(_) => false,
+        }
+    }
+
     /// Has this body caught hold of a ledge? `false` for a policy that has
     /// no such thing. The sibling of [`Self::jump_squat_remaining`], and it
     /// exists for the same reason: a hang holds a body against its frame's pull

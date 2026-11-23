@@ -143,6 +143,12 @@ pub fn trigger_boss_attack_moves(
     // a read-only lookup cannot alias, and `bosses` is near the engine's tuple
     // width limit.
     occurrences: Query<&ambition_combat::moveset::MoveOccurrence>,
+    // The body's reaction and guard locks (ACT1), read by entity for the same
+    // reason as the occurrence above.
+    locks: Query<(
+        &ambition_characters::actor::BodyCombat,
+        Option<&ambition_platformer2d_core::BodyShieldState>,
+    )>,
     mut bosses: Query<
         (
             Entity,
@@ -192,6 +198,16 @@ pub fn trigger_boss_attack_moves(
         let Some((profile, from_telegraph)) = intent else {
             continue;
         };
+        // ACT1: a boss asks the body's locks as every other start does (a
+        // paralysis, a burial, landing lag). Its intent is untouched, so the
+        // move starts on the first tick the lock is over. The boss keeps its
+        // own execution policy otherwise: no button, buffer or affordability.
+        if locks.get(entity).is_ok_and(|(combat, shield)| match shield {
+            Some(shield) => ambition_combat::attack_support::body_action_lock_timer(combat, shield) > 0.0,
+            None => combat.hard_lock_timer() > 0.0,
+        }) {
+            continue;
+        }
         // A possessed boss's geometry strike fires like any other: possession
         // grants the full kit, and the hitbox carries the possessor's
         // effective faction (stamped in `advance_move_playback`), so it hits

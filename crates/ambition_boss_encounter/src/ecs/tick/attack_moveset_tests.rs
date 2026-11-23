@@ -565,3 +565,40 @@ fn the_trigger_plays_the_move_of_the_steps_beat() {
         assert_eq!(playback.spec.id, plays);
     }
 }
+
+/// ACT1: a boss whose body is locked (here a paralysis) does not start its
+/// intended move; the intent stands, and the move starts once the lock ends.
+#[test]
+fn a_locked_boss_starts_its_intended_move_only_when_the_lock_ends() {
+    let mut app = App::new();
+    app.add_systems(Update, trigger_boss_attack_moves);
+    let boss = app
+        .world_mut()
+        .spawn((
+            FeatureSimEntity,
+            BossAttackIntent {
+                active_profile: Some(BossAttackProfile::Strike("floor_slam".to_string())),
+                ..Default::default()
+            },
+            boss_moveset_for_test(),
+            ambition_platformer2d_core::BodyKinematics { material: Default::default(),
+                pos: ambition_platformer2d_core::Vec2::ZERO,
+                vel: ambition_platformer2d_core::Vec2::ZERO,
+                canonical_size: ambition_platformer2d_core::Vec2::new(80.0, 80.0),
+                facing: 1.0,
+            },
+            ambition_characters::actor::BodyCombat { paralysis_timer: 0.5, ..Default::default() },
+        ))
+        .id();
+    app.update();
+    assert!(
+        app.world().get::<ambition_combat::moveset::MovePlayback>(boss).is_none(),
+        "a paralyzed boss started its strike"
+    );
+    app.world_mut().get_mut::<ambition_characters::actor::BodyCombat>(boss).unwrap().paralysis_timer = 0.0;
+    app.update();
+    assert!(
+        app.world().get::<ambition_combat::moveset::MovePlayback>(boss).is_some(),
+        "the standing intent did not start once the lock ended"
+    );
+}

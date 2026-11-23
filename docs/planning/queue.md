@@ -383,9 +383,15 @@ world-post admission.
    bypasses room policy. First customers are ordinary Ambition reaction and
    landing, plus Smash local hitlag. ACT3 floor choreography remains a later
    Smash customer; it is not part of this row's required completion.
-   (ACT1 first slice landed 2026-11-23: an interrupting reaction retires the
+   (ACT1 slices landed 2026-11-23: an interrupting reaction retires the
    victim's move use it captured at reception; armor, gusts, damage-only
-   ticks, deaths and boss hits do not.)
+   ticks, deaths and boss hits do not. Ordinary move starts ask the body's
+   reaction and guard locks through one rule shared with the input gate,
+   and a refused press keeps its buffer. A ranged use fires the source it
+   was admitted with, carried on its fire event (schema 534). Open: boss
+   and scripted starts, locomotion escapes before their spend, the
+   landing-tick cancel-window remainder, the action offer, and interrupting
+   a bound shot whose source is gone.)
 
 10. [Input IN1/IN2](engine/participant-action-system.md#input-history-and-body-interpretation)
     defines one admitted input cut for recording and replay, then resolves

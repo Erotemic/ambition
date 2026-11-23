@@ -365,7 +365,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // ride at its commit, so no pending-summon row is rewound (AC1).
 // 532 -> 533: the portal generator answers each toggle
 // (`message.portal_generator_toggled`), cleared on rollback (I2).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 533;
+// 533 -> 534: a move playback encodes the ranged source its use was admitted
+// with (`MovePlayback::ranged_source`, ACT1).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 534;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

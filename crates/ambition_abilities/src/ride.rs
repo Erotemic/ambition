@@ -15,7 +15,7 @@ use ambition_combat_port::{
 };
 use ambition_extension_host::{ExtensionAppExt, ExtensionOutbox};
 use ambition_extension_sdk::phases::TECHNIQUE_EXECUTION;
-use ambition_mount::{DismountReason, DismountRequested, MountReservedFor, MountSlot, RidingOn};
+use ambition_mount::{DismountReason, DismountRequested, MountReservedFor, MountSlot};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
 use ambition_platformer2d_shared_tangle::schedule::{ActorDecisionSet, GameplayGated, PlayerInputSet, SimScheduleExt};
@@ -200,9 +200,10 @@ fn answer_ride_summons(world: &mut World) {
 
 /// What `scope` rides (`ambition.body.ride`).
 fn ride_of(world: &World, scope: Entity) -> Option<Ride> {
-    if let Some(riding) = world.get::<RidingOn>(scope) {
-        let mount_alive =
-            world.get::<ambition_characters::actor::BodyHealth>(riding.mount).is_some_and(|health| health.alive());
+    // In a saddle: the active ride, not a ride record a dead rider keeps for
+    // its revival.
+    if let Some(mount) = ambition_mount::active_mount_in(world, scope) {
+        let mount_alive = world.get::<ambition_characters::actor::BodyHealth>(mount).is_some_and(|health| health.alive());
         return Some(Ride::Aboard { mount_alive });
     }
     let Some(mut reservations) = world.try_query::<&MountReservedFor>() else {

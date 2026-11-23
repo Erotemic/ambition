@@ -116,6 +116,9 @@ fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
             RidingOn { mount },
         ))
         .id();
+    // Both halves of the pair, as construction wires them: the saddle pins
+    // only an active ride.
+    app.world_mut().entity_mut(mount).insert(saddle_holding(rider));
     // Pre-poison rider velocity so the assertion that the sync
     // zeroes it isn't a no-op against the default.
     app.world_mut()
@@ -218,6 +221,9 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
             // could not see `PoseOwnedExternally` being left on a rider whose
             // mount had died.
             ambition_mount::rider_of(mount),
+            // The licence construction verifies on every authored pair; a
+            // rearm asks the board law, which reads it.
+            CanPilot { classes: vec![MountClass::default()] },
         ))
         .id();
     app.world_mut()
@@ -898,11 +904,13 @@ fn a_dead_rider_frees_the_saddle_and_its_revival_takes_it_back() {
     assert!(app.world().get::<Mounted>(rider).is_none(), "a corpse still steers its mount");
     assert!(app.world().get::<ae::PoseOwnedExternally>(rider).is_none(), "a corpse is still held in the saddle");
     assert_eq!(app.world().get::<RidingOn>(rider).map(|r| r.mount), Some(mount), "the record a revival re-arms from");
+    assert_eq!(active_mount_in(app.world(), rider), None, "a dead rider's reset association reads as an active ride");
     assert!(health(&mut app, mount).alive(), "the mount lives on");
 
     health(&mut app, rider).reset();
     app.update();
     assert_eq!(seat(&app), Some(rider), "the revived rider did not take its saddle back");
+    assert_eq!(active_mount_in(app.world(), rider), Some(mount), "the revival did not re-admit the ride");
     assert!(app.world().get::<Mounted>(rider).is_some());
     assert!(app.world().get::<ae::PoseOwnedExternally>(rider).is_some(), "the revived rider is not held in the saddle");
 

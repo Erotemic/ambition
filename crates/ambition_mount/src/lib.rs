@@ -552,6 +552,188 @@ pub fn saddle_holding(rider: Entity) -> MountSlot {
     MountSlot { rider: Some(rider) }
 }
 
+/// The mount `rider` is in the saddle of: its [`RidingOn`] names a mount whose
+/// [`MountSlot`] names it back.
+///
+/// This is the ACTIVE ride. A [`RidingOn`] alone is not one: a dead rider
+/// keeps it as the association its revival re-arms from, after the saddle is
+/// freed, and a [`MountReservedFor`] is an intent to board. Steering, the
+/// saddle pin, observation, interaction and travel read this, not the record.
+/// A mount that died under its rider still holds its saddle, so the ride
+/// stays active and its readers ask the mount's liveness themselves.
+pub fn active_mount(rider: Entity, riding: Option<&RidingOn>, slot_of: impl FnOnce(Entity) -> Option<MountSlot>) -> Option<Entity> {
+    let mount = riding?.mount;
+    (slot_of(mount)?.rider == Some(rider)).then_some(mount)
+}
+
+/// [`active_mount`] in a world.
+pub fn active_mount_in(world: &bevy::prelude::World, rider: Entity) -> Option<Entity> {
+    active_mount(rider, world.get::<RidingOn>(rider), |mount| world.get::<MountSlot>(mount).copied())
+}
+
+/// The active rides of a system: [`active_mount`] over the native relation.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct ActiveRides<'w, 's> {
+    riders: Query<'w, 's, &'static RidingOn>,
+    slots: Query<'w, 's, &'static MountSlot>,
+}
+
+impl ActiveRides<'_, '_> {
+    /// The mount `rider` actively rides.
+    pub fn mount_of(&self, rider: Entity) -> Option<Entity> {
+        active_mount(rider, self.riders.get(rider).ok(), |mount| self.slots.get(mount).ok().copied())
+    }
+
+    /// Every active pair, as `(rider, mount)`.
+    pub fn pairs(&self) -> impl Iterator<Item = (Entity, Entity)> + '_ {
+        self.slots.iter().filter_map(|slot| {
+            let rider = slot.rider?;
+            self.mount_of(rider).map(|mount| (rider, mount))
+        })
+    }
+}
+
+/// Why a rider may not take a mount's saddle now.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BoardRefusal {
+    /// A body does not ride itself.
+    SameBody,
+    /// The mount has no [`Mountable`] role.
+    NotAMount,
+    /// The rider's [`CanPilot`] does not cover the mount's class.
+    Unlicensed,
+    /// The rider is dead.
+    RiderDead,
+    /// The mount is dead.
+    MountDead,
+    /// The rider keeps a ride on another mount.
+    RidesAnother,
+    /// Another body is in the saddle.
+    SaddleTaken,
+    /// The mount is held for another rider ([`MountReservedFor`]).
+    ReservedForAnother,
+    /// The two bodies are not in one execution scope: two nearby coordinates
+    /// in two live rooms are not one physical space.
+    Apart,
+}
+
+/// The facts of one rider and one mount that the board law reads.
+#[derive(Clone, Copy)]
+pub struct BoardCase<'a> {
+    pub rider: Entity,
+    pub mount: Entity,
+    pub licence: Option<&'a CanPilot>,
+    pub riding: Option<&'a RidingOn>,
+    pub rider_health: Option<&'a ambition_characters::actor::BodyHealth>,
+    pub mountable: Option<&'a Mountable>,
+    pub slot: Option<&'a MountSlot>,
+    pub reserved: Option<&'a MountReservedFor>,
+    pub mount_health: Option<&'a ambition_characters::actor::BodyHealth>,
+    /// The two bodies share one execution scope
+    /// (`ambition_platformer2d_shared_tangle::lifecycle::ExecutionScope`).
+    pub one_scope: bool,
+}
+
+impl<'a> BoardCase<'a> {
+    /// The one native board law: a manual board, a reservation's arrival and
+    /// a revival's rearm ask it, and [`board`] asks it again at its write
+    /// cut. Reach and preference are the selection's, not this law's. A body
+    /// with no health pool is read as alive, as the press always read it.
+    pub fn refusal(&self) -> Option<BoardRefusal> {
+        let alive = |health: Option<&ambition_characters::actor::BodyHealth>| health.is_none_or(|h| h.alive());
+        if self.rider == self.mount {
+            return Some(BoardRefusal::SameBody);
+        }
+        let Some(mountable) = self.mountable else {
+            return Some(BoardRefusal::NotAMount);
+        };
+        // A rider with no `CanPilot` pilots nothing: "no statement means no
+        // restriction" would make the licence decorative.
+        if !self.licence.is_some_and(|licence| licence.can_pilot(&mountable.class)) {
+            return Some(BoardRefusal::Unlicensed);
+        }
+        if !alive(self.rider_health) {
+            return Some(BoardRefusal::RiderDead);
+        }
+        if !alive(self.mount_health) {
+            return Some(BoardRefusal::MountDead);
+        }
+        if self.riding.is_some_and(|riding| riding.mount != self.mount) {
+            return Some(BoardRefusal::RidesAnother);
+        }
+        if self.slot.and_then(|slot| slot.rider).is_some_and(|holder| holder != self.rider) {
+            return Some(BoardRefusal::SaddleTaken);
+        }
+        // A licence says "I can ride sharks", which both admirals of a mirror
+        // match hold; a reservation says THIS shark is spoken for.
+        if self.reserved.is_some_and(|held| held.rider != self.rider) {
+            return Some(BoardRefusal::ReservedForAnother);
+        }
+        if !self.one_scope {
+            return Some(BoardRefusal::Apart);
+        }
+        None
+    }
+
+    /// The case of `rider` and `mount` in a world.
+    pub fn in_world(world: &'a bevy::prelude::World, rider: Entity, mount: Entity) -> Self {
+        use ambition_platformer2d_shared_tangle::lifecycle::ExecutionScope;
+        Self {
+            rider,
+            mount,
+            licence: world.get::<CanPilot>(rider),
+            riding: world.get::<RidingOn>(rider),
+            rider_health: world.get::<ambition_characters::actor::BodyHealth>(rider),
+            mountable: world.get::<Mountable>(mount),
+            slot: world.get::<MountSlot>(mount),
+            reserved: world.get::<MountReservedFor>(mount),
+            mount_health: world.get::<ambition_characters::actor::BodyHealth>(mount),
+            one_scope: ExecutionScope::shared(ExecutionScope::in_world(world, rider), ExecutionScope::in_world(world, mount)),
+        }
+    }
+}
+
+/// The facts the board law reads, for a system.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct BoardFacts<'w, 's> {
+    pilots: Query<
+        'w,
+        's,
+        (Option<&'static CanPilot>, Option<&'static RidingOn>, Option<&'static ambition_characters::actor::BodyHealth>),
+    >,
+    mounts: Query<
+        'w,
+        's,
+        (
+            Option<&'static Mountable>,
+            Option<&'static MountSlot>,
+            Option<&'static MountReservedFor>,
+            Option<&'static ambition_characters::actor::BodyHealth>,
+        ),
+    >,
+    scopes: ambition_platformer2d_shared_tangle::lifecycle::ExecutionScopes<'w, 's>,
+}
+
+impl BoardFacts<'_, '_> {
+    /// The case of `rider` boarding `mount` now.
+    pub fn case(&self, rider: Entity, mount: Entity) -> BoardCase<'_> {
+        let (licence, riding, rider_health) = self.pilots.get(rider).unwrap_or((None, None, None));
+        let (mountable, slot, reserved, mount_health) = self.mounts.get(mount).unwrap_or((None, None, None, None));
+        BoardCase {
+            rider,
+            mount,
+            licence,
+            riding,
+            rider_health,
+            mountable,
+            slot,
+            reserved,
+            mount_health,
+            one_scope: self.scopes.share(rider, mount),
+        }
+    }
+}
+
 /// Authored sky-rider collision size. A standalone cove PirateRaider is
 /// 44x78 (~125 px tall rendered through the 1.6× pirate sheet
 /// collision_scale), but a shark-rider is an authored compact sky variant.
@@ -608,9 +790,11 @@ const RIDER_DETOUR_MAX_PX: f32 = 160.0;
 
 pub fn steer_mount_from_rider(
     riders: Query<
-        (&RidingOn, &ambition_characters::control::ActorControl, Option<&ae::BodyKinematics>),
+        (Entity, &RidingOn, &ambition_characters::control::ActorControl, Option<&ae::BodyKinematics>),
         (With<Mounted>, Without<MountSlot>),
     >,
+    // The saddles, so only an active ride steers (`active_mount`).
+    slots: Query<&MountSlot>,
     // ⛔ A SCRIPT THAT WALKS A MOUNT WALKS IT (`CommandedMove`): its rider
     // does not steer its walk then, only the way it faces. A conductor walks
     // a giant under its rider.
@@ -631,7 +815,10 @@ pub fn steer_mount_from_rider(
     >,
 ) {
     let room = rooms.single().ok();
-    for (riding, rider_control, rider_kin) in &riders {
+    for (rider, riding, rider_control, rider_kin) in &riders {
+        if active_mount(rider, Some(riding), |mount| slots.get(mount).ok().copied()).is_none() {
+            continue;
+        }
         let Ok((mountable, mut mount_control, mount_motion, walked)) = mounts.get_mut(riding.mount) else {
             continue;
         };
@@ -827,6 +1014,11 @@ pub fn sync_riders_to_mounts(
         let Ok((mountable, mount_kin, mount_health, mount_unmirrored)) = mounts.get(riding.mount) else {
             continue;
         };
+        // Only an active ride pins: a record whose saddle does not name this
+        // rider (a revival's association, a saddle taken since) holds nobody.
+        if active_mount(rider, Some(riding), |mount| slots.get(mount).ok().copied()).is_none() {
+            continue;
+        }
         if !mount_health.alive() || !rider_health.alive() {
             continue;
         }
@@ -1030,6 +1222,7 @@ pub fn board_reserved_mounts(
     mut refused: MessageWriter<RideRefused>,
     // A reservation runs out at its mount's room's pace (ISL-1b).
     freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
+    scopes: ambition_platformer2d_shared_tangle::lifecycle::ExecutionScopes,
 ) {
     let dt = time.sim_dt();
     // ⛔⛔ ONE OUTCOME PER RESERVATION PER TICK, DECIDED IN ONE PASS. The first
@@ -1048,6 +1241,7 @@ pub fn board_reserved_mounts(
         Board(MountReservedFor),
         Expired(Entity),
         RiderGone(Entity),
+        Apart(Entity),
     }
     let mut decided: Vec<(Entity, Outcome)> = Vec::new();
     for (mount, mut reservation, kin) in &mut reserved {
@@ -1057,6 +1251,13 @@ pub fn board_reserved_mounts(
             decided.push((mount, Outcome::RiderGone(reservation.rider)));
             continue;
         };
+        // A rider in another physical space has not arrived, however near
+        // its coordinates are, and a reservation does not deliver a mount
+        // across rooms.
+        if !scopes.share(reservation.rider, mount) {
+            decided.push((mount, Outcome::Apart(reservation.rider)));
+            continue;
+        }
         let gap = kin.pos.distance(rider_kin.pos);
         if gap <= reservation.board_within {
             decided.push((mount, Outcome::Board(*reservation)));
@@ -1103,6 +1304,14 @@ pub fn board_reserved_mounts(
                 commands.entity(mount).remove::<MountReservedFor>();
                 refused.write(RideRefused { rider, mount });
             }
+            Outcome::Apart(rider) => {
+                bevy::log::warn!(
+                    target: "ambition::mount",
+                    "reservation abandoned: mount={mount:?} rider={rider:?} are not in one room",
+                );
+                commands.entity(mount).remove::<MountReservedFor>();
+                refused.write(RideRefused { rider, mount });
+            }
         }
     }
     arrivals.sort_by_key(|(mount, _)| *mount);
@@ -1115,6 +1324,9 @@ pub fn board_reserved_mounts(
             reservation.lease_seconds,
         );
         commands.queue(move |world: &mut bevy::prelude::World| {
+            // Asked before the board writes, so the refusal can say why. The
+            // reservation is still on the mount here; the board asks again.
+            let refusal = BoardCase::in_world(world, reservation.rider, mount).refusal();
             if board(world, reservation.rider, mount) {
                 // ⭐ THE LEASE IS PART OF THE BOARD, never a separate write: a
                 // lease on a body that is not riding is one
@@ -1137,14 +1349,10 @@ pub fn board_reserved_mounts(
                     .get::<CanPilot>(reservation.rider)
                     .map(|c| format!("{c:?}"));
                 let already_riding = world.get::<RidingOn>(reservation.rider).is_some();
-                let seat_taken = world
-                    .get::<MountSlot>(mount)
-                    .is_some_and(|slot| slot.rider.is_some());
                 bevy::log::warn!(
                     target: "ambition::mount",
-                    "board REFUSED: mount={mount:?} rider={:?} mount_class={class:?} \
-                     rider_can_pilot={can:?} rider_already_riding={already_riding} \
-                     saddle_taken={seat_taken}",
+                    "board REFUSED: mount={mount:?} rider={:?} refusal={refusal:?} mount_class={class:?} \
+                     rider_can_pilot={can:?} rider_already_riding={already_riding}",
                     reservation.rider,
                 );
                 world.write_message(RideRefused {
@@ -1199,40 +1407,21 @@ impl MountPresses {
     }
 }
 
-/// One mount a pilot might commandeer, as [`nearest_commandeerable`] reads it.
-pub type CommandeerCandidate<'a> = (
-    Entity,
-    &'a Mountable,
-    &'a ae::BodyKinematics,
-    Option<&'a MountSlot>,
-    Option<&'a MountReservedFor>,
-    Option<&'a ambition_characters::actor::BodyHealth>,
-);
-
-/// May `pilot` board `candidate` by hand now: a living, riderless mount its
-/// licence covers, unreserved (or reserved for it), within
-/// [`COMMANDEER_REACH`] of its box, and not one in `taken`. The legality both
-/// the selection ([`nearest_commandeerable`]) and the press's own cut
+/// May `pilot` board `mount` by hand now: the board law admits the pair
+/// ([`BoardCase::refusal`]), the mount is not one in `taken`, and it is
+/// within [`COMMANDEER_REACH`] of the pilot's box. The legality both the
+/// selection ([`nearest_commandeerable`]) and the press's own cut
 /// ([`commandeer_mounts`]) ask.
 pub fn can_commandeer(
-    pilot: Entity,
-    licence: &CanPilot,
+    case: &BoardCase<'_>,
     pilot_kin: &ae::BodyKinematics,
-    candidate: CommandeerCandidate<'_>,
+    mount_kin: &ae::BodyKinematics,
     taken: &[Entity],
 ) -> bool {
-    let (mount, mountable, kin, slot, held, health) = candidate;
     let reach = pilot_kin.half_extent() + ae::Vec2::splat(COMMANDEER_REACH);
-    let gap = (kin.pos - pilot_kin.pos).abs();
-    let within = reach + kin.half_extent();
-    mount != pilot
-        && !taken.contains(&mount)
-        && licence.can_pilot(&mountable.class)
-        && slot.is_none_or(|slot| slot.rider.is_none())
-        && held.is_none_or(|held| held.rider == pilot)
-        && health.is_none_or(|h| h.alive())
-        && gap.x <= within.x
-        && gap.y <= within.y
+    let gap = (mount_kin.pos - pilot_kin.pos).abs();
+    let within = reach + mount_kin.half_extent();
+    !taken.contains(&case.mount) && case.refusal().is_none() && gap.x <= within.x && gap.y <= within.y
 }
 
 /// The mount `pilot`'s Interact would board: the nearest one it may
@@ -1240,21 +1429,21 @@ pub fn can_commandeer(
 /// selection asks this; the press boards what was selected.
 pub fn nearest_commandeerable<'a>(
     pilot: Entity,
-    licence: &CanPilot,
     pilot_kin: &ae::BodyKinematics,
-    mounts: impl IntoIterator<Item = CommandeerCandidate<'a>>,
+    facts: &BoardFacts,
+    mounts: impl IntoIterator<Item = (Entity, &'a ae::BodyKinematics)>,
     taken: &[Entity],
 ) -> Option<Entity> {
     mounts
         .into_iter()
-        .filter(|candidate| can_commandeer(pilot, licence, pilot_kin, *candidate, taken))
+        .filter(|(mount, kin)| can_commandeer(&facts.case(pilot, *mount), pilot_kin, kin, taken))
         .min_by(|a, b| {
-            a.2.pos
+            a.1.pos
                 .distance_squared(pilot_kin.pos)
-                .total_cmp(&b.2.pos.distance_squared(pilot_kin.pos))
+                .total_cmp(&b.1.pos.distance_squared(pilot_kin.pos))
                 .then(a.0.cmp(&b.0))
         })
-        .map(|(mount, ..)| mount)
+        .map(|(mount, _)| mount)
 }
 
 /// Commandeer a mount by hand: a body whose Interact press is selected to
@@ -1273,26 +1462,18 @@ pub fn nearest_commandeerable<'a>(
 /// Pilots are visited in [`SimId`] order (a body with none last), so two
 /// bodies reaching for one mount on one tick resolve the same on every peer:
 /// the first boards and the second is refused by [`board`].
-#[allow(clippy::type_complexity)]
 pub fn commandeer_mounts(
     mut commands: Commands,
     pilots: Query<(
         Entity,
-        &CanPilot,
         &ambition_characters::control::ActorControl,
         &ae::BodyKinematics,
-        Option<&RidingOn>,
         Option<&ambition_characters::actor::BodyHealth>,
         Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     )>,
-    mounts: Query<(
-        Entity,
-        &Mountable,
-        &ae::BodyKinematics,
-        Option<&MountSlot>,
-        Option<&MountReservedFor>,
-        Option<&ambition_characters::actor::BodyHealth>,
-    )>,
+    mounts: Query<&ae::BodyKinematics, With<Mountable>>,
+    facts: BoardFacts,
+    rides: ActiveRides,
     mut dismounts: MessageWriter<DismountRequested>,
     selected: Option<bevy::prelude::Res<MountPresses>>,
 ) {
@@ -1302,26 +1483,26 @@ pub fn commandeer_mounts(
     let alive = |health: Option<&ambition_characters::actor::BodyHealth>| health.is_none_or(|h| h.alive());
     let mut pressing: Vec<_> = pilots
         .iter()
-        .filter(|(_, _, control, _, _, health, _)| control.0.interact_pressed && alive(*health))
+        .filter(|(_, control, _, health, _)| control.0.interact_pressed && alive(*health))
         .filter_map(|pilot| selected.of(pilot.0).map(|press| (pilot, press)))
         .collect();
-    pressing.sort_by(|(a, _), (b, _)| match (a.6, b.6) {
+    pressing.sort_by(|(a, _), (b, _)| match (a.4, b.4) {
         (Some(x), Some(y)) => x.cmp(y).then(a.0.cmp(&b.0)),
         (Some(_), None) => std::cmp::Ordering::Less,
         (None, Some(_)) => std::cmp::Ordering::Greater,
         (None, None) => a.0.cmp(&b.0),
     });
     let mut taken: Vec<Entity> = Vec::new();
-    for ((pilot, licence, _, pilot_kin, riding, _, _), press) in pressing {
-        match (press, riding.is_some()) {
+    for ((pilot, _, pilot_kin, _, _), press) in pressing {
+        match (press, rides.mount_of(pilot).is_some()) {
             (MountPress::Dismount, true) => {
                 dismounts.write(DismountRequested { rider: pilot, reason: DismountReason::RiderBailed });
             }
             (MountPress::Board(mount), false) => {
-                let Ok(candidate) = mounts.get(mount) else {
+                let Ok(mount_kin) = mounts.get(mount) else {
                     continue;
                 };
-                if !can_commandeer(pilot, licence, pilot_kin, candidate, &taken) {
+                if !can_commandeer(&facts.case(pilot, mount), pilot_kin, mount_kin, &taken) {
                     continue;
                 }
                 taken.push(mount);
@@ -1340,14 +1521,14 @@ pub fn commandeer_mounts(
 
 /// Weld a rider into a mount's saddle — ADR 0020's board action.
 ///
-/// Refuses, returning `false`, when the pair is not a legal one: the mount is
-/// not [`Mountable`], the rider's [`CanPilot`] does not cover the mount's class,
-/// either side is already in a link, or the two are the same entity.
+/// Refuses, returning `false`, when the board law refuses the pair
+/// ([`BoardCase::refusal`]) or the rider already keeps a ride record. This is
+/// the write cut: a selection or a reservation decided earlier, and the pair
+/// is asked again here.
 ///
-/// ⛔ THE CLASS CHECK IS THE POINT OF THE FUNCTION. *"A shark-rider cannot board
-/// a mech"* is ADR 0020's rule and it only exists if something asks; a caller
-/// that welded the components itself would be authorising its own pairing, and
-/// then the check would be documentation rather than a rule.
+/// ⛔ THE LAW IS THE POINT OF THE FUNCTION. *"A shark-rider cannot board a
+/// mech"* is ADR 0020's rule and it only exists if something asks; a caller
+/// that welded the components itself would be authorising its own pairing.
 ///
 /// ⚠ TAKES A `&mut World` because its first caller is inside the summon
 /// executor's exclusive command, where the mount it is boarding was created
@@ -1362,39 +1543,13 @@ pub fn commandeer_mounts(
 /// stamping `Mounted` there would claim a brain swap that never happened.
 /// `enforce_mount_rider_link` files it on the arm that does the swap.
 pub fn board(world: &mut bevy::prelude::World, rider: Entity, mount: Entity) -> bool {
-    if rider == mount {
-        return false;
-    }
-    let Some(class) = world.get::<Mountable>(mount).map(|m| m.class.clone()) else {
-        return false;
-    };
-    // A rider with no `CanPilot` at all pilots nothing. ⛔ the permissive
-    // reading — "no statement means no restriction" — is the shape that makes a
-    // capability check decorative, and this engine has paid for that before.
-    if !world
-        .get::<CanPilot>(rider)
-        .is_some_and(|can| can.can_pilot(&class))
-    {
-        return false;
-    }
+    // A re-armed record is the rearm's (`enforce_mount_rider_link`); a board
+    // starts a ride.
     if world.get::<RidingOn>(rider).is_some() {
         return false;
     }
-    if world
-        .get::<MountSlot>(mount)
-        .is_some_and(|slot| slot.rider.is_some())
-    {
-        return false;
-    }
-    // ⛔⛔ A MOUNT HELD FOR SOMEBODY ELSE REFUSES EVERYONE ELSE. Without this a
-    // class licence is the whole check, and in a mirror match both admirals hold
-    // one — so the second could walk onto the first one's summoned shark. The
-    // licence is right and stays: what is wrong is treating "I can ride sharks"
-    // as "I can ride THIS shark". See [`MountReservedFor`].
-    if world
-        .get::<MountReservedFor>(mount)
-        .is_some_and(|held| held.rider != rider)
-    {
+    if let Some(refusal) = BoardCase::in_world(world, rider, mount).refusal() {
+        bevy::log::debug!(target: "ambition::mount", "board refused: mount={mount:?} rider={rider:?} {refusal:?}");
         return false;
     }
     // ⭐ AND THE BODY SAYS IT IS HELD. `PoseOwnedExternally` is the one fact a
@@ -1579,7 +1734,8 @@ pub struct DismountRequestsApplied;
 ///   [`MountSlot`] is freed, so its own brain drives it again and a licensed
 ///   body may commandeer it. The corpse keeps its [`RidingOn`] record (a
 ///   conductor still finds its mount by it), and a revival re-arms the ride
-///   and takes the saddle back, unless somebody else is riding by then. A
+///   and takes the saddle back when the board law admits the pair again
+///   ([`BoardCase::refusal`]: the saddle free, one room, the licence). A
 ///   body a participant drives loses the record too: its death is answered by
 ///   a respawn, not by a revival in the saddle.
 ///
@@ -1624,6 +1780,10 @@ pub fn enforce_mount_rider_link(
     // Stable ids, to record the mount by `SimId` in the rider's temporary-control
     // state (so a snapshot restores the mount link across a rewind).
     sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    // The rest of what the board law reads when a revival rearms a ride.
+    licences: Query<&CanPilot>,
+    reservations: Query<&MountReservedFor>,
+    scopes: ambition_platformer2d_shared_tangle::lifecycle::ExecutionScopes,
 ) {
     // Build a lookup of mount alive-ness + death impact. With two-pirate fights this is O(R+M)
     // per frame and the hashmap stays small.
@@ -1811,14 +1971,30 @@ pub fn enforce_mount_rider_link(
             // life. Restore the cached MOUNTED brain + action set
             // and the ride's constraints. Re-arm idempotently.
             (true, false) => {
-                // The saddle may have been freed by this rider's death and taken
-                // since: somebody else's ride is not undone by a revival, and
-                // the record re-arms nothing any more.
-                let seat = saddle.get(&riding.mount).copied().flatten();
-                if seat.is_some_and(|holder| holder != rider_entity) {
+                // The rearm admits the pair by the board law. The saddle may
+                // have been freed by this rider's death and taken since, the
+                // two may be in different rooms now, or the mount may be held
+                // for another: somebody else's ride is not undone by a
+                // revival, and the record re-arms nothing any more.
+                let mount_row = mounts.get(riding.mount).ok();
+                let case = BoardCase {
+                    rider: rider_entity,
+                    mount: riding.mount,
+                    licence: licences.get(rider_entity).ok(),
+                    riding: Some(riding),
+                    rider_health: Some(&*rider_health),
+                    mountable: mount_row.and_then(|(_, _, mountable, _)| mountable),
+                    slot: mount_row.map(|(_, _, _, slot)| slot),
+                    reserved: reservations.get(riding.mount).ok(),
+                    mount_health: mount_row.and_then(|(_, health, _, _)| health),
+                    one_scope: scopes.share(rider_entity, riding.mount),
+                };
+                if let Some(refusal) = case.refusal() {
+                    bevy::log::debug!(target: "ambition::mount", "rearm refused: rider={rider_entity:?} mount={:?} {refusal:?}", riding.mount);
                     commands.entity(rider_entity).remove::<(RidingOn, RideLease)>();
                     continue;
                 }
+                let seat = saddle.get(&riding.mount).copied().flatten();
                 if seat.is_none() {
                     let mount = riding.mount;
                     commands.queue(move |world: &mut bevy::prelude::World| {
@@ -2519,24 +2695,18 @@ mod dismount_claim_tests {
         // press gets it off, a body on foot boards the nearest mount it may.
         // This crate does not select (`MountPresses`); the double stands in
         // for the monolith's `select_interactions` + `project_mount_presses`.
-        #[allow(clippy::type_complexity)]
         fn select(
-            pilots: bevy::prelude::Query<(Entity, &CanPilot, &ae::BodyKinematics, Has<RidingOn>)>,
-            mounts: bevy::prelude::Query<(
-                Entity,
-                &Mountable,
-                &ae::BodyKinematics,
-                Option<&MountSlot>,
-                Option<&MountReservedFor>,
-                Option<&ambition_characters::actor::BodyHealth>,
-            )>,
+            pilots: bevy::prelude::Query<(Entity, &ae::BodyKinematics), With<CanPilot>>,
+            mounts: bevy::prelude::Query<(Entity, &ae::BodyKinematics), With<Mountable>>,
+            facts: BoardFacts,
+            rides: ActiveRides,
             mut presses: bevy::prelude::ResMut<MountPresses>,
         ) {
             let mut selected: Vec<_> = pilots
                 .iter()
-                .filter_map(|(pilot, licence, kin, riding)| match riding {
+                .filter_map(|(pilot, kin)| match rides.mount_of(pilot).is_some() {
                     true => Some((pilot, MountPress::Dismount)),
-                    false => nearest_commandeerable(pilot, licence, kin, &mounts, &[]).map(|mount| (pilot, MountPress::Board(mount))),
+                    false => nearest_commandeerable(pilot, kin, &facts, &mounts, &[]).map(|mount| (pilot, MountPress::Board(mount))),
                 })
                 .collect();
             selected.sort_by_key(|(pilot, _)| *pilot);
@@ -2750,6 +2920,127 @@ mod dismount_claim_tests {
             app.world_mut().resource_mut::<bevy::ecs::message::Messages<RideRefused>>().drain().collect();
         assert_eq!(refused, vec![RideRefused { rider, mount }]);
         assert!(app.world().get::<MountReservedFor>(mount).is_none(), "the refused reservation stayed");
+    }
+}
+
+/// Mount admission establishes one physical space (REL2): a board, a press's
+/// selection and a reservation's arrival ask the one board law, and two
+/// nearby coordinates in two live rooms are not beside each other.
+#[cfg(test)]
+mod board_law_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
+    use bevy::ecs::system::RunSystemOnce as _;
+    use bevy::prelude::*;
+
+    fn rooms(app: &mut App) -> [LiveRoomInstance; 2] {
+        let rooms = [LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2)];
+        for room in rooms {
+            app.world_mut().spawn((RoomInstanceRoot, room));
+        }
+        rooms
+    }
+
+    fn body(app: &mut App, room: LiveRoomInstance) -> Entity {
+        let kin = ae::BodyKinematics { pos: Vec2::ZERO, canonical_size: Vec2::new(24.0, 40.0), ..Default::default() };
+        app.world_mut().spawn((kin, CenteredAabb::from_center_size(kin.pos, kin.canonical_size), InRoomInstance(room))).id()
+    }
+
+    fn pilot(app: &mut App, room: LiveRoomInstance) -> Entity {
+        let who = body(app, room);
+        app.world_mut().entity_mut(who).insert((
+            CanPilot { classes: vec![MountClass("shark".into())] },
+            ambition_characters::control::ActorControl(ambition_characters::actor::control::ActorControlFrame::neutral()),
+        ));
+        who
+    }
+
+    fn shark(app: &mut App, room: LiveRoomInstance) -> Entity {
+        let who = body(app, room);
+        let mut mountable = Mountable::at(Vec2::new(0.0, -20.0));
+        mountable.class = MountClass("shark".into());
+        app.world_mut().entity_mut(who).insert(mountable);
+        who
+    }
+
+    fn riding(app: &App, who: Entity) -> Option<Entity> {
+        app.world().get::<RidingOn>(who).map(|riding| riding.mount)
+    }
+
+    /// A pilot at the same coordinates as a shark in another live room is
+    /// not offered it, and a press that names it does not board it. The same
+    /// press on a shark in its own room boards.
+    #[test]
+    fn a_mount_in_another_live_room_is_neither_offered_nor_boarded() {
+        fn offered(pilots: Query<(Entity, &ae::BodyKinematics), With<CanPilot>>, mounts: Query<(Entity, &ae::BodyKinematics), With<Mountable>>, facts: BoardFacts, mut out: ResMut<MountPresses>) {
+            out.0 = pilots
+                .iter()
+                .filter_map(|(pilot, kin)| nearest_commandeerable(pilot, kin, &facts, &mounts, &[]).map(|mount| (pilot, MountPress::Board(mount))))
+                .collect();
+        }
+        for same_room in [true, false] {
+            let mut app = App::new();
+            app.add_message::<DismountRequested>();
+            app.init_resource::<MountPresses>();
+            let [here, there] = rooms(&mut app);
+            let robot = pilot(&mut app, here);
+            let shark = shark(&mut app, if same_room { here } else { there });
+            app.add_systems(Update, offered);
+            app.update();
+            let offer = app.world().resource::<MountPresses>().of(robot);
+            assert_eq!(offer, same_room.then_some(MountPress::Board(shark)), "same room: {same_room}");
+
+            // The press names the shark whatever the selection said: the cut
+            // and the write ask the law again.
+            app.world_mut().resource_mut::<MountPresses>().0 = vec![(robot, MountPress::Board(shark))];
+            app.world_mut().get_mut::<ambition_characters::control::ActorControl>(robot).unwrap().0.interact_pressed = true;
+            app.world_mut().run_system_once(commandeer_mounts).unwrap();
+            assert_eq!(riding(&app, robot), same_room.then_some(shark), "same room: {same_room}");
+            if !same_room {
+                assert!(!board(app.world_mut(), robot, shark), "the write cut boarded a shark in another room");
+            }
+        }
+    }
+
+    /// A reservation boards on arrival only while its rider is in the mount's
+    /// room. A rider that changed rooms is refused, and the reservation ends.
+    #[test]
+    fn a_reservation_does_not_board_a_rider_in_another_room() {
+        for same_room in [true, false] {
+            let mut app = App::new();
+            app.init_resource::<ambition_time::WorldTime>();
+            app.add_message::<RideRefused>();
+            app.add_systems(Update, board_reserved_mounts);
+            let [here, there] = rooms(&mut app);
+            let rider = pilot(&mut app, here);
+            let shark = shark(&mut app, here);
+            app.world_mut().entity_mut(shark).insert(MountReservedFor { rider, lease_seconds: 5.0, board_within: 200.0, expires_in: 1.0 });
+            if !same_room {
+                app.world_mut().entity_mut(rider).insert(InRoomInstance(there));
+            }
+            app.update();
+            let refused: Vec<RideRefused> =
+                app.world_mut().resource_mut::<bevy::ecs::message::Messages<RideRefused>>().drain().collect();
+            assert_eq!(riding(&app, rider), same_room.then_some(shark), "same room: {same_room}");
+            assert_eq!(refused.is_empty(), same_room, "same room: {same_room}");
+            assert!(app.world().get::<MountReservedFor>(shark).is_none(), "the reservation was not spent");
+        }
+    }
+
+    /// With two live rooms, two bodies whose room cannot be told share none.
+    /// With none, the composition is roomless and one session is one space.
+    #[test]
+    fn two_unknown_rooms_are_not_one_room() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        use ambition_platformer2d_shared_tangle::lifecycle::ExecutionScope;
+        let share = |world: &World| ExecutionScope::shared(ExecutionScope::in_world(world, a), ExecutionScope::in_world(world, b));
+        assert!(share(&world), "a roomless composition is one space");
+        world.spawn((RoomInstanceRoot, LiveRoomInstance::from_ordinal(1)));
+        assert!(share(&world), "with one live room, an unstamped body is in it");
+        world.spawn((RoomInstanceRoot, LiveRoomInstance::from_ordinal(2)));
+        assert!(!share(&world), "two bodies of unknown room shared a scope");
     }
 }
 

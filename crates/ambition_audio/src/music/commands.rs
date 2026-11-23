@@ -53,8 +53,8 @@ impl MusicPlaybackCommands<'_> {
         goal_revision: u64,
         provider: &str,
         generation: u64,
-        cue: &MusicCueSpec,
-        section: &MusicSectionSpec,
+        cue: &PreparedMusicCue,
+        section: &PreparedMusicSection,
         assets: &LoadedMusicCueAssets,
         gains: LayerGains,
         fade_seconds: f32,
@@ -63,7 +63,7 @@ impl MusicPlaybackCommands<'_> {
             .sources
             .iter()
             .filter_map(|source| {
-                let slot = cue.layer(&source.layer_id)?.slot;
+                let slot = source.slot;
                 Some(MusicVoiceSource {
                     source: assets.get(
                         provider,

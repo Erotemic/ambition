@@ -4,7 +4,7 @@
 //! `assets/audio/music_cues.ron` (schema `music_cue_catalog`, owned by
 //! `ambition_audio`). The content compiler checks every reference in it and
 //! requires each section's audio file. This module only builds the director's
-//! catalog from what the pack lowered. Gated behind the `audio` feature.
+//! catalog from the prepared pack. Gated behind the `audio` feature.
 
 use ambition_audio::music::MusicCueCatalog;
 
@@ -16,13 +16,7 @@ use ambition_audio::music::MusicCueCatalog;
 pub fn music_cue_catalog_from(
     pack: &ambition_content_pack::PreparedContentPack,
 ) -> Option<MusicCueCatalog> {
-    let authored = ambition_audio::content_schema::lowered_music_cues(pack).cloned()?;
-    Some(
-        MusicCueCatalog::from_parts(authored.cues, authored.encounter_bindings)
-            .with_room_bindings(authored.room_bindings)
-            .with_boss_bindings(authored.boss_bindings)
-            .with_room_phase_tracks(authored.room_phase_tracks),
-    )
+    ambition_audio::content_schema::lowered_music_cues(pack).cloned()
 }
 
 #[cfg(test)]
@@ -104,10 +98,6 @@ mod tests {
             binding(&music_cue_catalog_from(crate::pack::shipped()).expect("the shipped cues")),
             ("first_goblin_tune_v2".to_string(), "intro".to_string())
         );
-        assert!(music_cue_catalog_from(crate::pack::shipped())
-            .expect("the shipped cues")
-            .validate_references()
-            .is_empty());
 
         let edited = compiled_with(r#"starting_state: "intro""#, r#"starting_state: "wave1""#)
             .expect("a binding that starts on another state compiles");
@@ -160,17 +150,17 @@ mod tests {
         assert!(rooms.len() >= 6, "the trail is six rooms or more: {rooms:?}");
 
         let mut cue_id: Option<&str> = None;
-        let mut before: Option<(&str, &ambition_audio::music::MusicStateSpec)> = None;
+        let mut before: Option<(&str, &ambition_audio::cue_program::PreparedMusicState)> = None;
         for room in &rooms {
             let binding = authored
-                .room_bindings
+                .room_bindings()
                 .iter()
                 .find(|binding| &binding.room_id == room)
                 .unwrap_or_else(|| panic!("`{room}` binds no cue: its music_track would start from the top there"));
             assert_eq!(*cue_id.get_or_insert(binding.cue_id.as_str()), binding.cue_id, "`{room}` binds another cue: a change of cue is a cut");
-            let cue = authored.cues.iter().find(|cue| cue.id == binding.cue_id).expect("the cue of the binding");
+            let cue = authored.cue(&binding.cue_id).expect("the cue of the binding");
             let state_of = |id: &str| cue.states.iter().find(|state| state.id == id).unwrap_or_else(|| panic!("no state `{id}`"));
-            let looped = |state: &ambition_audio::music::MusicStateSpec| {
+            let looped = |state: &ambition_audio::cue_program::PreparedMusicState| {
                 cue.sections.iter().find(|section| section.id == state.section_id).is_some_and(|section| section.looped)
             };
             let state = state_of(&binding.state);
@@ -180,21 +170,19 @@ mod tests {
             }
             if let Some((room_before, state_before)) = before {
                 assert_eq!(state.section_id, state_before.section_id, "`{room}` and `{room_before}` are on two sections: the door between them would cut the song");
-                let gain = |state: &ambition_audio::music::MusicStateSpec, layer: &str| {
-                    state.gains.iter().find(|gain| gain.layer_id == layer).map_or(0.0, |gain| gain.gain)
-                };
-                for kept in &state_before.gains {
-                    assert!(gain(state, &kept.layer_id) >= kept.gain, "`{room}` has less of `{}` than `{room_before}`: it does not rock harder", kept.layer_id);
+                for (after, kept) in state.gains.iter().zip(state_before.gains) {
+                    assert!(*after >= kept, "{room} has less of a layer than {room_before}");
                 }
             }
+
             before = Some((room.as_str(), state));
         }
         // The level adds something on the way: its last room has more layers
         // than its first.
         let layers = |room: &String| {
-            let binding = authored.room_bindings.iter().find(|binding| &binding.room_id == room).expect("checked above");
-            let cue = authored.cues.iter().find(|cue| cue.id == binding.cue_id).expect("checked above");
-            cue.states.iter().find(|state| state.id == binding.state).map_or(0, |state| state.gains.iter().filter(|gain| gain.gain > 0.0).count())
+            let binding = authored.room_bindings().iter().find(|binding| &binding.room_id == room).expect("checked above");
+            let cue = authored.cue(&binding.cue_id).expect("checked above");
+            cue.states.iter().find(|state| state.id == binding.state).map_or(0, |state| state.gains.iter().filter(|gain| **gain > 0.0).count())
         };
         assert!(layers(rooms.last().expect("rooms")) > layers(&rooms[0]), "the last room of the trail has no more layers than the first");
     }

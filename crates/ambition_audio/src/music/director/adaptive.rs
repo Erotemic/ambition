@@ -1,4 +1,3 @@
-use super::gains::gains_for_state;
 use super::timing::{seconds_until_next_bar, seconds_until_next_phrase_marker};
 use super::*;
 
@@ -33,8 +32,8 @@ pub(super) fn drive_adaptive_cue_state(
     director: &mut MusicDirectorState,
     provider_id: &str,
     generation: u64,
-    cue: &MusicCueSpec,
-    target_state: &MusicStateSpec,
+    cue: &PreparedMusicCue,
+    target_state: &PreparedMusicState,
     assets: &LoadedMusicCueAssets,
     decoded: &Assets<KiraAudioSource>,
     channels: &mut MusicPlaybackCommands,
@@ -60,7 +59,7 @@ pub(super) fn drive_adaptive_cue_state(
             .section(&target_state.section_id)
             .is_some_and(|section| {
                 director.transport_completed
-                    || intro_has_ended(director.seconds_in_mode, section.duration_seconds(cue), dt)
+                    || intro_has_ended(director.seconds_in_mode, section.duration_seconds, dt)
             });
     let target_state = if completed {
         target_state
@@ -113,7 +112,7 @@ pub(super) fn drive_adaptive_cue_state(
             provider_id,
             &cue.id,
             &target_state.section_id,
-            &gains_for_state(cue, target_state),
+            &target_state.gains,
         );
         return;
     }
@@ -139,7 +138,7 @@ pub(super) fn drive_adaptive_cue_state(
                 provider_id,
                 &cue.id,
                 &target_state.section_id,
-                &gains_for_state(cue, target_state),
+                &target_state.gains,
             );
             director.current_state_id = Some(target_state.id.clone());
             return;
@@ -168,7 +167,7 @@ pub(super) fn drive_adaptive_cue_state(
         let intro_done = current_section
             .map(|section| {
                 director.transport_completed
-                    || intro_has_ended(director.seconds_in_mode, section.duration_seconds(cue), dt)
+                    || intro_has_ended(director.seconds_in_mode, section.duration_seconds, dt)
             })
             .unwrap_or(true);
         if !intro_done {
@@ -222,7 +221,8 @@ pub(super) fn drive_adaptive_cue_state(
         }
     } else {
         let delay = if director.mode == MusicDirectorMode::AdaptiveLoop {
-            seconds_until_next_bar(cue, director.seconds_in_loop).max(MIN_TRANSITION_DELAY_SECONDS)
+            seconds_until_next_bar(cue.seconds_per_bar(), director.seconds_in_loop)
+                .max(MIN_TRANSITION_DELAY_SECONDS)
         } else {
             MIN_TRANSITION_DELAY_SECONDS
         };
@@ -246,8 +246,8 @@ fn queue_or_fire_outro(
     director: &mut MusicDirectorState,
     provider_id: &str,
     generation: u64,
-    cue: &MusicCueSpec,
-    target_state: &MusicStateSpec,
+    cue: &PreparedMusicCue,
+    target_state: &PreparedMusicState,
     assets: &LoadedMusicCueAssets,
     channels: &mut MusicPlaybackCommands,
     dt: f32,
@@ -258,10 +258,14 @@ fn queue_or_fire_outro(
             .as_deref()
             .and_then(|id| cue.section(id))
             .filter(|section| section.looped)
-            .map(|section| section.duration_seconds(cue));
-        let delay =
-            seconds_until_next_phrase_marker(cue, director.seconds_in_loop, 2.0, pass_seconds)
-                .max(MIN_TRANSITION_DELAY_SECONDS);
+            .map(|section| section.duration_seconds);
+        let delay = seconds_until_next_phrase_marker(
+            cue.seconds_per_bar(),
+            director.seconds_in_loop,
+            2.0,
+            pass_seconds,
+        )
+        .max(MIN_TRANSITION_DELAY_SECONDS);
         info!(
             target: MUSIC_LOG_TARGET,
             "queue_outro cue={} state={} delay={:.3}s loop_t={:.3}",
@@ -286,7 +290,7 @@ fn queue_or_fire_outro(
                     .current_section_id
                     .as_deref()
                     .unwrap_or(&bridge.section_id),
-                &gains_for_state(cue, bridge),
+                &bridge.gains,
             );
         }
     }
@@ -315,8 +319,8 @@ fn start_adaptive_state(
     director: &mut MusicDirectorState,
     provider_id: &str,
     generation: u64,
-    cue: &MusicCueSpec,
-    target_state: &MusicStateSpec,
+    cue: &PreparedMusicCue,
+    target_state: &PreparedMusicState,
     assets: &LoadedMusicCueAssets,
     channels: &mut MusicPlaybackCommands,
     crossfade_seconds: f32,
@@ -332,7 +336,7 @@ fn start_adaptive_state(
         return;
     };
 
-    let gains = gains_for_state(cue, target_state);
+    let gains = target_state.gains;
     let fade = if director.mode == MusicDirectorMode::AdaptiveIntro && section.looped {
         0.0
     } else {
@@ -365,6 +369,6 @@ fn start_adaptive_state(
     };
 }
 
-fn is_outro_target(cue: &MusicCueSpec, state: &MusicStateSpec) -> bool {
+fn is_outro_target(cue: &PreparedMusicCue, state: &PreparedMusicState) -> bool {
     cue.outro_state.as_deref() == Some(state.id.as_str())
 }

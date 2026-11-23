@@ -20,6 +20,7 @@ pub mod content_schema;
 pub mod bank_asset;
 pub mod catalog;
 pub mod cue_spec;
+pub mod cue_program;
 #[cfg(feature = "kira")]
 pub mod library;
 #[cfg(feature = "kira")]

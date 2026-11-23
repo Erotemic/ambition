@@ -57,7 +57,7 @@ pub use state::{
     MusicIntent, MusicReleaseReason, MusicSelection, MusicSilenceReason,
 };
 
-use commands::LayerGains;
+use crate::cue_program::{PreparedMusicCue, PreparedMusicSection, PreparedMusicState};
 
 /// Cancel current music and reset the selection projection.
 /// Submitted voice reservations remain owned until their terminal result.

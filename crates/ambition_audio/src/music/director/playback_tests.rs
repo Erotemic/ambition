@@ -6,23 +6,11 @@ use bevy::asset::AssetApp;
 use bevy_kira_audio::prelude::{Frame, StaticSoundData, StaticSoundSettings};
 use std::time::Duration;
 
-fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
-    let mut app = App::new();
-    app.add_plugins((
-        bevy::app::TaskPoolPlugin::default(),
-        bevy::asset::AssetPlugin::default(),
-    ))
-    .init_asset::<KiraAudioSource>()
-    .init_resource::<DynamicAudioChannels>()
-    .init_resource::<Time<Real>>()
-    .init_resource::<MusicMix>()
-    .init_resource::<MusicDirectorState>()
-    .insert_resource(crate::output::AudioOutputMode::Recording);
-    crate::music::add_music_playback(&mut app);
+fn authored_cues(bpm: f32) -> crate::cue_spec::AuthoredMusicCues {
     let cue = MusicCueSpec {
         id: "trail".into(),
         asset_root: "content://library/music".into(),
-        bpm: 60.0,
+        bpm,
         beats_per_bar: 4.0,
         relative_volume: 1.0,
         sections: [
@@ -72,11 +60,31 @@ fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
         post_clear_bridge_state: None,
         runtime_balance_overrides: Vec::new(),
     };
-    let mut loaded = LoadedMusicCueAssets::default();
-    let mut handles = Vec::new();
     let mut destination = cue.clone();
     destination.id = "destination".into();
-    for cue in [&cue, &destination] {
+    crate::cue_spec::AuthoredMusicCues {
+        cues: vec![cue, destination],
+        ..default()
+    }
+}
+
+fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
+    let mut app = App::new();
+    app.add_plugins((
+        bevy::app::TaskPoolPlugin::default(),
+        bevy::asset::AssetPlugin::default(),
+    ))
+    .init_asset::<KiraAudioSource>()
+    .init_resource::<DynamicAudioChannels>()
+    .init_resource::<Time<Real>>()
+    .init_resource::<MusicMix>()
+    .init_resource::<MusicDirectorState>()
+    .insert_resource(crate::output::AudioOutputMode::Recording);
+    crate::music::add_music_playback(&mut app);
+    let authored = authored_cues(60.0);
+    let mut loaded = LoadedMusicCueAssets::default();
+    let mut handles = Vec::new();
+    for cue in &authored.cues {
         for section in &cue.sections {
             for source in &section.sources {
                 let handle = app
@@ -93,10 +101,7 @@ fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
     }
     let mut catalogs = AdaptiveMusicCatalogRegistry::default();
     catalogs
-        .register(
-            "game",
-            MusicCueCatalog::from_parts(vec![cue, destination], Vec::new()),
-        )
+        .register("game", MusicCueCatalog::prepare(authored).unwrap())
         .unwrap();
     let registry = crate::spec::MusicRegistry {
         default_track: String::new(),
@@ -271,10 +276,22 @@ fn a_fresh_fight_does_not_inherit_a_rooms_identical_media() {
     let mut app = decoded();
     publish(&mut app, selection("trail", "song", "room", 0, 10));
     frames(&mut app, 6);
-    let old = app.world().resource::<MusicDirectorState>().admitted().unwrap().entry;
+    let old = app
+        .world()
+        .resource::<MusicDirectorState>()
+        .admitted()
+        .unwrap()
+        .entry;
     publish(&mut app, selection("trail", "song", "fight", 1, 200));
     frames(&mut app, 6);
-    assert_ne!(app.world().resource::<MusicDirectorState>().admitted().unwrap().entry, old);
+    assert_ne!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .admitted()
+            .unwrap()
+            .entry,
+        old
+    );
 }
 
 #[test]
@@ -475,8 +492,7 @@ fn an_ending_keeps_the_generation_that_its_voices_admitted() {
         .unwrap()
         .entry;
     let registry = app.world().resource::<AdaptiveMusicCatalogRegistry>();
-    let mut next = registry.catalog_for("game").unwrap().clone();
-    next.cues.get_mut("trail").unwrap().bpm = 300.0;
+    let next = MusicCueCatalog::prepare(authored_cues(300.0)).unwrap();
     let registry = registry.with_replaced("game", Some(next)).unwrap();
     let generation = registry.generation("game");
     app.insert_resource(registry);

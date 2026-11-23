@@ -3,7 +3,6 @@ use super::state::MusicEnding;
 use super::*;
 
 mod adaptive;
-mod gains;
 mod loader;
 mod logging;
 #[cfg(test)]
@@ -238,7 +237,7 @@ pub fn drive_music_director(
         let sounding = channels.current().is_some_and(|group|
             group.entry == ending.admitted.entry && group.phase == MusicGroupPhase::Running
                 && matches!(&group.product, MusicProduct::Section { section: sounding, .. } if sounding == &section.id));
-        Some((sounding, section.duration_seconds(cue)))
+        Some((sounding, section.duration_seconds))
     });
     if let Some((sounding, duration)) = ending_progress {
         if let Some(ending) = &mut director.ending {

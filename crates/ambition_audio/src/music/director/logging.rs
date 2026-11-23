@@ -1,6 +1,10 @@
 use super::*;
 
-pub(super) fn log_periodic_state(director: &mut MusicDirectorState, cue: &MusicCueSpec, dt: f32) {
+pub(super) fn log_periodic_state(
+    director: &mut MusicDirectorState,
+    cue: &PreparedMusicCue,
+    dt: f32,
+) {
     director.debug_log_timer -= dt;
     if director.debug_log_timer > 0.0 {
         return;

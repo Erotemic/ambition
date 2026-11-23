@@ -274,6 +274,12 @@ declared file span. Generic PCM and encoded-product checks cover this rule.
 Verification: 151 focused tests, 171 score contract comparisons, and a generic
 SoundFont render and publication with nonzero decoded products.
 
+Native cue graphs now use one pure `PreparedMusicCues` preparation path for
+content compilation, direct registration, and reload. It resolves source
+paths, indices, and total gain arrays before playback. The current native
+clock still comes from the authored constant-tempo fields. Linking the
+exported product facts and removing those copies remain open.
+
 **Refinement, 2026-11-22:** MA1 owns compiler/export facts.
 [Music programs and owned playback](music-programs-and-playback.md) owns
 candidate selection, native occurrence lifetime, transition execution, and

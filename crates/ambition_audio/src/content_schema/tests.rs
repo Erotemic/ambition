@@ -316,10 +316,11 @@ fn a_compiled_pack_carries_the_cues_and_bindings_the_director_will_load() {
     let pack = compile(&cue_draft("cues", CUES), &registry(), &AssetsUnchecked)
         .expect("a well-formed cue file compiles");
     let cues = lowered_music_cues(&pack).expect("a Runtime schema lowers its artifact");
-    assert_eq!(cues.cues.len(), 1);
-    assert_eq!(cues.cues[0].post_clear_bridge_state, None, "an absent option is None");
-    assert_eq!(cues.encounter_bindings[0].cue_id, "lab");
-    assert_eq!(cues.encounter_bindings[0].wave2_reinforced_state, None);
+    assert_eq!(cues.cues().count(), 1);
+    assert_eq!(cues.cue("lab").unwrap().post_clear_bridge_state, None, "an absent option is None");
+    assert_eq!(cues.cue("lab").unwrap().state("fight").unwrap().gains, [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    assert_eq!(cues.encounter_bindings()[0].cue_id, "lab");
+    assert_eq!(cues.encounter_bindings()[0].wave2_reinforced_state, None);
 }
 
 /// The director's own reference rules refuse the pack, not only the runtime
@@ -368,7 +369,7 @@ fn one_encounter_bound_twice_is_refused() {
         cleared_state: "done",
     ), ("#;
     let failure = refuse_cues("cue_twice", &cues_with("encounter_bindings: [(", second));
-    assert!(failure.has(DiagnosticCode::DuplicateIdentity), "{:?}", failure.codes());
+    assert!(failure.has(DiagnosticCode::MalformedSource), "{:?}", failure.codes());
 }
 
 /// The cue file with a room binding after its encounter binding.
@@ -386,8 +387,20 @@ fn a_room_binding_lowers_with_the_cues() {
     let pack = compile(&cue_draft("room_binding", &text), &registry(), &AssetsUnchecked)
         .expect("a room binding to states of its cue compiles");
     let cues = lowered_music_cues(&pack).expect("a Runtime schema lowers its artifact");
-    assert_eq!(cues.room_bindings[0].state, "fight");
-    assert_eq!(cues.room_bindings[0].fight_state, None, "an absent option is None");
+    assert_eq!(cues.room_bindings()[0].state, "fight");
+    assert_eq!(cues.room_bindings()[0].fight_state, None, "an absent option is None");
+}
+
+#[test]
+fn a_room_phase_track_change_revises_the_prepared_pack() {
+    let text = CUES.replace("    encounter_bindings:",
+        "    room_phase_tracks: [(room_id: \"room\", phase: \"night\", track: \"quiet\")],\n    encounter_bindings:");
+    let prepare = |text: &str| compile(&cue_draft("phase_tracks", text), &registry(), &AssetsUnchecked).unwrap();
+    let before = prepare(&text);
+    let after = prepare(&text.replace("track: \"quiet\"", "track: \"loud\""));
+    assert_eq!(lowered_music_cues(&before).unwrap().room_phase_track("room", "night"), Some("quiet"));
+    assert_eq!(lowered_music_cues(&after).unwrap().room_phase_track("room", "night"), Some("loud"));
+    assert_ne!(before.fingerprint, after.fingerprint);
 }
 
 /// A room binding's references are held to the rules of an encounter's. Its

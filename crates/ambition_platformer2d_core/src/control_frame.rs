@@ -43,17 +43,17 @@ pub enum AttackStrengthHint {
 }
 
 impl AttackStrengthHint {
-    /// Fold two samples of one tick.
+    /// Which of two presses in one tick wins, by its hint.
     ///
-    /// ⭐ AN EXPLICIT HINT BEATS `Auto`, and `Smash` beats `Tilt` — which is the
-    /// old `|` on the bool this replaced, extended rather than reinterpreted. A
-    /// tick that saw both sticks is a tick the player pressed both, and the
-    /// stronger reading is the one that cannot be recovered by pressing again.
-    pub fn merge(self, other: Self) -> Self {
-        match (self, other) {
-            (Self::Smash, _) | (_, Self::Smash) => Self::Smash,
-            (Self::Tilt, _) | (_, Self::Tilt) => Self::Tilt,
-            (Self::Auto, Self::Auto) => Self::Auto,
+    /// ⭐ AN EXPLICIT HINT BEATS `Auto`, and `Smash` beats `Tilt`. A tick that
+    /// saw both sticks is a tick the player pressed both, and the stronger
+    /// reading is the one that cannot be recovered by pressing again. The hint
+    /// chooses a whole press; see `ControlFrame::qualified_press`.
+    pub fn rank(self) -> u8 {
+        match self {
+            Self::Auto => 0,
+            Self::Tilt => 1,
+            Self::Smash => 2,
         }
     }
 }
@@ -273,6 +273,25 @@ impl ControlFrame {
         )
     }
 
+    /// The attack press this tick keeps, chosen WHOLE from one sample (IN3):
+    /// its strength hint, whether the aim stick aimed it and that stick's
+    /// flicked direction. A tick holds one attack opportunity, so of two
+    /// presses the stronger hint wins (`Smash > Tilt > Auto`) and a tie goes
+    /// to the newer one. Fields from different presses never mix: Smash-left
+    /// then Tilt-right is Smash-left, not a Smash-right nobody pressed.
+    ///
+    /// Only a sample that carries the press qualifies one, so a later held
+    /// modifier or a neutral sample cannot raise or erase an earlier press. A
+    /// press without the aim stick keeps its policy of reading the movement
+    /// level at interpretation; it carries no direction here.
+    fn qualified_press(self, sample: ControlFrame) -> ControlFrame {
+        match (self.attack_pressed, sample.attack_pressed) {
+            (true, true) if self.attack_strength_hint.rank() > sample.attack_strength_hint.rank() => self,
+            (_, true) => sample,
+            _ => self,
+        }
+    }
+
     /// Merge a newer device sample into `self`, the frame accumulated so far
     /// within one sim tick.
     ///
@@ -282,6 +301,7 @@ impl ControlFrame {
     /// ticks is never swallowed.
     #[must_use]
     pub fn merge_sample(self, sample: ControlFrame) -> ControlFrame {
+        let press = self.qualified_press(sample);
         ControlFrame {
             // Levels — latest wins. The frame-mode policy is a level and not an
             // edge: it is the seat's standing preference, so two device samples
@@ -315,22 +335,12 @@ impl ControlFrame {
             special_pressed: self.special_pressed | sample.special_pressed,
             attack_pressed: self.attack_pressed | sample.attack_pressed,
             attack_released: self.attack_released | sample.attack_released,
-            attack_strength_hint: self.attack_strength_hint.merge(sample.attack_strength_hint),
-            attack_from_aim_stick: self.attack_from_aim_stick | sample.attack_from_aim_stick,
-            // ⭐ THE DIRECTION RIDES ITS EDGE. Captured from the sample that
-            // carries the C-stick press and never overwritten by a later
-            // neutral one — the newest PRESS wins, which is the same rule
-            // `attack_strength_hint` follows, not the newest SAMPLE.
-            attack_aim_x: if sample.attack_from_aim_stick {
-                sample.attack_aim_x
-            } else {
-                self.attack_aim_x
-            },
-            attack_aim_y: if sample.attack_from_aim_stick {
-                sample.attack_aim_y
-            } else {
-                self.attack_aim_y
-            },
+            // ⭐ ONE WINNING PRESS, WHOLE: its strength, which stick aimed it
+            // and the direction that stick was flicked. See `qualified_press`.
+            attack_strength_hint: press.attack_strength_hint,
+            attack_from_aim_stick: press.attack_from_aim_stick,
+            attack_aim_x: press.attack_aim_x,
+            attack_aim_y: press.attack_aim_y,
             pogo_pressed: self.pogo_pressed | sample.pogo_pressed,
             fly_toggle_pressed: self.fly_toggle_pressed | sample.fly_toggle_pressed,
             interact_pressed: self.interact_pressed | sample.interact_pressed,
@@ -558,6 +568,43 @@ mod latch_tests {
             "the flick pointed RIGHT; a C-stick press must carry its own \
              direction, because the aim LEVEL is back at rest and the movement \
              axis points the other way"
+        );
+    }
+
+    /// IN3: two qualified presses in one tick keep ONE of them whole. The
+    /// stronger Smash-left wins over a later Tilt-right, and its direction
+    /// comes with it; a later sample that carries no press (a held modifier's
+    /// hint) cannot raise an earlier Tilt.
+    #[test]
+    fn two_qualified_presses_in_one_tick_keep_one_press_whole() {
+        let c_stick = |x: f32, hint| ControlFrame {
+            attack_pressed: true,
+            attack_from_aim_stick: true,
+            attack_aim_x: x,
+            attack_strength_hint: hint,
+            ..ControlFrame::default()
+        };
+        let mut latch = ControlFrameLatch::default();
+        latch.accumulate(c_stick(-1.0, AttackStrengthHint::Smash));
+        latch.accumulate(c_stick(1.0, AttackStrengthHint::Tilt));
+        let tick = latch.take();
+        assert_eq!(
+            (tick.attack_strength_hint, tick.attack_aim_x),
+            (AttackStrengthHint::Smash, -1.0),
+            "Smash-left then Tilt-right made a press nobody pressed"
+        );
+
+        latch.accumulate(c_stick(1.0, AttackStrengthHint::Tilt));
+        latch.accumulate(ControlFrame {
+            modifier_held: true,
+            attack_strength_hint: AttackStrengthHint::Smash,
+            ..ControlFrame::default()
+        });
+        let tick = latch.take();
+        assert_eq!(
+            (tick.attack_strength_hint, tick.attack_aim_x),
+            (AttackStrengthHint::Tilt, 1.0),
+            "a sample without a press raised the earlier press's strength"
         );
     }
 

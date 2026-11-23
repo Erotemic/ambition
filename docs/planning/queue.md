@@ -401,7 +401,8 @@ world-post admission.
     body coordinates before a locomotion-only emergence constraint. Preserve
     held-direction continuity and each verb's policy. This is shared engine
     work from the source `34b4ab0b7f4f` audit; it does not promote Smash-only
-    polish. IN3 records the smaller qualified-press coalescing correction.
+    polish. IN3 records the smaller qualified-press coalescing correction
+    (done 2026-11-23: a tick's attack press is chosen whole from one sample).
     [IN4/IN5](engine/participant-action-system.md#input-continuity-across-routing-and-control-changes)
     refine the same owner at `00bf92c22142`. Observe valid physical samples
     before context filtering and treat rebind reset samples as invalid;

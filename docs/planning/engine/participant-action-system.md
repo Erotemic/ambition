@@ -378,6 +378,17 @@ neutral/recentered case. Coordinate any changed encoded fields with the
 wire identity and stream-version owners. IN1's semantic stage change is not
 covered merely by a field-layout check.
 
+**Done 2026-11-23.** `ControlFrame::qualified_press` chooses the tick's
+attack press whole from one sample: its strength hint, whether the aim
+stick aimed it and that stick's flicked direction. The stronger hint wins
+and a tie goes to the newer press, so Smash-left then Tilt-right stays
+Smash-left. Only a sample that carries the press qualifies one, so a later
+held modifier or a neutral sample cannot raise or erase it.
+`AttackStrengthHint::merge` became `rank`, the ordering the choice uses.
+No encoded field changed. Guard:
+`two_qualified_presses_in_one_tick_keep_one_press_whole`, beside the
+existing recentered-flick case.
+
 ## Input continuity across routing and control changes
 
 **Source follow-up:** `00bf92c22142`, 2026-11-22. IN4/IN5 distinguish

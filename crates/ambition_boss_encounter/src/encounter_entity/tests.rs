@@ -144,6 +144,8 @@ fn the_wrap_persists_and_resets_when_its_member_leaves_the_world() {
     );
     app.init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>();
     app.add_message::<ambition_encounter::EncounterEventMsg>();
+    app.add_message::<ambition_encounter::EncounterRelease>();
+    app.init_resource::<ambition_time::SimTick>();
     let boss = app.world_mut().spawn(awake_boss("mockingbird", 40)).id();
     app.update();
     assert_eq!(

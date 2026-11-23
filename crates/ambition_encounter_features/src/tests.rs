@@ -727,6 +727,8 @@ mod cleanup {
         app.init_resource::<ambition_platformer2d_shared_tangle::time::SimDt>();
         app.add_message::<EncounterCommand>();
         app.add_message::<EncounterEventMsg>();
+        app.add_message::<ambition_encounter::EncounterRelease>();
+        app.init_resource::<ambition_time::SimTick>();
         app.add_message::<ambition_combat::events::SetFlagsRequested>();
         app.add_systems(
             Update,
@@ -926,6 +928,7 @@ fn a_reset_does_not_retire_the_reward_chest() {
         .resource_mut::<Messages<ambition_encounter::EncounterEventMsg>>()
         .write(ambition_encounter::EncounterEventMsg::new(
             "goblin_encounter",
+            1,
             EncounterEvent::Reset,
         ));
 
@@ -1012,6 +1015,7 @@ fn completing_a_two_switch_encounter_greens_both_and_leaves_it_disarmed() {
         .resource_mut::<Messages<ambition_encounter::EncounterEventMsg>>()
         .write(ambition_encounter::EncounterEventMsg::new(
             "twin_switch_arena",
+            1,
             EncounterEvent::Completed,
         ));
 
@@ -1022,6 +1026,7 @@ fn completing_a_two_switch_encounter_greens_both_and_leaves_it_disarmed() {
         .resource_mut::<Messages<ambition_encounter::EncounterEventMsg>>()
         .write(ambition_encounter::EncounterEventMsg::new(
             "twin_switch_arena",
+            1,
             EncounterEvent::Completed,
         ));
     app.update();
@@ -1354,6 +1359,8 @@ fn two_live_rooms_of_one_room_run_their_encounters_apart() {
     app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
     app.add_message::<EncounterCommand>();
     app.add_message::<EncounterEventMsg>();
+    app.add_message::<ambition_encounter::EncounterRelease>();
+    app.init_resource::<ambition_time::SimTick>();
     app.add_message::<ambition_combat::events::SetFlagsRequested>();
     app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });
@@ -1512,6 +1519,8 @@ fn liveness_by_room(dead: usize,
     app.add_message::<ambition_combat::death_rules::ActorDiedMessage>();
     app.add_message::<EncounterCommand>();
     app.add_message::<EncounterEventMsg>();
+    app.add_message::<ambition_encounter::EncounterRelease>();
+    app.init_resource::<ambition_time::SimTick>();
     app.add_message::<ambition_combat::events::SetFlagsRequested>();
     app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.insert_resource(ambition_platformer2d_shared_tangle::time::SimDt { dt: 1.0 / 60.0 });

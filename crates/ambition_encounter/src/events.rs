@@ -2,7 +2,7 @@
 //! the wave director. Trace markers (Started/Completed/…) plus the one
 //! side-effect variant `SpawnCommand` the wave adapter turns into a real ECS
 //! mob. [`EncounterEventMsg`] is the ECS message form: the reducer publishes
-//! `{encounter, event}` and effect adapters (switch auto-green, banners,
+//! `{encounter, attempt, event}` and effect adapters (switch auto-green, banners,
 //! quests, trace) react without owning the lifecycle.
 
 /// One lifecycle/wave event. The encounter id travels on the enclosing
@@ -69,6 +69,8 @@ impl EncounterEvent {
 #[derive(bevy::prelude::Message, Clone, Debug)]
 pub struct EncounterEventMsg {
     pub encounter: String,
+    /// The attempt at the transition that produced this event.
+    pub attempt: u64,
     /// The live room of the occurrence this happened to. `None`: the
     /// occurrence is in no named room (the sole live room reads it). A
     /// `SpawnCommand` is served into this room.
@@ -77,9 +79,10 @@ pub struct EncounterEventMsg {
 }
 
 impl EncounterEventMsg {
-    pub fn new(encounter: impl Into<String>, event: EncounterEvent) -> Self {
+    pub fn new(encounter: impl Into<String>, attempt: u64, event: EncounterEvent) -> Self {
         Self {
             encounter: encounter.into(),
+            attempt,
             room: None,
             event,
         }
@@ -92,5 +95,34 @@ impl EncounterEventMsg {
     ) -> Self {
         self.room = room;
         self
+    }
+}
+
+/// A terminal transition for presentation. Simulation readers use `EncounterEventMsg`.
+#[derive(bevy::prelude::Message, Clone, Debug, PartialEq, Eq)]
+pub struct EncounterRelease {
+    pub source: ambition_platformer2d_shared_tangle::sim_id::SimId,
+    pub session: ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId,
+    pub room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    pub attempt: u64,
+    pub tick: u64,
+    pub reason: EncounterReleaseReason,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EncounterReleaseReason {
+    Completed,
+    Failed,
+    Reset,
+}
+
+impl EncounterReleaseReason {
+    pub(crate) fn from_event(event: &EncounterEvent) -> Option<Self> {
+        match event {
+            EncounterEvent::Completed => Some(Self::Completed),
+            EncounterEvent::Failed => Some(Self::Failed),
+            EncounterEvent::Reset => Some(Self::Reset),
+            _ => None,
+        }
     }
 }

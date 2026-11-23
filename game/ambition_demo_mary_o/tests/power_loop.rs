@@ -133,7 +133,7 @@ impl Loop {
                 collect_world_items,
                 reconcile_effective_repertoire,
                 sync_grown_form,
-                walk_by_default_run_while_held,
+                walk_by_default_run_while_held(ambition_platformer2d::world::scoped_rules::RulesScope::EveryRoom),
                 fire_spark_on_run_press,
             )
                 .chain(),

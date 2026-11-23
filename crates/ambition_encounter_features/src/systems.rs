@@ -377,7 +377,7 @@ pub fn drive_wave_encounters(
                     // them. This driver no longer serves its own requests.
                     // The room goes with the request: a mob is served into
                     // its occurrence's live room.
-                    events_out.write(EncounterEventMsg::new(&enc.id, event).in_room(room));
+                    events_out.write(EncounterEventMsg::new(&enc.id, lifecycle.attempt(), event).in_room(room));
                 }
             }
             ambition_encounter::EncounterPhase::Inactive => {

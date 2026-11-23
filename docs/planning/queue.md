@@ -425,6 +425,8 @@ world-post admission.
     body lacks a run edge. Preserve `EveryRoom`, body-local control and
     native integration; no new registry or scoped-query interpreter.
     This caller repair can ship independently of input and view work.
+    (Done 2026-11-23: the gait writer takes the installer's scope and selects
+    each body by its live room; `RulesScopeSet` is described as a work gate.)
 
 **Acceptance:** body permission governs the actual action spend; a refused
 press has no accepted-action side effects; an applicable hitlag or held

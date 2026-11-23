@@ -570,40 +570,50 @@ fn boss_phase_policy_follows_the_canonical_phase_and_attempt() {
 
 #[test]
 fn a_delayed_boss_track_waits_for_the_authored_phase_time() {
-    let (mut app, _, rooms) = fixture(false);
-    app.insert_resource(AdaptiveMusicCatalogRegistry::default());
-    let (_, id) = boss(&mut app, "delayed_boss", rooms[0]);
-    let body = app
-        .world_mut()
-        .query::<(Entity, &SimId)>()
-        .iter(app.world())
-        .find(|(_, candidate)| **candidate == id)
-        .unwrap()
-        .0;
-    {
-        let mut config = app
+    for overridden in [false, true] {
+        let (mut app, _, rooms) = fixture(overridden);
+        app.insert_resource(AdaptiveMusicCatalogRegistry::default());
+        let (_, id) = boss(&mut app, "delayed_boss", rooms[0]);
+        let body = app
             .world_mut()
-            .get_mut::<ambition_boss_encounter::BossConfig>(body)
-            .unwrap();
-        config.seed.encounter.music_intro = "wave".into();
-        config.seed.encounter.music_intro_from = 3.0;
+            .query::<(Entity, &SimId)>()
+            .iter(app.world())
+            .find(|(_, candidate)| **candidate == id)
+            .unwrap()
+            .0;
+        {
+            let mut config = app
+                .world_mut()
+                .get_mut::<ambition_boss_encounter::BossConfig>(body)
+                .unwrap();
+            config.seed.encounter.music_intro = "wave".into();
+            config.seed.encounter.music_intro_from = 3.0;
+        }
+        let mut status = test_boss_status(18, BossEncounterPhase::Intro).0;
+        status.encounter.as_mut().unwrap().phase_elapsed = 2.0;
+        app.world_mut().entity_mut(body).insert(status);
+        app.add_systems(
+            Update,
+            ambition_boss_encounter::publish_boss_music.before(compute_music_intent),
+        );
+        app.update();
+        assert!(
+            !session_world_component::<EncounterMusicRequest>(app.world())
+                .unwrap()
+                .candidates()
+                .any(|candidate| candidate.source.kind()
+                    == ambition_boss_encounter::BOSS_MUSIC_SOURCE_KIND)
+        );
+        assert_eq!(winner(&app).choice, MusicChoice::Track("ambient".into()));
+        app.world_mut()
+            .get_mut::<ambition_boss_encounter::BossEncounter>(body)
+            .unwrap()
+            .encounter
+            .as_mut()
+            .unwrap()
+            .phase_elapsed = 3.0;
+        app.update();
+        let expected = if overridden { "override" } else { "wave" };
+        assert_eq!(winner(&app).choice, MusicChoice::Track(expected.into()));
     }
-    let mut status = test_boss_status(18, BossEncounterPhase::Intro).0;
-    status.encounter.as_mut().unwrap().phase_elapsed = 2.0;
-    app.world_mut().entity_mut(body).insert(status);
-    app.add_systems(
-        Update,
-        ambition_boss_encounter::publish_boss_music.before(compute_music_intent),
-    );
-    app.update();
-    assert_eq!(winner(&app).choice, MusicChoice::Track("ambient".into()));
-    app.world_mut()
-        .get_mut::<ambition_boss_encounter::BossEncounter>(body)
-        .unwrap()
-        .encounter
-        .as_mut()
-        .unwrap()
-        .phase_elapsed = 3.0;
-    app.update();
-    assert_eq!(winner(&app).choice, MusicChoice::Track("wave".into()));
 }

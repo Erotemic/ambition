@@ -480,18 +480,13 @@ pub fn notify_bosses_on_mount_death(
     }
 }
 
-/// The adaptive-music track a boss plays in `phase`, `elapsed` seconds into
-/// it, from its authored spec. `None` for `Dormant` / `Death` (no boss music —
-/// room music resumes), and for the part of the intro before
-/// `music_intro_from`.
+/// The authored track for this phase. Claim publication applies the intro delay.
 pub(crate) fn phase_music_track(
     spec: &crate::BossEncounterSpec,
     phase: crate::BossEncounterPhase,
-    elapsed: f32,
 ) -> Option<&str> {
     use crate::BossEncounterPhase as P;
     let track = match phase {
-        P::Intro if elapsed < spec.music_intro_from => return None,
         P::Intro => &spec.music_intro,
         P::Phase1 | P::Transition => &spec.music_phase1,
         P::Phase2 | P::Stagger => &spec.music_phase2,

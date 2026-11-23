@@ -467,6 +467,7 @@ fn a_swing_that_catches_two_bodies_stales_the_move_once() {
         .id();
     let hitbox = app.world_mut().spawn_empty().id();
     let hash = crate::stale::stale_move_hash("swat");
+    let instance = app.world().get::<MovePlayback>(attacker).unwrap().instance;
 
     let land_on = |app: &mut App, victims: usize| {
         for _ in 0..victims {
@@ -480,6 +481,7 @@ fn a_swing_that_catches_two_bodies_stales_the_move_once() {
                     radius: 8.0,
                 },
                 contact: ae::Vec2::ZERO,
+                attacker_move_instance: Some(instance),
             });
         }
         app.update();

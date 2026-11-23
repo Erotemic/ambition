@@ -339,7 +339,9 @@ world-post admission.
    acceptance and the stated same-cut timing change. No general damage graph.
    (CR1 first slice landed 2026-11-22: the hit reporter owns connect and
    block; a damaging boss hit and a lethal home-body strike now connect once,
-   with zero hitlag.)
+   with zero hitlag. The strike-origin follow-up landed 2026-11-23: a
+   module's body strike credits the move use that emitted it, and early
+   contact marks only that use.)
    The [strike-origin refinement](engine/combat-reception-and-injury.md#carry-attack-origin-through-strike-creation-and-contact)
    requires origin at native strike creation and carries it through early
    contact. Matching occurrence can mark/stale its move; independent or

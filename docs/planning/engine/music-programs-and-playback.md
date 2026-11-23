@@ -907,16 +907,20 @@ audio tests and the separate native test. Spectrum inspection confirms the
 section tones. The baseline capture exposed 20–30 ms of silence at file-end joins.
 
 `781520aba` introduced native scheduling for ready one-shot continuations.
-The current executor uses a native group exit envelope instead of scheduled
-instance stops. It holds sample zero through admission. The
+`9ccde6c6f` replaces scheduled instance stops with native group exit envelopes.
+Entry fades no longer freeze when an exit is prepared, and withdrawal does not
+wait for host acknowledgement. The executor holds sample zero through admission. The
 [pinned adapter patch](../../../third_party/bevy_kira_audio/PATCHES.md) exposes
 the existing manager, native instance wrapper and scheduled resume. Guard: 148 audio tests,
-38 intent-adapter tests, 35 workspace policy tests and two explicit native tests.
+38 intent-adapter tests, 35 workspace policy tests and three explicit native tests.
 PCM checks find no silent 10 ms windows across the prepared joins, including a
 one-second host stall and a source tail. Cancellation followed immediately by a
 host stall preserves the old audio past its withdrawn exit. Source replacement
 before admission cannot change the submitted frames. Silence releases all native
 instances and group tracks. Mixer resolution is not a sample-accuracy guarantee.
+`dab9fbbac` retains completion facts when a scheduled short section starts and
+finishes between host observations. The director advances its state once. Guard:
+a native 5 ms continuation across a host stall completes without duplicate plays.
 General exits and the complete game route remain open.
 No physical-speaker or listening acceptance was performed.
 The current recording path consumes the executor's actual voice commands;

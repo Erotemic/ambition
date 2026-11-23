@@ -162,3 +162,7 @@ a host stall immediately after withdrawal. Check section levels as well as
 frequency content; a nearly silent source can still produce the expected tones.
 Native starts and fades use Kira's processing resolution. The preparer still
 rejects `SampleAccurate` and `PhasePreserving` requests.
+
+The opt-in `a_native_short_continuation_finishes_once_between_host_observations`
+test admits a 5 ms continuation, then stalls across its full lifetime. Its
+completion must advance the cue once without retrying the finished audio.

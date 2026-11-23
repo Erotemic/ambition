@@ -22,6 +22,8 @@ use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::characters::equipment::{EquipmentGrant, WornEquipment};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PlayerEntity;
+use ambition_platformer2d::world::governing_rules::LiveRuleRooms;
+use ambition_platformer2d::world::scoped_rules::{ActiveRoom, RulesScope};
 
 /// The id of her run technique, and of the edge the gate routes for it.
 pub(crate) const RUN: &str = "run";
@@ -35,18 +37,40 @@ pub(crate) const RUN: &str = "run";
 /// replay, and rollback — rather than being applied at a device adapter where the
 /// simulation could never see the difference between a walk and a half-pushed
 /// stick.
-pub fn walk_by_default_run_while_held(
-    mut bodies: Query<(&mut ActorControl, &ResolvedTechniqueEdges), With<PlayerEntity>>,
-) {
-    for (mut control, edges) in &mut bodies {
-        let frame = &mut control.0;
-        if !edges.edge(RUN).held {
-            // A pure throttle cut. The TARGET speed drops; accumulated velocity is
-            // left to the kernel's acceleration, which is what makes releasing run
-            // a deceleration rather than a snap.
-            frame.locomotion.x *= crate::rules::mary_o_rules().walk_throttle;
-        }
-    }
+///
+/// It throttles only the bodies in rooms `scope` governs, the scope its
+/// installer gates the system with. That gate asks whether ANY live room is
+/// hers, so with one of her rooms and a foreign room live it wakes for both:
+/// without this selection a foreign body whose room grants no `run` read as
+/// "not running" and walked at her throttle. The name stays the fn's so the
+/// schedule's phase pins find it.
+pub fn walk_by_default_run_while_held(scope: RulesScope) -> impl System<In = (), Out = ()> {
+    IntoSystem::into_system(
+        move |mut bodies: Query<(Entity, &mut ActorControl, &ResolvedTechniqueEdges), With<PlayerEntity>>,
+              rooms: LiveRuleRooms| {
+            for (body, mut control, edges) in &mut bodies {
+                if !governs(scope, &rooms, body) {
+                    continue;
+                }
+                let frame = &mut control.0;
+                if !edges.edge(RUN).held {
+                    // A pure throttle cut. The TARGET speed drops; accumulated velocity is
+                    // left to the kernel's acceleration, which is what makes releasing run
+                    // a deceleration rather than a snap.
+                    frame.locomotion.x *= crate::rules::mary_o_rules().walk_throttle;
+                }
+            }
+        },
+    )
+    .with_name("ambition_demo_mary_o::movement::walk_by_default_run_while_held")
+}
+
+/// Whether `scope` governs the live room `body` is in, by the reading
+/// `RulesOf::of` uses (a body whose room cannot be told is in no room).
+/// `EveryRoom` governs every body without resolving its room.
+fn governs(scope: RulesScope, rooms: &LiveRuleRooms, body: Entity) -> bool {
+    scope == RulesScope::EveryRoom
+        || scope.governs(rooms.room_of(body).map_or(ActiveRoom::NoRoom, |room| rooms.of(room)))
 }
 
 /// The same button's press edge fires a spark, while its held level keeps

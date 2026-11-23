@@ -64,7 +64,11 @@ the authored edge. The width is fixed in world units.
 
 A footprint smaller than the view cannot contain it. `center` centers the view
 on that axis; `fit_view` changes the view size instead. Visibility recovery can
-relax a local composition to keep a subject visible. Use `preserve_bounds`
+relax a local composition to keep a subject visible. It protects the body box
+(plus the profile's subject padding) inside the whole view, measured from the
+subject. The soft-framing deadzone and look-ahead shape only the eased goal;
+recovery runs after the response, so applying them there would move the view
+at the subject's speed. Use `preserve_bounds`
 when the restriction is part of a discovery gesture. The final parent box still
 limits the view. Author a parent box that contains the intended transition.
 

@@ -68,16 +68,14 @@ pub fn release_narrative_music_on_room_change(
 ) {
     let Some(rooms) = rooms else { return };
     let listening = local_rooms(&rooms, &participants, &locals);
-    let primary = primary.get().filter(|room| listening.contains(room) || locals.is_empty());
-    let heard = the_room_the_music_plays_for(
-        primary,
-        listening,
-        |room| {
-            encounter_music
-                .as_ref()
-                .map_or(0, |source| source.priority_of(room))
-        },
-    );
+    let primary = primary
+        .get()
+        .filter(|room| listening.contains(room) || locals.is_empty());
+    let heard = the_room_the_music_plays_for(primary, listening, |room| {
+        encounter_music
+            .as_ref()
+            .map_or(0, |source| source.priority_of(room))
+    });
     let Some(definition) = rooms.definition_named(heard) else {
         return;
     };
@@ -314,6 +312,7 @@ pub fn compute_music_intent(
                     choice,
                     continuity: MusicContinuity::SharedProgram,
                     entry_policy: MusicEntryPolicy::ContinueCompatible,
+                    phase_policy: MusicPhasePolicy::default(),
                     priority: 0,
                     crossfade_s: 0.22,
                     completed_state: None,
@@ -379,6 +378,7 @@ pub fn compute_music_intent(
             claim: claim(context, session, room, source, attempt),
             release_owner,
             entry_policy: MusicEntryPolicy::ContinueCompatible,
+            phase_policy: MusicPhasePolicy::default(),
             choice,
             priority,
             continuity,
@@ -416,6 +416,7 @@ pub fn compute_music_intent(
             let mut lifecycle_owner = None;
             let mut completed = None;
             let mut adaptive = None;
+            let mut phase_policy = MusicPhasePolicy::default();
             match source.source.kind() {
                 "encounter" => {
                     let Some((_, encounter, lifecycle, waves, id)) =
@@ -463,11 +464,16 @@ pub fn compute_music_intent(
                         catalog.and_then(|c| c.binding_for_boss(&config.behavior.id))
                     {
                         adaptive = binding
-                            .state_in(boss_phase_key(status.encounter_phase()))
-                            .map(|state| MusicChoice::Cue {
-                                id: binding.cue_id.clone(),
-                                state: state.into(),
-                                entry: None,
+                            .phase_states
+                            .iter()
+                            .find(|phase| phase.phase == boss_phase_key(status.encounter_phase()))
+                            .map(|phase| {
+                                phase_policy = phase.policy;
+                                MusicChoice::Cue {
+                                    id: binding.cue_id.clone(),
+                                    state: phase.state.clone(),
+                                    entry: None,
+                                }
                             });
                         completed = binding.state_in("Death").map(str::to_owned);
                     }
@@ -527,6 +533,7 @@ pub fn compute_music_intent(
                 0.65,
             );
             fight.entry_policy = MusicEntryPolicy::FreshOccurrence;
+            fight.phase_policy = phase_policy;
             candidates.push((fight, source.began));
         }
         if room == heard {

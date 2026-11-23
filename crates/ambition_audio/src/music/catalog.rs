@@ -1,9 +1,10 @@
 use super::*;
 
 pub use crate::cue_spec::{
-    BossMusicBinding, BossPhaseState, EncounterMusicBinding, MusicCueMedia, MusicCueSpec,
-    MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec, MusicProductSet, MusicSectionSpec,
-    MusicStateBalanceOverride, MusicStateSpec, RoomMusicBinding, RoomPhaseTrack, BOSS_PHASE_KEYS,
+    BOSS_PHASE_KEYS, BossMusicBinding, BossPhaseState, EncounterMusicBinding, MusicCueMedia,
+    MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec, MusicPhasePolicy,
+    MusicProductSet, MusicSectionSpec, MusicStateBalanceOverride, MusicStateSpec, RoomMusicBinding,
+    RoomPhaseTrack,
 };
 
 pub use crate::cue_program::PreparedMusicCues as MusicCueCatalog;
@@ -58,21 +59,21 @@ impl LoadedMusicCueAssets {
             .is_some_and(|(loaded, _)| loaded == path)
     }
 
-    /// Lazily request a cue's file-backed sources the first time it is about to
-    /// play (load-on-play). Idempotent: already-requested sources are left as-is,
-    /// so a cue loads exactly once and steady-state playback does no work. A source
-    /// whose path changed (a reload) is requested again.
-    ///
-    /// This replaces eager "load every catalog cue at startup": authored cues are
-    /// only `asset_server.load()`ed when their `Play` directive actually fires.
-    pub(super) fn ensure_cue_loaded(
+    /// Request the selected state and its immediate continuation.
+    pub(super) fn ensure_state_loaded(
         &mut self,
         provider_id: &str,
         generation: u64,
         cue: &PreparedMusicCue,
+        state: &PreparedMusicState,
         asset_server: &AssetServer,
     ) {
-        for section in &cue.sections {
+        for state in
+            std::iter::once(state).chain(state.next_state.as_deref().and_then(|id| cue.state(id)))
+        {
+            let section = cue
+                .section(&state.section_id)
+                .expect("a prepared state has its section");
             for source in &section.sources {
                 let key = MusicSourceKey::new(
                     provider_id,
@@ -193,7 +194,9 @@ impl AdaptiveMusicCatalogRegistry {
         // the active audio context selects one complete catalog.
         self.next_generation += 1;
         for (cue, description) in catalog.ungenerated() {
-            warn!("music provider {provider_id:?}: cue {cue:?} is unavailable until {description:?} is generated");
+            warn!(
+                "music provider {provider_id:?}: cue {cue:?} is unavailable until {description:?} is generated"
+            );
         }
         self.generations
             .insert(provider_id.clone(), self.next_generation);
@@ -481,7 +484,7 @@ mod provider_registry_tests {
     /// cue whose file changed is requested again and the cache then holds the
     /// new path; an unchanged cue is not requested a second time.
     #[test]
-    fn ensure_cue_loaded_requests_a_changed_path_again_and_an_unchanged_one_once() {
+    fn ensure_state_loaded_requests_a_changed_path_again_and_an_unchanged_one_once() {
         let mut app = App::new();
         app.add_plugins((
             bevy::app::TaskPoolPlugin::default(),
@@ -503,9 +506,9 @@ mod provider_registry_tests {
 
         let mut assets = LoadedMusicCueAssets::default();
         let before = cue_of("a.ogg");
-        assets.ensure_cue_loaded("a", 1, &before, &server);
+        assets.ensure_state_loaded("a", 1, &before, &before.states[0], &server);
         let first = assets.sources[&key(&before)].1.clone();
-        assets.ensure_cue_loaded("a", 1, &before, &server);
+        assets.ensure_state_loaded("a", 1, &before, &before.states[0], &server);
         assert_eq!(
             assets.sources[&key(&before)].1,
             first,
@@ -513,7 +516,7 @@ mod provider_registry_tests {
         );
 
         let after = cue_of("a_v2.ogg");
-        assets.ensure_cue_loaded("a", 1, &after, &server);
+        assets.ensure_state_loaded("a", 1, &after, &after.states[0], &server);
         let (path, handle) = &assets.sources[&key(&after)];
         assert_eq!(
             path, "audio/adaptive/a_v2.ogg",
@@ -523,7 +526,7 @@ mod provider_registry_tests {
 
         for path in ["content://other/audio/a.ogg", "game://audio/a.ogg"] {
             let qualified = cue_of(path);
-            assets.ensure_cue_loaded("a", 1, &qualified, &server);
+            assets.ensure_state_loaded("a", 1, &qualified, &qualified.states[0], &server);
             let (loaded, handle) = &assets.sources[&key(&qualified)];
             assert_eq!(loaded, path);
             assert_eq!(handle.path().unwrap().to_string(), path);

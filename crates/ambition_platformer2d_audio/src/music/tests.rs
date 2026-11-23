@@ -6,8 +6,8 @@ use ambition_audio::{
     spec::{MusicRegistry, MusicTrack},
 };
 use ambition_boss_encounter::{
-    test_support::{test_boss_config, test_boss_status},
     BossEncounterPhase,
+    test_support::{test_boss_config, test_boss_status},
 };
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_encounter::{
@@ -18,8 +18,8 @@ use ambition_input::participant::InputParticipant;
 use ambition_platformer2d_shared_tangle::{
     body::PrimaryBody,
     lifecycle::{
-        insert_session_world_component, session_world_component, session_world_component_mut,
-        InRoomInstance, LiveRoomInstance, RoomInstanceRoot,
+        InRoomInstance, LiveRoomInstance, RoomInstanceRoot, insert_session_world_component,
+        session_world_component, session_world_component_mut,
     },
     sim_id::SimId,
 };
@@ -152,10 +152,18 @@ fn fixture(override_track: bool) -> (App, Entity, [LiveRoomInstance; 2]) {
             boss_bindings: vec![BossMusicBinding {
                 boss_id: "wolfenstein_boss".into(),
                 cue_id: "fight_program".into(),
-                phase_states: vec![BossPhaseState {
-                    phase: "Phase1".into(),
-                    state: "song".into(),
-                }],
+                phase_states: vec![
+                    BossPhaseState {
+                        phase: "Intro".into(),
+                        state: "intro".into(),
+                        policy: MusicPhasePolicy::FollowPhase,
+                    },
+                    BossPhaseState {
+                        phase: "Phase1".into(),
+                        state: "song".into(),
+                        policy: MusicPhasePolicy::CompleteSection,
+                    },
+                ],
             }],
             room_bindings: vec![RoomMusicBinding {
                 room_id: "chapel".into(),
@@ -521,7 +529,91 @@ fn a_remote_primary_body_cannot_clear_the_local_rooms_narrative_request() {
         .request("narrative");
     app.update();
     assert_eq!(winner(&app).choice, MusicChoice::Track("narrative".into()));
-    app.world_mut().entity_mut(remote).insert(InRoomInstance(rooms[0]));
+    app.world_mut()
+        .entity_mut(remote)
+        .insert(InRoomInstance(rooms[0]));
     app.update();
     assert_eq!(winner(&app).choice, MusicChoice::Track("narrative".into()));
+}
+
+#[test]
+fn boss_phase_policy_follows_the_canonical_phase_and_attempt() {
+    let (mut app, _, rooms) = fixture(false);
+    let (_, id) = boss(&mut app, "placed_boss", rooms[0]);
+    let body = app
+        .world_mut()
+        .query::<(Entity, &SimId)>()
+        .iter(app.world())
+        .find(|(_, candidate)| **candidate == id)
+        .unwrap()
+        .0;
+    app.world_mut()
+        .entity_mut(body)
+        .insert(test_boss_status(18, BossEncounterPhase::Intro).0);
+    app.add_systems(
+        Update,
+        ambition_boss_encounter::publish_boss_music.before(compute_music_intent),
+    );
+    app.update();
+    let opening = winner(&app).clone();
+    assert_eq!(opening.phase_policy, MusicPhasePolicy::FollowPhase);
+    assert!(matches!(&opening.choice, MusicChoice::Cue { state, .. } if state == "intro"));
+    app.world_mut()
+        .entity_mut(body)
+        .insert(test_boss_status(18, BossEncounterPhase::Phase1).0);
+    app.update();
+    let fighting = winner(&app);
+    assert_eq!(fighting.claim, opening.claim);
+    assert_eq!(fighting.phase_policy, MusicPhasePolicy::CompleteSection);
+    assert!(matches!(&fighting.choice, MusicChoice::Cue { state, .. } if state == "song"));
+}
+
+#[test]
+fn a_delayed_boss_track_waits_for_the_authored_phase_time() {
+    for overridden in [false, true] {
+        let (mut app, _, rooms) = fixture(overridden);
+        app.insert_resource(AdaptiveMusicCatalogRegistry::default());
+        let (_, id) = boss(&mut app, "delayed_boss", rooms[0]);
+        let body = app
+            .world_mut()
+            .query::<(Entity, &SimId)>()
+            .iter(app.world())
+            .find(|(_, candidate)| **candidate == id)
+            .unwrap()
+            .0;
+        {
+            let mut config = app
+                .world_mut()
+                .get_mut::<ambition_boss_encounter::BossConfig>(body)
+                .unwrap();
+            config.seed.encounter.music_intro = "wave".into();
+            config.seed.encounter.music_intro_from = 3.0;
+        }
+        let mut status = test_boss_status(18, BossEncounterPhase::Intro).0;
+        status.encounter.as_mut().unwrap().phase_elapsed = 2.0;
+        app.world_mut().entity_mut(body).insert(status);
+        app.add_systems(
+            Update,
+            ambition_boss_encounter::publish_boss_music.before(compute_music_intent),
+        );
+        app.update();
+        assert!(
+            !session_world_component::<EncounterMusicRequest>(app.world())
+                .unwrap()
+                .candidates()
+                .any(|candidate| candidate.source.kind()
+                    == ambition_boss_encounter::BOSS_MUSIC_SOURCE_KIND)
+        );
+        assert_eq!(winner(&app).choice, MusicChoice::Track("ambient".into()));
+        app.world_mut()
+            .get_mut::<ambition_boss_encounter::BossEncounter>(body)
+            .unwrap()
+            .encounter
+            .as_mut()
+            .unwrap()
+            .phase_elapsed = 3.0;
+        app.update();
+        let expected = if overridden { "override" } else { "wave" };
+        assert_eq!(winner(&app).choice, MusicChoice::Track(expected.into()));
+    }
 }

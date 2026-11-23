@@ -43,11 +43,14 @@ pub fn publish_boss_music(
             .encounter
             .as_ref()
             .map_or(0.0, |phase| phase.phase_elapsed);
+        if phase == BossEncounterPhase::Intro && elapsed < config.seed.encounter.music_intro_from {
+            return None;
+        }
         Some(MusicOccurrence {
             room,
             source_id: id.as_str().to_owned(),
             attempt,
-            track: crate::systems::phase_music_track(&config.seed.encounter, phase, elapsed)
+            track: crate::systems::phase_music_track(&config.seed.encounter, phase)
                 .map(str::to_owned),
         })
     });

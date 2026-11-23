@@ -234,6 +234,7 @@ fn day_phase_and_boss_phase_rows_have_one_meaning() {
         boss_id: "boss".into(),
         cue_id: "cue".into(),
         phase_states: vec![BossPhaseState {
+            policy: Default::default(),
             phase: "Phase1".into(),
             state: "song".into(),
         }],

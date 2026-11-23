@@ -146,14 +146,24 @@ pub struct RoomMusicBinding {
 /// The adaptive music of a boss: the cue state for each phase of its fight,
 /// for every placement of the archetype `boss_id` (the story's fight and a
 /// practice copy alike). A phase with no state gives the music back to the
-/// room. A state on a section that does not loop plays to its end before the
-/// next phase's state starts (a wake, a transition).
+/// room. Each phase controls whether its one-shot section finishes before the
+/// next phase's state starts.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BossMusicBinding {
     pub boss_id: String,
     pub cue_id: String,
     pub phase_states: Vec<BossPhaseState>,
+}
+
+/// Control a one-shot section when its scene phase changes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MusicPhasePolicy {
+    /// Let the current section reach its musical end.
+    #[default]
+    CompleteSection,
+    /// Follow the current phase as soon as its target is ready.
+    FollowPhase,
 }
 
 /// One phase of a boss fight and the state of its cue then. `phase` is a key
@@ -163,6 +173,8 @@ pub struct BossMusicBinding {
 pub struct BossPhaseState {
     pub phase: String,
     pub state: String,
+    #[serde(default)]
+    pub policy: MusicPhasePolicy,
 }
 
 impl BossMusicBinding {

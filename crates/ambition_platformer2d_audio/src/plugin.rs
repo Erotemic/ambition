@@ -218,7 +218,8 @@ fn reset_audio_request_state_on_context_change(
     let reset = changes
         .read()
         .filter(|change| change.current == current && change.previous != change.current)
-        .count() > 0;
+        .count()
+        > 0;
     let session_reset = activated.read().count() > 0;
     if !reset && !session_reset {
         return;
@@ -298,6 +299,7 @@ fn apply_frontend_music_policy(
         choice: MusicChoice::Track(id.into()),
         continuity: MusicContinuity::SharedProgram,
         entry_policy: MusicEntryPolicy::ContinueCompatible,
+        phase_policy: MusicPhasePolicy::default(),
         priority: 0,
         crossfade_s: 0.22,
         completed_state: None,

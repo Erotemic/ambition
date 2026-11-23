@@ -10789,3 +10789,41 @@ fn an_interrupting_reaction_ends_the_victims_move_and_only_that_use() {
     app.update();
     assert!(app.world().get::<MovePlayback>(victim).is_none(), "the interrupted use is still playing");
 }
+
+/// ACT1: a press during a hard reaction lock starts nothing and spends
+/// nothing; still inside its buffer window, it starts exactly once when the
+/// lock ends. Hitstun without the lock leaves the attack, which is Ambition's
+/// fight-back rule.
+#[test]
+fn a_press_during_a_hard_lock_waits_in_its_buffer_and_hitstun_alone_does_not_refuse() {
+    let (mut app, body) = buffer_app(swat_moveset(), 0.5);
+    app.world_mut().entity_mut(body).insert(ambition_characters::actor::BodyCombat {
+        recoil_lock_timer: 1.0,
+        ..Default::default()
+    });
+    set_frame(&mut app, body, |f| {
+        f.melee_pressed = true;
+        f.melee_held = true;
+    });
+    app.update();
+    assert_eq!(playing(&app, body), None, "a recoil-locked body started a move");
+    assert!(
+        app.world().get::<ae::BodyActionBuffer>(body).unwrap().attack > 0.0,
+        "the refused press was spent instead of buffered"
+    );
+
+    set_frame(&mut app, body, |f| {
+        f.melee_pressed = false;
+        f.melee_held = false;
+    });
+    app.world_mut().entity_mut(body).insert(ambition_characters::actor::BodyCombat {
+        hitstun_timer: 1.0,
+        ..Default::default()
+    });
+    app.update();
+    assert_eq!(
+        playing(&app, body).as_deref(),
+        Some("swat"),
+        "the buffered press did not start once the lock ended (hitstun alone remains)"
+    );
+}

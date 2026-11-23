@@ -80,6 +80,20 @@ pub fn engine_input_from_actor_control(
     input
 }
 
+/// How long this body's locks take every action away: its own reaction locks
+/// (`BodyCombat::hard_lock_timer`: recoil, landing lag, sleep, the held
+/// statuses, the ledge trump) and its guard's (a break, shieldstun, and the
+/// drop lag that letting go of a guard costs). One answer for the movement
+/// input gate below and the move start (`trigger_moveset_moves`), which reads
+/// the control frame and never sees the filtered input (ACT1).
+pub fn body_action_lock_timer(combat: &ambition_characters::actor::BodyCombat, shield: &ae::BodyShieldState) -> f32 {
+    combat
+        .hard_lock_timer()
+        .max(shield.break_timer)
+        .max(shield.stun_timer)
+        .max(shield.drop_lag_timer)
+}
+
 /// The two post-hit gates applied to ANY body's FINAL [`ae::InputState`]
 /// (fable review §A2 step 7): the ONE stagger rule, so a knocked actor loses
 /// authority exactly the way the knocked player does — the player's input
@@ -134,16 +148,7 @@ pub fn apply_post_hit_input_gates(
     // applied — beside the recoil and landing locks. It is listed there rather
     // than here because it is a fact the BODY owns, like those two, and not one
     // the guard owes.
-    let hard_lock_timer = combat
-        .hard_lock_timer()
-        .max(shield.break_timer)
-        .max(shield.stun_timer)
-        // SHIELD DROP LAG — the fourth fact that removes control outright, and
-        // beside the other three for the same reason: it is what LETTING GO of
-        // a guard costs, which is a different cause from the shieldstun a
-        // blocked hit charges and reads differently in a trace. `0.0` for a
-        // game that declares no drop rule.
-        .max(shield.drop_lag_timer);
+    let hard_lock_timer = body_action_lock_timer(combat, shield);
     // The FLY TOGGLE is exempt from both gates: it is a mode-switch INTENT, not
     // movement authority (the axes are still stripped, so a toggled flyer can't
     // steer until the stagger clears). Eating an edge-triggered toggle corrupts

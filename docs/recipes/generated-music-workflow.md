@@ -163,6 +163,12 @@ frequency content; a nearly silent source can still produce the expected tones.
 Native starts and fades use Kira's processing resolution. The preparer still
 rejects `SampleAccurate` and `PhasePreserving` requests.
 
+The opt-in `a_native_loop_exit_runs_after_several_passes_during_a_host_stall`
+test checks a prepared loop exit. Run it in a separate capture. The target tones
+must replace the source tones during the host stall, after several source loop
+passes. A missed admission deadline must select another allowed exit instead of
+adding a delay to the selected boundary.
+
 The opt-in `a_native_short_continuation_finishes_once_between_host_observations`
 test admits a 5 ms continuation, then stalls across its full lifetime. Its
 completion must advance the cue once without retrying the finished audio.

@@ -345,7 +345,7 @@ clock restrictions than exact clips; inspection states that limit.
 Display chapters, entry markers, and legal exits are different roles. Source
 preparation now retains bar exits and V3 admits `valid_exit_local_bars`.
 Encoded products retain the resolved frames. The native transition planner
-does not yet consume these markers.
+queries these prepared bar and named-exit boundaries.
 
 Use the same cut and rounding as the selected product. For the current
 global cut convention, a local marker frame is:
@@ -676,9 +676,9 @@ retry, and recording output. User and environment gain enter this owner.
 Native route acceptance remains open. MUS2 has removed split selection and
 simple-resume authority; MUS3 still owns prepared timing.
 
-**Remaining:** establish locked-adapter drain/cancel behavior and native route
-acceptance, with an honest timing guarantee. Keep existing simple/adaptive
-entry points as adapters into this one executor while MUS2 unifies selection.
+**Remaining:** native route acceptance, with an honest timing guarantee.
+Native group cancellation and resource release have explicit device tests.
+Keep simple/adaptive entry points as adapters into this one executor.
 Compatibility observations stay projections, not additional owners. Native
 acceptance is not a prerequisite for the static selection work.
 
@@ -821,10 +821,17 @@ revision. Admitted voices retain source frame counts through asset reload.
 Guard: 146 audio tests cover named exits across loop wraps, delayed targets,
 exhausted sections, ending handoff and layer alignment before resume.
 
-Ready one-shot continuations now use native scheduling. Other exits remain
-frame-driven and best effort. Stronger timing requests fail during preparation.
-General exit scheduling, scene deadlines, pickups, independent tails and bridge
-overlays stay open.
+`1c9f96ca3` adds native scheduling for prepared section and ending exits.
+Plans use elapsed source transport across loop passes. A missed admission
+deadline selects another allowed exit; it does not move the chosen boundary.
+Guard: 149 audio tests and an explicit native loop-exit test with a host stall.
+The baseline keeps the old section; the fix switches to the target tones.
+PCM inspection finds no silent 10 ms windows across that exit.
+
+Ready one-shot continuations also use native scheduling. Immediate exits and
+outputs without a native clock retain immediate or frame-driven admission.
+Stronger timing requests fail during preparation. Scene deadlines, pickups,
+independent tails and bridge overlays stay open.
 
 Keep catalog, decode, admission, and start facts distinct. Add the
 small boundary/entry/late-policy plan and a defined transport origin.

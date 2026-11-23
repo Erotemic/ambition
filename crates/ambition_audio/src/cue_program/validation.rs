@@ -31,6 +31,7 @@ pub(super) fn validation_errors(
     linked: &[LinkedMusicCue],
 ) -> Vec<String> {
     let mut errors = cue_reference_errors(
+        &authored.cues,
         linked,
         &authored.encounter_bindings,
         &authored.room_bindings,
@@ -88,12 +89,15 @@ pub(super) fn validation_errors(
             ));
         }
     }
-    for linked in linked {
-        let cue = linked.spec;
+    for cue in &authored.cues {
+        let linked = linked.iter().find(|linked| linked.spec.id == cue.id);
         let label = format!("cue {:?}", cue.id);
         check_level(&label, cue.relative_volume, 1.0, &mut errors);
         for (kind, empty) in [
-            ("sections", linked.sections.is_empty()),
+            (
+                "sections",
+                linked.is_some_and(|linked| linked.sections.is_empty()),
+            ),
             ("layers", cue.layers.is_empty()),
             ("states", cue.states.is_empty()),
         ] {
@@ -103,7 +107,10 @@ pub(super) fn validation_errors(
         }
         check_ids(
             &format!("{label} sections"),
-            linked.sections.iter().map(|section| section.id.as_str()),
+            linked
+                .into_iter()
+                .flat_map(|linked| &linked.sections)
+                .map(|section| section.id.as_str()),
             &mut errors,
         );
         check_ids(
@@ -111,7 +118,7 @@ pub(super) fn validation_errors(
             cue.states.iter().map(|state| state.id.as_str()),
             &mut errors,
         );
-        for section in &linked.sections {
+        for section in linked.into_iter().flat_map(|linked| &linked.sections) {
             let label = format!("{label} section {:?}", section.id);
             if section.sources.is_empty() {
                 errors.push(format!("{label}: no playable sources"));
@@ -164,14 +171,14 @@ pub(super) fn validation_errors(
                 check_level(&label, gain.gain, cue.relative_volume, &mut errors);
             }
             if let Some(section) = linked
-                .sections
-                .iter()
+                .into_iter()
+                .flat_map(|linked| &linked.sections)
                 .find(|section| section.id == state.section_id)
             {
                 if section.looped && state.next_state.is_some() {
                     errors.push(format!("{label}: a loop cannot reach next_state"));
                 }
-                let full = linked.mastered_full;
+                let full = linked.expect("linked section").mastered_full;
                 let balance = cue
                     .runtime_balance_overrides
                     .iter()

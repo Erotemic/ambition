@@ -18,6 +18,7 @@ pub const DAY_PHASE_KEYS: [&str; 4] = ["morning", "day", "evening", "night"];
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct PreparedMusicCues {
     cues: BTreeMap<String, PreparedMusicCue>,
+    ungenerated: BTreeMap<String, String>,
     encounter_bindings: Vec<EncounterMusicBinding>,
     room_bindings: Vec<RoomMusicBinding>,
     boss_bindings: Vec<BossMusicBinding>,
@@ -90,12 +91,23 @@ impl PreparedMusicCue {
 
 impl PreparedMusicCues {
     pub fn prepare(
-        authored: AuthoredMusicCues,
+        mut authored: AuthoredMusicCues,
         media: &MusicMediaCatalog,
     ) -> Result<Self, Vec<String>> {
         let mut errors = Vec::new();
         let mut linked = Vec::new();
+        let mut ungenerated = BTreeMap::new();
         for cue in &authored.cues {
+            if let MusicCueMedia::Published { description, .. } = &cue.media {
+                if media.is_ungenerated(description) {
+                    // Keep policy checks. No playback can use missing timing facts.
+                    if let Err(error) = validation::layer_slots(&cue.layers) {
+                        errors.push(format!("cue {:?}: {error}", cue.id));
+                    }
+                    ungenerated.insert(cue.id.clone(), description.clone());
+                    continue;
+                }
+            }
             match media::link(cue, media) {
                 Ok(cue) => linked.push(cue),
                 Err(error) => errors.push(format!("cue {:?}: {error}", cue.id)),
@@ -108,10 +120,20 @@ impl PreparedMusicCues {
         if !errors.is_empty() {
             return Err(errors);
         }
+        authored
+            .encounter_bindings
+            .retain(|binding| !ungenerated.contains_key(&binding.cue_id));
+        authored
+            .room_bindings
+            .retain(|binding| !ungenerated.contains_key(&binding.cue_id));
+        authored
+            .boss_bindings
+            .retain(|binding| !ungenerated.contains_key(&binding.cue_id));
         let encounter_index = index(authored.encounter_bindings.iter().map(|b| &b.encounter_id));
         let room_index = index(authored.room_bindings.iter().map(|b| &b.room_id));
         let boss_index = index(authored.boss_bindings.iter().map(|b| &b.boss_id));
         Ok(Self {
+            ungenerated,
             cues: linked
                 .into_iter()
                 .map(|cue| {
@@ -137,6 +159,12 @@ impl PreparedMusicCues {
     }
     pub fn cues(&self) -> impl Iterator<Item = &PreparedMusicCue> {
         self.cues.values()
+    }
+    /// Programs with no generated description have no executable cue or bindings.
+    pub fn ungenerated(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.ungenerated
+            .iter()
+            .map(|(cue, description)| (cue.as_str(), description.as_str()))
     }
     pub fn encounter_bindings(&self) -> &[EncounterMusicBinding] {
         &self.encounter_bindings

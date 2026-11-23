@@ -3,10 +3,9 @@
 //!
 //! A native host watches each selected content directory, including an
 //! external project in a host with embedded installed content. It looks
-//! at `pack.ron` and at every source it declares; a change to `pack.ron` also
-//! changes which files are looked at, so a source added there is watched from
-//! the next look. When a file changes, it compiles the pack
-//! again from the files on disk ([`crate::pack::compile_pack_from`]) and asks
+//! at `pack.ron`, selected native library sources, and publication selectors.
+//! After a change, it updates the watched paths and compiles the pack with
+//! the host's selected libraries. It asks
 //! for a reload ([`crate::reload::request_reload`]). The reload road decides
 //! the rest: it refuses a pack that does not compile, a change to a domain
 //! that cannot reload yet, and a timeline another owner holds, and otherwise
@@ -22,7 +21,7 @@ use bevy::prelude::*;
 #[derive(Resource)]
 pub struct ContentSourceWatch {
     root: std::path::PathBuf,
-    files: Vec<(String, Option<std::time::SystemTime>)>,
+    files: Vec<(std::path::PathBuf, Option<std::time::SystemTime>)>,
     frames_until_poll: u32,
     /// A change was seen and no reload has answered for it yet.
     dirty: bool,
@@ -38,9 +37,9 @@ pub struct ContentSourceWatch {
 }
 
 impl ContentSourceWatch {
-    /// Watch the declared sources under `root`, as they are now.
-    pub fn new(root: std::path::PathBuf) -> Self {
-        let files = watched_files(&root)
+    /// Watch the sources under `root` with the host library choices.
+    pub fn new(root: std::path::PathBuf, world: &World) -> Self {
+        let files = watched_files(&root, world)
             .into_iter()
             .map(|path| {
                 let seen = modified(&root.join(&path));
@@ -68,11 +67,47 @@ impl ContentSourceWatch {
 /// second is below a developer's switch from editor to game.
 const POLL_FRAMES: u32 = 20;
 
-/// The manifest and each source it declares.
-fn watched_files(root: &std::path::Path) -> Vec<String> {
-    std::iter::once("pack.ron".to_string())
-        .chain(crate::pack::declared_source_paths_in(root))
-        .collect()
+/// Watch selected native sources and accepted publication selectors.
+fn watched_files(root: &std::path::Path, world: &World) -> Vec<std::path::PathBuf> {
+    use ambition_platformer2d::asset_manager::{
+        content_library::LibrarySnapshot, library_source::LibraryAssets,
+    };
+    let mut paths = vec![std::path::PathBuf::from("pack.ron")];
+    let Ok(text) = std::fs::read_to_string(root.join("pack.ron")) else { return paths };
+    let Ok(manifest) = ambition_content_pack::ContentPackManifest::from_ron(&text) else { return paths };
+    let mut selected = ambition_platformer2d::content::libraries::snapshot(world)
+        .unwrap_or_else(|_| world.get_resource::<LibraryAssets>()
+            .map(LibraryAssets::snapshot).unwrap_or_else(LibrarySnapshot::default));
+    for path in &manifest.libraries {
+        let path = root.join(path);
+        if let Ok(path) = std::path::absolute(&path) { paths.push(path); }
+        let _ = selected.import_native(&path);
+    }
+    for source in &manifest.sources {
+        match &source.library {
+            None => paths.push(source.path.clone().into()),
+            Some(id) => {
+                let qualified = format!("content://{id}/{}", source.path);
+                if let Some(path) = selected.files.get(&qualified).and_then(|file| file.native_path()) {
+                    if let Ok(path) = std::path::absolute(path) { paths.push(path); }
+                } else if let Some(library) = selected.libraries.get(id).filter(|library| !library.is_embedded()) {
+                    for base in library.manifest.asset_roots.values() {
+                        if let Ok(path) = std::path::absolute(library.root.join(base).join(&source.path)) {
+                            paths.push(path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for library in selected.libraries.iter().filter(|library| !library.is_embedded()) {
+        if let Some(store) = library.publication_root() {
+            if let Ok(path) = std::path::absolute(store.join("published.json")) { paths.push(path); }
+        }
+    }
+    paths.sort();
+    paths.dedup();
+    paths
 }
 
 fn modified(path: &std::path::Path) -> Option<std::time::SystemTime> {
@@ -134,17 +169,18 @@ pub fn look_at_content_sources(world: &mut World) -> Option<std::path::PathBuf> 
     let root = watch.root.clone();
     let mut changed = Vec::new();
     for (path, seen) in &mut watch.files {
-        let now = modified(&root.join(path.as_str()));
+        let now = modified(&root.join(&*path));
         if now != *seen {
             *seen = now;
             changed.push(path.clone());
         }
     }
-    if changed.iter().any(|path| path == "pack.ron") {
-        // The list moved: a source the old list did not have is new now,
-        // so it is a change; one that stayed keeps the time it was seen at.
+    if !changed.is_empty() {
+        drop(watch);
+        let paths = watched_files(&root, world);
+        let mut watch = world.resource_mut::<ContentSourceWatch>();
         let old = std::mem::take(&mut watch.files);
-        watch.files = watched_files(&root)
+        watch.files = paths
             .into_iter()
             .map(|path| match old.iter().find(|(was, _)| *was == path) {
                 Some((_, seen)) => (path, *seen),
@@ -156,6 +192,7 @@ pub fn look_at_content_sources(world: &mut World) -> Option<std::path::PathBuf> 
             })
             .collect();
     }
+    let mut watch = world.resource_mut::<ContentSourceWatch>();
     if !changed.is_empty() {
         info!("content sources changed: {changed:?}");
         watch.dirty = true;
@@ -166,7 +203,8 @@ pub fn look_at_content_sources(world: &mut World) -> Option<std::path::PathBuf> 
 
 /// Compile the pack under `root` from disk and request a reload of it.
 pub fn request_from_sources(world: &mut World, root: &std::path::Path) -> SourcesAnswer {
-    let pack = match crate::pack::compile_pack_from(root) {
+    let pack = match ambition_platformer2d::content::libraries::snapshot(world)
+        .and_then(|libraries| crate::pack::compile_pack_from_with_libraries(root, libraries)) {
         Ok(pack) => pack,
         Err(diagnostic) => {
             error!("content sources changed and do not compile; the running content stays:\n{diagnostic}");

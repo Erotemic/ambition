@@ -206,7 +206,8 @@ impl Project {
     /// Put the project's inputs into `app`, before its plugins build.
     pub fn compose(&self, app: &mut App) -> Result<(), String> {
         if let Some(root) = &self.content_root {
-            let pack = ambition_content::pack::compile_pack_from(root)?;
+            let libraries = ambition_platformer2d::content::libraries::snapshot(app.world())?;
+            let pack = ambition_content::pack::compile_pack_from_with_libraries(root, libraries)?;
             ambition_content::pack::select_pack(app, std::sync::Arc::new(pack)).map_err(|refused| refused.to_string())?;
         }
         let mut authored_entry = None;

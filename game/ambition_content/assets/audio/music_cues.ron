@@ -179,20 +179,9 @@
             // per section, slices of one composition master: the valley
             // measures -27.1 dB RMS, the brute -17.9 dB, peak -3.3 dBFS.
             id: "hobford_goblins",
-            media: Inline(
-                asset_root: "audio/music/generated/hobford_goblins",
-                bpm: 120.0,
-                beats_per_bar: 4.0,
-                sections: [
-                    (id: "lurking", duration_beats: 128.0, looped: true, sources: [(layer_id: "full", path: "playback/lurking/lurking.full.ogg")]),
-                    (id: "shadowed", duration_beats: 96.0, looped: true, sources: [(layer_id: "full", path: "playback/shadowed/shadowed.full.ogg")]),
-                    // Plays to its end (the door gives way on its last beat),
-                    // then the march.
-                    (id: "break_in", duration_beats: 32.0, looped: false, sources: [(layer_id: "full", path: "playback/break_in/break_in.full.ogg")]),
-                    (id: "raid", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/raid/raid.full.ogg")]),
-                    (id: "brute", duration_beats: 64.0, looped: true, sources: [(layer_id: "full", path: "playback/brute/brute.full.ogg")]),
-                    (id: "aftermath", duration_beats: 56.0, looped: false, sources: [(layer_id: "full", path: "playback/aftermath/aftermath.full.ogg")]),
-                ],
+            media: Published(
+                description: "content://ambition_shared/audio/music/generated/hobford_goblins/hobford_goblins.adaptive_manifest.json",
+                products: MasteredFull,
             ),
             relative_volume: 1.0,
             layers: [(id: "full", slot: 0)],
@@ -223,28 +212,9 @@
             // stems before the master chain. Measure with the renderer's
             // dev/measure_playback_layers.py before you change a gain.
             id: "dinosaur_liberators_adaptive",
-            media: Inline(
-                asset_root: "audio/music/generated/dinosaur_liberators_adaptive",
-                bpm: 110.0,
-                beats_per_bar: 4.0,
-                // The fight state peaks 0.3 dB under full scale at a volume of
-                // one (measured); this leaves it 1.2 dB.
-                sections: [
-                    // Plays one time, to its end, when the cue starts.
-                    (id: "intro", duration_beats: 32.0, looped: false, sources: [
-                        (layer_id: "bed", path: "playback/intro/intro.bed.ogg"),
-                        (layer_id: "tune", path: "playback/intro/intro.tune.ogg"),
-                    ]),
-                    (id: "song", duration_beats: 256.0, looped: true, sources: [
-                        (layer_id: "bed", path: "playback/song/song.bed.ogg"),
-                        (layer_id: "tune", path: "playback/song/song.tune.ogg"),
-                        (layer_id: "drums", path: "playback/song/song.drums.ogg"),
-                        (layer_id: "crunch", path: "playback/song/song.crunch.ogg"),
-                        (layer_id: "horn", path: "playback/song/song.horn.ogg"),
-                        (layer_id: "second", path: "playback/song/song.second.ogg"),
-                    ]),
-                ],
-                // In the order the level adds them.
+            media: Published(
+                description: "content://ambition_shared/audio/music/generated/dinosaur_liberators_adaptive/dinosaur_liberators_adaptive.adaptive_manifest.json",
+                products: GroupedLayers,
             ),
             relative_volume: 0.9,
             layers: [
@@ -329,37 +299,9 @@
             // (`boss_bindings`). Awaken and unleash do not loop: each plays
             // to its end, then the phase's own loop starts.
             id: "galvanic_march",
-            media: Inline(
-                asset_root: "audio/music/generated/galvanic_march",
-                bpm: 116.0,
-                beats_per_bar: 4.0,
-                sections: [
-                    (id: "awaken", duration_beats: 16.0, looped: false, sources: [
-                        (layer_id: "bed", path: "playback/awaken/awaken.bed.ogg"),
-                        (layer_id: "drums", path: "playback/awaken/awaken.drums.ogg"),
-                        (layer_id: "tune", path: "playback/awaken/awaken.tune.ogg"),
-                    ]),
-                    (id: "march", duration_beats: 64.0, looped: true, sources: [
-                        (layer_id: "bed", path: "playback/march/march.bed.ogg"),
-                        (layer_id: "drums", path: "playback/march/march.drums.ogg"),
-                        (layer_id: "tune", path: "playback/march/march.tune.ogg"),
-                    ]),
-                    (id: "unleash", duration_beats: 8.0, looped: false, sources: [
-                        (layer_id: "bed", path: "playback/unleash/unleash.bed.ogg"),
-                        (layer_id: "drums", path: "playback/unleash/unleash.drums.ogg"),
-                        (layer_id: "tune", path: "playback/unleash/unleash.tune.ogg"),
-                    ]),
-                    (id: "howl", duration_beats: 64.0, looped: true, sources: [
-                        (layer_id: "bed", path: "playback/howl/howl.bed.ogg"),
-                        (layer_id: "drums", path: "playback/howl/howl.drums.ogg"),
-                        (layer_id: "tune", path: "playback/howl/howl.tune.ogg"),
-                    ]),
-                    (id: "storm", duration_beats: 64.0, looped: true, sources: [
-                        (layer_id: "bed", path: "playback/storm/storm.bed.ogg"),
-                        (layer_id: "drums", path: "playback/storm/storm.drums.ogg"),
-                        (layer_id: "tune", path: "playback/storm/storm.tune.ogg"),
-                    ]),
-                ],
+            media: Published(
+                description: "content://ambition_shared/audio/music/generated/galvanic_march/galvanic_march.adaptive_manifest.json",
+                products: GroupedLayers,
             ),
             relative_volume: 1.0,
             layers: [
@@ -423,22 +365,9 @@
             // the song measures -17.7 dB RMS, peak -0.4 dBFS at a gain of one,
             // so the cue plays at 0.8.
             id: "tritone_decree",
-            media: Inline(
-                asset_root: "audio/music/generated/tritone_decree",
-                bpm: 140.0,
-                beats_per_bar: 4.0,
-                sections: [
-                    (id: "intro", duration_beats: 32.0, looped: false, sources: [
-                        (layer_id: "band", path: "playback/intro/intro.band.ogg"),
-                        (layer_id: "orchestra", path: "playback/intro/intro.orchestra.ogg"),
-                        (layer_id: "lead", path: "playback/intro/intro.lead.ogg"),
-                    ]),
-                    (id: "song", duration_beats: 256.0, looped: true, sources: [
-                        (layer_id: "band", path: "playback/song/song.band.ogg"),
-                        (layer_id: "orchestra", path: "playback/song/song.orchestra.ogg"),
-                        (layer_id: "lead", path: "playback/song/song.lead.ogg"),
-                    ]),
-                ],
+            media: Published(
+                description: "content://ambition_shared/audio/music/generated/tritone_decree/tritone_decree.adaptive_manifest.json",
+                products: GroupedLayers,
             ),
             relative_volume: 0.8,
             layers: [

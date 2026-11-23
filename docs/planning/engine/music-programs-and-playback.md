@@ -758,8 +758,9 @@ body ends, frame origins, bar exits, gain bases and retained material.
 **Native progress:** published programs now link those facts through one
 accepted library snapshot. The director queries the current section's
 constant or variable clock. Constant grids retain the exported boundary
-count. Host-time position, residency demand, deadlines, and explicit
-transition policies remain open.
+count. Hobford, Dinosaur, Galvanic and Tritone now consume those facts.
+Host-time position, residency demand, deadlines and explicit transition
+policies remain open.
 
 Prefetch the known opening and imminent continuation without granting
 claims. Keep catalog, decode, admission, and start facts distinct. Add the
@@ -795,7 +796,9 @@ IDs and slots, invalid numbers, empty playable sections, missing references,
 and audible layers without sources. Published product sets also check media
 identity, alignment, and gain basis. It resolves source paths and total gain
 arrays once. The director retains that prepared cue with its generation.
-Recipes and migration of the first customers remain open.
+The first four customers now use published descriptions. Compilation and
+reload retain the host-selected library snapshot through publication. Recipes
+remain open.
 
 Expose compiler clock and typed marker support for every supported
 frontend. Make final product construction and support limits explicit.

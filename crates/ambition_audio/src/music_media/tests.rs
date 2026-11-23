@@ -46,6 +46,7 @@ impl Publication {
             json!({
                 "schema":"ambition.content_library.v1", "id":"media", "version":"1",
                 "asset_roots":{"generated":"runtime"}, "publication":"publication",
+                "producers":{"music":{"roots":["music"]}},
             })
             .to_string(),
         )
@@ -321,6 +322,129 @@ fn a_full_mix_does_not_require_unselected_grouped_products() {
 }
 
 #[test]
+fn ungenerated_programs_keep_policy_checks_and_publish_no_playable_bindings() {
+    let publication = Publication::new();
+    let mut snapshot = publication.select("not_generated", description());
+    std::sync::Arc::make_mut(&mut snapshot.files)
+        .retain(|_, file| !file.logical.ends_with("report.json"));
+    let media = MusicMediaCatalog::from_snapshot(&snapshot, [REFERENCE]).unwrap();
+    let mut policy = authored(MusicProductSet::MasteredFull, &["full"]);
+    policy.room_bindings.push(RoomMusicBinding {
+        room_id: "room".into(),
+        cue_id: "program".into(),
+        state: "song".into(),
+        entry_state: None,
+        fight_state: None,
+    });
+    policy.encounter_bindings.push(EncounterMusicBinding {
+        encounter_id: "fight".into(),
+        cue_id: "program".into(),
+        starting_state: "song".into(),
+        wave_states: vec!["song".into()],
+        wave2_reinforced_state: None,
+        cleared_state: "song".into(),
+    });
+    policy.boss_bindings.push(BossMusicBinding {
+        boss_id: "boss".into(),
+        cue_id: "program".into(),
+        phase_states: vec![BossPhaseState {
+            phase: "Intro".into(),
+            state: "song".into(),
+        }],
+    });
+    let prepared = PreparedMusicCues::prepare(policy.clone(), &media).unwrap();
+    assert_eq!(
+        prepared.ungenerated().collect::<Vec<_>>(),
+        [("program", REFERENCE)]
+    );
+    assert_eq!(prepared.cues().count(), 0);
+    assert!(prepared.room_bindings().is_empty());
+    assert!(prepared.encounter_bindings().is_empty());
+    assert!(prepared.boss_bindings().is_empty());
+    #[cfg(feature = "content_pack")]
+    {
+        use crate::content_schema::*;
+        use ambition_content_pack::*;
+        let mut draft = ContentPackDraft::from_manifest_ron(
+            r#"(id:"music",version:"1",namespace:"music",sources:[(path:"cues.ron",schema:"music_cue_catalog",version:2)])"#,
+            [("cues.ron".into(), ron::to_string(&policy).unwrap())],
+        ).unwrap();
+        draft.selected_libraries = Some(snapshot.clone());
+        let mut schemas = SchemaRegistry::new();
+        schemas.register(music_cue_catalog_schema()).unwrap();
+        let pack = compile(&draft, &schemas, &NoAssets).unwrap();
+        assert_eq!(lowered_music_cues(&pack), Some(&prepared));
+        assert!(pack
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == DiagnosticCode::UngeneratedSource));
+    }
+    for edit in [
+        |policy: &mut AuthoredMusicCues| {
+            policy.cues[0].states[0].gains[0].layer_id = "unknown".into()
+        },
+        |policy: &mut AuthoredMusicCues| {
+            policy.cues[0].states[0].next_state = Some("unknown".into())
+        },
+        |policy: &mut AuthoredMusicCues| policy.room_bindings[0].state = "unknown".into(),
+        |policy: &mut AuthoredMusicCues| policy.cues.push(policy.cues[0].clone()),
+        |policy: &mut AuthoredMusicCues| policy.cues[0].relative_volume = f32::NAN,
+        |policy: &mut AuthoredMusicCues| policy.cues[0].layers[0].slot = MAX_MUSIC_LAYERS,
+    ] {
+        let mut invalid = policy.clone();
+        edit(&mut invalid);
+        assert!(PreparedMusicCues::prepare(invalid, &media).is_err());
+    }
+    assert!(
+        MusicMediaCatalog::from_snapshot(&snapshot, ["content://other/music/report.json"]).is_err()
+    );
+    assert!(
+        MusicMediaCatalog::from_snapshot(&snapshot, ["content://media/authored/report.json"])
+            .is_err()
+    );
+}
+
+#[test]
+fn embedded_programs_use_frozen_logical_paths_and_require_their_descriptions() {
+    use ambition_asset_manager::content_library::{EmbeddedLibrary, EmbeddedLibraryFile};
+    let publication = Publication::new();
+    let native = publication.select("embedded", description());
+    let files: BTreeMap<_, _> = native
+        .files
+        .values()
+        .map(|file| (file.logical.clone(), file))
+        .collect();
+    let files: Vec<_> = files
+        .into_iter()
+        .map(|(path, file)| EmbeddedLibraryFile {
+            path: Box::leak(path.into_boxed_str()),
+            bytes: Some(Box::leak(file.read().unwrap().into_boxed_slice())),
+        })
+        .collect();
+    let library = Box::leak(Box::new(EmbeddedLibrary {
+        manifest: r#"{"schema":"ambition.content_library.v1","id":"media","version":"1","asset_roots":{"generated":"runtime"},"producers":{"music":{"roots":["music"]}}}"#,
+        catalog: r#"{"entries":{}}"#,
+        files: Box::leak(files.into_boxed_slice()),
+    }));
+    let mut libraries = ContentLibraries::default();
+    libraries
+        .insert(ContentLibrary::from_embedded(library).unwrap())
+        .unwrap();
+    let mut snapshot = libraries.snapshot().unwrap();
+    let media = MusicMediaCatalog::from_snapshot(&snapshot, [REFERENCE]).unwrap();
+    let prepared =
+        PreparedMusicCues::prepare(authored(MusicProductSet::MasteredFull, &["full"]), &media)
+            .unwrap();
+    assert_eq!(
+        prepared.cue("program").unwrap().sections[0].sources[0].path,
+        "content://media/music/cue/playback/body/body.full.ogg"
+    );
+    std::sync::Arc::make_mut(&mut snapshot.files)
+        .retain(|_, file| !file.logical.ends_with("report.json"));
+    assert!(MusicMediaCatalog::from_snapshot(&snapshot, [REFERENCE]).is_err());
+}
+
+#[test]
 fn edited_metadata_cannot_retime_an_accepted_product() {
     let publication = Publication::new();
     let snapshot = publication.select("accepted", description());
@@ -354,7 +478,7 @@ fn content_compilation_and_direct_registration_use_the_same_selected_facts() {
     schemas.register(music_cue_catalog_schema()).unwrap();
     let pack = compile(&draft, &schemas, &NoAssets).unwrap();
     assert_eq!(lowered_music_cues(&pack), Some(&direct));
-    assert_eq!(pack.assets.len(), 1);
+    assert_eq!(pack.assets.len(), 2);
     assert!(pack
         .assets
         .values()

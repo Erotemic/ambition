@@ -59,6 +59,14 @@ references a renderer report in the selected library and selects
 and product paths. States, continuations, layer slots, and intensity gains
 remain game policy. A program cannot combine a mastered mix with its stems.
 
+A published cue also requires its playback description in the package. A
+native checkout can have no generated music. If a selected music producer
+has not supplied a description, preparation reports the cue as ungenerated
+and omits its executable cue and bindings. Policy names and gains are still
+checked. Checks that need media wait for generation. Unknown libraries,
+authored files that are absent, and invalid published facts remain errors.
+An embedded build requires its published descriptions.
+
 ## Edit a level field
 
 Use LDtk tooling instead of editing its JSON by hand. For example:

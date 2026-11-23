@@ -283,7 +283,8 @@ fn content_files_saved_while_the_game_runs_are_played() {
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let written = ambition_content::pack::export_sources_to(&root).expect("sources export");
         assert!(written > 10, "the export wrote {written} source(s), so the watch would read a directory that is not this build's content");
-        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        let watch = ContentSourceWatch::new(root.clone(), sim.world());
+        sim.world_mut().insert_resource(watch);
         let requested = |sim: &Sim| sim.world().resource::<ContentSourceWatch>().requested;
         let step_until = |sim: &mut Sim, done: &dyn Fn(&mut Sim) -> bool, what: &str| {
             let mut frames = 0;
@@ -551,7 +552,8 @@ fn a_boss_tuning_saved_while_the_game_runs_is_played() {
     let root = std::env::temp_dir().join(format!("ambition_boss_watch_{}", std::process::id()));
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         ambition_content::pack::export_sources_to(&root).expect("sources export");
-        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        let watch = ContentSourceWatch::new(root.clone(), sim.world());
+        sim.world_mut().insert_resource(watch);
         std::thread::sleep(std::time::Duration::from_millis(20));
         let path = root.join("data/boss_profiles.ron");
         let text = std::fs::read_to_string(&path).unwrap();
@@ -632,7 +634,8 @@ fn a_boss_art_key_saved_while_the_game_runs_is_played() {
     let root = std::env::temp_dir().join(format!("ambition_boss_art_watch_{}", std::process::id()));
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         ambition_content::pack::export_sources_to(&root).expect("sources export");
-        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        let watch = ContentSourceWatch::new(root.clone(), sim.world());
+        sim.world_mut().insert_resource(watch);
         std::thread::sleep(std::time::Duration::from_millis(20));
         let path = root.join("data/boss_art_keys.ron");
         let text = std::fs::read_to_string(&path).unwrap();
@@ -697,7 +700,8 @@ fn a_content_file_saved_under_a_local_timeline_rebases_it() {
     let root = std::env::temp_dir().join(format!("ambition_content_watch_local_{}", std::process::id()));
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         ambition_content::pack::export_sources_to(&root).expect("sources export");
-        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        let watch = ContentSourceWatch::new(root.clone(), sim.world());
+        sim.world_mut().insert_resource(watch);
         std::thread::sleep(std::time::Duration::from_millis(20));
         export_with_the_subject_retimed(&root);
         let mut frames = 0;
@@ -843,7 +847,8 @@ fn a_script_and_its_content_change_together_or_not_at_all() {
 
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         assert!(ambition_content::pack::export_sources_to(&root).expect("sources export") > 10);
-        sim.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        let watch = ContentSourceWatch::new(root.clone(), sim.world());
+        sim.world_mut().insert_resource(watch);
         for _ in 0..40 {
             sim.step(common::base());
         }

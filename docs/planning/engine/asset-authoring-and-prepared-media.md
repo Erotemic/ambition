@@ -267,8 +267,9 @@ clock. `cue playback` inspects bodies, file spans, bar exits and frame plans
 without synthesis. Fresh renders export encoded product identities, frame
 counts, gain bases and ring construction. Publication checks the copied media
 and records runtime paths. The source plan and encoded evidence remain
-separate. Native linking now uses accepted library snapshots. The
-Hobford/Dinosaur data migration remains open.
+separate. Native linking uses accepted library snapshots. Hobford, Dinosaur,
+Galvanic and Tritone now select published descriptions. Their states, gains,
+continuations and bindings remain game policy.
 Exact event ownership now survives timing variation across form boundaries.
 Shared ring export excludes incoming pickup attacks while it retains the
 declared file span. Generic PCM and encoded-product checks cover this rule.
@@ -280,8 +281,20 @@ content compilation, direct registration, and reload. Published programs
 select a mastered mix or grouped layers from one library snapshot. Linking
 checks the accepted digests, frame origins, clock, markers, and gain basis.
 It retains immutable source addresses with the prepared generation. Inline
-media remains explicit for other sources. Customer migration, transport
-position, readiness, and transition policy remain open under MUS3/MUS4.
+media remains explicit for other sources. Native preparation reports a
+program with no generated description and omits its executable bindings.
+An embedded library requires that description. The library publisher now
+keeps playback descriptions as runtime inputs with their media.
+Verification loaded 45 products through Bevy and Kira. Their frame counts,
+sample rates, game bindings, gains, continuations and used section lengths
+match the declared contracts. Transport position, readiness and transition
+policy remain open under MUS3/MUS4.
+
+Host selection now precedes source reading and metadata binding. Native and
+embedded game policy use the same selected library snapshot. Reload prepares
+that snapshot before admission and publishes it without source reads. File
+watching includes selected native sources and accepted publication selectors.
+Compiler-owned inventory export remains open.
 
 **Refinement, 2026-11-22:** MA1 owns compiler/export facts.
 [Music programs and owned playback](music-programs-and-playback.md) owns

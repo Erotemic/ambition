@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use ambition_content_pack::{
-    AssetRequirement, CapabilityId, ContentSchemaHandler, DiagnosticCode, FacetOutcome,
+    AssetRequirement, CapabilityId, CompileStage, ContentSchemaHandler, Diagnostic, DiagnosticCode, FacetOutcome,
     FacetSource, RuntimeDisposition, SchemaId, SchemaRegistration, SchemaVersion,
 };
 
@@ -241,7 +241,19 @@ impl ContentSchemaHandler for MusicCueCatalogSchema {
 
         match PreparedMusicCues::prepare(authored, &media) {
             Ok(prepared) if !out.failed() => {
+                for (cue, description) in prepared.ungenerated() {
+                    out.report(Diagnostic::warning(
+                        DiagnosticCode::UngeneratedSource, CompileStage::FacetValidation,
+                        format!("music cue {cue:?} has no generated playback description {description:?}. Its cue and bindings are unavailable. Checks that need media must wait for generation."),
+                    ).in_source(facet.declared_path).about(facet.content_id_in(MUSIC_CUE_SCHEMA, cue))
+                    .fix("generate music for the selected library: scripts/regen/music.sh"));
+                }
                 for cue in prepared.cues() {
+                    if let Some(media) = &cue.media_identity {
+                        out.need_asset(AssetRequirement::new(
+                            &media.description_path, facet.content_id_in(MUSIC_CUE_SCHEMA, &cue.id), "media.description",
+                        ));
+                    }
                     for section in &cue.sections {
                         for source in &section.sources {
                             out.need_asset(AssetRequirement::new(

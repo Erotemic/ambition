@@ -136,7 +136,7 @@ fn fighter_attack_kit_is_built_only_when_decisions_or_charge_need_it() {
             panic!("the fixture must be a fighter");
         };
         state.ticks_until_decision = ticks_remaining;
-        let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None);
+        let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None, None);
         assert_eq!(
             kit.is_empty(),
             !due,
@@ -166,14 +166,14 @@ fn fighter_attack_kit_is_built_only_when_decisions_or_charge_need_it() {
         });
     }
     assert!(
-        !attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None).is_empty(),
+        !attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None, None).is_empty(),
         "a held charge needs its move's frame data even between decisions"
     );
     if let Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) = &mut brain {
         state.own_attack = None;
     }
     assert!(
-        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None).is_empty(),
+        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None, None).is_empty(),
         "without a tracked attack, an in-progress hold cannot read the kit"
     );
     if let Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) = &mut brain {
@@ -191,7 +191,7 @@ fn fighter_attack_kit_is_built_only_when_decisions_or_charge_need_it() {
         });
     }
     assert!(
-        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None).is_empty(),
+        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None, None).is_empty(),
         "a hold expiring before the charge check cannot consume the kit"
     );
 }
@@ -398,7 +398,7 @@ fn a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce() 
     let moveset = ActorMoveset(jab_uptilt_and_dash());
     let brain = fighter_brain();
 
-    let standing = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None);
+    let standing = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None, None);
     let standing_ids: Vec<&str> = standing.iter().map(|c| c.move_id.as_str()).collect();
     assert_eq!(
         standing_ids,
@@ -407,7 +407,7 @@ fn a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce() 
          attack is not a new option everywhere, it is the answer to one stance"
     );
 
-    let dashing = attack_kit_of(Some(&moveset), true, true, Some(&brain), None, None, None);
+    let dashing = attack_kit_of(Some(&moveset), true, true, Some(&brain), None, None, None, None);
     let dashing_ids: Vec<&str> = dashing.iter().map(|c| c.move_id.as_str()).collect();
     assert!(
         dashing_ids.contains(&"dash_attack"),
@@ -446,7 +446,7 @@ fn a_running_body_is_offered_the_dash_attack_its_press_would_actually_produce() 
 fn every_candidate_in_the_kit_carries_the_press_that_invokes_it() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None, None);
 
     let ids: Vec<&str> = kit.iter().map(|c| c.move_id.as_str()).collect();
     assert_eq!(
@@ -487,7 +487,7 @@ fn every_candidate_in_the_kit_carries_the_press_that_invokes_it() {
 fn the_fighter_plays_the_move_it_scored_not_the_neutral_one() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let mut brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None, None);
 
     // A gap only the up-tilt's reach fits: the jab (reach 16) falls far short,
     // so the scoring has one clear answer and the test is not measuring a tie.
@@ -512,7 +512,7 @@ fn the_fighter_plays_the_move_it_scored_not_the_neutral_one() {
 fn a_close_foe_gets_the_jab_the_scoring_actually_picked() {
     let moveset = ActorMoveset(jab_and_uptilt());
     let mut brain = fighter_brain();
-    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None, None);
 
     let view = scene(16.0);
     let frame = frame_when_the_fighter_attacks(&mut brain, kit, &view);
@@ -537,7 +537,7 @@ fn a_close_foe_gets_the_jab_the_scoring_actually_picked() {
 #[test]
 fn the_kit_prices_a_grab_from_the_capture_its_own_move_authors() {
     let moveset = ActorMoveset(jab_and_grab());
-    let kit = attack_kit_of(Some(&moveset), true, false, Some(&fighter_brain()), None, None, None);
+    let kit = attack_kit_of(Some(&moveset), true, false, Some(&fighter_brain()), None, None, None, None);
     let grab = kit
         .iter()
         .find(|candidate| candidate.move_id == "grab")
@@ -733,7 +733,7 @@ fn the_brain_can_see_an_any_attack_cancel_the_trigger_would_accept() {
         Some(&playback),
         None,
         None,
-    );
+    None);
     let blocked: Vec<&str> = kit
         .iter()
         .filter(|c| {
@@ -785,7 +785,7 @@ fn outside_the_cancel_window_the_brain_is_told_the_body_is_busy() {
         Some(&playback),
         None,
         None,
-    );
+    None);
     assert!(!kit.is_empty(), "an empty kit would make this arm vacuous");
     assert!(
         kit.iter().all(|c| c.legality
@@ -860,7 +860,7 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
         None,
         Some(&cannon),
         None,
-    ));
+    None));
     // 540px/s is constant, and the shot's own 10px half-extent is ground it
     // does not have to fly: 400px away is `(400 - 10) / 540`.
     assert!(
@@ -896,7 +896,7 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
         None,
         Some(&pistol),
         None,
-    ));
+    None));
     assert!(
         short.reach() < joined.reach(),
         "a 200px/s shot with half a second of life reaches {}px and a 540px/s \
@@ -921,7 +921,7 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
         None,
         Some(&ponytail),
         None,
-    ));
+    None));
     assert!(
         (thrown.reach() - 83.1).abs() < 0.5,
         "the ponytail reaches {}px; `430 × 0.34` is 146 and `430 × 0.34 / 2` \
@@ -963,7 +963,7 @@ fn a_ranged_move_is_joined_to_the_weapon_the_body_actually_fires() {
 
     // ⛔⛤ AND NO WEAPON MEANS NO HAZARD — not the request left standing, whose
     // `reach()` is the 1000px placeholder.
-    let unarmed = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None);
+    let unarmed = attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None, None);
     assert_eq!(
         hazard_of(&unarmed),
         None,
@@ -1020,7 +1020,7 @@ fn the_shot_a_ranged_move_fires_is_what_that_move_is_worth() {
     });
     let brain = fighter_brain();
     let frames_with = |ranged: Option<&RangedActionSpec>| {
-        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, ranged, None)
+        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, ranged, None, None)
             .into_iter()
             .find(|c| c.move_id == "cannon")
             .expect("the cannon is the body's one move")
@@ -1092,7 +1092,7 @@ fn the_shot_a_ranged_move_fires_is_what_that_move_is_worth() {
         None,
         Some(&cannon),
         None,
-    )
+    None)
     .into_iter()
     .find(|c| c.move_id == "cannon")
     .expect("the cannon is the body's one move")
@@ -1151,7 +1151,7 @@ fn a_move_this_body_keeps_landing_reaches_the_kit_already_worn() {
     }
 
     let wear_of = |worn: Option<super::update::WornMoves>, id: &str| {
-        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, worn)
+        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, worn, None)
             .into_iter()
             .find(|c| c.move_id == id)
             .unwrap_or_else(|| panic!("the kit offers no `{id}`"))
@@ -1322,4 +1322,32 @@ fn a_watcher_reads_a_swings_reach_from_its_hitbox() {
         (Some(36.0), Some(56.0), None),
         "(hitbox at 30 px, hitbox at 50 px, no move): the reach a watcher reads"
     );
+}
+
+/// ACT1: a locked body's kit offers its moves as `Refused`, so a brain does not
+/// spend a press the trigger would refuse; the same body unlocked is offered
+/// them as `Now`.
+#[test]
+fn a_locked_bodys_kit_offers_its_moves_as_refused() {
+    use ambition_characters::brain::attack_kit::ActionLegality;
+    let moveset = ActorMoveset(jab_and_uptilt());
+    let brain = fighter_brain();
+    let admission = |locked| ambition_combat::moveset::MoveAdmission {
+        locked,
+        recovery_charges: None,
+        body_is_held: false,
+        refire: None,
+        weapon_has_room: true,
+        bank: None,
+    };
+    let legalities = |locked| {
+        attack_kit_of(Some(&moveset), true, false, Some(&brain), None, None, None, Some(admission(locked)))
+            .into_iter()
+            .map(|candidate| candidate.legality)
+            .collect::<Vec<_>>()
+    };
+    let free = legalities(false);
+    assert!(!free.is_empty() && free.iter().all(|l| *l == ActionLegality::Now), "{free:?}");
+    let locked = legalities(true);
+    assert!(locked.iter().all(|l| *l == ActionLegality::Refused), "{locked:?}");
 }

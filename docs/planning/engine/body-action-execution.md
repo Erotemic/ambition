@@ -189,8 +189,26 @@ through `trigger_moveset_moves`; outside test fixtures, no other production
 road constructs a `MovePlayback`. Guard:
 `a_locked_boss_starts_its_intended_move_only_when_the_lock_ends`.
 
+**The attack kit is offered by the trigger's admission (2026-11-23).**
+`moveset::MoveAdmission` holds what a start is decided on (the body's locks,
+recovery charges, held fact, refire floor, live-shot room and meters).
+`affords` is the four affordances both trigger roads ask, and `offer` returns,
+borrowed and without spending, the move a press would start: the pressed move,
+its authored `when_refused` variant, or nothing. `MoveAdmissionReads` (a
+`SystemParam` beside it) builds one for a body from the reads its movement
+clusters do not carry. The actor adapter's `attack_kit_of` takes it, so each
+candidate names the move that would actually start, with that move's frame
+data and recovery route. A press the body would refuse is offered as the new
+`ActionLegality::Refused`, which the fighter's options already exclude by
+reading only `Now`. To stay under Bevy's parameter limit, `tick_actor_brains`
+folded the mount carrier read into its read-only `bodies` query. Guards:
+`an_offer_names_the_move_the_trigger_would_start_and_spends_nothing` and
+`a_locked_bodys_kit_offers_its_moves_as_refused`. `OwnMoveFact` does not yet
+carry the started move's identity (the REC1 half of this section).
+
 Still open: that cancel-window remainder of step 3, locomotion escapes authorized before their
-spend (step 4), and the action offer.
+spend (step 4, which can now ask the offer), and the started move's identity
+on `OwnMoveFact`.
 
 ### An offer and an accepted action must name the same move
 

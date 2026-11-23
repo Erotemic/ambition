@@ -291,10 +291,13 @@ pub fn tick_actor_brains(
         bevy::prelude::Has<ae::Unmirrored>,
         Option<&ae::AuthoredMovementTuning>,
         Option<&ambition_combat::guard::GuardState>,
+        // A rider's mount, for whether the pair steers in flight. See
+        // `steers_in_flight`.
+        Option<(&ae::ActorSurfaceState, &ae::BodyFlightState)>,
     )>,
-    // A rider's mount, for whether the pair steers in flight. See
-    // `steers_in_flight`.
-    carriers: Query<(&ae::ActorSurfaceState, &ae::BodyFlightState)>,
+    // ACT1: what the move admission reads that the actor cluster does not
+    // carry, so the kit is offered by the trigger's own rule.
+    admission_reads: ambition_combat::moveset::MoveAdmissionReads,
     mut actors: Query<
         (
             Entity,
@@ -622,7 +625,10 @@ pub fn tick_actor_brains(
                     // A rider steers its mount, so the pair steers in flight
                     // when the MOUNT does. The rider's own locomotion does not
                     // move the pair: the saddle holds it.
-                    let aerial = match riding.and_then(|riding| carriers.get(riding.mount).ok()) {
+                    let aerial = match riding
+                        .and_then(|riding| bodies.get(riding.mount).ok())
+                        .and_then(|(.., carrier)| carrier)
+                    {
                         Some((surface, flight)) => steers_in_flight(surface, flight),
                         None => steers_in_flight(body.surface, body.flight),
                     };
@@ -661,7 +667,16 @@ pub fn tick_actor_brains(
                                 rules: *rules,
                             }),
                         aerial,
-                        bodies.get(this_actor_entity).ok().and_then(|(_, _, authored, _)| authored),
+                        bodies.get(this_actor_entity).ok().and_then(|(_, _, authored, ..)| authored),
+                        // ⭐ THE TRIGGER'S OWN ADMISSION, from the same facts
+                        // it reads at acceptance (ACT1).
+                        admission_reads.admission(
+                            this_actor_entity,
+                            Some(&*body.shield),
+                            Some(body.jump.recovery_charges),
+                            body.resources.as_deref(),
+                            action_set.and_then(|actions| actions.ranged.as_ref()),
+                        ),
                     );
                     snapshot.side_contact_normal = snapshot.side_contact_normal
                         .or_else(|| decision_facts.side_contacts.get(&this_actor_entity).copied());
@@ -712,7 +727,7 @@ pub fn tick_actor_brains(
                             }
                         }
                     }
-                    if let Some(guard) = bodies.get(this_actor_entity).ok().and_then(|(.., guard)| guard) {
+                    if let Some(guard) = bodies.get(this_actor_entity).ok().and_then(|(_, _, _, guard, _)| guard) {
                         snapshot.guard = ambition_characters::brain::GuardFact {
                             deflects: guard.deflects,
                             broken: guard.broken(),
@@ -1894,6 +1909,11 @@ pub(super) fn attack_kit_of(
     // layer reads no ECS. `None` is a composition with no staling state or no
     // declared rules, which is every move fresh. See `WornMoves`.
     worn: Option<WornMoves>,
+    // ⭐ WHAT THE BODY CAN PAY NOW, for the move a press would actually start
+    // (ACT1): the same `MoveAdmission` the trigger accepts with, so a refused
+    // press is not offered and an authored `when_refused` variant is offered
+    // as itself. `None` asks nothing, which every bare fixture does.
+    admission: Option<ambition_combat::moveset::MoveAdmission<'_>>,
 ) -> Vec<ambition_characters::brain::attack_kit::AttackCandidate> {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     if !matches!(
@@ -1949,12 +1969,21 @@ pub(super) fn attack_kit_of(
             } else {
                 verb_name
             };
-            let Some(spec) =
+            let Some(pressed) =
                 moveset
                     .0
                     .move_for_attack(resolve_verb, direction, grounded, running_now)
             else {
                 continue;
+            };
+            // The move this press would START: the pressed one, its authored
+            // variant, or none, by the trigger's own admission.
+            let (spec, refused) = match admission {
+                Some(admission) => match admission.offer(pressed, &moveset.0) {
+                    Some(offered) => (offered, false),
+                    None => (pressed, true),
+                },
+                None => (pressed, false),
             };
             // One entry per (move, press). A base-only moveset answers all five
             // directions with the same move, and the NEUTRAL press is the
@@ -1974,7 +2003,11 @@ pub(super) fn attack_kit_of(
                 move_id: spec.id.clone(),
                 frames,
                 binding: AttackBinding { verb, direction },
-                legality: legality_of(playback, verb_name, running_now, &spec.id),
+                legality: if refused {
+                    ambition_characters::brain::attack_kit::ActionLegality::Refused
+                } else {
+                    legality_of(playback, verb_name, running_now, &spec.id)
+                },
                 wear,
             });
         }
@@ -2355,6 +2388,8 @@ fn build_enemy_brain_snapshot(
     aerial: bool,
     // The body's authored movement feel, when it has one. See `movement_law`.
     authored_tuning: Option<&ae::AuthoredMovementTuning>,
+    // What the body can pay for a move start now. See `attack_kit_of`.
+    admission: Option<ambition_combat::moveset::MoveAdmission<'_>>,
 ) -> ambition_characters::brain::BrainSnapshot {
     let swing = ambition_combat::moveset::melee_swing_of(playback, moveset);
     // THE MOVEMENT LAW THIS BODY MOVES BY, resolved as the integrator
@@ -2404,6 +2439,7 @@ fn build_enemy_brain_snapshot(
             playback,
             ranged,
             worn,
+            admission,
         ),
         // The reach of the attack press, from the same moveset and the same
         // posture as the kit above. See `melee_reach_of`.

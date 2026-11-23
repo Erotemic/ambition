@@ -10901,3 +10901,45 @@ fn a_ranged_move_fires_the_source_it_was_admitted_with() {
     }
     assert_eq!(fired, vec![a.damage], "the shot did not leave with the admitted source's numbers");
 }
+
+/// ACT1: the offer is the trigger's own admission, asked without spending:
+/// a body that can pay is offered the pressed move, one that cannot is offered
+/// its authored variant, and a locked body is offered nothing.
+#[test]
+fn an_offer_names_the_move_the_trigger_would_start_and_spends_nothing() {
+    use ambition_entity_catalog::{MoveGates, MoveSpec, MovesetContract};
+
+    let contract = MovesetContract {
+        verbs: [("special".to_string(), "swat".to_string())].into_iter().collect(),
+        moves: vec![
+            MoveSpec {
+                gates: MoveGates {
+                    costs: test_price(30.0),
+                    when_refused: Some("swat_cheap".to_string()),
+                    ..Default::default()
+                },
+                ..swat()
+            },
+            MoveSpec { id: "swat_cheap".to_string(), ..swat() },
+        ],
+    };
+    let priced = contract.move_by_id("swat").unwrap();
+    let rich = test_bank(50.0);
+    let poor = test_bank(0.0);
+    let offer = |bank: &ambition_platformer2d_core::resources::ActorResources, locked: bool| {
+        MoveAdmission {
+            locked,
+            recovery_charges: None,
+            body_is_held: false,
+            refire: None,
+            weapon_has_room: true,
+            bank: Some(bank),
+        }
+        .offer(priced, &contract)
+        .map(|offered| offered.id.clone())
+    };
+    assert_eq!(offer(&rich, false).as_deref(), Some("swat"));
+    assert_eq!(offer(&poor, false).as_deref(), Some("swat_cheap"), "the variant is offered as itself");
+    assert_eq!(offer(&rich, true), None, "a locked body is offered nothing");
+    assert_eq!(rich, test_bank(50.0), "an offer spent the meter");
+}

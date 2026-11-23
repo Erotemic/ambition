@@ -2895,6 +2895,115 @@ fn accepted_or_variant(
         .cloned()
 }
 
+/// What a body can pay for a move start, read without spending anything
+/// (ACT1). The trigger accepts with it and a brain's attack kit is offered
+/// from it, so the forecast and the acceptance answer one question: the body's
+/// locks, then the four affordances, then the one-hop authored variant.
+#[derive(Clone, Copy, Debug)]
+pub struct MoveAdmission<'a> {
+    /// The body's reaction or guard locks take its actions away now
+    /// ([`crate::attack_support::body_action_lock_timer`]).
+    pub locked: bool,
+    /// Recovery charges left; `None` for a body with no jump cluster.
+    pub recovery_charges: Option<u8>,
+    /// Something else owns this body's pose (a saddle, a hold).
+    pub body_is_held: bool,
+    /// The weapon's refire floor, when the body has one.
+    pub refire: Option<&'a RangedRefire>,
+    /// The weapon's live-shot limit leaves room for another shot.
+    pub weapon_has_room: bool,
+    /// The body's meters.
+    pub bank: Option<&'a ambition_platformer2d_core::resources::ActorResources>,
+}
+
+impl MoveAdmission<'_> {
+    /// The four affordances, as the trigger asks them.
+    pub fn affords(&self, spec: &ambition_entity_catalog::MoveSpec) -> bool {
+        afford_recovery(spec, self.recovery_charges)
+            && permitted_while_held(spec, self.body_is_held)
+            && weapon_ready(spec, self.refire, self.weapon_has_room)
+            && afford_meter(spec, self.bank)
+    }
+
+    /// The move a request for `spec` would start now, borrowed: `spec`
+    /// itself, its authored `when_refused` variant, or `None` when the body
+    /// would refuse the press. Nothing is reserved or spent, and a later
+    /// request is accepted only against the facts of its own tick.
+    pub fn offer<'c>(
+        &self,
+        spec: &'c ambition_entity_catalog::MoveSpec,
+        contract: &'c ambition_entity_catalog::MovesetContract,
+    ) -> Option<&'c ambition_entity_catalog::MoveSpec> {
+        if self.locked {
+            return None;
+        }
+        if self.affords(spec) {
+            return Some(spec);
+        }
+        spec.gates
+            .when_refused
+            .as_deref()
+            .and_then(|id| contract.move_by_id(id))
+            .filter(|variant| self.affords(variant))
+    }
+}
+
+/// The reads a [`MoveAdmission`] needs that a body's movement clusters do not
+/// carry: its reaction locks, its weapon's refire floor, whether another
+/// authority holds it, and its weapon shots in flight. A system that forecasts
+/// moves (a brain's attack kit) asks the trigger's question through this.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct MoveAdmissionReads<'w, 's> {
+    locks: Query<
+        'w,
+        's,
+        (
+            &'static ambition_characters::actor::BodyCombat,
+            Option<&'static RangedRefire>,
+            bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
+        ),
+    >,
+    weapon_shots: Query<
+        'w,
+        's,
+        &'static ambition_projectiles::ProjectileOwner,
+        With<ambition_projectiles::WeaponShot>,
+    >,
+}
+
+impl MoveAdmissionReads<'_, '_> {
+    /// The admission `body` would be accepted with now. The guard, recovery
+    /// charges, meters and ranged action come from the caller, which holds
+    /// them; `None` for a body with no combat state.
+    pub fn admission<'a>(
+        &'a self,
+        body: Entity,
+        shield: Option<&ae::BodyShieldState>,
+        recovery_charges: Option<u8>,
+        bank: Option<&'a ambition_platformer2d_core::resources::ActorResources>,
+        ranged: Option<&ambition_characters::brain::action_set::RangedActionSpec>,
+    ) -> Option<MoveAdmission<'a>> {
+        let (combat, refire, body_is_held) = self.locks.get(body).ok()?;
+        let lock = match shield {
+            Some(shield) => crate::attack_support::body_action_lock_timer(combat, shield),
+            None => combat.hard_lock_timer(),
+        };
+        Some(MoveAdmission {
+            locked: lock > 0.0,
+            recovery_charges,
+            body_is_held,
+            refire,
+            weapon_has_room: ranged.is_none_or(|ranged| {
+                ranged.max_live.is_none()
+                    || ranged.has_room_for_a_shot(
+                        self.weapon_shots.iter().filter(|owner| owner.0 == body).count(),
+                    )
+            }),
+            bank,
+        })
+    }
+}
+
 /// Does this move author a SHOT? A move whose timeline carries
 /// [`MoveEventKind::Ranged`] fires the owner's ranged action when it reaches
 /// that beat.
@@ -3802,12 +3911,15 @@ pub fn trigger_moveset_moves(
             let cancel_charges_left = jumps.get(entity).ok().map(|j| j.recovery_charges);
             let cancel_bank = meters.get(entity).ok();
             let cancel_refire = refire.as_deref();
-            let Some(spec) = accepted_or_variant(spec, &moveset.0, |candidate| {
-                afford_recovery(candidate, cancel_charges_left)
-                    && weapon_ready(candidate, cancel_refire, weapon_has_room)
-                    && permitted_while_held(candidate, body_is_held)
-                    && afford_meter(candidate, cancel_bank)
-            }) else {
+            let admission = MoveAdmission {
+                locked: false,
+                recovery_charges: cancel_charges_left,
+                body_is_held,
+                refire: cancel_refire,
+                weapon_has_room,
+                bank: cancel_bank,
+            };
+            let Some(spec) = accepted_or_variant(spec, &moveset.0, |candidate| admission.affords(candidate)) else {
                 continue;
             };
 
@@ -3937,12 +4049,15 @@ pub fn trigger_moveset_moves(
         // affordances, and both are asked while the move is still refusable.
         let bank = meters.get(entity).ok();
         let refire_ready_against = refire.as_deref();
-        let affordable = |candidate: &ambition_entity_catalog::MoveSpec| {
-            afford_recovery(candidate, charges_left)
-                && permitted_while_held(candidate, body_is_held)
-                && weapon_ready(candidate, refire_ready_against, weapon_has_room)
-                && afford_meter(candidate, bank)
+        let admission = MoveAdmission {
+            locked: false,
+            recovery_charges: charges_left,
+            body_is_held,
+            refire: refire_ready_against,
+            weapon_has_room,
+            bank,
         };
+        let affordable = |candidate: &ambition_entity_catalog::MoveSpec| admission.affords(candidate);
         if let Some(spec) = spec.and_then(|spec| accepted_or_variant(spec, &moveset.0, affordable))
         {
             // ⭐⭐ THE ACCEPTED SPECIAL-TURN, and this is its ONE commit point on

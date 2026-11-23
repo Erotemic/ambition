@@ -160,4 +160,8 @@ pub enum ActionLegality {
     /// Another move owns the body and its cancel windows do not admit this one.
     /// The press would be discarded, so the brain does not spend it.
     BlockedByPlayback,
+    /// The body's own admission refuses it now (a lock, a cost it cannot
+    /// pay, a weapon still recharging) and no authored variant answers in its
+    /// place (ACT1). The press would be refused, so the brain does not spend it.
+    Refused,
 }

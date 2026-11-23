@@ -252,7 +252,7 @@ pub(super) fn install_direct_startup_loading(app: &mut App) {
         Update,
         drive_direct_startup_loading
             .before(ambition_platformer2d::platformer::schedule::GameplaySimulationRoot)
-            .before(ambition_platformer2d::audio::library::DefaultMusicStart),
+            .before(ambition_platformer2d::audio::music::MusicGoalPublication),
     );
     app.add_systems(
         Update,

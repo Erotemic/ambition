@@ -1,17 +1,12 @@
 //! Authored-audio playback library: typed SFX cue table, lazily-loaded
-//! pre-rendered music tracks, the music/SFX Kira channels, and the
-//! track-switch/radio/default-start helpers. Game-side adapters (which
+//! pre-rendered music tracks, SFX channels, and radio requests. Game-side adapters (which
 //! requests apply, where the bank bytes come from) stay in the host.
 
 use crate::spec::{MusicRegistry, SoundCueKey};
-use crate::web_unlock::AudioUnlockState;
 use ambition_sfx::{SfxId, SfxMessage};
 use bevy::prelude::*;
-use bevy_kira_audio::prelude::{
-    AudioInstance,
-};
+use bevy_kira_audio::prelude::AudioInstance;
 pub use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
-use std::time::Duration;
 
 #[derive(Resource)]
 pub struct SfxChannel;
@@ -147,6 +142,7 @@ struct TrackSource {
 
 #[derive(Clone)]
 pub struct MusicTrackRuntime {
+    pub generation: u64,
     pub id: String,
     pub display_name: String,
     /// Plays once and stops instead of looping; see
@@ -214,16 +210,22 @@ impl AudioLibrary {
         if let Err(error) = music_registry.validate() {
             warn!("invalid music registry: {error}");
         }
-        let music_tracks = music_registry.tracks.iter().map(|track| MusicTrackRuntime {
-            id: track.id.clone(),
-            display_name: track.display_name.clone(),
-            one_shot: track.one_shot,
-            source: TrackSource {
-                asset_path: resolve_track_path.and_then(|resolve| resolve(&track.id))
-                    .unwrap_or_else(|| track.resolved_asset_path()),
-                handle: None,
-            },
-        }).collect();
+        let music_tracks = music_registry
+            .tracks
+            .iter()
+            .map(|track| MusicTrackRuntime {
+                generation: 1,
+                id: track.id.clone(),
+                display_name: track.display_name.clone(),
+                one_shot: track.one_shot,
+                source: TrackSource {
+                    asset_path: resolve_track_path
+                        .and_then(|resolve| resolve(&track.id))
+                        .unwrap_or_else(|| track.resolved_asset_path()),
+                    handle: None,
+                },
+            })
+            .collect();
         Self { music_tracks }
     }
 
@@ -234,23 +236,34 @@ impl AudioLibrary {
     /// for it). A changed or new track takes its own path
     /// ([`crate::spec::MusicTrack::resolved_asset_path`]) and loads on first
     /// use; a dropped track is removed.
-    pub fn revise_provider_tracks(&mut self, previous: Option<&MusicRegistry>, next: Option<&MusicRegistry>) {
+    pub fn revise_provider_tracks(
+        &mut self,
+        previous: Option<&MusicRegistry>,
+        next: Option<&MusicRegistry>,
+    ) {
         let previous: &[crate::spec::MusicTrack] = previous.map_or(&[], |music| &music.tracks);
         let next: &[crate::spec::MusicTrack] = next.map_or(&[], |music| &music.tracks);
-        self.music_tracks
-            .retain(|track| !previous.iter().any(|old| old.id == track.id) || next.iter().any(|new| new.id == track.id));
+        self.music_tracks.retain(|track| {
+            !previous.iter().any(|old| old.id == track.id)
+                || next.iter().any(|new| new.id == track.id)
+        });
         for track in next {
             if previous.contains(track) && self.track(&track.id).is_some() {
                 continue;
             }
             let asset_path = track.resolved_asset_path();
-            let known = self.music_tracks.iter_mut().find(|known| known.id == track.id);
+            let known = self
+                .music_tracks
+                .iter_mut()
+                .find(|known| known.id == track.id);
             // A track whose file did not move keeps its loaded handle.
             let handle = known
                 .as_ref()
                 .filter(|known| known.source.asset_path == asset_path)
                 .and_then(|known| known.source.handle.clone());
+            let generation = known.as_ref().map_or(1, |track| track.generation + 1);
             let runtime = MusicTrackRuntime {
+                generation,
                 id: track.id.clone(),
                 display_name: track.display_name.clone(),
                 one_shot: track.one_shot,
@@ -441,122 +454,6 @@ impl MusicPlaybackState {
     }
 }
 
-/// Whether [`start_default_music_when_ready`] has started music. Set `true`
-/// on the frame the deferred play call lands, so overlays can show
-/// "waiting for asset" instead of "silent".
-#[derive(Resource, Default, Clone, Copy, Debug)]
-pub struct DefaultMusicStarted(pub bool);
-
-/// The set [`start_default_music_when_ready`] runs in.
-///
-/// Startup loading must finish before the default track starts, so the loader
-/// runs `.before` this set.
-///
-/// One member. The system's run condition (`music_auto_start_when_ungated`)
-/// does not propagate to the set, so `.before` this set holds whether or not
-/// music starts.
-#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct DefaultMusicStart;
-
-/// Start the default music once its handle is loaded. On web the OGG arrives
-/// over HTTP several frames after startup, and `play(handle)` on an unloaded
-/// handle can drop the request, so music never starts.
-///
-/// Also gated by [`AudioUnlockState::unlocked`]: on web the AudioContext is
-/// suspended until a user gesture, and Kira schedules sounds on a suspended
-/// context that never play.
-pub fn start_default_music_when_ready(
-    mut started: ResMut<DefaultMusicStarted>,
-    unlock: Res<AudioUnlockState>,
-    mut library: ResMut<AudioLibrary>,
-    asset_server: Res<AssetServer>,
-    mut state: ResMut<MusicPlaybackState>,
-    mut output: crate::music::MusicPlaybackCommands,
-    mut waiting_logged: Local<bool>,
-) {
-    if started.0 {
-        return;
-    }
-    if !unlock.unlocked {
-        return;
-    }
-    let track_id = state.active_track.clone();
-    let Some(_track) = library.track(&track_id) else {
-        // No track in the library (for example every track lacks
-        // `asset_path`). Log once, so the console shows why music never
-        // starts.
-        if !*waiting_logged {
-            warn!(
-                "default music: track '{}' not present in AudioLibrary; \
-                 nothing to start (check platformer_defaults.ron music_tracks + catalog)",
-                track_id
-            );
-            *waiting_logged = true;
-            started.0 = true; // stop polling — there's nothing to wait for
-        }
-        return;
-    };
-    // Resolve / allocate the handle so we have an asset id to query.
-    let Some(handle) = library.resolve_track_handle(&track_id, &asset_server) else {
-        return;
-    };
-    let asset_path = library
-        .track(&track_id)
-        .map(|t| t.asset_path().to_string())
-        .unwrap_or_default();
-    if !asset_server.is_loaded(&handle) {
-        if !*waiting_logged {
-            info!(
-                "default music: waiting for asset `{}` (track `{}`) to load \
-                 before first play",
-                asset_path, track_id
-            );
-            *waiting_logged = true;
-        }
-        return;
-    }
-    info!(
-        "default music: track `{}` asset `{}` loaded; starting playback",
-        track_id, asset_path
-    );
-    let one_shot = library.track(&track_id).is_some_and(|track| track.one_shot);
-    output.play_track(&track_id, handle, one_shot, 0.22);
-    state.begin_track(track_id);
-    started.0 = true;
-}
-
-pub fn switch_to_music_track(
-    library: &mut AudioLibrary,
-    asset_server: &AssetServer,
-    state: &mut MusicPlaybackState,
-    output: &mut crate::music::MusicPlaybackCommands,
-    next_track: &str,
-) {
-    switch_to_music_track_over(library, asset_server, state, output, next_track, None);
-}
-
-/// Select a track with one transition envelope in the common executor.
-pub fn switch_to_music_track_over(
-    library: &mut AudioLibrary,
-    asset_server: &AssetServer,
-    state: &mut MusicPlaybackState,
-    output: &mut crate::music::MusicPlaybackCommands,
-    next_track: &str,
-    crossfade: Option<Duration>,
-) {
-    let Some((source, one_shot)) = library.resolve_track(next_track, asset_server) else {
-        warn!("cannot switch to missing music track '{next_track}'");
-        return;
-    };
-    output.play_track(
-        next_track,
-        source,
-        one_shot,
-        crossfade.map_or(0.22, |duration| duration.as_secs_f32()),
-    );
-    state.begin_track(next_track);
-}
-
 /// Select station `next_track`, if the library has it. The music director plays
 /// it from the next frame (`compute_music_intent` puts a station first), so the
 /// radio and an authored cue never sound at once.
@@ -579,11 +476,19 @@ mod tests {
     use crate::spec::MusicTrack;
 
     fn track(id: &str, asset_path: Option<&str>) -> MusicTrack {
-        MusicTrack { id: id.into(), display_name: id.into(), asset_path: asset_path.map(Into::into), one_shot: false }
+        MusicTrack {
+            id: id.into(),
+            display_name: id.into(),
+            asset_path: asset_path.map(Into::into),
+            one_shot: false,
+        }
     }
 
     fn music(tracks: Vec<MusicTrack>) -> MusicRegistry {
-        MusicRegistry { default_track: tracks[0].id.clone(), tracks }
+        MusicRegistry {
+            default_track: tracks[0].id.clone(),
+            tracks,
+        }
     }
 
     fn library(tracks: &[(&str, &str)]) -> AudioLibrary {
@@ -591,18 +496,25 @@ mod tests {
             music_tracks: tracks
                 .iter()
                 .map(|(id, path)| MusicTrackRuntime {
+                    generation: 1,
                     id: id.to_string(),
                     display_name: id.to_string(),
                     one_shot: false,
-                    source: TrackSource { asset_path: path.to_string(), handle: None },
+                    source: TrackSource {
+                        asset_path: path.to_string(),
+                        handle: None,
+                    },
                 })
                 .collect(),
         }
     }
 
     fn paths(library: &AudioLibrary) -> Vec<(String, String)> {
-        let mut paths: Vec<_> =
-            library.music_tracks.iter().map(|track| (track.id.clone(), track.asset_path().to_string())).collect();
+        let mut paths: Vec<_> = library
+            .music_tracks
+            .iter()
+            .map(|track| (track.id.clone(), track.asset_path().to_string()))
+            .collect();
         paths.sort();
         paths
     }
@@ -611,8 +523,16 @@ mod tests {
     /// provider's, and keeps the host's path for a track it did not change.
     #[test]
     fn a_provider_reload_revises_its_own_tracks_only() {
-        let before = music(vec![track("kept", None), track("moved", None), track("dropped", None)]);
-        let after = music(vec![track("kept", None), track("moved", Some("audio/other.ogg")), track("added", None)]);
+        let before = music(vec![
+            track("kept", None),
+            track("moved", None),
+            track("dropped", None),
+        ]);
+        let after = music(vec![
+            track("kept", None),
+            track("moved", Some("audio/other.ogg")),
+            track("added", None),
+        ]);
         let mut library = library(&[
             ("host_theme", "host/theme.ogg"),
             ("kept", "catalog/kept.ogg"),
@@ -625,7 +545,10 @@ mod tests {
         assert_eq!(
             paths(&library),
             [
-                ("added".to_string(), "audio/music/generated/added/full.ogg".to_string()),
+                (
+                    "added".to_string(),
+                    "audio/music/generated/added/full.ogg".to_string()
+                ),
                 ("host_theme".to_string(), "host/theme.ogg".to_string()),
                 ("kept".to_string(), "catalog/kept.ogg".to_string()),
                 ("moved".to_string(), "audio/other.ogg".to_string()),

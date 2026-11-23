@@ -202,6 +202,16 @@ renderer-specific authoring type or second simulation is needed.
 
 #### Bind preferences without overwriting view-authored policy
 
+**Done 2026-11-23.** Each local view carries `ReferenceFrameSource`
+(`Preference` by default, in `local_view_facts`); the settings writer
+updates only views bound to the preference, and
+`ReferenceFrameSource::authored(frame)` marks a composition's own choice.
+A temporary probe through `CameraObservationPlugin` and an Update (a default
+view and an authored world-fixed pane) read (SubjectFrame, WorldFixed) under
+a SubjectFrame setting, (WorldFixed, WorldFixed) under WorldFixed, and the
+pane re-authored SubjectFrame kept it under WorldFixed; it was removed. The
+subject/framing selection above is still open.
+
 The same source has a second ownership collision:
 `apply_camera_reference_frame_setting` writes the global setting into
 **every** differing `CameraReferenceFrame` each Update. A composition's

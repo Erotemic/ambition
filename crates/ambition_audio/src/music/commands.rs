@@ -10,24 +10,49 @@ pub struct MusicPlaybackCommands<'w> {
 }
 
 impl MusicPlaybackCommands<'_> {
+    pub(super) fn new_entry(&mut self) -> super::playback::MusicEntry {
+        self.playback.new_entry()
+    }
+
+    pub(super) fn current(&self) -> Option<&super::playback::MusicPlaybackGroup> {
+        self.playback.current()
+    }
+
+    pub(super) fn outcome(&self) -> super::playback::MusicRequestOutcome {
+        self.playback.outcome()
+    }
+    pub(super) fn pending_for(&self, entry: super::playback::MusicEntry) -> bool {
+        self.playback.groups().any(|group| {
+            group.entry == entry && group.phase == super::playback::MusicGroupPhase::Submitted
+        })
+    }
+
+    pub(super) fn defer(&mut self) {
+        self.playback.defer();
+    }
+
     pub(super) fn silence(&mut self) {
         self.playback.silence();
     }
 
     pub(super) fn set_section_gains(
         &mut self,
+        goal_revision: u64,
         provider: &str,
         cue: &str,
         section: &str,
         gains: &[f32],
     ) {
         self.playback
-            .set_section_gains(provider, cue, section, gains);
+            .set_section_gains(goal_revision, provider, cue, section, gains);
     }
 
     pub(super) fn play_section(
         &mut self,
+        entry: super::playback::MusicEntry,
+        goal_revision: u64,
         provider: &str,
+        generation: u64,
         cue: &MusicCueSpec,
         section: &MusicSectionSpec,
         assets: &LoadedMusicCueAssets,
@@ -40,7 +65,13 @@ impl MusicPlaybackCommands<'_> {
             .filter_map(|source| {
                 let slot = cue.layer(&source.layer_id)?.slot;
                 Some(MusicVoiceSource {
-                    source: assets.get(provider, &cue.id, &section.id, &source.layer_id)?,
+                    source: assets.get(
+                        provider,
+                        generation,
+                        &cue.id,
+                        &section.id,
+                        &source.layer_id,
+                    )?,
                     gain: gains[slot],
                     slot,
                 })
@@ -50,8 +81,11 @@ impl MusicPlaybackCommands<'_> {
             return;
         }
         self.playback.request(MusicPlaybackRequest {
+            entry,
+            goal_revision,
             product: MusicProduct::Section {
                 provider: provider.into(),
+                generation,
                 cue: cue.id.clone(),
                 section: section.id.clone(),
             },
@@ -63,13 +97,23 @@ impl MusicPlaybackCommands<'_> {
 
     pub(crate) fn play_track(
         &mut self,
+        entry: super::playback::MusicEntry,
+        goal_revision: u64,
+        provider: &str,
+        generation: u64,
         track: &str,
         source: Handle<KiraAudioSource>,
         one_shot: bool,
         fade_seconds: f32,
     ) {
         self.playback.request(MusicPlaybackRequest {
-            product: MusicProduct::Track(track.into()),
+            entry,
+            goal_revision,
+            product: MusicProduct::Track {
+                provider: provider.into(),
+                generation,
+                id: track.into(),
+            },
             voices: vec![MusicVoiceSource {
                 source,
                 gain: 1.0,

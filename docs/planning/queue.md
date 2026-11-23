@@ -382,7 +382,10 @@ world-post admission.
     also settles a pending charge whose release route is withdrawn. Keep
     unchanged bindings and the incoming action's activation policy. This
     local simulation change needs no new peer-wire representation. IN4
-    can ship independently; IN5's supply interruption coordinates with
+    can ship independently (its capture and rebind crossings landed
+    2026-11-23: `SeatSourceEdges` follows valid samples and resyncs after an
+    invalid one; the retired seat's raw row and latch go with it: IN4 is
+    done); IN5's supply interruption coordinates with
     IN1 and the wire/stream owners. Do not select a new provider transport
     merely to complete P2's unused publisher.
 
@@ -416,7 +419,9 @@ world-post admission.
     do not repeat the full old cast prelude for every view. This can ship
     before broader M3 adaptation and the 2.5D adapter. M3 still owns the
     product choice of shared orientation and logical input reference when
-    bodies disagree on gravity.
+    bodies disagree on gravity. (Preference binding landed 2026-11-23: a
+    view's `ReferenceFrameSource` keeps an authored frame from the setting.
+    The selected-subject framing is open.)
 
 13. [Room scope SC1](engine/capability-and-runtime-composition.md#sc1--select-rule-subjects-inside-the-work-gate)
     keeps the coarse any-room work gate and makes Mary-O's gait writer

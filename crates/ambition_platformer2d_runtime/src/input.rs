@@ -84,7 +84,7 @@ pub fn spawn_primary_input_participant(
         recipe,
         // Burst edge state is participant-local so every seat contributes to
         // the merged control-frame producer.
-        SeatBurstTriggerState::default(),
+        SeatSourceEdges::default(),
     ));
 }
 
@@ -207,6 +207,9 @@ pub fn seat_input_participants_for_roster(
     offer: Option<Res<ambition_input::LocalSeatOffer>>,
     existing: Query<(Entity, &InputParticipant)>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    // The retired seat's own rows: its last raw frame and its pending latch.
+    mut raw: Option<ResMut<ambition_characters::control::SeatRawFrames>>,
+    mut latches: Option<ResMut<ambition_characters::control::SlotControlLatches>>,
 ) {
     // The persisted preset, so a seat claimed with the KEYBOARD gets the layout
     // its player actually chose rather than preset zero.
@@ -256,6 +259,17 @@ pub fn seat_input_participants_for_roster(
             // The match is over, or this seat left it. A participant with no
             // seat still holds an `ActionState` that keeps writing its slot.
             commands.entity(entity).despawn();
+            // Its raw row and pending latch are this producer's too: the
+            // commit republishes every raw row, so a row left behind would
+            // carry the last edge it wrote past the latch's next drain. A
+            // remote, harness or authored producer's row is not this one's.
+            let slot = ambition_platformer2d_actor_monolith::participant_seat::player_slot_of(participant.id);
+            if let Some(raw) = raw.as_deref_mut() {
+                raw.set(slot, ambition_platformer2d_core::ControlFrame::default());
+            }
+            if let Some(latches) = latches.as_deref_mut() {
+                latches.reset(slot);
+            }
         }
     }
 
@@ -324,7 +338,7 @@ pub fn seat_input_participants_for_roster(
             ActionState::<Platformer2dInputActionMonolith>::default(),
             recipe.build(),
             recipe,
-            SeatBurstTriggerState::default(),
+            SeatSourceEdges::default(),
         ));
     }
 }
@@ -437,12 +451,66 @@ pub fn toggle_player_trail_emission_from_actions(
     }
 }
 
-/// Per-seat burst edge state.
+/// One seat's source-edge history: the hysteretic edges (burst trigger,
+/// aim-stick attack, tap jump) its gameplay frame is read with.
 ///
-/// Every seat carries its own on its participant entity now — including seat zero, which has a
-/// participant entity like everybody else — and that resource is deleted.
+/// It follows the PHYSICAL samples, not gameplay delivery. A control held
+/// while gameplay input is captured resumes held, not newly pressed, and a
+/// release and press entirely inside the capture do not leak a press on
+/// return. A sample that observes nothing (the zeroed state of a rebind, or
+/// a window that delivers nothing while unfocused) is not a release: it
+/// leaves the history to be seeded by the next valid sample, which then
+/// carries no press of its own, as `swallow_the_rebinds_own_edges` does for
+/// buttons.
+///
+/// Every seat carries its own on its participant entity, seat zero included.
 #[derive(Component, Clone, Copy, Debug, Default)]
-pub struct SeatBurstTriggerState(pub ambition_persistence::settings::GameplayEdgeState);
+pub struct SeatSourceEdges {
+    edges: ambition_persistence::settings::GameplayEdgeState,
+    /// No valid sample since the last invalid one.
+    resync: bool,
+}
+
+impl SeatSourceEdges {
+    /// Follow a sample that reaches no gameplay. `valid` is whether it
+    /// observed the device at all.
+    fn observe(
+        &mut self,
+        actions: &ActionState<Platformer2dInputActionMonolith>,
+        filters: ambition_input::ControlFilters,
+        valid: bool,
+    ) {
+        if valid {
+            self.edges = read_gameplay_control_frame_with_settings(actions, filters, self.edges).1;
+            self.resync = false;
+        } else {
+            self.resync = true;
+        }
+    }
+
+    /// The gameplay frame of this sample, and the history after it.
+    fn read(
+        &mut self,
+        actions: &ActionState<Platformer2dInputActionMonolith>,
+        filters: ambition_input::ControlFilters,
+        valid: bool,
+    ) -> ambition_platformer2d_core::ControlFrame {
+        if !valid {
+            self.resync = true;
+            return read_gameplay_control_frame_with_settings(actions, filters, self.edges).0;
+        }
+        // Seeding is folding the sample once: read against the seeded history,
+        // a control already held is held, not newly pressed.
+        let from = if std::mem::take(&mut self.resync) {
+            read_gameplay_control_frame_with_settings(actions, filters, self.edges).1
+        } else {
+            self.edges
+        };
+        let (frame, next) = read_gameplay_control_frame_with_settings(actions, filters, from);
+        self.edges = next;
+        frame
+    }
+}
 
 /// EVERY SEAT'S CONTROL FRAME, DECIDED IN ONE PLACE. (C4 couch versus)
 ///
@@ -467,7 +535,7 @@ pub struct SeatBurstTriggerState(pub ambition_persistence::settings::GameplayEdg
 /// and its sibling `populate_menu_control_frame_from_actions` carries the
 /// attribute. Without it `--no-default-features` failed with seven errors, all
 /// of them in this one body: `ActionState`,
-/// `Platformer2dInputActionMonolith`, `SeatBurstTriggerState` and the four
+/// `Platformer2dInputActionMonolith`, `SeatSourceEdges` and the four
 /// `ambition_input` readers are every one of them behind `input` at the `use`
 /// site. Found by the exhaustive plan 2026-09-03; nothing but that lane builds
 /// this crate without its defaults.
@@ -489,7 +557,10 @@ pub fn populate_seat_control_frames(
     mut seats: Query<(
         &InputParticipant,
         &ActionState<Platformer2dInputActionMonolith>,
-        &mut SeatBurstTriggerState,
+        &mut SeatSourceEdges,
+        // The map was rewritten this frame and the action state zeroed: this
+        // sample observed nothing.
+        Has<ambition_input::Rebound>,
     )>,
     // EVERY SEAT'S DESTINATION, and there is only one now. A raw frame goes here to be shaped;
     // the commit stage folds it into that seat's latch after every shaping stage has run.
@@ -507,11 +578,14 @@ pub fn populate_seat_control_frames(
     // purpose — the world being paused is not a per-seat fact. `stops_the_world`, not
     // `allows_gameplay`. Whether this seat's input routes is the CONTEXT's answer, checked per
     // seat below; this asks only whether the world is running at all.
+    // An unfocused window that suppresses input observes nothing: its samples
+    // are not releases.
+    let observing = !input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused));
     let world_running = !mode
         .get()
         .stops_the_world(dialogue_policy.map(|p| *p).unwrap_or_default())
-        && !input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused));
-    for (participant, actions, mut burst) in &mut seats {
+        && observing;
+    for (participant, actions, mut history, rebound) in &mut seats {
         let gameplay = world_running && active_context.gameplay_owned(participant.id.slot());
         // through the SEAM rather than by arithmetic (R5). This line is the
         // exact shape the reviewer asked new code to stop writing — a bare
@@ -544,10 +618,15 @@ pub fn populate_seat_control_frames(
                 && party.contains(admitted, slot));
         let modes = user_settings.gameplay.control_frame_modes();
         seat_modes.set(slot, modes);
+        // NOT the machine-wide sliders. A couch seat cannot reach the settings screen — it
+        // belongs to the primary — so reading their hand-tuned deadzone here meant player two's
+        // drifty 360 pad ran on whatever suited player one's DualSense. A deadzone is a fact
+        // about the stick in somebody's hands.
+        let filters = filters_for_seat(&user_settings, devices.as_deref(), participant.id.slot());
         if !gameplay {
-            // Neutral, and RESET the edge, so the post-pause re-press starts from
-            // a clean Released state.
-            burst.0 = ambition_persistence::settings::GameplayEdgeState::default();
+            // The history keeps following the device; the gameplay edges of
+            // this sample go nowhere (the latch suppression below).
+            history.observe(actions, filters, observing && !rebound);
             // Each seat retains its menu controls while gameplay input is captured.
             let mut paused_frame = read_menu_control_frame(actions);
             paused_frame.control_frame_modes = modes;
@@ -560,14 +639,7 @@ pub fn populate_seat_control_frames(
             }
             continue;
         }
-        // NOT the machine-wide sliders. A couch seat cannot reach the settings screen — it
-        // belongs to the primary — so reading their hand-tuned deadzone here meant player two's
-        // drifty 360 pad ran on whatever suited player one's DualSense. A deadzone is a fact
-        // about the stick in somebody's hands.
-        let filters = filters_for_seat(&user_settings, devices.as_deref(), participant.id.slot());
-        let (mut next_frame, next) =
-            read_gameplay_control_frame_with_settings(actions, filters, burst.0);
-        burst.0 = next;
+        let mut next_frame = history.read(actions, filters, !rebound);
         // ⛔⛤ STAMPED ONTO THE FRAME, which is what makes it deterministic. The
         // table below is still written for anything that wants to ask the
         // CURRENT policy; what a body resolves a gesture with now travels with
@@ -1415,7 +1487,7 @@ mod focus_gate_tests {
                 },
                 contexts,
                 actions,
-                super::SeatBurstTriggerState::default(),
+                super::SeatSourceEdges::default(),
             )
         }
 
@@ -1540,7 +1612,7 @@ mod focus_gate_tests {
                     },
                     contexts,
                     actions,
-                    super::SeatBurstTriggerState::default(),
+                    super::SeatSourceEdges::default(),
                 ));
             }
             // A window that is NOT focused — the whole subject.
@@ -1627,7 +1699,7 @@ mod focus_gate_tests {
                 },
                 contexts,
                 ActionState::<Platformer2dInputActionMonolith>::default(),
-                super::SeatBurstTriggerState::default(),
+                super::SeatSourceEdges::default(),
             )
         }
 
@@ -1704,7 +1776,7 @@ mod focus_gate_tests {
                 },
                 contexts,
                 actions,
-                super::SeatBurstTriggerState::default(),
+                super::SeatSourceEdges::default(),
             )
         }
 
@@ -1858,7 +1930,7 @@ mod focus_gate_tests {
             },
             contexts,
             actions,
-            super::SeatBurstTriggerState::default(),
+            super::SeatSourceEdges::default(),
         ));
         app.add_systems(
             Update,

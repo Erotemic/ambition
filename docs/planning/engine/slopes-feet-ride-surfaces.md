@@ -161,7 +161,8 @@ is a measurement of the current shape; it is not a stable material address
 when that shape stretches. A walker still uses its foot-span rule to find
 contact and change its place. This does not pin a walker to the floor.
 
-For one moving segment, with time measured in seconds:
+For one moving segment, with `t` measured in the named shared comparison
+clock and endpoint rates expressed in that clock:
 
 ```text
 point(t,u) = (1-u) * a(t) + u * b(t)
@@ -206,6 +207,22 @@ coordinate over a named simulation interval, and the host's accepted
 motion for that same interval. A held source phase has zero local shape
 motion even while the host moves. Do not reconstruct the conductor's
 phase law in the support reader or add a free-running support clock.
+
+Make the rate conversion explicit. For fixed material `u`, a source shape
+`q` at phase `phi(T)` composed with accepted host map `H(T)` gives:
+
+```text
+P(T,u) = H(T)(q(phi(T),u))
+dP/dT = host_point_velocity + H.linear * (dq/dphi * dphi/dT)
+```
+
+Here `host_point_velocity` is the derivative of the host map at that
+material sample, including admitted turn or scale. The phase producer
+supplies `phi(T)`; an endpoint rate already resolved in `T` gets no second
+pace factor. A source phase held still contributes zero local deformation,
+while host carry can remain nonzero. Contact and portal readers use the
+[same comparison-clock contract](portals-are-moving-frames.md#one-chronology-does-not-give-rates-the-same-unit).
+Native action clocks and frozen-body policy stay with their existing owners.
 
 For SUP1, preserve the table's stated interpolation. Split at its known
 frame-center boundaries, loop spans and terminal hold, and at boundaries
@@ -288,7 +305,14 @@ These are future acceptance cases. A local no-portal slice can land before
 the whole persistent-attachment or portal program. P3/M3 consumes the new
 kinematics for relative response; it cannot infer discarded source motion.
 A portal-hosted or crossing support must also use P2's accepted interval
-and admission. Do not mark those cases complete from the local witness.
+and admission. For a changing support admitted as a portal host, migrate
+host attribution and refresh to the same source place and point trajectory;
+the current world arc-distance attachment slides over stretched material.
+The [host contract](portals-are-moving-frames.md#driven-aperture-motion-is-admitted-before-the-host-commits)
+keeps aperture size/lift policy separate and requires refusal when that
+capability or fit is unavailable. Include one stretching-line attachment
+and a rigid control before claiming this conditional delivery complete.
+Do not mark those cases complete from the local witness.
 Preserve the existing frozen-body clock policy and GNU visual receipts.
 
 ### Separate authoring decision: the whole curved hump

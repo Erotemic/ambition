@@ -231,7 +231,10 @@ fixture is a starting customer; extend it through production transit.
 Contact response uses the same point/time/path witness as detection. The
 axis sweep currently tests approach with a static mapped displacement while
 material contact can include a moving exit. Reuse `ContactVelocityFrame` and
-`MaterialCollider::velocity_in_root` for the complete relative-motion law.
+`MaterialCollider::velocity_in_root` as the geometric moving-frame authority,
+with body, support and aperture rates first expressed in the
+[same comparison clock](portals-are-moving-frames.md#one-chronology-does-not-give-rates-the-same-unit).
+The helpers do not convert a caller's room-effective seconds automatically.
 Keep axis, momentum, crawler and bounce/slide policy differences explicit.
 
 ### Canonical aperture contact replaces post-step snag repair
@@ -616,9 +619,10 @@ module stops re-asking a spent slot by its own bookkeeping.
 Extend the existing refusal fixture through the real post-movement transit.
 Add a translating exit at a nonterminal crossing time and a projectile hitting
 a target before/after that target crosses. Preserve one shared world clock,
-remaining interval and domain-specific force/contact policy. Retain compact
-leg provenance and crossing facts, with the ordinary single leg inline;
-heavy cell/scene products live only through their query readers. Preserve
+each native clock's mapping onto it, the remaining interval and domain-specific
+force/contact policy. Event chronology alone does not normalize velocity.
+Retain compact leg provenance and crossing facts, with the ordinary single
+leg inline; heavy cell/scene products live only through their query readers. Preserve
 bounded refusal continuation and bind any named narrowed recovery to the
 accepted operation instead of retrying an unchanged expensive refusal forever.
 
@@ -652,6 +656,9 @@ instead of reconstructing lost local motion from displacement and turn.
 The detailed [M3 owner](portals-are-moving-frames.md#m3--resolve-contacts-through-the-complete-velocity-witness)
 retains the response law. The local support correction can start before
 P2, while a portal-hosted case requires P2's accepted interval and admission.
+Changing portal hosts also require the
+[material attachment and point trajectory](portals-are-moving-frames.md#driven-aperture-motion-is-admitted-before-the-host-commits);
+current world arc distance cannot identify the same material under stretch.
 
 **Delete:** the static-vector reconstruction of moving-frame relative motion
 and the post-step AABB snag writer once their replacements cover the case.

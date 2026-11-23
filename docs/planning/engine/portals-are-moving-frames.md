@@ -16,8 +16,10 @@ cases below. Preserve the implemented material and moving-frame mathematics.
 ## Implemented foundation to preserve
 
 - The host publishes displacement and turn; its adapter supplies linear
-  velocity and spin in simulation seconds. Readers do not infer either from
-  differences between observed portal poses.
+  velocity and spin in shared simulation seconds. Some motion callers use
+  room-effective seconds instead; the conversion required below is not yet
+  established by this adapter. Readers do not infer rates from differences
+  between observed portal poses.
 - `PlacedPortal.step` retains the continuous start and host travel.
   `ApertureStep` samples translation and rotation, including full winding.
   Matching start/end normals do not imply a stationary aperture.
@@ -143,10 +145,12 @@ The filter sees `-1` and rejects the native hit as separating. This is an
 algebraic sign reversal, not a reported runtime tunnel. Later repair would
 still fail the intended contact-at-TOI contract.
 
-The required law already exists in `frame/material_cast/payload.rs:11–31`
+The geometric moving-frame law already exists in `frame/material_cast/payload.rs:11–31`
 and 81–99 (`ContactVelocityFrame`) and `world.rs:1294–1328`
 (`MaterialCollider::velocity_in_root`, `velocity_at`). Loose-item response
-uses it in `held_items/src/motion.rs:263–288`. Reuse this authority.
+uses it in `held_items/src/motion.rs:263–288`. Reuse this authority, but first
+give its input rates the same derivative clock. The existing helpers do
+not establish that unit conversion for their callers.
 
 ## Required motion operation
 
@@ -222,6 +226,25 @@ freeze or detach just its portal. Ordinary obstacle response and portal-close
 eviction remain distinct. This constraint applies to the existing host
 motion owner; it does not require a new universal force solver.
 
+For a changing support admitted as a portal host, the proposal must also
+name the same material place. Current `PortalHost::Line` stores world arc
+distance: `attribute_line` records it and `point_on_line` reuses it on the
+new chain, clamping at the end. On a line stretching from `[0,100]` to
+`[0,200]`, an attachment at material `u = 0.75` must move from x=75 to x=150;
+the current distance lookup stays at x=75. Atomic admission alone cannot
+repair that input.
+
+Bind that host center to SUP1's stable surface occurrence and source place,
+and derive its position, normal and point-motion interval from that place.
+The point rate must include local shape motion; a midpoint rate is not
+enough. Keep the proven rigid host path. Until the changing-host binding
+and trajectory exist, do not admit that host capability through a rigid
+fallback. Material attachment does not decide whether opening width or
+lift scales: keep the selected portal sizing and lift policy explicit.
+If the opening no longer fits, use admission/refusal or a separately
+authorized close, never slide it to another material place. This is a
+conditional SUP1/P2 obligation; local SUP1 can land first.
+
 ## Shared kinematics, distinct movement policy
 
 At a contact point and time, velocity obeys
@@ -249,6 +272,52 @@ They share event chronology, material validity and contact-frame kinematics.
 Keep `step_motion` as the kernel gateway. Do not add player/AI dispatch or
 force all bodies through one integrator law.
 
+### One chronology does not give rates the same unit
+
+Static review at `6d100f9d9e0d` exposes a present boundary:
+[platforms advance](../../../crates/ambition_platformer2d_world/src/platforms/simulation.rs)
+with `WorldTime::sim_dt() * RoomFreeze::scale_in(room)`, while the
+[host adapter](../../../game/ambition_content/src/portal/host_adapter.rs)
+divides their displacement by unscaled `sim_dt()` for aperture velocity.
+[Loose-item flight](../../../crates/ambition_held_items/src/motion.rs)
+integrates stored velocity with room-effective `dt` and also passes that
+duration to `MaterialCollider::velocity_in_root`. The latter divides surface
+displacement by its caller's duration before combining it with aperture
+drift. A normalized contact time in `[0,1]` does not make these rates
+compatible. This boundary matters with several live rooms, where
+[`RoomFreeze`](../../../crates/ambition_platformer2d_shared_tangle/src/lifecycle/room_pace.rs)
+keeps room pace separate from the shared clock.
+
+For one shared second at room pace `0.5`, a stored native body speed of
+100 produces travel of 50. A co-moving hosted aperture also travels 50,
+but publishes speed 50 per shared second. Their common-clock relative
+speed is zero; subtracting the raw stored speed and aperture rate invents
+a relative speed of 50. This is an algebraic contact witness, not a claim
+that co-moving roots spontaneously cross.
+
+Retain each native phase/effective-time mapping on the accepted interval.
+Before combining body, support, imposed-turn and aperture rates, express
+each as a derivative with respect to one named comparison clock `T`.
+For a constant native pace `alpha = dt_native/dT`, its local contribution
+is `v_T = alpha * v_native`. Use the accepted trajectory's derivative for
+the full point motion: external carry and changing support motion remain
+separate contributions. Do not multiply an already resolved shared-clock
+rate by room pace again. Normalized TOI remains an interval coordinate.
+
+The native owner converts an accepted response back to its stored units
+only where that conversion is defined. At zero native pace, no epsilon
+division can recover a native rate from external carry. Preserve the
+owner's frozen-body policy and stored continuation; a stopped local clock
+does not by itself forbid its support from carrying the body. A zero-duration
+shared interval is a stationary sample or an admitted discontinuity, not
+nonzero continuous travel. If root transfer changes the native clock, its
+owner must state whether native control speed or common-clock motion is
+preserved; a coordinate rebase must not silently choose that product rule.
+
+This correction preserves native action clocks, room pace and integration
+policy. It needs no clock registry or global scheduler. Keep an identity-pace
+direct path and the existing static/affine geometry specializations.
+
 ## Bounded delivery packets
 
 ### M1 — Preserve accepted history and restriction context
@@ -274,11 +343,17 @@ control preserves the combined state and never leaves the aperture behind.
 ### M3 — Resolve contacts through the complete velocity witness
 
 Migrate the axis contact filter, surface carry and impact calculation to
-the existing moving-frame law. Witness an exit driving material into a
-stationary wall and a spinning obstacle with a stationary pivot. Preserve
+the existing moving-frame law with rates in the same comparison clock.
+Witness an exit driving material into a stationary wall and a spinning
+obstacle with a stationary pivot. Preserve
 one-way rejection followed by a later valid approach. Delete local velocity
 reconstructions. The delivery plan owns canonical rim contact and removal
 of the separate AABB snag position writer.
+
+Include the co-moving body/aperture witness above at pace one and half pace
+with two live rooms. Common-clock relative velocity must stay zero, while
+native stored speed retains its declared meaning. Exercise zero pace under
+the existing frozen-body policy, not an invented divide-by-epsilon rule.
 
 Include a stationary body and an admitted moving obstacle. A zero source
 axis delta cannot select endpoint-only repair unless the relative geometry

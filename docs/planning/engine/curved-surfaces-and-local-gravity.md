@@ -224,6 +224,22 @@ source spans. Topology is separate: coincident points do not establish a
 junction. Existing loop depth lanes and `SurfaceJunction` already express
 that distinction.
 
+Select the geometric product as well as the source curve: a directed
+route, a one-way boundary, or a filled collision region. Closedness joins
+the endpoints; it does not fill the interior. Native
+[`SurfaceKind::Solid`](../../../crates/ambition_platformer2d_core/src/world.rs)
+currently expects a convex closed outline, and its material contact path
+casts that whole outline as a convex polygon. Winding and the current
+`SurfaceChain::validate` do not establish convexity. Preparation must prove
+that precondition for the selected solid product. Use the convex product
+for the first exterior-circle proof. A later concave filled product needs
+an admitted volume representation with coherent union/contact behavior,
+or an explicit unsupported result. Retain its exterior boundary and source
+locations separately: internal decomposition faces are not authored routes,
+support branches or gravity attractors. Merely creating independent convex
+colliders does not establish that concave product. This is a capability
+boundary, not selection of a general concave-collision project.
+
 Prepare these products from the recipe:
 
 - native segment geometry with adjacency and occurrence provenance;
@@ -349,10 +365,19 @@ error. Calling the analytic result a reference does not authorize the
 gameplay path to ignore its contact and motion contract.
 
 Prefer straight/rigid cases, prepared lengths and local contact cursors.
-Use the existing spatial-query foundations for candidate selection.
-Do not scan every terrain edge for every foot or field query. Add a
-prepared index when its concrete consumer needs it; preserve the direct
-small-input path and measure before choosing thresholds.
+Use the existing spatial-query foundations for candidate selection, but
+do not assume chain broadphase is segment-local. Current
+[`material_lines`](../../../crates/ambition_platformer2d_core/src/walkable_lines.rs)
+visits every segment of each nearby chain; arc and projection helpers also
+scan. A dense, level-sized curve can therefore make a local query costly.
+If the selected workload needs finer preparation, index segment ranges or
+chunks while retaining the original surface occurrence and source spans.
+A query chunk boundary is not a new open end, junction or release point.
+Moving bounds cover the same accepted interval as contact. Keep the direct
+small-input path, and make frame and joint lookups share one prepared
+distance and boundary convention. Measure before selecting an index or
+threshold; the [data-structure owner](data-structure-kernels.md) supplies
+candidate-query contracts, not a new surface topology.
 
 Exact analytic casts remain a separate possible investment. Supporting
 one exact circle is smaller than supporting arbitrary deforming curves,

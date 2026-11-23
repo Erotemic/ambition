@@ -1632,16 +1632,20 @@ remain an independent observer.
 **State:** IMPLEMENTING. The common native playback executor owns simple and
 adaptive voice lifetimes, cancellation, admission, retirement, bounded retry,
 and recording output. User and environment gain use that same owner. Native
-route acceptance remains open. The baseline diagnosis used source
-`00bf92c22142` and the supplied Wolfenstein departure log, 2026-11-22.
+route acceptance remains open. Per-source boss/wave publication, canonical
+encounter attempts and adaptive-only heard-room priority landed at
+`6d100f9d`; preserve them while unifying selection. The baseline diagnosis
+used source `00bf92c22142` and the supplied Wolfenstein departure log, 2026-11-22.
 A fresh start could stop its own bank; stopped voices could remain logically
-active. MUS1 replaces those lifetime owners. Fight-entry media
+active. MUS1 replaced those lifetime owners. Fight-entry media
 is requested only when selected, which exposes a separate preparation/timing
 gap. The exit excerpt does not prove the cause of startup silence.
 
-**Next action:** complete native acceptance and implement MUS2: select one scoped
-musical goal for simple and adaptive sources, including live boss/wave
-occurrences and authored priority. Remove ownerless release and the
+**Next action:** implement MUS2's single presentation goal from the published
+source/attempt candidates and authored priority. Preserve transition-stamped
+release causes separately from coalescible successor goals, and explicitly
+choose continuation or fresh entry at the existing executor boundary.
+Complete native acceptance separately. Remove ownerless release and the
 temporary simple-track resume between the old fight and destination cue.
 Recheck source before editing; other agents may have changed the code.
 
@@ -1658,6 +1662,9 @@ destination once; a losing/failed source cannot silence it. Adaptive-only
 fights obey the same room priority as simple tracks. A late entrance follows
 its authored policy without replaying a superseded intro. Preserve shared
 cue continuity, one-shot continuation, endings, and new-attempt identity.
+Complete/reset/restart before a presentation read must preserve the old
+attempt's reason without affecting the new one. Identical media must permit
+a fresh entry when requested, while a held completed entry stays complete.
 Prove those properties at the command/selection boundary; later native
 acceptance must establish locked-backend and audible behavior on the
 reported fight/door route. This planning audit ran neither.

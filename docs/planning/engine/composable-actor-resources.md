@@ -252,8 +252,41 @@ prepared character facts + ruleset facets and grants + moveset + build/loadout
 Do not serialize `PreparedCharacterDefinition` wholesale. Assign slots in a
 canonical order of stable identity and shape. Slot 0 can mean different
 resources in different layouts; the layout identity prevents cross-layout use.
-Prepare one bound move view per distinct layout rather than keep a semantic
-lookup in the move-start hot path.
+Prepare a bound cost view from the effective price, selected role bindings
+and layout, rather than keep a semantic lookup in the move-start hot path.
+Layout equality proves slot compatibility; it does not prove that two
+compositions intend the same payment.
+
+### Bind prices before sharing them
+
+**Planning clarification, source `6d100f9d9e0d`, 2026-11-22.** The planned
+role-bound payment can differ while the bank layout stays identical. For
+example, both bodies hold Mana and ammunition. The same reusable ability
+costs `2 weapon.energy`; one composition binds that role to Mana and the
+other to ammunition. A cache keyed only by layout and ability identity
+would reuse the wrong slot, and the layout check would still pass.
+
+Share a bound cost only when all inputs to that cost agree: the effective
+price program, its resolved role bindings and the layout. The selected
+resource plan can supply that identity. A directly named fixed cost may
+reuse its binding across plans when those inputs agree. Do not key this
+by the whole character or an unrelated art revision, and do not add a
+second composition compiler to obtain the key.
+
+Resolve aliases before the affordability check. Two roles can intentionally
+bind to one pool. If each costs 6 and that pool contains 10, the complete
+price is 12 and must be refused. Coalesce by the resolved resource/slot,
+not by the authored role name. Keep a declared deterministic reduction and
+numeric policy for those terms. Validate the resulting totals before any
+debit; preparation can do this fixed binding work once.
+
+The current [`ActorResources::can_pay`](../../../crates/ambition_platformer2d_core/src/resources.rs)
+already totals repeated resource identities before checking affordability.
+Preserve that behavior when replacing semantic lookup with prepared handles.
+This is a constraint on the planned optimization, not a new claim that the
+current bank pays duplicate terms incorrectly.
+
+### Publish the selected plan with its consumers
 
 **One composition context, separate typed results.** The resource preparer
 consumes the admitted repertoire and role requirements. It does not decide
@@ -286,10 +319,15 @@ struct ResourceBank { layout: ResourceLayoutId, pools: SmallVec<[BoundedF32; 4]>
 struct ResourceHandle<T> { layout: ResourceLayoutId, slot: ResourceSlot<T> }
 ```
 
-Access is `bank.get(handle)` / `bank.get_mut(handle)` with a layout check in
-development and test builds; a stale handle fails clearly. Do not store semantic
-ids beside live values. Do not require one heap allocation per resource. A cost
-visits its terms, not every resource on the actor.
+Access is `bank.get(handle)` / `bank.get_mut(handle)`. The native admission
+boundary validates the selected plan, bound payment and bank in every build;
+a stale or foreign binding refuses before mutation. The current slot API
+already rejects a different layout. A complete prepared payment may validate
+its layout once for the bundle instead of once per term, but a debug-only
+check is not that proof. Same-layout wrong-role reuse is prevented by the
+complete binding identity above. Do not store semantic ids beside live
+values or require one heap allocation per resource. A cost visits its terms,
+not every resource on the actor.
 
 **Costs.** Authoring supports an atomic list of terms (`8 fuel, 2 catalyst`);
 preparation resolves each to a handle. A character ability may name a resource
@@ -408,6 +446,8 @@ the common bindings supply them; retain its charge/cooldown behavior.
 - **Composition:** resource-less fighter; Limit fighter; a fighter with another
   resource and no Limit; a multi-resource actor; two roles bound to one resource;
   equal values stay independent; missing or wrong-shape binding refuses.
+  The same layout and ability under different role bindings spend from their
+  respective pools; roles that alias one pool compare their combined price.
 - **Access:** no scan over resource ids; unrelated resources do not change the
   lookup; no string lookup for prepared access; a one-term cost visits one term.
 - **Costs:** free ability needs no bank; positive cost with no resource refuses;

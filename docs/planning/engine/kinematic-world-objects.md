@@ -163,8 +163,12 @@ customers; the platform path road exists but has no shipped placement yet.
 
 The core evaluator does not own an ECS tick, mechanism activation, control
 or a global clock. Current platform and hazard callers pass room-scaled
-time. Keep that choice in the callers. A lift deciding when to depart is
-not the same operation as sampling a spatial path.
+time. Keep that choice in the callers, and retain its mapping onto the
+shared admitted interval. Contact and hosted-aperture rates obey the
+[comparison-clock contract](portals-are-moving-frames.md#one-chronology-does-not-give-rates-the-same-unit);
+relabeling effective duration as world time does not perform that conversion.
+A lift deciding when to depart is not the same operation as sampling a
+spatial path.
 
 ### Small native contract
 
@@ -185,8 +189,11 @@ not the same operation as sampling a spatial path.
    preserving the actor's admitted placement; see PATH2.
 3. **Propose without mutation.** From the continuation and effective
    duration, retain a compact requested interval with path identity,
-   original time domain and unwrapped travel. The only API must not be a
-   mutating advance straight to the requested endpoint.
+   original time domain, its mapping onto the shared admitted interval,
+   and unwrapped travel. Preserve the mapping when taking a prefix; a
+   caller cannot apply room pace again to an already resolved trajectory.
+   The only API must not be a mutating advance straight to the requested
+   endpoint.
 4. **Sample or cut the proposal.** Return an endpoint, the next leg boundary,
    or pose and continuation at a selected time. The native owner commits
    its accepted continuation and pose together. A refused host does not

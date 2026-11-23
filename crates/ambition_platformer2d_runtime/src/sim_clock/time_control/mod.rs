@@ -1,12 +1,12 @@
 //! Ambition-specific clock requests and world-log reporting.
 //!
 //! Clock arbitration lives in `ambition_time::time_control`; this module emits
-//! game-policy requests such as hitstop, bullet-time, and developer slow-motion.
+//! game-policy requests such as the match impact freeze, bullet-time, and
+//! developer slow-motion.
 
 use bevy::prelude::*;
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
-use ambition_characters::actor::BodyCombat;
 use ambition_combat::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_time::time_control::{
@@ -21,8 +21,8 @@ use ambition_time::{ClockDomain, ClockObserver, ClockState};
 /// A FREEZE IS FOR ONE ROOM'S FIGHT. The shared clock runs every live room,
 /// so with more than one live, a hit in one would stop the others: players in
 /// different rooms are independent (ruling 2026-10-19), as a conversation is
-/// not modal there either. So with several live rooms neither the impact hold
-/// nor Player 1's hitlag freezes the shared clock: the struck room's own
+/// not modal there either. So with several live rooms the impact hold does
+/// not freeze the shared clock: the struck room's own
 /// bodies hold instead (`RoomPace::held_until`, read through `RoomFreeze`).
 /// And bullet time slows Player 1's room, not every room: the shared clock
 /// runs at 1 and Player 1's room eases toward the bullet scale in its root's
@@ -32,7 +32,6 @@ pub fn emit_primary_observer_time_intent(
     drivers: Query<(Entity, &DrivingParticipant)>,
     bodies: Query<(
         &ambition_platformer2d_core::BodyMotionFacts,
-        &BodyCombat,
         Option<&ambition_platformer2d_core::BodyAbilities>,
         Option<&ambition_abilities::observer_slow::ObserverSlowAsked>,
     )>,
@@ -93,7 +92,7 @@ pub fn emit_primary_observer_time_intent(
     );
     let observed = observed_body.and_then(|body| bodies.get(body).ok());
     // No unique observed body means no retained body may hold the world clock.
-    let Some((facts, combat, abilities, slow_asked)) = observed else {
+    let Some((facts, abilities, slow_asked)) = observed else {
         // Nor any room's: every room eases home.
         ease_room_clocks(&mut roots, &mut commands, None, seed, &feel, wall_dt);
         writer.write(ClockScaleRequest {
@@ -104,9 +103,12 @@ pub fn emit_primary_observer_time_intent(
         });
         return;
     };
-    let (scale, requester, reason) = if one_room && combat.hitstop_timer > 0.0 {
-        (0.0, ClockRequester::Engine, "hitstop")
-    } else if facts.blink_aiming {
+    // ⛔ NO RUNG FOR THE OBSERVED BODY'S HITLAG (ACT2). A world freeze on a
+    // connect is the room's policy (`world_freezes_on_hit`, armed as the
+    // `ImpactHitstop` above for every seat, CPU or human). A rung here made a
+    // human seat's per-body hitlag stop a platform fighter's whole stage, so a
+    // CPU-only match and a human match played different freezes.
+    let (scale, requester, reason) = if facts.blink_aiming {
         // The aim slows the world only with the `blink_slow` verb, which a
         // worn row can withhold (Precision Blink's level 2 aims at full
         // speed). A body with no ability set keeps the slow it always had.

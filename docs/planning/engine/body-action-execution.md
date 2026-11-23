@@ -571,12 +571,20 @@ after hitstop (unscaled seconds) and paralysis (proper seconds), as
 `max(0, min(proper - r*h, proper - p))`. Stun and recoil lock thaw on it,
 which replaces `proper - max(h, p)`; the two agree at `r == 1`.
 
+The clock ladder no longer has a rung for the observed body's hitlag. A
+world freeze on a connect comes only from the room's `world_freezes_on_hit`
+policy, armed as `ImpactHitstop` for every seat, CPU or human. A human
+seat in a platform-fighter room now keeps Smash's per-body freeze, as a
+CPU-only match does. In Ambition rooms a connect still stops the world,
+for the room's capped hitlag. A guard deflect and a finishing blow, which
+set body hitstop without a resolved connect, now freeze only their bodies.
+They also did so in a CPU-only match.
+
 Still open:
 
 - Travel and moves still take a whole step on the step a freeze expires,
   while stun takes the released fraction. One pre-decay budget, rebuilt at
   the reaction cut, should feed all three.
-- The primary-hitstop world-clock shortcut.
 - Sustain cadence.
 - Floor progression on action time (`control_dt`).
 - The CPU-only and human-seat Smash acceptance. This VM cannot seat a

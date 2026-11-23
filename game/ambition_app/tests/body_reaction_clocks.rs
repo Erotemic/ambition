@@ -79,7 +79,12 @@ fn a_driven_actors_freeze_expires_for_every_body_and_proper_recovery_resumes() {
         .get_mut::<BodyCombat>(home)
         .unwrap()
         .hitstop_timer = 0.0;
-    // Start with an active freeze and let the normal schedule end it.
+    // Hold the world with the match's impact freeze. The driven body's own
+    // hitlag no longer stops the shared clock (ACT2); the room's policy does.
+    let now = sim.world().resource::<ambition_platformer2d::time::SimTick>().0;
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::combat::impact_hitstop::ImpactHitstop>()
+        .until_tick = Some(now + 100);
     sim.world_mut().resource_mut::<ClockState>().time_scale = 0.0;
     sim.world_mut()
         .resource_mut::<ambition_platformer2d::time::time_control::RequestedClockScale>()
@@ -108,15 +113,25 @@ fn a_driven_actors_freeze_expires_for_every_body_and_proper_recovery_resumes() {
     assert_eq!(
         sim.world().get::<BodyCombat>(actor).unwrap().hitstop_timer,
         0.0,
-        "the global freeze stopped its own expiry"
+        "the global freeze stopped the body's hitstop expiry"
     );
-    sim.step(AgentAction::default());
-    let dt = sim.world().resource::<WorldTime>().sim_dt();
-    assert!(dt > 0.0, "the world did not resume after hitstop expired");
+    // The match hold ends; the world resumes and recovery spends proper time.
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::combat::impact_hitstop::ImpactHitstop>()
+        .until_tick = None;
+    // The step's time is sampled at its head, before the clock ladder reads
+    // the released hold, so the world resumes within a few steps; recovery
+    // spends exactly the proper time those steps carried.
+    let mut dt = 0.0;
+    for _ in 0..4 {
+        sim.step(AgentAction::default());
+        dt += sim.world().resource::<WorldTime>().sim_dt();
+    }
+    assert!(dt > 0.0, "the world did not resume after the hold ended");
     for (body, rate) in bodies {
         let combat = sim.world().get::<BodyCombat>(body).unwrap();
-        assert!((combat.hitstun_timer - (0.3 - dt * rate)).abs() < 1e-6);
-        assert!((combat.damage_invuln_timer - (0.3 - dt * rate)).abs() < 1e-6);
+        assert!((combat.hitstun_timer - (0.3 - dt * rate)).abs() < 1e-5);
+        assert!((combat.damage_invuln_timer - (0.3 - dt * rate)).abs() < 1e-5);
         assert_eq!(combat.hitstop_timer, 0.0);
     }
 }

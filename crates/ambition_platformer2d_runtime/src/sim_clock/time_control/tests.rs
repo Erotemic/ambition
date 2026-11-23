@@ -2,6 +2,7 @@
 //! the `ClockScaleRequest` → policy dispatch in the `Solo` regime.
 
 use super::*;
+use ambition_characters::actor::BodyCombat;
 use ambition_time::time_control::{
     apply_clock_scale_requests, apply_suspended_time_scale_system, RegimePolicy,
 };
@@ -232,11 +233,11 @@ fn observer_time_requests_follow_the_seat_instead_of_its_home_body() {
         .world_mut()
         .spawn((
             DrivingParticipant(PlayerSlot::PRIMARY),
-            ambition_platformer2d_core::BodyMotionFacts::default(),
-            BodyCombat {
-                hitstop_timer: 0.1,
+            ambition_platformer2d_core::BodyMotionFacts {
+                blink_telegraph: true,
                 ..Default::default()
             },
+            BodyCombat::default(),
         ))
         .id();
     app.update();
@@ -246,8 +247,7 @@ fn observer_time_requests_follow_the_seat_instead_of_its_home_body() {
         .drain()
         .last()
         .unwrap();
-    assert_eq!(request.reason, "hitstop");
-    assert_eq!(request.scale, 0.0);
+    assert_eq!(request.reason, "blink_hold_slow");
 
     app.world_mut()
         .entity_mut(actor)

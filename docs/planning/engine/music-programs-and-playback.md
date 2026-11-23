@@ -902,8 +902,18 @@ he is dormant. These checks do not establish device timing or audible continuity
 The locked Bevy/Kira backend produces the expected PCM after cold decode and
 two fresh cue handoffs, then silence after an explicit stop. Guard: 146 default
 audio tests and the separate native test. Spectrum inspection confirms the
-section tones. The capture also exposes 20–30 ms of silence at file-end joins.
-Native continuation scheduling and the complete game route remain open.
+section tones. The baseline capture exposed 20–30 ms of silence at file-end joins.
+
+`781520aba` schedules ready one-shot continuations and predecessor stops on one
+native clock. It holds sample zero through admission and cancels withdrawn stops
+after Kira acknowledges them. The
+[pinned adapter patch](../../../third_party/bevy_kira_audio/PATCHES.md) exposes
+the existing manager and instance scheduling controls. Guard: 148 audio tests,
+38 intent-adapter tests, 35 workspace policy tests and two explicit native tests.
+PCM checks find no silent 10 ms windows across the prepared joins, including a
+one-second host stall and a source tail. Cancellation preserves the old audio
+past a withdrawn stop. Mixer resolution is not a sample-accuracy guarantee.
+General exits and the complete game route remain open.
 No physical-speaker or listening acceptance was performed.
 The current recording path consumes the executor's actual voice commands;
 it does not execute Kira drains or establish speaker-audible output. The

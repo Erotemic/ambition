@@ -41,11 +41,175 @@ participant's control to another existing body, which keeps its identity,
 geometry and state, and the original body stays in the world. The body mode
 (`BodyMode`) is a posture of the same body and form. Transformation and
 possession share the body simulation and the control relation above and stay
-two operations. Work: queue row CHARACTER-FORM.
+two operations. The completed CHARACTER-FORM geometry work stands;
+[FORM-REBIND](#form-rebind--admit-and-apply-the-complete-intrinsic-form)
+below closes the remaining admission and intrinsic-configuration boundary.
 
 Retraction on disappearance, unmount, release and session retirement is part of
 the relation. A saved room-transition intent captures the body subject when it
 is admitted, not whichever body is driven when it eventually commits.
+
+## FORM-REBIND — admit and apply the complete intrinsic form
+
+**State:** planned, from static source `00bf92c22142`, 2026-11-22.
+This is a residual of Q159 and Q103. It keeps the existing body, native
+movement/ability owners and prepared-character grant. It does not reopen
+the completed geometry, skin or possession separation.
+
+### Admit before publishing the new form
+
+The narrative `WearRequested` path in
+[`body/wear.rs`](../../../crates/ambition_platformer2d_actor_monolith/src/body/wear.rs)
+checks the App's `CharacterCatalog`, writes `CharacterForm`, and queues
+a potentially invulnerable transformation beat from current sprite data.
+The gameplay applier in
+[`character_execution.rs`](../../../crates/ambition_platformer2d_actor_monolith/src/avatar/character_execution.rs)
+checks the session's prepared cast later and can restore the previous ID.
+That refusal is too late to prove that the body did not change.
+
+[`CharacterProjection`](../../../crates/ambition_platformer2d_actor_monolith/src/character_projection/mod.rs)
+runs before the Persona phase. A target absent from the session cast
+becomes `incoming == None`, which retracts the old grant and removes the
+projection record. The queued
+[transform beat](../../../crates/ambition_platformer2d_actor_monolith/src/body/transform_beat.rs)
+can still grant transforming invulnerability after the ID is restored.
+See the [input phase order](../../../crates/ambition_platformer2d_runtime/src/schedule.rs)
+and [narrative request registration](../../../crates/ambition_platformer2d_runtime/src/world_schedule.rs).
+
+The existing [SessionCast contract](../../../crates/ambition_characters/src/session_cast.rs)
+allows the App to publish N+1 while a live session still selects N.
+A target present only in N+1 therefore supplies a bounded refusal case.
+Even if both generations contain the ID, the beat must not use N+1's
+sheet while mechanics use N. This audit establishes the split in source;
+it does not measure how often an interactive reload exposes it.
+
+Resolve the existing form request against `SessionCast` and the selected
+immutable mechanical/sheet inputs before changing the applied identity,
+withdrawing a grant, or creating a beat. Pass that admitted selection
+through the existing application phases. `CharacterForm` must describe
+the applied form; a failed lookup is not an instruction to remove it.
+If selection changes between admission and application, retain the
+admitted inputs while valid or refuse/re-admit before any native write.
+Do not re-resolve against the App's current catalog halfway through.
+
+A refusal consumes the request with the whole old body and its active
+beats intact. Existing native clearance, custody and relationship checks
+still own mutable eligibility. This does not require a new transaction
+framework or a new body constructor. Remove the App-catalog membership
+and beat lookup and the late restore-by-ID role after the admitted path
+owns the operation. Keep internal refusal checks as protection, not as a
+repair for already published consequences.
+
+### Rebind intrinsic configuration through the native state owners
+
+The shipped Hall conversation changes the same body between
+`npc_fell_sheep` and `npc_sheep_cloud`. The
+[catalog rows](../../../game/ambition_content/assets/data/character_catalog.ron)
+explicitly change grounded, Walk-only locomotion to intrinsic free flight
+with provider-resolved abilities. The
+[conversation](../../../game/ambition_content/assets/dialogue/sandbox/hall.yarn)
+describes lift-off and return. This is separate from the death script's
+fresh cloud spawn.
+
+Fresh construction in
+[`ambition_body_seed`](../../../crates/ambition_body_seed/src/lib.rs)
+uses the prepared flight fact to set the ability baseline, initial flight
+mode, intrinsic gravity scale and `ActorTuning.is_aerial`. Form replacement
+updates geometry and kit, but only refreshes `AbilityBase` in its
+home-body, non-match arm. It does not rebind those other intrinsic flight
+facts for the ordinary sheep. Runtime
+[steering](../../../crates/ambition_platformer2d_actor_monolith/src/body/movement.rs),
+[integration](../../../crates/ambition_platformer2d_core/src/movement/integration.rs)
+and [gravity](../../../crates/ambition_platformer2d_runtime/src/gravity/resolve.rs)
+read the retained values, so correct preparation alone cannot fix the
+changed body.
+
+Construction and replacement must consume the same resolved intrinsic
+form decisions. Reuse the current prepared definition, physical baseline
+and native application boundary. Extend their bounded value/transition
+helpers where needed; do not duplicate a seed constructor in the re-wear
+system or copy a newly built scratch body over live components.
+
+Keep these inputs distinct:
+
+| Input | Owner and replacement rule |
+| --- | --- |
+| Intrinsic form configuration | Prepared form: base abilities, movement model/tuning and intrinsic flight/gravity policy; rebind when the admitted form changes |
+| Role and occurrence terms | The selected home experience, match seat, boss role or summon: retain, convert or refuse its owned grants/overrides under that role's existing policy |
+| Current effective permissions | Ability contributions, ceilings and room/body access at the native pre-integration cut; never cached as the form's identity |
+| Live movement mode | Native movement state: preserve an unchanged toggle; apply a deliberate enter/leave policy when the selected intrinsic mode changes |
+| Environment and effect forces | Their current native owners; a form's intrinsic gravity response does not replace their acceleration or lifetime |
+
+The ordering matters. Settle flight against the selected intrinsic policy
+and current effective permissions before movement reads it, including
+when the effective ability bitset is unchanged. Merely setting
+`fly_enabled = true` then relying on
+[`project_body_abilities`](../../../crates/ambition_platformer2d_core/src/ability_projection.rs)
+to clear it is unsafe: that projector returns early when effective bits
+do not change, and some steering readers test the live mode alone.
+Likewise, `fly && !fly_toggle` after masks is not proof of intrinsic
+free flight; a mask can deny the toggle independently. Intrinsic gravity
+response, permitted control, and live activation remain separate facts.
+The native movement owner settles their combination once, when the
+selected flight policy or its effective permissions change. Extend that
+owner's enter/leave operation; spawn/reset initialization and room-arrival
+reset are not live form-change APIs. A grounded intrinsic baseline does
+not deny a separately granted flight capability, and denied flight
+permission does not itself replace intrinsic gravity response. See the
+[intrinsic locomotion contract](../../../crates/ambition_characters/src/actor/intrinsics.rs).
+
+Role terms are real inputs, not just home/match exceptions. Existing
+[boss and summon construction](../../../crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs)
+supplies role-specific flight, health or contact terms. Preserve their
+declared ownership when sharing intrinsic form resolution; not every
+difference from a bare character seed is stale form state.
+
+Preserve velocity, carried momentum, pending launches, accumulated damage,
+controller identity and custody unless the owning transition explicitly
+converts or retires that state. `BodyFlightState` carries more than a
+flight Boolean; do not reset the whole component. Keep the current
+state-preserving motion-model switch. A possessed NPC uses the same form
+rebind as an unpossessed NPC; possession itself changes no intrinsic form.
+Explicit role/home/match terms remain in force, and a skin changes no
+mechanical configuration.
+
+Retraction must read what the old application owned. Keep enough of that
+fact in the current applied/grant record; do not recover it by looking up
+the old ID in a new registry. The existing death-trait refresh does that
+lookup for `previous_authored`, so a same-ID field removal can erase its
+evidence. Check this touched withdrawal with the native rebind record;
+do not open a separate general grant journal.
+
+### Delivery, deletions and acceptance
+
+1. Move form and beat admission ahead of consequences on the existing
+   request road. Exercise N active with N+1 published, including selected
+   metadata. Observe refusal before any repair tick can hide a mutation.
+2. Share resolved intrinsic decisions between construction and replacement,
+   then apply them through the ability/movement owners for ordinary bodies
+   as well as home bodies. Compare a fresh cloud's intrinsic configuration
+   with a sheep transformed to cloud and back, both unpossessed and
+   possessed. Compare configuration, not fresh and live mutable state.
+3. Check same-form reapplication with carried momentum or a pending launch,
+   and a form change while a ceiling already denies flight, then lift
+   that ceiling. Denying only the toggle must not create permanent flight.
+   Preserve explicit role/home/match terms. Extend existing focused body
+   witnesses; no full controller/roster matrix is needed for this slice.
+
+Delete the home-only refresh as the sole form-ability path. After the
+shared rebind covers its real composition, remove Mary-O's duplicate
+per-tick cosmic AirJump lend:
+[authored ability](../../../game/ambition_demo_mary_o/assets/data/character_catalog.ron),
+[current duplicate](../../../game/ambition_demo_mary_o/src/cosmic.rs).
+Other named cosmic mechanics remain provider policy.
+
+Resolve stable inputs at admitted form/generation changes. Add no
+per-body name search, default interpreter, all-combinations cache or new
+active schedule. This plan claims no runtime or build-time gain.
+[Character A3](character-authoring-package.md#a3--preserve-one-preparation-authority)
+and [linking L2](capability-linking-and-prepared-facets.md#l2--link-one-candidate-across-two-mechanical-owners)
+own its preparation dependencies. The existing native operation owns
+application; it can be corrected before wider linking work.
 
 ## Current shape and open work
 

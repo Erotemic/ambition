@@ -414,9 +414,13 @@ The explicit `hold_at_s` is currently not retimed. A source hurt profile
 also reads playback time directly. The Admiral has no authored hurt profile,
 so the latter is a supported-composition gap, not an Admiral hurtbox finding.
 The sheet hit-area API expects row seconds while its caller supplies a move
-window instant. Current source comments describe coarse per-row tracks;
-do not claim a shipped per-frame defect. Frame-duration rounding alone is
-enough reason not to assume row duration equals source move duration.
+window instant. Source comments claiming every character uses coarse
+per-row tracks are stale: the Performer publishes explicit per-frame
+swing samples. The [empty-geometry audit](../engine/combat-model.md#preserve-an-authored-empty-geometry-sample)
+traces its borrowed second jab into an authored empty frame that becomes
+a coarse fallback. That is a separate result-semantics defect, not proof
+of an observed retiming error. Frame-duration rounding is also enough
+reason not to assume row duration equals source move duration.
 Preserve the sampling cut: current strike geometry is sampled at window
 entry and retained for that window. Convert that selected entry instant;
 do not silently replace the shape with current rendered-frame geometry.

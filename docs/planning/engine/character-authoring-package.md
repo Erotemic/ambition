@@ -112,8 +112,22 @@ reading from the character*. A missing author and a redundant derivation are the
 same defect seen from two ends. A geometry fact is three components (collision
 size, render quad, quad offset); closing one of them looks like closing the seam.
 
-**Open residuals:** none known (re-measured 2026-10-08). Search again with
-the two questions above before the next slice.
+**Open residuals, static review at `00bf92c22142` (2026-11-22):**
+
+- [L1 family selection](capability-linking-and-prepared-facets.md#select-attack-families-before-materializing-moves):
+  changing one equipment slot regenerates an untouched authored attack,
+  and the folded repertoire loses explicit ranged execution/absence.
+- [FORM-REBIND](controlled-character-actor-kernel.md#form-rebind--admit-and-apply-the-complete-intrinsic-form):
+  form admission follows some native consequences, and ordinary body
+  replacement does not consume the intrinsic ability/flight decisions
+  that fresh construction consumes. Mary-O's cosmic AirJump lend is a
+  concrete duplicate after that shared path is corrected.
+- [Authored empty geometry](combat-model.md#preserve-an-authored-empty-geometry-sample):
+  a published empty frame is replaced by coarse geometry, then the combat
+  interface also conflates empty with missing metadata.
+
+These extend existing owners. They do not reopen the completed scale
+compiler or require another character schema campaign.
 
 **Closed slices and their guards:**
 
@@ -190,6 +204,17 @@ experiment than speculative general-purpose multiple inheritance. If it
 requires new format syntax, keep explicit facet names, stable override order
 and strict conflict errors. Preserve the ordinary, fully expanded RON road.
 
+State each selected field's composition law before lowering it. The
+current prepared fold correctly preserves explicit empty technique/ability
+sets, while some traits combine by OR or union. The sprite source family's
+recursive map merge and list/scalar replacement are also declared laws.
+Do not replace those different meanings with one global merge rule.
+If a preset needs to remove an inherited optional fact, its source must
+express that choice before default elaboration erases it. `None` cannot
+mean both inherit and remove at the same boundary. Resolve the choice to
+one native value and retain useful source provenance at preparation;
+do not make live gameplay walk the preset chain.
+
 **Acceptance:** one badnik base plus per-character art/height/speed overrides
 produces the same six prepared values as the existing expanded rows; original
 and prepared provenance remain inspectable; editing the base changes all
@@ -233,6 +258,21 @@ name a character by its id (A1, closed slices).
 A new serialized facet must define its schema/version and content compatibility
 behavior before it becomes a stable public format.
 
+Preparation must retain decisions until the native owner has consumed
+them. Correct prepared values alone do not prove correct specialization
+or replacement. L1 retains the selected attack family and executor;
+the geometry owner carries authored empty through the last fallback;
+FORM-REBIND admits the selected form before retracting its predecessor
+and applies the intrinsic facts through the existing state owners.
+No consumer should have to reconstruct one of those decisions from the
+absence of a derived field.
+
+The common design rule does not require a common runtime type. Keep the
+small domain products and their independent laws. Stable selected facts
+can be prepared; current permissions, resources and movement state stay
+live. Invalid required data refuses admission, while explicit absence is
+a valid authored choice where its domain supports it.
+
 ### A4 — make authoring inspection useful before building a large editor
 
 The minimum authoring loop is:
@@ -249,6 +289,13 @@ inspect character package
 Move authoring data toward a graphical workbench only when the semantic model is
 stable enough that the frontend is exposing real contracts rather than inventing
 a second one.
+
+For the three residuals above, inspection should answer the actual
+decision: which source replaced an attack family and which executor now
+owns it; which geometry source/sample was selected and why a fallback was
+permitted; which intrinsic form facts and role terms a body will apply.
+Use the existing prepared values and diagnostics. Do not create a second
+provenance registry or require a renderer to inspect these facts.
 
 ## Shared versus ruleset-specific facts
 

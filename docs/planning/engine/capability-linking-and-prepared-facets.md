@@ -315,7 +315,124 @@ Witness: `a_scale_with_one_bad_facet_is_refused_whole`
 the per-frame scheme over `BodyAbilities` (DUP-CHARACTER-KIT). It needs no
 change here.
 
-Still open from L1:
+#### Select attack families before materializing moves
+
+**Open refinement, static source `00bf92c22142`, 2026-11-22.** The scale
+compiler above remains complete for its stated contract. The later
+equipment/hand fold can replace decisions that it already compiled.
+
+[`effective_repertoire`](../../../crates/ambition_characters/src/repertoire.rs)
+rebuilds both melee and ranged when either preset slot changes.
+[`build_actor_moveset`](../../../crates/ambition_characters/src/moveset_prefabs.rs)
+then writes both families' bindings. A ranged-only grant can replace an
+untouched authored/scaled jab with the generic melee preset. Conversely,
+a melee-only grant can turn a charging identity's unchanged ranged payload
+into a moveset `ranged` verb. The live
+[`charge_stream_owns_the_press`](../../../crates/ambition_combat/src/action_emission.rs)
+helper then suppresses charge. This is an unintended owner switch, not a
+claim that the base ranged press fires twice.
+
+The shipped robot supplies the charged identity and an authored `attack`
+binding: [catalog](../../../game/ambition_content/assets/data/character_catalog.ron)
+and [fighter facet](../../../game/ambition_content/assets/data/fighters/player_robot_v3.ron).
+Ranged-only equipment is an existing authoring input, used by
+[Mary-O's fire form](../../../game/ambition_demo_mary_o/assets/data/mary_o_forms.ron).
+These establish a supported composition counterexample; this audit did
+not observe the robot wearing that form or measure a gameplay symptom.
+
+A field-inequality repair is insufficient. A ranged grant numerically
+equal to a charged identity's latent preset takes the current no-change
+branch. Changing one scalar makes it select moveset execution instead.
+The selected contribution has meaning beyond its numeric payload.
+
+The hand supplies a second counterexample. Its stated contract replaces
+the whole ranged vocabulary, including an explicit empty slot. A held
+bomb or melee-only axe clears both `ActionSet.ranged` and ranged move
+bindings. The runtime interprets their absence on a charging body as
+permission to use native charge. Raw charge edges remain admitted when
+room/body ranged permission allows them. The relevant roads are
+[held specs](../../../crates/ambition_characters/src/brain/action_set/mod.rs),
+[control acceptance](../../../crates/ambition_platformer2d_actor_monolith/src/control/acceptance.rs),
+and [charge consumption](../../../crates/ambition_projectile_combat/src/systems.rs).
+Keeping that inherited attack, if desired by a product, must be an
+explicit hand policy; it cannot result from interpreting empty twice.
+
+**Native contract:** in the existing pure repertoire fold, first select
+the contribution for each attack family: identity, winning equipment
+grant, or the hand's replacement. Retain an explicit empty replacement.
+Then materialize only the selected families. Carry the identity's native
+execution decision into that selection, and publish the effective ranged
+owner with the repertoire at its existing transition.
+
+Use a small domain result that can state disabled, native charge, or
+moveset execution. Preserve the existing direct ranged-attempt path,
+including bodies with a melee-only moveset, if this result covers them;
+the current emitter and native refire consumer support that path. Do not
+fabricate a move just to make native charge or a direct attempt look like one.
+
+The required laws are:
+
+- Replacing one family preserves the other family's bindings, authored
+  geometry, timing, and already-selected scale result. A shared move ID
+  referenced by another retained verb is not deleted as collateral work.
+  Resolve a conflicting replacement at the compiler; do not let map
+  insertion order overwrite the retained family silently.
+- Explicit empty is a selected answer. It does not expose the inherited
+  charge route. Equal payloads do not erase a change of source or executor.
+- A held ranged item still selects its own execution. Releasing it
+  recomputes the identity/equipment result from durable inputs.
+- Keep the special/item-use laws already stated by the fold. In particular,
+  a hand item without a melee move can still use the ordinary Attack
+  acceptance road for its item action; clearing every verb would break it.
+- Input routing, action labels and readiness read the same effective
+  choice. Permissions, cooldowns, control holds, resources and custody
+  remain live facts at their existing cuts.
+- Preserve accepted action, charge, buffered-shot and refire state under
+  the execution owner's retain/cancel policy. Rebuilding a static table
+  does not itself reset or transfer that work. The selected owner gates
+  new control input; it must not implicitly stop advancement of existing
+  native execution. The current charge consumer can advance clocks and
+  buffered shots under neutral input. Disabling fresh charge attempts
+  does not by itself cancel those shots or erase a held charge.
+
+Do not add an independently mutable executor flag beside two authorities
+that can drift. Extend the current folded product and its publication.
+The character's potential capability and the effective owner of this
+press remain distinct. Apply the ownership rule on borrowed-seat
+specialization too: `WornKit::of` currently overlays the original
+`prepared.authored_moveset`, before the baseline's execution filter.
+No shipped contradictory borrowed definition was established here.
+
+Preserve specialization order. The character's `DamageScale` interprets
+its own move table, including the borrowed seat set compiled inside
+`WornKit`. A later equipment or hand move uses that contribution's own
+specification. Do not move `scale_moveset` after the entire repertoire
+fold: that can rescale retained moves and apply a character's move-ID map
+to an unrelated weapon. A playing authored move may still supply its
+explicit `shot_damage` to a brandished weapon under the existing dispatch
+law. Keep that interaction and room combat rules; neither authorizes an
+implicit second character-scale pass.
+
+**Remove:** the broad two-family rebuild, absence-of-verb as proof of
+charge ownership, and the touched action/readiness readers' independent
+reconstruction of this choice. Retire `equip_equipment_row` if its only
+remaining test customers can use the real fold. Keep one native
+specialization owner, the completed scale compiler and the existing
+per-frame permission boundary.
+
+**Proof and cost:** use focused compositions at the current fold and
+input/emission boundary: ranged-only replacement retains a prepared
+melee move; melee-only replacement retains charge; an equal-valued ranged
+replacement has the same ownership meaning as another ranged replacement;
+an explicitly empty hand slot admits no fresh ranged attempt; a real
+ranged hand item still works and release restores the prior choice. Include one move ID
+shared by a replaced and a retained verb: the retained move value as well
+as its binding must survive. An equipment change
+keeps `ContentEpoch`. No full roster matrix is needed. Recompute at
+identity/equipment/hand changes; do not inspect source inheritance every
+tick or precompute all combinations. No performance result is claimed.
+
+Other open work from L1:
 - **Retain source timing through specialization.**
   [CLIP3](../demos/smash-expressive-fighter-poses.md#clip3--preserve-source-motion-under-ruleset-retiming)
   keeps the prepared map from selected move time to source motion time and
@@ -327,8 +444,8 @@ Still open from L1:
   `ambition_content::authored_movesets::on_a_platform_fighter_stage` applies
   only damage and verbs, straight from the pack's facet. It needs no app.
   Its two percent-comparison customers do not read clocks or knockback.
-- **No equipment-change witness.** Nothing yet checks that an equipment
-  change leaves `ContentEpoch` unchanged.
+- **Equipment-change acceptance.** The family-selection proof above also
+  checks that changing equipment leaves `ContentEpoch` unchanged.
 
 This is not a requirement to extract every actor facet. Resource-plan work must
 consume this composition context rather than build a second actor compiler.
@@ -342,6 +459,16 @@ Change both in one candidate. Link their imports before creating the candidate
 body; make one referenced value invalid and keep the old generation active.
 Run the valid candidate through startup and the current development reload
 road. A later room rebuild must use those same admitted values.
+
+The existing narrative form request supplies a concrete live-generation
+case. It checks the App catalog, changes `CharacterForm` and queues a beat
+before the gameplay applier checks `SessionCast`. Earlier physical
+projection can already retract the old grant. Use
+[FORM-REBIND](controlled-character-actor-kernel.md#form-rebind--admit-and-apply-the-complete-intrinsic-form)
+to admit the selected form and its metadata before any of those writes.
+Refusal must preserve the whole body and the beat at the refusal cut;
+an unchanged kit after later repair is insufficient. This native repair
+can ship before a wider link-context extraction.
 
 Delete the migrated provider's duplicate catalog lookup or overlay. Retain
 rechecks for mutable progress or ownership that can change before publication.

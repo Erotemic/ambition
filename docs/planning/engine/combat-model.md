@@ -85,6 +85,155 @@ number of swings, or winning outcome. Reapply the earlier reverted reach
 projection only after a focused same-hitbox visual/strike witness and sensible
 CPU-vs-CPU or player-play regression, not to appease an overconstrained test.
 
+## Preserve an authored empty geometry sample
+
+**State:** planned refinement from static source `00bf92c22142`, 2026-11-22.
+The existing source binding and coordinate owners remain in place. This
+section owns the meaning of their answer to a combat geometry query.
+
+### Evidence and current customer
+
+The Performer's `attack_side` motion has ten frames at 40 ms per frame.
+Its source enables per-frame hit geometry on frames 2–5. The shared
+authoring family emits an empty sample for each inactive frame and also
+publishes a coarse hull over the active swing. The publisher preserves
+those empty entries in the native frame array.
+
+The Performer also borrows Pointed Polygon's second jab without replacing
+its timing. That move plays `attack_side`, and its active window starts
+at 50 ms. Current combat samples the source at window entry, so this
+composition selects frame `floor(0.05 / 0.04) = 1`. The frame is authored
+empty. `frame_space::sample` ignores that empty entry and returns the
+coarse whole-swing hull instead.
+
+Sources: [motion timing](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/motion/humanoid/performer_stage_v1/clips/attack_side.clip.json),
+[active samples](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/motion/humanoid/performer_stage_v1/specs/attack_side.spec.json),
+[`authored_hit_volume_frames`](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/authoring/swing_effects.py),
+[family publication](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/_authored_swing_fighter.py),
+[native serialization](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/core/manifest_ron.py),
+[borrowed jab](../../../game/ambition_content/assets/data/movesets/pointed_polygon.ron),
+[Performer binding](../../../game/ambition_content/assets/data/movesets/performer.ron),
+and [sampling](../../../crates/ambition_sprite_sheet/src/frame_space.rs).
+This is a source-derived counterexample; no generated bundle or live hit
+was observed in this audit.
+
+Changing the sampler to return `None` does not close the defect.
+[`manifest_attack_hitbox_local`](../../../crates/ambition_character_sprites/src/attack_hitbox.rs)
+and the [combat bridge](../../../crates/ambition_combat/src/authored_volumes.rs)
+return `Option<CombatVolume>`. Both
+[strike creation](../../../crates/ambition_combat/src/moveset/mod.rs) and
+[AI coverage](../../../crates/ambition_combat/src/authored_coverage.rs)
+interpret `None` as permission to use the move's fallback rectangle or
+circle. Coverage application has a further trap: it writes only a
+nonempty result, so an all-empty result would leave the previously derived
+move region and reach in place.
+
+### Contract at the existing owners
+
+Preserve three answers through the sprite selection and combat bridge:
+
+| Answer | Meaning | Combat consequence |
+| --- | --- | --- |
+| Unauthored | No geometry is declared for this admitted query | Use a fallback only where the move's existing geometry policy permits one |
+| Empty | The selected authored sample contains no shape | No strike or coverage from this volume; no coarse or move fallback |
+| Shape | The selected authored sample contains geometry | Use that geometry through the existing coordinate and strike-region owners |
+
+These are domain meanings, not required public type names. At a declared
+sampling instant, a present frame array selects an authored sample even
+when that sample is empty.
+Without a frame array, a declared coarse shape remains a valid static
+program. Coarse geometry can also serve an explicitly coarse inspection;
+it is not a substitute for a selected empty sample. Keep the declared
+final-sample hold rule, including an empty final sample. Validate the frame
+program's time basis at preparation;
+missing or invalid timing must not silently switch it to the coarse hull.
+Malformed geometry and a missing required source refuse admission. They
+are not an `Unauthored` answer. Optional unbound geometry remains supported.
+
+The sprite schema owns these source meanings. The Python family emits
+them; it does not decide gameplay fallback policy. Combat owns its small
+result and the fallback permitted for the selected volume. Preserve
+named source identity and the selected metadata generation. Image
+residency and a visual fallback cannot change this answer.
+
+Lower this result through strike creation and AI coverage together. The
+minimum hit-area floor and the rule that joins a strike to the body apply
+only to a shape; neither can create geometry from `Empty`. Use the existing
+frame-data composition to combine resolved hittable strikes with active
+capture regions; keep Windbox coverage separate. The current authored
+coverage helper sees only strike volumes, while `MoveSpec::frame_data`
+also sees capture sustains. Do not make that partial answer replace the
+whole region or union the old fallback aggregate back into it.
+
+A complete empty hittable region clears coverage and sets reach to zero;
+a capture-only move keeps its capture region. `polygon_grab` in the
+linked Pointed Polygon moveset is that preservation control: it has no
+strike volumes and uses `smash.capture_attempt`. Keep the source
+distinction until every fallback decision is finished; an optional final
+aggregate can then mean no region. Neither absence nor empty grants
+universal reach. Non-geometric action policy remains with its native owner.
+
+An empty window-entry selection is completed work for that move use and
+window visit. Retain that answer at the existing playback/window owner
+even when no hitbox entity was created; do not let absence from
+`live_boxes` cause repeated resolution on every tick. Preserve the
+different case where a selected Shape has lost its entity: current
+rollback reconstruction must still recreate that shape. Account for
+repeat laps, re-entry and resumed playback; a permanent processed bit
+would suppress valid reconstruction. Preserve the current window-entry
+sampling cut. This slice does not make damage follow the rendered frame.
+
+An empty intermediate sample does not create a new attack pulse. Reuse
+the [pulse-memory plan's owner](#a-strike-pulse-owns-its-contact-memory)
+to preserve victim history across continuous active time without a
+geometry entity. That ownership is planned, not already implemented.
+Where this slice permits a Shape/Empty/Shape sequence, implement its
+required memory ownership through that plan; do not add a second history
+cache or grant an accidental rehit.
+
+Audit the shared sampler's touched hurtbox and boss-inspection callers
+when changing its result. Preserve the existing
+[`ResolvedHurtboxes`](../../../crates/ambition_combat/src/hurtbox_resolution.rs)
+rule: `None` means Unauthored, while `Some(empty)` is an authored empty
+answer. Ordinary and boss
+[target-volume publication](../../../crates/ambition_platformer2d_actor_monolith/src/body/target_volumes.rs)
+already respects that priority. Extend it through sprite sampling; do
+not reconstruct a static damageable box merely because a vector is empty.
+Preserve the separate physical collision owner. Boss inspection is not
+a second live boss-damage road.
+
+### Bounded delivery and proof
+
+Implement the result in the existing schema/sampler, character adapter
+and combat bridge, then remove the selected-frame `is_populated` fallback
+and the empty-to-fallback interpretations at their consumers. Resolve the
+borrowed jab's content intent explicitly: if it should hit at 50 ms, give
+it the intended timing or source geometry. Do not restore global fallback
+to retain that one move's provisional behavior.
+
+Use the existing sprite/combat seam to prove three cases with coarse and
+move fallbacks available: no frame program uses the declared coarse
+shape; a populated sample uses its shape; an empty sample produces no
+strike and no AI strike region. Include the inherited-jab composition,
+the all-empty coverage update and the capture-only control. The current
+[parity witness](../../../game/ambition_demo_smash_app/tests/the_brain_admits_by_the_geometry_that_hits.rs)
+skips an empty expected region; it cannot prove this unchanged. Check
+completed Empty work against reconstruction of a missing Shape, using
+the existing pulse proof if an empty intermediate segment is touched.
+This is proposed acceptance, not a test result. No roster-wide matrix
+or source-text guard is needed.
+
+Preparation validates once; runtime carries a small result tag and the
+existing references. Preserve window-entry work and avoid a retry loop.
+No speedup is claimed. The
+[CLIP3 time map](../demos/smash-expressive-fighter-poses.md#clip3--preserve-source-motion-under-ruleset-retiming)
+still owns selected-time to source-time conversion. This distinction is
+needed even when the correct source time has already been selected.
+[Named source binding](runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows)
+and [character preparation](character-authoring-package.md#a3--preserve-one-preparation-authority)
+provide its admitted inputs; no new animation graph or overlay framework
+is needed.
+
 ## Extension rules
 
 1. **Add semantics at the narrow owner.** A new knockback form extends hit
@@ -135,8 +284,11 @@ latency and checked flow execution are owned by
 
 ### A strike pulse owns its contact memory
 
-**State:** unselected bounded follow-up from source `34b4ab0b7f4f`.
-This is not a required demo fix or a measured speedup.
+**State:** bounded follow-up from source `34b4ab0b7f4f`. The
+[authored-empty geometry slice](#preserve-an-authored-empty-geometry-sample)
+selects the memory ownership needed wherever its shared change permits an
+empty intermediate segment. Wider work remains unselected. This is not
+a required demo polish project or a measured speedup.
 
 The existing rule treats one connected active interval as one strike pulse,
 but victim memory lives on each hitbox entity. Playback copies it across

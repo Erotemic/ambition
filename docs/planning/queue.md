@@ -168,6 +168,10 @@ and refines CR1 strike construction. E2 receives the named animation
 binding under its existing owner. These are required operation relations,
 not a general readability rewrite; no native run or performance result is
 claimed.
+The authored-composition review of the same source adds explicit empty
+geometry under combat, attack-family selection under L1, and FORM-REBIND
+below. These close lost decisions at existing native boundaries. Keep the
+completed scale compiler and CHARACTER-FORM geometry receipts.
 
 **Observed:** schema values can lower before their imports resolve; body and
 candidate contexts collect optional domain catalogs; several live-contribution
@@ -223,7 +227,23 @@ world-post admission.
    landed 2026-11-22: `scale_moveset` is the one all-or-nothing scale rule
    that `WornKit::of` and `moveset_in` share, and the spawn Grant asks
    `WornKit::of`, and finalization checks each scale by that rule. Open: the
-   link-context binding and an equipment-change witness.)
+   link-context binding and equipment/hand specialization.)
+   The [family-selection refinement](engine/capability-linking-and-prepared-facets.md#select-attack-families-before-materializing-moves)
+   preserves an untouched family's authored/scaled moves and retains the
+   selected ranged executor, including explicit absence. Equal preset
+   numbers do not erase replacement meaning; shared move IDs cannot make
+   one family's replacement overwrite another. Keep direct attempts and
+   the existing character-scale order.
+   [FORM-REBIND](#form-rebind--admit-and-apply-a-complete-form-on-the-existing-body)
+   supplies L2's live form/generation customer and can be corrected before
+   broader linking. The independent
+   [authored-empty geometry slice](engine/combat-model.md#preserve-an-authored-empty-geometry-sample)
+   carries Unauthored/Empty/Shape through the sprite/combat boundary.
+   An empty selected strike sample contributes no strike or AI strike
+   region; its window entry is completed work without repeated per-tick
+   resolution. Keep capture and push coverage separate. Preserve CLIP3's
+   time map and the current geometry sampling cut, and the existing pulse
+   plan's memory ownership where an empty intermediate segment needs it.
 4. [World composition W1/W2](engine/reusable-authored-world-composition.md#implementation-slices)
    uses existing local references, then a different mechanism. General format
    work follows only if the operation is shared. (W1 landed 2026-11-22: the Bridge Warden is made with its binding to the
@@ -424,6 +444,11 @@ vary independently of an unrelated default subject.
 Room work gates do not substitute for subject selection. A strike retains
 origin from birth through overlap and reception without coupling its
 lifetime to the launching move.
+Equipment replacement preserves each retained attack family's meaning;
+explicit empty geometry or a hand slot does not expose an inherited
+fallback. A refused form request changes no native grant or beat, and an
+accepted form rebinds intrinsic configuration under the same role terms
+as construction while preserving the live body's state.
 State which axis each packet proves. Code, runtime behavior
 and compile-time performance remain separate evidence.
 
@@ -1598,123 +1623,61 @@ Steam Deck. Keep intended opening animation separate from missing frames.
 
 ### CHARACTER-FORM — a change of form is the same body in the new form's geometry — ✅ DONE 2026-11-17
 
-**Owner:** the form application (`avatar/character_execution.rs`, the re-wear
-road), `ambition_body_seed::PhysicalBaseline` / `BaselineBoundary`, the
-construction paths (home body, NPC placement, summons, match fighters, joined
-seats), and control projection (`control/authority.rs`). Ruling: Q159
-(2026-10-19). Plans:
-[controlled-character actor kernel](engine/controlled-character-actor-kernel.md),
-[control authority](engine/control-authority-and-ai-policy.md).
+**Receipt:** Q159's geometry, skin and possession separation is built. A
+home body once retained its old collision box while drawing another
+character's art, and ordinary construction used a different sizing road.
+The shared prepared-body grant now applies standing-height geometry at
+construction and replacement (slice 1, `86ae35083`, 2026-10-19), and explicit
+body geometry takes precedence on both roads (2026-11-12). The four forms
+missing intrinsic size gained authored standing heights. Skin remains
+presentation only; possession changes the driver of an existing body.
+The old form's authored hurtbox is withdrawn when the new form supplies
+none (2026-11-13).
 
-**Current failure (measured 2026-10-06, Q159's table):** the player (a 30 by
-48 box) wearing the companion dog is drawn 36 by 30 in the player's box,
-while the dog NPC is built at 108.6 by 90.6 (the NPC's drawn quad; its
-collider follows `standing_height` 64). `BaselineBoundary::Replacement`
-applies no geometry.
+**Guards:** `a_player_that_changes_form_takes_the_size_of_that_form`,
+`an_explicit_body_is_built_at_its_box_not_its_sheets`,
+`an_explicit_body_is_its_own_box_not_its_sheets`, and
+`a_skin_change_moves_no_collider_hurtbox_or_movement_value`.
 
-**Read 2026-10-19 (the construction roads):** actors size through one
-resolver, `BuiltGeometry::resolve` (`ambition_body_seed`): the posed sheet's
-Idle box (`SpriteAuthored`), else the sheet's `body_metrics` scaled by
-`standing_height`, else the placement box. The contradictions:
+**Standing rules:** preserve the entity, physical identity, accumulated
+damage and control/custody claims. An explicit body keeps its authored
+box. A form without explicit geometry or intrinsic size uses the box
+provided by its construction road, or the live body's box at replacement.
+Do not turn a skin or possession into a form change. The boss-specific
+sizing residual remains with GNUTON-GNU2-FINALE.
 
-1. `BodySource::Explicit` sizes the home body, is only the placement box of a
-   match seat (a sheet overrides it), and is ignored by the NPC, minion and
-   enemy roads. No shipped character authors it (the catalog can express only
-   `posed_body`).
-2. A character with no body source (the dog, `npc_kernel_guide`, the
-   pirates) is sized from its sheet as an NPC, and is 30 by 48 as a player,
-   at the start and after a re-wear: the home body never reads the sheet.
-3. At a re-wear, the prepared-body grant
-   (`actor_spawn::character_body::grant_prepared_character_body`) resizes a
-   `SpriteAuthored` body and keeps the old box for the others; their art is
-   fitted to the kept box, and the hurtbox fallback and attack volumes follow
-   that box, so they are undersized.
-4. Two triggers: the gameplay half of a re-wear (`apply_worn_character_gameplay`)
-   needs `RecharacterizeBody`, and the projection runs on
-   `Changed<WornCharacter>`.
-5. A re-wear never writes `AbilityBase`, so the new form's abilities do not
-   arrive.
-6. Keep worn form, home identity, driving authority, and custody separate.
-   A form change must not replace the participant's driving or custody claims.
-   Possession records and handoffs now apply to each participant seat.
+The completed ability refresh covered home bodies under `HomeBodyAbilities`.
+The 2026-11-22 static review identifies ordinary intrinsic rebind and early
+admission as a separate residual below; the geometry receipt is unchanged.
 
-Tests that pin the old behaviour and change with slice 1:
-`a_body_drawn_from_its_box_states_the_quad_of_the_character_it_wears`
-(`character_runtime/presentation/tests.rs`, "a re-wear keeps the box") and
-`a_reworn_body_states_the_quad_it_is_drawn_at` (app tests). The doc of
-`match_activation`'s `Explicit` seating test calls a projection that resizes a
-live body "a second geometry authority"; the ruling makes the form's
-configuration the input and the live body the authority.
+### FORM-REBIND — admit and apply a complete form on the existing body
 
-**Built 2026-10-19 (slice 1, 86ae35083):** the prepared-body grant sizes a
-form with no posed body from its sheet at its standing height
-(`catalog_join::sprite_body_at_standing_height`, the NPC road's numbers), at
-construction and at each change of form, and retracts it; damage stays; a home
-body's base abilities are `HomeBodyAbilities::base_for` at build and at a
-change of form. Witness `a_player_that_changes_form_takes_the_size_of_that_form`
-(guide, dog, robot, guide; poison red at the guide's 30 by 48 against a built
-40.4 by 65.8). Contradictions 2, 3 and 5 above are closed for forms with a
-standing height. Review finding #8 (2026-10-19): the grant no longer sizes an
-`Explicit` body from its sheet (`sheet_body_for`); it keeps its box, as before
-slice 1. Explicit half-extents on a change of form are still slice 1b.
+**State:** PLANNED, static review of `00bf92c22142`, 2026-11-22.
+**Owner:** [native form contract](engine/controlled-character-actor-kernel.md#form-rebind--admit-and-apply-the-complete-intrinsic-form),
+with character A3, linking L2 and the existing movement/ability owners.
 
-**Built 2026-11-12 (slice 1b):** `BodySource::Explicit` is the box its author
-wrote on every road: the shared resolver (`BuiltGeometry::resolve`, the NPC,
-minion, enemy and match-seat roads) and a change of form
-(`form_body_for` in `actor_spawn::character_body`) take it before the sheet,
-and the sheet draws it fitted to that box (`fitted_render_size`). Before, a
-sheet with a standing height sized an explicit NPC or seat over its box, and a
-change of form into an explicit character kept the old box. Witnesses:
-`an_explicit_body_is_built_at_its_box_not_its_sheets` (body seed) and
-`an_explicit_body_is_its_own_box_not_its_sheets` (actor spawn). A form with
-neither an explicit box nor a standing height keeps the box its road gives
-(the placement box for an NPC, the body's own box on a change of form) and is
-drawn fitted to it: that is the one answer, since a live body has no placement
-box to scale by. Contradiction 1 is closed.
+**Failure / customer:** the Hall's sheep-to-cloud transformation does not
+rebind the intrinsic abilities, flight and gravity configuration that a
+fresh cloud receives. Separately, narrative wear checks the App catalog
+and writes the form/beat before the session cast admits it. Earlier
+physical projection can already withdraw the old grant. A later ID repair
+does not prove refusal had no consequences.
 
-**Measured and built 2026-11-12 (slice 2):** a census built each of seven
-forms as an NPC (a placement), a summon (`SummonRequest`) and a worn form on
-the player, in one room. Five agreed to the bit on all three roads (the dog,
-the guide, the robot, the burning shark; collision, standing box and quad).
-The puppy slug did not: 53.8 by 14.1 as an NPC, 40.3 by 10.6 as a summon and
-the player's 30 by 48 worn, because a form with no standing height is scaled
-by whatever box its road gives (`sprite_body_collision_for_sheet`'s
-placement fallback). Five catalog rows had no intrinsic size; four now state
-one, the height most of their placements already built them at (the puppy
-slug 21.2, the stochastic parrot 38, Mary-O's cartesian and paper plane
-snakes 28.2 and 30.2), and all seven forms agree on every road. The fifth,
-`npc_gnu_ton_boss`, is built by the boss road (`resolve_sheet_body`, from the
-boss catalog), which reads no character standing height: one form, two
-sizing roads, open for GNUTON-GNU2-FINALE's summoned GNU.
+**Next action:** admit the selected form and metadata before publication
+or withdrawal. Reuse resolved intrinsic form decisions at construction
+and replacement, composing explicit role, home and match terms. Settle
+changed flight policy under current permissions at the native cut,
+including when effective bits stay unchanged. Keep live movement state.
+Remove the duplicate Mary-O cosmic AirJump lend only after the common
+rebind covers that composition.
 
-**Slice 3 (2026-11-13), the four operations exist on shared seams:**
-transformation is `CharacterForm` (renamed from `WornCharacter` the same day;
-with `RecharacterizeBody` for the gameplay half), witnessed by `a_player_that_changes_form_takes_the_size_of_that_form`;
-possession is `PossessionPlugin` (`possession_end_to_end`, the original body
-stays in the world); a skin is `WornSkin`, art only; a body mode is
-`BodyMode` on the same body and form. New witness
-`a_skin_change_moves_no_collider_hurtbox_or_movement_value`: the player in
-the dog's skin keeps its standing box, collision size, hurtboxes and
-movement tuning; the control, the dog's form on the same body, moves them.
-Its control found a defect, fixed: after a change of form into a character
-with no authored hurtboxes, the body kept the old form's resolved hurtbox (a
-91.6 by 64 dog damageable only through the robot's 21 by 27 box), because
-`resolve_body_hurtboxes` took back only what a rig had put there. Now
-whatever an authored document or a rig put there is taken back, and the dog
-is damageable through its own box.
-
-**Renamed 2026-11-13:** `WornCharacter` is `CharacterForm` (172 files, no
-alias; the rollback row keeps its label `actor.worn_character`, so saves and
-the codec are unchanged). The four operations are now named for what they
-are: a form, a skin (`WornSkin`), possession, a body mode.
-
-**Next action:** none; the acceptance's arms each have a witness.
-
-**Acceptance:** the robot becomes the dog: the body is the dog's built size,
-with the dog's moves and abilities, the same entity and identity, and its
-damage kept; back to the robot restores the robot's geometry. A skin change
-moves no collider, hurtbox or movement value. A possession leaves the original
-body in the world, and the possessed body keeps its geometry and state.
+**Acceptance:** a refused N/N+1 form request preserves native facts and
+beats at the refusal cut. A fresh cloud and an ordinary sheep transformed
+to cloud receive the same intrinsic configuration under the same terms;
+returning to sheep retracts the cloud's contribution. Possession changes
+no form. Same-form reapplication preserves pending launch or momentum,
+and permission changes settle the selected flight policy without
+manufacturing it from masked bits. No runtime result is claimed here.
 
 ### LEVEL-1 — the lab raid and the first level after it
 

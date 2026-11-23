@@ -1,12 +1,13 @@
 # Architectural audit frontier
 
 **State:** audit map and research priorities, 2026-11-22. Latest source:
-`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass audits music
-selection, playback ownership, prepared timing, and authoring after the
-reported Wolfenstein door/entrance failures. It follows the static-contract
-planning commit `adc7db486346`; the runtime source is unchanged.
-That preceding pass covered room-rule scope, native strike origin, sprite
-source binding, and navigation coverage.
+`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass follows authored
+omission, override and fallback through sprite publication, repertoire
+specialization and native form replacement. It follows music-planning
+commit `877796eeb081`; the runtime source is unchanged. The preceding music
+pass covered the Wolfenstein door/entrance report, selection, playback
+ownership, clocks and authoring. The earlier static-contract pass covered
+room-rule scope, native strike origin, sprite binding and navigation.
 This head includes the preceding planning overlays and the agents'
 IR1 item-recipe and AC1 construction-receipt
 work. Earlier input/life/history and hosted-prediction findings below came
@@ -37,6 +38,7 @@ ever read that code.
 | Observer evidence, tactical knowledge and social retention | [OBS1](bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary), [OBS2 and horizons](world-facts-observations-and-memory.md), [module demand OBS3](agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers) | Native over-cap, dead/lost-sight, report and module-provider witnesses; durable incident/recognition work only with a concrete later dialogue customer |
 | Source input, control handoffs and independent observers | [IN1–IN5](participant-action-system.md), [control](control-authority-and-ai-policy.md), [MV1/M3](multiplayer-and-multiview.md) | Native capture/rebind, charge interruption, prediction and independent-view witnesses; provider P2 and shared-view input policy only with their selected consumers |
 | Content preparation, linking and authoring | [Linking](capability-linking-and-prepared-facets.md), [prepared media](asset-authoring-and-prepared-media.md), [asset delivery](asset-library-editor-and-delivery.md) | A demonstrated generation/publication gap or a repeated interpretation still outside its owner |
+| Authored selection through native application | [L1 family selection](capability-linking-and-prepared-facets.md#select-attack-families-before-materializing-moves), [empty geometry](combat-model.md#preserve-an-authored-empty-geometry-sample), [FORM-REBIND](controlled-character-actor-kernel.md#form-rebind--admit-and-apply-the-complete-intrinsic-form) | Implementation evidence for explicit empty, edit locality and intrinsic rebind; future preset syntax needs a real removal/override customer |
 | Musical policy, product semantics, and playback | [MUS1–MUS4](music-programs-and-playback.md), [MA1](asset-authoring-and-prepared-media.md#ma1--export-playback-facts-link-game-music-policy) | Locked-backend admission/timing evidence and native entrance/door acceptance; deeper capabilities need selected products and support, not another general audio audit |
 | Static operation contracts and source discovery | [SC1](capability-and-runtime-composition.md#sc1--select-rule-subjects-inside-the-work-gate), [strike origin](combat-reception-and-injury.md#carry-attack-origin-through-strike-creation-and-contact), [named animation binding](runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows), [A2 coverage](authoring-and-tools.md#static-source-coverage) | Missing relations at actual operation boundaries; preserve native fast paths instead of adding a descriptive framework |
 | Compiler, dependency and product boundaries | [Compiler/build products](compiler-boundaries-and-build-products.md), [runtime composition](capability-and-runtime-composition.md) | Fresh compile/link/size measurements after the planned cuts |
@@ -56,6 +58,8 @@ native sampling, admission, pending action and view resolution. The static
 contract pass asks whether those operations retain their local meaning.
 The music pass below follows one reported transition through selection,
 submission, retirement, clocks, and source/product preparation.
+The authored-composition pass follows a source decision through the native
+boundaries that must preserve it; correct preparation is only one of them.
 Implementation claims need native evidence; further static
 reasoning does not. Source coverage is not runtime completion.
 
@@ -444,6 +448,54 @@ death/respawn case separate. The selected correction uses native records,
 fixed layer storage, one-source specialization, and bounded command work.
 It does not require a universal music graph or a new audio crate.
 
+### Selected contributions must survive their native consumers
+
+**Owners:** [L1 family selection](capability-linking-and-prepared-facets.md#select-attack-families-before-materializing-moves),
+[combat geometry](combat-model.md#preserve-an-authored-empty-geometry-sample),
+and [FORM-REBIND](controlled-character-actor-kernel.md#form-rebind--admit-and-apply-the-complete-intrinsic-form).
+The [character package](character-authoring-package.md) links these
+residuals and constrains future preset lowering.
+
+The Performer's source publishes per-frame swing geometry, including
+explicit empty samples. Its inherited second jab selects an empty sample
+at window entry, but the sampler substitutes the coarse hull. Returning
+`None` alone would substitute the move rectangle further downstream.
+Preserve Unauthored/Empty/Shape through the last fallback and the live/AI
+consumers. Clear a complete empty coverage result and treat the empty
+window entry as resolved work. Keep the existing sampling cut and CLIP3's
+separate coordinate conversion. This is a static source counterexample,
+not an observed generated bundle or live hit.
+
+Equipment specialization has a related loss. Changing either attack
+slot regenerates both families, which can replace an untouched authored
+move or turn a native charged attack into a moveset attack. A held item's
+explicit empty ranged slot can instead expose native charge again.
+The live gate already prevents base-verb double fire; the new finding is
+wrong execution selection. Choose each family's contribution before
+materializing it, retain the effective executor, and protect shared move
+identities. Equal numeric payloads do not erase selection meaning. Keep
+direct attempts, mutable permission checks and the current scale order.
+
+Form replacement loses a prepared decision at application. The shipped
+Hall sheep-to-cloud transformation does not receive the intrinsic
+ability/flight configuration used for a fresh cloud. Reuse one resolved
+intrinsic specification and let native owners settle changed modes under
+current permissions. Preserve role terms, momentum, launch state, damage
+and control. A masked effective bitset is not the intrinsic flight policy.
+
+Admission is also late: the narrative request checks the App catalog and
+changes the form/beat before the session cast can refuse it. Physical
+projection can withdraw the old grant before the late ID restoration.
+Admit form and metadata against the selected generation before those
+consequences. Restoring an ID later is not evidence of mutation-free
+refusal. The audit proves this N/N+1 path in source, not its frequency.
+
+These are local native products and transition laws. They do not require
+one generic merge algebra, property map, actor compiler, transaction
+framework or per-tick source interpreter. No runtime, build, test, render
+or benchmark ran. Keep the completed scale, form-geometry and prepared-clip
+slices within their stated scope.
+
 ## Areas audited without another architecture packet
 
 Reload and asset realization were inspected against the existing plans.
@@ -495,33 +547,21 @@ UI commands host-local, action occurrence distinct from content identity,
 and wire vocabulary bounded. This is a guard against a proposed shortcut,
 not a claim that the unbuilt bridge already fails in gameplay.
 
+The authored-composition pass retained explicit empty technique/ability
+sets and the source profile's stated recursive-map/list replacement law.
+It did not promote actor-sidecar inference into a native geometry defect:
+those sidecars are not today's native geometry input. Producer-dependent
+empty/partial sheet-tuning defaults need a concrete customer before a
+migration is selected. A1b records the explicit-removal constraint for
+future presets; this pass found no basis for a universal override type.
+
 ## Ranked candidates for the next audit
 
 These are research questions, not established defects or selected work.
 Each starts from an existing owner and a concrete consumer. An audit is
 successful if it rules out a proposed abstraction as well as if it finds one.
 
-### 1. Authored omission, override and fallback laws
-
-Follow one character variant from its source-family overlay through
-prepared facets, native admission and a change of form. Use the existing
-[character owner](character-authoring-package.md),
-[prepared media](asset-authoring-and-prepared-media.md) and
-[linking](capability-linking-and-prepared-facets.md) boundaries.
-
-Ask where omitted, inherited, explicitly empty and explicitly disabled
-values differ. Check whether that distinction survives every lowering and
-whether an optional capability's absence selects a deliberate fallback or
-silently borrows another definition. The sprite profile overlay already
-states its recursive-map and list/scalar replacement law; use that as a
-positive control, not as evidence of a defect.
-
-The aim is a local authoring contract that survives composition. A static
-trace can establish a discarded distinction or competing default. Select
-a new correction only with such a case; do not impose one merge algebra
-on every source family.
-
-### 2. Saved content references across authored evolution
+### 1. Saved content references across authored evolution
 
 Start with one existing item recipe or character occurrence saved against
 one admitted content generation, then read how current construction admits
@@ -538,7 +578,7 @@ across content evolution, not another audit of room residency or live
 endpoint identity. Supporting arbitrary old saves is not assumed. An
 intentional incompatibility with a clear boundary can be the correct result.
 
-### 3. Implemented contract review when a new source head is available
+### 2. Implemented contract review when a new source head is available
 
 Read one completed cut end to end: for example, admitted input into a charge
 under possession, or selected view policy into framing. Check that the old

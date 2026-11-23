@@ -189,9 +189,16 @@ pub struct MusicDirectorState {
     pub(super) admitted: Option<AdmittedMusic>,
     pub(super) ending: Option<MusicEnding>,
     pub(super) requested_state_id: Option<String>,
-    pub(super) continuation_state_id: Option<String>,
+    pub(super) continuation: Option<MusicContinuation>,
+    pub(super) playback_use: super::playback::MusicPlaybackUse,
     pub(super) pending_state: Option<MusicTransitionPlan>,
     pub(super) debug_log_timer: f32,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct MusicContinuation {
+    pub state_id: String,
+    pub use_id: super::playback::MusicPlaybackUse,
 }
 
 impl Default for MusicDirectorMode {
@@ -221,7 +228,8 @@ impl MusicDirectorState {
         self.current_state_id = None;
         self.current_section_id = None;
         self.requested_state_id = None;
-        self.continuation_state_id = None;
+        self.continuation = None;
+        self.playback_use = Default::default();
         self.pending_state = None;
         self.position_seconds = None;
     }

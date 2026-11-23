@@ -12,6 +12,7 @@ pub use loader::load_music_cues;
 fn current_is_running(director: &MusicDirectorState, channels: &MusicPlaybackCommands) -> bool {
     channels.current().is_some_and(|group| {
         Some(group.entry) == director.entry
+            && group.use_id() == director.playback_use
             && group.phase == MusicGroupPhase::Running
             && match &group.product {
                 MusicProduct::Track { .. } => director.mode == MusicDirectorMode::SimpleTrack,
@@ -119,6 +120,7 @@ pub fn drive_music_director(
     }
 
     let transport_completed = director.transport_completed;
+    let playback_use = director.playback_use;
     let ending_outcome = director.ending.as_mut().and_then(|ending| {
         let section = ending
             .admitted
@@ -128,7 +130,8 @@ pub fn drive_music_director(
             .and_then(|state| ending.cue.state(state))
             .map(|state| state.section_id.as_str())?;
         // Native completion can arrive before the first running observation.
-        if channels.section_completed(ending.admitted.entry, &ending.cue.id, section) {
+        if channels.section_completed(ending.admitted.entry, playback_use, &ending.cue.id, section)
+        {
             return Some(MusicEndingResult::Finished);
         }
         if ending.started {
@@ -171,7 +174,12 @@ pub fn drive_music_director(
     let ending_result = director.ending.as_mut().and_then(|ending| {
         let state = ending.admitted.selection.completed_state.as_deref()?;
         let section = ending.cue.section(&ending.cue.state(state)?.section_id)?;
-        let group = channels.section_group(ending.admitted.entry, &ending.cue.id, &section.id);
+        let group = channels.section_group(
+            ending.admitted.entry,
+            playback_use,
+            &ending.cue.id,
+            &section.id,
+        );
         if let Some(group) = group {
             ending.started = true;
             ending.duration = section

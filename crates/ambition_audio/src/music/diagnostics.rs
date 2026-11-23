@@ -238,7 +238,7 @@ pub fn observe_music_playback(
                         d.active_cue_id.as_deref() == Some(cue_id.as_str())
                             && d.requested_state_id.as_deref() == Some(state_id.as_str())
                     })
-                    .and_then(|d| d.continuation_state_id.as_deref());
+                    .and_then(|d| d.continuation.as_ref().map(|next| next.state_id.as_str()));
                 if let Some(section) = cue
                     .state(continuation.unwrap_or(state_id))
                     .and_then(|state| cue.section(&state.section_id))
@@ -319,7 +319,7 @@ pub fn observe_music_playback(
                     && director.prepared_cue.as_ref().is_some_and(|cue| {
                         (cue.playback.exhausted
                             == crate::music_policy::MusicExhaustionPolicy::Finish
-                            && director.continuation_state_id.is_some())
+                            && director.continuation.is_some())
                             || (director.requested_state_id == director.current_state_id
                                 && director
                                     .current_state_id

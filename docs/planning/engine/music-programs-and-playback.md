@@ -1,8 +1,8 @@
 # Music programs and owned playback
 
-**State:** selected MUS1–MUS4 and MA1 implementation landed, 2026-11-23.
-Static follow-through at `1bef25200e002f01b6afdbc7033e3f00b1ec0b72`
-identifies one [same-product continuation residual](#a-continuation-use-is-distinct-from-its-scheduling-deadline).
+**State:** selected MUS1–MUS4 and MA1 work is complete, 2026-11-23.
+`2fb366d1e` closes the [same-product continuation finding](#a-continuation-use-is-distinct-from-its-scheduling-deadline)
+from the static review of `1bef25200e00`.
 The prior review used `6d100f9d9e0d557fe4ae3dad61acd5aef71f684e`.
 MUS1's bounded playback executor landed in `d4147e4c`; per-source music
 publication and canonical attempts landed in `6d100f9d`. Release facts now
@@ -254,7 +254,7 @@ transient candidate that presentation did not admit.
 Compatible product data is necessary for reuse, but does not decide whether
 an entry should start again. Current
 [`MusicPlaybackRequest::can_continue`](../../../crates/ambition_audio/src/music/playback.rs)
-compares entry, `start_after`, product, looping and source handles. Repeating it preserves retry
+compares entry, continuation use, `start_after`, product, looping and source handles. Repeating it preserves retry
 and exhausted state; a completed one-shot deliberately stays complete.
 The adaptive director also recognizes held requests by cue/state. Adding
 an attempt only to an outer candidate leaves those decisions unchanged.
@@ -281,44 +281,20 @@ check after the transition's meaning is known.
 
 ### A continuation use is distinct from its scheduling deadline
 
-**Open residual from static review of `1bef25200e00`, 2026-11-23.**
-`MusicStateSpec::next_state` promises to start that state when its one-shot ends.
-Preparation permits A -> B where both states name the same non-looped
-section X. This is a supported graph, not a reported Castle Godwin failure.
+**Receipt, `2fb366d1e`, 2026-11-23:** a valid one-shot A -> B graph could skip
+B when both states used the same section and A completed between host updates.
+A continuation now retains its predecessor occurrence separately from its optional
+native deadline. Requests, admitted groups and completion retain that use;
+late decode and repeated reduction retain the selected edge. Completion and
+retry state cannot transfer to a new use of the same product. The outer entry
+and claim remain unchanged. Ordinary live mix changes retain their occurrence.
 
-If the director observes A in time, `schedule_continuation` gives B a
-`MusicStartAfter` naming A's occurrence. If A starts and completes between
-host observations, its retained completion selects B through
-[`drive_adaptive_cue_state`](../../../crates/ambition_audio/src/music/director/adaptive.rs).
-The equal-section branch only updates gains and current state. No B use
-starts; the executor's desired outcome remains terminal. A later successor
-can also consume that retained completion without B having played.
-
-Calling `start_adaptive_state` unconditionally is insufficient:
-`MusicPlaybackRequest::can_continue` can still equate an unscheduled B with
-completed A. The optional native deadline currently also distinguishes
-their uses. That makes semantic execution depend on host observation timing.
-
-Resolve a `next_state` edge as a new use even when its product is identical.
-Retain its predecessor/selected transition identity separately from the
-optional native start deadline, through preparation, late readiness, missed
-scheduling and bounded retry. Choose that use once; repeated reduction of
-the same edge must not mint another use or consume completion twice. Keep
-the outer `MusicEntry` and claim, which still own ending and release policy.
-Use the existing bounded director/executor state, not a second event journal.
-
-An ordinary live same-section state change still adjusts its mix without
-restart. Therefore adding every state ID to request equivalence is also
-incorrect. Product compatibility follows the selected transition's meaning.
-The prior occurrence's completion cannot complete a new use of the same
-section. Self-repeat uses the same rule; no special same-name branch is needed.
-
-Extend the existing short-completion/host-stall crossing with A -> B on the
-same section, under `StartReadyTarget`, plus a live mix-only state change as
-the no-restart control. B executes once with and without early scheduling.
-Retain the native captures, source-demand retirement and supported timing
-limits already established. This closes a MUS2/MUS3 boundary; it does not
-replace the native executor or reopen stronger timing work.
+Guard: 154 audio tests, including timely and late same-section continuations,
+delayed decode, self-repeat and a live mix control. The extended native
+short-completion test passes with a repeated 5 ms section across a host stall.
+Assembled-app compilation passes. Keep these semantics in the bounded native
+owner. Do not use a deadline or state name as execution identity, or add an
+event journal. Stronger timing and physical-speaker acceptance remain separate.
 
 ## Contract 2 — a prepared program describes possible playback
 

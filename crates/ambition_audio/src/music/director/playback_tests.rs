@@ -2139,3 +2139,194 @@ fn an_endings_wait_mix_changes_gains_without_starting_its_referenced_section() {
     assert_eq!(current.nonzero_gain_voice_count(), 2);
     assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
 }
+
+#[test]
+fn a_same_section_continuation_plays_once_with_or_without_early_scheduling() {
+    for (early, delay_decode) in [(true, false), (false, false), (false, true)] {
+        let mut authored = authored_cues(240.0);
+        for cue in &mut authored.cues {
+            cue.playback.exhausted =
+                Some(crate::music_policy::MusicExhaustionPolicy::StartReadyTarget);
+            cue.playback.continuation_crossfade_seconds = Some(0.0);
+            if let MusicCueMedia::Inline { sections, .. } = &mut cue.media {
+                sections[0].duration_beats = 2.0;
+                sections[1].duration_beats = 0.02;
+                sections[1].looped = false;
+            }
+            cue.states[1].next_state = Some("echo".into());
+            let mut echo = cue.states[1].clone();
+            echo.id = "echo".into();
+            echo.next_state = Some("later".into());
+            cue.states.push(echo);
+        }
+        let (mut app, handles) = fixture_with(authored);
+        for (index, handle) in handles.iter().enumerate() {
+            decode(&mut app, handle);
+            if index % 8 < 4 {
+                app.world_mut()
+                    .resource_mut::<Assets<KiraAudioSource>>()
+                    .get_mut(handle)
+                    .unwrap()
+                    .sound
+                    .frames =
+                    vec![Frame::new(0.0, 0.0); if index % 8 < 2 { 24000 } else { 240 }].into();
+            }
+        }
+        for _ in 0..6 {
+            step(&mut app, 0.0);
+        }
+        assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+        if early {
+            step(&mut app, 0.5);
+            for _ in 0..4 {
+                step(&mut app, 0.0);
+            }
+        } else {
+            // The scheduled song starts and finishes before another host observation.
+            step(&mut app, 0.8);
+            if delay_decode {
+                let delayed: Vec<_> = handles[2..4]
+                    .iter()
+                    .map(|handle| {
+                        let source = app
+                            .world_mut()
+                            .resource_mut::<Assets<KiraAudioSource>>()
+                            .remove(handle.id())
+                            .unwrap();
+                        (handle.id(), source)
+                    })
+                    .collect();
+                for _ in 0..4 {
+                    step(&mut app, 0.0);
+                }
+                assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+                for (id, source) in delayed {
+                    app.world_mut()
+                        .resource_mut::<Assets<KiraAudioSource>>()
+                        .insert(id, source)
+                        .unwrap();
+                }
+            }
+            for _ in 0..4 {
+                step(&mut app, 0.0);
+            }
+        }
+        assert_eq!(
+            app.world().resource::<RecordedMusicOutput>().submitted,
+            if early { 6 } else { 8 },
+            "early={early}"
+        );
+        assert_eq!(
+            app.world()
+                .resource::<MusicDirectorState>()
+                .current_state_id
+                .as_deref(),
+            Some(if early { "song" } else { "echo" }),
+            "early={early}"
+        );
+        step(&mut app, 0.005);
+        for _ in 0..6 {
+            step(&mut app, 0.001);
+        }
+        frames(&mut app, 8);
+        assert_eq!(
+            app.world()
+                .resource::<MusicDirectorState>()
+                .current_state_id
+                .as_deref(),
+            Some("later"),
+            "early={early}"
+        );
+        assert_eq!(
+            app.world().resource::<RecordedMusicOutput>().submitted,
+            8,
+            "early={early}"
+        );
+    }
+}
+
+#[test]
+fn a_live_same_section_mix_change_keeps_its_playback_use() {
+    let mut authored = authored_cues(60.0);
+    for cue in &mut authored.cues {
+        let mut mix = cue.states[1].clone();
+        mix.id = "quiet".into();
+        for gain in &mut mix.gains {
+            gain.gain = 0.25;
+        }
+        cue.states.push(mix);
+    }
+    let (mut app, handles) = fixture_with(authored);
+    for handle in &handles {
+        decode(&mut app, handle);
+    }
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    frames(&mut app, 4);
+    let original = app
+        .world()
+        .resource::<MusicPlayback>()
+        .current()
+        .unwrap()
+        .occurrence;
+    for state in ["quiet", "song"] {
+        publish(&mut app, selection("trail", state, "room", 0, 10));
+        frames(&mut app, 4);
+        assert_eq!(
+            app.world()
+                .resource::<MusicPlayback>()
+                .current()
+                .unwrap()
+                .occurrence,
+            original
+        );
+        assert_eq!(
+            app.world()
+                .resource::<MusicDirectorState>()
+                .current_state_id
+                .as_deref(),
+            Some(state)
+        );
+        assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 2);
+    }
+}
+
+#[test]
+fn a_self_continuation_keeps_one_new_use_through_a_host_stall() {
+    let mut authored = authored_cues(60.0);
+    for cue in &mut authored.cues {
+        cue.playback.exhausted = Some(crate::music_policy::MusicExhaustionPolicy::StartReadyTarget);
+        cue.playback.continuation_crossfade_seconds = Some(0.0);
+        if let MusicCueMedia::Inline { sections, .. } = &mut cue.media {
+            sections[1].looped = false;
+        }
+        cue.states[1].next_state = Some("song".into());
+    }
+    let (mut app, handles) = fixture_with(authored);
+    for handle in &handles {
+        decode(&mut app, handle);
+    }
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    for _ in 0..6 {
+        step(&mut app, 0.0);
+    }
+    let initial = app
+        .world()
+        .resource::<MusicPlayback>()
+        .current()
+        .unwrap()
+        .occurrence;
+    let entry = app.world().resource::<MusicDirectorState>().entry;
+    step(&mut app, 8.5);
+    for _ in 0..6 {
+        step(&mut app, 0.0);
+    }
+    let playback = app.world().resource::<MusicPlayback>();
+    assert_ne!(playback.current().unwrap().occurrence, initial);
+    assert_eq!(app.world().resource::<MusicDirectorState>().entry, entry);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 8);
+    for _ in 0..20 {
+        step(&mut app, 0.0);
+    }
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 8);
+    assert_eq!(app.world().resource::<MusicPlayback>().reserved_voices(), 4);
+}

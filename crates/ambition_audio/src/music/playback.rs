@@ -28,6 +28,14 @@ pub struct MusicPlaybackOccurrence(pub u64);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MusicEntry(pub u64);
 
+/// A continuation reuses a product but starts a new use after its predecessor.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum MusicPlaybackUse {
+    #[default]
+    Initial,
+    After(MusicPlaybackOccurrence),
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct MusicStartAfter {
     pub occurrence: MusicPlaybackOccurrence,
@@ -88,6 +96,7 @@ pub(crate) struct MusicVoiceSource {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct MusicPlaybackRequest {
     pub start_after: Option<MusicStartAfter>,
+    pub use_id: MusicPlaybackUse,
     pub entry: MusicEntry,
     pub goal_revision: u64,
     pub product: MusicProduct,
@@ -100,10 +109,13 @@ pub(crate) struct MusicPlaybackRequest {
 }
 
 impl MusicPlaybackRequest {
+    fn same_use(&self, other: &Self) -> bool {
+        self.entry == other.entry && self.use_id == other.use_id && self.product == other.product
+    }
+
     fn can_continue(&self, other: &Self) -> bool {
-        self.entry == other.entry
+        self.same_use(other)
             && self.start_after == other.start_after
-            && self.product == other.product
             && self.looped == other.looped
             && self.voices.len() == other.voices.len()
             && self
@@ -199,6 +211,9 @@ pub struct MusicPlaybackGroup {
 }
 
 impl MusicPlaybackGroup {
+    pub(super) fn use_id(&self) -> MusicPlaybackUse {
+        self.request.use_id
+    }
     pub(super) fn scheduled_state(&self) -> Option<&str> {
         self.request
             .start_after
@@ -271,6 +286,28 @@ impl MusicPlayback {
             .map(|completed| (completed.entry, &completed.product))
     }
 
+    pub(super) fn predecessor(
+        &self,
+        entry: MusicEntry,
+        use_id: MusicPlaybackUse,
+    ) -> Option<MusicPlaybackOccurrence> {
+        self.current()
+            .filter(|group| group.entry == entry && group.request.use_id == use_id)
+            .map(|group| group.occurrence)
+            .or_else(|| {
+                self.current_completion
+                    .as_ref()
+                    .filter(|done| done.entry == entry && done.use_id == use_id)
+                    .map(|done| done.occurrence)
+            })
+    }
+
+    pub(super) fn use_completed(&self, entry: MusicEntry, use_id: MusicPlaybackUse) -> bool {
+        self.current_completion
+            .as_ref()
+            .is_some_and(|done| done.entry == entry && done.use_id == use_id)
+    }
+
     /// Withdraw unsent work. An admitted outgoing group can finish or be replaced.
     pub(crate) fn defer(&mut self) {
         if self.desired.take().is_some() {
@@ -336,10 +373,16 @@ impl MusicPlayback {
             self.desired = Some(request);
             return;
         }
+        let same_use = self
+            .desired
+            .as_ref()
+            .is_some_and(|old| old.same_use(&request));
         self.desired = Some(request);
         self.revision = self.revision.wrapping_add(1);
-        self.retries = 0;
-        self.outcome = MusicRequestOutcome::Pending;
+        if !same_use {
+            self.retries = 0;
+            self.outcome = MusicRequestOutcome::Pending;
+        }
     }
 
     pub(crate) fn mix_current_section(&mut self, entry: MusicEntry, gains: &[f32; MAX_LAYERS]) {
@@ -678,10 +721,10 @@ impl MusicPlayback {
                             self.current_completion = Some(MusicCompletion {
                                 occurrence: group.occurrence,
                                 entry: group.entry,
+                                use_id: group.request.use_id,
                                 product: group.product.clone(),
                                 state_id: group.request.state_id.clone(),
                                 phase_policy: group.request.phase_policy,
-                                scheduled: group.request.start_after.is_some(),
                             });
                         }
                         self.current = None;
@@ -840,10 +883,10 @@ enum VoiceObservation {
 struct MusicCompletion {
     occurrence: MusicPlaybackOccurrence,
     entry: MusicEntry,
+    use_id: MusicPlaybackUse,
     product: MusicProduct,
     state_id: Option<String>,
     phase_policy: MusicPhasePolicy,
-    scheduled: bool,
 }
 
 trait MusicVoiceOutput {
@@ -1144,12 +1187,18 @@ pub fn advance_music_playback(
         if let Some(group) = playback.current().filter(|group| {
             group.phase == MusicGroupPhase::Running && Some(group.entry) == director.entry
         }) {
+            director.playback_use = group.request.use_id;
             director.position_seconds = group.position_seconds;
             if let Some(mut selection) = director.selection.clone() {
                 // A queued section cannot replace the admitted section's state or policy.
                 if let MusicProduct::Section { cue, section, .. } = &group.product {
                     if previous != Some(group.occurrence) && group.request.start_after.is_some() {
-                        director.continuation_state_id = group.request.state_id.clone();
+                        director.continuation = group.request.state_id.clone().map(|state_id| {
+                            super::state::MusicContinuation {
+                                state_id,
+                                use_id: group.request.use_id,
+                            }
+                        });
                     }
                     if director.current_section_id.as_ref() != Some(section) {
                         director.pending_state = None;
@@ -1185,14 +1234,21 @@ pub fn advance_music_playback(
         }
         if let Some(completed) = playback.current_completion.as_ref().filter(|completed| {
             Some(completed.entry) == director.entry
-                && completed.scheduled
                 && previous_completion != Some(completed.occurrence)
         }) {
             if let MusicProduct::Section { cue, section, .. } = &completed.product {
+                director.playback_use = completed.use_id;
                 director.active_cue_id = Some(cue.clone());
                 director.current_section_id = Some(section.clone());
                 director.current_state_id = completed.state_id.clone();
-                director.continuation_state_id = completed.state_id.clone();
+                director.continuation =
+                    completed
+                        .state_id
+                        .clone()
+                        .map(|state_id| super::state::MusicContinuation {
+                            state_id,
+                            use_id: completed.use_id,
+                        });
                 director.active_phase_policy = completed.phase_policy;
                 director.position_seconds = None;
                 director.pending_state = None;
@@ -1212,9 +1268,11 @@ pub fn advance_music_playback(
         }) {
             director.admitted = None;
         }
-        director.transport_completed = playback.completed_product().is_some_and(|(entry, product)|
-            Some(entry) == director.entry && matches!(product,
-                MusicProduct::Section { cue, section, .. } if director.active_cue_id.as_ref() == Some(cue) && director.current_section_id.as_ref() == Some(section)));
+        director.transport_completed = director.entry.is_some_and(|entry|
+            playback.use_completed(entry, director.playback_use))
+            && playback.completed_product().is_some_and(|(_, product)| matches!(product,
+                MusicProduct::Section { cue, section, .. } if director.active_cue_id.as_ref() == Some(cue)
+                    && director.current_section_id.as_ref() == Some(section)));
     }
     if let Some(base) = base.as_deref_mut() {
         let track = base.active_track().to_owned();

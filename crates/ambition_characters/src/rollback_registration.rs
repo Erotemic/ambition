@@ -26,7 +26,7 @@ where
     registrar.declare_rollback_derived_component::<crate::perception::ModuleObservation>(
         OWNER,
         "derived.module_observation",
-        "demand re-derived from the admitted modules each step; the projection from the restored PerceptionMemory in the body's decision",
+        "demand re-derived from the admitted bindings each step; the decision product withdrawn each step and written only by that step's native decision",
     );
     registrar.declare_rollback_derived_component::<crate::actor::BodyWalletShield>(
         OWNER,

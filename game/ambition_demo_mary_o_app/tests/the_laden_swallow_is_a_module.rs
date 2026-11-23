@@ -251,17 +251,30 @@ fn a_status_a_brain_puts_on_its_body_outlives_a_change_of_driver() {
         let coated = world.get::<BodyStatuses>(bird).is_some_and(|held| held.holds("drill.coat"));
         (count(0), count(1), coated)
     };
-    for _ in 0..30 {
+    // A hostile asleep under her rooms' dormancy rule decides nothing, module
+    // brain or native (OBS3), so the player stays within the wake radius of
+    // the bird while it is meant to think.
+    let step = |app: &mut App| {
+        let world = app.world_mut();
+        let at = world.get::<ae::BodyKinematics>(bird).expect("the bird").pos;
+        let mut her = world.query_filtered::<&mut ae::BodyKinematics, With<PrimaryPlayer>>();
+        for mut kin in her.iter_mut(world) {
+            kin.pos = at + ae::Vec2::new(0.0, 240.0);
+            kin.vel = ae::Vec2::ZERO;
+        }
         app.update();
+    };
+    for _ in 0..30 {
+        step(&mut app);
     }
     let (thinks, coated, holds) = counts(&app);
     assert!(thinks >= 20 && coated >= 20 && holds, "the brain thinks and coats its body: {thinks} thinks, {coated} coated, held {holds}");
 
     app.world_mut().entity_mut(bird).insert(DrivingParticipant(PlayerSlot(1)));
-    app.update();
+    step(&mut app);
     let (driven_thinks, driven_coated, _) = counts(&app);
     for _ in 0..30 {
-        app.update();
+        step(&mut app);
     }
     let (after_thinks, after_coated, still) = counts(&app);
     assert_eq!(after_thinks, driven_thinks, "a driven body's brain hook does not decide");
@@ -270,7 +283,7 @@ fn a_status_a_brain_puts_on_its_body_outlives_a_change_of_driver() {
 
     app.world_mut().entity_mut(bird).remove::<DrivingParticipant>();
     for _ in 0..10 {
-        app.update();
+        step(&mut app);
     }
     let (back_thinks, _, _) = counts(&app);
     assert!(back_thinks > after_thinks, "the brain decides again when the player lets go");

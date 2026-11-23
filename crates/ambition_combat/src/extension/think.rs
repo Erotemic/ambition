@@ -120,7 +120,8 @@ fn queue_thinks<P: Port<Value = ActorThink>>(
 }
 
 /// [`ActorThinkPort`]: the authoritative road. The target is where the body's
-/// `ActorTarget` is NOW, whatever the body can see.
+/// `ActorTarget` is NOW, whatever the body can see. A body the native
+/// decision did not decide on this step (dormant, skipped) is not invoked.
 pub fn queue_actor_thinks(
     admitted: Res<AdmittedExtensions>,
     time: Res<ambition_time::WorldTime>,
@@ -131,7 +132,10 @@ pub fn queue_actor_thinks(
     if time.sim_dt() <= 0.0 {
         return;
     }
-    queue_thinks::<ActorThinkPort>(&admitted, &mut invocations, &bodies, |target, _| {
+    queue_thinks::<ActorThinkPort>(&admitted, &mut invocations, &bodies, |target, observation| {
+        // Only a body the native decision decided on this step thinks; its
+        // knowledge is still the live target.
+        observation?.decision?;
         Some(
             target
                 .and_then(|t| t.entity)
@@ -141,10 +145,10 @@ pub fn queue_actor_thinks(
     });
 }
 
-/// [`ActorSightedThinkPort`] (OBS3): the target the body's own perception
-/// admitted this tick (`ModuleObservation::believed`). A body whose belief
-/// has not been prepared is not invoked; an empty belief is `None`, never the
-/// target's live position.
+/// [`ActorSightedThinkPort`] (OBS3): the target this step's native decision
+/// admitted for the body (`ModuleObservation::decision`). A body with no
+/// decision on this step is not invoked, whatever it believed before; an empty
+/// belief is `None`, never the target's live position.
 pub fn queue_sighted_actor_thinks(
     admitted: Res<AdmittedExtensions>,
     time: Res<ambition_time::WorldTime>,
@@ -155,41 +159,51 @@ pub fn queue_sighted_actor_thinks(
         return;
     }
     queue_thinks::<ActorSightedThinkPort>(&admitted, &mut invocations, &bodies, |_, observation| {
-        let believed = observation?.believed?;
-        Some(believed.map(|pos| [pos.x, pos.y]))
+        let decision = observation?.decision?;
+        Some(decision.believed.map(|pos| [pos.x, pos.y]))
     });
 }
 
 /// Resolve each custom-brain body's MODULE observation demand from the
 /// admitted bindings (OBS3), before the actor decision reads it: a body whose
-/// key a sighted think entry binds demands `TargetBelief`; a body no such
-/// consumer is left for loses the component, which restores the
-/// zero-perception road. Compares before writing, so an unchanged demand
-/// costs no change tick; a replaced or reloaded binding is picked up the next
-/// tick it runs.
+/// key a sighted think entry binds demands `TargetBelief`, one an
+/// authoritative entry binds demands nothing but still carries the component,
+/// and a body no think binding names loses it. Compares before writing, so an
+/// unchanged demand costs no change tick; a replaced or reloaded binding is
+/// picked up the next tick it runs.
+///
+/// It also withdraws the previous step's decision product from every body,
+/// before the native decision owner's eligibility filters run, so only a body
+/// decided on this step carries one. A replayed step runs this again.
 pub fn resolve_module_observation_demand(
     mut commands: Commands,
     admitted: Option<Res<AdmittedExtensions>>,
     mut bodies: Query<(Entity, &ActorConfig, Option<&mut ModuleObservation>)>,
 ) {
-    let sighted = admitted.as_deref().map(bound_keys::<ActorSightedThinkPort>).unwrap_or_default();
+    let (sighted, authoritative) = admitted.as_deref().map_or((Vec::new(), Vec::new()), |admitted| {
+        (bound_keys::<ActorSightedThinkPort>(admitted), bound_keys::<ActorThinkPort>(admitted))
+    });
     for (entity, config, observation) in &mut bodies {
         let demand = match &config.brain {
-            CharacterBrain::Custom(key) if sighted.contains(&key.as_str()) => PerceptionRequirement::TargetBelief,
-            _ => PerceptionRequirement::None,
+            CharacterBrain::Custom(key) if sighted.contains(&key.as_str()) => Some(PerceptionRequirement::TargetBelief),
+            CharacterBrain::Custom(key) if authoritative.contains(&key.as_str()) => Some(PerceptionRequirement::None),
+            _ => None,
         };
         match (demand, observation) {
-            (PerceptionRequirement::None, Some(_)) => {
+            (None, Some(_)) => {
                 commands.entity(entity).remove::<ModuleObservation>();
             }
-            (PerceptionRequirement::None, None) => {}
-            (demand, Some(mut observation)) => {
+            (None, None) => {}
+            (Some(demand), Some(mut observation)) => {
                 if observation.demand != demand {
                     observation.demand = demand;
                 }
+                if observation.decision.is_some() {
+                    observation.decision = None;
+                }
             }
-            (demand, None) => {
-                commands.entity(entity).insert(ModuleObservation { demand, believed: None });
+            (Some(demand), None) => {
+                commands.entity(entity).insert(ModuleObservation { demand, decision: None });
             }
         }
     }

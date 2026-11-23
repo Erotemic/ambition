@@ -224,7 +224,7 @@ derived.item_body	derived	ItemBody	item capability properties installed before t
 derived.item_body_presence	derived	BodyInStorage	world presence derived from item custody before spatial queries
 derived.limb_bond_start	derived	LimbBondStart	written again each tick from its game's rollback state before any reader
 derived.module_entity_touchers	derived	ModuleEntityTouchers	written again in each tick's module_entity_tick collect and read only by that tick's lowering
-derived.module_observation	derived	ModuleObservation	demand re-derived from the admitted modules each step; the projection from the restored PerceptionMemory in the body's decision
+derived.module_observation	derived	ModuleObservation	demand re-derived from the admitted bindings each step; the decision product withdrawn each step and written only by that step's native decision
 derived.mount_presses	derived	MountPresses	rebuilt each tick from the interaction selection before mounts are commandeered
 derived.native_event_routes	derived	EventRoutes	Subscription insertion and removal update the source index, including canonical snapshot restoration.
 derived.navigation_advice	derived	NavigationAdvice	rebuilt in the Observe phase from the room's surface graph, each body and its brain's goal

@@ -238,6 +238,26 @@ Include a skipped producer at the existing restore crossing; do not create
 a new controller matrix. Delayed perception cuts and TacticalWorld demand
 remain separate customers.
 
+**Follow-through landed (2026-11-23).** `ModuleObservation` now holds a
+stable `demand` and a per-step `decision: Option<ModuleDecision>`.
+`resolve_module_observation_demand` runs at `ActorDecisionSet::Prepare`
+on every execution, including a replayed step. It gives every body that
+either think binding names a component; an authoritative binding demands
+`None`. It also withdraws the previous step's product before the native
+decision's eligibility filters run. The native decision writes the product
+only for a body it actually decides, after all of its skips. Both think
+queues require a product from this step: the authoritative route still
+reads the live target, and the sighted route reads `decision.believed`.
+A dormant or skipped body therefore issues no module think and no fresh
+module fire. The queues copy none of the native filters, and the
+extension executor learns nothing about dormancy.
+
+No new fixture was added (bug fixes add no test). The existing sighted
+crossing still covers in-view, out-of-view and the authoritative control.
+The awake-to-dormant-to-awake and restore crossings were not run as
+probes. On a restore, the step's Prepare rebuilds the product as it does
+live.
+
 ## Requirements
 
 - typed action vocabulary rather than free-form mutation;

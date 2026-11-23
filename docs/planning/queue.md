@@ -464,7 +464,9 @@ value as completion of that owner's contract.
     sighted binding; its demand maintains the body's belief and the module
     reads that projection, never the live target; the
     [OBS3 follow-through](engine/agentic-character-runtime.md#obs3-follow-through--publish-availability-for-this-decision)
-    makes its availability current when native decision skips a body)
+    makes its availability current when native decision skips a body;
+    landed 2026-11-23: a per-step decision product withdrawn at Prepare and
+    written only by the native decision, required by both think routes)
     resolves native plus module observation demand before one domain
     projection is built. Prove a selected sighted module with a native
     `None` fallback and an explicitly authoritative module as control.

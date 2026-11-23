@@ -862,20 +862,19 @@ pub fn tick_actor_brains(
                             }
                             None => {}
                         }
-                        // OBS3: the module consumer reads the target this
-                        // decision admitted. An `Omniscient` body's knowledge is
-                        // its global target, which the snapshot already holds.
-                        if let Some(observation) = module_observation.as_deref_mut() {
-                            let projection =
-                                Some(snapshot.target_alive.then_some(snapshot.target_pos));
-                            if observation.believed != projection {
-                                observation.believed = projection;
-                            }
-                        }
                         world_view
                     } else {
                         ambition_characters::perception::WorldView::default()
                     };
+                    // OBS3: this decision ran for this body, so its module
+                    // consumers get its product: the target it admitted (an
+                    // `Omniscient` body's knowledge is its global target,
+                    // which the snapshot already holds).
+                    if let Some(observation) = module_observation.as_deref_mut() {
+                        observation.decision = Some(ambition_characters::perception::ModuleDecision {
+                            believed: snapshot.target_alive.then_some(snapshot.target_pos),
+                        });
+                    }
                     let mut bf = ambition_characters::actor::control::ActorControlFrame::neutral();
                     let peaceful = ambition_characters::brain::ActionSet::peaceful();
                     let actions = action_set.unwrap_or(&peaceful);

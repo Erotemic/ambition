@@ -109,8 +109,9 @@ fn a_sighted_module_brain_reads_its_bodys_belief_and_an_authoritative_one_the_li
             "the sighted binding resolves the body's demand"
         );
     }
-    assert!(
-        sim.world().get::<ModuleObservation>(aimer).is_none(),
+    assert_eq!(
+        sim.world().get::<ModuleObservation>(aimer).map(|o| o.demand),
+        Some(PerceptionRequirement::None),
         "an authoritative binding demands nothing of perception"
     );
     assert!(
@@ -119,7 +120,7 @@ fn a_sighted_module_brain_reads_its_bodys_belief_and_an_authoritative_one_the_li
     );
     // With the foe in view, both aim at it: it is to their left.
     let believed = |sim: &Platformer2dSimHarness| {
-        sim.world().get::<ModuleObservation>(sandbag).and_then(|o| o.believed).flatten()
+        sim.world().get::<ModuleObservation>(sandbag).and_then(|o| o.decision).and_then(|d| d.believed)
     };
     let (_, seen_at) = player(&mut sim);
     let in_view = believed(&sim).expect("the sandbag believes in the foe it sees");

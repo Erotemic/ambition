@@ -638,26 +638,39 @@ impl PerceptionRequirement {
 }
 
 /// What a body's admitted MODULE consumers demand of its perception, and the
-/// projection the perception owner prepared for them this tick (OBS3).
+/// product the native decision prepared for them on this step (OBS3).
 ///
-/// The combat extension resolves `demand` from the module bindings admitted
-/// for the body's controller (a sighted think binding asks for
-/// `TargetBelief`) and removes the component when no consumer is left, which
-/// restores the zero-perception road. The native decision maintains memory
-/// for the UNION of its own brain's need and this one, so a module's demand
-/// owns maintenance even over a native `None` fallback. A module's request
-/// cannot grant itself broader knowledge: it receives what this body sees.
+/// Every body whose controller a think binding names carries one. The combat
+/// extension resolves `demand` from those bindings (a sighted think binding
+/// asks for `TargetBelief`, an authoritative one for nothing) and removes the
+/// component when no binding is left. The native decision maintains memory for
+/// the UNION of its own brain's need and this one, so a module's demand owns
+/// maintenance even over a native `None` fallback. A module's request cannot
+/// grant itself broader knowledge: it receives what this body sees.
 ///
-/// Derived each tick before it is read, so it is not rollback state.
+/// Demand is stable across steps; the decision product is not. The demand
+/// resolver clears `decision` at every execution, before the native decision
+/// owner's eligibility filters, and only that owner writes it back, for a body
+/// it actually decided. A dormant or skipped body therefore has no current
+/// product, and no module decides for it from an old one.
+///
+/// Derived each step before it is read, so it is not rollback state.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct ModuleObservation {
     /// The module consumers' demand.
     pub demand: PerceptionRequirement,
-    /// The believed target the native decision admitted this tick: `None`
-    /// before one has been prepared (unavailable), `Some(None)` when the body
-    /// believes in no target (no target evidence, not an empty room), and
-    /// `Some(Some(pos))` otherwise.
-    pub believed: Option<Option<ae::Vec2>>,
+    /// What this step's native decision prepared for the body's modules, or
+    /// `None` when no decision ran for it on this step.
+    pub decision: Option<ModuleDecision>,
+}
+
+/// The product one native decision prepares for a body's module consumers.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct ModuleDecision {
+    /// The target this decision believes in: `None` when the body believes in
+    /// no target (no target evidence, not an empty room). A remembered
+    /// position is a valid belief of a new decision.
+    pub believed: Option<ae::Vec2>,
 }
 
 /// Everything a body perceives this tick — the headless, controller-neutral

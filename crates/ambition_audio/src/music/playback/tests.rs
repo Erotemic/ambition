@@ -41,7 +41,7 @@ impl MusicVoiceOutput for Output {
             .copied()
             .unwrap_or(VoiceObservation::Absent)
     }
-    fn resume(&mut self, handle: &Handle<AudioInstance>) {
+    fn resume(&mut self, handle: &Handle<AudioInstance>, _start: Option<f64>, _fade: f32) {
         assert_eq!(self.observe(handle), VoiceObservation::Paused);
         self.resumed.push(handle.clone());
         self.states
@@ -62,6 +62,7 @@ impl MusicVoiceOutput for Output {
 impl Output {
     fn request(&self, id: &str, layers: usize, looped: bool) -> MusicPlaybackRequest {
         MusicPlaybackRequest {
+            start_after: None,
             entry: MusicEntry(1),
             goal_revision: 1,
             product: MusicProduct::Track {

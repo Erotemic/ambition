@@ -481,12 +481,14 @@ occurrence. No new bus framework is required.
 | Music transport origin/position | Supported native scheduled start or position evidence for this playback occurrence |
 | Score-to-product clock | Compiler map from musical coordinates to the selected media's frame coordinates |
 
-The director now reads the matching occurrence's file cursor. Native output
-uses Kira observations. Recording output uses an explicit host-clock model.
-No cursor is available until all voices play. Host time still owns loading
-deadlines, diagnostics and fade envelopes. A frame that observes admission or
-Playing is not the first audible sample. Keep submission, admission observation,
-and transport origin separate.
+The director reads the matching occurrence's file cursor. Native output uses
+Kira observations and one shared Kira clock. A ready one-shot continuation is
+admitted before its predecessor's prepared end. That clock schedules its resume,
+the predecessor's stop and their native fades. Cancellation withdraws both
+operations. Recording output uses an explicit host-clock model.
+Host time owns loading deadlines and diagnostics. A requested mixer-clock origin
+or a frame that observes Playing is not proof of the first audible sample.
+Keep submission, admission observation and requested transport origin separate.
 
 Ordinary playback may retain an explicitly best-effort host timing path.
 Do not make sample accuracy a prerequisite for MUS1. Requests for stronger
@@ -817,9 +819,10 @@ revision. Admitted voices retain source frame counts through asset reload.
 Guard: 146 audio tests cover named exits across loop wraps, delayed targets,
 exhausted sections, ending handoff and layer alignment before resume.
 
-Starts remain frame-driven and best effort. Stronger timing requests fail during
-preparation. Native scheduling, scene deadlines, pickups, independent tails and
-bridge overlays stay open.
+Ready one-shot continuations now use native scheduling. Other exits remain
+frame-driven and best effort. Stronger timing requests fail during preparation.
+General exit scheduling, scene deadlines, pickups, independent tails and bridge
+overlays stay open.
 
 Keep catalog, decode, admission, and start facts distinct. Add the
 small boundary/entry/late-policy plan and a defined transport origin.
@@ -899,8 +902,18 @@ he is dormant. These checks do not establish device timing or audible continuity
 The locked Bevy/Kira backend produces the expected PCM after cold decode and
 two fresh cue handoffs, then silence after an explicit stop. Guard: 146 default
 audio tests and the separate native test. Spectrum inspection confirms the
-section tones. The capture also exposes 20–30 ms of silence at file-end joins.
-Native continuation scheduling and the complete game route remain open.
+section tones. The baseline capture exposed 20–30 ms of silence at file-end joins.
+
+`781520aba` schedules ready one-shot continuations and predecessor stops on one
+native clock. It holds sample zero through admission and cancels withdrawn stops
+after Kira acknowledges them. The
+[pinned adapter patch](../../../third_party/bevy_kira_audio/PATCHES.md) exposes
+the existing manager and instance scheduling controls. Guard: 148 audio tests,
+38 intent-adapter tests, 35 workspace policy tests and two explicit native tests.
+PCM checks find no silent 10 ms windows across the prepared joins, including a
+one-second host stall and a source tail. Cancellation preserves the old audio
+past a withdrawn stop. Mixer resolution is not a sample-accuracy guarantee.
+General exits and the complete game route remain open.
 No physical-speaker or listening acceptance was performed.
 The current recording path consumes the executor's actual voice commands;
 it does not execute Kira drains or establish speaker-audible output. The

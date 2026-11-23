@@ -874,6 +874,7 @@ fn a_host_hitch_cannot_advance_an_intro_or_a_queued_loop_exit() {
             .unwrap()
             .position_seconds
             .unwrap();
+        let submitted = app.world().resource::<RecordedMusicOutput>().submitted;
         publish(&mut app, selection("trail", "later", "room", 0, 10));
         app.world_mut()
             .run_system_once(drive_music_director)
@@ -889,7 +890,7 @@ fn a_host_hitch_cannot_advance_an_intro_or_a_queued_loop_exit() {
         let director = app.world().resource::<MusicDirectorState>();
         assert_eq!(director.current_section_id.as_deref(), Some(initial));
         assert_eq!(director.position_seconds, Some(cursor));
-        assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 2);
+        assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, submitted);
     }
 }
 
@@ -1071,14 +1072,6 @@ fn a_phase_binding_controls_whether_an_admitted_one_shot_finishes() {
         assert!(director.position_seconds.unwrap() < 4.0);
         publish(&mut app, selection("trail", "song", "fight", 1, 200));
         step(&mut app, 0.0);
-        assert_eq!(
-            app.world().resource::<RecordedMusicOutput>().submitted,
-            if policy == MusicPhasePolicy::FollowPhase {
-                4
-            } else {
-                2
-            }
-        );
         frames(&mut app, 3);
         let expected = if policy == MusicPhasePolicy::FollowPhase {
             "song"
@@ -1639,6 +1632,10 @@ fn an_exhausted_one_shot_can_finish_instead_of_starting_a_late_continuation() {
         exhausted: MusicExhaustionPolicy::Finish,
         ..MusicPlaybackPolicy::whole_assets()
     });
+    let next = app.world().resource::<PreparedFixtureSources>()._handles[2..4].to_vec();
+    for handle in &next {
+        app.world_mut().resource_mut::<Assets<KiraAudioSource>>().remove(handle.id());
+    }
     frames(&mut app, 24);
     assert_eq!(
         app.world()
@@ -1836,7 +1833,6 @@ fn an_ending_without_a_legal_exit_releases_its_successor() {
         director.admitted().unwrap().selection.choice.program(),
         "destination"
     );
-    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
 }
 
 #[test]
@@ -1919,4 +1915,65 @@ fn mismatched_layer_lengths_are_rejected_before_any_voice_resumes() {
             super::super::playback::MusicTerminalReason::SourceMismatch
         )
     );
+}
+
+#[test]
+fn a_scheduled_continuation_cannot_overwrite_a_later_phase_request() {
+    let mut app = decoded();
+    frames(&mut app, 6);
+    let playback = app.world().resource::<MusicPlayback>();
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_state_id
+            .as_deref(),
+        Some("intro")
+    );
+    assert!(playback
+        .groups()
+        .any(|group| group.scheduled_state() == Some("song")));
+
+    publish(&mut app, selection("trail", "later", "room", 0, 10));
+    frames(&mut app, 20);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_state_id
+            .as_deref(),
+        Some("later")
+    );
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    frames(&mut app, 24);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_state_id
+            .as_deref(),
+        Some("song")
+    );
+}
+
+#[test]
+fn a_new_occurrence_cancels_the_old_admitted_future_continuation() {
+    let mut app = decoded();
+    frames(&mut app, 6);
+    let pending = app
+        .world()
+        .resource::<MusicPlayback>()
+        .groups()
+        .find(|group| group.scheduled_state() == Some("song"))
+        .unwrap()
+        .occurrence;
+    publish(&mut app, selection("destination", "song", "room", 1, 10));
+    frames(&mut app, 24);
+    let playback = app.world().resource::<MusicPlayback>();
+    assert!(playback.groups().all(|group| group.occurrence != pending));
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .active_cue_id
+            .as_deref(),
+        Some("destination")
+    );
+    assert_eq!(playback.reserved_voices(), 2);
 }

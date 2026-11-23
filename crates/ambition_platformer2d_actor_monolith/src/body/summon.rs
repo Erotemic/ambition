@@ -100,10 +100,21 @@ pub fn apply_summon_effects(
         ambition_platformer2d_shared_tangle::sim_id::SimId,
         ambition_characters::summon::SummonedRide,
     )> = Vec::new();
+    // (the reply a request carries, the identity its body will have). AC1:
+    // the executor is the only place that knows whether the batch committed
+    // and which body each request built, so it answers here and the asker
+    // keeps no pending-summon state of its own.
+    let mut replies: Vec<(
+        ambition_characters::summon::SummonReply,
+        ambition_platformer2d_shared_tangle::sim_id::SimId,
+    )> = Vec::new();
+    // Requests refused before planning: their summoner has no identity.
+    let mut unidentified: Vec<ambition_characters::summon::SummonReply> = Vec::new();
     for req in requests.read() {
         let s = &req.spec;
         let (Ok(summoner), Ok(counter)) = (identities.get(req.owner), counters.get(req.owner))
         else {
+            unidentified.extend(req.reply.clone());
             // Loud, not silent: every body carrying a `FeatureId` is identified
             // at the head of the tick, so reaching this means the emitter is
             // outside the identity migration and its summons would have no
@@ -127,6 +138,12 @@ pub fn apply_summon_effects(
                 });
         let taken = reservation.next;
         reservation.next += 1;
+        if let Some(reply) = &req.reply {
+            replies.push((
+                reply.clone(),
+                ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(summoner, taken),
+            ));
+        }
         // ⭐ THE MOUNT'S IDENTITY IS KNOWN BEFORE IT EXISTS. `SimId::spawned` is
         // what the request below derives, so a summon that asked to be ridden
         // can name its mount now and look it up after the commit — no channel,
@@ -171,6 +188,9 @@ pub fn apply_summon_effects(
                 calling: s.calling,
             },
         ));
+    }
+    if !unidentified.is_empty() {
+        commands.queue(move |world: &mut bevy::prelude::World| refuse_summons(world, unidentified));
     }
     if planned.is_empty() {
         return;
@@ -217,6 +237,9 @@ pub fn apply_summon_effects(
             target: "ambition_platformer2d::construction",
             "summon batch rejected before mutation: {error}"
         );
+        // The whole batch is refused, so every request in it is answered so.
+        let refused = replies.into_iter().map(|(reply, _)| reply).collect();
+        commands.queue(move |world: &mut bevy::prelude::World| refuse_summons(world, refused));
         return;
     }
     // Planning stays out here, against the App's own registry, and stays pure:
@@ -229,6 +252,8 @@ pub fn apply_summon_effects(
                 target: "ambition_platformer2d::construction",
                 "summon batch rejected before mutation: {error}"
             );
+            let refused = replies.into_iter().map(|(reply, _)| reply).collect();
+            commands.queue(move |world: &mut bevy::prelude::World| refuse_summons(world, refused));
             return;
         }
     };
@@ -254,6 +279,7 @@ pub fn apply_summon_effects(
                     reservation.expected,
                     counter.map(|counter| counter.0),
                 );
+                refuse_summons(world, replies.into_iter().map(|(reply, _)| reply).collect());
                 return;
             }
         }
@@ -338,5 +364,45 @@ pub fn apply_summon_effects(
                 counter.0 = reservation.next;
             }
         }
+
+        // Terminal results, after initialization and the counter advance. The
+        // subject is captured now, while this exact occurrence is known; a
+        // later replacement at the same name can never answer for it.
+        for (reply, id) in replies {
+            match receipt.entity(&id) {
+                Some(body) => {
+                    let subjects = ambition_platformer2d_shared_tangle::action_results::object_action_subject(world, body)
+                        .into_iter()
+                        .collect();
+                    ambition_platformer2d_shared_tangle::action_results::publish_action_result_to(
+                        world,
+                        reply.recipient,
+                        reply.ticket,
+                        ambition_extension_sdk::action::ActionStage::Completed,
+                        true,
+                        reply.built,
+                        "",
+                        subjects,
+                    );
+                }
+                None => refuse_summons(world, vec![reply]),
+            }
+        }
     });
+}
+
+/// Answer each request of a refused batch: nothing was built for it.
+fn refuse_summons(world: &mut bevy::prelude::World, replies: Vec<ambition_characters::summon::SummonReply>) {
+    for reply in replies {
+        ambition_platformer2d_shared_tangle::action_results::publish_action_result_to(
+            world,
+            reply.recipient,
+            reply.ticket,
+            ambition_extension_sdk::action::ActionStage::Failed,
+            true,
+            reply.refused,
+            "",
+            Vec::new(),
+        );
+    }
 }

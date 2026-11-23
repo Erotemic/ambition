@@ -51,41 +51,6 @@ pub fn install_for_technique_execution(app: &mut App) {
             .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep)
             .in_set(GameplayGated),
     );
-    // A tick after the executor ran: the mount is built, or nothing was.
-    app.add_systems(
-        sim,
-        answer_ride_summons
-            .run_if(any_with_component::<RideSummons>)
-            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::WorldPrep)
-            .in_set(GameplayGated),
-    );
-}
-
-/// A summoned ride whose asker waits to hear whether it was built.
-#[derive(Clone, Debug, PartialEq)]
-pub struct RideSummon {
-    ticket: ambition_extension_sdk::action::ActionTicket,
-    /// The identity the executor derives for the mount.
-    mount: String,
-    asked: u64,
-}
-ambition_extension_sdk::port_record! { RideSummon {
-    ticket: ambition_extension_sdk::action::ActionTicket, mount: String, asked: u64 } }
-
-/// The summoned rides a body asked for with a reply and has not heard about.
-/// Rollback state beside the asker's mailbox, whose tickets it answers.
-#[derive(Component, Clone, Debug, Default, PartialEq)]
-pub struct RideSummons { rows: Vec<RideSummon> }
-ambition_extension_sdk::port_record! { RideSummons { rows: Vec<RideSummon> } }
-impl ambition_platformer2d_core::snapshot::SnapshotState for RideSummons {
-    fn encode(&self, out: &mut Vec<u8>) {
-        let mut bytes = Vec::new();
-        ambition_extension_sdk::structure::put(self, &mut bytes);
-        ambition_platformer2d_core::snapshot::put_bytes(out, &bytes);
-    }
-    fn decode(reader: &mut ambition_platformer2d_core::snapshot::Reader<'_>) -> Option<Self> {
-        ambition_extension_sdk::wire::decode_all(reader.bytes()?, ambition_extension_sdk::structure::read).ok()
-    }
 }
 
 /// The course a body steers in place of its brain
@@ -104,11 +69,7 @@ pub fn held_course_probe(course: &HeldCourse) -> u64 {
 fn lower_summon_rides(world: &mut World) {
     use ambition_extension_sdk::action::ActionStage;
     use ambition_platformer2d_shared_tangle::action_results::{begin_action_request, publish_action_result};
-    use ambition_platformer2d_shared_tangle::sim_id::{SimId, SimIdCounter};
     let submitted = world.resource_mut::<ExtensionOutbox>().drain::<SummonRidePort>(&TECHNIQUE_EXECUTION);
-    // The executor reserves each summoner's identities in request order, so
-    // the n-th summon of a summoner this tick is its counter plus n.
-    let mut taken: std::collections::BTreeMap<Entity, u64> = std::collections::BTreeMap::new();
     for submitted in submitted {
         let dispatch = begin_action_request::<SummonRidePort>(world, submitted.state_scope, &submitted.entry, &submitted.value);
         if !dispatch.execute { continue; }
@@ -128,16 +89,16 @@ fn lower_summon_rides(world: &mut World) {
                 continue;
             }
         };
-        let mount = match (world.get::<SimId>(submitted.scope), world.get::<SimIdCounter>(submitted.scope)) {
-            (Some(summoner), Some(counter)) => {
-                let n = taken.entry(submitted.scope).or_insert(0);
-                let id = SimId::spawned(summoner, counter.0 + *n);
-                *n += 1;
-                Some(id.as_str().to_owned())
-            }
-            _ => None,
-        };
+        // The executor answers the terminal result at its commit: the mount
+        // its receipt names, or `ride_not_made` when the batch was refused.
+        let answer = dispatch.reply.as_ref().map(|reply| ambition_characters::summon::SummonReply {
+            recipient: reply.recipient.reference(),
+            ticket: reply.ticket.clone(),
+            built: "ride_summoned".into(),
+            refused: "ride_not_made".into(),
+        });
         world.write_message(ambition_characters::summon::SummonRequest {
+            reply: answer,
             owner: submitted.scope,
             spec: ambition_characters::summon::SummonSpec {
                 // Birth at the summoner permits boarding without a transit.
@@ -159,42 +120,7 @@ fn lower_summon_rides(world: &mut World) {
                 holds: if summon.holds.is_empty() { Vec::new() } else { vec![summon.holds] },
             },
         });
-        let Some(reply) = dispatch.reply else { continue; };
-        let asked = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
-        // A summoner with no identity: the executor builds nothing for it.
-        let mount = mount.unwrap_or_default();
-        world.entity_mut(submitted.state_scope).entry::<RideSummons>().or_default().into_mut().rows
-            .push(RideSummon {ticket: reply.ticket.clone(), mount, asked});
-        publish_action_result(world, Some(&reply), ActionStage::Admitted, false, "ride_summoning", "", Vec::new());
-    }
-}
-
-/// Answer each asked ride a tick after the executor ran: the body with the
-/// identity it derived exists, or nothing was built.
-fn answer_ride_summons(world: &mut World) {
-    use ambition_extension_sdk::action::{ActionResult, ActionStage};
-    use ambition_platformer2d_shared_tangle::action_results::{object_action_subject, ActionMailbox};
-    use ambition_platformer2d_shared_tangle::sim_id::SimId;
-    let now = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
-    let holders: Vec<Entity> = world.query_filtered::<Entity, With<RideSummons>>().iter(world).collect();
-    for holder in holders {
-        let asks = world.get::<RideSummons>(holder).unwrap().clone();
-        let (due, waiting): (Vec<_>, Vec<_>) = asks.rows.into_iter().partition(|row| row.asked < now);
-        if due.is_empty() { continue; }
-        for row in due {
-            let mount = (!row.mount.is_empty()).then(|| world.query::<(Entity, &SimId)>().iter(world)
-                .find(|(_, id)| id.as_str() == row.mount).map(|(entity, _)| entity)).flatten();
-            let (stage, code, subjects) = match mount {
-                Some(mount) => (ActionStage::Completed, "ride_summoned",
-                    object_action_subject(world, mount).into_iter().collect()),
-                None => (ActionStage::Failed, "ride_not_made", Vec::new()),
-            };
-            if let Some(mut mailbox) = world.get_mut::<ActionMailbox>(holder) {
-                mailbox.publish(ActionResult {ticket: row.ticket, stage, terminal: true, tick: now,
-                    code: code.into(), message: String::new(), subjects});
-            }
-        }
-        world.get_mut::<RideSummons>(holder).unwrap().rows = waiting;
+        publish_action_result(world, dispatch.reply.as_ref(), ActionStage::Admitted, false, "ride_summoning", "", Vec::new());
     }
 }
 

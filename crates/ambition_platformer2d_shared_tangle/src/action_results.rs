@@ -356,6 +356,38 @@ pub fn publish_action_result(
         })
 }
 
+/// [`publish_action_result`] for a reply carried as plain SDK data across a
+/// crate that cannot name [`ActionReply`] (a summon request is built in
+/// `ambition_characters`). `false` when the recipient's occurrence is gone or
+/// keeps no mailbox: ordinary retirement decides delivery.
+#[allow(clippy::too_many_arguments)]
+pub fn publish_action_result_to(
+    world: &mut World,
+    recipient: ambition_extension_sdk::ObjectRef,
+    ticket: ActionTicket,
+    stage: ActionStage,
+    terminal: bool,
+    code: impl Into<String>,
+    message: impl Into<String>,
+    subjects: Vec<ActionSubject>,
+) -> bool {
+    let Some(entity) = resolve_object(world, SessionScopeId(recipient.session), recipient).ok() else {
+        return false;
+    };
+    let tick = world.get_resource::<ambition_time::SimTick>().map_or(0, |tick| tick.0);
+    world.get_mut::<ActionMailbox>(entity).is_some_and(|mut mailbox| {
+        mailbox.publish(ActionResult {
+            ticket,
+            stage,
+            terminal,
+            tick,
+            code: code.into(),
+            message: message.into(),
+            subjects,
+        })
+    })
+}
+
 /// Typed consumers can publish without taking exclusive access to the world.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ActionReplies<'w, 's> {

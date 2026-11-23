@@ -88,4 +88,21 @@ pub struct SummonedRide {
 pub struct SummonRequest {
     pub owner: Entity,
     pub spec: SummonSpec,
+    /// Where the executor sends this request's terminal result. `None` for a
+    /// native caller that needs no reply.
+    pub reply: Option<SummonReply>,
+}
+
+/// The admitted action that waits on one summon: its recipient's occurrence,
+/// its ticket, and the codes its domain answers with. The executor is the
+/// only place that knows whether the batch committed and which body it
+/// built, so it publishes the result itself, at the commit.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SummonReply {
+    pub recipient: ambition_extension_sdk::ObjectRef,
+    pub ticket: ambition_extension_sdk::action::ActionTicket,
+    /// Terminal `completed` code. Its subject is the body this request built.
+    pub built: String,
+    /// Terminal `failed` code: the batch was refused and nothing was built.
+    pub refused: String,
 }

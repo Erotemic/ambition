@@ -141,9 +141,46 @@ scans, not every lookup in the action system.
 `apply_summon_effects` keeps the `ConstructionReceipt` that
 `ConstructionPlan::commit` returns, and reads the mount reservation and the
 birth statuses from `receipt.entity(id)`. The two post-commit scans of every
-live `SimId` are gone. The ride correlation (the reply carried through the
-summon request, and deletion of `RideSummons`, the counter prediction and
-`answer_ride_summons`) and the limbed-host preflight remain AC1's open work.
+live `SimId` are gone.
+
+### AC1 done (2026-11-23)
+
+**Reply.** `SummonRequest` carries an optional `SummonReply`. That is the
+recipient's SDK `ObjectRef`, its `ActionTicket`, and the domain's own
+completed and failed codes. `ambition_characters` gained an edge to the
+dependency-free SDK, not to shared_tangle.
+
+**Answering.** `apply_summon_effects` pairs each reply with the identity it
+derives and publishes the terminal result itself through
+`publish_action_result_to`:
+
+- **Success:** after initialization and the counter advance, it publishes
+  `completed`, with the body the receipt names as the subject.
+- **Refusal:** each supported refusal (summoner without identity,
+  preflight, planning, counter revalidation) publishes `failed` on every
+  correlated request of the batch. Whole-batch refusal is unchanged.
+
+**Limbed hosts.** `preflight_planned_bodies` refuses a `SummonedMinion`
+naming a limbed host (`SummonedLimbedHost`) before the root is allocated.
+Staged `Enemy` rows keep their recipe-time refusal, because room
+transactions flag that unbuilt row.
+
+**Deleted.** `RideSummon`, `RideSummons`, their rollback row
+(schema 531 → 532, both baselines re-recorded), the adapter's `taken` map
+and counter prediction, `answer_ride_summons` and its scheduled pass.
+
+**Temporary probe.** A copy of `scripted_summon_outcomes` also asked for
+`npc_giant_gnu` on step 6. It was then removed. It heard
+`6:ride_summoning;6:ride_not_made;`, no giant body existed, and the
+summoner's counter went 0 → 1, spent only for the shark. The shark's
+`ride_summoned` arrived on the same step as its `ride_summoning`, a tick
+earlier than before. The original fixture passes unchanged.
+
+**Not proved here.** The mixed same-body batch (another summon by the
+same summoner in one tick), retirement between commit and delivery, and
+the replay fixtures. The old adapter's wrong mount for a mixed batch and
+its false `ride_summoned` for a limbed root are source-derived; they were
+not measured on HEAD.
 
 ## AC2 — Cancel without reserving more pending work
 

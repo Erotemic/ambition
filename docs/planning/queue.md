@@ -325,7 +325,11 @@ world-post admission.
    prediction, next-tick existence polling and post-commit identity scans.
    These packets can ship independently of the earlier composition work.
    (AC2 landed 2026-11-22: a cancellation is a control request with its own
-   identity and result and no pending slot, so a full caller can cancel.)
+   identity and result and no pending slot, so a full caller can cancel.
+   AC1 landed 2026-11-23: a summon request carries its reply, and the
+   executor answers at its commit from the receipt. A limbed-host summon is
+   refused in preflight before allocation. The ride adapter's counter
+   prediction, `RideSummons` and its next-tick pass are gone.)
    [Combat CR1](engine/combat-reception-and-injury.md#cr1--finalize-one-native-hit-outcome)
    finalizes reception, connect and actual reaction from one captured
    operation, including damaging boss and lethal home-body hits. Then

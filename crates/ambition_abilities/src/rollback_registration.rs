@@ -55,7 +55,6 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {    // 
     );
     // The rides a body asked for with a reply and has not heard about: they
     // answer tickets in its mailbox, so they rewind with it.
-    registrar.rollback_component_canonical::<crate::ride::RideSummons>(OWNER, "ability.ride_summons");
     // A technique's transit, held for the next tick's carry: where the body
     // is next tick. Every destination is in the value.
     registrar.rollback_component_clone_probed::<crate::pending_transit::PendingTransit>(

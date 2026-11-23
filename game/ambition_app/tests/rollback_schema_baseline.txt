@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v530
+ggrs-rollback-schema-v532
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -7,7 +7,6 @@ ability.module_entity	component-clone	ModuleEntity	bevy_ggrs clone snapshot; val
 ability.observer_slow	component-clone	ObserverSlowAsked	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.pending_transit	component-clone	PendingTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-ability.ride_summons	component-canonical	RideSummons	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actions.mailbox	component-canonical	ActionMailbox	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; not in the session checksum
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

@@ -641,6 +641,14 @@ pub enum ActorConstructionError {
         character: String,
         missing: String,
     },
+    /// A runtime summon names a limbed host. A summon is one row, and a giant
+    /// is a host plus two hand rows only the planner lowers, so its
+    /// constructor refuses it (`reject_runtime_giant`). Refused here, before
+    /// the root is allocated and the summoner's counter is spent.
+    SummonedLimbedHost {
+        sim_id: SimId,
+        character: String,
+    },
     /// A boss's encounter script names a prop the room does not author, or a
     /// member its encounter does not have. At run time such an effect would
     /// do nothing and still consume its beat.
@@ -715,6 +723,11 @@ impl std::fmt::Display for ActorConstructionError {
                  registered, and nothing else can build this body — it would spawn as a stranger \
                  wearing that character's name. Register the character, or name one this \
                  composition publishes"
+            ),
+            Self::SummonedLimbedHost { sim_id, character } => write!(
+                f,
+                "summon `{sim_id}` names `{character}`, a body with hands: a giant is built only \
+                 through the planner (authored or provider-staged), never as a runtime summon"
             ),
             Self::BodyCharacterIsIncomplete {
                 sim_id,
@@ -1698,6 +1711,18 @@ pub fn preflight_planned_bodies(
                 sim_id: request.sim_id.clone(),
                 character: character.to_string(),
                 missing: missing.to_string(),
+            });
+        }
+        // The summon constructor's own refusal, asked of the same character
+        // (`spawn_runtime_minion_into`). Asked there it ran after the root had
+        // its `SimId` and the counter had advanced, so the batch reported a
+        // birth with no body.
+        if matches!(request.parameters, ActorConstructionParams::SummonedMinion(_))
+            && ambition_platformer2d_actor_spawn::is_limbed_host(Some(definition))
+        {
+            return Err(ActorConstructionError::SummonedLimbedHost {
+                sim_id: request.sim_id.clone(),
+                character: character.to_string(),
             });
         }
     }

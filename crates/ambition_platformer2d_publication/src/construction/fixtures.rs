@@ -218,6 +218,7 @@ pub fn prepare(sprite_content: &ambition_sprite_sheet::SpriteContent,
 /// Drive the real `apply_summon_effects` system over one summon request.
 pub fn run_summon(world: &mut World, summoner: Entity, spec: ambition_characters::summon::SummonSpec) {
     world.write_message(ambition_characters::summon::SummonRequest {
+            reply: None,
             owner: summoner,
             spec: spec,
         });

@@ -144,11 +144,13 @@ carries the optional allocation room. There is no old descriptor decoder.
   passes over because its seen flag was set while it waited fails with
   `cutscene_not_played`. The witness is `scripted_cutscene_outcomes`.
 - `summon_ride` (a `technique_execution` request) answers `ride_summoning`
-  when it asks the summon executor, then on the next tick terminal
-  `ride_summoned` (stage `completed`) whose subject is the mount, or
-  `ride_not_made` (stage `failed`) when the executor built nothing. The
-  executor builds one tick's summons as one batch and refuses the whole batch
-  when any character resolves nothing. Refusals: `invalid_label` (empty) and
+  when it asks the summon executor. The executor answers at its commit, the
+  same tick. The result is terminal `ride_summoned` (stage `completed`), whose
+  subject is the mount the construction receipt names, or `ride_not_made`
+  (stage `failed`) when the batch was refused. The asker reads it at its next
+  `actor_think`. The executor builds one tick's summons as one batch. It
+  refuses the whole batch when any character resolves nothing or is a limbed
+  host, and also when the summoner's identity counter moved. Refusals: `invalid_label` (empty) and
   `no_body`. The witness is `scripted_summon_outcomes`.
 - `held_portal_pair` is held, not answered: a module asks for its slot each
   tick it wants the pair. `held_portal_pairs` reads back every slot the body's

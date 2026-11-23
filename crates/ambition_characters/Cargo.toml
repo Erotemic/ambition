@@ -35,6 +35,10 @@ ambition_binding = { path = "../ambition_binding" }
 # `ambition_content_cli`), and again when the runtime starts reading a
 # `PreparedContentPack` instead of an `include_str!`.
 ambition_content_pack = { path = "../ambition_content_pack", optional = true }
+# The SDK's object and ticket vocabulary, for a summon's reply address
+# (`summon::SummonReply`). A leaf with no dependencies; the ECS-facing
+# `ActionReply` stays in shared_tangle, which this crate does not depend on.
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 bevy = { version = "0.19.1", default-features = false, features = ["bevy_log"] }
 ron = { workspace = true }
 serde = { workspace = true, features = ["rc"] }

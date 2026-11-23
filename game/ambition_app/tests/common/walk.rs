@@ -171,7 +171,7 @@ impl Walker for Keys<'_> {
         self.hold(KeyCode::KeyD, press.fly_toggle);
         // Burst dashes; a press, so the key is up again on the next frame.
         self.hold(KeyCode::KeyC, press.dash);
-        self.hold(KeyCode::Enter, press.confirm);
+        self.hold(KeyCode::Space, press.confirm);
         // Attack is a press, so the key is up again on the next frame.
         self.hold(KeyCode::KeyX, press.attack);
         let jump_is_held = self.held.contains(&KeyCode::KeyZ);

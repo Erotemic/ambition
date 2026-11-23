@@ -129,15 +129,15 @@ pub(crate) fn talk_and_choose(app: &mut App, npc_id: &str, choice: &str) {
             offered = Some(label);
             break;
         }
-        tap(app, KeyCode::Enter);
+        tap(app, KeyCode::Space);
     }
     assert_eq!(offered.as_deref(), Some(choice), "`{npc_id}` did not offer `{choice}` first");
-    tap(app, KeyCode::Enter);
+    tap(app, KeyCode::Space);
     for _ in 0..20 {
         if !dialog_active(app) {
             break;
         }
-        tap(app, KeyCode::Enter);
+        tap(app, KeyCode::Space);
     }
     assert!(!dialog_active(app), "the conversation with `{npc_id}` did not end");
     for _ in 0..5 {

@@ -102,14 +102,11 @@ fn released(app: &mut App) -> Vec<RunAuthoredCommand> {
 use bevy::ecs::system::RunSystemOnce as _;
 
 fn talking(app: &mut App) {
-    app.world_mut()
-        .resource_mut::<crate::ActiveConversation>()
-        .open(crate::LiveConversation::for_test(
-            None,
-            None,
-            "Start",
-            ambition_input::InputOwner::Primary,
-        ));
+    let live = crate::LiveConversation::for_test(None, None, "Start", ambition_input::InputOwner::Primary);
+    // The runner presents it: a command stamps the speaking runner's
+    // conversation (`NarrativeInputWriter`), not whichever one is live.
+    app.insert_resource(crate::PresentedConversation(Some(live.instance.clone())));
+    app.world_mut().resource_mut::<crate::ActiveConversation>().open(live);
 }
 
 // ===== The acceptance ===========================================

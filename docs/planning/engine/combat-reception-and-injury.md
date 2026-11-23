@@ -1,10 +1,11 @@
 # Combat reception and injury ownership
 
 **State:** PARTLY IMPLEMENTED, with planned follow-ups, 2026-11-22.
-Source rechecked at `34b4ab0b7f4f5a950a52e6031423e76b5e75f6ac`.
+Reception source rechecked at `34b4ab0b7f4f5a950a52e6031423e76b5e75f6ac`;
+the strike-origin follow-up below reads `00bf92c22142`.
 CR1's first publication slice is done; its actual-reaction finalization,
-the reaction-data refinement below and CR2 remain planned. No runtime or
-performance result is claimed by this review.
+the strike-origin and reaction-data refinements below and CR2 remain planned.
+No runtime or performance result is claimed by this review.
 **Selection:** [ARCHITECTURE-COMPOSITION](../queue.md#architecture-composition--link-owned-facts-and-preserve-causal-boundaries).
 **Contracts:** [combat model](combat-model.md),
 [projectile contact](projectile-contact-protocol.md), and
@@ -164,6 +165,86 @@ occurrence before a deferred consumer could see a replacement.
 This does not reopen reporter-owned connect/block or depend on CR2 injury
 routing. Complete only the outcome needed by the real action/reaction
 crossing, at the established hit-resolution cut.
+
+### Carry attack origin through strike creation and contact
+
+**State:** PLANNED CR1 construction follow-up, static audit, 2026-11-22.
+This closes a native construction and early-contact gap before reception.
+It can ship independently of the remaining receiver finalizer, ACT1/ACT2
+and CR2. It preserves the completed reporter-owned connect/block slice.
+
+[Q101](../maintainer-decisions.md) already requires explicit move occurrence
+for contact credit. An independent effect has no move credit; an old
+occurrence cannot credit the move now playing. The completed A12 receipt
+in [the queue](../queue.md) states that rule. The current source below does
+not satisfy it at every contact path. This audit cannot date the gap and
+does not reopen reflection identity or the whole completed packet.
+
+**Where origin is lost.**
+
+| Boundary | Source fact |
+| --- | --- |
+| [Ground-slam timeline](../../../game/ambition_content/assets/data/movesets/pugnacious_polygon.ron) | `polygon_brawler_ground_slam` emits `smash.riposte_strike` at 0.24 seconds |
+| [Move event dispatch](../../../crates/ambition_combat/src/moveset/mod.rs), [special invocation](../../../crates/ambition_combat/src/extension/special.rs) | The event's move occurrence reaches the submitted body-strike request's `occurrence` |
+| [`lower_body_strikes`](../../../crates/ambition_combat/src/extension/special.rs), [`spawn_body_strike`](../../../crates/ambition_combat/src/strike.rs) | The lowerer drops that occurrence; the spawn helper has no origin argument and cannot install its move credit |
+| [Hitbox contact](../../../crates/ambition_combat/src/hitbox/mod.rs) | `HitEvent` reads optional `AttackerMoveInstance`, but `LandedBodyHit` carries no move occurrence at all |
+| [Playback consumers](../../../crates/ambition_combat/src/moveset/mod.rs) | Accepted connect/block requires the exact occurrence; early overlap marks and stales whichever move is current on the attacker |
+
+The normal authored-volume path is a positive control:
+`advance_move_playback` installs `AttackerMoveInstance(pb.instance)` at
+birth. The projectile adapter also preserves the submitted occurrence.
+The defect is at a specific native operation, not in the ability of the
+extension host to retain origin. Its entry declaration already exposes
+trigger, phase, allowed ports and request bound together.
+
+**Required construction input.** Give combat strike creation a small,
+combat-owned origin value: source body plus an explicit move-credit choice.
+Use the existing occurrence identity. Require that value at construction,
+with named move-originating and independent forms if useful. The native
+adapter must inherit the submitted occurrence for a move-owned strike, or
+state an intentional independent choice. An optional decoration on the
+returned entity would still let the caller omit a required fact.
+
+Do not recover origin from the owner's current playback. Do not change all
+combat requests into a universal command object. `DamageBoxRequest` and
+`ProjectileSpawnRequest` already show domain construction with carried
+context; reuse their discipline and the existing native materialization
+path.
+
+Carry the occurrence through early `LandedBodyHit` as well as accepted
+connect/block. Any consumer that changes move-local contact or staleness
+must compare the originating occurrence with that playback. Independent
+and old-occurrence contacts can still cause their normal physical effects,
+damage and feedback, but cannot mark or stale a replacement move.
+
+Keep the early overlap cut and its first-contact staleness rule. Do not
+delay it until health reception, retract it on a block, merge it with
+accepted connect, or change current actor/home-body reception timing.
+Those facts answer different questions. This correction makes each fact
+complete enough for its own consumer.
+
+**Attribution is separate from lifetime.** A lingering strike can retain
+the move that caused it after that move ends. Its origin does not make it
+part of `MovePlayback::live_boxes`, cancel it on interruption, or replace
+its authored `HitboxLifetime`. Spatial anchoring and elapsed-time ownership
+also keep their current rules. ACT2 owns time changes.
+
+**Smallest useful proof.** Trace the existing ground-slam secondary strike
+through the real module adapter. The ordinary fists can independently
+confirm the move and hide the loss, so only the shock should reach the
+victim. The [authored reach check](../../../game/ambition_content/src/pugnacious_polygon_moveset.rs)
+already identifies that wider shock. Account for the victim's hurtbox
+when choosing the separation. Verify matching occurrence credit, an
+independent strike while another move plays, and an old strike contacting
+after replacement. Preserve the normal authored-volume control and the
+early overlap versus later reception cuts.
+
+This is a source-derived failure route, not a demonstrated cancel failure
+of the shipped slam; its shown definition has no `TechniqueFlow`.
+No gameplay, build or test ran in this audit. The correction carries a
+small value already available at emission and adds an occurrence check.
+It needs no history search, lifetime registry or general causal graph;
+no speedup or binary-size change is claimed.
 
 ### Bind a hit's reaction to its accepted reception
 

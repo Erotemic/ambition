@@ -126,6 +126,14 @@ ordering from message names. `CombatSet`, `PlayerInputSet`, effect execution
 and construction milestones are source vocabulary, not a universal portable
 schedule.
 
+The [strike-origin follow-up](combat-reception-and-injury.md#carry-attack-origin-through-strike-creation-and-contact)
+closes a concrete gap in the built move-invoked technique route: the host
+retains the occurrence, but body-strike lowering discards it before native
+construction. A declared request port does not prove that its lowerer
+preserves the operation's required context. Require complete native
+construction input and carry credit in early contact as well as reception;
+keep effect lifetime independent of that attribution.
+
 ## Stable invocation identity and batch scope
 
 Each entry is invoked for a declared scope: one technique occurrence, an actor

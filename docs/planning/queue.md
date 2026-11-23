@@ -87,6 +87,10 @@ carries closed campaigns. Unselected or customer-gated plans live in
    T0-T5; retired from this queue 2026-11-11). Portal, rendering,
    combat and map rows below are independent bounded work, not a second
    priority list; select them after correctness constraints are respected.
+   The [A2 source-coverage correction](engine/authoring-and-tools.md#static-source-coverage)
+   keeps navigation useful without a running engine: index present source
+   roots within their own ignore rules and report unavailable/stale corpora
+   instead of zero. It does not reopen TOOL-DISCOVERY.
 
 The 2026-11-21 follow-up selects
 [SCALE-FEEL](#scale-feel--the-same-body-behavior-at-a-different-scale) and
@@ -159,6 +163,11 @@ MV1: physical edge observation survives routing changes, pending
 input-dependent work sees admitted interruption, and each view derives
 framing/continuity from its selected target. P2's provider-action final hop
 and broader M3 shared-view control choices remain customer-gated.
+The static-comprehension review of the same runtime source adds SC1 below
+and refines CR1 strike construction. E2 receives the named animation
+binding under its existing owner. These are required operation relations,
+not a general readability rewrite; no native run or performance result is
+claimed.
 
 **Observed:** schema values can lower before their imports resolve; body and
 candidate contexts collect optional domain catalogs; several live-contribution
@@ -294,6 +303,13 @@ world-post admission.
    (CR1 first slice landed 2026-11-22: the hit reporter owns connect and
    block; a damaging boss hit and a lethal home-body strike now connect once,
    with zero hitlag.)
+   The [strike-origin refinement](engine/combat-reception-and-injury.md#carry-attack-origin-through-strike-creation-and-contact)
+   requires origin at native strike creation and carries it through early
+   contact. Matching occurrence can mark/stale its move; independent or
+   older contact cannot credit a replacement. Preserve the early overlap
+   cut and the strike's independent lifetime. The wider ground-slam shock
+   is the first module customer; keep the primary fists out of its proof.
+   This can ship without ACT/CR2 or the remaining receiver finalizer.
    The [reaction-data refinement](engine/combat-reception-and-injury.md#bind-a-hits-reaction-to-its-accepted-reception)
    moves the four static hit-reaction choices into prepared native hit data.
    A contact callback must not install a status from an ignored strike or
@@ -365,6 +381,14 @@ world-post admission.
     product choice of shared orientation and logical input reference when
     bodies disagree on gravity.
 
+13. [Room scope SC1](engine/capability-and-runtime-composition.md#sc1--select-rule-subjects-inside-the-work-gate)
+    keeps the coarse any-room work gate and makes Mary-O's gait writer
+    select each subject through existing room access and the installer's
+    scope. A foreign room does not inherit the walk throttle because its
+    body lacks a run edge. Preserve `EveryRoom`, body-local control and
+    native integration; no new registry or scoped-query interpreter.
+    This caller repair can ship independently of input and view work.
+
 **Acceptance:** body permission governs the actual action spend; a refused
 press has no accepted-action side effects; an applicable hitlag or held
 reaction suspends move execution and movement on the same action interval;
@@ -397,6 +421,9 @@ interruption; a fresh post-capture press survives cancellation of the old
 charge, including prediction/correction. A committed move remains on its
 body. Explicit view target, cast extent, continuity and preference binding
 vary independently of an unrelated default subject.
+Room work gates do not substitute for subject selection. A strike retains
+origin from birth through overlap and reception without coupling its
+lifetime to the launching move.
 State which axis each packet proves. Code, runtime behavior
 and compile-time performance remain separate evidence.
 
@@ -425,7 +452,12 @@ under [PORTAL-SIMILARITY](#portal-similarity--canonical-parts-and-scaled-mirror-
 eligibility and per-track semantic roles are prepared with the flipbook
 (PVS-1 first slice, 2026-11-22). Next in E2 are frame track correspondence
 indexes and retaining the prepared rig and binding from admission. The
-duplicate fact collectors are removed (one EventMailbox scan for all native
+static source review adds a [named source-binding customer](engine/runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows):
+boss roles resolve source rows, timing policy and mechanical geometry
+association once. Preserve the native cursor, hurt-part sample, death
+timing and visual projection under equal-capacity row reordering; keep
+explicit retiming, independent rig/move sources and dense runtime handles.
+The duplicate fact collectors are removed (one EventMailbox scan for all native
 fact ports, 2026-11-22), and `run_phase` buckets its queue by trigger once.
 Next, prepare dispatch spans and entry lookup at admission, then share correct
 occurrence views and derive active journal work. Navigation's cost-state
@@ -3727,3 +3759,9 @@ Done 2026-09-16: candidate-world and last-good-world publication are complete. A
 ### A12 — finish move-contact attribution and reflection identity — ✅ DONE 2026-09-19
 
 Done 2026-09-19: move-contact and reflection attribution use occurrence identity; an outcome for another/no occurrence grants no move credit. This A12 is not the separate frontier A12 flow-validation task.
+
+The `00bf92c22142` static review identifies a current body-strike
+construction and early-overlap gap in that rule.
+[CR1's construction follow-up](engine/combat-reception-and-injury.md#carry-attack-origin-through-strike-creation-and-contact)
+owns the bounded correction. Preserve this historical receipt and reflection
+work; the audit does not establish when the gap entered the source.

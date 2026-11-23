@@ -20,6 +20,43 @@ human debugger and may power optional visual views later.
 
 See [`godot-class-2d-capability.md`](godot-class-2d-capability.md).
 
+## Static contracts before live inspection
+
+Static source reading is a supported way to understand and audit the engine.
+A runtime inspector explains a particular execution; it is not a prerequisite
+for learning an operation's vocabulary, authority or effects. The
+2026-11-22 review at `00bf92c22142` selects three existing boundary repairs:
+
+| Contract visible from source | Existing owner |
+| --- | --- |
+| A work gate and the subjects its writer may change are distinct | [Room scope SC1](capability-and-runtime-composition.md#sc1--select-rule-subjects-inside-the-work-gate) |
+| A constructed strike and each contact fact retain their move origin | [Combat construction](combat-reception-and-injury.md#carry-attack-origin-through-strike-creation-and-contact) |
+| A gameplay animation role names its source and mechanical association before dense lookup | [Prepared animation binding](runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows) |
+
+These are input and preparation contracts. They remove the need to infer
+scope from a set name, origin from current playback, or identity from row
+position. An author can read the declaration and its native operation to
+find the meaning. A source audit can then follow the implementation to
+check that meaning.
+
+Keep ordinary Bevy composition, typed domain operations and plural content
+families. Prefer required construction arguments, borrowed subject-aware
+access and once-prepared references where they fit the existing owner.
+Comments should state the selection, timing or fallback law that the type
+alone cannot express. A duplicate descriptive registry, universal request
+interpreter or new trait hierarchy would not make these operations clearer.
+
+Static indexes must state which roots and syntax they inspected and when
+they lack a corpus; [A2](authoring-and-tools.md#static-source-coverage)
+owns that bounded correction. Do not label unseen code as absent or confuse
+an inventory with an installed composition.
+
+Review success is an understandable native path with the old implicit
+authority removed. It is not a target file length, comment count or number
+of indirections. Keep fast paths and independent policies. Dynamic state
+inspection and performance measurements remain useful for the claims that
+actually require them; they do not gate further source reasoning.
+
 ## Questions the engine should answer
 
 - What authored/prepared definition produced this entity/body/item?

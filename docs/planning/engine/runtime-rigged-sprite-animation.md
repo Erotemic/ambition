@@ -7,6 +7,9 @@ The planned visual work compiles stable clip/track relations, retains prepared
 bindings, shares samples at the same presentation cut, and separates source
 raster from finishing invalidation. Hardware measurements and gameplay rig
 rollout retain their separate gates.
+The 2026-11-22 static follow-up also binds native animation roles to named
+source rows before visual specialization. That relation includes any
+mechanical sample; loaded pixels never select gameplay geometry.
 
 Related owners:
 
@@ -402,6 +405,9 @@ and frame track correspondence/anchor indexes. Keep current ordering, first-matc
 rules and missing-track fallbacks; do not assume unique draw occurrences without
 establishing that invariant. Dynamic row selection, wounds, expressions and pose
 remain runtime inputs. Do not enumerate their Cartesian product.
+The [named source binding follow-up](#bind-semantic-roles-to-named-source-rows)
+below replaces parallel implicit choices only where they claim to describe
+one association. It does not change unrelated track ordering or fallback.
 
 Retain the prepared rig from admission. Bind visual tracks to that exact rig
 and flipbook mechanical program once per demanded compatible definition pair,
@@ -448,7 +454,130 @@ measurement is claimed.
 Still open in PVS-1: frame track correspondence indexes (the legs and face
 joins still scan the other frame for each draw), and retaining the prepared
 rig and visual binding from admission (`prepare_sheet_table`,
-`bind_posed_parts`).
+`bind_posed_parts`). The source binding below is a further preparation
+customer; the completed clip/track facts stay complete.
+
+#### Bind semantic roles to named source rows
+
+**State:** PLANNED PVS-1/E2 refinement, static source `00bf92c22142`,
+2026-11-22. First customer: the existing Flying Spaghetti Monster boss.
+The source-to-native association belongs at content preparation, including
+headless mechanical preparation. The renderer consumes its visual projection.
+No renderer or gameplay run was made for this audit.
+
+The [sprite source](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/flying_spaghetti_monster_boss.py)
+names each row and maps source names to geometry keys. The separate
+[`boss_sheets.ron`](../../../game/ambition_content/assets/data/boss_sheets.ron)
+binds `BossAnim` by **position**, with copied frame counts and durations.
+[`BossSheetSpec::record_row`](../../../crates/ambition_sprite_sheet/src/boss.rs)
+uses that position as the sheet index.
+`record_aligns_with_const` checks row capacity, frame counts and rectangle
+counts; it does not check row identity. This predicate is a loader choice,
+not complete content admission.
+
+| Boss role | Named source row | Published geometry key |
+| --- | --- | --- |
+| `SideSweep` | `noodle_whip` | `side_sweep` |
+| `FloorSlam` | `meatball_volley` | `floor_slam` |
+
+Both source rows have seven frames. Swap their order while preserving their
+names, art and key map: the capacity predicate still accepts the record,
+but the base `SideSweep` draw selects `meatball_volley`, while its geometry
+still names `side_sweep`. A named move pin can bypass that base draw path;
+it does not repair the underlying binding. This is a source-derived
+counterexample, not an edited or rendered asset.
+
+**Prepared relation.** Keep each native role vocabulary, including
+`BossAnim`. Bind a role to a named source row in the selected immutable
+sheet and retain its declared geometry association. Preparation resolves
+those references into dense handles scoped to their admitted products.
+Keep canonical geometry keys such as `side_sweep`; do not replace them
+with visual row names or pass one product's raw slot into another product.
+If one row supplies both pixels and mechanical samples, the prepared value
+must establish that correspondence. An intentional independent mechanical
+program remains valid when its binding and sampling coordinate are explicit.
+
+Use source frame facts by default. Preserve selected timing, frame-window,
+loop and hold policy as explicit native overrides where they are deliberate;
+do not silently replace all boss timing with the source duration. A changed
+playback duration needs the source-time mapping already specified by
+[CLIP3](../demos/smash-expressive-fighter-poses.md#clip3--preserve-source-motion-under-ruleset-retiming).
+The immutable admitted mechanical binding remains stable for its session
+generation. Visual quality tiers may resolve different pages and rectangles
+without changing that binding.
+
+Required named rows and geometry references fail at preparation if missing
+or incompatible. Optional roles state their fallback. Preserve the explicit
+unauthored/fixture sheet path. A malformed authored relation must not be
+repaired by silently inventing a grid through `synth_record`.
+
+**Reach the native consumers.** Changing `record_row` in the loader alone
+would leave these decisions independent:
+
+| Consumer | Required preservation |
+| --- | --- |
+| [`BossAnimFrame::tick`](../../../crates/ambition_sprite_sheet/src/boss.rs) | The simulation cursor reads the selected frame and timing policy. Windup and active phases remain distinct plays of the same role. |
+| [`drive_boss_animators`](../../../crates/ambition_boss_encounter/src/ecs/tick.rs), [`ecs_boss_animation_frame_sample`](../../../crates/ambition_boss_encounter/src/anim.rs) | Resolve role and sample association through the retained session binding/catalog. Preserve the explicit rest sample and existing profile/sample precedence. |
+| [`BossVolumeContext::hurtbox_selection`](../../../crates/ambition_boss_encounter/src/attack_geometry/mod.rs), [native target volumes](../../../crates/ambition_platformer2d_actor_monolith/src/body/target_volumes.rs) | The selected sample reaches actual damageable hurt parts. Preserve authored/rig `ResolvedHurtboxes` precedence over the boss frame-part fallback. |
+| [Rig-driven hurt geometry](../../../crates/ambition_combat/src/body_rig.rs) | Pinned row, move binding and pose clocks remain distinct supported sources. Do not assume the boss enum controls this route. |
+| [Boss construction](../../../crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs) | `DeathBeat` reads the selected death-row duration. Preserve lifecycle timing deliberately. |
+| [Boss drawing](../../../crates/ambition_render/src/rendering/actors/boss.rs) | Base cells and parts consume the prepared named relation; companion products resolve their own named references. |
+
+The [cursor snapshot contract](../../../crates/ambition_sprite_sheet/src/snapshot_impls.rs)
+assumes a session-stable specification. Preserve that property when retaining
+the prepared relation. The current driver reads live `Res<BossCatalog>`,
+while the hurt-volume reader deliberately uses `SessionMechanics.bosses`.
+Freezing `BossAnimFrame::spec` alone therefore does not establish agreement.
+Role selection and emitted sample association must use that same retained
+session product when the App publishes a later catalog, including during
+resimulation. Reuse the existing generation owner. A newly resident
+presentation tier cannot change the mechanical binding either.
+Live boss attack damage is lowered through
+[`boss_attack_moveset`](../../../crates/ambition_boss_encounter/src/attack_moveset.rs)
+into ordinary move volumes. Agreement of sprite debug strike boxes alone
+does not prove that live damage follows the intended motion.
+
+**A second customer exposes the same missing relation.** The sprite
+[`animation_key_map` builder](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/authoring/sheet_build.py)
+renames geometry keys but does not retain the source-row association.
+[`puppy_slug_velvet`](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/puppy_slug_velvet.py)
+maps `slash` to `side_sweep`; the
+[ordinary attack reader](../../../crates/ambition_character_sprites/src/attack_hitbox.rs)
+looks up the requested animation name exactly. Its current catalog is
+peaceful, so this is a reuse constraint, not a demonstrated missing bite.
+Retain the source-to-geometry reference in the shared published record or
+preserve geometry under its real source row. The generic artifact must not
+import boss gameplay enums.
+
+There is also no single alias law today:
+[`CharacterAnim`](../../../crates/ambition_sprite_sheet/src/character/anim.rs)
+maps both `jab` and `slash` to one role; the
+[sheet reader](../../../crates/ambition_sprite_sheet/src/character/sheets/mod.rs)
+selects the first row for that role, while
+[`BodyMetrics::pose_body_bbox`](../../../crates/ambition_sprite_sheet/src/lib.rs)
+selects the lexicographically first alias with a hurtbox. A sheet with
+`slash` before `jab` and different boxes can therefore choose different
+sources. Keep lean-sheet aliases, but declare the primary or ordered
+selection where one association matters. Separate physical and visual
+fallbacks may remain explicit. Do not impose one row vocabulary or one
+hurtbox model on every authoring family.
+
+**Removal, cost and acceptance.** Remove the boss positional join and
+copied source layout facts that are not explicit overrides. Remove competing
+implicit alias choices only for the binding they now share. Keep the
+[boss/character 3b receipt](boss-character-unification.md) and the current
+plural sprite authoring families. This is a native preparation change,
+not a new DSL, string cache or runtime resolver.
+
+The first implementation proof reorders the two equal-capacity boss rows
+and preserves role selection, native cursor, actual hurt-part sampling,
+and draw selection. A missing required name refuses preparation. An
+explicit retiming case preserves its mapping and death duration; a visual
+tier change or App catalog publication before session activation does not
+alter the retained mechanics. One alias/key-map customer then
+checks the shared record seam without requiring a cast-wide migration.
+These are planned cases. Dense runtime lookup remains; names and static
+joins resolve once. No frame-time or compile-time gain is claimed.
 
 ### PVS-2 — sample once for consumers at the same presentation cut
 

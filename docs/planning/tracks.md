@@ -83,8 +83,20 @@ and body-action continuation keep separate owners; each view derives its
 framing and continuity from its selected policy. P2's provider-action final
 hop remains gated on an actual gameplay consumer, and M3 still owns the
 shared orientation/input-reference product choice. The audit frontier now
-recommends a fresh implemented-head integration review or measured compiler/
-binary investigation; it does not invent another framework on this source.
+also treats static comprehension as an audit customer; a fresh build is
+not a prerequisite for further source reasoning.
+
+The static-contract pass selects [room scope SC1](engine/capability-and-runtime-composition.md#sc1--select-rule-subjects-inside-the-work-gate)
+and [complete strike origin](engine/combat-reception-and-injury.md#carry-attack-origin-through-strike-creation-and-contact)
+under ARCHITECTURE-COMPOSITION, and
+[named animation binding](engine/runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows)
+under E2/PVS-1. The smaller
+[A2 coverage correction](engine/authoring-and-tools.md#static-source-coverage)
+keeps source navigation honest about submodule roots and missing corpora.
+These improve local native contracts without a new execution framework,
+registry or collection library. The next unselected audit questions concern
+authored omission/override laws and saved references across content changes.
+Actual performance ranking still needs measurements.
 
 ### Persistent systemic world
 
@@ -132,7 +144,9 @@ there is no all-crates extraction program.
   under ARCHITECTURE-COMPOSITION. Share the relation each consumer needs;
   keep movement, lifetime, sequencing and acceptance with their owners.
 
-- ▢ **Capability/runtime composition.** Continue when a minimal consumer inherits
+- ▢ **Capability/runtime composition beyond SC1.** The selected room-subject
+  correction uses current room access and does not reopen completed profile
+  or closure proofs. Continue broader cuts when a minimal consumer inherits
   a capability it did not request or a real host needs substitution. Owner:
   [`engine/capability-and-runtime-composition.md`](engine/capability-and-runtime-composition.md).
 - ▢ **Public SDK 1.0.** Hide implementation topology behind semantic game APIs and

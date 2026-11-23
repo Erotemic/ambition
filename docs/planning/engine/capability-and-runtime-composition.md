@@ -95,6 +95,104 @@ its metadata occurs in the repository. Keep the current four proof axes:
 deriving related offers from one selected owner does not prove dependency
 absence or runtime behavior by itself.
 
+### SC1 — select rule subjects inside the work gate
+
+**State:** PLANNED, static audit at `00bf92c22142`, 2026-11-22.
+Selected under
+[ARCHITECTURE-COMPOSITION](../queue.md#architecture-composition--link-owned-facts-and-preserve-causal-boundaries).
+This is a remaining caller of the existing per-subject room contract. Keep
+the completed S2 and profile receipts; no gameplay run or cost measurement
+was made for this finding.
+
+A gate answers whether any room needs work. The system must still select
+the subjects that its rule governs. These are different relations:
+
+| Relation | Existing owner | Meaning |
+| --- | --- | --- |
+| Installed service | Host and capability installer | The App can execute the operation |
+| Work gate | `CurrentRoom::in_scope`, `RulesScopeSet` | Some live room matches the scope |
+| Subject permission | `LiveRuleRooms`, `RulesOf<T>`, `RulesScope::governs` | This body's room admits this rule |
+| Observation interval | Public schedule and room publication | Which published population the answer describes |
+
+**Source evidence.** [`add_scoped_systems`](../../../crates/ambition_platformer2d_runtime/src/mode_scope.rs)
+adds a set condition. It does not change a system's query. The underlying
+[`CurrentRoom::in_scope`](../../../crates/ambition_platformer2d_world/src/governing_rules.rs)
+deliberately asks whether **any** live room matches. In contrast,
+[`walk_by_default_run_while_held`](../../../game/ambition_demo_mary_o/src/movement.rs)
+iterates every player body with control and resolved technique edges. It
+takes no subject identity or room policy. A missing `run` edge reads as not
+held, so this system applies Mary-O's walk throttle to that body too.
+
+The [native registration](../../../game/ambition_demo_mary_o/src/lib.rs)
+places this mutation after `BodyControlGate` and before integration.
+[`gate_body_control`](../../../crates/ambition_platformer2d_actor_monolith/src/control/acceptance.rs)
+already resolves room-granted techniques through `RulesOf<DrivenTechniques>::of(entity)`.
+With one Mary-O room and one untagged room, the first room can wake the
+gait system while the foreign body receives no Mary-O room grant. If that
+body has no `run` of its own, the gait still changes its control. This is
+a supported composition derived from source, not a reproduced route in
+the shipped Mary-O world.
+
+**Change at the writer.** Capture the installer's `RulesScope` once and
+use it both for the coarse set gate and for subject selection. Add subject
+identity to the gait query. Resolve its room with the existing borrowed
+`LiveRuleRooms::{room_of, of}`, then ask `scope.governs` before changing
+control. A scope-taking system factory or install-time closure is sufficient.
+An existing domain rule declared through `DeclaredRules<T>` should instead
+use `RulesOf<T>::of` to select its actual rule. Mary-O's pack tuning does
+not need a second rule registry merely to ask which rooms its system serves.
+
+Keep the current held-edge rule after this selection. Absence and an idle
+edge are different facts, but this fix does not require a new edge API.
+Do not infer room permission from a missing or held technique. The existing
+body gate remains the owner of technique grants and action acceptance.
+
+Preserve `EveryRoom` with no world, named-mode absence, untagged rooms,
+and the existing unstamped-subject behavior. Keep mode-owner lifetime and
+the presentation gate's extra retirement frame with their current owners.
+A scope-independent `EveryRoom` check can avoid room resolution. For named
+scopes, reuse existing room access; it currently searches live roots and
+is not proven constant time. Reuse a resolved room within an existing room
+batch where available. Do not add a persistent marker mirror, whole-world
+scan, callback registry or generalized scoped-query interpreter.
+
+**Removal and proof.** Remove the implicit assumption that membership in
+`RulesScopeSet` restricts the query. Correct its public description to say
+what the helper actually guarantees; a rename alone does not fix the writer.
+A reader should find both the installed scope and the subject selection on
+the direct registration-to-writer path.
+
+For implementation, use two live rooms and let both bodies have nonzero
+control: the foreign body's control must stay unchanged, while Mary-O's
+held/released run states retain their existing throttle. Keep the
+`EveryRoom` no-session control. These discriminate subject selection from
+merely disabling the system. This audit specifies those cases; it did not
+execute them. No new input pipeline, movement kernel or capability split is
+needed.
+
+### Room gates have a stable observation interval
+
+The existing scheduling contract also applies to a cached room answer.
+Mary-O's registration expressly shares one condition per schedule run.
+Its `RulesScopeSet` includes early `WorldPrep` gait and late
+`GameplayEffects` work. The eager fixed-step path can publish a room
+change between them in
+[`RoomTransitionSet::Apply`](../../../crates/ambition_platformer2d_runtime/src/room_transition/mod.rs).
+That path includes command application and
+[`finalize_committed_room_transition`](../../../crates/ambition_platformer2d_runtime/src/room_transition/commit.rs).
+
+Do not promise that a shared condition observes a new population after
+publication without checking its evaluation contract in the pinned Bevy
+source. The repository's once-per-run contract makes that a specific
+static review question. It is not an executed mixed-mode crossing failure.
+If late work must use the new population, give the groups on either side
+of the **existing** publication boundary separate shared gates. If a domain
+intentionally waits until the next tick, state that entry contract instead.
+Do not restore one live-room scan per private system or invent a new phase
+graph. The rollback host's delayed publication and mode-owner creation
+must follow their actual cuts. Subject selection in SC1 remains necessary
+even when a gate is evaluated at the correct cut.
+
 ## Capability installation contract
 
 A capability declares required resources and services, optional integrations,

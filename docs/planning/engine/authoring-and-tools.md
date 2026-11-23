@@ -67,6 +67,66 @@ queries. A parallel hand-maintained dependency graph would become another source
 of truth. Stale generated indexes must identify their source revision, tool
 version and generation status; regeneration failure is visible to the consumer.
 
+### Static source coverage
+
+**State:** PLANNED A2/A9 refinement, static audit at `00bf92c22142`,
+2026-11-22. Improve the existing navigation tools; no new index service or
+parallel source-of-truth catalog is selected.
+
+Two current paths hide the boundary of their evidence:
+
+- [`generate_agent_index.py::_git_file_universe`](../../../scripts/generate_agent_index.py)
+  lists tracked and nonignored files from the superproject only. Initialized
+  submodules occur there as gitlinks, so the later file filter omits their
+  source. The present sprite repository and its Flying Spaghetti Monster
+  source are absent from the generated file summaries in this audit.
+- [`agent_query.py::build_catalog`](../../../scripts/agent_query.py) reads a
+  missing ECS inventory as an empty object; the overview then prints zero
+  registered systems, resources, channels and spawns. Navigation regeneration
+  in this audit produced that result with no ECS inventory present. It did
+  not establish those counts. Missing Cargo resolution is a separate
+  condition and already has an explicit unavailable result.
+
+Make availability, coverage and source identity properties of each corpus.
+A regenerated top-level README cannot certify that a separately produced
+ECS inventory is current. Preserve zero for a completed scan that found no
+matches; otherwise report unavailable, stale, partial or unsupported with
+the reason and the existing generation entry point. An unsupported static
+syntax form is not proof that a plugin installs no systems.
+
+Use the existing `.gitmodules`, Cargo manifests and source-archive provenance
+to describe source roots. For present supported submodule roots, collect
+their own tracked/nonignored universe and qualify paths from the workspace
+root. Keep each repository's revision and ignore rules. Unavailable roots
+remain named as unavailable; inspection must not fetch or render them to
+pretend the corpus is complete. Do not include generated output or traverse
+`target` and tool environments. Limit coverage to the source kinds each
+tool can actually inspect.
+
+Keep the current per-crate query packets and extend the same bounded
+discovery to tool-repository owners. A query for a sprite target should lead
+to its editable source, its publisher and the native consumer seam without
+loading every Python file into context. The index provides navigation and
+declaration evidence; it does not execute trusted plugins or certify the
+behavior of arbitrary Rust.
+
+The [ECS inventory](../../../scripts/ecs_inventory.py) is a static parser
+tool with its own generation path. Preserve its raw registration evidence
+and parser compatibility. This correction does not require Cargo, a
+running App, a full Rust interpreter or an always-on runtime census.
+Retain the existing distinction between declared dependency edges and a
+resolved product closure; a source graph is not a compile-time measurement.
+
+For implementation, inspect one superproject owner and the present sprite
+target through their respective source roots. A missing ECS corpus must
+report missing; an available zero-result corpus must still report zero.
+A stale ECS shard must not acquire freshness from a new top-level index.
+These are bounded navigation cases, not another repository policy campaign.
+The domain contracts in
+[inspection](inspection-diagnostics-and-workbench.md#static-contracts-before-live-inspection)
+remain the main source of comprehension; a more complete index cannot
+repair an operation that discards its own meaning.
+
 ## A3 - intent-level mutation and reviewable plans
 
 Direct edits are appropriate for simple source formats. Fragile formats such as

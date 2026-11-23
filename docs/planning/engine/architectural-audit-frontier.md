@@ -1,11 +1,12 @@
 # Architectural audit frontier
 
 **State:** audit map and research priorities, 2026-11-22. Latest source:
-`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass audits shared
-observers, source-input continuity, control handoffs and the provider-action
-final hop. It follows the observation audit at documentation commit
-`3ac54ecc1ada`; the runtime source is unchanged. This head includes the preceding
-planning overlays and the agents' IR1 item-recipe and AC1 construction-receipt
+`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass audits static
+comprehension through room-rule scope, native strike origin, sprite source
+binding and navigation coverage. It follows the observer/input audit at
+documentation commit `6a1c54efecc6`; the runtime source is unchanged.
+This head includes the preceding planning overlays and the agents'
+IR1 item-recipe and AC1 construction-receipt
 work. Earlier input/life/history and hosted-prediction findings below came
 from `34b4ab0b7f4f`; they remain separate owner work.
 
@@ -34,6 +35,7 @@ ever read that code.
 | Observer evidence, tactical knowledge and social retention | [OBS1](bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary), [OBS2 and horizons](world-facts-observations-and-memory.md), [module demand OBS3](agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers) | Native over-cap, dead/lost-sight, report and module-provider witnesses; durable incident/recognition work only with a concrete later dialogue customer |
 | Source input, control handoffs and independent observers | [IN1–IN5](participant-action-system.md), [control](control-authority-and-ai-policy.md), [MV1/M3](multiplayer-and-multiview.md) | Native capture/rebind, charge interruption, prediction and independent-view witnesses; provider P2 and shared-view input policy only with their selected consumers |
 | Content preparation, linking and authoring | [Linking](capability-linking-and-prepared-facets.md), [prepared media](asset-authoring-and-prepared-media.md), [asset delivery](asset-library-editor-and-delivery.md) | A demonstrated generation/publication gap or a repeated interpretation still outside its owner |
+| Static operation contracts and source discovery | [SC1](capability-and-runtime-composition.md#sc1--select-rule-subjects-inside-the-work-gate), [strike origin](combat-reception-and-injury.md#carry-attack-origin-through-strike-creation-and-contact), [named animation binding](runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows), [A2 coverage](authoring-and-tools.md#static-source-coverage) | Missing relations at actual operation boundaries; preserve native fast paths instead of adding a descriptive framework |
 | Compiler, dependency and product boundaries | [Compiler/build products](compiler-boundaries-and-build-products.md), [runtime composition](capability-and-runtime-composition.md) | Fresh compile/link/size measurements after the planned cuts |
 | Narrative roles, interaction and native completion | [Story](story-sequences.md), [interaction](interaction-opportunities-and-activation.md), [native actions](native-action-completion.md) | An actual lost invocation/result/role boundary, not a general task framework |
 | Hosted observation, prediction and correction | [Hosted prediction](hosted-prediction-contract.md), [experiment](hosted-world-networking-experiment.md) | Native witness results and the next admitted capability; do not infer general simulation support from motion equality |
@@ -45,10 +47,12 @@ hosted guest prediction and effective geometry, each then the first candidate.
 Their unresolved implementation work stays with the domain owners. The
 relationship pass below takes its candidate through native admission,
 transfer, reset and reconstruction. The following observation pass traces
-native sight, accepted hits, crew delivery and saved hostility. The latest
+native sight, accepted hits, crew delivery and saved hostility. The next
 pass takes the separate shared-observer/control transition question through
-native sampling, admission, pending action and view resolution. These plans
-now need implementation evidence; source coverage is not runtime completion.
+native sampling, admission, pending action and view resolution. The latest
+pass asks whether those kinds of operation can be understood through their
+local contracts. Implementation claims need native evidence; further static
+reasoning does not. Source coverage is not runtime completion.
 
 ## Findings retained from recent passes
 
@@ -348,6 +352,62 @@ prediction boundaries. Source-derived cases are not executed witnesses.
 There is no measured speedup: the planned state is bounded per participant
 or view, and MV1 must not repeat all cast work for unrelated panes.
 
+### Static interfaces retain scope, origin and source binding
+
+**Owners:** [SC1](capability-and-runtime-composition.md#sc1--select-rule-subjects-inside-the-work-gate),
+[combat construction](combat-reception-and-injury.md#carry-attack-origin-through-strike-creation-and-contact),
+and [PVS-1 source binding](runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows).
+These are three domain refinements, not a new common execution framework.
+
+A scoped-system installer asks whether any live room needs the work; its
+name does not restrict the writer's query. Mary-O's gait mutator can change
+a foreign-room player's control because a missing run edge reads as not
+held. Retain the coarse gate and make subject scope explicit through the
+existing room access. Keep the installer's scope, `EveryRoom` behavior
+and the native input/movement path. The same owner also records the stable
+observation interval of a shared gate across room publication; its exact
+cached evaluation must be checked in pinned dependency source before
+changing that grouping.
+
+A move-originating body strike reaches the extension lowerer with its move
+occurrence, then loses it at a scalar spawn helper. Accepted connect
+therefore cannot credit the move. Early contact has a different omission:
+it carries no occurrence and marks whichever playback the attacker now
+has. Require origin at native creation and in every contact fact that can
+change move state. Preserve the early overlap/staling cut and keep
+attribution separate from the strike's lifetime. The existing wider
+ground-slam shock supplies a real caller, but ordinary fists can mask its
+missing credit; no shipped cancel failure was demonstrated by this audit.
+
+The sprite source names rows, but a boss role chooses them by position.
+Swapping the two seven-frame Flying Spaghetti Monster attack rows passes
+the capacity check and changes the base draw's meaning. Bind role, source
+row, timing policy and geometry association once at preparation. The
+simulation cursor, hurt-part sample, death duration and visual projection
+must use the admitted relation. Keep canonical geometry keys, independent
+rig/move sources and explicit retiming. Dense runtime handles stay native;
+a renderer-only name lookup would leave mechanics independent.
+
+The common lesson is local completeness: carry the relation an operation
+needs instead of reconstructing it from ambient state, names or position.
+This reduces reconstruction work for the reader and can remove runtime
+joins. It does not justify a universal context object, interpreter, trait
+hierarchy, diagram registry or source-text guard. The
+[inspection owner](inspection-diagnostics-and-workbench.md#static-contracts-before-live-inspection)
+states this limit.
+
+The smaller [A2 navigation correction](authoring-and-tools.md#static-source-coverage)
+reports actual corpus coverage. The current superproject file universe
+omits present submodule sources, and missing ECS inventory becomes a zero
+count. Preserve root-specific source/ignore rules and distinguish missing,
+stale and unsupported evidence from a completed zero-result scan. A better
+index supports the source contracts; it cannot replace them.
+
+All counterexamples in this pass come from static reading. The plans keep
+the completed S2, A12, reporter, boss/character and prepared clip receipts
+within their demonstrated scope. No engine, renderer, build, gameplay test
+or benchmark ran. No speedup, compile-time or binary-size result is claimed.
+
 ## Areas audited without another architecture packet
 
 Reload and asset realization were inspected against the existing plans.
@@ -405,31 +465,65 @@ These are research questions, not established defects or selected work.
 Each starts from an existing owner and a concrete consumer. An audit is
 successful if it rules out a proposed abstraction as well as if it finds one.
 
-### 1. Fresh implemented-head composition and native witnesses
+### 1. Authored omission, override and fallback laws
 
-The source-only candidates named by this review series have now received
-owner guidance. This is not a claim that every engine area is complete.
-On the unchanged source, another broad ownership/lifetime framework is less
-useful than finding what survives an implemented cut.
+Follow one character variant from its source-family overlay through
+prepared facets, native admission and a change of form. Use the existing
+[character owner](character-authoring-package.md),
+[prepared media](asset-authoring-and-prepared-media.md) and
+[linking](capability-linking-and-prepared-facets.md) boundaries.
 
-Start from the next implementation head and its native results. Inspect one
-boundary end to end: for example, source capture through IN1/IN5 into a
-charge under possession and corrected input, or MV1's actual two-view host
-through default loss and a separately selected target. Check that the
-implementation removed the old authority, that a positive control still
-works, and that its cost was not shifted into every unrelated consumer.
-Then choose any new discrepancy as the next bounded audit question.
+Ask where omitted, inherited, explicitly empty and explicitly disabled
+values differ. Check whether that distinction survives every lowering and
+whether an optional capability's absence selects a deliberate fallback or
+silently borrows another definition. The sprite profile overlay already
+states its recursive-map and list/scalar replacement law; use that as a
+positive control, not as evidence of a defect.
 
-Do not reissue existing planned witnesses as newly discovered defects,
-reopen completed receipts without contrary evidence, or expand the
-backlog simply because no new runtime evidence is available.
+The aim is a local authoring contract that survives composition. A static
+trace can establish a discarded distinction or competing default. Select
+a new correction only with such a case; do not impose one merge algebra
+on every source family.
+
+### 2. Saved content references across authored evolution
+
+Start with one existing item recipe or character occurrence saved against
+one admitted content generation, then read how current construction admits
+it after a definition rename, removal or schema change. Owners:
+[construction](construction-and-reconstitution.md),
+[item recipes](item-recipes-and-live-continuity.md), and
+[persistence horizons](instance-lifetime-provenance-and-persistence.md).
+
+Distinguish durable identity, the saved construction description and the
+current definition it resolves against. Check that explicit refusal or
+migration happens before partial publication, and that an unknown value
+does not become a plausible default silently. This asks about compatibility
+across content evolution, not another audit of room residency or live
+endpoint identity. Supporting arbitrary old saves is not assumed. An
+intentional incompatibility with a clear boundary can be the correct result.
+
+### 3. Implemented contract review when a new source head is available
+
+Read one completed cut end to end: for example, admitted input into a charge
+under possession, or selected view policy into framing. Check that the old
+authority was removed, positive cases remain expressible, and cost was not
+moved into every unrelated consumer. Runtime results, when supplied, can
+support stronger claims; a new build or native witness is not a prerequisite
+for this source review.
+
+Do not repeat an existing planned case as a newly discovered defect or
+reopen a receipt without contrary evidence. An unchanged source head still
+permits a new bounded audit question; it does not justify a framework merely
+to fill the backlog.
 
 ### Conditional: compiler and binary costs after the planned cuts
 
 The [compiler/build owner](compiler-boundaries-and-build-products.md)
-already provides a source-based program. The next useful audit needs
-measurements: clean and incremental compile, codegen/link time, representative
-binary size, feature sets, and the actual repeated instantiations that
+already provides a source-based program. Static reading can find repeated
+generic boundaries or an unwanted declared dependency, but ranking actual
+cost and claiming a gain needs measurements: clean and incremental compile,
+codegen/link time, representative binary size, feature sets, and the actual
+repeated instantiations that
 survive optimization.
 
 Choose one expensive generic or dependency edge and compare its concrete,

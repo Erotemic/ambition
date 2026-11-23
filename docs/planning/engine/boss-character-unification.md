@@ -380,6 +380,15 @@ preflight still finds every boss's art. The sheet's frame grid and its rows
 (`boss_sheets.ron`) stay boss data. A boss's row vocabulary is not a
 character's, and the plan does not merge animation enums.
 
+**Named-row follow-up, planned 2026-11-22.** This receipt remains complete.
+[PVS-1's prepared binding](runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows)
+replaces the separate positional correspondence between boss roles and
+published source rows. Boss vocabulary and timing policy remain boss data;
+source layout facts come from the selected record unless explicitly
+overridden. The binding reaches the simulation cursor, hurt-part samples,
+death timing and draw projection. A renderer-only lookup change is not
+completion, and this work does not merge boss and character animation enums.
+
 **3c record (2026-11-21).** Construction builds no provisional body.
 `BossClusterScratch::before_sizing` builds the encounter, health and config at
 the placement box, and `size_from_character` sizes the body once. The boss

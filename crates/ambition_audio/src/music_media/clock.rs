@@ -1,6 +1,7 @@
 /// A section-local clock. Encoded grids use the producer's global rounding.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub enum PreparedMusicClock {
+    Unclocked,
     Constant {
         seconds_per_bar: f64,
         first_bar_seconds: f64,
@@ -13,7 +14,7 @@ pub enum PreparedMusicClock {
     },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
 pub struct MusicFrameOrigin {
     pub sample_rate: u32,
     pub score_seconds: f64,
@@ -47,6 +48,7 @@ impl PreparedMusicClock {
             None => seconds,
         };
         let boundary = match self {
+            Self::Unclocked => return None,
             Self::Constant {
                 seconds_per_bar,
                 first_bar_seconds,

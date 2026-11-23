@@ -5,6 +5,10 @@ asset coverage. They write reports and measurement data. They do not own content
 publication. Run a command with `--help` for its input and output options.
 Commands that inspect the live content library need an existing publication.
 
+`capture_native_audio.py` runs a Linux ALSA command through a bounded software
+capture. It uses no physical audio device. See the
+[native music capture recipe](../../docs/recipes/generated-music-workflow.md#native-software-capture-on-linux).
+
 ## Unattended Smash profiling on Android
 
 Use the Android CLI to start the profiling match. The installed APK keeps its

@@ -13,6 +13,10 @@ struct Output {
 }
 
 impl MusicVoiceOutput for Output {
+    fn shape(&self, _: &Handle<AudioInstance>, source: &Handle<KiraAudioSource>) -> Option<MusicSourceShape> {
+        Some(self.sources.get(source.id()).map(MusicSourceShape::decoded).unwrap_or(MusicSourceShape { sample_rate: 48000, frames: 192000 }))
+    }
+
     fn ready_to_start(&self) -> bool {
         !self.suspended
     }
@@ -71,6 +75,7 @@ impl Output {
             fade_seconds: 0.0,
             voices: (0..layers)
                 .map(|slot| MusicVoiceSource {
+                    expected_shape: None,
                     source: self.sources.reserve_handle(),
                     gain: 1.0,
                     slot,

@@ -108,6 +108,9 @@ struct StartupAssetDependency {
 
 #[derive(Clone, Debug, Default)]
 struct StartupAssetManifest {
+    /// Retain the music source until the startup cover retires.
+    #[cfg(feature = "audio")]
+    _music: Option<Handle<ambition_platformer2d::audio::library::KiraAudioSource>>,
     room: RoomAssetManifest,
     supporting: Vec<StartupAssetDependency>,
     /// What the room manifest was built from, so it can be REBUILT as the
@@ -545,6 +548,7 @@ fn reveal_direct_startup_room(
         commands.entity(entity).despawn();
     }
     state.revealed = true;
+    state.manifest = None;
 }
 
 fn build_startup_manifest(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
@@ -649,15 +653,18 @@ fn build_startup_manifest(sprite_content: &ambition_platformer2d::sprite_sheet::
         }
     }
     #[cfg(feature = "audio")]
+    let mut music = None;
+    #[cfg(feature = "audio")]
     if let (Some(library), Some(music_state)) = (
         inputs.audio_library.as_deref(),
         inputs.music_state.as_deref(),
     ) {
-        if let Some(handle) = library.resolved_track_handle(music_state.active_track()) {
+        if let Some(handle) = library.preload_track(music_state.active_track(), &inputs.asset_server) {
             supporting.push(StartupAssetDependency {
                 label: format!("music '{}'", music_state.active_track()),
                 asset_id: UntypedAssetId::from(&handle),
             });
+            music = Some(handle);
         }
     }
 
@@ -674,6 +681,8 @@ fn build_startup_manifest(sprite_content: &ambition_platformer2d::sprite_sheet::
     });
 
     Ok(StartupAssetManifest {
+        #[cfg(feature = "audio")]
+        _music: music,
         room: room_manifest,
         supporting,
         room_spec,

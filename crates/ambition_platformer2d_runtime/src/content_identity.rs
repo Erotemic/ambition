@@ -231,15 +231,9 @@ pub struct PendingGenerationInputs {
     /// asked the App's registry (N) would admit a session whose audio is not
     /// there.
     pub audio: Option<ambition_audio::catalog::AudioCatalogRegistry>,
-    /// The providers the candidate's ADAPTIVE MUSIC CATALOG REGISTRY carries a
-    /// cue catalog for, or `None` when the candidate changes no cue domain.
-    ///
-    /// The ids, not the registry: the registry type lives behind the audio
-    /// backend's feature, and preparation asks it one question, "does this
-    /// provider have adaptive cues?". The registry itself stays on the pending
-    /// generation and is published at the commit. A candidate that drops a
-    /// provider's cue file compiles, so the answer differs between N and N+1.
-    pub adaptive_providers: Option<std::collections::BTreeSet<String>>,
+    /// Prepared cue catalogs for this candidate. `None` means no cue change.
+    /// Preparation retains these values before the native registry is published.
+    pub adaptive_cues: Option<std::collections::BTreeMap<String, ambition_audio::cue_program::PreparedMusicCues>>,
 }
 
 impl PendingGenerationInputs {
@@ -281,14 +275,14 @@ impl PendingGenerationInputs {
         (self.load_id == load_id).then_some(self.audio.as_ref())
     }
 
-    /// The providers that have adaptive cues in the candidate, for `load_id`;
+    /// The prepared cue catalogs in the candidate, for `load_id`;
     /// the two `None`s are those of [`Self::characters_for`].
     #[allow(clippy::option_option)]
-    pub fn adaptive_providers_for(
+    pub fn adaptive_cues_for(
         &self,
         load_id: &str,
-    ) -> Option<Option<&std::collections::BTreeSet<String>>> {
-        (self.load_id == load_id).then_some(self.adaptive_providers.as_ref())
+    ) -> Option<Option<&std::collections::BTreeMap<String, ambition_audio::cue_program::PreparedMusicCues>>> {
+        (self.load_id == load_id).then_some(self.adaptive_cues.as_ref())
     }
 
     /// The candidate character catalog for `load_id`; the two `None`s are

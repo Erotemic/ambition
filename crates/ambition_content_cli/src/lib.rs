@@ -75,6 +75,7 @@ pub struct Invocation {
     /// Print only the files a package needs (`PreparedContentPack::package_inputs`).
     pub package_inputs_only: bool,
     pub inspect_art: bool,
+    pub inspect_music: bool,
     pub sheet_roots: Vec<PathBuf>,
     /// The schemas the game owns, beside the engine's: what its
     /// `content_pack! { schemas: [..] }` names. A game's check binary passes
@@ -136,6 +137,7 @@ OPTIONS:
     --schema-identity     Print the installed schema set's identity and exit.
                           A runtime built with the same schemas prints the
                           same value (`ambition_game_bin --schema-identity`).
+    --inspect-music       Export prepared music policy and selected product facts as JSON.
     --inspect-art         Export prepared art identities and dependencies as JSON.
     --sheet-root <dir>    Inspect published RON sheets through their runtime owner.
     -h, --help            This text.
@@ -159,6 +161,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
     let mut fingerprint_only = false;
     let mut package_inputs_only = false;
     let mut inspect_art = false;
+    let mut inspect_music = false;
     let mut sheet_roots = Vec::new();
 
     let mut args = args.into_iter();
@@ -182,6 +185,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
             "--fingerprint" => fingerprint_only = true,
             "--package-inputs" => package_inputs_only = true,
             "--inspect-art" => inspect_art = true,
+            "--inspect-music" => inspect_music = true,
             "--sheet-root" => sheet_roots.push(PathBuf::from(args.next().ok_or_else(|| ArgError::MissingValue("--sheet-root".into()))?)),
             other if other.starts_with('-') => return Err(ArgError::Unknown(other.to_string())),
             other => pack_root = Some(PathBuf::from(other)),
@@ -201,6 +205,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
             fingerprint_only,
             package_inputs_only,
             inspect_art,
+            inspect_music,
             sheet_roots,
             game_schemas: no_game_schemas,
         });
@@ -219,6 +224,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
         fingerprint_only,
         package_inputs_only,
         inspect_art,
+        inspect_music,
         sheet_roots,
         game_schemas: no_game_schemas,
     })
@@ -345,6 +351,10 @@ pub fn main_with_args(raw: Vec<String>, game_schemas: fn() -> Vec<SchemaRegistra
         Ok(pack) => {
             if invocation.inspect_art {
                 println!("{}", art::describe(Some(&pack), &invocation.sheet_roots));
+            } else if invocation.inspect_music {
+                let cues = ambition_audio::content_schema::lowered_music_cues(&pack).map(|cues| cues.inspect());
+                let tracks = ambition_audio::content_schema::lowered_music_registry(&pack);
+                println!("{}", serde_json::json!({"programs": cues, "tracks": tracks}));
             } else if invocation.fingerprint_only {
                 println!("{}", pack.fingerprint);
             } else if invocation.package_inputs_only {

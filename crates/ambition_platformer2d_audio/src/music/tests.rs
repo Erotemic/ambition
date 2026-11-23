@@ -29,6 +29,7 @@ use bevy::prelude::*;
 fn cue(id: &str) -> MusicCueSpec {
     MusicCueSpec {
         id: id.into(),
+        playback: Default::default(),
         media: MusicCueMedia::Inline {
             asset_root: "audio/fixture".into(),
             bpm: 120.0,

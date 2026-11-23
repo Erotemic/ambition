@@ -37,7 +37,7 @@ Do not turn the game into a lecture on patents or settle all intellectual-proper
 ## Later possibilities (November 21 discussion)
 
 - **[User-proposed; open]** The newly established **Business Dimension** might resolve patent disputes through **trial by combat**. A serious patent proceeding could explain why the confrontation happens, but whether it is connected to the existing Gravity Works arena, who acts as litigant, and what a legal verdict decides are all open. GNU-ton must also face the consequences of his enforcement independently of the fight's outcome.
-- **[User-favored; not canon]** GNU-ton's **apple orchards** might ultimately supply fruit for the Creator's future apple pie. The Creator has not completed the first step of creating the universe. Do not use a golden apple to revive GNU-ton just to force this connection; the orchard can stand as a quieter background detail.
+- **[User-favored; not canon]** GNU-ton's **apple orchards** might ultimately supply fruit for the Boss of the Game's future apple pie. The Boss of the Game has not completed the first step of creating the universe. Do not use a golden apple to revive GNU-ton just to force this connection; the orchard can stand as a quieter background detail.
 - **[Correction]** Earlier brainstorming attributed the revival to GNU2. The current fight uses **GNU1**; the user now prefers **no resurrection**. The redemption arc remains, with genuine actions and not instant absolution.
 
 ## Open decisions

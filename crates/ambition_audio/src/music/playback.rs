@@ -3,7 +3,7 @@
 use super::*;
 use bevy::asset::AssetApp;
 
-const MAX_GROUPS: usize = 2;
+const MAX_GROUPS: usize = crate::music_policy::MAX_MUSIC_PLAYBACK_GROUPS;
 const ADMISSION_TIMEOUT_SECONDS: f64 = 5.0;
 const MAX_RETRIES: u8 = 1;
 
@@ -29,8 +29,29 @@ pub enum MusicProduct {
     },
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct MusicSourceShape {
+    pub sample_rate: u32,
+    pub frames: u64,
+}
+
+impl MusicSourceShape {
+    fn decoded(asset: &KiraAudioSource) -> Self {
+        let sample_rate = asset.sound.sample_rate;
+        let frames = (asset.sound.duration().as_secs_f64() * f64::from(sample_rate)).round() as u64;
+        Self {
+            sample_rate,
+            frames,
+        }
+    }
+    fn seconds(self) -> f64 {
+        self.frames as f64 / f64::from(self.sample_rate)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct MusicVoiceSource {
+    pub expected_shape: Option<MusicSourceShape>,
     pub source: Handle<KiraAudioSource>,
     pub gain: f32,
     pub slot: usize,
@@ -71,6 +92,7 @@ pub enum MusicTerminalReason {
     AdmissionAbsent,
     AdmissionTimeout,
     UnexpectedStop,
+    SourceMismatch,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -96,6 +118,7 @@ pub enum MusicGroupPhase {
 
 #[derive(Clone, Debug)]
 struct MusicVoice {
+    shape: Option<MusicSourceShape>,
     handle: Handle<AudioInstance>,
     gain: f32,
     last_gain: Option<f32>,
@@ -142,6 +165,15 @@ pub struct MusicPlaybackGroup {
 }
 
 impl MusicPlaybackGroup {
+    pub(super) fn file_duration_seconds(&self) -> Option<f64> {
+        let mut voices = self.voices.iter();
+        let mut duration = voices.next()?.shape?.seconds();
+        for voice in voices {
+            duration = duration.min(voice.shape?.seconds());
+        }
+        Some(duration)
+    }
+
     pub fn goal_revision(&self) -> u64 {
         self.request.goal_revision
     }
@@ -360,10 +392,46 @@ impl MusicPlayback {
                 group.terminal = Some(MusicTerminalReason::Canceled);
             }
             let mut observations = [VoiceObservation::Absent; MAX_LAYERS];
-            for (state, voice) in observations.iter_mut().zip(&group.voices) {
+            for ((state, voice), source) in observations
+                .iter_mut()
+                .zip(&mut group.voices)
+                .zip(&group.request.voices)
+            {
                 *state = output.observe(&voice.handle);
+                // Keep the first backend source facts through asset reload.
+                if voice.shape.is_none()
+                    && matches!(
+                        *state,
+                        VoiceObservation::Paused | VoiceObservation::Playing(_)
+                    )
+                {
+                    voice.shape = output.shape(&voice.handle, &source.source);
+                }
             }
             let observations = &observations[..group.voices.len()];
+            let shapes_ready = group.voices.iter().all(|voice| voice.shape.is_some());
+            if group.phase == MusicGroupPhase::Submitted && shapes_ready {
+                let common = group.voices[0].shape;
+                let mismatch =
+                    group
+                        .voices
+                        .iter()
+                        .zip(&group.request.voices)
+                        .any(|(voice, source)| {
+                            voice
+                                .shape
+                                .is_some_and(|shape| shape.frames == 0 || shape.sample_rate == 0)
+                                || voice.shape != common
+                                || source
+                                    .expected_shape
+                                    .is_some_and(|expected| Some(expected) != voice.shape)
+                        });
+                if mismatch {
+                    group.phase = MusicGroupPhase::Canceled;
+                    group.terminal = Some(MusicTerminalReason::SourceMismatch);
+                    self.failed(group.occurrence, MusicTerminalReason::SourceMismatch);
+                }
+            }
             if !output.ready_to_start() && group.phase == MusicGroupPhase::Submitted {
                 group.submitted_at = now;
             }
@@ -378,6 +446,7 @@ impl MusicPlayback {
                     .iter()
                     .all(|state| matches!(state, VoiceObservation::Paused))
                     && output.ready_to_start()
+                    && shapes_ready
                 {
                     if let Some(old) = self.current {
                         for previous in self
@@ -533,6 +602,7 @@ impl MusicPlayback {
             .voices
             .iter()
             .map(|source| MusicVoice {
+                shape: None,
                 handle: output.submit(&source.source, request.looped),
                 gain: source.gain,
                 last_gain: None,
@@ -576,6 +646,11 @@ trait MusicVoiceOutput {
     fn ready(&self, source: &Handle<KiraAudioSource>) -> bool;
     fn submit(&mut self, source: &Handle<KiraAudioSource>, looped: bool) -> Handle<AudioInstance>;
     fn observe(&self, handle: &Handle<AudioInstance>) -> VoiceObservation;
+    fn shape(
+        &self,
+        handle: &Handle<AudioInstance>,
+        source: &Handle<KiraAudioSource>,
+    ) -> Option<MusicSourceShape>;
     fn resume(&mut self, handle: &Handle<AudioInstance>);
     fn gain(&mut self, handle: &Handle<AudioInstance>, gain: f32);
     fn stop(&mut self, handle: &Handle<AudioInstance>);
@@ -585,7 +660,7 @@ trait MusicVoiceOutput {
 #[derive(Debug)]
 struct RecordedVoice {
     started: Option<f64>,
-    duration: f64,
+    shape: MusicSourceShape,
     looped: bool,
     stopped: bool,
 }
@@ -613,6 +688,21 @@ struct KiraMusicOutput<'a> {
 const OUTPUT_CHANNEL: &str = "ambition.music.occurrences";
 
 impl MusicVoiceOutput for KiraMusicOutput<'_> {
+    fn shape(
+        &self,
+        handle: &Handle<AudioInstance>,
+        source: &Handle<KiraAudioSource>,
+    ) -> Option<MusicSourceShape> {
+        if self.mode.emits_to_device() {
+            self.decoded.get(source.id()).map(MusicSourceShape::decoded)
+        } else {
+            self.recording
+                .voices
+                .get(&handle.id())
+                .map(|voice| voice.shape)
+        }
+    }
+
     fn ready_to_start(&self) -> bool {
         self.can_start
     }
@@ -631,16 +721,12 @@ impl MusicVoiceOutput for KiraMusicOutput<'_> {
             command.handle()
         } else {
             let handle = self.instances.reserve_handle();
-            let sound = &self
-                .decoded
-                .get(source)
-                .expect("decoded before submission")
-                .sound;
+            let asset = self.decoded.get(source).expect("decoded before submission");
             self.recording.voices.insert(
                 handle.id(),
                 RecordedVoice {
                     started: None,
-                    duration: sound.duration().as_secs_f64(),
+                    shape: MusicSourceShape::decoded(asset),
                     looped,
                     stopped: false,
                 },
@@ -656,11 +742,13 @@ impl MusicVoiceOutput for KiraMusicOutput<'_> {
                 Some(voice) if voice.stopped => VoiceObservation::Stopped,
                 Some(voice) => match voice.started {
                     None => VoiceObservation::Paused,
-                    Some(started) if !voice.looped && self.now - started >= voice.duration => {
+                    Some(started)
+                        if !voice.looped && self.now - started >= voice.shape.seconds() =>
+                    {
                         VoiceObservation::Stopped
                     }
                     Some(started) => VoiceObservation::Playing(if voice.looped {
-                        (self.now - started).rem_euclid(voice.duration)
+                        (self.now - started).rem_euclid(voice.shape.seconds())
                     } else {
                         self.now - started
                     }),

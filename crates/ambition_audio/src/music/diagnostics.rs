@@ -108,7 +108,6 @@ pub struct MusicObservation<'w> {
     director: Option<Res<'w, MusicDirectorState>>,
     transport: Option<Res<'w, super::playback::MusicPlayback>>,
     catalogs: Res<'w, AdaptiveMusicCatalogRegistry>,
-    loaded: Option<Res<'w, LoadedMusicCueAssets>>,
     decoded: Res<'w, Assets<KiraAudioSource>>,
     asset_server: Res<'w, AssetServer>,
     instances: Res<'w, Assets<AudioInstance>>,
@@ -132,7 +131,6 @@ pub fn observe_music_playback(
         director,
         transport,
         catalogs,
-        loaded,
         decoded,
         asset_server,
         instances,
@@ -229,12 +227,11 @@ pub fn observe_music_playback(
         report.expected = format!("cue:{cue_id} state:{state_id}");
         content_status = MusicPlaybackStatus::MissingContent;
         if intent.authority.allows_cue(cue_id) {
-            if let Some((provider, cue)) = intent.provider_id.as_deref().and_then(|provider| {
-                catalogs
-                    .catalog_for(provider)
-                    .and_then(|c| c.cue(cue_id))
-                    .map(|cue| (provider, cue))
-            }) {
+            if let Some(cue) = intent
+                .provider_id
+                .as_deref()
+                .and_then(|provider| catalogs.catalog_for(provider).and_then(|c| c.cue(cue_id)))
+            {
                 let continuation = director
                     .as_ref()
                     .filter(|d| {
@@ -246,40 +243,23 @@ pub fn observe_music_playback(
                     .state(continuation.unwrap_or(state_id))
                     .and_then(|state| cue.section(&state.section_id))
                 {
-                    content_status = if loaded.as_ref().is_some_and(|assets| {
-                        assets.section_ready(
-                            provider,
-                            catalogs.generation(provider),
-                            cue,
-                            &section.id,
-                            &decoded,
-                        )
-                    }) {
-                        MusicPlaybackStatus::BackendSilent
-                    } else {
-                        if let Some(assets) = loaded.as_ref() {
-                            report.detail = section
-                                .sources
-                                .iter()
-                                .find_map(|source| {
-                                    let handle = assets.get(
-                                        provider,
-                                        catalogs.generation(provider),
-                                        cue_id,
-                                        &section.id,
-                                        &source.layer_id,
-                                    )?;
-                                    (!decoded.contains(handle.id())).then(|| {
-                                        format!(
-                                            "{} {:?}",
-                                            source.path,
-                                            asset_server.get_load_state(handle.id())
-                                        )
-                                    })
-                                })
-                                .unwrap_or_else(|| "section sources not requested".into());
+                    let missing_source = section.sources.iter().find_map(|source| {
+                        let handle =
+                            asset_server.get_handle::<KiraAudioSource>(source.path.clone());
+                        match handle {
+                            Some(handle) if decoded.contains(handle.id()) => None,
+                            handle => Some(format!(
+                                "{} {:?}",
+                                source.path,
+                                handle.map(|h| asset_server.get_load_state(h.id()))
+                            )),
                         }
+                    });
+                    content_status = if let Some(detail) = missing_source {
+                        report.detail = detail;
                         MusicPlaybackStatus::Loading
+                    } else {
+                        MusicPlaybackStatus::BackendSilent
                     };
                 }
             }
@@ -293,7 +273,9 @@ pub fn observe_music_playback(
             report.expected = format!("track:{id}");
             content_status = match library.as_ref().and_then(|l| l.track(id)) {
                 None => MusicPlaybackStatus::MissingContent,
-                Some(track) => match library.as_ref().and_then(|l| l.resolved_track_handle(id)) {
+                Some(track) => match asset_server
+                    .get_handle::<KiraAudioSource>(track.asset_path().to_owned())
+                {
                     Some(handle) if decoded.contains(handle.id()) => {
                         report.detail = format!(
                             "base_instance={:?}",
@@ -325,6 +307,29 @@ pub fn observe_music_playback(
                     }
                 },
             };
+        }
+    }
+    if let Some(MusicGoal::Play(selected)) = intent.goal.as_ref() {
+        if matches!(selected.choice, MusicChoice::Cue { .. })
+            && director.as_ref().is_some_and(|director| {
+                director.transport_completed
+                    && director.selection().is_some_and(|old| {
+                        old.can_continue(selected) && old.choice == selected.choice
+                    })
+                    && director.prepared_cue.as_ref().is_some_and(|cue| {
+                        (cue.playback.exhausted
+                            == crate::music_policy::MusicExhaustionPolicy::Finish
+                            && director.continuation_state_id.is_some())
+                            || (director.requested_state_id == director.current_state_id
+                                && director
+                                    .current_state_id
+                                    .as_deref()
+                                    .and_then(|state| cue.state(state))
+                                    .is_some_and(|state| state.next_state.is_none()))
+                    })
+            })
+        {
+            content_status = MusicPlaybackStatus::OneShotComplete;
         }
     }
     let deliberate = if matches!(intent.goal, Some(MusicGoal::Silence { .. })) {

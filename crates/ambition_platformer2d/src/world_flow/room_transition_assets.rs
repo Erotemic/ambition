@@ -115,6 +115,8 @@ struct PrefetchedRoomPreparation {
 /// safe misses rather than stale promotion.
 #[derive(Resource, Default, Debug)]
 pub(crate) struct RoomPreparationPrefetchState {
+    /// The bounded neighbor selection, before each room's preparation runs.
+    pub(super) selected_targets: Vec<String>,
     /// ⛔⛔ **THE SAME KEYS THE PLAN CACHE HAS, UNDER THE SAME RULE, NOT A
     /// SECOND SPELLING OF IT.** This used to hold `content_epoch`,
     /// `session_scope` and `source_room_id` as three fields of its own while
@@ -1532,6 +1534,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // No prefetch this frame. The door prepares its own plan, and refuses for
         // the same reason if the generation is still missing when it gets there.
         cache.entries.clear();
+        cache.selected_targets.clear();
         return;
     };
     let sprite_content = mechanics.sprite_content();
@@ -1546,6 +1549,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         .into_iter()
         .collect::<Vec<_>>();
     let Some(&first_live_room) = live_rooms.first() else {
+        cache.selected_targets.clear();
         // No live room: nothing to be a neighbour of. The entries stay, as
         // they did while this system did not run without a live room.
         return;
@@ -1557,6 +1561,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         )
     else {
         cache.entries.clear();
+        cache.selected_targets.clear();
         return;
     };
     // ⛔⛔ ONE IDENTITY, STATED ONCE, AND BOTH CACHES TAKE IT. The asset-side
@@ -1590,6 +1595,8 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         }
     }
     let prefetch = neighbour_prefetch_set(rooms, &live_rooms, NEIGHBOR_PREFETCH_ROOM_BUDGET, &standing);
+    cache.selected_targets = prefetch.rooms.iter()
+        .map(|(index, _)| rooms.rooms[*index].id.clone()).collect();
     if prefetch.skipped > 0 {
         // NOT silent. A cap that quietly drops work reads as "everything is
         // prefetched" to the next person measuring a transition.

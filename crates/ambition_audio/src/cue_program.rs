@@ -7,6 +7,7 @@ use bevy::prelude::Resource;
 use crate::cue_spec::*;
 use crate::music_media::{MusicMediaCatalog, PreparedMusicClock};
 
+mod inspection;
 mod media;
 mod references;
 mod validation;
@@ -32,6 +33,7 @@ pub struct PreparedMusicCues {
 pub struct PreparedMusicCue {
     pub id: String,
     pub media_identity: Option<PreparedMusicMediaIdentity>,
+    pub playback: crate::music_policy::MusicPlaybackPolicy,
     pub sections: Vec<PreparedMusicSection>,
     pub states: Vec<PreparedMusicState>,
     pub outro_state: Option<String>,
@@ -40,7 +42,7 @@ pub struct PreparedMusicCue {
     state_index: BTreeMap<String, usize>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct PreparedMusicMediaIdentity {
     pub cue_id: String,
     pub description_path: String,
@@ -48,10 +50,10 @@ pub struct PreparedMusicMediaIdentity {
     pub render_fingerprint: String,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct PreparedMusicSection {
     pub id: String,
-    pub duration_seconds: f64,
+    pub musical_duration_seconds: Option<f64>,
     pub file_duration_seconds: Option<f64>,
     pub clock: PreparedMusicClock,
     pub markers: Vec<crate::music_media::MusicFrameMarker>,
@@ -60,7 +62,7 @@ pub struct PreparedMusicSection {
     pub sources: Vec<PreparedMusicSource>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct PreparedMusicSource {
     pub layer_id: String,
     pub slot: usize,
@@ -68,13 +70,69 @@ pub struct PreparedMusicSource {
     pub product: Option<crate::music_media::MusicEncodedProduct>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct PreparedMusicState {
     pub id: String,
     pub section_id: String,
     pub next_state: Option<String>,
     /// Includes the cue volume and any authored balance override.
     pub gains: [f32; MAX_MUSIC_LAYERS],
+}
+
+impl PreparedMusicSection {
+    pub fn delay_to_exit(
+        &self,
+        rule: &crate::music_policy::MusicExitRule,
+        position: f64,
+        asset_seconds: Option<f64>,
+    ) -> Option<f64> {
+        use crate::music_policy::MusicExitRule;
+        if !position.is_finite() || position < 0.0 {
+            return None;
+        }
+        let pass = self
+            .looped
+            .then_some(asset_seconds.or(self.musical_duration_seconds))
+            .flatten();
+        let position = pass.map_or(position, |period| position.rem_euclid(period));
+        let until = |end: f64| {
+            if end + 1e-9 >= position {
+                Some((end - position).max(0.0))
+            } else {
+                pass.map(|period| period - position + end)
+            }
+        };
+        match rule {
+            MusicExitRule::Immediate => Some(0.0),
+            MusicExitRule::AssetEnd => until(asset_seconds?),
+            MusicExitRule::MusicalEnd => until(self.musical_duration_seconds?),
+            MusicExitRule::Bars(bars) => {
+                let delay = self.clock.delay_to_boundary(position, *bars, pass)?;
+                if !self.looped
+                    && self
+                        .musical_duration_seconds
+                        .is_some_and(|end| position + delay > end + 1e-9)
+                {
+                    None
+                } else {
+                    Some(delay)
+                }
+            }
+            MusicExitRule::Markers(ids) => {
+                let rate = self.sources.iter().find_map(|source| {
+                    source.product.as_ref().map(|product| product.sample_rate)
+                })?;
+                self.markers
+                    .iter()
+                    .filter(|marker| {
+                        ids.contains(&marker.id)
+                            && marker.role == crate::music_media::MusicMarkerRole::Exit
+                    })
+                    .filter_map(|marker| until(marker.frame as f64 / f64::from(rate)))
+                    .min_by(f64::total_cmp)
+            }
+        }
+    }
 }
 
 impl PreparedMusicCue {
@@ -244,6 +302,7 @@ fn prepare_cue(linked: media::LinkedMusicCue) -> PreparedMusicCue {
     PreparedMusicCue {
         id: cue.id.clone(),
         media_identity: linked.identity,
+        playback: cue.playback_policy(),
         sections: linked.sections,
         states,
         outro_state: cue.outro_state.clone(),

@@ -39,17 +39,10 @@ pub fn drive_music_director(
     let (Some(mut director), Some(mut assets)) = (director, assets) else {
         return;
     };
-    let mut retained = Vec::with_capacity(2);
-    if let Some(selection) = &director.selection {
-        retained.push((selection.provider.as_str(), selection.generation));
+    assets.retire_unused();
+    if let Some(library) = library.as_deref_mut() {
+        library.retire_unused();
     }
-    if let Some(ending) = &director.ending {
-        retained.push((
-            ending.admitted.selection.provider.as_str(),
-            ending.admitted.selection.generation,
-        ));
-    }
-    assets.retire_generations(&catalogs, &retained);
     let running = current_is_running(&director, &channels);
     let dt = if running { time.delta_secs() } else { 0.0 };
     director.position_seconds = channels
@@ -115,7 +108,7 @@ pub fn drive_music_director(
                             cue,
                             started: false,
                             elapsed: 0.0,
-                            duration: 0.0,
+                            duration: None,
                             waiting_seconds: 0.0,
                         });
                     }
@@ -147,7 +140,12 @@ pub fn drive_music_director(
         if !ready {
             ending.waiting_seconds += time.delta_secs();
         }
-        if ending.waiting_seconds >= 5.0 {
+        if transport_completed
+            && ending.cue.playback.exhausted == crate::music_policy::MusicExhaustionPolicy::Finish
+        {
+            return Some(MusicEndingResult::ExitUnavailable);
+        }
+        if !ready && ending.waiting_seconds >= ending.cue.playback.ending_media_timeout_seconds {
             return Some(MusicEndingResult::MediaUnavailable);
         }
         if matches!(
@@ -172,7 +170,9 @@ pub fn drive_music_director(
         let group = channels.section_group(ending.admitted.entry, &ending.cue.id, &section.id);
         if let Some(group) = group {
             ending.started = true;
-            ending.duration = section.duration_seconds;
+            ending.duration = section
+                .musical_duration_seconds
+                .or_else(|| group.file_duration_seconds());
             if let Some(position) = group.position_seconds {
                 ending.elapsed = position;
             }
@@ -180,7 +180,9 @@ pub fn drive_music_director(
         if !ending.started {
             return None;
         }
-        if ending.elapsed >= ending.duration
+        if ending
+            .duration
+            .is_some_and(|duration| ending.elapsed >= duration)
             || (transport_completed && current_entry == Some(ending.admitted.entry))
             || (group.is_none() && current_entry != Some(ending.admitted.entry))
         {
@@ -200,8 +202,11 @@ pub fn drive_music_director(
         .as_ref()
         .filter(|ending| {
             !ending.started
-                || ending.elapsed
-                    < (ending.duration - f64::from(DEFAULT_RETURN_OVERLAP_SECONDS)).max(0.0)
+                || ending.duration.is_none_or(|duration| {
+                    ending.elapsed
+                        < (duration - f64::from(ending.cue.playback.return_overlap_seconds))
+                            .max(0.0)
+                })
         })
         .map(|ending| {
             let mut selected = ending.admitted.selection.clone();
@@ -226,8 +231,8 @@ pub fn drive_music_director(
         );
     } else {
         let mut successor = winner.clone();
-        if director.ending.is_some() {
-            successor.crossfade_s = DEFAULT_RETURN_OVERLAP_SECONDS;
+        if let Some(ending) = director.ending.as_ref() {
+            successor.crossfade_s = ending.cue.playback.return_overlap_seconds;
         }
         drive_selection(
             &successor,

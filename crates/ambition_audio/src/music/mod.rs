@@ -20,17 +20,6 @@ pub const MUSIC_LOG_TARGET: &str = "ambition_music";
 
 const MAX_LAYERS: usize = crate::cue_spec::MAX_MUSIC_LAYERS;
 
-const LOOP_SECTION_CROSSFADE_SECONDS: f32 = 1.70;
-
-/// Intro to first loop should sound continuous, not like a file switch. The
-/// source material is level-matched around a ~0.65s seam; shorter overlaps
-/// leave a measurable dip before wave1's first bar.
-const INTRO_TO_LOOP_CROSSFADE_SECONDS: f32 = 0.65;
-const OUTRO_CROSSFADE_SECONDS: f32 = 1.65;
-
-/// Start room/radio music before the adaptive outro finishes so the return to
-/// exploration does not leave a silent gap after encounter music fades.
-const DEFAULT_RETURN_OVERLAP_SECONDS: f32 = 2.25;
 const DEBUG_LOG_PERIOD_SECONDS: f32 = 1.0;
 
 pub mod catalog;
@@ -50,7 +39,7 @@ pub use catalog::{
 pub use commands::MusicPlaybackCommands;
 pub use director::{drive_music_director, load_music_cues};
 pub use playback::add_music_playback;
-use state::PendingMusicStateTransition;
+pub use state::MusicTransitionPlan;
 pub use state::{
     AdmittedMusic, MusicChoice, MusicClaim, MusicContinuity, MusicDirectorMode, MusicDirectorState,
     MusicDisposition, MusicEndingResult, MusicEntryPolicy, MusicGoal, MusicGoalPublication,

@@ -9,13 +9,30 @@ pub use crate::cue_spec::{
 
 pub use crate::cue_program::PreparedMusicCues as MusicCueCatalog;
 
+#[derive(Clone)]
+pub(super) struct LoadedMusicSource {
+    path: String,
+    handle: Handle<KiraAudioSource>,
+    requested: bool,
+}
+
+impl LoadedMusicSource {
+    pub(super) fn new(path: String, handle: Handle<KiraAudioSource>) -> Self {
+        Self {
+            path,
+            handle,
+            requested: true,
+        }
+    }
+}
+
 #[derive(Resource, Clone, Default)]
 pub struct LoadedMusicCueAssets {
     /// Each handle with the asset path it was requested for. The path is part
     /// of what was loaded: a content reload can point the same cue, section and
     /// layer at another file, and a handle that outlives its path would keep
     /// playing the file the author replaced.
-    pub(super) sources: HashMap<MusicSourceKey, (String, Handle<KiraAudioSource>)>,
+    pub(super) sources: HashMap<MusicSourceKey, LoadedMusicSource>,
 }
 
 impl LoadedMusicCueAssets {
@@ -35,20 +52,13 @@ impl LoadedMusicCueAssets {
                 section_id,
                 layer_id,
             ))
-            .map(|(_, handle)| handle.clone())
+            .map(|source| source.handle.clone())
     }
 
-    pub(super) fn retire_generations(
-        &mut self,
-        catalogs: &AdaptiveMusicCatalogRegistry,
-        retained: &[(&str, u64)],
-    ) {
-        self.sources.retain(|key, _| {
-            key.generation == catalogs.generation(&key.provider_id)
-                || retained.iter().any(|(provider, generation)| {
-                    *provider == key.provider_id && *generation == key.generation
-                })
-        });
+    /// Keep the last update's demand. Playback groups retain their own sources.
+    pub(super) fn retire_unused(&mut self) {
+        self.sources
+            .retain(|_, source| std::mem::replace(&mut source.requested, false));
     }
 
     /// Does the cache hold `key` for exactly this asset path? A different path
@@ -56,7 +66,7 @@ impl LoadedMusicCueAssets {
     pub(super) fn holds(&self, key: &MusicSourceKey, path: &str) -> bool {
         self.sources
             .get(key)
-            .is_some_and(|(loaded, _)| loaded == path)
+            .is_some_and(|source| source.path == path)
     }
 
     /// Request the selected state and its immediate continuation.
@@ -85,8 +95,13 @@ impl LoadedMusicCueAssets {
                 let rel = source.path.clone();
                 if !self.holds(&key, &rel) {
                     let handle = asset_server.load(rel.clone());
-                    self.sources.insert(key, (rel, handle));
+                    self.sources
+                        .insert(key.clone(), LoadedMusicSource::new(rel, handle));
                 }
+                self.sources
+                    .get_mut(&key)
+                    .expect("requested source")
+                    .requested = true;
             }
         }
     }
@@ -307,6 +322,7 @@ mod provider_registry_tests {
             crate::cue_spec::AuthoredMusicCues {
                 cues: vec![MusicCueSpec {
                     id: cue_id.to_owned(),
+                    playback: Default::default(),
                     media: MusicCueMedia::Inline {
                         asset_root: "audio/adaptive".to_owned(),
                         bpm: 120.0,
@@ -467,7 +483,7 @@ mod provider_registry_tests {
         let key = MusicSourceKey::new("a", 1, "a_cue", "loop", "full");
         assets.sources.insert(
             key.clone(),
-            ("audio/adaptive/a.ogg".to_owned(), Handle::default()),
+            LoadedMusicSource::new("audio/adaptive/a.ogg".to_owned(), Handle::default()),
         );
         assert!(assets.holds(&key, "audio/adaptive/a.ogg"));
         assert!(
@@ -507,17 +523,17 @@ mod provider_registry_tests {
         let mut assets = LoadedMusicCueAssets::default();
         let before = cue_of("a.ogg");
         assets.ensure_state_loaded("a", 1, &before, &before.states[0], &server);
-        let first = assets.sources[&key(&before)].1.clone();
+        let first = assets.sources[&key(&before)].handle.clone();
         assets.ensure_state_loaded("a", 1, &before, &before.states[0], &server);
         assert_eq!(
-            assets.sources[&key(&before)].1,
+            assets.sources[&key(&before)].handle,
             first,
             "an unchanged cue was requested twice"
         );
 
         let after = cue_of("a_v2.ogg");
         assets.ensure_state_loaded("a", 1, &after, &after.states[0], &server);
-        let (path, handle) = &assets.sources[&key(&after)];
+        let LoadedMusicSource { path, handle, .. } = &assets.sources[&key(&after)];
         assert_eq!(
             path, "audio/adaptive/a_v2.ogg",
             "the cache kept the replaced file's path"
@@ -527,7 +543,11 @@ mod provider_registry_tests {
         for path in ["content://other/audio/a.ogg", "game://audio/a.ogg"] {
             let qualified = cue_of(path);
             assets.ensure_state_loaded("a", 1, &qualified, &qualified.states[0], &server);
-            let (loaded, handle) = &assets.sources[&key(&qualified)];
+            let LoadedMusicSource {
+                path: loaded,
+                handle,
+                ..
+            } = &assets.sources[&key(&qualified)];
             assert_eq!(loaded, path);
             assert_eq!(handle.path().unwrap().to_string(), path);
         }

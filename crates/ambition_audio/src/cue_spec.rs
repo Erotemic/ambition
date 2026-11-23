@@ -16,6 +16,8 @@ pub const MAX_MUSIC_LAYERS: usize = 6;
 pub struct MusicCueSpec {
     pub id: String,
     pub media: MusicCueMedia,
+    #[serde(default)]
+    pub playback: crate::music_policy::MusicPlaybackSpec,
     pub relative_volume: f32,
     pub layers: Vec<MusicLayerSpec>,
     pub states: Vec<MusicStateSpec>,
@@ -31,9 +33,23 @@ pub struct MusicCueSpec {
     pub runtime_balance_overrides: Vec<MusicStateBalanceOverride>,
 }
 
+impl MusicCueSpec {
+    pub(crate) fn playback_policy(&self) -> crate::music_policy::MusicPlaybackPolicy {
+        let base = if matches!(self.media, MusicCueMedia::Assets { .. }) {
+            crate::music_policy::MusicPlaybackPolicy::whole_assets()
+        } else {
+            Default::default()
+        };
+        self.playback.resolve(base)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum MusicCueMedia {
+    Assets {
+        sections: Vec<MusicAssetSectionSpec>,
+    },
     Inline {
         asset_root: String,
         bpm: f32,
@@ -44,6 +60,14 @@ pub enum MusicCueMedia {
         description: String,
         products: MusicProductSet,
     },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MusicAssetSectionSpec {
+    pub id: String,
+    pub looped: bool,
+    pub sources: Vec<MusicLayerSourceSpec>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

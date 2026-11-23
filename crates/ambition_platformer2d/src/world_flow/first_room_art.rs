@@ -1,4 +1,4 @@
-//! Prepare the first room's images before session activation.
+//! Prepare the first room's local media before session activation.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -23,7 +23,7 @@ use super::room_transition_assets::{
 /// One published session whose first room's art this host is preparing.
 struct FirstRoomArtJob {
     #[cfg(feature = "audio")]
-    music: Option<bevy::prelude::Handle<crate::audio::library::KiraAudioSource>>,
+    music: Vec<bevy::prelude::Handle<crate::audio::library::KiraAudioSource>>,
     room: Arc<RoomSpec>,
     staged_actor_names: Vec<String>,
     /// The room's cast plus the starting character: what the reveal waits to
@@ -63,7 +63,7 @@ pub(crate) fn first_room_art_is_owed(
 pub(crate) fn prepare_first_room_art_system(sprite_content: bevy::prelude::Res<crate::sprite_sheet::SpriteContent>,
     sessions: Option<Res<PreparedPlatformerSessions>>,
     content_staging: Option<Res<RoomContentStagingRegistry>>,
-    #[cfg(feature = "audio")] audio: Option<Res<crate::audio::library::AudioLibrary>>,
+    #[cfg(feature = "audio")] backend: Option<Res<crate::audio::AudioBackendState>>,
     mut jobs: ResMut<FirstRoomArtJobs>,
     mut context: RoomTransitionAssetContext,
     mut commands: MessageWriter<LoadCommand>,
@@ -202,8 +202,11 @@ pub(crate) fn prepare_first_room_art_system(sprite_content: bevy::prelude::Res<c
                     .entry(load_id.clone())
                     .or_insert(FirstRoomArtJob {
                         #[cfg(feature = "audio")]
-                        music: audio.as_ref().and(prepared.startup_music.as_ref())
-                            .map(|track| asset_server.load(track.resolved_asset_path())),
+                        music: backend.as_ref().map_or_else(Vec::new, |_| {
+                            super::music_preparation::room_music_sources(
+                                &prepared.music, room, &prepared.mechanical.bosses, None, None,
+                            ).opening.into_iter().map(|path| asset_server.load(path)).collect()
+                        }),
                         room: Arc::new(room.clone()),
                         staged_actor_names,
                         demanded_characters,
@@ -236,13 +239,15 @@ pub(crate) fn prepare_first_room_art_system(sprite_content: bevy::prelude::Res<c
         );
 
         #[cfg(feature = "audio")]
-        if let Some(handle) = &job.music {
+        for handle in &job.music {
+            let label = handle.path().map_or_else(|| "entry music".to_string(),
+                |path| format!("entry music {path}"));
             readiness.total += 1;
             match asset_server.get_load_state(handle.id()) {
                 Some(bevy::asset::LoadState::Loaded) => readiness.settled += 1,
                 Some(bevy::asset::LoadState::Failed(error)) =>
-                    readiness.failed.push(format!("entry music: {error}")),
-                _ => readiness.pending.push("entry music".to_string()),
+                    readiness.failed.push(format!("{label}: {error}")),
+                _ => readiness.pending.push(label),
             }
         }
         let state = if !readiness.failed.is_empty() {

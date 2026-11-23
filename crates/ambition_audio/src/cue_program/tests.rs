@@ -23,6 +23,7 @@ fn authored() -> AuthoredMusicCues {
     AuthoredMusicCues {
         cues: vec![MusicCueSpec {
             id: "cue".into(),
+            playback: Default::default(),
             media: MusicCueMedia::Inline {
                 asset_root: "content://library/music".into(),
                 bpm: 120.0,
@@ -86,7 +87,7 @@ fn preparation_resolves_paths_slots_and_total_gains() {
             .unwrap();
     let cue = prepared.cue("cue").unwrap();
     let section = cue.section("loop").unwrap();
-    assert_eq!(section.duration_seconds, 4.0);
+    assert_eq!(section.musical_duration_seconds, Some(4.0));
     assert_eq!(section.file_duration_seconds, None);
     assert_eq!(section.sources[0].slot, 2);
     assert_eq!(section.sources[0].path, "content://library/music/bed.ogg");
@@ -271,5 +272,105 @@ fn day_phase_and_boss_phase_rows_have_one_meaning() {
     assert!(
         PreparedMusicCues::prepare(source, &crate::music_media::MusicMediaCatalog::default())
             .is_err()
+    );
+}
+
+#[test]
+fn whole_asset_recipes_need_no_score_clock_or_copied_duration() {
+    let mut source = authored();
+    source.cues[0].media = MusicCueMedia::Assets {
+        sections: vec![MusicAssetSectionSpec {
+            id: "loop".into(),
+            looped: false,
+            sources: vec![MusicLayerSourceSpec {
+                layer_id: "bed".into(),
+                path: "audio/one-shot.ogg".into(),
+            }],
+        }],
+    };
+    let prepared = PreparedMusicCues::prepare(source.clone(), &Default::default()).unwrap();
+    let section = &prepared.cue("cue").unwrap().sections[0];
+    assert_eq!(section.musical_duration_seconds, None);
+    assert_eq!(section.clock, PreparedMusicClock::Unclocked);
+    assert_eq!(
+        section.delay_to_exit(
+            &crate::music_policy::MusicExitRule::AssetEnd,
+            1.0,
+            Some(3.0)
+        ),
+        Some(2.0)
+    );
+    let inspection = prepared.inspect();
+    assert_eq!(inspection["cues"][0]["sections"][0]["end"], "AssetEnd");
+    assert_eq!(inspection["cues"][0]["sections"][0]["required_voices"], 1);
+    source.cues[0].playback = crate::music_policy::MusicPlaybackPolicy::default().into();
+    assert!(
+        PreparedMusicCues::prepare(source, &Default::default())
+            .unwrap_err()
+            .iter()
+            .any(|error| error.contains("section_exit"))
+    );
+}
+
+#[test]
+fn preparation_rejects_unsupported_timing_exits_and_invalid_transition_values() {
+    use crate::music_policy::*;
+    let policies = [
+        MusicPlaybackPolicy {
+            timing: MusicTimingRequirement::SampleAccurate,
+            ..Default::default()
+        },
+        MusicPlaybackPolicy {
+            timing: MusicTimingRequirement::PhasePreserving,
+            ..Default::default()
+        },
+        MusicPlaybackPolicy {
+            section_exit: MusicExitRule::Bars(0),
+            ..Default::default()
+        },
+        MusicPlaybackPolicy {
+            section_exit: MusicExitRule::Markers(vec!["missing".into()]),
+            ..Default::default()
+        },
+        MusicPlaybackPolicy {
+            return_overlap_seconds: f32::NAN,
+            ..Default::default()
+        },
+        MusicPlaybackPolicy {
+            ending_media_timeout_seconds: -1.0,
+            ..Default::default()
+        },
+    ];
+    for policy in policies {
+        let mut source = authored();
+        source.cues[0].playback = policy.into();
+        assert!(PreparedMusicCues::prepare(source, &Default::default()).is_err());
+    }
+}
+
+#[test]
+fn a_partial_policy_keeps_the_whole_asset_recipes_exit_defaults() {
+    let mut source = authored();
+    source.cues[0].media = MusicCueMedia::Assets {
+        sections: vec![MusicAssetSectionSpec {
+            id: "loop".into(),
+            looped: true,
+            sources: vec![MusicLayerSourceSpec {
+                layer_id: "bed".into(),
+                path: "audio/loop.ogg".into(),
+            }],
+        }],
+    };
+    source.cues[0].playback.section_crossfade_seconds = Some(0.4);
+    let program = PreparedMusicCues::prepare(source, &Default::default()).unwrap();
+    let policy = &program.cue("cue").unwrap().playback;
+    assert_eq!(policy.section_crossfade_seconds, 0.4);
+    assert_eq!(
+        policy.section_exit,
+        crate::music_policy::MusicExitRule::Immediate
+    );
+    assert_eq!(
+        policy.ending_exit,
+        crate::music_policy::MusicExitRule::Immediate
     );
 }

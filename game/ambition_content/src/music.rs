@@ -54,7 +54,7 @@ mod tests {
     /// 2026-10-07 after the lowering's `expect` ("for every pack that compiles")
     /// claimed otherwise. So "does the provider have adaptive cues" can differ
     /// between generation N and N+1, and a reload's preparation reads the
-    /// candidate's answer (`adaptive_cues_ready_for`), not the App's.
+    /// candidate's definitions (`candidate_adaptive_cues_for`).
     /// A room's track by the time of day reaches the catalog the intent reads,
     /// and a phase the clock does not have is refused when the pack compiles.
     #[test]

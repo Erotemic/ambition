@@ -504,13 +504,12 @@ fn candidate_adaptive_cues(
     Ok(None)
 }
 
-/// The providers a candidate's adaptive registry carries a catalog for: what
-/// the preparation channel needs of it (`adaptive_cues_ready_for`).
-fn adaptive_providers_of(cues: &AdaptiveCues) -> Option<std::collections::BTreeSet<String>> {
+/// Cue definitions retained by preparation before native registry publication.
+fn adaptive_cue_catalogs_of(cues: &AdaptiveCues) -> Option<std::collections::BTreeMap<String, ambition_audio::cue_program::PreparedMusicCues>> {
     #[cfg(feature = "audio")]
     return cues
         .as_ref()
-        .map(|registry| registry.providers().map(str::to_owned).collect());
+        .map(|registry| registry.providers().map(|id| (id.to_owned(), registry.catalog_for(id).unwrap().clone())).collect());
     #[cfg(not(feature = "audio"))]
     {
         let _ = cues;
@@ -520,13 +519,9 @@ fn adaptive_providers_of(cues: &AdaptiveCues) -> Option<std::collections::BTreeS
 
 /// Publish a reload's adaptive music catalog.
 ///
-/// One resource, read each frame by the intent system and the director, so the
-/// replacement is the whole publication: a cue's authority (`authorize_cues`)
-/// is derived from the catalog each frame and holds no copy. What the director
-/// caches (`LoadedMusicCueAssets`) is keyed by the asset path, so a cue whose
-/// file changed is requested again on its next play. A cue that is playing keeps
-/// the layers it started with until the director next shuts it down or changes
-/// state.
+/// New demand uses the published generation. Admitted playback retains its
+/// prepared cue and exact source handles while the native caches retire unused
+/// entries. A catalog replacement does not release those voices.
 fn publish_adaptive_cues(world: &mut bevy::ecs::world::World, cues: AdaptiveCues) {
     #[cfg(feature = "audio")]
     if let Some(registry) = cues {
@@ -2016,9 +2011,8 @@ pub struct PendingGeneration {
     /// audio domain.
     audio: Option<ambition_audio::catalog::AudioCatalogRegistry>,
     /// The adaptive music catalog this generation publishes; nothing when it
-    /// changes no cue domain. Preparation sees only which providers have cues
-    /// (`PendingGenerationInputs::adaptive_providers`); the registry itself is
-    /// published at the commit.
+    /// changes no cue domain. Preparation retains its cue definitions through
+    /// `PendingGenerationInputs::adaptive_cues` before native publication.
     adaptive_cues: AdaptiveCues,
 }
 
@@ -2514,8 +2508,8 @@ pub fn adopt_preparation_transaction(
                             // And the audio registry, which preparation asks
                             // which providers have music and SFX.
                             pending.audio.clone(),
-                            // And which providers have adaptive cues.
-                            adaptive_providers_of(&pending.adaptive_cues),
+                            // And the prepared cues used before publication.
+                            adaptive_cue_catalogs_of(&pending.adaptive_cues),
                         )
                     };
                     // Hold the route from adoption. Only the gate's answer at
@@ -2543,7 +2537,7 @@ pub fn adopt_preparation_transaction(
                             }
                         }
                     }
-                    let (claim, characters, bosses, catalog, audio, adaptive_providers) = claim;
+                    let (claim, characters, bosses, catalog, audio, adaptive_cues) = claim;
                     // The only place the claim is made: the transaction first
                     // has a name here.
                     world.insert_resource(ambition_platformer2d_runtime::PendingGenerationInputs {
@@ -2553,7 +2547,7 @@ pub fn adopt_preparation_transaction(
                         bosses,
                         catalog,
                         audio,
-                        adaptive_providers,
+                        adaptive_cues,
                     });
                 });
             }

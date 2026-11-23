@@ -106,6 +106,7 @@ pub(crate) fn authored(products: MusicProductSet, layers: &[&str]) -> AuthoredMu
     AuthoredMusicCues {
         cues: vec![MusicCueSpec {
             id: "program".into(),
+            playback: Default::default(),
             media: MusicCueMedia::Published {
                 description: REFERENCE.into(),
                 products,
@@ -149,7 +150,7 @@ fn a_program_links_the_selected_media_and_keeps_body_and_tail_separate() {
             .unwrap();
     let cue = prepared.cue("program").unwrap();
     let section = cue.section("body").unwrap();
-    assert_eq!(section.duration_seconds, 4.0);
+    assert_eq!(section.musical_duration_seconds, Some(4.0));
     assert_eq!(section.file_duration_seconds, Some(5.0));
     assert_eq!(section.clock.delay_to_boundary(3.0, 1, None), Some(1.0));
     assert!(section.sources[0].path.contains("/__art/bundles/first/"));

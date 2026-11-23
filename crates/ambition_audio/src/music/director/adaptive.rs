@@ -49,9 +49,11 @@ pub(super) fn drive_adaptive_cue_state(
             .section(&target_state.section_id)
             .is_some_and(|section| {
                 director.transport_completed
-                    || director
-                        .position_seconds
-                        .is_some_and(|position| position >= section.duration_seconds)
+                    || director.position_seconds.is_some_and(|position| {
+                        section
+                            .musical_duration_seconds
+                            .is_some_and(|end| position >= end)
+                    })
             });
     let target_state = if completed {
         target_state
@@ -142,6 +144,12 @@ pub(super) fn drive_adaptive_cue_state(
         }
     }
 
+    if director.transport_completed
+        && director.continuation_state_id.is_some()
+        && cue.playback.exhausted == crate::music_policy::MusicExhaustionPolicy::Finish
+    {
+        return;
+    }
     let outro = is_outro_target(cue, target_state);
     if director.mode == MusicDirectorMode::AdaptiveIntro
         && director.active_phase_policy == MusicPhasePolicy::FollowPhase
@@ -166,9 +174,11 @@ pub(super) fn drive_adaptive_cue_state(
             .and_then(|id| cue.section(id))
             .is_some_and(|section| {
                 director.transport_completed
-                    || director
-                        .position_seconds
-                        .is_some_and(|position| position >= section.duration_seconds)
+                    || director.position_seconds.is_some_and(|position| {
+                        section
+                            .musical_duration_seconds
+                            .is_some_and(|end| position >= end)
+                    })
             });
         if intro_done && ready {
             start_adaptive_state(
@@ -178,7 +188,7 @@ pub(super) fn drive_adaptive_cue_state(
                 target_state,
                 assets,
                 channels,
-                INTRO_TO_LOOP_CROSSFADE_SECONDS,
+                cue.playback.continuation_crossfade_seconds,
             );
         }
         return;
@@ -204,9 +214,9 @@ pub(super) fn drive_adaptive_cue_state(
         }
     }
     let fade = if outro {
-        OUTRO_CROSSFADE_SECONDS
+        cue.playback.ending_crossfade_seconds
     } else {
-        LOOP_SECTION_CROSSFADE_SECONDS
+        cue.playback.section_crossfade_seconds
     };
     if director.transport_completed {
         if ready {
@@ -240,28 +250,40 @@ pub(super) fn drive_adaptive_cue_state(
     else {
         return;
     };
+    let exit = if outro {
+        &cue.playback.ending_exit
+    } else {
+        &cue.playback.section_exit
+    };
+    let asset_seconds = current.file_duration_seconds();
     let mut pending = director
         .pending_state
         .take()
         .filter(|pending| {
-            pending.state_id == target_state.id && pending.occurrence == current.occurrence
+            pending.state_id == target_state.id
+                && pending.occurrence == current.occurrence
+                && pending.goal_revision == director.goal_revision
         })
         .or_else(|| {
-            let delay = section.clock.delay_to_boundary(
-                position,
-                if outro { 2 } else { 1 },
-                section.looped.then_some(section.duration_seconds),
-            )?;
-            Some(PendingMusicStateTransition {
+            let delay = section.delay_to_exit(exit, position, asset_seconds)?;
+            Some(MusicTransitionPlan {
+                exit: exit.clone(),
+                fade_seconds: fade,
                 state_id: target_state.id.clone(),
                 occurrence: current.occurrence,
+                goal_revision: director.goal_revision,
                 exit_seconds: position + delay,
                 observed_seconds: position,
             })
         });
     let Some(plan) = pending.as_mut() else { return };
-    let reached =
-        position >= plan.exit_seconds || (section.looped && position < plan.observed_seconds);
+    // The file cursor can wrap before the selected marker in the next pass.
+    if section.looped && position < plan.observed_seconds {
+        if let Some(period) = asset_seconds.or(section.musical_duration_seconds) {
+            plan.exit_seconds -= period;
+        }
+    }
+    let reached = position >= plan.exit_seconds;
     plan.observed_seconds = position;
     if reached {
         // If the target is not decoded at this exit, select a new exit.
@@ -301,14 +323,6 @@ fn start_adaptive_state(
         return;
     };
 
-    let fade = if director.mode == MusicDirectorMode::AdaptiveIntro
-        && section.looped
-        && director.active_phase_policy == MusicPhasePolicy::CompleteSection
-    {
-        0.0
-    } else {
-        crossfade_seconds
-    };
     channels.play_section(
         director.entry.expect("a selected music entry"),
         director.goal_revision,
@@ -317,7 +331,7 @@ fn start_adaptive_state(
         section,
         assets,
         target_state,
-        fade,
+        crossfade_seconds,
     );
     director.active_cue_id = Some(cue.id.clone());
     director.active_phase_policy = selection.phase_policy;

@@ -6,7 +6,8 @@ MUS1's bounded playback executor landed in `d4147e4c`; per-source music
 publication and canonical attempts landed in `6d100f9d`. Release facts now
 retain their transition attempt and pass through host confirmation. One scoped
 goal now selects tracks and cues. Endings retain their admitted entry and
-generation while the latest goal selects the successor. Prepared timing remains open. Music renderer:
+generation while the latest goal selects the successor. Prepared exit rules and
+whole-asset recipes landed in `afeb52f24`. Native timing acceptance remains open. Music renderer:
 `186a13f8115752a4bbdb4955fb9e46483562a2d4`.
 The supplied exit log has UTC timestamps on 2026-11-23. Its executable
 revision is not established. The historical diagnosis used source
@@ -88,10 +89,12 @@ units. His Intro maps immediately to `galvanic_march/awaken`; it has no
 authored music-delay field. The 16-beat section at 116 BPM is about 8.276
 seconds. Both the encounter and conductor use an 8.28-second intro.
 
-Adaptive media is requested only when Play first wins. All cue sources are
-requested then; only the selected section's decoded sources gate its start.
-Provider readiness proves catalog registration. The room/neighbor asset
-manifest proves image readiness. Neither proves that this intro is decoded.
+Room preparation now requests the ambient opening, known placed fight
+entrances and their immediate continuations. It uses the incoming session's
+frozen catalog and the existing bounded neighbor selection. The local startup
+barrier waits for its ambient opening. Anticipated fights do not hold gameplay
+or publish music claims. Catalog linkage, media decode and voice admission
+remain separate facts.
 
 The encounter and conductor can advance before the audio begins. If the
 intro becomes ready later, it can start its full length after the scene has
@@ -781,11 +784,44 @@ then requests its own successor. It does not request distant sections.
 Verification covers delayed opening decode, partial entrances, chained sections,
 phase projection, delayed simple tracks and the authored Wolfenstein binding.
 
-Starts remain frame-driven and best effort. Native scheduling, room/residency
-prefetch, scene deadlines and the remaining transition recipes stay open.
+Incoming sessions now retain their prepared tracks and cue definitions before
+publication. Their session roots retain that same catalog. Local room preparation
+loads the ambient opening, known boss and wave entrances, and immediate
+continuations for incoming, live, selected neighboring and transition-target
+rooms. One source-path cache retains their handles across activation and releases
+its departed-room sources. The neighbor choice comes from the existing bounded
+room preparation policy. Startup waits for the selected ambient opening, including
+all required adaptive layers. Anticipated fights grant no playback claim.
+Verification covers real WAV decode, frozen catalog selection, handle reuse
+and retirement. The rendered host decodes Wolfenstein's opening and first
+combat section while he is dormant and has no music claim.
 
-Prefetch the known opening and imminent continuation without granting
-claims. Keep catalog, decode, admission, and start facts distinct. Add the
+Native track and section caches now retain only the last director update's
+source demand. An outgoing playback group retains its exact source handles
+through retirement. Explicit preloads return a handle for their preparation
+or preview owner to retain. Direct startup holds its source in the startup
+manifest and releases that manifest when the cover retires. Verification
+checks cache retirement, source survival during fades, final Bevy asset removal,
+and preload-to-playback ownership.
+
+`8dc1ee09f` includes adaptive cues in provider silence reports. Playback
+diagnostics read decode readiness by the prepared source path, including sources
+held by room preparation or explicit preloads. Native cache membership does not
+prove whether another owner holds decoded media. Guard: 136 audio tests and
+49 provider tests, including real preparation and ECS observations.
+
+`afeb52f24` adds prepared exit rules, transition fades, return overlap, ending
+media timeout and exhausted one-shot outcomes. Whole-asset sections use decoded
+file ends without a score clock. Plans retain the source occurrence and target
+revision. Admitted voices retain source frame counts through asset reload.
+Guard: 146 audio tests cover named exits across loop wraps, delayed targets,
+exhausted sections, ending handoff and layer alignment before resume.
+
+Starts remain frame-driven and best effort. Stronger timing requests fail during
+preparation. Native scheduling, scene deadlines, pickups, independent tails and
+bridge overlays stay open.
+
+Keep catalog, decode, admission, and start facts distinct. Add the
 small boundary/entry/late-policy plan and a defined transport origin.
 Ordinary playback can remain best effort; stronger requests need verified
 native capability. Link any scene duration derived from music during
@@ -819,8 +855,14 @@ and audible layers without sources. Published product sets also check media
 identity, alignment, and gain basis. It resolves source paths and total gain
 arrays once. The director retains that prepared cue with its generation.
 The first four customers now use published descriptions. Compilation and
-reload retain the host-selected library snapshot through publication. Recipes
-remain open.
+reload retain the host-selected library snapshot through publication.
+
+`afeb52f24` adds strict whole-asset recipes and partial policy overrides.
+`--inspect-music` reports prepared clocks, exits, gains, source products, voice
+requirements and supported timing. Guard: 146 audio tests, 38 intent-adapter
+tests and 3 content-CLI tests. Actual content inspection covers 12 shipped cues
+and 150 tracks. Strong timing requests are rejected; pickup, independent-tail
+and bridge-overlay recipes remain open.
 
 Expose compiler clock and typed marker support for every supported
 frontend. Make final product construction and support limits explicit.
@@ -848,11 +890,18 @@ executable marker policy when that content is selected.
 ## Verification limits and future acceptance
 
 The original review used static reads and the supplied log. Implementation
-now has native recording, goal selection and plugin checks. The assembled
-app and capture tool compile. The shipped host's multi-provider route check
-reached Ambition and returned to the launcher, then failed at Sanic's track;
-this checkout lacks the generated Sanic and Mary-O tracks. That full route
-check remains open. No device or listening acceptance was performed.
+now has native recording, goal selection, decoder preparation and plugin checks.
+The shipped host's multi-provider music route check passes with this checkout's
+generated assets. The rendered host also prepares Wolfenstein's entrance while
+he is dormant. These checks do not establish device timing or audible continuity.
+
+`5ca72c113` adds an opt-in native executor test and bounded Linux ALSA capture.
+The locked Bevy/Kira backend produces the expected PCM after cold decode and
+two fresh cue handoffs, then silence after an explicit stop. Guard: 146 default
+audio tests and the separate native test. Spectrum inspection confirms the
+section tones. The capture also exposes 20–30 ms of silence at file-end joins.
+Native continuation scheduling and the complete game route remain open.
+No physical-speaker or listening acceptance was performed.
 The current recording path consumes the executor's actual voice commands;
 it does not execute Kira drains or establish speaker-audible output. The
 historical mode-only bank tests did not establish that old command ordering.

@@ -84,6 +84,12 @@ impl MusicPlaybackCommands<'_> {
             .filter_map(|source| {
                 let slot = source.slot;
                 Some(MusicVoiceSource {
+                    expected_shape: source.product.as_ref().map(|product| {
+                        super::playback::MusicSourceShape {
+                            sample_rate: product.sample_rate,
+                            frames: product.frames,
+                        }
+                    }),
                     source: assets.get(
                         &selection.provider,
                         selection.generation,
@@ -138,6 +144,7 @@ impl MusicPlaybackCommands<'_> {
             state_id: None,
             phase_policy: MusicPhasePolicy::default(),
             voices: vec![MusicVoiceSource {
+                expected_shape: None,
                 source,
                 gain: 1.0,
                 slot: 0,

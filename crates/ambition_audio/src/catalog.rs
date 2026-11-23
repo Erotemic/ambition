@@ -8,9 +8,17 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use ambition_sfx::SfxId;
-use bevy::prelude::{App, Resource};
+use bevy::prelude::{App, Component, Resource};
 
 use crate::spec::{MusicRegistry, MusicTrack, SfxRegistry};
+
+/// One provider's music definitions, frozen when a session is prepared.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct PreparedMusicCatalog {
+    pub provider_id: String,
+    pub music: Option<MusicRegistry>,
+    pub cues: Option<crate::cue_program::PreparedMusicCues>,
+}
 
 /// One provider's immutable authored-audio definitions.
 #[derive(Clone, Debug, PartialEq)]

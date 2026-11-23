@@ -123,7 +123,6 @@ pub(crate) fn setup_host_presentation_system(sprite_content: bevy::prelude::Res<
     scene_setup::host_presentation_scaffold(&mut commands);
     scene_setup::install_audio_library(
         &mut commands,
-        &asset_server,
         asset_catalog,
         &music_registry,
     );

@@ -183,7 +183,7 @@ impl ContentSchemaHandler for MusicCueCatalogSchema {
             .iter()
             .filter_map(|cue| match &cue.media {
                 MusicCueMedia::Published { description, .. } => Some(description.as_str()),
-                MusicCueMedia::Inline { .. } => None,
+                MusicCueMedia::Inline { .. } | MusicCueMedia::Assets { .. } => None,
             })
             .collect();
         let media = if references.is_empty() {
@@ -213,11 +213,11 @@ impl ContentSchemaHandler for MusicCueCatalogSchema {
         for cue in &authored.cues {
             let product = match &cue.media {
                 MusicCueMedia::Published { description, .. } => media.get(description),
-                MusicCueMedia::Inline { .. } => None,
+                MusicCueMedia::Inline { .. } | MusicCueMedia::Assets { .. } => None,
             };
             out.define(
                 facet.content_id_in(MUSIC_CUE_SCHEMA, &cue.id),
-                canonical(&(cue, product)),
+                canonical(&(cue, product, cue.playback_policy())),
             );
         }
         for binding in &authored.encounter_bindings {

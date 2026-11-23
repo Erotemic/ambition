@@ -419,7 +419,9 @@ world-post admission.
     do not repeat the full old cast prelude for every view. This can ship
     before broader M3 adaptation and the 2.5D adapter. M3 still owns the
     product choice of shared orientation and logical input reference when
-    bodies disagree on gravity.
+    bodies disagree on gravity. (Preference binding landed 2026-11-23: a
+    view's `ReferenceFrameSource` keeps an authored frame from the setting.
+    The selected-subject framing is open.)
 
 13. [Room scope SC1](engine/capability-and-runtime-composition.md#sc1--select-rule-subjects-inside-the-work-gate)
     keeps the coarse any-room work gate and makes Mary-O's gait writer

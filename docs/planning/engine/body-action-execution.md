@@ -180,8 +180,16 @@ in during windup, A's numbers leave). Not yet done: interrupting the use when
 its admitted source's live dependency (a dropped brandish, a removed form) is
 gone; today the bound shot still fires.
 
-Still open: boss and scripted starts asking the same question (step 2), that
-cancel-window remainder of step 3, locomotion escapes authorized before their
+**Boss starts ask the same locks (2026-11-23).** `trigger_boss_attack_moves`
+refuses a start while `body_action_lock_timer` (or the bare hard lock for a
+body with no guard) runs; the `BossAttackIntent` stands, so the move starts on
+the first unlocked tick. No button, buffer or affordability is asked of a boss.
+Scripted and brain starts reach the move runtime through `ActorControl` and so
+through `trigger_moveset_moves`; outside test fixtures, no other production
+road constructs a `MovePlayback`. Guard:
+`a_locked_boss_starts_its_intended_move_only_when_the_lock_ends`.
+
+Still open: that cancel-window remainder of step 3, locomotion escapes authorized before their
 spend (step 4), and the action offer.
 
 ### An offer and an accepted action must name the same move

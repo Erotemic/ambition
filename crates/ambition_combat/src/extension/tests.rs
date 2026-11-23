@@ -171,6 +171,176 @@ fn a_seize_under_sideways_gravity_reaches_along_the_floor_of_the_captor() {
     assert!(!seizes(sideways, -1.0, ahead(sideways)), "the reach did not mirror with the facing");
 }
 
+/// The place of a seizing body's request in the drain: the contest fixture
+/// triggers its captors in this order, so a test can deliver one set of
+/// requests in each order.
+#[derive(Component)]
+struct DeliveredAt(u32);
+
+fn collect_pokes_in_delivery_order(mut invocations: ResMut<ExtensionInvocations>, bodies: Query<(Entity, &DeliveredAt)>) {
+    let mut bodies: Vec<_> = bodies.iter().collect();
+    bodies.sort_by_key(|(_, at)| at.0);
+    for (entity, _) in bodies {
+        invocations.trigger::<Poke>(&BOSS_CONDUCT, "go", entity, None, true, 0);
+    }
+}
+
+/// One body of the contest fixture.
+struct Contestant {
+    id: &'static str,
+    faction: ActorFaction,
+    at: f32,
+    facing: f32,
+    /// Its place in the drain, when it seizes.
+    delivered_at: Option<u32>,
+    /// The contestant (by index) that holds it before the tick.
+    held_by: Option<usize>,
+}
+
+/// The contestants on one floor, with the fixture's seize (`REACH_OFFSET`,
+/// `REACH_HALF`) for each that seizes, run for one tick. Each body carries a
+/// spent air dodge, so a capture's refill is seen. Returns the bodies in the
+/// order given.
+fn contest(contestants: &[Contestant]) -> (App, Vec<Entity>) {
+    let mut app = App::new();
+    app.init_schedule(Sim);
+    app.add_plugins(ExtensionHostPlugin::new(Sim))
+        .init_resource::<ambition_time::SimTick>()
+        .init_resource::<ambition_time::WorldTime>()
+        .add_message::<crate::capture::CaptureCarryRequested>()
+        .add_message::<crate::capture::CapturePummelRequested>()
+        .add_message::<crate::capture::CaptureThrowRequested>()
+        .install_extension_trigger::<Poke, _>(BOSS_CONDUCT, "test", collect_pokes_in_delivery_order)
+        .install_extension_request::<BodyHoldPort, _>(BOSS_CONDUCT, "ambition_combat", lower_body_holds)
+        .add_extension_module(ModuleDescriptor {
+            key: ModuleKey::new("test", "contest"),
+            api: ambition_extension_sdk::API_VERSION,
+            code: CodeIdentity::StaticNative {
+                build: None,
+                crate_name: "test".into(),
+                version: "0".into(),
+            },
+            schemas: vec![],
+            entries: vec![EntryDescriptor {
+                replies: Vec::new(),
+                key: "seize".into(),
+                phase: BOSS_CONDUCT,
+                trigger: TriggerBinding {
+                    port: Poke::KEY,
+                    selector: "go".into(),
+                },
+                reads: vec![],
+                writes: vec![],
+                requests: vec![BodyHoldPort::KEY],
+                after: vec![],
+                limits: Limits { max_requests: 1 },
+                on_idle: IdlePolicy::Invoke,
+                run: EntryCode::Native(seize),
+            }],
+        });
+    app.finish();
+    let bodies: Vec<Entity> = contestants
+        .iter()
+        .map(|body| {
+            let pos = ae::Vec2::new(body.at, 0.0);
+            let mut entity = app.world_mut().spawn((
+                ae::BodyKinematics {
+                    pos,
+                    facing: body.facing,
+                    canonical_size: ae::Vec2::new(16.0, 16.0),
+                    ..Default::default()
+                },
+                crate::components::CenteredAabb::new(pos, ae::Vec2::new(8.0, 8.0)),
+                body.faction,
+                SimId::placement(body.id),
+                ae::BodyAbilities::default(),
+                ae::BodyJumpState::default(),
+                ae::BodyDodgeState { air_dodge_spent: true, ..Default::default() },
+                ae::MotionModel::default(),
+            ));
+            if let Some(at) = body.delivered_at {
+                entity.insert(DeliveredAt(at));
+            }
+            entity.id()
+        })
+        .collect();
+    for (body, contestant) in bodies.iter().zip(contestants) {
+        if let Some(captor) = contestant.held_by {
+            app.world_mut().entity_mut(*body).insert(crate::capture::CapturedBy {
+                captor: bodies[captor],
+                hold_offset_local: ae::Vec2::ZERO,
+                hold_point: None,
+            });
+        }
+    }
+    app.world_mut().run_schedule(Sim);
+    (app, bodies)
+}
+
+/// The captor that holds `body` after the tick, and whether the tick touched
+/// it as a captive: a claimed control hold, or a refilled air dodge.
+fn hold_on(app: &App, body: Entity) -> (Option<Entity>, bool) {
+    let world = app.world();
+    let touched = world.get::<ambition_characters::control::ControlHolds>(body).is_some()
+        || !world.get::<ae::BodyDodgeState>(body).expect("a contestant").air_dodge_spent;
+    (world.get::<crate::capture::CapturedBy>(body).map(|held| held.captor), touched)
+}
+
+/// CAPTURE OWNS ADMISSION AT A MODULE'S SEIZE (REL1).
+///
+/// Two captors that reach one victim on one tick yield one hold, and the
+/// captor the declared priority names (`SimId`) wins whichever request the
+/// drain delivers first. A body already in a capture seizes nobody: B, held
+/// by A, cannot take C, and C is left untouched. The same holds when A's
+/// seize of B and B's seize of C arrive in one drain, in either order.
+#[test]
+fn a_seize_admits_one_capture_per_body_in_its_declared_priority() {
+    // A at 0 faces east and D at 200 faces west: both reaches centre on V.
+    let two_captors = |a_first: bool| {
+        let (a, d) = if a_first { (0, 1) } else { (1, 0) };
+        let (app, bodies) = contest(&[
+            Contestant { id: "a", faction: ActorFaction::Enemy, at: 0.0, facing: 1.0, delivered_at: Some(a), held_by: None },
+            Contestant { id: "d", faction: ActorFaction::Enemy, at: 200.0, facing: -1.0, delivered_at: Some(d), held_by: None },
+            Contestant { id: "v", faction: ActorFaction::Player, at: 100.0, facing: 1.0, delivered_at: None, held_by: None },
+        ]);
+        (hold_on(&app, bodies[2]), bodies[0])
+    };
+    for a_first in [true, false] {
+        let ((captor, touched), a) = two_captors(a_first);
+        assert_eq!(captor, Some(a), "two captors of one victim: the declared priority did not win (A first: {a_first})");
+        assert!(touched, "control: the admitted seize did not act on its victim");
+    }
+
+    // A holds B before the tick; B (east of A) reaches C.
+    let held_captor = |a_seizes: Option<u32>, b_at: u32, a_holds_b: bool| {
+        let (app, bodies) = contest(&[
+            Contestant { id: "a", faction: ActorFaction::Enemy, at: 0.0, facing: 1.0, delivered_at: a_seizes, held_by: None },
+            Contestant {
+                id: "b",
+                faction: ActorFaction::Player,
+                at: 100.0,
+                facing: 1.0,
+                delivered_at: Some(b_at),
+                held_by: a_holds_b.then_some(0),
+            },
+            Contestant { id: "c", faction: ActorFaction::Enemy, at: 200.0, facing: 1.0, delivered_at: None, held_by: None },
+        ]);
+        (hold_on(&app, bodies[1]).0 == Some(bodies[0]), hold_on(&app, bodies[2]), bodies[1])
+    };
+    let (_, control, b) = held_captor(None, 0, false);
+    assert_eq!(control, (Some(b), true), "control: B did not seize C when nobody held it");
+    let (still_held, (captor_of_c, touched), _) = held_captor(None, 0, true);
+    assert!(still_held, "the committed hold of A on B was lost");
+    assert_eq!((captor_of_c, touched), (None, false), "B, held by A, seized C or touched it");
+
+    // A → B and B → C in one drain, in both delivery orders.
+    for (a_at, b_at) in [(0, 1), (1, 0)] {
+        let (a_holds_b, (captor_of_c, touched), _) = held_captor(Some(a_at), b_at, false);
+        assert!(a_holds_b, "A, first by priority, did not hold B (delivery {a_at}, {b_at})");
+        assert_eq!((captor_of_c, touched), (None, false), "a chain A → B → C was admitted (delivery {a_at}, {b_at})");
+    }
+}
+
 thread_local! {
     /// The hold the jaw fixture's entry asks for: the point it names and the
     /// offset from it. A native entry is a plain function, so the arm of the

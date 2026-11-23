@@ -9,7 +9,7 @@ use bevy::math::bounding::IntersectsVolume as _;
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use bevy::prelude::*;
 
-use super::{captive_of, CaptureAttemptRequested, CapturedBy, GrabsParried};
+use super::{CaptureAttemptRequested, CapturedBy, GrabsParried};
 use crate::hitbox::StrikeVictim;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt as _;
@@ -135,6 +135,9 @@ pub fn acquire_captures(
     // reach for a grab on the same tick, every time.
     // PHASE ONE: who would each attempt catch? Resolved against the state as
     // this pass found it, so the answer does not depend on message order.
+    // The structural law, shared with every other ingress: committed holds
+    // at both ends, then each edge this pass admits.
+    let mut occupancy = super::CaptureOccupancy::committed(&captives);
     let mut resolved: Vec<(CaptureAttemptRequested, Entity)> = Vec::new();
     for attempt in attempts.read() {
         let Ok(captor) = captors.get(attempt.captor) else {
@@ -151,10 +154,8 @@ pub fn acquire_captures(
         if !captor.body.ground.on_ground || knocked(attempt.captor) {
             continue;
         }
-        //  a captor already holding somebody is not a captor twice. This is
-        // where the "one captor, one captive" half of the invariant is upheld;
-        // the other half is upheld by skipping a victim that is already held.
-        if captive_of(attempt.captor, &captives).is_some() {
+        // A captor already in a capture, at either end, is not a captor twice.
+        if !occupancy.is_free(attempt.captor) {
             continue;
         }
 
@@ -172,11 +173,6 @@ pub fn acquire_captures(
         );
         let reach_centre = captor.body.kin.pos + placed.world_offset;
         let reach = ae::CenteredAabb::new(reach_centre, placed.half_extent).aabb();
-
-        //  built ONCE, not asked per candidate: `captives` is the authority on
-        // who is already held, and the other half of "one captive, one captor".
-        let already_held: std::collections::BTreeSet<Entity> =
-            captives.iter().map(|(entity, _)| entity).collect();
 
         // Gather, then rank.  never "take the first overlap": see the doc.
         let mut candidates: Vec<(f32, &SimId, Entity)> = Vec::new();
@@ -200,7 +196,9 @@ pub fn acquire_captures(
             if !victim_body.ground.on_ground || knocked(victim.entity) {
                 continue;
             }
-            if already_held.contains(&victim.entity) {
+            // A body holding somebody is not caught either: its captive would
+            // be left with a captor no pose or throw owner can act for.
+            if !occupancy.is_free(victim.entity) {
                 continue;
             }
             if !crate::targeting::damage_lands_between(
@@ -250,57 +248,13 @@ pub fn acquire_captures(
         resolved.push((*attempt, victim));
     }
 
-    // PHASE TWO: ⭐⭐ THE ACCEPTED CAPTURES ARE A MATCHING, and that one word is
-    // the whole rule: NO BODY MAY BE BOTH A CAPTOR AND A CAPTIVE on the same
-    // tick, whatever shape the attempts make.
-    //
-    // ⛔⛔ THIS WAS A SPECIAL CASE FOR MUTUAL PAIRS AND THAT WAS NOT ENOUGH.
-    // `A↔B` was arbitrated by `SimId`, which fixed the measured mirror deadlock
-    // — but `B→C` and `A→B` on one tick left B captive of A AND captor of C,
-    // recreating exactly the contradictory state the pair rule existed to
-    // prevent. Worse, it depended on MESSAGE ORDER: `A→B` then `B→C` granted one
-    // edge, the reverse granted both — the accept condition rejected
-    // `taken(victim)` and never `holding(victim)`.
-    //
-    // ⇒ ONE loop, ONE set, ONE question: accept an edge iff NEITHER endpoint has
-    // already participated in an accepted one. `A↔B`, `A→B→C`, `A→C←B` and the
-    // three-cycle stop being four cases and become instances of the invariant.
-    // The mutual-pair arbitration is DELETED rather than kept beside this: it is
-    // the two-body instance of the same greedy pass.
-    //
-    // ⭐ AND THE ORDER IS THE PRIORITY, NOT THE MAILBOX. `resolved` is sorted by
-    // the captor's `SimId` and then the victim's, so the outcome is a property of
-    // the world rather than of which message the reader happened to visit first,
-    // and it is stable across a rollback. A body with no `SimId` sorts LAST and
-    // therefore loses a contest rather than winning one by absence — the same
-    // reading the candidate ranking above takes of a missing identity.
-    //
-    resolved.sort_by(|(a_attempt, a_victim), (b_attempt, b_victim)| {
-        let key = |captor: Entity, victim: Entity| {
-            (
-                identities.get(captor).ok().cloned(),
-                identities.get(victim).ok().cloned(),
-            )
-        };
-        let (a_captor_id, a_victim_id) = key(a_attempt.captor, *a_victim);
-        let (b_captor_id, b_victim_id) = key(b_attempt.captor, *b_victim);
-        // `None` sorts last: no identity, no standing in a contest.
-        match (a_captor_id, b_captor_id) {
-            (Some(a), Some(b)) => a.cmp(&b),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => std::cmp::Ordering::Equal,
-        }
-        .then_with(|| match (a_victim_id, b_victim_id) {
-            (Some(a), Some(b)) => a.cmp(&b),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => std::cmp::Ordering::Equal,
-        })
-    });
-    // ONE set. A body that appears in an accepted edge — in EITHER role — is
-    // spent for this tick.
-    let mut spent: std::collections::BTreeSet<Entity> = Default::default();
+    // PHASE TWO: the accepted captures are a matching. An edge is admitted
+    // only when neither endpoint takes part in a capture yet
+    // (`CaptureOccupancy`), so `A↔B`, `A→B→C`, `A→C←B` and a three-cycle are
+    // all instances of one rule. The order is the declared priority, not the
+    // mailbox, so the outcome does not depend on message order and is stable
+    // across a rollback.
+    super::sort_by_capture_priority(&mut resolved, |(attempt, victim)| (attempt.captor, *victim), &identities);
 
     // ⭐ A MUTUAL GRAB IS A PARRY, NOT A CONTEST (S0.2). Two bodies that grab
     // each other on one tick are a tie, and the rule for it is the one a clank
@@ -315,14 +269,14 @@ pub fn acquire_captures(
     // parry.
     for (attempt, victim) in &resolved {
         let (a, b) = (attempt.captor, *victim);
-        if a >= b || spent.contains(&a) || spent.contains(&b) {
+        if a >= b || !occupancy.is_free(a) || !occupancy.is_free(b) {
             continue;
         }
         if !resolved.iter().any(|(other, back)| other.captor == b && *back == a) {
             continue;
         }
-        spent.insert(a);
-        spent.insert(b);
+        occupancy.occupy(a);
+        occupancy.occupy(b);
         for body in [a, b] {
             if let Ok(mut playback) = playbacks.get_mut(body) {
                 crate::moveset::cancel_move_playback(
@@ -341,11 +295,9 @@ pub fn acquire_captures(
     }
     for (attempt, victim) in &resolved {
         let (attempt, victim) = (*attempt, *victim);
-        if spent.contains(&attempt.captor) || spent.contains(&victim) {
+        if !occupancy.admit(attempt.captor, victim) {
             continue;
         }
-        spent.insert(victim);
-        spent.insert(attempt.captor);
 
         //  the RULESET's half of the hold. Its deadline is decided HERE, once,
         // from the captive's damage at the moment it was caught. That is the

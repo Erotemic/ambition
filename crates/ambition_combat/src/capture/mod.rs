@@ -140,6 +140,72 @@ pub fn captive_of(captor: Entity, captives: &Query<(Entity, &CapturedBy)>) -> Op
         .map(|(entity, _)| entity)
 }
 
+/// The structural law of capture at one admission cut: a body takes part in
+/// at most one capture, as captor or captive.
+///
+/// Every ingress (a fighter's grab, a module's seize) asks this before it
+/// cancels a move, refills a budget or inserts the relation. It starts from
+/// the committed holds, at both ends, and reserves both ends of each edge the
+/// cut admits, because `Commands` are deferred and the committed query cannot
+/// see an edge this cut is about to insert. Entry policy (grounded, defense,
+/// reach) stays with each ingress.
+#[derive(Clone, Debug, Default)]
+pub struct CaptureOccupancy(std::collections::BTreeSet<Entity>);
+
+impl CaptureOccupancy {
+    /// The bodies the committed holds already occupy.
+    pub fn committed(captives: &Query<(Entity, &CapturedBy)>) -> Self {
+        Self(captives.iter().flat_map(|(victim, held)| [victim, held.captor]).collect())
+    }
+
+    /// Whether `body` takes part in no capture at this cut.
+    pub fn is_free(&self, body: Entity) -> bool {
+        !self.0.contains(&body)
+    }
+
+    /// Occupy `body` for this cut without a relation (a parried grab).
+    pub fn occupy(&mut self, body: Entity) {
+        self.0.insert(body);
+    }
+
+    /// Admit `captor` holding `victim` when both are free and distinct, and
+    /// occupy both. A refusal changes nothing.
+    pub fn admit(&mut self, captor: Entity, victim: Entity) -> bool {
+        if captor == victim || !self.is_free(captor) || !self.is_free(victim) {
+            return false;
+        }
+        self.0.insert(captor);
+        self.0.insert(victim);
+        true
+    }
+}
+
+/// Order competing capture proposals by their declared priority: the
+/// captor's [`SimId`](ambition_platformer2d_shared_tangle::sim_id::SimId),
+/// then the victim's. A body with no identity sorts last, so it loses a
+/// contest rather than winning one by absence. Equal keys keep their order.
+///
+/// The order is a property of the world, not of message or query order, so
+/// the same proposals admit the same edges on every peer and after a rewind.
+pub fn sort_by_capture_priority<T>(
+    proposals: &mut [T],
+    pair: impl Fn(&T) -> (Entity, Entity),
+    identities: &Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+) {
+    let id = |body: Entity| identities.get(body).ok();
+    let rank = |a: Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+                b: Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>| match (a, b) {
+        (Some(a), Some(b)) => a.cmp(b),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => std::cmp::Ordering::Equal,
+    };
+    proposals.sort_by(|a, b| {
+        let ((a_captor, a_victim), (b_captor, b_victim)) = (pair(a), pair(b));
+        rank(id(a_captor), id(b_captor)).then_with(|| rank(id(a_victim), id(b_victim)))
+    });
+}
+
 /// A grab's active window is asking to catch somebody this tick.
 ///
 /// Written every frame the window is live (see `smash_capture`'s

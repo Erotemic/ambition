@@ -1,0 +1,36 @@
+[package]
+name = "bevy_kira_audio"
+version = "0.26.0"
+authors = ["Niklas Eicker <hello@nikl.me>"]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Bevy plugin for dynamic audio"
+repository = "https://github.com/NiklasEi/bevy_kira_audio"
+homepage = "https://github.com/NiklasEi/bevy_kira_audio"
+documentation = "https://docs.rs/bevy_kira_audio"
+keywords = ["bevy", "gamedev", "audio", "music"]
+categories = ["game-development", "multimedia::audio"]
+readme = "./README.md"
+rust-version = "1.88"
+
+[features]
+default = ["ogg"]
+flac = ["kira/flac"]
+mp3 = ["kira/mp3"]
+ogg = ["kira/ogg", "kira/vorbis"]
+wav = ["kira/wav", "kira/pcm"]
+settings_loader = ["dep:ron", "dep:serde", "kira/serde"]
+
+[dependencies]
+bevy = { version = "0.19.0", default-features = false, features = ["std", "bevy_asset", "bevy_log"] }
+bevy_math = { version = "0.19.0" }
+anyhow = "1.0"
+uuid = { version = "1", features = ["fast-rng"] }
+kira = { version = "0.12.1", default-features = false, features = ["cpal"] }
+ron = { version = "0.8", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+parking_lot = "0.12"
+thiserror = "2"
+mint = "0.5.9"
+glam = "0.25.0"
+

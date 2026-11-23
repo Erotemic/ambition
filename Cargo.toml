@@ -125,7 +125,7 @@ members = [
 # dev/bevy_idle_systems measures executor overhead. Both own separate lockfiles.
 # fixtures/external_consumer tests the public ambition_platformer2d umbrella
 # as a third-party consumer, without workspace-only policy exemptions.
-exclude = ["fixtures/external_consumer", "fixtures/scripting_bakeoff", "dev/bevy_ceiling", "dev/bevy_idle_systems"]
+exclude = ["fixtures/external_consumer", "fixtures/scripting_bakeoff", "dev/bevy_ceiling", "dev/bevy_idle_systems", "third_party/bevy_kira_audio"]
 resolver = "2"
 
 # Centralize shared versions to avoid compiling duplicates (previously ron
@@ -133,6 +133,8 @@ resolver = "2"
 # Bevy stays per-crate: ~46 manifests deliberately trim different features.
 # Revisit through the feature audit in docs/planning/tracks.md.
 [workspace.dependencies]
+# Keep the native scheduling patch with consumers outside this workspace.
+bevy_kira_audio = { path = "third_party/bevy_kira_audio", version = "0.26.0", default-features = false }
 serde = { version = "1", features = ["derive"] }
 ron = "0.11"
 serde_path_to_error = "0.1"

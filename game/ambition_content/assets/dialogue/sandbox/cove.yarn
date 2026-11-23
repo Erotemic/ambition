@@ -1,6 +1,6 @@
 title: pirate_admiral
 ---
-<<if boss_cleared("cove.mockingbird")>>
+<<if boss_cleared_verdict("cove.mockingbird") == "satisfied">>
     Admiral: Landstrider returns! There's our chest. Put it by the bar before Bess fires a salute through the roof. Drinks are on us tonight.
     -> About the chest…
         <<jump pirate_admiral_after_treasure__1>>
@@ -9,7 +9,7 @@ title: pirate_admiral
     -> What happened to the ninja deal?
         <<jump pirate_admiral_after_treasure__ninja>>
     -> Carry on, Admiral.
-<<else>>
+<<elseif boss_cleared_verdict("cove.mockingbird") == "not_satisfied">>
     Admiral: Ahoy, landstrider. Ye caught us at low tide and lower tempers. Mockingbird took the iron chest straight off the bar and flew away with it. Aye, I know how that sounds.
     -> What happened to the treasure?
         <<jump pirate_admiral__1>>
@@ -20,6 +20,8 @@ title: pirate_admiral
     -> What's your deal with the ninjas?
         <<jump pirate_admiral__ninja>>
     -> I'll bring it down.
+<<else>>
+    <<stop>>
 <<endif>>
 ===
 
@@ -223,14 +225,14 @@ Quartermaster: Up the riggin', through the hatch in the overhead — that's wher
 
 title: pirate_raider
 ---
-<<if boss_cleared("cove.mockingbird")>>
+<<if boss_cleared_verdict("cove.mockingbird") == "satisfied">>
     Raider: There they are. The bird-killer. I owe you a drink and the Admiral owes you a fortune. I'll let you collect from the one that pays better.
     -> What's the cove drinking to tonight?
         <<jump pirate_raider_after_treasure__1>>
     -> Sing me a shanty.
         <<jump pirate_raider_after_treasure__2>>
     -> Carry on.
-<<else>>
+<<elseif boss_cleared_verdict("cove.mockingbird") == "not_satisfied">>
     Raider: Oi. Bird's got a beak twice my size and I'm still on the same pay. We had a chest this morning. Now we don't.
     -> What was in the chest?
         <<jump pirate_raider__1>>
@@ -239,6 +241,8 @@ title: pirate_raider
     -> What happened at the port?
         <<jump pirate_raider__port>>
     -> Carry on.
+<<else>>
+    <<stop>>
 <<endif>>
 ===
 

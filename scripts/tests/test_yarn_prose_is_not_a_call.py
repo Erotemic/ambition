@@ -15,8 +15,8 @@ REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
 from lib.yarn_source import executable_regions, executable_source  # noqa: E402
 
-BOSS = re.compile(r'\bboss_cleared\(\s*"([^"]+)"')
-GENERIC = re.compile(r'condition\(\s*"([^"]+)"')
+BOSS = re.compile(r'\bboss_cleared(?:_verdict)?\(\s*"([^"]+)"')
+GENERIC = re.compile(r'\b(?:condition|verdict)\(\s*"([^"]+)"')
 
 
 def test_a_character_saying_a_call_is_not_a_call():

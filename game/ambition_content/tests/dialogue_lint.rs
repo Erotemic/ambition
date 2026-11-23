@@ -657,3 +657,68 @@ fn the_boss_fixture_id_is_not_a_name_any_shipped_dialogue_uses() {
          trivially true and this guard is vacuous"
     );
 }
+
+/// The Boolean asks: each collapses an unanswerable question to `false`.
+const BOOLEAN_ASKS: [&str; 4] = ["condition(", "can_afford(", "boss_cleared(", "quest_active("];
+
+/// Whether `region` calls one of the [`BOOLEAN_ASKS`] (not its `_verdict` form).
+fn asks_a_boolean(region: &str) -> bool {
+    BOOLEAN_ASKS.iter().any(|ask| {
+        region
+            .match_indices(ask)
+            .any(|(at, _)| !region[..at].ends_with(|c: char| c == '_' || c.is_alphanumeric()))
+    })
+}
+
+/// O6b: a gameplay gate keeps the unanswered verdict.
+///
+/// A Boolean ask reads an unanswerable question as `false`. That is safe in a
+/// positive-only gate (the gate stays closed) and wrong anywhere a `false`
+/// opens something: `not condition(…)`, and an `<<elseif>>`/`<<else>>` arm,
+/// which runs when the question had no answer at all. Those gates ask a
+/// verdict function (`verdict`, `*_verdict`) and compare its word.
+#[test]
+fn no_shipped_gate_reads_an_unanswered_question_as_no() {
+    let mut negated = Vec::new();
+    let mut boolean_arms = Vec::new();
+    let mut verdict_asks = 0usize;
+    for (name, text) in ambition_content::dialogue::yarn::yarn_sources() {
+        // Each open `<<if>>`: where it starts and whether it asked a Boolean.
+        let mut open: Vec<(usize, bool, bool)> = Vec::new();
+        for (line, region) in ambition_content::dialogue::yarn::executable_regions(text) {
+            verdict_asks += region.matches("verdict(").count();
+            let boolean = asks_a_boolean(region);
+            let squeezed: String = region.split_whitespace().collect::<Vec<_>>().join(" ");
+            if BOOLEAN_ASKS.iter().any(|ask| squeezed.contains(&format!("not {ask}")) || squeezed.contains(&format!("!{ask}"))) {
+                negated.push(format!("{name}:{line}: <<{region}>>"));
+            }
+            let keyword = region.split_whitespace().next().unwrap_or_default();
+            match keyword {
+                // An option's inline `<<if>>` has no arms; it opens nothing.
+                "if" if !text.lines().nth(line.saturating_sub(1)).is_some_and(|l| l.trim_start().starts_with("->")) => {
+                    open.push((line, boolean, false));
+                }
+                "elseif" | "else" => {
+                    if let Some(top) = open.last_mut() {
+                        top.1 |= boolean;
+                        top.2 = true;
+                    }
+                }
+                "endif" => {
+                    if let Some((start, true, true)) = open.pop() {
+                        boolean_arms.push(format!("{name}:{start}"));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    assert!(verdict_asks >= 40, "only {verdict_asks} verdict asks in the shipped corpus: the corpus or the spelling changed");
+    assert!(
+        negated.is_empty() && boolean_arms.is_empty(),
+        "these gates read an unanswerable question as an answered no; ask `verdict(…)` \
+         (or the alias's `_verdict` form) and compare \"satisfied\" / \"not_satisfied\", \
+         with a refusal arm for \"unanswerable\":\n  negated: {negated:#?}\n  \
+         <<if>> with another arm: {boolean_arms:#?}"
+    );
+}

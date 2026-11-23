@@ -14,7 +14,7 @@ title: pirate_port_context
 
 title: pirate_port_ines
 ---
-<<if condition("world.flag_set", "pirate_port_manifest_returned")>>
+<<if verdict("world.flag_set", "pirate_port_manifest_returned") == "satisfied">>
 Ines: Page eleven, back in the book. The goat is logged, the limes are logged, and you are logged as "helpful".
 -> What came through today?
     Ines: Two crates of lamp oil, a mapmaker with a nosebleed, and a letter for "whoever is in charge". I filed it under me.
@@ -22,14 +22,16 @@ Ines: Page eleven, back in the book. The goat is logged, the limes are logged, a
     Ines: A broker sent a letter asking for the names of everyone arriving from Castle Godwin's side. Didn't say who he worked for.
     Ines: I asked him to come in person. Haven't seen him.
 -> Carry on.
-<<elseif condition("world.flag_set", "pirate_port_manifest_found")>>
+<<elseif verdict("world.flag_set", "pirate_port_manifest_returned") == "unanswerable">>
+    <<stop>>
+<<elseif verdict("world.flag_set", "pirate_port_manifest_found") == "satisfied">>
 Ines: Is that page eleven? From the crow's nest? You climbed the Persistence for a page of my log?
 -> Hand her the page.
     <<command "world.set_flag" "pirate_port_manifest_returned" true>>
     Ines: Every crate in the warehouse has an owner again. Take this from the clerk's tin. Do not tell the harbour master it was a tin.
 -> Keep it a moment longer.
     Ines: It is not a souvenir. It is a legal document with a gull print on it.
-<<else>>
+<<elseif verdict("world.flag_set", "pirate_port_manifest_found") == "not_satisfied">>
 Ines: Ring freight this way. Declare it, sign it, and keep it away from the edge.
 -> You look worried.
     Ines: The wind took page eleven of the freight log. It went up past the brig's yards and caught in her crow's nest. Without it, half the warehouse belongs to nobody.
@@ -40,6 +42,8 @@ Ines: Ring freight this way. Declare it, sign it, and keep it away from the edge
     Ines: Passenger traffic goes first. I get the warehouse after the last sick traveller has found a bench.
     Ines: There were three fishing crews waiting for rope on Tuesday. One went out without it.
 -> Carry on.
+<<else>>
+    <<stop>>
 <<endif>>
 ===
 

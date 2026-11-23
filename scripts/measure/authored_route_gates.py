@@ -141,7 +141,9 @@ def named_aliases() -> dict[str, str]:
         body = text.split(f"fn {fn}(", 1)
         if len(body) < 2:
             continue
-        asked = re.search(r'ConditionId::parse\(\s*"([a-z_]+\.[a-z_]+)"', body[1])
+        # The first `"domain.question"` literal after the function: its own
+        # `ConditionId::parse`, or the id it hands a shared asker.
+        asked = re.search(r'"([a-z_]+\.[a-z_]+)"', body[1])
         if asked:
             aliases[yarn_name] = asked.group(1)
     if not aliases:
@@ -223,7 +225,9 @@ def main() -> int:
         except OSError as error:
             unreadable.append(f"{path}: {error}")
             continue
-        for match in re.finditer(r'condition\(\s*"([^"]+)"', text):
+        # `verdict(id, arg)` is the same question answered with its verdict
+        # word (O6b), so it is the generic road too.
+        for match in re.finditer(r'\b(?:condition|verdict)\(\s*"([^"]+)"', text):
             calls.append((path, match.group(1), "generic"))
         # ⛔⛔ THE SECOND SPELLING, AND LEAVING IT OUT INVERTS THE ANSWER.
         # A condition can be reached from authored `.yarn` two ways: the generic

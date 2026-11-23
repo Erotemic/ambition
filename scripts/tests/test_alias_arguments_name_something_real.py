@@ -51,8 +51,9 @@ DIALOGUE = REPO / "game/ambition_content/assets/dialogue"
 WORLDS = REPO / "game/ambition_content/assets/worlds"
 QUESTS = REPO / "game/ambition_content/src/quest.rs"
 
-BOSS_CALL = re.compile(r'boss_cleared\(\s*"([^"]+)"')
-QUEST_CALL = re.compile(r'quest_active\(\s*"([^"]+)"')
+# Each alias has a `_verdict` form (O6b) that takes the same argument.
+BOSS_CALL = re.compile(r'boss_cleared(?:_verdict)?\(\s*"([^"]+)"')
+QUEST_CALL = re.compile(r'quest_active(?:_verdict)?\(\s*"([^"]+)"')
 
 
 def _authored(pattern: re.Pattern[str]) -> dict[str, list[str]]:

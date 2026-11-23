@@ -128,21 +128,23 @@ Moriyama: Downwind of the kiln, please. You are standing in my smoke and I am st
 
 title: ninja_village_hayashi
 ---
-<<if condition("world.flag_set", "ninja_village_rank_awarded")>>
+<<if verdict("world.flag_set", "ninja_village_rank_awarded") == "satisfied">>
 Sensei Hayashi: The new rank wears well. Do not let it make you slow.
 -> What comes after this rank?
     Sensei Hayashi: The next one. It has more forms.
 -> What do the ranks mean outside the village?
     Sensei Hayashi: Not much. Wear yours here. Beyond the gate, you'll have to introduce yourself.
 -> Thank you, Sensei.
-<<elseif condition("encounter.cleared", "ninja_village.rank_exam")>>
+<<elseif verdict("world.flag_set", "ninja_village_rank_awarded") == "unanswerable">>
+    <<stop>>
+<<elseif verdict("encounter.cleared", "ninja_village.rank_exam") == "satisfied">>
 Sensei Hayashi: The dummies are broken and the examiner is resting. That is a pass.
 -> Accept the rank.
     <<command "world.set_flag" "ninja_village_rank_awarded" true>>
     Sensei Hayashi: Stamped, counter-stamped, and filed. Ren will want to make you her rival. Please let her. It saves time.
 -> Not yet.
     Sensei Hayashi: The stamp will wait. The stamp has great patience.
-<<else>>
+<<elseif verdict("encounter.cleared", "ninja_village.rank_exam") == "not_satisfied">>
 Sensei Hayashi: Welcome to the village dojo. You came to take the rank exam. Everyone who comes in that door came to take the rank exam.
 -> How does the exam work?
     Sensei Hayashi: Walk onto the exam floor. Part one: break the dummies. Part two: the examiner. If you lose, ring the bell and begin again. There is no shame in the bell.
@@ -151,12 +153,14 @@ Sensei Hayashi: Welcome to the village dojo. You came to take the rank exam. Eve
 -> Does Kagero train here?
     Sensei Hayashi: No. I've seen what she does with a paper talisman. I wouldn't know where to begin teaching it.
 -> Later.
+<<else>>
+    <<stop>>
 <<endif>>
 ===
 
 title: ninja_village_ren
 ---
-<<if condition("world.flag_set", "ninja_village_rank_awarded")>>
+<<if verdict("world.flag_set", "ninja_village_rank_awarded") == "satisfied">>
 Ren: So you passed. Then it is decided: from today you are my rival. I have the form here. Sign it.
 -> Sign the rival form.
     Ren: Good. Next week I will choose a new rival. Do not take it personally. Take it seriously.
@@ -164,7 +168,7 @@ Ren: So you passed. Then it is decided: from today you are my rival. I have the 
     Ren: Nobody wants one. That is why the form exists.
 -> Why did you pick me?
     Ren: You went through the dummies without stopping to bow to them. I would have stopped. It annoyed me.
-<<else>>
+<<elseif verdict("world.flag_set", "ninja_village_rank_awarded") == "not_satisfied">>
 Ren: You want to take the exam? Fine. Do not expect me to cheer. I only cheer for rivals.
 -> How do I become your rival?
     Ren: Pass the exam. Then I will declare it. There is a form.
@@ -173,5 +177,7 @@ Ren: You want to take the exam? Fine. Do not expect me to cheer. I only cheer fo
 -> Why do you want a rival?
     Ren: Daichi cheers when I land a hit. I'd rather somebody hit me back.
 -> Later.
+<<else>>
+    <<stop>>
 <<endif>>
 ===

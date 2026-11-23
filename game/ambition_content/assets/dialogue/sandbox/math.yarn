@@ -166,7 +166,7 @@ Emmy Ethereal: Sit wherever you like. Except there. Erdish has taken over that t
 
 title: georg_canter
 ---
-<<if condition("world.flag_set", "orbital_manifest_signed")>>
+<<if verdict("world.flag_set", "orbital_manifest_signed") == "satisfied">>
     Georg Canter: I've signed it. Twelve lenses. Three copies. I hope that's the end of it.
     -> Why did you write aleph-null in the first place?
         Georg Canter: I thought the customs officer might find it funny.
@@ -176,7 +176,9 @@ title: georg_canter
     -> What are you working on now?
         Georg Canter: Lists. Give me a list of every infinite string of zeros and ones, and I'll find one you've missed.
     -> I'll let you get on.
-<<elseif condition("world.flag_set", "orbital_consignment_query")>>
+<<elseif verdict("world.flag_set", "orbital_manifest_signed") == "unanswerable">>
+    <<stop>>
+<<elseif verdict("world.flag_set", "orbital_consignment_query") == "satisfied">>
     Georg Canter: Ah. The station sent you about crate 0447, didn't they?
     -> They need you to sign for twelve lenses.
         <<command "world.set_flag" "orbital_manifest_signed" true>>
@@ -189,7 +191,7 @@ title: georg_canter
     -> What's all this paper?
         Georg Canter: I'm trying to put numbers in a list. The interesting ones won't stay put.
     -> I'll come back.
-<<else>>
+<<elseif verdict("world.flag_set", "orbital_consignment_query") == "not_satisfied">>
     Georg Canter: Careful with that stack. I've numbered every page.
     -> What are you counting?
         Georg Canter: Mostly I'm trying to show what you can't count this way.
@@ -201,6 +203,8 @@ title: georg_canter
     -> Don't you have enough numbers already?
         Georg Canter: I haven't even started.
     -> I'll leave you to it.
+<<else>>
+    <<stop>>
 <<endif>>
 ===
 

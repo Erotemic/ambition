@@ -7,61 +7,218 @@ pub enum MusicDirectorMode {
     AdaptiveIntro,
     AdaptiveLoop,
     AdaptiveOutro,
-    AdaptiveFinished,
 }
 
-#[derive(Resource, Debug, Clone)]
-pub struct MusicDirectorState {
-    pub mode: MusicDirectorMode,
-    pub active_cue_id: Option<String>,
-    /// Who asked for the active cue. Only that claim may stop it or end it
-    /// with an outro: see [`MusicClaim`].
-    pub active_claim: Option<MusicClaim>,
-    pub current_state_id: Option<String>,
-    pub current_section_id: Option<String>,
-    pub seconds_in_mode: f32,
-    pub seconds_in_loop: f32,
-    pub(super) requested_state_id: Option<String>,
-    pub(super) continuation_state_id: Option<String>,
-    pub(super) pending_state: Option<PendingMusicStateTransition>,
-    pub(super) default_resume_started: bool,
-    pub(super) debug_log_timer: f32,
-    pub(super) last_simple_track: Option<String>,
+/// Runtime entitlement. Authors name content, not these tokens.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MusicClaim {
+    pub context: ambition_sfx::AudioContextOwner,
+    pub session: Option<u64>,
+    pub scope: Option<u32>,
+    pub source: String,
+    pub attempt: u64,
 }
 
-impl Default for MusicDirectorState {
-    fn default() -> Self {
-        Self {
-            mode: MusicDirectorMode::Idle,
-            active_cue_id: None,
-            active_claim: None,
-            current_state_id: None,
-            current_section_id: None,
-            seconds_in_mode: 0.0,
-            seconds_in_loop: 0.0,
-            requested_state_id: None,
-            continuation_state_id: None,
-            pending_state: None,
-            default_resume_started: false,
-            debug_log_timer: 0.0,
-            last_simple_track: None,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MusicChoice {
+    Track(String),
+    Cue {
+        id: String,
+        state: String,
+        entry: Option<String>,
+    },
+}
+
+impl MusicChoice {
+    pub fn program(&self) -> &str {
+        match self {
+            Self::Track(id) | Self::Cue { id, .. } => id,
+        }
+    }
+    pub fn same_program(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Track(a), Self::Track(b)) => a == b,
+            (Self::Cue { id: a, .. }, Self::Cue { id: b, .. }) => a == b,
+            _ => false,
         }
     }
 }
 
-impl MusicDirectorState {
-    /// Is the active cue playing for `claim`? A cue id cannot answer this: two
-    /// claims may name the same cue.
-    pub fn plays_for(&self, claim: &MusicClaim) -> bool {
-        self.active_cue_id.is_some() && self.active_claim.as_ref() == Some(claim)
-    }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MusicContinuity {
+    SharedProgram,
+    FreshOwner,
+}
 
-    /// The cue stopped or ran out: forget it, its claimant and its place.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MusicEntryPolicy {
+    FreshOccurrence,
+    ContinueCompatible,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MusicSelection {
+    pub provider: String,
+    pub generation: u64,
+    pub claim: MusicClaim,
+    /// The accepted lifecycle binding can differ from the music source.
+    pub release_owner: Option<MusicClaim>,
+    pub choice: MusicChoice,
+    pub continuity: MusicContinuity,
+    pub entry_policy: MusicEntryPolicy,
+    pub priority: u16,
+    pub crossfade_s: f32,
+    pub completed_state: Option<String>,
+}
+
+impl MusicSelection {
+    pub fn can_continue(&self, next: &Self) -> bool {
+        self.provider == next.provider
+            && self.generation == next.generation
+            && self.choice.same_program(&next.choice)
+            && (self.claim == next.claim
+                || (self.claim.session == next.claim.session
+                    && self.continuity == MusicContinuity::SharedProgram
+                    && next.continuity == MusicContinuity::SharedProgram
+                    && next.entry_policy == MusicEntryPolicy::ContinueCompatible
+                    && (self.claim.context == next.claim.context
+                        || matches!(
+                            (self.claim.context, next.claim.context),
+                            (
+                                ambition_sfx::AudioContextOwner::Frontend(_),
+                                ambition_sfx::AudioContextOwner::Frontend(_)
+                            )
+                        ))))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MusicSilenceReason {
+    NoContext,
+    ProviderHasNoMusic,
+    FrontendHasNoMusic,
+    NoEligibleChoice,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MusicGoal {
+    Play(MusicSelection),
+    Silence {
+        context: Option<ambition_sfx::AudioContextOwner>,
+        reason: MusicSilenceReason,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MusicReleaseReason {
+    Completed,
+    Failed,
+    Reset,
+    AwaitingSettlement,
+    Withdrawn,
+}
+
+/// A disposition can affect only the playback entry it names.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MusicDisposition {
+    pub claim: MusicClaim,
+    pub entry: super::playback::MusicEntry,
+    pub reason: MusicReleaseReason,
+}
+
+#[derive(Resource, Default, Debug, Clone)]
+pub struct MusicIntent {
+    pub context: Option<ambition_sfx::AudioContextOwner>,
+    pub provider_id: Option<String>,
+    pub authority: crate::selection::MusicAuthority,
+    pub goal: Option<MusicGoal>,
+    pub revision: u64,
+    pub outgoing: Option<MusicDisposition>,
+}
+
+impl MusicIntent {
+    /// Missing projection keeps the last goal. Silence must be explicit.
+    pub fn publish(&mut self, goal: MusicGoal) {
+        if self.goal.as_ref() != Some(&goal) {
+            self.revision = self.revision.wrapping_add(1);
+            self.goal = Some(goal);
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct AdmittedMusic {
+    pub entry: super::playback::MusicEntry,
+    pub selection: MusicSelection,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct MusicEnding {
+    pub admitted: AdmittedMusic,
+    pub cue: std::sync::Arc<MusicCueSpec>,
+    pub started: bool,
+    pub elapsed: f32,
+    pub duration: f32,
+    pub waiting_seconds: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MusicEndingResult {
+    Finished,
+    Interrupted,
+    MediaUnavailable,
+    BackendFailure,
+}
+
+#[derive(Resource, Debug, Clone, Default)]
+pub struct MusicDirectorState {
+    pub mode: MusicDirectorMode,
+    pub active_cue_id: Option<String>,
+    pub current_state_id: Option<String>,
+    pub current_section_id: Option<String>,
+    pub goal_revision: u64,
+    pub last_ending_result: Option<(super::playback::MusicEntry, MusicEndingResult)>,
+    pub seconds_in_mode: f32,
+    pub seconds_in_loop: f32,
+    pub(super) selection: Option<MusicSelection>,
+    pub(super) prepared_cue: Option<std::sync::Arc<MusicCueSpec>>,
+    pub(super) entry: Option<super::playback::MusicEntry>,
+    pub(super) transport_completed: bool,
+    pub(super) admitted: Option<AdmittedMusic>,
+    pub(super) ending: Option<MusicEnding>,
+    pub(super) requested_state_id: Option<String>,
+    pub(super) continuation_state_id: Option<String>,
+    pub(super) pending_state: Option<PendingMusicStateTransition>,
+    pub(super) debug_log_timer: f32,
+}
+
+impl Default for MusicDirectorMode {
+    fn default() -> Self {
+        Self::Idle
+    }
+}
+
+impl MusicDirectorState {
+    pub fn admitted(&self) -> Option<&AdmittedMusic> {
+        self.admitted.as_ref()
+    }
+    pub fn selection(&self) -> Option<&MusicSelection> {
+        self.selection.as_ref()
+    }
+    pub fn has_ending(&self) -> bool {
+        self.ending.is_some()
+    }
     pub(super) fn clear_active_cue(&mut self) {
+        self.transport_completed = false;
+        self.prepared_cue = None;
         self.active_cue_id = None;
-        self.active_claim = None;
         self.current_state_id = None;
         self.current_section_id = None;
+        self.requested_state_id = None;
+        self.continuation_state_id = None;
+        self.pending_state = None;
+        self.seconds_in_mode = 0.0;
+        self.seconds_in_loop = 0.0;
     }
 }
 
@@ -71,66 +228,5 @@ pub(super) struct PendingMusicStateTransition {
     pub(super) delay_seconds: f32,
 }
 
-/// Who asks for an adaptive cue: an opaque key the content layer chooses (the
-/// director compares keys and reads nothing in them).
-///
-/// ⛔ THE CUE ID IS NOT THE OWNER. A room and the fight beside it may bind the
-/// same cue (Hobford's valley rooms and the workshop raid share one tune). A
-/// binding that asked "is my cue playing" by cue id took the room's playback
-/// for its own and stopped it, and the room started it again the next frame:
-/// a stop and a start every two frames, with no music heard. Whose a cue is
-/// can only be asked of the claim.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct MusicClaim(pub String);
-
-/// A content-agnostic adaptive-cue intent handed to the director.
-///
-/// The director never decides *which* cue plays for *which* game event;
-/// the game's content layer resolves that (e.g. encounter phase → cue
-/// state) and pushes the resulting directive in via [`MusicIntent`]. The
-/// directive only names cue/state ids that the director looks up in its
-/// catalog, so it carries no game-specific vocabulary.
-#[derive(Debug, Clone, PartialEq)]
-pub enum AdaptiveCueDirective {
-    /// Play `cue_id` in adaptive `state_id` this frame, for `claim`.
-    Play {
-        cue_id: String,
-        state_id: String,
-        claim: MusicClaim,
-    },
-    /// Stop the active adaptive cue immediately (e.g. encounter failed).
-    StopNow,
-}
-
-/// Per-frame music intent the game's content layer pushes to the director.
-///
-/// This is the decoupling seam: the music director is content-agnostic and
-/// reads only this neutral resource plus its catalog/assets/audio backend.
-/// The Ambition-specific mapping ("which track / cue for which encounter,
-/// boss, room, or radio station") lives in [`super::intent`] and writes here.
-/// A different game would supply its own `compute_music_intent` and reuse the
-/// director unchanged.
-#[derive(Resource, Default, Debug, Clone)]
-pub struct MusicIntent {
-    /// Provider whose actual adaptive definitions and track authority apply to
-    /// this frame. `None` means no active music context.
-    pub provider_id: Option<String>,
-    /// Adaptive cue directive for this frame, if any content owns audio.
-    /// `None` means "no adaptive claim — fall back to the simple track."
-    pub adaptive: Option<AdaptiveCueDirective>,
-    /// Simple (single-track) candidates in priority order. The director plays
-    /// the first id that BOTH exists in its `AudioLibrary` AND is permitted by
-    /// [`Self::authority`]. Empty means "nothing requested" (the director keeps
-    /// whatever is playing, subject to authority).
-    pub simple_track_candidates: Vec<String>,
-    /// Provider-relative playback authority for this frame. The content layer
-    /// derives it from the active audio selection; the director enforces it so a
-    /// track present in the process-wide combined library but foreign to the
-    /// active provider can never play, and so a provider that authored no music
-    /// yields deliberate silence rather than a retained previous track.
-    pub authority: crate::selection::MusicAuthority,
-    /// Seconds over which a change of simple track crossfades. `0.0` is the
-    /// ordinary swap. The content layer asks for a crossfade when the track
-    /// changes while the place stays the same (the time of day turning).
-    pub simple_crossfade_s: f32,
-}
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct MusicGoalPublication;

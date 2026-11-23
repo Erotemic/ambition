@@ -1,60 +1,32 @@
-//! Ambition content → neutral music intent.
-//!
-//! This module is the *game-specific* half of the music split. It reads
-//! Ambition gameplay resources (encounter phases, boss/encounter/room track
-//! requests, the radio station, the sandbox default-track config) and resolves
-//! them into the content-agnostic [`MusicIntent`] that the director consumes.
-//!
-//! Two kinds of binding ask for an adaptive cue: an encounter's (its phases
-//! and waves choose the state) and a room's (the room chooses the state, and
-//! rooms that bind one cue share its playback). An encounter's wins.
-//!
-//! The director ([`super::director`]) names no encounter, boss, room, or track
-//! and imports none of these gameplay modules — it only looks up cue/state and
-//! track ids that *this* module decided on. That inversion is the reusable-crate
-//! seam: drop the director into another game and supply a different
-//! `compute_music_intent` system.
+//! One scoped music goal from local listeners and published source occurrences.
 
-use bevy::prelude::*;
-
-use std::collections::HashMap;
-
-use ambition_audio::library::RadioStationState;
-use ambition_audio::selection::ActiveAudioSelection;
+use ambition_audio::{
+    library::{AudioLibrary, RadioStationState},
+    music::*,
+    selection::ActiveAudioSelection,
+};
+use ambition_characters::control::DrivingParticipant;
 use ambition_encounter::{
-    Encounter, EncounterLifecycle, EncounterMusicRequest, EncounterPhase, EncounterWaves,
+    Encounter, EncounterLifecycle, EncounterMusicRequest, EncounterPhase, EncounterRelease,
+    EncounterReleaseReason, EncounterWaves, MusicClaimTier,
 };
+use ambition_input::participant::InputParticipant;
+use ambition_platformer2d_shared_tangle::{
+    lifecycle::{LiveRoomInstance, SessionWorldRef},
+    sim_id::SimId,
+};
+use bevy::{ecs::system::SystemParam, prelude::*};
+use std::collections::{BTreeSet, HashMap};
 
-use ambition_audio::music::{
-    AdaptiveCueDirective, MusicClaim, MusicDirectorState, MusicIntent,
-};
-use ambition_audio::music::{
-    AdaptiveMusicCatalogRegistry, EncounterMusicBinding, MusicCueCatalog, MusicDirectorMode,
-};
-
-/// Delay after wave 2 starts before the music promotes to its "reinforced"
-/// (large-brute) state. Content tuning — owned here, not by the director.
 pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
+const DAY_PHASE_CROSSFADE_SECONDS: f32 = 6.0;
 
-/// Seconds over which a room's track crossfades when the time of day turns
-/// while the player stays in the room: the town's evening music comes in
-/// under its day music rather than cutting it.
-pub(super) const DAY_PHASE_CROSSFADE_SECONDS: f32 = 6.0;
-
-/// The live room the music plays for (Q150, Q72). There is one audio output.
-/// Of the rooms the participants stand in, it is the one whose music has the
-/// highest authored priority ([`EncounterMusicRequest::priority_of`]: a boss
-/// over an encounter over the room's own music). The primary seat's room wins
-/// a tie, and any other tie goes to the lowest live room, so the choice does
-/// not depend on query order.
 pub(super) fn the_room_the_music_plays_for(
-    primary: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-    held: impl IntoIterator<Item = ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-    priority_of: impl Fn(Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>) -> u8,
-) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
+    primary: Option<LiveRoomInstance>,
+    held: impl IntoIterator<Item = LiveRoomInstance>,
+    priority_of: impl Fn(Option<LiveRoomInstance>) -> u8,
+) -> Option<LiveRoomInstance> {
     let mut rooms: Vec<_> = held.into_iter().map(Some).collect();
-    // No primary room is the world of a composition with no live room (a
-    // fixture), and it is heard only when nobody stands in a live room.
     if primary.is_some() || rooms.is_empty() {
         rooms.push(primary);
     }
@@ -62,340 +34,641 @@ pub(super) fn the_room_the_music_plays_for(
     rooms.dedup();
     rooms
         .into_iter()
-        .max_by_key(|room| (priority_of(*room), *room == primary, std::cmp::Reverse(*room)))
+        .max_by_key(|room| {
+            (
+                priority_of(*room),
+                *room == primary,
+                std::cmp::Reverse(*room),
+            )
+        })
         .flatten()
 }
 
-/// The rooms the participants' bodies stand in, for
-/// [`the_room_the_music_plays_for`].
-fn participant_rooms(
+fn local_rooms(
     rooms: &ambition_platformer2d_world::rooms::LiveRoomSpecs,
-    participants: &Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
-) -> Vec<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance> {
-    participants.iter().filter_map(|body| rooms.live().of(body)).collect()
+    bodies: &Query<(Entity, &DrivingParticipant)>,
+    locals: &Query<&InputParticipant>,
+) -> Vec<LiveRoomInstance> {
+    let local: BTreeSet<_> = locals.iter().map(|seat| seat.id.slot()).collect();
+    bodies
+        .iter()
+        .filter(|(_, driver)| local.is_empty() || local.contains(&driver.0.0))
+        .filter_map(|(body, _)| rooms.live().of(body))
+        .collect()
 }
 
-/// Clear room-scoped narrative music when the room the music plays for changes
-/// to another authored room.
-///
-/// The room is `the_room_the_music_plays_for`, as for
-/// [`compute_music_intent`]. This read was the sole live room, so while two
-/// rooms were live it did not run, and a conversation's track stayed after the
-/// primary seat left its room. Another player's crossing into a room with no
-/// higher-priority music does not change that room, so it does not clear the
-/// track.
 pub fn release_narrative_music_on_room_change(
-    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     primary: ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom,
-    participants: Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
-    encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        EncounterMusicRequest,
-    >,
+    participants: Query<(Entity, &DrivingParticipant)>,
+    locals: Query<&InputParticipant>,
+    encounter_music: Option<SessionWorldRef<EncounterMusicRequest>>,
     mut last: Local<Option<ambition_platformer2d_world::rooms::LiveRoomDefinition>>,
-    // Conversation support is optional in hosts that still install the audio plugin.
-    narrative_music: Option<ResMut<ambition_conversation::NarrativeMusicRequest>>,
+    narrative: Option<ResMut<ambition_conversation::NarrativeMusicRequest>>,
 ) {
+    let Some(rooms) = rooms else { return };
+    let listening = local_rooms(&rooms, &participants, &locals);
+    let primary = primary.get().filter(|room| listening.contains(room) || locals.is_empty());
     let heard = the_room_the_music_plays_for(
-        primary.get(),
-        participant_rooms(&rooms, &participants),
-        |room| encounter_music.priority_of(room),
+        primary,
+        listening,
+        |room| {
+            encounter_music
+                .as_ref()
+                .map_or(0, |source| source.priority_of(room))
+        },
     );
     let Some(definition) = rooms.definition_named(heard) else {
         return;
     };
-    let changed = last.replace(definition) != Some(definition);
-    let Some(mut narrative_music) = narrative_music else {
-        return;
-    };
-    if changed && narrative_music.track().is_some() {
-        narrative_music.clear();
+    if last
+        .replace(definition)
+        .is_some_and(|previous| previous != definition)
+    {
+        if let Some(mut narrative) = narrative {
+            narrative.clear();
+        }
     }
 }
 
-/// Resolve this frame's [`MusicIntent`] from Ambition gameplay state.
-///
-/// Runs before [`super::drive_music_director`] each frame and is the only
-/// system that bridges encounter/room/content gameplay into the music layer.
-#[allow(clippy::too_many_arguments)]
-pub fn compute_music_intent(
-    catalogs: Res<AdaptiveMusicCatalogRegistry>,
-    director: Option<Res<MusicDirectorState>>,
-    encounters: Query<(Entity, &Encounter, &EncounterLifecycle, &EncounterWaves)>,
-    // A boss's fight phase chooses the state of its bound cue.
-    bosses: Query<(
-        Entity,
-        &ambition_boss_encounter::BossConfig,
-        &ambition_boss_encounter::BossEncounter,
-    )>,
-    encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        EncounterMusicRequest,
+#[derive(SystemParam)]
+pub struct MusicFacts<'w, 's> {
+    rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs<'w, 's>>,
+    primary: ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom<'w, 's>,
+    session: ambition_platformer2d_shared_tangle::lifecycle::LiveSessionScope<'w, 's>,
+    participants: Query<'w, 's, (Entity, &'static DrivingParticipant)>,
+    locals: Query<'w, 's, &'static InputParticipant>,
+    encounters: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static Encounter,
+            &'static EncounterLifecycle,
+            Option<&'static EncounterWaves>,
+            &'static SimId,
+        ),
     >,
-    // ⭐ ONE AUDIO OUTPUT, ONE ROOM HEARD: the participants' room whose music
-    // has the highest authored priority, the primary seat's on a tie (Q150,
-    // Q72; `the_room_the_music_plays_for`). This read was the sole live room,
-    // so while two rooms were live this system did not run and the music froze.
-    rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
-    primary: ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom,
-    participants: Query<Entity, With<ambition_characters::control::DrivingParticipant>>,
-    narrative_music: Option<Res<ambition_conversation::NarrativeMusicRequest>>,
-    radio: Option<Res<RadioStationState>>,
-    audio_selection: Res<ActiveAudioSelection>,
-    // The time of day: a room with tracks by the phase of the day plays the
-    // phase's (`music_cues.ron` `room_phase_tracks`).
-    day_clock: Option<Res<ambition_time::DayClock>>,
-    day_cycle: Option<Res<ambition_time::DayCycle>>,
-    mut last_heard: Local<Option<String>>,
-    mut intent: ResMut<MusicIntent>,
-) {
-    // The music director keys adaptive cues by encounter id; build the id →
-    // live-state lookup from the encounter entities (E1 — the registry is now
-    // just an index, so the state is read from the entities directly). The
-    // lifecycle supplies the generic phase; the wave policy supplies the
-    // wave index/clock the adaptive states key on.
-    //
-    // Only the occurrences of the room the music plays for: an encounter is
-    // an occurrence in one live room, and the authored id names it only
-    // inside that room. Another room's fight does not drive the cue.
-    let heard = the_room_the_music_plays_for(
-        primary.get(),
-        participant_rooms(&rooms, &participants),
-        |room| encounter_music.priority_of(room),
-    );
-    let states = heard_encounter_states(
-        heard,
-        encounters.iter().map(|(occurrence, enc, lifecycle, waves)| {
-            (rooms.live().of(occurrence), enc.id.as_str(), lifecycle.phase(), waves)
-        }),
-    );
-    let active_catalog = audio_selection
-        .provider_id()
-        .and_then(|provider| catalogs.catalog_for(provider));
-    let boss_phases: Vec<(&str, &'static str)> = bosses
-        .iter()
-        .filter(|(boss, ..)| rooms.live().of(*boss) == heard)
-        .map(|(_, config, encounter)| (config.behavior.id.as_str(), boss_phase_key(encounter.encounter_phase())))
-        .collect();
-    let adaptive = match (active_catalog, director.as_ref()) {
-        (Some(catalog), Some(director)) => resolve_adaptive_directive(catalog, &states, director)
-            .or_else(|| resolve_boss_directive(catalog, &boss_phases, director)),
-        _ => None,
-    };
+    bosses: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static ambition_boss_encounter::BossConfig,
+            &'static ambition_boss_encounter::BossEncounter,
+            &'static SimId,
+        ),
+    >,
+    sources: Option<SessionWorldRef<'w, 's, EncounterMusicRequest>>,
+    narrative: Option<Res<'w, ambition_conversation::NarrativeMusicRequest>>,
+    radio: Option<Res<'w, RadioStationState>>,
+    day: Option<Res<'w, ambition_time::DayClock>>,
+    cycle: Option<Res<'w, ambition_time::DayCycle>>,
+    releases: MessageReader<'w, 's, EncounterRelease>,
+    boundary: Option<Res<'w, ambition_platformer2d_core::ConfirmedFrameBoundary>>,
+    director: Option<Res<'w, MusicDirectorState>>,
+}
 
-    // No live room to hear: the music stays as it is, as it did when this
-    // read could not run.
-    let Some(definition) = rooms.definition_named(heard) else {
+fn claim(
+    context: ambition_sfx::AudioContextOwner,
+    session: Option<u64>,
+    room: Option<LiveRoomInstance>,
+    source: impl Into<String>,
+    attempt: u64,
+) -> MusicClaim {
+    MusicClaim {
+        context,
+        session,
+        scope: room.map(LiveRoomInstance::ordinal),
+        source: source.into(),
+        attempt,
+    }
+}
+
+fn track_choice(
+    id: &str,
+    library: Option<&AudioLibrary>,
+    authority: &ambition_audio::selection::MusicAuthority,
+) -> Option<(MusicChoice, u64)> {
+    let track = library?.track(id).filter(|_| authority.allows(id))?;
+    Some((MusicChoice::Track(id.into()), track.generation))
+}
+
+/// Recency resolves a tie inside a room. Primary locality resolves ties across rooms.
+fn choose(
+    candidates: Vec<(MusicSelection, u64)>,
+    primary: Option<LiveRoomInstance>,
+) -> Option<MusicSelection> {
+    let mut per_room: HashMap<Option<u32>, (MusicSelection, u64)> = HashMap::new();
+    for (candidate, began) in candidates {
+        let replace = per_room
+            .get(&candidate.claim.scope)
+            .is_none_or(|(old, old_began)| {
+                candidate
+                    .priority
+                    .cmp(&old.priority)
+                    .then(began.cmp(old_began))
+                    .then_with(|| old.claim.source.cmp(&candidate.claim.source))
+                    .is_gt()
+            });
+        if replace {
+            per_room.insert(candidate.claim.scope, (candidate, began));
+        }
+    }
+    per_room
+        .into_values()
+        .map(|(selection, _)| selection)
+        .max_by(|a, b| {
+            (
+                a.priority,
+                a.claim.scope == primary.map(LiveRoomInstance::ordinal),
+                std::cmp::Reverse(a.claim.scope),
+            )
+                .cmp(&(
+                    b.priority,
+                    b.claim.scope == primary.map(LiveRoomInstance::ordinal),
+                    std::cmp::Reverse(b.claim.scope),
+                ))
+        })
+}
+
+pub fn compute_music_intent(
+    mut facts: MusicFacts,
+    catalogs: Res<AdaptiveMusicCatalogRegistry>,
+    selection: Res<ActiveAudioSelection>,
+    library: Option<Res<AudioLibrary>>,
+    mut intent: ResMut<MusicIntent>,
+    mut withdrawal: Local<Option<(ambition_audio::music::playback::MusicEntry, i32)>>,
+) {
+    intent.outgoing = None;
+    let (Some(context), Some(provider)) = (selection.owner(), selection.provider_id()) else {
         return;
     };
-    let room_spec = rooms.rooms().spec(definition);
-    let room = &room_spec.metadata;
-    // The room's own adaptive cue is the room's music: a conversation's track
-    // is above it, as it is above `music_track`.
-    let above_the_room = narrative_music.as_deref().and_then(|music| music.track()).is_some();
-    let adaptive = adaptive.or_else(|| match (active_catalog, director.as_ref()) {
-        (Some(catalog), Some(director)) if !above_the_room => resolve_room_directive(
-            catalog,
-            &room_spec.id,
-            encounter_music.desired_track(heard).is_some(),
-            director,
-        ),
-        _ => None,
-    });
-    // The room's track by the time of day, if the room has one for this phase.
-    let phase = match (day_clock.as_deref(), day_cycle.as_deref()) {
-        (Some(clock), Some(cycle)) if clock.day > 0 => Some(clock.phase(cycle).key()),
-        _ => None,
-    };
-    let phase_track = active_catalog
-        .zip(phase)
-        .and_then(|(catalog, phase)| catalog.room_phase_track(&room_spec.id, phase));
-    let same_place = last_heard.as_deref() == Some(room_spec.id.as_str());
-    *last_heard = Some(room_spec.id.clone());
-    let candidates = simple_track_candidates(
-        phase_track.or(room.music_track.as_deref()),
-        room.fight_music_track.as_deref(),
-        narrative_music.as_deref(),
-        radio.as_deref(),
-        &audio_selection,
-        encounter_music.desired_track(heard),
-    );
-
-    // ⭐ A STATION IS THE MUSIC. The player chose it, so no authored cue (a
-    // boss's, a fight's, the room's) plays beside or over it; turning the radio
-    // off gives the music back to them. With an adaptive cue here the director
-    // never looked at the simple candidates, and a station played on the base
-    // channel under the boss's layers.
-    let station = radio.as_deref().and_then(|radio| radio.selected_track()).is_some();
-    intent.adaptive = if station { None } else { adaptive };
-    intent.simple_track_candidates = candidates;
-    // Staying in a room whose track follows the day, a change of track is the
-    // day turning: it crossfades. Arriving in a room is the ordinary swap.
-    intent.simple_crossfade_s = if same_place && phase_track.is_some() { DAY_PHASE_CROSSFADE_SECONDS } else { 0.0 };
-    // Provider-relative authority: the director may only play tracks this
-    // session's provider authored. No selection is ungoverned (frontend); a
-    // provider with no music is deliberate silence. Rebuilt only when the
-    // selection, the catalogs or the provider change: it holds a copy of each
-    // of the provider's track and cue ids, which was made again each frame.
-    if audio_selection.is_changed()
+    let library = library.as_deref();
+    intent.context = Some(context);
+    let catalog = catalogs.catalog_for(provider);
+    let session = facts.session.get().map(|scope| scope.0);
+    if selection.is_changed()
         || catalogs.is_changed()
-        || intent.provider_id.as_deref() != audio_selection.provider_id()
+        || intent.provider_id.as_deref() != Some(provider)
     {
-        intent.provider_id = audio_selection.provider_id().map(str::to_owned);
-        let mut authority = audio_selection.music_authority();
-        // The actual selected provider catalog supplies both definitions and the
-        // cue-id authority. A cue cached for another provider is never visible.
-        if let Some(catalog) = active_catalog {
+        intent.provider_id = Some(provider.into());
+        let mut authority = selection.music_authority();
+        if let Some(catalog) = catalog {
             authority.authorize_cues(catalog.cue_ids().map(str::to_owned));
         }
         intent.authority = authority;
     }
-}
-
-/// The adaptive resolver's `id -> (phase, waves)` lookup: the encounter
-/// occurrences of live room `heard` only. Within one live room an authored
-/// encounter id names one occurrence, so the id is a safe key here; across
-/// rooms it is not (two live instances of one room each run an occurrence of
-/// the same encounter).
-pub(super) fn heard_encounter_states<'a>(
-    heard: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-    occurrences: impl IntoIterator<
-        Item = (
-            Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-            &'a str,
-            EncounterPhase,
-            &'a EncounterWaves,
-        ),
-    >,
-) -> HashMap<&'a str, (EncounterPhase, &'a EncounterWaves)> {
-    occurrences
-        .into_iter()
-        .filter(|(room, ..)| *room == heard)
-        .map(|(_, id, phase, waves)| (id, (phase, waves)))
-        .collect()
-}
-
-/// Build the simple-track priority list. A radio station, if one is selected,
-/// is first. Then, while a fight is on: the room's `fight_music_track`, then the
-/// fight's own track (boss beats wave, resolved inside
-/// `EncounterMusicRequest::desired_track`). Then a track a conversation asked
-/// for > the room's `music_track` > the provider's default. The director plays the first id that exists in its
-/// `AudioLibrary`, so this stays a pure list of candidate ids (no audio backend
-/// access here), and a room fight track that does not exist falls through to
-/// the fight's own.
-pub(super) fn simple_track_candidates(
-    room_track: Option<&str>,
-    room_fight_track: Option<&str>,
-    narrative_music: Option<&ambition_conversation::NarrativeMusicRequest>,
-    radio: Option<&RadioStationState>,
-    audio_selection: &ActiveAudioSelection,
-    // The fight track of the room the music plays for, if a fight is on.
-    encounter_track: Option<&str>,
-) -> Vec<String> {
-    let mut candidates = Vec::new();
-    if let Some(track) = radio.and_then(|radio| radio.selected_track()) {
-        candidates.push(track.to_string());
-    }
-    if let Some(track) = encounter_track {
-        // A fight is on. The room says what its fights sound like, before the
-        // boss or wave does.
-        if let Some(room_fight) = room_fight_track {
-            candidates.push(room_fight.to_string());
-        }
-        candidates.push(track.to_string());
-    }
-    if let Some(track) = narrative_music.and_then(|music| music.track()) {
-        candidates.push(track.to_string());
-    }
-    if let Some(track) = room_track {
-        candidates.push(track.to_string());
-    }
-    // The ACTIVE provider's default track closes the priority list. No
-    // selection (frontend routes) or a provider with no authored music means
-    // deliberate silence — never a fallback to whichever registry happens to
-    // be process-resident.
-    if let Some(music) = audio_selection.music() {
-        candidates.push(music.default_track.clone());
-    }
-    candidates
-}
-
-/// The claim of a room's binding. Rooms that bind one cue share its playback,
-/// so a room's claim is never asked to stop anything.
-pub(super) fn room_claim(room_id: &str) -> MusicClaim {
-    MusicClaim(format!("room:{room_id}"))
-}
-
-/// The claim of an encounter's binding: only this encounter's cue is its own to
-/// stop or to end with the outro.
-pub(super) fn encounter_claim(encounter_id: &str) -> MusicClaim {
-    MusicClaim(format!("encounter:{encounter_id}"))
-}
-
-/// The claim of a boss's binding, as [`encounter_claim`].
-pub(super) fn boss_claim(boss_id: &str) -> MusicClaim {
-    MusicClaim(format!("boss:{boss_id}"))
-}
-
-/// Iterate the catalog's encounter bindings and return the first live
-/// adaptive directive. (Iterating bindings rather than hardcoding an
-/// encounter id lets future boss / mini-boss cues drop in by adding a
-/// binding.)
-pub(super) fn resolve_adaptive_directive(
-    catalog: &MusicCueCatalog,
-    states: &HashMap<&str, (EncounterPhase, &EncounterWaves)>,
-    director: &MusicDirectorState,
-) -> Option<AdaptiveCueDirective> {
-    for binding in catalog.encounter_bindings() {
-        if let Some(directive) = resolve_directive_for_binding(binding, states, director) {
-            return Some(directive);
-        }
-    }
-    None
-}
-
-/// The adaptive directive of the room the music plays for, from its room
-/// binding. `None` when the room binds no cue, and when a fight is on and the
-/// binding has no `fight_state`: the fight's own track plays then.
-///
-/// The entry state is asked for only while the cue is not playing. The frame
-/// after the director starts it, this asks for the room's state, and the
-/// director goes there when the entry section ends.
-pub(super) fn resolve_room_directive(
-    catalog: &MusicCueCatalog,
-    room_id: &str,
-    fight_on: bool,
-    director: &MusicDirectorState,
-) -> Option<AdaptiveCueDirective> {
-    let binding = catalog
-        .room_bindings()
-        .iter()
-        .find(|binding| binding.room_id == room_id)?;
-    let state_id = if fight_on {
-        binding.fight_state.as_ref()?
+    if let Some(admitted) = facts
+        .director
+        .as_deref()
+        .and_then(MusicDirectorState::admitted)
+    {
+        let released = facts
+            .releases
+            .read()
+            .filter(|released| {
+                admitted
+                    .selection
+                    .release_owner
+                    .as_ref()
+                    .is_some_and(|owner| {
+                        owner.context == context
+                            && owner.scope == released.room.map(LiveRoomInstance::ordinal)
+                            && owner.source == released.source.as_str()
+                            && owner.attempt == released.attempt
+                            && owner.session == Some(released.session.0)
+                    })
+            })
+            .map(|released| match released.reason {
+                EncounterReleaseReason::Completed => MusicReleaseReason::Completed,
+                EncounterReleaseReason::Failed => MusicReleaseReason::Failed,
+                EncounterReleaseReason::Reset => MusicReleaseReason::Reset,
+            })
+            .min_by_key(|reason| match reason {
+                MusicReleaseReason::Completed | MusicReleaseReason::Failed => 0,
+                _ => 1,
+            });
+        let present = facts.sources.as_ref().is_none_or(|sources| {
+            sources.candidates().any(|candidate| {
+                admitted.selection.claim.source
+                    == format!(
+                        "{}:{}",
+                        candidate.source.kind(),
+                        candidate.source.instance_id()
+                    )
+                    && admitted.selection.claim.scope
+                        == candidate.room.map(LiveRoomInstance::ordinal)
+                    && admitted.selection.claim.attempt == candidate.attempt
+            })
+        });
+        let reason = if let Some(reason) = released {
+            Some(reason)
+        } else if admitted.selection.release_owner.is_some() && !present {
+            match facts.boundary.as_deref() {
+                Some(boundary) => {
+                    let at = withdrawal.get_or_insert((admitted.entry, boundary.current));
+                    if at.0 != admitted.entry {
+                        *at = (admitted.entry, boundary.current);
+                    }
+                    Some(if boundary.confirmed < at.1 {
+                        MusicReleaseReason::AwaitingSettlement
+                    } else {
+                        MusicReleaseReason::Withdrawn
+                    })
+                }
+                None => Some(MusicReleaseReason::Withdrawn),
+            }
+        } else {
+            *withdrawal = None;
+            None
+        };
+        intent.outgoing = reason.map(|reason| MusicDisposition {
+            entry: admitted.entry,
+            claim: admitted.selection.claim.clone(),
+            reason,
+        });
     } else {
-        // The director starts a cue again from these modes, also when the
-        // cue id is the same (`should_restart_adaptive`).
-        let playing = director.active_cue_id.as_deref() == Some(binding.cue_id.as_str())
-            && matches!(
-                director.mode,
-                MusicDirectorMode::AdaptiveIntro
-                    | MusicDirectorMode::AdaptiveLoop
-                    | MusicDirectorMode::AdaptiveOutro
-            );
-        match &binding.entry_state {
-            Some(entry) if !playing => entry,
-            _ => &binding.state,
+        facts.releases.clear();
+        *withdrawal = None;
+    }
+    if intent.authority.is_deliberate_silence() {
+        intent.publish(MusicGoal::Silence {
+            context: Some(context),
+            reason: MusicSilenceReason::ProviderHasNoMusic,
+        });
+        return;
+    }
+    let Some(rooms) = facts.rooms.as_ref() else {
+        if !matches!(&intent.goal, Some(MusicGoal::Play(selected)) if selected.claim.context == context && selected.claim.session == session)
+        {
+            if let Some((choice, generation)) = selection
+                .music()
+                .and_then(|music| track_choice(&music.default_track, library, &intent.authority))
+            {
+                intent.publish(MusicGoal::Play(MusicSelection {
+                    provider: provider.into(),
+                    generation,
+                    claim: claim(context, session, None, "default", 0),
+                    release_owner: None,
+                    choice,
+                    continuity: MusicContinuity::SharedProgram,
+                    entry_policy: MusicEntryPolicy::ContinueCompatible,
+                    priority: 0,
+                    crossfade_s: 0.22,
+                    completed_state: None,
+                }));
+            }
         }
+        return;
     };
-    Some(AdaptiveCueDirective::Play {
-        cue_id: binding.cue_id.clone(),
-        state_id: state_id.clone(),
-        claim: room_claim(room_id),
-    })
+    let primary = facts.primary.get();
+    let mut listening = local_rooms(rooms, &facts.participants, &facts.locals);
+    let primary = primary.filter(|room| listening.contains(room) || facts.locals.is_empty());
+    if let Some(primary) = primary {
+        listening.push(primary);
+    }
+    listening.sort();
+    listening.dedup();
+    let listening: Vec<_> = if listening.is_empty() {
+        vec![None]
+    } else {
+        listening.into_iter().map(Some).collect()
+    };
+    let heard =
+        the_room_the_music_plays_for(primary, listening.iter().flatten().copied(), |room| {
+            facts
+                .sources
+                .as_ref()
+                .map_or(0, |sources| sources.priority_of(room))
+        });
+    let encounters: HashMap<_, _> = facts
+        .encounters
+        .iter()
+        .map(|row| ((rooms.live().of(row.0), row.4.as_str()), row))
+        .collect();
+    let lifecycles: HashMap<_, _> = facts
+        .encounters
+        .iter()
+        .map(|row| ((rooms.live().of(row.0), row.1.id.as_str()), row))
+        .collect();
+    let bosses: HashMap<_, _> = facts
+        .bosses
+        .iter()
+        .map(|row| ((rooms.live().of(row.0), row.3.as_str()), row))
+        .collect();
+    let mut candidates = Vec::new();
+    let mut projected_room = false;
+    for room in listening {
+        let Some(definition) = rooms.definition_named(room) else {
+            continue;
+        };
+        projected_room = true;
+        let spec = rooms.rooms().spec(definition);
+        let make = |source: String,
+                    attempt,
+                    choice,
+                    generation,
+                    priority,
+                    continuity,
+                    completed_state,
+                    release_owner,
+                    crossfade_s| MusicSelection {
+            provider: provider.into(),
+            generation,
+            claim: claim(context, session, room, source, attempt),
+            release_owner,
+            entry_policy: MusicEntryPolicy::ContinueCompatible,
+            choice,
+            priority,
+            continuity,
+            completed_state,
+            crossfade_s,
+        };
+        if let Some(track) = facts
+            .radio
+            .as_deref()
+            .and_then(RadioStationState::selected_track)
+            .and_then(|id| track_choice(id, library, &intent.authority))
+        {
+            candidates.push((
+                make(
+                    "radio".into(),
+                    0,
+                    track.0,
+                    track.1,
+                    400,
+                    MusicContinuity::SharedProgram,
+                    None,
+                    None,
+                    0.22,
+                ),
+                0,
+            ));
+        }
+        for source in facts
+            .sources
+            .as_ref()
+            .into_iter()
+            .flat_map(|sources| sources.candidates())
+            .filter(|source| source.room == room)
+        {
+            let mut lifecycle_owner = None;
+            let mut completed = None;
+            let mut adaptive = None;
+            match source.source.kind() {
+                "encounter" => {
+                    let Some((_, encounter, lifecycle, waves, id)) =
+                        encounters.get(&(room, source.source.instance_id()))
+                    else {
+                        continue;
+                    };
+                    if lifecycle.attempt() != source.attempt || !lifecycle.phase().in_flight() {
+                        continue;
+                    }
+                    lifecycle_owner =
+                        Some(claim(context, session, room, id.as_str(), source.attempt));
+                    if let (Some(waves), Some(binding)) = (
+                        waves,
+                        catalog.and_then(|c| c.binding_for_encounter(&encounter.id)),
+                    ) {
+                        adaptive =
+                            encounter_state(binding, lifecycle.phase(), waves).map(|state| {
+                                MusicChoice::Cue {
+                                    id: binding.cue_id.clone(),
+                                    state,
+                                    entry: None,
+                                }
+                            });
+                        completed = Some(binding.cleared_state.clone());
+                    }
+                }
+                ambition_boss_encounter::BOSS_MUSIC_SOURCE_KIND => {
+                    let Some((_, config, status, _)) =
+                        bosses.get(&(room, source.source.instance_id()))
+                    else {
+                        continue;
+                    };
+                    let Some((_, _, lifecycle, _, id)) =
+                        lifecycles.get(&(room, config.id.as_str()))
+                    else {
+                        continue;
+                    };
+                    if lifecycle.attempt() != source.attempt || !lifecycle.phase().in_flight() {
+                        continue;
+                    }
+                    lifecycle_owner =
+                        Some(claim(context, session, room, id.as_str(), source.attempt));
+                    if let Some(binding) =
+                        catalog.and_then(|c| c.binding_for_boss(&config.behavior.id))
+                    {
+                        adaptive = binding
+                            .state_in(boss_phase_key(status.encounter_phase()))
+                            .map(|state| MusicChoice::Cue {
+                                id: binding.cue_id.clone(),
+                                state: state.into(),
+                                entry: None,
+                            });
+                        completed = binding.state_in("Death").map(str::to_owned);
+                    }
+                }
+                _ => {}
+            }
+            let choice = spec
+                .metadata
+                .fight_music_track
+                .as_deref()
+                .and_then(|id| track_choice(id, library, &intent.authority))
+                .or_else(|| adaptive.map(|choice| (choice, catalogs.generation(provider))))
+                .or_else(|| {
+                    catalog
+                        .and_then(|c| c.binding_for_room(&spec.id))
+                        .and_then(|binding| {
+                            binding.fight_state.as_ref().map(|state| {
+                                (
+                                    MusicChoice::Cue {
+                                        id: binding.cue_id.clone(),
+                                        state: state.clone(),
+                                        entry: None,
+                                    },
+                                    catalogs.generation(provider),
+                                )
+                            })
+                        })
+                })
+                .or_else(|| {
+                    source
+                        .track
+                        .and_then(|id| track_choice(id, library, &intent.authority))
+                });
+            let Some((choice, generation)) = choice else {
+                continue;
+            };
+            if matches!(choice, MusicChoice::Track(_)) {
+                completed = None;
+            }
+            let priority = match source.tier {
+                MusicClaimTier::Base => 200,
+                MusicClaimTier::Focused => 300,
+            };
+            let mut fight = make(
+                format!("{}:{}", source.source.kind(), source.source.instance_id()),
+                source.attempt,
+                choice,
+                generation,
+                priority,
+                if source.source.kind() == ambition_boss_encounter::BOSS_MUSIC_SOURCE_KIND {
+                    MusicContinuity::FreshOwner
+                } else {
+                    MusicContinuity::SharedProgram
+                },
+                completed,
+                lifecycle_owner,
+                0.65,
+            );
+            fight.entry_policy = MusicEntryPolicy::FreshOccurrence;
+            candidates.push((fight, source.began));
+        }
+        if room == heard {
+            if let Some((choice, generation)) = facts
+                .narrative
+                .as_deref()
+                .and_then(|n| n.track())
+                .and_then(|id| track_choice(id, library, &intent.authority))
+            {
+                candidates.push((
+                    make(
+                        "narrative".into(),
+                        0,
+                        choice,
+                        generation,
+                        100,
+                        MusicContinuity::SharedProgram,
+                        None,
+                        None,
+                        0.22,
+                    ),
+                    0,
+                ));
+            }
+        }
+        let phase = facts
+            .day
+            .as_deref()
+            .zip(facts.cycle.as_deref())
+            .filter(|(day, _)| day.day > 0)
+            .map(|(day, cycle)| day.phase(cycle).key());
+        let phase_track = catalog
+            .zip(phase)
+            .and_then(|(catalog, phase)| catalog.room_phase_track(&spec.id, phase));
+        let room_choice = catalog
+            .and_then(|c| c.binding_for_room(&spec.id))
+            .map(|binding| {
+                (
+                    MusicChoice::Cue {
+                        id: binding.cue_id.clone(),
+                        state: binding.state.clone(),
+                        entry: binding.entry_state.clone(),
+                    },
+                    catalogs.generation(provider),
+                )
+            })
+            .or_else(|| {
+                phase_track
+                    .or(spec.metadata.music_track.as_deref())
+                    .and_then(|id| track_choice(id, library, &intent.authority))
+            });
+        if let Some((choice, generation)) = room_choice {
+            let previous = match intent.goal.as_ref() {
+                Some(MusicGoal::Play(previous)) => Some(previous),
+                _ => None,
+            };
+            let fade = previous
+                .filter(|previous| previous.claim.scope == room.map(LiveRoomInstance::ordinal))
+                .map_or(0.22, |previous| {
+                    if previous.choice == choice {
+                        previous.crossfade_s
+                    } else if phase_track.is_some() {
+                        DAY_PHASE_CROSSFADE_SECONDS
+                    } else {
+                        0.22
+                    }
+                });
+            candidates.push((
+                make(
+                    format!("room:{}", spec.id),
+                    0,
+                    choice,
+                    generation,
+                    10,
+                    MusicContinuity::SharedProgram,
+                    None,
+                    None,
+                    fade,
+                ),
+                0,
+            ));
+        }
+        if let Some((choice, generation)) = selection
+            .music()
+            .and_then(|music| track_choice(&music.default_track, library, &intent.authority))
+        {
+            candidates.push((
+                make(
+                    "default".into(),
+                    0,
+                    choice,
+                    generation,
+                    0,
+                    MusicContinuity::SharedProgram,
+                    None,
+                    None,
+                    0.22,
+                ),
+                0,
+            ));
+        }
+    }
+    if let Some(winner) = choose(candidates, primary) {
+        intent.publish(MusicGoal::Play(winner));
+    } else if projected_room
+        && (library.is_some()
+            || selection
+                .music()
+                .is_none_or(|music| music.tracks.is_empty()))
+    {
+        intent.publish(MusicGoal::Silence {
+            context: Some(context),
+            reason: MusicSilenceReason::NoEligibleChoice,
+        });
+    }
 }
 
-/// The key a boss binding names the phase `phase` by
-/// (`ambition_audio::music::BOSS_PHASE_KEYS`). `Dormant` is no key: a boss
-/// that has not woken has no music.
+fn encounter_state(
+    binding: &EncounterMusicBinding,
+    phase: EncounterPhase,
+    waves: &EncounterWaves,
+) -> Option<String> {
+    match phase {
+        EncounterPhase::Starting { .. } => Some(binding.starting_state.clone()),
+        EncounterPhase::Active => {
+            let wave = waves.run.wave_index.unwrap_or(0);
+            if wave == 1 && waves.run.wave_elapsed >= LARGE_BRUTE_DELAY_SECONDS {
+                if let Some(state) = &binding.wave2_reinforced_state {
+                    return Some(state.clone());
+                }
+            }
+            binding
+                .wave_states
+                .get(wave)
+                .or_else(|| binding.wave_states.last())
+                .cloned()
+                .or_else(|| Some(binding.starting_state.clone()))
+        }
+        _ => None,
+    }
+}
+
 pub(super) fn boss_phase_key(phase: ambition_boss_encounter::BossEncounterPhase) -> &'static str {
     use ambition_boss_encounter::BossEncounterPhase as P;
     match phase {
@@ -407,150 +680,5 @@ pub(super) fn boss_phase_key(phase: ambition_boss_encounter::BossEncounterPhase)
         P::Stagger => "Stagger",
         P::Enrage => "Enrage",
         P::Death => "Death",
-    }
-}
-
-/// The adaptive directive of a bound boss in the heard room: the state its
-/// binding gives its phase. A boss with a state wins over every binding that
-/// has none, so a fallen boss does not stop the cue its successor plays (the
-/// Inugami after Wolfenstein). With no state anywhere, a bound boss in a phase
-/// with no state, or a bound cue with no boss of its archetype left, stops the
-/// cue (the room's music comes back); a binding whose cue is not playing and
-/// whose boss has no state claims nothing.
-///
-/// ⭐ AN OUTRO ONLY ENDS A CUE THAT IS PLAYING, as for an encounter
-/// (`outro_directive`). A fallen boss stays in `Death`, so a binding that
-/// gives `Death` the cue's outro state claims nothing once the outro has run
-/// out (the director clears the active cue then). If it claimed the outro
-/// again, the outro would start again at its end, and play each time the room
-/// with the body is entered.
-pub(super) fn resolve_boss_directive(
-    catalog: &MusicCueCatalog,
-    bosses: &[(&str, &'static str)],
-    director: &MusicDirectorState,
-) -> Option<AdaptiveCueDirective> {
-    let mut stop = false;
-    for binding in catalog.boss_bindings() {
-        let claim = boss_claim(&binding.boss_id);
-        let cue_active = director.plays_for(&claim);
-        let state = bosses
-            .iter()
-            .filter(|(id, _)| *id == binding.boss_id)
-            .find_map(|(_, phase)| binding.state_in(phase));
-        match state {
-            Some(state_id) if !cue_active && catalog.is_outro_state(&binding.cue_id, state_id) => {}
-            Some(state_id) => {
-                return Some(AdaptiveCueDirective::Play { cue_id: binding.cue_id.clone(), state_id: state_id.to_string(), claim })
-            }
-            None => stop |= cue_active,
-        }
-    }
-    stop.then_some(AdaptiveCueDirective::StopNow)
-}
-
-/// Resolve a single encounter binding's adaptive cue directive.
-/// Returns:
-/// - `Some(StopNow)` when the encounter is not in the heard room but the
-///   cue is still playing for it.
-/// - `Some(Play { cue_id, state_id })` when the encounter is in a
-///   phase mapped to a cue state.
-/// - `None` when the encounter is unknown / inactive AND its cue is
-///   not playing — the binding doesn't claim audio this frame.
-/// The outro request for a cleared encounter — the ONE rule both `Completed` and
-/// `Inactive` ask, because they mean the same thing to the music.
-///
-/// ⭐ AN OUTRO ONLY ENDS A CUE THAT IS PLAYING FOR THIS ENCOUNTER. The director
-/// records the cue and its claim when the cue starts, keeps them through the
-/// outro, and clears them when the outro runs out or the cue is shut down. So
-/// "is the cue playing for this binding" holds from the clearing frame to the
-/// outro's last beat, and never again after that. The same cue playing for a
-/// room (`MusicClaim`) is not this encounter's to end.
-///
-/// ⛔⛔ THE DIRECTOR'S MODE WAS THE OLD ANSWER, and a mode is not a memory. The
-/// `Completed` arm asked only "is the mode `AdaptiveFinished`", which is true only
-/// until the next room-track switch sets `SimpleTrack`. An encounter sits in
-/// `Completed` for the rest of the session, and it is visible from every room.
-/// So every door that changed the room's track brought the goblin fight's
-/// 7.3 s outro back before the new room's music. A context reset (`Idle`) also
-/// replayed it once at the start of a cleared save. Jon, 2026-09-25: "the goblin
-/// fight transition music seems to play as a transition between every door".
-/// The rule used to be conditional, and the comment defending that said
-/// requiring the cue "would refuse the outro on the very frame it should begin".
-/// That is true only against a director that never played the cue, and in the
-/// game the fight's own cue is always the active one on its clearing frame.
-fn outro_directive(
-    binding: &EncounterMusicBinding,
-    director: &MusicDirectorState,
-) -> Option<AdaptiveCueDirective> {
-    let claim = encounter_claim(&binding.encounter_id);
-    director.plays_for(&claim).then(|| AdaptiveCueDirective::Play {
-        cue_id: binding.cue_id.clone(),
-        state_id: binding.cleared_state.clone(),
-        claim,
-    })
-}
-
-pub(super) fn resolve_directive_for_binding(
-    binding: &EncounterMusicBinding,
-    states: &HashMap<&str, (EncounterPhase, &EncounterWaves)>,
-    director: &MusicDirectorState,
-) -> Option<AdaptiveCueDirective> {
-    let claim = encounter_claim(&binding.encounter_id);
-    let Some((phase, waves)) = states.get(binding.encounter_id.as_str()) else {
-        if director.plays_for(&claim) {
-            return Some(AdaptiveCueDirective::StopNow);
-        }
-        return None;
-    };
-
-    match phase {
-        EncounterPhase::Starting { .. } => Some(AdaptiveCueDirective::Play {
-            cue_id: binding.cue_id.clone(),
-            state_id: binding.starting_state.clone(),
-            claim,
-        }),
-        EncounterPhase::Active => {
-            let wave_index = waves.run.wave_index.unwrap_or(0);
-            let mut state_id = binding
-                .wave_states
-                .get(wave_index)
-                .or_else(|| binding.wave_states.last())
-                .cloned()
-                .unwrap_or_else(|| binding.starting_state.clone());
-            if wave_index == 1 && waves.run.wave_elapsed >= LARGE_BRUTE_DELAY_SECONDS {
-                if let Some(reinforced) = &binding.wave2_reinforced_state {
-                    state_id = reinforced.clone();
-                }
-            }
-            Some(AdaptiveCueDirective::Play {
-                cue_id: binding.cue_id.clone(),
-                state_id,
-                claim,
-            })
-        }
-        // ⛔⛔ AN OUTRO IS A ONE-SHOT, AND ASKING FOR IT IS NOT THE SAME AS
-        // WANTING IT AGAIN. This arm returned `Play { cleared_state }`
-        // UNCONDITIONALLY while the `Inactive` arm below already refused to
-        // re-request a finished cue. One rule, stated in one place and missing
-        // from the other -- and `Completed` is the phase an encounter SITS in,
-        // so it is the arm that loops.
-        //
-        // ⇒ The director, on finishing an outro, sets `AdaptiveFinished` and
-        // CLEARS `active_cue_id`. A standing request then satisfies BOTH of
-        // `should_restart_adaptive`'s restart conditions at once (`!same_cue`
-        // because the id was cleared, and `mode_lost_adaptive` because
-        // `AdaptiveFinished` is in its list), so the outro restarts, plays its
-        // full length, finishes, and restarts again -- forever.
-        // Jon 2026-09-06, with logs: a 7.30s cycle against a 7.285s outro,
-        // `finish_adaptive_outro` -> `start_adaptive_state state=outro` on the
-        // same frame, with `resume_simple_music target=long_lofi_drift` losing the
-        // fight in between.
-        EncounterPhase::Completed | EncounterPhase::Inactive => {
-            // The encounter often resets to Inactive immediately after clear, so
-            // both phases mean the same thing to the music: keep playing the
-            // outro until it has actually run out.
-            outro_directive(binding, director)
-        }
-        EncounterPhase::Failed => Some(AdaptiveCueDirective::StopNow),
     }
 }

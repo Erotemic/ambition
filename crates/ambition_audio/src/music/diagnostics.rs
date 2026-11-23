@@ -52,6 +52,8 @@ pub struct MusicPlaybackDiagnostics {
     pub longest_gap_seconds: f64,
     pub gap_count: u64,
     pub request_revision: u64,
+    pub goal_revision: u64,
+    pub admitted_goal_revision: Option<u64>,
     pub playback_occurrence: Option<u64>,
     pub reserved_voices: usize,
     pub transport_position_seconds: Option<f64>,
@@ -158,6 +160,11 @@ pub fn observe_music_playback(
     if let Some(playback) = playback.as_ref().filter(|_| report.base_playing) {
         report.actual = format!("track:{}", playback.active_track());
     }
+    report.goal_revision = intent.revision;
+    report.admitted_goal_revision = transport
+        .as_ref()
+        .and_then(|p| p.current())
+        .map(|g| g.goal_revision());
     report.detail.clear();
     report.layers_playing = 0;
     if let Some(transport) = transport.as_ref() {
@@ -171,6 +178,7 @@ pub fn observe_music_playback(
                 provider,
                 cue,
                 section,
+                ..
             } = &group.product
             {
                 let voices = group
@@ -208,9 +216,15 @@ pub fn observe_music_playback(
     report.section = director.as_ref().and_then(|d| d.current_section_id.clone());
 
     let mut content_status = MusicPlaybackStatus::MissingRequest;
-    if let Some(AdaptiveCueDirective::Play {
-        cue_id, state_id, ..
-    }) = &intent.adaptive
+    let chosen = match intent.goal.as_ref() {
+        Some(MusicGoal::Play(selected)) => Some(&selected.choice),
+        _ => None,
+    };
+    if let Some(MusicChoice::Cue {
+        id: cue_id,
+        state: state_id,
+        ..
+    }) = chosen
     {
         report.expected = format!("cue:{cue_id} state:{state_id}");
         content_status = MusicPlaybackStatus::MissingContent;
@@ -233,7 +247,13 @@ pub fn observe_music_playback(
                     .and_then(|state| cue.section(&state.section_id))
                 {
                     content_status = if loaded.as_ref().is_some_and(|assets| {
-                        assets.section_ready(provider, cue, &section.id, &decoded)
+                        assets.section_ready(
+                            provider,
+                            catalogs.generation(provider),
+                            cue,
+                            &section.id,
+                            &decoded,
+                        )
                     }) {
                         MusicPlaybackStatus::BackendSilent
                     } else {
@@ -244,6 +264,7 @@ pub fn observe_music_playback(
                                 .find_map(|source| {
                                     let handle = assets.get(
                                         provider,
+                                        catalogs.generation(provider),
                                         cue_id,
                                         &section.id,
                                         &source.layer_id,
@@ -264,33 +285,10 @@ pub fn observe_music_playback(
             }
         }
     } else {
-        let track = intent
-            .simple_track_candidates
-            .iter()
-            .find(|id| {
-                intent.authority.allows(id)
-                    && library.as_ref().is_some_and(|l| l.track(id).is_some())
-            })
-            .map(String::as_str)
-            .or_else(|| {
-                intent
-                    .simple_track_candidates
-                    .iter()
-                    .rev()
-                    .find(|id| intent.authority.allows(id))
-                    .map(String::as_str)
-            })
-            .or_else(|| selection.preferred_track())
-            .or_else(|| {
-                (!intent.authority.is_governed())
-                    .then(|| {
-                        playback
-                            .as_ref()
-                            .map(|p| p.active_track())
-                            .filter(|id| !id.is_empty())
-                    })
-                    .flatten()
-            });
+        let track = match chosen {
+            Some(MusicChoice::Track(id)) => Some(id.as_str()),
+            _ => None,
+        };
         if let Some(id) = track {
             report.expected = format!("track:{id}");
             content_status = match library.as_ref().and_then(|l| l.track(id)) {
@@ -329,7 +327,9 @@ pub fn observe_music_playback(
             };
         }
     }
-    let deliberate = if intent.authority.is_governed() {
+    let deliberate = if matches!(intent.goal, Some(MusicGoal::Silence { .. })) {
+        true
+    } else if intent.authority.is_governed() {
         intent.authority.is_deliberate_silence()
     } else {
         selection.music_authority().is_deliberate_silence()

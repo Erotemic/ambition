@@ -4,7 +4,7 @@ use crate::music::catalog::{LoadedMusicSource, MusicSourceKey};
 use crate::music::playback::{MusicPlayback, RecordedMusicOutput};
 use crate::selection::MusicAuthority;
 use bevy::asset::AssetApp;
-use bevy_kira_audio::prelude::{Frame, StaticSoundData, StaticSoundSettings};
+use bevy_kira_audio::prelude::{DynamicAudioChannels, Frame, StaticSoundData, StaticSoundSettings};
 use std::time::Duration;
 
 mod device_tests;
@@ -252,7 +252,7 @@ fn decoding_and_admission_do_not_consume_an_entrance() {
         app.world()
             .resource::<super::super::playback::MusicPlayback>()
             .reserved_voices(),
-        2
+        0
     );
 }
 
@@ -582,7 +582,7 @@ fn a_superseded_unadmitted_entrance_cannot_start_while_its_replacement_loads() {
         app.world()
             .resource::<super::super::playback::MusicPlayback>()
             .reserved_voices(),
-        2
+        0
     );
     publish(&mut app, selection("trail", "later", "room", 0, 10));
     step(&mut app, 0.25);

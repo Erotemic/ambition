@@ -9,7 +9,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::log::{debug, info, warn};
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::{
-    AudioControl, AudioInstance, AudioSource as KiraAudioSource, AudioTween, DynamicAudioChannels,
+    AudioInstance, AudioSource as KiraAudioSource, AudioTween,
     PlaybackState,
 };
 

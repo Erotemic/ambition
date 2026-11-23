@@ -483,9 +483,11 @@ occurrence. No new bus framework is required.
 
 The director reads the matching occurrence's file cursor. Native output uses
 Kira observations and one shared Kira clock. A ready one-shot continuation is
-admitted before its predecessor's prepared end. That clock schedules its resume,
-the predecessor's stop and their native fades. Cancellation withdraws both
-operations. Recording output uses an explicit host-clock model.
+admitted before its predecessor's prepared end. That clock schedules its resume
+and the predecessor's exit envelope. Each bounded playback group owns one native
+track. The track's exit gain is separate from the voices' entry fades and user
+mix. Withdrawal replaces the exit command directly. Native instances are stopped
+and released after retirement. Recording output uses an explicit host-clock model.
 Host time owns loading deadlines and diagnostics. A requested mixer-clock origin
 or a frame that observes Playing is not proof of the first audible sample.
 Keep submission, admission observation and requested transport origin separate.
@@ -904,15 +906,17 @@ two fresh cue handoffs, then silence after an explicit stop. Guard: 146 default
 audio tests and the separate native test. Spectrum inspection confirms the
 section tones. The baseline capture exposed 20–30 ms of silence at file-end joins.
 
-`781520aba` schedules ready one-shot continuations and predecessor stops on one
-native clock. It holds sample zero through admission and cancels withdrawn stops
-after Kira acknowledges them. The
+`781520aba` introduced native scheduling for ready one-shot continuations.
+The current executor uses a native group exit envelope instead of scheduled
+instance stops. It holds sample zero through admission. The
 [pinned adapter patch](../../../third_party/bevy_kira_audio/PATCHES.md) exposes
-the existing manager and instance scheduling controls. Guard: 148 audio tests,
+the existing manager, native instance wrapper and scheduled resume. Guard: 148 audio tests,
 38 intent-adapter tests, 35 workspace policy tests and two explicit native tests.
 PCM checks find no silent 10 ms windows across the prepared joins, including a
-one-second host stall and a source tail. Cancellation preserves the old audio
-past a withdrawn stop. Mixer resolution is not a sample-accuracy guarantee.
+one-second host stall and a source tail. Cancellation followed immediately by a
+host stall preserves the old audio past its withdrawn exit. Source replacement
+before admission cannot change the submitted frames. Silence releases all native
+instances and group tracks. Mixer resolution is not a sample-accuracy guarantee.
 General exits and the complete game route remain open.
 No physical-speaker or listening acceptance was performed.
 The current recording path consumes the executor's actual voice commands;

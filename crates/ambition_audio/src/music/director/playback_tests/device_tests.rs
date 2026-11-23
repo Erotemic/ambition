@@ -86,8 +86,27 @@ fn native_output_survives_cold_decode_and_repeated_fresh_handoffs() {
     for (index, handle) in handles.iter().enumerate() {
         decode_tone(&mut app, handle, index);
     }
+    app.update();
+    let submitted_sound = app
+        .world()
+        .resource::<Assets<KiraAudioSource>>()
+        .get(&handles[2])
+        .unwrap()
+        .sound
+        .clone();
+    app.world_mut()
+        .resource_mut::<Assets<KiraAudioSource>>()
+        .get_mut(&handles[2])
+        .unwrap()
+        .sound
+        .frames = vec![Frame::new(0.0, 0.0); 96000].into();
     run_for(&mut app, 2.0);
     assert_running(&app, "trail", "song");
+    app.world_mut()
+        .resource_mut::<Assets<KiraAudioSource>>()
+        .get_mut(&handles[2])
+        .unwrap()
+        .sound = submitted_sound;
 
     publish(&mut app, selection("destination", "intro", "room", 1, 10));
     run_for(&mut app, 0.5);
@@ -112,6 +131,16 @@ fn native_output_survives_cold_decode_and_repeated_fresh_handoffs() {
         .resource::<MusicDirectorState>()
         .admitted()
         .is_none());
+    assert_eq!(app.world().resource::<MusicPlayback>().reserved_voices(), 0);
+    assert!(app.world().resource::<Assets<AudioInstance>>().is_empty());
+    assert_eq!(
+        app.world_mut()
+            .non_send_mut::<bevy_kira_audio::AudioOutput>()
+            .manager()
+            .unwrap()
+            .num_sub_tracks(),
+        0
+    );
 }
 
 #[test]
@@ -133,7 +162,9 @@ fn native_canceling_a_prepared_entry_cancels_its_predecessors_stop() {
         .any(|group| group.scheduled_state() == Some("song")));
 
     publish(&mut app, selection("trail", "later", "room", 0, 10));
-    run_for(&mut app, 0.8);
+    run_for(&mut app, 0.001);
+    std::thread::sleep(Duration::from_secs_f64(0.8));
+    run_for(&mut app, 0.01);
     let director = app.world().resource::<MusicDirectorState>();
     assert_eq!(director.current_section_id.as_deref(), Some("intro"));
     assert!(director

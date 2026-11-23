@@ -10,11 +10,9 @@ pub struct AudioInstance {
 }
 
 impl AudioInstance {
-    /// Stop this instance at a native transport time.
-    pub fn stop_at(&mut self, start: kira::StartTime, tween: AudioTween) {
-        let mut tween: kira::Tween = tween.into();
-        tween.start_time = start;
-        self.handle.stop(tween);
+    /// Wrap a native instance. The caller owns its asset lifetime.
+    pub fn from_native(handle: StaticSoundHandle) -> Self {
+        Self { handle }
     }
 
     /// Resume this instance at a native transport time.

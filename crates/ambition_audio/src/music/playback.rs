@@ -3,6 +3,9 @@
 use super::*;
 use bevy::asset::AssetApp;
 
+mod native;
+pub use native::NativeMusicGroups;
+
 const MAX_GROUPS: usize = crate::music_policy::MAX_MUSIC_PLAYBACK_GROUPS;
 const ADMISSION_TIMEOUT_SECONDS: f64 = 5.0;
 const MAX_RETRIES: u8 = 1;
@@ -18,7 +21,7 @@ impl MusicTransportClock {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct MusicPlaybackOccurrence(pub u64);
 
 /// A selected entry has its own completion and retry scope.
@@ -171,7 +174,6 @@ impl Envelope {
 #[derive(Clone, Debug)]
 pub struct MusicPlaybackGroup {
     retiring_for: Option<MusicPlaybackOccurrence>,
-    cancel_retirement: bool,
     /// The requested start time on the output's transport clock.
     pub(crate) transport_origin: Option<f64>,
     pub entry: MusicEntry,
@@ -440,22 +442,6 @@ impl MusicPlayback {
                 }
             }
             let observations = &observations[..group.voices.len()];
-            if group.cancel_retirement {
-                // Kira reads resume before stop in one block. Wait for its stop read.
-                if observations
-                    .iter()
-                    .all(|state| matches!(state, VoiceObservation::Stopping(_)))
-                {
-                    for voice in &group.voices {
-                        output.cancel_retirement(&voice.handle);
-                    }
-                    group.cancel_retirement = false;
-                } else if observations.iter().any(|state| {
-                    matches!(state, VoiceObservation::Stopped | VoiceObservation::Absent)
-                }) {
-                    group.cancel_retirement = false;
-                }
-            }
             let shapes_ready = group.voices.iter().all(|voice| voice.shape.is_some());
             if group.phase == MusicGroupPhase::Submitted && shapes_ready {
                 let common = group.voices[0].shape;
@@ -534,15 +520,11 @@ impl MusicPlayback {
                                     .filter(|previous| previous.occurrence == start.occurrence)
                                 {
                                     previous.retiring_for = Some(group.occurrence);
-                                    previous.cancel_retirement = false;
-                                    for voice in &mut previous.voices {
-                                        output.retire_at(
-                                            &voice.handle,
-                                            origin,
-                                            group.request.fade_seconds,
-                                        );
-                                        voice.stop_sent = true;
-                                    }
+                                    output.retire_group(
+                                        previous.occurrence,
+                                        Some(origin),
+                                        group.request.fade_seconds,
+                                    );
                                 }
                             }
                         }
@@ -593,23 +575,26 @@ impl MusicPlayback {
                         .flatten()
                         .filter(|other| other.occurrence == old)
                     {
+                        let scheduled = previous.retiring_for == Some(group.occurrence);
                         previous.retiring_for = None;
-                        previous.cancel_retirement = false;
                         previous.phase = MusicGroupPhase::Retiring;
                         previous.terminal = Some(MusicTerminalReason::Replaced);
                         previous.envelope = Envelope {
                             from: previous.envelope.value(envelope_now),
                             to: 0.0,
-                            began: envelope_now,
+                            began: if scheduled {
+                                group.transport_origin.unwrap_or(envelope_now)
+                            } else {
+                                envelope_now
+                            },
                             seconds: group.request.fade_seconds,
                         };
-                        if output.native_envelopes() {
-                            for voice in &mut previous.voices {
-                                if !voice.stop_sent {
-                                    output.retire(&voice.handle, group.request.fade_seconds);
-                                }
-                                voice.stop_sent = true;
-                            }
+                        if output.native_envelopes() && !scheduled {
+                            output.retire_group(
+                                previous.occurrence,
+                                None,
+                                group.request.fade_seconds,
+                            );
                         }
                     }
                 }
@@ -677,10 +662,7 @@ impl MusicPlayback {
                     .filter(|previous| previous.retiring_for == Some(group.occurrence))
                 {
                     previous.retiring_for = None;
-                    previous.cancel_retirement = true;
-                    for voice in &mut previous.voices {
-                        voice.stop_sent = false;
-                    }
+                    output.cancel_group_retirement(previous.occurrence);
                 }
                 let mut accounted = true;
                 for (voice, observation) in group.voices.iter_mut().zip(observations) {
@@ -705,6 +687,7 @@ impl MusicPlayback {
                     if let Some(reason) = group.terminal {
                         self.last_terminal = Some((group.occurrence, reason));
                     }
+                    output.end_group(group.occurrence);
                     continue;
                 }
             } else if matches!(
@@ -756,12 +739,17 @@ impl MusicPlayback {
             .checked_add(1)
             .expect("music occurrence space exhausted");
         let occurrence = MusicPlaybackOccurrence(self.next_occurrence);
+        if !output.begin_group(occurrence) {
+            self.failed(occurrence, MusicTerminalReason::AdmissionAbsent);
+            return;
+        }
+        let request = self.desired.as_ref().expect("a selected request");
         let voices = request
             .voices
             .iter()
             .map(|source| MusicVoice {
                 shape: None,
-                handle: output.submit(&source.source, request.looped),
+                handle: output.submit(occurrence, &source.source, request.looped),
                 gain: source.gain,
                 last_gain: None,
                 stop_sent: false,
@@ -769,7 +757,6 @@ impl MusicPlayback {
             .collect();
         self.groups[slot] = Some(MusicPlaybackGroup {
             retiring_for: None,
-            cancel_retirement: false,
             transport_origin: None,
             entry: request.entry,
             occurrence,
@@ -811,14 +798,22 @@ trait MusicVoiceOutput {
     fn native_envelopes(&self) -> bool {
         false
     }
-    fn retire(&mut self, _handle: &Handle<AudioInstance>, _seconds: f32) {}
-    fn retire_at(&mut self, _handle: &Handle<AudioInstance>, _start: f64, _seconds: f32) {}
-    fn cancel_retirement(&mut self, _handle: &Handle<AudioInstance>) {}
+    fn begin_group(&mut self, _id: MusicPlaybackOccurrence) -> bool {
+        true
+    }
+    fn end_group(&mut self, _id: MusicPlaybackOccurrence) {}
+    fn retire_group(&mut self, _id: MusicPlaybackOccurrence, _start: Option<f64>, _seconds: f32) {}
+    fn cancel_group_retirement(&mut self, _id: MusicPlaybackOccurrence) {}
     fn ready_to_start(&self) -> bool {
         true
     }
     fn ready(&self, source: &Handle<KiraAudioSource>) -> bool;
-    fn submit(&mut self, source: &Handle<KiraAudioSource>, looped: bool) -> Handle<AudioInstance>;
+    fn submit(
+        &mut self,
+        id: MusicPlaybackOccurrence,
+        source: &Handle<KiraAudioSource>,
+        looped: bool,
+    ) -> Handle<AudioInstance>;
     fn observe(&self, handle: &Handle<AudioInstance>) -> VoiceObservation;
     fn shape(
         &self,
@@ -851,7 +846,8 @@ pub struct RecordedMusicOutput {
 
 struct KiraMusicOutput<'a> {
     clock: Option<&'a MusicTransportClock>,
-    channels: &'a DynamicAudioChannels,
+    native: &'a mut NativeMusicGroups,
+    backend: Option<&'a mut bevy_kira_audio::AudioOutput>,
     decoded: &'a Assets<KiraAudioSource>,
     instances: &'a mut Assets<AudioInstance>,
     recording: &'a mut RecordedMusicOutput,
@@ -859,8 +855,6 @@ struct KiraMusicOutput<'a> {
     now: f64,
     can_start: bool,
 }
-
-const OUTPUT_CHANNEL: &str = "ambition.music.occurrences";
 
 impl MusicVoiceOutput for KiraMusicOutput<'_> {
     fn transport_time(&self) -> Option<f64> {
@@ -884,39 +878,35 @@ impl MusicVoiceOutput for KiraMusicOutput<'_> {
         self.mode.emits_to_device()
     }
 
-    fn retire(&mut self, handle: &Handle<AudioInstance>, seconds: f32) {
-        self.recording.stopped += 1;
-        if let Some(mut voice) = self.instances.get_mut(handle) {
-            voice.stop(AudioTween::linear(std::time::Duration::from_secs_f32(
-                seconds,
-            )));
-        }
+    fn begin_group(&mut self, id: MusicPlaybackOccurrence) -> bool {
+        !self.mode.emits_to_device() || self.native.begin(id, self.backend.as_deref_mut())
     }
 
-    fn retire_at(&mut self, handle: &Handle<AudioInstance>, start: f64, seconds: f32) {
-        self.recording.stopped += 1;
-        if let Some((clock, mut voice)) = self.clock.zip(self.instances.get_mut(handle)) {
-            voice.stop_at(
-                bevy_kira_audio::kira::clock::ClockTime::from_ticks_f64(&clock.0, start).into(),
-                AudioTween::linear(std::time::Duration::from_secs_f32(seconds)),
-            );
-        }
+    fn end_group(&mut self, id: MusicPlaybackOccurrence) {
+        self.native.end(id);
     }
 
-    fn cancel_retirement(&mut self, handle: &Handle<AudioInstance>) {
-        self.recording.resumed += 1;
-        if let Some(mut voice) = self.instances.get_mut(handle) {
-            voice.resume(AudioTween::linear(std::time::Duration::ZERO));
-        }
+    fn retire_group(&mut self, id: MusicPlaybackOccurrence, start: Option<f64>, seconds: f32) {
+        let start = self.clock.zip(start).map_or(
+            bevy_kira_audio::kira::StartTime::Immediate,
+            |(clock, start)| {
+                bevy_kira_audio::kira::clock::ClockTime::from_ticks_f64(&clock.0, start).into()
+            },
+        );
+        self.native.retire(id, start, seconds);
+    }
+
+    fn cancel_group_retirement(&mut self, id: MusicPlaybackOccurrence) {
+        self.native.cancel_retirement(id);
     }
 
     fn shape(
         &self,
         handle: &Handle<AudioInstance>,
-        source: &Handle<KiraAudioSource>,
+        _source: &Handle<KiraAudioSource>,
     ) -> Option<MusicSourceShape> {
         if self.mode.emits_to_device() {
-            self.decoded.get(source.id()).map(MusicSourceShape::decoded)
+            self.native.shape(handle)
         } else {
             self.recording
                 .voices
@@ -932,19 +922,26 @@ impl MusicVoiceOutput for KiraMusicOutput<'_> {
         self.decoded.contains(source.id())
     }
 
-    fn submit(&mut self, source: &Handle<KiraAudioSource>, looped: bool) -> Handle<AudioInstance> {
+    fn submit(
+        &mut self,
+        id: MusicPlaybackOccurrence,
+        source: &Handle<KiraAudioSource>,
+        looped: bool,
+    ) -> Handle<AudioInstance> {
         self.recording.submitted += 1;
         if self.mode.emits_to_device() {
-            let mut command = self.channels.channel(OUTPUT_CHANNEL).play(source.clone());
-            // Hold sample zero until the common resume time.
-            command
-                .paused()
-                .with_playback_rate(0.0)
-                .with_volume(amplitude_to_decibels(0.0));
-            if looped {
-                command.looped();
+            let handle = self.instances.reserve_handle();
+            if let Some(instance) = self.native.submit(
+                id,
+                &handle,
+                self.decoded.get(source).expect("decoded before submission"),
+                looped,
+            ) {
+                self.instances
+                    .insert(handle.id(), instance)
+                    .expect("a reserved native instance");
             }
-            command.handle()
+            handle
         } else {
             let handle = self.instances.reserve_handle();
             let asset = self.decoded.get(source).expect("decoded before submission");
@@ -992,9 +989,6 @@ impl MusicVoiceOutput for KiraMusicOutput<'_> {
             Some(PlaybackState::WaitingToResume { .. }) => VoiceObservation::Waiting,
             Some(PlaybackState::Stopping { position }) => VoiceObservation::Stopping(position),
             Some(PlaybackState::Stopped) => VoiceObservation::Stopped,
-            _ if self.channels.channel(OUTPUT_CHANNEL).state(handle) == PlaybackState::Queued => {
-                VoiceObservation::Queued
-            }
             _ => VoiceObservation::Absent,
         }
     }
@@ -1042,6 +1036,9 @@ impl MusicVoiceOutput for KiraMusicOutput<'_> {
 
     fn release(&mut self, handle: &Handle<AudioInstance>) {
         self.recording.voices.remove(&handle.id());
+        if self.mode.emits_to_device() {
+            self.instances.remove(handle.id());
+        }
     }
 }
 
@@ -1049,7 +1046,6 @@ impl MusicVoiceOutput for KiraMusicOutput<'_> {
 pub fn advance_music_playback(
     mut playback: ResMut<MusicPlayback>,
     mut recording: ResMut<RecordedMusicOutput>,
-    channels: Res<DynamicAudioChannels>,
     decoded: Res<Assets<KiraAudioSource>>,
     mut instances: ResMut<Assets<AudioInstance>>,
     time: Res<Time<Real>>,
@@ -1060,6 +1056,8 @@ pub fn advance_music_playback(
     unlock: Option<Res<crate::web_unlock::AudioUnlockState>>,
     conditions: Option<Res<crate::output::AudioPlaybackConditions>>,
     clock: Option<Res<MusicTransportClock>>,
+    mut native: ResMut<NativeMusicGroups>,
+    mut backend: Option<NonSendMut<bevy_kira_audio::AudioOutput>>,
 ) {
     let mode = output.as_deref().copied().unwrap_or_default();
     let can_start = !mode.emits_to_device()
@@ -1069,7 +1067,8 @@ pub fn advance_music_playback(
                 .is_none_or(|conditions| !conditions.device_suspended));
     let mut sink = KiraMusicOutput {
         clock: clock.as_deref(),
-        channels: &channels,
+        native: &mut native,
+        backend: backend.as_deref_mut(),
         decoded: &decoded,
         instances: &mut instances,
         recording: &mut recording,
@@ -1145,6 +1144,7 @@ pub fn advance_music_playback(
 pub fn add_music_playback(app: &mut App) {
     app.init_resource::<MusicPlayback>()
         .init_resource::<RecordedMusicOutput>()
+        .init_resource::<NativeMusicGroups>()
         .init_resource::<MusicMix>()
         .add_systems(
             PostUpdate,
@@ -1154,12 +1154,6 @@ pub fn add_music_playback(app: &mut App) {
         );
     if !app.world().contains_resource::<Assets<AudioInstance>>() {
         app.init_asset::<AudioInstance>();
-    }
-    let mut channels = app
-        .world_mut()
-        .get_resource_or_init::<DynamicAudioChannels>();
-    if !channels.is_channel(OUTPUT_CHANNEL) {
-        channels.create_channel(OUTPUT_CHANNEL);
     }
 }
 

@@ -131,11 +131,13 @@ Use a browser check only for web audio/device changes.
 
 ### Native software capture on Linux
 
-Use the opt-in device test to check the locked Bevy/Kira command drain and
-mixer. The test delays decode beyond the intro, selects the current phase,
+Use the opt-in device test to check the locked Kira mixer and the native music
+executor. The test delays decode beyond the intro, selects the current phase,
 then checks two fresh cue handoffs and an explicit stop. It stalls the host
 for one second across a prepared join. The source has a half-second tail;
-the native clock must stop it and start the next section at the prepared end.
+the native clock must silence it and start the next section at the prepared end.
+The test also replaces a source after submission and checks final native resource
+release.
 
 ```bash
 CARGO_INCREMENTAL=0 cargo test -p ambition_audio --features kira,content_pack --lib --no-run
@@ -155,6 +157,8 @@ This capture does not verify physical speakers or the complete game route.
 
 The opt-in `native_canceling_a_prepared_entry_cancels_its_predecessors_stop`
 test checks cancellation. Run it in a separate capture. The old source must
-continue past its withdrawn stop while the replacement is not ready.
+continue past its withdrawn exit while the replacement is not ready, including
+a host stall immediately after withdrawal. Check section levels as well as
+frequency content; a nearly silent source can still produce the expected tones.
 Native starts and fades use Kira's processing resolution. The preparer still
 rejects `SampleAccurate` and `PhasePreserving` requests.

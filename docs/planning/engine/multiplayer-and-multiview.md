@@ -35,8 +35,8 @@ A participant is not a body, room, or camera. A local view is not a participant.
 - Camera reference-frame components, ease and resolved snapshots are per
   view. `PresentedViewState` exposes view-scoped presentation facts.
   The `00bf92c22142` source still resolves default target framing and
-  placement history before selecting each view's target; MV1 below closes
-  that ownership gap. Per-view components alone do not establish independent
+  placement history before selecting each view's target; MV1 below closed
+  that ownership gap (2026-11-23). Per-view components alone do not establish independent
   resolution.
 - Host tests compose two views through the one view-spawn seam
   (`spawn_local_view`).
@@ -132,6 +132,31 @@ Real network transport remains customer-gated under
 
 ### MV1 — resolve the selected view before its framing and continuity
 
+**Done 2026-11-23.** `resolve_camera_observation` builds one
+`SelectedFraming` per view before any framing is derived. That framing is
+either the session default (home avatar, controlled subject or declared
+cast) or the subject the view named. Focus, base size, blink, cast box and
+the placement record all come from that selection:
+
+- Losing the default clears only the views that frame it.
+- A named subject that is gone withdraws its view.
+- An explicit pane keeps the authored base size.
+- `last_subject_placement` is kept per view, keyed by the body that view
+  framed.
+
+A temporary probe in `resolved_snapshot_lifetime_tests` ran each case on
+HEAD and then on the fix. The probe was then removed.
+
+| Case | HEAD | Fix |
+| --- | --- | --- |
+| No default; spectator of an undriven actor | blank | resolves |
+| Spectator's body removed while a cast is valid | fell back to the cast at (800, 1988) | withdraws; the default view continues |
+| Cast gap 200 → 2400 | pane view 427×240 → 2524×1420 | 569×320 both times (the default view still expands) |
+| Default subject placed | pane read `Placed` | pane `Continuous` |
+| Pane's own subject placed | pane read `Continuous` | pane `Placed` |
+
+The section below is the plan as written.
+
 **Selected shared correctness work, 2026-11-22.** Source baseline
 `00bf92c2214274fdf2ecaacdc0abfd19be569a50`; planning follows the observation
 overlay at `3ac54ecc1ada`. This packet needs neither a new renderer nor the
@@ -209,8 +234,7 @@ updates only views bound to the preference, and
 A temporary probe through `CameraObservationPlugin` and an Update (a default
 view and an authored world-fixed pane) read (SubjectFrame, WorldFixed) under
 a SubjectFrame setting, (WorldFixed, WorldFixed) under WorldFixed, and the
-pane re-authored SubjectFrame kept it under WorldFixed; it was removed. The
-subject/framing selection above is still open.
+pane re-authored SubjectFrame kept it under WorldFixed; it was removed.
 
 The same source has a second ownership collision:
 `apply_camera_reference_frame_setting` writes the global setting into

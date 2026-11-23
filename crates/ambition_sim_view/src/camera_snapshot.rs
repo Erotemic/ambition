@@ -1323,6 +1323,25 @@ impl ResolvedCameraSnapshot {
     }
 }
 
+/// What one view frames, chosen before anything about framing is derived:
+/// the session default (home avatar, controlled subject or declared cast) or
+/// the subject the view named. Every dependency below — focus, base size,
+/// blink, the cast's box — comes from this one selection, so a pane watching
+/// one body cannot inherit another population's zoom or snap.
+#[derive(Clone, Copy)]
+struct SelectedFraming {
+    framed: bevy::prelude::Entity,
+    focus: CameraFocus2d,
+    subject_down: Option<ae::Vec2>,
+    follow_world: ae::Vec2,
+    blink: Option<CameraBlinkInput>,
+    blink_snap: bool,
+    must_frame_world: Option<ae::Aabb>,
+    view_box: Option<ae::Aabb>,
+    base_view: ae::Vec2,
+    frames_the_cast: bool,
+}
+
 /// Resolve the follow camera for this frame; this is the sole writer of [`CameraEaseState`].
 ///
 /// It runs after simulation and presentation-input adapters. Consumers of the published snapshot
@@ -1678,7 +1697,10 @@ pub fn resolve_camera_observation(
     // And the velocity it carried then: a body that stopped dead at the end of
     // a short move (a ledge grab zeroes it on the tick it pulls the body to
     // the lip) travelled with the speed it had going in.
-    mut last_subject_placement: bevy::prelude::Local<Option<(bevy::prelude::Entity, ae::Vec2, ae::Vec2)>>,
+    //
+    // By view: (view, the body it framed, where, how fast). A pane watching
+    // one body must not snap because a different body was put somewhere.
+    mut last_subject_placement: bevy::prelude::Local<Vec<(bevy::prelude::Entity, bevy::prelude::Entity, ae::Vec2, ae::Vec2)>>,
     // THE CAST FRAMING'S PRESENTED STATE, as one param.
     //
     //  `Local`s rather than fields on `CameraEaseState`, and for the same
@@ -1757,6 +1779,9 @@ pub fn resolve_camera_observation(
         user_settings.video.camera_zoom.base_view()
     };
     let mut base_view = ae::Vec2::new(base_view_w, base_view_h);
+    // Before the cast eases `base_view`: the eased extent belongs to the views
+    // framing the cast, and a pane watching its own subject keeps this one.
+    let authored_base_view = base_view;
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
 
     // That is the failure mode this repo has been bitten by repeatedly: presentation not
@@ -1782,7 +1807,10 @@ pub fn resolve_camera_observation(
     } else {
         player.single().ok().map(|(e, b, bs, bc)| (e, *b, *bs, *bc))
     };
-    let (mut player_body, player_base_size, blink_cam, mut followed) = match home {
+    // `None`: the session has no default subject this tick. Only the views
+    // that frame the default lose their frame; a view that names its own
+    // subject does not depend on it.
+    let default_subject = 'default: { Some(match home {
         Some((entity, body, base_size, blink)) => (body, base_size, blink, entity),
         None => {
             // What to frame is a presentation decision this resolver is TOLD (`FramedCast`), never
@@ -1814,31 +1842,10 @@ pub fn resolve_camera_observation(
                         *live_members = None;
                         cast_last_seen.clear();
                         *settling = 0.0;
-                        // ⛔⛔ AND SAY SO ON EVERY VIEW, or the `Option` keeps its
-                        // promise only until the first successful resolve.
-                        //
-                        // Returning here without touching the views leaves each
-                        // one holding `Some(the frame from the tick before the
-                        // cast went away)`, and a reader cannot tell that from a
-                        // frame resolved this tick — which is the exact lifetime
-                        // defect the `Option` was added to remove, moved from
-                        // before initialisation to after it. `camera_follow`
-                        // sees `Some` and presents the stale frame; local views
-                        // outlive sessions, so it can bridge a lifecycle gap.
-                        //
-                        // ⭐ THE EASE IS RESET WITH IT, deliberately. A view that
-                        // has published no frame has nothing to interpolate FROM,
-                        // so the next valid cast must be ADOPTED as a first frame
-                        // rather than eased from a target that predates the gap —
-                        // the same rule `live_observer_roll`'s `None` already
-                        // states for roll, applied to the target it eases toward.
-                        for (.., mut ease, mut resolved, mut policy) in &mut views {
-                            *resolved = ResolvedCameraSnapshot(None);
-                            ease.target_initialized = false;
-                            ease.live_observer_roll = None;
-                            *policy = Default::default();
-                        }
-                        return;
+                        // Every view that frames the default clears below
+                        // (`withdraw`), with its ease: a view that published
+                        // no frame has nothing to interpolate from.
+                        break 'default None;
                     };
                     let dt = time.delta_secs().max(0.0);
                     let rate = |hz: f32| (1.0 - (-hz * dt).exp()).clamp(0.0, 1.0);
@@ -1928,96 +1935,66 @@ pub fn resolve_camera_observation(
                 }
             }
         }
-    };
-    // Follow the CONTROLLED SUBJECT's body. Zoom + blink easing stay on the
-    // home avatar's presentation state; only the follow point tracks the
-    // driven body.
-    //
-    // ⛔ NOT WHILE A CAST IS DECLARED. The cast's centre is the follow point
-    // then, and the driven body is one of its members: following it here
-    // pulled a human's match frame toward the human's own fighter (MEASURED:
-    // 49 px left and 50 px down of the pair's centre, two fighters).
-    if let Some(subject) = controlled.0.filter(|_| !cast_declared) {
-        if let Ok((_, kin, _)) = body_kinematics.get(subject) {
-            player_body.pos = kin.pos;
-            // Soft framing leads the DRIVEN body; leading the home avatar's
-            // velocity while possessing something else would aim the camera at
-            // where a body the participant is not controlling is going.
-            player_body.vel = kin.vel;
-            followed = subject;
+    }) };
+    let default_framing = default_subject.map(|(mut player_body, player_base_size, blink_cam, mut followed)| {
+        // Follow the CONTROLLED SUBJECT's body. Zoom + blink easing stay on the
+        // home avatar's presentation state; only the follow point tracks the
+        // driven body.
+        //
+        // ⛔ NOT WHILE A CAST IS DECLARED. The cast's centre is the follow point
+        // then, and the driven body is one of its members: following it here
+        // pulled a human's match frame toward the human's own fighter (MEASURED:
+        // 49 px left and 50 px down of the pair's centre, two fighters).
+        if let Some(subject) = controlled.0.filter(|_| !cast_declared) {
+            if let Ok((_, kin, _)) = body_kinematics.get(subject) {
+                player_body.pos = kin.pos;
+                // Soft framing leads the DRIVEN body; leading the home avatar's
+                // velocity while possessing something else would aim the camera at
+                // where a body the participant is not controlling is going.
+                player_body.vel = kin.vel;
+                followed = subject;
+            }
         }
-    }
-    // Frame where the subject is DRAWN, not where its last tick left it. The
-    // sprite is sampled on the same frame clock; if the camera framed the tick
-    // pose instead, the two would disagree by up to a tick of travel and the
-    // subject would shudder against the world at speed.
-    //
-    // For a FRAMED CAST they are not: `pos` is the pair's CENTRE, and assigning the anchor's
-    // presented position throws that centre away and points the camera at seat 0. A framing
-    // centre is rigidly attached to the cast exactly as a hitbox is to its owner, and both are
-    // carried on the frame clock the same way.
-    // The SIM position, kept before the presented offset is folded in — the
-    // teleport predicate below is about where the BODY went.
-    let subject_sim_pos = player_body.pos;
-    // A cast's centre is already framed from its members' presented poses
-    // (`frame_the_cast`); carrying it by one member's lead as well moved the
-    // pair's view by seat 0's tick sawtooth.
-    if let Some(presented) = presented.get(followed).ok().filter(|_| !cast_declared) {
-        player_body.pos += presented.delta();
-    }
-
-    // ⭐⭐ AND THE SUBJECT WAS PUT THERE RATHER THAN TRAVELLING — the term the
-    // FOLLOW path was missing. The cast camera has had it since the respawn
-    // lurch (`CastFraming::teleported`); a single-subject view chased a teleport
-    // inside one room at the ease rate, which Jon measured as a 440px pan over
-    // about 40 ticks.
-    //
-    // ⭐ THE PREDICATE IS `presented_pose`'s, exactly as the cast path uses it.
-    // That module already refuses to EXTRAPOLATE across a teleport and this
-    // refuses to CHASE one; a second implementation here would be a second
-    // opinion that drifts.
-    //
-    // ⛔ THE SIM POSITION, taken before the presented delta above is folded in:
-    // the predicate is about where the BODY went, and the presented sample is a
-    // sub-tick offset that would read as travel the velocity cannot explain.
-    let subject_placed = match *last_subject_placement {
-        // A DIFFERENT subject is not a teleport — possession and view changes
-        // hand the camera a new body, and the room/blink terms cover the rest.
-        Some((was, ..)) if was != followed => false,
-        // The faster of the velocities either side of the tick: a ledge grab
-        // pulls the body up to 30 units to the lip and zeroes its velocity
-        // on the same tick, which the velocity after alone read as a teleport
-        // and snapped the view.
-        Some((_, was_at, was_moving)) => !crate::presented_pose::travelled_under_own_power(
-            was_at,
-            subject_sim_pos,
-            if was_moving.length_squared() > player_body.vel.length_squared() { was_moving } else { player_body.vel },
-            1,
-        ),
-        None => false,
-    };
-    *last_subject_placement = Some((followed, subject_sim_pos, player_body.vel));
-    let blink_snap = blink_cam.camera_snap_timer > 0.0;
-
-    let focus = CameraFocus2d {
-        center_world: player_body.pos,
-        tick_center_world: subject_sim_pos,
-        grounded: grounds.get(followed).is_ok_and(|g| g.on_ground),
-        size: player_body.size(),
-        // The standing shape is canonical; the size it is compared with is
-        // physical. Unscaled, a shrunk body read as crouched.
-        base_size: player_base_size.base_size * player_body.material.scale(),
-        facing: player_body.facing,
-        velocity_world: player_body.vel,
-        look: poses.get(followed).map_or(0.0, |pose| camera_look(pose.gaze_secs)),
-        scale: player_body.material.scale(),
-    };
-    let blink = CameraBlinkInput {
-        blink_in_timer: blink_cam.blink_in_timer,
-        blink_in_duration: blink_cam.blink_in_duration,
-        blink_camera_from: blink_cam.blink_camera_from,
-    };
-    let subject_down = subject_frames.get(followed).ok().map(|frame| frame.down());
+        // The SIM position, kept before the presented offset is folded in — the
+        // placement predicate is about where the BODY went. Framing samples the
+        // presented pose, on the frame clock the sprite is drawn on, or the two
+        // disagree by up to a tick of travel and the subject shudders.
+        let subject_sim_pos = player_body.pos;
+        // A cast's centre is already framed from its members' presented poses
+        // (`frame_the_cast`); carrying it by one member's lead as well moved the
+        // pair's view by seat 0's tick sawtooth.
+        if let Some(presented) = presented.get(followed).ok().filter(|_| !cast_declared) {
+            player_body.pos += presented.delta();
+        }
+        SelectedFraming {
+            framed: followed,
+            focus: CameraFocus2d {
+                center_world: player_body.pos,
+                tick_center_world: subject_sim_pos,
+                grounded: grounds.get(followed).is_ok_and(|g| g.on_ground),
+                size: player_body.size(),
+                // The standing shape is canonical; the size it is compared with is
+                // physical. Unscaled, a shrunk body read as crouched.
+                base_size: player_base_size.base_size * player_body.material.scale(),
+                facing: player_body.facing,
+                velocity_world: player_body.vel,
+                look: poses.get(followed).map_or(0.0, |pose| camera_look(pose.gaze_secs)),
+                scale: player_body.material.scale(),
+            },
+            subject_down: subject_frames.get(followed).ok().map(|frame| frame.down()),
+            follow_world: player_body.pos,
+            blink: Some(CameraBlinkInput {
+                blink_in_timer: blink_cam.blink_in_timer,
+                blink_in_duration: blink_cam.blink_in_duration,
+                blink_camera_from: blink_cam.blink_camera_from,
+            }),
+            blink_snap: blink_cam.camera_snap_timer > 0.0,
+            must_frame_world,
+            view_box,
+            base_view,
+            frames_the_cast: cast_declared,
+        }
+    });
     // THIS VIEW's own subject, framed on its own terms. Same three answers
     // the session resolve produces — where to look, which way is down there, and
     // what the snapshot should report as the follow point — for a body the
@@ -2068,47 +2045,92 @@ pub fn resolve_camera_observation(
         mut policy_state,
     ) in &mut views
     {
-        if view_subject.0.is_none() && (declared_participant.is_some() || declared_body.is_some()) {
+        // A view that named a subject frames that subject or nothing: a named
+        // body that is gone, or a seat nothing drives, withdraws the view
+        // rather than turning it into a second view of the default.
+        let explicit = view_subject.0.is_some() || declared_participant.is_some() || declared_body.is_some();
+        let selection = if explicit {
+            view_subject.0.and_then(|subject| {
+                let (focus, subject_down, follow_world) = view_focus(subject)?;
+                Some(SelectedFraming {
+                    framed: subject,
+                    focus,
+                    subject_down,
+                    follow_world,
+                    // `blink` is the HOME AVATAR's arrival easing: handing it to
+                    // a pane watching somebody else would yank that pane when
+                    // the participant blinks. `must_frame_world`, `view_box`
+                    // and the eased base size belong to the view framing the
+                    // declared cast.
+                    blink: None,
+                    blink_snap: false,
+                    must_frame_world: None,
+                    view_box: None,
+                    base_view: authored_base_view,
+                    frames_the_cast: false,
+                })
+            })
+        } else {
+            default_framing
+        };
+        // ⛔⛔ A VIEW WITH NOTHING TO FRAME SAYS SO, or `ResolvedCameraSnapshot`
+        // keeps `Some(the frame from before its subject went away)`, which a
+        // reader cannot tell from a frame resolved this tick; `camera_follow`
+        // would present it, and local views outlive sessions.
+        //
+        // ⭐ THE EASE IS RESET WITH IT. A view that published no frame has
+        // nothing to interpolate FROM, so its next subject is ADOPTED as a
+        // first frame, the rule `live_observer_roll`'s `None` states for roll.
+        let Some(SelectedFraming {
+            framed,
+            focus,
+            subject_down,
+            follow_world,
+            blink,
+            blink_snap,
+            must_frame_world,
+            view_box,
+            base_view,
+            frames_the_cast,
+        }) = selection
+        else {
             *resolved = ResolvedCameraSnapshot(None);
             camera_state.target_initialized = false;
             camera_state.live_observer_roll = None;
             *policy_state = Default::default();
+            last_subject_placement.retain(|(seen, ..)| *seen != view);
             continue;
-        }
-        //  A VIEW MAY NAME ITS OWN SUBJECT, and everything that follows
-        // from whose body it is moves with it: the framing focus, the down axis
-        // orientation resolves against, and the follow point the snapshot
-        // reports.
-        //
-        //  the two the override DROPS are as deliberate as the three it
-        // replaces. `blink` is the HOME AVATAR's arrival easing — handing it to a
-        // pane watching somebody else would yank that pane when the participant
-        // blinks — and `must_frame_world` is the declared CAST's box, which is a
-        // constraint on the view that is watching the cast and on no other.
-        //  whether the view named a body or a seat was decided upstream, by
-        // `resolve_view_subjects`. What is left here is what a camera resolve
-        // should be doing with it: framing.
-        // `cast_eased`: the declared cast's frame was eased above, at the
-        // match's pan rate; the follow resolve adopts it rather than easing
-        // the centre a second time.
-        let (framed, focus, subject_down, follow_world, blink, must_frame_world, view_box, cast_eased) = match view_subject
-            .0
-            .and_then(|subject| view_focus(subject).map(|own| (subject, own)))
-        {
-            Some((subject, (own_focus, own_down, own_center))) => {
-                (subject, own_focus, own_down, own_center, None, None, None, false)
-            }
-            None => (
-                followed,
-                focus,
-                subject_down,
-                player_body.pos,
-                Some(blink),
-                must_frame_world,
-                view_box,
-                cast_declared,
-            ),
         };
+        // ⭐⭐ THE SUBJECT WAS PUT THERE RATHER THAN TRAVELLING. Without this
+        // term a teleport inside one room was chased at the ease rate (Jon
+        // measured a 440px pan over about 40 ticks). The predicate is
+        // `presented_pose`'s, which the cast path uses too: one opinion.
+        // Sampled on the TICK pose; the presented sample is a sub-tick offset
+        // the velocity cannot explain. Per view, about the body THIS view
+        // frames.
+        let at = focus.tick_center_world;
+        let moving = focus.velocity_world;
+        let record = last_subject_placement.iter().position(|(seen, ..)| *seen == view);
+        let subject_placed = match record.map(|index| last_subject_placement[index]) {
+            // A DIFFERENT subject is not a teleport — possession and view changes
+            // hand the camera a new body, and the room/blink terms cover the rest.
+            Some((_, was, ..)) if was != framed => false,
+            // The faster of the velocities either side of the tick: a ledge grab
+            // pulls the body up to 30 units to the lip and zeroes its velocity
+            // on the same tick, which the velocity after alone read as a teleport
+            // and snapped the view.
+            Some((_, _, was_at, was_moving)) => !crate::presented_pose::travelled_under_own_power(
+                was_at,
+                at,
+                if was_moving.length_squared() > moving.length_squared() { was_moving } else { moving },
+                1,
+            ),
+            None => false,
+        };
+        match record {
+            Some(index) => last_subject_placement[index] = (view, framed, at, moving),
+            None => last_subject_placement.push((view, framed, at, moving)),
+        }
         // The room this view frames is the live room of its framed body. When
         // that room cannot be told, the view keeps its last frame.
         let Some(room) = geometry.room_of(framed) else {
@@ -2162,7 +2184,9 @@ pub fn resolve_camera_observation(
             camera_state.ground_focus = None;
             camera_state.ground_subject = Some(framed);
         }
-        let snap_camera = blink_snap || room_changed || cast_eased;
+        // A cast's frame was eased above at the match's pan rate; the follow
+        // resolve adopts it rather than easing the centre a second time.
+        let snap_camera = blink_snap || room_changed || frames_the_cast;
         if room_changed {
             // Disjoint LDtk areas: reset target easing so it never interpolates
             // through unrelated world coordinates. PER VIEW, because each view
@@ -2267,7 +2291,7 @@ pub fn resolve_camera_observation(
             .into();
         observation.room = active_spec.id.clone();
         observation.room_instance = u64::from(room.ordinal());
-        if cast_declared && view_subject.0.is_none() {
+        if frames_the_cast {
             observation.subjects = cast_subjects
                 .iter()
                 .filter_map(|subject| {
@@ -2371,6 +2395,7 @@ pub fn resolve_camera_observation(
     }
     // A view that is gone has no last room.
     last_camera_room.retain(|(view, _)| views.contains(*view));
+    last_subject_placement.retain(|(view, ..)| views.contains(*view));
 }
 
 /// Ordering handle for the camera observation resolve.

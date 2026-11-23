@@ -1669,7 +1669,7 @@ impl Plugin for MaryORulesPlugin {
         // they set then flows through the ordinary body path, replay and
         // rollback included.
         let gait = (
-            movement::walk_by_default_run_while_held,
+            movement::walk_by_default_run_while_held(self.scope),
             movement::fire_spark_on_run_press,
         )
             .chain()

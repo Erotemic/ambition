@@ -97,7 +97,17 @@ absence or runtime behavior by itself.
 
 ### SC1 — select rule subjects inside the work gate
 
-**State:** PLANNED, static audit at `00bf92c22142`, 2026-11-22.
+**State:** DONE 2026-11-23 for the named writer. `walk_by_default_run_while_held(scope)`
+takes the installer's scope, the one `add_scoped_systems` gates its set with,
+and throttles only a body whose live room that scope governs (`LiveRuleRooms`,
+`RulesScope::governs`; `EveryRoom` resolves no room). The system keeps its
+name for the phase pins (`with_name`). `RulesScopeSet`'s description now says
+it is a work gate, not a subject filter. A temporary two-room probe (the
+world crate's `two_game_session`, scope `Mode("smash")`) measured the
+stage body throttled to 0.6 with run released and 1.0 held, and the hall
+body unchanged at 1.0 in both; it was removed. The spark writer is unchanged:
+it acts only on a `run` press of a body wearing a ranged grant.
+Planned from the static audit at `00bf92c22142`, 2026-11-22.
 Selected under
 [ARCHITECTURE-COMPOSITION](../queue.md#architecture-composition--link-owned-facts-and-preserve-causal-boundaries).
 This is a remaining caller of the existing per-subject room contract. Keep

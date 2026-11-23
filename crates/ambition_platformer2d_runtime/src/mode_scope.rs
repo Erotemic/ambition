@@ -42,11 +42,17 @@ pub fn in_rules_scope(scope: RulesScope) -> impl FnMut(CurrentRoom) -> bool + Cl
 }
 
 /// The systems that serve the rooms one [`RulesScope`] governs: a game's rules,
-/// for the rooms of that game. The set runs only while an active room is in
+/// for the rooms of that game. The set runs only while ANY live room is in
 /// its scope ([`in_rules_scope`]), so a game the hub has installed but is not
 /// playing does no work. Add systems with
 /// [`ScopedSystemsAppExt::add_scoped_systems`], which gives the set its
 /// condition in each schedule.
+///
+/// It is a work gate, not a subject filter: it changes no system's query.
+/// With one of the game's rooms and a foreign room live, a set system sees
+/// the foreign room's bodies too. A system that changes a body selects it
+/// by the body's room (`RulesOf::of`, or `RulesScope::governs` over
+/// `LiveRuleRooms`).
 ///
 /// The scope follows the room, not the frontend route: a session can visit
 /// another game's room, and a session being prepared or retired is served by

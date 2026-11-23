@@ -27,7 +27,7 @@ fn app_with_policy() -> (App, Entity) {
     let mut app = App::new();
     app.insert_resource(ambition_platformer2d::time::WorldTime::new(0.0, 1.0 / 60.0));
     let body = body(&mut app);
-    app.add_systems(Update, walk_by_default_run_while_held);
+    app.add_systems(Update, walk_by_default_run_while_held(RulesScope::EveryRoom));
     (app, body)
 }
 

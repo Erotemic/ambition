@@ -332,17 +332,17 @@ rows when migrating them; a new preset's defaults must be explicit.
 
 ### Clock and marker preparation
 
-Every supported MusicIR frontend exposes its compiler-owned clock. V1
-already renders a tempo map but sets `CompiledScore.exact_metadata` to
-`None`. V2/V3 retain richer exact metadata. Adapt those compiler facts;
-do not add another YAML interpreter or infer a variable clock from average
-BPM. V3 procedural generator clips have narrower clock restrictions than
-exact clips; inspection must state the supported form.
+Every supported MusicIR frontend now exposes its compiler clock through
+`CompiledScore.clock`. V1 retains `exact_metadata: None` and projects its
+procedural tempo map. V2/V3 project the exact meter and tempo owners. Native
+preparation must consume these facts; it must not parse YAML or infer a
+variable clock from average BPM. V3 procedural generator clips have narrower
+clock restrictions than exact clips; inspection states that limit.
 
-Display chapters, entry markers, and legal exits are different roles.
-The current playback plan drops exit markers. V3 validation also rejects
-`valid_exit_local_bars` although exact-score lowering can preserve it.
-Make the public authoring form and its supported lowering agree.
+Display chapters, entry markers, and legal exits are different roles. Source
+preparation now retains bar exits and V3 admits `valid_exit_local_bars`.
+Encoded products retain the resolved frames. The native transition planner
+does not yet consume these markers.
 
 Use the same cut and rounding as the selected product. For the current
 global cut convention, a local marker frame is:

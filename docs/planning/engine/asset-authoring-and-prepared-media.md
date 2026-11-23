@@ -271,6 +271,8 @@ separate. Native linking and the Hobford/Dinosaur data migration remain open.
 Exact event ownership now survives timing variation across form boundaries.
 Shared ring export excludes incoming pickup attacks while it retains the
 declared file span. Generic PCM and encoded-product checks cover this rule.
+Verification: 151 focused tests, 171 score contract comparisons, and a generic
+SoundFont render and publication with nonzero decoded products.
 
 **Refinement, 2026-11-22:** MA1 owns compiler/export facts.
 [Music programs and owned playback](music-programs-and-playback.md) owns

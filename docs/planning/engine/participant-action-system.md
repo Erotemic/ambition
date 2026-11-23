@@ -393,6 +393,22 @@ existing participant, context, latch and body-control owners.
 
 ### IN4 — observe source transitions before routing
 
+**State (2026-11-23):** the capture and rebind crossings are done. The
+runtime carrier is `SeatSourceEdges` (it was `SeatBurstTriggerState`): it
+follows valid physical samples while gameplay is captured, and discards
+their gameplay edges (the latch suppression is unchanged). A rebind's
+zeroed sample (`Rebound` present at `InputSet::Route`) and an unfocused
+window that suppresses input observe nothing: they mark the history for
+resync, and the next valid sample seeds it without a press, as
+`swallow_the_rebinds_own_edges` does for buttons. The carrier stays in the
+runtime: the sampler sees `Rebound` on the reset frame itself, so no
+priming operation had to cross into `ambition_input`. A temporary probe
+through `populate_seat_control_frames` (burst trigger held at 1.0) measured,
+old sampler / fix: held through a pause, on return: press / none; release
+and repress inside the pause: press / none; held across a rebind: press /
+none; a real repress after return: press / press. It was removed. Open: the
+local producer retirement cut below.
+
 #### Native failures and their controls
 
 [`populate_seat_control_frames`](../../../crates/ambition_platformer2d_runtime/src/input.rs)

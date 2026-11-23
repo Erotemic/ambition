@@ -382,7 +382,9 @@ world-post admission.
     also settles a pending charge whose release route is withdrawn. Keep
     unchanged bindings and the incoming action's activation policy. This
     local simulation change needs no new peer-wire representation. IN4
-    can ship independently; IN5's supply interruption coordinates with
+    can ship independently (its capture and rebind crossings landed
+    2026-11-23: `SeatSourceEdges` follows valid samples and resyncs after an
+    invalid one; producer retirement is open); IN5's supply interruption coordinates with
     IN1 and the wire/stream owners. Do not select a new provider transport
     merely to complete P2's unused publisher.
 

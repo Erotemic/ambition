@@ -106,6 +106,15 @@ POSE-CONTINUITY. Neither selection promotes the full Smash roadmap.
 The [inventory order](demos/smash-parity-inventory.md#17-current-implementation-order)
 and [feel acceptance](demos/smash-feel-audit-2026-10-29.md) state the later pass.
 
+The 2026-11-22 static moving-world review adds
+[MOVING-SUPPORT](#moving-support--retain-a-supports-shape-motion) and
+[AUTHORED-PATHS](#authored-paths--share-geometry-and-retain-movement-authority)
+as bounded common-engine work within this order. GNU supplies the changing
+support customer; shipped hazards and actor routes supply path customers.
+Cross-version saved-content compatibility is deferred to 2027 and is not a
+near-term audit or implementation priority. Current-session rollback and
+native reconstruction keep their existing correctness obligations.
+
 Current source may be ahead of these dated ordering decisions. Do not treat
 old measurements as an obligation to redo completed work. Detailed
 architecture proposals in
@@ -806,7 +815,80 @@ sync-test witness with the player far from the giant at the build.
 
 **Next action:** watch the walk in the fight on Jon's displays; turning, buck and rider remain as measured (smooth).
 
+The separate [SUP1 source finding](engine/slopes-feet-ride-surfaces.md#sup1--keep-a-changing-supports-material-motion)
+concerns physical support history and source phase. It does not establish
+the cause of an observed visual hitch or invalidate the interpolation
+receipts above. MOVING-SUPPORT owns the correction; this row retains the
+visual product gate.
+
 **Acceptance:** walking, turning, buck, rider movement and portal strikes are visually continuous and align with collision, footholds, hits and camera, across fixed ticks, relevant render rates, reset/replay and quality levels.
+
+### MOVING-SUPPORT — retain a support's shape motion
+
+**State:** PLANNED, static source review at `00bf92c22142`, 2026-11-22.
+
+**Failure / customer:** GNU's drawn hump maps its current polyline by an
+endpoint similarity, including length change. Its published motion keeps
+only displacement and turn. Prior support, carry, point velocity and swept
+bounds then describe a rigid history that cannot match the real samples.
+The source phase is also predicted as `PinnedRow.elapsed + 1/60`, although
+the walk uses a distance-based clock. These are source deductions; no new
+runtime reproduction or speed claim is made.
+
+**Owner:** [SUP1](engine/slopes-feet-ride-surfaces.md#sup1--keep-a-changing-supports-material-motion).
+Native support geometry keeps the current endpoint-similarity law, source
+material coordinates and the source owner's actual phase span. M1/M2 owns
+accepted host motion and chart changes; P3/M3 owns contact response. The
+full curved hump's axial art correspondence is a separate authoring choice.
+
+**Next action:** extend the current length-changing mount fixture through
+true previous/current geometry and material-point carry. Move the producer,
+prior-support query, carry, ledges, material contact, velocity and bounds
+to one bounded interval. Make the native source-phase/host publication cut
+coherent; `+configured_dt` is not a fix for another owner's clock. Keep
+static/translation/rigid fast paths and delete the lossy reduction for
+changing shapes. The local slice can land before all persistent support
+attachments or portal work; moving/portal completion needs their actual cut.
+
+**Acceptance:** one native expanding/shrinking support and one GNU source
+transition preserve the same material place, full swept extent, contact
+time and velocity. A ledge or frozen rider consumes that same motion.
+Row/facing/availability cuts never become fabricated velocity. Ordinary
+rigid traffic gains no general deformation solve or per-rider shape copy.
+The existing visual play gate remains separate.
+
+### AUTHORED-PATHS — share geometry and retain movement authority
+
+**State:** PLANNED, static source review at `00bf92c22142`, 2026-11-22.
+
+**Failure / customer:** combat and world duplicate waypoint evaluation.
+Both admit a coincident-point cycle that consumes no distance and never
+ends. The admitted initial offset is unused. Two shipped actor routes
+attach path state, but movement discards its advance and the patrol brain
+does not use it. Shipped moving hazards provide the first shared-law customer.
+
+**Owner:** [PATH1/PATH2](engine/kinematic-world-objects.md#path1--prepare-one-spatial-path-law),
+with [LDtk authoring](engine/ldtk-authoring-and-world-tools.md).
+Core owns prepared spatial geometry and traversal. Platforms, hazards and
+brains keep admission, damage and steering policy respectively.
+
+**Next action:** PATH1 prepares finite geometry, seeds prescribed-mover
+pose/phase together and provides a pure interval with sampling and cutting
+before native commit.
+Reduce complete cycles for endpoint lookup without erasing actual travel.
+Migrate hazards/platforms and delete both old evaluators. PATH2 separately
+makes the two grounded routes produce ordinary intent and progress from
+accepted arrival under the selected patrol/controller policy. Keep the
+actor's admitted spawn place. Delete its discarded post-movement advance;
+do not assign a path endpoint directly to an actor. Keep wrapped platform teleport out of
+carry. No general data-structure library or motion interpreter is selected.
+
+**Acceptance:** admitted geometry cannot cause zero-progress traversal;
+nonzero initial phase has one native meaning; restored continuation gives
+the same next result. One real LDtk-to-hazard publication proves preparation
+and seeding. One route-driven actor reaches/reverses at its target and
+retains route progress when blocked by a wall. The shared endpoint sampler
+does not claim continuous hazard contact or complete coupled portal admission.
 
 ### ITEM-CONTENT — remove retired items without letting fixtures retain them — ✅ DONE 2026-11-17
 

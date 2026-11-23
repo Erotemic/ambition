@@ -87,6 +87,14 @@ supports:
 `KinematicPath` currently authors a string `points`, `speed`, `mode`, and
 `start_offset_seconds`.
 
+**Static review, 2026-11-22 (`00bf92c22142`):** a clear editor field is not
+proof of a working native contract. The offset is stored but unused, the
+platform and hazard evaluators duplicate the same nonterminating
+coincident-point cycle, and authored actor `path_ref` does not currently
+drive steering. [PATH1/PATH2](kinematic-world-objects.md#path1--prepare-one-spatial-path-law)
+owns the bounded correction. Shipped inline hazard paths and the two actor
+routes are its customers; no new platform placement is required to start it.
+
 This is enough to ship content, but it is not the final authoring experience.
 The first phase should make the authored relationship semantically explicit to
 both tools and the optional editor, and make invalid combinations impossible or
@@ -125,7 +133,10 @@ Migrate string relationships to `EntityRef`/typed resolved IDs where the
 relationship is spatial and editor-local. Improve point/path fields to use native
 LDtk constructs where practical.
 
-MovingPlatform -> KinematicPath is the first proof.
+Existing hazard/actor paths are the first native point-value customers.
+Keep a moving platform's string-to-`EntityRef` relation customer-gated as
+K5 states above. A new editor representation does not replace PATH1's
+preparation or PATH2's route consumer.
 
 ### L3 — preparation-time cross-reference validation
 
@@ -134,6 +145,17 @@ paths, mounts, portals, loading targets, content IDs, capability-owned facets,
 and game-owned vocabulary.
 
 Diagnostics should name the LDtk level/entity/field and the expected target.
+
+For paths, use the shared native preparation from
+[PATH1](kinematic-world-objects.md#path1--prepare-one-spatial-path-law) for
+standalone paths and lifted inline hazard paths. Retain source waypoint
+provenance after zero-length traversal legs are removed. A zero-total-length
+moving path is a preparation error, not a loop that waits forever in play.
+Inspection must distinguish initial phase, continuous closing travel,
+discontinuous platform wrapping and a route that asks an actor to move.
+PATH2's route target is not a prescribed physical trajectory. A successful
+reference lookup or attached component is not acceptance for that authoring
+surface. Do not duplicate traversal or phase law in Python tooling.
 
 The tools must not classify motion themselves.
 `AuthoredPlatformMotion::classify` (`ambition_platformer2d_world::platforms`) is the single place that turns authored

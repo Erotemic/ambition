@@ -643,6 +643,16 @@ Route approach classification and response through point/time/path-relative
 velocity. Integrate exact aperture-rim fit into the same admitted operation.
 Use the rotated thin body and an exit moving into a stationary obstacle.
 
+Also use a stationary body with an admitted moving obstacle. Zero source
+displacement does not justify endpoint-only repair when relative geometry
+moves. Preserve the separate hitlag/frozen-body clock policy.
+[SUP1](slopes-feet-ride-surfaces.md#sup1--keep-a-changing-supports-material-motion)
+owns the changing support's source trajectory; P3 consumes that witness
+instead of reconstructing lost local motion from displacement and turn.
+The detailed [M3 owner](portals-are-moving-frames.md#m3--resolve-contacts-through-the-complete-velocity-witness)
+retains the response law. The local support correction can start before
+P2, while a portal-hosted case requires P2's accepted interval and admission.
+
 **Delete:** the static-vector reconstruction of moving-frame relative motion
 and the post-step AABB snag writer once their replacements cover the case.
 **Accept:** an exact-fitting rotated body passes; a truly oversized body is

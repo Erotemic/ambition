@@ -280,6 +280,17 @@ one-way rejection followed by a later valid approach. Delete local velocity
 reconstructions. The delivery plan owns canonical rim contact and removal
 of the separate AABB snag position writer.
 
+Include a stationary body and an admitted moving obstacle. A zero source
+axis delta cannot select endpoint-only repair unless the relative geometry
+is static under the declared policy. The current `collision.rs` early
+return loses that distinction. Keep frozen-body/hitlag clock policy separate.
+
+[SUP1](slopes-feet-ride-surfaces.md#sup1--keep-a-changing-supports-material-motion)
+supplies the changing support's source motion. A complete chart-velocity
+formula cannot recover scale or local material motion discarded by the
+producer. Consume SUP1's point/time/source-location witness at the same
+accepted interval; preserve ordinary rigid contact work in parallel.
+
 ### M4 — Consume one path in contact and presentation
 
 Use retained target legs for projectile contact before and after a target's

@@ -1,13 +1,15 @@
 # Architectural audit frontier
 
 **State:** audit map and research priorities, 2026-11-22. Latest source:
-`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest pass follows authored
-omission, override and fallback through sprite publication, repertoire
-specialization and native form replacement. It follows music-planning
-commit `877796eeb081`; the runtime source is unchanged. The preceding music
-pass covered the Wolfenstein door/entrance report, selection, playback
-ownership, clocks and authoring. The earlier static-contract pass covered
-room-rule scope, native strike origin, sprite binding and navigation.
+`00bf92c2214274fdf2ecaacdc0abfd19be569a50`. The latest static pass follows
+moving supports and authored paths after planning commit `e389726ea716`;
+the runtime source is unchanged. GNU supplies a changing-length support
+and a source-phase clock that the native motion record does not preserve.
+Hazards, platforms and authored patrol routes expose different consumers
+of shared spatial geometry. Cross-version saved-content compatibility is
+deferred to 2027 by the maintainer; it is not the next audit. The preceding
+passes covered authored omission/override, music transitions and static
+operation contracts.
 This head includes the preceding planning overlays and the agents'
 IR1 item-recipe and AC1 construction-receipt
 work. Earlier input/life/history and hosted-prediction findings below came
@@ -31,6 +33,7 @@ ever read that code.
 | --- | --- | --- |
 | Portal geometry, connection identity and material authority | [Portal connection](portal-pair-identity-and-aperture.md), [world geometry](world-geometry-and-spatial-semantics.md), [navigation coverage](platformer-navigation-and-reachability.md#static-geometry-coverage--native-support-before-finite-preparation) | Native witnesses for material overlap, static geometry coverage and partial publication; do not repeat the general portal redesign |
 | Body scale, native motion and presentation order | [Scale behavior](scale-relative-gameplay.md), [presentation](presentation-order-and-25d-rendering.md) | Implementation evidence or a consumer whose frame/appearance contract is still missing |
+| Moving support and authored spatial paths | [SUP1](slopes-feet-ride-surfaces.md#sup1--keep-a-changing-supports-material-motion), [PATH1/PATH2](kinematic-world-objects.md#path1--prepare-one-spatial-path-law) | Native source-phase/host-cut, shape-history and route-intent witnesses; preserve rigid fast paths and distinct movement policy |
 | Actions, combat reception, hit time, pose and recovery | [Body actions](body-action-execution.md), [combat reception](combat-reception-and-injury.md), [Smash quality](../demos/super-smash-siblings.md) | A new native completion or prediction customer; preserve the completed first slices |
 | Resource/value ownership, effects and shared world writes | [Causal world commit](causal-world-commit.md), [effects](actor-effects-and-modifier-composition.md), [custody](item-custody-and-accounting.md) | Historical membership, new world-owner operations and endpoint retirement |
 | Construction, residency and reconstitution | [Construction](construction-and-reconstitution.md), [residency](open-world-runtime-and-residency.md) | Transfers across independent histories and supported dormant execution |
@@ -60,6 +63,8 @@ The music pass below follows one reported transition through selection,
 submission, retirement, clocks, and source/product preparation.
 The authored-composition pass follows a source decision through the native
 boundaries that must preserve it; correct preparation is only one of them.
+The moving-world pass follows source material and source phase through
+support publication, and separates path geometry from movement authority.
 Implementation claims need native evidence; further static
 reasoning does not. Source coverage is not runtime completion.
 
@@ -496,6 +501,57 @@ framework or per-tick source interpreter. No runtime, build, test, render
 or benchmark ran. Keep the completed scale, form-geometry and prepared-clip
 slices within their stated scope.
 
+### A moving surface owns material motion, not just its final shape
+
+**Owner:** [SUP1](slopes-feet-ride-surfaces.md#sup1--keep-a-changing-supports-material-motion).
+GNU's current hump already meets the support plan's deferred shape-change
+customer condition. The producer places its polyline with a similarity,
+including scale, then keeps only midpoint displacement and turn. Native
+previous-support queries, carry, bounds and point velocity reconstruct a
+rigid history. The current mount fixture changes segment length and checks
+only its final placement, so it does not prove that history.
+
+The source-phase boundary is separate and necessary. The surface sampler
+adds `1/60` to a pinned source coordinate, while GNU's walk advances that
+coordinate from distance. Adding configured world `dt` would still guess
+another owner's clock. Retain the selected source span and the host's
+accepted motion at one declared cut. Source places survive winding and
+query order; a reset, disappearance or singular span is not continuous
+motion. Preserve the current endpoint-similarity gameplay shape first.
+Exact correspondence to the art's axial stretch requires richer authored
+support data and is a separate choice.
+
+This is bounded fixed-topology support work. Share the prepared interval
+across geometry, carry and contact readers. Static, translation and rigid
+producers keep their direct paths. M2 supplies accepted host chronology;
+P3 consumes truthful source kinematics. Neither can recover motion already
+discarded upstream. A local witness can land before full persistent support
+or portal work; it does not certify a moving/portal publication cut.
+
+### A shared spatial path does not imply shared movement authority
+
+**Owners:** [PATH1/PATH2](kinematic-world-objects.md#path1--prepare-one-spatial-path-law),
+with existing LDtk, brain and portal admission owners.
+
+Combat and world duplicate waypoint evaluation because the reusable path
+operation sits above world in combat. Both copies admit a coincident-point
+cycle that changes cursor without consuming distance. The public initial
+offset is stored but unused. Move prepared geometry, phase selection and
+interval evaluation beside the core vocabulary. Bound endpoint work by
+cycle reduction and prepared lookup while retaining unwrapped travel for
+contact and accepted cuts. Preserve discontinuous platform wrapping.
+
+An actor's route is another use of that geometry, with a different progress
+law. Two shipped `path_ref` placements attach path state, but the native
+movement method discards its advance and the patrol brain does not read it.
+Make the route select ordinary intent and progress from actual arrival.
+Assigning the sampled endpoint would bypass the body kernel. A shared
+mutating advance-to-end API would also obstruct M2's host admission.
+
+No new utility crate, universal motion graph or deformable-body solver is
+selected. These are source-supported gaps with future native acceptance,
+not gameplay reproductions or measured compile/runtime improvements.
+
 ## Areas audited without another architecture packet
 
 Reload and asset realization were inspected against the existing plans.
@@ -555,28 +611,39 @@ empty/partial sheet-tuning defaults need a concrete customer before a
 migration is selected. A1b records the explicit-removal constraint for
 future presets; this pass found no basis for a universal override type.
 
+The moving-world pass found no need for a new contact-policy program.
+Shared solidity, drop-through behavior, deliberate crush reporting,
+relative contact and release velocity already have owners. P3 now includes
+the narrow stationary-body/moving-obstacle witness: zero source delta does
+not prove static relative geometry. Keep the distinct frozen-body clock
+policy. Existing W2 mechanism bindings, conveyor drag and support attachment
+work remain scoped as before; they are not new discoveries from this pass.
+
 ## Ranked candidates for the next audit
 
 These are research questions, not established defects or selected work.
 Each starts from an existing owner and a concrete consumer. An audit is
 successful if it rules out a proposed abstraction as well as if it finds one.
 
-### 1. Saved content references across authored evolution
+### 1. Geometry appears or disappears while a body occupies its region
 
-Start with one existing item recipe or character occurrence saved against
-one admitted content generation, then read how current construction admits
-it after a definition rename, removal or schema change. Owners:
-[construction](construction-and-reconstitution.md),
-[item recipes](item-recipes-and-live-continuity.md), and
-[persistence horizons](instance-lifetime-provenance-and-persistence.md).
+Start with one existing closing door, toggled solid or breakable boundary.
+Read the native write through collision publication and the next occupied
+body query. Existing owners are
+[world composition](reusable-authored-world-composition.md),
+[native completion](native-action-completion.md),
+[collision](collision-and-ccd.md) and
+[causal world writes](causal-world-commit.md).
 
-Distinguish durable identity, the saved construction description and the
-current definition it resolves against. Check that explicit refusal or
-migration happens before partial publication, and that an unknown value
-does not become a plausible default silently. This asks about compatibility
-across content evolution, not another audit of room residency or live
-endpoint identity. Supporting arbitrary old saves is not assumed. An
-intentional incompatibility with a clear boundary can be the correct result.
+Ask what it means for the geometry change to be accepted: does it occur
+immediately, wait for clearance, displace occupants, or report a domain
+outcome? Which owner states that policy, and which current body/material
+population is in scope? Keep destruction's support loss separate from a
+new solid's admission. Follow one operation through blocked and occupied
+cases before proposing shared machinery. W2 already owns mechanism binding;
+crush reporting is deliberate. Neither is by itself evidence of a missing
+geometry-change policy. This is an unproved audit question, not a new defect
+or a reason for a general physics transaction framework.
 
 ### 2. Implemented contract review when a new source head is available
 
@@ -591,6 +658,14 @@ Do not repeat an existing planned case as a newly discovered defect or
 reopen a receipt without contrary evidence. An unchanged source head still
 permits a new bounded audit question; it does not justify a framework merely
 to fill the backlog.
+
+### Deferred: saved content across game versions
+
+The maintainer assigns this to next year (2027). Do not spend the current
+audit or implementation queue on old-content migration, renamed-definition
+compatibility or versioned-save policy. Same-session rollback, room
+reconstruction and current native state still need their existing owners;
+they are different questions.
 
 ### Conditional: compiler and binary costs after the planned cuts
 

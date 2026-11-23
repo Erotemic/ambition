@@ -11,6 +11,14 @@ surfaces." The first proposal was for a slope mechanic in the movement
 kernel; Jon on 2026-10-11: "It needs to be a smooth ride when we have
 walkable slopes. We need to find the elegant solution."
 
+**Current continuation (2026-11-22):** SUP1 below is planned from static
+source review at `00bf92c22142`, after planning commit `e389726ea716`.
+GNU's drawn support already changes length. The rigid-only motion record
+cannot describe both its previous and current shape. The earlier condition
+that shape change waits for a customer is met. Preserve the completed
+walker, mount-displacement and tilted-ledge work below. No new engine run,
+test, render or performance result is claimed.
+
 ## The defaults this work takes (2026-10-15; feel is Jon's, each is a knob)
 
 - The foot span is the width of the box (the proposal's default, below).
@@ -92,6 +100,198 @@ a tilt knock a ledge grabber off?"
 - A one-way BLOCK that rose toward a body this tick is crossed from where it
   was (`one_way_landing_from_previous_feet` takes the block's velocity).
 
+## SUP1 — Keep a changing support's material motion
+
+**Invariant:** the surface at the start of an interval equals the surface
+published at that start. Its geometry at contact time, material-point
+carry, point velocity and swept bounds describe the same accepted motion.
+The shape at the end does not determine the shape or travel before it.
+
+### Source evidence and the missing fact
+
+The current customer is `npc_giant_gnu` and its whole-giant forms in the
+[character catalog](../../../game/ambition_content/assets/data/character_catalog.ron):
+drawn shoulders plus an eleven-point slope with `slope_follows: "hump"`.
+The [sprite author](../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/gnu_ton_boss/giant_art.py)
+publishes named endpoint anchors. These are simulation metadata, lowered by
+[`surfaces_of`](../../../crates/ambition_sprite_sheet/src/surfaces.rs), not
+coordinates read from a rendered picture.
+
+| Boundary | Current fact | Fact lost or assumed |
+| --- | --- | --- |
+| [`SurfaceTable::segment`](../../../crates/ambition_characters/src/actor/surfaces.rs) | Interpolates both endpoints between frame centers; loops or holds the last frame | A sample alone does not retain the intervening spans or selected source phase |
+| [`BackLedge::slope_line`](../../../crates/ambition_mount/src/lib.rs) | Maps the typed polyline to the current endpoints by a similarity, including scale | The current shape can change length |
+| `DrawnLedge::motion` and `mount_backs_are_ground`, in the same file | Keep midpoint displacement, angle change and pivot | Previous length and local material-point travel are discarded |
+| [`SurfaceChain` and `MaterialCollider`](../../../crates/ambition_platformer2d_core/src/world.rs), [`material_lines`](../../../crates/ambition_platformer2d_core/src/walkable_lines.rs), [`line_ledge_carry`](../../../crates/ambition_platformer2d_core/src/ledge_grab/runtime.rs) | Reconstruct rigid previous geometry, carry, bounds and velocity | They cannot recover the discarded change; a length-only change even reports `moves() == false` |
+
+The existing mount fixture
+`a_slope_that_follows_the_drawing_is_where_its_ends_are_drawn` changes its
+endpoint vector from `(200,-60)` to `(200,-80)`. The lengths are
+`sqrt(43600)` and `sqrt(46400)`. No rigid map can match both. The fixture
+checks current placement, midpoint displacement and turn, so it does not
+establish previous geometry or material-point carry.
+
+A smaller exact witness is contraction from `[-20,20]` to `[-10,10]` on a
+horizontal line at a fixed center. Published displacement and turn are
+zero. The time-zero query therefore sees the short current line, and the
+swept bounds omit the old outer parts. A point three quarters of the way
+along the source material moves from x=10 to x=5; rigid carry keeps x=10.
+This is a source counterexample, not a reproduced fall or measured GNU drift.
+
+### Retain a source place and a motion interval
+
+Keep the current endpoint-similarity gameplay shape in the first slice.
+Use immutable local support geometry and one prepared interval that states
+its motion. A place on that material is a source segment plus a parameter
+`u`, with `0 <= u <= 1`, in the stable surface occurrence. World arc length
+is a measurement of the current shape; it is not a stable material address
+when that shape stretches. A walker still uses its foot-span rule to find
+contact and change its place. This does not pin a walker to the floor.
+
+For one moving segment, with time measured in seconds:
+
+```text
+point(t,u) = (1-u) * a(t) + u * b(t)
+velocity(t,u) = (1-u) * a_rate(t) + u * b_rate(t)
+```
+
+The velocity is at fixed material `u`. Compose it with the host's accepted
+point motion once. A walker's own change of `u`, a crawler's adhesion and a
+ledge release are separate policies. Reuse the point-derivative rule in
+[body anchors A3](body-anchor-bindings.md); a point helper alone does not
+define a swept edge or its bounds.
+
+The native support sample must supply all of these from one law:
+
+- geometry, tangent and outward normal at a declared time;
+- a source location for a selected contact and its material-point motion;
+- carry between two times and velocity at the actual contact time;
+- conservative bounds for the whole admitted interval;
+- an explicit cut when continuous correspondence ends.
+
+Keep logical source endpoints and segment names when reflection or winding
+changes their query order. A left-to-right sort is not material identity.
+For a carved segment, retain the source parameter range. A transient
+coordinate inside one operation need not wait for all persistent support
+attachments. A coordinate retained across publications must use the lasting
+surface/occurrence rules already planned here, never a rebuilt list index.
+
+### The source phase is not the world clock
+
+[`follow_drawn_ledges`](../../../crates/ambition_platformer2d_runtime/src/drawn_ledges.rs)
+samples `PinnedRow.elapsed + 1/60` in Progression for the next overlay.
+[`PinnedRow`](../../../crates/ambition_sprite_sheet/src/character/anim.rs)
+states that `elapsed` is the content owner's clock. The current
+[GNU conductor](../../../game/ambition_content_modules/src/gnu_ton/conductor.rs)
+advances walking `stride` by `abs(giant_vel.x) * dt / stride::SPEED` and pins
+that value. Other rows hold, restart or run at another rate. Replacing the
+constant with world `dt` would still predict a source phase the owner did
+not select.
+
+The producer must give the resolved row/surface occurrence, its source
+coordinate over a named simulation interval, and the host's accepted
+motion for that same interval. A held source phase has zero local shape
+motion even while the host moves. Do not reconstruct the conductor's
+phase law in the support reader or add a free-running support clock.
+
+For SUP1, preserve the table's stated interpolation. Split at its known
+frame-center boundaries, loop spans and terminal hold, and at boundaries
+of the source phase law. Retain unwrapped source travel: equal phases after
+a full loop do not prove no motion. Within a table span, endpoint positions
+and the fitted similarity coefficients are affine in source phase. Vertex
+paths are affine in simulation time only when the source-phase mapping
+and host translation are affine over that same interval. Otherwise retain
+the declared curve and its conservative bound. Rigid host and portal motion
+can also add curvature; use their accepted legs rather than treating the
+composed path as a chord. The first source case can use piecewise-affine
+phase spans; an unsupported law must not silently select that fast case.
+
+A row change or occurrence restart, disappearing surface, facing/parity
+change or root relocation is a cut unless its owner supplies a continuous
+transition.
+Two valid endpoint samples do not prove the intervening similarity is
+invertible. Check for a collapsed segment or zero scale within each span;
+report a source error during preparation where it is known. At a live cut,
+use native support-loss/admission policy. Do not turn a reset or missing
+sample into a large finite velocity, hold an absent floor, or silently use
+rigid history as a fallback.
+
+The current schedule publishes mount geometry in WorldPrep from the last
+`SweepSample`, then samples drawn surfaces in Progression. Name the cut and
+make the host, source phase and geometry agree there before claiming
+moving-GNU completion. A stationary-host proof can land first. A prior
+host step plus a forecast source phase is not proof of one accepted tick.
+[M1/M2](portals-are-moving-frames.md#bounded-delivery-packets) owns accepted
+host history and chart changes; the native content/action owner still owns
+source phase. SUP1 does not require a new global schedule or dependency graph.
+
+### Keep the efficient cases
+
+Static, translating and rigid producers retain direct native variants.
+Select a variant from its complete admitted law, not equal endpoint poses
+or a tolerance that rounds a real scale change to zero. Only a producer
+with changing support geometry needs the new moving-edge path. Fixed
+topology and piecewise-linear source endpoints are enough for this customer;
+there is no general soft-body or nonuniform body-scale requirement.
+
+Prepare source geometry and the interval once per changed support and
+share them among contact, carry and ledge readers. Retain repeated source
+travel compactly and visit its spans on demand under the native contact
+work/refusal rules; do not allocate every crossed loop. Broad-phase bounds
+must also have finite work: a prepared full-loop source envelope can bound
+repeated cycles once, composed conservatively with host motion. Do not
+enumerate every lap before the contact work limit takes effect. Keep
+ordinary static and rigid samples fixed-size; add no per-rider point-vector
+copy or global per-body solve. For a linear vertex span, endpoint bounds
+contain the whole span; union the actual spans, including a shrink's old extent.
+Curved composed motion must use a valid curved bound. Keep moving edges
+inside the native material query and one-way rules, not a second solver
+whose result a later rigid query can contradict.
+
+Do not require a benchmark to establish the algebraic defect. Measure
+preparation, candidate/contact work and allocations before a speed claim
+or further cache. The existing translation contact implementation itself
+allocates a region vector; this plan does not claim it is allocation-free.
+Preserve the cost of unrelated static and rigid traffic.
+
+### Delivery, deletion and acceptance
+
+1. Add the bounded native support interval and source-coordinate queries.
+   Extend the existing mount fixture to verify its true start and end
+   geometry and the carry of a fixed source endpoint. Keep the producer's
+   previous sample until all readers of its accepted interval finish.
+2. Move the producer and its native readers together: prior support,
+   walking/frozen carry, ledge endpoint carry, material contact, point
+   velocity and swept bounds. Delete the changing-shape-to-rigid reduction
+   and private inverse-rigid reconstruction for this case. Keep proven
+   rigid producers on their direct path.
+3. Through the native mount overlay, check one expanding/shrinking support
+   with a contact and a ledge or frozen rider. Bounds must admit the old
+   extent; contact time, motion and velocity must agree. Then use one real
+   GNU source transition, including its selected source phase and host cut.
+   This is the production seam the algebra-only fixture cannot see.
+
+These are future acceptance cases. A local no-portal slice can land before
+the whole persistent-attachment or portal program. P3/M3 consumes the new
+kinematics for relative response; it cannot infer discarded source motion.
+A portal-hosted or crossing support must also use P2's accepted interval
+and admission. Do not mark those cases complete from the local witness.
+Preserve the existing frozen-body clock policy and GNU visual receipts.
+
+### Separate authoring decision: the whole curved hump
+
+GNU's `_barrel_placed` stretches along the barrel's axis. The native hump
+uses a uniform endpoint-fitted similarity. For a curved source line, these
+can differ between the endpoints. Fixing temporal consistency does not
+prove exact correspondence to the art, and that difference alone does not
+prove the current gameplay shape is wrong.
+
+If the full hump must follow the axial stretch, publish its support map
+or vertices from the same authoring recipe that draws it. Two endpoints
+cannot determine a general affine map. Keep this as a separate product
+choice; do not infer missing deformation, read renderer transforms into
+simulation, or scale the giant's entire collision body to repair a surface.
+
 ## The sites that move to it
 
 | Site | Today | After |
@@ -135,7 +335,7 @@ for it: E (slope to wall), F (a sweeping, swinging plank to the floor), G
 the see-through window's source for a turned face is still the box that
 bounds it (`view.rs`).
 
-## What is true today (read from the code, 2026-10-11; not run)
+## Original problem (2026-10-11; superseded by the built slices above)
 
 - An ordinary body (the axis-swept model: the player, each NPC, each mount)
   has NO slopes. Its ground is the top face of a box, and nothing else.
@@ -191,9 +391,10 @@ two faults in that, and both are right:
 - A surface is geometry in its own coordinates, and a pose. A surface that
   moves changes its pose; the kernel reads the displacement the surface
   DID make in the tick (not the velocity it asked for: a mount can be
-  stopped). Rigid motion first. A surface that changes shape needs a
-  `location` that names a place of the material, not an arc length; that
-  waits for a mechanic that needs it.
+  stopped). Rigid motion keeps its fast path. GNU's changing support is the
+  customer for [SUP1](#sup1--keep-a-changing-supports-material-motion): its
+  `location` names source material, and its motion retains the full
+  supported shape change. A changing world arc length is not that address.
 - From the attachment and the body's shape the kernel derives a contact:
   point, tangent, normal, the surface's velocity there, and if the body may
   stand there at all.
@@ -252,9 +453,10 @@ sweep. The turn of its picture is apart from that.
 |---|---|
 | A | The support that lasts: ids for blocks and chains in a composed world (carved blocks also), the contact derived from it, and the decision of the foot span. |
 | B | A walker on fixed slopes, WHOLE: floor to ramp to floor with no tick in the air, the true swept path, a jump, a drop through, a hit that knocks it off, the events of the ground. Not a walk on a lone chain. |
-| C | Slopes that move as a rigid thing: chains in the room's overlay with an id and a pose, the carry on both axes, the velocity at release. The cart's ramp and the giant's back become one line each. The fault of `mount_backs_are_ground` (below) is fixed here, with the displacement the mount did make. |
+| C | Preserve the built rigid/displacement slices and complete lasting support and release velocity. The cart ramp and giant back are already lines. SUP1 adds the current GNU customer's shape motion; it does not reopen the fixed per-second/per-step displacement fault. |
+| SUP1 | Current GNU support retains source place, source phase and one accepted shape trajectory through bounds, contact and carry. It can start before the complete persistent-attachment migration. |
 | D | The rider and the crawler on the shared support; the circle's path at a corner and the launch from curvature. |
-| Later | Flat box to flat box by the same support; surfaces that change shape. Only with a use for them. |
+| Later | Flat box to flat box by the same support; richer shape laws beyond SUP1 when a concrete mechanic needs them. |
 
 "A room with no chain runs today's code byte for byte" is a check for the
 rollout, not a law. The game is not released: a rule that is better and
@@ -297,12 +499,3 @@ keeps what the play needs may replace the rule of today.
 - Feel, which is Jon's: the foot span; how fast a body goes up and down a
   slope (its speed along the surface, or across the floor); if it slides
   on a steep one; if a run off a crest leaves the ground.
-
-## Found on the way (not fixed)
-
-- `mount_backs_are_ground` gives a block `velocity: mount.vel`. A body's
-  `vel` is per second; a block's `velocity` is per frame and is added to a
-  place. The giant does not move, so nothing shows. A mount that moves
-  would carry what stands on it 60 times too far. (Read from the two
-  definitions by two readers; not run. The fix belongs to phase C: the
-  displacement the mount did make in the tick, not `vel * dt`.)

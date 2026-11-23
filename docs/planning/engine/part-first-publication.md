@@ -398,6 +398,15 @@ frame algebra on a frame grid. All 86 modules that publish a rig flipbook
   today's code, 42 of 44 sampled Hypatia frames match and her `run` differs by
   12% because the store's run clip predates today's paint (the full republish
   brings it level).
+- **Prop sheets (2026-11-22).** A prop with actor metadata publishes page-less
+  too, and the prop-sheet road that is not `packed`
+  (`load_prop_sheet_for_target`) still demanded page 0. It refused Sanic's
+  first room ("failed prop:sanic_goal_post:page:0") on a store without an
+  older page. That road now realizes a sheet with no baked row from its parts,
+  as the catalog road does (`2a9b63032`). Two shipped prop rows are page-less
+  and load through it: `sanic_goal_post` and the content pack's
+  `burning_flying_shark` (its row is not `packed`; that commit's message says
+  otherwise and is wrong).
 
 ## Constraints kept
 

@@ -1709,8 +1709,7 @@ with [MA1](engine/asset-authoring-and-prepared-media.md#ma1--export-playback-fac
 for producer facts. [Diagnostics](../systems/music-playback-diagnostics.md)
 remain an independent observer.
 
-**State:** selected campaign landed, 2026-11-23; one continuation residual
-is open after static implementation review.
+**State:** done, including the continuation review follow-through, 2026-11-23.
 
 **Receipt:** fresh music could stop its own bank, destination
 selection could resume an intermediate track, and fight media loaded at entry.
@@ -1729,13 +1728,11 @@ products. Physical-speaker and listening acceptance remain separate.
 The older unexplained death/respawn case did not recur in the native route;
 its historical cause remains unknown.
 
-**Next:** [retain continuation-use identity independently of scheduling](engine/music-programs-and-playback.md#a-continuation-use-is-distinct-from-its-scheduling-deadline).
-A valid A -> B one-shot graph that reuses a section can skip B if A completes
-before the host observes it running. Use the current bounded playback owner;
-preserve ordinary live mix changes without restart. **Acceptance:** the same
-section's B use executes once through both scheduled and late-completion
-paths. Extend the existing short-completion witness; keep the shipped-route
-capture receipts and stronger-timing deferrals.
+`2fb366d1e` closes the [same-product continuation finding](engine/music-programs-and-playback.md#a-continuation-use-is-distinct-from-its-scheduling-deadline).
+A new use retains its predecessor independently of a start deadline. Same-section
+continuations and self-repeat execute once; live mix changes do not restart.
+Guard: 154 audio tests, the extended native short-completion capture, and
+assembled-app compilation. Keep completion and retry state scoped to the use.
 
 ### GATE-REDIAL — a new address closes the old wormhole and opens a new one (done)
 

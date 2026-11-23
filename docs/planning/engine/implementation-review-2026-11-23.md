@@ -20,7 +20,7 @@ wrong weapon; a retained value can still belong to the wrong execution.
 | [ACT1](body-action-execution.md#act1-follow-through--resolve-the-request-before-spending) | Resolve the complete native attempt; stamp the bounded facts needed by a later shot | The drawn source is retained after another source supplied admission/spend; fallback cancellation uses the wrong identity; a final event loses use-owned facts |
 | [IN2](participant-action-system.md#in2-follow-through--retain-direction-meaning-through-the-guard) | Retain selected aim source and project only feasible travel | Equal vectors do not establish a shared input source; posture Y can leak into side travel |
 | [OBS3](agentic-character-runtime.md#obs3-follow-through--publish-availability-for-this-decision) | Separate stable demand from availability of the current decision product | A skipped native decision leaves a prior projection that a module treats as current |
-| [MUS2/MUS3](music-programs-and-playback.md#a-continuation-use-is-distinct-from-its-scheduling-deadline) | Distinguish a new continuation use from its optional native deadline | Same-product continuation can disappear when the predecessor completes before host observation |
+| [MUS2/MUS3](music-programs-and-playback.md#a-continuation-use-is-distinct-from-its-scheduling-deadline) | Distinguish a new continuation use from its optional native deadline | Closed by `2fb366d1e`: same-product continuation retains its use across host stalls; live mixes retain playback |
 
 These are source-backed corrections, not measured gameplay regressions.
 Several witnesses use supported compositions rather than a known shipped
@@ -202,30 +202,18 @@ sleep/wake and a skipped producer in restoration.
 
 ## Music — a new use can reuse the same section
 
-`next_state` explicitly means start that state when the one-shot ends. The
-[schema](../../../crates/ambition_audio/src/cue_spec.rs) and preparation permit
-A -> B where both states use the same non-looped section X. This is useful
-phrase reuse; it is not a demonstrated Castle Godwin/Hobford defect.
+**Closed by `2fb366d1e`.** A valid A -> B one-shot graph could skip B when
+both states used the same section and A completed before host observation.
+The bounded owner now retains the selected continuation use independently of
+its optional deadline. Requests, admitted groups and completion retain the use;
+its retry budget survives deadline changes. The outer entry and claim remain.
+A live same-section mix change keeps its playback occurrence.
 
-With timely observation, the [director](../../../crates/ambition_audio/src/music/director/adaptive.rs)
-schedules B with `MusicStartAfter` naming A's occurrence. If short A starts
-and finishes before the host observes Running, the retained completion still
-selects B. But the equal-section branch only updates gains; no B use starts.
-The [executor](../../../crates/ambition_audio/src/music/playback.rs) keeps the
-terminal desired outcome. Merely forcing another request also fails because
-`can_continue` can equate unscheduled B with completed A.
-
-The native start deadline currently also distinguishes the continuation's
-identity. Those are different facts. Retain the selected continuation use
-even when its deadline is unavailable or missed. Keep the same outer entry
-and claim, choose the edge once, and scope completion/retry to the new use.
-Ordinary live mix changes must still reuse playback. Adding every state ID
-to equality would incorrectly restart them.
-
-Use the existing bounded director/executor and short-completion crossing.
-Compare the same-section A -> B graph with and without early scheduling;
-B executes once. Keep a mix-only state change as the no-restart control.
-This needs no new scheduler, event history or audio precision campaign.
+Guard: 154 audio tests cover early scheduling, late completion, delayed decode,
+self-repeat and a live mix control. The existing native short-completion test
+now also plays the same section again after a host stall. It passes through
+native software capture. Assembled-app compilation passes. No new executor,
+event history or stronger timing guarantee was added.
 
 ## What the recorded measurements establish
 

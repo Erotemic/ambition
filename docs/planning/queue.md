@@ -1675,60 +1675,24 @@ with [MA1](engine/asset-authoring-and-prepared-media.md#ma1--export-playback-fac
 for producer facts. [Diagnostics](../systems/music-playback-diagnostics.md)
 remain an independent observer.
 
-**State:** IMPLEMENTING. The common native playback executor owns simple and
-adaptive voice lifetimes, cancellation, admission, retirement, bounded retry,
-and recording output. User and environment gain use that same owner.
-Per-source boss/wave publication, canonical
-encounter attempts and adaptive-only heard-room priority landed at
-`6d100f9d`; preserve them in unified selection. The baseline diagnosis
-used source `00bf92c22142` and the supplied Wolfenstein departure log, 2026-11-22.
-A fresh start could stop its own bank; stopped voices could remain logically
-active. MUS1 replaced those lifetime owners. Fight-entry media used to load
-only when selected. Room preparation now requests known entrances without a
-playback claim. The exit excerpt does not prove the cause of startup silence.
+**State:** done, 2026-11-23.
 
-**Progress:** MUS2 now selects one scoped goal for simple and adaptive music.
-Prepared catalogs, bounded room demand, native continuation scheduling and
-prepared exit scheduling are in place. `047f1134a` checks the native Castle
-Godwin route with accepted media: prepared and withheld entrances, both door
-exits, reentry, and a committed death restore. The PCM contains the selected
-Tritone layers. No intermediate military track is selected.
-`828fb4155` releases an ending completed during a host stall. `b60a3b918`
-checks Hobford's shipped ending and room successor in native software capture.
-`6715d352d` checks independent native music through scene pause and slow motion.
-`2aee2e597` makes ending wait mixes explicit and applies them to the owned current
-section. Inspection states the supported operations and rejects stronger timing.
-
-**Next action:** finish MA1's compiler-owned score inventory and remove the
-registry script's line-based YAML interpretation. Keep further pickup,
-independent-tail and bridge capabilities in the authored-customer reservoir.
-Current preparation and inspection must keep their support limits explicit.
-
-**Follow-through:** MUS3 prepares known entrances and plans transitions
-against declared end/clock/late-entry semantics. MUS4 makes common recipes
-strict and inspectable. MA1 supplies compiler-owned clocks and selected
-product facts. Native sample timing, independent release tails, and stingers
-need their stated product/backend support; they do not block MUS1.
-
-**Acceptance:** old retirements and canceled submissions cannot stop or
-adopt a new occurrence. Partial admission and an unexpectedly stopped
-desired loop have explicit bounded outcomes. Departure selects the current
-destination once; a losing/failed source cannot silence it. Adaptive-only
-fights obey the same room priority as simple tracks. A late entrance follows
-its authored policy without replaying a superseded intro. Preserve shared
-cue continuity, one-shot continuation, endings, and new-attempt identity.
-Complete/reset/restart before a presentation read must preserve the old
-attempt's reason without affecting the new one. Identical media must permit
-a fresh entry when requested, while a held completed entry stays complete.
-Prove those properties at the command/selection boundary; later native
-acceptance must establish locked-backend and audible behavior on the
-reported fight/door route. This planning audit ran neither.
-
-**Retained receipt and separate evidence:** request-versus-instance and
-audio-context observations exist (`534a92549`, `b170a9238`); Dinosaur
-binding gaps were fixed (`0f5b40487`). The older death/respawn gap did not recur
-in `047f1134a`; its historical cause remains unknown. The new software capture
-does not establish physical-speaker output or explain the old departure trace.
+**Receipt:** fresh music could stop its own bank, destination
+selection could resume an intermediate track, and fight media loaded at entry.
+MUS1–MUS4 now use one bounded executor, one occurrence-owned goal, prepared
+entrances, native section boundaries, strict recipes and explicit scene policy.
+`047f1134a` checks Castle Godwin's entrance, door exits, reentry and death restore.
+`828fb4155` releases endings completed during a host stall. `b60a3b918` checks
+Hobford's shipped ending and room successor. `6715d352d` checks scene pause
+and slow motion. `2aee2e597` prepares ending wait gains for the current section.
+Music renderer `eefe5db` exports score inventory; the game registry consumes it
+and removes its YAML parser. Guards: focused command, selection and preparation
+tests, native software captures, pack inspection and source-only inventory tests.
+Keep simple and adaptive playback on the same owner. Stronger timing, pickups,
+independent tails and bridge overlays need an authored customer and supported
+products. Physical-speaker and listening acceptance remain separate.
+The older unexplained death/respawn case did not recur in the native route;
+its historical cause remains unknown.
 
 ### GATE-REDIAL — a new address closes the old wormhole and opens a new one (done)
 

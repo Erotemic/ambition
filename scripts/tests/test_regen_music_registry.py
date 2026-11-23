@@ -13,8 +13,8 @@ SPEC.loader.exec_module(registry)
 def test_unrendered_scores_are_registered_with_their_playback_policy(tmp_path, monkeypatch):
     scores = tmp_path / "scores"
     scores.mkdir()
-    (scores / "loop.music.yaml").write_text('id: loop\none_shot: false\n')
-    (scores / "sting.music.yaml").write_text('id: sting\none_shot: true\n')
+    (scores / "loop.music.yaml").write_text('id: "loop" # authored identity\none_shot: false\nsections: [{loopable: false}]\n')
+    (scores / "sting.music.yaml").write_text('id: sting\none_shot: true # score policy\nsections: [{loopable: true}]\n')
     generated = tmp_path / "generated"
     generated.mkdir()
     (generated / "retired").mkdir()

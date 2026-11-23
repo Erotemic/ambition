@@ -1,6 +1,6 @@
 # Music programs and owned playback
 
-**State:** implementation in progress, 2026-11-23.
+**State:** MUS1–MUS4 and the selected MA1 migration are complete, 2026-11-23.
 Reviewed source: `6d100f9d9e0d557fe4ae3dad61acd5aef71f684e`.
 MUS1's bounded playback executor landed in `d4147e4c`; per-source music
 publication and canonical attempts landed in `6d100f9d`. Release facts now
@@ -9,8 +9,9 @@ goal now selects tracks and cues. Endings retain their admitted entry and
 generation while the latest goal selects the successor. Prepared exit rules and
 whole-asset recipes landed in `afeb52f24`. Native software capture now covers
 the Castle Godwin route and Hobford's ending. Scene time policy is explicit.
-MA1's inventory export remains open. Music renderer:
-`186a13f8115752a4bbdb4955fb9e46483562a2d4`.
+Music renderer `eefe5db` exports score inventory and one-shot policy.
+The game registry consumes that export. Further pickup, independent-tail,
+bridge-overlay and stronger timing support needs an authored customer.
 The supplied exit log has UTC timestamps on 2026-11-23. Its executable
 revision is not established. The historical diagnosis used source
 `00bf92c2214274fdf2ecaacdc0abfd19be569a50`; the receipt below separates it
@@ -965,8 +966,10 @@ capture through the visible host.
 Preparation resolves its total gains. The current occurrence receives the mix
 while another section is pending. Guard: 151 audio tests, 38 intent tests,
 assembled-app and room-owner compilation, and inspection of the shipped pack.
-MA1 still must export the score inventory and remove the registry script's
-line-based YAML interpretation.
+Music renderer `eefe5db` exports source identities and one-shot policy without
+compiler or synthesis dependencies. The game registry consumes that export;
+its line-based YAML parser is removed. Guard: 30 producer tests, 19 registry
+and publication tests, and unchanged registry output for the local corpus.
 No physical-speaker or listening acceptance was performed.
 The current recording path consumes the executor's actual voice commands;
 it does not execute Kira drains or establish speaker-audible output. The

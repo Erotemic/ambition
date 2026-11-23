@@ -16,6 +16,7 @@ import argparse
 import os
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -82,48 +83,23 @@ def ron_escape(text: str) -> str:
     return text.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def _plain_yaml_scalar(raw: str) -> str:
-    """Parse the small top-level scalar subset used for score metadata."""
-    value = raw.strip()
-    if value[:1] in {"\"", "'"} and value[-1:] == value[:1]:
-        value = value[1:-1]
-    return value
-
-
 def discover_active_scores() -> dict[str, bool]:
-    """Read score identities and explicit one-shot declarations."""
-    # Missing source scores cannot define a complete registry.
-    scores = sorted({*ACTIVE_SCORES_DIR.glob("*.yaml"), *ACTIVE_SCORES_DIR.glob("*.yml")})
-    if not scores:
-        raise SystemExit(
-            f"no scores found under {ACTIVE_SCORES_DIR}.\n"
-            "That directory is the `ambition_music_renderer` submodule, and the\n"
-            "score-level `one_shot:` flags live only there -- regenerating without\n"
-            "them would silently un-mark every one-shot sting as looping.\n"
-            "Run: git submodule update --init tools/ambition_music_renderer"
-        )
-    active_scores: dict[str, bool] = {}
-    for score_path in scores:
-        score_id: str | None = None
-        one_shot = False
-        for line in score_path.read_text(encoding="utf8").splitlines():
-            # Only column-zero keys are score-level. Nested section
-            # ``loopable`` values intentionally do not participate.
-            if line.startswith("id:"):
-                score_id = _plain_yaml_scalar(line.split(":", 1)[1])
-            elif line.startswith("one_shot:"):
-                value = _plain_yaml_scalar(line.split(":", 1)[1]).lower()
-                if value not in {"true", "false"}:
-                    raise ValueError(
-                        f"{score_path}: one_shot must be true or false, got {value!r}"
-                    )
-                one_shot = value == "true"
-        if not score_id:
-            raise ValueError(f"{score_path}: score has no top-level id")
-        if score_id in active_scores:
-            raise ValueError(f"{score_path}: duplicate score id {score_id}")
-        active_scores[score_id] = one_shot
-    return active_scores
+    """Read score policy from the music renderer's source inventory."""
+    command = '''source "$1/scripts/lib/tool_python.sh"
+ambition_resolve_tool_python "$1/tools/ambition_music_renderer" AMBITION_MUSIC_PYTHON
+cd "$1/tools/ambition_music_renderer" || exit
+exec "$AMBITION_RESOLVED_PYTHON" -m ambition_music_renderer.score_inventory --scores-dir "$2"
+'''
+    result = subprocess.run(
+        ["bash", "-c", command, "music-inventory", str(REPO_ROOT), str(ACTIVE_SCORES_DIR)],
+        capture_output=True, text=True,
+    )
+    if result.returncode:
+        raise SystemExit(f"music renderer inventory failed:\n{result.stderr}")
+    inventory = json.loads(result.stdout)
+    if inventory["schema"] != "ambition.music_inventory.v1":
+        raise ValueError(f"unsupported music inventory: {inventory['schema']}")
+    return {row["cue_id"]: row["score_one_shot"] for row in inventory["scores"]}
 
 
 def generation_cues() -> list[str]:

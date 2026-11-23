@@ -27,6 +27,7 @@ const EMBEDDED_PACK: Option<(&str, &[(&str, &str)])> = Some(include!(concat!(env
 const EMBEDDED_PACK: Option<(&str, &[(&str, &str)])> = None;
 
 use ambition_content_pack::{ContentPackManifest, Diagnostic};
+use ambition_platformer2d::asset_manager::content_library::LibrarySnapshot;
 
 /// The manifest this build compiles: the embedded one, or `assets/pack.ron`
 /// as it is on disk now.
@@ -188,8 +189,14 @@ pub fn compile_pack_with(
 ) -> Result<PreparedContentPack, CompileFailure> {
     // the manifest is a DIAGNOSTIC, not a panic, since gave the compiler its own
     // embedded-pack road.
-    let (manifest, warnings) = playable_manifest()?;
-    compile_pack_sources(manifest, warnings, edit)
+    let manifest = ContentPackManifest::from_ron(&manifest_ron())?;
+    compile_pack_sources(manifest, LibrarySnapshot::default(), edit)
+}
+
+/// Compile game policy and library sources against the selected host files.
+pub fn compile_pack_with_libraries(libraries: LibrarySnapshot) -> Result<PreparedContentPack, CompileFailure> {
+    let manifest = ContentPackManifest::from_ron(&manifest_ron())?;
+    compile_pack_sources(manifest, libraries, |_, text| text)
 }
 
 /// The same compile, with the manifest no longer declaring `omit`.
@@ -221,50 +228,54 @@ pub fn compile_pack_omitting_with(
         remaining.is_empty(),
         "no manifest line declares {remaining:?}, so the pack would omit nothing"
     );
-    let (mut manifest, warnings) = playable_manifest()?;
+    let mut manifest = declared;
     manifest
         .sources
         .retain(|source| !omit.contains(&source.path.as_str()));
-    compile_pack_sources(manifest, warnings, edit)
+    compile_pack_sources(manifest, LibrarySnapshot::default(), edit)
 }
 
 fn compile_pack_sources(
     manifest: ContentPackManifest,
-    warnings: Vec<Diagnostic>,
+    mut libraries: LibrarySnapshot,
     mut edit: impl FnMut(&str, String) -> String,
 ) -> Result<PreparedContentPack, CompileFailure> {
-    let mut draft = if EMBEDDED_PACK.is_none() {
-        ambition_content_pack::ContentPackDraft::read_manifest(source_root(), manifest)?
-    } else {
-        let sources = embedded_sources(&manifest);
-        ambition_content_pack::ContentPackDraft::from_sources(manifest, sources)?
-    };
-    draft.warnings = warnings;
-    for source in &mut draft.sources {
-        source.text = edit(&source.declared_path, std::mem::take(&mut source.text));
-    }
     #[cfg(feature = "static_content")]
     if EMBEDDED_PACK.is_some() {
-        use ambition_platformer2d::asset_manager::content_library::{
-            ContentLibraries, ContentLibrary, EmbeddedLibrary,
-        };
-        let embedded: &'static [EmbeddedLibrary] = include!(concat!(
+        let embedded = include!(concat!(
             env!("OUT_DIR"),
             "/content_pack/assets/libraries.rs"
         ));
-        let mut libraries = ContentLibraries::default();
         for library in embedded {
-            libraries
-                .insert(ContentLibrary::from_embedded(library).expect("embedded library"))
-                .expect("one library selection");
+            libraries.import_embedded(library).map_err(library_failure)?;
         }
-        draft.selected_libraries = Some(libraries.snapshot().expect("embedded library snapshot"));
+    }
+    if EMBEDDED_PACK.is_none() {
+        for path in &manifest.libraries {
+            libraries.import_native(&source_root().join(path)).map_err(library_failure)?;
+        }
+    }
+    let mut draft = if EMBEDDED_PACK.is_none() {
+        ambition_content_pack::ContentPackDraft::read_manifest_with_libraries(source_root(), manifest, libraries)?
+    } else {
+        let sources = embedded_sources(&manifest);
+        ambition_content_pack::ContentPackDraft::from_sources_with_libraries(manifest, sources, libraries)?
+    };
+    for source in &mut draft.sources {
+        source.text = edit(&source.declared_path, std::mem::take(&mut source.text));
     }
     ambition_content_pack::compile(
         &draft,
         &pack_schemas(),
         &ambition_content_pack::AssetsUnchecked,
     )
+}
+
+fn library_failure(error: String) -> CompileFailure {
+    use ambition_content_pack::{CompileStage, DiagnosticCode};
+    CompileFailure::new(CompileStage::Parse, vec![Diagnostic::error(
+        DiagnosticCode::MalformedSource, CompileStage::Parse, error,
+    ).in_source("pack.ron")])
 }
 
 /// Compile the pack reading every declared source from `root`.
@@ -281,6 +292,11 @@ fn compile_pack_sources(
 /// that is absent: the pack compiles without it, with a warning, as
 /// [`compile_pack`] does.
 pub fn compile_pack_from(root: &std::path::Path) -> Result<PreparedContentPack, String> {
+    compile_pack_from_with_libraries(root, LibrarySnapshot::default())
+}
+
+/// Read a source root with the host's selected library choices and files.
+pub fn compile_pack_from_with_libraries(root: &std::path::Path, mut libraries: LibrarySnapshot) -> Result<PreparedContentPack, String> {
     let manifest_path = root.join("pack.ron");
     let manifest = std::fs::read_to_string(&manifest_path).map_err(|err| {
         format!(
@@ -290,7 +306,8 @@ pub fn compile_pack_from(root: &std::path::Path) -> Result<PreparedContentPack, 
         )
     })?;
     let manifest = ContentPackManifest::from_ron(&manifest).map_err(|failure| failure.to_string())?;
-    let draft = ambition_content_pack::ContentPackDraft::read_manifest(root.to_path_buf(), manifest)
+    for path in &manifest.libraries { libraries.import_native(&root.join(path))?; }
+    let draft = ambition_content_pack::ContentPackDraft::read_manifest_with_libraries(root.to_path_buf(), manifest, libraries)
         .map_err(|failure| format!("{} does not supply this pack:\n{failure}", root.display()))?;
     ambition_content_pack::compile(
         &draft,
@@ -399,22 +416,28 @@ pub(crate) fn identity_line(pack: &PreparedContentPack) -> String {
 
 /// Why [`select_pack`] refused.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SelectionRefused {
-    /// The pack this App already installed content from.
-    pub in_use: String,
-    /// The pack the caller asked for.
-    pub requested: String,
+pub enum SelectionRefused {
+    InUse {
+        /// The pack this App already installed content from.
+        in_use: String,
+        /// The pack the caller asked for.
+        requested: String,
+    },
+    LibraryContext(String),
 }
 
 impl std::fmt::Display for SelectionRefused {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "this App already installed content from pack [{}]; selecting [{}] now would \
-             name one generation while the installed families serve another. Select before \
-             composing, or reload through `crate::reload`",
-            self.in_use, self.requested
-        )
+        match self {
+            Self::InUse { in_use, requested } => write!(
+                f,
+                "this App already installed content from pack [{}]; selecting [{}] now would \
+                 name one generation while the installed families serve another. Select before \
+                 composing, or reload through `crate::reload`",
+                in_use, requested
+            ),
+            Self::LibraryContext(reason) => write!(f, "content library selection refused: {reason}"),
+        }
     }
 }
 
@@ -443,14 +466,15 @@ pub fn select_pack(
     if world.contains_resource::<SelectionSealed>() {
         let in_use = world.resource::<SelectedContentPack>();
         if !std::sync::Arc::ptr_eq(&in_use.0, &pack) && in_use.0.fingerprint != pack.fingerprint {
-            return Err(SelectionRefused {
+            return Err(SelectionRefused::InUse {
                 in_use: identity_line(&in_use.0),
                 requested: identity_line(&pack),
             });
         }
         return Ok(());
     }
-    install_selection(world, pack);
+    let libraries = prepare_libraries(world, &pack).map_err(SelectionRefused::LibraryContext)?;
+    install_selection(world, pack, libraries);
     Ok(())
 }
 
@@ -468,17 +492,26 @@ pub fn select_pack(
 pub(crate) fn install_selection(
     world: &mut bevy::ecs::world::World,
     pack: std::sync::Arc<PreparedContentPack>,
+    libraries: Option<ambition_platformer2d::content::libraries::PreparedLibraries>,
 ) {
-    #[cfg(feature = "static_content")]
-    let embedded = pack.root.as_os_str().is_empty().then_some(include!(concat!(env!("OUT_DIR"), "/content_pack/assets/libraries.rs")) as &'static [ambition_platformer2d::asset_manager::content_library::EmbeddedLibrary]);
-    #[cfg(not(feature = "static_content"))]
-    let embedded = None;
-    ambition_platformer2d::content::libraries::import(world, &pack.root, &pack.libraries, embedded)
-        .unwrap_or_else(|error| panic!("Content libraries: {error}"));
+    if let Some(libraries) = libraries {
+        ambition_platformer2d::content::libraries::publish(world, libraries);
+    }
     world.insert_resource(ambition_platformer2d_runtime::SelectedContentIdentity(
         identity_line(&pack),
     ));
     world.insert_resource(SelectedContentPack(pack));
+}
+
+pub(crate) fn prepare_libraries(
+    world: &bevy::ecs::world::World,
+    pack: &PreparedContentPack,
+) -> Result<Option<ambition_platformer2d::content::libraries::PreparedLibraries>, String> {
+    match &pack.selected_libraries {
+        Some(snapshot) => ambition_platformer2d::content::libraries::prepare(world, snapshot).map(Some),
+        None if pack.libraries.is_empty() => Ok(None),
+        None => Err("the pack declares libraries but has no selected file snapshot".to_owned()),
+    }
 }
 
 /// This App's pack, selecting the process's boot pack if nothing chose one.
@@ -496,7 +529,15 @@ pub(crate) fn install_selection(
 /// [`select_pack`] of another pack is refused.
 pub fn select(world: &mut bevy::ecs::world::World) -> std::sync::Arc<PreparedContentPack> {
     if !world.contains_resource::<SelectedContentPack>() {
-        install_selection(world, std::sync::Arc::clone(boot_pack()));
+        let host_libraries = ambition_platformer2d::content::libraries::snapshot(world)
+            .unwrap_or_else(|error| panic!("Content libraries: {error}"));
+        let pack = if host_libraries.libraries.iter().next().is_some() {
+            std::sync::Arc::new(compile_pack_with_libraries(host_libraries)
+                .unwrap_or_else(|failure| panic!("Ambition's content does not compile with the selected libraries:\n{failure}")))
+        } else { std::sync::Arc::clone(boot_pack()) };
+        let libraries = prepare_libraries(world, &pack)
+            .unwrap_or_else(|error| panic!("Content libraries: {error}"));
+        install_selection(world, pack, libraries);
     }
     // Consuming the selection seals it: see [`select_pack`].
     world.insert_resource(SelectionSealed);

@@ -91,6 +91,8 @@ pub struct PreparedContentPack {
     pub libraries: Vec<String>,
     /// Source location for relative library imports. It is not content identity.
     pub root: std::path::PathBuf,
+    /// The files used for source reading and metadata binding.
+    pub selected_libraries: Option<ambition_asset_manager::content_library::LibrarySnapshot>,
     /// Every source that contributed, in manifest order.
     pub sources: Vec<PreparedSource>,
     /// Declarations collapsed because they named the same file.

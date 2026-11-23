@@ -1130,3 +1130,51 @@ fn a_schema_set_identity_names_what_is_installed() {
     wider.install_capability(CapabilityId::new("weather"));
     assert_ne!(forward.identity(), wider.identity(), "a capability left the identity");
 }
+
+#[test]
+fn selected_library_sources_and_preparation_keep_one_publication() {
+    use ambition_asset_manager::content_library::LibrarySnapshot;
+    let tree = Pack::empty("selected_library_snapshot");
+    let declaration = r#"{"schema":"ambition.content_library.v1","id":"shared","version":"1",
+        "asset_roots":{"generated":"generated"},"publication":"store",
+        "producers":{"music":{"registry":"audio/registry.ron"}}}"#;
+    tree.write("default/library.json", declaration);
+    tree.write("host/library.json", declaration);
+    tree.write("host/store/bundles/old/registry.ron", "selected_old");
+    tree.write("host/store/bundles/new/registry.ron", "selected_new");
+    let publish = |generation: &str| {
+        tree.write("host/store/published.json", &serde_json::json!({
+            "schema":"ambition.art_publication.v1", "generation":generation,
+            "roots":[], "bundles":{}, "files":{"audio/registry.ron":{
+                "path":format!("bundles/{generation}/registry.ron"),
+                "role":"runtime", "tier":"full", "sha256":"0".repeat(64)
+            }}
+        }).to_string());
+    };
+    publish("old");
+    let mut selected = LibrarySnapshot::default();
+    selected.import_native(&tree.root.join("host/library.json")).unwrap();
+    publish("new");
+    selected.import_native(&tree.root.join("default/library.json")).unwrap();
+    tree.write("local.ron", "local_disk");
+    let manifest = ContentPackManifest::from_ron(r#"(
+        id:"probe",version:"1",namespace:"probe",libraries:["default/library.json"],sources:[
+        (path:"audio/registry.ron",library:Some("shared"),schema:"order",version:1),
+        (path:"local.ron",schema:"order",version:1)])"#).unwrap();
+    let draft = ContentPackDraft::read_manifest_with_libraries(tree.root.clone(), manifest.clone(), selected.clone()).unwrap();
+    assert!(draft.warnings.is_empty());
+    assert_eq!(draft.sources[0].text, "selected_old");
+    assert_eq!(draft.sources[1].text, "local_disk");
+    let embedded = ContentPackDraft::from_sources_with_libraries(manifest, [
+        ("audio/registry.ron".into(), "baked_default".into()),
+        ("local.ron".into(), "local_buffer".into()),
+    ], selected).unwrap();
+    assert_eq!(embedded.sources[0].text, "selected_old");
+    assert_eq!(embedded.sources[1].text, "local_buffer");
+    for draft in [draft, embedded] {
+        let prepared = compile(&draft, &registry(), &AssetsUnchecked).unwrap();
+        let file = &prepared.selected_libraries.unwrap().files["content://shared/audio/registry.ron"];
+        assert_eq!(file.read().unwrap(), b"selected_old");
+        assert_eq!(file.generation.as_deref(), Some("old"));
+    }
+}

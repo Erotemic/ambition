@@ -796,8 +796,9 @@ IDs and slots, invalid numbers, empty playable sections, missing references,
 and audible layers without sources. Published product sets also check media
 identity, alignment, and gain basis. It resolves source paths and total gain
 arrays once. The director retains that prepared cue with its generation.
-The first four customers now use published descriptions. Recipes and
-compilation against host-selected library overrides remain open.
+The first four customers now use published descriptions. Compilation and
+reload retain the host-selected library snapshot through publication. Recipes
+remain open.
 
 Expose compiler clock and typed marker support for every supported
 frontend. Make final product construction and support limits explicit.

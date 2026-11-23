@@ -1,7 +1,7 @@
 //! Host library selections and provider imports.
 
 use ambition_asset_manager::{
-    content_library::{ContentLibraries, ContentLibrary, EmbeddedLibrary, LibraryManifest},
+    content_library::{ContentLibraries, ContentLibrary, EmbeddedLibrary, LibrarySnapshot},
     library_source::LibraryAssets,
 };
 use ambition_sprite_sheet::{
@@ -48,6 +48,60 @@ enum Registration {
     Import,
 }
 
+/// Capture the accepted files for the host's selected library choices.
+pub fn snapshot(world: &World) -> Result<LibrarySnapshot, String> {
+    world.get_resource::<ContentLibraries>().map(ContentLibraries::snapshot)
+        .unwrap_or_else(|| Ok(LibrarySnapshot::default()))
+}
+
+/// Library files and sheet metadata prepared before publication.
+pub struct PreparedLibraries {
+    snapshot: LibrarySnapshot,
+    content: Option<SpriteContent>,
+}
+
+/// Check choices and prepare metadata without changing the live world.
+pub fn prepare(world: &World, incoming: &LibrarySnapshot) -> Result<PreparedLibraries, String> {
+    let mut selected = match world.get_resource::<LibraryAssets>() {
+        Some(assets) => assets.snapshot(),
+        None => snapshot(world)?,
+    };
+    if selected.libraries.iter().next().is_none() { selected = snapshot(world)?; }
+    if let Some(libraries) = world.get_resource::<ContentLibraries>() {
+        let mut choices = libraries.clone();
+        for library in incoming.libraries.iter() { choices.insert(library.clone())?; }
+    }
+    selected.merge(incoming)?;
+    let adds_library = selected.libraries.iter().any(|library| {
+        world.get_resource::<ContentLibraries>().and_then(|libraries| libraries.get(&library.manifest.id)).is_none()
+    });
+    // Existing sheet generations stay under the sprite reload owner.
+    if !adds_library && world.contains_resource::<SpriteContent>() {
+        return Ok(PreparedLibraries { snapshot: selected, content: None });
+    }
+    let held = world.get_resource::<SpriteContent>().cloned();
+    let previous = held.clone().or_else(|| last_prepared().clone());
+    let mut content = held.unwrap_or_default();
+    let previous = previous.as_ref().unwrap_or(&content);
+    let prepared = prepare_sheet_table(previous, SheetTexts::from_snapshot(&selected, Some(previous))?)
+        .map_err(|error| format!("{error:?}"))?;
+    publish_prepared_sheet_table(&mut content, prepared);
+    Ok(PreparedLibraries { snapshot: selected, content: Some(content) })
+}
+
+/// Publish the files that preparation checked. This step reads no source files.
+pub fn publish(world: &mut World, prepared: PreparedLibraries) {
+    let PreparedLibraries { snapshot, content } = prepared;
+    let assets = world.get_resource::<LibraryAssets>().cloned().unwrap_or_default();
+    world.insert_resource(snapshot.libraries.clone());
+    assets.replace(snapshot);
+    world.insert_resource(assets);
+    if let Some(content) = content {
+        *last_prepared() = Some(content.clone());
+        world.insert_resource(content);
+    }
+}
+
 fn register(
     world: &mut World,
     root: &Path,
@@ -55,59 +109,36 @@ fn register(
     embedded: Option<&'static [EmbeddedLibrary]>,
     registration: Registration,
 ) -> Result<(), String> {
-    let empty = ContentLibraries::default();
-    let existing = world.get_resource::<ContentLibraries>();
-    let had_selection = existing.is_some();
-    let mut libraries = std::borrow::Cow::Borrowed(existing.unwrap_or(&empty));
-    let before = libraries.iter().count();
+    let had_selection = world.contains_resource::<ContentLibraries>();
+    let mut selected = match world.get_resource::<LibraryAssets>() {
+        Some(assets) => assets.snapshot(),
+        None => snapshot(world)?,
+    };
+    if selected.libraries.iter().next().is_none() { selected = snapshot(world)?; }
+    let before = selected.libraries.iter().count();
     if let Some(embedded) = embedded {
         for library in embedded {
             if registration == Registration::Import {
-                let declaration = LibraryManifest::from_json(library.manifest)?;
-                if libraries.get(&declaration.id).is_some() {
-                    continue;
-                }
+                selected.import_embedded(library)?;
+            } else {
+                selected.insert(ContentLibrary::from_embedded(library)?)?;
             }
-            libraries
-                .to_mut()
-                .insert(ContentLibrary::from_embedded(library)?)?;
         }
     } else {
         for path in paths {
             let path = root.join(path);
             if registration == Registration::Import {
-                let declaration = LibraryManifest::read(&path)?;
-                if libraries.get(&declaration.id).is_some() {
-                    continue;
-                }
+                selected.import_native(&path)?;
+            } else {
+                selected.insert(ContentLibrary::read(path)?)?;
             }
-            libraries.to_mut().insert(ContentLibrary::read(path)?)?;
         }
     }
-    if before == libraries.iter().count() && had_selection {
+    if before == selected.libraries.iter().count() && had_selection {
         return Ok(());
     }
-    let libraries = libraries.into_owned();
-    let held = world.get_resource::<SpriteContent>().cloned();
-    let previous = held.clone().or_else(|| last_prepared().clone());
-    let mut content = held.unwrap_or_default();
-    let previous = previous.as_ref().unwrap_or(&content);
-    let snapshot = libraries.snapshot()?;
-    let prepared = prepare_sheet_table(
-        previous,
-        SheetTexts::from_snapshot(&snapshot, Some(previous))?,
-    )
-    .map_err(|error| format!("{error:?}"))?;
-    let assets = world
-        .get_resource::<LibraryAssets>()
-        .cloned()
-        .unwrap_or_default();
-    assets.replace(snapshot);
-    publish_prepared_sheet_table(&mut content, prepared);
-    *last_prepared() = Some(content.clone());
-    world.insert_resource(assets);
-    world.insert_resource(libraries);
-    world.insert_resource(content);
+    let prepared = prepare(world, &selected)?;
+    publish(world, prepared);
     Ok(())
 }
 
@@ -254,4 +285,42 @@ mod tests {
             .unwrap()
             .is_embedded());
     }
+    #[test]
+    fn publication_keeps_the_files_prepared_before_the_store_changed() {
+        let root = std::env::temp_dir().join(format!("prepared_library_publication_{}", std::process::id()));
+        std::fs::create_dir_all(root.join("store/bundles/old")).unwrap();
+        std::fs::create_dir_all(root.join("store/bundles/new")).unwrap();
+        std::fs::write(root.join("library.json"), r#"{
+            "schema":"ambition.content_library.v1","id":"probe","version":"1",
+            "asset_roots":{"generated":"made"},"publication":"store"
+        }"#).unwrap();
+        std::fs::write(root.join("store/bundles/old/blob.dat"), b"old").unwrap();
+        std::fs::write(root.join("store/bundles/new/blob.dat"), b"new").unwrap();
+        let select = |generation: &str| {
+            std::fs::write(root.join("store/published.json"), serde_json::json!({
+                "schema":"ambition.art_publication.v1", "generation":generation,
+                "files":{"blob.dat":{
+                    "path":format!("bundles/{generation}/blob.dat"),
+                    "role":"runtime","tier":"full","sha256":"0".repeat(64)
+                }}
+            }).to_string()).unwrap();
+        };
+        select("old");
+        let mut app = App::new();
+        install(app.world_mut(), &root, &["library.json".into()], None).unwrap();
+        select("new");
+        let selected = snapshot(app.world()).unwrap();
+        let prepared = prepare(app.world(), &selected).unwrap();
+        let live = app.world().resource::<LibraryAssets>().snapshot();
+        assert_eq!(live.files["content://probe/blob.dat"].read().unwrap(), b"old");
+        select("old");
+        publish(app.world_mut(), prepared);
+        let served = app.world().resource::<LibraryAssets>().snapshot();
+        let file = &served.files["content://probe/blob.dat"];
+        assert_eq!(file.generation.as_deref(), Some("new"));
+        assert_eq!(file.read().unwrap(), b"new");
+        assert_eq!(snapshot(app.world()).unwrap().files["content://probe/blob.dat"].read().unwrap(), b"old");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
 }

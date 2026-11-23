@@ -141,6 +141,8 @@ pub enum MoveReload {
     /// providers' fragments (a music track id that another provider maps to a
     /// different file). Nothing was staged; the live audio keeps its catalog.
     AudioCatalogRefused(String),
+    /// The candidate's library choices or selected metadata cannot be installed.
+    LibraryContextRefused(String),
     /// The candidate's quest book is not compatible with the progress the save
     /// records: a quest in progress at a step the candidate no longer has, or
     /// whose completed prefix or current objective changed condition. Nothing
@@ -234,7 +236,8 @@ pub(crate) fn reload_move_tables_from_dir(
     // No base claim: the base is the pack fingerprint, which is not known
     // before this compile. A caller that needs staleness protection builds its
     // own `CandidateGeneration::prepared_against(pack, Some(base))`.
-    match crate::pack::compile_pack_from(root) {
+    match ambition_platformer2d::content::libraries::snapshot(world)
+        .and_then(|libraries| crate::pack::compile_pack_from_with_libraries(root, libraries)) {
         Ok(pack) => reload_move_tables_selecting(world, std::sync::Arc::new(pack)),
         Err(refusal) => MoveReload::PackRefused(refusal),
     }
@@ -373,6 +376,10 @@ pub(crate) fn publish_candidate(
         Ok(cues) => cues,
         Err(error) => return MoveReload::AudioCatalogRefused(error),
     };
+    let libraries = match crate::pack::prepare_libraries(world, candidate.pack()) {
+        Ok(libraries) => libraries,
+        Err(error) => return MoveReload::LibraryContextRefused(error),
+    };
     if let Err(error) = candidate_quest_book(world, candidate.pack()) {
         return MoveReload::QuestBookRefused(error);
     }
@@ -391,7 +398,7 @@ pub(crate) fn publish_candidate(
             publish_audio(world, audio);
         }
         publish_adaptive_cues(world, adaptive_cues);
-        crate::pack::install_selection(world, pack);
+        crate::pack::install_selection(world, pack, libraries);
     }
     outcome
 }
@@ -1770,6 +1777,13 @@ pub fn request_reload(
     //
     // Only participants that changed prepare; see [`moveset_changed`].
     let pack = candidate.into_pack();
+    let libraries = match crate::pack::prepare_libraries(world, &pack) {
+        Ok(libraries) => libraries,
+        Err(error) => {
+            discard_staged_reload(world);
+            return ReloadRequest::Refused(MoveReload::LibraryContextRefused(error));
+        }
+    };
     let stages_cast = moveset_changed(world, &pack);
     let section = stages_cast
         .then(|| ambition_characters::moveset_content_schema::lowered_movesets(&pack))
@@ -1923,6 +1937,7 @@ pub fn request_reload(
             route: route.as_str().to_string(),
             request: request.clone(),
             pack,
+            libraries,
             admitted_cast,
             bosses,
             audio,
@@ -1990,6 +2005,7 @@ pub struct PendingGeneration {
     /// The candidate pack. Not the App's selection until activation, so a
     /// failed preparation leaves readers on the content the live cast uses.
     pack: std::sync::Arc<ambition_content_pack::PreparedContentPack>,
+    libraries: Option<ambition_platformer2d::content::libraries::PreparedLibraries>,
     /// The value admission computed. `None` means the candidate changed no
     /// move material; the engine's generation still has to move.
     admitted_cast: Option<ambition_characters::prepared::AdmittedRevision>,
@@ -2175,7 +2191,8 @@ pub fn register(app: &mut bevy::prelude::App) {
             .filter(|root| !root.as_os_str().is_empty())
             .or_else(|| cfg!(not(feature = "static_content")).then(crate::pack::source_root));
         if let Some(root) = root {
-            app.insert_resource(crate::content_watch::ContentSourceWatch::new(root));
+            let watch = crate::content_watch::ContentSourceWatch::new(root, app.world());
+            app.insert_resource(watch);
             // The cast reads its body scale, hurtboxes and rigs from the sheets.
             #[cfg(not(feature = "static_content"))]
             ambition_platformer2d::content::sprite_reload::restate_with_the_sheets(
@@ -2620,7 +2637,7 @@ pub fn commit_content_generation(
                     // the same pack, in the same command.
                     publish_participant_families(world, &generation.pack);
                     // The pack lands at the same boundary, unconditionally.
-                    crate::pack::install_selection(world, generation.pack);
+                    crate::pack::install_selection(world, generation.pack, generation.libraries);
                     // And the code staged with it, so the script and the
                     // content it uses activate together.
                     if let Some(paired) = world.remove_resource::<PairedModuleCandidate>() {

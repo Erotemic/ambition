@@ -611,7 +611,7 @@ fn a_different_pack_selected_after_composition_is_refused_and_changes_nothing() 
 
     let refusal = select_pack(&mut app, pack_that_disagrees_everywhere())
         .expect_err("a sealed selection must refuse a different pack");
-    assert_ne!(refusal.in_use, refusal.requested, "the refusal names both packs");
+    assert!(matches!(refusal, SelectionRefused::InUse { in_use, requested } if in_use != requested), "the refusal names both packs");
 
     assert_eq!(selected(app.world()).map(|pack| pack.fingerprint), before_fingerprint);
     assert_eq!(app.world().resource::<SelectedContentIdentity>().0, before_identity);
@@ -972,4 +972,47 @@ fn the_shipped_pack_compiles_without_its_generated_content() {
     let fragments = crate::provider::ambition_authored_catalogs(&pack);
     assert!(!fragments.expects_music, "without music, a session must not wait for music");
     assert!(fragments.expects_procedural_sfx, "the authored SFX are still expected");
+}
+
+#[test]
+fn automatic_selection_and_source_watch_use_the_host_library() {
+    use ambition_platformer2d::{asset_manager::library_source::LibraryAssets, content::libraries};
+    let host = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(host.path().join("authored/audio")).unwrap();
+    std::fs::write(host.path().join("library.json"), r#"{
+        "schema":"ambition.content_library.v1","id":"ambition_shared","version":"1",
+        "asset_roots":{"authored":"authored"}, "publication":"store",
+        "producers":{"music":{"roots":["audio/music"],"registry":"audio/music_registry.ron"}}
+    }"#).unwrap();
+    let source = pack_source_text("audio/sfx_registry.ron");
+    let original: ambition_audio::spec::SfxRegistry = ron::from_str(&source).unwrap();
+    let rate = original.sample_rate + 8_000;
+    let edited = source.replace(&format!("sample_rate: {}", original.sample_rate), &format!("sample_rate: {rate}"));
+    let file = host.path().join("authored/audio/sfx_registry.ron");
+    std::fs::write(&file, &edited).unwrap();
+    let mut app = bevy::prelude::App::new();
+    libraries::install(app.world_mut(), host.path(), &["library.json".into()], None).unwrap();
+    let default = std::sync::Arc::new(compile_pack().unwrap());
+    assert!(matches!(select_pack(&mut app, default), Err(SelectionRefused::LibraryContext(_))));
+    assert!(selected(app.world()).is_none());
+    let pack = select(app.world_mut());
+    assert_eq!(ambition_audio::content_schema::lowered_sfx_registry(&pack).unwrap().sample_rate, rate);
+    let qualified = "content://ambition_shared/audio/sfx_registry.ron";
+    let compiled = &pack.selected_libraries.as_ref().unwrap().files[qualified];
+    let served = app.world().resource::<LibraryAssets>().snapshot();
+    assert_eq!(compiled, &served.files[qualified]);
+    assert_eq!(compiled.native_path(), Some(file.as_path()));
+
+    let watch = crate::content_watch::ContentSourceWatch::new(source_root(), app.world());
+    app.insert_resource(watch);
+    assert!(crate::content_watch::look_at_content_sources(app.world_mut()).is_none());
+    std::fs::remove_file(&file).unwrap();
+    assert!(crate::content_watch::look_at_content_sources(app.world_mut()).is_some());
+    crate::content_watch::forget_source_change(app.world_mut());
+    assert!(crate::content_watch::look_at_content_sources(app.world_mut()).is_none());
+    std::fs::create_dir_all(host.path().join("store")).unwrap();
+    std::fs::write(host.path().join("store/published.json"), r#"{
+        "schema":"ambition.art_publication.v1","generation":null,"files":{},"roots":[]
+    }"#).unwrap();
+    assert!(crate::content_watch::look_at_content_sources(app.world_mut()).is_some());
 }

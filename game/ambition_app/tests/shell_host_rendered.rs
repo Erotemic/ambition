@@ -1669,7 +1669,8 @@ fn an_sfx_cue_saved_while_the_game_runs_is_played() {
     let root = std::env::temp_dir().join(format!("ambition_sfx_watch_{}", std::process::id()));
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         ambition_content::pack::export_sources_to(&root).expect("sources export");
-        app.world_mut().insert_resource(ContentSourceWatch::new(root.clone()));
+        let watch = ContentSourceWatch::new(root.clone(), app.world());
+        app.world_mut().insert_resource(watch);
         std::thread::sleep(std::time::Duration::from_millis(20));
         let path = root.join("audio/sfx_registry.ron");
         let shipped = std::fs::read_to_string(&path).unwrap();

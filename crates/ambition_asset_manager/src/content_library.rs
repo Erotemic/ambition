@@ -88,10 +88,73 @@ pub struct ContentLibraries {
 }
 
 /// The files admitted together from one set of library publications.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct LibrarySnapshot {
     pub libraries: ContentLibraries,
     pub files: std::sync::Arc<BTreeMap<String, LibraryFile>>,
+}
+
+impl LibrarySnapshot {
+    /// Import a default only when its identity has no selected library.
+    pub fn import_native(&mut self, path: &Path) -> Result<(), String> {
+        let declaration = LibraryManifest::read(path)?;
+        if self.libraries.get(&declaration.id).is_none() {
+            self.insert(ContentLibrary::read(path)?)?;
+        }
+        Ok(())
+    }
+
+    pub fn import_embedded(&mut self, embedded: &'static EmbeddedLibrary) -> Result<(), String> {
+        let declaration = LibraryManifest::from_json(embedded.manifest)?;
+        if self.libraries.get(&declaration.id).is_none() {
+            self.insert(ContentLibrary::from_embedded(embedded)?)?;
+        }
+        Ok(())
+    }
+
+    /// Select a library without changing the files of existing choices.
+    pub fn insert(&mut self, library: ContentLibrary) -> Result<(), String> {
+        let mut libraries = self.libraries.clone();
+        libraries.insert(library.clone())?;
+        if self.libraries.get(&library.manifest.id).is_some() { return Ok(()); }
+        let files = library.files()?;
+        let mut selected = ContentLibraries::default();
+        selected.insert(library)?;
+        self.merge(&Self { libraries: selected, files: std::sync::Arc::new(index_files(files.into_values())) })
+    }
+
+    /// Keep library choices. For shared choices, use the incoming selected files.
+    pub fn merge(&mut self, incoming: &Self) -> Result<(), String> {
+        let mut libraries = self.libraries.clone();
+        for library in incoming.libraries.iter() {
+            libraries.insert(library.clone())?;
+        }
+        let members = self.files.iter().filter(|(key, file)| {
+            incoming.libraries.get(&file.library).is_none()
+                && **key == format!("content://{}/{}", file.library, file.logical)
+        }).map(|(_, file)| file.clone()).chain(incoming.files.iter().filter(|(key, file)| {
+            **key == format!("content://{}/{}", file.library, file.logical)
+        }).map(|(_, file)| file.clone()));
+        let files = std::sync::Arc::new(index_files(members));
+        self.libraries = libraries;
+        self.files = files;
+        Ok(())
+    }
+}
+
+fn index_files(members: impl IntoIterator<Item = LibraryFile>) -> BTreeMap<String, LibraryFile> {
+    let mut files = BTreeMap::new();
+    let mut aliases = BTreeMap::new();
+    let mut ambiguous = std::collections::BTreeSet::new();
+    for file in members {
+        files.insert(format!("content://{}/{}", file.library, file.logical), file.clone());
+        files.insert(file.asset_path().to_owned(), file.clone());
+        if aliases.insert(file.logical.clone(), file.clone()).is_some() {
+            ambiguous.insert(file.logical.clone());
+        }
+    }
+    files.extend(aliases.into_iter().filter(|(logical, _)| !ambiguous.contains(logical)));
+    files
 }
 
 fn relative(value: &str) -> bool {
@@ -336,20 +399,11 @@ impl ContentLibraries {
 
     /// Resolve qualified identities. Unqualified references must have one owner.
     pub fn files(&self) -> Result<BTreeMap<String, LibraryFile>, String> {
-        let mut files = BTreeMap::new();
-        let mut aliases: BTreeMap<String, LibraryFile> = BTreeMap::new();
-        let mut ambiguous = std::collections::BTreeSet::new();
+        let mut members = Vec::new();
         for library in self.iter() {
-            for (logical, file) in library.files()? {
-                files.insert(format!("content://{}/{logical}", library.manifest.id), file.clone());
-                files.insert(file.asset_path().to_owned(), file.clone());
-                if aliases.insert(logical.clone(), file).is_some() {
-                    ambiguous.insert(logical);
-                }
-            }
+            members.extend(library.files()?.into_values());
         }
-        files.extend(aliases.into_iter().filter(|(logical, _)| !ambiguous.contains(logical)));
-        Ok(files)
+        Ok(index_files(members))
     }
 
     pub fn resolve(&self, name: &str) -> Result<LibraryFile, String> {

@@ -582,6 +582,7 @@ pub fn compile(
         namespace: namespace.clone(),
         libraries: draft.manifest.libraries.clone(),
         root: draft.root.clone(),
+        selected_libraries: draft.selected_libraries.clone(),
         sources: prepared_sources,
         collapsed_aliases: draft.collapsed_aliases.clone(),
         required_capabilities: required,

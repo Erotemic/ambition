@@ -290,8 +290,11 @@ sample rates, game bindings, gains, continuations and used section lengths
 match the declared contracts. Transport position, readiness and transition
 policy remain open under MUS3/MUS4.
 
-The host-override path still compiles pack defaults before library import.
-Bind compilation to the host snapshot before MA1 is complete.
+Host selection now precedes source reading and metadata binding. Native and
+embedded game policy use the same selected library snapshot. Reload prepares
+that snapshot before admission and publishes it without source reads. File
+watching includes selected native sources and accepted publication selectors.
+Compiler-owned inventory export remains open.
 
 **Refinement, 2026-11-22:** MA1 owns compiler/export facts.
 [Music programs and owned playback](music-programs-and-playback.md) owns

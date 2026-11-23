@@ -186,28 +186,53 @@ impl ContentPackDraft {
     /// becomes a warning, and the draft does not have that source.
     pub fn read_manifest(
         root: PathBuf,
-        mut manifest: ContentPackManifest,
+        manifest: ContentPackManifest,
     ) -> Result<Self, CompileFailure> {
-        let warnings = manifest.take_ungenerated(&root);
-        let mut draft = Self::read_located(root, manifest)?;
+        let libraries = Self::read_libraries(&root, &manifest)?;
+        Self::read_manifest_with_libraries(root, manifest, libraries)
+    }
+
+    /// Read sources and bind metadata from the same selected files.
+    pub fn read_manifest_with_libraries(
+        root: PathBuf,
+        mut manifest: ContentPackManifest,
+        libraries: ambition_asset_manager::content_library::LibrarySnapshot,
+    ) -> Result<Self, CompileFailure> {
+        let warnings = manifest.take_ungenerated_in(&libraries);
+        let mut draft = Self::read_located(root, manifest, libraries, None)?;
         draft.warnings = warnings;
         Ok(draft)
     }
 
-    fn read_located(root: PathBuf, manifest: ContentPackManifest) -> Result<Self, CompileFailure> {
+    /// Read local source buffers and selected library sources in one context.
+    pub fn from_sources_with_libraries(
+        mut manifest: ContentPackManifest,
+        sources: impl IntoIterator<Item = (String, String)>,
+        libraries: ambition_asset_manager::content_library::LibrarySnapshot,
+    ) -> Result<Self, CompileFailure> {
+        let warnings = manifest.take_ungenerated_in(&libraries);
+        let mut draft = Self::read_located(PathBuf::new(), manifest, libraries, Some(sources.into_iter().collect()))?;
+        draft.warnings = warnings;
+        Ok(draft)
+    }
+
+    fn read_located(
+        root: PathBuf,
+        manifest: ContentPackManifest,
+        selected_libraries: ambition_asset_manager::content_library::LibrarySnapshot,
+        supplied: Option<BTreeMap<String, String>>,
+    ) -> Result<Self, CompileFailure> {
         let mut diagnostics = Vec::new();
         let mut sources: Vec<SourceFile> = Vec::new();
         let mut collapsed_aliases = Vec::new();
         let mut by_canonical: BTreeMap<PathBuf, usize> = BTreeMap::new();
-        let selected_libraries = Self::read_libraries(&root, &manifest)?;
-
         for declaration in &manifest.sources {
+            let selected = declaration.library.as_ref().and_then(|library| {
+                selected_libraries.files.get(&format!("content://{library}/{}", declaration.path))
+            });
             let located = match &declaration.library {
-                Some(library) => selected_libraries
-                    .files
-                    .get(&format!("content://{library}/{}", declaration.path))
-                    .and_then(|file| file.native_path())
-                    .map(|path| path.to_path_buf())
+                Some(library) => selected
+                    .map(|file| file.native_path().map_or_else(|| PathBuf::from(file.asset_path()), Path::to_path_buf))
                     .ok_or_else(|| {
                         format!(
                             "selected library {library:?} does not supply source {:?}",
@@ -230,7 +255,10 @@ impl ContentPackDraft {
                     continue;
                 }
             };
-            let canonical = match std::fs::canonicalize(&path) {
+            let canonical = match if selected.is_some_and(|file| file.native_path().is_none())
+                || (declaration.library.is_none() && supplied.is_some()) {
+                Ok(path.clone())
+            } else { std::fs::canonicalize(&path) } {
                 Ok(canonical) => canonical,
                 Err(error) => {
                     diagnostics.push(
@@ -279,7 +307,13 @@ impl ContentPackDraft {
                 continue;
             }
 
-            let text = match std::fs::read_to_string(&canonical) {
+            let text = match if let Some(file) = selected {
+                file.read().and_then(|bytes| String::from_utf8(bytes).map_err(|error| error.to_string()))
+            } else if let Some(supplied) = &supplied {
+                supplied.get(&declaration.path).cloned().ok_or_else(|| "no local source buffer was supplied".to_owned())
+            } else {
+                std::fs::read_to_string(&canonical).map_err(|error| error.to_string())
+            } {
                 Ok(text) => text,
                 Err(error) => {
                     diagnostics.push(
@@ -345,6 +379,20 @@ impl ContentPackDraft {
 }
 
 impl ContentPackManifest {
+    fn take_ungenerated_in(&mut self, snapshot: &ambition_asset_manager::content_library::LibrarySnapshot) -> Vec<Diagnostic> {
+        let mut warnings = Vec::new();
+        self.sources.retain(|source| {
+            let Some(id) = &source.library else { return true };
+            let Some(library) = snapshot.libraries.get(id) else { return true };
+            if snapshot.files.contains_key(&format!("content://{id}/{}", source.path)) { return true; }
+            let Some(producer) = library.producer_of(&source.path) else { return true };
+            if library.is_embedded() { return true; }
+            warnings.push(ungenerated_source(source, id, producer));
+            false
+        });
+        warnings
+    }
+
     /// Parse `pack.ron` text. A manifest that does not parse is a compiler
     /// diagnostic, not a panic.
     pub fn from_ron(manifest_ron: &str) -> Result<Self, CompileFailure> {
@@ -381,26 +429,21 @@ impl ContentPackManifest {
         let manifest = self.clone();
         self.sources.retain(|declaration| match declaration.locate(root, &manifest) {
             Ok(SourceLocation::Ungenerated { library, producer }) => {
-                warnings.push(
-                    Diagnostic::warning(
-                        DiagnosticCode::UngeneratedSource,
-                        CompileStage::Parse,
-                        format!(
-                            "library `{library}` has no generated `{}`: its `{producer}` producer \
-                             did not make it. The pack compiles without its `{}` content.",
-                            declaration.path, declaration.schema
-                        ),
-                    )
-                    .in_source(&declaration.path)
-                    .fix("make it: scripts/setup/generated_content.sh")
-                    .fix("see what is absent: python3 scripts/content_status.py"),
-                );
+                warnings.push(ungenerated_source(declaration, &library, &producer));
                 false
             }
             _ => true,
         });
         warnings
     }
+}
+
+fn ungenerated_source(source: &SourceDeclaration, library: &str, producer: &str) -> Diagnostic {
+    Diagnostic::warning(DiagnosticCode::UngeneratedSource, CompileStage::Parse,
+        format!("library `{library}` has no generated `{}`: its `{producer}` producer did not make it. The pack compiles without its `{}` content.", source.path, source.schema))
+        .in_source(&source.path)
+        .fix("make it: scripts/setup/generated_content.sh")
+        .fix("see what is absent: python3 scripts/content_status.py")
 }
 
 /// Where a declared source is.

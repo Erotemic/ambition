@@ -372,6 +372,29 @@ static reactions, but no speedup has been measured. Select it with CR1's
 actual-result work so ACT1 consumes the final reaction, not an intermediate
 launch that a later callback is expected to undo.
 
+### Reaction-data refinement done (2026-11-23)
+
+A prepared volume carries `status: Option<HitStatus>`
+(`ambition_hit_spec::HitStatus { kind: HitStatusKind, duration_s }`); the
+catalog validates its kind's limit and refuses it on a windbox. Strike
+construction copies it to `Hitbox.status` and contact copies it to
+`HitEvent.status`. Both receivers hand it to `apply_body_hit_reaction`, which
+the home receiver reaches only for `Damaged`/`WalletShielded` and the actor
+receiver only for an accepted hit, so an ignored, blocked, protected or armored
+hit installs nothing. Inside the reaction, armor that absorbs the launch
+absorbs the status too, and a gust carries none. Bury and crumple on a grounded
+body replace the launch: the launch is taken, velocity, stun and recoil are
+zero. Paralysis and freeze are installed after "a real hit ends a hold", so a
+hit's own status survives it and replaces an earlier one; they also apply to a
+hit with no knockback. The `ambition.combat.paralyze/bury/freeze/crumple`
+ports, their lowerings and the `smash.*` modules are deleted; Bob, the Patent
+Clerk, the Cellular Automaton and Alice author `status:` in their movesets.
+Guards: `hit_status_tests` (stance, replacement, armor, gust),
+`an_actor_installs_a_hits_status_only_when_it_accepts_the_hit` and
+`the_home_receiver_installs_a_status_only_for_a_hit_it_accepts` (app). Pogo
+and other contact effects were not touched. The native-capture follow-up below
+is still open.
+
 **Separate native-capture follow-up:** `lower_struck_seizes` clears launch
 and stun before its `CaptureAttemptRequested` has succeeded. An accepted
 hit is not an accepted capture. Commit that replacement only with native

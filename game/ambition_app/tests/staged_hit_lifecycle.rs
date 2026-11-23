@@ -62,7 +62,7 @@ fn stage_a_hit_from_inside_the_frame(
         return;
     };
     pending.0.push(StagedPlayerHit {
-        event: HitEvent {
+        event: HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,

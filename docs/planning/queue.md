@@ -361,6 +361,9 @@ world-post admission.
    A contact callback must not install a status from an ignored strike or
    replace a different hit's launch. Preserve physical-contact effects and
    independently admitted status capabilities.
+   (Landed 2026-11-23: `HitVolume.status` carries the choice to
+   `apply_body_hit_reaction`, which both receivers call only for a hit they
+   accepted; the four forwarding ports and `smash.*` modules are gone.)
 
 9. [Body action ACT1/ACT2](engine/body-action-execution.md) makes current
    body permission reach every applicable start/spend cut, settles landing

@@ -613,7 +613,7 @@ fn lower_riding_hitboxes(
         };
         let side = crate::hit_side_from_actor_faction(crate::targeting::effective_faction(*authored, driver));
         commands.spawn((
-            crate::strike::Hitbox {
+            crate::strike::Hitbox { status: None,
                 properties: Default::default(),
                 strike_sfx: None,
                 owner: s.scope,

@@ -38,7 +38,7 @@ fn strike(sim: &mut Platformer2dSimHarness, damage: i32) {
     use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
     lower_guard(sim.world_mut(), PLACEMENT);
     let at = boss_pos(sim.world_mut(), PLACEMENT).expect("the Marshal has a body");
-    sim.world_mut().write_message(HitEvent {
+    sim.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,

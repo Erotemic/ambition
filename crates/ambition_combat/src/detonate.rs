@@ -36,7 +36,7 @@ pub fn apply_authored_detonations(
         if !health.alive() {
             continue;
         }
-        hits.write(HitEvent {
+        hits.write(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,

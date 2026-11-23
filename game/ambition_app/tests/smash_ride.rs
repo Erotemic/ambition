@@ -620,7 +620,7 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
         // the health pool directly would prove the pool's arithmetic and skip
         // the question that matters.
         world.spawn((
-            ambition_platformer2d::combat::strike::Hitbox {
+            ambition_platformer2d::combat::strike::Hitbox { status: None,
                 properties: Default::default(),
                 // The seat that is not the rider: an opponent's swing.
                 owner: seat0,
@@ -845,7 +845,7 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
             .expect("the rider has kinematics")
             .pos;
         world.spawn((
-            ambition_platformer2d::combat::strike::Hitbox {
+            ambition_platformer2d::combat::strike::Hitbox { status: None,
                 properties: Default::default(),
                 owner: rival,
                 source: ambition_platformer2d::vfx::HitSide::Enemy,
@@ -918,7 +918,7 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
             .expect("the rider has kinematics")
             .pos;
         world.spawn((
-            ambition_platformer2d::combat::strike::Hitbox {
+            ambition_platformer2d::combat::strike::Hitbox { status: None,
                 properties: Default::default(),
                 owner: rival,
                 // ⛔ THE HOSTILE SIDE. A `Player`-sourced strike against a
@@ -2489,7 +2489,7 @@ fn one_strong_hit(mounted: bool) -> (ambition_platformer2d::engine_core::Vec2, i
             .expect("the victim has kinematics")
             .pos;
         world.spawn((
-            ambition_platformer2d::combat::strike::Hitbox {
+            ambition_platformer2d::combat::strike::Hitbox { status: None,
                 properties: Default::default(),
                 owner: rival,
                 source: ambition_platformer2d::vfx::HitSide::Enemy,

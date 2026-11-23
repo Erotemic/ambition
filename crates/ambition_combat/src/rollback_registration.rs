@@ -904,7 +904,7 @@ mod pending_hit_checksum_tests {
         PendingPlayerHitEvents(vec![crate::events::StagedPlayerHit {
             attacker_id: attacker.map(SimId::placement),
             victim_id: victim.map(SimId::placement),
-            event: HitEvent {
+            event: HitEvent { status: None,
                 origin: None,
                 properties: Default::default(),
                 contact: None,

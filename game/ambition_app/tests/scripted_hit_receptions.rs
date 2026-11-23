@@ -169,7 +169,7 @@ fn loaded_rules_receive_bounded_native_decisions_on_either_controller_and_replay
             for (victim, attacker, count) in [(teacher, player, repeats), (player, teacher, 1)] {
                 let (_, _, kin) = bodies.get(victim).unwrap();
                 for _ in 0..count {
-                    hits.write(ambition_platformer2d::combat::HitEvent {
+                    hits.write(ambition_platformer2d::combat::HitEvent { status: None,
                         origin: None,
                         properties: Default::default(),
                         contact: None,

@@ -210,7 +210,7 @@ fn hitbox_knockback_units_remain_distinct() {
 /// the owner moves the hitbox without per-frame component update.
 #[test]
 fn follow_owner_hitbox_aabb_tracks_owner_position() {
-    let hitbox = Hitbox {
+    let hitbox = Hitbox { status: None,
         properties: Default::default(),
         strike_sfx: None,
         owner: dummy_entity(),
@@ -240,7 +240,7 @@ fn follow_owner_hitbox_aabb_tracks_owner_position() {
 /// World anchor is a fixed world rectangle regardless of owner.
 #[test]
 fn world_anchor_hitbox_ignores_owner_position() {
-    let hitbox = Hitbox {
+    let hitbox = Hitbox { status: None,
         properties: Default::default(),
         strike_sfx: None,
         owner: dummy_entity(),
@@ -288,7 +288,7 @@ fn tick_and_despawn_drops_expired_hitboxes() {
     let hitbox = app
         .world_mut()
         .spawn((
-            Hitbox {
+            Hitbox { status: None,
                 properties: Default::default(),
                 strike_sfx: None,
                 owner: dummy_entity(),
@@ -327,7 +327,7 @@ fn tick_and_despawn_keeps_live_hitboxes() {
     let hitbox = app
         .world_mut()
         .spawn((
-            Hitbox {
+            Hitbox { status: None,
                 properties: Default::default(),
                 strike_sfx: None,
                 owner: dummy_entity(),
@@ -528,7 +528,7 @@ fn a_detached_strike_resolves_bodies_before_publishing_its_feature_remainder() {
         )))
         .id();
     app.world_mut().spawn((
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner,
@@ -600,7 +600,7 @@ fn a_world_anchored_box_outlives_its_owner_but_a_following_one_does_not() {
         // `GroundItem` leaves behind for the tick its blast resolves on.
         let owner = app.world_mut().spawn_empty().id();
         app.world_mut().spawn((
-            Hitbox {
+            Hitbox { status: None,
                 properties: Default::default(),
                 strike_sfx: None,
                 owner,
@@ -683,7 +683,7 @@ fn a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither() {
         let owner = hazard_victim(&mut app, ActorFaction::Player, at);
         let _bystander = hazard_victim(&mut app, ActorFaction::Enemy, at);
         app.world_mut().spawn((
-            Hitbox {
+            Hitbox { status: None,
                 properties: Default::default(),
                 strike_sfx: None,
                 owner,
@@ -764,7 +764,7 @@ fn a_world_blast_uses_its_position_unless_a_direction_is_authored() {
         let left = hazard_victim(&mut app, ActorFaction::Enemy, blast - ae::Vec2::new(24.0, 0.0));
         let right = hazard_victim(&mut app, ActorFaction::Enemy, blast + ae::Vec2::new(24.0, 0.0));
         app.world_mut().spawn((
-            Hitbox {
+            Hitbox { status: None,
                 properties: Default::default(),
                 strike_sfx: None,
                 owner,
@@ -840,7 +840,7 @@ fn a_following_box_throws_away_from_the_owner_not_from_its_own_volume() {
     let owner = hazard_victim(&mut app, ActorFaction::Player, owner_at);
     let victim = hazard_victim(&mut app, ActorFaction::Enemy, between);
     app.world_mut().spawn((
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner,
@@ -907,7 +907,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
         )))
         .id();
     app.world_mut().spawn((
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner,
@@ -1069,7 +1069,7 @@ fn enemy_hitbox_over_player_app_dealing(
         )))
         .id();
     app.world_mut().spawn((
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner,
@@ -1204,7 +1204,7 @@ fn a_detached_strike_hits_each_body_only_once() {
         .spawn(body_box(ae::CenteredAabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0))))
         .id();
     app.world_mut().spawn((
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner,
@@ -1281,7 +1281,7 @@ fn player_melee_never_targets_its_owner() {
         ))
         .id();
     app.world_mut().spawn((
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner,
@@ -1366,7 +1366,7 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
         ))
         .id();
     app.world_mut().spawn((
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner,
@@ -1462,7 +1462,7 @@ fn landed_launch(
         framed(victim_down),
     ));
     app.world_mut().spawn((
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner,
@@ -1663,7 +1663,7 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
             ambition_characters::actor::BodyCombat::default(),
         ))
         .id();
-    let hitbox = Hitbox {
+    let hitbox = Hitbox { status: None,
         properties: Default::default(),
         strike_sfx: None,
         owner,
@@ -1759,7 +1759,7 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
             ambition_characters::actor::BodyCombat::default(),
         ))
         .id();
-    let hitbox = Hitbox {
+    let hitbox = Hitbox { status: None,
         properties: Default::default(),
         strike_sfx: None,
         owner,
@@ -1869,7 +1869,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
         ))
         .id();
     app.world_mut().spawn((
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner,
@@ -1943,7 +1943,7 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
         )))
         .id();
     app.world_mut().spawn((
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: Some(sword),
             owner,
@@ -2286,7 +2286,7 @@ mod strike_rank {
             .id();
         let mut volume = |center: ae::Vec2, half: ae::Vec2, damage: i32, volume_rank: u16, wind: bool| {
             app.world_mut().spawn((
-                Hitbox {
+                Hitbox { status: None,
                     properties: Default::default(),
                     strike_sfx: None,
                     owner,
@@ -2673,7 +2673,7 @@ fn parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
         ))
         .id();
     app.world_mut().spawn((
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner,
@@ -3206,7 +3206,7 @@ fn publish_fixture_materials(
 
 fn strike(app: &mut App, owner: Entity, anchor: HitboxAnchor, half_extent: ae::Vec2) {
     app.world_mut().spawn((
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner,
@@ -3391,7 +3391,7 @@ fn a_ray_down_into_a_portal_hurts_under_its_partner() {
         // From 60 over the floor, straight down, 120 long: 60 of it through.
         let ray = crate::strike::RayStrike { dir: ae::Vec2::new(0.0, 1.0), length: 120.0, width: 20.0, look: "force".into() };
         app.world_mut().spawn((
-            Hitbox {
+            Hitbox { status: None,
                 properties: Default::default(),
                 strike_sfx: None,
                 owner,
@@ -3444,7 +3444,7 @@ fn profile_strike_resolution_with_guards() {
         for v in 0..3u16 {
             let center = ae::Vec2::new(x + 30.0 + v as f32 * 20.0, 100.0);
             app.world_mut().spawn((
-                Hitbox {
+                Hitbox { status: None,
                     properties: Default::default(),
                     strike_sfx: None,
                     owner,

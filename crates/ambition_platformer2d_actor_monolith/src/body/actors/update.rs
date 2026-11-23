@@ -1075,7 +1075,7 @@ fn integrate_actor_body(
             "charge crash DETONATES: entity={actor_entity:?} being_ridden={is_being_ridden}              health_spent={}",
             em.health.current().max(1),
         );
-        effects.hits.push(HitEvent {
+        effects.hits.push(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,
@@ -1111,7 +1111,7 @@ fn integrate_actor_body(
     // Gated on ALIVE, because the gate is a position test and re-fires every tick the body is
     // past the margin.
     if em.health.alive() && move_events.reset == Some(ae::ResetCause::LeftTheWorld) {
-        effects.hits.push(HitEvent {
+        effects.hits.push(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,

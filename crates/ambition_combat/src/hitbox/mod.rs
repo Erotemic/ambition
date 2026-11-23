@@ -1446,6 +1446,7 @@ pub fn apply_hitbox_damage(
                     target: HitTarget::Body(victim.entity),
                     mode: HitMode::Knockback,
                     knockback,
+                    status: hitbox.status,
                     ignored_targets: Vec::new(),
                                     attacker_move_instance: move_instance.map(|i| i.0),
                 });
@@ -1482,7 +1483,7 @@ pub fn apply_hitbox_damage(
             let fixed = matches!(hitbox.anchor, HitboxAnchor::World { .. });
             if !fixed || !feature_pulse.emitted {
                 if fixed { feature_pulse.emitted = true; }
-                out.hit_events.write(HitEvent {
+                out.hit_events.write(HitEvent { status: None,
                     origin: origin.cloned(),
                     properties: hitbox.properties,
                     contact: None,

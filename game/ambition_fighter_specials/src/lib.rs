@@ -160,51 +160,6 @@ pub fn specials() -> Vec<Special> {
             },
             module: modules::mark::module,
         },
-        // Paralysis: answered on the body a volume struck, like the mark;
-        // the hold is the engine's (`ambition.combat.paralyze`).
-        Special {
-            key: catalog::smash_paralyze::PARALYZE,
-            offer: TechniqueOffer {
-                owner: "ambition_demo_smash_modules::paralyze",
-                params: TechniqueParams::Checked(catalog::smash_paralyze::check_paralyze_params),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::OnHit,
-            },
-            module: modules::paralyze::module,
-        },
-        // Burial: answered on the body a volume struck, like the paralysis.
-        Special {
-            key: catalog::smash_bury::BURY,
-            offer: TechniqueOffer {
-                owner: "ambition_demo_smash_modules::bury",
-                params: TechniqueParams::Checked(catalog::smash_bury::check_bury_params),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::OnHit,
-            },
-            module: modules::bury::module,
-        },
-        // Freeze: answered on the body a volume struck, like the paralysis.
-        Special {
-            key: catalog::smash_freeze::FREEZE,
-            offer: TechniqueOffer {
-                owner: "ambition_demo_smash_modules::freeze",
-                params: TechniqueParams::Checked(catalog::smash_freeze::check_freeze_params),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::OnHit,
-            },
-            module: modules::freeze::module,
-        },
-        // Crumple: answered on the body a volume struck, like the burial.
-        Special {
-            key: catalog::smash_crumple::CRUMPLE,
-            offer: TechniqueOffer {
-                owner: "ambition_demo_smash_modules::crumple",
-                params: TechniqueParams::Checked(catalog::smash_crumple::check_crumple_params),
-                references: NestedReferences::None,
-                delivery: TechniqueDelivery::OnHit,
-            },
-            module: modules::crumple::module,
-        },
         // Hit-grab: answered on the body a volume struck; the striker seizes
         // it through the capture relation (`ambition.combat.seize_struck`).
         Special {

@@ -45,6 +45,16 @@ pub type BodyReactionOutcome = BodyReaction;
 #[cfg(not(feature = "causal"))]
 pub type BodyReactionOutcome = ();
 
+/// Install a holding status (paralysis or freeze) for at least its time: a
+/// longer hold the body already has stands.
+fn hold_for(combat: &mut BodyCombat, status: ambition_hit_spec::HitStatus) {
+    match status.kind {
+        ambition_hit_spec::HitStatusKind::Paralyze => combat.paralysis_timer = combat.paralysis_timer.max(status.duration_s),
+        ambition_hit_spec::HitStatusKind::Freeze => combat.freeze_timer = combat.freeze_timer.max(status.duration_s),
+        ambition_hit_spec::HitStatusKind::Bury | ambition_hit_spec::HitStatusKind::Crumple => {}
+    }
+}
+
 pub fn apply_body_hit_reaction(
     vel: &mut ae::Vec2,
     // Preserve launch momentum against hands-off air-stop assist.
@@ -61,6 +71,10 @@ pub fn apply_body_hit_reaction(
     // `ae::hit_response::hitlag_duration`.
     damage: i32,
     properties: ambition_hit_spec::HitProperties,
+    // The status this accepted hit installs (paralysis, burial, freeze,
+    // crumple), resolved here with the hit's own armor decision and stance
+    // rather than by a later callback that names only the body (CR1).
+    status: Option<ambition_hit_spec::HitStatus>,
     // The struck body's held control (local frame) for DI (CM2). `ZERO` = none.
     di_input_local: ae::Vec2,
     stance: VictimStance,
@@ -232,7 +246,54 @@ pub fn apply_body_hit_reaction(
     // `armored: true` exactly; a `Damage` threshold absorbs a small hit and lets
     // a big one through, which is the whole of S0.5's damage half. The percent
     // is already paid either way — armor is about AUTHORITY, not damage.
-    let Some(knockback) = knockback.filter(|_| properties.armor == ambition_hit_spec::ArmorInteraction::Bypass || !combat.armor.absorbs(damage)) else {
+    let armor_absorbs = properties.armor != ambition_hit_spec::ArmorInteraction::Bypass && combat.armor.absorbs(damage);
+    // ═══ THE HIT'S STATUS ═══════════════════════════════════════════════════
+    //
+    // Part of THIS hit's reaction, so it follows the same authority: armor that
+    // absorbs the launch absorbs the status, and a gust (which hurts nobody)
+    // installs none. A status with no launch authored is still asked for.
+    // Burial and crumple REPLACE the launch, so they need a standing body; one
+    // in the air keeps its ordinary reaction below.
+    //
+    // A paralysis or a freeze HOLDS the body beside its launch, so it is
+    // installed after the launch has ended the holds of earlier hits (a real
+    // hit ends a paralysis), or the hit would end the hold it applies.
+    let status = status.filter(|status| status.is_valid() && !gust && !armor_absorbs);
+    let holding = status.filter(|status| !status.kind.replaces_launch());
+    if let Some(status) = status {
+        use ambition_hit_spec::HitStatusKind;
+        let lasts = status.duration_s;
+        match status.kind {
+            HitStatusKind::Paralyze | HitStatusKind::Freeze => {}
+            HitStatusKind::Bury | HitStatusKind::Crumple if stance.grounded => {
+                // In place of the launch: no staged launch (an earlier hit's
+                // included), no velocity, no stun, no recoil lock.
+                flight.take_launch();
+                *vel = ae::Vec2::ZERO;
+                combat.hitstun_timer = 0.0;
+                combat.recoil_lock_timer = 0.0;
+                if status.kind == HitStatusKind::Bury {
+                    combat.bury_timer = combat.bury_timer.max(lasts);
+                } else {
+                    combat.crumple_timer = combat.crumple_timer.max(lasts);
+                    combat.crumple_collapse_owed = true;
+                }
+                #[cfg(feature = "causal")]
+                return BodyReaction { velocity: *vel, di_input_local, hitstun: 0.0, had_knockback: knockback.is_some() };
+                #[cfg(not(feature = "causal"))]
+                {
+                    let _ = (di_input_local, body_pos, body_facing, gravity_dir);
+                    return;
+                }
+            }
+            HitStatusKind::Bury | HitStatusKind::Crumple => {}
+        }
+    }
+    let Some(knockback) = knockback.filter(|_| !armor_absorbs) else {
+        // No launch: a status authored without one still holds the body.
+        if let Some(status) = holding {
+            hold_for(combat, status);
+        }
         #[cfg(feature = "causal")]
         return BodyReaction {
             velocity: *vel,
@@ -383,6 +444,10 @@ pub fn apply_body_hit_reaction(
         // A crumpling body is launched by it instead of collapsing.
         combat.crumple_timer = 0.0;
         combat.crumple_collapse_owed = false;
+    }
+    // This hit's own hold, after it ended the earlier ones.
+    if let Some(status) = holding {
+        hold_for(combat, status);
     }
     // Brief hard control-lock at the front of the hitstun window: the body is thrown with no
     // authority, then regains the attack verb the instant it clears (while still in hitstun +
@@ -567,7 +632,7 @@ mod super_armor_tests {
             ae::Vec2::new(0.0, 1.0),
             false,
             Some(&hard_knockback()),
-            damage, Default::default(),
+            damage, Default::default(), None,
             ae::Vec2::ZERO,
             VictimStance::default(),
             // No budget and no ledge: this fixture is about the launch and
@@ -602,7 +667,7 @@ mod super_armor_tests {
                 ae::Vec2::new(0.0, 1.0),
                 false,
                 Some(&hard_knockback()),
-                10, Default::default(),
+                10, Default::default(), None,
                 ae::Vec2::ZERO,
                 VictimStance::default(),
                 None,
@@ -744,7 +809,7 @@ mod super_armor_tests {
             Some(&gust),
             // A gust deals no damage — the authored zero the damage floor was
             // taught to preserve.
-            0, Default::default(),
+            0, Default::default(), None,
             ae::Vec2::ZERO,
             VictimStance::default(),
             None,
@@ -793,7 +858,7 @@ mod super_armor_tests {
             ae::Vec2::new(0.0, 1.0),
             false,
             Some(&gust),
-            0, Default::default(),
+            0, Default::default(), None,
             ae::Vec2::ZERO,
             VictimStance::default(),
             None,
@@ -859,7 +924,7 @@ mod super_armor_tests {
                 // authors zero, but asking with zero would make the hitlag
                 // assertion pass for the wrong reason — the arm has to prove the
                 // KIND refuses the beat, not that the number was small.
-                9, Default::default(),
+                9, Default::default(), None,
                 ae::Vec2::ZERO,
                 VictimStance::default(),
                 Some(&mut dodge),
@@ -947,7 +1012,7 @@ mod super_armor_tests {
                 ae::Vec2::new(0.0, 1.0),
                 false,
                 Some(&gust()),
-                0, Default::default(),
+                0, Default::default(), None,
                 ae::Vec2::ZERO,
                 VictimStance::default(),
                 None,
@@ -1028,7 +1093,7 @@ mod super_armor_tests {
             ae::Vec2::new(0.0, 1.0),
             false,
             Some(&hard_knockback()),
-            12, Default::default(),
+            12, Default::default(), None,
             ae::Vec2::ZERO,
             VictimStance::default(),
             Some(&mut dodge),
@@ -1112,7 +1177,7 @@ mod super_armor_tests {
                 ae::Vec2::new(0.0, 1.0),
                 false,
                 knockback.as_ref(),
-                12, Default::default(),
+                12, Default::default(), None,
                 ae::Vec2::ZERO,
                 VictimStance::default(),
                 Some(&mut dodge),
@@ -1176,7 +1241,7 @@ mod super_armor_tests {
                 ae::Vec2::new(0.0, 1.0),
                 false,
                 Some(&hard_knockback()),
-                12, Default::default(),
+                12, Default::default(), None,
                 ae::Vec2::ZERO,
                 VictimStance {
                     pose_held,
@@ -1216,7 +1281,7 @@ mod super_armor_tests {
             let mut combat = BodyCombat { armor: ArmorPolicy::Super, ..Default::default() };
             apply_body_hit_reaction(&mut vel, &mut flight, &mut combat,
                 ae::Vec2::ZERO, 1.0, ae::Vec2::Y, false,
-                has_launch.then_some(&hard_knockback()), 12, properties,
+                has_launch.then_some(&hard_knockback()), 12, properties, None,
                 ae::Vec2::ZERO, VictimStance::default(), None, None, None, feel());
             (vel, flight, combat)
         };
@@ -1244,7 +1309,7 @@ mod super_armor_tests {
             for sdi_scale in scales {
                 apply_body_hit_reaction(&mut vel, &mut flight, &mut combat,
                     ae::Vec2::ZERO, 1.0, ae::Vec2::Y, false, None, 12,
-                    ambition_hit_spec::HitProperties { sdi_scale, ..Default::default() },
+                    ambition_hit_spec::HitProperties { sdi_scale, ..Default::default() }, None,
                     ae::Vec2::ZERO, VictimStance::default(), None, None, None, feel());
             }
             combat
@@ -1257,4 +1322,99 @@ mod super_armor_tests {
         assert_eq!(first.hitlag_sdi_scale, reversed.hitlag_sdi_scale);
     }
 
+}
+
+
+/// CR1: a hit's status is resolved inside its own reception, with its own
+/// stance and armor decision.
+#[cfg(test)]
+mod hit_status_tests {
+    use super::*;
+    use ambition_characters::actor::ArmorPolicy;
+    use ambition_hit_spec::{HitStatus, HitStatusKind};
+
+    fn knockback() -> crate::HitKnockback {
+        crate::HitKnockback {
+            reaction: ae::hit_response::HitReaction::Strike,
+            dir: 1.0,
+            magnitude: ae::hit_response::HitKnockbackMagnitude::LaunchSpeed(600.0),
+            source_pos: ae::Vec2::new(0.0, 0.0),
+            impact_pos: ae::Vec2::new(10.0, 0.0),
+            launch_dir: None,
+            follow: None,
+            guard: Default::default(),
+        }
+    }
+
+    /// One hit on `combat`: `(velocity, staged launch?, combat)`.
+    fn hit(
+        mut combat: BodyCombat,
+        status: Option<HitStatus>,
+        grounded: bool,
+        knockback: Option<&crate::HitKnockback>,
+        properties: ambition_hit_spec::HitProperties,
+    ) -> (ae::Vec2, bool, BodyCombat) {
+        let mut vel = ae::Vec2::new(120.0, 0.0);
+        let mut flight = ae::BodyFlightState::default();
+        let stance = VictimStance { grounded, pose_held: true, ..VictimStance::default() };
+        apply_body_hit_reaction(
+            &mut vel, &mut flight, &mut combat,
+            ae::Vec2::new(20.0, 0.0), 1.0, ae::Vec2::new(0.0, 1.0), false,
+            knockback, 12, properties, status,
+            ae::Vec2::ZERO, stance, None, None, None,
+            Platformer2dFeelTuningMonolith::default(),
+        );
+        (vel, !flight.pending_launch_state().is_empty(), combat)
+    }
+
+    fn status(kind: HitStatusKind, duration_s: f32) -> Option<HitStatus> {
+        Some(HitStatus { kind, duration_s })
+    }
+
+    /// Paralysis and freeze hold the body beside its launch; burial and
+    /// crumple replace a standing body's launch and stun; in the air those two
+    /// leave the ordinary reaction.
+    #[test]
+    fn each_status_follows_its_own_hit_and_stance() {
+        let ordinary = Default::default();
+        let (_, launched, c) = hit(BodyCombat::default(), status(HitStatusKind::Paralyze, 0.6), true, Some(&knockback()), ordinary);
+        assert!(launched && c.paralysis_timer == 0.6 && c.hitstun_timer > 0.0, "paralysis: {c:?}");
+        let (_, launched, c) = hit(BodyCombat::default(), status(HitStatusKind::Freeze, 1.2), false, Some(&knockback()), ordinary);
+        assert!(launched && c.freeze_timer == 1.2, "freeze keeps its launch: {c:?}");
+        for kind in [HitStatusKind::Bury, HitStatusKind::Crumple] {
+            let (vel, launched, c) = hit(BodyCombat::default(), status(kind, 1.0), true, Some(&knockback()), ordinary);
+            assert!(!launched && vel == ae::Vec2::ZERO && c.hitstun_timer == 0.0, "{kind:?} standing: {c:?}");
+            assert!(c.bury_timer == 1.0 || (c.crumple_timer == 1.0 && c.crumple_collapse_owed), "{kind:?}: {c:?}");
+            let (_, launched, c) = hit(BodyCombat::default(), status(kind, 1.0), false, Some(&knockback()), ordinary);
+            assert!(launched && c.bury_timer == 0.0 && c.crumple_timer == 0.0, "{kind:?} in the air keeps its hit: {c:?}");
+        }
+    }
+
+    /// The hit that paralyzes ends an earlier paralysis and installs its own:
+    /// a real hit ends a hold, but not the one it applies.
+    #[test]
+    fn a_hold_survives_its_own_hit_and_replaces_an_earlier_one() {
+        let held = BodyCombat { paralysis_timer: 1.5, bury_timer: 1.0, ..Default::default() };
+        let (_, _, c) = hit(held, status(HitStatusKind::Paralyze, 0.6), true, Some(&knockback()), Default::default());
+        assert_eq!((c.paralysis_timer, c.bury_timer), (0.6, 0.0), "{c:?}");
+        // With no launch authored, the status still holds.
+        let (_, launched, c) = hit(BodyCombat::default(), status(HitStatusKind::Paralyze, 0.6), true, None, Default::default());
+        assert!(!launched && c.paralysis_timer == 0.6, "{c:?}");
+    }
+
+    /// Armor that absorbs the launch absorbs the status; a bypassing hit
+    /// installs it through armor; a gust installs none.
+    #[test]
+    fn armor_and_a_gust_decide_the_status_with_the_launch() {
+        let armored = BodyCombat { armor: ArmorPolicy::Super, ..Default::default() };
+        let (_, _, c) = hit(armored, status(HitStatusKind::Bury, 1.0), true, Some(&knockback()), Default::default());
+        assert_eq!(c.bury_timer, 0.0, "armor absorbed the hit and still got buried");
+        let bypass = ambition_hit_spec::HitProperties { armor: ambition_hit_spec::ArmorInteraction::Bypass, ..Default::default() };
+        let (_, _, c) = hit(armored, status(HitStatusKind::Bury, 1.0), true, Some(&knockback()), bypass);
+        assert_eq!(c.bury_timer, 1.0, "a bypassing hit installs its status");
+        let mut gust = knockback();
+        gust.reaction = ae::hit_response::HitReaction::Windbox;
+        let (_, _, c) = hit(BodyCombat::default(), status(HitStatusKind::Paralyze, 0.6), true, Some(&gust), Default::default());
+        assert_eq!(c.paralysis_timer, 0.0, "a gust paralyzed");
+    }
 }

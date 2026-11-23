@@ -301,6 +301,7 @@ mod a_released_npc_is_the_person_it_was_built_as;
 mod scheduler_perturbation;
 mod scripted_gameplay;
 mod staged_hit_lifecycle;
+mod hit_status_home_route;
 mod shell_host_headless_entrypoint;
 mod shell_host_lifecycle;
 mod shell_host_rendered;

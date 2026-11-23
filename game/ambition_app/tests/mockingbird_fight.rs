@@ -143,7 +143,7 @@ fn shots(sim: &mut Platformer2dSimHarness) -> Vec<(String, ae::Vec2, ae::Vec2)> 
 fn strike(sim: &mut Platformer2dSimHarness, damage: i32) -> i32 {
     use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
     let before = bird(sim);
-    sim.world_mut().write_message(HitEvent {
+    sim.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,

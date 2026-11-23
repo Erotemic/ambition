@@ -357,38 +357,6 @@ Port `ambition.body.observer_slow@1`, request: `this.requests.push(request("<ali
 
 No fields: `request("observer_slow", #{})`.
 
-## `paralyze`
-
-Port `ambition.combat.paralyze@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
-
-| field | value | when absent | meaning |
-|---|---|---|---|
-| `duration_s` | number | required | Seconds the body is held (world seconds). |
-
-## `bury`
-
-Port `ambition.combat.bury@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
-
-| field | value | when absent | meaning |
-|---|---|---|---|
-| `duration_s` | number | required | Seconds the body stays buried (world seconds). |
-
-## `freeze`
-
-Port `ambition.combat.freeze@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
-
-| field | value | when absent | meaning |
-|---|---|---|---|
-| `duration_s` | number | required | Seconds the body stays encased (world seconds). |
-
-## `crumple`
-
-Port `ambition.combat.crumple@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
-
-| field | value | when absent | meaning |
-|---|---|---|---|
-| `duration_s` | number | required | Seconds the body sags before it collapses (world seconds). |
-
 ## `mend`
 
 Port `ambition.combat.mend@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.

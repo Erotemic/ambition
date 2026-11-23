@@ -131,7 +131,7 @@ fn coop_friendly_fire_reaches_both_body_consumers_through_real_melee_contacts() 
             for _ in 0..2 { sim.step(base()); }
             let before = damage_taken(&sim, victim);
             let strike = sim.world_mut().spawn((
-                combat::strike::Hitbox {
+                combat::strike::Hitbox { status: None,
                     properties: Default::default(),
                     owner: source, source: combat::strike::HitSide::Player,
                     anchor: combat::strike::HitboxAnchor::FollowOwner { local_offset: ae::Vec2::ZERO },
@@ -493,7 +493,7 @@ fn an_environmental_strike_can_hurt_its_credit_body_in_either_seat() {
             let pos = sim.world().get::<ae::BodyKinematics>(owner).unwrap().pos;
             let before = [owner, other].map(|body| damage_taken(&sim, body));
             sim.world_mut().spawn((
-                Hitbox {
+                Hitbox { status: None,
                     properties: Default::default(),
                     owner, source, anchor: HitboxAnchor::World { center: pos },
                     half_extent: ae::Vec2::splat(80.0), shape: None, facing: 1.0, damage: 4,

@@ -338,28 +338,28 @@ pub struct BodyCombat {
     /// until a move says otherwise.
     pub sleep_timer: f32,
     /// PARALYZED: seconds left in which this body is held where it was struck
-    /// and cannot act (a `smash.paralyze` hit). Unlike a sleep the body does
+    /// and cannot act (a hit with `HitStatusKind::Paralyze`). Unlike a sleep the body does
     /// not fall or drift: its step is frozen, as in hitlag, and the stun and
     /// recoil lock of the hit wait for the end of it ([`Self::is_paralyzed`]).
     /// A real hit ends it, and so does the game's mash rule. `0.0` for every
     /// body nothing has paralyzed.
     pub paralysis_timer: f32,
     /// BURIED: seconds left in which this body is driven into the floor it
-    /// stood on (a `smash.bury` hit). It is held where it is and cannot act;
+    /// stood on (a hit with `HitStatusKind::Bury`). It is held where it is and cannot act;
     /// the burial REPLACES the hit's launch and stun, which its lowering
     /// drops. A real hit ends it, and so does the game's mash rule. Only the
     /// drawn body sinks ([`Self::is_buried`] is read by presentation): the
     /// body's box stays on the floor, so no collision is embedded. `0.0` for
     /// every body nothing has buried.
     pub bury_timer: f32,
-    /// FROZEN: seconds left in which this body is encased (a `smash.freeze`
+    /// FROZEN: seconds left in which this body is encased (a `HitStatusKind::Freeze`
     /// hit) and cannot act or steer. Unlike a paralysis it is NOT held: the
     /// block keeps its hit's launch and falls and slides as a body does, so it
     /// is a gameplay freeze and not hitlag. A real hit shatters it, and the
     /// game's mash rule thaws it. `0.0` for every body nothing has frozen.
     pub freeze_timer: f32,
     /// CRUMPLING: seconds left in which this body sags where it stood (a
-    /// `smash.crumple` hit), held and unable to act, before it collapses to
+    /// `HitStatusKind::Crumple` hit), held and unable to act, before it collapses to
     /// the floor. Like a burial it REPLACES the hit's launch and stun. A real
     /// hit ends it, and that hit launches the body instead. `0.0` for every
     /// body nothing has crumpled.

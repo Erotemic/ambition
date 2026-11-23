@@ -88,7 +88,7 @@ pub fn strike_it_with_the_moon(
         if !struck {
             continue;
         }
-        hits.write(ambition_combat::HitEvent {
+        hits.write(ambition_combat::HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,

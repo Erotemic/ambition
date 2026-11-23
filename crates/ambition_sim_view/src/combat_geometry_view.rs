@@ -398,7 +398,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
                 ambition_characters::actor::BodyCombat::default(),
             ))
             .id();
-        app.world_mut().spawn(Hitbox {
+        app.world_mut().spawn(Hitbox { status: None,
             properties: Default::default(),
             // Not a windbox: these fixtures are about the geometry VIEW.
             owner,
@@ -446,7 +446,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
         let owner = app.world_mut().spawn_empty().id();
         app.world_mut().despawn(owner);
         let center = ae::Vec2::new(310.0, 170.0);
-        app.world_mut().spawn(Hitbox {
+        app.world_mut().spawn(Hitbox { status: None,
             properties: Default::default(),
             // Not a windbox: these fixtures are about the geometry VIEW.
             owner,
@@ -559,7 +559,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
             .id();
         let victim = app.world_mut().spawn_empty().id();
         app.world_mut().spawn((
-            Hitbox {
+            Hitbox { status: None,
                 properties: Default::default(),
                 // Not a windbox: this fixture is about the geometry VIEW.
                 owner,
@@ -603,7 +603,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
                 ambition_characters::actor::BodyCombat::default(),
             ))
             .id();
-        app.world_mut().spawn(Hitbox {
+        app.world_mut().spawn(Hitbox { status: None,
             properties: Default::default(),
             // Not a windbox: this fixture is about the geometry VIEW.
             owner,

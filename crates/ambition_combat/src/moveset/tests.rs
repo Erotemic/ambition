@@ -4031,7 +4031,7 @@ fn swept_track(reaches: [f32; 3], segment_s: f32) -> MoveSpec {
         recover_s: 0.05,
         ..Default::default()
     });
-    let volume = |reach: f32| HitVolume {
+    let volume = |reach: f32| HitVolume { status: None,
         properties: Default::default(),
         shape: ambition_entity_catalog::VolumeShape::Rect {
             offset: (reach, 0.0),
@@ -5005,7 +5005,7 @@ fn charging_smash() -> MoveSpec {
                 start_s: CHARGE_ACTIVE_AT_S,
                 end_s: 0.16,
                 tag: WindowTag::Active,
-                volumes: vec![HitVolume {
+                volumes: vec![HitVolume { status: None,
                     properties: Default::default(),
                     hit_sfx: None,
                     shape: ambition_entity_catalog::VolumeShape::Rect {
@@ -6152,7 +6152,7 @@ fn two_spot_move(id: &str, volumes: Vec<HitVolume>) -> MoveSpec {
 }
 
 fn spot(offset: (f32, f32), damage: i32) -> HitVolume {
-    HitVolume {
+    HitVolume { status: None,
         properties: Default::default(),
         hit_sfx: None,
         shape: ambition_entity_catalog::VolumeShape::Rect {
@@ -6302,7 +6302,7 @@ fn volumes_that_do_not_both_reach_the_body_both_still_land() {
 
 /// A narrow spot, so a body can be inside one and outside its sibling.
 fn narrow_spot(offset: (f32, f32), damage: i32) -> HitVolume {
-    HitVolume {
+    HitVolume { status: None,
         properties: Default::default(),
         hit_sfx: None,
         shape: ambition_entity_catalog::VolumeShape::Rect {

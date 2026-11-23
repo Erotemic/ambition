@@ -120,7 +120,7 @@ fn strike(sim: &mut Platformer2dSimHarness, entity: Entity, damage: i32) {
         let world = sim.world_mut();
         world.query_filtered::<Entity, PrimaryPlayerOnly>().iter(world).next()
     };
-    sim.world_mut().write_message(HitEvent {
+    sim.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,

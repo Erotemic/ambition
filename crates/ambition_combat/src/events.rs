@@ -872,6 +872,10 @@ pub struct HitEvent {
     pub mode: HitMode,
     /// Knockback carried by this hit. `None` means the hit does not push its victim.
     pub knockback: Option<HitKnockback>,
+    /// The status this hit installs if its receiver accepts it, beside the
+    /// launch rather than inside it: a status with no launch is still asked
+    /// for (CR1).
+    pub status: Option<ambition_hit_spec::HitStatus>,
     /// Target keys that have already been hit by this one-hit-per-
     /// target source. Empty for ordinary one-frame projectiles /
     /// hazards / pogos.

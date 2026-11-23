@@ -824,7 +824,7 @@ fn bob_strikes_during_room_preparation(
     let Some((victim, _, _, body, target_room)) = bodies.iter().find(|(_, id, _, _, _)|
         **id == target.0) else { return };
     if room != target_room { return; }
-    hits.write(HitEvent {
+    hits.write(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,

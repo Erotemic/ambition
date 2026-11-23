@@ -72,6 +72,9 @@ pub struct Hitbox {
     /// the pulse is not — the runtime samples it, because that is a fact about
     /// the moment and not about the move.
     pub reaction: Option<ambition_entity_catalog::VolumeReaction>,
+    /// The status this strike's accepted hit installs, from the volume. The
+    /// receiver resolves it with the hit's reaction (CR1).
+    pub status: Option<ambition_hit_spec::HitStatus>,
     /// How this strike meets a raised guard, from the volume (S0.3).
     pub guard: ambition_entity_catalog::VolumeGuard,
     pub frame_down: ae::Vec2,
@@ -354,7 +357,7 @@ pub(crate) fn spawn_damage_box(
     dbox: DamageBox,
 ) -> Entity {
     let mut e = commands.spawn((
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             // A `DamageBox` effect is a hit by construction — the name is the
@@ -456,7 +459,7 @@ pub fn spawn_body_strike(
     }
     let mut strike = commands
         .spawn((
-            Hitbox {
+            Hitbox { status: None,
                 properties: Default::default(),
                 strike_sfx,
                 owner,
@@ -532,7 +535,7 @@ mod hitbox_shape_tests {
     fn shaped_hitbox_resolves_its_shape_at_the_anchor() {
         // A disc FollowOwner hitbox resolves to a Circle centered at owner+offset,
         // not the half_extent box.
-        let hb = Hitbox {
+        let hb = Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner: Entity::PLACEHOLDER,
@@ -563,7 +566,7 @@ mod hitbox_shape_tests {
 
     #[test]
     fn unshaped_hitbox_falls_back_to_the_half_extent_box() {
-        let hb = Hitbox {
+        let hb = Hitbox { status: None,
             properties: Default::default(),
             strike_sfx: None,
             owner: Entity::PLACEHOLDER,
@@ -596,7 +599,7 @@ mod material_tests {
     use ae::AabbExt as _;
 
     fn strike() -> Hitbox {
-        Hitbox {
+        Hitbox { status: None,
             properties: Default::default(),
             owner: Entity::PLACEHOLDER, source: HitSide::Player,
             anchor: HitboxAnchor::FollowOwner { local_offset: ae::Vec2::new(12.0, -8.0) },

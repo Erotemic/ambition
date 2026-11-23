@@ -1870,6 +1870,7 @@ pub fn advance_move_playback(
                             // does — an intermediate multi-hit pulse authors it,
                             // the final one does not.
                             reaction: volume.reaction,
+                            status: volume.status,
                             guard: volume.guard,
                             properties: volume.properties,
                             frame_down: ae::Vec2::Y,

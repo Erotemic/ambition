@@ -246,7 +246,7 @@ fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
     let hitbox = app
         .world_mut()
         .spawn((
-            Hitbox {
+            Hitbox { status: None,
                 properties: Default::default(),
                 strike_sfx: None,
                 owner,

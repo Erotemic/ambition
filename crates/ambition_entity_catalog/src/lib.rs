@@ -53,19 +53,15 @@ pub use hazard::{MoveHazard, ShotLaunch, ThreatTravel, RANGED_ACTION_REACH};
 /// `ambition_characters::smash_hold_state`.
 pub mod smash_bolt;
 pub mod smash_bomb;
-pub mod smash_bury;
 pub mod smash_capture;
 pub mod smash_counter;
-pub mod smash_crumple;
 pub mod smash_lifesteal;
 pub mod smash_seeker;
 pub mod smash_flyline;
-pub mod smash_freeze;
 pub mod smash_hit_grab;
 pub mod smash_homing;
 pub mod smash_limit;
 pub mod smash_mark;
-pub mod smash_paralyze;
 pub mod smash_recoil;
 pub mod smash_mine;
 pub mod smash_portal;
@@ -1040,7 +1036,7 @@ pub enum VolumeReaction {
 }
 
 pub use ambition_hit_spec::{
-    ArmorInteraction, ClashPolicy, HitGuard as VolumeGuard, HitProperties, HitTargets, LaunchWeight,
+    ArmorInteraction, ClashPolicy, HitGuard as VolumeGuard, HitProperties, HitStatus, HitStatusKind, HitTargets, LaunchWeight,
     TechPolicy, VictimPosture,
 };
 
@@ -1088,6 +1084,10 @@ pub struct HitVolume {
     /// push at once.
     #[serde(default)]
     pub reaction: Option<VolumeReaction>,
+    /// A status this volume's accepted hit installs as part of its reaction
+    /// (paralysis, burial, freeze, crumple). `None`: the ordinary reaction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<ambition_hit_spec::HitStatus>,
     /// How this volume meets a raised guard. Absent in data: a guard blocks
     /// it, at its damage.
     #[serde(default, skip_serializing_if = "VolumeGuard::is_ordinary")]
@@ -2549,6 +2549,8 @@ impl MoveSpec {
                     knockback_growth: _,
                     launch_dir: _,
                     reaction: _,
+                    // A status is hit data, not a technique.
+                    status: _,
                     on_hit,
                     vfx: _,
                     hit_sfx: _,
@@ -4438,7 +4440,7 @@ impl EntityCatalogDoc {
                     }
 
                     for v in &w.volumes {
-                        if !v.properties.is_valid() {
+                        if !v.properties.is_valid() || v.status.is_some_and(|status| !status.is_valid() || v.windbox().is_some()) {
                             errors.push(CatalogError::InvalidHitProperties { entity: entity.id.clone(), mv: mv.id.clone(), window: index });
                         }
                         let degenerate = match v.shape {

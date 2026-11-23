@@ -32,7 +32,7 @@ fn blasts(sim: &mut Platformer2dSimHarness) -> usize {
 /// A lethal hit on `body`, as a strike delivers one.
 fn kill(sim: &mut Platformer2dSimHarness, body: Entity, kin: &BodyKinematics) {
     use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
-    sim.world_mut().write_message(HitEvent {
+    sim.world_mut().write_message(HitEvent { status: None,
         origin: None,
         properties: Default::default(),
         contact: None,

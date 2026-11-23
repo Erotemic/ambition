@@ -1269,7 +1269,7 @@ impl KoProbe {
                 self.app
                     .world_mut()
                     .spawn((
-                        ambition_platformer2d::combat::strike::Hitbox {
+                        ambition_platformer2d::combat::strike::Hitbox { status: None,
                             properties: Default::default(),
                             owner: attacker,
                             source: ambition_platformer2d::vfx::HitSide::Enemy,
@@ -1633,7 +1633,7 @@ impl KoProbe {
             .app
             .world_mut()
             .spawn((
-                ambition_platformer2d::combat::strike::Hitbox {
+                ambition_platformer2d::combat::strike::Hitbox { status: None,
                     properties: Default::default(),
                     owner: attacker,
                     source: ambition_platformer2d::vfx::HitSide::Enemy,
@@ -3266,7 +3266,7 @@ mod tests {
     }
 
     fn sample_volume() -> HitVolume {
-        HitVolume {
+        HitVolume { status: None,
             properties: Default::default(),
             shape: ambition_entity_catalog::VolumeShape::Rect {
                 offset: (0.0, 0.0),

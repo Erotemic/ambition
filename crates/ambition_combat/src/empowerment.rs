@@ -280,7 +280,7 @@ pub fn apply_contact_harm(
             } else {
                 -1.0
             };
-            hit_events.write(HitEvent {
+            hit_events.write(HitEvent { status: None,
                 origin: None,
                 properties: Default::default(),
                 contact: None,

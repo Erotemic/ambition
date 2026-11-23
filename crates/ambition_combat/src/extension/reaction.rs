@@ -11,7 +11,7 @@
 use ambition_characters::brain::action_set::{ActionRequest, SpecialActionSpec};
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::brain::ActorActionMessage;
-use ambition_combat_port::{AnswerParryPort, BuryPort, CrumplePort, FreezePort, MendPort, ParalyzePort, RecoilPort, SeizeStruckPort, Parried, ParriedPort, Struck};
+use ambition_combat_port::{AnswerParryPort, MendPort, RecoilPort, SeizeStruckPort, Parried, ParriedPort, Struck};
 pub use ambition_combat_port::StruckPort;
 use ambition_entity_catalog::ParamValue;
 use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
@@ -44,89 +44,11 @@ pub fn install_for_hit_reaction(app: &mut App) {
         "ambition_combat",
         queue_strikes.run_if(ambition_extension_host::trigger_is_bound::<StruckPort>),
     );
-    app.install_extension_submitted_request::<ParalyzePort, _>(HIT_REACTION, "ambition_combat", lower_paralyses);
-    app.install_extension_submitted_request::<BuryPort, _>(HIT_REACTION, "ambition_combat", lower_burials);
-    app.install_extension_submitted_request::<FreezePort, _>(HIT_REACTION, "ambition_combat", lower_freezes);
-    app.install_extension_submitted_request::<CrumplePort, _>(HIT_REACTION, "ambition_combat", lower_crumples);
     app.install_extension_submitted_request::<MendPort, _>(HIT_REACTION, "ambition_combat", lower_mends);
     app.install_extension_submitted_request::<RecoilPort, _>(HIT_REACTION, "ambition_combat", lower_recoils);
     app.add_message::<crate::capture::CaptureAttemptRequested>();
     app.install_extension_submitted_request::<SeizeStruckPort, _>(HIT_REACTION, "ambition_combat", lower_struck_seizes);
     super::status::install_for_hit_reaction(app);
-}
-
-/// Bury each grounded body a module buried (see the port card): the burial
-/// replaces the reaction of the hit that asked for it, so that hit's staged
-/// launch, velocity, stun and recoil lock are dropped. A body in the air is
-/// left as its hit left it.
-pub fn lower_burials(
-    mut outbox: ResMut<ExtensionOutbox>,
-    mut bodies: Query<(
-        &mut ambition_characters::actor::BodyCombat,
-        &mut ambition_platformer2d_core::BodyKinematics,
-        &mut ambition_platformer2d_core::BodyFlightState,
-        &ambition_platformer2d_core::BodyGroundState,
-    )>,
-) {
-    for submitted in outbox.drain::<BuryPort>(&HIT_REACTION) {
-        let duration_s = submitted.value.duration_s;
-        if !duration_s.is_finite() || duration_s <= 0.0 {
-            warn!("extension entry {} asked for a burial of {duration_s} s; refused", submitted.entry);
-            continue;
-        }
-        let Ok((mut combat, mut kin, mut flight, ground)) = bodies.get_mut(submitted.scope) else {
-            warn!("extension entry {} asked to bury a body that has no ground to be buried in; refused", submitted.entry);
-            continue;
-        };
-        if !ground.on_ground {
-            continue;
-        }
-        flight.take_launch();
-        ambition_platformer2d_core::movement::pin_body_in_place(&mut kin);
-        combat.hitstun_timer = 0.0;
-        combat.recoil_lock_timer = 0.0;
-        if combat.bury_timer < duration_s {
-            combat.bury_timer = duration_s;
-        }
-    }
-}
-
-/// Crumple each grounded body a module crumpled (see the port card): like a
-/// burial it replaces the hit's reaction, so the hit's staged launch,
-/// velocity, stun and recoil lock are dropped, and the body owes the collapse
-/// the body step spends when the sag ends. A body in the air is left as its
-/// hit left it.
-pub fn lower_crumples(
-    mut outbox: ResMut<ExtensionOutbox>,
-    mut bodies: Query<(
-        &mut ambition_characters::actor::BodyCombat,
-        &mut ambition_platformer2d_core::BodyKinematics,
-        &mut ambition_platformer2d_core::BodyFlightState,
-        &ambition_platformer2d_core::BodyGroundState,
-    )>,
-) {
-    for submitted in outbox.drain::<CrumplePort>(&HIT_REACTION) {
-        let duration_s = submitted.value.duration_s;
-        if !duration_s.is_finite() || duration_s <= 0.0 {
-            warn!("extension entry {} asked for a crumple of {duration_s} s; refused", submitted.entry);
-            continue;
-        }
-        let Ok((mut combat, mut kin, mut flight, ground)) = bodies.get_mut(submitted.scope) else {
-            warn!("extension entry {} asked to crumple a body that has no ground to crumple on; refused", submitted.entry);
-            continue;
-        };
-        if !ground.on_ground {
-            continue;
-        }
-        flight.take_launch();
-        ambition_platformer2d_core::movement::pin_body_in_place(&mut kin);
-        combat.hitstun_timer = 0.0;
-        combat.recoil_lock_timer = 0.0;
-        if combat.crumple_timer < duration_s {
-            combat.crumple_timer = duration_s;
-        }
-        combat.crumple_collapse_owed = true;
-    }
 }
 
 /// Seize each struck body for the striker a module named (see the port card):
@@ -231,50 +153,6 @@ pub fn lower_recoils(
         };
         if !out_of_play {
             health.spend(amount, 1);
-        }
-    }
-}
-
-/// Encase each body a module froze for at least the asked time (see the port
-/// card). Its motion is left alone: the block keeps the hit's launch.
-pub fn lower_freezes(
-    mut outbox: ResMut<ExtensionOutbox>,
-    mut bodies: Query<&mut ambition_characters::actor::BodyCombat>,
-) {
-    for submitted in outbox.drain::<FreezePort>(&HIT_REACTION) {
-        let duration_s = submitted.value.duration_s;
-        if !duration_s.is_finite() || duration_s <= 0.0 {
-            warn!("extension entry {} asked for a freeze of {duration_s} s; refused", submitted.entry);
-            continue;
-        }
-        let Ok(mut combat) = bodies.get_mut(submitted.scope) else {
-            warn!("extension entry {} asked to freeze a body with no combat state; refused", submitted.entry);
-            continue;
-        };
-        if combat.freeze_timer < duration_s {
-            combat.freeze_timer = duration_s;
-        }
-    }
-}
-
-/// Hold each body a module paralyzed for at least the asked time (see the
-/// port card): a longer paralysis it already has stands.
-pub fn lower_paralyses(
-    mut outbox: ResMut<ExtensionOutbox>,
-    mut bodies: Query<&mut ambition_characters::actor::BodyCombat>,
-) {
-    for submitted in outbox.drain::<ParalyzePort>(&HIT_REACTION) {
-        let duration_s = submitted.value.duration_s;
-        if !duration_s.is_finite() || duration_s <= 0.0 {
-            warn!("extension entry {} asked for a paralysis of {duration_s} s; refused", submitted.entry);
-            continue;
-        }
-        let Ok(mut combat) = bodies.get_mut(submitted.scope) else {
-            warn!("extension entry {} asked to paralyze a body with no combat state; refused", submitted.entry);
-            continue;
-        };
-        if combat.paralysis_timer < duration_s {
-            combat.paralysis_timer = duration_s;
         }
     }
 }

@@ -499,7 +499,7 @@ impl ContactAttack {
         let impact = midpoint(target_body.center(), self.volume.center());
         let dir =
             ((target_body.center() - self.source_pos).dot(self.frame_side)).signum_or(self.facing);
-        Some(HitEvent {
+        Some(HitEvent { status: None,
             origin: None,
             properties: Default::default(),
             contact: None,

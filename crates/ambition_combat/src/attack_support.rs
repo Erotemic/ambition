@@ -464,7 +464,7 @@ mod tests {
             ))
             .id();
         app.world_mut().spawn((
-            Hitbox {
+            Hitbox { status: None,
                 properties: Default::default(),
                 strike_sfx: None,
                 owner: striker,

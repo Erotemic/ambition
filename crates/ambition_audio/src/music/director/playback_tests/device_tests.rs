@@ -241,7 +241,8 @@ fn a_native_loop_exit_runs_after_several_passes_during_a_host_stall() {
         cue.playback.section_crossfade_seconds = Some(0.0);
     }
     let catalog = MusicCueCatalog::prepare(authored, &Default::default()).unwrap();
-    let (mut app, handles) = fixture_catalog_output(catalog, crate::output::AudioOutputMode::Device);
+    let (mut app, handles) =
+        fixture_catalog_output(catalog, crate::output::AudioOutputMode::Device);
     app.finish();
     app.cleanup();
     publish(&mut app, selection("trail", "song", "room", 0, 10));
@@ -256,4 +257,64 @@ fn a_native_loop_exit_runs_after_several_passes_during_a_host_stall() {
     run_for(&mut app, 0.05);
     assert_running(&app, "trail", "later");
     assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+}
+
+#[test]
+#[ignore = "uses the native audio device; run with an explicit output or capture device"]
+fn a_native_ending_can_finish_between_host_observations_and_release_its_successor() {
+    let mut authored = authored_cues(240.0);
+    for cue in &mut authored.cues {
+        cue.playback.ending_crossfade_seconds = Some(0.1);
+        cue.playback.return_overlap_seconds = Some(0.0);
+    }
+    let catalog = MusicCueCatalog::prepare(authored, &Default::default()).unwrap();
+    let (mut app, handles) =
+        fixture_catalog_output(catalog, crate::output::AudioOutputMode::Device);
+    app.finish();
+    app.cleanup();
+    for (index, handle) in handles.iter().enumerate() {
+        decode_tone(&mut app, handle, index);
+    }
+    let fight = selection("trail", "song", "fight", 1, 200);
+    publish(&mut app, fight.clone());
+    run_for(&mut app, 0.4);
+    assert_running(&app, "trail", "song");
+    let entry = app
+        .world()
+        .resource::<MusicDirectorState>()
+        .admitted()
+        .unwrap()
+        .entry;
+    publish(&mut app, selection("destination", "song", "room", 0, 10));
+    app.world_mut().resource_mut::<MusicIntent>().outgoing = Some(MusicDisposition {
+        claim: fight.claim,
+        entry,
+        reason: MusicReleaseReason::Completed,
+    });
+    let mut prepared = false;
+    for _ in 0..60 {
+        run_for(&mut app, 0.001);
+        prepared = app
+            .world()
+            .resource::<MusicPlayback>()
+            .groups()
+            .any(|group| {
+                group.scheduled_state() == Some("outro") && group.transport_origin.is_some()
+            });
+        if prepared {
+            break;
+        }
+    }
+    assert!(prepared, "the ending was not admitted before its exit");
+    publish(&mut app, selection("destination", "later", "room_b", 0, 10));
+    run_for(&mut app, 0.001);
+    std::thread::sleep(Duration::from_secs_f64(3.0));
+    run_for(&mut app, 0.3);
+    assert_running(&app, "destination", "later");
+    let director = app.world().resource::<MusicDirectorState>();
+    assert!(!director.has_ending());
+    assert_eq!(
+        director.last_ending_result,
+        Some((entry, MusicEndingResult::Finished))
+    );
 }

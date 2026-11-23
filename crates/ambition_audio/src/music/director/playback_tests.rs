@@ -2022,3 +2022,64 @@ fn a_prepared_native_exit_has_no_host_frame_delay_at_its_boundary() {
         Some("later")
     );
 }
+
+#[test]
+fn an_ending_completion_releases_the_latest_goal_without_a_running_observation() {
+    let mut authored = authored_cues(60.0);
+    for cue in &mut authored.cues {
+        cue.playback.ending_exit = Some(crate::music_policy::MusicExitRule::Bars(1));
+        cue.playback.return_overlap_seconds = Some(0.0);
+    }
+    let (mut app, handles) = fixture_with(authored);
+    for handle in &handles {
+        decode(&mut app, handle);
+    }
+    let fight = selection("trail", "song", "fight", 1, 200);
+    publish(&mut app, fight.clone());
+    frames(&mut app, 7);
+    let entry = app
+        .world()
+        .resource::<MusicDirectorState>()
+        .admitted()
+        .unwrap()
+        .entry;
+    publish(&mut app, selection("destination", "song", "room_a", 0, 10));
+    app.world_mut().resource_mut::<MusicIntent>().outgoing = Some(MusicDisposition {
+        claim: fight.claim,
+        entry,
+        reason: MusicReleaseReason::Completed,
+    });
+    for _ in 0..4 {
+        step(&mut app, 0.0);
+    }
+    assert!(app
+        .world()
+        .resource::<MusicPlayback>()
+        .groups()
+        .any(|group| {
+            group.scheduled_state() == Some("outro") && group.transport_origin.is_some()
+        }));
+    assert!(
+        !app.world()
+            .resource::<MusicDirectorState>()
+            .ending
+            .as_ref()
+            .unwrap()
+            .started
+    );
+    publish(&mut app, selection("destination", "later", "room_b", 0, 10));
+    step(&mut app, 12.0);
+    frames(&mut app, 4);
+    let director = app.world().resource::<MusicDirectorState>();
+    assert!(!director.has_ending());
+    assert_eq!(
+        director.last_ending_result,
+        Some((entry, MusicEndingResult::Finished))
+    );
+    assert_eq!(director.current_state_id.as_deref(), Some("later"));
+    assert_eq!(
+        director.admitted().unwrap().selection.claim.source,
+        "room_b"
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 6);
+}

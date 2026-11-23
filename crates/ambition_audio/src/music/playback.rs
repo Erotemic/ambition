@@ -700,6 +700,7 @@ impl MusicPlayback {
                 let mut accounted = true;
                 for (voice, observation) in group.voices.iter_mut().zip(observations) {
                     match observation {
+                        #[cfg(test)]
                         VoiceObservation::Queued => accounted = false,
                         VoiceObservation::Absent | VoiceObservation::Stopped => {
                             output.release(&voice.handle)
@@ -812,6 +813,7 @@ impl MusicPlayback {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum VoiceObservation {
+    #[cfg(test)]
     Queued,
     Absent,
     Paused,

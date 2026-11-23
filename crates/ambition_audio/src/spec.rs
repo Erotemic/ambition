@@ -179,7 +179,7 @@ impl SfxSpec {
 /// Hand edits are overwritten; change the generator's denylist or display-name
 /// map instead. The format is only ids, so it can be generated: the OGG sets
 /// the length, and the music director owns looping and crossfade.
-#[derive(Clone, Debug, Deserialize, PartialEq, Resource)]
+#[derive(Clone, Debug, Deserialize, serde::Serialize, PartialEq, Resource)]
 #[serde(deny_unknown_fields)]
 pub struct MusicRegistry {
     /// Track id played at startup, or when no radio station is selected.
@@ -223,7 +223,7 @@ impl MusicRegistry {
 /// `asset_path` is optional; the default is the conventional
 /// `audio/music/generated/{id}/full.ogg`. Set it only for off-convention
 /// assets (for example an adaptive cue's section mix).
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, serde::Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct MusicTrack {
     pub id: String,

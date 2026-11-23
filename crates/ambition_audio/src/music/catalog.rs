@@ -322,6 +322,7 @@ mod provider_registry_tests {
             crate::cue_spec::AuthoredMusicCues {
                 cues: vec![MusicCueSpec {
                     id: cue_id.to_owned(),
+                    playback: Default::default(),
                     media: MusicCueMedia::Inline {
                         asset_root: "audio/adaptive".to_owned(),
                         bpm: 120.0,

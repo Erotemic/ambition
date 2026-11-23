@@ -9,6 +9,7 @@ use crate::world::rooms::{Authored, RoomSet};
 fn catalog() -> PreparedMusicCatalog {
     let cue = MusicCueSpec {
         id: "guard".into(),
+        playback: Default::default(),
         media: MusicCueMedia::Inline {
             asset_root: "audio/guard".into(),
             bpm: 120.0,

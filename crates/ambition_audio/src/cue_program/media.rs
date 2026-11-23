@@ -29,6 +29,31 @@ pub(super) fn link<'a>(
         })
     };
     let (sections, identity, mastered_full) = match &cue.media {
+        MusicCueMedia::Assets { sections } => {
+            let mut prepared = Vec::new();
+            for section in sections {
+                let sources = section
+                    .sources
+                    .iter()
+                    .map(|item| source(&item.layer_id, item.path.clone(), None))
+                    .collect::<Result<Vec<_>, _>>()?;
+                prepared.push(PreparedMusicSection {
+                    id: section.id.clone(),
+                    musical_duration_seconds: None,
+                    file_duration_seconds: None,
+                    clock: PreparedMusicClock::Unclocked,
+                    markers: Vec::new(),
+                    retained_material: None,
+                    looped: section.looped,
+                    sources,
+                });
+            }
+            (
+                prepared,
+                None,
+                cue.layers.len() == 1 && slots.contains_key("full"),
+            )
+        }
         MusicCueMedia::Inline {
             asset_root: _,
             bpm,
@@ -70,7 +95,7 @@ pub(super) fn link<'a>(
                 }
                 prepared.push(PreparedMusicSection {
                     id: section.id.clone(),
-                    duration_seconds: duration,
+                    musical_duration_seconds: Some(duration),
                     file_duration_seconds: None,
                     looped: section.looped,
                     sources,
@@ -147,8 +172,9 @@ pub(super) fn link<'a>(
                     .expect("validated published section");
                 prepared.push(PreparedMusicSection {
                     id: section.id.clone(),
-                    duration_seconds: frames.musical_end_frame as f64
-                        / f64::from(frames.sample_rate),
+                    musical_duration_seconds: Some(
+                        frames.musical_end_frame as f64 / f64::from(frames.sample_rate),
+                    ),
                     file_duration_seconds: Some(
                         frames.file_frames as f64 / f64::from(frames.sample_rate),
                     ),

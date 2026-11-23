@@ -24,6 +24,61 @@ uv run --project tools/ambition_music_renderer \
 
 Prefer CLI help and the tool-local README over old copied flag lists.
 
+## Inspect native playback policy
+
+```bash
+cargo run -p ambition_content_check --bin ambition_content_check -- \
+  game/ambition_content/assets --inspect-music --advisory-assets
+```
+
+The JSON joins expanded game policy with the selected producer identity,
+products, clocks, section ends, gains, exit wait bounds, and required voices.
+A null wait bound needs decode facts or has no exit. Musical bounds exclude
+preparation and frame observation latency. Inspection does not prove native
+voice admission or speaker output. The native owner checks decoded layer
+rates and frame counts before it resumes a group. Each voice retains its
+source facts through asset reload.
+
+A whole-asset section uses `AssetEnd` without a score clock. For example,
+a cue file can declare this loop:
+
+```ron
+(
+    cues: [(
+        id: "ambient",
+        media: Assets(sections: [(
+            id: "song", looped: true,
+            sources: [(layer_id: "full", path: "audio/ambient.ogg")],
+        )]),
+        relative_volume: 1.0,
+        layers: [(id: "full", slot: 0)],
+        states: [(id: "song", section_id: "song", gains: [(layer_id: "full", gain: 1.0)])],
+    )],
+)
+```
+
+Set `looped: false` for a one-shot. An intro state can name a loop state
+through `next_state`. An ending uses `outro_state` and the existing scoped
+completion binding. Layered states can name the same section with different
+gains. All these forms use the same bounded playback owner.
+
+An optional `playback: (...)` sets overrides, such as
+`playback: (section_crossfade_seconds: Some(0.4))`. Omitted fields retain the
+recipe defaults. `section_exit` and
+`ending_exit` accept `Some(Immediate)`, `Some(AssetEnd)`, `Some(MusicalEnd)`,
+`Some(Bars(n))`, or
+`Some(Markers(["exit_id", ...]))`. Preparation checks exit references and clock
+support. Whole assets default to immediate state changes. Clocked programs
+default to one-bar changes and two-bar ending exits.
+
+The policy also sets section, ending, and continuation fades; return overlap;
+and the ending-media timeout. `exhausted: Some(Finish)` stops automatic late entry
+after a one-shot reaches its file end. The default is `StartReadyTarget`.
+`FrameDriven` timing is supported. `SampleAccurate` and `PhasePreserving`
+requirements fail preparation because the current native adapter cannot
+promise them. Pickup scheduling and independent tail release are not admitted
+by this policy surface.
+
 ## One-cue loop
 
 ```bash

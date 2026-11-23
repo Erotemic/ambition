@@ -309,6 +309,29 @@ pub fn observe_music_playback(
             };
         }
     }
+    if let Some(MusicGoal::Play(selected)) = intent.goal.as_ref() {
+        if matches!(selected.choice, MusicChoice::Cue { .. })
+            && director.as_ref().is_some_and(|director| {
+                director.transport_completed
+                    && director.selection().is_some_and(|old| {
+                        old.can_continue(selected) && old.choice == selected.choice
+                    })
+                    && director.prepared_cue.as_ref().is_some_and(|cue| {
+                        (cue.playback.exhausted
+                            == crate::music_policy::MusicExhaustionPolicy::Finish
+                            && director.continuation_state_id.is_some())
+                            || (director.requested_state_id == director.current_state_id
+                                && director
+                                    .current_state_id
+                                    .as_deref()
+                                    .and_then(|state| cue.state(state))
+                                    .is_some_and(|state| state.next_state.is_none()))
+                    })
+            })
+        {
+            content_status = MusicPlaybackStatus::OneShotComplete;
+        }
+    }
     let deliberate = if matches!(intent.goal, Some(MusicGoal::Silence { .. })) {
         true
     } else if intent.authority.is_governed() {

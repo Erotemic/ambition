@@ -159,7 +159,7 @@ pub(super) struct MusicEnding {
     pub cue: std::sync::Arc<PreparedMusicCue>,
     pub started: bool,
     pub elapsed: f64,
-    pub duration: f64,
+    pub duration: Option<f64>,
     pub waiting_seconds: f32,
 }
 
@@ -169,6 +169,7 @@ pub enum MusicEndingResult {
     Interrupted,
     MediaUnavailable,
     BackendFailure,
+    ExitUnavailable,
 }
 
 #[derive(Resource, Debug, Clone, Default)]
@@ -189,7 +190,7 @@ pub struct MusicDirectorState {
     pub(super) ending: Option<MusicEnding>,
     pub(super) requested_state_id: Option<String>,
     pub(super) continuation_state_id: Option<String>,
-    pub(super) pending_state: Option<PendingMusicStateTransition>,
+    pub(super) pending_state: Option<MusicTransitionPlan>,
     pub(super) debug_log_timer: f32,
 }
 
@@ -200,6 +201,9 @@ impl Default for MusicDirectorMode {
 }
 
 impl MusicDirectorState {
+    pub fn pending_transition(&self) -> Option<&MusicTransitionPlan> {
+        self.pending_state.as_ref()
+    }
     pub fn admitted(&self) -> Option<&AdmittedMusic> {
         self.admitted.as_ref()
     }
@@ -224,11 +228,14 @@ impl MusicDirectorState {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct PendingMusicStateTransition {
-    pub(super) state_id: String,
-    pub(super) occurrence: super::playback::MusicPlaybackOccurrence,
-    pub(super) exit_seconds: f64,
-    pub(super) observed_seconds: f64,
+pub struct MusicTransitionPlan {
+    pub exit: crate::music_policy::MusicExitRule,
+    pub fade_seconds: f32,
+    pub goal_revision: u64,
+    pub state_id: String,
+    pub occurrence: super::playback::MusicPlaybackOccurrence,
+    pub exit_seconds: f64,
+    pub observed_seconds: f64,
 }
 
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]

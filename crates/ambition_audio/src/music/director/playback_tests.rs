@@ -10,6 +10,7 @@ use std::time::Duration;
 fn authored_cues(bpm: f32) -> crate::cue_spec::AuthoredMusicCues {
     let cue = MusicCueSpec {
         id: "trail".into(),
+        playback: Default::default(),
         media: MusicCueMedia::Inline {
             asset_root: "content://library/music".into(),
             bpm,
@@ -75,6 +76,15 @@ fn authored_cues(bpm: f32) -> crate::cue_spec::AuthoredMusicCues {
 }
 
 fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
+    fixture_with(authored_cues(60.0))
+}
+
+fn fixture_with(authored: crate::cue_spec::AuthoredMusicCues) -> (App, Vec<Handle<KiraAudioSource>>) {
+    let catalog = MusicCueCatalog::prepare(authored, &Default::default()).unwrap();
+    fixture_catalog(catalog)
+}
+
+fn fixture_catalog(catalog: MusicCueCatalog) -> (App, Vec<Handle<KiraAudioSource>>) {
     let mut app = App::new();
     app.add_plugins((
         bevy::app::TaskPoolPlugin::default(),
@@ -87,10 +97,6 @@ fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
     .init_resource::<MusicDirectorState>()
     .insert_resource(crate::output::AudioOutputMode::Recording);
     crate::music::add_music_playback(&mut app);
-    let authored = authored_cues(60.0);
-    let catalog =
-        MusicCueCatalog::prepare(authored, &crate::music_media::MusicMediaCatalog::default())
-            .unwrap();
     let mut loaded = LoadedMusicCueAssets::default();
     let mut handles = Vec::new();
     for id in ["trail", "destination"] {
@@ -538,7 +544,7 @@ fn an_ending_keeps_the_generation_that_its_voices_admitted() {
     frames(&mut app, 4);
     let director = app.world().resource::<MusicDirectorState>();
     assert!(director.has_ending());
-    assert_eq!(director.ending.as_ref().unwrap().duration, 4.0);
+    assert_eq!(director.ending.as_ref().unwrap().duration, Some(4.0));
     assert_eq!(
         director
             .ending
@@ -1506,4 +1512,398 @@ fn diagnostics_observe_prepared_sources_without_a_playback_cache_entry() {
             .is_none()
     );
     assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 0);
+}
+
+fn asset_fixture(policy: crate::music_policy::MusicPlaybackPolicy) -> App {
+    let mut authored = authored_cues(60.0);
+    for cue in &mut authored.cues {
+        let MusicCueMedia::Inline { sections, .. } = &cue.media else {
+            unreachable!()
+        };
+        let sections = sections
+            .iter()
+            .map(|section| crate::cue_spec::MusicAssetSectionSpec {
+                id: section.id.clone(),
+                looped: section.looped,
+                sources: section
+                    .sources
+                    .iter()
+                    .map(|source| MusicLayerSourceSpec {
+                        layer_id: source.layer_id.clone(),
+                        path: cue.media.source_path(source),
+                    })
+                    .collect(),
+            })
+            .collect();
+        cue.media = MusicCueMedia::Assets { sections };
+        cue.playback = policy.clone().into();
+    }
+    let (mut app, handles) = fixture_with(authored);
+    for handle in &handles {
+        decode(&mut app, handle);
+    }
+    app.insert_resource(PreparedFixtureSources { _handles: handles });
+    app
+}
+
+#[test]
+fn whole_asset_intro_continues_at_the_decoded_asset_end_and_does_not_rewind() {
+    let mut app = asset_fixture(crate::music_policy::MusicPlaybackPolicy::whole_assets());
+    frames(&mut app, 8);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_state_id
+            .as_deref(),
+        Some("intro")
+    );
+    frames(&mut app, 16);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_state_id
+            .as_deref(),
+        Some("song")
+    );
+    frames(&mut app, 20);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_state_id
+            .as_deref(),
+        Some("song")
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+}
+
+#[test]
+fn whole_asset_state_changes_follow_the_authored_immediate_or_asset_end_exit() {
+    use crate::music_policy::{MusicExitRule, MusicPlaybackPolicy};
+    for rule in [MusicExitRule::Immediate, MusicExitRule::AssetEnd] {
+        let immediate = rule == MusicExitRule::Immediate;
+        let mut app = asset_fixture(MusicPlaybackPolicy {
+            section_exit: rule,
+            ..MusicPlaybackPolicy::whole_assets()
+        });
+        publish(&mut app, selection("trail", "song", "room", 0, 10));
+        frames(&mut app, 4);
+        publish(&mut app, selection("trail", "later", "room", 0, 10));
+        frames(&mut app, 2);
+        assert_eq!(
+            app.world()
+                .resource::<MusicDirectorState>()
+                .current_state_id
+                .as_deref(),
+            Some(if immediate { "later" } else { "song" })
+        );
+        if !immediate {
+            let director = app.world().resource::<MusicDirectorState>();
+            assert_eq!(
+                director.pending_transition().unwrap().goal_revision,
+                director.goal_revision
+            );
+            assert_eq!(
+                director.pending_transition().unwrap().exit,
+                MusicExitRule::AssetEnd
+            );
+        }
+        frames(&mut app, 16);
+        assert_eq!(
+            app.world()
+                .resource::<MusicDirectorState>()
+                .current_state_id
+                .as_deref(),
+            Some("later")
+        );
+        assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+    }
+}
+
+#[test]
+fn an_exhausted_one_shot_can_finish_instead_of_starting_a_late_continuation() {
+    use crate::music_policy::{MusicExhaustionPolicy, MusicPlaybackPolicy};
+    let mut app = asset_fixture(MusicPlaybackPolicy {
+        exhausted: MusicExhaustionPolicy::Finish,
+        ..MusicPlaybackPolicy::whole_assets()
+    });
+    frames(&mut app, 24);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_state_id
+            .as_deref(),
+        Some("intro")
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 2);
+    assert_eq!(
+        app.world().resource::<MusicPlayback>().outcome(),
+        super::super::playback::MusicRequestOutcome::Completed
+    );
+    app.init_resource::<crate::selection::ActiveAudioSelection>()
+        .init_resource::<super::super::diagnostics::MusicPlaybackDiagnostics>()
+        .insert_resource(crate::web_unlock::AudioUnlockState {
+            unlocked: true,
+            ..default()
+        })
+        .insert_resource(crate::output::AudioOutputMode::Device);
+    use bevy::ecs::system::RunSystemOnce;
+    app.world_mut()
+        .run_system_once(super::super::diagnostics::observe_music_playback)
+        .unwrap();
+    assert_eq!(
+        app.world()
+            .resource::<super::super::diagnostics::MusicPlaybackDiagnostics>()
+            .status,
+        Some(super::super::diagnostics::MusicPlaybackStatus::OneShotComplete)
+    );
+    app.insert_resource(crate::output::AudioOutputMode::Recording);
+    let later = app.world().resource::<PreparedFixtureSources>()._handles[4..6].to_vec();
+    for handle in &later {
+        app.world_mut()
+            .resource_mut::<Assets<KiraAudioSource>>()
+            .remove(handle.id());
+    }
+    publish(&mut app, selection("trail", "later", "room", 0, 10));
+    frames(&mut app, 4);
+    app.insert_resource(crate::output::AudioOutputMode::Device);
+    app.world_mut()
+        .run_system_once(super::super::diagnostics::observe_music_playback)
+        .unwrap();
+    assert_eq!(
+        app.world()
+            .resource::<super::super::diagnostics::MusicPlaybackDiagnostics>()
+            .status,
+        Some(super::super::diagnostics::MusicPlaybackStatus::Loading)
+    );
+    app.insert_resource(crate::output::AudioOutputMode::Recording);
+    for handle in &later {
+        decode(&mut app, handle);
+    }
+    frames(&mut app, 4);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_state_id
+            .as_deref(),
+        Some("later")
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+}
+
+#[test]
+fn a_named_exit_in_the_next_loop_does_not_fire_at_the_wrap() {
+    use crate::music_media::tests::{Publication, description};
+    use crate::music_policy::{MusicExitRule, MusicPlaybackPolicy};
+    use serde_json::json;
+    let mut data = description();
+    let body = &mut data["sections"][0];
+    body["loop"] = true.into();
+    body["tail"] = serde_json::Value::Null;
+    body["tail_end_seconds"] = serde_json::Value::Null;
+    body["tail_audio_end_seconds"] = serde_json::Value::Null;
+    body["file_duration_seconds"] = 4.0.into();
+    body["material"]["tail"] = "none".into();
+    body["frame_plan"]["file_frames"] = 32000.into();
+    body["frame_plan"]["loop_frames"] = 32000.into();
+    body["frame_plan"]["tail_source_frames"] = 0.into();
+    body["frame_plan"]["tail_source_audio_frames"] = 0.into();
+    body["products"][0]["frames"] = 32000.into();
+    body["markers"][1] = json!({"id":"allowed", "role":"exit", "beat":2.0, "seconds":1.0});
+    body["frame_plan"]["markers"][1] = json!({"id":"allowed", "role":"exit", "frame":8000});
+    let mut later = body.clone();
+    later["id"] = "later".into();
+    data["sections"].as_array_mut().unwrap().push(later);
+    let publication = Publication::new();
+    let snapshot = publication.select("named-exit", data);
+    let media = crate::music_media::MusicMediaCatalog::from_snapshot(
+        &snapshot,
+        ["content://media/music/cue/report.json"],
+    )
+    .unwrap();
+    let mut authored = authored_cues(60.0);
+    for cue in &mut authored.cues {
+        cue.media = MusicCueMedia::Published {
+            description: "content://media/music/cue/report.json".into(),
+            products: crate::cue_spec::MusicProductSet::MasteredFull,
+        };
+        cue.layers = vec![MusicLayerSpec {
+            id: "full".into(),
+            slot: 0,
+        }];
+        cue.states = [("song", "body"), ("later", "later")]
+            .into_iter()
+            .map(|(id, section)| MusicStateSpec {
+                id: id.into(),
+                section_id: section.into(),
+                next_state: None,
+                gains: vec![MusicLayerGainSpec {
+                    layer_id: "full".into(),
+                    gain: 1.0,
+                }],
+            })
+            .collect();
+        cue.outro_state = None;
+        cue.playback = MusicPlaybackPolicy {
+            section_exit: MusicExitRule::Markers(vec!["allowed".into()]),
+            ..Default::default()
+        }
+        .into();
+    }
+    let catalog = MusicCueCatalog::prepare(authored, &media).unwrap();
+    let (mut app, handles) = fixture_catalog(catalog);
+    for handle in &handles {
+        decode(&mut app, handle);
+        let mut decoded = app.world_mut().resource_mut::<Assets<KiraAudioSource>>();
+        let mut source = decoded.get_mut(handle.id()).unwrap();
+        source.sound.sample_rate = 8000;
+        source.sound.frames = vec![Frame::new(0.0, 0.0); 32000].into();
+    }
+    app.insert_resource(PreparedFixtureSources { _handles: handles });
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    frames(&mut app, 10);
+    publish(&mut app, selection("trail", "later", "room", 0, 10));
+    frames(&mut app, 9);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_state_id
+            .as_deref(),
+        Some("song")
+    );
+    frames(&mut app, 6);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_state_id
+            .as_deref(),
+        Some("later")
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 2);
+}
+
+#[test]
+fn an_ending_without_a_legal_exit_releases_its_successor() {
+    use crate::music_policy::{MusicExhaustionPolicy, MusicExitRule, MusicPlaybackPolicy};
+    let mut app = asset_fixture(MusicPlaybackPolicy {
+        ending_exit: MusicExitRule::AssetEnd,
+        exhausted: MusicExhaustionPolicy::Finish,
+        ..MusicPlaybackPolicy::whole_assets()
+    });
+    publish(&mut app, selection("trail", "intro", "boss", 1, 100));
+    frames(&mut app, 4);
+    let admitted = app
+        .world()
+        .resource::<MusicDirectorState>()
+        .admitted()
+        .unwrap()
+        .clone();
+    let missing: Vec<_> = app.world().resource::<PreparedFixtureSources>()._handles[6..8]
+        .iter()
+        .map(Handle::id)
+        .collect();
+    for id in missing {
+        app.world_mut()
+            .resource_mut::<Assets<KiraAudioSource>>()
+            .remove(id);
+    }
+    app.world_mut().resource_mut::<MusicIntent>().outgoing = Some(MusicDisposition {
+        claim: admitted.selection.claim,
+        entry: admitted.entry,
+        reason: MusicReleaseReason::Completed,
+    });
+    publish(&mut app, selection("destination", "song", "room", 0, 10));
+    frames(&mut app, 20);
+    let director = app.world().resource::<MusicDirectorState>();
+    assert!(!director.has_ending());
+    assert_eq!(
+        director.last_ending_result,
+        Some((admitted.entry, MusicEndingResult::ExitUnavailable))
+    );
+    assert_eq!(
+        director.admitted().unwrap().selection.choice.program(),
+        "destination"
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+}
+
+#[test]
+fn an_asset_reload_cannot_move_an_admitted_endings_handoff() {
+    use crate::music_policy::MusicPlaybackPolicy;
+    let mut app = asset_fixture(MusicPlaybackPolicy {
+        return_overlap_seconds: 1.0,
+        ..MusicPlaybackPolicy::whole_assets()
+    });
+    publish(&mut app, selection("trail", "song", "boss", 1, 100));
+    frames(&mut app, 4);
+    let admitted = app
+        .world()
+        .resource::<MusicDirectorState>()
+        .admitted()
+        .unwrap()
+        .clone();
+    app.world_mut().resource_mut::<MusicIntent>().outgoing = Some(MusicDisposition {
+        claim: admitted.selection.claim,
+        entry: admitted.entry,
+        reason: MusicReleaseReason::Completed,
+    });
+    publish(&mut app, selection("destination", "song", "room", 0, 10));
+    frames(&mut app, 4);
+    assert!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .ending
+            .as_ref()
+            .unwrap()
+            .started
+    );
+    let reloaded: Vec<_> = app.world().resource::<PreparedFixtureSources>()._handles[6..8]
+        .iter()
+        .map(Handle::id)
+        .collect();
+    for id in reloaded {
+        app.world_mut()
+            .resource_mut::<Assets<KiraAudioSource>>()
+            .get_mut(id)
+            .unwrap()
+            .sound
+            .frames = vec![Frame::new(0.0, 0.0); 8 * 48000].into();
+    }
+    frames(&mut app, 12);
+    let director = app.world().resource::<MusicDirectorState>();
+    assert_eq!(
+        director.admitted().unwrap().selection.choice.program(),
+        "destination"
+    );
+    assert_eq!(director.ending.as_ref().unwrap().duration, Some(4.0));
+    assert!(app.world().resource::<MusicPlayback>().groups().any(|group| {
+        matches!(&group.product, super::super::playback::MusicProduct::Section { cue, section, .. }
+            if cue == "trail" && section == "outro")
+            && group.phase == super::super::playback::MusicGroupPhase::Retiring
+    }));
+}
+
+#[test]
+fn mismatched_layer_lengths_are_rejected_before_any_voice_resumes() {
+    let mut app = asset_fixture(crate::music_policy::MusicPlaybackPolicy::whole_assets());
+    let id = app.world().resource::<PreparedFixtureSources>()._handles[1].id();
+    app.world_mut()
+        .resource_mut::<Assets<KiraAudioSource>>()
+        .get_mut(id)
+        .unwrap()
+        .sound
+        .frames = vec![Frame::new(0.0, 0.0); 3 * 48000].into();
+    frames(&mut app, 12);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().resumed, 0);
+    assert!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .admitted()
+            .is_none()
+    );
+    assert_eq!(
+        app.world().resource::<MusicPlayback>().outcome(),
+        super::super::playback::MusicRequestOutcome::Failed(
+            super::super::playback::MusicTerminalReason::SourceMismatch
+        )
+    );
 }

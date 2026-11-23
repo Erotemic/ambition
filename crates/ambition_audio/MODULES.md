@@ -15,6 +15,7 @@
 | [`mix`](src/mix.rs) | Host-supplied mix levels. |
 | [`music`](src/music/mod.rs) | Music selection, prepared cue data, and owned native playback. |
 | [`music_media`](src/music_media/mod.rs) | Import playback facts and media from one accepted library snapshot. |
+| [`music_policy`](src/music_policy.rs) | Authored exits and limits for the native music transport. |
 | [`output`](src/output.rs) | Runtime selection of the audio backend and final output side effect. |
 | [`render`](src/render.rs) | Provider-relative SFX source resolution and Kira adapters. |
 | [`selection`](src/selection.rs) | App-local active audio context. |
@@ -23,7 +24,7 @@
 | [`spec`](src/spec.rs) | Audio data schema: the authored (RON) shapes for procedural SFX and pre-rendered music. |
 | [`web_unlock`](src/web_unlock.rs) | Cross-platform audio-start readiness. |
 
-_16 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_17 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

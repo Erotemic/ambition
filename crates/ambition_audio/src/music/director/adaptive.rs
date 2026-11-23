@@ -17,16 +17,6 @@ pub(in crate::music) fn should_restart_adaptive(
     !same_cue || mode_lost_adaptive || outro_to_active
 }
 
-/// Has a section that plays one time, `duration` long, ended on this frame?
-///
-/// The director counts in frames, so it can not start the next section on
-/// the sample. It starts it on the frame NEAREST the end: the first frame
-/// that is within half a frame of it. The first frame after the end is half
-/// a frame late on average, and that is silence.
-pub(super) fn intro_has_ended(seconds_in_mode: f32, duration: f32, dt: f32) -> bool {
-    seconds_in_mode >= duration - dt.max(0.0) * 0.5
-}
-
 pub(super) fn drive_adaptive_cue_state(
     director: &mut MusicDirectorState,
     provider_id: &str,
@@ -36,13 +26,13 @@ pub(super) fn drive_adaptive_cue_state(
     assets: &LoadedMusicCueAssets,
     decoded: &Assets<KiraAudioSource>,
     channels: &mut MusicPlaybackCommands,
-    dt: f32,
     entry_crossfade_s: f32,
 ) {
     let same_request = director.active_cue_id.as_deref() == Some(cue.id.as_str())
         && director.requested_state_id.as_deref() == Some(target_state.id.as_str());
     if !same_request {
         director.continuation_state_id = None;
+        director.pending_state = None;
     }
     director.requested_state_id = Some(target_state.id.clone());
     // A held game request must not rewind the continuation of a completed one-shot.
@@ -58,7 +48,9 @@ pub(super) fn drive_adaptive_cue_state(
             .section(&target_state.section_id)
             .is_some_and(|section| {
                 director.transport_completed
-                    || intro_has_ended(director.seconds_in_mode, section.duration_seconds, dt)
+                    || director
+                        .position_seconds
+                        .is_some_and(|position| position >= section.duration_seconds)
             });
     let target_state = if completed {
         target_state
@@ -73,23 +65,22 @@ pub(super) fn drive_adaptive_cue_state(
     } else {
         target_state
     };
-    // Start a section only when all its layers are decoded. Later sections
-    // load in parallel and must not delay the opening or stop the current bank.
-    if !assets.section_ready(
+    let ready = assets.section_ready(
         provider_id,
         generation,
         cue,
         &target_state.section_id,
         decoded,
-    ) {
-        return;
-    }
+    );
     if should_restart_adaptive(
         director.active_cue_id.as_deref(),
         director.mode,
         cue.id.as_str(),
         is_outro_target(cue, target_state),
     ) {
+        if !ready {
+            return;
+        }
         start_adaptive_state(
             director,
             provider_id,
@@ -144,67 +135,19 @@ pub(super) fn drive_adaptive_cue_state(
         }
     }
 
-    if is_outro_target(cue, target_state) && director.mode != MusicDirectorMode::AdaptiveOutro {
-        queue_or_fire_outro(
-            director,
-            provider_id,
-            generation,
-            cue,
-            target_state,
-            assets,
-            channels,
-            dt,
-        );
-        return;
-    }
-
-    if director.mode == MusicDirectorMode::AdaptiveIntro {
-        let current_section = director
+    let outro = is_outro_target(cue, target_state);
+    if director.mode == MusicDirectorMode::AdaptiveIntro && !outro {
+        let intro_done = director
             .current_section_id
             .as_deref()
-            .and_then(|id| cue.section(id));
-        let intro_done = current_section
-            .map(|section| {
+            .and_then(|id| cue.section(id))
+            .is_some_and(|section| {
                 director.transport_completed
-                    || intro_has_ended(director.seconds_in_mode, section.duration_seconds, dt)
-            })
-            .unwrap_or(true);
-        if !intro_done {
-            return;
-        }
-        // The intro played to its end: the section the game asks for now
-        // starts on this frame. It is not queued: a queue is a wait of
-        // `MIN_TRANSITION_DELAY_SECONDS` with nothing playing, between the
-        // intro's last sample and the loop's first.
-        director.pending_state = None;
-        start_adaptive_state(
-            director,
-            provider_id,
-            generation,
-            cue,
-            target_state,
-            assets,
-            channels,
-            INTRO_TO_LOOP_CROSSFADE_SECONDS,
-        );
-        return;
-    }
-
-    if let Some(mut pending) = director.pending_state.clone() {
-        pending.state_id = target_state.id.clone();
-        pending.delay_seconds -= dt;
-        if pending.delay_seconds <= 0.0 {
-            director.pending_state = None;
-            // Intro-to-loop transitions use a shorter crossfade than
-            // loop-to-loop section swaps: the intro's last bar already
-            // signals the change, and a longer fade smears the loop's
-            // downbeat. LOOP_SECTION_CROSSFADE_SECONDS still applies between
-            // loop sections, where the overlap hides the boundary.
-            let crossfade = if director.mode == MusicDirectorMode::AdaptiveIntro {
-                INTRO_TO_LOOP_CROSSFADE_SECONDS
-            } else {
-                LOOP_SECTION_CROSSFADE_SECONDS
-            };
+                    || director
+                        .position_seconds
+                        .is_some_and(|position| position >= section.duration_seconds)
+            });
+        if intro_done && ready {
             start_adaptive_state(
                 director,
                 provider_id,
@@ -213,88 +156,17 @@ pub(super) fn drive_adaptive_cue_state(
                 target_state,
                 assets,
                 channels,
-                crossfade,
+                INTRO_TO_LOOP_CROSSFADE_SECONDS,
             );
-        } else {
-            director.pending_state = Some(pending);
         }
-    } else {
-        let delay = if director.mode == MusicDirectorMode::AdaptiveLoop {
-            director
-                .current_section_id
-                .as_deref()
-                .and_then(|id| cue.section(id))
-                .and_then(|section| {
-                    section.clock.delay_to_boundary(
-                        f64::from(director.seconds_in_loop),
-                        1,
-                        Some(f64::from(section.duration_seconds)),
-                    )
-                })
-                .map(|seconds| seconds as f32)
-                .unwrap_or(0.0)
-                .max(MIN_TRANSITION_DELAY_SECONDS)
-        } else {
-            MIN_TRANSITION_DELAY_SECONDS
-        };
-        info!(
-            target: MUSIC_LOG_TARGET,
-            "queue_music_state cue={} state={} section={} delay={:.3}s current_section={:?}",
-            cue.id,
-            target_state.id,
-            target_section.id,
-            delay,
-            director.current_section_id,
-        );
-        director.pending_state = Some(PendingMusicStateTransition {
-            state_id: target_state.id.clone(),
-            delay_seconds: delay,
-        });
+        return;
     }
-}
-
-fn queue_or_fire_outro(
-    director: &mut MusicDirectorState,
-    provider_id: &str,
-    generation: u64,
-    cue: &PreparedMusicCue,
-    target_state: &PreparedMusicState,
-    assets: &LoadedMusicCueAssets,
-    channels: &mut MusicPlaybackCommands,
-    dt: f32,
-) {
-    if director.pending_state.is_none() {
-        let delay = director
-            .current_section_id
+    if outro {
+        if let Some(bridge) = cue
+            .post_clear_bridge_state
             .as_deref()
-            .and_then(|id| cue.section(id))
-            .and_then(|section| {
-                section.clock.delay_to_boundary(
-                    f64::from(director.seconds_in_loop),
-                    2,
-                    section
-                        .looped
-                        .then_some(f64::from(section.duration_seconds)),
-                )
-            })
-            .unwrap_or(0.0) as f32;
-        let delay = delay.max(MIN_TRANSITION_DELAY_SECONDS);
-        info!(
-            target: MUSIC_LOG_TARGET,
-            "queue_outro cue={} state={} delay={:.3}s loop_t={:.3}",
-            cue.id,
-            target_state.id,
-            delay,
-            director.seconds_in_loop,
-        );
-        director.pending_state = Some(PendingMusicStateTransition {
-            state_id: target_state.id.clone(),
-            delay_seconds: delay,
-        });
-    }
-
-    if let Some(bridge_state_id) = cue.post_clear_bridge_state.as_deref() {
-        if let Some(bridge) = cue.state(bridge_state_id) {
+            .and_then(|id| cue.state(id))
+        {
             channels.set_section_gains(
                 director.goal_revision,
                 provider_id,
@@ -307,11 +179,13 @@ fn queue_or_fire_outro(
             );
         }
     }
-
-    if let Some(mut pending) = director.pending_state.clone() {
-        pending.delay_seconds -= dt;
-        if pending.delay_seconds <= 0.0 {
-            director.pending_state = None;
+    let fade = if outro {
+        OUTRO_CROSSFADE_SECONDS
+    } else {
+        LOOP_SECTION_CROSSFADE_SECONDS
+    };
+    if director.transport_completed {
+        if ready {
             start_adaptive_state(
                 director,
                 provider_id,
@@ -320,11 +194,68 @@ fn queue_or_fire_outro(
                 target_state,
                 assets,
                 channels,
-                OUTRO_CROSSFADE_SECONDS,
+                fade,
             );
-        } else {
-            director.pending_state = Some(pending);
         }
+        return;
+    }
+    let Some(current) = channels.current().filter(|group| {
+        Some(group.entry) == director.entry
+            && group.phase == MusicGroupPhase::Running
+            && matches!(&group.product, MusicProduct::Section { cue: c, section: s, .. }
+                if c == &cue.id && Some(s) == director.current_section_id.as_ref())
+    }) else {
+        return;
+    };
+    let Some(position) = current.position_seconds else {
+        return;
+    };
+    let Some(section) = director
+        .current_section_id
+        .as_deref()
+        .and_then(|id| cue.section(id))
+    else {
+        return;
+    };
+    let mut pending = director
+        .pending_state
+        .take()
+        .filter(|pending| {
+            pending.state_id == target_state.id && pending.occurrence == current.occurrence
+        })
+        .or_else(|| {
+            let delay = section.clock.delay_to_boundary(
+                position,
+                if outro { 2 } else { 1 },
+                section.looped.then_some(section.duration_seconds),
+            )?;
+            Some(PendingMusicStateTransition {
+                state_id: target_state.id.clone(),
+                occurrence: current.occurrence,
+                exit_seconds: position + delay,
+                observed_seconds: position,
+            })
+        });
+    let Some(plan) = pending.as_mut() else { return };
+    let reached =
+        position >= plan.exit_seconds || (section.looped && position < plan.observed_seconds);
+    plan.observed_seconds = position;
+    if reached {
+        // If the target is not decoded at this exit, select a new exit.
+        if ready {
+            start_adaptive_state(
+                director,
+                provider_id,
+                generation,
+                cue,
+                target_state,
+                assets,
+                channels,
+                fade,
+            );
+        }
+    } else {
+        director.pending_state = pending;
     }
 }
 
@@ -369,8 +300,7 @@ fn start_adaptive_state(
     director.active_cue_id = Some(cue.id.clone());
     director.current_state_id = Some(target_state.id.clone());
     director.current_section_id = Some(section.id.clone());
-    director.seconds_in_mode = 0.0;
-    director.seconds_in_loop = 0.0;
+    director.position_seconds = None;
     director.pending_state = None;
     director.transport_completed = false;
     director.mode = if is_outro_target(cue, target_state) {

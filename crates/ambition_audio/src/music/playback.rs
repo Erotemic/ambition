@@ -128,6 +128,8 @@ pub struct MusicPlaybackGroup {
     pub occurrence: MusicPlaybackOccurrence,
     pub product: MusicProduct,
     pub phase: MusicGroupPhase,
+    /// The last common file cursor. No cursor is available until every voice plays.
+    /// Native output supplies Kira positions; recording output uses its host clock.
     pub position_seconds: Option<f64>,
     request: MusicPlaybackRequest,
     voices: Vec<MusicVoice>,
@@ -382,14 +384,22 @@ impl MusicPlayback {
                     group.terminal = Some(MusicTerminalReason::AdmissionTimeout);
                     self.failed(group.occurrence, MusicTerminalReason::AdmissionTimeout);
                 }
-            } else if group.phase == MusicGroupPhase::Running {
-                group.position_seconds = observations
-                    .iter()
-                    .filter_map(|state| match state {
-                        VoiceObservation::Playing(position) => Some(*position),
-                        _ => None,
-                    })
-                    .reduce(f64::min);
+            }
+            if matches!(
+                group.phase,
+                MusicGroupPhase::Running | MusicGroupPhase::Retiring
+            ) {
+                group.position_seconds =
+                    observations
+                        .iter()
+                        .try_fold(f64::INFINITY, |position, state| match state {
+                            VoiceObservation::Playing(next) if next.is_finite() && *next >= 0.0 => {
+                                Some(position.min(*next))
+                            }
+                            _ => None,
+                        });
+            }
+            if group.phase == MusicGroupPhase::Running {
                 let terminal = observations.iter().any(|state| {
                     matches!(state, VoiceObservation::Absent | VoiceObservation::Stopped)
                 });
@@ -625,16 +635,24 @@ impl MusicVoiceOutput for KiraMusicOutput<'_> {
                     Some(started) if !voice.looped && self.now - started >= voice.duration => {
                         VoiceObservation::Stopped
                     }
-                    Some(started) => VoiceObservation::Playing(self.now - started),
+                    Some(started) => VoiceObservation::Playing(if voice.looped {
+                        (self.now - started).rem_euclid(voice.duration)
+                    } else {
+                        self.now - started
+                    }),
                 },
             };
         }
         match self.instances.get(handle).map(AudioInstance::state) {
-            Some(PlaybackState::Playing { position }) => VoiceObservation::Playing(position),
-            Some(PlaybackState::Paused { .. }) => VoiceObservation::Paused,
-            Some(PlaybackState::Pausing { .. } | PlaybackState::Stopping { .. }) => {
-                VoiceObservation::Stopping
+            Some(PlaybackState::Playing { position } | PlaybackState::Resuming { position }) => {
+                VoiceObservation::Playing(position)
             }
+            Some(
+                PlaybackState::Paused { .. }
+                | PlaybackState::WaitingToResume { .. }
+                | PlaybackState::Pausing { .. },
+            ) => VoiceObservation::Paused,
+            Some(PlaybackState::Stopping { .. }) => VoiceObservation::Stopping,
             Some(PlaybackState::Stopped) => VoiceObservation::Stopped,
             _ if self.channels.channel(OUTPUT_CHANNEL).state(handle) == PlaybackState::Queued => {
                 VoiceObservation::Queued

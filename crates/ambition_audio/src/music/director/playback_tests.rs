@@ -1,6 +1,7 @@
 use super::*;
 use crate::cue_spec::{MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec};
 use crate::music::catalog::MusicSourceKey;
+use crate::music::playback::{MusicPlayback, RecordedMusicOutput};
 use crate::selection::MusicAuthority;
 use bevy::asset::AssetApp;
 use bevy_kira_audio::prelude::{Frame, StaticSoundData, StaticSoundSettings};
@@ -176,10 +177,10 @@ fn decode(app: &mut App, handle: &Handle<KiraAudioSource>) {
         )
         .unwrap();
 }
-fn step(app: &mut App, seconds: f32) {
+fn step(app: &mut App, seconds: f64) {
     app.world_mut()
         .resource_mut::<Time<Real>>()
-        .advance_by(Duration::from_secs_f32(seconds));
+        .advance_by(Duration::from_secs_f64(seconds));
     app.update();
 }
 fn frames(app: &mut App, count: usize) {
@@ -216,7 +217,7 @@ fn decoding_and_admission_do_not_consume_an_entrance() {
     frames(&mut app, 4);
     let director = app.world().resource::<MusicDirectorState>();
     assert_eq!(director.mode, MusicDirectorMode::AdaptiveIntro);
-    assert_eq!(director.seconds_in_mode, 0.0);
+    assert_eq!(director.position_seconds, None);
     assert!(director.admitted().is_none());
     assert_eq!(
         app.world()
@@ -700,11 +701,12 @@ fn cue_only_playback_needs_no_simple_track_library() {
     app.world_mut().remove_resource::<AudioLibrary>();
     app.world_mut().remove_resource::<MusicPlaybackState>();
     frames(&mut app, 6);
-    assert!(app
-        .world()
-        .resource::<MusicDirectorState>()
-        .admitted()
-        .is_some());
+    assert!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .admitted()
+            .is_some()
+    );
 }
 
 #[test]
@@ -712,8 +714,8 @@ fn a_published_variable_clock_controls_the_running_sections_handoff() {
     use super::super::playback::{MusicPlayback, MusicProduct, RecordedMusicOutput};
     use crate::cue_spec::{MusicCueMedia, MusicProductSet};
     use crate::music_media::{
-        tests::{authored, description, Publication},
         MusicMediaCatalog,
+        tests::{Publication, authored, description},
     };
     use serde_json::json;
     let mut data = description();
@@ -797,7 +799,11 @@ fn a_published_variable_clock_controls_the_running_sections_handoff() {
     app.insert_resource(catalogs).insert_resource(assets);
     publish(&mut app, selection("trail", "song", "room", 0, 10));
     frames(&mut app, 6);
-    let position = app.world().resource::<MusicDirectorState>().seconds_in_loop;
+    let position = app
+        .world()
+        .resource::<MusicDirectorState>()
+        .position_seconds
+        .unwrap();
     step(&mut app, 3.0 - position);
     publish(&mut app, selection("trail", "later", "room", 0, 10));
     step(&mut app, 0.0);
@@ -810,4 +816,198 @@ fn a_published_variable_clock_controls_the_running_sections_handoff() {
     assert!(
         matches!(&app.world().resource::<MusicPlayback>().current().unwrap().product, MusicProduct::Section { section, .. } if section == "later")
     );
+}
+
+#[test]
+fn a_host_hitch_cannot_advance_an_intro_or_a_queued_loop_exit() {
+    use bevy::ecs::system::RunSystemOnce;
+    for initial in ["intro", "song"] {
+        let mut app = decoded();
+        publish(&mut app, selection("trail", initial, "room", 0, 10));
+        frames(&mut app, 6);
+        let cursor = app
+            .world()
+            .resource::<MusicPlayback>()
+            .current()
+            .unwrap()
+            .position_seconds
+            .unwrap();
+        publish(&mut app, selection("trail", "later", "room", 0, 10));
+        app.world_mut()
+            .run_system_once(drive_music_director)
+            .unwrap();
+        app.world_mut()
+            .resource_mut::<Time<Real>>()
+            .advance_by(Duration::from_secs(30));
+        for _ in 0..3 {
+            app.world_mut()
+                .run_system_once(drive_music_director)
+                .unwrap();
+        }
+        let director = app.world().resource::<MusicDirectorState>();
+        assert_eq!(director.current_section_id.as_deref(), Some(initial));
+        assert_eq!(director.position_seconds, Some(cursor));
+        assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 2);
+    }
+}
+
+#[test]
+fn an_undecoded_target_misses_its_exit_and_waits_for_the_next_one() {
+    let (mut app, handles) = fixture();
+    for (index, handle) in handles.iter().enumerate() {
+        if !(4..6).contains(&index) {
+            decode(&mut app, handle);
+        }
+    }
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    frames(&mut app, 7);
+    publish(&mut app, selection("trail", "later", "room", 0, 10));
+    step(&mut app, 0.0);
+    let position = app
+        .world()
+        .resource::<MusicPlayback>()
+        .current()
+        .unwrap()
+        .position_seconds
+        .unwrap();
+    step(&mut app, 4.5 - position);
+    step(&mut app, 0.0);
+    for handle in &handles[4..6] {
+        decode(&mut app, handle);
+    }
+    step(&mut app, 0.0);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_section_id
+            .as_deref(),
+        Some("song")
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 2);
+    step(&mut app, 3.5);
+    frames(&mut app, 4);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_section_id
+            .as_deref(),
+        Some("later")
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+}
+
+#[test]
+fn an_observed_loop_boundary_has_no_extra_minimum_delay() {
+    let mut app = decoded();
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    frames(&mut app, 7);
+    let position = app
+        .world()
+        .resource::<MusicPlayback>()
+        .current()
+        .unwrap()
+        .position_seconds
+        .unwrap();
+    step(&mut app, 4.0 - position);
+    step(&mut app, 0.0);
+    publish(&mut app, selection("trail", "later", "room", 0, 10));
+    step(&mut app, 0.0);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_section_id
+            .as_deref(),
+        Some("later")
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
+}
+
+#[test]
+fn a_host_hitch_cannot_consume_an_admitted_ending() {
+    use bevy::ecs::system::RunSystemOnce;
+    let mut app = decoded();
+    publish(&mut app, selection("trail", "song", "fight", 1, 200));
+    frames(&mut app, 6);
+    let entry = app
+        .world()
+        .resource::<MusicDirectorState>()
+        .admitted()
+        .unwrap()
+        .entry;
+    publish(&mut app, selection("destination", "song", "room", 0, 10));
+    app.world_mut().resource_mut::<MusicIntent>().outgoing = Some(MusicDisposition {
+        claim: selection("trail", "song", "fight", 1, 200).claim,
+        entry,
+        reason: MusicReleaseReason::Completed,
+    });
+    for _ in 0..24 {
+        step(&mut app, 0.25);
+        if app
+            .world()
+            .resource::<MusicDirectorState>()
+            .ending
+            .as_ref()
+            .is_some_and(|ending| ending.started)
+        {
+            break;
+        }
+    }
+    assert!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .ending
+            .as_ref()
+            .unwrap()
+            .started
+    );
+    let cursor = app
+        .world()
+        .resource::<MusicPlayback>()
+        .current()
+        .unwrap()
+        .position_seconds
+        .unwrap();
+    app.world_mut()
+        .resource_mut::<Time<Real>>()
+        .advance_by(Duration::from_secs(30));
+    for _ in 0..3 {
+        app.world_mut()
+            .run_system_once(drive_music_director)
+            .unwrap();
+    }
+    let director = app.world().resource::<MusicDirectorState>();
+    assert!(director.has_ending());
+    assert_eq!(director.active_cue_id.as_deref(), Some("trail"));
+    assert_eq!(director.current_state_id.as_deref(), Some("outro"));
+    assert_eq!(director.ending.as_ref().unwrap().elapsed, cursor);
+}
+
+#[test]
+fn withdrawing_a_transition_discards_its_old_exit() {
+    let mut app = decoded();
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    frames(&mut app, 7);
+    publish(&mut app, selection("trail", "later", "room", 0, 10));
+    step(&mut app, 0.0);
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    step(&mut app, 0.0);
+    let position = app
+        .world()
+        .resource::<MusicPlayback>()
+        .current()
+        .unwrap()
+        .position_seconds
+        .unwrap();
+    step(&mut app, 4.5 - position);
+    step(&mut app, 0.0);
+    publish(&mut app, selection("trail", "later", "room", 0, 10));
+    step(&mut app, 0.0);
+    assert_eq!(
+        app.world()
+            .resource::<MusicDirectorState>()
+            .current_section_id
+            .as_deref(),
+        Some("song")
+    );
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 2);
 }

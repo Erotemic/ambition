@@ -51,7 +51,7 @@ pub struct PreparedMusicMediaIdentity {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreparedMusicSection {
     pub id: String,
-    pub duration_seconds: f32,
+    pub duration_seconds: f64,
     pub file_duration_seconds: Option<f64>,
     pub clock: PreparedMusicClock,
     pub markers: Vec<crate::music_media::MusicFrameMarker>,

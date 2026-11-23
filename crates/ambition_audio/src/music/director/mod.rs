@@ -52,10 +52,10 @@ pub fn drive_music_director(
     assets.retire_generations(&catalogs, &retained);
     let running = current_is_running(&director, &channels);
     let dt = if running { time.delta_secs() } else { 0.0 };
-    director.seconds_in_mode += dt;
-    if director.mode == MusicDirectorMode::AdaptiveLoop {
-        director.seconds_in_loop += dt;
-    }
+    director.position_seconds = channels
+        .current()
+        .filter(|_| running)
+        .and_then(|group| group.position_seconds);
     let Some(goal) = intent.goal.as_ref() else {
         return;
     };
@@ -165,27 +165,43 @@ pub fn drive_music_director(
         let ending = director.ending.take().expect("an ending was checked");
         director.last_ending_result = Some((ending.admitted.entry, reason));
     }
-    if let Some(ending) = director
-        .ending
-        .as_ref()
-        .filter(|ending| !ending.started && director.transport_completed)
-    {
-        director.pending_state = Some(PendingMusicStateTransition {
-            state_id: ending
-                .admitted
-                .selection
-                .completed_state
-                .clone()
-                .expect("ending state"),
-            delay_seconds: 0.0,
-        });
+    let current_entry = director.entry;
+    let ending_result = director.ending.as_mut().and_then(|ending| {
+        let state = ending.admitted.selection.completed_state.as_deref()?;
+        let section = ending.cue.section(&ending.cue.state(state)?.section_id)?;
+        let group = channels.section_group(ending.admitted.entry, &ending.cue.id, &section.id);
+        if let Some(group) = group {
+            ending.started = true;
+            ending.duration = section.duration_seconds;
+            if let Some(position) = group.position_seconds {
+                ending.elapsed = position;
+            }
+        }
+        if !ending.started {
+            return None;
+        }
+        if ending.elapsed >= ending.duration
+            || (transport_completed && current_entry == Some(ending.admitted.entry))
+            || (group.is_none() && current_entry != Some(ending.admitted.entry))
+        {
+            Some(MusicEndingResult::Finished)
+        } else if group.is_none() {
+            Some(MusicEndingResult::BackendFailure)
+        } else {
+            None
+        }
+    });
+    if let Some(reason) = ending_result {
+        let ending = director.ending.take().expect("an ending was checked");
+        director.last_ending_result = Some((ending.admitted.entry, reason));
     }
     let ending_target = director
         .ending
         .as_ref()
         .filter(|ending| {
             !ending.started
-                || ending.elapsed < (ending.duration - DEFAULT_RETURN_OVERLAP_SECONDS).max(0.0)
+                || ending.elapsed
+                    < (ending.duration - f64::from(DEFAULT_RETURN_OVERLAP_SECONDS)).max(0.0)
         })
         .map(|ending| {
             let mut selected = ending.admitted.selection.clone();
@@ -225,34 +241,6 @@ pub fn drive_music_director(
             music_state.as_deref_mut(),
             dt,
         );
-    }
-    // An old ending can finish after its successor starts. It never clears that successor.
-    let ending_progress = director.ending.as_ref().and_then(|ending| {
-        let MusicChoice::Cue { id, .. } = &ending.admitted.selection.choice else { return None };
-        let state = ending.admitted.selection.completed_state.as_deref()?;
-        let cue = &ending.cue;
-        if &cue.id != id { return None; }
-        let section = cue.section(&cue.state(state)?.section_id)?;
-        let sounding = channels.current().is_some_and(|group|
-            group.entry == ending.admitted.entry && group.phase == MusicGroupPhase::Running
-                && matches!(&group.product, MusicProduct::Section { section: sounding, .. } if sounding == &section.id));
-        Some((sounding, section.duration_seconds))
-    });
-    if let Some((sounding, duration)) = ending_progress {
-        if let Some(ending) = &mut director.ending {
-            if sounding {
-                ending.started = true;
-                ending.duration = duration;
-            }
-            if ending.started {
-                ending.elapsed += time.delta_secs();
-            }
-            if ending.started && ending.elapsed >= ending.duration {
-                director.last_ending_result =
-                    Some((ending.admitted.entry, MusicEndingResult::Finished));
-                director.ending = None;
-            }
-        }
     }
 }
 
@@ -383,7 +371,6 @@ fn drive_selection(
                 assets,
                 decoded,
                 channels,
-                dt,
                 target.crossfade_s,
             );
             logging::log_periodic_state(director, &cue, dt);

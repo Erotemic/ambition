@@ -11,7 +11,7 @@ pub(super) fn log_periodic_state(
     }
     director.debug_log_timer = DEBUG_LOG_PERIOD_SECONDS;
     debug!(target: MUSIC_LOG_TARGET,
-        "music_director mode={:?} cue={} state={:?} section={:?} elapsed={:.3}",
+        "music_director mode={:?} cue={} state={:?} section={:?} position={:?}",
         director.mode, cue.id, director.current_state_id,
-        director.current_section_id, director.seconds_in_mode);
+        director.current_section_id, director.position_seconds);
 }

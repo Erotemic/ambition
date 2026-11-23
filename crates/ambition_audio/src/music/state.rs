@@ -157,8 +157,8 @@ pub(super) struct MusicEnding {
     pub admitted: AdmittedMusic,
     pub cue: std::sync::Arc<PreparedMusicCue>,
     pub started: bool,
-    pub elapsed: f32,
-    pub duration: f32,
+    pub elapsed: f64,
+    pub duration: f64,
     pub waiting_seconds: f32,
 }
 
@@ -178,8 +178,7 @@ pub struct MusicDirectorState {
     pub current_section_id: Option<String>,
     pub goal_revision: u64,
     pub last_ending_result: Option<(super::playback::MusicEntry, MusicEndingResult)>,
-    pub seconds_in_mode: f32,
-    pub seconds_in_loop: f32,
+    pub position_seconds: Option<f64>,
     pub(super) selection: Option<MusicSelection>,
     pub(super) prepared_cue: Option<std::sync::Arc<PreparedMusicCue>>,
     pub(super) entry: Option<super::playback::MusicEntry>,
@@ -217,15 +216,16 @@ impl MusicDirectorState {
         self.requested_state_id = None;
         self.continuation_state_id = None;
         self.pending_state = None;
-        self.seconds_in_mode = 0.0;
-        self.seconds_in_loop = 0.0;
+        self.position_seconds = None;
     }
 }
 
 #[derive(Debug, Clone)]
 pub(super) struct PendingMusicStateTransition {
     pub(super) state_id: String,
-    pub(super) delay_seconds: f32,
+    pub(super) occurrence: super::playback::MusicPlaybackOccurrence,
+    pub(super) exit_seconds: f64,
+    pub(super) observed_seconds: f64,
 }
 
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]

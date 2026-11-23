@@ -390,7 +390,7 @@ Keep typed entry/exit roles separate from display chapters. Export and
 native linking now retain those roles and their encoded frame positions.
 V3 accepts `valid_exit_local_bars`. Use the render's cut and rounding for
 every marker. Keep score inspection and final media facts as distinct
-evidence levels. Native marker transition policy remains open.
+evidence levels. Native prepared exits now query the encoded marker sets.
 
 A tail folded into a loop head is not an independently playable release
 tail. A folded lead-in repairs the repeat seam; it is not a scheduled

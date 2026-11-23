@@ -928,7 +928,14 @@ instances and group tracks. Mixer resolution is not a sample-accuracy guarantee.
 `dab9fbbac` retains completion facts when a scheduled short section starts and
 finishes between host observations. The director advances its state once. Guard:
 a native 5 ms continuation across a host stall completes without duplicate plays.
-General exits and the complete game route remain open.
+`1c9f96ca3` schedules prepared loop and ending exits on the native clock.
+`047f1134a` adds the opt-in Castle Godwin native route test. The visible host
+prepares Wolfenstein while he is dormant, plays Awaken and March, crosses to
+the great hall, and reenters. A withheld intro cannot delay Phase1 or start
+after March. A committed death restore permits a fresh entrance. Both exits
+select Tritone without an intermediate military track. Guard: two native
+software captures. The final PCM correlates with the selected Tritone layers.
+Native ending-customer acceptance and scene pause/scale policy remain open.
 No physical-speaker or listening acceptance was performed.
 The current recording path consumes the executor's actual voice commands;
 it does not execute Kira drains or establish speaker-audible output. The
@@ -939,12 +946,11 @@ properties above at their native seams. Use one coherent command consumer,
 not a parallel fake director. Do not add permanent source-name tests,
 migration matrices, or a broad audio-test campaign.
 
-Later authorized native acceptance must use the locked backend and the
-reported route: approach Wolfenstein cold and prepared, start the fight,
-leave during it, reenter, and let relevant endings finish. Observe admission
-and transport timing separately from speaker-audible output. Keep the
-older unexplained death/respawn gap open until its own evidence is obtained.
-The current report does not establish its cause.
+Further native acceptance must let an authored ending finish and observe its
+successor. Wolfenstein has no authored victory ending. Observe admission and
+transport timing separately from speaker-audible output. The older
+death/respawn gap did not recur in the new route test; this does not establish
+its historical cause.
 
 ### Source entry points for an implementing agent
 

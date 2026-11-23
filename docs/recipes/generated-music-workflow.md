@@ -155,6 +155,25 @@ Listen to the PCM or inspect its spectrum to check the two source tones per
 section. Backend admission and a nonzero file alone do not prove continuity.
 This capture does not verify physical speakers or the complete game route.
 
+The opt-in app test
+`native_castle_music::wolfensteins_prepared_entrance_and_room_exits_reach_native_output`
+uses the visible host and accepted game assets. It checks prepared and late
+entrances, throne-room exits, reentry, and death restoration. Build `app_it`
+before the capture so compilation does not consume the capture time limit:
+
+```bash
+CARGO_INCREMENTAL=0 cargo test -p ambition_app --test app_it --no-run
+python3 scripts/measure/capture_native_audio.py \
+  --out .cache/music-native-capture/castle.raw --seconds 90 -- \
+  cargo test -p ambition_app --test app_it -- \
+  native_castle_music --ignored --nocapture --test-threads=1
+```
+
+The late-entrance arm withholds decoded Awaken sources until March starts.
+It then restores those sources and checks that the intro does not replay.
+The death arm uses an actor death report and waits for a committed checkpoint
+restore before the next entrance. The test does not write the user's save.
+
 The opt-in `native_canceling_a_prepared_entry_cancels_its_predecessors_stop`
 test checks cancellation. Run it in a separate capture. The old source must
 continue past its withdrawn exit while the replacement is not ready, including

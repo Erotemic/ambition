@@ -1672,22 +1672,25 @@ remain an independent observer.
 **State:** IMPLEMENTING. The common native playback executor owns simple and
 adaptive voice lifetimes, cancellation, admission, retirement, bounded retry,
 and recording output. User and environment gain use that same owner. Native
-route acceptance remains open. Per-source boss/wave publication, canonical
+ending acceptance remains open. Per-source boss/wave publication, canonical
 encounter attempts and adaptive-only heard-room priority landed at
-`6d100f9d`; preserve them while unifying selection. The baseline diagnosis
+`6d100f9d`; preserve them in unified selection. The baseline diagnosis
 used source `00bf92c22142` and the supplied Wolfenstein departure log, 2026-11-22.
 A fresh start could stop its own bank; stopped voices could remain logically
-active. MUS1 replaced those lifetime owners. Fight-entry media
-is requested only when selected, which exposes a separate preparation/timing
-gap. The exit excerpt does not prove the cause of startup silence.
+active. MUS1 replaced those lifetime owners. Fight-entry media used to load
+only when selected. Room preparation now requests known entrances without a
+playback claim. The exit excerpt does not prove the cause of startup silence.
 
-**Next action:** implement MUS2's single presentation goal from the published
-source/attempt candidates and authored priority. Preserve transition-stamped
-release causes separately from coalescible successor goals, and explicitly
-choose continuation or fresh entry at the existing executor boundary.
-Complete native acceptance separately. Remove ownerless release and the
-temporary simple-track resume between the old fight and destination cue.
-Recheck source before editing; other agents may have changed the code.
+**Progress:** MUS2 now selects one scoped goal for simple and adaptive music.
+Prepared catalogs, bounded room demand, native continuation scheduling and
+prepared exit scheduling are in place. `047f1134a` checks the native Castle
+Godwin route with accepted media: prepared and withheld entrances, both door
+exits, reentry, and a committed death restore. The PCM contains the selected
+Tritone layers. No intermediate military track is selected.
+
+**Next action:** finish native ending-customer acceptance and scene pause/scale
+policy. Keep pickup, independent-tail and bridge support explicit at preparation
+and inspection. These operations need their declared product and native facts.
 
 **Follow-through:** MUS3 prepares known entrances and plans transitions
 against declared end/clock/late-entry semantics. MUS4 makes common recipes
@@ -1711,11 +1714,9 @@ reported fight/door route. This planning audit ran neither.
 
 **Retained receipt and separate evidence:** request-versus-instance and
 audio-context observations exist (`534a92549`, `b170a9238`); Dinosaur
-binding gaps were fixed (`0f5b40487`). The older death/respawn gap remains
-unexplained. Correlate its own request, decode, admission, context, and
-speaker evidence when that case can be reproduced. Do not mark it solved
-from the distinct departure trace or make a new runtime run a prerequisite
-for static ownership work.
+binding gaps were fixed (`0f5b40487`). The older death/respawn gap did not recur
+in `047f1134a`; its historical cause remains unknown. The new software capture
+does not establish physical-speaker output or explain the old departure trace.
 
 ### GATE-REDIAL — a new address closes the old wormhole and opens a new one (done)
 

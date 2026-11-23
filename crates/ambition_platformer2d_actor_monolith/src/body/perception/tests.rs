@@ -1517,11 +1517,12 @@ fn a_cheap_belief_sees_a_same_faction_grudge_the_way_the_view_does() {
 
 /// ⛔⛔ PURSUIT MUST SURVIVE THE CHEAP ROAD — the defect the routing invites.
 ///
-/// `actors/update.rs` now composes two steps for a `TargetBelief` body: fold
-/// memory from borrowed peers, then `belief_from_nearest`. The old road composed
-/// `build_world_view` + `believed_target`, which did the fold internally. This
-/// asserts the two COMPOSITIONS agree, not just their pieces — including the arm
-/// that matters, where the foe has LEFT the viewport and only memory can answer.
+/// `perceive_for_decision` composes two steps for a `TargetBelief` body: fold
+/// memory from borrowed peers, then `belief_from_nearest`. A `TacticalWorld`
+/// body composes `build_world_view` + `believed_target`, which folds the
+/// attended view. This asserts the two native roads agree below the attention
+/// cap, including the arm that matters, where the foe has LEFT the viewport and
+/// only memory can answer.
 ///
 /// ⚠ A body that can still SEE its foe agrees on both roads no matter how badly
 /// the fold is wired, because `nearest_hostile` answers before memory is
@@ -1545,43 +1546,29 @@ fn a_target_belief_body_still_pursues_a_foe_it_has_lost_sight_of() {
         ActorFaction::Boss,
     )];
 
-    // ── the road update.rs used to take ─────────────────────────────────────
-    let full_belief = |peers: &[PerceptionPeer], memory: &mut PerceptionMemory| {
-        let view = build_world_view(
+    // The two native roads: the tactical view and the cheap target belief.
+    let decide = |need, peers: &[PerceptionPeer], memory: &mut PerceptionMemory| {
+        super::perceive_for_decision(
+            need,
             &viewer,
             peers,
-            &[],
             &[],
             &world,
             &[],
             &relations,
             perception,
             0.0,
-        );
-        super::believed_target(perception, &view, Some(memory), dt)
-    };
-    // ── the road it takes now ───────────────────────────────────────────────
-    let cheap_belief = |peers: &[PerceptionPeer], memory: &mut PerceptionMemory| {
-        let cheap = super::nearest_hostile_peer(&viewer, peers, &relations, perception);
-        memory.0.update_from_seen(
-            0.0,
             dt,
-            peers
-                .iter()
-                .filter(|p| super::peer_is_visible_to_body(perception, &cheap.viewport, &viewer, p))
-                .map(|p| ambition_characters::perception::SeenActor {
-                    id: p.id.as_str(),
-                    pos: p.pos,
-                    vel: p.vel,
-                    faction: p.faction,
-                    hostile_to_self: super::peer_is_hostile_to_body(&viewer, &relations, p),
-                }),
-        );
-        super::belief_from_nearest(
-            perception,
-            cheap.nearest_hostile.map(|p| p.pos),
             Some(memory),
         )
+        .1
+    };
+    use ambition_characters::perception::PerceptionRequirement as Need;
+    let full_belief = |peers: &[PerceptionPeer], memory: &mut PerceptionMemory| {
+        decide(Need::TacticalWorld, peers, memory)
+    };
+    let cheap_belief = |peers: &[PerceptionPeer], memory: &mut PerceptionMemory| {
+        decide(Need::TargetBelief, peers, memory)
     };
 
     let mut full_mem = PerceptionMemory::default();
@@ -1610,6 +1597,112 @@ fn a_target_belief_body_still_pursues_a_foe_it_has_lost_sight_of() {
         lost_cheap, lost_full,
         "the cheap road must pursue too — a dropped fold shows up HERE and \
          nowhere else, because a body that can see its foe never consults memory"
+    );
+}
+
+/// OBS1: the tactical attention cap bounds the direct evidence a body
+/// admits, not only the rich view it builds.
+///
+/// A sighted tactical body with empty memory sees 17 live foes. It refreshes
+/// memory for exactly the 16 its view attends to, and its next crew call
+/// names exactly those 16. Below the cap every visible foe is admitted. A foe
+/// outside the viewport is never admitted. (A peer in another live room is
+/// not offered at all: `a_viewer_perceives_only_the_bodies_of_its_own_live_room`.)
+///
+/// A legitimate prior memory of the foe that attention now leaves out is
+/// retained: it decays under the usual policy and stays a pursuit candidate,
+/// but it is not refreshed as if seen and not called out as a fresh sighting.
+#[test]
+fn the_tactical_attention_cap_bounds_the_evidence_a_body_admits() {
+    use ambition_characters::perception::{PerceptionRequirement as Need, TACTICAL_ATTENTION};
+    use std::collections::BTreeSet;
+    let mut relations = FactionRelations::default();
+    relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
+    let world = arena_world();
+    let perception = Perception::Sighted { viewport_half: DEFAULT_VIEWPORT_HALF };
+    let dt = 1.0 / 60.0;
+    let viewer = body(ae::Vec2::new(100.0, 180.0), ActorFaction::Enemy);
+    let foes = |n: usize| -> Vec<PerceptionPeer> {
+        let mut peers: Vec<PerceptionPeer> = (0..n)
+            .map(|i| {
+                peer(
+                    &format!("foe{i:02}"),
+                    ae::Vec2::new(130.0 + 10.0 * i as f32, 180.0),
+                    ActorFaction::Boss,
+                )
+            })
+            .collect();
+        peers.push(peer("beyond", ae::Vec2::new(4000.0, 180.0), ActorFaction::Boss));
+        peers
+    };
+    let decide = |peers: &[PerceptionPeer], memory: &mut PerceptionMemory, now: f32| {
+        super::perceive_for_decision(
+            Need::TacticalWorld,
+            &viewer,
+            peers,
+            &[],
+            &world,
+            &[],
+            &relations,
+            perception,
+            now,
+            dt,
+            Some(memory),
+        )
+    };
+    let remembered = |memory: &PerceptionMemory| -> BTreeSet<String> {
+        memory.0.entries().map(|(id, _)| id.to_string()).collect()
+    };
+    let called = |memory: &PerceptionMemory| -> BTreeSet<String> {
+        let mut calls = Vec::new();
+        crew_calls(
+            bevy::prelude::Entity::PLACEHOLDER,
+            None,
+            viewer.pos,
+            Some(ActorFaction::Enemy),
+            perception,
+            &memory.0,
+            &mut calls,
+        );
+        calls.into_iter().map(|call| call.foe).collect()
+    };
+    let expected = |n: usize| -> BTreeSet<String> { (0..n).map(|i| format!("foe{i:02}")).collect() };
+
+    // Above the cap: 17 visible foes, 16 admitted.
+    let crowd = foes(TACTICAL_ATTENTION + 1);
+    let mut memory = PerceptionMemory::default();
+    let (view, _) = decide(&crowd, &mut memory, 0.0);
+    assert_eq!(view.actors.len(), TACTICAL_ATTENTION, "premise: the rich view is capped");
+    assert_eq!(view.remainder.actors, 1, "premise: the farthest foe is counted, not kept");
+    let attended: BTreeSet<String> = view.actors.iter().map(|a| a.id.clone()).collect();
+    assert_eq!(attended, expected(TACTICAL_ATTENTION));
+    assert_eq!(
+        remembered(&memory),
+        attended,
+        "memory refreshed a foe the attention budget left out"
+    );
+    assert_eq!(called(&memory), attended, "the crew call named an unattended foe");
+
+    // Below the cap: every visible foe is admitted, the far one is not.
+    let few = foes(5);
+    let mut memory = PerceptionMemory::default();
+    decide(&few, &mut memory, 0.0);
+    assert_eq!(remembered(&memory), expected(5), "below the cap a visible foe was not admitted");
+    assert_eq!(called(&memory), expected(5));
+
+    // Prior memory outside today's attention: retained and decaying.
+    let last = format!("foe{TACTICAL_ATTENTION:02}");
+    let alone: Vec<PerceptionPeer> = crowd.iter().filter(|p| p.id == last).cloned().collect();
+    let mut memory = PerceptionMemory::default();
+    decide(&alone, &mut memory, 0.0);
+    assert_eq!(memory.0.get(&last).map(|m| m.confidence), Some(1.0), "premise: it was seen");
+    decide(&crowd, &mut memory, dt);
+    let kept = memory.0.get(&last).expect("the cap erased an old memory as if forgotten");
+    assert!(kept.confidence < 1.0, "the cap refreshed an unattended foe as if seen");
+    assert_eq!(kept.last_seen, 0.0, "the unattended foe was stamped as seen now");
+    assert!(
+        !called(&memory).contains(&last),
+        "an unattended foe was called out as a fresh sighting"
     );
 }
 

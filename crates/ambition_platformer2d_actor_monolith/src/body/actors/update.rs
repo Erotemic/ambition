@@ -469,6 +469,7 @@ pub fn tick_actor_brains(
             );
         }
     }
+    ambition_characters::perception::census::note_reports(crew_calls.len());
 
     // The population scan and body-state maintenance have already run. This
     // loop is now one authority: evaluate autonomous decision state and produce
@@ -795,143 +796,37 @@ pub fn tick_actor_brains(
                                 },
                             ),
                         );
-                        // ⭐⭐ ONLY `TacticalWorld` BUILDS A VIEW NOW. `TargetBelief`
-                        // — seven of the nine templates — takes the cheap road
-                        // below, which finds the same foe from borrowed peers and
-                        // folds the same memory without constructing a
-                        // `PerceivedActor` (and its owned `String`) per peer.
-                        let world_view = if perception_need.needs_world_view() {
-                            super::super::perception::build_world_view(
+                        // ⭐ ONE ADMISSION BOUNDARY. `TacticalWorld` folds the
+                        // actors its bounded view attends to; `TargetBelief`
+                        // keeps the cheap road and builds no view. See
+                        // `perception::perceive_for_decision`.
+                        let (world_view, believed) =
+                            super::super::perception::perceive_for_decision(
+                                perception_need,
                                 &perception_body,
-                                &view_peers,
+                                view_peers,
                                 perceived.projectiles_in(room),
-                                &[],
                                 feature_world,
                                 &open_gates,
                                 relations,
                                 perception_policy,
                                 sim_now,
-                            )
-                        } else {
-                            ambition_characters::perception::WorldView::default()
-                        };
-                        // The cheap road, for the seven templates that only ever
-                        // wanted a target. One pass over the peers: the nearest
-                        // hostile, and the visible count the census needs.
-                        let cheap = perception_need.needs_target_belief().then(|| {
-                            super::super::perception::nearest_hostile_peer(
-                                &perception_body,
-                                &view_peers,
-                                relations,
-                                perception_policy,
-                            )
-                        });
-                        // ⚠ AN INSTRUMENT, OFF BY DEFAULT: one relaxed load when the
-                        // census is not running. `view_peers` is what the room
-                        // OFFERED this viewer; `actors` is what its viewport and
-                        // faction rules KEPT. The gap between the two is what an
-                        // attention budget would bound.
-                        //
-                        // ⛔ ONLY A VIEW THAT WAS ACTUALLY BUILT. A `None` brain now
-                        // gets `WorldView::default()`, and counting those recorded
-                        // 45,795 views of `kept=0` — a mean over bodies that never
-                        // looked, which is not the population the budget is about.
-                        // ⛔⛔ `kept` COMES FROM WHICHEVER ROAD RAN. A `TargetBelief`
-                        // body no longer builds a view, so `world_view.actors.len()`
-                        // is 0 for it — reading that would drop the census toward
-                        // zero for seven of the nine templates and quietly ruin the
-                        // instrument that priced this change. The cheap road counts
-                        // the same population (everything VISIBLE, allies included)
-                        // on the pass that finds the target.
-                        // ⛔ THE VIEW ROAD FIRST. `TacticalWorld` needs a target
-                        // belief too, so `cheap` is `Some` for it as well — and the
-                        // cheap count is the UNCAPPED visible set. Testing `cheap`
-                        // first recorded `kept = visible` for every world-view brain
-                        // and the density sweep could not see the attention budget
-                        // at all (yardrat, 2026-09-03: `kept_max` 129 with the cap
-                        // at 16). A body that built a view reports what the view
-                        // carries; only a body that did not reports the cheap count.
-                        if perception_need.needs_world_view() {
-                            ambition_characters::perception::census::note_world_view(
-                                view_peers.len(),
-                                world_view.actors.len() + world_view.remainder.actors,
-                                world_view.actors.len(),
+                                dt,
+                                perception_memory.as_deref_mut(),
                             );
-                        } else if let Some(cheap) = cheap.as_ref() {
-                            ambition_characters::perception::census::note_world_view(
-                                view_peers.len(),
-                                cheap.visible_count,
-                                cheap.visible_count,
-                            );
-                        }
                         // Sight and memory answer together; an `Omniscient` body
                         // already carries the global `ActorTarget` and is not
                         // overridden. Perceiving nobody is a real answer (idle).
-                        // ⛔⛔ THE FOLD RUNS ON BOTH ROADS. `WorldMemory` decays every
-                        // actor NOT seen this tick, so skipping it for a body that
-                        // no longer builds a view would fade every remembered foe as
-                        // though it had left the viewport — pursuit (I6) stops, a
-                        // body that can SEE its foe still looks right, and only the
-                        // one CHASING breaks. The cheap road feeds the same fold
-                        // borrowed peer fields instead of constructed actors.
-                        if let Some(cheap) = cheap.as_ref() {
-                            if let Some(memory) = perception_memory.as_deref_mut() {
-                                let viewport = &cheap.viewport;
-                                memory.0.update_from_seen(
-                                    sim_now,
-                                    dt,
-                                    view_peers
-                                        .iter()
-                                        .filter(|p| {
-                                            super::super::perception::peer_is_visible_to_body(
-                                                perception_policy,
-                                                viewport,
-                                                &perception_body,
-                                                p,
-                                            )
-                                        })
-                                        .map(|p| ambition_characters::perception::SeenActor {
-                                            id: p.id.as_str(),
-                                            pos: p.pos,
-                                            vel: p.vel,
-                                            faction: p.faction,
-                                            hostile_to_self:
-                                                super::super::perception::peer_is_hostile_to_body(
-                                                    &perception_body,
-                                                    relations,
-                                                    p,
-                                                ),
-                                        }),
-                                );
+                        match believed {
+                            Some(Some(pos)) => {
+                                snapshot.target_pos = pos;
+                                snapshot.target_alive = true;
                             }
-                        }
-                        if let Some(believed) = perception_need
-                            .needs_target_belief()
-                            .then(|| match cheap.as_ref() {
-                                Some(cheap) => super::super::perception::belief_from_nearest(
-                                    perception_policy,
-                                    cheap.nearest_hostile.map(|p| p.pos),
-                                    perception_memory.as_deref_mut(),
-                                ),
-                                None => super::super::perception::believed_target(
-                                    perception_policy,
-                                    &world_view,
-                                    perception_memory.as_deref_mut(),
-                                    dt,
-                                ),
-                            })
-                            .flatten()
-                        {
-                            match believed {
-                                Some(pos) => {
-                                    snapshot.target_pos = pos;
-                                    snapshot.target_alive = true;
-                                }
-                                None => {
-                                    snapshot.target_pos = body.kin.pos;
-                                    snapshot.target_alive = false;
-                                }
+                            Some(None) => {
+                                snapshot.target_pos = body.kin.pos;
+                                snapshot.target_alive = false;
                             }
+                            None => {}
                         }
                         world_view
                     } else {

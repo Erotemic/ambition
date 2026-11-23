@@ -1292,6 +1292,105 @@ pub(crate) fn enforce_empty_belief_for_none(
     true
 }
 
+/// What one deciding body admits as direct evidence this tick, folded into
+/// its memory, and the target it believes from that evidence.
+///
+/// ⛔ THE ADMITTED SET IS THE EVIDENCE BOUNDARY. The rows a body admits here
+/// are the rows it refreshes in memory and can call out to its crew next
+/// tick, so a bound on the rich view is not a bound on what the body knows
+/// unless both come from the same set:
+///
+/// - `TacticalWorld` admits exactly the actors its bounded view attends to
+///   ([`build_world_view`]). The rest of the visible crowd is counted in the
+///   view's remainder and is not seen: it is not refreshed, not acquired and
+///   not reported. Old memory of it decays under the usual policy; absence
+///   from attention is not evidence that it left or died.
+/// - `TargetBelief` keeps the cheap road: it borrows the peers, builds no
+///   view, and admits every visible peer. That population has no direct
+///   evidence budget yet.
+///
+/// The caller calls this only for a requirement that maintains a belief.
+/// `None` in the result means the policy keeps its own global target
+/// (`Perception::Omniscient`).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn perceive_for_decision(
+    need: ambition_characters::perception::PerceptionRequirement,
+    body: &PerceptionBody,
+    peers: &[PerceptionPeer],
+    projectiles: &[PerceptionProjectile],
+    world: &ae::World,
+    open_gates: &[&str],
+    relations: &FactionRelations,
+    perception: Perception,
+    sim_time: f32,
+    dt: f32,
+    mut memory: Option<&mut ambition_characters::perception::PerceptionMemory>,
+) -> (
+    ambition_characters::perception::WorldView,
+    Option<Option<ae::Vec2>>,
+) {
+    use ambition_characters::perception::census::{ViewSample, note_world_view};
+    let retained = |memory: &Option<&mut ambition_characters::perception::PerceptionMemory>| {
+        memory.as_deref().map_or(0, |memory| memory.0.len())
+    };
+    if need.needs_world_view() {
+        let view = build_world_view(
+            body,
+            peers,
+            projectiles,
+            &[],
+            world,
+            open_gates,
+            relations,
+            perception,
+            sim_time,
+        );
+        let believed = believed_target(perception, &view, memory.as_deref_mut(), dt);
+        note_world_view(ViewSample {
+            offered: peers.len(),
+            visible: view.actors.len() + view.remainder.actors,
+            kept: view.actors.len(),
+            admitted: view.actors.len(),
+            rich: view.actors.len(),
+            retained: retained(&memory),
+        });
+        return (view, believed);
+    }
+    let cheap = nearest_hostile_peer(body, peers, relations, perception);
+    if let Some(memory) = memory.as_deref_mut() {
+        memory.0.update_from_seen(
+            sim_time,
+            dt,
+            peers
+                .iter()
+                .filter(|p| peer_is_visible_to_body(perception, &cheap.viewport, body, p))
+                .map(|p| ambition_characters::perception::SeenActor {
+                    id: p.id.as_str(),
+                    pos: p.pos,
+                    vel: p.vel,
+                    faction: p.faction,
+                    hostile_to_self: peer_is_hostile_to_body(body, relations, p),
+                }),
+        );
+    }
+    let believed = belief_from_nearest(
+        perception,
+        cheap.nearest_hostile.map(|p| p.pos),
+        memory.as_deref_mut(),
+    );
+    note_world_view(ViewSample {
+        offered: peers.len(),
+        visible: cheap.visible_count,
+        // The cheap road's `kept` is its visible count, so a density sweep
+        // over `TargetBelief` brains reads the population it decided over.
+        kept: cheap.visible_count,
+        admitted: cheap.visible_count,
+        rich: 0,
+        retained: retained(&memory),
+    });
+    (ambition_characters::perception::WorldView::default(), believed)
+}
+
 pub(crate) fn believed_target(
     policy: Perception,
     view: &ambition_characters::perception::WorldView,

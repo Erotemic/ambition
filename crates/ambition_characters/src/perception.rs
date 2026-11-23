@@ -566,8 +566,10 @@ pub enum PerceptionRequirement {
     TargetBelief,
     /// The tactical view: the stage, terrain, projectiles, portals, and the
     /// actors this body ATTENDS TO — at most [`TACTICAL_ATTENTION`] of them,
-    /// the rest folded into [`AttentionRemainder`]. See
-    /// `bounded-perception-and-attention.md`.
+    /// the rest folded into [`AttentionRemainder`]. The attended actors are
+    /// also the body's whole direct evidence this tick: memory refresh,
+    /// direct acquisition and crew reports read that set, not the visible
+    /// crowd. See `bounded-perception-and-attention.md`.
     TacticalWorld,
 }
 

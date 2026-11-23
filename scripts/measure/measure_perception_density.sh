@@ -88,7 +88,7 @@ arm() {
         | grep '\[census\] sim_phases' | grep 'kept=' | tail -1 || true
     )
     if [ -z "$row" ]; then
-        printf '%-12s %8s %9s %9s %8s %10s   %s\n' "$extent" - - - - - \
+        printf '%-12s %8s %9s %9s %8s %10s %9s %9s   %s\n' "$extent" - - - - - - - \
             "NO CENSUS ROW - is the cast re-brained? a None-requirement brain builds no view"
         return
     fi
@@ -97,12 +97,16 @@ arm() {
     visible=$(sed -n 's/.* visible=\([0-9.]*\).*/\1/p' <<<"$row")
     kept=$(sed -n 's/.* kept=\([0-9.]*\).*/\1/p' <<<"$row")
     kept_max=$(sed -n 's/.* kept_max=\([0-9]*\).*/\1/p' <<<"$row")
-    printf '%-12s %8s %9s %9s %8s %10s   room=%s pop=%s ticks=%s\n' \
+    # Exact direct rows folded into memory, and memory rows held after it.
+    admitted=$(sed -n 's/.* admitted=\([0-9.]*\).*/\1/p' <<<"$row")
+    retained=$(sed -n 's/.* retained=\([0-9.]*\).*/\1/p' <<<"$row")
+    printf '%-12s %8s %9s %9s %8s %10s %9s %9s   room=%s pop=%s ticks=%s\n' \
         "$extent" "${views:--}" "${offered:--}" "${visible:--}" "${kept:--}" "${kept_max:--}" \
+        "${admitted:--}" "${retained:--}" \
         "$ROOM" "$pop" "$TICKS"
 }
 
-printf '%-12s %8s %9s %9s %8s %10s   %s\n' extent views offered visible kept kept_max note
+printf '%-12s %8s %9s %9s %8s %10s %9s %9s   %s\n' extent views offered visible kept kept_max admitted retained note
 if [ -n "$POPULATIONS" ]; then
     # ⛔ ONE AXIS: the extent is pinned to the first one named.
     pinned="${EXTENTS%% *}"

@@ -1,11 +1,12 @@
 # Music programs and owned playback
 
-**State:** implementation in progress, 2026-11-22.
+**State:** implementation in progress, 2026-11-23.
 Reviewed source: `6d100f9d9e0d557fe4ae3dad61acd5aef71f684e`.
 MUS1's bounded playback executor landed in `d4147e4c`; per-source music
 publication and canonical attempts landed in `6d100f9d`. Release facts now
-retain their transition attempt and pass through host confirmation. Unified goal
-selection, owned endings and prepared timing remain open. Music renderer:
+retain their transition attempt and pass through host confirmation. One scoped
+goal now selects tracks and cues. Endings retain their admitted entry and
+generation while the latest goal selects the successor. Prepared timing remains open. Music renderer:
 `186a13f8115752a4bbdb4955fb9e46483562a2d4`.
 The supplied exit log has UTC timestamps on 2026-11-23. Its executable
 revision is not established. The historical diagnosis used source
@@ -54,7 +55,7 @@ fits the log; it did not establish the executable revision or speaker output.
 owns bounded groups, exact returned handles, cancellation, required-source
 admission, bounded retry and terminal results for simple and adaptive music.
 Keep that owner. Do not ask an agent to recreate it from the old diagnosis.
-The independent simple-resume selection gap below remains.
+The unified goal reduction below removes the independent simple-resume path.
 
 Native acceptance still needs the locked `bevy_kira_audio 0.26.0` /
 `kira 0.12.4` adapter and the reported route. A command or instance flag
@@ -63,38 +64,22 @@ identify the adaptive stop; the image decode, frame spike and missing
 `SimId` messages do not establish causes of the sustained gap. The old
 source and log analysis remain in Git history.
 
-### Selection creates an unnecessary intermediate track
+### Unified selection removes the intermediate track
 
 The [intent adapter](../../../crates/ambition_platformer2d_audio/src/music/intent.rs)
-first resolves adaptive encounter/boss directives. After room publication,
-Wolfenstein is no longer in the heard room. The resolver returns an unowned
-`StopNow` for his old claim. That value prevents the destination room's
-adaptive resolver from running in the same reduction.
-
-Shutdown then resumes the simple candidate `military_iron_resolve`.
-On the next frame the cleared boss claim no longer blocks the great hall's
-`tritone_decree`. This explains the selection sequence before the bank
-failure. It creates a needless start/cancel and makes its warning ambiguous.
-The correct destination is Tritone in the inspected content.
+now selects one goal from tracks and cues. Room publication can select the
+destination's adaptive cue in that reduction. No simple-resume selector runs
+between the old boss claim and the destination goal. The correct destination
+is Tritone in the inspected content.
 
 `6d100f9d` repaired the publication side: each boss/wave source publishes
 independently, attempts come from the canonical encounter lifecycle, and
 adaptive-only claims participate in heard-room priority without a dummy
-simple track. Preserve those facts. The presentation split still has these
-consequences:
-
-- Adaptive resolution reconstructs ownership from an authored encounter ID
-  or boss archetype/phase rather than consuming the published source and
-  attempt.
-- An adaptive encounter is resolved before an adaptive boss, independently
-  of the simple candidate tiers. The room's fight override only affects
-  simple candidates.
-- A bound encounter in Failed returns `StopNow` without checking ownership.
-  A losing source can thus stop the winner.
-
-These are residuals in the existing Q72/Q150 contract. Preserve the completed
-room filter and primary-seat tie rule. Remove the separate reductions that
-bypass or collapse them.
+simple track. The goal adapter consumes each published source and attempt,
+checks its live lifecycle in its room, and applies fight overrides before
+arbitration. Local listening rooms, primary-seat ties, and source recency use
+the same law for both representations. A losing failed source cannot issue
+an ownerless stop.
 
 ### The fight entrance is a separate readiness and clock exposure
 
@@ -259,8 +244,8 @@ transient candidate that presentation did not admit.
 
 Compatible product data is necessary for reuse, but does not decide whether
 an entry should start again. Current
-[`MusicPlaybackRequest::same_product`](../../../crates/ambition_audio/src/music/playback.rs)
-compares product, looping and source handles. Repeating it preserves retry
+[`MusicPlaybackRequest::can_continue`](../../../crates/ambition_audio/src/music/playback.rs)
+compares entry, product, looping and source handles. Repeating it preserves retry
 and exhausted state; a completed one-shot deliberately stays complete.
 The adaptive director also recognizes held requests by cue/state. Adding
 an attempt only to an outer candidate leaves those decisions unchanged.
@@ -347,17 +332,17 @@ rows when migrating them; a new preset's defaults must be explicit.
 
 ### Clock and marker preparation
 
-Every supported MusicIR frontend exposes its compiler-owned clock. V1
-already renders a tempo map but sets `CompiledScore.exact_metadata` to
-`None`. V2/V3 retain richer exact metadata. Adapt those compiler facts;
-do not add another YAML interpreter or infer a variable clock from average
-BPM. V3 procedural generator clips have narrower clock restrictions than
-exact clips; inspection must state the supported form.
+Every supported MusicIR frontend now exposes its compiler clock through
+`CompiledScore.clock`. V1 retains `exact_metadata: None` and projects its
+procedural tempo map. V2/V3 project the exact meter and tempo owners. Native
+preparation must consume these facts; it must not parse YAML or infer a
+variable clock from average BPM. V3 procedural generator clips have narrower
+clock restrictions than exact clips; inspection states that limit.
 
-Display chapters, entry markers, and legal exits are different roles.
-The current playback plan drops exit markers. V3 validation also rejects
-`valid_exit_local_bars` although exact-score lowering can preserve it.
-Make the public authoring form and its supported lowering agree.
+Display chapters, entry markers, and legal exits are different roles. Source
+preparation now retains bar exits and V3 admits `valid_exit_local_bars`.
+Encoded products retain the resolved frames. The native transition planner
+does not yet consume these markers.
 
 Use the same cut and rounding as the selected product. For the current
 global cut convention, a local marker frame is:
@@ -677,8 +662,8 @@ customer. Basic strict native preparation starts with the first new records.
 **Landed implementation (`d4147e4c`):** the common executor owns simple and adaptive submissions,
 exact-handle retirement, late cancellation, required-group admission, bounded
 retry, and recording output. User and environment gain enter this owner.
-Native route acceptance remains open. MUS2 still owns the split selection and
-simple-resume removal; MUS3 still owns prepared timing.
+Native route acceptance remains open. MUS2 has removed split selection and
+simple-resume authority; MUS3 still owns prepared timing.
 
 **Remaining:** establish locked-adapter drain/cancel behavior and native route
 acceptance, with an honest timing guarantee. Keep existing simple/adaptive
@@ -709,11 +694,25 @@ selection, and the existing scoped claim owner.
 **Progress:** simulation publication now keeps each source and its canonical
 encounter attempt. Bosses and encounters no longer collapse to one source
 per room. Adaptive-only sources have no required simple-track placeholder.
-The single presentation goal and ending handoff are the next part of MUS2.
+The presentation adapter now publishes one occurrence-owned `MusicGoal`.
+Tracks, cues, radio, narrative, room and frontend policy use the same goal
+and bounded executor. The separate default-start and simple-resume writers
+are removed. A missing projection retains the goal; explicit silence retires it.
+An ending names its admitted entry and claim, pins its cue generation, and
+uses the latest successor goal. A new attempt or radio can interrupt it.
+Missing ending media has a finite wait and a named terminal result.
 Release publication now preserves each transition's attempt and cause.
 GGRS defers only the presentation projection. The hosted host uses its live
 confirmation boundary and retracts only the replayed room's pending releases.
 Ordinary encounter messages remain available to simulation readers.
+
+**Guard:** focused native recording tests cover admission delay, superseded
+entrances, fresh attempts, shared continuity, stale dispositions, held
+continuations, ending interruption, missing media and retained generations.
+Selection tests cover local listeners, mixed choices, room overrides,
+duplicate authored ids in different rooms and direct destination selection.
+Plugin tests cover frontend continuity and direct startup readiness. Native
+route and audible acceptance remain open; these tests do not prove speaker output.
 
 Publish occurrence candidates with one priority law. Lower simple choices
 to the one-source program and executor. Resolve destination selection and
@@ -752,6 +751,11 @@ command boundary, without requiring another native music executor.
 **Owners:** native transport, existing room/residency demand, prepared game
 scene policy; MA1 supplies producer facts.
 
+**Producer progress:** all compiler frontends now expose their clock through
+`CompiledScore.clock`. Source inspection and fresh render publication export
+body ends, frame origins, bar exits, gain bases and retained material. These
+facts are not yet linked into the native director or residency demand.
+
 Prefetch the known opening and imminent continuation without granting
 claims. Keep catalog, decode, admission, and start facts distinct. Add the
 small boundary/entry/late-policy plan and a defined transport origin.
@@ -775,6 +779,11 @@ remain later native acceptance, not claims of a recording sink.
 ### MUS4 — make authoring recipes strict and inspectable
 
 **Owners:** MusicIR/compiler/exporter and native cue preparation.
+
+**Producer progress:** `cue playback` inspects V1–V3 without synthesis. Source
+validation checks typed exits and event form ownership. Encoded products
+retain their measured frames and render identity through publication. The
+common strict native preparer and recipe migration remain open.
 
 Expose compiler clock and typed marker support for every supported
 frontend. Make final product construction and support limits explicit.
@@ -801,9 +810,12 @@ executable marker policy when that content is selected.
 
 ## Verification limits and future acceptance
 
-This review used static reads and the supplied log. No build, test,
-renderer, game, backend drain, device, or listening run was performed.
-Existing recording tests remain useful for state/continuation policy.
+The original review used static reads and the supplied log. Implementation
+now has native recording, goal selection and plugin checks. The assembled
+app and capture tool compile. The shipped host's multi-provider route check
+reached Ambition and returned to the launcher, then failed at Sanic's track;
+this checkout lacks the generated Sanic and Mary-O tracks. That full route
+check remains open. No device or listening acceptance was performed.
 The current recording path consumes the executor's actual voice commands;
 it does not execute Kira drains or establish speaker-audible output. The
 historical mode-only bank tests did not establish that old command ordering.
@@ -827,11 +839,11 @@ to `00bf92c2`; it is not a description of these current files.
 
 | Question | Source |
 | --- | --- |
-| Exact playback ownership, retry and entry equivalence | [playback](../../../crates/ambition_audio/src/music/playback.rs): `MusicPlayback`, `MusicPlaybackRequest::same_product`; [adaptive director](../../../crates/ambition_audio/src/music/director/adaptive.rs): `drive_adaptive_cue_state` |
+| Exact playback ownership, retry and entry equivalence | [playback](../../../crates/ambition_audio/src/music/playback.rs): `MusicPlayback`, `MusicPlaybackRequest::can_continue`; [adaptive director](../../../crates/ambition_audio/src/music/director/adaptive.rs): `drive_adaptive_cue_state` |
 | Selection adapters and output interpretation | [director](../../../crates/ambition_audio/src/music/director/mod.rs); [diagnostics](../../../crates/ambition_audio/src/music/diagnostics.rs); [state](../../../crates/ambition_audio/src/music/state.rs) |
 | Device/recording commands | [commands](../../../crates/ambition_audio/src/music/commands.rs): `MusicPlaybackCommands`; [playback](../../../crates/ambition_audio/src/music/playback.rs): `MusicVoiceOutput`; [output](../../../crates/ambition_audio/src/output.rs); [gains](../../../crates/ambition_audio/src/music/director/gains.rs); [instance control](../../../crates/ambition_audio/src/spatial.rs) |
 | Mix authority and legacy mastering | [environment mix](../../../crates/ambition_platformer2d_audio/src/environment.rs); [user mix](../../../crates/ambition_platformer2d_audio/src/music/mod.rs); [mastering policy](../../../tools/ambition_music_renderer/ambition_music_renderer/processing/mastering.py) |
-| Current candidates and remaining split selection | [intent](../../../crates/ambition_platformer2d_audio/src/music/intent.rs); [claims](../../../crates/ambition_encounter/src/music.rs): `publish_occurrences`; [boss publication](../../../crates/ambition_boss_encounter/src/music.rs); [wave publication](../../../crates/ambition_encounter_features/src/music.rs) |
+| Current candidates and unified goal selection | [intent](../../../crates/ambition_platformer2d_audio/src/music/intent.rs); [claims](../../../crates/ambition_encounter/src/music.rs): `publish_occurrences`; [boss publication](../../../crates/ambition_boss_encounter/src/music.rs); [wave publication](../../../crates/ambition_encounter_features/src/music.rs) |
 | Transition reason, attempt and presentation delivery | [lifecycle](../../../crates/ambition_encounter/src/lifecycle.rs): `reduce_encounter_lifecycles`; [events](../../../crates/ambition_encounter/src/events.rs): `EncounterEventMsg`; [external effects](../../../crates/ambition_platformer2d_runtime/src/external_effects.rs): `ExternalEffectJournal` |
 | Actual game policy | [cue catalog](../../../game/ambition_content/assets/audio/music_cues.ron), 315–355, 403–430, 498–504, 572–585; [Wolfenstein](../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_boss.ron); [Inugami](../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_inugami.ron); [conductor](../../../game/ambition_content_modules/src/wolfenstein.rs), 724–742 and 1547–1551 |
 | Readiness versus catalog registration | [cue assets](../../../crates/ambition_audio/src/music/catalog.rs), 178–215; [provider lifecycle](../../../crates/ambition_platformer2d_provider/src/lifecycle.rs), 504–575 and 1207–1224; [room assets](../../../crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs), 39–93 and 1432 onward |

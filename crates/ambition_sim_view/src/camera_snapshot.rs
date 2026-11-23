@@ -2482,18 +2482,44 @@ impl PresentedViewState<'_, '_> {
 ///  absent settings leave the component alone rather than forcing a default, so
 /// a host that has no `UserSettings` (the unit tests, a headless probe) keeps the
 /// "a game can just write the component" path that `local_view` pins.
+///
+/// Only views bound to the preference ([`ReferenceFrameSource::Preference`])
+/// follow it. A view whose composition authored its frame keeps it: the
+/// writer used to reach every view, so a world-fixed pane became
+/// player-relative on the next Update whenever the setting said so.
 fn apply_camera_reference_frame_setting(
     user_settings: Option<bevy::prelude::Res<ambition_persistence::settings::UserSettings>>,
-    mut views: bevy::prelude::Query<&mut CameraReferenceFrame>,
+    mut views: bevy::prelude::Query<(&mut CameraReferenceFrame, Option<&ReferenceFrameSource>)>,
 ) {
     let Some(settings) = user_settings.as_deref() else {
         return;
     };
     let wanted = settings.gameplay.camera_reference_frame;
-    for mut frame in &mut views {
-        if *frame != wanted {
+    for (mut frame, source) in &mut views {
+        if source.copied().unwrap_or_default() == ReferenceFrameSource::Preference && *frame != wanted {
             *frame = wanted;
         }
+    }
+}
+
+/// Where a view's [`CameraReferenceFrame`] comes from.
+///
+/// A binding, stated, rather than inferred from whether the view's value
+/// happens to equal the setting's.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ReferenceFrameSource {
+    /// The player's Gameplay-menu setting (`camera_reference_frame`), the
+    /// default for every local view.
+    #[default]
+    Preference,
+    /// The composition chose this view's frame; the setting does not touch it.
+    Authored,
+}
+
+impl ReferenceFrameSource {
+    /// A view whose frame the composition chose: insert on the view.
+    pub fn authored(frame: CameraReferenceFrame) -> impl bevy::prelude::Bundle {
+        (frame, Self::Authored)
     }
 }
 
@@ -2520,6 +2546,7 @@ pub fn local_view_facts() -> impl bevy::prelude::Bundle {
         CameraScreenFraming::default(),
         CameraPresentationInputs::default(),
         CameraReferenceFrame::default(),
+        ReferenceFrameSource::default(),
         ambition_camera_presentation::CameraEaseState::default(),
         ResolvedCameraSnapshot::default(),
         // Where this view is looking, resolved from its own declaration before

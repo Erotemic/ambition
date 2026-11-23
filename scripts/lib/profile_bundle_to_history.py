@@ -358,7 +358,8 @@ def sim_phase_metrics(bundle: Bundle) -> dict | None:
     if not rows:
         return None
     skip = {"wall_s", "t", "ticks", "actor_cap", "brain_override", "brain_profile",
-            "unmeasured", "views", "offered", "kept", "kept_max"}
+            "unmeasured", "views", "offered", "visible", "kept", "kept_max",
+            "admitted", "rich", "retained", "reports"}
     labels = [key for key in rows[0] if key not in skip]
     phases = {label: weighted(rows, label, weight="ticks") for label in labels}
     return {label: value for label, value in phases.items() if value is not None}

@@ -13,7 +13,7 @@ use bevy_kira_audio::prelude::{
     PlaybackState,
 };
 
-use crate::library::{amplitude_to_decibels, AudioLibrary, MusicPlaybackState};
+use crate::library::{AudioLibrary, MusicPlaybackState, amplitude_to_decibels};
 use crate::mix::MusicMix;
 
 pub const MUSIC_LOG_TARGET: &str = "ambition_music";
@@ -43,16 +43,18 @@ pub mod state;
 
 pub use catalog::{
     AdaptiveMusicCatalogAppExt, AdaptiveMusicCatalogError, AdaptiveMusicCatalogRegistry,
-    BossMusicBinding, BossPhaseState, EncounterMusicBinding, LoadedMusicCueAssets, MusicCueCatalog,
-    MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec,
-    MusicStateBalanceOverride, MusicStateSpec, RoomMusicBinding, BOSS_PHASE_KEYS,
+    BOSS_PHASE_KEYS, BossMusicBinding, BossPhaseState, EncounterMusicBinding, LoadedMusicCueAssets,
+    MusicCueCatalog, MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec,
+    MusicSectionSpec, MusicStateBalanceOverride, MusicStateSpec, RoomMusicBinding,
 };
 pub use commands::MusicPlaybackCommands;
 pub use director::{drive_music_director, load_music_cues};
 pub use playback::add_music_playback;
 use state::PendingMusicStateTransition;
 pub use state::{
-    AdaptiveCueDirective, MusicClaim, MusicDirectorMode, MusicDirectorState, MusicIntent,
+    AdmittedMusic, MusicChoice, MusicClaim, MusicContinuity, MusicDirectorMode, MusicDirectorState,
+    MusicDisposition, MusicEndingResult, MusicEntryPolicy, MusicGoal, MusicGoalPublication,
+    MusicIntent, MusicReleaseReason, MusicSelection, MusicSilenceReason,
 };
 
 use commands::LayerGains;
@@ -62,11 +64,13 @@ use commands::LayerGains;
 pub fn silence_music_backend(
     layer_channels: &mut MusicPlaybackCommands,
     director: &mut MusicDirectorState,
-    music_state: &mut MusicPlaybackState,
+    music_state: Option<&mut MusicPlaybackState>,
 ) {
     layer_channels.silence();
     *director = MusicDirectorState::default();
-    music_state.silence();
+    if let Some(state) = music_state {
+        state.silence();
+    }
 }
 
 /// What the player hears now, named for a "now playing" line: the adaptive
@@ -115,27 +119,4 @@ fn title_case(id: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-/// Whether the current base track can continue across an audio-context change.
-///
-/// Frontend-to-frontend handoffs preserve an already-playing identical title
-/// track. Entering or leaving gameplay still resets the director and adaptive
-/// layers, even when the base track id matches. The decision uses stable track
-/// identity rather than the transient context owner.
-pub fn title_theme_keeps_playing(
-    title_track: Option<&str>,
-    incoming_owner: Option<ambition_sfx::AudioContextOwner>,
-    music_state: &MusicPlaybackState,
-) -> bool {
-    if matches!(
-        incoming_owner,
-        Some(ambition_sfx::AudioContextOwner::Gameplay(_))
-    ) {
-        return false;
-    }
-    match title_track {
-        Some(track) => !track.is_empty() && music_state.active_track() == track,
-        None => false,
-    }
 }

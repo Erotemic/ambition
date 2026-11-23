@@ -57,7 +57,10 @@ def codec_files() -> list[Path]:
     found: list[Path] = []
     for root in SEARCH_ROOTS:
         for path in sorted((REPO_ROOT / root).rglob('*.rs')):
-            if '/target/' in str(path) or '/.claude/' in str(path):
+            # Relative, so a checkout that itself lives under `.claude/`
+            # (an agent worktree) still sees its own sources.
+            within = f'/{path.relative_to(REPO_ROOT).as_posix()}'
+            if '/target/' in within or '/.claude/' in within:
                 continue
             text = path.read_text(encoding='utf8', errors='replace')
             # a codec marker is required, not just a `put_*` call.

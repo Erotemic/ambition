@@ -386,21 +386,24 @@ world-post admission.
     also settles a pending charge whose release route is withdrawn. Keep
     unchanged bindings and the incoming action's activation policy. This
     local simulation change needs no new peer-wire representation. IN4
-    can ship independently; IN5's supply interruption coordinates with
+    can ship independently (its capture and rebind crossings landed
+    2026-11-23: `SeatSourceEdges` follows valid samples and resyncs after an
+    invalid one; the retired seat's raw row and latch go with it: IN4 is
+    done); IN5's supply interruption coordinates with
     IN1 and the wire/stream owners. Do not select a new provider transport
     merely to complete P2's unused publisher.
 
 11. [Observation OBS1](engine/bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary)
-    makes the tactical direct-observation set govern native memory refresh
-    and direct acquisition, not only rich-view construction. Stop the
-    tactical path's uncapped cheap fold and preserve the separate cheap
-    and intentional omniscient contracts. Retention over time is a separate
-    budget. [OBS2](engine/world-facts-observations-and-memory.md#obs2--preserve-evidence-meaning-through-memory-and-communication)
-    carries observed liveness and source/cut through sight, report and hit
-    reconciliation. A position-confidence comparison cannot discard an
-    accepted hit's hostility; stale memory cannot mint fresh firsthand
-    reports; a crew report cannot make its subject target itself. Preserve
-    native Settle timing, pirate crew assistance and existing saved hostility.
+    landed 2026-11-23 (`6fe56fb12`): a `TacticalWorld` body admits,
+    refreshes, acquires and reports exactly its attended set; the cheap
+    road and omniscient target are unchanged. Open: a `TargetBelief`
+    direct-evidence budget and retention over time.
+    [OBS2](engine/world-facts-observations-and-memory.md#obs2--preserve-evidence-meaning-through-memory-and-communication)
+    landed 2026-11-23 (`4488b2d65`, schema 531): memory carries observed
+    liveness and evidence source/`SimTick` cut; a hit keeps its hostility
+    beside a better sighting; only a preceding-step sight is reported; a
+    report cannot name its listener. Settle timing, crew assistance and
+    saved hostility are unchanged.
     Then [OBS3](engine/agentic-character-runtime.md#obs3--resolve-observation-demand-across-controller-providers)
     resolves native plus module observation demand before one domain
     projection is built. Prove a selected sighted module with a native
@@ -420,7 +423,9 @@ world-post admission.
     do not repeat the full old cast prelude for every view. This can ship
     before broader M3 adaptation and the 2.5D adapter. M3 still owns the
     product choice of shared orientation and logical input reference when
-    bodies disagree on gravity.
+    bodies disagree on gravity. (Preference binding landed 2026-11-23: a
+    view's `ReferenceFrameSource` keeps an authored frame from the setting.
+    The selected-subject framing is open.)
 
 13. [Room scope SC1](engine/capability-and-runtime-composition.md#sc1--select-rule-subjects-inside-the-work-gate)
     keeps the coarse any-room work gate and makes Mary-O's gait writer

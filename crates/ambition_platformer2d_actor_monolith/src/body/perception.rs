@@ -560,11 +560,13 @@ pub fn collect_perception_projectiles(
 
 /// ⭐ A CREW SHARES WHAT IT SEES.
 ///
-/// Every body whose policy `shares_sightings` calls out the foes it saw last
-/// tick, and every such ally of its faction INSIDE ITS VIEW hears them, as
-/// [`WorldMemory::HEARSAY_CONFIDENCE`] sightings. Bounded senses stay bounded:
+/// Every body whose policy `shares_sightings` calls out the living foes it
+/// directly saw on the preceding step ([`WorldMemory::direct_reports`]), and
+/// every such ally of its faction INSIDE ITS VIEW hears them, as
+/// [`WorldMemory::HEARSAY_CONFIDENCE`] reports. Bounded senses stay bounded:
 /// word travels between bodies that can see each other, and fades as memory
-/// does.
+/// does. A call carries its subject, its caller and the caller's original
+/// sight step; retelling never makes it firsthand.
 ///
 /// MEASURED motivation (`room_census`, `pirate_sky_lookout`): three raiders
 /// posted 450–550 px above the floor never saw a player standing on it, while
@@ -578,9 +580,10 @@ pub fn collect_perception_projectiles(
 /// (reported with that reproducer). `tick_actor_brains` already holds every
 /// column this needs, so the call-out rides in it and the schedule is unchanged.
 ///
-/// ⚠ ORDER-FREE BY CONSTRUCTION: every caller that saw a foe recorded the same
-/// body at the same moment, and [`WorldMemory::hear`] keeps the more confident
-/// of two equals, so no iteration order can change what anyone hears.
+/// ⚠ ORDER-FREE BY CONSTRUCTION: a call is made only from a sight at the
+/// preceding step, so every caller of one subject read the same peer row at
+/// the same cut, and [`WorldMemory::hear`] keeps the first of two equals. No
+/// iteration order can change what anyone hears.
 #[derive(Clone, Debug)]
 pub(crate) struct CrewCall {
     caller: bevy::prelude::Entity,
@@ -592,7 +595,9 @@ pub(crate) struct CrewCall {
     seen: ambition_characters::perception::RememberedActor,
 }
 
-/// The calls a crew member makes: every foe it saw last tick.
+/// The calls a crew member makes: every living foe it directly saw at the
+/// preceding step's cut `seen_at`. `None` (no preceding step) calls nothing.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn crew_calls(
     caller: bevy::prelude::Entity,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
@@ -600,18 +605,28 @@ pub(crate) fn crew_calls(
     faction: Option<ambition_characters::actor::ActorFaction>,
     perception: Perception,
     memory: &ambition_characters::perception::WorldMemory,
+    seen_at: Option<u64>,
     calls: &mut Vec<CrewCall>,
 ) {
+    let Some(seen_at) = seen_at else {
+        return;
+    };
     let view = ambition_characters::perception::Viewport::around(pos, perception.tactical_extent());
-    for (foe, seen) in memory.hostiles_in_view() {
+    for (foe, seen) in memory.direct_reports(seen_at) {
         calls.push(CrewCall { caller, room, view, faction, foe: foe.to_string(), seen: *seen });
     }
 }
 
 /// What a crew member hears: its allies' calls, from those who can see it.
+///
+/// `listener_id` is the listener's own peer id. A call whose subject is the
+/// listener is refused: a caller's grudge against a crew mate makes that mate
+/// the caller's foe, not its own.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn hear_crew(
     calls: &[CrewCall],
     listener: bevy::prelude::Entity,
+    listener_id: Option<&str>,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     pos: ae::Vec2,
     faction: Option<ambition_characters::actor::ActorFaction>,
@@ -619,6 +634,7 @@ pub(crate) fn hear_crew(
 ) {
     for call in calls {
         if call.caller == listener
+            || Some(call.foe.as_str()) == listener_id
             || call.room != room
             || call.faction != faction
             || !call.view.contains(pos)
@@ -628,7 +644,12 @@ pub(crate) fn hear_crew(
         memory.hear(
             &call.foe,
             ambition_characters::perception::RememberedActor {
+                // The crew's assistance policy: a crew mate's foe is this
+                // listener's foe. The caller's own hostility relation is not
+                // copied as if it were the listener's.
+                hostile_to_self: true,
                 confidence: ambition_characters::perception::WorldMemory::HEARSAY_CONFIDENCE,
+                source: ambition_characters::perception::EvidenceSource::Report,
                 ..call.seen
             },
         );
@@ -662,8 +683,11 @@ pub fn remember_who_struck_it(
                 vel: striker.vel,
                 faction: striker.faction,
                 hostile_to_self: true,
+                alive: striker.alive,
                 last_seen: sim_clock.0,
                 confidence: 1.0,
+                source: ambition_characters::perception::EvidenceSource::Hit,
+                cut: perceived.cut(),
             },
         );
     }
@@ -823,8 +847,9 @@ pub(crate) fn nearest_hostile_peer<'p>(
     // would start understating the population it measures. Counted on the same
     // pass that finds the target.
     let visible_count = visible().count();
+    // A dead body is seen (and folded into memory) but is not a candidate.
     let nearest = visible()
-        .filter(|p| peer_is_hostile_to_body(body, relations, p))
+        .filter(|p| p.alive && peer_is_hostile_to_body(body, relations, p))
         .min_by(|a, b| {
             // ⛔ THE SAME ORDER AS `WorldView::nearest_hostile`, squared distance
             // included: comparing distances instead would be the same ranking
@@ -1036,8 +1061,8 @@ pub fn build_world_view(
 }
 
 /// The peers a body attends to, in the order they are kept, and what it did
-/// not: the visible peers (`peer_is_visible_to_body`) ranked hostile-first,
-/// then by squared distance, then by id, cut at
+/// not: the visible peers (`peer_is_visible_to_body`) ranked living hostiles
+/// first, then by squared distance, then by id, cut at
 /// [`ambition_characters::perception::TACTICAL_ATTENTION`].
 ///
 /// ⛔ DETERMINISTIC BY CONSTRUCTION. `WorldMemory` is rollback state and
@@ -1061,7 +1086,9 @@ fn attend<'p>(
         .filter(|p| peer_is_visible_to_body(perception, viewport, body, p))
         .map(|p| {
             (
-                peer_is_hostile_to_body(body, relations, p),
+                // A corpse exerts no pressure and is no candidate, so it
+                // never displaces a living foe from attention.
+                p.alive && peer_is_hostile_to_body(body, relations, p),
                 (p.pos - body.pos).length_squared(),
                 p,
             )
@@ -1292,14 +1319,117 @@ pub(crate) fn enforce_empty_belief_for_none(
     true
 }
 
+/// What one deciding body admits as direct evidence this tick, folded into
+/// its memory, and the target it believes from that evidence.
+///
+/// ⛔ THE ADMITTED SET IS THE EVIDENCE BOUNDARY. The rows a body admits here
+/// are the rows it refreshes in memory and can call out to its crew next
+/// tick, so a bound on the rich view is not a bound on what the body knows
+/// unless both come from the same set:
+///
+/// - `TacticalWorld` admits exactly the actors its bounded view attends to
+///   ([`build_world_view`]). The rest of the visible crowd is counted in the
+///   view's remainder and is not seen: it is not refreshed, not acquired and
+///   not reported. Old memory of it decays under the usual policy; absence
+///   from attention is not evidence that it left or died.
+/// - `TargetBelief` keeps the cheap road: it borrows the peers, builds no
+///   view, and admits every visible peer. That population has no direct
+///   evidence budget yet.
+///
+/// The caller calls this only for a requirement that maintains a belief.
+/// `None` in the result means the policy keeps its own global target
+/// (`Perception::Omniscient`).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn perceive_for_decision(
+    need: ambition_characters::perception::PerceptionRequirement,
+    body: &PerceptionBody,
+    peers: &[PerceptionPeer],
+    projectiles: &[PerceptionProjectile],
+    world: &ae::World,
+    open_gates: &[&str],
+    relations: &FactionRelations,
+    perception: Perception,
+    sim_time: f32,
+    cut: u64,
+    dt: f32,
+    mut memory: Option<&mut ambition_characters::perception::PerceptionMemory>,
+) -> (
+    ambition_characters::perception::WorldView,
+    Option<Option<ae::Vec2>>,
+) {
+    use ambition_characters::perception::census::{ViewSample, note_world_view};
+    let retained = |memory: &Option<&mut ambition_characters::perception::PerceptionMemory>| {
+        memory.as_deref().map_or(0, |memory| memory.0.len())
+    };
+    if need.needs_world_view() {
+        let view = build_world_view(
+            body,
+            peers,
+            projectiles,
+            &[],
+            world,
+            open_gates,
+            relations,
+            perception,
+            sim_time,
+        );
+        let believed = believed_target(perception, &view, memory.as_deref_mut(), cut, dt);
+        note_world_view(ViewSample {
+            offered: peers.len(),
+            visible: view.actors.len() + view.remainder.actors,
+            kept: view.actors.len(),
+            admitted: view.actors.len(),
+            rich: view.actors.len(),
+            retained: retained(&memory),
+        });
+        return (view, believed);
+    }
+    let cheap = nearest_hostile_peer(body, peers, relations, perception);
+    if let Some(memory) = memory.as_deref_mut() {
+        memory.0.update_from_seen(
+            sim_time,
+            cut,
+            dt,
+            peers
+                .iter()
+                .filter(|p| peer_is_visible_to_body(perception, &cheap.viewport, body, p))
+                .map(|p| ambition_characters::perception::SeenActor {
+                    id: p.id.as_str(),
+                    pos: p.pos,
+                    vel: p.vel,
+                    faction: p.faction,
+                    hostile_to_self: peer_is_hostile_to_body(body, relations, p),
+                    alive: p.alive,
+                }),
+        );
+    }
+    let believed = belief_from_nearest(
+        perception,
+        cheap.nearest_hostile.map(|p| p.pos),
+        memory.as_deref_mut(),
+    );
+    note_world_view(ViewSample {
+        offered: peers.len(),
+        visible: cheap.visible_count,
+        // The cheap road's `kept` is its visible count, so a density sweep
+        // over `TargetBelief` brains reads the population it decided over.
+        kept: cheap.visible_count,
+        admitted: cheap.visible_count,
+        rich: 0,
+        retained: retained(&memory),
+    });
+    (ambition_characters::perception::WorldView::default(), believed)
+}
+
 pub(crate) fn believed_target(
     policy: Perception,
     view: &ambition_characters::perception::WorldView,
     mut memory: Option<&mut ambition_characters::perception::PerceptionMemory>,
+    cut: u64,
     dt: f32,
 ) -> Option<Option<ae::Vec2>> {
     if let Some(mem) = memory.as_deref_mut() {
-        mem.0.update(view, dt);
+        mem.0.update(view, cut, dt);
     }
     belief_from_nearest(policy, view.nearest_hostile().map(|a| a.pos), memory)
 }
@@ -1346,12 +1476,21 @@ pub struct PerceivedWorld<'w, 's> {
     peers: Option<bevy::prelude::Res<'w, PerceptionPeers>>,
     projectiles: Option<bevy::prelude::Res<'w, PerceptionProjectiles>>,
     relations: Option<bevy::prelude::Res<'w, FactionRelations>>,
+    /// The step now running: the observation cut of everything admitted
+    /// this step.
+    tick: Option<bevy::prelude::Res<'w, ambition_time::SimTick>>,
     /// A borrowable all-peaceful table, so [`Self::relations`] can hand out a
     /// reference whether or not the live resource exists. Never written.
     empty_relations: bevy::prelude::Local<'s, FactionRelations>,
 }
 
 impl PerceivedWorld<'_, '_> {
+    /// The observation cut: the simulation step now running (`SimTick`).
+    /// `0` in a composition with no timeline.
+    pub fn cut(&self) -> u64 {
+        self.tick.as_deref().map_or(0, |tick| tick.0)
+    }
+
     /// The live hostility table, or an all-peaceful one when none is registered.
     pub fn relations(&self) -> &FactionRelations {
         self.relations.as_deref().unwrap_or(&self.empty_relations)

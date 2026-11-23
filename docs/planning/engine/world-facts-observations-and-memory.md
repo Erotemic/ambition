@@ -2,9 +2,10 @@
 
 **State:** OPEN. World truth and actor belief have different authorities.
 The durable fact layer and tactical memory exist. The 2026-11-22 source
-audit at `00bf92c22142` selects bounded corrections OBS1–OBS3 through the
-existing perception and controller owners. General durable social knowledge
-remains customer-gated. This audit ran no gameplay or performance witness.
+audit at `00bf92c22142` selected bounded corrections OBS1–OBS3 through the
+existing perception and controller owners; OBS1 and OBS2 landed on
+2026-11-23 and OBS3 is open. General durable social knowledge remains
+customer-gated.
 
 ## Goal
 
@@ -132,7 +133,8 @@ stale or wrong without changing world truth.
 **Tactical belief is built.** `WorldMemory` (`ambition_characters::perception`)
 is the per-controller belief that outlives the viewport: keyed by actor id,
 refreshed for what is seen, decayed for what left view, forgotten below a
-confidence floor. Its `update` is pure. It is rollback state, and it records the
+confidence floor. Each row carries observed liveness and its evidence
+source (sight, report or hit) and `SimTick` cut (OBS2). Its `update` is pure. It is rollback state, and it records the
 live room it was formed in, so a body that changes live room forgets it. It is
 in no durable save family.
 
@@ -173,122 +175,40 @@ admitted row or report means. The pure values stay in
 native collection, combat settlement and crew delivery stay in
 [`body::perception`](../../../crates/ambition_platformer2d_actor_monolith/src/body/perception.rs).
 
-### Concrete source witnesses
+**Landed 2026-11-23, `4488b2d65`** (rollback schema 530 → 531).
 
-1. **A seen death is discarded.** `PerceptionPeer` and `PerceivedActor`
-   carry `alive`; `SeenActor` and `RememberedActor` do not. Cheap acquisition
-   tests hostility but not liveness, whereas `WorldView::hostiles` tests both.
-   A visible dead hostile can refresh memory to confidence 1 and make the
-   native snapshot say `target_alive = true`. Filtering dead rows out before
-   memory sees them would still leave a formerly living target remembered.
-2. **Position confidence can suppress an attributed hit.** `struck_by`
-   sets hostility at confidence 0.5, then `hear` compares whole records.
-   A previously seen non-hostile record above that confidence rejects the
-   hit's hostility too. A different-faction actor can physically hit without
-   an existing faction hostility; this is a supported source sequence.
-3. **Old belief can masquerade as a fresh report.** `hostiles_in_view`
-   means confidence >= 1. A sharing body keeps its policy when possessed.
-   The native loop still gathers its crew calls, then skips its autonomous
-   memory fold because it has a driver. Its pre-possession sight can remain
-   at confidence 1 and be called out from its new position without another
-   observation. The existing memory-room check correctly prevents carrying
-   this call into a different room.
-4. **A report can name its listener as the foe.** A same-faction caller
-   with `Grudge::Body(listener)` reports that listener. `hear_crew` excludes
-   the caller, not the subject, and copies `hostile_to_self` from the
-   caller. The listener's direct sight excludes itself, so that fold cannot
-   correct the resulting self-target belief. This does not prove self damage;
-   damage has its own admission.
-
-These are source-derived failure sequences, not newly executed reproductions.
-The earlier [hit-memory settlement receipt](../../../dev/benchmark-candidates/hit-memory-must-settle-before-snapshot-2026-11-01.md)
-remains valid: attributed hit memory settles in `CombatSet::Settle` before
-snapshot. Do not move it back to next tick or add a second hit-message history.
-
-### Small native representation and merge rules
-
-Keep a direct sample distinguishable from the current pursuit estimate.
-Today `update_from_seen` dead-reckons `RememberedActor.pos` in place even
-though the field's contract calls it the last directly perceived position.
-Either retain the sample and derive its estimate, or name both explicitly
-if the selected consumer needs both. A report must not stamp an extrapolated
-position as a fresh direct sight. Preserve current motion/decay behavior
-unless the change is deliberately accepted with its replay baseline.
-
-Use the existing deterministic tick/read cut for ordering and provenance,
-and the existing elapsed-time owner for confidence decay/prediction.
-They answer different questions. Do not use confidence, wall time or a new
-global serial as a substitute for the observation cut.
-The cut must distinguish simulation steps even when gameplay time is held.
-Current extrapolation spends the observer's room-scaled `dt`; deriving
-from global elapsed time minus `last_seen` would change pursuit during
-room holds or different rates. Retain an accumulated prediction age with
-that same meaning, or reuse a clock that actually supplies it.
-
-| Input | Native reconciliation rule |
+| Was | Now |
 | --- | --- |
-| Admitted direct sight | Refresh that subject's observed pose and living/dead evidence at this cut. Only an eligible live subject becomes a live target. |
-| No admitted sight | Age the prior estimate under the existing policy. An out-of-view or unattended subject has not thereby been observed absent or dead. |
-| Accepted attributed hit | Preserve the independently established attacker/hostile-act evidence even if an older position estimate is more confident. Do not discard it through a whole-record positional comparison. |
-| Crew sighting | Retain subject, caller and original sight cut; apply a stated position freshness/source rule. A newer observed death cannot be undone by an older report of a living target. |
-| Crew assistance | Reject self subjects and wrong-room reports; apply the existing assistance policy to a valid report. A caller-relative foe conclusion is not an objective faction fact. |
+| `SeenActor`/`RememberedActor` had no liveness; cheap acquisition did not test it. A visible dead foe refreshed memory to confidence 1 and became `target_alive = true`. | Both carry `alive`. A seen corpse is admitted and disconfirms a prior living belief; `last_known_hostile`, cheap acquisition and attention ranking skip the dead. An unobserved death changes nothing. |
+| `struck_by` went through `hear`'s whole-record confidence comparison, so a more confident non-hostile sighting discarded the hit's hostility. | `struck_by` merges two facts: the hit always sets `hostile_to_self`; position, liveness and cut are replaced only by less confident evidence. |
+| `hostiles_in_view` meant confidence ≥ 1. A possessed caller stopped folding, kept confidence 1 and reported its old sight from a new position. | `direct_reports(cut)` returns only `Sight` rows from the preceding step's `SimTick` cut. A skipped decision does not extend eligibility; heard and struck rows are never retold. |
+| `hear_crew` excluded the caller, not the subject, and copied the caller's `hostile_to_self`. | A call whose subject is the listener (its own peer id) is refused. Adoption is the named assistance policy (`hostile_to_self: true`, source `Report`, original sight cut). |
+| `hear` compared confidence only. | An observed death at the report's cut or later rejects the report; otherwise confidence decides. Reports of one subject come from one cut, so delivery order is free. |
 
-An observed death disconfirms live pursuit; an offscreen death does not.
-Keep a tactical negative observation only as long as needed by that policy,
-including rejection of delayed reports. A later admitted live observation
-may establish a live target again under the existing occurrence rules.
-Do not query authoritative global health to correct every stale belief.
+Guards: `an_observed_death_disconfirms_pursuit_and_an_unobserved_one_does_not`
+(both native roads, with a nearer corpse and a farther living foe),
+`stale_memory_cannot_mint_a_fresh_crew_report` (frozen caller moved in the
+room; controls for continued sight, lost sight and hearsay),
+`a_crew_report_never_makes_its_subject_target_itself` (third ally assists,
+subject refuses, delivery order permuted), and in the pure owner
+`an_attributed_hit_keeps_its_hostility_beside_a_better_sighting` and
+`an_observed_death_rejects_an_older_living_report`. The existing room-change
+guard (`a_crew_call_is_not_heard_in_another_live_room`) still holds.
 
-Define source/freshness precedence per field that needs it. A single
-confidence comparator or global latest-write-wins rule cannot substitute
-for these rules. Equal admissible reports must reduce deterministically;
-the old assertion that every caller saw the same fields at the same moment
-does not cover frozen memory or caller-relative hostility. Use scoped
-subject/caller identity and the native cut as tie-break inputs where needed,
-never ECS allocation order.
+Unchanged: hit memory settles in `CombatSet::Settle` before the snapshot
+([receipt](../../../dev/benchmark-candidates/hit-memory-must-settle-before-snapshot-2026-11-01.md));
+`shares_sightings` and the crew's assistance; saved `npc_<id>_hostile`;
+room clearing; borrowed ids; in-place dead reckoning.
 
-Retain `shares_sightings` and the pirate crew's useful assistance behavior.
-Separate the small report payload from the listener's adoption decision
-without requiring an authored diplomacy language. Direct-only reporting
-must require a direct sample from the preceding simulation step's observation
-cut, not merely the caller's most recent decision and not confidence 1.
-A skipped decision does not extend the sample's eligibility. In the first
-slice, preserve the cheap
-driven-body path: no autonomous refresh means no new AI sighting to report
-after the last eligible cut expires. If content later wants driven-body
-scouting, declare that narrow observer consumer through OBS3. Do not rebuild
-a full tactical view merely to invalidate an old report. Hearsay must not
-acquire a new firsthand stamp when retold.
-
-Reuse the listener's existing peer identity for self exclusion. Do not add
-another room scan, a new global actor ID, or a durable grudge for every crew
-call. Live hostility policy stays with targeting/aggression; tactical
-evidence only supplies what the current memory/pursuit consumer needs.
-
-### First proof and removal
-
-- In the native decision path, compare a visible dead foe with a living
-  foe that leaves view and dies unobserved. Only the first observation
-  disconfirms pursuit. Include a nearer corpse and farther living target.
-- At the pure memory owner, start with a recent non-hostile sight, then
-  apply an attributed hit outside view. Keep the hit's hostility while
-  preserving any better position evidence. Also reject an older living
-  report after an admitted death.
-- Through native crew collection, possess a sharing caller after it sees
-  a foe and move it within the same room. Old memory cannot create new
-  firsthand reports. Autonomous loss of sight, hear-only memory and the
-  existing room-change guard are controls.
-- Deliver a valid crew report to a third ally and to the report's subject.
-  The ally retains the authored assistance; the subject cannot target itself.
-  Permuting equivalent report delivery cannot change the selected belief.
-
-Delete confidence-as-provenance, whole-record `hear` replacement as the
-merge authority for unrelated facts, and unlabeled copying of caller-relative
-hostility. Keep borrowed IDs, steady-state no-new-string allocation, room
-clearing, deterministic ordering and the existing Settle timing.
-Changing retained fields or admission changes canonical rollback state;
-update its codec/checksum and replay compatibility explicitly. The
-temporary admitted set and report preparation remain derived.
+**Standing rules.** `RememberedActor.pos` is the pursuit estimate, not a
+retained sample. A separate sample is not stored because its only reader,
+the direct report, accepts only a row whose cut is the last fold's step,
+which is still unextrapolated. Do not use confidence, wall time or a new
+global serial as provenance; the cut is `SimTick`. Live hostility policy
+stays with targeting/aggression: the next direct sight replaces a hit's
+hostility with the relation's answer, which a retaliation grudge carries.
+Driven-body scouting, if content wants it, is an OBS3 observer consumer;
+do not rebuild a tactical view merely to invalidate an old report.
 
 ## Existing social state and its horizons
 
@@ -387,8 +307,8 @@ open for the general program:
   `from_snapshot` road), so attention ordering carries an id tiebreak.
 - The rich view's kept set is bounded at `TACTICAL_ATTENTION` (16).
   [OBS1](bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary)
-  closes the native memory/admission bypass; that end-to-end property is not
-  yet established. Retention over time is separate open work.
+  closed the native memory/admission bypass for `TacticalWorld`. Retention
+  over time is separate open work.
 
 Open:
 

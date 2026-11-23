@@ -187,7 +187,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
         "state": director.current_state_id, "section": director.current_section_id,
         "section_seconds": director.seconds_in_mode, "loop_seconds": director.seconds_in_loop,
         "intent": world.get_resource::<engine::audio::music::MusicIntent>().map(|intent| json!({
-            "adaptive": format!("{:?}", intent.adaptive), "tracks": intent.simple_track_candidates,
+            "goal": format!("{:?}", intent.goal), "revision": intent.revision,
         })),
     }));
     let content = world.get_resource::<ambition_content::pack::SelectedContentPack>()

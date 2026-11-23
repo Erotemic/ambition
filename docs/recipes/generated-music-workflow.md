@@ -128,3 +128,25 @@ uv run --project tools/ambition_music_renderer \
 Run the renderer's tests when its code or format changes. Run focused audio or
 content tests when their loading, registration, or transition contracts change.
 Use a browser check only for web audio/device changes.
+
+### Native software capture on Linux
+
+Use the opt-in device test to check the locked Bevy/Kira command drain and
+mixer. The test delays decode beyond the intro, selects the current phase,
+then checks two fresh cue handoffs and an explicit stop.
+
+```bash
+CARGO_INCREMENTAL=0 cargo test -p ambition_audio --features kira,content_pack --lib --no-run
+python3 scripts/measure/capture_native_audio.py \
+  --out .cache/music-native-capture/run.raw --seconds 30 -- \
+  cargo test -p ambition_audio --features kira,content_pack --lib \
+  native_output_survives_cold_decode_and_repeated_fresh_handoffs -- --ignored --nocapture
+```
+
+Select a new output path for each run. The command uses a temporary ALSA
+configuration for its child process. A pipe reader limits the null device to
+48 kHz stereo float output and caps the capture duration. It writes raw
+`FLOAT_LE` PCM and a JSON summary. It changes no system audio configuration.
+Listen to the PCM or inspect its spectrum to check the two source tones per
+section. Backend admission and a nonzero file alone do not prove continuity.
+This capture does not verify physical speakers or the complete game route.

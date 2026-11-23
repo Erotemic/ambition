@@ -7,6 +7,8 @@ use bevy::asset::AssetApp;
 use bevy_kira_audio::prelude::{Frame, StaticSoundData, StaticSoundSettings};
 use std::time::Duration;
 
+mod device_tests;
+
 fn authored_cues(bpm: f32) -> crate::cue_spec::AuthoredMusicCues {
     let cue = MusicCueSpec {
         id: "trail".into(),
@@ -85,17 +87,28 @@ fn fixture_with(authored: crate::cue_spec::AuthoredMusicCues) -> (App, Vec<Handl
 }
 
 fn fixture_catalog(catalog: MusicCueCatalog) -> (App, Vec<Handle<KiraAudioSource>>) {
+    fixture_catalog_output(catalog, crate::output::AudioOutputMode::Recording)
+}
+
+fn fixture_catalog_output(
+    catalog: MusicCueCatalog,
+    output: crate::output::AudioOutputMode,
+) -> (App, Vec<Handle<KiraAudioSource>>) {
     let mut app = App::new();
     app.add_plugins((
         bevy::app::TaskPoolPlugin::default(),
         bevy::asset::AssetPlugin::default(),
     ))
-    .init_asset::<KiraAudioSource>()
-    .init_resource::<DynamicAudioChannels>()
-    .init_resource::<Time<Real>>()
-    .init_resource::<MusicMix>()
-    .init_resource::<MusicDirectorState>()
-    .insert_resource(crate::output::AudioOutputMode::Recording);
+    .insert_resource(output);
+    if output.emits_to_device() {
+        app.add_plugins(crate::output::AmbitionAudioBackendPlugin);
+    } else {
+        app.init_asset::<KiraAudioSource>();
+    }
+    app.init_resource::<DynamicAudioChannels>()
+        .init_resource::<Time<Real>>()
+        .init_resource::<MusicMix>()
+        .init_resource::<MusicDirectorState>();
     crate::music::add_music_playback(&mut app);
     let mut loaded = LoadedMusicCueAssets::default();
     let mut handles = Vec::new();

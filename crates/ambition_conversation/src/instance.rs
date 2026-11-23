@@ -21,6 +21,13 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 pub struct ConversationInstanceId {
     /// The `SimTick` it opened on.
     opened_at: u64,
+    /// The live room instance it opened in (`LiveRoomInstance::ordinal`).
+    /// Two live instances of one room hold the same authored placements, so
+    /// two seats can open the same node between equal `SimId`s on one tick;
+    /// this is what keeps those two conversations apart. Fixed at the
+    /// opening: a participant moving later does not re-key it. `None` for a
+    /// conversation with no room (scripted, or a roomless composition).
+    room: Option<u32>,
     /// The Yarn node that is running.
     node: String,
     /// The body that walked up and started it. `None` for a scripted
@@ -61,12 +68,31 @@ impl ConversationInstanceId {
     ) -> Self {
         Self {
             opened_at,
+            room: None,
             node: node.into(),
             initiator,
             talker,
             speaker: context.speaker_id.clone(),
             listener: context.listener_id.clone(),
         }
+    }
+
+    /// [`Self::mint`] for a conversation opened in live room `room`. The
+    /// in-world opening (`DialogueDispatch::open_between`) mints with this.
+    pub fn mint_in_room(
+        room: Option<u32>,
+        opened_at: u64,
+        node: impl Into<String>,
+        initiator: Option<SimId>,
+        talker: Option<SimId>,
+        context: &ambition_dialog::DialogueContext,
+    ) -> Self {
+        Self { room, ..Self::mint(opened_at, node, initiator, talker, context) }
+    }
+
+    /// The live room instance it opened in, when it opened in one.
+    pub const fn room(&self) -> Option<u32> {
+        self.room
     }
 
     /// The same conversation carried on through another node from `tick`:
@@ -125,6 +151,9 @@ impl ConversationInstanceId {
 impl std::fmt::Display for ConversationInstanceId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "conversation:{}@{}", self.node, self.opened_at)?;
+        if let Some(room) = self.room {
+            write!(f, " in room {room}")?;
+        }
         if let Some(initiator) = &self.initiator {
             write!(f, " by {initiator}")?;
         }

@@ -46,6 +46,9 @@ pub struct DialogueDispatch<'w, 's> {
     /// restore. A body with no `SimId` yields `None`, which is a weaker id
     /// rather than a wrong one — see [`ConversationInstanceId`].
     pub sim_ids: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    /// The live room the initiator opens in, for the instance id: two live
+    /// instances of one room can hold equal `SimId`s.
+    pub rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
     /// The character a speaking body is WEARING — read from the ENTITY's
     /// canonical `CharacterForm` identity, not the app-local startup selection
     /// resource, so after a runtime re-wear or snapshot restore the home avatar
@@ -117,7 +120,8 @@ impl DialogueDispatch<'_, '_> {
             // falls back to the initiator's `CharacterForm`, which is
             // rollback-owned: two corrected timelines can agree on the tick, the
             // node and both `SimId`s while entering Yarn as different characters.
-            instance: ConversationInstanceId::mint(
+            instance: ConversationInstanceId::mint_in_room(
+                self.rooms.of(initiator).map(|room| room.ordinal()),
                 self.tick.as_ref().map_or(0, |tick| tick.0),
                 entry_node,
                 self.sim_ids.get(initiator).ok().cloned(),

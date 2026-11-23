@@ -352,6 +352,31 @@ small; no frame-time saving is claimed without measurement.
 
 #### Qualify a conversation by its opening scope
 
+**Done 2026-11-23.** `ConversationInstanceId` carries the live room it
+opened in (`room`). `DialogueDispatch::open_between` mints it with
+`mint_in_room` from the initiator's live room (`LiveRooms::of`):
+
+- Redirection keeps it (`..self.clone()`), and nothing re-keys it from a
+  participant's later room.
+- The `ConversationsInRooms` checksum hashes the whole id through its
+  derived `Hash`, so no codec changed.
+- Scripted and test minting keep `mint`, which has no room.
+
+A temporary probe opened `chat` through `open_between` twice on tick 100.
+Each opening had a `placement:player` initiator, a `placement:npc_admiral`
+talker and the same context, but in live rooms 3 and 4 with seats 0 and 1.
+The probe was then removed.
+
+| Identity | Ids | After ending the first |
+| --- | --- | --- |
+| HEAD's | equal | 0 conversations live |
+| With the room | differ ("in room 3", "in room 4") | 1 live |
+
+The full two-room narrative-end path (runner, input owner, pending work)
+was not driven through a live two-instance session.
+
+The plan as written:
+
 **Source refinement at `00bf92c22142`, 2026-11-22.** Preserve the existing
 conversation occurrence, role bindings, ledger and continuations. Complete
 its identity with the opening live-room scope; do not replace it with a
@@ -402,8 +427,8 @@ text. The same line cannot have independent answers for two bound scenes.
 
 The original Yarn binding gap was addressed by the progress receipts below. The
 [`conversation instance`](../../../crates/ambition_conversation/src/instance.rs)
-names its initiator and talker, with the opening-scope refinement above still
-open. The generic
+names its initiator, talker and opening room (the opening-scope refinement
+above landed 2026-11-23). The generic
 [`command`](../../../crates/ambition_conversation/src/dialog/authored_commands.rs)
 and [condition](../../../crates/ambition_conversation/src/dialog/authored_conditions.rs)
 bridges now bind authored `@roles` through the existing instance and shared

@@ -47,7 +47,7 @@ pub(super) fn link<'a>(
             }
             let mut prepared = Vec::new();
             for section in sections {
-                let duration = section.duration_beats * 60.0 / bpm;
+                let duration = f64::from(section.duration_beats) * 60.0 / f64::from(*bpm);
                 if !section.duration_beats.is_finite()
                     || section.duration_beats <= 0.0
                     || !duration.is_finite()
@@ -110,7 +110,10 @@ pub(super) fn link<'a>(
                     .map(|(layer, _)| layer.as_str())
                     .collect();
                 if layers.is_empty() || layers != slots.keys().copied().collect() {
-                    return Err(format!("section {:?}: policy layers do not match the selected {products:?} product set", section.id));
+                    return Err(format!(
+                        "section {:?}: policy layers do not match the selected {products:?} product set",
+                        section.id
+                    ));
                 }
                 if !section.available {
                     return Err(format!(
@@ -144,9 +147,8 @@ pub(super) fn link<'a>(
                     .expect("validated published section");
                 prepared.push(PreparedMusicSection {
                     id: section.id.clone(),
-                    duration_seconds: (frames.musical_end_frame as f64
-                        / f64::from(frames.sample_rate))
-                        as f32,
+                    duration_seconds: frames.musical_end_frame as f64
+                        / f64::from(frames.sample_rate),
                     file_duration_seconds: Some(
                         frames.file_frames as f64 / f64::from(frames.sample_rate),
                     ),

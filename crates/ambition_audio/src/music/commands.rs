@@ -18,6 +18,19 @@ impl MusicPlaybackCommands<'_> {
         self.playback.current()
     }
 
+    pub(super) fn section_group(
+        &self,
+        entry: super::playback::MusicEntry,
+        cue: &str,
+        section: &str,
+    ) -> Option<&super::playback::MusicPlaybackGroup> {
+        self.playback.groups().find(|group| {
+            group.entry == entry
+                && matches!(group.phase, super::playback::MusicGroupPhase::Running | super::playback::MusicGroupPhase::Retiring)
+                && matches!(&group.product, MusicProduct::Section { cue: c, section: s, .. } if c == cue && s == section)
+        })
+    }
+
     pub(super) fn outcome(&self) -> super::playback::MusicRequestOutcome {
         self.playback.outcome()
     }

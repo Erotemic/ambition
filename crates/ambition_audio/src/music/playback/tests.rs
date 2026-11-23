@@ -382,3 +382,32 @@ fn a_fresh_entry_resets_completion_with_identical_one_voice_media() {
     assert_eq!(playback.outcome(), MusicRequestOutcome::Pending);
     assert_eq!(playback.reserved_voices(), 1);
 }
+
+#[test]
+fn transport_uses_all_native_voice_cursors_and_stops_when_one_voice_pauses() {
+    let mut playback = MusicPlayback::default();
+    let mut output = Output::default();
+    playback.request(output.request("loop", 2, true));
+    playback.advance(&mut output, 0.0, 1.0);
+    playback.advance(&mut output, 0.1, 1.0);
+    let voices: Vec<_> = playback.current().unwrap().instances().cloned().collect();
+    output
+        .states
+        .insert(voices[0].id(), VoiceObservation::Playing(0.75));
+    output
+        .states
+        .insert(voices[1].id(), VoiceObservation::Playing(0.5));
+    playback.advance(&mut output, 300.0, 1.0);
+    assert_eq!(playback.current().unwrap().position_seconds, Some(0.5));
+    output
+        .states
+        .insert(voices[1].id(), VoiceObservation::Paused);
+    playback.advance(&mut output, 600.0, 1.0);
+    assert_eq!(playback.current().unwrap().position_seconds, None);
+    output
+        .states
+        .insert(voices[1].id(), VoiceObservation::Playing(0.6));
+    playback.advance(&mut output, 900.0, 1.0);
+    assert_eq!(playback.current().unwrap().position_seconds, Some(0.6));
+    assert_eq!(output.resumed.len(), 2);
+}

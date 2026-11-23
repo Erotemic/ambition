@@ -13,7 +13,7 @@ use bevy_kira_audio::prelude::{
     PlaybackState,
 };
 
-use crate::library::{amplitude_to_decibels, AudioLibrary, MusicPlaybackState};
+use crate::library::{AudioLibrary, MusicPlaybackState, amplitude_to_decibels};
 use crate::mix::MusicMix;
 
 pub const MUSIC_LOG_TARGET: &str = "ambition_music";
@@ -31,7 +31,6 @@ const OUTRO_CROSSFADE_SECONDS: f32 = 1.65;
 /// Start room/radio music before the adaptive outro finishes so the return to
 /// exploration does not leave a silent gap after encounter music fades.
 const DEFAULT_RETURN_OVERLAP_SECONDS: f32 = 2.25;
-const MIN_TRANSITION_DELAY_SECONDS: f32 = 0.08;
 const DEBUG_LOG_PERIOD_SECONDS: f32 = 1.0;
 
 pub mod catalog;
@@ -43,10 +42,10 @@ pub mod state;
 
 pub use catalog::{
     AdaptiveMusicCatalogAppExt, AdaptiveMusicCatalogError, AdaptiveMusicCatalogRegistry,
-    BossMusicBinding, BossPhaseState, EncounterMusicBinding, LoadedMusicCueAssets, MusicCueCatalog,
-    MusicCueMedia, MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec,
-    MusicProductSet, MusicSectionSpec, MusicStateBalanceOverride, MusicStateSpec, RoomMusicBinding,
-    BOSS_PHASE_KEYS,
+    BOSS_PHASE_KEYS, BossMusicBinding, BossPhaseState, EncounterMusicBinding, LoadedMusicCueAssets,
+    MusicCueCatalog, MusicCueMedia, MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec,
+    MusicLayerSpec, MusicProductSet, MusicSectionSpec, MusicStateBalanceOverride, MusicStateSpec,
+    RoomMusicBinding,
 };
 pub use commands::MusicPlaybackCommands;
 pub use director::{drive_music_director, load_music_cues};

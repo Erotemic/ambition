@@ -446,8 +446,8 @@ piece there. Select the earliest **allowed** boundary whose complete entry
 operation meets the native not-before deadline. With a pickup, that deadline
 applies to the pickup's earlier start, not only its destination downbeat.
 If the deadline is missed, choose another allowed boundary. Do not turn
-“next bar” into “next bar plus 80 ms”; current `max(MIN_TRANSITION_DELAY_SECONDS)`
-can make that distinction matter.
+“next bar” into “next bar plus 80 ms”. The fixed minimum-delay clamp is
+removed.
 
 A loop can continue until a later allowed exit. An exhausted one-shot
 cannot continue forever. Its recipe must define an admitted continuation,
@@ -478,10 +478,12 @@ occurrence. No new bus framework is required.
 | Music transport origin/position | Supported native scheduled start or position evidence for this playback occurrence |
 | Score-to-product clock | Compiler map from musical coordinates to the selected media's frame coordinates |
 
-The current `Time<Real>` counters are host-frame time, not a sound-device
-clock. A frame that notices admission or Playing is not necessarily the
-first rendered sample. Keep submission time, admission observation, and
-transport origin separate.
+The director now reads the matching occurrence's file cursor. Native output
+uses Kira observations. Recording output uses an explicit host-clock model.
+No cursor is available until all voices play. Host time still owns loading
+deadlines, diagnostics and fade envelopes. A frame that observes admission or
+Playing is not the first audible sample. Keep submission, admission observation,
+and transport origin separate.
 
 Ordinary playback may retain an explicitly best-effort host timing path.
 Do not make sample accuracy a prerequisite for MUS1. Requests for stronger
@@ -759,8 +761,17 @@ body ends, frame origins, bar exits, gain bases and retained material.
 accepted library snapshot. The director queries the current section's
 constant or variable clock. Constant grids retain the exported boundary
 count. Hobford, Dinosaur, Galvanic and Tritone now consume those facts.
-Host-time position, residency demand, deadlines and explicit transition
-policies remain open.
+The director now uses the matching occurrence's file cursor for intros,
+loop exits and endings. Boundary plans retain that occurrence and selected
+exit. An undecoded target that misses its exit waits for another exit. A
+changed request discards its old plan. The fixed minimum-delay clamp and
+frame-nearest intro estimate are removed. Prepared section ends retain `f64`
+seconds from published frame counts. Recording output models the same file-cursor wrap.
+Verification: focused director and executor tests cover host-clock jumps,
+paused voices, missed decode exits, withdrawn plans and exact boundaries.
+
+Starts remain frame-driven and best effort. Native scheduling, residency
+demand, scene deadlines and explicit transition policies remain open.
 
 Prefetch the known opening and imminent continuation without granting
 claims. Keep catalog, decode, admission, and start facts distinct. Add the

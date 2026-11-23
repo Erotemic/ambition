@@ -185,7 +185,7 @@ pub fn snapshot(world: &World) -> serde_json::Value {
         "mode": format!("{:?}", director.mode), "cue": director.active_cue_id,
         "base_track": world.get_resource::<engine::audio::library::MusicPlaybackState>().map(|state| state.active_track()),
         "state": director.current_state_id, "section": director.current_section_id,
-        "section_seconds": director.seconds_in_mode, "loop_seconds": director.seconds_in_loop,
+        "position_seconds": director.position_seconds,
         "intent": world.get_resource::<engine::audio::music::MusicIntent>().map(|intent| json!({
             "goal": format!("{:?}", intent.goal), "revision": intent.revision,
         })),

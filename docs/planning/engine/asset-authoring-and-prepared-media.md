@@ -318,8 +318,9 @@ loops, and paths in
 published description with no copied clock or section paths. The
 [native linker](../../../crates/ambition_audio/src/music_media/mod.rs) reads
 the renderer's `music_playback` contract from the selected manifest. The
-director queries each prepared section's clock. It still advances position
-from host time after admission; MUS3 owns that remaining transport change.
+director queries each prepared section's clock from the matching native
+playback cursor. Recording output uses its host-clock model. Scheduled starts,
+readiness, scene deadlines and transition recipes remain under MUS3/MUS4.
 
 Hobford already needs a one-shot `break_in`, its ring tail, and the game-owned
 continuation to `raid`. Its current source and game section lengths/loop flags

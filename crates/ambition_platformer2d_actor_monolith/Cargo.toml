@@ -310,6 +310,7 @@ ambition_life_planning = { path = "../ambition_life_planning" }
 # body component). The build-time foundation; re-exported as `crate::engine_core`
 # from lib.rs (ADR 0019). See docs/planning/status.md.
 ambition_characters = { path = "../ambition_characters" }
+ambition_extension_sdk = { path = "../ambition_extension_sdk" }
 # Structured causal facts. Optional and default-off (§2e), and it brings only
 # `bevy_ecs` for the `Resource` impl -- no renderer, no other domain.
 ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }

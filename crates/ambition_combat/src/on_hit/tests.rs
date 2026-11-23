@@ -23,6 +23,7 @@ fn landed(
         victim,
         contact: volume.center(),
         volume,
+        attacker_move_instance: None,
     }
 }
 

@@ -79,6 +79,7 @@ pub fn fire_puppy_slug_gun_system(
         }
         let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
         effects.write(SummonRequest {
+            reply: None,
             owner: subject,
             spec: SummonSpec {
                 id: SLUG_KIND.into(),

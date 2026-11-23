@@ -101,6 +101,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                 boss.config.id, state.spawn_index, i
             );
             effects.write(ambition_characters::summon::SummonRequest {
+            reply: None,
             owner: entity,
             spec: ambition_characters::summon::SummonSpec {
                     id: minion_id,

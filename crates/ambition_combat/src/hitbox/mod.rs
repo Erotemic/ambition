@@ -43,6 +43,10 @@ pub struct LandedBodyHit {
     pub volume: ae::CombatVolume,
     /// Representative world-space contact point for effects/presentation.
     pub contact: ae::Vec2,
+    /// The move use the strike credits (`AttackerMoveInstance`), or `None`
+    /// for a strike no move use owns. Move-local consumers compare it with
+    /// the attacker's playback; it never names whatever plays now.
+    pub attacker_move_instance: Option<u32>,
 }
 
 /// A hit that RESOLVED — damage applied, defences asked, reaction chosen, and
@@ -1451,6 +1455,7 @@ pub fn apply_hitbox_damage(
                     victim: victim.entity,
                     volume: world_volume.clone(),
                     contact: impact,
+                    attacker_move_instance: move_instance.map(|i| i.0),
                 });
                 // ⭐⭐ A SUSTAINED GUST DOES NOT SPEND ITS HIT-ONCE SLOT. The set
                 // exists so a long active window cannot re-hit a stationary

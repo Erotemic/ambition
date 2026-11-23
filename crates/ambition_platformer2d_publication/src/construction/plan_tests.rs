@@ -725,10 +725,12 @@ fn successive_summons_allocate_non_overlapping_identities() {
 
     // Two summons in ONE batch: the reservation advances within the batch.
     world.write_message(ambition_characters::summon::SummonRequest {
+            reply: None,
             owner: boss,
             spec: summon_spec("a"),
         });
     world.write_message(ambition_characters::summon::SummonRequest {
+            reply: None,
             owner: boss,
             spec: summon_spec("b"),
         });
@@ -929,6 +931,7 @@ fn a_counter_mutation_before_the_commit_applies_refuses_with_nothing_built() {
         .spawn((SimId::placement("boss_1"), SimIdCounter::default()))
         .id();
     world.write_message(ambition_characters::summon::SummonRequest {
+            reply: None,
             owner: boss,
             spec: summon_spec("slop_add"),
         });

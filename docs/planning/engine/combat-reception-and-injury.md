@@ -3,8 +3,9 @@
 **State:** PARTLY IMPLEMENTED, with planned follow-ups, 2026-11-22.
 Reception source rechecked at `34b4ab0b7f4f5a950a52e6031423e76b5e75f6ac`;
 the strike-origin follow-up below reads `00bf92c22142`.
-CR1's first publication slice is done; its actual-reaction finalization,
-the strike-origin and reaction-data refinements below and CR2 remain planned.
+CR1's first publication slice and the strike-origin follow-up are done
+(2026-11-23). Its actual-reaction finalization, the reaction-data
+refinement below and CR2 remain planned.
 No runtime or performance result is claimed by this review.
 **Selection:** [ARCHITECTURE-COMPOSITION](../queue.md#architecture-composition--link-owned-facts-and-preserve-causal-boundaries).
 **Contracts:** [combat model](combat-model.md),
@@ -168,7 +169,29 @@ crossing, at the established hit-resolution cut.
 
 ### Carry attack origin through strike creation and contact
 
-**State:** PLANNED CR1 construction follow-up, static audit, 2026-11-22.
+**State:** DONE 2026-11-23.
+
+- **Construction:** `spawn_body_strike` requires a `StrikeOrigin` (`Move(occurrence)` or
+  `Independent`) and installs `AttackerMoveInstance` for a move-owned
+  strike.
+- **Lowerer:** `lower_body_strikes` inherits the submitted request's
+  host-set `occurrence` (`StrikeOrigin::of_occurrence`).
+- **Early contact:** `LandedBodyHit` carries `attacker_move_instance`, and
+  `mark_move_playback_landed_hits` marks and stales only the use it names
+  (`verdict_belongs_to`, the rule the resolved connect already used).
+- **Unchanged:** on-hit techniques stay per volume, and the early overlap
+  cut and its first-contact staleness keep their slot.
+
+A temporary probe of the consumer was then removed. An independent landing
+and an old use's landing marked nothing and staled nothing; this use's
+landing marked once and staled once. The spawned strike carried
+`AttackerMoveInstance(42)` for `Move(42)` and none for `Independent`. The
+ground-slam trace through the Smash module was not run: Smash does not
+boot on this VM (no music registry).
+
+The audit as written:
+
+**Planned 2026-11-22**, static audit.
 This closes a native construction and early-contact gap before reception.
 It can ship independently of the remaining receiver finalizer, ACT1/ACT2
 and CR2. It preserves the completed reporter-owned connect/block slice.

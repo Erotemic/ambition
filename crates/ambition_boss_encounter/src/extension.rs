@@ -231,6 +231,7 @@ fn lower_boss_summons<L: LowersIn>(
             continue;
         };
         effects.write(ambition_characters::summon::SummonRequest {
+            reply: None,
             owner: submitted.scope,
             spec: ambition_characters::summon::SummonSpec {
                 id,

@@ -152,6 +152,7 @@ pub fn spawn_minima_trap_from_special_messages(
                 pit_center.y,
             );
             summons.write(ambition_characters::summon::SummonRequest {
+            reply: None,
             owner: entity,
             spec: ambition_characters::summon::SummonSpec {
                     id: minion_id,

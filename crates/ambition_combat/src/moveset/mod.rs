@@ -4180,6 +4180,12 @@ pub fn mark_move_playback_landed_hits(
         let Ok((mut pb, queue)) = playbacks.get_mut(landed.attacker) else {
             continue;
         };
+        // Only the use the strike credits. An independent strike, or one an
+        // earlier use left behind, still hurts; it does not mark or stale
+        // the move playing now.
+        if !verdict_belongs_to(landed.attacker_move_instance, &pb) {
+            continue;
+        }
         // THE FALSE→TRUE EDGE IS ONE MOVE USE CONNECTING, and staling is
         // counted on it rather than on the message.
         //

@@ -400,11 +400,35 @@ pub(crate) fn spawn_damage_box(
     e.id()
 }
 
+/// Which move use a strike credits, stated when the strike is made (Q101).
+///
+/// A strike a move emits credits that move's occurrence: its contact marks and
+/// stales that use, and only that use. An independent strike credits none: it
+/// still damages and knocks back, but it cannot mark or stale a move that
+/// happens to be playing when it lands. Required at construction, so a caller
+/// cannot leave the credit out by forgetting a component.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StrikeOrigin {
+    /// Emitted by this occurrence of a move (`MovePlayback::instance`).
+    Move(u32),
+    /// No move use: an effect that outlives or stands apart from any move.
+    Independent,
+}
+
+impl StrikeOrigin {
+    /// The origin of a request a module submitted: the move use the host
+    /// recorded for its invocation, or none.
+    pub fn of_occurrence(occurrence: Option<u32>) -> Self {
+        occurrence.map_or(Self::Independent, Self::Move)
+    }
+}
+
 /// Spawn a strike that follows its owner. The common body resolver supplies
 /// damage permission. Store offsets and half extents in canonical body axes.
 pub fn spawn_body_strike(
     commands: &mut Commands,
     owner: Entity,
+    origin: StrikeOrigin,
     // Canonical offset with committed facing already applied.
     local_offset: ae::Vec2,
     facing: f32,
@@ -430,7 +454,7 @@ pub fn spawn_body_strike(
             MAX_PLAUSIBLE_FEEL_SCALE,
         );
     }
-    commands
+    let mut strike = commands
         .spawn((
             Hitbox {
                 properties: Default::default(),
@@ -454,8 +478,13 @@ pub fn spawn_body_strike(
                 remaining_s: lifetime_s,
             },
             HitboxHits::default(),
-        ))
-        .id()
+        ));
+    // The same component an authored volume carries from birth
+    // (`advance_move_playback`), so contact reads one fact for both.
+    if let StrikeOrigin::Move(instance) = origin {
+        strike.insert(crate::moveset::AttackerMoveInstance(instance));
+    }
+    strike.id()
 }
 
 /// Materialization boundary for damage boxes and summoned bodies.

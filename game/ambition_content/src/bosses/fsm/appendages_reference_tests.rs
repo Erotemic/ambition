@@ -19,6 +19,7 @@ pub fn summon(effects: &mut MessageWriter<ambition_characters::summon::SummonReq
     for (i, side) in [-1.0f32, 1.0].into_iter().enumerate() {
         let x = (at.x + side * SPREAD).clamp(hall.left + NOODLING_HALF.x * 2.0, hall.right - NOODLING_HALF.x * 2.0);
         effects.write(ambition_characters::summon::SummonRequest {
+            reply: None,
             owner: god,
             spec: ambition_characters::summon::SummonSpec {
                 id: format!("fsm_noodling:{serial}:{i}"),

@@ -202,7 +202,6 @@
     ]
   },
   "encoded_types": [
-    "ambition_abilities::RideSummons",
     "ambition_characters::actor::ActorFaction",
     "ambition_characters::actor::ArmorPolicy",
     "ambition_characters::actor::BodyHealth",

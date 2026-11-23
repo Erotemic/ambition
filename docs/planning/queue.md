@@ -325,7 +325,11 @@ world-post admission.
    prediction, next-tick existence polling and post-commit identity scans.
    These packets can ship independently of the earlier composition work.
    (AC2 landed 2026-11-22: a cancellation is a control request with its own
-   identity and result and no pending slot, so a full caller can cancel.)
+   identity and result and no pending slot, so a full caller can cancel.
+   AC1 landed 2026-11-23: a summon request carries its reply, and the
+   executor answers at its commit from the receipt. A limbed-host summon is
+   refused in preflight before allocation. The ride adapter's counter
+   prediction, `RideSummons` and its next-tick pass are gone.)
    [Combat CR1](engine/combat-reception-and-injury.md#cr1--finalize-one-native-hit-outcome)
    finalizes reception, connect and actual reaction from one captured
    operation, including damaging boss and lethal home-body hits. Then
@@ -335,7 +339,9 @@ world-post admission.
    acceptance and the stated same-cut timing change. No general damage graph.
    (CR1 first slice landed 2026-11-22: the hit reporter owns connect and
    block; a damaging boss hit and a lethal home-body strike now connect once,
-   with zero hitlag.)
+   with zero hitlag. The strike-origin follow-up landed 2026-11-23: a
+   module's body strike credits the move use that emitted it, and early
+   contact marks only that use.)
    The [strike-origin refinement](engine/combat-reception-and-injury.md#carry-attack-origin-through-strike-creation-and-contact)
    requires origin at native strike creation and carries it through early
    contact. Matching occurrence can mark/stale its move; independent or

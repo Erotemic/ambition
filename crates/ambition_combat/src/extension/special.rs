@@ -131,6 +131,9 @@ pub fn lower_body_strikes(
         crate::strike::spawn_body_strike(
             &mut commands,
             submitted.scope,
+            // The move use whose event ran this entry, or none: never the
+            // move the body happens to be playing now.
+            crate::strike::StrikeOrigin::of_occurrence(submitted.occurrence),
             ae::Vec2::new(facing * strike.forward[0], strike.forward[1]),
             facing,
             ae::Vec2::from(strike.half_extent),

@@ -1325,6 +1325,7 @@ fn probe_what_a_summon_spawns() {
                 .map(|(entity, _, body)| (entity, body.pos))
                 .expect("the summoner stands");
             world.write_message(ambition_platformer2d::characters::summon::SummonRequest {
+                reply: None,
                 owner,
                 spec: ambition_platformer2d::characters::summon::SummonSpec {
                     id: "na2b_summon".to_string(),

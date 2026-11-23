@@ -278,6 +278,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_binding",
  "ambition_entity_catalog",
+ "ambition_extension_sdk",
  "ambition_hit_spec",
  "ambition_platformer2d_core",
  "bevy",
@@ -720,6 +721,7 @@ dependencies = [
  "ambition_damage",
  "ambition_encounter",
  "ambition_entity_catalog",
+ "ambition_extension_sdk",
  "ambition_gameplay_trace",
  "ambition_geometry_observation",
  "ambition_held_items",

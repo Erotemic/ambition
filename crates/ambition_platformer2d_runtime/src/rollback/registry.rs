@@ -361,7 +361,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // Encounter lifecycle snapshots include the attempt count; music claims include each source and attempt.
 // 530 -> 531: a remembered actor encodes its observed liveness and its
 // evidence source and cut (OBS2).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 531;
+// 531 -> 532: `ability.ride_summons` is gone; the summon executor answers a
+// ride at its commit, so no pending-summon row is rewound (AC1).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 532;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

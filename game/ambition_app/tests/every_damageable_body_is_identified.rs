@@ -562,6 +562,7 @@ fn the_summon_road_builds_an_identified_minion() {
 
     sim.world_mut()
         .write_message(ambition_platformer2d::characters::summon::SummonRequest {
+            reply: None,
             owner: summoner,
             spec: ambition_platformer2d::characters::summon::SummonSpec {
                     id: "census_summon".to_string(),
@@ -636,6 +637,7 @@ fn a_summoned_minion_wears_its_character_and_keeps_its_summoned_health() {
     };
     sim.world_mut()
         .write_message(ambition_platformer2d::characters::summon::SummonRequest {
+            reply: None,
             owner: summoner,
             spec: ambition_platformer2d::characters::summon::SummonSpec {
                     id: "worn_summon".to_string(),

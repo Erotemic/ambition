@@ -1,4 +1,3 @@
-crates/ambition_abilities/src/ride.rs	1	9e2720c86e063ff7
 crates/ambition_body_seed/src/snapshot_impls.rs	4	2e6f348fcf28159a
 crates/ambition_boss_encounter/src/clusters.rs	7	74d25c89ab527d86
 crates/ambition_boss_encounter/src/conduct.rs	2	335fa17331478011

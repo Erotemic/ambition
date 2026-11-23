@@ -35,9 +35,12 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 ///   tick; its status is first ticked on the next.
 /// * **Result** (v2) — with a `reply`, the owner answers in the domain
 ///   `world.summon_ride`: non-terminal `ride_summoning` when it asks the
-///   executor, then on the next tick terminal `ride_summoned` naming the
-///   mount, or `ride_not_made` when the executor built nothing (a character
-///   that does not resolve). Refusals: `invalid_label` (empty) and `no_body`.
+///   executor. The summon executor then answers at its commit, the same tick
+///   (`EffectExecutionSet`): terminal `ride_summoned` naming the mount its
+///   construction receipt holds, or `ride_not_made` when the batch was
+///   refused (a character that does not resolve, a limbed host, a summoner
+///   with no identity, a spent counter). The asker reads either at its next
+///   `actor_think`. Refusals: `invalid_label` (empty) and `no_body`.
 ///   A refused board leaves the mount riderless ([`SaddlePort`]).
 pub struct SummonRidePort;
 

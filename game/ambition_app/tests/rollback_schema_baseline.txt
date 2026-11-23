@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v532
+ggrs-rollback-schema-v533
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -449,6 +449,7 @@ message.pet_requested	message-clear	PetRequested	clear abandoned-future message 
 message.portal_body_entered	message-clear	PortalBodyEntered	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_body_transited	message-clear	PortalBodyTransited	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_fire_intent	message-clear	PortalFireIntent	clear abandoned-future message buffer in LoadWorld::Mapping
+message.portal_generator_toggled	message-clear	PortalGeneratorToggled	clear abandoned-future message buffer in LoadWorld::Mapping
 message.portal_shot_fired	message-clear	PortalShotFired	clear abandoned-future message buffer in LoadWorld::Mapping
 message.projectile_outcome	message-clear	ProjectileOutcome	clear abandoned-future message buffer in LoadWorld::Mapping
 message.quest_advance_requested	message-clear	QuestAdvanceRequested	clear abandoned-future message buffer in LoadWorld::Mapping

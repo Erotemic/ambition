@@ -58,8 +58,8 @@ pub use link::{
     link_hash, resolve_portal_links, PortalHistoryAdvance, PortalLink, PortalLinkResolution, LINK_CHANNEL_FIRST, UNRESOLVED_LINK_CHANNEL,
 };
 pub use messages::{
-    ClearPortals, FirePortalGenerator, PortalBodyEntered, PortalFireIntent, PortalShotFired,
-    TogglePortalGenerator, TogglePortalGeneratorsActive,
+    ClearPortals, FirePortalGenerator, PortalBodyEntered, PortalFireIntent, PortalGeneratorToggled, PortalShotFired,
+    PortalToggleOutcome, TogglePortalGenerator, TogglePortalGeneratorsActive,
 };
 pub use placement::{
     first_portal_crossing, first_portal_crossing_through, host_material_depth, measure_host_depth, portal_fits,

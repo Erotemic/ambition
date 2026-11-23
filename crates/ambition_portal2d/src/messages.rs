@@ -63,6 +63,27 @@ pub struct TogglePortalGenerator {
     pub body: Entity,
 }
 
+/// The generator's answer to one [`TogglePortalGenerator`]: whether it turned.
+///
+/// The host correlates it with the press that asked. A turned generator spends
+/// the press; a refused toggle leaves it to whatever else the press is for.
+#[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PortalGeneratorToggled {
+    pub body: Entity,
+    pub outcome: PortalToggleOutcome,
+}
+
+/// What a [`TogglePortalGenerator`] did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PortalToggleOutcome {
+    /// The generator now opens the other end of its pair.
+    Toggled,
+    /// The body is no portal generator.
+    NoGenerator,
+    /// The generator is switched off (`PortalGenerator::active`).
+    Inactive,
+}
+
 /// Developer intent: turn every portal generator on or off. A host asks for
 /// it and the simulation flips it, so every replay of the tick flips it again.
 #[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]

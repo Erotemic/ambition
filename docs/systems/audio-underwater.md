@@ -3,8 +3,9 @@
 ## Current shape
 
 `AudioEnvironment` (`crates/ambition_platformer2d_audio/src/environment.rs`)
-reads `WaterContact.submersion` and smooths a `wetness` value. Music receives
-its channel gain. SFX publishes user and environment gain through `SfxMix`;
+reads `WaterContact.submersion` and smooths a `wetness` value. Music publishes
+user and environment gain through `MusicMix`. The music executor applies it
+to current and retiring occurrences. SFX publishes gain through `SfxMix`;
 the shared voice mixer combines it with distance attenuation. A Kira SFX
 channel-volume command would replace the per-voice gain, so do not use one.
 

@@ -30,13 +30,9 @@ pub(super) fn apply_runtime_balance_overrides(
     }
 }
 
-pub(super) fn gains_for_state(
-    cue: &MusicCueSpec,
-    state: &MusicStateSpec,
-    settings: &MusicMix,
-) -> LayerGains {
+pub(super) fn gains_for_state(cue: &MusicCueSpec, state: &MusicStateSpec) -> LayerGains {
     let mut gains = [0.0; MAX_LAYERS];
-    let master = settings.effective_music() * cue.relative_volume;
+    let master = cue.relative_volume;
     for layer_gain in &state.gains {
         if let Some(layer) = cue.layer(&layer_gain.layer_id) {
             let slot = layer.slot.min(MAX_LAYERS - 1);
@@ -45,53 +41,4 @@ pub(super) fn gains_for_state(
     }
     apply_runtime_balance_overrides(cue, state, &mut gains, master);
     gains
-}
-
-pub(super) fn set_bank_targets(
-    director: &mut MusicDirectorState,
-    bank: MusicBank,
-    gains: LayerGains,
-) {
-    director.target_gains[bank.index()] = gains;
-}
-
-pub(super) fn zero_all_targets(director: &mut MusicDirectorState) {
-    director.target_gains = [[0.0; MAX_LAYERS]; 2];
-}
-
-pub(super) fn zero_all_current_and_targets(director: &mut MusicDirectorState) {
-    director.current_gains = [[0.0; MAX_LAYERS]; 2];
-    director.target_gains = [[0.0; MAX_LAYERS]; 2];
-}
-
-pub(super) fn update_gain_smoothing(
-    director: &mut MusicDirectorState,
-    channels: &MusicLayerChannels,
-    dt: f32,
-) {
-    let alpha = if STEM_GAIN_BLEND_SECONDS <= 0.0 {
-        1.0
-    } else {
-        1.0 - (-dt / STEM_GAIN_BLEND_SECONDS).exp()
-    };
-    for bank in [MusicBank::A, MusicBank::B] {
-        for slot in 0..MAX_LAYERS {
-            let current = director.current_gains[bank.index()][slot];
-            let target = director.target_gains[bank.index()][slot];
-            let next = current + (target - current) * alpha;
-            director.current_gains[bank.index()][slot] =
-                if next.abs() < 0.0005 { 0.0 } else { next };
-            channels.set_layer_volume(bank, slot, director.current_gains[bank.index()][slot]);
-        }
-    }
-
-    if let Some(fading_bank) = director.fading_bank {
-        director.fade_stop_seconds -= dt;
-        if director.fade_stop_seconds <= 0.0 {
-            channels.stop_bank(fading_bank, 120);
-            director.current_gains[fading_bank.index()] = [0.0; MAX_LAYERS];
-            director.target_gains[fading_bank.index()] = [0.0; MAX_LAYERS];
-            director.fading_bank = None;
-        }
-    }
 }

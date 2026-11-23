@@ -8,13 +8,10 @@ use crate::web_unlock::AudioUnlockState;
 use ambition_sfx::{SfxId, SfxMessage};
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::{
-    AudioChannel, AudioControl, AudioEasing, AudioTween, AudioInstance,
+    AudioInstance,
 };
 pub use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 use std::time::Duration;
-
-#[derive(Resource)]
-pub struct MusicChannel;
 
 #[derive(Resource)]
 pub struct SfxChannel;
@@ -408,6 +405,10 @@ impl MusicPlaybackState {
         &self.active_track
     }
 
+    pub(crate) fn set_instance(&mut self, instance: Option<Handle<AudioInstance>>) {
+        self.instance = instance;
+    }
+
     pub fn instance(&self) -> Option<&Handle<AudioInstance>> {
         self.instance.as_ref()
     }
@@ -470,8 +471,7 @@ pub fn start_default_music_when_ready(
     mut library: ResMut<AudioLibrary>,
     asset_server: Res<AssetServer>,
     mut state: ResMut<MusicPlaybackState>,
-    music_channel: Res<AudioChannel<MusicChannel>>,
-    output: Option<Res<crate::output::AudioOutputMode>>,
+    mut output: crate::music::MusicPlaybackCommands,
     mut waiting_logged: Local<bool>,
 ) {
     if started.0 {
@@ -519,14 +519,9 @@ pub fn start_default_music_when_ready(
         "default music: track `{}` asset `{}` loaded; starting playback",
         track_id, asset_path
     );
-    if crate::output::emits_to_device(output.as_deref()) {
-        let instance = music_channel.play(handle).looped().fade_in(AudioTween::new(
-            Duration::from_millis(220),
-            AudioEasing::InPowi(2),
-        )).handle();
-        state.begin_track(track_id);
-        state.instance = Some(instance);
-    }
+    let one_shot = library.track(&track_id).is_some_and(|track| track.one_shot);
+    output.play_track(&track_id, handle, one_shot, 0.22);
+    state.begin_track(track_id);
     started.0 = true;
 }
 
@@ -534,37 +529,32 @@ pub fn switch_to_music_track(
     library: &mut AudioLibrary,
     asset_server: &AssetServer,
     state: &mut MusicPlaybackState,
-    music_channel: &AudioChannel<MusicChannel>,
-    output: crate::output::AudioOutputMode,
+    output: &mut crate::music::MusicPlaybackCommands,
     next_track: &str,
 ) {
-    switch_to_music_track_over(library, asset_server, state, music_channel, output, next_track, None);
+    switch_to_music_track_over(library, asset_server, state, output, next_track, None);
 }
 
-/// [`switch_to_music_track`], with the old track fading out and the new one
-/// fading in over `crossfade` together: a change that is part of the same
-/// place (the time of day turning) rather than a cut to another. `None` is
-/// the ordinary swap (a 180 ms fade out, a 220 ms fade in).
+/// Select a track with one transition envelope in the common executor.
 pub fn switch_to_music_track_over(
     library: &mut AudioLibrary,
     asset_server: &AssetServer,
     state: &mut MusicPlaybackState,
-    music_channel: &AudioChannel<MusicChannel>,
-    output: crate::output::AudioOutputMode,
+    output: &mut crate::music::MusicPlaybackCommands,
     next_track: &str,
     crossfade: Option<Duration>,
 ) {
-    if library.track(next_track).is_none() {
+    let Some((source, one_shot)) = library.resolve_track(next_track, asset_server) else {
         warn!("cannot switch to missing music track '{next_track}'");
         return;
-    }
+    };
+    output.play_track(
+        next_track,
+        source,
+        one_shot,
+        crossfade.map_or(0.22, |duration| duration.as_secs_f32()),
+    );
     state.begin_track(next_track);
-    if output.emits_to_device() {
-        let fade_out = crossfade.unwrap_or(Duration::from_millis(180));
-        music_channel.stop().fade_out(AudioTween::new(fade_out, AudioEasing::OutPowi(2)));
-    }
-    let fade_in = crossfade.unwrap_or(Duration::from_millis(220));
-    state.instance = play_music_track(library, asset_server, next_track, music_channel, output, fade_in);
 }
 
 /// Select station `next_track`, if the library has it. The music director plays
@@ -581,32 +571,6 @@ pub fn select_radio_station(
     }
     radio.set_selected_track(next_track);
     true
-}
-
-fn play_music_track(
-    library: &mut AudioLibrary,
-    asset_server: &AssetServer,
-    track_id: &str,
-    music_channel: &AudioChannel<MusicChannel>,
-    output: crate::output::AudioOutputMode,
-    fade_in: Duration,
-) -> Option<Handle<AudioInstance>> {
-    let Some((handle, one_shot)) = library.resolve_track(track_id, asset_server) else {
-        warn!("cannot play missing music track '{track_id}'");
-        return None;
-    };
-    if output.emits_to_device() {
-        let fade = AudioTween::new(fade_in, AudioEasing::InPowi(2));
-        // A sting ends. Looping a three-second fanfare would repeat it until
-        // the sequence ends.
-        let instance = if one_shot {
-            music_channel.play(handle).fade_in(fade).handle()
-        } else {
-            music_channel.play(handle).looped().fade_in(fade).handle()
-        };
-        return Some(instance);
-    }
-    None
 }
 
 #[cfg(test)]

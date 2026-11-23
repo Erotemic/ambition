@@ -1,28 +1,9 @@
-use super::gains::{
-    gains_for_state, set_bank_targets, zero_all_current_and_targets, zero_all_targets,
-};
-use super::logging::format_gains;
+use super::gains::gains_for_state;
 use super::simple::resume_simple_music;
 use super::timing::{seconds_until_next_bar, seconds_until_next_phrase_marker};
 use super::*;
 
-/// Whether `drive_adaptive_cue_state` should stop the base (simple-track)
-/// channel and restart the adaptive cue from its intro.
-///
-/// Three cases restart it. In all of them the simple base track and the
-/// adaptive layers must not play at the same time:
-///
-/// 1. A different cue takes over.
-/// 2. The director's mode says a simple base track is playing (`SimpleTrack`,
-///    `Idle`, `AdaptiveFinished`). Defensive: `resume_simple_music(set_mode =
-///    false)` prevents this with `Some(active_cue_id)`, but if it happens, the
-///    base channel must stop before the adaptive layers ramp up.
-/// 3. The cue is in `AdaptiveOutro` and the new directive is a non-outro
-///    state: the encounter restarted during the outro tail.
-///    `drive_outro_tail` already started the base channel for the overlap, so
-///    it must stop.
-///
-/// A free function, so it can be unit-tested without Bevy resources.
+/// A different cue or a new active request after an ending needs a fresh start.
 pub(in crate::music) fn should_restart_adaptive(
     director_active_cue: Option<&str>,
     director_mode: MusicDirectorMode,
@@ -39,20 +20,6 @@ pub(in crate::music) fn should_restart_adaptive(
     let outro_to_active =
         same_cue && director_mode == MusicDirectorMode::AdaptiveOutro && !target_state_is_outro;
     !same_cue || mode_lost_adaptive || outro_to_active
-}
-
-/// Decide whether a newly started adaptive bank should begin at its
-/// target gain instead of ramping up from silence.
-///
-/// Intro-to-loop full-mix handoffs must sound like one continuous cue. A loop
-/// bank that ramps up from silence while the intro fades leaves an audible
-/// gap. Loop-to-loop transitions still use normal gain smoothing, so wave
-/// changes blend.
-pub(super) fn should_start_new_bank_at_target_gain(
-    previous_mode: MusicDirectorMode,
-    target_section_looped: bool,
-) -> bool {
-    previous_mode == MusicDirectorMode::AdaptiveIntro && target_section_looped
 }
 
 /// Has a section that plays one time, `duration` long, ended on this frame?
@@ -72,9 +39,7 @@ pub(super) fn drive_adaptive_cue_state(
     target_state: &MusicStateSpec,
     assets: &LoadedMusicCueAssets,
     decoded: &Assets<KiraAudioSource>,
-    channels: &MusicLayerChannels,
-    base_music_channel: &AudioChannel<MusicChannel>,
-    settings: &MusicMix,
+    channels: &mut MusicPlaybackCommands,
     dt: f32,
 ) {
     let same_request = director.active_cue_id.as_deref() == Some(cue.id.as_str())
@@ -84,17 +49,29 @@ pub(super) fn drive_adaptive_cue_state(
     }
     director.requested_state_id = Some(target_state.id.clone());
     // A held game request must not rewind the continuation of a completed one-shot.
-    let target_state = director.continuation_state_id.as_deref()
-        .and_then(|id| cue.state(id)).unwrap_or(target_state);
-    let completed = same_request && director.mode == MusicDirectorMode::AdaptiveIntro
+    let target_state = director
+        .continuation_state_id
+        .as_deref()
+        .and_then(|id| cue.state(id))
+        .unwrap_or(target_state);
+    let completed = same_request
+        && director.mode == MusicDirectorMode::AdaptiveIntro
         && director.current_state_id.as_deref() == Some(target_state.id.as_str())
-        && cue.section(&target_state.section_id).is_some_and(|section|
-            intro_has_ended(director.seconds_in_mode, section.duration_seconds(cue), dt));
+        && cue
+            .section(&target_state.section_id)
+            .is_some_and(|section| {
+                intro_has_ended(director.seconds_in_mode, section.duration_seconds(cue), dt)
+            });
     let target_state = if completed {
-        target_state.next_state.as_deref().and_then(|id| cue.state(id)).map(|next| {
-            director.continuation_state_id = Some(next.id.clone());
-            next
-        }).unwrap_or(target_state)
+        target_state
+            .next_state
+            .as_deref()
+            .and_then(|id| cue.state(id))
+            .map(|next| {
+                director.continuation_state_id = Some(next.id.clone());
+                next
+            })
+            .unwrap_or(target_state)
     } else {
         target_state
     };
@@ -109,10 +86,6 @@ pub(super) fn drive_adaptive_cue_state(
         cue.id.as_str(),
         is_outro_target(cue, target_state),
     ) {
-        base_music_channel.stop().fade_out(AudioTween::new(
-            Duration::from_millis(650),
-            AudioEasing::OutPowi(2),
-        ));
         start_adaptive_state(
             director,
             provider_id,
@@ -120,7 +93,6 @@ pub(super) fn drive_adaptive_cue_state(
             target_state,
             assets,
             channels,
-            settings,
             INTRO_TO_LOOP_CROSSFADE_SECONDS,
         );
         return;
@@ -129,11 +101,11 @@ pub(super) fn drive_adaptive_cue_state(
     let current_state_matches =
         director.current_state_id.as_deref() == Some(target_state.id.as_str());
     if current_state_matches {
-        let active_bank = director.active_bank;
-        set_bank_targets(
-            director,
-            active_bank,
-            gains_for_state(cue, target_state, settings),
+        channels.set_section_gains(
+            provider_id,
+            &cue.id,
+            &target_state.section_id,
+            &gains_for_state(cue, target_state),
         );
         return;
     }
@@ -154,11 +126,11 @@ pub(super) fn drive_adaptive_cue_state(
 
     if let Some(current_section_id) = director.current_section_id.as_deref() {
         if current_section_id == target_section.id {
-            let active_bank = director.active_bank;
-            set_bank_targets(
-                director,
-                active_bank,
-                gains_for_state(cue, target_state, settings),
+            channels.set_section_gains(
+                provider_id,
+                &cue.id,
+                &target_state.section_id,
+                &gains_for_state(cue, target_state),
             );
             director.current_state_id = Some(target_state.id.clone());
             return;
@@ -173,7 +145,6 @@ pub(super) fn drive_adaptive_cue_state(
             target_state,
             assets,
             channels,
-            settings,
             dt,
         );
         return;
@@ -185,7 +156,9 @@ pub(super) fn drive_adaptive_cue_state(
             .as_deref()
             .and_then(|id| cue.section(id));
         let intro_done = current_section
-            .map(|section| intro_has_ended(director.seconds_in_mode, section.duration_seconds(cue), dt))
+            .map(|section| {
+                intro_has_ended(director.seconds_in_mode, section.duration_seconds(cue), dt)
+            })
             .unwrap_or(true);
         if !intro_done {
             return;
@@ -202,7 +175,6 @@ pub(super) fn drive_adaptive_cue_state(
             target_state,
             assets,
             channels,
-            settings,
             INTRO_TO_LOOP_CROSSFADE_SECONDS,
         );
         return;
@@ -230,7 +202,6 @@ pub(super) fn drive_adaptive_cue_state(
                 target_state,
                 assets,
                 channels,
-                settings,
                 crossfade,
             );
         } else {
@@ -264,8 +235,7 @@ fn queue_or_fire_outro(
     cue: &MusicCueSpec,
     target_state: &MusicStateSpec,
     assets: &LoadedMusicCueAssets,
-    channels: &MusicLayerChannels,
-    settings: &MusicMix,
+    channels: &mut MusicPlaybackCommands,
     dt: f32,
 ) {
     if director.pending_state.is_none() {
@@ -275,8 +245,9 @@ fn queue_or_fire_outro(
             .and_then(|id| cue.section(id))
             .filter(|section| section.looped)
             .map(|section| section.duration_seconds(cue));
-        let delay = seconds_until_next_phrase_marker(cue, director.seconds_in_loop, 2.0, pass_seconds)
-            .max(MIN_TRANSITION_DELAY_SECONDS);
+        let delay =
+            seconds_until_next_phrase_marker(cue, director.seconds_in_loop, 2.0, pass_seconds)
+                .max(MIN_TRANSITION_DELAY_SECONDS);
         info!(
             target: MUSIC_LOG_TARGET,
             "queue_outro cue={} state={} delay={:.3}s loop_t={:.3}",
@@ -293,11 +264,14 @@ fn queue_or_fire_outro(
 
     if let Some(bridge_state_id) = cue.post_clear_bridge_state.as_deref() {
         if let Some(bridge) = cue.state(bridge_state_id) {
-            let active_bank = director.active_bank;
-            set_bank_targets(
-                director,
-                active_bank,
-                gains_for_state(cue, bridge, settings),
+            channels.set_section_gains(
+                provider_id,
+                &cue.id,
+                director
+                    .current_section_id
+                    .as_deref()
+                    .unwrap_or(&bridge.section_id),
+                &gains_for_state(cue, bridge),
             );
         }
     }
@@ -313,7 +287,6 @@ fn queue_or_fire_outro(
                 target_state,
                 assets,
                 channels,
-                settings,
                 OUTRO_CROSSFADE_SECONDS,
             );
         } else {
@@ -328,8 +301,7 @@ fn start_adaptive_state(
     cue: &MusicCueSpec,
     target_state: &MusicStateSpec,
     assets: &LoadedMusicCueAssets,
-    channels: &MusicLayerChannels,
-    settings: &MusicMix,
+    channels: &mut MusicPlaybackCommands,
     crossfade_seconds: f32,
 ) {
     let Some(section) = cue.section(&target_state.section_id) else {
@@ -343,81 +315,16 @@ fn start_adaptive_state(
         return;
     };
 
-    let previous_mode = director.mode;
-    let old_bank = director.active_bank;
-    let new_bank = if director.active_cue_id.is_some() {
-        old_bank.other()
+    let gains = gains_for_state(cue, target_state);
+    let fade = if director.mode == MusicDirectorMode::AdaptiveIntro && section.looped {
+        0.0
     } else {
-        MusicBank::A
+        crossfade_seconds
     };
-    let target_gains = gains_for_state(cue, target_state, settings);
-    let start_new_bank_at_target =
-        should_start_new_bank_at_target_gain(previous_mode, section.looped);
-
-    info!(
-        target: MUSIC_LOG_TARGET,
-        "start_adaptive_state cue={} state={} section={} old_bank={} new_bank={} looped={} crossfade={:.2}s gains={} gain_start={}",
-        cue.id,
-        target_state.id,
-        section.id,
-        old_bank.label(),
-        new_bank.label(),
-        section.looped,
-        crossfade_seconds,
-        format_gains(target_gains),
-        if start_new_bank_at_target { "target" } else { "smooth" },
-    );
-
-    channels.stop_bank(new_bank, 80);
-    channels.set_bank_silent(new_bank);
-    director.current_gains[new_bank.index()] = [0.0; MAX_LAYERS];
-    director.target_gains[new_bank.index()] = [0.0; MAX_LAYERS];
-    director.instances[new_bank.index()] = std::array::from_fn(|_| None);
-    director.bank_sections[new_bank.index()] = Some((provider_id.to_owned(), cue.id.clone(), section.id.clone()));
-
-    let mut started = 0usize;
-    for source in &section.sources {
-        let slot = cue
-            .layer(&source.layer_id)
-            .map(|layer| layer.slot.min(MAX_LAYERS - 1))
-            .unwrap_or(0);
-        if let Some(handle) = assets.get(provider_id, &cue.id, &section.id, &source.layer_id) {
-            director.instances[new_bank.index()][slot] = channels.play_layer(new_bank, slot, handle, section.looped, LAYER_START_FADE_MS);
-            started += 1;
-        } else {
-            warn!(
-                target: MUSIC_LOG_TARGET,
-                "missing music source cue={} section={} layer={}",
-                cue.id,
-                section.id,
-                source.layer_id,
-            );
-        }
-    }
-
-    if director.active_cue_id.is_some() && new_bank != old_bank {
-        set_bank_targets(director, old_bank, [0.0; MAX_LAYERS]);
-        director.fading_bank = Some(old_bank);
-        director.fade_stop_seconds = crossfade_seconds + 0.35;
-    } else {
-        channels.stop_bank(old_bank.other(), 80);
-        director.fading_bank = None;
-        director.fade_stop_seconds = 0.0;
-    }
-
-    if start_new_bank_at_target {
-        director.current_gains[new_bank.index()] = target_gains;
-        director.target_gains[new_bank.index()] = target_gains;
-        for (slot, &gain) in target_gains.iter().enumerate().take(MAX_LAYERS) {
-            channels.set_layer_volume(new_bank, slot, gain);
-        }
-    } else {
-        set_bank_targets(director, new_bank, target_gains);
-    }
+    channels.play_section(provider_id, cue, section, assets, gains, fade);
     director.active_cue_id = Some(cue.id.clone());
     director.current_state_id = Some(target_state.id.clone());
     director.current_section_id = Some(section.id.clone());
-    director.active_bank = new_bank;
     director.seconds_in_mode = 0.0;
     director.seconds_in_loop = 0.0;
     director.pending_state = None;
@@ -429,28 +336,15 @@ fn start_adaptive_state(
     } else {
         MusicDirectorMode::AdaptiveIntro
     };
-
-    info!(
-        target: MUSIC_LOG_TARGET,
-        "started_music_sources cue={} state={} section={} bank={} source_count={} volume_blend={:.2}s",
-        cue.id,
-        target_state.id,
-        section.id,
-        new_bank.label(),
-        started,
-        STEM_GAIN_BLEND_SECONDS,
-    );
 }
 
 pub(super) fn drive_outro_tail(
     director: &mut MusicDirectorState,
     cue: &MusicCueSpec,
-    channels: &MusicLayerChannels,
+    channels: &mut MusicPlaybackCommands,
     library: &mut AudioLibrary,
     asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
-    base_music_channel: &AudioChannel<MusicChannel>,
-    output: crate::output::AudioOutputMode,
     simple_track_candidates: &[String],
 ) {
     if director.mode != MusicDirectorMode::AdaptiveOutro {
@@ -475,8 +369,7 @@ pub(super) fn drive_outro_tail(
             library,
             asset_server,
             music_state,
-            base_music_channel,
-            output,
+            channels,
             simple_track_candidates,
             false,
         );
@@ -491,19 +384,15 @@ pub(super) fn drive_outro_tail(
         );
         director.mode = MusicDirectorMode::AdaptiveFinished;
         director.clear_active_cue();
-        channels.stop_all(900);
-        zero_all_targets(director);
     }
 }
 
 pub(super) fn shutdown_adaptive_cue(
     director: &mut MusicDirectorState,
-    channels: &MusicLayerChannels,
+    channels: &mut MusicPlaybackCommands,
     library: &mut AudioLibrary,
     asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
-    base_music_channel: &AudioChannel<MusicChannel>,
-    output: crate::output::AudioOutputMode,
     simple_track_candidates: &[String],
 ) {
     info!(
@@ -514,11 +403,10 @@ pub(super) fn shutdown_adaptive_cue(
         director.current_state_id,
         director.current_section_id,
     );
-    channels.stop_all(650);
+    channels.silence();
     director.clear_active_cue();
     director.mode = MusicDirectorMode::Idle;
     director.pending_state = None;
-    zero_all_current_and_targets(director);
     // The adaptive cue identity is cleared here, so resume_simple_music may
     // set the mode to SimpleTrack.
     resume_simple_music(
@@ -526,8 +414,7 @@ pub(super) fn shutdown_adaptive_cue(
         library,
         asset_server,
         music_state,
-        base_music_channel,
-        output,
+        channels,
         simple_track_candidates,
         true,
     );

@@ -23,17 +23,10 @@ pub struct MusicDirectorState {
     pub seconds_in_loop: f32,
     pub(super) requested_state_id: Option<String>,
     pub(super) continuation_state_id: Option<String>,
-    pub(super) active_bank: MusicBank,
-    pub(super) fading_bank: Option<MusicBank>,
-    pub(super) fade_stop_seconds: f32,
-    pub(super) current_gains: [LayerGains; 2],
-    pub(super) target_gains: [LayerGains; 2],
     pub(super) pending_state: Option<PendingMusicStateTransition>,
     pub(super) default_resume_started: bool,
     pub(super) debug_log_timer: f32,
     pub(super) last_simple_track: Option<String>,
-    pub(super) instances: [[Option<Handle<bevy_kira_audio::AudioInstance>>; MAX_LAYERS]; 2],
-    pub(super) bank_sections: [Option<(String, String, String)>; 2],
 }
 
 impl Default for MusicDirectorState {
@@ -48,17 +41,10 @@ impl Default for MusicDirectorState {
             seconds_in_loop: 0.0,
             requested_state_id: None,
             continuation_state_id: None,
-            active_bank: MusicBank::A,
-            fading_bank: None,
-            fade_stop_seconds: 0.0,
-            current_gains: [[0.0; MAX_LAYERS]; 2],
-            target_gains: [[0.0; MAX_LAYERS]; 2],
             pending_state: None,
             default_resume_started: false,
             debug_log_timer: 0.0,
             last_simple_track: None,
-            instances: std::array::from_fn(|_| std::array::from_fn(|_| None)),
-            bank_sections: [None, None],
         }
     }
 }
@@ -107,7 +93,11 @@ pub struct MusicClaim(pub String);
 #[derive(Debug, Clone, PartialEq)]
 pub enum AdaptiveCueDirective {
     /// Play `cue_id` in adaptive `state_id` this frame, for `claim`.
-    Play { cue_id: String, state_id: String, claim: MusicClaim },
+    Play {
+        cue_id: String,
+        state_id: String,
+        claim: MusicClaim,
+    },
     /// Stop the active adaptive cue immediately (e.g. encounter failed).
     StopNow,
 }

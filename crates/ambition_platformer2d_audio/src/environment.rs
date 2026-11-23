@@ -8,9 +8,6 @@
 
 use bevy::prelude::*;
 
-use bevy_kira_audio::prelude::{AudioChannel, AudioControl};
-
-use ambition_audio::library::{amplitude_to_decibels, MusicChannel};
 
 /// Coarse classification of the player's acoustic surroundings. The
 /// gameplay layer picks one of these; the audio layer is responsible
@@ -83,8 +80,7 @@ impl AudioEnvironment {
         self.wetness = self.wetness.clamp(0.0, 1.0);
     }
 
-    /// Multiplier applied on top of `effective_music()` when writing
-    /// the music-channel volume. 1.0 = unmodified; lower = ducked.
+    /// Multiplier applied to user music gain by the occurrence mixer. 1.0 = unmodified; lower = ducked.
     /// `0.40` underwater ≈ -8 dB, which gives a clearly "muffled"
     /// impression on top of the existing mix.
     pub fn music_attenuation(&self) -> f32 {
@@ -146,24 +142,13 @@ pub fn smooth_audio_environment(
     env.advance(time.wall_dt());
 }
 
-/// Combine user settings and the acoustic environment.
-/// Music uses its channel. SFX publishes a gain for the shared voice mixer.
-/// Kira channel-volume commands replace instance volumes, so SFX must not
-/// use one alongside per-voice distance attenuation.
-///
-/// `TODO: kira_underwater_filter_backend` — the volume attenuation
-/// computed here is the placeholder until the bevy_kira_audio
-/// wrapper grows track-level effect access (or we swap to a direct-
-/// Kira layer per `docs/systems/audio-underwater.md`). The real underwater
-/// effect should be a Kira `FilterBuilder` (LowPass, cutoff tweened
-/// from ~20 kHz to ~800 Hz against `wetness`), not a level reduction.
-/// This function is the exact swap point: replace the
-/// `effective_music * music_attenuation` arithmetic with a call into
-/// the filter handle, and leave the user-mixer composition intact.
+/// Publish user and environment gain for the shared voice owners.
+/// Channel volume must not replace an occurrence's transition envelope.
+/// TODO: kira_underwater_filter_backend needs native effect-handle access.
 pub fn apply_audio_environment(
     settings: Res<ambition_persistence::settings::UserSettings>,
     env: Res<AudioEnvironment>,
-    music_channel: Res<AudioChannel<MusicChannel>>,
+    mut music_mix: ResMut<ambition_audio::MusicMix>,
     mut sfx_mix: ResMut<ambition_audio::SfxMix>,
     mut last: Local<Option<(ambition_persistence::settings::AudioSettings, f32)>>,
 ) {
@@ -173,10 +158,8 @@ pub fn apply_audio_environment(
     if last.as_ref().map(|(a, w)| (*a, *w)) == Some(key) {
         return;
     }
-    let music_db =
-        amplitude_to_decibels(current_settings.effective_music() * env.music_attenuation());
+    music_mix.effective_music = current_settings.effective_music() * env.music_attenuation();
     sfx_mix.effective_sfx = current_settings.effective_sfx() * env.sfx_attenuation();
-    music_channel.set_volume(music_db);
     *last = Some(key);
 }
 

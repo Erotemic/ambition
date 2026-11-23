@@ -1,47 +1,25 @@
-//! Adaptive music core: cue catalog, layered Kira channels, the director
-//! (simple and adaptive cue playback), and its tuning. The host supplies a
+//! Music selection, prepared cue data, and owned native playback.
+//! The host supplies a
 //! [`crate::mix::MusicMix`] (from its settings) and a [`state::MusicIntent`]
 //! (from its game state); this module never reads game state directly.
 
 use std::collections::HashMap;
-use std::time::Duration;
 
 use bevy::ecs::system::SystemParam;
 use bevy::log::{debug, info, warn};
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::{
-    AudioChannel, AudioControl, AudioEasing, AudioInstance, AudioSource as KiraAudioSource,
-    AudioTween, DynamicAudioChannel, DynamicAudioChannels, PlaybackState,
+    AudioControl, AudioInstance, AudioSource as KiraAudioSource, AudioTween, DynamicAudioChannels,
+    PlaybackState,
 };
 
-use crate::library::{
-    amplitude_to_decibels, switch_to_music_track, AudioLibrary, MusicChannel, MusicPlaybackState,
-};
+use crate::library::{amplitude_to_decibels, AudioLibrary, MusicPlaybackState};
 use crate::mix::MusicMix;
 
 pub const MUSIC_LOG_TARGET: &str = "ambition_music";
 
-/// Did the backend refuse the play behind `handle`? Kira refuses a sound when
-/// every sound slot is taken, and `bevy_kira_audio` drops that play after a
-/// warning: its handle is then neither waiting in its channel (`state`) nor an
-/// instance. A play that ran and ended keeps its instance, so an ended sting
-/// is not a refusal.
-fn refused_by_backend(
-    instances: &Assets<AudioInstance>,
-    handle: &Handle<AudioInstance>,
-    state: PlaybackState,
-) -> bool {
-    instances.get(handle).is_none() && state != PlaybackState::Queued
-}
-
 const MAX_LAYERS: usize = crate::cue_spec::MAX_MUSIC_LAYERS;
 
-/// Runtime gain smoothing for adaptive layer targets.
-///
-/// Short enough that an intro-to-wave handoff sounds like one cue, not an
-/// intro followed by a fade-in. Long overlap is set by the section crossfade
-/// constants below.
-const STEM_GAIN_BLEND_SECONDS: f32 = 0.18;
 const LOOP_SECTION_CROSSFADE_SECONDS: f32 = 1.70;
 
 /// Intro to first loop should sound continuous, not like a file switch. The
@@ -54,47 +32,39 @@ const OUTRO_CROSSFADE_SECONDS: f32 = 1.65;
 /// exploration does not leave a silent gap after encounter music fades.
 const DEFAULT_RETURN_OVERLAP_SECONDS: f32 = 2.25;
 const MIN_TRANSITION_DELAY_SECONDS: f32 = 0.08;
-const LAYER_START_FADE_MS: u64 = 0;
 const DEBUG_LOG_PERIOD_SECONDS: f32 = 1.0;
 
-// Two banks of six layer channels. This keeps the current Kira backend simple
-// while letting the director crossfade a new section over an old section.
-
 pub mod catalog;
-pub mod channels;
-pub mod director;
+pub mod commands;
 pub mod diagnostics;
+pub mod director;
+pub mod playback;
 pub mod state;
 
 pub use catalog::{
     AdaptiveMusicCatalogAppExt, AdaptiveMusicCatalogError, AdaptiveMusicCatalogRegistry,
-    BossMusicBinding, BossPhaseState, EncounterMusicBinding, BOSS_PHASE_KEYS, LoadedMusicCueAssets, MusicCueCatalog, MusicCueSpec, MusicLayerGainSpec,
-    MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec, MusicStateBalanceOverride,
-    MusicStateSpec, RoomMusicBinding,
+    BossMusicBinding, BossPhaseState, EncounterMusicBinding, LoadedMusicCueAssets, MusicCueCatalog,
+    MusicCueSpec, MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec,
+    MusicStateBalanceOverride, MusicStateSpec, RoomMusicBinding, BOSS_PHASE_KEYS,
 };
-pub use channels::{add_music_layer_channels, MusicLayerChannels};
+pub use commands::MusicPlaybackCommands;
 pub use director::{drive_music_director, load_music_cues};
+pub use playback::add_music_playback;
 use state::PendingMusicStateTransition;
-pub use state::{AdaptiveCueDirective, MusicClaim, MusicDirectorMode, MusicDirectorState, MusicIntent};
+pub use state::{
+    AdaptiveCueDirective, MusicClaim, MusicDirectorMode, MusicDirectorState, MusicIntent,
+};
 
-use channels::{LayerGains, MusicBank};
+use commands::LayerGains;
 
-/// Hard-stop all music playback and reset the director to its idle state.
-///
-/// Stops the base [`MusicChannel`] and every adaptive layer channel, resets
-/// [`MusicDirectorState`] to `Default` (mode `Idle`, no active cue, no last
-/// simple track), and clears the [`MusicPlaybackState`] active track. A host
-/// uses it for deterministic silence when leaving gameplay for a frontend
-/// route: cached assets stay resident, and no stale state can bring back a
-/// previous session's music.
+/// Cancel current music and reset the selection projection.
+/// Submitted voice reservations remain owned until their terminal result.
 pub fn silence_music_backend(
-    base_music_channel: &AudioChannel<MusicChannel>,
-    layer_channels: &MusicLayerChannels,
+    layer_channels: &mut MusicPlaybackCommands,
     director: &mut MusicDirectorState,
     music_state: &mut MusicPlaybackState,
 ) {
-    base_music_channel.stop();
-    layer_channels.stop_all(0);
+    layer_channels.silence();
     *director = MusicDirectorState::default();
     music_state.silence();
 }
@@ -115,11 +85,16 @@ pub fn now_playing_label(
     let cue = director.filter(|d| {
         matches!(
             d.mode,
-            MusicDirectorMode::AdaptiveIntro | MusicDirectorMode::AdaptiveLoop | MusicDirectorMode::AdaptiveOutro
+            MusicDirectorMode::AdaptiveIntro
+                | MusicDirectorMode::AdaptiveLoop
+                | MusicDirectorMode::AdaptiveOutro
         )
     });
-    if let Some((director, cue_id)) = cue.and_then(|d| d.active_cue_id.as_deref().map(|id| (d, id))) {
-        let name = library.track(cue_id).map_or_else(|| title_case(cue_id), |t| t.display_name.clone());
+    if let Some((director, cue_id)) = cue.and_then(|d| d.active_cue_id.as_deref().map(|id| (d, id)))
+    {
+        let name = library
+            .track(cue_id)
+            .map_or_else(|| title_case(cue_id), |t| t.display_name.clone());
         return Some(match director.current_section_id.as_deref() {
             Some(section) => format!("{name} \u{00b7} {}", title_case(section)),
             None => name,
@@ -134,7 +109,9 @@ fn title_case(id: &str) -> String {
         .filter(|word| !word.is_empty())
         .map(|word| {
             let mut chars = word.chars();
-            chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect())
+            chars.next().map_or_else(String::new, |first| {
+                first.to_uppercase().chain(chars).collect()
+            })
         })
         .collect::<Vec<_>>()
         .join(" ")

@@ -1,4 +1,5 @@
 use super::*;
+use std::time::Duration;
 use crate::cue_spec::{MusicLayerGainSpec, MusicLayerSourceSpec, MusicLayerSpec, MusicSectionSpec};
 use crate::music::catalog::MusicSourceKey;
 use crate::selection::MusicAuthority;
@@ -13,9 +14,8 @@ fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
         .init_resource::<Time<Real>>()
         .init_resource::<MusicMix>()
         .init_resource::<MusicDirectorState>()
-        .insert_resource(crate::output::AudioOutputMode::Recording)
-        .insert_resource(AudioChannel::<MusicChannel>::default());
-    crate::music::add_music_layer_channels(&mut app);
+        .insert_resource(crate::output::AudioOutputMode::Recording);
+    crate::music::add_music_playback(&mut app);
     let cue = MusicCueSpec {
         id: "trail".into(), asset_root: "content://library/music".into(),
         bpm: 60.0, beats_per_bar: 4.0, relative_volume: 1.0,
@@ -84,7 +84,6 @@ fn the_music_watchdog_separates_requests_decoding_backend_gaps_and_explicit_sile
     use crate::music::diagnostics::{observe_music_playback, MusicPlaybackDiagnostics, MusicPlaybackStatus};
     let (mut app, handles) = fixture();
     app.insert_resource(crate::output::AudioOutputMode::Device)
-        .init_asset::<bevy_kira_audio::AudioInstance>()
         .init_resource::<MusicPlaybackDiagnostics>()
         .init_resource::<crate::selection::ActiveAudioSelection>()
         .insert_resource(crate::web_unlock::AudioUnlockState { unlocked: true, ..default() })
@@ -130,7 +129,7 @@ fn decoding_layers_does_not_consume_the_intro_or_split_their_start() {
     let director = app.world().resource::<MusicDirectorState>();
     assert_eq!(director.mode, MusicDirectorMode::AdaptiveIntro);
     assert_eq!(director.seconds_in_mode, 0.0);
-    assert_eq!(&director.target_gains[director.active_bank.index()][..2], &[1.0, 1.0]);
+    assert_eq!(app.world().resource::<super::super::playback::MusicPlayback>().reserved_voices(), 2);
     app.world_mut().resource_mut::<MusicIntent>().adaptive = Some(AdaptiveCueDirective::Play {
         cue_id: "trail".into(), state_id: "song".into(), claim: MusicClaim("room".into()),
     });
@@ -198,4 +197,38 @@ fn a_slow_later_section_does_not_delay_the_opening_or_start_partial_layers() {
     decode(&mut app, &handles[5]);
     for _ in 0..20 { step(&mut app, 0.25); }
     assert_eq!(app.world().resource::<MusicDirectorState>().current_section_id.as_deref(), Some("later"));
+}
+
+#[test]
+fn recording_consumes_starts_gains_and_cancellation_without_a_device_drain() {
+    use crate::music::playback::{MusicPlayback, RecordedMusicOutput};
+    let (mut app, handles) = fixture();
+    for handle in &handles {
+        decode(&mut app, handle);
+    }
+    app.world_mut().resource_mut::<MusicIntent>().adaptive = Some(AdaptiveCueDirective::Play {
+        cue_id: "trail".into(),
+        state_id: "song".into(),
+        claim: MusicClaim("room".into()),
+    });
+    for _ in 0..10 {
+        step(&mut app, 0.25);
+    }
+    let recording = app.world().resource::<RecordedMusicOutput>();
+    assert_eq!((recording.submitted, recording.resumed), (2, 2));
+    let gain_changes = recording.gain_changes;
+    for _ in 0..10 {
+        step(&mut app, 0.25);
+    }
+    assert_eq!(
+        app.world().resource::<RecordedMusicOutput>().gain_changes,
+        gain_changes
+    );
+    app.world_mut().resource_mut::<MusicIntent>().authority =
+        MusicAuthority::governed(Vec::<String>::new());
+    for _ in 0..3 {
+        step(&mut app, 0.25);
+    }
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().stopped, 2);
+    assert_eq!(app.world().resource::<MusicPlayback>().reserved_voices(), 0);
 }

@@ -1,6 +1,7 @@
 # Music programs and owned playback
 
-**State:** planned from static source and a maintainer report, 2026-11-22.
+**State:** implementation in progress, 2026-11-22.
+The evidence below describes the source before MUS1.
 Runtime baseline: `00bf92c2214274fdf2ecaacdc0abfd19be569a50`. Planning base:
 `adc7db4863467c32f903fe439e111530414a3f69`. Music renderer:
 `186a13f8115752a4bbdb4955fb9e46483562a2d4`.
@@ -13,8 +14,7 @@ This page owns selection-to-playback contracts and MUS1–MUS4. It supersedes
 the diagnosis-only direction for that row. It does not supersede the
 completed heard-room selection, provider authority, or existing diagnostics.
 [MA1](asset-authoring-and-prepared-media.md#ma1--export-playback-facts-link-game-music-policy)
-retains compiler/export ownership. No runtime code, authored music, or binary
-asset changes are part of this planning overlay.
+retains compiler/export ownership. Implementation changes land in the native owners described below.
 
 ## Goal
 
@@ -410,16 +410,13 @@ State whether a same-section change adjusts its existing layer mix or
 starts another product. A held target with unchanged gains emits no new
 play or volume work.
 
-User and environment mix also enter this owner as data. The current
+User and environment mix enter this owner as data. MUS1 replaced the direct
+music-channel volume writer in
 [`apply_audio_environment`](../../../crates/ambition_platformer2d_audio/src/environment.rs)
-writes the base music channel volume directly, while
-[`sync_music_mix`](../../../crates/ambition_platformer2d_audio/src/music/mod.rs)
-copies user volume without environmental attenuation. The former source
-warns that channel-volume commands replace instance volumes. Leaving that
-writer beside new per-instance envelopes can overwrite them and bypass the
-recording sink. Compose effective user/environment gain, program/layer gain,
-and the owned envelope once for current and retiring voices. A mix change
-does not start a new occurrence. No new bus framework is required.
+with the effective `MusicMix` value and removed the separate user-only sync.
+The executor composes user/environment gain, program/layer gain, and the owned
+envelope for current and retiring voices. A mix change does not start an
+occurrence. No new bus framework is required.
 
 ### Four time facts must not be substituted
 
@@ -611,6 +608,12 @@ customer. Basic strict native preparation starts with the first new records.
 
 **Owner:** `ambition_audio` director/state/channels/output.
 
+**Progress:** the common executor now owns simple and adaptive submissions,
+exact-handle retirement, late cancellation, required-group admission, bounded
+retry, and recording output. User and environment gain enter this owner.
+Native route acceptance remains open. MUS2 still owns the split selection and
+simple-resume removal; MUS3 still owns prepared timing.
+
 Build the bounded occurrence lifecycle below the current intent entry
 points. Capture actual handles, partial admission, cancellation, retirement,
 and terminal results. Define the locked adapter's drain/cancel behavior.
@@ -745,7 +748,7 @@ baseline, not fixed API contracts.
 | --- | --- |
 | Exact fresh-start/stop alias | [adaptive.rs](../../../crates/ambition_audio/src/music/director/adaptive.rs), start 325–441 and shutdown 499–534; [state.rs](../../../crates/ambition_audio/src/music/state.rs), clear 73–79 |
 | Retry and output interpretation | [music/mod.rs](../../../crates/ambition_audio/src/music/mod.rs), 24–35; [director](../../../crates/ambition_audio/src/music/director/mod.rs), 91–198 and 250–265; [diagnostics](../../../crates/ambition_audio/src/music/diagnostics.rs), 180–357 |
-| Device/recording commands | [channels](../../../crates/ambition_audio/src/music/channels.rs), 89–164; [output](../../../crates/ambition_audio/src/output.rs); [gains](../../../crates/ambition_audio/src/music/director/gains.rs), 77–95; [instance control](../../../crates/ambition_audio/src/spatial.rs), 148–175 |
+| Device/recording commands | [commands](../../../crates/ambition_audio/src/music/commands.rs) and [playback](../../../crates/ambition_audio/src/music/playback.rs); [output](../../../crates/ambition_audio/src/output.rs); [gains](../../../crates/ambition_audio/src/music/director/gains.rs), 77–95; [instance control](../../../crates/ambition_audio/src/spatial.rs), 148–175 |
 | Mix authority and legacy mastering | [environment mix](../../../crates/ambition_platformer2d_audio/src/environment.rs), 150–180; [user mix](../../../crates/ambition_platformer2d_audio/src/music/mod.rs), 30–37; [mastering policy](../../../tools/ambition_music_renderer/ambition_music_renderer/processing/mastering.py), 45–72 |
 | Selection and occurrence loss | [intent](../../../crates/ambition_platformer2d_audio/src/music/intent.rs), 118–237 and 416–554; [claims](../../../crates/ambition_encounter/src/music.rs); [boss publication](../../../crates/ambition_boss_encounter/src/systems.rs), 404–443; [wave publication](../../../crates/ambition_encounter_features/src/systems.rs), 633–647 |
 | Actual game policy | [cue catalog](../../../game/ambition_content/assets/audio/music_cues.ron), 315–355, 403–430, 498–504, 572–585; [Wolfenstein](../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_boss.ron); [Inugami](../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_inugami.ron); [conductor](../../../game/ambition_content_modules/src/wolfenstein.rs), 724–742 and 1547–1551 |

@@ -21,7 +21,7 @@ use super::environment::{
 };
 use ambition_audio::audio_play_sfx_messages;
 use ambition_audio::library::{
-    start_default_music_when_ready, DefaultMusicStarted, MusicChannel, SfxChannel,
+    start_default_music_when_ready, DefaultMusicStarted, SfxChannel,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::{
     simulation_authorized, ActiveSessionScope, InitialGameplayReadiness, SessionGatedSimulation,
@@ -57,7 +57,6 @@ impl Plugin for Platformer2dAudioPlugin {
             .init_resource::<ambition_audio::render::ProviderSfxHandleCache>()
             .init_resource::<AudioEnvironment>()
             .init_resource::<DefaultMusicStarted>()
-            .add_ambition_audio_channel::<MusicChannel>()
             .add_ambition_audio_channel::<SfxChannel>()
             // ⭐ NO PROFILING MARKS HERE. They bracketed this one system from
             // inside the kernel, which made a SIMULATION crate depend on a
@@ -87,6 +86,7 @@ impl Plugin for Platformer2dAudioPlugin {
                 Update,
                 start_default_music_when_ready
                     .in_set(ambition_audio::library::DefaultMusicStart)
+                    .before(crate::music::compute_music_intent)
                     .run_if(music_auto_start_when_ungated),
             )
             .add_systems(
@@ -150,7 +150,6 @@ impl Plugin for Platformer2dAudioPlugin {
             .add_systems(
                 Update,
                 (
-                    crate::music::sync_music_mix,
                     crate::music::release_narrative_music_on_room_change,
                     crate::music::compute_music_intent,
                     ambition_audio::music::drive_music_director,
@@ -188,12 +187,13 @@ impl Plugin for Platformer2dAudioPlugin {
                     .after(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::CoreSimulation),
             );
         // After the backend plugin, which owns the channel store on a device.
-        ambition_audio::music::add_music_layer_channels(app);
+        ambition_audio::music::add_music_playback(app);
         app.init_resource::<ambition_audio::music::diagnostics::MusicPlaybackDiagnostics>()
             .add_systems(Update, publish_audio_readiness)
             .add_systems(PostUpdate, ambition_audio::music::diagnostics::observe_music_playback
                 .after(bevy_kira_audio::AudioSystemSet::PlayTypedChannels)
-                .after(bevy_kira_audio::AudioSystemSet::PlayDynamicChannels));
+                .after(bevy_kira_audio::AudioSystemSet::PlayDynamicChannels)
+                .after(ambition_audio::music::playback::advance_music_playback));
     }
 }
 
@@ -233,9 +233,8 @@ struct AudioRequestState<'w, 's> {
 fn reset_audio_request_state_on_context_change(
     mut changes: MessageReader<ambition_audio::selection::AudioContextChanged>,
     selection: Res<ambition_audio::selection::ActiveAudioSelection>,
-    base_music_channel: Res<bevy_kira_audio::prelude::AudioChannel<MusicChannel>>,
     sfx_channel: Res<bevy_kira_audio::prelude::AudioChannel<SfxChannel>>,
-    layer_channels: ambition_audio::music::MusicLayerChannels,
+    mut layer_channels: ambition_audio::music::MusicPlaybackCommands,
     frontend: Option<Res<ambition_audio::selection::FrontendAudioRegistry>>,
     mut state: AudioRequestState,
 ) {
@@ -280,8 +279,7 @@ fn reset_audio_request_state_on_context_change(
         match (&mut state.director, &mut state.music_playback) {
             (Some(director), Some(playback)) => {
                 ambition_audio::music::silence_music_backend(
-                    &base_music_channel,
-                    &layer_channels,
+                    &mut layer_channels,
                     &mut **director,
                     &mut **playback,
                 );
@@ -339,8 +337,7 @@ fn apply_frontend_music_policy(
     readiness: Option<Res<InitialGameplayReadiness>>,
     scope: Option<Res<ActiveSessionScope>>,
     roots: Query<&ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
-    base_music_channel: Res<bevy_kira_audio::prelude::AudioChannel<MusicChannel>>,
-    layer_channels: ambition_audio::music::MusicLayerChannels,
+    mut layer_channels: ambition_audio::music::MusicPlaybackCommands,
     library: Option<ResMut<ambition_audio::library::AudioLibrary>>,
     asset_server: Res<AssetServer>,
     selection: Res<ambition_audio::selection::ActiveAudioSelection>,
@@ -389,8 +386,7 @@ fn apply_frontend_music_policy(
     }
 
     ambition_audio::music::silence_music_backend(
-        &base_music_channel,
-        &layer_channels,
+        &mut layer_channels,
         &mut director,
         &mut music_state,
     );
@@ -406,8 +402,7 @@ fn apply_frontend_music_policy(
         if let Some(track_id) = selection.preferred_track() {
             if selection.music_authority().allows(track_id) {
                 ambition_audio::library::switch_to_music_track(
-                    &mut library, &asset_server, &mut music_state, &base_music_channel,
-                    layer_channels.output_mode(), track_id,
+                    &mut library, &asset_server, &mut music_state, &mut layer_channels, track_id,
                 );
             }
         }

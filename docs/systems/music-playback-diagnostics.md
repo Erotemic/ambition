@@ -2,8 +2,8 @@
 
 The `ambition_music` log target reports music requests and backend playback.
 `music_request` names the selected track, or the requested cue and state. It
-also gives the director section. `music_output` names the track and bank
-sections whose instances report playback. `music_playback` reports changes in backend
+also gives the director section. `music_output` names the track and playback
+occurrences whose instances report playback. `music_playback` reports changes in backend
 state. The observer reads Kira audio instances, not the director mode or the
 cached track name.
 
@@ -21,6 +21,30 @@ backend reports `Recording`; it does not claim device playback. Loading after
 music is requested, missing content, a lost gameplay context, and a silent backend
 are faults to inspect.
 The observer does not restart playback or change content to hide a fault.
+
+The common `MusicPlayback` executor owns simple tracks and adaptive groups.
+It keeps one pending choice, at most two groups, and at most twelve reserved
+voices. A submitted voice remains reserved until its terminal result. Slots
+do not identify playback. Cancellation and retirement target exact handles.
+
+The locked Kira wrapper returns handles before admission. The executor submits
+music paused and at zero gain. It resumes a required group after all its
+voices are present and paused. A canceled submission cannot resume. If its
+instance arrives later, the executor stops that exact instance. Partial
+admission cancels the complete group. Admission absence, a five-second
+admission timeout, and an unexpected loop stop permit one retry for the current
+choice. An unresolved canceled voice keeps its reservation after timeout.
+A completed one-shot does not restart from a held choice.
+
+Music gain has one writer. The executor combines user and environment gain,
+source gain, and the occurrence's transition envelope. Recording consumes the
+same lifecycle and counts starts, resumes, gain changes, and stops. It keeps
+bounded voice state and does not write to Kira command queues.
+
+The adapter provides admission observation and starts coordinated by a host
+frame. It does not provide a common sample start or proof of speaker output.
+The director's section clock still uses presentation time. Prepared musical
+boundaries and native transport-clock integration remain planned work.
 
 The director requests cue sources together. It starts each section after all
 layers of that section are decoded. Later sections do not block the opening.

@@ -28,7 +28,11 @@ impl MusicPlaybackStatus {
     fn unexpected(&self) -> bool {
         matches!(
             self,
-            Self::MissingRequest | Self::MissingContext | Self::MissingContent | Self::Loading | Self::BackendSilent
+            Self::MissingRequest
+                | Self::MissingContext
+                | Self::MissingContent
+                | Self::Loading
+                | Self::BackendSilent
         )
     }
 }
@@ -47,6 +51,10 @@ pub struct MusicPlaybackDiagnostics {
     pub gap_seconds: f64,
     pub longest_gap_seconds: f64,
     pub gap_count: u64,
+    pub request_revision: u64,
+    pub playback_occurrence: Option<u64>,
+    pub reserved_voices: usize,
+    pub transport_position_seconds: Option<f64>,
     next_warning: f64,
     sampled_at: f64,
     observed_generation: Option<u64>,
@@ -96,11 +104,11 @@ pub struct MusicObservation<'w> {
     playback: Option<Res<'w, MusicPlaybackState>>,
     library: Option<Res<'w, AudioLibrary>>,
     director: Option<Res<'w, MusicDirectorState>>,
+    transport: Option<Res<'w, super::playback::MusicPlayback>>,
     catalogs: Res<'w, AdaptiveMusicCatalogRegistry>,
     loaded: Option<Res<'w, LoadedMusicCueAssets>>,
     decoded: Res<'w, Assets<KiraAudioSource>>,
     asset_server: Res<'w, AssetServer>,
-    base: Res<'w, AudioChannel<MusicChannel>>,
     instances: Res<'w, Assets<AudioInstance>>,
     mix: Res<'w, MusicMix>,
     unlock: Res<'w, AudioUnlockState>,
@@ -120,11 +128,11 @@ pub fn observe_music_playback(
         playback,
         library,
         director,
+        transport,
         catalogs,
         loaded,
         decoded,
         asset_server,
-        base,
         instances,
         mix,
         unlock,
@@ -150,53 +158,60 @@ pub fn observe_music_playback(
     if let Some(playback) = playback.as_ref().filter(|_| report.base_playing) {
         report.actual = format!("track:{}", playback.active_track());
     }
-    if let Some(director) = director.as_ref() {
-        for (bank, voices) in director.instances.iter().enumerate() {
-            if voices.iter().enumerate().any(|(slot, handle)| {
-                director.current_gains[bank][slot] > 0.001
-                    && handle
-                        .as_ref()
-                        .and_then(|h| instances.get(h))
-                        .is_some_and(|voice| playing(voice.state()))
-            }) {
-                if let Some((provider, cue, section)) = &director.bank_sections[bank] {
-                    report
-                        .actual
-                        .push_str(&format!(" provider:{provider} cue:{cue} section:{section}"));
+    report.detail.clear();
+    report.layers_playing = 0;
+    if let Some(transport) = transport.as_ref() {
+        report.request_revision = transport.revision;
+        report.playback_occurrence = transport.current().map(|group| group.occurrence.0);
+        report.reserved_voices = transport.reserved_voices();
+        report.transport_position_seconds =
+            transport.current().and_then(|group| group.position_seconds);
+        for group in transport.groups() {
+            if let super::playback::MusicProduct::Section {
+                provider,
+                cue,
+                section,
+            } = &group.product
+            {
+                let voices = group
+                    .instances()
+                    .filter(|handle| {
+                        instances
+                            .get(*handle)
+                            .is_some_and(|voice| playing(voice.state()))
+                    })
+                    .count();
+                if voices > 0 {
+                    report.actual.push_str(&format!(
+                        " provider:{provider} cue:{cue} section:{section} occurrence:{} phase:{:?}",
+                        group.occurrence.0, group.phase
+                    ));
+                }
+                if group.phase == super::playback::MusicGroupPhase::Running {
+                    report.layers_playing += voices;
                 }
             }
         }
+        report.detail = format!(
+            "revision={} reserved={} terminal={:?}",
+            transport.revision,
+            transport.reserved_voices(),
+            transport.last_terminal
+        );
     }
     if old_actual != report.actual {
         info!(target: MUSIC_LOG_TARGET, "music_output actual={}", report.actual);
     }
-    report.layers_playing = director.as_ref().map_or(0, |d| {
-        d.instances
-            .iter()
-            .enumerate()
-            .flat_map(|(bank, voices)| {
-                voices
-                    .iter()
-                    .enumerate()
-                    .map(move |(slot, voice)| (bank, slot, voice))
-            })
-            .filter(|(bank, slot, voice)| {
-                d.current_gains[*bank][*slot] > 0.001
-                    && voice
-                        .as_ref()
-                        .and_then(|h| instances.get(h))
-                        .is_some_and(|voice| playing(voice.state()))
-            })
-            .count()
-    });
     let old_expected = report.expected.clone();
     let old_section = report.section.clone();
     report.expected.clear();
-    report.detail.clear();
     report.section = director.as_ref().and_then(|d| d.current_section_id.clone());
 
     let mut content_status = MusicPlaybackStatus::MissingRequest;
-    if let Some(AdaptiveCueDirective::Play { cue_id, state_id, .. }) = &intent.adaptive {
+    if let Some(AdaptiveCueDirective::Play {
+        cue_id, state_id, ..
+    }) = &intent.adaptive
+    {
         report.expected = format!("cue:{cue_id} state:{state_id}");
         content_status = MusicPlaybackStatus::MissingContent;
         if intent.authority.allows_cue(cue_id) {
@@ -287,11 +302,13 @@ pub fn observe_music_playback(
                             playback
                                 .as_ref()
                                 .and_then(|p| p.instance())
-                                .map(|h| base.state(h))
+                                .and_then(|handle| instances.get(handle))
+                                .map(AudioInstance::state)
                         );
                         if track.one_shot
                             && playback.as_ref().is_some_and(|p| {
-                                p.active_track() == id && report.observed_generation == Some(p.play_generation())
+                                p.active_track() == id
+                                    && report.observed_generation == Some(p.play_generation())
                             })
                             && !report.base_playing
                         {
@@ -326,7 +343,11 @@ pub fn observe_music_playback(
         .is_some_and(|c| !c.initial_presentation_ready)
     {
         MusicPlaybackStatus::InitialPresentation
-    } else if conditions.as_ref().is_some_and(|c| c.music_context_required) && selection.owner().is_none() {
+    } else if conditions
+        .as_ref()
+        .is_some_and(|c| c.music_context_required)
+        && selection.owner().is_none()
+    {
         report.detail = "gameplay requires an active music context".into();
         MusicPlaybackStatus::MissingContext
     } else if deliberate {
@@ -337,7 +358,11 @@ pub fn observe_music_playback(
         MusicPlaybackStatus::Muted
     } else if !unlock.unlocked {
         MusicPlaybackStatus::AwaitingGesture
-    } else if report.base_playing || report.layers_playing > 0 {
+    } else if transport
+        .as_ref()
+        .is_some_and(|transport| transport.desired_is_running())
+        && (report.base_playing || report.layers_playing > 0)
+    {
         MusicPlaybackStatus::Playing
     } else {
         content_status
@@ -349,12 +374,7 @@ pub fn observe_music_playback(
 }
 
 fn playing(state: PlaybackState) -> bool {
-    matches!(
-        state,
-        PlaybackState::Playing { .. }
-            | PlaybackState::Pausing { .. }
-            | PlaybackState::Stopping { .. }
-    )
+    matches!(state, PlaybackState::Playing { .. })
 }
 
 #[cfg(test)]

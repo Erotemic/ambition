@@ -26,8 +26,7 @@ pub(super) fn apply_simple_music_intent(
     library: &mut AudioLibrary,
     asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
-    base_music_channel: &AudioChannel<MusicChannel>,
-    output: crate::output::AudioOutputMode,
+    channels: &mut MusicPlaybackCommands,
     simple_track_candidates: &[String],
     crossfade_s: f32,
 ) {
@@ -36,13 +35,13 @@ pub(super) fn apply_simple_music_intent(
         || music_state.active_track() != target;
     if needs_switch && library.track(&target).is_some() {
         info!(target: MUSIC_LOG_TARGET, "simple_music target={} crossfade_s={}", target, crossfade_s);
-        let crossfade = (crossfade_s > 0.0).then(|| std::time::Duration::from_secs_f32(crossfade_s));
+        let crossfade =
+            (crossfade_s > 0.0).then(|| std::time::Duration::from_secs_f32(crossfade_s));
         crate::library::switch_to_music_track_over(
             library,
             asset_server,
             music_state,
-            base_music_channel,
-            output,
+            channels,
             &target,
             crossfade,
         );
@@ -73,8 +72,7 @@ pub(super) fn resume_simple_music(
     library: &mut AudioLibrary,
     asset_server: &AssetServer,
     music_state: &mut MusicPlaybackState,
-    base_music_channel: &AudioChannel<MusicChannel>,
-    output: crate::output::AudioOutputMode,
+    channels: &mut MusicPlaybackCommands,
     simple_track_candidates: &[String],
     set_mode_to_simple_track: bool,
 ) {
@@ -86,13 +84,14 @@ pub(super) fn resume_simple_music(
             target,
             set_mode_to_simple_track,
         );
-        switch_to_music_track(
+        crate::library::switch_to_music_track_over(
             library,
             asset_server,
             music_state,
-            base_music_channel,
-            output,
+            channels,
             &target,
+            (!set_mode_to_simple_track)
+                .then(|| std::time::Duration::from_secs_f32(DEFAULT_RETURN_OVERLAP_SECONDS)),
         );
         director.last_simple_track = Some(target.clone());
         if set_mode_to_simple_track {

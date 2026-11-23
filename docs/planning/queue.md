@@ -1547,16 +1547,17 @@ with [MA1](engine/asset-authoring-and-prepared-media.md#ma1--export-playback-fac
 for producer facts. [Diagnostics](../systems/music-playback-diagnostics.md)
 remain an independent observer.
 
-**State:** PLANNED from static source `00bf92c22142` and the supplied
-Wolfenstein departure log, 2026-11-22. Shutdown retains bank B; a fresh
-adaptive start chooses A and then queues a stop for A. The present retry
-predicate misses accepted-but-stopped voices. The log matches this command
-sequence; no backend or audible reproduction ran here. Fight-entry media
+**State:** IMPLEMENTING. The common native playback executor owns simple and
+adaptive voice lifetimes, cancellation, admission, retirement, bounded retry,
+and recording output. User and environment gain use that same owner. Native
+route acceptance remains open. The baseline diagnosis used source
+`00bf92c22142` and the supplied Wolfenstein departure log, 2026-11-22.
+A fresh start could stop its own bank; stopped voices could remain logically
+active. MUS1 replaces those lifetime owners. Fight-entry media
 is requested only when selected, which exposes a separate preparation/timing
 gap. The exit excerpt does not prove the cause of startup silence.
 
-**Next action:** implement MUS1's bounded, occurrence-owned playback groups
-and common device/recording command boundary. Then MUS2 resolves one scoped
+**Next action:** complete native acceptance and implement MUS2: select one scoped
 musical goal for simple and adaptive sources, including live boss/wave
 occurrences and authored priority. Remove ownerless release and the
 temporary simple-track resume between the old fight and destination cue.

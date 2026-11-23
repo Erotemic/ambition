@@ -894,7 +894,14 @@ now has native recording, goal selection, decoder preparation and plugin checks.
 The shipped host's multi-provider music route check passes with this checkout's
 generated assets. The rendered host also prepares Wolfenstein's entrance while
 he is dormant. These checks do not establish device timing or audible continuity.
-No device or listening acceptance was performed.
+
+`5ca72c113` adds an opt-in native executor test and bounded Linux ALSA capture.
+The locked Bevy/Kira backend produces the expected PCM after cold decode and
+two fresh cue handoffs, then silence after an explicit stop. Guard: 146 default
+audio tests and the separate native test. Spectrum inspection confirms the
+section tones. The capture also exposes 20–30 ms of silence at file-end joins.
+Native continuation scheduling and the complete game route remain open.
+No physical-speaker or listening acceptance was performed.
 The current recording path consumes the executor's actual voice commands;
 it does not execute Kira drains or establish speaker-audible output. The
 historical mode-only bank tests did not establish that old command ordering.

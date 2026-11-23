@@ -30,10 +30,10 @@ It keeps one pending choice, at most two groups, and at most twelve reserved
 voices. A submitted voice remains reserved until its terminal result. Slots
 do not identify playback. Cancellation and retirement target exact handles.
 
-The locked Kira wrapper returns handles before admission. The executor submits
-music paused and at zero gain. It resumes a required group after all its
-voices are present and paused. A canceled submission cannot resume. If its
-instance arrives later, the executor stops that exact instance. Partial
+Each native music group owns one track in the existing Kira manager. The
+executor wraps each accepted native handle as a Bevy audio instance. It submits
+music paused and at zero gain, then schedules a common resume after all required
+voices report paused. A canceled submission cannot resume. Partial
 admission cancels the complete group. Admission absence, a five-second
 admission timeout, and an unexpected loop stop permit one retry for the current
 choice. An unresolved canceled voice keeps its reservation after timeout.
@@ -49,15 +49,25 @@ source gain, and the occurrence's transition envelope. Recording consumes the
 same lifecycle and counts starts, resumes, gain changes, and stops. It keeps
 bounded voice state and does not write to Kira command queues.
 
-The adapter provides admission observation and starts coordinated by a host
-frame. It does not provide a common sample start or proof of speaker output.
-The director's section clock still uses presentation time. Prepared musical
-boundaries and native transport-clock integration remain planned work.
+The director uses the current occurrence's native file cursor and shared Kira
+clock. Ready continuations and prepared exits can run during a host stall.
+A missed admission deadline selects another allowed exit. Completion receipts
+also cover a whole ending that plays between host observations. The supported
+guarantee remains frame-driven; sample-accurate and phase-preserving requests
+fail preparation. Instance state does not prove speaker output.
+
+Music continues on its own clock during scene pause and time-scale changes.
+Phase bindings choose whether an admitted one-shot finishes or follows the next
+ready phase. A held phase does not replay a completed entrance. Music readiness
+and completion do not set gameplay deadlines.
 
 The director requests cue sources together. It starts each section after all
 layers of that section are decoded. Later sections do not block the opening.
 A playing loop continues while the requested next section loads. A one-shot
 can still end before its next section is ready; the observer reports that gap.
+The native inspector states the supported entry and release operations. An
+ending wait mix changes the current section's gains without starting another
+section or changing its successor.
 
 `MusicPlaybackDiagnostics` holds the current report, the current and longest
 gap durations, and the number of gaps. It is presentation state, outside the

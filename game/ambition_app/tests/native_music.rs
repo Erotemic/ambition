@@ -372,3 +372,117 @@ fn hobfords_authored_ending_finishes_and_releases_the_room_music() {
         assert!(app.world().resource::<MusicPlayback>().desired_is_running());
     }
 }
+
+#[cfg(feature = "dev_tools")]
+fn wolf_intro_elapsed(app: &mut App) -> f32 {
+    let world = app.world_mut();
+    let entity = world
+        .query::<(Entity, &BossConfig)>()
+        .iter(world)
+        .find(|(_, config)| config.behavior.id == "wolfenstein_boss")
+        .unwrap()
+        .0;
+    ambition_content::bosses::wolfenstein::conductor_of(world, entity)
+        .unwrap()
+        .intro
+        .unwrap()
+}
+
+#[test]
+#[cfg(feature = "dev_tools")]
+#[ignore = "uses native audio and generated assets; run with a capture device"]
+fn scene_pause_and_slow_motion_keep_the_native_music_clock_independent() {
+    use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
+    use ambition_platformer2d::platformer::schedule::GameMode;
+    use ambition_platformer2d::time::time_control::RequestedClockScale;
+    use ambition_platformer2d::time::ClockState;
+
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, false, |app| {
+        app.insert_resource(AudioOutputMode::Device);
+        app.insert_resource(ambition_app::app::StartRoomOverride(THRONE.into()));
+        app.insert_resource(ambition_app::app::StartRoomMustResolve);
+    });
+    let mut previous = Instant::now();
+    wait(&mut app, &mut previous, "prepared scene entrance", |app| {
+        entrance_decoded(app)
+    });
+    approach(&mut app);
+    wait(&mut app, &mut previous, "scene awaken", |app| {
+        running(app, "galvanic_march", "awaken")
+    });
+    app.world_mut()
+        .resource_mut::<NextState<GameMode>>()
+        .set(GameMode::Paused);
+    wait(&mut app, &mut previous, "paused scene", |app| {
+        *app.world().resource::<State<GameMode>>().get() == GameMode::Paused
+    });
+    let frozen = wolf_intro_elapsed(&mut app);
+    wait(
+        &mut app,
+        &mut previous,
+        "music continued through paused intro",
+        |app| {
+            assert_eq!(wolf_intro_elapsed(app), frozen);
+            running(app, "galvanic_march", "march")
+        },
+    );
+    assert_eq!(wolf(&mut app).1, BossEncounterPhase::Intro);
+    let occurrence = app
+        .world()
+        .resource::<MusicPlayback>()
+        .current()
+        .unwrap()
+        .occurrence;
+    app.world_mut()
+        .resource_mut::<NextState<GameMode>>()
+        .set(GameMode::Playing);
+    wait(&mut app, &mut previous, "resumed scene", |app| {
+        *app.world().resource::<State<GameMode>>().get() == GameMode::Playing
+    });
+    {
+        let mut control = app.world_mut().resource_mut::<DeveloperRuntimeState>();
+        control.slowmo_scale = 0.25;
+        control.slowmo = true;
+    }
+    wait(&mut app, &mut previous, "slow scene clock", |app| {
+        app.world().resource::<RequestedClockScale>().sim_clock == 0.25
+            && (app.world().resource::<ClockState>().time_scale - 0.25).abs() < 0.01
+    });
+    let scene_before = wolf_intro_elapsed(&mut app);
+    let music_before = app
+        .world()
+        .resource::<MusicPlayback>()
+        .current()
+        .unwrap()
+        .position_seconds
+        .unwrap();
+    let started = Instant::now();
+    while started.elapsed() < Duration::from_secs(1) {
+        tick(&mut app, &mut previous);
+        assert!(running(&app, "galvanic_march", "march"));
+    }
+    let scene_advance = wolf_intro_elapsed(&mut app) - scene_before;
+    let current = app.world().resource::<MusicPlayback>().current().unwrap();
+    let music_advance = current.position_seconds.unwrap() - music_before;
+    assert_eq!(current.occurrence, occurrence);
+    assert!(music_advance > 0.5);
+    assert!(
+        scene_advance > 0.0 && f64::from(scene_advance) < music_advance * 0.75,
+        "scene advanced {scene_advance}s, music advanced {music_advance}s at scale {}",
+        app.world().resource::<ClockState>().time_scale
+    );
+    app.world_mut()
+        .resource_mut::<DeveloperRuntimeState>()
+        .slowmo = false;
+    wait(&mut app, &mut previous, "scene reached combat", |app| {
+        wolf(app).1 == BossEncounterPhase::Phase1
+    });
+    assert_eq!(
+        app.world()
+            .resource::<MusicPlayback>()
+            .current()
+            .unwrap()
+            .occurrence,
+        occurrence
+    );
+}

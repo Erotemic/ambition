@@ -45,7 +45,7 @@ fn catalog() -> PreparedMusicCatalog {
             })
             .collect(),
         outro_state: Some("outro".into()),
-        post_clear_bridge_state: None,
+        ending_wait_mix_state: None,
         runtime_balance_overrides: Vec::new(),
     };
     let cues = PreparedMusicCues::prepare(

@@ -1,6 +1,6 @@
 # Music programs and owned playback
 
-**State:** implementation in progress, 2026-11-23.
+**State:** MUS1–MUS4 and the selected MA1 migration are complete, 2026-11-23.
 Reviewed source: `6d100f9d9e0d557fe4ae3dad61acd5aef71f684e`.
 MUS1's bounded playback executor landed in `d4147e4c`; per-source music
 publication and canonical attempts landed in `6d100f9d`. Release facts now
@@ -8,8 +8,10 @@ retain their transition attempt and pass through host confirmation. One scoped
 goal now selects tracks and cues. Endings retain their admitted entry and
 generation while the latest goal selects the successor. Prepared exit rules and
 whole-asset recipes landed in `afeb52f24`. Native software capture now covers
-the Castle Godwin route and Hobford's ending. Scene time policy remains open. Music renderer:
-`186a13f8115752a4bbdb4955fb9e46483562a2d4`.
+the Castle Godwin route and Hobford's ending. Scene time policy is explicit.
+Music renderer `eefe5db` exports score inventory and one-shot policy.
+The game registry consumes that export. Further pickup, independent-tail,
+bridge-overlay and stronger timing support needs an authored customer.
 The supplied exit log has UTC timestamps on 2026-11-23. Its executable
 revision is not established. The historical diagnosis used source
 `00bf92c2214274fdf2ecaacdc0abfd19be569a50`; the receipt below separates it
@@ -513,6 +515,12 @@ separate delayed track entrance. A queued section does not replace the admitted
 state or its policy. Joining a declared musical position still needs explicit
 product and native support.
 
+Playback continues at its native rate when the scene pauses or slows down.
+A held Intro can complete into its declared continuation while the scene is
+paused. Resume and the later phase change retain that occurrence. There is no
+automatic seek or resynchronization to scene elapsed time. Wolfenstein keeps
+his authored scene duration; selected audio quality does not change it.
+
 If a scene's authored duration should come from a score span, link that
 finite value during content preparation. Gameplay then uses its pinned
 scene definition. A visual/audio quality choice cannot retime that gameplay
@@ -676,7 +684,7 @@ exact-handle retirement, late cancellation, required-group admission, bounded
 retry, and recording output. User and environment gain enter this owner.
 Native software capture covers cancellation, the Castle Godwin route and
 Hobford's ending. MUS2 has removed split selection and simple-resume authority;
-MUS3 still owns scene time policy.
+MUS3 keeps playback independent of scene pause and scale.
 
 **Native guard:** group cancellation and resource release have explicit device
 tests. Castle Godwin and Hobford have software captures through the visible host.
@@ -834,8 +842,10 @@ PCM inspection finds no silent 10 ms windows across that exit.
 
 Ready one-shot continuations also use native scheduling. Immediate exits and
 outputs without a native clock retain immediate or frame-driven admission.
-Stronger timing requests fail during preparation. Scene deadlines, pickups,
-independent tails and bridge overlays stay open.
+Stronger timing requests fail during preparation. Phase bindings handle late
+entrances without changing the scene deadline. Pickup scheduling, independent
+tails and bridge overlays require an authored customer and new product/native
+support. Current inspection marks them unsupported.
 
 Keep catalog, decode, admission, and start facts distinct. Add the
 small boundary/entry/late-policy plan and a defined transport origin.
@@ -877,8 +887,10 @@ reload retain the host-selected library snapshot through publication.
 `--inspect-music` reports prepared clocks, exits, gains, source products, voice
 requirements and supported timing. Guard: 146 audio tests, 38 intent-adapter
 tests and 3 content-CLI tests. Actual content inspection covers 12 shipped cues
-and 150 tracks. Strong timing requests are rejected; pickup, independent-tail
-and bridge-overlay recipes remain open.
+and 150 tracks. Strong timing requests are rejected. Current inspection also
+states the unsupported pickup, independent-tail, bridge-overlay and scene-position
+entry operations. These further capabilities stay in the authored-customer
+reservoir; they are not silently approximated by ordinary section entry.
 
 Expose compiler clock and typed marker support for every supported
 frontend. Make final product construction and support limits explicit.
@@ -946,7 +958,18 @@ silent; the fix starts the latest successor.
 `b60a3b918` checks Hobford's shipped 28-second Aftermath through the visible host
 and normal encounter Start/Complete commands. It returns to the workshop's
 `something_worth_building`. PCM comparison confirms both selected products.
-Scene pause/scale policy and richer transition support remain open.
+`6715d352d` verifies independent native playback through scene pause and slow
+motion. Wolfenstein's scene timer stops while Awaken continues into March;
+resume and combat retain the same March occurrence. Guard: native software
+capture through the visible host.
+`2aee2e597` replaces the misleading bridge field with `ending_wait_mix_state`.
+Preparation resolves its total gains. The current occurrence receives the mix
+while another section is pending. Guard: 151 audio tests, 38 intent tests,
+assembled-app and room-owner compilation, and inspection of the shipped pack.
+Music renderer `eefe5db` exports source identities and one-shot policy without
+compiler or synthesis dependencies. The game registry consumes that export;
+its line-based YAML parser is removed. Guard: 30 producer tests, 19 registry
+and publication tests, and unchanged registry output for the local corpus.
 No physical-speaker or listening acceptance was performed.
 The current recording path consumes the executor's actual voice commands;
 it does not execute Kira drains or establish speaker-audible output. The

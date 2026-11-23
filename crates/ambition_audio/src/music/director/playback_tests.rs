@@ -63,7 +63,7 @@ fn authored_cues(bpm: f32) -> crate::cue_spec::AuthoredMusicCues {
             })
             .collect(),
         outro_state: Some("outro".into()),
-        post_clear_bridge_state: None,
+        ending_wait_mix_state: None,
         runtime_balance_overrides: Vec::new(),
     };
     let mut destination = cue.clone();
@@ -2082,4 +2082,60 @@ fn an_ending_completion_releases_the_latest_goal_without_a_running_observation()
         "room_b"
     );
     assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 6);
+}
+
+#[test]
+fn an_endings_wait_mix_changes_gains_without_starting_its_referenced_section() {
+    let mut authored = authored_cues(60.0);
+    let cue = &mut authored.cues[0];
+    cue.ending_wait_mix_state = Some("later".into());
+    cue.playback.ending_exit = Some(crate::music_policy::MusicExitRule::Bars(1));
+    cue.playback.return_overlap_seconds = Some(0.0);
+    for gain in &mut cue
+        .states
+        .iter_mut()
+        .find(|state| state.id == "later")
+        .unwrap()
+        .gains
+    {
+        gain.gain = 0.0;
+    }
+    let (mut app, handles) = fixture_with(authored);
+    for (index, handle) in handles.iter().enumerate() {
+        if !(4..6).contains(&index) {
+            decode(&mut app, handle);
+        }
+    }
+    let fight = selection("trail", "song", "fight", 1, 200);
+    publish(&mut app, fight.clone());
+    frames(&mut app, 7);
+    let entry = app
+        .world()
+        .resource::<MusicPlayback>()
+        .current()
+        .unwrap()
+        .entry;
+    publish(&mut app, selection("destination", "song", "room", 0, 10));
+    app.world_mut().resource_mut::<MusicIntent>().outgoing = Some(MusicDisposition {
+        claim: fight.claim,
+        entry,
+        reason: MusicReleaseReason::Completed,
+    });
+    step(&mut app, 0.0);
+    step(&mut app, 0.0);
+    let playback = app.world().resource::<MusicPlayback>();
+    let current = playback.current().unwrap();
+    assert!(matches!(&current.product, MusicProduct::Section { section, .. } if section == "song"));
+    assert_eq!(current.nonzero_gain_voice_count(), 0);
+    assert!(playback.groups().all(|group| {
+        !matches!(&group.product, MusicProduct::Section { section, .. } if section == "later")
+    }));
+    step(&mut app, 4.0);
+    frames(&mut app, 2);
+    let current = app.world().resource::<MusicPlayback>().current().unwrap();
+    assert!(
+        matches!(&current.product, MusicProduct::Section { section, .. } if section == "outro")
+    );
+    assert_eq!(current.nonzero_gain_voice_count(), 2);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 4);
 }

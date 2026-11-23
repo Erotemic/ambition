@@ -44,7 +44,7 @@
                 (id: "outro", section_id: "outro", gains: [(layer_id: "full", gain: 1.0)]),
             ],
             outro_state: Some("outro"),
-            post_clear_bridge_state: Some("cleared_bridge"),
+            ending_wait_mix_state: Some("cleared_bridge"),
         ),
         (
             // The Frontier dimension (scores/active/leaden_saddle.music.yaml,

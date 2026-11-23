@@ -319,7 +319,7 @@ fn a_compiled_pack_carries_the_cues_and_bindings_the_director_will_load() {
         .expect("a well-formed cue file compiles");
     let cues = lowered_music_cues(&pack).expect("a Runtime schema lowers its artifact");
     assert_eq!(cues.cues().count(), 1);
-    assert_eq!(cues.cue("lab").unwrap().post_clear_bridge_state, None, "an absent option is None");
+    assert_eq!(cues.cue("lab").unwrap().ending_wait_gains, None, "an absent option is None");
     assert_eq!(cues.cue("lab").unwrap().state("fight").unwrap().gains, [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
     assert_eq!(cues.encounter_bindings()[0].cue_id, "lab");
     assert_eq!(cues.encounter_bindings()[0].wave2_reinforced_state, None);

@@ -37,7 +37,7 @@ pub struct PreparedMusicCue {
     pub sections: Vec<PreparedMusicSection>,
     pub states: Vec<PreparedMusicState>,
     pub outro_state: Option<String>,
-    pub post_clear_bridge_state: Option<String>,
+    pub ending_wait_gains: Option<[f32; MAX_MUSIC_LAYERS]>,
     section_index: BTreeMap<String, usize>,
     state_index: BTreeMap<String, usize>,
 }
@@ -271,7 +271,7 @@ fn prepare_cue(linked: media::LinkedMusicCue) -> PreparedMusicCue {
     let slots = linked.slots;
     let section_index = index(linked.sections.iter().map(|section| &section.id));
     let state_index = index(cue.states.iter().map(|state| &state.id));
-    let states = cue
+    let states: Vec<PreparedMusicState> = cue
         .states
         .iter()
         .map(|state| {
@@ -299,6 +299,9 @@ fn prepare_cue(linked: media::LinkedMusicCue) -> PreparedMusicCue {
             }
         })
         .collect();
+    let ending_wait_gains = cue.ending_wait_mix_state
+        .as_deref()
+        .map(|id| states[state_index[id]].gains);
     PreparedMusicCue {
         id: cue.id.clone(),
         media_identity: linked.identity,
@@ -306,7 +309,7 @@ fn prepare_cue(linked: media::LinkedMusicCue) -> PreparedMusicCue {
         sections: linked.sections,
         states,
         outro_state: cue.outro_state.clone(),
-        post_clear_bridge_state: cue.post_clear_bridge_state.clone(),
+        ending_wait_gains,
         section_index,
         state_index,
     }

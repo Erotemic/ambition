@@ -84,8 +84,8 @@ pub(super) fn cue_reference_errors(
         for (field, value) in [
             ("outro_state", cue.outro_state.as_ref()),
             (
-                "post_clear_bridge_state",
-                cue.post_clear_bridge_state.as_ref(),
+                "ending_wait_mix_state",
+                cue.ending_wait_mix_state.as_ref(),
             ),
         ] {
             if let Some(state_id) = value {

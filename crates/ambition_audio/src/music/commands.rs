@@ -78,8 +78,8 @@ impl MusicPlaybackCommands<'_> {
         provider: &str,
         cue: &str,
         section: &str,
-        gains: &[f32],
-        association: Option<(&str, MusicPhasePolicy)>,
+        gains: &[f32; MAX_LAYERS],
+        association: (&str, MusicPhasePolicy),
     ) {
         self.playback.set_section_gains(
             entry,
@@ -90,6 +90,14 @@ impl MusicPlaybackCommands<'_> {
             gains,
             association,
         );
+    }
+
+    pub(super) fn mix_current_section(
+        &mut self,
+        entry: super::playback::MusicEntry,
+        gains: &[f32; MAX_LAYERS],
+    ) {
+        self.playback.mix_current_section(entry, gains);
     }
 
     pub(super) fn play_section(

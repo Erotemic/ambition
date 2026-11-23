@@ -287,14 +287,20 @@ An embedded library requires that description. The library publisher now
 keeps playback descriptions as runtime inputs with their media.
 Verification loaded 45 products through Bevy and Kira. Their frame counts,
 sample rates, game bindings, gains, continuations and used section lengths
-match the declared contracts. Transport position, readiness and transition
-policy remain open under MUS3/MUS4.
+match the declared contracts. MUS3/MUS4 now supply native transport position,
+readiness, transition policy, strict recipes and inspection.
 
 Host selection now precedes source reading and metadata binding. Native and
 embedded game policy use the same selected library snapshot. Reload prepares
 that snapshot before admission and publishes it without source reads. File
 watching includes selected native sources and accepted publication selectors.
-Compiler-owned inventory export remains open.
+Music renderer `eefe5db` exports source identities and score-level one-shot
+policy as `ambition.music_inventory.v1`. Playback descriptions use the same
+metadata validator. The game registry consumes this export and has no YAML
+parser. Display names, radio inclusion and retirement remain game policy.
+Guard: 30 producer tests and 19 registry/publication tests. Source export works
+without numerical or synthesis dependencies. The local registry output is
+unchanged. The selected MA1 migration is complete.
 
 **Refinement, 2026-11-22:** MA1 owns compiler/export facts.
 [Music programs and owned playback](music-programs-and-playback.md) owns

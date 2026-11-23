@@ -65,7 +65,7 @@ fn cue(id: &str) -> MusicCueSpec {
             })
             .collect(),
         outro_state: Some("outro".into()),
-        post_clear_bridge_state: None,
+        ending_wait_mix_state: None,
         runtime_balance_overrides: Vec::new(),
     }
 }

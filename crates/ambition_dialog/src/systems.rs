@@ -417,11 +417,12 @@ fn apply_dialog_menu_input(menu: &MenuControlFrame, mut dialogue: impl std::ops:
     if !dialogue.active() {
         return;
     }
-    // ⛔ START NEVER ENDS A CONVERSATION. Start opens the pause menu over it
-    // (`Q75`), and the conversation is still live, at the same line, when the
-    // menu closes. Esc binds both Start and Back, so a Back that comes with
-    // Start is that same pause press.
-    if menu.back && !menu.start && dialogue.settings().close_on_back {
+    // Start belongs to the host menu. A shared control cannot also select,
+    // cancel, or advance this conversation.
+    if menu.start {
+        return;
+    }
+    if menu.back && dialogue.settings().close_on_back {
         // Back-button close: the dispatch system tells the runner to stop.
         // `close()` flips `DialogState.active` this same frame so every
         // presentation/input backend observes the same immediate closure.
@@ -767,9 +768,7 @@ mod tests {
         assert_eq!(rows.chosen(), None);
     }
 
-    /// `Q75`: Start opens the pause menu over a conversation and never ends it.
-    /// Esc sets Start and Back together, so that is the same pause press. Back
-    /// alone still ends the conversation.
+    /// Start cannot cancel or advance a conversation through a shared control.
     #[test]
     fn start_never_ends_a_conversation_and_back_alone_does() {
         let mut dialogue = dialogue_with_options(2);
@@ -785,11 +784,14 @@ mod tests {
             &MenuControlFrame {
                 start: true,
                 back: true,
+                select: true,
+                down: true,
                 ..default()
             },
             &mut dialogue,
         );
-        assert!(dialogue.active(), "Esc (Start with Back) does not end the conversation");
+        assert!(dialogue.active(), "Start with Back does not end the conversation");
+        assert_eq!(dialogue.selected_option(), 0, "Start cannot navigate or confirm the dialogue");
         apply_dialog_menu_input(
             &MenuControlFrame {
                 back: true,

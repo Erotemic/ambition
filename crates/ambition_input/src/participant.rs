@@ -139,10 +139,9 @@ pub mod context_priority {
     /// `DEBUG`, so a pause cannot hide the inspector.
     pub const PAUSE: i32 = 190;
     pub const CUTSCENE: i32 = 180;
-    /// Above dialogue (`Q75`): the inventory, the map and Ambition's pause
-    /// cube (one overlay, which declares this claim) may open during a
-    /// conversation, and the conversation reads no navigation under them.
-    pub const INVENTORY: i32 = 160;
+    /// The unified inventory and pause menu captures in-session interfaces,
+    /// including cutscenes. Developer and launcher contexts remain above it.
+    pub const INVENTORY: i32 = PAUSE;
     pub const DIALOGUE: i32 = 150;
     pub const SELECT: i32 = 130;
     pub const GAMEPLAY: i32 = 100;
@@ -261,6 +260,12 @@ pub struct ParticipantContextAccess<'w, 's> {
 }
 
 impl ParticipantContextAccess<'_, '_> {
+    /// The current claim owner, including claims changed in this frame.
+    pub fn owner(&self, participant: ParticipantId) -> Option<InputContextId> {
+        self.participants.iter().find(|(owner, _)| owner.id == participant)
+            .and_then(|(_, contexts)| contexts.resolved().first().copied())
+    }
+
     pub fn permits(&self, participant: ParticipantId, claim: ContextClaim) -> bool {
         !self.participants.iter().any(|(owner, contexts)| owner.id == participant
             && contexts.claims.iter().any(|existing| existing.capture && existing.priority > claim.priority))

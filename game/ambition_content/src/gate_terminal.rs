@@ -39,7 +39,7 @@ pub const ARCH_GAP_DEG: f32 = 96.0;
 /// from gameplay, above a dialogue and below the inventory.
 pub const GATE_TERMINAL_CONTEXT: ambition_input::participant::InputContextId =
     ambition_input::participant::InputContextId("gate_terminal");
-/// Its claim priority, between `DIALOGUE` (150) and `INVENTORY` (160).
+/// Its claim priority is above dialogue and below the unified pause menu.
 pub const GATE_TERMINAL_PRIORITY: i32 = 155;
 
 /// Where chevron `index` of `count` sits round the wheel: degrees clockwise

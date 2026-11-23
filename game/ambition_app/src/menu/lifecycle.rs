@@ -8,7 +8,7 @@ use ambition_platformer2d::menu::{ActiveMenuPages, backend::InventoryUiBackend, 
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::sfx::{SfxWriter, ids};
 
-use super::kaleidoscope_app::{KaleidoscopeCursor, KaleidoscopeSystemNav, RebindCapture, close_system_entry, play_ui};
+use super::kaleidoscope_app::{KaleidoscopeCursor, KaleidoscopeSystemNav, RebindCapture, play_ui};
 use super::model::{MenuFocus, MenuPage, MenuPageAction, OpenOverlayKey};
 use super::quality_confirm::VisualQualityConfirmState;
 
@@ -106,7 +106,7 @@ pub(crate) fn aggregate_menu_pause(
     let underlying = requested.unwrap_or(*mode.get());
     if open {
         match underlying {
-            GameMode::Playing | GameMode::Dialogue => {
+            GameMode::Playing | GameMode::Dialogue | GameMode::Cutscene => {
                 pause.resume = Some(underlying);
                 ambition_platformer2d::platformer::world_log::note_game_mode_request(GameMode::Paused, "local_menu_pause");
                 next.set(GameMode::Paused);
@@ -170,7 +170,7 @@ pub(crate) fn route_menu_lifecycle(
         capture,
     ) in &mut menus
     {
-        let mut input = frames.for_seat(owner.owner.slot());
+        let input = frames.for_seat(owner.owner.slot());
         let start = input.start && !latch.last_start;
         latch.last_start = input.start;
         let platform_pause = platform_pause && owner.owner == ParticipantId::PRIMARY;
@@ -182,9 +182,15 @@ pub(crate) fn route_menu_lifecycle(
             *frames.for_seat_mut(owner.owner.slot()) = Default::default();
             continue;
         }
-        if start {
-            input.back = false;
-            frames.for_seat_mut(owner.owner.slot()).back = false;
+        let back_opens = input.back && !input.back_shared_with_gameplay && !overlay.visible
+            && matches!(access.owner(owner.owner), None | Some(ambition_platformer2d::input::GAMEPLAY_CONTEXT));
+        if start || platform_pause || back_opens {
+            // The opening or closing press belongs only to this menu lifecycle.
+            // A remapped Start can share a control with Select or Back.
+            let frame = frames.for_seat_mut(owner.owner.slot());
+            frame.consume_nav_edges();
+            frame.select_held = false;
+            frame.back_held = false;
         }
 
         let page = if platform_pause {
@@ -195,19 +201,12 @@ pub(crate) fn route_menu_lifecycle(
         } else if start {
             if overlay.visible {
                 quality.cancel();
-                if system.open_entry.is_some() {
-                    close_system_entry(&mut system, &mut cursor);
-                    play_ui(&mut sfx, ids::UI_MENU_BACK);
-                    #[cfg(feature = "bevy_ui_menu")]
-                    if let Ok(mut grid) = grid.get_mut(menu_entity) {
-                        grid.reset_navigation();
-                    }
-                } else {
-                    overlay.close();
-                    play_ui(&mut sfx, ids::UI_MENU_CLOSE);
-                }
+                overlay.close();
+                play_ui(&mut sfx, ids::UI_MENU_CLOSE);
                 continue;
             }
+            MenuPage::System
+        } else if back_opens {
             MenuPage::System
         } else if input.inventory {
             MenuPage::Items
@@ -277,7 +276,7 @@ mod tests {
 
     #[test]
     fn only_the_last_menu_close_restores_the_underlying_mode() {
-        for base in [GameMode::Playing, GameMode::Dialogue, GameMode::Paused] {
+        for base in [GameMode::Playing, GameMode::Dialogue, GameMode::Cutscene, GameMode::Paused] {
             for first in 0..2 {
                 let (mut app, menus) = pause_app(base);
                 visible(&mut app, menus[first], true);

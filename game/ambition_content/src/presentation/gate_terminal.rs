@@ -146,9 +146,15 @@ struct TerminalParticipants<'w, 's> {
         &'static ambition_platformer2d::session::participants::SessionParticipants)>,
     scope: ambition_platformer2d_shared_tangle::lifecycle::LiveSessionScope<'w, 's>,
     local: Option<Res<'w, ambition_platformer2d::rollback::LocalPlayers>>,
+    menus: Query<'w, 's, (&'static ambition_platformer2d::inventory_ui::InventoryMenu,
+        &'static ambition_platformer2d::inventory_ui::InventoryUiState)>,
 }
 
 impl TerminalParticipants<'_, '_> {
+    fn menu_open(&self, participant: ambition_input::ParticipantId) -> bool {
+        self.menus.iter().any(|(menu, state)| menu.owner == participant && state.visible)
+    }
+
     fn contains(&self, owner: Entity) -> bool {
         let Ok((_, participant)) = self.inputs.get(owner) else { return false; };
         let slot = ambition_platformer2d::characters::control::PlayerSlot(participant.id.slot());
@@ -282,7 +288,13 @@ fn drive_gate_terminal(
                 }
             }
         }
-        if seats.for_seat(participant.id.slot()).owner() == Some(GATE_TERMINAL_CONTEXT) {
+        if participants.menu_open(participant.id) {
+            // A suspended pointer gesture cannot activate a row after resume.
+            if ui.row_press.is_armed() { ui.row_press.clear(); }
+            if ui.list_hover.is_some() { ui.list_hover = None; }
+        }
+        if !participants.menu_open(participant.id)
+            && seats.for_seat(participant.id.slot()).owner() == Some(GATE_TERMINAL_CONTEXT) {
             let knows = |flag: &str| save.as_ref().is_some_and(|save| save.data().flag(flag));
             let none = GateRingPositions::default();
             let known = known_addresses(&catalog, positions.as_deref().unwrap_or(&none), &ring, knows);
@@ -466,7 +478,8 @@ fn draw_gate_terminal(
     for (owner, participant, ui, mut shown) in &mut users {
         let region = surface.menu_rect(participant.id, &owners);
         let model = match (catalog.as_deref(), state.as_deref(), ui.ring.as_deref()) {
-            (Some(catalog), Some(state), Some(ring)) if ui.subject.as_ref().and_then(|subject| state.terminals.get(subject)).map(String::as_str) == Some(ring) => {
+            (Some(catalog), Some(state), Some(ring)) if !participants.menu_open(participant.id)
+                && ui.subject.as_ref().and_then(|subject| state.terminals.get(subject)).map(String::as_str) == Some(ring) => {
                 let knows = |flag: &str| save.as_ref().is_some_and(|save| save.data().flag(flag));
                 let none = GateRingPositions::default();
                 let known = known_addresses(catalog, positions.as_deref().unwrap_or(&none), ring, knows);

@@ -353,7 +353,7 @@ pub(crate) fn overlay_may_open(
     use ambition_platformer2d::platformer::schedule::GameMode;
     matches!(
         mode,
-        GameMode::Playing | GameMode::Paused | GameMode::Dialogue
+        GameMode::Playing | GameMode::Paused | GameMode::Dialogue | GameMode::Cutscene
     )
 }
 

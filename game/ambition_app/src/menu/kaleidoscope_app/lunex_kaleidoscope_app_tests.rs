@@ -950,6 +950,8 @@ fn real_input_cube_app(
 
     app.add_plugins(bevy::state::app::StatesPlugin);
     app.add_plugins(bevy::time::TimePlugin);
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0)));
     app.add_plugins(bevy::input::InputPlugin);
     app.add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default());
     app.init_state::<GameMode>();
@@ -1036,27 +1038,10 @@ fn real_input_cube_app(
     app
 }
 
-/// Faithful reproduction of the real app's input wiring: a leafwing player with
-/// Esc bound to BOTH `Start` (pause) and `MenuBack`, the menu-frame populate
-/// system, AND the cube routing — registered in the SAME default Update set so
-/// the scheduler is free to order them as it does in the real app.
-///
-/// Fix 1 behaviour: while the menu is open, Esc BACKS OUT one level when inside a
-/// nested System screen (`open_entry.is_some()`) and only CLOSES at the top level.
-/// So from a drilled-in category: first Esc → back to the entry list (still open),
-/// second Esc → close. There must be no double-trigger (Esc fires both
-/// `menu.start` and `menu.back`).
+/// Escape opens from gameplay, then returns from a System page before it closes.
 #[test]
 fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
-    use ambition_platformer2d::input::Platformer2dInputActionMonolith;
-    use leafwing_input_manager::prelude::*;
-
-    // Esc → both Start (pause) and MenuBack, exactly like the keyboard preset.
-    // Device state lives on the persistent participant, never on the player
-    // entity — the same split the real host boots with.
-    let mut map = InputMap::<Platformer2dInputActionMonolith>::default();
-    map.insert(Platformer2dInputActionMonolith::Start, KeyCode::Escape);
-    map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::Escape);
+    let map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
     let mut app = real_input_cube_app(map);
 
     let press_esc = |app: &mut App, down: bool| {
@@ -1076,10 +1061,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.update();
     assert!(visible(&app), "first Esc opens the cube");
 
-    // Drill INTO a System-page category. The close path is page-dependent: inside
-    // a category Esc must BACK OUT one level (not close), and that drill-out is
-    // owned by the start branch (we consume the co-firing `menu.back` so the nav
-    // systems never see this Esc).
+    // Back belongs to the open System page, rather than the Start toggle.
     crate::menu::test_support::active_pages_mut(app.world_mut()).active = Some(MenuPage::System);
     crate::menu::test_support::menu_component_mut::<KaleidoscopeSystemNav>(app.world_mut())
         .open_entry = Some(SystemMenuEntryId::Audio);
@@ -1110,6 +1092,53 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     assert!(!visible(&app), "third Esc (top level) closes the cube");
 }
 
+#[cfg(feature = "bevy_ui_menu")]
+#[test]
+fn global_start_interrupts_contexts_and_closes_nested_pages_without_confirming() {
+    use ambition_platformer2d::input::{ContextClaim, InputParticipant, ParticipantContexts,
+        Platformer2dInputActionMonolith as Action, DIALOGUE_CONTEXT, CUTSCENE_CONTEXT,
+        participant::context_priority};
+    for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope] {
+        for (context, priority, mode) in [
+            (ambition_content::gate_terminal::GATE_TERMINAL_CONTEXT, ambition_content::gate_terminal::GATE_TERMINAL_PRIORITY, GameMode::Playing),
+            (DIALOGUE_CONTEXT, context_priority::DIALOGUE, GameMode::Dialogue),
+            (CUTSCENE_CONTEXT, context_priority::CUTSCENE, GameMode::Cutscene),
+        ] {
+            let mut map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
+            // A saved rebind can give Start the same control as confirm.
+            map.insert(Action::MenuSelect, KeyCode::Enter);
+            let mut app = real_input_cube_app(map);
+            app.insert_resource(backend);
+            app.insert_state(mode);
+            if backend == InventoryUiBackend::Grid {
+                app.add_systems(Update, crate::menu::grid_backend::grid_menu_nav
+                    .after(crate::menu::lifecycle::route_menu_lifecycle).before(menu_action_activated));
+            }
+            {
+                let world = app.world_mut();
+                let mut query = world.query_filtered::<&mut ParticipantContexts, With<InputParticipant>>();
+                query.single_mut(world).unwrap().declare(ContextClaim::capturing(context, priority));
+            }
+            let tap = |app: &mut App, key| {
+                app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(key);
+                app.update();
+                app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(key);
+                app.update();
+            };
+            tap(&mut app, KeyCode::Escape);
+            assert!(!cube_is_open(&app), "{backend:?}: Back stays with {context:?}");
+            tap(&mut app, KeyCode::Enter);
+            assert!(cube_is_open(&app), "{backend:?}: Start opens over {context:?}");
+            assert_eq!(cube_mode(&app), GameMode::Paused);
+            assert!(crate::menu::test_support::menu_component::<KaleidoscopeSystemNav>(app.world()).open_entry.is_none(), "Start did not confirm the first System row");
+            crate::menu::test_support::menu_component_mut::<KaleidoscopeSystemNav>(app.world_mut()).open_entry = Some(SystemMenuEntryId::Audio);
+            tap(&mut app, KeyCode::Enter);
+            assert!(!cube_is_open(&app), "Start closes the whole menu, including a nested page");
+            assert_eq!(cube_mode(&app), mode);
+        }
+    }
+}
+
 /// Back (Backspace / the gamepad East button) closes the cube AND unpauses.
 ///
 /// A Back close that only hid the overlay left the game Paused under no menu:
@@ -1118,13 +1147,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
 /// included) restored Playing either.
 #[test]
 fn back_closes_the_kaleidoscope_and_resumes_play_via_real_input() {
-    use ambition_platformer2d::input::Platformer2dInputActionMonolith;
-    use leafwing_input_manager::prelude::*;
-
-    let mut map = InputMap::<Platformer2dInputActionMonolith>::default();
-    map.insert(Platformer2dInputActionMonolith::Start, KeyCode::Escape);
-    map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::Escape);
-    map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::Backspace);
+    let map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
     let mut app = real_input_cube_app(map);
     let tap = |app: &mut App, key: KeyCode| {
         app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(key);
@@ -1158,6 +1181,52 @@ fn back_closes_the_kaleidoscope_and_resumes_play_via_real_input() {
             "round {round}: Back on the {page:?} face closed the cube and left the game paused"
         );
     }
+}
+
+#[test]
+fn a_gameplay_control_shared_with_back_does_not_open_the_menu() {
+    use ambition_platformer2d::input::Platformer2dInputActionMonolith as Action;
+    let mut map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
+    map.insert(Action::MenuBack, KeyCode::F13);
+    map.insert(Action::Blink, KeyCode::F13);
+    let mut app = real_input_cube_app(map);
+    app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::F13);
+    app.update();
+    assert!(!cube_is_open(&app), "a gameplay binding cannot become a pause fallback");
+    let frame = app.world().resource::<ambition_platformer2d::input::SeatMenuFrames>().for_seat(0);
+    assert!(frame.back, "the same control is still Back for a contextual interface");
+    assert!(frame.back_shared_with_gameplay);
+    app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::F13);
+    app.update();
+    app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::Escape);
+    app.update();
+    assert!(cube_is_open(&app), "a dedicated Back control opens from gameplay");
+}
+
+#[test]
+fn gamepad_start_pauses_while_east_remains_gameplay_or_contextual_back() {
+    use bevy::input::gamepad::{RawGamepadEvent, RawGamepadButtonChangedEvent};
+    let mut app = real_input_cube_app(ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map());
+    let pad = app.world_mut().spawn(Gamepad::default()).id();
+    let press = |app: &mut App, button, value| {
+        app.world_mut().write_message(RawGamepadEvent::Button(RawGamepadButtonChangedEvent {
+            gamepad: pad, button, value,
+        }));
+        app.update();
+    };
+    press(&mut app, GamepadButton::East, 1.0);
+    assert!(!cube_is_open(&app));
+    let frame = app.world().resource::<ambition_platformer2d::input::SeatMenuFrames>().for_seat(0);
+    assert!(frame.back && frame.back_shared_with_gameplay);
+    press(&mut app, GamepadButton::East, 0.0);
+    press(&mut app, GamepadButton::Start, 1.0);
+    press(&mut app, GamepadButton::Start, 0.0);
+    assert!(cube_is_open(&app));
+    assert_eq!(cube_mode(&app), GameMode::Paused);
+    press(&mut app, GamepadButton::East, 1.0);
+    press(&mut app, GamepadButton::East, 0.0);
+    assert!(!cube_is_open(&app));
+    assert_eq!(cube_mode(&app), GameMode::Playing);
 }
 
 /// ⛔ THE SHARED CURSOR IS NOT THIS BACKEND'S TO MOVE WHILE ITS MENU IS CLOSED.

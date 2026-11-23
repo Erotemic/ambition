@@ -132,7 +132,7 @@ impl KeyboardPreset {
                 inventory: KeyCode::KeyI,
                 projectile: KeyCode::KeyV,
                 trail_toggle: KeyCode::KeyB,
-                pause: KeyCode::Escape,
+                pause: KeyCode::Enter,
                 select_reset: KeyCode::Delete,
                 dedicated_pogo: None,
             },
@@ -167,7 +167,7 @@ impl KeyboardPreset {
                 inventory: KeyCode::KeyV,
                 projectile: KeyCode::KeyH,
                 trail_toggle: KeyCode::KeyB,
-                pause: KeyCode::Escape,
+                pause: KeyCode::Enter,
                 select_reset: KeyCode::Delete,
                 dedicated_pogo: None,
             },
@@ -202,7 +202,7 @@ impl KeyboardPreset {
                 inventory: KeyCode::KeyI,
                 projectile: KeyCode::KeyV,
                 trail_toggle: KeyCode::KeyB,
-                pause: KeyCode::Escape,
+                pause: KeyCode::Enter,
                 select_reset: KeyCode::Delete,
                 dedicated_pogo: None,
             },
@@ -237,7 +237,7 @@ impl KeyboardPreset {
                 inventory: KeyCode::KeyV,
                 projectile: KeyCode::KeyL,
                 trail_toggle: KeyCode::KeyB,
-                pause: KeyCode::Escape,
+                pause: KeyCode::Enter,
                 select_reset: KeyCode::Delete,
                 dedicated_pogo: None,
             },
@@ -306,6 +306,7 @@ impl KeyboardPreset {
         );
         map.insert(Platformer2dInputActionMonolith::Reset, KeyCode::Delete);
         map.insert(Platformer2dInputActionMonolith::Start, self.actions.pause);
+        map.insert(Platformer2dInputActionMonolith::Start, KeyCode::NumpadEnter);
 
         map.insert(
             Platformer2dInputActionMonolith::Blink,
@@ -362,8 +363,8 @@ impl KeyboardPreset {
         );
 
         // Menu navigation. D-pad and arrow keys hit the same MenuNavigate* actions;
-        // the analog stick gives MenuStick for repeat handling; Enter, Space and
-        // South map to MenuSelect.
+        // The stick supplies repeat input. Space and configured confirm keys
+        // select. Hosts give Start priority over Select during a session.
         map.insert(
             Platformer2dInputActionMonolith::MenuNavigateUp,
             KeyCode::ArrowUp,
@@ -397,14 +398,12 @@ impl KeyboardPreset {
             KeyCode::KeyD,
         );
 
+        // Enter can still confirm startup and launcher screens without a session.
         map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::Enter);
-        map.insert(
-            Platformer2dInputActionMonolith::MenuSelect,
-            KeyCode::NumpadEnter,
-        );
+        map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::NumpadEnter);
         map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::Space);
         // Also accept the configured Jump and Interact keys as confirm, so dialogue
-        // and cutscene habits still work. Enter is the canonical menu confirm.
+        // and cutscene controls remain available.
         map.insert(
             Platformer2dInputActionMonolith::MenuSelect,
             self.actions.jump,
@@ -656,6 +655,21 @@ pub fn key_name(key: KeyCode) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "input")]
+    #[test]
+    fn keyboard_start_and_back_are_separate_and_confirm_has_a_dedicated_control() {
+        use crate::{ActionBindings, PhysicalControl};
+        for preset in KeyboardPreset::presets() {
+            let bindings = ActionBindings::from_map(&preset.input_map());
+            let enter = PhysicalControl::Key(KeyCode::Enter);
+            let escape = PhysicalControl::Key(KeyCode::Escape);
+            assert!(bindings.controls(&Platformer2dInputActionMonolith::Start).contains(&enter));
+            assert!(!bindings.controls(&Platformer2dInputActionMonolith::Start).contains(&escape));
+            assert!(bindings.controls(&Platformer2dInputActionMonolith::MenuBack).contains(&escape));
+            assert!(bindings.controls(&Platformer2dInputActionMonolith::MenuSelect).contains(&PhysicalControl::Key(KeyCode::Space)));
+        }
+    }
 
     #[test]
     fn by_index_resolves_each_preset_and_clamps_out_of_range() {

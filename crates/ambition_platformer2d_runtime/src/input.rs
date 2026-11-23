@@ -2,7 +2,7 @@
 
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use leafwing_input_manager::prelude::ActionState;
+use leafwing_input_manager::prelude::{ActionState, InputMap};
 
 use ambition_input::participant::{context_priority, ContextClaim};
 use ambition_input::{
@@ -726,7 +726,9 @@ pub fn populate_menu_control_frame_from_actions(
     player_input: Query<(
         &InputParticipant,
         &ActionState<Platformer2dInputActionMonolith>,
+        Option<&InputMap<Platformer2dInputActionMonolith>>,
     )>,
+    back_sources: MenuBackSources,
     mut menu_frame: ResMut<MenuControlFrame>,
     mut menu_input_state: ResMut<MenuInputState>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
@@ -753,10 +755,10 @@ pub fn populate_menu_control_frame_from_actions(
     // the global shell controls. `SeatMenuFrames` is where a per-seat surface
     // (a select screen, four cursors) reads instead, and this resource stays the
     // one global answer a pause menu wants.
-    if let Some(actions) = player_input
+    if let Some((actions, map)) = player_input
         .iter()
-        .find(|(participant, _)| participant.id == ambition_input::ParticipantId::PRIMARY)
-        .map(|(_, actions)| actions)
+        .find(|(participant, ..)| participant.id == ambition_input::ParticipantId::PRIMARY)
+        .map(|(_, actions, map)| (actions, map))
     {
         let filters = filters_for_seat(
             &user_settings,
@@ -770,6 +772,7 @@ pub fn populate_menu_control_frame_from_actions(
             filters,
             wall_dt,
         );
+        next.back_shared_with_gameplay = next.back && back_sources.shared_with_gameplay(map);
     }
 
     for ev in mouse_wheel.read() {
@@ -777,6 +780,34 @@ pub fn populate_menu_control_frame_from_actions(
     }
 
     *menu_frame = next;
+}
+
+/// Physical evidence for a Back edge. Menu consumers receive only its semantic result.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct MenuBackSources<'w, 's> {
+    keys: Option<Res<'w, ButtonInput<KeyCode>>>,
+    pads: Query<'w, 's, (Entity, &'static Gamepad)>,
+}
+
+impl MenuBackSources<'_, '_> {
+    fn shared_with_gameplay(&self, map: Option<&InputMap<Platformer2dInputActionMonolith>>) -> bool {
+        use ambition_input::{ActionBindings, PhysicalControl};
+        let Some(map) = map else { return false; };
+        let bindings = ActionBindings::from_map(map);
+        let pressed: Vec<_> = bindings.controls(&Platformer2dInputActionMonolith::MenuBack).iter().filter(|control| {
+            match control {
+                PhysicalControl::Key(key) => self.keys.as_ref().is_some_and(|keys| keys.pressed(*key)),
+                PhysicalControl::Button(button) => self.pads.iter()
+                    .filter(|(entity, _)| map.gamepad().is_none_or(|owner| owner == *entity))
+                    .any(|(_, pad)| pad.pressed(*button)),
+                PhysicalControl::Other(_) => false,
+            }
+        }).collect();
+        !pressed.is_empty() && pressed.into_iter().all(|control| bindings.all().any(|(name, controls)| {
+            ambition_input::action_named(name).is_some_and(|action| !action.is_menu_only())
+                && controls.contains(control)
+        }))
+    }
 }
 
 /// Which filters apply to the stick in THIS seat's hands.
@@ -889,7 +920,9 @@ pub fn populate_seat_menu_frames(
     participants: Query<(
         &InputParticipant,
         &ActionState<Platformer2dInputActionMonolith>,
+        Option<&InputMap<Platformer2dInputActionMonolith>>,
     )>,
+    back_sources: MenuBackSources,
     mut frames: ResMut<ambition_input::SeatMenuFrames>,
     mut states: Local<std::collections::BTreeMap<u8, MenuInputState>>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
@@ -903,15 +936,16 @@ pub fn populate_seat_menu_frames(
     // Sorted by slot so the order this writes in is the order it reads in — a
     // menu whose seats resolve in query order is a menu that resolves
     // differently between runs (ADR 0023).
-    let mut rows: Vec<(u8, &ActionState<Platformer2dInputActionMonolith>)> = participants
+    let mut rows: Vec<_> = participants
         .iter()
-        .map(|(participant, actions)| (participant.id.slot(), actions))
+        .map(|(participant, actions, map)| (participant.id.slot(), actions, map))
         .collect();
-    rows.sort_by_key(|(slot, _)| *slot);
-    for (slot, actions) in rows {
+    rows.sort_by_key(|(slot, ..)| *slot);
+    for (slot, actions, map) in rows {
         let state = states.entry(slot).or_default();
         let filters = filters_for_seat(&user_settings, devices.as_deref(), slot);
-        let frame = decode_menu_frame(actions, state, &user_settings, filters, wall_dt);
+        let mut frame = decode_menu_frame(actions, state, &user_settings, filters, wall_dt);
+        frame.back_shared_with_gameplay = frame.back && back_sources.shared_with_gameplay(map);
         frames.set(slot, frame);
     }
 }

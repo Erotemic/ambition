@@ -93,6 +93,23 @@ Current responsibilities:
   publishes raw visible facts, and one provider-selected presenter owns the UI
   tree through `DialogPresentationSet` (ADR 0028).
 
+In an Ambition session, Start opens or closes the unified inventory and
+System menu. The default keyboard Start is Enter; Space and the configured
+Jump and Interact controls confirm selections. Escape is Back. Back opens
+the menu only when gameplay owns input or no interface claims it. A gate,
+dialogue, or cutscene keeps its own Back policy. A dialogue that forbids
+cancel ignores Back. Back inside the menu returns from a System page before
+it closes the menu; Start closes the whole menu.
+Outside a session, Enter can still confirm startup and launcher screens.
+A Back control shared with gameplay, such as the default pad's Blink
+button, retains its gameplay action when no interface is open.
+
+The open menu captures input above in-session interfaces and below developer
+and launcher interfaces. A gate terminal suspends its panel and pointer
+input while its participant's menu is open. Its model and simulation state
+remain intact. Menu pause restores Playing, Dialogue, or Cutscene after the
+last local menu closes. A local menu does not stop a remote shared timeline.
+
 ## Touch
 
 `ambition_touch_input` owns the touch HUD lifecycle and folds virtual controls

@@ -355,8 +355,7 @@ pub(crate) fn grid_menu_nav(
         // Consume only this seat's edges before a backend switch can expose them again.
         let menu = menu_frames.for_seat(menu_owner.owner.slot());
         menu_frames.consume_nav_edges(menu_owner.owner.slot());
-        // The Esc/Start toggle is owned by `route_menu_lifecycle`; bail so a single Esc
-        // can't both close here and reopen there (the cube's Esc-Esc reopen guard).
+        // Start belongs to the shared menu lifecycle.
         if menu.start {
             continue;
         }

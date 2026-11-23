@@ -569,6 +569,94 @@ fn the_visible_app_builds_its_update_schedule_with_the_gate_network() {
     }
 }
 
+#[cfg(all(feature = "kaleidoscope_menu", feature = "bevy_ui_menu"))]
+#[test]
+fn contextual_back_and_global_start_preserve_the_gate_in_both_menu_backends() {
+    use bevy::prelude::*;
+    use ambition_content::gate_terminal::{TerminalUi, WheelSlot};
+    use ambition_platformer2d::{input::{InputParticipant, ParticipantId, KeyboardPreset,
+        Platformer2dInputActionMonolith as Action}, inventory_ui::{InventoryMenu, InventoryUiState},
+        menu::backend::InventoryUiBackend, platformer::{lifecycle::LiveBodyId, schedule::GameMode}};
+    use leafwing_input_manager::prelude::InputMap;
+
+    fn tap(app: &mut App, key: KeyCode) {
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(key);
+        app.update();
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(key);
+        for _ in 0..3 { app.update(); }
+    }
+    fn panel(app: &mut App) -> bool {
+        let world = app.world_mut();
+        world.query::<&Name>().iter(world).any(|name| name.as_str() == "Gate Terminal Root")
+    }
+    fn open_menu(app: &mut App) -> bool {
+        let world = app.world_mut();
+        world.query::<(&InventoryMenu, &InventoryUiState)>().iter(world)
+            .any(|(menu, state)| menu.owner == ParticipantId::PRIMARY && state.visible)
+    }
+    for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope] {
+        let mut app = ambition_app::app::build_visible_app_with(
+            ambition_app::app::VisibleRenderMode::NoWindow, true, crate::common::in_the_sandbox_hub);
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_secs_f64(1.0 / 60.0)));
+        app.insert_resource(backend);
+        app.finish();
+        app.update();
+        app.world_mut().write_message(ambition_platformer2d::game_shell::ShellCommand::ReplaceWith {
+            route: ambition_platformer2d::game_shell::ShellRouteId::new("ambition_gameplay"), request: None,
+        });
+        crate::common::step_until_route_is_active_and_settled(&mut app, "ambition_gameplay");
+        let (participant, subject) = {
+            let world = app.world_mut();
+            let participant = world.query::<(Entity, &InputParticipant)>().iter(world)
+                .find(|(_, input)| input.id == ParticipantId::PRIMARY).unwrap().0;
+            *world.get_mut::<InputMap<Action>>(participant).unwrap() = KeyboardPreset::arrows_zxc().input_map();
+            let body = world.query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                .single(world).unwrap();
+            (participant, LiveBodyId::of_entity(world, body).unwrap())
+        };
+        app.world_mut().resource_mut::<GateNetworkState>().terminals.insert(subject.clone(), HUB_RING.into());
+        for _ in 0..3 { app.update(); }
+        assert!(panel(&mut app), "{backend:?}: the terminal is drawn before pause");
+        {
+            let mut ui = app.world_mut().get_mut::<TerminalUi>(participant).unwrap();
+            ui.press_slot(WheelSlot::Chevron(2));
+            ui.press_slot(WheelSlot::Chevron(7));
+            ui.list_cursor = 3;
+        }
+        app.update();
+        let before = app.world().get::<TerminalUi>(participant).unwrap().clone();
+        tap(&mut app, KeyCode::Enter);
+        for _ in 0..10 { app.update(); }
+        assert!(open_menu(&mut app));
+        assert_eq!(*app.world().resource::<State<GameMode>>().get(), GameMode::Paused);
+        assert!(!panel(&mut app), "{backend:?}: the gate cannot cover or intercept the menu");
+        assert_eq!(app.world().get::<TerminalUi>(participant).unwrap(), &before);
+        assert_eq!(app.world().resource::<GateNetworkState>().terminals.get(&subject).map(String::as_str), Some(HUB_RING));
+        if backend == InventoryUiBackend::LunexKaleidoscope {
+            let world = app.world_mut();
+            assert!(world.query_filtered::<&Camera, With<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>>()
+                .iter(world).any(|camera| camera.is_active));
+        } else {
+            let world = app.world_mut();
+            assert!(world.query::<&Name>().iter(world).any(|name| name.as_str() == "bevy_ui menu root"));
+        }
+        tap(&mut app, KeyCode::Enter);
+        assert!(!open_menu(&mut app));
+        assert_eq!(*app.world().resource::<State<GameMode>>().get(), GameMode::Playing);
+        assert!(panel(&mut app));
+        assert_eq!(app.world().get::<TerminalUi>(participant).unwrap(), &before);
+        for remaining in [1, 0, 0] {
+            tap(&mut app, KeyCode::Escape);
+            assert!(!open_menu(&mut app), "Back cannot open the pause menu over the terminal");
+            assert_eq!(app.world().get::<TerminalUi>(participant).unwrap().entered.len(), remaining);
+            assert!(app.world().resource::<GateNetworkState>().terminals.contains_key(&subject));
+        }
+        tap(&mut app, KeyCode::Escape);
+        assert!(!open_menu(&mut app));
+        assert!(!app.world().resource::<GateNetworkState>().terminals.contains_key(&subject));
+    }
+}
+
 const TOWER: &str = "military_tower";
 const ANNEX: &str = "military_gate_annex";
 const ANNEX_RING: &str = "military_gate_zone";

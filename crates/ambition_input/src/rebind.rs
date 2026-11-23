@@ -124,15 +124,11 @@ mod tests {
 
     #[test]
     fn a_collision_is_reported_rather_than_refused() {
-        // The game binds Escape to both Start and MenuBack on purpose, so a
-        // capture must report collisions, not refuse them.
-        let map = KeyboardPreset::arrows_zxc().input_map();
+        let mut map = KeyboardPreset::arrows_zxc().input_map();
+        map.insert(Platformer2dInputActionMonolith::Start, KeyCode::F13);
+        map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::F13);
         let bindings = ActionBindings::from_map(&map);
-        let start = bindings
-            .controls(&Platformer2dInputActionMonolith::Start)
-            .iter()
-            .find_map(bindable)
-            .expect("Start is bound to something bindable");
+        let start = OverrideControl::Key(KeyCode::F13);
 
         let others = also_bound_to(&bindings, &Platformer2dInputActionMonolith::Start, start);
         assert!(

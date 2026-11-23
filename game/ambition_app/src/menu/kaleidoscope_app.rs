@@ -101,6 +101,7 @@ pub fn install_unified_menu_shared(app: &mut App) {
                 .run_if(ambition_platformer2d::platformer::lifecycle::simulation_authorized)
                 .run_if(ambition_platformer2d::runtime::in_base_mode)
                 .in_set(ambition_platformer2d::input::MenuNavConsume)
+                .before(ambition_platformer2d::dialog::DialogFrameSet::Input)
                 .before(crate::menu::GridMenuNav)
                 .before(crate::menu::KaleidoscopeMenuNav),
         );
@@ -1130,8 +1131,7 @@ fn kaleidoscope_focus_nav(
         // Consume only this seat's edges before a backend switch can expose them again.
         let menu = menu_frames.for_seat(menu_owner.owner.slot());
         menu_frames.consume_nav_edges(menu_owner.owner.slot());
-        // The Esc/pause toggle (`menu.start`) is owned ENTIRELY by `route_menu_lifecycle`
-        // (close the cube / drill out of a System category / restore GameMode).
+        // Start belongs to `route_menu_lifecycle`.
         if menu.start {
             continue;
         }

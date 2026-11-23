@@ -1677,8 +1677,8 @@ remain an independent observer.
 
 **State:** IMPLEMENTING. The common native playback executor owns simple and
 adaptive voice lifetimes, cancellation, admission, retirement, bounded retry,
-and recording output. User and environment gain use that same owner. Native
-ending acceptance remains open. Per-source boss/wave publication, canonical
+and recording output. User and environment gain use that same owner. Scene
+time policy remains open. Per-source boss/wave publication, canonical
 encounter attempts and adaptive-only heard-room priority landed at
 `6d100f9d`; preserve them in unified selection. The baseline diagnosis
 used source `00bf92c22142` and the supplied Wolfenstein departure log, 2026-11-22.
@@ -1693,9 +1693,11 @@ prepared exit scheduling are in place. `047f1134a` checks the native Castle
 Godwin route with accepted media: prepared and withheld entrances, both door
 exits, reentry, and a committed death restore. The PCM contains the selected
 Tritone layers. No intermediate military track is selected.
+`828fb4155` releases an ending completed during a host stall. `b60a3b918`
+checks Hobford's shipped ending and room successor in native software capture.
 
-**Next action:** finish native ending-customer acceptance and scene pause/scale
-policy. Keep pickup, independent-tail and bridge support explicit at preparation
+**Next action:** finish scene pause/scale policy. Keep pickup, independent-tail
+and bridge support explicit at preparation
 and inspection. These operations need their declared product and native facts.
 
 **Follow-through:** MUS3 prepares known entrances and plans transitions

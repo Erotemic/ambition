@@ -184,19 +184,12 @@ pub fn compile_pack() -> Result<PreparedContentPack, CompileFailure> {
 /// `edit` sees the declared path and the source text; returning the text
 /// unchanged gives the shipped pack.
 pub fn compile_pack_with(
-    mut edit: impl FnMut(&str, String) -> String,
+    edit: impl FnMut(&str, String) -> String,
 ) -> Result<PreparedContentPack, CompileFailure> {
     // the manifest is a DIAGNOSTIC, not a panic, since gave the compiler its own
     // embedded-pack road.
     let (manifest, warnings) = playable_manifest()?;
-    let sources: Vec<(String, String)> = embedded_sources(&manifest)
-        .into_iter()
-        .map(|(path, text)| {
-            let edited = edit(&path, text);
-            (path, edited)
-        })
-        .collect();
-    compile_pack_sources(manifest, sources, warnings)
+    compile_pack_sources(manifest, warnings, edit)
 }
 
 /// The same compile, with the manifest no longer declaring `omit`.
@@ -217,7 +210,7 @@ pub fn compile_pack_omitting(omit: &[&str]) -> Result<PreparedContentPack, Compi
 /// another.
 pub fn compile_pack_omitting_with(
     omit: &[&str],
-    mut edit: impl FnMut(&str, String) -> String,
+    edit: impl FnMut(&str, String) -> String,
 ) -> Result<PreparedContentPack, CompileFailure> {
     let declared = ContentPackManifest::from_ron(&manifest_ron())?;
     let remaining: Vec<&&str> = omit
@@ -229,25 +222,44 @@ pub fn compile_pack_omitting_with(
         "no manifest line declares {remaining:?}, so the pack would omit nothing"
     );
     let (mut manifest, warnings) = playable_manifest()?;
-    manifest.sources.retain(|source| !omit.contains(&source.path.as_str()));
-    let sources: Vec<(String, String)> = embedded_sources(&manifest)
-        .into_iter()
-        .map(|(path, text)| {
-            let text = edit(&path, text);
-            (path, text)
-        })
-        .collect();
-    compile_pack_sources(manifest, sources, warnings)
+    manifest
+        .sources
+        .retain(|source| !omit.contains(&source.path.as_str()));
+    compile_pack_sources(manifest, warnings, edit)
 }
 
 fn compile_pack_sources(
     manifest: ContentPackManifest,
-    sources: Vec<(String, String)>,
     warnings: Vec<Diagnostic>,
+    mut edit: impl FnMut(&str, String) -> String,
 ) -> Result<PreparedContentPack, CompileFailure> {
-    let mut draft = ambition_content_pack::ContentPackDraft::from_sources(manifest, sources)?;
+    let mut draft = if EMBEDDED_PACK.is_none() {
+        ambition_content_pack::ContentPackDraft::read_manifest(source_root(), manifest)?
+    } else {
+        let sources = embedded_sources(&manifest);
+        ambition_content_pack::ContentPackDraft::from_sources(manifest, sources)?
+    };
     draft.warnings = warnings;
-    if EMBEDDED_PACK.is_none() { draft.root = source_root(); }
+    for source in &mut draft.sources {
+        source.text = edit(&source.declared_path, std::mem::take(&mut source.text));
+    }
+    #[cfg(feature = "static_content")]
+    if EMBEDDED_PACK.is_some() {
+        use ambition_platformer2d::asset_manager::content_library::{
+            ContentLibraries, ContentLibrary, EmbeddedLibrary,
+        };
+        let embedded: &'static [EmbeddedLibrary] = include!(concat!(
+            env!("OUT_DIR"),
+            "/content_pack/assets/libraries.rs"
+        ));
+        let mut libraries = ContentLibraries::default();
+        for library in embedded {
+            libraries
+                .insert(ContentLibrary::from_embedded(library).expect("embedded library"))
+                .expect("one library selection");
+        }
+        draft.selected_libraries = Some(libraries.snapshot().expect("embedded library snapshot"));
+    }
     ambition_content_pack::compile(
         &draft,
         &pack_schemas(),
@@ -270,46 +282,22 @@ fn compile_pack_sources(
 /// [`compile_pack`] does.
 pub fn compile_pack_from(root: &std::path::Path) -> Result<PreparedContentPack, String> {
     let manifest_path = root.join("pack.ron");
-    let manifest = std::fs::read_to_string(&manifest_path)
-        .map_err(|err| format!("{} does not supply this pack: {}: {err}", root.display(), manifest_path.display()))?;
-    let mut manifest = ContentPackManifest::from_ron(&manifest).map_err(|failure| failure.to_string())?;
-    let warnings = manifest.take_ungenerated(root);
-    let mut missing: Vec<String> = Vec::new();
-    let mut unreadable: Vec<String> = Vec::new();
-    let mut sources: Vec<(String, String)> = Vec::new();
-    for source in &manifest.sources {
-        let path = match source.resolve_path(root, &manifest) {
-            Ok(path) => path,
-            Err(err) => {
-                unreadable.push(format!("{}: {err}", source.path));
-                continue;
-            }
-        };
-        match std::fs::read_to_string(&path) {
-            Ok(text) => sources.push((source.path.clone(), text)),
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => missing.push(source.path.clone()),
-            Err(err) => unreadable.push(format!("{}: {err}", source.path)),
-        }
-    }
-    // Report the root's own problems before the compiler's. An absent file
-    // is a missing source, not a parse error at byte 0 of an empty text: the
-    // second is true, but useless to someone who mistyped a directory.
-    if !missing.is_empty() || !unreadable.is_empty() {
-        let mut report = format!("{} does not supply this pack:", root.display());
-        for path in &missing {
-            report.push_str(&format!("\n  missing: {path}"));
-        }
-        for problem in &unreadable {
-            report.push_str(&format!("\n  unreadable: {problem}"));
-        }
-        return Err(report);
-    }
-    let mut draft = ambition_content_pack::ContentPackDraft::from_sources(manifest, sources)
-        .map_err(|failure| failure.to_string())?;
-    draft.root = root.to_path_buf();
-    draft.warnings = warnings;
-    ambition_content_pack::compile(&draft, &pack_schemas(), &ambition_content_pack::AssetsUnchecked)
-        .map_err(|failure| failure.to_string())
+    let manifest = std::fs::read_to_string(&manifest_path).map_err(|err| {
+        format!(
+            "{} does not supply this pack: {}: {err}",
+            root.display(),
+            manifest_path.display()
+        )
+    })?;
+    let manifest = ContentPackManifest::from_ron(&manifest).map_err(|failure| failure.to_string())?;
+    let draft = ambition_content_pack::ContentPackDraft::read_manifest(root.to_path_buf(), manifest)
+        .map_err(|failure| format!("{} does not supply this pack:\n{failure}", root.display()))?;
+    ambition_content_pack::compile(
+        &draft,
+        &pack_schemas(),
+        &ambition_content_pack::AssetsUnchecked,
+    )
+    .map_err(|failure| failure.to_string())
 }
 
 /// Write every source this build carries into `root`, at its declared path.

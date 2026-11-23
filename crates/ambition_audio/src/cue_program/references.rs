@@ -1,3 +1,4 @@
+use super::media::LinkedMusicCue;
 use crate::cue_spec::*;
 
 /// Every reference in `cues` and `bindings` that names nothing: a state's
@@ -5,16 +6,17 @@ use crate::cue_spec::*;
 /// and a binding's cue and states. Also an empty source path, and a room
 /// binding's entry state on a section that loops (the director would never
 /// leave it). In the order given, so one input gives one report.
-pub(super) fn cue_reference_errors<'a>(
-    cues: impl IntoIterator<Item = &'a MusicCueSpec>,
+pub(super) fn cue_reference_errors(
+    linked: &[LinkedMusicCue<'_>],
     bindings: &[EncounterMusicBinding],
     room_bindings: &[RoomMusicBinding],
     boss_bindings: &[BossMusicBinding],
 ) -> Vec<String> {
-    let cues: Vec<&MusicCueSpec> = cues.into_iter().collect();
+    let cues: Vec<&MusicCueSpec> = linked.iter().map(|cue| cue.spec).collect();
     let mut errors = Vec::new();
-    for cue in &cues {
-        let sections = cue
+    for linked_cue in linked {
+        let cue = linked_cue.spec;
+        let sections = linked_cue
             .sections
             .iter()
             .map(|section| section.id.as_str())
@@ -56,7 +58,7 @@ pub(super) fn cue_reference_errors<'a>(
             }
         }
 
-        for section in &cue.sections {
+        for section in &linked_cue.sections {
             for source in &section.sources {
                 if !layers.contains(source.layer_id.as_str()) {
                     errors.push(format!(
@@ -154,7 +156,10 @@ pub(super) fn cue_reference_errors<'a>(
                 ));
                 continue;
             };
-            let loops = cue
+            let loops = linked
+                .iter()
+                .find(|linked| linked.spec.id == cue.id)
+                .expect("linked cue")
                 .sections
                 .iter()
                 .any(|section| section.id == state.section_id && section.looped);

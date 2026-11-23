@@ -267,18 +267,21 @@ clock. `cue playback` inspects bodies, file spans, bar exits and frame plans
 without synthesis. Fresh renders export encoded product identities, frame
 counts, gain bases and ring construction. Publication checks the copied media
 and records runtime paths. The source plan and encoded evidence remain
-separate. Native linking and the Hobford/Dinosaur data migration remain open.
+separate. Native linking now uses accepted library snapshots. The
+Hobford/Dinosaur data migration remains open.
 Exact event ownership now survives timing variation across form boundaries.
 Shared ring export excludes incoming pickup attacks while it retains the
 declared file span. Generic PCM and encoded-product checks cover this rule.
 Verification: 151 focused tests, 171 score contract comparisons, and a generic
 SoundFont render and publication with nonzero decoded products.
 
-Native cue graphs now use one pure `PreparedMusicCues` preparation path for
-content compilation, direct registration, and reload. It resolves source
-paths, indices, and total gain arrays before playback. The current native
-clock still comes from the authored constant-tempo fields. Linking the
-exported product facts and removing those copies remain open.
+Native cue graphs use one pure `PreparedMusicCues` preparation path for
+content compilation, direct registration, and reload. Published programs
+select a mastered mix or grouped layers from one library snapshot. Linking
+checks the accepted digests, frame origins, clock, markers, and gain basis.
+It retains immutable source addresses with the prepared generation. Inline
+media remains explicit for other sources. Customer migration, transport
+position, readiness, and transition policy remain open under MUS3/MUS4.
 
 **Refinement, 2026-11-22:** MA1 owns compiler/export facts.
 [Music programs and owned playback](music-programs-and-playback.md) owns
@@ -295,16 +298,15 @@ already resolves section spans, loops, layer groups, lead-ins, and tails.
 a one-shot can append a tail. The file span and the musical transition point
 are thus distinct facts.
 
-The game repeats BPM, beats per bar, duration in beats, loops, and product
-paths in
+The unmigrated game cues retain explicit inline BPM, beats per bar, duration,
+loops, and paths in
 [`music_cues.ron`](../../../game/ambition_content/assets/audio/music_cues.ron).
-[`MusicCueSpec`](../../../crates/ambition_audio/src/cue_spec.rs) computes section
-duration from one cue-wide BPM. The director's
-[`timing.rs`](../../../crates/ambition_audio/src/music/director/timing.rs)
-reconstructs its bar/phrase grid from that same constant. Music publication
-copies an adaptive manifest as a debugging aid; the game does not load it as
-its playback clock (`ambition_music_renderer/cli.py`,
-`publish_adaptive_full_sections`; also copied by `publish_playback_layers`).
+[`MusicCueSpec`](../../../crates/ambition_audio/src/cue_spec.rs) also supports a
+published description with no copied clock or section paths. The
+[native linker](../../../crates/ambition_audio/src/music_media/mod.rs) reads
+the renderer's `music_playback` contract from the selected manifest. The
+director queries each prepared section's clock. It still advances position
+from host time after admission; MUS3 owns that remaining transport change.
 
 Hobford already needs a one-shot `break_in`, its ring tail, and the game-owned
 continuation to `raid`. Its current source and game section lengths/loop flags
@@ -333,11 +335,9 @@ compiled score and product plan that render the audio. It contains:
 - the gain basis: a mastered full mix or grouped pre-master layers, including
   native versus shared runtime-stem attenuation already applied by export.
 
-The current plan is a useful starting point, not proof that every field is
-already exact. Its lead-in calculation uses the preceding form section's
-average seconds per beat. For a variable clock, resolve the actual last-beat
-boundary through the compiled score clock. Preserve the current constant
-case. Do not add a second clock inside the export operation.
+The exporter resolves the last-beat lead-in boundary through the compiler
+clock. Preserve that owner for variable clocks and the constant case. Do
+not add a second clock inside export.
 
 Keep constant-tempo/meter sections as a compact arithmetic representation.
 Use a compact clock map or ordered boundaries for varying clocks, and query
@@ -372,12 +372,11 @@ exact clock metadata. Expose each compiler's clock through one projection;
 do not infer the V1 clock from initial/average BPM. Keep V3 generator-clip
 clock limits visible beside the richer exact-clip support.
 
-Retain typed entry/exit roles separately from display chapters. The current
-playback plan drops exit markers, and V3's public form validation rejects
-`valid_exit_local_bars` although lowering can copy it. Resolve supported
-markers into the actual product's frame origin using the same cut and
-rounding as the render. Publish musical facts and final media facts as
-distinct inspection levels.
+Keep typed entry/exit roles separate from display chapters. Export and
+native linking now retain those roles and their encoded frame positions.
+V3 accepts `valid_exit_local_bars`. Use the render's cut and rounding for
+every marker. Keep score inspection and final media facts as distinct
+evidence levels. Native marker transition policy remains open.
 
 A tail folded into a loop head is not an independently playable release
 tail. A folded lead-in repairs the repeat seam; it is not a scheduled

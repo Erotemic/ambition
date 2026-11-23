@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-11-10
+last_verified: 2026-11-23
 ---
 
 # Room music: selecting and editing tracks
@@ -11,25 +11,24 @@ which live room is heard and publishes a provider-scoped `MusicIntent`.
 `ambition_audio` resolves the chosen track or adaptive cue and plays it. A
 second live room must not change the music of the room currently heard.
 
-## Simple-track priority
+## Music priority
 
-`simple_track_candidates` in the same module builds this ordered list:
+Tracks and adaptive programs use one ordered candidate list:
 
 | Priority | Candidate | Where to edit |
 | --- | --- | --- |
-| 1 | Player-selected radio station | Radio selection |
-| 2 | Room's fight override, when an encounter requests music | LDtk level `fight_music_track` |
-| 3 | Encounter's own track | Encounter or boss phase music content |
+| 1 | Selected radio station | Radio selection |
+| 2 | Focused fight | Encounter or boss phase music content |
+| 3 | Other fight | Encounter or boss phase music content |
 | 4 | Conversation's requested track | Dialogue music command |
 | 5 | Room or time-of-day track | LDtk level `music_track`; `audio/music_cues.ron` room-phase mappings |
 | 6 | Active provider's default | Its generated music registry |
 
-The audio director uses the first available permitted track. A radio selection
-also suppresses adaptive cues. Adaptive encounter, boss, and room cues use
-`MusicIntent::adaptive` and are resolved separately; they are not additional
-rows in the simple-track list. A conversation request takes precedence over a
-room's adaptive cue. For exact current selection rules, inspect
-`compute_music_intent` and the `ambition_audio` director.
+Apply a room's fight override to that fight before selection. The winning
+goal keeps its priority while media prepares. For equal priorities across
+local listening rooms, the primary participant's room wins. Source recency
+orders equal candidates within one room. Track and adaptive representations
+use the same rule.
 
 ## Which source to edit
 
@@ -49,6 +48,16 @@ from the `ambition_shared` library. It is **not** an ordinary file under
 `scripts/regen/regen_music_registry.py`; the active library manifest in
 `game/ambition_content_library/library.json` controls the generated location.
 Use a track's `id`, not its display name.
+
+## Cue media
+
+The `music_cue_catalog` schema is version 2. Each cue declares `media` as
+`Inline(...)` or `Published(...)`. Inline media gives a declared musical grid
+and body length; it does not establish the encoded file end. Published media
+references a renderer report in the selected library and selects
+`MasteredFull` or `GroupedLayers`. It uses the report's clock, loop flags,
+and product paths. States, continuations, layer slots, and intensity gains
+remain game policy. A program cannot combine a mastered mix with its stems.
 
 ## Edit a level field
 

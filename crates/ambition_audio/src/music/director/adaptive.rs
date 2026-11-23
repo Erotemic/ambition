@@ -1,4 +1,3 @@
-use super::timing::{seconds_until_next_bar, seconds_until_next_phrase_marker};
 use super::*;
 
 /// A different cue or a new active request after an ending needs a fresh start.
@@ -221,7 +220,19 @@ pub(super) fn drive_adaptive_cue_state(
         }
     } else {
         let delay = if director.mode == MusicDirectorMode::AdaptiveLoop {
-            seconds_until_next_bar(cue.seconds_per_bar(), director.seconds_in_loop)
+            director
+                .current_section_id
+                .as_deref()
+                .and_then(|id| cue.section(id))
+                .and_then(|section| {
+                    section.clock.delay_to_boundary(
+                        f64::from(director.seconds_in_loop),
+                        1,
+                        Some(f64::from(section.duration_seconds)),
+                    )
+                })
+                .map(|seconds| seconds as f32)
+                .unwrap_or(0.0)
                 .max(MIN_TRANSITION_DELAY_SECONDS)
         } else {
             MIN_TRANSITION_DELAY_SECONDS
@@ -253,19 +264,21 @@ fn queue_or_fire_outro(
     dt: f32,
 ) {
     if director.pending_state.is_none() {
-        let pass_seconds = director
+        let delay = director
             .current_section_id
             .as_deref()
             .and_then(|id| cue.section(id))
-            .filter(|section| section.looped)
-            .map(|section| section.duration_seconds);
-        let delay = seconds_until_next_phrase_marker(
-            cue.seconds_per_bar(),
-            director.seconds_in_loop,
-            2.0,
-            pass_seconds,
-        )
-        .max(MIN_TRANSITION_DELAY_SECONDS);
+            .and_then(|section| {
+                section.clock.delay_to_boundary(
+                    f64::from(director.seconds_in_loop),
+                    2,
+                    section
+                        .looped
+                        .then_some(f64::from(section.duration_seconds)),
+                )
+            })
+            .unwrap_or(0.0) as f32;
+        let delay = delay.max(MIN_TRANSITION_DELAY_SECONDS);
         info!(
             target: MUSIC_LOG_TARGET,
             "queue_outro cue={} state={} delay={:.3}s loop_t={:.3}",

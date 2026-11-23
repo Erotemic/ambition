@@ -9,30 +9,32 @@ use std::time::Duration;
 fn authored_cues(bpm: f32) -> crate::cue_spec::AuthoredMusicCues {
     let cue = MusicCueSpec {
         id: "trail".into(),
-        asset_root: "content://library/music".into(),
-        bpm,
-        beats_per_bar: 4.0,
+        media: MusicCueMedia::Inline {
+            asset_root: "content://library/music".into(),
+            bpm,
+            beats_per_bar: 4.0,
+            sections: [
+                ("intro", false),
+                ("song", true),
+                ("later", true),
+                ("outro", false),
+            ]
+            .into_iter()
+            .map(|(id, looped)| MusicSectionSpec {
+                id: id.into(),
+                duration_beats: 4.0,
+                looped,
+                sources: ["bed", "tune"]
+                    .into_iter()
+                    .map(|layer| MusicLayerSourceSpec {
+                        layer_id: layer.into(),
+                        path: format!("{id}.{layer}.ogg"),
+                    })
+                    .collect(),
+            })
+            .collect(),
+        },
         relative_volume: 1.0,
-        sections: [
-            ("intro", false),
-            ("song", true),
-            ("later", true),
-            ("outro", false),
-        ]
-        .into_iter()
-        .map(|(id, looped)| MusicSectionSpec {
-            id: id.into(),
-            duration_beats: 4.0,
-            looped,
-            sources: ["bed", "tune"]
-                .into_iter()
-                .map(|layer| MusicLayerSourceSpec {
-                    layer_id: layer.into(),
-                    path: format!("{id}.{layer}.ogg"),
-                })
-                .collect(),
-        })
-        .collect(),
         layers: ["bed", "tune"]
             .into_iter()
             .enumerate()
@@ -82,9 +84,13 @@ fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
     .insert_resource(crate::output::AudioOutputMode::Recording);
     crate::music::add_music_playback(&mut app);
     let authored = authored_cues(60.0);
+    let catalog =
+        MusicCueCatalog::prepare(authored, &crate::music_media::MusicMediaCatalog::default())
+            .unwrap();
     let mut loaded = LoadedMusicCueAssets::default();
     let mut handles = Vec::new();
-    for cue in &authored.cues {
+    for id in ["trail", "destination"] {
+        let cue = catalog.cue(id).unwrap();
         for section in &cue.sections {
             for source in &section.sources {
                 let handle = app
@@ -93,16 +99,14 @@ fn fixture() -> (App, Vec<Handle<KiraAudioSource>>) {
                     .reserve_handle();
                 loaded.sources.insert(
                     MusicSourceKey::new("game", 1, &cue.id, &section.id, &source.layer_id),
-                    (cue.source_path(source), handle.clone()),
+                    (source.path.clone(), handle.clone()),
                 );
                 handles.push(handle);
             }
         }
     }
     let mut catalogs = AdaptiveMusicCatalogRegistry::default();
-    catalogs
-        .register("game", MusicCueCatalog::prepare(authored).unwrap())
-        .unwrap();
+    catalogs.register("game", catalog).unwrap();
     let registry = crate::spec::MusicRegistry {
         default_track: String::new(),
         tracks: Vec::new(),
@@ -492,7 +496,11 @@ fn an_ending_keeps_the_generation_that_its_voices_admitted() {
         .unwrap()
         .entry;
     let registry = app.world().resource::<AdaptiveMusicCatalogRegistry>();
-    let next = MusicCueCatalog::prepare(authored_cues(300.0)).unwrap();
+    let next = MusicCueCatalog::prepare(
+        authored_cues(300.0),
+        &crate::music_media::MusicMediaCatalog::default(),
+    )
+    .unwrap();
     let registry = registry.with_replaced("game", Some(next)).unwrap();
     let generation = registry.generation("game");
     app.insert_resource(registry);
@@ -692,10 +700,114 @@ fn cue_only_playback_needs_no_simple_track_library() {
     app.world_mut().remove_resource::<AudioLibrary>();
     app.world_mut().remove_resource::<MusicPlaybackState>();
     frames(&mut app, 6);
+    assert!(app
+        .world()
+        .resource::<MusicDirectorState>()
+        .admitted()
+        .is_some());
+}
+
+#[test]
+fn a_published_variable_clock_controls_the_running_sections_handoff() {
+    use super::super::playback::{MusicPlayback, MusicProduct, RecordedMusicOutput};
+    use crate::cue_spec::{MusicCueMedia, MusicProductSet};
+    use crate::music_media::{
+        tests::{authored, description, Publication},
+        MusicMediaCatalog,
+    };
+    use serde_json::json;
+    let mut data = description();
+    let body = &mut data["sections"][0];
+    body["loop"] = true.into();
+    body["tail"] = serde_json::Value::Null;
+    body["tail_end_seconds"] = serde_json::Value::Null;
+    body["tail_audio_end_seconds"] = serde_json::Value::Null;
+    body["end_seconds"] = 6.0.into();
+    body["musical_end_seconds"] = 6.0.into();
+    body["file_duration_seconds"] = 6.0.into();
+    body["clock"] = json!({"kind":"boundaries","bar_seconds":[0.0,2.0,6.0]});
+    body["markers"][1]["seconds"] = 6.0.into();
+    body["material"]["tail"] = "none".into();
+    body["frame_plan"]["musical_end_frame"] = 48000.into();
+    body["frame_plan"]["file_frames"] = 48000.into();
+    body["frame_plan"]["loop_frames"] = 48000.into();
+    body["frame_plan"]["tail_source_frames"] = 0.into();
+    body["frame_plan"]["tail_source_audio_frames"] = 0.into();
+    body["frame_plan"]["bar_frames"] = json!([0, 16000, 48000]);
+    body["frame_plan"]["markers"][1]["frame"] = 48000.into();
+    body["products"][0]["frames"] = 48000.into();
+    let mut later = body.clone();
+    later["id"] = "later".into();
+    later["form"] = json!(["later"]);
+    later["end_seconds"] = 4.0.into();
+    later["musical_end_seconds"] = 4.0.into();
+    later["file_duration_seconds"] = 4.0.into();
+    later["clock"] =
+        json!({"kind":"constant","bpm":120.0,"beats_per_bar":4.0,"bar_origin_seconds":0.0});
+    later["markers"][1]["seconds"] = 4.0.into();
+    later["frame_plan"]["markers"][1]["frame"] = 32000.into();
+    later["frame_plan"]["musical_end_frame"] = 32000.into();
+    later["frame_plan"]["file_frames"] = 32000.into();
+    later["frame_plan"]["loop_frames"] = 32000.into();
+    later["frame_plan"]["bar_frames"] = json!([0, 16000, 32000]);
+    later["products"][0]["frames"] = 32000.into();
+    later["products"][0]["path"] = "playback/later/later.full.ogg".into();
+    data["sections"].as_array_mut().unwrap().push(later);
+    let publication = Publication::new();
+    let snapshot = publication.select("variable", data);
+    let reference = "content://media/music/cue/report.json";
+    let media = MusicMediaCatalog::from_snapshot(&snapshot, [reference]).unwrap();
+    let mut policy = authored(MusicProductSet::MasteredFull, &["full"]);
+    policy.cues[0].id = "trail".into();
+    policy.cues[0].media = MusicCueMedia::Published {
+        description: reference.into(),
+        products: MusicProductSet::MasteredFull,
+    };
+    let mut later_state = policy.cues[0].states[0].clone();
+    later_state.id = "later".into();
+    later_state.section_id = "later".into();
+    policy.cues[0].states.push(later_state);
+    let catalog = MusicCueCatalog::prepare(policy, &media).unwrap();
+    let (mut app, _) = fixture();
+    let mut assets = LoadedMusicCueAssets::default();
+    for cue in catalog.cues() {
+        for section in &cue.sections {
+            for source in &section.sources {
+                let product = source.product.as_ref().unwrap();
+                let handle = app
+                    .world_mut()
+                    .resource_mut::<Assets<KiraAudioSource>>()
+                    .add(KiraAudioSource {
+                        sound: StaticSoundData {
+                            sample_rate: product.sample_rate,
+                            frames: vec![Frame::new(0.0, 0.0); product.frames as usize].into(),
+                            settings: StaticSoundSettings::default(),
+                            slice: None,
+                        },
+                    });
+                assets.sources.insert(
+                    MusicSourceKey::new("game", 1, &cue.id, &section.id, &source.layer_id),
+                    (source.path.clone(), handle),
+                );
+            }
+        }
+    }
+    let mut catalogs = AdaptiveMusicCatalogRegistry::default();
+    catalogs.register("game", catalog).unwrap();
+    app.insert_resource(catalogs).insert_resource(assets);
+    publish(&mut app, selection("trail", "song", "room", 0, 10));
+    frames(&mut app, 6);
+    let position = app.world().resource::<MusicDirectorState>().seconds_in_loop;
+    step(&mut app, 3.0 - position);
+    publish(&mut app, selection("trail", "later", "room", 0, 10));
+    step(&mut app, 0.0);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 1);
+    step(&mut app, 2.9);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 1);
+    step(&mut app, 0.2);
+    frames(&mut app, 6);
+    assert_eq!(app.world().resource::<RecordedMusicOutput>().submitted, 2);
     assert!(
-        app.world()
-            .resource::<MusicDirectorState>()
-            .admitted()
-            .is_some()
+        matches!(&app.world().resource::<MusicPlayback>().current().unwrap().product, MusicProduct::Section { section, .. } if section == "later")
     );
 }

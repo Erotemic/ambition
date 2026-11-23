@@ -753,8 +753,13 @@ scene policy; MA1 supplies producer facts.
 
 **Producer progress:** all compiler frontends now expose their clock through
 `CompiledScore.clock`. Source inspection and fresh render publication export
-body ends, frame origins, bar exits, gain bases and retained material. These
-facts are not yet linked into the native director or residency demand.
+body ends, frame origins, bar exits, gain bases and retained material.
+
+**Native progress:** published programs now link those facts through one
+accepted library snapshot. The director queries the current section's
+constant or variable clock. Constant grids retain the exported boundary
+count. Host-time position, residency demand, deadlines, and explicit
+transition policies remain open.
 
 Prefetch the known opening and imminent continuation without granting
 claims. Keep catalog, decode, admission, and start facts distinct. Add the
@@ -787,9 +792,10 @@ retain their measured frames and render identity through publication.
 **Native progress:** content compilation lowers `PreparedMusicCues`. Direct
 registration and reload accept that same type. Preparation rejects duplicate
 IDs and slots, invalid numbers, empty playable sections, missing references,
-and audible layers without sources. It resolves source paths and total gain
+and audible layers without sources. Published product sets also check media
+identity, alignment, and gain basis. It resolves source paths and total gain
 arrays once. The director retains that prepared cue with its generation.
-Encoded-product linking and recipe migration remain open.
+Recipes and migration of the first customers remain open.
 
 Expose compiler clock and typed marker support for every supported
 frontend. Make final product construction and support limits explicit.
@@ -853,7 +859,7 @@ to `00bf92c2`; it is not a description of these current files.
 | Transition reason, attempt and presentation delivery | [lifecycle](../../../crates/ambition_encounter/src/lifecycle.rs): `reduce_encounter_lifecycles`; [events](../../../crates/ambition_encounter/src/events.rs): `EncounterEventMsg`; [external effects](../../../crates/ambition_platformer2d_runtime/src/external_effects.rs): `ExternalEffectJournal` |
 | Actual game policy | [cue catalog](../../../game/ambition_content/assets/audio/music_cues.ron), 315–355, 403–430, 498–504, 572–585; [Wolfenstein](../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_boss.ron); [Inugami](../../../game/ambition_content/assets/data/boss_encounters/wolfenstein_inugami.ron); [conductor](../../../game/ambition_content_modules/src/wolfenstein.rs), 724–742 and 1547–1551 |
 | Readiness versus catalog registration | [cue assets](../../../crates/ambition_audio/src/music/catalog.rs): `LoadedMusicCueAssets`; [provider lifecycle](../../../crates/ambition_platformer2d_provider/src/lifecycle.rs), 504–575 and 1207–1224; [room assets](../../../crates/ambition_platformer2d/src/world_flow/room_transition_assets.rs), 39–93 and 1432 onward |
-| Native preparation paths | [cue preparation](../../../crates/ambition_audio/src/cue_program.rs); [authored data](../../../crates/ambition_audio/src/cue_spec.rs); [content schema](../../../crates/ambition_audio/src/content_schema.rs); [catalog registration](../../../crates/ambition_audio/src/music/catalog.rs) |
+| Native preparation paths | [cue preparation](../../../crates/ambition_audio/src/cue_program.rs); [media link](../../../crates/ambition_audio/src/music_media/mod.rs); [clock](../../../crates/ambition_audio/src/music_media/clock.rs); [authored data](../../../crates/ambition_audio/src/cue_spec.rs); [content schema](../../../crates/ambition_audio/src/content_schema.rs); [catalog registration](../../../crates/ambition_audio/src/music/catalog.rs) |
 | Compiler/frontends | [compile](../../../tools/ambition_music_renderer/ambition_music_renderer/musicir/compile.py); [V1 projection](../../../tools/ambition_music_renderer/ambition_music_renderer/render/score_layers.py), 1414–1528; [exact clock](../../../tools/ambition_music_renderer/ambition_music_renderer/render/exact_score.py); [V3 validation](../../../tools/ambition_music_renderer/ambition_music_renderer/validation/v3.py), 121–124 and 1052–1073 |
 | Product construction and identity | [playback layers](../../../tools/ambition_music_renderer/ambition_music_renderer/render/playback_layers.py), 81–315; [dependencies](../../../tools/ambition_music_renderer/ambition_music_renderer/render/dependencies.py), 423–450; [publication](../../../tools/ambition_music_renderer/ambition_music_renderer/cli.py), 413–503 |
 

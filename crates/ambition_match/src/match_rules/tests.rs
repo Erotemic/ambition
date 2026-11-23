@@ -12,6 +12,7 @@ fn check(text: &str) -> FacetOutcome {
         text,
         schema: &schema,
         namespace: &namespace,
+        libraries: None,
     };
     let mut out = FacetOutcome::default();
     MatchRulesSchema.check(&facet, &mut out);

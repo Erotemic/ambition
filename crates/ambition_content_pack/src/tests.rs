@@ -1027,7 +1027,7 @@ fn a_facet_refusal_names_the_field_path_of_the_bad_value() {
     }
     let schema = SchemaId::new("rules");
     let namespace = ModuleNamespace("probe".into());
-    let facet = |text| FacetSource { declared_path: "data/rules.ron", text, schema: &schema, namespace: &namespace };
+    let facet = |text| FacetSource { declared_path: "data/rules.ron", text, schema: &schema, namespace: &namespace, libraries: None };
 
     let refused = facet("(name: \"a\", respawn: (seconds: \"one\"))").parse::<Rules>().unwrap_err();
     assert_eq!(refused.source.as_deref(), Some("data/rules.ron"));

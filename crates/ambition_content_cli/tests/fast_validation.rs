@@ -245,12 +245,14 @@ fn package_inputs_are_the_paths_the_schemas_resolved() {
         r#"(
             cues: [(
                 id: "siege",
-                asset_root: "audio/music/generated/siege",
-                bpm: 120.0,
-                beats_per_bar: 4.0,
+                media: Inline(
+                    asset_root: "audio/music/generated/siege",
+                    bpm: 120.0,
+                    beats_per_bar: 4.0,
+                    sections: [(id: "loop", duration_beats: 16.0, looped: true,
+                        sources: [(layer_id: "full", path: "adaptive/loop/loop.full.ogg")])],
+                ),
                 relative_volume: 1.0,
-                sections: [(id: "loop", duration_beats: 16.0, looped: true,
-                    sources: [(layer_id: "full", path: "adaptive/loop/loop.full.ogg")])],
                 layers: [(id: "full", slot: 0)],
                 states: [(id: "loop", section_id: "loop", gains: [(layer_id: "full", gain: 1.0)])],
             )],
@@ -265,7 +267,7 @@ fn package_inputs_are_the_paths_the_schemas_resolved() {
             version: "0.1.0",
             namespace: "inputs",
             requires: [],
-            sources: [(path: "audio/cues.ron", schema: "music_cue_catalog", version: 1)],
+            sources: [(path: "audio/cues.ron", schema: "music_cue_catalog", version: 2)],
         )"#,
     )
     .expect("write manifest");

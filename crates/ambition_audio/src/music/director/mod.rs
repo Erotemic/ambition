@@ -7,7 +7,6 @@ mod loader;
 mod logging;
 #[cfg(test)]
 mod playback_tests;
-mod timing;
 pub use loader::load_music_cues;
 
 fn current_is_running(director: &MusicDirectorState, channels: &MusicPlaybackCommands) -> bool {

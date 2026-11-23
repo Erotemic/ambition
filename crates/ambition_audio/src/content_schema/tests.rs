@@ -272,14 +272,16 @@ fn two_orders_of_comma_bearing_track_ids_do_not_collide() {
 const CUES: &str = r#"(
     cues: [(
         id: "lab",
-        asset_root: "audio/music/generated/lab",
-        bpm: 120.0,
-        beats_per_bar: 4.0,
+        media: Inline(
+            asset_root: "audio/music/generated/lab",
+            bpm: 120.0,
+            beats_per_bar: 4.0,
+            sections: [
+                (id: "fight", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "fight.ogg")]),
+                (id: "done", duration_beats: 8.0, looped: false, sources: [(layer_id: "full", path: "done.ogg")]),
+            ],
+        ),
         relative_volume: 1.0,
-        sections: [
-            (id: "fight", duration_beats: 32.0, looped: true, sources: [(layer_id: "full", path: "fight.ogg")]),
-            (id: "done", duration_beats: 8.0, looped: false, sources: [(layer_id: "full", path: "done.ogg")]),
-        ],
         layers: [(id: "full", slot: 0)],
         states: [
             (id: "fight", section_id: "fight", gains: [(layer_id: "full", gain: 1.0)]),

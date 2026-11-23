@@ -3045,6 +3045,9 @@ pub fn trigger_moveset_moves(
     // `BodyShieldState` is deliberately absent from the body query above so
     // this is the system's only access to it.
     mut guards: Query<&mut ae::BodyShieldState>,
+    // The body's reaction locks, read for the start permission (ACT1). Only
+    // read here, so a by-entity lookup aliases nothing.
+    combats: Query<&ambition_characters::actor::BodyCombat>,
     // THE RECOVERY BUDGET. Taken mutably and looked up by entity like the guard
     // above, and for the same reason: starting a recovery is a SPEND.
     mut jumps: Query<&mut ae::BodyJumpState>,
@@ -3162,6 +3165,20 @@ pub fn trigger_moveset_moves(
             .is_some_and(|jump| body_is_helpless(jump, grounded, playback.as_deref()))
         {
             continue;
+        }
+        // ACT1: a body whose reaction or guard locks take its actions away
+        // starts nothing, by the same rule that strips its movement input.
+        // Refused before the buffer is spent, so a press still inside its
+        // window starts once the lock ends. Hitstun alone does not refuse:
+        // Ambition lets a body fight back once its recoil lock is over.
+        if let Ok(combat) = combats.get(entity) {
+            let locked = match guards.get(entity) {
+                Ok(shield) => crate::attack_support::body_action_lock_timer(combat, shield),
+                Err(_) => combat.hard_lock_timer(),
+            };
+            if locked > 0.0 {
+                continue;
+            }
         }
         // ⭐⭐ A ROLL'S RECOVERY REFUSES MOVES, AND THE PRECONDITION THIS COMMENT
         // ASKED FOR IS NOW MET. It used to read: *"before this becomes an action

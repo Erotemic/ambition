@@ -146,9 +146,28 @@ conductor own their own teardown. Already settled contacts and released
 projectiles are untouched. Guards: `a_reaction_interrupts_only_when_it_launches_or_holds`
 (rule), `an_interrupting_reaction_ends_the_victims_move_and_only_that_use`
 (occurrence), `a_launching_hit_ends_its_victims_move_and_armor_keeps_it`
-(actor receiver, armor control). Still open: the common body-action permission
-at every start cut (steps 1 to 4 and 7), the action offer, and the committed
-emission basis below.
+(actor receiver, armor control).
+
+**Ordinary move starts ask the body's locks (2026-11-23).**
+`attack_support::body_action_lock_timer` is the one answer for "do this body's
+locks take its actions away": `BodyCombat::hard_lock_timer` (recoil, landing
+lag, sleep, the held statuses, the ledge trump) beside the guard's break,
+shieldstun and drop lag. The movement input gate and `trigger_moveset_moves`
+both read it. The trigger refuses before resolution and before the buffer is
+spent, so a press still inside its window starts once when the lock ends.
+Hitstun alone does not refuse, which keeps Ambition's fight-back rule; a
+stricter game will need a declared policy here rather than a second gate.
+Guard: `a_press_during_a_hard_lock_waits_in_its_buffer_and_hitstun_alone_does_not_refuse`.
+
+Landing lag is one of those locks, so most of step 3's contact-tick gap is
+closed: on the landing tick the aerial is still playing and refuses a
+replacement, `resolve_aerial_landings` then charges the lag, and from the next
+tick the lock refuses. What remains is an aerial whose own cancel window
+permits a move on its landing tick; that start still precedes the landing.
+
+Still open: boss and scripted starts asking the same question (step 2), that
+cancel-window remainder of step 3, locomotion escapes authorized before their
+spend (step 4), the action offer, and the committed emission basis below.
 
 ### An offer and an accepted action must name the same move
 

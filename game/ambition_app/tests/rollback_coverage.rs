@@ -2087,6 +2087,14 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "confirmed presentation receipt: the simulation writes through the effect quarantine; the host retires only the matching loading presentation after confirmation",
     ),
     (
+        "ambition_encounter::events::EncounterRelease",
+        "presentation-only release facts; confirmation and room retraction belong to the effect journal, while simulation readers use EncounterEventMsg",
+    ),
+    (
+        "ambition_platformer2d_runtime::external_effects::ExternalEffectJournal<ambition_encounter::events::EncounterRelease>",
+        "host delivery state; rewinds retract pending source facts, but must not restore facts already delivered to presentation",
+    ),
+    (
         "ambition_platformer2d_runtime::external_effects::ExternalEffectJournal<ambition_platformer2d_rollback_ggrs::lifecycle_commit::PeerRoomCommit>",
         "host quarantine for room presentation receipts; rollback replaces pending frame batches, while confirmed receipts must not be delivered twice",
     ),

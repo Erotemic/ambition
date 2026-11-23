@@ -1362,6 +1362,7 @@ fn a_wave_cleared_only_before_the_rewind(retract: bool) -> [ClearReading; 3] {
 
     sim.world_mut().write_message(ambition_platformer2d::encounter::EncounterEventMsg {
         encounter: ARENA.into(),
+        attempt: 1,
         room: Some(room),
         event: ambition_platformer2d::encounter::EncounterEvent::Completed,
     });

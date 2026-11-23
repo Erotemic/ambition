@@ -289,6 +289,7 @@ impl Plugin for HostedWorldPlugin {
                 app.add_visibility_filter::<RoomOf>();
                 app.world_mut().spawn((HostTick::default(), Replicated));
                 app.init_resource::<room_rollback::GuestInputs>().init_resource::<room_rollback::RoomRollbackStats>();
+                ambition_platformer2d_runtime::external_effects::quarantine_room_encounter_releases(app);
                 room_rollback::register_presentation_replay_channels(app);
                 let sim = app.sim_schedule();
                 app.add_systems(

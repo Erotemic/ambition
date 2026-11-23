@@ -172,7 +172,7 @@ fn the_armor_choice_of_his_hall_conversation_puts_the_armor_on_him() {
         if !labels(&app).is_empty() {
             break;
         }
-        tap(&mut app, KeyCode::Enter);
+        tap(&mut app, KeyCode::Space);
     }
     let offered = labels(&app);
     let wanted = offered
@@ -190,7 +190,7 @@ fn the_armor_choice_of_his_hall_conversation_puts_the_armor_on_him() {
         wanted,
         "the arrow keys did not reach `{CHOICE}`"
     );
-    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Space);
     for _ in 0..8 {
         app.update();
     }

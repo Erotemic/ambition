@@ -83,11 +83,13 @@ fn a_conversation_waits_under_the_pause_menu() {
     assert!(revealing, "Interact beside Alice did not start her first line");
     assert_eq!(shown_dialog_boxes(&mut app), 1, "premise: the conversation draws its box");
 
-    tap(&mut app, KeyCode::Escape);
+    // Start (Enter) opens the menu; Escape is Back, which the conversation
+    // keeps for itself (`ad6b7ecae`).
+    tap(&mut app, KeyCode::Enter);
     for _ in 0..4 {
         app.update();
     }
-    assert!(menu_open(&app), "Escape during the conversation opens the pause menu");
+    assert!(menu_open(&app), "Start during the conversation opens the pause menu");
     assert_eq!(mode(&app), GameMode::Paused);
     assert!(dialog_active(&app), "the pause menu does not end the conversation");
     assert_eq!(
@@ -108,7 +110,7 @@ fn a_conversation_waits_under_the_pause_menu() {
     // advance the line.
     let page = menu_page(&app);
     tap(&mut app, KeyCode::ArrowLeft);
-    tap(&mut app, KeyCode::Enter);
+    tap(&mut app, KeyCode::Space);
     for _ in 0..4 {
         app.update();
     }
@@ -117,9 +119,10 @@ fn a_conversation_waits_under_the_pause_menu() {
     assert_eq!(body_text(&app), held, "a press for the pause menu reached the conversation");
     assert_eq!(shown_dialog_boxes(&mut app), 0, "the box came back while the menu is open");
 
-    // Close: the same line comes back from the same reveal point.
-    tap(&mut app, KeyCode::Escape);
-    assert!(!menu_open(&app), "Escape closes the pause menu");
+    // Close: the same line comes back from the same reveal point. Start closes
+    // the whole menu from any page.
+    tap(&mut app, KeyCode::Enter);
+    assert!(!menu_open(&app), "Start closes the pause menu");
     for _ in 0..2 {
         app.update();
     }

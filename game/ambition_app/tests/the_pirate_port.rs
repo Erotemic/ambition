@@ -153,15 +153,15 @@ pub(crate) fn talk(app: &mut App, character: &str, choice: &str) -> String {
             offered = Some(label);
             break;
         }
-        tap(app, KeyCode::Enter);
+        tap(app, KeyCode::Space);
     }
     assert_eq!(offered.as_deref(), Some(choice), "`{character}` did not offer `{choice}` first");
-    tap(app, KeyCode::Enter);
+    tap(app, KeyCode::Space);
     for _ in 0..20 {
         if !dialog_active(app) {
             break;
         }
-        tap(app, KeyCode::Enter);
+        tap(app, KeyCode::Space);
     }
     assert!(!dialog_active(app), "the talk with `{character}` did not end");
     settle(app);

@@ -267,12 +267,12 @@ fn the_choices(app: &mut bevy::prelude::App) -> Vec<String> {
         if !offered.is_empty() {
             return offered;
         }
-        tap(app, KeyCode::Enter);
+        tap(app, KeyCode::Space);
     }
     panic!("the talk offered no choices");
 }
 
-/// Take the choice `label` with the arrow keys and Enter.
+/// Take the choice `label` with the arrow keys and Confirm (Space; Enter is Start).
 fn choose(app: &mut bevy::prelude::App, label: &str) {
     let offered = the_choices(app);
     let wanted = offered
@@ -287,7 +287,7 @@ fn choose(app: &mut bevy::prelude::App, label: &str) {
         tap(app, KeyCode::ArrowDown);
     }
     assert_eq!(selected(app), wanted, "the arrow keys did not reach `{label}`");
-    tap(app, KeyCode::Enter);
+    tap(app, KeyCode::Space);
     for _ in 0..4 {
         app.update();
     }
@@ -336,7 +336,7 @@ fn play(app: &mut bevy::prelude::App, pick: u8, switch: bool) -> Round {
         if !dialog_active(app) {
             break;
         }
-        tap(app, KeyCode::Enter);
+        tap(app, KeyCode::Space);
     }
     assert!(!dialog_active(app), "the round did not end");
     for _ in 0..30 {

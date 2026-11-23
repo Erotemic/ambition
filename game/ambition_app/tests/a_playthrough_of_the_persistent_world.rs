@@ -157,7 +157,7 @@ fn go_through(app: &mut App, target: &str) {
                 if !a_scene_holds_the_player(app) {
                     break;
                 }
-                crate::alices_reading_reaches_bob::tap(app, KeyCode::Enter);
+                crate::alices_reading_reaches_bob::tap(app, KeyCode::Space);
                 for _ in 0..8 {
                     app.update();
                 }

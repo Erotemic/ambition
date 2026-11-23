@@ -1,8 +1,9 @@
 //! Ambition's gate terminal: the dial a traveller uses.
 //!
 //! Draws [`TerminalModel`] as a Bevy UI panel. The terminal opens on its
-//! LIST: the ring's name, the status line, and the known and recent
-//! addresses, a tap or a press dialing one. The WHEEL is a view behind the
+//! directory: select a dimension, then a gate. Recent addresses have their
+//! own page. Local portal arches list their destinations directly.
+//! The WHEEL is a view behind the
 //! list's "Dial an address" row (Jon, 2026-10-25: the dial "should be
 //! secondary"): the ring's fifteen glyphs round a bronze ring laid out as the
 //! ring is (the first at the lower left, Δ at the top), the engage press (a
@@ -11,7 +12,8 @@
 //!
 //! Input, one road for every device:
 //!
-//! - in the list, up and down move the cursor, select dials, back leaves; a
+//! - in the list, up and down move the cursor, select opens a page or dials
+//!   an address, and back returns to dimensions before it leaves; a
 //!   mouse or a finger taps a row (a tap dials, a drag scrolls the list, a
 //!   mouse wheel scrolls it); the list shows as many rows as the screen holds;
 //! - in the dial view, a gamepad points its left stick at a chevron (or down
@@ -99,8 +101,8 @@ const ROW_PITCH: f32 = ROW_TALL + 6.0;
 /// The list panel's height besides its rows: the title and status, the
 /// "more" marks, the hint, and the paddings; and on a short screen (a phone
 /// held sideways), where the heading is one line and the hint is left out.
-const LIST_CHROME: f32 = 230.0;
-const COMPACT_CHROME: f32 = 120.0;
+const LIST_CHROME: f32 = 260.0;
+const COMPACT_CHROME: f32 = 150.0;
 /// A screen shorter than this draws the compact list.
 const COMPACT_BELOW: f32 = 560.0;
 
@@ -284,7 +286,7 @@ fn drive_gate_terminal(
             let knows = |flag: &str| save.as_ref().is_some_and(|save| save.data().flag(flag));
             let none = GateRingPositions::default();
             let known = known_addresses(&catalog, positions.as_deref().unwrap_or(&none), &ring, knows);
-            let rows = ui.list(&catalog, &state, &known);
+            let mut rows = ui.list(&catalog, &state, &known);
             let count = catalog.chevrons();
             let mut effects = Vec::new();
             // Mouse and touch: on the wheel a moving pointer points and a press
@@ -371,6 +373,9 @@ fn drive_gate_terminal(
                     ui.focus = TerminalFocus::List;
                 }
             }
+            if tapped.is_some() {
+                rows = ui.list(&catalog, &state, &known);
+            }
             // A mouse wheel or a drag over the screen scrolls the list's window,
             // not its cursor.
             let drag = if over_surface { pointer_frame.as_ref().map_or(0, |menu| -(menu.drag_scroll_y.round() as i32)) } else { 0 };
@@ -386,7 +391,7 @@ fn drive_gate_terminal(
                 }
                 angle.is_some()
             };
-            if let Some(menu) = menu.as_ref() {
+            if let Some(menu) = menu.as_ref().filter(|_| tapped.is_none()) {
                 if menu.page_left || menu.page_right {
                     ui.swap_focus();
                 } else {
@@ -754,6 +759,7 @@ fn spawn_list(
             } else {
                 spawn_heading(side, model, font);
             }
+            side.spawn((Text::new(model.list_title.clone()), font(18.0, UiFontWeight::Semibold), TextColor(CYAN)));
             let shown = model.list_window..(model.list_window + model.list_rows).min(model.list.len());
             let more = |count: usize, up: bool| {
                 (
@@ -776,6 +782,7 @@ fn spawn_list(
                         column_gap: Val::Px(12.0),
                         padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
                         min_height: Val::Px(ROW_TALL),
+                        flex_shrink: 0.0,
                         border: UiRect::all(Val::Px(2.0)),
                         border_radius: BorderRadius::all(Val::Px(6.0)),
                         ..default()
@@ -792,6 +799,21 @@ fn spawn_list(
                     Name::new(format!("Gate dial row {index}")),
                 ))
                 .with_children(|line| match row {
+                    ListRow::Dimension { name, destinations, .. } => {
+                        line.spawn((
+                            Node { flex_direction: FlexDirection::Column, flex_grow: 1.0, ..default() },
+                        )).with_children(|text| {
+                            text.spawn((Text::new(name.clone()), font(19.0, UiFontWeight::Semibold), TextColor(INK)));
+                            text.spawn((Text::new(format!("{destinations} {}", if *destinations == 1 { "gate" } else { "gates" })), font(13.0, UiFontWeight::Regular), TextColor(DIM_INK)));
+                        });
+                        line.spawn((Text::new("›"), font(25.0, UiFontWeight::Semibold), TextColor(CYAN)));
+                    }
+                    ListRow::Recent { destinations } => {
+                        line.spawn((Text::new(format!("Recent addresses ({destinations})  ›")), font(17.0, UiFontWeight::Semibold), TextColor(INK)));
+                    }
+                    ListRow::Dimensions => {
+                        line.spawn((Text::new("◀  All dimensions"), font(17.0, UiFontWeight::Semibold), TextColor(CYAN)));
+                    }
                     ListRow::Address { address, word, name, recent } => {
                         line.spawn((
                             Node { flex_direction: FlexDirection::Column, flex_grow: 1.0, ..default() },
@@ -834,7 +856,7 @@ fn spawn_list(
                 return;
             }
             side.spawn((
-                Text::new("Tap or press a destination to dial it  \u{00B7}  drag or scroll for more  \u{00B7}  Back leaves"),
+                Text::new(model.list_hint.clone()),
                 font(12.0, UiFontWeight::Regular),
                 TextColor(DIM_INK),
             ));

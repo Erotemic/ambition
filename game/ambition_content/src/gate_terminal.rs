@@ -8,14 +8,12 @@
 //! the host intent ledger on a stamped tick. Nothing here moves a body or
 //! opens a ring.
 //!
-//! A terminal is a WHEEL of the ring's chevrons, laid out as the ring is
-//! ([`chevron_angle`]: clockwise from the lower left over the top, the first
-//! of the inscription at the lower left), with the ENGAGE press (a solid Δ)
-//! in the slice at the bottom, beside a list of the known and recent
-//! addresses. A gamepad points the stick at a chevron and presses to enter
-//! it; arrow keys and the d-pad step round the wheel; a mouse or a finger
-//! presses a chevron. There is no typing: one chevron of the ring can stand
-//! for one letter twice (Λ, Λ₂, Λ₃), and only the wheel tells them apart.
+//! The directory groups known gates by dimension. Recent addresses have
+//! their own page. Local portal arches list destinations directly.
+//! The manual dial uses the ring's chevrons ([`chevron_angle`]) and an
+//! engage press (a solid Δ) at the bottom. A gamepad points its stick;
+//! arrow keys and the d-pad step around the wheel. A mouse or finger can
+//! press a chevron. The wheel distinguishes repeated letters (Λ, Λ₂, Λ₃).
 //!
 //! The presentation (`presentation::gate_terminal`) draws [`TerminalModel`]
 //! and feeds presses back through [`TerminalUi`], so every device uses one
@@ -102,9 +100,22 @@ pub enum TerminalFocus {
     List,
 }
 
-/// One row of the list beside the wheel.
+/// The directory page. Opening a page does not send a simulation request.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum TerminalDirectory {
+    #[default]
+    Dimensions,
+    Dimension(String),
+    Recent,
+}
+
+/// One row of the terminal directory.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ListRow {
+    Dimension { id: String, name: String, destinations: usize },
+    Recent { destinations: usize },
+    /// Return to the dimension list.
+    Dimensions,
     /// An address: a press dials it.
     Address { address: Vec<Chevron>, word: String, name: String, recent: bool },
     /// Open the dial view, to enter an address chevron by chevron.
@@ -130,6 +141,9 @@ pub struct TerminalUi {
     /// The ring the state belongs to. A different ring starts a fresh state.
     pub ring: Option<String>,
     pub focus: TerminalFocus,
+    pub directory: TerminalDirectory,
+    /// The cursor and window in the parent directory.
+    pub(crate) parent_position: (usize, usize),
     /// The chevrons entered.
     pub entered: Vec<Chevron>,
     /// Where the wheel points.
@@ -179,6 +193,8 @@ pub struct TerminalModel {
     pub focus: TerminalFocus,
     pub pointed: Option<WheelSlot>,
     pub list: Vec<ListRow>,
+    pub list_title: String,
+    pub list_hint: String,
     pub list_cursor: usize,
     /// The first row shown, how many are shown, and the row the pointer is over.
     pub list_window: usize,
@@ -244,28 +260,95 @@ fn address_row(catalog: &GateNetworkCatalog, address: Vec<Chevron>, recent: bool
     }
 }
 
+fn address_dimension<'a>(catalog: &'a GateNetworkCatalog, address: &[Chevron]) -> Option<&'a str> {
+    let ring = catalog.ring_at(address)?;
+    Some(&catalog.facility(&ring.facility)?.dimension)
+}
+
+fn dimension_name(id: &str) -> String {
+    id.split(['_', '-']).map(|word| {
+        let mut letters = word.chars();
+        letters.next().map_or_else(String::new, |first| first.to_uppercase().collect::<String>() + letters.as_str())
+    }).collect::<Vec<_>>().join(" ")
+}
+
 impl TerminalUi {
-    /// Start a fresh state for `ring`, on the wheel, pointing at nothing.
+    /// Open the directory for this ring with no address entered.
     pub fn open(&mut self, ring: &str, seen_serial: Option<u64>) {
         *self = Self { subject: self.subject.clone(), ring: Some(ring.to_string()), seen_serial, ..default() };
     }
 
-    /// The list: the known addresses (by word), the recent
-    /// ones (by chevrons, a known one only once), then the actions.
+    /// Group listed gates by their facility's dimension. Local arches keep a flat list.
     pub fn list(&self, catalog: &GateNetworkCatalog, state: &GateNetworkState, known: &[Vec<Chevron>]) -> Vec<ListRow> {
-        let mut rows: Vec<ListRow> = known.iter().map(|address| address_row(catalog, address.clone(), false)).collect();
+        let mut addresses = known.to_vec();
         for address in &state.recent {
-            let listed = rows.iter().any(|row| matches!(row, ListRow::Address { address: a, .. } if a == address));
-            if !listed {
-                rows.push(address_row(catalog, address.clone(), true));
+            if !addresses.contains(address) {
+                addresses.push(address.clone());
             }
         }
+        let address_rows = |addresses: Vec<Vec<Chevron>>| addresses.into_iter()
+            .map(|address| {
+                let recent = state.recent.contains(&address);
+                address_row(catalog, address, recent)
+            }).collect::<Vec<_>>();
+        let mut rows = if self.is_local_portal(catalog) {
+            address_rows(addresses)
+        } else {
+            match &self.directory {
+                TerminalDirectory::Dimensions => {
+                    let mut dimensions = std::collections::BTreeMap::<&str, usize>::new();
+                    for address in &addresses {
+                        if let Some(dimension) = address_dimension(catalog, address) {
+                            *dimensions.entry(dimension).or_default() += 1;
+                        }
+                    }
+                    let mut rows: Vec<_> = dimensions.into_iter().map(|(id, destinations)| ListRow::Dimension {
+                        id: id.to_string(), name: dimension_name(id), destinations,
+                    }).collect();
+                    if !state.recent.is_empty() {
+                        rows.push(ListRow::Recent { destinations: state.recent.len() });
+                    }
+                    rows
+                }
+                TerminalDirectory::Dimension(id) => {
+                    let mut rows = vec![ListRow::Dimensions];
+                    rows.extend(address_rows(addresses.into_iter()
+                        .filter(|address| address_dimension(catalog, address) == Some(id.as_str())).collect()));
+                    rows
+                }
+                TerminalDirectory::Recent => {
+                    let mut rows = vec![ListRow::Dimensions];
+                    rows.extend(address_rows(state.recent.clone()));
+                    rows
+                }
+            }
+        };
         rows.push(ListRow::Dial);
         if state.route_from(self.ring.as_deref().unwrap_or_default()).is_some() {
             rows.push(ListRow::Hangup);
         }
         rows.push(ListRow::Close);
         rows
+    }
+
+    fn is_local_portal(&self, catalog: &GateNetworkCatalog) -> bool {
+        self.ring.as_deref().and_then(|ring| catalog.ring(ring)).is_some_and(|ring| ring.kind == RingKind::Portal)
+    }
+
+    fn open_directory(&mut self, directory: TerminalDirectory) {
+        self.parent_position = (self.list_cursor, self.list_window);
+        self.directory = directory;
+        self.list_cursor = 1;
+        self.list_window = 0;
+        self.list_hover = None;
+        self.row_press.clear();
+    }
+
+    fn show_dimensions(&mut self) {
+        self.directory = TerminalDirectory::Dimensions;
+        (self.list_cursor, self.list_window) = self.parent_position;
+        self.list_hover = None;
+        self.row_press.clear();
     }
 
     /// Point the wheel at a slot.
@@ -323,9 +406,21 @@ impl TerminalUi {
         }
     }
 
-    /// Carry out a press of a list row: an address is entered and dialed.
+    /// Open a directory page or send the selected address or action.
     pub fn press_row(&mut self, row: &ListRow) -> TerminalEffect {
         match row {
+            ListRow::Dimension { id, .. } => {
+                self.open_directory(TerminalDirectory::Dimension(id.clone()));
+                TerminalEffect::None
+            }
+            ListRow::Recent { .. } => {
+                self.open_directory(TerminalDirectory::Recent);
+                TerminalEffect::None
+            }
+            ListRow::Dimensions => {
+                self.show_dimensions();
+                TerminalEffect::None
+            }
             ListRow::Address { address, .. } => {
                 self.entered = address.clone();
                 TerminalEffect::Send(GateTerminalAction::Dial(address.clone()))
@@ -341,13 +436,17 @@ impl TerminalUi {
     }
 
     /// The back press. In the dial view: take back the last chevron, then
-    /// return to the list. In the list: leave the terminal.
+    /// return to the list. In a directory page: return to dimensions, then leave.
     pub fn back(&mut self) -> TerminalEffect {
         match self.focus {
             TerminalFocus::Wheel => {
                 if self.entered.pop().is_none() {
                     self.focus = TerminalFocus::List;
                 }
+                TerminalEffect::None
+            }
+            TerminalFocus::List if self.directory != TerminalDirectory::Dimensions => {
+                self.show_dimensions();
                 TerminalEffect::None
             }
             TerminalFocus::List => TerminalEffect::Send(GateTerminalAction::Close),
@@ -371,6 +470,15 @@ impl TerminalUi {
             .map_or_else(String::new, |facility| facility.name.clone());
         let far_name = |zone: &str| catalog.ring(zone).map_or_else(|| zone.to_string(), |ring| ring.name.clone());
         let word = |address: &[Chevron]| catalog.word_of(address).map(str::to_string);
+        let (list_title, list_status, list_hint) = if self.is_local_portal(catalog) {
+            ("Destinations".to_string(), "Choose a destination.", "Select a destination to dial it  ·  drag or scroll for more  ·  Back leaves")
+        } else {
+            match &self.directory {
+                TerminalDirectory::Dimensions => ("Dimensions".to_string(), "Choose a dimension.", "Select a dimension, then a gate  ·  drag or scroll for more  ·  Back leaves"),
+                TerminalDirectory::Dimension(id) => (format!("Dimensions  /  {}", dimension_name(id)), "Choose a gate.", "Select a gate to dial it  ·  drag or scroll for more  ·  Back returns to dimensions"),
+                TerminalDirectory::Recent => ("Dimensions  /  Recent addresses".to_string(), "Choose a recent address.", "Select an address to dial it  ·  Back returns to dimensions"),
+            }
+        };
         let (status, refused) = if let Some(link) = state.route_from(ring_id) {
             (format!("LINK OPEN to {}. Walk into the ring.", far_name(&link.far)), false)
         } else if state.holds_open(ring_id) {
@@ -381,7 +489,7 @@ impl TerminalUi {
                 Err(refusal) => (refusal.message(), true),
             }
         } else if self.focus == TerminalFocus::List {
-            ("Choose a destination.".to_string(), false)
+            (list_status.to_string(), false)
         } else {
             ("Point at a chevron and press to enter it; press \u{0394} to dial.".to_string(), false)
         };
@@ -402,6 +510,8 @@ impl TerminalUi {
             list_rows: self.shown_rows(),
             list_hover: self.list_hover.filter(|row| *row < list.len()),
             compact: self.compact,
+            list_title,
+            list_hint: list_hint.to_string(),
             list,
         }
     }
@@ -530,8 +640,7 @@ mod tests {
         assert_eq!(ui.entered.len(), ADDRESS_FIELD_LEN);
     }
 
-    /// A listed address dials its chevrons; a recent one that is not known
-    /// is listed by its chevrons; the list ends with leaving.
+    /// Dimension selection changes only the page. A gate selection dials its address.
     #[test]
     fn the_list_dials_known_and_recent_addresses() {
         let catalog = catalog();
@@ -540,15 +649,80 @@ mod tests {
         state.recent = vec![catalog.spell("GENESIS").unwrap(), wrong.clone()];
         let mut ui = TerminalUi::default();
         ui.open("hub_public_gate_zone", None);
-        let rows = ui.list(&catalog, &state, &[catalog.spell("GENESIS").unwrap()]);
-        assert!(matches!(&rows[0], ListRow::Address { word, recent: false, .. } if word == "GENESIS"));
-        assert!(matches!(&rows[1], ListRow::Address { address, word, recent: true, .. } if *address == wrong && word.is_empty()), "{rows:?}");
+        let known = [catalog.spell("GENESIS").unwrap()];
+        let rows = ui.list(&catalog, &state, &known);
+        assert!(matches!(&rows[0], ListRow::Dimension { id, destinations: 1, .. } if id == "jungle"));
         assert_eq!(rows.last(), Some(&ListRow::Close));
         assert_eq!(rows[rows.len() - 2], ListRow::Dial, "the dial is a row of the list, after the addresses");
+        assert_eq!(ui.press_row(&rows[0]), TerminalEffect::None);
+        let gates = ui.list(&catalog, &state, &known);
+        assert_eq!(gates[0], ListRow::Dimensions);
+        assert!(matches!(&gates[1], ListRow::Address { word, recent: true, .. } if word == "GENESIS"));
         assert_eq!(
-            ui.press_row(&rows[0]),
+            ui.press_row(&gates[1]),
             TerminalEffect::Send(GateTerminalAction::Dial(catalog.spell("GENESIS").unwrap()))
         );
+        assert_eq!(ui.back(), TerminalEffect::None);
+        let recent = rows.iter().find(|row| matches!(row, ListRow::Recent { .. })).unwrap();
+        assert_eq!(ui.press_row(recent), TerminalEffect::None);
+        let recent_rows = ui.list(&catalog, &state, &known);
+        assert!(matches!(&recent_rows[2], ListRow::Address { address, word, recent: true, .. } if *address == wrong && word.is_empty()), "{recent_rows:?}");
+        assert_eq!(ui.press_row(&recent_rows[2]), TerminalEffect::Send(GateTerminalAction::Dial(wrong)));
+    }
+
+    #[test]
+    fn the_directory_groups_only_listed_gates_and_back_restores_its_position() {
+        let catalog = catalog();
+        let state = GateNetworkState::default();
+        let mut ui = TerminalUi::default();
+        ui.open("hub_public_gate_zone", None);
+        let known = known_addresses(&catalog, &GateRingPositions::default(), "hub_public_gate_zone", |_| false);
+        let rows = ui.list(&catalog, &state, &known);
+        assert!(!rows.iter().any(|row| matches!(row, ListRow::Address { .. })));
+        let science = rows.iter().position(|row| matches!(row, ListRow::Dimension { id, .. } if id == "science")).unwrap();
+        ui.step_list(science as i32, rows.len());
+        let parent_position = (ui.list_cursor, ui.list_window);
+        assert_eq!(ui.press_row(&rows[science]), TerminalEffect::None);
+        let gates = ui.list(&catalog, &state, &known);
+        let count = gates.iter().filter_map(|row| match row {
+            ListRow::Address { address, .. } => {
+                assert_eq!(address_dimension(&catalog, address), Some("science"));
+                Some(address)
+            }
+            _ => None,
+        }).count();
+        assert!(count > 1, "multiple facilities in Science share one directory page");
+        assert!(matches!(rows[science], ListRow::Dimension { destinations, .. } if destinations == count));
+        assert_eq!(ui.list_cursor, 1, "the first gate is selected, after the back row");
+        assert_eq!(ui.model(&catalog, &state, &known).list_title, "Dimensions  /  Science");
+        ui.press_row(&ListRow::Dial);
+        assert_eq!(ui.back(), TerminalEffect::None);
+        assert_eq!(ui.directory, TerminalDirectory::Dimension("science".into()));
+        ui.step_list(2, gates.len());
+        ui.list_hover = Some(2);
+        assert_eq!(ui.back(), TerminalEffect::None);
+        assert_eq!(ui.directory, TerminalDirectory::Dimensions);
+        assert_eq!((ui.list_cursor, ui.list_window), parent_position);
+        assert_eq!(ui.list_hover, None);
+        assert_eq!(ui.back(), TerminalEffect::Send(GateTerminalAction::Close));
+
+        let posted = [catalog.spell("LEGAL").unwrap()];
+        let rows = ui.list(&catalog, &state, &posted);
+        assert_eq!(rows.iter().filter(|row| matches!(row, ListRow::Dimension { .. })).count(), 1);
+        assert!(matches!(&rows[0], ListRow::Dimension { id, destinations: 1, .. } if id == "home"));
+    }
+
+    #[test]
+    fn local_portal_arches_keep_a_direct_destination_list() {
+        let catalog = catalog();
+        let mut ui = TerminalUi::default();
+        ui.open("magical_heights_arch", None);
+        let castle = catalog.spell("CASTLE").unwrap();
+        let state = GateNetworkState::default();
+        let model = ui.model(&catalog, &state, &[castle.clone()]);
+        assert_eq!(model.list_title, "Destinations");
+        assert!(matches!(&model.list[0], ListRow::Address { address, .. } if *address == castle));
+        assert_eq!(ui.press_row(&model.list[0]), TerminalEffect::Send(GateTerminalAction::Dial(castle)));
     }
 
     /// Under discovery, a terminal away from home lists its way home with no

@@ -101,14 +101,22 @@ includes that field and both connection endpoints.
 
 The simulation step is `run_gate_network` (Progression, `WorldSync`, after
 the switch drain, before the portal tick). The terminal panel
-(`presentation::gate_terminal`) is a **dial wheel**: the ring's chevrons
+(`presentation::gate_terminal`) opens a directory of dimensions. Each row
+shows the number of listed gates in that dimension. Select a dimension,
+then select a gate to dial it. Back returns to the dimension list and
+restores its cursor and scroll position. Recent addresses have a separate
+page. Knowledge and posted addresses still control what the directory
+lists. Local portal arches keep a direct list of their destinations.
+
+The **Dial an address** row opens a **dial wheel**: the ring's chevrons
 laid out as on the ring (the first at the lower left, Δ at the top), a big
 solid Δ in the bottom slice that engages a dial, the address entered in the
-middle, and the known and recent addresses beside it. A gamepad points its
+middle. A gamepad points its
 stick at a chevron and presses to enter it; the arrow keys and d-pad step
 round the wheel (up: the top, down: the Δ); a mouse or a finger hovers and
 presses. There is no typing: only the wheel tells Λ from Λ₂. Back takes the
-last chevron back, then leaves; the page buttons swap to the list. The panel
+last chevron back, then returns to the directory; the page buttons swap
+between the wheel and directory. The panel
 claims the seat's input (`gate_terminal`, between dialogue and inventory)
 while a terminal is open; the pause menu outranks it. The chevrons entered
 light on the ring as they are entered, and a sending ring keeps its link's

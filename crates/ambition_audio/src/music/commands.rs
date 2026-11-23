@@ -35,6 +35,20 @@ impl MusicPlaybackCommands<'_> {
     pub(super) fn outcome(&self) -> super::playback::MusicRequestOutcome {
         self.playback.outcome()
     }
+
+    pub(super) fn section_completed(
+        &self,
+        entry: super::playback::MusicEntry,
+        cue: &str,
+        section: &str,
+    ) -> bool {
+        self.playback.completed_product().is_some_and(|(completed, product)| {
+            completed == entry
+                && matches!(product, MusicProduct::Section { cue: c, section: s, .. }
+                    if c == cue && s == section)
+        })
+    }
+
     pub(super) fn pending_for(&self, entry: super::playback::MusicEntry) -> bool {
         self.playback.groups().any(|group| {
             group.entry == entry && group.phase == super::playback::MusicGroupPhase::Submitted

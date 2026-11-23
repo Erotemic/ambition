@@ -119,10 +119,7 @@ pub fn drive_music_director(
     }
 
     let transport_completed = director.transport_completed;
-    let ending_failure = director.ending.as_mut().and_then(|ending| {
-        if ending.started {
-            return None;
-        }
+    let ending_outcome = director.ending.as_mut().and_then(|ending| {
         let section = ending
             .admitted
             .selection
@@ -130,6 +127,13 @@ pub fn drive_music_director(
             .as_deref()
             .and_then(|state| ending.cue.state(state))
             .map(|state| state.section_id.as_str())?;
+        // Native completion can arrive before the first running observation.
+        if channels.section_completed(ending.admitted.entry, &ending.cue.id, section) {
+            return Some(MusicEndingResult::Finished);
+        }
+        if ending.started {
+            return None;
+        }
         let ready = assets.section_ready(
             &ending.admitted.selection.provider,
             ending.admitted.selection.generation,
@@ -159,7 +163,7 @@ pub fn drive_music_director(
         }
         None
     });
-    if let Some(reason) = ending_failure {
+    if let Some(reason) = ending_outcome {
         let ending = director.ending.take().expect("an ending was checked");
         director.last_ending_result = Some((ending.admitted.entry, reason));
     }

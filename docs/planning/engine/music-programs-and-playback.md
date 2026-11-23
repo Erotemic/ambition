@@ -7,7 +7,8 @@ publication and canonical attempts landed in `6d100f9d`. Release facts now
 retain their transition attempt and pass through host confirmation. One scoped
 goal now selects tracks and cues. Endings retain their admitted entry and
 generation while the latest goal selects the successor. Prepared exit rules and
-whole-asset recipes landed in `afeb52f24`. Native timing acceptance remains open. Music renderer:
+whole-asset recipes landed in `afeb52f24`. Native software capture now covers
+the Castle Godwin route and Hobford's ending. Scene time policy remains open. Music renderer:
 `186a13f8115752a4bbdb4955fb9e46483562a2d4`.
 The supplied exit log has UTC timestamps on 2026-11-23. Its executable
 revision is not established. The historical diagnosis used source
@@ -673,11 +674,13 @@ customer. Basic strict native preparation starts with the first new records.
 **Landed implementation (`d4147e4c`):** the common executor owns simple and adaptive submissions,
 exact-handle retirement, late cancellation, required-group admission, bounded
 retry, and recording output. User and environment gain enter this owner.
-Native route acceptance remains open. MUS2 has removed split selection and
-simple-resume authority; MUS3 still owns prepared timing.
+Native software capture covers cancellation, the Castle Godwin route and
+Hobford's ending. MUS2 has removed split selection and simple-resume authority;
+MUS3 still owns scene time policy.
 
-**Remaining:** native route acceptance, with an honest timing guarantee.
-Native group cancellation and resource release have explicit device tests.
+**Native guard:** group cancellation and resource release have explicit device
+tests. Castle Godwin and Hobford have software captures through the visible host.
+The supported guarantee remains frame-driven; sample-accurate requests fail.
 Keep simple/adaptive entry points as adapters into this one executor.
 Compatibility observations stay projections, not additional owners. Native
 acceptance is not a prerequisite for the static selection work.
@@ -723,7 +726,8 @@ continuations, ending interruption, missing media and retained generations.
 Selection tests cover local listeners, mixed choices, room overrides,
 duplicate authored ids in different rooms and direct destination selection.
 Plugin tests cover frontend continuity and direct startup readiness. Native
-route and audible acceptance remain open; these tests do not prove speaker output.
+software capture now covers the Castle Godwin route and Hobford's ending.
+These checks do not prove physical-speaker output.
 
 Publish occurrence candidates with one priority law. Lower simple choices
 to the one-source program and executor. Resolve destination selection and
@@ -928,7 +932,21 @@ instances and group tracks. Mixer resolution is not a sample-accuracy guarantee.
 `dab9fbbac` retains completion facts when a scheduled short section starts and
 finishes between host observations. The director advances its state once. Guard:
 a native 5 ms continuation across a host stall completes without duplicate plays.
-General exits and the complete game route remain open.
+`1c9f96ca3` schedules prepared loop and ending exits on the native clock.
+`047f1134a` adds the opt-in Castle Godwin native route test. The visible host
+prepares Wolfenstein while he is dormant, plays Awaken and March, crosses to
+the great hall, and reenters. A withheld intro cannot delay Phase1 or start
+after March. A committed death restore permits a fresh entrance. Both exits
+select Tritone without an intermediate military track. Guard: two native
+software captures. The final PCM correlates with the selected Tritone layers.
+`828fb4155` releases an ending that completes between host observations. The
+director consumes its entry-owned completion receipt. Guard: 150 audio tests
+and a native host-stall capture with a changed successor. The baseline remains
+silent; the fix starts the latest successor.
+`b60a3b918` checks Hobford's shipped 28-second Aftermath through the visible host
+and normal encounter Start/Complete commands. It returns to the workshop's
+`something_worth_building`. PCM comparison confirms both selected products.
+Scene pause/scale policy and richer transition support remain open.
 No physical-speaker or listening acceptance was performed.
 The current recording path consumes the executor's actual voice commands;
 it does not execute Kira drains or establish speaker-audible output. The
@@ -939,12 +957,11 @@ properties above at their native seams. Use one coherent command consumer,
 not a parallel fake director. Do not add permanent source-name tests,
 migration matrices, or a broad audio-test campaign.
 
-Later authorized native acceptance must use the locked backend and the
-reported route: approach Wolfenstein cold and prepared, start the fight,
-leave during it, reenter, and let relevant endings finish. Observe admission
-and transport timing separately from speaker-audible output. Keep the
-older unexplained death/respawn gap open until its own evidence is obtained.
-The current report does not establish its cause.
+Wolfenstein has no authored victory ending. Hobford supplies the ending
+acceptance customer. Observe admission and transport timing separately from
+speaker-audible output. The older
+death/respawn gap did not recur in the new route test; this does not establish
+its historical cause.
 
 ### Source entry points for an implementing agent
 

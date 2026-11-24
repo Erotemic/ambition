@@ -13,6 +13,63 @@ use super::*;
 #[cfg(feature = "input")]
 const STICK_DIRECTION_THRESHOLD: f32 = 0.5;
 
+#[cfg(feature = "input")]
+use super::Platformer2dInputActionMonolith as Act;
+
+/// The standard pad's gameplay buttons. A game's [`crate::BindingLayout`]
+/// rearranges these; the menu's buttons ([`MENU_BUTTONS`]) do not move.
+#[cfg(feature = "input")]
+pub const STANDARD_PAD: &[(Platformer2dInputActionMonolith, GamepadButton)] = &[
+    (Act::Jump, GamepadButton::South),
+    (Act::Blink, GamepadButton::East),
+    (Act::Attack, GamepadButton::West),
+    (Act::Projectile, GamepadButton::North),
+    (Act::Utility, GamepadButton::LeftTrigger),
+    (Act::Shield, GamepadButton::LeftTrigger2),
+    (Act::Interact, GamepadButton::RightTrigger),
+    (Act::Burst, GamepadButton::RightTrigger2),
+    (Act::Map, GamepadButton::LeftThumb),
+    (Act::Modifier, GamepadButton::RightThumb),
+    (Act::Inventory, GamepadButton::Select),
+    (Act::Start, GamepadButton::Start),
+];
+
+/// The menu's buttons, on every pad and under every gameplay layout: A
+/// confirms, B backs out, the bumpers turn pages, the D-pad moves. A keyboard
+/// preset binds each to the key standing in for that button
+/// ([`KeyboardPreset::key_for_button`]): Jump's key confirms, Blink's backs
+/// out. Changing a menu control is one row here.
+#[cfg(feature = "input")]
+pub const MENU_BUTTONS: &[(Platformer2dInputActionMonolith, GamepadButton)] = &[
+    (Act::MenuSelect, GamepadButton::South),
+    (Act::MenuBack, GamepadButton::East),
+    (Act::MenuPageLeft, GamepadButton::LeftTrigger),
+    (Act::MenuPageRight, GamepadButton::RightTrigger),
+    (Act::MenuNavigateUp, GamepadButton::DPadUp),
+    (Act::MenuNavigateDown, GamepadButton::DPadDown),
+    (Act::MenuNavigateLeft, GamepadButton::DPadLeft),
+    (Act::MenuNavigateRight, GamepadButton::DPadRight),
+];
+
+/// The keyboard's own menu keys, beside each preset's stand-ins. Enter is
+/// also Start: outside the open menu it pauses, inside it confirms.
+#[cfg(feature = "input")]
+pub const KEYBOARD_MENU_KEYS: &[(Platformer2dInputActionMonolith, KeyCode)] = &[
+    (Act::MenuSelect, KeyCode::Enter),
+    (Act::MenuSelect, KeyCode::NumpadEnter),
+    (Act::MenuSelect, KeyCode::Space),
+    (Act::MenuBack, KeyCode::Escape),
+    (Act::MenuBack, KeyCode::Backspace),
+    (Act::MenuPageLeft, KeyCode::KeyQ),
+    (Act::MenuPageRight, KeyCode::KeyE),
+    (Act::MenuPageLeft, KeyCode::PageUp),
+    (Act::MenuPageRight, KeyCode::PageDown),
+    (Act::MenuNavigateUp, KeyCode::ArrowUp),
+    (Act::MenuNavigateDown, KeyCode::ArrowDown),
+    (Act::MenuNavigateLeft, KeyCode::ArrowLeft),
+    (Act::MenuNavigateRight, KeyCode::ArrowRight),
+];
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PresetId {
     ArrowsZxc,
@@ -362,70 +419,46 @@ impl KeyboardPreset {
             self.actions.dedicated_pogo,
         );
 
-        // Menu navigation. D-pad and arrow keys hit the same MenuNavigate* actions;
-        // The stick supplies repeat input. Space and configured confirm keys
-        // select. An open interface uses a shared Start/Select control as Select.
-        map.insert(
-            Platformer2dInputActionMonolith::MenuNavigateUp,
-            KeyCode::ArrowUp,
-        );
-        map.insert(
-            Platformer2dInputActionMonolith::MenuNavigateUp,
-            KeyCode::KeyW,
-        );
-        map.insert(
-            Platformer2dInputActionMonolith::MenuNavigateDown,
-            KeyCode::ArrowDown,
-        );
-        map.insert(
-            Platformer2dInputActionMonolith::MenuNavigateDown,
-            KeyCode::KeyS,
-        );
-        map.insert(
-            Platformer2dInputActionMonolith::MenuNavigateLeft,
-            KeyCode::ArrowLeft,
-        );
-        map.insert(
-            Platformer2dInputActionMonolith::MenuNavigateLeft,
-            KeyCode::KeyA,
-        );
-        map.insert(
-            Platformer2dInputActionMonolith::MenuNavigateRight,
-            KeyCode::ArrowRight,
-        );
-        map.insert(
-            Platformer2dInputActionMonolith::MenuNavigateRight,
-            KeyCode::KeyD,
-        );
+        self.insert_menu_keys(map);
+    }
 
-        // Enter selects in an interface and opens pause from gameplay.
-        map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::Enter);
-        map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::NumpadEnter);
-        map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::Space);
-        // Also accept the configured Jump and Interact keys as confirm, so dialogue
-        // and cutscene controls remain available.
-        map.insert(
-            Platformer2dInputActionMonolith::MenuSelect,
-            self.actions.jump,
-        );
-        map.insert(
-            Platformer2dInputActionMonolith::MenuSelect,
-            self.actions.interact,
-        );
+    /// The key this preset gives the role a standard-pad button plays: Jump's
+    /// key stands in for A, Blink's for B, the movement keys for the D-pad.
+    /// `None` for a button with no keyboard stand-in (shoulders, sticks).
+    #[cfg(feature = "input")]
+    pub fn key_for_button(&self, button: GamepadButton) -> Option<KeyCode> {
+        use Act as A;
+        let action = match button {
+            GamepadButton::DPadLeft => return Some(self.movement.left),
+            GamepadButton::DPadRight => return Some(self.movement.right),
+            GamepadButton::DPadUp => return Some(self.movement.up),
+            GamepadButton::DPadDown => return Some(self.movement.down),
+            _ => STANDARD_PAD.iter().find(|(_, b)| *b == button)?.0,
+        };
+        Some(match action {
+            A::Jump => self.actions.jump,
+            A::Blink => self.actions.secondary,
+            A::Attack => self.actions.attack,
+            A::Projectile => self.actions.projectile,
+            _ => return None,
+        })
+    }
 
-        map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::Escape);
-        map.insert(
-            Platformer2dInputActionMonolith::MenuBack,
-            KeyCode::Backspace,
-        );
-
-        // Paged-menu page turn: `MoveLeft`/`MoveRight` already own A/D, so
-        // paging uses Q/E.
-        map.insert(Platformer2dInputActionMonolith::MenuPageLeft, KeyCode::KeyQ);
-        map.insert(
-            Platformer2dInputActionMonolith::MenuPageRight,
-            KeyCode::KeyE,
-        );
+    /// The keyboard's menu controls: each menu button's stand-in key, and the
+    /// keyboard's own menu keys. A stand-in wins a key both claim (the
+    /// arrows+QWER preset jumps on Q, so Q confirms and does not turn a page),
+    /// and no key means two things inside a menu. The keyboard's own keys bind
+    /// first so a menu prompt names Enter and Esc.
+    #[cfg(feature = "input")]
+    fn insert_menu_keys(&self, map: &mut InputMap<Platformer2dInputActionMonolith>) {
+        let derived: Vec<_> = MENU_BUTTONS.iter()
+            .filter_map(|(role, button)| Some((*role, self.key_for_button(*button)?)))
+            .collect();
+        let own = KEYBOARD_MENU_KEYS.iter().copied()
+            .filter(|(_, key)| derived.iter().all(|(_, taken)| taken != key));
+        for (role, key) in own.chain(derived.iter().copied()) {
+            map.insert(role, key);
+        }
     }
 }
 
@@ -434,20 +467,8 @@ impl KeyboardPreset {
 /// Free-standing because it does not depend on the preset; the preset chooses
 /// keys. A second local seat has no preset and uses exactly this.
 ///
-/// The standard gamepad bindings:
-///   South        Jump, MenuSelect
-///   East         Blink, MenuBack
-///   West         Attack
-///   North        Projectile (fireball)
-///   LeftTrigger  Utility (fly toggle), MenuPageLeft
-///   LeftTrigger2 Shield
-///   RightTrigger Interact, MenuPageRight
-///   RightTrigger2 Burst
-///   LeftThumb    Map (click left stick)
-///   RightThumb   Modifier (toggle)
-///   Select       Inventory
-///   Start        Start (pause)
-///   DPad / sticks  Move + MenuNavigate, MenuStick, AimStick
+/// The buttons are [`STANDARD_PAD`] and [`MENU_BUTTONS`]; the D-pad and left
+/// stick also move, the left stick is the menu stick, and the right stick aims.
 #[cfg(feature = "input")]
 fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) {
     map.insert_dual_axis(Platformer2dInputActionMonolith::Move, VirtualDPad::dpad());
@@ -462,118 +483,28 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
     // the opposite direction. Leafwing's `LEFT_UP` defaults to threshold 0.0,
     // so a released down push would fire `MoveUp` and exit MorphBall on the
     // frame the player entered it.
-    map.insert(
-        Platformer2dInputActionMonolith::MoveLeft,
-        GamepadButton::DPadLeft,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::MoveLeft,
-        GamepadControlDirection::LEFT_LEFT.threshold(STICK_DIRECTION_THRESHOLD),
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::MoveRight,
-        GamepadButton::DPadRight,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::MoveRight,
-        GamepadControlDirection::LEFT_RIGHT.threshold(STICK_DIRECTION_THRESHOLD),
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::MoveUp,
-        GamepadButton::DPadUp,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::MoveUp,
-        GamepadControlDirection::LEFT_UP.threshold(STICK_DIRECTION_THRESHOLD),
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::MoveDown,
-        GamepadButton::DPadDown,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::MoveDown,
-        GamepadControlDirection::LEFT_DOWN.threshold(STICK_DIRECTION_THRESHOLD),
-    );
+    for (action, button, stick) in [
+        (Act::MoveLeft, GamepadButton::DPadLeft, GamepadControlDirection::LEFT_LEFT),
+        (Act::MoveRight, GamepadButton::DPadRight, GamepadControlDirection::LEFT_RIGHT),
+        (Act::MoveUp, GamepadButton::DPadUp, GamepadControlDirection::LEFT_UP),
+        (Act::MoveDown, GamepadButton::DPadDown, GamepadControlDirection::LEFT_DOWN),
+    ] {
+        map.insert(action, button);
+        map.insert(action, stick.threshold(STICK_DIRECTION_THRESHOLD));
+    }
 
-    map.insert(Platformer2dInputActionMonolith::Jump, GamepadButton::South);
-    map.insert(Platformer2dInputActionMonolith::Attack, GamepadButton::West);
-    map.insert(
-        Platformer2dInputActionMonolith::Burst,
-        GamepadButton::RightTrigger2,
-    );
-    map.insert(Platformer2dInputActionMonolith::Start, GamepadButton::Start);
-
-    map.insert(Platformer2dInputActionMonolith::Blink, GamepadButton::East);
-    map.insert(
-        Platformer2dInputActionMonolith::Shield,
-        GamepadButton::LeftTrigger2,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::Interact,
-        GamepadButton::RightTrigger,
-    );
     // No gamepad `Walk` binding. The analog left stick can already walk, and
     // every button is in use.
     //
     // Known gap: a D-pad-only player cannot walk. `Move` binds the D-pad too,
     // and the D-pad gives only 0 or 1.0, like the keyboard. A fix needs a free
     // button or a chord.
-    map.insert(
-        Platformer2dInputActionMonolith::Modifier,
-        GamepadButton::RightThumb,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::Utility,
-        GamepadButton::LeftTrigger,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::Map,
-        GamepadButton::LeftThumb,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::Inventory,
-        GamepadButton::Select,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::Projectile,
-        GamepadButton::North,
-    );
-
-    map.insert(
-        Platformer2dInputActionMonolith::MenuNavigateUp,
-        GamepadButton::DPadUp,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::MenuNavigateDown,
-        GamepadButton::DPadDown,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::MenuNavigateLeft,
-        GamepadButton::DPadLeft,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::MenuNavigateRight,
-        GamepadButton::DPadRight,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::MenuSelect,
-        GamepadButton::South,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::MenuBack,
-        GamepadButton::East,
-    );
-
-    // The bumpers are also gameplay Utility and Interact. Menu page actions are
-    // read only while a paged menu is open, so sharing the button is safe.
-    map.insert(
-        Platformer2dInputActionMonolith::MenuPageLeft,
-        GamepadButton::LeftTrigger,
-    );
-    map.insert(
-        Platformer2dInputActionMonolith::MenuPageRight,
-        GamepadButton::RightTrigger,
-    );
+    //
+    // The menu's buttons share pad buttons with gameplay. Menu actions are read
+    // only while a menu or interface is open, so sharing is safe.
+    for (action, button) in STANDARD_PAD.iter().chain(MENU_BUTTONS) {
+        map.insert(*action, *button);
+    }
 
     map.insert_dual_axis(
         Platformer2dInputActionMonolith::MenuStick,
@@ -639,11 +570,17 @@ pub fn key_name(key: KeyCode) -> &'static str {
         KeyCode::ArrowUp => "Up",
         KeyCode::ArrowDown => "Down",
         KeyCode::Space => "Space",
-        KeyCode::ShiftLeft => "LShift",
+        KeyCode::Enter => "Enter",
+        KeyCode::NumpadEnter => "Enter",
+        KeyCode::ShiftLeft | KeyCode::ShiftRight => "Shift",
+        KeyCode::ControlLeft | KeyCode::ControlRight => "Ctrl",
+        KeyCode::AltLeft | KeyCode::AltRight => "Alt",
         KeyCode::Tab => "Tab",
         KeyCode::Escape => "Esc",
         KeyCode::Delete => "Delete",
         KeyCode::Backspace => "Backspace",
+        KeyCode::PageUp => "PageUp",
+        KeyCode::PageDown => "PageDown",
         _ => "?",
     }
 }
@@ -686,6 +623,61 @@ mod tests {
                     assert!(!bindings.controls(&other).contains(&control));
                 }
             }
+        }
+    }
+
+    /// Every key a preset binds has a name, and so a published picture: the
+    /// glyph file is named by the key's label (`PhysicalControl::glyph_path`).
+    #[cfg(feature = "input")]
+    #[test]
+    fn every_bound_key_has_a_name_and_so_a_picture() {
+        use crate::{ActionBindings, PhysicalControl};
+        for preset in KeyboardPreset::presets() {
+            let bindings = ActionBindings::from_map(&preset.input_map());
+            for (action, controls) in bindings.all() {
+                for control in controls {
+                    if let PhysicalControl::Key(key) = control {
+                        assert_ne!(key_name(*key), "?", "{}: {action} binds {key:?}, which has no name", preset.name);
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "input")]
+    #[test]
+    fn a_menu_confirms_on_a_and_backs_out_on_b_and_their_keyboard_stand_ins() {
+        use crate::{ActionBindings, PhysicalControl};
+        use Platformer2dInputActionMonolith as A;
+        let key = |k| PhysicalControl::Key(k);
+        let pad = |b| PhysicalControl::Button(b);
+        for preset in KeyboardPreset::presets() {
+            let bindings = ActionBindings::from_map(&preset.input_map());
+            let select = bindings.controls(&A::MenuSelect);
+            let back = bindings.controls(&A::MenuBack);
+            for control in [key(preset.actions.jump), key(KeyCode::Enter), pad(GamepadButton::South)] {
+                assert!(select.contains(&control), "{}: {control:?} confirms", preset.name);
+            }
+            for control in [key(preset.actions.secondary), key(KeyCode::Escape), key(KeyCode::Backspace),
+                pad(GamepadButton::East)] {
+                assert!(back.contains(&control), "{}: {control:?} backs out", preset.name);
+            }
+            // Inside a menu no control means two things.
+            let roles = [A::MenuSelect, A::MenuBack, A::MenuPageLeft, A::MenuPageRight,
+                A::MenuNavigateUp, A::MenuNavigateDown, A::MenuNavigateLeft, A::MenuNavigateRight];
+            for (i, role) in roles.iter().enumerate() {
+                for control in bindings.controls(role) {
+                    for other in &roles[i + 1..] {
+                        assert!(!bindings.controls(other).contains(control),
+                            "{}: {control:?} is both {role:?} and {other:?}", preset.name);
+                    }
+                }
+            }
+            // A menu prompt names the keyboard's own keys.
+            assert_eq!(bindings.controls(&A::MenuSelect).iter().find(|c| matches!(c, PhysicalControl::Key(_))),
+                Some(&key(KeyCode::Enter)));
+            assert_eq!(bindings.controls(&A::MenuBack).iter().find(|c| matches!(c, PhysicalControl::Key(_))),
+                Some(&key(KeyCode::Escape)));
         }
     }
 

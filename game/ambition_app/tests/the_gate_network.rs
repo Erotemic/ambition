@@ -640,7 +640,8 @@ fn contextual_back_and_global_start_preserve_the_gate_in_both_menu_backends() {
             let world = app.world_mut();
             assert!(world.query::<&Name>().iter(world).any(|name| name.as_str() == "bevy_ui menu root"));
         }
-        tap(&mut app, KeyCode::Enter);
+        // Inside the menu Enter confirms; Back at its root closes it (Q184).
+        tap(&mut app, KeyCode::Escape);
         assert!(!open_menu(&mut app));
         assert_eq!(*app.world().resource::<State<GameMode>>().get(), GameMode::Playing);
         assert!(panel(&mut app));

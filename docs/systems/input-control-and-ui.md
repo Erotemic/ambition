@@ -102,18 +102,38 @@ Current responsibilities:
   tree through `DialogPresentationSet` (ADR 0028).
 
 In an Ambition session, Start opens or closes the unified inventory and
-System menu. Enter opens it from gameplay and confirms selections inside an
-interface. The opening press cannot also select an option. Space and the
-configured Jump and Interact controls also confirm. A dedicated Start, such
-as gamepad Start, still opens or closes the menu over an interface. Shared
-Start/Select controls follow this rule after remapping. Escape and gamepad B
-(the East button) are Back. Back opens
-the menu only when gameplay owns input or no interface claims it. A gate,
-dialogue, or cutscene keeps its own Back policy. A dialogue that forbids
-cancel ignores Back. Back inside the menu returns from a System page before
-it closes the menu; dedicated Start closes the whole menu.
-A Back control shared with gameplay, such as the default pad's Blink
-button, retains its gameplay action when no interface is open.
+System menu, from gameplay and over any interface: a player can always pause
+during a conversation, a cutscene or a terminal (Q184). The keyboard's Start
+is Enter, which is also Select: outside the open menu it pauses, and the
+opening press confirms nothing underneath; inside the menu it confirms. A
+dedicated Start, such as gamepad Start, also closes the menu.
+
+Menu controls are keyed by pad button and do not move with a gameplay layout
+(`presets::MENU_BUTTONS`): A confirms, B backs out, the bumpers turn pages,
+the D-pad moves. Each keyboard preset binds the key standing in for each
+button (`KeyboardPreset::key_for_button`): the Jump key confirms and the Blink
+key backs out. The keyboard's own keys sit beside them
+(`presets::KEYBOARD_MENU_KEYS`): Enter, numpad Enter and Space confirm, Escape
+and Backspace back out, Q/E and Page Up/Down turn pages, the arrows move. A
+stand-in wins a key both claim, so no key means two things inside a menu.
+Changing a menu control is one row in one of those tables.
+
+A prompt names a control as one `ambition_input::NamedControl`: its word,
+its published picture and the control itself, chosen once
+(`ActionBindings::named_for`, `confirm_named`, `back_named`). Dialogue boxes,
+control prompts, signs and touch buttons read that value, so the word and the
+picture cannot name different controls. Every drawn picture carries a
+`GlyphPress` (`ambition_render::control_glyphs`): while its control is held
+the picture sinks, shrinks and darkens, and it springs back on release. A
+keyboard key or pad button presses it from the device; a touch button
+presses its own picture.
+
+Back opens the menu only when gameplay owns input or no interface claims it.
+A gate, dialogue, or cutscene keeps its own Back policy. A dialogue that
+forbids cancel ignores Back. Back inside the menu returns from a System page
+before it closes the menu. A Back control shared with gameplay, such as the
+default pad's Blink button, retains its gameplay action when no interface is
+open.
 
 The open menu captures input above in-session interfaces and below developer
 and launcher interfaces. A gate terminal suspends its panel and pointer

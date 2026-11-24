@@ -99,6 +99,8 @@ pub struct AmbitionDialogUiPlugin;
 
 impl Plugin for AmbitionDialogUiPlugin {
     fn build(&self, app: &mut App) {
+        // The hint's control pictures press with their controls.
+        app.add_plugins(ambition_render::control_glyphs::GlyphPressPlugin);
         claim_dialog_presentation(app, PRESENTER_NAME);
         // The box's words and colours are the selected pack's
         // (`ambition_text.ron`, and `dialog_look` in `ambition_rules.ron`).
@@ -737,12 +739,15 @@ fn sync_ambition_dialog_ui(
                             let glyph_height = Val::Px((profile.hint_font_size * 1.6).round());
                             for (piece, glyph) in pieces.iter().zip(glyphs) {
                                 match (piece, glyph) {
-                                    (_, Some((image, path))) => {
-                                        footer.spawn((
+                                    (piece, Some((image, path))) => {
+                                        let mut glyph = footer.spawn((
                                             ImageNode::new(image),
                                             Node { height: glyph_height, margin: UiRect::horizontal(Val::Px(2.0)), flex_shrink: 0.0, ..default() },
                                             AmbitionDialogHintGlyph { path },
                                         ));
+                                        if let HintPiece::Control { press: Some(press), .. } = piece {
+                                            glyph.insert(*press);
+                                        }
                                     }
                                     (piece, None) => {
                                         let words = piece.words();
@@ -785,7 +790,12 @@ enum HintPiece {
     Words(String),
     /// The control's name (or the action's, when the seat names none) and
     /// its published picture's path.
-    Control { label: String, glyph: Option<String> },
+    Control {
+        label: String,
+        glyph: Option<String>,
+        /// What presses the drawn picture.
+        press: Option<ambition_render::control_glyphs::GlyphPress>,
+    },
 }
 
 impl HintPiece {
@@ -811,17 +821,15 @@ const CONTROL_MARK: char = '\u{E000}';
 /// box can draw its picture in its place.
 fn input_hint_pieces(dialogue: &DialogView, text: &ShownText) -> Vec<HintPiece> {
     let controls = &dialogue.controls;
-    let named = |control: &str, glyph: &Option<String>, action: &str| {
-        if control.is_empty() {
-            HintPiece::Control { label: text.line(action).to_owned(), glyph: None }
-        } else {
-            HintPiece::Control { label: control.to_owned(), glyph: glyph.clone() }
-        }
+    let named = |control: &Option<ambition_input::NamedControl>, action: &str| match control {
+        None => HintPiece::Control { label: text.line(action).to_owned(), glyph: None, press: None },
+        Some(control) => HintPiece::Control {
+            label: control.label.clone(),
+            glyph: control.glyph.clone(),
+            press: ambition_render::control_glyphs::GlyphPress::of(&control.control),
+        },
     };
-    let controls_named = [
-        named(&controls.confirm, &controls.confirm_glyph, "dialog.confirm"),
-        named(&controls.back, &controls.back_glyph, "dialog.back"),
-    ];
+    let controls_named = [named(&controls.confirm, "dialog.confirm"), named(&controls.back, "dialog.back")];
     let mark = |index: usize| format!("{CONTROL_MARK}{index}{CONTROL_MARK}");
     let (confirm, back) = (mark(0), mark(1));
     let key = if dialogue.controls.hold_to_skip {
@@ -1263,16 +1271,19 @@ mod tests {
     fn the_hint_names_each_control_as_a_piece_with_its_picture() {
         let text = lowered_ambition_text(crate::pack::shipped()).unwrap();
         let mut view = active_view();
+        let named = |label: &str, glyph: &str, button| Some(ambition_input::NamedControl {
+            label: label.into(),
+            glyph: Some(glyph.into()),
+            control: ambition_input::PhysicalControl::Button(button),
+        });
         view.controls = ambition_sim_view::DialogControls {
-            confirm: "A".into(),
-            back: "B".into(),
-            confirm_glyph: Some("sprites/input_glyphs/input_glyph_xbox_south.png".into()),
-            back_glyph: Some("sprites/input_glyphs/input_glyph_xbox_east.png".into()),
+            confirm: named("A", "sprites/input_glyphs/input_glyph_xbox_south.png", GamepadButton::South),
+            back: named("B", "sprites/input_glyphs/input_glyph_xbox_east.png", GamepadButton::East),
             hold_to_skip: false,
         };
         let pieces = input_hint_pieces(&view, &text);
         let controls: Vec<_> = pieces.iter().filter_map(|piece| match piece {
-            HintPiece::Control { label, glyph } => Some((label.as_str(), glyph.as_deref())),
+            HintPiece::Control { label, glyph, .. } => Some((label.as_str(), glyph.as_deref())),
             HintPiece::Words(_) => None,
         }).collect();
         assert_eq!(controls, [

@@ -60,10 +60,19 @@ fn wait(app: &mut App, frames: usize) {
     }
 }
 
-fn confirm(app: &mut App) {
+/// Interact (F): what starts a conversation beside the Creator.
+fn interact(app: &mut App) {
     Buttonlike::press(&KeyCode::KeyF, app.world_mut());
     app.update();
     Buttonlike::release(&KeyCode::KeyF, app.world_mut());
+    app.update();
+}
+
+/// The keyboard's stand-in for pad A (the default preset's Jump key, Z).
+fn confirm(app: &mut App) {
+    Buttonlike::press(&KeyCode::KeyZ, app.world_mut());
+    app.update();
+    Buttonlike::release(&KeyCode::KeyZ, app.world_mut());
     app.update();
 }
 
@@ -100,14 +109,14 @@ fn the_creators_cutscene_uses_one_press_per_shown_line() {
         let view = app.world().resource::<DialogView>();
         assert!(
             view.body.starts_with("Don't sit up fast."),
-            "{frame_hz} Hz: one F left {view:?}"
+            "{frame_hz} Hz: one confirm left {view:?}"
         );
         wait(&mut app, frame_hz as usize);
         confirm(&mut app);
         wait(&mut app, 12);
         assert!(
             !app.world().resource::<ActiveCutscene>().is_playing(),
-            "{frame_hz} Hz: the second F did not end the opening"
+            "{frame_hz} Hz: the second confirm did not end the opening"
         );
     }
 }
@@ -130,7 +139,7 @@ fn the_creators_conversation_reveals_and_advances_the_shown_text() {
     let player = alice(&mut app);
     put_body_at(&mut app, player, at);
     wait(&mut app, 10);
-    confirm(&mut app);
+    interact(&mut app);
     let mut bodies = Vec::new();
     for _ in 0..120 {
         let view = app.world().resource::<DialogView>();
@@ -152,7 +161,7 @@ fn the_creators_conversation_reveals_and_advances_the_shown_text() {
     let view = app.world().resource::<DialogView>();
     assert_ne!(
         view.body, before,
-        "F on a complete line did not change the view: {view:?}"
+        "confirm on a complete line did not change the view: {view:?}"
     );
     assert!(
         !view.option_labels.is_empty(),
@@ -171,7 +180,7 @@ fn talk_to_creator(app: &mut App) {
     let player = crate::neighbor_prefetch_prepares_rooms::alice(app);
     put_body_at(app, player, at);
     wait(app, 10);
-    confirm(app);
+    interact(app);
     wait(app, 120);
 }
 

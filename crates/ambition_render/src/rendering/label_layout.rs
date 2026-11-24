@@ -810,6 +810,8 @@ impl Plugin for WorldLabelLayoutPlugin {
             return;
         }
         app.insert_resource(WorldLabelLayoutInstalled);
+        // A sign's control pictures press with their controls.
+        app.add_plugins(crate::control_glyphs::GlyphPressPlugin);
         // `chain()` is required for its sync points. The mirror spawns copies and
         // re-keys roots through `Commands`; the placement pass then selects
         // labels by that key. Without the flush, copies place one frame late and a

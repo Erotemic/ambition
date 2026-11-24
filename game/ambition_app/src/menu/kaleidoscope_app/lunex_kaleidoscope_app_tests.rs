@@ -1127,12 +1127,19 @@ fn global_start_interrupts_contexts_and_closes_nested_pages_without_confirming()
             };
             tap(&mut app, KeyCode::Escape);
             assert!(!cube_is_open(&app), "{backend:?}: Back stays with {context:?}");
+            // Q184: Enter, the keyboard Start, pauses over any interface too,
+            // and the opening press confirms nothing in it.
             app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::Enter);
             app.update();
-            assert!(!cube_is_open(&app), "{context:?}: Enter stays with contextual selection");
-            assert!(app.world().resource::<ambition_platformer2d::input::SeatMenuFrames>().for_seat(0).select);
+            assert!(cube_is_open(&app), "{backend:?}: Enter opens over {context:?}");
+            assert!(!app.world().resource::<ambition_platformer2d::input::SeatMenuFrames>().for_seat(0).select,
+                "{context:?}: the opening press also confirmed");
             app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::Enter);
             app.update();
+            // Inside the menu Enter selects, so a dedicated Start closes it.
+            tap(&mut app, KeyCode::F13);
+            assert!(!cube_is_open(&app), "{backend:?}: Start closes the menu over {context:?}");
+            assert_eq!(cube_mode(&app), mode);
             tap(&mut app, KeyCode::F13);
             assert!(cube_is_open(&app), "{backend:?}: Start opens over {context:?}");
             assert_eq!(cube_mode(&app), GameMode::Paused);

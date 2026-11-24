@@ -45,18 +45,15 @@ impl Plugin for VisualQualityPlugin {
         app.add_systems(PostStartup, seed_visual_quality_from_adapter);
         app.add_systems(
             Update,
-            (
-                // On a change of the settings, or of the resolved tier (a
-                // write that is not the settings' is put back, as before).
-                sync_resolved_visual_quality.run_if(
-                    |settings: Option<Res<UserSettings>>, resolved: Res<ResolvedVisualQuality>| {
-                        settings.is_some_and(|settings| settings.is_changed()) || resolved.is_changed()
-                    },
-                ),
-                sync_raster_budget,
-            )
-                .chain(),
+            sync_resolved_visual_quality.run_if(
+                |settings: Option<Res<UserSettings>>, resolved: Res<ResolvedVisualQuality>| {
+                    settings.is_some_and(|settings| settings.is_changed()) || resolved.is_changed()
+                },
+            ),
         );
+        // Update creates window cameras. Give each camera the shared sample
+        // count before camera preparation and render extraction.
+        app.add_systems(PostUpdate, sync_raster_budget.before(bevy::camera::CameraUpdateSystems));
         // The render half of an MSAA change: see the system.
         if let Some(render_app) = app.get_sub_app_mut(bevy::render::RenderApp) {
             render_app.add_systems(
@@ -302,9 +299,36 @@ fn respecialize_views_after_an_msaa_change(
 
 /// The hardware seed against the schedule that actually runs it.
 ///
-/// Integration tests on purpose. `seed_from_hardware` has unit tests beside
-/// the tiers, but those pass whether or not the seed reaches a real settings
-/// file. The risk here is ordering, which only the real schedule shows.
+#[cfg(test)]
+mod raster_schedule_tests {
+    use super::*;
+
+    #[test]
+    fn a_late_window_overlay_shares_the_quality_of_the_first_frame() {
+        fn add_overlay(mut commands: Commands) {
+            commands.spawn((Camera2d, Camera {
+                order: 7, clear_color: bevy::camera::ClearColorConfig::None, ..default()
+            }, Msaa::Sample4, Name::new("late overlay")));
+        }
+        let mut app = App::new();
+        let mut settings = UserSettings::default();
+        settings.video.quality.profile = VisualQualityProfile::Medium;
+        app.insert_resource(settings);
+        app.add_plugins(VisualQualityPlugin);
+        app.world_mut().spawn((Camera2d, Msaa::Sample4, Name::new("world")));
+        // The overlay is added after any Update budget pass.
+        app.add_systems(Update, add_overlay.after(sync_raster_budget).run_if(run_once));
+        app.update();
+        let expected = app.world().resource::<ResolvedVisualQuality>().budget.raster.sanitized_msaa_samples();
+        let cameras = crate::rendering::window_camera_stack::window_cameras(app.world_mut());
+        assert_eq!(cameras.len(), 2);
+        assert!(cameras.iter().all(|camera| camera.key.msaa == u32::from(expected)), "{cameras:#?}");
+        let mismatches = crate::rendering::window_camera_stack::incompatible_window_stacks(cameras);
+        assert!(mismatches.is_empty(), "{mismatches:#?}");
+    }
+}
+
+/// The settings seed must reach the saved file through the real schedule.
 #[cfg(test)]
 mod seed_schedule_tests {
     use super::*;

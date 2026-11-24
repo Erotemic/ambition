@@ -1688,9 +1688,14 @@ fn intro(inv: &mut Invocation<'_>, c: &mut Conductor, wolf: &BossConduct, b: Bod
         None => wolf.side,
     };
     if was < 0.0 {
-        // Woken: he is turned to whoever woke him. His slab is here.
-        side = face(at.x);
+        // Woken. His slab is here.
         c.leap_from = at.x;
+    }
+    if crossed(ROAR_AT) {
+        // On his feet, he turns to whoever woke him, as he roars. On his
+        // slab he lies as he lay: a body lying down does not turn over to
+        // face you (Jon, 2026-11-24).
+        side = face(at.x);
     }
     let slab_x = if t < LEAP_AT { at.x } else { c.leap_from };
     let coils = coils_of(b, slab_x, hall.floor);

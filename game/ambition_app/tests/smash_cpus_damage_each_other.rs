@@ -89,10 +89,12 @@ fn rung() -> u8 {
 /// brain for months.
 ///
 /// ✔ Checked against `brain_builders::enemy_default_brain` 2026-09-10: the
-/// builder's own match is 1:1 across all nine template variants.
+/// builder's own match is 1:1 across all ten template variants (TurnToVisitors
+/// added 2026-11-24).
 fn expected_brain_label(template: CharacterBrainTemplate) -> &'static str {
     match template {
         CharacterBrainTemplate::StandStill => "stand_still",
+        CharacterBrainTemplate::TurnToVisitors => "turn_to_visitors",
         CharacterBrainTemplate::Wanderer => "wanderer",
         CharacterBrainTemplate::MeleeBrute => "melee_brute",
         CharacterBrainTemplate::Skirmisher => "skirmisher",

@@ -7,7 +7,9 @@
 //! ([`super::pet`]), the conversation walks its initiator to a mark: here,
 //! [`TALK_GAP`] from the other body's side: on the initiator's own side, or
 //! on the other side when only that one is safe. The other body turns to face
-//! it and waits, held by the conversation.
+//! it and waits, held by the conversation. A body whose brain stands without
+//! turning (`StandStill`, not opted in to turning) keeps its facing: it may
+//! lie on a bench, or have no `turnaround` row (Jon, 2026-11-24).
 //!
 //! ⭐ THE STEP IS OPTIONAL, THE CONVERSATION IS NOT. The box opens on the
 //! press whatever this decides. The initiator does not move when the mark is
@@ -84,8 +86,14 @@ pub fn space_the_talkers(
     pets: Query<(), With<super::PetBeat>>,
     mut spacings: Query<(Entity, &mut TalkSpacing)>,
     mut bodies: Query<&mut BodyKinematics>,
+    talkers: Query<(Option<&ambition_characters::brain::Brain>, Has<ambition_characters::control::DrivingParticipant>)>,
     freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
+    // A body a participant drives turns to talk, whatever brain it holds (a
+    // match seat holds a `StandStill`); another turns as its brain says.
+    let turns = |body: Entity| {
+        talkers.get(body).is_ok_and(|(brain, driven)| driven || brain.is_none_or(|brain| brain.turns_to_talk()))
+    };
     // Each live conversation's pair: every seat talks in its own.
     let pairs: Vec<(Entity, Entity)> = conversation
         .as_deref()
@@ -128,8 +136,12 @@ pub fn space_the_talkers(
             if super::pet::stop_where_it_stands(&poses, initiator, &mut initiator_kin, frame.down).is_err() { continue; }
             spacing.walking = 0.0;
             commands.entity(initiator).remove::<CommandedMove>();
-            initiator_kin.facing = -spacing.side;
-            other_kin.facing = spacing.side;
+            if turns(initiator) {
+                initiator_kin.facing = -spacing.side;
+            }
+            if turns(other) {
+                other_kin.facing = spacing.side;
+            }
             continue;
         }
         // The conversation has just opened.
@@ -184,8 +196,12 @@ pub fn space_the_talkers(
         } else {
             0.0
         };
-        other_kin.facing = side;
-        initiator_kin.facing = -side;
+        if turns(other) {
+            other_kin.facing = side;
+        }
+        if turns(initiator) {
+            initiator_kin.facing = -side;
+        }
         commands.entity(initiator).insert(TalkSpacing {
             mark,
             side,

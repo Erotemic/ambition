@@ -29,8 +29,14 @@ pub use roam::{RoamCfg, RoamState};
 /// A reusable AI policy + its per-actor runtime state.
 #[derive(Clone, Debug)]
 pub enum StateMachineCfg {
-    /// No motion. Used by static NPCs and sandbag-style targets.
+    /// No motion, and no turning: the body keeps the facing it has. Used by
+    /// static NPCs and sandbag-style targets.
     StandStill,
+    /// No motion, but the body turns to a visitor near it. A body opts in to
+    /// this: a body in a still pose (lying on a bench) or with no
+    /// `turnaround` row would snap round, so turning is not the default
+    /// (Jon, 2026-11-24).
+    TurnToVisitors,
     /// `aggressiveness` controls engagement.
     Patrol { cfg: PatrolCfg, state: PatrolState },
     /// Move forward in `actor_facing`. Drives the puppy slug today. Surface
@@ -93,12 +99,19 @@ pub enum StateMachineCfg {
 }
 
 impl StateMachineCfg {
+    /// Whether the body turns to face whoever talks to it. A body that stands
+    /// and has not opted in to turning ([`Self::StandStill`]) keeps its
+    /// facing in a conversation too; a body that moves turns as it moves.
+    pub fn turns_to_talk(&self) -> bool {
+        !matches!(self, Self::StandStill)
+    }
+
     /// Is this brain currently hostile? Used by debug tooling and
     /// the EFFECTS-stage attack gate for the (rare) case where a
     /// brain has melee capability but is in a peaceful sub-state.
     pub fn is_hostile(&self) -> bool {
         match self {
-            Self::StandStill => false,
+            Self::StandStill | Self::TurnToVisitors => false,
             Self::Patrol { cfg, .. } => cfg.aggressiveness > 0.0,
             Self::Wanderer { cfg, .. } => cfg.aggressiveness > 0.0,
             Self::MeleeBrute { cfg, .. } => cfg.aggressiveness > 0.0,
@@ -141,6 +154,9 @@ impl StateMachineCfg {
             // `tick_stand_still(out)` takes no snapshot AT ALL — the strongest
             // evidence available, and the case increment 1 exists for.
             Self::StandStill => Need::None,
+            // Reads `target_pos` with no foe, which is then where the player
+            // is: the snapshot fills it whatever the belief holds.
+            Self::TurnToVisitors => Need::None,
             // Steers by wall contact and its own facing; names no target.
             Self::Wanderer { .. } => Need::None,
 
@@ -178,7 +194,8 @@ pub fn tick_simple_state_machine(
         return true;
     }
     match sm {
-        StateMachineCfg::StandStill => tick_stand_still(snapshot, out),
+        StateMachineCfg::StandStill => *out = crate::actor::control::ActorControlFrame::neutral(),
+        StateMachineCfg::TurnToVisitors => tick_turn_to_visitors(snapshot, out),
         StateMachineCfg::Patrol { cfg, state } => tick_patrol(cfg, state, snapshot, out),
         StateMachineCfg::Wanderer { cfg } => tick_wanderer(cfg, snapshot, out),
         StateMachineCfg::MeleeBrute { cfg, state } => tick_melee_brute(cfg, state, snapshot, out),
@@ -197,7 +214,7 @@ pub fn tick_simple_state_machine(
     true
 }
 
-// ===== StandStill =====
+// ===== TurnToVisitors =====
 
 /// How near a visitor is when a body that stands turns to it (px).
 pub const STAND_TURN_RADIUS: f32 = 150.0;
@@ -208,6 +225,8 @@ pub const STAND_TURN_RADIUS: f32 = 150.0;
 /// Jon, 2026-10-13: "maybe they turn to face the player ... Not every
 /// character should do this, very large characters like the mockingbird
 /// probably should not turn to face the player." A person is 13 to 22 wide.
+/// Jon, 2026-11-24: a body turns only when it opts in
+/// ([`StateMachineCfg::TurnToVisitors`]).
 pub const STAND_TURN_MAX_HALF_WIDTH: f32 = 48.0;
 
 /// Stand. A body that is not very large turns to the one who is near it; it
@@ -217,7 +236,7 @@ pub const STAND_TURN_MAX_HALF_WIDTH: f32 = 48.0;
 /// target (`target_alive` is false), and `target_pos` is then where the
 /// player is: the visitor a peaceful body turns to. With no player it is the
 /// body's own place, and the body keeps its facing.
-fn tick_stand_still(snapshot: &BrainSnapshot, out: &mut crate::actor::control::ActorControlFrame) {
+fn tick_turn_to_visitors(snapshot: &BrainSnapshot, out: &mut crate::actor::control::ActorControlFrame) {
     *out = crate::actor::control::ActorControlFrame::neutral();
     let to_target = snapshot.target_delta_local();
     if snapshot.actor_half_width <= STAND_TURN_MAX_HALF_WIDTH && to_target.x.abs().max(to_target.y.abs()) <= STAND_TURN_RADIUS {

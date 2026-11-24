@@ -157,6 +157,13 @@ impl Brain {
         sm.perception_requirement()
     }
 
+    /// Whether the body turns to face whoever talks to it
+    /// ([`StateMachineCfg::turns_to_talk`]).
+    pub fn turns_to_talk(&self) -> bool {
+        let Self::StateMachine(sm) = self;
+        sm.turns_to_talk()
+    }
+
     pub fn stand_still() -> Self {
         Self::StateMachine(StateMachineCfg::StandStill)
     }
@@ -251,6 +258,7 @@ impl Brain {
         match self {
             Brain::StateMachine(cfg) => match cfg {
                 StateMachineCfg::StandStill => "stand_still",
+                StateMachineCfg::TurnToVisitors => "turn_to_visitors",
                 StateMachineCfg::Patrol { .. } => "patrol",
                 StateMachineCfg::Wanderer { .. } => "wanderer",
                 StateMachineCfg::MeleeBrute { .. } => "melee_brute",
@@ -293,6 +301,7 @@ impl Brain {
         match (self, other) {
             (Brain::StateMachine(a), Brain::StateMachine(b)) => match (a, b) {
                 (C::StandStill, C::StandStill) => true,
+                (C::TurnToVisitors, C::TurnToVisitors) => true,
                 (C::Patrol { cfg: x, .. }, C::Patrol { cfg: y, .. }) => x == y,
                 (C::Wanderer { cfg: x }, C::Wanderer { cfg: y }) => x == y,
                 (C::MeleeBrute { cfg: x, .. }, C::MeleeBrute { cfg: y, .. }) => x == y,
@@ -493,8 +502,12 @@ mod tests;
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum CharacterBrainTemplate {
     /// No motion / no AI — the actor only reacts to events (sandbag's
-    /// PunchWeak counter, dialogue-only NPCs that become hostile).
+    /// PunchWeak counter, dialogue-only NPCs that become hostile). It keeps
+    /// its facing.
     StandStill,
+    /// Stand, and turn to a visitor who comes near. Opt-in: see
+    /// [`StateMachineCfg::TurnToVisitors`].
+    TurnToVisitors,
     /// Surface-walking idle wanderer.
     Wanderer,
     /// Approach-then-strike melee policy. Variety comes from the

@@ -83,6 +83,7 @@ fn lower_policy(
 ) -> Brain {
     match policy.template {
         CharacterBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
+        CharacterBrainTemplate::TurnToVisitors => Brain::StateMachine(StateMachineCfg::TurnToVisitors),
         CharacterBrainTemplate::Fighter => {
             let level = policy.fighter_level;
             let mut cfg = ambition_characters::brain::fighter::FighterCfg::new(

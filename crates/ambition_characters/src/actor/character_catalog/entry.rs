@@ -1036,7 +1036,10 @@ impl CharacterCatalogEntry {
 /// NPC's actual spawn-X at runtime.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum BrainPreset {
+    /// Stand; keep the facing it has.
     StandStill,
+    /// Stand, and turn to a visitor who comes near (opt-in).
+    TurnToVisitors,
     Patrol {
         spawn_local_x: f32,
         radius: f32,

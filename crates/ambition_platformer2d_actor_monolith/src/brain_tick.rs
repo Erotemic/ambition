@@ -109,6 +109,7 @@ fn tick_brain_with_view(
             )
         }
         StateMachineCfg::StandStill
+        | StateMachineCfg::TurnToVisitors
         | StateMachineCfg::Patrol { .. }
         | StateMachineCfg::Wanderer { .. }
         | StateMachineCfg::MeleeBrute { .. }

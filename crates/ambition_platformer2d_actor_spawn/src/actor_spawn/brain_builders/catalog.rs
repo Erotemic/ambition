@@ -48,6 +48,7 @@ pub fn build_brain_from_preset(
 pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
     let cfg = match preset {
         BrainPreset::StandStill => return Brain::StateMachine(StateMachineCfg::StandStill),
+        BrainPreset::TurnToVisitors => return Brain::StateMachine(StateMachineCfg::TurnToVisitors),
         BrainPreset::Patrol {
             spawn_local_x,
             radius,

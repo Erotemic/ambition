@@ -1,6 +1,62 @@
 use super::*;
 use ambition_characters::perception::PerceptionMemory;
 
+fn reach_moveset(reach: f32) -> ambition_combat::moveset::ActorMoveset {
+    use ambition_entity_catalog::{MovesetContract, VolumeShape, WindowTag};
+    let mut spec = ambition_characters::moveset_prefabs::simple_melee(&Default::default());
+    for window in &mut spec.windows {
+        if matches!(window.tag, WindowTag::Active) {
+            for volume in &mut window.volumes {
+                volume.shape = VolumeShape::Rect { offset: (reach - 1.0, 0.0), half_extents: (1.0, 1.0) };
+            }
+        }
+    }
+    ambition_combat::moveset::ActorMoveset(MovesetContract {
+        verbs: [("attack".into(), spec.id.clone())].into(),
+        moves: vec![spec],
+    })
+}
+
+fn reach_app(count: usize) -> (bevy::prelude::App, Vec<bevy::prelude::Entity>) {
+    use ambition_characters::actor::{BodyHealth, Health};
+    use bevy::prelude::*;
+    let mut app = App::new();
+    app.init_resource::<PerceptionPeers>().add_systems(Update, collect_perception_peers);
+    let actors = (0..count).map(|i| app.world_mut().spawn((
+        ambition_combat::components::FeatureId::new(format!("actor_{i}")),
+        ae::BodyKinematics::default(), BodyHealth::new(Health::new(5)), ActorFaction::Npc,
+        reach_moveset(30.0 + i as f32),
+    )).id()).collect();
+    (app, actors)
+}
+
+#[test]
+fn perceived_reach_follows_repertoire_changes_and_body_membership() {
+    use ambition_combat::moveset::ActorMoveset;
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    let (mut app, actors) = reach_app(2);
+    let [alice, bob] = actors[..] else { unreachable!() };
+    for _ in 0..3 { app.update(); }
+    assert_eq!(app.world().resource::<PerceptionPeers>().peer(alice).unwrap().threat_reach, Some(30.0));
+    app.world_mut().get_mut::<ActorMoveset>(alice).unwrap().0 = reach_moveset(85.0).0;
+    app.update();
+    assert_eq!(app.world().resource::<PerceptionPeers>().peer(alice).unwrap().threat_reach, Some(85.0));
+    app.world_mut().entity_mut(alice).insert(InRoomInstance(LiveRoomInstance::ACTIVATION.next()));
+    app.world_mut().entity_mut(bob).insert(InRoomInstance(LiveRoomInstance::ACTIVATION));
+    for _ in 0..3 {
+        app.update();
+        let peers = app.world().resource::<PerceptionPeers>();
+        assert_eq!(peers.peer(alice).unwrap().threat_reach, Some(85.0));
+        assert_eq!(peers.peer(bob).unwrap().threat_reach, Some(31.0));
+    }
+    app.world_mut().entity_mut(bob).remove::<ActorMoveset>();
+    app.world_mut().despawn(alice);
+    app.update();
+    let peers = app.world().resource::<PerceptionPeers>();
+    assert!(peers.peer(alice).is_none());
+    assert_eq!(peers.peer(bob).unwrap().threat_reach, None);
+}
+
 fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
     PerceptionBody {
         launch_law: Default::default(),

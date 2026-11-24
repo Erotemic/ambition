@@ -62,7 +62,7 @@ fn the_act_three_profile_runs_through_a_portal_and_repeats_act_three() {
         };
         assert_eq!(room.id, DARKNESS_ROOM_ID);
         let seen = app.world().resource::<Progress>();
-        if seen.portals > 0 && seen.clears > 0 && seen.replays > 0 {
+        if seen.portals >= 2 && seen.clears > 0 && seen.replays >= 2 {
             finished = true;
             break;
         }

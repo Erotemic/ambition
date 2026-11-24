@@ -407,10 +407,11 @@ pub fn collect_perception_peers(
         // The body's own frame: its facing and its swing are along it.
         Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
         // Its repertoire: how far it threatens before it swings.
-        Option<&ambition_combat::moveset::ActorMoveset>,
+        Option<bevy::prelude::Ref<ambition_combat::moveset::ActorMoveset>>,
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
+    use bevy::prelude::DetectChanges;
     let mut count = 0;
     for (
         entity,
@@ -452,6 +453,16 @@ pub fn collect_perception_peers(
             );
             continue;
         };
+        // Reuse the same body's reach until its repertoire changes. Query and
+        // room order can change, so a retained row must match the entity.
+        let threat_reach = moveset.as_ref().and_then(|moveset| {
+            if !moveset.is_changed() {
+                if let Some(previous) = peers.rows.get(count).filter(|peer| peer.entity == entity) {
+                    return previous.threat_reach;
+                }
+            }
+            threat_reach_of(Some(moveset))
+        });
         let swing = melee.swing();
         let (phase, phase_remaining) = body_phase(combat, swing.as_ref(), shield);
         let team = team.map(|team| {
@@ -483,7 +494,7 @@ pub fn collect_perception_peers(
             phase,
             phase_remaining,
             attack_reach: attack_reach_of(melee.playback),
-            threat_reach: threat_reach_of(moveset),
+            threat_reach,
             tumbling: facts.is_some_and(|f| f.tumbling),
             // HANGING, not climbing: a body already pulling itself up has left
             // the edge, which is the same distinction `resolve_ledge_trumps`

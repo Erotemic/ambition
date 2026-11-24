@@ -102,6 +102,10 @@ impl SnapshotState for crate::PlayerProjectileState {
         put_bool(out, self.charging.is_some());
         if let Some(charging) = self.charging {
             put_f32(out, charging);
+            put_bool(out, self.charge_driver.is_some());
+            if let Some(seat) = self.charge_driver {
+                put_u8(out, seat);
+            }
         }
         put_bool(out, self.buffered.is_some());
         if let Some(shot) = self.buffered {
@@ -141,7 +145,13 @@ impl SnapshotState for crate::PlayerProjectileState {
             medium_after: r.f32()?,
             heavy_after: r.f32()?,
         };
-        let charging = if r.bool()? { Some(r.f32()?) } else { None };
+        let (charging, charge_driver) = if r.bool()? {
+            let held = r.f32()?;
+            let driver = if r.bool()? { Some(r.u8()?) } else { None };
+            (Some(held), driver)
+        } else {
+            (None, None)
+        };
         let buffered = if r.bool()? {
             Some(crate::state::BufferedShot {
                 kind: crate::ProjectileKind::decode(r)?,
@@ -163,6 +173,7 @@ impl SnapshotState for crate::PlayerProjectileState {
             unlocked,
             charge_tuning,
             charging,
+            charge_driver,
             buffered,
         })
     }

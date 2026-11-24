@@ -531,3 +531,51 @@ fn an_autonomous_fire_intent_on_a_charge_body_fires_one_fireball() {
         "one fire intent is one uncharged shot"
     );
 }
+
+/// IN5: a pending charge belongs to the supply that began it. A possession
+/// leaves the home body undriven mid-charge; when the seat comes back, its
+/// release no longer belongs to that charge, so it is withdrawn without a
+/// shot. The control holds the same charge through the same ticks with the
+/// driver never leaving, and its release fires.
+#[test]
+fn a_charge_whose_driver_left_is_withdrawn_without_a_shot() {
+    use ambition_characters::control::{DrivingParticipant, PlayerSlot};
+    for driver_leaves in [false, true] {
+        let mut app = min_app();
+        let body = super::primary_player_entity(&mut app);
+        shape_primary(&mut app, |frame| {
+            frame.projectile_pressed = true;
+            frame.projectile_held = true;
+        });
+        advance_time(&mut app, 0.016);
+        app.update();
+        assert!(crate::projectile_tests::projectile_state_ref(&app).charging.is_some());
+
+        if driver_leaves {
+            app.world_mut().entity_mut(body).remove::<DrivingParticipant>();
+        }
+        shape_primary(&mut app, |frame| {
+            frame.projectile_pressed = false;
+            frame.projectile_held = true;
+        });
+        advance_time(&mut app, 0.016);
+        app.update();
+        if driver_leaves {
+            app.world_mut().entity_mut(body).insert(DrivingParticipant(PlayerSlot::PRIMARY));
+        }
+
+        shape_primary(&mut app, |frame| {
+            frame.projectile_held = false;
+            frame.projectile_released = true;
+        });
+        advance_time(&mut app, 0.016);
+        app.update();
+        let shots = crate::projectile_tests::projectile_kinds(&mut app);
+        if driver_leaves {
+            assert!(shots.is_empty(), "a withdrawn charge fires nothing; got {shots:?}");
+            assert!(crate::projectile_tests::projectile_state_ref(&app).charging.is_none());
+        } else {
+            assert_eq!(shots, vec![Some(ProjectileKind::Fireball)], "the control's release fires");
+        }
+    }
+}

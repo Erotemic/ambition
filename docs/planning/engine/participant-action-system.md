@@ -674,7 +674,17 @@ be described as carrying provenance they never recorded.
 
 The accepted driving relation supplies body/participant ownership, but a
 query after replacement only identifies the new driver.
-`PlayerProjectileState.charging` currently retains no initiating driver.
+**Driver handoff landed 2026-11-24.** `PlayerProjectileState` retains the
+initiating seat beside the charge (`charge_driver`, rollback-encoded,
+schema 538). `charge_projectile_input` withdraws a pending charge without a
+shot when the body's `DrivingParticipant` is no longer that seat, before
+reading the tick's press, so a fresh press starts a new charge for the new
+driver. A body that nobody drove when it began charging keeps the charge
+while still undriven. Guard:
+`a_charge_whose_driver_left_is_withdrawn_without_a_shot` (a possession gap
+before the release fires nothing; the control without the gap fires). Still
+open: UI/focus capture (the supply-interruption fact above, with IN1) and
+the same-body binding replacement below. The original rule:
 Withdraw the old pending charge at the existing relation removal/replacement
 cut, or retain the bounded prior ownership needed by its native owner.
 Preserve that necessary continuation through rollback; do not equate

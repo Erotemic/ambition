@@ -617,10 +617,8 @@ pub struct PortalViewRig {
     blend: f32,
     /// The shape the window is drawn with, eased toward its plan's.
     shown: WindowShape,
-    /// Keep-alive for the offscreen target (also referenced by the camera's
-    /// `RenderTarget` and the window material; held here so the rig owns its
-    /// asset lifetime explicitly).
-    _image: Handle<Image>,
+    /// Size of the allocated target. Zero until the first capture.
+    target_size: UVec2,
     mesh: Handle<Mesh>,
     cone: Entity,
     /// The capture its texture holds, where it was taken: what the window
@@ -910,6 +908,15 @@ pub struct ConeRigAssets<'w> {
     materials: ResMut<'w, Assets<ColorMaterial>>,
 }
 
+fn capture_image(images: &mut Assets<Image>, size: UVec2) -> Handle<Image> {
+    let mut target = Image::new_uninit(
+        Extent3d { width: size.x, height: size.y, depth_or_array_layers: 1 },
+        TextureDimension::D2, TextureFormat::Rgba8UnormSrgb, default(),
+    );
+    target.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT;
+    images.add(target)
+}
+
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn sync_portal_view_cones(
     mut commands: Commands,
@@ -929,6 +936,7 @@ pub fn sync_portal_view_cones(
         &mut Transform,
         &mut Projection,
         &mut Camera,
+        &mut RenderTarget,
         &mut RenderLayers,
     )>,
     mut cones: Query<&mut Transform, (With<PortalConeMesh>, Without<PortalViewRig>)>,
@@ -1005,7 +1013,7 @@ pub fn sync_portal_view_cones(
     // gone / it needs a full rebuild.
     let mut served: Vec<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, PortalChannel)> =
         Vec::new();
-    for (entity, mut rig, mut cam_tf, mut proj, mut cam, mut layers) in &mut rigs {
+    for (entity, mut rig, mut cam_tf, mut proj, mut cam, mut target, mut layers) in &mut rigs {
         let Some(eye) = eyes.iter().find(|eye| eye.placement.room == rig.room) else {
             retire_rig(&mut commands, entity, &rig);
             continue;
@@ -1048,12 +1056,12 @@ pub fn sync_portal_view_cones(
             continue;
         }
         served.push((rig.room, rig.channel));
-        *layers = capture_render_layers(
+        layers.set_if_neq(capture_render_layers(
             effective.recursion_depth,
             rig.parallax_layer,
             &windows_a_capture_may_see(all, &portal, &partner, room_band),
             room_band,
-        );
+        ));
         sync_cone_material_tint(&cone_materials, materials, rig.cone, config.tint);
 
         let plan = compute_cone(&portal, &partner, &config, viewer, frame.size, convention);
@@ -1160,22 +1168,23 @@ pub fn sync_portal_view_cones(
                 let at_seam =
                     portal_at_seam(viewer, portal.pos) || portal_at_seam(viewer, partner.pos);
                 cam.is_active = at_seam || active_captures < effective.max_active_captures;
-                // The window samples the capture its texture holds: the one
-                // taken now, or the last one, where it was taken. So a
-                // capture that waits is an older picture in its place, not
-                // a picture that slides with the window.
-                let shown = match rig.captured {
-                    Some(held) if !cam.is_active => held,
-                    _ => r.capture,
-                };
-                if shown != r.capture {
-                    r.uvs = r.mapped_source_vertices.iter().map(|m| shown.uv(*m)).collect();
-                }
-                if let Some(mut mesh) = meshes.get_mut(&rig.mesh) {
-                    apply_mesh(&mut mesh, &r);
-                    rig.drawn = true;
-                }
+                let uncropped_center = r.capture.center;
                 if cam.is_active {
+                    let size = if capture_frame.is_some() {
+                        r.crop_capture(rebuild.tex, rig.target_size)
+                    } else {
+                        rebuild.tex
+                    };
+                    if size != rig.target_size {
+                        let image = capture_image(images, size);
+                        *target = RenderTarget::Image(ImageRenderTarget::from(image.clone()));
+                        if let Ok(handle) = cone_materials.get(rig.cone) {
+                            if let Some(mut material) = materials.get_mut(&handle.0) {
+                                material.texture = Some(image);
+                            }
+                        }
+                        rig.target_size = size;
+                    }
                     active_captures += 1;
                     rig.captured = Some(r.capture);
                     cam_tf.translation = frame.to_render(r.capture.center, 0.0);
@@ -1186,6 +1195,15 @@ pub fn sync_portal_view_cones(
                             height: r.capture.size.y,
                         };
                     }
+                } else if let Some(held) = rig.captured {
+                    // Sample the last capture in its original position.
+                    r.sample_capture(held);
+                } else {
+                    continue;
+                }
+                if let Some(mut mesh) = meshes.get_mut(&rig.mesh) {
+                    apply_mesh(&mut mesh, &r);
+                    rig.drawn = true;
                 }
                 rig.parallax_anchor = frame
                     .to_render(
@@ -1195,7 +1213,7 @@ pub fn sync_portal_view_cones(
                             &exit,
                             convention,
                         )
-                        .unwrap_or(r.capture.center),
+                        .unwrap_or(uncropped_center),
                         0.0,
                     )
                     .truncate();
@@ -1245,12 +1263,6 @@ pub fn sync_portal_view_cones(
             ),
             recursion_depth: effective.recursion_depth,
         };
-        let mut target = Image::new_uninit(
-            Extent3d { width: rebuild.tex.x, height: rebuild.tex.y, depth_or_array_layers: 1 },
-            TextureDimension::D2, TextureFormat::Rgba8UnormSrgb, default(),
-        );
-        target.texture_descriptor.usage = TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT;
-        let image = images.add(target);
         let plan = compute_cone(portal, &partner, &config, viewer, frame.size, convention);
         // A rig that is built again goes on from the blend it had. A window
         // that is new opens with the ease, from nothing or from its partner.
@@ -1280,7 +1292,7 @@ pub fn sync_portal_view_cones(
         let opened = if plan.target > 0.0 { (blend / plan.target).clamp(0.0, 1.0) } else { 0.0 };
         let cone = (!shown.is_shut()).then(|| shown.flushed(plan.flush * opened, reach).cone(&enter, &exit, convention));
         let (z, pane_dominant) = pane_z(&config, viewer, portal, &partner, None);
-        let render = cone.as_ref().and_then(|cone| {
+        let mut render = cone.as_ref().and_then(|cone| {
             cone_render(
                 cone,
                 &enter,
@@ -1294,6 +1306,19 @@ pub fn sync_portal_view_cones(
                 convention,
             )
         });
+        // A rig waits for its first capture before it draws a window.
+        let at_seam = portal_at_seam(viewer, portal.pos) || portal_at_seam(viewer, partner.pos);
+        if !at_seam && active_captures >= effective.max_active_captures {
+            render = None;
+        }
+        let target_size = render.as_mut().map_or(UVec2::ZERO, |r| {
+            if capture_frame.is_some() {
+                r.crop_capture(rebuild.tex, UVec2::ZERO)
+            } else {
+                rebuild.tex
+            }
+        });
+        let image = render.as_ref().map(|_| capture_image(images, target_size));
         let mesh = meshes.add(match &render {
             Some(r) => make_mesh(r),
             None => placeholder_mesh(),
@@ -1303,7 +1328,7 @@ pub fn sync_portal_view_cones(
             // Opaque: the window draws over whatever it is in front of, rather
             // than ghosting it through.
             alpha_mode: AlphaMode2d::Opaque,
-            texture: Some(image.clone()),
+            texture: image.clone(),
             ..default()
         });
         let cone_tf = match &render {
@@ -1330,11 +1355,10 @@ pub fn sync_portal_view_cones(
                 Name::new(format!("Portal view window ({})", portal.channel.name())),
             ))
             .id();
-        let (cam_tf, requested_active, scaling) = match &render {
+        let (cam_tf, scaling) = match &render {
             Some(r) => (
                 Transform::from_translation(frame.to_render(r.capture.center, 0.0))
                     .with_rotation(r.capture.render_rotation()),
-                true,
                 ScalingMode::Fixed {
                     width: r.capture.size.x,
                     height: r.capture.size.y,
@@ -1342,17 +1366,13 @@ pub fn sync_portal_view_cones(
             ),
             None => (
                 Transform::default(),
-                false,
                 ScalingMode::Fixed {
                     width: 1.0,
                     height: 1.0,
                 },
             ),
         };
-        // Same seam priority as the update pass: a freshly-spawned rig for the
-        // pair you are crossing captures immediately, never waiting on a slot.
-        let at_seam = portal_at_seam(viewer, portal.pos) || portal_at_seam(viewer, partner.pos);
-        let active = requested_active && (at_seam || active_captures < effective.max_active_captures);
+        let active = render.is_some();
         if active {
             active_captures += 1;
         }
@@ -1369,7 +1389,9 @@ pub fn sync_portal_view_cones(
             // A single-sampled target needs a single-sampled camera: a default
             // 4×-MSAA camera renders nothing into it.
             Msaa::Off,
-            RenderTarget::Image(ImageRenderTarget::from(image.clone())),
+            image.map_or(RenderTarget::None { size: UVec2::ONE }, |image| {
+                RenderTarget::Image(ImageRenderTarget::from(image))
+            }),
             capture_render_layers(
                 effective.recursion_depth,
                 portal_capture_parallax_layer(portal.channel),
@@ -1401,12 +1423,12 @@ pub fn sync_portal_view_cones(
                 rebuild,
                 blend,
                 shown,
-                _image: image,
+                target_size,
                 mesh,
                 cone: cone_entity,
-                captured: render.as_ref().filter(|_| active).map(|r| r.capture),
+                captured: render.as_ref().map(|r| r.capture),
                 pane_dominant,
-                drawn: render.is_some(),
+                drawn: active,
             },
             Name::new(format!("Portal view capture ({})", portal.channel.name())),
         ));

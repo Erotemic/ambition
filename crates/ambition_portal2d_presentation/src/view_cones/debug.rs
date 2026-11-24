@@ -470,6 +470,11 @@ fn portal_view_cone_debug_dump_text(
                     "  rig.rebuild.tex: {}x{}",
                     rig.rebuild.tex.x, rig.rebuild.tex.y
                 );
+                let _ = writeln!(
+                    out,
+                    "  rig.target_size: {}x{}",
+                    rig.target_size.x, rig.target_size.y
+                );
                 let _ = writeln!(out, "  camera.is_active: {}", cam.is_active);
                 if let Some(global) = cam_global {
                     let _ = writeln!(

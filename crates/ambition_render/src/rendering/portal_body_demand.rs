@@ -1,28 +1,74 @@
-//! What a portal room asks of the composed bodies in it: each animated body
-//! there has its picture made, so the carry can clip it.
+//! Request composed pictures for bodies near a paired opening.
 
+use ambition_portal2d_presentation::{
+    PlacedPortal, PortalBodyView, PortalCarrySelection, PortalFrames, PortalTransitView,
+};
+use ambition_sprite_sheet::character::rigged::ComposedBodyDemand;
 use bevy::prelude::*;
 
-/// Declare an image for every animated picture in a portal room.
-/// A generated limb picture has the same image readers as its host.
-/// Declare demand before drawing; a late declaration leaves no image for
-/// the clipping pass on that frame.
+use super::actors::rigged::{LimbTwin, RiggedPresentedBy};
+
+/// Prepare the picture before a body reaches the opening. Keep the picture
+/// for the full transit, including a limb that carries its host's picture.
 pub fn declare_portal_body_demand(
-    frames: ambition_portal2d_presentation::PortalFrames,
-    portals: Query<Entity, With<ambition_portal2d_presentation::PlacedPortal>>,
+    frames: PortalFrames,
+    portals: Query<(Entity, &PlacedPortal)>,
+    selection: Option<Res<PortalCarrySelection>>,
     bodies: Query<
-        Entity,
         (
-            With<ambition_sprite_sheet::character::CharacterAnimator>,
-            Without<bevy::prelude::ChildOf>,
+            Entity,
+            &Transform,
+            &Sprite,
+            Option<&PortalBodyView>,
+            Has<PortalTransitView>,
+            Has<LimbTwin>,
         ),
+        (With<RiggedPresentedBy>, Without<ChildOf>),
     >,
-    mut demand: ResMut<ambition_sprite_sheet::character::rigged::ComposedBodyDemand>,
+    mut demand: ResMut<ComposedBodyDemand>,
 ) {
-    let rooms: Vec<_> = portals.iter().filter_map(|portal| frames.room_of(portal)).collect();
-    for body in &bodies {
-        if frames.room_of(body).is_some_and(|room| rooms.contains(&room)) {
-            demand.declare(body);
+    if selection.is_some_and(|selection| !selection.enabled) {
+        return;
+    }
+    let by_room = frames.portals_by_room(portals.iter());
+    for (entity, transform, sprite, body, in_transit, limb_twin) in &bodies {
+        let Some(placement) = frames.of(entity) else {
+            continue;
+        };
+        let room_portals = by_room.in_room(Some(placement.room));
+        let center = ambition_platformer2d_core::config::bevy_size_to_world(
+            placement.frame.size,
+            transform.translation.truncate(),
+        );
+        let art_reach = sprite.custom_size.unwrap_or(Vec2::ZERO).length()
+            * transform.scale.truncate().abs().max_element();
+        if room_portals.iter().any(|portal| {
+            if !room_portals
+                .iter()
+                .any(|other| other.channel == portal.channel.partner())
+            {
+                return false;
+            }
+            // A limb twin can appear at an opening far from its host.
+            in_transit
+                || limb_twin
+                || near_opening(portal, center, art_reach)
+                || body.is_some_and(|body| near_opening(portal, body.pos, body.size.length() * 0.5))
+        }) {
+            demand.declare(entity);
         }
     }
+}
+
+fn near_opening(portal: &PlacedPortal, center: Vec2, reach: f32) -> bool {
+    let mouth = portal.opening_face();
+    let along = Vec2::new(-mouth.normal.y, mouth.normal.x);
+    let from_mouth = center - mouth.center;
+    let closest = along
+        * from_mouth
+            .dot(along)
+            .clamp(-mouth.half_along, mouth.half_along);
+    // The extra opening width gives the capture time to prepare during approach.
+    let prepare_reach = reach + 2.0 * mouth.half_along + mouth.half_out;
+    (from_mouth - closest).length_squared() <= prepare_reach * prepare_reach
 }

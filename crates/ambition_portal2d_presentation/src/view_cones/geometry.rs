@@ -74,6 +74,40 @@ pub(crate) struct ConeRender {
     pub(crate) capture: CaptureCameraFrame,
 }
 
+impl ConeRender {
+    pub(crate) fn sample_capture(&mut self, frame: CaptureCameraFrame) {
+        for (uv, point) in self.uvs.iter_mut().zip(&self.mapped_source_vertices) {
+            *uv = frame.uv(*point);
+        }
+    }
+
+    /// Keep the mapped view's texel grid. Include one texel for filtering at
+    /// the edge. Use size classes and keep capacity while the rig is live.
+    pub(crate) fn crop_capture(&mut self, full: UVec2, previous: UVec2) -> UVec2 {
+        let projected = self.mapped_source_vertices.iter().map(|&point| {
+            Vec2::from_array(self.capture.uv(point)) * full.as_vec2()
+        });
+        let (min, max) = projected.fold((full.as_vec2(), Vec2::ZERO), |(min, max), p| {
+            (min.min(p), max.max(p))
+        });
+        let min = (min.floor() - Vec2::ONE).max(Vec2::ZERO).as_uvec2();
+        let max = (max.ceil() + Vec2::ONE).min(full.as_vec2()).as_uvec2();
+        let needed = (max - min).max(UVec2::ONE);
+        let size = UVec2::new(needed.x.next_power_of_two(), needed.y.next_power_of_two())
+            .max(previous)
+            .min(full);
+        let origin = min.min(full - size);
+        let rect = size.as_vec2() / full.as_vec2();
+        let shift = ((origin.as_vec2() + size.as_vec2() * 0.5) / full.as_vec2() - 0.5)
+            * self.capture.size;
+        self.capture.center += self.capture.axis * shift.x + self.capture.down() * shift.y;
+        self.capture.size *= rect;
+        self.capture.shown *= rect;
+        self.sample_capture(self.capture);
+        size
+    }
+}
+
 /// Destination-side camera frame for a capture: the world rect it frames,
 /// turned so its `+x` runs along `axis`. A capture of a pair the portal map
 /// turns is turned with it, so it is the view's size at every angle.

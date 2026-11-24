@@ -132,6 +132,7 @@ impl Plugin for SessionRoomVisualsPlugin {
             Update,
             crate::rendering::portal_body_demand::declare_portal_body_demand
                 .after(crate::rendering::actors::rigged::follow_limb_twins)
+                .after(ambition_portal2d_presentation::PortalObservationSet)
                 .in_set(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet)
                 .run_if(bevy::prelude::any_with_component::<
                     ambition_portal2d_presentation::PlacedPortal,

@@ -827,9 +827,20 @@ impl SurfaceChain {
     }
 
     pub fn arc_at_vertex(&self, vertex: usize) -> f32 {
-        (0..vertex.min(self.segment_count()))
-            .map(|i| self.segment_length(i))
+        self.segments()
+            .take(vertex)
+            .map(|(a, b)| (b - a).length())
             .sum()
+    }
+
+    /// The segments in index order, with the closing segment last.
+    pub(crate) fn segments(&self) -> impl Iterator<Item = (Vec2, Vec2)> + '_ {
+        let closing = if self.closed && self.points.len() >= 2 {
+            Some((self.points[self.points.len() - 1], self.points[0]))
+        } else {
+            None
+        };
+        self.points.windows(2).map(|pair| (pair[0], pair[1])).chain(closing)
     }
 
     /// Endpoints of segment `i` (wraps for the closing segment).
@@ -870,9 +881,7 @@ impl SurfaceChain {
     }
 
     pub fn total_length(&self) -> f32 {
-        (0..self.segment_count())
-            .map(|i| self.segment_length(i))
-            .sum()
+        self.arc_at_vertex(self.segment_count())
     }
 
     /// The surface frame at arc length `s`. `s` WRAPS on a closed chain and
@@ -896,19 +905,19 @@ impl SurfaceChain {
         // `arc_at_vertex`, was told by this it had not, and crossed the same
         // joint forever — frozen at full speed.
         let mut start = 0.0;
-        for i in 0..count {
-            let len = self.segment_length(i);
+        for (i, (a, b)) in self.segments().enumerate() {
+            let edge = b - a;
+            let len = edge.length();
             let end = start + len;
             if s <= end || i == count - 1 {
-                let (a, b) = self.segment(i);
-                let t = self.tangent(i);
+                let t = edge.normalize_or_zero();
                 let f = if len > 0.0 {
                     ((s - start) / len).clamp(0.0, 1.0)
                 } else {
                     0.0
                 };
                 return SurfaceFrame {
-                    point: a + (b - a) * f,
+                    point: a + edge * f,
                     tangent: t,
                     normal: Vec2::new(t.y, -t.x),
                     segment: i,
@@ -1843,8 +1852,7 @@ impl World {
                     })?;
                     continue;
                 }
-                for segment in 0..chain.segment_count() {
-                    let (a,b)=chain.segment(segment);
+                for (segment, (a, b)) in chain.segments().enumerate() {
                     let edge = [a, b];
                     // The chain bounds can cover terrain far from this cell.
                     if !crate::spatial::touches(bounds, surface_swept_bounds(&edge, chain.velocity, chain.turn, chain.pivot)) {

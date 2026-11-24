@@ -421,6 +421,31 @@ the X request. Keep the existing windup-swap and live-modifier controls.
 These are distinct facts at native phases, not one permanent universal action
 object. No new executor, actor compiler or broad test campaign is required.
 
+**Follow-through landed (2026-11-23).**
+
+- *Emission payload.* `MoveEventMessage::ranged` is a `RangedUse`, stamped
+  by the emitter while it holds the playback. It carries the admitted
+  source, the move's `shot_damage`, the charge fraction and the start aim.
+  Dispatch keeps the lowering order and the live fire input, and no longer
+  queries playbacks.
+- *Selection.* `emission_source(spec, body_ranged)` is the one rule: the
+  move's `equips` weapon, else the body's ranged action. `MoveAdmission`
+  now carries the body's source and its live-shot count instead of a
+  precomputed weapon Boolean, so each candidate's weapon gate asks its own
+  source's limit. `start_move` arms refire with the selected source's
+  interval; the shared body refire state and its readiness policy are
+  unchanged.
+- *Forecast.* `attack_kit_of` asks the cancel window about the requested
+  move's id and verb names, as the trigger does, before it applies the
+  affordable fallback. The grab candidate now asks the same admission, and
+  `resolve_owners_ranged_action` uses `emission_source`.
+
+A temporary probe used the real catalog. With a limited default pistol
+whose shot was live, its move was refused, and the move drawing the
+unlimited gun-sword was admitted with the gun-sword's 0.0 s refire. The
+probe was deleted (bug fixes add no test). The endpoint shot and the
+X-only cancel were not probed in a live match.
+
 ### Remove
 
 Remove independent start predicates after their consumers use the common
@@ -658,13 +683,29 @@ for the room's capped hitlag. A guard deflect and a finishing blow, which
 set body hitstop without a resolved connect, now freeze only their bodies.
 They also did so in a CPU-only match.
 
+Floor progression landed (2026-11-23). `tick_knockdown` takes two
+intervals: tumble, prone and getup invulnerability progress on the body's
+action interval (the kernel's `raw_dt`, which carries the action share),
+while the tech press lifetime and its lockout stay on the input interval
+(`control_dt`) as the explicit leniency policy. A home body whose responsive
+input clock outruns a slowed world no longer stands up early, and a frozen
+body's prone timer holds. Actors, whose `control_dt` override is zero, are
+unchanged.
+
 Still open:
 
 - Sustain cadence.
-- Floor progression on action time (`control_dt`).
 - Ordinary actor and home integration read the room interval without the
   body's `ProperTimeScale`. The share is applied on top of that interval,
-  so a dilated body's travel still runs on the room's rate.
+  so a dilated body's travel still runs on the room's rate. Multiplying
+  travel by `ProperTimeScale` is not the fix. The component has two
+  writers that mean different things. The Smash dilation module's
+  `TimeScalePort` slows a body's whole clock. `ambition_relativity2d`
+  writes a relativistic body's proper-time RATE from its velocity, and that
+  body's coordinate travel must stay on world time. ADR 0011's plaza keeps
+  "body movement ... [its] existing authorities". Split the gameplay
+  dilation (an action-time multiplier the share composes with) from the
+  measured relativistic rate before either road reads it.
 - The CPU-only and human-seat Smash acceptance. This VM cannot seat a
   Smash round, so that acceptance has to run elsewhere.
 

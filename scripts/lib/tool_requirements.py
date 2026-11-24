@@ -10,6 +10,14 @@ prints one tab-separated line per problem, nothing when the interpreter is fit:
     missing     <project_dir>  <requirement>
     outdated    <project_dir>  <requirement> (have <version>)
     uninstalled <project_dir>  <import name>
+    elsewhere   <project_dir>  <where the installed copy comes from>
+
+`elsewhere` is reported only with `--source` first: the tool is installed, but
+not editable from THIS `project_dir`. A tool venv is per machine and keyed by
+the tool's directory name, so every checkout and worktree of this repository
+shares one; an editable install made from another checkout (or one since
+deleted, or a stale submodule tree) serves that checkout's modules here, and a
+module this checkout has and that one lacks fails to import.
 
 Exit 0 when nothing is printed, 1 when something is, 2 when a pyproject cannot
 be read.
@@ -47,7 +55,7 @@ except ModuleNotFoundError:
 NAME = re.compile(r"\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
 
 
-def problems(project_dir: Path) -> list[tuple[str, str]]:
+def problems(project_dir: Path, check_source: bool = False) -> list[tuple[str, str]]:
     data = tomllib.loads((project_dir / "pyproject.toml").read_text())
     project = data.get("project", {})
     found: list[tuple[str, str]] = []
@@ -72,7 +80,26 @@ def problems(project_dir: Path) -> list[tuple[str, str]]:
     module = project.get("name", project_dir.name).replace("-", "_")
     if importlib.util.find_spec(module) is None:
         found.append(("uninstalled", module))
+    elif check_source:
+        where = install_source(project.get("name", project_dir.name))
+        if where != project_dir.resolve():
+            found.append(("elsewhere", str(where) if isinstance(where, Path) else where))
     return found
+
+
+def install_source(distribution: str) -> Path | str:
+    """The directory an editable install of `distribution` points at, or what it is instead."""
+    import json
+    from urllib.parse import unquote, urlparse
+    try:
+        dist = importlib.metadata.distribution(distribution)
+    except importlib.metadata.PackageNotFoundError:
+        return "no installed distribution (importable only through sys.path)"
+    record = json.loads(dist.read_text("direct_url.json") or "{}")
+    url = urlparse(record.get("url", ""))
+    if url.scheme != "file" or not record.get("dir_info", {}).get("editable"):
+        return "a non-editable copy"
+    return Path(unquote(url.path)).resolve()
 
 
 def main(argv: list[str]) -> int:
@@ -81,9 +108,12 @@ def main(argv: list[str]) -> int:
         return 2
     # Not this script's directory: the question is what is INSTALLED.
     sys.path[:] = [p for p in sys.path if Path(p or ".").resolve() != Path(__file__).resolve().parent]
+    check_source = argv[:1] == ["--source"]
+    if check_source:
+        argv = argv[1:]
     any_problem = False
     for arg in argv:
-        for kind, detail in problems(Path(arg)):
+        for kind, detail in problems(Path(arg), check_source):
             print(f"{kind}\t{arg}\t{detail}")
             any_problem = True
     return 1 if any_problem else 0

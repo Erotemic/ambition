@@ -1337,7 +1337,8 @@ fn a_locked_bodys_kit_offers_its_moves_as_refused() {
         recovery_charges: None,
         body_is_held: false,
         refire: None,
-        weapon_has_room: true,
+        body_ranged: None,
+        live_shots: 0,
         bank: None,
     };
     let legalities = |locked| {

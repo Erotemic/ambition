@@ -2033,10 +2033,18 @@ pub(super) fn attack_kit_of(
                 move_id: spec.id.clone(),
                 frames,
                 binding: AttackBinding { verb, direction },
-                legality: if refused {
-                    ambition_characters::brain::attack_kit::ActionLegality::Refused
-                } else {
-                    legality_of(playback, verb_name, running_now, &spec.id)
+                // ⛔ IN PRODUCTION ORDER (ACT1): the current action's cancel
+                // window is asked about the REQUESTED move and its verb names,
+                // as `trigger_moveset_moves` asks it, and only then are the
+                // affordances and the one-hop fallback applied. Asking the
+                // window about the selected fallback offered a window that only
+                // permits the request as blocked, and one that only permits the
+                // fallback as open to a request execution refuses.
+                legality: match legality_of(playback, verb_name, running_now, &pressed.id) {
+                    ambition_characters::brain::attack_kit::ActionLegality::Now if refused => {
+                        ambition_characters::brain::attack_kit::ActionLegality::Refused
+                    }
+                    legality => legality,
                 },
                 wear,
             });
@@ -2044,7 +2052,7 @@ pub(super) fn attack_kit_of(
     }
     // AND THE GRAB, which the three loops above cannot reach: it answers its
     // own button, not a direction on one of theirs.
-    if let Some(mut grab) = capture_candidate(moveset, grounded, playback) {
+    if let Some(mut grab) = capture_candidate(moveset, grounded, playback, admission) {
         // ⚠ A GRAB STALES LIKE EVERYTHING ELSE. It deals no damage, so the
         // `damage` half moves nothing in `power`; the `launch_growth` half is
         // what its THROW is priced on, and a thrown opponent is the reason a
@@ -2143,11 +2151,7 @@ fn resolve_owners_ranged_action(
     // a different shot for the one move in the game that brandishes. The same
     // order `moveset_export`'s derived view resolves in, and for the same
     // reason — it is the order `brain_effects` fires in.
-    let equipped = move_spec
-        .equips
-        .as_deref()
-        .and_then(ambition_characters::brain::held_item_by_id)
-        .and_then(|item| item.ranged);
+    let source = ambition_combat::moveset::emission_source(move_spec, body_ranged);
     // ⛔⛤ **A BODY WITH NO RANGED ACTION MAKES NO OFFER, AND THIS USED TO
     // LEAVE THE REQUEST STANDING — REVIEWED 2026-09-20.** Returning early left
     // `OwnersRangedAction` in the frame data, and its unjoined `reach()` is
@@ -2155,7 +2159,7 @@ fn resolve_owners_ranged_action(
     // that had just PROVEN the press fires nothing handed the brain an
     // instantaneous stage-crossing threat. The request is answered here or it
     // is answered nowhere; an unanswerable one is NO hazard.
-    let Some(spec) = equipped.as_ref().or(body_ranged) else {
+    let Some(spec) = source.as_ref() else {
         frames.hazard = None;
         return;
     };
@@ -2296,6 +2300,9 @@ fn capture_candidate(
     moveset: &ambition_combat::moveset::ActorMoveset,
     grounded: bool,
     playback: Option<&ambition_combat::moveset::MovePlayback>,
+    // The trigger's admission: a grab the body could not start is offered
+    // as refused, through the same owner every other candidate asks.
+    admission: Option<ambition_combat::moveset::MoveAdmission<'_>>,
 ) -> Option<ambition_characters::brain::attack_kit::AttackCandidate> {
     use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::brain::attack_kit::{AttackBinding, AttackCandidate, AttackVerb};
@@ -2328,12 +2335,14 @@ fn capture_candidate(
         // ⚠ A GRAB IS NOT A RUNNING ATTACK HERE: `cancel_names_for` reduces
         // `grab_dash` to `grab` on its own, and this candidate is the standing
         // one. `false` is the honest answer rather than a value carried in.
-        legality: legality_of(
-            playback,
-            ambition_entity_catalog::GRAB_VERB,
-            false,
-            &spec.id,
-        ),
+        legality: match legality_of(playback, ambition_entity_catalog::GRAB_VERB, false, &spec.id) {
+            ambition_characters::brain::attack_kit::ActionLegality::Now
+                if admission.is_some_and(|admission| admission.offer(spec, &moveset.0).is_none()) =>
+            {
+                ambition_characters::brain::attack_kit::ActionLegality::Refused
+            }
+            legality => legality,
+        },
         // Filled by the caller, which is the layer holding the stale ring.
         wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
     })

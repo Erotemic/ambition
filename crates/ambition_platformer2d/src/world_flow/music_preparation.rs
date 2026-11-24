@@ -200,10 +200,17 @@ pub(super) fn prepare_room_music(
     day: Option<Res<crate::time::DayClock>>,
     cycle: Option<Res<crate::time::DayCycle>>,
     server: Option<Res<AssetServer>>,
+    // A composition that installs no audio backend never initialises the
+    // audio asset type, and the server panics on a load of an uninitialised
+    // type. With no audio there is nothing to keep warm.
+    audio_sources: Option<Res<Assets<KiraAudioSource>>>,
     mut preparation: ResMut<RoomMusicPreparation>,
     mut direct: Local<Option<PreparedMusicCatalog>>,
 ) {
     let Some(server) = server else { return };
+    if audio_sources.is_none() {
+        return;
+    }
     let phase = day
         .as_deref()
         .zip(cycle.as_deref())

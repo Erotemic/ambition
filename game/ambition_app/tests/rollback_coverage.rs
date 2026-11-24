@@ -1883,6 +1883,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "which assets are staged and how far the prefetch got — a readiness          question about loading, never about the simulated world",
     ),
     (
+        "ambition_platformer2d::world_flow::music_preparation::RoomMusicPreparation",
+        "the same readiness question asked of music: which rooms' tracks are          wanted and the decode handles that keep them warm before a room          activates. Presentation-side asset retention in `Update`; no          simulation system reads it, and the music director reads the sim,          not this",
+    ),
+    (
         "ambition_platformer2d::world_flow::first_room_art::FirstRoomArtJobs",
         "the same readiness question asked of a shell route's FIRST room, BEFORE          it activates: per published session, the manifest being waited on and          how many updates it took. Loading work that finishes before any session          simulates; nothing in a session reads it",
     ),

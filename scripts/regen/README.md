@@ -120,7 +120,7 @@ producer or freshness failure makes setup fail.
 | `backgrounds.sh` | procedural background / parallax families | |
 | `sprites.sh` | the sprite suite and shared atlases | the long one |
 | `quality_variants.sh` | reduced-resolution tiers of the above | `--sprites-only`, `--backgrounds-only`, `--tier`, `--target`, `--force` |
-| `music.sh` | in-game music cues | needs the music renderer submodule |
+| `music.sh` | in-game music cues | checks its submodules out at their pins and builds its venv itself; `--setup` does only that. See [music from a fresh clone](../../docs/tools/generated-audio-tools.md#music-from-a-fresh-clone) |
 | `sfx.sh` | SFX cues and the packed `.sfxbank` | needs the SFX renderer submodule; downloads the public samples that are absent |
 | `source_navigation.sh` | the generated `.agent/` navigation index | not content; regenerates agent aids |
 

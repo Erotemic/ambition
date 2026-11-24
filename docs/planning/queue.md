@@ -437,7 +437,9 @@ value as completion of that owner's contract.
     retains actual aim-source selection and keeps posture outside physical
     travel projection (landed 2026-11-23, schema 536:
     `ActorControlFrame::attack_axis_from_aim_stick`, and a walker's travel is
-    only its side axis). The gravity-turn composition stays open.
+    only its side axis). The gravity-turn composition is proved: a held stick
+    through a transit into turned gravity is mapped once (2026-11-23). IN2 is
+    done.
     [IN4/IN5](engine/participant-action-system.md#input-continuity-across-routing-and-control-changes)
     refine the same owner at `00bf92c22142`. Observe valid physical samples
     before context filtering and treat rebind reset samples as invalid;

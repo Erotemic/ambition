@@ -330,3 +330,86 @@ fn the_emergence_guard_reads_the_bodys_resolved_frame() {
     assert_eq!(after(tangent, true), tangent, "a flyer's travel along the wall was removed");
     assert_eq!(after(inward, false), inward, "a walker's local Y is not travel; the guard changed it");
 }
+
+/// ⭐ ONE HELD STICK THROUGH A TRANSIT AND A GRAVITY TURN, MAPPED ONCE (IN2).
+/// Seat one holds right in ordinary gravity under the body-relative mode, and
+/// on one tick the body arrives through a same-wall pair (a warp that sends
+/// world right to world left) into gravity turned upside down. The translator
+/// keeps the hold's world direction through the turn (`HeldControlFrame`) and
+/// the warp maps that world direction by the accepted transit: travel and the
+/// attack the movement stick aims go world left. Mapping twice (the turned
+/// frame's reading of the raw stick, then the warp again) sends them world
+/// right. Controls: ordinary gravity with the warp, and the turn alone.
+#[test]
+fn a_held_stick_through_a_transit_and_a_gravity_turn_is_mapped_once() {
+    use ambition_platformer2d_actor_monolith::control::{publish_seat_controls_when_nobody_else_does, tick_controlled_brains};
+    use ambition_platformer2d_core::{ControlFrameModes, InputFrameMode, MotionFrame};
+    use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
+
+    let world_travel = |turn: bool, warp: bool| {
+        let mut app = App::new();
+        app.init_resource::<SeatRawFrames>();
+        app.init_resource::<SlotControls>();
+        app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
+        app.init_resource::<PortalTuning>();
+        app.add_systems(
+            Update,
+            (publish_seat_controls_when_nobody_else_does, tick_controlled_brains, warp_portal_input).chain(),
+        );
+        let pos = Vec2::new(64.0, 32.0);
+        let size = Vec2::new(44.0, 78.0);
+        let mut seed = ambition_body_seed::ActorClusterSeed::new(
+            &ambition_sprite_sheet::SpriteContent::default(),
+            "driven",
+            "driven",
+            ambition_platformer2d_core::Aabb::new(pos, size * 0.5),
+            ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
+            &[],
+        );
+        seed.kin.canonical_size = size;
+        seed.kin.pos = pos;
+        let body = app
+            .world_mut()
+            .spawn((seed.into_components(), ActorControl::default(), DrivingParticipant(PlayerSlot::PRIMARY)))
+            .id();
+        app.world_mut().resource_mut::<SeatRawFrames>().shape(PlayerSlot::PRIMARY, |cf| {
+            cf.axis_x = 1.0;
+            cf.attack_pressed = true;
+            cf.control_frame_modes =
+                ControlFrameModes { movement: InputFrameMode::BodyRelativeStrict, ..ControlFrameModes::default() };
+        });
+        app.update();
+        let pressed = app.world().get::<ResolvedMotionFrame>(body).unwrap().basis();
+        let held = pressed.to_world(locomotion(&app, body));
+        assert!(held.x > 0.9, "premise: the held stick goes world right in ordinary gravity, {held:?}");
+
+        // The arrival tick.
+        if turn {
+            app.world_mut()
+                .get_mut::<ResolvedMotionFrame>(body)
+                .unwrap()
+                .publish_resolved_frame(MotionFrame::from_direction(Vec2::new(0.0, -1.0), 0.0));
+        }
+        if warp {
+            app.world_mut().entity_mut(body).insert(PortalInputWarp {
+                map: Mat2::from_diagonal(Vec2::new(-1.0, 1.0)),
+                anchor: Vec2::new(1.0, 0.0),
+            });
+        }
+        app.update();
+        let basis = app.world().get::<ResolvedMotionFrame>(body).unwrap().basis();
+        let control = app.world().get::<ActorControl>(body).unwrap().0;
+        assert!(!control.attack_axis_from_aim_stick, "premise: the movement stick aims the attack");
+        (basis.to_world(control.locomotion.vec()), basis.to_world(control.attack_axis.vec()))
+    };
+    let left = |v: Vec2| v.x < -0.9 && v.y.abs() < 0.1;
+    let right = |v: Vec2| v.x > 0.9 && v.y.abs() < 0.1;
+
+    let (travel, aim) = world_travel(true, true);
+    assert!(left(travel), "the transit's map, once, on the hold's world direction: travel {travel:?}");
+    assert!(left(aim), "the movement-aimed attack follows the held stick: aim {aim:?}");
+    let (travel, aim) = world_travel(false, true);
+    assert!(left(travel) && left(aim), "control: the warp in ordinary gravity, travel {travel:?} aim {aim:?}");
+    let (travel, aim) = world_travel(true, false);
+    assert!(right(travel) && right(aim), "control: the turn alone keeps the world direction, travel {travel:?} aim {aim:?}");
+}

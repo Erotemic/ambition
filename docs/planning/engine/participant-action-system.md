@@ -356,9 +356,16 @@ The warp retains the accepted transit's map: `PortalInputWarp.map` is the
 orthogonal part of `PortalTransfer::map`, without its scale, in place of the
 two normals the convention was read against again each tick.
 
-Still open: a portal transit that also turns gravity could map a held stick
-through both `HeldControlFrame` and the warp. The proof through a real transit with
-a held stick and a gravity turn is not yet written.
+The gravity-turn composition is proved (2026-11-23): a transit that arrives
+in turned gravity maps a held stick once. The translator keeps the hold's
+world direction through the turn (`HeldControlFrame`), and the warp maps
+that world direction by the accepted transit; neither reads the other's
+result. Guard: `a_held_stick_through_a_transit_and_a_gravity_turn_is_mapped_once`
+(`portal_seat`, `--features portal`): seat one holds right under the
+body-relative mode, and one tick brings a same-wall warp and upside-down
+gravity together. Travel and the movement-aimed attack go world left; the
+warp in ordinary gravity and the turn alone are its controls. No source
+change was needed.
 
 #### IN2 follow-through — retain direction meaning through the guard
 
@@ -394,8 +401,8 @@ adapter; no curved-world or gravity-field program is required.
 Extend the existing translator-to-guard crossing with a real C-stick press
 equal to the movement vector, plus the oblique-frame posture example.
 Keep movement-derived aim, free flight and ordinary gravity as controls.
-The accepted-map retention remains correct. The separately open
-portal-plus-gravity-turn composition remains separate work.
+The accepted-map retention remains correct. The
+portal-plus-gravity-turn composition is proved above.
 
 **Follow-through landed (2026-11-23, schema 536).** The player translator
 records its choice as `ActorControlFrame::attack_axis_from_aim_stick`. It

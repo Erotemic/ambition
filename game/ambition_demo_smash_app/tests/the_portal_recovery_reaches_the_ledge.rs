@@ -81,7 +81,7 @@ fn recovers_from(depth: f32) -> bool {
         spec: SpecialActionSpec::Special(PORTAL_PAIR.to_string()),
         params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params).expect("params serialize"),
     };
-    app.world_mut().write_message(ActorActionMessage { actor: her, request, move_instance: None });
+    app.world_mut().write_message(ActorActionMessage { action_interval: None, actor: her, request, move_instance: None });
     for _ in 0..200 {
         app.update();
         if hanging(&app, her) {

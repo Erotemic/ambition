@@ -71,7 +71,7 @@ fn fire(app: &mut App, actor: Entity) {
         params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params())
             .expect("bolt params serialize"),
     };
-    app.world_mut().write_message(ActorActionMessage { actor, request, move_instance: None });
+    app.world_mut().write_message(ActorActionMessage { action_interval: None, actor, request, move_instance: None });
     app.update();
 }
 

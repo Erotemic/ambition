@@ -21,7 +21,7 @@ fn victim(app: &mut App) -> Entity {
 }
 
 fn ask(app: &mut App, who: Entity, scale: f32, seconds: f32) {
-    app.world_mut().write_message(ActorActionMessage {
+    app.world_mut().write_message(ActorActionMessage { action_interval: None,
         actor: who,
         request: ActionRequest::Special {
             spec: SpecialActionSpec::Special(TIME_DILATION.to_string()),

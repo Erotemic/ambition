@@ -319,7 +319,7 @@ fn run(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent, road
                 telegraphing.then(|| BossAttackProfile::Special(technique.key.into()));
         }
         for (boss, occurrence) in tick.press {
-            app.world_mut().write_message(ActorActionMessage {
+            app.world_mut().write_message(ActorActionMessage { action_interval: None,
                 actor: bosses[*boss],
                 request: ActionRequest::Special {
                     spec: SpecialActionSpec::Special(technique.key.into()),

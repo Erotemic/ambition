@@ -129,7 +129,7 @@ fn a_tether_thrown_at_a_ledge_ends_in_a_hang() {
         .expect("tether params serialize"),
     };
     app.world_mut()
-        .write_message(ActorActionMessage { actor: her, request, move_instance: None });
+        .write_message(ActorActionMessage { action_interval: None, actor: her, request, move_instance: None });
 
     // Promptly: the deadline is the assertion. A reel that chases the anchor
     // instead of asking the authority pins against the wall, times out, and
@@ -183,7 +183,7 @@ fn a_line_thrown_away_from_the_stage_does_not_end_in_a_hang() {
         .expect("tether params serialize"),
     };
     app.world_mut()
-        .write_message(ActorActionMessage { actor: her, request, move_instance: None });
+        .write_message(ActorActionMessage { action_interval: None, actor: her, request, move_instance: None });
 
     for _ in 0..40 {
         app.update();

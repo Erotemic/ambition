@@ -145,7 +145,7 @@ fn body(app: &mut App, slot: u8, at: ae::Vec2) -> Entity {
 }
 
 fn press(app: &mut App, who: Entity, key: &str, params: &str) {
-    app.world_mut().write_message(ActorActionMessage {
+    app.world_mut().write_message(ActorActionMessage { action_interval: None,
         actor: who,
         request: ActionRequest::Special {
             spec: SpecialActionSpec::Special(key.into()),

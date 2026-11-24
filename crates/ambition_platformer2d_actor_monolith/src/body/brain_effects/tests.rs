@@ -82,7 +82,7 @@ fn ranged_message_for_non_pirate_uses_body_origin_not_hand() {
     let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
     app.world_mut()
         .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-        .write(ActorActionMessage {
+        .write(ActorActionMessage { action_interval: None,
             actor,
             request: ActionRequest::Ranged {
                 spec: RangedActionSpec::rock(300.0, 1),
@@ -135,7 +135,7 @@ fn ranged_shot_carries_archetype_authored_visual_id() {
     let actor = app.world_mut().spawn(bundle).id();
     app.world_mut()
         .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-        .write(ActorActionMessage {
+        .write(ActorActionMessage { action_interval: None,
             actor,
             request: ActionRequest::Ranged {
                 spec: RangedActionSpec::rock(300.0, 1),
@@ -178,7 +178,7 @@ fn ranged_message_converts_local_direction_at_consumer_frame() {
     let actor = app.world_mut().spawn(actor_bundle).id();
     app.world_mut()
         .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-        .write(ActorActionMessage {
+        .write(ActorActionMessage { action_interval: None,
             actor,
             request: ActionRequest::Ranged {
                 spec: RangedActionSpec::rock(300.0, 1),
@@ -209,7 +209,7 @@ fn ranged_message_for_dead_actor_is_dropped() {
     let actor = app.world_mut().spawn(actor_runtime).id();
     app.world_mut()
         .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-        .write(ActorActionMessage {
+        .write(ActorActionMessage { action_interval: None,
             actor,
             request: ActionRequest::Ranged {
                 spec: RangedActionSpec::bolt(500.0, 1),
@@ -281,7 +281,7 @@ fn a_committed_shot_fires_through_a_hot_weapon_and_an_attempt_does_not() {
             .remaining = 0.9;
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-            .write(ActorActionMessage {
+            .write(ActorActionMessage { action_interval: None,
                 actor,
                 request: ActionRequest::Ranged {
                     spec: RangedActionSpec::rock(300.0, 1),
@@ -338,7 +338,7 @@ fn an_attempt_is_refused_at_the_weapons_live_shot_limit() {
                 .remaining = 0.0;
             app.world_mut()
                 .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-                .write(ActorActionMessage {
+                .write(ActorActionMessage { action_interval: None,
                     actor,
                     request: ActionRequest::Ranged {
                         spec: RangedActionSpec::rock(300.0, 1)
@@ -441,7 +441,7 @@ fn an_assisted_shot_ignores_an_out_of_play_candidate() {
             Some(ambition_characters::brain::action_set::AimAssist::half_plane(2000.0));
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-            .write(ActorActionMessage {
+            .write(ActorActionMessage { action_interval: None,
                 actor: shooter,
                 request: ActionRequest::Ranged {
                     spec,
@@ -505,7 +505,7 @@ fn a_shot_plays_the_cue_its_weapon_authored_and_otherwise_none() {
         spec.discharge = discharge;
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-            .write(ActorActionMessage {
+            .write(ActorActionMessage { action_interval: None,
                 actor,
                 request: ActionRequest::Ranged {
                     spec,
@@ -583,7 +583,7 @@ fn ranged_recoil_is_staged_as_a_launch_rather_than_written_onto_velocity() {
 
     app.world_mut()
         .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-        .write(ActorActionMessage {
+        .write(ActorActionMessage { action_interval: None,
             actor,
             request: ActionRequest::Ranged {
                 spec,
@@ -646,7 +646,7 @@ fn recoil_adds_to_a_waiting_launch_instead_of_erasing_it() {
     let recoil = spec.discharge.clone().unwrap_or_default().recoil;
     app.world_mut()
         .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-        .write(ActorActionMessage {
+        .write(ActorActionMessage { action_interval: None,
             actor,
             request: ActionRequest::Ranged {
                 spec,
@@ -712,7 +712,7 @@ fn a_press_during_the_recharge_is_refused_with_its_progress() {
             .unwrap() = ambition_combat::RangedRefire { remaining, armed: 1.0 };
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-            .write(ActorActionMessage {
+            .write(ActorActionMessage { action_interval: None,
                 actor,
                 request: ActionRequest::Ranged {
                     spec: RangedActionSpec::rock(300.0, 1).with_refire(1.0),
@@ -792,7 +792,7 @@ fn a_shot_aimed_at_a_point_leaves_its_muzzle_toward_that_point() {
         });
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
-            .write(ActorActionMessage {
+            .write(ActorActionMessage { action_interval: None,
                 actor,
                 request: ActionRequest::Ranged {
                     spec,

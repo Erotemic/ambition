@@ -692,9 +692,19 @@ input clock outruns a slowed world no longer stands up early, and a frozen
 body's prone timer holds. Actors, whose `control_dt` override is zero, are
 unchanged.
 
+Sustain cadence landed (2026-11-23). A sustained effect is still emitted
+every step its window is live, held or not, so a stance stays present. The
+event now also carries the emitting move's action (timeline) interval for
+that step, as `MoveEventMessage::action_interval`. The effect dispatch
+forwards it as `ActorActionMessage::action_interval`. The fighter-special
+and boss-cast triggers queue it with `ExtensionInvocations::trigger_over`,
+and the host uses it as that invocation's `dt` in place of the room clock at
+the scope's pace. A held boss's apple rain therefore waits instead of
+banking spawns, and a dilated one slows. `ScopePace`, every other trigger,
+and the time-dilation module's world/room clock are unchanged.
+
 Still open:
 
-- Sustain cadence.
 - Ordinary actor and home integration read the room interval without the
   body's `ProperTimeScale`. The share is applied on top of that interval,
   so a dilated body's travel still runs on the room's rate. Multiplying

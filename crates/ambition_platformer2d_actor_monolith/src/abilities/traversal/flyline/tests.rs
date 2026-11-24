@@ -50,7 +50,7 @@ fn params() -> FlylineParams {
 }
 
 fn fire(app: &mut bevy::prelude::App, body: bevy::prelude::Entity, params: FlylineParams) {
-    app.world_mut().write_message(ActorActionMessage {
+    app.world_mut().write_message(ActorActionMessage { action_interval: None,
         actor: body,
         request: ActionRequest::Special {
             spec: SpecialActionSpec::Special(FLYLINE.to_string()),

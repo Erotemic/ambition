@@ -83,12 +83,13 @@ pub fn queue_fighter_specials(
             continue;
         };
         let params = special_params(params);
-        invocations.trigger::<FighterSpecialPort>(
+        invocations.trigger_over::<FighterSpecialPort>(
             &TECHNIQUE_EXECUTION,
             key.clone(),
             message.actor,
             message.move_instance,
             false,
+            message.action_interval,
             FighterSpecial {
                 position: [kin.pos.x, kin.pos.y],
                 facing: kin.facing.signum(),

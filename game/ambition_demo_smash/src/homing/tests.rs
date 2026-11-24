@@ -55,7 +55,7 @@ fn dash(app: &mut App, actor: Entity) {
             .expect("homing params serialize"),
     };
     app.world_mut()
-        .write_message(ActorActionMessage { actor, request, move_instance: None });
+        .write_message(ActorActionMessage { action_interval: None, actor, request, move_instance: None });
     app.update();
 }
 

@@ -1957,7 +1957,7 @@ pub fn fire_held_ranged_system(
         }
         let discharge = ranged.discharge.clone().unwrap_or_default();
         let spec = ranged.with_discharge(discharge);
-        actions.write(ambition_characters::brain::ActorActionMessage {
+        actions.write(ambition_characters::brain::ActorActionMessage { action_interval: None,
             actor: subject,
             request: ambition_characters::brain::action_set::ActionRequest::Ranged {
                 spec,

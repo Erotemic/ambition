@@ -54,7 +54,7 @@ mod tests {
             response_params: Default::default(),
             absorbs_projectiles,
         };
-        app.world_mut().write_message(ActorActionMessage {
+        app.world_mut().write_message(ActorActionMessage { action_interval: None,
             actor: body,
             request: ActionRequest::Special {
                 spec: SpecialActionSpec::Special(COUNTER.to_string()),

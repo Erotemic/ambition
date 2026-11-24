@@ -230,7 +230,7 @@ fn an_authored_teleport_records_one_scripted_remap() {
 
     let body = spawn_teleporting_body(&mut app, ae::Vec2::new(200.0, 200.0));
 
-    app.world_mut().write_message(ActorActionMessage {
+    app.world_mut().write_message(ActorActionMessage { action_interval: None,
         actor: body,
         request: ActionRequest::Special {
             spec: SpecialActionSpec::Special(TELEPORT.to_string()),
@@ -632,7 +632,7 @@ fn teleport_in(
         .entity_mut(body)
         .insert(playback_aimed(aimed));
 
-    app.world_mut().write_message(ActorActionMessage {
+    app.world_mut().write_message(ActorActionMessage { action_interval: None,
         actor: body,
         request: ActionRequest::Special {
             spec: SpecialActionSpec::Special(TELEPORT.to_string()),
@@ -759,7 +759,7 @@ fn a_teleport_stops_under_a_ceiling_of_its_own_live_room() {
     app.world_mut()
         .entity_mut(body)
         .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(second));
-    app.world_mut().write_message(ActorActionMessage {
+    app.world_mut().write_message(ActorActionMessage { action_interval: None,
         actor: body,
         request: ActionRequest::Special {
             spec: SpecialActionSpec::Special(TELEPORT.to_string()),
@@ -863,7 +863,7 @@ fn ambush_through_the_system(me: ae::Vec2, foe: ae::Vec2, gravity_dir: ae::Vec2)
         },
         ambition_combat::targeting::MatchTeam::new("blue"),
     ));
-    app.world_mut().write_message(ActorActionMessage {
+    app.world_mut().write_message(ActorActionMessage { action_interval: None,
         actor: body,
         request: ActionRequest::Special {
             spec: SpecialActionSpec::Special(TELEPORT.to_string()),

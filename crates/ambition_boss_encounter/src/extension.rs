@@ -327,7 +327,8 @@ pub fn queue_boss_special_casts(
             }
             keys
         });
-    let mut presses: Vec<(Entity, &str, Option<u32>)> = Vec::new();
+    // (actor, key, move use, the use's action interval when it sustains)
+    let mut presses: Vec<(Entity, &str, Option<u32>, Option<f32>)> = Vec::new();
     for msg in messages.read() {
         let ActionRequest::Special {
             spec: SpecialActionSpec::Special(key),
@@ -338,11 +339,12 @@ pub fn queue_boss_special_casts(
         };
         if let Some(press) = presses
             .iter_mut()
-            .find(|(actor, pressed, _)| *actor == msg.actor && *pressed == key.as_str())
+            .find(|(actor, pressed, ..)| *actor == msg.actor && *pressed == key.as_str())
         {
             press.2 = msg.move_instance;
+            press.3 = msg.action_interval;
         } else {
-            presses.push((msg.actor, key.as_str(), msg.move_instance));
+            presses.push((msg.actor, key.as_str(), msg.move_instance, msg.action_interval));
         }
     }
     if keys.is_empty() {
@@ -373,14 +375,17 @@ pub fn queue_boss_special_casts(
         for key in &keys {
             let press = presses
                 .iter()
-                .find(|(actor, pressed, _)| *actor == entity && pressed == key);
-            invocations.trigger::<BossSpecialCast>(
+                .find(|(actor, pressed, ..)| *actor == entity && pressed == key);
+            invocations.trigger_over::<BossSpecialCast>(
                 &TECHNIQUE_EXECUTION,
                 key.to_string(),
                 entity,
                 press.and_then(|p| p.2),
                 // The port's IDLE: the key is neither pressed nor telegraphed.
                 press.is_none() && telegraphed != Some(*key),
+                // A sustained cast spends its move's action interval (ACT2):
+                // a held boss's rain waits, a dilated one's slows.
+                press.and_then(|p| p.3),
                 BossCaster {
                     pressed: press.is_some(),
                     telegraphing: telegraphed == Some(*key),

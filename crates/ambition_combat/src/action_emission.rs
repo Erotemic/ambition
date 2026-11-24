@@ -68,7 +68,7 @@ pub fn emit_brain_action_messages(
             {
                 continue;
             }
-            writer.write(ActorActionMessage {
+            writer.write(ActorActionMessage { action_interval: None,
                 actor: entity,
                 request,
                 move_instance: None,
@@ -108,7 +108,7 @@ pub fn emit_player_projectile_tick_messages(
             continue;
         }
         let frame = &control.0;
-        writer.write(ActorActionMessage {
+        writer.write(ActorActionMessage { action_interval: None,
             actor: entity,
             request: action_set::ActionRequest::PlayerProjectileTick {
                 axis: frame.locomotion.vec(),

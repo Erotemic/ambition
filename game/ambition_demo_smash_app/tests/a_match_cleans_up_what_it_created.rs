@@ -73,7 +73,7 @@ fn nothing_a_match_created_survives_into_the_next_one() {
         seats.first().map(|(e, _)| *e).expect("a seated fighter")
     };
     app.world_mut().write_message(
-        ambition_platformer2d::characters::brain::ActorActionMessage {
+        ambition_platformer2d::characters::brain::ActorActionMessage { action_interval: None,
             actor: placer,
             request:
                 ambition_platformer2d::characters::brain::action_set::ActionRequest::Special {

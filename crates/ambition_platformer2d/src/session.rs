@@ -47,6 +47,8 @@ pub use ambition_platformer2d_shared_tangle::lifecycle::{
 pub use ambition_platformer2d_shared_tangle::body::PrimaryLiveRoom;
 
 /// The initial body and its authored resource and ability inputs.
+/// Where placed items in live rooms are now, for the save file (IR4).
+pub use ambition_platformer2d_session::durable_horizon::publish_durable_pose_overlay;
 pub use ambition_platformer2d_session::initial_body::{
     HomeBodyResources, InitialBodyPolicy, StartingCharacter,
 };

@@ -48,7 +48,7 @@ pub use durable_horizon::{DurableHorizonSet, DurableRestoreSet, SaveRestored};
 pub use horizon::{
     CheckpointCapture, CheckpointCommitted, CheckpointEstablishRequested,
     CheckpointDomainApply, CheckpointRestore, CheckpointRestoreInputs, FreshRunRestore,
-    LifecycleCheckpointHorizonPlugin, ResetToCheckpoint,
+    LifecycleCheckpointHorizonPlugin, ResetToCheckpoint, RetainedPoseCapture,
     adopt_pinned_lifecycle_baselines,
 };
 pub use markers::{

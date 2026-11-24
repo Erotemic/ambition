@@ -1,6 +1,6 @@
 # Item recipes and live continuity
 
-**State:** IR1 and IR2 done (2026-11-24); IR3 and IR4 PLANNED. From the 2026-11-21 review of production source
+**State:** IR1–IR4 done (2026-11-24). From the 2026-11-21 review of production source
 `f412189796254f280e9f5018b685314b6994060c`. The review checkout also contains
 planning changes through `57c1db339f25`. This page reports source findings,
 not a new runtime measurement or an implemented change.
@@ -395,6 +395,52 @@ rounding and each retention policy explicit at export.
   still have clone/serialization checksum work; these changes do not prove
   that all snapshot cost is independent of world history.
 
+### IR3 done (2026-11-24)
+
+**The ledger no longer follows motion.** `record_placed_ground_items` writes
+an item's `Placed` row on the tick it comes to rest out of a hand (or is
+admitted as a mint) and not again while it moves; the live pose stays in
+`BodyKinematics`. `capture_resting_item_poses` (held items) writes the live
+center into each live room's placed rows at the cuts that read them, and
+writes only a row whose pose changed:
+
+- **Checkpoint commit:** in `CheckpointCapture`, after item physics and
+  before the ended-mint compaction and the baseline copy.
+- **Room retirement:** `RoomTransitionApplication::stage`, the one operation
+  both hosts call, runs the generic `RetainedPoseCapture` schedule ahead of
+  the publication commands that despawn the retiring rooms. The transition
+  still names no item type.
+- **Admission:** before `capture_room_preparation_inputs` pins an admitted
+  operation's inputs (`an_admission_awaits_its_inputs`), so a reset that
+  rebuilds a live room builds an item where it is.
+- **Save:** the simulation's save mirrors the ledger's cut values, so motion
+  changes no rollback value. Where a placed item is now reaches the file
+  host-side, at output (IR4, below).
+
+**Cost evidence** (release, one placed item moving beside dormant `Placed`
+rows, a rollback-style snapshot clone and the peer checksum each tick,
+median of 300 ticks; the probe is recorded here and was deleted): before,
+4.3 µs with no dormant rows and 2.43 ms with 10,000; after, 3.1 µs and
+3.5 µs. The ledger is not copied or rehashed by motion, and
+`retain_mint_recipes` (keyed on the ledger) no longer rebuilds its O(M)
+merge on a moving tick.
+
+**Witness:**
+`a_placed_item_keeps_its_row_while_it_moves_and_a_cut_captures_its_pose`
+(held items lib): the row holds the rest point through five moving ticks,
+and the cut writes the live pose. The cross-room, checkpoint and save app
+tests hold the reconstruction side.
+
+**Still open, and whose:** persistent authored bodies keep their 32 px refresh
+(`WHEREABOUTS_REFRESH_DISTANCE`) and their feet convention. The checkpoint
+restore's spared-room merge copies a spared room's rows as they stand: that
+room stays live, so its retirement cut writes the pose later.
+`verify_restored_domains` is unchanged: no capture runs between the pinned
+ledger's install and its check. A candidate session of the experience that
+plays reads the simulation's save, so an item in a live room is built at its
+last cut there; that candidate is no longer discarded on every frame an item
+moves (the residual `the_save_of` names). The held exit context is REL4's.
+
 ## IR4 — select durable output without changing gameplay state
 
 **Proposed output policy:** preserve prompt writes for accepted semantic
@@ -463,6 +509,42 @@ families retain their current output demands. If frame-by-frame pose
 durability later becomes a requirement, revise this policy explicitly and
 scope an incremental output format separately. Background serialization alone
 cannot provide both that guarantee and a size-independent write cost.
+
+### IR4 done (2026-11-24)
+
+**Output policy, in persistence.** The autosave writes a change to the save
+itself at the first confirmed opportunity, and a change only to where objects
+lie in a live room at most once per `POSE_ONLY_OUTPUT_INTERVAL` (one second):
+a maximum interval measured from the last write, so continuous motion still
+reaches the disk. Every write joins the current poses, so a prompt write also
+carries the pending pose. The interval uses `Time<Real>`, outside rollback and
+checksums; with no host clock it does not hold anything back.
+
+**Where the poses come from.** `publish_durable_pose_overlay` (session,
+`Update`, confirmed frames only) publishes `DurablePoseOverlay`: each placed
+item in a live room, in the file's integer pixels, tagged with the save owner
+it was read for. `AmbitionGameSaveData::with_placed_positions` joins it into a
+copy at output; a row is changed only where it is `Placed` in the named room.
+A prediction never reaches the overlay, so a deadline never writes one.
+
+**Graceful ends.** An experience switch goes through `SaveHandover`
+(`hand_over_the_save`): on a confirmed world it writes the outgoing owner's
+cut with its poses and parks the joined save, so the experience gets the
+poses back if it plays again in this process; on an unconfirmed world it
+writes nothing. A graceful quit runs `flush_the_save_on_exit` in `Last` on the
+frame `AppExit` is written. A crash or an abrupt browser close gets no flush;
+the interval bounds what it loses. Unsupported files (`SaveFileWritable`) and
+the refused-state memory are kept; the refusal now remembers the poses with
+the save.
+
+**Witnesses** (persistence lib):
+`a_pose_only_change_waits_for_the_interval_and_a_semantic_change_does_not`
+and `a_switch_writes_the_outgoing_pose_and_parks_it` (with its unconfirmed
+control).
+
+**Limits:** every write still serializes the whole file; an incremental
+format is a separate decision if frame-by-frame pose durability is ever
+required. Other save families keep their own output demands.
 
 ## Delivery and limits
 

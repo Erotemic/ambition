@@ -6,7 +6,7 @@ use crate::checkpoint::AcceptedCheckpointRestore;
 use crate::lifecycle_commit::{PendingIntent, PendingLifecycleCommit};
 use ambition_platformer2d_items::pickup::minted_horizon::MintedItemBaseline;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    AuthoredOccurrences, SessionWorldMut, SessionRoot,
+    AuthoredOccurrences, SessionWorldMut, SessionWorldRef, SessionRoot,
 };
 use bevy::prelude::*;
 use std::sync::Arc;
@@ -98,6 +98,20 @@ impl RoomContinuity<'_, '_> {
         select_continuity(intent, restore, self.accepted.single().ok(),
             self.ledger.as_deref(), self.retained.single().ok(), &self.custody)
     }
+}
+
+/// Run condition: a lifecycle operation is admitted and its preparation
+/// inputs are not pinned yet. A domain whose durable rows lag its live bodies
+/// (IR3: a placed item's pose) writes them before the pin, so a plan that
+/// rebuilds a live room reads where its objects are now.
+pub fn an_admission_awaits_its_inputs(
+    pending: Option<Res<PendingLifecycleCommit>>,
+    captured: Option<SessionWorldRef<CapturedRoomPreparation>>,
+) -> bool {
+    let Some(operation) = pending.as_deref().and_then(PendingLifecycleCommit::peek) else {
+        return false;
+    };
+    captured.is_none_or(|captured| captured.for_operation(operation).is_none())
 }
 
 /// Run after lifecycle producers and durable mirrors, outside the mode gate.

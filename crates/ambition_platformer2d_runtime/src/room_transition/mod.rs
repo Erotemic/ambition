@@ -75,6 +75,19 @@ impl Plugin for RoomTransitionComposerPlugin {
                 .after(Platformer2dSimulationPhase::ResetProcessing)
                 .after(ambition_platformer2d_shared_tangle::lifecycle::DurableHorizonSet::SessionMirror),
         );
+        // A placed item's row keeps where it came to rest while its room is
+        // live (IR3), so its pose is written before the admitted operation's
+        // inputs are pinned: a reset that rebuilds a live room builds the item
+        // where it is, not where it last landed.
+        app.add_systems(
+            sim,
+            ambition_held_items::capture_resting_item_poses
+                .in_set(GameplaySimulationRoot)
+                .after(Platformer2dSimulationPhase::ResetProcessing)
+                .after(ambition_platformer2d_shared_tangle::lifecycle::DurableHorizonSet::SessionMirror)
+                .before(capture_room_preparation_inputs)
+                .run_if(ambition_platformer2d_session::room_preparation::an_admission_awaits_its_inputs),
+        );
         // READINESS IS HOST-SIDE; THE ROOM CHANGE IS SIMULATION.
         //
         // These systems ask a question — is the destination prepared, are its assets

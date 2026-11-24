@@ -585,7 +585,57 @@ pub struct LastPersistedSave {
     /// every frame. With it, there is one attempt per distinct state, and a
     /// transient failure retries when anything changes.
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
-    refused: Option<AmbitionGameSaveData>,
+    refused: Option<(AmbitionGameSaveData, PlacedPositions)>,
+    /// The live poses joined into the last write (IR4): the file holds
+    /// `persisted` with these positions. A change to them alone is pose-only
+    /// output, which waits for [`POSE_ONLY_OUTPUT_INTERVAL`].
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    positions: PlacedPositions,
+    /// When the last write landed, in monotonic host time. `None` before the
+    /// first write, so pose-only output is never held back from a file that
+    /// was not written in this process.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    written_at: Option<std::time::Duration>,
+}
+
+/// The live position of each object lying in a live room, by occurrence id:
+/// the room its row names and its pixels. What the file joins into the
+/// simulation's save, whose `Placed` rows hold the last cut (IR3).
+pub type PlacedPositions = std::collections::BTreeMap<String, (String, i32, i32)>;
+
+/// The longest a pose-only change waits for the disk (IR4): a disclosed
+/// crash-resume freshness tradeoff, not a measured optimum and not a gameplay
+/// clock. A change to anything else in the save is written at the first
+/// confirmed opportunity, with the current poses.
+pub const POSE_ONLY_OUTPUT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+
+/// Where the objects the live save places in a live room are now (IR4),
+/// published host-side from the latest confirmed world by the domain that owns
+/// them. Not rollback state and not in any checksum: it decides only what the
+/// file says, never which simulation facts exist.
+///
+/// It names the save owner whose world it was read from, so a value left from
+/// the experience that played is never joined into another's save.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct DurablePoseOverlay {
+    owner: String,
+    positions: PlacedPositions,
+}
+
+impl DurablePoseOverlay {
+    pub fn new(owner: &str, positions: PlacedPositions) -> Self {
+        Self { owner: owner.to_owned(), positions }
+    }
+
+    /// The positions to join into `owner`'s save: none for another owner.
+    pub fn positions_for(&self, owner: &str) -> &PlacedPositions {
+        static NONE: PlacedPositions = PlacedPositions::new();
+        if self.owner == owner {
+            &self.positions
+        } else {
+            &NONE
+        }
+    }
 }
 
 /// The confirmation gate matters most. A rollback host advances frames on a
@@ -595,44 +645,205 @@ pub struct LastPersistedSave {
 ///
 /// Under a rollback session the autosave waits for a moment with no
 /// outstanding predictions. If that moment never comes, not saving is correct.
+///
+/// ⭐ WHAT IS WRITTEN WHEN (IR4). A change to the save itself (progress,
+/// custody, a disposition, a checkpoint, a room retirement's cut) is written at
+/// the first confirmed opportunity. A change only to where objects lie in a
+/// live room ([`DurablePoseOverlay`]) is written at most once per
+/// [`POSE_ONLY_OUTPUT_INTERVAL`]: a maximum interval, not a debounce, so
+/// continuous motion still reaches the disk. Every write joins the current
+/// poses, so a prompt write satisfies a pending pose write too.
 pub fn autosave_sandbox_save(
     save: Res<AmbitionGameSave>,
     mut last: ResMut<LastPersistedSave>,
     writable: Res<SaveFileWritable>,
     root: Res<crate::PersistenceRoot>,
     owner: Res<SaveOwner>,
+    overlay: Option<Res<DurablePoseOverlay>>,
+    time: Option<Res<bevy::time::Time<bevy::time::Real>>>,
 ) {
     // Startup found a file this build must not replace (newer build, or
     // unparseable bytes). Without this check, the first write destroys it.
     if !writable.0 {
         return;
     }
-    if last.persisted.as_ref() == Some(&save.0) {
+    let positions = overlay.as_deref().map_or(&EMPTY_POSITIONS, |overlay| overlay.positions_for(owner.current()));
+    let changed = last.persisted.as_ref() != Some(&save.0);
+    if !changed && last.positions == *positions {
         return;
+    }
+    let now = time.as_deref().map(|time| time.elapsed());
+    // Only poses moved: wait for the interval since the last write.
+    if !changed {
+        if let (Some(now), Some(written)) = (now, last.written_at) {
+            if now < written + POSE_ONLY_OUTPUT_INTERVAL {
+                return;
+            }
+        }
     }
     // Already tried this exact state and the store said no. Saying so again
     // every frame neither persists it nor tells the player anything new.
-    if last.refused.as_ref() == Some(&save.0) {
+    if last.refused.as_ref().is_some_and(|(data, at)| data == &save.0 && at == positions) {
         return;
     }
     // The live save's own file, not Ambition's: see `SaveOwner`.
     let Some(path) = save_path_for(&root.0, owner.current()) else {
         return;
     };
-    match write_save(&path, &save.0) {
+    let positions = positions.clone();
+    write_the_cut(&path, &save.0, positions, &mut last, now);
+}
+
+static EMPTY_POSITIONS: PlacedPositions = PlacedPositions::new();
+
+/// Write `save` with `positions` joined, and record what the file now holds.
+fn write_the_cut(
+    path: &Path,
+    save: &AmbitionGameSaveData,
+    positions: PlacedPositions,
+    last: &mut LastPersistedSave,
+    now: Option<std::time::Duration>,
+) -> bool {
+    let joined = save.with_placed_positions(&positions);
+    match write_save(path, joined.as_ref().unwrap_or(save)) {
         Ok(()) => {
-            last.persisted = Some(save.0.clone());
+            last.persisted = Some(save.clone());
+            last.positions = positions;
+            last.written_at = now;
             last.refused = None;
+            true
         }
         Err(error) => {
-            last.refused = Some(save.0.clone());
+            last.refused = Some((save.clone(), positions));
             warn!(
                 target: "ambition_platformer2d::save",
                 "failed to write save file {}: {error}",
                 path.display()
             );
+            false
         }
     }
+}
+
+/// Write the live save's latest cut now, whatever the interval (IR4): the
+/// graceful end of its owner's play, a switch to another experience or a
+/// quit. Writes nothing when the file already holds it, when this build must
+/// not replace the file, or with no root. A crash or an abrupt browser close
+/// gets no flush; the interval bounds what it loses.
+///
+/// The caller decides that the world is confirmed: a speculative cut is never
+/// written, at a deadline or at a quit.
+pub fn flush_the_save(
+    save: &AmbitionGameSave,
+    last: &mut LastPersistedSave,
+    writable: &SaveFileWritable,
+    root: Option<&Path>,
+    owner: &SaveOwner,
+    overlay: Option<&DurablePoseOverlay>,
+    now: Option<std::time::Duration>,
+) {
+    let positions = overlay.map_or(&EMPTY_POSITIONS, |overlay| overlay.positions_for(owner.current()));
+    if !writable.0 || (last.persisted.as_ref() == Some(&save.0) && last.positions == *positions) {
+        return;
+    }
+    let Some(path) = root.and_then(|root| save_path_for(root, owner.current())) else {
+        return;
+    };
+    write_the_cut(&path, &save.0, positions.clone(), last, now);
+}
+
+/// Give the live save to `owner` after writing the outgoing owner's latest
+/// cut (IR4). The outgoing save is parked with its poses joined, so the
+/// experience gets them back if it plays again in this process. `confirmed`
+/// is false while the world holds a prediction: then nothing is written and
+/// the save is parked as the simulation holds it.
+#[allow(clippy::too_many_arguments)]
+pub fn hand_over_the_save(
+    owner: &str,
+    ownership: &mut SaveOwner,
+    save: &mut AmbitionGameSave,
+    last: &mut LastPersistedSave,
+    writable: &mut SaveFileWritable,
+    root: Option<&Path>,
+    overlay: Option<&DurablePoseOverlay>,
+    confirmed: bool,
+    now: Option<std::time::Duration>,
+) -> bool {
+    if ownership.current == owner {
+        return false;
+    }
+    if confirmed {
+        flush_the_save(save, last, writable, root, ownership, overlay, now);
+        let positions = overlay.map_or(&EMPTY_POSITIONS, |overlay| overlay.positions_for(ownership.current()));
+        if let Some(joined) = save.0.with_placed_positions(positions) {
+            // The file holds exactly this when the flush wrote it (or had).
+            let on_disk = last.persisted.as_ref() == Some(&save.0) && last.positions == *positions;
+            save.0 = joined;
+            if on_disk {
+                last.persisted = Some(save.0.clone());
+                last.positions = PlacedPositions::new();
+            }
+        }
+    }
+    hand_the_save_to(owner, ownership, save, last, writable, root)
+}
+
+/// Everything a host needs to give the live save to another experience,
+/// with the outgoing owner's flush (IR4): one parameter, so a host names no
+/// persistence internals and no confirmation type.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct SaveHandover<'w> {
+    ownership: ResMut<'w, SaveOwner>,
+    save: ResMut<'w, AmbitionGameSave>,
+    last: ResMut<'w, LastPersistedSave>,
+    writable: ResMut<'w, SaveFileWritable>,
+    /// Absent in an App that persists nothing: no file is read or written.
+    root: Option<Res<'w, crate::PersistenceRoot>>,
+    overlay: Option<Res<'w, DurablePoseOverlay>>,
+    boundary: Option<Res<'w, ambition_platformer2d_core::ConfirmedFrameBoundary>>,
+    time: Option<Res<'w, bevy::time::Time<bevy::time::Real>>>,
+}
+
+impl SaveHandover<'_> {
+    /// [`hand_over_the_save`] to `owner`. Returns whether it changed hands.
+    pub fn hand_to(&mut self, owner: &str) -> bool {
+        let confirmed = self.boundary.as_deref().is_none_or(|boundary| boundary.fully_confirmed());
+        let now = self.time.as_deref().map(|time| time.elapsed());
+        hand_over_the_save(
+            owner,
+            &mut self.ownership,
+            &mut self.save,
+            &mut self.last,
+            &mut self.writable,
+            self.root.as_deref().map(|root| root.0.as_path()),
+            self.overlay.as_deref(),
+            confirmed,
+            now,
+        )
+    }
+}
+
+/// The quit's flush (IR4): `AppExit` was written this frame, so the last
+/// confirmed cut, with its poses, reaches the live owner's file before the
+/// process ends.
+pub fn flush_the_save_on_exit(
+    save: Res<AmbitionGameSave>,
+    mut last: ResMut<LastPersistedSave>,
+    writable: Res<SaveFileWritable>,
+    root: Res<crate::PersistenceRoot>,
+    owner: Res<SaveOwner>,
+    overlay: Option<Res<DurablePoseOverlay>>,
+    time: Option<Res<bevy::time::Time<bevy::time::Real>>>,
+) {
+    flush_the_save(
+        &save,
+        &mut last,
+        &writable,
+        Some(root.0.as_path()),
+        &owner,
+        overlay.as_deref(),
+        time.as_deref().map(|time| time.elapsed()),
+    );
 }
 
 #[cfg(test)]
@@ -645,6 +856,115 @@ mod tests {
         p.push(format!("ambition_save_{name}_{}", std::process::id()));
         let _ = fs::remove_dir_all(&p);
         p
+    }
+
+    /// A save with one axe lying in `hall` at (0, 0), as the simulation holds
+    /// its row, and an overlay that places it at `x` now.
+    fn axe_save() -> AmbitionGameSave {
+        use crate::save_data::{PersistedOccurrence, PersistedWhereabouts};
+        let mut save = AmbitionGameSave::default();
+        save.0.set_durable_horizon(
+            vec![PersistedOccurrence::new("axe", PersistedWhereabouts::Placed { room: "hall".into(), x: 0, y: 0 })],
+            Vec::new(),
+            Vec::new(),
+        );
+        save
+    }
+
+    fn axe_at(x: i32) -> DurablePoseOverlay {
+        DurablePoseOverlay::new(SANDBOX_SAVE_OWNER, [("axe".to_owned(), ("hall".to_owned(), x, 0))].into_iter().collect())
+    }
+
+    fn axe_x_in(path: &Path) -> Option<i32> {
+        use crate::save_data::PersistedWhereabouts;
+        load_save(path).data.occurrences().iter().find(|row| row.id == "axe").and_then(|row| match row.whereabouts {
+            PersistedWhereabouts::Placed { x, .. } => Some(x),
+            _ => None,
+        })
+    }
+
+    /// IR4: a pose-only change waits for the interval; a change to the save
+    /// itself is written at once, with the current poses joined.
+    ///
+    /// The axe moves to x=5 0.2 s after the first write: the file keeps x=0.
+    /// At 1.1 s, the interval has passed: the file says x=5. It moves to x=9
+    /// and a flag is set at 1.2 s: the flag is a semantic change, so the file
+    /// says x=9 at once, although the pose interval has not passed again.
+    #[test]
+    fn a_pose_only_change_waits_for_the_interval_and_a_semantic_change_does_not() {
+        let root = temp_root("ir4_interval");
+        let path = save_path_under(&root);
+        let start = std::time::Instant::now();
+        let mut app = App::new();
+        app.insert_resource(crate::PersistenceRoot::at(root.clone()))
+            .insert_resource(axe_save())
+            .insert_resource(LastPersistedSave::default())
+            .insert_resource(SaveFileWritable::default())
+            .insert_resource(SaveOwner::default())
+            .insert_resource(axe_at(0))
+            .insert_resource(bevy::time::Time::<bevy::time::Real>::new(start))
+            .add_systems(Update, autosave_sandbox_save);
+        let at = |app: &mut App, seconds: f32| {
+            app.world_mut()
+                .resource_mut::<bevy::time::Time<bevy::time::Real>>()
+                .update_with_instant(start + std::time::Duration::from_secs_f32(seconds));
+        };
+        at(&mut app, 0.0);
+        app.update();
+        assert_eq!(axe_x_in(&path), Some(0), "premise: the first write lands");
+        app.insert_resource(axe_at(5));
+        at(&mut app, 0.2);
+        app.update();
+        assert_eq!(axe_x_in(&path), Some(0), "a pose-only change was written before its interval");
+        at(&mut app, 1.1);
+        app.update();
+        assert_eq!(axe_x_in(&path), Some(5), "a pose-only change never reached the file after its interval");
+        app.insert_resource(axe_at(9));
+        app.world_mut().resource_mut::<AmbitionGameSave>().0.set_flag("lever", true);
+        at(&mut app, 1.2);
+        app.update();
+        let file = load_save(&path).data;
+        assert!(file.flag("lever"), "a semantic change waited for the pose interval");
+        assert_eq!(axe_x_in(&path), Some(9), "a semantic write did not carry the current poses");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// IR4: a switch to another experience writes the outgoing owner's
+    /// pending pose and parks the save with it; the arriving owner's file is
+    /// not touched by it.
+    #[test]
+    fn a_switch_writes_the_outgoing_pose_and_parks_it() {
+        let root = temp_root("ir4_switch");
+        let path = save_path_under(&root);
+        let mut ownership = SaveOwner::default();
+        let mut save = axe_save();
+        let mut last = LastPersistedSave::default();
+        let mut writable = SaveFileWritable::default();
+        let overlay = axe_at(0);
+        flush_the_save(&save, &mut last, &writable, Some(&root), &ownership, Some(&overlay), Some(std::time::Duration::ZERO));
+        assert_eq!(axe_x_in(&path), Some(0), "premise: the first write lands");
+        let overlay = axe_at(7);
+        assert!(hand_over_the_save(
+            "sanic", &mut ownership, &mut save, &mut last, &mut writable, Some(&root), Some(&overlay), true,
+            Some(std::time::Duration::from_millis(100)),
+        ));
+        assert_eq!(axe_x_in(&path), Some(7), "the switch lost the pose the interval was holding");
+        // Back again in this process: the parked save carries the pose.
+        hand_the_save_to(SANDBOX_SAVE_OWNER, &mut ownership, &mut save, &mut last, &mut writable, Some(&root));
+        let row = save.0.occurrences().iter().find(|row| row.id == "axe").map(|row| row.whereabouts.clone());
+        assert_eq!(
+            row,
+            Some(crate::save_data::PersistedWhereabouts::Placed { room: "hall".into(), x: 7, y: 0 }),
+            "the parked save lost the pose it was written with"
+        );
+        // Control: an unconfirmed world writes nothing at the switch.
+        let mut last = LastPersistedSave::default();
+        let mut ownership = SaveOwner::default();
+        let mut save = axe_save();
+        let _ = fs::remove_dir_all(&root);
+        hand_over_the_save("sanic", &mut ownership, &mut save, &mut last, &mut writable, Some(&root), Some(&overlay), false, None);
+        assert_eq!(axe_x_in(&path), None, "a speculative cut was written at a switch");
+        let _ = fs::remove_dir_all(&root);
     }
 
     /// A browser reload must not replace the player's save with defaults.

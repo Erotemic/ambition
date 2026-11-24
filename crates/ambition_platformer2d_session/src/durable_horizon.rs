@@ -415,6 +415,13 @@ pub fn install_durable_save_horizon(app: &mut App) {
             .after(ambition_platformer2d_shared_tangle::schedule::ResidencyStep::Project),
     );
     app.add_systems(sim, persist_occurrence_horizon_to_save.in_set(DurableHorizonSet::SessionMirror));
+    // Host-side, before the autosave reads it (IR4).
+    app.add_systems(
+        Update,
+        publish_durable_pose_overlay
+            .run_if(ambition_platformer2d_core::world_state_is_confirmed)
+            .before(ambition_persistence::save::autosave_sandbox_save),
+    );
     #[cfg(feature = "dialogue")]
     app.add_systems(
         sim,
@@ -530,6 +537,38 @@ pub fn count_the_dialogue_visit_when_a_conversation_opens(
     }
 }
 
+/// Publish where each item lying in a live room is now, for the save file
+/// (IR4). The simulation's save holds each `Placed` row as of its last cut
+/// (IR3); the writer joins these positions at output, so motion changes no
+/// rollback value and the file still learns where things lie.
+///
+/// Host-side and confirmed-only: a prediction never reaches the overlay, so
+/// it never reaches the disk. In the file's integer pixels, so a sub-pixel
+/// move changes nothing.
+pub fn publish_durable_pose_overlay(
+    occurrences: Option<Res<AuthoredOccurrences>>,
+    resting: ambition_held_items::RestingItemPoses,
+    owner: Option<Res<ambition_persistence::save::SaveOwner>>,
+    overlay: Option<ResMut<ambition_persistence::save::DurablePoseOverlay>>,
+) {
+    let (Some(occurrences), Some(owner), Some(mut overlay)) = (occurrences, owner, overlay) else {
+        return;
+    };
+    let positions: ambition_persistence::save::PlacedPositions = resting
+        .of(&occurrences)
+        .into_iter()
+        .flat_map(|(room, placed)| {
+            placed.into_iter().map(move |(sim_id, at)| {
+                (sim_id.as_str().to_owned(), (room.clone(), at.x.round() as i32, at.y.round() as i32))
+            })
+        })
+        .collect();
+    let next = ambition_persistence::save::DurablePoseOverlay::new(owner.current(), positions);
+    if *overlay != next {
+        *overlay = next;
+    }
+}
+
 /// Mirror the current occurrence horizon into the save after restore completes. Writes are
 /// value-compared so an unchanged horizon does not retrigger autosave.
 ///
@@ -615,6 +654,9 @@ pub fn persist_occurrence_horizon_to_save(
                     sim_id.as_str(),
                     match whereabouts {
                         OccurrenceWhereabouts::InCustody => PersistedWhereabouts::InCustody,
+                        // The ledger's cut (IR3). Where a placed item in a live
+                        // room is now reaches the file host-side, through
+                        // `DurablePoseOverlay` (IR4), not this rollback value.
                         OccurrenceWhereabouts::Placed { room, at } => PersistedWhereabouts::Placed {
                             room: room.clone(),
                             // INTEGER pixels — see `PersistedWhereabouts::Placed`.

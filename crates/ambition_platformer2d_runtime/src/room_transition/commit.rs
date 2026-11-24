@@ -512,6 +512,16 @@ impl RoomTransitionApplication<'_, '_> {
         let door_sfx = intent.zone_sfx().zip(members.first()).and_then(|(cue, member)| {
             self.bodies.clusters.get(member.subject).ok().map(|body| (cue.to_string(), body.kinematics.pos))
         });
+        // ⭐ WHAT THE RETIRING ROOMS LEAVE IN THE LEDGER, before their
+        // residents are despawned (IR3). A placed object's row is not rewritten
+        // while it moves, so each domain writes its live pose now, from the
+        // tick the room retires on. Queued ahead of the publication's own
+        // commands, so it runs before the despawns they make.
+        if !retiring.is_empty() || !other_rooms_stay {
+            self.commands.queue(|world: &mut bevy::prelude::World| {
+                let _ = world.try_run_schedule(ambition_platformer2d_shared_tangle::lifecycle::RetainedPoseCapture);
+            });
+        }
         let publication = plan.replace_live_world_restoring(
             &mut self.commands,
             self.room_visuals.iter().filter(|(_, _, room)| {

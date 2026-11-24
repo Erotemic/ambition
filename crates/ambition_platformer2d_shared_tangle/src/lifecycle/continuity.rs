@@ -30,8 +30,10 @@ pub enum OccurrenceWhereabouts {
     /// one row a rewind can never strand.
     InCustody,
     /// Lying in `room`, at `at`. The occurrence was carried somewhere and
-    /// put down; `at` is where it came to rest, republished while `room` is
-    /// loaded and FROZEN at the value it last held when `room` unloads.
+    /// put down; `at` is where it came to rest. While `room` is live the body
+    /// owns its pose and an item's row is not rewritten as it moves (IR3): the
+    /// item domain writes the live pose here at a checkpoint commit and when
+    /// `room` retires (`RetainedPoseCapture`), and `at` is FROZEN from then.
     ///
     /// this is the row that makes relocation durable, and the only row
     /// whose value outlives the thing it describes.

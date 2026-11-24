@@ -157,14 +157,28 @@ fn throw_it_down(sim: &mut Platformer2dSimHarness) {
 // ───────────────────────────────────────────────────────────────────────────
 
 /// THE FILE. What `persist_occurrence_horizon_to_save` has mirrored into
-/// `AmbitionGameSave` — the exact value the autosave would commit to disk.
+/// The exact value the autosave would commit to disk: `AmbitionGameSave`
+/// with the live poses of placed items joined (IR4). The simulation's save
+/// holds a placed row as of its last cut; the file learns where the item lies
+/// now from `DurablePoseOverlay`, which this publishes as the host does.
 ///
 /// read out of the save rather than out of the live ledger, because the
 /// question is what would land on the file. A fixture that read
 /// `AuthoredOccurrences` would be asserting the thing it means to compare
 /// against.
-fn the_file(sim: &Platformer2dSimHarness) -> AmbitionGameSaveData {
-    sim.world().resource::<AmbitionGameSave>().data().clone()
+fn the_file(sim: &mut Platformer2dSimHarness) -> AmbitionGameSaveData {
+    use ambition_platformer2d::persistence::save::{DurablePoseOverlay, SaveOwner};
+    use bevy::ecs::system::RunSystemOnce;
+    let world = sim.world_mut();
+    world.init_resource::<SaveOwner>();
+    world.init_resource::<DurablePoseOverlay>();
+    world
+        .run_system_once(ambition_platformer2d::session::publish_durable_pose_overlay)
+        .expect("the overlay publishes");
+    let owner = world.resource::<SaveOwner>().current().to_owned();
+    let save = world.resource::<AmbitionGameSave>().data();
+    save.with_placed_positions(world.resource::<DurablePoseOverlay>().positions_for(&owner))
+        .unwrap_or_else(|| save.clone())
 }
 
 /// Boot a fresh room with a supplied save and wait for the production restore latch.
@@ -217,7 +231,7 @@ fn a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process() {
     );
 
     // Transient possession custody must not reach either durable save table.
-    let file = the_file(&sim);
+    let file = the_file(&mut sim);
     assert!(
         !file.occurrences().iter().any(|row| row.id == id.as_str()),
         "the save carries a whereabouts for a body whose custodian is possession \
@@ -286,7 +300,7 @@ fn an_object_left_in_another_room_is_lying_there_after_a_load() {
          can fail while those are the same place"
     );
 
-    let file = the_file(&sim);
+    let file = the_file(&mut sim);
     assert_eq!(
         file.occurrences(),
         vec![PersistedOccurrence::new(
@@ -379,7 +393,7 @@ fn a_weapon_in_your_hands_is_still_in_your_hands_after_a_load() {
     pick_up(&mut sim, &reward);
     sim.step_n(base(), 4);
 
-    let file = the_file(&sim);
+    let file = the_file(&mut sim);
     assert_eq!(
         file.occurrences(),
         vec![PersistedOccurrence::new(
@@ -540,7 +554,7 @@ fn a_gauntlet_the_item_catalog_never_heard_of_is_still_in_your_hands_after_a_loa
     pick_up(&mut sim, &occurrence);
     crate::death_restores_the_checkpoint::commit_a_hub_checkpoint(&mut sim);
     sim.step_n(base(), 4);
-    let file = the_file(&sim);
+    let file = the_file(&mut sim);
 
     // ── THE FILE: every minted row names an occurrence the save holds ───────
     // A file with no minted rows satisfies "no orphaned minted row" for free.
@@ -679,7 +693,7 @@ fn a_gauntlet_left_in_a_room_outlives_a_save_taken_in_another() {
     let mut sim = fixed_60hz_room_sim(TWO_ITEM_ROOM);
     let (occurrence, where_it_fell) = a_banked_gauntlet_left_in_the_hub(&mut sim, "dormant_save_gauntlet_boss");
     sim.step_n(base(), 30);
-    let file = the_file(&sim);
+    let file = the_file(&mut sim);
     assert!(
         file.occurrences().iter().any(|row| row.id == occurrence.as_str()
             && matches!(&row.whereabouts, PersistedWhereabouts::Placed { room, .. } if room == TWO_ITEM_ROOM)),

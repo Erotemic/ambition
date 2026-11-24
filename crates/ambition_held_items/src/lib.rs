@@ -185,6 +185,28 @@ impl Plugin for HeldItemSimulationPlugin {
                     .in_set(HeldItemStep::Residency),
             ),
         );
+        // ⭐ THE TWO CUTS THAT READ A PLACED ITEM'S ROW (IR3). Between them the
+        // row keeps where the item came to rest and the body keeps where it
+        // is. A checkpoint commit reads this tick's pose: after item physics
+        // (`CheckpointCapture` follows `CoreHeldItems`) and before the baseline
+        // copies the ledger. The ended-mint compaction writes the same ledger
+        // in the same set, so the two are ordered rather than left ambiguous.
+        app.add_systems(
+            sim,
+            capture_resting_item_poses
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::CheckpointCapture)
+                .before(ambition_platformer2d_shared_tangle::lifecycle::compact_ended_mints_at_checkpoint)
+                .before(ambition_platformer2d_shared_tangle::lifecycle::capture_occurrence_baseline)
+                .run_if(ambition_platformer2d_core::a_message_waits::<
+                    ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted,
+                >),
+        );
+        // And a room retirement, which the room transition runs once it has
+        // staged a crossing, ahead of the despawns.
+        app.add_systems(
+            ambition_platformer2d_shared_tangle::lifecycle::RetainedPoseCapture,
+            capture_resting_item_poses,
+        );
     }
 }
 
@@ -873,11 +895,18 @@ pub fn record_placed_ground_items(
     for (room, admitted) in mints {
         occurrences.admit_mints(&room, admitted);
     }
-    // Each item comes to rest in the live room it is in, so with two live
-    // rooms both rooms' placements are recorded (OW1 cut 7d). BTreeMaps, not
-    // the query's order. This value reaches a construction plan; an
+    // An item put down comes to rest in the live room it is in, so with two
+    // live rooms both rooms' placements are recorded (OW1 cut 7d). BTreeMaps,
+    // not the query's order: this value reaches a construction plan, and an
     // archetype-ordered read here is a determinism bug that reproduces
     // perfectly on one machine.
+    //
+    // ⭐ ONLY THE TICK IT COMES TO REST (IR3). A row already `Placed` is not
+    // written again while its item moves: the live pose is the body's, and
+    // a ledger that followed it copied every dormant row, hashed them again
+    // and rebuilt the retained recipes on every moving tick.
+    // [`capture_resting_item_poses`] writes the pose into the row at the cuts
+    // that read it: a checkpoint commit and an accepted room retirement.
     let mut rooms: std::collections::BTreeMap<
         String,
         std::collections::BTreeMap<ambition_platformer2d_shared_tangle::sim_id::SimId, Vec2>,
@@ -886,46 +915,24 @@ pub fn record_placed_ground_items(
         if !custody.in_world() {
             continue;
         }
+        // AN OCCURRENCE COMES TO REST ONLY OUT OF A HAND, and that is an
+        // invariant, not a filter. An object cannot change rooms without being
+        // carried: picked up in A (the row becomes `InCustody`), carried, put
+        // down in B (this writes `Placed { B }`). A `Placed` row naming another
+        // room is a stale duplicate the world should not be holding.
+        // `republish_placements` refuses `None` and `Consumed` itself; whether a
+        // `Placed` row elsewhere is a relocation needs the custody history this
+        // producer sees, so the refusal of it stays here.
+        if !matches!(
+            occurrences.whereabouts(sim_id),
+            Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::InCustody)
+        ) {
+            continue;
+        }
         let Some(definition) = room_set.definition_of(entity) else {
             continue;
         };
         let room = &room_set.rooms().spec(definition).id;
-        // AN OCCURRENCE COMES TO REST HERE ONLY IF IT WAS IN A HAND, OR
-        // WAS ALREADY RESTING HERE — and that is an invariant, not a filter.
-        //
-        // an object cannot change rooms without being carried. Every legitimate relocation
-        // passes through custody: picked up in A (the row becomes `InCustody`), carried, put
-        // down in B (this system writes `Placed { B }`). It is a stale duplicate the world
-        // should not be holding, and believing it would be the ledger taking dictation from the
-        // very duplication it exists to prevent.
-        //
-        // ⚠ THIS IS THE HALF THE LEDGER CANNOT DECIDE, and the only half left here.
-        // `republish_placements` now refuses `None` and `Consumed` itself — an occurrence
-        // enters the ledger through custody and nowhere else, and that is the ledger's rule to
-        // keep. Whether a `Placed` row naming ANOTHER room is a legitimate relocation or a
-        // stale duplicate needs the custody history the ledger does not see from a single
-        // call, so it stays with this producer.
-        //
-        // it refuses rather than repairs, deliberately.
-        let comes_to_rest_here = match occurrences.whereabouts(sim_id) {
-            Some(
-                ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::InCustody,
-            ) => true,
-            Some(
-                ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Placed {
-                    room: recorded_room,
-                    ..
-                },
-            ) => recorded_room == room,
-            None
-            | Some(
-                ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Consumed
-                | ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Spent,
-            ) => false,
-        };
-        if !comes_to_rest_here {
-            continue;
-        }
         rooms.entry(room.clone()).or_default().insert(sim_id.clone(), ground.pos);
     }
     for (room, placed) in rooms {
@@ -933,35 +940,106 @@ pub fn record_placed_ground_items(
     }
 }
 
-/// Republish one live room's resting occurrences, unless the ledger already
-/// holds each one there.
+/// Write each placement into the ledger. Empty refusals by construction: the
+/// caller offers only rows the ledger holds as live. Checked rather than
+/// discarded so that the day a second producer appears, or a filter drifts,
+/// the loss is loud instead of an object that quietly stops existing when its
+/// room unloads.
 fn republish_room_placements(
     occurrences: &mut ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
     room: &str,
     placed: std::collections::BTreeMap<ambition_platformer2d_shared_tangle::sim_id::SimId, Vec2>,
 ) {
-    let unchanged = placed.iter().all(|(sim_id, at)| {
-        matches!(
-            occurrences.whereabouts(sim_id),
-            Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Placed {
-                room: recorded_room,
-                at: recorded_at,
-            }) if recorded_room.as_str() == room && recorded_at == at
-        )
-    });
-    if unchanged {
-        return;
-    }
-    // Empty by construction: the filter above already dropped every id the
-    // ledger would refuse. It is checked rather than discarded so that the day
-    // a second producer appears — or this filter drifts — the loss is loud
-    // instead of being an object that quietly stops existing when its room
-    // unloads.
     let refused = occurrences.republish_placements(room, placed);
     debug_assert!(
         refused.is_empty(),
         "the ledger refused placements this producer should never have offered: {refused:?}"
     );
+}
+
+/// The live pose of each item lying in a live room whose ledger row places it
+/// in that room (IR3): the value the row holds at a cut, read from the body
+/// that owns it between cuts.
+///
+/// An item's center, as [`record_placed_ground_items`] records it. Rows of
+/// other kinds, items in a hand, and a row naming another room are not read.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct RestingItemPoses<'w, 's> {
+    room_set: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs<'w, 's>>,
+    items: Query<
+        'w,
+        's,
+        (Entity, &'static ambition_platformer2d_shared_tangle::sim_id::SimId, &'static BodyKinematics, &'static ItemCustody),
+        With<ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity>,
+    >,
+}
+
+impl RestingItemPoses<'_, '_> {
+    /// Each placed item's live center, by the room its row names. Only the
+    /// rows `ledger` places in a live room are looked up.
+    pub fn of(
+        &self,
+        ledger: &ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences,
+    ) -> std::collections::BTreeMap<String, std::collections::BTreeMap<ambition_platformer2d_shared_tangle::sim_id::SimId, Vec2>> {
+        let mut poses: std::collections::BTreeMap<String, std::collections::BTreeMap<_, _>> =
+            std::collections::BTreeMap::new();
+        let Some(room_set) = self.room_set.as_ref() else {
+            return poses;
+        };
+        // Nothing is placed in a live room on most ticks: no item is visited.
+        let placed_live = room_set
+            .live_rooms()
+            .any(|(_, definition)| ledger.placed_in(&room_set.rooms().spec(definition).id).next().is_some());
+        if !placed_live {
+            return poses;
+        }
+        for (entity, sim_id, body, custody) in &self.items {
+            if !custody.in_world() {
+                continue;
+            }
+            let Some(definition) = room_set.definition_of(entity) else {
+                continue;
+            };
+            let room = &room_set.rooms().spec(definition).id;
+            if matches!(
+                ledger.whereabouts(sim_id),
+                Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Placed { room: recorded, .. })
+                    if recorded == room
+            ) {
+                poses.entry(room.clone()).or_default().insert(sim_id.clone(), body.pos);
+            }
+        }
+        poses
+    }
+}
+
+/// Write each placed item's live pose into its ledger row (IR3), at a cut
+/// that reads the row: a checkpoint commit, and an accepted room retirement
+/// (`RetainedPoseCapture`). A row already at the pose is not written, so the
+/// shared rows are copied only when an item moved since the last cut.
+pub fn capture_resting_item_poses(
+    poses: RestingItemPoses,
+    occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+) {
+    let Some(mut occurrences) = occurrences else {
+        return;
+    };
+    let mut moved = poses.of(&occurrences);
+    for (room, placed) in moved.iter_mut() {
+        placed.retain(|sim_id, at| {
+            !matches!(
+                occurrences.whereabouts(sim_id),
+                Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Placed {
+                    room: recorded,
+                    at: recorded_at,
+                }) if recorded == room && recorded_at == at
+            )
+        });
+    }
+    moved.retain(|_, placed| !placed.is_empty());
+    for (room, placed) in moved {
+        republish_room_placements(&mut occurrences, &room, placed);
+    }
 }
 
 /// Authored axe held item: a keep-on-use heavy melee swing (placeholder tuning).

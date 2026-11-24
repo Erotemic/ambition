@@ -394,28 +394,20 @@ impl Plugin for GameplaySessionBridgePlugin {
 /// Mary-O's room visits reached Ambition's save, so a host that had played
 /// them disagreed with a fresh host in the peer checksum. See
 /// [`ambition_persistence::save::SaveOwner`].
+///
+/// The outgoing experience's latest confirmed cut reaches its file first
+/// (IR4), so a pose-only change still waiting for its interval is not lost to
+/// the switch.
 fn hand_the_save_to_the_activating_experience(
     mut events: MessageReader<GameplaySessionEvent>,
-    mut ownership: ResMut<ambition_persistence::save::SaveOwner>,
-    mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
-    mut last: ResMut<ambition_persistence::save::LastPersistedSave>,
-    mut writable: ResMut<ambition_persistence::save::SaveFileWritable>,
-    // Absent in an App that persists nothing: no file is read.
-    root: Option<Res<ambition_persistence::PersistenceRoot>>,
+    mut handover: ambition_persistence::save::SaveHandover,
 ) {
     for event in events.read() {
         let GameplaySessionEvent::Activated { activation, .. } = event else {
             continue;
         };
         let experience = activation.experience_id.as_str();
-        if ambition_persistence::save::hand_the_save_to(
-            experience,
-            &mut ownership,
-            &mut save,
-            &mut last,
-            &mut writable,
-            root.as_deref().map(|root| root.0.as_path()),
-        ) {
+        if handover.hand_to(experience) {
             info!(
                 target: "ambition_platformer2d::save",
                 "the save now belongs to experience `{experience}`"

@@ -739,6 +739,42 @@ impl AmbitionGameSaveData {
         &self.occurrences
     }
 
+    /// This save with each named `Placed` row at a newer position: the
+    /// live pose of an object lying in a live room, which the simulation's save
+    /// holds only as of its last cut (IR3/IR4). A row is changed only where it
+    /// is `Placed` in the room named beside its position. `None` when no row
+    /// changes, so the caller writes the save as it is.
+    pub fn with_placed_positions(
+        &self,
+        positions: &std::collections::BTreeMap<String, (String, i32, i32)>,
+    ) -> Option<Self> {
+        if positions.is_empty() {
+            return None;
+        }
+        let mut changed = false;
+        let rows: Vec<PersistedOccurrence> = self
+            .occurrences
+            .iter()
+            .map(|row| match (&row.whereabouts, positions.get(&row.id)) {
+                (PersistedWhereabouts::Placed { room, x, y }, Some((at_room, at_x, at_y)))
+                    if room == at_room && (x, y) != (at_x, at_y) =>
+                {
+                    changed = true;
+                    PersistedOccurrence {
+                        whereabouts: PersistedWhereabouts::Placed { room: room.clone(), x: *at_x, y: *at_y },
+                        ..row.clone()
+                    }
+                }
+                _ => row.clone(),
+            })
+            .collect();
+        changed.then(|| {
+            let mut joined = self.clone();
+            joined.occurrences = Arc::new(rows);
+            joined
+        })
+    }
+
     /// Who was holding what when this save was written.
     pub fn custody(&self) -> &[PersistedCustody] {
         &self.custody

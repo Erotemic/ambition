@@ -210,6 +210,7 @@ impl bevy::prelude::Plugin for PersistenceSchedulePlugin {
         app.init_resource::<PersistenceRoot>();
         app.init_resource::<save::SaveFileWritable>()
             .init_resource::<save::LastPersistedSave>()
+            .init_resource::<save::DurablePoseOverlay>()
             .init_resource::<save::SaveOwner>()
             .init_resource::<settings::persistence::LastPersistedSettings>()
             .add_systems(
@@ -230,6 +231,15 @@ impl bevy::prelude::Plugin for PersistenceSchedulePlugin {
                     save::autosave_sandbox_save
                         .run_if(ambition_platformer2d_core::world_state_is_confirmed),
                 ),
+            )
+            // A graceful quit writes the last confirmed cut with its poses
+            // (IR4): a pose-only change would otherwise wait for an interval
+            // the process does not live to see.
+            .add_systems(
+                bevy::prelude::Last,
+                save::flush_the_save_on_exit
+                    .run_if(ambition_platformer2d_core::a_message_waits::<bevy::app::AppExit>)
+                    .run_if(ambition_platformer2d_core::world_state_is_confirmed),
             );
     }
 }

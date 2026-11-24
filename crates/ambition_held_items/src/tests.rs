@@ -1980,6 +1980,59 @@ fn each_item_put_down_is_placed_in_its_own_live_room() {
     );
 }
 
+/// IR3: a placed item's row is written when it comes to rest, not as it
+/// moves; the capture writes its live pose at a cut.
+///
+/// An axe is put down at (100, 100) in `hall`, then moves to (150, 100). The
+/// subject: after the producer runs on the moving ticks, the row still holds
+/// (100, 100), so the moving item copied no dormant row. The control: the
+/// cut's capture writes (150, 100).
+#[test]
+fn a_placed_item_keeps_its_row_while_it_moves_and_a_cut_captures_its_pose() {
+    use ambition_platformer2d_shared_tangle::lifecycle::{
+        AuthoredOccurrences, InRoomInstance, LiveRoomInstance, OccurrenceWhereabouts, RoomScopedEntity,
+    };
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+    use bevy::ecs::system::RunSystemOnce;
+    let axe = SimId::placement("axe");
+    let mut app = App::new();
+    let mut ledger = AuthoredOccurrences::default();
+    ledger.republish_custody([axe.clone()].into_iter().collect());
+    app.insert_resource(ledger);
+    let spec = |id: &str| {
+        ambition_platformer2d_world::rooms::RoomSpec::new(
+            id,
+            ambition_platformer2d_core::World::new(id, Vec2::new(800.0, 600.0), Vec2::new(16.0, 16.0), Vec::new()),
+        )
+    };
+    ambition_platformer2d_world::rooms::insert_room_set(
+        app.world_mut(),
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic("hall", vec![spec("hall")], Vec::new()),
+    );
+    let item = app
+        .world_mut()
+        .spawn((
+            axe.clone(),
+            GroundItem::released(axe_spec(), Vec2::new(100.0, 100.0), Vec2::ZERO, Vec2::new(8.0, 8.0)),
+            ItemCustody::InWorld,
+            RoomScopedEntity,
+            InRoomInstance(LiveRoomInstance::ACTIVATION),
+        ))
+        .id();
+    app.add_systems(Update, record_placed_ground_items);
+    app.update();
+    let row = |app: &App| app.world().resource::<AuthoredOccurrences>().whereabouts(&axe).cloned();
+    let at = |x: f32| Some(OccurrenceWhereabouts::Placed { room: "hall".into(), at: Vec2::new(x, 100.0) });
+    assert_eq!(row(&app), at(100.0), "premise: the axe comes to rest where it was put down");
+    for step in 1..=5 {
+        app.world_mut().get_mut::<BodyKinematics>(item).unwrap().pos.x = 100.0 + 10.0 * step as f32;
+        app.update();
+    }
+    assert_eq!(row(&app), at(100.0), "the moving axe rewrote its ledger row on a tick that is not a cut");
+    app.world_mut().run_system_once(capture_resting_item_poses).unwrap();
+    assert_eq!(row(&app), at(150.0), "the cut did not capture the axe's live pose");
+}
+
 /// Two live rooms: #0 (`ACTIVATION`) holds `zero`, #1 holds `one`. An app
 /// running `systems` at 60 Hz. The two live rooms are returned.
 fn two_live_rooms<M>(

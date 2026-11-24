@@ -87,6 +87,19 @@ pub struct CheckpointCapture;
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CheckpointRestore;
 
+/// Where each domain writes the live pose of what it keeps durable
+/// whereabouts for into the occurrence ledger, before a room it lies in
+/// retires (IR3).
+///
+/// A placed object's row is written when it comes to rest; while its room is
+/// live the body owns its pose and the row is not rewritten as it moves. The
+/// room transition runs this schedule once its crossing is staged, ahead of the
+/// commands that despawn the rooms it retires, so the row a room is built from
+/// next time holds the pose of the tick it retired on. It knows nothing about
+/// what the domains are; a domain that keeps no such row adds nothing here.
+#[derive(bevy::ecs::schedule::ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct RetainedPoseCapture;
+
 /// The one schedule in which a checkpoint's domain state is put back.
 ///
 /// ⛔⛔ **AUTHORIZATION IS STRUCTURAL HERE, NOT A FLAG.** This schedule is run
@@ -191,6 +204,7 @@ impl Plugin for LifecycleCheckpointHorizonPlugin {
         // reducers to this schedule, and a replace drops every reducer a plugin
         // built earlier added (the New Game save wipe was lost that way).
         app.init_schedule(CheckpointDomainApply);
+        app.init_schedule(RetainedPoseCapture);
         // ⭐ THE LEDGER IS INSTALLED WITH ITS BASELINE, not with whichever domain
         // happens to write it. It lived in `HeldItemSimulationPlugin` ("this is
         // where the producer is registered") while the session teardown and the

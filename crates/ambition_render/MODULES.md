@@ -9,6 +9,7 @@
 | [`asset_census`](src/asset_census.rs) | Text census of texture decoding, in the style of the `[startup]` and `[schedule-census]` loggers in `ambition_dev_tools::profiling`. |
 | [`bubble_shield_fx`](src/bubble_shield_fx.rs) | The live layer of the bubble shield. |
 | [`capture`](src/capture.rs) | Generic offscreen capture plumbing for composed apps. |
+| [`control_glyphs`](src/control_glyphs.rs) | Load published control pictures through the selected sprite content. |
 | [`cutscene`](src/cutscene/mod.rs) | Sandbox cutscene presentation overlay. |
 | [`dialog_ui`](src/dialog_ui.rs) | Provider-selectable dialogue presentation. |
 | [`folded_mesh`](src/folded_mesh.rs) | The one road for a mesh built on the CPU: lightning, lasers, any line or ribbon an effect lays out as triangles. |
@@ -30,7 +31,7 @@
 | [`ui_surface`](src/ui_surface.rs) | Participant-owned UI regions resolved from the live view layout. |
 | [`void_field`](src/void_field.rs) | The field of the void: the picture loses its colour, and a part of its light, near each void thing. |
 
-_23 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_24 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -278,19 +278,22 @@ impl Plugin for TouchControlsPlugin {
             // Button-label sync: `reconcile_touch_action_prompt` writes
             // `ButtonVerb` from the `ControlPrompt` read-model and hides
             // buttons for slots the scheme lacks, and `render_touch_button_text`
-            // folds verb, glyph, and pressed state into the Text node.
+            // draws the control picture and the action words.
             .add_systems(
                 Update,
                 (
                     // Labels come from the controlled subject's action scheme
                     // via `ControlPrompt`. Buttons for missing slots are hidden.
-                    reconcile_touch_action_prompt,
+                    reconcile_touch_action_prompt
+                        .after(ambition_sim_view::affordances::AffordancesSystemSet::Compute),
                     // The stick uses the same rule. It runs after the root sync
                     // so it wins over the blanket setting.
                     sync_touch_stick_visibility_from_context.after(sync_touch_ui_visibility),
                     // After `Route` (where `update_seat_active_devices` runs),
                     // so the glyph shows this frame's device.
-                    update_button_glyph_from_active_input.after(ambition_input::InputSet::Route),
+                    update_button_glyph_from_active_input
+                        .after(ambition_input::InputSet::Route)
+                        .after(reconcile_touch_action_prompt),
                     update_button_pressed_from_actions
                         .after(ambition_sim_view::affordances::AffordancesSystemSet::Compute),
                     render_touch_button_text
@@ -821,6 +824,7 @@ fn spawn_action_button_at(
                 top: Val::Px(top),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                flex_direction: FlexDirection::Column,
                 border_radius: BorderRadius::all(Val::Px(size * 0.5)),
                 ..default()
             },
@@ -833,22 +837,14 @@ fn spawn_action_button_at(
             Name::new(format!("Touch{label}")),
         ))
         .with_children(|button| {
-            button.spawn((
-                Text::new(label),
-                touch_text_font(ui_fonts, font_size),
-                TextColor(Color::srgb(0.96, 0.97, 1.0)),
-                // Center both lines (verb and glyph) in the circle.
-                TextLayout::justify(Justify::Center),
-                // Marker for the render system. The `ButtonVerb` and
-                // `ButtonGlyph` components are what change each frame.
-                TouchActionLabel(action),
-                // Set by `reconcile_touch_action_prompt`, rendered by
-                // `render_touch_button_text`.
-                ButtonVerb::new(label),
-                // Empty until `update_button_glyph_from_active_input` runs,
-                // so the first frame shows no "?" subtitle.
-                ButtonGlyph(Cow::Borrowed("")),
-            ));
+            spawn_button_contents(
+                button,
+                action,
+                label,
+                font_size,
+                Val::Percent(38.0),
+                ui_fonts,
+            );
         });
 }
 
@@ -976,21 +972,27 @@ fn label_touch_buttons(
         if ready.0 != next_ready {
             ready.0 = next_ready;
         }
-        let next: Option<String> = match prompt.context {
-            ControlContextKind::Gameplay => touch_button_slot(*action)
-                .and_then(|slot| prompt.label_for(slot))
-                .map(str::to_owned),
-            ControlContextKind::Menu | ControlContextKind::Dialogue => {
-                // In a menu these buttons confirm, in every composition. A
-                // game with a better word publishes it through `menu_confirm`.
-                is_menu_confirm_button(*action).then(|| {
-                    prompt
-                        .menu_confirm
-                        .clone()
-                        .unwrap_or_else(|| DEFAULT_MENU_CONFIRM.to_owned())
-                })
+        let next: Option<String> = if *action == TouchActionButton::Reset
+            && prompt.context == ControlContextKind::Gameplay
+        {
+            Some("Reset".into())
+        } else {
+            match prompt.context {
+                ControlContextKind::Gameplay => touch_button_slot(*action)
+                    .and_then(|slot| prompt.label_for(slot))
+                    .map(str::to_owned),
+                ControlContextKind::Menu | ControlContextKind::Dialogue => {
+                    // In a menu these buttons confirm, in every composition. A
+                    // game with a better word publishes it through `menu_confirm`.
+                    is_menu_confirm_button(*action).then(|| {
+                        prompt
+                            .menu_confirm
+                            .clone()
+                            .unwrap_or_else(|| DEFAULT_MENU_CONFIRM.to_owned())
+                    })
+                }
+                ControlContextKind::Empty => None,
             }
-            ControlContextKind::Empty => None,
         };
         // Change-detected, so `Changed<ButtonVerb>` stays accurate for
         // `render_touch_button_text`.
@@ -1130,36 +1132,100 @@ fn show_live_touch_buttons(
     }
 }
 
-/// Per frame: fold each button's [`ButtonVerb`] and [`ButtonGlyph`] into its
-/// `Text`: the verb on line one, the glyph in parentheses on line two.
-/// Runs only on change, so steady frames do not mark `Text` changed.
-pub fn render_touch_button_text(
-    mut q: Query<
-        (&ButtonVerb, &ButtonGlyph, &mut Text),
-        Or<(Changed<ButtonVerb>, Changed<ButtonGlyph>)>,
-    >,
+/// Draw the resolved button picture and retain the action's current words.
+/// Missing or loading pictures use the control's text label.
+fn render_touch_button_text(
+    images: ambition_render::control_glyphs::ControlGlyphImages,
+    mut labels: Query<(
+        Ref<ButtonVerb>,
+        Ref<ButtonGlyph>,
+        Option<&TouchGlyphImage>,
+        &mut Text,
+    )>,
+    mut pictures: Query<(&mut ImageNode, &mut Node)>,
 ) {
-    for (verb, glyph, mut text) in &mut q {
-        let verb_str = verb.as_str();
-        let glyph_str = glyph.0.as_ref();
-        let desired = if glyph_str.is_empty() {
-            verb_str.to_owned()
+    for (verb, glyph, picture, mut text) in &mut labels {
+        let picture = picture.and_then(|picture| pictures.get_mut(picture.0).ok());
+        let show = picture.is_some()
+            && glyph.image.as_ref().is_some_and(|image| images.is_ready(image));
+        let mut image_changed = false;
+        if let Some((mut image, mut node)) = picture {
+            let display = if show { Display::Flex } else { Display::None };
+            image_changed = node.display != display;
+            if image_changed {
+                node.display = display;
+            }
+            if let Some(handle) = glyph.image.as_ref().filter(|_| show) {
+                if image.image != *handle {
+                    image.image = handle.clone();
+                    image_changed = true;
+                }
+            } else if image.image != Handle::default() {
+                image.image = Handle::default();
+                image_changed = true;
+            }
+        }
+        if !verb.is_changed() && !glyph.is_changed() && !image_changed {
+            continue;
+        }
+        let desired = if show || glyph.label.is_empty() {
+            Cow::Borrowed(verb.as_str())
         } else {
-            format!("{verb_str}\n({glyph_str})")
+            Cow::Owned(format!("{}\n({})", verb.as_str(), glyph.label))
         };
         if text.0 != desired {
-            text.0 = desired;
+            text.0 = desired.into_owned();
         }
     }
 }
 
-/// Per-device glyph subtitle, from the primary seat's active device
-/// (`SeatActiveDevices`) and the selected [`KeyboardPreset`].
-#[derive(Component, Clone, Debug, PartialEq, Eq)]
-pub struct ButtonGlyph(pub Cow<'static, str>);
+#[derive(Component)]
+struct TouchGlyphImage(Entity);
 
-/// Set while the button's `Platformer2dInputActionMonolith` is held this
-/// frame. [`sync_button_pressed_visual`] brightens the button from it.
+/// The bound control's label and selected image handle.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct ButtonGlyph {
+    label: Cow<'static, str>,
+    image: Option<Handle<Image>>,
+}
+
+fn spawn_button_contents(
+    button: &mut ChildSpawnerCommands,
+    action: TouchActionButton,
+    label: &'static str,
+    font_size: f32,
+    glyph_height: Val,
+    fonts: Option<&UiFonts>,
+) {
+    let image = button
+        .spawn((
+            ImageNode::default(),
+            Node {
+                display: Display::None,
+                height: glyph_height,
+                max_width: Val::Percent(85.0),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            bevy::picking::Pickable::IGNORE,
+            Name::new("Touch control glyph"),
+        ))
+        .id();
+    button.spawn((
+        Text::new(label),
+        touch_text_font(fonts, font_size),
+        TextColor(Color::srgb(0.96, 0.97, 1.0)),
+        TextLayout::justify(Justify::Center),
+        TouchActionLabel(action),
+        ButtonVerb::new(label),
+        ButtonGlyph::default(),
+        TouchGlyphImage(image),
+        bevy::picking::Pickable::IGNORE,
+    ));
+}
+
+/// The control's held level. [`sync_button_pressed_visual`] uses it to
+/// brighten the button.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ButtonPressed(pub bool);
 
@@ -1194,53 +1260,110 @@ fn touch_action_to_sandbox_action(
     }
 }
 
-/// Per frame: write each button's glyph from the primary seat's active device
-/// and the player's selected [`KeyboardPreset`], so glyphs follow a rebind.
+/// Resolve the primary seat's button pictures from its current bindings.
+/// Touch uses a gamepad reference; keyboard and mouse use keycaps.
 pub fn update_button_glyph_from_active_input(
     devices: Res<ambition_input::SeatActiveDevices>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     seat_bindings: Option<Res<ambition_input::SeatBindings>>,
+    recipes: Query<(
+        &ambition_input::InputParticipant,
+        Ref<ambition_input::BindingRecipe>,
+    )>,
+    prompt: Option<Res<ControlPrompt>>,
+    images: ambition_render::control_glyphs::ControlGlyphImages,
+    mut touch_style: Local<ambition_input::GamepadStyle>,
     mut labels: Query<(&TouchActionLabel, Ref<TouchActionLabel>, &mut ButtonGlyph)>,
 ) {
-    // A glyph is a function of the active device, the preset and the seat's
-    // bindings: built again only when one of them changed or a button is new.
-    // Building every glyph each frame to compare it allocated a string each.
-    let inputs_changed = devices.is_changed()
-        || settings.as_ref().is_some_and(|settings| settings.is_changed())
-        || seat_bindings.as_ref().is_some_and(|bindings| bindings.is_changed());
-    if !inputs_changed && !labels.iter().any(|(_, label, _)| label.is_added()) {
+    let recipe = recipes
+        .iter()
+        .find(|(seat, _)| seat.id == ambition_input::ParticipantId::PRIMARY)
+        .map(|(_, recipe)| recipe);
+    let changed = devices.is_changed()
+        || settings
+            .as_ref()
+            .is_some_and(|settings| settings.is_changed())
+        || seat_bindings
+            .as_ref()
+            .is_some_and(|bindings| bindings.is_changed())
+        || recipe.as_ref().is_some_and(|recipe| recipe.is_changed())
+        || prompt.as_ref().is_some_and(|prompt| prompt.is_changed())
+        || images.is_changed();
+    if !changed && !labels.iter().any(|(_, label, _)| label.is_added()) {
         return;
     }
-    // Default to Arrows+ZXC when there are no settings (headless host).
     let preset = settings
+        .as_ref()
         .map(|s| KeyboardPreset::by_index(s.controls.keyboard_preset_index))
         .unwrap_or_else(KeyboardPreset::arrows_zxc);
-    // The primary seat's bindings. If nothing projected them yet, an empty set
-    // gives empty glyphs, not stale ones.
+    let active = devices.for_seat(ambition_input::ParticipantId::PRIMARY.slot());
+    if let ambition_input::ActiveDevice::Gamepad(style) = active {
+        *touch_style = style;
+    }
+    let device = if active == ambition_input::ActiveDevice::Touch {
+        ambition_input::ActiveDevice::Gamepad(*touch_style)
+    } else {
+        active
+    };
     let empty = ambition_input::ActionBindings::default();
     let bound = seat_bindings.as_deref().map_or(&empty, |seats| {
         seats.for_seat(ambition_input::ParticipantId::PRIMARY.slot())
     });
-    for (TouchActionLabel(touch_action), _, mut glyph) in &mut labels {
-        let Some(sa) = touch_action_to_sandbox_action(*touch_action) else {
+    // A keyboard-only seat can still use touch. Its reference pad uses the
+    // same game layout and saved pad overrides, without changing input ownership.
+    let reference = if active == ambition_input::ActiveDevice::Touch
+        && !bound.all().any(|(_, controls)| {
+            controls
+                .iter()
+                .any(|control| matches!(control, ambition_input::PhysicalControl::Button(_)))
+        }) {
+        let mut reference = recipe
+            .as_deref()
+            .cloned()
+            .unwrap_or_else(|| ambition_input::BindingRecipe::preset(preset.id));
+        reference.sources = ambition_input::BindingSources::GamepadOnly;
+        Some(ambition_input::ActionBindings::from_map(&reference.build()))
+    } else {
+        None
+    };
+    let bound = reference.as_ref().unwrap_or(bound);
+    let context = prompt
+        .as_ref()
+        .map_or(ControlContextKind::Gameplay, |prompt| prompt.context);
+    for (TouchActionLabel(action), _, mut glyph) in &mut labels {
+        let Some(action) = touch_display_action(*action, context) else {
             continue;
         };
-        let next = ambition_input::glyph_for(
-            sa,
-            &preset,
-            bound,
-            devices.for_seat(ambition_input::ParticipantId::PRIMARY.slot()),
-        );
-        if glyph.0 != next {
-            glyph.0 = next;
+        let label = ambition_input::glyph_for(action, &preset, bound, device);
+        let image = bound
+            .control_for(&action, device)
+            .and_then(|control| control.glyph_path(device.gamepad_style()))
+            .and_then(|path| images.load(&path));
+        let next = ButtonGlyph { label, image };
+        if *glyph != next {
+            *glyph = next;
         }
     }
 }
 
-/// Per frame: write each button's pressed flag from the primary participant's
-/// `ActionState<Platformer2dInputActionMonolith>`. Touch is a bound virtual
-/// device, so this one source lights the button for touch, mouse, keyboard,
-/// and gamepad. Writes only on change, for `Changed<ButtonPressed>`.
+fn touch_display_action(
+    action: TouchActionButton,
+    context: ControlContextKind,
+) -> Option<Platformer2dInputActionMonolith> {
+    if context != ControlContextKind::Gameplay {
+        if is_menu_confirm_button(action) {
+            return Some(Platformer2dInputActionMonolith::MenuSelect);
+        }
+        if action == TouchActionButton::Reset {
+            return Some(Platformer2dInputActionMonolith::MenuBack);
+        }
+    }
+    touch_action_to_sandbox_action(action)
+}
+
+/// Show held controls for the primary seat. The Modifier uses its published
+/// level so a pad toggle stays lit after the button is released.
+/// Write only on change, for `Changed<ButtonPressed>`.
 ///
 /// Uses the primary seat, not `single()`: the overlay is the machine's own
 /// screen, like [`update_button_glyph_from_active_input`]. A couch seat's pad
@@ -1250,6 +1373,8 @@ pub fn update_button_pressed_from_actions(
         &ambition_input::InputParticipant,
         &leafwing_input_manager::prelude::ActionState<Platformer2dInputActionMonolith>,
     )>,
+    prompt: Option<Res<ControlPrompt>>,
+    frame: Option<Res<ambition_input::ControlFrame>>,
     mut buttons: Query<(&TouchActionButton, &mut ButtonPressed)>,
 ) {
     let actions = actions_q
@@ -1258,9 +1383,17 @@ pub fn update_button_pressed_from_actions(
         .map(|(_, actions)| actions);
     for (touch_action, mut pressed) in &mut buttons {
         // A button with no action reads as not held.
-        let held = touch_action_to_sandbox_action(*touch_action)
+        let context = prompt
+            .as_ref()
+            .map_or(ControlContextKind::Gameplay, |prompt| prompt.context);
+        let held = touch_display_action(*touch_action, context)
             .zip(actions)
             .is_some_and(|(sa, a)| a.pressed(&sa));
+        let held = if *touch_action == TouchActionButton::Modifier {
+            frame.as_ref().map_or(held, |frame| frame.modifier_held)
+        } else {
+            held
+        };
         if pressed.0 != held {
             pressed.0 = held;
         }
@@ -1294,7 +1427,7 @@ pub fn sync_button_pressed_visual(
 fn spawn_menu_button(
     parent: &mut ChildSpawnerCommands,
     action: TouchActionButton,
-    label: &str,
+    label: &'static str,
     ui_fonts: Option<&UiFonts>,
 ) {
     parent
@@ -1306,6 +1439,7 @@ fn spawn_menu_button(
                 margin: UiRect::all(Val::Px(4.0)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                column_gap: Val::Px(3.0),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.20, 0.16, 0.22, 0.60)),
@@ -1313,11 +1447,7 @@ fn spawn_menu_button(
             Name::new(format!("Touch{label}")),
         ))
         .with_children(|button| {
-            button.spawn((
-                Text::new(label),
-                touch_text_font(ui_fonts, 15.0),
-                TextColor(Color::srgb(0.94, 0.90, 0.96)),
-            ));
+            spawn_button_contents(button, action, label, 15.0, Val::Percent(65.0), ui_fonts);
         });
 }
 
@@ -1882,7 +2012,7 @@ mod prompt_tests {
                 TouchActionLabel(action),
                 action,
                 ButtonVerb::new(gameplay_label),
-                ButtonGlyph(Cow::Borrowed("")),
+                ButtonGlyph::default(),
                 Text::new(gameplay_label),
             ));
         }
@@ -1972,7 +2102,7 @@ mod prompt_tests {
                 TouchActionLabel(action),
                 action,
                 ButtonVerb::new(gameplay_label),
-                ButtonGlyph(Cow::Borrowed("")),
+                ButtonGlyph::default(),
                 Text::new(gameplay_label),
             ));
         }
@@ -2193,5 +2323,141 @@ mod prompt_tests {
         );
         assert_eq!(node.left, Val::Px(40.0));
         assert_eq!(node.top, Val::Px(300.0));
+    }
+}
+
+#[cfg(test)]
+mod glyph_picture_tests {
+    use super::*;
+    use ambition_input::{
+        ActiveDevice, BindingRecipe, BindingSources, GamepadStyle, InputParticipant,
+        SeatActiveDevices, SeatBindings,
+    };
+
+    fn label(app: &mut App, action: TouchActionButton) -> Entity {
+        let world = app.world_mut();
+        let mut query = world.query::<(Entity, &TouchActionLabel)>();
+        query
+            .iter(world)
+            .find(|(_, label)| label.0 == action)
+            .unwrap()
+            .0
+    }
+
+    fn glyph_app(recipe: BindingRecipe) -> App {
+        let mut app = App::new();
+        app.init_resource::<SeatActiveDevices>()
+            .init_resource::<SeatBindings>()
+            .insert_resource(ControlPrompt {
+                context: ControlContextKind::Gameplay,
+                entries: vec![ambition_sim_view::PromptEntry {
+                    action: ambition_sim_view::ActionId::new("vault"),
+                    slot: ControlSlot::Jump,
+                    label: "Vault".into(),
+                    visual: None,
+                    binding: None,
+                    glyph: None,
+                    ready: true,
+                }],
+                menu_confirm: None,
+            })
+            .add_systems(Startup, spawn_touch_buttons)
+            .add_systems(
+                Update,
+                (
+                    ambition_input::publish_seat_bindings,
+                    reconcile_touch_action_prompt,
+                    update_button_glyph_from_active_input,
+                    render_touch_button_text,
+                )
+                    .chain(),
+            );
+        app.world_mut()
+            .spawn((InputParticipant::primary(), recipe.build(), recipe));
+        app
+    }
+
+    #[test]
+    fn touch_uses_the_primary_seats_pad_reference_and_keeps_action_words() {
+        let mut recipe = BindingRecipe::preset(ambition_input::PresetId::ArrowsZxc);
+        recipe.sources = BindingSources::KeyboardOnly;
+        recipe.set_binding_override(ambition_input::BindingOverride {
+            action: "Jump".into(),
+            control: ambition_input::OverrideControl::Button(GamepadButton::West),
+        });
+        let mut app = glyph_app(recipe);
+        app.world_mut()
+            .resource_mut::<SeatActiveDevices>()
+            .mark_primary(ActiveDevice::Touch);
+        app.update();
+        let jump = label(&mut app, TouchActionButton::Jump);
+        assert_eq!(app.world().get::<Text>(jump).unwrap().0, "Vault\n(X)");
+        app.world_mut()
+            .resource_mut::<SeatActiveDevices>()
+            .mark_primary(ActiveDevice::Gamepad(GamepadStyle::PlayStation));
+        app.update();
+        app.world_mut()
+            .resource_mut::<SeatActiveDevices>()
+            .mark_primary(ActiveDevice::Touch);
+        app.update();
+        assert_eq!(app.world().get::<Text>(jump).unwrap().0, "Vault\n(Square)");
+        app.world_mut()
+            .resource_mut::<SeatActiveDevices>()
+            .mark(1, ActiveDevice::Gamepad(GamepadStyle::Switch));
+        app.update();
+        assert_eq!(app.world().get::<Text>(jump).unwrap().0, "Vault\n(Square)");
+        app.insert_resource(ControlPrompt {
+            context: ControlContextKind::Menu,
+            entries: vec![],
+            menu_confirm: Some("Equip".into()),
+        });
+        app.update();
+        assert_eq!(app.world().get::<Text>(jump).unwrap().0, "Equip\n(Cross)");
+        let back = label(&mut app, TouchActionButton::Reset);
+        assert_eq!(app.world().get::<Text>(back).unwrap().0, "Back\n(Circle)");
+    }
+
+    #[test]
+    fn decoded_pictures_replace_only_the_control_subtitle_and_keep_the_verb() {
+        use bevy::asset::AssetApp;
+        let mut app = glyph_app(BindingRecipe::preset(ambition_input::PresetId::ArrowsZxc));
+        app.add_plugins((
+            bevy::app::TaskPoolPlugin::default(),
+            bevy::asset::AssetPlugin::default(),
+        ));
+        app.init_asset::<Image>();
+        app.update();
+        let jump = label(&mut app, TouchActionButton::Jump);
+        let picture = app.world().get::<TouchGlyphImage>(jump).unwrap().0;
+        let server = app.world().resource::<AssetServer>();
+        let pending: Handle<Image> = server.load("missing-touch-glyph.png");
+        let loaded = server.add(Image::default());
+        app.world_mut().get_mut::<ButtonGlyph>(jump).unwrap().image = Some(pending);
+        app.update();
+        assert_eq!(
+            app.world().get::<Node>(picture).unwrap().display,
+            Display::None
+        );
+        assert!(app
+            .world()
+            .get::<Text>(jump)
+            .unwrap()
+            .0
+            .starts_with("Vault\n("));
+        app.world_mut().get_mut::<ButtonGlyph>(jump).unwrap().image = Some(loaded.clone());
+        for _ in 0..6 {
+            app.update();
+        }
+        assert_eq!(
+            app.world().get::<Node>(picture).unwrap().display,
+            Display::Flex
+        );
+        assert_eq!(app.world().get::<ImageNode>(picture).unwrap().image, loaded);
+        assert_eq!(app.world().get::<Text>(jump).unwrap().0, "Vault");
+        let button = app.world().get::<ChildOf>(jump).unwrap().parent();
+        assert_eq!(
+            *app.world().get::<Visibility>(button).unwrap(),
+            Visibility::Inherited
+        );
     }
 }

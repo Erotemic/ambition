@@ -509,6 +509,13 @@ pub fn action_name(action: &Platformer2dInputActionMonolith) -> String {
     format!("{action:?}")
 }
 
+/// The physical gamepad button behind a binding, when it has one.
+pub fn gamepad_button_of(
+    input: &dyn leafwing_input_manager::prelude::Buttonlike,
+) -> Option<GamepadButton> {
+    input.as_reflect().downcast_ref::<GamepadButton>().copied()
+}
+
 /// Name one bound control.
 ///
 /// `Buttonlike: Reflect`, so the concrete input downcasts. Any other input
@@ -522,8 +529,8 @@ pub(crate) fn physical_control_of(
     if let Some(key) = reflected.downcast_ref::<KeyCode>() {
         return PhysicalControl::Key(*key);
     }
-    if let Some(button) = reflected.downcast_ref::<GamepadButton>() {
-        return PhysicalControl::Button(*button);
+    if let Some(button) = gamepad_button_of(input) {
+        return PhysicalControl::Button(button);
     }
     PhysicalControl::Other(format!("{input:?}"))
 }

@@ -35,6 +35,14 @@ its action ID, label, gate, and availability are character/context dependent.
 Content techniques may replace a base action on a slot, but must consume the
 shared resolver's keyed technique edge rather than intercepting a raw verb.
 
+The standard gamepad uses LT for Shield, RB for Interact, and RT for Dash
+(the shared Burst slot). Right stick press toggles the run or stance modifier.
+Keyboard and touch modifier controls use hold. View/Select opens inventory.
+Menus do not change the toggle. Disconnects and binding changes clear it.
+Reset uses keyboard or touch controls. Saved control changes and game layouts
+can replace these defaults. Bodies with Dash show Dash for the Burst slot;
+bodies that only have Dodge keep that action name.
+
 ## Local seats and controllers
 
 Owner: `ambition_input` (`seating.rs`, `local_seats.rs`, `sources.rs`,
@@ -119,6 +127,15 @@ last local menu closes. A local menu does not stop a remote shared timeline.
 into the same semantic frames. Button visibility/labels come from
 `ControlPrompt`; unavailable actions are masked before they reach simulation.
 Touch exclusion zones keep menu drag gestures from becoming gameplay input.
+
+The buttons keep their current action words beside the same published control
+pictures used by dialogue and signs. The primary seat's bindings and saved
+control changes select each picture. Keyboard and mouse use keycaps. Touch uses
+the last active gamepad style for that seat, or Xbox-style pictures before a pad
+is used. A keyboard-only seat uses its gamepad binding recipe for these touch
+pictures. This reference does not change input ownership. A missing or loading
+picture shows the control's text label instead. Menu confirmation and Back use
+their menu bindings, rather than the gameplay action in the same touch position.
 
 ## Clock contract
 

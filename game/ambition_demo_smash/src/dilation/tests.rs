@@ -16,7 +16,7 @@ fn app_on(road: Road) -> App {
 
 fn victim(app: &mut App) -> Entity {
     app.world_mut()
-        .spawn((ae::BodyKinematics::default(), ambition_platformer2d::time::ProperTimeScale::default()))
+        .spawn((ae::BodyKinematics::default(), ambition_platformer2d::time::ClockDilation::default()))
         .id()
 }
 
@@ -38,7 +38,7 @@ fn ask(app: &mut App, who: Entity, scale: f32, seconds: f32) {
 
 fn scale_of(app: &App, who: Entity) -> f32 {
     app.world()
-        .get::<ambition_platformer2d::time::ProperTimeScale>(who)
+        .get::<ambition_platformer2d::time::ClockDilation>(who)
         .expect("the body kept its clock")
         .0
 }
@@ -199,7 +199,7 @@ fn a_witch_time_stance_slows_the_attacker_across_the_frame_boundary() {
             playback,
             ae::BodyShieldState::default(),
             ae::BodyKinematics::default(),
-            ambition_platformer2d::time::ProperTimeScale::default(),
+            ambition_platformer2d::time::ClockDilation::default(),
         ))
         .id();
     let attacker = victim(&mut app);

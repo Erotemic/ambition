@@ -703,19 +703,18 @@ the scope's pace. A held boss's apple rain therefore waits instead of
 banking spawns, and a dilated one slows. `ScopePace`, every other trigger,
 and the time-dilation module's world/room clock are unchanged.
 
+Dilated travel landed (2026-11-23). A technique's time-scale status
+(`TimeScalePort`) now writes `ClockDilation`, a canonical rollback component
+(schema 537) apart from `ProperTimeScale`. Both integration roads multiply
+travel by the dilation. Every action clock reads
+`ProperTimeScale::dilated(scale, dilation)`: the move timeline, the
+press buffer, the guard clocks, the pose clock, and the presented
+animation. A body slowed by the dilation special now travels slowly as well
+as swinging slowly. A relativistic body's measured proper-time rate still
+slows only its own clocks, and its coordinate travel stays on world time.
+
 Still open:
 
-- Ordinary actor and home integration read the room interval without the
-  body's `ProperTimeScale`. The share is applied on top of that interval,
-  so a dilated body's travel still runs on the room's rate. Multiplying
-  travel by `ProperTimeScale` is not the fix. The component has two
-  writers that mean different things. The Smash dilation module's
-  `TimeScalePort` slows a body's whole clock. `ambition_relativity2d`
-  writes a relativistic body's proper-time RATE from its velocity, and that
-  body's coordinate travel must stay on world time. ADR 0011's plaza keeps
-  "body movement ... [its] existing authorities". Split the gameplay
-  dilation (an action-time multiplier the share composes with) from the
-  measured relativistic rate before either road reads it.
 - The CPU-only and human-seat Smash acceptance. This VM cannot seat a
   Smash round, so that acceptance has to run elsewhere.
 

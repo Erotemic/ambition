@@ -54,6 +54,17 @@ impl SnapshotState for crate::ProperTimeScale {
     }
 }
 
+/// A body's gameplay clock dilation (a time-scale status). Travel and every
+/// action clock read it, so a rewound body must carry the dilation it had.
+impl SnapshotState for crate::ClockDilation {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::ClockDilation(r.f32()?))
+    }
+}
+
 impl SnapshotState for crate::ClockState {
     fn encode(&self, out: &mut Vec<u8>) {
         put_f32(out, self.time_scale);

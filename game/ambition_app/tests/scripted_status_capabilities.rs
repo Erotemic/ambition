@@ -8,7 +8,7 @@ use ambition_platformer2d::combat::extension::status::{BodyStatuses, StatusClock
 use ambition_platformer2d::extension::{BodyRecords, ExtensionFaults};
 use ambition_platformer2d::extension::sdk::{FieldRef, SchemaKey, Value};
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
-use ambition_platformer2d::time::ProperTimeScale;
+use ambition_platformer2d::time::ClockDilation;
 use bevy::prelude::*;
 
 const RECORD: SchemaKey = SchemaKey::new("capability_probe", "status.clock", 1);
@@ -66,7 +66,7 @@ fn scripts_can_compose_status_clocks_credit_and_area_strikes_for_any_controller(
     sim.step_n(AgentAction::default(), 12);
     for body in [player, teacher] {
         let world = sim.world();
-        assert_eq!(world.get::<ProperTimeScale>(body).unwrap().0, 0.5, "zero scale was refused");
+        assert_eq!(world.get::<ClockDilation>(body).unwrap().0, 0.5, "zero scale was refused");
         assert!(world.get::<StatusClocks>(body).is_some());
         assert!(matches!(world.get::<BodyRecords>(body).and_then(|r| r.get(&RECORD))
             .and_then(|r| r.get(FieldRef(0)).ok()), Some(Value::U32(ticks)) if *ticks > 3));

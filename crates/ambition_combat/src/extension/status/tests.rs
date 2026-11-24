@@ -117,7 +117,7 @@ fn app() -> App {
 
 fn body(app: &mut App) -> Entity {
     app.world_mut()
-        .spawn((ae::BodyKinematics::default(), ambition_time::ProperTimeScale::default()))
+        .spawn((ae::BodyKinematics::default(), ambition_time::ClockDilation::default()))
         .id()
 }
 
@@ -208,7 +208,7 @@ fn a_clock_scale_that_stops_the_body_is_refused() {
     let who = body(&mut app);
     press(&mut app, who, SCALE, "(scale: 0.0)");
     step(&mut app);
-    let scale = |app: &App| app.world().get::<ambition_time::ProperTimeScale>(who).unwrap().0;
+    let scale = |app: &App| app.world().get::<ambition_time::ClockDilation>(who).unwrap().0;
     assert_eq!(scale(&app), 1.0, "a scale of 0 stopped the body's clock");
     press(&mut app, who, SCALE, "(scale: 0.5)");
     step(&mut app);

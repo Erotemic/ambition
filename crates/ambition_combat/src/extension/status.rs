@@ -238,7 +238,9 @@ pub fn lower_time_scales(mut commands: Commands, mut outbox: ResMut<ExtensionOut
             warn!("extension entry {} asked for a clock scale of {scale}; refused", submitted.entry);
             continue;
         }
-        commands.entity(submitted.scope).try_insert(ambition_time::ProperTimeScale(scale));
+        // A gameplay dilation of the body's whole clock, travel included; not
+        // its proper-time rate, which a relativistic body measures.
+        commands.entity(submitted.scope).try_insert(ambition_time::ClockDilation(scale));
     }
 }
 

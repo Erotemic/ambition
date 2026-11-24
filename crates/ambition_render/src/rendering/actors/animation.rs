@@ -251,7 +251,7 @@ pub fn animate_player(
             &mut Sprite,
             &mut CharacterAnimator,
             &ambition_sim_view::BodyPoseView,
-            Option<&ambition_time::ProperTimeScale>,
+            (Option<&ambition_time::ProperTimeScale>, Option<&ambition_time::ClockDilation>),
             Option<&mut bevy::sprite::Anchor>,
         ),
         With<PlayerVisual>,
@@ -261,7 +261,7 @@ pub fn animate_player(
     // player clone uses the same sim-side picker.
     for (mut sprite, mut animator, pose, scale, anchor) in &mut query {
         // Presentation dt, scaled by the world clock and proper time.
-        let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+        let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::dilated(scale.0, scale.1));
         // A body that looks up while it moves: its head turns up over the row
         // it walks or runs in. One that holds its crouch until the camera
         // looks down: its head turns down over its crouch.
@@ -335,7 +335,7 @@ pub fn animate_characters(
             &FeatureVisual,
             &mut Sprite,
             &mut CharacterAnimator,
-            Option<&ambition_time::ProperTimeScale>,
+            (Option<&ambition_time::ProperTimeScale>, Option<&ambition_time::ClockDilation>),
             Option<&mut bevy::sprite::Anchor>,
             Option<&mut BarkPose>,
         ),
@@ -355,7 +355,7 @@ pub fn animate_characters(
     // ADR 0011: per-entity proper time on the presentation clock. No SP entity
     // carries `ProperTimeScale` yet, so every actor ticks at the world rate.
     for (visual, mut sprite, mut animator, scale, anchor, bark) in &mut query {
-        let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+        let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::dilated(scale.0, scale.1));
         let barking = bark.is_some_and(|mut pose| {
             pose.0 -= dt;
             pose.0 > 0.0
@@ -405,7 +405,7 @@ pub fn animate_feature_sprites(
             &FeatureVisual,
             &mut Sprite,
             &mut CharacterAnimator,
-            Option<&ambition_time::ProperTimeScale>,
+            (Option<&ambition_time::ProperTimeScale>, Option<&ambition_time::ClockDilation>),
             Option<&mut bevy::sprite::Anchor>,
         ),
         (
@@ -426,7 +426,7 @@ pub fn animate_feature_sprites(
         if !generic_feature_anim_owns(view.kind) {
             continue;
         }
-        let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+        let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::dilated(scale.0, scale.1));
         let mut anchor = anchor;
         let writes = apply_character_frame(
             sprite.bypass_change_detection(),
@@ -467,7 +467,7 @@ pub fn animate_props(
             &mut Sprite,
             &mut CharacterAnimator,
             &PropVisual,
-            Option<&ambition_time::ProperTimeScale>,
+            (Option<&ambition_time::ProperTimeScale>, Option<&ambition_time::ClockDilation>),
             Option<&mut bevy::sprite::Anchor>,
             Option<&super::super::primitives::PropClip>,
             Option<&super::super::primitives::PropTint>,
@@ -482,7 +482,7 @@ pub fn animate_props(
         let dt = if PROP_KINDS_STATIC_UNTIL_MOVING.contains(&prop.kind.as_str()) {
             0.0
         } else {
-            presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale))
+            presentation_time.entity_dt(ambition_time::ProperTimeScale::dilated(scale.0, scale.1))
         };
         let mut anchor = anchor;
         let writes = apply_character_frame(

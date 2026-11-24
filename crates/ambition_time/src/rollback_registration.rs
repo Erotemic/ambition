@@ -45,4 +45,6 @@ where
     registrar.rollback_resource_canonical::<crate::DayClock>(OWNER, "resource.day_clock");
     registrar
         .rollback_component_canonical::<crate::ProperTimeScale>(OWNER, "actor.proper_time_scale");
+    registrar
+        .rollback_component_canonical::<crate::ClockDilation>(OWNER, "actor.clock_dilation");
 }

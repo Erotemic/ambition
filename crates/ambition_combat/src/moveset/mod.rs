@@ -1254,7 +1254,7 @@ pub fn advance_move_playback(
         // same write for `start_impulse` at the press; this is that seam, later
         // on the same timeline.
         &mut ae::BodyKinematics,
-        Option<&ProperTimeScale>,
+        (Option<&ProperTimeScale>, Option<&ambition_time::ClockDilation>),
         // I4: the owner's rollback-stable identity, so the transient strike volume
         // it opens can derive one. Without it every anonymous hitbox folded to the
         // same constant in the entity-reference probes, and swapped owners were
@@ -1370,7 +1370,7 @@ pub fn advance_move_playback(
             ambition_characters::actor::BodyActionStep::share(step, combat)
         });
         let held = share <= 0.0;
-        let dt = world_time.entity_dt(scale.copied().unwrap_or_default()) * freeze.scale_of(owner) * share;
+        let dt = world_time.entity_dt(ProperTimeScale::dilated(scale.0, scale.1)) * freeze.scale_of(owner) * share;
         let t_prev = playback.t;
         // THE CHARGE HOLD. A chargeable use walks its ordinary timeline to the
         // authored hold point and stands there while Attack is held. The proper
@@ -2327,7 +2327,7 @@ pub fn buffer_combat_action_presses(
         &mut AttackGestureState,
         &mut ResolvedAttackGesture,
         &mut ae::BodyActionBuffer,
-        Option<&ProperTimeScale>,
+        (Option<&ProperTimeScale>, Option<&ambition_time::ClockDilation>),
         // WHERE THE BODY WAS WHEN IT ASKED. A special's direction is
         // facing-relative and its posture decides which of `special_down` and
         // `special_air_down` the player meant, and both have to be read at the
@@ -2340,7 +2340,7 @@ pub fn buffer_combat_action_presses(
     for (entity, control, tuning, mut state, mut resolved, mut buffer, scale, kin, ground) in &mut bodies {
         // ADR 0011: the owner's own clock, so a dilated body's leniency
         // dilates with everything else it does.
-        let dt = world_time.entity_dt(scale.copied().unwrap_or_default()) * freeze.scale_of(entity);
+        let dt = world_time.entity_dt(ProperTimeScale::dilated(scale.0, scale.1)) * freeze.scale_of(entity);
         if !buffer.is_empty() {
             buffer.tick(dt);
         }

@@ -156,6 +156,41 @@ impl ProperTimeScale {
     pub fn or_default(opt: Option<&ProperTimeScale>) -> ProperTimeScale {
         opt.copied().unwrap_or(Self::ONE)
     }
+
+    /// The rate a body's ACTIONS run at: its own clock rate under the
+    /// gameplay dilation put on it ([`ClockDilation`]). Travel reads the
+    /// dilation alone.
+    pub fn dilated(scale: Option<&ProperTimeScale>, dilation: Option<&ClockDilation>) -> ProperTimeScale {
+        ProperTimeScale(Self::or_default(scale).0 * ClockDilation::or_default(dilation).0)
+    }
+}
+
+/// A GAMEPLAY dilation of one body's whole clock: what a technique's
+/// time-scale status asks for (`TimeScalePort`). It slows the body's actions
+/// AND its travel.
+///
+/// ⛔ NOT [`ProperTimeScale`]. That is the rate the body's own clocks run at,
+/// which `ambition_relativity2d` measures from a relativistic body's
+/// velocity; such a body's coordinate travel stays on world time (ADR 0011
+/// keeps body movement on its existing authority). Action readers apply both
+/// ([`ProperTimeScale::dilated`]); travel applies only this.
+#[derive(Component, Copy, Clone, Debug, PartialEq)]
+pub struct ClockDilation(pub f32);
+
+impl Default for ClockDilation {
+    fn default() -> Self {
+        Self::ONE
+    }
+}
+
+impl ClockDilation {
+    /// No dilation.
+    pub const ONE: ClockDilation = ClockDilation(1.0);
+
+    /// An optional lookup, [`Self::ONE`] when the body carries none.
+    pub fn or_default(opt: Option<&ClockDilation>) -> ClockDilation {
+        opt.copied().unwrap_or(Self::ONE)
+    }
 }
 
 /// Render-frame access to the wall clock and the current world-clock scale.

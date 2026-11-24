@@ -10972,7 +10972,8 @@ fn an_offer_names_the_move_the_trigger_would_start_and_spends_nothing() {
             recovery_charges: None,
             body_is_held: false,
             refire: None,
-            weapon_has_room: true,
+            body_ranged: None,
+            live_shots: 0,
             bank: Some(bank),
         }
         .offer(priced, &contract)

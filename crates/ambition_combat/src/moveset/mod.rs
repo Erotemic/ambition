@@ -2651,11 +2651,10 @@ struct StartingMove<'a, 'cw, 'cs> {
     /// stick is read a second time in `CombatSet::Playback` as a fresh
     /// post-press flick, and a plain fresh Back+Special comes out a wavebounce.
     gesture_window: Option<(&'a mut AttackGestureState, u8, f32)>,
-    /// The body's weapon and the recharge its ranged action authors — spent
-    /// here when the accepted move is one that fires. `None` for a body with no
-    /// refire floor or no ranged action, which is every move that fires
-    /// nothing.
-    weapon: Option<(&'a mut RangedRefire, f32)>,
+    /// The body's weapon refire floor — armed here, with the interval of the
+    /// source THIS move fires ([`emission_source`]), when the accepted move is
+    /// one that fires. `None` for a body with no refire floor.
+    weapon: Option<&'a mut RangedRefire>,
     /// The body's own ranged action as it stands at acceptance. A move that
     /// fires binds its emission source here (ACT1), unless it brandishes an
     /// item of its own (`MoveSpec::equips`), which is resolved here too.
@@ -2707,21 +2706,15 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         banked_charge,
         body_ranged,
     } = m;
-    // Asked before `spec` is handed to the playback below.
-    let fires_ranged = move_fires_ranged(&spec);
     // THE EMISSION SOURCE THIS USE WAS ADMITTED WITH (ACT1). The weapon a move
     // brandishes for itself, else the body's own ranged action now. Bound to
     // the use, so a form or equipment change during windup cannot fire a new
     // source under this one's admission.
-    let ranged_source = fires_ranged
-        .then(|| {
-            spec.equips
-                .as_deref()
-                .and_then(ambition_characters::brain::held_item_by_id)
-                .and_then(|item| item.ranged)
-                .or_else(|| body_ranged.cloned())
-        })
-        .flatten();
+    let ranged_source = emission_source(&spec, body_ranged);
+    // The interval of the source this use fires: a drawn gun-sword that leaves
+    // its cadence to the move's recovery arms none, while the body's pistol
+    // arms its own. Read before the source moves into the playback.
+    let refire_s = ranged_source.as_ref().map(|source| source.refire_s);
     if spec.gates.recovery.spends() {
         if let Some(mut jump) = jump {
             jump.recovery_charges = jump.recovery_charges.saturating_sub(1);
@@ -2841,10 +2834,8 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         // press, not a B-reverse"* — true of the code as well as of the intent.
         gesture.prev_lateral_sign = press_sign;
     }
-    if let Some((refire, refire_s)) = weapon {
-        if fires_ranged {
-            refire.arm(refire_s);
-        }
+    if let (Some(refire), Some(refire_s)) = (weapon, refire_s) {
+        refire.arm(refire_s);
     }
 }
 
@@ -2958,8 +2949,12 @@ pub struct MoveAdmission<'a> {
     pub body_is_held: bool,
     /// The weapon's refire floor, when the body has one.
     pub refire: Option<&'a RangedRefire>,
-    /// The weapon's live-shot limit leaves room for another shot.
-    pub weapon_has_room: bool,
+    /// The body's own ranged action. A candidate that fires resolves the
+    /// source it would actually fire from this and its own `equips`
+    /// ([`emission_source`]) before its weapon gate.
+    pub body_ranged: Option<&'a ambition_characters::brain::action_set::RangedActionSpec>,
+    /// The body's weapon shots in flight, for a source's live-shot limit.
+    pub live_shots: usize,
     /// The body's meters.
     pub bank: Option<&'a ambition_platformer2d_core::resources::ActorResources>,
 }
@@ -2969,7 +2964,7 @@ impl MoveAdmission<'_> {
     pub fn affords(&self, spec: &ambition_entity_catalog::MoveSpec) -> bool {
         afford_recovery(spec, self.recovery_charges)
             && permitted_while_held(spec, self.body_is_held)
-            && weapon_ready(spec, self.refire, self.weapon_has_room)
+            && weapon_ready(spec, self.refire, self.body_ranged, self.live_shots)
             && afford_meter(spec, self.bank)
     }
 
@@ -3029,7 +3024,7 @@ impl MoveAdmissionReads<'_, '_> {
         shield: Option<&ae::BodyShieldState>,
         recovery_charges: Option<u8>,
         bank: Option<&'a ambition_platformer2d_core::resources::ActorResources>,
-        ranged: Option<&ambition_characters::brain::action_set::RangedActionSpec>,
+        ranged: Option<&'a ambition_characters::brain::action_set::RangedActionSpec>,
     ) -> Option<MoveAdmission<'a>> {
         let (combat, refire, body_is_held) = self.locks.get(body).ok()?;
         let lock = match shield {
@@ -3041,12 +3036,8 @@ impl MoveAdmissionReads<'_, '_> {
             recovery_charges,
             body_is_held,
             refire,
-            weapon_has_room: ranged.is_none_or(|ranged| {
-                ranged.max_live.is_none()
-                    || ranged.has_room_for_a_shot(
-                        self.weapon_shots.iter().filter(|owner| owner.0 == body).count(),
-                    )
-            }),
+            body_ranged: ranged,
+            live_shots: self.weapon_shots.iter().filter(|owner| owner.0 == body).count(),
             bank,
         })
     }
@@ -3084,9 +3075,36 @@ fn move_fires_ranged(spec: &ambition_entity_catalog::MoveSpec) -> bool {
 fn weapon_ready(
     spec: &ambition_entity_catalog::MoveSpec,
     refire: Option<&RangedRefire>,
-    has_room: bool,
+    body_ranged: Option<&ambition_characters::brain::action_set::RangedActionSpec>,
+    live_shots: usize,
 ) -> bool {
-    !move_fires_ranged(spec) || (refire.is_none_or(RangedRefire::ready) && has_room)
+    if !move_fires_ranged(spec) {
+        return true;
+    }
+    // THE CANDIDATE'S OWN SOURCE (ACT1): a move that brandishes a weapon is
+    // limited by that weapon, not by the body's default one.
+    let has_room = emission_source(spec, body_ranged).is_none_or(|source| {
+        source.max_live.is_none() || source.has_room_for_a_shot(live_shots)
+    });
+    refire.is_none_or(RangedRefire::ready) && has_room
+}
+
+/// The ranged source a move fires, resolved once by one rule for admission,
+/// the refire spend, forecast frame data and the accepted playback (ACT1):
+/// the weapon the move brandishes for itself (`MoveSpec::equips`), else the
+/// body's own ranged action. `None` for a move that fires nothing.
+pub fn emission_source(
+    spec: &ambition_entity_catalog::MoveSpec,
+    body_ranged: Option<&ambition_characters::brain::action_set::RangedActionSpec>,
+) -> Option<ambition_characters::brain::action_set::RangedActionSpec> {
+    if !move_fires_ranged(spec) {
+        return None;
+    }
+    spec.equips
+        .as_deref()
+        .and_then(ambition_characters::brain::held_item_by_id)
+        .and_then(|item| item.ranged)
+        .or_else(|| body_ranged.cloned())
 }
 
 /// IS THIS BODY IN THE MIDDLE OF A RECOVERY IT HAS ALREADY PAID FOR?
@@ -3320,20 +3338,10 @@ pub fn trigger_moveset_moves(
     ) in &mut bodies
     {
         let combat_rules = room_rules.of(entity);
-        // The weapon this body would spend if the move it starts fires one.
-        let refire_s = action_set
-            .and_then(|set| set.ranged.as_ref())
-            .map(|ranged| ranged.refire_s);
-        // Whether the weapon's live-shot limit lets it fire now. Counted only
-        // for a weapon that authors a limit.
-        let weapon_has_room = action_set
-            .and_then(|set| set.ranged.as_ref())
-            .is_none_or(|ranged| {
-                ranged.max_live.is_none()
-                    || ranged.has_room_for_a_shot(
-                        weapon_shots.iter().filter(|owner| owner.0 == entity).count(),
-                    )
-            });
+        // The body's weapon shots in flight. Each candidate asks its OWN
+        // source's live-shot limit of this count (`emission_source`).
+        let live_shots = weapon_shots.iter().filter(|owner| owner.0 == entity).count();
+        let body_ranged = action_set.and_then(|set| set.ranged.as_ref());
         let body_frame = resolved_frame
             .map(|frame| frame.basis())
             .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
@@ -3966,7 +3974,8 @@ pub fn trigger_moveset_moves(
                 recovery_charges: cancel_charges_left,
                 body_is_held,
                 refire: cancel_refire,
-                weapon_has_room,
+                body_ranged,
+                live_shots,
                 bank: cancel_bank,
             };
             let Some(spec) = accepted_or_variant(spec, &moveset.0, |candidate| admission.affords(candidate)) else {
@@ -4082,8 +4091,8 @@ pub fn trigger_moveset_moves(
                 oos_policy,
                 jump: jumps.get_mut(entity).ok(),
                 meter: meters.get_mut(entity).ok(),
-                weapon: refire.as_deref_mut().zip(refire_s),
-                body_ranged: action_set.and_then(|set| set.ranged.as_ref()),
+                weapon: refire.as_deref_mut(),
+                body_ranged,
                 gesture_window: (special_turn_ticks > 0)
                     .then(|| {
                         gesture_state
@@ -4109,7 +4118,8 @@ pub fn trigger_moveset_moves(
             recovery_charges: charges_left,
             body_is_held,
             refire: refire_ready_against,
-            weapon_has_room,
+            body_ranged,
+            live_shots,
             bank,
         };
         let affordable = |candidate: &ambition_entity_catalog::MoveSpec| admission.affords(candidate);
@@ -4215,8 +4225,8 @@ pub fn trigger_moveset_moves(
                 oos_policy,
                 jump: jumps.get_mut(entity).ok(),
                 meter: meters.get_mut(entity).ok(),
-                weapon: refire.as_deref_mut().zip(refire_s),
-                body_ranged: action_set.and_then(|set| set.ranged.as_ref()),
+                weapon: refire.as_deref_mut(),
+                body_ranged,
                 gesture_window: (special_turn_ticks > 0)
                     .then(|| {
                         gesture_state

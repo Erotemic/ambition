@@ -404,7 +404,11 @@ value as completion of that owner's contract.
    cancel eligibility, and use facts carried by a final-step shot. Other
    open work: scripted starts, the jump
    escapes before their spend, the landing-tick cancel-window remainder,
-   and interrupting a bound shot whose source is gone.)
+   and interrupting a bound shot whose source is gone. The 2026-11-23
+   review follow-through landed: a ranged event carries its use's facts
+   (`RangedUse`), each candidate's weapon gate and refire spend use its own
+   `emission_source`, and the attack kit asks the cancel window about the
+   request before the fallback.)
    (ACT2 slices 2026-11-23: the reaction cut resolves one action share per
    body per step before the timers decay (`BodyActionStep`, unit-correct
    `released_action_dt`). Travel on both roads, move timeline/charge/flow

@@ -51,9 +51,13 @@ APPDIR="\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]}")" && pwd)"
 cd "\$APPDIR"
 
 export BEVY_ASSET_ROOT="\$APPDIR"
+export AMBITION_PRESENTATION_ENV="\${AMBITION_PRESENTATION_ENV:-handheld}"
+export AMBITION_MAX_SCALE_FACTOR="\${AMBITION_MAX_SCALE_FACTOR:-1}"
+# Keep the window cameras at one sample count during quality changes.
+export AMBITION_MSAA="\${AMBITION_MSAA:-1}"
 
 export RUST_BACKTRACE=1
-export RUST_LOG="\${RUST_LOG:-warn}"
+export RUST_LOG="\${RUST_LOG:-warn,ambition_app::host::platform::desktop=info}"
 
 # Steam Input can select the Desktop Layout when Steam cannot see the
 # focus of a native Wayland window. Use XWayland for the Steam shortcut in KDE.
@@ -65,6 +69,9 @@ if [[ \${XDG_SESSION_TYPE:-} == wayland &&
     unset WAYLAND_DISPLAY WAYLAND_SOCKET
 fi
 
+if [[ ! -t 2 ]]; then
+    exec > "\$APPDIR/ambition.log" 2>&1
+fi
 exec "\$APPDIR/$BIN" "\$@"
 EOF_INNER
 }

@@ -63,3 +63,27 @@ game process environment. Run `steam steam://forceinputappid/0` when the test
 is complete to clear the override. Set the graphical session environment
 when you send the command over SSH. See the
 [Steam Input layout override report](https://github.com/ValveSoftware/steam-for-linux/issues/13314).
+
+## Display and quality
+
+The launcher selects the handheld layout. The game uses a borderless window
+in Gaming Mode and fits the initial window to the display in Desktop Mode.
+The gate terminal and touch controls use smaller base sizes. The left and
+right touch size settings still scale their respective controls.
+
+The launcher caps the UI scale at 1× and uses one sample per pixel across
+all quality presets. A preset still changes scene quality, including texture
+tiers and the portal budget.
+
+Steam launches write to `ambition.log` in the installation directory. If
+the picture is blurry or a quality change closes the game, read the log
+over SSH before you start the game again:
+
+```bash
+grep 'Window:' ~/Games/ambition-latest/ambition.log
+tail -80 ~/Games/ambition-latest/ambition.log
+```
+
+The window lines give the physical framebuffer size, the logical size, and
+the display scale. On the Deck's own screen in Gaming Mode, use the Steam
+shortcut's native game resolution to give the game a 1280×800 surface.

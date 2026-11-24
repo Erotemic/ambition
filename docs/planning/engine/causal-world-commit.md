@@ -371,7 +371,7 @@ confirmation alone, so it commits without its room. No run has shown it.
 ### CW2 follow-up — preserve authority under pressure
 
 **State: IMPLEMENTED for admission, credits and settlement (2026-11-21);
-source and recipient retirement are not yet exercised.** The record is the
+source and recipient retirement exercised 2026-11-24 (receipt below).** The record is the
 "Completion receipt" at the end of this section. The plan as written follows.
 
 The receipt
@@ -589,12 +589,27 @@ keeps its four CW2 cases and adds three:
    bag while its cut is unconfirmed and his credits are spent. His rewind
    over the cut disposes of it again, and it settles `returned` exactly once.
 
+**Retirement receipt (2026-11-24).** The policy is the one the code had,
+now stated and witnessed in `committed_bag::retirement_tests`:
+- A proposal whose source room retires before its tick is confirmed is
+  still decided at its cut. The retired room can rewind no more, so what it
+  proposed is final; the record is kept and nothing is decided before the
+  cut (`a_proposal_whose_source_room_retires_is_decided_at_its_cut`).
+- A use whose recipient's room retires before the decision gives that body
+  nothing, and the cell returns exactly once. The recipient is addressed by
+  `SimId` and the proposing room's instance, so a later instance of the same
+  room holding a body of the same placement is a different address and the
+  old allocation does not reach it. The control keeps the recipient in its
+  room and the cell is consumed
+  (`a_recipient_whose_room_retires_before_the_cut_gets_nothing_and_the_cell_returns_once`).
+- A live-room ordinal is not reused within a session: the session mints
+  every live room from one counter (`RoomSet::next_live_room`), which
+  saturates rather than wraps, and a new session forgets the held store
+  (`committed_bag::forget`).
+
 Not exercised:
-- Source-room or recipient retirement before confirmation. A retired room's
-  proposals are still decided; an allocation whose body is gone settles
-  `returned`.
-- Whether a live-room ordinal can be reused, which would let an old address
-  name a new body.
+- Retirement inside the hosted two-room witness (the receipt above drives
+  the bag owner directly).
 - Recipient identity is still `SimId` plus room, not a stable occurrence.
 - Admission replay is checked through `credits()`, not through a replayed
   admission (the witness's requests are injected messages a replay does not

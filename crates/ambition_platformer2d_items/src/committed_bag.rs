@@ -423,3 +423,100 @@ pub fn retract_room(world: &mut World, room: LiveRoomInstance, saved_at: u64) {
 pub fn forget(mut store: ResMut<HeldBagOperations>) {
     *store = HeldBagOperations::default();
 }
+
+#[cfg(test)]
+mod retirement_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeId, SessionScopedEntity};
+
+    const LAB: LiveRoomInstance = LiveRoomInstance::ACTIVATION.next();
+    const HUB: LiveRoomInstance = LAB.next();
+    /// A later live instance of the lab, minted after the first retired.
+    const LAB_AGAIN: LiveRoomInstance = HUB.next();
+
+    /// Two rooms that rewind alone, one Health Cell in the bag, and nothing
+    /// confirmed after tick 9.
+    fn world() -> World {
+        let mut world = World::new();
+        world.insert_resource(SimulationIslands(|_| true));
+        world.insert_resource(ambition_time::SimTick(10));
+        world.insert_resource(ConfirmedFrameBoundary { current: 10, confirmed: 9, session: 0 });
+        world.init_resource::<OwnedItems>();
+        world.resource_mut::<OwnedItems>().put_back(Item::HealthCell, 1);
+        world.init_resource::<HeldBagOperations>();
+        world.init_resource::<bevy::ecs::message::Messages<ambition_damage::healing::BodyHealRequested>>();
+        world
+    }
+
+    fn body(world: &mut World, id: &str, room: LiveRoomInstance) -> Entity {
+        world
+            .spawn((
+                SimId::placement(id),
+                InRoomInstance(room),
+                SessionScopedEntity(SessionScopeId(1)),
+                ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(3)),
+            ))
+            .id()
+    }
+
+    /// Confirm every tick up to `tick` and let the bag decide and settle.
+    fn confirm(world: &mut World, tick: u64) {
+        world.resource_mut::<ambition_time::SimTick>().0 = tick;
+        *world.resource_mut::<ConfirmedFrameBoundary>() = ConfirmedFrameBoundary { current: tick as i32, confirmed: tick as i32, session: 0 };
+        settle_bag_operations(world);
+    }
+
+    fn outcomes(world: &World) -> Vec<&'static str> {
+        world.resource::<HeldBagOperations>().decisions().iter().map(|row| row.outcome).collect()
+    }
+
+    fn heals(world: &World) -> usize {
+        world.resource::<bevy::ecs::message::Messages<ambition_damage::healing::BodyHealRequested>>().len()
+    }
+
+    /// CW2 retirement: a use whose recipient's room retires before the
+    /// decision gives that body nothing, and the cell comes back once. A
+    /// later instance of the same room, with a body of the same placement,
+    /// is a different address: the old allocation does not reach it. The
+    /// control keeps the recipient in its room, and the cell is used.
+    #[test]
+    fn a_recipient_whose_room_retires_before_the_cut_gets_nothing_and_the_cell_returns_once() {
+        let mut stays = world();
+        let bob = body(&mut stays, "bob", LAB);
+        assert_eq!(admit_use(&mut stays, bob, Item::HealthCell), BagAdmission::Held);
+        confirm(&mut stays, 12);
+        assert_eq!((outcomes(&stays), heals(&stays)), (vec!["allocated", "consumed"], 1), "control: a recipient in its room is healed");
+
+        let mut leaves = world();
+        let bob = body(&mut leaves, "bob", LAB);
+        assert_eq!(admit_use(&mut leaves, bob, Item::HealthCell), BagAdmission::Held);
+        // The lab retires: Bob is in the hub, and a new lab holds a body of
+        // the same placement.
+        leaves.entity_mut(bob).insert(InRoomInstance(HUB));
+        body(&mut leaves, "bob", LAB_AGAIN);
+        confirm(&mut leaves, 12);
+        assert_eq!(outcomes(&leaves), vec!["allocated", "returned"]);
+        assert_eq!(heals(&leaves), 0, "the cell reached a body at another address");
+        assert_eq!(leaves.resource::<OwnedItems>().count(Item::HealthCell), 1, "the cell did not come back");
+        confirm(&mut leaves, 13);
+        assert_eq!(leaves.resource::<OwnedItems>().count(Item::HealthCell), 1, "the cell came back twice");
+        assert_eq!(leaves.resource::<HeldBagOperations>().open_allocations(), 0);
+    }
+
+    /// CW2 retirement: a proposal whose source room retires before its tick
+    /// is confirmed is still decided at its cut. The retired room can rewind
+    /// no more, so what it proposed is final; the record is not dropped, and
+    /// nothing is decided before the cut.
+    #[test]
+    fn a_proposal_whose_source_room_retires_is_decided_at_its_cut() {
+        let mut world = world();
+        let alice = body(&mut world, "alice", HUB);
+        assert_eq!(admit_grant(&mut world, Some(alice), Item::HealthCell, 1), BagAdmission::Held);
+        world.despawn(alice);
+        settle_bag_operations(&mut world);
+        assert!(outcomes(&world).is_empty(), "a proposal was decided before its tick was confirmed");
+        assert_eq!(world.resource::<HeldBagOperations>().len(), 1, "the retired room's proposal was dropped");
+        confirm(&mut world, 12);
+        assert_eq!(outcomes(&world), vec!["granted"]);
+    }
+}

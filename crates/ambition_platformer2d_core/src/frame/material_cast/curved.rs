@@ -674,12 +674,33 @@ fn witness(body: &CombatVolume, region: &[Vertex]) -> Option<Witness> {
                 .iter()
                 .map(|p| p.dot(normal))
                 .fold(f64::NEG_INFINITY, f64::max);
-            let vertex = region
+            let mut face = region
                 .iter()
                 .filter(|p| {
                     support - p.point.dot(normal) <= scalar_round(support.abs() + p.point.length())
-                })
-                .max_by(|a, b| a.velocity.dot(normal).total_cmp(&b.velocity.dot(normal)))?;
+                });
+            let tangent = perpendicular(normal);
+            let first = face.next()?;
+            let (lo, hi) = face.fold((first, first), |(lo, hi), point| {
+                let along = point.point.dot(tangent);
+                (if along < lo.point.dot(tangent) { point } else { lo },
+                 if along > hi.point.dot(tangent) { point } else { hi })
+            });
+            let (start, end) = (lo.point.dot(tangent), hi.point.dot(tangent));
+            let velocity = if start == end {
+                lo.velocity
+            } else {
+                // A long face can extend beyond the body. Only its speed
+                // at the overlap with the body's support face counts.
+                let depth = polygon.iter().map(|p| p.dot(normal)).fold(f64::INFINITY, f64::min);
+                let face = polygon.iter().filter(|p| {
+                    p.dot(normal) - depth <= scalar_round(depth.abs() + p.length())
+                }).map(|p| p.dot(tangent));
+                let toward_hi = hi.velocity.dot(normal) >= lo.velocity.dot(normal);
+                let along = if toward_hi { face.fold(f64::NEG_INFINITY, f64::max) }
+                    else { face.fold(f64::INFINITY, f64::min) };
+                lo.velocity.lerp(hi.velocity, ((along - start) / (end - start)).clamp(0.0, 1.0))
+            };
             let point = super::edges(&points)
                 .flat_map(|(a, b)| {
                     polygon
@@ -694,7 +715,7 @@ fn witness(body: &CombatVolume, region: &[Vertex]) -> Option<Witness> {
                     };
                     distance(a).total_cmp(&distance(b))
                 })?;
-            (best.0, normal, point, vertex.velocity)
+            (best.0, normal, point, velocity)
         }
     };
     Some(Witness {

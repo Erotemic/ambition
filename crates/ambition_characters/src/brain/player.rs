@@ -206,7 +206,8 @@ pub fn tick_player_brain_from_control(
             ae::Vec2::ZERO
         }
     };
-    out.attack_axis = if c.attack_from_aim_stick && local_attack_aim != ae::Vec2::ZERO {
+    out.attack_axis_from_aim_stick = c.attack_from_aim_stick && local_attack_aim != ae::Vec2::ZERO;
+    out.attack_axis = if out.attack_axis_from_aim_stick {
         ae::LocalAxes::from_vec(local_attack_aim)
     } else {
         local_axis

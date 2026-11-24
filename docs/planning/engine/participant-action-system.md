@@ -397,6 +397,24 @@ Keep movement-derived aim, free flight and ordinary gravity as controls.
 The accepted-map retention remains correct. The separately open
 portal-plus-gravity-turn composition remains separate work.
 
+**Follow-through landed (2026-11-23, schema 536).** The player translator
+records its choice as `ActorControlFrame::attack_axis_from_aim_stick`. It
+is true only when an aim-stick qualifier produced a valid vector; the
+fallback to the movement axis leaves it false. The control codec encodes
+it with every other field. `warp_portal_input` reads that fact; the
+vector-equality inference is gone. A movement-aimed attack goes through
+the held map whole, as a direction with no posture rule, and a C-stick
+attack is untouched.
+
+The travel projection takes only the travel the motor can express: both
+axes for a flyer, the side axis `(x, 0)` for a walker. A walker's local Y
+is kept as posture outside the guard. A temporary probe against the real
+guard gave `(0, 1)` for the oblique pure-posture case (formerly
+`(-0.5, 1)`). It also kept a C-stick `(1, 0)` attack while a reflection
+turned the equal movement vector to `(-1, 0)`, and the movement-aimed
+control still followed the warp. The probe was deleted (bug fixes add no
+test).
+
 ### Tentative curved-world held direction
 
 [CV4](curved-surfaces-and-local-gravity.md#held-input-needs-an-explicit-continuation-rule)

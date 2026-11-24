@@ -370,7 +370,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 534 -> 535: a body's action share for the step (`derived.body_action_step`,
 // ACT2) and a module's observation (`derived.module_observation`, OBS3) are
 // declared derived components.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 535;
+// 535 -> 536: a body's control encodes whether its attack aim came from an
+// independent aim stick (`ActorControlFrame::attack_axis_from_aim_stick`, IN2).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 536;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

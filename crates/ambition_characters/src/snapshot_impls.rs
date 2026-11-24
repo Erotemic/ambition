@@ -843,6 +843,7 @@ impl SnapshotState for crate::control::ActorControl {
             }
         }
         put_vec2(out, f.attack_axis.vec());
+        put_bool(out, f.attack_axis_from_aim_stick);
         for b in [
             f.jump_pressed,
             f.jump_held,
@@ -915,6 +916,7 @@ impl SnapshotState for crate::control::ActorControl {
             None
         };
         let attack_axis = ae::LocalAxes::from_vec(r.vec2()?);
+        let attack_axis_from_aim_stick = r.bool()?;
         let mut flags = [false; 21];
         for f in flags.iter_mut() {
             *f = r.bool()?;
@@ -935,6 +937,7 @@ impl SnapshotState for crate::control::ActorControl {
             ranged_aim_held,
             fire,
             attack_axis,
+            attack_axis_from_aim_stick,
             jump_pressed: flags[0],
             jump_held: flags[1],
             jump_released: flags[2],

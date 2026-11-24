@@ -428,7 +428,9 @@ value as completion of that owner's contract.
     transit's orthogonal map. The
     [IN2 follow-through](engine/participant-action-system.md#in2-follow-through--retain-direction-meaning-through-the-guard)
     retains actual aim-source selection and keeps posture outside physical
-    travel projection. The gravity-turn composition stays open.
+    travel projection (landed 2026-11-23, schema 536:
+    `ActorControlFrame::attack_axis_from_aim_stick`, and a walker's travel is
+    only its side axis). The gravity-turn composition stays open.
     [IN4/IN5](engine/participant-action-system.md#input-continuity-across-routing-and-control-changes)
     refine the same owner at `00bf92c22142`. Observe valid physical samples
     before context filtering and treat rebind reset samples as invalid;

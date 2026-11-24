@@ -186,15 +186,21 @@ pub fn warp_portal_input(
             Some(normal) => world - world.dot(normal).min(0.0) * normal,
             None => world,
         };
-        // A local command through a world-space guard, keeping the local Y of
-        // a body that cannot travel along it.
-        let guard_local = |local: Vec2, guard: &dyn Fn(Vec2) -> Vec2| {
-            let out = basis.to_local(guard(basis.to_world(local)));
+        // A local command through a world-space guard. Only the TRAVEL the
+        // body's motor can express goes through it: a flyer travels on both
+        // axes, a walker only along its side axis. A walker's local Y is
+        // posture (crouch, descend), not travel, so it stays out of the
+        // projection and is kept as it was; projecting the whole `(x, y)` and
+        // restoring Y afterwards let posture leak into the new side travel
+        // under an oblique frame.
+        let guard_travel = |local: Vec2, guard: &dyn Fn(Vec2) -> Vec2| {
+            let travel = if free { local } else { Vec2::new(local.x, 0.0) };
+            let out = basis.to_local(guard(basis.to_world(travel)));
             if free { out } else { Vec2::new(out.x, local.y) }
         };
         let frame_out = &mut control.0;
         let before = frame_out.locomotion.vec();
-        let after = guard_local(before, &|world| emerging(warped(world)));
+        let after = guard_travel(before, &|world| emerging(warped(world)));
         frame_out.locomotion = ambition_platformer2d_core::LocalAxes::from_vec(after);
         // The flyer's command is world-space already.
         frame_out.velocity_target =
@@ -204,11 +210,14 @@ pub fn warp_portal_input(
             if frame_out.facing != 0.0 {
                 frame_out.facing = if after.x.abs() > 0.01 { after.x.signum() } else { 0.0 };
             }
-            // An attack the movement stick aimed continues with it; a C-stick
-            // attack keeps its own aim.
-            if frame_out.attack_axis.vec() == before {
+            // An attack the movement stick aimed continues with the held
+            // stick; a C-stick attack keeps its own aim. The translator says
+            // which it chose. An aim is a direction, not travel, so it is
+            // carried through the map whole, with no posture rule.
+            if !frame_out.attack_axis_from_aim_stick {
+                let aim = frame_out.attack_axis.vec();
                 frame_out.attack_axis =
-                    ambition_platformer2d_core::LocalAxes::from_vec(guard_local(before, &warped));
+                    ambition_platformer2d_core::LocalAxes::from_vec(basis.to_local(warped(basis.to_world(aim))));
             }
         }
     }

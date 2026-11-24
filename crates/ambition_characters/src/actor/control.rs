@@ -265,6 +265,13 @@ pub struct ActorControlFrame {
     /// frame-carrying field on this struct, it says "local frame" in prose only,
     /// and it had exactly the property that let the other two go wrong.
     pub attack_axis: LocalAxes,
+    /// Whether `attack_axis` was selected from an independent aim stick (a
+    /// C-stick press with a valid direction) rather than from the movement
+    /// stick. The translator that chose it says so here, so a later guard
+    /// never has to infer the source from two vectors being equal: a C-stick
+    /// attack and a held walk can point the same way and still mean different
+    /// things. `false` for every brain that aims with its movement.
+    pub attack_axis_from_aim_stick: bool,
     /// Rising edge: brain wants to jump this tick.
     pub jump_pressed: bool,
     /// Sustain: jump button is currently held. Used by variable-

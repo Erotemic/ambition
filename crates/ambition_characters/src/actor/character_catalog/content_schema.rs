@@ -139,12 +139,7 @@ fn declare(facet: &FacetSource<'_>, catalog: &CharacterCatalogData, out: &mut Fa
         // so a missing-asset check would pass on the one value that is
         // certainly wrong.
         let portrait = entry.portrait.as_ref();
-        let spritesheet = entry.spritesheet();
-        let spritesheet = Some(&spritesheet).filter(|_| !entry.manifest.trim().is_empty());
         for (field, path) in [
-            // The image path comes from `manifest`, so a missing image names
-            // the field the author wrote.
-            ("manifest", spritesheet),
             ("manifest", Some(&entry.manifest)),
             ("portrait.image", portrait.map(|portrait| &portrait.image)),
             ("portrait.manifest", portrait.map(|portrait| &portrait.manifest)),
@@ -582,27 +577,19 @@ mod tests {
         );
     }
 
-    /// The sheet image path comes from `manifest`, so a missing image is
-    /// refused at the field the author wrote, and names the image path.
     #[test]
-    fn a_missing_sprite_sheet_is_refused_and_names_the_character() {
+    fn a_missing_sprite_manifest_is_refused_and_names_the_character() {
         let draft = draft("missing_sheet", SMALL_CATALOG);
-        // Control: the manifest and the image it gives are both present.
-        compile(&draft, &registry(), &FixedAssets::new(["mole.ron", "mole.png"]))
-            .expect("the image path is the manifest path with `.png`");
-        let failure = compile(&draft, &registry(), &FixedAssets::new(["mole.ron"]))
-            .expect_err("mole.png is absent");
-        assert!(failure.render().contains("mole.png"), "{}", failure.render());
+        compile(&draft, &registry(), &FixedAssets::new(["mole.ron"]))
+            .expect("the manifest owns its image paths");
+        let failure = compile(&draft, &registry(), &FixedAssets::new([] as [&str; 0]))
+            .expect_err("mole.ron is absent");
         assert_eq!(failure.stage, CompileStage::ReferenceResolution);
-        let diagnostic = failure
-            .diagnostics
-            .iter()
-            .find(|d| d.code == DiagnosticCode::MissingAsset)
-            .expect("the asset failure");
-        assert_eq!(
-            diagnostic.subject.as_ref().map(ToString::to_string),
-            Some("test:character/mole".to_string())
-        );
+        let diagnostic = failure.diagnostics.iter()
+            .find(|d| d.code == DiagnosticCode::MissingAsset).expect("the asset failure");
+        assert!(diagnostic.message.contains("mole.ron"));
+        assert_eq!(diagnostic.subject.as_ref().map(ToString::to_string),
+            Some("test:character/mole".to_string()));
         assert_eq!(diagnostic.field.as_deref(), Some("manifest"));
     }
 

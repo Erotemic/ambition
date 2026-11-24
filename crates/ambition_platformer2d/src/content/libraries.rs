@@ -155,7 +155,7 @@ mod tests {
         manifest: DECLARATION,
         catalog: r#"{"entries":{}}"#,
         files: &[EmbeddedLibraryFile {
-            path: "blob.dat",
+            path: "blob.dat", package_path: "blob.dat",
             bytes: None,
         }],
     }];

@@ -197,7 +197,10 @@ impl PreparedContentPack {
         out
     }
 
-    /// What a package must hold for this pack to load, one tab-separated line
+    /// Export the selected library files and the required asset paths.
+    /// Library files carry their logical name, address, and native source as JSON.
+    /// A `metadata` line marks a file whose dependencies the schema has emitted.
+    /// The remaining records use one tab-separated line
     /// each: `source <path>` for each source the manifest lists, and
     /// `asset <path> <content id>...` for each asset a schema required and the
     /// identities that required it. `scripts/package/package_asset_guard.py` reads
@@ -206,6 +209,20 @@ impl PreparedContentPack {
     pub fn package_inputs(&self) -> String {
         let mut out = String::new();
         for library in &self.libraries { let _ = writeln!(out, "library\t{library}"); }
+        if let Some(snapshot) = &self.selected_libraries {
+            for (key, file) in snapshot.files.iter() {
+                if *key != format!("content://{}/{}", file.library, file.logical) { continue; }
+                if let Some(source) = file.native_path() {
+                    let row = serde_json::json!({
+                        "library": file.library,
+                        "logical": file.logical,
+                        "address": file.asset_path(),
+                        "source": source,
+                    });
+                    let _ = writeln!(out, "file\t{row}");
+                }
+            }
+        }
         for source in &self.sources {
             let path = source.library.as_ref().map(|id| format!("__libraries/{id}/{}", source.declared_path))
                 .unwrap_or_else(|| source.declared_path.clone());
@@ -217,6 +234,9 @@ impl PreparedContentPack {
                 let _ = write!(out, "\t{id}");
             }
             out.push('\n');
+            if provenance.dependencies_resolved {
+                let _ = writeln!(out, "metadata\t{path}");
+            }
         }
         out
     }

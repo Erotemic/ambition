@@ -178,6 +178,8 @@ pub struct AssetRequirement {
     pub path: String,
     pub declared_by: ContentId,
     pub field: &'static str,
+    /// The schema has emitted all dependencies of this metadata file.
+    pub dependencies_resolved: bool,
 }
 
 impl AssetRequirement {
@@ -186,7 +188,13 @@ impl AssetRequirement {
             path: path.into(),
             declared_by,
             field,
+            dependencies_resolved: false,
         }
+    }
+    /// The schema has emitted all dependencies of this metadata file.
+    pub fn with_resolved_dependencies(mut self) -> Self {
+        self.dependencies_resolved = true;
+        self
     }
 }
 
@@ -199,6 +207,7 @@ pub struct AssetProvenance {
     pub root: String,
     /// Every content id that asked for this asset, in canonical order.
     pub required_by: Vec<ContentId>,
+    pub dependencies_resolved: bool,
 }
 
 /// Where the compiler looks for authored assets.

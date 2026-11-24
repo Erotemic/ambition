@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-10-10
+last_verified: 2026-11-23
 related_docs:
   - docs/recipes/adding-an-asset.md
   - docs/recipes/android-build.md
@@ -11,8 +11,10 @@ related_docs:
 
 `scripts/package/package_asset_guard.py` is the package boundary for installed asset
 trees. It reads the game's own files and each library declared by its content
-pack. A library's logical files are packaged under `__libraries/<id>/`.
-The runtime uses the same selected inventory and refuses implicit overrides.
+pack. The content compiler exports each selected file's logical name, publication
+address, and native source. The guard copies that file below `__libraries/<id>/`
+at its publication address. It does not build a second library inventory.
+The embedded runtime index keeps both names and uses the same installed path.
 Qualified `content://<id>/...` references keep their library identity on every
 platform. An unqualified reference must have one owner.
 
@@ -31,16 +33,19 @@ A package build fails when:
 - Gradle omits or changes an asset in the finished APK;
 - Steam Deck deployment changes or omits a contracted file.
 
-Spritesheet and portrait manifests are expanded through their page-image lists,
-so a present page zero cannot hide a missing secondary page.
+The content CLI uses the runtime sheet parser to export page-image dependencies.
+A sheet drawn from parts needs no flat sheet image. Multi-page sheets and portrait
+manifests require each declared page, so page zero cannot hide an absent page.
 
 ## Who says what a file declares
 
 A file the content pack lists is read by a typed schema, and only the schema
 knows how its asset paths resolve: a music cue joins each section `path` to the
 cue's `asset_root`, and a music track derives its file from its id. The guard
-does not pattern-match those files. It runs the content compiler and takes its
-answer:
+does not pattern-match those files. A schema can also mark a metadata file with
+`with_resolved_dependencies()` after it has emitted all dependencies. The guard
+then uses those requirements and does not scan the metadata again. It runs the
+content compiler and takes its answer:
 
 ```bash
 cargo run -q -p ambition_content_check --bin ambition_content_check -- \
@@ -55,7 +60,7 @@ The first run builds the binary; later runs cost milliseconds.
 that calls `need_asset` reaches the package with no change here.
 
 The pattern match over field names (`spritesheet`, `image`, `path`, ...) stays
-for the manifests no schema owns. A new manifest kind whose paths are not
+for other manifests, such as parallax and LDtk files. A new manifest kind whose paths are not
 package-relative belongs in a schema, not in a new pattern.
 
 A pack asset that is absent from the selected sources is reported and the package ships without

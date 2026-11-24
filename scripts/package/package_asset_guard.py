@@ -171,6 +171,15 @@ class SourceFile:
     # None under the local policy, which does not hash its inputs.
     sha256: str | None
     size: int
+    logical_path: str | None = None
+
+
+@dataclasses.dataclass(frozen=True)
+class LibraryPackageFile:
+    library: str
+    logical: str
+    address: str
+    source: Path
 
 
 @dataclasses.dataclass
@@ -181,6 +190,9 @@ class PackInputs:
     # Asset path to the content identities that require it.
     assets: dict[str, set[str]]
     libraries: list[Path] = dataclasses.field(default_factory=list)
+    library_files: list[LibraryPackageFile] = dataclasses.field(default_factory=list)
+    resolved_metadata: set[str] = dataclasses.field(default_factory=set)
+    dependencies: dict[str, set[str]] = dataclasses.field(default_factory=dict)
 
 
 #: `release` hashes every selected input and audits the composed tree's bytes:
@@ -373,17 +385,26 @@ def assert_no_case_collisions(paths: Iterable[str], *, label: str) -> None:
 def collect_source_files(
     repo: Path, profile: str, *, pack_root: Path | None = None, policy: str = "release"
 ) -> dict[str, SourceFile]:
+    return collect_sources_and_inputs(repo, profile, pack_root=pack_root, policy=policy)[0]
+
+
+def collect_sources_and_inputs(
+    repo: Path, profile: str, *, pack_root: Path | None = None, policy: str = "release"
+) -> tuple[dict[str, SourceFile], PackInputs | None]:
     excludes = profile_excludes(profile)
     root = pack_root or repo / CONTENT_ASSET_ROOT
     by_path: dict[str, SourceFile] = {}
 
-    def add(logical: str, path: Path, owner: str) -> None:
-        if matches_any(logical, excludes):
+    def add(logical: str, path: Path, owner: str, alias: str | None = None) -> None:
+        if matches_any(alias or logical, excludes):
             return
         if logical in by_path:
             raise AssetContractError(f"Two owners of {logical!r}: {by_path[logical].source} and {path}")
+        if not path.is_file():
+            raise AssetContractError(f"Selected asset is not a regular file: {path}")
         by_path[logical] = SourceFile(
-            logical, path, owner, sha256_path(path) if policy == "release" else None, path.stat().st_size
+            logical, path, owner, sha256_path(path) if policy == "release" else None,
+            path.stat().st_size, alias,
         )
 
     for logical, path in iter_regular_files(root, excludes=excludes):
@@ -391,20 +412,27 @@ def collect_source_files(
     inputs = read_pack_inputs(repo, by_path)
     from lib.content_libraries import read_libraries
     try:
-        for library in read_libraries(inputs.libraries if inputs else []).values():
+        libraries = read_libraries(inputs.libraries if inputs else [])
+        for library in libraries.values():
             # Stricter than the runtime, which runs without a store's products:
             # a package of a library whose store published nothing has none to ship.
             if problem := library.requires_publication():
                 if policy == "release":
                     raise AssetContractError(problem)
                 print(f"asset contract WARNING (local): {problem}; composing its other files", file=sys.stderr)
-            for logical, path in library.files().items():
-                if not matches_any(logical, excludes):
-                    add(f"__libraries/{library.id}/{logical}", path, source_relative_path(repo, library.path.parent))
+        for file in inputs.library_files if inputs else []:
+            if matches_any(file.logical, excludes):
+                continue
+            library = libraries[file.library]
+            address = normalize_package_path(file.address)
+            logical = normalize_package_path(f"content://{file.library}/{file.logical}")
+            if address is None or logical is None:
+                raise AssetContractError(f"Invalid selected library member: {file}")
+            add(address, file.source, source_relative_path(repo, library.path.parent), logical)
     except (ValueError, OSError) as error:
         raise AssetContractError(str(error)) from error
     assert_no_case_collisions(by_path, label="selected content")
-    return by_path
+    return by_path, inputs
 
 
 def resolve_declarations(declarations: dict[str, set[str]], files: dict[str, SourceFile]) -> dict[str, set[str]]:
@@ -412,19 +440,23 @@ def resolve_declarations(declarations: dict[str, set[str]], files: dict[str, Sou
     # Each library file under the name a declaration uses, indexed once: a
     # scan of every file per declaration was most of a compose's time.
     library_aliases: dict[str, list[str]] = defaultdict(list)
-    for logical in files:
+    scoped_aliases: dict[str, str] = {}
+    for packaged, source in files.items():
+        logical = source.logical_path or packaged
         parts = logical.split("/", 2)
         if len(parts) == 3 and parts[0] == "__libraries":
-            library_aliases[parts[2]].append(logical)
+            library_aliases[parts[2]].append(packaged)
+            scoped_aliases[logical] = packaged
     for path, origins in declarations.items():
         # The compiler names pack sources relative to their own pack.
         if PACK_SOURCE_ORIGIN in origins:
-            resolved[path].add(PACK_SOURCE_ORIGIN)
+            resolved[scoped_aliases.get(path, path)].add(PACK_SOURCE_ORIGIN)
             origins = origins - {PACK_SOURCE_ORIGIN}
             if not origins:
                 continue
         aliases = library_aliases.get(path, [])
-        owners = ([path] if path in files else []) + aliases
+        owners = sorted(set(([path] if path in files else []) + aliases
+                            + ([scoped_aliases[path]] if path in scoped_aliases else [])))
         if not path.startswith("__libraries/") and len(owners) > 1:
             raise AssetContractError(f"Ambiguous asset {path!r}; use a content:// reference: {owners}")
         resolved[owners[0] if len(owners) == 1 else path].update(origins)
@@ -502,6 +534,12 @@ def read_pack_inputs(repo: Path, source_files: dict[str, SourceFile]) -> PackInp
     inputs = PackInputs(sources=set(), assets={})
     for line in result.stdout.splitlines():
         kind, _, rest = line.partition("\t")
+        if kind == "file":
+            row = json.loads(rest)
+            inputs.library_files.append(LibraryPackageFile(
+                row["library"], row["logical"], row["address"], Path(row["source"]),
+            ))
+            continue
         raw, *required_by = rest.split("\t")
         if kind == "library":
             inputs.libraries.append(manifest.source.parent / raw)
@@ -509,6 +547,10 @@ def read_pack_inputs(repo: Path, source_files: dict[str, SourceFile]) -> PackInp
         path = normalize_package_path(raw) if raw else None
         if kind == "source" and path:
             inputs.sources.add(path)
+        elif kind == "metadata" and path:
+            inputs.resolved_metadata.add(path)
+        elif kind == "dependency" and path:
+            inputs.dependencies.setdefault(path, set()).update(required_by)
         elif kind == "asset" and path:
             inputs.assets.setdefault(path, set()).update(required_by)
         else:
@@ -522,22 +564,25 @@ def scan_manifest_declarations(
 ) -> dict[str, set[str]]:
     declarations: dict[str, set[str]] = defaultdict(set)
     # A pack file is its schema's to read; see "Declared paths" above.
-    pack_owned = set() if pack is None else pack.sources | {PACK_MANIFEST}
+    pack_owned = set() if pack is None else pack.sources | pack.resolved_metadata | {PACK_MANIFEST}
 
     # Authored package manifests. Scan only runtime-facing fields rather than
     # arbitrary string literals, so generator/audit sidecars may name source
     # inputs without turning those inputs into shipped runtime dependencies.
     for rel, source_file in source_files.items():
-        suffix = PurePosixPath(rel).suffix.lower()
-        if suffix not in TEXT_MANIFEST_SUFFIXES or rel in pack_owned:
+        logical = source_file.logical_path or rel
+        suffix = PurePosixPath(logical).suffix.lower()
+        if suffix not in TEXT_MANIFEST_SUFFIXES or logical in pack_owned or rel in pack_owned:
             continue
-        if PurePosixPath(rel).name in PROVENANCE_SIDECAR_NAMES:
+        # Actor sidecars describe authoring intent. The runtime reads the sheet
+        # and part metadata; a sidecar can name a nominal image with no pixels.
+        if logical.endswith("_actor.ron") or PurePosixPath(rel).name in PROVENANCE_SIDECAR_NAMES:
             continue
         try:
             text = source_file.source.read_text(encoding="utf8")
         except UnicodeDecodeError:
             continue
-        sheet_manifest = rel.endswith("_spritesheet.ron") or rel.endswith("_portraits.ron")
+        sheet_manifest = logical.endswith("_spritesheet.ron") or logical.endswith("_portraits.ron")
         for match in DECLARATION_FIELD_RE.finditer(text):
             line = text.count("\n", 0, match.start()) + 1
             raw = match.group("value")
@@ -545,8 +590,8 @@ def scan_manifest_declarations(
                 declarations,
                 raw,
                 f"manifest:{rel}:{line}:{match.group('field')}",
-                relative_to=rel,
-                resolve_plain_relative_to=rel,
+                relative_to=logical,
+                resolve_plain_relative_to=logical,
             )
         if sheet_manifest:
             # Multi-page sheet manifests place secondary images in a list, not
@@ -560,8 +605,8 @@ def scan_manifest_declarations(
                     declarations,
                     raw,
                     f"sheet:{rel}:{line}",
-                    relative_to=rel,
-                    resolve_plain_relative_to=rel,
+                    relative_to=logical,
+                    resolve_plain_relative_to=logical,
                 )
 
     # Provider catalogs can be compile-time raw RON strings in Rust rather than
@@ -599,6 +644,8 @@ def scan_manifest_declarations(
     if pack is not None:
         for path in pack.sources:
             declarations[path].add(PACK_SOURCE_ORIGIN)
+        for path, metadata in pack.dependencies.items():
+            declarations[path].update(f"metadata:{source}" for source in metadata)
         for path, required_by in pack.assets.items():
             declarations[path].update(PACK_ASSET_ORIGIN + content_id for content_id in sorted(required_by))
 
@@ -633,8 +680,7 @@ def build_contract(
     if policy not in POLICIES:
         raise AssetContractError(f"unknown composition policy: {policy}")
     repo = repo.resolve()
-    source_files = collect_source_files(repo, profile, pack_root=pack_root, policy=policy)
-    pack = read_pack_inputs(repo, source_files)
+    source_files, pack = collect_sources_and_inputs(repo, profile, pack_root=pack_root, policy=policy)
     source_root = pack_root.parent / "src" if pack_root is not None else None
     declarations = resolve_declarations(
         scan_manifest_declarations(repo, source_files, pack, source_root=source_root), source_files

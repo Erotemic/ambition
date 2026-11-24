@@ -95,6 +95,8 @@ fn embed_libraries(root: &str, manifest: &crate::ContentPackManifest, pack_root:
         code.push_str(&format!("ambition_platformer2d::asset_manager::content_library::EmbeddedLibrary {{ manifest: include_str!({:?}), catalog: {:?}, files: &[\n", path.to_str().unwrap(), catalog));
         if let Some(catalog) = &library.manifest.catalog { println!("cargo:rerun-if-changed={}", library.root.join(catalog).display()); }
         for (logical, file) in library.files().unwrap_or_else(|error| panic!("{error}")) {
+            let package_path = file.asset_path().strip_prefix(&format!("content://{}/", library.manifest.id))
+                .expect("a file belongs to its library").to_owned();
             let LibraryFileData::Native(physical) = file.data else { unreachable!() };
             let metadata = logical.ends_with(".ron") || logical.ends_with(".json");
             let mut compiled = None;
@@ -114,14 +116,14 @@ fn embed_libraries(root: &str, manifest: &crate::ContentPackManifest, pack_root:
                     .join("content_pack").join(root).join("prepared").join(&library.manifest.id).join(&prepared_path);
                 std::fs::create_dir_all(out.parent().unwrap()).expect("compiled metadata directory");
                 std::fs::write(&out, bytes).expect("compiled metadata output");
-                code.push_str(&format!("ambition_platformer2d::asset_manager::content_library::EmbeddedLibraryFile {{ path: {logical:?}, bytes: None }},\n"));
-                code.push_str(&format!("ambition_platformer2d::asset_manager::content_library::EmbeddedLibraryFile {{ path: {prepared_path:?}, bytes: Some(include_bytes!({:?}) as &[u8]) }},\n", out.to_str().unwrap()));
+                code.push_str(&format!("ambition_platformer2d::asset_manager::content_library::EmbeddedLibraryFile {{ path: {logical:?}, package_path: {package_path:?}, bytes: None }},\n"));
+                code.push_str(&format!("ambition_platformer2d::asset_manager::content_library::EmbeddedLibraryFile {{ path: {prepared_path:?}, package_path: {prepared_path:?}, bytes: Some(include_bytes!({:?}) as &[u8]) }},\n", out.to_str().unwrap()));
                 continue;
             }
             let bytes = if metadata || (!served && library.manifest.embedded.contains(&logical)) {
                 format!("Some(include_bytes!({:?}) as &[u8])", physical.to_str().unwrap())
             } else { "None".to_owned() };
-            code.push_str(&format!("ambition_platformer2d::asset_manager::content_library::EmbeddedLibraryFile {{ path: {logical:?}, bytes: {bytes} }},\n"));
+            code.push_str(&format!("ambition_platformer2d::asset_manager::content_library::EmbeddedLibraryFile {{ path: {logical:?}, package_path: {package_path:?}, bytes: {bytes} }},\n"));
         }
         code.push_str("] },\n");
     }

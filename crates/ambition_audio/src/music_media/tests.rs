@@ -407,7 +407,7 @@ fn ungenerated_programs_keep_policy_checks_and_publish_no_playable_bindings() {
 }
 
 #[test]
-fn embedded_programs_use_frozen_logical_paths_and_require_their_descriptions() {
+fn embedded_programs_keep_publication_addresses_and_require_their_descriptions() {
     use ambition_asset_manager::content_library::{EmbeddedLibrary, EmbeddedLibraryFile};
     let publication = Publication::new();
     let native = publication.select("embedded", description());
@@ -420,6 +420,8 @@ fn embedded_programs_use_frozen_logical_paths_and_require_their_descriptions() {
         .into_iter()
         .map(|(path, file)| EmbeddedLibraryFile {
             path: Box::leak(path.into_boxed_str()),
+            package_path: Box::leak(file.asset_path().strip_prefix(&format!("content://{}/", file.library))
+                .unwrap().to_owned().into_boxed_str()),
             bytes: Some(Box::leak(file.read().unwrap().into_boxed_slice())),
         })
         .collect();
@@ -439,7 +441,7 @@ fn embedded_programs_use_frozen_logical_paths_and_require_their_descriptions() {
             .unwrap();
     assert_eq!(
         prepared.cue("program").unwrap().sections[0].sources[0].path,
-        "content://media/music/cue/playback/body/body.full.ogg"
+        native.files["content://media/music/cue/playback/body/body.full.ogg"].asset_path()
     );
     std::sync::Arc::make_mut(&mut snapshot.files)
         .retain(|_, file| !file.logical.ends_with("report.json"));

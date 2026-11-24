@@ -358,7 +358,13 @@ pub fn main_with_args(raw: Vec<String>, game_schemas: fn() -> Vec<SchemaRegistra
             } else if invocation.fingerprint_only {
                 println!("{}", pack.fingerprint);
             } else if invocation.package_inputs_only {
-                print!("{}", pack.package_inputs());
+                match library_assets::sheet_package_inputs(&pack) {
+                    Ok(sheets) => print!("{}{sheets}", pack.package_inputs()),
+                    Err(error) => {
+                        eprintln!("{error}");
+                        return std::process::ExitCode::FAILURE;
+                    }
+                }
             } else {
                 print!("{}", pack.summary());
             }

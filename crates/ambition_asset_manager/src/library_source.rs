@@ -135,7 +135,7 @@ impl LibraryAssetReader {
             LibraryFileData::Native(physical) => opened(&physical),
             LibraryFileData::Embedded(Some(bytes)) => Ok(Box::new(VecReader::new(bytes.to_vec()))),
             LibraryFileData::Embedded(None) => {
-                let path = Path::new("__libraries").join(&file.library).join(&file.logical);
+                let path = std::path::PathBuf::from(crate::content_library::package_path(file.asset_path()).as_ref());
                 let mut reader = self.fallback.read(&path).await?;
                 let mut bytes = Vec::new();
                 AsyncReadExt::read_to_end(&mut reader, &mut bytes).await?;

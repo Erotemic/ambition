@@ -21,6 +21,20 @@ pub fn companion(path: &Path) -> Result<(), String> {
     } else { Ok(()) }
 }
 
+/// Read the image dependencies of a sheet with the runtime parser.
+pub fn sheet_images(source: &str, text: &str) -> Result<Vec<String>, String> {
+    let records: Vec<crate::SheetRecord> = ron::from_str(text).map_err(|error| error.to_string())?;
+    let mut images = Vec::new();
+    for record in records {
+        if record.drawn_from_parts { continue; }
+        if record.images.is_empty() { images.push(record.image); }
+        else { images.extend(record.images); }
+    }
+    images.sort();
+    images.dedup();
+    Ok(images.into_iter().map(|image| crate::library::image_in(source, &image)).collect())
+}
+
 /// The product key that selected this loaded sheet.
 pub fn sheet_key(spec: &CharacterSheetSpec) -> &str {
     &spec.record.key
@@ -150,6 +164,18 @@ fn layout(record: &crate::SheetRecord) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sheet_dependencies_use_pages_and_do_not_require_a_flat_image_for_parts() {
+        let text = r#"[
+            (target: "parts", image: "nominal.png", drawn_from_parts: true,
+             frame_width: 8, frame_height: 8, label_width: 0, rows: []),
+            (target: "packed", image: "legacy.png", images: ["a.png", "b.png"],
+             frame_width: 8, frame_height: 8, label_width: 0, rows: []),
+        ]"#;
+        assert_eq!(sheet_images("content://shared/sprites/body_spritesheet.ron", text).unwrap(),
+            vec!["content://shared/sprites/a.png", "content://shared/sprites/b.png"]);
+    }
 
     #[test]
     fn preview_geometry_keeps_packed_pages_trim_and_grid_offsets() {

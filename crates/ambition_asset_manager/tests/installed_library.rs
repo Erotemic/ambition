@@ -14,11 +14,11 @@ static LIBRARY: EmbeddedLibrary = EmbeddedLibrary {
     manifest: r#"{"schema":"ambition.content_library.v1","id":"fixture","version":"1","asset_roots":{"generated":"runtime"}}"#,
     catalog: r#"{"entries":{}}"#,
     files: &[
-        EmbeddedLibraryFile { path: "sprites/body.png", bytes: None },
-        EmbeddedLibraryFile { path: "sprites_0_5x/body.png", bytes: None },
-        EmbeddedLibraryFile { path: "sprites_0_25x/body.png", bytes: None },
-        EmbeddedLibraryFile { path: "sprites/absent.png", bytes: None },
-        EmbeddedLibraryFile { path: "sprites/embedded.png", bytes: Some(b"embedded pixels") },
+        EmbeddedLibraryFile { path: "sprites/body.png", package_path: "__art/bundles/full/runtime/full/sprites/body.png", bytes: None },
+        EmbeddedLibraryFile { path: "sprites_0_5x/body.png", package_path: "__art/bundles/half/runtime/half/sprites/body.png", bytes: None },
+        EmbeddedLibraryFile { path: "sprites_0_25x/body.png", package_path: "sprites_0_25x/body.png", bytes: None },
+        EmbeddedLibraryFile { path: "sprites/absent.png", package_path: "sprites/absent.png", bytes: None },
+        EmbeddedLibraryFile { path: "sprites/embedded.png", package_path: "sprites/embedded.png", bytes: Some(b"embedded pixels") },
     ],
 };
 
@@ -30,8 +30,8 @@ fn installed_library_images_load_without_the_source_checkout() {
     }
     let install = tempfile::tempdir().unwrap();
     let elsewhere = tempfile::tempdir().unwrap();
-    for (path, bytes) in [("sprites/body.png", b"full pixels".as_slice()),
-                          ("sprites_0_5x/body.png", b"half pixels".as_slice())] {
+    for (path, bytes) in [("__art/bundles/full/runtime/full/sprites/body.png", b"full pixels".as_slice()),
+                          ("__art/bundles/half/runtime/half/sprites/body.png", b"half pixels".as_slice())] {
         let file = install.path().join("assets/__libraries/fixture").join(path);
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
         std::fs::write(file, bytes).unwrap();
@@ -76,5 +76,9 @@ fn check_installed_library() {
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes).await.unwrap();
         assert_eq!(bytes, b"full pixels");
+        let mut file = reader.read(std::path::Path::new("fixture/__art/bundles/full/runtime/full/sprites/body.png")).await.unwrap();
+        let mut published = Vec::new();
+        file.read_to_end(&mut published).await.unwrap();
+        assert_eq!(published, bytes);
     });
 }

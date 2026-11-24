@@ -515,7 +515,7 @@ pub fn compile(
             ambition_asset_manager::content_library::LibraryFileData::Embedded(_) => true,
         });
         if library_present || assets.contains(&need.path) {
-            prepared_assets
+            let provenance = prepared_assets
                 .entry(need.path.clone())
                 .or_insert_with(|| AssetProvenance {
                     path: need.path.clone(),
@@ -524,9 +524,10 @@ pub fn compile(
                         |file| format!("content://{}", file.library),
                     ),
                     required_by: Vec::new(),
-                })
-                .required_by
-                .push(need.declared_by.clone());
+                    dependencies_resolved: false,
+                });
+            provenance.dependencies_resolved |= need.dependencies_resolved;
+            provenance.required_by.push(need.declared_by.clone());
         } else {
             let finding = Diagnostic {
                 severity: assets.severity(),

@@ -42,7 +42,10 @@ pub struct EmbeddedLibrary {
 
 #[derive(Debug, PartialEq)]
 pub struct EmbeddedLibraryFile {
+    /// The logical name of this file below its library.
     pub path: &'static str,
+    /// The file's path below its library in the installed asset tree.
+    pub package_path: &'static str,
     pub bytes: Option<&'static [u8]>,
 }
 
@@ -297,7 +300,7 @@ impl ContentLibrary {
             return Ok(files.iter().map(|file| (file.path.to_string(), LibraryFile {
                 library: self.manifest.id.clone(), logical: file.path.to_string(),
                 data: LibraryFileData::Embedded(file.bytes), generation: None, sha256: None,
-                address: format!("content://{}/{}", self.manifest.id, file.path),
+                address: format!("content://{}/{}", self.manifest.id, file.package_path),
             })).collect());
         }
         let selected = self.selection()?;

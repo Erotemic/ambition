@@ -306,17 +306,18 @@ impl Platformer2dAssetCatalog {
     ///   None for `path_for`; this is exhaustive-match insurance).
     pub fn should_attempt_resolved_load(&self, resolved: &ResolvedAsset, path: &str) -> bool {
         if path.starts_with("content://") && !resolved.missing_policy.is_required() {
-            if !self.library_files.contains_key(path) { return false; }
+            let Some(file) = self.library_files.get(path) else { return false; };
+            let package_path = crate::content_library::package_path(file.asset_path());
             return match self.profile {
                 AssetProfile::NoAssets | AssetProfile::Headless => false,
                 AssetProfile::DesktopDevLoose | AssetProfile::DesktopInstalled
                 | AssetProfile::SteamDeckInstalled => match self.exe_bundle {
-                    Some(bundle) => bundle.contains(&crate::content_library::package_path(path)),
+                    Some(bundle) => bundle.contains(&package_path),
                     None => self.resolve_local_file_path(path).is_some_and(|path| path.is_file())
                         || self.library_bytes(path).is_some(),
                 },
                 AssetProfile::AndroidBundle => self.library_bytes(path).is_some()
-                    || android_bundle_holds(&crate::content_library::package_path(path)),
+                    || android_bundle_holds(&package_path),
                 AssetProfile::WebStatic | AssetProfile::BundledStatic
                 | AssetProfile::WebHttp | AssetProfile::IpfsGatewayPlaceholder => self.library_bytes(path).is_some(),
                 AssetProfile::WebServedAssets | AssetProfile::IosBundle => true,
@@ -555,8 +556,8 @@ mod authored_path_tests {
             manifest: r#"{"schema":"ambition.content_library.v1","id":"own","version":"1","asset_roots":{"generated":"runtime"}}"#,
             catalog: r#"{"entries":{}}"#,
             files: &[
-                EmbeddedLibraryFile { path: "sprites/body.png", bytes: Some(b"embedded") },
-                EmbeddedLibraryFile { path: "sprites/served.png", bytes: None },
+                EmbeddedLibraryFile { path: "sprites/body.png", package_path: "sprites/body.png", bytes: Some(b"embedded") },
+                EmbeddedLibraryFile { path: "sprites/served.png", package_path: "sprites/served.png", bytes: None },
             ],
         };
         let mut libraries = ContentLibraries::default();

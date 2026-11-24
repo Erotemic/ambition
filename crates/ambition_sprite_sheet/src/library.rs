@@ -156,9 +156,10 @@ mod compiled_metadata_tests {
     fn a_served_library_prepares_parts_without_reading_ron_at_startup() {
         let logical = "sprites/fixture_parts.ron";
         let (path, bytes) = ambition_sprite_part_format::compile_metadata(logical, PARTS.as_bytes()).unwrap().unwrap();
+        let path = kept(path);
         let files = Box::leak(vec![
-            EmbeddedLibraryFile { path: logical, bytes: None },
-            EmbeddedLibraryFile { path: kept(path), bytes: Some(Box::leak(bytes.into_boxed_slice())) },
+            EmbeddedLibraryFile { path: logical, package_path: logical, bytes: None },
+            EmbeddedLibraryFile { path, package_path: path, bytes: Some(Box::leak(bytes.into_boxed_slice())) },
         ].into_boxed_slice());
         let embedded = Box::leak(Box::new(EmbeddedLibrary {
             manifest: r#"{"schema":"ambition.content_library.v1","id":"fixture","version":"1","asset_roots":{"generated":"runtime"}}"#,

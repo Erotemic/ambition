@@ -252,7 +252,7 @@ impl ContentSchemaHandler for MusicCueCatalogSchema {
                     if let Some(media) = &cue.media_identity {
                         out.need_asset(AssetRequirement::new(
                             &media.description_path, facet.content_id_in(MUSIC_CUE_SCHEMA, &cue.id), "media.description",
-                        ));
+                        ).with_resolved_dependencies());
                     }
                     for section in &cue.sections {
                         for source in &section.sources {

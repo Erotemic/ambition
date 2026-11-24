@@ -55,20 +55,20 @@ fn selected_libraries_keep_qualified_geometry_and_images_when_names_collide() {
         manifest: r#"{"schema":"ambition.content_library.v1","id":"first","version":"1","asset_roots":{"generated":"runtime"}}"#,
         catalog: r#"{"entries":{}}"#,
         files: &[
-            EmbeddedLibraryFile { path: "sprites/body_spritesheet.ron", bytes: Some(BODY) },
-            EmbeddedLibraryFile { path: "sprite_packs/full/ultrapack.json", bytes: Some(PACK) },
-            EmbeddedLibraryFile { path: "sprite_packs/full/page.png", bytes: Some(b"page") },
-            EmbeddedLibraryFile { path: "sprites/body.png", bytes: Some(b"first") },
+            EmbeddedLibraryFile { path: "sprites/body_spritesheet.ron", package_path: "sprites/body_spritesheet.ron", bytes: Some(BODY) },
+            EmbeddedLibraryFile { path: "sprite_packs/full/ultrapack.json", package_path: "sprite_packs/full/ultrapack.json", bytes: Some(PACK) },
+            EmbeddedLibraryFile { path: "sprite_packs/full/page.png", package_path: "sprite_packs/full/page.png", bytes: Some(b"page") },
+            EmbeddedLibraryFile { path: "sprites/body.png", package_path: "sprites/body.png", bytes: Some(b"first") },
         ],
     };
     static SECOND: EmbeddedLibrary = EmbeddedLibrary {
         manifest: r#"{"schema":"ambition.content_library.v1","id":"second","version":"1","asset_roots":{"generated":"runtime"}}"#,
         catalog: r#"{"entries":{}}"#,
         files: &[
-            EmbeddedLibraryFile { path: "sprites/body_spritesheet.ron", bytes: Some(BODY) },
-            EmbeddedLibraryFile { path: "sprite_packs/full/ultrapack.json", bytes: Some(PACK) },
-            EmbeddedLibraryFile { path: "sprite_packs/full/page.png", bytes: Some(b"page") },
-            EmbeddedLibraryFile { path: "sprites/body.png", bytes: Some(b"second") },
+            EmbeddedLibraryFile { path: "sprites/body_spritesheet.ron", package_path: "sprites/body_spritesheet.ron", bytes: Some(BODY) },
+            EmbeddedLibraryFile { path: "sprite_packs/full/ultrapack.json", package_path: "sprite_packs/full/ultrapack.json", bytes: Some(PACK) },
+            EmbeddedLibraryFile { path: "sprite_packs/full/page.png", package_path: "sprite_packs/full/page.png", bytes: Some(b"page") },
+            EmbeddedLibraryFile { path: "sprites/body.png", package_path: "sprites/body.png", bytes: Some(b"second") },
         ],
     };
     let mut libraries = ContentLibraries::default();

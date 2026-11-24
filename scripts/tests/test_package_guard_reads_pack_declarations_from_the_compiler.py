@@ -78,3 +78,25 @@ def test_a_pack_the_compiler_refuses_stops_the_package(repo, monkeypatch):
     monkeypatch.setenv(guard.CONTENT_COMPILER_ENV, f"{sys.executable} -c 'raise SystemExit(1)'")
     with pytest.raises(guard.AssetContractError, match="refused"):
         guard.build_contract(tree, "android")
+
+
+def test_schema_owned_metadata_uses_the_compilers_resolved_dependencies(repo):
+    tree = repo(PRESENT)
+    root = tree / guard.CONTENT_ASSET_ROOT
+    description = "audio/music/generated/siege/description.json"
+    (root / description).write_text('{"path": "adaptive/loop/loop.full.ogg"}')
+    answer = tree / "answer.txt"
+    with answer.open("a") as stream:
+        stream.write(f"metadata\t{description}\nasset\t{description}\tsiege:music_cue/x\n")
+    contract, _ = guard.build_contract(tree, "android", strict_pack_assets=True)
+    assert description in contract.entries
+    assert PRESENT in contract.entries
+    assert "adaptive/loop/loop.full.ogg" not in contract.entries
+
+
+def test_a_missing_metadata_dependency_refuses_a_package_without_strict_mode(repo):
+    tree = repo(PRESENT)
+    with (tree / "answer.txt").open("a") as stream:
+        stream.write("dependency\tsprites/page1.png\tcontent://shared/sprites/body_spritesheet.ron\n")
+    with pytest.raises(guard.AssetContractError, match="sprites/page1.png"):
+        guard.build_contract(tree, "android")

@@ -1173,6 +1173,13 @@ fn selected_library_sources_and_preparation_keep_one_publication() {
     assert_eq!(embedded.sources[1].text, "local_buffer");
     for draft in [draft, embedded] {
         let prepared = compile(&draft, &registry(), &AssetsUnchecked).unwrap();
+        let inputs = prepared.package_inputs();
+        let rows: Vec<serde_json::Value> = inputs.lines().filter_map(|line| line.strip_prefix("file\t"))
+            .map(|line| serde_json::from_str(line).unwrap()).collect();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["logical"], "audio/registry.ron");
+        assert_eq!(rows[0]["address"], "content://shared/__art/bundles/old/registry.ron");
+        assert_eq!(std::fs::read(rows[0]["source"].as_str().unwrap()).unwrap(), b"selected_old");
         let file = &prepared.selected_libraries.unwrap().files["content://shared/audio/registry.ron"];
         assert_eq!(file.read().unwrap(), b"selected_old");
         assert_eq!(file.generation.as_deref(), Some("old"));

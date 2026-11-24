@@ -33,3 +33,23 @@ impl AssetSource for LibraryAssetSource {
     }
     fn severity(&self) -> Severity { self.base.severity() }
 }
+
+/// Export sheet dependencies through the runtime metadata reader.
+pub(crate) fn sheet_package_inputs(pack: &ambition_content_pack::PreparedContentPack) -> Result<String, String> {
+    use std::fmt::Write as _;
+    let mut out = String::new();
+    let Some(snapshot) = &pack.selected_libraries else { return Ok(out); };
+    for (key, file) in snapshot.files.iter() {
+        if *key != format!("content://{}/{}", file.library, file.logical)
+            || !file.logical.ends_with("_spritesheet.ron") { continue; }
+        let bytes = file.read()?;
+        let text = std::str::from_utf8(&bytes).map_err(|error| format!("{key}: {error}"))?;
+        let images = ambition_sprite_sheet::inspection::sheet_images(key, text)
+            .map_err(|error| format!("{key}: {error}"))?;
+        let _ = writeln!(out, "metadata\t{}", file.asset_path());
+        for path in images {
+            let _ = writeln!(out, "dependency\t{path}\t{key}");
+        }
+    }
+    Ok(out)
+}

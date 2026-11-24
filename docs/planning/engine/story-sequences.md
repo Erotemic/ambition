@@ -547,7 +547,12 @@ Still open:
   `a_bound_condition_answers_in_its_own_live_room` (no room is unanswerable
   with two bodies; each room answers for its own) and
   `a_role_bound_in_a_live_room_names_its_occupant`.
-- The conversation command bridge still supplies no room.
+- ~~The conversation command bridge still supplies no room.~~ **Landed
+  2026-11-24:** `conversation_roles` binds `@talker`/`@initiator` in the
+  live room the conversation opened in (`ConversationInstanceId::room`),
+  for its conditions and commands, and its `RunAuthoredCommand`s carry that
+  room. A scripted conversation with no room binds bare ids. Witness:
+  `a_conversation_binds_its_roles_in_the_room_it_opened_in` (`--features ui`).
 - Reload rebinding is not exercised.
 
 **SS7 step 3 (2026-11-21): the doorway scene.** `intro_raid_at_the_door`

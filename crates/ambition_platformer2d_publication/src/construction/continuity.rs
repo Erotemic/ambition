@@ -74,6 +74,11 @@ impl ContinuityDependencies {
             if let Some(description) = description {
                 put_str(&mut bytes, &description.origin.canonical_summary());
                 put_str(&mut bytes, &description.held_item);
+                // The extent the mint chose (IR1) is part of the recipe: a
+                // changed extent is a changed body.
+                for word in description.half_extent_words() {
+                    put_u64(&mut bytes, u64::from(word));
+                }
             }
         }
         let dispositions: Vec<_> = self

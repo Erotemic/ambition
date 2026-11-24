@@ -12,7 +12,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint;
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
 use ambition_platformer2d_items::pickup::minted_horizon::{
-    MintedItemBaseline, MintedItemDescription, OwnedItemsBaseline,
+    MintedItemBaseline, MintedItemDescription, OwnedItemsBaseline, RetainedMintRecipes,
 };
 
 /// The session's chain plus the item domain's adapters, as the runtime composes them.
@@ -34,6 +34,7 @@ fn horizon_app() -> App {
             OccurrenceBaseline::default(),
             CustodyBaseline::default(),
             MintedItemBaseline::default(),
+            RetainedMintRecipes::default(),
             OwnedItemsBaseline::default(),
         ),
     );
@@ -414,6 +415,13 @@ fn dormant_world(n: usize) -> App {
         .resource_mut::<AmbitionGameSave>()
         .data_mut()
         .set_durable_horizon(placed, Vec::new(), minted);
+    // A load decodes the save's recipes once, into the checkpoint baseline;
+    // the item owner retains them from there (IR2).
+    let adopted = ambition_platformer2d_items::pickup::minted_horizon::minted_baseline_from_save(
+        app.world().resource::<AmbitionGameSave>().data(),
+    );
+    *ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<MintedItemBaseline>(app.world_mut())
+        .unwrap() = adopted;
     for _ in 0..3 {
         app.update();
     }

@@ -39,8 +39,13 @@ pub fn install_item_durable_horizon(app: &mut App) {
     app.add_systems(
         sim,
         // The minted rows are written with the occurrence rows they are keyed by,
-        // by the session's durable-horizon writer (`MintedItemRows`).
-        persist_inventory_to_save.in_set(DurableHorizonSet::DomainMirror),
+        // by the session's durable-horizon writer (`MintedItemRows`), from the
+        // recipes the item owner retains before that writer runs.
+        (
+            persist_inventory_to_save,
+            crate::pickup::minted_horizon::retain_mint_recipes,
+        )
+            .in_set(DurableHorizonSet::DomainMirror),
     );
     app.add_systems(
         sim,

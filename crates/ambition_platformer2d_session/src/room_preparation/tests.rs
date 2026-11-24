@@ -283,33 +283,35 @@ fn captured_restore_checksums_exclude_host_local_scope_values() {
 
 #[test]
 fn delayed_preparation_keeps_the_mint_descriptions_selected_at_admission() {
-    use ambition_persistence::{
-        save::AmbitionGameSave,
-        save_data::{PersistedMintedItem, PersistedOccurrence, PersistedWhereabouts},
+    use ambition_platformer2d_items::pickup::minted_horizon::{
+        MintedItemBaseline, MintedItemDescription, RetainedMintRecipes,
+    };
+    use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
+    let retained = |recipes: Vec<(SimId, &str)>| {
+        let mut baseline = MintedItemBaseline::default();
+        baseline.adopt(
+            recipes
+                .into_iter()
+                .map(|(occurrence, held_item)| {
+                    (
+                        occurrence,
+                        MintedItemDescription {
+                            origin: SpawnOrigin::Dynamic { parent: SimId::placement("fixture-maker"), sequence: 4 },
+                            held_item: held_item.into(),
+                            half_extent: Vec2::splat(18.0),
+                        },
+                    )
+                })
+                .collect(),
+        );
+        RetainedMintRecipes::from(baseline)
     };
     let mut world = fixture();
-    let mut save = AmbitionGameSave::default();
     let occurrence = SimId::placement("mint-description-fixture");
-    save.data_mut().set_durable_horizon(
-        vec![PersistedOccurrence::new(
-            occurrence.as_str(),
-            PersistedWhereabouts::Placed { room: "elsewhere".into(), x: 0, y: 0 },
-        )],
-        Vec::new(),
-        vec![PersistedMintedItem {
-            occurrence: occurrence.as_str().into(),
-            parent: "fixture-maker".into(),
-            sequence: 4,
-            held_item: "original".into(),
-            half_extent: None,
-        }],
-    );
-    world.insert_resource(save);
+    // The item owner's recipe, read while the mint is dormant: no save holds it.
+    insert_session_world_component(&mut world, retained(vec![(occurrence.clone(), "original")]));
     let first = capture(&mut world);
-    world
-        .resource_mut::<AmbitionGameSave>()
-        .data_mut()
-        .set_durable_horizon(Vec::new(), Vec::new(), Vec::new());
+    insert_session_world_component(&mut world, retained(Vec::new()));
     let delayed = capture(&mut world);
     assert_eq!(delayed, first);
     assert_eq!(

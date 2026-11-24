@@ -1,6 +1,6 @@
 # Item recipes and live continuity
 
-**State:** PLANNED, from the 2026-11-21 review of production source
+**State:** IR1 and IR2 done (2026-11-24); IR3 and IR4 PLANNED. From the 2026-11-21 review of production source
 `f412189796254f280e9f5018b685314b6994060c`. The review checkout also contains
 planning changes through `57c1db339f25`. This page reports source findings,
 not a new runtime measurement or an implemented change.
@@ -252,6 +252,55 @@ cases its retained occurrence has the corresponding selected recipe.
 Durable adoption and export preserve the selected horizon and supported save
 meaning. A recipe change participates in the existing prepared-input
 dependency evidence.
+
+### IR2 done (2026-11-24)
+
+**The native owner.** `RetainedMintRecipes`
+(`ambition_platformer2d_items/src/pickup/minted_horizon.rs`) holds the
+recipe of every live mint and every dormant mint the ledger still has:
+placed in a room that is not live, or carried by a body that is not. It
+is rollback state on the session root (`resource.retained_mint_recipes`,
+schema 539) and has one writer, `retain_mint_recipes`. That writer applies
+the existing ledger rule to the live mints and to the earlier and
+checkpoint recipes. A recipe goes when the ledger ends the occurrence
+(consumed, spent) or forgets it (a restore retracts it).
+
+**Decoded once.** A load decodes the saved family into the checkpoint
+baseline (`adopt_checkpoint_baselines_from_save`). A candidate decodes it
+into its own baseline (`CandidateDurableHorizon::from_save`). The retained
+recipes take those rows from the baseline, so no second writer adopts them.
+
+**Readers moved.** Room preparation (`RoomContinuity`) pins the native
+recipes. Boss-defeat retraction reads them for dormant mints. The save's
+minted rows are an export of them (`MintedItemRows`), encoded only when the
+retained allocation changed. No simulation reader calls
+`minted_baseline_from_save`.
+
+**Checkpoint selection.** The capture selects the retained population at
+the cut, including dormant mints. A restore that places a mint again after
+it was taken up and used finds its recipe in the checkpoint, and the
+retention writer returns it to the owner.
+
+**Shared records.** `MintedItemBaseline` holds an `Arc` map. Checkpoint
+pins, prepared inputs and snapshot clones share it instead of copying rows.
+Its checksum is computed once per allocation and kept with it. The save's
+minted rows had that memo (`RowsChecksum`); without it, the retained
+recipes and the widened checkpoint baseline would hash every dormant
+recipe on each checksummed frame.
+The prepared-input digest (`ContinuityDependencies`) now covers the
+recipe's extent as well as its provenance and spec.
+
+**Witnesses:**
+`a_dormant_recipe_is_retained_by_its_owner_and_returned_by_its_checkpoint`
+(items lib) and the durable-horizon FI9 fixtures (session lib). The FI9
+fixtures now seed their dormant recipes by the load road. Their idle-tick
+and rollback-load timing bounds still hold with 10,000 dormant mints.
+
+**Not done here:** the held exit context is
+[REL4](relationship-endpoints-and-transitions.md#rel4--retain-exit-context-and-authorize-endpoint-succession)'s.
+A ledger position change still rebuilds the retention map (an O(M) merge,
+without the decode or the encode), because the ledger moves on every
+moving tick. Removing that walk is IR3's work.
 
 ## IR3 — stop active motion from copying dormant state
 

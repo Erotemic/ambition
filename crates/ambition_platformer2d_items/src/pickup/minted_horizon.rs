@@ -15,7 +15,6 @@ use bevy::prelude::{
     Resource, Vec2, With,
 };
 
-use ambition_persistence::save::AmbitionGameSave;
 use ambition_persistence::save_data::{AmbitionGameSaveData, PersistedMintedItem};
 use ambition_platformer2d_core::snapshot::RollbackRegistrar;
 
@@ -73,10 +72,28 @@ impl MintedItemDescription {
 
 /// How to rebuild each runtime-minted instance remembered at the last
 /// committed checkpoint, keyed by the occurrence's own identity.
+///
+/// The map is shared: a checkpoint's pinned restore inputs, a room's prepared
+/// inputs and each rollback snapshot clone the allocation, not the rows. Its
+/// checksum is kept with the allocation, so a quiet frame hashes no row.
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct MintedItemBaseline {
-    /// occurrence → how to make it again.
-    minted: BTreeMap<SimId, MintedItemDescription>,
+    minted: std::sync::Arc<Recipes>,
+}
+
+/// occurrence → how to make it again, with the checksum of exactly these rows.
+#[derive(Debug, Default)]
+struct Recipes {
+    rows: BTreeMap<SimId, MintedItemDescription>,
+    /// DERIVED, computed once per allocation. Every clone of the `Arc` holds
+    /// the same rows, so every clone may read it; a change makes a new `Arc`.
+    checksum: std::sync::OnceLock<u64>,
+}
+
+impl PartialEq for Recipes {
+    fn eq(&self, other: &Self) -> bool {
+        self.rows == other.rows
+    }
 }
 
 impl MintedItemBaseline {
@@ -85,21 +102,21 @@ impl MintedItemBaseline {
     /// `None` is the ordinary answer for an authored occurrence, whose record is
     /// the thing that rebuilds it.
     pub fn description_of(&self, occurrence: &SimId) -> Option<&MintedItemDescription> {
-        self.minted.get(occurrence)
+        self.minted.rows.get(occurrence)
     }
 
     pub fn is_empty(&self) -> bool {
-        self.minted.is_empty()
+        self.minted.rows.is_empty()
     }
 
     pub fn len(&self) -> usize {
-        self.minted.len()
+        self.minted.rows.len()
     }
 
     /// Every description, in identity order — for the writer that puts this
     /// value on disk.
     pub fn rows(&self) -> impl Iterator<Item = (&SimId, &MintedItemDescription)> {
-        self.minted.iter()
+        self.minted.rows.iter()
     }
 
     /// Adopt a set of descriptions — the one road that writes this outside a
@@ -114,20 +131,33 @@ impl MintedItemBaseline {
     /// the same snapshot semantics the capture has — the map is replaced, never
     /// accumulated.
     pub fn adopt(&mut self, minted: BTreeMap<SimId, MintedItemDescription>) {
-        if self.minted != minted {
-            self.minted = minted;
+        if self.minted.rows != minted {
+            *self = Self::from_rows(minted);
         }
+    }
+
+    fn from_rows(rows: BTreeMap<SimId, MintedItemDescription>) -> Self {
+        Self { minted: std::sync::Arc::new(Recipes { rows, checksum: std::sync::OnceLock::new() }) }
+    }
+
+    /// The same allocation: a cache key that costs nothing on a quiet tick.
+    pub fn shares(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.minted, &other.minted)
     }
 
     /// The desync checksum — identities, a canonical provenance rendering,
     /// and an authored id. No `Entity` appears in any of them, so this is
     /// comparable between peers without a mapping pass.
     pub fn checksum(&self) -> u64 {
+        *self.minted.checksum.get_or_init(|| self.rows_checksum())
+    }
+
+    fn rows_checksum(&self) -> u64 {
         use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64};
         let mut bytes = Vec::new();
-        put_u64(&mut bytes, self.minted.len() as u64);
+        put_u64(&mut bytes, self.minted.rows.len() as u64);
         // `BTreeMap`, so this walk is ordered by identity on every peer.
-        for (occurrence, description) in &self.minted {
+        for (occurrence, description) in self.minted.rows.iter() {
             put_str(&mut bytes, occurrence.as_str());
             // The compatibility rendering, not `Debug`: `canonical_summary` is
             // the spelling the plan dumps and snapshot blobs already use.
@@ -141,15 +171,109 @@ impl MintedItemBaseline {
     }
 }
 
+/// How to remake every runtime mint the session still retains: the live
+/// ones, in a hand or lying in a live room, and the dormant ones the
+/// occurrence ledger still has, placed in a room that is not live or carried
+/// by a body that is not (IR2).
+///
+/// The item owner's own record, so a dormant mint's recipe no longer lives
+/// only in the save's rows: room preparation, the checkpoint capture and a
+/// retracted boss defeat read this, and the durable save exports it. The
+/// save codec is read once, at adoption, into the checkpoint baseline, and
+/// [`retain_mint_recipes`] takes those recipes from there.
+///
+/// Rollback state on the session root. It is derived each tick only from
+/// state a restore brings back with it: the live mints, the ledger, the
+/// checkpoint baseline and its own previous value.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct RetainedMintRecipes(MintedItemBaseline);
+
+/// A composition or fixture that states the retained recipes directly.
+impl From<MintedItemBaseline> for RetainedMintRecipes {
+    fn from(recipes: MintedItemBaseline) -> Self {
+        Self(recipes)
+    }
+}
+
+impl RetainedMintRecipes {
+    pub fn recipes(&self) -> &MintedItemBaseline {
+        &self.0
+    }
+
+    pub fn checksum(&self) -> u64 {
+        self.0.checksum()
+    }
+}
+
+/// Keep the session's mint recipes: each live mint's, and each earlier or
+/// checkpoint recipe of a mint the ledger has not ended or forgotten.
+///
+/// The checkpoint's recipes join the earlier ones, so a load (which adopts
+/// the save's rows into the checkpoint baseline) and a restore (whose ledger
+/// places a mint again that was taken up after the checkpoint) find their
+/// recipes without a second writer.
+///
+/// ⭐ Rebuilt only when an input changed: the live mints by value, the
+/// ledger, the baseline and this value by allocation first (FI9). A rewind
+/// that restores an older value is a different allocation and rebuilds.
+pub fn retain_mint_recipes(
+    live: Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
+    ledger: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    checkpoint: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<MintedItemBaseline>>,
+    retained: Option<SessionWorldMut<RetainedMintRecipes>>,
+    mut retained_with: bevy::prelude::Local<Option<RetainKey>>,
+) {
+    let Some(mut retained) = retained else {
+        return;
+    };
+    let checkpoint = checkpoint.map(|baseline| MintedItemBaseline::clone(&baseline)).unwrap_or_default();
+    let key_now = RetainKey {
+        live: live_minted_descriptions(&live),
+        ledger: ledger.as_deref().cloned(),
+        checkpoint,
+        retained: retained.0.clone(),
+    };
+    if retained_with.as_ref() == Some(&key_now) {
+        return;
+    }
+    let mut earlier = key_now.retained.minted.rows.clone();
+    for (occurrence, description) in key_now.checkpoint.rows() {
+        earlier.entry(occurrence.clone()).or_insert_with(|| description.clone());
+    }
+    let described = with_dormant_mints(key_now.live.clone(), earlier, key_now.ledger.as_ref());
+    if retained.0.minted.rows != described {
+        retained.0 = MintedItemBaseline::from_rows(described);
+    }
+    *retained_with = Some(RetainKey { retained: retained.0.clone(), ..key_now });
+}
+
+/// The inputs [`retain_mint_recipes`] last built from: a cache of rollback
+/// inputs, not state.
+pub struct RetainKey {
+    live: BTreeMap<SimId, MintedItemDescription>,
+    ledger: Option<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
+    checkpoint: MintedItemBaseline,
+    retained: MintedItemBaseline,
+}
+
+impl PartialEq for RetainKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.retained.shares(&other.retained)
+            && self.checkpoint.shares(&other.checkpoint)
+            && self.ledger == other.ledger
+            && self.live == other.live
+    }
+}
+
 /// Record how to remake what the simulation minted, at the instant a
 /// checkpoint commits.
 ///
-/// the population is `SpawnOrigin::Dynamic` AND in custody. Dynamic,
-/// because an authored occurrence is rebuilt by its record and a second
-/// description of it here would be a competing authority. In custody, because
-/// that is the only question this value serves — a minted object lying in a
-/// loaded room is answered by the object itself, and one in an unloaded room is
-/// beyond what a checkpoint remembers at all.
+/// The population is the retained one at that cut (IR2): every live mint
+/// and every dormant mint the ledger still has. Only
+/// `SpawnOrigin::Dynamic`, because an authored occurrence is rebuilt by its
+/// record and a second description of it here would be a competing
+/// authority. A dormant mint is in it because a restore can place it again
+/// after it was taken up: the checkpoint is then the one record of its recipe.
 ///
 /// it reads [`ItemCustody`], the item domain's own authority, rather than
 /// the [`InCustodyOf`](ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf)
@@ -160,6 +284,8 @@ impl MintedItemBaseline {
 pub fn capture_minted_item_baseline(
     mut commits: ReplayMessageReader<CheckpointCommitted>,
     carried: Query<(&SimId, &SpawnOrigin, &GroundItem, &ItemCustody), With<RoomScopedEntity>>,
+    ledger: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
+    retained: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RetainedMintRecipes>>,
     baseline: Option<SessionWorldMut<MintedItemBaseline>>,
 ) {
     // Drained unconditionally, like every other reader of this channel: a commit
@@ -168,10 +294,9 @@ pub fn capture_minted_item_baseline(
     let (true, Some(mut baseline)) = (committed, baseline) else {
         return;
     };
-    let minted = live_minted_descriptions(&carried);
-    if baseline.minted != minted {
-        baseline.minted = minted;
-    }
+    let earlier = retained.map(|retained| retained.into_inner().0.minted.rows.clone()).unwrap_or_default();
+    let minted = with_dormant_mints(live_minted_descriptions(&carried), earlier, ledger.as_deref());
+    baseline.adopt(minted);
 }
 
 /// Start each spawner's counter past every sequence a remembered mint of it
@@ -206,7 +331,7 @@ pub fn start_counters_past_remembered_mints(
     let mut next: BTreeMap<&SimId, u64> = BTreeMap::new();
     let dynamic = baselines
         .iter()
-        .flat_map(|baseline| baseline.into_inner().minted.values().map(|description| &description.origin));
+        .flat_map(|baseline| baseline.into_inner().minted.rows.values().map(|description| &description.origin));
     for origin in dynamic {
         if let SpawnOrigin::Dynamic { parent, sequence } = origin {
             let after = next.entry(parent).or_default();
@@ -776,7 +901,7 @@ pub fn keep_the_bag_records_the_restore_keeps(
 /// A mint names the boss it fell out of (`SpawnOrigin::Dynamic { parent }`).
 /// Every live mint of a retracted boss is despawned, and a held one leaves
 /// its holder's hand first. The ledger rows of those mints, and of the
-/// dormant mints the save describes in a room that is not live, are retracted,
+/// dormant mints [`RetainedMintRecipes`] describes in a room that is not live, are retracted,
 /// so no room build puts one back and the save mirrors drop their rows.
 ///
 /// What a collected mint or the opened reward chest gave is taken back too:
@@ -789,7 +914,7 @@ pub fn retract_mints_of_retracted_boss_defeats(
     mut retracted: bevy::prelude::MessageReader<ambition_boss_encounter::BossDefeatRetracted>,
     mints: Query<(Entity, &SimId, &SpawnOrigin, Option<&GroundItem>, Option<&ItemCustody>)>,
     mut hands: Query<ambition_combat::hand::RepertoireQuery>,
-    save: Option<Res<AmbitionGameSave>>,
+    retained: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RetainedMintRecipes>>,
     occurrences: Option<ResMut<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>>,
     mut grants: ResMut<RewardGrantsSinceCheckpoint>,
     mut wallets: Query<(&SimId, &mut ambition_characters::actor::BodyWallet)>,
@@ -831,13 +956,14 @@ pub fn retract_mints_of_retracted_boss_defeats(
         ambition_platformer2d_shared_tangle::lifecycle::despawn_scoped_entity(&mut commands, entity);
         ids.insert(sim_id.clone());
     }
-    if let Some(save) = save.as_deref() {
+    if let Some(retained) = retained {
         ids.extend(
-            save.data()
-                .minted_items()
-                .iter()
-                .filter(|row| bosses.iter().any(|boss| boss.as_str() == row.parent))
-                .map(|row| SimId::from_snapshot(row.occurrence.clone())),
+            retained
+                .into_inner()
+                .recipes()
+                .rows()
+                .filter(|(_, description)| fell_out_of_a_retracted_boss(&description.origin))
+                .map(|(occurrence, _)| occurrence.clone()),
         );
     }
     if let Some(mut occurrences) = occurrences {
@@ -909,6 +1035,7 @@ impl Plugin for ItemCheckpointHorizonPlugin {
         // ⭐ THE BASELINES ARE THE SESSION ROOT'S (C03), like the lifecycle
         // pair: a new session is born with an empty checkpoint.
         require_on_session_root::<MintedItemBaseline>(app);
+        require_on_session_root::<RetainedMintRecipes>(app);
         require_on_session_root::<OwnedItemsBaseline>(app);
         // Keeping the edge here makes the contribution carry its own scheduling obligation
         // instead of making the host know which item set produces the facts.
@@ -1048,49 +1175,31 @@ pub fn adopt_checkpoint_baselines_from_save(
 /// call as the occurrence rows they are keyed by, so the save cannot hold a
 /// minted row for an occurrence it does not hold.
 ///
-/// The save's field is the one record of a DORMANT mint's description. A mint
-/// left lying in a room that is not live has no entity to describe it, and no
-/// room authors a record to rebuild it from. Its row stays while the occurrence
-/// ledger places it in a room (see [`with_dormant_mints`]). The room build
-/// reads this field when that room becomes live again, and a load adopts it.
+/// An export of [`RetainedMintRecipes`] and nothing else (IR2). The rows were
+/// once also the one record of a dormant mint's recipe, read back each time
+/// they were rebuilt; no simulation reader reads them now.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct MintedItemRows<'w, 's> {
-    minted: Query<'w, 's, (&'static SimId, &'static SpawnOrigin, &'static GroundItem, &'static ItemCustody), With<RoomScopedEntity>>,
-    // The inputs the rows were last built from, and the rows: a cache of live
-    // inputs, not state.
-    built: bevy::prelude::Local<'s, Option<(MintedMirrorKey, std::sync::Arc<Vec<PersistedMintedItem>>)>>,
+    retained: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<'w, 's, RetainedMintRecipes>>,
+    // The recipes the rows were last encoded from, and the rows: a cache of
+    // rollback state, not state.
+    built: bevy::prelude::Local<'s, Option<(MintedItemBaseline, std::sync::Arc<Vec<PersistedMintedItem>>)>>,
 }
 
 impl MintedItemRows<'_, '_> {
-    /// The minted rows for the save as it stands and the ledger.
+    /// The minted rows of the retained recipes.
     ///
-    /// ⭐ BUILT ONLY WHEN SOMETHING THEY DEPEND ON CHANGED (FI9): the live mints,
-    /// the ledger, or the save's minted rows. Otherwise the walk over every
-    /// dormant mint the save describes is skipped. Measured before the gate:
-    /// 24 ms a tick with 10,000 dormant mints.
-    ///
-    /// ⛔ THE SAME VALUES, NOT "WRITTEN" (M2 cut C). A rollback load writes the
-    /// ledger and the save on every resimulated frame, so an `is_changed()`
-    /// gate opened on every frame. The ledger and the save's rows are shared
-    /// allocations, so a load of unchanged rows matches the key by allocation.
-    pub fn rows(
-        &mut self,
-        ledger: Option<&ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
-        save: &AmbitionGameSaveData,
-    ) -> std::sync::Arc<Vec<PersistedMintedItem>> {
-        let key_now = MintedMirrorKey {
-            live: live_minted_descriptions(&self.minted),
-            ledger: ledger.cloned(),
-            save_rows: save.minted_items_shared().clone(),
-        };
-        if let Some((key, rows)) = self.built.as_ref() {
-            if *key == key_now {
+    /// ⭐ ENCODED ONLY WHEN THE RECIPES CHANGED (FI9), matched by allocation.
+    /// A tick that moves an item but mints or retires none reuses the rows.
+    pub fn rows(&mut self) -> std::sync::Arc<Vec<PersistedMintedItem>> {
+        let recipes = self.retained.as_ref().map(|retained| retained.recipes().clone()).unwrap_or_default();
+        if let Some((built_from, rows)) = self.built.as_ref() {
+            if built_from.shares(&recipes) {
                 return rows.clone();
             }
         }
-        let described = with_dormant_mints(key_now.live.clone(), minted_baseline_from_save(save).minted, ledger);
-        let rows: Vec<PersistedMintedItem> = described
-            .into_iter()
+        let rows: Vec<PersistedMintedItem> = recipes
+            .rows()
             .filter_map(|(occurrence, description)| {
                 let SpawnOrigin::Dynamic { parent, sequence } = &description.origin else {
                     return None;
@@ -1105,26 +1214,8 @@ impl MintedItemRows<'_, '_> {
             })
             .collect();
         let rows = std::sync::Arc::new(rows);
-        *self.built = Some((key_now, rows.clone()));
+        *self.built = Some((recipes, rows.clone()));
         rows
-    }
-}
-
-/// The inputs the save's minted rows were last mirrored with: the live mint
-/// descriptions, the occurrence ledger, and the save's minted rows. The ledger
-/// and the save's rows are shared allocations, so a match is by allocation
-/// first.
-pub struct MintedMirrorKey {
-    live: BTreeMap<SimId, MintedItemDescription>,
-    ledger: Option<ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences>,
-    save_rows: std::sync::Arc<Vec<PersistedMintedItem>>,
-}
-
-impl PartialEq for MintedMirrorKey {
-    fn eq(&self, other: &Self) -> bool {
-        std::sync::Arc::ptr_eq(&self.save_rows, &other.save_rows)
-            && self.ledger == other.ledger
-            && self.live == other.live
     }
 }
 
@@ -1140,6 +1231,12 @@ where
         "resource.minted_item_baseline",
         "entity-free minted-instance-description checksum projection",
         MintedItemBaseline::checksum,
+    );
+    registrar.rollback_component_clone_checksum::<RetainedMintRecipes>(
+        OWNER,
+        "resource.retained_mint_recipes",
+        "entity-free recipe checksum of every live and dormant runtime mint",
+        RetainedMintRecipes::checksum,
     );
     registrar.rollback_component_clone_checksum::<OwnedItemsBaseline>(
         OWNER,
@@ -1173,12 +1270,14 @@ where
 }
 
 /// The live descriptions, and each earlier description of a mint that is not
-/// live but that the occurrence ledger places in a room: a dormant mint.
+/// live but that the occurrence ledger still has: a dormant mint, placed in a
+/// room that is not live or carried by a body that is not.
 ///
-/// The ledger decides how long a dormant description lives. When it no longer
-/// places the occurrence (taken up again, retracted by a checkpoint restore, or
-/// gone), the description goes too. A composition with no ledger has no
-/// dormant mints.
+/// The ledger decides how long a dormant description lives (IR2). It goes
+/// when the ledger ends the occurrence (consumed, spent) or forgets it
+/// (retracted by a checkpoint restore). A carried mint keeps its recipe while
+/// its holder is away, so the hand that comes back can be filled again. A
+/// composition with no ledger has no dormant mints.
 pub fn with_dormant_mints(
     live: BTreeMap<SimId, MintedItemDescription>,
     earlier: BTreeMap<SimId, MintedItemDescription>,
@@ -1188,12 +1287,13 @@ pub fn with_dormant_mints(
     let Some(ledger) = ledger else {
         return described;
     };
+    use ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts;
     for (occurrence, description) in earlier {
-        let placed = matches!(
+        let retained = matches!(
             ledger.whereabouts(&occurrence),
-            Some(ambition_platformer2d_shared_tangle::lifecycle::OccurrenceWhereabouts::Placed { .. })
+            Some(OccurrenceWhereabouts::Placed { .. } | OccurrenceWhereabouts::InCustody)
         );
-        if placed {
+        if retained {
             described.entry(occurrence).or_insert(description);
         }
     }
@@ -1254,6 +1354,63 @@ mod tests {
             MintedItemBaseline::default(),
         );
         app
+    }
+
+    /// IR2: the item owner retains a dormant mint's recipe without the save,
+    /// keeps it while a body that is not live carries it, drops it when the
+    /// ledger ends it, and takes it back from the checkpoint when a restore
+    /// places it again.
+    #[test]
+    fn a_dormant_recipe_is_retained_by_its_owner_and_returned_by_its_checkpoint() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            insert_session_world_component, session_world_component, session_world_component_mut,
+            AuthoredOccurrences, OccurrenceWhereabouts,
+        };
+        let mint = SimId::placement("dormant-coconut");
+        let recipe = MintedItemDescription {
+            origin: SpawnOrigin::Dynamic { parent: SimId::placement("palm"), sequence: 3 },
+            held_item: "coconut".into(),
+            half_extent: Vec2::new(7.0, 5.5),
+        };
+        let placed = |ledger: &mut AuthoredOccurrences| {
+            ledger.adopt_rows(
+                [(mint.clone(), OccurrenceWhereabouts::Placed { room: "trailhead".into(), at: Vec2::new(40.0, 8.0) })]
+                    .into_iter()
+                    .collect(),
+            )
+        };
+        let mut app = App::new();
+        app.init_resource::<AuthoredOccurrences>().add_systems(Update, retain_mint_recipes);
+        let mut checkpoint = MintedItemBaseline::default();
+        checkpoint.adopt([(mint.clone(), recipe.clone())].into_iter().collect());
+        insert_session_world_component(app.world_mut(), (checkpoint, RetainedMintRecipes::default()));
+        placed(&mut app.world_mut().resource_mut::<AuthoredOccurrences>());
+        let retained = |app: &App| {
+            session_world_component::<RetainedMintRecipes>(app.world()).unwrap().recipes().description_of(&mint).cloned()
+        };
+
+        app.update();
+        assert_eq!(retained(&app), Some(recipe.clone()), "a loaded dormant mint has no retained recipe");
+
+        // Carried by a body that is not live: the hand that comes back needs it.
+        *session_world_component_mut::<MintedItemBaseline>(app.world_mut()).unwrap() = MintedItemBaseline::default();
+        app.world_mut().resource_mut::<AuthoredOccurrences>().republish_custody([mint.clone()].into_iter().collect());
+        app.update();
+        assert_eq!(retained(&app), Some(recipe.clone()), "a carried dormant mint lost its recipe");
+
+        // Put down after the checkpoint and ended where it lay: the recipe goes.
+        placed(&mut app.world_mut().resource_mut::<AuthoredOccurrences>());
+        app.world_mut().resource_mut::<AuthoredOccurrences>().end([mint.clone()]);
+        app.update();
+        assert_eq!(retained(&app), None, "an ended mint kept its recipe");
+
+        // A restore to a checkpoint that saw it lying there places it again.
+        let mut checkpoint = MintedItemBaseline::default();
+        checkpoint.adopt([(mint.clone(), recipe.clone())].into_iter().collect());
+        *session_world_component_mut::<MintedItemBaseline>(app.world_mut()).unwrap() = checkpoint;
+        placed(&mut app.world_mut().resource_mut::<AuthoredOccurrences>());
+        app.update();
+        assert_eq!(retained(&app), Some(recipe), "the restored placement found no recipe to rebuild from");
     }
 
     fn minted_baseline(app: &App) -> &MintedItemBaseline {

@@ -85,7 +85,9 @@ impl CapturedRoomPreparation {
 pub struct RoomContinuity<'w, 's> {
     accepted: Query<'w, 's, &'static AcceptedCheckpointRestore, With<SessionRoot>>,
     ledger: Option<Res<'w, AuthoredOccurrences>>,
-    save: Option<Res<'w, ambition_persistence::save::AmbitionGameSave>>,
+    // The item owner's retained recipes, live and dormant (IR2): never the
+    // save's rows, which are only its export.
+    retained: Query<'w, 's, &'static ambition_platformer2d_items::pickup::minted_horizon::RetainedMintRecipes, With<SessionRoot>>,
     custody: custody::CustodyEndingAtCommit<'w, 's>,
 }
 
@@ -94,7 +96,7 @@ impl RoomContinuity<'_, '_> {
         restore: Option<crate::checkpoint::CheckpointOperationKey>,
     ) -> Result<RoomContinuityInputs, RoomPreparationError> {
         select_continuity(intent, restore, self.accepted.single().ok(),
-            self.ledger.as_deref(), self.save.as_deref(), &self.custody)
+            self.ledger.as_deref(), self.retained.single().ok(), &self.custody)
     }
 }
 
@@ -144,7 +146,7 @@ fn select_continuity(
     checkpoint_operation: Option<crate::checkpoint::CheckpointOperationKey>,
     accepted: Option<&AcceptedCheckpointRestore>,
     live: Option<&AuthoredOccurrences>,
-    save: Option<&ambition_persistence::save::AmbitionGameSave>,
+    retained: Option<&ambition_platformer2d_items::pickup::minted_horizon::RetainedMintRecipes>,
     custody: &custody::CustodyEndingAtCommit,
 ) -> Result<RoomContinuityInputs, RoomPreparationError> {
     let restore = checkpoint_operation
@@ -176,11 +178,7 @@ fn select_continuity(
     };
     let minted = match restore {
         Some(accepted) => accepted.item.as_ref().map(|item| item.minted.clone()),
-        None => save.map(|save| {
-            ambition_platformer2d_items::pickup::minted_horizon::minted_baseline_from_save(
-                save.data(),
-            )
-        }),
+        None => retained.map(|retained| retained.recipes().clone()),
     };
     Ok(RoomContinuityInputs {
         occurrences,

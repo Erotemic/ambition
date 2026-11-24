@@ -377,7 +377,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // proper-time rate.
 // 537 -> 538: a pending fireball charge encodes the seat that began it
 // (`PlayerProjectileState::charge_driver`, IN5).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 538;
+// 538 -> 539: the item owner retains every live and dormant mint recipe on the
+// session root (`resource.retained_mint_recipes`, IR2); the save's minted rows
+// are only its export.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 539;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

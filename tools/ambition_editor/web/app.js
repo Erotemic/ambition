@@ -150,7 +150,7 @@
   function card(a) {
     const counts = a.animations ? `${a.animations} anim · ${fmt(a.frames)} fr` : `${a.products.length} file${a.products.length > 1 ? "s" : ""}`;
     return `<a class="card" href="#asset/${enc(a.id)}"><div class="img checker">${img(a.cover, a.display)}</div>
-      <div class="meta"><div class="nm">${esc(a.display)}${a.art_label && a.art_label !== a.display ? ` <code class="gen">${esc(a.art_label)}</code>` : ""}</div><div class="sub">${chip(a.confidence)} ${esc(a.family)} · ${counts}${a.findings ? ` · <span class="chip c-warn">${a.findings}</span>` : ""}${unitChip(a)}</div></div></a>`;
+      <div class="meta"><div class="nm">${esc(a.display)}${a.art_label && a.art_label !== a.display ? ` <code class="gen">${esc(a.art_label)}</code>` : ""}</div><div class="sub">${chip(a.confidence)} ${esc(a.family)} · ${counts}${a.findings ? ` · <span class="chip c-warn">${a.findings}</span>` : ""}${unitChip(a)} ${window.AssetReviews.chip(window.AssetReviews.latest(a.id))}</div></div></a>`;
   }
   function unitChip(a) {
     const unit = C.inventory?.units[a.inspection_unit];
@@ -187,10 +187,19 @@
       ${a.inspection_unit ? `<p><a href="#inventory/unit/${enc(a.inspection_unit)}">Inventory, coverage, and generation evidence</a></p>` : ""}
       ${relatedBox(a)}
       ${(a.lineages || []).map((l) => lineageBox(l, a)).join("")}
-      ${assetPanels(a)}</div>`;
-    wireAnimation(a); wireParallax(a);
+      ${assetPanels(a)}
+      ${reviewBox(a)}</div>`;
+    wireAnimation(a); wireParallax(a); window.AssetReviews.wire(app);
   }
 
+  // A sheet of a known character is reviewed on the character's page, as that character.
+  function reviewBox(a) {
+    if ((a.identities || []).length) {
+      return `<section class="box" id="asset-reviews"><h2>Reviews</h2><p>Review this art on its character's page: ${a.identities.map((key) =>
+        `<a href="#character/${enc(key)}">${esc(C.inventory?.identities?.[key]?.display || key)}</a> ${window.AssetReviews.chip(window.AssetReviews.latest(key))}`).join(" · ")}</p></section>`;
+    }
+    return window.AssetReviews.section(a.id, { kind: "image", parts: (a.layout?.rows || []).map((row) => row.name), partLabel: "Animation" });
+  }
   function previewBox(a) {
     const main = a.products.map((p) => products[p]).find((p) => p.thumb && p.tier === "full") || null;
     const path = a.products.find((p) => products[p] === main);
@@ -696,7 +705,7 @@
     else if (view === "cat") { if (state.category !== id) { state.category = id; state.page = 0; state.family = new Set(); } gallery(); }
     else if (view === "characters" || view === "character") window.renderArtCharacters(view === "character" ? id : "", {assetPanels, wireAnimation, lineageBox});
     else if (view === "inventory") window.renderArtInventory(id || "current");
-    else if (view === "reviews") window.ArtReviews.backlog();
+    else if (view === "reviews") window.AssetReviews.page();
     else if (view === "asset") detail(id);
     else if (view === "gen") generatorDetail(id);
     else if (view === "generators") generatorList();
@@ -767,6 +776,6 @@
     poll();
   }
   window.addEventListener("hashchange", route);
-  window.addEventListener("art-reviews-changed", route);
+  window.addEventListener("asset-reviews-changed", route);
   route();
 })();

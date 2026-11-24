@@ -14,7 +14,7 @@
   const editor = (path, line) => C.repo_abs ? `vscode://file/${C.repo_abs}/${path}${line ? ":" + line : ""}` : `${C.repo_href}/${path}`;
   const source = (path, line) => `<a href="${esc(editor(path, line))}" title="Open in the editor"><code>${esc(path)}${line ? ":" + line : ""}</code></a>`;
   const itemLink = (id, text) => items[id] ? `<a href="#item/${encodeURIComponent(id)}">${esc(text || items[id].display)}</a>` : `<code>${esc(id)}</code>`;
-  const notes = key => (window.ArtReviews ? window.ArtReviews.openFor(key) : 0);
+  const R = () => window.AssetReviews;
   // One player for the whole page, docked at the bottom: it says what is playing and links to it.
   const bar = document.createElement("div");
   bar.className = "now-playing"; bar.hidden = true;
@@ -59,6 +59,8 @@
     if (button) { event.preventDefault(); play(button.dataset.play, button.dataset.href, button.dataset.note); }
   });
   window.addEventListener("hashchange", () => setTimeout(sync, 0));
+  // How far a file was heard, for a review of it.
+  const heard = href => ({...(played[href] || {seconds: 0, fraction: 0})});
 
   function families() {
     const libraries = C.families?.libraries || [];
@@ -107,12 +109,12 @@
       const states = Object.entries(k.states).map(([s, n]) => `${n} ${s}`).join(", ");
       cards.push({title, href: "#" + VIEW[kind], n: k.count, line: (states || "none") + (k.notices.length ? " · notice" : "")});
     }
-    const reviewCount = window.ArtReviews ? window.ArtReviews.openCount() : 0;
-    cards.push({title: "Review notes", href: "#reviews", n: reviewCount, line: "open notes"});
+    const reviews = R().report();
+    cards.push({title: "Reviews", href: "#reviews", n: reviews.reviews.length, line: `${reviews.backlog.count} need work`});
     const attention = Object.values(items).filter(i => i.state !== "present").sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
     const notices = Object.entries(C.kinds || {}).flatMap(([kind, k]) => k.notices.map(n => `<p class="stamp stale">${esc(KINDS[kind] || kind)}: ${esc(n)}</p>`));
     app().innerHTML = `<h1>Assets</h1>
-      <p class="lede">Everything the selected game ships or declares, what is missing or stale, and how to make it. Open any item to play or view it, see its source and where the game uses it, and leave a review note.</p>
+      <p class="lede">Everything the selected game ships or declares, what is missing or stale, and how to make it. Open any item to play or view it, see its source and where the game uses it, and review it.</p>
       ${notices.join("")}
       <div class="cards">${cards.map(c => `<a class="card overview-card" href="${c.href}"><b>${esc(c.title)}</b><span class="big">${esc(c.n)}</span><span class="n">${esc(c.line)}</span></a>`).join("")}</div>
       <section class="box"><h2>Generated content by producer</h2>${families()}</section>
@@ -121,12 +123,12 @@
   }
 
   function table(rows, withKind, withAdded = false) {
-    return `<table class="tbl"><thead><tr><th></th>${withKind ? "<th>Kind</th>" : ""}<th>Name</th>${withAdded ? '<th title="First score commit in available Git history">Added (Git)</th>' : ""}<th>State</th><th>Uses</th><th>Review</th><th>Notes</th></tr></thead><tbody>
+    return `<table class="tbl"><thead><tr><th></th>${withKind ? "<th>Kind</th>" : ""}<th>Name</th>${withAdded ? '<th title="First score commit in available Git history">Added (Git)</th>' : ""}<th>State</th><th>Uses</th><th>Review</th><th>Why</th></tr></thead><tbody>
       ${rows.map(i => `<tr><td>${i.media?.type === "audio" ? `<button type="button" class="ghost" data-play="${esc(i.id)}" title="Play ${esc(i.display)}">▶</button>` : ""}</td>
         ${withKind ? `<td>${esc(KINDS[i.kind] || i.kind)}</td>` : ""}
         <td>${itemLink(i.id)}<br><small><code>${esc(i.name)}</code></small></td>${withAdded ? `<td>${i.added_at ? `<time datetime="${esc(i.added_at)}" title="${esc(i.added_at)}">${esc(i.added_at.slice(0, 10))}</time>` : '<small>Unknown</small>'}</td>` : ""}<td>${chip(i.state)}</td><td>${i.uses.length || ""}</td>
-        <td>${i.reviews ? `${esc(i.reviews.score)} ${esc(i.reviews.label || "")}${i.reviews.score_changed ? " ⚠" : ""}` : ""}</td>
-        <td>${notes(i.id) ? `${notes(i.id)} open` : ""}${i.reasons.length ? `<small>${esc(i.reasons[0])}</small>` : ""}</td></tr>`).join("")}</tbody></table>`;
+        <td>${R().chip(R().latest(i.id))}${i.reviews?.score_changed ? ' <span title="The score changed after this review">⚠</span>' : ""}</td>
+        <td>${i.reasons.length ? `<small>${esc(i.reasons[0])}</small>` : ""}</td></tr>`).join("")}</tbody></table>`;
   }
 
   const filters = {};
@@ -137,7 +139,7 @@
     const f = filters[kind] || (filters[kind] = {state: "", used: "", sort: "name"});
     let rows = all.filter(i => terms.every(t => (i.id + " " + i.display + " " + i.tags.join(" ") + " " + (i.score?.description || "")).toLowerCase().includes(t)));
     if (f.state) rows = rows.filter(i => i.state === f.state);
-    if (f.used) rows = rows.filter(i => f.used === "used" ? i.uses.length : f.used === "unused" ? !i.uses.length : f.used === "reviewed" ? i.reviews : !i.reviews);
+    if (f.used) rows = rows.filter(i => f.used === "used" ? i.uses.length : f.used === "unused" ? !i.uses.length : f.used === "reviewed" ? R().latest(i.id) : !R().latest(i.id));
     rows.sort((a, b) => {
       if (f.sort !== "name") {
         const at = Date.parse(a.added_at) || 0, bt = Date.parse(b.added_at) || 0;
@@ -151,7 +153,7 @@
       ${k.notices.map(n => `<p class="stamp stale">${esc(n)}</p>`).join("")}
       <p class="controls">${facet("state", "", "all")}${Object.entries(k.states).map(([s, n]) => facet("state", s, `${s} (${n})`)).join("")}
         · ${facet("used", "", "any use")}${facet("used", "used", "used in game text")}${facet("used", "unused", "no use found")}
-        ${kind === "music" ? facet("used", "reviewed", "reviewed") + facet("used", "unreviewed", "never reviewed") : ""}
+        ${facet("used", "reviewed", "reviewed") + facet("used", "unreviewed", "never reviewed")}
         ${kind === "music" ? `<label> · Sort <select id="music-sort">${[["name", "Name"], ["newest", "Newest added"], ["oldest", "Oldest added"]].map(([key, label]) => `<option value="${key}"${f.sort === key ? " selected" : ""}>${label}</option>`).join("")}</select></label>` : ""}
         · make: <code>${esc(k.fix || "")}</code></p>
       ${rows.length ? table(rows.slice(0, 1000), false, kind === "music") : '<p class="empty">Nothing matches.</p>'}`;
@@ -195,11 +197,11 @@
   const served = location.protocol.startsWith("http");
   function reviewForm(item, target) {
     const k = C.kinds.music || {}, tags = k.issue_tags || [], [low, high] = k.score_range || [1, 10];
-    const old = (item.reviews?.history || []).find(h => h.version === target.version_id);
+    const old = R().rowsFor(item.id).find(row => row.version_id === target.version_id);
     return `<form class="music-review" data-item="${esc(item.id)}" data-version="${esc(target.version_id)}">
       <p><button type="button" class="ghost" data-play="${esc(item.id)}" data-href="${esc(target.href)}" data-note="${esc(target.roles.join(", "))}">▶</button>
         <b>${esc(target.roles.join(" · "))}</b> <code>${esc(target.version_id)}</code>
-        ${old ? ` · reviewed <b>${esc(old.score)}</b> ${esc(old.label || "")}` : " · not reviewed"}</p>
+        ${old ? ` · reviewed ${R().chip(old)}` : " · not reviewed"}</p>
       ${served ? `<div class="controls"><label>Score <input name="score" type="number" min="${low}" max="${high}" step="0.1" required value="${esc(old?.score ?? "")}"></label>
         <span class="n">1–3 replace · 3–5 major polish · 5–7 acceptable · 7–9 strong · 9–10 standout</span></div>
         <textarea name="notes" rows="3" placeholder="What works, what to change">${esc(old?.notes || "")}</textarea>
@@ -228,14 +230,14 @@
   }
 
   function musicReviews(item) {
-    const r = item.reviews;
     if (item.kind !== "music") return "";
-    const targets = item.review_targets || [];
-    const history = r ? `<p>Latest: <b>${esc(r.score)}</b> ${esc(r.label || "")} · ${esc(r.reviewed_at || "")}</p>
-      ${r.score_changed ? '<p class="stamp stale">The score changed after this review: the review is of an older version.</p>' : ""}
-      ${r.notes ? `<p class="review-text">${esc(r.notes)}</p>` : ""}
-      ${r.history.length > 1 ? `<details><summary>All ${r.history.length} reviews</summary>${r.history.map(h => `<p><b>${esc(h.score)}</b> ${esc(h.label || "")} · ${esc(h.reviewed_at || "")} · <code>${esc(h.version || "")}</code><br>${esc(h.notes)}</p>`).join("")}</details>` : ""}` : '<p class="empty">Never reviewed.</p>';
-    return `<section class="box"><h2>Music reviews (${r ? r.count : 0})</h2>${history}
+    const rows = R().rowsFor(item.id), targets = item.review_targets || [], last = rows[0];
+    const history = last ? `<p>Latest: ${R().chip(last)} · ${esc(last.reviewed_at)}${last.relation !== "current" ? ` · ${esc(last.relation)} version` : ""}</p>
+      ${item.reviews?.score_changed ? '<p class="stamp stale">The score changed after this review: the review is of an older version.</p>' : ""}
+      ${last.notes ? `<p class="review-text">${esc(last.notes)}</p>` : ""}
+      ${rows.length > 1 ? `<details><summary>All ${rows.length} reviews</summary>${rows.map(h => `<p>${R().chip(h)} · ${esc(h.reviewed_at)} · <code>${esc(h.version_id)}</code><br>${esc(h.notes)}</p>`).join("")}</details>` : ""}` : '<p class="empty">Never reviewed.</p>';
+    return `<section class="box" id="asset-reviews"><h2>Reviews (${rows.length})</h2>
+      <p class="n">The music tool's review files: its review window (<code>${esc(item.reviews?.command || "review_music.sh")}</code>) shows the same reviews.</p>${history}
       ${targets.length ? `<h3>Rate a render</h3><p class="n">A review rates one exact render. Listen to it here; how far you listened is saved with the review.</p>${targets.map(t => reviewForm(item, t)).join("")}`
         : '<p class="empty">The music tool has no render of this score to review.</p>'}</section>`;
   }
@@ -248,17 +250,12 @@
       const data = new FormData(form), heard = played[target.href] || {seconds: 0, fraction: 0};
       button.disabled = true; state.textContent = "Saving…";
       try {
-        const response = await fetch("/api/music-reviews", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({
-          item: item.id, version_id: target.version_id, score: Number(data.get("score")), notes: data.get("notes") || "",
-          issues: data.getAll("issues"), furthest_played_seconds: heard.seconds, furthest_played_fraction: heard.fraction})});
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Could not save the review.");
-        // Show it now; the next index reads it from the music tool's review file.
-        const rows = (item.reviews ||= {count: 0, history: [], tool: "music"}).history.filter(h => h.version !== result.version_id);
-        rows.push(result.review);
-        Object.assign(item.reviews, result.review, {count: rows.length, history: rows, score_changed: false});
-        detail(item.id);
-        document.querySelector(`form[data-version="${CSS.escape(target.version_id)}"] .save-state`).textContent = `Saved to ${result.path}`;
+        const saved = await R().save({id: item.id, version_id: target.version_id, score: Number(data.get("score")), notes: data.get("notes") || "",
+          issues: data.getAll("issues"), furthest_played_seconds: heard.seconds, furthest_played_fraction: heard.fraction});
+        if (item.reviews) item.reviews.score_changed = false;  // the new review rates the current score
+        R().changed();
+        const again = document.querySelector(`form[data-version="${CSS.escape(target.version_id)}"] .save-state`);
+        if (again) again.textContent = `Saved to ${saved.path}`;
       } catch (error) { state.textContent = error.message; button.disabled = false; }
     });
   }
@@ -281,9 +278,9 @@
       <section class="box"><h2>Used by (${item.uses.length})</h2>${usedBy ? `<ul>${usedBy}</ul>` : '<p class="empty">No use found in game text or worlds.</p>'}</section>
       ${item.related.length ? `<section class="box"><h2>Related</h2><p>${item.related.map(r => itemLink(r, r)).join(" · ")}</p></section>` : ""}
       ${(() => { const d = item.kind === "world" ? "" : details(item); return d ? `<section class="box">${d}</section>` : ""; })()}
-      ${musicReviews(item)}
-      ${window.ArtReviews ? window.ArtReviews.section(item.id) : ""}`;
-    if (window.ArtReviews) window.ArtReviews.wire();
+      ${item.kind === "music" ? musicReviews(item) : R().section(item.id, {kind: item.kind, audio: item.media?.type === "audio" ? item.media.href : null,
+        parts: item.kind === "world" ? (item.details.rooms || []).map(room => room.id) : [], partLabel: "Room"})}`;
+    R().wire();
     wireMusicReviews();
     document.querySelectorAll(".room-box").forEach(box => box.onclick = event => {
       event.preventDefault();
@@ -293,5 +290,5 @@
     sync();
   }
 
-  window.AssetItems = {overview, list, detail, VIEW};
+  window.AssetItems = {overview, list, detail, heard, VIEW};
 })();

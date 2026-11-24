@@ -2,7 +2,7 @@
   "commands": [
     {
       "id": "assets",
-      "title": "Inspect published assets and review notes",
+      "title": "Inspect published assets and review them",
       "owner": "tools/ambition_editor",
       "command": "python3 scripts/asset_inspector.py status --json",
       "help": "python3 scripts/asset_inspector.py --help",
@@ -13,7 +13,7 @@
       "docs": "tools/ambition_editor/README.md",
       "inputs": "Selected library, cached index, and publication evidence.",
       "outputs": "JSON asset facts; build and serve produce offline previews.",
-      "mutation": "Status, inspect and list read data. Build writes cache. Notes commands write authored review data.",
+      "mutation": "Status, inspect and list read data. Build writes cache. `reviews add` and the served page write authored review data.",
       "build": "No Cargo build. Use the owner Python environment.",
       "status": "active",
       "cwd": "repository root"

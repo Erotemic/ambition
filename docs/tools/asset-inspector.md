@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-11-10
+last_verified: 2026-11-24
 related_docs:
   - docs/tools/generated-visual-tools.md
   - docs/concepts/asset-management.md
@@ -9,7 +9,7 @@ related_docs:
 # Asset inspector
 
 `scripts/asset_inspector.py` provides an inventory of authored and published
-assets, source and generation evidence, known game uses, and art review notes.
+assets, source and generation evidence, known game uses, and asset reviews.
 It helps locate missing or stale products; it does not publish them.
 
 ```bash
@@ -21,8 +21,10 @@ python3 scripts/asset_inspector.py build --open
 ```
 
 `build` opens an offline view of character forms, parts, animation coverage,
-lineage, publication tiers and available previews. `serve --open` also offers
-editable review notes; `notes backlog --json` lists the outstanding notes.
+lineage, publication tiers and available previews. `serve --open` can also save
+reviews of every asset kind, in the music tool's review format: a score from 1
+to 10, notes and issue tags for one exact version. `reviews backlog --json`
+lists the reviews that ask for work.
 See [the editor tool README](../../tools/ambition_editor/README.md) for storage
 and current command details.
 

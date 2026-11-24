@@ -90,15 +90,9 @@ pack, so another engine game is inspected the same way (`--profile`,
 - **Uses** come from quoted ids and asset paths in game and engine text, and
   from world rooms.
 
-A music page can rate a render, as the music tool's review GUI does. It offers
-the render the game plays (its preview bytes equal the published file) and the
-newest render when that differs. The page saves through the music tool's own
-review owner (`ambition_music_renderer.music_reviews`), so the review file, its
-score scale and its issue tags are the same, and how far you listened is kept.
-A review is refused if the render changed since the page was built.
-
-Any item can take a review note (`serve`). A note records the version of the
-files it reviewed, so it stays attached after the asset changes.
+Every asset can take a review: characters (bosses too), images (props, effects,
+backgrounds, tiles, icons and held items), music, sound effects, fonts and
+worlds. All reviews use one format. See [Asset reviews](#asset-reviews).
 
 The Characters view needs the content check binary. The inspector uses the
 newer of its release and debug builds. When the binary is missing or older than
@@ -274,40 +268,63 @@ historical renders with `python -m design_history build LINEAGE` from the sprite
 renderer directory, then rebuild the inspector. Status, list, inspect, and
 coverage queries do not prepare or read this visual timeline.
 
-## Character review notes
+## Asset reviews
 
-Use `serve --open` to build the page and start its local review service. On a
-character page, write a note, select its priority and optional animation, then
-save it. Character cards show open-note counts. **Review notes** opens the
-backlog, sorted by priority, with an export for offline work.
+Every review uses the format of the music tool's reviews
+(`ambition_music_renderer.music_reviews`). A review contains:
 
-Notes are JSON files in `tools/ambition_editor/reviews/notes/`. These are authored
-review data. Commit them with other review changes. They are outside the
-generated page directory and browser storage. The service writes them at once.
-The page opened from disk can show the notes included at build time; use the
-service to save changes or read new notes.
+- a score from 1 to 10, with the label of its rubric band: 1–3 Replace, 3–5
+  Major polish, 5–7 Acceptable, 7–9 Strong, 9–10 Standout;
+- notes and issue tags. Each kind has its own tags, for example
+  `animation-motion` for a character and `mix-level` for a sound effect;
+- the exact version that was reviewed. A review stays with that version after
+  the asset changes. An edit to a review replaces its `current` values;
+- optionally, a part: an animation of a character or a sheet, or a room of a
+  world. Each part has its own review;
+- for audio, how far the reviewer listened.
 
-Each note records the catalog identity, exact product hashes, manifest, bundle
-sources, repair commands, lineage IDs, priority, and optional animation. The
-generation key includes required and optional bundle members, including part
-atlases. Unrelated catalog edits do not change it. If published bytes change
-before a save, rebuild the inspector first. A note on older art stays open
-until someone reviews the fix and resolves it.
+Music reviews are the music tool's own files, under its `reviews/music/<cue>/`.
+The music page saves through the music tool's review code, so its review window
+(`review_music.sh`) and this page show the same reviews. The other kinds have
+the same keys under the schema `ambition.asset_review.v1`. They are saved in
+`tools/ambition_editor/reviews/<kind>/<asset>/<version>[--<part>].review.yaml`.
+These files are authored data: commit them. `tests/test_reviews.py` checks that
+the scale and rubric agree with the music tool's.
 
-Read and update the same files from the CLI:
+A version is identified by the bytes of the asset:
+
+- a character: its published products, manifest and bundle ids. Unrelated
+  catalog edits do not change it. The sheet of a known character is reviewed
+  as that character;
+- an image: its files;
+- a sound effect: its clip, not the whole bank;
+- a font or world: its files;
+- music: a render (`render_hash` and the bytes of its preview).
+
+The server refuses a review when the bytes differ from those the page showed.
+In that case, reload the inspector.
+
+Use `./scripts/asset_inspector.py` (`serve`) to save reviews. A page opened
+from disk shows the reviews saved when it was built. **Reviews** shows the work
+queue and every review. The work queue holds the newest review of each asset
+(or part) with a score below 6, the music tool's polish threshold:
+
+- **fix**: the review rated the current version.
+- **re-review**: the asset changed after the review, so look or listen again.
+
+The CLI reads and writes the same files:
 
 ```bash
-python3 scripts/asset_inspector.py notes backlog --json
-python3 scripts/asset_inspector.py notes add ambition:npc_general --animation death --priority high --text "The cap clips during the fall."
-python3 scripts/asset_inspector.py notes resolve NOTE_UUID --resolution "Fixed the cap joint and reviewed the new fall."
-python3 scripts/asset_inspector.py notes reopen NOTE_UUID
+python3 scripts/asset_inspector.py reviews backlog --json
+python3 scripts/asset_inspector.py reviews list --kind sfx
+python3 scripts/asset_inspector.py reviews add ambition:npc_general --score 4 --part death --issue animation-motion --notes "The cap clips during the fall."
 ```
 
-For an overnight task, read `notes backlog --json`, inspect each note's recorded
-generation and current bundle sources, make the source edits, and publish the
-affected bundles. Rebuild the inspector after publication to compare against the
-new generation. Resolve a note after the result has been checked. Backlog art
-facts describe the last inspector build; the note files remain live shared data.
+`reviews add` rates the version of the last build; for music, the render the
+game plays. For an overnight task, read `reviews backlog --json`. For each
+`fix` row, read the notes and the issue tags, change the sources, and publish
+again. The review of the old version stays as it is. A person reviews the new
+version, and the row then leaves the queue.
 
 ## Generation evidence
 

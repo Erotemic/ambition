@@ -171,6 +171,15 @@ fn the_player_can_kill_each_void_fighter() {
             }
             let (p, hp, _) = player(&mut sim);
             assert!(hp > 0, "{character}: the player died first, at tick {tick}: {f:?}");
+            // A knock can lift the player onto a sandbox ledge this walking
+            // script never comes down from, out of the fighter's sight. The
+            // question is the kit, not the way back: set it down beside the
+            // fighter, on the fighter's level.
+            if (p.y - f.pos.y).abs() > 120.0 {
+                let side = if p.x < f.pos.x { -1.0 } else { 1.0 };
+                place_player(&mut sim, ae::Vec2::new(f.pos.x + side * 48.0, f.pos.y - 24.0));
+                continue;
+            }
             let dx = f.pos.x - p.x;
             let move_x = if dx.abs() > 28.0 { dx.signum() } else { dx.signum() * 0.2 };
             let attack = tick % 9 == 0 && dx.abs() < 80.0;

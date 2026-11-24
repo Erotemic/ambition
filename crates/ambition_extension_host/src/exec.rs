@@ -535,10 +535,45 @@ pub(crate) fn reject_unpaid(phase: Phase) -> impl FnMut(&mut World) {
 }
 
 /// The exclusive system for one phase.
+/// Each admitted entry's read ports bound to their installed suppliers, in
+/// declaration order: resolved once per admitted set and installation, not
+/// once per read per invocation. A port with no supplier is left out, as the
+/// per-read lookup left it out. A new admission or installation rebinds, so an
+/// old binding never serves a new entry.
+struct BoundReads {
+    admitted: Arc<crate::admission::Admitted>,
+    suppliers: Arc<HashMap<PortKey, (Supplier, EncodeFn)>>,
+    /// Indexed like `Admitted::entries`.
+    reads: Vec<Vec<(PortKey, Supplier)>>,
+}
+
+impl BoundReads {
+    fn bind(admitted: &Arc<crate::admission::Admitted>, codecs: &InstalledPortCodecs) -> Self {
+        let reads = admitted
+            .entries
+            .iter()
+            .map(|entry| {
+                entry
+                    .descriptor
+                    .reads
+                    .iter()
+                    .filter_map(|port| codecs.suppliers.get(port).map(|(supply, _)| (port.clone(), supply.clone())))
+                    .collect()
+            })
+            .collect();
+        Self { admitted: admitted.clone(), suppliers: codecs.suppliers.clone(), reads }
+    }
+
+    fn is_for(&self, admitted: &Arc<crate::admission::Admitted>, codecs: &InstalledPortCodecs) -> bool {
+        Arc::ptr_eq(&self.admitted, admitted) && Arc::ptr_eq(&self.suppliers, &codecs.suppliers)
+    }
+}
+
 pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
     // Kept from tick to tick: a new query state matches each archetype of the
     // world, and that cost was up to 1.9% of all CPU on Android (2026-10-13).
     let mut homes: Option<QueryState<Entity, With<SessionRecords>>> = None;
+    let mut bound: Option<BoundReads> = None;
     move |world: &mut World| {
         let pending: Vec<PendingInvocation> = {
             let mut queue = world.resource_mut::<ExtensionInvocations>();
@@ -586,6 +621,10 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
         }
         // The phase's entries and each trigger's, prepared at admission.
         let dispatch = admitted.dispatch();
+        if !bound.as_ref().is_some_and(|bound| bound.is_for(&admitted, &codecs)) {
+            bound = Some(BoundReads::bind(&admitted, &codecs));
+        }
+        let reads = &bound.as_ref().expect("bound above").reads;
 
         for invocation in pending.iter().filter(|invocation| invocation.receipt.is_some()) {
             let bound = dispatch.bound_to(&phase, &invocation.port, &invocation.selector);
@@ -596,7 +635,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
             }
         }
 
-        for entry in dispatch.entries_of(&phase).iter().map(|&index| &admitted.entries[index]) {
+        for (entry, entry_reads) in dispatch.entries_of(&phase).iter().map(|&index| (&admitted.entries[index], &reads[index])) {
             let descriptor = &entry.descriptor;
             let Some(bucket) = by_trigger.get(&(&descriptor.trigger.port, descriptor.trigger.selector.as_ref())) else {
                 continue;
@@ -624,8 +663,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                 invocation.notify(world, InvocationEvent::Started);
                 let result = read_state(world, &admitted, invocation.scope.state, session, &descriptor.writes)
                     .and_then(|state| {
-                        let observations = entry.descriptor.reads.iter().filter_map(|port| {
-                            let (supply, _) = codecs.suppliers.get(port)?;
+                        let observations = entry_reads.iter().filter_map(|(port, supply)| {
                             supply(world, ObservationContext { scope: invocation.scope.subject, state_scope: invocation.scope.state, entry: &entry.path, invocation })
                                 .map(|value| Observation { port: port.clone(), value: OwnedPayload::Native(value) })
                         }).collect::<Vec<_>>();

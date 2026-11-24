@@ -121,9 +121,18 @@ relation: an event candidate looks up its trigger's entries, and an object
 call walks only `ACTOR_THINK`'s entries. The order is unchanged:
 entry-major, then queue order. A new admission prepares its own relation,
 so an old index cannot select a new entry. Witness:
-`the_prepared_dispatch_is_the_serial_order_by_trigger`. Still open:
-resolving method, supplier and schema keys at admission (the execution
-path still looks up `codecs.suppliers` per read port).
+`the_prepared_dispatch_is_the_serial_order_by_trigger`.
+
+**Supplier binding (2026-11-24).** `run_phase` binds each admitted entry's
+read ports to their installed suppliers once per admitted set and
+installation (`BoundReads`, kept across ticks and rebuilt when either `Arc`
+changes), so an invocation no longer hashes a port key per read. A port with
+no supplier is left out, as the per-read lookup left it out. The reload
+tests (`a_reloaded_module_takes_over_at_publication_and_keeps_its_records`)
+hold the rebinding: an old binding is never consulted for a new admission.
+Still open: the staged-record schema check and the request codec remain
+keyed lookups per staged value; their keys come from what an invocation
+staged, not from a fixed per-entry relation.
 
 ### Share an address view at each lifecycle cut
 
@@ -212,6 +221,17 @@ permitted tick, lane-local sequences, shared receiver budgets and settlement
 after commit. Frozen rooms retain work and do not spend active wait time. Unbound
 handlers can wake on the relevant generation change; fault retries keep their
 existing policy.
+
+**Precondition found 2026-11-24.** `deliver` is also the only place an
+orphaned behavior state is retired: a collected state whose
+`ObjectScopeOwner` no longer resolves is retired (`object_behaviors::retire`,
+which fails its open calls) and despawned. Collecting only receivers with
+journal work would leave an idle orphan state alive, which changes the
+rollback snapshot and the retirement tick. Give owner retirement its own
+trigger (the owner's lifecycle cut, not the delivery pass) before narrowing
+collection. The active criteria themselves are local: an `ActionMailbox`
+with a pending row, a non-empty `LocalCallWatches`, a `BehaviorInstance`
+with a non-terminal call, an `EventMailbox` with a pending row.
 
 No asynchronous worker-ready flag may decide whether a canonical delivery runs.
 An invalidated address/work projection is rebuilt synchronously or uses the

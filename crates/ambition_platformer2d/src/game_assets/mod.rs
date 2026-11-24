@@ -12,9 +12,10 @@ use bevy::prelude::*;
 mod sheets;
 pub use sheets::{
     boss_sheet_keys_for_room, ensure_boss_sheets_loaded, load_game_assets, reload_fx_sheets_of_targets,
-    load_the_prop_sheets_in_reach, reload_prop_sheets_of_targets, restate_prop_sheet_rows, scenery_prop_kinds,
+    load_the_prop_sheets_in_reach, reload_prop_sheets_of_targets, restate_prop_sheet_rows,
     PropSheetDemandSet,
 };
+pub(crate) use sheets::{RoomPropSheets, room_prop_kinds};
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog;

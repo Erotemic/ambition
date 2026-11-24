@@ -3285,7 +3285,9 @@ match items have identity and no provenance.
    makes shop offer checks and accepted exchanges share the existing pure
    `InventoryExchange` law. Pair it with O6a's actual payer. Keep narrative
    and procedural history retention separate and preserve CW2's open causal
-   work. This slice can proceed independently of IR2/IR3.
+   work. This slice can proceed independently of IR2/IR3. (Landed
+   2026-11-24: shop deals lower to the exchange's `check`/`apply`, and the
+   merchant offers ask `can_buy`/`can_sell` of the conversation's payer.)
 
 Centralize only a real invariant. The recipe does not require moving all
 minting sites behind a generic request bus.

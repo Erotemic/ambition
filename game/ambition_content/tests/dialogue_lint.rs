@@ -123,12 +123,23 @@ mod tests {
         line: usize,
         label: u32,
         guard: u32,
+        /// The item the guard asks about.
+        guarded: String,
         item: String,
         charged: u32,
     }
 
-    /// Pull `-> Buy Axe — 25g <<if can_afford(25)>>` and the `<<buy_item "axe" 25>>`
-    /// that follows it.
+    /// The item and price of a merchant guard `<verb>("item", N)`, if `raw`
+    /// holds one: the text before it and the two arguments.
+    fn guard_of<'a>(raw: &'a str, verb: &str) -> Option<(&'a str, String, u32)> {
+        let (before, after) = raw.split_once(&format!("{verb}(\""))?;
+        let (item, rest) = after.split_once('"')?;
+        let price = rest.trim_start_matches(',').split(')').next()?.trim().parse().ok()?;
+        Some((before, item.to_string(), price))
+    }
+
+    /// Pull `-> Buy Axe — 25g <<if can_buy("axe", 25)>>` and the
+    /// `<<buy_item "axe" 25>>` that follows it.
     ///
     /// The `buy_item` is looked for on the next few lines, not the same one,
     /// because Yarn puts an option's body under it, indented.
@@ -136,15 +147,11 @@ mod tests {
         let lines: Vec<&str> = text.split('\n').collect();
         let mut out = Vec::new();
         for (index, raw) in lines.iter().enumerate() {
-            let Some(after) = raw.split_once("can_afford(") else {
-                continue;
-            };
-            let Some(guard) = after.1.split(')').next().and_then(|n| n.trim().parse().ok()) else {
+            let Some((before, guarded, guard)) = guard_of(raw, "can_buy") else {
                 continue;
             };
             // The price the PLAYER reads, written as `25g` in the option text.
-            let Some(label) = after
-                .0
+            let Some(label) = before
                 .split_whitespace()
                 .filter_map(|word| word.trim_end_matches('g').parse::<u32>().ok())
                 .next_back()
@@ -168,6 +175,7 @@ mod tests {
                     line: index + 1,
                     label,
                     guard,
+                    guarded: guarded.clone(),
                     item: item.to_string(),
                     charged,
                 });
@@ -179,7 +187,7 @@ mod tests {
 
     /// A shop line states its price three times; they must agree.
     ///
-    /// `-> Buy Axe — 25g <<if can_afford(25)>>` / `<<buy_item "axe" 25>>` writes
+    /// `-> Buy Axe — 25g <<if can_buy("axe", 25)>>` / `<<buy_item "axe" 25>>` writes
     /// one fact in three places: the number the player reads, the number the menu
     /// greys out on, and the number the wallet is charged. Each mismatch fails
     /// differently:
@@ -187,13 +195,13 @@ mod tests {
     /// - label ≠ charged: the player is told one price and billed another;
     /// - guard > charged: an affordable item looks unaffordable and cannot be
     ///   bought;
-    /// - guard < charged: the option is offered, and `shop::buy` refuses for lack
+    /// - guard < charged: the option is offered, and the shop's exchange refuses for lack
     ///   of funds. The menu entry does nothing and says nothing, which reads as a
     ///   broken game.
     ///
     /// `ambition_items::shop::authored_price` is the single reading for the two
-    /// consumers (`wallet.can_afford` and `cmd_buy_item`); this test checks the
-    /// three statements.
+    /// consumers (`can_buy` and `cmd_buy_item`), and the guard asks the deal's
+    /// own exchange; this test checks the three statements and the item.
     ///
     /// Not a style rule: it checks only that the numbers a line already wrote
     /// agree.
@@ -223,11 +231,11 @@ mod tests {
 
         let disagreeing: Vec<String> = found
             .iter()
-            .filter(|line| !(line.label == line.guard && line.guard == line.charged))
+            .filter(|line| !(line.label == line.guard && line.guard == line.charged && line.guarded == line.item))
             .map(|line| {
                 format!(
-                    "{}:{} `{}` — the player reads {}g, the menu gates on {}, the wallet is charged {}",
-                    line.file, line.line, line.item, line.label, line.guard, line.charged
+                    "{}:{} `{}` — the player reads {}g, the menu gates on `{}` at {}, the wallet is charged {}",
+                    line.file, line.line, line.item, line.label, line.guarded, line.guard, line.charged
                 )
             })
             .collect();
@@ -240,10 +248,10 @@ mod tests {
 
     /// A sell line's guard and its sale must name the same item.
     ///
-    /// `-> Sell Axe — 12g <<if condition("inventory.holds", "axe")>>` /
+    /// `-> Sell Axe — 12g <<if can_sell("axe", 12)>>` /
     /// `<<sell_item "axe" 12>>` states the item twice and the price twice. If the
     /// items disagree, the option appears when the player holds one thing and
-    /// sells another, or does nothing because `shop::sell` refuses an item not
+    /// sells another, or does nothing because the shop's exchange refuses an item not
     /// owned. Neither failure tells the player anything.
     ///
     /// The price check is conditional and the item check is not. A
@@ -265,14 +273,10 @@ mod tests {
                 .to_string();
             let lines: Vec<&str> = text.split('\n').collect();
             for (index, raw) in lines.iter().enumerate() {
-                let Some(after) = raw.split_once("inventory.holds\"") else {
+                let Some((before, guarded, guard)) = guard_of(raw, "can_sell") else {
                     continue;
                 };
-                let Some(guarded) = after.1.split('"').nth(1) else {
-                    continue;
-                };
-                let label = after
-                    .0
+                let label = before
                     .split_whitespace()
                     .filter_map(|word| word.trim_end_matches('g').parse::<u32>().ok())
                     .next_back();
@@ -294,11 +298,14 @@ mod tests {
                             index + 1
                         ));
                     }
-                    if let (Some(shown), Ok(paid)) = (
-                        label,
-                        price.trim().trim_end_matches(">>").trim().parse::<u32>(),
-                    ) {
-                        if shown != paid {
+                    if let Ok(paid) = price.trim().trim_end_matches(">>").trim().parse::<u32>() {
+                        if guard != paid {
+                            wrong.push(format!(
+                                "{name}:{}: the option asks about selling `{guarded}` for {guard} and pays {paid}",
+                                index + 1
+                            ));
+                        }
+                        if let Some(shown) = label.filter(|shown| *shown != paid) {
                             wrong.push(format!(
                                 "{name}:{}: the option offers {shown}g for `{sold}` and pays {paid}",
                                 index + 1

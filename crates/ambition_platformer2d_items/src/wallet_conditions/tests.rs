@@ -136,7 +136,8 @@ fn a_price_that_is_not_a_number_is_unanswerable() {
 /// labour and worth stating so neither is trusted past its reach.
 #[test]
 fn the_question_and_the_transaction_agree_on_every_authored_price() {
-    use ambition_items::shop::{authored_price, ShopSide, ShopTransactionRequested, ShopTx};
+    use ambition_items::shop::{authored_price, ShopSide, ShopTransactionRequested};
+    use ambition_items::transaction::ExchangeRefusal;
     use ambition_items::{Item, OwnedItems};
 
     // The two the fork produced, the boundary, free, and a price nobody can meet.
@@ -165,7 +166,7 @@ fn the_question_and_the_transaction_agree_on_every_authored_price() {
         .apply(&mut wallet, &mut owned, ambition_items::test_item_catalog());
 
         let affordable = asked == ConditionOutcome::Satisfied;
-        let bought = outcome != ShopTx::CantAfford;
+        let bought = outcome != Err(ExchangeRefusal::InsufficientFunds);
         assert_eq!(
             affordable, bought,
             "`wallet.can_afford({price})` said {affordable} and the real transaction \

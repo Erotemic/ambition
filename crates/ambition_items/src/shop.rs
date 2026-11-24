@@ -8,6 +8,7 @@
 //! dialogue node with inventory, prices, requirements, consequences"). A bespoke
 //! shop overlay UI can later ask for the same transaction.
 
+use crate::transaction::{ExchangeApplied, ExchangeRefusal, InventoryExchange, ItemAmount};
 use crate::{Item, OwnedItems};
 use ambition_characters::actor::BodyWallet;
 use bevy::prelude::Message;
@@ -91,86 +92,47 @@ pub struct ShopTransactionRequested {
 }
 
 impl ShopTransactionRequested {
-    /// Run this transaction against a wallet and a bag.
-    ///
-    /// Here rather than at the applier so the two sides cannot drift: a caller
-    /// that had to remember which of [`buy`]/[`sell`] matches which
-    /// [`ShopSide`] is one `match` away from paying the player for a purchase.
+    /// This transaction as exchange terms (A7): a purchase pays `price` and
+    /// receives one `item`; a sale gives one `item` and receives `price`. The
+    /// item owner's [`InventoryExchange`] is the whole law, so the offer's
+    /// question ([`Self::check`]) and the accepted deal ([`Self::apply`]) are
+    /// one calculation. A negative price is refused here, at the shared price
+    /// boundary: coins do not go below zero.
+    pub fn exchange(&self) -> Result<InventoryExchange, ExchangeRefusal> {
+        shop_exchange(self.side, self.item, self.price)
+    }
+
+    /// Whether this transaction would succeed for `wallet` against `owned`,
+    /// changing neither.
+    pub fn check(
+        &self,
+        wallet: &BodyWallet,
+        owned: &OwnedItems,
+        catalog: &crate::ItemCatalog,
+    ) -> Result<(), ExchangeRefusal> {
+        self.exchange()?.check(catalog, owned, Some(wallet))
+    }
+
+    /// Run this transaction against a wallet and a bag: both change, or
+    /// neither does.
     pub fn apply(
         &self,
         wallet: &mut BodyWallet,
         owned: &mut OwnedItems,
         catalog: &crate::ItemCatalog,
-    ) -> ShopTx {
-        match self.side {
-            ShopSide::Buy => buy(wallet, owned, catalog, self.item, self.price),
-            ShopSide::Sell => sell(wallet, owned, self.item, self.price),
-        }
+    ) -> Result<ExchangeApplied, ExchangeRefusal> {
+        self.exchange()?.apply(catalog, owned, Some(wallet))
     }
 }
 
-/// Outcome of a buy/sell attempt, for logging + (future) UI feedback.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ShopTx {
-    Bought,
-    Sold,
-    /// Not enough money for the purchase (wallet unchanged).
-    CantAfford,
-    /// Nothing of that item to sell (wallet unchanged).
-    NotOwned,
-    /// The bag holds a full stack of the item (a unique item the player owns is
-    /// a full stack of one), so buying again would waste coins: the purchase is
-    /// refused (wallet unchanged).
-    AlreadyOwned,
-    /// The catalog does not name the item, so there is nothing to sell
-    /// (wallet unchanged).
-    NotStocked,
-}
-
-impl ShopTx {
-    pub fn succeeded(self) -> bool {
-        matches!(self, Self::Bought | Self::Sold)
-    }
-}
-
-/// Attempt to buy one `item` for `price`: debit the wallet and grant the item
-/// only if affordable. A negative price is rejected as unaffordable.
-pub fn buy(
-    wallet: &mut BodyWallet,
-    owned: &mut OwnedItems,
-    catalog: &crate::ItemCatalog,
-    item: Item,
-    price: i32,
-) -> ShopTx {
-    if price < 0 {
-        return ShopTx::CantAfford;
-    }
-    // A full stack (a unique item the player owns is a stack of one) takes no
-    // more — the grant caps at the row's stack — so refuse the buy instead of
-    // pocketing the coins.
-    if catalog.category(item).is_none() {
-        return ShopTx::NotStocked;
-    }
-    if !owned.has_room_for(catalog, item) {
-        return ShopTx::AlreadyOwned;
-    }
-    if wallet.try_spend(price) {
-        owned.grant(catalog, item, 1);
-        ShopTx::Bought
-    } else {
-        ShopTx::CantAfford
-    }
-}
-
-/// Attempt to sell one `item` for `price`: remove one from the catalog and
-/// credit the wallet only if the player owns at least one. Price is floored at 0.
-pub fn sell(wallet: &mut BodyWallet, owned: &mut OwnedItems, item: Item, price: i32) -> ShopTx {
-    if owned.take(item, 1) > 0 {
-        wallet.add(price.max(0));
-        ShopTx::Sold
-    } else {
-        ShopTx::NotOwned
-    }
+/// The exchange terms of one shop deal: `side` of one `item` at `price`.
+pub fn shop_exchange(side: ShopSide, item: Item, price: i32) -> Result<InventoryExchange, ExchangeRefusal> {
+    let price = u32::try_from(price).map_err(|_| ExchangeRefusal::InvalidQuantity)?;
+    let one = vec![ItemAmount { item, count: 1 }];
+    Ok(match side {
+        ShopSide::Buy => InventoryExchange { grants: one, pay_coins: price, ..Default::default() },
+        ShopSide::Sell => InventoryExchange { costs: one, receive_coins: price, ..Default::default() },
+    })
 }
 
 #[cfg(test)]
@@ -181,11 +143,15 @@ mod tests {
         crate::test_item_catalog()
     }
 
+    fn deal(side: ShopSide, item: Item, price: i32) -> ShopTransactionRequested {
+        ShopTransactionRequested { item, price, side, participant: None }
+    }
+
     #[test]
     fn buying_an_affordable_item_debits_and_grants() {
         let mut wallet = BodyWallet { balance: 30 };
         let mut owned = OwnedItems::default();
-        assert_eq!(buy(&mut wallet, &mut owned, shipped(), Item::GunSword, 25), ShopTx::Bought);
+        assert!(deal(ShopSide::Buy, Item::GunSword, 25).apply(&mut wallet, &mut owned, shipped()).is_ok());
         assert_eq!(wallet.balance, 5);
         assert!(owned.has(Item::GunSword));
     }
@@ -195,8 +161,8 @@ mod tests {
         let mut wallet = BodyWallet { balance: 10 };
         let mut owned = OwnedItems::default();
         assert_eq!(
-            buy(&mut wallet, &mut owned, shipped(), Item::GunSword, 25),
-            ShopTx::CantAfford
+            deal(ShopSide::Buy, Item::GunSword, 25).apply(&mut wallet, &mut owned, shipped()),
+            Err(ExchangeRefusal::InsufficientFunds)
         );
         assert_eq!(wallet.balance, 10, "wallet untouched on a failed buy");
         assert!(!owned.has(Item::GunSword), "no item granted on a failed buy");
@@ -206,8 +172,9 @@ mod tests {
     fn consumables_stack_when_bought_repeatedly() {
         let mut wallet = BodyWallet { balance: 100 };
         let mut owned = OwnedItems::default();
-        assert!(buy(&mut wallet, &mut owned, shipped(), Item::HealthCell, 8).succeeded());
-        assert!(buy(&mut wallet, &mut owned, shipped(), Item::HealthCell, 8).succeeded());
+        let buy = deal(ShopSide::Buy, Item::HealthCell, 8);
+        assert!(buy.apply(&mut wallet, &mut owned, shipped()).is_ok());
+        assert!(buy.apply(&mut wallet, &mut owned, shipped()).is_ok());
         assert_eq!(owned.count(Item::HealthCell), 2);
         assert_eq!(wallet.balance, 84);
     }
@@ -217,10 +184,7 @@ mod tests {
         let mut wallet = BodyWallet { balance: 0 };
         let mut owned = OwnedItems::default();
         owned.grant(shipped(), Item::HealthCell, 2);
-        assert_eq!(
-            sell(&mut wallet, &mut owned, Item::HealthCell, 4),
-            ShopTx::Sold
-        );
+        assert!(deal(ShopSide::Sell, Item::HealthCell, 4).apply(&mut wallet, &mut owned, shipped()).is_ok());
         assert_eq!(wallet.balance, 4);
         assert_eq!(owned.count(Item::HealthCell), 1);
     }
@@ -230,8 +194,8 @@ mod tests {
         let mut wallet = BodyWallet { balance: 7 };
         let mut owned = OwnedItems::default();
         assert_eq!(
-            sell(&mut wallet, &mut owned, Item::GunSword, 12),
-            ShopTx::NotOwned
+            deal(ShopSide::Sell, Item::GunSword, 12).apply(&mut wallet, &mut owned, shipped()),
+            Err(ExchangeRefusal::InsufficientItems(Item::GunSword))
         );
         assert_eq!(wallet.balance, 7, "wallet untouched on a failed sell");
     }
@@ -240,9 +204,9 @@ mod tests {
     fn buy_then_sell_round_trips_ownership() {
         let mut wallet = BodyWallet { balance: 25 };
         let mut owned = OwnedItems::default();
-        assert!(buy(&mut wallet, &mut owned, shipped(), Item::GunSword, 25).succeeded());
+        assert!(deal(ShopSide::Buy, Item::GunSword, 25).apply(&mut wallet, &mut owned, shipped()).is_ok());
         assert_eq!(wallet.balance, 0);
-        assert!(sell(&mut wallet, &mut owned, Item::GunSword, 12).succeeded());
+        assert!(deal(ShopSide::Sell, Item::GunSword, 12).apply(&mut wallet, &mut owned, shipped()).is_ok());
         assert_eq!(wallet.balance, 12);
         assert!(!owned.has(Item::GunSword));
     }
@@ -252,18 +216,44 @@ mod tests {
         let mut wallet = BodyWallet { balance: 100 };
         let mut owned = OwnedItems::default();
         owned.grant(shipped(), Item::Grapple, 1); // a held gauntlet — unique
-        let tx = buy(&mut wallet, &mut owned, shipped(), Item::Grapple, 45);
-        assert_eq!(tx, ShopTx::AlreadyOwned, "can't re-buy a unique you own");
+        assert_eq!(
+            deal(ShopSide::Buy, Item::Grapple, 45).apply(&mut wallet, &mut owned, shipped()),
+            Err(ExchangeRefusal::StackFull(Item::Grapple)),
+            "can't re-buy a unique you own"
+        );
         assert_eq!(wallet.balance, 100, "wallet untouched");
         assert_eq!(owned.count(Item::Grapple), 1, "still just one");
     }
 
+    /// ⭐ A7: the offer's question is the deal's own calculation. A full
+    /// stack refuses the offer although the wallet could pay; a payout past
+    /// the wallet refuses the sale whole (no partial credit, the cell kept);
+    /// a negative price is refused, not clamped to a free deal. A check
+    /// changes nothing, and an acceptance asks the state it meets again.
     #[test]
-    fn non_unique_consumables_still_stack_on_buy() {
-        let mut wallet = BodyWallet { balance: 100 };
+    fn the_offer_and_the_deal_are_one_exchange() {
+        let catalog = shipped();
         let mut owned = OwnedItems::default();
-        owned.grant(shipped(), Item::HealthCell, 1); // consumable — stacks
-        assert!(buy(&mut wallet, &mut owned, shipped(), Item::HealthCell, 8).succeeded());
-        assert_eq!(owned.count(Item::HealthCell), 2, "consumables stack");
+        let stack = catalog.stack(Item::HealthCell).expect("a cell stacks to a limit");
+        owned.grant(catalog, Item::HealthCell, stack);
+        let mut wallet = BodyWallet { balance: 100 };
+        let buy = deal(ShopSide::Buy, Item::HealthCell, 8);
+        assert_eq!(buy.check(&wallet, &owned, catalog), Err(ExchangeRefusal::StackFull(Item::HealthCell)));
+        assert_eq!(buy.apply(&mut wallet, &mut owned, catalog), Err(ExchangeRefusal::StackFull(Item::HealthCell)));
+        assert_eq!((wallet.balance, owned.count(Item::HealthCell)), (100, stack));
+
+        let mut rich = BodyWallet { balance: i32::MAX - 2 };
+        let sell = deal(ShopSide::Sell, Item::HealthCell, 4);
+        assert_eq!(sell.apply(&mut rich, &mut owned, catalog), Err(ExchangeRefusal::WalletOverflow));
+        assert_eq!((rich.balance, owned.count(Item::HealthCell)), (i32::MAX - 2, stack));
+
+        assert_eq!(deal(ShopSide::Sell, Item::HealthCell, -1).check(&wallet, &owned, catalog), Err(ExchangeRefusal::InvalidQuantity));
+
+        // The preview reserves nothing: a cell sold between the offer and the
+        // purchase makes room, and the purchase meets that state.
+        assert!(sell.apply(&mut wallet, &mut owned, catalog).is_ok());
+        assert!(buy.check(&wallet, &owned, catalog).is_ok());
+        assert!(buy.apply(&mut wallet, &mut owned, catalog).is_ok());
+        assert_eq!((wallet.balance, owned.count(Item::HealthCell)), (96, stack));
     }
 }

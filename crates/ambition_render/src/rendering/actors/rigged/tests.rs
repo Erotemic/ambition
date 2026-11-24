@@ -2096,7 +2096,8 @@ fn a_held_blink_refreshes_its_finish_without_redrawing_its_parts() {
 
 #[cfg(feature = "portal_render")]
 #[test]
-fn a_portal_reads_an_unclassified_rigged_picture_as_a_real_image() {
+fn a_paired_opening_composites_only_the_pictures_it_can_carry() {
+    use ambition_portal2d_presentation::{PlacedPortal, PortalChannel, PortalChannelColor, PortalTransitView};
     let sprites = ambition_sprite_sheet::test_support::shared_sprites();
     let (mut app, root) = app(&sprites, true);
     app.world_mut().resource_mut::<Composite>().0 = false;
@@ -2105,15 +2106,33 @@ fn a_portal_reads_an_unclassified_rigged_picture_as_a_real_image() {
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(),
         ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
             "portal picture", Vec2::splat(1000.0), Vec2::ZERO, Vec::new())));
-    app.world_mut().spawn(ambition_portal2d_presentation::PlacedPortal::fixed(
-        ambition_portal2d_presentation::PortalChannel::Authored(ambition_portal2d_presentation::PortalChannelColor::Purple),
-        Vec2::new(500.0,500.0), -Vec2::X, 40.0).unwrap());
+    let channel = PortalChannel::Authored(PortalChannelColor::Purple);
+    app.world_mut().spawn(PlacedPortal::fixed(channel, Vec2::new(550.0, 500.0), -Vec2::X, 40.0).unwrap());
     app.add_systems(Update, crate::rendering::portal_body_demand::declare_portal_body_demand.before(drive_rigged_presentations));
+    let composited = |app: &App| app.world().get::<RiggedPresentation>(owner(app, root)).unwrap().impostor.is_some();
+    settle(&mut app);
+    assert!(!composited(&app), "an unpaired opening cannot carry the picture");
+
+    app.world_mut().get_mut::<Transform>(root).unwrap().translation.x = -350.0;
+    app.world_mut().spawn(PlacedPortal::fixed(channel.partner(), Vec2::new(900.0, 500.0), Vec2::X, 40.0).unwrap());
+    settle(&mut app);
+    assert!(!composited(&app), "a distant actor draws its parts directly");
+    assert!(app.world().resource::<RiggedImpostorAtlas>().0.iter().all(Vec::is_empty));
+
+    app.world_mut().get_mut::<Transform>(root).unwrap().translation.x = 0.0;
     for _ in 0..4 { app.update(); }
-    assert!(app.world().get::<RiggedPresentation>(owner(&app,root)).unwrap().impostor.is_some(),
-        "a generated picture needs a readable image even without a controller marker");
+    assert!(composited(&app), "an approaching picture has its image ready for the carry");
     assert_ne!(app.world().get::<Sprite>(root).unwrap().image,
         ambition_sprite_sheet::character::NO_BAKED_IMAGE);
+
+    app.world_mut().get_mut::<Transform>(root).unwrap().translation.x = -350.0;
+    app.world_mut().entity_mut(root).insert(PortalTransitView { straddling: channel });
+    for _ in 0..=COMPOSED_HOLD_FRAMES { app.update(); }
+    assert!(composited(&app), "a transit can use a picture far from the opening");
+
+    app.world_mut().entity_mut(root).remove::<PortalTransitView>();
+    for _ in 0..=COMPOSED_HOLD_FRAMES { app.update(); }
+    assert!(!composited(&app), "a distant actor returns its cell after transit");
 }
 
 #[test]

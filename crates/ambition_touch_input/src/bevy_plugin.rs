@@ -1224,8 +1224,8 @@ fn spawn_button_contents(
     ));
 }
 
-/// Set while the button's `Platformer2dInputActionMonolith` is held this
-/// frame. [`sync_button_pressed_visual`] brightens the button from it.
+/// The control's held level. [`sync_button_pressed_visual`] uses it to
+/// brighten the button.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ButtonPressed(pub bool);
 
@@ -1361,10 +1361,9 @@ fn touch_display_action(
     touch_action_to_sandbox_action(action)
 }
 
-/// Per frame: write each button's pressed flag from the primary participant's
-/// `ActionState<Platformer2dInputActionMonolith>`. Touch is a bound virtual
-/// device, so this one source lights the button for touch, mouse, keyboard,
-/// and gamepad. Writes only on change, for `Changed<ButtonPressed>`.
+/// Show held controls for the primary seat. The Modifier uses its published
+/// level so a pad toggle stays lit after the button is released.
+/// Write only on change, for `Changed<ButtonPressed>`.
 ///
 /// Uses the primary seat, not `single()`: the overlay is the machine's own
 /// screen, like [`update_button_glyph_from_active_input`]. A couch seat's pad
@@ -1375,6 +1374,7 @@ pub fn update_button_pressed_from_actions(
         &leafwing_input_manager::prelude::ActionState<Platformer2dInputActionMonolith>,
     )>,
     prompt: Option<Res<ControlPrompt>>,
+    frame: Option<Res<ambition_input::ControlFrame>>,
     mut buttons: Query<(&TouchActionButton, &mut ButtonPressed)>,
 ) {
     let actions = actions_q
@@ -1389,6 +1389,11 @@ pub fn update_button_pressed_from_actions(
         let held = touch_display_action(*touch_action, context)
             .zip(actions)
             .is_some_and(|(sa, a)| a.pressed(&sa));
+        let held = if *touch_action == TouchActionButton::Modifier {
+            frame.as_ref().map_or(held, |frame| frame.modifier_held)
+        } else {
+            held
+        };
         if pressed.0 != held {
             pressed.0 = held;
         }

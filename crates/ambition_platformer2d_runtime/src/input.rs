@@ -451,8 +451,8 @@ pub fn toggle_player_trail_emission_from_actions(
     }
 }
 
-/// One seat's source-edge history: the hysteretic edges (burst trigger,
-/// aim-stick attack, tap jump) its gameplay frame is read with.
+/// One seat's source history: analog edges and the pad modifier toggle
+/// used to build its gameplay frame.
 ///
 /// It follows the PHYSICAL samples, not gameplay delivery. A control held
 /// while gameplay input is captured resumes held, not newly pressed, and a
@@ -467,8 +467,80 @@ pub fn toggle_player_trail_emission_from_actions(
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct SeatSourceEdges {
     edges: ambition_persistence::settings::GameplayEdgeState,
+    modifier: PadModifierLatch,
     /// No valid sample since the last invalid one.
     resync: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct PadModifierLatch {
+    pad: Option<Entity>,
+    down: bool,
+    on: bool,
+    held: bool,
+    resync: bool,
+}
+
+impl PadModifierLatch {
+    fn read(
+        &mut self,
+        pad: Option<Entity>,
+        down: bool,
+        held: bool,
+        gameplay: bool,
+        valid: bool,
+    ) -> (bool, bool) {
+        if self.pad != pad {
+            *self = Self {
+                pad,
+                down,
+                resync: true,
+                ..default()
+            };
+        }
+        if !valid {
+            self.resync = true;
+            return (self.on || held, false);
+        }
+        let resync = std::mem::take(&mut self.resync);
+        if gameplay && !resync && down && !self.down {
+            self.on = !self.on;
+        }
+        let next = self.on || held;
+        let pressed = !resync && next && !self.held;
+        self.down = down;
+        self.held = next;
+        (next, pressed)
+    }
+}
+
+/// Read the same bindings and input cache as Leafwing. Pad controls toggle;
+/// keyboard and virtual controls retain their hold behavior.
+fn modifier_sources(
+    map: Option<&InputMap<Platformer2dInputActionMonolith>>,
+    store: Option<&leafwing_input_manager::user_input::updating::CentralInputStore>,
+    pads: &mut Query<Entity, With<Gamepad>>,
+) -> Option<(Option<Entity>, bool, bool)> {
+    let (map, store) = (map?, store?);
+    let pad = map.gamepad().unwrap_or_else(|| {
+        leafwing_input_manager::user_input::gamepad::find_gamepad(Some(pads.reborrow()))
+    });
+    let connected = pads.contains(pad).then_some(pad);
+    let mut down = false;
+    let mut held = false;
+    for input in map
+        .get_buttonlike(&Platformer2dInputActionMonolith::Modifier)
+        .into_iter()
+        .flatten()
+    {
+        let pressed = input.pressed(store, pad);
+        if ambition_input::gamepad_button_of(input.as_ref()).is_some() {
+            down |= connected.is_some() && pressed;
+        } else {
+            held |= pressed;
+        }
+    }
+    Some((connected, down, held))
 }
 
 impl SeatSourceEdges {
@@ -554,6 +626,8 @@ pub fn populate_seat_control_frames(
     // installs no detector, and absent, every seat falls back to the
     // machine-wide values — which is what it did for all of them before.
     devices: Option<Res<ambition_input::SeatActiveDevices>>,
+    input_store: Option<Res<leafwing_input_manager::user_input::updating::CentralInputStore>>,
+    mut pads: Query<Entity, With<Gamepad>>,
     mut seats: Query<(
         &InputParticipant,
         &ActionState<Platformer2dInputActionMonolith>,
@@ -561,6 +635,7 @@ pub fn populate_seat_control_frames(
         // The map was rewritten this frame and the action state zeroed: this
         // sample observed nothing.
         Has<ambition_input::Rebound>,
+        Option<&InputMap<Platformer2dInputActionMonolith>>,
     )>,
     // EVERY SEAT'S DESTINATION, and there is only one now. A raw frame goes here to be shaped;
     // the commit stage folds it into that seat's latch after every shaping stage has run.
@@ -585,8 +660,18 @@ pub fn populate_seat_control_frames(
         .get()
         .stops_the_world(dialogue_policy.map(|p| *p).unwrap_or_default())
         && observing;
-    for (participant, actions, mut history, rebound) in &mut seats {
+    for (participant, actions, mut history, rebound, map) in &mut seats {
         let gameplay = world_running && active_context.gameplay_owned(participant.id.slot());
+        if rebound {
+            history.modifier = PadModifierLatch {
+                resync: true,
+                ..default()
+            };
+        }
+        let modifier = modifier_sources(map, input_store.as_deref(), &mut pads)
+            .map(|(pad, down, held)| {
+                history.modifier.read(pad, down, held, gameplay, observing && !rebound)
+            });
         // through the SEAM rather than by arithmetic (R5). This line is the
         // exact shape the reviewer asked new code to stop writing — a bare
         // `PlayerSlot(id.slot())` asserts the two numberings are the same thing,
@@ -640,6 +725,10 @@ pub fn populate_seat_control_frames(
             continue;
         }
         let mut next_frame = history.read(actions, filters, !rebound);
+        if let Some((held, pressed)) = modifier {
+            next_frame.modifier_held = held;
+            next_frame.modifier_pressed = pressed;
+        }
         // ⛔⛤ STAMPED ONTO THE FRAME, which is what makes it deterministic. The
         // table below is still written for anything that wants to ask the
         // CURRENT policy; what a body resolves a gesture with now travels with
@@ -2491,5 +2580,168 @@ mod room_cutscene_tests {
         assert_eq!(held_seats(Some(1)), [0], "a cutscene in Alice's room held another seat, or not hers");
         assert_eq!(held_seats(Some(2)), [1], "a cutscene in Bob's room held another seat, or not his");
         assert_eq!(held_seats(None), [0, 1], "a world cutscene did not hold every seat");
+    }
+}
+
+#[cfg(test)]
+mod modifier_toggle_tests {
+    use super::*;
+    use ambition_characters::control::{PlayerSlot, SeatRawFrames};
+    use bevy::input::gamepad::{RawGamepadButtonChangedEvent, RawGamepadEvent};
+    use leafwing_input_manager::prelude::Buttonlike;
+
+    fn button(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
+        app.world_mut()
+            .write_message(RawGamepadEvent::Button(RawGamepadButtonChangedEvent::new(
+                pad, button, value,
+            )));
+        app.update();
+    }
+
+    fn frame(app: &App, seat: u8) -> ControlFrame {
+        app.world()
+            .resource::<SeatRawFrames>()
+            .get(PlayerSlot(seat))
+    }
+
+    #[test]
+    fn pad_modifier_toggles_per_seat_and_keyboard_keeps_hold_behavior() {
+        let mut app = App::new();
+        app.add_plugins((
+            bevy::time::TimePlugin,
+            bevy::input::InputPlugin,
+            bevy::state::app::StatesPlugin,
+            leafwing_input_manager::plugin::InputManagerPlugin::<Platformer2dInputActionMonolith>::default(),
+        ));
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            std::time::Duration::from_secs_f64(1.0 / 60.0),
+        ));
+        app.insert_state(GameMode::Playing);
+        app.init_resource::<SeatInputContexts>();
+        app.init_resource::<ambition_persistence::settings::UserSettings>();
+        app.init_resource::<SeatRawFrames>();
+        app.init_resource::<ambition_characters::control::SeatControlFrameModes>();
+        let mut seats = Vec::new();
+        let mut pads = Vec::new();
+        for seat in 0..2 {
+            let pad = app.world_mut().spawn(Gamepad::default()).id();
+            let preset = KeyboardPreset::arrows_zxc();
+            let mut map = preset.map_for(if seat == 0 {
+                ambition_input::BindingSources::Unified
+            } else {
+                ambition_input::BindingSources::GamepadOnly
+            });
+            if seat == 1 {
+                map.clear_action(&Platformer2dInputActionMonolith::Modifier);
+                map.insert(Platformer2dInputActionMonolith::Modifier, GamepadButton::C);
+            }
+            map.set_gamepad(pad);
+            let mut contexts = ParticipantContexts::default();
+            contexts.declare(ContextClaim::capturing(
+                GAMEPLAY_CONTEXT,
+                context_priority::GAMEPLAY,
+            ));
+            seats.push(
+                app.world_mut()
+                    .spawn((
+                        InputParticipant::with_id(ambition_input::ParticipantId(seat)),
+                        contexts,
+                        ActionState::<Platformer2dInputActionMonolith>::default(),
+                        map,
+                        SeatSourceEdges::default(),
+                    ))
+                    .id(),
+            );
+            pads.push(pad);
+        }
+        app.add_systems(
+            Update,
+            (
+                ambition_input::resolve_active_input_context,
+                populate_seat_control_frames,
+            )
+                .chain(),
+        );
+        app.update();
+
+        button(&mut app, pads[0], GamepadButton::RightThumb, 1.0);
+        assert!(frame(&app, 0).modifier_held);
+        assert!(frame(&app, 0).modifier_pressed);
+        assert!(
+            !app.world()
+                .get::<ActionState<Platformer2dInputActionMonolith>>(seats[0])
+                .unwrap()
+                .just_pressed(&Platformer2dInputActionMonolith::Inventory)
+        );
+        assert!(!frame(&app, 1).modifier_held);
+        app.update();
+        assert!(frame(&app, 0).modifier_held);
+        assert!(!frame(&app, 0).modifier_pressed);
+        button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
+        assert!(frame(&app, 0).modifier_held);
+        button(&mut app, pads[0], GamepadButton::RightThumb, 1.0);
+        assert!(!frame(&app, 0).modifier_held);
+        button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
+
+        let key = KeyboardPreset::arrows_zxc().actions.modifier;
+        key.press(app.world_mut());
+        app.update();
+        assert!(frame(&app, 0).modifier_held);
+        key.release(app.world_mut());
+        app.update();
+        assert!(!frame(&app, 0).modifier_held);
+
+        button(&mut app, pads[0], GamepadButton::Select, 1.0);
+        assert!(
+            app.world()
+                .get::<ActionState<Platformer2dInputActionMonolith>>(seats[0])
+                .unwrap()
+                .just_pressed(&Platformer2dInputActionMonolith::Inventory)
+        );
+        button(&mut app, pads[0], GamepadButton::Select, 0.0);
+        assert!(!frame(&app, 0).modifier_held);
+
+        button(&mut app, pads[1], GamepadButton::C, 1.0);
+        button(&mut app, pads[1], GamepadButton::C, 0.0);
+        assert!(frame(&app, 1).modifier_held);
+        assert!(!frame(&app, 0).modifier_held);
+
+        button(&mut app, pads[0], GamepadButton::RightThumb, 1.0);
+        button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
+        app.world_mut()
+            .get_mut::<ParticipantContexts>(seats[0])
+            .unwrap()
+            .declare(ContextClaim::capturing(
+                ambition_input::LAUNCHER_CONTEXT,
+                context_priority::LAUNCHER,
+            ));
+        app.update();
+        assert!(!frame(&app, 0).modifier_held);
+        button(&mut app, pads[0], GamepadButton::RightThumb, 1.0);
+        button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
+        app.world_mut()
+            .get_mut::<ParticipantContexts>(seats[0])
+            .unwrap()
+            .retract(ambition_input::LAUNCHER_CONTEXT);
+        app.update();
+        assert!(frame(&app, 0).modifier_held);
+        assert!(!frame(&app, 0).modifier_pressed);
+        app.world_mut()
+            .entity_mut(seats[0])
+            .insert(ambition_input::Rebound);
+        button(&mut app, pads[0], GamepadButton::RightThumb, 1.0);
+        app.world_mut()
+            .entity_mut(seats[0])
+            .remove::<ambition_input::Rebound>();
+        app.update();
+        assert!(!frame(&app, 0).modifier_held);
+        button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
+        button(&mut app, pads[0], GamepadButton::RightThumb, 1.0);
+        button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
+        assert!(frame(&app, 0).modifier_held);
+        app.world_mut().entity_mut(pads[0]).despawn();
+        app.update();
+        assert!(!frame(&app, 0).modifier_held);
+        assert!(frame(&app, 1).modifier_held);
     }
 }

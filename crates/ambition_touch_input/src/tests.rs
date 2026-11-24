@@ -194,6 +194,35 @@ mod virtual_device_tests {
     }
 
     #[test]
+    fn modifier_visual_keeps_the_published_toggle_level() {
+        use super::super::bevy_plugin::{ButtonPressed, update_button_pressed_from_actions};
+        use super::super::layout::TouchActionButton;
+        let (mut app, primary) = app();
+        app.add_systems(Update, update_button_pressed_from_actions);
+        app.insert_resource(ambition_input::ControlFrame {
+            modifier_held: true,
+            ..default()
+        });
+        let button = app
+            .world_mut()
+            .spawn((TouchActionButton::Modifier, ButtonPressed(false)))
+            .id();
+        app.update();
+        assert!(
+            !app.world()
+                .get::<ActionState<Platformer2dInputActionMonolith>>(primary)
+                .unwrap()
+                .pressed(&Platformer2dInputActionMonolith::Modifier)
+        );
+        assert!(app.world().get::<ButtonPressed>(button).unwrap().0);
+        app.world_mut()
+            .resource_mut::<ambition_input::ControlFrame>()
+            .modifier_held = false;
+        app.update();
+        assert!(!app.world().get::<ButtonPressed>(button).unwrap().0);
+    }
+
+    #[test]
     fn a_second_couch_seat_neither_receives_touch_nor_blinds_the_overlay() {
         // The overlay is one device on the machine's own screen. With a couch
         // seat beside the primary, a screen tap must (a) drive the primary

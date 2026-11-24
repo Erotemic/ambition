@@ -50,7 +50,7 @@ pub enum BindingLayout {
 /// the stick only.
 ///
 /// Buttons not listed keep the base preset: RightTrigger2 still fires the
-/// burst. The sticks, Start, and thumb clicks do not change.
+/// burst. The sticks, Start, and left thumb click do not change.
 const SMASH_PAD: &[PadSlot] = &[
     slot(
         GamepadButton::South,
@@ -85,6 +85,7 @@ const SMASH_PAD: &[PadSlot] = &[
         Platformer2dInputActionMonolith::ShortHop,
     ),
     slot(GamepadButton::Select, Platformer2dInputActionMonolith::Reset),
+    slot(GamepadButton::RightThumb, Platformer2dInputActionMonolith::Inventory),
 ];
 
 impl BindingLayout {

@@ -444,8 +444,8 @@ impl KeyboardPreset {
 ///   RightTrigger Interact, MenuPageRight
 ///   RightTrigger2 Burst
 ///   LeftThumb    Map (click left stick)
-///   RightThumb   Inventory (click right stick)
-///   Select       Modifier
+///   RightThumb   Modifier (toggle)
+///   Select       Inventory
 ///   Start        Start (pause)
 ///   DPad / sticks  Move + MenuNavigate, MenuStick, AimStick
 #[cfg(feature = "input")]
@@ -520,7 +520,7 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
     // button or a chord.
     map.insert(
         Platformer2dInputActionMonolith::Modifier,
-        GamepadButton::Select,
+        GamepadButton::RightThumb,
     );
     map.insert(
         Platformer2dInputActionMonolith::Utility,
@@ -532,7 +532,7 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
     );
     map.insert(
         Platformer2dInputActionMonolith::Inventory,
-        GamepadButton::RightThumb,
+        GamepadButton::Select,
     );
     map.insert(
         Platformer2dInputActionMonolith::Projectile,
@@ -654,7 +654,7 @@ mod tests {
 
     #[cfg(feature = "input")]
     #[test]
-    fn shield_interact_burst_and_modifier_use_separate_pad_controls() {
+    fn standard_pad_actions_use_separate_controls() {
         use crate::{ActionBindings, ActiveDevice, GamepadStyle, PhysicalControl};
         use Platformer2dInputActionMonolith as Action;
 
@@ -663,6 +663,7 @@ mod tests {
             Action::Interact,
             Action::Burst,
             Action::Modifier,
+            Action::Inventory,
         ];
         for preset in KeyboardPreset::presets() {
             let bindings = ActionBindings::from_map(&preset.input_map());
@@ -670,7 +671,8 @@ mod tests {
                 (Action::Shield, GamepadButton::LeftTrigger2),
                 (Action::Interact, GamepadButton::RightTrigger),
                 (Action::Burst, GamepadButton::RightTrigger2),
-                (Action::Modifier, GamepadButton::Select),
+                (Action::Modifier, GamepadButton::RightThumb),
+                (Action::Inventory, GamepadButton::Select),
             ] {
                 let control = PhysicalControl::Button(button);
                 assert_eq!(

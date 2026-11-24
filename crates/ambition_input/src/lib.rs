@@ -102,7 +102,8 @@ pub enum InputSet {
 }
 #[cfg(feature = "input")]
 pub use bindings::{
-    action_for_slot, action_name, action_named, publish_seat_bindings, rebuild_maps_from_recipes,
+    action_for_slot, action_name, action_named, gamepad_button_of, publish_seat_bindings,
+    rebuild_maps_from_recipes,
     swallow_the_rebinds_own_edges, ActionBindings, BindingRecipe, BindingSources, PhysicalControl,
     Rebound, SeatBindings,
 };

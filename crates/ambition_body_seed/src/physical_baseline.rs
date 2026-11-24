@@ -344,4 +344,11 @@ pub struct PersonaBaseline {
     /// Grows once per field, at the first persona that overrides that field, and
     /// is carried forward verbatim through every later re-wear.
     pub displaced: DisplacedPhysicals,
+    /// The intrinsic form this application gave the body: what a change of
+    /// form rebinds FROM ([`crate::IntrinsicForm::rebind`]). Recorded, never
+    /// looked up again by `id` in a newer cast.
+    pub form: crate::IntrinsicForm,
+    /// This application installed the character's authored death traits, so
+    /// a successor that authors none retracts them.
+    pub death_traits_applied: bool,
 }

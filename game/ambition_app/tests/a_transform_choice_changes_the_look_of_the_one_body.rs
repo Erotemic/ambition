@@ -202,3 +202,43 @@ fn the_armor_choice_of_his_hall_conversation_puts_the_armor_on_him() {
         "he wears the armor and the row of its change does not play"
     );
 }
+
+/// FORM-REBIND: the Hall's sheep worn as its cloud takes the cloud's intrinsic
+/// configuration (its verbs, its flight, no gravity, aerial tuning), and worn
+/// as a sheep again takes back the configuration it was built with.
+#[test]
+fn the_sheep_worn_as_a_cloud_flies_and_worn_as_a_sheep_again_walks() {
+    use ambition_platformer2d::engine_core::body_clusters::{AbilityBase, ActorSurfaceState, BodyFlightState};
+    let mut sim = fixed_60hz_room_sim("hall_of_characters");
+    sim.step_n(base(), 10);
+    let bodies = wearers(&mut sim, "npc_fell_sheep");
+    assert_eq!(bodies.len(), 1, "the Hall seats the sheep once");
+    let body = bodies[0];
+    let configuration = |sim: &ambition_app::Platformer2dSimHarness| {
+        let world = sim.world();
+        (
+            world.get::<AbilityBase>(body).expect("an actor has an ability base").abilities,
+            world.get::<ActorSurfaceState>(body).expect("an actor has a surface").gravity_scale,
+            world.get::<ambition_platformer2d::combat::actor_tuning::ActorConfig>(body).expect("an actor has a config").tuning.is_aerial,
+            world.get::<BodyFlightState>(body).expect("an actor has flight").fly_enabled,
+        )
+    };
+    let built = configuration(&sim);
+    assert_eq!((built.1, built.2, built.3), (1.0, false, false), "control: the sheep is built walking");
+
+    let cloud = {
+        let world = sim.world();
+        let cast = world.resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
+        let prepared = cast.get("npc_sheep_cloud").expect("the cast holds the cloud");
+        let mut verbs = prepared.actor_abilities;
+        verbs.fly = true;
+        verbs
+    };
+    ask(&mut sim, body, "npc_sheep_cloud");
+    sim.step_n(base(), 4);
+    assert_eq!(configuration(&sim), (cloud, 0.0, true, true), "the sheep worn as a cloud is not configured as a cloud");
+
+    ask(&mut sim, body, "npc_fell_sheep");
+    sim.step_n(base(), 4);
+    assert_eq!(configuration(&sim), built, "the cloud worn as a sheep again is not the sheep it was built as");
+}

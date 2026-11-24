@@ -423,6 +423,7 @@ fn build_home_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
     if let Some(bank) = resources.bank() {
         commands.entity(player).insert(bank.clone());
     }
+    let worn = prepared_characters.and_then(|registry| registry.get(character.effective_id(default_character_id)));
     commands
         .entity(player)
         .insert(ambition_body_seed::PersonaBaseline {
@@ -433,6 +434,8 @@ fn build_home_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
                 .map(ambition_characters::prepared::PreparedCharacterRegistry::generation)
                 .unwrap_or_default(),
             displaced: Default::default(),
+            form: ambition_body_seed::IntrinsicForm::of(worn),
+            death_traits_applied: worn.is_some_and(|worn| worn.death_traits.is_some()),
         });
 
     // The authored MASS. Health and the box are already on the body above (both

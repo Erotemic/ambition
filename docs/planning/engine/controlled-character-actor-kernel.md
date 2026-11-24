@@ -51,8 +51,9 @@ is admitted, not whichever body is driven when it eventually commits.
 
 ## FORM-REBIND — admit and apply the complete intrinsic form
 
-**State:** planned, from static source `00bf92c22142`, 2026-11-22.
-This is a residual of Q159 and Q103. It keeps the existing body, native
+**State:** DONE 2026-11-24: admission and the intrinsic configuration
+rebind (receipts below). Planned from static source `00bf92c22142`,
+2026-11-22. This is a residual of Q159 and Q103. It keeps the existing body, native
 movement/ability owners and prepared-character grant. It does not reopen
 the completed geometry, skin or possession separation.
 
@@ -99,6 +100,20 @@ framework or a new body constructor. Remove the App-catalog membership
 and beat lookup and the late restore-by-ID role after the admitted path
 owns the operation. Keep internal refusal checks as protection, not as a
 repair for already published consequences.
+
+**Admission receipt (2026-11-24).** `apply_wear_requests` resolves the
+requested look in `SessionCast` (the running session's frozen cast, or the
+published one with no session) before it writes `CharacterForm`, inserts
+`RecharacterizeBody` or asks for a beat. A look the cast does not hold is
+refused whole: the form, the template request and the beat are untouched.
+The beat reads the `transform` row of the sheet the admitted definition
+names (`PreparedCharacterDefinition::sheet`), not the App catalog's join, so
+it cannot play N+1's sheet while the mechanics apply N. The App-catalog
+membership check and the catalog sheet lookup are gone from this road. The
+applier's restore-by-ID in `character_execution.rs` stays as protection for
+a road that skips admission. Witness:
+`a_look_only_a_newer_cast_has_is_refused_before_anything_changes`
+(published cast admits the look; a session frozen without it refuses).
 
 ### Rebind intrinsic configuration through the native state owners
 
@@ -189,6 +204,41 @@ the old ID in a new registry. The existing death-trait refresh does that
 lookup for `previous_authored`, so a same-ID field removal can erase its
 evidence. Check this touched withdrawal with the native rebind record;
 do not open a separate general grant journal.
+
+**Rebind receipt (2026-11-24).** One value,
+[`IntrinsicForm`](../../../crates/ambition_body_seed/src/intrinsic_form.rs)
+(the form's actor verbs with `fly` folded in, and its free flight), is what
+construction seeds a body from (both `ambition_body_seed` roads: the ability
+base, the flight mode, the surface gravity scale and `ActorTuning::is_aerial`)
+and what a change of form rebinds through `IntrinsicForm::rebind`. The
+applier records the applied form on `PersonaBaseline::form`, so a change
+rebinds from what the previous application gave, never by looking the old id
+up in a newer cast; the death-trait withdrawal reads the same record
+(`death_traits_applied`) instead of `registry.get(previous id)`. Owners stay
+explicit: a home body or a match seat owns the ability base
+(`FormOwners::verbs`), and the boss road marks its role flight
+`FlightStatedByRole` (rollback-registered), which a change of form leaves
+alone. The same form again writes nothing, so momentum, a pending launch and
+the live toggle survive. Flight is settled at the change against the new
+base and the live contributions: entering free flight turns the mode on
+where `fly` is permitted, leaving it keeps the mode only where `fly` and
+`fly_toggle` both remain. `project_body_abilities` now also turns the mode
+back on when `fly` returns to a body whose intrinsic gravity scale is zero,
+so a ceiling that denied flight at the change and is later lifted restores
+intrinsic flight; it still never manufactures flight from a masked toggle.
+Mary-O's per-tick cosmic AirJump lend is deleted: the home-body form arm
+already gives her the row's `AirJump` (the `eternal_cosmic` witnesses pass
+without it). An input binding a form change withdraws is settled by the
+existing IN5 handoff (`charge_route_is_bound` reads the scheme the change
+rederives) and committed moves by ACT1; this slice adds no form-change
+witness of its own for those. Possession is not part of the rebind: the
+applier's arm does not read the controller, and a possessed body was not
+exercised separately. Witnesses: `intrinsic_form` unit tests (sheep worn as
+cloud equals a fresh cloud and back; a role or seat keeps what it stated;
+flight settled against a ceiling and a denied toggle) and
+`the_sheep_worn_as_a_cloud_flies_and_worn_as_a_sheep_again_walks` (the
+shipped Hall). No runtime gain is claimed; the rebind runs only at an
+admitted change (an unchanged form touches no component).
 
 ### Delivery, deletions and acceptance
 

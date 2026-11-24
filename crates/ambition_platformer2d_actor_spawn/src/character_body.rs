@@ -443,6 +443,8 @@ pub fn grant_prepared_character_body(sprite_content: &ambition_sprite_sheet::Spr
                     id: prepared.id.as_str().to_string(),
                     generation,
                     displaced: Default::default(),
+                    form: ambition_body_seed::IntrinsicForm::of(Some(prepared)),
+                    death_traits_applied: prepared.death_traits.is_some(),
                 });
         }
         scope.insert(ProjectedCharacterKit {

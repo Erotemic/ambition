@@ -1717,7 +1717,6 @@ impl Plugin for MaryORulesPlugin {
                 // Only a body whose form is changing has a beat.
                 cosmic::come_back_from_the_form
                     .run_if(bevy::prelude::any_with_component::<ambition_platformer2d::actors::body::transform_beat::TransformBeat>),
-                cosmic::lend_the_jump_in_the_air,
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhase::WorldPrep)

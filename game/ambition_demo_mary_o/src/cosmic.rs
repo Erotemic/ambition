@@ -10,10 +10,9 @@
 //! beat retains the selected row and its clock. She wears the cosmic form
 //! until its return row ends, then wears the form her equipment supplies.
 //!
-//! The jump in the air is a verb, and a body gets its verbs when the session
-//! builds it: to wear a row later changes its feel and not its verbs. So the
-//! form lends her the verb while she wears it ([`lend_the_jump_in_the_air`]),
-//! through the seam each live source of a verb uses (`AbilityContributions`).
+//! The jump in the air is a verb the row authors (`AirJump`). A change of
+//! form gives a home body the new form's base verbs, so wearing the row gives
+//! her the jump and leaving it takes the jump away; the form lends nothing.
 //!
 //! She is in the form while she wears its row and for no other reason, so the
 //! form has no state of its own. The form she comes back to is the rung of
@@ -64,9 +63,6 @@ const COSMIC_MUSIC_OWNER: &str = "mary_o_cosmic";
 /// The track the form plays: its own theme (the cue `eternal_cosmic` of the
 /// music renderer), whose intro is as long as the transformation.
 pub const COSMIC_MUSIC_TRACK: &str = "eternal_cosmic";
-
-/// The key of the form's entry in her ability contributions.
-const COSMIC_ABILITY_SOURCE: &str = "mary_o_cosmic";
 
 /// Whether `character_id` is the form.
 pub fn is_cosmic(character_id: &str) -> bool {
@@ -271,29 +267,6 @@ pub fn the_sky_has_a_top(
     }
 }
 
-/// The verbs the form lends: the jump in the air.
-fn lent_verbs() -> ae::AbilitySet {
-    ae::AbilitySet {
-        double_jump: true,
-        ..ae::AbilitySet::NONE
-    }
-}
-
-/// Lend her the jump in the air while she wears the form, and take it back
-/// after. The entry is read from the character she wears on each tick, so it
-/// is no state of its own. How many jumps she has is the form's tuning.
-pub fn lend_the_jump_in_the_air(mut bodies: Query<(&CharacterForm, &mut ae::AbilityContributions)>) {
-    for (worn, mut contributions) in &mut bodies {
-        let lent = contributions.get(COSMIC_ABILITY_SOURCE).is_some();
-        let wanted = is_cosmic(worn.id());
-        if wanted && !lent {
-            contributions.set(COSMIC_ABILITY_SOURCE, ae::AbilityContribution::Lend(lent_verbs()));
-        } else if !wanted && lent {
-            contributions.clear(COSMIC_ABILITY_SOURCE);
-        }
-    }
-}
-
 /// Cut short the stop of her own body for a hit she lands in the form. It
 /// runs after the hits of the tick are resolved, and the clock reads the
 /// timer on the next tick. Each body in the form, not only the first player.
@@ -362,21 +335,5 @@ mod tests {
         let beat = arrive_beat();
         assert_eq!(beat.duration, crate::rules::mary_o_rules().cosmic.arrive_beat_seconds, "the arrive beat is not the rules'");
         assert_eq!((beat.anim, beat.clock_scale), (CharacterAnim::Idle, 1.0));
-    }
-
-    /// The form lends one verb and no other: a form that lent `fly` would
-    /// take the Utility control from its own way out.
-    #[test]
-    fn the_form_lends_the_jump_in_the_air_and_no_other_verb() {
-        let lent = lent_verbs();
-        assert!(lent.double_jump);
-        assert_eq!(
-            lent,
-            ae::AbilitySet {
-                double_jump: true,
-                ..ae::AbilitySet::NONE
-            }
-        );
-        assert_eq!(lent.air_jump_count(255), 255);
     }
 }

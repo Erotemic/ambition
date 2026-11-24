@@ -1160,6 +1160,9 @@ pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::Sp
     // The body and its health, from the seed. Inserted before the boss's own
     // read models below, so its identity and death beat are the encounter's.
     scope.insert(seed.into_components());
+    // The role's free flight above is the boss's, not its character's: a
+    // change of form keeps it (FORM-REBIND).
+    scope.insert(ambition_body_seed::FlightStatedByRole);
     scope.insert(ambition_platformer2d_core::movement::MotionModel::default());
     scope.insert((
         // Shared actor combat read models. Boss-specific encounter

@@ -36,6 +36,8 @@ use ambition_platformer2d_shared_tangle::body::{AncillaryMovementBundle, SpawnBa
 
 pub mod clusters;
 pub mod physical_baseline;
+mod intrinsic_form;
+pub use intrinsic_form::{FlightStatedByRole, FormOwners, FormRebindTargets, IntrinsicForm};
 mod snapshot_impls;
 pub use physical_baseline::{
     BaselineBoundary, BodySizes, DisplacedPhysicals, PersonaBaseline, PhysicalBaseline,
@@ -328,20 +330,14 @@ impl ActorClusterSeed {
         // (D89); every shipped `Floating` row states its flight on its own
         // definition, and the barrier prepares every catalog row, so a catalog
         // read here could only second-guess a prepared character.
-        let gravity_scale = if character_id
-            .and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)))
-            .and_then(|prepared| prepared.locomotion)
-            .and_then(|locomotion| locomotion.baseline_free_flight)
-            .unwrap_or(false)
-        {
-            0.0
-        } else {
-            1.0
-        };
-        let is_aerial = gravity_scale <= 0.001;
+        //
+        // The same value a change of form rebinds (`IntrinsicForm::rebind`).
+        let prepared_character = character_id.and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)));
+        let form = IntrinsicForm::of(prepared_character);
+        let gravity_scale = form.gravity_scale();
+        let is_aerial = form.free_flight;
         // A character that authors its body is sized from it, as on the
         // blueprint road: the same resolution the live pose pass uses.
-        let prepared_character = character_id.and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)));
         let geometry = BuiltGeometry::resolve(&sprite_content,
             authored,
             prepared_character.and_then(|character| character.body.as_ref()),
@@ -524,13 +520,7 @@ impl ActorClusterSeed {
             // placement that names no character (the cut-rope victory NPC) and
             // an id nobody prepared (reported as a content error) have no author
             // and no provider, so they get NONE.
-            body: ActorBody::from_abilities(
-                prepared_character
-                    .map(|prepared| prepared.actor_abilities)
-                    .unwrap_or(ambition_platformer2d_core::AbilitySet::NONE),
-                is_aerial,
-                collision_size,
-            ),
+            body: ActorBody::from_abilities(form.abilities, is_aerial, collision_size),
             caps: prepared_character
                 .and_then(|prepared| prepared.death_traits.as_ref())
                 .map(ambition_combat::CombatCapabilities::from)
@@ -627,7 +617,11 @@ impl ActorClusterSeed {
         // silence reads as GROUNDED here: preparation has already folded the
         // catalog answer in, so an unresolved  at construction means no
         // authority said this body flies.
-        let is_aerial = locomotion.baseline_free_flight.unwrap_or(false);
+        // The role's locomotion when a role stated one (a boss flies): the
+        // form a change of form rebinds from is the character's own, and the
+        // rebind leaves a field holding this role value alone.
+        let form = IntrinsicForm::new(abilities, locomotion.baseline_free_flight.unwrap_or(false));
+        let is_aerial = form.free_flight;
         let pos = actor_spawn_center_for_collision(aabb, collision_size);
         // THE CHARACTER'S OWN TOP SPEED WHEN IT STATES ONE. A fighter
         // default otherwise: the stage has to give a body that has never said
@@ -679,7 +673,7 @@ impl ActorClusterSeed {
         };
         // ONE spelling of the authored scale, read by the live surface state
         // AND recorded on the baseline a reset restores.
-        let gravity_scale = if is_aerial { 0.0 } else { 1.0 };
+        let gravity_scale = form.gravity_scale();
         Self {
             kin: BodyKinematics { material: Default::default(),
                 pos,
@@ -745,11 +739,7 @@ impl ActorClusterSeed {
             // Resolved by preparation: the character's own set, or its
             // provider's declared actor default — never both, and never a
             // default held here.
-            body: ActorBody::from_abilities(
-                abilities,
-                is_aerial,
-                collision_size,
-            ),
+            body: ActorBody::from_abilities(form.abilities, is_aerial, collision_size),
             // What this body does when it dies is the character's, built here
             // because every road that wears the character stamps its persona
             // current, so no derive arrives later to supply it. Three callers

@@ -51,10 +51,19 @@ fn in_the_form() -> (App, Entity) {
     (app, body)
 }
 
+/// The body has the jump in the air: the form's row authors it, and a change
+/// of form gives a home body the row's verbs.
 fn lent(app: &App, body: Entity) -> bool {
     app.world()
-        .get::<ae::AbilityContributions>(body)
-        .is_some_and(|contributions| contributions.get("mary_o_cosmic").is_some())
+        .get::<ae::BodyAbilities>(body)
+        .is_some_and(|abilities| abilities.abilities.double_jump)
+}
+
+/// Wear `character` on `body` as any change of form does.
+fn wear(app: &mut App, body: Entity, character: &str) {
+    let mut entity = app.world_mut().entity_mut(body);
+    entity.insert(CharacterForm::new(character));
+    entity.insert(ambition_platformer2d::characters::actor::RecharacterizeBody);
 }
 
 /// ⭐ A6: a body in the form that is not the first player has the jump in
@@ -64,7 +73,10 @@ fn a_body_in_the_form_that_is_not_the_first_player_has_what_it_gives() {
     let (mut app, body) = in_the_form();
     assert!(lent(&app, body), "the control: the first player in the form has the jump");
     app.world_mut().entity_mut(body).remove::<PrimaryPlayer>();
-    app.world_mut().get_mut::<ae::AbilityContributions>(body).unwrap().clear("mary_o_cosmic");
+    wear(&mut app, body, "mary_o");
+    idle(&mut app, 2);
+    assert!(!lent(&app, body), "the premise: out of the form a second player has no jump in the air");
+    wear(&mut app, body, COSMIC_CHARACTER_ID);
     idle(&mut app, 2);
     assert!(lent(&app, body), "a second player in the form has the jump too");
 }

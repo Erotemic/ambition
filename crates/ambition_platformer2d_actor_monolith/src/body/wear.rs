@@ -17,14 +17,21 @@
 //! asks for a transform beat ([`TransformBeatRequested`]) as long as that
 //! row, so the body plays its change. A sheet with no such row changes at
 //! once.
+//!
+//! ⭐ ADMITTED AGAINST THE SESSION'S CAST (FORM-REBIND). The look and its
+//! sheet are resolved in the cast this session was prepared with
+//! ([`SessionCast`](ambition_characters::prepared::SessionCast)), before the
+//! form is written or a beat is asked for. A content reload can publish a
+//! newer catalog while the session still plays the older cast; a look only
+//! the newer one has is refused here, whole, and the beat never reads the
+//! newer sheet while the mechanics apply the older form.
 
-use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use ambition_characters::actor::{RecharacterizeBody, CharacterForm};
 use ambition_entity_catalog::CharacterId;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveBodies, LiveBodyId};
 use ambition_sprite_sheet::character::sheets::AuthoredSheets;
-use ambition_sprite_sheet::character::{catalog_join, CharacterAnim};
+use ambition_sprite_sheet::character::CharacterAnim;
 use bevy::prelude::*;
 
 use crate::body::transform_beat::{TransformBeatPolicy, TransformBeatRequested};
@@ -46,16 +53,18 @@ pub struct WearRequested {
 /// Wear the character a conversation asked for. (sim)
 ///
 /// A request that names no live body, a body that wears nothing, or a
-/// character the catalog does not have is refused with a log and changes
-/// nothing. A body that already wears the character is left as it is.
+/// character the session's prepared cast does not hold is refused with a log
+/// and changes nothing: no form is written and no beat is asked for, so the
+/// body and its active beats are as they were. A body that already wears the
+/// character is left as it is.
 ///
 /// The body is untouchable while it plays the `transform` row of its new
-/// look (`arrival_beat`).
+/// look (`arrival_beat`), read from the sheet the admitted cast names.
 pub fn apply_wear_requests(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: Commands,
     mut requests: ReplayMessageReader<WearRequested>,
     ids: LiveBodies,
-    catalog: Res<CharacterCatalog>,
+    cast: ambition_characters::prepared::SessionCast,
     authored: Option<Res<AuthoredSheets>>,
     mut worn: Query<&mut CharacterForm>,
 ) {
@@ -68,15 +77,15 @@ pub fn apply_wear_requests(sprite_content: bevy::prelude::Res<ambition_sprite_sh
             );
             continue;
         };
-        if catalog.get(request.character.as_str()).is_none() {
+        let Some(admitted) = cast.get().and_then(|cast| cast.get(request.character.as_str())) else {
             warn!(
                 target: "crate::body::wear",
-                "the catalog has no character `{}`; ignoring the transform of {}",
+                "the session's cast has no character `{}`; refusing the transform of {}",
                 request.character.as_str(),
                 request.body,
             );
             continue;
-        }
+        };
         let Ok(mut worn) = worn.get_mut(entity) else {
             warn!(
                 target: "crate::body::wear",
@@ -91,24 +100,29 @@ pub fn apply_wear_requests(sprite_content: bevy::prelude::Res<ambition_sprite_sh
         *worn = CharacterForm(request.character.clone());
         let mut body = commands.entity(entity);
         body.try_insert(RecharacterizeBody);
-        if let Some(beat) = arrival_beat(&sprite_content, authored.as_deref(), &catalog, request.character.as_str()) {
+        if let Some(beat) = arrival_beat(&sprite_content, authored.as_deref(), admitted.sheet.as_deref()) {
             body.try_insert(TransformBeatRequested(beat));
         }
     }
 }
 
-/// The beat of a body's arrival in the look `character`: the `transform` row
-/// of the look's sheet, for as long as the row takes to draw.
+/// The beat of a body's arrival in a look: the `transform` row of the sheet
+/// the admitted cast names for it (`sheet`), for as long as the row takes to
+/// draw. The row's timing does not depend on the gameplay tuning a catalog row
+/// adds to a sheet (collision scale, sample inset, feet anchor).
 ///
 /// `None` when the sheet has no row of its own for [`CharacterAnim::Transform`]
-/// (a fallback row is not a change to play), or when no sheet is known for the
-/// character.
+/// (a fallback row is not a change to play), or when the look names no sheet.
 fn arrival_beat(sprite_content: &ambition_sprite_sheet::SpriteContent,
     authored: Option<&AuthoredSheets>,
-    catalog: &CharacterCatalog,
-    character: &str,
+    sheet: Option<&str>,
 ) -> Option<TransformBeatPolicy> {
-    let spec = catalog_join::sheet_for_character_id_from_data(&sprite_content, authored?, catalog.data(), character)?;
+    let spec = ambition_sprite_sheet::character::sheets::try_load_spec_for_target_authored(
+        sprite_content,
+        authored?,
+        sheet?,
+        &Default::default(),
+    )?;
     spec.row_for_anim(CharacterAnim::Transform)?;
     Some(TransformBeatPolicy {
         duration: spec.clip_seconds(CharacterAnim::Transform),
@@ -122,7 +136,7 @@ fn arrival_beat(sprite_content: &ambition_sprite_sheet::SpriteContent,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_characters::actor::character_catalog::CharacterCatalogData;
+    use ambition_characters::actor::character_catalog::{CharacterCatalog, CharacterCatalogData};
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
     /// A character with one other look, and a character that is no look of it.
@@ -154,13 +168,57 @@ mod tests {
         CharacterCatalog::from_data(data)
     }
 
+    /// The prepared cast of `names`, as a session would freeze it.
+    fn cast_of(app: &mut App, names: &[&str]) {
+        for name in names {
+            ambition_characters::prepared::stage_authored_character(
+                app,
+                ambition_characters::actor::definition::CharacterDefinition::new(*name, *name, "fixture"),
+                &Default::default(),
+            )
+            .expect("the fixture character stages");
+        }
+        ambition_characters::prepared::close_preparation_barrier(app.world_mut());
+    }
+
     fn app() -> App {
         let mut app = App::new();
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         app.insert_resource(catalog());
+        cast_of(&mut app, &["scholar", "scholar_armored"]);
         app.add_message::<WearRequested>();
         app.add_systems(Update, apply_wear_requests);
         app
+    }
+
+    /// FORM-REBIND: a look the published catalog has but the running
+    /// session's cast does not is refused whole. The control is the same
+    /// request with no session running, which the published cast admits.
+    #[test]
+    fn a_look_only_a_newer_cast_has_is_refused_before_anything_changes() {
+        let frozen = {
+            let mut older = App::new();
+            cast_of(&mut older, &["scholar"]);
+            older.world().resource::<ambition_characters::prepared::PreparedCharacterRegistry>().clone()
+        };
+        let worn_after = |session: bool| {
+            let mut app = app();
+            if session {
+                app.insert_resource(ambition_characters::prepared::ActiveSessionCast(Some(frozen.clone())));
+            }
+            let body = app.world_mut().spawn((SimId::placement("exhibit"), CharacterForm::new("scholar"))).id();
+            ask(&mut app, "exhibit", "scholar_armored");
+            app.update();
+            let asked = app.world().get::<RecharacterizeBody>(body).is_some()
+                || app.world().get::<TransformBeatRequested>(body).is_some();
+            (app.world().get::<CharacterForm>(body).unwrap().id().to_string(), asked)
+        };
+        assert_eq!(worn_after(false), ("scholar_armored".to_string(), true), "control: the published cast admits the look");
+        assert_eq!(
+            worn_after(true),
+            ("scholar".to_string(), false),
+            "a look the session's cast does not hold changed the body or asked for its template or beat"
+        );
     }
 
     fn ask(app: &mut App, body: &str, character: &str) {

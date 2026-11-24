@@ -303,6 +303,16 @@ pub fn apply_worn_character_gameplay(sprite_content: Res<ambition_sprite_sheet::
             Option<&mut ambition_platformer2d_core::AbilityBase>,
             Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
         ),
+        // The intrinsic flight a change of form rebinds (FORM-REBIND):
+        // `IntrinsicForm::rebind` writes each only while it holds what the
+        // previous form gave it.
+        (
+            Option<&ambition_platformer2d_core::AbilityContributions>,
+            Option<&mut ambition_platformer2d_core::body_clusters::ActorSurfaceState>,
+            Option<&mut ambition_combat::actor_tuning::ActorConfig>,
+            Option<&mut ambition_platformer2d_core::body_clusters::BodyFlightState>,
+            Has<ambition_body_seed::FlightStatedByRole>,
+        ),
         ),
         (With<ActionSet>, With<ActorMoveset>),
     >,
@@ -323,7 +333,8 @@ pub fn apply_worn_character_gameplay(sprite_content: Res<ambition_sprite_sheet::
         mass,
         mut combat_tuning,
         has_projectile_state,
-        (baseline, seat, recharacterize, ability_base, is_home_body),
+        (baseline, seat, recharacterize, mut ability_base, is_home_body),
+        (contributions, mut surface, mut config, mut flight, role_flight),
     ) in &mut worn
     {
         let id = character.id();
@@ -423,11 +434,31 @@ pub fn apply_worn_character_gameplay(sprite_content: Res<ambition_sprite_sheet::
             // again for the new form. A match seat's abilities are the match's,
             // and what progression lends rides `AbilityContributions`, so
             // neither moves here.
-            if let (true, None, Some(home), Some(mut base)) = (is_home_body, seat, home, ability_base) {
+            if let (true, None, Some(home), Some(base)) = (is_home_body, seat, home, ability_base.as_deref_mut()) {
                 let abilities = home.base_for(registry.as_deref().and_then(|registry| registry.get(id)).and_then(|prepared| prepared.abilities));
                 if base.abilities != abilities {
                     base.abilities = abilities;
                 }
+            }
+            // THE FORM'S INTRINSIC CONFIGURATION (FORM-REBIND): the same value
+            // construction seeds the body from. An ordinary body takes the new
+            // form's verbs; every body takes its flight, gravity response and
+            // aerial tuning, except where a role stated its own
+            // (`FlightStatedByRole`). A body with
+            // no record was built as this form, and has nothing to rebind.
+            let form = ambition_body_seed::IntrinsicForm::of(registry.as_deref().and_then(|registry| registry.get(id)));
+            if let Some(previous) = baseline.map(|baseline| baseline.form).filter(|previous| *previous != form) {
+                previous.rebind(
+                    &form,
+                    ambition_body_seed::FormOwners { verbs: !is_home_body && seat.is_none(), flight: !role_flight },
+                    ambition_body_seed::FormRebindTargets {
+                        base: ability_base.as_deref_mut(),
+                        contributions,
+                        surface: surface.as_deref_mut(),
+                        tuning: config.as_deref_mut().map(|config| &mut config.tuning),
+                        flight: flight.as_deref_mut(),
+                    },
+                );
             }
 
             // Movement identity is identity-derived, not ability-derived. Only
@@ -479,10 +510,10 @@ pub fn apply_worn_character_gameplay(sprite_content: Res<ambition_sprite_sheet::
                 .and_then(|registry| registry.get(id))
                 .and_then(|prepared| prepared.death_traits.as_ref())
                 .map(ambition_combat::CombatCapabilities::from);
-            let previous_authored = baseline
-                .zip(registry)
-                .and_then(|(baseline, registry)| registry.get(&baseline.id))
-                .is_some_and(|previous| previous.death_traits.is_some());
+            // What the previous application installed, from its record: the
+            // previous id in this cast may no longer say what was applied.
+            let previous_authored = baseline.is_some_and(|baseline| baseline.death_traits_applied);
+            let death_traits_applied = authored.is_some();
             match authored {
                 Some(capabilities) => {
                     commands.entity(entity).try_insert(capabilities);
@@ -510,6 +541,8 @@ pub fn apply_worn_character_gameplay(sprite_content: Res<ambition_sprite_sheet::
                 // meaning of the record: it is the body as it entered the world,
                 // not an archetype default this path never sees.
                 displaced,
+                form,
+                death_traits_applied,
             });
             continue;
         }

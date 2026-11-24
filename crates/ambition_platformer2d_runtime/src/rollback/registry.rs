@@ -380,7 +380,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 538 -> 539: the item owner retains every live and dormant mint recipe on the
 // session root (`resource.retained_mint_recipes`, IR2); the save's minted rows
 // are only its export.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 539;
+// 539 -> 540: a body whose role states its flight over its character's (a
+// boss) carries `actor.flight_stated_by_role`, which a change of form leaves
+// alone (FORM-REBIND); the persona baseline's probe covers its applied form.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 540;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

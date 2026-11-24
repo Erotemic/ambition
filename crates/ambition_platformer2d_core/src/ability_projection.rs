@@ -12,8 +12,8 @@ use bevy_ecs::prelude::*;
 
 use crate::abilities::AbilitySet;
 use crate::body_clusters::{
-    AbilityBase, AuthoredMovementTuning, BodyAbilities, BodyDashState, BodyFlightState,
-    BodyJumpState,
+    AbilityBase, ActorSurfaceState, AuthoredMovementTuning, BodyAbilities, BodyDashState,
+    BodyFlightState, BodyJumpState,
 };
 use crate::movement::{ActiveMovementTuning, MotionModel};
 
@@ -88,7 +88,9 @@ impl AbilityContributions {
 /// Recompute each body's effective verbs from its base and contributions.
 ///
 /// On a change it settles the state that a verb's loss or gain invalidates:
-/// flight switches off without `fly`, a blink telegraph ends without `blink`,
+/// flight switches off without `fly` and, for a body whose form flies by
+/// itself (a zero intrinsic gravity scale), back on when `fly` returns; a
+/// blink telegraph ends without `blink`,
 /// and dash charges and air jumps follow their counts (a larger count refills,
 /// a smaller one clamps).
 #[allow(clippy::type_complexity)]
@@ -105,18 +107,23 @@ pub fn project_body_abilities(
         Option<&mut BodyDashState>,
         Option<&mut BodyJumpState>,
         Option<&AuthoredMovementTuning>,
+        // The form's intrinsic gravity response: zero is a body that flies
+        // without being asked (`IntrinsicForm`).
+        Option<&ActorSurfaceState>,
     )>,
 ) {
-    for (base, contributions, mut abilities, flight, mut model, dash, jump, authored) in &mut bodies {
+    for (base, contributions, mut abilities, flight, mut model, dash, jump, authored, surface) in &mut bodies {
         let desired = contributions.apply(base.abilities);
         let previous = abilities.abilities;
         if previous == desired {
             continue;
         }
         abilities.abilities = desired;
-        if !desired.fly {
-            if let Some(mut flight) = flight {
+        if let Some(mut flight) = flight {
+            if !desired.fly {
                 flight.fly_enabled = false;
+            } else if !previous.fly && surface.is_some_and(|surface| surface.gravity_scale <= 0.001) {
+                flight.fly_enabled = true;
             }
         }
         if !desired.blink {

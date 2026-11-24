@@ -645,11 +645,13 @@ coconut keeps its extent through the room and custody roads end to end, and
 the retained/not-retained item fields are named on the owner page.
 IR2 is done 2026-11-24: the item owner retains live and dormant recipes
 natively, and room preparation, the checkpoint capture and boss retraction
-read that record instead of the save codec.)
-IR4 then coalesces pose-only disk output at a finite interval. Prompt semantic
-writes, confirmation, save-owner identity and checkpoint retention remain
-explicit. Measure with persistence enabled; current autosave can otherwise
-rewrite the whole file on each confirmed moving frame.
+read that record instead of the save codec. IR3 is done 2026-11-24: a moving
+item no longer writes the occurrence ledger; its pose is captured at the
+checkpoint commit, the operation admission and the room retirement. A moving
+tick beside 10,000 dormant rows fell from 2.43 ms to 3.5 µs in the ledger
+path. IR4 is done 2026-11-24: the file joins live poses at output, a
+pose-only change is written at most once a second, a semantic change at
+once, and a switch or a quit writes the outgoing cut.)
 
 The follow-up [data-structure packets K1–K3](engine/data-structure-kernels.md#delivery-and-deletion-criteria)
 make bounds queries and strict unique lookup independent optimization targets
@@ -1843,7 +1845,14 @@ admission as a separate residual below; the geometry receipt is unchanged.
 
 ### FORM-REBIND — admit and apply a complete form on the existing body
 
-**State:** PLANNED, static review of `00bf92c22142`, 2026-11-22.
+**State:** DONE 2026-11-24. Admission: narrative wear resolves the look and
+its beat sheet in `SessionCast` before any write; a look only N+1 holds is
+refused whole. Rebind: construction and a change of form share
+`IntrinsicForm` (verbs, flight mode, gravity response, aerial tuning); the
+applied form is recorded on `PersonaBaseline`, role flight is declared
+(`FlightStatedByRole`), and the Mary-O cosmic AirJump lend is deleted. See
+the [receipt](engine/controlled-character-actor-kernel.md#rebind-intrinsic-configuration-through-the-native-state-owners).
+Planned from the static review of `00bf92c22142`, 2026-11-22.
 **Owner:** [native form contract](engine/controlled-character-actor-kernel.md#form-rebind--admit-and-apply-the-complete-intrinsic-form),
 with character A3, linking L2 and the existing movement/ability owners.
 
@@ -3300,11 +3309,13 @@ match items have identity and no provenance.
    `RetainedMintRecipes` is the item owner's native record, and the save's
    minted rows are its export.) IR3 keeps active
    pose in the live body, captures retained state at accepted boundaries and
-   removes motion-driven dormant work. Preserve the atomic horizon receipt
+   removes motion-driven dormant work. (Done 2026-11-24:
+   [IR3 done](engine/item-recipes-and-live-continuity.md#ir3-done-2026-11-24).) Preserve the atomic horizon receipt
    below, existing room rewind and domain placement conventions. E6 owns
-   the cost evidence; there is no measured speedup yet.
+   the cost evidence; IR3's ledger-path measurement is on its receipt.
    IR4 separately reduces pose-only output frequency. It preserves prompt
    semantic writes and adds the required graceful switch/quit capture.
+   (Done 2026-11-24: [IR4 done](engine/item-recipes-and-live-continuity.md#ir4-done-2026-11-24).)
    [REL4](engine/relationship-endpoints-and-transitions.md#rel4--retain-exit-context-and-authorize-endpoint-succession)
    adds held-item exit context to those selected cuts: missing reconstruction
    must not replace the orphan fallback with zero, and accepted transfer

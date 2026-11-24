@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 /// This is intentionally a plain data struct. Later we can load it from RON,
 /// JSON, a save file, an AI-generated spec, or an in-game upgrade graph without
 /// changing the movement simulation API.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AbilitySet {
     /// Horizontal ground/air steering. Disabling this is mostly useful for
     /// tests or scripted story moments.

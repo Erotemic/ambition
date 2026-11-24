@@ -9,6 +9,9 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
         OWNER,
         "actor.motion_path",
     );
+    // Who owns the body's flight across a change of form: restored with the
+    // body, so a rewound boss keeps its role's flight.
+    registrar.rollback_component_clone::<crate::FlightStatedByRole>(OWNER, "actor.flight_stated_by_role");
     registrar.rollback_component_clone_probed::<crate::PersonaBaseline>(
         OWNER,
         "actor.persona_baseline",
@@ -29,6 +32,10 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
                 .mass
                 .map(|mass| mass.map(f32::to_bits))
                 .hash(&mut hasher);
+            // What a change of form rebinds from, and what it retracts.
+            baseline.form.abilities.hash(&mut hasher);
+            baseline.form.free_flight.hash(&mut hasher);
+            baseline.death_traits_applied.hash(&mut hasher);
             hasher.finish() ^ baseline.generation.get().rotate_left(32)
         },
     );

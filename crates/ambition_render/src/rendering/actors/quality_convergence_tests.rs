@@ -593,6 +593,7 @@ fn a_declared_prop_waits_for_its_sheet_then_binds_on_the_same_entity() {
     app.add_systems(Update, super::refresh_prop_sprites_on_game_assets_change);
     let mut declarations = PropSheets::default();
     declarations.register("declared_gate", PropSheetSource {
+        world_provider: None,
         target: "robot".into(),
         tuning: ambition_sprite_sheet::character::SheetTuning::new(1.0, 1),
         packed: false,

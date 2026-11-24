@@ -72,6 +72,8 @@ pub type PropSheetRows = BTreeMap<String, AuthoredPropSheet>;
 /// quality tier of the game.
 #[derive(Clone, Debug)]
 pub struct PropSheetSource {
+    /// World provider that owns this declaration. Shared declarations have no owner.
+    pub world_provider: Option<String>,
     pub target: String,
     pub tuning: crate::character::SheetTuning,
     pub packed: bool,
@@ -116,6 +118,7 @@ impl PropSheets {
     /// nothing changes: a reload must not take another provider's look.
     pub fn restate<'a>(
         &mut self,
+        world_provider: &str,
         previous: impl IntoIterator<Item = &'a str>,
         rows: &PropSheetRows,
     ) -> Result<Vec<String>, String> {
@@ -128,14 +131,22 @@ impl PropSheets {
             return Err(format!("prop sheet kind(s) {taken:?} belong to another provider"));
         }
         self.0.retain(|(kind, _)| !previous.contains(&kind.as_str()));
-        self.0.extend(rows.iter().map(|(kind, row)| (kind.clone(), sprite_folder_row(kind, row))));
+        self.0.extend(rows.iter().map(|(kind, row)| {
+            (kind.clone(), sprite_folder_row(world_provider, kind, row))
+        }));
         Ok(rows.keys().cloned().collect())
     }
 }
 
 /// A pack row's source.
-fn sprite_folder_row(kind: &str, row: &AuthoredPropSheet) -> PropSheetSource {
-    PropSheetSource { target: row.target(kind).to_string(), tuning: row.tuning(), packed: row.packed, backdrop: row.backdrop }
+fn sprite_folder_row(world_provider: &str, kind: &str, row: &AuthoredPropSheet) -> PropSheetSource {
+    PropSheetSource {
+        world_provider: Some(world_provider.into()),
+        target: row.target(kind).to_string(),
+        tuning: row.tuning(),
+        packed: row.packed,
+        backdrop: row.backdrop,
+    }
 }
 
 /// Register prop sheets from a content plugin's `build`.
@@ -143,7 +154,7 @@ pub trait PropSheetsAppExt {
     fn register_prop_sheet(&mut self, kind: impl Into<String>, source: PropSheetSource) -> &mut Self;
     /// Register each row of a pack's `prop_sheets`, and return the kinds, for
     /// a reload to restate ([`PropSheets::restate`]).
-    fn register_prop_sheet_rows(&mut self, rows: &PropSheetRows) -> Vec<String>;
+    fn register_prop_sheet_rows(&mut self, world_provider: &str, rows: &PropSheetRows) -> Vec<String>;
 }
 
 impl PropSheetsAppExt for App {
@@ -154,9 +165,9 @@ impl PropSheetsAppExt for App {
         self
     }
 
-    fn register_prop_sheet_rows(&mut self, rows: &PropSheetRows) -> Vec<String> {
+    fn register_prop_sheet_rows(&mut self, world_provider: &str, rows: &PropSheetRows) -> Vec<String> {
         for (kind, row) in rows {
-            self.register_prop_sheet(kind.clone(), sprite_folder_row(kind, row));
+            self.register_prop_sheet(kind.clone(), sprite_folder_row(world_provider, kind, row));
         }
         rows.keys().cloned().collect()
     }
@@ -352,6 +363,7 @@ mod registration_tests {
 #[should_panic(expected = "has two sheets registered")]
 fn a_prop_kind_has_one_sheet() {
     let source = || PropSheetSource {
+        world_provider: None,
         target: "a".to_string(),
         tuning: crate::character::SheetTuning::new(1.0, 0),
         packed: false,

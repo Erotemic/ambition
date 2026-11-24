@@ -1178,7 +1178,7 @@ fn publish_prop_sheets(
         .get_resource::<crate::prop_sheets::AmbitionPropSheets>()
         .map(|owned| owned.0.clone())
         .unwrap_or_default();
-    match restate_prop_sheet_rows(world, &previous, &rows) {
+    match restate_prop_sheet_rows(world, crate::AMBITION_CONTENT_PROVIDER, &previous, &rows) {
         Ok(kinds) => world.insert_resource(crate::prop_sheets::AmbitionPropSheets(kinds)),
         Err(problem) => bevy::log::error!("the reload keeps Ambition's prop sheets: {problem}"),
     }

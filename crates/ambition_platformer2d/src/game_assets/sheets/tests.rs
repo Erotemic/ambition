@@ -212,6 +212,7 @@ fn registered_prop_sheets_load_with_the_first_game_assets() {
     app.register_prop_sheet(
         KIND,
         PropSheetSource {
+            world_provider: None,
             target: KIND.to_string(),
             tuning: ambition_sprite_sheet::character::SheetTuning::new(1.0, 2),
             packed: false,
@@ -274,9 +275,9 @@ fn a_prop_row_draws_its_records_page_or_the_pack() {
     app.init_asset::<Image>();
     app.init_asset::<TextureAtlasLayout>();
     let tuning = ambition_sprite_sheet::character::SheetTuning::new(1.0, 2);
-    app.register_prop_sheet("lab_genesis_vat", PropSheetSource { target: "genesis_vat".to_string(), tuning, packed: false, backdrop: false });
-    app.register_prop_sheet("intro_cart", PropSheetSource { target: "intro_cart".to_string(), tuning, packed: true, backdrop: false });
-    app.register_prop_sheet("intro_cart_unpacked", PropSheetSource { target: "intro_cart".to_string(), tuning, packed: false, backdrop: false });
+    app.register_prop_sheet("lab_genesis_vat", PropSheetSource { world_provider: None, target: "genesis_vat".to_string(), tuning, packed: false, backdrop: false });
+    app.register_prop_sheet("intro_cart", PropSheetSource { world_provider: None, target: "intro_cart".to_string(), tuning, packed: true, backdrop: false });
+    app.register_prop_sheet("intro_cart_unpacked", PropSheetSource { world_provider: None, target: "intro_cart".to_string(), tuning, packed: false, backdrop: false });
 
     let config = GameAssetConfig::default();
     let characters = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
@@ -315,16 +316,24 @@ fn a_prop_row_draws_its_records_page_or_the_pack() {
 }
 
 #[test]
-fn live_feature_art_loads_a_sheet_even_when_its_scenery_is_in_a_distant_room() {
+fn prop_sheets_follow_room_and_live_feature_demand() {
     use ambition_platformer2d_core as ae;
+    use ambition_entity_catalog::placements::{PlacementSchema, PickupSpec};
+    use ambition_platformer2d_world::placements::PlacementRecord;
     use ambition_platformer2d_world::rooms::{insert_room_set, PropSpec, RoomSet, RoomSpec};
     use ambition_sim_view::{DynamicFeatureFact, DynamicFeatureViews, FeatureSheet};
+    use bevy::ecs::system::RunSystemOnce;
     let mut app = App::new();
     app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
     app.add_plugins((bevy::app::TaskPoolPlugin::default(), bevy::asset::AssetPlugin::default()));
     app.init_asset::<Image>().init_asset::<TextureAtlasLayout>();
-    for kind in ["requested", "other_scenery"] {
+    for kind in ["requested", "other_scenery", "foreign_scenery", "pickup_art"] {
+        let provider = match kind {
+            "foreign_scenery" | "pickup_art" => "another_game",
+            _ => "fixture",
+        };
         app.register_prop_sheet(kind, PropSheetSource {
+            world_provider: Some(provider.into()),
             target: "intro_cart".into(), tuning: Default::default(), packed: false, backdrop: false,
         });
     }
@@ -335,7 +344,10 @@ fn live_feature_art_loads_a_sheet_even_when_its_scenery_is_in_a_distant_room() {
         far.props.push(PropSpec {id: kind.into(), name: kind.into(), kind: kind.into(),
             pos: ae::Vec2::ZERO, size: ae::Vec2::new(32.0, 16.0), flip_y: false, draw: Default::default()});
     }
-    insert_room_set(app.world_mut(), RoomSet::from_parts_or_panic("here", vec![here, far], vec![]));
+    let session = insert_room_set(app.world_mut(), RoomSet::from_parts_or_panic("here", vec![here, far], vec![]));
+    app.world_mut().entity_mut(session).insert(
+        crate::runtime::PlatformerSessionCatalogs::provider("fixture"),
+    );
     let config = GameAssetConfig::default();
     let catalog = ambition_platformer2d_assets::platformer_assets::build_platformer2d_asset_catalog(
         &ambition_sprite_sheet::test_support::shared_libraries(), &config,
@@ -347,6 +359,32 @@ fn live_feature_art_loads_a_sheet_even_when_its_scenery_is_in_a_distant_room() {
         .init_resource::<DynamicFeatureViews>().add_systems(Update, load_the_prop_sheets_in_reach);
     app.update();
     assert!(app.world().resource::<GameAssets>().characters.props.is_empty());
+
+    let mut incoming = room("incoming");
+    incoming.placements.push(PlacementRecord::new(
+        "ring",
+        PlacementSchema::Pickup(
+            PickupSpec::new(ambition_entity_catalog::PickupKind::Currency { amount: 1 })
+                .with_sprite("pickup_art"),
+        ),
+        ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::ONE),
+    ));
+    let manifest = app.world_mut().run_system_once(
+        move |props: RoomPropSheets,
+              sprites: Res<ambition_sprite_sheet::SpriteContent>,
+              catalog: Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>,
+              server: Res<AssetServer>,
+              mut assets: ResMut<GameAssets>,
+              mut layouts: ResMut<Assets<TextureAtlasLayout>>| {
+            props.prepare(
+                &incoming, &sprites, &mut assets, &catalog, &server, &mut layouts,
+                &Default::default(),
+            );
+            crate::world_flow::build_loaded_room_asset_manifest(&incoming, &[], &assets, None)
+        },
+    ).unwrap();
+    assert!(!manifest.is_empty(), "the incoming room has a pickup image to wait for");
+
     app.world_mut().resource_mut::<DynamicFeatureViews>().0.push(DynamicFeatureFact {
         id: "created".into(), label: "created".into(), family: "Breakable",
         pos: ae::Vec2::ZERO, size: ae::Vec2::new(32.0, 16.0), visual_kind: FeatureVisualKind::Breakable,
@@ -357,4 +395,6 @@ fn live_feature_art_loads_a_sheet_even_when_its_scenery_is_in_a_distant_room() {
     let props = &app.world().resource::<GameAssets>().characters.props;
     assert!(props.contains_key("requested"));
     assert!(!props.contains_key("other_scenery"));
+    assert!(!props.contains_key("foreign_scenery"));
+    assert!(props.contains_key("pickup_art"));
 }

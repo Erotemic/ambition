@@ -300,10 +300,6 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
                 .after(crate::game_assets::PropSheetDemandSet)
                 .before(LoadPresentationSet::Observe),
         )
-        .add_systems(
-            Update,
-            super::first_room_cover::cover_first_room.after(PresentationSettlingSet),
-        )
         .configure_sets(
             Update,
             RoomTransitionCoverSet
@@ -337,6 +333,10 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
                 .after(LoadPresentationSet::Actions)
                 .before(LoadPresentationSet::Finalize),
         );
+    let first_room_cover = super::first_room_cover::cover_first_room.after(PresentationSettlingSet);
+    #[cfg(feature = "audio")]
+    let first_room_cover = first_room_cover.after(crate::audio::music::MusicGoalPublication);
+    app.add_systems(Update, first_room_cover);
     #[cfg(feature = "audio")]
     app.init_resource::<super::music_preparation::RoomMusicPreparation>()
         .add_systems(Update, super::music_preparation::prepare_room_music

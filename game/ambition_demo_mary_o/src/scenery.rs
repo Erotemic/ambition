@@ -103,10 +103,11 @@ pub fn structure_prop(id: &str, kind: &str, min: ae::Vec2, size: ae::Vec2) -> Pr
 pub fn register_mary_o_construction_props(app: &mut App) {
     use ambition_platformer2d::sprite_sheet::prop_sheets::PropSheetsAppExt;
     app.register_prop_sheet_rows(
+        crate::provider::MARY_O_EXPERIENCE,
         ambition_platformer2d::sprite_sheet::prop_sheets::lowered_prop_sheets(&crate::pack::PACK.prepared())
             .expect("the demo's pack states its prop sheets (`data/prop_sheets.ron`)"),
     );
-    app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::prop_sheets(&crate::pack::PACK));
+    app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::prop_sheets(&crate::pack::PACK, crate::provider::MARY_O_EXPERIENCE));
     // How the lift is laid on its platform: the pack's `platform_looks.ron`.
     {
         use ambition_platformer2d::render::rendering::moving_platforms::PlatformLooksAppExt;

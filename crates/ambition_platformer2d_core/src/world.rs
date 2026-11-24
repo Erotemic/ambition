@@ -1104,21 +1104,33 @@ impl crate::spatial::Spatial for SurfaceChain {
         crate::layered::bounds_of(&self.points)
     }
     fn swept_bounds(&self) -> Aabb {
-        if !self.velocity.is_finite() || !self.turn.is_finite()
-            || (self.turn != 0.0 && !self.pivot.is_finite()) {
-            return crate::layered::UNBOUNDED;
-        }
-        let bounds = crate::layered::bounds_of(&self.points);
-        if !bounds.min.is_finite() || !bounds.max.is_finite() { return crate::layered::UNBOUNDED; }
-        if self.turn == 0.0 {
-            return Aabb { min: bounds.min.min(bounds.min-self.velocity), max: bounds.max.max(bounds.max-self.velocity) };
-        }
-        let radius = self.points.iter().map(|p| p.as_dvec2().distance(self.pivot.as_dvec2())).fold(0.0_f64, f64::max);
-        let radius = Vec2::splat((radius as f32).next_up());
-        let min = self.pivot.min(self.pivot-self.velocity)-radius;
-        let max = self.pivot.max(self.pivot-self.velocity)+radius;
-        Aabb { min: Vec2::new(min.x.next_down(),min.y.next_down()),
-            max: Vec2::new(max.x.next_up(),max.y.next_up()) }
+        surface_swept_bounds(&self.points, self.velocity, self.turn, self.pivot)
+    }
+}
+
+fn surface_swept_bounds(points: &[Vec2], velocity: Vec2, turn: f32, pivot: Vec2) -> Aabb {
+    if !velocity.is_finite() || !turn.is_finite() || (turn != 0.0 && !pivot.is_finite()) {
+        return crate::layered::UNBOUNDED;
+    }
+    let bounds = crate::layered::bounds_of(points);
+    if !bounds.min.is_finite() || !bounds.max.is_finite() {
+        return crate::layered::UNBOUNDED;
+    }
+    if turn == 0.0 {
+        let min = bounds.min.min(bounds.min - velocity);
+        let max = bounds.max.max(bounds.max - velocity);
+        return Aabb {
+            min: Vec2::new(min.x.next_down(), min.y.next_down()),
+            max: Vec2::new(max.x.next_up(), max.y.next_up()),
+        };
+    }
+    let radius = points.iter().map(|p| p.as_dvec2().distance(pivot.as_dvec2())).fold(0.0_f64, f64::max);
+    let radius = Vec2::splat((radius as f32).next_up());
+    let min = pivot.min(pivot - velocity) - radius;
+    let max = pivot.max(pivot - velocity) + radius;
+    Aabb {
+        min: Vec2::new(min.x.next_down(), min.y.next_down()),
+        max: Vec2::new(max.x.next_up(), max.y.next_up()),
     }
 }
 
@@ -1832,9 +1844,14 @@ impl World {
                     continue;
                 }
                 for segment in 0..chain.segment_count() {
-                    let collider = MaterialCollider::Chain { chain,index,segment };
                     let (a,b)=chain.segment(segment);
-                    let _ = cells.against_rigid_where(part,&[a,b],chain.velocity,chain.turn,chain.pivot,|contact| {
+                    let edge = [a, b];
+                    // The chain bounds can cover terrain far from this cell.
+                    if !crate::spatial::touches(bounds, surface_swept_bounds(&edge, chain.velocity, chain.turn, chain.pivot)) {
+                        continue;
+                    }
+                    let collider = MaterialCollider::Chain { chain,index,segment };
+                    let _ = cells.against_rigid_where(part,&edge,chain.velocity,chain.turn,chain.pivot,|contact| {
                         consider(MaterialWorldHit { collider,contact:contact.clone() },part)
                     })?;
                 }

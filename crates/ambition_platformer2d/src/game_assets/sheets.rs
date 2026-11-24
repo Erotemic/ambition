@@ -41,23 +41,57 @@ fn load_prop_sheet(sprite_content: &ambition_sprite_sheet::SpriteContent,
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PropSheetDemandSet;
 
-/// The prop kinds `room` draws as scenery: its props and the looks of its
-/// gated walls. Nothing else draws these kinds, so their sheets are needed
-/// only while the room is in reach.
-pub fn scenery_prop_kinds(room: &ambition_platformer2d_world::rooms::RoomSpec) -> impl Iterator<Item = &str> {
+/// The prop sheet kinds named by the room's scenery and placements.
+pub(crate) fn room_prop_kinds(room: &ambition_platformer2d_world::rooms::RoomSpec) -> impl Iterator<Item = &str> {
+    use ambition_entity_catalog::placements::PlacementSchema;
     room.props
         .iter()
         .map(|prop| prop.kind.as_str())
         .chain(room.lock_walls.iter().filter_map(|wall| wall.look.as_deref()))
+        .chain(room.moving_platforms.iter().filter_map(|platform| platform.visual.as_deref()))
+        .chain(room.placements.iter().filter_map(|placement| match &placement.schema {
+            PlacementSchema::Pickup(pickup) => pickup.sprite.as_deref(),
+            PlacementSchema::Chest(chest) => chest.look.as_deref(),
+            PlacementSchema::Breakable(breakable) => breakable.look.as_deref(),
+            _ => None,
+        }))
+}
+
+#[derive(bevy::ecs::system::SystemParam)]
+pub(crate) struct RoomPropSheets<'w> {
+    sheets: Option<Res<'w, PropSheets>>,
+    config: Option<Res<'w, GameAssetConfig>>,
+}
+
+impl RoomPropSheets<'_> {
+    pub(crate) fn prepare(
+        &self,
+        room: &ambition_platformer2d_world::rooms::RoomSpec,
+        sprite_content: &ambition_sprite_sheet::SpriteContent,
+        assets: &mut GameAssets,
+        catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
+        server: &AssetServer,
+        layouts: &mut Assets<TextureAtlasLayout>,
+        quality: &VisualQualityBudget,
+    ) {
+        let (Some(sheets), Some(config)) = (&self.sheets, &self.config) else { return };
+        if config.no_assets {
+            return;
+        }
+        let required: std::collections::BTreeSet<_> = room_prop_kinds(room).collect();
+        load_prop_sheets(
+            sprite_content,
+            sheets.iter().filter(|(kind, _)| required.contains(kind)),
+            config, catalog, server, layouts, Some(quality), &mut assets.characters.props,
+        );
+    }
 }
 
 /// Decode the prop sheets the session can show soon, and no others.
 ///
-/// A sheet is wanted when its kind is the scenery ([`scenery_prop_kinds`]) of
-/// a room in reach (a live room, a door's neighbour of one, or the far room of
-/// an open gate link), or when no room's scenery names its kind (a drop's
-/// look, a pickup, a platform's sheet: art that is not one room's). A wanted
-/// sheet that is not loaded is loaded; live feature art also demands its sheet.
+/// Load sheets for live or reachable rooms and for live feature requests.
+/// For shared art and art of the active provider, a sheet with no room
+/// reference can serve a dynamic feature.
 /// A loaded one stays, as character
 /// sheets do. It does the work only when the rooms in reach, the loaded art or
 /// the rows changed, so a session that stays in one room pays one comparison
@@ -69,6 +103,7 @@ pub fn scenery_prop_kinds(room: &ambition_platformer2d_world::rooms::RoomSpec) -
 #[allow(clippy::too_many_arguments)]
 pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     rooms: ambition_platformer2d_world::rooms::LiveRoomSpecs,
+    provider: Option<crate::platformer::lifecycle::SessionWorldRef<crate::runtime::session_world::PlatformerSessionCatalogs>>,
     network: Option<Res<ambition_platformer2d_world::rooms::GateNetworkState>>,
     sheets: Res<PropSheets>,
     config: Res<GameAssetConfig>,
@@ -81,8 +116,12 @@ pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut assets: ResMut<GameAssets>,
     dynamic: Option<Res<ambition_sim_view::DynamicFeatureViews>>,
-    mut seen: Local<Option<(Vec<usize>, Vec<String>, Vec<String>)>>,
+    mut seen: Local<Option<(Vec<usize>, Vec<String>, Vec<String>, Option<String>)>>,
 ) {
+    if config.no_assets {
+        return;
+    }
+    let provider = provider.as_ref().map(|catalogs| catalogs.world_provider.as_str());
     let set = rooms.rooms();
     let index_of = |id: &str| set.rooms.iter().position(|room| room.id == id);
     let mut reach: Vec<usize> = rooms.live_specs().into_iter().filter_map(|(_, spec)| index_of(&spec.id)).collect();
@@ -99,23 +138,27 @@ pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition
             Some(ambition_sim_view::FeatureSheet::Animated(kind) | ambition_sim_view::FeatureSheet::Structure(kind)) => Some(kind.as_str()),
             None => None,
         }).collect();
-    let signature = (reach, far, requested.iter().map(|kind| (*kind).to_owned()).collect());
+    let signature = (reach, far, requested.iter().map(|kind| (*kind).to_owned()).collect(), provider.map(str::to_owned));
     if seen.as_ref() == Some(&signature) && !assets.is_changed() && !sheets.is_changed() && !rooms.set_is_changed() {
         return;
     }
-    let (live, far, _) = signature.clone();
+    let (live, far, _, _) = signature.clone();
     *seen = Some(signature);
     let mut near: Vec<usize> = live.clone();
     for &room in &live {
         near.extend(set.neighboring_room_indices_of(room));
     }
     near.extend(far.iter().filter_map(|room| index_of(room)));
-    let scenery: std::collections::BTreeSet<&str> = set.rooms.iter().flat_map(scenery_prop_kinds).collect();
+    let placed: std::collections::BTreeSet<&str> = set.rooms.iter().flat_map(room_prop_kinds).collect();
     let in_reach: std::collections::BTreeSet<&str> =
-        near.iter().filter_map(|&room| set.rooms.get(room)).flat_map(scenery_prop_kinds).collect();
+        near.iter().filter_map(|&room| set.rooms.get(room)).flat_map(room_prop_kinds).collect();
     let missing: Vec<(&str, &PropSheetSource)> = sheets
         .iter()
-        .filter(|(kind, _)| !scenery.contains(kind) || in_reach.contains(kind) || requested.contains(kind))
+        .filter(|(kind, source)| {
+            in_reach.contains(kind) || requested.contains(kind)
+                || (!placed.contains(kind)
+                    && source.world_provider.as_deref().is_none_or(|owner| Some(owner) == provider))
+        })
         .filter(|(kind, _)| !assets.characters.props.contains_key(*kind))
         .collect();
     if missing.is_empty() {
@@ -124,17 +167,10 @@ pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition
     let quality = ambition_persistence::settings::ResolvedVisualQuality::current(quality.as_deref(), settings.as_deref())
         .budget
         .clone();
-    for (kind, source) in missing {
-        match load_prop_sheet(&sprite_content, source, &config, Some(&catalog), &asset_server, &mut layouts, Some(&quality)) {
-            Some(asset) => {
-                assets.characters.props.insert(kind.to_string(), asset);
-            }
-            None => bevy::log::warn_once!(
-                "the prop sheet for `{kind}` does not load under the {} profile; it draws as a placeholder",
-                catalog.profile().label(),
-            ),
-        }
-    }
+    load_prop_sheets(
+        &sprite_content, missing.into_iter(), &config, &catalog, &asset_server,
+        &mut layouts, Some(&quality), &mut assets.characters.props,
+    );
 }
 
 /// Restate one provider's rows (`previous` are the kinds it owned), load
@@ -143,12 +179,13 @@ pub fn load_the_prop_sheets_in_reach(sprite_content: bevy::prelude::Res<ambition
 /// changes. Each content reload that restates prop sheets calls this.
 pub fn restate_prop_sheet_rows(
     world: &mut World,
+    world_provider: &str,
     previous: &[String],
     rows: &ambition_sprite_sheet::prop_sheets::PropSheetRows,
 ) -> Result<Vec<String>, String> {
     let kinds = world
         .get_resource_or_insert_with(PropSheets::default)
-        .restate(previous.iter().map(String::as_str), rows)?;
+        .restate(world_provider, previous.iter().map(String::as_str), rows)?;
     let dropped: Vec<String> = previous.iter().filter(|kind| !kinds.contains(kind)).cloned().collect();
     reload_prop_sheets(world, &dropped, &kinds);
     Ok(kinds)
@@ -252,10 +289,9 @@ fn reload_prop_sheets(world: &mut World, dropped: &[String], kinds: &[String]) {
     }
 }
 
-/// Load every registered prop sheet. A row that does not load draws as the
-/// placeholder quad, as an absent sheet always has.
-fn load_prop_sheets(sprite_content: &ambition_sprite_sheet::SpriteContent,
-    sheets: &PropSheets,
+/// Load the requested sheets that have no resident handles.
+fn load_prop_sheets<'a>(sprite_content: &ambition_sprite_sheet::SpriteContent,
+    sheets: impl Iterator<Item = (&'a str, &'a PropSheetSource)>,
     config: &GameAssetConfig,
     catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
@@ -263,13 +299,16 @@ fn load_prop_sheets(sprite_content: &ambition_sprite_sheet::SpriteContent,
     quality: Option<&VisualQualityBudget>,
     props: &mut HashMap<String, ambition_sprite_sheet::character::CharacterSpriteAsset>,
 ) {
-    for (kind, source) in sheets.iter() {
+    for (kind, source) in sheets {
+        if props.contains_key(kind) {
+            continue;
+        }
         let asset = load_prop_sheet(&sprite_content, source, config, Some(catalog), asset_server, layouts, quality);
         match asset {
             Some(asset) => {
                 props.insert(kind.to_string(), asset);
             }
-            None => bevy::log::warn!(
+            None => bevy::log::warn_once!(
                 target: "ambition_platformer2d::character_sprites",
                 "the prop sheet for `{kind}` does not load under the {} profile; it draws as a placeholder",
                 catalog.profile().label(),
@@ -307,7 +346,7 @@ pub fn load_game_assets(sprite_content: &ambition_sprite_sheet::SpriteContent,
         quality,
     );
     load_prop_sheets(&sprite_content,
-        prop_sheets,
+        prop_sheets.iter(),
         config,
         catalog,
         asset_server,

@@ -222,6 +222,10 @@ pub struct TitleScreenPlugin;
 
 impl Plugin for TitleScreenPlugin {
     fn build(&self, app: &mut App) {
+        #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
+        if !app.is_plugin_added::<crate::menu::build_label::BuildLabelPlugin>() {
+            app.add_plugins(crate::menu::build_label::BuildLabelPlugin);
+        }
         app.add_systems(
             Update,
             (

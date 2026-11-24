@@ -183,6 +183,7 @@ pub(crate) fn prepare_first_room_art_system(sprite_content: bevy::prelude::Res<c
                 );
                 let manifest = build_room_asset_manifest(&sprite_content,
                     room,
+                    &context.props,
                     &staged_actor_names,
                     assets,
                     catalog,

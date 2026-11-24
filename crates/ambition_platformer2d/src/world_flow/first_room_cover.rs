@@ -45,6 +45,7 @@ pub(crate) fn cover_first_room(
     time: Res<Time<Real>>,
     roots: Query<Entity, With<FirstRoomCoverRoot>>,
     styles: Option<Res<RoomTransitionStyles>>,
+    #[cfg(feature = "audio")] music: crate::audio::music::playback::EntranceMusic,
 ) {
     cover.update = cover.update.saturating_add(1);
     let preparing = sessions.as_deref().is_some_and(|sessions| sessions.published().next().is_some());
@@ -93,8 +94,12 @@ pub(crate) fn cover_first_room(
             // other than it was and not 0.
             let ticked = tick != activated_at && tick > 0;
             let settled = settling.as_deref().is_none_or(PresentationSettling::is_empty);
+            #[cfg(feature = "audio")]
+            let pending_music = music.pending();
+            #[cfg(not(feature = "audio"))]
+            let pending_music: Option<&str> = None;
             let update = cover.update;
-            let presented = cover.presented.observe(update, ticked && settled);
+            let presented = cover.presented.observe(update, ticked && settled && pending_music.is_none());
             let waited = time.elapsed().saturating_sub(since);
             if !presented {
                 if waited < PRESENTATION_DEADLINE {
@@ -102,7 +107,7 @@ pub(crate) fn cover_first_room(
                 }
                 bevy::log::warn!(
                     target: "ambition_app::first_room_cover",
-                    "first room revealed after {:.0} ms with the room still coming in (ticked={ticked}): {:?}",
+                    "first room revealed after {:.0} ms (ticked={ticked}, pending music={pending_music:?}): {:?}",
                     waited.as_secs_f64() * 1000.0,
                     settling.as_deref().map(PresentationSettling::pending).unwrap_or_default(),
                 );

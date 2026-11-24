@@ -88,6 +88,64 @@ impl Output {
 }
 
 #[test]
+fn the_entrance_waits_for_its_own_music_admission() {
+    use crate::music::{MusicChoice, MusicClaim, MusicGoal, MusicIntent, MusicSelection};
+    use ambition_sfx::AudioContextOwner;
+    use bevy::ecs::system::RunSystemOnce;
+
+    let mut app = App::new();
+    let mut output = Output::default();
+    let mut playback = MusicPlayback::default();
+    playback.request(output.request("previous_room", 1, true));
+    playback.advance(&mut output, 0.0, 1.0);
+    playback.advance(&mut output, 0.1, 1.0);
+    assert!(playback.desired_is_running());
+
+    let goal = MusicGoal::Play(MusicSelection {
+        provider: "game".into(),
+        generation: 1,
+        claim: MusicClaim {
+            context: AudioContextOwner::Direct,
+            session: None,
+            scope: Some(0),
+            source: "room:entrance".into(),
+            attempt: 0,
+        },
+        release_owner: None,
+        choice: MusicChoice::Track("entrance".into()),
+        continuity: super::super::MusicContinuity::SharedProgram,
+        entry_policy: super::super::MusicEntryPolicy::ContinueCompatible,
+        phase_policy: MusicPhasePolicy::default(),
+        priority: 10,
+        crossfade_s: 0.0,
+        completed_state: None,
+    });
+    app.insert_resource(MusicIntent {
+        context: Some(AudioContextOwner::Direct),
+        goal: Some(goal),
+        revision: 2,
+        ..default()
+    });
+    app.insert_resource(playback);
+    let pending = |app: &mut App| {
+        app.world_mut()
+            .run_system_once(|music: EntranceMusic| music.pending().is_some())
+            .unwrap()
+    };
+    assert!(pending(&mut app), "the previous room's playing track is insufficient");
+    let mut request = output.request("entrance", 1, true);
+    request.goal_revision = 2;
+    app.world_mut().resource_mut::<MusicPlayback>().request(request);
+    app.world_mut().resource_mut::<MusicPlayback>().advance(&mut output, 0.2, 1.0);
+    assert!(pending(&mut app), "a submitted track still needs admission");
+    app.insert_resource(crate::web_unlock::AudioUnlockState::default());
+    assert!(!pending(&mut app), "a locked device can only start after user input");
+    app.world_mut().remove_resource::<crate::web_unlock::AudioUnlockState>();
+    app.world_mut().resource_mut::<MusicPlayback>().advance(&mut output, 0.3, 1.0);
+    assert!(!pending(&mut app), "the entrance track is playing");
+}
+
+#[test]
 fn fresh_playback_cannot_be_stopped_by_either_previous_storage_slot() {
     for replacements in [0, 1] {
         let mut playback = MusicPlayback::default();

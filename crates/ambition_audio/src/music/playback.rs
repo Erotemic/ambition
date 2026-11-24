@@ -1299,5 +1299,48 @@ pub fn add_music_playback(app: &mut App) {
     }
 }
 
+/// The output state that a local entrance cover can wait for.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct EntranceMusic<'w> {
+    playback: Option<Res<'w, MusicPlayback>>,
+    intent: Option<Res<'w, super::MusicIntent>>,
+    mix: Option<Res<'w, MusicMix>>,
+    unlock: Option<Res<'w, crate::web_unlock::AudioUnlockState>>,
+    conditions: Option<Res<'w, crate::output::AudioPlaybackConditions>>,
+    output: Option<Res<'w, crate::output::AudioOutputMode>>,
+}
+
+impl EntranceMusic<'_> {
+    /// Return the music goal that still needs output admission.
+    /// If the device cannot play now, let the cover lift.
+    pub fn pending(&self) -> Option<&super::MusicChoice> {
+        let intent = self.intent.as_deref()?;
+        let playback = self.playback.as_deref()?;
+        if !crate::output::emits_to_device(self.output.as_deref())
+            || self.mix.as_deref().is_some_and(|mix| mix.effective_music() <= 0.0)
+            || self.unlock.as_deref().is_some_and(|unlock| !unlock.unlocked)
+            || self.conditions.as_deref().is_some_and(|conditions| conditions.device_suspended)
+        {
+            return None;
+        }
+        let Some(super::MusicGoal::Play(goal)) = intent.goal.as_ref() else {
+            return None;
+        };
+        if Some(goal.claim.context) != intent.context
+            || !matches!(
+                goal.claim.context,
+                ambition_sfx::AudioContextOwner::Gameplay(_) | ambition_sfx::AudioContextOwner::Direct
+            )
+        {
+            return None;
+        }
+        let running = playback.desired_is_running()
+            && playback.current().is_some_and(|group| group.goal_revision() == intent.revision);
+        let completed = playback.outcome() == MusicRequestOutcome::Completed
+            && playback.desired.as_ref().is_some_and(|request| request.goal_revision == intent.revision);
+        (!running && !completed).then_some(&goal.choice)
+    }
+}
+
 #[cfg(test)]
 mod tests;

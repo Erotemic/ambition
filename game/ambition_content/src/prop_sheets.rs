@@ -31,7 +31,7 @@ pub(crate) struct AmbitionPlatformLooks(pub(crate) Vec<String>);
 pub(super) fn register(app: &mut App) {
     let pack = crate::pack::select(app.world_mut());
     let rows = ambition_sprite_sheet::prop_sheets::lowered_prop_sheets(&pack).cloned().unwrap_or_default();
-    let kinds = app.register_prop_sheet_rows(&rows);
+    let kinds = app.register_prop_sheet_rows(crate::AMBITION_CONTENT_PROVIDER, &rows);
     app.insert_resource(AmbitionPropSheets(kinds));
     let looks = ambition_sprite_sheet::prop_sheets::lowered_platform_looks(&pack).cloned().unwrap_or_default();
     let kinds = app.register_platform_look_rows(&looks);
@@ -95,7 +95,7 @@ mod tests {
         register(&mut app);
         app.register_prop_sheet(
             "super_mary_o_lift",
-            PropSheetSource { target: "super_mary_o_lift".into(), tuning: Default::default(), packed: false, backdrop: false },
+            PropSheetSource { world_provider: None, target: "super_mary_o_lift".into(), tuning: Default::default(), packed: false, backdrop: false },
         );
         let ours = app.world().resource::<AmbitionPropSheets>().0.clone();
         let mut next = lowered_prop_sheets(crate::pack::shipped()).cloned().unwrap();

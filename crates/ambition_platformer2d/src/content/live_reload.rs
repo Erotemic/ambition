@@ -109,11 +109,11 @@ impl EmbeddedPackReloadPlugin {
     /// The pack's `prop_sheets`, registered once at start
     /// (`register_prop_sheet_rows`), restated at each publication that
     /// changes them; their sheets are loaded again.
-    pub fn prop_sheets(pack: &'static EmbeddedPack) -> Self {
+    pub fn prop_sheets(pack: &'static EmbeddedPack, world_provider: &'static str) -> Self {
         use crate::sprite_sheet::prop_sheets::{lowered_prop_sheets, PROP_SHEETS_SCHEMA};
         let rows = |pack: &PreparedContentPack| lowered_prop_sheets(pack).cloned().unwrap_or_default();
         Self::owning_rows(pack, PROP_SHEETS_SCHEMA, rows(&pack.prepared()).into_keys().collect(), move |world, owned, pack| {
-            crate::game_assets::restate_prop_sheet_rows(world, owned, &rows(pack))
+            crate::game_assets::restate_prop_sheet_rows(world, world_provider, owned, &rows(pack))
         })
     }
 
@@ -942,11 +942,11 @@ mod tests {
         );
         let mut app = App::new();
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
-        app.register_prop_sheet_rows(&rows_of(&pack.prepared()));
+        app.register_prop_sheet_rows("owned_rows", &rows_of(&pack.prepared()));
         let (foreign, foreign_root) = pack_with("owned_rows_foreign", "data/prop_sheets.ron", "prop_sheets", r#"{ "foreign_prop": () }"#);
-        app.register_prop_sheet_rows(&rows_of(&foreign.prepared()));
+        app.register_prop_sheet_rows("foreign", &rows_of(&foreign.prepared()));
         let _ = std::fs::remove_dir_all(foreign_root);
-        app.add_plugins(EmbeddedPackReloadPlugin::prop_sheets(pack));
+        app.add_plugins(EmbeddedPackReloadPlugin::prop_sheets(pack, "owned_rows"));
         let kinds = |app: &App| {
             let mut kinds: Vec<String> =
                 app.world().resource::<PropSheets>().iter().map(|(kind, _)| kind.to_string()).collect();
@@ -962,11 +962,11 @@ mod tests {
         assert_eq!(kinds(&app), ["foreign_prop", "probe_new", "probe_prop"]);
         let mut authority = App::new();
         authority.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
-        authority.register_prop_sheet_rows(&rows_of(&EmbeddedPack::rooted(pack.root_on_disk().unwrap(), None).compile().unwrap()));
+        authority.register_prop_sheet_rows("owned_rows", &rows_of(&EmbeddedPack::rooted(pack.root_on_disk().unwrap(), None).compile().unwrap()));
         assert_eq!(source_of(&app, "probe_prop"), source_of(&authority, "probe_prop"), "the row is the saved file's");
         assert_ne!(source_of(&app, "probe_prop"), source_of(&{
             let mut before = App::new();
-            before.register_prop_sheet_rows(&rows_of(&{
+            before.register_prop_sheet_rows("owned_rows", &rows_of(&{
                 let (old, old_root) = pack_with("owned_rows_before", "data/prop_sheets.ron", "prop_sheets", r#"{ "probe_prop": (frame_sample_inset: 2) }"#);
                 let compiled = old.compile().unwrap();
                 let _ = std::fs::remove_dir_all(old_root);

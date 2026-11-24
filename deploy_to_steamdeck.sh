@@ -63,7 +63,7 @@ if [[ -z "${CARGO_INCREMENTAL:-}" ]]; then
     export CARGO_INCREMENTAL=0
 fi
 
-cargo build \
+AMBITION_STAMP_BUILD=1 cargo build \
     -p ambition_app \
     --bin "$BIN" \
     --release \

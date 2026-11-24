@@ -149,6 +149,7 @@ pub(crate) struct RoomPreparationPrefetchState {
 /// absent.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct RoomTransitionAssetContext<'w, 's> {
+    pub(crate) props: crate::game_assets::RoomPropSheets<'w>,
     pub(crate) assets: Option<ResMut<'w, GameAssets>>,
     pub(crate) catalog: Option<Res<'w, Platformer2dAssetCatalog>>,
     pub(crate) asset_server: Option<Res<'w, AssetServer>>,
@@ -553,19 +554,9 @@ fn add_room_specific_sprites(
         }
     }
 
-    for prop in &room.props {
-        if let Some(asset) = assets.characters.prop_asset_for_kind(&prop.kind) {
-            add_character_asset(draft, &format!("prop:{}", prop.kind), asset);
-        }
-    }
-
-    // A platform that is drawn as a sheet (the cart of the intro, a shark).
-    // Without this the room shows before its art, and the platform is a plain
-    // rectangle for its first frames.
-    for platform in &room.moving_platforms {
-        let asset = platform.visual.as_deref().and_then(|kind| assets.characters.prop_asset_for_kind(kind));
-        if let Some(asset) = asset {
-            add_character_asset(draft, &format!("platform:{}", platform.id), asset);
+    for kind in crate::game_assets::room_prop_kinds(room).collect::<BTreeSet<_>>() {
+        if let Some(asset) = assets.characters.prop_asset_for_kind(kind) {
+            add_character_asset(draft, &format!("prop:{kind}"), asset);
         }
     }
 
@@ -592,14 +583,8 @@ fn add_room_specific_sprites(
                     add_named_character(draft, assets, &character_id);
                 }
             }
-            PlacementSchema::Pickup(spec) => {
-                if let Some(kind) = spec.sprite.as_deref() {
-                    if let Some(asset) = assets.characters.prop_asset_for_kind(kind) {
-                        add_character_asset(draft, &format!("pickup-prop:{kind}"), asset);
-                    }
-                }
-            }
-            PlacementSchema::Hazard(_)
+            PlacementSchema::Pickup(_)
+            | PlacementSchema::Hazard(_)
             | PlacementSchema::Chest(_)
             | PlacementSchema::Breakable(_)
             | PlacementSchema::Portal(_) => {}
@@ -647,6 +632,7 @@ fn add_room_specific_sprites(
 /// room remains authoritative.
 pub(crate) fn build_room_asset_manifest(sprite_content: &crate::sprite_sheet::SpriteContent,
     room: &RoomSpec,
+    props: &crate::game_assets::RoomPropSheets<'_>,
     staged_actor_names: &[String],
     assets: &mut GameAssets,
     catalog: &Platformer2dAssetCatalog,
@@ -660,6 +646,7 @@ pub(crate) fn build_room_asset_manifest(sprite_content: &crate::sprite_sheet::Sp
     worn: &[String],
     retire_all_but: Option<&RoomResidencyOwners>,
 ) -> RoomAssetManifest {
+    props.prepare(room, sprite_content, assets, catalog, asset_server, layouts, &quality.budget);
     ensure_parallax_layers_for_room(&sprite_content,
         assets,
         catalog,
@@ -1062,6 +1049,7 @@ pub(crate) fn contribute_room_transition_assets_system(sprite_content: bevy::pre
     );
     let manifest = build_room_asset_manifest(&sprite_content,
         target_spec,
+        &context.props,
         &active.staged_actor_names,
         assets,
         catalog,
@@ -1506,8 +1494,9 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     ),
     // Grouped to stay under Bevy's SystemParam arity limit: where the players
     // stand ranks the neighbours (`neighbour_prefetch_set`).
-    (quality, drivers): (
+    (quality, props, drivers): (
         Res<ResolvedVisualQuality>,
+        crate::game_assets::RoomPropSheets,
         bevy::prelude::Query<
             (bevy::prelude::Entity, &crate::actor::BodyKinematics),
             bevy::prelude::With<crate::characters::control::DrivingParticipant>,
@@ -1757,6 +1746,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
         // character (the start ration's worth) and left the rest for the door.
         let manifest = build_room_asset_manifest(&sprite_content,
             room,
+            &props,
             &staged_names,
             &mut assets,
             &catalog,

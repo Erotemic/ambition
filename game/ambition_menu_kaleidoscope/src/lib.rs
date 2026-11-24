@@ -544,11 +544,8 @@ fn setup_cube<PageId: Send + Sync + 'static, Action: Send + Sync + 'static>(
             // when its optional LUT payload is trimmed, Bevy substitutes a magenta
             // diagnostic texture. `None` is both the intended look and the cheap path.
             Tonemapping::None,
-            // A Camera3d composited over a Camera2d on the same window MUST share its
-            // sample count or it renders its clear but drops all geometry. The game's
-            // Camera2d uses Bevy's default (Sample4); pin the same value explicitly.
-            // (A/B evidence also showed `Msaa::Off` recovers no frame time, so there
-            // is no perf reason to diverge.)
+            // A window host sets one sample count on all its cameras before
+            // rendering. A standalone cube uses Bevy's default count.
             Msaa::Sample4,
             Camera {
                 order: config.camera_order,

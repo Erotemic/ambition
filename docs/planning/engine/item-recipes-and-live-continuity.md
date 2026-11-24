@@ -163,8 +163,40 @@ extent and was rebuilt at that default. Witness:
 words, and the pre-v12 row). The rollback codec shape is unchanged (the item
 and baseline roll back by clone).
 
-**Open in IR1:** an end-to-end room and custody reconstruction witness with a
-shipped regrown coconut, and naming the other retained item fields.
+### IR1 done (2026-11-24)
+
+**End-to-end witness:** `a_regrown_coconut_keeps_its_extent_through_both_reconstructions`
+(app_it, `the_primeval_trail`). The trailhead palm regrows
+`primeval_trailhead_coconut_1` at its authored extent (not the universal
+one). The room road: the trailhead unloads (the entity is gone in the hub)
+and its build places the occurrence again at that extent. The custody road:
+the coconut is banked in hand at a checkpoint, left in the hub so its
+entity goes with that room, and a death rebuilds it in the hand from the
+checkpoint's description at the same extent.
+
+**What a reconstruction retains, by owner:**
+
+| Fact | Retained by | Note |
+| --- | --- | --- |
+| Identity (`SimId`) and provenance (`SpawnOrigin`) | the minted description | the rebuilt object is the same occurrence, visible to the next capture |
+| Item spec (`held_item`, a catalog reference) | the minted description | resolved at restore; a spec edited out of the catalog is reported, not guessed |
+| Canonical extent (`half_extent`) | the minted description | save v12 words; a pre-v12 row keeps the default it was rebuilt at |
+| Custody (held by whom, or in the world) | the custody baseline | unchanged by IR1 |
+| Where an in-world occurrence lies | the occurrence ledger | unchanged by IR1 |
+
+**Not retained, deliberately:** a rebuild is at rest.
+
+- **Hanging state** (`HangingItem`): both the remaining timer and the
+  placement's initial hang policy. The policy belongs to the authored
+  placement and applies to a fresh growth. A rebuilt grown apple rests
+  where its row places it and does not hang again.
+- **Flight state:** velocity, `SettledItem` and the release kind
+  (`ReleasedAs`, which arms a thrown bomb's fuse).
+- **Holder-derived material** (`HeldMaterialBasis`): re-derived from the
+  holder at the rebuild.
+
+Making any of these durable is a separate decision with its own owner. Do
+not add it to the description by default.
 
 ## IR2 — read native item continuity
 

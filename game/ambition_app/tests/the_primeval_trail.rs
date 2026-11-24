@@ -691,3 +691,80 @@ fn a_european_pair_drops_its_coconut_when_a_partner_is_driven() {
     assert_eq!(world.get::<ReleasedAs>(item), Some(&ReleasedAs(Release::Drop)), "dropped, not thrown");
     assert!(world.get::<SupportedCarry>(leader).is_none(), "the sling ends");
 }
+
+/// IR1: a shipped regrown coconut keeps the extent its palm minted it at
+/// through both reconstruction roads. The room road: leave the trailhead and
+/// come back, and the room build places the occurrence again. The custody
+/// road: bank it in hand at a checkpoint, leave it in the hub's room so its
+/// entity goes with that room, and die; the restore rebuilds it in the hand
+/// from the checkpoint's description. Before IR1 both rebuilt a universal
+/// minted extent, whatever the palm grew.
+#[cfg(feature = "rl_sim")]
+#[test]
+fn a_regrown_coconut_keeps_its_extent_through_both_reconstructions() {
+    use ambition_platformer2d::held_items::{GroundItem, ItemCustody, MINTED_ITEM_HALF_EXTENT};
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    use crate::breakable_respawn_across_rooms::cross_to;
+    use crate::death_restores_the_checkpoint::{commit_a_checkpoint, die};
+    const HUB: &str = "central_hub_complex";
+    const TRAILHEAD: &str = "primeval_trailhead";
+    let occurrence = |sim: &mut Platformer2dSimHarness, id: &SimId| -> Vec<(ae::Vec2, ae::Vec2, ItemCustody)> {
+        let world = sim.world_mut();
+        let mut items = world.query::<(&SimId, &GroundItem, &ItemCustody, &ae::BodyKinematics)>();
+        items.iter(world).filter(|(sim_id, ..)| *sim_id == id).map(|(_, item, custody, kin)| (item.half_extent, kin.pos, *custody)).collect()
+    };
+
+    let mut sim = room(TRAILHEAD);
+    let placement = SimId::placement("primeval_trailhead_coconut_1");
+    let grown = SimId::regrown(&placement, 1);
+    {
+        let world = sim.world_mut();
+        let mut items = world.query::<(&SimId, &mut ae::BodyKinematics)>();
+        let (_, mut kin) = items.iter_mut(world).find(|(id, _)| **id == placement).expect("the trailhead places its first coconut");
+        kin.pos.x += 600.0;
+    }
+    let mut minted = None;
+    for _ in 0..60 * 40 {
+        sim.step(AgentAction::default());
+        if let [(extent, ..)] = occurrence(&mut sim, &grown)[..] {
+            minted = Some(extent);
+            break;
+        }
+    }
+    let extent = minted.expect("the palm grew its coconut again in 40 s");
+    assert_ne!(extent, MINTED_ITEM_HALF_EXTENT, "premise: the palm grows a coconut at its own extent, not the universal one");
+
+    assert_eq!(cross_to(&mut sim, HUB), HUB);
+    assert!(occurrence(&mut sim, &grown).is_empty(), "premise: the coconut's entity left with the trailhead's room");
+    assert_eq!(cross_to(&mut sim, TRAILHEAD), TRAILHEAD);
+    sim.step_n(base(), 2);
+    let rebuilt = occurrence(&mut sim, &grown);
+    assert!(
+        matches!(rebuilt[..], [(e, _, custody)] if e == extent && custody.in_world()),
+        "the room road rebuilds the regrown coconut once, at {extent:?}: {rebuilt:?}"
+    );
+
+    let at = rebuilt[0].1;
+    for _ in 0..40 {
+        sim.teleport_player((at.x, at.y));
+        sim.step(AgentAction { attack: true, ..base() });
+        sim.step(base());
+        if occurrence(&mut sim, &grown).iter().any(|(.., custody)| !custody.in_world()) {
+            break;
+        }
+    }
+    assert!(occurrence(&mut sim, &grown).iter().any(|(.., custody)| !custody.in_world()), "the regrown coconut is in hand");
+    commit_a_checkpoint(&mut sim);
+    assert_eq!(cross_to(&mut sim, HUB), HUB);
+    sim.step_frame(ae::ControlFrame { attack_pressed: true, shield_held: true, ..ae::ControlFrame::default() });
+    sim.step_n(base(), 30);
+    assert_eq!(cross_to(&mut sim, TRAILHEAD), TRAILHEAD);
+    assert!(occurrence(&mut sim, &grown).is_empty(), "premise: the coconut's entity left with the hub's room");
+
+    die(&mut sim);
+    let restored = occurrence(&mut sim, &grown);
+    assert!(
+        matches!(restored[..], [(e, _, custody)] if e == extent && !custody.in_world()),
+        "the custody road rebuilds the banked coconut in hand, at {extent:?}: {restored:?}"
+    );
+}

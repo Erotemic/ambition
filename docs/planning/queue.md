@@ -620,7 +620,9 @@ mirror. Count whole-map copies, baseline/hash work and export rows while one
 item moves beside increasing dormant populations. The correctness packet IR1
 can land independently of the later storage change. (IR1's extent slice landed 2026-11-22: a
 minted item keeps the canonical extent its mint chose, through the save and
-both reconstruction roads.)
+both reconstruction roads. IR1 is done 2026-11-24: a shipped regrown
+coconut keeps its extent through the room and custody roads end to end, and
+the retained/not-retained item fields are named on the owner page.)
 IR4 then coalesces pose-only disk output at a finite interval. Prompt semantic
 writes, confirmation, save-owner identity and checkpoint retention remain
 explicit. Measure with persistence enabled; current autosave can otherwise
@@ -3267,8 +3269,9 @@ match items have identity and no provenance.
 1. [IR1](engine/item-recipes-and-live-continuity.md#ir1--retain-the-recipe-chosen-at-mint)
    has retained canonical extent and both reconstruction readers since
    2026-11-22. Keep its [first-slice receipt](engine/item-recipes-and-live-continuity.md#ir1-first-slice-done-2026-11-22).
-   The shipped native reconstruction witness and other retained fields
-   remain open; do not redo the extent migration.
+   The shipped native reconstruction witness and the retained-field table
+   landed 2026-11-24 ([IR1 done](engine/item-recipes-and-live-continuity.md#ir1-done-2026-11-24));
+   IR1 is complete. Do not redo the extent migration.
 2. IR2 moves dormant recipe readers off the save codec. IR3 keeps active
    pose in the live body, captures retained state at accepted boundaries and
    removes motion-driven dormant work. Preserve the atomic horizon receipt

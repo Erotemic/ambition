@@ -66,6 +66,19 @@ Do not prefix the build with `AMBITION_AUTOPLAY=...`: that is a different,
 compile-time mechanism. The one-shot CLI settings are also removed on failure.
 Open the installed game from its icon after the capture to play normally.
 
+## Sanic Act 3 profiling on Android
+
+This profile starts in Act 3 and holds Right through its ground route and
+portals. After the normal results card, it replays Act 3. It uses the shared
+scripted input and room replay paths.
+
+```bash
+scripts/measure/autoprofile_android.sh sanic_act3 --warmup 25 --duration 30
+```
+
+The launch settings apply to this capture only. A normal launch still starts
+in Act 1. This route does not visit every optional road or portal.
+
 ## Clip transitions of one fighter
 
 `pose_transitions.py` reads a published sprite target's parts and reports, for

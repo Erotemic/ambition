@@ -27,8 +27,18 @@ pub struct SanicSessionWorld {
 }
 
 /// Which act a session enters at. Set once, before the app is built, by a
-/// binary's `--act` flag; unset means Act 1.
+/// binary's `--act` flag. The Act 3 profile selects Act 3 when this is unset.
 static START_ROOM: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+fn start_room() -> &'static str {
+    START_ROOM.get().map(String::as_str).unwrap_or_else(|| {
+        if ambition_platformer2d::scripted_input::autoplay_from_env().as_deref() == Some(crate::autoplay::ACT3_PROFILE) {
+            crate::DARKNESS_ROOM_ID
+        } else {
+            SPEEDWAY_ROOM_ID
+        }
+    })
+}
 
 /// Enter the session at act `act` (1, 2, or 3) instead of Act 1: for playing or
 /// photographing a later act without finishing the ones before it. Call before
@@ -45,7 +55,7 @@ pub fn start_at_act(act: u32) -> Result<(), String> {
 }
 
 pub fn sanic_session_world(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent) -> SanicSessionWorld {
-    let start = START_ROOM.get().map_or(SPEEDWAY_ROOM_ID, String::as_str);
+    let start = start_room();
     let rooms = vec![sanic_speedway(sprite_content), sanic_highway(sprite_content), sanic_darkness(sprite_content)];
     let geometry = ae::RoomGeometry(
         rooms
@@ -67,7 +77,7 @@ pub fn sanic_session_world(sprite_content: &ambition_platformer2d::sprite_sheet:
 /// Read the starting room's theme before sprite preparation and activation.
 pub fn sanic_starting_room_metadata() -> ambition_platformer2d::world::rooms::RoomMetadata {
     use ambition_platformer2d::ldtk_map::LdtkProject;
-    let start = START_ROOM.get().map_or(SPEEDWAY_ROOM_ID, String::as_str);
+    let start = start_room();
     for world in [&crate::SPEEDWAY_WORLD, &crate::HIGHWAY_WORLD, &crate::DARKNESS_WORLD] {
         let project = LdtkProject::from_json_str(&crate::world_text(world))
             .expect("the Sanic world must parse");

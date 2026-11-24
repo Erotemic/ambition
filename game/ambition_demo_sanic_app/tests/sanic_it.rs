@@ -13,6 +13,7 @@
 mod sanic_it_sync;
 
 mod act_completion;
+mod autoplay;
 mod act_two_routes;
 mod badniks_are_squashed;
 mod badniks_walk_slopes;

@@ -1850,10 +1850,11 @@ impl World {
         let mut contacts = Vec::new();
         for (part,bounds) in cells.bounded_parts() {
             let Some(bounds) = bounds else { continue; };
+            let probe = cells.polygon_axis_probe(part, direction);
             for block in self.blocks.swept_near(bounds) {
                 let a = block.aabb;
                 let polygon = [a.min, Vec2::new(a.max.x, a.min.y), a.max, Vec2::new(a.min.x, a.max.y)];
-                if let Some(contact) = cells.polygon_axis_contact(part, &polygon, direction)? {
+                if let Some(contact) = probe.contact(&polygon)? {
                     contacts.push((MaterialCollider::Block(block), contact));
                 }
             }
@@ -1865,7 +1866,7 @@ impl World {
                         reason: crate::frame::thread::RefusalReason::Numeric(crate::frame::NumericFault::NonFinite) });
                 }
                 if chain.closed && chain.kind == SurfaceKind::Solid && chain.points.len() >= 3 {
-                    if let Some(contact) = cells.polygon_axis_contact(part, &chain.points, direction)? {
+                    if let Some(contact) = probe.contact(&chain.points)? {
                         let point = contact.contact.world_point;
                         let segment = (0..chain.segment_count()).min_by(|a, b| {
                             let distance = |segment| {

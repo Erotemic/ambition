@@ -8,7 +8,7 @@ pub(crate) struct PolygonAxisContact {
     pub contact: MaterialCastHit,
 }
 
-impl MaterialCastCells<'_> {
+impl<'a> MaterialCastCells<'a> {
     /// Check the occupied material against a physical support half-plane.
     pub(crate) fn in_front_of(
         &self, part: &MaterialCell, time: f64, point: DVec2, outward: DVec2,
@@ -40,31 +40,63 @@ impl MaterialCastCells<'_> {
         Ok(contacts)
     }
 
-    /// Find the nearest free position along a root-chart axis at tick end.
+    pub(crate) fn polygon_axis_probe<'c>(&'c self, part: &'c MaterialCell, direction: Vec2) -> PolygonAxisProbe<'c, 'a> {
+        PolygonAxisProbe { cells: self, part, direction, prepared: std::cell::OnceCell::new() }
+    }
+
     pub(crate) fn polygon_axis_contact(
         &self, part: &MaterialCell, obstacle: &[Vec2], direction: Vec2,
     ) -> Result<Option<PolygonAxisContact>, Refusal> {
-        if self.time.start != self.time.end || self.source.delta != DVec2::ZERO || self.source.rotation.is_some() {
-            return Err(numeric_at(part, NumericFault::InvalidFrame));
-        }
-        if obstacle.len() >= 3 && !self.collider_may_occupy(part, obstacle, Vec2::ZERO) { return Ok(None); }
-        let body = self.source_polygon().ok_or_else(|| numeric_at(part, NumericFault::InvalidFrame))?;
-        let root = self.source.map_at(1.0).map_err(|fault| numeric_at(part, fault))?;
+        self.polygon_axis_probe(part, direction).contact(obstacle)
+    }
+}
+
+/// Static candidates share the cell's maps and clipped source material.
+pub(crate) struct PolygonAxisProbe<'c, 'a> {
+    cells: &'c MaterialCastCells<'a>,
+    part: &'c MaterialCell,
+    direction: Vec2,
+    prepared: std::cell::OnceCell<Result<StaticMaterial<'c>, Refusal>>,
+}
+
+struct StaticMaterial<'c> {
+    body: &'c [DVec2],
+    root: Sim2,
+    inverse: Sim2,
+    direction: DVec2,
+    planes: Vec<translation::PlaneMotion>,
+    has_area: bool,
+}
+
+impl<'c> PolygonAxisProbe<'c, '_> {
+    fn prepare(&self) -> Result<StaticMaterial<'c>, Refusal> {
+        let part = self.part;
+        let body = self.cells.source_polygon().ok_or_else(|| numeric_at(part, NumericFault::InvalidFrame))?;
+        let root = self.cells.source.map_at(1.0).map_err(|fault| numeric_at(part, fault))?;
         let inverse = root.inverse().map_err(|fault| numeric_at(part, fault))?;
-        let direction = inverse.direction_wide(direction.as_dvec2()) * inverse.scale_wide();
-        let pose = part.at(1.0).map_err(|fault| numeric_at(part, fault))?;
-        let inverse = pose.inverse().map_err(|fault| numeric_at(part, fault))?;
-        let mut region: Vec<_> = obstacle.iter().map(|point| inverse.point_wide(point.as_dvec2())).collect();
-        if region.iter().any(|point| !point.is_finite()) { return Err(numeric_at(part, NumericFault::NonFinite)); }
+        let direction = inverse.direction_wide(self.direction.as_dvec2()) * inverse.scale_wide();
+        let inverse = part.at(1.0).and_then(|pose| pose.inverse()).map_err(|fault| numeric_at(part, fault))?;
         let planes = part.planes_at(1.0).map_err(|fault| numeric_at(part, fault))?
             .ok_or_else(|| numeric_at(part, NumericFault::InvalidFrame))?;
         let mut material = std::borrow::Cow::Borrowed(body);
-        for plane in planes {
-            region = clip(&region, plane.plane);
-            material = std::borrow::Cow::Owned(clip(&material, plane.plane));
+        for plane in &planes { material = std::borrow::Cow::Owned(clip(&material, plane.plane)); }
+        let has_area = crate::frame::thread::has_area(&material);
+        Ok(StaticMaterial { body, root, inverse, direction, planes, has_area })
+    }
+
+    /// Find the nearest free position along a root-chart axis at tick end.
+    pub(crate) fn contact(&self, obstacle: &[Vec2]) -> Result<Option<PolygonAxisContact>, Refusal> {
+        if self.cells.time.start != self.cells.time.end || self.cells.source.delta != DVec2::ZERO || self.cells.source.rotation.is_some() {
+            return Err(numeric_at(self.part, NumericFault::InvalidFrame));
         }
+        if obstacle.len() >= 3 && !self.cells.collider_may_occupy(self.part, obstacle, Vec2::ZERO) { return Ok(None); }
+        let prepared = self.prepared.get_or_init(|| self.prepare()).as_ref().map_err(Clone::clone)?;
+        let StaticMaterial { body, root, inverse, direction, planes, has_area } = prepared;
+        let mut region: Vec<_> = obstacle.iter().map(|point| inverse.point_wide(point.as_dvec2())).collect();
+        if region.iter().any(|point| !point.is_finite()) { return Err(numeric_at(self.part, NumericFault::NonFinite)); }
+        for plane in planes { region = clip(&region, plane.plane); }
         // Boundary strata carry crossing events, not static support.
-        if !crate::frame::thread::has_area(&material) { return Ok(None); }
+        if !has_area { return Ok(None); }
         if region.is_empty() || obstacle.len() >= 3 && !crate::frame::thread::has_area(&region) { return Ok(None); }
         let mut lower = (f64::NEG_INFINITY, DVec2::ZERO);
         let mut upper = (f64::INFINITY, DVec2::ZERO);
@@ -100,10 +132,10 @@ impl MaterialCastCells<'_> {
         }
         if lower.0 > 0.0 || upper.0 < 0.0 { return Ok(None); }
         let (displacement, normal) = if upper.0.abs() < lower.0.abs() { upper } else { lower };
-        if !displacement.is_finite() || normal == DVec2::ZERO { return Err(numeric_at(part, NumericFault::InvalidFrame)); }
-        let moved: Vec<_> = body.iter().map(|point| *point + direction * displacement).collect();
+        if !displacement.is_finite() || normal == DVec2::ZERO { return Err(numeric_at(self.part, NumericFault::InvalidFrame)); }
+        let moved: Vec<_> = body.iter().map(|point| *point + *direction * displacement).collect();
         let point = closest_polygons(&moved, &region);
-        let Some(contact) = self.contact(part, CastHit { time: 1.0, normal, point })? else { return Ok(None); };
+        let Some(contact) = self.cells.contact(self.part, CastHit { time: 1.0, normal, point })? else { return Ok(None); };
         Ok(Some(PolygonAxisContact { displacement, contact,
             minimum_normal: root.direction(minimum.1.as_vec2()).normalize_or_zero() }))
     }

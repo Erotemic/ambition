@@ -585,8 +585,9 @@ under [PORTAL-SIMILARITY](#portal-similarity--canonical-parts-and-scaled-mirror-
 **Next action:** the duplicate projectile source preparation is removed
 (2026-11-21: walls and recipients read one prepared leg). Clip whole-body
 eligibility and per-track semantic roles are prepared with the flipbook
-(PVS-1 first slice, 2026-11-22). Next in E2 are frame track correspondence
-indexes and retaining the prepared rig and binding from admission. The
+(PVS-1 first slice, 2026-11-22), and frame track correspondence is an
+index (2026-11-24). Next in E2 is retaining the prepared rig and binding
+from admission. The
 static source review adds a [named source-binding customer](engine/runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows):
 boss roles resolve source rows, timing policy and mechanical geometry
 association once. Preserve the native cursor, hurt-part sample, death

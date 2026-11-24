@@ -200,6 +200,32 @@ fn every_published_flipbook_realizes_its_sheet_at_every_tier() {
     assert!(failures.is_empty(), "{} flipbook(s) the game would refuse:\n{}", failures.len(), failures.join("\n"));
 }
 
+/// PVS-1: the frame correspondence index answers what a scan of the frame
+/// answers. Over every frame of every published flipbook and every track, the
+/// indexed first draw of a track is the first draw a scan finds, and a track
+/// the frame does not draw is absent.
+#[test]
+fn the_correspondence_index_finds_the_draw_a_scan_finds() {
+    let content = &crate::test_support::shared_sprites();
+    let targets: Vec<&str> = crate::baked_part_flipbooks::baked_part_flipbook_targets(&content).collect();
+    let mut frames = 0;
+    for target in &targets {
+        let asset = RiggedSpriteAsset::baked(&content, target).expect("listed");
+        for row in asset.clip_names().map(str::to_owned).collect::<Vec<_>>() {
+            for index in 0..asset.clip(&row).unwrap().frame_count() {
+                let span = asset.frame_span(&row, index).unwrap();
+                let frame = asset.frame(&row, index).unwrap();
+                for track in 0..asset.tracks().len() as u16 {
+                    let scanned = frame.iter().position(|draw| draw.track == Some(track));
+                    assert_eq!(asset.first_on_track(span, track), scanned, "`{target}` {row}[{index}] track {track}");
+                }
+                frames += 1;
+            }
+        }
+    }
+    assert!(frames >= 1000, "premise: a population of frames ({frames})");
+}
+
 /// The road a flipbook is drawn by is the publish's measured verdict: absent
 /// means parts; `realize: baked` (parts costlier than the sheet) is read back.
 #[test]

@@ -469,10 +469,19 @@ shares both facts. The retained cost is one byte per track and one bool per
 clip. Wounds already had their prepared index (`wound_tracks`). No frame-time
 measurement is claimed.
 
-Still open in PVS-1: frame track correspondence indexes (the legs and face
-joins still scan the other frame for each draw), and retaining the prepared
-rig and visual binding from admission (`prepare_sheet_table`,
-`bind_posed_parts`). The source binding below is a further preparation
+**Correspondence index (2026-11-24).** Preparation keeps `track_order`,
+aligned with `draws`: each frame's slice holds its (track, offset) pairs
+sorted by track, then offset. `first_on_track` finds a frame's first draw of
+a track by binary search, which is the draw the old scan found (first-match
+kept; untracked draws sort last and are never asked for). `legs_under` and
+`face_as` use it instead of scanning the other frame for each draw. Retained
+cost: four bytes a draw, shared by every tier through the `Arc`. Witness:
+`the_correspondence_index_finds_the_draw_a_scan_finds` (every frame of
+every published flipbook, every track, against a scan). No frame-time
+measurement is claimed.
+
+Still open in PVS-1: retaining the prepared rig and visual binding from
+admission (`prepare_sheet_table`, `bind_posed_parts`). The source binding below is a further preparation
 customer; the completed clip/track facts stay complete.
 
 #### Bind semantic roles to named source rows

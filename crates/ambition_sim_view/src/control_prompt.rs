@@ -554,6 +554,7 @@ pub fn derive_weapon_readiness(
             Has<ambition_characters::brain::ChargesProjectiles>,
             Option<&ActorMoveset>,
             Option<&mut ambition_combat::BodyWeaponReadiness>,
+            Has<ambition_combat::held_items::HeldItem>,
         ),
         Or<(
             With<ambition_combat::components::RangedRefire>,
@@ -562,9 +563,9 @@ pub fn derive_weapon_readiness(
     >,
     shots: Query<&ambition_projectiles::ProjectileOwner, With<ambition_projectiles::WeaponShot>>,
 ) {
-    for (body, refire, actions, fireball, charges, moveset, view) in &mut bodies {
+    for (body, refire, actions, fireball, charges, moveset, view, holding) in &mut bodies {
         let fireball = fireball.filter(|_| {
-            ambition_combat::action_emission::charge_stream_owns_the_press(charges, moveset)
+            ambition_combat::action_emission::charge_stream_owns_the_press(charges, holding, moveset)
         });
         let readiness = match (fireball, refire) {
             (Some(fireball), _) => ambition_combat::WeaponReadiness::of_spawner(

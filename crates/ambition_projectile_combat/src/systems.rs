@@ -88,6 +88,7 @@ pub fn charge_projectile_input(
             (
                 Option<&ambition_combat::moveset::ActorMoveset>,
                 Option<&ambition_characters::action_scheme::DerivedActionScheme>,
+                Has<ambition_combat::held_items::HeldItem>,
             ),
         ),
         With<ambition_characters::brain::ChargesProjectiles>,
@@ -145,7 +146,7 @@ pub fn charge_projectile_input(
         .collect();
 
     let damage_mult = damage_policy.outgoing;
-    for (body_entity, kin, resolved_frame, mut state, mut anim, driver, (moveset, scheme)) in &mut charge_body_q {
+    for (body_entity, kin, resolved_frame, mut state, mut anim, driver, (moveset, scheme, holding)) in &mut charge_body_q {
         let tick_info = tick_infos.get(&body_entity).copied().unwrap_or_default();
         state.clock += dt;
         // IN5: a pending charge belongs to the supply that began it. Once the
@@ -154,10 +155,10 @@ pub fn charge_projectile_input(
         // press, which may begin a new charge for the new driver. A body that
         // nobody drove when it began charging keeps it while still undriven.
         // Likewise when the body's own binding no longer routes the press
-        // here (an equipped Eye Laser, a held weapon's ranged move): that
-        // release goes to the new binding, not to this charge.
+        // here (an equipped Eye Laser, anything in the hand): that release
+        // goes to the new binding, or to nothing, not to this charge.
         let driver = driver.map(|d| d.0.0);
-        let routed = ambition_combat::action_emission::charge_route_is_bound(true, moveset, scheme);
+        let routed = ambition_combat::action_emission::charge_route_is_bound(true, holding, moveset, scheme);
         if state.charging.is_some() && (state.charge_driver != driver || !routed) {
             state.charging = None;
             state.charge_driver = None;

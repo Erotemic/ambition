@@ -326,10 +326,16 @@ selects melee when the hand holds a weapon or a worn row grants melee,
 and ranged when the hand holds anything or a worn row grants ranged. It
 materializes only the selected families over the identity's moveset, so
 an unselected family keeps its authored moves and an equal grant still
-selects the grant's shot (`repertoire::tests`). Open: the ranged-owner
-result below. A held item with no shot still leaves a charging body's
-native charge reachable, because no published owner says "disabled".
-`equip_equipment_row`, used only by tests, still rebuilds every family.
+selects the grant's shot (`repertoire::tests`). The ranged owner landed
+the same day as one predicate over the fold's own inputs:
+`action_emission::charge_stream_owns_the_press(charges, holding, moveset)`.
+Native charge owns the press only for a charging identity with an empty
+hand whose live moveset routes no `ranged` verb, so a held item with no
+shot leaves the body disabled rather than charging, and letting go
+restores the charge. The press emitter, the charge consumer's IN5 route
+check and the weapon-readiness read model all ask it; no executor flag
+sits beside the fold. `equip_equipment_row`, used only by tests, still
+rebuilds every family.
 
 [`effective_repertoire`](../../../crates/ambition_characters/src/repertoire.rs)
 rebuilds both melee and ranged when either preset slot changes.

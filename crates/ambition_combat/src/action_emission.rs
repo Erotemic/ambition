@@ -20,15 +20,18 @@ use crate::moveset::{routes_ranged, ActorMoveset};
 ///
 /// ⛔ ONE PRESS, ONE OWNER, DECIDED ON THE EFFECTIVE REPERTOIRE. Charging is
 /// a CHARACTER fact (`ChargesProjectiles`), but the hand replaces the ranged
-/// slot after it: preparation revokes a charger's own `ranged` verb, so a
-/// `ranged` move in the live moveset is the held item's, and a held item is
-/// the whole ranged vocabulary. The move answers the press; the charge path
-/// does not hear it until the hand lets go.
+/// slot after it (`ambition_characters::repertoire`): a held item is the whole
+/// ranged vocabulary, whatever it brings. An item with a shot routes the press
+/// to its `ranged` move; an item with none (a bomb, a melee-only axe) leaves
+/// the body with no ranged press at all. Its explicit empty slot is a
+/// selected answer, not permission to fall back on the character's charge.
+/// The charge path hears the press again when the hand lets go. A worn
+/// ranged grant routes it to its move the same way.
 ///
-/// The emitter below and the readiness read model both ask this, so the
-/// weapon a prompt reads is the weapon a press reaches.
-pub fn charge_stream_owns_the_press(charges: bool, moveset: Option<&ActorMoveset>) -> bool {
-    charges && !moveset.is_some_and(routes_ranged)
+/// The emitter below, the charge consumer and the readiness read model all
+/// ask this, so the weapon a prompt reads is the weapon a press reaches.
+pub fn charge_stream_owns_the_press(charges: bool, holding: bool, moveset: Option<&ActorMoveset>) -> bool {
+    charges && !holding && !moveset.is_some_and(routes_ranged)
 }
 
 /// Can a release still reach this body's charge stream (IN5)? The stream
@@ -41,11 +44,12 @@ pub fn charge_stream_owns_the_press(charges: bool, moveset: Option<&ActorMoveset
 /// the Projectile binding as it was keeps the route.
 pub fn charge_route_is_bound(
     charges: bool,
+    holding: bool,
     moveset: Option<&ActorMoveset>,
     scheme: Option<&ambition_characters::action_scheme::DerivedActionScheme>,
 ) -> bool {
     use ambition_entity_catalog::action_scheme::{ActionGate, ControlSlot};
-    charge_stream_owns_the_press(charges, moveset)
+    charge_stream_owns_the_press(charges, holding, moveset)
         && !scheme
             .and_then(|derived| derived.scheme.as_ref())
             .and_then(|scheme| scheme.action_for_slot(ControlSlot::Projectile))
@@ -116,16 +120,17 @@ pub fn emit_player_projectile_tick_messages(
         &ambition_characters::control::ActorControl,
         Option<&ChargesProjectiles>,
         Option<&ActorMoveset>,
+        Has<crate::held_items::HeldItem>,
     )>,
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
-    for (entity, control, charges, moveset) in &actors {
+    for (entity, control, charges, moveset, holding) in &actors {
         // Capability gate, not an identity gate: emit the charge-tick stream for
         // any actor that carries the chargeable-projectile ability — the player
         // today, a possessed body that adopts the player's kit tomorrow. (Was
         // `brain.is_player()`; bosses/enemies carry a `ranged` ActionSet for their
         // OWN projectiles, so this stays a dedicated opt-in marker, pay-for-use.)
-        if !charge_stream_owns_the_press(charges.is_some(), moveset) {
+        if !charge_stream_owns_the_press(charges.is_some(), holding, moveset) {
             continue;
         }
         let frame = &control.0;

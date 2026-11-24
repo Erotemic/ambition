@@ -737,6 +737,7 @@ fn update_body_simulation_inner(
 
     // Consume the buffered jump (or convert to swim stroke /
     // drop-through / wall-jump / double-jump).
+    let ops_before_jump = events.operations.len();
     simulation::handle_jump_buffer_clusters(
         world,
         integration::platform_drop_requested(
@@ -762,6 +763,26 @@ fn update_body_simulation_inner(
         tuning,
         &mut events,
     );
+    // ⭐ ACT1 step 4, the jump half: a tumble whose control has come back
+    // ends on the jump the body SPENT, not on the press. A press the body
+    // cannot spend (no air jump left, flying, no jump ability) leaves the
+    // tumble, and the knockdown it lands in, alone, as a refused attack does.
+    if state.tumble_until_landing
+        && state.tumble_timer <= 0.0
+        && events.operations[ops_before_jump..].iter().any(|op| {
+            matches!(
+                op,
+                MovementOp::Jump
+                    | MovementOp::DoubleJump
+                    | MovementOp::WallJump
+                    | MovementOp::Footstool
+                    | MovementOp::SwimStroke
+            )
+        })
+    {
+        state.tumble_until_landing = false;
+        state.tech_press_timer = 0.0;
+    }
 
     integration::integrate_velocity_clusters(
         world,

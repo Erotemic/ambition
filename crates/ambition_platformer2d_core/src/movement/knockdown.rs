@@ -459,11 +459,12 @@ pub(super) fn tick_knockdown(
             // move bound) must not buy the escape, so the move's acceptance
             // ends the tumble instead: `MotionModel::act_out_of_tumble` (ACT1
             // step 4).
-            if input.jump_pressed() {
-                state.tumble_until_landing = false;
-                state.tech_press_timer = 0.0;
-                return input;
-            }
+            //
+            // ⛔ AND NOT THE BARE JUMP PRESS EITHER. The press passes through
+            // to the simulation phase, and the tumble ends there on the jump
+            // the body actually spends (`update_body_simulation_in_frame`). A
+            // body with no jump to spend used to end its tumble on the press
+            // and then land as from an ordinary fall.
             return without_evade(input);
         }
         return InputState::default();

@@ -232,9 +232,16 @@ can act out one tick earlier than the kernel's own read did. The jump
 act-out stays the kernel's own verb. Guard:
 `only_an_accepted_move_acts_out_of_a_tumble`.
 
-Still open: that cancel-window remainder of step 3; the jump half of step 4
-(a tumble ends on a jump press the kernel then cannot spend, and a move's
-jump/burst cancel is considered after movement).
+**A tumble ends on the jump the body spends (2026-11-23).** Step 4's jump
+half. `tick_knockdown` no longer ends a tumble on the bare jump press; the
+press passes through, and `update_body_simulation_in_frame` ends the tumble
+when `handle_jump_buffer_clusters` spends a jump that tick (jump, double
+jump, wall jump, footstool or swim stroke). A body with no jump to spend
+keeps its tumble and the knockdown it lands in. Probe (deleted): with no air
+jump the press left the tumble standing; with one, the double jump ended it.
+
+Still open: that cancel-window remainder of step 3, and a move's jump/burst
+cancel, which is still considered after movement.
 
 ### An offer and an accepted action must name the same move
 

@@ -387,13 +387,30 @@ fn the_joystick_ui_has_work(
 /// `JoystickFixed` also derives its input center from the base rect, so the
 /// input center moves with the art.
 fn offset_joystick_art_within_footprint(
+    placement: Res<crate::placement::TouchControlPlacement>,
     mut joysticks: Query<&mut virtual_joystick::VirtualJoystickState>,
 ) {
-    let origin = movement_joystick_layout().art_origin();
+    let origin = movement_joystick_layout().scaled(placement.movement_scale).art_origin();
     for mut state in &mut joysticks {
         if state.base_offset != origin {
             state.base_offset = origin;
         }
+    }
+}
+
+/// Apply the resolved stick size to both parts of its visible control.
+pub(crate) fn scale_movement_stick_art(
+    placement: Res<crate::placement::TouchControlPlacement>,
+    mut art: Query<(&mut Node, Has<VirtualJoystickUIBackground>),
+        Or<(With<VirtualJoystickUIBackground>, With<VirtualJoystickUIKnob>)>>,
+) {
+    let layout = movement_joystick_layout().scaled(placement.movement_scale);
+    for (mut node, base) in &mut art {
+        let size = if base { layout.base_size } else { layout.knob_size };
+        let mut next = node.clone();
+        next.width = Val::Px(size);
+        next.height = Val::Px(size);
+        node.set_if_neq(next);
     }
 }
 
@@ -501,9 +518,10 @@ fn spawn_frame_axis_glyphs(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
 /// Gameplay and the labels share the same inverse mapping, so labels move only
 /// when the active mapping mode changes which raw direction means local U/D/L/R.
 fn position_frame_axis_glyphs(
+    placement: Res<crate::placement::TouchControlPlacement>,
     gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    mut glyphs: Query<(&FrameAxisGlyph, &mut Node)>,
+    mut glyphs: Query<(&FrameAxisGlyph, &mut Node, &mut TextFont)>,
 ) {
     use ambition_geometry::{AccelerationFrame, InputFrameMode};
     let gdir =
@@ -514,11 +532,14 @@ fn position_frame_axis_glyphs(
             s.gameplay.resolved_movement_frame_mode()
         });
     let frame = AccelerationFrame::new(gdir);
-    let layout = movement_joystick_layout();
+    let scale = placement.movement_scale;
+    let layout = movement_joystick_layout().scaled(scale);
     // Root-local center of the drawn stick, not of the reserved footprint.
     let center = layout.art_center();
     let radius = layout.base_size * 0.36;
-    for (glyph, mut node) in &mut glyphs {
+    for (glyph, mut node, mut font) in &mut glyphs {
+        let size = FontSize::Px(22.0 * scale);
+        if font.font_size != size { font.font_size = size; }
         let on_input = frame
             .raw_axis_for_resolved_input(
                 mode,
@@ -527,8 +548,8 @@ fn position_frame_axis_glyphs(
             .vec();
         // Written only when it differs: the glyphs move only when the
         // gravity frame or the mode changes, and a changed `Node` lays out the UI.
-        let left = Val::Px(center.x + on_input.x * radius - 7.0);
-        let top = Val::Px(center.y + on_input.y * radius - 13.0);
+        let left = Val::Px(center.x + on_input.x * radius - 7.0 * scale);
+        let top = Val::Px(center.y + on_input.y * radius - 13.0 * scale);
         if node.left != left || node.top != top {
             node.left = left;
             node.top = top;
@@ -1273,8 +1294,10 @@ pub fn update_button_glyph_from_active_input(
     prompt: Option<Res<ControlPrompt>>,
     images: ambition_render::control_glyphs::ControlGlyphImages,
     mut touch_style: Local<ambition_input::GamepadStyle>,
+    mut shown_context: Local<Option<ControlContextKind>>,
     mut labels: Query<(&TouchActionLabel, Ref<TouchActionLabel>, &mut ButtonGlyph)>,
 ) {
+    let context = prompt.as_ref().map_or(ControlContextKind::Gameplay, |prompt| prompt.context);
     let recipe = recipes
         .iter()
         .find(|(seat, _)| seat.id == ambition_input::ParticipantId::PRIMARY)
@@ -1287,11 +1310,12 @@ pub fn update_button_glyph_from_active_input(
             .as_ref()
             .is_some_and(|bindings| bindings.is_changed())
         || recipe.as_ref().is_some_and(|recipe| recipe.is_changed())
-        || prompt.as_ref().is_some_and(|prompt| prompt.is_changed())
+        || *shown_context != Some(context)
         || images.is_changed();
     if !changed && !labels.iter().any(|(_, label, _)| label.is_added()) {
         return;
     }
+    *shown_context = Some(context);
     let preset = settings
         .as_ref()
         .map(|s| KeyboardPreset::by_index(s.controls.keyboard_preset_index))
@@ -1327,9 +1351,6 @@ pub fn update_button_glyph_from_active_input(
         None
     };
     let bound = reference.as_ref().unwrap_or(bound);
-    let context = prompt
-        .as_ref()
-        .map_or(ControlContextKind::Gameplay, |prompt| prompt.context);
     for (TouchActionLabel(action), _, mut glyph) in &mut labels {
         let Some(action) = touch_display_action(*action, context) else {
             continue;
@@ -1595,6 +1616,7 @@ pub fn axis_override_drives_knob(context: ControlContextKind) -> bool {
 /// `ControlFrame.axis_*` is +Y-down, like Bevy UI `Node.top`, so there is no
 /// Y inversion.
 fn drive_joystick_knob_from_axis(
+    placement: Res<crate::placement::TouchControlPlacement>,
     prompt: Res<ControlPrompt>,
     control_frame: Res<ControlFrame>,
     joystick_q: Query<(&VirtualJoystickState, &Children), With<VirtualJoystickNode<MobileStick>>>,
@@ -1662,7 +1684,7 @@ fn drive_joystick_knob_from_axis(
         // subtract `knob_half`. Use the same `art_origin` as
         // `offset_joystick_art_within_footprint`, or the knob jumps to the
         // footprint corner when the axis goes neutral.
-        let art_origin = movement_joystick_layout().art_origin();
+        let art_origin = movement_joystick_layout().scaled(placement.movement_scale).art_origin();
         let travel = base_half - knob_half;
         let center_left = art_origin.x + base_half.x - knob_half.x;
         let center_top = art_origin.y + base_half.y - knob_half.y;

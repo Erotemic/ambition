@@ -163,3 +163,16 @@ fn slider_value_label_is_percent() {
     assert!(master.value_label.ends_with('%'));
     assert!(matches!(master.kind, SettingsOptionKind::Slider { .. }));
 }
+
+#[test]
+fn the_two_touch_size_rows_change_their_own_side() {
+    let mut settings = UserSettings::default();
+    let before = settings.controls.clone();
+    apply_settings_option(SettingsOptionId::TouchLeftScale, 1, &mut settings);
+    assert!(settings.controls.touch_left_scale > before.touch_left_scale);
+    assert_eq!(settings.controls.touch_right_scale, before.touch_right_scale);
+    let left = settings.controls.touch_left_scale;
+    apply_settings_option(SettingsOptionId::TouchRightScale, -1, &mut settings);
+    assert!(settings.controls.touch_right_scale < before.touch_right_scale);
+    assert_eq!(settings.controls.touch_left_scale, left);
+}

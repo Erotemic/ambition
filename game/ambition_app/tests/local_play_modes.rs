@@ -1772,6 +1772,37 @@ fn two_gate_terminals_draw_in_their_participants_regions() {
 
 
 #[test]
+#[ignore = "needs a wgpu adapter; captures the gate directory on handheld screens"]
+fn gate_terminal_fits_handheld_screens() {
+    use ambition_platformer2d::platformer::lifecycle::LiveBodyId;
+    use ambition_platformer2d::world::rooms::GateNetworkState;
+    for (size, output) in [
+        (UVec2::new(1280, 800), "ambition-gate-terminal-deck.png"),
+        (UVec2::new(844, 390), "ambition-gate-terminal-phone.png"),
+    ] {
+        let (mut app, _) = session_in(gpu_app_sized(output, size), 0, false);
+        let body = the_primary(&mut app);
+        let subject = LiveBodyId::of_entity(app.world(), body).unwrap();
+        app.world_mut().resource_mut::<GateNetworkState>().terminals.insert(subject, "hub_public_gate_zone".into());
+        capture_frame(&mut app);
+        let world = app.world_mut();
+        let mut panels = world.query::<(&Name, &ComputedNode, &UiGlobalTransform)>();
+        let mut found = 0;
+        for (name, node, transform) in panels.iter(world) {
+            if name.as_str() != "Gate Terminal Panel" { continue; }
+            found += 1;
+            assert!(node.size().cmpgt(Vec2::ZERO).all());
+            let bounds = Rect::from_center_size(transform.translation, node.size());
+            assert!(bounds.min.cmpge(Vec2::splat(-1.0)).all()
+                && bounds.max.cmple(size.as_vec2() + Vec2::ONE).all(),
+                "the gate panel extends outside {size}: {bounds:?}");
+        }
+        assert_eq!(found, 1);
+    }
+}
+
+
+#[test]
 fn terminal_presentation_retires_with_its_gameplay_session() {
     use ambition_content::gate_terminal::TerminalUi;
     use ambition_platformer2d::platformer::lifecycle::LiveBodyId;

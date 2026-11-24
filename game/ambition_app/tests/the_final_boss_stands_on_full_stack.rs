@@ -15,6 +15,32 @@ use crate::common::{base, fixed_60hz_room_sim};
 const STAGE: &str = "boss_main_stage";
 const STACK: &str = "npc_full_stack";
 
+#[test]
+fn the_band_stays_on_its_platforms() {
+    let mut sim = fixed_60hz_room_sim("hall_bossofthegame_stage");
+    let boss = boss(&mut sim);
+    let platform = boss.pos.y + boss.size().y * 0.5;
+    sim.step_n(base(), 30);
+    let positions = |sim: &mut ambition_app::Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let mut bodies = world.query::<(&CharacterForm, &ae::BodyKinematics)>();
+        bodies.iter(world).filter(|(form, _)| form.id().ends_with("_band"))
+            .map(|(form, body)| (form.id().to_owned(), body.pos + ae::Vec2::Y * body.size().y * 0.5))
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    let initial = positions(&mut sim);
+    assert_eq!(initial.len(), 3);
+    for _ in 0..300 {
+        sim.step(base());
+        let current = positions(&mut sim);
+        assert_eq!(current.len(), initial.len());
+        for (form, at) in &current {
+            assert!((at.y - platform).abs() < 4.0,
+                "{form}'s feet must stay on its platform at {platform}: {at:?}");
+        }
+    }
+}
+
 fn stack(sim: &mut ambition_app::Platformer2dSimHarness) -> (ae::BodyKinematics, BackLedge, bool) {
     let world = sim.world_mut();
     let mut q = world.query::<(&CharacterForm, &ae::BodyKinematics, Option<&BackLedge>, Has<ae::Unmirrored>)>();

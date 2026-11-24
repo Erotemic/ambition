@@ -247,6 +247,10 @@ impl Platformer2dAssetCatalog {
 
     /// Apply the active profile to an image path supplied by selected metadata.
     pub fn try_image_path_for_load(&self, path: &str) -> Option<String> {
+        // Resolve a selected library alias before the platform checks its bytes.
+        let path = if is_source_qualified(path) { path } else {
+            self.library_files.get(path).map_or(path, |file| file.asset_path())
+        };
         let id = AssetId::new(path);
         let mut entry = crate::AssetEntry::new(id.clone(), crate::AssetKind::Image, path);
         if self.library_bytes(path).is_some() {

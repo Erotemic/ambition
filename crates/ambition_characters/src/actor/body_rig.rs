@@ -293,7 +293,7 @@ pub struct BodyRigDefinition {
 /// pixels. The reader converts it with [`BodyRigDefinition::scaled`].
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-struct PublishedBodyRig {
+struct BodyRigRon {
     schema_version: u32,
     #[serde(default)]
     origin_from_centre: (f32, f32),
@@ -305,66 +305,29 @@ struct PublishedBodyRig {
     #[serde(default)]
     hurt_parts: Vec<RigHurtPart>,
     /// Part-flipbook track name -> the joint that part rides, where the art
-    /// knows it. A presentation concern (`published_part_bindings`): the
-    /// definition a body carries does not hold it.
+    /// knows it. The definition a body carries does not hold this map.
     #[serde(default)]
     part_bindings: BTreeMap<String, String>,
     /// Attachment name -> the three joints of the limb that ends at it
-    /// (upper, lower, end). A presentation concern (`published_limbs`).
+    /// (upper, lower, end).
     #[serde(default)]
     limbs: BTreeMap<String, Vec<String>>,
     clips: BTreeMap<String, RigClip>,
 }
 
-/// The track -> joint names a published rig states for its sheet's part
-/// flipbook (empty when it states none), each joint checked against the rig's
-/// joints. A renderer that places parts from joint frames binds each named
-/// track to its joint instead of guessing the joint from the frames: a
-/// flipbook that bakes a limb's turn into its rasters records no angle to
-/// guess from.
-pub fn published_part_bindings(text: &str) -> Result<BTreeMap<String, String>, String> {
-    let published: PublishedBodyRig =
-        ron::from_str(text).map_err(|error| format!("body rig does not parse: {error}"))?;
-    for (track, joint) in &published.part_bindings {
-        if !published.joints.iter().any(|known| &known.name == joint) {
-            return Err(format!("part track `{track}` names joint `{joint}`, which is not a joint"));
-        }
-    }
-    Ok(published.part_bindings)
+/// One decoded publication: the body rig, its origin, and its visual bindings.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PublishedBodyRig {
+    pub definition: BodyRigDefinition,
+    pub origin: Vec2,
+    pub part_bindings: BTreeMap<String, String>,
+    pub limbs: BTreeMap<String, [String; 3]>,
 }
 
-/// The limbs a published rig states (empty when it states none): for each
-/// attachment that ends a limb, its upper, lower and end joints, each checked
-/// against the rig's joints. A renderer solves them to keep a hand or a foot
-/// where a pose plants it while the rest of the body moves.
-pub fn published_limbs(text: &str) -> Result<BTreeMap<String, [String; 3]>, String> {
-    let published: PublishedBodyRig =
-        ron::from_str(text).map_err(|error| format!("body rig does not parse: {error}"))?;
-    let mut limbs = BTreeMap::new();
-    for (name, chain) in published.limbs {
-        let chain: [String; 3] = chain
-            .try_into()
-            .map_err(|chain: Vec<String>| format!("limb `{name}` names {} joints, not 3", chain.len()))?;
-        for joint in &chain {
-            if !published.joints.iter().any(|known| &known.name == joint) {
-                return Err(format!("limb `{name}` names joint `{joint}`, which is not a joint"));
-            }
-        }
-        limbs.insert(name, chain);
-    }
-    Ok(limbs)
-}
-
-impl BodyRigDefinition {
-    /// Read a published `<target>_body_rig.ron`, in the sheet pixels it was
-    /// written in.
-    pub fn from_published_ron(text: &str) -> Result<Self, String> {
-        Self::from_published_ron_with_origin(text).map(|(rig, _)| rig)
-    }
-
-    /// Read the rig and its origin relative to the body centre, in source pixels.
-    pub fn from_published_ron_with_origin(text: &str) -> Result<(Self, Vec2), String> {
-        let published: PublishedBodyRig =
+impl PublishedBodyRig {
+    /// Read the rig and its visual metadata in one parse.
+    pub fn from_ron(text: &str) -> Result<Self, String> {
+        let published: BodyRigRon =
             ron::from_str(text).map_err(|error| format!("body rig does not parse: {error}"))?;
         if published.schema_version != BODY_RIG_SCHEMA_VERSION {
             return Err(format!(
@@ -376,12 +339,45 @@ impl BodyRigDefinition {
         if !origin.is_finite() {
             return Err("body rig origin must be finite".into());
         }
-        Ok((Self {
-            joints: published.joints,
-            attachments: published.attachments,
-            hurt_parts: published.hurt_parts,
-            clips: published.clips,
-        }, origin))
+        for (track, joint) in &published.part_bindings {
+            if !published.joints.iter().any(|known| &known.name == joint) {
+                return Err(format!("part track `{track}` names joint `{joint}`, which is not a joint"));
+            }
+        }
+        let mut limbs = BTreeMap::new();
+        for (name, chain) in published.limbs {
+            let chain: [String; 3] = chain.try_into()
+                .map_err(|chain: Vec<String>| format!("limb `{name}` names {} joints, not 3", chain.len()))?;
+            for joint in &chain {
+                if !published.joints.iter().any(|known| &known.name == joint) {
+                    return Err(format!("limb `{name}` names joint `{joint}`, which is not a joint"));
+                }
+            }
+            limbs.insert(name, chain);
+        }
+        Ok(Self {
+            definition: BodyRigDefinition {
+                joints: published.joints,
+                attachments: published.attachments,
+                hurt_parts: published.hurt_parts,
+                clips: published.clips,
+            },
+            origin,
+            part_bindings: published.part_bindings,
+            limbs,
+        })
+    }
+}
+
+impl BodyRigDefinition {
+    /// Read a published `<target>_body_rig.ron`, in source pixels.
+    pub fn from_published_ron(text: &str) -> Result<Self, String> {
+        PublishedBodyRig::from_ron(text).map(|published| published.definition)
+    }
+
+    /// Read the rig and its origin relative to the body centre, in source pixels.
+    pub fn from_published_ron_with_origin(text: &str) -> Result<(Self, Vec2), String> {
+        PublishedBodyRig::from_ron(text).map(|published| (published.definition, published.origin))
     }
 
     /// The same rig with every length multiplied by `k` (sheet pixels to world

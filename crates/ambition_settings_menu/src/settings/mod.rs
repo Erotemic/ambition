@@ -121,6 +121,8 @@ pub enum SettingsOptionId {
     BurstInputMode,
     RightStickMode,
     TouchControls,
+    TouchLeftScale,
+    TouchRightScale,
     MenuTapMode,
     ResetControlFiltering,
     // Gameplay.
@@ -170,7 +172,7 @@ impl SettingsOptionId {
     /// This array is hand-kept. `scripts/checks/check_enum_all_constants_are_complete.py`
     /// checks it against the enum.
     /// alone would go stale silently.
-    pub const ALL: [Self; 68] = [
+    pub const ALL: [Self; 70] = [
         Self::AcceptLocalJoins,
         Self::CoopFriendlyFire,
         Self::CoopRespawnBesidePartner,
@@ -233,6 +235,8 @@ impl SettingsOptionId {
         Self::ShaderVignetteStrength,
         Self::ShowFps,
         Self::TouchControls,
+        Self::TouchLeftScale,
+        Self::TouchRightScale,
         Self::TraceAutoDump,
         Self::TriggerPress,
         Self::TriggerRelease,

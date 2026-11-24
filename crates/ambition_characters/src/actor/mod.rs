@@ -19,7 +19,7 @@ pub use body::{
     BodyWalletShield, DeathPolicy,
 };
 pub mod body_rig;
-pub use body_rig::{published_limbs, published_part_bindings, BodyRigAdmission, BodyRigDefinition, BodyRigError, PreparedBodyRig};
+pub use body_rig::{BodyRigAdmission, BodyRigDefinition, BodyRigError, PreparedBodyRig, PublishedBodyRig};
 pub mod landmarks;
 /// Parts of a body that turn strikes aside.
 pub mod guard;

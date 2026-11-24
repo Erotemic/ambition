@@ -7,6 +7,46 @@ semantics.
 
 This page owns the **current asset lifecycle contract and open packets**.
 
+## Package size: order of work
+
+The Android APK measured on 2026-11-23 is about 2.8 GiB. Its ZIP entries
+contain 1,435 MiB of PNGs, 917 MiB of audio, and a native library compressed
+to 367 MiB. The extracted native library is 1,475 MiB. Installation needs
+space for both the APK and the extracted library, plus staging space.
+
+Use this sequence. These are planned changes, not completed work.
+
+1. **Share embedded library bytes.** Six provider/host generated libraries
+   each embed about 180 MiB of common data. The Android binary contains six
+   complete copies of the largest prepared part table. Give the library one
+   owner for these bytes; provider packs keep their own selected content and
+   overrides. This can remove about 900 MiB before native compression. Measure
+   the APK reduction separately. Do not add mutable global content authority.
+2. **Share identical image payloads.** The package has 15,184 PNG paths but
+   13,747 distinct byte contents. Identical copies account for about 66 MiB;
+   about 52 MiB comes from two GNUton boss sheet names. Preserve logical names
+   and immutable library selections while the publication store shares bytes.
+3. **Check runtime products and dependency closure.** Whole-frame sheets use
+   about 585 MiB. Identify their actual consumers before removing any. Keep
+   editor/reference products under their proper roots, and package the full
+   selected game's reachable content, including gates and alternate forms.
+   Do not use a first-room sample or a new filename exclusion list.
+4. **Measure shared part images across families.** Run a small atlas-sharing
+   trial before changing publication. Keep each binding's pivot, draw order,
+   and motion. Keep runtime load units bounded. Existing generation already
+   shares identical part images within a target and keeps motion in the full
+   tier; do not repeat that work.
+5. **Evaluate device quality and codecs after the lossless work.** Audio is
+   already about one third of the APK, so visual changes alone have a limit.
+   Lower presentation quality must not change physics or available actors.
+   The character texel-density rollout remains on hold.
+
+For each step, record compressed package bytes, installed bytes, startup time,
+resident memory, and texture memory. Exercise the installed asset reader and
+check visual parity for lossless changes. Use the existing
+[delivery plan](asset-library-editor-and-delivery.md) and
+[part-first plan](part-first-publication.md) for their respective owners.
+
 Performance conclusions that span the whole frame belong in
 [`performance-and-iteration.md`](performance-and-iteration.md).
 

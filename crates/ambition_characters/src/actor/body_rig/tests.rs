@@ -179,10 +179,19 @@ fn a_published_rig_carries_its_origin_without_a_sheet() {
         schema_version: 1, target: "body",
         origin_from_centre: (3.0, 8.0),
         joints: [(name: "root", parent: None)],
+        part_bindings: {"body": "root"},
+        limbs: {"hand": ["root", "root", "root"]},
         clips: {},
     )"#;
+    let published = PublishedBodyRig::from_ron(text).unwrap();
+    assert_eq!(published.part_bindings["body"], "root");
+    assert_eq!(published.limbs["hand"], ["root", "root", "root"]);
     let (rig, origin) = BodyRigDefinition::from_published_ron_with_origin(text).unwrap();
+    assert_eq!(published.definition, rig);
+    assert_eq!(published.origin, origin);
     assert_eq!(origin, Vec2::new(3.0, 8.0));
     assert_eq!(rig.joints.len(), 1);
     assert!(BodyRigDefinition::from_published_ron_with_origin(&text.replace("3.0", "NaN")).is_err());
+    assert!(PublishedBodyRig::from_ron(&text.replace("\"body\": \"root\"", "\"body\": \"missing\"")).is_err());
+    assert!(PublishedBodyRig::from_ron(&text.replace("[\"root\", \"root\", \"root\"]", "[\"root\"]")).is_err());
 }

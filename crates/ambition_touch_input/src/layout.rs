@@ -92,6 +92,12 @@ pub struct TouchJoystickLayout {
 }
 
 impl TouchJoystickLayout {
+    /// Scale the drawn stick and its input footprint together.
+    pub fn scaled(self, scale: f32) -> Self {
+        Self { margin: self.margin * scale, base_size: self.base_size * scale,
+            knob_size: self.knob_size * scale, exclusion_size: self.exclusion_size * scale }
+    }
+
     /// Top-left of the drawn stick (base ring, knob, U/R/L/D glyphs) within
     /// the reserved `exclusion_size` footprint, in root-local y-down px.
     ///

@@ -12,6 +12,8 @@ A published file's package path is its immutable publication address below the
 library. Its logical name is an alias, and can differ from that address. Keep
 both names in the embedded index. Export the compiler's selected file inventory
 to the packager; do not select the publication again in another reader.
+Resolve an unqualified library image alias before the platform checks for its
+bytes. A loader cannot correct the address if the catalog rejects it first.
 Keep missing optional files optional. Do not use a global freshness requirement
 to compensate for an incorrect runtime path.
 

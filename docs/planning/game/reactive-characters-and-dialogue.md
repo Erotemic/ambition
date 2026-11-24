@@ -84,6 +84,25 @@ recognized fact the chosen later conversation needs. Do not persist every
 contact, tactical position or generated summary. The shared OBS2 changes
 make this future feature easier without selecting its product policy now.
 
+## A broadcast customer: QED-TV's evening news
+
+Will Force, the Science Horse, anchors the evening news of QED-TV in Eureka
+(`eureka.yarn` `eureka_will_force`; the station is `eureka_qed_studios`,
+entered from the lecture hall's terrace). At first his news is static
+authored Yarn: tonight's stories come from facts that other Eureka residents
+already state (the tether clock runs fast, the car comes back lighter, the
+lightning over the castle beyond the gate).
+
+The station is a natural reader of world facts. Later, a story can report a
+change in the world to the player: a gate network change, a boss that fell
+in another dimension, a room that a player physically changed. The anchor
+(or a correspondent: Carl Stargan from the observatory, Neil onGras Turfson
+from the orbital station) speaks the report; the report does not cause the
+change. Use the behavior card above for each story: which accepted outcome
+the station learned, how it learned it (a station reports what it was told,
+so a report is hearsay unless a correspondent saw it), and what persists.
+Keep the science in each story correct, however absurd its subject.
+
 ## Open design questions — deliberately unresolved
 
 - How much dialogue is authored, templated, dynamically selected or model

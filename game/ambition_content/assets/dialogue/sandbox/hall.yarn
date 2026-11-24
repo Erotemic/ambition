@@ -2340,6 +2340,36 @@ Dr. Ilse Quark: Helmet's optional. Curiosity isn't.
     Dr. Ilse Quark: Round eleven thousand times a second. I go round once before lunch. Do not lick the pipe.
 ===
 
+title: hall_npc_will_force
+---
+Will Force: Good evening. I'm Will Force, and this is the Hall of Characters, straight from the horse's mouth.
+-> What do you do?
+    Will Force: I anchor the QED-TV evening news in Eureka. Science, technology, and news from the other dimensions. Every fact checked twice.
+-> One horsepower?
+    Will Force: Seven hundred and forty-six watts. I am the unit, and I am the anchor. Stay curious.
+===
+
+title: hall_npc_eureka_petra_dish
+---
+Petra Dish: Sign in, please. If you are here for the horse, take a seat.
+-> What is in the dish?
+    Petra Dish: A culture. Yeast, mostly, and a little ambition.
+===
+
+title: hall_npc_eureka_avery_gadro
+---
+Avery Gadro: Ninety seconds to air. I counted them.
+-> What do you produce?
+    Avery Gadro: The QED-TV evening news. About one mole of little problems a night.
+===
+
+title: hall_npc_eureka_barry_metric
+---
+Barry Metric: Pressure is falling. Not mine. The air's.
+-> Why the green wall?
+    Barry Metric: The camera puts the weather map where the green is. I must never wear green.
+===
+
 title: hall_npc_science_nikobolt
 ---
 Nikobolt Tesseract: ...twenty-six, twenty-seven. Good. Twenty-seven.

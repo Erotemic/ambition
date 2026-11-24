@@ -6,6 +6,12 @@ title: eureka_context
 // Stargan. The space elevator goes up from the town's ground station to the
 // station's tether hub.
 //
+// QED-TV, the station on the lecture hall's terrace: Will Force, the
+// Science Horse, anchors its evening news; Petra Dish keeps its front desk,
+// Avery Gadro produces and Barry Metric does the weather. His news is
+// written here for now. Later, a broadcast can report the world's changes
+// to the player (`docs/planning/game/reactive-characters-and-dialogue.md`).
+//
 // Everyday talk only (Jon, 2026-10-29: "we are world building not quest
 // building"): no flags, no errands.
 //
@@ -186,6 +192,11 @@ Carl Stargan: Look up. No, further. That pale dot just above the cable is the st
 -> Is the science dimension the only one with stars?
     <<portrait_clip "skeptical">>
     Carl Stargan: Math Town insists they are a separate dimension and their sky is "a set". I asked them to measure it. They proved it exists and went home.
+-> You file reports for QED-TV?
+    <<portrait_clip "explaining">>
+    Carl Stargan: I am its astronomy correspondent. Will gives me ninety seconds. I use them to say "look up", and then the sky takes the rest.
+    <<portrait_clip "skeptical">>
+    Carl Stargan: He has never once cut me off. He has, twice, combed his hair during a supernova.
 -> Can I use the telescope?
     <<portrait_clip "explaining">>
     Carl Stargan: Of course. Look at the station first, then past it. It is good for you to see how small a big thing is.
@@ -231,4 +242,80 @@ Dr. Ilse Quark: Visitor! Helmet's optional, curiosity isn't. Welcome to the Eure
     Dr. Ilse Quark: The range's crawlers come down the cable ducts for the warmth, and a shock warden followed them. Nobody's sure which way the shock warden's spin points. Mind it.
 -> What is the quark in the chest?
     Dr. Ilse Quark: A spare. Charm flavour. You can't have a quark on its own, strictly, so don't open the box in front of a theorist.
+===
+
+title: eureka_will_force
+---
+Will Force: Good evening, Eureka. I'm Will Force, and this is the news, straight from the horse's mouth.
+Will Force: You are not a camera. That's fine. I never waste a good evening.
+-> What is in the news tonight?
+    Will Force: Tonight's top stories. One: Priya at the institute says a clock at the top of the tether runs fast.
+    Will Force: That is not a broken clock. That is gravity. Time goes a little faster the higher you are out of a gravity well. A little. Not enough to be late for my show.
+    Will Force: Two: Teodora reports that the tether's car comes back lighter on some days. A developing story. QED-TV does not report a mystery as a fact. We report it as a mystery, with a serious face.
+    Will Force: And beyond the gate, lightning over a castle in another dimension. Sources say someone borrowed a coil design. Our source is Coulomba.
+    Will Force: I'm Will Force. Stay curious, Eureka.
+-> Show me a demonstration.
+    Will Force: Live, on my set? Absolutely. Stand behind the tape.
+    Will Force: This is a Van de Graaff generator. A rubber belt carries charge up into the sphere, and the charge spreads over its outside.
+    Will Force: Touch the sphere and the charge spreads over you too. Each hair gets the same charge, and like charges push each other away. So each hair stands up and tries to leave the others.
+    Will Force: And that is why I do not touch the sphere. The science is free. The hair is insured.
+-> Why no safety goggles?
+    Will Force: Goggles leave a line in the fur, and the fur is on camera. I stand outside the tape. You must wear goggles past the tape. Do as I say, not as I wear.
+-> What is one horsepower?
+    Will Force: Seven hundred and forty-six watts. A man who sold steam engines measured horses turning mills, so his buyers could compare. My people became a unit of sales.
+    Will Force: Here is the twist: a real horse can make nearly fifteen horsepower for a moment, and less than one over a working day. I make one whole broadcast, every night. Television is endurance.
+-> Do you work with Carl Stargan?
+    Will Force: Carl is our astronomy correspondent. He files from the observatory. Every report begins with "look up", and every report runs long. I allow it. The universe is a big story.
+    Will Force: Neil onGras Turfson files from the orbital station. Well, actually, he corrects my reports from the orbital station. Live.
+    Will Force: Great colleagues. Wonderful men. Neither of them has the hair.
+-> Who are you?
+    Will Force: (He looks at his reflection in the dark lens of a camera, then at you.) You don't know?
+    Will Force: Will Force, the Science Horse. Anchor of the QED-TV evening news. Three EMMC-squared awards. People recognise me in four dimensions.
+    Will Force: I explain the universe at six o'clock, and I explain it correctly. I check every fact twice. The hair I check eleven times.
+-> Goodnight.
+    Will Force: Goodnight, and stay curious, Eureka. (He waits.) Was that on air? Avery! Was that on air?
+===
+
+title: eureka_petra_dish
+---
+Petra Dish: Welcome to QED-TV. Sign in, please. If you are here for the horse, take a seat. Everyone is here for the horse.
+-> What is in the dish on your desk?
+    Petra Dish: A culture. Yeast, mostly, and a little ambition. I feed it sugar on Mondays. It is the only thing in this building that grows without a camera on it.
+-> What is an EMMC-squared?
+    Petra Dish: The institute's award for broadcasting. E for excellence, M for media, and then Mr. Force said C squared, because energy. Nobody stopped him. He has three.
+    Petra Dish: Two of them are the same award. He asked for a second one for the other side of the desk. He said it was for balance.
+-> Who comes to the studio?
+    Petra Dish: Professors who want to explain a paper in ninety seconds. Students who want to be in the audience. Halvorsen, every day, in case reviewer two is watching.
+    Petra Dish: Carl Stargan comes in from the observatory, and Neil onGras Turfson calls from the station. I give them both coffee and then I give Mr. Force a mirror.
+-> I'll take a seat.
+    Petra Dish: The orange couch. It was in the first broadcast. Please do not jump on it. People jump on it.
+===
+
+title: eureka_avery_gadro
+---
+Avery Gadro: Ninety seconds to air. Do not touch the board. Do not stand on the board. Why is everyone always on the board?
+-> What does a producer do?
+    Avery Gadro: Everything that the anchor does not see. The cameras, the lights, the guests, the cues, the prompter. On a good night I count six times ten to the twenty-third little problems. That is about one mole of problems.
+-> What happened on air last week?
+    Avery Gadro: Someone typed a question mark on the teleprompter. He read it exactly as it was. "Good evening. I'm Will Force?"
+    Avery Gadro: Then he said, "That is a good question," and he talked about identity for eleven minutes. The ratings went up. I hate that the ratings went up.
+-> Is he careful with the science?
+    Avery Gadro: Completely. He sends every story to two professors and to Dmitri, because Dmitri checks whether the thing has a plug. If a fact is wrong, he will not go on air.
+    Avery Gadro: If his hair is wrong, he also will not go on air. One of those is a policy I wrote.
+-> Good luck with the show.
+    Avery Gadro: Luck is not a variable I budget for. Thank you anyway.
+===
+
+title: eureka_barry_metric
+---
+Barry Metric: Good evening. Pressure is falling. Not my pressure. The air's.
+-> Why is the wall green?
+    Barry Metric: The camera replaces everything green with the weather map. So on television I stand in front of the sky, and here I stand in front of a wall.
+    Barry Metric: I must never wear green. One night I wore a green tie and the viewers saw a hole in me with a cloud in it.
+-> What does a barometer measure?
+    Barry Metric: The weight of all the air over you, pressing down. When it falls, the air is rising, and rising air makes clouds. Bring a coat.
+-> What is the weather at the top of the tether?
+    Barry Metric: None. There is no air up there to have weather in. It is the easiest forecast I give. Will still makes me give it.
+-> Thanks, Barry.
+    Barry Metric: Tomorrow: sunny, then less sunny. I am almost always right about the second half.
 ===

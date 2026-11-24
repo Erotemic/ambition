@@ -30,7 +30,9 @@
   }
   async function request(method, data) {
     const response = await fetch("/api/asset-reviews", {method, cache: "no-store", headers: {"Content-Type": "application/json"}, ...(data ? {body: JSON.stringify(data)} : {})});
-    const result = await response.json();
+    const result = await response.json().catch(() => ({}));
+    // 404: a server started before reviews moved here (it has the old routes).
+    if (response.status === 404) throw new Error(`The inspector server is older than this page. Restart it: ./scripts/asset_inspector.py --kill${result.error ? ` (${result.error})` : ""}`);
     if (!response.ok) throw new Error(result.error || "Could not save the review.");
     report = {...EMPTY, ...result}; writable = true; failure = "";
     return result;
@@ -106,13 +108,32 @@
     });
   }
 
-  const pageFilter = {kind: "", sort: "newest"};
+  // The tables sort by a click on a column header (`table_sort.js`). With no
+  // column picked, the queue keeps its own order and the reviews are newest first.
+  const pageFilter = {kind: ""}, workSort = {by: "", dir: 1}, allSort = {by: "", dir: 1};
+  const kindLabel = row => KIND_LABEL[row.kind] || row.kind;
+  const WORK_COLS = {
+    action: {label: "Action", value: row => row.action},
+    score: {label: "Score", value: row => row.score},
+    kind: {label: "Kind", value: kindLabel},
+    asset: {label: "Asset", value: row => row.title},
+    part: {label: "Part", value: row => row.part || null},
+    notes: {label: "Notes", value: row => row.notes || null},
+  };
+  const ALL_COLS = {
+    score: {label: "Score", value: row => row.score},
+    kind: {label: "Kind", value: kindLabel},
+    asset: {label: "Asset", value: row => row.title},
+    part: {label: "Part", value: row => row.part || null},
+    version: {label: "Version", title: "The version the review rated, against the asset now", value: row => row.relation},
+    reviewed: {label: "Reviewed", value: row => row.reviewed_at, first: -1},
+    notes: {label: "Notes", value: row => row.notes || null},
+  };
   function page() {
     const query = document.getElementById("q").value.trim().toLowerCase();
     const hit = row => !query || JSON.stringify([row.id, row.title, row.notes, row.issues, row.part]).toLowerCase().includes(query);
-    const work = report.backlog.rows.filter(hit);
-    let all = report.reviews.filter(row => hit(row) && (!pageFilter.kind || row.kind === pageFilter.kind));
-    if (pageFilter.sort !== "newest") all = [...all].sort((a, b) => (pageFilter.sort === "lowest" ? a.score - b.score : b.score - a.score) || a.id.localeCompare(b.id));
+    const work = window.TableSort.apply(report.backlog.rows.filter(hit), WORK_COLS, workSort);
+    const all = window.TableSort.apply(report.reviews.filter(row => hit(row) && (!pageFilter.kind || row.kind === pageFilter.kind)), ALL_COLS, allSort);
     const kinds = [...new Set(report.reviews.map(row => row.kind))].sort();
     const subject = row => `<a href="${link(row)}">${esc(row.title)}</a><br><small><code>${esc(row.id)}</code></small>`;
     const first = text => esc((text || "").split("\n")[0].slice(0, 220));
@@ -123,15 +144,15 @@
       <section class="box"><h2>Needs work (${work.length})</h2>
         <p>The newest review of each asset (or of its part) that scored below ${esc(report.polish_threshold)}. <b>fix</b>: it rated the current version. <b>re-review</b>: the asset changed after the review, so look or listen again.</p>
         <p class="controls"><button id="export-review-backlog" type="button">Export as JSON</button> <code>python3 scripts/asset_inspector.py reviews backlog --json</code></p>
-        ${work.length ? `<table class="tbl"><thead><tr><th>Action</th><th>Score</th><th>Kind</th><th>Asset</th><th>Part</th><th>Notes</th></tr></thead><tbody>
-          ${work.map(row => `<tr><td><span class="chip ${row.action === "fix" ? "c-warn" : "c-info"}">${esc(row.action)}</span></td><td>${chip(row)}</td><td>${esc(KIND_LABEL[row.kind] || row.kind)}</td>
+        ${work.length ? `<table class="tbl" id="review-work"><thead><tr>${window.TableSort.headers(WORK_COLS, workSort)}</tr></thead><tbody>
+          ${work.map(row => `<tr><td><span class="chip ${row.action === "fix" ? "c-warn" : "c-info"}">${esc(row.action)}</span></td><td>${chip(row)}</td><td>${esc(kindLabel(row))}</td>
             <td>${subject(row)}</td><td>${esc(row.part)}</td><td>${first(row.notes)}${row.issues.length ? `<div class="chips">${row.issues.map(t => `<span>${esc(t)}</span>`).join("")}</div>` : ""}</td></tr>`).join("")}</tbody></table>`
           : '<p class="empty">No review asks for work.</p>'}</section>
       <section class="box"><h2>All reviews (${all.length})</h2>
         <p class="controls"><button type="button" class="ghost${pageFilter.kind ? "" : " on"}" data-review-kind="">all kinds</button>${kinds.map(kind => `<button type="button" class="ghost${pageFilter.kind === kind ? " on" : ""}" data-review-kind="${esc(kind)}">${esc(KIND_LABEL[kind] || kind)}</button>`).join("")}
-          <label> · Sort <select id="review-sort">${[["newest", "Newest"], ["lowest", "Lowest score"], ["highest", "Highest score"]].map(([key, label]) => `<option value="${key}"${pageFilter.sort === key ? " selected" : ""}>${label}</option>`).join("")}</select></label></p>
-        ${all.length ? `<table class="tbl"><thead><tr><th>Score</th><th>Kind</th><th>Asset</th><th>Part</th><th>Version</th><th>Reviewed</th><th>Notes</th></tr></thead><tbody>
-          ${all.slice(0, 1000).map(row => `<tr><td>${chip(row)}</td><td>${esc(KIND_LABEL[row.kind] || row.kind)}</td><td>${subject(row)}</td><td>${esc(row.part)}</td>
+          · <small>Click a column header to sort by it.</small></p>
+        ${all.length ? `<table class="tbl" id="review-all"><thead><tr>${window.TableSort.headers(ALL_COLS, allSort)}</tr></thead><tbody>
+          ${all.slice(0, 1000).map(row => `<tr><td>${chip(row)}</td><td>${esc(kindLabel(row))}</td><td>${subject(row)}</td><td>${esc(row.part)}</td>
             <td>${esc(row.relation)}</td><td><time>${esc(row.reviewed_at.slice(0, 10))}</time></td><td>${first(row.notes)}</td></tr>`).join("")}</tbody></table>`
           : '<p class="empty">No reviews match.</p>'}</section>`;
     document.getElementById("export-review-backlog").onclick = () => {
@@ -139,7 +160,8 @@
       const a = document.createElement("a"); a.href = url; a.download = "asset-review-backlog.json"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
     document.querySelectorAll("[data-review-kind]").forEach(button => button.onclick = () => { pageFilter.kind = button.dataset.reviewKind; page(); });
-    document.getElementById("review-sort").onchange = event => { pageFilter.sort = event.target.value; page(); };
+    window.TableSort.wire(document.getElementById("review-work"), workSort, page);
+    window.TableSort.wire(document.getElementById("review-all"), allSort, page);
   }
 
   window.AssetReviews = {section, wire, page, save, changed, latest, chip, rowsFor, needsWork, report: () => report};

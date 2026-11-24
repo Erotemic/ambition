@@ -26,6 +26,13 @@ running, a second run says so and exits. `./scripts/asset_inspector.py --kill`
 stops the running inspector and its refresh, then serves again. It stops only
 an asset inspector, never another program on the port.
 
+A server keeps the code it started with. If the inspector changes while a
+server runs, the page shows "The inspector server is older than this page",
+because a review can fail to save. Restart the server with `--kill`.
+
+To sort a table, click a column header. Click it again to reverse the order.
+Empty values sort last.
+
 A problem never stops the index. If one source cannot be read, the page still
 shows everything else. A notice names the problem and its fix, such as
 rebuilding a stale content check binary.
@@ -76,9 +83,8 @@ pack, so another engine game is inspected the same way (`--profile`,
   notes, key, tempo, meter and sections, and each instrument with the sound that
   plays it: an SFZ or SoundFont sample library, a Surge XT patch, procedural FM,
   or a General MIDI program. A registered track the game lacks is missing;
-  a score no registry names is unregistered. Sort by name, newest added or
-  oldest added. The Added column uses the first score commit in available Git
-  history, through detected renames. Unknown dates sort last. A music review made before the
+  a score no registry names is unregistered. The Added column uses the first
+  score commit in available Git history, through detected renames. A music review made before the
   score last changed is marked.
 - **Sound** reads the sound bank and the sound tool's sources. The page plays
   each clip, extracted from the bank.

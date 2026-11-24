@@ -769,6 +769,15 @@
     const poll = async () => {
       let s;
       try { s = await (await fetch("/api/build-status", { cache: "no-store" })).json(); } catch (e) { return; }
+      // A server started before an update keeps its old code; this page is new.
+      // A server older than this check sends no `server_stale` at all.
+      if (s.server_stale !== false && !document.getElementById("stale-server")) {
+        const old = document.createElement("div");
+        old.id = "stale-server";
+        old.className = "stamp stale";
+        old.innerHTML = `<b>The inspector server is older than this page</b>, so saving a review can fail. Stop it and start it again: <code>${esc(s.restart || "./scripts/asset_inspector.py --kill")}</code>`;
+        stamp.after(old);
+      }
       if (s.state === "building") { live.hidden = false; live.textContent = `Showing the previous index; refreshing: ${s.step}`; setTimeout(poll, 1500); }
       else if (s.state === "failed") { live.hidden = false; live.className = "stamp stale"; live.textContent = `The refresh failed; this is the previous index. ${s.step}`; }
       else if (!live.hidden) { live.innerHTML = `The refreshed index is ready. <button type="button">Reload</button>`; live.querySelector("button").onclick = () => location.reload(); }

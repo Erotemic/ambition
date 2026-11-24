@@ -85,7 +85,8 @@
       <section class="box"><h2>Characters (${characters.length})</h2>${characters.slice(0, 60).map(([key, a]) => `<a href="#character/${encodeURIComponent(key)}">${esc(a.display)}</a>`).join(" · ") || '<p class="empty">None.</p>'}</section>
       <section class="box"><h2>Images (${images.length})</h2>${images.slice(0, 60).map(a => `<a href="#asset/${encodeURIComponent(a.id)}">${esc(a.display)}</a>`).join(" · ") || '<p class="empty">None.</p>'}
         ${images.length > 60 ? '<p><a href="#gallery">All matches in Images</a></p>' : ""}</section>
-      <section class="box"><h2>Music, sound, fonts and worlds (${found.length})</h2>${found.length ? table(found.slice(0, 300), true) : '<p class="empty">None.</p>'}</section>`;
+      <section class="box"><h2>Music, sound, fonts and worlds (${found.length})</h2>${found.length ? table("items-found", found, {kind: true, limit: 300}) : '<p class="empty">None.</p>'}</section>`;
+    wireTables(() => search(terms));
   }
 
   function overview() {
@@ -119,11 +120,27 @@
       <div class="cards">${cards.map(c => `<a class="card overview-card" href="${c.href}"><b>${esc(c.title)}</b><span class="big">${esc(c.n)}</span><span class="n">${esc(c.line)}</span></a>`).join("")}</div>
       <section class="box"><h2>Generated content by producer</h2>${families()}</section>
       <section class="box"><h2>Needs attention (${attention.length})</h2>
-        ${attention.length ? table(attention.slice(0, 200), true) : '<p class="empty">Every music, sound, font and world item is present.</p>'}</section>`;
+        ${attention.length ? table("items-attention", attention, {kind: true, limit: 200}) : '<p class="empty">Every music, sound, font and world item is present.</p>'}</section>`;
+    wireTables(overview);
   }
 
-  function table(rows, withKind, withAdded = false) {
-    return `<table class="tbl"><thead><tr><th></th>${withKind ? "<th>Kind</th>" : ""}<th>Name</th>${withAdded ? '<th title="First score commit in available Git history">Added (Git)</th>' : ""}<th>State</th><th>Uses</th><th>Review</th><th>Why</th></tr></thead><tbody>
+  /* One table of items, sorted by a click on a column header (`table_sort.js`).
+     Each table (by `id`) keeps its own sort while the page is open. */
+  const sorts = {};
+  function table(id, rows, {kind: withKind = false, added: withAdded = false, limit = 1000, by = "", dir = 1} = {}) {
+    const state = sorts[id] || (sorts[id] = {by, dir});
+    const cols = {
+      play: {label: ""},
+      ...(withKind ? {kind: {label: "Kind", value: i => KINDS[i.kind] || i.kind}} : {}),
+      name: {label: "Name", value: i => i.display},
+      ...(withAdded ? {added: {label: "Added (Git)", title: "First score commit in available Git history", value: i => Date.parse(i.added_at) || null, first: -1}} : {}),
+      state: {label: "State", value: i => i.state},
+      uses: {label: "Uses", value: i => i.uses.length || null, first: -1},
+      review: {label: "Review", title: "The newest review's score", value: i => R().latest(i.id)?.score ?? null, first: -1},
+      why: {label: "Why", value: i => i.reasons[0] || null},
+    };
+    rows = TableSort.apply(rows, cols, state).slice(0, limit);
+    return `<table class="tbl" id="${esc(id)}"><thead><tr>${TableSort.headers(cols, state)}</tr></thead><tbody>
       ${rows.map(i => `<tr><td>${i.media?.type === "audio" ? `<button type="button" class="ghost" data-play="${esc(i.id)}" title="Play ${esc(i.display)}">▶</button>` : ""}</td>
         ${withKind ? `<td>${esc(KINDS[i.kind] || i.kind)}</td>` : ""}
         <td>${itemLink(i.id)}<br><small><code>${esc(i.name)}</code></small></td>${withAdded ? `<td>${i.added_at ? `<time datetime="${esc(i.added_at)}" title="${esc(i.added_at)}">${esc(i.added_at.slice(0, 10))}</time>` : '<small>Unknown</small>'}</td>` : ""}<td>${chip(i.state)}</td><td>${i.uses.length || ""}</td>
@@ -131,35 +148,31 @@
         <td>${i.reasons.length ? `<small>${esc(i.reasons[0])}</small>` : ""}</td></tr>`).join("")}</tbody></table>`;
   }
 
+  function wireTables(redraw) {
+    for (const [id, state] of Object.entries(sorts)) TableSort.wire(document.getElementById(id), state, redraw);
+  }
+
   const filters = {};
   function list(kind) {
     const all = Object.values(items).filter(i => i.kind === kind);
     const k = C.kinds?.[kind] || {notices: [], states: {}};
     const terms = query().split(/\s+/).filter(Boolean);
-    const f = filters[kind] || (filters[kind] = {state: "", used: "", sort: "name"});
+    const f = filters[kind] || (filters[kind] = {state: "", used: ""});
     let rows = all.filter(i => terms.every(t => (i.id + " " + i.display + " " + i.tags.join(" ") + " " + (i.score?.description || "")).toLowerCase().includes(t)));
     if (f.state) rows = rows.filter(i => i.state === f.state);
     if (f.used) rows = rows.filter(i => f.used === "used" ? i.uses.length : f.used === "unused" ? !i.uses.length : f.used === "reviewed" ? R().latest(i.id) : !R().latest(i.id));
-    rows.sort((a, b) => {
-      if (f.sort !== "name") {
-        const at = Date.parse(a.added_at) || 0, bt = Date.parse(b.added_at) || 0;
-        if (!at !== !bt) return at ? -1 : 1;
-        if (at !== bt) return f.sort === "newest" ? bt - at : at - bt;
-      }
-      return a.display.localeCompare(b.display) || a.id.localeCompare(b.id);
-    });
+    // By name, and a click on a column header sorts by that column.
+    rows.sort((a, b) => a.display.localeCompare(b.display) || a.id.localeCompare(b.id));
     const facet = (group, key, label) => `<button type="button" class="ghost${f[group] === key ? " on" : ""}" data-filter="${group}" data-key="${esc(key)}">${esc(label)}</button>`;
     app().innerHTML = `<h1>${esc(KINDS[kind])} <small>${rows.length} of ${all.length}</small></h1>
       ${k.notices.map(n => `<p class="stamp stale">${esc(n)}</p>`).join("")}
       <p class="controls">${facet("state", "", "all")}${Object.entries(k.states).map(([s, n]) => facet("state", s, `${s} (${n})`)).join("")}
         · ${facet("used", "", "any use")}${facet("used", "used", "used in game text")}${facet("used", "unused", "no use found")}
         ${facet("used", "reviewed", "reviewed") + facet("used", "unreviewed", "never reviewed")}
-        ${kind === "music" ? `<label> · Sort <select id="music-sort">${[["name", "Name"], ["newest", "Newest added"], ["oldest", "Oldest added"]].map(([key, label]) => `<option value="${key}"${f.sort === key ? " selected" : ""}>${label}</option>`).join("")}</select></label>` : ""}
         · make: <code>${esc(k.fix || "")}</code></p>
-      ${rows.length ? table(rows.slice(0, 1000), false, kind === "music") : '<p class="empty">Nothing matches.</p>'}`;
+      ${rows.length ? table("items-" + kind, rows, {added: kind === "music"}) : '<p class="empty">Nothing matches.</p>'}`;
     app().querySelectorAll("[data-filter]").forEach(b => b.onclick = () => { f[b.dataset.filter] = b.dataset.key; list(kind); });
-    const sort = app().querySelector("#music-sort");
-    if (sort) sort.onchange = () => { f.sort = sort.value; list(kind); };
+    wireTables(() => list(kind));
     sync();
   }
 

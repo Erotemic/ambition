@@ -172,7 +172,7 @@ def build(
     partial = out / "catalog.js.partial"
     partial.write_text(f"window.ART_CATALOG = {text};\n")
     partial.replace(out / "catalog.js")
-    for name in ("index.html", "app.js", "app.css", "inventory.js", "characters.js", "reviews.js", "items.js", "preflight.html"):
+    for name in ("index.html", "app.js", "app.css", "inventory.js", "characters.js", "table_sort.js", "reviews.js", "items.js", "preflight.html"):
         shutil.copyfile(WEB / name, out / name)
     from .workbench import write_tools
     write_tools(repo, out)

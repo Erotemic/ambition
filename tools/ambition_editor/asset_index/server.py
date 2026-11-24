@@ -15,9 +15,20 @@ import yaml
 
 from . import reviews
 
+#: What the page says when this server runs older code than the page it serves.
+RESTART = "./scripts/asset_inspector.py --kill"
+
+
+def _code_stamp() -> tuple:
+    """When each source file of this server last changed. A server keeps the code it
+    started with, but a build (its own refresh, or another run) writes a new page:
+    a server left running across an update answers the new page with old code."""
+    return tuple(sorted((path.name, path.stat().st_mtime_ns) for path in Path(__file__).parent.glob("*.py")))
+
 
 def make_handler(repo: Path, catalog, status=None):
     lock = threading.Lock()
+    started = _code_stamp()
     def current_catalog():
         return catalog() if callable(catalog) else catalog
 
@@ -36,7 +47,8 @@ def make_handler(repo: Path, catalog, status=None):
 
         def do_GET(self):
             if urlsplit(self.path).path == "/api/build-status":
-                return self.reply(200, dict(status or {"state": "done"}))
+                return self.reply(200, dict(status or {"state": "done"}, server_stale=_code_stamp() != started,
+                                            restart=RESTART))
             if urlsplit(self.path).path != "/api/asset-reviews":
                 return super().do_GET()
             try:
@@ -76,7 +88,8 @@ def make_handler(repo: Path, catalog, status=None):
                         return self.reply(200, result)
                     current = current_catalog()
                     if self.command != "POST" or path != "/api/asset-reviews":
-                        return self.reply(404, {"error": "Unknown review operation."})
+                        return self.reply(404, {"error": f"This server has no {self.command} {path}. If the inspector "
+                                                         f"was updated while it ran, restart it: {RESTART}"})
                     saved = reviews.save(repo, current, data)
                 self.reply(200, dict(reviews.snapshot(repo, current), saved=saved))
             except reviews.ConflictError as error:

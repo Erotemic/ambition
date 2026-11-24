@@ -87,6 +87,9 @@ dl.kv dd { margin: 0; overflow-wrap: anywhere; }
 table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
 th, td { text-align: left; vertical-align: top; padding: 5px 8px; border-bottom: 1px solid var(--rule); }
 th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; background: var(--panel2); position: sticky; top: 0; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover, th.sortable:focus-visible { color: var(--fg); }
+th.sorted { color: var(--fg); }
 td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stage { display: grid; place-items: center; min-height: 260px; border-radius: 4px; overflow: hidden; }
 .stage img, .stage canvas { max-width: 100%; }

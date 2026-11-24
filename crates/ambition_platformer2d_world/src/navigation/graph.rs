@@ -129,6 +129,24 @@ pub struct NavGraph {
     /// Each link's cost to a goal ([`Self::to_goal`]), for the goals asked
     /// for lately: a pure function of the graph and the goal.
     destinations: DestinationTables,
+    /// The answers of [`Self::waypoints`] lately asked for, by the feet's
+    /// surface and the seed: a pure function of the graph and those two.
+    waypoint_sets: KeptWaypoints,
+}
+
+/// How many (surface, seed) waypoint answers a graph keeps: one or two per
+/// navigating body, whose seed holds while its errand does.
+const WAYPOINT_SETS_KEPT: usize = 32;
+
+/// The answers [`NavGraph::waypoints`] keeps, newest last. Like
+/// [`DestinationTables`], not part of the graph's value.
+#[derive(Debug, Default)]
+struct KeptWaypoints(std::sync::Mutex<Vec<((usize, u64), ([Vec2; NAV_WAYPOINTS], u8))>>);
+
+impl Clone for KeptWaypoints {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
 }
 
 /// How many goals' tables a graph keeps. A body walking to a waypoint asks
@@ -274,6 +292,7 @@ impl NavGraph {
             out: vec![Vec::new(); surfaces.len()],
             reach: (0..surfaces.len()).map(|_| std::sync::OnceLock::new()).collect(),
             destinations: DestinationTables::default(),
+            waypoint_sets: KeptWaypoints::default(),
             surfaces,
             links: Vec::new(),
             cost: BuildCost::default(),
@@ -838,11 +857,33 @@ impl NavGraph {
 
     /// Up to [`NAV_WAYPOINTS`] points a body at `feet` can get to, one on each
     /// of some surfaces. `seed` chooses the surfaces and the place on each.
+    ///
+    /// The answer is a function of the feet's surface and the seed only, so
+    /// it is chosen once for each pair and kept: a body asks every tick, and
+    /// its seed holds while its errand does.
     pub fn waypoints(&self, feet: Vec2, seed: u64) -> ([Vec2; NAV_WAYPOINTS], u8) {
-        let mut points = [Vec2::ZERO; NAV_WAYPOINTS];
         let Some(from) = self.surface_at(feet) else {
-            return (points, 0);
+            return ([Vec2::ZERO; NAV_WAYPOINTS], 0);
         };
+        let key = (from, seed);
+        if let Ok(kept) = self.waypoint_sets.0.lock() {
+            if let Some((_, answer)) = kept.iter().find(|(known, _)| *known == key) {
+                return *answer;
+            }
+        }
+        let answer = self.choose_waypoints(from, seed);
+        if let Ok(mut kept) = self.waypoint_sets.0.lock() {
+            if kept.len() >= WAYPOINT_SETS_KEPT {
+                kept.remove(0);
+            }
+            kept.push((key, answer));
+        }
+        answer
+    }
+
+    /// [`Self::waypoints`] for a body on surface `from`, chosen now.
+    fn choose_waypoints(&self, from: usize, seed: u64) -> ([Vec2; NAV_WAYPOINTS], u8) {
+        let mut points = [Vec2::ZERO; NAV_WAYPOINTS];
         let mut reachable = self.reach_from(from).to_vec();
         reachable.sort_by_key(|surface| mix(seed ^ (*surface as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)));
         reachable.truncate(NAV_WAYPOINTS);

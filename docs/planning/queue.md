@@ -599,8 +599,9 @@ occurrence views and derive active journal work. Navigation's cost-state
 reduction is fixed (2026-11-22: route searches arrivals and charges the final
 walk), and the advisor measures a body's motion once across rooms
 (`NavMotion`, 2026-11-22). The graph cache pins the graphs demanded each
-tick, and a surface's reach is searched once and kept (2026-11-22). Next:
-seeded waypoint reuse. The seat autopilot reuses its kept motion across
+tick, and a surface's reach is searched once and kept (2026-11-22).
+Seeded waypoint answers are kept by surface and seed (2026-11-24); the
+navigation list here is done. The seat autopilot reuses its kept motion across
 room graphs, and `next` reads a kept per-goal table over link landings
 (anchor-lifted route state, fixed edge costs) instead of a forward search
 per body per tick (both 2026-11-24). The newly selected

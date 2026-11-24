@@ -284,7 +284,12 @@ surface's reach the first time it is asked for and keeps it with the graph
 placement and errand checks, `place_beside` and `waypoints` read the kept
 answer, so they no longer allocate and search each time. `reachable_from`
 remains, as a copy. Witness: `a_surfaces_reach_is_searched_once_and_kept`.
-Reusing seeded waypoint selection is not done.
+Seeded waypoint selection is reused (2026-11-24): `waypoints` keeps its
+answer by the feet's surface and the seed (the last 32 pairs), so a body
+asking every tick with a held seed no longer copies and sorts the reach
+list. The answer is the one chosen fresh (`choose_waypoints`), and feet
+anywhere on the surface read it. Witness:
+`the_waypoints_are_reachable_and_the_same_for_one_seed`.
 
 The [advisor](../../../crates/ambition_platformer2d_actor_monolith/src/body/navigation.rs)
 asks `reachable_from` through waypoints, target placement and errands.

@@ -219,6 +219,14 @@ fn the_waypoints_are_reachable_and_the_same_for_one_seed() {
     let shelf = fixture.surface("shelf");
     assert!(points[..count as usize].iter().all(|point| fixture.graph.surface_at(*point).is_some_and(|at| at != shelf)));
     assert_ne!(points, fixture.graph.waypoints(feet, 8).0);
+    // Chosen once for each surface and seed (EXECUTION-COST): feet elsewhere
+    // on the floor read the kept answer, which is the answer chosen fresh.
+    let floor = fixture.surface("floor");
+    let elsewhere = Vec2::new(fixture.graph.surfaces[floor].left + 1.0, feet.y);
+    assert_eq!(fixture.graph.surface_at(elsewhere), Some(floor), "premise: still on the floor");
+    assert_eq!(fixture.graph.waypoints(elsewhere, 7), (points, count));
+    assert_eq!(fixture.graph.choose_waypoints(floor, 7), (points, count));
+    assert_eq!(fixture.graph.waypoint_sets.0.lock().unwrap().len(), 2, "one answer kept for each seed asked");
 }
 
 #[test]
@@ -810,6 +818,7 @@ fn stated_graph(surfaces: &[(f32, f32, f32)], links: &[(usize, usize, f32, f32, 
         flight: None,
         reach: (0..out.len()).map(|_| std::sync::OnceLock::new()).collect(),
         destinations: Default::default(),
+        waypoint_sets: Default::default(),
         out,
     }
 }

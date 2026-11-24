@@ -188,3 +188,47 @@ fn a_crouched_laser_keeps_its_lit_visor_and_leaves_the_posed_eye() {
     sim.step_n(ambition_app::AgentAction { projectile_held: true, ..base() }, 8);
     origin(&mut sim, body, "eye_laser");
 }
+
+/// IN5: an equip that takes the Projectile slot mid-charge leaves the pending
+/// Fireball charge with no release, so it is withdrawn without a shot; giving
+/// the slot back does not revive it. The control re-wears the Fireball while
+/// the same charge is held: the binding is the same, so its release fires.
+#[test]
+fn a_charge_whose_slot_was_taken_is_withdrawn_without_a_shot() {
+    let held = || ambition_app::AgentAction { projectile_held: true, ..base() };
+    for laser_takes_the_slot in [false, true] {
+        let mut sim = fixed_60hz_sim();
+        sim.step_n(base(), 120);
+        let body = primary(&mut sim);
+        let request = |sim: &mut Platformer2dSimHarness, item| {
+            ambition_platformer2d::platformer::host_intents::write_host_intent(
+                sim.world_mut(),
+                ItemEquipRequested { participant: ambition_platformer2d::characters::control::PlayerSlot(0), item },
+            )
+        };
+        sim.step(ambition_app::AgentAction { projectile: true, projectile_held: true, ..base() });
+        let mut fired = shots(&sim, body);
+        let mut wear = |sim: &mut Platformer2dSimHarness, item| {
+            request(sim, item);
+            for _ in 0..3 {
+                sim.step(held());
+                fired += shots(sim, body);
+            }
+        };
+        if laser_takes_the_slot {
+            wear(&mut sim, Item::EyeLaser);
+        }
+        wear(&mut sim, Item::Fireball);
+        sim.step(ambition_app::AgentAction { projectile_released: true, ..base() });
+        fired += shots(&sim, body);
+        for _ in 0..3 {
+            sim.step(base());
+            fired += shots(&sim, body);
+        }
+        if laser_takes_the_slot {
+            assert_eq!(fired, 0, "the withdrawn charge fires nothing");
+        } else {
+            assert_eq!(fired, 1, "control: the same binding keeps the charge, and its release fires");
+        }
+    }
+}

@@ -31,6 +31,27 @@ pub fn charge_stream_owns_the_press(charges: bool, moveset: Option<&ActorMoveset
     charges && !moveset.is_some_and(routes_ranged)
 }
 
+/// Can a release still reach this body's charge stream (IN5)? The stream
+/// must own the press ([`charge_stream_owns_the_press`]), and the body's
+/// scheme must not route the Projectile slot to a technique: a technique
+/// takes the edges and clears the raw verbs
+/// (`ambition_characters::action_scheme::resolve_control_slots`), so an
+/// equipped Eye Laser leaves a pending Fireball charge with no release.
+/// A scheme not yet derived withdraws nothing. An unrelated equip that leaves
+/// the Projectile binding as it was keeps the route.
+pub fn charge_route_is_bound(
+    charges: bool,
+    moveset: Option<&ActorMoveset>,
+    scheme: Option<&ambition_characters::action_scheme::DerivedActionScheme>,
+) -> bool {
+    use ambition_entity_catalog::action_scheme::{ActionGate, ControlSlot};
+    charge_stream_owns_the_press(charges, moveset)
+        && !scheme
+            .and_then(|derived| derived.scheme.as_ref())
+            .and_then(|scheme| scheme.action_for_slot(ControlSlot::Projectile))
+            .is_some_and(|action| matches!(action.gate, ActionGate::Technique(_)))
+}
+
 /// Bevy system: walk every actor entity that has a Brain +
 /// ActionSet + ambition_characters::control::ActorControl + BodyKinematics and emit one
 /// `ActorActionMessage` per resolved action request. Runs after the

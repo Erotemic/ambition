@@ -4,6 +4,18 @@ use crate::world::{SurfaceChain, SurfaceJunction, SurfacePort};
 const DT: f32 = 1.0 / 60.0;
 const G: Vec2 = Vec2::new(0.0, 1450.0);
 
+fn step_surface_body(
+    body: &mut SurfaceBody,
+    world: &World,
+    params: &MomentumParams,
+    frame: MotionFrame,
+    inputs: SurfaceInputs,
+    dt: f32,
+    contacts: Option<&mut Vec<Contact>>,
+) {
+    super::step_surface_body(body, world, params, frame, inputs, dt, contacts, None);
+}
+
 /// The [`MotionFrame`] the environment resolver would supply for acceleration
 /// `accel` (call-shape shim for the frame-explicit kernel APIs).
 fn gframe(accel: Vec2) -> MotionFrame {
@@ -122,6 +134,56 @@ fn ride(chain_idx: usize, s: f32, v_t: f32, world: &World, radius: f32) -> Surfa
         v_t,
     };
     b
+}
+
+#[test]
+fn a_rider_can_enter_a_wall_portal_from_a_floor() {
+    use crate::frame::{MapConvention, PortalAperture, PortalFrame, thread::{PieceBudget, PortalLink}};
+
+    let entry = PortalAperture { frame: PortalFrame::fixed(Vec2::new(200.0, 76.0), -Vec2::X), half_length: 64.0 };
+    let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(500.0, 76.0), Vec2::X), half_length: 64.0 };
+    let links = [PortalLink::new(entry, exit, 0), PortalLink::new(exit, entry, 1)];
+    let portals = MotionAdmission { links: &links, first: None,
+        budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
+    let world = World::new("wall portal", Vec2::splat(1000.0), Vec2::ZERO, vec![
+        crate::Block::solid("entry wall", Vec2::new(200.0, 12.0), Vec2::new(48.0, 128.0)),
+        crate::Block::solid("exit wall", Vec2::new(452.0, 12.0), Vec2::new(48.0, 128.0)),
+    ]).with_chains(vec![SurfaceChain::open("road", vec![Vec2::new(0.0, 100.0), Vec2::new(1000.0, 100.0)])]);
+    for (admission, crosses) in [(None, false), (Some(portals), true)] {
+        let mut body = ride(0, 170.0, 1000.0, &world, 24.0);
+        for _ in 0..3 {
+            super::step_surface_body(&mut body, &world, &frictionless(), gframe(G),
+                SurfaceInputs::default(), DT, None, admission);
+        }
+        assert_eq!(body.pos.x > entry.frame.origin.x, crosses, "{body:?}");
+    }
+}
+
+#[test]
+fn a_rider_loses_support_at_an_open_floor_portal_without_a_jump() {
+    use crate::frame::{MapConvention, PortalAperture, PortalFrame, thread::{PieceBudget, PortalLink}};
+
+    let entry = PortalAperture { frame: PortalFrame::fixed(Vec2::new(400.0, 100.0), -Vec2::Y), half_length: 64.0 };
+    let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(800.0, 76.0), Vec2::X), half_length: 64.0 };
+    let links = [PortalLink::new(entry, exit, 0), PortalLink::new(exit, entry, 1)];
+    let portals = MotionAdmission { links: &links, first: None,
+        budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
+    let floor = SurfaceChain::open("road", vec![Vec2::new(0.0, 100.0), Vec2::new(700.0, 100.0)]);
+    let world = World::new("floor portal", Vec2::splat(1000.0), Vec2::ZERO, vec![
+        crate::Block::solid("floor", Vec2::new(0.0, 100.0), Vec2::new(700.0, 80.0)),
+        crate::Block::solid("exit wall", Vec2::new(752.0, 12.0), Vec2::new(48.0, 128.0)),
+    ]).with_chains(vec![floor]);
+    for (admission, crosses) in [(None, false), (Some(portals), true)] {
+        let mut body = ride(0, 300.0, 200.0, &world, 24.0);
+        for _ in 0..50 {
+            super::step_surface_body(&mut body, &world, &frictionless(), gframe(G),
+                SurfaceInputs::default(), DT, None, admission);
+            if body.pos.y > entry.frame.origin.y {
+                break;
+            }
+        }
+        assert_eq!(body.pos.y > entry.frame.origin.y, crosses, "{body:?}");
+    }
 }
 
 #[test]

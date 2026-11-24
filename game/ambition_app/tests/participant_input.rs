@@ -22,7 +22,7 @@
 //! whose value is ~0, so poking `digital_mut()` alone silently produces
 //! nothing — the event path fills both halves exactly like a physical pad.
 
-use bevy::input::gamepad::{RawGamepadButtonChangedEvent, RawGamepadEvent};
+use bevy::input::gamepad::{GamepadAxis, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent, RawGamepadEvent};
 use bevy::prelude::*;
 
 use ambition_app::app::shell_host;
@@ -417,6 +417,18 @@ fn the_participant_survives_sessions_and_feeds_gameplay_raw_axes() {
         keyboard_axis, touch_axis,
         "virtual touch right produces the identical raw screen axis"
     );
+
+    let move_stick = |app: &mut App, value| {
+        app.world_mut().write_message(RawGamepadEvent::Axis(
+            RawGamepadAxisChangedEvent::new(pad, GamepadAxis::LeftStickX, value),
+        ));
+    };
+    move_stick(&mut app, 1.0);
+    for _ in 0..12 {
+        assert_eq!(axis_after(&mut app), pad_axis, "a held stick stays deflected");
+    }
+    move_stick(&mut app, 0.0);
+    assert_eq!(axis_after(&mut app), (0.0, 0.0));
 
     // Teardown: quitting to home destroys the session and its actor but the
     // participant persists — same entity, device state intact — and the

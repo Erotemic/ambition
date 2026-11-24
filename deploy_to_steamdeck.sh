@@ -42,6 +42,47 @@ STEAM_NAME="${STEAM_NAME:-Ambition $NAME_SUFFIX}"
 # pointed at the same artifact.
 BIN="${BIN:-ambition_game_bin}"
 
+install_launcher() {
+    ssh "$DECK" "cat > '$APPDIR/run_ambition.sh' && chmod +x '$APPDIR/run_ambition.sh'" <<EOF_INNER
+#!/usr/bin/env bash
+set -euo pipefail
+
+APPDIR="\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]}")" && pwd)"
+cd "\$APPDIR"
+
+export BEVY_ASSET_ROOT="\$APPDIR"
+export AMBITION_PRESENTATION_ENV="\${AMBITION_PRESENTATION_ENV:-handheld}"
+export AMBITION_MAX_SCALE_FACTOR="\${AMBITION_MAX_SCALE_FACTOR:-1}"
+# Keep the window cameras at one sample count during quality changes.
+export AMBITION_MSAA="\${AMBITION_MSAA:-1}"
+
+export RUST_BACKTRACE=1
+export RUST_LOG="\${RUST_LOG:-warn,ambition_app::host::platform::desktop=info}"
+
+# Steam Input can select the Desktop Layout when Steam cannot see the
+# focus of a native Wayland window. Use XWayland for the Steam shortcut in KDE.
+if [[ \${XDG_SESSION_TYPE:-} == wayland &&
+      :\${XDG_CURRENT_DESKTOP:-}: == *:KDE:* &&
+      -n \${SteamGameId:-} &&
+      -n \${DISPLAY:-} &&
+      \${AMBITION_DECK_NATIVE_WAYLAND:-0} != 1 ]]; then
+    unset WAYLAND_DISPLAY WAYLAND_SOCKET
+fi
+
+if [[ ! -t 2 ]]; then
+    exec > "\$APPDIR/ambition.log" 2>&1
+fi
+exec "\$APPDIR/$BIN" "\$@"
+EOF_INNER
+}
+
+if [[ ${1:-} == --launcher-only ]]; then
+    ssh "$DECK" "test -x '$APPDIR/$BIN'"
+    install_launcher
+    echo "Updated $DECK:$APPDIR/run_ambition.sh"
+    exit 0
+fi
+
 cd "$REPO"
 
 # Fail before deployment if the map is invalid.
@@ -91,23 +132,7 @@ rsync -av \
     "$ASSET_HASH_MANIFEST" \
     "$DECK:$APPDIR/"
 
-# The launcher locates its own installation directory. This is important for
-# side-by-side deployments: the same launcher works in ambition,
-# ambition-2026-08-30, or any future snapshot directory.
-ssh "$DECK" "cat > '$APPDIR/run_ambition.sh' && chmod +x '$APPDIR/run_ambition.sh'" <<EOF_INNER
-#!/usr/bin/env bash
-set -euo pipefail
-
-APPDIR="\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]}")" && pwd)"
-cd "\$APPDIR"
-
-export BEVY_ASSET_ROOT="\$APPDIR"
-
-export RUST_BACKTRACE=1
-export RUST_LOG="\${RUST_LOG:-warn}"
-
-exec "\$APPDIR/$BIN" "\$@"
-EOF_INNER
+install_launcher
 
 # Verify the remote installation against the same byte contract used locally.
 ssh "$DECK" "bash -s" <<EOF_CHECK
@@ -158,11 +183,8 @@ EOF_STEAM
         echo "Registered Steam shortcut: $STEAM_NAME"
     fi
 
-    # A launcher THROUGH Steam, for desktop mode. Only a program the Steam
-    # client launches gets Steam Input's virtual gamepad; launched from the
-    # desktop, the Deck's sticks and buttons are Steam's keyboard-and-mouse
-    # desktop layout and the game sees no controller. Steam saves a new
-    # shortcut a moment after it is added, so ask a few times.
+    # Start the shortcut through Steam so it can apply the gamepad layout.
+    # Steam can take a moment to save the shortcut.
     STEAM_LAUNCHER="$APPDIR/ambition-steam.desktop"
     GAME_ID=""
     for _ in 1 2 3 4 5; do

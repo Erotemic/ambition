@@ -684,6 +684,7 @@ fn one_way_drop_through_works_under_inverted_gravity() {
 
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     scratch.kinematics.pos = Vec2::new(450.0, plat_bottom + scratch.kinematics.size().y * 0.5);
+    scratch.kinematics.material = crate::frame::BodyMaterial::IDENTITY.turned(std::f64::consts::PI).unwrap();
     scratch.kinematics.vel = Vec2::ZERO;
     scratch.ground.on_ground = false;
 

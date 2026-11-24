@@ -9,7 +9,8 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::gameplay_presentation::{
-    ControlFootprint, ControlFootprints, ResolvedGameplayPresentation, ScreenRect,
+    ControlFootprint, ControlFootprints, PresentationEnvironment, ResolvedGameplayPresentation,
+    ScreenRect,
 };
 
 use super::layout::{
@@ -259,15 +260,22 @@ pub fn sync_touch_control_placement(
 pub fn publish_touch_control_footprints(
     visible: Res<super::bevy_plugin::TouchControlsVisible>,
     settings: Res<ambition_persistence::settings::UserSettings>,
+    environment: Option<Res<PresentationEnvironment>>,
     presentation: Option<Res<ResolvedGameplayPresentation>>,
     mut footprints: ResMut<ControlFootprints>,
 ) {
     let next = if visible.0 {
         let available = presentation.as_deref().map(|p| p.display_safe_rect.size())
             .filter(|size| size.is_finite() && size.cmpgt(Vec2::ZERO).all());
-        let fit = |requested: f32, size: Vec2| available.map_or(requested, |available| {
-            requested.min((available / size).min_element())
-        });
+        let base_scale = if environment.as_deref() == Some(&PresentationEnvironment::Handheld) {
+            0.85
+        } else {
+            1.0
+        };
+        let fit = |multiplier: f32, size: Vec2| {
+            let requested = base_scale * multiplier;
+            available.map_or(requested, |available| requested.min((available / size).min_element()))
+        };
         touch_control_footprints(
             fit(settings.controls.touch_left_scale, Vec2::splat(JOYSTICK_EXCLUSION_SIZE)),
             fit(settings.controls.touch_right_scale, Vec2::new(ACTION_BEZEL_W, ACTION_BEZEL_H)),

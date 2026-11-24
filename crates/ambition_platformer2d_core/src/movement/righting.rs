@@ -1,6 +1,7 @@
 //! Physical righting and admission of the recorded body path.
 
-use crate::{BodyKinematics, SourceTurn, SweepSample, Vec2, World};
+use crate::{BodyKinematics, LinearTravel, SourceTurn, SweepSample, Vec2, World};
+use crate::collision_semantics::Contact;
 use crate::frame::{NumericFault, thread::{MotionAdmission, Refusal, RefusalReason}};
 
 /// The smallest turn worth proving: a nanoradian moves the corner of a
@@ -10,19 +11,14 @@ const MIN_TURN: f64 = 1e-9;
 /// Keep an accepted translation when a solid blocks the proposed turn.
 /// Numerical and representation failures refuse the complete candidate.
 ///
-/// `pivot_step`: the body stands on what it rights against. A body lying on
-/// a floor cannot turn about its centre, whose corners sweep below the
-/// corner it rests on, so when that turn is blocked it stands up about a
-/// corner instead, at most this far a tick, as a box tipped on its side is
-/// stood up on its edge. Without it, a body that landed half turned lay
-/// there for good.
+/// With support, try a smaller turn that moves the centre away from the surface.
 #[allow(clippy::too_many_arguments)]
 pub fn admit_body_righting(
     body: &mut BodyKinematics,
     record: &mut SweepSample,
     target_down: Vec2,
     max_step: f64,
-    pivot_step: Option<f64>,
+    support_turn: Option<(&Contact, f64)>,
     duration: f64,
     world: &World,
     admission: Option<MotionAdmission<'_>>,
@@ -64,10 +60,10 @@ pub fn admit_body_righting(
     if turn != 0.0 {
         let proposal = SweepSample { turn: Some(SourceTurn { radians: turn, duration }), ..*record };
         let mut admitted = clear(&proposal)?.then_some((proposal, Vec2::ZERO));
-        match pivot_step.filter(|step| *step > 0.0) {
-            Some(step) if admitted.is_none() => {
+        match support_turn.filter(|(_, step)| *step > 0.0) {
+            Some((support, step)) if admitted.is_none() && record.travel == LinearTravel::Complete => {
                 let step = turn.clamp(-step, step);
-                let lift = pivot_lift(body, record.material, step, target_down).map_err(numeric)?;
+                let lift = support_lift(body, record, step, support).map_err(numeric)?;
                 let proposal = SweepSample { turn: Some(SourceTurn { radians: step, duration }), curr: record.curr + lift, ..*record };
                 admitted = clear(&proposal)?.then_some((proposal, lift));
             }
@@ -88,19 +84,17 @@ pub fn admit_body_righting(
     Ok(false)
 }
 
-/// How far the centre moves when `body` turns by `step` about the corner of
-/// its box that keeps the turned box highest along `down`: the corner it
-/// stands up on, which stays where it is.
-fn pivot_lift(body: &BodyKinematics, from: crate::frame::BodyMaterial, step: f64, down: Vec2) -> Result<Vec2, NumericFault> {
+fn support_lift(body: &BodyKinematics, record: &SweepSample, step: f64, support: &Contact) -> Result<Vec2, NumericFault> {
     let half = body.canonical_size * 0.5;
-    let corners = [Vec2::new(-half.x, -half.y), Vec2::new(half.x, -half.y), Vec2::new(half.x, half.y), Vec2::new(-half.x, half.y)];
-    let (before, after) = (from.at(Vec2::ZERO)?, from.turned(step)?.at(Vec2::ZERO)?);
-    let mut best: Option<(f32, Vec2)> = None;
-    for corner in corners {
-        let lift = before.vector(corner)? - after.vector(corner)?;
-        let mut lowest = f32::NEG_INFINITY;
-        for other in corners { lowest = lowest.max((lift + after.vector(other)?).dot(down)); }
-        if best.is_none_or(|(old, _)| lowest < old) { best = Some((lowest, lift)); }
-    }
-    Ok(best.map_or(Vec2::ZERO, |(_, lift)| lift))
+    let map = record.material.turned(step)?.at(Vec2::ZERO)?;
+    let normal = support.normal;
+    let reach = map.vector(Vec2::new(half.x, 0.0))?.dot(normal).abs()
+        + map.vector(Vec2::new(0.0, half.y))?.dot(normal).abs();
+    // Bound the difference between each corner's arc and its chord. The
+    // centre travels in a straight line. The extra clearance at the end
+    // keeps the arc above the support for the full turn.
+    let radius = f64::from(half.length()) * map.scale_wide();
+    let slack = (radius * step * step * 0.5) as f32;
+    let clearance = (body.pos - support.point).dot(normal);
+    Ok(normal * (reach + slack - clearance).max(0.0))
 }

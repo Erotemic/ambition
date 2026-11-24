@@ -118,7 +118,7 @@ def ferry(lv: Level) -> None:
     lv.fire_bar(141, up(5), orbs=4, period=3.4)
     lv.coins(135, up(2), 3)
     lv.coins(144, up(2), 3)
-    lv.enemy("paper", 146, up(6))
+    lv.enemy("paper", 136, up(6))
 
 
 def goal(lv: Level) -> None:

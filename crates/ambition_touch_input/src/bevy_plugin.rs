@@ -321,7 +321,9 @@ impl Plugin for TouchControlsPlugin {
             )
             .add_systems(
                 PostUpdate,
-                drive_joystick_knob_from_axis.after(JoystickSystems::UpdateUI),
+                drive_joystick_knob_from_axis
+                    .after(JoystickSystems::UpdateUI)
+                    .before(bevy::ui::UiSystems::Layout),
             );
         quiet_the_joystick_ui_stage(app);
     }
@@ -333,7 +335,12 @@ impl Plugin for TouchControlsPlugin {
 /// ([`the_joystick_ui_has_work`]). Public so a test composes the same
 /// statement.
 pub fn quiet_the_joystick_ui_stage(app: &mut App) {
-    app.configure_sets(PostUpdate, JoystickSystems::UpdateUI.run_if(the_joystick_ui_has_work));
+    app.configure_sets(
+        PostUpdate,
+        JoystickSystems::UpdateUI
+            .before(bevy::ui::UiSystems::Layout)
+            .run_if(the_joystick_ui_has_work),
+    );
 }
 
 /// What `virtual_joystick`'s `update_ui` derives the stick's two nodes from,
@@ -1299,9 +1306,10 @@ fn touch_action_to_sandbox_action(
 }
 
 /// Resolve the primary seat's button pictures from its current bindings.
-/// Touch uses a gamepad reference; keyboard and mouse use keycaps.
+/// The touch screen on a phone or handheld shows pad controls.
 pub fn update_button_glyph_from_active_input(
     devices: Res<ambition_input::SeatActiveDevices>,
+    environment: Option<Res<ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationEnvironment>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     seat_bindings: Option<Res<ambition_input::SeatBindings>>,
     recipes: Query<(
@@ -1314,12 +1322,15 @@ pub fn update_button_glyph_from_active_input(
     mut shown_context: Local<Option<ControlContextKind>>,
     mut labels: Query<(&TouchActionLabel, Ref<TouchActionLabel>, &mut ButtonGlyph)>,
 ) {
+    use ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationEnvironment;
+
     let context = prompt.as_ref().map_or(ControlContextKind::Gameplay, |prompt| prompt.context);
     let recipe = recipes
         .iter()
         .find(|(seat, _)| seat.id == ambition_input::ParticipantId::PRIMARY)
         .map(|(_, recipe)| recipe);
     let changed = devices.is_changed()
+        || environment.as_ref().is_some_and(|environment| environment.is_changed())
         || settings
             .as_ref()
             .is_some_and(|settings| settings.is_changed())
@@ -1341,7 +1352,9 @@ pub fn update_button_glyph_from_active_input(
     if let ambition_input::ActiveDevice::Gamepad(style) = active {
         *touch_style = style;
     }
-    let device = if active == ambition_input::ActiveDevice::Touch {
+    let use_pad_reference = active == ambition_input::ActiveDevice::Touch
+        || matches!(environment.as_deref(), Some(PresentationEnvironment::Handheld | PresentationEnvironment::TouchPrimary));
+    let device = if use_pad_reference {
         ambition_input::ActiveDevice::Gamepad(*touch_style)
     } else {
         active
@@ -1352,7 +1365,7 @@ pub fn update_button_glyph_from_active_input(
     });
     // A keyboard-only seat can still use touch. Its reference pad uses the
     // same game layout and saved pad overrides, without changing input ownership.
-    let reference = if active == ambition_input::ActiveDevice::Touch
+    let reference = if use_pad_reference
         && !bound.all().any(|(_, controls)| {
             controls
                 .iter()
@@ -2496,5 +2509,22 @@ mod glyph_picture_tests {
             *app.world().get::<Visibility>(button).unwrap(),
             Visibility::Inherited
         );
+    }
+
+    #[test]
+    fn the_handheld_touch_overlay_keeps_pad_glyphs_after_mouse_input() {
+        use ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationEnvironment;
+
+        let mut app = glyph_app(BindingRecipe::preset(ambition_input::PresetId::ArrowsZxc));
+        app.insert_resource(PresentationEnvironment::Handheld);
+        app.update();
+        let jump = label(&mut app, TouchActionButton::Jump);
+        assert_eq!(app.world().get::<Text>(jump).unwrap().0, "Vault\n(A)");
+
+        for device in [ActiveDevice::Gamepad(GamepadStyle::PlayStation), ActiveDevice::Mouse] {
+            app.world_mut().resource_mut::<SeatActiveDevices>().mark_primary(device);
+            app.update();
+            assert_eq!(app.world().get::<Text>(jump).unwrap().0, "Vault\n(Cross)");
+        }
     }
 }

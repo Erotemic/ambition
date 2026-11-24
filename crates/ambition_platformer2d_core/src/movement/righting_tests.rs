@@ -66,3 +66,27 @@ fn a_quarter_turn_stops_exactly_on_the_target_axis() {
         assert_eq!(result.righting_turn(target, std::f64::consts::PI).unwrap(), 0.0);
     }
 }
+
+#[test]
+fn an_inverted_rider_rights_itself_without_leaving_the_floor() {
+    use crate::collision_semantics::{ContactKind, block_face_contact};
+    let floor = crate::Block::solid("floor", Vec2::new(0.0, 50.0), Vec2::new(100.0, 50.0));
+    let world = World::new("floor", Vec2::splat(100.0), Vec2::ZERO,
+        vec![floor.clone()]);
+    let mut body = BodyKinematics {
+        pos: Vec2::new(30.0, 26.0),
+        canonical_size: Vec2::new(28.0, 48.0),
+        material: BodyMaterial::IDENTITY.turned(std::f64::consts::PI).unwrap(),
+        ..Default::default()
+    };
+    for _ in 0..30 {
+        let mut record = SweepSample::at_rest(body, Vec2::Y);
+        body.pos = Vec2::new(body.pos.x + 1.0, 26.0);
+        record.curr = body.pos;
+        let support = block_face_contact(body.aabb(), &floor, -Vec2::Y, 0.0, ContactKind::Support, 0.0);
+        admit_body_righting(&mut body, &mut record, Vec2::Y, std::f64::consts::PI,
+            Some((&support, 8.0 / 60.0)), 1.0 / 60.0, &world, None, &[], None).unwrap();
+        assert!(body.aabb().max.y <= 50.001, "{body:?}");
+    }
+    assert_eq!(body.material.righting_turn(Vec2::Y, std::f64::consts::PI).unwrap(), 0.0);
+}

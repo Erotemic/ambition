@@ -43,6 +43,7 @@
 | [`portal_fault`](src/portal_fault.rs) | The visible face of a numeric portal refusal (PSIM-5). |
 | [`portal_schedule`](src/portal_schedule.rs) | Portal simulation assembly and schedule placement. |
 | [`portal_seat`](src/portal_seat.rs) | What a portal transit means for the body a seat drives. |
+| [`portal_world`](src/portal_world/mod.rs) | Apply portal geometry to a room's collision world. |
 | [`profile`](src/profile.rs) | Named supported engine profiles: capability contracts, not plugin lists. |
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
 | [`projectile_schedule`](src/projectile_schedule.rs) | Projectile schedule seams owned by the runtime composition tier. |
@@ -70,7 +71,7 @@
 | [`world_schedule`](src/world_schedule.rs) | Cross-domain simulation assembly for world objects, matches, and gameplay effects. |
 | [`world_values`](src/world_values.rs) | Named world values: state the durable save keeps and every room reads. |
 
-_63 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_64 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -131,7 +131,7 @@ RING_SIZE = (18, 18)
 RING_SPRITE = "sanic_ring_prop"
 #: The badniks of the act, west to east: (x, kind). The kinds are the table
 #: of `author_highway_ldtk.py`.
-BADNIK_PLACES = ((3136, "slop"), (3552, "liar"), (5056, "noodle"), (5760, "saint"))
+BADNIK_PLACES = ((3136, "slop"), (3552, "liar"), (4736, "saint"), (5056, "noodle"))
 
 
 def ring(cx: float, cy: float) -> dict:

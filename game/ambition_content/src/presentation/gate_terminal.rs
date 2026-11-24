@@ -32,6 +32,7 @@ use ambition_platformer2d::world::rooms::{
     position_grid, Chevron, GateNetworkCatalog, GateNetworkState, GateRingPositions, GateTerminalIntent, GRID_BITS,
 };
 use ambition_platformer2d_shared_tangle::host_intents::HostIntentWriter;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationEnvironment;
 use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use bevy::prelude::*;
@@ -95,18 +96,22 @@ struct ListButton(usize);
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 struct DialBackButton;
 
-/// Text and row sizes share one terminal presentation scale.
-const TEXT_SCALE: f32 = 1.35;
-/// A row's height and the gap under it: a finger's target.
-const ROW_TALL: f32 = 52.0 * TEXT_SCALE;
-const ROW_PITCH: f32 = ROW_TALL + 6.0;
+const ROW_HEIGHT: f32 = 52.0;
+const ROW_GAP: f32 = 6.0;
 /// The list panel's height besides its rows: the title and status, the
 /// "more" marks, the hint, and the paddings; and on a short screen (a phone
 /// held sideways), where the heading is one line and the hint is left out.
-const LIST_CHROME: f32 = 260.0 * TEXT_SCALE;
-const COMPACT_CHROME: f32 = 150.0 * TEXT_SCALE;
+const LIST_CHROME: f32 = 260.0;
+const COMPACT_CHROME: f32 = 150.0;
 /// A screen shorter than this draws the compact list.
 const COMPACT_BELOW: f32 = 560.0;
+
+fn terminal_scale(environment: Option<&PresentationEnvironment>) -> f32 {
+    match environment {
+        Some(PresentationEnvironment::Handheld) => 1.12,
+        _ => 1.35,
+    }
+}
 
 /// The model the panel shows now, to rebuild only on a change.
 #[derive(Component, Default)]
@@ -234,7 +239,10 @@ fn drive_gate_terminal(
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut preview: ResMut<GateDialPreview>,
     frames: Res<ambition_input::SeatMenuFrames>,
-    seats: Res<ambition_input::participant::SeatInputContexts>,
+    (seats, environment): (
+        Res<ambition_input::participant::SeatInputContexts>,
+        Option<Res<PresentationEnvironment>>,
+    ),
     widgets: TerminalWidgets,
     participants: TerminalParticipants,
     surface: ambition_render::ui_surface::ParticipantSurface,
@@ -252,6 +260,7 @@ fn drive_gate_terminal(
     let (Some(catalog), Some(state)) = (catalog, state) else {
         return;
     };
+    let scale = terminal_scale(environment.as_deref());
     let mut previews = std::collections::BTreeMap::new();
     let owners: Vec<_> = participants.inputs.iter().filter(|(entity, _)| participants.contains(*entity)).map(|(_, participant)| participant.id).collect();
     let pointer_position = ambition_ui_nav::pointer_position(touches, windows.single().ok().and_then(Window::cursor_position));
@@ -320,8 +329,8 @@ fn drive_gate_terminal(
             // window's, which an offscreen target or a UI scale does not share).
             if let Some(height) = widgets.roots.iter().find(|(_, root, _)| root.owner == owner).map(|(_, _, node)| node.size().y * node.inverse_scale_factor()) {
                 let compact = height < COMPACT_BELOW;
-                let chrome = if compact { COMPACT_CHROME } else { LIST_CHROME };
-                let fit = (((height - chrome) / ROW_PITCH).floor() as usize).clamp(2, 12);
+                let chrome = if compact { COMPACT_CHROME } else { LIST_CHROME } * scale;
+                let fit = (((height - chrome) / (ROW_HEIGHT * scale + ROW_GAP)).floor() as usize).clamp(2, 12);
                 if ui.list_rows != fit || ui.compact != compact {
                     ui.list_rows = fit;
                     ui.compact = compact;
@@ -470,12 +479,14 @@ fn draw_gate_terminal(
     mut users: Query<(Entity, &ambition_input::participant::InputParticipant, &TerminalUi, &mut ShownTerminal)>,
     participants: TerminalParticipants,
     surface: ambition_render::ui_surface::ParticipantSurface,
+    environment: Option<Res<PresentationEnvironment>>,
     roots: Query<(Entity, &GateTerminalRoot, &ComputedNode)>,
     ui_fonts: Option<Res<UiFonts>>,
     mut icons: Option<ResMut<GlyphIcons>>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let Some(scope) = participants.scope.get() else { return; };
+    let text_scale = terminal_scale(environment.as_deref());
     let owners: Vec<_> = participants.inputs.iter().filter(|(entity, _)| participants.contains(*entity)).map(|(_, participant)| participant.id).collect();
     for (owner, participant, ui, mut shown) in &mut users {
         let region = surface.menu_rect(participant.id, &owners);
@@ -509,7 +520,7 @@ fn draw_gate_terminal(
             .clone();
         let glyphs = Glyphs { image: icons.image.clone(), layout };
         let font = |size: f32, weight: UiFontWeight| {
-            let size = size * TEXT_SCALE;
+            let size = size * text_scale;
             ui_fonts.as_deref().map(|fonts| fonts.text_font(size, weight)).unwrap_or(TextFont {
                 font_size: FontSize::Px(size),
                 ..default()
@@ -550,14 +561,14 @@ fn draw_gate_terminal(
                     Name::new("Gate Terminal Panel"),
                 ))
                 .with_children(|panel| match model.focus {
-                    TerminalFocus::List => spawn_list(panel, &model, &glyphs, &font),
+                    TerminalFocus::List => spawn_list(panel, &model, &glyphs, &font, text_scale),
                     TerminalFocus::Wheel => {
                         // The wheel shrinks to fit a short screen (a phone held
                         // sideways); its layout stays the ring's.
                         let available_height = height - if stacked { 300.0 } else { 60.0 };
                         let scale = (available_height.min(width - 60.0) / WHEEL).clamp(0.2, 1.0);
                         spawn_wheel(panel, &model, &glyphs, &font, scale);
-                        spawn_dial_side(panel, &model, &font);
+                        spawn_dial_side(panel, &model, &font, text_scale);
                     }
                 });
             });
@@ -763,10 +774,11 @@ fn spawn_list(
     model: &TerminalModel,
     glyphs: &Glyphs,
     font: &impl Fn(f32, UiFontWeight) -> TextFont,
+    scale: f32,
 ) {
     panel
         .spawn((
-            Node { width: Val::Px(620.0 * TEXT_SCALE), max_width: Val::Percent(100.0), flex_direction: FlexDirection::Column, row_gap: Val::Px(6.0), ..default() },
+            Node { width: Val::Px(620.0 * scale), max_width: Val::Percent(100.0), flex_direction: FlexDirection::Column, row_gap: Val::Px(ROW_GAP), ..default() },
             Name::new("Gate terminal list"),
         ))
         .with_children(|side| {
@@ -797,7 +809,7 @@ fn spawn_list(
                         align_items: AlignItems::Center,
                         column_gap: Val::Px(12.0),
                         padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                        min_height: Val::Px(ROW_TALL),
+                        min_height: Val::Px(ROW_HEIGHT * scale),
                         flex_shrink: 0.0,
                         border: UiRect::all(Val::Px(2.0)),
                         border_radius: BorderRadius::all(Val::Px(6.0)),
@@ -904,7 +916,7 @@ fn spawn_compact_heading(side: &mut ChildSpawnerCommands, model: &TerminalModel,
 }
 
 /// Beside the wheel: the heading, the way back to the list, and the hint.
-fn spawn_dial_side(panel: &mut ChildSpawnerCommands, model: &TerminalModel, font: &impl Fn(f32, UiFontWeight) -> TextFont) {
+fn spawn_dial_side(panel: &mut ChildSpawnerCommands, model: &TerminalModel, font: &impl Fn(f32, UiFontWeight) -> TextFont, scale: f32) {
     panel
         .spawn((
             Node { width: Val::Px(300.0), flex_shrink: 1.0, flex_direction: FlexDirection::Column, row_gap: Val::Px(8.0), ..default() },
@@ -917,7 +929,7 @@ fn spawn_dial_side(panel: &mut ChildSpawnerCommands, model: &TerminalModel, font
                 Node {
                     align_items: AlignItems::Center,
                     padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                    min_height: Val::Px(ROW_TALL),
+                    min_height: Val::Px(ROW_HEIGHT * scale),
                     border: UiRect::all(Val::Px(2.0)),
                     border_radius: BorderRadius::all(Val::Px(6.0)),
                     ..default()

@@ -10,11 +10,10 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::schedule::GameplayGated;
 use ambition_portal2d::{
     clear_portals_on_reset, portal_fire_system,
-    publish_portal_carves, PortalSet,
+    PortalSet,
 };
 
 use super::ability_adapter::withhold_wall_verbs_during_transit;
-use super::carve_adapter::{bridge_portal_carves, sync_portal_host_depths};
 use super::fire_adapter::resolve_portal_fire_intent;
 use super::input_adapter::{portal_input_adapter_system, spend_accepted_toggle_presses};
 use super::inventory_adapter::reconcile_portal_generators;
@@ -56,40 +55,6 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             sim,
             withhold_wall_verbs_during_transit.in_set(PortalSet::TransitGuards),
-        );
-
-        // Attach at the placement pose before the host moves. A fast host
-        // can leave the attribution probe's reach in one tick.
-        app.add_systems(
-            sim,
-            crate::portal::host_adapter::attach_portal_hosts
-                .run_if(bevy::prelude::any_with_component::<ambition_portal2d::PlacedPortal>)
-                .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed)
-                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate)
-                .before(ambition_platformer2d_shared_tangle::schedule::MovingPlatformsAdvanced),
-        );
-        // Publish the host's new pose before links, carves and body motion.
-        app.add_systems(
-            sim,
-            crate::portal::host_adapter::refresh_hosted_portal_frames
-                .run_if(bevy::prelude::any_with_component::<ambition_portal2d::PlacedPortal>)
-                .in_set(PortalSet::Pose)
-                .before(ambition_portal2d::PortalLinkResolution),
-        );
-        app.add_systems(
-            sim,
-            bridge_portal_carves
-                .run_if(super::carve_adapter::carves_or_holes_stand)
-                .in_set(PortalSet::Carves)
-                .after(publish_portal_carves),
-        );
-
-        app.add_systems(
-            sim,
-            sync_portal_host_depths
-                .run_if(super::carve_adapter::portals_or_depths_stand)
-                .in_set(PortalSet::Carves)
-                .before(publish_portal_carves),
         );
 
         // Advance in-flight portal shots against the concrete `RoomGeometry` (the

@@ -8,7 +8,9 @@ use std::time::Duration;
 
 use bevy::input::mouse::{MouseButtonInput, MouseWheel};
 use bevy::prelude::*;
-use bevy::window::{CursorMoved, CursorOptions, Monitor, OnMonitor, PrimaryWindow, WindowMode};
+use bevy::window::{CursorMoved, CursorOptions, Monitor, MonitorSelection, OnMonitor, PrimaryWindow, WindowMode};
+
+use ambition_platformer2d::presentation::gameplay_presentation::PresentationEnvironment;
 
 /// How long the mouse rests before the cursor hides.
 const CURSOR_REST: Duration = Duration::from_millis(2500);
@@ -19,6 +21,7 @@ pub struct DesktopPlatformPlugin;
 impl Plugin for DesktopPlatformPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, (fit_initial_window_to_monitor, hide_the_resting_cursor));
+        app.add_systems(PostUpdate, log_window_size);
     }
 }
 
@@ -50,22 +53,43 @@ fn hide_the_resting_cursor(
 fn fit_initial_window_to_monitor(
     monitors: Query<&Monitor>,
     mut windows: Query<(&mut Window, &OnMonitor), With<PrimaryWindow>>,
+    environment: Option<Res<PresentationEnvironment>>,
     mut fitted: Local<bool>,
 ) {
     if *fitted { return; }
     let Ok((mut window, on_monitor)) = windows.single_mut() else { return; };
     let Ok(monitor) = monitors.get(on_monitor.0) else { return; };
     if window.mode == WindowMode::Windowed {
-        let available = Vec2::new(monitor.physical_width as f32, monitor.physical_height as f32)
-            / monitor.scale_factor as f32;
-        let requested = Vec2::new(window.width(), window.height());
-        let size = requested.min(available);
-        if size != requested {
-            window.resolution.set(size.x, size.y);
-            info!("Initial window fitted to display: {requested} -> {size}");
+        let gaming_mode = std::env::var("XDG_CURRENT_DESKTOP").is_ok_and(|desktop| {
+            desktop.split(':').any(|name| name.eq_ignore_ascii_case("gamescope"))
+        });
+        if gaming_mode && environment.as_deref() == Some(&PresentationEnvironment::Handheld) {
+            window.mode = WindowMode::BorderlessFullscreen(MonitorSelection::Current);
+        } else {
+            let available = UVec2::new(monitor.physical_width, monitor.physical_height);
+            let requested = window.physical_size();
+            let size = requested.min(available);
+            if size != requested {
+                window.resolution.set_physical_resolution(size.x, size.y);
+            }
         }
     }
     *fitted = true;
+}
+
+fn log_window_size(
+    windows: Query<&Window, (With<PrimaryWindow>, Changed<Window>)>,
+    mut last: Local<Option<(UVec2, f32, WindowMode)>>,
+) {
+    let Ok(window) = windows.single() else { return; };
+    let size = (window.physical_size(), window.scale_factor(), window.mode);
+    if *last != Some(size) {
+        *last = Some(size);
+        info!(
+            "Window: {:?}, {} physical px, {} logical px, DPI {}",
+            window.mode, window.physical_size(), window.size(), window.scale_factor(),
+        );
+    }
 }
 
 #[cfg(test)]
@@ -77,13 +101,15 @@ mod tests {
         let mut app = App::new();
         app.add_systems(Update, fit_initial_window_to_monitor);
         let entity = app.world_mut().spawn((Window {
-            resolution: (1600, 900).into(), ..default()
+            resolution: bevy::window::WindowResolution::new(1600, 900)
+                .with_scale_factor_override(1.0),
+            ..default()
         }, PrimaryWindow)).id();
         app.update();
         let monitor = app.world_mut().spawn(Monitor {
             name: None, physical_width: 1280, physical_height: 800,
             physical_position: IVec2::ZERO, refresh_rate_millihertz: None,
-            scale_factor: 1.0, video_modes: vec![],
+            scale_factor: 1.25, video_modes: vec![],
         }).id();
         app.world_mut().entity_mut(entity).insert(OnMonitor(monitor));
         app.update();

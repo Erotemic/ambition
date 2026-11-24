@@ -25,6 +25,7 @@ impl Plugin for PortalSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
         app.add_plugins(ambition_portal2d::PortalSimulationPlugin);
+        crate::portal_world::install(app, sim);
         // The consequences of a transit for the body a seat drives.
         app.add_message::<ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak>();
         // The numeric fault effect writes room effects; a game that takes

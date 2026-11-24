@@ -334,7 +334,7 @@ def area_spec() -> dict:
         badnik(valley_y, 5400, "friend"),
         badnik(valley_y, 6400, "swarm"),
         badnik(east_y, 12900, "liar"),
-        badnik(east_y, 15100, "saint"),
+        badnik(east_y, 13900, "saint"),
     ]
     entities += ring_placements()
     return {

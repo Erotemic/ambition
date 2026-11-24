@@ -82,6 +82,8 @@ mod portal_fault;
 mod portal_schedule;
 #[cfg(feature = "portal")]
 mod portal_seat;
+#[cfg(feature = "portal")]
+mod portal_world;
 pub mod profile;
 mod progression_schedule;
 pub mod projectile_schedule;

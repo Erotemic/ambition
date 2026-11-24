@@ -11,8 +11,10 @@ ambition_ldtk_tools. The course has six sections:
 5. A second high road crosses a field of hazards.
 6. The final descent, loop, and clear lane end the act.
 
-The lower road connects the whole course. High roads give rings and avoid
-hazards. They rejoin the lower road before the next section.
+The lower road connects the whole course. The portal below the viaduct
+leads to the vault roof above the lower road. The vault portal sends a
+runner up through the floor of the east track. The last portal sends a
+runner from the end of the east loop up into the clear run toward the goal.
 
 The ground is PAINTED: the lower road is `Terrain` cells down to the level's
 floor, the high roads are one-cell `Track` bands (you can jump up through
@@ -87,7 +89,7 @@ def rings() -> list[dict]:
         (VIADUCT, 6500, 7650, 92), (VIADUCT, 8500, 9700, 90),
         (VAULT, 13000, 13900, 90), (BASIN, 15100, 16400, 100),
         (BASIN, 16800, 18000, 95), (BASIN, 19400, 20400, 90),
-        (EAST, 20500, 21300, 90), (EAST, 26000, 27800, 90),
+        (EAST, 20500, 21300, 90), (EAST, 26000, 27600, 90),
         (EAST, 29100, 31500, 90),
     ]:
         out += rings_over(keys, start, end, step=step)
@@ -95,7 +97,7 @@ def rings() -> list[dict]:
     out += ring_arc(26900, 27300, 1640, 105, 8)
     out += [ring(x, 1224) for x in range(5700, 7900, 74)]
     out += [ring(x, 1124) for x in range(21800, 24400, 78)]
-    out += [ring(x, VAULT_CEILING + 38) for x in range(10650, 12750, 85)]
+    out += [ring(x, VAULT_CEILING + 38) for x in range(10650, 11800, 85)]
     out += [ring(x, OBSERVATORY[1] - 36)
             for x in range(OBSERVATORY[0] + 24, OBSERVATORY[0] + OBSERVATORY[2] - 24, 44)]
     return out
@@ -117,11 +119,9 @@ vault_roof_y = terrain.surface(
     VAULT_X[0] // GRID, GRID,
 )
 
-#: A standing Sanic's centre, off the surface he stands on. Every rift is
-#: centred there: a portal keeps a body's offset along its plane, so a pair
-#: centred at different heights off their floors sets a runner down inside
-#: one (the vault's red rift put him 12 px into the east road) or drops him.
 STANDING_CENTRE = 24
+MOUTH_HALF_SPAN = 64
+WALL_DEPTH = 48
 
 
 def high_road_y(keys):
@@ -129,6 +129,45 @@ def high_road_y(keys):
     x0 = keys[0][0] // GRID
     heights = terrain.quantize(terrain.cosine_profile(keys), x0, keys[-1][0] // GRID, GRID)
     return terrain.surface(heights, x0, GRID)
+
+
+def wall_mouth(name: str, x: int, surface_y: float, color: str, normal: str,
+               *, ceiling: bool = False, clearance: int = STANDING_CENTRE) -> tuple[dict, dict]:
+    """Put the opening on the face of a wall that joins the road or roof."""
+    y = round(surface_y + (clearance if ceiling else -clearance))
+    top = y - MOUTH_HALF_SPAN
+    left = x if normal == "left" else x - WALL_DEPTH
+    return (
+        rect("Portal", (x - 8, top), (16, 2 * MOUTH_HALF_SPAN),
+             name=name, color=color, normal=normal),
+        rect("Solid", (left, top), (WALL_DEPTH, 2 * MOUTH_HALF_SPAN),
+             name=f"{name}_wall"),
+    )
+
+
+def floor_mouth(name: str, x: int, y: int, color: str) -> tuple[dict, dict]:
+    """Put the opening in the top of a slab with solid edges."""
+    return (
+        rect("Portal", (x - MOUTH_HALF_SPAN, y - 8), (2 * MOUTH_HALF_SPAN, 16),
+             name=name, color=color, normal="up"),
+        rect("Solid", (x - 80, y), (160, WALL_DEPTH), name=f"{name}_floor"),
+    )
+
+
+EAST_LANDING_X = 22000
+EAST_LANDING_Y = round(high_road_y(HIGH_EAST)(EAST_LANDING_X))
+EAST_LANDING_LEFT, EAST_LANDING_RIGHT = EAST_LANDING_X - 80, EAST_LANDING_X + 80
+
+
+MOUTHS = (
+    wall_mouth("viaduct_entrance", 7776, ground_y(7776), "purple", "left"),
+    wall_mouth("viaduct_exit", 10560, vault_roof_y(10560), "yellow", "right",
+               ceiling=True, clearance=56),
+    wall_mouth("vault_secret_entrance", 11800, vault_roof_y(11800), "teal", "left", ceiling=True),
+    floor_mouth("vault_secret_exit", EAST_LANDING_X, EAST_LANDING_Y, "red"),
+    wall_mouth("shadow_entrance", 27680, ground_y(27680), "green", "left", clearance=56),
+    floor_mouth("shadow_exit", 29400, round(ground_y(29400)), "magenta"),
+)
 
 
 #: A monitor on a high road sits on a shelf a jump above it. On the road itself
@@ -152,15 +191,6 @@ def on_ground_badnik(x: float, kind: str) -> dict:
 
 
 def area_spec() -> dict:
-    def portal(name: str, x: int, surface_y: float, color: str, normal: str,
-               hangs: bool = False) -> dict:
-        # A vertical rift catches a body running across its plane. Its 128px
-        # opening fits a standing Sanic body, centred where he stands off the
-        # painted surface under it (or over it, for a rift on a ceiling).
-        y = round(surface_y + (STANDING_CENTRE if hangs else -STANDING_CENTRE))
-        return rect("Portal", (x - 8, y - 64), (16, 128),
-                    name=name, color=color, normal=normal)
-
     entities = [
         rect("PlayerStart", (144, 1594), (28, 46), name="darkness_start"),
         # Each loop attaches to the painted floor under it.
@@ -173,16 +203,7 @@ def area_spec() -> dict:
         rect("GravityZone", (VAULT_X[0] + 80, VAULT_CEILING),
              (VAULT_X[1] - VAULT_X[0] - 160, 240),
              name="darkness_vault_flip", dir="up"),
-        # The high roads pass over the lower rifts. A runner on the lower
-        # road crosses their plane and exits further east.
-        portal("viaduct_entrance", 8150, ground_y(8150), "purple", "left"),
-        portal("viaduct_exit", 10100, ground_y(10100), "yellow", "right"),
-        portal("shadow_entrance", 26500, ground_y(26500), "green", "left"),
-        portal("shadow_exit", 29400, ground_y(29400), "magenta", "right"),
-        # The rift on the vault ceiling leads to the second high road.
-        portal("vault_secret_entrance", 11800, vault_roof_y(11800), "teal", "left",
-               hangs=True),
-        portal("vault_secret_exit", 22000, high_road_y(HIGH_EAST)(22000), "red", "right"),
+        *[portal for portal, _ in MOUTHS],
         # Springs reach the optional roads. The lower road stays complete.
         spring(5480, ground_y(5504), 1700),
         spring(21500, ground_y(21524), 1700),
@@ -214,7 +235,7 @@ def area_spec() -> dict:
         (VIADUCT, [(6300, "liar"), (7500, "swarm"), (9000, "friend")]),
         (VAULT, [(13500, "saint")]),
         (BASIN, [(15300, "swarm"), (17500, "slop"), (19900, "liar")]),
-        (EAST, [(21100, "friend"), (23900, "saint"), (25900, "swarm"), (29600, "liar"), (30600, "slop")]),
+        (EAST, [(21100, "friend"), (23900, "saint"), (24950, "liar"), (25900, "swarm"), (26800, "slop")]),
     ]:
         entities += [on_ground_badnik(x, kind) for x, kind in places]
     entities += rings()
@@ -233,6 +254,7 @@ def named_blocks() -> dict:
     return {
         "level_id": ROOM_ID,
         "entities": [
+            *[wall for _, wall in MOUTHS],
             monitor("monitor_rings_observatory", OBSERVATORY[0] + 100, OBSERVATORY[1]),
             monitor("monitor_speed_observatory", OBSERVATORY[0] + 260, OBSERVATORY[1]),
             *[monitor(name, shelf(name)[0] + 35, shelf(name)[1]) for name in SHELVES],
@@ -267,6 +289,8 @@ def painted() -> dict:
     for keys in (HIGH_WEST, HIGH_EAST):
         x0, x1 = keys[0][0] // GRID, keys[-1][0] // GRID
         track.update(terrain.band(terrain.cosine_profile(keys), x0, x1, GRID, thickness=1))
+    track = {cell: value for cell, value in track.items()
+             if not EAST_LANDING_LEFT <= cell[0] * GRID < EAST_LANDING_RIGHT}
     return {
         "level_id": ROOM_ID,
         "layers": {

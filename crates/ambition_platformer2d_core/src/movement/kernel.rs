@@ -236,12 +236,12 @@ fn try_motion(
         else if matches!(result.support, SupportFact::Riding(_) | SupportFact::Attached(_)) {
             std::f64::consts::PI
         } else { air_step };
-    // A body resting on its ground stands up about a corner when it cannot
-    // turn about its centre. A crawler clinging to a surface turns about its
-    // centre at a corner by its own rule and is left to it.
-    let pivot = matches!(result.support, SupportFact::Supported(_) | SupportFact::Riding(_)).then_some(air_step);
+    let support_turn = match &result.support {
+        SupportFact::Supported(contact) | SupportFact::Riding(contact) => Some((contact, air_step)),
+        _ => None,
+    };
     super::admit_body_righting(&mut candidate.kinematics, &mut sweep,
-        target, max_step, pivot, f64::from(ctx.dt), ctx.world, ctx.admission,
+        target, max_step, support_turn, f64::from(ctx.dt), ctx.world, ctx.admission,
         &[ctx.frame.carried_acceleration(), ctx.frame.basis().side * candidate.flight.carried_run], clusters.carrier)?;
     candidate.commit(model, clusters);
     if let Some(target) = clusters.sweep.as_deref_mut() { *target = sweep; }
@@ -666,6 +666,7 @@ fn step_surface_momentum(
         },
         ctx.dt,
         Some(&mut contacts),
+        ctx.admission,
     );
     // A rider that pressed jump and left the surface jumped: the riding step
     // takes the jump before anything else can detach it. Derived from the

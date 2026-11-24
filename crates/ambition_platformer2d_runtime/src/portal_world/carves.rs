@@ -1,9 +1,4 @@
-//! Ambition bridge: portal-owned carves → the host collision overlay.
-//!
-//! Portal core's [`publish_portal_carves`](ambition_portal2d::publish_portal_carves) writes the
-//! aperture geometry into the portal-owned [`PortalCarves`](ambition_portal2d::PortalCarves)
-//! resource. Portal core never names `FeatureEcsWorldOverlay` — it owns the carve *geometry*,
-//! while Ambition owns how a carve alters its collision representation.
+//! Apply portal openings to the collision overlay of each live room.
 
 use bevy::prelude::*;
 
@@ -14,7 +9,7 @@ use ambition_portal2d::{host_material_depth, PlacedPortal, PortalCarves, PortalH
 /// Run condition of [`bridge_portal_carves`]: a carve stands this frame, or
 /// a room still holds a hole or a glue to clear. With neither, the bridge
 /// would leave every overlay as it is.
-pub fn carves_or_holes_stand(
+pub(super) fn carves_or_holes_stand(
     carves: Res<PortalCarves>,
     overlays: Query<&ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
 ) -> bool {
@@ -27,7 +22,7 @@ pub fn carves_or_holes_stand(
 
 /// Run condition of [`sync_portal_host_depths`]: a portal stands, or depths
 /// of one that went remain to clear.
-pub fn portals_or_depths_stand(
+pub(super) fn portals_or_depths_stand(
     portals: Query<(), With<PlacedPortal>>,
     depths: Res<PortalHostDepthsByRoom>,
 ) -> bool {
@@ -44,9 +39,9 @@ pub fn portals_or_depths_stand(
 /// room (`PortalCarves::holes` names the room of each), so two live rooms each
 /// carve the walls of their own pair. A hole in no live room goes to the sole
 /// live room, so while two rooms are live it is not written.
-pub fn bridge_portal_carves(
+pub(super) fn bridge_portal_carves(
     carves: Res<PortalCarves>,
-    mut overlays: ambition_platformer2d::world::RoomOverlays,
+    mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays,
 ) {
     for mut overlay in overlays.each() {
         overlay.portal_holes.clear();
@@ -91,7 +86,7 @@ pub fn bridge_portal_carves(
 /// depths of the last one-room frame stayed. The depth is filed under the
 /// portal's room, so two rooms that each hold a portal of one channel keep
 /// two depths. A portal in no live room gets no depth.
-pub fn sync_portal_host_depths(
+pub(super) fn sync_portal_host_depths(
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     live: LiveRooms,
     portals: Query<(Entity, &PlacedPortal)>,

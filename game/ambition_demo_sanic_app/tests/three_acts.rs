@@ -13,16 +13,19 @@ use ambition_demo_sanic_app::build_demo_app;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::portal::{PortalChannel, PortalChannelColor};
 use bevy::prelude::*;
 
 #[derive(Resource, Default)]
-struct PortalTransits(usize);
+struct PortalTransits(Vec<PortalChannel>);
 
 fn record_portal_transits(
     mut transits: ResMut<PortalTransits>,
     mut events: MessageReader<ambition_platformer2d::portal::PortalBodyTransited>,
+    players: Query<(), With<PrimaryPlayer>>,
 ) {
-    transits.0 += events.read().count();
+    transits.0.extend(events.read().filter(|event| players.contains(event.body))
+        .map(|event| event.transfer.entry_channel));
 }
 
 fn body(app: &mut App) -> (ae::BodyKinematics, Option<ae::SurfaceMotion>) {
@@ -147,47 +150,40 @@ fn ride_high_road(app: &mut App, spring_x: f32, spring_y: f32, road_x: f32) {
     panic!("spring at {spring_x:.0} did not reach {road}; highest y {highest:.0}, furthest x {furthest:.0}");
 }
 
-/// Ride the vault ceiling right into its rift and come out of the red one on
-/// the east high road, standing on it.
-///
-/// A portal keeps a body's offset along its plane, so a pair centred at
-/// different heights off their surfaces sets a runner down inside one. The red
-/// rift put him 12 px into the road; the next frame the solver popped him out,
-/// and the camera jolted with him (Jon: "the character embeds into the floor
-/// before settling back on the surface").
-fn through_the_vault_rift(app: &mut App) {
-    place(app, Vec2::new(11700.0, 1290.0));
+fn run_into_portal(app: &mut App, start: Vec2, entrance: PortalChannelColor) -> ae::BodyKinematics {
+    place(app, start);
     for _ in 0..20 {
         release(app);
         app.update();
     }
-    let transits = app.world().resource::<PortalTransits>().0;
-    let mut arrived = None;
+    let transits = app.world().resource::<PortalTransits>().0.len();
     for _ in 0..240 {
         hold(app, false);
         app.update();
-        if app.world().resource::<PortalTransits>().0 > transits {
-            arrived = Some(body(app).0.pos);
-            break;
+        if app.world().resource::<PortalTransits>().0[transits..].contains(&PortalChannel::Authored(entrance)) {
+            return body(app).0;
         }
     }
-    let arrived = arrived.expect("riding the vault ceiling right must cross its rift");
-    assert!(arrived.x > 21000.0, "the vault rift leads to the east road: {arrived:?}");
-    for _ in 0..10 {
+    panic!("Sanic did not cross {entrance:?} from {start:?}: {:?}", body(app));
+}
+
+/// Exit through the floor of the east road and stand upright without pressing jump.
+fn through_the_vault_rift(app: &mut App) {
+    let arrived = run_into_portal(app, Vec2::new(11700.0, 1290.0), PortalChannelColor::Teal);
+    assert!(arrived.pos.x > 21000.0 && arrived.vel.y < 0.0,
+        "the vault rift launches Sanic above the east road: {arrived:?}");
+    for _ in 0..120 {
+        let (kin, motion) = body(app);
+        if matches!(motion, Some(ae::SurfaceMotion::Riding { .. }))
+            && kin.pos.x > 22080.0 && kin.pos.y < 1160.0
+            && kin.material.render_angle().abs() < 0.01
+        {
+            return;
+        }
         hold(app, false);
         app.update();
     }
-    let (kin, motion) = body(app);
-    assert!(
-        matches!(motion, Some(ae::SurfaceMotion::Riding { .. })),
-        "he runs on along the east road: {motion:?}"
-    );
-    assert!(
-        (kin.pos.y - arrived.y).abs() < 0.5,
-        "he came out of the red rift at y {:.1} and stands at {:.1}: set down in the road, then popped out",
-        arrived.y,
-        kin.pos.y
-    );
+    panic!("Sanic did not land upright on the east road: {:?}", body(app));
 }
 
 /// Run until the act clears, or panic naming how far he got.
@@ -308,23 +304,32 @@ fn the_three_acts_connect_and_clear() {
         body(&mut app),
         ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()).unwrap().world.spawn
     );
+    for _ in 0..3 {
+        app.update();
+    }
     let mut portals = app
         .world_mut()
         .query::<&ambition_platformer2d::portal::PlacedPortal>();
-    assert_eq!(
-        portals.iter(app.world()).count(),
-        6,
-        "all authored portals spawn"
-    );
+    let placed: Vec<_> = portals.iter(app.world()).collect();
+    assert_eq!(placed.len(), 6, "all authored portals spawn");
+    for portal in placed {
+        assert!(matches!(portal.host, ambition_platformer2d::portal::PortalHost::Face { .. }),
+            "portal at {:?} did not attach: {:?}", portal.pos, portal.host);
+    }
     ride_high_road(&mut app, 5480.0, 1660.0, 6000.0);
-    ride_high_road(&mut app, 21500.0, 1640.0, 22000.0);
+    ride_high_road(&mut app, 21500.0, 1640.0, 21800.0);
+    let viaduct_exit = run_into_portal(&mut app, Vec2::new(7660.0, 1740.0), PortalChannelColor::Purple);
+    assert!(viaduct_exit.pos.x > 10560.0, "{viaduct_exit:?}");
     through_the_vault_rift(&mut app);
+    let shadow_exit = run_into_portal(&mut app, Vec2::new(27580.0, 1712.0), PortalChannelColor::Green);
+    assert!(shadow_exit.pos.x > 29000.0 && shadow_exit.vel.y < 0.0, "{shadow_exit:?}");
+    let shadow_return = run_into_portal(&mut app, Vec2::new(29330.0, 1400.0), PortalChannelColor::Magenta);
+    assert!(shadow_return.pos.x < 27680.0, "{shadow_return:?}");
     place(&mut app, Vec2::new(144.0, 1594.0));
-    run_to_clear(&mut app, "Act 3", 7200, |_| false);
-    assert!(
-        app.world().resource::<PortalTransits>().0 > 0,
-        "a run through Act 3 must cross a portal, not only pass their art"
-    );
+    let transits = app.world().resource::<PortalTransits>().0.len();
+    run_to_clear(&mut app, "Act 3", 3600, |_| false);
+    assert!(app.world().resource::<PortalTransits>().0[transits..].contains(&PortalChannel::Authored(PortalChannelColor::Teal)),
+        "a run along the vault ceiling must use its portal");
     arrive_in(&mut app, SPEEDWAY_ROOM_ID);
     assert!(matches!(act(&mut app).phase, SanicActPhase::Running));
 }

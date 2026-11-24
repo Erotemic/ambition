@@ -28,7 +28,11 @@ use parry2d::{
 };
 
 use crate::collision_semantics::{is_full_collision_surface, Contact, ContactSource};
-use crate::world::{SurfaceChain, SurfaceFrame, SurfacePort, World};
+use crate::frame::{
+    material_cast::MaterialCast,
+    thread::{MaterialPrimitive, MotionAdmission},
+};
+use crate::world::{MaterialCollider, SurfaceChain, SurfaceFrame, SurfacePort, World};
 use crate::{MotionFrame, Vec2};
 
 /// The radius that puts the ride circle's foot at the body's foot.
@@ -254,6 +258,7 @@ pub(crate) fn step_surface_body(
     inputs: SurfaceInputs,
     dt: f32,
     mut contacts: Option<&mut Vec<Contact>>,
+    portals: Option<MotionAdmission<'_>>,
 ) {
     if dt <= 0.0 {
         return;
@@ -271,6 +276,7 @@ pub(crate) fn step_surface_body(
                 s,
                 v_t,
                 contacts.as_deref_mut(),
+                portals,
             );
         }
         SurfaceMotion::Airborne => {
@@ -282,6 +288,7 @@ pub(crate) fn step_surface_body(
                 inputs,
                 dt,
                 contacts.as_deref_mut(),
+                portals,
             );
         }
     }
@@ -334,6 +341,7 @@ fn step_riding(
     s: f32,
     mut v_t: f32,
     mut contacts: Option<&mut Vec<Contact>>,
+    portals: Option<MotionAdmission<'_>>,
 ) {
     let gravity = motion_frame.acceleration();
     let run = inputs.local_axes.x.clamp(-1.0, 1.0);
@@ -388,6 +396,7 @@ fn step_riding(
             SurfaceInputs::default(),
             dt,
             contacts,
+            portals,
         );
         return;
     }
@@ -415,12 +424,14 @@ fn step_riding(
     let slope_accel = gravity.dot(mid.tangent) * params.slope_factor;
     v_t += slope_accel * dt;
 
-    // 2) Straight-run stick rule at the CURRENT frame. A shed body finishes
-    // the tick ballistically — leaving it parked at the shed point while its
-    // velocity keeps integrating is how "frozen at full speed" pins begin.
+    // A portal can remove the support under the circle. Probe from the
+    // surface seat so lift from body righting does not affect the result.
+    let seat = frame.point + frame.normal * body.radius;
+    let support_is_open =
+        portal_travel_is_clear(world, seat, body.radius, -frame.normal, dt, motion_frame.down(), portals);
     let press = gravity.dot(-frame.normal); // >0: gravity pushes body onto surface
     let press_threshold = 0.25 * gravity.length();
-    if press < press_threshold && v_t.abs() < params.min_stick_speed {
+    if support_is_open || (press < press_threshold && v_t.abs() < params.min_stick_speed) {
         shed(body, world, chain, frame.tangent, v_t, dt);
         step_airborne(
             body,
@@ -430,6 +441,7 @@ fn step_riding(
             SurfaceInputs::default(),
             dt,
             contacts,
+            portals,
         );
         return;
     }
@@ -476,7 +488,9 @@ fn step_riding(
             (Some(c), Some(b)) => Some(if b.toi < c.toi { b } else { c }),
             (c, b) => c.or(b),
         };
-        if let Some(hit) = nearest {
+        if let Some(hit) = nearest.filter(|_| {
+            !portal_travel_is_clear(world, body.pos, body.radius, delta, dt, motion_frame.down(), portals)
+        }) {
             let coincident = matches!(on, SurfaceRef::Chain(_))
                 && hit_lies_on_chain(
                     chain,
@@ -589,6 +603,7 @@ fn step_riding(
                     SurfaceInputs::default(),
                     dt_left,
                     contacts,
+                    portals,
                 );
             }
         }
@@ -1338,6 +1353,7 @@ fn step_airborne(
     inputs: SurfaceInputs,
     dt: f32,
     mut contacts: Option<&mut Vec<Contact>>,
+    portals: Option<MotionAdmission<'_>>,
 ) {
     // Ballistic + air control use the same frame the dispatcher supplied.
     let gravity = frame.acceleration();
@@ -1376,7 +1392,7 @@ fn step_airborne(
             delta,
             &body.occlusions,
             frame.down(),
-        ) else {
+        ).filter(|_| !portal_travel_is_clear(world, body.pos, body.radius, delta, time_left, frame.down(), portals)) else {
             body.pos += delta;
             break;
         };
@@ -1480,6 +1496,53 @@ fn step_airborne(
         SurfaceMotion::Riding { .. } => body.occlusions = DepthOcclusions::default(),
         SurfaceMotion::Airborne => release_cleared_occlusions(body, world, dt),
     }
+}
+
+/// Check whether the portal admits the circle and leaves the path clear.
+fn portal_travel_is_clear(
+    world: &World,
+    center: Vec2,
+    radius: f32,
+    delta: Vec2,
+    duration: f32,
+    down: Vec2,
+    portals: Option<MotionAdmission<'_>>,
+) -> bool {
+    let Some(portals) = portals else { return false };
+    let reach = radius + delta.length();
+    if !portals.links.iter().any(|link| {
+        let aperture = link.enter;
+        let arc = if link.enter_step.turn == 0.0 { 0.0 }
+            else { 2.0 * aperture.frame.origin.distance(aperture.frame.pivot) };
+        let travel = link.enter_step.displacement.length() + arc;
+        center.distance(aperture.frame.origin) <= reach + aperture.half_length + travel
+    }) {
+        return false;
+    }
+    let shape = crate::CombatVolume::circle(center, radius);
+    let cast = MaterialCast::new(MaterialPrimitive::world(&shape), center, delta, 0.0..1.0);
+    let Ok(cells) = cast.cells(Some(portals)) else { return false };
+    if !cells.parts().iter().any(|part| !part.path.is_empty()) {
+        return false;
+    }
+    matches!(world.first_material_contact(&cells, |collider, _, hit| {
+        let surface = collider.velocity_in_root(hit, duration, Some(portals))?;
+        if (delta / duration - surface).dot(hit.normal) >= 0.0 {
+            return Ok(false);
+        }
+        Ok(match collider {
+            MaterialCollider::Block(block) => is_full_collision_surface(block.kind)
+                || block.kind == crate::BlockKind::OneWay && hit.normal.dot(down) < -0.7,
+            MaterialCollider::Chain { chain, segment, .. } => {
+                let normal = chain.normal_at_time(segment, hit.world_time)
+                    .map_err(|reason| crate::frame::thread::Refusal {
+                        path: hit.path.clone(), link: None,
+                        reason: crate::frame::thread::RefusalReason::Numeric(reason),
+                    })?;
+                hit.map.direction(hit.normal).dot(normal) > 0.5
+            }
+        })
+    }), Ok(None))
 }
 
 struct CircleHit {

@@ -104,6 +104,7 @@ def pyramid(lv: Level) -> None:
     # A Void Star on the top: the top is six tiles wide, with room to jump it.
     lv.enemy("star", 110, up(6))
     lv.enemy("snake", 116.5, up(4))
+    lv.enemy("slop", 124)
 
 
 def crossing(lv: Level) -> None:
@@ -117,13 +118,12 @@ def crossing(lv: Level) -> None:
     lv.plant(154)
     lv.enemy("slop", 157)
     lv.enemy("slop", 158.5)
+    lv.enemy("snake", 161)
 
 
 def goal(lv: Level) -> None:
-    """Columns 160 to 199. A snake under bricks, steps of rock, and the pole."""
+    """Columns 160 to 199. Bricks and steps of rock lead to the pole."""
     lv.bricks(166, up(4), 4)
-    lv.enemy("snake", 165)
-    lv.enemy("slop", 172)
     for index in range(5):
         lv.column(178 + index, 1, index + 1)
     lv.pole(190, 9)

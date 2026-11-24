@@ -424,12 +424,14 @@ fn step_riding(
     let slope_accel = gravity.dot(mid.tangent) * params.slope_factor;
     v_t += slope_accel * dt;
 
-    // 2) Straight-run stick rule at the CURRENT frame. A shed body finishes
-    // the tick ballistically — leaving it parked at the shed point while its
-    // velocity keeps integrating is how "frozen at full speed" pins begin.
+    // A portal can remove the support under the circle. Probe from the
+    // surface seat so lift from body righting does not affect the result.
+    let seat = frame.point + frame.normal * body.radius;
+    let support_is_open =
+        portal_travel_is_clear(world, seat, body.radius, -frame.normal, dt, motion_frame.down(), portals);
     let press = gravity.dot(-frame.normal); // >0: gravity pushes body onto surface
     let press_threshold = 0.25 * gravity.length();
-    if press < press_threshold && v_t.abs() < params.min_stick_speed {
+    if support_is_open || (press < press_threshold && v_t.abs() < params.min_stick_speed) {
         shed(body, world, chain, frame.tangent, v_t, dt);
         step_airborne(
             body,
@@ -487,7 +489,7 @@ fn step_riding(
             (c, b) => c.or(b),
         };
         if let Some(hit) = nearest.filter(|_| {
-            !portal_travel_is_clear(world, body, delta, dt, motion_frame.down(), portals)
+            !portal_travel_is_clear(world, body.pos, body.radius, delta, dt, motion_frame.down(), portals)
         }) {
             let coincident = matches!(on, SurfaceRef::Chain(_))
                 && hit_lies_on_chain(
@@ -1390,7 +1392,7 @@ fn step_airborne(
             delta,
             &body.occlusions,
             frame.down(),
-        ).filter(|_| !portal_travel_is_clear(world, body, delta, time_left, frame.down(), portals)) else {
+        ).filter(|_| !portal_travel_is_clear(world, body.pos, body.radius, delta, time_left, frame.down(), portals)) else {
             body.pos += delta;
             break;
         };
@@ -1496,29 +1498,29 @@ fn step_airborne(
     }
 }
 
-/// Check the material path when a circle sweep stops at an open portal.
-/// Keep the solid stop if the aperture, its rim, or the exit blocks travel.
+/// Check whether the portal admits the circle and leaves the path clear.
 fn portal_travel_is_clear(
     world: &World,
-    body: &SurfaceBody,
+    center: Vec2,
+    radius: f32,
     delta: Vec2,
     duration: f32,
     down: Vec2,
     portals: Option<MotionAdmission<'_>>,
 ) -> bool {
     let Some(portals) = portals else { return false };
-    let reach = body.radius + delta.length();
+    let reach = radius + delta.length();
     if !portals.links.iter().any(|link| {
         let aperture = link.enter;
         let arc = if link.enter_step.turn == 0.0 { 0.0 }
             else { 2.0 * aperture.frame.origin.distance(aperture.frame.pivot) };
         let travel = link.enter_step.displacement.length() + arc;
-        body.pos.distance(aperture.frame.origin) <= reach + aperture.half_length + travel
+        center.distance(aperture.frame.origin) <= reach + aperture.half_length + travel
     }) {
         return false;
     }
-    let shape = crate::CombatVolume::circle(body.pos, body.radius);
-    let cast = MaterialCast::new(MaterialPrimitive::world(&shape), body.pos, delta, 0.0..1.0);
+    let shape = crate::CombatVolume::circle(center, radius);
+    let cast = MaterialCast::new(MaterialPrimitive::world(&shape), center, delta, 0.0..1.0);
     let Ok(cells) = cast.cells(Some(portals)) else { return false };
     if !cells.parts().iter().any(|part| !part.path.is_empty()) {
         return false;

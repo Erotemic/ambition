@@ -268,8 +268,14 @@ navigating several rooms measures its motion once. Witness:
 `a_body_built_in_two_rooms_measures_its_motion_once` (both graphs equal a
 fresh build; a body of another size is measured again).
 
-Still open: the seat autopilot builds on a background task and still
-measures for each graph.
+**Seat autopilot (2026-11-24).** The autopilot still builds on a
+background task, and now hands that task the motion its `NavGraphCache`
+keeps (`kept_motion`). Only a body never measured measures in the task,
+which returns the motion with the graph for the cache to keep
+(`keep_motion`). A graph for a new room, or for the same room after a block
+broke, no longer measures the body again. Measuring stays off the frame.
+Witness: `a_second_rooms_graph_reuses_the_bodys_measured_motion` (two
+rooms' graphs, one measure).
 
 **Demanded reachability (2026-11-22).** `NavGraph::reach_from` searches a
 surface's reach the first time it is asked for and keeps it with the graph

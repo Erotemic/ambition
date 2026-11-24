@@ -151,20 +151,36 @@ impl NavGraphCache {
 
     /// The motion of `key`'s body, kept or measured now.
     fn motion(&mut self, key: &NavGraphKey) -> Option<&NavMotion> {
+        if self.kept_motion(key).is_none() {
+            self.keep_motion(key, NavMotion::measure(&key.probe_body(), key.frame));
+        }
+        self.kept_motion(key).flatten()
+    }
+
+    /// The kept motion of `key`'s body, whatever room `key` names:
+    /// `Some(None)` when it was measured and has none, `None` when it was
+    /// never measured. For a caller that builds off this thread (the seat
+    /// autopilot): it hands a kept motion to its build instead of measuring
+    /// the body again.
+    pub fn kept_motion(&self, key: &NavGraphKey) -> Option<Option<&NavMotion>> {
         let motion_key = key.motion_key();
-        let index = match self.motions.iter().position(|(known, _)| *known == motion_key) {
-            Some(index) => index,
-            None => {
-                self.motion_measures += 1;
-                let motion = NavMotion::measure(&key.probe_body(), key.frame);
-                if self.motions.len() >= self.capacity {
-                    self.motions.remove(0);
-                }
-                self.motions.push((motion_key, motion));
-                self.motions.len() - 1
-            }
-        };
-        self.motions[index].1.as_ref()
+        self.motions.iter().find(|(known, _)| *known == motion_key).map(|(_, motion)| motion.as_ref())
+    }
+
+    /// Keep `motion`, measured for `key`'s body here or by a build off this
+    /// thread; it counts as one measure. `motion` must be
+    /// `NavMotion::measure(&key.probe_body(), key.frame)`.
+    pub fn keep_motion(&mut self, key: &NavGraphKey, motion: Option<NavMotion>) {
+        self.motion_measures += 1;
+        let motion_key = key.motion_key();
+        if let Some(slot) = self.motions.iter_mut().find(|(known, _)| *known == motion_key) {
+            slot.1 = motion;
+            return;
+        }
+        if self.motions.len() >= self.capacity {
+            self.motions.remove(0);
+        }
+        self.motions.push((motion_key, motion));
     }
 
     /// The kept answer for `key`, or `build(motion)` kept and returned, with

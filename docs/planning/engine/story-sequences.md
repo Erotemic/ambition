@@ -534,8 +534,19 @@ Still open:
   roles and answering its own waits. The unit witness above now runs the
   same script in both rooms. A scene of the whole world still waits for
   every room's (`can_start`).
-- Conditions carry no room, so a bound condition with two live bodies of
-  one identity is unanswerable rather than room-resolved.
+- ~~Conditions carry no room, so a bound condition with two live bodies of
+  one identity is unanswerable rather than room-resolved.~~ **Landed
+  2026-11-24:** a run's `RoleBindings::in_room` binds each role as
+  `AuthoredArg::Occupant(id, live room)`. Commands and `WaitFor` lines of a
+  scene playing in a live room both get it. The actor conditions and
+  commands narrow two bodies carrying one id to that room: `beaten`,
+  `arrived`, `gone` and `throw_landed` (a thrower's held item and its
+  thrown items in that room). A bound body is still found wherever it
+  lives; the room only tells two apart. No evaluator signature changed. A
+  scene of the whole world binds bare ids, as before. Witnesses:
+  `a_bound_condition_answers_in_its_own_live_room` (no room is unanswerable
+  with two bodies; each room answers for its own) and
+  `a_role_bound_in_a_live_room_names_its_occupant`.
 - The conversation command bridge still supplies no room.
 - Reload rebinding is not exercised.
 

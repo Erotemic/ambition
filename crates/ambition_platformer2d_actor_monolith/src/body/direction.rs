@@ -366,14 +366,17 @@ fn cast_in(world: &mut World, character: &str, room: Option<LiveRoomInstance>) -
 #[derive(Clone, Copy)]
 enum Who<'a> {
     Character(&'a str),
-    Body(&'a SimId),
+    /// A bound body, with the live room its invocation runs in, when it
+    /// names one (`AuthoredArg::Occupant`).
+    Body(&'a SimId, Option<LiveRoomInstance>),
 }
 
 impl<'a> Who<'a> {
     fn of(arg: &'a AuthoredArg) -> Option<Self> {
         match arg {
             AuthoredArg::Name(character) => Some(Self::Character(character)),
-            AuthoredArg::Reference(id) => Some(Self::Body(id)),
+            AuthoredArg::Reference(id) => Some(Self::Body(id, None)),
+            AuthoredArg::Occupant(id, room) => Some(Self::Body(id, Some(*room))),
             _ => None,
         }
     }
@@ -383,7 +386,7 @@ impl std::fmt::Display for Who<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Character(character) => write!(f, "`{character}`"),
-            Self::Body(id) => write!(f, "`{id}`"),
+            Self::Body(id, _) => write!(f, "`{id}`"),
         }
     }
 }
@@ -407,6 +410,17 @@ fn carrying(world: &World, id: &SimId) -> Vec<(Entity, Option<LiveRoomInstance>,
         .collect()
 }
 
+/// [`carrying`], narrowed to `room` when more than one body carries `id`
+/// (one room live twice): a bound body is found wherever it lives, and the
+/// room only tells two apart.
+fn carrying_in(world: &World, id: &SimId, room: Option<LiveRoomInstance>) -> Vec<(Entity, Option<LiveRoomInstance>, bool)> {
+    let mut found = carrying(world, id);
+    if found.len() > 1 && room.is_some() {
+        found.retain(|(_, at, _)| *at == room);
+    }
+    found
+}
+
 /// The live bodies `who` names. A character's are those in `room` (every
 /// live room when `None`). A bound body is found wherever it lives, since a
 /// directed actor can leave into another live room; `room` only tells
@@ -422,7 +436,8 @@ fn cast_of(world: &mut World, who: Who, room: Option<LiveRoomInstance>) -> Resul
             }
             Ok(cast)
         }
-        Who::Body(id) => {
+        Who::Body(id, own) => {
+            let room = own.or(room);
             let mut found = carrying(world, id);
             if found.len() > 1 && room.is_some() {
                 found.retain(|(_, at, _)| *at == room);
@@ -438,9 +453,9 @@ fn cast_of(world: &mut World, who: Who, room: Option<LiveRoomInstance>) -> Resul
 }
 
 /// The one body a condition's bound argument names, by the same rules as
-/// [`cast_of`] (no room to tell two apart).
-fn bound_body(world: &World, id: &SimId) -> Result<(Entity, bool), ConditionOutcome> {
-    match carrying(world, id).as_slice() {
+/// [`cast_of`]: `room` (the invocation's) tells apart two bodies carrying it.
+fn bound_body(world: &World, id: &SimId, room: Option<LiveRoomInstance>) -> Result<(Entity, bool), ConditionOutcome> {
+    match carrying_in(world, id, room).as_slice() {
         [] => Err(ConditionOutcome::Unanswerable(format!("no body is `{id}`: it retired"))),
         [(body, _, alive)] => Ok((*body, *alive)),
         many => Err(ConditionOutcome::Unanswerable(format!("{} bodies are `{id}`", many.len()))),
@@ -922,8 +937,8 @@ fn throw(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2
 fn beaten(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let character = match Who::of(&args[0]) {
         Some(Who::Character(character)) => character,
-        Some(Who::Body(id)) => {
-            let body = match bound_body(world, id) {
+        Some(Who::Body(id, room)) => {
+            let body = match bound_body(world, id, room) {
                 Ok((body, _)) => body,
                 Err(refusal) => return refusal,
             };
@@ -998,8 +1013,8 @@ pub fn pin_poses(
 fn arrived(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let character = match Who::of(&args[0]) {
         Some(Who::Character(character)) => character,
-        Some(Who::Body(id)) => {
-            let observed = match bound_body(world, id) {
+        Some(Who::Body(id, room)) => {
+            let observed = match bound_body(world, id, room) {
                 Ok((_, false)) => "it has fallen",
                 Ok((body, true)) if world.get::<Visit>(body).is_some_and(|visit| visit.outcome == VisitOutcome::Arrived) => {
                     return ConditionOutcome::Satisfied;
@@ -1036,8 +1051,8 @@ fn arrived(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
 fn gone(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let character = match Who::of(&args[0]) {
         Some(Who::Character(character)) => character,
-        Some(Who::Body(id)) => {
-            let live = carrying(world, id).iter().filter(|(.., alive)| *alive).count();
+        Some(Who::Body(id, room)) => {
+            let live = carrying_in(world, id, room).iter().filter(|(.., alive)| *alive).count();
             return if live == 0 {
                 ConditionOutcome::Satisfied
             } else {
@@ -1071,8 +1086,15 @@ fn gone(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
 /// to his own mind, which would dodge it); a fixed delay is not that result,
 /// and a skipped scene has no delays.
 fn throw_landed(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+    // A bound thrower's room tells its throw apart from the same placement's
+    // in another live instance of the room; a character's throws are all of them.
+    let mut room = None;
     let throwers: Vec<SimId> = match Who::of(&args[0]) {
-        Some(Who::Body(id)) => vec![id.clone()],
+        Some(Who::Body(id, at)) => {
+            room = at;
+            vec![id.clone()]
+        }
         Some(Who::Character(character)) => {
             let Some(mut bodies) = world.try_query::<(&CharacterForm, &SimId)>() else {
                 return ConditionOutcome::Satisfied;
@@ -1081,8 +1103,9 @@ fn throw_landed(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
         }
         None => return ConditionOutcome::Unanswerable("`actor.throw_landed` takes a character".into()),
     };
-    let still_holding = world.try_query::<(&SimId, &ambition_combat::held_items::HeldItem)>().is_some_and(|mut holders| {
-        holders.iter(world).any(|(id, _)| throwers.contains(id))
+    let here = |at: Option<&InRoomInstance>| room.is_none() || at.is_none_or(|at| Some(at.0) == room);
+    let still_holding = world.try_query::<(&SimId, &ambition_combat::held_items::HeldItem, Option<&InRoomInstance>)>().is_some_and(|mut holders| {
+        holders.iter(world).any(|(id, _, at)| throwers.contains(id) && here(at))
     });
     if still_holding {
         let who = throwers.first().map_or_else(String::new, SimId::to_string);
@@ -1093,15 +1116,16 @@ fn throw_landed(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
         &ae::BodyKinematics,
         &ambition_held_items::ReleasedAs,
         bevy::prelude::Has<ambition_abilities::ranged::bomb::BombFuse>,
+        Option<&InRoomInstance>,
     )>() else {
         return ConditionOutcome::Satisfied;
     };
     let coming = items
         .iter(world)
-        .filter(|(id, _, released, _)| {
-            released.0 == ambition_held_items::Release::Throw && throwers.iter().any(|thrower| id.spawned_by(thrower))
+        .filter(|(id, _, released, _, at)| {
+            released.0 == ambition_held_items::Release::Throw && throwers.iter().any(|thrower| id.spawned_by(thrower)) && here(*at)
         })
-        .filter(|(_, kinematics, _, lit)| *lit || kinematics.vel.length_squared() > 1.0)
+        .filter(|(_, kinematics, _, lit, _)| *lit || kinematics.vel.length_squared() > 1.0)
         .count();
     if coming == 0 {
         ConditionOutcome::Satisfied
@@ -1242,5 +1266,35 @@ fn count_is(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
         ConditionOutcome::Satisfied
     } else {
         ConditionOutcome::NotSatisfied(WhyNot::new("actor.count_is", character, format!("{live} live, not {count}")))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+
+    /// SS7: one room live twice holds the same authored placement twice. A
+    /// role bound with no room cannot tell the two bodies apart and is
+    /// unanswerable; bound in its run's live room it names that room's body.
+    #[test]
+    fn a_bound_condition_answers_in_its_own_live_room() {
+        let mut world = World::new();
+        // The composition registers it; a query over an unregistered component has no answer.
+        world.register_component::<ambition_characters::actor::BodyHealth>();
+        let id = SimId::placement("brute");
+        let rooms = [1, 2].map(LiveRoomInstance::from_ordinal);
+        for room in rooms {
+            world.spawn((CharacterForm("npc_brute".into()), id.clone(), InRoomInstance(room)));
+        }
+        let ConditionOutcome::Unanswerable(why) = beaten(&world, &[AuthoredArg::Reference(id.clone())]) else {
+            panic!("the control: no room cannot choose between two bodies");
+        };
+        assert!(why.contains("2 bodies"), "{why}");
+        for room in rooms {
+            let outcome = beaten(&world, &[AuthoredArg::Occupant(id.clone(), room)]);
+            assert!(matches!(outcome, ConditionOutcome::NotSatisfied(_)), "room {}: {outcome:?}", room.ordinal());
+        }
+        assert!(matches!(gone(&world, &[AuthoredArg::Occupant(id.clone(), rooms[0])]), ConditionOutcome::NotSatisfied(why) if why.to_string().contains("1 live")));
     }
 }

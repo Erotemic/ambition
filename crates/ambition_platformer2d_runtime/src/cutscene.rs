@@ -211,10 +211,12 @@ fn bind_roles(
 }
 
 /// A playing cutscene's bound roles, as the authored-call boundary takes them.
-fn role_bindings(roles: &[(String, String)]) -> ambition_platformer2d_shared_tangle::authored_logic::RoleBindings {
-    roles.iter().fold(Default::default(), |bindings, (role, id)| {
+/// A run's roles, each naming its body in the run's own live room: the same
+/// script playing in two live instances of one room binds the same ids.
+fn role_bindings(roles: &[(String, String)], room: Option<u32>) -> ambition_platformer2d_shared_tangle::authored_logic::RoleBindings {
+    roles.iter().fold(Default::default(), |bindings: ambition_platformer2d_shared_tangle::authored_logic::RoleBindings, (role, id)| {
         bindings.bind(role.clone(), ambition_platformer2d_shared_tangle::sim_id::SimId::from_snapshot(id.clone()))
-    })
+    }).in_room(room.map(LiveRoomInstance::from_ordinal))
 }
 
 /// END a cutscene: mark it seen and tear it down. THE ONE ENDING.
@@ -466,7 +468,7 @@ pub fn tick_active_cutscene(
         // line the installed commands refuse was refused when the library
         // loaded (`prepare_cutscene_lines`); here it is logged and skipped.
         let script_id = cutscene.script_id().to_owned();
-        let roles = role_bindings(&cutscene.roles);
+        let roles = role_bindings(&cutscene.roles, cutscene.room);
         let mut command = |line: &str| {
             use ambition_platformer2d_shared_tangle::authored_logic::{AuthoredAsk, RunAuthoredCommand};
             let Some(catalog) = catalog.as_deref() else {
@@ -686,7 +688,7 @@ pub fn answer_cutscene_wait(world: &mut World) {
         .into_iter()
         .map(|(key, line, roles)| {
             let holds = world.get_resource::<ConditionCatalog>().is_some_and(|catalog| {
-                let asked = catalog.prepare_line(&line).map_err(|e| e.to_string()).and_then(|call| call.bound(&role_bindings(&roles)));
+                let asked = catalog.prepare_line(&line).map_err(|e| e.to_string()).and_then(|call| call.bound(&role_bindings(&roles, key.room)));
                 match asked {
                     Ok(prepared) => catalog.ask(world, &prepared, &AuthoredAsk::new("cutscene", key.script.clone())).is_satisfied(),
                     Err(why) => {

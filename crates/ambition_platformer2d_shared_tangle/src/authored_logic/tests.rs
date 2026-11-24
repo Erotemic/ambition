@@ -179,6 +179,20 @@ fn a_role_is_the_body_its_invocation_bound() {
     assert!(catalog.prepare_line("custody.who_carried @").is_err());
 }
 
+/// SS7: an invocation running in a live room binds each role to the body
+/// carrying its id THERE; one with no room binds the bare id, as before.
+#[test]
+fn a_role_bound_in_a_live_room_names_its_occupant() {
+    let room = crate::lifecycle::LiveRoomInstance::from_ordinal(2);
+    let args = [AuthoredArg::Role("brute".into())];
+    let bindings = RoleBindings::default().bind("brute", SimId::placement("brute"));
+    assert_eq!(bindings.bind_args(&args).unwrap(), [AuthoredArg::Reference(SimId::placement("brute"))]);
+    let bound = bindings.in_room(Some(room)).bind_args(&args).unwrap();
+    assert_eq!(bound, [AuthoredArg::Occupant(SimId::placement("brute"), room)]);
+    assert_eq!(bound[0].as_reference(), Some(&SimId::placement("brute")));
+    assert_eq!(bound[0].occupant_room(), Some(room));
+}
+
 /// TWO DOMAINS CANNOT OWN ONE ID, AND IT FAILS AT STARTUP.
 ///
 /// the alternative is that the winner is whichever plugin built last — a bug

@@ -321,6 +321,16 @@ change here.
 compiler above remains complete for its stated contract. The later
 equipment/hand fold can replace decisions that it already compiled.
 
+**State, 2026-11-24.** Family selection landed: `effective_repertoire`
+selects melee when the hand holds a weapon or a worn row grants melee,
+and ranged when the hand holds anything or a worn row grants ranged. It
+materializes only the selected families over the identity's moveset, so
+an unselected family keeps its authored moves and an equal grant still
+selects the grant's shot (`repertoire::tests`). Open: the ranged-owner
+result below. A held item with no shot still leaves a charging body's
+native charge reachable, because no published owner says "disabled".
+`equip_equipment_row`, used only by tests, still rebuilds every family.
+
 [`effective_repertoire`](../../../crates/ambition_characters/src/repertoire.rs)
 rebuilds both melee and ranged when either preset slot changes.
 [`build_actor_moveset`](../../../crates/ambition_characters/src/moveset_prefabs.rs)

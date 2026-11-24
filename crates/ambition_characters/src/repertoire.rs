@@ -15,7 +15,7 @@ use ambition_entity_catalog::{is_melee_verb, is_ranged_verb, MovesetContract};
 
 use crate::brain::action_set::{ActionSet, IdentityKit};
 use crate::brain::HeldItemSpec;
-use crate::equipment::{apply_equipment_grants, WornEquipment};
+use crate::equipment::{apply_equipment_grants, EquipmentGrant, WornEquipment};
 use crate::moveset_prefabs::build_actor_moveset;
 
 /// What the body's hand contributes.
@@ -63,13 +63,15 @@ pub fn effective_repertoire(
             action_set.ranged = spec.ranged.clone();
         }
     }
-    // A FOLD WITH NOTHING TO FOLD IS THE BASELINE, and saying so is load-bearing
-    // rather than an optimisation. `build_actor_moveset` DERIVES a swing from a
+    // EACH ATTACK FAMILY IS SELECTED BY ITS SOURCE, then only the selected
+    // families are materialized. `build_actor_moveset` DERIVES a swing from a
     // melee spec and inserts it over whatever the contract already had, so
-    // re-deriving an unchanged verb replaces an AUTHORED move with a generated
-    // one — a smash fighter re-derived from its own identity loses the jab
-    // string its character authored. The rebuild is for a verb the overlay
-    // actually changed.
+    // re-deriving a family nothing replaced swaps an AUTHORED move for a
+    // generated one: a smash fighter wearing a ranged-only row would lose the
+    // jab string its character authored. Selection is by source, not by
+    // payload: a ranged grant equal to a charging identity's latent preset is
+    // still the grant's shot, and a melee-only row must not turn that latent
+    // preset into a moveset `ranged` verb that takes the press from charge.
     //
     // A HELD WEAPON IS THE WHOLE MELEE VOCABULARY. The wearer's melee verbs are
     // released before the weapon's are derived, so a directional or smash move
@@ -82,10 +84,12 @@ pub fn effective_repertoire(
     // exactly as `ActionSet.ranged` says.
     let holding = matches!(hand, Hand::Holding(_));
     let weapon_in_hand = matches!(hand, Hand::Holding(spec) if spec.melee.is_some());
-    let moveset = if !holding
-        && action_set.melee == identity.action_set.melee
-        && action_set.ranged == identity.action_set.ranged
-    {
+    let granted = |family: fn(&EquipmentGrant) -> bool| {
+        worn.is_some_and(|worn| worn.rows.iter().any(|row| row.grants.iter().any(family)))
+    };
+    let melee_selected = weapon_in_hand || granted(|grant| matches!(grant, EquipmentGrant::Melee(_)));
+    let ranged_selected = holding || granted(|grant| matches!(grant, EquipmentGrant::Ranged(_)));
+    let moveset = if !melee_selected && !ranged_selected {
         identity.moveset.clone()
     } else {
         let mut base = identity.moveset.clone();
@@ -97,8 +101,8 @@ pub fn effective_repertoire(
         }
         build_actor_moveset(
             Some(&base),
-            action_set.melee.as_ref(),
-            action_set.ranged.as_ref(),
+            action_set.melee.as_ref().filter(|_| melee_selected),
+            action_set.ranged.as_ref().filter(|_| ranged_selected),
             None,
         )
         .unwrap_or(base)
@@ -124,3 +128,66 @@ fn release_verbs(contract: &mut MovesetContract, family: fn(&str) -> bool) {
         .retain(|m| !released.contains(&m.id) || verbs.values().any(|id| *id == m.id));
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::brain::action_set::{MeleeActionSpec, RangedActionSpec, SwipeSpec};
+    use crate::equipment::EquipmentRow;
+    use ambition_entity_catalog::{ATTACK_VERB, RANGED_VERB};
+
+    fn wearing(grant: EquipmentGrant) -> WornEquipment {
+        WornEquipment::new(vec![EquipmentRow {
+            exclusive_slot: None,
+            id: "row".into(),
+            modifiers: vec![],
+            grants: vec![grant],
+            on_hit: None,
+            withholds: vec![],
+        }])
+    }
+
+    /// An identity with an authored jab on `attack` and, like the charging
+    /// robot, a ranged spec that no moveset verb executes.
+    fn charging_brawler() -> IdentityKit {
+        let mut action_set = ActionSet::peaceful();
+        action_set.melee = Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT));
+        action_set.ranged = Some(RangedActionSpec::bolt(400.0, 5));
+        let mut moveset = build_actor_moveset(None, action_set.melee.as_ref(), None, None).unwrap();
+        let jab = moveset.verbs[ATTACK_VERB].clone();
+        moveset.verbs.insert(ATTACK_VERB.into(), "authored_jab".into());
+        moveset.moves.iter_mut().find(|m| m.id == jab).unwrap().id = "authored_jab".into();
+        IdentityKit::of(action_set, moveset)
+    }
+
+    #[test]
+    fn a_ranged_grant_keeps_the_authored_jab() {
+        let live = effective_repertoire(
+            &charging_brawler(),
+            Some(&wearing(EquipmentGrant::Ranged(RangedActionSpec::arrow(300.0, 2)))),
+            Hand::Empty,
+        );
+        assert_eq!(live.moveset.verbs.get(ATTACK_VERB).map(String::as_str), Some("authored_jab"));
+        assert!(live.moveset.move_for_verb(RANGED_VERB).is_some(), "the grant's shot is a verb");
+    }
+
+    #[test]
+    fn a_melee_grant_leaves_the_latent_ranged_preset_to_charge() {
+        let live = effective_repertoire(
+            &charging_brawler(),
+            Some(&wearing(EquipmentGrant::Melee(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)))),
+            Hand::Empty,
+        );
+        assert!(live.moveset.move_for_verb(RANGED_VERB).is_none(), "a melee row made a ranged verb");
+        assert!(live.action_set.ranged.is_some());
+    }
+
+    #[test]
+    fn a_ranged_grant_equal_to_the_latent_preset_is_still_the_grants_shot() {
+        let identity = charging_brawler();
+        let same = identity.action_set.ranged.clone().unwrap();
+        let live = effective_repertoire(&identity, Some(&wearing(EquipmentGrant::Ranged(same))), Hand::Empty);
+        assert!(live.moveset.move_for_verb(RANGED_VERB).is_some(), "an equal grant was read as no grant");
+        assert_eq!(live.moveset.verbs.get(ATTACK_VERB).map(String::as_str), Some("authored_jab"));
+    }
+}

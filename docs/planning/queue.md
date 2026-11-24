@@ -249,7 +249,11 @@ value as completion of that owner's contract.
    selected ranged executor, including explicit absence. Equal preset
    numbers do not erase replacement meaning; shared move IDs cannot make
    one family's replacement overwrite another. Keep direct attempts and
-   the existing character-scale order.
+   the existing character-scale order. (Family selection landed
+   2026-11-24: `effective_repertoire` selects each family by its source,
+   the hand or a worn row's grant, and materializes only those. Open: the
+   published ranged owner, so a hand's explicit empty slot stops reading as
+   native charge.)
    [FORM-REBIND](#form-rebind--admit-and-apply-a-complete-form-on-the-existing-body)
    supplies L2's live form/generation customer and can be corrected before
    broader linking. The independent

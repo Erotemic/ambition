@@ -1294,8 +1294,10 @@ pub fn update_button_glyph_from_active_input(
     prompt: Option<Res<ControlPrompt>>,
     images: ambition_render::control_glyphs::ControlGlyphImages,
     mut touch_style: Local<ambition_input::GamepadStyle>,
+    mut shown_context: Local<Option<ControlContextKind>>,
     mut labels: Query<(&TouchActionLabel, Ref<TouchActionLabel>, &mut ButtonGlyph)>,
 ) {
+    let context = prompt.as_ref().map_or(ControlContextKind::Gameplay, |prompt| prompt.context);
     let recipe = recipes
         .iter()
         .find(|(seat, _)| seat.id == ambition_input::ParticipantId::PRIMARY)
@@ -1308,11 +1310,12 @@ pub fn update_button_glyph_from_active_input(
             .as_ref()
             .is_some_and(|bindings| bindings.is_changed())
         || recipe.as_ref().is_some_and(|recipe| recipe.is_changed())
-        || prompt.as_ref().is_some_and(|prompt| prompt.is_changed())
+        || *shown_context != Some(context)
         || images.is_changed();
     if !changed && !labels.iter().any(|(_, label, _)| label.is_added()) {
         return;
     }
+    *shown_context = Some(context);
     let preset = settings
         .as_ref()
         .map(|s| KeyboardPreset::by_index(s.controls.keyboard_preset_index))
@@ -1348,9 +1351,6 @@ pub fn update_button_glyph_from_active_input(
         None
     };
     let bound = reference.as_ref().unwrap_or(bound);
-    let context = prompt
-        .as_ref()
-        .map_or(ControlContextKind::Gameplay, |prompt| prompt.context);
     for (TouchActionLabel(action), _, mut glyph) in &mut labels {
         let Some(action) = touch_display_action(*action, context) else {
             continue;

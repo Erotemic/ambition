@@ -429,8 +429,12 @@ def run(family: str, arguments: list[str]) -> int:
     from lib.submodule_pin import behind_pin
     stale = TOOLS.get(family) and behind_pin(ROOT, "tools/" + TOOLS[family])
     if stale and not os.environ.get("AMBITION_ALLOW_STALE_TOOL"):
-        print(f"{family}: refused: {stale}. (AMBITION_ALLOW_STALE_TOOL=1 runs it anyway.)", file=sys.stderr)
+        print(f"{family}: refused: {stale}. (AMBITION_ALLOW_STALE_TOOL=1 runs it anyway, "
+              "on the old sources.)", file=sys.stderr)
         return 2
+    if stale:
+        print(f"{family}: AMBITION_ALLOW_STALE_TOOL=1, so running on old sources; a module or score "
+              f"the pin added will be missing: {stale}", file=sys.stderr)
     if family == "backgrounds" and only_missing:
         return subprocess.call([str(ROOT / "scripts/regen/backgrounds.sh"), *arguments], cwd=ROOT)
     selected = library()

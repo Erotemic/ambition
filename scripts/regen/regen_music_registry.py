@@ -95,7 +95,14 @@ exec "$AMBITION_RESOLVED_PYTHON" -m ambition_music_renderer.score_inventory --sc
         capture_output=True, text=True,
     )
     if result.returncode:
-        raise SystemExit(f"music renderer inventory failed:\n{result.stderr}")
+        from lib.submodule_pin import behind_pin
+        stale = behind_pin(REPO_ROOT, "tools/ambition_music_renderer")
+        raise SystemExit(
+            f"music renderer inventory failed:\n{result.stderr.rstrip()}\n"
+            + (f"The cause is likely that {stale}." if stale else
+               "Run ./scripts/regen/music.sh --setup: it checks the renderer out at its pin and "
+               "installs it into this machine's tool venv.")
+        )
     inventory = json.loads(result.stdout)
     if inventory["schema"] != "ambition.music_inventory.v1":
         raise ValueError(f"unsupported music inventory: {inventory['schema']}")

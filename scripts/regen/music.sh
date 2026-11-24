@@ -9,7 +9,13 @@
 #     SAME path — the renderer publishes each adaptive/<section>/<section>.full.ogg
 #     into game/ambition_content_library/generated/runtime/audio/music/generated/. No dedicated installer.
 #
+# Every run first checks out tools/ambition_music_renderer (and the sprite
+# renderer, which holds the publication store) at the commits the superproject
+# pins, when they have no local changes, then creates or repairs this machine's
+# renderer venv with uv. A fresh clone needs only git, uv and this script.
+#
 # Usage:
+# ./scripts/regen/music.sh --setup            # only that preparation; renders nothing
 # ./scripts/regen/music.sh                    # render what changed (see the states below)
 # ./scripts/regen/music.sh --list             # the library's cue ids
 # ./scripts/regen/music.sh --plan             # each cue's state; * marks what a run renders
@@ -37,7 +43,10 @@
 #   AMBITION_MUSIC_BACKEND=pretty-midi|fluidsynth-cli|fallback|auto
 #                                   # forwarded to the cue renderer
 #   AMBITION_MUSIC_PYTHON=/path/to/python
-#                                   # overrides the tool-local .venv
+#                                   # overrides the per-machine tool venv
+#                                   # (checked, never installed into)
+#   AMBITION_ALLOW_STALE_TOOL=1     # run on a renderer behind its pin that
+#                                   # has local changes (normally refused)
 #   AMBITION_MUSIC_JOBS=6             # total cue and stem worker budget
 set -euo pipefail
 
@@ -48,11 +57,29 @@ cd "$repo_root"
 renderer_dir="$repo_root/tools/ambition_music_renderer"
 
 # shellcheck disable=SC1091
+source "$repo_root/scripts/lib/tool_python.sh"
+
 if [ "${AMBITION_PRODUCER_WORKER:-}" != "music" ] && [ "${1:-}" != "--help" ] && [ "${1:-}" != "-h" ]; then
+    # Setup, so a fresh clone or a merged checkout needs no hand steps.
+    # 1. The tool trees at their pins. A merge moves a submodule's pointer, not
+    #    its files: a renderer left behind runs old sources and lacks the
+    #    modules the superproject now calls. The publication store is read from
+    #    the sprite renderer's tree.
+    python3 "$repo_root/scripts/lib/submodule_pin.py" ensure --label music \
+        tools/ambition_music_renderer tools/ambition_sprite2d_renderer || exit 2
+    # 2. The renderer's venv, holding THIS checkout's renderer. `.[all]` is what
+    #    `tool_projects` in `scripts/setup/python_tools.sh` installs.
+    ambition_ensure_tool_python "$renderer_dir" AMBITION_MUSIC_PYTHON '.[all]' music || exit 1
+    if [ "${1:-}" = "--setup" ]; then
+        [ "$#" -eq 1 ] || { echo "--setup takes no other options" >&2; exit 2; }
+        echo "==> music: ready. renderer: $renderer_dir ($(git -C "$renderer_dir" rev-parse --short HEAD 2>/dev/null || echo 'no git'))"
+        echo "    python:   $AMBITION_RESOLVED_PYTHON"
+        echo "    next:     ./scripts/regen/music.sh --plan   (what a run would render)"
+        exit 0
+    fi
     exec python3 "$repo_root/scripts/regen/generate_library_content.py" music "$@"
 fi
 
-source "$repo_root/scripts/lib/tool_python.sh"
 # WHERE generated music lands, declared once for every tool that touches it.
 # shellcheck disable=SC1091
 source "$repo_root/scripts/lib/asset_roots.sh"
@@ -103,7 +130,7 @@ fi
 renderer_py="$(ambition_select_tool_python "$renderer_dir" AMBITION_MUSIC_PYTHON)"
 ambition_require_python_module \
     "$renderer_py" ambition_music_renderer \
-    "run ./run_developer_setup.sh or set AMBITION_MUSIC_PYTHON=/path/to/python"
+    "run ./scripts/regen/music.sh --setup (it installs the renderer) or set AMBITION_MUSIC_PYTHON=/path/to/python"
 
 # The sampled instrument libraries. `render_music.sh` — the renderer's own entry
 # point — sources this; this script did not, so the REPO-level regen (the path

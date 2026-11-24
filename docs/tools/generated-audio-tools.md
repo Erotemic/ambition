@@ -6,6 +6,44 @@ publish complete immutable bundles. Generated audio and registries are ignored
 by Git. The library keeps shared SFX definitions and music naming policy in
 `authored/`. Games can select no libraries.
 
+## Music from a fresh clone
+
+```bash
+git clone <this repository> ambition && cd ambition   # no --recurse-submodules needed
+./scripts/regen/music.sh --setup         # submodules at their pins + renderer venv; renders nothing
+./scripts/setup/audio_libraries.sh       # once per machine: sampled instruments in /data/audio-tools (tens of GB)
+./scripts/regen/music.sh                 # render and publish what changed
+```
+
+`./run_developer_setup.sh` runs the instrument step too, with everything else a
+developer machine needs.
+
+Nothing else is needed by hand beyond `git`, `python3` and
+[uv](https://docs.astral.sh/uv/). Before it renders, every `music.sh` run:
+
+1. checks out `tools/ambition_music_renderer` and `tools/ambition_sprite2d_renderer`
+   (which holds the publication store) at the commits this checkout pins, when
+   they are not checked out or are behind the pin. `git pull` and `git merge`
+   move a submodule's pin but not its files, so a renderer left behind would run
+   old sources. A submodule that is behind and has uncommitted changes is not
+   touched: the run stops and names the command to run after you commit or
+   stash them. A submodule with commits the pin lacks is used as it is.
+2. creates this machine's renderer venv
+   (`~/.cache/ambition-tool-venvs/ambition_music_renderer`) with uv, and installs
+   the renderer into it editable from this checkout when it is missing, lacks a
+   dependency, or was installed from another checkout or worktree.
+   `AMBITION_MUSIC_PYTHON` or `AMBITION_PYTHON` picks your own interpreter
+   instead; that one is checked, never installed into, and a failure prints the
+   `uv pip install` command.
+
+`./scripts/regen/music.sh --setup` does only those two steps.
+`./scripts/regen/music.sh --list` also reads the score inventory, and `--plan`
+reports each cue's state; neither renders. Rendering needs the sampled
+instruments under `/data/audio-tools`; without them the renderer refuses a
+sampled cue rather than render a General-MIDI stand-in.
+
+## Commands
+
 ```bash
 ./scripts/regen/music.sh
 ./scripts/regen/music.sh --cue support_theme,embedded_theme

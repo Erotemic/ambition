@@ -78,12 +78,8 @@ print(f"{sys.version_info.major}.{sys.version_info.minor}")
 PY
 }
 
-ambition_tool_venv_dir() {
-    local project="$1"
-    printf '%s/%s\n' \
-        "${AMBITION_TOOL_VENVS:-${XDG_CACHE_HOME:-$HOME/.cache}/ambition-tool-venvs}" \
-        "$(basename -- "$project")"
-}
+# `ambition_tool_venv_dir` (where a tool's venv lives) is in
+# `scripts/lib/tool_python.sh`, which the regen scripts also read.
 
 ensure_tool_venv() {
     local project="$1"

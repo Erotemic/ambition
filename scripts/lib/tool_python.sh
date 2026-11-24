@@ -42,6 +42,13 @@ ambition_python_exists() {
     fi
 }
 
+# This machine's venv for a tool: `<store>/<basename of the tool's directory>`.
+ambition_tool_venv_dir() {
+    printf '%s/%s\n' \
+        "${AMBITION_TOOL_VENVS:-${XDG_CACHE_HOME:-$HOME/.cache}/ambition-tool-venvs}" \
+        "$(basename -- "$1")"
+}
+
 # Print the interpreter for a tool. Arguments: the tool's project dir, its
 # override variable name ("" for none), and whether the generic `PYTHON` counts
 # (default 1).
@@ -67,8 +74,8 @@ ambition_resolve_tool_python() {
     fi
 
     local store tool_venv
-    store="${AMBITION_TOOL_VENVS:-${XDG_CACHE_HOME:-$HOME/.cache}/ambition-tool-venvs}"
-    tool_venv="$store/$(basename -- "$project_dir")/bin/python"
+    tool_venv="$(ambition_tool_venv_dir "$project_dir")/bin/python"
+    store="$(dirname -- "$(dirname -- "$(dirname -- "$tool_venv")")")"
 
     # ⛔⛔ THE STORE IS KEYED BY DIRECTORY BASENAME, AND A GIT WORKTREE'S
     # BASENAME IS NOT THE REPOSITORY'S. In `.worktrees/agent-worktree1` this
@@ -271,6 +278,7 @@ ambition_summarize_requirement_problems() {
             detail="${line##*$'\t'}"
             case "$kind" in
                 uninstalled) detail="the $detail package itself" ;;
+                elsewhere) detail="an install of this checkout's tool (it has $detail)" ;;
             esac
         else
             detail="$line"
@@ -278,4 +286,115 @@ ambition_summarize_requirement_problems() {
         summary+="${summary:+, }$detail"
     done <<<"$out"
     printf '%s' "$summary"
+}
+
+# Make the interpreter a tool will run on able to run THIS checkout's copy of
+# the tool: repair what this repository owns, name the command for the rest.
+#
+#   ambition_ensure_tool_python <project_dir> <override_name> <editable_target> <label>
+#
+# `<editable_target>` is what setup installs (`.` or `.[all]`, as in the
+# `tool_projects` table of `scripts/setup/python_tools.sh`). On success sets
+# `AMBITION_RESOLVED_PYTHON` and returns 0. Writes only to stderr.
+#
+# OWNED: the per-machine tool venv or the tool's in-repo `.venv`. When neither
+# exists the store venv is created with uv. When the venv lacks a declared
+# dependency, lacks the tool, or holds an editable install of the tool from
+# ANOTHER directory (another worktree, a deleted checkout), the tool is
+# installed editable from `<project_dir>` with uv, as setup installs it.
+# ⚠ The store is keyed by the tool's directory name, so every checkout of this
+# repository shares one venv per tool, and its editable install follows the
+# checkout that ran last. Without the repair, a module this checkout has and
+# the other lacks is imported from the other (or not at all).
+#
+# NOT OWNED: an interpreter chosen by `<override_name>`, `AMBITION_PYTHON` or
+# `PYTHON`. The user picked it on purpose, so it is checked, never changed, and
+# a failure prints the install command.
+ambition_ensure_tool_python() {
+    local project_dir="$1" override_name="$2" target="${3:-.}" label="${4:-$(basename -- "$1")}"
+    local checker venv_dir py out summary uv_bin status=0 owned=1 created=0
+    checker="$(dirname -- "${BASH_SOURCE[0]}")/tool_requirements.py"
+    venv_dir="$(ambition_tool_venv_dir "$project_dir")"
+    ambition_resolve_tool_python "$project_dir" "$override_name"
+    py="$AMBITION_RESOLVED_PYTHON"
+    if [[ -n "$override_name" && "$AMBITION_RESOLVED_FROM" == "$override_name" ]] \
+        || [[ "$AMBITION_RESOLVED_FROM" == AMBITION_PYTHON || "$AMBITION_RESOLVED_FROM" == PYTHON ]]; then
+        owned=0
+    fi
+    uv_bin="$(command -v uv 2>/dev/null || true)"
+    if [[ -z "$uv_bin" && -x "$HOME/.local/bin/uv" ]]; then
+        uv_bin="$HOME/.local/bin/uv"
+    fi
+    local uv_hint='    curl -LsSf https://astral.sh/uv/install.sh | sh    # or ./run_developer_setup.sh'
+
+    if [[ "$owned" -eq 0 ]]; then
+        if ! ambition_python_exists "$py"; then
+            printf '%s: %s names %s, which is not an interpreter: fix or unset it\n' \
+                "$label" "$AMBITION_RESOLVED_FROM" "$py" >&2
+            return 1
+        fi
+    elif [[ "$py" != */* ]]; then
+        # No venv yet: resolution fell through to a bare `python3`.
+        if [[ -z "$uv_bin" ]]; then
+            printf '%s: no tool venv at %s, and uv (which creates it) is not on PATH. Install uv:\n%s\nthen rerun.\n' \
+                "$label" "$venv_dir" "$uv_hint" >&2
+            return 1
+        fi
+        printf '==> %s: no tool venv on this machine; creating %s\n' "$label" "$venv_dir" >&2
+        if ! UV_LINK_MODE="${UV_LINK_MODE:-copy}" "$uv_bin" venv --quiet --clear \
+            --python "${AMBITION_TOOL_PYTHON:-3.12}" "$venv_dir" >&2; then
+            printf '%s: could not create the venv; run it by hand to see why:\n    uv venv --python %s %s\n' \
+                "$label" "${AMBITION_TOOL_PYTHON:-3.12}" "$venv_dir" >&2
+            return 1
+        fi
+        py="$venv_dir/bin/python"
+        AMBITION_RESOLVED_PYTHON="$py"
+        AMBITION_RESOLVED_FROM="this machine's tool venv (created just now)"
+        created=1
+    fi
+    local install_cmd="uv pip install --python $py -e '$project_dir${target#.}'"
+
+    out="$("$py" "$checker" --source "$project_dir" 2>&1)" || status=$?
+    [[ "$status" -eq 0 ]] && return 0
+    if [[ "$status" -ne 1 ]]; then
+        printf '%s: cannot check %s against %s/pyproject.toml:\n%s\n' "$label" "$py" "$project_dir" "$out" >&2
+        return 1
+    fi
+    summary="$(ambition_summarize_requirement_problems "$out")"
+    if [[ "$owned" -eq 0 ]]; then
+        printf '%s: %s (chosen by %s) lacks %s. Install this checkout into it:\n    %s\n' \
+            "$label" "$py" "$AMBITION_RESOLVED_FROM" "$summary" "$install_cmd" >&2
+        printf 'or unset %s and this script builds and uses its own tool venv.\n' "$AMBITION_RESOLVED_FROM" >&2
+        return 1
+    fi
+    if [[ -z "$uv_bin" ]]; then
+        printf '%s: %s lacks %s, and uv (which installs it) is not on PATH. Install uv:\n%s\nthen rerun.\n' \
+            "$label" "$py" "$summary" "$uv_hint" >&2
+        return 1
+    fi
+    if [[ -z "${UV_EXCLUDE_NEWER:-}" ]]; then
+        # The 14-day supply-chain cutoff `scripts/setup/python_tools.sh` uses.
+        local cutoff
+        if cutoff="$(date -u -d '14 days ago' +%Y-%m-%d 2>/dev/null)"; then
+            export UV_EXCLUDE_NEWER="$cutoff"
+        fi
+    fi
+    if [[ "$created" -eq 1 ]]; then
+        printf '==> %s: installing %s into the new venv (editable)\n' "$label" "$project_dir" >&2
+    else
+        printf '==> %s: %s lacks %s; installing %s into it (editable)\n' \
+            "$label" "$py" "$summary" "$project_dir" >&2
+    fi
+    if ! (cd "$project_dir" && UV_LINK_MODE="${UV_LINK_MODE:-copy}" \
+        "$uv_bin" pip install --python "$py" -e "$target") >&2; then
+        printf '%s: the install failed (output above). Rerun it by hand:\n    %s\n' "$label" "$install_cmd" >&2
+        return 1
+    fi
+    status=0
+    out="$("$py" "$checker" --source "$project_dir" 2>&1)" || status=$?
+    if [[ "$status" -ne 0 ]]; then
+        printf '%s: installed, but %s still lacks %s. Rerun the install by hand and read its output:\n    %s\n' \
+            "$label" "$py" "$(ambition_summarize_requirement_problems "$out")" "$install_cmd" >&2
+        return 1
+    fi
 }

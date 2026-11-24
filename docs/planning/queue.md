@@ -601,8 +601,9 @@ explicit retiming, independent rig/move sources and dense runtime handles.
 The duplicate fact collectors are removed (one EventMailbox scan for all native
 fact ports, 2026-11-22), and `run_phase` buckets its queue by trigger once.
 Dispatch spans and entry lookup are prepared at admission (2026-11-24:
-`Admitted::dispatch`, read by `run_phase` and the inbox). Next, share correct
-occurrence views and derive active journal work. Navigation's cost-state
+`Admitted::dispatch`, read by `run_phase` and the inbox). Call completion,
+retirement and publication batches share one occurrence view each
+(2026-11-24). Next, derive active journal work. Navigation's cost-state
 reduction is fixed (2026-11-22: route searches arrivals and charges the final
 walk), and the advisor measures a body's motion once across rooms
 (`NavMotion`, 2026-11-22). The graph cache pins the graphs demanded each

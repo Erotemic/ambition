@@ -154,8 +154,18 @@ result adds no occurrence, so `object_behaviors::publish` takes its caller's
 occurrence view. `complete` captures one view for its whole request batch
 (it captured two for each request); `retire` captures one for all its
 origins; and `maintain`, which already received a view, no longer captures
-one more for each expired call. Event publication and recipient selection
-still capture their own.
+one more for each expired call.
+
+**Publication batches (2026-11-24).** Recipient selection takes an
+`OccurrenceView` (`behavior_events.rs`): a batch's view is captured when its
+first fact has a route and reused by the rest, so a batch with no routed
+fact still captures nothing. The activation, defeat, break and take
+publishers, the retirement pass (one view for the retired test and every
+recipient lookup) and confirmed world posts share one per batch;
+`publish_native` resolves its source and selects recipients on one view.
+Queueing a mailbox row adds no occurrence, so the batch reads one
+population. Signals admitted from a script request keep a view per request,
+because `ensure_object_occurrence` can add the emitter's occurrence.
 
 Start with shared snapshots at declared cuts, then use lifecycle updates where
 they remove repeated builds. The full capture remains a synchronous fallback.

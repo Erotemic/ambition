@@ -66,7 +66,8 @@ fn post_world_signals<L: ambition_extension_host::LowersIn>(world: &mut World) {
             ObjectSignalPort::encode(&ObjectSignal {from, topic: request.topic.clone(), data}, &mut bytes);
             let SimulationIsland::Room(_, room) = authority else {
                 // One timeline: every subscriber hears it now.
-                deliver(world, from, &event, &bytes, None);
+                // Its own view: `ensure_object_occurrence` above can add an occurrence.
+                deliver(world, &mut Default::default(), from, &event, &bytes, None);
                 return Ok("world_signal_delivered");
             };
             if world.resource::<WorldPosts>().held.len() >= MAX_HELD_WORLD_POSTS { return Err("world_post_queue_full"); }
@@ -84,9 +85,10 @@ fn post_world_signals<L: ambition_extension_host::LowersIn>(world: &mut World) {
 
 /// Queue `bytes` from `source` for every method subscribed to `event`, where
 /// each is now; with `log`, record each row against this tick.
-fn deliver(world: &mut World, source: ObjectRef, event: &str, bytes: &[u8], mut log: Option<&mut Vec<Admitted>>) {
+fn deliver(world: &mut World, objects: &mut crate::behavior_events::OccurrenceView, source: ObjectRef, event: &str,
+    bytes: &[u8], mut log: Option<&mut Vec<Admitted>>) {
     let mut deferred = DeferredWorld::from(&mut *world);
-    let recipients = crate::behavior_events::recipients(&deferred, source, event);
+    let recipients = crate::behavior_events::recipients(&deferred, objects, source, event);
     let tick = deferred.resource::<ambition_time::SimTick>().0;
     for (recipient, entity, key) in recipients {
         if !crate::behavior_events::queue_row(&mut deferred, entity, source, event, key.clone(), bytes) {
@@ -108,8 +110,9 @@ fn admit_confirmed_posts(world: &mut World) {
     let (ready, waiting): (Vec<Held>, Vec<Held>) = std::mem::take(&mut posts.held).into_iter()
         .partition(|post| boundary.is_none_or(|boundary| boundary.is_confirmed(post.write.tick as i32)));
     posts.held = waiting;
+    let mut objects = crate::behavior_events::OccurrenceView::default();
     for post in ready {
-        deliver(world, post.source, &post.event, &post.bytes, Some(&mut posts.admitted));
+        deliver(world, &mut objects, post.source, &post.event, &post.bytes, Some(&mut posts.admitted));
     }
     world.insert_resource(posts);
 }

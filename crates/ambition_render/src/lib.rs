@@ -11,6 +11,7 @@
 pub mod asset_census;
 #[cfg(feature = "capture")]
 pub mod capture;
+pub mod control_glyphs;
 pub mod cutscene;
 /// Provider-selectable dialogue presentation: one shared lifecycle / ordering
 /// seam plus a plain opt-in default renderer over `ambition_sim_view::DialogView`.

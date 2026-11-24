@@ -393,6 +393,11 @@ pub struct ActorActionMessage {
     /// the actor's current `MovePlayback`: at the moment a technique runs, the
     /// authoring move may already have ended. That re-read IS the defect.
     pub move_instance: Option<u32>,
+    /// For a move's SUSTAINED effect, the move's action interval this step
+    /// (ACT2): the cadence the answering technique spends instead of the
+    /// room's clock. `None` for every other action, which runs on its scope's
+    /// pace. Stamped by the emitter, like `move_instance`.
+    pub action_interval: Option<f32>,
 }
 
 impl ActorActionMessage {

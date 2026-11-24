@@ -142,6 +142,10 @@ pub struct MoveEventMessage {
     /// ([`RangedUse`]), stamped by the emitter for the reason `move_instance`
     /// is. `None` for every other kind.
     pub ranged: Option<RangedUse>,
+    /// For a SUSTAINED effect, the emitting move's action interval this step
+    /// (ACT2): the time the technique answering it may spend on its cadence.
+    /// Zero while the body is held. `None` for every one-shot event.
+    pub action_interval: Option<f32>,
 }
 
 /// What a ranged event carries from the use that emitted it (ACT1).
@@ -1250,7 +1254,7 @@ pub fn advance_move_playback(
         // same write for `start_impulse` at the press; this is that seam, later
         // on the same timeline.
         &mut ae::BodyKinematics,
-        Option<&ProperTimeScale>,
+        (Option<&ProperTimeScale>, Option<&ambition_time::ClockDilation>),
         // I4: the owner's rollback-stable identity, so the transient strike volume
         // it opens can derive one. Without it every anonymous hitbox folded to the
         // same constant in the entity-reference probes, and swapped owners were
@@ -1366,7 +1370,7 @@ pub fn advance_move_playback(
             ambition_characters::actor::BodyActionStep::share(step, combat)
         });
         let held = share <= 0.0;
-        let dt = world_time.entity_dt(scale.copied().unwrap_or_default()) * freeze.scale_of(owner) * share;
+        let dt = world_time.entity_dt(ProperTimeScale::dilated(scale.0, scale.1)) * freeze.scale_of(owner) * share;
         let t_prev = playback.t;
         // THE CHARGE HOLD. A chargeable use walks its ordinary timeline to the
         // authored hold point and stands there while Attack is held. The proper
@@ -1640,7 +1644,7 @@ pub fn advance_move_playback(
                     }
                     _ => (ae::Vec2::ZERO, ambition_vfx::FxPose::UPRIGHT),
                 };
-                events.write(MoveEventMessage {
+                events.write(MoveEventMessage { action_interval: None,
                     owner,
                     move_id: pb.spec.id.clone(),
                     move_instance: pb.instance,
@@ -1665,12 +1669,18 @@ pub fn advance_move_playback(
         // `sustain_effect`, emit its `Effect` EVERY frame — the consuming technique
         // times its own cadence off this per-frame "active this tick" signal. This
         // is how a move expresses a HELD special (a lingering beam, a continuous
-        // rain), the shape the boss `apple_rain`-style specials need. Dilation
-        // stretches the sustain the same way (fewer proper-time frames of it).
+        // rain), the shape the boss `apple_rain`-style specials need.
+        //
+        // ⭐ THE OCCURRENCE AND ITS CADENCE ARE SEPARATE FACTS (ACT2). The
+        // signal is emitted every step the window is live, held or not, so a
+        // stance stays present; the interval it carries is the move's own
+        // action interval this step, which a freeze holds at zero and a
+        // dilation shortens. A technique that spends a cadence spends this,
+        // not the room's clock: a refresh is not another elapsed step.
         for window in &pb.spec.windows {
             if let Some(effect) = &window.sustain_effect {
                 if window.start_s <= t && t < window.end_s {
-                    events.write(MoveEventMessage {
+                    events.write(MoveEventMessage { action_interval: Some(dt),
                         world_offset: ae::Vec2::ZERO,
                         // A sustained `Effect` is routed to a keyed TECHNIQUE,
                         // not drawn as art, so it has no pose of its own.
@@ -1726,7 +1736,7 @@ pub fn advance_move_playback(
                 match node {
                     ambition_entity_catalog::FlowNode::Finish => break,
                     ambition_entity_catalog::FlowNode::Emit { effect, then } => {
-                        events.write(MoveEventMessage {
+                        events.write(MoveEventMessage { action_interval: None,
                             world_offset: ae::Vec2::ZERO,
                             // Routed to a keyed TECHNIQUE, not drawn as art, so
                             // it has no pose of its own — the same reasoning the
@@ -2317,7 +2327,7 @@ pub fn buffer_combat_action_presses(
         &mut AttackGestureState,
         &mut ResolvedAttackGesture,
         &mut ae::BodyActionBuffer,
-        Option<&ProperTimeScale>,
+        (Option<&ProperTimeScale>, Option<&ambition_time::ClockDilation>),
         // WHERE THE BODY WAS WHEN IT ASKED. A special's direction is
         // facing-relative and its posture decides which of `special_down` and
         // `special_air_down` the player meant, and both have to be read at the
@@ -2330,7 +2340,7 @@ pub fn buffer_combat_action_presses(
     for (entity, control, tuning, mut state, mut resolved, mut buffer, scale, kin, ground) in &mut bodies {
         // ADR 0011: the owner's own clock, so a dilated body's leniency
         // dilates with everything else it does.
-        let dt = world_time.entity_dt(scale.copied().unwrap_or_default()) * freeze.scale_of(entity);
+        let dt = world_time.entity_dt(ProperTimeScale::dilated(scale.0, scale.1)) * freeze.scale_of(entity);
         if !buffer.is_empty() {
             buffer.tick(dt);
         }
@@ -4622,7 +4632,7 @@ pub fn dispatch_move_events(
                 // channel (A1 / R2.2) so the keyed technique can hydrate its own
                 // typed params. A paramless effect carries the empty default, so
                 // every existing content-const technique stays byte-identical.
-                actions.write(ActorActionMessage {
+                actions.write(ActorActionMessage { action_interval: ev.action_interval,
                     actor: ev.owner,
                     request: ActionRequest::Special {
                         spec: SpecialActionSpec::Special(effect.key.clone()),
@@ -4690,7 +4700,7 @@ pub fn dispatch_move_events(
                         ae::Vec2::new(kin.map(|k| k.facing.signum()).unwrap_or(1.0), 0.0),
                     )
                 });
-                actions.write(ActorActionMessage {
+                actions.write(ActorActionMessage { action_interval: None,
                     actor: ev.owner,
                     request: ActionRequest::Ranged {
                         // ⭐ THE MOVE WAS ACCEPTED, so this shot is owed. The

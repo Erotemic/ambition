@@ -415,10 +415,13 @@ value as completion of that owner's contract.
    and the physical pose clock spend it, and stun thaws on it, so all four
    resume on the same step. A held move fires no event and runs no flow; its
    strike volume and hit memory stay. The primary-hitstop world-clock rung
-   is gone; a world freeze is the room's impact policy. Open: sustain
-   cadence; floor progression on action time (`control_dt`); ordinary
-   integration reading `ProperTimeScale`; CPU-only and human-seat Smash
-   acceptance.)
+   is gone; a world freeze is the room's impact policy. Later the same day
+   the floor game (tumble, prone, getup) moved onto the action interval,
+   with tech press/lockout left on input time, and a sustained effect's
+   technique now spends its move's action interval (`trigger_over`), and a
+   time-scale status is its own `ClockDilation` (schema 537) that travel
+   and every action clock read, apart from the relativistic proper-time
+   rate. Open: CPU-only and human-seat Smash acceptance.)
 
 10. [Input IN1/IN2](engine/participant-action-system.md#input-history-and-body-interpretation)
     defines one admitted input cut for recording and replay, then resolves

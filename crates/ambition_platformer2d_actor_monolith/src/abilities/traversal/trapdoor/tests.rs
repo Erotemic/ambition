@@ -95,7 +95,7 @@ fn app_with_body_in_posture(pos: ae::Vec2) -> (bevy::prelude::App, bevy::prelude
 }
 
 fn fire(app: &mut bevy::prelude::App, body: bevy::prelude::Entity, params: TrapdoorParams) {
-    app.world_mut().write_message(ActorActionMessage {
+    app.world_mut().write_message(ActorActionMessage { action_interval: None,
         actor: body,
         request: ActionRequest::Special {
             spec: SpecialActionSpec::Special(TRAPDOOR.to_string()),

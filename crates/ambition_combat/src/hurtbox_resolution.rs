@@ -327,7 +327,7 @@ pub fn advance_body_pose_clocks(
             (&ambition_characters::actor::BodyCombat, Option<&ambition_characters::actor::BodyActionStep>),
             Option<&ambition_platformer2d_core::BodyGroundState>,
             Option<&ambition_platformer2d_core::BodyModeState>,
-            Option<&ambition_time::ProperTimeScale>,
+            (Option<&ambition_time::ProperTimeScale>, Option<&ambition_time::ClockDilation>),
         ),
         (
             Option<&ambition_platformer2d_core::BodyKinematics>,
@@ -344,7 +344,7 @@ pub fn advance_body_pose_clocks(
         // silhouette from a different instant.
         // A body whose action is held (hitlag, held in place) holds its pose
         // clock with it, as its move and its travel do (ACT2).
-        let dt = world_time.entity_dt(scale.copied().unwrap_or_default())
+        let dt = world_time.entity_dt(ambition_time::ProperTimeScale::dilated(scale.0, scale.1))
             * freeze.scale_of(entity)
             * ambition_characters::actor::BodyActionStep::share(step, combat);
         let pose = body_pose(

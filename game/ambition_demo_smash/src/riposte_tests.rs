@@ -88,7 +88,7 @@ fn answer(app: &mut App, actor: Entity, params: &RiposteStrikeParams) {
             .expect("riposte params serialize"),
     };
     app.world_mut()
-        .write_message(ActorActionMessage { actor, request, move_instance: None });
+        .write_message(ActorActionMessage { action_interval: None, actor, request, move_instance: None });
     // Twice: the first tick spawns the cut through `Commands`, the second
     // resolves it.
     app.update();
@@ -321,7 +321,7 @@ fn another_technique_does_not_cut() {
         params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params())
             .expect("params serialize"),
     };
-    app.world_mut().write_message(ActorActionMessage {
+    app.world_mut().write_message(ActorActionMessage { action_interval: None,
         actor: defender,
         request,
         move_instance: None,

@@ -246,7 +246,7 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
     app.add_systems(Update, (dispatch_move_events, capture).chain());
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage { ranged: None,
+        .write(MoveEventMessage { action_interval: None, ranged: None,
             // A fixture plays one authored use. Instance 0 is the first.
             move_instance: 0,
             world_offset: ae::Vec2::ZERO,
@@ -287,7 +287,7 @@ fn move_event_dispatch_asks_for_a_paired_cosmetic_effect() {
     // this instead".
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage { ranged: None,
+        .write(MoveEventMessage { action_interval: None, ranged: None,
             // A fixture plays one authored use. Instance 0 is the first.
             move_instance: 0,
             world_offset: ae::Vec2::ZERO,
@@ -359,7 +359,7 @@ fn a_moves_cosmetic_effect_is_asked_for_in_its_owners_live_room() {
             .id();
         app.world_mut()
             .resource_mut::<Messages<MoveEventMessage>>()
-            .write(MoveEventMessage { ranged: None,
+            .write(MoveEventMessage { action_interval: None, ranged: None,
                 move_instance: 0,
                 world_offset: ae::Vec2::ZERO,
                 owner,
@@ -2114,7 +2114,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
         .id();
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage { ranged: None,
+        .write(MoveEventMessage { action_interval: None, ranged: None,
             // A fixture plays one authored use. Instance 0 is the first.
             move_instance: 0,
             world_offset: ae::Vec2::ZERO,
@@ -2128,7 +2128,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
         });
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage { ranged: None,
+        .write(MoveEventMessage { action_interval: None, ranged: None,
             // A fixture plays one authored use. Instance 0 is the first.
             move_instance: 0,
             world_offset: ae::Vec2::ZERO,
@@ -2239,7 +2239,7 @@ fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
         .id();
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage { ranged: Some(RangedUse {
+        .write(MoveEventMessage { action_interval: None, ranged: Some(RangedUse {
             // The emitter stamps the aim the use STARTED with on its event.
             started_aim: Some(ambition_characters::actor::control::ActorFireRequest::world_space(up)),
             ..RangedActionSpec::bolt(240.0, 3).into()
@@ -2330,7 +2330,7 @@ fn a_moves_shot_carries_the_instance_from_the_event_not_the_live_playback() {
         .id();
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage { ranged: Some(RangedActionSpec::bolt(240.0, 3).into()),
+        .write(MoveEventMessage { action_interval: None, ranged: Some(RangedActionSpec::bolt(240.0, 3).into()),
             // The use that fires the shot. It is not 7 on purpose.
             move_instance: 3,
             world_offset: ae::Vec2::ZERO,
@@ -2405,7 +2405,7 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
         .id();
     app.world_mut()
         .resource_mut::<Messages<MoveEventMessage>>()
-        .write(MoveEventMessage { ranged: Some(RangedActionSpec::bolt(240.0, 3).into()),
+        .write(MoveEventMessage { action_interval: None, ranged: Some(RangedActionSpec::bolt(240.0, 3).into()),
             // A fixture plays one authored use. Instance 0 is the first.
             move_instance: 0,
             world_offset: ae::Vec2::ZERO,
@@ -2487,7 +2487,7 @@ fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
             .id();
         app.world_mut()
             .resource_mut::<Messages<MoveEventMessage>>()
-            .write(MoveEventMessage { ranged: Some(RangedActionSpec::bolt(240.0, 3).into()),
+            .write(MoveEventMessage { action_interval: None, ranged: Some(RangedActionSpec::bolt(240.0, 3).into()),
                 // A fixture plays one authored use. Instance 0 is the first.
                 move_instance: 0,
                 world_offset: ae::Vec2::ZERO,
@@ -8137,7 +8137,7 @@ fn a_released_charge_reaches_the_ranged_action_the_dispatcher_emits() {
             .id();
         app.world_mut()
             .resource_mut::<Messages<MoveEventMessage>>()
-            .write(MoveEventMessage { ranged: Some(RangedUse { charge_fraction, ..cannon.clone().into() }),
+            .write(MoveEventMessage { action_interval: None, ranged: Some(RangedUse { charge_fraction, ..cannon.clone().into() }),
                 // A fixture plays one authored use. Instance 0 is the first.
                 move_instance: 0,
                 world_offset: ae::Vec2::ZERO,

@@ -36,7 +36,7 @@ fn params(fuse_s: f32) -> DropBombParams {
 fn a_bomb_on(road: Road, fuse_s: f32, vel: ae::Vec2) -> (App, Entity) {
     let mut app = app_on(road, ambition_demo_smash_modules::bomb::module);
     let dropper = app.world_mut().spawn((ae::BodyKinematics::default(), SimId::player_slot(0))).id();
-    app.world_mut().write_message(ActorActionMessage {
+    app.world_mut().write_message(ActorActionMessage { action_interval: None,
         actor: dropper,
         request: ActionRequest::Special {
             spec: SpecialActionSpec::Special(DROP_BOMB.to_string()),

@@ -25,7 +25,7 @@ fn app(fill: LimitMeterFill) -> App {
 
 /// A move's fill of `amount` on `who`, through its module.
 fn fill_by_move(app: &mut App, who: Entity, amount: f32) {
-    app.world_mut().write_message(ActorActionMessage {
+    app.world_mut().write_message(ActorActionMessage { action_interval: None,
         actor: who,
         request: ActionRequest::Special {
             spec: SpecialActionSpec::Special(FILL_METER.to_string()),

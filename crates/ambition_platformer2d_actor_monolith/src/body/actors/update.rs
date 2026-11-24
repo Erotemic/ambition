@@ -1427,10 +1427,12 @@ pub fn integrate_sim_bodies(
             // question — see the `playing_a_move` note on `ActorMut::update`,
             // which is the same defect on the same function.
             //
-            // ACT2: and the share of this step its action may spend.
+            // ACT2: and the share of this step its action may spend, and the
+            // gameplay dilation of its whole clock, which travel spends too.
             (
                 bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
                 Option<&ambition_characters::actor::BodyActionStep>,
+                Option<&ambition_time::ClockDilation>,
             ),
         ),
         (
@@ -1483,8 +1485,10 @@ pub fn integrate_sim_bodies(
             (
                 bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
                 bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
-                // ACT2: the share of this step its action may spend.
+                // ACT2: the share of this step its action may spend, and its
+                // gameplay clock dilation.
                 Option<&ambition_characters::actor::BodyActionStep>,
+                Option<&ambition_time::ClockDilation>,
             ),
         ),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
@@ -1518,7 +1522,7 @@ pub fn integrate_sim_bodies(
         playback,
         authored_tuning,
         envelope,
-        (out_of_play, action_step),
+        (out_of_play, action_step, dilation),
     )| {
         let Some(mut cq) = clusters else {
             return;
@@ -1531,7 +1535,11 @@ pub fn integrate_sim_bodies(
         };
         let feature_world: &ambition_platformer2d_core::World = &feature_world;
         let mut em = cq.as_actor_mut();
-        let action_share = ambition_characters::actor::BodyActionStep::share(action_step, &combat);
+        // Travel spends the gameplay dilation of the body's clock, never its
+        // proper-time rate: a relativistic body's coordinate motion is on
+        // world time (ADR 0011).
+        let action_share = ambition_characters::actor::BodyActionStep::share(action_step, &combat)
+            * ambition_time::ClockDilation::or_default(dilation).0;
         let effects = integrate_actor_body(
             actor_entity,
             &mut em,
@@ -1605,7 +1613,7 @@ pub fn integrate_sim_bodies(
         mut motion_facts,
         playback,
         authored_tuning,
-        (out_of_play, pose_owned_externally, action_step),
+        (out_of_play, pose_owned_externally, action_step, dilation),
     )| {
         // Per-body feel: an authored protagonist keeps its own tuning; the
         // sandbox protagonist tracks the live inspector sliders. This is the
@@ -1621,7 +1629,11 @@ pub fn integrate_sim_bodies(
         let feature_world: &ambition_platformer2d_core::World = &feature_world;
         let mut clusters = cluster_item.as_clusters_mut();
         let player_motion_frame = resolved_frame.get();
-        let action_share = ambition_characters::actor::BodyActionStep::share(action_step, &combat);
+        // Travel spends the gameplay dilation of the body's clock, never its
+        // proper-time rate: a relativistic body's coordinate motion is on
+        // world time (ADR 0011).
+        let action_share = ambition_characters::actor::BodyActionStep::share(action_step, &combat)
+            * ambition_time::ClockDilation::or_default(dilation).0;
         crate::body::integration::integrate_home_body(
             control.0,
             feature_world,

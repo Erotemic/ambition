@@ -302,7 +302,7 @@ fn actor_action_message_predicates_match_request_variant() {
     // removed Entity::from_raw from the public API.
     let mut world = World::new();
     let actor = world.spawn(()).id();
-    let m_melee = ActorActionMessage {
+    let m_melee = ActorActionMessage { action_interval: None,
         actor,
         request: ActionRequest::Melee {
             spec: MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),
@@ -316,7 +316,7 @@ fn actor_action_message_predicates_match_request_variant() {
     assert!(!m_melee.is_ranged());
     assert!(!m_melee.is_special());
 
-    let m_special = ActorActionMessage {
+    let m_special = ActorActionMessage { action_interval: None,
         actor,
         request: ActionRequest::Special {
             spec: SpecialActionSpec::Special("bubble_shield".to_string()),

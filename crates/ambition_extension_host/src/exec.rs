@@ -72,6 +72,11 @@ pub struct PendingInvocation {
     /// The trigger's domain says nothing is happening for this scope this
     /// tick. An entry with `IdlePolicy::ResetState` is not called.
     pub idle: bool,
+    /// The interval this invocation's entry spends, when the trigger's owner
+    /// states one (a move's sustained effect spends its move's action
+    /// interval). `None` runs the entry on the shared clock at its scope's
+    /// pace ([`ScopePace`]).
+    pub interval: Option<f32>,
     receipt: Option<InvocationReceipt>,
 }
 
@@ -112,8 +117,26 @@ impl ExtensionInvocations {
             value: Box::new(value),
             encode: encode_erased::<P>,
             idle,
+            interval: None,
             receipt: None,
         });
+    }
+
+    /// [`Self::trigger`], with the interval the entry spends stated by the
+    /// trigger's owner. `None` is the ordinary pace.
+    #[allow(clippy::too_many_arguments)]
+    pub fn trigger_over<P: Port>(
+        &mut self,
+        phase: &Phase,
+        selector: impl Into<Name>,
+        scope: impl Into<InvocationScope>,
+        occurrence: Option<u32>,
+        idle: bool,
+        interval: Option<f32>,
+        value: P::Value,
+    ) {
+        self.trigger::<P>(phase, selector, scope, occurrence, idle, value);
+        self.pending.last_mut().expect("just queued").interval = interval;
     }
 
     /// Deliver a domain reply to one entry. Other entries with the same
@@ -582,7 +605,7 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
             for (invocation, pace) in bucket.iter().map(|&index| (&pending[index], &paces[index])).filter(|(p, _)| {
                 p.entry.as_ref().is_none_or(|path| path.as_ref() == entry.path)
             }) {
-                let dt = dt * pace;
+                let dt = invocation.interval.unwrap_or(dt * pace);
                 if world.get_entity(invocation.scope.subject).is_err()
                     || world.get_entity(invocation.scope.state).is_err() {
                     invocation.notify(world, InvocationEvent::Retired);

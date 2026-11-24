@@ -127,7 +127,7 @@ mod tests {
     }
 
     fn sing(app: &mut App, singer: Entity, duration_s: f32) {
-        app.world_mut().write_message(ActorActionMessage {
+        app.world_mut().write_message(ActorActionMessage { action_interval: None,
             actor: singer,
             request: ActionRequest::Special {
                 spec: SpecialActionSpec::Special(SLEEP.to_string()),

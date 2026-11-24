@@ -78,7 +78,7 @@ fn throw_with(app: &mut App, actor: Entity, reach: f32, speed: f32, timeout_s: f
         spec: SpecialActionSpec::Special(TETHER_PULL.to_string()),
         params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params).expect("tether params serialize"),
     };
-    app.world_mut().write_message(ActorActionMessage { actor, request, move_instance: None });
+    app.world_mut().write_message(ActorActionMessage { action_interval: None, actor, request, move_instance: None });
     app.update();
 }
 

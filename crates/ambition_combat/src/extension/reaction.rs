@@ -287,7 +287,7 @@ pub fn lower_parry_answers(
                 }
             }
         };
-        actions.write(ActorActionMessage {
+        actions.write(ActorActionMessage { action_interval: None,
             actor: if answer.on_attacker { *attacker } else { *defender },
             request: ActionRequest::Special { spec: SpecialActionSpec::Special(answer.key), params },
             move_instance: None,

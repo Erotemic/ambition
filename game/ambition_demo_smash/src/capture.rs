@@ -436,7 +436,7 @@ use ambition_platformer2d::engine_core as ae;
         app.add_message::<CaptureCarryRequested>();
         app.add_systems(Update, ambition_platformer2d::combat::capture::systems::translate_authored_capture_effects);
         let captor = app.world_mut().spawn_empty().id();
-        app.world_mut().write_message(ActorActionMessage {
+        app.world_mut().write_message(ActorActionMessage { action_interval: None,
             actor: captor,
             request: ActionRequest::Special {
                 spec: SpecialActionSpec::Special(

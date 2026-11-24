@@ -372,7 +372,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // declared derived components.
 // 535 -> 536: a body's control encodes whether its attack aim came from an
 // independent aim stick (`ActorControlFrame::attack_axis_from_aim_stick`, IN2).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 536;
+// 536 -> 537: a body's gameplay clock dilation (`actor.clock_dilation`, the
+// time-scale status) is its own canonical component, apart from its
+// proper-time rate.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 537;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

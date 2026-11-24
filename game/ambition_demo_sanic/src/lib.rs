@@ -349,6 +349,7 @@ fn loop_top(world: &ae::World) -> ae::Vec2 {
 
 pub mod badnik;
 pub mod ball_dash;
+pub mod autoplay;
 pub mod monitors;
 pub mod pack;
 pub mod provider;
@@ -615,6 +616,7 @@ impl Plugin for SanicRulesPlugin {
         // Sanic's components, so it is inert for other bodies, and a gate would
         // disable it on the crossover stage that needs it.
         app.add_observer(ball_dash::clear_ball_dash_on_restart);
+        autoplay::install(app);
         // Utility is D in the classic preset. The gate's clear keeps that press
         // from also toggling a host flight ability.
         let sanic_pre_gate = (
@@ -1437,6 +1439,7 @@ pub fn clear_act_at_goal(
 /// same room (a replay) restarts it here.
 pub fn cycle_act_after_clear(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
+    autoplay: Option<bevy::prelude::Res<ambition_platformer2d::scripted_input::Autoplay>>,
     mut acts: bevy::prelude::Query<(
         &mut SanicActState,
         &mut ambition_platformer2d::session::Departure,
@@ -1452,7 +1455,11 @@ pub fn cycle_act_after_clear(
             continue;
         }
         if reading_the_card {
-            departure.leave(ambition_platformer2d::session::Destination::NextRoom);
+            departure.leave(if autoplay.as_ref().is_some_and(|profile| profile.0 == autoplay::ACT3_PROFILE) {
+                ambition_platformer2d::session::Destination::Replay
+            } else {
+                ambition_platformer2d::session::Destination::NextRoom
+            });
         } else if !departure.is_leaving() {
             *state = SanicActState::default();
         }

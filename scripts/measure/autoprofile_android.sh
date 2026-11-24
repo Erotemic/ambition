@@ -6,6 +6,7 @@
 #   scripts/measure/autoprofile_android.sh                 # Ambition (the hall of characters, then a flight through the primeval trail)
 #   scripts/measure/autoprofile_android.sh castle_godwin   # Castle Godwin combat route
 #   scripts/measure/autoprofile_android.sh mary_o          # Mary-O (the cosmic form, to each goal)
+#   scripts/measure/autoprofile_android.sh sanic_act3      # Sanic Act 3, with portals and replay
 #   scripts/measure/autoprofile_android.sh smash           # 2 CPUs, real Smash stage
 #   scripts/measure/autoprofile_android.sh smash_4p        # 4 CPUs, real Smash stage
 #   scripts/measure/autoprofile_android.sh ambition --duration 60 --warmup 40
@@ -41,9 +42,10 @@ case "$autoplay_profile" in
     ambition) game="ambition"; route="ambition_gameplay" ;;
     castle_godwin) game="ambition"; route="ambition_gameplay" ;;
     mary_o) game="mary_o"; route="mary_o_gameplay" ;;
+    sanic_act3) game="sanic"; route="sanic_gameplay" ;;
     smash|smash_4p) game="smash"; route="smash_select" ;;
     *)
-        echo "autoprofile_android.sh: no autoplay policy for '$autoplay_profile' (ambition, castle_godwin, mary_o, smash, smash_4p)" >&2
+        echo "autoprofile_android.sh: no autoplay policy for '$autoplay_profile' (ambition, castle_godwin, mary_o, sanic_act3, smash, smash_4p)" >&2
         exit 2
         ;;
 esac

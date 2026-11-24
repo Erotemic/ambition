@@ -128,7 +128,7 @@ pub fn published_body_rig(sprite_content: &ambition_sprite_sheet::SpriteContent,
     id: &str,
 ) -> Option<ambition_characters::actor::BodyRigDefinition> {
     let sheet = catalog.characters.get(id)?.manifest_target()?;
-    let text = ambition_sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, sheet)?;
+    let admitted = ambition_sprite_sheet::baked_sheet_rons::current(sprite_content).admitted_body_rig(sheet)?;
     let world_per_pixel = posed_body_world_per_pixel(&sprite_content, catalog, id).or_else(|| {
         let row = catalog.characters.get(id)?;
         let height = row
@@ -136,9 +136,8 @@ pub fn published_body_rig(sprite_content: &ambition_sprite_sheet::SpriteContent,
             .or_else(|| row.body_kind.default_standing_height())?;
         ambition_sprite_sheet::character::catalog_join::standing_world_per_pixel(&sprite_content, sheet, height)
     })?;
-    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
-        .unwrap_or_else(|error| panic!("`{id}`'s published body rig `{sheet}`: {error}"));
-    Some(rig.scaled(world_per_pixel))
+    let rig = admitted.unwrap_or_else(|error| panic!("`{id}`'s published body rig `{sheet}`: {error}"));
+    Some(rig.published.definition.clone().scaled(world_per_pixel))
 }
 
 /// The hurtbox a row's `hurtbox_insets` states, built on the idle body its

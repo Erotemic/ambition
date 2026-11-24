@@ -133,7 +133,9 @@ pub(crate) fn reference_is_not_authorable_by_dialogue(id: &str, param_name: &str
 /// The roles a conversation binds for its authored calls: `@talker`, the
 /// body spoken to, and `@initiator`, the body that opened it, each when it
 /// has an identity. A scripted conversation with neither binds none, and a
-/// call naming a role it lacks is refused.
+/// call naming a role it lacks is refused. A conversation opened in a live
+/// room binds each role to its body in that room, so the same placement in
+/// another live instance of the room is not asked or directed.
 pub(crate) fn conversation_roles(
     instance: Option<&crate::ConversationInstanceId>,
 ) -> ambition_platformer2d_shared_tangle::authored_logic::RoleBindings {
@@ -144,7 +146,11 @@ pub(crate) fn conversation_roles(
     if let Some(initiator) = instance.and_then(|instance| instance.initiator()) {
         roles = roles.bind("initiator", initiator.clone());
     }
-    roles
+    roles.in_room(
+        instance
+            .and_then(|instance| instance.room())
+            .map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal),
+    )
 }
 
 #[cfg(test)]
@@ -187,5 +193,29 @@ fn sync_dialogue_game_mode(
             "dialogue_closed",
         );
         next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
+    }
+}
+
+#[cfg(test)]
+mod role_room_tests {
+    use ambition_platformer2d_shared_tangle::authored_logic::AuthoredArg;
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    /// SS7: a conversation opened in a live room binds `@talker` to its body
+    /// THERE (the same placement can live in another instance of the room);
+    /// a scripted conversation with no room binds the bare id.
+    #[test]
+    fn a_conversation_binds_its_roles_in_the_room_it_opened_in() {
+        let context = ambition_dialog::DialogueContext::default();
+        let talker = SimId::placement("npc_alice");
+        let args = [AuthoredArg::Role("talker".into())];
+        let opened = crate::ConversationInstanceId::mint_in_room(Some(3), 7, "chat", None, Some(talker.clone()), &context);
+        assert_eq!(
+            super::conversation_roles(Some(&opened)).bind_args(&args).unwrap(),
+            [AuthoredArg::Occupant(talker.clone(), LiveRoomInstance::from_ordinal(3))]
+        );
+        let scripted = crate::ConversationInstanceId::mint(7, "chat", None, Some(talker.clone()), &context);
+        assert_eq!(super::conversation_roles(Some(&scripted)).bind_args(&args).unwrap(), [AuthoredArg::Reference(talker)]);
     }
 }

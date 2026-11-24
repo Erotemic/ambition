@@ -155,7 +155,7 @@ pub use sim_core_resources::SimCoreResourcesPlugin;
 /// schedule this crate assembles is what advances it.
 pub use ambition_time::{SimStepPeriod, SimTick};
 /// The per-tick input recorder (netcode N0.2).
-pub use input_stream::{InputStreamRecorder, input_stream_recording, record_input_stream};
+pub use input_stream::{AdmittedSeatInput, InputStreamRecorder, input_stream_recording, record_input_stream};
 #[cfg(feature = "ldtk")]
 pub use ldtk_world::LdtkWorldPlugin;
 

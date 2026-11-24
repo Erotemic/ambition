@@ -277,9 +277,62 @@ pub struct Admitted {
     pub digest: u64,
     /// Modules replaced by an explicit replacement, as `replaced -> by`.
     pub replaced: Vec<String>,
+    /// The dispatch relations of `entries`, prepared the first time a phase
+    /// runs and shared by every clone of the admitted `Arc`.
+    dispatch: std::sync::OnceLock<PreparedDispatch>,
+}
+
+/// The dispatch relations of an admitted set, prepared once (E3): each
+/// phase's entries in serial order, and the entries bound to each trigger in
+/// that phase. A host execution projection of `Admitted::entries`, not a
+/// saved identity: a new admission prepares its own.
+#[derive(Clone, Debug, Default)]
+pub struct PreparedDispatch {
+    phases: HashMap<Phase, PhaseDispatch>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct PhaseDispatch {
+    /// Indexes into `Admitted::entries`, in serial order.
+    entries: Vec<usize>,
+    /// The phase's entries bound to each trigger port and selector.
+    by_trigger: HashMap<PortKey, HashMap<ambition_extension_sdk::Name, Vec<usize>>>,
+}
+
+impl PreparedDispatch {
+    fn prepare(entries: &[AdmittedEntry]) -> Self {
+        let mut phases: HashMap<Phase, PhaseDispatch> = HashMap::new();
+        for (index, entry) in entries.iter().enumerate() {
+            let phase = phases.entry(entry.descriptor.phase.clone()).or_default();
+            phase.entries.push(index);
+            let trigger = &entry.descriptor.trigger;
+            phase.by_trigger.entry(trigger.port.clone()).or_default().entry(trigger.selector.clone()).or_default().push(index);
+        }
+        Self { phases }
+    }
+
+    /// The entries of `phase`, as indexes into `Admitted::entries` in serial
+    /// order.
+    pub fn entries_of(&self, phase: &Phase) -> &[usize] {
+        self.phases.get(phase).map_or(&[], |phase| &phase.entries)
+    }
+
+    /// The entries of `phase` bound to `port` and `selector`.
+    pub fn bound_to(&self, phase: &Phase, port: &PortKey, selector: &str) -> &[usize] {
+        self.phases
+            .get(phase)
+            .and_then(|phase| phase.by_trigger.get(port))
+            .and_then(|selectors| selectors.get(selector))
+            .map_or(&[], Vec::as_slice)
+    }
 }
 
 impl Admitted {
+    /// The prepared dispatch relations of [`Self::entries`].
+    pub fn dispatch(&self) -> &PreparedDispatch {
+        self.dispatch.get_or_init(|| PreparedDispatch::prepare(&self.entries))
+    }
+
     /// True when some admitted entry is bound to this trigger and selector.
     /// A trigger adapter asks this so it does not build values nobody reads.
     pub fn wants(&self, port: &PortKey, selector: &str) -> bool {
@@ -478,6 +531,7 @@ pub fn admit_selected(
         offers: offers.to_vec(),
         digest: d.finish(),
         replaced,
+        dispatch: Default::default(),
     })
 }
 

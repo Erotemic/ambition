@@ -146,7 +146,7 @@ impl ParamKind {
             (_, AuthoredArg::Role(role)) => {
                 return Some(format!("the role `@{role}` was never bound by its invocation"));
             }
-            (Self::Individual, AuthoredArg::Name(_) | AuthoredArg::Reference(_)) => true,
+            (Self::Individual, AuthoredArg::Name(_) | AuthoredArg::Reference(_) | AuthoredArg::Occupant(..)) => true,
             (kind, arg) => kind == arg.kind(),
         };
         (!fits).then(|| format!("is a {self:?}, got a {:?}", arg.kind()))
@@ -173,6 +173,10 @@ pub enum AuthoredArg {
     /// An `@role` an [`ParamKind::Individual`] parameter was written with,
     /// waiting for its invocation to bind it to a [`SimId`].
     Role(String),
+    /// A role an invocation bound in its live room: the body carrying the id
+    /// there. Two live instances of one room hold the same authored
+    /// placement, so the id alone can name two bodies.
+    Occupant(SimId, crate::lifecycle::LiveRoomInstance),
 }
 
 /// The occurrences one invocation bound to its roles: a conversation's
@@ -180,9 +184,18 @@ pub enum AuthoredArg {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RoleBindings {
     rows: Vec<(String, SimId)>,
+    /// The live room the invocation runs in, when it runs in one.
+    room: Option<crate::lifecycle::LiveRoomInstance>,
 }
 
 impl RoleBindings {
+    /// These bindings for an invocation running in `room`: each role names
+    /// the body carrying its id there ([`AuthoredArg::Occupant`]).
+    pub fn in_room(mut self, room: Option<crate::lifecycle::LiveRoomInstance>) -> Self {
+        self.room = room;
+        self
+    }
+
     pub fn bind(mut self, role: impl Into<String>, id: SimId) -> Self {
         let role = role.into();
         self.rows.retain(|(at, _)| *at != role);
@@ -202,7 +215,10 @@ impl RoleBindings {
     pub fn bind_args(&self, args: &[AuthoredArg]) -> Result<Vec<AuthoredArg>, String> {
         args.iter()
             .map(|arg| match arg {
-                AuthoredArg::Role(role) => self.get(role).cloned().map(AuthoredArg::Reference).ok_or_else(|| {
+                AuthoredArg::Role(role) => self.get(role).cloned().map(|id| match self.room {
+                    Some(room) => AuthoredArg::Occupant(id, room),
+                    None => AuthoredArg::Reference(id),
+                }).ok_or_else(|| {
                     let bound: Vec<_> = self.rows.iter().map(|(at, _)| format!("@{at}")).collect();
                     if bound.is_empty() {
                         format!("`@{role}` is not bound: this invocation binds no roles")
@@ -219,7 +235,7 @@ impl RoleBindings {
 impl AuthoredArg {
     pub fn kind(&self) -> ParamKind {
         match self {
-            Self::Reference(_) => ParamKind::Reference,
+            Self::Reference(_) | Self::Occupant(..) => ParamKind::Reference,
             Self::Name(_) => ParamKind::Name,
             Self::Number(_) => ParamKind::Number,
             Self::Truth(_) => ParamKind::Truth,
@@ -229,7 +245,15 @@ impl AuthoredArg {
 
     pub fn as_reference(&self) -> Option<&SimId> {
         match self {
-            Self::Reference(id) => Some(id),
+            Self::Reference(id) | Self::Occupant(id, _) => Some(id),
+            _ => None,
+        }
+    }
+
+    /// The live room an [`Self::Occupant`] names its body in.
+    pub fn occupant_room(&self) -> Option<crate::lifecycle::LiveRoomInstance> {
+        match self {
+            Self::Occupant(_, room) => Some(*room),
             _ => None,
         }
     }
@@ -793,6 +817,7 @@ fn render_arg(f: &mut std::fmt::Formatter<'_>, arg: &AuthoredArg) -> std::fmt::R
         AuthoredArg::Number(n) => write!(f, "{n}"),
         AuthoredArg::Truth(t) => write!(f, "{t}"),
         AuthoredArg::Role(role) => write!(f, "@{role}"),
+        AuthoredArg::Occupant(id, room) => write!(f, "{id} in live room {}", room.ordinal()),
     }
 }
 

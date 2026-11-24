@@ -126,6 +126,43 @@ pub struct NavGraph {
     /// The surfaces each surface reaches ([`Self::reach_from`]), found the
     /// first time it is asked and kept: the graph does not change once built.
     reach: Vec<std::sync::OnceLock<Box<[usize]>>>,
+    /// Each link's cost to a goal ([`Self::to_goal`]), for the goals asked
+    /// for lately: a pure function of the graph and the goal.
+    destinations: DestinationTables,
+    /// The answers of [`Self::waypoints`] lately asked for, by the feet's
+    /// surface and the seed: a pure function of the graph and those two.
+    waypoint_sets: KeptWaypoints,
+}
+
+/// How many (surface, seed) waypoint answers a graph keeps: one or two per
+/// navigating body, whose seed holds while its errand does.
+const WAYPOINT_SETS_KEPT: usize = 32;
+
+/// The answers [`NavGraph::waypoints`] keeps, newest last. Like
+/// [`DestinationTables`], not part of the graph's value.
+#[derive(Debug, Default)]
+struct KeptWaypoints(std::sync::Mutex<Vec<((usize, u64), ([Vec2; NAV_WAYPOINTS], u8))>>);
+
+impl Clone for KeptWaypoints {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+/// How many goals' tables a graph keeps. A body walking to a waypoint asks
+/// for one goal tick after tick; a few bodies with a few goals share a room.
+const DESTINATIONS_KEPT: usize = 8;
+
+/// The tables [`NavGraph::to_goal`] keeps, newest last. Not part of the
+/// graph's value: a clone starts empty, and every answer is the same with or
+/// without a kept table.
+#[derive(Debug, Default)]
+struct DestinationTables(std::sync::Mutex<Vec<((usize, u32), std::sync::Arc<[f32]>)>>);
+
+impl Clone for DestinationTables {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
 }
 
 /// What a body's movement does in empty space: its traversal envelope and,
@@ -254,6 +291,8 @@ impl NavGraph {
             jump_reach,
             out: vec![Vec::new(); surfaces.len()],
             reach: (0..surfaces.len()).map(|_| std::sync::OnceLock::new()).collect(),
+            destinations: DestinationTables::default(),
+            waypoint_sets: KeptWaypoints::default(),
             surfaces,
             links: Vec::new(),
             cost: BuildCost::default(),
@@ -710,10 +749,80 @@ impl NavGraph {
             let land_span = [span.left - self.half.x, span.right + self.half.x];
             return NavNext::Leg(NavLeg { kind: NavLegKind::Walk, start: land, takeoff: land, land, land_span });
         }
-        match self.route(feet, goal).and_then(|route| route.first().copied()) {
-            Some(link) => NavNext::Leg(self.links[link].leg),
+        // The first leg of the cheapest route: of the links leaving the feet's
+        // surface, the one whose walk to its takeoff, its own cost and its
+        // cost on to the goal ([`Self::to_goal`]) are least; of two as cheap,
+        // the lower link. Only the walk from the feet is asked each tick.
+        let to_goal = self.to_goal(to, self.frame.along(goal));
+        let at = self.frame.along(feet);
+        let first = self.out[from]
+            .iter()
+            .filter(|link| to_goal[**link].is_finite())
+            .map(|link| {
+                let leg = &self.links[*link];
+                ((self.frame.along(leg.leg.start) - at).abs() / self.run_speed + leg.cost + to_goal[*link], *link)
+            })
+            .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+        match first {
+            Some((_, link)) => NavNext::Leg(self.links[link].leg),
             None => NavNext::Unreachable,
         }
+    }
+
+    /// Each link's cost from its landing to the goal `goal_along` on surface
+    /// `to`: the walks to each next takeoff, the legs, and the walk from the
+    /// last landing to the goal (`f32::INFINITY` when the goal is out of its
+    /// reach). The lifted form of [`Self::route`]'s search: a link's landing
+    /// is a fixed point, so every edge cost is fixed and one search from the
+    /// goal answers every body and every start for that goal. Kept for the
+    /// last [`DESTINATIONS_KEPT`] goals; a body walking to a still goal asks
+    /// for the same one tick after tick.
+    fn to_goal(&self, to: usize, goal_along: f32) -> std::sync::Arc<[f32]> {
+        let key = (to, goal_along.to_bits());
+        if let Ok(kept) = self.destinations.0.lock() {
+            if let Some((_, table)) = kept.iter().find(|(known, _)| *known == key) {
+                return table.clone();
+            }
+        }
+        // Links arriving on each surface: the predecessors of a link are the
+        // links that land where it leaves.
+        let mut into = vec![Vec::new(); self.surfaces.len()];
+        for (index, link) in self.links.iter().enumerate() {
+            into[link.to].push(index);
+        }
+        let mut cost = vec![f32::INFINITY; self.links.len()];
+        let mut done = vec![false; self.links.len()];
+        let mut open = std::collections::BinaryHeap::new();
+        for &arrive in &into[to] {
+            let walk = (goal_along - self.frame.along(self.links[arrive].leg.land)).abs() / self.run_speed;
+            if walk < cost[arrive] {
+                cost[arrive] = walk;
+                open.push(RouteOpen { cost: walk, state: arrive });
+            }
+        }
+        while let Some(RouteOpen { cost: known, state }) = open.pop() {
+            if done[state] {
+                continue;
+            }
+            done[state] = true;
+            let link = &self.links[state];
+            let (start, onward) = (self.frame.along(link.leg.start), known + link.cost);
+            for &before in &into[link.from] {
+                let total = (start - self.frame.along(self.links[before].leg.land)).abs() / self.run_speed + onward;
+                if !done[before] && total < cost[before] {
+                    cost[before] = total;
+                    open.push(RouteOpen { cost: total, state: before });
+                }
+            }
+        }
+        let table: std::sync::Arc<[f32]> = cost.into();
+        if let Ok(mut kept) = self.destinations.0.lock() {
+            if kept.len() >= DESTINATIONS_KEPT {
+                kept.remove(0);
+            }
+            kept.push((key, table.clone()));
+        }
+        table
     }
 
     /// A place beside `point` that a body at `feet` can get to: on the nearest
@@ -748,11 +857,33 @@ impl NavGraph {
 
     /// Up to [`NAV_WAYPOINTS`] points a body at `feet` can get to, one on each
     /// of some surfaces. `seed` chooses the surfaces and the place on each.
+    ///
+    /// The answer is a function of the feet's surface and the seed only, so
+    /// it is chosen once for each pair and kept: a body asks every tick, and
+    /// its seed holds while its errand does.
     pub fn waypoints(&self, feet: Vec2, seed: u64) -> ([Vec2; NAV_WAYPOINTS], u8) {
-        let mut points = [Vec2::ZERO; NAV_WAYPOINTS];
         let Some(from) = self.surface_at(feet) else {
-            return (points, 0);
+            return ([Vec2::ZERO; NAV_WAYPOINTS], 0);
         };
+        let key = (from, seed);
+        if let Ok(kept) = self.waypoint_sets.0.lock() {
+            if let Some((_, answer)) = kept.iter().find(|(known, _)| *known == key) {
+                return *answer;
+            }
+        }
+        let answer = self.choose_waypoints(from, seed);
+        if let Ok(mut kept) = self.waypoint_sets.0.lock() {
+            if kept.len() >= WAYPOINT_SETS_KEPT {
+                kept.remove(0);
+            }
+            kept.push((key, answer));
+        }
+        answer
+    }
+
+    /// [`Self::waypoints`] for a body on surface `from`, chosen now.
+    fn choose_waypoints(&self, from: usize, seed: u64) -> ([Vec2; NAV_WAYPOINTS], u8) {
+        let mut points = [Vec2::ZERO; NAV_WAYPOINTS];
         let mut reachable = self.reach_from(from).to_vec();
         reachable.sort_by_key(|surface| mix(seed ^ (*surface as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)));
         reachable.truncate(NAV_WAYPOINTS);

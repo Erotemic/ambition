@@ -660,6 +660,13 @@ impl ActiveCutscene {
         self.playing.iter().any(|cutscene| cutscene.script_id() == id)
     }
 
+    /// Is the script `id` playing for `room` (SS7)? The same script may play
+    /// in two live rooms at once: each run binds its own roles and answers its
+    /// own waits, so one room's run does not hold back the other's.
+    pub fn plays_in(&self, id: &str, room: Option<u32>) -> bool {
+        self.playing.iter().any(|cutscene| cutscene.script_id() == id && cutscene.room == room)
+    }
+
     /// May a cutscene for `room` start now? A room's waits while its room or
     /// the whole world has one; the world's waits while any plays.
     pub fn can_start(&self, room: Option<u32>) -> bool {

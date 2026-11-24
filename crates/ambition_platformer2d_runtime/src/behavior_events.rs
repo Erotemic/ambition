@@ -172,28 +172,42 @@ fn publish_deferred<P: Port>(world: &mut DeferredWorld<'_>, source: ObjectRef, v
     if world.resource::<EventRoutes>().routes.get(&(source, event)).is_none_or(Vec::is_empty) {
         return NativePublication::default();
     }
-    let objects = ObjectIndex::capture(world);
-    let Ok(entity) = objects.resolve(SessionScopeId(source.session), source) else {
+    let mut objects = OccurrenceView::default();
+    let Ok(entity) = objects.get(world).resolve(SessionScopeId(source.session), source) else {
         return NativePublication {unavailable: 1, ..Default::default()};
     };
     let Some(authority) = simulation_island(world, entity) else {
         return NativePublication {unavailable: 1, ..Default::default()};
     };
-    publish_captured::<P>(world, source, authority, value)
+    publish_captured::<P>(world, &mut objects, source, authority, value)
 }
-fn publish_captured<P: Port>(world: &mut DeferredWorld<'_>, source: ObjectRef, authority: SimulationIsland,
-    value: &P::Value) -> NativePublication {
+fn publish_captured<P: Port>(world: &mut DeferredWorld<'_>, objects: &mut OccurrenceView, source: ObjectRef,
+    authority: SimulationIsland, value: &P::Value) -> NativePublication {
     let event = P::KEY.to_string();
     assert!(world.resource::<NativeSources>().get(&event).is_some(), "the native fact source must be installed");
     let mut bytes = Vec::new(); P::encode(value, &mut bytes);
-    let recipients = recipients(world, source, &event);
+    let recipients = recipients(world, objects, source, &event);
     publish_encoded(world, source, authority, &event, recipients, &bytes)
 }
+
+/// One occurrence view for a batch of publications, captured when the first
+/// of them has a route and reused by the rest. Queueing mailbox rows adds and
+/// removes no occurrence, so the batch reads one population; a batch must not
+/// carry it across a birth, retirement or structural flush.
+#[derive(Default)]
+pub(crate) struct OccurrenceView(Option<ObjectIndex>);
+impl OccurrenceView {
+    pub(crate) fn get(&mut self, world: &World) -> &ObjectIndex {
+        self.0.get_or_insert_with(|| ObjectIndex::capture(world))
+    }
+}
+
 /// The live mailboxes subscribed to `event` from `source`, in delivery order.
-pub(crate) fn recipients(world: &DeferredWorld<'_>, source: ObjectRef, event: &str) -> Vec<(ObjectRef, Entity, String)> {
+pub(crate) fn recipients(world: &DeferredWorld<'_>, objects: &mut OccurrenceView, source: ObjectRef, event: &str)
+    -> Vec<(ObjectRef, Entity, String)> {
     let routes = world.resource::<EventRoutes>().routes.get(&(source, event.to_owned())).cloned().unwrap_or_default();
     if routes.is_empty() { return Vec::new(); }
-    let objects = ObjectIndex::capture(world);
+    let objects = objects.get(world);
     let mut recipients: Vec<_> = routes.into_iter().filter_map(|(entity, key)| {
         let reference = object_reference(world, entity)?;
         (objects.resolve(SessionScopeId(source.session), reference) == Ok(entity)).then_some((reference, entity, key))
@@ -255,7 +269,7 @@ pub(crate) fn admit_signal(world: &mut World, source: ObjectRef, authority: Simu
     let event = world.resource::<NativeSources>().0.get(&ObjectSignalPort::KEY.to_string())
         .filter(|source| source.topical).ok_or("signals_not_installed")?.event(&signal.topic);
     let mut world = DeferredWorld::from(world);
-    let recipients = recipients(&world, source, &event);
+    let recipients = recipients(&world, &mut OccurrenceView::default(), source, &event);
     if recipients.len() > MAX_SIGNAL_RECIPIENTS { return Err("signal_recipient_bound"); }
     let mut bytes = Vec::new(); ObjectSignalPort::encode(signal, &mut bytes);
     // Every recipient is checked before any changes: a refusal leaves all as they were.
@@ -330,15 +344,15 @@ fn publish_retirements(world: &mut World) {
     let sources: Vec<ObjectRef> = world.resource::<EventRoutes>().routes.keys()
         .filter(|(_, routed)| *routed == event).map(|(source, _)| *source).collect();
     if sources.is_empty() { return; }
-    let objects = ObjectIndex::capture(world);
+    let mut objects = OccurrenceView::default();
     let gone: Vec<ObjectRef> = sources.into_iter().filter(|source|
-        objects.resolve(SessionScopeId(source.session), *source) == Err(ObjectLookupError::Retired)).collect();
+        objects.get(world).resolve(SessionScopeId(source.session), *source) == Err(ObjectLookupError::Retired)).collect();
     if gone.is_empty() { return; }
     let replay = world.get_resource::<RoomReplay>().copied();
     for source in gone {
         let mut bytes = Vec::new();
         ObjectRetiredPort::encode(&ObjectRetired {object: source}, &mut bytes);
-        let recipients = recipients(&world.into(), source, &event);
+        let recipients = recipients(&world.into(), &mut objects, source, &event);
         for (_, entity, key) in recipients {
             let room = world.get::<InRoomInstance>(entity).map(|at| at.0).or_else(|| world.get::<LiveRoomInstance>(entity).copied());
             if replay.is_some_and(|replay| !replay.allows(room)) { continue; }
@@ -459,7 +473,7 @@ mod tests {
         let authority = simulation_island(&world, bodies[0]).unwrap();
         world.entity_mut(receivers[1]).insert(decode_state::<EventMailbox>(&baseline).unwrap());
         world.despawn(bodies[0]);
-        let report = publish_captured::<ObjectBornPort>(&mut DeferredWorld::from(&mut world), source, authority, &ObjectBorn {object: source});
+        let report = publish_captured::<ObjectBornPort>(&mut DeferredWorld::from(&mut world), &mut OccurrenceView::default(), source, authority, &ObjectBorn {object: source});
         assert_eq!(report.queued, 1, "captured birth provenance survives source retirement");
         assert_eq!(world.get::<EventMailbox>(receivers[1]).unwrap().rows[0].delivery.source, source);
 
@@ -499,12 +513,13 @@ type ActivationReads = bevy::ecs::system::SystemState<ambition_platformer2d_core
 fn publish_activations(world: &mut World, mut reader: Local<Option<ActivationReads>>) {
     let reader = reader.get_or_insert_with(|| ActivationReads::new(world));
     let facts: Vec<_> = reader.get_mut(world).expect("activation messages are installed").read().cloned().collect();
+    let mut objects = OccurrenceView::default();
     for fact in facts {
         let authority = if world.get_resource::<SimulationIslands>().is_some_and(|policy| (policy.0)(world)) {
             SimulationIsland::Room(SessionScopeId(fact.object.session), fact.room)
         } else { SimulationIsland::Session(SessionScopeId(fact.object.session)) };
         let value = ObjectActivated {object: fact.object, actor: fact.actor, revision: fact.revision};
-        let report = publish_captured::<ObjectActivatedPort>(&mut DeferredWorld::from(&mut *world), fact.object, authority, &value);
+        let report = publish_captured::<ObjectActivatedPort>(&mut DeferredWorld::from(&mut *world), &mut objects, fact.object, authority, &value);
         if report.overflow != 0 || report.cross_island != 0 || report.unavailable != 0 {
             warn!(?report, object = ?fact.object, "Native activation notification delivery was limited; inspect its activation state to reconcile.");
         }
@@ -516,12 +531,13 @@ type DefeatReads = bevy::ecs::system::SystemState<ambition_platformer2d_core::re
 fn publish_defeats(world: &mut World, mut reader: Local<Option<DefeatReads>>) {
     let reader = reader.get_or_insert_with(|| DefeatReads::new(world));
     let facts: Vec<_> = reader.get_mut(world).expect("defeat messages are installed").read().cloned().collect();
+    let mut objects = OccurrenceView::default();
     for fact in facts {
         let authority = if world.get_resource::<SimulationIslands>().is_some_and(|policy| (policy.0)(world)) {
             SimulationIsland::Room(SessionScopeId(fact.object.session), fact.room)
         } else { SimulationIsland::Session(SessionScopeId(fact.object.session)) };
         let value = ObjectDefeated {object: fact.object, by: fact.by};
-        let report = publish_captured::<ObjectDefeatedPort>(&mut DeferredWorld::from(&mut *world), fact.object, authority, &value);
+        let report = publish_captured::<ObjectDefeatedPort>(&mut DeferredWorld::from(&mut *world), &mut objects, fact.object, authority, &value);
         if report.overflow != 0 || report.cross_island != 0 || report.unavailable != 0 {
             warn!(?report, object = ?fact.object, "Native defeat notification delivery was limited.");
         }
@@ -533,11 +549,12 @@ type BrokenReads = bevy::ecs::system::SystemState<ambition_platformer2d_core::re
 fn publish_broken(world: &mut World, mut reader: Local<Option<BrokenReads>>) {
     let reader = reader.get_or_insert_with(|| BrokenReads::new(world));
     let facts: Vec<_> = reader.get_mut(world).expect("break messages are installed").read().cloned().collect();
+    let mut objects = OccurrenceView::default();
     for fact in facts {
         let authority = if world.get_resource::<SimulationIslands>().is_some_and(|policy| (policy.0)(world)) {
             SimulationIsland::Room(SessionScopeId(fact.object.session), fact.room)
         } else { SimulationIsland::Session(SessionScopeId(fact.object.session)) };
-        let report = publish_captured::<ObjectBrokenPort>(&mut DeferredWorld::from(&mut *world), fact.object, authority,
+        let report = publish_captured::<ObjectBrokenPort>(&mut DeferredWorld::from(&mut *world), &mut objects, fact.object, authority,
             &ObjectBroken {object: fact.object});
         if report.overflow != 0 || report.cross_island != 0 || report.unavailable != 0 {
             warn!(?report, object = ?fact.object, "Native break notification delivery was limited.");
@@ -550,11 +567,12 @@ type CollectedReads = bevy::ecs::system::SystemState<ambition_platformer2d_core:
 fn publish_collected(world: &mut World, mut reader: Local<Option<CollectedReads>>) {
     let reader = reader.get_or_insert_with(|| CollectedReads::new(world));
     let facts: Vec<_> = reader.get_mut(world).expect("take messages are installed").read().cloned().collect();
+    let mut objects = OccurrenceView::default();
     for fact in facts {
         let authority = if world.get_resource::<SimulationIslands>().is_some_and(|policy| (policy.0)(world)) {
             SimulationIsland::Room(SessionScopeId(fact.object.session), fact.room)
         } else { SimulationIsland::Session(SessionScopeId(fact.object.session)) };
-        let report = publish_captured::<ObjectCollectedPort>(&mut DeferredWorld::from(&mut *world), fact.object, authority,
+        let report = publish_captured::<ObjectCollectedPort>(&mut DeferredWorld::from(&mut *world), &mut objects, fact.object, authority,
             &ObjectCollected {object: fact.object, by: fact.by});
         if report.overflow != 0 || report.cross_island != 0 || report.unavailable != 0 {
             warn!(?report, object = ?fact.object, "Native take notification delivery was limited.");

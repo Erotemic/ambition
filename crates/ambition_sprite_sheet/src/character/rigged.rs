@@ -167,6 +167,12 @@ pub struct RiggedSpriteAsset {
     draws: Arc<[PartDraw]>,
     // The next frame's matching draw, as a one-based index into `draws`.
     tween_targets: Arc<[Option<std::num::NonZeroU32>]>,
+    /// Aligned with `draws`: each frame's slice holds that frame's (track,
+    /// offset in the frame) pairs sorted by track, then offset, so the first
+    /// draw of a track in a frame is a binary search, not a scan of the
+    /// frame for each draw (PVS-1 correspondence index; untracked draws sort
+    /// last). Four bytes a draw.
+    track_order: Arc<[(u16, u16)]>,
     max_draws: usize,
     /// The tracks that show how hurt the body is ([`is_wound_track`]).
     wound_tracks: Vec<u16>,
@@ -681,6 +687,16 @@ impl RiggedSpriteAsset {
                 }
             }
         }
+        let mut track_order = vec![(u16::MAX, 0u16); draws.len()];
+        for clip in clips.values() {
+            for &(start, len) in &clip.frames {
+                let frame = &mut track_order[start as usize..(start + len) as usize];
+                for (offset, slot) in frame.iter_mut().enumerate() {
+                    *slot = (draws[start as usize + offset].track.unwrap_or(u16::MAX), offset as u16);
+                }
+                frame.sort_unstable();
+            }
+        }
         let frame_size = UVec2::new(published.frame_size.0, published.frame_size.1);
         let feet_pixel = Vec2::new(published.feet_pixel.0, published.feet_pixel.1);
         let art_overhang = art_overhang(&parts, &draws, frame_size.as_vec2(), feet_pixel)
@@ -702,6 +718,7 @@ impl RiggedSpriteAsset {
             baked_clips: Arc::new(baked_clips),
             draws: draws.into(),
             tween_targets: tween_targets.into(),
+            track_order: track_order.into(),
             max_draws,
         })
     }
@@ -807,9 +824,22 @@ impl RiggedSpriteAsset {
     /// part clip. An index past the end holds the last frame, as a one-shot row
     /// does.
     pub fn frame(&self, row: &str, index: usize) -> Option<&[PartDraw]> {
-        let clip = self.clips.get(row)?;
-        let (start, len) = clip.frames[index.min(clip.frames.len() - 1)];
+        let (start, len) = self.frame_span(row, index)?;
         Some(&self.draws[start as usize..(start + len) as usize])
+    }
+
+    /// Where frame `index` of `row` lies in `draws`: (start, length).
+    fn frame_span(&self, row: &str, index: usize) -> Option<(u32, u32)> {
+        let clip = self.clips.get(row)?;
+        Some(clip.frames[index.min(clip.frames.len() - 1)])
+    }
+
+    /// The offset in the frame at `span` of its first draw on `track`: the
+    /// draw a scan of the frame for that track finds first.
+    fn first_on_track(&self, (start, len): (u32, u32), track: u16) -> Option<usize> {
+        let order = &self.track_order[start as usize..(start + len) as usize];
+        let at = order.partition_point(|(known, _)| *known < track);
+        order.get(at).filter(|(known, _)| *known == track).map(|(_, offset)| usize::from(*offset))
     }
 
     /// Frame `index` of `row` drawn `t` (0..1) of the way to the next frame,
@@ -861,6 +891,11 @@ impl RiggedSpriteAsset {
     /// is not a part clip, or one of the two frames draws no hips to line the
     /// rows up by.
     pub fn legs_under(&self, legs_row: &str, index: usize, t: f32, out: &mut Vec<PartDraw>, scratch: &mut Vec<PartDraw>) -> bool {
+        // `scratch` is the legs frame's draws in the frame's order, so the
+        // frame's correspondence index answers for it.
+        let Some(span) = self.frame_span(legs_row, index) else {
+            return false;
+        };
         if self.tween_into(legs_row, index, t, scratch).is_none() {
             return false;
         }
@@ -876,7 +911,7 @@ impl RiggedSpriteAsset {
                 draw.at += moved;
                 return true;
             }
-            match scratch.iter().position(|legs| legs.track == draw.track) {
+            match draw.track.and_then(|track| self.first_on_track(span, track)) {
                 Some(found) => {
                     *draw = scratch[found];
                     placed[found] = true;
@@ -912,13 +947,14 @@ impl RiggedSpriteAsset {
     /// `false`, and `out` as it was, when `row` is not a part clip or the
     /// frame changes no draw of `out`.
     pub fn face_as(&self, row: &str, index: usize, out: &mut [PartDraw]) -> bool {
-        let Some(face) = self.frame(row, index) else {
+        let Some(span) = self.frame_span(row, index) else {
             return false;
         };
+        let face = &self.draws[span.0 as usize..(span.0 + span.1) as usize];
         let expression = |draw: &PartDraw| self.draw_is(draw, TrackRoles::EXPRESSION);
         let mut changed = false;
         for draw in out.iter_mut().filter(|draw| expression(draw)) {
-            if let Some(winced) = face.iter().find(|other| other.track == draw.track) {
+            if let Some(winced) = draw.track.and_then(|track| self.first_on_track(span, track)).map(|offset| &face[offset]) {
                 changed |= draw.part != winced.part;
                 draw.part = winced.part;
             }
@@ -1063,6 +1099,14 @@ impl RiggedSpriteAsset {
 
     /// The semantic name of each track a draw's `track` indexes (a rig part's
     /// name: `torso`, `near_arm`; `overlay:<layer>` for an effect layer).
+    /// Whether `other` draws the same program: the same prepared draws and
+    /// clips (a quality tier shares them through `for_tier`) and the same
+    /// track names, which `with_tracks` can change apart from the draws. A
+    /// part binding reads only these.
+    pub fn same_program(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.draws, &other.draws) && Arc::ptr_eq(&self.clips, &other.clips) && self.tracks == other.tracks
+    }
+
     pub fn tracks(&self) -> &[String] {
         &self.tracks
     }

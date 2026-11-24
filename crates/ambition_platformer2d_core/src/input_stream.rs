@@ -23,7 +23,11 @@ use crate::ControlFrame;
 /// [`CONTROL_FRAME_WIRE_IDENTITY`], and the `#[serde(default)]` this exemption
 /// rests on cannot reach them — bincode is non-self-describing, so no field is
 /// ever "missing" on the wire and no default is ever supplied.
-pub const INPUT_STREAM_VERSION: u32 = 1;
+///
+/// Version 2 (IN1, 2026-11-24) moved the capture stage: a frame is the seat's ADMITTED input,
+/// before reset, gestures and interaction interpret it. A version-1 frame was the consumed
+/// frame after them (a spent reset press was absent), so it does not load as version 2.
+pub const INPUT_STREAM_VERSION: u32 = 2;
 
 /// Peer input compatibility identity for `PeerInput` and `ControlFrame`.
 ///
@@ -291,12 +295,15 @@ mod tests {
     /// ones NEUTRAL, which is what the old recording meant by them.
     #[test]
     fn an_older_stream_loads_with_new_fields_neutral() {
-        let text = r#"{
-            "version": 1,
+        // Same version: adding a field does not bump it.
+        let text = format!(
+            r#"{{
+            "version": {INPUT_STREAM_VERSION},
             "tick_hz": 60,
-            "frames": [{ "tick": 7, "slots": [{ "axis_x": 1.0, "jump_pressed": true }] }]
-        }"#;
-        let decoded: InputStream = serde_json::from_str(text).expect("deserializes");
+            "frames": [{{ "tick": 7, "slots": [{{ "axis_x": 1.0, "jump_pressed": true }}] }}]
+        }}"#
+        );
+        let decoded: InputStream = serde_json::from_str(&text).expect("deserializes");
         assert_eq!(decoded.validate(), Ok(()));
         let frame = decoded.control(7, 0);
         assert_eq!(frame.axis_x, 1.0);

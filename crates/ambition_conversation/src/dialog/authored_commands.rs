@@ -87,7 +87,13 @@ fn request_authored_command(
         return;
     };
     let authored = [a0, a1, a2];
-    let roles = crate::dialog::conversation_roles(conversation.live().map(|live| &live.instance));
+    let instance = conversation.live().map(|live| &live.instance);
+    let roles = crate::dialog::conversation_roles(instance);
+    // The command runs for the room the conversation opened in, as a scene's
+    // commands run for the scene's room.
+    let room = instance
+        .and_then(|instance| instance.room())
+        .map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal);
     match prepare_arguments(descriptor, &authored).and_then(|args| roles.bind_args(&args)) {
         Ok(args) => narrative.write(RunAuthoredCommand::new(
             id,
@@ -100,7 +106,7 @@ fn request_authored_command(
                 "dialogue",
                 node.unwrap_or_else(|| "<no live conversation>".to_string()),
             ),
-        )),
+        ).in_room(room)),
         Err(refusal) => warn!(
             target: "crate::dialog::authored_commands",
             "command({raw_id:?}, …) was refused: {refusal}",

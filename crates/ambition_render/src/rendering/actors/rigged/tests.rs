@@ -293,24 +293,33 @@ fn a_rigged_root_draws_its_impostor_from_parts_in_reusable_slots() {
     assert!(close(app.world().get::<Anchor>(root).unwrap().0, Vec2::new(-anchor.x, anchor.y)));
 }
 
-/// A new flipbook for the same sheet (a published sheet generation realizes
-/// the sheet again) binds its own posed parts, not the ones the old flipbook
-/// bound: they are made from the flipbook's tracks and the body rig, and a
-/// publication can change both.
+/// Posed parts are made from the flipbook's draw program and the admitted body
+/// rig. A sheet realized again with the same program keeps its binding; a
+/// flipbook whose program differs (here its track names, which the named
+/// bindings read) binds its own, not the ones the old flipbook bound.
 #[test]
 fn a_new_flipbook_binds_its_own_posed_parts() {
-
-
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let (mut app, root) = app(&sprite_content, true);
     settle(&mut app);
     let posed = |app: &App| app.world().get::<RiggedPresentation>(owner(app, root)).unwrap().posed.clone();
     let first = posed(&app).expect("the premise: the raider publishes a body rig, so its parts are posed");
+
     let sheet = with_pages(raider(&sprite_content, true), || ready_page(&mut app));
     app.world_mut().resource_mut::<GameAssets>().characters.publish(&sprite_content, "raider", sheet);
     settle(&mut app);
-    let second = posed(&app).expect("the new flipbook's parts are posed");
-    assert!(!Arc::ptr_eq(&first, &second), "the new flipbook was bound with the posed parts of the old one");
+    let same = posed(&app).expect("the realized-again sheet's parts are posed");
+    assert!(Arc::ptr_eq(&first, &same), "an unchanged rig and program were bound again");
+
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, "pirate_raider").expect("a published flipbook");
+    let renamed = flipbook.tracks().iter().map(|name| format!("{name}_renamed")).collect();
+    let sheet = with_pages(raider_with(&sprite_content, Some(flipbook.with_tracks(renamed))), || ready_page(&mut app));
+    app.world_mut().resource_mut::<GameAssets>().characters.publish(&sprite_content, "raider", sheet);
+    settle(&mut app);
+    assert!(
+        posed(&app).is_none_or(|second| !Arc::ptr_eq(&first, &second)),
+        "the new program was bound with the posed parts of the old one"
+    );
 }
 
 #[test]

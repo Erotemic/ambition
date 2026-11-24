@@ -189,3 +189,37 @@ fn rig_geometry_reaches_identity_and_rig_quality_and_formatting_do_not() {
     assert!(!prepared.changes_mechanics_of(current(&content)));
     assert_eq!(current(&content).mechanics_digest(), current(&SpriteContent::from_texts(presentation).unwrap()).mechanics_digest());
 }
+
+/// E2: a body rig is read and prepared once. A later generation that holds the
+/// same text holds the same admitted rig; a changed text is admitted again.
+/// The first table is not checked at admission, so its rig is admitted on
+/// first demand and that admission is what the next generation keeps.
+#[test]
+fn an_unchanged_rig_keeps_its_admission_across_generations() {
+    use ambition_sprite_sheet::baked_sheet_rons::publish_sheet_generation;
+    use std::sync::Arc;
+    fn rig(x: f32) -> Arc<str> {
+        format!(r#"(schema_version: 1, target: "body", joints: [(name: "hip", parent: None)],
+            attachments: [(name: "hand_near", joint: "hip", offset: ({x:?}, 0.0))], hurt_parts: [],
+            clips: {{"idle": (looping: true, frame_duration_s: 0.1,
+                frames: [[(translation: (0.0, 0.0), rotation: 0.0, scale: (1.0, 1.0))]])}})"#).into()
+    }
+    let admitted = |content: &SpriteContent| current(content).admitted_body_rig("body").unwrap().unwrap().clone();
+    let mut base = texts(1.0, "body.png");
+    base.body_rigs.push(("body", rig(1.0)));
+    let mut content = SpriteContent::from_texts(base.clone()).unwrap();
+    let first = admitted(&content);
+    assert_eq!(first.prepared.attachments().len(), 1);
+
+    let mut sheets_only = base.clone();
+    sheets_only.sheets = texts(2.0, "body.png").sheets;
+    publish_sheet_generation(&mut content, sheets_only.clone()).unwrap();
+    assert!(Arc::ptr_eq(&first, &admitted(&content)), "an unchanged rig is not admitted again");
+
+    let mut moved = sheets_only;
+    moved.body_rigs[0].1 = rig(2.0);
+    publish_sheet_generation(&mut content, moved).unwrap();
+    let second = admitted(&content);
+    assert!(!Arc::ptr_eq(&first, &second), "a changed rig is admitted again");
+    assert_ne!(first.published.definition, second.published.definition);
+}

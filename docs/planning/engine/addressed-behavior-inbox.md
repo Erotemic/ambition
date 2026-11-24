@@ -109,11 +109,21 @@ This is a host execution projection, not another dispatcher or interpreter.
 invocations by `(port, selector)` once, keeping queue order inside each
 group. Each admitted entry reads only its own trigger's group, so an entry
 no longer scans the whole queue; the order is still entry-major, then queue
-order. Not yet done: preparing the trigger spans and entry lookup at
-admission (the phase's entries are still filtered from `Admitted::entries`
-each run), the `Unavailable` receipt check (a scan of the phase's entries
-for each receipted invocation), and `Candidate::bound` in the inbox (a
-linear entry search per candidate).
+order.
+
+**Prepared dispatch (2026-11-24).** `Admitted::dispatch()` prepares, once
+per admitted set (shared by its `Arc`), each phase's entries in serial order
+and the entries bound to each trigger port and selector. `run_phase` walks
+the phase's prepared entries instead of filtering `Admitted::entries`, and
+the `Unavailable` receipt check asks only the entries bound to the
+invocation's trigger. The inbox's `Candidate::bound` reads the same
+relation: an event candidate looks up its trigger's entries, and an object
+call walks only `ACTOR_THINK`'s entries. The order is unchanged:
+entry-major, then queue order. A new admission prepares its own relation,
+so an old index cannot select a new entry. Witness:
+`the_prepared_dispatch_is_the_serial_order_by_trigger`. Still open:
+resolving method, supplier and schema keys at admission (the execution
+path still looks up `codecs.suppliers` per read port).
 
 ### Share an address view at each lifecycle cut
 
@@ -138,6 +148,24 @@ hidden with `Disabled`. Preserve ambiguous, retired, foreign-session and
 unpublished results. Capability absence does not remove an object from the
 address population. Private state follows its current owner through travel
 and entity reconstruction.
+
+**First shared snapshots (2026-11-24).** Publishing a call's terminal
+result adds no occurrence, so `object_behaviors::publish` takes its caller's
+occurrence view. `complete` captures one view for its whole request batch
+(it captured two for each request); `retire` captures one for all its
+origins; and `maintain`, which already received a view, no longer captures
+one more for each expired call.
+
+**Publication batches (2026-11-24).** Recipient selection takes an
+`OccurrenceView` (`behavior_events.rs`): a batch's view is captured when its
+first fact has a route and reused by the rest, so a batch with no routed
+fact still captures nothing. The activation, defeat, break and take
+publishers, the retirement pass (one view for the retired test and every
+recipient lookup) and confirmed world posts share one per batch;
+`publish_native` resolves its source and selects recipients on one view.
+Queueing a mailbox row adds no occurrence, so the batch reads one
+population. Signals admitted from a script request keep a view per request,
+because `ensure_object_occurrence` can add the emitter's occurrence.
 
 Start with shared snapshots at declared cuts, then use lifecycle updates where
 they remove repeated builds. The full capture remains a synchronous fallback.

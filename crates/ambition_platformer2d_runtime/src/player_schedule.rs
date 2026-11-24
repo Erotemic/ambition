@@ -117,7 +117,7 @@ impl Plugin for PlayerSchedulePlugin {
                 // Portal input stays owned by `PortalPlugin`. Resolve the body driven by each
                 // `DrivingParticipant`; the host has already committed `SlotControls` for all
                 // seats. Mirror the primary slot only for consumers of the legacy `ControlFrame`
-                // surface, and record the final frame the simulation consumes.
+                // surface.
                 (
                     ambition_platformer2d_actor_monolith::control::possession::resolve_controlled_subject,
                     ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does
@@ -127,16 +127,28 @@ impl Plugin for PlayerSchedulePlugin {
                     // harness's action encoder read it, and they must be able to
                     // whatever clock the composition runs on.
                     crate::input::mirror_primary_slot_to_control_frame,
-                    // N0.2: capture the input the SIM consumes, which is not the
-                    // input the device produced — gestures, portal warp, and the
-                    // fixed-tick latch all rewrite the frame on the way here.
-                    crate::input_stream::record_input_stream
-                        .run_if(crate::input_stream::input_stream_recording),
                 )
                     .chain(),
             )
                 .chain()
                 .in_set(PlayerInputSet::Device),
+        );
+
+        // IN1: the admitted cut. Recording here keeps what reset, gestures and interaction
+        // later spend or rewrite; a replay injects at the same seam and those stages run again.
+        app.configure_sets(
+            sim,
+            crate::input_stream::AdmittedSeatInput
+                .in_set(Platformer2dSimulationPhase::PlayerInput)
+                .after(crate::input_sampling::LocalInputPublication)
+                .before(crate::sandbox_reset::RoomReplayAdmission)
+                .before(PlayerInputSet::Device),
+        );
+        app.add_systems(
+            sim,
+            crate::input_stream::record_input_stream
+                .run_if(crate::input_stream::input_stream_recording)
+                .in_set(crate::input_stream::AdmittedSeatInput),
         );
 
         // Resolve the persona before body-control consumers.

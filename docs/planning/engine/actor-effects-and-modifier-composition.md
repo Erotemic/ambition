@@ -285,7 +285,8 @@ B releases, and the body is free.
 **State: identity and withdrawal IMPLEMENTED 2026-11-21 for the
 body-contact producer (receipt at the end of this section). The restore
 projection is stated as a snapshot-resident compatibility projection, not
-rebuilt. Status re-application on one tick and portable detach are open.**
+rebuilt. Status re-application on one tick closed 2026-11-24 (below);
+portable detach is open.**
 Keep `OwnedTerms<T>`, independent
 native hold bits, deterministic pose priority and the recorded overlap
 witness. The term stores are the useful implemented mechanism; source
@@ -438,9 +439,16 @@ projection that must restore atomically with its claims. It is not rebuilt
 at the restore boundary, and no divergent restore was observed.
 
 **Open:**
-- A status that ends and is re-applied before the next maintenance pass
-  keeps one issuer key. Status applications have no occurrence of their
-  own.
+- ~~A status that ends and is re-applied before the next maintenance pass
+  keeps one issuer key.~~ **Closed 2026-11-24 at the lifetime boundary:**
+  `apply_held_statuses` queues `withdraw_unbound_attachment_claims_of` for
+  a body whose set dropped a kind, after the set is written. The ended
+  application's holds and poses go at its end, so a later phase that holds
+  the kind again on the same tick starts with none of them under the same
+  issuer key. A let-go and re-hold within one request batch is still
+  continuity (the kind never left the set). No key or codec changed;
+  status applications still have no occurrence of their own. Witness: the
+  same-tick case in `a_hold_is_withdrawn_when_its_attachment_is_no_longer_bound`.
 - The transferred-grant rule (6b) is not exercised.
 - The Rhai path is exercised only through the existing Mary-O/Sanic lanes.
 

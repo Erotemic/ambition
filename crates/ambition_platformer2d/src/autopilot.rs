@@ -42,7 +42,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
 use ambition_platformer2d_world::collision::{CollisionWorld, GeometryRevision};
-use ambition_platformer2d_world::navigation::{FlightMap, FlightSearch, NavGraph, NavGraphCache, NavGraphKey};
+use ambition_platformer2d_world::navigation::{FlightMap, FlightSearch, NavGraph, NavGraphCache, NavGraphKey, NavMotion};
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
 
 use crate::scripted_input::ScriptedControls;
@@ -198,7 +198,8 @@ fn toggle_flight(wait: &mut u32) -> LegInput {
 /// A graph that is being built, and the key it is for.
 struct PendingGraph {
     key: NavGraphKey,
-    task: Task<Option<NavGraph>>,
+    /// The graph, and the body's motion when the build measured it.
+    task: Task<(Option<Option<NavMotion>>, Option<NavGraph>)>,
 }
 
 /// What the graph of the player's room is composed from: the room's authored
@@ -377,8 +378,23 @@ pub fn drive_autopilot(
         if pilot.graphs.get(&key).is_none() && pilot.pending.as_ref().is_none_or(|pending| pending.key != key) {
             // In the background, and its surfaces on the background pool too,
             // not on the pool the frame's systems run on.
+            // The body's motion is measured once whatever room: a graph for
+            // a new room, or the same room after a block broke, is built from
+            // the motion kept, and only a body never measured measures it.
+            let kept = pilot.graphs.kept_motion(&key).map(|motion| motion.cloned());
             let task = AsyncComputeTaskPool::get().spawn(async move {
-                NavGraph::build_on(&world, &exits, &key.probe_body(), motion, Some(&**AsyncComputeTaskPool::get()))
+                let body = key.probe_body();
+                let (measured, motion_of) = match kept {
+                    Some(kept) => (None, kept),
+                    None => {
+                        let fresh = NavMotion::measure(&body, motion);
+                        (Some(fresh.clone()), fresh)
+                    }
+                };
+                let graph = motion_of.as_ref().and_then(|measured| {
+                    NavGraph::build_measured(&world, &exits, &body, motion, measured, Some(&**AsyncComputeTaskPool::get()))
+                });
+                (measured, graph)
             });
             pilot.pending = Some(PendingGraph { key, task });
         }
@@ -387,9 +403,12 @@ pub fn drive_autopilot(
         pilot.body = Some(body);
     }
     if let Some(pending) = pilot.pending.as_mut() {
-        if let Some(graph) = check_ready(&mut pending.task) {
+        if let Some((measured, graph)) = check_ready(&mut pending.task) {
             let key = pending.key;
             pilot.pending = None;
+            if let Some(measured) = measured {
+                pilot.graphs.keep_motion(&key, measured);
+            }
             pilot.graphs.insert(key, graph);
         }
     }
@@ -747,5 +766,31 @@ mod tests {
             assert!(!seen.contains(&key), "{change}: the autopilot kept the graph of the old room");
             seen.push(key);
         }
+    }
+
+    /// EXECUTION-COST: a graph for a changed room is built from the body's
+    /// motion kept from the first build. The motion is a function of the body
+    /// and its frame, not the room, so two rooms' graphs measure it once.
+    #[test]
+    fn a_second_rooms_graph_reuses_the_bodys_measured_motion() {
+        let mut app = autopilot_in_a_room();
+        let built = |app: &mut App| {
+            for _ in 0..20_000 {
+                app.update();
+                let pilot = app.world().resource::<Autopilot>();
+                if pilot.wanted.is_some_and(|key| pilot.graphs.get(&key).is_some()) {
+                    return;
+                }
+                std::thread::yield_now();
+            }
+            panic!("the autopilot's graph was not built");
+        };
+        built(&mut app);
+        let first = wanted(&app);
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), room(370.0));
+        built(&mut app);
+        let pilot = app.world().resource::<Autopilot>();
+        assert_ne!(pilot.wanted, Some(first), "premise: the moved floor is another room's graph");
+        assert_eq!(pilot.graphs.motion_measures(), 1, "the second room's graph measured the body's motion again");
     }
 }

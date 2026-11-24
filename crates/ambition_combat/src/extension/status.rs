@@ -174,7 +174,7 @@ pub fn lower_held_statuses<L: LowersIn>(
 /// Stage each drained hold or let-go per body in submission order, then
 /// write each body's final set once and retract the clocks of what it let
 /// go. One body for every phase; the wrapper above only drains.
-fn apply_held_statuses(
+pub(crate) fn apply_held_statuses(
     mut commands: Commands,
     requests: Vec<ambition_extension_host::Submitted<<HoldStatusPort as ambition_extension_sdk::Port>::Value>>,
     mut holders: Query<&mut BodyStatuses>,
@@ -182,6 +182,7 @@ fn apply_held_statuses(
     bodies: Query<(), With<ae::BodyKinematics>>,
 ) {
     let mut staged: BTreeMap<Entity, Vec<String>> = BTreeMap::new();
+    let mut before: BTreeMap<Entity, Vec<String>> = BTreeMap::new();
     for submitted in requests {
         let hold = submitted.value;
         if hold.kind.is_empty() {
@@ -191,9 +192,11 @@ fn apply_held_statuses(
         if !bodies.contains(submitted.scope) {
             continue;
         }
-        let kinds = staged
-            .entry(submitted.scope)
-            .or_insert_with(|| holders.get(submitted.scope).map(|held| held.0.clone()).unwrap_or_default());
+        let kinds = staged.entry(submitted.scope).or_insert_with(|| {
+            let held = holders.get(submitted.scope).map(|held| held.0.clone()).unwrap_or_default();
+            before.insert(submitted.scope, held.clone());
+            held
+        });
         let at = kinds.binary_search(&hold.kind);
         match (hold.held, at) {
             (true, Err(slot)) => kinds.insert(slot, hold.kind),
@@ -204,6 +207,7 @@ fn apply_held_statuses(
         }
     }
     for (body, kinds) in staged {
+        let ended = before.get(&body).is_some_and(|held| held.iter().any(|kind| kinds.binary_search(kind).is_err()));
         // A status let go of takes its clock with it.
         if let Ok(mut clock) = clocks.get_mut(body) {
             if clock.0.iter().any(|(kind, _)| kinds.binary_search(kind).is_err()) {
@@ -226,6 +230,13 @@ fn apply_held_statuses(
                 commands.entity(body).try_insert(BodyStatuses(kinds));
             }
             (Err(_), true) => {}
+        }
+        // A status let go of ends its application: what an attachment it bound
+        // claimed on the body is withdrawn now, queued after the set above is
+        // written, not at the next maintenance pass, which a re-hold of the
+        // same kind later this tick would reach under the same issuer key.
+        if ended {
+            commands.queue(move |world: &mut World| crate::extension::contact::withdraw_unbound_attachment_claims_of(world, body));
         }
     }
 }

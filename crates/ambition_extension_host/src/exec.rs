@@ -584,19 +584,19 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
         for (index, invocation) in pending.iter().enumerate() {
             by_trigger.entry((&invocation.port, invocation.selector.as_ref())).or_default().push(index);
         }
-        let entries: Vec<&AdmittedEntry> = admitted.entries_in(&phase).collect();
+        // The phase's entries and each trigger's, prepared at admission.
+        let dispatch = admitted.dispatch();
 
         for invocation in pending.iter().filter(|invocation| invocation.receipt.is_some()) {
-            if !entries.iter().any(|entry| {
-                invocation.entry.as_ref().is_some_and(|path| path.as_ref() == entry.path)
-                    && invocation.port == entry.descriptor.trigger.port
-                    && invocation.selector == entry.descriptor.trigger.selector
+            let bound = dispatch.bound_to(&phase, &invocation.port, &invocation.selector);
+            if !bound.iter().any(|&index| {
+                invocation.entry.as_ref().is_some_and(|path| path.as_ref() == admitted.entries[index].path)
             }) {
                 invocation.notify(world, InvocationEvent::Unavailable);
             }
         }
 
-        for entry in entries {
+        for entry in dispatch.entries_of(&phase).iter().map(|&index| &admitted.entries[index]) {
             let descriptor = &entry.descriptor;
             let Some(bucket) = by_trigger.get(&(&descriptor.trigger.port, descriptor.trigger.selector.as_ref())) else {
                 continue;

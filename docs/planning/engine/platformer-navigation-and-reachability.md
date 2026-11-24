@@ -268,8 +268,14 @@ navigating several rooms measures its motion once. Witness:
 `a_body_built_in_two_rooms_measures_its_motion_once` (both graphs equal a
 fresh build; a body of another size is measured again).
 
-Still open: the seat autopilot builds on a background task and still
-measures for each graph.
+**Seat autopilot (2026-11-24).** The autopilot still builds on a
+background task, and now hands that task the motion its `NavGraphCache`
+keeps (`kept_motion`). Only a body never measured measures in the task,
+which returns the motion with the graph for the cache to keep
+(`keep_motion`). A graph for a new room, or for the same room after a block
+broke, no longer measures the body again. Measuring stays off the frame.
+Witness: `a_second_rooms_graph_reuses_the_bodys_measured_motion` (two
+rooms' graphs, one measure).
 
 **Demanded reachability (2026-11-22).** `NavGraph::reach_from` searches a
 surface's reach the first time it is asked for and keeps it with the graph
@@ -278,7 +284,12 @@ surface's reach the first time it is asked for and keeps it with the graph
 placement and errand checks, `place_beside` and `waypoints` read the kept
 answer, so they no longer allocate and search each time. `reachable_from`
 remains, as a copy. Witness: `a_surfaces_reach_is_searched_once_and_kept`.
-Reusing seeded waypoint selection is not done.
+Seeded waypoint selection is reused (2026-11-24): `waypoints` keeps its
+answer by the feet's surface and the seed (the last 32 pairs), so a body
+asking every tick with a held seed no longer copies and sorts the reach
+list. The answer is the one chosen fresh (`choose_waypoints`), and feet
+anywhere on the surface read it. Witness:
+`the_waypoints_are_reachable_and_the_same_for_one_seed`.
 
 The [advisor](../../../crates/ambition_platformer2d_actor_monolith/src/body/navigation.rs)
 asks `reachable_from` through waypoints, target placement and errands.
@@ -286,6 +297,22 @@ That routine allocates and traverses the graph each time. Retain ordered
 reachability or membership for demanded origin surfaces in the immutable
 graph. Reuse seeded waypoint selection only for the same graph, origin and
 choice seed. Feet and goal observation remain live inputs.
+
+**Lifted destination queries landed (2026-11-24).** `NavGraph::to_goal`
+searches once from a goal over link landings (fixed points, so every edge
+cost is fixed) and keeps each link's cost on to that goal, for the last
+eight goals a graph was asked for. `next` reads it: of the links leaving
+the feet's surface, the least walk to takeoff + leg + onward cost, with ties
+going to the lower link. Only the walk from the feet is a per-tick input. A
+body walking to a still goal (a waypoint, an errand item, a stand point)
+asks the same table each tick instead of searching forward from its feet.
+Every answer is the same with or without a kept table, so a rewind reads the
+same answers. A moving goal is a new key each tick and costs one reverse
+search, which is no more than the forward search it replaces. `route` stays
+as the reference. Witness: `one_search_from_a_goal_answers_every_start`
+(each link's kept cost equals the enumerated cheapest chain from its
+landing; `next` starts a cheapest route for all 20 surface pairs; a second
+ask reads the kept table).
 
 The lifted cost graph permits reusable destination queries with fixed edge
 costs. Start with the demanded goal set and exact dynamic attachments; do not

@@ -225,7 +225,8 @@ value as completion of that owner's contract.
    [occurrence and restore boundary](engine/actor-effects-and-modifier-composition.md#6a-follow-up--bind-the-live-occurrence-and-restore-the-authority)
    before phases 6b/6c expand it (identity and withdrawal implemented
    2026-11-21 for the body-contact producer; the restore projection is
-   stated as snapshot-resident; same-tick status re-application is open). Retiring a source cannot revoke a replacement
+   stated as snapshot-resident; same-tick status re-application closed
+   2026-11-24: an ended status's claims are withdrawn at its end). Retiring a source cannot revoke a replacement
    at the same authored address; derived masks and winners rebuild from the
    restored claims before their next read. Then share one interval across
    native and numeric/capability contributions. (6b landed 2026-11-22: Mary-O's pocket
@@ -248,7 +249,11 @@ value as completion of that owner's contract.
    selected ranged executor, including explicit absence. Equal preset
    numbers do not erase replacement meaning; shared move IDs cannot make
    one family's replacement overwrite another. Keep direct attempts and
-   the existing character-scale order.
+   the existing character-scale order. (Family selection landed
+   2026-11-24: `effective_repertoire` selects each family by its source,
+   the hand or a worn row's grant, and materializes only those. Open: the
+   published ranged owner, so a hand's explicit empty slot stops reading as
+   native charge.)
    [FORM-REBIND](#form-rebind--admit-and-apply-a-complete-form-on-the-existing-body)
    supplies L2's live form/generation customer and can be corrected before
    broader linking. The independent
@@ -308,7 +313,9 @@ value as completion of that owner's contract.
    identical authored participants in different live room instances must
    not share a conversation identity, runner or end result. Preserve the
    existing ledger and independence from mutable input ownership.
-   (Landed 2026-11-23: the instance id carries its opening live room.)
+   (Landed 2026-11-23: the instance id carries its opening live room.
+   2026-11-24: one cutscene script plays in two live rooms at once, each
+   run with its own roles and waits.)
    [O6a/O6b](engine/authored-gameplay-logic-and-orchestration.md#o6--bind-invocation-roles-through-the-existing-call-boundary)
    adds the existing merchant as an independent first context customer:
    wallet questions and purchase requests select the same payer policy.
@@ -429,7 +436,11 @@ value as completion of that owner's contract.
     body coordinates before a locomotion-only emergence constraint. Preserve
     held-direction continuity and each verb's policy. This is shared engine
     work from the source `34b4ab0b7f4f` audit; it does not promote Smash-only
-    polish. IN3 records the smaller qualified-press coalescing correction
+    polish. IN1's first slice landed 2026-11-24: the recorder runs at
+    `AdmittedSeatInput`, before reset and interpretation; streams are
+    version 2; a recorded reset and a held portal transit replay exactly.
+    The remaining IN1 work removes the raw-row dual writes as their consumers
+    move. IN3 records the smaller qualified-press coalescing correction
     (done 2026-11-23: a tick's attack press is chosen whole from one sample).
     IN2's first slice landed 2026-11-23: the portal guards act on the driven
     body's resolved control, in its own frame; the warp keeps the accepted
@@ -583,8 +594,10 @@ under [PORTAL-SIMILARITY](#portal-similarity--canonical-parts-and-scaled-mirror-
 **Next action:** the duplicate projectile source preparation is removed
 (2026-11-21: walls and recipients read one prepared leg). Clip whole-body
 eligibility and per-track semantic roles are prepared with the flipbook
-(PVS-1 first slice, 2026-11-22). Next in E2 are frame track correspondence
-indexes and retaining the prepared rig and binding from admission. The
+(PVS-1 first slice, 2026-11-22), and frame track correspondence is an
+index (2026-11-24). The prepared rig and its part binding are retained
+from admission (2026-11-24: `AdmittedBodyRig` per rig text, shared across
+generations; the renderer rebinds only for a different rig or program). The
 static source review adds a [named source-binding customer](engine/runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows):
 boss roles resolve source rows, timing policy and mechanical geometry
 association once. Preserve the native cursor, hurt-part sample, death
@@ -592,14 +605,19 @@ timing and visual projection under equal-capacity row reordering; keep
 explicit retiming, independent rig/move sources and dense runtime handles.
 The duplicate fact collectors are removed (one EventMailbox scan for all native
 fact ports, 2026-11-22), and `run_phase` buckets its queue by trigger once.
-Next, prepare dispatch spans and entry lookup at admission, then share correct
-occurrence views and derive active journal work. Navigation's cost-state
+Dispatch spans and entry lookup are prepared at admission (2026-11-24:
+`Admitted::dispatch`, read by `run_phase` and the inbox). Call completion,
+retirement and publication batches share one occurrence view each
+(2026-11-24). Next, derive active journal work. Navigation's cost-state
 reduction is fixed (2026-11-22: route searches arrivals and charges the final
 walk), and the advisor measures a body's motion once across rooms
 (`NavMotion`, 2026-11-22). The graph cache pins the graphs demanded each
-tick, and a surface's reach is searched once and kept (2026-11-22). Next:
-anchor-lifted route state (fixed edge costs, reusable destination queries)
-and motion reuse in the seat autopilot. The newly selected
+tick, and a surface's reach is searched once and kept (2026-11-22).
+Seeded waypoint answers are kept by surface and seed (2026-11-24); the
+navigation list here is done. The seat autopilot reuses its kept motion across
+room graphs, and `next` reads a kept per-goal table over link landings
+(anchor-lifted route state, fixed edge costs) instead of a forward search
+per body per tick (both 2026-11-24). The newly selected
 [scale law](engine/scale-relative-gameplay.md) also changes canonical
 gravity response. E4 retains material and the complete resolved frame;
 navigation must not create its own gravity multiplier or preserve the old

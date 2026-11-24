@@ -652,11 +652,11 @@ fn scouts_named_parts_are_placed_by_his_body_rigs_pose() {
     let target = "player_robot_v3";
     let flipbook = RiggedSpriteAsset::baked(&content, target).expect("a published flipbook");
     let text = crate::baked_body_rigs::baked_body_rig(&content, target).expect("a published body rig");
-    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
-        .expect("the rig parses")
+    let published = ambition_characters::actor::PublishedBodyRig::from_ron(text).expect("the publication parses");
+    let rig = published.definition
         .prepare()
         .expect("the rig prepares");
-    let named = ambition_characters::actor::published_part_bindings(text).expect("its part bindings read");
+    let named = published.part_bindings;
     // ⛔ Premise: the rig names joints, or this measures the unnamed road.
     assert!(!named.is_empty(), "the rig names no part's joint");
     let posed = PosedParts::bind_named(&flipbook, &rig, &named, 1.0, 1.0_f32.to_radians());
@@ -716,9 +716,10 @@ fn a_ledge_catch_holds_scouts_hands_on_the_ledge_through_the_blend() {
     let target = "player_robot_v3";
     let flipbook = RiggedSpriteAsset::baked(&content, target).expect("a published flipbook");
     let text = crate::baked_body_rigs::baked_body_rig(&content, target).expect("a published body rig");
-    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text).unwrap().prepare().unwrap();
-    let named = ambition_characters::actor::published_part_bindings(text).unwrap();
-    let limbs = ambition_characters::actor::published_limbs(text).unwrap();
+    let published = ambition_characters::actor::PublishedBodyRig::from_ron(text).unwrap();
+    let rig = published.definition.prepare().unwrap();
+    let named = published.part_bindings;
+    let limbs = published.limbs;
     let posed = PosedParts::bind_named(&flipbook, &rig, &named, 1.0, 1.0_f32.to_radians()).with_limbs(&rig, &limbs);
     let joint = |name: &str| rig.joint_names().iter().position(|joint| joint == name).unwrap() as u16;
     let contacts = crate::character::CharacterAnim::LedgeGrab.planted_contacts();
@@ -770,9 +771,10 @@ fn a_landing_swings_scouts_arms_down_and_leaves_the_body_as_drawn() {
     let target = "player_robot_v3";
     let flipbook = RiggedSpriteAsset::baked(&content, target).expect("a published flipbook");
     let text = crate::baked_body_rigs::baked_body_rig(&content, target).expect("a published body rig");
-    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text).unwrap().prepare().unwrap();
-    let named = ambition_characters::actor::published_part_bindings(text).unwrap();
-    let limbs = ambition_characters::actor::published_limbs(text).unwrap();
+    let published = ambition_characters::actor::PublishedBodyRig::from_ron(text).unwrap();
+    let rig = published.definition.prepare().unwrap();
+    let named = published.part_bindings;
+    let limbs = published.limbs;
     let posed = PosedParts::bind_named(&flipbook, &rig, &named, 1.0, 1.0_f32.to_radians()).with_limbs(&rig, &limbs);
     let joint = |name: &str| rig.joint_names().iter().position(|joint| joint == name).unwrap() as u16;
     let ride = |draw: &PartDraw| draw.track.and_then(|t| posed.binding(t)).map(|b| b.joint);

@@ -1089,11 +1089,10 @@ fn spawn_presentation(
 /// draws where its frame puts it.
 fn bind_posed_parts(sprite_content: &ambition_sprite_sheet::SpriteContent, pages: &RiggedSpritePages, target: &str) -> Option<Arc<PosedParts>> {
     let text = ambition_sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, target)?;
-    let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text).ok()?.prepare().ok()?;
-    let named = ambition_characters::actor::published_part_bindings(text).ok()?;
-    // The limbs whose ends a pose can plant (`CharacterAnim::planted_contacts`).
-    let limbs = ambition_characters::actor::published_limbs(text).ok()?;
-    let posed = PosedParts::bind_named(&pages.flipbook, &rig, &named, 1.0, 1.0_f32.to_radians()).with_limbs(&rig, &limbs);
+    let published = ambition_characters::actor::PublishedBodyRig::from_ron(text).ok()?;
+    let rig = published.definition.prepare().ok()?;
+    let posed = PosedParts::bind_named(&pages.flipbook, &rig, &published.part_bindings, 1.0, 1.0_f32.to_radians())
+        .with_limbs(&rig, &published.limbs);
     (posed.bound().0 > 0).then(|| Arc::new(posed))
 }
 

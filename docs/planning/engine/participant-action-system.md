@@ -683,8 +683,8 @@ driver. A body that nobody drove when it began charging keeps the charge
 while still undriven. Guard:
 `a_charge_whose_driver_left_is_withdrawn_without_a_shot` (a possession gap
 before the release fires nothing; the control without the gap fires). Still
-open: UI/focus capture (the supply-interruption fact above, with IN1) and
-the same-body binding replacement below. The original rule:
+open: UI/focus capture (the supply-interruption fact above, with IN1); the
+same-body binding replacement below landed the same day. The original rule:
 Withdraw the old pending charge at the existing relation removal/replacement
 cut, or retain the bounded prior ownership needed by its native owner.
 Preserve that necessary continuation through rollback; do not equate
@@ -730,6 +730,19 @@ Settle through the existing native owner at the transition, or retain the
 bounded prior binding it needs. Do not synthesize a physical release, flush
 unrelated controls, or withdraw the participant's whole input supply.
 Removing a technique from the current route is not itself an owner teardown.
+
+**Landed 2026-11-24.** The native owner settles it on the first tick the
+route is gone. `charge_route_is_bound` (beside `charge_stream_owns_the_press`
+in `ambition_combat::action_emission`) says whether a release can still
+reach the charge stream: the stream owns the press, and the body's
+`DerivedActionScheme` does not route Projectile to a technique.
+`charge_projectile_input` withdraws a pending charge without a shot when it
+cannot. It reads the scheme the gate already keeps, which is still derived
+again only when an authority changes. Re-wearing the same Fireball keeps the
+charge, and taking a weapon in hand withdraws it the same way. Guard:
+`a_charge_whose_slot_was_taken_is_withdrawn_without_a_shot` (Eye Laser
+mid-charge, then Fireball back, then release: no shot; the control re-wears
+the Fireball and fires once).
 
 Incoming activation keeps its own policy. Eye Laser's
 [`burn_tick_of`](../../../game/ambition_content_modules/src/eye_laser.rs)

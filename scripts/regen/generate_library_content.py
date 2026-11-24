@@ -48,8 +48,17 @@ def in_owner(family: str, arguments: list[str]) -> None:
         return
     env = dict(os.environ, AMBITION_PRODUCER_OWNER=family)
     if family == "music":
-        os.execvpe("bash", ["bash", "-c", 'audio_env="${AMBITION_AUDIO_TOOLS_ROOT:-/data/audio-tools}/env.sh"; if [ -f "$audio_env" ]; then source "$audio_env"; fi; exec "$@"',
-                            "producer", interpreter(family), __file__, *arguments], env)
+        renderer = ROOT / "tools" / TOOLS[family]
+        # Use the same renderer files for imports and publication hashes.
+        entry = '''
+audio_env="${AMBITION_AUDIO_TOOLS_ROOT:-/data/audio-tools}/env.sh"
+if [ -f "$audio_env" ]; then source "$audio_env"; fi
+export PYTHONPATH="$1${PYTHONPATH:+:$PYTHONPATH}"
+shift
+exec "$@"
+'''
+        os.execvpe("bash", ["bash", "-c", entry, "producer", str(renderer),
+                            interpreter(family), __file__, *arguments], env)
     os.execve(interpreter(family), [interpreter(family), __file__, *arguments], env)
 
 

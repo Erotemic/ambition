@@ -1806,15 +1806,18 @@ fn first_chain_hit(
     };
     let mut best: Option<(CircleHit, i8)> = None;
 
+    // Include the contact tolerance so casts at the edge keep their tie order.
+    let end = center + delta;
+    let margin = Vec2::splat(radius + SURFACE_TIE_SLOP);
+    let sweep_min = center.min(end) - margin;
+    let sweep_max = center.max(end) + margin;
     // Chains: one-sided segments — land only when approaching the rideable
     // (+normal) side and moving into the surface.
     for (ci, chain) in world.chains.iter().enumerate() {
-        for i in 0..chain.segment_count() {
-            let lane = chain.segment_depth(i);
-            if !consider(ci, i) {
+        for (i, (a, b)) in chain.segments().enumerate() {
+            if a.min(b).cmpgt(sweep_max).any() || a.max(b).cmplt(sweep_min).any() || !consider(ci, i) {
                 continue;
             }
-            let (a, b) = chain.segment(i);
             let n = chain.normal(i);
             if delta.dot(n) >= 0.0 {
                 continue; // moving away from / along the surface
@@ -1846,6 +1849,7 @@ fn first_chain_hit(
                 // radial normal differs from the face normal.)
                 continue;
             }
+            let lane = chain.segment_depth(i);
             let replace = match &best {
                 None => true,
                 Some((current, current_lane)) => {

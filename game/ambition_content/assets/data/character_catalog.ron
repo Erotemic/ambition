@@ -11520,6 +11520,81 @@
             ),
             hall_dialogue_id: Some("hall_npc_eureka_quark"),
         ),
+        // Will Force, the Science Horse: QED-TV's anchor (renderer
+        // `data/townsfolk/eureka_will_force.chargen.yaml`; his hair, his
+        // moustache and his bow tie are the overlay
+        // `data/overlays/will_force.overlay.svg`).
+        "npc_will_force": (
+            display_name: "Will Force",
+            manifest: "sprites/eureka_will_force_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 190 cm.
+            standing_height: Some(73.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["story", "eureka", "science_communicator", "news_anchor", "horse", "peaceful"],
+            barks: (
+                idle: ["Good evening, Eureka. The news, straight from the horse's mouth.", "Stay curious, Eureka."],
+                hall: ["One horsepower is seven hundred and forty-six watts. I am the unit, and I am the anchor.", "I take the science seriously. I take the hair more seriously.", "People recognise me in four dimensions. In the fifth, they recognise the bow tie.", "Science rules. Tonight, so do the ratings."],
+            ),
+            hall_dialogue_id: Some("hall_npc_will_force"),
+        ),
+        "npc_eureka_petra_dish": (
+            display_name: "Petra Dish",
+            // Keeps QED-TV's front desk.
+            manifest: "sprites/eureka_petra_dish_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Sign in, please. Mr. Force does not sign in. He is announced.", "The dish is a culture. Please do not tidy it."],
+                hall: ["I keep the front desk of QED-TV, and a Petri dish of something hopeful.", "Every guest asks for the horse. The horse asks for a mirror."],
+            ),
+            hall_dialogue_id: Some("hall_npc_eureka_petra_dish"),
+        ),
+        "npc_eureka_avery_gadro": (
+            display_name: "Avery Gadro",
+            // Produces QED-TV's evening news.
+            manifest: "sprites/eureka_avery_gadro_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Ninety seconds to air. I counted them.", "Who typed on the teleprompter again?"],
+                hall: ["I produce the QED-TV evening news. Roughly six times ten to the twenty-third things go wrong a night.", "He reads whatever is on the prompter. I have learned to type carefully."],
+            ),
+            hall_dialogue_id: Some("hall_npc_eureka_avery_gadro"),
+        ),
+        "npc_eureka_barry_metric": (
+            display_name: "Barry Metric",
+            // QED-TV's weatherman.
+            manifest: "sprites/eureka_barry_metric_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 178 cm.
+            standing_height: Some(68.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "eureka", "peaceful"],
+            barks: (
+                idle: ["Pressure is falling. Not mine. The air's.", "The wall is green. On television it is weather."],
+                hall: ["I do the weather for QED-TV. At the top of the tether the forecast never changes: none.", "A barometer weighs the air over your head. Tonight it is mostly cloud."],
+            ),
+            hall_dialogue_id: Some("hall_npc_eureka_barry_metric"),
+        ),
         "npc_eureka_hum": (
             display_name: "Ottoline Hum",
             // Busks on a theremin under the gate court's arcade.

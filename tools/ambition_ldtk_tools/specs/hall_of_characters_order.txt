@@ -190,6 +190,10 @@ npc_eureka_mina
 npc_eureka_pryce
 npc_eureka_hum
 npc_eureka_quark
+npc_will_force
+npc_eureka_petra_dish
+npc_eureka_avery_gadro
+npc_eureka_barry_metric
 npc_science_nikobolt
 npc_science_coulomba
 

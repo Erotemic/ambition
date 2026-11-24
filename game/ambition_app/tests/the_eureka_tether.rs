@@ -172,3 +172,14 @@ fn the_steam_plant_loops_the_quad_through_the_collider_and_hides_lab_0() {
     go(&mut app, "eureka_first_lab", Some("secret_plant_west"));
     go(&mut app, "eureka_steam_plant", Some("secret_first_lab_east"));
 }
+
+/// QED-TV on the lecture hall's terrace: in at its door, Will Force, the
+/// Science Horse, reads the evening news in the studio (`eureka.yarn`
+/// `eureka_will_force`), and back out to the quad.
+#[test]
+fn will_force_reads_the_news_at_qed_tv() {
+    let mut app = a_session_in(QUAD);
+    go(&mut app, "eureka_qed_studios", Some("quad_qed_door"));
+    crate::the_pirate_port::talk(&mut app, "npc_will_force", "What is in the news tonight?");
+    go(&mut app, QUAD, Some("qed_door"));
+}

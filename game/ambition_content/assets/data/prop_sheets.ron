@@ -686,6 +686,11 @@
     "eureka_patent_room": (),
     "eureka_observatory_room": (),
     "eureka_lab_room": (),
+    // QED-TV, the station on the lecture hall's terrace, and its rooms.
+    "quad_qed_front": (),
+    "qed_reception": (),
+    "qed_studio": (),
+    "qed_production": (),
     // The Pirate Cove (PvN).
     "cove_cave": (),
     "cove_ledges": (),

@@ -809,6 +809,7 @@ fn stated_graph(surfaces: &[(f32, f32, f32)], links: &[(usize, usize, f32, f32, 
         cost: BuildCost::default(),
         flight: None,
         reach: (0..out.len()).map(|_| std::sync::OnceLock::new()).collect(),
+        destinations: Default::default(),
         out,
     }
 }
@@ -904,6 +905,54 @@ fn a_route_costs_what_trying_every_chain_costs() {
             match (found, reference) {
                 (Some(found), Some(reference)) => assert!((found - reference).abs() < 1e-3, "{from} to {to}: {found} not {reference}"),
                 (None, None) => {}
+                other => panic!("{from} to {to}: {other:?}"),
+            }
+            compared += 1;
+        }
+    }
+    assert_eq!(compared, 20);
+}
+
+/// EXECUTION-COST (lifted route state): one search from a goal gives each
+/// link's cost on to it, and `next` reads it. On the graph with several ways
+/// round, each link's kept cost is what trying every chain from its landing
+/// costs, and the leg `next` gives from each surface to each other starts a
+/// cheapest route. A second ask for the same goal reads the kept table.
+#[test]
+fn one_search_from_a_goal_answers_every_start() {
+    let graph = stated_graph(
+        &[(0.0, 50.0, 0.0), (0.0, 300.0, 40.0), (100.0, 400.0, 80.0), (250.0, 600.0, 120.0), (500.0, 700.0, 160.0)],
+        &[
+            (0, 1, 50.0, 10.0, 1.0), (0, 2, 0.0, 380.0, 3.0), (1, 2, 290.0, 120.0, 1.0), (1, 3, 20.0, 590.0, 4.0),
+            (2, 1, 110.0, 280.0, 0.5), (2, 3, 390.0, 260.0, 1.0), (3, 4, 600.0, 510.0, 1.0), (1, 4, 300.0, 690.0, 6.0),
+            (4, 2, 500.0, 400.0, 1.0), (3, 1, 250.0, 0.0, 0.2),
+        ],
+    );
+    let mut compared = 0;
+    for to in 0..graph.surfaces.len() {
+        let goal = Vec2::new(graph.surfaces[to].right, graph.surfaces[to].top);
+        let table = graph.to_goal(to, goal.x);
+        assert!(std::sync::Arc::ptr_eq(&table, &graph.to_goal(to, goal.x)), "the same goal searched again");
+        for (index, link) in graph.links.iter().enumerate() {
+            let land = link.leg.land;
+            let onward = cheapest_by_enumeration(&graph, land, goal);
+            let direct = (link.to == to).then(|| (goal.x - land.x).abs());
+            let reference = [onward, direct].into_iter().flatten().reduce(f32::min).unwrap_or(f32::INFINITY);
+            assert!((table[index] - reference).abs() < 1e-3 || (table[index].is_infinite() && reference.is_infinite()),
+                "link {index} to surface {to}: {} not {reference}", table[index]);
+        }
+        for from in (0..graph.surfaces.len()).filter(|from| *from != to) {
+            let feet = Vec2::new(graph.surfaces[from].left, graph.surfaces[from].top);
+            let reference = cheapest_by_enumeration(&graph, feet, goal);
+            match (graph.next(feet, goal), reference) {
+                (NavNext::Leg(leg), Some(reference)) => {
+                    let first = graph.out[from].iter().copied()
+                        .find(|link| graph.links[*link].leg.start == leg.start && graph.links[*link].leg.land == leg.land)
+                        .expect("the leg is a link from the feet's surface");
+                    let cost = (leg.start.x - feet.x).abs() + graph.links[first].cost + table[first];
+                    assert!((cost - reference).abs() < 1e-3, "{from} to {to}: the first leg starts a {cost} route, not {reference}");
+                }
+                (NavNext::Unreachable, None) => {}
                 other => panic!("{from} to {to}: {other:?}"),
             }
             compared += 1;

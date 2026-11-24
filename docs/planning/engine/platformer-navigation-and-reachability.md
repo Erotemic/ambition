@@ -293,6 +293,22 @@ reachability or membership for demanded origin surfaces in the immutable
 graph. Reuse seeded waypoint selection only for the same graph, origin and
 choice seed. Feet and goal observation remain live inputs.
 
+**Lifted destination queries landed (2026-11-24).** `NavGraph::to_goal`
+searches once from a goal over link landings (fixed points, so every edge
+cost is fixed) and keeps each link's cost on to that goal, for the last
+eight goals a graph was asked for. `next` reads it: of the links leaving
+the feet's surface, the least walk to takeoff + leg + onward cost, with ties
+going to the lower link. Only the walk from the feet is a per-tick input. A
+body walking to a still goal (a waypoint, an errand item, a stand point)
+asks the same table each tick instead of searching forward from its feet.
+Every answer is the same with or without a kept table, so a rewind reads the
+same answers. A moving goal is a new key each tick and costs one reverse
+search, which is no more than the forward search it replaces. `route` stays
+as the reference. Witness: `one_search_from_a_goal_answers_every_start`
+(each link's kept cost equals the enumerated cheapest chain from its
+landing; `next` starts a cheapest route for all 20 surface pairs; a second
+ask reads the kept table).
+
 The lifted cost graph permits reusable destination queries with fixed edge
 costs. Start with the demanded goal set and exact dynamic attachments; do not
 precompute an unbounded all-pairs table or enumerate every possible actor

@@ -600,8 +600,10 @@ reduction is fixed (2026-11-22: route searches arrivals and charges the final
 walk), and the advisor measures a body's motion once across rooms
 (`NavMotion`, 2026-11-22). The graph cache pins the graphs demanded each
 tick, and a surface's reach is searched once and kept (2026-11-22). Next:
-anchor-lifted route state (fixed edge costs, reusable destination queries).
-The seat autopilot reuses its kept motion across room graphs (2026-11-24). The newly selected
+seeded waypoint reuse. The seat autopilot reuses its kept motion across
+room graphs, and `next` reads a kept per-goal table over link landings
+(anchor-lifted route state, fixed edge costs) instead of a forward search
+per body per tick (both 2026-11-24). The newly selected
 [scale law](engine/scale-relative-gameplay.md) also changes canonical
 gravity response. E4 retains material and the complete resolved frame;
 navigation must not create its own gravity multiplier or preserve the old

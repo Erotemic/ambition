@@ -716,6 +716,9 @@ pub fn populate_seat_control_frames(
             let mut paused_frame = read_menu_control_frame(actions);
             paused_frame.control_frame_modes = modes;
             paused_frame.party_preference = preference;
+            // The supply is interrupted (IN5): a continuation that needs it
+            // is withdrawn, on the latchless road as on the latch's.
+            paused_frame.input_interrupted = true;
             raw.set(slot, paused_frame);
             // Menu edges must survive rendered frames with no simulation tick.
             // Gameplay edges and held movement must not cross the capture boundary.

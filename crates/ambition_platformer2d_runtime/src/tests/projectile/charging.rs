@@ -579,3 +579,45 @@ fn a_charge_whose_driver_left_is_withdrawn_without_a_shot() {
         }
     }
 }
+
+/// IN5: a pending charge needs its supply. A tick on which the seat's input
+/// was captured (a pause, a menu, lost focus) withdraws it without a shot,
+/// though the button reads held again after it: the release may have happened
+/// where the charge could not see it. The control holds through the same
+/// ticks with no capture, and its release fires.
+#[test]
+fn a_charge_whose_input_was_captured_is_withdrawn_without_a_shot() {
+    for captured in [false, true] {
+        let mut app = min_app();
+        shape_primary(&mut app, |frame| {
+            frame.projectile_pressed = true;
+            frame.projectile_held = true;
+        });
+        advance_time(&mut app, 0.016);
+        app.update();
+        assert!(crate::projectile_tests::projectile_state_ref(&app).charging.is_some());
+
+        shape_primary(&mut app, |frame| {
+            frame.projectile_pressed = false;
+            frame.projectile_held = true;
+            frame.input_interrupted = captured;
+        });
+        advance_time(&mut app, 0.016);
+        app.update();
+
+        shape_primary(&mut app, |frame| {
+            frame.input_interrupted = false;
+            frame.projectile_held = false;
+            frame.projectile_released = true;
+        });
+        advance_time(&mut app, 0.016);
+        app.update();
+        let shots = crate::projectile_tests::projectile_kinds(&mut app);
+        if captured {
+            assert!(shots.is_empty(), "a charge across a capture fires nothing; got {shots:?}");
+            assert!(crate::projectile_tests::projectile_state_ref(&app).charging.is_none());
+        } else {
+            assert_eq!(shots, vec![Some(ProjectileKind::Fireball)], "the control's release fires");
+        }
+    }
+}

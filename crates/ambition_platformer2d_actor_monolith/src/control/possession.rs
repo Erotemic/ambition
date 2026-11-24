@@ -252,7 +252,19 @@ pub fn possession_trigger_system(
                 control.control_frame_modes.movement,
             );
         let record = states.get_mut(slot);
-        let release_edge = down_interact && !record.prev_down_interact;
+        // IN5: after a capture (a menu, a pause, lost focus) the held levels
+        // resume, but the history saw neutral while captured. A combination
+        // still held across the capture is not a new one; one completed by a
+        // press made after it is (either part may come last). The capture
+        // discards the presses made before it, so an edge here came after.
+        let pressed_after_capture = control.interact_pressed
+            || control.left_pressed
+            || control.right_pressed
+            || control.up_pressed
+            || control.down_pressed;
+        let release_edge = down_interact
+            && !record.prev_down_interact
+            && (!control.input_interrupted || pressed_after_capture);
         record.prev_down_interact = down_interact;
         if let Some(target) = record.possessed {
             record.hold_timer = 0.0;

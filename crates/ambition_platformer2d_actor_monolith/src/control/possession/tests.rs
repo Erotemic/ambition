@@ -1060,3 +1060,51 @@ fn a_seat_without_a_home_cannot_keep_a_partial_possession_gesture() {
         Possession::default()
     );
 }
+
+/// IN5: a Down+Interact held through a capture (a pause opened and closed
+/// between two ticks) resumes as a level, not a new combination, so it does
+/// not release the possession. The control resumes the same hold with no
+/// capture in the frame and releases, which is the gap the fact closes. A
+/// press made after the capture still releases.
+#[test]
+fn a_hold_resumed_after_a_capture_does_not_release_the_possession() {
+    let set = |app: &mut App, edit: &dyn Fn(&mut ambition_platformer2d_core::ControlFrame)| {
+        let mut slots = app.world_mut().resource_mut::<ambition_characters::control::SlotControls>();
+        let mut frame = slots.get(PlayerSlot::PRIMARY);
+        edit(&mut frame);
+        slots.set(PlayerSlot::PRIMARY, frame);
+    };
+    for captured in [false, true] {
+        let mut app = trigger_app();
+        let home = spawn_home(&mut app);
+        let actor = spawn_candidate(&mut app, vec2(80.0, 0.0));
+        hold_down_interact(&mut app, true);
+        app.update();
+        app.update();
+        assert_eq!(brain_slot(&app, actor), Some(PlayerSlot::PRIMARY), "precondition: possessed");
+        // The captured tick: the menu-only frame is neutral.
+        hold_down_interact(&mut app, false);
+        set(&mut app, &|frame| frame.input_interrupted = captured);
+        app.update();
+        // The capture closed between ticks; the same hold resumes.
+        hold_down_interact(&mut app, true);
+        app.update();
+        if captured {
+            assert_eq!(brain_slot(&app, actor), Some(PlayerSlot::PRIMARY), "a resumed hold released the possession");
+            // A press made after the capture is a new combination.
+            set(&mut app, &|frame| {
+                frame.input_interrupted = false;
+                frame.interact_held = false;
+            });
+            app.update();
+            set(&mut app, &|frame| {
+                frame.interact_held = true;
+                frame.interact_pressed = true;
+            });
+            app.update();
+            assert_eq!(brain_slot(&app, home), Some(PlayerSlot::PRIMARY), "a fresh press did not release");
+        } else {
+            assert_eq!(brain_slot(&app, home), Some(PlayerSlot::PRIMARY), "the control: an uncaptured re-hold releases");
+        }
+    }
+}

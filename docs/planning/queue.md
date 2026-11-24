@@ -471,8 +471,10 @@ value as completion of that owner's contract.
     the seat that began it and is withdrawn without a shot when the body's
     driver changes, or when its body's binding no longer routes the press
     to it (Eye Laser equipped, a weapon in hand). IN5's supply interruption
-    (UI/focus capture) coordinates with
-    IN1 and the wire/stream owners. Do not select a new provider transport
+    (UI/focus capture) landed 2026-11-24: `ControlFrame::input_interrupted`
+    rides the admitted seat frame (wire identity 10), a capture withdraws a
+    pending charge without a shot, and a Down+Interact held through a capture
+    does not release a possession. Do not select a new provider transport
     merely to complete P2's unused publisher.
 
 11. [Observation OBS1](engine/bounded-perception-and-attention.md#obs1--make-attention-the-native-evidence-admission-boundary)

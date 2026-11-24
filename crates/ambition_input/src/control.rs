@@ -245,6 +245,9 @@ pub fn read_gameplay_control_frame_with_settings(
         // frame after it starts, and a press on that frame must still count.
         confirm_pressed: confirm_pressed(actions),
         cancel_held: cancel_held(actions),
+        // A device sample is never itself an interruption; the capture that
+        // suppresses gameplay states it (IN5).
+        input_interrupted: false,
     };
     (
         frame,

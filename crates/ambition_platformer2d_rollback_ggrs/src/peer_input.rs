@@ -313,14 +313,17 @@ mod the_bytes_two_peers_exchange {
         }
     }
 
-    /// The control part (72 bytes), then the token as a little-endian `u64`:
+    /// The control part (73 bytes since IN5), then the token as a little-endian `u64`:
     /// the operation's digest, the plan's 30 bits, and `Prepared` in the top
     /// two bits.
-    const RECORDED: &str = "000040bf0000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b35d586481ca454c";
+    const RECORDED: &str = "000040bf000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b35d586481ca454c";
 
-    /// NET-INPUT-WIDTH: at most 80 bytes a handle a frame. It was 168, of
-    /// which 96 were the verdict with its two 32-byte content identities.
-    const RECORDED_WIRE_BYTES: u64 = 80;
+    /// NET-INPUT-WIDTH: 80 bytes a handle a frame. It was 168, of which 96
+    /// were the verdict with its two 32-byte content identities. 81 since IN5
+    /// (wire identity 10): one bool, `ControlFrame::input_interrupted`. The
+    /// NET-INPUT-WIDTH measurement found message count, not width, drives
+    /// this backend's link traffic.
+    const RECORDED_WIRE_BYTES: u64 = 81;
 
     fn hex(bytes: &[u8]) -> String {
         bytes.iter().map(|byte| format!("{byte:02x}")).collect()

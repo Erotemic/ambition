@@ -94,6 +94,9 @@ pub fn charge_projectile_input(
         With<ambition_characters::brain::ChargesProjectiles>,
     >,
     mut brain_actions: ReplayMessageReader<ambition_characters::brain::ActorActionMessage>,
+    // The admitted seat frames: whether the seat a charge belongs to was
+    // interrupted since its last tick (IN5). Admitted input, not host focus.
+    seats: Option<Res<ambition_characters::control::SlotControls>>,
     // The projected policy, not `Res<UserSettings>` — see `PlayerDamagePolicy`.
     damage_policy: Res<ambition_damage::PlayerDamagePolicy>,
     // The open, content-owned motion-technique registry. The named gesture
@@ -159,7 +162,14 @@ pub fn charge_projectile_input(
         // goes to the new binding, or to nothing, not to this charge.
         let driver = driver.map(|d| d.0.0);
         let routed = ambition_combat::action_emission::charge_route_is_bound(true, holding, moveset, scheme);
-        if state.charging.is_some() && (state.charge_driver != driver || !routed) {
+        // And when that seat's supply was interrupted (a menu, a pause, lost
+        // focus): the release may have happened where this charge cannot
+        // see it, so a held level after the capture is not the hold that
+        // began it.
+        let interrupted = state.charge_driver.zip(seats.as_deref()).is_some_and(|(seat, seats)| {
+            seats.get(ambition_characters::control::PlayerSlot(seat)).input_interrupted
+        });
+        if state.charging.is_some() && (state.charge_driver != driver || !routed || interrupted) {
             state.charging = None;
             state.charge_driver = None;
         }

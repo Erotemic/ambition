@@ -112,6 +112,9 @@ pub fn tick_player_brain_from_control(
         // no body verb does.
         confirm_pressed: _,
         cancel_held: _,
+        // Read by the continuation that needs the supply (a pending charge),
+        // from the seat's admitted frame; a body verb does not act on it.
+        input_interrupted: _,
     } = c;
 
     // Directional verbs interpret raw input in the controlled body's local

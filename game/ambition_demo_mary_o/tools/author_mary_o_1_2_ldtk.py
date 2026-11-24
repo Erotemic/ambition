@@ -224,6 +224,8 @@ def clock_gallery(lv: Level) -> None:
         lv.enemy("slop", col)
     lv.block(162, up(4), "Question", "Coins")
     lv.block(178, up(4), "Question")
+    lv.enemy("snake", 187)
+    lv.enemy("paper", 190, up(7))
 
 
 def ferry(lv: Level) -> None:
@@ -237,14 +239,12 @@ def ferry(lv: Level) -> None:
     lv.coin_arc(209, up(4), (0, 0.5, 0.5, 0))
     lv.enemy("paper", 200, up(7))
     lv.enemy("cartesian", 207, up(4))
-    lv.enemy("paper", 213, up(7))
     lv.rock(198, TOP, 3, 2)
     lv.rock(210, TOP, 3, 2)
 
 
 def goal(lv: Level) -> None:
-    """Columns 216 to 237. A snake, steps of rock, and the pole."""
-    lv.enemy("snake", 220)
+    """Columns 216 to 237. Steps of rock lead to the pole."""
     for index in range(4):
         lv.column(224 + index, 1, index + 1)
     lv.pole(232, 7)

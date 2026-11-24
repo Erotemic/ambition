@@ -121,6 +121,7 @@ def brick_bridges(lv: Level) -> None:
     lv.enemy("star", 143, up(4))
     lv.enemy("swallow", 136, up(11))
     mesa(lv, 148, 4, 3)
+    lv.enemy("snake", 149, up(3))
 
 
 def twin_ferries(lv: Level) -> None:
@@ -130,7 +131,7 @@ def twin_ferries(lv: Level) -> None:
     lv.enemy("paper", 157, up(7))
     lv.platform("mary_o_2_3_ferry_c", "High Ferry", 162, up(5), sweep_dx=float((10 - 3) * T), speed=95.0)
     lv.coins(164, up(7), 4, step=2)
-    lv.enemy("cartesian", 168, up(9))
+    lv.enemy("cartesian", 161, up(9))
 
 
 def goal(lv: Level) -> None:
@@ -138,7 +139,6 @@ def goal(lv: Level) -> None:
     mesa(lv, 172, 18, 0)
     for index in range(4):
         mesa(lv, 172 + index, 1, 4 - index)
-    lv.enemy("snake", 178)
     lv.pole(184, 8)
 
 

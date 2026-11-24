@@ -118,6 +118,7 @@ def the_climb(lv: Level) -> None:
     island(lv, 96, 5, 0)
     lv.enemy("slop", 98)
     island(lv, 103, 5, 2)
+    lv.plant(104, on=up(2))
 
 
 def brick_bridge(lv: Level) -> None:
@@ -145,6 +146,7 @@ def twin_ferries(lv: Level) -> None:
     lv.coins(144, up(4), 5, step=2)
     lv.enemy("cartesian", 149, up(6))
     island(lv, 156, 5, 3)
+    lv.enemy("snake", 156, up(3))
     lv.enemy("star", 158, up(3))
     lv.platform("mary_o_1_3_ferry_c", "High Ferry", 162, up(4), sweep_dx=float((16 - 3) * T), speed=95.0)
     lv.coins(165, up(6), 6, step=2)
@@ -157,8 +159,6 @@ def goal(lv: Level) -> None:
     island(lv, 178, 30, 0)
     for index in range(4):
         island(lv, 178 + index, 1, 4 - index)
-    lv.plant(185)
-    lv.enemy("snake", 190)
     lv.block(191, up(4), "Question", "AlwaysWand")
     for index in range(4):
         lv.column(194 + index, 1, index + 1)

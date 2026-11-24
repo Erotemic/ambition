@@ -138,10 +138,38 @@ pub struct MoveEventMessage {
     /// HOW this event is oriented — the sibling of [`Self::world_offset`],
     /// resolved from the SAME two authorities in the same expression.
     pub world_pose: ambition_vfx::FxPose,
-    /// For a `Ranged` event, the source the emitting use was admitted with
-    /// ([`MovePlayback::ranged_source`]), stamped by the emitter for the reason
-    /// `move_instance` is. `None` for every other kind.
-    pub ranged_source: Option<ambition_characters::brain::action_set::RangedActionSpec>,
+    /// For a `Ranged` event, the facts the emitting use owns
+    /// ([`RangedUse`]), stamped by the emitter for the reason `move_instance`
+    /// is. `None` for every other kind.
+    pub ranged: Option<RangedUse>,
+}
+
+/// What a ranged event carries from the use that emitted it (ACT1).
+///
+/// ⛔ STAMPED AT EMISSION, NOT REREAD AT DISPATCH. A `Ranged` event authored
+/// at `duration_s` is valid, and the advance that emits it also removes the
+/// finished playback before the chained dispatcher runs. A dispatcher that
+/// looked up the owner's playback for these values lost them on exactly that
+/// shot, and on any other read it saw whatever was playing when the event
+/// drained. These are the small facts the shot is built from; the body's live
+/// fire input, worn modifiers and muzzle geometry are still read at dispatch.
+#[derive(Clone, Debug)]
+pub struct RangedUse {
+    /// The source the use was admitted with ([`MovePlayback::ranged_source`]).
+    pub source: ambition_characters::brain::action_set::RangedActionSpec,
+    /// The move's own shot damage ([`MoveSpec::shot_damage`]).
+    pub shot_damage: Option<i32>,
+    /// The charge the use released with ([`MovePlayback::charge_fraction`]).
+    pub charge_fraction: Option<f32>,
+    /// The aim captured when the use started ([`MovePlayback::aim`]).
+    pub started_aim: Option<ambition_characters::actor::control::ActorFireRequest>,
+}
+
+impl From<ambition_characters::brain::action_set::RangedActionSpec> for RangedUse {
+    /// A use that owns nothing beyond its source.
+    fn from(source: ambition_characters::brain::action_set::RangedActionSpec) -> Self {
+        Self { source, shot_damage: None, charge_fraction: None, started_aim: None }
+    }
 }
 
 /// This actor is playing a move. Insert to start; the system removes it when
@@ -1617,9 +1645,15 @@ pub fn advance_move_playback(
                     move_id: pb.spec.id.clone(),
                     move_instance: pb.instance,
                     presentation_source: presentation_source.clone(),
-                    ranged_source: (ev.kind == MoveEventKind::Ranged)
+                    ranged: (ev.kind == MoveEventKind::Ranged)
                         .then(|| pb.ranged_source.clone())
-                        .flatten(),
+                        .flatten()
+                        .map(|source| RangedUse {
+                            source,
+                            shot_damage: pb.spec.shot_damage,
+                            charge_fraction: pb.charge_fraction(),
+                            started_aim: pb.aim,
+                        }),
                     kind: ev.kind.clone(),
                     world_offset,
                     world_pose,
@@ -1647,7 +1681,7 @@ pub fn advance_move_playback(
                     
                         presentation_source: presentation_source.clone(),
                         kind: MoveEventKind::Effect(effect.clone()),
-                        ranged_source: None,
+                        ranged: None,
                     });
                 }
             }
@@ -1704,7 +1738,7 @@ pub fn advance_move_playback(
                     
                             presentation_source: presentation_source.clone(),
                             kind: MoveEventKind::Effect(effect.clone()),
-                            ranged_source: None,
+                            ranged: None,
                         });
                         pb.flow_node = *then;
                         pb.flow_wait_s = 0.0;
@@ -4508,9 +4542,6 @@ pub fn dispatch_move_events(
         // scales the shot's damage/speed at fire (trigger-resolve).
         Option<&ambition_characters::equipment::WornEquipment>,
     )>,
-    // The move that is playing, for the aim it was STARTED with. See
-    // `MovePlayback::aim`.
-    playbacks: Query<&MovePlayback>,
     mut sfx: SfxWriter,
     // Presentation's `process_fx_requests` fans one request into the effect + the cue its own
     // name addresses, so a move's author states the picture and gets the sound.
@@ -4608,17 +4639,13 @@ pub fn dispatch_move_events(
                 let Ok((control, worn)) = ranged_owners.get(ev.owner) else {
                     continue;
                 };
-                let Some(mut spec) = ev.ranged_source.clone() else {
+                let Some(ranged) = ev.ranged.clone() else {
                     continue; // admitted with no ranged source — the move fires nothing
                 };
+                let mut spec = ranged.source;
                 // The move's table states the shot's damage in its own game
                 // (`MoveSpec::shot_damage`); the weapon's is its own game's.
-                if let Some(damage) = playbacks
-                    .get(ev.owner)
-                    .ok()
-                    .filter(|pb| pb.spec.id == ev.move_id)
-                    .and_then(|pb| pb.spec.shot_damage)
-                {
+                if let Some(damage) = ranged.shot_damage {
                     spec.damage = damage;
                 }
                 // A3 trigger-resolve: fold worn equipment modifiers into THIS shot's
@@ -4639,11 +4666,7 @@ pub fn dispatch_move_events(
                 // fraction into damage, speed, size and the look a player reads
                 // it by. A shot that authors no ladder — every ranged action
                 // that existed before charging did — comes back unchanged.
-                let spec = match playbacks
-                    .get(ev.owner)
-                    .ok()
-                    .and_then(|pb| pb.charge_fraction())
-                {
+                let spec = match ranged.charge_fraction {
                     Some(fraction) => spec.at_charge(fraction),
                     None => spec,
                 };
@@ -4652,8 +4675,7 @@ pub fn dispatch_move_events(
                 // Aim priority: a live fire edge, then the aim captured when the
                 // move started, then body-facing in the controlled-body frame.
                 // Startup usually clears the initiating edge before the fire frame.
-                let started_with = playbacks.get(ev.owner).ok().and_then(|pb| pb.aim);
-                let fire = control.0.fire.or(started_with).unwrap_or_else(|| {
+                let fire = control.0.fire.or(ranged.started_aim).unwrap_or_else(|| {
                     ambition_characters::actor::control::ActorFireRequest::controlled_body_local(
                         ae::Vec2::new(kin.map(|k| k.facing.signum()).unwrap_or(1.0), 0.0),
                     )

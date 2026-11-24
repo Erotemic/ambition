@@ -258,11 +258,13 @@ fn basic_shell_menu_intent(
         (frame.page_right as i32) - (frame.page_left as i32)
     });
     if launcher.active {
-        // Escape/Start must reach settings from the title screen (the pause
-        // menu yields to the launcher, so this is the only way to mute here).
-        // With two tabs, a cycle is a toggle. Guarded by
-        // `shell_host_rendered::the_title_screen_menu_opens_and_mutes_the_game`.
-        if actions.pause {
+        // Dedicated Start opens settings; the pause cube yields to the launcher.
+        // A shared Start/Select control confirms the selected route.
+        if actions.pause
+            && !menu_frame
+                .as_ref()
+                .is_some_and(|frame| frame.start_shared_with_select)
+        {
             launcher_commands.write(ShellLauncherCommand::CycleTab(1));
             sfx.write(SfxMessage::Play {
                 id: ids::UI_MENU_MOVE,

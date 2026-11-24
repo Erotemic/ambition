@@ -19,18 +19,12 @@ use bevy::prelude::{Commands, Component, DetectChanges, DetectChangesMut, Entity
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DialogControls {
     /// Advances the line or takes the selected choice (`MenuSelect`).
-    pub confirm: String,
+    pub confirm: Option<ambition_input::NamedControl>,
     /// Closes a conversation; held, skips a cutscene (`MenuBack`).
-    pub back: String,
+    pub back: Option<ambition_input::NamedControl>,
     /// The line is a cutscene's: back held skips the cutscene, and a tap does
     /// not close it.
     pub hold_to_skip: bool,
-    /// The published picture of `confirm`'s control on this seat's device
-    /// (`PhysicalControl::glyph_path`), when the rule can name one. The box
-    /// draws it when the file is there, and `confirm` when it is not.
-    pub confirm_glyph: Option<String>,
-    /// The picture of `back`'s control, as `confirm_glyph`.
-    pub back_glyph: Option<String>,
 }
 
 impl DialogControls {
@@ -57,14 +51,7 @@ impl DialogControls {
             return Self { hold_to_skip, ..Self::default() };
         }
         let seat = bindings.for_seat(slot);
-        let style = device.gamepad_style();
-        Self {
-            confirm: seat.confirm_label(device).unwrap_or_default(),
-            back: seat.back_label(device).unwrap_or_default(),
-            hold_to_skip,
-            confirm_glyph: seat.confirm_control(device).and_then(|control| control.glyph_path(style)),
-            back_glyph: seat.back_control(device).and_then(|control| control.glyph_path(style)),
-        }
+        Self { confirm: seat.confirm_named(device), back: seat.back_named(device), hold_to_skip }
     }
 }
 

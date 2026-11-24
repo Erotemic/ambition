@@ -319,27 +319,13 @@ mod tests {
     }
 }
 
-/// `presets::key_name` returns `"?"` for a key it does not list. For those
-/// keys, use the `KeyCode` debug form (`F13`, `NumpadAdd`), as with
+/// A key's label: [`crate::presets::key_name`], the one table, or for a key it
+/// does not list the `KeyCode` debug form (`F13`, `NumpadAdd`), as with
 /// [`PhysicalControl::Other`].
 fn key_label(key: KeyCode) -> String {
-    match key {
-        KeyCode::Space => "Space".to_string(),
-        KeyCode::Enter => "Enter".to_string(),
-        KeyCode::Escape => "Esc".to_string(),
-        KeyCode::Backspace => "Backspace".to_string(),
-        KeyCode::Tab => "Tab".to_string(),
-        KeyCode::ShiftLeft | KeyCode::ShiftRight => "Shift".to_string(),
-        KeyCode::ControlLeft | KeyCode::ControlRight => "Ctrl".to_string(),
-        KeyCode::AltLeft | KeyCode::AltRight => "Alt".to_string(),
-        KeyCode::ArrowUp => "Up".to_string(),
-        KeyCode::ArrowDown => "Down".to_string(),
-        KeyCode::ArrowLeft => "Left".to_string(),
-        KeyCode::ArrowRight => "Right".to_string(),
-        other => match crate::presets::key_name(other) {
-            "?" => format!("{other:?}"),
-            named => named.to_string(),
-        },
+    match crate::presets::key_name(key) {
+        "?" => format!("{key:?}"),
+        named => named.to_string(),
     }
 }
 
@@ -438,6 +424,35 @@ fn snake_case(name: &str) -> String {
     out
 }
 
+/// A control as a prompt shows it on one device: its word, its published
+/// picture, and the control itself, so a drawn picture can press when it does.
+/// One value, so the word and the picture always name the same control.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NamedControl {
+    /// "Z" on a keyboard preset, "A" on an Xbox pad, "Cross" on a DualShock.
+    pub label: String,
+    /// The published picture (`sprites/input_glyphs/...`), when the renderer's
+    /// rule names one and the control is of the device's class: a picture of a
+    /// key is wrong in a pad's hands, where the word can still name it.
+    pub glyph: Option<String>,
+    pub control: PhysicalControl,
+}
+
+impl NamedControl {
+    pub fn of(control: &PhysicalControl, device: crate::ActiveDevice) -> Self {
+        let style = device.gamepad_style();
+        let of_class = matches!(
+            (control, device.draws_keyboard_glyphs()),
+            (PhysicalControl::Key(_), true) | (PhysicalControl::Button(_), false)
+        );
+        Self {
+            label: control.label_for(style),
+            glyph: control.glyph_path(style).filter(|_| of_class),
+            control: control.clone(),
+        }
+    }
+}
+
 impl ActionBindings {
 
     /// The label a prompt shows: the first binding, which the preset lists as
@@ -478,55 +493,10 @@ impl ActionBindings {
             .and_then(|control| control.glyph_path(device.gamepad_style()))
     }
 
-    /// The control a prompt names for confirm (`MenuSelect`) on this device.
-    ///
-    /// Confirm has several controls on one device (Enter, Space, and the jump
-    /// and interact keys on a keyboard). The prompt names the one the player
-    /// already uses in play: a confirm control that is also Interact, else one
-    /// that is also Jump, else the first.
-    pub fn confirm_label(&self, device: crate::ActiveDevice) -> Option<String> {
-        use Platformer2dInputActionMonolith as A;
-        self.label_preferring(&A::MenuSelect, &[A::Interact, A::Jump], &[], device)
-    }
-
-    /// The control [`Self::confirm_label`] names, for its picture.
-    pub fn confirm_control(&self, device: crate::ActiveDevice) -> Option<&PhysicalControl> {
-        use Platformer2dInputActionMonolith as A;
-        self.control_preferring(&A::MenuSelect, &[A::Interact, A::Jump], &[], device)
-    }
-
-    /// The control [`Self::back_label`] names, for its picture.
-    pub fn back_control(&self, device: crate::ActiveDevice) -> Option<&PhysicalControl> {
-        use Platformer2dInputActionMonolith as A;
-        self.control_preferring(&A::MenuBack, &[], &[A::Start], device)
-    }
-
-    /// The control a prompt names for back (`MenuBack`) on this device: one
-    /// that is not also Start, because Start opens the pause menu over the
-    /// dialogue (Esc is both on a keyboard).
-    pub fn back_label(&self, device: crate::ActiveDevice) -> Option<String> {
-        use Platformer2dInputActionMonolith as A;
-        self.label_preferring(&A::MenuBack, &[], &[A::Start], device)
-    }
-
-    /// `action`'s label on `device`: the first of its controls of the device's
-    /// class that is also bound to a `prefer` action (in that order), else the
-    /// first not bound to an `avoid` action, else the first.
-    fn label_preferring(
-        &self,
-        action: &Platformer2dInputActionMonolith,
-        prefer: &[Platformer2dInputActionMonolith],
-        avoid: &[Platformer2dInputActionMonolith],
-        device: crate::ActiveDevice,
-    ) -> Option<String> {
-        self.control_preferring(action, prefer, avoid, device)
-            .map(|control| control.label_for(device.gamepad_style()))
-            .or_else(|| self.label_for(action, device))
-    }
-
-    /// The control [`Self::label_preferring`] names, when one of the device's
-    /// class is bound (no fallback to the other class: a picture of a key is
-    /// wrong in a pad's hands, where a label can still fall back).
+    /// The control of the device's class that is also bound to a `prefer`
+    /// action (in that order), else the first not bound to an `avoid` action,
+    /// else the first of the class. No fallback to the other class here; the
+    /// caller decides.
     fn control_preferring(
         &self,
         action: &Platformer2dInputActionMonolith,
@@ -547,6 +517,39 @@ impl ActionBindings {
             .or_else(|| of_class.iter().find(|control| !avoid.iter().any(|other| bound_to(other, control))))
             .or_else(|| of_class.first())
             .copied()
+    }
+
+    /// [`Self::label_for`]'s control, named for `device`.
+    pub fn named_for(&self, action: &Platformer2dInputActionMonolith, device: crate::ActiveDevice) -> Option<NamedControl> {
+        self.control_for(action, device)
+            .or_else(|| self.controls(action).first())
+            .map(|control| NamedControl::of(control, device))
+    }
+
+    /// The control a prompt names for confirm: a `MenuSelect` control also
+    /// bound to Jump (the pad's A and its keyboard stand-in), else the first.
+    pub fn confirm_named(&self, device: crate::ActiveDevice) -> Option<NamedControl> {
+        use Platformer2dInputActionMonolith as A;
+        self.named_preferring(&A::MenuSelect, &[A::Jump], &[], device)
+    }
+
+    /// The control a prompt names for back: a `MenuBack` control that is not
+    /// also Start, because Start opens the pause menu over the dialogue.
+    pub fn back_named(&self, device: crate::ActiveDevice) -> Option<NamedControl> {
+        use Platformer2dInputActionMonolith as A;
+        self.named_preferring(&A::MenuBack, &[], &[A::Start], device)
+    }
+
+    fn named_preferring(
+        &self,
+        action: &Platformer2dInputActionMonolith,
+        prefer: &[Platformer2dInputActionMonolith],
+        avoid: &[Platformer2dInputActionMonolith],
+        device: crate::ActiveDevice,
+    ) -> Option<NamedControl> {
+        self.control_preferring(action, prefer, avoid, device)
+            .map(|control| NamedControl::of(control, device))
+            .or_else(|| self.named_for(action, device))
     }
 
 }
@@ -583,6 +586,17 @@ impl SeatBindings {
     ) -> Option<String> {
         let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
         self.for_seat(seat).glyph_for(&action_for_slot(slot)?, device)
+    }
+
+    /// The control an ability slot's prompt names on the seat's device.
+    pub fn named_for_slot(
+        &self,
+        seat: u8,
+        slot: ambition_entity_catalog::action_scheme::ControlSlot,
+        devices: Option<&crate::SeatActiveDevices>,
+    ) -> Option<NamedControl> {
+        let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
+        self.for_seat(seat).named_for(&action_for_slot(slot)?, device)
     }
 
 }

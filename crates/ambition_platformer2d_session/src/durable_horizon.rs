@@ -591,9 +591,9 @@ pub fn persist_occurrence_horizon_to_save(
         ledger: occurrences.clone(),
         save_rows: save.data().occurrences_shared().clone(),
         restorable: restorable_now,
-        // Built only when the live mints, the ledger or the save's minted rows
-        // changed, so the same allocation comes back on a quiet tick.
-        minted_rows: minted.rows(Some(&occurrences), save.data()),
+        // Encoded only when the item owner's retained recipes changed, so the
+        // same allocation comes back on a quiet tick.
+        minted_rows: minted.rows(),
         save_minted: save.data().minted_items_shared().clone(),
     };
     let rows_may_differ = mirrored_with.as_ref() != Some(&key_now);

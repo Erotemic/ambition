@@ -192,6 +192,7 @@ pub struct TouchControlsPlugin;
 
 impl Plugin for TouchControlsPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(ambition_render::control_glyphs::GlyphPressPlugin);
         app.init_resource::<ambition_input::SeatMenuFrames>();
         // This overlay spawns text and runs `.after(UiFontsLoaded)`. An empty
         // set makes that ordering do nothing, so install the plugin that fills it.
@@ -301,6 +302,7 @@ impl Plugin for TouchControlsPlugin {
                         .after(update_button_glyph_from_active_input)
                         .after(update_button_pressed_from_actions),
                     sync_button_pressed_visual.after(update_button_pressed_from_actions),
+                    press_touch_glyphs.after(update_button_pressed_from_actions),
                 ),
             )
             // Mirror keyboard and gamepad axis input onto the joystick knob,
@@ -1229,6 +1231,8 @@ fn spawn_button_contents(
                 ..default()
             },
             bevy::picking::Pickable::IGNORE,
+            // Presses with its button (`press_touch_glyphs`).
+            ambition_render::control_glyphs::GlyphPress::owned(),
             Name::new("Touch control glyph"),
         ))
         .id();
@@ -1243,6 +1247,19 @@ fn spawn_button_contents(
         TouchGlyphImage(image),
         bevy::picking::Pickable::IGNORE,
     ));
+}
+
+/// A button's picture presses with the button.
+pub fn press_touch_glyphs(
+    buttons: Query<(&ButtonPressed, &Children), Changed<ButtonPressed>>,
+    mut glyphs: Query<&mut ambition_render::control_glyphs::GlyphPress>,
+) {
+    for (pressed, children) in &buttons {
+        let mut pictures = glyphs.iter_many_mut(children);
+        while let Some(mut glyph) = pictures.fetch_next() {
+            glyph.held = pressed.0;
+        }
+    }
 }
 
 /// The control's held level. [`sync_button_pressed_visual`] uses it to
@@ -1753,8 +1770,7 @@ mod prompt_tests {
                     label: label.to_owned(),
                     visual: None,
                     // Label fixtures only; bindings have a separate test.
-                    binding: None,
-                    glyph: None,
+                    control: None,
                     // Readiness is `ButtonReady`'s concern, not the label's.
                     ready: true,
                 })
@@ -2377,8 +2393,7 @@ mod glyph_picture_tests {
                     slot: ControlSlot::Jump,
                     label: "Vault".into(),
                     visual: None,
-                    binding: None,
-                    glyph: None,
+                    control: None,
                     ready: true,
                 }],
                 menu_confirm: None,

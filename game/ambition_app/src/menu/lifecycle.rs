@@ -171,10 +171,10 @@ pub(crate) fn route_menu_lifecycle(
     ) in &mut menus
     {
         let input = frames.for_seat(owner.owner.slot());
-        let selecting = input.start_shared_with_select
-            && (overlay.visible || access.owner(owner.owner).is_some_and(|context| {
-                context != ambition_platformer2d::input::GAMEPLAY_CONTEXT
-            }));
+        // A control shared by Start and Select selects inside the open menu.
+        // Outside it, even over a conversation, cutscene or terminal, it is
+        // Start: a player can always pause (Q184).
+        let selecting = input.start_shared_with_select && overlay.visible;
         let start = input.start && !latch.last_start && !selecting;
         latch.last_start = input.start;
         let platform_pause = platform_pause && owner.owner == ParticipantId::PRIMARY;

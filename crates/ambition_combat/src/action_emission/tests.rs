@@ -235,3 +235,14 @@ fn a_ranged_moveset_owns_the_fire_intent_and_the_flat_emitter_stands_aside() {
         "the moveset's ranged move owns the press; a flat shot here is the second projectile"
     );
 }
+
+/// A held item is the whole ranged vocabulary: one with no shot (a bomb, a
+/// melee-only axe) leaves a charging body with no ranged press, rather than
+/// handing the press back to the character's charge. Letting go restores it.
+#[test]
+fn a_held_item_with_no_shot_takes_the_press_from_the_charge() {
+    use super::charge_stream_owns_the_press;
+    assert!(charge_stream_owns_the_press(true, false, None), "an empty hand charges");
+    assert!(!charge_stream_owns_the_press(true, true, None), "a held item without a shot fell back on charge");
+    assert!(!charge_stream_owns_the_press(false, false, None), "a body that does not charge never does");
+}

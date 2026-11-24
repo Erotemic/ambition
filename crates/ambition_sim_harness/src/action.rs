@@ -221,6 +221,8 @@ impl From<AgentAction> for ControlFrame {
             aim_y: a.aim_y,
             confirm_pressed: a.confirm,
             cancel_held: a.cancel_held,
+            // A scripted action is an eligible supply; it has no capture.
+            input_interrupted: false,
         }
     }
 }

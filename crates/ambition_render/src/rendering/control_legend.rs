@@ -104,7 +104,7 @@ pub fn write_control_legends(
                 .into_iter()
                 .map(|piece| {
                     let path = match &piece {
-                        LegendPiece::Control { glyph, .. } => picture(glyph),
+                        LegendPiece::Control(control) => picture(&control.as_ref().and_then(|control| control.glyph.clone())),
                         LegendPiece::Text(_) => None,
                     };
                     (piece, path)
@@ -138,24 +138,32 @@ pub fn write_control_legends(
         } else {
             text.0.clear();
             for (piece, handle) in drawn {
+                let press = match &piece {
+                    LegendPiece::Control(Some(control)) => crate::control_glyphs::GlyphPress::of(&control.control),
+                    _ => None,
+                };
                 let span = match piece {
                     LegendPiece::Text(words) => words,
-                    LegendPiece::Control { label, .. } if handle.is_some() => format!(" {label} "),
-                    LegendPiece::Control { label, .. } => label,
+                    LegendPiece::Control(control) => {
+                        let label = control.map_or_else(|| "?".to_owned(), |control| control.label);
+                        if handle.is_some() { format!(" {label} ") } else { label }
+                    }
                 };
                 let glyph = handle.map(|image| {
-                    commands
-                        .spawn((
-                            Sprite {
-                                image,
-                                color: Color::NONE,
-                                ..default()
-                            },
-                            Transform::default(),
-                            LegendGlyph,
-                            ChildOf(entity),
-                        ))
-                        .id()
+                    let mut glyph = commands.spawn((
+                        Sprite {
+                            image,
+                            color: Color::NONE,
+                            ..default()
+                        },
+                        Transform::default(),
+                        LegendGlyph,
+                        ChildOf(entity),
+                    ));
+                    if let Some(press) = press {
+                        glyph.insert(press);
+                    }
+                    glyph.id()
                 });
                 commands.spawn((
                     TextSpan::new(span),
@@ -250,8 +258,11 @@ mod tests {
                 slot: ControlSlot::Jump,
                 label: "Jump".to_owned(),
                 visual: None,
-                binding: Some(jump.to_owned()),
-                glyph: None,
+                control: Some(ambition_input::NamedControl {
+                    label: jump.to_owned(),
+                    glyph: None,
+                    control: ambition_input::PhysicalControl::Other(jump.to_owned()),
+                }),
                 ready: true,
             }],
             menu_confirm: None,

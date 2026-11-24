@@ -120,23 +120,20 @@ pub struct PromptEntry {
     pub slot: ControlSlot,
     pub label: String,
     pub visual: Option<VisualId>,
-    /// The physical control this slot is bound to for the local primary seat —
-    /// "Z", "A", "Cross" — or `None` when nothing bound it (or when no
-    /// projection is installed, as in a headless sim).
+    /// The physical control this slot is bound to for the local primary seat,
+    /// as the seat's device shows it: its word ("Z", "A", "Cross"), its
+    /// published picture, and the control. `None` when nothing bound it (or
+    /// when no projection is installed, as in a headless sim).
     ///
-    /// read from `SeatBindings`, never written by hand. The verb and the
-    /// key are two different facts with two different owners: the verb is what
-    /// this slot DOES (the action scheme's answer) and the binding is which
-    /// control presses it (the input map's). A prompt that hardcoded the second
-    /// would go stale on the first rebind, and the player would be told to press
-    /// a key that does nothing.
-    pub binding: Option<String>,
-    /// The published picture of [`Self::binding`]'s control for the seat's
-    /// device (`sprites/input_glyphs/...`), from the same owner by the same
-    /// choice of control, so a rebind or a different pad moves both. A name,
-    /// not a promise that the file was drawn: a surface asks its asset catalog
-    /// and writes `binding` when the picture is not there.
-    pub glyph: Option<String>,
+    /// Read from `SeatBindings`, never written by hand. The verb and the
+    /// control are two different facts with two different owners: the verb is
+    /// what this slot DOES (the action scheme's answer) and the control is what
+    /// presses it (the input map's). A prompt that hardcoded the second would
+    /// go stale on the first rebind, and the player would be told to press a
+    /// key that does nothing. The picture is a name, not a promise that the
+    /// file was drawn: a surface asks its asset catalog and writes the word
+    /// when it is not there.
+    pub control: Option<ambition_input::NamedControl>,
     /// Can this slot's action FIRE right now? `true` for every slot that has no
     /// cooldown, which is all of them but the ranged one today.
     ///
@@ -179,9 +176,8 @@ pub const LEGEND_ACTION_OPEN: &str = "{action:";
 pub enum LegendPiece {
     /// Authored words, as written.
     Text(String),
-    /// A control: its name (`?` when nothing binds it) and, when the seat's
-    /// device has one, the path of its published picture.
-    Control { label: String, glyph: Option<String> },
+    /// A control, or `None` when nothing binds it (written `?`).
+    Control(Option<ambition_input::NamedControl>),
 }
 
 impl ControlPrompt {
@@ -197,13 +193,13 @@ impl ControlPrompt {
             .iter()
             .map(|piece| match piece {
                 LegendPiece::Text(text) => text.as_str(),
-                LegendPiece::Control { label, .. } => label.as_str(),
+                LegendPiece::Control(control) => control.as_ref().map_or("?", |control| control.label.as_str()),
             })
             .collect()
     }
 
     /// [`Self::fill_legend`] as pieces, so a surface can draw each control's
-    /// picture (`PromptEntry::glyph`) in place of its name.
+    /// picture (`PromptEntry::control`) in place of its name.
     pub fn legend_pieces(&self, template: &str) -> Vec<LegendPiece> {
         let mut pieces = Vec::new();
         let mut rest = template;
@@ -214,17 +210,12 @@ impl ControlPrompt {
                 pieces.push(LegendPiece::Text(rest[..open].to_owned()));
             }
             let id = &after[..close];
-            let entry = self
+            let control = self
                 .entries
                 .iter()
                 .find(|entry| entry.action.as_str() == id)
-                .filter(|entry| entry.binding.is_some());
-            pieces.push(LegendPiece::Control {
-                label: entry
-                    .and_then(|entry| entry.binding.clone())
-                    .unwrap_or_else(|| "?".to_owned()),
-                glyph: entry.and_then(|entry| entry.glyph.clone()),
-            });
+                .and_then(|entry| entry.control.clone());
+            pieces.push(LegendPiece::Control(control));
             rest = &after[close + 1..];
         }
         if !rest.is_empty() {
@@ -525,15 +516,8 @@ pub fn rebuild_control_prompt(
                 PromptNaming::ByMove => action.display(),
             },
             visual: action.visual.clone(),
-            binding: bindings.as_deref().and_then(|seats| {
-                seats.label_for_slot(
-                    ambition_input::ParticipantId::PRIMARY.slot(),
-                    action.slot,
-                    devices.as_deref(),
-                )
-            }),
-            glyph: bindings.as_deref().and_then(|seats| {
-                seats.glyph_for_slot(
+            control: bindings.as_deref().and_then(|seats| {
+                seats.named_for_slot(
                     ambition_input::ParticipantId::PRIMARY.slot(),
                     action.slot,
                     devices.as_deref(),
@@ -570,6 +554,7 @@ pub fn derive_weapon_readiness(
             Has<ambition_characters::brain::ChargesProjectiles>,
             Option<&ActorMoveset>,
             Option<&mut ambition_combat::BodyWeaponReadiness>,
+            Has<ambition_combat::held_items::HeldItem>,
         ),
         Or<(
             With<ambition_combat::components::RangedRefire>,
@@ -578,9 +563,9 @@ pub fn derive_weapon_readiness(
     >,
     shots: Query<&ambition_projectiles::ProjectileOwner, With<ambition_projectiles::WeaponShot>>,
 ) {
-    for (body, refire, actions, fireball, charges, moveset, view) in &mut bodies {
+    for (body, refire, actions, fireball, charges, moveset, view, holding) in &mut bodies {
         let fireball = fireball.filter(|_| {
-            ambition_combat::action_emission::charge_stream_owns_the_press(charges, moveset)
+            ambition_combat::action_emission::charge_stream_owns_the_press(charges, holding, moveset)
         });
         let readiness = match (fireball, refire) {
             (Some(fireball), _) => ambition_combat::WeaponReadiness::of_spawner(
@@ -1312,7 +1297,7 @@ mod tests {
                 .entries
                 .iter()
                 .find(|entry| entry.slot == slot)
-                .and_then(|entry| entry.binding.clone())
+                .and_then(|entry| entry.control.as_ref().map(|control| control.label.clone()))
         };
         assert_eq!(
             binding_for(&app, ControlSlot::Jump).as_deref(),
@@ -1325,7 +1310,7 @@ mod tests {
                 .entries
                 .iter()
                 .find(|entry| entry.slot == slot)
-                .and_then(|entry| entry.glyph.clone())
+                .and_then(|entry| entry.control.as_ref().and_then(|control| control.glyph.clone()))
         };
         assert_eq!(
             glyph_for(&app, ControlSlot::Jump).as_deref(),
@@ -1403,7 +1388,7 @@ mod tests {
                 .entries
                 .iter()
                 .find(|entry| entry.slot == slot)
-                .and_then(|entry| entry.binding.clone())
+                .and_then(|entry| entry.control.as_ref().map(|control| control.label.clone()))
         };
 
         app.world_mut()
@@ -1421,7 +1406,7 @@ mod tests {
                 .entries
                 .iter()
                 .find(|entry| entry.slot == slot)
-                .and_then(|entry| entry.glyph.clone())
+                .and_then(|entry| entry.control.as_ref().and_then(|control| control.glyph.clone()))
         };
         assert_eq!(
             glyph_for(&app, ControlSlot::Jump).as_deref(),
@@ -1810,8 +1795,11 @@ mod tests {
             slot,
             label: action.to_owned(),
             visual: None,
-            binding: binding.map(str::to_owned),
-            glyph: None,
+            control: binding.map(|label| ambition_input::NamedControl {
+                label: label.to_owned(),
+                glyph: None,
+                control: ambition_input::PhysicalControl::Other(label.to_owned()),
+            }),
             ready: true,
         };
         let prompt = ControlPrompt {

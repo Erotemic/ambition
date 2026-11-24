@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v538
+ggrs-rollback-schema-v539
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -566,6 +566,7 @@ resource.quest_causes_in_rooms	resource-clone-custom-checksum	QuestCausesInRooms
 resource.quest_last_room	component-clone-custom-checksum	LastQuestRoom	bevy_ggrs clone snapshot + the room ids that were live when the RoomEntered producer last looked
 resource.quest_registry	resource-clone-custom-checksum	QuestRegistry	bevy_ggrs clone snapshot + quest identity, progression, pending-advance and caused-advance checksum projection
 resource.requested_clock_scale	resource-canonical	RequestedClockScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.retained_mint_recipes	component-clone-custom-checksum	RetainedMintRecipes	bevy_ggrs clone snapshot + entity-free recipe checksum of every live and dormant runtime mint
 resource.reward_grants_since_checkpoint	resource-clone-custom-checksum	RewardGrantsSinceCheckpoint	bevy_ggrs clone snapshot + the grants of the pickups collected and the chests opened since the last checkpoint: a retracted boss defeat takes back a mint's and its reward chest's, and a death keeps a placed source's while one of its owners is spared
 resource.sandbox_save	resource-clone-custom-checksum	AmbitionGameSave	bevy_ggrs clone snapshot + serialized whole-save checksum projection, its dormant-record rows hashed once per Arc
 resource.sandbox_sim_state	component-canonical	RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

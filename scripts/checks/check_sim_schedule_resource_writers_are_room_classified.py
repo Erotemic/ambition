@@ -279,10 +279,6 @@ MIRRORS: dict[str, str] = {
         "\"Mirror the live inventory + wallet into the save whenever they differ\": "
         "the bag and the primary wallet (`ambition_platformer2d_items/src/persist.rs`)"
     ),
-    "persist_minted_item_horizon_to_save": (
-        "rebuilds the save's minted rows from the live mints and the occurrence "
-        "ledger when either changed (`pickup/minted_horizon.rs`)"
-    ),
     "persist_occurrence_horizon_to_save": (
         "rebuilds the save's occurrence rows from `AuthoredOccurrences` and the "
         "live custody (`session/src/durable_horizon.rs`)"

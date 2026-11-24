@@ -35,7 +35,11 @@ pub const INPUT_STREAM_VERSION: u32 = 2;
 /// enum variants. The input uses positional bincode encoding. A rollback
 /// state schema or replay stream version does not cover this format.
 /// `scripts/checks/check_absence_contracts.py` checks the source-level shape.
-pub const CONTROL_FRAME_WIRE_IDENTITY: u32 = 9;
+///
+/// 10 (IN5, 2026-11-24): `ControlFrame::input_interrupted`, a trailing bool.
+/// A version-2 stream recorded before it loads with the field false: it cannot
+/// say which ticks were captured, and does not claim to.
+pub const CONTROL_FRAME_WIRE_IDENTITY: u32 = 10;
 
 /// Everything wrong with a stream, said precisely enough to act on.
 #[derive(Debug, Clone, PartialEq, Eq)]

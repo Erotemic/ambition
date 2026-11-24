@@ -248,6 +248,17 @@ pub struct ControlFrame {
     /// cutscene accumulates it, on the simulation clock, into a skip. A level,
     /// not an edge: the skip is a hold.
     pub cancel_held: bool,
+    /// The seat's gameplay input was captured (a menu, a pause, lost focus)
+    /// at some point since the previous tick took this frame (IN5). An EDGE:
+    /// it ORs through every sample of the tick and clears when the tick takes
+    /// it, so a capture that opens and closes between two ticks still
+    /// reaches the next one. A neutral frame is not an interruption, which
+    /// is why this is a fact of its own: a continuation that needs the
+    /// supply (a pending charge) is withdrawn on it, and a held level that
+    /// resumes after it is not mistaken for the hold that began the charge.
+    ///
+    /// The last field because bincode encodes positionally.
+    pub input_interrupted: bool,
 }
 
 impl ControlFrame {
@@ -260,6 +271,7 @@ impl ControlFrame {
             cancel_held: self.cancel_held,
             control_frame_modes: self.control_frame_modes,
             party_preference: self.party_preference,
+            input_interrupted: self.input_interrupted,
             ..Self::default()
         }
     }
@@ -355,6 +367,7 @@ impl ControlFrame {
             taunt_pressed: self.taunt_pressed | sample.taunt_pressed,
             confirm_pressed: self.confirm_pressed | sample.confirm_pressed,
             cancel_held: sample.cancel_held,
+            input_interrupted: self.input_interrupted | sample.input_interrupted,
         }
     }
 
@@ -414,9 +427,11 @@ pub struct ControlFrameLatch {
 }
 
 impl ControlFrameLatch {
-    /// Discard gameplay input without losing menu edges that await a simulation tick.
+    /// Discard gameplay input without losing menu edges that await a simulation tick,
+    /// and record that the supply was interrupted (IN5).
     pub fn suppress_gameplay(&mut self) {
         self.accumulated = self.accumulated.menu_only();
+        self.accumulated.input_interrupted = true;
     }
 
     /// Fold one device sample in. Levels overwrite; edges stick.
@@ -473,6 +488,20 @@ mod latch_tests {
         assert!(latch.is_device_authority());
         let next = latch.take();
         assert!(!next.confirm_pressed && !next.start_pressed);
+    }
+
+    /// IN5: a capture that opens and closes between two ticks still reaches
+    /// the next tick, once, beside the levels that resumed after it.
+    #[test]
+    fn a_capture_between_two_ticks_reaches_the_next_one_once() {
+        let mut latch = ControlFrameLatch::default();
+        latch.accumulate(ControlFrame { projectile_held: true, ..ControlFrame::default() });
+        assert!(!latch.take().input_interrupted, "an ordinary hold is no interruption");
+        latch.suppress_gameplay();
+        latch.accumulate(ControlFrame { projectile_held: true, ..ControlFrame::default() });
+        let tick = latch.take();
+        assert!(tick.input_interrupted && tick.projectile_held, "the resumed hold arrives with the interruption");
+        assert!(!latch.take().input_interrupted, "the interruption is taken once");
     }
 
     /// A tap that opens and closes between two ticks must still reach the sim.
@@ -774,6 +803,7 @@ mod the_bytes_two_peers_exchange {
             aim_y: -0.375,
             confirm_pressed: true,
             cancel_held: false,
+            input_interrupted: true,
         }
     }
 
@@ -783,7 +813,7 @@ mod the_bytes_two_peers_exchange {
     /// `0100`/`0001` are the alternating bools, `02000000` is
     /// `AttackStrengthHint::Smash` (bincode writes a unit variant as a `u32`
     /// index), and `01000000 02000000` are the two frame modes.
-    const RECORDED: &str = "000040bf0000003f010001000100010001000100010001000102000000010000803e000080bf0100000002000000010001000100080001000100010001000000003e0000c0be0100";
+    const RECORDED: &str = "000040bf0000003f010001000100010001000100010001000102000000010000803e000080bf0100000002000000010001000100080001000100010001000000003e0000c0be010001";
 
     /// One frame's bincode encoding, in bytes.
     ///
@@ -794,7 +824,8 @@ mod the_bytes_two_peers_exchange {
     /// divides the received total by the player count. This constant is here so
     /// the width below is compared against a RECORDED number rather than against
     /// itself.
-    const RECORDED_WIRE_BYTES: u64 = 72;
+    // 73 since IN5 (wire identity 10): `input_interrupted`, a trailing bool.
+    const RECORDED_WIRE_BYTES: u64 = 73;
 
     fn hex(bytes: &[u8]) -> String {
         bytes.iter().map(|byte| format!("{byte:02x}")).collect()

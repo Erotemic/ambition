@@ -24,7 +24,9 @@ use ambition_ui_nav::DialogChoiceSlot;
 /// The default box's input hint, naming the answering seat's own controls
 /// (the action's name when there is no control to show).
 fn default_hint(dialogue: &DialogView) -> String {
-    let named = |control: &str, action: &'static str| if control.is_empty() { action.to_owned() } else { control.to_owned() };
+    let named = |control: &Option<ambition_input::NamedControl>, action: &'static str| {
+        control.as_ref().map_or_else(|| action.to_owned(), |control| control.label.clone())
+    };
     let confirm = named(&dialogue.controls.confirm, "Confirm");
     let back = named(&dialogue.controls.back, "Back");
     if dialogue.controls.hold_to_skip {

@@ -699,9 +699,27 @@ reading the tick's press, so a fresh press starts a new charge for the new
 driver. A body that nobody drove when it began charging keeps the charge
 while still undriven. Guard:
 `a_charge_whose_driver_left_is_withdrawn_without_a_shot` (a possession gap
-before the release fires nothing; the control without the gap fires). Still
-open: UI/focus capture (the supply-interruption fact above, with IN1); the
-same-body binding replacement below landed the same day. The original rule:
+before the release fires nothing; the control without the gap fires). The
+same-body binding replacement below landed the same day.
+
+**UI/focus capture landed 2026-11-24.** The supply-interruption fact is
+`ControlFrame::input_interrupted`, an edge on the admitted seat frame. The
+latch sets it in `suppress_gameplay`, and the latchless road sets it on the
+menu-only raw row. `merge_sample` ORs it, so a capture that opens and closes
+between two ticks still reaches the next tick. `take` clears it and keeps
+the levels. Every adapter and every `..Default::default()` frame is
+eligible (false). `charge_projectile_input` reads the frame of the seat that
+began the charge (`charge_driver`) from `SlotControls` and withdraws the
+charge without a shot when that seat was interrupted, before reading the
+tick's press. A fresh press after the capture starts a new charge. Peer wire
+identity 10 (one trailing bool: 81 bytes a handle); a stream recorded
+before it loads with the field false and claims nothing about captures.
+Guards: `a_charge_whose_input_was_captured_is_withdrawn_without_a_shot`
+(runtime) and `a_capture_between_two_ticks_reaches_the_next_one_once`
+(core latch). The possession gesture requalifies its history on the same
+fact: a Down+Interact still held across a capture is not a new combination,
+and one completed by a press after the capture (either part last) still
+releases (`a_hold_resumed_after_a_capture_does_not_release_the_possession`). The original rule:
 Withdraw the old pending charge at the existing relation removal/replacement
 cut, or retain the bounded prior ownership needed by its native owner.
 Preserve that necessary continuation through rollback; do not equate

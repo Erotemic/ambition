@@ -291,12 +291,16 @@ ADJUDICATED: dict[str, str] = {
         "the mirror of its inputs, so the save (registered and checksummed) is "
         "the same with or without the cache (read 2026-10-01)"
     ),
-    "persist_minted_item_horizon_to_save": (
-        "A CHANGE GATE (FI9), the same argument as "
-        "`persist_occurrence_horizon_to_save`: `mirrored_with` holds the live "
-        "mint descriptions and the ledger's presence that the save's minted rows "
-        "were last mirrored with. The restore writes the ledger and the save, so "
-        "the gate opens on the first replayed tick (read 2026-10-01)"
+    "retain_mint_recipes": (
+        "A CHANGE GATE (FI9, IR2). `retained_with` holds the live mint "
+        "descriptions, the ledger, the checkpoint baseline and the retained "
+        "recipes it last built. The two baselines are compared by allocation: "
+        "a rollback restore clones `RetainedMintRecipes` and `MintedItemBaseline` "
+        "back from their snapshots, which are other allocations than the cache "
+        "holds, so the gate opens on the first replayed tick and rebuilds from "
+        "the restored inputs. When the gate stays shut, the retained recipes "
+        "(registered and checksummed) already equal the rule applied to its "
+        "inputs (read 2026-11-24)"
     ),
     # ── per-instance and idempotent ─────────────────────────────────────────
     "stamp_causal_frame": (

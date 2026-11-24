@@ -35,6 +35,12 @@ its action ID, label, gate, and availability are character/context dependent.
 Content techniques may replace a base action on a slot, but must consume the
 shared resolver's keyed technique edge rather than intercepting a raw verb.
 
+The standard gamepad uses LT for Shield, RB for Interact, and RT for Dash
+(the shared Burst slot). View/Select holds the run or stance modifier. Reset
+uses keyboard or touch controls. Saved control changes and game layouts can
+replace these defaults. Bodies with Dash show Dash for the Burst slot;
+bodies that only have Dodge keep that action name.
+
 ## Local seats and controllers
 
 Owner: `ambition_input` (`seating.rs`, `local_seats.rs`, `sources.rs`,

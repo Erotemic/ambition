@@ -459,7 +459,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                     "Choose who starts a group crossing. The session leader supplies this preference in games that enable it.")
             },
             toggle(SettingsOptionId::PartyReturn, "Return to Leader", g.party_return,
-                "Use the Select / Reset binding to return a follower to the leader. The session leader supplies this preference."),
+                "Use the Reset binding to return a follower to the leader. The session leader supplies this preference."),
             toggle(
                 SettingsOptionId::CoopFriendlyFire,
                 "Co-op Friendly Fire",

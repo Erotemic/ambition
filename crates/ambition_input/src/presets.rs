@@ -434,18 +434,18 @@ impl KeyboardPreset {
 /// Free-standing because it does not depend on the preset; the preset chooses
 /// keys. A second local seat has no preset and uses exactly this.
 ///
-/// Every action has a button so both input modes are fully playable:
+/// The standard gamepad bindings:
 ///   South        Jump, MenuSelect
 ///   East         Blink, MenuBack
 ///   West         Attack
 ///   North        Projectile (fireball)
 ///   LeftTrigger  Utility (fly toggle), MenuPageLeft
-///   LeftTrigger2 Modifier
-///   RightTrigger Shield, Interact, MenuPageRight
+///   LeftTrigger2 Shield
+///   RightTrigger Interact, MenuPageRight
 ///   RightTrigger2 Burst
 ///   LeftThumb    Map (click left stick)
 ///   RightThumb   Inventory (click right stick)
-///   Select       Reset
+///   Select       Modifier
 ///   Start        Start (pause)
 ///   DPad / sticks  Move + MenuNavigate, MenuStick, AimStick
 #[cfg(feature = "input")]
@@ -501,16 +501,12 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
         Platformer2dInputActionMonolith::Burst,
         GamepadButton::RightTrigger2,
     );
-    map.insert(
-        Platformer2dInputActionMonolith::Reset,
-        GamepadButton::Select,
-    );
     map.insert(Platformer2dInputActionMonolith::Start, GamepadButton::Start);
 
     map.insert(Platformer2dInputActionMonolith::Blink, GamepadButton::East);
     map.insert(
         Platformer2dInputActionMonolith::Shield,
-        GamepadButton::RightTrigger,
+        GamepadButton::LeftTrigger2,
     );
     map.insert(
         Platformer2dInputActionMonolith::Interact,
@@ -524,7 +520,7 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
     // button or a chord.
     map.insert(
         Platformer2dInputActionMonolith::Modifier,
-        GamepadButton::LeftTrigger2,
+        GamepadButton::Select,
     );
     map.insert(
         Platformer2dInputActionMonolith::Utility,
@@ -568,7 +564,7 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
         GamepadButton::East,
     );
 
-    // The bumpers are also gameplay Utility and Shield. Menu page actions are
+    // The bumpers are also gameplay Utility and Interact. Menu page actions are
     // read only while a paged menu is open, so sharing the button is safe.
     map.insert(
         Platformer2dInputActionMonolith::MenuPageLeft,
@@ -655,6 +651,41 @@ pub fn key_name(key: KeyCode) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "input")]
+    #[test]
+    fn shield_interact_burst_and_modifier_use_separate_pad_controls() {
+        use crate::{ActionBindings, ActiveDevice, GamepadStyle, PhysicalControl};
+        use Platformer2dInputActionMonolith as Action;
+
+        let actions = [
+            Action::Shield,
+            Action::Interact,
+            Action::Burst,
+            Action::Modifier,
+        ];
+        for preset in KeyboardPreset::presets() {
+            let bindings = ActionBindings::from_map(&preset.input_map());
+            for (action, button) in [
+                (Action::Shield, GamepadButton::LeftTrigger2),
+                (Action::Interact, GamepadButton::RightTrigger),
+                (Action::Burst, GamepadButton::RightTrigger2),
+                (Action::Modifier, GamepadButton::Select),
+            ] {
+                let control = PhysicalControl::Button(button);
+                assert_eq!(
+                    bindings.control_for(
+                        &action,
+                        ActiveDevice::Gamepad(GamepadStyle::XboxLike),
+                    ),
+                    Some(&control),
+                );
+                for other in actions.into_iter().filter(|other| *other != action) {
+                    assert!(!bindings.controls(&other).contains(&control));
+                }
+            }
+        }
+    }
 
     #[cfg(feature = "input")]
     #[test]

@@ -50,8 +50,7 @@ pub enum BindingLayout {
 /// the stick only.
 ///
 /// Buttons not listed keep the base preset: RightTrigger2 still fires the
-/// burst, and the sticks,
-/// Select/Start, and thumb clicks do not change.
+/// burst. The sticks, Start, and thumb clicks do not change.
 const SMASH_PAD: &[PadSlot] = &[
     slot(
         GamepadButton::South,
@@ -80,12 +79,12 @@ const SMASH_PAD: &[PadSlot] = &[
         GamepadButton::LeftTrigger2,
         Platformer2dInputActionMonolith::Shield,
     ),
-    // The short hop, on the shoulder the base preset gave to a third shield
-    // (and to Interact, which a stage does not use).
+    // Short hop replaces Interact, which a stage does not use.
     slot(
         GamepadButton::RightTrigger,
         Platformer2dInputActionMonolith::ShortHop,
     ),
+    slot(GamepadButton::Select, Platformer2dInputActionMonolith::Reset),
 ];
 
 impl BindingLayout {
@@ -278,6 +277,10 @@ mod tests {
             (
                 GamepadButton::LeftTrigger2,
                 vec![Platformer2dInputActionMonolith::Shield],
+            ),
+            (
+                GamepadButton::Select,
+                vec![Platformer2dInputActionMonolith::Reset],
             ),
         ] {
             assert_eq!(

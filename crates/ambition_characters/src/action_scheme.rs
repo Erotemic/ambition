@@ -426,24 +426,9 @@ pub fn resolve_control_slots(
 /// body simply lacks a slot for a capability it doesn't have (no phantom
 /// buttons, no post-hoc stripping).
 fn movement_actions(abilities: &AbilitySet) -> Vec<ActionSpec> {
-    // The burst button's player-facing word, and it follows the KERNEL'S
-    // PRECEDENCE rather than a preference.
-    //
-    // The slot is `Burst` because dodge and dash are one press — but "Burst" is
-    // engine vocabulary and no player has ever pressed one. Naming it after the
-    // channel would trade a wrong word (`Dash` on a fighter that cannot dash)
-    // for a meaningless one on every body.
-    //
-    //  `resolve_burst_maneuver` asks `available_dodge` FIRST and only reaches
-    // `dash_available` when no dodge is on offer, so a body owning both mostly
-    // DODGES when this is pressed. The label says the same thing the kernel
-    // does, which is why it is derived from that order and not chosen.
-    //
-    //  this is a per-BODY fact, not a per-position one: it depends on which
-    // capabilities the body owns, so it is stable while the player moves. That
-    // is the distinction that makes it acceptable under `PromptNaming::ByMove`
-    // where naming an attack slot after its currently-resolvable move is not.
-    let burst_word = if abilities.dodge { "Dodge" } else { "Dash" };
+    // Bodies with Dash use that name for this shared slot. Bodies with only
+    // Dodge retain their action name.
+    let burst_word = if abilities.dash { "Dash" } else { "Dodge" };
     // (has-capability, slot, id) — id doubles as the movement-action gate string.
     let table: [(bool, ControlSlot, &str); 5] = [
         (abilities.jump, ControlSlot::Jump, ids::JUMP),
@@ -750,6 +735,25 @@ mod tests {
             !control.grab_pressed,
             "the capture edge survived a scheme with no Grab slot"
         );
+    }
+
+    #[test]
+    fn burst_names_dash_capable_and_dodge_only_bodies() {
+        for (dash, dodge, label) in [
+            (true, false, "Dash"),
+            (true, true, "Dash"),
+            (false, true, "Dodge"),
+        ] {
+            let ab = abilities(|a| {
+                a.dash = dash;
+                a.dodge = dodge;
+            });
+            let scheme = derive_action_scheme(&ab, None, None, &[]);
+            assert_eq!(
+                scheme.action_for_slot(ControlSlot::Burst).unwrap().display(),
+                label,
+            );
+        }
     }
 
     #[test]

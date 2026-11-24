@@ -160,6 +160,7 @@ pub(crate) fn update_player_control_with_tuning_scratch(
         input,
         0.0,
         control_dt,
+        control_dt,
         tuning.frame(),
         tuning.params(),
         false,

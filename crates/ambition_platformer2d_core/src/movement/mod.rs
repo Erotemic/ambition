@@ -129,6 +129,8 @@ pub(crate) fn update_body_control_in_frame(
     input: InputState,
     facing_intent: f32,
     control_dt: f32,
+    // The body's action interval, which the floor game progresses on.
+    action_dt: f32,
     frame: MotionFrame,
     tuning: AxisSweptParams,
     // Somebody else owns this body's pose — see `PoseOwnedExternally`.
@@ -153,6 +155,7 @@ pub(crate) fn update_body_control_in_frame(
         clusters.wall,
         input,
         control_dt,
+        action_dt,
         frame,
         &mut events,
     );
@@ -836,6 +839,7 @@ pub(crate) fn update_body_with_frame_clusters(
         input,
         facing_intent,
         control_dt,
+        raw_dt,
         frame,
         tuning,
         pose_owned_externally,

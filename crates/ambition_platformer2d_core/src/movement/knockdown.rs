@@ -320,16 +320,23 @@ pub(super) fn tick_knockdown(
     // so the frame of latency costs the read nothing.
     wall: &crate::body_clusters::BodyWallState,
     input: InputState,
+    // The input interval: the tech press's lifetime and its lockout are
+    // input leniency, read on the clock the body's controls are read on.
     dt: f32,
+    // The body's action interval (ACT2): tumble, prone and getup are
+    // maneuvers, so they progress on the time the body may act in, which a
+    // freeze holds and a responsive input clock does not stretch.
+    action_dt: f32,
     frame: MotionFrame,
     events: &mut super::events::FrameEvents,
 ) -> InputState {
     let dec = |v: f32| (v - dt).max(0.0);
-    state.getup_invuln_timer = dec(state.getup_invuln_timer);
+    let progress = |v: f32| (v - action_dt).max(0.0);
+    state.getup_invuln_timer = progress(state.getup_invuln_timer);
     state.tech_lockout_timer = dec(state.tech_lockout_timer);
 
     if state.knockdown_timer > 0.0 {
-        state.knockdown_timer = dec(state.knockdown_timer);
+        state.knockdown_timer = progress(state.knockdown_timer);
         // See the note at the landing below: a prone body owes nothing to a
         // press that happened while it was in the air.
         state.buffer_burst = 0.0;
@@ -349,7 +356,7 @@ pub(super) fn tick_knockdown(
         return input;
     }
     let helpless = state.tumble_timer > 0.0;
-    state.tumble_timer = dec(state.tumble_timer);
+    state.tumble_timer = progress(state.tumble_timer);
 
     // The tech input is the EVADE button — the same press that means dodge
     // everywhere else. Ultimate techs with shield; `InputState::shield_held`

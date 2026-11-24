@@ -683,10 +683,18 @@ for the room's capped hitlag. A guard deflect and a finishing blow, which
 set body hitstop without a resolved connect, now freeze only their bodies.
 They also did so in a CPU-only match.
 
+Floor progression landed (2026-11-23). `tick_knockdown` takes two
+intervals: tumble, prone and getup invulnerability progress on the body's
+action interval (the kernel's `raw_dt`, which carries the action share),
+while the tech press lifetime and its lockout stay on the input interval
+(`control_dt`) as the explicit leniency policy. A home body whose responsive
+input clock outruns a slowed world no longer stands up early, and a frozen
+body's prone timer holds. Actors, whose `control_dt` override is zero, are
+unchanged.
+
 Still open:
 
 - Sustain cadence.
-- Floor progression on action time (`control_dt`).
 - Ordinary actor and home integration read the room interval without the
   body's `ProperTimeScale`. The share is applied on top of that interval,
   so a dilated body's travel still runs on the room's rate. Multiplying

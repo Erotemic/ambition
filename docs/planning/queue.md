@@ -308,7 +308,9 @@ value as completion of that owner's contract.
    identical authored participants in different live room instances must
    not share a conversation identity, runner or end result. Preserve the
    existing ledger and independence from mutable input ownership.
-   (Landed 2026-11-23: the instance id carries its opening live room.)
+   (Landed 2026-11-23: the instance id carries its opening live room.
+   2026-11-24: one cutscene script plays in two live rooms at once, each
+   run with its own roles and waits.)
    [O6a/O6b](engine/authored-gameplay-logic-and-orchestration.md#o6--bind-invocation-roles-through-the-existing-call-boundary)
    adds the existing merchant as an independent first context customer:
    wallet questions and purchase requests select the same payer policy.

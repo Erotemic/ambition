@@ -84,7 +84,7 @@ pub fn trigger_cutscenes_in_volumes(
                 .get(&trigger.cutscene)
                 .and_then(|script| script.seen_flag.as_deref())
                 .is_some_and(|seen| !save.data().flag(seen));
-            if !unseen || active.plays(&trigger.cutscene) {
+            if !unseen || active.plays_in(&trigger.cutscene, Some(instance.ordinal())) {
                 continue;
             }
             // A scene that belongs after a fight waits for its clear.
@@ -146,7 +146,7 @@ pub fn drain_cutscene_triggers(
                 continue;
             }
         }
-        if !active.can_start(trigger.room) || active.plays(&trigger.id) {
+        if !active.can_start(trigger.room) || active.plays_in(&trigger.id, trigger.room) {
             let of_the_world = trigger.room.is_none();
             queue.0.push(trigger);
             if of_the_world {
@@ -1003,10 +1003,9 @@ mod tests {
         );
     }
 
-    /// ⭐ SS7: A SCENE BINDS ITS ROLES ONCE, IN ITS OWN ROOM. Two scenes with
-    /// the same role play in two rooms, each with a body of the same
-    /// character: each scene binds the body in its own room. (One script still
-    /// plays in one room at a time.) A scene of the whole world sees both, and
+    /// ⭐ SS7: A SCENE BINDS ITS ROLES ONCE, IN ITS OWN ROOM. One script
+    /// plays in two rooms at once, each with a body of the same character:
+    /// each run binds the body in its own room. A scene of the whole world sees both, and
     /// leaves the role unbound rather than choosing one. The wait answers of
     /// the two rooms' scenes are told apart by room.
     #[test]
@@ -1016,7 +1015,7 @@ mod tests {
         let mut app = bevy::prelude::App::new();
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
         let mut library = CutsceneLibrary::default();
-        for id in ["brute_scene", "brute_scene_b", "world_scene"] {
+        for id in ["brute_scene", "world_scene"] {
             let mut script = ambition_cutscene::CutsceneScript::new(id, Vec::new());
             script.roles = vec![("brute".into(), ambition_cutscene::RoleCast::Character("npc_brute".into()))];
             library.insert(script);
@@ -1033,8 +1032,10 @@ mod tests {
             ));
         }
         let mut queue = CutsceneTriggerQueue::default();
+        // The same script in both rooms: each room's run starts, binds its own
+        // body and waits on its own answer (SS7).
         queue.request_in("brute_scene", 1);
-        queue.request_in("brute_scene_b", 2);
+        queue.request_in("brute_scene", 2);
         app.insert_resource(queue);
         app.add_systems(bevy::prelude::Update, drain_cutscene_triggers);
         app.update();

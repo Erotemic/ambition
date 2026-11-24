@@ -528,9 +528,12 @@ world, seeing two bodies of the character, binds neither. The wait answers
 of two rooms are told apart.
 
 Still open:
-- One script still plays in one room at a time (`ActiveCutscene::plays`).
-  "Two live rooms with the same script" therefore remains blocked by that
-  rule, not by the keys.
+- ~~One script still plays in one room at a time.~~ **Landed 2026-11-24:**
+  the start and the volume trigger ask `ActiveCutscene::plays_in(id, room)`,
+  so one script plays in two live rooms at once, each run binding its own
+  roles and answering its own waits. The unit witness above now runs the
+  same script in both rooms. A scene of the whole world still waits for
+  every room's (`can_start`).
 - Conditions carry no room, so a bound condition with two live bodies of
   one identity is unanswerable rather than room-resolved.
 - The conversation command bridge still supplies no room.

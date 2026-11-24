@@ -101,10 +101,10 @@ mod tests {
         let mut next = lowered_prop_sheets(crate::pack::shipped()).cloned().unwrap();
         next.remove("coconut_palm");
         let mut sheets = app.world_mut().resource_mut::<PropSheets>();
-        let owned = sheets.restate(ours.iter().map(String::as_str), &next).expect("Ambition's own kinds");
+        let owned = sheets.restate(crate::AMBITION_CONTENT_PROVIDER, ours.iter().map(String::as_str), &next).expect("Ambition's own kinds");
         assert!(tuning_of(&sheets, "coconut_palm").is_none() && sheets.iter().any(|(kind, _)| kind == "super_mary_o_lift"));
         next.insert("super_mary_o_lift".into(), ambition_sprite_sheet::prop_sheets::AuthoredPropSheet { scale: 1.0, frame_sample_inset: 0, sheet: None, packed: false, backdrop: false });
-        assert!(sheets.restate(owned.iter().map(String::as_str), &next).is_err(), "another provider's kind");
+        assert!(sheets.restate(crate::AMBITION_CONTENT_PROVIDER, owned.iter().map(String::as_str), &next).is_err(), "another provider's kind");
     }
 
     /// The platform looks are the pack's rows: the App registers each look

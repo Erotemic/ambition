@@ -208,17 +208,24 @@
   }
 
   const served = location.protocol.startsWith("http");
+  // What is typed in a music review form, by render, until it is saved: the page
+  // draws itself again when the reviews arrive or change, and that must not
+  // clear a review being written.
+  const musicDrafts = new Map();
   function reviewForm(item, target) {
     const k = C.kinds.music || {}, tags = k.issue_tags || [], [low, high] = k.score_range || [1, 10];
     const old = R().rowsFor(item.id).find(row => row.version_id === target.version_id);
+    const draft = musicDrafts.get(target.version_id);
+    const typed = {score: draft?.score ?? old?.score ?? "", notes: draft?.notes ?? old?.notes ?? "",
+      issues: draft?.issues ?? old?.issues ?? []};
     return `<form class="music-review" data-item="${esc(item.id)}" data-version="${esc(target.version_id)}">
       <p><button type="button" class="ghost" data-play="${esc(item.id)}" data-href="${esc(target.href)}" data-note="${esc(target.roles.join(", "))}">▶</button>
         <b>${esc(target.roles.join(" · "))}</b> <code>${esc(target.version_id)}</code>
         ${old ? ` · reviewed ${R().chip(old)}` : " · not reviewed"}</p>
-      ${served ? `<div class="controls"><label>Score <input name="score" type="number" min="${low}" max="${high}" step="0.1" required value="${esc(old?.score ?? "")}"></label>
+      ${served ? `<div class="controls"><label>Score <input name="score" type="number" min="${low}" max="${high}" step="0.1" required value="${esc(typed.score)}"></label>
         <span class="n">1–3 replace · 3–5 major polish · 5–7 acceptable · 7–9 strong · 9–10 standout</span></div>
-        <textarea name="notes" rows="3" placeholder="What works, what to change">${esc(old?.notes || "")}</textarea>
-        <div class="controls">${tags.map(t => `<label><input type="checkbox" name="issues" value="${esc(t)}"${old?.issues?.includes(t) ? " checked" : ""}> ${esc(t)}</label>`).join(" ")}</div>
+        <textarea name="notes" rows="3" placeholder="What works, what to change">${esc(typed.notes)}</textarea>
+        <div class="controls">${tags.map(t => `<label><input type="checkbox" name="issues" value="${esc(t)}"${typed.issues.includes(t) ? " checked" : ""}> ${esc(t)}</label>`).join(" ")}</div>
         <p class="controls"><button type="submit">${old ? "Update review" : "Save review"}</button> <span class="save-state" role="status"></span></p>`
         : '<p class="empty">Open the page with <code>./scripts/asset_inspector.py</code> to save a review.</p>'}</form>`;
   }
@@ -256,6 +263,10 @@
   }
 
   function wireMusicReviews() {
+    document.querySelectorAll("form.music-review").forEach(form => form.oninput = form.onchange = () => {
+      const data = new FormData(form);
+      musicDrafts.set(form.dataset.version, {score: data.get("score"), notes: data.get("notes") || "", issues: data.getAll("issues")});
+    });
     document.querySelectorAll("form.music-review").forEach(form => form.onsubmit = async event => {
       event.preventDefault();
       const item = items[form.dataset.item], target = item.review_targets.find(t => t.version_id === form.dataset.version);
@@ -266,6 +277,7 @@
         const saved = await R().save({id: item.id, version_id: target.version_id, score: Number(data.get("score")), notes: data.get("notes") || "",
           issues: data.getAll("issues"), furthest_played_seconds: heard.seconds, furthest_played_fraction: heard.fraction});
         if (item.reviews) item.reviews.score_changed = false;  // the new review rates the current score
+        musicDrafts.delete(target.version_id);
         R().changed();
         const again = document.querySelector(`form[data-version="${CSS.escape(target.version_id)}"] .save-state`);
         if (again) again.textContent = `Saved to ${saved.path}`;

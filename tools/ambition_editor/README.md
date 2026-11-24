@@ -26,7 +26,9 @@ running, a second run says so and exits. `./scripts/asset_inspector.py --kill`
 stops the running inspector and its refresh, then serves again. It stops only
 an asset inspector, never another program on the port.
 
-A server keeps the code it started with. If the inspector changes while a
+While a refresh runs, the server shows the previous index: its catalog, with
+the page files (HTML, scripts and styles) of the current code, which `serve`
+writes before it starts. A server keeps the code it started with. If the inspector changes while a
 server runs, the page shows "The inspector server is older than this page",
 because a review can fail to save. Restart the server with `--kill`.
 

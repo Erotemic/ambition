@@ -14,7 +14,6 @@ import argparse
 import datetime as dt
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -26,8 +25,7 @@ from typing import Any
 from . import SCHEMA, assets as assets_mod, categories, diagnostics, generators, kinds, lineage, related, thumbs, usage, inventory, reviews, sheets, sources
 from .paths import forget_roots, repo_root, roots
 from .scan import HashCache, scan
-
-WEB = Path(__file__).resolve().parents[1] / "web"
+from .page import copy as copy_page
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -172,8 +170,7 @@ def build(
     partial = out / "catalog.js.partial"
     partial.write_text(f"window.ART_CATALOG = {text};\n")
     partial.replace(out / "catalog.js")
-    for name in ("index.html", "app.js", "app.css", "inventory.js", "characters.js", "table_sort.js", "reviews.js", "items.js", "preflight.html"):
-        shutil.copyfile(WEB / name, out / name)
+    copy_page(out)
     from .workbench import write_tools
     write_tools(repo, out)
     step(f"wrote {out / 'index.html'} ({len(assets)} assets, {len(products)} files, {len(found)} findings)")

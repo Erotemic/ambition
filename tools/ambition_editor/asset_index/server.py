@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 import yaml
 
-from . import reviews
+from . import page, reviews
 
 #: What the page says when this server runs older code than the page it serves.
 RESTART = "./scripts/asset_inspector.py --kill"
@@ -210,6 +210,10 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, r
     if build is not None and not (out / "index.html").is_file():
         build(log)
         refresh_command = None
+    elif (out / "catalog.js").is_file():
+        # The previous index shows until the refresh is done; its page files are
+        # this code's, so the page asks this server for the routes it has.
+        page.copy(out)
     child_box: list = []
     def stop(_signum, _frame):  # `--kill` from another run: take the refresh down too
         for child in child_box:

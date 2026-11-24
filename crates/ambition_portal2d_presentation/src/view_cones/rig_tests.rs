@@ -180,6 +180,47 @@ fn two_rooms_with_eyes(eyes: &[(LiveRoomInstance, Option<Vec2>)]) -> App {
     app
 }
 
+#[test]
+fn captures_allocate_only_for_visible_windows_and_preserve_pixel_density() {
+    let room = LiveRoomInstance::ACTIVATION;
+    let center = Vec2::new(300.0, 300.0);
+    let mut app = two_rooms_with_eyes(&[(room, Some(center))]);
+    assert!(app.world().resource::<Assets<Image>>().is_empty());
+
+    app.world_mut().resource_mut::<PortalViewConeConfig>().mode = PortalViewConeMode::Static;
+    app.world_mut().resource_mut::<PortalCaptureQualityBudget>().max_active_captures = 1;
+    let observer = app.world().resource::<PortalViewers>().iter().next()
+        .and_then(|viewer| viewer.observer).unwrap();
+    app.world_mut().resource_mut::<Time>().advance_by(std::time::Duration::from_millis(100));
+    app.update();
+    let captures: Vec<_> = app.world_mut().query::<(&PortalViewRig, &Camera, &RenderTarget)>()
+        .iter(app.world())
+        .filter(|(_, camera, _)| camera.is_active)
+        .map(|(rig, _, target)| {
+            let RenderTarget::Image(image) = target else { panic!("Missing capture image") };
+            (image.handle.id(), rig.rebuild.tex, rig.captured.unwrap())
+        })
+        .collect();
+    assert_eq!(captures.len(), 1);
+    let images = app.world().resource::<Assets<Image>>();
+    assert_eq!(images.len(), captures.len());
+    for (image, full, frame) in captures {
+        let size = images.get(image).unwrap().size();
+        assert!(size.x * size.y < full.x * full.y, "{size:?} vs {full:?}");
+        let density = size.as_vec2() / frame.size;
+        let full_density = full.as_vec2() / Vec2::new(800.0, 450.0);
+        assert!(density.abs_diff_eq(full_density, 1.0e-4), "{density:?} vs {full_density:?}");
+    }
+
+    let mut samples = app.world_mut().resource_mut::<crate::PortalObserverViews>();
+    let offscreen = center + Vec2::Y * 900.0;
+    samples.of_mut(observer)
+        .capture(offscreen, offscreen, offscreen, Vec2::new(800.0, 450.0), 0, None);
+    app.update();
+    assert!(app.world_mut().query_filtered::<&Camera, With<PortalViewRig>>()
+        .iter(app.world()).all(|camera| !camera.is_active));
+}
+
 /// The windows of a room are made for the camera of the view that frames it.
 ///
 /// The parallax anchor of a rig is the centre of the camera, taken through

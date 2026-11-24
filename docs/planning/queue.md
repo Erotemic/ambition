@@ -213,7 +213,7 @@ value as completion of that owner's contract.
    removes eager grant, spend and refund on queue refusal, and keeps each
    committed allocation owned through use or return (implemented 2026-11-21:
    typed admission, per-room credits, settlement at the confirmed cut; three
-   pressure cases added to the hosted witness; retirement not yet exercised). Source-owned admission
+   pressure cases added to the hosted witness; source and recipient retirement witnessed 2026-11-24 in `committed_bag::retirement_tests`). Source-owned admission
    credits replay at their recorded cuts; today's foreign queue cannot
    change an old outcome. Prove pressure, destination replay and source
    retirement before extending this road to more domains. Unrelated local

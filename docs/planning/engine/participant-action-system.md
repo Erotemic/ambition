@@ -210,6 +210,23 @@ decide action permission and elapsed execution.
 
 ### IN1 — record and replay at the same admitted input cut
 
+**State:** first slice DONE 2026-11-24. `AdmittedSeatInput` (runtime
+`input_stream.rs`) is the cut: in `PlayerInput`, after
+`LocalInputPublication`, before `RoomReplayAdmission` and
+`PlayerInputSet::Device`. `record_input_stream` runs there and reads
+`seat_frame_this_tick`, so a latch, rollback or latchless host each records
+the table that holds this tick's admitted input. The reset consumer orders
+after the cut; on a latch host it previously had no order against latch
+publication. `INPUT_STREAM_VERSION` is 2: a version-1 stream was the consumed
+frame and is refused, not reinterpreted. Proof in
+`game/ambition_app/tests/input_stream_replay.rs`: a recorded reset keeps
+its press and the decoded replay resets on the same tick; a held stick
+through the `portal_lab` scaling pair replays pose, velocity and material
+tick for tick (`--features portal`). Run/jump/burst remains the control.
+Open: dual writes from interpretation back into `SeatRawFrames` (gestures,
+reset) remain until their consumers move. The UI/focus supply
+interruption is IN5's remaining part.
+
 The current `ControlFrame` carries several meanings: a device sample, a
 tick's admitted input, body-interpreted control, and what remains after a
 consumer spends an edge. The recorder and replay reader use different cuts.

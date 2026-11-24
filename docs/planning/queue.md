@@ -431,7 +431,11 @@ value as completion of that owner's contract.
     body coordinates before a locomotion-only emergence constraint. Preserve
     held-direction continuity and each verb's policy. This is shared engine
     work from the source `34b4ab0b7f4f` audit; it does not promote Smash-only
-    polish. IN3 records the smaller qualified-press coalescing correction
+    polish. IN1's first slice landed 2026-11-24: the recorder runs at
+    `AdmittedSeatInput`, before reset and interpretation; streams are
+    version 2; a recorded reset and a held portal transit replay exactly.
+    The remaining IN1 work removes the raw-row dual writes as their consumers
+    move. IN3 records the smaller qualified-press coalescing correction
     (done 2026-11-23: a tick's attack press is chosen whole from one sample).
     IN2's first slice landed 2026-11-23: the portal guards act on the driven
     body's resolved control, in its own frame; the warp keeps the accepted

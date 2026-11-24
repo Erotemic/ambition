@@ -136,11 +136,10 @@ fn a_recorded_input_stream_replays_a_fresh_sim_with_zero_divergence() {
     }
 }
 
-/// The recorder captures the input the SIM consumed, not the input a driver
-/// wrote. Those differ wherever the input phase rewrites the frame, and a
-/// recording of the wrong one replays into a different trajectory.
+/// The recorder captures the seat's ADMITTED input for the tick: what the driver
+/// delivered through the input seam, before any stage interprets it.
 #[test]
-fn the_recorder_captures_the_frame_the_sim_consumed() {
+fn the_recorder_captures_the_admitted_frame() {
     let mut sim = new_sim();
     arm_recorder(&mut sim);
     for tick in 0..12 {
@@ -154,7 +153,7 @@ fn the_recorder_captures_the_frame_the_sim_consumed() {
         assert_eq!(
             frame.axis_x,
             scripted_input(tick).axis_x,
-            "tick {tick}: the recorded axis must be the one the sim saw"
+            "tick {tick}: the recorded axis must be the admitted one"
         );
     }
     assert!(
@@ -205,4 +204,126 @@ fn an_unarmed_recorder_records_nothing() {
         .resource_mut::<InputStreamRecorder>()
         .finish()
         .is_none());
+}
+
+/// IN1: a stage that SPENDS an input must not erase it from the recording. The
+/// reset consumer clears `reset_pressed` and requests a room replay; the stream
+/// keeps the press, and the decoded replay resets at the same tick.
+#[test]
+fn a_recorded_reset_replays_the_same_room_replay() {
+    const RESET_TICK: usize = 40;
+    let input = |tick: usize| {
+        let mut frame = scripted_input(tick);
+        if tick == RESET_TICK {
+            frame.reset_pressed = true;
+        }
+        frame
+    };
+    let mut sim = new_sim();
+    arm_recorder(&mut sim);
+    let mut recorded_path = Vec::with_capacity(TICKS);
+    for tick in 0..TICKS {
+        recorded_path.push(sim.step_frame(input(tick)).player_pos);
+    }
+    let stream = finish_recording(&mut sim);
+    let frames: Vec<ControlFrame> = stream.primary_frames().collect();
+    assert!(
+        frames[RESET_TICK].reset_pressed,
+        "the admitted reset press is in the recording, though the reset consumer spent it"
+    );
+    // The reset took effect: the body left its run and returned toward the room's start.
+    let before = recorded_path[RESET_TICK - 1];
+    let after = recorded_path[RESET_TICK + 1];
+    assert!(
+        (after.0 - before.0).abs() > 8.0 || (after.1 - before.1).abs() > 8.0,
+        "the reset must move the body (before={before:?} after={after:?})"
+    );
+
+    let decoded: InputStream =
+        serde_json::from_str(&serde_json::to_string(&stream).unwrap()).unwrap();
+    let mut replay = new_sim();
+    for (tick, frame) in decoded.primary_frames().enumerate() {
+        let obs = replay.step_frame(frame);
+        assert_eq!(
+            obs.player_pos, recorded_path[tick],
+            "replay diverged at tick {tick} (reset at {RESET_TICK})"
+        );
+    }
+}
+
+/// IN1, the portal half: a held stick carried through a real transit. The guard
+/// and the warp act after the admitted cut, so the stream holds the plain held
+/// input and the replay runs both again. Compare the whole body pose each tick,
+/// not only a final position, so the tick after the transit reads the same input.
+#[cfg(feature = "portal")]
+#[test]
+fn a_recorded_held_stick_replays_the_same_portal_transit() {
+    use ambition_platformer2d::engine_core::{self as ae, BodyKinematics};
+    use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
+    use ambition_platformer2d::portal::{EditablePortalTuning, PortalConvention, PortalTuning};
+    use bevy::prelude::*;
+
+    fn pose(sim: &mut Platformer2dSimHarness) -> BodyKinematics {
+        let world = sim.world_mut();
+        *world
+            .query_filtered::<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>()
+            .single(world)
+            .unwrap()
+    }
+    fn lab() -> Platformer2dSimHarness {
+        let mut sim = Platformer2dSimHarness::new_with_options(
+            crate::common::sandbox_options()
+                .with_required_start_room("portal_lab")
+                .with_timestep(TimestepMode::fixed_60hz()),
+        )
+        .unwrap();
+        sim.world_mut().resource_mut::<PortalTuning>().convention = PortalConvention::Reflection;
+        sim.world_mut().resource_mut::<EditablePortalTuning>().convention = PortalConvention::Reflection;
+        for _ in 0..12 {
+            sim.step_frame(ControlFrame::default());
+        }
+        let world = sim.world_mut();
+        let (entity, mut body) = world
+            .query_filtered::<(Entity, &BodyKinematics), (With<PlayerEntity>, With<PrimaryPlayer>)>()
+            .single(world)
+            .map(|(e, b)| (e, *b))
+            .unwrap();
+        body.pos = ae::Vec2::new(1860.0, 896.0 - body.half_extent().y);
+        body.vel = ae::Vec2::ZERO;
+        world.entity_mut(entity).insert((body, ae::SweepSample::at_rest(body, ae::Vec2::Y)));
+        sim
+    }
+    let held = |tick: usize| ControlFrame {
+        axis_x: if tick < 140 { 1.0 } else { 0.0 },
+        right_pressed: tick == 0,
+        ..ControlFrame::default()
+    };
+
+    let mut sim = lab();
+    arm_recorder(&mut sim);
+    let mut recorded = Vec::new();
+    for tick in 0..180 {
+        sim.step_frame(held(tick));
+        recorded.push(pose(&mut sim));
+    }
+    let stream = finish_recording(&mut sim);
+    assert!(
+        recorded.iter().any(|b| b.material.scale() != 1.0),
+        "the held walk must carry the body through the scaling pair; poses {:?}",
+        recorded.iter().step_by(20).map(|b| (b.pos, b.material.scale())).collect::<Vec<_>>()
+    );
+
+    let decoded: InputStream =
+        serde_json::from_str(&serde_json::to_string(&stream).unwrap()).unwrap();
+    let mut replay = lab();
+    for (tick, frame) in decoded.primary_frames().enumerate() {
+        replay.step_frame(frame);
+        let body = pose(&mut replay);
+        let expected = recorded[tick];
+        assert_eq!(
+            (body.pos, body.vel, body.material),
+            (expected.pos, expected.vel, expected.material),
+            "replay diverged at tick {tick}"
+        );
+    }
 }

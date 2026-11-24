@@ -6,17 +6,20 @@
 //! and (later) the lockstep wire all read the same recording, so they cannot
 //! disagree about what the player did.
 //!
-//! It records `SlotControls` AFTER the input phase has finalized them — the frame the
-//! simulation actually consumed, not the frame the device produced. A recording of the device
-//! frame would replay into a different trajectory.
+//! It records each seat's ADMITTED input (IN1): the frame the backend or driver published for
+//! this tick, after sample coalescing and before the simulation interprets or spends it. A
+//! reset consumer clears `reset_pressed`, gestures write `fast_fall_pressed`; recording after
+//! them lost the cause of what they did, and a replay re-injects at this same cut, so those
+//! stages run again on the replay and reach the same result. The cut is neither the device
+//! sample (render-rate, not yet a tick) nor the consumed frame.
 
-use bevy::prelude::{Res, ResMut, Resource};
+use bevy::prelude::{Res, ResMut, Resource, SystemSet};
 
-use ambition_characters::control::SlotControls;
+use ambition_characters::control::{SeatRawFrames, SlotControlLatches, SlotControls};
 use ambition_platformer2d_core::InputStream;
 use ambition_time::SimTick;
 
-/// Records every tick's finalized [`SlotControls`] into an [`InputStream`].
+/// Records every tick's admitted seat input into an [`InputStream`].
 ///
 /// Disarmed by default and cheap to leave installed: the recording system is
 /// gated on [`Self::is_recording`], so an unarmed recorder costs one resource
@@ -60,14 +63,24 @@ pub fn input_stream_recording(recorder: Option<Res<InputStreamRecorder>>) -> boo
     recorder.is_some_and(|r| r.is_recording())
 }
 
-/// Append this tick's finalized slot input to the armed recording.
+/// The point in `PlayerInput` where every seat's input for this tick is admitted and not yet
+/// interpreted: after the host publishes it (`LocalInputPublication`, or a rollback backend
+/// before the simulation), before the room-replay admission, the reset consumer and
+/// `PlayerInputSet::Device`. A stage that edits a seat frame orders after this set.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct AdmittedSeatInput;
+
+/// Append this tick's admitted seat input to the armed recording, at [`AdmittedSeatInput`].
 ///
-/// Registered in `Platformer2dSimulationPhase::PlayerInput` immediately after
-/// `populate_slot_controls`, which is the moment `SlotControls` becomes the
-/// input this tick will be simulated with.
+/// `seat_frame_this_tick` names which table holds this tick's input on this host: a latch or
+/// rollback host has published `SlotControls`; a latchless host has the driver's raw row and
+/// publishes it later. A resimulated tick records again and replaces the speculative tail.
 pub fn record_input_stream(
     tick: Res<SimTick>,
+    latches: Option<Res<SlotControlLatches>>,
+    rollback: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
     slots: Res<SlotControls>,
+    raw: Res<SeatRawFrames>,
     mut recorder: ResMut<InputStreamRecorder>,
 ) {
     let slot_count = recorder.slot_count;
@@ -76,7 +89,15 @@ pub fn record_input_stream(
     };
     stream.push(
         tick.get(),
-        (0..slot_count).map(|slot| slots.get(ambition_characters::control::PlayerSlot(slot))),
+        (0..slot_count).map(|slot| {
+            ambition_platformer2d_actor_monolith::control::seat_frame_this_tick(
+                latches.as_deref(),
+                rollback.as_deref(),
+                &slots,
+                &raw,
+                ambition_characters::control::PlayerSlot(slot),
+            )
+        }),
     );
 }
 

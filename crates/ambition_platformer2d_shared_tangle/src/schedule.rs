@@ -164,8 +164,9 @@ pub struct SimClockHead;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum PlayerInputSet {
     /// This frame's device input reaches the canonical slot model: timers,
-    /// interaction buffer, the controlled subject, `SlotControls`, and the
-    /// input-stream recorder. No input state is copied onto bodies.
+    /// interaction buffer, the controlled subject and `SlotControls`. The
+    /// input-stream recorder runs before this set, at the admitted cut. No input
+    /// state is copied onto bodies.
     Device,
     /// Content-declared character data lands on the body — a registered
     /// `CharacterDefinition`'s moveset and silhouette — BEFORE the persona is

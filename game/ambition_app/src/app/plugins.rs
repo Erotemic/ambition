@@ -153,6 +153,8 @@ fn register_app_local_sim_systems(app: &mut App) {
         apply_player_reset_input_system
             .in_set(GameplayGated)
             .in_set(Platformer2dSimulationPhase::PlayerInput)
+            // It spends `reset_pressed`; the recorder keeps the admitted press.
+            .after(ambition_platformer2d::runtime::AdmittedSeatInput)
             .before(ambition_platformer2d::actors::control::InputTimersAdvanced)
             .before(ambition_platformer2d::runtime::RoomReplayAdmission),
     );

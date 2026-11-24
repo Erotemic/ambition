@@ -594,7 +594,8 @@ timing and visual projection under equal-capacity row reordering; keep
 explicit retiming, independent rig/move sources and dense runtime handles.
 The duplicate fact collectors are removed (one EventMailbox scan for all native
 fact ports, 2026-11-22), and `run_phase` buckets its queue by trigger once.
-Next, prepare dispatch spans and entry lookup at admission, then share correct
+Dispatch spans and entry lookup are prepared at admission (2026-11-24:
+`Admitted::dispatch`, read by `run_phase` and the inbox). Next, share correct
 occurrence views and derive active journal work. Navigation's cost-state
 reduction is fixed (2026-11-22: route searches arrivals and charges the final
 walk), and the advisor measures a body's motion once across rooms

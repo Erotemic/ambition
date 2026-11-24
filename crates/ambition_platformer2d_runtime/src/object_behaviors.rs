@@ -384,9 +384,12 @@ fn call(world: &mut World) {
         action_results::publish_action_result(world, dispatch.reply.as_ref(), stage, terminal, code, "", Vec::new());
     }
 }
-fn publish(world: &mut World, producer: Entity, origin: &CallOrigin, stage: ActionStage, code: &str, data: Option<ScriptValue>) {
+/// Publish `origin`'s terminal result. `objects` is the caller's occurrence
+/// view at this cut: publishing adds no occurrence, so one view serves a
+/// whole batch (E3).
+fn publish(world: &mut World, objects: &ObjectIndex, producer: Entity, origin: &CallOrigin, stage: ActionStage, code: &str, data: Option<ScriptValue>) {
     let now = tick(world);
-    let Some(entity) = local_origin(world, producer, origin, &ObjectIndex::capture(world)) else { return; };
+    let Some(entity) = local_origin(world, producer, origin, objects) else { return; };
     let published = world.get_mut::<action_results::ActionMailbox>(entity).is_some_and(|mut mailbox|
         mailbox.publish(ActionResult {ticket: origin.ticket.clone(), stage, terminal: true, tick: now,
             code: code.into(), message: String::new(), subjects: Vec::new()}));
@@ -401,6 +404,10 @@ fn publish(world: &mut World, producer: Entity, origin: &CallOrigin, stage: Acti
 }
 fn complete(world: &mut World) {
     let requests = world.resource_mut::<ExtensionOutbox>().drain::<CompleteObjectCallPort>(&ACTOR_THINK);
+    if requests.is_empty() { return; }
+    // One occurrence view for the batch: completing a call adds or retires
+    // no occurrence.
+    let objects = ObjectIndex::capture(world);
     for submitted in requests {
         let request = submitted.value;
         let dispatch = action_results::begin_action_request::<CompleteObjectCallPort>(world, submitted.state_scope, &submitted.entry, &request);
@@ -416,7 +423,7 @@ fn complete(world: &mut World) {
                 return Err("completion_from_foreign_module");
             }
             let origin = row.origin.clone();
-            let caller = local_origin(world, submitted.state_scope, &origin, &ObjectIndex::capture(world))
+            let caller = local_origin(world, submitted.state_scope, &origin, &objects)
                 .ok_or("cross_island_behavior_unsupported")?;
             if !world.get::<action_results::ActionMailbox>(caller).is_some_and(|mailbox| mailbox.is_pending(&origin.ticket)) {
                 return Err("call_source_not_pending");
@@ -427,7 +434,7 @@ fn complete(world: &mut World) {
         })();
         let (stage, code) = match result {
             Ok((origin, data)) => {
-                publish(world, submitted.state_scope, &origin, if request.accepted { ActionStage::Completed } else { ActionStage::Rejected }, &request.code, Some(data));
+                publish(world, &objects, submitted.state_scope, &origin, if request.accepted { ActionStage::Completed } else { ActionStage::Rejected }, &request.code, Some(data));
                 (ActionStage::Applied, "object_call_completed")
             }
             Err(code) => (ActionStage::Rejected, code),
@@ -460,14 +467,17 @@ pub(crate) fn settle(world: &mut World, state: Entity, sequence: u64, event: Inv
     if row.progress.status == ActionDelivery::Quarantined {
         row.terminal = true;
         let origin = row.origin.clone();
-        publish(world, state, &origin, ActionStage::Failed, "object_handler_fault", None);
+        let objects = ObjectIndex::capture(world);
+        publish(world, &objects, state, &origin, ActionStage::Failed, "object_handler_fault", None);
     }
 }
 
 pub(crate) fn retire(world: &mut World, state: Entity) {
     let origins = world.get::<BehaviorInstance>(state).into_iter().flat_map(|instance|
         instance.calls.iter().filter(|row| !row.terminal).map(|row| row.origin.clone())).collect::<Vec<_>>();
-    for origin in origins { publish(world, state, &origin, ActionStage::Failed, "object_retired", None); }
+    if origins.is_empty() { return; }
+    let objects = ObjectIndex::capture(world);
+    for origin in origins { publish(world, &objects, state, &origin, ActionStage::Failed, "object_retired", None); }
 }
 
 /// Call completion and caller lifetime remain with the request owner.
@@ -492,7 +502,7 @@ pub(crate) fn maintain(world: &mut World, state: Entity, objects: &ObjectIndex, 
             } else { row.remaining -= 1; }
         }
     }
-    for origin in expired { publish(world, state, &origin, ActionStage::Failed, "object_call_expired", None); }
+    for origin in expired { publish(world, objects, state, &origin, ActionStage::Failed, "object_call_expired", None); }
 }
 impl BehaviorInstance {
     pub(crate) fn method_entry(&self, name: &str) -> Option<&str> {
@@ -564,7 +574,8 @@ mod local_authority_tests {
         assert_eq!(terminal.result.code, "local_call_authority_ended");
         assert_eq!(encode_state(world.get::<BehaviorInstance>(state).unwrap()), callee_before);
         let failed = encode_state(world.get::<action_results::ActionMailbox>(caller).unwrap());
-        publish(&mut world, state, &origin, ActionStage::Completed, "late", Some(ScriptValue::Unit));
+        let objects = ObjectIndex::capture(&world);
+        publish(&mut world, &objects, state, &origin, ActionStage::Completed, "late", Some(ScriptValue::Unit));
         assert_eq!(encode_state(world.get::<action_results::ActionMailbox>(caller).unwrap()), failed,
             "a foreign callee cannot overwrite the caller's outcome");
         assert!(!cancel_call(&mut world, &reply));
@@ -586,7 +597,8 @@ mod local_authority_tests {
         world.entity_mut(receiver).insert(InRoomInstance(rooms[0]));
         world.entity_mut(caller).insert((caller_before, watches_before));
         world.entity_mut(state).insert(decode_state::<BehaviorInstance>(&callee_before).unwrap());
-        publish(&mut world, state, &origin, ActionStage::Completed, "local", Some(ScriptValue::Unit));
+        let objects = ObjectIndex::capture(&world);
+        publish(&mut world, &objects, state, &origin, ActionStage::Completed, "local", Some(ScriptValue::Unit));
         assert_eq!(world.get::<action_results::ActionMailbox>(caller).unwrap().history().entries.last().unwrap().result.code, "local");
         assert_eq!(target(&world, caller, receiver_ref), Ok(receiver));
     }

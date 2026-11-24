@@ -45,13 +45,14 @@ impl Candidate {
     fn bound<'a>(&self, admitted: &'a ambition_extension_host::Admitted, sources: &crate::behavior_events::NativeSources) -> Option<&'a ambition_extension_host::AdmittedEntry> {
         if let Some(event) = &self.event {
             let (source, selector) = sources.get(event)?;
-            return admitted.entries.iter().find(|entry| entry.path == self.path && entry.descriptor.phase == ACTOR_THINK
-                && entry.descriptor.trigger.port == source.port && entry.descriptor.trigger.selector.as_ref() == selector);
+            // The entries bound to this trigger, prepared at admission (E3).
+            return admitted.dispatch().bound_to(&ACTOR_THINK, &source.port, selector).iter()
+                .map(|&index| &admitted.entries[index]).find(|entry| entry.path == self.path);
         }
         match &self.origin {
             Some(ticket) => ambition_extension_host::reply_entry::<ActionResultPort>(admitted, &ticket.entry, &self.path, &ACTOR_THINK),
-            None => admitted.entries.iter().find(|entry| entry.path == self.path
-                && entry.descriptor.phase == ACTOR_THINK && entry.descriptor.trigger.port == ObjectCallPort::KEY),
+            None => admitted.dispatch().entries_of(&ACTOR_THINK).iter().map(|&index| &admitted.entries[index])
+                .find(|entry| entry.path == self.path && entry.descriptor.trigger.port == ObjectCallPort::KEY),
         }
     }
 }

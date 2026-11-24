@@ -270,6 +270,29 @@ fn an_order_cycle_is_refused_and_an_order_is_obeyed() {
     assert_eq!(paths, ["test::counter/b", "test::counter/a"]);
 }
 
+/// E3: the phase's entries and each trigger's are prepared once from the
+/// admitted set. They are the serial order `entries_in` filters, and an entry
+/// bound to another selector is not among a trigger's.
+#[test]
+fn the_prepared_dispatch_is_the_serial_order_by_trigger() {
+    let mut other = entry("c", vec![]);
+    other.trigger.selector = "stop".into();
+    let admitted = admit(
+        API_VERSION,
+        &offers(),
+        &[DeclaredModule::from(module(vec![entry("a", vec!["test::counter/b"]), entry("b", vec![]), other]))],
+    )
+    .unwrap();
+    let dispatch = admitted.dispatch();
+    let paths = |indexes: &[usize]| indexes.iter().map(|&i| admitted.entries[i].path.clone()).collect::<Vec<_>>();
+    let filtered: Vec<String> = admitted.entries_in(&PHASE).map(|e| e.path.clone()).collect();
+    assert_eq!(paths(dispatch.entries_of(&PHASE)), filtered);
+    assert_eq!(paths(dispatch.bound_to(&PHASE, &Poke::KEY, "go")), ["test::counter/b", "test::counter/a"]);
+    assert_eq!(paths(dispatch.bound_to(&PHASE, &Poke::KEY, "stop")), ["test::counter/c"]);
+    let elsewhere = ambition_extension_sdk::Phase("nowhere".into());
+    assert!(dispatch.entries_of(&elsewhere).is_empty() && dispatch.bound_to(&elsewhere, &Poke::KEY, "go").is_empty());
+}
+
 /// A saved schema needs the road that keeps it. Without the road the module
 /// is refused; with it, only the pair the road keeps is admitted.
 #[test]

@@ -31,6 +31,8 @@ serial=""
 launch_mode="auto"
 launch_env=()
 smash_autoplay=""
+sanic_course_capture="no"
+game_log_pid=""
 launch_env_pending="no"
 warmup_seconds="0"
 device_perf="/data/local/tmp/ambition.simpleperf.data"
@@ -255,6 +257,8 @@ for entry in "${launch_env[@]}"; do
     case "$entry" in
         AMBITION_AUTOPLAY=smash|AMBITION_AUTOPLAY=smash_4p)
             smash_autoplay="${entry#*=}" ;;
+        AMBITION_AUTOPLAY=sanic_all)
+            if [[ "$mode" == "record" || "$mode" == "all" ]]; then sanic_course_capture="yes"; fi ;;
     esac
 done
 
@@ -417,6 +421,7 @@ wait_for_launch_env_consumption() {
 # The next icon launch must not inherit a pending profiling request.
 cleanup_pending_launch_env() {
     local status=$?
+    stop_game_log_stream
     if [[ "$launch_env_pending" == "yes" ]]; then
         log "cleaning up one-shot Android autoplay launch"
         "${adb_cmd[@]}" shell rm -f "$(launch_env_path)" >/dev/null 2>&1 || true
@@ -506,6 +511,11 @@ prepare_app() {
     if [[ -z "$after_pid" ]]; then
         [[ ${#launch_env[@]} -eq 0 ]] || fail "one-shot Android app did not start"
         log "warning: no running PID found for $package"
+    fi
+    if [[ "$sanic_course_capture" == "yes" ]]; then
+        # Retain the first act if the log buffer fills before the capture ends.
+        "${adb_cmd[@]}" logcat --pid="$after_pid" > "$out_dir/game-log.stdout" 2> "$out_dir/game-log.stderr" &
+        game_log_pid=$!
     fi
     wait_for_launch_env_consumption "$out_dir"
     if [[ "$warmup_seconds" -gt 0 ]]; then log "warming up for ${warmup_seconds}s"; sleep "$warmup_seconds"; fi
@@ -737,6 +747,7 @@ record_cpu() {
     local status=$?
     set -e
     echo "$status" > "$out_dir/simpleperf-record.status"
+    stop_game_log_stream
     if [[ "$status" -ne 0 ]]; then log "simpleperf record exited with status $status"; fi
     run_logged "$out_dir" device-perf-ls "${adb_cmd[@]}" shell ls -lh "$device_perf"
     set +e
@@ -915,6 +926,11 @@ if frames:
     lines += ['', '## Frame times (`[frame-census]`, the last 12 windows of 5 s)', '```text']
     lines.extend(x[x.find('[frame-census]'):][:240] for x in frames.splitlines()[-12:])
     lines.append('```')
+sanic = read('sanic-acts.txt')
+if sanic:
+    lines += ['', '## Sanic act frame times', '```text']
+    lines.extend(x[x.find('[sanic-autoplay]'):] for x in sanic.splitlines())
+    lines.append('```')
 meta = read('metadata.txt')
 for line in meta.splitlines():
     if line.startswith('hub_games='):
@@ -997,6 +1013,14 @@ capture_clocks() {
         'for f in gpuclk max_gpuclk devfreq/cur_freq devfreq/max_freq temp; do echo "$f=$(cat /sys/class/kgsl/kgsl-3d0/$f 2>/dev/null)"; done'
 }
 
+stop_game_log_stream() {
+    if [[ -n "$game_log_pid" ]]; then
+        kill "$game_log_pid" 2>/dev/null || true
+        wait "$game_log_pid" 2>/dev/null || true
+        game_log_pid=""
+    fi
+}
+
 # The game's own frame times. CPU time does not show speed: a game that is not
 # capped at the display's rate takes all the CPU it can, slow or fast. The game
 # prints a `[frame-census]` line (frame-time percentiles) each 5 s, and on
@@ -1004,7 +1028,9 @@ capture_clocks() {
 capture_game_log() {
     local out_dir="$1" pid
     pid="$(cat "$out_dir/pid-capture.txt" 2>/dev/null || true)"
-    if [[ -n "$pid" ]]; then
+    if [[ "$sanic_course_capture" == "yes" ]]; then
+        grep -aF '[sanic-autoplay]' "$out_dir/game-log.stdout" > "$out_dir/sanic-acts.txt" || true
+    elif [[ -n "$pid" ]]; then
         run_logged "$out_dir" game-log "${adb_cmd[@]}" logcat -d --pid="$pid"
     else
         run_logged "$out_dir" game-log "${adb_cmd[@]}" logcat -d
@@ -1018,7 +1044,7 @@ main() {
     trap cleanup_pending_launch_env EXIT
     trap 'exit 130' INT
     trap 'exit 143' TERM
-    local out_dir smash_capture_ok="yes"; out_dir="$(make_profile_dir "$mode")"
+    local out_dir smash_capture_ok="yes" sanic_capture_ok="yes"; out_dir="$(make_profile_dir "$mode")"
     write_metadata "$out_dir" "$mode"
     prepare_app "$out_dir"
     case "$mode" in
@@ -1042,6 +1068,13 @@ main() {
     if ! validate_smash_autoplay_capture "$out_dir"; then
         smash_capture_ok="no"
     fi
+    if [[ "$sanic_course_capture" == "yes" ]] &&
+        ! awk '/\[sanic-autoplay\] CLEAR act=1 / { if (act == 0) act = 1 }
+               /\[sanic-autoplay\] CLEAR act=2 / { if (act == 1) act = 2 }
+               /\[sanic-autoplay\] CLEAR act=3 / { if (act == 2) act = 3 }
+               END { exit (act != 3) }' "$out_dir/sanic-acts.txt"; then
+        sanic_capture_ok="no"
+    fi
     stop_after_launch_env "$out_dir"
     write_summary "$out_dir"
     package_dir "$out_dir"
@@ -1049,10 +1082,11 @@ main() {
     # (page: android-play-ledger.md). Not fatal: a run that did not reach
     # gameplay is refused there, and the bundle is still complete. Its output
     # goes to stderr, so the last stdout line stays the tarball path.
-    if [[ "$smash_capture_ok" == "yes" && -f "$out_dir/frame-census.txt" ]]; then
+    if [[ "$smash_capture_ok" == "yes" && "$sanic_capture_ok" == "yes" && -f "$out_dir/frame-census.txt" ]]; then
         python3 "$repo_root/scripts/lib/android_profile_ledger.py" append "$out_dir" >&2 \
             || log "not added to the play ledger; to add it later: python3 scripts/lib/android_profile_ledger.py append $out_dir"
     fi
     [[ "$smash_capture_ok" == "yes" ]] || fail "Smash autoplay ended or failed during capture; see $out_dir/smash-autoplay-capture-status.txt"
+    [[ "$sanic_capture_ok" == "yes" ]] || fail "Sanic did not finish all three acts during the recording; see $out_dir/sanic-acts.txt (increase --duration for a slower device)"
 }
 main

@@ -1,6 +1,9 @@
-//! The Act 3 profile crosses a portal and replays the same act after its goal.
+//! The profiling routes use the normal input and goal rules.
 
-use ambition_demo_sanic::{DARKNESS_ROOM_ID, autoplay::ACT3_PROFILE};
+use ambition_demo_sanic::{
+    DARKNESS_ROOM_ID, HIGHWAY_ROOM_ID, SPEEDWAY_ROOM_ID,
+    autoplay::{ACT3_PROFILE, ALL_ACTS_PROFILE},
+};
 use ambition_platformer2d::{engine_core as ae, scripted_input};
 use bevy::prelude::*;
 
@@ -27,6 +30,36 @@ fn observe(
     }) {
         seen.clears += 1;
     }
+}
+
+#[test]
+fn the_full_profile_clears_each_act_in_order() {
+    let mut app = ambition_demo_sanic_app::build_demo_app();
+    scripted_input::install_autoplay(&mut app, ALL_ACTS_PROFILE);
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 30.0),
+    ));
+    app.init_resource::<Progress>();
+    app.add_systems(Last, observe);
+    let mut cleared = Vec::new();
+    let mut acts = app.world_mut().query::<&ambition_demo_sanic::SanicActState>();
+    for _ in 0..3600 {
+        app.update();
+        let Some(room) = ambition_platformer2d::world::rooms::sole_live_room_spec(app.world()) else {
+            continue;
+        };
+        if matches!(acts.single(app.world()).map(|act| act.phase),
+            Ok(ambition_demo_sanic::SanicActPhase::Cleared { .. }))
+            && cleared.last() != Some(&room.id)
+        {
+            cleared.push(room.id.clone());
+            if cleared.len() == 3 {
+                break;
+            }
+        }
+    }
+    assert_eq!(cleared, [SPEEDWAY_ROOM_ID, HIGHWAY_ROOM_ID, DARKNESS_ROOM_ID]);
+    assert!(app.world().resource::<Progress>().portals > 0);
 }
 
 #[test]

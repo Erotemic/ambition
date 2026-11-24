@@ -66,7 +66,20 @@ Do not prefix the build with `AMBITION_AUTOPLAY=...`: that is a different,
 compile-time mechanism. The one-shot CLI settings are also removed on failure.
 Open the installed game from its icon after the capture to play normally.
 
-## Sanic Act 3 profiling on Android
+## Profiling Sanic on Android
+
+```bash
+scripts/measure/autoprofile_android.sh sanic_all
+```
+
+This command starts Act 1, jumps the spike pit, and runs through the goals in
+Acts 2 and 3. The CPU capture starts at launch and runs for 120 seconds by
+default. The bundle contains `sanic-acts.txt` with average FPS and p50 and p95
+frame times for each completed act. The act results exclude loading and
+results screens. If the phone does not finish in time, run with
+`--duration 180`. The script saves the incomplete bundle.
+
+### Act 3 only
 
 This profile starts in Act 3 and holds Right through its ground route and
 portals. After the normal results card, it replays Act 3. It uses the shared

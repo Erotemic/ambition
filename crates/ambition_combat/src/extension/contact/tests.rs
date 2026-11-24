@@ -306,6 +306,39 @@ fn a_hold_is_withdrawn_when_its_attachment_is_no_longer_bound() {
     assert_eq!((issuers[0].0.sequence, issuers[0].0.room, issuers[0].1.as_str()), (own.sequence, own.allocation_room, "test::stomp"));
     assert!(claimed(&app, recipient));
 
+    // The status ends in one phase and is held again in a later one on the
+    // same tick, before any maintenance pass: the ended application's claim
+    // goes at its end, so the re-held status starts with none of it.
+    let pass = |app: &mut App, held: bool| {
+        let request = ambition_extension_host::Submitted {
+            scope: recipient,
+            state_scope: recipient,
+            invocation: ambition_extension_host::InvocationId(0),
+            occurrence: None,
+            entry: "test::status".into(),
+            value: ambition_combat_port::HoldStatus { kind: WALKER.into(), held },
+        };
+        app.world_mut()
+            .run_system_cached_with(
+                |In(requests): In<Vec<_>>,
+                 commands: Commands,
+                 holders: Query<&mut crate::extension::status::BodyStatuses>,
+                 clocks: Query<&mut crate::extension::status::StatusClocks>,
+                 bodies: Query<(), With<ae::BodyKinematics>>| {
+                    crate::extension::status::apply_held_statuses(commands, requests, holders, clocks, bodies)
+                },
+                vec![request],
+            )
+            .unwrap();
+    };
+    pass(&mut app, false);
+    pass(&mut app, true);
+    assert!(app.world().get::<crate::extension::status::BodyStatuses>(recipient).unwrap().holds(WALKER), "the premise: re-held");
+    assert_eq!(held_by(&app, recipient), None, "the ended application's claim outlived its end");
+    assert!(!claimed(&app, recipient));
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(held_by(&app, recipient).map(|issuers| issuers.len()), Some(1), "the re-held status's attachment claims anew");
+
     // The status ends: nothing binds the rule, nothing is submitted, and the
     // hold goes anyway.
     app.world_mut().entity_mut(recipient).remove::<crate::extension::status::BodyStatuses>();

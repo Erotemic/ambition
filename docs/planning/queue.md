@@ -225,7 +225,8 @@ value as completion of that owner's contract.
    [occurrence and restore boundary](engine/actor-effects-and-modifier-composition.md#6a-follow-up--bind-the-live-occurrence-and-restore-the-authority)
    before phases 6b/6c expand it (identity and withdrawal implemented
    2026-11-21 for the body-contact producer; the restore projection is
-   stated as snapshot-resident; same-tick status re-application is open). Retiring a source cannot revoke a replacement
+   stated as snapshot-resident; same-tick status re-application closed
+   2026-11-24: an ended status's claims are withdrawn at its end). Retiring a source cannot revoke a replacement
    at the same authored address; derived masks and winners rebuild from the
    restored claims before their next read. Then share one interval across
    native and numeric/capability contributions. (6b landed 2026-11-22: Mary-O's pocket

@@ -225,6 +225,18 @@ pub fn lower_pose_pins(world: &mut World) {
 /// over the bodies that carry a claim. A claim another object issued is not
 /// this phase's to judge, and a native claim is its owner's.
 pub fn withdraw_unbound_attachment_claims(world: &mut World) {
+    withdraw_unbound_claims(world, None);
+}
+
+/// The same withdrawal for one body, at the moment its statuses dropped a
+/// kind: the ended application's claims go then, so a re-application later
+/// on the same tick (another phase holds the kind again) starts with none of
+/// them under its identical issuer key.
+pub fn withdraw_unbound_attachment_claims_of(world: &mut World, body: Entity) {
+    withdraw_unbound_claims(world, Some(body));
+}
+
+fn withdraw_unbound_claims(world: &mut World, only: Option<Entity>) {
     use ambition_characters::control::{release_hold_as, HoldClaims};
     use ambition_platformer2d_core::applications::{module_of_entry, ApplicationKey};
     use ambition_platformer2d_shared_tangle::lifecycle::{ObjectOccurrence, SessionScopedEntity};
@@ -249,6 +261,9 @@ pub fn withdraw_unbound_attachment_claims(world: &mut World) {
         .collect();
     let mut withdrawn: Vec<(Entity, ApplicationKey, bool)> = Vec::new();
     for (body, holds, poses, occurrence, session, statuses, config) in state.iter(world_ref) {
+        if only.is_some_and(|only| only != body) {
+            continue;
+        }
         let (Some(occurrence), Some(session)) = (occurrence, session) else {
             continue;
         };

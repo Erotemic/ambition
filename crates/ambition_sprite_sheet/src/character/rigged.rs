@@ -1099,6 +1099,14 @@ impl RiggedSpriteAsset {
 
     /// The semantic name of each track a draw's `track` indexes (a rig part's
     /// name: `torso`, `near_arm`; `overlay:<layer>` for an effect layer).
+    /// Whether `other` draws the same program: the same prepared draws and
+    /// clips (a quality tier shares them through `for_tier`) and the same
+    /// track names, which `with_tracks` can change apart from the draws. A
+    /// part binding reads only these.
+    pub fn same_program(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.draws, &other.draws) && Arc::ptr_eq(&self.clips, &other.clips) && self.tracks == other.tracks
+    }
+
     pub fn tracks(&self) -> &[String] {
         &self.tracks
     }

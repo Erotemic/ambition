@@ -406,7 +406,7 @@ The remaining work is selected too late or by too broad a dependency:
 | --- | --- |
 | `rigged.rs::body_warp` and `RiggedSpriteAsset::row_draws_the_body_whole` | Without the preview override, ordinary owners invoke a whole-clip predicate before determining whether they have a warp. Intact clips scan all their draws; missing or fading clips can exit early. Composed bodies invoke it again. Its inputs are immutable flipbook data. |
 | `RiggedSpriteAsset::{legs_under,face_as,layer_over,head_turned_as}` | Samples reinterpret semantic track names and search other draw lists. Legs/expression joins can scan one frame for each draw of another. |
-| `baked_sheet_rons::prepare_sheet_table`, `bind_posed_parts` | Admission prepares a rig and drops the value; rendering reparses/prepares it and measures the visual binding. The renderer's binding cache is cleared by any `GameAssets` change. Existing presentations retain their Arc, but a later new owner can redo an unchanged binding. |
+| `baked_sheet_rons::prepare_sheet_table`, `bind_posed_parts` (retained 2026-11-24, below) | Admission prepares a rig and drops the value; rendering reparses/prepares it and measures the visual binding. The renderer's binding cache is cleared by any `GameAssets` change. Existing presentations retain their Arc, but a later new owner can redo an unchanged binding. |
 | `frame_draws`, `posed_reach`, `part_set::answer` | Procedural poses can be sampled twice; readers rebuild name-based answers and local transforms before final equality prevents writes. |
 | `drive_rigged_presentations` | Opacity/HSV/warp parameter changes set the same page dirty flag as source draws and run both source and finishing cameras. The terminal held-warp case already has a finishing-only exception. |
 
@@ -480,9 +480,22 @@ cost: four bytes a draw, shared by every tier through the `Arc`. Witness:
 every published flipbook, every track, against a scan). No frame-time
 measurement is claimed.
 
-Still open in PVS-1: retaining the prepared rig and visual binding from
-admission (`prepare_sheet_table`, `bind_posed_parts`). The source binding below is a further preparation
-customer; the completed clip/track facts stay complete.
+**Retained rig and binding (2026-11-24).** A sheet generation keeps each
+body rig as admitted (`AdmittedBodyRig`: the published file read once and
+its rig prepared once), aligned with its rig texts. `prepare_sheet_table`
+fills the cell for a rig it checks and shares the current generation's cell
+for an unchanged text, so an unchanged rig is read and prepared once per
+process. The unchecked first table fills a cell on first demand. Readers:
+the mechanics digest, the simulation's `published_body_rig`, and the
+renderer's binder (they each parsed the text before). The renderer keeps a
+target's binding with the admitted rig and flipbook it bound
+(`BoundParts`); it binds again only when the rig `Arc` or the draw program
+(draws and clips `Arc`s and track names, which every quality tier shares)
+differs. An unrelated `GameAssets` change no longer drops it. Retained cost:
+one prepared rig per published rig text; bindings as before. Witness:
+`an_unchanged_rig_keeps_its_admission_across_generations`. No frame-time
+measurement is claimed. PVS-1's list is done; the source binding below is a
+further preparation customer.
 
 #### Bind semantic roles to named source rows
 

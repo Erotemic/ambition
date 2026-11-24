@@ -2,6 +2,27 @@
 
 use std::sync::{Arc, OnceLock};
 
+/// A body rig as admitted: its file read once and its rig prepared once. The
+/// renderer binds its parts to `prepared`; the simulation scales `published`.
+#[derive(Debug)]
+pub struct AdmittedBodyRig {
+    pub published: ambition_characters::actor::PublishedBodyRig,
+    pub prepared: ambition_characters::actor::PreparedBodyRig,
+}
+
+impl AdmittedBodyRig {
+    fn admit(text: &str) -> Result<Arc<Self>, String> {
+        let published = ambition_characters::actor::PublishedBodyRig::from_ron(text)?;
+        let prepared = published.definition.prepare().map_err(|error| format!("{error:?}"))?;
+        Ok(Arc::new(Self { published, prepared }))
+    }
+}
+
+/// One rig's admission. A preparation fills it; the unchecked first table
+/// fills it on first demand. A later generation holding the same text shares
+/// the cell, so an unchanged rig is read and prepared once per process.
+type RigCell = Arc<OnceLock<Result<Arc<AdmittedBodyRig>, String>>>;
+
 
 
 /// The sheet table and the records parsed from it.
@@ -12,6 +33,8 @@ pub struct SheetGeneration {
     /// `(target, ron_text)` sorted by target.
     body_rigs: Vec<(&'static str, Arc<str>)>,
     body_rig_aliases: std::collections::HashMap<String, String>,
+    /// Aligned with `body_rigs`.
+    admitted_rigs: Vec<RigCell>,
     part_tables: crate::baked_part_flipbooks::PartTables,
     /// `(asset path, ron_text)` sorted by path.
     portrait_rons: Vec<(&'static str, Arc<str>)>,
@@ -49,6 +72,7 @@ impl SheetGeneration {
             id,
             rons: texts.sheets,
             body_rig_aliases: crate::library_aliases(texts.body_rigs.iter().map(|(key, _)| *key)),
+            admitted_rigs: texts.body_rigs.iter().map(|_| RigCell::default()).collect(),
             body_rigs: texts.body_rigs,
             part_tables,
             portrait_rons: texts.portraits,
@@ -73,6 +97,7 @@ impl SheetGeneration {
             rons: prepared.texts.sheets,
             body_rig_aliases: crate::library_aliases(prepared.texts.body_rigs.iter().map(|(key, _)| *key)),
             body_rigs: prepared.texts.body_rigs,
+            admitted_rigs: prepared.admitted_rigs,
             part_tables: prepared.part_tables,
             portrait_rons: prepared.texts.portraits,
             portraits: OnceLock::from(prepared.portraits),
@@ -119,9 +144,21 @@ impl SheetGeneration {
     }
 
     pub(crate) fn body_rig(&self, target: &str) -> Option<&str> {
+        self.body_rig_index(target).map(|index| self.body_rigs[index].1.as_ref())
+    }
+
+    fn body_rig_index(&self, target: &str) -> Option<usize> {
         let key = self.body_rig_aliases.get(target).map(String::as_str).unwrap_or(target);
         self.body_rigs.binary_search_by(|(name, _)| (*name).cmp(key)).ok()
-            .map(|index| self.body_rigs[index].1.as_ref())
+    }
+
+    /// `target`'s rig, read and prepared once for this and every later
+    /// generation that holds the same text. `Err` names why the published file
+    /// does not admit (only the unchecked first table can hold such a file).
+    pub fn admitted_body_rig(&self, target: &str) -> Option<Result<&Arc<AdmittedBodyRig>, &str>> {
+        let index = self.body_rig_index(target)?;
+        let text = &self.body_rigs[index].1;
+        Some(self.admitted_rigs[index].get_or_init(|| AdmittedBodyRig::admit(text)).as_ref().map_err(String::as_str))
     }
 
     /// Every portrait manifest, as `(asset path, ron_text)` sorted by path.
@@ -169,7 +206,7 @@ impl SheetGeneration {
     /// The digest of the mechanical projection of every record, in key
     /// order. Computed on the first ask.
     pub fn mechanics_digest(&self) -> &str {
-        self.digest.get_or_init(|| mechanics_of(&self.registry, &self.body_rigs, &self.part_tables, self.portraits()))
+        self.digest.get_or_init(|| mechanics_of(&self.registry, &self.body_rigs, &self.admitted_rigs, &self.part_tables, self.portraits()))
     }
 }
 
@@ -266,6 +303,8 @@ impl std::fmt::Display for SheetTableRefused {
 /// off the frame and publish it later.
 pub struct PreparedSheetTable {
     texts: SheetTexts,
+    /// Aligned with `texts.body_rigs`.
+    admitted_rigs: Vec<RigCell>,
     registry: crate::SheetRegistry,
     parsed_files: std::collections::HashMap<String, Vec<crate::SheetRecord>>,
     parsed_now: usize,
@@ -291,7 +330,7 @@ impl PreparedSheetTable {
     /// changes none of them changes only where frames are drawn from (pages,
     /// rects, pixels) and the pack catalogs.
     pub fn changes_mechanics_of(&self, live: &SheetGeneration) -> bool {
-        mechanics_of(&self.registry, &self.texts.body_rigs, &self.part_tables, &self.portraits) != live.mechanics_digest()
+        mechanics_of(&self.registry, &self.texts.body_rigs, &self.admitted_rigs, &self.part_tables, &self.portraits) != live.mechanics_digest()
     }
 }
 
@@ -320,14 +359,21 @@ pub fn prepare_sheet_table(content: &SpriteContent, mut texts: SheetTexts) -> Re
     if !duplicates.is_empty() { return Err(SheetTableRefused(duplicates)); }
     let previous = current(content);
     let (parsed_files, mut failed, parsed_now) = crate::parse_sheet_files(&text_pairs(&texts.sheets), Some((previous.rons(), &previous.parsed_files)));
+    let mut admitted_rigs = Vec::with_capacity(texts.body_rigs.len());
     for (target, text) in &texts.body_rigs {
-        if !rig_needs_check(previous.body_rigs(), previous.rigs_checked, target, text) {
-            continue;
-        }
-        let checked = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
-            .and_then(|rig| rig.prepare().map(drop).map_err(|error| format!("{error:?}")));
-        if let Err(error) = checked {
-            failed.push((format!("{target}_body_rig.ron"), error));
+        // The current generation's cell for this same text, when it holds one.
+        let held = previous.body_rigs.binary_search_by(|(name, _)| (*name).cmp(target)).ok()
+            .filter(|&at| previous.body_rigs[at].1 == *text)
+            .map(|at| &previous.admitted_rigs[at]);
+        let admitted_ok = held.is_some_and(|cell| matches!(cell.get(), Some(Ok(_))));
+        if !admitted_ok && rig_needs_check(previous.body_rigs(), previous.rigs_checked, target, text) {
+            let cell = RigCell::default();
+            if let Err(error) = cell.get_or_init(|| AdmittedBodyRig::admit(text)) {
+                failed.push((format!("{target}_body_rig.ron"), error.clone()));
+            }
+            admitted_rigs.push(cell);
+        } else {
+            admitted_rigs.push(held.cloned().unwrap_or_default());
         }
     }
     let portraits = crate::portrait::PortraitSheetRegistry::checked(&texts.portraits).map_err(|mut refused| failed.append(&mut refused));
@@ -340,7 +386,7 @@ pub fn prepare_sheet_table(content: &SpriteContent, mut texts: SheetTexts) -> Re
     let index = crate::index_parsed(&text_pairs(&texts.sheets), &parsed_files, Vec::new());
     if !index.failed.is_empty() { return Err(SheetTableRefused(index.failed)); }
     let registry = crate::SheetRegistry::from_index(index);
-    Ok(PreparedSheetTable { texts, registry, parsed_files, parsed_now, part_tables, portraits, pack_catalogs })
+    Ok(PreparedSheetTable { texts, admitted_rigs, registry, parsed_files, parsed_now, part_tables, portraits, pack_catalogs })
 }
 
 /// Whether a preparation must parse and prepare the rig `text` of `target`.
@@ -405,6 +451,7 @@ fn text_pairs<'a>(texts: &'a [(&'static str, Arc<str>)]) -> Vec<(&'static str, &
 fn mechanics_of(
     registry: &crate::SheetRegistry,
     rigs: &[(&'static str, Arc<str>)],
+    admitted: &[RigCell],
     parts: &crate::baked_part_flipbooks::PartTables,
     portraits: &crate::portrait::PortraitSheetRegistry,
 ) -> String {
@@ -416,11 +463,11 @@ fn mechanics_of(
         hash.update(bytes);
     };
     piece("sheets", crate::character::sheets::mechanics_digest_of(&registry.sheets).as_bytes());
-    for (key, text) in rigs.iter().filter(|(key, _)| crate::quality_variant_marker(key).is_none()) {
-        let rig = ambition_characters::actor::BodyRigDefinition::from_published_ron(text)
-            .expect("An admitted generation has valid rigs");
+    for ((key, text), cell) in rigs.iter().zip(admitted).filter(|((key, _), _)| crate::quality_variant_marker(key).is_none()) {
+        let rig = &cell.get_or_init(|| AdmittedBodyRig::admit(text)).as_ref()
+            .expect("An admitted generation has valid rigs").published.definition;
         piece("rig-key", key.as_bytes());
-        piece("rig", &bincode::serialize(&rig).expect("Rig schema serialization"));
+        piece("rig", &bincode::serialize(rig).expect("Rig schema serialization"));
     }
     piece("landmarks", parts.landmarks().1.as_bytes());
     for target in portraits.available_targets() { piece("portrait", target.as_bytes()); }

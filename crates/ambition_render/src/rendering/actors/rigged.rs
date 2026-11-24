@@ -779,7 +779,7 @@ pub fn bind_rigged_presentations(sprite_content: bevy::prelude::Res<ambition_spr
     asset_server: Option<Res<AssetServer>>,
     impostors: ImpostorAssets,
     mut sheets_by_tier: Local<HashMap<TextureResolutionScale, HashMap<String, RiggedSpritePages>>>,
-    mut posed_by_target: Local<HashMap<String, Option<Arc<PosedParts>>>>,
+    mut posed_by_target: Local<HashMap<String, BoundParts>>,
     mut roots: Query<(
         Entity,
         &CharacterAnimator,
@@ -800,10 +800,9 @@ pub fn bind_rigged_presentations(sprite_content: bevy::prelude::Res<ambition_spr
     }
     if assets.is_changed() {
         for sheets in sheets_by_tier.values_mut() { sheets.clear(); }
-        // The posed parts are bound from the pages and the body rig: a sheet
-        // generation publishes both again and retires every realization, so
-        // a change of the assets binds them again too.
-        posed_by_target.clear();
+        // The posed parts are NOT dropped here: a binding is kept with the
+        // admitted rig and draw program it read, and is bound again only when
+        // either differs (`BoundParts::binds`). Unrelated art loading keeps it.
         for sheet in assets.characters.ready_sheets() {
             if let Some(pages) = &sheet.rigged {
                 // By the sheet's key: a generator's sheets share a `target`.
@@ -847,10 +846,16 @@ pub fn bind_rigged_presentations(sprite_content: bevy::prelude::Res<ambition_spr
         drop_presentation(&mut commands, root, owner);
         match wanted {
             Some(pages) => {
-                let posed = posed_by_target
-                    .entry(target.to_owned())
-                    .or_insert_with(|| bind_posed_parts(&sprite_content, pages, target))
-                    .clone();
+                let rig = ambition_sprite_sheet::baked_body_rigs::admitted_body_rig(&sprite_content, target);
+                let bound = posed_by_target.get(target).filter(|bound| bound.binds(rig.as_ref(), &pages.flipbook));
+                let posed = match bound {
+                    Some(bound) => bound.posed.clone(),
+                    None => {
+                        let posed = rig.as_deref().and_then(|rig| bind_posed_parts(rig, pages));
+                        posed_by_target.insert(target.to_owned(), BoundParts { rig, flipbook: pages.flipbook.clone(), posed: posed.clone() });
+                        posed
+                    }
+                };
                 spawn_presentation(&mut commands, root, target, pages.clone(), posed);
             }
             // Back to the baked sheet: the root draws itself again.
@@ -1087,13 +1092,32 @@ fn spawn_presentation(
 /// (`part_bindings`); any other, the joint that holds it stillest. Within a
 /// pixel and a degree: a part that rides its joint less tightly than that
 /// draws where its frame puts it.
-fn bind_posed_parts(sprite_content: &ambition_sprite_sheet::SpriteContent, pages: &RiggedSpritePages, target: &str) -> Option<Arc<PosedParts>> {
-    let text = ambition_sprite_sheet::baked_body_rigs::baked_body_rig(&sprite_content, target)?;
-    let published = ambition_characters::actor::PublishedBodyRig::from_ron(text).ok()?;
-    let rig = published.definition.prepare().ok()?;
-    let posed = PosedParts::bind_named(&pages.flipbook, &rig, &published.part_bindings, 1.0, 1.0_f32.to_radians())
-        .with_limbs(&rig, &published.limbs);
+fn bind_posed_parts(rig: &ambition_sprite_sheet::baked_sheet_rons::AdmittedBodyRig, pages: &RiggedSpritePages) -> Option<Arc<PosedParts>> {
+    let published = &rig.published;
+    let posed = PosedParts::bind_named(&pages.flipbook, &rig.prepared, &published.part_bindings, 1.0, 1.0_f32.to_radians())
+        .with_limbs(&rig.prepared, &published.limbs);
     (posed.bound().0 > 0).then(|| Arc::new(posed))
+}
+
+/// A target's binding with the admitted rig and flipbook it was bound from.
+/// Holding both keeps their identities from being reused while it is kept.
+pub struct BoundParts {
+    rig: Option<Arc<ambition_sprite_sheet::baked_sheet_rons::AdmittedBodyRig>>,
+    flipbook: Arc<ambition_sprite_sheet::character::rigged::RiggedSpriteAsset>,
+    posed: Option<Arc<PosedParts>>,
+}
+
+impl BoundParts {
+    /// Whether this binding is the one `rig` and `flipbook` would bind: the
+    /// same admitted rig and the same draw program (any quality tier of it).
+    fn binds(&self, rig: Option<&Arc<ambition_sprite_sheet::baked_sheet_rons::AdmittedBodyRig>>, flipbook: &ambition_sprite_sheet::character::rigged::RiggedSpriteAsset) -> bool {
+        let same_rig = match (&self.rig, rig) {
+            (Some(kept), Some(rig)) => Arc::ptr_eq(kept, rig),
+            (None, None) => true,
+            _ => false,
+        };
+        same_rig && self.flipbook.same_program(flipbook)
+    }
 }
 
 /// Draw each rigged root's current frame from parts: the slots take the

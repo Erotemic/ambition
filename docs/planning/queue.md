@@ -590,8 +590,9 @@ under [PORTAL-SIMILARITY](#portal-similarity--canonical-parts-and-scaled-mirror-
 (2026-11-21: walls and recipients read one prepared leg). Clip whole-body
 eligibility and per-track semantic roles are prepared with the flipbook
 (PVS-1 first slice, 2026-11-22), and frame track correspondence is an
-index (2026-11-24). Next in E2 is retaining the prepared rig and binding
-from admission. The
+index (2026-11-24). The prepared rig and its part binding are retained
+from admission (2026-11-24: `AdmittedBodyRig` per rig text, shared across
+generations; the renderer rebinds only for a different rig or program). The
 static source review adds a [named source-binding customer](engine/runtime-rigged-sprite-animation.md#bind-semantic-roles-to-named-source-rows):
 boss roles resolve source rows, timing policy and mechanical geometry
 association once. Preserve the native cursor, hurt-part sample, death

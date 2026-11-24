@@ -13,6 +13,12 @@ pub fn body_rigs(content: &crate::SpriteContent) -> &[(&'static str, std::sync::
     crate::baked_sheet_rons::current(&content).body_rigs()
 }
 
+/// `target`'s rig as admitted (read and prepared once), or `None` when it
+/// publishes none or its file does not admit.
+pub fn admitted_body_rig(content: &crate::SpriteContent, target: &str) -> Option<std::sync::Arc<crate::baked_sheet_rons::AdmittedBodyRig>> {
+    crate::baked_sheet_rons::current(content).admitted_body_rig(target)?.ok().cloned()
+}
+
 /// The published body rig of target `target`, as RON text.
 pub fn baked_body_rig<'a>(content: &'a crate::SpriteContent, target: &str) -> Option<&'a str> {
     crate::baked_sheet_rons::current(content).body_rig(target)

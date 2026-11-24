@@ -53,7 +53,7 @@ fn cues_at_one_instant(
     {
         app.world_mut()
             .resource_mut::<Messages<MoveEventMessage>>()
-            .write(MoveEventMessage { ranged_source: None,
+            .write(MoveEventMessage { ranged: None,
                 world_offset: ae::Vec2::ZERO,
                 owner,
                 move_id: spec.id.clone(),

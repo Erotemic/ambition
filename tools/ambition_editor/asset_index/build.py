@@ -340,7 +340,7 @@ def main(argv: list[str] | None = None) -> int:
     pre.add_argument("--content-binary", type=Path)
     pre.add_argument("--renderer-python")
     b = sub.add_parser("build", help="index the art and write the inspector page")
-    s = sub.add_parser("serve", help="build the inspector and serve it with durable review notes")
+    s = sub.add_parser("serve", help="build the inspector and serve it; the page can save reviews")
     s.add_argument("--port", type=int, default=8767)
     s.add_argument("--kill", action="store_true", help="stop an asset inspector already serving this port, then serve")
     for page in (b, s):
@@ -352,13 +352,15 @@ def main(argv: list[str] | None = None) -> int:
         page.add_argument("--authorship", action="store_true", help="read Git authorship and history previews")
         page.add_argument("--open", action="store_true", help="open the page in a browser when built")
         page.add_argument("--no-cargo", action="store_true", help="do not rebuild a content check binary older than the engine's Rust sources")
-    n = sub.add_parser("notes", help="read the review backlog or save a review note")
-    n.add_argument("action", choices=("backlog", "list", "add", "resolve", "reopen"))
-    n.add_argument("id", nargs="?", help="full character identity for add; note UUID for resolve or reopen")
-    n.add_argument("--text", default="")
-    n.add_argument("--priority", choices=reviews.PRIORITIES, default="normal")
-    n.add_argument("--animation", default="")
-    n.add_argument("--resolution", default="")
+    n = sub.add_parser("reviews", help="read asset reviews and the work they ask for, or save a review")
+    n.add_argument("action", choices=("backlog", "list", "add"),
+                   help="backlog: reviews below the polish threshold; list: every review; add: rate the current version")
+    n.add_argument("id", nargs="?", help="full asset id, such as ambition:npc_general, sfx:ui.confirm or music:ai_dente")
+    n.add_argument("--kind", choices=("character", "image", "music", "sfx", "font", "world"), help="list only this kind")
+    n.add_argument("--score", type=float, help=f"from {reviews.MIN_SCORE:g} to {reviews.MAX_SCORE:g} (add)")
+    n.add_argument("--notes", default="")
+    n.add_argument("--issue", action="append", help="an issue tag of the kind; repeat for more (add)")
+    n.add_argument("--part", default="", help="an animation, or a room of a world (add)")
     n.add_argument("--json", action="store_true")
     n.add_argument("--out", type=Path)
     for command in ("status", "list", "inspect", "coverage"):
@@ -424,7 +426,7 @@ def main(argv: list[str] | None = None) -> int:
         legacy.rename(out)
     if args.command == "serve" and not out.is_relative_to(repo):
         parser.error("serve --out must be inside the repository")
-    if args.command == "notes":
+    if args.command == "reviews":
         return reviews.cli(repo, out, args)
     if args.command not in ("build", "serve"):
         report = inventory.collect(repo, out, profile=args.profile, python=args.renderer_python, binary=args.content_binary,

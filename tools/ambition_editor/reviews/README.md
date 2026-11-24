@@ -1,18 +1,13 @@
-# Art review notes
+# Asset reviews
 
-Save notes from a character page with:
+Review files for characters, images, sound effects, fonts and worlds:
+`<kind>/<asset>/<version>[--<part>].review.yaml`, schema `ambition.asset_review.v1`.
+They have the same keys as the music tool's reviews (`ambition.music_review.v2`).
+Music reviews stay in the music tool, under `reviews/music/`.
 
-```bash
-python3 scripts/asset_inspector.py serve --open
-```
+Save reviews from the page with `./scripts/asset_inspector.py`, or with
+`python3 scripts/asset_inspector.py reviews add ID --score N`. Read the work
+queue with `python3 scripts/asset_inspector.py reviews backlog --json`. These
+files are authored data: commit them.
 
-The service writes one JSON file per note under `notes/`. Keep these files in
-Git. Each note records the character identity and exact published generation.
-The generated inspector directory and browser storage do not own these notes.
-
-Read the task queue with `python3 scripts/asset_inspector.py notes backlog --json`.
-Open notes remain tasks after regeneration. Check the new art, then use
-`notes resolve NOTE_UUID --resolution "Fix summary"`. Use `notes reopen NOTE_UUID`
-to put a resolved note back in the queue.
-
-See the [tool guide](../README.md#character-review-notes) for the full workflow.
+See the [tool guide](../README.md#asset-reviews) for the format and the workflow.

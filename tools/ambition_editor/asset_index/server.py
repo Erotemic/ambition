@@ -1,4 +1,4 @@
-"""Serve the inspector and save review notes on the local machine."""
+"""Serve the inspector and save asset reviews on the local machine."""
 
 from __future__ import annotations
 
@@ -11,11 +11,12 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import yaml
+
 from . import reviews
 
 
 def make_handler(repo: Path, catalog, status=None):
-    store = reviews.Store(repo)
     lock = threading.Lock()
     def current_catalog():
         return catalog() if callable(catalog) else catalog
@@ -36,11 +37,11 @@ def make_handler(repo: Path, catalog, status=None):
         def do_GET(self):
             if urlsplit(self.path).path == "/api/build-status":
                 return self.reply(200, dict(status or {"state": "done"}))
-            if urlsplit(self.path).path != "/api/art-reviews":
+            if urlsplit(self.path).path != "/api/asset-reviews":
                 return super().do_GET()
             try:
                 self.reply(200, reviews.snapshot(repo, current_catalog()))
-            except (ValueError, OSError) as error:
+            except (ValueError, OSError, yaml.YAMLError) as error:
                 self.reply(500, {"error": str(error)})
 
         def mutate(self):
@@ -50,7 +51,7 @@ def make_handler(repo: Path, catalog, status=None):
                     return self.reply(403, {"error": "Open the inspector from this local server."})
                 length = int(self.headers.get("Content-Length", "0"))
                 if not 0 < length <= 65536 or self.headers.get_content_type() != "application/json":
-                    return self.reply(400, {"error": "Send a JSON note of at most 64 KiB."})
+                    return self.reply(400, {"error": "Send a JSON request of at most 64 KiB."})
                 data = json.loads(self.rfile.read(length))
                 path = urlsplit(self.path).path
                 with lock:
@@ -74,30 +75,16 @@ def make_handler(repo: Path, catalog, status=None):
                             result["generated"] = generated
                         return self.reply(200, result)
                     current = current_catalog()
-                    if self.command == "POST" and path == "/api/music-reviews":
-                        from . import music_review
-                        try:
-                            return self.reply(200, music_review.save(repo, current, data))
-                        except LookupError as error:
-                            raise reviews.ConflictError(str(error)) from error
-                    if self.command == "POST" and path == "/api/art-reviews":
-                        subject = reviews.all_subjects(current).get(data.get("character"))
-                        if not subject or data.get("generation_id") != subject["generation_id"]:
-                            raise reviews.ConflictError("The page and server show different art. Reload the inspector.")
-                        reviews.check_products(repo, subject)
-                        store.add(subject, data.get("text", ""), priority=data.get("priority", "normal"), animation=data.get("animation", ""))
-                    elif self.command == "PATCH" and path.startswith("/api/art-reviews/"):
-                        store.update(path.rsplit("/", 1)[1], data["status"], data.get("resolution", ""), data.get("updated_at"))
-                    else:
+                    if self.command != "POST" or path != "/api/asset-reviews":
                         return self.reply(404, {"error": "Unknown review operation."})
-                self.reply(200, reviews.snapshot(repo, current))
+                    saved = reviews.save(repo, current, data)
+                self.reply(200, dict(reviews.snapshot(repo, current), saved=saved))
             except reviews.ConflictError as error:
                 self.reply(409, {"error": str(error)})
             except (ValueError, OSError, KeyError, TypeError, AttributeError, subprocess.CalledProcessError) as error:
                 self.reply(400, {"error": str(error)})
 
         do_POST = mutate
-        do_PATCH = mutate
 
     return Handler
 
@@ -220,7 +207,7 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, r
     with ThreadingHTTPServer(("127.0.0.1", port), make_handler(repo, current_catalog, status)) as server:
         url = f"http://127.0.0.1:{server.server_port}/{(out / 'index.html').relative_to(repo).as_posix()}#overview"
         print(f"Ambition Editor: {url}", flush=True)
-        print("Review notes: tools/ambition_editor/reviews/notes/", flush=True)
+        print("Reviews: tools/ambition_editor/reviews/ (music: the music tool's reviews/music/)", flush=True)
         if open_browser:
             webbrowser.open(url)
         if refresh_command:

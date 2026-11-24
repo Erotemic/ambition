@@ -54,14 +54,6 @@ def _file(repo: Path, out: Path, path: Path) -> dict:
     return {"path": _rel(repo, path), "href": os.path.relpath(path, out), "bytes": st.st_size, "mtime": int(st.st_mtime)}
 
 
-def _stat(path: Path) -> list:
-    try:
-        st = path.stat()
-        return [st.st_size, st.st_mtime_ns]
-    except OSError:
-        return [None, None]
-
-
 def fix_for(repo: Path, family: str, make: str | None) -> str:
     """The command that makes a family's content: its regen script, else the whole setup."""
     script = repo / "scripts" / "regen" / f"{family}.sh"
@@ -393,6 +385,7 @@ def sfx(ctx: dict) -> list[dict]:
             item["state"] = "present"
             clip = out / "audio" / "sfx" / f"{name}.{entry['codec']}"
             item["media"] = {"type": "audio", "href": os.path.relpath(clip, out)}
+            item["review_paths"] = [_rel(repo, clip)]
             item["files"].append({"path": _rel(repo, bank) + "#" + name, "href": os.path.relpath(clip, out), "bytes": entry["length"]})
             item["details"].update({k: v for k, v in entry.items() if k not in ("id", "offset", "length")})
         else:
@@ -695,9 +688,11 @@ def collect(repo: Path, out: Path, hashes, *, pack: Path, families: dict | None 
         for row in kinds.values():
             row["notices"].append(f"Uses in game text are unknown: {error}")
     for item in items:
-        # The files behind an item, for review notes: a note names the version it reviewed.
-        real = {f["path"].split("#", 1)[0] for f in item["files"]}
-        item["stamp"] = [[path, *_stat(repo / path)] for path in sorted(real)]
+        # The bytes behind an item, for reviews: a review names the version it rated.
+        # A sound effect is its clip, not the whole bank (`sfx`). Music versions are renders.
+        paths = item.pop("review_paths", None) or sorted({f["path"].split("#", 1)[0] for f in item["files"]})
+        item["version_files"] = [] if item["kind"] == "music" else [
+            [path, hashes.digest(repo / path) if (repo / path).is_file() else None] for path in paths]
     by_id = {item["id"]: item for item in items}
     for item_id, rows in uses.items():
         if item_id in by_id:

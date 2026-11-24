@@ -5,6 +5,8 @@ import struct
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from asset_index import kinds, reviews
 from asset_index.scan import HashCache
@@ -151,24 +153,22 @@ def test_a_failing_kind_is_a_notice_and_the_others_still_index(tmp_path):
     assert result["items"]["music:theme"]["state"] == "present"
 
 
-def test_a_review_note_on_any_item_records_the_version_it_reviewed(tmp_path):
+def test_a_review_of_an_item_records_the_bytes_it_reviewed(tmp_path):
     pack = game(tmp_path)
     out = tmp_path / "out"
     catalog = kinds.collect(tmp_path, out, HashCache(out / "hashes.json"), pack=pack, log=lambda _m: None)
-    subject = reviews.snapshot(tmp_path, catalog)["subjects"]["music:theme"]
-    assert reviews.all_subjects(catalog)["music:theme"] == subject  # what the review service accepts
-    reviews.check_products(tmp_path, subject)
-    reviews.Store(tmp_path).add(subject, "The bridge drags.")
-    audio = tmp_path / "game/ambition_content_library/generated/runtime/audio/music/generated/theme/full.ogg"
-    audio.write_bytes(b"OggS a longer theme")
-    try:
-        reviews.check_products(tmp_path, subject)
-        raise AssertionError("A changed asset must refuse a note for its old version")
-    except reviews.ConflictError:
-        pass
+    subjects = reviews.all_subjects(catalog)
+    assert "music:theme" not in subjects  # a music version is a render of the music tool
+    assert [Path(path).name for path, _ in catalog["items"]["sfx:ui.click"]["version_files"]] == ["ui.click.ogg"]  # its clip, not the bank
+    font = next(key for key in subjects if key.startswith("font:") and catalog["items"][key]["version_files"])
+    version = subjects[font]["version_id"]
+    reviews.save(tmp_path, catalog, {"id": font, "version_id": version, "score": 7, "issues": ["legibility"]})
+    path = tmp_path / catalog["items"][font]["version_files"][0][0]
+    path.write_bytes(path.read_bytes() + b"changed")
+    with pytest.raises(reviews.ConflictError):
+        reviews.save(tmp_path, catalog, {"id": font, "version_id": version, "score": 8})
     later = kinds.collect(tmp_path, out, HashCache(out / "hashes.json"), pack=pack, log=lambda _m: None)
-    note = reviews.snapshot(tmp_path, later)["notes"][0]
-    assert note["generation_relation"] == "older"
+    assert reviews.snapshot(tmp_path, later)["reviews"][0]["relation"] == "older"
 
 
 def test_a_music_id_counts_as_used_only_where_the_line_names_music(tmp_path):

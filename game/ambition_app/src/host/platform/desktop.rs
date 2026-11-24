@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use bevy::input::mouse::{MouseButtonInput, MouseWheel};
 use bevy::prelude::*;
-use bevy::window::{CursorMoved, CursorOptions, Monitor, PrimaryMonitor, PrimaryWindow, WindowMode};
+use bevy::window::{CursorMoved, CursorOptions, Monitor, OnMonitor, PrimaryWindow, WindowMode};
 
 /// How long the mouse rests before the cursor hides.
 const CURSOR_REST: Duration = Duration::from_millis(2500);
@@ -48,12 +48,13 @@ fn hide_the_resting_cursor(
 
 /// Fit the initial window to its display, then leave user resizes alone.
 fn fit_initial_window_to_monitor(
-    monitors: Query<&Monitor, With<PrimaryMonitor>>,
-    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+    monitors: Query<&Monitor>,
+    mut windows: Query<(&mut Window, &OnMonitor), With<PrimaryWindow>>,
     mut fitted: Local<bool>,
 ) {
     if *fitted { return; }
-    let (Ok(monitor), Ok(mut window)) = (monitors.single(), windows.single_mut()) else { return; };
+    let Ok((mut window, on_monitor)) = windows.single_mut() else { return; };
+    let Ok(monitor) = monitors.get(on_monitor.0) else { return; };
     if window.mode == WindowMode::Windowed {
         let available = Vec2::new(monitor.physical_width as f32, monitor.physical_height as f32)
             / monitor.scale_factor as f32;
@@ -79,11 +80,12 @@ mod tests {
             resolution: (1600, 900).into(), ..default()
         }, PrimaryWindow)).id();
         app.update();
-        app.world_mut().spawn((Monitor {
+        let monitor = app.world_mut().spawn(Monitor {
             name: None, physical_width: 1280, physical_height: 800,
             physical_position: IVec2::ZERO, refresh_rate_millihertz: None,
             scale_factor: 1.0, video_modes: vec![],
-        }, PrimaryMonitor));
+        }).id();
+        app.world_mut().entity_mut(entity).insert(OnMonitor(monitor));
         app.update();
         assert_eq!(app.world().get::<Window>(entity).unwrap().physical_size(), UVec2::new(1280, 800));
         app.world_mut().get_mut::<Window>(entity).unwrap().resolution.set(1440.0, 900.0);

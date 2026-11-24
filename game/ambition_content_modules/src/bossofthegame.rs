@@ -292,10 +292,10 @@ fn conduct(inv: &mut Invocation<'_>) -> Result<(), Fault> {
 }
 
 /// Where the band body at `place` in `BAND` stands: on the truss at the
-/// height of the Boss's feet, `boss` being his middle, in a stage `room_w` wide.
-pub fn band_spot(place: usize, boss: [f32; 2], room_w: f32) -> [f32; 2] {
-    // He is 96 tall and they are 60: a little over the truss, to land on it.
-    [room_w * 0.5 + BAND[place].1, boss[1] + 48.0 - AGENT_HALF_SIZE[1] - 4.0]
+/// height of the Boss's feet, in a stage `room_w` wide.
+fn band_spot(place: usize, boss: &BossConduct, room_w: f32) -> [f32; 2] {
+    let floor = boss.position[1] + boss.size[1] * 0.5;
+    [room_w * 0.5 + BAND[place].1, floor - AGENT_HALF_SIZE[1] - 4.0]
 }
 
 /// Bring the band on, once a fight, while he stands.
@@ -313,7 +313,7 @@ fn stage_the_band(inv: &mut Invocation<'_>, boss: &BossConduct) -> Result<(), Fa
         inv.submit::<BossSummonPort>(BossSummon {
             label: BAND_LABEL.into(),
             serial: vec![place as u32],
-            position: band_spot(place, boss.position, room_w),
+            position: band_spot(place, boss, room_w),
             half_size: AGENT_HALF_SIZE,
             character_id: character.into(),
             health: None,

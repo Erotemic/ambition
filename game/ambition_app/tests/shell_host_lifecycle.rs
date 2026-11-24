@@ -118,6 +118,53 @@ fn shell_host_app() -> App {
     shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::RenderFrame)
 }
 
+#[test]
+fn sanic_stays_above_the_floor_after_a_hosted_pit_death() {
+    use ambition_platformer2d::engine_core as ae;
+    use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
+    use ambition_platformer2d::session::sole_live_room_component;
+    let mut app = shell_host_app_hosted_by(ambition_platformer2d::runtime::SimulationHost::Rollback);
+    settle(&mut app);
+    launch_labeled(&mut app, "Sanic");
+    for _ in 0..120 { app.update(); }
+    let room = sole_live_room_component::<ae::RoomGeometry>(app.world()).unwrap().0.clone();
+    for rolled in [false, true] {
+        let before = *sole_live_room_component::<LiveRoomInstance>(app.world()).unwrap();
+        let world = app.world_mut();
+        if rolled {
+            let mut bodies = world.query_filtered::<(Entity, &mut ae::BodyKinematics), With<PrimaryPlayer>>();
+            let (entity, mut body) = bodies.single_mut(world).unwrap();
+            body.canonical_size = ambition_demo_sanic::ball_dash::spin_dash_tuning().ball_size();
+            world.entity_mut(entity).insert(ambition_demo_sanic::ball_dash::Rolling {
+                ends: ambition_demo_sanic::ball_dash::RollEnd::Landing,
+            });
+        }
+        let mut bodies = world.query_filtered::<(ae::BodyClusterQueryData,
+            &mut ambition_platformer2d::actor::MotionModel), With<PrimaryPlayer>>();
+        let (mut clusters, mut model) = bodies.single_mut(world).unwrap();
+        ae::movement::transit_body(&mut model, &mut clusters.as_clusters_mut(),
+            Vec2::new(room.spawn.x, room.size.y + room.edges.fall * 0.5),
+            ae::movement::TransitVelocity::Zero);
+        let mut replayed = None;
+        for _ in 0..600 {
+            app.update();
+            let current = *sole_live_room_component::<LiveRoomInstance>(app.world()).unwrap();
+            if current != before { replayed = Some(current); break; }
+        }
+        let replayed = replayed.expect("the pit death must replay the act");
+        for _ in 0..300 {
+            app.update();
+            assert_eq!(*sole_live_room_component::<LiveRoomInstance>(app.world()).unwrap(), replayed,
+                "an idle respawn must not enter another death loop");
+            let world = app.world_mut();
+            let mut bodies = world.query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
+            let body = bodies.single(world).unwrap();
+            assert!(body.pos.distance(room.spawn) < 96.0,
+                "Sanic must remain at the supported spawn (rolled={rolled}): {:?}, spawn {:?}", body.pos, room.spawn);
+        }
+    }
+}
+
 fn settle(app: &mut App) {
     for _ in 0..4 {
         app.update();

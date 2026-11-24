@@ -115,15 +115,13 @@ browser composition. Browser hosts select `web_platform` with it.
 Offscreen and no-GPU hosts use one windowless plugin setup. It removes the
 window runner only when a platform feature selected that runner.
 
-The Ambition pause menu shows a small build label (`f2014af36`). It contains
-build time in Unix seconds and the short Git revision. A `+` means the source
-tree was not clean. `AMBITION_BUILD_ID` supplies a CI identifier. A native
-development build reads its build time from its own executable at runtime
-and names the working tree's revision as the tree's (`Build <time> / tree
-<rev>`); only an `AMBITION_BUILD_ID`, a browser or an Android build compiles
-a label in. The compiled stamp used to watch every workspace package and the
-Git index, so an edit outside the app's dependency graph or a `git add`
-rebuilt and relinked the app (runtime authoring audit, B01, fixed 2026-11-14).
+The game launcher and pause menu show the UTC build date and time and the
+short Git revision. A `+` identifies tracked changes in the source tree.
+Android, web, and packaged desktop builds record the date and revision at
+build time. The Steam Deck deploy script selects this with
+`AMBITION_STAMP_BUILD=1`. `AMBITION_BUILD_ID` supplies the identifier for a
+CI build. A native development build reads the executable's modification
+time and labels the current working tree's revision as `tree <rev>`.
 
 `./run_game.sh --reuse` (or `--no-build`) runs the already built binary that
 the same choices name (package, binary, profile) and never invokes Cargo, so a
@@ -133,8 +131,8 @@ watcher (`scripts/regen/build_extension_modules.sh --watch <package>`) watches
 the selected package and every local package in its resolved wasm graph, from
 `cargo metadata`; it used to watch the Ambition module tree whatever package
 it was given (audit B03, 2026-11-14).
-Build with `AMBITION_HIDE_BUILD_ID=1` to hide the label. Grid and cube menus
-use the same label; normal play does not show it.
+Build with `AMBITION_HIDE_BUILD_ID=1` to hide the label. Grid and cube pause
+menus use the same label. The label is hidden during normal play.
 
 ### B4 — generated-content/bootstrap contract
 

@@ -82,8 +82,8 @@ pub fn install_unified_menu_shared(app: &mut App) {
         .init_resource::<ambition_platformer2d::input::SeatActiveDevices>()
         .add_plugins(AmbitionInventoryUiPlugin);
     #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
-    if !app.is_plugin_added::<super::build_label::PauseBuildLabelPlugin>() {
-        app.add_plugins(super::build_label::PauseBuildLabelPlugin);
+    if !app.is_plugin_added::<super::build_label::BuildLabelPlugin>() {
+        app.add_plugins(super::build_label::BuildLabelPlugin);
     }
     // Publish the focused item's verb (Equip/Use) as the inventory's UiCue so
     // the on-screen menu-confirm control reads the real action. Backend-

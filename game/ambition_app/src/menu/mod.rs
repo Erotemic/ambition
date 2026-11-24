@@ -14,7 +14,7 @@ pub struct GridMenuNav;
 pub struct KaleidoscopeMenuNav;
 
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
-mod build_label;
+pub(crate) mod build_label;
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
 mod regions;
 #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]

@@ -92,6 +92,9 @@ pub struct MenuControlFrame {
     /// inside an interface, but cannot open a pause menu from gameplay.
     pub back_shared_with_gameplay: bool,
     pub start: bool,
+    /// Every pressed Start control also selects. An active interface can
+    /// use this press as Select instead of opening or closing pause.
+    pub start_shared_with_select: bool,
     pub inventory: bool,
     pub map: bool,
     /// Left shoulder (L1 / LB) or its keyboard equivalent: turn a paged menu

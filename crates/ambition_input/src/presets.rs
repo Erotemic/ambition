@@ -364,7 +364,7 @@ impl KeyboardPreset {
 
         // Menu navigation. D-pad and arrow keys hit the same MenuNavigate* actions;
         // The stick supplies repeat input. Space and configured confirm keys
-        // select. Hosts give Start priority over Select during a session.
+        // select. An open interface uses a shared Start/Select control as Select.
         map.insert(
             Platformer2dInputActionMonolith::MenuNavigateUp,
             KeyCode::ArrowUp,
@@ -398,7 +398,7 @@ impl KeyboardPreset {
             KeyCode::KeyD,
         );
 
-        // Enter can still confirm startup and launcher screens without a session.
+        // Enter selects in an interface and opens pause from gameplay.
         map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::Enter);
         map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::NumpadEnter);
         map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::Space);

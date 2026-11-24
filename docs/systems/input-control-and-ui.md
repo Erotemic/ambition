@@ -94,13 +94,16 @@ Current responsibilities:
   tree through `DialogPresentationSet` (ADR 0028).
 
 In an Ambition session, Start opens or closes the unified inventory and
-System menu. The default keyboard Start is Enter; Space and the configured
-Jump and Interact controls confirm selections. Escape is Back. Back opens
+System menu. Enter opens it from gameplay and confirms selections inside an
+interface. The opening press cannot also select an option. Space and the
+configured Jump and Interact controls also confirm. A dedicated Start, such
+as gamepad Start, still opens or closes the menu over an interface. Shared
+Start/Select controls follow this rule after remapping. Escape and gamepad B
+(the East button) are Back. Back opens
 the menu only when gameplay owns input or no interface claims it. A gate,
 dialogue, or cutscene keeps its own Back policy. A dialogue that forbids
 cancel ignores Back. Back inside the menu returns from a System page before
-it closes the menu; Start closes the whole menu.
-Outside a session, Enter can still confirm startup and launcher screens.
+it closes the menu; dedicated Start closes the whole menu.
 A Back control shared with gameplay, such as the default pad's Blink
 button, retains its gameplay action when no interface is open.
 

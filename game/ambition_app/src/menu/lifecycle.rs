@@ -171,7 +171,11 @@ pub(crate) fn route_menu_lifecycle(
     ) in &mut menus
     {
         let input = frames.for_seat(owner.owner.slot());
-        let start = input.start && !latch.last_start;
+        let selecting = input.start_shared_with_select
+            && (overlay.visible || access.owner(owner.owner).is_some_and(|context| {
+                context != ambition_platformer2d::input::GAMEPLAY_CONTEXT
+            }));
+        let start = input.start && !latch.last_start && !selecting;
         latch.last_start = input.start;
         let platform_pause = platform_pause && owner.owner == ParticipantId::PRIMARY;
         if !platform_pause && !super::inventory_input_allowed(&access, owner.owner) {
@@ -182,11 +186,14 @@ pub(crate) fn route_menu_lifecycle(
             *frames.for_seat_mut(owner.owner.slot()) = Default::default();
             continue;
         }
+        if selecting {
+            frames.for_seat_mut(owner.owner.slot()).start = false;
+        }
         let back_opens = input.back && !input.back_shared_with_gameplay && !overlay.visible
             && matches!(access.owner(owner.owner), None | Some(ambition_platformer2d::input::GAMEPLAY_CONTEXT));
         if start || platform_pause || back_opens {
             // The opening or closing press belongs only to this menu lifecycle.
-            // A remapped Start can share a control with Select or Back.
+            // A dedicated Start can share a press with another menu control.
             let frame = frames.for_seat_mut(owner.owner.slot());
             frame.consume_nav_edges();
             frame.select_held = false;

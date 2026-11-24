@@ -1105,8 +1105,8 @@ fn global_start_interrupts_contexts_and_closes_nested_pages_without_confirming()
             (CUTSCENE_CONTEXT, context_priority::CUTSCENE, GameMode::Cutscene),
         ] {
             let mut map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
-            // A saved rebind can give Start the same control as confirm.
-            map.insert(Action::MenuSelect, KeyCode::Enter);
+            // A dedicated Start still opens over any in-session interface.
+            map.insert(Action::Start, KeyCode::F13);
             let mut app = real_input_cube_app(map);
             app.insert_resource(backend);
             app.insert_state(mode);
@@ -1127,14 +1127,55 @@ fn global_start_interrupts_contexts_and_closes_nested_pages_without_confirming()
             };
             tap(&mut app, KeyCode::Escape);
             assert!(!cube_is_open(&app), "{backend:?}: Back stays with {context:?}");
-            tap(&mut app, KeyCode::Enter);
+            app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::Enter);
+            app.update();
+            assert!(!cube_is_open(&app), "{context:?}: Enter stays with contextual selection");
+            assert!(app.world().resource::<ambition_platformer2d::input::SeatMenuFrames>().for_seat(0).select);
+            app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::Enter);
+            app.update();
+            tap(&mut app, KeyCode::F13);
             assert!(cube_is_open(&app), "{backend:?}: Start opens over {context:?}");
             assert_eq!(cube_mode(&app), GameMode::Paused);
             assert!(crate::menu::test_support::menu_component::<KaleidoscopeSystemNav>(app.world()).open_entry.is_none(), "Start did not confirm the first System row");
             crate::menu::test_support::menu_component_mut::<KaleidoscopeSystemNav>(app.world_mut()).open_entry = Some(SystemMenuEntryId::Audio);
-            tap(&mut app, KeyCode::Enter);
+            tap(&mut app, KeyCode::F13);
             assert!(!cube_is_open(&app), "Start closes the whole menu, including a nested page");
             assert_eq!(cube_mode(&app), mode);
+        }
+    }
+}
+
+#[cfg(feature = "bevy_ui_menu")]
+#[test]
+fn a_shared_start_select_control_opens_pause_then_selects_in_either_backend() {
+    use ambition_platformer2d::input::Platformer2dInputActionMonolith as Action;
+    for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope] {
+        for key in [KeyCode::Enter, KeyCode::NumpadEnter, KeyCode::F14] {
+            let mut map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
+            if key == KeyCode::F14 {
+                map.insert(Action::Start, key);
+                map.insert(Action::MenuSelect, key);
+            }
+            let mut app = real_input_cube_app(map);
+            app.insert_resource(backend);
+            if backend == InventoryUiBackend::Grid {
+                app.add_systems(Update, crate::menu::grid_backend::grid_menu_nav
+                    .after(crate::menu::lifecycle::route_menu_lifecycle).before(menu_action_activated));
+            }
+            let tap = |app: &mut App| {
+                app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(key);
+                app.update();
+                app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(key);
+                app.update();
+            };
+            tap(&mut app);
+            assert!(cube_is_open(&app), "{backend:?} {key:?}: opens pause");
+            assert!(crate::menu::test_support::menu_component::<KaleidoscopeSystemNav>(app.world()).open_entry.is_none(), "the opening press does not select");
+            crate::menu::test_support::menu_component_mut::<KaleidoscopeCursor>(app.world_mut()).focus = MenuFocus::System(0);
+            tap(&mut app);
+            assert!(cube_is_open(&app), "{backend:?} {key:?}: selection keeps pause open");
+            assert!(crate::menu::test_support::menu_component::<KaleidoscopeSystemNav>(app.world()).open_entry.is_some(), "{backend:?} {key:?}: selects the System entry");
+            assert_eq!(cube_mode(&app), GameMode::Paused);
         }
     }
 }
@@ -1203,10 +1244,17 @@ fn a_gameplay_control_shared_with_back_does_not_open_the_menu() {
     assert!(cube_is_open(&app), "a dedicated Back control opens from gameplay");
 }
 
+#[cfg(feature = "bevy_ui_menu")]
 #[test]
 fn gamepad_start_pauses_while_east_remains_gameplay_or_contextual_back() {
+    for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope] {
     use bevy::input::gamepad::{RawGamepadEvent, RawGamepadButtonChangedEvent};
     let mut app = real_input_cube_app(ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map());
+    app.insert_resource(backend);
+    if backend == InventoryUiBackend::Grid {
+        app.add_systems(Update, crate::menu::grid_backend::grid_menu_nav
+            .after(crate::menu::lifecycle::route_menu_lifecycle).before(menu_action_activated));
+    }
     let pad = app.world_mut().spawn(Gamepad::default()).id();
     let press = |app: &mut App, button, value| {
         app.world_mut().write_message(RawGamepadEvent::Button(RawGamepadButtonChangedEvent {
@@ -1223,10 +1271,16 @@ fn gamepad_start_pauses_while_east_remains_gameplay_or_contextual_back() {
     press(&mut app, GamepadButton::Start, 0.0);
     assert!(cube_is_open(&app));
     assert_eq!(cube_mode(&app), GameMode::Paused);
+    crate::menu::test_support::menu_component_mut::<KaleidoscopeSystemNav>(app.world_mut()).open_entry = Some(SystemMenuEntryId::Audio);
+    press(&mut app, GamepadButton::East, 1.0);
+    press(&mut app, GamepadButton::East, 0.0);
+    assert!(cube_is_open(&app), "{backend:?}: B backs out of the nested page");
+    assert!(crate::menu::test_support::menu_component::<KaleidoscopeSystemNav>(app.world()).open_entry.is_none());
     press(&mut app, GamepadButton::East, 1.0);
     press(&mut app, GamepadButton::East, 0.0);
     assert!(!cube_is_open(&app));
     assert_eq!(cube_mode(&app), GameMode::Playing);
+    }
 }
 
 /// ⛔ THE SHARED CURSOR IS NOT THIS BACKEND'S TO MOVE WHILE ITS MENU IS CLOSED.

@@ -79,13 +79,16 @@ pub fn seat_frame_this_tick(
     }
 }
 
-/// Shape a seat's input for the current tick in both existing tables.
+/// Shape a seat's input for the current tick, in the one table that is this
+/// tick's input (IN1).
 ///
-/// `seat_frame_this_tick` selects the current read authority. The slot
-/// table feeds this tick; the raw table feeds later rollback folding.
-/// Dual writing is migration infrastructure, not an input-model API
-/// to extend. A future confirmed-input stage should own gesture
-/// derivation without writing into the raw input proposal.
+/// That table is the one [`seat_frame_this_tick`] reads: `SlotControls` where a
+/// latch or a rollback session published it, the raw row where nobody did (its
+/// publish copies the row after this stage). An interpretation (a fast-fall
+/// gesture, a spent reset) never goes back into the other table. On a latch
+/// host the raw row is the next proposal: the commit stage folds it into the
+/// latch, so an edit left there reached the next tick as input nobody gave,
+/// for every seat whose row no producer rewrote that frame.
 pub fn shape_seat_frame(
     latches: Option<&ambition_characters::control::SlotControlLatches>,
     rollback: Option<&ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>,
@@ -94,10 +97,15 @@ pub fn shape_seat_frame(
     slot: PlayerSlot,
     edit: impl FnOnce(&mut ambition_platformer2d_core::ControlFrame),
 ) {
-    let mut frame = seat_frame_this_tick(latches, rollback, slots, raw, slot);
-    edit(&mut frame);
-    slots.set(slot, frame);
-    raw.set(slot, frame);
+    if another_authority_publishes(latches, rollback) {
+        let mut frame = slots.get(slot);
+        edit(&mut frame);
+        slots.set(slot, frame);
+    } else {
+        let mut frame = raw.get(slot);
+        edit(&mut frame);
+        raw.set(slot, frame);
+    }
 }
 
 /// DOES SOMETHING ELSE ALREADY OWN THIS SEAT'S PUBLISHED FRAME THIS TICK?
@@ -217,5 +225,33 @@ mod tests {
             "an ambiguous seat drove a body — the caller was handed one of two \
              claimants chosen by archetype order"
         );
+    }
+}
+
+#[cfg(test)]
+mod shape_tests {
+    use super::*;
+    use ambition_characters::control::{SeatRawFrames, SlotControlLatches, SlotControls};
+
+    /// IN1: an interpretation lands in the one table that is this tick's
+    /// input and never in the other. On a latch host the raw row is the next
+    /// proposal, which the commit stage folds into the latch; a fast-fall left
+    /// there would come back next tick as a press nobody made.
+    #[test]
+    fn a_shaped_frame_lands_only_in_this_ticks_authority() {
+        let slot = PlayerSlot::PRIMARY;
+        for latched in [true, false] {
+            let latches = latched.then(SlotControlLatches::default);
+            let (mut slots, mut raw) = (SlotControls::default(), SeatRawFrames::default());
+            shape_seat_frame(latches.as_ref(), None, &mut slots, &mut raw, slot, |frame| {
+                frame.fast_fall_pressed = true;
+            });
+            let (in_slots, in_raw) = (slots.get(slot).fast_fall_pressed, raw.get(slot).fast_fall_pressed);
+            assert_eq!((in_slots, in_raw), (latched, !latched), "latched={latched}");
+            assert!(
+                seat_frame_this_tick(latches.as_ref(), None, &slots, &raw, slot).fast_fall_pressed,
+                "the reader of this tick does not see the shaped frame (latched={latched})"
+            );
+        }
     }
 }

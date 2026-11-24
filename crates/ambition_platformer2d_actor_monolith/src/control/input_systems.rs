@@ -338,7 +338,8 @@ mod per_seat_gesture_tests {
                 }
             }
             app.update();
-            let slots = app.world().resource::<SlotControls>();
+            // A latchless fixture: this tick's input is the raw row (IN1).
+            let slots = app.world().resource::<SeatRawFrames>();
             for slot in [0u8, 1] {
                 fired[slot as usize] |= slots.get(PlayerSlot(slot)).fast_fall_pressed;
             }
@@ -434,7 +435,8 @@ mod per_seat_gesture_tests {
                 }
             }
             app.update();
-            let slots = app.world().resource::<SlotControls>();
+            // A latchless fixture: this tick's input is the raw row (IN1).
+            let slots = app.world().resource::<SeatRawFrames>();
             for slot in [0u8, 1] {
                 fired[slot as usize] |= slots.get(PlayerSlot(slot)).fast_fall_pressed;
             }
@@ -489,7 +491,8 @@ mod per_seat_gesture_tests {
                 raw.set(PlayerSlot(slot), tap);
             }
             app.update();
-            let slots = app.world().resource::<SlotControls>();
+            // A latchless fixture: this tick's input is the raw row (IN1).
+            let slots = app.world().resource::<SeatRawFrames>();
             assert!(
                 !slots.get(PlayerSlot(0)).fast_fall_pressed
                     && !slots.get(PlayerSlot(1)).fast_fall_pressed,

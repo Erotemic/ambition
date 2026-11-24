@@ -210,7 +210,7 @@ decide action permission and elapsed execution.
 
 ### IN1 — record and replay at the same admitted input cut
 
-**State:** first slice DONE 2026-11-24. `AdmittedSeatInput` (runtime
+**State:** DONE 2026-11-24. `AdmittedSeatInput` (runtime
 `input_stream.rs`) is the cut: in `PlayerInput`, after
 `LocalInputPublication`, before `RoomReplayAdmission` and
 `PlayerInputSet::Device`. `record_input_stream` runs there and reads
@@ -223,9 +223,13 @@ frame and is refused, not reinterpreted. Proof in
 its press and the decoded replay resets on the same tick; a held stick
 through the `portal_lab` scaling pair replays pose, velocity and material
 tick for tick (`--features portal`). Run/jump/burst remains the control.
-Open: dual writes from interpretation back into `SeatRawFrames` (gestures,
-reset) remain until their consumers move. The UI/focus supply
-interruption is IN5's remaining part.
+The interpretation dual writes are gone (2026-11-24): `shape_seat_frame`
+edits only the table `seat_frame_this_tick` reads. On a latch host the raw
+row is the next proposal, which the commit stage folds into the latch, so a
+write-back of fast-fall or a spent reset fed an interpretation back in as
+input. Witness: `a_shaped_frame_lands_only_in_this_ticks_authority`
+(actor `control/queries.rs`), latched and latchless. IN1 is DONE. The UI/focus
+supply interruption landed as IN5.
 
 The current `ControlFrame` carries several meanings: a device sample, a
 tick's admitted input, body-interpreted control, and what remains after a

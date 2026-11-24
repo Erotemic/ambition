@@ -401,10 +401,11 @@ value as completion of that owner's contract.
    tumble only through its accepted move. The
    [ACT1 follow-through](engine/body-action-execution.md#act1-follow-through--resolve-the-request-before-spending)
    completes prospective-source admission/spend, request-versus-fallback
-   cancel eligibility, and use facts carried by a final-step shot. Other
-   open work: scripted starts, the jump
-   escapes before their spend, the landing-tick cancel-window remainder,
-   and interrupting a bound shot whose source is gone. The 2026-11-23
+   cancel eligibility, and use facts carried by a final-step shot. (Landed
+   2026-11-23: the landing settles in the trigger set before any start is
+   admitted; a jump/burst escape ends the move only on the verb the body's
+   step spent; a shot whose drawn weapon left the hand is interrupted before
+   it can fire. ACT1's listed steps are done.) The 2026-11-23
    review follow-through landed: a ranged event carries its use's facts
    (`RangedUse`), each candidate's weapon gate and refire spend use its own
    `emission_source`, and the attack kit asks the cancel window about the

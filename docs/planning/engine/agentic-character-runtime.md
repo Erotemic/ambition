@@ -1,8 +1,8 @@
 # Agentic character runtime — Engine 1.0 program
 
 **State:** OPEN / LATER for general agentic characters. OBS3's first
-controller-authoring slice landed. Static review of `1bef25200e00` on
-2026-11-23 leaves current-product eligibility open below. This does not
+controller-authoring slice landed, and its current-product eligibility
+follow-through landed 2026-11-23 (below). This does not
 select an LLM provider or a general goal framework.
 
 ## Current state
@@ -13,7 +13,7 @@ select an LLM provider or a general goal framework.
 | observations and memory | exist: `WorldMemory`, `PerceptionMemory`, `AgentObservation`, `CombatObservation` |
 | goals | Radiant authors scheduled work; broader persistent character goals remain unresolved |
 | navigation and reachability over world geometry | in one room, for one body: exists since 2026-10-09 (a surface graph checked in the kernel, and a brain that follows it). Between rooms: absent. Owner: [`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md) |
-| planner or policy | native catalogs plus authoritative and sighted module-backed custom-brain routes; shared demand exists, current-product eligibility remains open (OBS3 below) |
+| planner or policy | native catalogs plus authoritative and sighted module-backed custom-brain routes; shared demand and a per-step decision product exist; TacticalWorld demand and decision timing remain open (OBS3 below) |
 | typed engine action intent | exists and is live: `ActionRequest` in `ActorActionMessage`, consumed by traversal abilities, `brain_effects.rs` and `ambition_held_items` |
 
 Two different boundaries remain:
@@ -188,8 +188,8 @@ the foe moved far out of view in the same room, the authoritative module
 aims at its new position and the sighted one at its body's estimate. The
 Laden Swallow fixtures stay controls for their authoritative rule.
 
-Current-product eligibility remains open as described below. Also open: a
-`TacticalWorld` module demand and the decision-timing contract
+Current-product eligibility landed with the follow-through below. Still
+open: a `TacticalWorld` module demand and the decision-timing contract
 (a delayed cut for a module), and the rollback/possession crossings of the
 sighted route beyond the shared decision.
 

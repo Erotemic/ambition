@@ -3776,24 +3776,33 @@ fn on_whiff_cancel_locks_after_a_connect() {
     );
 }
 
-/// A `jump` cancel entry ENDS the move on the jump edge — the playback is
-/// removed (the locomotion path performs the jump itself from the same
-/// frame); no new move starts.
+/// A `jump` cancel entry ENDS the move on the jump the body spent — the
+/// playback is removed (the locomotion path performed the jump from the same
+/// frame, before the trigger); no new move starts. A press the movement step
+/// did not spend leaves the move playing.
 #[test]
 fn jump_cancel_ends_the_move_early() {
-    let mut app = trigger_app();
-    let mut frame = ambition_characters::actor::control::ActorControlFrame::default();
-    frame.jump_pressed = true;
-    let body = spawn_mover(
-        &mut app,
-        playing_move(Some(cancel_window(&["jump"], CancelCondition::Always))),
-        ActorControl(frame),
-    );
-    app.update();
-    assert!(
-        app.world().get::<MovePlayback>(body).is_none(),
-        "the jump edge ended the move"
-    );
+    for (spent, ended) in [(true, true), (false, false)] {
+        let mut app = trigger_app();
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::default();
+        frame.jump_pressed = true;
+        let body = spawn_mover(
+            &mut app,
+            playing_move(Some(cancel_window(&["jump"], CancelCondition::Always))),
+            ActorControl(frame),
+        );
+        let mut step = ae::BodyFrameOutput::default();
+        if spent {
+            step.events.operations.push(ae::MovementOp::Jump);
+        }
+        app.world_mut().entity_mut(body).insert(step);
+        app.update();
+        assert_eq!(
+            app.world().get::<MovePlayback>(body).is_none(),
+            ended,
+            "spent {spent}: the jump edge ended the move only when the body jumped"
+        );
+    }
 }
 
 /// The connect fact is set by the REAL hit path: an attacker whose Active

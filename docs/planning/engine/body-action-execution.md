@@ -179,10 +179,8 @@ beat as before. The source is in the playback checksum (schema 534). Guard:
 in during windup, A's numbers leave). This proves source retention, not that
 the prospective brandish supplied admission and spend. The
 [implementation follow-through](#act1-follow-through--resolve-the-request-before-spending)
-closes that distinction and the final-event payload. Also not yet done:
-interrupting the use when
-its admitted source's live dependency (a dropped brandish, a removed form) is
-gone; today the bound shot still fires.
+closes that distinction and the final-event payload. A use whose live dependency is gone is now
+interrupted: see the dropped-brandish slice below.
 
 **Boss starts ask the same locks (2026-11-23).** `trigger_boss_attack_moves`
 refuses a start while `body_action_lock_timer` (or the bare hard lock for a
@@ -240,8 +238,45 @@ jump, wall jump, footstool or swim stroke). A body with no jump to spend
 keeps its tumble and the knockdown it lands in. Probe (deleted): with no air
 jump the press left the tumble standing; with one, the double jump ended it.
 
-Still open: that cancel-window remainder of step 3, and a move's jump/burst
-cancel, which is still considered after movement.
+**The landing settles before a start is admitted (2026-11-23).** Step 3's
+remainder. `resolve_aerial_landings` and `edge_cancel_landing_recovery` now
+run in `CombatSet::Trigger`, after the out-of-play sweep and before gesture
+resolution, the press buffer and both trigger roads (the moveset and the
+boss). An aerial that touched down on this tick's step is charged its lag
+and ended before anything is admitted, so its cancel window can no longer
+start a replacement ahead of the landing, and the trigger reads the new lag
+as a lock. An auto-cancelled landing still leaves the move playing under
+its own windows; landing lag and edge-cancel policy stay in their owners.
+Both systems still run before the advance, so a landed move opens no further
+window.
+
+**A shot whose drawn weapon is gone is interrupted (2026-11-23).** A move
+that draws its own weapon (`MoveSpec::equips`) admits its shot from it, and
+the brandish (`MoveBrandishedItem`) is the move playing. When the drawn
+weapon leaves the hand mid-move (knocked away, dropped, taken) before a
+`Ranged` event still ahead of the clock, `interrupt_shots_whose_brandish_is_gone`
+ends the use through `cancel_move_playback`, in the trigger set before the
+advance could emit the shot; the brandish then puts back what it displaced.
+A shot that already left, or a draw not yet applied, is untouched. A body's
+own ranged source has no custody fact of its own: a form or repertoire
+change that replaces or removes `ActionSet.ranged` leaves the use on its
+admitted source, as `a_ranged_move_fires_the_source_it_was_admitted_with`
+states. Guard: `a_shot_whose_drawn_weapon_is_gone_is_interrupted` (lost and
+kept arms).
+
+**A locomotion escape ends the move only on the verb the body spent
+(2026-11-23).** Step 4's last half. The kernel steps the body before the
+trigger, from the same control frame, and a jump beside a move is ordinary
+locomotion (a move's motion lock damps steering, never the jump). What the
+trigger decided after it was the escape, and it decided on the press: a
+permitting `jump`/`dash` window ended the move even when the step refused
+the verb (no jump left, no dash charge). `trigger_moveset_moves` now asks
+`locomotion_escape_spent` about this tick's `BodyFrameOutput` (the step's
+own operations, fresh by its `BodyStepStamp`): a jump of any kind, or the
+jump squat a grounded press begins (where a Smash jump cancel lands), for
+`jump`; the burst's dash, evade or blink for `dash`. A body with no step, or
+a stale one, spent nothing and keeps its move. Guard:
+`jump_cancel_ends_the_move_early` (spent and unspent arms).
 
 ### An offer and an accepted action must name the same move
 

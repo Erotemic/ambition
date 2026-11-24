@@ -3183,6 +3183,44 @@ pub fn body_is_helpless(
 /// This is the single trigger seam for every body. A held weapon's Attack move
 /// is read from the live `ActorMoveset`, where the repertoire fold made the
 /// weapon's attack family the body's whole melee vocabulary.
+/// Whether this tick's movement step spent the locomotion verb a cancel class
+/// names: `"jump"` a jump of any kind (or the jump squat a grounded press
+/// begins, which is where a jump cancel lands in a game with one), `"dash"`
+/// the burst's dash, evade or blink. A body with no step, or a step published
+/// on another tick, spent nothing.
+pub(crate) fn locomotion_escape_spent(
+    class: &str,
+    step: Option<&ae::BodyFrameOutput>,
+    tick: Option<u64>,
+    facts: Option<&ae::BodyMotionFacts>,
+) -> bool {
+    use ae::MovementOp as Op;
+    let Some(step) = step else {
+        return false;
+    };
+    if let (Some(stamp), Some(tick)) = (step.stamp, tick) {
+        if stamp.tick != tick {
+            return false;
+        }
+    }
+    let ops = &step.events.operations;
+    match class {
+        "jump" => {
+            facts.is_some_and(|facts| facts.jump_squatting)
+                || ops.iter().any(|op| {
+                    matches!(op, Op::Jump | Op::DoubleJump | Op::WallJump | Op::LedgeJump | Op::SwimStroke)
+                })
+        }
+        "dash" => ops.iter().any(|op| {
+            matches!(
+                op,
+                Op::Dash | Op::DoubleDash | Op::DodgeRoll | Op::SpotDodge | Op::AirDodge | Op::Blink | Op::PrecisionBlink
+            )
+        }),
+        _ => false,
+    }
+}
+
 pub fn trigger_moveset_moves(
     mut commands: Commands,
     // ⛔ A SEPARATE QUERY, NOT A COLUMN IN `bodies`. `MoveOccurrence` appears in
@@ -3322,10 +3360,18 @@ pub fn trigger_moveset_moves(
     //
     // `Option` on both: the FEATURE and the PLUGIN are two switches, and a
     // body without an identity is still a body.
+    // THIS TICK'S MOVEMENT STEP, for a locomotion escape (ACT1 step 4): what
+    // the kernel spent from the same control frame, and the tick that stamps
+    // a fresh step. Paired only to stay inside the system's parameter limit.
+    steps: (
+        Query<&ae::BodyFrameOutput>,
+        Option<bevy::prelude::Res<ambition_time::SimTick>>,
+    ),
     #[cfg(feature = "causal")] log: Option<bevy::prelude::ResMut<ambition_causal::CausalRecording>>,
     #[cfg(feature = "causal")] identities: Query<&crate::components::ActorIdentity>,
     #[cfg(feature = "causal")] tick: Option<bevy::prelude::Res<ambition_time::SimTick>>,
 ) {
+    let (steps, step_tick) = steps;
     #[cfg(feature = "causal")]
     let mut log = log;
     for (
@@ -3880,8 +3926,18 @@ pub fn trigger_moveset_moves(
             } else {
                 None
             };
+            // ⛔ THE ESCAPE IS THE VERB THE BODY SPENT, NOT THE PRESS (ACT1 step
+            // 4). The kernel stepped this body before this trigger, from the
+            // same frame; a press it refused (no jump left, no dash charge)
+            // must not end the move as though it had escaped.
             if let Some(name) = loco {
-                if pb.spec.cancel_permits(pb.t, pb.contact(), &[name]) {
+                let spent = locomotion_escape_spent(
+                    name,
+                    steps.get(entity).ok(),
+                    step_tick.as_deref().map(|tick| tick.0),
+                    motion_facts,
+                );
+                if spent && pb.spec.cancel_permits(pb.t, pb.contact(), &[name]) {
                     cancel_move_playback(&mut commands, entity, &mut pb, MoveEnd::Interrupted);
                     continue;
                 }

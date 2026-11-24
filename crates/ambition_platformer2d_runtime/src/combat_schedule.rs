@@ -282,6 +282,23 @@ impl Plugin for CombatSchedulePlugin {
                     // invariant re-established here rather than a line in each
                     // death road.
                     ambition_combat::moveset::end_moves_for_bodies_out_of_play,
+                    // ACT1 step 3: the landing this tick's step observed is
+                    // settled BEFORE any start is admitted. An aerial that
+                    // touched down owes its lag and is over, so its cancel
+                    // window cannot admit a replacement on the landing tick
+                    // ahead of the lag; the trigger then reads the lag as a
+                    // lock. Also before the advance below, so a landed move
+                    // opens no further window.
+                    ambition_combat::moveset::resolve_aerial_landings,
+                    // AFTER the landing that charges it, so a body that landed
+                    // and left the ground in the same frame is charged and then
+                    // released rather than released and then charged — which
+                    // would leave it paying lag in mid-air, the one state the
+                    // rule exists to prevent.
+                    ambition_combat::moveset::edge_cancel_landing_recovery,
+                    // And a use whose drawn weapon left the hand ends here,
+                    // before its shot can be emitted by the advance (ACT1).
+                    ambition_combat::held_items::interrupt_shots_whose_brandish_is_gone,
                     ambition_combat::moveset::resolve_attack_gestures,
                     // Input leniency sits BETWEEN interpretation and the action
                     // authority, and only there: it decays the body's combat
@@ -320,17 +337,6 @@ impl Plugin for CombatSchedulePlugin {
                 // stranding the boxes it rewound past.
                 (
                     ambition_combat::moveset::retire_orphaned_strike_volumes,
-                    // BEFORE the advance, deliberately. A move that landed
-                    // this frame is over, and running the advance first would
-                    // open its next window — spawning a strike volume for a
-                    // move that has already been cancelled by the ground.
-                    ambition_combat::moveset::resolve_aerial_landings,
-                    // AFTER the landing that charges it, so a body that landed
-                    // and left the ground in the same frame is charged and then
-                    // released rather than released and then charged — which
-                    // would leave it paying lag in mid-air, the one state the
-                    // rule exists to prevent.
-                    ambition_combat::moveset::edge_cancel_landing_recovery,
                     // BEFORE the advance: a stow is a decision about the charge
                     // as it stands, and running the clock first would bank a
                     // shot one tick fuller than the one the player put away.

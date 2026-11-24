@@ -185,6 +185,43 @@ pub fn brandish_the_playing_move_s_weapon(
     }
 }
 
+/// A SHOT BOUND TO A BRANDISH THAT IS GONE IS INTERRUPTED, NOT FIRED (ACT1).
+///
+/// A move that draws its own weapon admits its shot from that weapon
+/// (`MovePlayback::ranged_source`), and the brandish is the move playing. When
+/// something takes the drawn weapon out of the hand mid-move (knocked away,
+/// dropped, taken), the admitted source has lost the thing that fires it, and
+/// the use ends through the one teardown, before the advance can emit its
+/// shot. The brandish then puts back what it displaced, as for any move that
+/// ends. A move whose shot already left, or one that never drew (its draw not
+/// yet applied), is left alone; a weapon swapped in some other way is the
+/// admission-basis rule's, not this one's.
+pub fn interrupt_shots_whose_brandish_is_gone(
+    mut commands: Commands,
+    mut bodies: Query<(Entity, &mut crate::moveset::MovePlayback, &MoveBrandishedItem, Option<&HeldItem>)>,
+) {
+    for (entity, mut playback, brandished, held) in &mut bodies {
+        let Some(item) = playback.spec.equips.as_deref() else {
+            continue;
+        };
+        if brandished.move_id != playback.spec.id || playback.ranged_source.is_none() {
+            continue;
+        }
+        if held.is_some_and(|held| held.id() == item) {
+            continue;
+        }
+        let t = playback.t;
+        let shot_to_come = playback
+            .spec
+            .events
+            .iter()
+            .any(|ev| matches!(ev.kind, ambition_entity_catalog::MoveEventKind::Ranged) && ev.at_s > t);
+        if shot_to_come {
+            crate::moveset::cancel_move_playback(&mut commands, entity, &mut playback, crate::moveset::MoveEnd::Interrupted);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -308,6 +345,36 @@ mod tests {
             "the body was carrying a weapon this registry cannot resolve; the \
              brandish must hand back what it displaced, not destroy it"
         );
+    }
+
+    /// ⭐ ACT1: a move that drew its own gun and lost it before the shot ends
+    /// there, and the shot never leaves; the same move still holding the gun
+    /// plays on. The hand then gets back what the draw displaced.
+    #[test]
+    fn a_shot_whose_drawn_weapon_is_gone_is_interrupted() {
+        for lost in [false, true] {
+            let mut app = App::new();
+            app.add_systems(Update, (interrupt_shots_whose_brandish_is_gone, brandish_the_playing_move_s_weapon).chain());
+            let mut spec = drawing("run_out_the_guns", Some("admiral_gun_sword"));
+            spec.events.push(ambition_entity_catalog::MoveEvent {
+                at_s: 0.3,
+                kind: ambition_entity_catalog::MoveEventKind::Ranged,
+            });
+            let mut playback = crate::moveset::MovePlayback::new(spec, 1.0);
+            playback.ranged_source = Some(ambition_characters::brain::action_set::RangedActionSpec::bolt(240.0, 3));
+            let body = app.world_mut().spawn(playback).id();
+            app.update();
+            assert_eq!(held(&app, body).as_deref(), Some("admiral_gun_sword"), "premise: the move drew its gun");
+            if lost {
+                app.world_mut().entity_mut(body).remove::<HeldItem>();
+            }
+            app.update();
+            assert_eq!(
+                app.world().get::<crate::moveset::MovePlayback>(body).is_none(),
+                lost,
+                "lost {lost}: the use ends exactly when its drawn weapon is gone"
+            );
+        }
     }
 
     #[test]

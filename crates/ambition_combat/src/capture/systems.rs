@@ -2875,7 +2875,11 @@ fn pose_captives(
                 if bound != point {
                     held.hold_point = Some(bound);
                 }
-                let Some(at) = captor_pose.and_then(|pose| pose.attachments.get(usize::from(bound.slot)).copied()) else {
+                // A pose solved from a rig this one replaced is not this
+                // tick's pose of it.
+                let Some(at) = captor_pose
+                    .filter(|pose| captor_rig.is_some_and(|rig| pose.resolved_for(&rig.0)))
+                    .and_then(|pose| pose.attachments.get(usize::from(bound.slot)).copied()) else {
                     continue;
                 };
                 crate::body_landmarks::rig_point_in_world(at, captor_feet, captor_kin)

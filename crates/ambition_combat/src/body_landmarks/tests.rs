@@ -117,9 +117,8 @@ fn a_package_answers_this_tick_from_the_body_clocks() {
 
 #[test]
 fn a_rig_answers_this_tick_from_its_resolved_pose_and_a_named_clip_by_solving_it() {
-    let rig = rig();
-    let mut resolved = BodyRigPose::default();
-    rig.solve("idle", 0, &mut resolved.joints);
+    let rig = std::sync::Arc::new(rig());
+    let mut resolved = BodyRigPose::solved(&rig, "idle", 0);
     resolved.attachments = vec![Vec2::new(3.0, -10.0)];
     assert_eq!(
         rig_landmark(Landmark::HandNear, LandmarkPose::ThisTick, &rig, Some(&resolved)),

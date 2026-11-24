@@ -232,12 +232,22 @@ Witnesses: `a_hold_point_follows_its_name_across_a_replaced_rig`, and
 `a_hold_at_a_point_of_a_rig_with_no_pose_leaves_the_captive_where_it_is`
 (it replaces the test that asserted the root fallback).
 
+**Pose provenance landed (2026-11-24).** `BodyRigPose::rig` records the rig
+the pose was solved from (`SolvedRig`, an `Arc` compared by identity, held so
+its allocation cannot be reused while named). `resolve_body_rig_poses` solves
+again when the rig was replaced, even where the clip and frame names
+coincide; before, it kept the old rig's joints and points under the new rig.
+`BodyRigPose::resolved_for(rig)` is the reader's question: the capture hold,
+`attachment`, `attachments_from_centre` and `hurt_volumes` read no pose of a
+rig the body no longer wears, so a body whose new rig selects no frame this
+tick has no point rather than yesterday's. The captive is then left where it
+is, as for a missing pose. Witness:
+`a_replaced_rig_is_solved_again_and_an_old_pose_is_not_its_pose`.
+
 Open from A2:
 - The authored seat work through the same point query.
-- Telling a pose not resolved for the CURRENT rig apart from a stale one.
-  The schedule orders the pose before the hold, but nothing records which rig
-  a pose was resolved from.
-- A rollback witness through a rig replacement.
+- A rollback witness through a rig replacement (the pose is rollback-derived:
+  a restore drops it and the resolver rebuilds it from the restored rig).
 
 ### A3 — point velocity when a consumer needs it
 

@@ -237,10 +237,10 @@ fn hurt_volumes_are_placed_from_the_feet_as_bounds_of_their_parts() {
             },
         )]),
     };
-    let rig = definition.clone().prepare().unwrap();
-    let mut rig_pose = BodyRigPose::default();
+    let rig = Arc::new(definition.clone().prepare().unwrap());
+    let rig_pose = BodyRigPose::default();
     assert_eq!(rig_pose.hurt_volumes(&rig, Vec2::new(0.0, 8.0)), None, "an unresolved pose has no hurt shape");
-    rig.solve("idle", 0, &mut rig_pose.joints);
+    let rig_pose = BodyRigPose::solved(&rig, "idle", 0);
     let volumes = rig_pose.hurt_volumes(&rig, Vec2::new(0.0, 8.0)).expect("one part");
     // The fist is 10 above the feet, and the feet are 8 below the centre.
     assert_eq!(
@@ -253,4 +253,32 @@ fn hurt_volumes_are_placed_from_the_feet_as_bounds_of_their_parts() {
     definition.hurt_parts.clear();
     let bare = definition.prepare().unwrap();
     assert_eq!(rig_pose.hurt_volumes(&bare, Vec2::new(0.0, 8.0)), None);
+}
+
+/// ⭐ A2: a pose is the pose OF ITS RIG. A rig replaced in use with the same
+/// clip and frame names is solved again, so its points are the new rig's;
+/// and a pose of the old rig is not read as one of the new rig.
+#[test]
+fn a_replaced_rig_is_solved_again_and_an_old_pose_is_not_its_pose() {
+    let (mut app, body) = app_with_body(BodyPoseClock::new("airborne", 0.0));
+    app.update();
+    assert_eq!(hand(&app, body), Vec2::new(3.0, -20.0), "control: the first rig's hand");
+    let old = app.world().get::<BodyRigPose>(body).unwrap().clone();
+
+    // The same clip and frame, the hand drawn further out.
+    let farther = Arc::new(
+        BodyRigDefinition {
+            joints: vec![RigJoint { name: "arm".to_string(), parent: None }],
+            attachments: vec![RigAttachment { name: HAND_NEAR.to_string(), joint: "arm".to_string(), offset: (7.0, 0.0) }],
+            hurt_parts: Vec::new(),
+            clips: BTreeMap::from([("jump".to_string(), RigClip { looping: false, frame_duration_s: 0.1, frames: vec![vec![pose(0.0, -20.0)]] })]),
+        }
+        .prepare()
+        .expect("valid rig"),
+    );
+    assert!(!old.resolved_for(&farther), "a pose of the old rig read as a pose of the new one");
+    assert_eq!(old.attachment(&farther, HAND_NEAR), None, "the old pose gave the new rig a point");
+    app.world_mut().get_mut::<BodyRig>(body).unwrap().0 = farther;
+    app.update();
+    assert_eq!(hand(&app, body), Vec2::new(7.0, -20.0), "the new rig's hand, solved again");
 }

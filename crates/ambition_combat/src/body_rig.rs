@@ -59,11 +59,48 @@ pub struct BodyRigPose {
     pub joints: Vec<Affine2>,
     /// One point per rig attachment, in the rig's attachment order.
     pub attachments: Vec<Vec2>,
+    /// The rig this pose was solved from. A rig replaced in use (a content
+    /// reload, a change of form) is a different rig even where its clip and
+    /// frame names coincide, and a pose of the old one is not this tick's
+    /// pose of the new one ([`Self::resolved_for`]).
+    pub rig: Option<SolvedRig>,
+}
+
+/// The rig a [`BodyRigPose`] was solved from. Held, so its allocation cannot
+/// be reused by another rig while the pose names it, and compared by
+/// identity: two rigs with equal data are still two rigs.
+#[derive(Debug, Clone)]
+pub struct SolvedRig(pub Arc<PreparedBodyRig>);
+
+impl PartialEq for SolvedRig {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
 }
 
 impl BodyRigPose {
+    /// `rig` solved at `clip`'s `frame`, as the resolver solves it.
+    pub fn solved(rig: &Arc<PreparedBodyRig>, clip: &str, frame: usize) -> Self {
+        let mut joints = Vec::new();
+        rig.solve(clip, frame, &mut joints);
+        let attachments = rig
+            .attachments()
+            .iter()
+            .map(|attachment| joints[usize::from(attachment.joint)].transform_point2(attachment.offset))
+            .collect();
+        Self { clip: Some(clip.to_string()), frame, joints, attachments, rig: Some(SolvedRig(rig.clone())) }
+    }
+
+    /// This pose was solved from `rig`, and not from a rig it replaced.
+    pub fn resolved_for(&self, rig: &PreparedBodyRig) -> bool {
+        self.clip.is_some() && self.rig.as_ref().is_some_and(|solved| std::ptr::eq(Arc::as_ptr(&solved.0), rig))
+    }
+
     /// Attachment `name` this tick, in rig space.
     pub fn attachment(&self, rig: &PreparedBodyRig, name: &str) -> Option<Vec2> {
+        if !self.resolved_for(rig) {
+            return None;
+        }
         rig.attachment_index(name)
             .and_then(|index| self.attachments.get(index).copied())
     }
@@ -77,7 +114,7 @@ impl BodyRigPose {
         rig: &'a PreparedBodyRig,
         feet: Vec2,
     ) -> Option<impl Iterator<Item = (&'a str, Vec2)> + 'a> {
-        (self.clip.is_some() && self.attachments.len() == rig.attachments().len()).then(|| {
+        (self.resolved_for(rig) && self.attachments.len() == rig.attachments().len()).then(|| {
             rig.attachments()
                 .iter()
                 .zip(&self.attachments)
@@ -100,7 +137,7 @@ impl BodyRigPose {
         rig: &PreparedBodyRig,
         feet: Vec2,
     ) -> Option<Vec<ambition_entity_catalog::HurtboxVolume>> {
-        if rig.hurt_parts().is_empty() || self.joints.len() != rig.joint_names().len() {
+        if rig.hurt_parts().is_empty() || self.joints.len() != rig.joint_names().len() || !self.resolved_for(rig) {
             return None;
         }
         Some(
@@ -273,8 +310,8 @@ pub fn resolve_body_rig_poses(
         &mut BodyRigPose,
     )>,
 ) {
-    for (rig, playback, pose_clock, pinned, mut pose) in &mut bodies {
-        let rig = rig.0.as_ref();
+    for (body_rig, playback, pose_clock, pinned, mut pose) in &mut bodies {
+        let rig = body_rig.0.as_ref();
         // The pin's own `looping`, not the clip's: the sprite draws the pinned
         // row by the pin (`pinned_cell`), and the parts must be where it draws.
         let pinned_frame = pinned.filter(|pinned| pinned.is_pinned()).and_then(|pinned| {
@@ -293,7 +330,7 @@ pub fn resolve_body_rig_poses(
         else {
             continue;
         };
-        if pose.clip.as_deref() == Some(clip) && pose.frame == frame && !pose.joints.is_empty() {
+        if pose.clip.as_deref() == Some(clip) && pose.frame == frame && !pose.joints.is_empty() && pose.resolved_for(rig) {
             continue;
         }
         let pose = pose.as_mut();
@@ -304,6 +341,7 @@ pub fn resolve_body_rig_poses(
         }));
         pose.clip = Some(clip.to_string());
         pose.frame = frame;
+        pose.rig = Some(SolvedRig(body_rig.0.clone()));
     }
 }
 

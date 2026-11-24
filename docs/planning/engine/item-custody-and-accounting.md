@@ -267,7 +267,8 @@ publication's effects. Spec equality is not evidence of occurrence identity.
 
 ### A7 exchange — one rule for an offer and its accepted exchange
 
-**Planned, source review at `f41218979625`, 2026-11-21.**
+**Landed 2026-11-24 (receipt at the end of this section); planned at source
+review `f41218979625`, 2026-11-21.**
 `ambition_items::transaction::InventoryExchange` already owns atomic stored
 quantity and wallet exchange. `shop::{buy,sell}` implement separate laws,
 while merchant options ask still other questions. The current paths disagree:
@@ -366,6 +367,38 @@ exchange/merchant fixtures. Change state between preview and consume and
 check that acceptance re-evaluates it. Verify that both history adapters keep
 their current retention and that no failed exchange changes either owner.
 No new global offer registry, cache or economy framework is needed.
+
+#### A7 exchange landed (2026-11-24)
+
+- **One calculation.** `InventoryExchange::check` and `apply` share one
+  private `calculate` (validate and total; payment before receipt; costs
+  before grants; every grant fits; never netted). `check` publishes nothing
+  and reserves nothing.
+- **The shop lowers to it.** `ShopTransactionRequested::exchange` (buy: pay
+  the price, receive one; sell: give one, receive the price) feeds `check`
+  and `apply`, which return `Result<ExchangeApplied, ExchangeRefusal>`. The
+  separate `shop::{buy,sell}` arithmetic and `ShopTx` are gone. The policy
+  changes above hold: a payout past the wallet refuses the whole sale, a
+  negative price is refused (`invalid_quantity`), a full stack refuses the
+  purchase (`stack_full`).
+- **History stays with the caller.** `apply_shop_transactions` records its
+  `NarrativeFacts` rows and room log from the receipt's `ItemChange`s, not
+  from a before/after count.
+- **The offer asks the same exchange of the same payer.** The typed shop
+  binding is two Yarn functions, `can_buy("id", price)` and
+  `can_sell("id", price)`, over `narrative::shop_offer(world, payer, ..)`,
+  with the payer from `shop_payer` (O6a). The merchant nodes in `kernel.yarn`
+  and `pirate_port.yarn` use them in place of `can_afford(price)` and
+  `condition("inventory.holds", ..)`; those general questions are unchanged
+  for their other callers. `dialogue_lint` reads the new guards and also
+  checks the guard's item against the deal's.
+
+Witnesses: `shop::tests::the_offer_and_the_deal_are_one_exchange` (full
+stack, exact payout, negative price, a change between preview and deal
+that the deal re-evaluates) and the two-seat merchant witness
+`a_merchant_deals_with_the_seat_whose_conversation_it_is`, extended with
+the offer asked of each payer. A body holding an item the bag does not
+store cannot sell it: `shop_offer` reads the bag the sale consumes.
 
 ### Item carve boundary
 

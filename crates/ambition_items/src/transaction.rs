@@ -74,20 +74,49 @@ fn totals(
 }
 
 impl InventoryExchange {
+    /// Whether this exchange would succeed against the current bag and wallet,
+    /// by the same calculation [`Self::apply`] runs. Publishes nothing and
+    /// reserves nothing: an acceptance evaluates its own current state again.
+    pub fn check(
+        &self,
+        catalog: &ItemCatalog,
+        bag: &OwnedItems,
+        wallet: Option<&BodyWallet>,
+    ) -> Result<(), ExchangeRefusal> {
+        self.calculate(catalog, bag, wallet.copied()).map(|_| ())
+    }
+
     /// Costs must exist before grants. Every requested quantity must fit.
     /// Failure leaves both the bag and the wallet unchanged.
     pub fn apply(
         &self,
         catalog: &ItemCatalog,
         bag: &mut OwnedItems,
-        mut wallet: Option<&mut BodyWallet>,
+        wallet: Option<&mut BodyWallet>,
     ) -> Result<ExchangeApplied, ExchangeRefusal> {
+        let (next, purse, applied) = self.calculate(catalog, bag, wallet.as_deref().copied())?;
+        *bag = next;
+        if let (Some(wallet), Some(purse)) = (wallet, purse) {
+            *wallet = purse;
+        }
+        Ok(applied)
+    }
+
+    /// The one calculation behind [`Self::check`] and [`Self::apply`]: the
+    /// bag and wallet the exchange would leave, and what it changed. Order:
+    /// validate and total the terms; payment before receipt; item costs
+    /// before grants; every grant must fit. Terms are never netted.
+    fn calculate(
+        &self,
+        catalog: &ItemCatalog,
+        bag: &OwnedItems,
+        mut purse: Option<BodyWallet>,
+    ) -> Result<(OwnedItems, Option<BodyWallet>, ExchangeApplied), ExchangeRefusal> {
         let costs = totals(catalog, &self.costs)?;
         let grants = totals(catalog, &self.grants)?;
         let pay = i32::try_from(self.pay_coins).map_err(|_| ExchangeRefusal::InvalidQuantity)?;
         let receive =
             i32::try_from(self.receive_coins).map_err(|_| ExchangeRefusal::InvalidQuantity)?;
-        let mut purse = wallet.as_deref().copied();
         if pay > 0 || receive > 0 {
             let purse = purse.as_mut().ok_or(ExchangeRefusal::MissingWallet)?;
             if pay > 0 && !purse.try_spend(pay) {
@@ -128,11 +157,7 @@ impl InventoryExchange {
                 });
             }
         }
-        *bag = next;
-        if let (Some(wallet), Some(purse)) = (wallet.as_deref_mut(), purse) {
-            *wallet = purse;
-        }
-        Ok(applied)
+        Ok((next, purse, applied))
     }
 }
 

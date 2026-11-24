@@ -76,34 +76,34 @@ Kernel Guide: Try the basement labs, then turn on debug mode. Check combo state,
 title: merchant_seed
 ---
 Merchant Prototype: Shop's open. Anything you can't afford is greyed out.
--> Buy Health Cell — 8g <<if can_afford(8)>>
+-> Buy Health Cell — 8g <<if can_buy("healthcell", 8)>>
     <<buy_item "healthcell" 8>>
     <<jump merchant_seed>>
--> Buy Mana Cell — 8g <<if can_afford(8)>>
+-> Buy Mana Cell — 8g <<if can_buy("manacell", 8)>>
     <<buy_item "manacell" 8>>
     <<jump merchant_seed>>
--> Buy Gun-Sword — 35g <<if can_afford(35)>>
+-> Buy Gun-Sword — 35g <<if can_buy("gunsword", 35)>>
     <<buy_item "gunsword" 35>>
     <<jump merchant_seed>>
--> Buy Puppy-Slug Gun — 30g <<if can_afford(30)>>
+-> Buy Puppy-Slug Gun — 30g <<if can_buy("puppysluggun", 30)>>
     <<buy_item "puppysluggun" 30>>
     <<jump merchant_seed>>
--> Buy Bomb — 6g <<if can_afford(6)>>
+-> Buy Bomb — 6g <<if can_buy("bomb", 6)>>
     <<buy_item "bomb" 6>>
     <<jump merchant_seed>>
--> Buy Fireball — 40g <<if can_afford(40)>>
+-> Buy Fireball — 40g <<if can_buy("fireball", 40)>>
     <<buy_item "fireball" 40>>
     <<jump merchant_seed>>
--> Buy Grapple — 45g <<if can_afford(45)>>
+-> Buy Grapple — 45g <<if can_buy("grapple", 45)>>
     <<buy_item "grapple" 45>>
     <<jump merchant_seed>>
--> Buy Mark/Recall — 45g <<if can_afford(45)>>
+-> Buy Mark/Recall — 45g <<if can_buy("markrecall", 45)>>
     <<buy_item "markrecall" 45>>
     <<jump merchant_seed>>
--> Sell Gun-Sword — 17g <<if condition("inventory.holds", "gunsword")>>
+-> Sell Gun-Sword — 17g <<if can_sell("gunsword", 17)>>
     <<sell_item "gunsword" 17>>
     <<jump merchant_seed>>
--> Sell Health Cell — 4g <<if condition("inventory.holds", "healthcell")>>
+-> Sell Health Cell — 4g <<if can_sell("healthcell", 4)>>
     <<sell_item "healthcell" 4>>
     <<jump merchant_seed>>
 -> Ask about refunds.

@@ -10,9 +10,9 @@
 //! these systems apply it on the tick it was stamped for — in the original run
 //! and in every replay of that tick.
 //!
-//! the pure cores did not move and did not change. `shop::buy`,
-//! `shop::sell` and `OwnedItems::grant` are still the whole rule and still
-//! unit-tested without a `World`; what changed is who calls them and when.
+//! The pure cores are unit-tested without a `World`: a shop deal is the item
+//! owner's `InventoryExchange` (`ShopTransactionRequested::exchange`) and a
+//! grant is `OwnedItems::grant`. These systems decide who calls them and when.
 
 use bevy::prelude::*;
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
@@ -118,34 +118,39 @@ pub fn apply_shop_transactions(
         let Some(mut wallet) = payer.and_then(|payer| wallets.get_mut(payer).ok()) else {
             continue;
         };
-        let (before, balance) = (owned.count(request.item), wallet.balance);
+        // The item owner's exchange is the whole law (A7), and its receipt
+        // names what changed: no before/after reconstruction here.
         let outcome = request.apply(&mut wallet, &mut owned, items.get());
-        let after = owned.count(request.item);
-        let written = narrative_write(request.participant, &drivers, &rooms, tick.as_deref());
-        if let Some(since) = since.as_deref_mut() {
-            since.record(crate::pickup::BagChange {
-                item: Some(request.item),
-                gained: after.saturating_sub(before),
-                gave: before.saturating_sub(after),
-                payer: payer.and_then(|payer| ids.get(payer).ok()).cloned(),
-                coins: wallet.balance - balance,
-                written,
-                retention: crate::pickup::minted_horizon::BagChangeRetention::NarrativeFacts,
-            });
-        }
-        if let (Some(written), Some(log)) = (written, log.as_deref_mut()) {
-            if after > before {
-                log.record_gain(written, request.item, after - before);
-            }
-            for _ in after..before {
-                log.record(written, request.item);
-            }
-        }
         info!(
             target: "crate::narrative",
             "{:?} {:?} @ {} -> {outcome:?} (balance now {})",
             request.side, request.item, request.price, wallet.balance,
         );
+        let Ok(applied) = outcome else {
+            continue;
+        };
+        let written = narrative_write(request.participant, &drivers, &rooms, tick.as_deref());
+        for change in &applied.items {
+            if let Some(since) = since.as_deref_mut() {
+                since.record(crate::pickup::BagChange {
+                    item: Some(change.item),
+                    gained: change.added,
+                    gave: change.removed,
+                    payer: payer.and_then(|payer| ids.get(payer).ok()).cloned(),
+                    coins: applied.coins,
+                    written,
+                    retention: crate::pickup::minted_horizon::BagChangeRetention::NarrativeFacts,
+                });
+            }
+            if let (Some(written), Some(log)) = (written, log.as_deref_mut()) {
+                if change.added > 0 {
+                    log.record_gain(written, change.item, change.added);
+                }
+                for _ in 0..change.removed {
+                    log.record(written, change.item);
+                }
+            }
+        }
     }
 }
 
@@ -445,6 +450,25 @@ pub fn shop_payer(world: &World, participant: Option<PlayerSlot>) -> Option<Enti
     payer_among(participant, drivers, primary)
 }
 
+/// Would `payer` succeed at this shop deal now (A7)? The merchant's offer
+/// asks the deal's own exchange against the payer's purse and the bag, so a
+/// full stack, an item the bag does not hold and a payout the purse cannot
+/// take refuse the offer exactly as they would refuse the deal. Reads only:
+/// the purchase evaluates its own current state again when it runs.
+pub fn shop_offer(
+    world: &World,
+    payer: Entity,
+    side: ambition_items::shop::ShopSide,
+    item: ambition_items::Item,
+    price: i32,
+) -> Result<(), ambition_items::transaction::ExchangeRefusal> {
+    let wallet = world
+        .get::<BodyWallet>(payer)
+        .ok_or(ambition_items::transaction::ExchangeRefusal::MissingWallet)?;
+    let deal = ShopTransactionRequested { item, price, side, participant: None };
+    deal.check(wallet, world.resource::<OwnedItems>(), ambition_items::item_catalog(world))
+}
+
 fn driven_body(participant: PlayerSlot, drivers: &Query<(Entity, &DrivingParticipant)>) -> Option<Entity> {
     let mut candidates = drivers.iter().filter(|(_, driver)| driver.0 == participant);
     let (body, _) = candidates.next()?;
@@ -485,7 +509,7 @@ mod tests {
     }
 
     /// A purchase debits and grants, and an unaffordable one does neither.
-    /// The affordability rule is `shop::buy`'s and is tested there; what this
+    /// The affordability rule is the shop's exchange and is tested there; what this
     /// pins is that the applier does not lose the answer.
     #[test]
     fn a_purchase_moves_money_and_goods_together() {
@@ -581,6 +605,17 @@ mod tests {
             (owned.count(Item::HealthCell), owned.count(Item::ManaCell))
         };
         assert_eq!(bag(&app), (1, 0), "premise: the purchase and the sale moved the bag");
+
+        // A7: the offer asks the deal's own exchange of the same payer. The
+        // sold cell is gone from the bag, so its sale is no longer offered,
+        // whoever asks; Bob's 24 coins meet a 24-coin price and not 25.
+        use ambition_items::transaction::ExchangeRefusal;
+        let world = app.world();
+        assert_eq!(shop_offer(world, bob, ShopSide::Sell, Item::ManaCell, 4), Err(ExchangeRefusal::InsufficientItems(Item::ManaCell)));
+        assert_eq!(shop_offer(world, bob, ShopSide::Buy, Item::HealthCell, 24), Ok(()));
+        assert_eq!(shop_offer(world, bob, ShopSide::Buy, Item::HealthCell, 25), Err(ExchangeRefusal::InsufficientFunds));
+        assert_eq!(shop_offer(world, alice, ShopSide::Buy, Item::HealthCell, 25), Ok(()), "Alice's own purse answers her offer");
+        assert_eq!(app.world().get::<BodyWallet>(bob).map(|wallet| wallet.balance), Some(24), "an offer changed the purse");
 
         let mut log = app.world_mut().resource_mut::<BagUsesInRooms>();
         assert!(log.retract_room_spends(alices, 6).is_empty() && log.retract_room_gains(alices, 6).is_empty(), "Alice's room took Bob's deal back");

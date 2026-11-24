@@ -84,6 +84,7 @@ pub fn charge_projectile_input(
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &mut ambition_projectiles::PlayerProjectileState,
             Option<&mut ambition_characters::actor::BodyAnimFacts>,
+            Option<&ambition_characters::control::DrivingParticipant>,
         ),
         With<ambition_characters::brain::ChargesProjectiles>,
     >,
@@ -140,9 +141,19 @@ pub fn charge_projectile_input(
         .collect();
 
     let damage_mult = damage_policy.outgoing;
-    for (body_entity, kin, resolved_frame, mut state, mut anim) in &mut charge_body_q {
+    for (body_entity, kin, resolved_frame, mut state, mut anim, driver) in &mut charge_body_q {
         let tick_info = tick_infos.get(&body_entity).copied().unwrap_or_default();
         state.clock += dt;
+        // IN5: a pending charge belongs to the supply that began it. Once the
+        // body's driver is another seat, or none, that release cannot arrive
+        // here, so the charge is withdrawn without a shot — before this tick's
+        // press, which may begin a new charge for the new driver. A body that
+        // nobody drove when it began charging keeps it while still undriven.
+        let driver = driver.map(|d| d.0.0);
+        if state.charging.is_some() && state.charge_driver != driver {
+            state.charging = None;
+            state.charge_driver = None;
+        }
         state.spawner.tick(dt);
 
         // Motion input uses the same +Y-down convention as `MotionDirection::from_axis`.
@@ -255,6 +266,7 @@ pub fn charge_projectile_input(
                 firing.fire_or_wait(&mut state, &mut events, kind, 0) != FireOutcome::OutOfResource
             });
             state.charging = (!gesture_taken && state.unlocked.fireball).then_some(0.0);
+            state.charge_driver = driver;
         } else if tick_info.held {
             if let Some(t) = state.charging.as_mut() {
                 *t += dt;

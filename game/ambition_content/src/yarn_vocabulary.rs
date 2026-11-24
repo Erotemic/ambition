@@ -312,7 +312,8 @@ fn seat_of(owner: ambition_input::InputOwner) -> Option<ambition_characters::con
 
 /// `<<buy_item "id" price>>` — spend `price` from the player's wallet and grant
 /// one of the catalog item if affordable. A merchant dialogue node calls this on
-/// a purchase choice; the affordability check lives in [`ambition_items::shop::buy`].
+/// a purchase choice; the deal is the item owner's exchange
+/// ([`ambition_items::shop::ShopTransactionRequested::exchange`]).
 pub fn cmd_buy_item(
     In((id, price)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<ambition_items::shop::ShopTransactionRequested>,
@@ -346,7 +347,8 @@ pub fn cmd_buy_item(
 }
 
 /// `<<sell_item "id" price>>` — remove one of the catalog item and credit the
-/// wallet if the player owns it. See [`ambition_items::shop::sell`].
+/// wallet if the player owns it. See
+/// [`ambition_items::shop::ShopTransactionRequested::exchange`].
 pub fn cmd_sell_item(
     In((id, price)): In<(String, f32)>,
     mut narrative: NarrativeInputWriter<ambition_items::shop::ShopTransactionRequested>,
@@ -610,6 +612,44 @@ fn conversation_payer(world: &World) -> Option<bevy::prelude::Entity> {
     ambition_platformer2d_items::narrative::shop_payer(world, owner.and_then(seat_of))
 }
 
+/// `can_buy("id", price)` / `can_sell("id", price)` — would this
+/// conversation's payer succeed at the deal `<<buy_item>>` / `<<sell_item>>`
+/// would run (A7)? One question for the item and the price together, asked
+/// of the item owner's exchange: a full stack, an item the bag does not hold
+/// or a payout the purse cannot take greys the option out, as the deal would
+/// refuse it. An unknown item, an authored price that is not a price, or no
+/// single payer answers false with a warning.
+fn shop_offer_answer(world: &mut World, side: ambition_items::shop::ShopSide, id: &str, price: f32) -> bool {
+    let verb = match side {
+        ambition_items::shop::ShopSide::Buy => "can_buy",
+        ambition_items::shop::ShopSide::Sell => "can_sell",
+    };
+    let Some(item) = ambition_items::item_catalog(world).item_by_dialog_id(id) else {
+        bevy::log::warn!(target: "ambition_content::yarn_vocabulary", "{verb}({id:?}, {price}): unknown item");
+        return false;
+    };
+    let coins = match ambition_items::shop::authored_price(f64::from(price)) {
+        Ok(coins) => coins,
+        Err(problem) => {
+            bevy::log::warn!(target: "ambition_content::yarn_vocabulary", "{verb}({id:?}, {price}): {}", problem.observed());
+            return false;
+        }
+    };
+    let Some(payer) = conversation_payer(world) else {
+        bevy::log::warn!(target: "ambition_content::yarn_vocabulary", "{verb}({id:?}, {price}): no single body pays for this conversation");
+        return false;
+    };
+    ambition_platformer2d_items::narrative::shop_offer(world, payer, side, item, coins).is_ok()
+}
+
+fn ask_can_buy(In((id, price)): In<(String, f32)>, world: &mut World) -> bool {
+    shop_offer_answer(world, ambition_items::shop::ShopSide::Buy, &id, price)
+}
+
+fn ask_can_sell(In((id, price)): In<(String, f32)>, world: &mut World) -> bool {
+    shop_offer_answer(world, ambition_items::shop::ShopSide::Sell, &id, price)
+}
+
 /// `wallet_balance()` — the player's coins, read from the wallet itself.
 ///
 /// A registered system, not a mirror snapshot: the catalog cannot return a
@@ -662,6 +702,12 @@ pub fn register_functions(
     runner.library_mut().add_function("can_afford_verdict", can_afford_verdict);
     let wallet_balance = commands.register_system(ask_wallet_balance);
     runner.library_mut().add_function("wallet_balance", wallet_balance);
+    // A merchant's offer: the item and the price together, asked of the deal's
+    // own exchange (A7).
+    let can_buy = commands.register_system(ask_can_buy);
+    runner.library_mut().add_function("can_buy", can_buy);
+    let can_sell = commands.register_system(ask_can_sell);
+    runner.library_mut().add_function("can_sell", can_sell);
 
     let lib = runner.library_mut();
     // visit_count(id) -> f32:

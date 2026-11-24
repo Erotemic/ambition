@@ -375,7 +375,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 536 -> 537: a body's gameplay clock dilation (`actor.clock_dilation`, the
 // time-scale status) is its own canonical component, apart from its
 // proper-time rate.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 537;
+// 537 -> 538: a pending fireball charge encodes the seat that began it
+// (`PlayerProjectileState::charge_driver`, IN5).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 538;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

@@ -33,6 +33,13 @@ pub struct PlayerProjectileState {
     ///   immediately and stays `None` (no charge bleeds into the
     ///   following frame).
     pub charging: Option<f32>,
+    /// The seat whose press began [`Self::charging`], by its number, or
+    /// `None` when no participant drove the body. Read only while charging.
+    /// A charge belongs to the input supply that began it: when the body's
+    /// driver is no longer that seat (a possession left it, another seat took
+    /// it), the charge is withdrawn without a shot, since its release can no
+    /// longer arrive (IN5).
+    pub charge_driver: Option<u8>,
     /// A shot the player asked for while the spawner was cooling down. It
     /// fires on the first tick the cooldown is over, if that is within
     /// [`FIRE_BUFFER_S`] of the ask; else it is refused then.
@@ -80,6 +87,7 @@ impl Default for PlayerProjectileState {
             unlocked: ProjectileUnlocks::default(),
             charge_tuning: crate::FireballChargeTuning::DEFAULT,
             charging: None,
+            charge_driver: None,
             buffered: None,
         }
     }

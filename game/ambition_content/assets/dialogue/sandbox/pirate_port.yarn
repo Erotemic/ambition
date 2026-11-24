@@ -65,10 +65,10 @@ title: pirate_port_agnes
 Agnes: Rope, tar, biscuits, remedies. Forty years on this street. The ring changed the customers, not the rope.
 -> Ginger for the gate-sick?
     Agnes: Your friend in the plaza has bought three bags. He is not better. He is fond of ginger now.
--> Buy Health Cell — 8g <<if can_afford(8)>>
+-> Buy Health Cell — 8g <<if can_buy("healthcell", 8)>>
     <<buy_item "healthcell" 8>>
     Agnes: Good for what ails a body. Even yours.
--> Buy Spare Battery — 12g <<if can_afford(12)>>
+-> Buy Spare Battery — 12g <<if can_buy("sparebattery", 12)>>
     <<buy_item "sparebattery" 12>>
     Agnes: Came through the ring last week. Fresh from somewhere.
 -> Who buys all this rope now?

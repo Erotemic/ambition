@@ -95,14 +95,16 @@ struct ListButton(usize);
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 struct DialBackButton;
 
+/// Text and row sizes share one terminal presentation scale.
+const TEXT_SCALE: f32 = 1.35;
 /// A row's height and the gap under it: a finger's target.
-const ROW_TALL: f32 = 52.0;
+const ROW_TALL: f32 = 52.0 * TEXT_SCALE;
 const ROW_PITCH: f32 = ROW_TALL + 6.0;
 /// The list panel's height besides its rows: the title and status, the
 /// "more" marks, the hint, and the paddings; and on a short screen (a phone
 /// held sideways), where the heading is one line and the hint is left out.
-const LIST_CHROME: f32 = 260.0;
-const COMPACT_CHROME: f32 = 150.0;
+const LIST_CHROME: f32 = 260.0 * TEXT_SCALE;
+const COMPACT_CHROME: f32 = 150.0 * TEXT_SCALE;
 /// A screen shorter than this draws the compact list.
 const COMPACT_BELOW: f32 = 560.0;
 
@@ -507,6 +509,7 @@ fn draw_gate_terminal(
             .clone();
         let glyphs = Glyphs { image: icons.image.clone(), layout };
         let font = |size: f32, weight: UiFontWeight| {
+            let size = size * TEXT_SCALE;
             ui_fonts.as_deref().map(|fonts| fonts.text_font(size, weight)).unwrap_or(TextFont {
                 font_size: FontSize::Px(size),
                 ..default()
@@ -763,7 +766,7 @@ fn spawn_list(
 ) {
     panel
         .spawn((
-            Node { width: Val::Px(620.0), max_width: Val::Percent(100.0), flex_direction: FlexDirection::Column, row_gap: Val::Px(6.0), ..default() },
+            Node { width: Val::Px(620.0 * TEXT_SCALE), max_width: Val::Percent(100.0), flex_direction: FlexDirection::Column, row_gap: Val::Px(6.0), ..default() },
             Name::new("Gate terminal list"),
         ))
         .with_children(|side| {

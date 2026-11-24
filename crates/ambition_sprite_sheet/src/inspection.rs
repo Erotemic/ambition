@@ -114,7 +114,10 @@ pub fn sheet(path: &Path, actions: &[String], bindings: &std::collections::BTree
     let mut sheets = Vec::new();
     for (_, record) in records {
         let spec = crate::character::sheets::spec_from_record(&record, &SheetTuning::default());
-        let pages: Vec<_> = record.used_pages().iter().map(|page| {
+        // A sheet drawn from parts ships no page image (PART-FIRST): its
+        // nominal `image` names no file, as `sheet_images` already knows.
+        let used = if record.drawn_from_parts { Default::default() } else { record.used_pages() };
+        let pages: Vec<_> = used.iter().map(|page| {
             let name = if record.images.is_empty() { record.image.clone() }
                 else { record.images.get(*page as usize).cloned().unwrap_or_default() };
             json!({"page": page, "path": name, "exists": path.parent().unwrap_or(Path::new(".")).join(&name).is_file()})

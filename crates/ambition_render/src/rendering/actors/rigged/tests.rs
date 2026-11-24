@@ -775,7 +775,14 @@ fn a_rewear_drops_the_old_characters_parts_while_the_new_pages_load() {
 #[test]
 fn a_squashed_root_squashes_its_impostor_about_the_same_line() {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
-    let (mut app, root) = app(&sprite_content, true);
+    // A rigged character still published with a packed, trimmed sheet: the
+    // game squashes only a trimmed frame (`draw_animator_frame`), and the
+    // part-first characters (the raider among them) are drawn untrimmed.
+    const TRIMMED: &str = "mary_o_v2_cosmic";
+    let flipbook = RiggedSpriteAsset::baked(&sprite_content, TRIMMED).expect("a published flipbook");
+    let sheet = sheet_with(&sprite_content, TRIMMED, Some(flipbook));
+    assert!(sheet.spec.is_trimmed(), "the fixture must be a trimmed sheet");
+    let (mut app, root) = app_with(&sprite_content, true, sheet);
     settle(&mut app);
     let (h0, a0) = {
         let animator = app.world().get::<CharacterAnimator>(root).unwrap();

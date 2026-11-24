@@ -379,23 +379,27 @@ fn a_form_change_binds_the_new_form_only_once_its_geometry_is_settled() {
 /// (a giant frame at launch, before `BodyPoseView` exists).
 #[test]
 fn a_trimmed_character_is_geometry_complete_on_its_first_drawable_frame() {
+    // A character still published as a packed, trimmed sheet. The player
+    // characters are published as parts (PART-FIRST), so their sheets are
+    // no longer trimmed; a frame-drawn animal still is.
+    const TRIMMED: &str = "andean_condor";
 
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
 
-    let asset = fixture(&sprite_content, "player_robot_v3");
+    let asset = fixture(&sprite_content, TRIMMED);
     assert!(
         asset.spec.is_trimmed(),
         "the regression fixture must exercise a packed/trimmed sheet"
     );
     let mut assets = GameAssets::default();
-    assets.characters.publish(&sprite_content, "player_robot_v3", asset);
+    assets.characters.publish(&sprite_content, TRIMMED, asset);
     app.insert_resource(assets);
     app.add_systems(Update, bind_worn_character_presentation);
 
     // No `BodyPoseView`: the zero-sim-tick state of the first launch frame.
-    let player = spawn_worn(&mut app, "player_robot_v3");
+    let player = spawn_worn(&mut app, TRIMMED);
     app.update();
 
     let animator = app

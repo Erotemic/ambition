@@ -67,6 +67,12 @@ fn check_installed_library() {
         assert!(catalog.try_image_path_for_load("content://other/sprites/body.png").is_none());
         assert!(catalog.try_image_path_for_load("content://fixture/sprites/embedded.png").is_some());
     }
+    let android = Platformer2dAssetCatalog::new(
+        AmbitionAssetCatalog::new(AssetManifest::new()), AssetProfile::AndroidBundle,
+    ).with_snapshot(&snapshot);
+    let glyph_path = android.try_image_path_for_load("sprites/body.png")
+        .expect("an unqualified control image resolves through the selected library");
+    assert_eq!(glyph_path, "content://fixture/__art/bundles/full/runtime/full/sprites/body.png");
     let state = LibraryAssets::default();
     state.replace(snapshot);
     let mut source = library_asset_source("assets", state, true);
@@ -80,5 +86,10 @@ fn check_installed_library() {
         let mut published = Vec::new();
         file.read_to_end(&mut published).await.unwrap();
         assert_eq!(published, bytes);
+        let mut file = reader.read(std::path::Path::new(glyph_path.strip_prefix("content://").unwrap()))
+            .await.unwrap();
+        let mut admitted = Vec::new();
+        file.read_to_end(&mut admitted).await.unwrap();
+        assert_eq!(admitted, bytes);
     });
 }

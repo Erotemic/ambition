@@ -94,4 +94,19 @@ mod tests {
             s.controls.binding_overrides
         );
     }
+    #[test]
+    fn touch_sizes_persist_and_old_settings_keep_the_default_sizes() {
+        let mut settings = UserSettings::default();
+        settings.controls.touch_left_scale = 1.7;
+        settings.controls.touch_right_scale = 2.3;
+        let mut stored = serde_json::to_value(&settings).unwrap();
+        assert_eq!(serde_json::from_value::<UserSettings>(stored.clone()).unwrap(), settings);
+        let controls = stored["controls"].as_object_mut().unwrap();
+        controls.remove("touch_left_scale");
+        controls.remove("touch_right_scale");
+        let restored: UserSettings = serde_json::from_value(stored).unwrap();
+        assert_eq!(restored.controls.touch_left_scale, UserSettings::default().controls.touch_left_scale);
+        assert_eq!(restored.controls.touch_right_scale, UserSettings::default().controls.touch_right_scale);
+    }
+
 }

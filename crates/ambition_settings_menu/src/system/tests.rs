@@ -297,6 +297,8 @@ fn system_screens_surface_every_player_facing_setting() {
         SettingsOptionId::TapJump,
         SettingsOptionId::BurstInputMode,
         SettingsOptionId::TouchControls,
+        SettingsOptionId::TouchLeftScale,
+        SettingsOptionId::TouchRightScale,
         SettingsOptionId::MenuTapMode,
         SettingsOptionId::ResetControlFiltering,
     ] {

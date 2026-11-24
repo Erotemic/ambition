@@ -359,6 +359,20 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 c.touch_controls_visible,
                 "Show or hide the on-screen touch overlay (touch input stays active either way).",
             ),
+            slider(
+                SettingsOptionId::TouchLeftScale, "Left Touch Size", c.touch_left_scale,
+                ambition_persistence::settings::controls::TOUCH_SCALE_MIN,
+                ambition_persistence::settings::controls::TOUCH_SCALE_MAX,
+                ambition_persistence::settings::controls::TOUCH_SCALE_STEP,
+                percent_label(c.touch_left_scale), "Scale the movement stick and its touch area.",
+            ),
+            slider(
+                SettingsOptionId::TouchRightScale, "Right Touch Size", c.touch_right_scale,
+                ambition_persistence::settings::controls::TOUCH_SCALE_MIN,
+                ambition_persistence::settings::controls::TOUCH_SCALE_MAX,
+                ambition_persistence::settings::controls::TOUCH_SCALE_STEP,
+                percent_label(c.touch_right_scale), "Scale the action buttons, pictures, text, and touch areas.",
+            ),
             {
                 let (i, n) = enum_index(&MenuTapMode::ALL, c.menu_tap_mode);
                 cycle(

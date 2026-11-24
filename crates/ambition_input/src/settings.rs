@@ -517,6 +517,12 @@ pub struct ControlSettings {
     /// keyboard-only on desktop; touch input stays live.
     #[serde(default = "default_touch_controls_visible")]
     pub touch_controls_visible: bool,
+    /// Size of the left touch stick relative to its default size.
+    #[serde(default = "default_touch_control_scale")]
+    pub touch_left_scale: f32,
+    /// Size of the right touch buttons relative to their default size.
+    #[serde(default = "default_touch_control_scale")]
+    pub touch_right_scale: f32,
     /// How a tap or mouse click on a menu item should behave. See
     /// [`MenuTapMode`] for semantics.
     #[serde(default)]
@@ -559,6 +565,12 @@ fn default_touch_controls_visible() -> bool {
     true
 }
 
+pub const TOUCH_SCALE_MIN: f32 = 0.5;
+pub const TOUCH_SCALE_MAX: f32 = 2.5;
+pub const TOUCH_SCALE_STEP: f32 = 0.1;
+
+fn default_touch_control_scale() -> f32 { 1.0 }
+
 impl Default for ControlSettings {
     fn default() -> Self {
         Self {
@@ -576,6 +588,8 @@ impl Default for ControlSettings {
             menu_repeat_initial_delay: 0.32,
             menu_repeat_interval: 0.12,
             touch_controls_visible: default_touch_controls_visible(),
+            touch_left_scale: default_touch_control_scale(),
+            touch_right_scale: default_touch_control_scale(),
             menu_tap_mode: MenuTapMode::default(),
             binding_overrides: Vec::new(),
             developer_keys: Vec::new(),
@@ -635,6 +649,10 @@ impl ControlSettings {
 
     pub fn clamp_all(&mut self) {
         self.migrate_renamed_actions();
+        for scale in [&mut self.touch_left_scale, &mut self.touch_right_scale] {
+            *scale = if scale.is_finite() { scale.clamp(TOUCH_SCALE_MIN, TOUCH_SCALE_MAX) }
+                else { default_touch_control_scale() };
+        }
         self.left_stick_deadzone = self.left_stick_deadzone.clamp(0.0, 0.95);
         self.right_stick_deadzone = self.right_stick_deadzone.clamp(0.0, 0.95);
         self.trigger_release_threshold = self.trigger_release_threshold.clamp(0.0, 0.95);

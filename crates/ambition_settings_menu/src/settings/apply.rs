@@ -182,6 +182,16 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
             cyc!(settings.controls.right_stick_mode, RightStickMode)
         }
         SettingsOptionId::TouchControls => tog!(settings.controls.touch_controls_visible),
+        SettingsOptionId::TouchLeftScale => {
+            use ambition_persistence::settings::controls::{TOUCH_SCALE_MIN, TOUCH_SCALE_MAX, TOUCH_SCALE_STEP};
+            settings.controls.touch_left_scale = (settings.controls.touch_left_scale + s * TOUCH_SCALE_STEP)
+                .clamp(TOUCH_SCALE_MIN, TOUCH_SCALE_MAX);
+        }
+        SettingsOptionId::TouchRightScale => {
+            use ambition_persistence::settings::controls::{TOUCH_SCALE_MIN, TOUCH_SCALE_MAX, TOUCH_SCALE_STEP};
+            settings.controls.touch_right_scale = (settings.controls.touch_right_scale + s * TOUCH_SCALE_STEP)
+                .clamp(TOUCH_SCALE_MIN, TOUCH_SCALE_MAX);
+        }
         SettingsOptionId::MenuTapMode => cyc!(settings.controls.menu_tap_mode, MenuTapMode),
         SettingsOptionId::ResetControlFiltering => {
             // Confirm-only (dir 0): a stray prev/next nudge must NOT wipe the

@@ -41,21 +41,19 @@ pub const OCCUPANCY_PAD: f32 = 12.0;
 /// Sizes are the reserved footprints (the joystick's exclusion box and the
 /// action bezel), not the visible art, so the breathing room stays inside the
 /// rectangle.
-pub fn touch_control_footprints() -> ControlFootprints {
+pub fn touch_control_footprints(movement_scale: f32, action_scale: f32) -> ControlFootprints {
     let pad = Vec2::splat(OCCUPANCY_PAD);
     ControlFootprints {
-        // The movement stick does not compact. `virtual_joystick` sizes its
-        // knob and base art, so scaling only this node would put the touch
-        // region and the drawn stick out of step. It fits a reserved column
-        // or overlays at full size.
+        // The movement stick keeps the requested size. Its art and input
+        // region use the same resolved scale.
         movement: Some(
-            ControlFootprint::fixed(Vec2::splat(JOYSTICK_EXCLUSION_SIZE))
+            ControlFootprint::fixed(Vec2::splat(JOYSTICK_EXCLUSION_SIZE * movement_scale))
                 .with_occlusion_padding(pad),
         ),
         primary_actions: Some(
             ControlFootprint::new(
-                Vec2::new(ACTION_BEZEL_W, ACTION_BEZEL_H),
-                Vec2::new(ACTION_BEZEL_W, ACTION_BEZEL_H) * ACTION_MIN_SCALE,
+                Vec2::new(ACTION_BEZEL_W, ACTION_BEZEL_H) * action_scale,
+                Vec2::new(ACTION_BEZEL_W, ACTION_BEZEL_H) * ACTION_MIN_SCALE * action_scale,
             )
             .with_occlusion_padding(pad),
         ),
@@ -169,6 +167,7 @@ impl bevy::prelude::Plugin for TouchPresentationPlugin {
             (
                 sync_touch_control_placement,
                 crate::bevy_plugin::apply_touch_control_placement,
+                crate::bevy_plugin::scale_movement_stick_art,
             )
                 .chain()
                 .in_set(TouchPresentationSet::ApplyPlacement),
@@ -219,10 +218,10 @@ pub fn sync_touch_control_placement(
     let regions = &presentation.controls;
 
     let movement = regions.movement.map(|placed| placed.rect);
-    let movement_scale = regions.movement.map_or(1.0, |placed| placed.scale);
+    let movement_scale = movement.map_or(1.0, |rect| rect.width() / JOYSTICK_EXCLUSION_SIZE);
 
     let action_bezel = regions.primary_actions.map(|placed| placed.rect);
-    let action_scale = regions.primary_actions.map_or(1.0, |placed| placed.scale);
+    let action_scale = action_bezel.map_or(1.0, |rect| rect.width() / ACTION_BEZEL_W);
     // The diamond is inset in the bezel by its authored padding, scaled.
     let action_cluster = action_bezel.map(|bezel| {
         ScreenRect::from_min_size(
@@ -259,10 +258,20 @@ pub fn sync_touch_control_placement(
 /// HUD must stop reserving space.
 pub fn publish_touch_control_footprints(
     visible: Res<super::bevy_plugin::TouchControlsVisible>,
+    settings: Res<ambition_persistence::settings::UserSettings>,
+    presentation: Option<Res<ResolvedGameplayPresentation>>,
     mut footprints: ResMut<ControlFootprints>,
 ) {
     let next = if visible.0 {
-        touch_control_footprints()
+        let available = presentation.as_deref().map(|p| p.display_safe_rect.size())
+            .filter(|size| size.is_finite() && size.cmpgt(Vec2::ZERO).all());
+        let fit = |requested: f32, size: Vec2| available.map_or(requested, |available| {
+            requested.min((available / size).min_element())
+        });
+        touch_control_footprints(
+            fit(settings.controls.touch_left_scale, Vec2::splat(JOYSTICK_EXCLUSION_SIZE)),
+            fit(settings.controls.touch_right_scale, Vec2::new(ACTION_BEZEL_W, ACTION_BEZEL_H)),
+        )
     } else {
         ControlFootprints::default()
     };
@@ -279,6 +288,58 @@ mod tests {
     use ambition_platformer2d_shared_tangle::gameplay_presentation::{
         ControlAnchor, ControlPlacement, PlacedControl, ResolvedControlRegions,
     };
+
+    #[test]
+    fn resized_controls_draw_and_hit_test_from_the_same_rectangles() {
+        use ambition_platformer2d_shared_tangle::gameplay_presentation::{
+            resolve_gameplay_presentation, GameplayPresentationInput,
+            GameplayPresentationProfile, ScreenInsets,
+        };
+        let profile = GameplayPresentationProfile::full_bleed();
+        let resolved = resolve_gameplay_presentation(GameplayPresentationInput {
+            display_px: Vec2::new(1920.0, 1080.0), safe_area_insets: ScreenInsets::ZERO,
+            profile: &profile, occlusions: &[], control_footprints: touch_control_footprints(1.5, 2.0),
+        });
+        let mut app = app_with(resolved);
+        app.add_systems(Update, crate::bevy_plugin::scale_movement_stick_art.after(sync_touch_control_placement));
+        let base = app.world_mut().spawn((virtual_joystick::VirtualJoystickUIBackground, Node::default())).id();
+        let knob = app.world_mut().spawn((virtual_joystick::VirtualJoystickUIKnob, Node::default())).id();
+        let buttons: Vec<_> = touch_action_layout().into_iter()
+            .map(|spec| (spec.action, app.world_mut().spawn((spec.action, Node::default())).id())).collect();
+        app.update();
+        let placed = *app.world().resource::<TouchControlPlacement>();
+        let layout = crate::layout::movement_joystick_layout().scaled(placed.movement_scale);
+        assert!((placed.movement_scale - 1.5).abs() < 0.001);
+        assert_eq!(app.world().get::<Node>(base).unwrap().width, Val::Px(layout.base_size));
+        assert_eq!(app.world().get::<Node>(knob).unwrap().width, Val::Px(layout.knob_size));
+        assert!(placed.action_scale > 1.0);
+        for (action, entity) in buttons {
+            let drawn = node_rect(app.world().get::<Node>(entity).unwrap());
+            let center = placed.action_cluster.unwrap().min + drawn.min + drawn.size() * 0.5;
+            assert_eq!(touch_action_at_position(center, placed.action_cluster, placed.menu_row), Some(action));
+        }
+    }
+
+    #[test]
+    fn a_large_touch_setting_fits_the_screen_without_changing_the_saved_request() {
+        let mut app = App::new();
+        let mut settings = ambition_persistence::settings::UserSettings::default();
+        settings.controls.touch_left_scale = 2.5;
+        settings.controls.touch_right_scale = 2.5;
+        app.insert_resource(settings);
+        app.insert_resource(crate::bevy_plugin::TouchControlsVisible(true));
+        let mut presentation = ResolvedGameplayPresentation::default();
+        presentation.display_safe_rect = ScreenRect::from_min_size(Vec2::ZERO, Vec2::new(480.0, 270.0));
+        app.insert_resource(presentation);
+        app.init_resource::<ControlFootprints>();
+        app.add_systems(Update, publish_touch_control_footprints);
+        app.update();
+        let footprints = app.world().resource::<ControlFootprints>();
+        for footprint in [footprints.movement.unwrap(), footprints.primary_actions.unwrap()] {
+            assert!(footprint.preferred.cmple(Vec2::new(480.0, 270.0)).all());
+        }
+        assert_eq!(app.world().resource::<ambition_persistence::settings::UserSettings>().controls.touch_left_scale, 2.5);
+    }
 
     fn px(value: Val) -> f32 {
         match value {
@@ -447,7 +508,7 @@ mod tests {
             safe_area_insets: ScreenInsets::ZERO,
             profile: &profile,
             occlusions: &[],
-            control_footprints: touch_control_footprints(),
+            control_footprints: touch_control_footprints(1.0, 1.0),
         });
 
         let movement = resolved
@@ -516,6 +577,7 @@ mod tests {
         let mut app = App::new();
         app.insert_resource(crate::bevy_plugin::TouchControlsVisible(false));
         app.init_resource::<ControlFootprints>();
+        app.init_resource::<ambition_persistence::settings::UserSettings>();
         app.add_systems(Update, publish_touch_control_footprints);
         app.update();
         assert!(app.world().resource::<ControlFootprints>().is_empty());
@@ -548,7 +610,7 @@ mod tests {
             safe_area_insets: ScreenInsets::ZERO,
             profile: &profile,
             occlusions: &[],
-            control_footprints: touch_control_footprints(),
+            control_footprints: touch_control_footprints(1.0, 1.0),
         });
 
         let actions = resolved

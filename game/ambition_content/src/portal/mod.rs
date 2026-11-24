@@ -11,9 +11,7 @@
 //! [`ControlFrame`]: ambition_platformer2d_core::ControlFrame
 
 mod ability_adapter;
-mod carve_adapter;
 mod fire_adapter;
-mod host_adapter;
 mod input_adapter;
 mod inventory_adapter;
 mod plugin;
@@ -24,7 +22,6 @@ mod shot_adapter;
 pub use ability_adapter::{
     withhold_wall_verbs_during_transit, SuppressWallAbilitiesInPortal, PORTAL_TRANSIT,
 };
-pub use carve_adapter::bridge_portal_carves;
 pub use fire_adapter::resolve_portal_fire_intent;
 pub use input_adapter::{pick_aim, portal_input_adapter_system};
 pub use inventory_adapter::{opens_portals, reconcile_portal_generators, PORTAL_GENERATOR_ITEMS};

@@ -61,7 +61,7 @@ impl<'a> SurfacesByRoom<'a> {
 ///
 /// The face is looked for in the portal's own live room (OW1). A portal in no
 /// live room is not looked at while two rooms are live.
-pub fn attach_portal_hosts(
+pub(super) fn attach_portal_hosts(
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     live: LiveRooms,
     mut portals: Query<(Entity, &mut PlacedPortal)>,
@@ -102,7 +102,7 @@ pub fn attach_portal_hosts(
 /// and turn about its pivot. The host is looked up where it is, by its id or
 /// name, and the room is not copied. A portal in no live room keeps its frame
 /// while two rooms are live.
-pub fn refresh_hosted_portal_frames(
+pub(super) fn refresh_hosted_portal_frames(
     mut commands: Commands,
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     live: LiveRooms,

@@ -36,7 +36,7 @@ cases below. Preserve the implemented material and moving-frame mathematics.
 
 The source owners are `platformer2d_core::frame::{motion,crossing,material_cast}`,
 `portal2d::{placement,transit}`, and
-`game/ambition_content/src/portal/host_adapter.rs`. Existing arc, full-winding,
+`crates/ambition_platformer2d_runtime/src/portal_world/hosts.rs`. Existing arc, full-winding,
 common-boost, hosted-platform, spinning-plank and wrap cases remain useful.
 `a_moving_portal_is_carved_where_it_is` establishes the published host pose.
 
@@ -212,7 +212,7 @@ host can translate or turn a portal into an invalid placement for material
 already through it. Keeping the same connection incarnation does not prove
 that its new trajectory is admissible.
 
-`game/ambition_content/src/portal/host_adapter.rs::refresh_hosted_portal_frames`
+`crates/ambition_platformer2d_runtime/src/portal_world/hosts.rs::refresh_hosted_portal_frames`
 currently consumes published host motion and directly writes the aperture
 pose, velocity and step. It does not return material admission to the host.
 Move the proposal/admission boundary before that host writer commits. The
@@ -277,7 +277,7 @@ force all bodies through one integrator law.
 Static review at `6d100f9d9e0d` exposes a present boundary:
 [platforms advance](../../../crates/ambition_platformer2d_world/src/platforms/simulation.rs)
 with `WorldTime::sim_dt() * RoomFreeze::scale_in(room)`, while the
-[host adapter](../../../game/ambition_content/src/portal/host_adapter.rs)
+[host adapter](../../../crates/ambition_platformer2d_runtime/src/portal_world/hosts.rs)
 divides their displacement by unscaled `sim_dt()` for aperture velocity.
 [Loose-item flight](../../../crates/ambition_held_items/src/motion.rs)
 integrates stored velocity with room-effective `dt` and also passes that

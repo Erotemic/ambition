@@ -666,6 +666,7 @@ fn step_surface_momentum(
         },
         ctx.dt,
         Some(&mut contacts),
+        ctx.admission,
     );
     // A rider that pressed jump and left the surface jumped: the riding step
     // takes the jump before anything else can detach it. Derived from the

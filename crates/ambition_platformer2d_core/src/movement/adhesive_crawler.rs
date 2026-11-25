@@ -400,15 +400,17 @@ fn crawl_chain(
 
 /// While falling, the first chain whose rideable side the body's underside
 /// touches captures the crawler (adhesion): projection within one
-/// half-thickness (+slop) on the `+normal` side.
-fn chain_capture(world: &World, pos: Vec2, body_thick: f32) -> Option<(u32, f32)> {
+/// half-thickness (+slop) on the `+normal` side. The slop is the body's
+/// adhesion reach, so it is the canonical 2 px at the body's `scale`.
+fn chain_capture(world: &World, pos: Vec2, body_thick: f32, scale: f32) -> Option<(u32, f32)> {
     const CAPTURE_SLOP: f32 = 2.0;
+    let slop = CAPTURE_SLOP * scale;
     for (index, surface) in world.chains.iter().enumerate() {
         if surface.points.len() < 2 {
             continue;
         }
         let (s, signed) = surface.project(pos);
-        if signed >= 0.0 && signed <= body_thick + CAPTURE_SLOP {
+        if signed >= 0.0 && signed <= body_thick + slop {
             return Some((index as u32, s));
         }
     }
@@ -549,7 +551,7 @@ fn fall_step(
     // crawler mid-fall — arbitrary-angle attachment through the same geometry
     // the momentum policy rides.
     let body_thick = clusters.kinematics.size().y * 0.5;
-    if let Some((chain, s)) = chain_capture(world, clusters.kinematics.pos, body_thick) {
+    if let Some((chain, s)) = chain_capture(world, clusters.kinematics.pos, body_thick, clusters.kinematics.material.scale()) {
         motion.state = CrawlerState::attached_to_chain(chain, s);
         clusters.kinematics.vel = Vec2::ZERO;
         clusters.ground.on_ground = true;

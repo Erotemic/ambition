@@ -3601,8 +3601,10 @@ the body's scale so the probe converts its controls as the runtime does.
 SR2a landed the same day: support, one-way crossing and edge-overlap bands
 are the body's own (`ContactBands::of`), and the balance fractions are no
 longer scaled twice. SR2b: ledge reach, roll overshoot and fall-snap speed
-are the body's own (`LedgeReach::of`). SR2c–d (crawler/momentum, exit
-assistance) and SR3 are open.
+are the body's own (`LedgeReach::of`). SR2c/d: crawler capture slack
+converts, the momentum bands are classified geometry or numerical, exit
+assistance is in the leaving body's units, and a scaled rider keeps its
+platform's world velocity. SR2 is complete; SR3 is open.
 
 **Failure / customer:** canonical controls scale but ordinary body gravity
 does not, changing jump time and relative height. Fixed contact bands,

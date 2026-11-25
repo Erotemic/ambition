@@ -247,19 +247,26 @@ impl PortalTransfer {
         Ok(narrowed)
     }
 
+    /// The transfer of a body of `material` at `center` moving at `velocity`.
     pub fn new(
         center: Vec2,
         velocity: Vec2,
+        material: ae::frame::BodyMaterial,
         enter: &PlacedPortal,
         exit: &PlacedPortal,
         tuning: &PortalTuning,
     ) -> Result<Self, ae::frame::NumericFault> {
-        Self::from_apertures(center, velocity, enter.channel, exit.channel,
+        Self::from_apertures(center, velocity, material, enter.channel, exit.channel,
             enter.aperture(), exit.aperture(), tuning)
     }
 
+    /// `min_exit_speed` is ordinary exit assistance in the canonical body's
+    /// units (SCALE-FEEL SR2): it is applied at the scale the body leaves at,
+    /// its own scale through the map, so a half-size body is pushed clear of
+    /// the exit at half the speed and covers its own length in the same time.
     fn from_apertures(
-        center: Vec2, velocity: Vec2, entry_channel: PortalChannel, exit_channel: PortalChannel,
+        center: Vec2, velocity: Vec2, material: ae::frame::BodyMaterial,
+        entry_channel: PortalChannel, exit_channel: PortalChannel,
         entry: ae::frame::PortalAperture, leaving: ae::frame::PortalAperture, tuning: &PortalTuning,
     ) -> Result<Self, ae::frame::NumericFault> {
         use ae::frame::{NumericFault, Sim2};
@@ -275,8 +282,10 @@ impl PortalTransfer {
             + f64::from(frame.spin) * bevy::math::DVec2::new(-arm.y, arm.x);
         let normal = frame.normal.as_dvec2().normalize();
         let relative_speed = (mapped_vel.as_dvec2() - surface).dot(normal);
+        let leaving_scale = f64::from(material.scale()) * f64::from(map.scale());
+        let min_exit_speed = f64::from(tuning.min_exit_speed) * leaving_scale;
         let assisted = mapped_vel.as_dvec2()
-            + normal * (f64::from(tuning.min_exit_speed) - relative_speed).max(0.0);
+            + normal * (min_exit_speed - relative_speed).max(0.0);
         let exit_vel = assisted.as_vec2();
         if !exit_vel.is_finite() {
             return Err(NumericFault::Overflow);
@@ -313,9 +322,9 @@ pub struct CrossingRefusal {
 impl PortalTransfer {
     /// Sample one root transfer at its accepted crossing time.
     pub fn at_crossing(crossing: PortalCrossing, center: Vec2, velocity: Vec2,
-        tuning: &PortalTuning,
+        material: ae::frame::BodyMaterial, tuning: &PortalTuning,
     ) -> Result<Self, ae::frame::NumericFault> {
-        let mut transfer=Self::from_apertures(crossing.root.point,velocity,
+        let mut transfer=Self::from_apertures(crossing.root.point,velocity,material,
             crossing.entry_channel,crossing.exit_channel,crossing.root.aperture,crossing.exit,tuning)?;
         transfer.crossing_time=crossing.root.world_time;
         transfer.crossing_point=crossing.root.point;
@@ -326,8 +335,8 @@ impl PortalTransfer {
 }
 
 fn transfer_step(
-    crossing: PortalCrossing, center: Vec2, vel: Vec2, tuning: &PortalTuning,) -> TransitStep {
-    let transfer=match PortalTransfer::at_crossing(crossing,center,vel,tuning) {
+    crossing: PortalCrossing, center: Vec2, vel: Vec2, material: ae::frame::BodyMaterial, tuning: &PortalTuning,) -> TransitStep {
+    let transfer=match PortalTransfer::at_crossing(crossing,center,vel,material,tuning) {
         Ok(transfer)=>transfer,
         Err(reason)=>return TransitStep::Refused {channel:Some(crossing.entry_channel),
             reason:ae::frame::thread::RefusalReason::Numeric(reason)},
@@ -415,7 +424,7 @@ fn swept_crossing_step(
             let carried = if (vel - frame.velocity_at(hit.root.point)).dot(frame.normal) < 0.0 {
                 vel
             } else { sweep.vel };
-            Some(transfer_step(hit, center, carried, tuning))
+            Some(transfer_step(hit, center, carried, body.material, tuning))
         }
         Ok(None) => None,
         Err(refusal) => Some(TransitStep::Refused { channel: Some(refusal.channel), reason: refusal.reason }),

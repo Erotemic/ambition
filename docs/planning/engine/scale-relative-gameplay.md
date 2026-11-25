@@ -1,6 +1,6 @@
 # Scale-relative gameplay
 
-**State:** SR1, SR2a and SR2b DONE 2026-11-25; SR2c–d (ledge, crawler/momentum, exit assistance) and SR3 PLANNED. Selected by the
+**State:** SR1 and SR2 DONE 2026-11-25; SR3 PLANNED. Selected by the
 maintainer on 2026-11-21. A body made
 small or large by a portal should keep its normal movement and action timing
 at that scale. This changes the earlier controls-only gravity policy.
@@ -198,6 +198,28 @@ the fall snap take the body's reach; the abilities ledge query passes its
 body's. `LEDGE_LATCH_TOL` and `LEDGE_JOIN_TOL` match one geometric surface
 against another and stay geometry. Witness:
 `a_ledge_reach_is_the_bodys_own_at_every_scale` (ledge_grab tests).
+
+**SR2c delivered 2026-11-25 (crawler and momentum).** The crawler's
+adhesion capture slack (2) is the body's reach and converts with its scale.
+The momentum policy's remaining fixed numbers are classified, not
+converted: `ROUTE_LOOKAHEAD` classifies a junction's routes by the track's
+own shape (the same for every rider); `SURFACE_TIE_SLOP`,
+`COINCIDENT_SLOP` and `OCCLUSION_CLEAR_SLOP` decide when two authored
+surfaces or a launch and a foreign-lane track coincide (geometry); the
+release `CONTACT_SLOP`, `TOI_EPSILON` and `SPEED_EPS` are numerical.
+Momentum speed gates are tuning and already convert in `for_material`.
+Witness: `a_crawlers_adhesion_reach_is_its_own_at_every_scale`.
+
+**SR2d delivered 2026-11-25 (exit assistance, moving support).**
+`PortalTransfer` takes the crossing body's material, and
+`min_exit_speed` is applied at the scale the body leaves at (its scale
+through the pair's map). Witness:
+`exit_assistance_is_in_the_leaving_bodys_units`. The moving-frame law
+needed no change: `the_player_rides_a_horizontally_moving_platform` now
+rides at 0.5, 1 and 2 and the rider moves the platform's +3 px a frame at
+every scale.
+
+**SR2 is complete.**
 
 Do not multiply every epsilon. Gameplay slack, authored world geometry and
 floating-point uncertainty are different quantities. Numerical predicates

@@ -396,7 +396,7 @@ pub fn prepare_body_crossing(
     if completed_hops>=policy.budget.max_hops {
         return Err(Refusal {path:vec![],link:Some(forward.key),reason:RefusalReason::HopLimit});
     }
-    let transfer=crate::PortalTransfer::at_crossing(crossing,body.pos,body.vel,tuning).map_err(numeric)?;
+    let transfer=crate::PortalTransfer::at_crossing(crossing,body.pos,body.vel,body.material,tuning).map_err(numeric)?;
     let input_warp=crate::portal_input_warp_flips_horizontal_for_convention(
         policy.convention,transfer.enter.frame.normal,transfer.exit.frame.normal);
     let prepared=PreparedPortalTransfer::new(body,acceleration,transfer,input_warp).map_err(numeric)?;

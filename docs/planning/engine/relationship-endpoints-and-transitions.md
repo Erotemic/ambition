@@ -333,6 +333,34 @@ simulation. Existing solo and possessed rider/mount/limbs crossings remain
 controls. These are discriminating native witnesses, not a combinatorial
 relationship harness or a demand to test every controller permutation.
 
+**Progress (2026-11-24): the direct crossing roads.** Direction
+(`leave_through_zones`) and errand (`cross_on_errands`) now find their cohort
+from the crossing's actual root, through custody plus the native attachments
+(`ambition_mount::attachment_edges`: an active ride's mount and each limb).
+A room-scoped NPC rider therefore takes its mount and the mount's limbs. The
+errand's dormant arm still refuses any cohort larger than the body. After the
+membership writes, `body::crossing::settle_crossing` queues the native
+effects. `ambition_mount::arrive_attachments` stands an actively ridden
+mount beneath its arrived rider (`mount_root_beneath`, the saddle pin's own
+alignment solved for the mount). Other attachments keep their offset from
+their anchor, and each arrives at rest through the transit reconciliation.
+A ride the crossing splits ends by `DismountReason::Separated` through
+`apply_dismount_requests`. A hold it splits ends through `release_capture`
+(`release_separated_captures`). The despawn arms settle the same splits
+before they despawn. Witness:
+[`a_rider_leaves_with_its_mount`](../../../game/ambition_app/tests/a_rider_leaves_with_its_mount.rs)
+seats an NPC on `gnu_ton_arena`'s authored giant (two fists and a hoof) and
+sends it through a door into a second live room. Rider, mount and limbs all
+arrive, the rider's soles are on the seat, and the next pin keeps the rider
+at the arrival. The test moves no body; it moves only the door.
+Still open:
+- the publication road, which still starts from `InCustodyOf` alone; its
+  rider/mount fixture still pins the mount with `place_body`;
+- the possession home's membership-only companion (retained-source case);
+- final-cut revalidation with the late-refusal witness;
+- a capture/automatic-exit witness;
+- ISL-3's consumption of the cohort.
+
 ## REL4 — retain exit context and authorize endpoint succession
 
 **A7 and IR2/IR3 own this packet.** A held item's currently drawn pose is

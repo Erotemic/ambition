@@ -1112,6 +1112,9 @@ pub enum DismountReason {
     /// The mount is gone: killed, despawned, or otherwise no longer carrying
     /// anybody.
     MountLost,
+    /// A crossing took one of the pair to another room and left the other
+    /// (REL3): a saddle does not reach between rooms.
+    Separated,
 }
 
 impl DismountReason {
@@ -1121,7 +1124,7 @@ impl DismountReason {
     pub fn precedence(self) -> u8 {
         match self {
             Self::MountLost => 5,
-            Self::RiderLeftPlay => 4,
+            Self::Separated | Self::RiderLeftPlay => 4,
             Self::RiderLaunched => 3,
             Self::PoseRefused => 2,
             Self::LeaseExpired => 1,
@@ -2427,6 +2430,108 @@ pub fn seat_in_world(
 ) -> Result<ae::Vec2, ambition_platformer2d_core::frame::NumericFault> {
     let side = ae::mirror_side(mount.facing, unmirrored);
     mount.material_map()?.point(ae::Vec2::new(seat.x * side, seat.y))
+}
+
+/// The attachments that go with a body when it changes rooms, as
+/// `(attachment, anchor)`: the mount its rider actively rides, and each limb
+/// of a limbed body (REL3).
+///
+/// A prospective closure from a transfer's actual roots. `InCustodyOf` grows
+/// beneath a root that already travels (a seat's avatar, a possessed body),
+/// so a room-scoped NPC rider's mount carries no custody edge; a crossing
+/// that starts at that rider still takes its mount and the mount's limbs.
+pub fn attachment_edges(world: &mut bevy::prelude::World) -> Vec<(Entity, Entity)> {
+    let riders: Vec<Entity> = world.query::<&MountSlot>().iter(world).filter_map(|slot| slot.rider).collect();
+    let rides: Vec<(Entity, Entity)> =
+        riders.into_iter().filter_map(|rider| active_mount_in(world, rider).map(|mount| (rider, mount))).collect();
+    let limbs: Vec<(Entity, Entity)> =
+        world.query::<(Entity, &ambition_characters::actor::limb::Limb)>().iter(world).map(|(limb, of)| (limb, of.of)).collect();
+    attachment_edges_of(rides, limbs)
+}
+
+/// [`attachment_edges`] from a system's reads: active `(rider, mount)` pairs
+/// ([`ActiveRides::pairs`]) and `(limb, anchor)` links.
+pub fn attachment_edges_of(
+    rides: impl IntoIterator<Item = (Entity, Entity)>,
+    limbs: impl IntoIterator<Item = (Entity, Entity)>,
+) -> Vec<(Entity, Entity)> {
+    let mut edges: Vec<(Entity, Entity)> = rides.into_iter().map(|(rider, mount)| (mount, rider)).chain(limbs).collect();
+    edges.sort();
+    edges.dedup();
+    edges
+}
+
+/// Where a mount's root goes so that its seat meets the soles of `rider`:
+/// the saddle pin's own alignment ([`seat_in_world`]) solved for the mount.
+/// A ride that arrives together stands its mount beneath the rider the
+/// crossing placed, so the next pin keeps the rider where it arrived.
+pub fn mount_root_beneath(
+    seat: ae::Vec2,
+    mount: &ae::BodyKinematics,
+    unmirrored: bool,
+    rider: &ae::BodyKinematics,
+) -> Result<ae::Vec2, ambition_platformer2d_core::frame::NumericFault> {
+    let soles = rider.material_map()?.point(ae::Vec2::new(0.0, rider.canonical_size.y * 0.5))?;
+    let side = ae::mirror_side(mount.facing, unmirrored);
+    mount.root_placing(ae::Vec2::new(seat.x * side, seat.y), soles)
+}
+
+/// Settle the attachments of one crossing at its arrival (REL3). `root` has
+/// been placed by its road and moved by `moved_by`; each attachment in
+/// `members` whose anchor is placed follows it: an actively ridden mount
+/// stands beneath its rider ([`mount_root_beneath`]), and any other body
+/// keeps its offset from its anchor. Each arrives at rest, with the transit
+/// reconciliation of [`ae::movement::transit_body`].
+pub fn arrive_attachments(
+    world: &mut bevy::prelude::World,
+    root: Entity,
+    moved_by: ae::Vec2,
+    members: &std::collections::BTreeSet<Entity>,
+) {
+    let edges = attachment_edges(world);
+    let mut placed: std::collections::BTreeMap<Entity, ae::Vec2> = [(root, moved_by)].into();
+    loop {
+        let next = edges.iter().copied().find(|(attachment, anchor)| {
+            members.contains(attachment) && !placed.contains_key(attachment) && placed.contains_key(anchor)
+        });
+        let Some((attachment, anchor)) = next else { break };
+        let follows = placed[&anchor];
+        let Some(before) = world.get::<ae::BodyKinematics>(attachment).copied() else {
+            placed.insert(attachment, follows);
+            continue;
+        };
+        let seated = (active_mount_in(world, anchor) == Some(attachment))
+            .then(|| {
+                let mountable = world.get::<Mountable>(attachment)?;
+                let rider = world.get::<ae::BodyKinematics>(anchor)?;
+                mount_root_beneath(mountable.seat, &before, world.get::<ae::Unmirrored>(attachment).is_some(), rider).ok()
+            })
+            .flatten();
+        let at = seated.unwrap_or(before.pos + follows);
+        placed.insert(attachment, at - before.pos);
+        let mut bodies = world.query::<(&mut ae::movement::MotionModel, ae::BodyClusterQueryData)>();
+        if let Ok((mut model, mut cluster)) = bodies.get_mut(world, attachment) {
+            let mut clusters = cluster.as_clusters_mut();
+            ae::movement::transit_body(&mut model, &mut clusters, at, ae::movement::TransitVelocity::Zero);
+        } else if let Some(mut kinematics) = world.get_mut::<ae::BodyKinematics>(attachment) {
+            kinematics.pos = at;
+            kinematics.vel = ae::Vec2::ZERO;
+        }
+    }
+}
+
+/// End each active ride a crossing splits, with one end in `members` and
+/// the other left behind ([`DismountReason::Separated`]), by the one road a
+/// ride ends ([`apply_dismount_requests`]).
+pub fn end_separated_rides(world: &mut bevy::prelude::World, members: &std::collections::BTreeSet<Entity>) {
+    let riders: Vec<Entity> = world.query::<&MountSlot>().iter(world).filter_map(|slot| slot.rider).collect();
+    let split: Vec<Entity> = riders
+        .into_iter()
+        .filter(|rider| active_mount_in(world, *rider).is_some_and(|mount| members.contains(&mount) != members.contains(rider)))
+        .collect();
+    for rider in split {
+        world.write_message(DismountRequested { rider, reason: DismountReason::Separated });
+    }
 }
 
 #[cfg(test)]

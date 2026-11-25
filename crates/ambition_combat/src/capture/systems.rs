@@ -3136,6 +3136,32 @@ pub fn release_capture(
     }
 }
 
+/// Release each hold whose captor and captive a crossing separates (REL3):
+/// one end is in `members`, the other stays. A hold does not reach between
+/// rooms, and capture carries no custody edge, so the crossing's own
+/// accepted cut ends it through [`release_capture`], the one release.
+pub fn release_separated_captures(world: &mut World, members: &std::collections::BTreeSet<Entity>) {
+    let split: Vec<Entity> = world
+        .query::<(Entity, &CapturedBy)>()
+        .iter(world)
+        .filter(|(victim, held)| members.contains(victim) != members.contains(&held.captor))
+        .map(|(victim, _)| victim)
+        .collect();
+    if split.is_empty() { return; }
+    let mut state = bevy::ecs::system::SystemState::<(
+        Commands,
+        Query<&mut ambition_platformer2d_core::BodyGroundState>,
+        Query<&mut ambition_characters::control::ControlHolds>,
+    )>::new(world);
+    let (mut commands, mut grounds, mut holds) = state.get_mut(world).expect("release readers are installed");
+    for victim in split {
+        let mut ground = grounds.get_mut(victim).ok();
+        let mut held = holds.get_mut(victim).ok();
+        release_capture(&mut commands, victim, ground.as_deref_mut(), held.as_deref_mut());
+    }
+    state.apply(world);
+}
+
 /// A capture ends when either body takes a real hit, or the captor stops
 /// existing.
 ///

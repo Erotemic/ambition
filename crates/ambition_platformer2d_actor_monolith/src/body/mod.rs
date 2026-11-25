@@ -59,6 +59,7 @@ mod death_effects;
 mod dismounted_rider;
 pub mod dormancy;
 pub mod errand;
+pub mod crossing;
 pub mod life;
 pub mod visit;
 pub mod direction;

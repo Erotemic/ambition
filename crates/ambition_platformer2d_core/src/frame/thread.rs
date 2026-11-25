@@ -747,6 +747,30 @@ impl MotionAdmission<'_> {
         Ok(narrowed)
     }
 
+    /// The inverse of [`Self::carry_displacement`]: a per-tick displacement
+    /// of the physical point `point` (at the far end of `path`), as the
+    /// source chart sees it. Each link removes its exit surface point's
+    /// travel, maps the rest back, and adds its entry surface point's travel.
+    pub fn uncarry_displacement(&self, path: &[u32], mut point: Vec2, displacement: Vec2, time: f64) -> Result<Vec2, Refusal> {
+        let mut travel = displacement.as_dvec2();
+        for index in (0..path.len()).rev() {
+            let key = path[index];
+            let refusal = |fault| Refusal { path: path[..index].to_vec(), link: Some(key), reason: RefusalReason::Numeric(fault) };
+            let link = self.links.iter().find(|link| link.key == key)
+                .ok_or_else(|| refusal(NumericFault::InvalidFrame))?;
+            let pose = link.snapshot_at(time).map_err(refusal)?;
+            let inverse = pose.map(self.convention).map_err(refusal)?.inverse().map_err(refusal)?;
+            let relative = travel - link.exit_step.point_travel(pose.exit, point);
+            let source = inverse.point(point).map_err(refusal)?;
+            travel = inverse.vector_from_wide(relative).map_err(refusal)?.as_dvec2()
+                + link.enter_step.point_travel(pose.enter, source);
+            point = source;
+        }
+        let narrowed = travel.as_vec2();
+        if !narrowed.is_finite() { return Err(Refusal { path: path.to_vec(), link: None, reason: RefusalReason::Numeric(NumericFault::Overflow) }); }
+        Ok(narrowed)
+    }
+
     /// Pull physical surface motion back through the contact path.
     pub fn uncarry_velocity(&self, path: &[u32], mut point: Vec2, mut velocity: Vec2, time: f64) -> Result<Vec2, Refusal> {
         for index in (0..path.len()).rev() {

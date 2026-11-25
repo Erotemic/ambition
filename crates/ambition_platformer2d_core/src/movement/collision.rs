@@ -210,18 +210,12 @@ pub(super) fn sweep_player_axis_clusters(
                 } else { kinematics.pos[component].next_down() };
             }
         }
-        let physical_normal = contact.map.direction(normal);
-        let surface_step = hit.collider.displacement_at(contact.world_point, contact.world_time);
-        let remaining_surface = surface_step * (1.0 - contact.toi) as f32;
-        let carry = physical_normal * remaining_surface.dot(physical_normal).max(0.0);
-        let carry = match contact.map.inverse().and_then(|inverse| inverse.vector(carry)) {
-            Ok(carry) => carry,
-            Err(fault) => {
-                *refusal = Some(crate::frame::thread::Refusal { path: contact.path.clone(), link: None,
-                    reason: crate::frame::thread::RefusalReason::Numeric(fault) });
-                return None;
-            }
+        let surface_velocity = match surface_step_in_body_chart(&hit.collider, &contact, *admission) {
+            Ok(step) => step,
+            Err(reason) => { *refusal = Some(reason); return None; }
         };
+        let remaining_surface = surface_velocity * (1.0 - contact.toi) as f32;
+        let carry = normal * remaining_surface.dot(normal).max(0.0);
         kinematics.pos += axis_vec(axis, axis_component(carry, axis));
         let impact = crate::collision_semantics::closing_speed(kinematics.vel, normal);
         zero_axis_vel(kinematics, axis);
@@ -234,14 +228,6 @@ pub(super) fn sweep_player_axis_clusters(
         } else {
             apply_side_contact(wall, normal, gravity_dir);
             ContactKind::Side
-        };
-        let surface_velocity = match contact.map.inverse().and_then(|map| map.vector(surface_step)) {
-            Ok(velocity) => velocity,
-            Err(fault) => {
-                *refusal = Some(crate::frame::thread::Refusal { path: contact.path.clone(), link: None,
-                    reason: crate::frame::thread::RefusalReason::Numeric(fault) });
-                return None;
-            }
         };
         contacts.push(Contact { kind, point: contact.point, normal, toi: contact.toi as f32,
             surface_velocity, impact_speed: impact, involuntary: false, source: hit.collider.source() });
@@ -323,6 +309,25 @@ pub(super) fn material_support_at_rest(
     Ok(hits.iter().any(|(_, hit)| hit.contact.normal.dot(-gravity_dir) > 0.5))
 }
 
+/// The obstacle's per-tick travel at a contact, as the body's chart sees it.
+/// Through a moving portal the frames' own travel is taken out (M3,
+/// [`MotionAdmission::uncarry_displacement`](crate::frame::thread::MotionAdmission::uncarry_displacement)),
+/// so carry and the reported surface velocity are relative to the body's
+/// chart. Without a portal on the path it is the inverse map's vector.
+fn surface_step_in_body_chart(
+    collider: &crate::world::MaterialCollider<'_>,
+    contact: &crate::frame::material_cast::MaterialCastHit,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+) -> Result<Vec2, crate::frame::thread::Refusal> {
+    let step = collider.displacement_at(contact.world_point, contact.world_time);
+    match admission.filter(|_| !contact.path.is_empty()) {
+        Some(links) => links.uncarry_displacement(&contact.path, contact.world_point, step, contact.world_time),
+        None => contact.map.inverse().and_then(|inverse| inverse.vector(step)).map_err(|fault|
+            crate::frame::thread::Refusal { path: contact.path.clone(), link: None,
+                reason: crate::frame::thread::RefusalReason::Numeric(fault) }),
+    }
+}
+
 /// Repair and support use the same material cells as continuous contact.
 #[allow(clippy::too_many_arguments)]
 fn resolve_material_axis_repair(
@@ -340,8 +345,6 @@ fn resolve_material_axis_repair(
     refusal: &mut Option<crate::frame::thread::Refusal>,
     stage: RepairStage,
 ) -> Option<AxisConstraintConflict> {
-    use crate::frame::thread::{Refusal, RefusalReason};
-    let numeric = |fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) };
     let mut hits = match material_axis_hits(world, kinematics, policy, axis, prev_feet_coord,
         drop_through, gravity_dir, admission) {
         Ok(hits) => hits,
@@ -393,9 +396,9 @@ fn resolve_material_axis_repair(
             apply_side_contact(wall, normal, gravity_dir);
             ContactKind::Side
         };
-        let surface_velocity = match hit.contact.map.inverse().and_then(|map| map.vector(collider.displacement_at(hit.contact.world_point, hit.contact.world_time))) {
+        let surface_velocity = match surface_step_in_body_chart(&collider, &hit.contact, admission) {
             Ok(velocity) => velocity,
-            Err(fault) => { *refusal = Some(numeric(fault)); return None; }
+            Err(reason) => { *refusal = Some(reason); return None; }
         };
         let impact_speed = crate::collision_semantics::closing_speed(kinematics.vel, normal);
         zero_axis_vel(kinematics, axis);

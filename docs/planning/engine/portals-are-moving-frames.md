@@ -229,11 +229,37 @@ shared with the transfer's surface rates in `portal2d/src/placement.rs`).
 Every term is per tick, the same unit as `delta`, so the example above now
 reads `+2` and is kept. A hit with no portal on its path still uses
 `hit.map.vector(delta)`. The witness is
-`a_moving_exit_carries_its_drift_into_the_contact_frame`. Still open:
-- Surface carry and impact response (`collision.rs`, the carry/response
-  block after the filter) still pull vectors back through the inverse map.
-- The per-second frame velocities (`ContactVelocityFrame`, `carry_velocity`)
-  are not yet on the same clock as the per-tick steps.
+`a_moving_exit_carries_its_drift_into_the_contact_frame`.
+
+Receipt (M3, surface carry, 2026-11-25): the swept contact's carry and the
+reported `Contact::surface_velocity`, at the sweep and at repair, now use
+`surface_step_in_body_chart` (`movement/collision.rs`). That function pulls
+the obstacle's per-tick step back with `MotionAdmission::uncarry_displacement`,
+the inverse of the carry above. When an exit drifts `+3` into a still wall,
+the wall appears to approach the body by 3 in the body's chart, so the carry
+holds the body's image on the wall face. Under the still map, the step was 0
+and the image sank in by the drift. The witness checks that the two carries
+round-trip.
+
+The clock question, read at the writer: one system,
+`platformer2d_runtime/src/portal_world/hosts.rs:150-159`, writes a hosted
+portal's per-second `vel`/`spin` and its per-tick `step`. Both come from
+the same host `shift`/`turn`, scaled by `1/dt` of the simulation tick.
+`ApertureStep::sample` keeps those rates across the tick, and
+`MaterialCollider::velocity_at` divides the same per-tick displacement by
+the caller's `dt`. So the per-second law (`carry_velocity`,
+`ContactVelocityFrame`) and the per-tick law (`carry_displacement`) agree
+whenever the reader's `dt` is the tick's. The contact comparisons against
+`delta` now use the per-tick law, so they need no `dt` at all. Impact speed
+reads the body's own velocity against the source normal, as it does with no
+portal.
+
+Still open in M3:
+- The packet's witnesses.
+- The zero-delta early return in `sweep_player_axis_clusters`: a still body
+  meeting a moving obstacle takes endpoint repair only.
+- The paced two-room cases.
+- SUP1's changing-support input.
 
 ## Required motion operation
 

@@ -146,9 +146,17 @@ pub(super) fn sweep_player_axis_clusters(
         }, kinematics.pos, delta, 0.0..1.0).carried_by(policy.carrier);
         *admission = cast.motion_admission(*admission)?;
         let cells = cast.cells(*admission)?;
+        let links = *admission;
         let result = world.first_material_contact(&cells, |collider, _, hit| {
             let normal = hit.map.direction(hit.normal);
-            let relative = hit.map.vector(delta).map_err(numeric)? - collider.displacement_at(hit.world_point, hit.world_time);
+            // The material point's own travel in the obstacle's chart: through
+            // a portal, its exit's drift and turn move it too, in the same
+            // per-tick unit as `delta` (M3). Without a portal it is the map.
+            let travelled = match links.filter(|_| !hit.path.is_empty()) {
+                Some(links) => links.carry_displacement(&hit.path, hit.point, delta, hit.world_time)?,
+                None => hit.map.vector(delta).map_err(numeric)?,
+            };
+            let relative = travelled - collider.displacement_at(hit.world_point, hit.world_time);
             if relative.dot(normal) >= -1.0e-7 { return Ok(false); }
             let gravity_pass = axis_role(axis, gravity_dir) == AxisRole::Gravity;
             Ok(match collider {

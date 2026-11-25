@@ -376,8 +376,7 @@ impl PortalTransfer {
 
 /// The travel per tick of the point `p` fixed to an aperture at `pose`.
 fn surface_rate(step: ae::frame::ApertureStep, pose: ae::frame::PortalAperture, p: Vec2) -> bevy::math::DVec2 {
-    let arm = p.as_dvec2() - pose.frame.pivot.as_dvec2();
-    step.displacement.as_dvec2() + f64::from(step.turn) * bevy::math::DVec2::new(-arm.y, arm.x)
+    step.point_travel(pose, p)
 }
 
 fn transfer_step(

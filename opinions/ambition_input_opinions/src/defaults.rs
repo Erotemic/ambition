@@ -109,16 +109,44 @@ const UIPO_UI: &[(Key, Action)] = &[
     (Key::KeyA, Action::MenuNavigateLeft), (Key::KeyD, Action::MenuNavigateRight),
 ];
 
-const PAD_AXES: &[AxisBinding] = &[
-    AxisBinding::new(AxisSource::Dpad, Action::Move),
+use ambition_input::touch_state::TouchActionButton as Touch;
+
+const fn touch(context: Context, control: Touch, action: Action) -> Binding {
+    bind(context, OverrideControl::Touch(control), action)
+}
+
+const TOUCH_GAMEPLAY: &[Binding] = &[
+    touch(Context::Gameplay, Touch::Jump,       Action::Jump),
+    touch(Context::Gameplay, Touch::Attack,     Action::Attack),
+    touch(Context::Gameplay, Touch::Special,    Action::Special),
+    touch(Context::Gameplay, Touch::Burst,      Action::Burst),
+    touch(Context::Gameplay, Touch::Blink,      Action::Blink),
+    touch(Context::Gameplay, Touch::Interact,   Action::Interact),
+    touch(Context::Gameplay, Touch::Projectile, Action::Projectile),
+    touch(Context::Gameplay, Touch::FlyToggle,  Action::Utility),
+    touch(Context::Gameplay, Touch::Shield,     Action::Shield),
+    touch(Context::Gameplay, Touch::Grab,       Action::Grab),
+    touch(Context::Gameplay, Touch::Modifier,   Action::Modifier),
+    touch(Context::Gameplay, Touch::Start,      Action::Start),
+    touch(Context::Gameplay, Touch::Reset,      Action::Reset),
+];
+const TOUCH_UI: &[(Touch, Action)] = &[
+    (Touch::Jump,     Action::MenuSelect),
+    (Touch::Interact, Action::MenuSelect),
+    (Touch::Start,    Action::Start),
+    (Touch::Reset,    Action::MenuBack),
+];
+
+const AXES: &[AxisBinding] = &[
+    AxisBinding::new(AxisSource::KeyboardDirections, Action::Move),
+    AxisBinding::new(AxisSource::PadDirections, Action::Move),
     AxisBinding::new(AxisSource::LeftStick, Action::Move),
     AxisBinding::new(AxisSource::LeftStick, Action::MenuStick),
     AxisBinding::new(AxisSource::RightStick, Action::AimStick),
-    AxisBinding::new(AxisSource::RightTrigger, Action::BurstAnalog),
-    AxisBinding::new(AxisSource::LeftStickLeft, Action::MoveLeft),
-    AxisBinding::new(AxisSource::LeftStickRight, Action::MoveRight),
-    AxisBinding::new(AxisSource::LeftStickUp, Action::MoveUp),
-    AxisBinding::new(AxisSource::LeftStickDown, Action::MoveDown),
+    AxisBinding::paired(AxisSource::RightTrigger, Action::BurstAnalog,
+        OverrideControl::Button(Pad::RightTrigger2), Action::Burst),
+    AxisBinding::new(AxisSource::TouchStick, Action::Move),
+    AxisBinding::new(AxisSource::TouchStick, Action::MenuStick),
 ];
 
 pub fn presets() -> [KeyboardPreset; 4] { [arrows_zxc(), wasd_jkl(), arrows_qwer(), wasd_uipo()] }
@@ -133,6 +161,7 @@ pub fn defaults() -> BindingDefaults {
     BindingDefaults::new(presets().into_iter().map(|preset| {
         let mut buttons = KEYBOARD_SESSION.to_vec();
         buttons.extend_from_slice(GAMEPAD_GAMEPLAY);
+        buttons.extend_from_slice(TOUCH_GAMEPLAY);
         let a = preset.actions;
         let m = preset.movement;
         for (control, action) in [
@@ -155,14 +184,9 @@ pub fn defaults() -> BindingDefaults {
         for context in [Context::SessionUi, Context::Paused, Context::Frontend] {
             buttons.extend(KEYBOARD_UI.iter().chain(additional).map(|&(control, action)| key(context, control, action)));
             buttons.extend(GAMEPAD_UI.iter().map(|&(control, action)| pad(context, control, action)));
+            buttons.extend(TOUCH_UI.iter().map(|&(control, action)| touch(context, control, action)));
         }
-        let movement = match preset.id {
-            PresetId::ArrowsZxc | PresetId::ArrowsQwer => AxisSource::ArrowKeys,
-            PresetId::WasdJkl | PresetId::WasdUipo => AxisSource::WasdKeys,
-        };
-        let mut axes = vec![AxisBinding::new(movement, Action::Move)];
-        axes.extend_from_slice(PAD_AXES);
-        (preset.id, BindingScheme { buttons, axes })
+        (preset.id, BindingScheme { buttons, axes: AXES.to_vec() })
     }).collect())
 }
 
@@ -304,14 +328,4 @@ pub fn wasd_uipo() -> KeyboardPreset {
             dedicated_pogo: None,
         },
     }
-}
-
-
-// Synthetic layout for the engine's unit tests; not a game dependency.
-#[cfg(test)]
-pub fn fixture_layout() -> ambition_input::BindingLayout {
-    ambition_input::BindingLayout::new([
-        pad(Context::Gameplay, Pad::South, Action::Attack),
-        pad(Context::Gameplay, Pad::West, Action::Special),
-    ])
 }

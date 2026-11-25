@@ -1,36 +1,41 @@
 # Contextual binding tables and input opinions
 
-## Intent
+## Architecture
 
-One authoritative contextual button table per participant. Read the default rows, game changes, and saved overrides to determine the effective binding. The engine resolves declarations; games own choices. Use ordinary Rust data, explicit imports, and small constructors. No custom macros or game-name enum in the engine.
+The engine owns input acquisition, contextual resolution, participant routing and remapping. Shared conventions live in `opinions/ambition_input_opinions/src/defaults.rs`; games choose a catalog and can supply their own button and axis overrides. A game can replace the catalog altogether. Ordinary Rust constants and constructors declare defaults; no binding DSL or custom declaration macros are required.
 
-## Implementation map
+A participant's binding recipe composes the catalog, game overrides, and persisted player overrides into an effective `BindingTable` and Leafwing acquisition map. Device availability and seat ownership constrain acquisition. Rebuilding the recipe updates the table without recompiling the game. Context changes route the appropriate rows; physical press history prevents a held button from activating a newly opened interface. Explicit unbind rows remove inherited bindings. Same-context conflicts replace a binding, while physical reuse across contexts is intentional.
 
-- `opinions/ambition_input_opinions/src/defaults.rs`: keyboard and pad defaults, including explicit per-preset menu rows. The app chooses to install this catalog. A new game can install a different `BindingDefaults` instead.
-- `crates/ambition_input/src/table.rs`: binding row, scheme, runtime table, device filtering and precedence. An explicit `unbind` removes a row. Game `BindingLayout` entries replace individual profile/control rows. The existing persisted action/device override moves the action in its declared profiles; same-context collisions replace, cross-context reuse is allowed. Changing the catalog, declared game layout or participant recipe rebuilds the map.
-- `game/ambition_demo_smash/src/input_bindings.rs`: game-owned gameplay overrides; UI defaults are untouched.
-- `crates/ambition_input/src/contextual.rs`: physical press history and direct profile lookup. No inference from Start+Confirm or Start+Back.
-- `crates/ambition_platformer2d_runtime/src/input.rs`: participant acquisition and publication; Leafwing still acquires raw controls and supplies gameplay state. The table is the menu button routing authority, not a replacement for the simulation control-frame pipeline.
-- `crates/ambition_touch_input/src/virtual_device.rs`: explicit touch rows installed into the same effective table. The touch adapter still owns these default positions and axis adapters.
-- `game/ambition_app/src/app/binding_census.rs`: prints effective resolved rows. It does not implement a second button resolver. Its list of game compositions is still explicit.
+## Source map
 
-## Validation before committing
+- `opinions/ambition_input_opinions/src/defaults.rs`: keyboard, controller, touchscreen, and axis defaults.
+- `game/ambition_demo_smash/src/input_bindings.rs`: game-owned gameplay overrides.
+- `crates/ambition_input/src/table.rs`: effective button and axis declarations, composition, contextual projections, direction-edge generation.
+- `crates/ambition_input/src/axis.rs`: physical axis sources and acquisition adapters. Digital movement derives from the same resolved directional button rows as press edges. Analog movement generates threshold edges for the selected physical stick. A paired burst trigger is removed when its owning button binding is replaced; a separately specified axis can be remapped independently.
+- `crates/ambition_input/src/contextual.rs`: contextual button routing and physical press history. No action-combination inference.
+- `crates/ambition_input/src/bindings.rs`, `layout.rs`, `settings.rs`: participant recipes, dynamic layout/catalog rebuilds and persisted button/axis overrides.
+- `crates/ambition_input/src/touch_state.rs`, `touch_device.rs`: raw virtual touch controls, independent of touch presentation or game policy.
+- `crates/ambition_touch_input/src/bevy_plugin.rs`: touch presentation, hit testing, and gesture acquisition; uses the current primary participant table and context rather than a parallel default action assignment.
+- `crates/ambition_platformer2d_runtime/src/input.rs`: routed control frames and published effective binding information. Recipe-backed participants do not fall back to raw menu actions when their table is absent. Raw-map-only injection remains available for explicit fixtures and existing integrations.
+- `game/ambition_app/src/app/binding_census.rs`: enumerates effective button and axis rows; the game compositions it inspects remain explicitly listed.
+- `crates/ambition_input/tests/support/catalog.rs`: fixed engine test data, deliberately independent of the production opinions crate. Engine production and tests need no Cargo dependency on opinions.
 
-This overlay is statically authored against d49467d5b877 plus the three monolith renames. It has not been compiled in the authoring environment. Validate real feature combinations, not just the default workspace build. Follow AGENTS.md; do not create worktrees. Make necessary adjustments directly; do not reintroduce implicit action-combination routing as a compatibility fix.
+## Validation
 
-1. `cargo fmt --all -- --check` (format changed Rust as needed; avoid unrelated formatting changes). `cargo check -p ambition_input --features input`; `cargo test -p ambition_input --features input --lib`; `cargo test -p ambition_input_opinions`.
-2. `cargo test -p ambition_platformer2d_runtime --lib input::`; `cargo test -p ambition_touch_input --features mobile_touch`; `cargo test -p ambition_sim_view --features input` (use the repository's actual supported feature bundles).
-3. Build the main app and standalone Mary-O, Sanic, Smash and TwinTrack hosts using their existing supported desktop/mobile/headless profiles. Verify the minimal-game/external-consumer fixtures can install their own catalog; do not make engine production code depend on opinions. Check Cargo.lock and any independent fixture lockfiles.
-4. Run the gate-network and menu real-input tests on both menu backends. Enter confirms the gate; Escape pauses it; Backspace backs out; gamepad Start pauses, A confirms and B backs out; Select/Touch Reset must not pause in gameplay. Verify held keys do not bleed into a new context. Test per-seat device filtering, game transitions, preset swaps, user remaps and replacing a live catalog.
-5. Run `cargo run -p ambition_app --bin ambition_game_bin -- --explain-bindings` with the usual game features. Compare against actual input behavior. In particular verify keyboard/pad movement, page shortcuts, party return, and every default in all four presets.
+This cumulative implementation was authored against d49467d5b877 plus the Monolith renames. Static checks are not a substitute for a real Rust build. Follow AGENTS.md and avoid worktrees. Run targeted validation, formatting only affected Rust files if necessary.
 
-## Remaining boundaries (do not mistake for completed work)
+1. `cargo check -p ambition_input --features input`; `cargo test -p ambition_input --features input --lib`; `cargo test -p ambition_input_opinions`.
+2. Run input runtime, touch-input mobile feature, sim-view and standalone-host tests with their supported feature bundles. Test minimal-game/external-consumer fixtures with independently supplied defaults.
+3. Run the gate-terminal real-input tests with both menu backends. Verify Enter confirms, Escape pauses the gate, Backspace backs out, controller Start pauses/resumes, A confirms, B backs out, Select/Touch Reset does not pause gameplay, and a held button never activates a newly opened menu.
+4. Test keyboard direction remaps against actual movement and direction edges; reassignment of the movement stick; burst button/trigger pairing; independent trigger remapping; touch overrides; per-seat filtering; game transitions; live catalog replacement and remaps. The input table tests include targeted cases for these relationships.
+5. Run `cargo run -p ambition_app --bin ambition_game_bin -- --explain-bindings` under the usual app features. Compare effective rows with prompts, binding settings, and observed behavior. Validate physical controllers, Android touch, and Steam Deck hardware separately.
 
-- This migration covers contextual buttons. Analog axes and chords retain adapters; the persisted remap schema is still action/device-wide, not a profile-specific remap editor. Axis adapter dependencies (notably BurstAnalog) need review for independent axis customization.
-- The touch defaults still live in the adapter. A follow-up can move authored touch policy into opinions without coupling the engine to mobile UI, and add dynamic virtual-button layout changes. The current touch UI position set remains fixed.
-- Some raw ActionState-only fixtures and direct InputMap consumers remain. Audit those consumers for context bypasses; fixture injection should provide an explicit table rather than rely on union projection. UI glyphs have profile projections, but remaining callers of the union projection must be checked for context-sensitive labels.
-- Engine unit tests reuse the real opinion declarations through a test-only source include; a few other engine test crates have a dev-dependency on opinions. Move policy-specific tests into opinions or replace them with neutral fixtures before repository extraction. Production engine crates do not depend on opinions.
-- The four preset identifiers and metadata shapes are still engine types. Do not add new preset names to the engine merely to support another game: generalize the identifier when there is a concrete customer.
-- Development reset gating, network pause, and independent island suspension are outside this migration. Preserve their current policy and finish separately.
+## Deliberate scope boundaries
 
-Prefer deleting obsolete inference and duplicated policy over adding another layer. The desired result is that editing one row changes the corresponding input, and a static census describes what the runtime will do.
+- User overrides retain action/device scope in the existing settings model; game authors can declare context-specific rows. A profile-specific player remapping editor is not included.
+- Touch physical positions remain fixed; the effective table determines their actions, availability, and presentation. Touch overrides can be declared and persisted; an interactive touch layout/rebinding editor is not included.
+- The engine still has the existing built-in action vocabulary and four preset identifiers. Generalizing them is a separate decision, not necessary for binding ownership.
+- Explicit raw-map integrations, semantic-provider inputs and non-binding UI pointer/gesture handling remain. Device acquisition and game simulation are not being replaced.
+- Development reset authorization, unanimous pause synchronization and independent island execution are separate from the binding migration.
+
+Prefer direct declarations and one binding authority over inference, redundant policy or compatibility layers. The goal is that a developer edits a row, reads the effective table, and understands the resulting control behavior.

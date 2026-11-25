@@ -74,16 +74,16 @@ pub struct KeyboardPreset {
 
 #[cfg(all(test, feature = "input"))]
 impl KeyboardPreset {
-    pub fn presets() -> [Self; 4] { crate::fixture_opinions::presets() }
+    pub fn presets() -> [Self; 4] { crate::fixture_catalog::presets() }
     pub fn by_index(index: usize) -> Self { Self::of(PresetId::by_index(index)) }
-    pub fn of(id: PresetId) -> Self { crate::fixture_opinions::keyboard_preset(id) }
+    pub fn of(id: PresetId) -> Self { crate::fixture_catalog::keyboard_preset(id) }
     pub fn arrows_zxc() -> Self { Self::of(PresetId::ArrowsZxc) }
     pub fn wasd_jkl() -> Self { Self::of(PresetId::WasdJkl) }
     pub fn arrows_qwer() -> Self { Self::of(PresetId::ArrowsQwer) }
     pub fn wasd_uipo() -> Self { Self::of(PresetId::WasdUipo) }
     pub fn input_map(&self) -> leafwing_input_manager::prelude::InputMap<crate::InputAction> { self.map_for(crate::BindingSources::Unified) }
     pub fn map_for(&self, sources: crate::BindingSources) -> leafwing_input_manager::prelude::InputMap<crate::InputAction> {
-        crate::fixture_opinions::defaults().recipe(self.id).with_sources(sources).build()
+        crate::fixture_catalog::defaults().recipe(self.id).with_sources(sources).build()
     }
 }
 
@@ -301,7 +301,7 @@ mod tests {
              Special onto a button that already means something"
         );
 
-        let smash_pad = crate::BindingRecipe::gamepad_only().with_layout(crate::fixture_opinions::fixture_layout()).build();
+        let smash_pad = crate::BindingRecipe::gamepad_only().with_layout(crate::fixture_catalog::fixture_layout()).build();
         assert_eq!(
             ActionBindings::from_map(&smash_pad)
                 .controls(&InputAction::Special),

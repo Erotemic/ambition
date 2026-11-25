@@ -215,3 +215,7 @@ pub use rollback_registration::register_rollback_state;
 
 #[cfg(test)]
 mod moving_view_tests;
+
+#[cfg(test)]
+#[path = "../../ambition_input/tests/support/catalog.rs"]
+mod fixture_catalog;

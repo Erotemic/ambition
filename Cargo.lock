@@ -1613,7 +1613,6 @@ dependencies = [
  "ambition_gameplay_trace",
  "ambition_held_items",
  "ambition_input",
- "ambition_input_opinions",
  "ambition_interaction",
  "ambition_items",
  "ambition_load",
@@ -1978,7 +1977,6 @@ dependencies = [
  "ambition_geometry_observation",
  "ambition_held_items",
  "ambition_input",
- "ambition_input_opinions",
  "ambition_interaction",
  "ambition_mount",
  "ambition_persistence",
@@ -2055,7 +2053,6 @@ version = "0.1.0"
 dependencies = [
  "ambition_geometry",
  "ambition_input",
- "ambition_input_opinions",
  "ambition_persistence",
  "ambition_platformer2d_shared_tangle",
  "ambition_render",

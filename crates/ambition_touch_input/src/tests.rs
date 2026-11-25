@@ -13,7 +13,7 @@ use super::state::TouchButton;
 mod virtual_device_tests {
     use super::super::bevy_plugin::MobileTouchState;
     use super::super::virtual_device::{
-        bind_touch_virtual_inputs, TouchStickDirection, TouchVirtualButton, TouchVirtualStick,
+        TouchStickDirection, TouchVirtualButton, TouchVirtualStick,
     };
     use super::TouchButton;
     use ambition_input::{InputParticipant, ParticipantContexts, InputAction};
@@ -27,7 +27,7 @@ mod virtual_device_tests {
     /// the touch virtual device bound in its `InputMap`.
     fn app() -> (App, Entity) {
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.add_plugins(bevy::time::TimePlugin);
         app.add_plugins(bevy::input::InputPlugin);
         app.add_plugins(InputManagerPlugin::<InputAction>::default());
@@ -38,14 +38,15 @@ mod virtual_device_tests {
         app.register_input_kind::<TouchStickDirection>(InputControlKind::Button);
         app.register_input_kind::<TouchVirtualStick>(InputControlKind::DualAxis);
         app.init_resource::<MobileTouchState>();
-        app.add_systems(Update, bind_touch_virtual_inputs);
+        app.add_systems(Update, ambition_input::rebuild_maps_from_recipes);
+        let recipe = crate::fixture_catalog::recipe(ambition_input::PresetId::ArrowsZxc).with_touch(true);
+        let (map, table) = recipe.resolve();
         let participant = app
             .world_mut()
             .spawn((
                 InputParticipant::primary(),
-                ParticipantContexts::default(),
                 ActionState::<InputAction>::default(),
-                InputMap::<InputAction>::default(),
+                map, table, recipe,
             ))
             .id();
         // First frame binds the virtual device into the fresh InputMap.
@@ -183,8 +184,8 @@ mod virtual_device_tests {
         let (mut app, participant) = app();
         // A preset swap replaces the whole InputMap (sync_preset_input_map).
         *app.world_mut()
-            .get_mut::<InputMap<InputAction>>(participant)
-            .unwrap() = ambition_input_opinions::recipe(ambition_input::PresetId::WasdJkl).build();
+            .get_mut::<ambition_input::BindingRecipe>(participant)
+            .unwrap() = crate::fixture_catalog::recipe(ambition_input::PresetId::WasdJkl).with_touch(true);
         app.update(); // re-bind runs on Changed<InputMap>
         hold(&mut app, |s| s.0.jump = TouchButton::pressed_now());
         app.update();
@@ -286,7 +287,7 @@ fn genuine_touch_activity_marks_touch_active() {
     use bevy::prelude::*;
 
     let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
     app.init_resource::<Touches>();
     app.init_resource::<ButtonInput<MouseButton>>();
     app.init_resource::<MobileTouchState>();
@@ -330,7 +331,7 @@ fn a_drag_outside_the_controls_is_reported_as_a_drag() {
     use bevy::window::PrimaryWindow;
 
     let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
     app.init_resource::<Touches>();
     app.init_resource::<ButtonInput<MouseButton>>();
     app.init_resource::<MobileTouchState>();

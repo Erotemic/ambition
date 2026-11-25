@@ -833,3 +833,7 @@ mod projectile_tests;
 
 #[cfg(test)]
 mod test_body;
+
+#[cfg(test)]
+#[path = "../../ambition_input/tests/support/catalog.rs"]
+mod fixture_catalog;

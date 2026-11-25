@@ -61,82 +61,28 @@ fn bound_control(
     bindings.control_for(&action, device)
 }
 
-/// Keyboard glyph for an action.
-///
-/// Movement returns the preset's summary label ("Arrows" / "WASD"), which
-/// names four keys at once. Other verbs come from the seat's live binding.
-fn keyboard_glyph(
-    action: InputAction,
-    preset: PresetId,
-    bindings: &ActionBindings,
-) -> Cow<'static, str> {
-    let movement_label = match preset {
-        PresetId::ArrowsZxc | PresetId::ArrowsQwer => "Arrows",
-        PresetId::WasdJkl | PresetId::WasdUipo => "WASD",
-    };
-    match action {
-        InputAction::Move
-        | InputAction::MoveLeft
-        | InputAction::MoveRight
-        | InputAction::MoveUp
-        | InputAction::MoveDown
-        | InputAction::MenuStick => Cow::Borrowed(movement_label),
-        InputAction::MenuNavigateUp
-        | InputAction::MenuNavigateDown
-        | InputAction::MenuNavigateLeft
-        | InputAction::MenuNavigateRight => Cow::Borrowed(movement_label),
-        // Pogo has no dedicated key on every preset. The fallback is a chord,
-        // which no single binding can name.
-        InputAction::Pogo
-            if bound_control(bindings, action, true).is_none() =>
-        {
-            Cow::Borrowed("D+X")
+/// Derive the familiar movement summary from the actual direction bindings.
+/// The preset identifier is not a source of physical controls.
+fn keyboard_glyph(action: InputAction, _preset: PresetId, bindings: &ActionBindings) -> Cow<'static, str> {
+    if action == InputAction::Move && (bindings.contextual_rows().is_none() || bindings.controls(&action).contains(&PhysicalControl::Axis(crate::AxisSource::KeyboardDirections))) {
+        let directions = [InputAction::MoveUp, InputAction::MoveLeft, InputAction::MoveDown, InputAction::MoveRight];
+        let keys = directions.map(|direction| bound_control(bindings, direction, true));
+        if keys == [Some(&PhysicalControl::Key(KeyCode::ArrowUp)), Some(&PhysicalControl::Key(KeyCode::ArrowLeft)),
+                    Some(&PhysicalControl::Key(KeyCode::ArrowDown)), Some(&PhysicalControl::Key(KeyCode::ArrowRight))] {
+            return Cow::Borrowed("Arrows");
         }
-        _ => match bound_control(bindings, action, true) {
-            Some(control) => Cow::Owned(control.label()),
-            None => Cow::Borrowed(""),
-        },
+        if keys == [Some(&PhysicalControl::Key(KeyCode::KeyW)), Some(&PhysicalControl::Key(KeyCode::KeyA)),
+                    Some(&PhysicalControl::Key(KeyCode::KeyS)), Some(&PhysicalControl::Key(KeyCode::KeyD))] {
+            return Cow::Borrowed("WASD");
+        }
+        let label = keys.into_iter().flatten().map(PhysicalControl::label).collect::<Vec<_>>().join(" / ");
+        return Cow::Owned(label);
     }
+    bound_control(bindings, action, true).map_or(Cow::Borrowed(""), |control| Cow::Owned(control.label()))
 }
 
-/// Gamepad glyph for an action under the given vendor style.
-///
-/// The binding projection gives the control; only the vendor spelling is a
-/// table.
-fn gamepad_glyph(
-    action: InputAction,
-    style: GamepadStyle,
-    bindings: &ActionBindings,
-) -> Cow<'static, str> {
-    // Sticks are dual-axis inputs, so `iter_buttonlike` correctly does not
-    // list them and no binding projection can name one.
-    if matches!(
-        action,
-        InputAction::Move
-            | InputAction::MoveLeft
-            | InputAction::MoveRight
-            | InputAction::MoveUp
-            | InputAction::MoveDown
-            | InputAction::MenuStick
-            | InputAction::MenuNavigateUp
-            | InputAction::MenuNavigateDown
-            | InputAction::MenuNavigateLeft
-            | InputAction::MenuNavigateRight
-    ) {
-        return Cow::Borrowed("L-Stick");
-    }
-    if matches!(
-        action,
-        InputAction::BurstAnalog | InputAction::AimStick
-    ) {
-        return Cow::Borrowed("R-Stick");
-    }
-    match bound_control(bindings, action, false) {
-        Some(PhysicalControl::Button(button)) => Cow::Borrowed(button_label(*button, style)),
-        // Bound to no gamepad control: empty until someone binds it (for
-        // example `Special`).
-        _ => Cow::Borrowed(""),
-    }
+fn gamepad_glyph(action: InputAction, style: GamepadStyle, bindings: &ActionBindings) -> Cow<'static, str> {
+    bound_control(bindings, action, false).map_or(Cow::Borrowed(""), |control| Cow::Owned(control.label_for(style)))
 }
 
 /// How this pad's vendor draws a button. Presentation only; the binding
@@ -346,6 +292,9 @@ impl PhysicalControl {
         match self {
             Self::Key(key) => key_label(*key),
             Self::Button(button) => crate::glyphs::button_label(*button, style).to_string(),
+            Self::Axis(source) => source.label().to_string(),
+            Self::Touch(button) => format!("Touch {button:?}"),
+            Self::TouchDirection(direction) => format!("Touch {direction:?}"),
             Self::Other(raw) => raw.clone(),
         }
     }
@@ -371,7 +320,7 @@ impl PhysicalControl {
                 };
                 format!("{}_{}", style_word(style), snake_case(&format!("{button:?}")))
             }
-            Self::Other(_) => return None,
+            Self::Axis(_) | Self::Touch(_) | Self::TouchDirection(_) | Self::Other(_) => return None,
         };
         Some(format!("{GLYPH_FOLDER}/input_glyph_{name}.png"))
     }
@@ -389,7 +338,7 @@ impl PhysicalControl {
         match self {
             Self::Key(key) => Some(format!("{key:?}")),
             Self::Button(button) => Some(format!("{button:?}")),
-            Self::Other(_) => None,
+            Self::Axis(_) | Self::Touch(_) | Self::TouchDirection(_) | Self::Other(_) => None,
         }
     }
 }
@@ -506,32 +455,6 @@ impl ActionBindings {
             .and_then(|control| control.glyph_path(device.gamepad_style()))
     }
 
-    /// The control of the device's class that is also bound to a `prefer`
-    /// action (in that order), else the first not bound to an `avoid` action,
-    /// else the first of the class. No fallback to the other class here; the
-    /// caller decides.
-    fn control_preferring(
-        &self,
-        action: &InputAction,
-        prefer: &[InputAction],
-        avoid: &[InputAction],
-        device: crate::ActiveDevice,
-    ) -> Option<&PhysicalControl> {
-        let want_key = device.draws_keyboard_glyphs();
-        let of_class: Vec<&PhysicalControl> = self
-            .controls(action)
-            .iter()
-            .filter(|control| matches!((control, want_key), (PhysicalControl::Key(_), true) | (PhysicalControl::Button(_), false)))
-            .collect();
-        let bound_to = |other: &InputAction, control: &PhysicalControl| self.controls(other).contains(control);
-        prefer
-            .iter()
-            .find_map(|other| of_class.iter().find(|control| bound_to(other, control)))
-            .or_else(|| of_class.iter().find(|control| !avoid.iter().any(|other| bound_to(other, control))))
-            .or_else(|| of_class.first())
-            .copied()
-    }
-
     /// [`Self::label_for`]'s control, named for `device`.
     pub fn named_for(&self, action: &InputAction, device: crate::ActiveDevice) -> Option<NamedControl> {
         self.control_for(action, device)
@@ -539,30 +462,14 @@ impl ActionBindings {
             .map(|control| NamedControl::of(control, device))
     }
 
-    /// The control a prompt names for confirm: a `MenuSelect` control also
-    /// bound to Jump (the pad's A and its keyboard stand-in), else the first.
+    /// Call on the active UI profile's binding projection.
     pub fn confirm_named(&self, device: crate::ActiveDevice) -> Option<NamedControl> {
-        use InputAction as A;
-        self.named_preferring(&A::MenuSelect, &[A::Jump], &[], device)
+        self.named_for(&InputAction::MenuSelect, device)
     }
 
-    /// The control a prompt names for back: a `MenuBack` control that is not
-    /// also Start, because Start opens the pause menu over the dialogue.
+    /// Call on the active UI profile's binding projection.
     pub fn back_named(&self, device: crate::ActiveDevice) -> Option<NamedControl> {
-        use InputAction as A;
-        self.named_preferring(&A::MenuBack, &[], &[A::Start], device)
-    }
-
-    fn named_preferring(
-        &self,
-        action: &InputAction,
-        prefer: &[InputAction],
-        avoid: &[InputAction],
-        device: crate::ActiveDevice,
-    ) -> Option<NamedControl> {
-        self.control_preferring(action, prefer, avoid, device)
-            .map(|control| NamedControl::of(control, device))
-            .or_else(|| self.named_for(action, device))
+        self.named_for(&InputAction::MenuBack, device)
     }
 
 }
@@ -586,7 +493,7 @@ impl SeatBindings {
         devices: Option<&crate::SeatActiveDevices>,
     ) -> Option<String> {
         let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
-        self.for_seat(seat)
+        self.for_profile(seat, crate::InputProfile::Gameplay)
             .label_for(&action_for_slot(slot)?, device)
     }
 
@@ -598,7 +505,7 @@ impl SeatBindings {
         devices: Option<&crate::SeatActiveDevices>,
     ) -> Option<String> {
         let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
-        self.for_seat(seat).glyph_for(&action_for_slot(slot)?, device)
+        self.for_profile(seat, crate::InputProfile::Gameplay).glyph_for(&action_for_slot(slot)?, device)
     }
 
     /// The control an ability slot's prompt names on the seat's device.
@@ -609,7 +516,7 @@ impl SeatBindings {
         devices: Option<&crate::SeatActiveDevices>,
     ) -> Option<NamedControl> {
         let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
-        self.for_seat(seat).named_for(&action_for_slot(slot)?, device)
+        self.for_profile(seat, crate::InputProfile::Gameplay).named_for(&action_for_slot(slot)?, device)
     }
 
 }

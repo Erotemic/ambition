@@ -476,12 +476,14 @@ pub(crate) struct RebindCapture {
     /// the first attempt and it is wrong: a just-pressed set is a fact about the
     /// frame, not about where in the frame you read it.
     armed_this_frame: bool,
+    axis_ready: bool,
 }
 
 impl RebindCapture {
     pub(crate) fn arm(&mut self, row: usize) {
         self.armed_row = Some(row);
         self.armed_this_frame = true;
+        self.axis_ready = false;
     }
 
     #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
@@ -580,14 +582,28 @@ pub(crate) fn capture_armed_rebind(
         } else {
             None
         };
-        let pressed = ambition_platformer2d::input::pressed_controls_this_frame(
+        let mut pressed = ambition_platformer2d::input::pressed_controls_this_frame(
             keyboard,
             pad.into_iter()
                 .flat_map(|pad| pad.get_just_pressed().copied()),
         );
-        if pressed.is_empty() {
-            continue;
+        if let Some(pad) = pad {
+            use ambition_platformer2d::input::{AxisSource, PhysicalControl};
+            use bevy::input::gamepad::GamepadAxis as Axis;
+            let value = |axis| pad.get(axis).unwrap_or(0.0).abs();
+            let axes = [
+                (AxisSource::LeftStick, value(Axis::LeftStickX).max(value(Axis::LeftStickY))),
+                (AxisSource::RightStick, value(Axis::RightStickX).max(value(Axis::RightStickY))),
+                (AxisSource::LeftTrigger, value(Axis::LeftZ)),
+                (AxisSource::RightTrigger, value(Axis::RightZ)),
+            ];
+            if axes.iter().all(|(_, value)| *value < 0.25) { capture.axis_ready = true; }
+            if capture.axis_ready {
+                pressed.extend(axes.into_iter().filter(|(_, value)| *value > 0.7)
+                    .map(|(axis, _)| PhysicalControl::Axis(axis)));
+            }
         }
+        if pressed.is_empty() { continue; }
         let Some(action) = bindings
             .for_seat(owner.owner.slot())
             .all()

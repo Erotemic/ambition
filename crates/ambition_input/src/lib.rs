@@ -20,6 +20,8 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 
 mod actions;
+mod axis;
+pub use axis::AxisSource;
 mod active_input;
 #[cfg(feature = "input")]
 mod bindings;
@@ -42,6 +44,9 @@ mod menu;
 mod motion_input;
 pub mod participant;
 mod presets;
+pub mod touch_state;
+#[cfg(feature = "input")]
+pub mod touch_device;
 #[cfg(feature = "input")]
 mod rebind;
 pub mod seating;
@@ -54,8 +59,8 @@ mod tests;
 #[cfg(all(test, feature = "input"))]
 extern crate self as ambition_input;
 #[cfg(all(test, feature = "input"))]
-#[path = "../../../opinions/ambition_input_opinions/src/defaults.rs"]
-mod fixture_opinions;
+#[path = "../tests/support/catalog.rs"]
+mod fixture_catalog;
 
 /// Directional motion recognition (a rolling input buffer and a subsequence
 /// matcher) and the content-owned technique registry. Pure and headless. A
@@ -113,7 +118,7 @@ pub enum InputSet {
 }
 #[cfg(feature = "input")]
 pub use bindings::{
-    action_for_slot, action_name, action_named, gamepad_button_of, publish_seat_bindings,
+    action_for_slot, slot_for_action, action_name, physical_control_of, action_named, gamepad_button_of, publish_seat_bindings,
     rebuild_maps_from_recipes,
     swallow_the_rebinds_own_edges, ActionBindings, BindingRecipe, BindingSources, PhysicalControl,
     Rebound, SeatBindings,
@@ -122,7 +127,7 @@ pub use cues::{ActiveUiCues, UiCue};
 #[cfg(feature = "input")]
 pub use layout::{BindingLayout, DeclaredBindingLayout};
 #[cfg(feature = "input")]
-pub use table::{bind, unbind, Binding, BindingDefaults, BindingScheme, BindingTable, AxisBinding, AxisSource, ResolvedButton};
+pub use table::{bind, unbind, Binding, BindingDefaults, BindingScheme, BindingTable, AxisBinding, ResolvedButton};
 pub use menu::{
     analog_to_dir, MenuControlFrame, MenuFramePopulate, MenuFrameConsume, MenuNavConsume, MenuDir, MenuInputFrame, MenuInputState, SeatMenuFrames,
 };
@@ -181,6 +186,7 @@ pub fn install_input_pipeline(app: &mut bevy::prelude::App) {
         )
             .chain(),
     );
+    crate::axis::register(app);
     app.init_resource::<LocalDeviceOrder>();
     app.init_resource::<LocalSeatClaims>();
     app.add_systems(

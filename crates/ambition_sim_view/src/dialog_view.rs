@@ -50,7 +50,7 @@ impl DialogControls {
         if device == ambition_input::ActiveDevice::Touch {
             return Self { hold_to_skip, ..Self::default() };
         }
-        let seat = bindings.for_seat(slot);
+        let seat = bindings.for_profile(slot, ambition_input::InputProfile::SessionUi);
         Self { confirm: seat.named_for(&ambition_input::InputAction::MenuSelect, device), back: seat.named_for(&ambition_input::InputAction::MenuBack, device), hold_to_skip }
     }
 }

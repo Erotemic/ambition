@@ -61,6 +61,7 @@ impl BindingSources {
         match class {
             crate::OverrideDeviceClass::Keyboard => self.admits_keyboard(),
             crate::OverrideDeviceClass::Gamepad => self.admits_gamepad(),
+            crate::OverrideDeviceClass::Touch => false,
         }
     }
 }
@@ -71,9 +72,8 @@ impl BindingSources {
 /// one seat only.
 ///
 /// The map is working state, not a source: the seat-device pass restricts it
-/// to one pad, the touch overlay inserts its virtual controls, and a remap
-/// changes it. The recipe is the starting point every rebuild returns to. The
-/// other layers re-apply through their own `Changed<InputMap>` hooks.
+/// to one pad and a remap changes it. The recipe is the starting point every
+/// rebuild returns to. All device bindings are composed together.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct BindingRecipe {
     /// The keyboard layout this seat uses if it hears a keyboard. A pad-only
@@ -82,6 +82,8 @@ pub struct BindingRecipe {
     pub defaults: BindingDefaults,
     /// Which devices this seat hears. See [`BindingSources`].
     pub sources: BindingSources,
+    /// The local virtual touch device belongs to this participant.
+    pub touch: bool,
     /// Which game's pad layout this seat uses: the middle term of
     /// `device -> profile -> semantic action -> rules`.
     ///
@@ -101,13 +103,14 @@ impl BindingRecipe {
             preset: id,
             defaults,
             sources: BindingSources::Unified,
+            touch: false,
             layout: crate::BindingLayout::default(),
             overrides: Vec::new(),
         }
     }
 
     #[cfg(test)]
-    pub fn preset(id: PresetId) -> Self { crate::fixture_opinions::defaults().recipe(id) }
+    pub fn preset(id: PresetId) -> Self { crate::fixture_catalog::defaults().recipe(id) }
 
     #[cfg(test)]
     pub fn gamepad_only() -> Self { Self::preset(PresetId::ArrowsZxc).with_sources(BindingSources::GamepadOnly) }
@@ -115,6 +118,11 @@ impl BindingRecipe {
     /// The same recipe restricted to the devices this seat actually claimed.
     pub fn with_sources(mut self, sources: BindingSources) -> Self {
         self.sources = sources;
+        self
+    }
+
+    pub fn with_touch(mut self, touch: bool) -> Self {
+        self.touch = touch;
         self
     }
 
@@ -145,8 +153,8 @@ impl BindingRecipe {
 
     pub fn resolve(&self) -> (InputMap<InputAction>, BindingTable) {
         match self.defaults.scheme(self.preset) {
-            Some(scheme) => scheme.resolve(self.sources, &self.layout.rows, &self.overrides),
-            None => crate::BindingScheme::default().resolve(self.sources, &self.layout.rows, &self.overrides),
+            Some(scheme) => scheme.resolve_devices(self.sources, self.touch, &self.layout.rows, &self.overrides, self.layout.axes.as_deref()),
+            None => crate::BindingScheme::default().resolve_devices(self.sources, self.touch, &self.layout.rows, &self.overrides, self.layout.axes.as_deref()),
         }
     }
 }
@@ -182,8 +190,7 @@ pub fn action_named(name: &str) -> Option<InputAction> {
 ///   changes, because a press under the old bindings is not a press under the
 ///   new ones.
 ///
-/// Touch virtual controls are not re-added here. The touch crate's
-/// `Changed<InputMap>` hook re-binds them the same frame.
+/// Touch, keyboard, and pad controls are all projected from the same recipe.
 pub fn rebuild_maps_from_recipes(
     mut commands: Commands,
     mut participants: Query<
@@ -210,7 +217,7 @@ pub fn rebuild_maps_from_recipes(
         }
         // `Changed` includes `Added`. On the spawn frame the map already is
         // the recipe's output. The comparison stops that frame from resetting
-        // a fresh `ActionState` and from triggering the touch re-bind hook.
+        // a fresh `ActionState` or publishing a redundant change.
         if *map != built || table_changed {
             *map = built;
             actions.reset_all();
@@ -277,11 +284,27 @@ pub fn swallow_the_rebinds_own_edges(
 pub enum PhysicalControl {
     Key(KeyCode),
     Button(GamepadButton),
+    Touch(crate::touch_state::TouchActionButton),
+    TouchDirection(crate::touch_state::TouchStickDirection),
+    Axis(crate::AxisSource),
     /// Something the projection could not name.
     ///
     /// It keeps the debug form. If a prompt drops an unknown binding, the
     /// action looks unbound, and the missing arm stays hidden.
     Other(String),
+}
+
+impl PhysicalControl {
+    pub fn device_class(&self) -> Option<crate::OverrideDeviceClass> {
+        use crate::OverrideDeviceClass as Device;
+        Some(match self {
+            Self::Key(_) => Device::Keyboard,
+            Self::Button(_) => Device::Gamepad,
+            Self::Touch(_) | Self::TouchDirection(_) => Device::Touch,
+            Self::Axis(source) => source.device_class(),
+            Self::Other(_) => return None,
+        })
+    }
 }
 
 /// One seat's bindings.
@@ -314,12 +337,30 @@ impl ActionBindings {
     }
 
     /// Union for the binding editor, with contextual rows for conflict checks.
-    pub fn from_resolved(map: &InputMap<InputAction>, table: &BindingTable) -> Self {
-        let mut bindings = Self::from_map(map);
-        bindings.contextual = Some(table.rows().iter().map(|row| (
-            row.profile, row.action, physical_control_of(row.control.as_ref()),
-        )).collect());
-        bindings
+    pub fn from_resolved(_map: &InputMap<InputAction>, table: &BindingTable) -> Self {
+        Self::from_table(table, None)
+    }
+
+    /// A read-model of the effective table, including axes. A selected profile
+    /// is used for prompts; the union is used only for configuration/inspection.
+    pub fn from_table(table: &BindingTable, profile: Option<crate::InputProfile>) -> Self {
+        let mut rows: Vec<_> = table.rows().iter()
+            .filter(|row| profile.is_none_or(|p| row.profile == p))
+            .map(|row| (row.profile, row.action, physical_control_of(row.control.as_ref())))
+            .collect();
+        for axis in table.axes() {
+            for p in crate::InputProfile::ACTIVE {
+                if profile.is_none_or(|profile| profile == p) && p.accepts(axis.action) {
+                    rows.push((p, axis.action, PhysicalControl::Axis(axis.source)));
+                }
+            }
+        }
+        let mut actions = BTreeMap::<String, Vec<PhysicalControl>>::new();
+        for (_, action, control) in &rows {
+            let controls = actions.entry(action_name(action)).or_default();
+            if !controls.contains(control) { controls.push(control.clone()); }
+        }
+        Self { actions: actions.into_iter().collect(), contextual: Some(rows) }
     }
 
     pub fn contextual_rows(&self) -> Option<&[(crate::InputProfile, InputAction, PhysicalControl)]> {
@@ -350,13 +391,16 @@ impl ActionBindings {
         action: &InputAction,
         device: crate::ActiveDevice,
     ) -> Option<&PhysicalControl> {
-        let want_key = device.draws_keyboard_glyphs();
-        self.controls(action).iter().find(|control| {
-            matches!(
-                (control, want_key),
-                (PhysicalControl::Key(_), true) | (PhysicalControl::Button(_), false)
-            )
-        })
+        let class = match device {
+            crate::ActiveDevice::Keyboard | crate::ActiveDevice::Mouse => crate::OverrideDeviceClass::Keyboard,
+            crate::ActiveDevice::Gamepad(_) => crate::OverrideDeviceClass::Gamepad,
+            crate::ActiveDevice::Touch => crate::OverrideDeviceClass::Touch,
+        };
+        // Analog sticks are the primary glyph for a vector action when both
+        // the stick and a digital D-pad are bound.
+        let controls = self.controls(action);
+        controls.iter().find(|control| matches!(control, PhysicalControl::Axis(crate::AxisSource::LeftStick | crate::AxisSource::RightStick)) && control.device_class() == Some(class))
+            .or_else(|| controls.iter().find(|control| control.device_class() == Some(class)))
     }
 
     /// Every bound action and its controls, in canonical order. For a help
@@ -402,6 +446,14 @@ pub fn action_for_slot(
         ControlSlot::Taunt => InputAction::Taunt,
         ControlSlot::Modifier => InputAction::Modifier,
     })
+}
+
+/// The ability slot for a built-in action, if it has one.
+pub fn slot_for_action(action: InputAction) -> Option<ambition_entity_catalog::action_scheme::ControlSlot> {
+    use ambition_entity_catalog::action_scheme::ControlSlot as Slot;
+    [Slot::Jump, Slot::Attack, Slot::Special, Slot::Projectile, Slot::Burst,
+     Slot::Blink, Slot::Interact, Slot::Utility, Slot::Shield, Slot::Grab,
+     Slot::Taunt, Slot::Modifier].into_iter().find(|&slot| action_for_slot(slot) == Some(action))
 }
 
 /// Every seat's bindings, keyed by participant slot.
@@ -465,7 +517,7 @@ pub fn publish_seat_bindings(
         if let Some(table) = table {
             next.insert(slot, ActionBindings::from_resolved(map, table));
             for profile in crate::InputProfile::ACTIVE {
-                profiles.insert((slot, profile), ActionBindings::from_map(&table.map_for_profile(profile)));
+                profiles.insert((slot, profile), ActionBindings::from_table(table, Some(profile)));
             }
             profiles.insert((slot, crate::InputProfile::Blocked), ActionBindings::default());
         } else {
@@ -497,7 +549,7 @@ pub fn gamepad_button_of(
 /// becomes [`PhysicalControl::Other`] with its `Debug` form. This is the one
 /// place a `dyn Buttonlike` becomes comparable. [`crate::layout`] uses it to
 /// remove a binding, so a layout displaces what a prompt shows on that button.
-pub(crate) fn physical_control_of(
+pub fn physical_control_of(
     input: &dyn leafwing_input_manager::prelude::Buttonlike,
 ) -> PhysicalControl {
     let reflected = input.as_reflect();
@@ -506,6 +558,12 @@ pub(crate) fn physical_control_of(
     }
     if let Some(button) = gamepad_button_of(input) {
         return PhysicalControl::Button(button);
+    }
+    if let Some(button) = reflected.downcast_ref::<crate::touch_device::TouchVirtualButton>() {
+        return PhysicalControl::Touch(button.0);
+    }
+    if let Some(direction) = reflected.downcast_ref::<crate::touch_state::TouchStickDirection>() {
+        return PhysicalControl::TouchDirection(*direction);
     }
     PhysicalControl::Other(format!("{input:?}"))
 }
@@ -740,7 +798,7 @@ mod tests {
     /// layout says X.
     #[test]
     fn a_user_remap_beats_the_modes_layout() {
-        let smash = BindingRecipe::gamepad_only().with_layout(crate::fixture_opinions::fixture_layout());
+        let smash = BindingRecipe::gamepad_only().with_layout(crate::fixture_catalog::fixture_layout());
         let layout_only = ActionBindings::from_map(&smash.build());
         assert_eq!(
             layout_only.controls(&InputAction::Special),

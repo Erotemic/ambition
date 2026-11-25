@@ -43,3 +43,7 @@ pub mod bevy_plugin;
 /// without reaching into the submodule.
 #[cfg(feature = "mobile_touch")]
 pub use bevy_plugin::TouchControlsPlugin;
+
+#[cfg(all(test, feature = "mobile_touch"))]
+#[path = "../../ambition_input/tests/support/catalog.rs"]
+mod fixture_catalog;

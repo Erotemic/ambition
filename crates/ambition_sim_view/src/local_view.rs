@@ -1469,7 +1469,7 @@ mod tests {
         let mut admitted = SessionParticipants::default(); admitted.admit(PlayerSlot(0)); admitted.admit(PlayerSlot(1));
         app.world_mut().spawn((SessionRoot(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1)), party, admitted));
         app.world_mut().spawn((ambition_input::InputParticipant::with_id(ambition_input::ParticipantId(1)),
-            ambition_input_opinions::recipe(ambition_input::PresetId::ArrowsZxc).build()));
+            crate::fixture_catalog::recipe(ambition_input::PresetId::ArrowsZxc).build()));
         let room = LiveRoomInstance::ACTIVATION;
         let leader = app.world_mut().spawn((DrivingParticipant(PlayerSlot(0)), InRoomInstance(room),
             BodyWallet { balance: 7 }, BodyHealth::new(Health::new(5)),

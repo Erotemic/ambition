@@ -1,13 +1,17 @@
-//! Context-specific button bindings. Compile the declaration once per recipe change.
+//! Compose the declared policy into an effective contextual binding table.
 
 use bevy::prelude::{Component, GamepadButton, KeyCode, Resource};
-use leafwing_input_manager::prelude::{Buttonlike, GamepadControlAxis, GamepadControlDirection, GamepadStick, InputMap, VirtualDPad};
+use leafwing_input_manager::prelude::{Actionlike, Buttonlike, GamepadControlDirection, InputMap};
+use leafwing_input_manager::InputControlKind;
 use std::sync::Arc;
 
-use crate::{InputAction as Action, InputProfile, OverrideControl, PhysicalControl, PresetId, BindingSources, BindingOverride};
+use crate::{AxisSource, BindingOverride, BindingSources, InputAction as Action, InputProfile,
+    OverrideControl, OverrideDeviceClass, PhysicalControl, PresetId};
 use crate::bindings::{action_named, physical_control_of};
+use crate::touch_device::TouchVirtualButton;
+use crate::touch_state::TouchStickDirection;
 
-/// A row of default or game-owned policy. `None` removes this control in this profile.
+/// None removes a control in this profile.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Binding {
     pub profile: InputProfile,
@@ -23,54 +27,23 @@ pub const fn unbind(profile: InputProfile, control: OverrideControl) -> Binding 
     Binding { profile, control, action: None }
 }
 
-/// The existing analog and digital-direction adapters. Their assignment is data.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AxisSource {
-    ArrowKeys,
-    WasdKeys,
-    Dpad,
-    LeftStick,
-    RightStick,
-    RightTrigger,
-    LeftStickLeft,
-    LeftStickRight,
-    LeftStickUp,
-    LeftStickDown,
-}
-
-impl AxisSource {
-    fn admitted(self, sources: BindingSources) -> bool {
-        match self {
-            Self::ArrowKeys | Self::WasdKeys => sources.admits_keyboard(),
-            _ => sources.admits_gamepad(),
-        }
-    }
-
-    fn install(self, action: Action, map: &mut InputMap<Action>) {
-        match self {
-            Self::ArrowKeys => { map.insert_dual_axis(action, VirtualDPad::arrow_keys()); }
-            Self::WasdKeys => { map.insert_dual_axis(action, VirtualDPad::wasd()); }
-            Self::Dpad => { map.insert_dual_axis(action, VirtualDPad::dpad()); }
-            Self::LeftStick => { map.insert_dual_axis(action, GamepadStick::LEFT); }
-            Self::RightStick => { map.insert_dual_axis(action, GamepadStick::RIGHT); }
-            Self::RightTrigger => { map.insert_axis(action, GamepadControlAxis::RIGHT_Z); }
-            Self::LeftStickLeft => { map.insert(action, GamepadControlDirection::LEFT_LEFT.threshold(0.5)); }
-            Self::LeftStickRight => { map.insert(action, GamepadControlDirection::LEFT_RIGHT.threshold(0.5)); }
-            Self::LeftStickUp => { map.insert(action, GamepadControlDirection::LEFT_UP.threshold(0.5)); }
-            Self::LeftStickDown => { map.insert(action, GamepadControlDirection::LEFT_DOWN.threshold(0.5)); }
-        }
-    }
-}
-
-/// An analog or stick-direction binding. The destination determines the control kind.
+/// Analog assignment. A paired source is active only while its declared
+/// button is still assigned to the specified action. Independent axis remaps
+/// do not inherit the pair condition.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AxisBinding {
     pub source: AxisSource,
     pub action: Action,
+    pub requires_button: Option<(OverrideControl, Action)>,
 }
 
 impl AxisBinding {
-    pub const fn new(source: AxisSource, action: Action) -> Self { Self { source, action } }
+    pub const fn new(source: AxisSource, action: Action) -> Self {
+        Self { source, action, requires_button: None }
+    }
+    pub const fn paired(source: AxisSource, action: Action, control: OverrideControl, button: Action) -> Self {
+        Self { source, action, requires_button: Some((control, button)) }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -79,8 +52,6 @@ pub struct BindingScheme {
     pub axes: Vec<AxisBinding>,
 }
 
-/// The host supplies defaults. No game name or default layout is needed by the engine.
-/// Each participant retains a cheap clone of the selected catalog.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct BindingDefaults(Arc<Vec<(PresetId, BindingScheme)>>);
 
@@ -94,7 +65,6 @@ impl BindingDefaults {
     }
 }
 
-/// Effective button row, including a concrete virtual device button if present.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ResolvedButton {
     pub profile: InputProfile,
@@ -102,21 +72,22 @@ pub struct ResolvedButton {
     pub action: Action,
 }
 
-/// The effective contextual button table. Leafwing's acquisition map and the
-/// menu sampler both read these rows. No action combinations encode a context.
+/// Effective policy, after defaults, game changes and user overrides.
+/// The acquisition map is a projection, not a second binding authority.
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct BindingTable {
     rows: Vec<ResolvedButton>,
+    axes: Vec<AxisBinding>,
 }
 
 impl BindingTable {
     pub fn rows(&self) -> &[ResolvedButton] { &self.rows }
+    pub fn axes(&self) -> &[AxisBinding] { &self.axes }
 
     pub fn set(&mut self, profile: InputProfile, control: Box<dyn Buttonlike>, action: Option<Action>) {
         if profile == InputProfile::Blocked { return; }
-        // Character actions only have a gameplay consumer. Menu actions have a UI consumer.
-        if action.is_some_and(|action| !profile.accepts(action)) { return; }
-        let index = self.rows.iter().position(|row| row.profile == profile && &row.control == &control);
+        if action.is_some_and(|action| !profile.accepts(action) || action.input_control_kind() != InputControlKind::Button) { return; }
+        let index = self.rows.iter().position(|row| row.profile == profile && row.control.as_ref() == control.as_ref());
         if let Some(index) = index {
             if let Some(action) = action { self.rows[index].action = action; }
             else { self.rows.remove(index); }
@@ -130,26 +101,34 @@ impl BindingTable {
     }
 
     pub fn apply(&mut self, binding: Binding, sources: BindingSources) {
-        if !sources.admits(binding.control.device_class()) { return; }
-        self.set(binding.profile, boxed_control(binding.control), binding.action);
+        self.apply_devices(binding, sources, false);
     }
 
-    /// Move this action on the selected device in each of its declared profiles.
-    /// A same-profile collision is replaced; other profiles are unaffected.
+    fn apply_devices(&mut self, binding: Binding, sources: BindingSources, touch: bool) {
+        if !admitted(sources, touch, binding.control.device_class()) { return; }
+        if let Some(control) = boxed_control(binding.control) {
+            self.set(binding.profile, control, binding.action);
+        }
+    }
+
+    /// Move the action in its existing profiles on this device. A collision
+    /// in one profile has no effect on the same physical control elsewhere.
     pub fn apply_override(&mut self, over: &BindingOverride, sources: BindingSources) {
-        use leafwing_input_manager::prelude::Actionlike;
-        if !sources.admits(over.control.device_class()) { return; }
+        self.apply_button_override(over, sources, false);
+    }
+
+    fn apply_button_override(&mut self, over: &BindingOverride, sources: BindingSources, touch: bool) {
+        let Some(control) = boxed_control(over.control) else { return; };
+        if !admitted(sources, touch, over.control.device_class()) { return; }
         let Some(action) = action_named(&over.action) else { return; };
-        if action.input_control_kind() != leafwing_input_manager::InputControlKind::Button { return; }
+        if action.input_control_kind() != InputControlKind::Button { return; }
         let class = over.control.device_class();
         let mut profiles = Vec::new();
         for row in &self.rows {
-            if row.action == action && control_class(&row.control) == Some(class) && !profiles.contains(&row.profile) {
+            if row.action == action && control_class(row.control.as_ref()) == Some(class) && !profiles.contains(&row.profile) {
                 profiles.push(row.profile);
             }
         }
-        // A previously unbound action can acquire a binding. Use the action's
-        // existing profiles on another device, or its consumer's natural profile.
         if profiles.is_empty() {
             for row in &self.rows {
                 if row.action == action && !profiles.contains(&row.profile) { profiles.push(row.profile); }
@@ -159,34 +138,43 @@ impl BindingTable {
             profiles.extend(InputProfile::ACTIVE.into_iter().filter(|profile| profile.accepts(action)));
         }
         for profile in profiles {
-            self.rows.retain(|row| !(row.profile == profile && row.action == action && control_class(&row.control) == Some(class)));
-            self.set(profile, boxed_control(over.control), Some(action));
+            self.rows.retain(|row| !(row.profile == profile && row.action == action && control_class(row.control.as_ref()) == Some(class)));
+            self.set(profile, control.clone(), Some(action));
         }
     }
 
-    /// The raw map is an acquisition projection. UI resolution uses the table,
-    /// not this union. Gameplay-only actions exist only in the gameplay rows.
     pub fn install_buttons(&self, map: &mut InputMap<Action>) {
-        for row in &self.rows {
-            map.insert_boxed(row.action, row.control.clone());
-        }
+        for row in &self.rows { map.insert_boxed(row.action, row.control.clone()); }
     }
 
     pub fn action_for(&self, profile: InputProfile, control: &PhysicalControl) -> Option<Action> {
         self.rows.iter().find(|row| row.profile == profile && physical_control_of(row.control.as_ref()) == *control).map(|row| row.action)
     }
 
-    /// Project the selected profile for prompts, remap previews and census.
+    /// A projection for the input adapter. Character actions have exactly
+    /// one permitted profile; UI and session button intents use direct lookup.
+    pub fn acquisition_map(&self) -> InputMap<Action> {
+        let mut map = InputMap::default();
+        self.install_buttons(&mut map);
+        for axis in &self.axes { axis.source.install(axis.action, self, &mut map); }
+        map
+    }
+
+    /// Project the selected profile for glyphs and inspection.
     pub fn map_for_profile(&self, profile: InputProfile) -> InputMap<Action> {
         let mut map = InputMap::default();
         for row in self.rows.iter().filter(|row| row.profile == profile) {
             map.insert_boxed(row.action, row.control.clone());
         }
+        for axis in self.axes.iter().filter(|axis| profile.accepts(axis.action)) {
+            axis.source.install(axis.action, self, &mut map);
+        }
         map
     }
 
-    /// A fixture can inject an action map without a recipe. Interpret each
-    /// action only in its consumer's profile; do not infer key-specific policy.
+    /// Import an explicitly supplied Leafwing map. A participant with a
+    /// recipe does not use this path. No contextual policy is inferred from
+    /// combinations of actions.
     pub fn from_action_map(map: &InputMap<Action>) -> Self {
         let mut table = Self::default();
         for (action, controls) in map.iter_buttonlike() {
@@ -198,46 +186,96 @@ impl BindingTable {
     }
 }
 
-fn boxed_control(control: OverrideControl) -> Box<dyn Buttonlike> {
-    match control {
+fn admitted(sources: BindingSources, touch: bool, class: OverrideDeviceClass) -> bool {
+    if class == OverrideDeviceClass::Touch { touch } else { sources.admits(class) }
+}
+
+fn boxed_control(control: OverrideControl) -> Option<Box<dyn Buttonlike>> {
+    Some(match control {
         OverrideControl::Key(key) => Box::new(key),
         OverrideControl::Button(button) => Box::new(button),
+        OverrideControl::Touch(button) => Box::new(TouchVirtualButton(button)),
+        OverrideControl::Axis(_) => return None,
+    })
+}
+
+pub(crate) fn control_class(control: &dyn Buttonlike) -> Option<OverrideDeviceClass> {
+    let reflected = control.as_reflect();
+    if reflected.downcast_ref::<KeyCode>().is_some() { Some(OverrideDeviceClass::Keyboard) }
+    else if reflected.downcast_ref::<GamepadButton>().is_some() { Some(OverrideDeviceClass::Gamepad) }
+    else if reflected.downcast_ref::<TouchVirtualButton>().is_some() { Some(OverrideDeviceClass::Touch) }
+    else { None } // Analog threshold edges are not digital direction buttons.
+}
+
+fn physical(control: OverrideControl) -> PhysicalControl {
+    match control {
+        OverrideControl::Key(key) => PhysicalControl::Key(key),
+        OverrideControl::Button(button) => PhysicalControl::Button(button),
+        OverrideControl::Touch(button) => PhysicalControl::Touch(button),
+        OverrideControl::Axis(source) => PhysicalControl::Axis(source),
     }
 }
 
-fn control_class(control: &Box<dyn Buttonlike>) -> Option<crate::OverrideDeviceClass> {
-    let reflected = control.as_ref().as_reflect();
-    if reflected.downcast_ref::<KeyCode>().is_some() { Some(crate::OverrideDeviceClass::Keyboard) }
-    else if reflected.downcast_ref::<GamepadButton>().is_some() { Some(crate::OverrideDeviceClass::Gamepad) }
-    else { None }
+fn set_axis(axes: &mut Vec<AxisBinding>, row: AxisBinding) {
+    if row.source.kind() != row.action.input_control_kind() { return; }
+    if matches!(row.source, AxisSource::KeyboardDirections | AxisSource::PadDirections) && row.action != Action::Move { return; }
+    // A stick can move in gameplay and navigate a UI, but cannot be two
+    // independent gameplay axes in the same profile.
+    axes.retain(|old| old.source != row.source || !InputProfile::ACTIVE.into_iter().any(|p| p.accepts(old.action) && p.accepts(row.action)));
+    axes.push(row);
 }
 
 impl BindingScheme {
     pub fn resolve(&self, sources: BindingSources, changes: &[Binding], overrides: &[BindingOverride]) -> (InputMap<Action>, BindingTable) {
+        self.resolve_devices(sources, false, changes, overrides, None)
+    }
+
+    pub fn resolve_devices(&self, sources: BindingSources, touch: bool, changes: &[Binding], overrides: &[BindingOverride], game_axes: Option<&[AxisBinding]>) -> (InputMap<Action>, BindingTable) {
         let mut table = BindingTable::default();
-        for row in self.buttons.iter().chain(changes) { table.apply(*row, sources); }
-        for over in overrides { table.apply_override(over, sources); }
-        let mut map = InputMap::default();
-        for axis in &self.axes {
-            if !axis.source.admitted(sources) { continue; }
-            // Do not leave the old trigger live after a button remap displaces Burst.
-            if axis.action == Action::BurstAnalog && axis.source == AxisSource::RightTrigger
-                && table.action_for(InputProfile::Gameplay, &PhysicalControl::Button(GamepadButton::RightTrigger2)) != Some(Action::Burst) { continue; }
-            let direction = match axis.source {
-                AxisSource::LeftStickLeft => Some(GamepadControlDirection::LEFT_LEFT),
-                AxisSource::LeftStickRight => Some(GamepadControlDirection::LEFT_RIGHT),
-                AxisSource::LeftStickUp => Some(GamepadControlDirection::LEFT_UP),
-                AxisSource::LeftStickDown => Some(GamepadControlDirection::LEFT_DOWN),
+        for row in self.buttons.iter().chain(changes) { table.apply_devices(*row, sources, touch); }
+        for over in overrides { table.apply_button_override(over, sources, touch); }
+        let mut axes = Vec::new();
+        for row in game_axes.unwrap_or(&self.axes) {
+            if !admitted(sources, touch, row.source.device_class()) { continue; }
+            if row.requires_button.is_some_and(|(control, action)| table.action_for(InputProfile::Gameplay, &physical(control)) != Some(action)) { continue; }
+            set_axis(&mut axes, *row);
+        }
+        for over in overrides {
+            let OverrideControl::Axis(source) = over.control else { continue; };
+            if !admitted(sources, touch, source.device_class()) { continue; }
+            let Some(action) = action_named(&over.action) else { continue; };
+            if action.input_control_kind() != source.kind() { continue; }
+            if matches!(source, AxisSource::KeyboardDirections | AxisSource::PadDirections) && action != Action::Move { continue; }
+            axes.retain(|row| !(row.action == action && row.source.device_class() == source.device_class()
+                && !matches!(row.source, AxisSource::KeyboardDirections | AxisSource::PadDirections)));
+            set_axis(&mut axes, AxisBinding::new(source, action));
+        }
+        // Threshold edges belong to the actual movement axis, never to a
+        // particular gamepad stick independently of its selected action.
+        for axis in &axes {
+            if axis.action != Action::Move { continue; }
+            let directions = match axis.source {
+                AxisSource::LeftStick => Some([GamepadControlDirection::LEFT_UP, GamepadControlDirection::LEFT_DOWN,
+                    GamepadControlDirection::LEFT_LEFT, GamepadControlDirection::LEFT_RIGHT]),
+                AxisSource::RightStick => Some([GamepadControlDirection::RIGHT_UP, GamepadControlDirection::RIGHT_DOWN,
+                    GamepadControlDirection::RIGHT_LEFT, GamepadControlDirection::RIGHT_RIGHT]),
                 _ => None,
             };
-            if let Some(direction) = direction {
-                table.bind_button(InputProfile::Gameplay, direction.threshold(0.5), axis.action);
-            } else {
-                axis.source.install(axis.action, &mut map);
+            let actions = [Action::MoveUp, Action::MoveDown, Action::MoveLeft, Action::MoveRight];
+            if let Some(directions) = directions {
+                for (direction, action) in directions.into_iter().zip(actions) {
+                    table.bind_button(InputProfile::Gameplay, direction.threshold(0.5), action);
+                }
+            }
+            if axis.source == AxisSource::TouchStick {
+                for (direction, action) in [TouchStickDirection::Up, TouchStickDirection::Down,
+                    TouchStickDirection::Left, TouchStickDirection::Right].into_iter().zip(actions) {
+                    table.bind_button(InputProfile::Gameplay, direction, action);
+                }
             }
         }
-        table.install_buttons(&mut map);
-        (map, table)
+        table.axes = axes;
+        (table.acquisition_map(), table)
     }
 }
 
@@ -281,4 +319,72 @@ mod tests {
         assert_eq!(table.action_for(Context::Gameplay, &PhysicalControl::Key(Key::F13)), Some(Action::Attack));
         assert_eq!(table.action_for(Context::Paused, &PhysicalControl::Key(Key::KeyZ)), Some(Action::MenuSelect));
     }
+
+    #[test]
+    fn touch_override_changes_only_the_touch_gameplay_row() {
+        use crate::touch_state::TouchActionButton as Touch;
+        let recipe = crate::fixture_catalog::recipe(crate::PresetId::ArrowsZxc).with_touch(true)
+            .with_overrides(vec![BindingOverride { action: "Jump".into(), control: OverrideControl::Touch(Touch::Attack) }]);
+        let (_, table) = recipe.resolve();
+        assert_eq!(table.action_for(Context::Gameplay, &PhysicalControl::Touch(Touch::Jump)), None);
+        assert_eq!(table.action_for(Context::Gameplay, &PhysicalControl::Touch(Touch::Attack)), Some(Action::Jump));
+        assert_eq!(table.action_for(Context::Paused, &PhysicalControl::Touch(Touch::Jump)), Some(Action::MenuSelect));
+        assert_eq!(table.action_for(Context::Gameplay, &PhysicalControl::Key(Key::KeyZ)), Some(Action::Jump));
+        let (_, absent) = recipe.with_touch(false).resolve();
+        assert!(!absent.rows().iter().any(|row| matches!(crate::physical_control_of(row.control.as_ref()), PhysicalControl::Touch(_))));
+    }
+
+    #[test]
+    fn changing_burst_button_drops_the_old_paired_trigger_axis() {
+        use crate::AxisSource;
+        use bevy::prelude::GamepadButton as Pad;
+        let recipe = crate::fixture_catalog::recipe(crate::PresetId::ArrowsZxc);
+        assert!(recipe.resolve().1.axes().iter().any(|row| row.action == Action::BurstAnalog));
+        let recipe = recipe.with_overrides(vec![BindingOverride::button("Burst", Pad::North)]);
+        assert!(!recipe.resolve().1.axes().iter().any(|row| row.action == Action::BurstAnalog));
+        let recipe = recipe.with_overrides(vec![BindingOverride::button("Burst", Pad::North), BindingOverride::axis("BurstAnalog", AxisSource::LeftTrigger)]);
+        assert!(recipe.resolve().1.axes().iter().any(|row| row.action == Action::BurstAnalog && row.source == AxisSource::LeftTrigger));
+    }
+
+    #[test]
+    fn remapping_the_movement_stick_changes_its_threshold_edges() {
+        use crate::AxisSource;
+        use leafwing_input_manager::prelude::GamepadControlDirection as Direction;
+        let recipe = crate::fixture_catalog::recipe(crate::PresetId::ArrowsZxc)
+            .with_overrides(vec![BindingOverride::axis("Move", AxisSource::RightStick)]);
+        let (_, table) = recipe.resolve();
+        assert!(table.axes().iter().any(|row| row.action == Action::Move && row.source == AxisSource::RightStick));
+        assert!(!table.axes().iter().any(|row| row.action == Action::Move && row.source == AxisSource::LeftStick));
+        assert!(table.axes().iter().any(|row| row.action == Action::MenuStick && row.source == AxisSource::LeftStick));
+        let physical = crate::physical_control_of(&Direction::RIGHT_UP.threshold(0.5));
+        assert_eq!(table.action_for(Context::Gameplay, &physical), Some(Action::MoveUp));
+        let physical = crate::physical_control_of(&Direction::LEFT_UP.threshold(0.5));
+        assert_eq!(table.action_for(Context::Gameplay, &physical), None);
+    }
+
+    #[test]
+    fn a_direction_remap_changes_the_vector_and_the_button_edge() {
+        use bevy::prelude::{App, Vec2};
+        use leafwing_input_manager::plugin::InputManagerPlugin;
+        use leafwing_input_manager::prelude::{ActionState, Buttonlike};
+        let (map, _) = crate::fixture_catalog::recipe(crate::PresetId::ArrowsZxc)
+            .with_sources(BindingSources::KeyboardOnly)
+            .with_overrides(vec![BindingOverride::key("MoveRight", Key::F13)]).resolve();
+        let mut app = App::new();
+        app.add_plugins((bevy::input::InputPlugin, bevy::time::TimePlugin, InputManagerPlugin::<Action>::default()));
+        let seat = app.world_mut().spawn((map, ActionState::<Action>::default())).id();
+        app.update();
+        Key::ArrowRight.press(app.world_mut());
+        app.update();
+        let state = app.world().get::<ActionState<Action>>(seat).unwrap();
+        assert_eq!(state.clamped_axis_pair(&Action::Move), Vec2::ZERO);
+        assert!(!state.pressed(&Action::MoveRight));
+        Key::ArrowRight.release(app.world_mut());
+        Key::F13.press(app.world_mut());
+        app.update();
+        let state = app.world().get::<ActionState<Action>>(seat).unwrap();
+        assert_eq!(state.clamped_axis_pair(&Action::Move), Vec2::X);
+        assert!(state.just_pressed(&Action::MoveRight));
+    }
+
 }

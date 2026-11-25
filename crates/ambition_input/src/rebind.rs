@@ -11,6 +11,9 @@ pub fn bindable(control: &PhysicalControl) -> Option<OverrideControl> {
     match control {
         PhysicalControl::Key(key) => Some(OverrideControl::Key(*key)),
         PhysicalControl::Button(button) => Some(OverrideControl::Button(*button)),
+        PhysicalControl::Touch(button) => Some(OverrideControl::Touch(*button)),
+        PhysicalControl::TouchDirection(_) => None,
+        PhysicalControl::Axis(source) => Some(OverrideControl::Axis(*source)),
         PhysicalControl::Other(_) => None,
     }
 }
@@ -25,7 +28,14 @@ pub fn capture(
     action: &InputAction,
     pressed: impl IntoIterator<Item = PhysicalControl>,
 ) -> Option<BindingOverride> {
-    let control = pressed.into_iter().find_map(|control| bindable(&control))?;
+    use leafwing_input_manager::prelude::Actionlike;
+    let control = pressed.into_iter().filter_map(|control| bindable(&control)).find(|control| {
+        let kind = match control {
+            OverrideControl::Axis(source) => source.kind(),
+            _ => leafwing_input_manager::InputControlKind::Button,
+        };
+        kind == action.input_control_kind()
+    })?;
     Some(BindingOverride {
         action: crate::bindings::action_name(action),
         control,
@@ -43,13 +53,12 @@ pub fn also_bound_to(
     let wanted = match control {
         OverrideControl::Key(key) => PhysicalControl::Key(key),
         OverrideControl::Button(button) => PhysicalControl::Button(button),
+        OverrideControl::Touch(button) => PhysicalControl::Touch(button),
+        OverrideControl::Axis(source) => PhysicalControl::Axis(source),
     };
     if let Some(rows) = bindings.contextual_rows() {
-        let mut profiles = rows.iter().filter(|(_, a, c)| a == action && matches!(
-            (control.device_class(), c),
-            (crate::OverrideDeviceClass::Keyboard, PhysicalControl::Key(_)) |
-            (crate::OverrideDeviceClass::Gamepad, PhysicalControl::Button(_))
-        )).map(|(profile, _, _)| *profile).collect::<Vec<_>>();
+        let mut profiles = rows.iter().filter(|(_, a, c)| a == action && c.device_class() == Some(control.device_class()))
+            .map(|(profile, _, _)| *profile).collect::<Vec<_>>();
         if profiles.is_empty() {
             profiles.extend(rows.iter().filter(|(_, a, _)| a == action).map(|(p, _, _)| *p));
         }

@@ -6,7 +6,7 @@ use leafwing_input_manager::prelude::{ActionState, InputMap};
 
 use ambition_input::participant::{context_priority, ContextClaim};
 use ambition_input::{
-    analog_to_dir, InputParticipant, PresetId, BindingDefaults, BindingTable, MenuControlFrame, MenuInputState,
+    analog_to_dir, InputParticipant, PresetId, BindingDefaults, BindingRecipe, BindingTable, MenuControlFrame, MenuInputState,
     ParticipantContexts, SeatInputContexts, CUTSCENE_CONTEXT, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT,
 };
 use ambition_platformer2d_core::ControlFrame;
@@ -52,6 +52,7 @@ pub fn spawn_primary_input_participant(
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     existing: Query<&InputParticipant>,
     defaults: Option<Res<BindingDefaults>>,
+    touch: Option<Res<ambition_input::touch_state::MobileTouchState>>,
 ) {
     // A future secondary/local participant must not suppress the engine-owned
     // primary seat. Only an existing PRIMARY participant satisfies this boot
@@ -75,7 +76,7 @@ pub fn spawn_primary_input_participant(
             )
         },
     );
-    let recipe = defaults.as_deref().cloned().unwrap_or_default().recipe(PresetId::by_index(preset_index)).with_overrides(overrides);
+    let recipe = defaults.as_deref().cloned().unwrap_or_default().recipe(PresetId::by_index(preset_index)).with_touch(touch.is_some()).with_overrides(overrides);
     let (map, table) = recipe.resolve();
     commands.spawn((
         InputParticipant::primary(),
@@ -131,6 +132,7 @@ pub fn sync_primary_recipe_from_settings(
         // how the old assumption reasserted itself one frame after being fixed.
         let wanted = ambition_input::BindingRecipe::new(id, recipe.defaults.clone())
             .with_sources(recipe.sources)
+            .with_touch(recipe.touch)
             .with_layout(recipe.layout.clone())
             .with_overrides(settings.controls.binding_overrides.clone());
         // Write only on a real change: `Res<UserSettings>` is marked changed
@@ -726,6 +728,10 @@ pub fn populate_seat_control_frames(
                 let cutscene = active_context.for_seat(participant.id.slot()).allows(CUTSCENE_CONTEXT);
                 paused_frame.confirm_pressed = cutscene && menu.select;
                 paused_frame.cancel_held = cutscene && menu.back_held;
+            } else if map.is_some() {
+                paused_frame.start_pressed = false;
+                paused_frame.confirm_pressed = false;
+                paused_frame.cancel_held = false;
             }
             paused_frame.control_frame_modes = modes;
             paused_frame.party_preference = preference;
@@ -741,8 +747,8 @@ pub fn populate_seat_control_frames(
             continue;
         }
         let mut next_frame = history.read(actions, filters, !rebound);
-        if let Some(menu) = menu {
-            next_frame.start_pressed = menu.start;
+        if map.is_some() || menu.is_some() {
+            next_frame.start_pressed = menu.is_some_and(|menu| menu.start);
             next_frame.confirm_pressed = false;
             next_frame.cancel_held = false;
         }
@@ -1061,6 +1067,7 @@ pub fn populate_seat_menu_frames(
         Option<Ref<InputMap<InputAction>>>,
         Option<&ParticipantContexts>,
         Option<Ref<BindingTable>>,
+        Has<BindingRecipe>,
     )>,
     mut button_sources: MenuButtonSources,
     mut histories: Local<std::collections::BTreeMap<u8, ambition_input::ContextualButtonHistory>>,
@@ -1077,18 +1084,24 @@ pub fn populate_seat_menu_frames(
     // differently between runs (ADR 0023).
     let mut rows: Vec<_> = participants
         .iter()
-        .map(|(participant, actions, map, contexts, table)| (participant.id.slot(), actions, map, contexts, table))
+        .map(|(participant, actions, map, contexts, table, has_recipe)| (participant.id.slot(), actions, map, contexts, table, has_recipe))
         .collect();
     rows.sort_by_key(|(slot, ..)| *slot);
     histories.retain(|slot, _| rows.iter().any(|row| row.0 == *slot));
     states.retain(|slot, _| rows.iter().any(|row| row.0 == *slot));
-    for (slot, actions, map, contexts, table) in rows {
+    for (slot, actions, map, contexts, table, has_recipe) in rows {
         let state = states.entry(slot).or_default();
         let filters = filters_for_seat(&user_settings, devices.as_deref(), slot);
         let mut scratch = MenuInputState::default();
         let mut frame = decode_menu_frame(actions, &mut scratch, &user_settings, filters, 0.0);
         let physical = map.is_some();
-        button_sources.resolve(actions, map, contexts, table, histories.entry(slot).or_default(), enabled, &mut frame);
+        if has_recipe && table.is_none() {
+            // A recipe-backed seat must have its effective table. Do not
+            // reconstruct policy from its union acquisition map.
+            frame = MenuControlFrame::default();
+        } else {
+            button_sources.resolve(actions, map, contexts, table, histories.entry(slot).or_default(), enabled, &mut frame);
+        }
         if physical {
             // The digital edges above come from the selected context. Only the stick repeats.
             let dir = analog_to_dir(frame.analog.x, -frame.analog.y, 0.5);
@@ -1101,9 +1114,11 @@ pub fn populate_seat_menu_frames(
                 frame.left = repeated.left;
                 frame.right = repeated.right;
             }
-        } else {
+        } else if !has_recipe {
             frame = decode_menu_frame(actions, state, &user_settings, filters, wall_dt);
             if !enabled { frame = MenuControlFrame::default(); }
+        } else {
+            frame = MenuControlFrame::default();
         }
         frames.set(slot, frame);
     }
@@ -1127,7 +1142,7 @@ mod focus_gate_tests {
     #[test]
     fn the_participant_spawns_once_and_owns_device_state() {
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.add_systems(Update, spawn_primary_input_participant);
 
         app.update();
@@ -1166,7 +1181,7 @@ mod focus_gate_tests {
         use ambition_match::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.insert_resource(UserSettings::default());
         app.add_systems(
             Update,
@@ -1243,7 +1258,7 @@ mod focus_gate_tests {
         use ambition_match::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.insert_resource(UserSettings::default());
         app.init_resource::<SeatBindings>();
         app.add_systems(
@@ -1361,7 +1376,7 @@ mod focus_gate_tests {
         use ambition_match::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.add_systems(
             Update,
             (
@@ -1424,7 +1439,7 @@ mod focus_gate_tests {
     #[test]
     fn a_declared_lobby_seats_its_pads_and_closing_it_takes_them_back() {
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.add_systems(
             Update,
             (
@@ -1464,7 +1479,7 @@ mod focus_gate_tests {
         use ambition_match::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         // Channels are dense now, so one person is one seat however many controllers are in the
         // room, and asking for `SECONDARY` from a one-person roster would be asking for a chair
         // nobody is sitting in.
@@ -1517,7 +1532,7 @@ mod focus_gate_tests {
         use ambition_match::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.add_systems(
             Update,
             (
@@ -1586,7 +1601,7 @@ mod focus_gate_tests {
         }
 
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
         // The seat's frame-mode policy, beside the seat table it interprets.
@@ -1676,7 +1691,7 @@ mod focus_gate_tests {
 
         fn app_with(pause_when_unfocused: bool) -> App {
             let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
             app.init_resource::<SeatInputContexts>();
             app.init_resource::<SlotControls>();
             // The seat's frame-mode policy, beside the seat table it interprets.
@@ -1800,7 +1815,7 @@ mod focus_gate_tests {
         }
 
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
         app.init_resource::<SeatControlFrameModes>();
@@ -1878,7 +1893,7 @@ mod focus_gate_tests {
         }
 
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
         // The seat's frame-mode policy, beside the seat table it interprets.
@@ -2008,7 +2023,7 @@ mod focus_gate_tests {
         actions.press(&InputAction::Jump);
 
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.init_resource::<SeatInputContexts>();
         app.init_resource::<SlotControls>();
         // The seat's frame-mode policy, beside the seat table it interprets.
@@ -2119,7 +2134,7 @@ mod focus_gate_tests {
 
         for seats in [1usize, 2, 4] {
             let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
             app.init_resource::<MenuControlFrame>();
             app.init_resource::<ambition_input::SeatMenuFrames>();
             app.init_resource::<ambition_persistence::settings::UserSettings>();
@@ -2195,7 +2210,7 @@ mod focus_gate_tests {
         );
 
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.insert_resource(settings);
         app.init_resource::<SeatMenuFrames>();
         let mut devices = SeatActiveDevices::default();
@@ -2235,7 +2250,7 @@ mod focus_gate_tests {
     #[test]
     fn a_secondary_participant_does_not_suppress_the_primary_boot_seat() {
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.world_mut().spawn((
             InputParticipant {
                 id: ParticipantId(1),
@@ -2254,7 +2269,7 @@ mod focus_gate_tests {
     #[test]
     fn the_session_lifecycle_claims_and_releases_the_gameplay_context() {
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.init_resource::<SeatInputContexts>();
         app.add_systems(
             Update,
@@ -2325,7 +2340,7 @@ mod focus_gate_tests {
                 .gameplay_owned()
         };
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.init_resource::<SeatInputContexts>();
         app.insert_resource(SessionGatedSimulation);
         let mut scopes = ActiveSessionScope::default();
@@ -2545,7 +2560,7 @@ mod room_cutscene_tests {
     fn held_seats(room: Option<u32>) -> Vec<u8> {
         let (alices, bobs) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.insert_resource(ambition_cutscene::ActiveCutscene::playing(
             ambition_cutscene::CutsceneRuntime::new(ambition_cutscene::CutsceneScript::new(
                 "probe",
@@ -2604,7 +2619,7 @@ mod modifier_toggle_tests {
     #[test]
     fn pad_modifier_toggles_per_seat_and_keyboard_keeps_hold_behavior() {
         let mut app = App::new();
-        ambition_input_opinions::install(&mut app);
+        crate::fixture_catalog::install(&mut app);
         app.add_plugins((
             bevy::time::TimePlugin,
             bevy::input::InputPlugin,
@@ -2623,7 +2638,7 @@ mod modifier_toggle_tests {
         let mut pads = Vec::new();
         for seat in 0..2 {
             let pad = app.world_mut().spawn(Gamepad::default()).id();
-            let preset = ambition_input_opinions::recipe(ambition_input::PresetId::ArrowsZxc);
+            let preset = crate::fixture_catalog::recipe(ambition_input::PresetId::ArrowsZxc);
             let mut map = preset.with_sources(if seat == 0 {
                 ambition_input::BindingSources::Unified
             } else {
@@ -2684,7 +2699,7 @@ mod modifier_toggle_tests {
         assert!(!frame(&app, 0).modifier_held);
         button(&mut app, pads[0], GamepadButton::C, 0.0);
 
-        let key = ambition_input_opinions::arrows_zxc().actions.modifier;
+        let key = crate::fixture_catalog::arrows_zxc().actions.modifier;
         key.press(app.world_mut());
         app.update();
         assert!(frame(&app, 0).modifier_held);

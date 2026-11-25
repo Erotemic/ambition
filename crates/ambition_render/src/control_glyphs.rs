@@ -188,7 +188,7 @@ impl GlyphPress {
         match control {
             ambition_input::PhysicalControl::Key(key) => Some(Self::key(*key)),
             ambition_input::PhysicalControl::Button(button) => Some(Self::button(*button)),
-            ambition_input::PhysicalControl::Other(_) => None,
+            ambition_input::PhysicalControl::Axis(_) | ambition_input::PhysicalControl::Touch(_) | ambition_input::PhysicalControl::TouchDirection(_) | ambition_input::PhysicalControl::Other(_) => None,
         }
     }
 }

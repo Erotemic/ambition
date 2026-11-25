@@ -19,23 +19,17 @@ pub(super) fn print() {
     ] {
         let pages = MenuShortcutPages { inventory: shortcuts, map: shortcuts };
         for preset in PresetId::ALL {
-            let recipe = defaults.recipe(preset);
+            let recipe = defaults.recipe(preset).with_touch(cfg!(feature = "mobile_touch"));
             let (_, base) = recipe.resolve();
             let recipe = recipe.with_layout(layout.clone());
             let (_, game_rows) = recipe.resolve();
-            let (map, table) = recipe.with_overrides(settings.controls.binding_overrides.clone()).resolve();
-            #[cfg(feature = "mobile_touch")]
-            let (map, table) = {
-                let (mut map, mut table) = (map, table);
-                ambition_platformer2d::touch_input::virtual_device::insert_touch_virtual_bindings(&mut map);
-                ambition_platformer2d::touch_input::virtual_device::insert_touch_contextual_bindings(&mut table);
-                (map, table)
-            };
+            let (_, table) = recipe
+                .with_overrides(settings.controls.binding_overrides.clone()).resolve();
             for profile in [InputProfile::Gameplay, InputProfile::SessionUi, InputProfile::Paused,
                 InputProfile::Frontend, InputProfile::Blocked] {
                 let prefix = format!("{game}\t{preset:?}\t{profile:?}");
                 for (control, action) in contextual_button_rows(&table, profile) {
-                    let origin = if action != game_rows.action_for(profile, &control) { "Override/Touch" }
+                    let origin = if action != game_rows.action_for(profile, &control) { "Override" }
                         else if action != base.action_for(profile, &control) { "Game" } else { "Default" };
                     let output = match action {
                         Some(action) if MenuButtonIntent::from_action(action).is_some_and(|intent| !pages.allows(intent)) => "Unavailable".to_string(),
@@ -44,15 +38,10 @@ pub(super) fn print() {
                     };
                     println!("{prefix}\t{control:?}\t{action:?}\t{origin}\t{output}\tButton");
                 }
-                for (action, inputs) in map.iter_axislike() {
-                    if profile.accepts(*action) {
-                        for input in inputs { println!("{prefix}\t{input:?}\t{action:?}\tAxis\t{action:?}\tScalar"); }
-                    }
-                }
-                for (action, inputs) in map.iter_dual_axislike() {
-                    if profile.accepts(*action) {
-                        for input in inputs { println!("{prefix}\t{input:?}\t{action:?}\tAxis\t{action:?}\tVector"); }
-                    }
+                for axis in table.axes().iter().filter(|axis| profile.accepts(axis.action)) {
+                    let origin = if !game_rows.axes().contains(axis) { "Override" }
+                        else if !base.axes().contains(axis) { "Game" } else { "Default" };
+                    println!("{prefix}\t{:?}\t{:?}\t{origin}\t{:?}\tAxis", axis.source, axis.action, axis.action);
                 }
             }
         }

@@ -12,7 +12,7 @@
 //! `[i] = ..`) gets its own copy of the base with the layer folded in, as a
 //! `Vec` it owns would be.
 
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 
 use crate::{Aabb, Vec2};
 
@@ -23,20 +23,39 @@ pub(crate) const UNBOUNDED: Aabb = Aabb { min: Vec2::NEG_INFINITY, max: Vec2::IN
 #[derive(Clone)]
 pub struct Layered<T> {
     base: Arc<Base<T>>,
+    layer: Option<Arc<Layer<T>>>,
+    reads: Option<Arc<Mutex<LayerReads>>>,
+}
+
+struct Layer<T> {
     /// Indices into `base`, sorted, each once.
     hidden: Vec<u32>,
     added: Vec<T>,
+    bounds: [OnceLock<Vec<Aabb>>; 2],
+}
+
+impl<T: Clone> Clone for Layer<T> {
+    fn clone(&self) -> Self {
+        Self { hidden: self.hidden.clone(), added: self.added.clone(), bounds: Default::default() }
+    }
+}
+
+#[derive(Default, Clone, Copy)]
+struct LayerReads {
+    area: Option<Aabb>,
+    read_count: bool,
+    read_all: bool,
 }
 
 impl<T> Default for Layered<T> {
     fn default() -> Self {
-        Self { base: Arc::new(Base::new(Vec::new())), hidden: Vec::new(), added: Vec::new() }
+        Self::from(Vec::new())
     }
 }
 
 impl<T> From<Vec<T>> for Layered<T> {
     fn from(base: Vec<T>) -> Self {
-        Self { base: Arc::new(Base::new(base)), hidden: Vec::new(), added: Vec::new() }
+        Self { base: Arc::new(Base::new(base)), layer: None, reads: None }
     }
 }
 
@@ -52,7 +71,8 @@ impl<T> Layered<T> {
     }
 
     pub fn len(&self) -> usize {
-        self.base.len() - self.hidden.len() + self.added.len()
+        self.note_read(|reads| reads.read_count = true);
+        self.base.len() - self.hidden().len() + self.added().len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -60,26 +80,47 @@ impl<T> Layered<T> {
     }
 
     pub fn iter(&self) -> LayeredIter<'_, T> {
-        LayeredIter { base: self.base.iter().enumerate(), hidden: &self.hidden, added: self.added.iter(), left: self.len() }
+        self.note_read(|reads| reads.read_all = true);
+        LayeredIter { base: self.base.iter().enumerate(), hidden: self.hidden(), added: self.added().iter(), left: self.len() }
+    }
+
+    fn note_read(&self, note: impl FnOnce(&mut LayerReads)) {
+        if let Some(reads) = &self.reads {
+            note(&mut reads.lock().expect("terrain read scope"));
+        }
+    }
+
+    /// Record the terrain reads of the private copy used to prove a step.
+    pub(crate) fn record_reads(&mut self) {
+        self.reads = Some(Arc::default());
+    }
+
+    fn hidden(&self) -> &[u32] {
+        self.layer.as_deref().map_or(&[], |layer| layer.hidden.as_slice())
+    }
+
+    fn added(&self) -> &[T] {
+        self.layer.as_deref().map_or(&[], |layer| layer.added.as_slice())
     }
 
     /// Where the `i`th entry a reader sees is: in the base, or added.
     fn locate(&self, i: usize) -> Option<Slot> {
-        if self.hidden.is_empty() {
+        let hidden = self.hidden();
+        if hidden.is_empty() {
             return if i < self.base.len() {
                 Some(Slot::Base(i))
             } else {
-                (i - self.base.len() < self.added.len()).then(|| Slot::Added(i - self.base.len()))
+                (i - self.base.len() < self.added().len()).then(|| Slot::Added(i - self.base.len()))
             };
         }
-        let shown = self.base.len() - self.hidden.len();
+        let shown = self.base.len() - hidden.len();
         if i >= shown {
-            return (i - shown < self.added.len()).then(|| Slot::Added(i - shown));
+            return (i - shown < self.added().len()).then(|| Slot::Added(i - shown));
         }
         // The base index with `i` shown entries before it: step past each
         // hidden index at or before the candidate.
         let mut at = i;
-        for hidden in &self.hidden {
+        for hidden in hidden {
             if (*hidden as usize) <= at {
                 at += 1;
             } else {
@@ -90,9 +131,10 @@ impl<T> Layered<T> {
     }
 
     pub fn get(&self, i: usize) -> Option<&T> {
+        self.note_read(|reads| reads.read_all = true);
         match self.locate(i)? {
             Slot::Base(at) => self.base.get(at),
-            Slot::Added(at) => self.added.get(at),
+            Slot::Added(at) => self.added().get(at),
         }
     }
 
@@ -104,17 +146,67 @@ impl<T> Layered<T> {
         self.len().checked_sub(1).and_then(|i| self.get(i))
     }
 
+    /// Does this list have a layer of its own over its base?
+    pub fn is_layered(&self) -> bool {
+        !self.hidden().is_empty() || !self.added().is_empty()
+    }
+
+    /// Do the two share one base (a clone and its source)?
+    pub fn shares_base_with(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.base, &other.base)
+    }
+
+}
+
+/// Identity of a published list. A write changes the identity of the part it changes.
+pub(crate) struct LayeredIdentity<T> {
+    base: Weak<Base<T>>,
+    layer: Option<Weak<Layer<T>>>,
+    outside_layer: Option<OutsideLayer>,
+}
+
+/// The step's reads found no added terrain in this area. Hidden base entries
+/// and observed list counts must still match.
+struct OutsideLayer {
+    area: Option<Aabb>,
+    hidden: Vec<u32>,
+    count: Option<usize>,
+}
+
+impl<T: Spatial> LayeredIdentity<T> {
+    pub(crate) fn matches(&self, list: &Layered<T>) -> bool {
+        if !std::ptr::eq(self.base.as_ptr(), Arc::as_ptr(&list.base)) {
+            return false;
+        }
+        self.layer.as_ref().map(Weak::as_ptr) == list.layer.as_ref().map(Arc::as_ptr)
+            || self.outside_layer.as_ref().is_some_and(|scope| {
+                scope.hidden == list.hidden() && scope.count.is_none_or(|count| count == list.len())
+                    && !list.added_touches(scope.area)
+            })
+    }
+}
+
+impl<T: Clone> Layered<T> {
+    fn layer_mut(&mut self) -> &mut Layer<T> {
+        let layer = Arc::make_mut(self.layer.get_or_insert_with(|| Arc::new(Layer {
+            hidden: Vec::new(), added: Vec::new(), bounds: Default::default(),
+        })));
+        layer.bounds = Default::default();
+        layer
+    }
+
     /// Hide the `i`th entry a reader sees, from this list only: the base is
     /// shared and stays as it is. Added entries are removed.
     pub fn hide(&mut self, i: usize) {
         match self.locate(i) {
             Some(Slot::Base(at)) => {
-                if let Err(pos) = self.hidden.binary_search(&(at as u32)) {
-                    self.hidden.insert(pos, at as u32);
+                let hidden = &mut self.layer_mut().hidden;
+                if let Err(pos) = hidden.binary_search(&(at as u32)) {
+                    hidden.insert(pos, at as u32);
                 }
             }
             Some(Slot::Added(at)) => {
-                self.added.remove(at);
+                self.layer_mut().added.remove(at);
             }
             None => {}
         }
@@ -122,17 +214,20 @@ impl<T> Layered<T> {
 
     /// Add an entry after every other, to this list only.
     pub fn add(&mut self, value: T) {
-        self.added.push(value);
+        self.layer_mut().added.push(value);
     }
 
     /// Add entries after every other, to this list only.
     pub fn add_all(&mut self, values: impl IntoIterator<Item = T>) {
-        self.added.extend(values);
+        let mut values = values.into_iter().peekable();
+        if values.peek().is_some() {
+            self.layer_mut().added.extend(values);
+        }
     }
 
     /// Hide every entry `hide` picks, from this list only.
     pub fn hide_where(&mut self, mut hide: impl FnMut(&T) -> bool) {
-        let mut hidden = self.hidden.iter().peekable();
+        let mut hidden = self.hidden().iter().peekable();
         let mut newly: Vec<u32> = Vec::new();
         for (i, value) in self.base.iter().enumerate() {
             if hidden.peek().is_some_and(|h| **h as usize == i) {
@@ -144,24 +239,15 @@ impl<T> Layered<T> {
             }
         }
         if !newly.is_empty() {
-            self.hidden.extend(newly);
-            self.hidden.sort_unstable();
+            let hidden = &mut self.layer_mut().hidden;
+            hidden.extend(newly);
+            hidden.sort_unstable();
         }
-        self.added.retain(|value| !hide(value));
+        if !self.added().is_empty() {
+            self.layer_mut().added.retain(|value| !hide(value));
+        }
     }
 
-    /// Does this list have a layer of its own over its base?
-    pub fn is_layered(&self) -> bool {
-        !self.hidden.is_empty() || !self.added.is_empty()
-    }
-
-    /// Do the two share one base (a clone and its source)?
-    pub fn shares_base_with(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.base, &other.base)
-    }
-}
-
-impl<T: Clone> Layered<T> {
     /// The list as a `Vec` of its own: the layer folded into a copy of the
     /// base (no copy when the base is not shared and there is no layer).
     pub fn to_mut(&mut self) -> &mut Vec<T> {
@@ -266,8 +352,44 @@ impl<T> std::ops::Deref for Base<T> {
 use ambition_geometry::spatial::{touches, RangeGrid, Spatial};
 
 impl<T: Spatial> Layered<T> {
+    pub(crate) fn identity(&self) -> LayeredIdentity<T> {
+        let outside_layer = self.reads.as_ref().and_then(|observed| {
+            let reads = *observed.lock().expect("terrain read scope");
+            (!reads.read_all && !self.added_touches(reads.area)).then(|| OutsideLayer {
+                area: reads.area,
+                hidden: self.hidden().to_vec(),
+                count: reads.read_count.then(|| self.base.len() - self.hidden().len() + self.added().len()),
+            })
+        });
+        LayeredIdentity {
+            base: Arc::downgrade(&self.base),
+            layer: self.layer.as_ref().map(Arc::downgrade),
+            outside_layer,
+        }
+    }
+
+    fn added_bounds(&self, swept: bool) -> &[Aabb] {
+        self.layer.as_ref().map_or(&[], |layer| {
+            layer.bounds[usize::from(swept)].get_or_init(|| layer.added.iter()
+                .map(|item| if swept { item.swept_bounds() } else { item.spatial_bounds() }).collect())
+        })
+    }
+
+    fn added_touches(&self, area: Option<Aabb>) -> bool {
+        area.is_some_and(|area| self.added_bounds(true).iter().any(|bounds| touches(*bounds, area)))
+    }
+
     /// Visible base entries with bounds that touch `region`.
     fn base_near(&self, region: Aabb, swept: bool) -> Vec<u32> {
+        self.note_read(|reads| {
+            if !region.min.is_finite() || !region.max.is_finite() || !region.min.cmple(region.max).all() {
+                reads.read_all = true;
+                return;
+            }
+            reads.area = Some(reads.area.map_or(region, |prior| Aabb {
+                min: prior.min.min(region.min), max: prior.max.max(region.max),
+            }));
+        });
         let cache = &self.base.grids[usize::from(swept)];
         let index = cache.get_or_init(|| {
             let bounds: Vec<_> = self.base.items.iter()
@@ -277,7 +399,8 @@ impl<T: Spatial> Layered<T> {
             BoundIndex { bounds, grid }
         });
         let mut near = index.grid.near(region);
-        near.retain(|i| self.hidden.binary_search(i).is_err() && touches(index.bounds[*i as usize], region));
+        let hidden = self.hidden();
+        near.retain(|i| hidden.binary_search(i).is_err() && touches(index.bounds[*i as usize], region));
         near
     }
 
@@ -286,14 +409,22 @@ impl<T: Spatial> Layered<T> {
     /// near, not what the list holds.
     pub fn near(&self, region: Aabb) -> Vec<&T> {
         let mut near: Vec<&T> = self.base_near(region,false).into_iter().map(|i| &self.base.items[i as usize]).collect();
-        near.extend(self.added.iter().filter(|value| touches(value.spatial_bounds(), region)));
+        near.extend(self.added().iter().zip(self.added_bounds(false))
+            .filter_map(|(value, bounds)| touches(*bounds, region).then_some(value)));
         near
+    }
+
+    pub(crate) fn in_region(&self, region: Option<Aabb>) -> impl Iterator<Item = &T> {
+        let nearby = region.map(|area| self.near(area));
+        let all = region.is_none().then(|| self.iter());
+        nearby.into_iter().flatten().chain(all.into_iter().flatten())
     }
 
     /// Entries whose bounds meet the region during their published motion.
     pub fn swept_near(&self, region: Aabb) -> Vec<&T> {
         let mut near: Vec<&T> = self.base_near(region,true).into_iter().map(|i| &self.base.items[i as usize]).collect();
-        near.extend(self.added.iter().filter(|value| touches(value.swept_bounds(),region)));
+        near.extend(self.added().iter().zip(self.added_bounds(true))
+            .filter_map(|(value, bounds)| touches(*bounds, region).then_some(value)));
         near
     }
 
@@ -308,26 +439,29 @@ impl<T: Spatial> Layered<T> {
     }
 
     fn indexed_candidates(&self, region: Aabb, swept: bool) -> Vec<(usize,&T)> {
+        let hidden = self.hidden();
         let mut near = self.base_near(region,swept).into_iter().map(|i| {
-            let skipped = self.hidden.partition_point(|hidden| *hidden < i);
+            let skipped = hidden.partition_point(|hidden| *hidden < i);
             (i as usize-skipped,&self.base.items[i as usize])
         }).collect::<Vec<_>>();
-        let base_len = self.base.items.len()-self.hidden.len();
-        near.extend(self.added.iter().enumerate()
-            .filter(|(_,value)| touches(if swept { value.swept_bounds() } else { value.spatial_bounds() },region))
-            .map(|(i,value)| (base_len+i,value)));
+        let base_len = self.base.items.len()-hidden.len();
+        near.extend(self.added().iter().zip(self.added_bounds(swept)).enumerate()
+            .filter_map(|(i,(value,bounds))| touches(*bounds, region).then_some((base_len+i,value))));
         near
     }
 
     /// Hide the entries near `region` that `hide` picks.
-    pub fn hide_near(&mut self, region: Aabb, mut hide: impl FnMut(&T) -> bool) {
+    pub fn hide_near(&mut self, region: Aabb, mut hide: impl FnMut(&T) -> bool) where T: Clone {
         let picked: Vec<u32> =
             self.base_near(region,false).into_iter().filter(|i| hide(&self.base.items[*i as usize])).collect();
         if !picked.is_empty() {
-            self.hidden.extend(picked);
-            self.hidden.sort_unstable();
+            let hidden = &mut self.layer_mut().hidden;
+            hidden.extend(picked);
+            hidden.sort_unstable();
         }
-        self.added.retain(|value| !(touches(value.spatial_bounds(), region) && hide(value)));
+        if !self.added().is_empty() {
+            self.layer_mut().added.retain(|value| !(touches(value.spatial_bounds(), region) && hide(value)));
+        }
     }
 }
 

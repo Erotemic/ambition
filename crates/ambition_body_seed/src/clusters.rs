@@ -33,6 +33,7 @@ pub const ACTOR_DAMAGE_IFRAME_S: f32 = 0.2;
 /// Mutable actor components assembled into the same [`ae::BodyClustersMut`]
 /// movement view used by player-controlled bodies.
 pub struct ActorMut<'a> {
+    pub settled: Option<&'a mut ae::movement::SettledMotion>,
     /// This body's key for the lines it carries (`SurfaceChain::carrier`):
     /// its entity's bits, `None` before it is spawned.
     pub carrier: Option<u64>,
@@ -89,6 +90,7 @@ impl<'a> ActorMut<'a> {
     /// aggregate the player builds, so the actor runs the identical code.
     pub fn clusters_mut(&mut self) -> ae::BodyClustersMut<'_> {
         ae::BodyClustersMut {
+            settled: self.settled.as_deref_mut(),
             carrier: self.carrier,
             kinematics: &mut *self.kin,
             sweep: self.sweep.as_deref_mut(),
@@ -117,6 +119,7 @@ impl<'a> ActorMut<'a> {
 #[query_data(mutable)]
 pub struct ActorClusterQueryData {
     pub entity: bevy::ecs::entity::Entity,
+    pub settled: Option<&'static mut ae::movement::SettledMotion>,
     pub kin: &'static mut BodyKinematics,
     /// §3.1 motion record. Runtime actor/boss entities are spawned with the
     /// shared [`ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle`], so this is required at
@@ -177,6 +180,7 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
         's: 'a,
     {
         ActorMut {
+            settled: self.settled.as_deref_mut(),
             carrier: Some(self.entity.to_bits()),
             kin: &mut self.kin,
             sweep: Some(&mut *self.sweep),
@@ -230,6 +234,7 @@ impl SeedActorMut for ActorClusterSeed {
     fn as_actor_mut(&mut self) -> ActorMut<'_> {
         let body = &mut self.body.0;
         ActorMut {
+            settled: None,
             carrier: None,
             kin: &mut self.kin,
             // The seed is the non-ECS pre-spawn/test scratchpad; like

@@ -40,6 +40,7 @@ mod input;
 mod integration;
 pub(crate) use integration::DROP_THROUGH_DESCEND;
 mod kernel;
+mod settled;
 pub mod knockdown;
 mod model;
 mod ops;
@@ -90,6 +91,7 @@ pub use integration::{integrate_normal_spine, NormalSpineCtx};
 /// still travels the authored distance — one profile, one place.
 pub use integration::{winch_rate_for, WIRE_CRUISE_FRAC};
 pub use kernel::{step_motion, MotionStepContext, MotionStepResult, SupportFact};
+pub use settled::{SettledMotion, SettledMotionStatus};
 pub use model::{
     catch_the_wire, cut_the_wire, footstool_victim, knock_off_ledge, switch_motion_model,
     AxisManeuverState, AxisSweptMotion, BodySpawnShape, MotionModel, MotionModelKind, MotionModelSpec,
@@ -689,7 +691,9 @@ fn update_body_simulation_inner(
         }
         clusters.ledge.release_cooldown = dec(clusters.ledge.release_cooldown);
         if state.wall_clinging || clusters.ground.on_ground {
-            state.pre_wall_vel_age += dt;
+            // Ledge entry only reads whether this sample is still fresh.
+            state.pre_wall_vel_age = (state.pre_wall_vel_age + dt)
+                .min(crate::ledge_grab::LEDGE_REGRAB_COOLDOWN.next_up());
         }
         // Time NOT spent hanging, which is what the next grab's intangibility is bought
         // with.

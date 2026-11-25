@@ -231,7 +231,7 @@ mod action_edge_tests {
 ///   the seam.
 ///
 /// Raw [`crate::ScreenAxes`] never appear below the seam.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct InputState {
     /// Locomotion stick in the controlled body's local frame — what this body is
     /// ALLOWED to move by this tick.

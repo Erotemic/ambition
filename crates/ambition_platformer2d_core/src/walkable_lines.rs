@@ -196,7 +196,8 @@ pub fn spans_underfoot(world: &World, body: Aabb, down: Vec2, side: Vec2, bands:
     let centre = body.center().dot(side);
     let (lo, hi) = (centre - half_span, centre + half_span);
     let feet = body.feet_coord(down);
-    for chain in world.chains.iter() {
+    let region = crate::collision_semantics::support_region(body, down, bands.contact.max(ON_LINE_EPSILON));
+    for chain in world.chains.in_region(region) {
         for si in 0..chain.segment_count() {
             let (a, b) = chain.segment(si);
             let t = b - a;

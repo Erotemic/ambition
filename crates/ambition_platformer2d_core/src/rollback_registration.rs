@@ -91,6 +91,11 @@ where
         "derived.player_body_frame_output",
         "republished by body integration every simulation frame",
     );
+    registrar.declare_rollback_derived_component::<crate::movement::SettledMotion>(
+        OWNER,
+        "derived.settled_motion",
+        "the kernel checks the restored inputs before it reuses the result",
+    );
 
     // DECLARED DERIVED — not state, and each says what rebuilds it.
     registrar

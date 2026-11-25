@@ -404,7 +404,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 546 -> 547: a body that crossed a root this tick carries the travel it made
 // before the crossing (`portal.crossed_travel`, derived), so contact reads the
 // tick's whole path across a portal (portal M1).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 547;
+// 547 -> 548: stale wall velocity age stops at its freshness limit. The
+// movement kernel can reuse a settled step from the same saved state.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 548;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

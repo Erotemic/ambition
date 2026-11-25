@@ -91,15 +91,12 @@ pub(super) fn platform_drop_requested(
 ) -> bool {
     tuning.abilities.shield.platform_drop
         && ground.on_ground
-        && wants_platform_drop(
-            input.local_axis().y,
-            input.shield_held,
-            super::collision::standing_on_one_way_aabb(
-                world,
-                kinematics.aabb(),
-                frame.down(),
-                crate::collision_semantics::ContactBands::of(kinematics.material),
-            ),
+        && wants_platform_drop(input.local_axis().y, input.shield_held, true)
+        && super::collision::standing_on_one_way_aabb(
+            world,
+            kinematics.aabb(),
+            frame.down(),
+            crate::collision_semantics::ContactBands::of(kinematics.material),
         )
 }
 

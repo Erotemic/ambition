@@ -245,7 +245,7 @@ pub fn cross_on_errands(
         &SimId,
         &ambition_held_items::ItemCustody,
     )>,
-    custody: Query<(Entity, &ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf)>,
+    cohort: super::crossing::CrossingCohort,
     mut bodies: Query<(
         Entity,
         &Errand,
@@ -285,7 +285,7 @@ pub fn cross_on_errands(
         if portals.as_deref().is_some_and(|portals| !portals.lets_through(phases, &crossing.zone_id)) {
             continue;
         }
-        let edges = edges.get_or_insert_with(|| custody.iter().map(|(entity, held)| (entity, held.custodian)).collect());
+        let edges = edges.get_or_insert_with(|| cohort.edges());
         let moving = ambition_platformer2d_shared_tangle::lifecycle::custody_closure([body], edges);
         let into = match crossing.into {
             CrossInto::Live(into) => into,
@@ -304,13 +304,15 @@ pub fn cross_on_errands(
                 continue;
             }
         };
-        for moving in moving {
+        for member in &moving {
             commands
-                .entity(moving)
+                .entity(*member)
                 .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(into));
         }
+        let moved_by = crossing.arrival - cluster.kinematics.pos;
         let mut clusters = cluster.as_clusters_mut();
         ae::movement::transit_body(&mut model, &mut clusters, crossing.arrival, ae::movement::TransitVelocity::Zero);
+        super::crossing::settle_crossing(&mut commands, body, Some(moved_by), &moving);
         if let Some(occurrences) = occurrences.as_deref_mut() {
             if durable {
                 let feet = ae::Vec2::new(crossing.arrival.x, crossing.arrival.y + clusters.kinematics.size().y * 0.5);

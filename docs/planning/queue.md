@@ -277,7 +277,10 @@ value as completion of that owner's contract.
    capture's private conversion are gone. A2's capture slice landed too: a
    named hold point is
    bound by name, rebinds on a reordered rig, and ends the hold when the rig
-   loses it.)
+   loses it. Pose provenance and the rollback witness landed 2026-11-24:
+   the pose names its rig, and `BodyRig` requires its pose, so a body a
+   restore builds again is solved again. The authored seat point waits for
+   a rig that states one.)
    [REL1/REL2](engine/relationship-endpoints-and-transitions.md#rel1--capture-owns-admission-at-every-ingress)
    close native admission bypasses: capture reserves both endpoints;
    mount admission establishes common scope and an active pair, and accepts
@@ -296,6 +299,12 @@ value as completion of that owner's contract.
    placement, and a late refusal with no relation changes. Use the existing
    publication and direct NPC departure owners; keep unsupported dormant
    cohorts refused. A7 owns the item exit/handoff refinement below.
+   (Direct roads landed 2026-11-24: direction and errand take an NPC
+   rider's mount and limbs, stand the mount under the arrived rider, and end
+   split rides and holds natively. Publication road and possession home
+   landed the same day, with the late-refusal witness. Still open: the
+   capture automatic-exit witness in a real room, and ISL-3's use of the
+   cohort.)
 6. [Story SS7/SS8](engine/story-sequences.md#own-each-admitted-playback-before-binding-its-roles)
    first gives each admitted cutscene run an owner occurrence. A request
    follows that run's transitions; it cannot start from the presence of an

@@ -1147,7 +1147,7 @@ fn throw_landed(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
 pub fn leave_through_zones(
     mut commands: Commands,
     specs: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
-    custody: Query<(Entity, &ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf)>,
+    cohort: super::crossing::CrossingCohort,
     mut bodies: Query<(
         Entity,
         &Leaving,
@@ -1184,10 +1184,11 @@ pub fn leave_through_zones(
         if visit.outcome != VisitOutcome::Arrived && !cluster.kinematics.aabb().strict_intersects(near) {
             continue;
         }
-        let edges = edges.get_or_insert_with(|| custody.iter().map(|(entity, held)| (entity, held.custodian)).collect());
+        let edges = edges.get_or_insert_with(|| cohort.edges());
         let moving = ambition_platformer2d_shared_tangle::lifecycle::custody_closure([body], edges);
         let durable = ambition_platformer2d_construction::whereabouts::keeps_durable_whereabouts(&specs, config, origin);
         let Some(transition) = rooms.transition_through(from, &leaving.zone) else {
+            super::crossing::settle_crossing(&mut commands, body, None, &moving);
             for gone in moving {
                 commands.entity(gone).despawn();
             }
@@ -1209,8 +1210,10 @@ pub fn leave_through_zones(
                         .insert(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(*into))
                         .remove::<(Leaving, Visit)>();
                 }
+                let moved_by = transition.arrival - cluster.kinematics.pos;
                 let mut clusters = cluster.as_clusters_mut();
                 ae::movement::transit_body(&mut model, &mut clusters, transition.arrival, ae::movement::TransitVelocity::Zero);
+                super::crossing::settle_crossing(&mut commands, body, Some(moved_by), &moving);
                 if durable {
                     if let Some(occurrences) = occurrences.as_deref_mut() {
                         let _ = occurrences.admit_crossing(sim_id.clone(), &into_id, feet);
@@ -1223,6 +1226,7 @@ pub fn leave_through_zones(
                         let _ = occurrences.admit_crossing(sim_id.clone(), &into_id, feet);
                     }
                 }
+                super::crossing::settle_crossing(&mut commands, body, None, &moving);
                 for gone in moving {
                     commands.entity(gone).despawn();
                 }

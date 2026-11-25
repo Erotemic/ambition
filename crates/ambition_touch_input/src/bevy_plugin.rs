@@ -23,7 +23,9 @@ use super::menu_bridge::fold_touch_gestures;
 pub use ambition_input::touch_state::MobileTouchState;
 use ambition_input::{BindingTable, ButtonRoute, ControlFrame, InputAction, InputParticipant, InputProfile, ParticipantContexts, ParticipantId, PhysicalControl, PresetId};
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
-use ambition_sim_view::{ControlContextKind, ControlPrompt, ControlSlot};
+use ambition_sim_view::{ControlContextKind, ControlPrompt};
+#[cfg(test)]
+use ambition_sim_view::ControlSlot;
 use ambition_ui_nav::DragScrollState;
 
 /// Global z-band for the on-screen touch HUD (joystick, action and menu
@@ -886,7 +888,7 @@ pub struct TouchActionLabel(pub TouchActionButton);
 // spawn a label and a verb without press state.
 #[require(ButtonReady)]
 pub struct ButtonVerb {
-    /// Spawn-time fallback label. Only buttons without a [`ControlSlot`] keep
+    /// Spawn-time fallback label. Only buttons without a [`ambition_sim_view::ControlSlot`] keep
     /// it permanently.
     fallback: &'static str,
     /// What the prompt says this frame, if anything. A `String` so authored

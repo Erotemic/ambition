@@ -333,6 +333,61 @@ simulation. Existing solo and possessed rider/mount/limbs crossings remain
 controls. These are discriminating native witnesses, not a combinatorial
 relationship harness or a demand to test every controller permutation.
 
+**Progress (2026-11-24): the direct crossing roads.** Direction
+(`leave_through_zones`) and errand (`cross_on_errands`) now find their cohort
+from the crossing's actual root, through custody plus the native attachments
+(`ambition_mount::attachment_edges`: an active ride's mount and each limb).
+A room-scoped NPC rider therefore takes its mount and the mount's limbs. The
+errand's dormant arm still refuses any cohort larger than the body. After the
+membership writes, `body::crossing::settle_crossing` queues the native
+effects. `ambition_mount::arrive_attachments` stands an actively ridden
+mount beneath its arrived rider (`mount_root_beneath`, the saddle pin's own
+alignment solved for the mount). Other attachments keep their offset from
+their anchor, and each arrives at rest through the transit reconciliation.
+A ride the crossing splits ends by `DismountReason::Separated` through
+`apply_dismount_requests`. A hold it splits ends through `release_capture`
+(`release_separated_captures`). The despawn arms settle the same splits
+before they despawn. Witness:
+[`a_rider_leaves_with_its_mount`](../../../game/ambition_app/tests/a_rider_leaves_with_its_mount.rs)
+seats an NPC on `gnu_ton_arena`'s authored giant (two fists and a hoof) and
+sends it through a door into a second live room. Rider, mount and limbs all
+arrive, the rider's soles are on the seat, and the next pin keeps the rider
+at the arrival. The test moves no body; it moves only the door.
+
+**Progress (2026-11-24): the publication road.** `apply_world_replacement`
+builds its moving set from the same edges: custody plus
+`attachment_edges`. Each arrival's attachments stand at the arrival
+(`apply_staged_arrival` → `arrive_attachments`). Split rides and holds end
+after the last arrival (`settle_split_relations`). The rider/mount/limbs
+crossing in `carried_item_crosses_rooms` no longer pins the mount; it now
+asserts the mount arrives at the rider's riding offset.
+
+An arrival held in another body's custody is a possessed body: the
+inactive home is its custodian. The home's membership moves with it, one
+hop from the arrivals, read at the accepted cut. It is not a reverse custody
+edge and not an arrival: release still places the home.
+`a_possessed_body_crossing_from_a_kept_room_takes_its_home_with_it` is the
+retained-source witness. Bob keeps `vertical_shaft` live and Alice's
+possessed enemy enters the hub. The home's room stamp follows, and release
+puts it at the let-go point in that room.
+
+The relation effects on both roads come after every refusal check in their
+operation: the direct roads have none after the decision, and publication
+applies them after its last arrival. So a refused or held crossing changes no
+relation.
+
+Late-refusal witness:
+`a_late_refusal_keeps_relations_and_an_accepted_batch_settles_them`
+(publication `batch_arrivals`). A held batch whose captor member also rides
+a mount is refused at its final check, because the other member is gone.
+The hold, the ride and every room stamp stay as they were. The same batch
+committed takes the mount (an attachment of a room-scoped rider) and
+releases the hold the crossing splits.
+
+Still open:
+- the capture/automatic-exit witness with source retention in a real room;
+- ISL-3's consumption of the cohort.
+
 ## REL4 — retain exit context and authorize endpoint succession
 
 **A7 and IR2/IR3 own this packet.** A held item's currently drawn pose is

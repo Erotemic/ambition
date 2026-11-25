@@ -282,3 +282,51 @@ fn a_replaced_rig_is_solved_again_and_an_old_pose_is_not_its_pose() {
     app.update();
     assert_eq!(hand(&app, body), Vec2::new(7.0, -20.0), "the new rig's hand, solved again");
 }
+
+/// ⭐ A RESTORE THROUGH A RIG REPLACEMENT. The pose is rollback-derived: a
+/// restore brings the body's rig back and either leaves whatever pose the
+/// resolver last wrote (a body that lived through the restore) or no pose at
+/// all (a body the restore builds again). Either way a body restored to its
+/// first rig after wearing a second is solved again from the first rig, so a
+/// resimulated tick reads the restored rig's points and never the replaced
+/// rig's.
+#[test]
+fn a_restore_to_the_first_rig_is_solved_from_it_whatever_pose_it_left() {
+    let (mut app, body) = app_with_body(BodyPoseClock::new("airborne", 0.0));
+    app.update();
+    let first = app.world().get::<BodyRig>(body).unwrap().0.clone();
+    assert_eq!(hand(&app, body), Vec2::new(3.0, -20.0), "control: the first rig's hand");
+
+    let farther = Arc::new(
+        BodyRigDefinition {
+            joints: vec![RigJoint { name: "arm".to_string(), parent: None }],
+            attachments: vec![RigAttachment { name: HAND_NEAR.to_string(), joint: "arm".to_string(), offset: (7.0, 0.0) }],
+            hurt_parts: Vec::new(),
+            clips: BTreeMap::from([("jump".to_string(), RigClip { looping: false, frame_duration_s: 0.1, frames: vec![vec![pose(0.0, -20.0)]] })]),
+        }
+        .prepare()
+        .expect("valid rig"),
+    );
+    app.world_mut().get_mut::<BodyRig>(body).unwrap().0 = farther.clone();
+    app.update();
+    assert_eq!(hand(&app, body), Vec2::new(7.0, -20.0), "setup: the second rig's hand");
+
+    // A restore that leaves the second rig's pose standing.
+    app.world_mut().get_mut::<BodyRig>(body).unwrap().0 = first.clone();
+    assert!(
+        !app.world().get::<BodyRigPose>(body).unwrap().resolved_for(&first),
+        "the second rig's pose read as a pose of the restored rig"
+    );
+    app.update();
+    assert_eq!(hand(&app, body), Vec2::new(3.0, -20.0), "a restore that kept the pose: the restored rig's hand");
+
+    // From the second rig again.
+    app.world_mut().get_mut::<BodyRig>(body).unwrap().0 = farther;
+    app.update();
+    assert_eq!(hand(&app, body), Vec2::new(7.0, -20.0), "setup: the second rig's hand again");
+    // A body the restore builds again: its rig comes back, its pose does not.
+    app.world_mut().entity_mut(body).remove::<(BodyRig, BodyRigPose)>();
+    app.world_mut().entity_mut(body).insert(BodyRig(first.clone()));
+    app.update();
+    assert_eq!(hand(&app, body), Vec2::new(3.0, -20.0), "a restore that dropped the pose: the restored rig's hand");
+}

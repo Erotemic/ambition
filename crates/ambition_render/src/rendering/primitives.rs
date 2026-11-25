@@ -246,7 +246,12 @@ pub(super) fn spawn_world_label(
     text: &str,
     font_size: f32,
 ) -> Entity {
-    let anchor = world_to_bevy(world, pos, WORLD_Z_PLAYER + 8.0);
+    let z = match family {
+        // Sign text is above the board face and below an actor that walks in front of it.
+        super::label_layout::WorldLabelFamily::Signage => super::world::SCENERY_Z_FRONT + 0.05,
+        _ => WORLD_Z_PLAYER + 8.0,
+    };
+    let anchor = world_to_bevy(world, pos, z);
     commands.spawn_session_scoped(
         session_scope,
         (
@@ -275,6 +280,34 @@ pub(super) fn spawn_world_label(
 #[cfg(test)]
 mod actor_band_tests {
     use super::*;
+    use crate::rendering::label_layout::{WorldLabel, WorldLabelFamily};
+
+    #[test]
+    fn authored_sign_text_draws_between_scenery_and_actors() {
+        let mut app = App::new();
+        app.add_systems(Startup, |mut commands: Commands| {
+            let room = ae::World::new("lane", ae::Vec2::splat(1024.0), ae::Vec2::ZERO, Vec::new());
+            spawn_world_label(
+                &mut commands,
+                SessionSpawnScope::UNSCOPED,
+                &room,
+                "survey station",
+                WorldLabelFamily::Signage,
+                ae::Vec2::splat(64.0),
+                "MIND THE TRIPOD",
+                14.0,
+            );
+        });
+        app.update();
+
+        let world = app.world_mut();
+        let mut labels = world.query::<(&WorldLabel, &Transform)>();
+        let (label, transform) = labels.single(world).unwrap();
+        let sign_z = transform.translation.z;
+        assert_eq!(sign_z, label.anchor.z);
+        assert!(sign_z > crate::rendering::world::SCENERY_Z_FRONT);
+        assert!(sign_z < feature_z_in_plane(FeatureVisualKind::Actor, ae::DepthPlane::PLAYABLE));
+    }
 
     /// Every feature kind stays inside the z band its offset names.
     ///

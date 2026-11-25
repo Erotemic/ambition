@@ -529,9 +529,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
 /// test can assert the production wiring instead of asserting a copy of it.
 ///
 /// This is the SECOND invocation of `refresh_body_damageable_volumes`; the first
-/// runs in `WorldPrep` for the pogo derivation and the collision overlay. Same
-/// function, same rule, two consumers with different timing needs — see the
-/// system's own documentation for why that is a refresh and not a clobber.
+/// runs in `WorldPrep` before the collision overlay and loose item contacts.
 pub fn register_damage_facing_volume_publication(app: &mut bevy::prelude::App) {
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
     let sim = app.sim_schedule();
@@ -728,7 +726,6 @@ impl Plugin for WorldPrepSchedulePlugin {
                 refresh_body_damageable_volumes,
                 refresh_boss_damageable_volumes.run_if(any_with_component::<ambition_characters::brain::BossAttackState>).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
                 refresh_breakable_damageable_volumes,
-                derive_pogo_target_volumes,
                 rebuild_feature_ecs_world_overlay
                     .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet),
                 advance_hazards

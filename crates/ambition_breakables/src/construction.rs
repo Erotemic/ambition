@@ -2,7 +2,7 @@
 
 use super::*;
 use ambition_combat::components::{
-    DamageableVolumes, PogoPolicy, PogoTargetContributor, PogoTargetVolumes,
+    DamageableVolumes, PogoPolicy, PogoTargetContributor,
 };
 use ambition_entity_catalog::placements::PlacementSchema;
 use ambition_platformer2d_shared_tangle::construction::RootScope;
@@ -124,7 +124,6 @@ pub fn spawn_breakable_into(
         BreakableFeature::new(breakable.clone()).with_look(authored.payload.look.clone()),
         DamageableVolumes::default(),
         PogoPolicy::FromDamageable,
-        PogoTargetVolumes::default(),
         StandTimer(0.0),
     ));
     if let Some(seconds) = broken_for {

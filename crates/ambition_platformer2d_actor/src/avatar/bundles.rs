@@ -18,7 +18,6 @@ use ambition_characters::control::PlayerSlot;
 use ambition_combat::components::{
     DamageableVolumes,
     PogoPolicy,
-    PogoTargetVolumes,
 };
 use ambition_characters::actor::ActorFaction;
 use ambition_combat::BodyMelee;
@@ -139,7 +138,6 @@ pub struct PlayerSimulationBundle {
     /// whether the body can publish a hurtbox or be a pogo victim.
     pub damageable_volumes: DamageableVolumes,
     pub pogo_policy: PogoPolicy,
-    pub pogo_target_volumes: PogoTargetVolumes,
     pub movement: AncillaryMovementBundle,
 }
 
@@ -236,7 +234,6 @@ impl PlayerSimulationBundle {
             hurtbox,
             damageable_volumes: DamageableVolumes::default(),
             pogo_policy: PogoPolicy::FromDamageable,
-            pogo_target_volumes: PogoTargetVolumes::default(),
             movement: AncillaryMovementBundle::from_scratch(scratch),
         }
     }

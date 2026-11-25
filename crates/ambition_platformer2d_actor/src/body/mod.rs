@@ -116,7 +116,7 @@ mod mount_pair_tests;
 
 pub use summon::apply_summon_effects;
 pub use target_volumes::{
-    derive_pogo_target_volumes, refresh_body_damageable_volumes, refresh_boss_damageable_volumes,
+    refresh_body_damageable_volumes, refresh_boss_damageable_volumes,
 };
 
 /// Advance each body's diagnostic [`ae::BodyLifeStats`].

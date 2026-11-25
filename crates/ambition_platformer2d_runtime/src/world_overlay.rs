@@ -37,13 +37,14 @@ pub fn rebuild_feature_ecs_world_overlay(
         ),
         With<FeatureSimEntity>,
     >,
-    // Only entities that explicitly contribute WORLD pogo geometry are lowered
-    // into collision blocks. Combat bodies also publish `PogoTargetVolumes`, but
-    // those are entity-side affordance geometry and must retain their identity.
+    // Only declared surfaces add rebound geometry to the room's walls.
     pogo_targets: Query<
         (
             &FeatureId,
             &CenteredAabb,
+            Option<&PogoPolicy>,
+            Option<&DamageableVolumes>,
+            Option<&ae::BodyKinematics>,
             Option<&PogoTargetVolumes>,
             Option<&InRoomInstance>,
             Option<&BreakableFeature>,
@@ -96,13 +97,7 @@ pub fn rebuild_feature_ecs_world_overlay(
         });
     }
 
-    // Explicit ECS WORLD-pogo bridge. `PogoTargetContributor` says this entity
-    // contributes collision-world rebound geometry. A non-empty published
-    // `PogoTargetVolumes` is authoritative; otherwise the contributor's own
-    // centered envelope is the deliberate world-surface fallback. Ordinary
-    // bodies intentionally lack the contributor and stay entity contacts, so
-    // their identity is never flattened into anonymous blocks.
-    for (id, centered, pogo, room, breakable) in &pogo_targets {
+    for (id, centered, policy, damageable, body, custom, room, breakable) in &pogo_targets {
         // A broken breakable is gone: its rebound goes with its solid.
         if breakable.is_some_and(BreakableFeature::broken) {
             continue;
@@ -110,9 +105,17 @@ pub fn rebuild_feature_ecs_world_overlay(
         let Some(mut overlay) = overlays.for_room(room) else {
             continue;
         };
-        let published = pogo.filter(|pogo| !pogo.volumes.is_empty());
-        if let Some(pogo) = published {
-            for (idx, aabb) in pogo.volumes.iter().copied().enumerate() {
+        let projected;
+        let volumes = match (policy, damageable) {
+            (Some(PogoPolicy::FromDamageable), Some(damageable)) => {
+                projected = damageable.bounds(body).unwrap_or_default();
+                projected.as_slice()
+            }
+            (Some(PogoPolicy::Disabled), Some(_)) => &[],
+            _ => custom.map_or(&[][..], |custom| custom.volumes.as_slice()),
+        };
+        if !volumes.is_empty() {
+            for (idx, aabb) in volumes.iter().copied().enumerate() {
                 overlay.blocks.push(ae::Block {
                     // Same occurrence identity, with the volume ordinal as the
                     // `GeoId` index — one placement legitimately emits several.

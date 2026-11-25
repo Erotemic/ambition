@@ -66,7 +66,7 @@ use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::limb::LimbSlot;
 use ambition_combat::components::{
     ActorAggression, BossPhase, CenteredAabb, DeathBeat,
-    DamageableVolumes, EncounterMob, FeatureId, FeatureName, PogoPolicy, PogoTargetVolumes,
+    DamageableVolumes, EncounterMob, FeatureId, FeatureName, PogoPolicy,
 };
 use ambition_encounter::switches::SwitchFeature;
 use ambition_platformer2d_core::body_clusters::BodyKinematics;
@@ -1143,7 +1143,6 @@ pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::Sp
             (
                 DamageableVolumes::default(),
                 PogoPolicy::FromDamageable,
-                PogoTargetVolumes::default(),
                 (boss_config, boss_status),
             ),
     ));

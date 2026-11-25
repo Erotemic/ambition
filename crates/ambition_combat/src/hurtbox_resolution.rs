@@ -389,7 +389,7 @@ impl ResolvedHurtboxes {
     pub fn canonical_volumes(
         &self,
         facing: f32,
-    ) -> Option<Vec<ambition_platformer2d_core::CombatVolume>> {
+    ) -> Option<impl Iterator<Item = ambition_platformer2d_core::CombatVolume> + '_> {
         use ambition_platformer2d_core::{Aabb, CombatVolume, Vec2};
         if self.source == HurtboxSelection::Unauthored {
             return None;
@@ -399,22 +399,18 @@ impl ResolvedHurtboxes {
             self.volumes
                 .iter()
                 .filter(|volume| volume.defense.is_vulnerable())
-                .map(|volume| match volume.shape {
-        ambition_entity_catalog::VolumeShape::Rect {
-            offset,
-            half_extents,
-        } => CombatVolume::aabb(Aabb::new(
+                .map(move |volume| match volume.shape {
+                    ambition_entity_catalog::VolumeShape::Rect { offset, half_extents } => CombatVolume::aabb(Aabb::new(
                         Vec2::new(offset.0 * face, offset.1),
                         Vec2::new(half_extents.0, half_extents.1),
                     )),
-        ambition_entity_catalog::VolumeShape::Circle { offset, radius } => {
+                    ambition_entity_catalog::VolumeShape::Circle { offset, radius } => {
                         CombatVolume::Circle {
                             center: Vec2::new(offset.0 * face, offset.1),
                             radius,
                         }
                     }
-                })
-                .collect(),
+                }),
         )
     }
 }

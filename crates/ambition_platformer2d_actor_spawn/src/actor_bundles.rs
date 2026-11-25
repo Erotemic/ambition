@@ -96,7 +96,6 @@ pub struct EnemyActorBundle {
     pub combat: BodyCombat,
     pub damageable_volumes: DamageableVolumes,
     pub pogo_policy: PogoPolicy,
-    pub pogo_target_volumes: PogoTargetVolumes,
     /// Movement-driven presentation overlay timers, shared with the player. Armed
     /// each frame by `advance_body_anim_overlay_clocks` (landing / dash-startup) and
     /// read by `pick_actor_anim`, so an AI fighter shows those poses too (fable
@@ -105,13 +104,7 @@ pub struct EnemyActorBundle {
 }
 
 impl EnemyActorBundle {
-    /// Construct a spawn bundle, filling the four fields that are identical at every spawn site
-    /// — `target` (no target until `select_actor_targets` runs), `damageable_volumes` (derived
-    /// from the sheet), `pogo_policy = FromDamageable`, and `pogo_target_volumes`. Each
-    /// `spawn_*` site supplies only the fields that actually vary, so adding a new defaulted
-    /// bundle field is a one-line change here instead of an edit at all six call sites
-    /// (`actor_spawn/mod.rs` ×4, `spawn_mounts.rs` ×2 — the first was
-    /// `spawn_actors.rs` before the F1 cut).
+    /// Set the default targeting, hurt volumes, and rebound policy for an actor.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         base: FeatureRenderedBundle,
@@ -132,7 +125,6 @@ impl EnemyActorBundle {
             combat,
             damageable_volumes: DamageableVolumes::default(),
             pogo_policy: PogoPolicy::FromDamageable,
-            pogo_target_volumes: PogoTargetVolumes::default(),
             anim: ambition_characters::actor::BodyAnimFacts::default(),
         }
     }

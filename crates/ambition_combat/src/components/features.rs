@@ -124,7 +124,7 @@ impl DamageableVolumes {
     }
 
     pub fn clear(&mut self) {
-        self.publish_world(Vec::new());
+        self.replace_domains(HurtSpace::World, std::iter::empty());
     }
 
     /// Publish fixed regions in room coordinates.
@@ -137,8 +137,26 @@ impl DamageableVolumes {
         self.source = Some(HurtSource::Body(domains));
     }
 
+    /// Replace sampled body regions in their existing storage.
+    pub fn replace_body_volumes(&mut self, domains: impl Iterator<Item = ae::CombatVolume>) {
+        self.replace_domains(HurtSpace::Body, domains);
+    }
+
+    fn replace_domains(&mut self, space: HurtSpace, domains: impl Iterator<Item = ae::CombatVolume>) {
+        let mut regions = match self.source.take() {
+            None => Vec::new(),
+            Some(HurtSource::World(regions) | HurtSource::Body(regions)) => regions,
+        };
+        regions.clear();
+        regions.extend(domains);
+        self.source = Some(match space {
+            HurtSpace::World => HurtSource::World(regions),
+            HurtSpace::Body => HurtSource::Body(regions),
+        });
+    }
+
     pub fn set_world_box(&mut self, bounds: ae::Aabb) {
-        self.publish_world(vec![ae::CombatVolume::aabb(bounds)]);
+        self.replace_domains(HurtSpace::World, std::iter::once(ae::CombatVolume::aabb(bounds)));
     }
 
     pub fn world_box(bounds: ae::Aabb) -> Self {
@@ -147,12 +165,16 @@ impl DamageableVolumes {
         out
     }
 
-    pub fn body_box(canonical_half: ae::Vec2) -> Self {
-        let mut out = Self::default();
-        out.publish_body(vec![ae::CombatVolume::aabb(ae::Aabb::new(
+    pub fn set_body_box(&mut self, canonical_half: ae::Vec2) {
+        self.replace_body_volumes(std::iter::once(ae::CombatVolume::aabb(ae::Aabb::new(
             ae::Vec2::ZERO,
             canonical_half,
-        ))]);
+        ))));
+    }
+
+    pub fn body_box(canonical_half: ae::Vec2) -> Self {
+        let mut out = Self::default();
+        out.set_body_box(canonical_half);
         out
     }
 
@@ -397,7 +419,7 @@ impl DamageableVolumes {
 ///
 /// ⛔⛔ **IT EXISTS BECAUSE THE PUBLICATION HAPPENS TWICE AND ONLY ONE OF THEM
 /// IS THIS ONE.** `refresh_body_damageable_volumes` is registered in `WorldPrep`
-/// for the pogo derivation and the collision overlay, and again between
+/// before the collision overlay and loose item motion, and again between
 /// `Playback` and `Resolve` for damage — same rule, two consumers with different
 /// timing needs. A producer that ordered itself `.before(the function)` named a
 /// `SystemTypeSet` with two instances and Bevy refused the schedule. This set
@@ -425,13 +447,8 @@ pub enum PogoPolicy {
     Disabled,
 }
 
-/// Entity-side geometry that may grant a pogo rebound.
-///
-/// Bodies publish this alongside their damageable silhouette so proximity/UI and
-/// `PogoPolicy::Custom` can describe the pogoable part without losing body
-/// identity. These volumes are not collision-world blocks by default. An ECS
-/// feature becomes world rebound geometry only when it also carries
-/// [`PogoTargetContributor`].
+/// Explicit regions that can grant a rebound. Body contacts use these regions
+/// with [`PogoPolicy::Custom`]. World surfaces add [`PogoTargetContributor`].
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct PogoTargetVolumes {
     pub volumes: Vec<ae::Aabb>,

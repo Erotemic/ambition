@@ -597,7 +597,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         ),
         (
             "ambition_combat::components::features::PogoTargetVolumes",
-            "republished every tick by the pogo-target publisher",
+            "explicit rebound regions supplied by the feature",
         ),
         (
             "ambition_combat::hazard_runtime::HazardFeature",

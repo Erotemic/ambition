@@ -365,10 +365,13 @@ shared value preparation are sufficient until source proves otherwise.
    rails; at the old depth (control, front − 0.05) it covered them; beside
    the cart it is in front of the wheels.
 
-   Not covered: a limb drawn apart (`LimbTwin`) still floors at
-   `LIMB_OVER_BODIES_Z`, over the rail (PO2). A wielded item placed by its
-   support takes its holder's hand depth too (2026-11-25); only a holder
-   with no posed hand keeps `WORLD_Z_PLAYER`.
+   A limb drawn apart (`LimbTwin`) of a seated body stays in its seat
+   (2026-11-25): seating marks the body's visual (`SeatedInVessel`, removed
+   when it leaves the cart or the cart goes), and the twin then takes the
+   root's seat depth plus its twin step instead of flooring at
+   `LIMB_OVER_BODIES_Z`. The twin follows the seating in schedule order. A
+   wielded item placed by its support takes its holder's hand depth too
+   (2026-11-25); only a holder with no posed hand keeps `WORLD_Z_PLAYER`.
 
    **Same-plane actors (2026-11-25).** Two actors of one plane no longer
    share one z: each takes a tie fixed for its life (`occurrence_tie`,

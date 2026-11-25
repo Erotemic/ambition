@@ -472,7 +472,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // from a body's root (its parts, flash, held art), so
                     // they are placed from the seat this frame.
                     moving_platforms::seat_bodies_in_vessels
-                        .run_if(moving_platforms::platforms_or_their_visuals)
+                        .run_if(moving_platforms::platforms_or_seated_bodies)
                         .after(actors::sync_visuals)
                         .before(BodyOwnedDrawableSync)
                         .before(posed_hand::HeldItemPresentationSet),
@@ -811,6 +811,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // A limb drawn by itself in a portal pair follows its body
                 // after the body's frame and look are chosen.
                 actors::rigged::follow_limb_twins
+                    .after(moving_platforms::seat_bodies_in_vessels)
                     .after(passage_visuals::apply_passage_looks)
                     .after(actors::animate_characters)
                     .after(actors::BossAnimation)

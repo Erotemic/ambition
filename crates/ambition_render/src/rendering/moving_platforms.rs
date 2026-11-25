@@ -251,6 +251,12 @@ impl Vessel {
     }
 }
 
+/// On a body's visual: it is seated in a vessel ([`seat_bodies_in_vessels`]),
+/// so what is drawn from it stays inside its seat, under the near side. A
+/// limb drawn apart reads it (`follow_limb_twins`).
+#[derive(Component, Debug, Clone, Copy)]
+pub struct SeatedInVessel;
+
 /// Draw each body that stands IN a thing (the cart's bed) behind that thing's
 /// near side, and leave every other body in front of it: the near side is
 /// drawn behind the bodies ([`FRONT_LAYER_Z`]), and a body in the vessel is
@@ -278,23 +284,31 @@ pub fn seat_bodies_in_vessels(
         (Entity, &super::primitives::FeatureVisual, &mut Transform),
         Without<super::primitives::PlayerVisual>,
     >,
+    marked: Query<Entity, With<SeatedInVessel>>,
+    mut commands: Commands,
     mut seated: Local<Vec<(usize, Entity)>>,
 ) {
-    let Some(looks) = looks else { return };
-    let vessels: Vec<Vessel> = platforms
-        .iter()
-        .flat_map(|(room, set)| {
-            set.0.iter().filter_map(|platform| {
-                let look = looks.0.get(platform.visual.as_deref()?)?;
-                Vessel::of(*room, platform, look)
-            })
+    seated.clear();
+    let vessels: Vec<Vessel> = looks
+        .map(|looks| {
+            platforms
+                .iter()
+                .flat_map(|(room, set)| {
+                    set.0.iter().filter_map(|platform| {
+                        let look = looks.0.get(platform.visual.as_deref()?)?;
+                        Vessel::of(*room, platform, look)
+                    })
+                })
+                .collect()
         })
-        .collect();
+        .unwrap_or_default();
     if vessels.is_empty() {
+        for entity in &marked {
+            commands.entity(entity).try_remove::<SeatedInVessel>();
+        }
         return;
     }
     let vessel_of = |room, pos, size| vessels.iter().position(|vessel| vessel.holds(room, pos, size));
-    seated.clear();
     for (entity, _, pose) in &players {
         if let Some(vessel) = vessel_of(live.of(entity), pose.pos, pose.size) {
             seated.push((vessel, entity));
@@ -313,6 +327,18 @@ pub fn seat_bodies_in_vessels(
         }
     }
     seated.sort_unstable();
+    // A body that left its cart, or whose cart is gone, is drawn by its own
+    // depth again.
+    for entity in &marked {
+        if !seated.iter().any(|&(_, body)| body == entity) {
+            commands.entity(entity).try_remove::<SeatedInVessel>();
+        }
+    }
+    for &(_, entity) in seated.iter() {
+        if !marked.contains(entity) {
+            commands.entity(entity).try_insert(SeatedInVessel);
+        }
+    }
     let mut seat = 0;
     for (i, &(vessel, entity)) in seated.iter().enumerate() {
         seat = if i > 0 && seated[i - 1].0 == vessel { seat + 1 } else { 0 };
@@ -327,6 +353,16 @@ pub fn seat_bodies_in_vessels(
             }
         }
     }
+}
+
+/// Run condition of [`seat_bodies_in_vessels`]: a platform to seat a body
+/// in, or a body still marked seated to release.
+pub fn platforms_or_seated_bodies(
+    rooms: Query<Option<&MovingPlatformSet>, With<RoomInstanceRoot>>,
+    visuals: Query<(), With<MovingPlatformVisual>>,
+    seated: Query<(), With<SeatedInVessel>>,
+) -> bool {
+    !seated.is_empty() || platforms_or_their_visuals(rooms, visuals)
 }
 
 /// Run condition of [`sync_moving_platform_visuals`]: a live room has a

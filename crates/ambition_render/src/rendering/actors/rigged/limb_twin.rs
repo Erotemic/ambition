@@ -32,6 +32,7 @@ use ambition_sprite_sheet::character::{CharacterAnimator, CharacterColorShift};
 
 use super::RiggedPresentation;
 use crate::rendering::actors::BoundSpriteQuality;
+use crate::rendering::moving_platforms::SeatedInVessel;
 
 /// The tracks a rigged root draws, when not all of them: the parts of the
 /// limbs `limbs` only (`only`), or the parts that are not theirs, all of them
@@ -226,13 +227,14 @@ pub fn follow_limb_twins(
                 Option<&InRoomInstance>,
                 Option<&BoundSpriteQuality>,
                 Option<&CharacterColorShift>,
+                Has<SeatedInVessel>,
             ),
         ),
         (With<LimbTwins>, Without<LimbTwin>),
     >,
 ) {
     for (twin, of, animator, mut sprite, mut anchor, mut transform, (layers, room, tier, shift)) in &mut twins {
-        let Ok((root_animator, root_sprite, root_anchor, root_transform, (root_layers, root_room, root_tier, root_shift))) =
+        let Ok((root_animator, root_sprite, root_anchor, root_transform, (root_layers, root_room, root_tier, root_shift, root_seated))) =
             roots.get(of.of)
         else {
             continue;
@@ -257,8 +259,14 @@ pub fn follow_limb_twins(
         *transform = *root_transform;
         // A limb drawn apart is a blow: it is drawn over the bodies, a body
         // on its host's back among them, and the parts of its host drawn over
-        // it go with it.
-        let over_bodies = transform.translation.z.max(LIMB_OVER_BODIES_Z);
+        // it go with it. A body seated in a cart keeps it in its seat: over
+        // the bodies seated with it, under the cart's near side, which the
+        // seat's depth band leaves room for.
+        let over_bodies = if root_seated {
+            transform.translation.z
+        } else {
+            transform.translation.z.max(LIMB_OVER_BODIES_Z)
+        };
         transform.translation.z = over_bodies + if of.is_over() { 2.0 * TWIN_DEPTH } else { TWIN_DEPTH };
         // The facts that are the root's own: put on, changed or taken off
         // with it.

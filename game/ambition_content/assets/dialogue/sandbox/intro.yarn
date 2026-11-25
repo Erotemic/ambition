@@ -4,7 +4,7 @@ title: creator_intro
 <<portrait_clip "talking">>
 <<if verdict("encounter.cleared", "intro_workshop_raid") == "satisfied">>
     Creator: Scout. Over here. Give me a minute, I have to sit down.
-    -> ⟨go⟩
+    -> ‹go›
 <<elseif verdict("encounter.cleared", "intro_workshop_raid") == "unanswerable">>
     <<stop>>
 <<elseif verdict("world.flag_set", "intro_training_active") == "satisfied">>
@@ -17,7 +17,7 @@ title: creator_intro
     -> Let's stop the lesson.
         <<command "world.set_flag" "intro_training_active" false>>
         Creator: All right. You can ask to try again.
-    -> ⟨keep practising⟩
+    -> ‹keep practising›
 <<elseif verdict("world.flag_set", "intro_training_active") == "unanswerable">>
     <<stop>>
 <<elseif verdict("world.flag_set", "intro_torque_gauge_found") == "satisfied" and verdict("world.flag_set", "intro_joints_checked") == "not_satisfied">>
@@ -49,7 +49,7 @@ title: creator_intro
         <<jump creator_intro__questions>>
     -> Could we do the training run again?
         <<jump creator_intro__training>>
-    -> ⟨take a look around⟩
+    -> ‹take a look around›
 <<elseif verdict("world.flag_set", "intro_training_complete") == "not_satisfied">>
     Creator: Can you hear me all right? Good.
     Creator: We can go through yesterday's training run again, if you'd like. Just your legs and a few strikes on the sandbag.
@@ -63,7 +63,7 @@ title: creator_intro
     -> Where am I?
         Creator: My workshop. It's a barn outside {$village}. The cows had it before me.
         <<jump creator_intro__offer>>
-    -> ⟨look around first⟩
+    -> ‹look around first›
 <<else>>
     <<stop>>
 <<endif>>
@@ -78,7 +78,7 @@ Creator: The practice run is there if you want it. No hurry.
     <<jump creator_intro__questions>>
 -> What's up on the loft?
     Creator: My torque gauge. You can fetch it if you want to try a higher jump. The crate gets you up to the boards.
--> ⟨look around⟩
+-> ‹look around›
 ===
 
 title: creator_intro__gauge
@@ -141,14 +141,14 @@ Creator: Anything else before I put the tools away?
 -> I'm ready to finish.
     Creator: Good. Let me just write the time—
     <<command "world.set_flag" "intro_raid_ready" true>>
--> ⟨not yet⟩
+-> ‹not yet›
 ===
 
 title: creator_intro__interrupted
 ---
 <<present_speaker "npc_creator">>
 Creator: Scout, stay clear of the door.
--> ⟨go⟩
+-> ‹go›
 ===
 
 title: alice_lane
@@ -183,7 +183,7 @@ title: alice_lane
         Alice: Alice. I survey for the map office. My station's just there.
         Alice: Was that goblins? I saw some go up the track with a handcart.
         <<jump alice_lane__ask>>
-    -> ⟨go⟩
+    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
@@ -200,7 +200,7 @@ title: alice_lane__topics
     <<command "world.set_flag" "alice_told_goblins" true>>
 -> What are you measuring?
     Alice: The hills, the stream, the road to the gate. The office's map of {$village} is forty years old. Bob is doing the woods.
--> ⟨go⟩
+-> ‹go›
 ===
 
 title: alice_lane__ask
@@ -257,7 +257,7 @@ title: alice_lane__after
 <<endif>>
 -> What's on Bob's sheet? <<if condition("world.flag_set", "bob_field_survey_received")>>
     Alice: The woods and the old paths through them. He marks where people walk, not where the map says they should.
--> ⟨go⟩
+-> ‹go›
 ===
 
 title: bob_woods
@@ -265,14 +265,14 @@ title: bob_woods
 <<present_speaker "npc_bob">>
 <<if verdict("world.flag_set", "bob_field_survey_received") == "satisfied">>
     Bob: Nearly packed. Go on, I'm fine. Thanks for coming out.
-    -> ⟨go⟩
+    -> ‹go›
 <<elseif verdict("world.flag_set", "bob_field_survey_received") == "unanswerable">>
     <<stop>>
 <<elseif verdict("world.flag_set", "alice_route_note_carried") == "satisfied">>
     Bob: Don't step on the chain. Who are you?
     -> Alice says move your camp off the trail. There are goblins at the siding.
         <<jump bob_woods__warned>>
-    -> ⟨leave⟩
+    -> ‹leave›
 <<elseif verdict("world.flag_set", "alice_route_note_carried") == "not_satisfied">>
     Bob: Don't step on the chain. Who are you?
     -> Just walking through.
@@ -281,7 +281,7 @@ title: bob_woods
         Bob: Surveying. Alice has the hills and I have the trees. The trees are winning.
     -> There are goblins at the siding.
         <<jump bob_woods__warned>>
-    -> ⟨leave him to it⟩
+    -> ‹leave him to it›
 <<else>>
     <<stop>>
 <<endif>>
@@ -295,37 +295,37 @@ Bob: All right. I'll move up by the hollow oak. Tell Alice I'll bring her chain 
 <<give_item "fieldsurvey" 1>>
 <<command "world.set_flag" "bob_field_survey_received" true>>
 Bob: Take my sheet. It has the paths through these woods on it, the real ones.
--> ⟨take the sheet⟩
+-> ‹take the sheet›
 ===
 
 title: hobford_hen
 ---
 The hen looks at you with one eye, then the other, and goes back to the ground.
--> ⟨leave her⟩
+-> ‹leave her›
 ===
 
 title: hobford_sheep
 ---
 The sheep lifts its black face, chews twice, and puts its head down to the grass again. Its fleece is very white and very light, and the wind moves it like the top of a cloud.
--> ⟨leave it⟩
+-> ‹leave it›
 ===
 
 title: hobford_lost_hen
 ---
 <<if verdict("world.flag_set", "valley_hen_found") == "satisfied">>
     The speckled hen is still here, scratching at the roots. She knows where she is now, and she has opinions about it.
-    -> ⟨leave her⟩
+    -> ‹leave her›
 <<elseif verdict("world.flag_set", "valley_hen_found") == "unanswerable">>
     <<stop>>
 <<elseif verdict("world.flag_set", "valley_hen_asked") == "satisfied">>
     A speckled hen, with one grey feather in her tail. The Plough's hen.
-    -> ⟨tell her the Innkeeper is looking for her⟩
+    -> ‹tell her the Innkeeper is looking for her›
         <<command "world.set_flag" "valley_hen_found" true>>
         She looks at you as if you had said something obvious, and goes back to the roots. You will have to tell the Innkeeper where she is.
-    -> ⟨leave her⟩
+    -> ‹leave her›
 <<elseif verdict("world.flag_set", "valley_hen_asked") == "not_satisfied">>
     A speckled hen. She is a long way from any farm.
-    -> ⟨leave her⟩
+    -> ‹leave her›
 <<else>>
     <<stop>>
 <<endif>>
@@ -344,7 +344,7 @@ title: valley_miller
     <<endif>>
     -> What do you grind?
         Miller: Oats, barley, wheat when there is wheat. And whatever the gate sends down that will go between two stones.
-    -> ⟨go⟩
+    -> ‹go›
 <<elseif verdict("world.flag_set", "valley_miller_met") == "not_satisfied">>
     <<command "world.set_flag" "valley_miller_met" true>>
     Miller: You came down the bank path. Nobody comes down the bank path but the man from the barn on the hill.
@@ -353,12 +353,12 @@ title: valley_miller
             Miller: Dead.
             Miller: He owed me for six sacks of flour. I never once saw him bake.
             Miller: Goblins, this side of the gate. I'll bring the mule in tonight.
-        -> ⟨say nothing⟩
+        -> ‹say nothing›
             Miller: Well. Whatever you are, you're welcome to the porch. Not the flour.
     <<elseif verdict("world.flag_set", "intro_creator_dead") == "not_satisfied">>
         -> I came from the barn.
             Miller: Then you're one of his. He talks to his machines more than he talks to us.
-        -> ⟨say nothing⟩
+        -> ‹say nothing›
             Miller: Well. Whatever you are, you're welcome to the porch. Not the flour.
     <<else>>
         <<stop>>
@@ -373,7 +373,7 @@ title: valley_innkeeper
 <<present_speaker "npc_valley_innkeeper">>
 <<if verdict("world.flag_set", "valley_hen_returned") == "satisfied">>
     Innkeeper: She's back on her perch and laying out of spite. Come in any time.
-    -> ⟨go⟩
+    -> ‹go›
 <<elseif verdict("world.flag_set", "valley_hen_returned") == "unanswerable">>
     <<stop>>
 <<elseif verdict("world.flag_set", "valley_hen_found") == "satisfied">>
@@ -382,12 +382,12 @@ title: valley_innkeeper
         Innkeeper: The woods! She's never been past the well in her life.
         Innkeeper: I'll go and fetch her before the goblins do. Here, take a bowl of stew. Don't argue, I can see you're running low.
         <<give_item "HealthPotion" 1>>
-    -> ⟨go⟩
+    -> ‹go›
 <<elseif verdict("world.flag_set", "valley_hen_found") == "unanswerable">>
     <<stop>>
 <<elseif verdict("world.flag_set", "valley_hen_asked") == "satisfied">>
     Innkeeper: Any sign of her? Speckled, one grey feather in her tail, a temper.
-    -> ⟨go⟩
+    -> ‹go›
 <<elseif verdict("world.flag_set", "valley_hen_asked") == "not_satisfied">>
     Innkeeper: Wipe your feet. Are you lost, or are you here about something that is?
     -> The board says to ask here about a hen.
@@ -400,9 +400,9 @@ title: valley_innkeeper
             -> He won't be. He's dead.
                 Innkeeper: Oh.
                 Innkeeper: He always sat by the window and wrote in a little book. I'll keep the seat for a while.
-            -> ⟨say nothing⟩
+            -> ‹say nothing›
         <<endif>>
-    -> ⟨go⟩
+    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
@@ -417,7 +417,7 @@ Trader: Lamp oil, salt, batteries. Everything here came through the gate this we
     Trader: I light the forge on Sundays, so it remembers what it's for.
 -> Did the goblins come in here?
     Trader: Stood in the door and looked at the batteries for a long time. Bought nothing. The big one had a hammer I would have been proud of.
--> ⟨go⟩
+-> ‹go›
 ===
 
 title: valley_gatekeeper
@@ -425,7 +425,7 @@ title: valley_gatekeeper
 <<present_speaker "npc_valley_gatekeeper">>
 <<if verdict("world.flag_set", "valley_gatekeeper_met") == "satisfied">>
     Gatekeeper: The freight window is tomorrow, at noon. It is always tomorrow, at noon.
-    -> ⟨go⟩
+    -> ‹go›
 <<elseif verdict("world.flag_set", "valley_gatekeeper_met") == "not_satisfied">>
     <<command "world.set_flag" "valley_gatekeeper_met" true>>
     Gatekeeper: Name, origin, purpose.
@@ -434,7 +434,7 @@ title: valley_gatekeeper
     -> Did goblins come this way with a handcart?
         Gatekeeper: Five of them. No papers. They went down the freight track to the siding to wait for the window.
         Gatekeeper: I wrote them down as "freight". Nobody argued.
-    -> ⟨go⟩
+    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
@@ -455,7 +455,7 @@ Knight-Errant: Stand back, it's on. It's always on. I can't find where it goes o
 -> You could have helped with the goblins. <<if verdict("encounter.cleared", "intro_freight_yard_fight") == "satisfied">>
     Knight-Errant: You did it with your hands? No sword at all?
     Knight-Errant: Never mind the barrow. I'm putting this back on the shelf and asking for my father's sword back.
--> ⟨go⟩
+-> ‹go›
 ===
 
 title: valley_wizard
@@ -472,7 +472,7 @@ Hedge Wizard: Don't touch the book. The book is very old. Nearly a year.
     Hedge Wizard: The Tuesday one is quite good.
 -> The man in the barn. <<if condition("world.flag_set", "intro_creator_dead")>>
     Hedge Wizard: He could make a thing that talks back. I can make a wart go. I'd have liked to compare notes.
--> ⟨go⟩
+-> ‹go›
 ===
 
 title: valley_ranger
@@ -487,7 +487,7 @@ Ranger: Quiet. You're standing on the trail.
     Ranger: I'm still deciding if that's good.
 -> The goblins at the siding are beaten. <<if condition("encounter.cleared", "intro_freight_yard_fight")>>
     Ranger: I saw the batteries stop. Thank you. Now I've nothing to follow but deer, and the deer can see me coming.
--> ⟨go⟩
+-> ‹go›
 ===
 
 title: valley_shepherd
@@ -503,7 +503,7 @@ title: valley_shepherd
         Shepherd: Half the weather in this valley is my grandfather's flock. I'd thank you not to add to it.
     -> Why do your sheep look like clouds? <<if verdict("world.flag_set", "hobford_sheep_clouded") == "not_satisfied">>
         <<jump valley_shepherd__clouds>>
-    -> ⟨go⟩
+    -> ‹go›
 <<elseif verdict("world.flag_set", "valley_shepherd_met") == "not_satisfied">>
     <<command "world.set_flag" "valley_shepherd_met" true>>
     Shepherd: You climbed the fell for the view? Nobody climbs the fell for the view. They climb it for a sheep.
@@ -516,7 +516,7 @@ title: valley_shepherd
         <<if condition("world.flag_set", "intro_creator_dead")>>
             Shepherd: And you're from the barn. I heard. I'm sorry. He waved at me every morning, and I never once waved back.
         <<endif>>
-    -> ⟨go⟩
+    -> ‹go›
 <<else>>
     <<stop>>
 <<endif>>
@@ -528,13 +528,13 @@ title: valley_shepherd__clouds
 Shepherd: Because one day they will be. A fell sheep that dies goes up, fleece and all. That's what the fleece is for, as far as anyone knows.
 Shepherd: The cloud on the top most mornings isn't mist. That's the old flock, keeping an eye on the young one.
 Shepherd: When the gate opened, the gatekeeper wanted to stamp them as exports. I said, you catch one.
--> ⟨go⟩
+-> ‹go›
 ===
 
 title: hobford_dog
 ---
 The dog sniffs your knee for a long time. Then it wags.
--> ⟨scratch its ears⟩
+-> ‹scratch its ears›
 ===
 
 title: oiler_intro
@@ -543,7 +543,7 @@ title: oiler_intro
 <<portrait_clip "talking">>
 <<if verdict("world.flag_set", "p1_stabilizer_received") == "satisfied">>
     Oiler: Knee holding? Good. Sit on the bench if you need to. It's mine, but I'm not using it.
-    -> ⟨move on⟩
+    -> ‹move on›
 <<elseif verdict("world.flag_set", "p1_stabilizer_received") == "not_satisfied">>
     Oiler: Hold still. That knee's on crooked. Who put you together?
     -> A man in {$village}. He's dead.
@@ -551,7 +551,7 @@ title: oiler_intro
     -> I'm fine.
         Oiler: You're walking like a shopping cart. Hold still.
         <<jump oiler_intro__repair>>
-    -> ⟨keep walking⟩
+    -> ‹keep walking›
 <<else>>
     <<stop>>
 <<endif>>
@@ -564,22 +564,22 @@ title: oiler_intro__repair
 Oiler: ...A shim and some grease. It'll hold until something hits it.
 <<command "world.set_flag" "p1_stabilizer_received" true>>
 Oiler: {$village}, you said? The farm gate? Huh. Long way to come with a knee like that.
--> ⟨thank him⟩
+-> ‹thank him›
 ===
 
 title: news_board_lab_incident
 ---
-Drain Market Bulletin: ▸ BREAK-IN AT A WORKSHOP NEAR {$village}. ONE DEAD. NO OTHER DAMAGE.
--> ⟨read further⟩
+Drain Market Bulletin: ► BREAK-IN AT A WORKSHOP NEAR {$village}. ONE DEAD. NO OTHER DAMAGE.
+-> ‹read further›
     <<jump news_board_lab_incident__1>>
--> ⟨walk away⟩
+-> ‹walk away›
 ===
 
 title: news_board_lab_incident__1
 ---
-Drain Market Bulletin: ▸ THE GATE AUTHORITY REMINDS CARRIERS THAT THE FARM GATES ARE FOR LICENSED FREIGHT.
-Drain Market Bulletin: ▸ GATE SIX: DELAYED. SOUP: TUESDAYS.
--> ⟨leave the board to its work⟩
+Drain Market Bulletin: ► THE GATE AUTHORITY REMINDS CARRIERS THAT THE FARM GATES ARE FOR LICENSED FREIGHT.
+Drain Market Bulletin: ► GATE SIX: DELAYED. SOUP: TUESDAYS.
+-> ‹leave the board to its work›
 ===
 
 title: gate_janitor_ripple
@@ -593,7 +593,7 @@ Gate Janitor: Mind the wet patch. Maintenance has this corridor today, so half t
     <<jump gate_janitor_ripple__3>>
 -> Who gets priority on a busy gate?
     <<jump gate_janitor_ripple__priority>>
--> ⟨move on⟩
+-> ‹move on›
 ===
 
 title: gate_janitor_ripple__1
@@ -601,7 +601,7 @@ title: gate_janitor_ripple__1
 Gate Janitor: Don't touch the shimmer. It won't take you anywhere. Gate Six works; use that if you need a gate.
 -> Ask another question.
     <<jump gate_janitor_ripple>>
--> ⟨move on⟩
+-> ‹move on›
 ===
 
 title: gate_janitor_ripple__2
@@ -611,7 +611,7 @@ Gate Janitor: Seven's on the Math line now. Its breaker's on the wall; throw it 
 <<command "world.set_flag" "gate.known.TANGENT" true>>
 -> Ask another question.
     <<jump gate_janitor_ripple>>
--> ⟨move on⟩
+-> ‹move on›
 ===
 
 title: gate_janitor_ripple__3
@@ -620,7 +620,7 @@ Gate Janitor: Six jammed twice this morning. Seven leaks blue light. I'm here un
 Gate Janitor: And I mop. People walk out of a gate and lose breakfast. Robots never do. I like robots.
 -> Ask another question.
     <<jump gate_janitor_ripple>>
--> ⟨move on⟩
+-> ‹move on›
 ===
 
 title: manifest_kiosk_wrong_list
@@ -632,7 +632,7 @@ Manifest Clerk: Name? ...No entry. Spell it again. Slower.
     <<jump manifest_kiosk_wrong_list__2>>
 -> Who else has the manifest?
     <<jump manifest_kiosk_wrong_list__copies>>
--> ⟨step away⟩
+-> ‹step away›
 ===
 
 title: manifest_kiosk_wrong_list__1
@@ -640,7 +640,7 @@ title: manifest_kiosk_wrong_list__1
 Manifest Clerk: Freight. Every crate through these gates has a line on a manifest. You're not on one. I checked twice, which is once more than I'm paid for.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
--> ⟨step away⟩
+-> ‹step away›
 ===
 
 title: manifest_kiosk_wrong_list__2
@@ -649,7 +649,7 @@ Manifest Clerk: A goblin crew filed for the {$village} freight window. One crate
 Manifest Clerk: Next question.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
--> ⟨step away⟩
+-> ‹step away›
 ===
 
 title: gate_janitor_ripple__priority
@@ -658,7 +658,7 @@ Gate Janitor: Medical, if the dispatcher reads the red tag. Military, when they 
 Gate Janitor: I watched a box of spare boots go through while a man waited with medicine for his kid. I told him to file a complaint. He laughed at me.
 -> Ask another question.
     <<jump gate_janitor_ripple>>
--> ⟨move on⟩
+-> ‹move on›
 ===
 
 title: manifest_kiosk_wrong_list__copies
@@ -667,5 +667,5 @@ Manifest Clerk: We keep one copy here and one at the {$village} gate office. I c
 Manifest Clerk: {$village} sent it back marked DENIED. That's all I can show you.
 -> Ask another question.
     <<jump manifest_kiosk_wrong_list>>
--> ⟨step away⟩
+-> ‹step away›
 ===

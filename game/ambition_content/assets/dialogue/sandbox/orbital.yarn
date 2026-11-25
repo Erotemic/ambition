@@ -21,7 +21,7 @@ title: station_okafor
         Officer Okafor: Always. Not today's problem. Hamid wanted someone in the spur; your pass is on the hatch.
     -> Who sees your passenger lists?
         Officer Okafor: Customs. There was a request to sort them by home dimension and send them to another office. No signature on it. I sent it back.
-    -> ⟨step away⟩
+    -> ‹step away›
 <<elseif verdict("world.flag_set", "orbital_consignment_cleared") == "unanswerable">>
     <<stop>>
 <<elseif verdict("world.flag_set", "orbital_manifest_signed") == "satisfied">>
@@ -37,7 +37,7 @@ title: station_okafor
     Officer Okafor: Still need a count I can stamp. Surveyor's Office, Math town. Ask for Canter.
     -> Where is the Math town?
         Officer Okafor: Through the ring and up the stairs from its gate hall. The office is on the second terrace.
-    -> ⟨step away⟩
+    -> ‹step away›
 <<elseif verdict("world.flag_set", "orbital_consignment_query") == "not_satisfied">>
     Officer Okafor: Customs. Crate 0447 in my pen is survey lenses from the Math town, for the Remainder. The manifest gives the count as "aleph-null". I cannot clear an infinite crate.
     -> I can ask the sender.
@@ -47,7 +47,7 @@ title: station_okafor
         Officer Okafor: Seed stock, spores, mail with ideas in it. The ring moves anything. Somebody has to look first.
     -> Who reads the arrival records?
         Officer Okafor: My shift and the checkpoint. Had a request from an office I'd never heard of. They can come down here and show me a badge.
-    -> ⟨step away⟩
+    -> ‹step away›
 <<else>>
     <<stop>>
 <<endif>>
@@ -61,7 +61,7 @@ title: station_reyes
         Captain Reyes: To map it. Then someone will want a ring there, and I will be out of work. Good.
     -> Have you flown near the gravity works?
         Captain Reyes: Once. Survey instruments gave me two horizons. I steered by the stars and stayed well clear.
-    -> ⟨step away⟩
+    -> ‹step away›
 <<elseif verdict("world.flag_set", "orbital_consignment_cleared") == "not_satisfied">>
     Captain Reyes: That pen on the gate deck holds my lenses. Without them the survey is blind.
     -> What do you haul?
@@ -71,7 +71,7 @@ title: station_reyes
     -> What's the work out beyond the rings?
         Captain Reyes: Two weeks out, two back. We bring batteries, food, water. They send us rocks in labeled bags.
         Captain Reyes: It's a decent job, when customs lets us do it.
-    -> ⟨step away⟩
+    -> ‹step away›
 <<else>>
     <<stop>>
 <<endif>>
@@ -89,7 +89,7 @@ Bo Lindqvist: Ring throughput is down a third since they doubled the passenger s
     Bo Lindqvist: Captain Reyes is already booked solid.
 -> What happens to the extra power?
     Bo Lindqvist: They sell the passenger slots. My loaders still have to move the freight when the ring finally clears.
--> ⟨step away⟩
+-> ‹step away›
 ===
 
 title: station_rahimi
@@ -100,14 +100,14 @@ title: station_rahimi
         Hamid Rahimi: Their orders. "Repair anything damaged." The storm damaged everything. They kept cutting.
     -> Is the rest of the station all right?
         Hamid Rahimi: Better than yesterday. The gravity-works people want their instruments back now. They can collect them themselves.
-    -> ⟨step away⟩
+    -> ‹step away›
 <<elseif verdict("world.flag_set", "switch_orbital_spur_breaker_used") == "unanswerable">>
     <<stop>>
 <<elseif verdict("world.flag_set", "orbital_spur_pass") == "satisfied">>
     Hamid Rahimi: Okafor logged your pass. The spur took a storm last cycle. Breaker's tripped at the far end.
     -> What is in there?
         Hamid Rahimi: No air, live cable under the deck, and maintenance crawlers that do not stop. Reset the breaker if you can.
-    -> ⟨step away⟩
+    -> ‹step away›
 <<elseif verdict("world.flag_set", "orbital_spur_pass") == "not_satisfied">>
     Hamid Rahimi: Service deck. Don't touch anything that hums.
     -> What is behind the hatch?
@@ -117,7 +117,7 @@ title: station_rahimi
     -> Have you worked at Gnu-ton's place?
         Hamid Rahimi: Inspected a power feed once. Spent an hour holding onto my tools. They've got floors facing every direction.
         Hamid Rahimi: If you go out there, take a good grip on whatever you bring.
-    -> ⟨step away⟩
+    -> ‹step away›
 <<else>>
     <<stop>>
 <<endif>>
@@ -133,7 +133,7 @@ Gus Pell: First time through the ring? People come up those stairs green. Cracke
 -> Who lives here?
     Gus Pell: Mechanics, pilots, customs, a botanist who talks to the lettuce. Most stay for a few months.
     Gus Pell: Some go home every night now. I still set their place at breakfast by accident.
--> ⟨step away⟩
+-> ‹step away›
 ===
 
 title: station_wen
@@ -149,7 +149,7 @@ Wen Liang: I tuned this station's first stable ring. The first link held three s
 -> How many dimensions are there?
     Wen Liang: The registries list seventeen known dimensions. Math Town sent over a question about two of the entries.
     Wen Liang: I sent measurements back. Now they've asked for more.
--> ⟨step away⟩
+-> ‹step away›
 ===
 
 title: station_neil
@@ -164,7 +164,7 @@ Neil onGras Turfson: Well, actually, that blue line on the edge is all the air t
     Neil onGras Turfson: Last month he said the station "floats". It falls. It falls all the time, and it moves sideways fast enough that it keeps missing the ground. He thanked me on air and then asked if I had a comb.
 -> What's beyond this orbit?
     Neil onGras Turfson: Remainder goes out surveying. I work the observation window. You should ask the captain where she's been.
--> ⟨step away⟩
+-> ‹step away›
 ===
 
 title: station_dobbs

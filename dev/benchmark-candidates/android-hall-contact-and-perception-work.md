@@ -119,6 +119,31 @@ warm-up. The 500-root run took 91.0 s through warm-up, compared with
 33.9 s for local roaming. Both times include harness and room startup.
 The stock Hall has fewer than 1,000 authored actors.
 
+The local trip preference in `3bf42f47a` kept all three forced roaming
+runs on standing geometry. The benchmark repeated the same caps and
+update counts. Each run used zero envelopes, traversal graphs, and
+segment checks.
+
+| Hall roots | Time through warm-up before, s | Time through warm-up after, s | After, ms/tick |
+| ---: | ---: | ---: | ---: |
+| 100 | 29.3 | 20.3 | 29.4 |
+| 250 | 56.1 | 21.5 | 39.0 |
+| 500 | 91.0 | 27.7 | 64.8 |
+
+These are single desktop runs. The work counters establish what each
+run omitted. The timings include startup and are subject to load on
+the host. The runs exercised the local destination preference. They
+do not measure the change in cost per approximate trajectory.
+
+The same headless harness also forced the shipped hub companion to
+each traversal method in separate runs. Each method prepared one graph
+and one envelope. The simulation-backed method ran 1,341 rollouts.
+The approximate graph checked 359 support pairs and 4,632 clearance
+segments with 587 solid-index queries and zero rollouts. Hybrid kept
+the same estimated graph. The companion's goals in this short run did
+not call for refinement. The graph fixture separately checks a live
+jump and drop, a rejected jump, and cold and warm refinement.
+
 An Xvfb desktop run entered the Hall with 100 roots and rendered its
 entrance at 1280 × 800. The two captures show the room and the arrival
 from the hub. Software rendering makes the render-time split unsuitable

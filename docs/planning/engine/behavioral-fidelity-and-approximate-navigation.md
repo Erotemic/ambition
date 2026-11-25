@@ -1,10 +1,8 @@
 # Behavioral fidelity and approximate navigation
 
-**State:** Proposed implementation direction, 2026-11-25. The maintainer
-wants reusable abstractions that let full-fidelity and approximate behavior
-work together. This document specifies a navigation-first implementation
-and the boundaries for subsequent perception and deliberation work. It is
-not a receipt for completed implementation or measured performance gains.
+**State:** The actor navigation, perception and cadence slices below are
+in use. The receipts give their coverage and measured work. The other
+capabilities described here remain options for later work.
 
 **Source basis:** `d49467d5b877` (the incremental source archive from
 `7c0c36e2c6cd`), the subsequent actor/input naming changes, and the
@@ -837,6 +835,11 @@ behavior until the new cadence contract demonstrably supports it. Do not
 rewrite all brains in one increment.
 
 ## 14. Measurement plan
+
+The [Hall benchmark receipt](../../../dev/benchmark-candidates/android-hall-contact-and-perception-work.md#desktop-navigation-demand-sweep)
+records passive, local and approximate runs at 100, 250 and 500 roots.
+It includes the cold work removed by the local destination preference
+and the stationary Android baseline.
 
 Performance matters at increasing populations and on the intended platforms.
 A change that saves time on one snapshot of the Hall may not solve its

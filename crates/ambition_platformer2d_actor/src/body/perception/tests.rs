@@ -74,6 +74,29 @@ fn reach_app(count: usize) -> (bevy::prelude::App, Vec<bevy::prelude::Entity>) {
 }
 
 #[test]
+fn a_viewport_examines_only_nearby_peers_and_preserves_the_visible_order() {
+    use bevy::prelude::{IntoScheduleConfigs, Update};
+
+    let (mut app, actors) = reach_app(100);
+    for (index, actor) in actors.into_iter().enumerate() {
+        app.world_mut().get_mut::<ae::BodyKinematics>(actor).unwrap().pos.x = index as f32 * 40.0;
+    }
+    app.add_systems(Update, (|perceived: PerceivedWorld| {
+        let center = ae::Vec2::new(100.0, 0.0);
+        let viewport_half = ae::Vec2::new(80.0, 25.0);
+        let viewport = Viewport::around(center, viewport_half);
+        let peers = perceived.candidates_in(None, center, Perception::Sighted { viewport_half });
+        assert_eq!(peers.rows.len(), 100);
+        assert_eq!(peers.examined(), 4);
+        let visible = peers.iter().filter(|peer| viewport.contains(peer.pos)).map(|peer| peer.entity).collect::<Vec<_>>();
+        let exhaustive = perceived.peers_in(None).iter().filter(|peer| viewport.contains(peer.pos)).map(|peer| peer.entity).collect::<Vec<_>>();
+        assert_eq!(visible, exhaustive);
+        assert_eq!(visible.len(), 4);
+    }).after(collect_test_peers));
+    app.update();
+}
+
+#[test]
 fn perceived_reach_follows_repertoire_changes_and_body_membership() {
     use ambition_combat::moveset::ActorMoveset;
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
@@ -1651,7 +1674,7 @@ fn a_target_belief_body_still_pursues_a_foe_it_has_lost_sight_of() {
         super::perceive_for_decision(
             need,
             &viewer,
-            peers,
+            &PeerCandidates::all(peers),
             &[],
             &world,
             &[],
@@ -1740,7 +1763,7 @@ fn the_tactical_attention_cap_bounds_the_evidence_a_body_admits() {
         super::perceive_for_decision(
             Need::TacticalWorld,
             &viewer,
-            peers,
+            &PeerCandidates::all(peers),
             &[],
             &world,
             &[],
@@ -2042,7 +2065,7 @@ fn an_observed_death_disconfirms_pursuit_and_an_unobserved_one_does_not() {
         super::perceive_for_decision(
             need,
             &viewer,
-            peers,
+            &PeerCandidates::all(peers),
             &[],
             &world,
             &[],

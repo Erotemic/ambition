@@ -89,7 +89,7 @@ custody and physical-birth checks at their own later boundaries.
 
 Production checks the active move's cancel window against requested move X
 and its verb names, then selects an affordable `when_refused` Y. The new
-[`attack_kit_of`](../../../crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs)
+[`attack_kit_of`](../../../crates/ambition_platformer2d_actor/src/body/actors/update.rs)
 selects Y first and asks `legality_of` about Y. Shared affordability does not
 make these contextual decisions equal.
 

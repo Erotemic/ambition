@@ -11,6 +11,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static VIEWS: AtomicU64 = AtomicU64::new(0);
 static OFFERED: AtomicU64 = AtomicU64::new(0);
+static EXAMINED: AtomicU64 = AtomicU64::new(0);
 static KEPT: AtomicU64 = AtomicU64::new(0);
 static KEPT_MAX: AtomicU64 = AtomicU64::new(0);
 /// Peers VISIBLE to the viewer before the attention budget cut — `kept` plus
@@ -36,6 +37,8 @@ pub fn enable() {
 pub struct ViewSample {
     /// Peers in the body's live room (the room OFFERED them).
     pub offered: usize,
+    /// Peer rows the viewer tests for visibility.
+    pub examined: usize,
     /// Peers inside the viewport, before the attention budget.
     pub visible: usize,
     /// Peers carried exactly; the number `Decide`'s cost follows. The cheap
@@ -59,6 +62,7 @@ pub fn note_world_view(sample: ViewSample) {
     }
     VIEWS.fetch_add(1, Ordering::Relaxed);
     OFFERED.fetch_add(sample.offered as u64, Ordering::Relaxed);
+    EXAMINED.fetch_add(sample.examined as u64, Ordering::Relaxed);
     VISIBLE.fetch_add(sample.visible as u64, Ordering::Relaxed);
     KEPT.fetch_add(sample.kept as u64, Ordering::Relaxed);
     KEPT_MAX.fetch_max(sample.kept as u64, Ordering::Relaxed);
@@ -80,6 +84,7 @@ pub fn note_reports(reports: usize) {
 pub struct ViewCensus {
     pub views: u64,
     pub offered_mean: f64,
+    pub examined_mean: f64,
     pub visible_mean: f64,
     pub kept_mean: f64,
     pub kept_max: u64,
@@ -97,6 +102,7 @@ pub struct ViewCensus {
 pub fn drain() -> Option<ViewCensus> {
     let views = VIEWS.swap(0, Ordering::Relaxed);
     let offered = OFFERED.swap(0, Ordering::Relaxed);
+    let examined = EXAMINED.swap(0, Ordering::Relaxed);
     let visible = VISIBLE.swap(0, Ordering::Relaxed);
     let kept = KEPT.swap(0, Ordering::Relaxed);
     let kept_max = KEPT_MAX.swap(0, Ordering::Relaxed);
@@ -110,6 +116,7 @@ pub fn drain() -> Option<ViewCensus> {
     Some(ViewCensus {
         views,
         offered_mean: offered as f64 / views as f64,
+        examined_mean: examined as f64 / views as f64,
         visible_mean: visible as f64 / views as f64,
         kept_mean: kept as f64 / views as f64,
         kept_max,

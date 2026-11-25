@@ -77,10 +77,9 @@ fn confirm(app: &mut App) {
 }
 
 fn assert_creator_portrait(app: &mut App) {
-    assert_eq!(
-        app.world().resource::<DialogView>().speaker_character_id,
-        "npc_creator"
-    );
+    let view = app.world().resource::<DialogView>();
+    assert_eq!(view.speaker_character_id, "npc_creator");
+    assert_eq!(view.speaker_label, "Dennis");
     let world = app.world_mut();
     let image = world
         .query::<(&Name, &ImageNode)>()

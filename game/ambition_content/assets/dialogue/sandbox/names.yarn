@@ -6,5 +6,5 @@ title: place_names
 // Signs and room titles take theirs from the names table at the top of the
 // level's generator (`generators/intro/make_specs.py`).
 <<declare $village = "Hobford">>
-<<declare $creator = "the Creator">>
+<<declare $creator = "Dennis">>
 ===

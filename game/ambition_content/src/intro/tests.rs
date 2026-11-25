@@ -15,7 +15,7 @@ fn dialog_start_sets_dialogue_id_for_intro_and_sandbox() {
     // dialogue_id surface.
     let mut state = DialogState::default();
     let owner = ambition_input::InputOwner::Participant(ambition_input::ParticipantId(1));
-    state.start("creator_intro", "Creator", DialogueContext::scripted(), owner);
+    state.start("creator_intro", "Dennis", DialogueContext::scripted(), owner);
     assert_eq!(state.dialogue_id(), "creator_intro");
     state.start("oiler_intro", "Oiler", DialogueContext::scripted(), owner);
     assert_eq!(state.dialogue_id(), "oiler_intro");

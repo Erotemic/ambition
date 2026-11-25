@@ -128,7 +128,7 @@
             ],
             fields: (
                 name: "Creator Final",
-                prompt: "Hear the Creator's last words",
+                prompt: "Hear Dennis's last words",
                 dialogue_id: "creator_final_normal",
             ),
         ),

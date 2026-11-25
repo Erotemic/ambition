@@ -23,10 +23,7 @@
     ),
     (
         cue: "dialogue.blip.creator",
-        // The alias `creator` matches any label that contains it, so these
-        // exact keys add little: a wrong one here would not be noticed.
-        exact: ["creator", "hall_npc_creator"],
-        aliases: ["creator"],
+        exact: ["dennis", "npc_creator", "hall_npc_creator"],
     ),
     (
         cue: "dialogue.blip.dark_lord",

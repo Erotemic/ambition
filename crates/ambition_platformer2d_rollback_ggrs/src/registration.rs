@@ -7,9 +7,11 @@
 use std::collections::BTreeSet;
 
 use bevy::ecs::component::Mutable;
+use bevy::ecs::entity::{EntityHashMap, MapEntities};
 use bevy::prelude::*;
 use bevy_ggrs::{
     ComponentSnapshotPlugin, LoadWorld, LoadWorldSystems, ResourceSnapshotPlugin, RollbackApp,
+    RollbackEntityMap, RollbackId,
 };
 
 use crate::CanonicalCodecStrategy;
@@ -28,6 +30,28 @@ use ambition_platformer2d_runtime::rollback::{
 
 #[derive(Resource, Default)]
 struct GgrsInstalledRegistrations(BTreeSet<String>);
+
+/// Point each changed mapping from the saved entity to the live entity.
+pub(super) fn orient_snapshot_entity_map(mut map: ResMut<RollbackEntityMap>, live: Query<(), With<RollbackId>>) {
+    // GGRS 0.22 can put the live entity first when it survived the load.
+    if !map.iter().any(|(first, second)| first != second && live.contains(first)) {
+        return;
+    }
+    *map = map.iter().map(|(first, second)| {
+        if live.contains(first) { (second, first) } else { (first, second) }
+    }).collect::<EntityHashMap<_>>().into();
+}
+
+fn map_restored_components<T: Component<Mutability = Mutable> + MapEntities>(
+    map: Res<RollbackEntityMap>, mut components: Query<&mut T>,
+) {
+    // Write on the live carrier, including a carrier recreated by the load.
+    for (_, live) in map.iter() {
+        if let Ok(mut component) = components.get_mut(live) {
+            component.map_entities(&mut map.as_ref());
+        }
+    }
+}
 
 /// Record the neutral descriptor and independently decide whether this GGRS
 /// backend still owes the corresponding snapshot/checksum installation.
@@ -1100,7 +1124,7 @@ impl AmbitionRollbackApp for App {
                 spelling::ENTITY_MAPPING.detail,
             ),
         ) {
-            RollbackApp::update_component_with_map_entities::<T>(self);
+            self.add_systems(LoadWorld, map_restored_components::<T>.in_set(LoadWorldSystems::Mapping));
         }
         self
     }

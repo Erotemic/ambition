@@ -673,8 +673,10 @@ subjects in the scene's live room.
 
 The workshop tests cover enemy-initiated combat, the same case in the
 brute's hand, the wound in normal and skipped play, and Dennis' death after
-his final words. Still open: a general recovery policy when a required
-command is refused, and save recovery during an active projectile flight.
+his final words. A rewind restores the case's reference to its live holder.
+A save after departure restores the final conversation and the same case at
+the siding. Still open: a general recovery policy when a required command
+is refused, and save recovery during an active projectile flight.
 
 ## Acceptance for the first slice (SS1 + SS2)
 

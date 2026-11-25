@@ -288,6 +288,11 @@ where
         OWNER,
         "combat.capabilities",
     );
+    registrar.rollback_component_clone_probed::<crate::components::SceneDamageFloor>(
+        OWNER,
+        "combat.scene_damage_floor",
+        |floor| u64::from(floor.0 as u32),
+    );
     registrar.rollback_component_clone::<crate::components::CombatTuning>(OWNER, "combat.tuning");
     registrar.rollback_component_clone::<crate::components::ActorIdentity>(OWNER, "actor.identity");
     registrar.rollback_component_clone::<crate::components::ActorInteraction>(

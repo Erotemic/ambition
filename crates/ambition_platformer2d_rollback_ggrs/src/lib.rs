@@ -168,6 +168,12 @@ impl Plugin for GgrsBackendPlugin {
             LoadWorld,
             AmbitionLoadWorldSet::Reconcile.after(LoadWorldSystems::Mapping),
         )
+        .add_systems(
+            LoadWorld,
+            registration::orient_snapshot_entity_map
+                .after(LoadWorldSystems::EntityFlush)
+                .before(LoadWorldSystems::Data),
+        )
         // The witness pass of `first_run_witness` runs the checksum half of
         // `SaveWorld` only. It is not a save: no snapshot, no save census.
         .init_resource::<FirstRunWitness>()

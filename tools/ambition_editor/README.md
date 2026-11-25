@@ -89,7 +89,12 @@ pack, so another engine game is inspected the same way (`--profile`,
   or a General MIDI program. A registered track the game lacks is missing;
   a score no registry names is unregistered. The Added column uses the first
   score commit in available Git history, through detected renames. A music review made before the
-  score last changed is marked.
+  score last changed is marked. The player at the bottom of the page draws the
+  sections of the file it plays from that file's `CHAPTERnnn` comments (the
+  chapters VLC lists), shaded by the score's energy; click a section's name to
+  start it, anywhere else on the strip to play from there, and press `[` / `]`
+  to step between sections. The score's Form table plays from any section. The
+  served page answers byte-range requests, which seeking needs.
 - **Sound** reads the sound bank and the sound tool's sources. The page plays
   each clip, extracted from the bank.
 - **Fonts** reads the font policy and the downloaded files, and draws a sample.

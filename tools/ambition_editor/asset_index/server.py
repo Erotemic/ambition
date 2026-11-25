@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -18,6 +19,26 @@ from . import page, paths, reviews
 
 #: What the page says when this server runs older code than the page it serves.
 RESTART = "./scripts/asset_inspector.py --kill"
+
+#: One byte range (RFC 9110): `bytes=first-last`, `bytes=first-` or the suffix `bytes=-length`.
+_RANGE = re.compile(r"bytes=(\d*)-(\d*)")
+
+
+class _Slice:
+    """The part of an open file that a range request asked for: the server copies
+    from it until it reads empty, as it copies a whole file."""
+
+    def __init__(self, file, length: int):
+        self.file, self.left = file, length
+
+    def read(self, size: int = -1) -> bytes:
+        size = self.left if size < 0 else min(size, self.left)
+        data = self.file.read(size) if size else b""
+        self.left -= len(data)
+        return data
+
+    def close(self):
+        self.file.close()
 
 
 def _code_stamp() -> tuple:
@@ -61,7 +82,42 @@ def make_handler(repo: Path, catalog, status=None):
         def end_headers(self):
             if urlsplit(self.path).path.endswith("/catalog.js"):
                 self.send_header("Cache-Control", "no-store")
+            if self.command in ("GET", "HEAD"):
+                self.send_header("Accept-Ranges", "bytes")
             super().end_headers()
+
+        def send_head(self):
+            """A file, or the byte range of it the request asks for. A browser seeks
+            in audio by asking for the bytes at the new time: without a range
+            answer it can only play from the start."""
+            match = _RANGE.fullmatch(self.headers.get("Range", "").strip())
+            path = self.translate_path(self.path)
+            if not match or not any(match.groups()) or not os.path.isfile(path):
+                return super().send_head()
+            size = os.path.getsize(path)
+            first, last = match.groups()
+            start, end = (int(first), min(int(last), size - 1) if last else size - 1) if first else (max(0, size - int(last)), size - 1)
+            if start >= size or start > end:
+                self.send_response(416)
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return None
+            file = open(path, "rb")
+            file.seek(start)
+            self.send_response(206)
+            self.send_header("Content-Type", self.guess_type(path))
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            self.send_header("Content-Length", str(end - start + 1))
+            self.send_header("Last-Modified", self.date_time_string(os.fstat(file.fileno()).st_mtime))
+            self.end_headers()
+            return _Slice(file, end - start + 1)
+
+        def copyfile(self, source, outputfile):
+            try:
+                super().copyfile(source, outputfile)
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # a player that seeks again drops the range it no longer wants
 
         def mutate(self):
             try:

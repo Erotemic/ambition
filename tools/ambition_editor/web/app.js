@@ -726,8 +726,11 @@
     }, 120);
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "/" && document.activeElement !== q) { e.preventDefault(); q.focus(); }
-    const typing = /^(INPUT|SELECT|TEXTAREA)$/.test((document.activeElement || {}).tagName || "");
+    const active = document.activeElement || {};
+    const typing = /^(SELECT|TEXTAREA)$/.test(active.tagName || "") || active.isContentEditable
+      || (active.tagName === "INPUT" && !/^(checkbox|radio|button|submit|reset)$/.test(active.type));
+    // "/" finds, unless it is being typed: a review's notes need the character.
+    if (e.key === "/" && !typing && !e.altKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); q.focus(); }
     if (!typing && !e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
       const link = document.getElementById(e.key === "ArrowLeft" ? "navprev" : "navnext");
       if (link) { e.preventDefault(); location.hash = link.getAttribute("href"); }

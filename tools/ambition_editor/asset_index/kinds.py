@@ -117,6 +117,13 @@ def _score_summary(path: Path) -> dict:
     sections = data.get("sections")
     names = ([s.get("name") or s.get("id") for s in sections if isinstance(s, dict)] if isinstance(sections, list)
              else list(sections) if isinstance(sections, dict) else [])
+    # A score's form, in order: what each section is for, which the player shows
+    # beside the chapter of that id in the audio file.
+    form = data.get("form") if isinstance(data.get("form"), list) else sections if isinstance(sections, list) else []
+    form = [{"id": str(row.get("id") or row.get("name")), "role": row.get("role") if isinstance(row.get("role"), str) else None,
+             "energy": row.get("energy") if isinstance(row.get("energy"), (int, float)) else None}
+            for row in form if isinstance(row, dict) and (row.get("id") or row.get("name"))]
+    names = names or [row["id"] for row in form]
     instruments = []
     for row in data.get("instruments") or []:
         if isinstance(row, dict):
@@ -128,6 +135,7 @@ def _score_summary(path: Path) -> dict:
             "bpm": tempo.get("bpm") if isinstance(tempo, dict) else tempo if isinstance(tempo, (int, float)) else None,
             "meter": f"{meter.get('beats_per_bar')}/{meter.get('beat_unit')}" if isinstance(meter, dict) else meter if isinstance(meter, str) else None,
             "sections": [str(n) for n in names if n], "form": data.get("form") if isinstance(data.get("form"), str) else None,
+            "form_sections": form,
             "one_shot": bool(data.get("one_shot")), "instruments": instruments}
 
 

@@ -18,9 +18,13 @@
   // One player for the whole page, docked at the bottom: it says what is playing and links to it.
   const bar = document.createElement("div");
   bar.className = "now-playing"; bar.hidden = true;
-  bar.innerHTML = `<span class="np-label"></span><audio controls preload="none"></audio><button type="button" class="ghost np-close" title="Stop">✕</button>`;
+  bar.innerHTML = `<span class="np-label"></span>
+    <button type="button" class="ghost np-prev" title="Previous section ( [ )">⏮</button><audio controls preload="none"></audio><button type="button" class="ghost np-next" title="Next section ( ] )">⏭</button>
+    <button type="button" class="ghost np-close" title="Stop">✕</button>
+    <div class="np-track" title="Click to play from here"><div class="np-sections"></div><div class="np-head"></div></div>`;
   document.body.append(bar);
   const player = bar.querySelector("audio"), label = bar.querySelector(".np-label");
+  const track = bar.querySelector(".np-track"), sectionsEl = bar.querySelector(".np-sections"), head = bar.querySelector(".np-head");
   const title = document.title;
   // `current` is the item id and the exact file: one track can offer several renders.
   let current = null, currentItem = null;
@@ -29,24 +33,166 @@
   function sync() {
     const playing = current && !player.paused;
     document.title = current ? `${playing ? "▶" : "⏸"} ${items[currentItem]?.display || currentItem} · ${title}` : title;
-    document.querySelectorAll("[data-play]").forEach(b => {
+    document.querySelectorAll("[data-play]:not([data-section])").forEach(b => {
       const on = keyOf(b.dataset.play, b.dataset.href) === current;
       b.textContent = on && playing ? "⏸" : "▶";
       b.closest("tr")?.classList.toggle("playing", on);
     });
   }
-  function play(id, href, note) {
+  function play(id, href, note, section) {
     const item = items[id];
     if (!item?.media || item.media.type !== "audio") return;
     const key = keyOf(id, href);
-    if (current === key) { player.paused ? player.play() : player.pause(); return; }
-    current = key; currentItem = id;
+    if (current === key) {
+      if (section) seekSection(section);
+      else player.paused ? player.play() : player.pause();
+      return;
+    }
+    current = key; currentItem = id; chapters = [];
     player.src = href || item.media.href; player.dataset.href = href || item.media.href;
     const what = note || (item.media.unpublished ? "the music tool's unpublished render" : "");
     label.innerHTML = `<b>Now playing</b> ${itemLink(id)} <small>${esc(KINDS[item.kind] || item.kind)}${what ? " · " + esc(what) : ""}</small>`;
     bar.hidden = false; document.body.classList.add("has-player");
+    drawTrack();
+    const src = player.src;
+    chaptersOf(player.dataset.href).then(rows => {
+      if (player.src !== src) return;  // another file started meanwhile
+      chapters = rows; drawTrack();
+      if (section) seekSection(section);
+    });
     player.play();
   }
+
+  /* The sections of the file playing, from its own chapter comments: the
+     renderer writes `CHAPTERnnn` / `CHAPTERnnnNAME` (render/export.py), the
+     chapters VLC lists. A file without them shows a plain seek strip. */
+  let chapters = [];
+  const chapterCache = new Map();
+  function chaptersOf(href) {
+    if (!chapterCache.has(href)) chapterCache.set(href, readHead(href).then(parseChapters).catch(() => []));
+    return chapterCache.get(href);
+  }
+  // The first 256 KiB of a file, which hold its comment header.
+  async function readHead(href, limit = 262144) {
+    const response = await fetch(href, {headers: {Range: `bytes=0-${limit - 1}`}});
+    if (!response.ok) return new Uint8Array();
+    const reader = response.body.getReader(), parts = [];
+    let size = 0;
+    while (size < limit) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      parts.push(value); size += value.length;
+    }
+    reader.cancel().catch(() => {});  // a server that ignored the range sends the whole file
+    const out = new Uint8Array(size);
+    let at = 0;
+    for (const part of parts) { out.set(part, at); at += part.length; }
+    return out;
+  }
+  // Packet `wanted` of an Ogg stream: its segments, joined across pages.
+  function oggPacket(bytes, wanted) {
+    let pos = 0, packet = 0, parts = [];
+    while (pos + 27 <= bytes.length && bytes[pos] === 0x4f && bytes[pos + 1] === 0x67 && bytes[pos + 2] === 0x67 && bytes[pos + 3] === 0x53) {
+      const count = bytes[pos + 26], table = pos + 27;
+      let data = table + count;
+      for (let i = 0; i < count; i++) {
+        const lacing = bytes[table + i];
+        if (packet === wanted) parts.push(bytes.subarray(data, data + lacing));
+        data += lacing;
+        if (lacing < 255) {
+          if (packet === wanted) return parts.reduce((all, part) => { const joined = new Uint8Array(all.length + part.length); joined.set(all); joined.set(part, all.length); return joined; }, new Uint8Array());
+          packet++;
+        }
+      }
+      pos = data;
+    }
+    return null;
+  }
+  function parseChapters(bytes) {
+    const packet = oggPacket(bytes, 1);  // Vorbis and Opus both carry their comments in the second packet
+    if (!packet) return [];
+    const ascii = (from, n) => String.fromCharCode(...packet.subarray(from, from + n));
+    const start = packet[0] === 3 && ascii(1, 6) === "vorbis" ? 7 : ascii(0, 8) === "OpusTags" ? 8 : -1;
+    if (start < 0) return [];
+    const view = new DataView(packet.buffer, packet.byteOffset, packet.byteLength), text = new TextDecoder();
+    let at = start + 4 + view.getUint32(start, true);
+    const count = view.getUint32(at, true), tags = {};
+    at += 4;
+    for (let i = 0; i < count && at + 4 <= packet.length; i++) {
+      const n = view.getUint32(at, true), entry = text.decode(packet.subarray(at + 4, at + 4 + n));
+      at += 4 + n;
+      const cut = entry.indexOf("=");
+      if (cut > 0) tags[entry.slice(0, cut).toUpperCase()] = entry.slice(cut + 1);
+    }
+    const rows = [];
+    for (let n = 1; tags[`CHAPTER${String(n).padStart(3, "0")}`]; n++) {
+      const key = `CHAPTER${String(n).padStart(3, "0")}`;
+      const [h, m, s] = tags[key].split(":").map(Number);
+      const name = tags[key + "NAME"] || tags[key + "ID"] || `section ${n}`;
+      if (![h, m, s].some(Number.isNaN)) rows.push({id: tags[key + "ID"] || name, name, at: h * 3600 + m * 60 + s});
+    }
+    return rows.sort((a, b) => a.at - b.at);
+  }
+
+  const clock = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+  // The strip under the player: one block per section, as long as it plays.
+  function drawTrack() {
+    const length = player.duration;
+    if (!isFinite(length) || !length) { sectionsEl.innerHTML = ""; head.style.left = "0"; return; }
+    const form = Object.fromEntries((items[currentItem]?.score?.form_sections || []).map(row => [row.id, row]));
+    sectionsEl.innerHTML = chapters.map((c, i) => {
+      const end = chapters[i + 1]?.at ?? length, role = form[c.id]?.role, energy = form[c.id]?.energy;
+      return `<div class="np-section" style="left:${c.at / length * 100}%;width:${(end - c.at) / length * 100}%;--e:${energy ?? 0.5}"
+        title="${esc(`${c.id}${c.name !== c.id ? ": " + c.name : ""} · ${clock(c.at)}–${clock(end)}${role ? " — " + role : ""}`)}"><button type="button" class="np-name" data-at="${c.at}">${esc(c.id)}</button></div>`;
+    }).join("");
+    moveHead();
+  }
+  function moveHead() {
+    const length = player.duration, t = player.currentTime;
+    if (!isFinite(length) || !length) return;
+    head.style.left = `${t / length * 100}%`;
+    const now = chapters.findLastIndex(c => c.at <= t + 0.05);
+    sectionsEl.querySelectorAll(".np-section").forEach((b, i) => b.classList.toggle("now", i === now));
+  }
+  function seekTo(t) {
+    player.currentTime = Math.max(0, Math.min(t, (player.duration || t) - 0.05));
+    if (player.paused) player.play();
+    moveHead();
+  }
+  function seekSection(id) {
+    const row = chapters.find(c => c.id === id || c.name === id);
+    if (!row) return;
+    if (isFinite(player.duration)) seekTo(row.at);
+    else player.addEventListener("loadedmetadata", () => seekTo(row.at), {once: true});
+  }
+  // To the previous section start, or to this one's when more than two seconds in.
+  function step(direction) {
+    if (!current || !chapters.length) return;
+    const t = player.currentTime, now = Math.max(0, chapters.findLastIndex(c => c.at <= t + 0.05));
+    const target = direction > 0 ? chapters[now + 1] : (t - chapters[now].at > 2 ? chapters[now] : chapters[Math.max(0, now - 1)]);
+    if (target) seekTo(target.at);
+  }
+  track.addEventListener("click", event => {
+    if (!isFinite(player.duration)) return;
+    // A section's name starts it; anywhere else plays from that point.
+    const name = event.target.closest(".np-name"), box = track.getBoundingClientRect();
+    seekTo(name ? +name.dataset.at : (event.clientX - box.left) / box.width * player.duration);
+  });
+  track.addEventListener("mousemove", event => {
+    if (!isFinite(player.duration)) return;
+    const box = track.getBoundingClientRect();
+    track.title = `Play from ${clock((event.clientX - box.left) / box.width * player.duration)}`;
+  });
+  bar.querySelector(".np-prev").onclick = () => step(-1);
+  bar.querySelector(".np-next").onclick = () => step(1);
+  document.addEventListener("keydown", event => {
+    const active = document.activeElement || {};
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName || "") || active.isContentEditable || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key === "[" || event.key === "]") { event.preventDefault(); step(event.key === "]" ? 1 : -1); }
+  });
+  ["loadedmetadata", "durationchange"].forEach(type => player.addEventListener(type, drawTrack));
+  player.addEventListener("timeupdate", moveHead);
+  player.addEventListener("seeked", moveHead);
   ["play", "pause", "ended"].forEach(type => player.addEventListener(type, sync));
   player.addEventListener("timeupdate", () => {
     const href = player.dataset.href, row = played[href] || (played[href] = {seconds: 0, fraction: 0});
@@ -56,7 +202,7 @@
   bar.querySelector(".np-close").onclick = () => { player.pause(); player.removeAttribute("src"); current = null; bar.hidden = true; document.body.classList.remove("has-player"); sync(); };
   document.addEventListener("click", event => {
     const button = event.target.closest("[data-play]");
-    if (button) { event.preventDefault(); play(button.dataset.play, button.dataset.href, button.dataset.note); }
+    if (button) { event.preventDefault(); play(button.dataset.play, button.dataset.href, button.dataset.note, button.dataset.section); }
   });
   window.addEventListener("hashchange", () => setTimeout(sync, 0));
   // How far a file was heard, for a review of it.
@@ -242,7 +388,10 @@
       ${sc.title && sc.title !== item.display ? `<p><b>${esc(sc.title)}</b> <small>(the score's title)</small></p>` : ""}
       ${sc.description ? `<p class="review-text">${esc(sc.description)}</p>` : '<p class="empty">The score has no description.</p>'}
       ${facts.length ? `<p>${facts.map(esc).join(" · ")}</p>` : ""}
-      ${sc.sections.length ? `<p>Sections: ${sc.sections.map(esc).join(" → ")}</p>` : ""}
+      ${sc.form_sections?.length && item.media?.type === "audio" ? `<h3>Form</h3><p class="n">▶ plays from that section; <kbd>[</kbd> and <kbd>]</kbd> step between sections while it plays.</p>
+        <table class="tbl form-sections"><tbody>${sc.form_sections.map(row => `<tr><td><button type="button" class="ghost" data-play="${esc(item.id)}" data-section="${esc(row.id)}" title="Play from ${esc(row.id)}">▶</button></td>
+          <td><b>${esc(row.id)}</b></td><td>${row.energy != null ? `<span class="energy" style="--e:${row.energy}" title="energy ${row.energy}"></span>` : ""}</td><td>${esc(row.role || "")}</td></tr>`).join("")}</tbody></table>`
+        : sc.sections.length ? `<p>Sections: ${sc.sections.map(esc).join(" → ")}</p>` : ""}
       ${sc.notes.length ? `<details${sc.description ? "" : " open"}><summary>Notes (${sc.notes.length})</summary>${sc.notes.map(n => `<p class="review-text">${esc(n)}</p>`).join("")}</details>` : ""}
       <h3>Instruments (${sc.instruments.length})</h3><p class="n">${summary}</p>
       <table class="tbl"><thead><tr><th>Part</th><th>Sound</th><th>Source</th></tr></thead><tbody>

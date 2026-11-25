@@ -65,7 +65,7 @@ class SidecarCache:
     parsing the large sheet YAML is most of a rebuild otherwise. A reader's
     result must be plain JSON data. With no `path`, nothing is kept."""
 
-    VERSION = 3
+    VERSION = 4  # 4: score summaries carry their form (`kinds._score_summary`)
 
     def __init__(self, path: Path | None) -> None:
         self.path = path

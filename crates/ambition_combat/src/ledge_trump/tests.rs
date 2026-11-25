@@ -373,7 +373,7 @@ fn one_block_world() -> ae::World {
 fn probed_contact(size: ae::Vec2, face: f32) -> LedgeContact {
     let wall_x = if face < 0.0 { 100.0 } else { 300.0 };
     let pos = ae::Vec2::new(wall_x + face * size.x * 0.5, 87.0 + size.y * 0.5);
-    ae::ledge_grab::probe_ledge_grab_in_frame(pos, size, face, &one_block_world(), ae::Vec2::new(0.0, 1.0))
+    ae::ledge_grab::probe_ledge_grab_in_frame(pos, size, face, &one_block_world(), ae::Vec2::new(0.0, 1.0), ae::ledge_grab::LedgeReach::CANONICAL)
         .unwrap_or_else(|| panic!("premise: a {size:?} body on face {face} catches its ledge"))
 }
 

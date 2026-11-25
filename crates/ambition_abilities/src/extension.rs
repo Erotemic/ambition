@@ -572,6 +572,7 @@ fn ledge_ahead_of(world: &World, scope: Entity) -> Option<ambition_combat_port::
                 wall_normal_x,
                 &solids,
                 frame.down(),
+                ambition_platformer2d_core::ledge_grab::LedgeReach::of(kin.material),
             )
             .map(|contact| LedgeSight { anchor: [contact.anchor.x, contact.anchor.y], distance })
         })

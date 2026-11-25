@@ -1,6 +1,6 @@
 # Scale-relative gameplay
 
-**State:** SR1 and SR2a DONE 2026-11-25; SR2b–d (ledge, crawler/momentum, exit assistance) and SR3 PLANNED. Selected by the
+**State:** SR1, SR2a and SR2b DONE 2026-11-25; SR2c–d (ledge, crawler/momentum, exit assistance) and SR3 PLANNED. Selected by the
 maintainer on 2026-11-21. A body made
 small or large by a portal should keep its normal movement and action timing
 at that scale. This changes the earlier controls-only gravity policy.
@@ -190,6 +190,14 @@ half-span, so the conversion applied the scale twice. Witness:
 `a_one_way_crossing_band_is_the_bodys_own_at_every_scale` (kernel tests).
 Open gap: the fighter brain's shadow rollout keeps the canonical edge sliver
 because perception publishes no material scale.
+
+**SR2b delivered 2026-11-25 (ledge reach).** `LedgeReach::of` carries the
+reach band (up 28, down 30, across 10), the roll overshoot (36) and the
+auto-snap fall speed (45) at the body's scale. The probe, the getup arc and
+the fall snap take the body's reach; the abilities ledge query passes its
+body's. `LEDGE_LATCH_TOL` and `LEDGE_JOIN_TOL` match one geometric surface
+against another and stay geometry. Witness:
+`a_ledge_reach_is_the_bodys_own_at_every_scale` (ledge_grab tests).
 
 Do not multiply every epsilon. Gameplay slack, authored world geometry and
 floating-point uncertainty are different quantities. Numerical predicates

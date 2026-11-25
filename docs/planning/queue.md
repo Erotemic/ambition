@@ -3600,7 +3600,8 @@ is a refused frame the kernel will not step, and the navigation key carries
 the body's scale so the probe converts its controls as the runtime does.
 SR2a landed the same day: support, one-way crossing and edge-overlap bands
 are the body's own (`ContactBands::of`), and the balance fractions are no
-longer scaled twice. SR2b–d (ledge reach, crawler/momentum, exit
+longer scaled twice. SR2b: ledge reach, roll overshoot and fall-snap speed
+are the body's own (`LedgeReach::of`). SR2c–d (crawler/momentum, exit
 assistance) and SR3 are open.
 
 **Failure / customer:** canonical controls scale but ordinary body gravity

@@ -1730,3 +1730,27 @@ fn a_climber_standing_at_a_wall_climbs_it_with_up_held() {
     let (risen, _) = rise(no_climb, -1.0);
     assert!(risen.abs() < 1.0, "a body without `wall_climb` climbed ({risen:.1} px)");
 }
+
+/// M3 (portals-are-moving-frames.md): a body that does not move along an
+/// axis still meets a solid that sweeps across it in that tick. The wall
+/// starts left of the body and ends right of it, so at the endpoint nothing
+/// overlaps and repair alone saw nothing; the body was left behind.
+#[test]
+fn a_still_body_is_met_by_a_wall_that_sweeps_across_it_in_one_tick() {
+    let world = test_world();
+    let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
+    for _ in 0..30 { step_scratch(&world, &mut scratch, InputState::default()); }
+    assert!(scratch.ground.on_ground, "settled on the floor");
+    let body = scratch.kinematics.aabb();
+    let travel = (body.max.x - body.min.x) + 24.0;
+    let mut swept = world.clone();
+    let end_min_x = body.max.x + 4.0;
+    let mut wall = Block::solid("sweeping wall", Vec2::new(end_min_x, body.min.y - 20.0), Vec2::new(8.0, (body.max.y - body.min.y) + 10.0));
+    wall.velocity = Vec2::new(travel, 0.0);
+    assert!(wall.aabb.min.x - travel + (wall.aabb.max.x - wall.aabb.min.x) < body.min.x, "the wall starts left of the body");
+    swept.blocks.push(wall.clone());
+    step_scratch(&swept, &mut scratch, InputState::default());
+    let after = scratch.kinematics.aabb();
+    assert!(after.min.x >= wall.aabb.max.x - 0.5,
+        "the wall carries the body to its far side: body {:?}, wall {:?}", after, wall.aabb);
+}

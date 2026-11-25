@@ -1425,7 +1425,11 @@ impl MaterialCollider<'_> {
 
     /// The tick's displacement of the surface's material at a contact
     /// (`point` where the surface is at `time`): [`Self::displacement`], except
-    /// on a line whose shape changes, whose ends travel apart.
+    /// on a line whose shape changes, whose ends travel apart, and on a line
+    /// that turns, whose point at `point` also goes round its pivot (the
+    /// per-tick rate of [`Self::velocity_at`]'s law). Without the turn a bar
+    /// spinning about a still pivot read as still, and every contact it made
+    /// read as separating.
     pub fn displacement_at(self, point: Vec2, time: f64) -> Vec2 {
         match self {
             Self::Chain { chain, segment, .. } if chain.deforms() => {
@@ -1433,6 +1437,11 @@ impl MaterialCollider<'_> {
                 let edge = b - a;
                 let u = if edge.length_squared() > 0.0 { ((point.as_dvec2() - a).dot(edge) / edge.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
                 chain.travel_at(segment, u as f32)
+            }
+            Self::Chain { chain, .. } if chain.turn != 0.0 => {
+                let pivot = chain.pivot.as_dvec2() - chain.velocity.as_dvec2() * (1.0 - time.clamp(0.0, 1.0));
+                let r = point.as_dvec2() - pivot;
+                (chain.velocity.as_dvec2() + bevy_math::DVec2::new(-r.y, r.x) * f64::from(chain.turn)).as_vec2()
             }
             _ => self.displacement(),
         }

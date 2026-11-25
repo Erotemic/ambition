@@ -57,3 +57,11 @@ A later matched desktop pair with the retained patch took 35.4 s before
 and 33.5 s after. The median of the steady window medians went from
 65.0 ms to 60.6 ms. This is one desktop pair. The navigation build result
 does not establish steady Android frame time.
+
+The stationary route also reached the Hall in a windowed desktop development
+run with software rendering. It admitted 587 roots and stayed at the
+entrance. After loading, the frame medians were 983–1031 ms with the census
+enabled. The driver advanced 15 simulation ticks per rendered frame.
+Body integration took 29–31 ms per tick and feature view publication took
+5–6 ms per tick. Profile those costs separately from route preparation on
+the phone. The desktop run used an older asset bundle.

@@ -728,8 +728,13 @@ defaults (2026-11-25: its own graph lost the renderer, menus and LDtk, 626 →
 lane names `ambition_app_tools/game`, so no bin's tests are silently
 skipped. The plain tools graph is 247 crates against 939
 ([slice](engine/compiler-boundaries-and-build-products.md#cb4--select-command-dependencies-and-the-harnesss-actual-services)).
-Remaining: a harness-alone consumer and persistence's windowed Bevy. Try
-explicit optional feature families before adding packages.
+The first harness-alone consumer landed 2026-11-25
+(`fixtures/harness_alone`: it steps and observes a sim, and its own graph
+of 372 crates links no renderer, window or product shell).
+Persistence no longer asks Bevy for `bevy_window` (2026-11-25: the offline
+report's graph 188 → 144 crates). Remaining: the further command-family
+split (simulation versus capture). Try explicit optional feature families
+before adding packages.
 Do not move tool binaries back into app integration-test builds.
 
 **Acceptance:** an independent schema consumer excludes the checker; the

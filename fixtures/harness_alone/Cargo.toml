@@ -1,0 +1,28 @@
+# A consumer of the simulation harness alone (CB4), as an external package.
+#
+# The harness promises that a test, a fuzz driver or an RL agent runs a sim
+# without the product shell or a renderer. Inside the workspace every package
+# unifies its features with the app's, so no workspace target can show that.
+# This one resolves on its own, with its own `[workspace]` and lockfile, like
+# the other fixtures: what compiles here is what a third party gets.
+[package]
+name = "harness_alone"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+# The harness at its own selection: no `capture`, so no renderer.
+ambition_sim_harness = { path = "../../crates/ambition_sim_harness" }
+# The vocabulary the composition below names (a room set, a control frame),
+# at exactly the harness's own selection, so this adds no capability.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["rollback"] }
+bevy = { version = "0.19.1", default-features = false }
+
+# `[patch]` does not cross a workspace boundary, so this repeats the root's
+# `bevy_ggrs` pin (see `fixtures/external_consumer/Cargo.toml` for why the
+# facade's `rollback` feature needs it). Retire it with the root entry.
+[patch.crates-io]
+bevy_ggrs = { git = "https://github.com/gschup/bevy_ggrs", rev = "f1853823bfb888fcd9d468a136bb81fd6b9ed481" }

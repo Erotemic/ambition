@@ -4,6 +4,7 @@ import json
 import struct
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -96,6 +97,27 @@ def test_each_kind_reports_what_exists_what_is_missing_and_where_it_is_used(tmp_
     assert items["world:hub"]["details"]["rooms"][0]["music_track"] == "theme"
     assert items["music:theme"]["related"] == ["world:hub"]
     assert all(not row["notices"] for row in result["kinds"].values())
+
+
+@pytest.mark.parametrize("has_version", [False, True])
+def test_an_unpublished_music_player_uses_the_full_mix(tmp_path, monkeypatch, has_version):
+    pack = game(tmp_path)
+    previews = tmp_path / "tools/music_tool/generated/sketch/latest/preview"
+    previews.mkdir(parents=True)
+    (previews / "sketch_abc.audition_stem_cello.ogg").write_bytes(b"OggS stem")
+    mix = previews / "sketch_abc.full_soundtrack_preview.ogg"
+    mix.write_bytes(b"OggS mix")
+    if has_version:
+        version = SimpleNamespace(preview_path=mix, is_latest=True, preview_sha256="p1",
+                                  version_id="abc:p1", render_hash="abc")
+        monkeypatch.setattr(kinds, "_render_versions", lambda *_: {"sketch": [version]})
+        monkeypatch.setattr(kinds, "music_reviews_module",
+                            lambda *_: SimpleNamespace(ISSUE_TAGS=[], MIN_SCORE=1, MAX_SCORE=10))
+    out = tmp_path / "out"
+    catalog = kinds.collect(tmp_path, out, HashCache(out / "hashes.json"), pack=pack, log=lambda _m: None)
+    media = catalog["items"]["music:sketch"]["media"]
+    assert media["unpublished"]
+    assert (out / media["href"]).resolve() == mix
 
 
 def publish(library: Path, members: dict[str, bytes], roots: list[str]) -> None:

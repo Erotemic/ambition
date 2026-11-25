@@ -259,11 +259,15 @@ def _track(ctx, tid, display, logical: str, folder, scores: Path, tool: Path, *,
         adaptive = audio.parent / "adaptive"
         if adaptive.is_dir():
             item["details"]["sections"] = sorted(p.name for p in adaptive.iterdir() if p.is_dir())
-    # The music tool's newest render, which publishing copies into the game.
-    preview = next(iter(sorted((tool / "generated" / folder / "latest" / "preview").glob("*.ogg"))), None)
-    if preview and not audio.is_file():
-        item["media"] = {"type": "audio", "href": os.path.relpath(preview, out), "unpublished": True}
-        item["files"].append(_file(repo, out, preview))
+    preview = None
+    if not audio.is_file():
+        preview = next((version.preview_path for version in ctx["versions"].get(folder, []) if version.is_latest), None)
+        if preview is None:
+            previews = tool / "generated" / folder / "latest" / "preview"
+            preview = next(iter(sorted(previews.glob("*.full_soundtrack_preview.ogg"))), None)
+        if preview:
+            item["media"] = {"type": "audio", "href": os.path.relpath(preview, out), "unpublished": True}
+            item["files"].append(_file(repo, out, preview))
     if registered:
         item["state"] = "present" if audio.is_file() else "missing"
         if not audio.is_file():

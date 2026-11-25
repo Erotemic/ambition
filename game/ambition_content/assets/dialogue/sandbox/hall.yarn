@@ -1007,6 +1007,132 @@ GNU2: I sleep in a cell. The scholar calls. I come out.
     GNU2: I do not know.
 ===
 
+title: hall_practice_sandbag
+---
+Practice Bag: Go on. I can take it.
+-> Do you have anything to say?
+    Practice Bag: Something about the second hit. The first is nothing.
+-> Do you mind being hit?
+    Practice Bag: Not if it's for practice.
+===
+
+title: hall_barrow_king
+---
+The Barrow King: A king needs a throne. A stand will do, for now.
+-> What's under the stand?
+    The Barrow King: Treasure. They buried me with it. They kept adding to it.
+-> Do you want it back?
+    The Barrow King: No. I want the throne.
+===
+
+title: hall_npc_raid_brute
+---
+Raid Brute: Sheet say case. Brute take case.
+-> What does the sheet say?
+    Raid Brute: Brute not read sheet. Brute kick things that open.
+-> Was the bomb for the door?
+    Raid Brute: Door was open. Brute improvised.
+===
+
+title: hall_solid_snake
+---
+Solid Snake: The shell is load-bearing. Please stop.
+-> What's load-bearing?
+    Solid Snake: I am.
+-> Is the corridor real?
+    Solid Snake: I was told there would be a corridor.
+===
+
+title: hall_snake_plant
+---
+Snake Plant: I am a plant. Plants do not bite. Come closer.
+-> Do you bite?
+    Snake Plant: Not if you stand exactly where you are.
+-> Do you eat?
+    Snake Plant: Photosynthesis is slow. Lunch is faster.
+===
+
+title: hall_void_lizard
+---
+Void Lizard: I am what is left when the light goes out.
+-> Did you miss anything?
+    Void Lizard: Stars. I ate them.
+-> What's a bridge for?
+    Void Lizard: I drank tea on it. It held.
+===
+
+title: hall_smash_george_booul
+---
+George Booul: Either you are on the stage or you are not.
+-> Are you TRUE?
+    George Booul: I do not flip on purpose. You flip me by asking.
+-> How do you toggle?
+    George Booul: White is TRUE. Charcoal is FALSE. I flip the sheet.
+===
+
+title: hall_npc_clockwork_warden
+---
+Clockwork Warden: Tick. Tock. You are standing in my schedule.
+-> How do you know my schedule?
+    Clockwork Warden: I run the schedule in this hall.
+-> What time is it?
+    Clockwork Warden: Tick. Tock. You are late.
+===
+
+title: hall_npc_mode_collapse
+---
+Mode Collapse: I have one idea. I have it very many times.
+-> Does that bother you?
+    Mode Collapse: I would rather be consistent than correct.
+-> Do you get surprised?
+    Mode Collapse: Not in a way that matters.
+===
+
+title: hall_npc_overflow
+---
+Overflow: Bounds are a suggestion I have stopped taking.
+-> What happens when you run out?
+    Overflow: I go one more.
+-> Why is this place full?
+    Overflow: It isn't. I'm making it.
+===
+
+title: hall_npc_gram_reaper
+---
+Gram Reaper: Everything ends orthogonal. I just do the projecting.
+-> What ends?
+    Gram Reaper: Everything.
+-> Do you think about the guests?
+    Gram Reaper: They check in. I check them out.
+===
+
+title: hall_npc_marshal_gallus
+---
+Marshal Gallus: Shift starts at six. You're late, and that's a citation.
+-> Are you a chicken?
+    Marshal Gallus: A marshal with feathers.
+-> Are you the marshal of the train?
+    Marshal Gallus: I pack through gates. The train doesn't mind.
+===
+
+title: hall_npc_supreme_leader
+---
+The Supreme Leader: I planned this exhibit. I planned you reading it.
+-> What does that mean?
+    The Supreme Leader: I read ahead.
+-> Are you worried?
+    The Supreme Leader: The Gate Authority calls it a stalemate. I call it a schedule.
+===
+
+title: hall_npc_command_uplink
+---
+Command Uplink: ORDER RECEIVED. ORDER RELAYED. ORDER RECEIVED.
+-> What's the order?
+    Command Uplink: Nobody asks the uplink what it thinks.
+-> Is the order real?
+    Command Uplink: ORDER RECEIVED.
+===
+
 title: hall_npc_news_board
 ---
 News Board: BREAKING: LAB WALL COLLAPSES. OTHER WALLS REMAIN EMPLOYED.

@@ -86,6 +86,7 @@ pub enum Brain {
 pub struct NavigationRequest {
     pub method: ae::navigation::NavigationMethod,
     pub preferred_landing_margin: f32,
+    pub local_trip_min_px: Option<f32>,
     pub next_leg: Option<ae::Vec2>,
     pub destination_seed: Option<u64>,
     pub approach: ApproachDemand,
@@ -268,6 +269,7 @@ impl Brain {
                 Some(NavigationRequest {
                     method: cfg.navigation,
                     preferred_landing_margin: cfg.preferred_landing_margin,
+                    local_trip_min_px: cfg.local_trip_min_px,
                     next_leg: state.nav.needs_route(),
                     destination_seed: due.then_some(state.picks as u64),
                     approach: if due && (cfg.company > 0.0 || cfg.stay_within > 0.0) {

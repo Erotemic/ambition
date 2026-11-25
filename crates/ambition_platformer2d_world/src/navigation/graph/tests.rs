@@ -146,6 +146,10 @@ fn a_continuous_walk_skips_link_rollouts() {
     let goal = fixture.graph.standing_destination(walk.destination).unwrap();
     assert_eq!(standing.next(feet, goal), fixture.graph.next(feet, goal));
     assert_eq!(standing.ground.walk(feet, goal), Some(standing.next(feet, goal)));
+    let (stops, count) = standing.ground.local_trip(feet, 0, Some(80.0)).unwrap();
+    assert_eq!(count, 1);
+    assert!(stops[0].distance(feet) > 80.0);
+    assert!(standing.ground.walk(feet, stops[0]).is_some());
 
     let across = DirectWalk { destination: fixture.middle("ledge"), ..walk };
     assert!(!standing.can_answer_walk(across));

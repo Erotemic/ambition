@@ -140,10 +140,26 @@ impl GroundMap {
     }
 
     pub fn local_waypoints(&self, feet: Vec2, seed: u64) -> Option<([Vec2; NAV_WAYPOINTS], u8)> {
+        self.local_trip(feet, seed, None)
+    }
+
+    pub fn local_trip(&self, feet: Vec2, seed: u64, minimum: Option<f32>) -> Option<([Vec2; NAV_WAYPOINTS], u8)> {
         let surface = self.surface_at(feet)?;
         self.walk(feet, feet)?;
+        let mut destination = self.waypoint(surface, seed);
+        if let Some(minimum) = minimum.filter(|minimum| destination.distance(feet) <= *minimum) {
+            let span = &self.surfaces[surface];
+            let along = self.frame.along(feet);
+            let end = if along - span.left > span.right - along { span.left } else { span.right };
+            let distance = end - along;
+            if distance.abs() <= minimum {
+                return None;
+            }
+            let offset = (minimum + distance.abs()) * 0.5 * distance.signum();
+            destination = self.point_on(surface, along + offset);
+        }
         let mut points = [Vec2::ZERO; NAV_WAYPOINTS];
-        points[0] = self.waypoint(surface, seed);
+        points[0] = destination;
         Some((points, 1))
     }
 

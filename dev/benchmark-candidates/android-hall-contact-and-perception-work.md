@@ -95,3 +95,31 @@ at `cff0179a0d74`, had a median of 541.7 ms across nine frame windows
 included integration, 0.46% included perception collection, and 0.01%
 included navigation advice. No sample included a navigation rollout.
 Use a route with an active navigation request to measure route preparation.
+
+## Desktop navigation demand sweep
+
+The development `hall_bench` build at `bfb9e94fc` ran on CPUs 0–5.
+Each run warmed for 220 updates and measured 240 updates. The roaming
+runs used `AMBITION_ACTOR_BRAIN_OVERRIDE=ambition::townsfolk_roam`. Each
+cap admitted the stated number of roots. The times are medians of
+one-second windows from the headless rollback host.
+
+| Hall roots | Stock ms/tick | Local roaming ms/tick | Approximate roaming ms/tick | Approximate segment checks |
+| ---: | ---: | ---: | ---: | ---: |
+| 100 | 19.1 | 23.4 | 23.6 | 4,987,816 |
+| 250 | 33.3 | 53.3 | 52.3 | 12,414,362 |
+| 500 | 64.0 | 73.2 | 71.8 | 23,418,769 |
+
+Stock runs prepared zero navigation maps, measured zero motion envelopes,
+and prepared zero peer rows at the sample boundary. Local roaming built
+96, 241, and 458 standing maps. It built no traversal graphs or motion
+envelopes. Approximate roaming prepared 98, 243, and 464 graphs and ran
+zero room-specific rollouts. All of its segment checks occurred during
+warm-up. The 500-root run took 91.0 s through warm-up, compared with
+33.9 s for local roaming. Both times include harness and room startup.
+The stock Hall has fewer than 1,000 authored actors.
+
+An Xvfb desktop run entered the Hall with 100 roots and rendered its
+entrance at 1280 × 800. The two captures show the room and the arrival
+from the hub. Software rendering makes the render-time split unsuitable
+for comparison with the Android capture.

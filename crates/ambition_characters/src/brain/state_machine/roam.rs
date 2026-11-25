@@ -31,6 +31,8 @@ pub struct RoamCfg {
     pub look_interval_s: f32,
     /// The space the actor prefers between a landing and the support edge (px).
     pub preferred_landing_margin: f32,
+    /// Prefer a walk on this support when it has this much space (px).
+    pub local_trip_min_px: Option<f32>,
     /// The walk speed between take-offs (px/s). A run-up and a jump are at
     /// the body's top speed.
     pub speed: f32,
@@ -209,6 +211,7 @@ mod tests {
         navigation: NavigationMethod::SimulationBacked,
         look_interval_s: 0.0,
         preferred_landing_margin: 0.0,
+        local_trip_min_px: None,
         speed: 50.0,
         trot_speed: 100.0,
         rest_min_s: 1.0,

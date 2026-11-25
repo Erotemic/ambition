@@ -118,6 +118,7 @@ pub struct BuildCost {
     pub failed_steps: usize,
     pub candidate_pairs: usize,
     pub clearance_sweeps: usize,
+    pub clearance_queries: usize,
 }
 
 impl BuildCost {
@@ -128,6 +129,7 @@ impl BuildCost {
         self.failed_steps += other.failed_steps;
         self.candidate_pairs += other.candidate_pairs;
         self.clearance_sweeps += other.clearance_sweeps;
+        self.clearance_queries += other.clearance_queries;
     }
 }
 

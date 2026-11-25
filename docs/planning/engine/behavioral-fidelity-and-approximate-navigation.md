@@ -369,6 +369,11 @@ native follower. The hill-path test walks in both directions with zero
 envelope measurements and zero jump rollouts. The seat keeps its measured
 preparation path.
 
+**Local destinations.** The townsfolk preset asks for a walk of at least
+64 px on its current support. It asks the estimated planner for a wider
+choice when the support cannot offer that walk. The standing-map test
+checks that the local choice stays on the support and meets the distance.
+
 ## 7. Approximate traversal proposals
 
 ### 7.1 Use native measurements as a compact model
@@ -413,6 +418,8 @@ along the measured arc. Each launch sample has its own landing and travel
 cost. The test executes an estimated jump and walk-off in the native
 kernel. It also places a wall across the gap and checks that the planner
 withholds the route. Preparation runs zero room-specific rollouts.
+The planner queries the solid index once per trajectory and reuses the
+candidates for its runway and clearance segments.
 Running jumps and walk-offs on still blocks have coverage. Chains, moving
 blocks, water, and exits along an estimated trajectory cause a refusal.
 

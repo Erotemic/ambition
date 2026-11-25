@@ -393,6 +393,8 @@ pub fn advise_navigation(
         let mut waypoints = request.destination_seed.and_then(|seed| {
             if method == NavigationMethod::LocalGround {
                 map.local_waypoints(physical_feet, seed)
+            } else if request.local_trip_min_px.is_some() {
+                map.local_trip(physical_feet, seed, request.local_trip_min_px)
             } else {
                 map.only_support_waypoints(physical_feet, seed)
             }

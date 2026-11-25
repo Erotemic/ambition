@@ -3673,7 +3673,7 @@ path. A gravity-only repair does not close the whole packet.
 
 ### PRESENTATION-COMPOSITION — order appearances and add a 2.5D view
 
-**State:** PLANNED, maintainer-selected 2026-11-21; source `f41218979625`.
+**State:** IN PROGRESS: PO1 landed 2026-11-25; PO2 and RV1-RV3 planned. Maintainer-selected 2026-11-21; source `f41218979625`.
 
 **Failure / customer:** Scout must appear behind the cart panel inside and
 in front outside. Current seating writes root z 14.45 behind panel 14.5,
@@ -3685,9 +3685,13 @@ These are source deductions; no new image or device measurement was made.
 **Owner:** [presentation order and optional 2.5D rendering](engine/presentation-order-and-25d-rendering.md).
 PVS-2 retains visual sampling; portal P5/P6 retains projection/capture.
 
-**Next action:** PO1 gives the cart an ordered interior slot and places the
-whole body appearance, held art and applicable effects through one exact
-owner/room relation. Resolve placement before drawable writers. PO2 extends
+**Progress (2026-11-25):** PO1 landed: the cart's seats sit a whole body
+depth band under its near side, scheduled before the drawable writers, and
+an actor is matched in its own room; captures show the seated flash behind
+the rails (the old depth drew it over them). What PO1 left is listed on the
+owner page.
+
+**Next action:** PO2 extends
 that authority to common consumers and removes numeric-z classification as
 those consumers migrate. RV1 extracts a complete shared sample before sprite
 materialization and isolates each view's camera. RV2 draws one orthographic

@@ -404,6 +404,8 @@ pub struct StrikeVictim {
     pub ground: Option<&'static ae::BodyGroundState>,
     pub posture: Option<&'static ae::movement::BodyMotionFacts>,
     pub motion: Option<&'static ae::SweepSample>,
+    /// Its travel up to a portal crossing this tick, if it crossed one.
+    pub crossed: Option<&'static ae::CrossedTravel>,
     pub health: Option<&'static ambition_characters::actor::BodyHealth>,
     /// The world's hands are off this body — see [`crate::death_rules::OutOfPlay`].
     ///
@@ -538,7 +540,7 @@ impl StrikeVictimItem<'_, '_> {
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     ) -> Result<Option<super::components::BodySweepContact>, ae::frame::thread::Refusal> {
         resolve_hurt_material(self.volumes, self.kinematics, self.aabb)
-            .swept_body_contact(self.entity, self.kinematics, self.motion, geometry, room, cells)
+            .swept_body_contact(self.entity, self.kinematics, self.motion, self.crossed, geometry, room, cells)
     }
 
     /// The "away" axis in the VICTIM's local frame (§B11).

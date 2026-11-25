@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v546
+ggrs-rollback-schema-v547
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -506,6 +506,7 @@ player.blink_camera_state	component-clone	PlayerBlinkCameraState	bevy_ggrs clone
 player.projectile_state	component-canonical	PlayerProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 player.safety_state	component-canonical	PlayerSafetyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 portal.backside	component-clone	PortalBackside	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+portal.crossed_travel	derived	CrossedTravel	the tick's travel up to a root crossing, cleared and rewritten by every tick's transit before any contact reads it
 portal.emission	component-clone	PortalEmission	bevy_ggrs clone snapshot; not in the session checksum
 portal.generator	component-clone	PortalGenerator	bevy_ggrs clone snapshot; not in the session checksum
 portal.held_pairs	component-clone-cursor	HeldPortalPairs	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection

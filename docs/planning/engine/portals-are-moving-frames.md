@@ -131,6 +131,20 @@ both crossings. One final map through A produces x=170. Canonical cells
 can describe both cuts; generic root state and its collapsed record cannot.
 Use a budget admitting two crossings when witnessing this case.
 
+**Landed (2026-11-25): contact reads the travel before the crossing.**
+Generic transit records the tick's travel up to the root crossing
+(`ae::CrossedTravel`: the body's sample cut at the crossing point and
+world time, in the chart it left). `clear_crossed_travel` runs before
+transit every tick, so no reader sees an older tick's, and the record is
+declared rollback-derived (`portal.crossed_travel`). `swept_body_contact`
+queries that prefix over `[t0, tau]` and the arrival record only over
+`[tau, 1]`. Probe (deleted): a shot where the body was before it crossed now
+hits (t 0.15, was a miss); a shot at the exit before the crossing no longer
+hits (was a hit at t 0); a later one at the exit hits from t 0.5. The
+strike-victim road (projectiles) passes the record; the boss feature road,
+held items and the pose-held/kernel-collapsed `reconcile_transit` seed are
+unchanged, and the next-step seed still restarts at the arrival.
+
 ### Refusal recovery can be overridden by later crossing discovery
 
 `platformer2d_core/src/movement/kernel.rs:182–198` retries a refused motion

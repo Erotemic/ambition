@@ -50,6 +50,11 @@ where
         "resource.portal_frames_in_rooms",
     );
     registrar.rollback_component_clone::<crate::PortalTransit>(OWNER, "portal.transit");
+    registrar.declare_rollback_derived_component::<ambition_platformer2d_core::CrossedTravel>(
+        OWNER,
+        "portal.crossed_travel",
+        "the tick's travel up to a root crossing, cleared and rewritten by every tick's transit before any contact reads it",
+    );
     // Whether a body is on the back of a pair decides whether the pair may
     // take it, so a rewind restores it with the body.
     registrar.rollback_component_clone_probed::<crate::PortalBackside>(OWNER, "portal.backside", |back| {

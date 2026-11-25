@@ -626,7 +626,8 @@ fact ports, 2026-11-22), and `run_phase` buckets its queue by trigger once.
 Dispatch spans and entry lookup are prepared at admission (2026-11-24:
 `Admitted::dispatch`, read by `run_phase` and the inbox). Call completion,
 retirement and publication batches share one occurrence view each
-(2026-11-24). Next, derive active journal work. Navigation's cost-state
+(2026-11-24). Active journal work is derived (2026-11-24: orphans retire
+only on an owner cut, and the collectors visit only active lanes). Navigation's cost-state
 reduction is fixed (2026-11-22: route searches arrivals and charges the final
 walk), and the advisor measures a body's motion once across rooms
 (`NavMotion`, 2026-11-22). The graph cache pins the graphs demanded each
@@ -676,7 +677,9 @@ contact consumers (K1, `ambition_geometry::spatial::RangeGrid`), and the
 occurrence/binding ambiguity reduction is shared (K2,
 `ambition_binding::cardinality`), both 2026-11-22. Next is K3: compare
 direct scans with indexed implementations before selecting target/workload
-policies. Preserve all domain lifetime and acceptance rules.
+policies. Preserve all domain lifetime and acceptance rules. (K3 measured
+2026-11-24: a per-tick contact grid pays only above 256 pieces, and a call
+batch indexes its bindings only from 16 calls; both select the scan below.)
 
 **Acceptance:** ordinary operations select the cheapest supported local case;
 adding unrelated portals, installed entries or dormant receivers does not add

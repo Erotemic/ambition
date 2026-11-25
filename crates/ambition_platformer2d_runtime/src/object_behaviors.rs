@@ -337,11 +337,22 @@ fn attach(world: &mut World) {
     }
 }
 
+/// The batch size from which indexing the bindings beats scanning them (K3).
+const CALLS_WORTH_AN_INDEX: usize = 16;
+
 fn call(world: &mut World) {
     let requests = world.resource_mut::<ExtensionOutbox>().drain::<CallObjectPort>(&ACTOR_THINK);
+    if requests.is_empty() { return; }
+    // The bindings as of this batch. Measured (K3): a scan of the captured
+    // rows is cheaper than indexing them until a batch has about 16 calls.
     let mut query = world.query::<(Entity, &ObjectScopeOwner, &BehaviorInstance)>();
-    let bindings = ambition_binding::cardinality::FrozenLookup::from_rows(
-        query.iter(world).map(|(entity, owner, instance)| ((owner.0, instance.key.clone()), entity)));
+    let rows: Vec<_> = query.iter(world).map(|(entity, owner, instance)| ((owner.0, instance.key.clone()), entity)).collect();
+    let indexed = (requests.len() >= CALLS_WORTH_AN_INDEX)
+        .then(|| ambition_binding::cardinality::FrozenLookup::from_rows(rows.iter().cloned()));
+    let binding_of = |key: &(ObjectRef, String)| match &indexed {
+        Some(index) => index.get(key).map(|entity| *entity),
+        None => ambition_binding::cardinality::scan(rows.iter().map(|(key, entity)| (key, *entity)), &key),
+    };
     for submitted in requests {
         let request = submitted.value;
         let dispatch = action_results::begin_action_request::<CallObjectPort>(world, submitted.state_scope, &submitted.entry, &request);
@@ -352,7 +363,7 @@ fn call(world: &mut World) {
             let caller = object_reference(world, submitted.scope).ok_or("caller_without_identity")?;
             let limits = limits(world, entity);
             let data = checked_data(&request.data, limits.max_data_bytes).ok_or("call_data_bound")?;
-            let state = *bindings.get(&(request.target, request.binding.clone())).unique()
+            let state = binding_of(&(request.target, request.binding.clone())).unique()
                 .ok_or("behavior_not_bound")?;
             let instance = world.get::<BehaviorInstance>(state).unwrap();
             let method = instance.methods.iter().find(|method| method.name == request.method).ok_or("method_not_bound")?;

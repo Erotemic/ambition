@@ -323,6 +323,38 @@ demand. This plan adds no policy/source checker or test framework.
    layout, SIMD kernel or alternate key index follows only a workload that
    justifies it. This is an extension point, not a commitment to implement all.
 
+   **K3 measured (2026-11-24, this VM, release build, uniform boxes in a
+   3000x2000 room, 16-200 px; regions 48x64).** Each cell is the full cost:
+   build plus every query plus the exact `touches` filter, against the direct
+   scan.
+
+   | Range, n boxes x q queries | build+query | grid query only | scan |
+   | --- | --- | --- | --- |
+   | 16 x 16 | 9.0 µs | 0.83 µs | 0.34 µs |
+   | 64 x 16 | 24.5 µs | 1.1 µs | 1.0 µs |
+   | 64 x 256 | 55 µs | 21 µs | 23 µs |
+   | 256 x 256 | 141 µs | 36 µs | 151 µs |
+   | 1024 x 256 | 456 µs | 109 µs | 809 µs |
+   | 4096 x 1024 | 2.55 ms | 1.34 ms | 13.0 ms |
+
+   A grid built for one use pays only near n·q ≈ 65k; a kept grid's queries
+   pay from about 64 boxes. `FrozenLookup` against `scan`, built per batch of
+   string-keyed rows: the index costs 14-68x the scan for one lookup, about
+   2x at 16 lookups, and wins from about 64 lookups on 16+ rows.
+
+   Selected:
+   - contact partitions are rebuilt every tick and asked once per
+     recipient, and their recipients are their own samples (q ≈ n), so they
+     build the grid only above 256 pieces (`PIECES_WORTH_A_GRID`);
+   - the behaviour call batch no longer indexes the bindings on a tick with
+     no calls, and scans the captured rows below 16 calls
+     (`CALLS_WORTH_AN_INDEX`);
+   - `Layered` keeps its lazily kept grid: it is the query-only regime, and
+     room geometry is usually past the 64-box crossover.
+
+   The probes were temporary and are not in the tree; these numbers are the
+   record.
+
 Graph search remains with navigation until its arrival-state cost model is
 correct. Active mailbox/deadline structures remain with E3 until freeze,
 active-time and wake semantics are fixed. Standard collections stay appropriate

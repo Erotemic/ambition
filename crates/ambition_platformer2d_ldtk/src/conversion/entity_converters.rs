@@ -142,6 +142,12 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
         path.points = offset_points(path.points, offset);
         path
     });
+    // The same preparation every path consumer runs, here where the source is
+    // known: a path no mover could travel is refused with its field.
+    if let Some(path) = &inline_motion {
+        ambition_platformer2d_core::PreparedPath::prepare(path)
+            .map_err(|fault| format!("hazard `{name}` field `path_points`/`path_speed`: {fault}"))?;
+    }
     // Hazards go through the `placements` channel. `HazardSpec` carries only
     // `path_id`, so an inline motion path is lifted to a room-level
     // `KinematicPath` keyed `{iid}__inline_motion` and referenced by `path_id`.
@@ -447,6 +453,8 @@ pub(super) fn convert_kinematic_path(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmis
             .unwrap_or(0.0)
             .max(0.0),
     };
+    ambition_platformer2d_core::PreparedPath::prepare(&path)
+        .map_err(|fault| format!("KinematicPath `{name}` fields `points`/`speed`/`start_offset_seconds`: {fault}"))?;
     Ok(RoomEmission::kinematic_path(KinematicPathSpec::new(
         kinematic_path_lookup_id(entity, &name),
         name,

@@ -924,8 +924,9 @@ mod moving_platform_snapshot_tests {
             "patrol_b",
             "Patrol B",
             ae::Vec2::new(16.0, 16.0),
-            ae::KinematicPath::line(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(100.0, 0.0), 40.0),
-        );
+            &ae::KinematicPath::line(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(100.0, 0.0), 40.0),
+        )
+        .unwrap();
         MovingPlatformSet(vec![sweep, path])
     }
 

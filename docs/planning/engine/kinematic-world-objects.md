@@ -255,6 +255,49 @@ implementation of the path law. No compile, binary-size or frame-time
 saving was measured. `ambition_body_seed` has other combat dependencies;
 moving this type does not by itself remove that dependency closure.
 
+### Landed (2026-11-25)
+
+`PreparedPath` in [core](../../../crates/ambition_platformer2d_core/src/kinematic_path.rs)
+is the one path law. `prepare` checks that the points, speed and offset are
+finite, that the speed is positive and the offset is not negative, and that
+the total length is positive. It drops each point that repeats the one
+before it, and for `Loop` a last point that repeats the first. It records
+the cumulative distance, including `Loop`'s closing leg.
+
+The continuation is a `PathPhase`: distance within one cycle, and a
+ping-pong's way back is part of the cycle. The phase API:
+
+- `seed` places a new mover at its authored offset.
+- `propose` returns a `PathInterval` without moving anything.
+- `at` cuts that interval with its own mapping, and `end` takes its endpoint.
+- `position` finds the leg by binary search.
+
+One remainder reduces a step of any number of laps. The two old evaluators,
+`PathMotion::advance` with its cursor arithmetic and the platform's
+`advance_path_position` family, are deleted.
+
+How each consumer uses it:
+
+- **Hazards.** `HazardRuntime::new` refuses a path it cannot prepare. A
+  moving hazard's pose is its seed, so the inline and named roads agree.
+- **Platforms.** `MovingPlatformMotion::Path` holds the prepared path and
+  its phase. `from_path` refuses with the platform and path named. Wrapping
+  loops are untouched.
+- **Actor routes.** These keep the phase (PATH2 still owns consuming them).
+
+The LDtk `KinematicPath` converter and inline hazard paths are prepared at
+conversion, so a fault names its entity and fields. Rollback schema 541
+encodes the actor route's phase.
+
+Witnesses:
+
+- `prepared_path_tests` cover degenerate input, coincident waypoints, the
+  closing leg, reversal, a nonzero seed offset, a step across 2500 laps
+  against small steps, and a cut.
+- `a_shipped_moving_hazard_starts_at_its_seed_and_travels_its_prepared_path`
+  (app_it, under sync-test rollback) covers the real LDtk-to-hazard
+  publication in `basement_hazards`.
+
 ## PATH2 — Let an authored route produce ordinary intent
 
 [`convert_enemy_spawn`](../../../crates/ambition_platformer2d_ldtk/src/conversion/entity_converters.rs)

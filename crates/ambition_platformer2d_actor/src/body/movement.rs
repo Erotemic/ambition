@@ -420,7 +420,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         }
 
         if let Some(motion) = &mut self.motion.0 {
-            let _ = motion.advance(self.kin.pos, dt);
+            let _ = motion.step(dt);
         }
         events
     }

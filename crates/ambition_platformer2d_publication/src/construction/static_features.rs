@@ -134,13 +134,22 @@ pub(crate) fn spawn_hazard_into(
     >,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
 ) {
-    let hazard = HazardRuntime::new_with_paths(
+    // Content preparation (the LDtk converters) already refused an
+    // unpreparable path with its source; a native room that reaches here
+    // with one has its hazard refused, never frozen in place.
+    let hazard = match HazardRuntime::new_with_paths(
         authored.id.clone(),
         authored.name.clone(),
         authored.aabb,
         damage_volume_from_authored(authored),
         paths,
-    );
+    ) {
+        Ok(hazard) => hazard,
+        Err(fault) => {
+            bevy::log::error!("hazard `{}` was refused: its motion path cannot be prepared ({fault})", authored.id);
+            return;
+        }
+    };
     scope.insert_room_in_session((
             Name::new(format!("Feature hazard: {}", authored.name)),
             FeatureSimEntity,

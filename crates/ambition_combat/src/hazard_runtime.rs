@@ -24,21 +24,25 @@ pub struct HazardRuntime {
 }
 
 impl HazardRuntime {
+    /// A hazard at `aabb`. A hazard with a motion path is placed at the
+    /// path's seed, not at `aabb`'s center: a prescribed mover's pose and
+    /// phase start together. A path that cannot be prepared refuses the hazard.
     pub fn new(
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
         volume: crate::DamageVolume,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, ambition_platformer2d_core::PathFault> {
+        let motion = volume.motion.as_ref().map(PathMotion::new).transpose()?;
+        Ok(Self {
             id: id.into(),
             name: name.into(),
-            pos: aabb.center(),
+            pos: motion.as_ref().map_or(aabb.center(), PathMotion::position),
             size: aabb.half_size() * 2.0,
-            motion: volume.motion.clone().map(PathMotion::new),
+            motion,
             volume,
             mode: HitMode::Knockback,
-        }
+        })
     }
 
     pub fn new_with_paths(
@@ -47,23 +51,19 @@ impl HazardRuntime {
         aabb: ae::Aabb,
         mut volume: crate::DamageVolume,
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
-    ) -> Self {
+    ) -> Result<Self, ambition_platformer2d_core::PathFault> {
         if let Some(path_id) = volume.path_id.as_deref() {
             if let Some(path) = ambition_platformer2d_core::resolve_kinematic_path(paths, path_id) {
                 volume.motion = Some(path.clone());
             }
         }
 
-        let mut hazard = Self::new(id, name, aabb, volume);
-        if let Some(start_pos) = hazard.motion.as_ref().and_then(PathMotion::start_pos) {
-            hazard.pos = start_pos;
-        }
-        hazard
+        Self::new(id, name, aabb, volume)
     }
 
     pub fn update(&mut self, dt: f32) {
         if let Some(motion) = &mut self.motion {
-            self.pos = motion.advance(self.pos, dt);
+            self.pos = motion.step(dt);
         }
     }
 

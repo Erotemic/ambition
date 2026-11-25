@@ -40,7 +40,7 @@ fn spawn_player(app: &mut App, pos: ae::Vec2) {
 
 fn spawn_hazard(app: &mut App, id: &str, pos: ae::Vec2) {
     let aabb = ae::Aabb::new(pos, ae::Vec2::new(16.0, 16.0));
-    let hazard = HazardRuntime::new(id, id, aabb, crate::DamageVolume::new(id, aabb, 1));
+    let hazard = HazardRuntime::new(id, id, aabb, crate::DamageVolume::new(id, aabb, 1)).unwrap();
     app.world_mut().spawn((
         FeatureSimEntity,
         FeatureName::new(id),

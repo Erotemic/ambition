@@ -413,3 +413,4 @@ mod scripted_libraries;
 mod scripted_actor_creation;
 mod scripted_breakable_creation;
 mod scripted_mechanism;
+mod authored_paths;

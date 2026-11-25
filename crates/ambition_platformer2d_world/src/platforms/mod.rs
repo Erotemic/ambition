@@ -367,12 +367,8 @@ impl MovingPlatformSpec {
                         self.name, path_id, known
                     ));
                 };
-                Ok(MovingPlatformState::from_path(
-                    self.id,
-                    self.name,
-                    self.size,
-                    path_spec.path.clone(),
-                ))
+                MovingPlatformState::from_path(self.id, self.name.clone(), self.size, &path_spec.path)
+                    .map_err(|fault| format!("MovingPlatform '{}' path '{}': {fault}", self.name, path_id))
             }
             MovingPlatformMotionSpec::VerticalLoop {
                 dy,
@@ -463,10 +459,10 @@ enum MovingPlatformMotion {
         speed: f32,
         dir: f32,
     },
+    /// A prescribed mover on a prepared path; its phase is the continuation.
     Path {
-        path: ambition_platformer2d_core::KinematicPath,
-        segment: usize,
-        dir: i32,
+        path: ambition_platformer2d_core::PreparedPath,
+        phase: ambition_platformer2d_core::PathPhase,
     },
     /// A one-way vertical loop — the paternoster / "infinite elevator".
     ///
@@ -620,28 +616,27 @@ impl MovingPlatformState {
         }
     }
 
+    /// A platform on `path`, placed at its seed (pose and phase start
+    /// together). A path that cannot be prepared refuses the platform.
     pub fn from_path(
         id: impl Into<String>,
         name: impl Into<String>,
         size: ae::Vec2,
-        path: ambition_platformer2d_core::KinematicPath,
-    ) -> Self {
-        let pos = path.points.first().copied().unwrap_or(ae::Vec2::ZERO);
-        Self {
+        path: &ambition_platformer2d_core::KinematicPath,
+    ) -> Result<Self, ambition_platformer2d_core::PathFault> {
+        let path = ambition_platformer2d_core::PreparedPath::prepare(path)?;
+        let phase = path.seed();
+        Ok(Self {
             id: id.into(),
             name: name.into(),
-            pos,
+            pos: path.position(phase),
             size,
-            motion: MovingPlatformMotion::Path {
-                path,
-                segment: 0,
-                dir: 1,
-            },
+            motion: MovingPlatformMotion::Path { path, phase },
             last_delta: ae::Vec2::ZERO,
             visual: None,
             one_way: false,
             plank: None,
-        }
+        })
     }
 
     /// A wrapping horizontal loop between `min_x` and `max_x` that bobs `bob`
@@ -855,7 +850,8 @@ impl MovingPlatformState {
             MovingPlatformMotion::Sweep { min_x, max_x, speed, .. }
             | MovingPlatformMotion::SideLoop { min_x, max_x, speed, .. } => max_x > min_x && *speed != 0.0,
             MovingPlatformMotion::Loop { min_y, max_y, speed, .. } => max_y > min_y && *speed != 0.0,
-            MovingPlatformMotion::Path { path, .. } => path.speed != 0.0 && path.points.windows(2).any(|pair| pair[0] != pair[1]),
+            // A prepared path has positive length and speed.
+            MovingPlatformMotion::Path { .. } => true,
             MovingPlatformMotion::Lift { stage, .. } => !matches!(stage, LiftStage::Resting | LiftStage::Parked),
             MovingPlatformMotion::Ferry { .. } => true,
         };
@@ -888,8 +884,13 @@ impl MovingPlatformState {
                     *dir = 1.0;
                 }
             }
-            MovingPlatformMotion::Path { path, segment, dir } => {
-                self.pos = advance_path_position(path, segment, dir, self.pos, dt);
+            MovingPlatformMotion::Path { path, phase } => {
+                // A prescribed platform accepts its whole proposal here; its
+                // phase and pose commit together.
+                if let Some(interval) = path.propose(*phase, dt) {
+                    *phase = interval.end(path);
+                    self.pos = path.position(*phase);
+                }
             }
             MovingPlatformMotion::Loop {
                 min_y,
@@ -1041,7 +1042,7 @@ impl MovingPlatformState {
     pub fn direction(&self) -> f32 {
         match &self.motion {
             MovingPlatformMotion::Sweep { dir, .. } => *dir,
-            MovingPlatformMotion::Path { dir, .. } => *dir as f32,
+            MovingPlatformMotion::Path { path, phase } => path.direction(*phase) as f32,
             MovingPlatformMotion::Loop { dir, .. } => *dir,
             MovingPlatformMotion::SideLoop { dir, .. } => *dir,
             MovingPlatformMotion::Lift { stage, .. } => {
@@ -1142,122 +1143,6 @@ fn support_contact_matches(body: ae::Aabb, support: ae::Aabb, gravity_dir: ae::V
     let body_feet = body_down + projected_half(body.half_size(), frame.down);
     let support_head = support_down - projected_half(support.half_size(), frame.down);
     (body_feet - support_head).abs() <= 6.0
-}
-
-fn advance_path_position(
-    path: &ambition_platformer2d_core::KinematicPath,
-    segment: &mut usize,
-    dir: &mut i32,
-    mut pos: ae::Vec2,
-    dt: f32,
-) -> ae::Vec2 {
-    if !path.is_valid() || dt <= 0.0 {
-        return pos;
-    }
-    let mut remaining = path.speed * dt;
-    while remaining > 0.0 {
-        let target_index = path_target_index(path, *segment, *dir);
-        let Some(target) = path.points.get(target_index).copied() else {
-            break;
-        };
-        let to_target = target - pos;
-        let distance = to_target.length();
-        if distance <= 0.001 {
-            // This branch consumes no `remaining`; if advancing leaves the cursor
-            // unchanged, stop rather than spinning forever on a zero-distance
-            // target.
-            let before = (*segment, *dir);
-            advance_path_segment(path, segment, dir);
-            if (*segment, *dir) == before {
-                break;
-            }
-            continue;
-        }
-        let step = remaining.min(distance);
-        pos += to_target / distance * step;
-        remaining -= step;
-        if step >= distance - 0.001 {
-            advance_path_segment(path, segment, dir);
-        }
-    }
-    pos
-}
-
-/// The waypoint a cursor is heading for.
-///
-/// `Loop` closes the circuit: a path of `n` points has `n` segments, including
-/// the closing leg `p[n-1] → p[0]`.
-///
-/// Reverse (`dir < 0`) is not wrapped: under `Loop` nothing sets a backwards
-/// direction (only `PingPong` flips `dir`).
-fn path_target_index(
-    path: &ambition_platformer2d_core::KinematicPath,
-    segment: usize,
-    dir: i32,
-) -> usize {
-    if dir >= 0 {
-        let next = segment + 1;
-        if matches!(
-            path.mode,
-            ambition_platformer2d_core::KinematicPathMode::Loop
-        ) {
-            return next % path.points.len().max(1);
-        }
-        next
-    } else {
-        segment
-    }
-}
-
-/// The highest segment index this mode may occupy.
-///
-/// `Loop` has one more than the others: the closing leg back to the first point.
-fn path_last_segment(path: &ambition_platformer2d_core::KinematicPath) -> usize {
-    match path.mode {
-        ambition_platformer2d_core::KinematicPathMode::Loop => path.points.len().saturating_sub(1),
-        _ => path.points.len().saturating_sub(2),
-    }
-}
-
-fn advance_path_segment(
-    path: &ambition_platformer2d_core::KinematicPath,
-    segment: &mut usize,
-    dir: &mut i32,
-) {
-    let last_segment = path_last_segment(path);
-    match path.mode {
-        ambition_platformer2d_core::KinematicPathMode::Once => {
-            if *dir >= 0 && *segment < last_segment {
-                *segment += 1;
-            }
-        }
-        ambition_platformer2d_core::KinematicPathMode::Loop => {
-            if *dir >= 0 {
-                *segment = if *segment >= last_segment {
-                    0
-                } else {
-                    *segment + 1
-                };
-            } else if *segment == 0 {
-                *segment = last_segment;
-            } else {
-                *segment -= 1;
-            }
-        }
-        ambition_platformer2d_core::KinematicPathMode::PingPong => {
-            if *dir >= 0 {
-                if *segment >= last_segment {
-                    *dir = -1;
-                } else {
-                    *segment += 1;
-                }
-            } else if *segment == 0 {
-                *dir = 1;
-            } else {
-                *segment -= 1;
-            }
-        }
-    }
 }
 
 /// Return the active room's LDtk-authored moving platforms.

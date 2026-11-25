@@ -48,6 +48,15 @@ pub use physical_baseline::{
 #[derive(Component, Clone, Debug, Default)]
 pub struct ActorMotionPath(pub Option<PathMotion>);
 
+/// An actor's route, prepared. Content preparation already refused an
+/// unpreparable path with its source; a native one that reaches here is
+/// reported and attaches no route.
+fn prepared_route(path: &ambition_platformer2d_core::KinematicPath, path_id: &str) -> Option<PathMotion> {
+    PathMotion::new(path)
+        .map_err(|fault| bevy::log::error!("route `{path_id}` cannot be prepared ({fault}); no route attached"))
+        .ok()
+}
+
 /// Seed-side construction helper for an actor's 18 ancillary movement
 /// clusters (ground/wall/jump/dash/flight/blink/ledge/dodge/shield/…) —
 /// everything in the player cluster set EXCEPT [`BodyKinematics`] (the actor's
@@ -311,7 +320,7 @@ impl ActorClusterSeed {
                 patrol_path_id: Some(path_id),
                 ..
             } => ambition_platformer2d_core::resolve_kinematic_path(paths, path_id)
-                .map(|path| PathMotion::new(path.clone())),
+                .and_then(|path| prepared_route(path, path_id)),
             _ => None,
         };
         let character_id = match &interactable.kind {
@@ -349,7 +358,7 @@ impl ActorClusterSeed {
         let posed = geometry.posed;
         let pos = motion
             .as_ref()
-            .and_then(PathMotion::start_pos)
+            .map(PathMotion::position)
             .unwrap_or_else(|| actor_spawn_center_for_collision(aabb, collision_size));
         // Body capability comes from authored character data when available;
         // patrol/chase speed remains controller policy. A possessed NPC can use
@@ -448,7 +457,7 @@ impl ActorClusterSeed {
             seed.config.tuning.is_hostile = false;
             // The patrol PATH is authored on the interactable, and a body that
             // starts on one starts at its first waypoint.
-            if let Some(start) = motion.as_ref().and_then(PathMotion::start_pos) {
+            if let Some(start) = motion.as_ref().map(PathMotion::position) {
                 seed.place_at(start);
             }
             seed.motion = ActorMotionPath(motion);
@@ -719,7 +728,7 @@ impl ActorClusterSeed {
                     path_id: Some(path_id),
                 } if !practice_target => {
                     ambition_platformer2d_core::resolve_kinematic_path(paths, path_id)
-                        .map(|path| PathMotion::new(path.clone()))
+                        .and_then(|path| prepared_route(path, path_id))
                 }
                 _ => None,
             }),

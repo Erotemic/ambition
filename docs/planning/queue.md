@@ -1006,7 +1006,11 @@ The existing visual play gate remains separate.
 
 ### AUTHORED-PATHS — share geometry and retain movement authority
 
-**State:** PLANNED, static source review at `00bf92c22142`, 2026-11-22.
+**State:** IN PROGRESS. PATH1 landed 2026-11-25: core's `PreparedPath` is the
+one path law (prepared geometry, a seeded phase, interval proposal and
+cut), hazards and platforms use it, and both old evaluators are deleted
+([landed](engine/kinematic-world-objects.md#landed-2026-11-25)). PATH2 is open.
+Planned from a static source review at `00bf92c22142`, 2026-11-22.
 
 **Failure / customer:** combat and world duplicate waypoint evaluation.
 Both admit a coincident-point cycle that consumes no distance and never

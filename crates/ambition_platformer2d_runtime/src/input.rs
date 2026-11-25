@@ -620,6 +620,7 @@ pub fn populate_seat_control_frames(
     // ; an experience that wants the modal beat sets it.
     dialogue_policy: Option<Res<DialogueStopsTheWorld>>,
     active_context: Res<SeatInputContexts>,
+    menu_frames: Option<Res<ambition_input::SeatMenuFrames>>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     // Which pad each seat is holding, so its FILTERING is that pad's. Optional
     // for the same reason every device resource here is: a headless fixture
@@ -661,7 +662,9 @@ pub fn populate_seat_control_frames(
         .stops_the_world(dialogue_policy.map(|p| *p).unwrap_or_default())
         && observing;
     for (participant, actions, mut history, rebound, map) in &mut seats {
-        let gameplay = world_running && active_context.gameplay_owned(participant.id.slot());
+        let menu = menu_frames.as_deref().map(|frames| frames.for_seat(participant.id.slot()));
+        let opens_menu = menu.is_some_and(|frame| frame.start || frame.inventory || frame.map);
+        let gameplay = world_running && active_context.gameplay_owned(participant.id.slot()) && !opens_menu;
         if rebound {
             history.modifier = PadModifierLatch {
                 resync: true,
@@ -714,6 +717,12 @@ pub fn populate_seat_control_frames(
             history.observe(actions, filters, observing && !rebound);
             // Each seat retains its menu controls while gameplay input is captured.
             let mut paused_frame = read_menu_control_frame(actions);
+            if let Some(menu) = menu {
+                paused_frame.start_pressed = menu.start;
+                let cutscene = active_context.for_seat(participant.id.slot()).allows(CUTSCENE_CONTEXT);
+                paused_frame.confirm_pressed = cutscene && menu.select;
+                paused_frame.cancel_held = cutscene && menu.back_held;
+            }
             paused_frame.control_frame_modes = modes;
             paused_frame.party_preference = preference;
             // The supply is interrupted (IN5): a continuation that needs it
@@ -728,6 +737,11 @@ pub fn populate_seat_control_frames(
             continue;
         }
         let mut next_frame = history.read(actions, filters, !rebound);
+        if let Some(menu) = menu {
+            next_frame.start_pressed = menu.start;
+            next_frame.confirm_pressed = false;
+            next_frame.cancel_held = false;
+        }
         if let Some((held, pressed)) = modifier {
             next_frame.modifier_held = held;
             next_frame.modifier_pressed = pressed;
@@ -890,9 +904,11 @@ pub fn populate_menu_control_frame_from_actions(
     player_input: Query<(
         &InputParticipant,
         &ActionState<Platformer2dInputActionMonolith>,
-        Option<&InputMap<Platformer2dInputActionMonolith>>,
+        Option<Ref<InputMap<Platformer2dInputActionMonolith>>>,
+        Option<&ParticipantContexts>,
     )>,
-    button_sources: MenuButtonSources,
+    mut button_sources: MenuButtonSources,
+    mut button_history: Local<ambition_input::ContextualButtonHistory>,
     mut menu_frame: ResMut<MenuControlFrame>,
     mut menu_input_state: ResMut<MenuInputState>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
@@ -905,11 +921,7 @@ pub fn populate_menu_control_frame_from_actions(
     // Optional unfocus guard: leave the menu frame cleared while the window is
     // unfocused (and the setting is on). Drain the wheel so a buffered scroll
     // doesn't fire on refocus.
-    if input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused)) {
-        mouse_wheel.clear();
-        *menu_frame = next;
-        return;
-    }
+    let enabled = !input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused));
 
     // `single()` returns `Err` the moment a SECOND participant exists, so the global menu frame
     // went neutral for everybody: two people at a couch, one presses Start, and the pause menu does
@@ -919,10 +931,10 @@ pub fn populate_menu_control_frame_from_actions(
     // the global shell controls. `SeatMenuFrames` is where a per-seat surface
     // (a select screen, four cursors) reads instead, and this resource stays the
     // one global answer a pause menu wants.
-    if let Some((actions, map)) = player_input
+    if let Some((actions, map, contexts)) = player_input
         .iter()
         .find(|(participant, ..)| participant.id == ambition_input::ParticipantId::PRIMARY)
-        .map(|(_, actions, map)| (actions, map))
+        .map(|(_, actions, map, contexts)| (actions, map, contexts))
     {
         let filters = filters_for_seat(
             &user_settings,
@@ -936,60 +948,40 @@ pub fn populate_menu_control_frame_from_actions(
             filters,
             wall_dt,
         );
-        next.back_shared_with_gameplay = next.back && button_sources.shared_with_gameplay(map);
-        next.start_shared_with_select = next.start && button_sources.start_shared_with_select(map);
+        button_sources.resolve(map, contexts, &mut button_history, enabled, &mut next);
     }
 
     for ev in mouse_wheel.read() {
-        next.scroll_y += ev.y;
+        if enabled { next.scroll_y += ev.y; }
     }
+    if !enabled { next = MenuControlFrame::default(); }
 
     *menu_frame = next;
 }
 
-/// Physical overlap for menu buttons. Consumers receive the semantic result.
+/// Read each physical control through the same cache as Leafwing.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct MenuButtonSources<'w, 's> {
-    keys: Option<Res<'w, ButtonInput<KeyCode>>>,
-    pads: Query<'w, 's, (Entity, &'static Gamepad)>,
+    store: Option<Res<'w, leafwing_input_manager::user_input::updating::CentralInputStore>>,
+    pads: Query<'w, 's, Entity, With<Gamepad>>,
 }
 
 impl MenuButtonSources<'_, '_> {
-    fn pressed(
-        &self,
-        control: &ambition_input::PhysicalControl,
-        map: &InputMap<Platformer2dInputActionMonolith>,
-    ) -> bool {
-        use ambition_input::PhysicalControl;
-        match control {
-            PhysicalControl::Key(key) => self.keys.as_ref().is_some_and(|keys| keys.pressed(*key)),
-            PhysicalControl::Button(button) => self.pads.iter()
-                .filter(|(entity, _)| map.gamepad().is_none_or(|owner| owner == *entity))
-                .any(|(_, pad)| pad.pressed(*button)),
-            PhysicalControl::Other(_) => false,
-        }
+    fn resolve(&mut self, map: Option<Ref<InputMap<Platformer2dInputActionMonolith>>>,
+        contexts: Option<&ParticipantContexts>, history: &mut ambition_input::ContextualButtonHistory,
+        enabled: bool, frame: &mut MenuControlFrame)
+    {
+        // ActionState-only fixtures provide semantic edges without a device map.
+        let (Some(map), Some(store)) = (map, self.store.as_deref()) else {
+            if !enabled { *frame = MenuControlFrame::default(); }
+            return;
+        };
+        let pad = map.gamepad().unwrap_or_else(|| {
+            leafwing_input_manager::user_input::gamepad::find_gamepad(Some(self.pads.reborrow()))
+        });
+        let route = ambition_input::ButtonRoute::from_contexts(contexts);
+        history.sample(&map, store, pad, route, map.is_changed(), enabled, frame);
     }
-
-    fn start_shared_with_select(&self, map: Option<&InputMap<Platformer2dInputActionMonolith>>) -> bool {
-        let Some(map) = map else { return false; };
-        let bindings = ambition_input::ActionBindings::from_map(map);
-        let mut pressed = bindings.controls(&Platformer2dInputActionMonolith::Start)
-            .iter().filter(|control| self.pressed(control, map)).peekable();
-        pressed.peek().is_some() && pressed.all(|control|
-            bindings.controls(&Platformer2dInputActionMonolith::MenuSelect).contains(control))
-    }
-
-    fn shared_with_gameplay(&self, map: Option<&InputMap<Platformer2dInputActionMonolith>>) -> bool {
-        let Some(map) = map else { return false; };
-        let bindings = ambition_input::ActionBindings::from_map(map);
-        let mut pressed = bindings.controls(&Platformer2dInputActionMonolith::MenuBack)
-            .iter().filter(|control| self.pressed(control, map)).peekable();
-        pressed.peek().is_some() && pressed.all(|control| bindings.all().any(|(name, controls)| {
-            ambition_input::action_named(name).is_some_and(|action| !action.is_menu_only())
-                && controls.contains(control)
-        }))
-    }
-
 }
 
 /// Which filters apply to the stick in THIS seat's hands.
@@ -1052,11 +1044,8 @@ pub fn decode_menu_frame(
         user_settings.controls.menu_repeat_interval,
     );
     let mut next = MenuControlFrame::from_menu_input(input);
-    next.select_held = actions.pressed(&Platformer2dInputActionMonolith::MenuSelect)
-        || actions.pressed(&Platformer2dInputActionMonolith::Jump)
-        || actions.pressed(&Platformer2dInputActionMonolith::Interact);
-    next.back_held = actions.pressed(&Platformer2dInputActionMonolith::MenuBack)
-        || actions.pressed(&Platformer2dInputActionMonolith::Reset);
+    next.select_held = actions.pressed(&Platformer2dInputActionMonolith::MenuSelect);
+    next.back_held = actions.pressed(&Platformer2dInputActionMonolith::MenuBack);
     next.inventory = actions.just_pressed(&Platformer2dInputActionMonolith::Inventory);
     next.map = actions.just_pressed(&Platformer2dInputActionMonolith::Map);
     // Paged-menu page-turn bumpers (Fix 2): just-pressed edge so one bumper tap
@@ -1102,33 +1091,34 @@ pub fn populate_seat_menu_frames(
     participants: Query<(
         &InputParticipant,
         &ActionState<Platformer2dInputActionMonolith>,
-        Option<&InputMap<Platformer2dInputActionMonolith>>,
+        Option<Ref<InputMap<Platformer2dInputActionMonolith>>>,
+        Option<&ParticipantContexts>,
     )>,
-    button_sources: MenuButtonSources,
+    mut button_sources: MenuButtonSources,
+    mut histories: Local<std::collections::BTreeMap<u8, ambition_input::ContextualButtonHistory>>,
     mut frames: ResMut<ambition_input::SeatMenuFrames>,
     mut states: Local<std::collections::BTreeMap<u8, MenuInputState>>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     windows: Query<&Window>,
 ) {
     frames.clear();
-    if input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused)) {
-        return;
-    }
+    let enabled = !input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused));
     let wall_dt = world_time.as_deref().map_or(0.0, |time| time.wall_dt());
     // Sorted by slot so the order this writes in is the order it reads in — a
     // menu whose seats resolve in query order is a menu that resolves
     // differently between runs (ADR 0023).
     let mut rows: Vec<_> = participants
         .iter()
-        .map(|(participant, actions, map)| (participant.id.slot(), actions, map))
+        .map(|(participant, actions, map, contexts)| (participant.id.slot(), actions, map, contexts))
         .collect();
     rows.sort_by_key(|(slot, ..)| *slot);
-    for (slot, actions, map) in rows {
+    histories.retain(|slot, _| rows.iter().any(|row| row.0 == *slot));
+    states.retain(|slot, _| rows.iter().any(|row| row.0 == *slot));
+    for (slot, actions, map, contexts) in rows {
         let state = states.entry(slot).or_default();
         let filters = filters_for_seat(&user_settings, devices.as_deref(), slot);
         let mut frame = decode_menu_frame(actions, state, &user_settings, filters, wall_dt);
-        frame.back_shared_with_gameplay = frame.back && button_sources.shared_with_gameplay(map);
-        frame.start_shared_with_select = frame.start && button_sources.start_shared_with_select(map);
+        button_sources.resolve(map, contexts, histories.entry(slot).or_default(), enabled, &mut frame);
         frames.set(slot, frame);
     }
 }

@@ -25,6 +25,8 @@ mod active_input;
 mod bindings;
 pub mod channels;
 mod control;
+#[cfg(feature = "input")]
+mod contextual;
 pub mod cues;
 #[cfg(feature = "input")]
 mod glyphs;
@@ -58,6 +60,8 @@ pub use motion_input::{
 
 #[cfg(feature = "input")]
 pub use actions::Platformer2dInputActionMonolith;
+#[cfg(feature = "input")]
+pub use contextual::{ButtonRoute, ContextualButtonHistory, InputProfile, MenuButtonIntent, resolve_menu_button, contextual_button_rows};
 #[cfg(feature = "input")]
 pub use active_input::update_seat_active_devices;
 pub use active_input::{gamepad_style_of, ActiveDevice, GamepadStyle, SeatActiveDevices};

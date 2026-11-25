@@ -1007,6 +1007,7 @@ fn real_input_cube_app(
     app.add_systems(
         Update,
         (
+            ambition_platformer2d::inventory_ui::declare_inventory_input_context,
             ambition_platformer2d::runtime::input::populate_seat_menu_frames,
             ambition_platformer2d::runtime::input::populate_menu_control_frame_from_actions,
             crate::menu::lifecycle::route_menu_lifecycle,
@@ -1016,9 +1017,14 @@ fn real_input_cube_app(
     );
     *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
 
+    let mut contexts = ambition_platformer2d::input::ParticipantContexts::default();
+    contexts.declare(ambition_platformer2d::input::ContextClaim::capturing(
+        ambition_platformer2d::input::GAMEPLAY_CONTEXT,
+        ambition_platformer2d::input::participant::context_priority::GAMEPLAY,
+    ));
     app.world_mut().spawn((
         ambition_platformer2d::input::InputParticipant::primary(),
-        ambition_platformer2d::input::ParticipantContexts::default(),
+        contexts,
         ActionState::<Platformer2dInputActionMonolith>::default(),
         map,
     ));
@@ -1094,7 +1100,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
 
 #[cfg(feature = "bevy_ui_menu")]
 #[test]
-fn global_start_interrupts_contexts_and_closes_nested_pages_without_confirming() {
+fn enter_confirms_and_escape_or_dedicated_pause_interrupts_session_ui() {
     use ambition_platformer2d::input::{ContextClaim, InputParticipant, ParticipantContexts,
         Platformer2dInputActionMonolith as Action, DIALOGUE_CONTEXT, CUTSCENE_CONTEXT,
         participant::context_priority};
@@ -1125,17 +1131,15 @@ fn global_start_interrupts_contexts_and_closes_nested_pages_without_confirming()
                 app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(key);
                 app.update();
             };
-            tap(&mut app, KeyCode::Escape);
-            assert!(!cube_is_open(&app), "{backend:?}: Back stays with {context:?}");
-            // Q184: Enter, the keyboard Start, pauses over any interface too,
-            // and the opening press confirms nothing in it.
             app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::Enter);
             app.update();
-            assert!(cube_is_open(&app), "{backend:?}: Enter opens over {context:?}");
-            assert!(!app.world().resource::<ambition_platformer2d::input::SeatMenuFrames>().for_seat(0).select,
-                "{context:?}: the opening press also confirmed");
+            assert!(!cube_is_open(&app), "Enter confirms in {context:?}");
+            let frame = app.world().resource::<ambition_platformer2d::input::SeatMenuFrames>().for_seat(0);
+            assert!(frame.select && !frame.start);
             app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::Enter);
             app.update();
+            tap(&mut app, KeyCode::Escape);
+            assert!(cube_is_open(&app), "Escape opens pause over {context:?}");
             // Inside the menu Enter selects, so a dedicated Start closes it.
             tap(&mut app, KeyCode::F13);
             assert!(!cube_is_open(&app), "{backend:?}: Start closes the menu over {context:?}");
@@ -1242,13 +1246,12 @@ fn a_gameplay_control_shared_with_back_does_not_open_the_menu() {
     app.update();
     assert!(!cube_is_open(&app), "a gameplay binding cannot become a pause fallback");
     let frame = app.world().resource::<ambition_platformer2d::input::SeatMenuFrames>().for_seat(0);
-    assert!(frame.back, "the same control is still Back for a contextual interface");
-    assert!(frame.back_shared_with_gameplay);
+    assert!(!frame.back && !frame.start, "gameplay does not emit UI Back");
     app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::F13);
     app.update();
     app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::Escape);
     app.update();
-    assert!(cube_is_open(&app), "a dedicated Back control opens from gameplay");
+    assert!(cube_is_open(&app), "Escape opens from gameplay");
 }
 
 #[cfg(feature = "bevy_ui_menu")]
@@ -1272,7 +1275,7 @@ fn gamepad_start_pauses_while_east_remains_gameplay_or_contextual_back() {
     press(&mut app, GamepadButton::East, 1.0);
     assert!(!cube_is_open(&app));
     let frame = app.world().resource::<ambition_platformer2d::input::SeatMenuFrames>().for_seat(0);
-    assert!(frame.back && frame.back_shared_with_gameplay);
+    assert!(!frame.back && !frame.start);
     press(&mut app, GamepadButton::East, 0.0);
     press(&mut app, GamepadButton::Start, 1.0);
     press(&mut app, GamepadButton::Start, 0.0);

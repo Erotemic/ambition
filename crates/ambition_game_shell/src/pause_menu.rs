@@ -23,6 +23,8 @@ use ambition_menu::{
     MenuActionActivated, MenuColor, MenuControlKind, MenuPageModel, MenuRect, MenuTextAlign,
 };
 use ambition_platformer2d_shared_tangle::schedule::GameMode;
+use ambition_platformer2d_shared_tangle::lifecycle::{MenuPauseHold, MenuPauseRoster, SessionScopeId};
+use std::collections::BTreeMap;
 use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -120,9 +122,11 @@ impl PauseEntry {
 pub struct ShellPauseMenu {
     pub open: bool,
     cursor: usize,
-    /// Seat that opened the pause menu and therefore drives it. Pause itself is
-    /// global; only menu input ownership is per-seat. `None` while unowned.
+    /// The seat that drives the currently displayed menu.
     owner: Option<u8>,
+    /// Each seat with an open menu and its own saved cursor.
+    seats: BTreeMap<u8, usize>,
+    scope: Option<SessionScopeId>,
 }
 
 impl ShellPauseMenu {
@@ -136,6 +140,36 @@ impl ShellPauseMenu {
         self.open = false;
         self.cursor = 0;
         self.owner = None;
+        self.seats.clear();
+    }
+
+    fn select_owner(&mut self, owner: u8) {
+        if self.owner == Some(owner) { return; }
+        if let Some(previous) = self.owner {
+            if let Some(cursor) = self.seats.get_mut(&previous) { *cursor = self.cursor; }
+        }
+        self.owner = Some(owner);
+        self.cursor = self.seats.get(&owner).copied().unwrap_or_default();
+    }
+
+    fn open_for(&mut self, slot: u8) {
+        self.seats.entry(slot).or_default();
+        self.open = true;
+        self.select_owner(slot);
+    }
+
+    fn close_for(&mut self, slot: u8) {
+        self.seats.remove(&slot);
+        if self.owner == Some(slot) {
+            self.owner = None;
+            self.cursor = 0;
+            if let Some(next) = self.seats.keys().next().copied() { self.select_owner(next); }
+        }
+        self.open = !self.seats.is_empty();
+    }
+
+    fn close_foreground(&mut self) {
+        if let Some(owner) = self.owner { self.close_for(owner); } else { self.close(); }
     }
 }
 
@@ -258,31 +292,30 @@ impl Plugin for ShellPauseMenuPlugin {
             .add_systems(
                 Update,
                 declare_pause_context.in_set(ambition_input::InputSet::ResolveContext),
-            );
+            )
+            .add_systems(PostUpdate, aggregate_shell_menu_pause);
     }
 }
 
 /// Claim input while the pause menu is open.
 ///
 /// Surfaces underneath (e.g. character select, which reads `SeatMenuFrames`)
-/// check the claim and stop acting on input. The claim goes to every
-/// participant because the pause menu is global.
+/// check the claim and stop acting on input. Each open seat claims only its own input.
 fn declare_pause_context(
     menu: Res<ShellPauseMenu>,
     mut participants: Query<
-        &mut ambition_input::participant::ParticipantContexts,
-        With<ambition_input::InputParticipant>,
+        (&ambition_input::InputParticipant, &mut ambition_input::participant::ParticipantContexts),
     >,
 ) {
-    for mut contexts in &mut participants {
-        // Write only on a real change, to avoid false change detection.
-        if contexts.is_declared(ambition_input::PAUSE_CONTEXT) != menu.open {
+    for (participant, mut contexts) in &mut participants {
+        let open = menu.seats.contains_key(&participant.id.slot());
+        if contexts.is_declared(ambition_input::PAUSE_CONTEXT) != open {
             contexts.sync(
                 ambition_input::participant::ContextClaim::capturing(
                     ambition_input::PAUSE_CONTEXT,
                     ambition_input::participant::context_priority::PAUSE,
                 ),
-                menu.open,
+                open,
             );
         }
     }
@@ -310,8 +343,6 @@ fn drive_shell_pause_menu(
     mut menu: ResMut<ShellPauseMenu>,
     mut shell: MessageWriter<ShellCommand>,
     mut abandon: MessageWriter<ShellAbandonRequested>,
-    game_mode: Option<Res<State<GameMode>>>,
-    mut next_mode: Option<ResMut<NextState<GameMode>>>,
     mut settings: Option<ResMut<ambition_persistence::settings::UserSettings>>,
     mut sfx: SfxWriter,
     mut pause_requests: MessageReader<PauseRequested>,
@@ -323,7 +354,6 @@ fn drive_shell_pause_menu(
     if launcher.as_deref().is_some_and(|state| state.active) {
         if menu.open {
             menu.close();
-            resume_sim(&game_mode, &mut next_mode);
         }
         return;
     }
@@ -332,72 +362,46 @@ fn drive_shell_pause_menu(
     if suppressed.0 {
         if menu.open {
             menu.close();
-            resume_sim(&game_mode, &mut next_mode);
         }
         return;
     }
+    let scope = context.session.0.as_ref().map(|session| session.scope);
+    if menu.scope != scope { menu.close(); menu.scope = scope; }
     let in_session = context.in_session();
     let rows = context.rows();
 
-    // Open: read only the seat that opened the menu. Closed: any seat can
-    // open it; the first seat in slot order that pressed Start wins, so a
-    // simultaneous press is deterministic. Without `seat_frames`, use the
-    // global frame.
-    let (edges, presser) = match seat_frames.as_deref() {
-        Some(frames) => match menu.owner {
-            Some(owner) => (if access.permits(ambition_input::ParticipantId(owner),
-                ambition_input::ContextClaim::capturing(ambition_input::PAUSE_CONTEXT, ambition_input::participant::context_priority::PAUSE)) {
-                shell_action_edges(Some(&frames.for_seat(owner)))
-            } else { Default::default() }, None),
-            None => {
-                let opener = frames
-                    .seats()
-                    .find(|(slot, frame)| shell_action_edges(Some(frame)).pause
-                        && access.permits(ambition_input::ParticipantId(*slot),
-                            ambition_input::ContextClaim::capturing(ambition_input::PAUSE_CONTEXT, ambition_input::participant::context_priority::PAUSE)))
-                    .map(|(slot, _)| slot);
-                (
-                    opener
-                        .map(|slot| shell_action_edges(Some(&frames.for_seat(slot))))
-                        .unwrap_or_default(),
-                    opener,
-                )
-            }
-        },
-        None => (if access.permits(ambition_input::ParticipantId::PRIMARY,
-            ambition_input::ContextClaim::capturing(ambition_input::PAUSE_CONTEXT, ambition_input::participant::context_priority::PAUSE)) {
-            shell_action_edges(menu_frame.as_deref())
-        } else { Default::default() }, None),
+    // Every seat can open or close its own menu even while another is open.
+    // The shared presentation displays one seat at a time. Navigation from
+    // a paused seat can bring that seat's own cursor to the foreground.
+    let permits = |slot| access.permits(ambition_input::ParticipantId(slot),
+        ambition_input::ContextClaim::capturing(ambition_input::PAUSE_CONTEXT,
+            ambition_input::participant::context_priority::PAUSE));
+    let inputs: Vec<_> = match seat_frames.as_deref() {
+        Some(frames) => frames.seats().filter(|(slot, _)| permits(*slot)).collect(),
+        None if permits(0) => vec![(0, menu_frame.as_deref().copied().unwrap_or_default())],
+        None => vec![],
     };
-    // The platform's request opens a closed menu over a live session, with no
-    // cue: the screen is going off.
-    if pause_requested && !menu.open && in_session {
-        menu.open = true;
-        menu.cursor = 0;
-        menu.owner = None;
-        pause_sim(&game_mode, &mut next_mode);
+    if pause_requested && in_session && !menu.seats.contains_key(&0) {
+        menu.open_for(0);
         return;
     }
-
-    // Escape / Start toggle; the controller B (`back`) also closes an open menu.
-    let toggle = edges.pause || (menu.open && edges.back);
-
-    if toggle {
-        menu.open = !menu.open;
-        menu.cursor = 0;
-        menu.owner = menu.open.then_some(presser).flatten();
-        if menu.open {
-            // Pause only when a session is live.
-            if in_session {
-                pause_sim(&game_mode, &mut next_mode);
-            }
-            play(&mut sfx, ids::UI_MENU_ACCEPT);
-        } else {
-            resume_sim(&game_mode, &mut next_mode);
-            play(&mut sfx, ids::UI_MENU_BACK);
+    let mut toggled = false;
+    for (slot, frame) in &inputs {
+        let edges = shell_action_edges(Some(frame));
+        let open = menu.seats.contains_key(slot);
+        if edges.pause || (open && edges.back) {
+            if open { menu.close_for(*slot); play(&mut sfx, ids::UI_MENU_BACK); }
+            else { menu.open_for(*slot); play(&mut sfx, ids::UI_MENU_ACCEPT); }
+            toggled = true;
         }
-        return;
     }
+    if toggled { return; }
+    let active = inputs.iter().find(|(slot, frame)| {
+        menu.seats.contains_key(slot) && (frame.select || frame.up || frame.down || frame.left || frame.right)
+    });
+    if let Some((slot, _)) = active { menu.select_owner(*slot); }
+    let edges = menu.owner.and_then(|slot| inputs.iter().find(|(at, _)| *at == slot))
+        .map(|(_, frame)| shell_action_edges(Some(frame))).unwrap_or_default();
 
     if !menu.open {
         return;
@@ -426,8 +430,6 @@ fn drive_shell_pause_menu(
             &mut menu,
             &mut shell,
             &mut abandon,
-            &game_mode,
-            &mut next_mode,
             settings.as_deref_mut(),
             &mut sfx,
         );
@@ -445,8 +447,6 @@ fn shell_pause_menu_pointer(
     mut menu: ResMut<ShellPauseMenu>,
     mut shell: MessageWriter<ShellCommand>,
     mut abandon: MessageWriter<ShellAbandonRequested>,
-    game_mode: Option<Res<State<GameMode>>>,
-    mut next_mode: Option<ResMut<NextState<GameMode>>>,
     mut settings: Option<ResMut<ambition_persistence::settings::UserSettings>>,
     mut sfx: SfxWriter,
 ) {
@@ -465,8 +465,6 @@ fn shell_pause_menu_pointer(
             &mut menu,
             &mut shell,
             &mut abandon,
-            &game_mode,
-            &mut next_mode,
             settings.as_deref_mut(),
             &mut sfx,
         );
@@ -479,8 +477,6 @@ fn activate_pause_entry(
     shell: &mut MessageWriter<ShellCommand>,
     // Written here; the experience acts on it. See [`ShellAbandonOffer`].
     abandon: &mut MessageWriter<ShellAbandonRequested>,
-    game_mode: &Option<Res<State<GameMode>>>,
-    next_mode: &mut Option<ResMut<NextState<GameMode>>>,
     settings: Option<&mut ambition_persistence::settings::UserSettings>,
     sfx: &mut SfxWriter,
 ) {
@@ -493,12 +489,11 @@ fn activate_pause_entry(
             }
         }
         PauseEntry::Close => {
-            menu.close();
+            menu.close_foreground();
             play(sfx, ids::UI_MENU_BACK);
         }
         PauseEntry::Resume => {
-            menu.close();
-            resume_sim(game_mode, next_mode);
+            menu.close_foreground();
             play(sfx, ids::UI_MENU_BACK);
         }
         PauseEntry::Abandon => {
@@ -506,7 +501,6 @@ fn activate_pause_entry(
             // the stage stays frozen.
             abandon.write(ShellAbandonRequested);
             menu.close();
-            resume_sim(game_mode, next_mode);
             play(sfx, ids::UI_MENU_ACCEPT);
         }
         PauseEntry::QuitToTitle => {
@@ -638,28 +632,32 @@ fn render_shell_pause_menu(
     commands.entity(root).insert(ShellPauseMenuRoot);
 }
 
-fn pause_sim(mode: &Option<Res<State<GameMode>>>, next: &mut Option<ResMut<NextState<GameMode>>>) {
-    // Pause only from Playing, so Dialogue, RoomTransition, and Cutscene stay.
-    if let (Some(mode), Some(next)) = (mode, next) {
-        if *mode.get() == GameMode::Playing {
-            ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
-                GameMode::Paused,
-                "shell_pause_menu",
-            );
-            next.set(GameMode::Paused);
-        }
+/// Apply only a unanimous session-island vote. A shell without a gameplay
+/// roster has no authority to infer multiplayer membership from devices.
+fn aggregate_shell_menu_pause(
+    menu: Res<ShellPauseMenu>,
+    session: Res<ActiveGameplaySession>,
+    roster: Option<Res<MenuPauseRoster>>,
+    mode: Option<Res<State<GameMode>>>,
+    next: Option<ResMut<NextState<GameMode>>>,
+    mut hold: Local<MenuPauseHold>,
+    mut previous_scope: Local<Option<SessionScopeId>>,
+) {
+    let scope = session.0.as_ref().map(|session| session.scope);
+    if *previous_scope != scope {
+        *hold = Default::default();
+        *previous_scope = scope;
     }
-}
-
-fn resume_sim(mode: &Option<Res<State<GameMode>>>, next: &mut Option<ResMut<NextState<GameMode>>>) {
-    if let (Some(mode), Some(next)) = (mode, next) {
-        if *mode.get() == GameMode::Paused {
-            ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
-                GameMode::Playing,
-                "shell_pause_menu",
-            );
-            next.set(GameMode::Playing);
-        }
+    let (Some(mode), Some(mut next)) = (mode, next) else { return; };
+    let open = roster.as_deref().is_some_and(|roster| roster.scope == scope &&
+        roster.session_pause(|slot| menu.seats.contains_key(&slot)));
+    let pending = match &*next {
+        NextState::Pending(mode) | NextState::PendingIfNeq(mode) => Some(*mode),
+        NextState::Unchanged => None,
+    };
+    if let Some(target) = hold.update(open, *mode.get(), pending) {
+        ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(target, "shell_menu_pause_vote");
+        next.set(target);
     }
 }
 
@@ -847,6 +845,20 @@ mod tests {
             "a closed menu owns nobody — otherwise seat one keeps the pause \
              button away from everyone else forever"
         );
+    }
+
+    #[test]
+    fn each_seat_can_open_and_close_its_own_menu() {
+        let mut app = couch_app();
+        with_live_session(&mut app);
+        seat_intent(&mut app, 0, |f| f.start = true);
+        seat_intent(&mut app, 1, |f| f.start = true);
+        assert_eq!(app.world().resource::<ShellPauseMenu>().seats.len(), 2);
+        seat_intent(&mut app, 0, |f| f.back = true);
+        assert!(app.world().resource::<ShellPauseMenu>().open);
+        assert_eq!(app.world().resource::<ShellPauseMenu>().owner(), Some(1));
+        seat_intent(&mut app, 1, |f| f.back = true);
+        assert!(!app.world().resource::<ShellPauseMenu>().open);
     }
 
     /// The Start intent (Escape, controller Start, touch "Menu"). Escape also

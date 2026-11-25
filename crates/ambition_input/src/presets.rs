@@ -16,8 +16,8 @@ const STICK_DIRECTION_THRESHOLD: f32 = 0.5;
 #[cfg(feature = "input")]
 use super::Platformer2dInputActionMonolith as Act;
 
-/// The standard pad's gameplay buttons. A game's [`crate::BindingLayout`]
-/// rearranges these; the menu's buttons ([`MENU_BUTTONS`]) do not move.
+/// The standard pad buttons. A game layout changes gameplay bindings.
+/// Session and UI bindings stay the same.
 #[cfg(feature = "input")]
 pub const STANDARD_PAD: &[(Platformer2dInputActionMonolith, GamepadButton)] = &[
     (Act::Jump, GamepadButton::South),
@@ -29,8 +29,8 @@ pub const STANDARD_PAD: &[(Platformer2dInputActionMonolith, GamepadButton)] = &[
     (Act::Interact, GamepadButton::RightTrigger),
     (Act::Burst, GamepadButton::RightTrigger2),
     (Act::Map, GamepadButton::LeftThumb),
-    (Act::Modifier, GamepadButton::RightThumb),
-    (Act::Inventory, GamepadButton::Select),
+    (Act::Inventory, GamepadButton::RightThumb),
+    (Act::Reset, GamepadButton::Select),
     (Act::Start, GamepadButton::Start),
 ];
 
@@ -52,7 +52,8 @@ pub const MENU_BUTTONS: &[(Platformer2dInputActionMonolith, GamepadButton)] = &[
 ];
 
 /// The keyboard's own menu keys, beside each preset's stand-ins. Enter is
-/// also Start: outside the open menu it pauses, inside it confirms.
+/// also Start: gameplay pauses; an interface confirms. Escape also binds
+/// Start: it pauses in a session and goes Back in an open pause menu.
 #[cfg(feature = "input")]
 pub const KEYBOARD_MENU_KEYS: &[(Platformer2dInputActionMonolith, KeyCode)] = &[
     (Act::MenuSelect, KeyCode::Enter),
@@ -185,7 +186,7 @@ impl KeyboardPreset {
                 shift_layer: [KeyCode::ShiftLeft, KeyCode::ShiftRight],
                 modifier: KeyCode::KeyR,
                 utility: KeyCode::KeyD,
-                map: KeyCode::Tab,
+                map: KeyCode::KeyM,
                 inventory: KeyCode::KeyI,
                 projectile: KeyCode::KeyV,
                 trail_toggle: KeyCode::KeyB,
@@ -199,7 +200,7 @@ impl KeyboardPreset {
     pub fn wasd_jkl() -> Self {
         Self {
             id: PresetId::WasdJkl,
-            name: "custom PC: WASD + Space/J/K/L/I/U",
+            name: "custom PC: WASD + Space/J/K/L/F/U",
             movement: MovementKeys {
                 left: KeyCode::KeyA,
                 right: KeyCode::KeyD,
@@ -208,20 +209,20 @@ impl KeyboardPreset {
             },
             actions: ActionKeys {
                 jump: KeyCode::Space,
-                short_hop: KeyCode::KeyM,
+                short_hop: KeyCode::KeyC,
                 attack: KeyCode::KeyJ,
                 burst: KeyCode::KeyK,
                 secondary: KeyCode::KeyL,
                 special: KeyCode::KeyG,
-                shield: KeyCode::KeyI,
+                shield: KeyCode::KeyF,
                 grab: KeyCode::KeyO,
                 taunt: KeyCode::KeyN,
                 interact: KeyCode::KeyE,
                 shift_layer: [KeyCode::ShiftLeft, KeyCode::ShiftRight],
                 modifier: KeyCode::KeyP,
                 utility: KeyCode::KeyU,
-                map: KeyCode::Tab,
-                inventory: KeyCode::KeyV,
+                map: KeyCode::KeyM,
+                inventory: KeyCode::KeyI,
                 projectile: KeyCode::KeyH,
                 trail_toggle: KeyCode::KeyB,
                 pause: KeyCode::Enter,
@@ -255,7 +256,7 @@ impl KeyboardPreset {
                 shift_layer: [KeyCode::ShiftLeft, KeyCode::ShiftRight],
                 modifier: KeyCode::KeyS,
                 utility: KeyCode::KeyG,
-                map: KeyCode::Tab,
+                map: KeyCode::KeyM,
                 inventory: KeyCode::KeyI,
                 projectile: KeyCode::KeyV,
                 trail_toggle: KeyCode::KeyB,
@@ -269,7 +270,7 @@ impl KeyboardPreset {
     pub fn wasd_uipo() -> Self {
         Self {
             id: PresetId::WasdUipo,
-            name: "chirality B: WASD + UIPO",
+            name: "chirality B: WASD + UFPO",
             movement: MovementKeys {
                 left: KeyCode::KeyA,
                 right: KeyCode::KeyD,
@@ -278,8 +279,8 @@ impl KeyboardPreset {
             },
             actions: ActionKeys {
                 jump: KeyCode::KeyU,
-                short_hop: KeyCode::KeyM,
-                burst: KeyCode::KeyI,
+                short_hop: KeyCode::KeyC,
+                burst: KeyCode::KeyF,
                 attack: KeyCode::KeyP,
                 secondary: KeyCode::KeyO,
                 special: KeyCode::KeyH,
@@ -290,8 +291,8 @@ impl KeyboardPreset {
                 shift_layer: [KeyCode::ShiftLeft, KeyCode::ShiftRight],
                 modifier: KeyCode::KeyG,
                 utility: KeyCode::KeyK,
-                map: KeyCode::Tab,
-                inventory: KeyCode::KeyV,
+                map: KeyCode::KeyM,
+                inventory: KeyCode::KeyI,
                 projectile: KeyCode::KeyL,
                 trail_toggle: KeyCode::KeyB,
                 pause: KeyCode::Enter,
@@ -364,6 +365,7 @@ impl KeyboardPreset {
         map.insert(Platformer2dInputActionMonolith::Reset, KeyCode::Delete);
         map.insert(Platformer2dInputActionMonolith::Start, self.actions.pause);
         map.insert(Platformer2dInputActionMonolith::Start, KeyCode::NumpadEnter);
+        map.insert(Platformer2dInputActionMonolith::Start, KeyCode::Escape);
 
         map.insert(
             Platformer2dInputActionMonolith::Blink,
@@ -599,8 +601,9 @@ mod tests {
             Action::Shield,
             Action::Interact,
             Action::Burst,
-            Action::Modifier,
+            Action::Map,
             Action::Inventory,
+            Action::Reset,
         ];
         for preset in KeyboardPreset::presets() {
             let bindings = ActionBindings::from_map(&preset.input_map());
@@ -608,8 +611,9 @@ mod tests {
                 (Action::Shield, GamepadButton::LeftTrigger2),
                 (Action::Interact, GamepadButton::RightTrigger),
                 (Action::Burst, GamepadButton::RightTrigger2),
-                (Action::Modifier, GamepadButton::RightThumb),
-                (Action::Inventory, GamepadButton::Select),
+                (Action::Map, GamepadButton::LeftThumb),
+                (Action::Inventory, GamepadButton::RightThumb),
+                (Action::Reset, GamepadButton::Select),
             ] {
                 let control = PhysicalControl::Button(button);
                 assert_eq!(
@@ -683,14 +687,14 @@ mod tests {
 
     #[cfg(feature = "input")]
     #[test]
-    fn keyboard_start_and_back_are_separate_and_confirm_has_a_dedicated_control() {
+    fn keyboard_start_and_back_are_contextual_and_confirm_has_a_dedicated_control() {
         use crate::{ActionBindings, PhysicalControl};
         for preset in KeyboardPreset::presets() {
             let bindings = ActionBindings::from_map(&preset.input_map());
             let enter = PhysicalControl::Key(KeyCode::Enter);
             let escape = PhysicalControl::Key(KeyCode::Escape);
             assert!(bindings.controls(&Platformer2dInputActionMonolith::Start).contains(&enter));
-            assert!(!bindings.controls(&Platformer2dInputActionMonolith::Start).contains(&escape));
+            assert!(bindings.controls(&Platformer2dInputActionMonolith::Start).contains(&escape));
             assert!(bindings.controls(&Platformer2dInputActionMonolith::MenuBack).contains(&escape));
             assert!(bindings.controls(&Platformer2dInputActionMonolith::MenuSelect).contains(&PhysicalControl::Key(KeyCode::Space)));
         }

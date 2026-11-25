@@ -84,8 +84,6 @@ const SMASH_PAD: &[PadSlot] = &[
         GamepadButton::RightTrigger,
         Platformer2dInputActionMonolith::ShortHop,
     ),
-    slot(GamepadButton::Select, Platformer2dInputActionMonolith::Reset),
-    slot(GamepadButton::RightThumb, Platformer2dInputActionMonolith::Inventory),
 ];
 
 impl BindingLayout {

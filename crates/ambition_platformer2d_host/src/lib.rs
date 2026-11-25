@@ -23,6 +23,8 @@ pub use framepace::FramePacePlugin;
 
 pub mod developer_keys;
 pub mod gameplay_presentation;
+#[cfg(feature = "input")]
+mod menu_pause;
 #[cfg(feature = "portal_render")]
 pub mod portal;
 
@@ -76,6 +78,8 @@ impl Plugin for HostInputBindingsPlugin {
         // where the sets and the systems live. The `configure_sets` went WITH them —
         // leaving it behind is the half that gets forgotten, and it fails silently by
         // turning "consumed this frame" into "may arrive one frame later".
+        app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::MenuPauseRoster>();
+        app.add_systems(PreUpdate, menu_pause::publish_menu_pause_roster);
         ambition_input::install_input_pipeline(app);
         ambition_input::install_provider_action_road(app);
         ambition_input::install_seat_device_tracking(app);
@@ -304,7 +308,9 @@ impl Plugin for HostInputBindingsPlugin {
                     // argument for them being one system, made while they were
                     // two. See `populate_seat_control_frames` for the six ways
                     // they had drifted.
-                    populate_seat_control_frames.in_set(ambition_input::InputSet::Route),
+                    populate_seat_control_frames
+                        .after(MenuFramePopulate)
+                        .in_set(ambition_input::InputSet::Route),
                     toggle_player_trail_emission_from_actions,
                     // Only where the dialogue capability is installed: its
                     // state is that capability's, and a profile that omits it

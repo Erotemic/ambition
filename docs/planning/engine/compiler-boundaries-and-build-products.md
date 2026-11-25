@@ -309,7 +309,7 @@ No compile-time result is claimed.
 What CB4 still names, and what this slice did not do:
 
 - ~~**Harness consumer.**~~ Landed 2026-11-25, below.
-- **Persistence.** It still brings windowed Bevy (above).
+- ~~**Persistence.**~~ Its windowed Bevy is cut (2026-11-25, below).
 - **Command families.** The offline/simulation/capture families have not
   been split further. Only the offline report is separated, by default.
 
@@ -332,6 +332,18 @@ the absence and the fixture's separate workspace. `run_tests.py` runs the
 fixture's test with the other external consumers. This is the harness
 result only. The full Ambition provider still compiles its presentation
 adapters (below). No compile-time result is claimed.
+
+**Persistence cut (2026-11-25).** `ambition_persistence` asked Bevy for
+`bevy_window`, but nothing in it names `bevy::window`: its display-mode
+vocabulary is plain enums and one `Resource`. The facade feature also turned
+on `bevy_image`, `bevy_a11y`, `bevy_asset` and `bevy_color`, with their async
+and hashing crates. Dropping it took the offline report's normal graph
+(`cargo tree -p ambition_app_tools --no-default-features -e normal`, unique
+crates) from 188 to 144. The `bevy_window` crate itself stays, through
+`ambition_input`'s direct dependency (input reads `CursorMoved`); no winit,
+renderer or asset server is in that graph. The workspace checks with every
+target, persistence's 140 lib tests pass, and `item_report` still refuses a
+missing save (exit 2). No compile-time result is claimed.
 
 **Execution owner:** `ambition_app_tools` command packaging and
 `ambition_sim_harness` dependency selection, coordinated with supported launch

@@ -180,6 +180,12 @@
         portal_sprite_name: "Concourse Gate Portal",
         ring_sprite_name: "Concourse Gate Ring",
     ),
+    // The Unfinished dimension's gate, in the Staging Area (INSTALLING).
+    "unfinished_staging_gate": (
+        command: Dialed,
+        portal_sprite_name: "Staging Gate Portal",
+        ring_sprite_name: "Staging Gate Ring",
+    ),
     // The Frontier's auxiliary gate at Halfway Siding (SIDING).
     "frontier_siding_gate": (
         command: Dialed,

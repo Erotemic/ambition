@@ -105,7 +105,7 @@ mod tests {
             }
         }
 
-        let last = r#"(id: "world.authority_ldtk", file: "authority.ldtk"),"#;
+        let last = r#"(id: "world.unfinished_ldtk", file: "unfinished.ldtk"),"#;
         let with = |replacement: &'static str| {
             crate::pack::compile_pack_with(move |path, text| {
                 if path != "data/worlds.ron" {
@@ -115,14 +115,14 @@ mod tests {
                 text.replace(last, replacement)
             })
         };
-        let edited = with(r#"(id: "world.authority_ldtk", file: "authority.ldtk"), (id: "world.next", file: "next.ldtk"),"#)
+        let edited = with(r#"(id: "world.unfinished_ldtk", file: "unfinished.ldtk"), (id: "world.next", file: "next.ldtk"),"#)
             .expect("an added world compiles");
         let next = ambition_content_pack::lowered_rules::<AuthoredWorldManifest>(&edited, WORLD_MANIFEST_SCHEMA).unwrap();
         assert_eq!(next.worlds.last().map(|world| world.file.as_str()), Some("next.ldtk"));
-        let refused = format!("{:?}", with(r#"(id: "world.authority_ldtk", file: "maps/authority.json"),"#).expect_err("not a world file"));
+        let refused = format!("{:?}", with(r#"(id: "world.unfinished_ldtk", file: "maps/unfinished.json"),"#).expect_err("not a world file"));
         let index = authored.worlds.len() - 1;
         assert!(
-            refused.contains(&format!("`worlds[{index}].file` is `maps/authority.json`")) && refused.contains("data/worlds.ron"),
+            refused.contains(&format!("`worlds[{index}].file` is `maps/unfinished.json`")) && refused.contains("data/worlds.ron"),
             "{refused}"
         );
     }
@@ -502,10 +502,10 @@ mod tests {
     }
 
     #[test]
-    fn manifest_names_the_eighteen_worlds_and_the_hub_entry() {
+    fn manifest_names_the_nineteen_worlds_and_the_hub_entry() {
         let manifest = world_manifest();
         assert_eq!(manifest.entry_room, "central_hub_complex");
-        assert_eq!(manifest.worlds.len(), 18);
+        assert_eq!(manifest.worlds.len(), 19);
         for (id, what) in [
             ("world.dinosaur_ldtk", "the dinosaur dimension"),
             ("world.noodle_ldtk", "the noodle dimension"),
@@ -521,6 +521,7 @@ mod tests {
             ("world.business_ldtk", "the Business dimension"),
             ("world.neural_ldtk", "the Neural dimension"),
             ("world.authority_ldtk", "the Central Hub (the Gate Authority's capital)"),
+            ("world.unfinished_ldtk", "the Unfinished dimension"),
         ] {
             assert!(manifest.worlds.iter().any(|world| world.id.as_str() == id), "{what}'s world is not in the manifest");
         }

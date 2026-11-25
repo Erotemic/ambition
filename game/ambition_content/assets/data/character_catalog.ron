@@ -607,6 +607,11 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.4, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 120.0)),
         ),
+        // The Unfinished dimension's Bug bites with a short rush.
+        "glitch_bug_bite": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.4, active_s: 0.12, recover_s: 0.45, damage: 1, reach_px: 26.0, step_px: 0.0, rush_px: 90.0)),
+        ),
         "asp_spit": (
             move_style: Walk,
             melee: Some(Bite(windup_s: 0.25, active_s: 0.08, recover_s: 0.35, damage: 1, reach_px: 28.0)),
@@ -7904,6 +7909,39 @@
             hall: ["The priests say I roll the sun across the sky. I do not correct them. It is good for business.", "Yes, it is dung. It is SACRED dung."],
         ),
         hall_dialogue_id: Some("hall_scarab_beetle"),
+        ),
+        // The Bug: a beetle loose on the Unfinished dimension, its shell the
+        // checkerboard of a missing texture. It scuttles, rears, and bites
+        // with a short rush.
+        "glitch_bug": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Bug",
+            manifest: "sprites/glitch_bug_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(22.0),
+            composition: None,
+            default_action_set: "glitch_bug_bite",
+            locomotion: Some((run_speed: 170.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 360.0,
+                attack_range: 60.0,
+                patrol_effort: 0.5,
+                chase_effort: 0.9,
+                retreat_after_swing_s: 0.3,
+                attack_cooldown_s: 0.6,
+                tactics: (notice_s: 0.4, waits_its_turn: true, flinch_back_s: 0.3),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "unfinished", "bug"],
+        barks: (
+            on_hit: ["*bzzt*", "Works on my machine!"],
+            provoked: ["*it flickers at you*"],
+            idle: ["*skitter*", "*a slice of it slips sideways*"],
+            hall: ["Known issue. Won't fix.", "I was here before the floor. I'll be here after the patch."],
+        ),
+        hall_dialogue_id: Some("hall_glitch_bug"),
         ),
         // The asp: a cobra with its hood out. It keeps its distance and spits
         // (the `shoot` of a skirmisher): it draws its head back first (its
@@ -15944,6 +15982,64 @@
                 hall: ["We never delete anything. Deleting is crude. We correct, and then it was always so.", "You are not on the manifest. Don't worry. Soon you won't have been anywhere at all."],
             ),
             hall_dialogue_id: Some("hall_npc_authority_registrar"),
+        ),
+        // The Unfinished dimension, the one the Boss's agents are still
+        // building (gate address INSTALLING,
+        // `docs/planning/game/unfinished-dimension.md`): its residents. The
+        // subclauses are small instances of Clause (`final-boss.md`).
+        "npc_unfinished_subclause_surveyor": (
+            display_name: "Subclause 4(b)",
+            // A small instance of Clause in a hard hat, surveying ground that is not there yet; the spec is on its clipboard.
+            manifest: "sprites/unfinished_subclause_surveyor_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // About a metre tall.
+            standing_height: Some(40.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "unfinished", "agent", "peaceful"],
+            barks: (
+                idle: ["Per the spec.", "Measure twice. Render once."],
+                hall: ["Section four, paragraph b: survey the ground. It does not say the ground has to exist first.", "I can tell you exactly what the instructions say. What they mean is above my pay grade."],
+            ),
+            hall_dialogue_id: Some("hall_npc_unfinished_subclause_surveyor"),
+        ),
+        "npc_unfinished_subclause_painter": (
+            display_name: "Subclause 4(c)",
+            // A small instance of Clause in a hard hat, painting the sky with a roller on a long pole.
+            manifest: "sprites/unfinished_subclause_painter_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // About a metre tall.
+            standing_height: Some(40.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "unfinished", "agent", "peaceful"],
+            barks: (
+                idle: ["Mind the wet sky.", "One coat of blue. Two of afternoon."],
+                hall: ["I paint the sky. The clouds go up after, on wires. Don't tell anyone about the wires.", "The east is still primer. Nobody looks east. Please don't look east."],
+            ),
+            hall_dialogue_id: Some("hall_npc_unfinished_subclause_painter"),
+        ),
+        "npc_unfinished_placeholder": (
+            display_name: "Placeholder",
+            // A person in plain grey, standing in for someone not designed yet.
+            manifest: "sprites/unfinished_placeholder_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 175 cm.
+            standing_height: Some(67.8),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "unfinished", "peaceful"],
+            barks: (
+                idle: ["Temporary!", "I'll be someone soon."],
+                hall: ["I'm a placeholder. They'll replace me with someone better. Any sprint now.", "The ticket says: a wise old someone, to be decided. I've been practising the wise part."],
+            ),
+            hall_dialogue_id: Some("hall_npc_unfinished_placeholder"),
         ),
         // Peyote Lean: a coyote outlaw who rides with Marshal Gallus (concept
         // art `assets/concept_art/misc/Peyote Lean*.png`; renderer resident

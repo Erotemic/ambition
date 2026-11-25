@@ -1120,6 +1120,16 @@
     "authority_manifest_portico": (),
     "authority_office_counter": (),
     "authority_filing_cabinets": (),
+    // The Unfinished dimension's scenery (`targets/props/unfinished_props.py`):
+    // each piece drawn in its room's coordinates.
+    "unfinished_site_cabin": (),
+    "unfinished_survey_post": (),
+    "unfinished_half_trees": (),
+    "unfinished_scaffold": (),
+    "unfinished_spill": (),
+    "unfinished_cranes": (),
+    "unfinished_gauges": (),
+    "unfinished_backlog": (),
     // The Frontier's scenery (`targets/props/frontier_props.py`): each piece
     // is drawn in its room's coordinates, over the room's walk lines.
     "frontier_pad_booth": (),

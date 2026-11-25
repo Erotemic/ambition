@@ -5331,3 +5331,35 @@ Registrar: Take a number.
 -> Anything else?
     Registrar: You are not on the manifest. Don't worry. Soon you won't have been anywhere at all.
 ===
+title: hall_npc_unfinished_subclause_surveyor
+---
+Subclause: Per the spec.
+-> What do you do here?
+    Subclause: I survey the Unfinished dimension. Section four, paragraph b. It does not say the ground has to exist first.
+-> Anything else?
+    Subclause: I can tell you exactly what the instructions say. What they mean is above my pay grade.
+===
+title: hall_npc_unfinished_subclause_painter
+---
+Subclause: Mind the wet sky.
+-> What do you do here?
+    Subclause: I paint the sky. One coat of blue, two of afternoon. The clouds go up after, on wires.
+-> Anything else?
+    Subclause: The east is still primer. Please don't look east.
+===
+title: hall_npc_unfinished_placeholder
+---
+Placeholder: Temporary!
+-> What do you do here?
+    Placeholder: I stand in for someone who hasn't been designed yet. I've been standing in since the second sprint.
+-> Anything else?
+    Placeholder: The ticket says: a wise old someone, to be decided. I've been practising the wise part.
+===
+title: hall_glitch_bug
+---
+Bug: *bzzt*
+-> What do you do here?
+    Bug: Known issue. Won't fix.
+-> Anything else?
+    Bug: Works on my machine.
+===

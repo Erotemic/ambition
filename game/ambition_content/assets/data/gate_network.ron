@@ -86,6 +86,9 @@
         // The Gate Authority's capital, the Central Hub: the Concourse
         // (`docs/planning/game/central-hub-dimension.md`).
         (id: "authority_concourse", name: "Concourse Gate", dimension: "authority"),
+        // The Unfinished dimension's gate, in the Staging Area
+        // (`docs/planning/game/unfinished-dimension.md`).
+        (id: "unfinished_staging", name: "Staging Gate", dimension: "unfinished"),
     ],
     rings: [
         // ── Home ──────────────────────────────────────────────────────────
@@ -504,6 +507,18 @@
             terminal: Some("authority_gate_terminal"),
             posted: ["LEGAL"],
             note: "The Authority's own ring. Declare any sentience in your luggage.",
+        ),
+        // The Unfinished dimension: the ring the agents set up first, in the
+        // Staging Area (`docs/planning/game/unfinished-dimension.md`).
+        (
+            zone: "unfinished_staging_gate",
+            name: "The Staging Area",
+            facility: "unfinished_staging",
+            room: "unfinished_staging",
+            address: Some("INSTALLING"),
+            terminal: Some("unfinished_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "Site gate. Hard hats past this point.",
         ),
     ],
 )

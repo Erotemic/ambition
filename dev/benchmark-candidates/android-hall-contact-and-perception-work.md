@@ -160,3 +160,54 @@ destination with two measured links and 12 rollouts. Its first hub
 request still used the full graph fallback, with 6,352 rollouts.
 Software rendering makes the render-time split unsuitable for
 comparison with the Android capture.
+
+## Cost of a live body at rest
+
+`android-all-hall-auto-20261125T185355Z` at `48fd44c9cb78` admitted 595
+Hall roots. The median of the eight window medians after 44 s is 526 ms
+(1.9 FPS). The library in `symfs` matches the build ID recorded
+in `perf.data` (`644fcaa42dc8d98a60e4f0d8c1b56f2d3b879b6a`). The capture
+starts in the hub. Use seconds 12 to 29 of the CPU recording for the Hall.
+This window contains 2,882 samples.
+
+| Work in the Hall | Inclusive CPU sample share |
+| --- | ---: |
+| Body integration | 58.74% |
+| Movement kernel | 51.35% |
+| Material axis collision | 20.61% |
+| Actor decisions | 3.12% |
+| Contact facts for extensions | 2.81% |
+| Group observations for extensions | 2.64% |
+| Navigation advice | 0.03% |
+| Navigation rollouts | 0.00% |
+
+The shares overlap. They measure CPU work across threads. The capture has
+no GPU frame time or count of simulation steps per displayed frame.
+
+One desktop sweep used the existing development `hall_bench` binary on
+CPUs 0–5. Each run warmed for 155 updates and measured 120 updates. The
+median time was 11.8, 30.6, and 70.8 ms per tick at the 2, 150, and 595
+root caps. Each run made zero navigation requests. At 595 roots, the
+simulation phase census recorded about 30 ms in integration and 6 ms in
+feature view publication per tick. The desktop sweep measures how work
+grows with the cast. It gives no estimate of phone frame time.
+
+1. Measure how many bodies stay on unchanged static support with no pending
+   physical work. Count full steps, eligible bodies, and reasons a body
+   needs a full step. Count committed simulation ticks and their wall time
+   per displayed frame on the phone.
+2. Probe the exact at-rest step in the shared movement kernel. Reuse the
+   accepted support and motion facts while the inputs that support the body
+   stay valid. Keep the body live for combat, dialogue, and nearby queries.
+   New control or impulse, a changed frame or body, and changed collision
+   inputs can require a full step on the same tick. Compare state and emitted
+   facts with the full step. Include a support removal and a rewind in the
+   comparison. Use the moving crowd to check the cost of the full step.
+3. Measure again before selecting the next cut. Contact and group observers
+   can select subscribers in the live room before they read the cast.
+   Render view owners can retain rows when their source facts stay the same.
+   Simulation consumers still need their facts at the declared tick boundary.
+
+Use the full Hall on the phone for frame time. Keep the population caps in
+the desktop scaling probe. At 20, 30, and 40 FPS the frame budgets are
+50, 33.3, and 25 ms. Record the rate of simulation advance with each result.

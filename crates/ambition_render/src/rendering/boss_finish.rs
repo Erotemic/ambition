@@ -43,6 +43,7 @@ pub fn install(app: &mut App) {
         Update,
         (drain_around_finishing_bosses, show_finish_bars)
             .run_if(super::boss_stage::bosses_are_shown_or_were)
+            .after(ambition_sim_view::PresentedPoseSet)
             .in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
     );
 }

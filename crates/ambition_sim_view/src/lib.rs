@@ -88,14 +88,9 @@ pub use view_index::{
     FeatureView, FeatureViewIndex, NameplateFact, NameplateIndex,
 };
 
-/// Rebuilds the observation read-models once per frame, sim-side:
-/// [`FeatureViewIndex`] (geometry/state for every feature),
-/// [`ActorRenderIndex`] / [`BossRenderIndex`] (materialized identity facts),
-/// [`NameplateIndex`], [`BossFrameIndex`], the per-actor POSE snapshot
-/// ([`ActorAnimIndex`]: overlay advance + anim pick), the player-bodied
-/// [`BodyPoseView`] components, [`ShieldRingsView`] and
-/// [`LaunchedBodiesView`]. All let observers
-/// read a snapshot instead of live-querying the sim's ECS.
+/// Publish observation views on their readers' clocks. Keep tick observations
+/// and animation clocks in the simulation. Sample render identities, feature
+/// views, and labels once after the frame's simulation steps.
 pub struct FeatureViewSyncSchedulePlugin;
 
 impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
@@ -148,16 +143,22 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 .after(ambition_input::InputSet::PublishCues)
                 .before(ambition_input::InputSet::Consume),
         );
+        use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
+        app.add_systems(
+            bevy::prelude::Update,
+            (
+                (rebuild_feature_view_index, rebuild_nameplate_index).chain(),
+                rebuild_actor_render_index,
+                rebuild_boss_render_index
+                    .run_if(sources_or_rows::<ambition_boss_encounter::BossConfig, BossRenderIndex>),
+            )
+                .after(Platformer2dSimulationPhase::FeatureViewSync)
+                .before(PresentedPoseSet)
+                .before(Platformer2dSimulationPhase::PresentationVisualSync),
+        );
         app.add_systems(
             sim,
             (
-                // The nameplate rows prefer the feature view's geometry, so
-                // they rebuild strictly after it (same-frame read).
-                (rebuild_feature_view_index, rebuild_nameplate_index).chain(),
-                rebuild_actor_render_index,
-                // Both run while a boss stands or a row is left to retire.
-                rebuild_boss_render_index
-                    .run_if(sources_or_rows::<ambition_boss_encounter::BossConfig, BossRenderIndex>),
                 rebuild_boss_frame_index.run_if(sources_or_rows::<ambition_boss_encounter::BossConfig, BossFrameIndex>),
                 // Overlay clocks advance right before their one reader
                 // rebuilds the pose snapshot (§A9 ordering, preserved). The
@@ -205,7 +206,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                     .after(ControlPromptRebuilt)
                     .after(affordances::AffordancesSystemSet::Compute),
             )
-                .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::FeatureViewSync),
+                .in_set(Platformer2dSimulationPhase::FeatureViewSync),
         );
     }
 }

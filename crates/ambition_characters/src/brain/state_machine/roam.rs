@@ -28,6 +28,7 @@ const SAME_PLACE: f32 = 48.0;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RoamCfg {
     pub navigation: NavigationMethod,
+    pub look_interval_s: f32,
     /// The walk speed between take-offs (px/s). A run-up and a jump are at
     /// the body's top speed.
     pub speed: f32,
@@ -59,8 +60,12 @@ pub struct RoamState {
     pub nav: NavFollower,
     /// The task owns the current goal.
     pub task: Option<NavigationTask>,
-    /// The sim time (s) when the rest ends.
+    /// The time this body has spent executing its roaming policy (s).
+    pub clock: f32,
+    /// The time on this body's clock when the rest ends (s).
     pub until: f32,
+    /// The next time the actor can look for company (s).
+    pub look_again_at: f32,
     /// How many goals this brain has chosen: the seed of the next choice.
     pub picks: u32,
 }
@@ -79,7 +84,11 @@ fn chance(picks: u32, salt: u64) -> f32 {
 pub(super) fn tick_roam(cfg: &RoamCfg, state: &mut RoamState, snapshot: &BrainSnapshot, out: &mut ActorControlFrame) {
     *out = ActorControlFrame::neutral();
     out.facing = snapshot.actor_facing;
-    let now = snapshot.sim_time;
+    if snapshot.dt <= 0.0 {
+        return;
+    }
+    state.clock += snapshot.dt;
+    let now = state.clock;
     let advice = &snapshot.navigation;
     let rest = |picks: u32| {
         if playful(cfg, picks) {
@@ -143,6 +152,10 @@ pub(super) fn tick_roam(cfg: &RoamCfg, state: &mut RoamState, snapshot: &BrainSn
     // At rest. Look at the attended body when it is near. The advice's place
     // is beside it, and a friendly body has no combat target to read.
     let frame = snapshot.acceleration_frame();
+    let look_due = now >= state.look_again_at;
+    if look_due && cfg.look_interval_s > 0.0 {
+        state.look_again_at = now + cfg.look_interval_s;
+    }
     let to_company = advice.target_place.map(|place| frame.to_local(place - advice.feet));
     if let Some(offset) = to_company.filter(|offset| offset.length() <= cfg.notice_radius) {
         out.facing = snapshot.face_toward(offset.x);
@@ -192,6 +205,7 @@ mod tests {
 
     const CFG: RoamCfg = RoamCfg {
         navigation: NavigationMethod::SimulationBacked,
+        look_interval_s: 0.0,
         speed: 50.0,
         trot_speed: 100.0,
         rest_min_s: 1.0,
@@ -222,8 +236,10 @@ mod tests {
     }
 
     fn tick(cfg: &RoamCfg, state: &mut RoamState, snapshot: &BrainSnapshot) -> ActorControlFrame {
+        let mut snapshot = snapshot.clone();
+        snapshot.dt = (snapshot.sim_time - state.clock).max(snapshot.dt);
         let mut out = ActorControlFrame::neutral();
-        tick_roam(cfg, state, snapshot, &mut out);
+        tick_roam(cfg, state, &snapshot, &mut out);
         out
     }
 
@@ -273,7 +289,7 @@ mod tests {
             goal: Some(THERE),
             leg: Some(leg),
             phase: LegPhase::Air,
-            until: 100.0,
+            time_left: 100.0,
             misses,
         };
         let mut out = ActorControlFrame::neutral();
@@ -321,6 +337,14 @@ mod tests {
         // At rest at the start: it commits, then it jumps toward the place.
         tick(&CFG, &mut state, &answered);
         assert_eq!(state.nav.phase, LegPhase::Commit);
+        let before_pause = state;
+        let mut paused = answered.clone();
+        paused.dt = 0.0;
+        paused.sim_time = 100.0;
+        let mut out = ActorControlFrame::neutral();
+        tick_roam(&CFG, &mut state, &paused, &mut out);
+        assert_eq!(state, before_pause);
+        assert!(!out.jump_pressed);
         let jump = tick(&CFG, &mut state, &answered);
         assert!(jump.jump_pressed && jump.jump_held && jump.locomotion.x > 0.0, "{jump:?}");
 

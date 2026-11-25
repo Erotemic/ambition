@@ -16,6 +16,7 @@ use ae::navigation::{NavNext, RouteWait};
 use ae::{AbilitySet, Aabb, BodyBaseSize, BodyClusterScratch, MotionFrame, Vec2, World};
 use ae::frame::BodyMaterial;
 
+use super::graph::BuildCost;
 use super::{GroundMap, NavFrame, NavGraph, NavMotion, RefinementWork};
 use crate::collision::{GeometryRevision, RoomCollision};
 
@@ -166,6 +167,7 @@ pub struct NavGraphCache {
     motion_measures: u64,
     ground_preparations: u64,
     builds: u64,
+    preparation: BuildCost,
 }
 
 impl NavGraphCache {
@@ -179,6 +181,7 @@ impl NavGraphCache {
             motion_measures: 0,
             ground_preparations: 0,
             builds: 0,
+            preparation: BuildCost::default(),
         }
     }
 
@@ -194,6 +197,10 @@ impl NavGraphCache {
     /// How many graphs `get_or_build*` built. For tests and instruments.
     pub fn builds(&self) -> u64 {
         self.builds
+    }
+
+    pub fn preparation_work(&self) -> BuildCost {
+        self.preparation
     }
 
     fn demand(&mut self, key: NavGraphKey) {
@@ -324,6 +331,9 @@ impl NavGraphCache {
 
     /// Keep `graph` as the answer for `key`.
     pub fn insert(&mut self, key: NavGraphKey, graph: Option<NavGraph>) {
+        if let Some(graph) = &graph {
+            self.preparation.add(graph.cost);
+        }
         if let Some(slot) = self.graphs.iter_mut().find(|(known, _)| *known == key) {
             slot.1 = graph;
             return;

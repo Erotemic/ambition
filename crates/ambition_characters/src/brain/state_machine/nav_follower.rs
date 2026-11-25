@@ -41,7 +41,6 @@ impl DriveFollower for NavFollower {
         let frame = snapshot.acceleration_frame();
         let side = frame.to_world(ae::Vec2::X);
         let facts = FollowFacts {
-            now: snapshot.sim_time,
             leg: LegFacts {
                 feet: advice.feet,
                 vel: snapshot.actor_vel,

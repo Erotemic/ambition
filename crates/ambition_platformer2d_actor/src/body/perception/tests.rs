@@ -1,6 +1,49 @@
 use super::*;
 use ambition_characters::perception::PerceptionMemory;
 
+fn collect_test_peers(mut peers: ResMut<PerceptionPeers>, bodies: Query<PeerRead>, rooms: LiveRooms) {
+    collect_peer_rows(&mut peers, &bodies, &rooms, |_| true);
+}
+
+fn collect_test_projectiles(
+    mut shots: ResMut<PerceptionProjectiles>,
+    live: Query<ProjectileRead, With<ambition_projectiles::LiveProjectile>>,
+    rooms: LiveRooms,
+) {
+    collect_projectile_rows(&mut shots, &live, &rooms, |_| true);
+}
+
+#[test]
+fn a_passive_room_collects_peers_only_while_a_module_requests_them() {
+    use ambition_characters::actor::{BodyHealth, Health};
+    use ambition_characters::brain::StateMachineCfg;
+    use bevy::prelude::{App, Update};
+
+    let mut app = App::new();
+    app.init_resource::<PerceptionPeers>().add_systems(Update, collect_perception_peers);
+    let actor = app.world_mut().spawn((
+        FeatureSimEntity,
+        Brain::StateMachine(StateMachineCfg::StandStill),
+        ambition_combat::components::FeatureId::new("passive"),
+        ae::BodyKinematics::default(),
+        BodyHealth::new(Health::new(10)),
+        ActorFaction::Enemy,
+    )).id();
+    app.update();
+    assert_eq!(app.world().resource::<PerceptionPeers>().row_count(), 0);
+
+    app.world_mut().entity_mut(actor).insert(ModuleObservation {
+        demand: PerceptionRequirement::TargetBelief,
+        decision: None,
+    });
+    app.update();
+    assert!(app.world().resource::<PerceptionPeers>().peer(actor).is_some());
+
+    app.world_mut().entity_mut(actor).remove::<ModuleObservation>();
+    app.update();
+    assert_eq!(app.world().resource::<PerceptionPeers>().row_count(), 0);
+}
+
 fn reach_moveset(reach: f32) -> ambition_combat::moveset::ActorMoveset {
     use ambition_entity_catalog::{MovesetContract, VolumeShape, WindowTag};
     let mut spec = ambition_characters::moveset_prefabs::simple_melee(&Default::default());
@@ -21,7 +64,7 @@ fn reach_app(count: usize) -> (bevy::prelude::App, Vec<bevy::prelude::Entity>) {
     use ambition_characters::actor::{BodyHealth, Health};
     use bevy::prelude::*;
     let mut app = App::new();
-    app.init_resource::<PerceptionPeers>().add_systems(Update, collect_perception_peers);
+    app.init_resource::<PerceptionPeers>().add_systems(Update, collect_test_peers);
     let actors = (0..count).map(|i| app.world_mut().spawn((
         ambition_combat::components::FeatureId::new(format!("actor_{i}")),
         ae::BodyKinematics::default(), BodyHealth::new(Health::new(5)), ActorFaction::Npc,
@@ -541,7 +584,7 @@ fn portals_in_view_link_to_their_pair() {
     );
 }
 
-/// §A7 peers-wiring: `collect_perception_peers` snapshots EVERY body (player,
+/// §A7 peers-wiring: `collect_test_peers` snapshots EVERY body (player,
 /// actor, boss — all carry `BodyKinematics`) into the resource `build_world_view`
 /// reads, with its source `Entity` (so a viewer excludes itself).
 ///
@@ -583,7 +626,7 @@ fn a_viewer_perceives_only_the_bodies_of_its_own_live_room() {
     let mut app = App::new();
     app.init_resource::<PerceptionPeers>();
     app.init_resource::<Seen>();
-    app.add_systems(Update, (collect_perception_peers, probe).chain());
+    app.add_systems(Update, (collect_test_peers, probe).chain());
     let first = LiveRoomInstance::ACTIVATION;
     for room in [first, first.next()] {
         app.world_mut().spawn((RoomInstanceRoot, room));
@@ -615,13 +658,13 @@ fn a_viewer_perceives_only_the_bodies_of_its_own_live_room() {
 }
 
 #[test]
-fn collect_perception_peers_snapshots_every_body() {
+fn collect_test_peers_snapshots_every_body() {
     use ambition_characters::actor::{BodyHealth, Health};
     use bevy::prelude::*;
 
     let mut app = App::new();
     app.init_resource::<PerceptionPeers>();
-    app.add_systems(Update, collect_perception_peers);
+    app.add_systems(Update, collect_test_peers);
     let kin = |x: f32| ambition_platformer2d_core::BodyKinematics { material: Default::default(),
         pos: ae::Vec2::new(x, 20.0),
         vel: ae::Vec2::ZERO,
@@ -730,7 +773,7 @@ fn a_perceivable_body_with_no_canonical_identity_is_refused() {
 
     let mut app = App::new();
     app.init_resource::<PerceptionPeers>();
-    app.add_systems(Update, collect_perception_peers);
+    app.add_systems(Update, collect_test_peers);
     app.world_mut().spawn((
         ambition_platformer2d_core::BodyKinematics { material: Default::default(),
             pos: ae::Vec2::new(10.0, 20.0),
@@ -744,16 +787,16 @@ fn a_perceivable_body_with_no_canonical_identity_is_refused() {
     app.update();
 }
 
-/// §A7 projectiles-wiring: `collect_perception_projectiles` snapshots the single
+/// §A7 projectiles-wiring: `collect_test_projectiles` snapshots the single
 /// live-projectile occurrence family exactly once and reads side from the frozen
 /// allegiance rather than from the shot's presentation vocabulary.
 #[test]
-fn collect_perception_projectiles_snapshots_live_projectiles_once_with_frozen_side() {
+fn collect_test_projectiles_snapshots_live_projectiles_once_with_frozen_side() {
     use bevy::prelude::*;
 
     let mut app = App::new();
     app.init_resource::<PerceptionProjectiles>();
-    app.add_systems(Update, collect_perception_projectiles);
+    app.add_systems(Update, collect_test_projectiles);
     let kin = |x: f32| ambition_platformer2d_core::BodyKinematics { material: Default::default(),
         pos: ae::Vec2::new(x, 0.0),
         vel: ae::Vec2::new(-100.0, 0.0),

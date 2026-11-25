@@ -739,6 +739,14 @@ planning time through a separate wall-clock loop.
 
 ## 12. Subsequent customer: bounded perception
 
+**Room demand.** OBS3 and the native brain declare which live rooms need
+peer rows or projectile rows. A passive room with no reader prepares no
+rows. Resolved hits can still supply evidence from the striker. Roam gets
+company and destinations from navigation advice. During a committed
+pursuit leg the brain can use its retained belief. This pause in sight
+does not refresh or decay that belief. A module that asks for a fresh
+observation still gets one.
+
 Do not wait for a complete new perception architecture before implementing
 navigation. The existing `PerceptionRequirement` and bounded-attention
 contract provide useful independent work. Continue those plans rather than
@@ -777,6 +785,12 @@ the existing bounded-perception owner's exact/watchlist/aggregate direction.
 An ordinary Hall actor should not pay for that representation.
 
 ## 13. Subsequent customer: retained intentions and deliberation cadence
+
+**Local cadence.** Roam rest and look intervals advance by the body's
+simulation step. Grazing checks for company every 0.25 seconds. Route
+followers advance each active tick. A zero step neither spends the leg
+timer nor emits a movement edge. The roam test pauses before takeoff and
+observes the jump press on the next active step.
 
 An actor should be able to decide to walk somewhere at a low frequency
 while its controls and physical motion continue every simulation tick.

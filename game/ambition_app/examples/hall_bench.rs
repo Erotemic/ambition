@@ -20,17 +20,30 @@ use ambition_app::{
     AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions,
     TimestepMode,
 };
+use ambition_platformer2d::actors::body::navigation::RoomNavigation;
+use ambition_platformer2d::actors::body::perception::PerceptionPeers;
+use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
+use ambition_platformer2d::engine_core::navigation::NavigationMethod;
 
 fn main() {
     let mut room = "hall_of_characters".to_string();
     let mut ticks: usize = 3000;
     let mut warmup: usize = 300;
+    let mut navigation = None;
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
         match arg.as_str() {
             "--room" => room = it.next().expect("--room ID"),
             "--ticks" => ticks = it.next().expect("--ticks N").parse().expect("--ticks N"),
             "--warmup" => warmup = it.next().expect("--warmup N").parse().expect("--warmup N"),
+            "--navigation" => navigation = Some(match it.next().as_deref() {
+                Some("local") => NavigationMethod::LocalGround,
+                Some("ground") => NavigationMethod::ConnectedGround,
+                Some("approximate") => NavigationMethod::Approximate,
+                Some("hybrid") => NavigationMethod::Hybrid,
+                Some("native") => NavigationMethod::SimulationBacked,
+                _ => panic!("--navigation needs local, ground, approximate, hybrid, or native"),
+            }),
             other => {
                 eprintln!("hall_bench: unknown argument {other}");
                 std::process::exit(2);
@@ -43,9 +56,23 @@ fn main() {
         .with_required_start_room(room.clone())
         // The shipped local session: a sync test that never re-simulates.
         .with_sync_test_rollback_settings(0, 12);
+    let entered_at = Instant::now();
     let mut sim = Platformer2dSimHarness::new_with_options(options).expect("harness");
 
     let idle = AgentAction::default();
+    if let Some(method) = navigation {
+        sim.step(idle);
+        let world = sim.world_mut();
+        let mut changed = 0;
+        for mut brain in world.query::<&mut Brain>().iter_mut(world) {
+            if let Brain::StateMachine(StateMachineCfg::Roam { cfg, .. }) = &mut *brain {
+                cfg.navigation = method;
+                changed += 1;
+            }
+        }
+        assert!(changed > 0, "the benchmark needs at least one Roam brain");
+        println!("[hall_bench] navigation_method={method:?} roaming_bodies={changed}");
+    }
     for _ in 0..warmup {
         sim.step(idle);
     }
@@ -53,6 +80,8 @@ fn main() {
     // reports a number for the right one.
     let active = sim.observation().active_room;
     assert_eq!(active, room, "after {warmup} ticks the active room is {active:?}, not {room:?}");
+    println!("[hall_bench] warmup={warmup} entry_ms={:.1}", entered_at.elapsed().as_secs_f64() * 1000.0);
+    report_navigation("after_warmup", sim.world().resource::<RoomNavigation>());
 
     // One-second windows of wall time per tick, so the printed number is a
     // median over windows rather than a mean a single hitch can own.
@@ -80,5 +109,18 @@ fn main() {
         total_ms / ticks as f64,
         windows.first().copied().unwrap_or(f64::NAN),
         windows.last().copied().unwrap_or(f64::NAN),
+    );
+    report_navigation("after_run", sim.world().resource::<RoomNavigation>());
+    println!("[hall_bench] peer_rows={}", sim.world().resource::<PerceptionPeers>().row_count());
+}
+
+fn report_navigation(boundary: &str, navigation: &RoomNavigation) {
+    let preparation = navigation.preparation_work();
+    let refinement = navigation.refinement_work();
+    println!(
+        "[hall_bench] nav={boundary} questions={} ground_maps={} motion_measures={} graphs={} candidates={} sweeps={} rollouts={} slope_rollouts={} refined={} retained={} refinement_rollouts={}",
+        navigation.questions(), navigation.ground_preparations(), navigation.motion_measures(), navigation.builds(),
+        preparation.candidate_pairs, preparation.clearance_sweeps, preparation.rollouts, preparation.slope_rollouts,
+        refinement.attempted, refinement.retained, refinement.kernel.rollouts,
     );
 }

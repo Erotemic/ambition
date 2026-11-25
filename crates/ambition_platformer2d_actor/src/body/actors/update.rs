@@ -764,18 +764,19 @@ pub fn tick_actor_brains(
                     // OBS3: the native brain's need and its module consumers'
                     // demand, resolved once, so the module's demand owns
                     // maintenance even over a native brain that perceives nothing.
-                    let perception_need = brain_ref.perception_requirement().union(
-                        module_observation.as_deref().map_or(
-                            ambition_characters::perception::PerceptionRequirement::None,
-                            |observation| observation.demand,
-                        ),
+                    let perception_need = super::super::perception::read_requirement(
+                        brain_ref,
+                        module_observation.as_deref(),
                     );
                     super::super::perception::enforce_empty_belief_for_none(
                         perception_need,
                         perception_memory.as_deref_mut(),
                     );
-                    // A brain that reads no perception needs no sensor inputs.
-                    let world_view = if perception_need.needs_target_belief() {
+                    let fresh_need = super::super::perception::fresh_requirement(
+                        brain_ref,
+                        module_observation.as_deref(),
+                    );
+                    let (world_view, believed) = if fresh_need.needs_target_belief() {
                         let self_faction = ambition_combat::targeting::effective_faction(
                             faction
                                 .copied()
@@ -833,39 +834,41 @@ pub fn tick_actor_brains(
                         // actors its bounded view attends to; `TargetBelief`
                         // keeps the cheap road and builds no view. See
                         // `perception::perceive_for_decision`.
-                        let (world_view, believed) =
-                            super::super::perception::perceive_for_decision(
-                                perception_need,
-                                &perception_body,
-                                view_peers,
-                                perceived.projectiles_in(room),
-                                feature_world,
-                                &open_gates,
-                                relations,
-                                perception_policy,
-                                sim_now,
-                                observation_cut,
-                                dt,
-                                perception_memory.as_deref_mut(),
-                            );
-                        // Sight and memory answer together; an `Omniscient` body
-                        // already carries the global `ActorTarget` and is not
-                        // overridden. Perceiving nobody is a real answer (idle).
-                        match believed {
-                            Some(Some(pos)) => {
-                                snapshot.target_pos = pos;
-                                snapshot.target_alive = true;
-                            }
-                            Some(None) => {
-                                snapshot.target_pos = body.kin.pos;
-                                snapshot.target_alive = false;
-                            }
-                            None => {}
-                        }
-                        world_view
+                        super::super::perception::perceive_for_decision(
+                            fresh_need,
+                            &perception_body,
+                            view_peers,
+                            perceived.projectiles_in(room),
+                            feature_world,
+                            &open_gates,
+                            relations,
+                            perception_policy,
+                            sim_now,
+                            observation_cut,
+                            dt,
+                            perception_memory.as_deref_mut(),
+                        )
                     } else {
-                        ambition_characters::perception::WorldView::default()
+                        let believed = if perception_need.needs_target_belief() {
+                            super::super::perception::belief_from_nearest(
+                                perception_policy, None, perception_memory.as_deref(),
+                            )
+                        } else {
+                            None
+                        };
+                        (ambition_characters::perception::WorldView::default(), believed)
                     };
+                    match believed {
+                        Some(Some(pos)) => {
+                            snapshot.target_pos = pos;
+                            snapshot.target_alive = true;
+                        }
+                        Some(None) => {
+                            snapshot.target_pos = body.kin.pos;
+                            snapshot.target_alive = false;
+                        }
+                        None => {}
+                    }
                     // OBS3: this decision ran for this body, so its module
                     // consumers get its product: the target it admitted (an
                     // `Omniscient` body's knowledge is its global target,

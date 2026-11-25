@@ -121,7 +121,7 @@ pub struct BuildCost {
 }
 
 impl BuildCost {
-    fn add(&mut self, other: Self) {
+    pub(super) fn add(&mut self, other: Self) {
         self.rollouts += other.rollouts;
         self.slope_rollouts += other.slope_rollouts;
         self.steps += other.steps;

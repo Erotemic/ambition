@@ -93,6 +93,14 @@ impl RoomNavigation {
         self.graphs.motion_measures()
     }
 
+    pub fn builds(&self) -> u64 {
+        self.graphs.builds()
+    }
+
+    pub fn preparation_work(&self) -> ambition_platformer2d_world::navigation::graph::BuildCost {
+        self.graphs.preparation_work()
+    }
+
     pub fn refinement_work(&self) -> RefinementWork {
         self.refinement
     }
@@ -193,7 +201,6 @@ pub fn advise_navigation(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     time: bevy::prelude::Res<ambition_time::WorldTime>,
-    elapsed: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_time::GameplayElapsed>,
     // The room graph and the live rooms, for an errand item in another room.
     specs: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     mut cache: ResMut<RoomNavigation>,
@@ -242,7 +249,11 @@ pub fn advise_navigation(
     cache.graphs.begin_demand();
     cache.by_body.clear();
     for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand, visit, config, origin, (dormant, driven)) in &bodies {
-        let Some(mut request) = brain.navigation_request(elapsed.0, ground.on_ground) else {
+        let dt = time.sim_dt() * freeze.scale_of(entity);
+        if dt <= 0.0 {
+            continue;
+        }
+        let Some(mut request) = brain.navigation_request(dt, ground.on_ground) else {
             continue;
         };
         // A body the movement kernel has not stepped yet has the motion model
@@ -252,9 +263,6 @@ pub fn advise_navigation(
         // build for nothing (measured: 54 to 112 ms for each dog). The kernel
         // marks the body's ground contact on that first step.
         if !ground.contact_initialized {
-            continue;
-        }
-        if time.sim_dt() <= 0.0 || freeze.scale_of(entity) <= 0.0 {
             continue;
         }
         if dormant || driven {

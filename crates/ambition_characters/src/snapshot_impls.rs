@@ -617,7 +617,9 @@ impl SnapshotCursor for crate::brain::Brain {
             Brain::StateMachine(StateMachineCfg::Roam { state, .. }) => {
                 put_u8(out, 4);
                 put_nav_follower(out, &state.nav);
+                put_f32(out, state.clock);
                 put_f32(out, state.until);
+                put_f32(out, state.look_again_at);
                 put_u32(out, state.picks);
                 put_u8(out, match state.task {
                     None => 0,
@@ -1146,7 +1148,7 @@ fn put_nav_follower(out: &mut Vec<u8>, nav: &crate::brain::state_machine::NavFol
         }
     }
     put_u8(out, nav.phase as u8);
-    put_f32(out, nav.until);
+    put_f32(out, nav.time_left);
     put_u8(out, nav.misses);
 }
 

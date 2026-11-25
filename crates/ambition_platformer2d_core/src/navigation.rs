@@ -574,8 +574,8 @@ pub struct RouteFollower {
     /// The leg the body is on, and where in it.
     pub leg: Option<NavLeg>,
     pub phase: LegPhase,
-    /// The time (s) when the leg is given up, on the owner's clock.
-    pub until: f32,
+    /// The time left for the leg on the body's clock (s).
+    pub time_left: f32,
     /// The legs that failed in a row on the way to this goal.
     pub misses: u8,
 }
@@ -599,8 +599,6 @@ pub enum Followed {
 /// What a [`RouteFollower`] reads in one step.
 #[derive(Clone, Copy, Debug)]
 pub struct FollowFacts {
-    /// The owner's clock (s), for the time a leg may take.
-    pub now: f32,
     /// The body's state, as [`follow_leg`] reads it.
     pub leg: LegFacts,
     /// The body's walk speed (px/s), for the time a leg may take.
@@ -653,8 +651,12 @@ impl RouteFollower {
     /// One step.
     pub fn step(&mut self, facts: &FollowFacts) -> FollowStep {
         let going = |input| FollowStep { followed: Followed::Going, input };
+        if facts.leg.dt <= 0.0 && self.goal.is_some() {
+            return going(None);
+        }
         if let Some(leg) = self.leg {
-            if facts.now > self.until {
+            self.time_left -= facts.leg.dt;
+            if self.time_left < 0.0 {
                 self.leg = None;
                 self.misses = self.misses.saturating_add(1);
                 return going(None);
@@ -695,7 +697,7 @@ impl RouteFollower {
                 let walk = (approach_point(&leg) - facts.leg.feet).dot(side).abs() / facts.walk_speed.max(1.0);
                 self.leg = Some(leg);
                 self.phase = LegPhase::Approach;
-                self.until = facts.now + walk + LEG_TIME_MARGIN_S;
+                self.time_left = walk + LEG_TIME_MARGIN_S;
                 going(None)
             }
             NavNext::NoRoute => {

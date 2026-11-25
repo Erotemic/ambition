@@ -168,6 +168,12 @@ impl Brain {
         sm.perception_requirement()
     }
 
+    /// A committed pursuit leg can use the actor's current belief.
+    pub fn retains_target_belief(&self) -> bool {
+        matches!(self, Self::StateMachine(StateMachineCfg::MeleeBrute { cfg, state })
+            if cfg.navigates && state.nav.committed())
+    }
+
     /// Whether the body turns to face whoever talks to it
     /// ([`StateMachineCfg::turns_to_talk`]).
     pub fn turns_to_talk(&self) -> bool {
@@ -250,10 +256,11 @@ impl Brain {
     /// What this brain asks of the navigation advisor, when it is a brain
     /// that navigates; `None` for a brain that does not. The advisor reads it
     /// to know which bodies to advise, and for what.
-    pub fn navigation_request(&self, now: f32, grounded: bool) -> Option<NavigationRequest> {
+    pub fn navigation_request(&self, dt: f32, grounded: bool) -> Option<NavigationRequest> {
         match self {
             Brain::StateMachine(StateMachineCfg::Roam { cfg, state }) => {
                 let idle = state.nav.goal.is_none();
+                let now = state.clock + dt;
                 let due = idle && grounded && now >= state.until
                     && (state.picks != 0 || state.until != 0.0);
                 let nearby = cfg.notice_radius.max(if grounded { cfg.greet_within } else { 0.0 });
@@ -263,7 +270,7 @@ impl Brain {
                     destination_seed: due.then_some(state.picks as u64),
                     approach: if due && (cfg.company > 0.0 || cfg.stay_within > 0.0) {
                         ApproachDemand::Any
-                    } else if idle && nearby > 0.0 {
+                    } else if idle && nearby > 0.0 && now >= state.look_again_at {
                         ApproachDemand::Nearby(nearby)
                     } else {
                         ApproachDemand::None

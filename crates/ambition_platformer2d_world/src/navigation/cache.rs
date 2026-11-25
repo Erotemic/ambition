@@ -12,10 +12,11 @@ use std::sync::Arc;
 
 use ambition_platformer2d_core as ae;
 use ae::movement::MotionModelSpec;
+use ae::navigation::{NavNext, RouteWait};
 use ae::{AbilitySet, Aabb, BodyBaseSize, BodyClusterScratch, MotionFrame, Vec2, World};
 use ae::frame::BodyMaterial;
 
-use super::{GroundMap, NavFrame, NavGraph, NavMotion};
+use super::{GroundMap, NavFrame, NavGraph, NavMotion, RefinementWork};
 use crate::collision::{GeometryRevision, RoomCollision};
 
 /// What one graph is a function of.
@@ -38,6 +39,14 @@ pub struct NavGraphKey {
     /// external acceleration it cannot. Two frames with one sum are two rooms
     /// to a body (found in review, 2026-10-09).
     frame: MotionFrame,
+    method: GraphMethod,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GraphMethod {
+    Native,
+    Estimated,
+    Ground,
 }
 
 impl NavGraphKey {
@@ -68,7 +77,15 @@ impl NavGraphKey {
         base_size: BodyBaseSize,
         frame: MotionFrame,
     ) -> Self {
-        Self { room, spec, abilities, size, material: material.scale_only(), base_size, frame }
+        Self { room, spec, abilities, size, material: material.scale_only(), base_size, frame, method: GraphMethod::Native }
+    }
+
+    pub fn estimated(self) -> Self {
+        Self { method: GraphMethod::Estimated, ..self }
+    }
+
+    pub fn connected_ground(self) -> Self {
+        Self { method: GraphMethod::Ground, ..self }
     }
 
     /// The stamp of the world and exits the graph was built from
@@ -261,13 +278,34 @@ impl NavGraphCache {
         }
         self.builds += 1;
         let ground = self.ground(&key, world);
-        let graph = ground.and_then(|ground| {
-            self.motion(&key).and_then(|motion| {
+        let graph = ground.and_then(|ground| match key.method {
+            GraphMethod::Ground => Some(NavGraph::connect_ground(world, exits, &key.probe_body(), key.frame, ground)),
+            GraphMethod::Native => self.motion(&key).and_then(|motion| {
                 NavGraph::build_on_ground(world, exits, &key.probe_body(), key.frame, motion, pool, None, ground)
-            })
+            }),
+            GraphMethod::Estimated => self.motion(&key).map(|motion| {
+                NavGraph::estimate_on_ground(world, exits, key.abilities, &motion.envelope, ground)
+            }),
         });
         self.insert(key, graph);
         self.graphs.iter().find(|(known, _)| *known == key).and_then(|(_, graph)| graph.as_ref())
+    }
+
+    /// Validate selected realizations over the estimated graph for these inputs.
+    pub fn refined_next(
+        &mut self,
+        key: NavGraphKey,
+        world: &World,
+        exits: &[Aabb],
+        feet: Vec2,
+        goal: Vec2,
+        limit: usize,
+    ) -> (NavNext, RefinementWork) {
+        let key = key.estimated();
+        let Some(graph) = self.get_or_build_measured(key, world, exits, None) else {
+            return (NavNext::Waiting(RouteWait::Unsupported), RefinementWork::default());
+        };
+        graph.refined_next(world, exits, &key.probe_body(), key.frame, feet, goal, limit)
     }
 
     pub fn len(&self) -> usize {

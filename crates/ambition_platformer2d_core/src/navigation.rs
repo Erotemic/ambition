@@ -450,15 +450,34 @@ pub fn follow_leg(leg: &NavLeg, phase: LegPhase, facts: &LegFacts) -> (LegInput,
 /// What the route to a goal starts with.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum NavNext {
-    /// No answer: the body is on no standing surface (it is in the air), or
-    /// there is no goal.
     #[default]
-    Unknown,
+    NoRequest,
+    Waiting(RouteWait),
     /// The body stands at the goal.
     Arrived,
     Leg(NavLeg),
-    /// No route goes from the body's surface to the goal.
-    Unreachable,
+    /// The search found no route in the chosen model.
+    NoRoute,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RouteWait {
+    /// The request needs a state the body does not have yet, such as support.
+    NotApplicable,
+    /// The model does not cover the request.
+    Unsupported,
+    /// The search has more work to do.
+    Deferred,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum NavigationMethod {
+    LocalGround,
+    ConnectedGround,
+    Approximate,
+    Hybrid,
+    #[default]
+    SimulationBacked,
 }
 
 /// What a body can know of the routes from where it stands, for one tick.
@@ -488,15 +507,23 @@ pub struct NavAdvice {
     pub target_shares_surface: bool,
     /// What the advisor sees of the item the body's errand asks for.
     pub errand: ErrandSight,
+    /// The task that the errand advice answers.
+    pub task: Option<NavigationTask>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NavigationTask {
+    Fetch,
+    Visit,
 }
 
 /// What a body's errand item is to the body this tick: perception, written by
 /// the navigation advisor. The errand's owner settles the errand from it.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ErrandSight {
-    /// The body has no errand, or the advisor did not look.
     #[default]
-    None,
+    NoRequest,
+    Waiting(RouteWait),
     /// The item lies over a surface the body can get to: the feet point under
     /// the item on that surface.
     At(Vec2),
@@ -507,19 +534,10 @@ pub enum ErrandSight {
     /// The item lies in the body's room, or behind a zone of it, and no route
     /// gets there.
     NoRoute,
+    /// The body could not complete a maneuver after its permitted retries.
+    ExecutionFailed,
     /// The item lies in no live room that a route of live rooms gets to.
     Gone,
-}
-
-impl ErrandSight {
-    /// Where the body goes for its errand this tick: to the item, or to the
-    /// zone that leads to it.
-    pub fn place(self) -> Option<Vec2> {
-        match self {
-            Self::At(place) | Self::Door(place) => Some(place),
-            Self::None | Self::NoRoute | Self::Gone => None,
-        }
-    }
 }
 
 impl NavAdvice {
@@ -572,8 +590,10 @@ pub enum Followed {
     Going,
     /// The body stands at the goal. The goal is dropped.
     Arrived,
-    /// No route, or the legs failed. The goal is dropped.
-    GaveUp,
+    /// The planner found no route. The goal is dropped.
+    NoRoute,
+    /// The maneuvers failed and the retry limit was reached. The goal is dropped.
+    ExecutionFailed,
 }
 
 /// What a [`RouteFollower`] reads in one step.
@@ -625,6 +645,11 @@ impl RouteFollower {
         self.goal
     }
 
+    /// The goal whose execution reached the retry limit.
+    pub fn failed_goal(&self) -> Option<Vec2> {
+        self.goal.filter(|_| self.leg.is_none() && self.misses >= MISSES_PER_GOAL)
+    }
+
     /// One step.
     pub fn step(&mut self, facts: &FollowFacts) -> FollowStep {
         let going = |input| FollowStep { followed: Followed::Going, input };
@@ -653,7 +678,7 @@ impl RouteFollower {
         };
         if self.misses >= MISSES_PER_GOAL {
             self.stop();
-            return FollowStep { followed: Followed::GaveUp, input: None };
+            return FollowStep { followed: Followed::ExecutionFailed, input: None };
         }
         // An answer to another goal is stale: wait for one to this goal.
         let next = match facts.answer {
@@ -673,12 +698,11 @@ impl RouteFollower {
                 self.until = facts.now + walk + LEG_TIME_MARGIN_S;
                 going(None)
             }
-            NavNext::Unreachable => {
+            NavNext::NoRoute => {
                 self.stop();
-                FollowStep { followed: Followed::GaveUp, input: None }
+                FollowStep { followed: Followed::NoRoute, input: None }
             }
-            // In the air, or on no surface the graph knows: wait to land.
-            NavNext::Unknown => going(None),
+            NavNext::NoRequest | NavNext::Waiting(_) => going(None),
         }
     }
 }

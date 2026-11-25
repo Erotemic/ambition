@@ -1091,6 +1091,8 @@ pub enum BrainPreset {
         rest_min_s: f32,
         rest_max_s: f32,
         #[serde(default)]
+        navigation: ambition_platformer2d_core::navigation::NavigationMethod,
+        #[serde(default)]
         company: f32,
         /// Farther than this from the player, the body goes to the player
         /// next. Zero: it does not keep near.

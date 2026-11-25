@@ -133,10 +133,15 @@ impl GroundMap {
 
     /// Preserve the native destination choice when only one support exists.
     pub fn only_support_waypoints(&self, feet: Vec2, seed: u64) -> Option<([Vec2; NAV_WAYPOINTS], u8)> {
-        let surface = self.surface_at(feet)?;
-        if self.surfaces.len() != 1 || self.walk(feet, feet).is_none() {
+        if self.surfaces.len() != 1 {
             return None;
         }
+        self.local_waypoints(feet, seed)
+    }
+
+    pub fn local_waypoints(&self, feet: Vec2, seed: u64) -> Option<([Vec2; NAV_WAYPOINTS], u8)> {
+        let surface = self.surface_at(feet)?;
+        self.walk(feet, feet)?;
         let mut points = [Vec2::ZERO; NAV_WAYPOINTS];
         points[0] = self.waypoint(surface, seed);
         Some((points, 1))
@@ -199,6 +204,18 @@ impl GroundMap {
         let along = self.frame.along(target);
         let side = if self.frame.along(feet) < along { -1.0 } else { 1.0 };
         Some((from, to, self.point_on(to, along + side * beside)))
+    }
+
+    pub(super) fn near_slope_end(&self, point: Vec2) -> impl Iterator<Item = usize> + '_ {
+        let along = self.frame.along(point);
+        let top = self.frame.below(point);
+        let width = self.half.x + SLOPE_END_REACH;
+        let height = SLOPE_END_REACH * 0.5;
+        let first = self.surfaces.partition_point(|span| span.top < top - height);
+        self.surfaces[first..].iter().enumerate()
+            .take_while(move |(_, span)| span.top <= top + height)
+            .filter(move |(_, span)| along >= span.left - width && along <= span.right + width)
+            .map(move |(index, _)| index + first)
     }
 }
 

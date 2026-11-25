@@ -9,7 +9,7 @@
 //! `a_dog_sent_for_an_item` and `companion_dog`.
 
 use crate::common::{base, fixed_60hz_room_sim, walk::actor_navigation_graph};
-use ambition_platformer2d::actors::body::navigation::RoomNavigation;
+use ambition_platformer2d::actors::body::navigation::{NavigationAdvice, RoomNavigation};
 use ambition_platformer2d::actors::body::visit::{Visit, VisitOutcome};
 use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
@@ -144,6 +144,43 @@ fn a_passive_dog_asks_nothing_and_a_direct_visit_needs_no_traversal_build() {
     assert_eq!(outcome, VisitOutcome::Arrived);
     assert!(retained_ticks >= 10);
     assert_eq!((work.ground_preparations(), work.motion_measures(), work.len()), (1, 0, 0));
+
+    sim.world_mut().entity_mut(dog).insert(Visit::to(ae::Vec2::splat(-100_000.0)));
+    sim.step_n(base(), 10);
+    let answer = sim.world().resource::<NavigationAdvice>().of(dog).errand;
+    assert_eq!(answer, ae::navigation::ErrandSight::Waiting(ae::navigation::RouteWait::Unsupported));
+    assert_eq!(sim.world().get::<Visit>(dog).unwrap().outcome, VisitOutcome::Pending);
+    assert_eq!(sim.world().resource::<RoomNavigation>().motion_measures(), 0);
+
+    use ae::navigation::NavigationMethod;
+    sim.world_mut().entity_mut(dog).remove::<Visit>();
+    sim.step(base());
+    let return_to = map.point_on(from, along);
+    let mut brain = sim.world_mut().get_mut::<Brain>(dog).unwrap();
+    let Brain::StateMachine(StateMachineCfg::Roam { cfg, state }) = &mut *brain else {
+        panic!("dog has a roaming brain");
+    };
+    cfg.navigation = NavigationMethod::LocalGround;
+    state.nav.go_to(return_to);
+    sim.step(base());
+    let Some(Brain::StateMachine(StateMachineCfg::Roam { state, .. })) = sim.world().get::<Brain>(dog) else {
+        panic!("dog has a roaming brain");
+    };
+    let leg = state.nav.leg.expect("the ground planner offered a walk");
+    let before = sim.world().get::<ae::BodyKinematics>(dog).unwrap().pos;
+    let questions = sim.world().resource::<RoomNavigation>().questions();
+    if let Brain::StateMachine(StateMachineCfg::Roam { cfg, .. }) = &mut *sim.world_mut().get_mut::<Brain>(dog).unwrap() {
+        cfg.navigation = NavigationMethod::Approximate;
+    }
+    sim.step_n(base(), 10);
+    let Some(Brain::StateMachine(StateMachineCfg::Roam { state, .. })) = sim.world().get::<Brain>(dog) else {
+        panic!("dog has a roaming brain");
+    };
+    assert_eq!((state.nav.goal, state.nav.leg), (Some(return_to), Some(leg)));
+    let after = sim.world().get::<ae::BodyKinematics>(dog).unwrap().pos;
+    assert!(map.frame.along(after - before).abs() > 1.0);
+    assert_eq!(sim.world().resource::<RoomNavigation>().questions(), questions);
+    assert_eq!(sim.world().resource::<RoomNavigation>().motion_measures(), 0);
 }
 
 /// ⭐ THE SAME PLACE, AND THE BODY'S OWN MOVEMENT DECIDES. Sent where only a

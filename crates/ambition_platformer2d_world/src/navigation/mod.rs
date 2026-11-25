@@ -3,8 +3,7 @@
 //!
 //! - [`envelope`]: how far and how high one body's jump and walk-off go.
 //! - [`surfaces`]: the standing surfaces of a room for a body's size.
-//! - [`graph`]: the legs between surfaces that the body can do, each one
-//!   rolled out in the kernel, and the routes over them.
+//! - [`graph`]: routes over estimated and measured legs between supports.
 //! - [`flight`]: the air of a room for a flying body, and the routes of a
 //!   flight through it, kept in the room's graph.
 //! - [`cache`]: the graphs in use, kept by what each one is a function of.
@@ -13,6 +12,7 @@
 //! `ambition_platformer2d_core::navigation`, so a brain and the graph use one
 //! rule. See `docs/planning/engine/platformer-navigation-and-reachability.md`.
 
+mod approximate;
 pub mod cache;
 pub mod envelope;
 pub mod flight;
@@ -22,5 +22,5 @@ pub mod surfaces;
 pub use cache::{geometry_stamp, GeometryStamps, NavGraphCache, NavGraphKey};
 pub use envelope::{ArcSample, EnvelopeProbe, TraversalEnvelope};
 pub use flight::{FlightMap, FlightSearch, FLIGHT_CELL};
-pub use graph::{DirectWalk, NavGraph, NavLink, NavMotion};
+pub use graph::{DirectWalk, LinkEvidence, NavGraph, NavLink, NavMotion, RefinementWork};
 pub use surfaces::{standing_surfaces, GroundMap, NavFrame, StandSurface};

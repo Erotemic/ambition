@@ -619,6 +619,11 @@ impl SnapshotCursor for crate::brain::Brain {
                 put_nav_follower(out, &state.nav);
                 put_f32(out, state.until);
                 put_u32(out, state.picks);
+                put_u8(out, match state.task {
+                    None => 0,
+                    Some(ae::navigation::NavigationTask::Fetch) => 1,
+                    Some(ae::navigation::NavigationTask::Visit) => 2,
+                });
             }
             // A brute's hit and run decides where it goes next.
             Brain::StateMachine(StateMachineCfg::MeleeBrute { state, .. }) => {

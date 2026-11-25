@@ -535,7 +535,7 @@ pub fn drive_autopilot(
         Followed::Idle => AutopilotStatus::Idle,
         Followed::Going => AutopilotStatus::Going,
         Followed::Arrived => AutopilotStatus::Arrived,
-        Followed::GaveUp => {
+        Followed::NoRoute | Followed::ExecutionFailed => {
             pilot.retry_in = RETRY_FRAMES;
             AutopilotStatus::NoRoute
         }

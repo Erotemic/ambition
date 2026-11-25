@@ -225,6 +225,8 @@ pub enum LifeStop {
     NoPlace(String),
     /// No route gets the body to this place.
     NoRoute(String),
+    /// The body could not complete the route after its permitted retries.
+    ExecutionFailed(String),
     /// Another body holds this thing.
     Taken(String),
     /// Something outside the plan stopped it (a conversation).
@@ -238,13 +240,13 @@ pub enum LifeStop {
 impl LifeStop {
     /// A stop that plans again at once, rather than at the next hour.
     fn replans(&self) -> bool {
-        matches!(self, Self::NoRoute(_) | Self::NoPlace(_) | Self::Interrupted(_))
+        matches!(self, Self::NoRoute(_) | Self::ExecutionFailed(_) | Self::NoPlace(_) | Self::Interrupted(_))
     }
 
     /// The fact a failed step leaves for the next plan.
     fn fact(&self) -> Option<String> {
         match self {
-            Self::NoRoute(place) => Some(format!("{UNREACHABLE}{place}")),
+            Self::NoRoute(place) | Self::ExecutionFailed(place) => Some(format!("{UNREACHABLE}{place}")),
             Self::NoPlace(place) => Some(format!("{ABSENT}{place}")),
             _ => None,
         }
@@ -982,6 +984,11 @@ fn carry_out(
                     Some(VisitOutcome::NoRoute) => {
                         commands.entity(body).remove::<Visit>();
                         stop(life, LifeStop::NoRoute(target));
+                        return Carried::Waits;
+                    }
+                    Some(VisitOutcome::ExecutionFailed) => {
+                        commands.entity(body).remove::<Visit>();
+                        stop(life, LifeStop::ExecutionFailed(target));
                         return Carried::Waits;
                     }
                     _ => return Carried::Waits,

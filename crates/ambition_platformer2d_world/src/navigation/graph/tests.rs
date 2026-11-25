@@ -96,8 +96,8 @@ impl Fixture {
                 match self.graph.next(feet, goal) {
                     NavNext::Arrived => return Ok(index),
                     NavNext::Leg(next) => leg = Some((next, LegPhase::Approach)),
-                    NavNext::Unreachable => return Err(format!("unreachable from {feet:?}")),
-                    NavNext::Unknown => {}
+                    NavNext::NoRoute => return Err(format!("unreachable from {feet:?}")),
+                    NavNext::NoRequest | NavNext::Waiting(_) => {}
                 }
             }
             if let Some((current, phase)) = leg {
@@ -150,7 +150,7 @@ fn a_continuous_walk_skips_link_rollouts() {
     let across = DirectWalk { destination: fixture.middle("ledge"), ..walk };
     assert!(!standing.can_answer_walk(across));
     assert_eq!(standing.ground.walk(feet, across.destination), None);
-    assert_eq!(standing.next(feet, across.destination), NavNext::Unknown);
+    assert_eq!(standing.next(feet, across.destination), NavNext::Waiting(RouteWait::Unsupported));
     let local = build(across);
     assert!(local.local_only());
     assert!(local.can_answer_walk(across));
@@ -161,6 +161,60 @@ fn a_continuous_walk_skips_link_rollouts() {
     let verified = build(high);
     assert!(!verified.local_only());
     assert_eq!(verified.links, fixture.graph.links);
+}
+
+#[test]
+fn a_measured_arc_estimates_clear_jumps_and_drops_without_room_rollouts() {
+    let body = walker();
+    let frame = normal_frame();
+    let left = Block::solid("left", Vec2::new(80.0, 620.0), Vec2::new(520.0, 32.0));
+    let right = Block::solid("right", Vec2::new(650.0, 620.0), Vec2::new(650.0, 32.0));
+    let low = Block::solid("low", Vec2::new(1340.0, 840.0), Vec2::new(450.0, 32.0));
+    let build = |blocks| World::new("estimated route", Vec2::new(1900.0, 1100.0), Vec2::ZERO, blocks);
+    let world = build(vec![left.clone(), right.clone(), low.clone()]);
+    let mut graph = NavGraph::build_approximate(&world, &[], &body, frame).unwrap();
+    let from = graph.surface_at(Vec2::new(400.0, 620.0)).unwrap();
+    let across = graph.surface_at(Vec2::new(800.0, 620.0)).unwrap();
+    let below = graph.surface_at(Vec2::new(1550.0, 840.0)).unwrap();
+    assert_eq!(graph.cost.rollouts, 0);
+    assert!(graph.cost.candidate_pairs > 0 && graph.cost.clearance_sweeps > 0);
+    let jumps: Vec<_> = graph.links.iter().filter(|link| link.from == from && link.to == across && link.leg.kind == NavLegKind::Hop).collect();
+    assert!(jumps.len() >= 2, "{:?}", graph.links);
+    let drop = graph.links.iter().find(|link| link.from == across && link.to == below && link.leg.kind == NavLegKind::Drop)
+        .unwrap_or_else(|| panic!("no walk-off: {:?}", graph.links));
+    for link in [jumps[0], drop] {
+        let mut cost = BuildCost::default();
+        assert_eq!(link.evidence, LinkEvidence::Envelope);
+        assert!(graph.rollout(&world, &[], &body, frame, &link.leg, link.to, &mut SettledStarts::new(), &mut cost).is_some(),
+            "the native follower did not arrive for {link:?}");
+    }
+    let feet = Vec2::new(400.0, 620.0);
+    let goal = Vec2::new(800.0, 620.0);
+    let too_short = NavLeg {
+        kind: NavLegKind::Hop,
+        start: feet,
+        takeoff: feet,
+        land: goal,
+        land_span: [652.0, 1298.0],
+    };
+    graph.add_link(NavLink { from, to: across, leg: too_short, cost: 0.1, evidence: LinkEvidence::Envelope });
+    assert_eq!(graph.next(feet, goal), NavNext::Leg(too_short));
+    let (cold, work) = graph.refined_next(&world, &[], &body, frame, feet, goal, 8);
+    assert!(matches!(cold, NavNext::Leg(leg) if leg != too_short), "{cold:?}");
+    assert!(work.attempted >= 2 && work.kernel.rollouts > 0);
+    assert_eq!(work.retained, 0);
+    let (warm, reused) = graph.refined_next(&world, &[], &body, frame, feet, goal, 8);
+    assert_eq!(cold, warm);
+    assert_eq!((reused.attempted, reused.retained, reused.kernel.rollouts), (work.attempted, work.attempted, 0));
+    let (limited, work) = graph.refined_next(&world, &[], &body, frame, feet, goal, 1);
+    assert_eq!(limited, NavNext::Waiting(RouteWait::Deferred));
+    assert_eq!((work.attempted, work.retained, work.kernel.rollouts), (1, 1, 0));
+
+    let wall = Block::solid("wall", Vec2::new(618.0, 120.0), Vec2::new(20.0, 640.0));
+    let blocked = build(vec![left, right, low, wall]);
+    let graph = NavGraph::build_approximate(&blocked, &[], &body, frame).unwrap();
+    assert_eq!(graph.next(Vec2::new(400.0, 620.0), Vec2::new(800.0, 620.0)), NavNext::Waiting(RouteWait::Unsupported));
+    assert_eq!(graph.cost.rollouts, 0);
 }
 
 #[test]
@@ -193,8 +247,8 @@ fn a_body_that_follows_the_advice_arrives() {
     }
     // Two legs back: down from the perch, then over the gap.
     fixture.travel(fixture.middle("perch"), fixture.middle("ledge")).expect("perch to ledge");
-    assert_eq!(fixture.graph.next(start, fixture.middle("shelf")), NavNext::Unreachable);
-    assert_eq!(fixture.graph.next(fixture.middle("cellar"), fixture.middle("floor")), NavNext::Unreachable);
+    assert_eq!(fixture.graph.next(start, fixture.middle("shelf")), NavNext::NoRoute);
+    assert_eq!(fixture.graph.next(fixture.middle("cellar"), fixture.middle("floor")), NavNext::NoRoute);
 }
 
 /// A body that runs at its top speed and lets go of the stick by its own
@@ -291,7 +345,7 @@ fn a_body_with_no_jump_cannot_reach_what_needs_one() {
     let graph = NavGraph::build(&fixture.world, &grounded, normal_frame()).expect("a walker has a graph");
     let floor = fixture.middle("floor");
     for needs_a_jump in ["perch", "ledge", "cellar"] {
-        assert_eq!(graph.next(floor, fixture.middle(needs_a_jump)), NavNext::Unreachable, "{needs_a_jump}");
+        assert_eq!(graph.next(floor, fixture.middle(needs_a_jump)), NavNext::NoRoute, "{needs_a_jump}");
     }
     // Each leg it has goes down. (A leg can still be named a hop: the press
     // does nothing, the body walks off the end, and it arrives.)
@@ -370,7 +424,7 @@ fn a_body_with_an_air_jump_reaches_what_one_jump_does_not() {
     let one_jump = NavGraph::build(&fixture.world, &walker(), normal_frame()).expect("a walker has a graph");
     assert_eq!(
         one_jump.next(fixture.middle("floor"), fixture.middle("ledge")),
-        NavNext::Unreachable,
+        NavNext::NoRoute,
         "control: with no air jump the ledge is out of reach"
     );
 }
@@ -419,7 +473,7 @@ fn a_body_that_climbs_gets_up_a_wall_no_jump_clears() {
     let graph = NavGraph::build(&fixture.world, &no_climb, normal_frame()).expect("a walker has a graph");
     assert_eq!(
         graph.next(fixture.middle("floor") - Vec2::X * 300.0, fixture.middle("pillar")),
-        NavNext::Unreachable,
+        NavNext::NoRoute,
         "control: with no climb the pillar's top is out of reach"
     );
 }
@@ -462,7 +516,7 @@ fn a_body_that_dashes_gets_across_a_gap_no_jump_clears() {
     let graph = NavGraph::build(&fixture.world, &walker(), normal_frame()).expect("a walker has a graph");
     assert_eq!(
         graph.next(fixture.middle("floor"), fixture.middle("ledge")),
-        NavNext::Unreachable,
+        NavNext::NoRoute,
         "control: with no dash the far ledge is out of reach"
     );
 }
@@ -512,7 +566,7 @@ fn a_body_that_wall_jumps_gets_up_a_shaft_no_jump_clears() {
         .unwrap_or_else(|why| panic!("up the shaft by wall jumps: {why}"));
 
     let graph = NavGraph::build(&fixture.world, &walker(), normal_frame()).expect("a walker has a graph");
-    assert_eq!(graph.next(shaft, top), NavNext::Unreachable, "control: with no wall jump the top is out of reach");
+    assert_eq!(graph.next(shaft, top), NavNext::NoRoute, "control: with no wall jump the top is out of reach");
 }
 
 /// ⭐ A LEG THROUGH A HAZARD IS NO LEG. A gap the body hops, with a hazard
@@ -617,7 +671,7 @@ fn a_body_that_flies_gets_up_to_what_no_jump_reaches() {
     let graph = NavGraph::build(&fixture.world, &grounded, normal_frame()).expect("a walker has a graph");
     assert_eq!(
         graph.next(fixture.middle("floor") - Vec2::X * 300.0, fixture.middle("loft")),
-        NavNext::Unreachable,
+        NavNext::NoRoute,
         "control: with no flight the loft is out of reach"
     );
 }
@@ -671,7 +725,7 @@ fn a_flight_goes_up_through_a_grate_from_under_it() {
     let graph = NavGraph::build(&sealed, &flier(), normal_frame()).expect("an upright flier has a graph");
     assert_eq!(
         graph.next(fixture.middle("floor") + Vec2::X * 200.0, fixture.middle("deck")),
-        NavNext::Unreachable,
+        NavNext::NoRoute,
         "control: with no grate the deck's top is out of reach"
     );
 }
@@ -722,7 +776,7 @@ fn a_body_drops_through_a_one_way_floor_to_the_floor_under_it() {
 
     let solid = room_with(Block::solid("loft", Vec2::new(500.0, FLOOR - height), Vec2::new(400.0, 16.0)));
     let graph = NavGraph::build(&solid, &walker(), normal_frame()).expect("a walker has a graph");
-    assert_eq!(graph.next(loft, under), NavNext::Unreachable, "control: a solid loft has no road down");
+    assert_eq!(graph.next(loft, under), NavNext::NoRoute, "control: a solid loft has no road down");
 }
 
 /// A slope joins two floors no jump joins: a hill path. The body walks up it
@@ -753,9 +807,23 @@ fn a_body_walks_up_and_down_a_slope_between_two_floors() {
     fixture.travel(low, high).unwrap_or_else(|why| panic!("up the hill path: {why}"));
     fixture.travel(high, low).unwrap_or_else(|why| panic!("down the hill path: {why}"));
 
+    let body = &fixture.body;
+    let key = super::super::NavGraphKey::new(
+        &fixture.world, &[], body.model.spec(), body.abilities.abilities,
+        body.kinematics.canonical_size, body.kinematics.material, body.base_size, normal_frame(),
+    ).connected_ground();
+    let mut cache = super::super::NavGraphCache::with_capacity(1);
+    let graph = cache.get_or_build_measured(key, &fixture.world, &[], None).unwrap().clone();
+    assert_eq!(cache.motion_measures(), 0);
+    assert!(graph.cost.rollouts > 0);
+    assert_eq!(graph.cost.rollouts, graph.cost.slope_rollouts);
+    let connected = Fixture { graph, ..fixture };
+    connected.travel(low, high).unwrap_or_else(|why| panic!("connected ground, up: {why}"));
+    connected.travel(high, low).unwrap_or_else(|why| panic!("connected ground, down: {why}"));
+
     let bare = World::new("no hill path", Vec2::new(4000.0, 3000.0), Vec2::ZERO, floors());
     let graph = NavGraph::build(&bare, &walker(), normal_frame()).expect("a walker has a graph");
-    assert_eq!(graph.next(low, high), NavNext::Unreachable, "control: no slope, no road up");
+    assert_eq!(graph.next(low, high), NavNext::NoRoute, "control: no slope, no road up");
 }
 
 /// Painted ground (TN1): a region painted in the `Terrain` layer lowers to an
@@ -838,7 +906,7 @@ fn stated_graph(surfaces: &[(f32, f32, f32)], links: &[(usize, usize, f32, f32, 
             out[from].push(index);
             let (start, land) = (Vec2::new(start, surfaces[from].top), Vec2::new(land, surfaces[to].top));
             let land_span = [surfaces[to].left, surfaces[to].right];
-            NavLink { from, to, leg: NavLeg { kind: NavLegKind::Hop, start, takeoff: start, land, land_span }, cost }
+            NavLink { from, to, leg: NavLeg { kind: NavLegKind::Hop, start, takeoff: start, land, land_span }, cost, evidence: LinkEvidence::Native }
         })
         .collect();
     NavGraph {
@@ -856,10 +924,11 @@ fn stated_graph(surfaces: &[(f32, f32, f32)], links: &[(usize, usize, f32, f32, 
         links,
         cost: BuildCost::default(),
         flight: None,
-        local_only: false,
+        coverage: Coverage::Native,
         reach: (0..out.len()).map(|_| std::sync::OnceLock::new()).collect(),
         destinations: Default::default(),
         waypoint_sets: Default::default(),
+        refinement: Default::default(),
         out,
     }
 }
@@ -1002,7 +1071,7 @@ fn one_search_from_a_goal_answers_every_start() {
                     let cost = (leg.start.x - feet.x).abs() + graph.links[first].cost + table[first];
                     assert!((cost - reference).abs() < 1e-3, "{from} to {to}: the first leg starts a {cost} route, not {reference}");
                 }
-                (NavNext::Unreachable, None) => {}
+                (NavNext::NoRoute, None) => {}
                 other => panic!("{from} to {to}: {other:?}"),
             }
             compared += 1;

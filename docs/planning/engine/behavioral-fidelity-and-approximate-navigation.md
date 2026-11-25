@@ -361,8 +361,13 @@ checks zero work for a passive actor, one prepared ground map for a direct
 visit, and zero motion measurements and traversal graphs. The reference
 graph test checks a walk and a gap. The existing
 [Android measurements](../../../dev/benchmark-candidates/android-hall-contact-and-perception-work.md)
-give the stationary and crossing baselines. Connected ground, the seat's
-preparation path and the broader result contract remain open.
+give the stationary and crossing baselines.
+
+**Connected ground.** The standing map locates the supports at each end of
+an authored slope. The planner checks only those slope walks with the
+native follower. The hill-path test walks in both directions with zero
+envelope measurements and zero jump rollouts. The seat keeps its measured
+preparation path.
 
 ## 7. Approximate traversal proposals
 
@@ -401,6 +406,15 @@ counters from room-specific validation. The unrefined approximate path
 must not secretly run full native traversal rollouts for each edge.
 
 ### 7.2 Extend the shared vocabulary only as needed
+
+**Initial jump and drop implementation.** The planner indexes the standing
+spans, takes nearby supports in a stable order, and checks bounded sweeps
+along the measured arc. Each launch sample has its own landing and travel
+cost. The test executes an estimated jump and walk-off in the native
+kernel. It also places a wall across the gap and checks that the planner
+withholds the route. Preparation runs zero room-specific rollouts.
+Running jumps and walk-offs on still blocks have coverage. Chains, moving
+blocks, water, and exits along an estimated trajectory cause a refusal.
 
 | Capability | Candidate model (subject to actual coverage) |
 | --- | --- |
@@ -552,6 +566,13 @@ answer becomes available in simulation ticks. See section 11.
 
 ### Hybrid acceptance
 
+**Selected validation.** The hybrid query validates the first link of
+the cheapest route. It searches again with the measured cost or a rejected
+link. The cache keeps both results by the complete graph key. The test
+offers an infeasible jump before a useful realization. Cold and warm
+queries choose the same alternative and admit the same number of
+experiments. The warm query runs zero rollouts.
+
 - The approximate mode executes no room-specific validation rollouts.
 - A hybrid request can use a mixture of ground, estimated and refined legs
   through the same follower.
@@ -565,6 +586,12 @@ answer becomes available in simulation ticks. See section 11.
   and customers that need its coverage. Do not duplicate it.
 
 ## 9. Failure and fallible NPC behavior
+
+**Result contract.** The same route and task answers distinguish an absent
+request, an unsupported request, an incomplete request and absence of a
+route in the model. Visits and fetches record exhausted execution retries
+as a separate failure. A canceled task clears its retained leg. A visit
+outside the standing model stays pending in the headless integration test.
 
 An approximate planner is only useful if its consumers can tolerate its
 predictions being wrong. Specify the result contract before changing
@@ -610,6 +637,12 @@ one NPC's observations become knowledge that every NPC has. Distinguish
 shared physical preparation from individual belief.
 
 ## 10. Policy selection and switching
+
+**Production policy.** The grazing preset uses connected ground. The
+townsfolk roaming preset uses estimated traversal. The default roaming
+profile and required visits and errands use simulation-backed navigation
+for questions beyond a direct walk. Hybrid is selectable for roaming.
+The follower keeps the current leg when its planner setting changes.
 
 The engine owns the methods, requests, result semantics, and execution
 boundaries. Shared opinions select useful configurations. Each game owns

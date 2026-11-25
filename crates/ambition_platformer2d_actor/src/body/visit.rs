@@ -14,7 +14,7 @@
 //! a rewind restores.
 
 use ambition_platformer2d_core as ae;
-use ae::navigation::{ErrandSight, NavNext};
+use ae::navigation::{ErrandSight, NavNext, NavigationTask};
 use bevy::prelude::{Component, Entity, Query, Res};
 
 use super::navigation::NavigationAdvice;
@@ -33,6 +33,8 @@ pub enum VisitOutcome {
     Arrived,
     /// The place is over no surface the body gets to with its own movement.
     NoRoute,
+    /// The actor could not complete the route after its permitted retries.
+    ExecutionFailed,
 }
 
 impl Visit {
@@ -47,6 +49,7 @@ impl Visit {
             VisitOutcome::Pending => 0,
             VisitOutcome::Arrived => 1,
             VisitOutcome::NoRoute => 2,
+            VisitOutcome::ExecutionFailed => 3,
         };
         let place = (u64::from(self.place.x.to_bits()) << 32) | u64::from(self.place.y.to_bits());
         ae::navigation::mix(place ^ outcome)
@@ -62,8 +65,12 @@ pub fn settle_visits(advice: Res<NavigationAdvice>, mut bodies: Query<(Entity, &
             continue;
         }
         let advice = advice.of(body);
+        if advice.task != Some(NavigationTask::Visit) {
+            continue;
+        }
         match advice.errand {
             ErrandSight::NoRoute => visit.outcome = VisitOutcome::NoRoute,
+            ErrandSight::ExecutionFailed => visit.outcome = VisitOutcome::ExecutionFailed,
             // The brain's goal is the place the advisor gave; its arrival is
             // the advisor's word for that goal.
             ErrandSight::At(place) if advice.goal == Some(place) && advice.next == NavNext::Arrived => {

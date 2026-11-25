@@ -84,10 +84,12 @@ pub enum Brain {
 /// Questions for the current decision and facts needed by a retained leg.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct NavigationRequest {
+    pub method: ae::navigation::NavigationMethod,
     pub next_leg: Option<ae::Vec2>,
     pub destination_seed: Option<u64>,
     pub approach: ApproachDemand,
     pub following_leg: bool,
+    pub failed_task_goal: Option<(ae::navigation::NavigationTask, ae::Vec2)>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -256,6 +258,7 @@ impl Brain {
                     && (state.picks != 0 || state.until != 0.0);
                 let nearby = cfg.notice_radius.max(if grounded { cfg.greet_within } else { 0.0 });
                 Some(NavigationRequest {
+                    method: cfg.navigation,
                     next_leg: state.nav.needs_route(),
                     destination_seed: due.then_some(state.picks as u64),
                     approach: if due && (cfg.company > 0.0 || cfg.stay_within > 0.0) {
@@ -266,6 +269,7 @@ impl Brain {
                         ApproachDemand::None
                     },
                     following_leg: state.nav.leg.is_some(),
+                    failed_task_goal: state.task.zip(state.nav.failed_goal()),
                 })
             }
             Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, state }) if cfg.navigates => {

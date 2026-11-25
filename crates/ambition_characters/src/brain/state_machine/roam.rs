@@ -12,7 +12,7 @@
 //! rewound (`SnapshotCursor for Brain`).
 
 use ambition_platformer2d_core as ae;
-use ae::navigation::mix;
+use ae::navigation::{mix, ErrandSight, NavNext, NavigationMethod, NavigationTask, RouteWait};
 
 use super::nav_follower::{DriveFollower, Followed, NavFollower};
 use super::BrainSnapshot;
@@ -27,6 +27,7 @@ const SAME_PLACE: f32 = 48.0;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RoamCfg {
+    pub navigation: NavigationMethod,
     /// The walk speed between take-offs (px/s). A run-up and a jump are at
     /// the body's top speed.
     pub speed: f32,
@@ -56,6 +57,8 @@ pub struct RoamCfg {
 pub struct RoamState {
     /// The place the body is going to, and how far it is on the way.
     pub nav: NavFollower,
+    /// The task owns the current goal.
+    pub task: Option<NavigationTask>,
     /// The sim time (s) when the rest ends.
     pub until: f32,
     /// How many goals this brain has chosen: the seed of the next choice.
@@ -92,14 +95,36 @@ pub(super) fn tick_roam(cfg: &RoamCfg, state: &mut RoamState, snapshot: &BrainSn
         (false, true) => cfg.trot_speed,
         (false, false) => cfg.speed,
     };
-    // An errand comes before rest and before a place by chance. The place is
-    // a fact of where the item lies, so it is the same each tick, and the
-    // follower is not sent again while it goes there.
-    if let Some(place) = advice.errand.place() {
-        if state.nav.goal != Some(place) && !state.nav.committed() {
-            state.nav.go_to(place);
+    match advice.errand {
+        ErrandSight::At(place) | ErrandSight::Door(place) => {
+            if !state.nav.committed() && (state.task != advice.task || state.nav.goal != Some(place)) {
+                state.nav.go_to(place);
+                state.task = advice.task;
+            }
+            state.nav.drive(snapshot, pace, out);
+            return;
         }
-        state.nav.drive(snapshot, pace, out);
+        ErrandSight::Waiting(_) => {
+            if state.task.is_none() && !state.nav.committed() {
+                state.nav.stop();
+            }
+            // Keep the failure until the advisor can compare it with the task's place.
+            if state.nav.failed_goal().is_none() {
+                state.nav.drive(snapshot, pace, out);
+            }
+            return;
+        }
+        _ => {
+            if state.task.take().is_some() {
+                state.nav.stop();
+            }
+        }
+    }
+    if state.nav.leg.is_none() && advice.goal == state.nav.goal
+        && matches!(advice.next, NavNext::Waiting(RouteWait::Unsupported | RouteWait::Deferred))
+    {
+        state.nav.stop();
+        state.until = now + GAVE_UP_PAUSE_S;
         return;
     }
     match state.nav.drive(snapshot, pace, out) {
@@ -108,7 +133,7 @@ pub(super) fn tick_roam(cfg: &RoamCfg, state: &mut RoamState, snapshot: &BrainSn
             state.until = now + rest(state.picks);
             return;
         }
-        Followed::GaveUp => {
+        Followed::NoRoute | Followed::ExecutionFailed => {
             state.until = now + GAVE_UP_PAUSE_S;
             return;
         }
@@ -162,10 +187,11 @@ pub(super) fn tick_roam(cfg: &RoamCfg, state: &mut RoamState, snapshot: &BrainSn
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ae::navigation::{LegPhase, NavAdvice, NavLeg, NavLegKind, NavNext};
+    use ae::navigation::{LegPhase, NavAdvice, NavLeg, NavLegKind};
     use ae::Vec2;
 
     const CFG: RoamCfg = RoamCfg {
+        navigation: NavigationMethod::SimulationBacked,
         speed: 50.0,
         trot_speed: 100.0,
         rest_min_s: 1.0,
@@ -264,7 +290,7 @@ mod tests {
             assert_eq!(nav.drive(&landed_at(100.0), |_| 50.0, &mut out), Followed::Going);
             assert_eq!((nav.leg, nav.misses), (None, miss), "landing {miss} on the other surface");
         }
-        assert_eq!(nav.drive(&landed_at(100.0), |_| 50.0, &mut out), Followed::GaveUp);
+        assert_eq!(nav.drive(&landed_at(100.0), |_| 50.0, &mut out), Followed::ExecutionFailed);
     }
 
     #[test]
@@ -333,10 +359,11 @@ mod tests {
         let errand = |sight| {
             let mut snapshot = standing(1.0);
             snapshot.navigation.errand = sight;
+            snapshot.navigation.task = (sight != ErrandSight::NoRequest).then_some(NavigationTask::Fetch);
             snapshot
         };
         let mut resting = RoamState { until: 100.0, picks: 1, ..Default::default() };
-        tick(&CFG, &mut resting, &errand(ae::navigation::ErrandSight::None));
+        tick(&CFG, &mut resting, &errand(ErrandSight::NoRequest));
         assert_eq!(resting.nav.goal, None, "control: a resting body with no errand stays");
         tick(&CFG, &mut resting, &errand(ae::navigation::ErrandSight::At(THERE)));
         assert_eq!(resting.nav.goal, Some(THERE));
@@ -348,6 +375,11 @@ mod tests {
         assert!(leg.is_some(), "the body follows the leg to its errand");
         tick(&CFG, &mut resting, &going);
         assert_eq!(resting.nav.goal, Some(THERE), "the errand did not send the follower again");
+        let waiting = errand(ErrandSight::Waiting(ae::navigation::RouteWait::Deferred));
+        tick(&CFG, &mut resting, &waiting);
+        assert_eq!(resting.nav.goal, Some(THERE));
+        tick(&CFG, &mut resting, &errand(ErrandSight::NoRequest));
+        assert_eq!((resting.task, resting.nav.goal, resting.nav.leg), (None, None, None));
         // A place the errand cannot reach is not a place to go to.
         let mut idle = RoamState { until: 100.0, picks: 1, ..Default::default() };
         tick(&CFG, &mut idle, &errand(ae::navigation::ErrandSight::NoRoute));

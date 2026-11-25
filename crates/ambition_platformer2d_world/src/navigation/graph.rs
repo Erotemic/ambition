@@ -46,11 +46,12 @@ use std::sync::Arc;
 use ambition_platformer2d_core as ae;
 use ae::movement::{step_motion, ActionEdges, Edge, InputState, MotionStepContext, MovementAction};
 use ae::navigation::{
-    follow_leg, mix, FlightLaw, LegInput, LegFacts, LegPhase, LegProgress, NavLeg, NavLegKind, NavNext, ARRIVE_TOLERANCE,
+    follow_leg, mix, FlightLaw, LegInput, LegFacts, LegPhase, LegProgress, NavLeg, NavLegKind, NavNext, RouteWait, ARRIVE_TOLERANCE,
     NAV_WAYPOINTS,
 };
 use ae::{BodyClusterScratch, LocalAxes, MotionFrame, Vec2, World};
 
+use super::approximate::Approximate;
 use super::envelope::{EnvelopeProbe, TraversalEnvelope};
 use super::flight::FlightMap;
 use super::surfaces::{GroundMap, NavFrame, StandSurface, SLOPE_END_REACH};
@@ -61,7 +62,7 @@ const MAX_LEG_STEPS: usize = 360;
 /// failed. It starts the leg at rest, and it moves on its first steps.
 const STALL_STEPS: usize = 15;
 /// How far back from an edge a running jump starts, when the surface has room.
-const RUN_UP: f32 = 140.0;
+pub(super) const RUN_UP: f32 = 140.0;
 /// The most a wall climb rises: a leg rollout has `MAX_LEG_STEPS`, and a
 /// climb of this height at the kernel's climb speed fits in it.
 const MAX_CLIMB: f32 = 600.0;
@@ -77,8 +78,31 @@ pub struct NavLink {
     pub from: usize,
     pub to: usize,
     pub leg: NavLeg,
-    /// Seconds from `leg.start`, at rest, to the landing.
+    /// Estimated or measured seconds from `leg.start` to the landing.
     pub cost: f32,
+    pub evidence: LinkEvidence,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LinkEvidence {
+    Envelope,
+    Native,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RefinementWork {
+    /// Number of realizations admitted in this request.
+    pub attempted: usize,
+    pub retained: usize,
+    pub kernel: BuildCost,
+}
+
+impl RefinementWork {
+    pub fn add(&mut self, other: Self) {
+        self.attempted += other.attempted;
+        self.retained += other.retained;
+        self.kernel.add(other.kernel);
+    }
 }
 
 /// What one [`NavGraph::build`] cost, in kernel work.
@@ -86,17 +110,24 @@ pub struct NavLink {
 pub struct BuildCost {
     /// Leg rollouts run.
     pub rollouts: usize,
+    /// Rollouts of slope legs.
+    pub slope_rollouts: usize,
     /// Kernel steps over all rollouts.
     pub steps: usize,
     /// The part of `steps` spent in rollouts that did not arrive.
     pub failed_steps: usize,
+    pub candidate_pairs: usize,
+    pub clearance_sweeps: usize,
 }
 
 impl BuildCost {
     fn add(&mut self, other: Self) {
         self.rollouts += other.rollouts;
+        self.slope_rollouts += other.slope_rollouts;
         self.steps += other.steps;
         self.failed_steps += other.failed_steps;
+        self.candidate_pairs += other.candidate_pairs;
+        self.clearance_sweeps += other.clearance_sweeps;
     }
 }
 
@@ -123,7 +154,7 @@ pub struct NavGraph {
     /// The air of the room for this body, when it can fly: the routes of a
     /// flight that stays in the air ([`FlightMap::route`]).
     pub flight: Option<FlightMap>,
-    local_only: bool,
+    coverage: Coverage,
     /// The links that leave each surface.
     out: Vec<Vec<usize>>,
     /// The surfaces each surface reaches ([`Self::reach_from`]), found the
@@ -135,6 +166,25 @@ pub struct NavGraph {
     /// The answers of [`Self::waypoints`] lately asked for, by the feet's
     /// surface and the seed: a pure function of the graph and those two.
     waypoint_sets: KeptWaypoints,
+    refinement: Refinements,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Coverage {
+    Direct,
+    Ground,
+    Estimated,
+    Native,
+}
+
+/// For each estimated link, keep the result of the native experiment.
+#[derive(Debug, Default)]
+struct Refinements(std::sync::Mutex<BTreeMap<usize, Option<f32>>>);
+
+impl Clone for Refinements {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
 }
 
 /// A request that can use a walk or a direct link between two surfaces.
@@ -305,7 +355,7 @@ impl NavGraph {
         ground: Arc<GroundMap>,
     ) -> Option<Self> {
         let envelope = &motion.envelope;
-        let (nav, half, count) = (ground.frame, ground.half, ground.surfaces.len());
+        let (nav, half) = (ground.frame, ground.half);
         let jump_reach = envelope.jump.iter().map(|sample| sample.lead).fold(0.0, f32::max);
         let drop_reach = envelope.drop.iter().map(|sample| sample.lead).fold(0.0, f32::max);
         let apex = envelope.apex_rise();
@@ -317,25 +367,10 @@ impl NavGraph {
         let can_fly = verbs.fly && verbs.fly_toggle;
         let can_dash = verbs.dash;
         let can_wall_jump = verbs.wall_jump;
-        let mut graph = Self {
-            ground,
-            run_speed: envelope.takeoff_speed.max(1.0),
-            braking: envelope.braking(),
-            start_speed: envelope.start_speed,
-            apex_rise: apex,
-            jump_reach,
-            out: vec![Vec::new(); count],
-            reach: (0..count).map(|_| std::sync::OnceLock::new()).collect(),
-            destinations: DestinationTables::default(),
-            waypoint_sets: KeptWaypoints::default(),
-            links: Vec::new(),
-            cost: BuildCost::default(),
-            flight: None,
-            local_only: false,
-        };
+        let mut graph = Self::prepared(ground, envelope, Coverage::Native);
         let endpoints = direct.and_then(|walk| graph.walk_endpoints(walk));
         if endpoints.is_some_and(|(from, to)| from == to) {
-            graph.local_only = true;
+            graph.coverage = Coverage::Direct;
             return Some(graph);
         }
         // The links that leave each surface are a pure function of the graph
@@ -423,7 +458,7 @@ impl NavGraph {
             let (outbound, spent) = links_from(from, Some(to));
             if !outbound.is_empty() {
                 let (returning, return_cost) = links_from(to, Some(from));
-                graph.local_only = true;
+                graph.coverage = Coverage::Direct;
                 graph.add_links(from, outbound, spent);
                 graph.add_links(to, returning, return_cost);
                 return Some(graph);
@@ -452,12 +487,113 @@ impl NavGraph {
         Some(graph)
     }
 
+    /// Estimate running jumps and walk-offs. The movement kernel executes the legs.
+    pub fn build_approximate(
+        world: &World,
+        exits: &[ae::Aabb],
+        body: &BodyClusterScratch,
+        frame: MotionFrame,
+    ) -> Option<Self> {
+        let nav = NavFrame { side: frame.side(), down: frame.down() };
+        let ground = Arc::new(GroundMap::build(world, nav, body.kinematics.size())?);
+        let envelope = TraversalEnvelope::measure(body, frame, EnvelopeProbe::default())?;
+        Some(Self::estimate_on_ground(world, exits, body.abilities.abilities, &envelope, ground))
+    }
+
+    pub(super) fn estimate_on_ground(
+        world: &World,
+        exits: &[ae::Aabb],
+        abilities: ae::AbilitySet,
+        envelope: &TraversalEnvelope,
+        ground: Arc<GroundMap>,
+    ) -> Self {
+        let mut graph = Self::prepared(ground.clone(), envelope, Coverage::Estimated);
+        let estimate = Approximate::new(world, exits, &ground, envelope, abilities);
+        for from in 0..ground.surfaces.len() {
+            let links = estimate.links(from, &mut graph.cost);
+            for (to, leg, cost) in links {
+                graph.add_link(NavLink { from, to, leg, cost, evidence: LinkEvidence::Envelope });
+            }
+        }
+        graph
+    }
+
+    pub(super) fn connect_ground(
+        world: &World,
+        exits: &[ae::Aabb],
+        body: &BodyClusterScratch,
+        frame: MotionFrame,
+        ground: Arc<GroundMap>,
+    ) -> Self {
+        let scale = (ground.frame.side * body.kinematics.material.scale()).length();
+        let speed = body.model.unboosted_top_speed() * scale;
+        let mut graph = Self::standing(ground.clone(), speed, Coverage::Ground);
+        if !body.abilities.abilities.move_horizontal {
+            return graph;
+        }
+        for piece in &ground.slope_pieces {
+            for (start, end) in [(piece.0, piece.1), (piece.1, piece.0)] {
+                for from in ground.near_slope_end(start) {
+                    for to in ground.near_slope_end(end).filter(|to| *to != from) {
+                        let legs = slope_proposals(std::slice::from_ref(piece), ground.frame,
+                            &ground.surfaces[from], &ground.surfaces[to], ground.half.x);
+                        let mut spent = BuildCost::default();
+                        let mut starts = SettledStarts::new();
+                        for leg in legs {
+                            let leg = graph.in_world(leg);
+                            if let Some(cost) = graph.rollout(world, exits, body, frame, &leg, to, &mut starts, &mut spent) {
+                                graph.add_link(NavLink { from, to, leg, cost, evidence: LinkEvidence::Native });
+                            }
+                        }
+                        graph.cost.add(spent);
+                    }
+                }
+            }
+        }
+        graph
+    }
+
+    fn prepared(ground: Arc<GroundMap>, envelope: &TraversalEnvelope, coverage: Coverage) -> Self {
+        Self {
+            braking: envelope.braking(),
+            start_speed: envelope.start_speed,
+            apex_rise: envelope.apex_rise(),
+            jump_reach: envelope.jump.iter().map(|sample| sample.lead).fold(0.0, f32::max),
+            ..Self::standing(ground, envelope.takeoff_speed, coverage)
+        }
+    }
+
+    fn standing(ground: Arc<GroundMap>, run_speed: f32, coverage: Coverage) -> Self {
+        let count = ground.surfaces.len();
+        Self {
+            ground,
+            run_speed: run_speed.max(1.0),
+            braking: 0.0,
+            start_speed: 0.0,
+            apex_rise: 0.0,
+            jump_reach: 0.0,
+            out: vec![Vec::new(); count],
+            reach: (0..count).map(|_| std::sync::OnceLock::new()).collect(),
+            destinations: DestinationTables::default(),
+            waypoint_sets: KeptWaypoints::default(),
+            refinement: Refinements::default(),
+            links: Vec::new(),
+            cost: BuildCost::default(),
+            flight: None,
+            coverage,
+        }
+    }
+
     fn add_links(&mut self, from: usize, links: Vec<(usize, NavLeg, f32)>, cost: BuildCost) {
         self.cost.add(cost);
         for (to, leg, cost) in links {
-            self.out[from].push(self.links.len());
-            self.links.push(NavLink { from, to, leg, cost });
+            self.add_link(NavLink { from, to, leg, cost, evidence: LinkEvidence::Native });
         }
+    }
+
+    fn add_link(&mut self, link: NavLink) {
+        self.out[link.from].push(self.links.len());
+        self.links.push(link);
     }
 
     /// Flights from `a` up to `b` that start beside each end of a block the
@@ -536,6 +672,7 @@ impl NavGraph {
             });
             let steps = steps + settling_steps;
             cost.rollouts += 1;
+            cost.slope_rollouts += usize::from(leg.kind == NavLegKind::Slope);
             cost.steps += steps;
             if seconds.is_none() {
                 cost.failed_steps += steps;
@@ -704,7 +841,7 @@ impl NavGraph {
 
     /// True if this build covers standing surfaces and selected direct links.
     pub fn local_only(&self) -> bool {
-        self.local_only
+        self.coverage == Coverage::Direct
     }
 
     /// This request has a continuous walk or a measured direct link.
@@ -775,6 +912,15 @@ impl NavGraph {
     /// legs, not the fastest physical motion: each leg is measured from rest,
     /// and the build keeps one preferred leg per surface pair.
     pub fn route(&self, feet: Vec2, goal: Vec2) -> Option<Vec<usize>> {
+        self.route_with_cost(feet, goal, |index| Some(self.links[index].cost))
+    }
+
+    fn route_with_cost(
+        &self,
+        feet: Vec2,
+        goal: Vec2,
+        cost_of: impl Fn(usize) -> Option<f32>,
+    ) -> Option<Vec<usize>> {
         let (from, to) = (self.surface_at(feet)?, self.surface_at(goal)?);
         if from == to {
             return Some(Vec::new());
@@ -808,8 +954,11 @@ impl NavGraph {
                 }
             }
             for index in &self.out[surface] {
+                let Some(travel) = cost_of(*index) else {
+                    continue;
+                };
                 let link = &self.links[*index];
-                let total = cost + (self.ground.frame.along(link.leg.start) - at).abs() / self.run_speed + link.cost;
+                let total = cost + (self.ground.frame.along(link.leg.start) - at).abs() / self.run_speed + travel;
                 if !done[*index] && best[*index].is_none_or(|(known, _)| total < known) {
                     best[*index] = Some((total, state));
                     open.push(RouteOpen { cost: total, state: *index });
@@ -826,19 +975,67 @@ impl NavGraph {
         Some(route)
     }
 
+    pub(super) fn refined_next(
+        &self,
+        world: &World,
+        exits: &[ae::Aabb],
+        body: &BodyClusterScratch,
+        frame: MotionFrame,
+        feet: Vec2,
+        goal: Vec2,
+        limit: usize,
+    ) -> (NavNext, RefinementWork) {
+        let mut work = RefinementWork::default();
+        let mut tried = Vec::new();
+        let mut starts = SettledStarts::new();
+        loop {
+            let route = self.route_with_cost(feet, goal, |index| {
+                tried.iter().find(|(known, _)| *known == index)
+                    .map_or(Some(self.links[index].cost), |(_, cost)| *cost)
+            });
+            let Some(route) = route else {
+                return (NavNext::Waiting(RouteWait::Unsupported), work);
+            };
+            let Some(index) = route.first().copied() else {
+                return (self.next(feet, goal), work);
+            };
+            let link = &self.links[index];
+            if link.evidence == LinkEvidence::Native || tried.iter().any(|(known, _)| *known == index) {
+                return (NavNext::Leg(link.leg), work);
+            }
+            if work.attempted == limit {
+                return (NavNext::Waiting(RouteWait::Deferred), work);
+            }
+            // The request admits the same experiment with a warm or a cold cache.
+            work.attempted += 1;
+            let cached = self.refinement.0.lock().ok().and_then(|cache| cache.get(&index).copied());
+            let cost = if let Some(result) = cached {
+                work.retained += 1;
+                result
+            } else {
+                let result = self.rollout(world, exits, body, frame, &link.leg, link.to, &mut starts, &mut work.kernel);
+                if let Ok(mut cache) = self.refinement.0.lock() {
+                    cache.insert(index, result);
+                }
+                result
+            };
+            tried.push((index, cost));
+        }
+    }
+
     /// What a body at `feet` does first to get to `goal`.
     pub fn next(&self, feet: Vec2, goal: Vec2) -> NavNext {
         let Some(from) = self.surface_at(feet) else {
-            return NavNext::Unknown;
+            return NavNext::Waiting(RouteWait::Unsupported);
         };
         let Some(to) = self.surface_at(goal) else {
-            return if self.local_only { NavNext::Unknown } else { NavNext::Unreachable };
+            return NavNext::Waiting(RouteWait::Unsupported);
         };
         if from == to {
             return self.ground.walk_on(to, feet, goal);
         }
-        if self.local_only {
-            return self.direct_link(from, to).map_or(NavNext::Unknown, NavNext::Leg);
+        if self.local_only() {
+            return self.direct_link(from, to).map_or(NavNext::Waiting(RouteWait::Unsupported), NavNext::Leg);
         }
         // The first leg of the cheapest route: of the links leaving the feet's
         // surface, the one whose walk to its takeoff, its own cost and its
@@ -856,7 +1053,8 @@ impl NavGraph {
             .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
         match first {
             Some((_, link)) => NavNext::Leg(self.links[link].leg),
-            None => NavNext::Unreachable,
+            None if self.coverage != Coverage::Native => NavNext::Waiting(RouteWait::Unsupported),
+            None => NavNext::NoRoute,
         }
     }
 

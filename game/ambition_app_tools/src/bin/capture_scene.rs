@@ -401,8 +401,9 @@ OPTIONS:
     --player-holds NAMES[@TICK]
                         the player holds the controls NAMES from sim tick TICK
                         [default: 60]: up, down, left, right, walk, jump,
-                        attack, special, shield, blink, projectile (the fire
-                        button, held to charge), joined with `+`, or `none`.
+                        attack, special, shield, blink, confirm, projectile
+                        (the fire button, held to charge), joined with `+`,
+                        or `none`.
                         A button the hold before did not have down is pressed
                         on TICK and held after it. Repeat for a sequence; the
                         last hold that started applies

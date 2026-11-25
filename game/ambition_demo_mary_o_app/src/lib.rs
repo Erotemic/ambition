@@ -76,6 +76,7 @@ fn build_demo_app_on(mut app: App, home_route: &str) -> App {
 /// minimal shell + the reusable provider + a launcher home. The provider is
 /// host-independent — only these host lines are host-specific.
 fn compose_mary_o_shell(app: &mut App, home_route: &str) {
+    ambition_input_opinions::install(app);
     use ambition_demo_mary_o::{MaryOExperiencePlugin, MARY_O_GAMEPLAY_ROUTE};
 
     // `AMBITION_AUTOPLAY=mary_o`: she plays herself.

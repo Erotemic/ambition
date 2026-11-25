@@ -33,8 +33,8 @@ pub fn capture(
 }
 
 /// Other actions already bound to this control, in canonical order. Duplicate
-/// bindings are reported rather than rejected because one control may drive
-/// multiple actions.
+/// controls may be reused in different profiles. A same-profile remap
+/// displaces the previous action.
 pub fn also_bound_to(
     bindings: &ActionBindings,
     action: &InputAction,
@@ -44,6 +44,24 @@ pub fn also_bound_to(
         OverrideControl::Key(key) => PhysicalControl::Key(key),
         OverrideControl::Button(button) => PhysicalControl::Button(button),
     };
+    if let Some(rows) = bindings.contextual_rows() {
+        let mut profiles = rows.iter().filter(|(_, a, c)| a == action && matches!(
+            (control.device_class(), c),
+            (crate::OverrideDeviceClass::Keyboard, PhysicalControl::Key(_)) |
+            (crate::OverrideDeviceClass::Gamepad, PhysicalControl::Button(_))
+        )).map(|(profile, _, _)| *profile).collect::<Vec<_>>();
+        if profiles.is_empty() {
+            profiles.extend(rows.iter().filter(|(_, a, _)| a == action).map(|(p, _, _)| *p));
+        }
+        if profiles.is_empty() {
+            profiles.extend(crate::InputProfile::ACTIVE.into_iter().filter(|p| p.accepts(*action)));
+        }
+        let mut conflicts = rows.iter().filter(|(p, a, c)| profiles.contains(p) && a != action && c == &wanted)
+            .map(|(_, a, _)| crate::bindings::action_name(a)).collect::<Vec<_>>();
+        conflicts.sort();
+        conflicts.dedup();
+        return conflicts;
+    }
     let self_name = crate::bindings::action_name(action);
     bindings
         .all()

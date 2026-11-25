@@ -272,39 +272,59 @@ fn set_touch_button(world: &mut World, action: TouchActionButton, held: bool) {
     };
 }
 
-pub fn touch_button_actions(button: TouchActionButton) -> &'static [ambition_input::InputAction] {
-    use ambition_input::InputAction as A;
+/// A virtual position has its own explicit contextual rows.
+pub fn touch_button_rows(button: TouchActionButton) -> Vec<(ambition_input::InputProfile, ambition_input::InputAction)> {
+    use ambition_input::{InputAction as A, InputProfile as C};
     use TouchActionButton as B;
-    match button {
-        B::Jump => &[A::Jump, A::MenuSelect],
-        B::Attack => &[A::Attack],
-        B::Special => &[A::Special],
-        B::Burst => &[A::Burst],
-        B::Blink => &[A::Blink],
-        B::Interact => &[A::Interact, A::MenuSelect],
-        B::Projectile => &[A::Projectile],
-        B::FlyToggle => &[A::Utility],
-        B::Shield => &[A::Shield],
-        B::Grab => &[A::Grab],
-        B::Modifier => &[A::Modifier],
-        B::Start => &[A::Start],
-        B::Reset => &[A::Reset, A::MenuBack],
+    let gameplay = match button {
+        B::Jump => A::Jump, B::Attack => A::Attack, B::Special => A::Special,
+        B::Burst => A::Burst, B::Blink => A::Blink, B::Interact => A::Interact,
+        B::Projectile => A::Projectile, B::FlyToggle => A::Utility, B::Shield => A::Shield,
+        B::Grab => A::Grab, B::Modifier => A::Modifier, B::Start => A::Start, B::Reset => A::Reset,
+    };
+    let mut rows = vec![(C::Gameplay, gameplay)];
+    let ui = match button {
+        B::Jump | B::Interact => Some(A::MenuSelect),
+        B::Start => Some(A::Start),
+        B::Reset => Some(A::MenuBack),
+        _ => None,
+    };
+    if let Some(action) = ui {
+        for context in [C::SessionUi, C::Paused, C::Frontend] { rows.push((context, action)); }
     }
+    rows
+}
+
+pub fn touch_button_actions(button: TouchActionButton) -> Vec<ambition_input::InputAction> {
+    touch_button_rows(button).into_iter().map(|(_, action)| action).collect()
 }
 
 pub fn touch_bindings() -> impl Iterator<Item = (ambition_input::InputAction, TouchVirtualButton)> {
     ALL_TOUCH_BUTTONS.into_iter().flat_map(|button| {
-        touch_button_actions(button).iter().map(move |&action| (action, TouchVirtualButton(button)))
+        touch_button_rows(button).into_iter().map(move |(_, action)| (action, TouchVirtualButton(button)))
     })
+}
+
+pub fn insert_touch_contextual_bindings(table: &mut ambition_input::BindingTable) {
+    use ambition_input::{InputAction as Action, InputProfile};
+    for (direction, action) in [
+        (TouchStickDirection::Up, Action::MoveUp),
+        (TouchStickDirection::Down, Action::MoveDown),
+        (TouchStickDirection::Left, Action::MoveLeft),
+        (TouchStickDirection::Right, Action::MoveRight),
+    ] { table.bind_button(InputProfile::Gameplay, direction, action); }
+    for button in ALL_TOUCH_BUTTONS {
+        for (context, action) in touch_button_rows(button) {
+            table.bind_button(context, TouchVirtualButton(button), action);
+        }
+    }
 }
 
 pub fn insert_touch_virtual_bindings(
     map: &mut leafwing_input_manager::prelude::InputMap<ambition_input::InputAction>,
 ) {
     use ambition_input::InputAction as A;
-    for (action, button) in touch_bindings() {
-        map.insert(action, button);
-    }
+    for (action, button) in touch_bindings() { map.insert(action, button); }
     map.insert_dual_axis(A::Move, TouchVirtualStick);
     map.insert_dual_axis(A::MenuStick, TouchVirtualStick);
     map.insert(A::MoveUp, TouchStickDirection::Up);
@@ -330,6 +350,7 @@ pub fn bind_touch_virtual_inputs(
             &mut leafwing_input_manager::prelude::InputMap<
                 ambition_input::InputAction,
             >,
+            Option<&mut ambition_input::BindingTable>,
         ),
         Changed<
             leafwing_input_manager::prelude::InputMap<
@@ -338,10 +359,11 @@ pub fn bind_touch_virtual_inputs(
         >,
     >,
 ) {
-    for (participant, mut map) in &mut maps {
+    for (participant, mut map, table) in &mut maps {
         if participant.id != ambition_input::ParticipantId::PRIMARY {
             continue;
         }
         insert_touch_virtual_bindings(map.bypass_change_detection());
+        if let Some(mut table) = table { insert_touch_contextual_bindings(table.bypass_change_detection()); }
     }
 }

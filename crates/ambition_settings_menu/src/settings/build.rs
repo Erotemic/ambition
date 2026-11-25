@@ -252,7 +252,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
         label: SettingsCategoryId::Controls.label().to_string(),
         options: vec![
             {
-                let count = ambition_input::KeyboardPreset::presets().len();
+                let count = ambition_input::PresetId::ALL.len();
                 cycle(
                     SettingsOptionId::KeyboardPreset,
                     "Keyboard Preset",

@@ -14,12 +14,12 @@ fn analog_drift_below_deadzone_zeros_movement() {
 
 #[test]
 fn keyboard_preset_presets_returns_four_unique_ids() {
-    let presets = KeyboardPreset::presets();
+    let presets = PresetId::ALL;
     assert_eq!(presets.len(), 4);
     // Every preset id is unique.
     for (i, a) in presets.iter().enumerate() {
         for b in &presets[i + 1..] {
-            assert_ne!(a.id, b.id);
+            assert_ne!(a, b);
         }
     }
 }

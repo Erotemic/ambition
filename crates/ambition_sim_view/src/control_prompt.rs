@@ -1279,10 +1279,10 @@ mod tests {
         );
         // Drive the REAL projection the way the host does — spawn the participant holding the
         // map — rather than hand-writing a `SeatBindings`.
-        let arrows = KeyboardPreset::arrows_zxc();
+        let arrows = ambition_input_opinions::recipe(ambition_input::PresetId::ArrowsZxc);
         app.world_mut().spawn((
             ambition_input::InputParticipant::primary(),
-            arrows.input_map(),
+            arrows.build(),
         ));
         let body = app
             .world_mut()
@@ -1373,8 +1373,7 @@ mod tests {
         // prints — is a pad button rather than a key.
         app.world_mut().spawn((
             ambition_input::InputParticipant::primary(),
-            ambition_input::KeyboardPreset::of(ambition_input::KeyboardPreset::by_index(0).id)
-                .map_for(ambition_input::BindingSources::GamepadOnly),
+            ambition_input_opinions::gamepad_only().build(),
         ));
         let body = app
             .world_mut()

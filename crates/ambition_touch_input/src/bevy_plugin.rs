@@ -21,7 +21,7 @@ use super::layout::{
 };
 use super::menu_bridge::fold_touch_gestures;
 use super::state::TouchInputState;
-use ambition_input::{ControlFrame, KeyboardPreset, InputAction};
+use ambition_input::{ControlFrame, PresetId, InputAction};
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sim_view::{ControlContextKind, ControlPrompt, ControlSlot};
 use ambition_ui_nav::DragScrollState;
@@ -1308,6 +1308,7 @@ pub fn update_button_glyph_from_active_input(
     environment: Option<Res<ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationEnvironment>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     seat_bindings: Option<Res<ambition_input::SeatBindings>>,
+    defaults: Option<Res<ambition_input::BindingDefaults>>,
     recipes: Query<(
         &ambition_input::InputParticipant,
         Ref<ambition_input::BindingRecipe>,
@@ -1342,8 +1343,8 @@ pub fn update_button_glyph_from_active_input(
     *shown_context = Some(context);
     let preset = settings
         .as_ref()
-        .map(|s| KeyboardPreset::by_index(s.controls.keyboard_preset_index))
-        .unwrap_or_else(KeyboardPreset::arrows_zxc);
+        .map(|s| PresetId::by_index(s.controls.keyboard_preset_index))
+        .unwrap_or(PresetId::ArrowsZxc);
     let active = devices.for_seat(ambition_input::ParticipantId::PRIMARY.slot());
     if let ambition_input::ActiveDevice::Gamepad(style) = active {
         *touch_style = style;
@@ -1370,18 +1371,26 @@ pub fn update_button_glyph_from_active_input(
         let mut reference = recipe
             .as_deref()
             .cloned()
-            .unwrap_or_else(|| ambition_input::BindingRecipe::preset(preset.id));
+            .unwrap_or_else(|| ambition_input::BindingRecipe::new(preset, defaults.as_deref().cloned().unwrap_or_default()));
         reference.sources = ambition_input::BindingSources::GamepadOnly;
         Some(ambition_input::ActionBindings::from_map(&reference.build()))
     } else {
         None
     };
-    let bound = reference.as_ref().unwrap_or(bound);
+    let profile = match context {
+        ControlContextKind::Gameplay => ambition_input::InputProfile::Gameplay,
+        ControlContextKind::Dialogue => ambition_input::InputProfile::SessionUi,
+        ControlContextKind::Menu => ambition_input::InputProfile::Paused,
+        ControlContextKind::Empty => ambition_input::InputProfile::Frontend,
+    };
+    let bound = reference.as_ref().unwrap_or_else(|| seat_bindings.as_deref().map_or(&empty, |seats| {
+        seats.for_profile(ambition_input::ParticipantId::PRIMARY.slot(), profile)
+    }));
     for (TouchActionLabel(action), _, mut glyph) in &mut labels {
         let Some(action) = touch_display_action(*action, context) else {
             continue;
         };
-        let label = ambition_input::glyph_for(action, &preset, bound, device);
+        let label = ambition_input::glyph_for(action, preset, bound, device);
         let image = bound
             .control_for(&action, device)
             .and_then(|control| control.glyph_path(device.gamepad_style()))
@@ -1404,9 +1413,8 @@ fn touch_display_action(
         ControlContextKind::Menu => InputProfile::Paused,
         ControlContextKind::Empty => InputProfile::Frontend,
     };
-    let actions = crate::virtual_device::touch_button_actions(action);
-    ambition_input::resolve_menu_button(profile, actions).map(|intent| intent.action())
-        .or_else(|| touch_action_to_sandbox_action(action))
+    crate::virtual_device::touch_button_rows(action).into_iter()
+        .find(|(context, _)| *context == profile).map(|(_, action)| action)
 }
 
 /// Show held controls for the primary seat. The Modifier uses its published
@@ -2426,7 +2434,7 @@ mod glyph_picture_tests {
 
     #[test]
     fn touch_uses_the_primary_seats_pad_reference_and_keeps_action_words() {
-        let mut recipe = BindingRecipe::preset(ambition_input::PresetId::ArrowsZxc);
+        let mut recipe = ambition_input_opinions::recipe(ambition_input::PresetId::ArrowsZxc);
         recipe.sources = BindingSources::KeyboardOnly;
         recipe.set_binding_override(ambition_input::BindingOverride {
             action: "Jump".into(),
@@ -2467,7 +2475,7 @@ mod glyph_picture_tests {
     #[test]
     fn decoded_pictures_replace_only_the_control_subtitle_and_keep_the_verb() {
         use bevy::asset::AssetApp;
-        let mut app = glyph_app(BindingRecipe::preset(ambition_input::PresetId::ArrowsZxc));
+        let mut app = glyph_app(ambition_input_opinions::recipe(ambition_input::PresetId::ArrowsZxc));
         app.add_plugins((
             bevy::app::TaskPoolPlugin::default(),
             bevy::asset::AssetPlugin::default(),
@@ -2512,7 +2520,7 @@ mod glyph_picture_tests {
     fn the_handheld_touch_overlay_keeps_pad_glyphs_after_mouse_input() {
         use ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationEnvironment;
 
-        let mut app = glyph_app(BindingRecipe::preset(ambition_input::PresetId::ArrowsZxc));
+        let mut app = glyph_app(ambition_input_opinions::recipe(ambition_input::PresetId::ArrowsZxc));
         app.insert_resource(PresentationEnvironment::Handheld);
         app.update();
         let jump = label(&mut app, TouchActionButton::Jump);

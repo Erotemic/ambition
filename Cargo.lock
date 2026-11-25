@@ -195,6 +195,7 @@ dependencies = [
  "ambition_demo_sanic",
  "ambition_demo_smash",
  "ambition_hosted_world",
+ "ambition_input_opinions",
  "ambition_menu_kaleidoscope",
  "ambition_platformer2d",
  "ambition_sim_harness",
@@ -620,6 +621,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_demo_mary_o",
  "ambition_demo_mary_o_modules",
+ "ambition_input_opinions",
  "ambition_platformer2d",
  "bevy",
  "bevy_kira_audio",
@@ -663,6 +665,7 @@ name = "ambition_demo_sanic_app"
 version = "0.1.0"
 dependencies = [
  "ambition_demo_sanic",
+ "ambition_input_opinions",
  "ambition_platformer2d",
  "bevy",
  "bevy_kira_audio",
@@ -697,6 +700,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_content_modules",
  "ambition_demo_smash",
+ "ambition_input_opinions",
  "ambition_platformer2d",
  "bevy",
  "clap",
@@ -726,6 +730,7 @@ name = "ambition_demo_twintrack_app"
 version = "0.1.0"
 dependencies = [
  "ambition_demo_twintrack",
+ "ambition_input_opinions",
  "ambition_platformer2d",
  "bevy",
 ]
@@ -1004,6 +1009,14 @@ dependencies = [
  "bevy_window",
  "leafwing-input-manager",
  "serde",
+]
+
+[[package]]
+name = "ambition_input_opinions"
+version = "0.1.0"
+dependencies = [
+ "ambition_input",
+ "bevy",
 ]
 
 [[package]]
@@ -1600,6 +1613,7 @@ dependencies = [
  "ambition_gameplay_trace",
  "ambition_held_items",
  "ambition_input",
+ "ambition_input_opinions",
  "ambition_interaction",
  "ambition_items",
  "ambition_load",
@@ -1964,6 +1978,7 @@ dependencies = [
  "ambition_geometry_observation",
  "ambition_held_items",
  "ambition_input",
+ "ambition_input_opinions",
  "ambition_interaction",
  "ambition_mount",
  "ambition_persistence",
@@ -2040,6 +2055,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_geometry",
  "ambition_input",
+ "ambition_input_opinions",
  "ambition_persistence",
  "ambition_platformer2d_shared_tangle",
  "ambition_render",

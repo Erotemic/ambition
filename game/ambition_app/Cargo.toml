@@ -194,6 +194,7 @@ ambition_sprite_part_format = { path = "../../crates/ambition_sprite_part_format
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 
 [dependencies]
+ambition_input_opinions = { path = "../../opinions/ambition_input_opinions" }
 # The linked game providers of the multi-game shell host. The HOST depends on
 # providers; providers never depend on hosts (each also runs unchanged in its
 # own standalone demo app).
@@ -315,6 +316,7 @@ ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features 
 # the crate is not worth shipping, so it builds for tests and not for the game.
 ambition_demo_pocket = { path = "../ambition_demo_pocket" }
 # Compiler-confirmed unused under default AND --all-features at [dependencies]
+ambition_input_opinions = { path = "../../opinions/ambition_input_opinions" }
 # (-W unused_crate_dependencies, docs/planning/triage/unused-dependency-census.md,
 # 2026-09-18): only tests/replay_fixture_regression.rs (serde) and
 # tests/gravity_symmetry_room.rs (serde_json) name these directly.

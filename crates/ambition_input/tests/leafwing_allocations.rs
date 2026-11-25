@@ -69,7 +69,7 @@ fn allocations_of_one_seat_update() {
     let store = app.world().resource::<CentralInputStore>();
 
     for preset in [PresetId::ArrowsZxc, PresetId::WasdJkl] {
-        let map = BindingRecipe::preset(preset).build();
+        let map = fixture_opinions::defaults().recipe(preset).build();
         let (whole, _) = count(|| map.process_actions(None, store, ClashStrategy::PressAll));
         let (clashes, _) = count(|| {
             let mut updated = UpdatedActions::<Action>::default();
@@ -83,3 +83,6 @@ fn allocations_of_one_seat_update() {
         );
     }
 }
+
+#[path = "../../../opinions/ambition_input_opinions/src/defaults.rs"]
+mod fixture_opinions;

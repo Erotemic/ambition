@@ -21,8 +21,9 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 
-use crate::presets::{KeyboardPreset, PresetId};
-use crate::settings::{BindingOverride, OverrideControl, OverrideDeviceClass};
+use crate::presets::PresetId;
+use crate::{BindingDefaults, BindingTable};
+use crate::settings::BindingOverride;
 use crate::{InputParticipant, InputAction};
 
 /// Which physical devices this seat hears.
@@ -78,6 +79,7 @@ pub struct BindingRecipe {
     /// The keyboard layout this seat uses if it hears a keyboard. A pad-only
     /// seat keeps it too, so a player who switches devices keeps the preset.
     pub preset: PresetId,
+    pub defaults: BindingDefaults,
     /// Which devices this seat hears. See [`BindingSources`].
     pub sources: BindingSources,
     /// Which game's pad layout this seat uses: the middle term of
@@ -94,20 +96,21 @@ pub struct BindingRecipe {
 }
 
 impl BindingRecipe {
-    pub fn preset(id: PresetId) -> Self {
+    pub fn new(id: PresetId, defaults: BindingDefaults) -> Self {
         Self {
             preset: id,
+            defaults,
             sources: BindingSources::Unified,
             layout: crate::BindingLayout::default(),
             overrides: Vec::new(),
         }
     }
 
-    pub fn gamepad_only() -> Self {
-        // A pad seat still carries a preset. The scope filters out the
-        // keyboard half, so the seat works on a keyboard if the plan changes.
-        Self::preset(KeyboardPreset::by_index(0).id).with_sources(BindingSources::GamepadOnly)
-    }
+    #[cfg(test)]
+    pub fn preset(id: PresetId) -> Self { crate::fixture_opinions::defaults().recipe(id) }
+
+    #[cfg(test)]
+    pub fn gamepad_only() -> Self { Self::preset(PresetId::ArrowsZxc).with_sources(BindingSources::GamepadOnly) }
 
     /// The same recipe restricted to the devices this seat actually claimed.
     pub fn with_sources(mut self, sources: BindingSources) -> Self {
@@ -138,80 +141,13 @@ impl BindingRecipe {
     /// Layer order is precedence: base, then the game's layout, then the
     /// user's overrides. A user remap wins inside a mode that ships its own
     /// pad. Guarded by `a_user_remap_beats_the_modes_layout`.
-    pub fn build(&self) -> InputMap<InputAction> {
-        let mut map = KeyboardPreset::of(self.preset).map_for(self.sources);
-        self.layout.apply(&mut map);
-        for over in &self.overrides {
-            // A remap cannot widen the seat. See `BindingSources::admits`.
-            if self.sources.admits(over.control.device_class()) {
-                apply_override(&mut map, over);
-            }
+    pub fn build(&self) -> InputMap<InputAction> { self.resolve().0 }
+
+    pub fn resolve(&self) -> (InputMap<InputAction>, BindingTable) {
+        match self.defaults.scheme(self.preset) {
+            Some(scheme) => scheme.resolve(self.sources, &self.layout.rows, &self.overrides),
+            None => crate::BindingScheme::default().resolve(self.sources, &self.layout.rows, &self.overrides),
         }
-        map
-    }
-}
-
-/// Layer one override onto a built map.
-///
-/// Do not use `clear_action`: it drops keyboard and gamepad bindings together,
-/// so a keyboard remap would unbind the controller. Only bindings of the
-/// override's device class are removed, found through [`ActionBindings`], the
-/// same projection a prompt reads.
-///
-/// The override goes into the displaced binding's position, not at the end.
-/// [`ActionBindings::label`] reads the first binding, so an appended override
-/// would leave the prompt showing the old control.
-///
-/// Two cases are ignored, because a settings file can outlive its build:
-/// * an action name this build does not have;
-/// * an action that is not buttonlike (`Move`, `AimStick`). A button in an
-///   axis action's map corrupts it, and nothing downstream checks.
-fn apply_override(map: &mut InputMap<InputAction>, over: &BindingOverride) {
-    use leafwing_input_manager::prelude::{Actionlike, Buttonlike};
-
-    let Some(action) = action_named(&over.action) else {
-        return;
-    };
-    if action.input_control_kind() != leafwing_input_manager::InputControlKind::Button {
-        return;
-    }
-    // Positions of the same-class bindings, in map order. The projection uses
-    // the same order, so an index here is the position a prompt reads.
-    let class = over.control.device_class();
-    let displaced: Vec<usize> = ActionBindings::from_map(map)
-        .controls(&action)
-        .iter()
-        .enumerate()
-        .filter(|(_, control)| device_class_of(control) == Some(class))
-        .map(|(index, _)| index)
-        .collect();
-
-    let control: Box<dyn Buttonlike> = match over.control {
-        OverrideControl::Key(key) => Box::new(key),
-        OverrideControl::Button(button) => Box::new(button),
-    };
-    let Some(bindings) = map.get_buttonlike_mut(&action) else {
-        // Nothing binds this action (for example, a preset with no gamepad
-        // Special). The override is its first binding.
-        map.insert_boxed(action, control);
-        return;
-    };
-    let slot = displaced.first().copied().unwrap_or(bindings.len());
-    // Back to front, so an earlier index is still the element it named.
-    for index in displaced.iter().rev() {
-        bindings.remove(*index);
-    }
-    bindings.insert(slot.min(bindings.len()), control);
-}
-
-/// Which device class a projected control belongs to. `None` for a control
-/// the projection cannot name: an override must not displace a binding it
-/// cannot restore.
-fn device_class_of(control: &PhysicalControl) -> Option<OverrideDeviceClass> {
-    match control {
-        PhysicalControl::Key(_) => Some(OverrideDeviceClass::Keyboard),
-        PhysicalControl::Button(_) => Some(OverrideDeviceClass::Gamepad),
-        PhysicalControl::Other(_) => None,
     }
 }
 
@@ -256,19 +192,26 @@ pub fn rebuild_maps_from_recipes(
             &BindingRecipe,
             &mut InputMap<InputAction>,
             &mut ActionState<InputAction>,
+            Option<&mut BindingTable>,
         ),
         Changed<BindingRecipe>,
     >,
 ) {
-    for (seat, recipe, mut map, mut actions) in &mut participants {
-        let mut built = recipe.build();
+    for (seat, recipe, mut map, mut actions, table) in &mut participants {
+        let (mut built, resolved) = recipe.resolve();
+        let table_changed = match table {
+            Some(mut table) => {
+                if *table != resolved { *table = resolved; true } else { false }
+            }
+            None => { commands.entity(seat).insert(resolved); false }
+        };
         if let Some(pad) = map.gamepad() {
             built.set_gamepad(pad);
         }
         // `Changed` includes `Added`. On the spawn frame the map already is
         // the recipe's output. The comparison stops that frame from resetting
         // a fresh `ActionState` and from triggering the touch re-bind hook.
-        if *map != built {
+        if *map != built || table_changed {
             *map = built;
             actions.reset_all();
             // The reset is only half the fix. See [`Rebound`].
@@ -346,6 +289,7 @@ pub enum PhysicalControl {
 pub struct ActionBindings {
     /// Sorted by action name, so the order is stable across runs and machines.
     actions: Vec<(String, Vec<PhysicalControl>)>,
+    contextual: Option<Vec<(crate::InputProfile, InputAction, PhysicalControl)>>,
 }
 
 impl ActionBindings {
@@ -366,7 +310,20 @@ impl ActionBindings {
             })
             .collect();
         actions.sort_by(|(a, _), (b, _)| a.cmp(b));
-        Self { actions }
+        Self { actions, contextual: None }
+    }
+
+    /// Union for the binding editor, with contextual rows for conflict checks.
+    pub fn from_resolved(map: &InputMap<InputAction>, table: &BindingTable) -> Self {
+        let mut bindings = Self::from_map(map);
+        bindings.contextual = Some(table.rows().iter().map(|row| (
+            row.profile, row.action, physical_control_of(row.control.as_ref()),
+        )).collect());
+        bindings
+    }
+
+    pub fn contextual_rows(&self) -> Option<&[(crate::InputProfile, InputAction, PhysicalControl)]> {
+        self.contextual.as_deref()
     }
 
     /// Every physical control bound to this action, in insertion-stable order.
@@ -451,6 +408,7 @@ pub fn action_for_slot(
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct SeatBindings {
     seats: BTreeMap<u8, ActionBindings>,
+    profiles: BTreeMap<(u8, crate::InputProfile), ActionBindings>,
 }
 
 impl SeatBindings {
@@ -459,6 +417,10 @@ impl SeatBindings {
         static NONE: std::sync::LazyLock<ActionBindings> =
             std::sync::LazyLock::new(ActionBindings::default);
         self.seats.get(&slot).unwrap_or(&NONE)
+    }
+
+    pub fn for_profile(&self, slot: u8, profile: crate::InputProfile) -> &ActionBindings {
+        self.profiles.get(&(slot, profile)).unwrap_or_else(|| self.for_seat(slot))
     }
 
     pub fn seats(&self) -> impl Iterator<Item = (u8, &ActionBindings)> {
@@ -477,12 +439,14 @@ pub fn publish_seat_bindings(
     participants: Query<(
         &InputParticipant,
         &InputMap<InputAction>,
+        Option<&BindingTable>,
     )>,
     changed: Query<
         (),
         Or<(
             Changed<InputParticipant>,
             Changed<InputMap<InputAction>>,
+            Changed<BindingTable>,
         )>,
     >,
     mut removed_maps: RemovedComponents<InputMap<InputAction>>,
@@ -495,11 +459,22 @@ pub fn publish_seat_bindings(
         return;
     }
     let mut next: BTreeMap<u8, ActionBindings> = BTreeMap::new();
-    for (participant, map) in &participants {
-        next.insert(participant.id.slot(), ActionBindings::from_map(map));
+    let mut profiles = BTreeMap::new();
+    for (participant, map, table) in &participants {
+        let slot = participant.id.slot();
+        if let Some(table) = table {
+            next.insert(slot, ActionBindings::from_resolved(map, table));
+            for profile in crate::InputProfile::ACTIVE {
+                profiles.insert((slot, profile), ActionBindings::from_map(&table.map_for_profile(profile)));
+            }
+            profiles.insert((slot, crate::InputProfile::Blocked), ActionBindings::default());
+        } else {
+            next.insert(slot, ActionBindings::from_map(map));
+        }
     }
-    if bindings.seats != next {
+    if bindings.seats != next || bindings.profiles != profiles {
         bindings.seats = next;
+        bindings.profiles = profiles;
     }
 }
 
@@ -765,7 +740,7 @@ mod tests {
     /// layout says X.
     #[test]
     fn a_user_remap_beats_the_modes_layout() {
-        let smash = BindingRecipe::gamepad_only().with_layout(crate::BindingLayout::Smash);
+        let smash = BindingRecipe::gamepad_only().with_layout(crate::fixture_opinions::fixture_layout());
         let layout_only = ActionBindings::from_map(&smash.build());
         assert_eq!(
             layout_only.controls(&InputAction::Special),

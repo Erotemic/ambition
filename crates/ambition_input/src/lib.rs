@@ -27,6 +27,8 @@ pub mod channels;
 mod control;
 #[cfg(feature = "input")]
 mod contextual;
+#[cfg(feature = "input")]
+mod table;
 pub mod cues;
 #[cfg(feature = "input")]
 mod glyphs;
@@ -49,6 +51,11 @@ pub mod sources;
 
 #[cfg(test)]
 mod tests;
+#[cfg(all(test, feature = "input"))]
+extern crate self as ambition_input;
+#[cfg(all(test, feature = "input"))]
+#[path = "../../../opinions/ambition_input_opinions/src/defaults.rs"]
+mod fixture_opinions;
 
 /// Directional motion recognition (a rolling input buffer and a subsequence
 /// matcher) and the content-owned technique registry. Pure and headless. A
@@ -61,7 +68,7 @@ pub use motion_input::{
 #[cfg(feature = "input")]
 pub use actions::InputAction;
 #[cfg(feature = "input")]
-pub use contextual::{ButtonRoute, ContextualButtonHistory, InputProfile, MenuButtonIntent, MenuShortcutPages, resolve_menu_button, contextual_button_rows};
+pub use contextual::{ButtonRoute, ContextualButtonHistory, InputProfile, MenuButtonIntent, MenuShortcutPages, contextual_button_rows};
 #[cfg(feature = "input")]
 pub use active_input::update_seat_active_devices;
 pub use active_input::{gamepad_style_of, ActiveDevice, GamepadStyle, SeatActiveDevices};
@@ -113,7 +120,9 @@ pub use bindings::{
 };
 pub use cues::{ActiveUiCues, UiCue};
 #[cfg(feature = "input")]
-pub use layout::{BindingLayout, DeclaredBindingLayout, PadSlot};
+pub use layout::{BindingLayout, DeclaredBindingLayout};
+#[cfg(feature = "input")]
+pub use table::{bind, unbind, Binding, BindingDefaults, BindingScheme, BindingTable, AxisBinding, AxisSource, ResolvedButton};
 pub use menu::{
     analog_to_dir, MenuControlFrame, MenuFramePopulate, MenuFrameConsume, MenuNavConsume, MenuDir, MenuInputFrame, MenuInputState, SeatMenuFrames,
 };

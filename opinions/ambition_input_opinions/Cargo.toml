@@ -1,0 +1,11 @@
+[package]
+name = "ambition_input_opinions"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Shared default control conventions for the Ambition games."
+
+[dependencies]
+ambition_input = { path = "../../crates/ambition_input", features = ["input"] }
+bevy = { version = "0.19.1", default-features = false }

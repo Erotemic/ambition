@@ -14,6 +14,7 @@ pub fn build_demo_app() -> App {
 }
 
 fn compose_twintrack_shell(app: &mut App) {
+    ambition_input_opinions::install(app);
     ambition_platformer2d::provider::ShellComposition::new(
         ambition_demo_twintrack::TWINTRACK_EXPERIENCE,
         ambition_demo_twintrack::TWINTRACK_LAUNCHER_ROUTE,

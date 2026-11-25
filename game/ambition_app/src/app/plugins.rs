@@ -40,6 +40,7 @@ use ambition_platformer2d::platformer::schedule::GameplayGated;
 /// arity limit. New simulation systems should go into the matching
 /// `register_*_systems` helper rather than back into this orchestrator.
 pub fn add_simulation_plugins(app: &mut App) {
+    ambition_input_opinions::install(app);
     app.add_message::<ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction>();
     // AmbitionPhysicsPlugin (Avian2D) is intentionally NOT here. Per ADR 0007 Avian is
     // secondary physics for debris/ragdoll visuals; the player controller is custom via parry2d

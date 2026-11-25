@@ -935,13 +935,15 @@ fn pointer_motion_selects_a_kaleidoscope_control() {
     );
 }
 
-/// The cube driven by real key input: the production input frame, open/close
-/// routing, nav and action consumer, with one primary participant bound by `map`.
-fn real_input_cube_app(
-    map: leafwing_input_manager::prelude::InputMap<
-        ambition_platformer2d::input::InputAction,
-    >,
-) -> App {
+fn test_binding(profile: ambition_platformer2d::input::InputProfile, key: KeyCode, action: ambition_platformer2d::input::InputAction) -> ambition_platformer2d::input::Binding {
+    ambition_platformer2d::input::bind(profile, ambition_platformer2d::input::OverrideControl::Key(key), action)
+}
+
+use ambition_platformer2d::input::InputProfile;
+
+/// The cube driven by real key input and a resolved recipe.
+fn real_input_cube_app(recipe: ambition_platformer2d::input::BindingRecipe) -> App {
+    let (map, table) = recipe.resolve();
     use ambition_platformer2d::input::InputAction;
     use ambition_platformer2d::render::rendering::PlayerVisual;
     use leafwing_input_manager::prelude::*;
@@ -1026,6 +1028,7 @@ fn real_input_cube_app(
         contexts,
         ActionState::<InputAction>::default(),
         map,
+        table,
     ));
     app.world_mut().spawn((
         PlayerVisual,
@@ -1046,7 +1049,7 @@ fn real_input_cube_app(
 /// Escape opens from gameplay, then returns from a System page before it closes.
 #[test]
 fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
-    let map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
+    let map = ambition_input_opinions::recipe(ambition_platformer2d::input::PresetId::ArrowsZxc);
     let mut app = real_input_cube_app(map);
 
     let press_esc = |app: &mut App, down: bool| {
@@ -1099,7 +1102,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
 
 #[test]
 fn page_shortcuts_open_the_requested_page_via_real_input() {
-    let map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
+    let map = ambition_input_opinions::recipe(ambition_platformer2d::input::PresetId::ArrowsZxc);
     let mut app = real_input_cube_app(map);
     let tap = |app: &mut App, key| {
         app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(key);
@@ -1130,9 +1133,13 @@ fn enter_confirms_and_escape_or_dedicated_pause_interrupts_session_ui() {
             (DIALOGUE_CONTEXT, context_priority::DIALOGUE, GameMode::Dialogue),
             (CUTSCENE_CONTEXT, context_priority::CUTSCENE, GameMode::Cutscene),
         ] {
-            let mut map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
+            let mut map = ambition_input_opinions::recipe(ambition_platformer2d::input::PresetId::ArrowsZxc);
             // A dedicated Start still opens over any in-session interface.
-            map.insert(Action::Start, KeyCode::F13);
+            map.layout.rows.extend([
+                test_binding(InputProfile::Gameplay, KeyCode::F13, Action::Start),
+                test_binding(InputProfile::SessionUi, KeyCode::F13, Action::Start),
+                test_binding(InputProfile::Paused, KeyCode::F13, Action::Start),
+            ]);
             let mut app = real_input_cube_app(map);
             app.insert_resource(backend);
             app.insert_state(mode);
@@ -1182,10 +1189,13 @@ fn a_shared_start_select_control_opens_pause_then_selects_in_either_backend() {
     use ambition_platformer2d::input::InputAction as Action;
     for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope] {
         for key in [KeyCode::Enter, KeyCode::NumpadEnter, KeyCode::F14] {
-            let mut map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
+            let mut map = ambition_input_opinions::recipe(ambition_platformer2d::input::PresetId::ArrowsZxc);
             if key == KeyCode::F14 {
-                map.insert(Action::Start, key);
-                map.insert(Action::MenuSelect, key);
+                map.layout.rows.extend([
+                    test_binding(InputProfile::Gameplay, key, Action::Start),
+                    test_binding(InputProfile::SessionUi, key, Action::MenuSelect),
+                    test_binding(InputProfile::Paused, key, Action::MenuSelect),
+                ]);
             }
             let mut app = real_input_cube_app(map);
             app.insert_resource(backend);
@@ -1219,7 +1229,7 @@ fn a_shared_start_select_control_opens_pause_then_selects_in_either_backend() {
 /// included) restored Playing either.
 #[test]
 fn back_closes_the_kaleidoscope_and_resumes_play_via_real_input() {
-    let map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
+    let map = ambition_input_opinions::recipe(ambition_platformer2d::input::PresetId::ArrowsZxc);
     let mut app = real_input_cube_app(map);
     let tap = |app: &mut App, key: KeyCode| {
         app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(key);
@@ -1258,9 +1268,11 @@ fn back_closes_the_kaleidoscope_and_resumes_play_via_real_input() {
 #[test]
 fn a_gameplay_control_shared_with_back_does_not_open_the_menu() {
     use ambition_platformer2d::input::InputAction as Action;
-    let mut map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
-    map.insert(Action::MenuBack, KeyCode::F13);
-    map.insert(Action::Blink, KeyCode::F13);
+    let mut map = ambition_input_opinions::recipe(ambition_platformer2d::input::PresetId::ArrowsZxc);
+    map.layout.rows.extend([
+        test_binding(InputProfile::Paused, KeyCode::F13, Action::MenuBack),
+        test_binding(InputProfile::Gameplay, KeyCode::F13, Action::Blink),
+    ]);
     let mut app = real_input_cube_app(map);
     app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::F13);
     app.update();
@@ -1279,7 +1291,7 @@ fn a_gameplay_control_shared_with_back_does_not_open_the_menu() {
 fn gamepad_start_pauses_while_east_remains_gameplay_or_contextual_back() {
     for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope] {
     use bevy::input::gamepad::{RawGamepadEvent, RawGamepadButtonChangedEvent};
-    let mut app = real_input_cube_app(ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map());
+    let mut app = real_input_cube_app(ambition_input_opinions::recipe(ambition_platformer2d::input::PresetId::ArrowsZxc));
     app.insert_resource(backend);
     if backend == InventoryUiBackend::Grid {
         app.add_systems(Update, crate::menu::grid_backend::grid_menu_nav
@@ -2753,8 +2765,8 @@ fn arming_a_rebind_does_not_capture_the_key_that_armed_it() {
     );
     app.world_mut().spawn((
         InputParticipant::primary(),
-        KeyboardPreset::arrows_zxc().input_map(),
-        ambition_platformer2d::input::BindingRecipe::preset(KeyboardPreset::arrows_zxc().id),
+        ambition_input_opinions::recipe(ambition_platformer2d::input::PresetId::ArrowsZxc).build(),
+        ambition_input_opinions::recipe(ambition_platformer2d::input::PresetId::ArrowsZxc),
     ));
     app.update();
 
@@ -3502,8 +3514,8 @@ fn each_menu_publishes_and_refreshes_its_owners_rebind_rows() {
         KaleidoscopeSystemNav { open_entry: Some(SystemMenuEntryId::Rebind) },
     )).id();
     crate::menu::test_support::spawn_binding_participant(&mut app, ParticipantId::PRIMARY,
-        BindingRecipe::preset(KeyboardPreset::arrows_zxc().id).with_sources(BindingSources::KeyboardOnly));
-    let mut recipe = BindingRecipe::gamepad_only();
+        ambition_input_opinions::recipe(ambition_platformer2d::input::PresetId::ArrowsZxc).with_sources(BindingSources::KeyboardOnly));
+    let mut recipe = ambition_input_opinions::gamepad_only();
     recipe.set_binding_override(BindingOverride { action: "Attack".into(), control: OverrideControl::Button(GamepadButton::North) });
     let person = crate::menu::test_support::spawn_binding_participant(&mut app, ParticipantId::SECONDARY, recipe);
     app.add_systems(Update, (ambition_platformer2d::input::rebuild_maps_from_recipes, ambition_platformer2d::input::publish_seat_bindings, cache_system_menu, republish_kaleidoscope_pages).chain());

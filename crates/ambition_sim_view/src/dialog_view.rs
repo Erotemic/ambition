@@ -51,7 +51,7 @@ impl DialogControls {
             return Self { hold_to_skip, ..Self::default() };
         }
         let seat = bindings.for_seat(slot);
-        Self { confirm: seat.confirm_named(device), back: seat.back_named(device), hold_to_skip }
+        Self { confirm: seat.named_for(&ambition_input::InputAction::MenuSelect, device), back: seat.named_for(&ambition_input::InputAction::MenuBack, device), hold_to_skip }
     }
 }
 

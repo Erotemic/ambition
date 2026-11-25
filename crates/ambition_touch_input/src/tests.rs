@@ -27,6 +27,7 @@ mod virtual_device_tests {
     /// the touch virtual device bound in its `InputMap`.
     fn app() -> (App, Entity) {
         let mut app = App::new();
+        ambition_input_opinions::install(&mut app);
         app.add_plugins(bevy::time::TimePlugin);
         app.add_plugins(bevy::input::InputPlugin);
         app.add_plugins(InputManagerPlugin::<InputAction>::default());
@@ -183,7 +184,7 @@ mod virtual_device_tests {
         // A preset swap replaces the whole InputMap (sync_preset_input_map).
         *app.world_mut()
             .get_mut::<InputMap<InputAction>>(participant)
-            .unwrap() = ambition_input::KeyboardPreset::by_index(1).input_map();
+            .unwrap() = ambition_input_opinions::recipe(ambition_input::PresetId::WasdJkl).build();
         app.update(); // re-bind runs on Changed<InputMap>
         hold(&mut app, |s| s.0.jump = TouchButton::pressed_now());
         app.update();
@@ -285,6 +286,7 @@ fn genuine_touch_activity_marks_touch_active() {
     use bevy::prelude::*;
 
     let mut app = App::new();
+        ambition_input_opinions::install(&mut app);
     app.init_resource::<Touches>();
     app.init_resource::<ButtonInput<MouseButton>>();
     app.init_resource::<MobileTouchState>();
@@ -328,6 +330,7 @@ fn a_drag_outside_the_controls_is_reported_as_a_drag() {
     use bevy::window::PrimaryWindow;
 
     let mut app = App::new();
+        ambition_input_opinions::install(&mut app);
     app.init_resource::<Touches>();
     app.init_resource::<ButtonInput<MouseButton>>();
     app.init_resource::<MobileTouchState>();

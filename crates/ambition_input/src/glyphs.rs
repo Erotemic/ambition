@@ -18,7 +18,9 @@ use bevy::prelude::*;
 
 use crate::active_input::{ActiveDevice, GamepadStyle};
 use crate::bindings::{action_for_slot, ActionBindings, PhysicalControl, SeatBindings};
-use crate::presets::{KeyboardPreset, PresetId};
+use crate::presets::PresetId;
+#[cfg(test)]
+use crate::presets::KeyboardPreset;
 use crate::InputAction;
 
 /// Name the glyph that represents `action` on `device`, for a seat whose
@@ -28,7 +30,7 @@ use crate::InputAction;
 /// keyboard-and-mouse pair.
 pub fn glyph_for(
     action: InputAction,
-    preset: &KeyboardPreset,
+    preset: PresetId,
     bindings: &ActionBindings,
     device: ActiveDevice,
 ) -> Cow<'static, str> {
@@ -65,10 +67,10 @@ fn bound_control(
 /// names four keys at once. Other verbs come from the seat's live binding.
 fn keyboard_glyph(
     action: InputAction,
-    preset: &KeyboardPreset,
+    preset: PresetId,
     bindings: &ActionBindings,
 ) -> Cow<'static, str> {
-    let movement_label = match preset.id {
+    let movement_label = match preset {
         PresetId::ArrowsZxc | PresetId::ArrowsQwer => "Arrows",
         PresetId::WasdJkl | PresetId::WasdUipo => "WASD",
     };
@@ -240,7 +242,7 @@ mod tests {
             assert_eq!(
                 glyph_for(
                     action,
-                    &arrows_zxc,
+                    arrows_zxc.id,
                     &bindings(&arrows_zxc),
                     ActiveDevice::Keyboard
                 ),
@@ -256,7 +258,7 @@ mod tests {
             (InputAction::Burst, "K"),
         ] {
             assert_eq!(
-                glyph_for(action, &wasd, &bindings(&wasd), ActiveDevice::Keyboard),
+                glyph_for(action, wasd.id, &bindings(&wasd), ActiveDevice::Keyboard),
                 glyph
             );
         }
@@ -269,7 +271,7 @@ mod tests {
         assert_eq!(
             glyph_for(
                 InputAction::Jump,
-                &preset,
+                preset.id,
                 &bindings(&preset),
                 ActiveDevice::Mouse
             ),
@@ -288,7 +290,7 @@ mod tests {
             assert_eq!(
                 glyph_for(
                     InputAction::Jump,
-                    &preset,
+                    preset.id,
                     &bound,
                     ActiveDevice::Gamepad(style)
                 ),
@@ -297,7 +299,7 @@ mod tests {
             assert_eq!(
                 glyph_for(
                     InputAction::Attack,
-                    &preset,
+                    preset.id,
                     &bound,
                     ActiveDevice::Gamepad(style)
                 ),
@@ -314,7 +316,7 @@ mod tests {
             InputAction::Attack,
         ] {
             assert_eq!(
-                glyph_for(action, &preset, &bindings(&preset), ActiveDevice::Touch),
+                glyph_for(action, preset.id, &bindings(&preset), ActiveDevice::Touch),
                 ""
             );
         }

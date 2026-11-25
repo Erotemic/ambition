@@ -31,6 +31,7 @@ visible = [
 ]
 
 [dependencies]
+ambition_input_opinions = { path = "../../opinions/ambition_input_opinions" }
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "relativity"] }
 ambition_demo_twintrack = { path = "../ambition_demo_twintrack" }
 bevy = { version = "0.19.1", default-features = false }

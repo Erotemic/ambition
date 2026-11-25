@@ -252,7 +252,7 @@ mod tests {
         app.add_systems(PostUpdate, capture_armed_rebind);
         let pads = [0, 1].map(|_| app.world_mut().spawn(Gamepad::default()).id());
         let people = [ParticipantId::PRIMARY, ParticipantId::SECONDARY].map(|owner| {
-            let recipe = BindingRecipe::preset(KeyboardPreset::arrows_zxc().id).with_sources(
+            let recipe = ambition_input_opinions::recipe(ambition_platformer2d::input::PresetId::ArrowsZxc).with_sources(
                 if owner == ParticipantId::PRIMARY {
                     BindingSources::KeyboardOnly
                 } else {

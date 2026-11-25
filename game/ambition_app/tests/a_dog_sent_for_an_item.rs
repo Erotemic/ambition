@@ -10,7 +10,7 @@
 //! world through the ledger when nobody holds it, and both crossings resimulate
 //! to the same world under a sync test.
 
-use crate::common::{base, fixed_60hz_room_sim};
+use crate::common::{base, fixed_60hz_room_sim, walk::actor_navigation_graph};
 use ambition_platformer2d::actors::body::errand::Errand;
 use ambition_platformer2d::actors::body::errand::ErrandOutcome;
 use ambition_platformer2d::actors::body::errand::ErrandRefusal;
@@ -61,23 +61,6 @@ fn send_for_the_blink(sim: &mut ambition_app::Platformer2dSimHarness, dog: Entit
     sim.world_mut().entity_mut(dog).insert(Errand::fetch(SimId::placement(BLINK)));
 }
 
-/// The graph the navigation advisor gave the dog on the last tick, and the
-/// dog's feet. The advisor's own graph, not a second build of it: the room it
-/// reads and the frame it builds under are the advisor's facts.
-fn the_dogs_graph(sim: &mut ambition_app::Platformer2dSimHarness, dog: Entity) -> (NavGraph, ae::Vec2) {
-    sim.step(base());
-    let world = sim.world();
-    let in_use: Vec<&NavGraph> = world
-        .resource::<ambition_platformer2d::actors::body::navigation::RoomNavigation>()
-        .graphs_in_use()
-        .collect();
-    assert_eq!(in_use.len(), 1, "the dog is the one body that navigates in the hub");
-    let graph = in_use[0].clone();
-    let kinematics = world.get::<ae::BodyKinematics>(dog).expect("a body");
-    let feet = kinematics.pos + graph.frame.down * graph.half.y;
-    (graph, feet)
-}
-
 /// Take the dog's jump away, or give it back, the way any source changes a
 /// body's verbs: a keyed ceiling in its `AbilityContributions`. The advisor's
 /// graph is keyed by the body's abilities, so the next tick's graph is the one
@@ -97,10 +80,10 @@ fn give_the_dog_its_jump(sim: &mut ambition_app::Platformer2dSimHarness, dog: En
 
 /// Put the Blink down at rest on `surface`, in the middle of it.
 fn put_the_blink_on(sim: &mut ambition_app::Platformer2dSimHarness, blink: Entity, graph: &NavGraph, surface: usize) {
-    let middle = (graph.surfaces[surface].left + graph.surfaces[surface].right) * 0.5;
+    let middle = (graph.ground.surfaces[surface].left + graph.ground.surfaces[surface].right) * 0.5;
     let feet = graph.point_on(surface, middle);
     let mut ground = sim.world_mut().get_mut::<ae::BodyKinematics>(blink).expect("the Blink lies in the world");
-    ground.pos = feet - graph.frame.down * (ground.size().y * 0.5 + 1.0);
+    ground.pos = feet - graph.ground.frame.down * (ground.size().y * 0.5 + 1.0);
     ground.vel = ae::Vec2::ZERO;
 }
 
@@ -115,7 +98,7 @@ fn sim_blink_at(sim: &ambition_app::Platformer2dSimHarness, blink: Entity) -> ae
 #[test]
 fn without_its_jump_the_dog_refuses_what_needs_one() {
     let needs_a_jump = |sim: &mut ambition_app::Platformer2dSimHarness, dog: Entity| {
-        let (with, feet) = the_dogs_graph(sim, dog);
+        let (with, feet) = actor_navigation_graph(sim, dog);
         give_the_dog_its_jump(sim, dog, false);
         sim.step_n(base(), 2);
         assert_eq!(
@@ -123,7 +106,7 @@ fn without_its_jump_the_dog_refuses_what_needs_one() {
             Some(false),
             "premise: the ceiling took the dog's jump"
         );
-        let (without, _) = the_dogs_graph(sim, dog);
+        let (without, _) = actor_navigation_graph(sim, dog);
         give_the_dog_its_jump(sim, dog, true);
         let reached_with = with.reachable_from(with.surface_at(feet).expect("the dog stands"));
         let reached_without = without.reachable_from(without.surface_at(feet).expect("the dog stands"));
@@ -131,8 +114,8 @@ fn without_its_jump_the_dog_refuses_what_needs_one() {
             .iter()
             .copied()
             .find(|surface| {
-                with.surfaces[*surface].width() > 48.0
-                    && !reached_without.iter().any(|other| without.surfaces[*other].id == with.surfaces[*surface].id)
+                with.ground.surfaces[*surface].width() > 48.0
+                    && !reached_without.iter().any(|other| without.ground.surfaces[*other].id == with.ground.surfaces[*surface].id)
             })
             .unwrap_or_else(|| {
                 panic!(
@@ -160,7 +143,7 @@ fn without_its_jump_the_dog_refuses_what_needs_one() {
         assert!(
             put.distance(lies) < 4.0,
             "premise: the Blink rests where it was put on surface {surface} ({:?}): put {put:?}, lies {lies:?}",
-            graph.surfaces[surface]
+            graph.ground.surfaces[surface]
         );
         send_for_the_blink(&mut sim, dog);
         let outcome = run_errand(&mut sim, dog, PATIENCE);

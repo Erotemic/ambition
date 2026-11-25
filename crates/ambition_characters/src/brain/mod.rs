@@ -62,7 +62,6 @@ pub use state_machine::{
     SniperCfg, SniperState, StateMachineCfg, WandererCfg, NPC_PATROL_SPEED,
 };
 
-#[cfg(test)]
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use bevy::prelude::*;
@@ -82,15 +81,25 @@ pub enum Brain {
     StateMachine(StateMachineCfg),
 }
 
-/// What a brain that navigates asks of the navigation advisor.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// Questions for the current decision and facts needed by a retained leg.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct NavigationRequest {
-    /// The place the brain is going to, when it holds one.
-    pub goal: Option<ambition_platformer2d_core::Vec2>,
-    /// The number of the brain's next choice of place. It seeds the places
-    /// the advisor offers, so the offer is a function of the brain's own
-    /// state and of no clock.
-    pub choice: u64,
+    pub next_leg: Option<ae::Vec2>,
+    pub destination_seed: Option<u64>,
+    pub approach: ApproachDemand,
+    pub following_leg: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum ApproachDemand {
+    #[default]
+    None,
+    /// The brain can look at or greet a nearby actor during rest.
+    Nearby(f32),
+    /// The brain can use an approach for its next destination.
+    Any,
+    /// The brain asks for an approach to its selected combat target.
+    CombatTarget,
 }
 
 /// A beat a brain holds that is heard as well as seen ([`Brain::beat`]).
@@ -239,15 +248,43 @@ impl Brain {
     /// What this brain asks of the navigation advisor, when it is a brain
     /// that navigates; `None` for a brain that does not. The advisor reads it
     /// to know which bodies to advise, and for what.
-    pub fn navigation_request(&self) -> Option<NavigationRequest> {
+    pub fn navigation_request(&self, now: f32, grounded: bool) -> Option<NavigationRequest> {
         match self {
-            Brain::StateMachine(StateMachineCfg::Roam { state, .. }) => Some(NavigationRequest {
-                goal: state.nav.goal,
-                choice: state.picks as u64,
-            }),
-            Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, state }) if cfg.navigates => {
-                Some(NavigationRequest { goal: state.nav.goal, choice: 0 })
+            Brain::StateMachine(StateMachineCfg::Roam { cfg, state }) => {
+                let idle = state.nav.goal.is_none();
+                let due = idle && grounded && now >= state.until
+                    && (state.picks != 0 || state.until != 0.0);
+                let nearby = cfg.notice_radius.max(if grounded { cfg.greet_within } else { 0.0 });
+                Some(NavigationRequest {
+                    next_leg: state.nav.needs_route(),
+                    destination_seed: due.then_some(state.picks as u64),
+                    approach: if due && (cfg.company > 0.0 || cfg.stay_within > 0.0) {
+                        ApproachDemand::Any
+                    } else if idle && nearby > 0.0 {
+                        ApproachDemand::Nearby(nearby)
+                    } else {
+                        ApproachDemand::None
+                    },
+                    following_leg: state.nav.leg.is_some(),
+                })
             }
+            Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, state }) if cfg.navigates => {
+                Some(NavigationRequest {
+                    next_leg: state.nav.needs_route(),
+                    approach: if state.nav.leg.is_some() { ApproachDemand::None } else { ApproachDemand::CombatTarget },
+                    following_leg: state.nav.leg.is_some(),
+                    ..NavigationRequest::default()
+                })
+            }
+            Brain::StateMachine(_) => None,
+        }
+    }
+
+    /// The current goal, including while the follower has a leg.
+    pub fn navigation_goal(&self) -> Option<ae::Vec2> {
+        match self {
+            Brain::StateMachine(StateMachineCfg::Roam { state, .. }) => state.nav.goal,
+            Brain::StateMachine(StateMachineCfg::MeleeBrute { state, .. }) => state.nav.goal,
             Brain::StateMachine(_) => None,
         }
     }

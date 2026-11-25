@@ -43,7 +43,7 @@ fn walker() -> ae::BodyClusterScratch {
 
 /// The size of the largest set of surfaces that can each reach every other.
 fn largest_group(graph: &NavGraph) -> usize {
-    let n = graph.surfaces.len();
+    let n = graph.ground.surfaces.len();
     let reach: Vec<Vec<bool>> = (0..n)
         .map(|from| {
             let mut row = vec![false; n];
@@ -93,7 +93,7 @@ fn nav_graph_census_of_the_shipped_rooms() {
             eprintln!(
                 "CENSUS {room:<28} {name:<6} blocks={:<4} surfaces={:<4} rollouts={:<6} steps={:<7} failed={:<7} links={:<5} cost={:<8.2} group={:<4} ms={ms:.1}",
                 world.blocks.len(),
-                graph.surfaces.len(),
+                graph.ground.surfaces.len(),
                 graph.cost.rollouts,
                 graph.cost.steps,
                 graph.cost.failed_steps,

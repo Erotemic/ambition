@@ -21,6 +21,7 @@
 
 use ambition_platformer2d_core as ae;
 use ae::collision_semantics::{is_full_collision_surface, is_support_surface};
+use ae::navigation::{mix, NavLeg, NavLegKind, NavNext, ARRIVE_TOLERANCE, LAND_TOLERANCE, NAV_WAYPOINTS};
 use ae::{BlockKind, GeoId, SurfaceKind, Vec2, World};
 
 /// A cardinal motion frame, as two axes.
@@ -31,6 +32,13 @@ pub struct NavFrame {
 }
 
 impl NavFrame {
+    pub(super) fn body_half(self, size: Vec2) -> Option<Vec2> {
+        if !is_cardinal(self.side) || !is_cardinal(self.down) {
+            return None;
+        }
+        Some(Vec2::new((size * self.side).length(), (size * self.down).length()) * 0.5)
+    }
+
     pub fn along(&self, point: Vec2) -> f32 {
         point.dot(self.side)
     }
@@ -50,6 +58,11 @@ impl NavFrame {
         let (c, d) = (self.below(aabb.min), self.below(aabb.max));
         (a.min(b), a.max(b), c.min(d), c.max(d))
     }
+}
+
+fn is_cardinal(axis: Vec2) -> bool {
+    (axis.x.abs() < 1e-4 && (axis.y.abs() - 1.0).abs() < 1e-4)
+        || (axis.y.abs() < 1e-4 && (axis.x.abs() - 1.0).abs() < 1e-4)
 }
 
 /// One stretch a body can stand on.
@@ -73,6 +86,119 @@ impl StandSurface {
 
     pub fn clamp(&self, along: f32) -> f32 {
         along.clamp(self.left, self.right)
+    }
+}
+
+/// The room's standing geometry for one physical footprint and set of axes.
+#[derive(Clone, Debug)]
+pub struct GroundMap {
+    pub frame: NavFrame,
+    pub half: Vec2,
+    pub surfaces: Vec<StandSurface>,
+    pub(super) slope_pieces: Vec<(Vec2, Vec2)>,
+}
+
+impl GroundMap {
+    pub fn build(world: &World, frame: NavFrame, physical_size: Vec2) -> Option<Self> {
+        let half = frame.body_half(physical_size)?;
+        let walks = chain_walks(world, frame);
+        let surfaces = standing_with_flats(world, frame, half * 2.0, walks.flats);
+        let surfaces = split_at_touchdowns(surfaces, &walks.pieces, frame, half.x);
+        Some(Self { frame, half, surfaces, slope_pieces: walks.pieces })
+    }
+
+    /// A grounded start within the clearance span of one continuous support.
+    pub fn walk(&self, feet: Vec2, goal: Vec2) -> Option<NavNext> {
+        let from = self.surface_at(feet)?;
+        let span = &self.surfaces[from];
+        let along = self.frame.along(feet);
+        if (self.frame.below(feet) - span.top).abs() > 1.0
+            || along < span.left - 2.0 || along > span.right + 2.0
+            || self.surface_at(goal)? != from
+        {
+            return None;
+        }
+        Some(self.walk_on(from, feet, goal))
+    }
+
+    pub(super) fn walk_on(&self, surface: usize, feet: Vec2, goal: Vec2) -> NavNext {
+        let land = self.point_on(surface, self.frame.along(goal));
+        if (self.frame.along(land) - self.frame.along(feet)).abs() <= ARRIVE_TOLERANCE {
+            return NavNext::Arrived;
+        }
+        let span = &self.surfaces[surface];
+        let land_span = [span.left - self.half.x, span.right + self.half.x];
+        NavNext::Leg(NavLeg { kind: NavLegKind::Walk, start: land, takeoff: land, land, land_span })
+    }
+
+    /// Preserve the native destination choice when only one support exists.
+    pub fn only_support_waypoints(&self, feet: Vec2, seed: u64) -> Option<([Vec2; NAV_WAYPOINTS], u8)> {
+        let surface = self.surface_at(feet)?;
+        if self.surfaces.len() != 1 || self.walk(feet, feet).is_none() {
+            return None;
+        }
+        let mut points = [Vec2::ZERO; NAV_WAYPOINTS];
+        points[0] = self.waypoint(surface, seed);
+        Some((points, 1))
+    }
+
+    pub(super) fn waypoint(&self, surface: usize, seed: u64) -> Vec2 {
+        let stretch = &self.surfaces[surface];
+        let fraction = (mix(seed.rotate_left(17) ^ surface as u64) % 1000) as f32 / 999.0;
+        self.frame.point(stretch.left + stretch.width() * fraction, stretch.top)
+    }
+
+    /// The surface the feet point `feet` stands on.
+    pub fn surface_at(&self, feet: Vec2) -> Option<usize> {
+        let (along, below) = (self.frame.along(feet), self.frame.below(feet));
+        self.surfaces
+            .iter()
+            .enumerate()
+            .filter(|(_, surface)| {
+                (surface.top - below).abs() <= LAND_TOLERANCE
+                    && along >= surface.left - self.half.x
+                    && along <= surface.right + self.half.x
+            })
+            .min_by(|(_, a), (_, b)| (a.clamp(along) - along).abs().total_cmp(&(b.clamp(along) - along).abs()))
+            .map(|(index, _)| index)
+    }
+
+    /// The feet point at `along` on `surface`, kept on the surface.
+    pub fn point_on(&self, surface: usize, along: f32) -> Vec2 {
+        let surface = &self.surfaces[surface];
+        self.frame.point(surface.clamp(along), surface.top)
+    }
+
+    /// The nearest standing point at or below the destination.
+    pub fn standing_destination(&self, destination: Vec2) -> Option<Vec2> {
+        (0..self.surfaces.len())
+            .map(|index| self.point_on(index, self.frame.along(destination)))
+            .filter(|feet| self.frame.below(*feet) >= self.frame.below(destination) - 1.0)
+            .min_by(|a, b| (*a - destination).length_squared().total_cmp(&(*b - destination).length_squared()))
+    }
+
+    /// The nearest surface under `point` (a body's centre, or its feet),
+    /// no more than `depth` below it.
+    pub fn surface_under(&self, point: Vec2, depth: f32) -> Option<usize> {
+        let (along, below) = (self.frame.along(point), self.frame.below(point));
+        (0..self.surfaces.len())
+            .filter(|index| {
+                let surface = &self.surfaces[*index];
+                along >= surface.left - self.half.x
+                    && along <= surface.right + self.half.x
+                    && surface.top >= below - LAND_TOLERANCE
+                    && surface.top <= below + depth
+            })
+            .min_by(|a, b| self.surfaces[*a].top.total_cmp(&self.surfaces[*b].top).then(a.cmp(b)))
+    }
+
+    /// The start support, the target support, and the point beside the target.
+    pub fn approach(&self, feet: Vec2, target: Vec2, beside: f32, depth: f32) -> Option<(usize, usize, Vec2)> {
+        let from = self.surface_at(feet)?;
+        let to = self.surface_under(target, depth)?;
+        let along = self.frame.along(target);
+        let side = if self.frame.along(feet) < along { -1.0 } else { 1.0 };
+        Some((from, to, self.point_on(to, along + side * beside)))
     }
 }
 
@@ -207,6 +333,15 @@ const ROOM_SIDE_INSET: f32 = 8.0;
 /// The order is by height, then along the side axis, so it is the same for the
 /// same room.
 pub fn standing_surfaces(world: &World, frame: NavFrame, body_size: Vec2) -> Vec<StandSurface> {
+    standing_with_flats(world, frame, body_size, chain_walks(world, frame).flats)
+}
+
+fn standing_with_flats(
+    world: &World,
+    frame: NavFrame,
+    body_size: Vec2,
+    flats: Vec<(f32, f32, f32, bool, GeoId)>,
+) -> Vec<StandSurface> {
     let half_width = body_size.x * 0.5;
     let mut tops: Vec<(f32, f32, f32, bool, GeoId)> = world
         .blocks
@@ -217,7 +352,7 @@ pub fn standing_surfaces(world: &World, frame: NavFrame, body_size: Vec2) -> Vec
             (top, a0, a1, block.kind == BlockKind::OneWay, block.id.clone())
         })
         .collect();
-    tops.extend(chain_walks(world, frame).flats);
+    tops.extend(flats);
     tops.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)).then(a.2.total_cmp(&b.2)));
 
     // Blocks that touch at one height are one stretch.
@@ -266,4 +401,41 @@ pub fn standing_surfaces(world: &World, frame: NavFrame, body_size: Vec2) -> Vec
         }
     }
     surfaces
+}
+/// Maximum distance from a slope end to the support that joins it.
+pub(super) const SLOPE_END_REACH: f32 = 12.0;
+
+/// Each surface cut where a slope piece touches down inside it from above. A
+/// walking body that reaches the touchdown leaves the floor up the slope (the
+/// charging cart's ramp comes down onto the middle of the workshop's floor),
+/// so the floor on the two sides of it is two surfaces: the body's feet stop
+/// half a body short of the touchdown on each.
+fn split_at_touchdowns(surfaces: Vec<StandSurface>, pieces: &[(Vec2, Vec2)], frame: NavFrame, half_width: f32) -> Vec<StandSurface> {
+    let mut out = Vec::with_capacity(surfaces.len());
+    for surface in surfaces {
+        let mut cuts: Vec<f32> = pieces
+            .iter()
+            .flat_map(|&(p, q)| [(p, q), (q, p)])
+            .filter(|(touch, other)| {
+                let along = frame.along(*touch);
+                (frame.below(*touch) - surface.top).abs() <= SLOPE_END_REACH / 2.0
+                    && frame.below(*other) < surface.top - SLOPE_END_REACH
+                    && along - half_width > surface.left
+                    && along + half_width < surface.right
+            })
+            .map(|(touch, _)| frame.along(touch))
+            .collect();
+        cuts.sort_by(f32::total_cmp);
+        let mut left = surface.left;
+        for cut in cuts {
+            if cut - half_width > left {
+                out.push(StandSurface { left, right: cut - half_width, ..surface.clone() });
+            }
+            left = left.max(cut + half_width);
+        }
+        if left <= surface.right {
+            out.push(StandSurface { left, ..surface });
+        }
+    }
+    out
 }

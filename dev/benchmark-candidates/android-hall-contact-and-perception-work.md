@@ -88,3 +88,10 @@ Two 240-update comparisons with `perf stat` counted 238–244 billion
 instructions before and 232–235 billion after. The two paired reductions
 were 2.6% and 3.8%. Each run used the same six desktop CPU cores, room,
 idle input, and census settings.
+
+The next stationary Android capture, `android-all-hall-auto-20261125T150259Z`
+at `cff0179a0d74`, had a median of 541.7 ms across nine frame windows
+(499.2–559.5 ms). That is about 1.8 FPS. Of 7,838 CPU samples, 61.3%
+included integration, 0.46% included perception collection, and 0.01%
+included navigation advice. No sample included a navigation rollout.
+Use a route with an active navigation request to measure route preparation.

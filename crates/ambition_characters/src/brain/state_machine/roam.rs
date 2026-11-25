@@ -201,6 +201,27 @@ mod tests {
         out
     }
 
+    #[test]
+    fn a_roamer_requests_destination_or_route_only_when_needed() {
+        use crate::brain::{Brain, NavigationRequest, StateMachineCfg};
+
+        let request = |state, now, grounded| {
+            Brain::StateMachine(StateMachineCfg::Roam { cfg: CFG, state })
+                .navigation_request(now, grounded).unwrap()
+        };
+        let mut state = RoamState { until: 5.0, ..Default::default() };
+        assert_eq!(request(state, 4.0, true), NavigationRequest::default());
+        assert_eq!(request(state, 6.0, false), NavigationRequest::default());
+        assert_eq!(request(state, 6.0, true).destination_seed, Some(0));
+        state.nav.go_to(THERE);
+        assert_eq!(request(state, 6.0, true).next_leg, Some(THERE));
+        state.nav.leg = Some(NavLeg { kind: NavLegKind::Hop, start: HERE, land: THERE, ..Default::default() });
+        state.nav.phase = LegPhase::Air;
+        assert_eq!(request(state, 7.0, false), NavigationRequest { following_leg: true, ..Default::default() });
+        state.nav.leg = None;
+        assert_eq!(request(state, 8.0, true).next_leg, Some(THERE));
+    }
+
     /// A hop that comes down at the landing's height on ANOTHER surface is a
     /// miss: the follower plans again, and gives the goal up after three in a
     /// row. With the height alone as the test it was an arrival each time, the

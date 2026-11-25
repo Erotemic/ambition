@@ -268,6 +268,7 @@ links to.
 - [`engine/collision-and-ccd.md`](engine/collision-and-ccd.md)
 - [`engine/kinematic-world-objects.md`](engine/kinematic-world-objects.md)
 - [`engine/platformer-navigation-and-reachability.md`](engine/platformer-navigation-and-reachability.md)
+- [`engine/behavioral-fidelity-and-approximate-navigation.md`](engine/behavioral-fidelity-and-approximate-navigation.md)
 - [`engine/world-geometry-and-spatial-semantics.md`](engine/world-geometry-and-spatial-semantics.md)
   — deferred trigger.
 - [`engine/reusable-authored-world-composition.md`](engine/reusable-authored-world-composition.md)

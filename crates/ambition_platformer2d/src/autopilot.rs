@@ -175,7 +175,7 @@ impl Flight {
         if self.route.is_empty() {
             return (LegInput::default(), AutopilotStatus::NoRoute);
         }
-        let facts = FlightFacts { center: kin.pos, vel: kin.vel, side: graph.frame.side, down: graph.frame.down, law: map.law, arrival_region,
+        let facts = FlightFacts { center: kin.pos, vel: kin.vel, side: graph.ground.frame.side, down: graph.ground.frame.down, law: map.law, arrival_region,
             in_one_way: map.in_one_way(kin.pos) };
         match follow_flight(&self.route, self.next, &facts) {
             (input, FlightProgress::Going(next)) => {
@@ -500,7 +500,7 @@ pub fn drive_autopilot(
         }
         NavGoal::Stand(destination) => destination,
     };
-    let feet = kin.pos + graph.frame.down * graph.half.y;
+    let feet = kin.pos + graph.ground.frame.down * graph.ground.half.y;
     // A new goal, or the last one was reached or given up and its wait is
     // over. A leg past its start is not dropped for a new goal: the body is
     // in its run-up or in the air.
@@ -519,8 +519,8 @@ pub fn drive_autopilot(
             feet,
             vel: kin.vel,
             on_ground: ground.on_ground,
-            side: graph.frame.side,
-            down: graph.frame.down,
+            side: graph.ground.frame.side,
+            down: graph.ground.frame.down,
             dt,
             wall: wall.and_then(|wall| wall.on_wall.then_some(wall.wall_normal_x.signum())),
             // A player runs at its top speed and stops by its own braking.
@@ -547,7 +547,7 @@ pub fn drive_autopilot(
         // cosmic form runs at 620 px/s, and ran off the edge a hop starts at).
         Some((mut input, leg)) => {
             if !input.full_speed {
-                let far = (approach_point(&leg) - feet).dot(graph.frame.side).abs() > FAR_BEYOND;
+                let far = (approach_point(&leg) - feet).dot(graph.ground.frame.side).abs() > FAR_BEYOND;
                 let pace = if far { graph.run_speed * FAR_PACE_FRACTION } else { NEAR_PACE.min(graph.run_speed) };
                 input.axis *= pace / graph.run_speed.max(1.0);
             }
@@ -580,9 +580,9 @@ const AIR_JUMP_FRAMES: u32 = 12;
 /// below the landing's height.
 fn recover_to(graph: &NavGraph, feet: ae::Vec2, vel: ae::Vec2, landing: ae::Vec2, air_jump: bool, wait: &mut u32) -> LegInput {
     *wait = wait.saturating_sub(1);
-    let along = (landing - feet).dot(graph.frame.side);
-    let below = (landing - feet).dot(graph.frame.down);
-    let falling = vel.dot(graph.frame.down) > 0.0;
+    let along = (landing - feet).dot(graph.ground.frame.side);
+    let below = (landing - feet).dot(graph.ground.frame.down);
+    let falling = vel.dot(graph.ground.frame.down) > 0.0;
     let jump = air_jump && falling && below < 0.0 && *wait == 0;
     if jump {
         *wait = AIR_JUMP_FRAMES;
@@ -649,7 +649,7 @@ pub fn report_autopilot(
         .graph()
         .map(|graph| {
             let plan = if graph.local_only() { "local" } else { "full" };
-            format!("plan={plan} surfaces={} links={} rollouts={}", graph.surfaces.len(), graph.links.len(), graph.cost.rollouts)
+            format!("plan={plan} surfaces={} links={} rollouts={}", graph.ground.surfaces.len(), graph.links.len(), graph.cost.rollouts)
         })
         .unwrap_or_else(|| "no graph".to_owned());
     eprintln!(

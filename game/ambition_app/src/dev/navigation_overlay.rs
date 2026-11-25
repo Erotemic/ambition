@@ -48,11 +48,11 @@ pub(crate) fn draw_navigation_overlay(
         return;
     };
     for graph in navigation.graphs_in_use() {
-        for surface in &graph.surfaces {
-            let (left, right) = (graph.frame.point(surface.left, surface.top), graph.frame.point(surface.right, surface.top));
+        for surface in &graph.ground.surfaces {
+            let (left, right) = (graph.ground.frame.point(surface.left, surface.top), graph.ground.frame.point(surface.right, surface.top));
             // Two lines: one gizmo line is thin in a shot of a whole room.
             for lift in [2.0, 4.0] {
-                let up = graph.frame.down * -lift;
+                let up = graph.ground.frame.down * -lift;
                 gizmos.line_2d(w2(world, left + up), w2(world, right + up), green());
             }
         }

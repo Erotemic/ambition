@@ -67,19 +67,19 @@ fn the_player(sim: &mut ambition_app::Platformer2dSimHarness) -> (ae::BodyCluste
 /// surface at all.
 fn on_a_surface(graph: &NavGraph, point: ae::Vec2) -> Option<ae::Vec2> {
     let under = graph.surface_under(point, 2000.0).or_else(|| {
-        (0..graph.surfaces.len()).min_by(|a, b| {
-            let distance = |index: usize| graph.point_on(index, graph.frame.along(point)).distance(point);
+        (0..graph.ground.surfaces.len()).min_by(|a, b| {
+            let distance = |index: usize| graph.point_on(index, graph.ground.frame.along(point)).distance(point);
             distance(*a).total_cmp(&distance(*b))
         })
     })?;
-    Some(graph.point_on(under, graph.frame.along(point)))
+    Some(graph.point_on(under, graph.ground.frame.along(point)))
 }
 
 /// The feet point on a surface where the body comes nearest to `zone`: a
 /// body that stands there overlaps an edge exit beside the end of a floor.
 fn nearest_the_zone(graph: &NavGraph, zone: ae::Aabb) -> Option<ae::Vec2> {
     let gap = |feet: ae::Vec2| {
-        let body = ae::Aabb::new(feet - graph.frame.down * graph.half.y, graph.half);
+        let body = ae::Aabb::new(feet - graph.ground.frame.down * graph.ground.half.y, graph.ground.half);
         let dx = (zone.min.x - body.max.x).max(body.min.x - zone.max.x);
         let dy = (zone.min.y - body.max.y).max(body.min.y - zone.max.y);
         // Apart: how far. Overlapping: less than zero, by how much, so a
@@ -90,8 +90,8 @@ fn nearest_the_zone(graph: &NavGraph, zone: ae::Aabb) -> Option<ae::Vec2> {
             dx * dy * -1.0
         }
     };
-    (0..graph.surfaces.len())
-        .map(|index| graph.point_on(index, graph.frame.along(zone.center())))
+    (0..graph.ground.surfaces.len())
+        .map(|index| graph.point_on(index, graph.ground.frame.along(zone.center())))
         .min_by(|a, b| gap(*a).total_cmp(&gap(*b)))
 }
 
@@ -169,7 +169,7 @@ fn walked_route_census() {
             if route.is_none() && name == "player" {
                 let from = feet.and_then(|feet| graph.surface_at(feet));
                 let reached = from.map(|from| graph.reachable_from(from)).unwrap_or_default();
-                let highest = reached.iter().map(|index| graph.surfaces[*index].top).fold(f32::INFINITY, f32::min);
+                let highest = reached.iter().map(|index| graph.ground.surfaces[*index].top).fold(f32::INFINITY, f32::min);
                 eprintln!("  WHY start {feet:?} goal {goal:?} reaches {} surfaces, the highest top {highest:.0}", reached.len());
             }
             row.push(format!(

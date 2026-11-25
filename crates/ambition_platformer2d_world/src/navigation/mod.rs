@@ -23,4 +23,4 @@ pub use cache::{geometry_stamp, GeometryStamps, NavGraphCache, NavGraphKey};
 pub use envelope::{ArcSample, EnvelopeProbe, TraversalEnvelope};
 pub use flight::{FlightMap, FlightSearch, FLIGHT_CELL};
 pub use graph::{DirectWalk, NavGraph, NavLink, NavMotion};
-pub use surfaces::{standing_surfaces, NavFrame, StandSurface};
+pub use surfaces::{standing_surfaces, GroundMap, NavFrame, StandSurface};

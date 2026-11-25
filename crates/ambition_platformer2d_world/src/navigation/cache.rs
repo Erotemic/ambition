@@ -8,12 +8,14 @@
 //! player's seat keeps another. Autopilot checks the request against any
 //! local graph before use. A request outside its coverage needs a full build.
 
+use std::sync::Arc;
+
 use ambition_platformer2d_core as ae;
 use ae::movement::MotionModelSpec;
 use ae::{AbilitySet, Aabb, BodyBaseSize, BodyClusterScratch, MotionFrame, Vec2, World};
 use ae::frame::BodyMaterial;
 
-use super::{NavGraph, NavMotion};
+use super::{GroundMap, NavFrame, NavGraph, NavMotion};
 use crate::collision::{GeometryRevision, RoomCollision};
 
 /// What one graph is a function of.
@@ -81,6 +83,14 @@ impl NavGraphKey {
         NavMotionKey { spec: self.spec, abilities: self.abilities, size: self.size, material: self.material, base_size: self.base_size, frame: self.frame }
     }
 
+    fn ground_key(&self) -> GroundKey {
+        GroundKey {
+            room: self.room,
+            frame: NavFrame { side: self.frame.side(), down: self.frame.down() },
+            size: self.size * self.material.scale(),
+        }
+    }
+
     /// The probe body the graph is built for: the tuning with no history. A
     /// graph is not a fact about what a body was doing when it was asked for.
     pub fn probe_body(&self) -> BodyClusterScratch {
@@ -105,6 +115,19 @@ struct NavMotionKey {
     frame: MotionFrame,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct GroundKey {
+    room: u64,
+    frame: NavFrame,
+    size: Vec2,
+}
+
+struct KeptGround {
+    key: GroundKey,
+    map: Arc<GroundMap>,
+    demanded: bool,
+}
+
 /// Graphs by [`NavGraphKey`]. A key with no graph (the body has none there)
 /// is kept too, so it is not built again. Beside them, at most `capacity`
 /// bodies' [`NavMotion`]s, measured once for each body and frame whatever
@@ -119,10 +142,12 @@ struct NavMotionKey {
 /// caller that never begins a demand cycle has a plain FIFO.
 pub struct NavGraphCache {
     graphs: Vec<(NavGraphKey, Option<NavGraph>)>,
+    ground: Vec<KeptGround>,
     motions: Vec<(NavMotionKey, Option<NavMotion>)>,
     demanded: Vec<NavGraphKey>,
     capacity: usize,
     motion_measures: u64,
+    ground_preparations: u64,
     builds: u64,
 }
 
@@ -130,10 +155,12 @@ impl NavGraphCache {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             graphs: Vec::with_capacity(capacity),
+            ground: Vec::new(),
             motions: Vec::new(),
             demanded: Vec::new(),
             capacity: capacity.max(1),
             motion_measures: 0,
+            ground_preparations: 0,
             builds: 0,
         }
     }
@@ -142,6 +169,9 @@ impl NavGraphCache {
     /// the ones in use, and the rest are spare.
     pub fn begin_demand(&mut self) {
         self.demanded.clear();
+        for entry in &mut self.ground {
+            entry.demanded = false;
+        }
     }
 
     /// How many graphs `get_or_build*` built. For tests and instruments.
@@ -158,6 +188,28 @@ impl NavGraphCache {
     /// How many times a body's motion was measured. For tests and instruments.
     pub fn motion_measures(&self) -> u64 {
         self.motion_measures
+    }
+
+    pub fn ground_preparations(&self) -> u64 {
+        self.ground_preparations
+    }
+
+    /// Keep standing geometry by footprint. Tunings with the same footprint share it.
+    pub fn ground(&mut self, key: &NavGraphKey, world: &World) -> Option<Arc<GroundMap>> {
+        let key = key.ground_key();
+        if let Some(entry) = self.ground.iter_mut().find(|entry| entry.key == key) {
+            entry.demanded = true;
+            return Some(entry.map.clone());
+        }
+        let map = Arc::new(GroundMap::build(world, key.frame, key.size)?);
+        self.ground_preparations += 1;
+        if self.ground.len() >= self.capacity {
+            if let Some(spare) = self.ground.iter().position(|entry| !entry.demanded) {
+                self.ground.remove(spare);
+            }
+        }
+        self.ground.push(KeptGround { key, map: map.clone(), demanded: true });
+        Some(map)
     }
 
     /// The motion of `key`'s body, kept or measured now.
@@ -199,14 +251,21 @@ impl NavGraphCache {
     pub fn get_or_build_measured(
         &mut self,
         key: NavGraphKey,
-        build: impl FnOnce(&NavMotion) -> Option<NavGraph>,
+        world: &World,
+        exits: &[Aabb],
+        pool: Option<&bevy_tasks::TaskPool>,
     ) -> Option<&NavGraph> {
         self.demand(key);
         if let Some(index) = self.graphs.iter().position(|(known, _)| *known == key) {
             return self.graphs[index].1.as_ref();
         }
         self.builds += 1;
-        let graph = self.motion(&key).and_then(build);
+        let ground = self.ground(&key, world);
+        let graph = ground.and_then(|ground| {
+            self.motion(&key).and_then(|motion| {
+                NavGraph::build_on_ground(world, exits, &key.probe_body(), key.frame, motion, pool, None, ground)
+            })
+        });
         self.insert(key, graph);
         self.graphs.iter().find(|(known, _)| *known == key).and_then(|(_, graph)| graph.as_ref())
     }

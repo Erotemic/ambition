@@ -722,6 +722,31 @@ impl MotionAdmission<'_> {
         Ok(velocity)
     }
 
+    /// Carry a per-tick displacement of the material point at `point` (in the
+    /// source chart) through the recorded contact path: relative to each
+    /// entry surface, through the map's linear part, plus the exit surface
+    /// point's own travel (`ApertureStep::point_travel`). Every rate is per
+    /// tick, so a moving exit's drift is in the same unit as the travel; the
+    /// frames' per-second velocities ([`Self::carry_velocity`]) are not.
+    pub fn carry_displacement(&self, path: &[u32], mut point: Vec2, displacement: Vec2, time: f64) -> Result<Vec2, Refusal> {
+        let mut travel = displacement.as_dvec2();
+        for (index, key) in path.iter().copied().enumerate() {
+            let refusal = |fault| Refusal { path: path[..index].to_vec(), link: Some(key), reason: RefusalReason::Numeric(fault) };
+            let link = self.links.iter().find(|link| link.key == key)
+                .ok_or_else(|| refusal(NumericFault::InvalidFrame))?;
+            let pose = link.snapshot_at(time).map_err(refusal)?;
+            let map = pose.map(self.convention).map_err(refusal)?;
+            let relative = travel - link.enter_step.point_travel(pose.enter, point);
+            let mapped = map.point(point).map_err(refusal)?;
+            travel = map.vector_from_wide(relative).map_err(refusal)?.as_dvec2()
+                + link.exit_step.point_travel(pose.exit, mapped);
+            point = mapped;
+        }
+        let narrowed = travel.as_vec2();
+        if !narrowed.is_finite() { return Err(Refusal { path: path.to_vec(), link: None, reason: RefusalReason::Numeric(NumericFault::Overflow) }); }
+        Ok(narrowed)
+    }
+
     /// Pull physical surface motion back through the contact path.
     pub fn uncarry_velocity(&self, path: &[u32], mut point: Vec2, mut velocity: Vec2, time: f64) -> Result<Vec2, Refusal> {
         for index in (0..path.len()).rev() {

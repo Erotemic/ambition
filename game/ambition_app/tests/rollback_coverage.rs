@@ -62,7 +62,7 @@ const WAIVED: &[(&str, &str)] = &[
         "the authored NPC lives (domains, schedules, holds): prepared content, published at build and by a content reload's publication, which stops and rebases the local timeline, so no rewind crosses a change; the simulation only reads it",
     ),
     (
-        "ambition_platformer2d_ldtk::bevy_runtime::asset::LdtkRuntimeIndex",
+        "ambition_platformer2d_ldtk::index::LdtkRuntimeIndex",
         "the LDtk project's area table (levels and bounds per area): prepared content, written only by a content authority in `Update` (activation, hot reload) under the same restart as `ActiveContentBinding`, so no rewind crosses a change. The active area is `RoomSet`'s, which is registered",
     ),
     // Diagnostics beside a body, read by traces and the agent harness only.

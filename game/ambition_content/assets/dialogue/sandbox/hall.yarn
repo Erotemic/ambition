@@ -351,9 +351,11 @@ Fia: You're the one Oiler keeps glaring at. Come here, your left knee is singing
     Fia: Fia. I work under Oiler. He fixes the town; I fix whatever the town drags in. Today that's you.
 -> Where are your goggles?
     Fia: Never wore them. I like to see what I'm getting into.
--> What is the white streak?
-    Fia: Born with it. Probably. Oiler says it showed up the week I first opened a gate panel. Oiler exaggerates.
+-> Why fingerless gloves?
+    Fia: You can't hear a loose bearing through leather. You can't hold a hot one with bare skin. So: half and half.
 -> Show me the void.
+    <<transform "npc_fia_touched">>
+    Fia: It starts in the hands. A cold that isn't cold. And there's the white in my hair again.
     <<transform "npc_fia_void">>
     Fia: Oh. It's quiet in here. Every part of everything, exactly where it belongs.
     Fia: Don't look so worried. I can stop whenever I like.

@@ -99,6 +99,15 @@ impl PreparedApertureStep {
 }
 
 impl ApertureStep {
+    /// The travel this tick of the point `p` fixed to an aperture at `pose`:
+    /// the published shift plus the turn about the pivot (`shift + turn x
+    /// arm`). Per tick, the clock the step is published on, so a reader that
+    /// compares it with a body's own per-tick travel compares one unit.
+    pub fn point_travel(&self, pose: super::PortalAperture, p: Vec2) -> bevy_math::DVec2 {
+        let arm = p.as_dvec2() - pose.frame.pivot.as_dvec2();
+        self.displacement.as_dvec2() + f64::from(self.turn) * bevy_math::DVec2::new(-arm.y, arm.x)
+    }
+
     pub(super) fn prepare_wide(self, end: PortalAperture) -> Result<PreparedApertureStep, NumericFault> {
         self.validate(end, 1.0)?;
         Ok(PreparedApertureStep { step: self, end })

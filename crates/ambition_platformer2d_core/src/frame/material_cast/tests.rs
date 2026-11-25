@@ -1210,3 +1210,23 @@ fn a_tilting_segment_meets_a_body_corner_between_its_ends() {
         [DVec2::ZERO, DVec2::new(10.0, 0.0)], InitialOverlap::AllowSeparation).unwrap().expect("the end reaches the ball");
     assert!((hit.time - 0.5).abs() < 1e-6, "{}", hit.time);
 }
+
+#[test]
+fn a_moving_exit_carries_its_drift_into_the_contact_frame() {
+    let aperture = |x, normal| PortalAperture { frame: PortalFrame::fixed(Vec2::new(x, 0.0), normal), half_length: 10.0 };
+    let (enter, exit) = (aperture(0.0, Vec2::NEG_X), aperture(100.0, Vec2::X));
+    let mut link = PortalLink::new(enter, exit, 0);
+    let delta = Vec2::new(1.0, 0.5);
+    let point = Vec2::new(0.0, 2.0);
+    let carried = |link: PortalLink| {
+        let links = [link];
+        let admission = MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
+        admission.carry_displacement(&[0], point, delta, 1.0).unwrap()
+    };
+    let mapped = link.snapshot_at(1.0).unwrap().map(MapConvention::Reflection).unwrap().vector(delta).unwrap();
+    assert_eq!(carried(link), mapped, "a still pair carries by its map alone");
+    link.exit_step = crate::frame::ApertureStep::ending_at(exit.frame, Vec2::new(3.0, 0.0), 0.0);
+    assert!((carried(link) - (mapped + Vec2::new(3.0, 0.0))).length() < 1.0e-5, "{:?}", carried(link));
+    link.enter_step = crate::frame::ApertureStep::ending_at(enter.frame, delta, 0.0);
+    assert!((carried(link) - Vec2::new(3.0, 0.0)).length() < 1.0e-5, "riding the entrance leaves only the exit's travel");
+}

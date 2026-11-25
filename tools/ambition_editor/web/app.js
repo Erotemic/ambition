@@ -158,9 +158,10 @@
   }
 
   // ---- asset detail ------------------------------------------------------------------
-  function assetPanels(a) {
+  function assetPanels(a, opts = {}) {
     const g = gens[a.generator] || null;
     const left = [], right = [];
+    if (opts.references !== false) left.push(referenceBox(a));
     if (a.layout && a.layout.rows && a.layout.rows.length) left.push(animationBox(a));
     else if (a.id.startsWith("parallax:")) left.push(parallaxBox(a));
     else left.push(previewBox(a));
@@ -208,6 +209,87 @@
       ${main ? `<div class="controls">${main.size ? `${main.size[0]}×${main.size[1]} px · ` : ""}${mb(main.bytes)} · <a href="${esc(main.href)}">open ${esc(path)}</a></div>` : ""}</section>`;
   }
 
+  // A character's sheet loops by default: its rows are mostly cycles (idle,
+  // walk, talk), and a held last frame reads as a stopped player.
+  const isCharacterSheet = (a) => !!(a.character_id || (a.identities || []).length);
+
+  // ---- reference images: a vector design or a canonical image, zoomable ----------------
+  function referenceBox(a) {
+    const refs = a.references || [];
+    if (!refs.length) return "";
+    const tabs = refs.length > 1
+      ? refs.map((r, i) => `<button type="button" data-ref="${i}"${i ? "" : ' class="on"'}>${esc(r.label)}</button>`).join("")
+      : `<strong>${esc(refs[0].label)}</strong>`;
+    return `<section class="box reference" data-reference><h2>Canonical image</h2>
+      <div class="controls">${tabs}
+        <button type="button" data-zoom="fit" title="Fit (double-click)">fit</button><button type="button" data-zoom="out">−</button><button type="button" data-zoom="in">+</button><button type="button" data-zoom="1">1:1</button>
+        <label>background <select data-ref-bg><option value="checker">checker</option><option value="dark">dark</option><option value="light">light</option></select></label>
+        <span class="mono" data-zoom-label></span><a data-ref-open href="${esc(refs[0].href)}" target="_blank" rel="noopener">open the file</a></div>
+      <div class="zoomer checker" data-zoomer tabindex="0"><img alt="${esc(a.display)}" draggable="false"></div>
+      <p class="sub">Scroll to zoom at the pointer, drag to pan, double-click to fit. A vector design stays sharp at any zoom; the canonical image is one pose at the sheet's frame size.</p></section>`;
+  }
+  function wireReference(a, root = document) {
+    const section = root.querySelector("[data-reference]");
+    const refs = a.references || [];
+    if (!section || !refs.length) return;
+    const box = section.querySelector("[data-zoomer]"), im = box.querySelector("img"), label = section.querySelector("[data-zoom-label]");
+    let k = 1, x = 0, y = 0, w = 1, h = 1, cur = 0, fitted = true;
+    function apply() {
+      // Sized, not transformed: a browser redraws an SVG at its layout size, so a
+      // vector design stays sharp however far it is zoomed.
+      im.style.width = `${w * k}px`; im.style.height = `${h * k}px`;
+      im.style.left = `${x}px`; im.style.top = `${y}px`;
+      im.style.imageRendering = refs[cur].kind !== "vector" && k >= 2 ? "pixelated" : "auto";
+      label.textContent = `${Math.round(k * 100)}%`;
+    }
+    function fit() {
+      const bw = box.clientWidth, bh = box.clientHeight;
+      k = Math.min(bw / w, bh / h); x = (bw - w * k) / 2; y = (bh - h * k) / 2; fitted = true; apply();
+    }
+    function zoomAt(factor, px, py) {
+      const nk = Math.max(0.05, Math.min(64, k * factor));
+      x = px - (px - x) * (nk / k); y = py - (py - y) * (nk / k); k = nk; fitted = false; apply();
+    }
+    function show(i) {
+      cur = i;
+      section.querySelectorAll("[data-ref]").forEach((b) => b.classList.toggle("on", +b.dataset.ref === i));
+      section.querySelector("[data-ref-open]").href = refs[i].href;
+      im.onload = () => { w = im.naturalWidth || 1; h = im.naturalHeight || 1; fit(); };
+      im.src = refs[i].href;
+    }
+    section.querySelectorAll("[data-ref]").forEach((b) => b.addEventListener("click", () => show(+b.dataset.ref)));
+    section.querySelectorAll("[data-zoom]").forEach((b) => b.addEventListener("click", () => {
+      const z = b.dataset.zoom, cx = box.clientWidth / 2, cy = box.clientHeight / 2;
+      if (z === "fit") fit();
+      else if (z === "1") zoomAt(1 / k, cx, cy);
+      else zoomAt(z === "in" ? 1.5 : 1 / 1.5, cx, cy);
+    }));
+    section.querySelector("[data-ref-bg]").addEventListener("change", (e) => {
+      box.classList.toggle("checker", e.target.value === "checker");
+      box.dataset.bg = e.target.value;
+    });
+    box.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const r = box.getBoundingClientRect();
+      zoomAt(Math.exp(-e.deltaY * (e.deltaMode ? 0.05 : 0.0015)), e.clientX - r.left, e.clientY - r.top);
+    }, { passive: false });
+    box.addEventListener("dblclick", fit);
+    let drag = null;
+    box.addEventListener("pointerdown", (e) => { drag = [e.clientX - x, e.clientY - y]; box.setPointerCapture(e.pointerId); box.classList.add("dragging"); });
+    box.addEventListener("pointermove", (e) => { if (drag) { x = e.clientX - drag[0]; y = e.clientY - drag[1]; fitted = false; apply(); } });
+    box.addEventListener("pointerup", () => { drag = null; box.classList.remove("dragging"); });
+    box.addEventListener("keydown", (e) => {
+      const cx = box.clientWidth / 2, cy = box.clientHeight / 2;
+      if (e.key === "+" || e.key === "=") zoomAt(1.5, cx, cy);
+      else if (e.key === "-") zoomAt(1 / 1.5, cx, cy);
+      else if (e.key === "0") fit();
+      else return;
+      e.preventDefault();
+    });
+    new ResizeObserver(() => { if (fitted) fit(); }).observe(box);
+    show(0);
+  }
+
   function animationBox(a) {
     const rows = a.layout.rows;
     const start = Math.max(0, rows.findIndex((r) => (a.preview_row ? r.name === a.preview_row : ["idle", "rest", "stand"].includes(r.name))));
@@ -215,10 +297,10 @@
       <div class="stage checker" id="stage"><canvas id="player"></canvas></div>
       <div class="controls"><button id="play" type="button">pause</button><button id="step" type="button">step</button>
         <label>view <select id="framing"><option value="subject">Body</option><option value="frame">Full animation frame</option></select></label>
-        <label>mode <select id="playmode"><option value="once">play once / hold</option><option value="loop">loop</option><option value="death">death → corpse</option></select></label>
+        <label>mode <select id="playmode"><option value="once">play once / hold</option><option value="loop"${isCharacterSheet(a) ? " selected" : ""}>loop</option><option value="death">death → corpse</option></select></label>
         <label>frame <input id="scrub" type="range" min="0" value="0"></label>
         <label>speed <select id="speed"><option>0.25</option><option>0.5</option><option selected>1</option><option>2</option></select></label>
-        <label>scale <select id="scale"><option>1</option><option selected>2</option><option>3</option></select></label>
+        <label>scale <select id="scale"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>6</option><option>8</option></select></label>
         <a id="pagelink" href="#">full-resolution page</a>
         <span id="frameinfo" class="mono"></span></div>
       <div class="anims" id="anims">${rows.map((r, i) => `<div class="anim${i === start ? " on" : ""}" data-row="${i}"><span>${esc(r.name)}${r.mirror_of ? " ⇋" : ""}</span><span class="n">${r.frames}${r.ms ? ` · ${r.ms}ms` : ""}</span></div>`).join("")}</div>
@@ -310,6 +392,7 @@
   }
   function wireAnimation(a) {
     stopTimers();
+    wireReference(a);
     const canvas = document.getElementById("player");
     if (!canvas || !a.layout) return;
     const rows = a.layout.rows;
@@ -361,7 +444,16 @@
     document.getElementById("scrub").addEventListener("input", e => { playing = false; frame = +e.target.value; draw(); });
     document.getElementById("playmode").addEventListener("change", e => { const death = rows.findIndex(r => r.name === "death"); select(e.target.value === "death" && death >= 0 ? death : row); });
     document.getElementById("speed").addEventListener("change", (e) => { speed = +e.target.value; restart(); });
-    document.getElementById("scale").addEventListener("change", (e) => { scale = +e.target.value; draw(); });
+    document.getElementById("scale").addEventListener("change", (e) => {
+      scale = +e.target.value;
+      // Past 3x the frame is larger than the column: the stage scrolls instead of shrinking it.
+      canvas.style.maxWidth = scale > 3 ? "none" : "";
+      const stage = document.getElementById("stage");
+      stage.classList.toggle("scroll", scale > 3);
+      draw();
+      stage.scrollLeft = (stage.scrollWidth - stage.clientWidth) / 2;
+      stage.scrollTop = (stage.scrollHeight - stage.clientHeight) / 2;
+    });
     const page0 = a.products.map((p) => products[p]).find((p) => p.role === (a.layout.part_play ? "parts_atlas" : "sheet_page:0") && p.tier === "full");
     const pageLink = document.getElementById("pagelink");
     if (page0) { pageLink.href = page0.href; if (a.layout.part_play) pageLink.textContent = "part atlas (drawn from parts: no page)"; } else pageLink.remove();
@@ -703,7 +795,7 @@
     else if (KIND_OF_VIEW[view]) window.AssetItems.list(KIND_OF_VIEW[view]);
     else if (view === "item") window.AssetItems.detail(id);
     else if (view === "cat") { if (state.category !== id) { state.category = id; state.page = 0; state.family = new Set(); } gallery(); }
-    else if (view === "characters" || view === "character") window.renderArtCharacters(view === "character" ? id : "", {assetPanels, wireAnimation, lineageBox});
+    else if (view === "characters" || view === "character") window.renderArtCharacters(view === "character" ? id : "", {assetPanels, wireAnimation, wireReference, referenceBox, lineageBox});
     else if (view === "inventory") window.renderArtInventory(id || "current");
     else if (view === "reviews") window.AssetReviews.page();
     else if (view === "asset") detail(id);

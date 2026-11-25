@@ -134,7 +134,28 @@ def load_evidence(repo: Path, targets: dict[str, Any], units=None) -> Evidence:
         for logical, member in bundle["files"].items():
             if member["role"] == "runtime":
                 ev.by_path[logical] = (uid,member["sha256"],member)
+        record["references"] = references(bundle, publication.root / "bundles" / key)
     return ev
+
+
+def references(bundle: dict, folder: Path) -> list[dict]:
+    """The pictures of what a bundle depicts, best first, from its review
+    members: the target's vector design (a chargen character's turnaround, a
+    drawn SVG source: sharp at any zoom) and its canonical image (one pose at
+    the sheet's frame size). A rig, a mirrored copy or a working layer is not
+    a reference."""
+    out, canonical = [], {}
+    for logical, member in sorted(bundle["files"].items()):
+        if member["role"] != "review" or logical.count("/") != 1:
+            continue
+        name = logical.split("/", 1)[1]
+        if name.endswith(".svg") and not any(tag in name for tag in (".rig.", ".mirrored.", ".transform.")):
+            out.append({"kind": "vector", "label": "Vector design", "file": folder / member["path"], "bytes": member["bytes"]})
+        elif name.endswith(("_canonical_transparent.png", "_canonical.png")):
+            stem = name.removesuffix(".png").removesuffix("_transparent")
+            if stem not in canonical or name.endswith("_transparent.png"):
+                canonical[stem] = {"kind": "canonical", "label": "Canonical image", "file": folder / member["path"], "bytes": member["bytes"]}
+    return out + [canonical[stem] for stem in sorted(canonical)]
 
 
 def resolve(products: dict[str, Product], ev: Evidence, actor_targets: dict[str, str]) -> None:

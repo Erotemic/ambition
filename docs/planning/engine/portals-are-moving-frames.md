@@ -220,6 +220,21 @@ uses it in `held_items/src/motion.rs:263–288`. Reuse this authority, but first
 give its input rates the same derivative clock. The existing helpers do
 not establish that unit conversion for their callers.
 
+Receipt (M3, axis filter, 2026-11-25): the axis contact filter now measures
+the material point's travel with `MotionAdmission::carry_displacement`
+(`frame/thread.rs`). For each link on the hit path it subtracts the entry
+surface point's per-tick travel, maps the rest through the link, and adds
+the exit surface point's per-tick travel (`ApertureStep::point_travel`,
+shared with the transfer's surface rates in `portal2d/src/placement.rs`).
+Every term is per tick, the same unit as `delta`, so the example above now
+reads `+2` and is kept. A hit with no portal on its path still uses
+`hit.map.vector(delta)`. The witness is
+`a_moving_exit_carries_its_drift_into_the_contact_frame`. Still open:
+- Surface carry and impact response (`collision.rs`, the carry/response
+  block after the filter) still pull vectors back through the inverse map.
+- The per-second frame velocities (`ContactVelocityFrame`, `carry_velocity`)
+  are not yet on the same clock as the per-tick steps.
+
 ## Required motion operation
 
 The existing motion owner prepares a bounded sequence of accepted legs.

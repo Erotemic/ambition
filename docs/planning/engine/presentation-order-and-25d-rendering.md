@@ -1,6 +1,6 @@
 # Presentation order and optional 2.5D rendering
 
-**State:** PLANNED, selected by the maintainer on 2026-11-21. The customers
+**State:** PO1 landed 2026-11-25; PO2 and RV1-RV3 PLANNED. Selected by the maintainer on 2026-11-21. The customers
 are Scout inside and outside the cart, consistent order for body parts and
 effects, and Bevy 2D and 3D presentation tools that can coexist. Production
 source reviewed: `f41218979625`; planning includes the preceding runtime
@@ -348,6 +348,27 @@ shared value preparation are sufficient until source proves otherwise.
    Those writers finalize geometry in `BodyOwnedDrawableSync`; folded meshes
    and portal carry consume the finalized result. Delete the post-hoc absolute
    seating write and `IN_VESSEL_Z` once this path replaces them.
+
+   **Landed (2026-11-25).** `IN_VESSEL_Z` is gone. A vessel owns its seats
+   (`Vessel::seat_z`): a body in it is placed one whole `BODY_DEPTH_BAND`
+   under the vessel's own near side, so its rig parts, flash (+1.5) and the
+   art in its hands, all drawn within the band, are hidden with it. Bodies
+   in one vessel take its seats in entity order, `SEAT_DEPTH_STEP` (0.01)
+   apart, so two seated bodies are two order blocks. Seating runs after
+   `actors::sync_visuals` and before `BodyOwnedDrawableSync` and
+   `HeldItemPresentationSet`, so every drawable placed from the root reads
+   the seat in the same frame. An actor is matched in its own live room
+   (`FeatureViewIndex::get_in`). A posed wielded item takes the hand's z plus
+   its bias, not `WORLD_Z_PLAYER`, and its bias must lie within the band.
+   Captures (`capture_scene intro_wake_room ... --player-flash 20 --warmup
+   120`, new option): seated, the flash silhouette shows only between the
+   rails; at the old depth (control, front − 0.05) it covered them; beside
+   the cart it is in front of the wheels.
+
+   Not covered: a limb drawn apart (`LimbTwin`) still floors at
+   `LIMB_OVER_BODIES_Z`, over the rail; an unposed wielded item (support
+   geometry) still uses `WORLD_Z_PLAYER`; equal-root bodies outside a vessel
+   still share one z. Those are PO2's consumers.
 2. **PO2 — common placement consumers.** Move player/feature bodies,
    attachment order and a real active rider onto the same placement authority.
    Keep explicit effect roles and independent limbs. Replace absolute player-z

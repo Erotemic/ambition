@@ -204,6 +204,10 @@ struct SceneCaptureConfig {
     /// boss loses that much health, so what a boss does when a blow lands on
     /// it can be photographed without a player that swings.
     boss_blows: Vec<(u64, i32)>,
+    /// The sim tick from which the primary player is held lit by a damage
+    /// flash (`--player-flash TICK`), so where its flash is drawn can be
+    /// photographed without a blow that lands on it.
+    player_flash_from: Option<u64>,
     /// The fog in front of the sky of the two-state room look
     /// (`--look-depth FOG,PATCHES`), to tune it with photographs: the numbers
     /// of `RoomLookDepth`, in its field order.
@@ -386,6 +390,9 @@ OPTIONS:
                         `xall` is the killing blow, which films its death. A boss that
                         refuses damage (asleep, in its intro) takes none. What a boss does when it is hurt is
                         photographed with no player that swings.
+    --player-flash TICK
+                        hold the player lit by the damage flash from sim tick
+                        TICK on, as a blow that lands lights it
     --player-at X,Y[@TICK][:VX,VY]
                         put the player at world X,Y (its centre) on sim tick
                         TICK [default: 60], at rest or moving at VX,VY px/s;
@@ -1047,6 +1054,27 @@ fn hold_player_controls(
 /// back in its place, in the climbing mode.
 const PLAYER_CLIMBS_HOLD_TICKS: u64 = 3;
 
+/// `--player-flash`: from its tick on, hold the primary player lit by the
+/// damage flash, as a blow that lands lights it. A sim system that names its
+/// tick, as [`place_player_at`] is.
+fn hold_player_flash(
+    config: Res<SceneCaptureConfig>,
+    tick: Res<ambition_platformer2d::time::SimTick>,
+    mut player: Query<
+        &mut ambition_platformer2d::characters::actor::BodyCombat,
+        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+    >,
+) {
+    // The flash of a blow a body takes, held where it is brightest.
+    const HELD_FLASH_S: f32 = 0.18;
+    if config.player_flash_from.is_none_or(|from| tick.get() < from) {
+        return;
+    }
+    for mut combat in &mut player {
+        combat.hit_flash = HELD_FLASH_S;
+    }
+}
+
 /// `--player-at`: put the primary player at the configured point on its tick,
 /// at rest or launched, through the motion authority (ADR 0024). A sim system that names
 /// its tick, as [`place_player_beside`] is.
@@ -1500,7 +1528,7 @@ fn install_room_capture(app: &mut App) {
     // schedule would survive a rewind.
     app.add_systems(
         sim,
-        (hold_boss_health, blow_on_bosses, place_player_beside, place_player_at, kill_and_pay_the_player, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, put_on_gear, fire_portal_shots, fire_shots, throw_items, portal_fixture::place_portals),
+        (hold_boss_health, blow_on_bosses, hold_player_flash, place_player_beside, place_player_at, kill_and_pay_the_player, record_flags, turn_on_switches, set_the_hour, ask_bodies_to_wear, put_on_gear, fire_portal_shots, fire_shots, throw_items, portal_fixture::place_portals),
     );
     if !app.world().resource::<SceneCaptureConfig>().gate_dials.is_empty() {
         app.add_systems(sim, dial_gates.before(ambition_platformer2d::session::rooms::gate_network::run_gate_network));
@@ -1731,6 +1759,7 @@ impl SceneCaptureConfig {
         let mut device = None;
         let mut boss_hp: Option<f32> = None;
         let mut boss_blows: Vec<(u64, i32)> = Vec::new();
+        let mut player_flash_from: Option<u64> = None;
         let mut look_depth: Option<[f32; 2]> = None;
         let mut camera_zoom = None;
         let mut camera_roll = None;
@@ -2018,6 +2047,15 @@ impl SceneCaptureConfig {
                         None => (value.as_str(), 1),
                     };
                     boss_blows.push((tick.parse::<u64>().map_err(|_| bad(value))?, hearts));
+                    2
+                }
+                "--player-flash" => {
+                    let Some(value) = args.get(i + 1) else {
+                        return Err("--player-flash requires a sim tick".to_string());
+                    };
+                    player_flash_from = Some(
+                        value.parse::<u64>().map_err(|_| format!("--player-flash wants a sim tick, got '{value}'"))?,
+                    );
                     2
                 }
                 "--player-at" => {
@@ -2428,6 +2466,7 @@ impl SceneCaptureConfig {
                 device,
                 boss_hp,
                 boss_blows: Vec::new(),
+                player_flash_from: None,
                 look_depth,
                 camera_zoom,
                 camera_roll,
@@ -2488,6 +2527,7 @@ impl SceneCaptureConfig {
             device,
             boss_hp,
             boss_blows,
+            player_flash_from,
             look_depth,
             camera_zoom,
             camera_roll,

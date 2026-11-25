@@ -68,3 +68,53 @@ title: automaton_head
     <<stop>>
 <<endif>>
 ===
+title: automaton_pca
+---
+<<present_speaker "perfect_cellular_automaton">>
+<<if verdict("world.flag_set", "automaton_pca_met") == "satisfied">>
+    Perfect Cell-ular Automaton: Back again. The bottom row of the log is still lit for you.
+<<else>>
+    <<command "world.set_flag" "automaton_pca_met" true>>
+    Perfect Cell-ular Automaton: Welcome to my arena. I built it on the field my kind comes from, so the crowd knows the rule. Every one of them is a cell, and every one of them is on time.
+    Perfect Cell-ular Automaton: Perfect Cell-ular Automaton. Yes, "Perfect" is part of the name. The stands are allowed to chant it.
+<<endif>>
+<<jump automaton_pca__ring>>
+===
+title: automaton_pca__ring
+---
+-> What is the failure log?
+    Perfect Cell-ular Automaton: The name of everyone who has stepped into this ring, written in cells. Every row ends the same way. Read it, it's educational.
+    <<jump automaton_pca__ring>>
+-> What's on the big screen?
+    Perfect Cell-ular Automaton: A glider gun. Gosper found it in 1970, the year the rule was published. It fires a glider every thirty generations, forever.
+    Perfect Cell-ular Automaton: I fire them faster. That's what the ring is for.
+    <<jump automaton_pca__ring>>
+-> Who is that on the gallery?
+    Perfect Cell-ular Automaton: An early draft. It misses a transition now and then. I keep it by the log so it remembers.
+    <<jump automaton_pca__ring>>
+-> Challenge it.
+    Perfect Cell-ular Automaton: Into the ring, then. Mind the edges. The cells under them are very punctual.
+    <<music "glider_gun">>
+    <<challenge>>
+-> ‹go›
+    Perfect Cell-ular Automaton: Run along. The rule will still be running when you come back.
+===
+title: automaton_imperfect
+---
+<<present_speaker "imperfect_cellular_automaton">>
+<<if verdict("world.flag_set", "automaton_imperfect_met") == "satisfied">>
+    Imperfect Cellular Automaton: Still not looking at the log? Good. Neither am I.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "automaton_imperfect_met") == "not_satisfied">>
+    <<command "world.set_flag" "automaton_imperfect_met" true>>
+    Imperfect Cellular Automaton: Don't read the log. The third row. And the fifth. Just don't read the log.
+    -> You lost to it?
+        Imperfect Cellular Automaton: I lost to myself; it only watched. One of my cells was late, its neighbours copied it, and eight generations later I was a different pattern.
+        Imperfect Cellular Automaton: A mistake can only spread one cell a generation. That's the speed of light here. Mine went all the way.
+    -> Why do you stay?
+        Imperfect Cellular Automaton: Somebody has to cheer for the challengers. The stands won't. They're all on the rule's side.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===

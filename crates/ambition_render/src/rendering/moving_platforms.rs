@@ -48,16 +48,18 @@ const BACK_LAYER_Z: f32 = super::world::SCENERY_Z_FRONT + 0.01;
 /// Where the front row of a platform's sheet is drawn: over the room's
 /// furniture (a chest, a switch, a pickup) and behind each body, so a body
 /// that walks past the cart is in front of it. A body IN the thing is drawn
-/// behind it ([`IN_VESSEL_Z`], [`seat_bodies_in_vessels`]).
+/// behind it, in one of the thing's own seats ([`Vessel::seat_z`],
+/// [`seat_bodies_in_vessels`]).
 ///
 /// It was in front of each body (`WORLD_Z_PLAYER + 6`), and the cart's near
 /// rail was drawn over the Creator and the robot standing on the floor beside
-/// it (Jon, 2026-11-17).
+/// it (Jon, 2026-11-17). Under an actor stepped back a depth plane
+/// (`DEPTH_PLANE_Z_STEP`), so the gnu beside the cart is in front of it too.
 const FRONT_LAYER_Z: f32 = WORLD_Z_DUMMY + 4.5;
-/// Where a body in a thing it stands in (a cart's bed, inside its near rail)
-/// is drawn: just behind that thing's front row, so the rail hides its legs,
-/// and over everything else behind the bodies.
-pub(crate) const IN_VESSEL_Z: f32 = FRONT_LAYER_Z - 0.05;
+/// How far apart two bodies in one vessel are: more than the depth a body's
+/// own parts spread over (`SLOT_DEPTH_STEP` a part), so two seated bodies are
+/// two order blocks and their parts never interleave.
+const SEAT_DEPTH_STEP: f32 = 0.01;
 /// How far under a vessel's top a body's feet may be and still stand in it:
 /// the rounding of a body standing on a platform.
 const VESSEL_FLOOR_SLACK: f32 = 4.0;
@@ -203,6 +205,8 @@ pub struct MovingPlatformVisual {
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Vessel {
     room: LiveRoomInstance,
+    /// The depth its near side is drawn at.
+    front_z: f32,
     left: f32,
     right: f32,
     top: f32,
@@ -215,8 +219,10 @@ impl Vessel {
         let span = (look.span_px[1] - look.span_px[0]).max(1.0);
         let k = platform.size.x / span;
         let half = platform.size * 0.5;
+        let (_, front_z) = look_layer(look, true)?;
         Some(Self {
             room,
+            front_z,
             left: platform.pos.x - half.x,
             right: platform.pos.x + half.x,
             top: platform.pos.y - half.y,
@@ -233,17 +239,32 @@ impl Vessel {
             && (self.left..=self.right).contains(&pos.x)
             && (self.top - self.rim..=self.top + VESSEL_FLOOR_SLACK).contains(&feet)
     }
+
+    /// The depth of the body in seat `seat` of the vessel: a whole body
+    /// depth band ([`super::BODY_DEPTH_BAND`]) under the near side, so the
+    /// body's parts, its flash and the art in its hands, which are all drawn
+    /// within the band over the body, are hidden by the near side with it.
+    /// Each further seat is one step further back, over the back layer.
+    fn seat_z(&self, seat: usize) -> f32 {
+        let z = self.front_z - super::BODY_DEPTH_BAND - seat as f32 * SEAT_DEPTH_STEP;
+        z.max(BACK_LAYER_Z + SEAT_DEPTH_STEP)
+    }
 }
 
 /// Draw each body that stands IN a thing (the cart's bed) behind that thing's
 /// near side, and leave every other body in front of it: the near side is
 /// drawn behind the bodies ([`FRONT_LAYER_Z`]), and a body in the vessel is
-/// put just behind it ([`IN_VESSEL_Z`]). One picture of the cart serves a body
-/// in it and a body beside it at once.
+/// placed in one of the vessel's seats, under it ([`Vessel::seat_z`]). One
+/// picture of the cart serves a body in it and a body beside it at once.
 ///
 /// After the bodies are placed (`actors::sync_visuals` writes each body's z
 /// every frame), so a body that climbs out is drawn in front again on the
-/// next frame without anything to undo.
+/// next frame without anything to undo; and before every drawable placed from
+/// the body's root (`BodyOwnedDrawableSync`: the rig's parts, the flash, the
+/// held and wielded art), so they are placed from the seat in the same frame.
+///
+/// The bodies of one vessel take its seats in entity order, so two of them
+/// are two order blocks and keep their order while both stay in.
 pub fn seat_bodies_in_vessels(
     platforms: Query<(&LiveRoomInstance, &MovingPlatformSet), With<RoomInstanceRoot>>,
     looks: Option<Res<PlatformLooks>>,
@@ -257,6 +278,7 @@ pub fn seat_bodies_in_vessels(
         (Entity, &super::primitives::FeatureVisual, &mut Transform),
         Without<super::primitives::PlayerVisual>,
     >,
+    mut seated: Local<Vec<(usize, Entity)>>,
 ) {
     let Some(looks) = looks else { return };
     let vessels: Vec<Vessel> = platforms
@@ -271,19 +293,38 @@ pub fn seat_bodies_in_vessels(
     if vessels.is_empty() {
         return;
     }
-    let held = |room, pos, size| vessels.iter().any(|vessel| vessel.holds(room, pos, size));
-    for (entity, mut transform, pose) in &mut players {
-        if transform.translation.z != IN_VESSEL_Z && held(live.of(entity), pose.pos, pose.size) {
-            transform.translation.z = IN_VESSEL_Z;
+    let vessel_of = |room, pos, size| vessels.iter().position(|vessel| vessel.holds(room, pos, size));
+    seated.clear();
+    for (entity, _, pose) in &players {
+        if let Some(vessel) = vessel_of(live.of(entity), pose.pos, pose.size) {
+            seated.push((vessel, entity));
         }
     }
-    for (entity, visual, mut transform) in &mut actors {
-        let Some(view) = features.get(&visual.id) else { continue };
+    for (entity, visual, _) in &actors {
+        // The actor of this id in the visual's own live room: two rooms may
+        // each hold an actor of one authored id.
+        let room = live.of(entity);
+        let Some(view) = features.get_in(&visual.id, room) else { continue };
         if view.kind != ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor {
             continue;
         }
-        if transform.translation.z != IN_VESSEL_Z && held(live.of(entity), view.pos, view.size) {
-            transform.translation.z = IN_VESSEL_Z;
+        if let Some(vessel) = vessel_of(room, view.pos, view.size) {
+            seated.push((vessel, entity));
+        }
+    }
+    seated.sort_unstable();
+    let mut seat = 0;
+    for (i, &(vessel, entity)) in seated.iter().enumerate() {
+        seat = if i > 0 && seated[i - 1].0 == vessel { seat + 1 } else { 0 };
+        let z = vessels[vessel].seat_z(seat);
+        let transform = match players.get_mut(entity) {
+            Ok((_, transform, _)) => Some(transform),
+            Err(_) => actors.get_mut(entity).ok().map(|(_, _, transform)| transform),
+        };
+        if let Some(mut transform) = transform {
+            if transform.translation.z != z {
+                transform.translation.z = z;
+            }
         }
     }
 }
@@ -861,12 +902,18 @@ mod tests {
         let ((_, back_z, back_row), (_, front_z, front_row)) = (layers[0], layers[1]);
         assert_eq!((back_row, front_row), (Some(back), Some(front)), "each layer draws its own row");
         // A body beside the cart is in front of both layers; a body in it is
-        // between them (`seat_bodies_in_vessels`).
+        // between them (`seat_bodies_in_vessels`), with the whole band drawn
+        // over it (its parts, its flash, the art in its hands) still under
+        // the front layer.
         let (player, actor) = (ambition_platformer2d_core::config::WORLD_Z_PLAYER, WORLD_Z_DUMMY + 5.0);
+        let seat = front_z - crate::rendering::BODY_DEPTH_BAND;
+        let top_of_seated = seat + crate::rendering::BODY_DEPTH_BAND - f32::EPSILON * 32.0;
         assert!(
-            back_z < IN_VESSEL_Z && IN_VESSEL_Z < front_z && front_z < actor && actor < player,
-            "back {back_z} < in the vessel {IN_VESSEL_Z} < front {front_z} < an actor {actor} < the player {player}"
+            back_z < seat && top_of_seated < front_z && front_z < actor && actor < player,
+            "back {back_z} < in the vessel {seat}..{top_of_seated} < front {front_z} < an actor {actor} < the player {player}"
         );
+        // Over the switch a seated body may ride past.
+        assert!(seat > WORLD_Z_DUMMY + 2.0, "a seated body {seat} is over a switch");
     }
 
     /// A shorter roster retires the visuals it no longer has. A room change

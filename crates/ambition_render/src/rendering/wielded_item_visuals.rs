@@ -44,8 +44,10 @@ impl WieldedItemVisualSpec {
         if !self.width_per_wielder_height.is_finite() || self.width_per_wielder_height <= 0.0 {
             return Err("width_per_wielder_height must be finite and positive");
         }
-        if !self.z_bias.is_finite() {
-            return Err("z_bias must be finite");
+        // Over the hand and within the body's band, so whatever hides the
+        // body (a cart's near side, a pipe) hides the item in its hand.
+        if !self.z_bias.is_finite() || self.z_bias.abs() >= super::BODY_DEPTH_BAND {
+            return Err("z_bias must be finite and within the body depth band");
         }
         if self.entity_name.trim().is_empty() {
             return Err("entity_name must not be empty");
@@ -219,6 +221,10 @@ pub fn sync_wielded_item_visuals(sprite_content: bevy::prelude::Res<ambition_spr
         if let Some(posed) = fact.support.is_none().then(|| hands.of(&fact.holder)).flatten() {
             translation.x = posed.at.x;
             translation.y = posed.at.y;
+            // Over the hand that holds it, wherever its body is drawn: a
+            // body seated in a cart is drawn under the cart's near side, and
+            // the item in its hand with it.
+            translation.z = posed.z + spec.z_bias;
             if !fact.ranged {
                 bevy_angle = posed.angle();
                 // A mirrored body holds the mirror image of the item.

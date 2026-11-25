@@ -398,7 +398,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 544 -> 545: a body's sweep (`body.sweep_sample`) carries the portal links
 // its travel was accepted under (open, straddled, closed), so generic transit
 // does not cross what the kernel refused (portal P2/M1).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 545;
+// 545 -> 546: a roaming brain's state carries its clock, its next look and
+// its navigation task, and a nav follower its time left (bfb9e94fc and
+// a82dd1a95 changed these bytes without a bump; this one records them).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 546;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

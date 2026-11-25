@@ -144,7 +144,19 @@ the same estimated graph. The companion's goals in this short run did
 not call for refinement. The graph fixture separately checks a live
 jump and drop, a rejected jump, and cold and warm refinement.
 
-An Xvfb desktop run entered the Hall with 100 roots and rendered its
-entrance at 1280 × 800. The two captures show the room and the arrival
-from the hub. Software rendering makes the render-time split unsuitable
-for comparison with the Android capture.
+At 100 Hall roots, the sighted `melee_brute_striker` sweep offered 101
+peer rows per view, including the player. The spatial query left a mean
+of 16.8 rows to examine and 15.8 visible rows in each sampled window.
+This shows the input work after spatial selection. The separate
+viewport test compares the visible order with a full scan.
+
+The headless slow-frame test admitted 594 Hall roots. Autoplay crossed
+the Hall and returned to the hub with a 200 ms frame interval. It used
+two measured links and 12 rollouts in the Hall.
+
+An Xvfb desktop run rendered the approach to the gap and the far side
+of the Hall at 1280 × 800 with 100 roots. The seat arrived at its Hall
+destination with two measured links and 12 rollouts. Its first hub
+request still used the full graph fallback, with 6,352 rollouts.
+Software rendering makes the render-time split unsuitable for
+comparison with the Android capture.

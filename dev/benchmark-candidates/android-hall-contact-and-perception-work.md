@@ -84,3 +84,7 @@ no reachable links. It applies the same piece and scale limits first.
 In 360-update headless desktop comparisons, the median share of measured
 simulation time in body integration moved from 48–49% to 43–45%. Absolute
 frame times varied between runs. They give no device FPS result.
+Two 240-update comparisons with `perf stat` counted 238–244 billion
+instructions before and 232–235 billion after. The two paired reductions
+were 2.6% and 3.8%. Each run used the same six desktop CPU cores, room,
+idle input, and census settings.

@@ -212,13 +212,35 @@ Still open:
 - the door. A gated lock wall or a loading-zone door is authored room data
   shared by every live instance of the room, so a runtime door needs a
   per-instance owner first;
-- a lift has no object occurrence, so it cannot be retired alone, and its
-  identity follows request order;
+- ~~a lift has no object occurrence~~ (landed 2026-11-25, below);
 - the third copy in a second live instance of the same authored room. This
   waits on the session: nothing yet makes two copies of one room live at
   once (the re-entry witness `a5ad66041` records that as open). The per-room
   binding is already witnessed across two different live rooms
   (`a_lift_switch_sends_only_the_lift_in_its_own_live_room`).
+
+**Progress (2026-11-25): a lift is an object of its own.**
+Each lift of a mechanism is now a row of the same construction batch as its
+switches: `ActorConstructionParams::MechanismLift` (recipe
+`ambition.mechanism-lift`) builds its occurrence, a `MechanismLift` naming
+the platform row. Its identity is minted like every runtime creation's
+(the caller's identity and a sequence), and a request names it by local
+key.
+
+- **The answer.** `create_mechanism` lists the switches, then the lifts'
+  occurrences.
+- **Retirement.** `retire_creation` takes a lift away alone. The platform
+  domain's observer `a_retired_lift_leaves_its_room` removes the row from
+  the occurrence's own live room only, whichever road removed the
+  occurrence.
+- **Rollback.** GGRS reproduces the occurrence (`entity:mechanism_lift`,
+  schema 543), so a rewind across a creation or retirement brings back the
+  object and its row together. The platform set is already rollback state.
+
+Witness: `a_scripted_mechanism_binds_each_switch_to_its_own_lift` goes on,
+under the same sync-test rollback, to retire the first copy's lift by its
+occurrence. Its row leaves the room, the second copy's lift stays where it
+was, and only the retired occurrence is gone.
 
 ### W3 — expose placement and reuse through existing authoring tools
 

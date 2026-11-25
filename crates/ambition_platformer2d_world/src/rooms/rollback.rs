@@ -47,6 +47,10 @@ where
         "flat-map positions projected from the admitted gate catalog and world files",
     );
     registrar.require_rollback::<super::RoomSet>(OWNER, "root:room_set");
+    // A scripted lift's occurrence: GGRS must reproduce the ENTITY, as it does
+    // a shrine's, so a rewind across its creation or retirement brings back
+    // the object a caller names. Its one field is written at construction.
+    registrar.require_rollback::<crate::platforms::MechanismLift>(OWNER, "entity:mechanism_lift");
     registrar.rollback_component_clone_checksum::<super::RoomSet>(
         OWNER,
         "root.room_set",

@@ -4,8 +4,9 @@
 //! Each part keeps its native owner. A switch is the same interactable
 //! placement an authored `Switch` lowers to, with the `MoveLift` action bound
 //! to its lift's construction identity; the lift is a switch-sent row in the
-//! caller's room's `MovingPlatformSet`. Both belong to the caller's room, like
-//! scripted breakables.
+//! caller's room's `MovingPlatformSet`, and its object occurrence (a
+//! `MechanismLift` row of the same batch) is what a caller retires to take it
+//! away alone. All belong to the caller's room, like scripted breakables.
 
 use ambition_extension_host::{ExtensionOutbox, LowersIn};
 use ambition_extension_sdk::action::ActionStage;
@@ -18,6 +19,7 @@ use std::collections::{BTreeMap, BTreeSet};
 const MAX_PARTS: usize = 8;
 
 pub fn install(app: &mut App) {
+    app.add_observer(ambition_platformer2d_world::platforms::a_retired_lift_leaves_its_room);
     ambition_platformer2d_shared_tangle::action_results::register_action_domain(app, "world.create_mechanism",
         ambition_platformer2d_shared_tangle::action_results::ActionCancellationPolicy::Unsupported);
     ambition_extension_host::install_submitted_request_in_body_phases!(app, CreateMechanismPort,
@@ -34,8 +36,8 @@ fn lower<L: LowersIn>(world: &mut World) {
             continue;
         }
         match create_mechanism(world, submitted.scope, &request) {
-            Ok(switches) => {
-                let subjects = switches
+            Ok(parts) => {
+                let subjects = parts
                     .into_iter()
                     .map(|entity| {
                         ambition_platformer2d_shared_tangle::action_results::object_action_subject(world, entity)
@@ -58,7 +60,7 @@ fn finite_box(at: [f32; 2], size: [f32; 2]) -> bool {
 }
 
 /// Check the whole request, then make it, or refuse with nothing made. Answers
-/// the switches' entities, in request order.
+/// the switches' entities, then the lifts' occurrences, each in request order.
 fn create_mechanism(world: &mut World, caller: Entity, request: &CreateMechanism) -> Result<Vec<Entity>, String> {
     use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec, PlacementSchema};
     use ambition_platformer2d_construction::{ActorConstructionParams, ActorConstructionRequest};
@@ -112,8 +114,18 @@ fn create_mechanism(world: &mut World, caller: Entity, request: &CreateMechanism
     let lowering = world
         .get_resource::<ambition_platformer2d_construction::placements::PlacementLoweringRegistry>()
         .ok_or("The interactable placement capability is not installed.")?;
-    let mut rows = Vec::with_capacity(request.switches.len());
+    let mut rows = Vec::with_capacity(parts);
     let mut names = BTreeMap::new();
+    // Each lift's occurrence: an object of the batch, named by its key.
+    for (slot, (lift, id)) in request.lifts.iter().zip(&lift_ids).enumerate() {
+        names.insert(lift.key.clone(), id.clone());
+        rows.push(ActorConstructionRequest {
+            sim_id: id.clone(),
+            origin: context.origin(slot),
+            parameters: ActorConstructionParams::MechanismLift { platform: id.as_str().to_string() },
+            relations: Vec::new(),
+        });
+    }
     for (index, (switch, lift)) in request.switches.iter().zip(&sends).enumerate() {
         let slot = request.lifts.len() + index;
         let id = context.id(slot);
@@ -141,7 +153,9 @@ fn create_mechanism(world: &mut World, caller: Entity, request: &CreateMechanism
             relations: Vec::new(),
         });
     }
-    let ids: Vec<_> = rows.iter().map(|row| row.sim_id.clone()).collect();
+    // Switches first, then lifts: the answer's order since lifts had none.
+    let ids: Vec<_> = rows[request.lifts.len()..].iter().chain(&rows[..request.lifts.len()])
+        .map(|row| row.sim_id.clone()).collect();
     let receipt = context.commit(world, rows, &names, &BTreeMap::<_, &()>::new(), |_, _| {})?;
 
     // Committed: the lifts join the room's platform set. Nothing below refuses.
@@ -155,5 +169,5 @@ fn create_mechanism(world: &mut World, caller: Entity, request: &CreateMechanism
             world.entity_mut(root).insert(MovingPlatformSet(lifts.collect()));
         }
     }
-    Ok(ids.iter().map(|id| receipt.entity(id).expect("the complete batch committed every switch")).collect())
+    Ok(ids.iter().map(|id| receipt.entity(id).expect("the complete batch committed every part")).collect())
 }

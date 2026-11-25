@@ -1180,3 +1180,33 @@ pub fn world_with_moving_platforms(
 
 #[cfg(test)]
 mod tests;
+
+/// The object occurrence of a lift a script made (`create_mechanism`): what
+/// its caller retires to take the lift away alone. The lift itself is the
+/// row `platform` names (its construction identity) in its room's
+/// [`crate::collision::MovingPlatformSet`], where the platform domain moves
+/// it; this entity is its identity among objects. When it goes, by any road,
+/// the row goes with it ([`a_retired_lift_leaves_its_room`]).
+#[derive(bevy_ecs::component::Component, Clone, Debug, PartialEq, Eq)]
+pub struct MechanismLift {
+    pub platform: String,
+}
+
+/// A lift's occurrence that leaves takes its row out of its own live room's
+/// platform set, and out of no other room's: the same identity can name a
+/// row in another live copy of the room.
+pub fn a_retired_lift_leaves_its_room(
+    removed: bevy_ecs::observer::On<bevy_ecs::lifecycle::Remove, MechanismLift>,
+    lifts: bevy_ecs::system::Query<(&MechanismLift, &ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance)>,
+    mut roots: bevy_ecs::system::Query<
+        (&ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, &mut crate::collision::MovingPlatformSet),
+        bevy_ecs::query::With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
+    >,
+) {
+    let Ok((lift, room)) = lifts.get(removed.entity) else { return };
+    for (live, mut set) in &mut roots {
+        if *live == room.0 && set.0.iter().any(|row| row.id == lift.platform) {
+            set.0.retain(|row| row.id != lift.platform);
+        }
+    }
+}

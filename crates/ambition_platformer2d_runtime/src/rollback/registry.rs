@@ -391,7 +391,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 541 -> 542: an actor route is its ordered target and direction
 // (`actor.motion_path`), advanced from accepted arrival; the phase it carried
 // for one release is gone (PATH2).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 542;
+// 542 -> 543: a scripted lift's occurrence (`entity:mechanism_lift`) is an
+// object GGRS reproduces, so a caller can retire the lift alone (W2).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 543;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

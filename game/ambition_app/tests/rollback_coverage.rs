@@ -204,6 +204,10 @@ const WAIVED: &[(&str, &str)] = &[
         "authored shrine geometry; the heal reads it and never writes it",
     ),
     (
+        "ambition_platformer2d_world::platforms::MechanismLift",
+        "a scripted lift's occurrence: names its platform row, written at construction only",
+    ),
+    (
         "ambition_portal2d::link::PortalLink",
         "authored portal channel identity, hashed at spawn",
     ),

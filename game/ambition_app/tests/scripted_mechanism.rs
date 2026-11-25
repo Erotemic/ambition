@@ -27,6 +27,8 @@ fn declare() {
             #{tag: 4, name: "message", kind: "text 256"},
             #{tag: 5, name: "first", kind: "opt object"},
             #{tag: 6, name: "retired", kind: "bool"},
+            #{tag: 7, name: "first_lift", kind: "opt object"},
+            #{tag: 8, name: "lift_retired", kind: "bool"},
         ]},
     ], entries: [
         #{key: "tick", phase: "actor_think", trigger: #{port: "story_tick", selector: "intro_wake_room"},
@@ -41,6 +43,13 @@ fn lift_and_call(request, x, floor, sends) {
       switches: [#{key: "call", at: [x - 90.0, floor - 16.0], sends: #{local: sends}}]}
 }
 fn tick() {
+    // The first copy's lift leaves the world by its own occurrence.
+    if this.trigger.flags.contains("mechanism_retire_lift") && !this.state.memory.lift_retired {
+        this.state.memory.lift_retired = true;
+        this.requests.push(request("retire_creation", #{object: this.state.memory.first_lift,
+            reply: #{request: 10, selector: "mechanism_probe::yard/result"}}));
+        return;
+    }
     // The first copy's switch leaves the world; the second copy keeps working.
     if this.trigger.flags.contains("mechanism_retire") && !this.state.memory.retired {
         this.state.memory.retired = true;
@@ -60,7 +69,11 @@ fn result() {
     if !this.trigger.terminal { return; }
     if this.trigger.code == "mechanism_created" {
         this.state.memory.created += 1;
-        if this.trigger.ticket.request == 1 { this.state.memory.first = this.trigger.subjects[0].object; }
+        // The switch, then the lift's occurrence.
+        if this.trigger.ticket.request == 1 {
+            this.state.memory.first = this.trigger.subjects[0].object;
+            this.state.memory.first_lift = this.trigger.subjects[1].object;
+        }
     }
     if this.trigger.code == "mechanism_refused" {
         this.state.memory.refused += 1;
@@ -193,5 +206,35 @@ fn a_scripted_mechanism_binds_each_switch_to_its_own_lift() {
         Some((second_rest.0 - 160.0, Some(LiftStage::Parked))),
         "after the other copy's retirement, the second switch did not send its own lift"
     );
+
+    // W2: a lift is an object of its own. Each copy's lift has an
+    // occurrence; retiring the first copy's (still under sync-test rollback)
+    // takes its row out of the room and leaves the second copy's lift where
+    // it stands.
+    let occurrences = {
+        let world = sim.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::world::platforms::MechanismLift>();
+        let mut rows: Vec<_> = q.iter(world).map(|lift| lift.platform.clone()).collect();
+        rows.sort();
+        rows
+    };
+    let mut expected = vec![first.1.clone(), second.1.clone()];
+    expected.sort();
+    assert_eq!(occurrences, expected, "each lift has one occurrence naming its row");
+    let second_parked = lift(&mut sim, &second.1);
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::session::AmbitionGameSave>()
+        .data_mut()
+        .set_flag("mechanism_retire_lift", true);
+    sim.rebase_rollback_history().unwrap();
+    sim.step_n(AgentAction::default(), 8);
+    assert_eq!(lift(&mut sim, &first.1), None, "the retired lift left its room");
+    assert_eq!(lift(&mut sim, &second.1), second_parked, "the other copy's lift stayed where it was");
+    let left = {
+        let world = sim.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::world::platforms::MechanismLift>();
+        q.iter(world).map(|lift| lift.platform.clone()).collect::<Vec<_>>()
+    };
+    assert_eq!(left, vec![second.1.clone()], "only the retired lift's occurrence left");
     let _ = std::fs::remove_dir_all(dir);
 }

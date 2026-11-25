@@ -271,10 +271,11 @@ value as completion of that owner's contract.
    binding landed 2026-11-24: a `lift_called` lift waits at both stops and a
    `MoveLift` switch in its room sends it. `create_mechanism` landed the same
    day: one scripted request builds lifts and the switches that send them,
-   bound by local key, with two copies in one room kept apart. Open: the
-   door, which needs a per-instance owner; lift occurrences; the
-   second-instance witness, which waits on two concurrent copies of one
-   room. Rollback through one child's retirement is witnessed.) Producer-validity delegation
+   bound by local key, with two copies in one room kept apart. Lift occurrences
+   landed 2026-11-25: each lift is an object of the batch that a caller
+   retires alone (schema 543). Open: the door, which needs a per-instance
+   owner; the second-instance witness, which waits on two concurrent copies
+   of one room. Rollback through one child's retirement is witnessed.) Producer-validity delegation
    follows the existing [asset owner](engine/asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings).
 5. [Body anchors A1/A2](engine/body-anchor-bindings.md#delivery-packets-and-proof)
    replace private saddle/capture point conversion with two independently

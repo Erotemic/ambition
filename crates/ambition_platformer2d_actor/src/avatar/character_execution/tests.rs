@@ -226,7 +226,7 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
     );
     assert_eq!(
         app.world().get::<Name>(e).unwrap().as_str(),
-        "Player Robot v3",
+        "Scout",
         "the display name follows the new worn identity"
     );
 }
@@ -428,7 +428,7 @@ fn changing_the_worn_identity_alone_does_not_rebuild_the_body() {
     app.update();
     assert_eq!(
         app.world().get::<Name>(e).unwrap().as_str(),
-        "Player Robot v3",
+        "Scout",
         "an explicit re-template request did not perform the replacement, which \
          leaves no way to re-wear a body at all"
     );
@@ -586,7 +586,7 @@ fn runtime_rewear_rebuilds_from_the_destination_character() {
     app.update();
     assert_eq!(
         app.world().get::<Name>(e).unwrap().as_str(),
-        "Player Robot v3"
+        "Scout"
     );
     let set = app.world().get::<ActionSet>(e).unwrap();
     // THE INVARIANT, WHICH IS ABOUT STALENESS AND NOT ABOUT THE ROBOT.

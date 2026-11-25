@@ -326,11 +326,11 @@ Bob: Bob. Alice sends things; I get them. Usually after somebody else has had a 
 
 title: hall_npc_creator
 ---
-Creator: I built the player. Now somebody put us on neighboring stands.
+Dennis: I built the player. Now somebody put us on neighboring stands.
 -> What were you trying to make?
-    Creator: I chose the joints, the reach, the way you land. I never wrote down what you'd want after you woke up.
+    Dennis: I chose the joints, the reach, the way you land. I never wrote down what you'd want after you woke up.
 -> Do you regret it?
-    Creator: I do not know yet. Ask me after the player reaches the end.
+    Dennis: I do not know yet. Ask me after the player reaches the end.
 ===
 
 title: hall_npc_oiler

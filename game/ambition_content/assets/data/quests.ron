@@ -163,8 +163,8 @@
     // their crate at the freight siding.
     (
         id: "intro_creator_case",
-        title: "The Creator's Case",
-        summary: "The goblins took the Creator's case off his bench. Scout's logs are in it.",
+        title: "Dennis's Case",
+        summary: "The goblins took Dennis's case off his bench. Scout's logs are in it.",
         steps: [
             (
                 description: "Get the case back from the goblins.",

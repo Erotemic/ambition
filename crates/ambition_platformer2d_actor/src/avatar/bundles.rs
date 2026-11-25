@@ -390,7 +390,7 @@ mod tests {
             Some(&cast),
             &mut ambition_characters::brain::RangedExecution::ChargedProjectile,
         );
-        assert_eq!(bundle.name.as_str(), "Player Robot v3");
+        assert_eq!(bundle.name.as_str(), "Scout");
         assert_eq!(bundle.driver.0, PlayerSlot::PRIMARY);
         assert_eq!(
             Some(&bundle.action_set),

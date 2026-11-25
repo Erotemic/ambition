@@ -309,6 +309,10 @@ impl PortalTransfer {
 pub struct PortalCrossing {
     pub root: ae::frame::RootCrossing,
     pub exit: ae::frame::PortalAperture,
+    /// Each aperture's published travel this tick, which the motion after
+    /// the crossing is continued against.
+    pub entry_step: ae::frame::ApertureStep,
+    pub exit_step: ae::frame::ApertureStep,
     pub entry_channel: PortalChannel,
     pub exit_channel: PortalChannel,
 }
@@ -332,11 +336,49 @@ impl PortalTransfer {
         transfer.exit_pos=transfer.map.point(center)?;
         Ok(transfer)
     }
+
+    /// The transfer of a body whose travel through the whole tick ended at
+    /// `completed` in the entry's chart, continued from the crossing event.
+    ///
+    /// Mapping the completed endpoint through the map at the crossing
+    /// (`M_tau(x(T))`) loses what the apertures did after the crossing: an exit
+    /// moving at `u` leaves the body `u (T - tau)` short, and a turning entry's
+    /// carry is dropped. The body is mapped where it crossed; its remaining
+    /// travel RELATIVE to the entry surface goes through the map's linear part,
+    /// and the exit surface point it left from adds its own motion:
+    /// `M_tau(x_tau) + L ((x_T - x_tau) - w r) + u r`, with `w` and `u` each
+    /// surface point's rate per tick at the crossing (`shift + turn x arm`,
+    /// from the published step) and `r` the rest of the tick. Once through, the
+    /// body moves straight, so a turning aperture's rate, not the curve its
+    /// point follows, is what carries it. A static pair gives `M_tau(x(T))`.
+    /// Exit-speed assistance changes the velocity, not this tick's travel.
+    pub fn at_crossing_completed(crossing: PortalCrossing, completed: Vec2, velocity: Vec2,
+        material: ae::frame::BodyMaterial, tuning: &PortalTuning,
+    ) -> Result<Self, ae::frame::NumericFault> {
+        let mut transfer=Self::at_crossing(crossing,completed,velocity,material,tuning)?;
+        let crossed=crossing.root.point;
+        let mapped=transfer.map.point(crossed)?;
+        let rest=(1.0-crossing.root.world_time).clamp(0.0,1.0);
+        let entry_rate=surface_rate(crossing.entry_step,crossing.root.aperture,crossed);
+        let exit_rate=surface_rate(crossing.exit_step,crossing.exit,mapped);
+        let relative=(completed.as_dvec2()-crossed.as_dvec2())-entry_rate*rest;
+        let exit_pos=mapped.as_dvec2()+transfer.map.vector_from_wide(relative)?.as_dvec2()+exit_rate*rest;
+        let narrowed=exit_pos.as_vec2();
+        if !narrowed.is_finite() { return Err(ae::frame::NumericFault::Overflow); }
+        transfer.exit_pos=narrowed;
+        Ok(transfer)
+    }
+}
+
+/// The travel per tick of the point `p` fixed to an aperture at `pose`.
+fn surface_rate(step: ae::frame::ApertureStep, pose: ae::frame::PortalAperture, p: Vec2) -> bevy::math::DVec2 {
+    let arm = p.as_dvec2() - pose.frame.pivot.as_dvec2();
+    step.displacement.as_dvec2() + f64::from(step.turn) * bevy::math::DVec2::new(-arm.y, arm.x)
 }
 
 fn transfer_step(
     crossing: PortalCrossing, center: Vec2, vel: Vec2, material: ae::frame::BodyMaterial, tuning: &PortalTuning,) -> TransitStep {
-    let transfer=match PortalTransfer::at_crossing(crossing,center,vel,material,tuning) {
+    let transfer=match PortalTransfer::at_crossing_completed(crossing,center,vel,material,tuning) {
         Ok(transfer)=>transfer,
         Err(reason)=>return TransitStep::Refused {channel:Some(crossing.entry_channel),
             reason:ae::frame::thread::RefusalReason::Numeric(reason)},
@@ -400,6 +442,7 @@ pub fn first_portal_crossing_through(
             .map_err(|reason| refusal(ae::frame::thread::RefusalReason::Numeric(reason)))?;
         first = Some(PortalCrossing {
             root, exit: exit_pose, entry_channel: enter.channel, exit_channel: exit.channel,
+            entry_step: enter.step, exit_step: exit.step,
         });
     }
     Ok(first)

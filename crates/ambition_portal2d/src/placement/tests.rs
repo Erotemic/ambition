@@ -5,6 +5,7 @@ fn transfer_step(center: Vec2, vel: Vec2, enter: PlacedPortal, exit: PlacedPorta
     super::transfer_step(PortalCrossing {
         root: ae::frame::RootCrossing { point: center, toi: 0.0, world_time: 0.0, aperture: enter.aperture() },
         exit: exit.aperture(), entry_channel: enter.channel, exit_channel: exit.channel,
+        entry_step: enter.step, exit_step: exit.step,
     }, center, vel, ae::frame::BodyMaterial::IDENTITY, tuning)
 }
 
@@ -634,6 +635,7 @@ fn an_unrepresentable_transfer_is_a_typed_refusal() {
     assert!(matches!(super::transfer_step(PortalCrossing {
             root: ae::frame::RootCrossing { point: Vec2::ZERO, toi: 0.0, world_time: 0.0, aperture: enter.aperture() },
             exit: exit.aperture(), entry_channel: enter.channel, exit_channel: exit.channel,
+            entry_step: enter.step, exit_step: exit.step,
         }, Vec2::ZERO, Vec2::Y, ae::frame::BodyMaterial::IDENTITY, &PortalTuning::default()),
         TransitStep::Refused { reason: ae::frame::thread::RefusalReason::Numeric(ae::frame::NumericFault::NonFinite), channel: Some(PURPLE) }));
 }
@@ -657,7 +659,14 @@ fn a_full_turn_takes_a_still_root_at_the_crossing_pose() {
     assert!(transfer.enter.frame.normal.distance(enter.normal) > 0.5);
     let expected = transfer.map.velocity(&transfer.enter.frame, &transfer.exit.frame, root, Vec2::ZERO).unwrap();
     assert!(transfer.mapped_vel.distance(expected) < 1.0e-4);
-    assert!((transfer.exit_pos - exit.pos).dot(exit.normal).abs() < 1.0e-4);
+    // Released at the crossing, the root leaves the exit straight at its
+    // mapped velocity for the rest of the tick (one turn per 1/60 s tick); it
+    // does not stay on the exit plane, and it does not follow the turn.
+    let crossed_at = transfer.map.point(root).unwrap();
+    assert!((crossed_at - exit.pos).dot(exit.normal).abs() < 1.0e-3, "the crossing maps onto the exit plane");
+    let rest = (1.0 - transfer.crossing_time) as f32 / 60.0;
+    assert!(transfer.exit_pos.distance(crossed_at + transfer.mapped_vel * rest) < 1.0e-2,
+        "{:?} vs {:?}", transfer.exit_pos, crossed_at + transfer.mapped_vel * rest);
 }
 
 

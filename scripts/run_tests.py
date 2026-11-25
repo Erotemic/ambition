@@ -994,6 +994,12 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                     [CARGO, "test"],
                     cwd=str(REPO / "fixtures" / "content_builder")))
 
+    # CB4: a consumer of the simulation harness alone steps and observes a sim.
+    # Its renderer-free closure is `scripts/tests/test_harness_alone_has_no_renderer.py`.
+    jobs.append(Job("external consumer: the harness alone steps a sim",
+                    [CARGO, "test"],
+                    cwd=str(REPO / "fixtures" / "harness_alone")))
+
     # These checks are repo-coupled and remain part of the default verdict, but
     # they do not gate STARTING the Rust tests. Running them after the workspace,
     # render-composition, and external-consumer Rust jobs minimizes time to the

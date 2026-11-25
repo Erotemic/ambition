@@ -308,11 +308,30 @@ No compile-time result is claimed.
 
 What CB4 still names, and what this slice did not do:
 
-- **Harness consumer.** The first real harness-alone consumer is still
-  absent.
+- ~~**Harness consumer.**~~ Landed 2026-11-25, below.
 - **Persistence.** It still brings windowed Bevy (above).
 - **Command families.** The offline/simulation/capture families have not
   been split further. Only the offline report is separated, by default.
+
+**Harness consumer (2026-11-25).** `fixtures/harness_alone` is the first
+consumer of the harness alone. It is its own workspace with its own
+lockfile, like the other fixtures, so nothing unifies its features with the
+app's. It depends on the harness at the harness's own selection (no
+`capture`), and on the facade at `rollback` only, for the room and control
+types its composition names. It repeats the root `bevy_ggrs` patch, as
+`external_consumer` does. Its test composes one room, steps it ten times and
+reads the observation back.
+
+Its normal graph has 372 unique crates. Absent: `bevy_render`,
+`bevy_core_pipeline`, `bevy_winit`, `wgpu`, `winit`, `ambition_render`,
+`ambition_app`, `ambition_content`. CPU-side Bevy crates survive, by name:
+`bevy_ui`, `bevy_text` and `bevy_sprite`, through `ambition_platformer2d_host`
+(which asks Bevy for `bevy_ui`) and `ambition_sprite_sheet` (which asks for
+`bevy_sprite`). `scripts/tests/test_harness_alone_has_no_renderer.py` holds
+the absence and the fixture's separate workspace. `run_tests.py` runs the
+fixture's test with the other external consumers. This is the harness
+result only. The full Ambition provider still compiles its presentation
+adapters (below). No compile-time result is claimed.
 
 **Execution owner:** `ambition_app_tools` command packaging and
 `ambition_sim_harness` dependency selection, coordinated with supported launch

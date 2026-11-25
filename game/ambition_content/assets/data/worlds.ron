@@ -62,5 +62,9 @@
         // living half (the Neural Cathedral) and the built half (the Weights,
         // and the Echo Chamber in it).
         (id: "world.neural_ldtk", file: "neural.ldtk"),
+        // The Central Hub, by the gate LICENSED: the Gate Authority's
+        // capital. The Concourse (the baggage hall under it), Authority
+        // Plaza, and the Manifest Office.
+        (id: "world.authority_ldtk", file: "authority.ldtk"),
     ],
 )

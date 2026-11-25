@@ -175,6 +175,12 @@ npc_neural_echo
 intrusive_thought
 attention_head
 
+[The Central Hub, the Gate Authority's capital]
+npc_authority_information
+npc_authority_baggage
+npc_authority_gatekeeper
+npc_authority_registrar
+
 [The orbital station]
 npc_station_okafor
 npc_station_reyes

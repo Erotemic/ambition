@@ -15871,6 +15871,80 @@
             ),
             hall_dialogue_id: Some("hall_npc_neural_perceptron"),
         ),
+        // The Central Hub, the Gate Authority's capital (gate address
+        // LICENSED, `docs/planning/game/central-hub-dimension.md`): its residents.
+        "npc_authority_information": (
+            display_name: "Ottilie",
+            // At the information booth on the Concourse; she will tell you any address you like, so long as it is this one.
+            manifest: "sprites/authority_information_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "authority", "peaceful"],
+            barks: (
+                idle: ["Information!", "You are here. That much I can tell you."],
+                hall: ["I can give you directions to anywhere. Here. I can give you directions to here.", "Every address is confidential except ours. Ours is on the ceiling, in gold."],
+            ),
+            hall_dialogue_id: Some("hall_npc_authority_information"),
+        ),
+        "npc_authority_baggage": (
+            display_name: "Bertram",
+            // Lost Baggage, under the Concourse: what comes back through a gate is not always what went in.
+            manifest: "sprites/authority_baggage_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 176 cm.
+            standing_height: Some(68.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "authority", "peaceful"],
+            barks: (
+                idle: ["Ticket?", "If it's moving, it's not yours."],
+                hall: ["A bag went through the dinosaur gate once. It came back a nest. We kept the egg.", "Organic travellers' bags: declare any sentience. The bag will, if you don't."],
+            ),
+            hall_dialogue_id: Some("hall_npc_authority_baggage"),
+        ),
+        "npc_authority_gatekeeper": (
+            display_name: "Gatekeeper Imre",
+            // On duty in Authority Plaza, in the navy and gold of the Gate Authority.
+            manifest: "sprites/authority_gatekeeper_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 181 cm.
+            standing_height: Some(70.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "authority", "gatekeeper", "peaceful"],
+            barks: (
+                idle: ["Move along, licensed traveller.", "Mind the clock. It is never wrong. It is occasionally corrected."],
+                hall: ["Gates come unlocked. We map them and fit the locks. That's what Authority means: we got there first, with a clipboard.", "The armistice holds. We say holds a lot, round here."],
+            ),
+            hall_dialogue_id: Some("hall_npc_authority_gatekeeper"),
+        ),
+        "npc_authority_registrar": (
+            display_name: "the Registrar",
+            // The keeper of the Manifest Office, who has never deleted a record, only corrected one.
+            manifest: "sprites/authority_registrar_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 188 cm.
+            standing_height: Some(72.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "authority", "peaceful"],
+            barks: (
+                idle: ["Take a number.", "Now serving four thousand and ninety-six."],
+                hall: ["We never delete anything. Deleting is crude. We correct, and then it was always so.", "You are not on the manifest. Don't worry. Soon you won't have been anywhere at all."],
+            ),
+            hall_dialogue_id: Some("hall_npc_authority_registrar"),
+        ),
         // Peyote Lean: a coyote outlaw who rides with Marshal Gallus (concept
         // art `assets/concept_art/misc/Peyote Lean*.png`; renderer resident
         // `peyote_lean`). Tall and quiet against the Marshal's noise. He keeps

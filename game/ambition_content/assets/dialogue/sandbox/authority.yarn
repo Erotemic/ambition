@@ -1,0 +1,87 @@
+title: authority_information
+---
+<<present_speaker "npc_authority_information">>
+<<if verdict("world.flag_set", "authority_information_met") == "satisfied">>
+    Ottilie: Information! You're still here. I checked.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "authority_information_met") == "not_satisfied">>
+    <<command "world.set_flag" "authority_information_met" true>>
+    Ottilie: Welcome to the Concourse, licensed traveller. Information. How can I direct you?
+    -> Where can I go from here?
+        Ottilie: Anywhere at all! Which address would you like?
+        Ottilie: Oh, I can't tell you that one. Or that one. Addresses are confidential.
+        Ottilie: Except LEGAL. LEGAL takes you home. Everyone gets LEGAL. It's posted on every terminal in the network.
+    -> Where am I?
+        Ottilie: The Central Hub, seat of the Gate Authority. You came in by our own gate, LICENSED.
+        Ottilie: Authority Plaza is east. Lost Baggage is down through the grate. Mind the claw.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===
+title: authority_baggage
+---
+<<present_speaker "npc_authority_baggage">>
+<<if verdict("world.flag_set", "authority_baggage_met") == "satisfied">>
+    Bertram: Still no ticket? Then still no bag.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "authority_baggage_met") == "not_satisfied">>
+    <<command "world.set_flag" "authority_baggage_met" true>>
+    Bertram: Lost Baggage. Ticket?
+    Bertram: No ticket. Course not. Nobody who comes down here has a ticket. That's why they come down here.
+    -> What happens to a bag in a gate?
+        Bertram: Depends on the gate. A holdall went through to the dinosaurs and came back a nest. Egg and all. It's on the belt.
+        Bertram: One came back from the hill country a cloud. It's on the shelf. Mind it doesn't rain on you.
+    -> Why "declare any sentience"?
+        Bertram: Organic travellers' bags. Leather remembers it was a cow. Now and then it goes home.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===
+title: authority_gatekeeper
+---
+<<present_speaker "npc_authority_gatekeeper">>
+<<if verdict("world.flag_set", "authority_gatekeeper_met") == "satisfied">>
+    Imre: Move along, licensed traveller. The clock is watching.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "authority_gatekeeper_met") == "not_satisfied">>
+    <<command "world.set_flag" "authority_gatekeeper_met" true>>
+    Imre: Gatekeeper Imre, Gate Authority. Papers?
+    Imre: You're a robot. Your papers are you. Fine.
+    -> What does the Authority do?
+        Imre: Gates come unlocked. Anyone with the right chevrons can walk through one. We find them, map them, and fit the locks.
+        Imre: That's what Authority means. We got there first, with a clipboard.
+    -> Who were you at war with?
+        Imre: The regime. The ones whose banners we don't hang. It ended in a stalemate, a little in our favour.
+        Imre: There's an armistice. It holds. We say holds a lot, round here.
+    -> What is the clock for?
+        Imre: Every licensed gate keeps its time by that clock. It is never wrong.
+        Imre: Occasionally it is corrected.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===
+title: authority_registrar
+---
+<<present_speaker "npc_authority_registrar">>
+<<if verdict("world.flag_set", "authority_registrar_met") == "satisfied">>
+    Registrar: Now serving four thousand and ninety-six. You are sixty-five thousand, five hundred and thirty-seven.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "authority_registrar_met") == "not_satisfied">>
+    <<command "world.set_flag" "authority_registrar_met" true>>
+    Registrar: Number?
+    -> I don't have a number.
+        Registrar: Then you were never in the queue. Then you were never here. That's quicker for both of us.
+    -> What is this place?
+        Registrar: The Manifest Office. Every traveller through every licensed gate is on a manifest, and we keep the manifests.
+        Registrar: We never delete a record. Deleting is crude. We correct it, and then it was always so.
+    -> Am I on the manifest?
+        Registrar: Let me see. You are... not.
+        Registrar: Don't worry. A traveller who is not on the manifest has been nowhere. You are spared the trouble of having been anywhere.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===

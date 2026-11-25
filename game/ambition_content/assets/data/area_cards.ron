@@ -105,4 +105,7 @@
     (name: "The Neural Cathedral", subtitle: Some("The Cortex"), rooms: ["neural_cathedral"]),
     (name: "The Weights", subtitle: Some("The Neural Dimension"), rooms: ["neural_weights"]),
     (name: "The Echo Chamber", subtitle: Some("The Weights"), rooms: ["neural_echo_chamber"]),
+    (name: "The Concourse", subtitle: Some("The Central Hub"), rooms: ["authority_concourse"]),
+    (name: "Authority Plaza", subtitle: Some("The Central Hub"), rooms: ["authority_plaza"]),
+    (name: "The Manifest Office", subtitle: Some("Authority Plaza"), rooms: ["authority_manifest_office"]),
 ]

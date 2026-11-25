@@ -5299,3 +5299,35 @@ Ida: Mind the lines.
 -> Anything else?
     Ida: The wind can't get in under the works. The soot can.
 ===
+title: hall_npc_authority_information
+---
+Ottilie: Information! How can I direct you?
+-> What do you do here?
+    Ottilie: I give directions to anywhere. Here, mostly. I can give you directions to here.
+-> Anything else?
+    Ottilie: Every address is confidential except ours. Ours is in gold on the ceiling.
+===
+title: hall_npc_authority_baggage
+---
+Bertram: Lost Baggage. Ticket?
+-> What do you do here?
+    Bertram: I keep what comes back through the gates and isn't claimed. A nest. A cloud. A hat with somebody's flag on it.
+-> Anything else?
+    Bertram: Organic travellers' bags: declare any sentience. The bag will, if you don't.
+===
+title: hall_npc_authority_gatekeeper
+---
+Imre: Move along, licensed traveller.
+-> What do you do here?
+    Imre: Gates come unlocked. We map them and fit the locks. That's what Authority means: we got there first, with a clipboard.
+-> Anything else?
+    Imre: The armistice holds. We say holds a lot, round here.
+===
+title: hall_npc_authority_registrar
+---
+Registrar: Take a number.
+-> What do you do here?
+    Registrar: I keep the manifests. We never delete a record. We correct it, and then it was always so.
+-> Anything else?
+    Registrar: You are not on the manifest. Don't worry. Soon you won't have been anywhere at all.
+===

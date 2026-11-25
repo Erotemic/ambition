@@ -24,9 +24,23 @@ use ambition_platformer2d_core::CenteredAabb;
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
+/// Which order block a body is drawn as among the bodies of its plane: the
+/// block of `body` (a simulation body's index), in seat `seat` of it. A body
+/// is seat 0 of its own block; an active rider is seat 1 of its mount's, so
+/// it is drawn just over the mount it sits and never under it. `body: None`
+/// (a row with no simulation body, a hand-built view) leaves the order to the
+/// drawn entity.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct OrderBlock {
+    pub body: Option<u32>,
+    pub seat: u8,
+}
+
 /// One feature's per-frame render snapshot — THE read-model row of [`FeatureViewIndex`].
 #[derive(Clone, Copy, Debug)]
 pub struct FeatureView {
+    /// Its order block among the bodies of its plane ([`OrderBlock`]).
+    pub order: OrderBlock,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
     pub kind: FeatureVisualKind,
@@ -333,6 +347,10 @@ pub fn rebuild_feature_view_index(
                 bevy::prelude::Has<ambition_combat::stocks::KnockedOutOfTheWorld>,
                 // How long a dead body stays drawn: its death row, and its corpse.
                 Option<&DeathBeat>,
+                // The mount it sits, while the relation is active (`Mounted`;
+                // `RidingOn` outlives the mount's death): its order block.
+                Option<&ambition_mount::RidingOn>,
+                bevy::prelude::Has<ambition_mount::Mounted>,
             ),
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., written at
@@ -396,6 +414,7 @@ pub fn rebuild_feature_view_index(
                 defense_cues: crate::DefenseCueCauses::NONE,
                 sprite_offset: None,
                 room: live.of(entity),
+                order: Default::default(),
             },
         );
     }
@@ -431,6 +450,7 @@ pub fn rebuild_feature_view_index(
                 defense_cues: crate::DefenseCueCauses::NONE,
                 sprite_offset: None,
                 room: live.of(entity),
+                order: Default::default(),
             },
         );
     }
@@ -466,6 +486,7 @@ pub fn rebuild_feature_view_index(
                 defense_cues: crate::DefenseCueCauses::NONE,
                 sprite_offset: None,
                 room: live.of(entity),
+                order: Default::default(),
             },
         );
     }
@@ -513,6 +534,7 @@ pub fn rebuild_feature_view_index(
                 defense_cues: crate::DefenseCueCauses::NONE,
                 sprite_offset: None,
                 room: live.of(entity),
+                order: Default::default(),
             },
         );
     }
@@ -529,7 +551,7 @@ pub fn rebuild_feature_view_index(
         sprite_offset,
         respawn_grace,
         body_mode,
-        (playback, line_anchor, limb, bond_start, depth_plane, entity, out_of_the_world, death_beat),
+        (playback, line_anchor, limb, bond_start, depth_plane, entity, out_of_the_world, death_beat, riding, mounted),
     ) in &actors
     {
         // ONE actor kind. "enemy vs NPC vs training-dummy" was never a render
@@ -642,6 +664,10 @@ pub fn rebuild_feature_view_index(
                 ),
                 sprite_offset: sprite_offset.map(|o| o.0),
                 room: live.of(entity),
+                order: match riding.filter(|_| mounted) {
+                    Some(riding) => OrderBlock { body: Some(riding.mount.index_u32()), seat: 1 },
+                    None => OrderBlock { body: Some(entity.index_u32()), seat: 0 },
+                },
             },
         );
     }
@@ -677,6 +703,7 @@ pub fn rebuild_feature_view_index(
                 defense_cues: crate::DefenseCueCauses::NONE,
                 sprite_offset: None,
                 room: live.of(entity),
+                order: Default::default(),
             },
         );
     }
@@ -735,6 +762,7 @@ pub fn rebuild_feature_view_index(
                     (offset != ae::Vec2::ZERO).then_some(offset)
                 },
                 room: live.of(entity),
+                order: Default::default(),
             },
         );
     }
@@ -1269,6 +1297,7 @@ mod view_index_tests {
             defense_cues: crate::DefenseCueCauses::NONE,
             sprite_offset: None,
             room: None,
+        order: Default::default(),
         }
     }
 

@@ -448,6 +448,7 @@ mod tests {
             defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
             sprite_offset: None,
             room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
+            order: Default::default(),
         }
     }
 

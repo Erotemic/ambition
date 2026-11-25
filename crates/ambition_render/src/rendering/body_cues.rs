@@ -309,6 +309,7 @@ mod tests {
             armored: false,
             sprite_offset: None,
             room: None,
+            order: Default::default(),
         }
     }
 

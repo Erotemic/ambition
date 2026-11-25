@@ -203,14 +203,23 @@ pub(super) const OCCURRENCE_DEPTH_STEP: f32 = 0.01;
 const OCCURRENCE_TIES: u32 = 16;
 /// The most a tie raises a body. An overlay drawn over every body of a layer
 /// (the bubble shield) is drawn above this.
-pub(crate) const OCCURRENCE_SPAN: f32 = OCCURRENCE_TIES as f32 * OCCURRENCE_DEPTH_STEP;
-const _: () = assert!((OCCURRENCE_TIES as f32) * OCCURRENCE_DEPTH_STEP < DEPTH_PLANE_Z_STEP);
-const _: () = assert!(1.5 + (OCCURRENCE_TIES as f32) * OCCURRENCE_DEPTH_STEP < super::BODY_DEPTH_BAND);
+pub(crate) const OCCURRENCE_SPAN: f32 = (OCCURRENCE_TIES + 1) as f32 * OCCURRENCE_DEPTH_STEP;
+const _: () = assert!(OCCURRENCE_SPAN < DEPTH_PLANE_Z_STEP);
+const _: () = assert!(1.5 + OCCURRENCE_SPAN < super::BODY_DEPTH_BAND);
 
 /// The tie of one drawn body within its layer: fixed for its life, so two
 /// bodies keep their order while both are drawn.
 pub(super) fn occurrence_tie(entity: Entity) -> f32 {
     (entity.index_u32() % OCCURRENCE_TIES) as f32 * OCCURRENCE_DEPTH_STEP
+}
+
+/// The tie of a body drawn by its published order block
+/// (`ambition_sim_view::OrderBlock`): the block's own tie, and one step per
+/// seat over it, so an active rider is drawn just over the mount it sits. A
+/// row with no body is ordered by the drawn entity, as [`occurrence_tie`].
+pub(super) fn order_block_tie(order: ambition_sim_view::OrderBlock, drawn: Entity) -> f32 {
+    let body = order.body.unwrap_or(drawn.index_u32());
+    ((body % OCCURRENCE_TIES) + u32::from(order.seat)) as f32 * OCCURRENCE_DEPTH_STEP
 }
 
 /// A feature's z: its kind's layer, stepped back by its depth plane.

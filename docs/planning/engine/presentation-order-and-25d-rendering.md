@@ -403,8 +403,22 @@ shared value preparation are sufficient until source proves otherwise.
    cannot rank differently from the part it copies. No other actor renderer
    computes a part rank (searched `ambition_render` for depth steps).
 
-   Still open: bodies and features, attachment order, and an active rider
-   on the vessel's placement.
+   **An active rider sits its mount's order block (2026-11-25).** A rider
+   and its mount were two same-plane actors, each with a tie from its own
+   drawn entity, so a rider was under its shark whenever the shark's tie
+   happened to be higher. The actor row now publishes an `OrderBlock`: a
+   body is seat 0 of its own simulation body's block, and an active rider
+   (`RidingOn` with `Mounted`; `RidingOn` alone outlives the mount's death)
+   is seat 1 of its mount's block. The renderer's `order_block_tie` draws
+   the rider one step over the mount it sits, and `OCCURRENCE_SPAN` grows by
+   that one seat. A row with no body (a hand-built view) is ordered by its
+   drawn entity, as before. The witness is
+   `an_active_rider_draws_just_over_the_mount_it_sits`. The capture
+   (`capture_scene pirate_sky_lookout player --player-beside
+   npc_pirate_raider --warmup 90`) shows all three raiders drawn over their
+   sharks.
+
+   Still open: bodies and features, and attachment order.
 3. **RV1 — shared sample and view ownership.** Complete the needed PVS-2
    extraction, with the current 2D path as its first consumer. Separate
    camera/application and device roots by view/renderer. Remove the old

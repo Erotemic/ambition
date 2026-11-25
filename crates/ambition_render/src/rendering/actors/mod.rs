@@ -561,7 +561,10 @@ pub fn sync_visuals(
         let draw_pos = presented_features.presented(&visual.id, view.room, view.pos)
             + view.sprite_offset.unwrap_or(ae::Vec2::ZERO);
         let mut placed = *transform;
-        placed.translation = world_to_bevy(&world.0, draw_pos, feature_z_in_plane(view.kind, view.depth_plane));
+        // Bodies of one plane are drawn as separate order blocks: an actor's
+        // parts never interleave with another's at the same spot.
+        let tie = if view.kind == FeatureVisualKind::Actor { super::primitives::occurrence_tie(entity) } else { 0.0 };
+        placed.translation = world_to_bevy(&world.0, draw_pos, feature_z_in_plane(view.kind, view.depth_plane) + tie);
         // Surface-walking enemies (PuppySlug) rotate the sprite so
         // its authored "up" axis aligns with the surface normal —
         // the slug crawls along walls / ceilings with its body

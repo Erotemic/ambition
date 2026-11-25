@@ -194,6 +194,24 @@ pub(super) fn feature_z(kind: FeatureVisualKind) -> f32 {
 /// (`WORLD_Z_DUMMY + 0.5`), so a fist's trail comes out from behind the body.
 pub(super) const DEPTH_PLANE_Z_STEP: f32 = 0.4;
 
+/// How far apart two bodies of one layer are drawn: more than a body's own
+/// parts spread over (`SLOT_DEPTH_STEP` a part), so two overlapping bodies
+/// at one z are two order blocks and their parts never interleave.
+pub(super) const OCCURRENCE_DEPTH_STEP: f32 = 0.01;
+/// How many such steps a layer has. The span stays inside a depth plane, and
+/// a body's flash (+1.5) still stays under an enclosure (`BODY_DEPTH_BAND`).
+/// Actors only: a player's own overlays (its bubble shield, its trapdoor) are
+/// drawn at the player layer + 0.05, which a tie would pass.
+const OCCURRENCE_TIES: u32 = 16;
+const _: () = assert!((OCCURRENCE_TIES as f32) * OCCURRENCE_DEPTH_STEP < DEPTH_PLANE_Z_STEP);
+const _: () = assert!(1.5 + (OCCURRENCE_TIES as f32) * OCCURRENCE_DEPTH_STEP < super::BODY_DEPTH_BAND);
+
+/// The tie of one drawn body within its layer: fixed for its life, so two
+/// bodies keep their order while both are drawn.
+pub(super) fn occurrence_tie(entity: Entity) -> f32 {
+    (entity.index_u32() % OCCURRENCE_TIES) as f32 * OCCURRENCE_DEPTH_STEP
+}
+
 /// A feature's z: its kind's layer, stepped back by its depth plane.
 pub(super) fn feature_z_in_plane(kind: FeatureVisualKind, plane: ae::DepthPlane) -> f32 {
     feature_z(kind) + DEPTH_PLANE_Z_STEP * f32::from(plane.0)

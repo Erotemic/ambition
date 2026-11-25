@@ -98,7 +98,11 @@ fn a_body_behind_the_playable_plane_draws_behind_the_rider_on_it_and_over_the_li
         "and over its fists' trail, which comes out from behind it: gnu {giant}, trail {}",
         crate::rendering::limb_trail::TRAIL_Z
     );
-    // The control: in one plane nothing orders them (both at the actor layer).
+    // The control: in one plane only their occurrence tie orders them (two
+    // order blocks of the actor layer), never as much as a plane does.
     let (rider, giant) = drawn_z(ae::DepthPlane::PLAYABLE);
-    assert_eq!(giant, rider, "the premise: the plane, and only the plane, separates them");
+    assert!(
+        (giant - rider).abs() < crate::rendering::primitives::DEPTH_PLANE_Z_STEP,
+        "the premise: the plane, and only the plane, separates them by a plane: gnu {giant}, scholar {rider}"
+    );
 }

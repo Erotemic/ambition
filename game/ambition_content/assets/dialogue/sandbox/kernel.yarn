@@ -152,9 +152,9 @@ title: hub_guide__test
 <<else>>
     Kernel Guide: Test menu again. Pick another entry.
 <<endif>>
--> Markup: ⟨shout⟩
+-> Markup: ‹shout›
     <<jump hub_guide__test_shout>>
--> Markup: ⟨whisper⟩
+-> Markup: ‹whisper›
     <<jump hub_guide__test_whisper>>
 -> Multi-line accumulation.
     <<jump hub_guide__test_multiline>>
@@ -374,7 +374,7 @@ Ramen-nujan: I dreamt of this place before I found it. Every door in it was a te
     <<jump noodly_ramen_nujan__2>>
 -> Why are you here?
     <<jump noodly_ramen_nujan__3>>
--> ⟨step aside⟩
+-> ‹step aside›
 ===
 
 title: noodly_ramen_nujan__1
@@ -382,7 +382,7 @@ title: noodly_ramen_nujan__1
 Ramen-nujan: He is in the sanctum, past the nave, behind the door with the holes in it. That door takes the Colander Key, and the Colander Key is in the reliquary. You will need every sauce in the house before you get that far. I checked the count twice.
 -> Something else.
     <<jump noodly_ramen_nujan>>
--> ⟨step aside⟩
+-> ‹step aside›
 ===
 
 title: noodly_ramen_nujan__2
@@ -390,7 +390,7 @@ title: noodly_ramen_nujan__2
 Ramen-nujan: Each door has a colour, and each colour has one key. Red is marinara: the cooks in the scullery hold it, and they do not share. Green is pesto: it is down in the cistern, where a wheel that opens one gate shuts another. Gold is parmesan: up the belfry, behind three bells. A key you have taken stays taken.
 -> Something else.
     <<jump noodly_ramen_nujan>>
--> ⟨step aside⟩
+-> ‹step aside›
 ===
 
 title: noodly_ramen_nujan__3
@@ -398,5 +398,5 @@ title: noodly_ramen_nujan__3
 Ramen-nujan: The noodles were infinite. The bowl was not. I came to see who made the bowl.
 -> Something else.
     <<jump noodly_ramen_nujan>>
--> ⟨step aside⟩
+-> ‹step aside›
 ===

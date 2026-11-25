@@ -912,7 +912,7 @@ pub(crate) fn musical_note_name(frequency: f64) -> String {
         return "—".to_owned();
     }
     const NAMES: [&str; 12] = [
-        "C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B",
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
     ];
     let midi = (69.0 + 12.0 * (frequency / 440.0).log2()).round() as i32;
     let name = NAMES[midi.rem_euclid(12) as usize];

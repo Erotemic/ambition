@@ -150,7 +150,7 @@ Lookout: Hist. Shark trouble brewin' aloft — riders been comin' about since fi
     <<jump pirate_lookout__1>>
 -> Why be the crew so cross?
     <<jump pirate_lookout__2>>
--> ⟨climb past⟩
+-> ‹climb past›
 ===
 
 title: pirate_lookout__1
@@ -158,7 +158,7 @@ title: pirate_lookout__1
 Lookout: Sky an' clouds, lubber. That cursed Mockingbird drops shanties from up yonder — riders dive at whatever twitches below. Mark me: when ye see one peel off the orbit an' reverse her heading, that be the dive — step PORT, smartly.
 -> Aught else, sentry?
     <<jump pirate_lookout>>
--> ⟨climb past⟩
+-> ‹climb past›
 ===
 
 title: pirate_lookout__2
@@ -166,7 +166,7 @@ title: pirate_lookout__2
 Lookout: Quartermaster halved the salt pork. Six pirates, three burnin' sharks, half portions. Raider bit a spoon this mornin'. Keep yer hands where folk can see 'em.
 -> Aught else, sentry?
     <<jump pirate_lookout>>
--> ⟨climb past⟩
+-> ‹climb past›
 ===
 
 title: pirate_navigator
@@ -176,7 +176,7 @@ Navigator: Three sharks, three riders, three sets o' teeth. They orbit on statio
     <<jump pirate_navigator__1>>
 -> How d'ye dodge their broadside?
     <<jump pirate_navigator__2>>
--> ⟨ready your blade⟩
+-> ‹ready your blade›
 ===
 
 title: pirate_navigator__1
@@ -184,7 +184,7 @@ title: pirate_navigator__1
 Navigator: Three roles aloft, picked at sail-out an' kept 'til death. HOVER holds the weather gauge an' fires. SWOOP dives every three breaths. RETREAT climbs an' stretches the cadence so ye lose the beat. An' atop all of it — the reverse. Watch the SHARK, not the rider; the rider just pulls the trigger.
 -> One more question, cap'n cartographer.
     <<jump pirate_navigator>>
--> ⟨ready your blade⟩
+-> ‹ready your blade›
 ===
 
 title: pirate_navigator__2
@@ -192,7 +192,7 @@ title: pirate_navigator__2
 Navigator: Easy now — they don't fire on the navigator, see. Mockingbird made off with the chest, the shanties went short, the crew turned mean, and I drew the chart that says the cartographer eats first. Sit a spell if ye like; the sharks won't.
 -> One more question, cap'n cartographer.
     <<jump pirate_navigator>>
--> ⟨ready your blade⟩
+-> ‹ready your blade›
 ===
 
 title: pirate_quartermaster
@@ -204,7 +204,7 @@ Quartermaster: Aye-aye, landstrider. I keep the manifest 'cause I'm the only bas
     <<jump pirate_quartermaster__2>>
 -> Does Ines check your manifest?
     <<jump pirate_quartermaster__port>>
--> ⟨step aside⟩
+-> ‹step aside›
 ===
 
 title: pirate_quartermaster__1
@@ -212,7 +212,7 @@ title: pirate_quartermaster__1
 Quartermaster: Powder low. Salt pork lower. Rum — don't ask. Bird took the song chest, so now every bastard in the cove is claimin' credit for verses he half remembers. I got IOUs for RHYMES, landstrider.
 -> Aught else, master?
     <<jump pirate_quartermaster>>
--> ⟨step aside⟩
+-> ‹step aside›
 ===
 
 title: pirate_quartermaster__2
@@ -220,7 +220,7 @@ title: pirate_quartermaster__2
 Quartermaster: Up the riggin', through the hatch in the overhead — that's where the lookout's perched. Mind ye: the crew be in a black humor today. Every shark wears a rider with a grudge an' a flintlock, an' they fire before they ask yer name. Ye try splittin' six pork rations 'tween six pirates an' three on-fire sharks an' see how SWEET-tempered ye'd be.
 -> Aught else, master?
     <<jump pirate_quartermaster>>
--> ⟨step aside⟩
+-> ‹step aside›
 ===
 
 title: pirate_raider
@@ -338,7 +338,7 @@ Quartermaster: Ines? Aye. She's got a line for every barrel we dock, an' she'll 
 Quartermaster: Our last lot of powder went through the ring. Two casks arrived damp. I don't know who to yell at.
 -> Aught else, master?
     <<jump pirate_quartermaster>>
--> ⟨step aside⟩
+-> ‹step aside›
 ===
 
 title: pirate_raider__port

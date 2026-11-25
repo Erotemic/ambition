@@ -245,13 +245,19 @@ impl LocaleId {
 
     /// The locale's display name (in its own language, the convention for a
     /// language picker).
+    ///
+    /// Japanese is named in English until it ships: its own name, 日本語,
+    /// needs a CJK font, and the bundled UI font (Inter) has no CJK glyphs,
+    /// so it drew as empty boxes. The Japanese locale brings that font, in
+    /// the library's font policy (`authored/fonts.json`), and its own name
+    /// with it.
     pub fn display_name(self) -> &'static str {
         match self {
             Self::English => "English",
             Self::Spanish => "Español",
             Self::French => "Français",
             Self::German => "Deutsch",
-            Self::Japanese => "日本語",
+            Self::Japanese => "Japanese",
         }
     }
 

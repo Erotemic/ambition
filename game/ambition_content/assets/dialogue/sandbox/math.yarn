@@ -529,11 +529,11 @@ Snakes on a Cartesian Plane: Ssss. We've come through the gate from Mary-O's lan
 title: hotel_show_goat
 ---
 The goat looks up from the closet carpet, chews twice, and looks at you as if you had picked her door on purpose.
--> ⟨leave her⟩
+-> ‹leave her›
 ===
 
 title: hotel_show_car
 ---
 The car. Red, a convertible, a gold bow on the bonnet. The keys are in it.
--> ⟨leave it⟩
+-> ‹leave it›
 ===

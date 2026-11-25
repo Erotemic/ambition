@@ -22,7 +22,7 @@ sys.path.insert(0, str(REPO / "scripts"))
 
 from scripts.checks import compile_ratchet as ratchet  # noqa: E402
 
-MONOLITH = "ambition_platformer2d_actor_monolith"
+MONOLITH = "ambition_platformer2d_actor"
 FLOOR = "ambition_platformer2d_core"
 
 

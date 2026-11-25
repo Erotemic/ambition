@@ -41,7 +41,7 @@ The source-path auditor found the following in the snapshot:
 | Nested sibling SCCs | 10 in 5 members |
 | Members with a cycle at either level | 30 |
 
-`ambition_platformer2d_actor_monolith` has no top-level SCC in this scan.
+`ambition_platformer2d_actor` has no top-level SCC in this scan.
 It still has two nested sibling SCCs: `features::{ecs,npcs}` and
 `features::ecs::{errand,navigation}`. The top-level DAG is a completed
 structural improvement; the nested results are separate work candidates.
@@ -59,7 +59,7 @@ Run from the repository root:
 ```bash
 python3 scripts/measure/audit_internal_module_cycles.py --top 30
 python3 scripts/measure/audit_internal_module_cycles.py --crate ambition_platformer2d_shared_tangle --details
-python3 scripts/measure/audit_internal_module_cycles.py --crate ambition_platformer2d_actor_monolith --details
+python3 scripts/measure/audit_internal_module_cycles.py --crate ambition_platformer2d_actor --details
 python3 scripts/measure/audit_internal_module_cycles.py --json /tmp/ambition-module-cycles.json
 python3 -m unittest scripts.tests.test_audit_internal_module_cycles -v
 ```

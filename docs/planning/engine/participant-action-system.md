@@ -238,7 +238,7 @@ consumer spends an edge. The recorder and replay reader use different cuts.
 | Source | Established boundary |
 | --- | --- |
 | [Device capture](../../../crates/ambition_platformer2d_runtime/src/input.rs), [GGRS input](../../../crates/ambition_platformer2d_rollback_ggrs/src/session.rs) | Render-rate samples enter a latch; the backend admits its fixed-tick frame before simulation interpretation |
-| [`shape_seat_frame`](../../../crates/ambition_platformer2d_actor_monolith/src/control/queries.rs) | Simulation edits both `SlotControls` and `SeatRawFrames` |
+| [`shape_seat_frame`](../../../crates/ambition_platformer2d_actor/src/control/queries.rs) | Simulation edits both `SlotControls` and `SeatRawFrames` |
 | [Player schedule](../../../crates/ambition_platformer2d_runtime/src/player_schedule.rs), [recorder](../../../crates/ambition_platformer2d_runtime/src/input_stream.rs) | Capture occurs after reset consumption, direction gestures and portal shaping |
 | [Harness `step_frame`](../../../crates/ambition_sim_harness/src/runtime.rs), [input driver](../../../crates/ambition_platformer2d_runtime/src/input_drive.rs) | Recorded frames return through the ordinary input seam before those transformations |
 
@@ -330,7 +330,7 @@ travel velocity. A world-space projection must not invent jump/crouch input
 or treat that body as a two-axis flyer. Keep expressibility with the native
 movement/control adapter; the old world-X-only check is not its definition.
 
-[`HeldControlFrame`](../../../crates/ambition_platformer2d_actor_monolith/src/control/participant_input.rs)
+[`HeldControlFrame`](../../../crates/ambition_platformer2d_actor/src/control/participant_input.rs)
 already keeps held direction through gravity turns. `PortalInputWarp` keeps
 a second raw anchor and portal normals. Make these operations compose once:
 the continuation retains its reference mapping, and an accepted transit
@@ -614,7 +614,7 @@ state, and the peer publication verdict has a different purpose.
 #### Two native consumers establish the need
 
 **Possession gesture.**
-[`possession_trigger_system`](../../../crates/ambition_platformer2d_actor_monolith/src/control/possession.rs)
+[`possession_trigger_system`](../../../crates/ambition_platformer2d_actor/src/control/possession.rs)
 derives a Down+Interact rising combination from filtered held values and
 `prev_down_interact`. With opt-in focus filtering, a neutral tick while
 `GameMode::Playing` clears that history. Restoring focus with the same
@@ -744,7 +744,7 @@ The shipped Fireball and Eye Laser rows share the `projectile` exclusive
 slot in the [item catalog](../../../game/ambition_content/assets/data/items.ron).
 An admitted [equip](../../../crates/ambition_platformer2d_items/src/narrative.rs)
 can replace that slot while a native Fireball charge is pending.
-[`gate_body_control`](../../../crates/ambition_platformer2d_actor_monolith/src/control/acceptance.rs)
+[`gate_body_control`](../../../crates/ambition_platformer2d_actor/src/control/acceptance.rs)
 then derives the new scheme, and
 [`resolve_control_slots`](../../../crates/ambition_characters/src/action_scheme.rs)
 routes held/release to Eye Laser while clearing the raw projectile fields.

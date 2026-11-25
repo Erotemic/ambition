@@ -84,8 +84,8 @@ tools/experimental/robot_sprite_component_tool/output
 tools/experimental/robot_sprite_component_tool/assets
 
 assets/fonts
-crates/ambition_platformer2d_actor_monolith/assets/fonts/
-crates/ambition_platformer2d_actor_monolith/assets/audio/
+crates/ambition_platformer2d_actor/assets/fonts/
+crates/ambition_platformer2d_actor/assets/audio/
 
 # Standalone tool projects: generated outputs and per-tool venvs/caches.
 target/generated-audio/
@@ -143,8 +143,8 @@ tools/ambition_sprite2d_renderer/.parity-baseline/
 # ⛔ An empty `assets/sprites` compiles an EMPTY baked sheet table
 # (`ambition_sprite_sheet/build.rs` scans it at build time), which fails tests
 # in crates you never touched. The tell is breadth: EVERY effect name at once.
-crates/ambition_platformer2d_actor_monolith/assets/sprites/*.ron
-crates/ambition_platformer2d_actor_monolith/assets/sprites/**/*.ron
+crates/ambition_platformer2d_actor/assets/sprites/*.ron
+crates/ambition_platformer2d_actor/assets/sprites/**/*.ron
 
 # Sprite renderer generated package outputs
 tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/generated/
@@ -155,13 +155,13 @@ tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/generated/
 # intermediate (debug-hitbox overlay, gif exporter) — it's just never
 # tracked. All yaml under assets/sprites is generated output; authored
 # input yaml lives in tools/ambition_sprite2d_renderer/configs/.
-crates/ambition_platformer2d_actor_monolith/assets/sprites/*.yaml
-crates/ambition_platformer2d_actor_monolith/assets/sprites/**/*.yaml
-crates/ambition_platformer2d_actor_monolith/assets/sprites_0_5x/
-crates/ambition_platformer2d_actor_monolith/assets/sprites_0_25x/
-crates/ambition_platformer2d_actor_monolith/assets/sprites_potato/
+crates/ambition_platformer2d_actor/assets/sprites/*.yaml
+crates/ambition_platformer2d_actor/assets/sprites/**/*.yaml
+crates/ambition_platformer2d_actor/assets/sprites_0_5x/
+crates/ambition_platformer2d_actor/assets/sprites_0_25x/
+crates/ambition_platformer2d_actor/assets/sprites_potato/
 # Quality-tiered shared-page sprite packs (regen ultrapack step output).
-crates/ambition_platformer2d_actor_monolith/assets/sprite_packs/
+crates/ambition_platformer2d_actor/assets/sprite_packs/
 
 # ⛔⛔ THE SAME SIX PATHS AGAIN, WITHOUT THE TRAILING SLASH.
 #
@@ -185,18 +185,18 @@ crates/ambition_platformer2d_actor_monolith/assets/sprite_packs/
 # rather than a missing-art symptom. ⚠ `regen/assets.sh` does NOT fetch fonts.
 # ⚠ `mirror_assets_for_worktree.py` above assumes a MAIN checkout that already
 # has these; if the main checkout is itself assetless, generate instead of mirror.
-crates/ambition_platformer2d_actor_monolith/assets/audio
-crates/ambition_platformer2d_actor_monolith/assets/fonts
-crates/ambition_platformer2d_actor_monolith/assets/sprite_packs
-crates/ambition_platformer2d_actor_monolith/assets/sprites_0_25x
-crates/ambition_platformer2d_actor_monolith/assets/sprites_0_5x
-crates/ambition_platformer2d_actor_monolith/assets/sprites_potato
-crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_5x/
-crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_0_25x/
-crates/ambition_platformer2d_actor_monolith/assets/backgrounds/parallax_layers_potato/
+crates/ambition_platformer2d_actor/assets/audio
+crates/ambition_platformer2d_actor/assets/fonts
+crates/ambition_platformer2d_actor/assets/sprite_packs
+crates/ambition_platformer2d_actor/assets/sprites_0_25x
+crates/ambition_platformer2d_actor/assets/sprites_0_5x
+crates/ambition_platformer2d_actor/assets/sprites_potato
+crates/ambition_platformer2d_actor/assets/backgrounds/parallax_layers_0_5x/
+crates/ambition_platformer2d_actor/assets/backgrounds/parallax_layers_0_25x/
+crates/ambition_platformer2d_actor/assets/backgrounds/parallax_layers_potato/
 # Which generator made each generated art file: written by the publishes,
 # read by the art inspector (`tools/ambition_editor`). Not a runtime root.
-crates/ambition_platformer2d_actor_monolith/asset_provenance/
+crates/ambition_platformer2d_actor/asset_provenance/
 
 # Agent/worktree scratch (must never be committed)
 .worktrees/
@@ -278,4 +278,4 @@ ambition.local.toml
 out/
 
 # Immutable generated art and accepted publication selections.
-crates/ambition_platformer2d_actor_monolith/art_publication/
+crates/ambition_platformer2d_actor/art_publication/

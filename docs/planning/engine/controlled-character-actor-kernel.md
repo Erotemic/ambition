@@ -60,19 +60,19 @@ the completed geometry, skin or possession separation.
 ### Admit before publishing the new form
 
 The narrative `WearRequested` path in
-[`body/wear.rs`](../../../crates/ambition_platformer2d_actor_monolith/src/body/wear.rs)
+[`body/wear.rs`](../../../crates/ambition_platformer2d_actor/src/body/wear.rs)
 checks the App's `CharacterCatalog`, writes `CharacterForm`, and queues
 a potentially invulnerable transformation beat from current sprite data.
 The gameplay applier in
-[`character_execution.rs`](../../../crates/ambition_platformer2d_actor_monolith/src/avatar/character_execution.rs)
+[`character_execution.rs`](../../../crates/ambition_platformer2d_actor/src/avatar/character_execution.rs)
 checks the session's prepared cast later and can restore the previous ID.
 That refusal is too late to prove that the body did not change.
 
-[`CharacterProjection`](../../../crates/ambition_platformer2d_actor_monolith/src/character_projection/mod.rs)
+[`CharacterProjection`](../../../crates/ambition_platformer2d_actor/src/character_projection/mod.rs)
 runs before the Persona phase. A target absent from the session cast
 becomes `incoming == None`, which retracts the old grant and removes the
 projection record. The queued
-[transform beat](../../../crates/ambition_platformer2d_actor_monolith/src/body/transform_beat.rs)
+[transform beat](../../../crates/ambition_platformer2d_actor/src/body/transform_beat.rs)
 can still grant transforming invulnerability after the ID is restored.
 See the [input phase order](../../../crates/ambition_platformer2d_runtime/src/schedule.rs)
 and [narrative request registration](../../../crates/ambition_platformer2d_runtime/src/world_schedule.rs).
@@ -133,7 +133,7 @@ mode, intrinsic gravity scale and `ActorTuning.is_aerial`. Form replacement
 updates geometry and kit, but only refreshes `AbilityBase` in its
 home-body, non-match arm. It does not rebind those other intrinsic flight
 facts for the ordinary sheep. Runtime
-[steering](../../../crates/ambition_platformer2d_actor_monolith/src/body/movement.rs),
+[steering](../../../crates/ambition_platformer2d_actor/src/body/movement.rs),
 [integration](../../../crates/ambition_platformer2d_core/src/movement/integration.rs)
 and [gravity](../../../crates/ambition_platformer2d_runtime/src/gravity/resolve.rs)
 read the retained values, so correct preparation alone cannot fix the
@@ -273,13 +273,13 @@ application; it can be corrected before wider linking work.
 
 ## Current shape and open work
 
-`crates/ambition_platformer2d_actor_monolith/src/control/authority.rs` projects
+`crates/ambition_platformer2d_actor/src/control/authority.rs` projects
 control from possession/claim state. Its neighboring input code invokes
 possession helpers and also reaches feature animation advancement. The latter
 edge needs a phase/geometry classification; replacing it with a message without
 checking its consumers is not a design.
 
-`crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs`
+`crates/ambition_platformer2d_actor/src/body/actors/update.rs`
 owns the shared body integration entry. Its internal home-body helper and
 `body::BodyFrameOutput` no longer depend on avatar policy. The entry still
 contains policy and population decisions. One shared integration call does not prove every actor

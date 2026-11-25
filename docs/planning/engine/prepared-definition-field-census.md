@@ -50,7 +50,7 @@ uses `--workspace --all-targets`, so tests are included):
 | crate | fields | role |
 |---|---:|---|
 | `ambition_characters` | 27 | the definition's own home |
-| `ambition_platformer2d_actor_monolith` | 15 | live runtime |
+| `ambition_platformer2d_actor` | 15 | live runtime |
 | `ambition_platformer2d_actor_spawn` | 13 | materialization / construction |
 | `ambition_app_tools` | 11 | tool binaries |
 | `ambition_combat` | 3 | action execution: `authored_moveset`, `kit`, `ranged_execution` |

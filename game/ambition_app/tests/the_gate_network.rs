@@ -575,7 +575,7 @@ fn contextual_input_preserves_the_gate_in_both_menu_backends() {
     use bevy::prelude::*;
     use ambition_content::gate_terminal::{TerminalFocus, TerminalUi, WheelSlot};
     use ambition_platformer2d::{input::{InputParticipant, ParticipantId, KeyboardPreset,
-        Platformer2dInputActionMonolith as Action}, inventory_ui::{InventoryMenu, InventoryUiState},
+        InputAction as Action}, inventory_ui::{InventoryMenu, InventoryUiState},
         menu::backend::InventoryUiBackend, platformer::{lifecycle::LiveBodyId, schedule::GameMode}};
     use leafwing_input_manager::prelude::InputMap;
 
@@ -609,7 +609,9 @@ fn contextual_input_preserves_the_gate_in_both_menu_backends() {
             let world = app.world_mut();
             let participant = world.query::<(Entity, &InputParticipant)>().iter(world)
                 .find(|(_, input)| input.id == ParticipantId::PRIMARY).unwrap().0;
-            *world.get_mut::<InputMap<Action>>(participant).unwrap() = KeyboardPreset::arrows_zxc().input_map();
+            let recipe = ambition_input_opinions::recipe(ambition_platformer2d::input::PresetId::ArrowsZxc);
+            let (map, table) = recipe.resolve();
+            world.entity_mut(participant).insert((map, table, recipe));
             let body = world.query_filtered::<Entity, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
                 .single(world).unwrap();
             (participant, LiveBodyId::of_entity(world, body).unwrap())

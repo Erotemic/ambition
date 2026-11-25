@@ -1,6 +1,6 @@
 //! Ambition app plugin composition.
 
-use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
+use ambition_platformer2d::combat::feel::FeelTuning;
 use ambition_platformer2d::dev_tools::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
     MovementProfile, PlayerBodyProfile,
@@ -40,6 +40,7 @@ use ambition_platformer2d::platformer::schedule::GameplayGated;
 /// arity limit. New simulation systems should go into the matching
 /// `register_*_systems` helper rather than back into this orchestrator.
 pub fn add_simulation_plugins(app: &mut App) {
+    ambition_input_opinions::install(app);
     app.add_message::<ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction>();
     // AmbitionPhysicsPlugin (Avian2D) is intentionally NOT here. Per ADR 0007 Avian is
     // secondary physics for debris/ragdoll visuals; the player controller is custom via parry2d
@@ -222,7 +223,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
         .register_type::<EditablePlayerStats>()
-        .register_type::<Platformer2dFeelTuningMonolith>()
+        .register_type::<FeelTuning>()
         .register_type::<ambition_platformer2d::portal::PortalConvention>()
         .register_type::<ambition_platformer2d::portal::PortalTuning>();
 

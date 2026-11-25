@@ -43,10 +43,10 @@ universal identity type or new per-frame world walk.
 | Boundary | Current evidence | Missing distinction |
 | --- | --- | --- |
 | Capture ingress | [`acquire_captures`](../../../crates/ambition_combat/src/capture/systems.rs) reserves both endpoints; [`lower_body_holds`](../../../crates/ambition_combat/src/extension.rs) calls the same grant but reserves only captors | Shared mutation does not establish shared admission |
-| Ride ingress | [`can_commandeer`, `board_reserved_mounts`, `board`](../../../crates/ambition_mount/src/lib.rs) compare positions or admit a pair without common room evidence; [interaction selection](../../../crates/ambition_platformer2d_actor_monolith/src/body/interact/selection.rs) supplies all mounts | Two nearby coordinate values do not establish a common physical space |
+| Ride ingress | [`can_commandeer`, `board_reserved_mounts`, `board`](../../../crates/ambition_mount/src/lib.rs) compare positions or admit a pair without common room evidence; [interaction selection](../../../crates/ambition_platformer2d_actor/src/body/interact/selection.rs) supplies all mounts | Two nearby coordinate values do not establish a common physical space |
 | Ride state and end | The same mount file retains `RidingOn` after an undriven rider's death, and deferred dismount removal permits two `RiderDismounted` messages; the [ability adapter](../../../crates/ambition_abilities/src/ride.rs) has local deduplication | Reset association, active ride, end request and accepted end are different facts |
-| Departing cohort | [`project_body_custody`](../../../crates/ambition_platformer2d_actor_monolith/src/body_custody.rs) grows mount/limb custody beneath session or possession travelers; [`leave_through_zones`](../../../crates/ambition_platformer2d_actor_monolith/src/body/direction.rs) and [`cross_on_errands`](../../../crates/ambition_platformer2d_actor_monolith/src/body/errand.rs) start from arbitrary bodies | A current projection is not prospective closure under a new root |
-| Possession return | Custody records possessed → home; [release](../../../crates/ambition_platformer2d_actor_monolith/src/control/possession.rs) copies the target's position into home without changing room membership | A return body can be a transfer companion without being physically attached |
+| Departing cohort | [`project_body_custody`](../../../crates/ambition_platformer2d_actor/src/body_custody.rs) grows mount/limb custody beneath session or possession travelers; [`leave_through_zones`](../../../crates/ambition_platformer2d_actor/src/body/direction.rs) and [`cross_on_errands`](../../../crates/ambition_platformer2d_actor/src/body/errand.rs) start from arbitrary bodies | A current projection is not prospective closure under a new root |
+| Possession return | Custody records possessed → home; [release](../../../crates/ambition_platformer2d_actor/src/control/possession.rs) copies the target's position into home without changing room membership | A return body can be a transfer companion without being physically attached |
 | Held-item continuation | [`restore_custody_to_checkpoint`](../../../crates/ambition_platformer2d_items/src/pickup/mod.rs) rebuilds a missing held mint at zero; [`return_released_items`](../../../crates/ambition_held_items/src/lib.rs) uses that stored body if the holder is gone | Data not read during a relation can still be required by its exit |
 | Handoff identity | [`CustodyHandoff`](../../../crates/ambition_platformer2d_publication/src/custody_handoffs.rs) retains a custodian's bare `SimId`; its drain builds a global `SimId → Entity` map | A definition address does not select a live occurrence or authorize succession |
 
@@ -183,7 +183,7 @@ state. Separate the retained reset association only as needed to give each
 fact one writer and to avoid states no reader can interpret.
 
 The existing `a_dead_rider_frees_the_saddle_and_its_revival_takes_it_back`
-guard in [mount pair tests](../../../crates/ambition_platformer2d_actor_monolith/src/body/mount_pair_tests.rs)
+guard in [mount pair tests](../../../crates/ambition_platformer2d_actor/src/body/mount_pair_tests.rs)
 requires that reset behavior without `MountedBrainCache`. Preserve it and
 GNU's finale lookup. Neither a dead rider's remembered mount nor a pending
 reservation is an active ride. Make reset eligibility a stated native

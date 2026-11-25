@@ -193,7 +193,7 @@ impl Brain {
     // ⭐ THE SPLIT, not a move. `state_machine::tick_simple_state_machine`
     // answers the nine ordinary NPC arms — this crate's own business — and says
     // so; the composition that owns the whole set dispatches the other three.
-    // That is `ambition_platformer2d_actor_monolith::brain_tick`, which already
+    // That is `ambition_platformer2d_actor::brain_tick`, which already
     // depends on every candidate destination and is in every capability closure
     // anyway.
     //

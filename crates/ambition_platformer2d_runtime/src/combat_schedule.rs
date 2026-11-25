@@ -405,7 +405,7 @@ impl Plugin for CombatSchedulePlugin {
                 // projectile requests.
                 // After the rig poses resolve: a hand muzzle on a rigged body
                 // reads this tick's hand.
-                ambition_platformer2d_actor_monolith::body::spawn_projectiles_from_brain_actions
+                ambition_platformer2d_actor::body::spawn_projectiles_from_brain_actions
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_characters::brain::ActorActionMessage>)
                     .after(ambition_combat::body_rig::BodyRigPoseResolved)
                     .in_set(GameplayGated),
@@ -422,7 +422,7 @@ impl Plugin for CombatSchedulePlugin {
                     // thing it obviously meant. A summon executor IS an effect
                     // executor; saying so is what lets a consumer order against
                     // the phase.
-                    ambition_platformer2d_actor_monolith::body::apply_summon_effects
+                    ambition_platformer2d_actor::body::apply_summon_effects
                         .run_if(ambition_platformer2d_core::a_message_waits::<ambition_characters::summon::SummonRequest>)
                         .in_set(ambition_combat::strike::EffectExecutionSet)
                         .in_set(GameplayGated),
@@ -492,7 +492,7 @@ impl Plugin for CombatSchedulePlugin {
             app,
             ambition_entity_catalog::smash_teleport::TELEPORT,
             TechniqueOffer {
-                owner: "ambition_platformer2d_actor_monolith::abilities::traversal::teleport",
+                owner: "ambition_platformer2d_actor::abilities::traversal::teleport",
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_entity_catalog::smash_teleport::TeleportParams>,
                 ),
@@ -501,7 +501,7 @@ impl Plugin for CombatSchedulePlugin {
             },
             // A teleport that ran a phase later would move the body after the
             // frame it was authored for.
-            ambition_platformer2d_actor_monolith::abilities::traversal::teleport::apply_authored_teleports
+            ambition_platformer2d_actor::abilities::traversal::teleport::apply_authored_teleports
                 .run_if(a_technique_is_pressed)
                 .in_set(CombatSet::Materialize)
                 .in_set(GameplayGated),
@@ -544,14 +544,14 @@ impl Plugin for CombatSchedulePlugin {
             app,
             ambition_entity_catalog::smash_trapdoor::TRAPDOOR,
             TechniqueOffer {
-                owner: "ambition_platformer2d_actor_monolith::abilities::traversal::trapdoor",
+                owner: "ambition_platformer2d_actor::abilities::traversal::trapdoor",
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_entity_catalog::smash_trapdoor::TrapdoorParams>,
                 ),
                 references: NestedReferences::None,
                 delivery: TechniqueDelivery::Action,
             },
-            ambition_platformer2d_actor_monolith::abilities::traversal::trapdoor::apply_authored_trapdoors
+            ambition_platformer2d_actor::abilities::traversal::trapdoor::apply_authored_trapdoors
                 .run_if(a_technique_is_pressed)
                 .in_set(CombatSet::Materialize)
                 .in_set(GameplayGated),
@@ -560,7 +560,7 @@ impl Plugin for CombatSchedulePlugin {
             app,
             ambition_entity_catalog::smash_flyline::FLYLINE,
             TechniqueOffer {
-                owner: "ambition_platformer2d_actor_monolith::abilities::traversal::flyline",
+                owner: "ambition_platformer2d_actor::abilities::traversal::flyline",
                 params: TechniqueParams::Checked(
                     check_hydrates::<ambition_entity_catalog::smash_flyline::FlylineParams>,
                 ),
@@ -570,7 +570,7 @@ impl Plugin for CombatSchedulePlugin {
             // ⭐ It writes no position at all — it hangs the body off a wire and
             // the movement kernel integrates it — so unlike its neighbours it has
             // nothing to race the sweep for.
-            ambition_platformer2d_actor_monolith::abilities::traversal::flyline::apply_authored_flylines
+            ambition_platformer2d_actor::abilities::traversal::flyline::apply_authored_flylines
                 .run_if(a_technique_is_pressed)
                 .in_set(CombatSet::Materialize)
                 .in_set(GameplayGated),
@@ -834,7 +834,7 @@ impl Plugin for CombatSchedulePlugin {
                 // overlapping an actor while a conversation runs keeps registering
                 // hits (strikes, FX) on it — the dialog half of the "continuous hit"
                 // report. No combat lands in any non-`Playing` mode now.
-                ambition_platformer2d_actor_monolith::body::apply_feature_hit_events
+                ambition_platformer2d_actor::body::apply_feature_hit_events
                     .in_set(GameplayGated),
                 // …and the attacker's move learns what that resolution DECIDED.
                 // ⛔ AFTER the actor road, not beside the overlap marker: a block
@@ -846,7 +846,7 @@ impl Plugin for CombatSchedulePlugin {
                         ambition_platformer2d_core::a_message_waits::<ambition_combat::hitbox::ResolvedBodyHit>
                             .or_else(ambition_platformer2d_core::a_message_waits::<ambition_combat::hitbox::BlockedBodyHit>),
                     )
-                    .after(ambition_platformer2d_actor_monolith::body::apply_feature_hit_events)
+                    .after(ambition_platformer2d_actor::body::apply_feature_hit_events)
                     .in_set(GameplayGated),
                 // It is now content-owned and runs in `CombatSet::ContentFlavor`, configured below
                 // to slot in at exactly this point — AFTER the feature-hit resolution so it
@@ -909,7 +909,7 @@ impl Plugin for CombatSchedulePlugin {
         // PUBLISHED set; this composition supplies only the schedule. The
         // reference defect that line used to carry, and why both anchors are the
         // monolith's to name, are in `install_dismounted_rider_rebuild`.
-        ambition_platformer2d_actor_monolith::body::install_dismounted_rider_rebuild(app, sim);
+        ambition_platformer2d_actor::body::install_dismounted_rider_rebuild(app, sim);
         // ⛔⛔ AND EVERY BODY THAT BECOMES DAMAGEABLE IS OBSERVED FOR AN
         // IDENTITY. The contact protocol calls a missing target identity a
         // CONSTRUCTION failure rather than a sort fallback, so the invariant

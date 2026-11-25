@@ -1049,7 +1049,7 @@ pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::Sp
     let boss_death_beat =
         DeathBeat::with_row(boss_anim_frame.spec.row_seconds(ambition_sprite_sheet::boss::BossAnim::Death));
     let combat_tuning =
-        ambition_combat::feel::Platformer2dFeelTuningMonolith::default().feature_combat_tuning();
+        ambition_combat::feel::FeelTuning::default().feature_combat_tuning();
     let cycle_attack_active = boss
         .config
         .behavior

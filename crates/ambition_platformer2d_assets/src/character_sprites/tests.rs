@@ -585,7 +585,7 @@ fn an_authored_standing_height_is_the_height_the_body_derives() {
 /// comes out as.** Prints; asserts nothing. Read it, do not gate on it.
 ///
 /// ```text
-/// cargo test -p ambition_platformer2d_actor_monolith \
+/// cargo test -p ambition_platformer2d_actor \
 ///     probe_what_each_character_derives_for_its_body -- --ignored --nocapture
 /// ```
 ///

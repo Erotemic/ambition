@@ -58,7 +58,7 @@ pub struct AgentAction {
     /// The C-stick direction that press was thrown in, screen axes. Meaningless
     /// unless `attack_from_aim_stick`.
     pub attack_aim: (f32, f32),
-    /// Signature special (`Platformer2dInputActionMonolith::Special`). A dedicated slot since the
+    /// Signature special (`InputAction::Special`). A dedicated slot since the
     /// `special_pressed = blink_pressed` alias was retired: pressing `blink` no
     /// longer fires a body's special, so an agent/scripted driver sets THIS to
     /// command the special (the folded player bubble_shield, a boss's authored

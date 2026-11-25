@@ -4,16 +4,16 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Device -> engine-owned ControlFrame input adapter for ambition: Platformer2dInputActionMonolith (leafwing), MenuControlFrame, keyboard/gamepad presets, active-input-kind tracking, and input-domain settings (deadzones / trigger hysteresis / dash mode). The upper-sibling input abstraction (ADR 0019); decoupled from sandbox content and reusable character brains so the input-ordering bug class cannot silently recur. See docs/planning/status.md and docs/architecture/architecture-boundaries.md."
+description = "Device -> engine-owned ControlFrame input adapter for ambition: InputAction (leafwing), MenuControlFrame, keyboard/gamepad presets, active-input-kind tracking, and input-domain settings (deadzones / trigger hysteresis / dash mode). The upper-sibling input abstraction (ADR 0019); decoupled from sandbox content and reusable character brains so the input-ordering bug class cannot silently recur. See docs/planning/status.md and docs/architecture/architecture-boundaries.md."
 
 [lib]
-# rlib only: a library consumed by ambition_platformer2d_actor_monolith. Packaging is the
+# rlib only: a library consumed by ambition_platformer2d_actor. Packaging is the
 # consuming binary's responsibility.
 crate-type = ["rlib"]
 
 [features]
 # Mirrors the sandbox `input` feature: gates the leafwing `Actionlike`
-# surface (Platformer2dInputActionMonolith + the device->ControlFrame builders). Sim-only
+# surface (InputAction + the device->ControlFrame builders). Sim-only
 # builds use `ControlFrame` (always-available) on the seam instead.
 default = []
 input = ["dep:leafwing-input-manager"]
@@ -60,7 +60,7 @@ leafwing-input-manager = { version = "0.21", optional = true }
 
 # The content-free pure-logic foundation. Input maps the device-side
 # device input into the engine-owned `ControlFrame`, so it depends DOWN on the
-# foundation — never on ambition_platformer2d_actor_monolith or ambition_characters.
+# foundation — never on ambition_platformer2d_actor or ambition_characters.
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 
 serde = { workspace = true }

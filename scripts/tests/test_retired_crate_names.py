@@ -147,5 +147,5 @@ def test_a_retired_TYPE_name_is_tracked_too():
     from scripts.checks import check_retired_crate_names as guard
 
     assert guard.RETIRED_CRATE_NAMES.get("SandboxAction") == (
-        "Platformer2dInputActionMonolith"
+        "InputAction"
     )

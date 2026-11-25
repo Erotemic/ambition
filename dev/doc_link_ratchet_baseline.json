@@ -62,12 +62,12 @@
       "crates/ambition_match/src/prepared.rs: unresolved `super::staging::MatchParticipantRoster::item_spawns`"
     ],
     "ambition_menu": [],
-    "ambition_platformer2d_actor_monolith": [
+    "ambition_platformer2d_actor": [
       "<no location>: unresolved `ParticipantId`",
       "<no location>: unresolved `PlayerSlot`",
       "<no location>: unresolved `super::blink::blink_target`",
-      "crates/ambition_platformer2d_actor_monolith/src/control/authority.rs: unresolved `Brain`",
-      "crates/ambition_platformer2d_actor_monolith/src/control/components.rs: unresolved `PlayerSlot`"
+      "crates/ambition_platformer2d_actor/src/control/authority.rs: unresolved `Brain`",
+      "crates/ambition_platformer2d_actor/src/control/components.rs: unresolved `PlayerSlot`"
     ],
     "ambition_platformer2d_assets": [
       "crates/ambition_platformer2d_assets/src/character_sprites/assets.rs: private `character_sprite_tier -> resolve_variant_pair`",

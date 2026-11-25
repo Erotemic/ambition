@@ -135,7 +135,7 @@ held, so this system applies Mary-O's walk throttle to that body too.
 
 The [native registration](../../../game/ambition_demo_mary_o/src/lib.rs)
 places this mutation after `BodyControlGate` and before integration.
-[`gate_body_control`](../../../crates/ambition_platformer2d_actor_monolith/src/control/acceptance.rs)
+[`gate_body_control`](../../../crates/ambition_platformer2d_actor/src/control/acceptance.rs)
 already resolves room-granted techniques through `RulesOf<DrivenTechniques>::of(entity)`.
 With one Mary-O room and one untagged room, the first room can wake the
 gait system while the foreign body receives no Mary-O room grant. If that

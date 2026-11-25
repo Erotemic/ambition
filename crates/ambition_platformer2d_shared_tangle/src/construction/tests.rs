@@ -5,7 +5,7 @@
 //! These tests use a toy domain rather than a real actor family on purpose —
 //! the properties proven here are the planner's, and a domain that could fail
 //! for its own reasons would make a failure ambiguous. The three real families
-//! are proven against the real world in `ambition_platformer2d_actor_monolith`.
+//! are proven against the real world in `ambition_platformer2d_actor`.
 
 use std::collections::BTreeSet;
 
@@ -40,7 +40,7 @@ struct Toy;
 impl ConstructionDomain for Toy {
     type Parameters = Params;
     /// The toy's relations are pure adjacency. Fact-carrying relations are
-    /// proven against the real `Limb` rig in `ambition_platformer2d_actor_monolith`, where the slot
+    /// proven against the real `Limb` rig in `ambition_platformer2d_actor`, where the slot
     /// and home offset are genuinely host-relative rather than invented for a
     /// fixture.
     type Relation = ToyRelation;
@@ -533,7 +533,7 @@ fn an_unregistered_relation_kind_is_rejected() {
 /// [`ConstructionDomain::dispatch_relation`] derives the kind from it, so the
 /// pairing is a function rather than two independent inputs.
 ///
-/// See `crates/ambition_platformer2d_actor_monolith/src/construction_tests.rs` for the
+/// See `crates/ambition_platformer2d_actor/src/construction_tests.rs` for the
 /// domain-level version, which is where a genuine multi-variant relation enum lives.
 #[test]
 fn a_relation_cannot_name_a_kind_that_disagrees_with_its_payload() {
@@ -932,7 +932,7 @@ fn the_registry_dump_does_not_depend_on_registration_order() {
 // the payload by `ConstructionDomain::dispatch`, one exhaustive match that yields the recipe
 // identity and its constructor together, so the mispairing is a state that cannot be written down
 // and a missing arm is a compile error. `every_parameter_variant_constructs` in
-// `ambition_platformer2d_actor_monolith` covers the real domain's arms behaviourally.
+// `ambition_platformer2d_actor` covers the real domain's arms behaviourally.
 
 // ── Partial commits ──────────────────────────────────────────────────────────
 

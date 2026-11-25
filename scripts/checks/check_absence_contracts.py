@@ -225,7 +225,7 @@ ABSENCE_CONTRACTS: list[dict] = [
         # `SimClockHead` from Bevy's `Time`; `SimDt` is its derived mirror.
         "paths": [
             "crates/ambition_platformer2d_runtime/src/sim_clock/",
-            "crates/ambition_platformer2d_actor_monolith/src/control/",
+            "crates/ambition_platformer2d_actor/src/control/",
             "crates/ambition_platformer2d_trace/src/",
             "crates/ambition_dev_tools/src/lib.rs",
         ],
@@ -648,8 +648,8 @@ ABSENCE_CONTRACTS: list[dict] = [
             # The host may compose a domain's ONE public rollback offer. It may
             # not reach through that seam to name any concrete gameplay type.
             {
-                "grep": r"ambition_platformer2d_actor_monolith::",
-                "match": r"ambition_platformer2d_actor_monolith::(?!register_rollback_state\b)",
+                "grep": r"ambition_platformer2d_actor::",
+                "match": r"ambition_platformer2d_actor::(?!register_rollback_state\b)",
             },
             {
                 "grep": r"ambition_boss_encounter::",
@@ -1033,7 +1033,7 @@ ABSENCE_CONTRACTS: list[dict] = [
             # The exemption is the same ONE file it always was; only its address changed, and this
             # guard catching the move is the guard working.
             ":!crates/ambition_characters/src/prepared.rs",
-            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/character_execution.rs",
+            ":!crates/ambition_platformer2d_actor/src/avatar/character_execution.rs",
             ":!crates/ambition_characters/src/actor/character_catalog/mod.rs",
         ],
         "patterns": [r"\baxis_tuning\("],
@@ -1059,8 +1059,8 @@ ABSENCE_CONTRACTS: list[dict] = [
             "game/",
             "fixtures/",
             # The ONE production caller, and the re-export that lets it be one.
-            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/character_execution.rs",
-            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/mod.rs",
+            ":!crates/ambition_platformer2d_actor/src/avatar/character_execution.rs",
+            ":!crates/ambition_platformer2d_actor/src/avatar/mod.rs",
         ],
         "patterns": [r"\bmovement_tuning_for_character\("],
         "reason": (
@@ -1208,7 +1208,7 @@ DEPENDENCY_CONTRACTS: list[dict] = [
         "id": "platformer-primitives-stays-a-foundation",
         "crate": "ambition_platformer2d_shared_tangle",
         "forbidden": [
-            "ambition_platformer2d_actor_monolith",
+            "ambition_platformer2d_actor",
             "ambition_characters",
             "ambition_combat",
             "ambition_platformer2d_runtime",
@@ -1243,22 +1243,22 @@ DEPENDENCY_CONTRACTS: list[dict] = [
     {
         "id": "characters-do-not-depend-on-the-actor-integration-layer",
         "crate": "ambition_characters",
-        "forbidden": ["ambition_platformer2d_actor_monolith", "ambition_platformer2d_runtime", "ambition_platformer2d"],
+        "forbidden": ["ambition_platformer2d_actor", "ambition_platformer2d_runtime", "ambition_platformer2d"],
         "reason": (
-            "`ambition_platformer2d_actor_monolith` depends on `ambition_characters`, which makes "
+            "`ambition_platformer2d_actor` depends on `ambition_characters`, which makes "
             "the reverse edge a cycle waiting to be discovered by the compiler "
             "at the worst moment. It also matters for the deferred "
-            "`ambition_platformer2d_actor_monolith` decomposition: if a coherent actor kernel exists "
+            "`ambition_platformer2d_actor` decomposition: if a coherent actor kernel exists "
             "at all, `ambition_characters` is below it."
         ),
     },
     {
         "id": "engine-crates-do-not-consume-the-umbrella-facade",
-        "crate": "ambition_platformer2d_actor_monolith",
+        "crate": "ambition_platformer2d_actor",
         "forbidden": ["ambition_platformer2d"],
         "reason": (
             "`ambition_platformer2d` is the facade a CONSUMER builds a game against; it "
-            "re-exports `ambition_platformer2d_actor_monolith` among thirty-odd others. An engine "
+            "re-exports `ambition_platformer2d_actor` among thirty-odd others. An engine "
             "crate reaching back through it is circular by construction, and it "
             "is how a headless consumer ends up compiling the render stack. "
             "⚠ deliberately scoped to engine crates: `ambition_content` DOES "
@@ -1795,7 +1795,7 @@ def rollback_schema_usage(root: Path) -> dict[str, list[str]]:
         for match in re.findall(
             r"impl (?:[A-Za-z_][A-Za-z0-9_]*::)*SnapshotState for ([A-Za-z0-9_:<>]+)", text
         ):
-            # `crate::Foo` inside `ambition_platformer2d_actor_monolith` IS `ambition_platformer2d_actor_monolith::Foo`;
+            # `crate::Foo` inside `ambition_platformer2d_actor` IS `ambition_platformer2d_actor::Foo`;
             # collapse the doubled prefix so the frozen name reads like a path.
             encoded.add(f"{crate}::{match}".replace("::crate::", "::"))
         # the macro takes a `$ty:path` first, so the type is everything up to

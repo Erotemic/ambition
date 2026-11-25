@@ -15,7 +15,7 @@ fn checkpoint_body(
 ) -> impl Bundle {
     let mut ranged = ambition_characters::brain::RangedExecution::ChargedProjectile;
     (
-        ambition_platformer2d_actor_monolith::avatar::PlayerSimulationBundle::from_scratch_as_character(
+        ambition_platformer2d_actor::avatar::PlayerSimulationBundle::from_scratch_as_character(
             ambition_characters::control::PlayerSlot::PRIMARY,
             scratch,
             health,

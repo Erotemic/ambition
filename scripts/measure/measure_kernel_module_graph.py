@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The residual actor kernel's module-to-module reference graph.
 
-For every top-level module of `ambition_platformer2d_actor_monolith` (a
+For every top-level module of `ambition_platformer2d_actor` (a
 directory or a single file under `src/`), count production lines and the
 `crate::<module>` references it makes to each other top-level module. Test
 files (`tests.rs`, `*_tests.rs`, anything under a `tests/` directory) are
@@ -28,7 +28,7 @@ import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
-KERNEL = REPO / "crates" / "ambition_platformer2d_actor_monolith" / "src"
+KERNEL = REPO / "crates" / "ambition_platformer2d_actor" / "src"
 PATH_REF = re.compile(r"\bcrate::([a-z_][a-z0-9_]*)")
 
 

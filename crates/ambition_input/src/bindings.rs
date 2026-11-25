@@ -6,7 +6,7 @@
 //! ## Derived, never parallel
 //!
 //! [`SeatBindings`] is projected from the same
-//! `InputMap<Platformer2dInputActionMonolith>` the router reads. It is not a
+//! `InputMap<InputAction>` the router reads. It is not a
 //! second table. A rebind changes the map, and the projection follows on the
 //! next frame.
 //!
@@ -21,9 +21,10 @@ use std::collections::BTreeMap;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 
-use crate::presets::{KeyboardPreset, PresetId};
-use crate::settings::{BindingOverride, OverrideControl, OverrideDeviceClass};
-use crate::{InputParticipant, Platformer2dInputActionMonolith};
+use crate::presets::PresetId;
+use crate::{BindingDefaults, BindingTable};
+use crate::settings::BindingOverride;
+use crate::{InputParticipant, InputAction};
 
 /// Which physical devices this seat hears.
 ///
@@ -60,6 +61,7 @@ impl BindingSources {
         match class {
             crate::OverrideDeviceClass::Keyboard => self.admits_keyboard(),
             crate::OverrideDeviceClass::Gamepad => self.admits_gamepad(),
+            crate::OverrideDeviceClass::Touch => false,
         }
     }
 }
@@ -70,16 +72,18 @@ impl BindingSources {
 /// one seat only.
 ///
 /// The map is working state, not a source: the seat-device pass restricts it
-/// to one pad, the touch overlay inserts its virtual controls, and a remap
-/// changes it. The recipe is the starting point every rebuild returns to. The
-/// other layers re-apply through their own `Changed<InputMap>` hooks.
+/// to one pad and a remap changes it. The recipe is the starting point every
+/// rebuild returns to. All device bindings are composed together.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 pub struct BindingRecipe {
     /// The keyboard layout this seat uses if it hears a keyboard. A pad-only
     /// seat keeps it too, so a player who switches devices keeps the preset.
     pub preset: PresetId,
+    pub defaults: BindingDefaults,
     /// Which devices this seat hears. See [`BindingSources`].
     pub sources: BindingSources,
+    /// The local virtual touch device belongs to this participant.
+    pub touch: bool,
     /// Which game's pad layout this seat uses: the middle term of
     /// `device -> profile -> semantic action -> rules`.
     ///
@@ -94,24 +98,31 @@ pub struct BindingRecipe {
 }
 
 impl BindingRecipe {
-    pub fn preset(id: PresetId) -> Self {
+    pub fn new(id: PresetId, defaults: BindingDefaults) -> Self {
         Self {
             preset: id,
+            defaults,
             sources: BindingSources::Unified,
+            touch: false,
             layout: crate::BindingLayout::default(),
             overrides: Vec::new(),
         }
     }
 
-    pub fn gamepad_only() -> Self {
-        // A pad seat still carries a preset. The scope filters out the
-        // keyboard half, so the seat works on a keyboard if the plan changes.
-        Self::preset(KeyboardPreset::by_index(0).id).with_sources(BindingSources::GamepadOnly)
-    }
+    #[cfg(test)]
+    pub fn preset(id: PresetId) -> Self { crate::fixture_catalog::defaults().recipe(id) }
+
+    #[cfg(test)]
+    pub fn gamepad_only() -> Self { Self::preset(PresetId::ArrowsZxc).with_sources(BindingSources::GamepadOnly) }
 
     /// The same recipe restricted to the devices this seat actually claimed.
     pub fn with_sources(mut self, sources: BindingSources) -> Self {
         self.sources = sources;
+        self
+    }
+
+    pub fn with_touch(mut self, touch: bool) -> Self {
+        self.touch = touch;
         self
     }
 
@@ -138,80 +149,13 @@ impl BindingRecipe {
     /// Layer order is precedence: base, then the game's layout, then the
     /// user's overrides. A user remap wins inside a mode that ships its own
     /// pad. Guarded by `a_user_remap_beats_the_modes_layout`.
-    pub fn build(&self) -> InputMap<Platformer2dInputActionMonolith> {
-        let mut map = KeyboardPreset::of(self.preset).map_for(self.sources);
-        self.layout.apply(&mut map);
-        for over in &self.overrides {
-            // A remap cannot widen the seat. See `BindingSources::admits`.
-            if self.sources.admits(over.control.device_class()) {
-                apply_override(&mut map, over);
-            }
+    pub fn build(&self) -> InputMap<InputAction> { self.resolve().0 }
+
+    pub fn resolve(&self) -> (InputMap<InputAction>, BindingTable) {
+        match self.defaults.scheme(self.preset) {
+            Some(scheme) => scheme.resolve_devices(self.sources, self.touch, &self.layout.rows, &self.overrides, self.layout.axes.as_deref()),
+            None => crate::BindingScheme::default().resolve_devices(self.sources, self.touch, &self.layout.rows, &self.overrides, self.layout.axes.as_deref()),
         }
-        map
-    }
-}
-
-/// Layer one override onto a built map.
-///
-/// Do not use `clear_action`: it drops keyboard and gamepad bindings together,
-/// so a keyboard remap would unbind the controller. Only bindings of the
-/// override's device class are removed, found through [`ActionBindings`], the
-/// same projection a prompt reads.
-///
-/// The override goes into the displaced binding's position, not at the end.
-/// [`ActionBindings::label`] reads the first binding, so an appended override
-/// would leave the prompt showing the old control.
-///
-/// Two cases are ignored, because a settings file can outlive its build:
-/// * an action name this build does not have;
-/// * an action that is not buttonlike (`Move`, `AimStick`). A button in an
-///   axis action's map corrupts it, and nothing downstream checks.
-fn apply_override(map: &mut InputMap<Platformer2dInputActionMonolith>, over: &BindingOverride) {
-    use leafwing_input_manager::prelude::{Actionlike, Buttonlike};
-
-    let Some(action) = action_named(&over.action) else {
-        return;
-    };
-    if action.input_control_kind() != leafwing_input_manager::InputControlKind::Button {
-        return;
-    }
-    // Positions of the same-class bindings, in map order. The projection uses
-    // the same order, so an index here is the position a prompt reads.
-    let class = over.control.device_class();
-    let displaced: Vec<usize> = ActionBindings::from_map(map)
-        .controls(&action)
-        .iter()
-        .enumerate()
-        .filter(|(_, control)| device_class_of(control) == Some(class))
-        .map(|(index, _)| index)
-        .collect();
-
-    let control: Box<dyn Buttonlike> = match over.control {
-        OverrideControl::Key(key) => Box::new(key),
-        OverrideControl::Button(button) => Box::new(button),
-    };
-    let Some(bindings) = map.get_buttonlike_mut(&action) else {
-        // Nothing binds this action (for example, a preset with no gamepad
-        // Special). The override is its first binding.
-        map.insert_boxed(action, control);
-        return;
-    };
-    let slot = displaced.first().copied().unwrap_or(bindings.len());
-    // Back to front, so an earlier index is still the element it named.
-    for index in displaced.iter().rev() {
-        bindings.remove(*index);
-    }
-    bindings.insert(slot.min(bindings.len()), control);
-}
-
-/// Which device class a projected control belongs to. `None` for a control
-/// the projection cannot name: an override must not displace a binding it
-/// cannot restore.
-fn device_class_of(control: &PhysicalControl) -> Option<OverrideDeviceClass> {
-    match control {
-        PhysicalControl::Key(_) => Some(OverrideDeviceClass::Keyboard),
-        PhysicalControl::Button(_) => Some(OverrideDeviceClass::Gamepad),
-        PhysicalControl::Other(_) => None,
     }
 }
 
@@ -220,10 +164,10 @@ fn device_class_of(control: &PhysicalControl) -> Option<OverrideDeviceClass> {
 ///
 /// The name is the enum's variant spelling, the string [`action_name`]
 /// publishes and a settings file stores. It resolves through `Reflect`.
-pub fn action_named(name: &str) -> Option<Platformer2dInputActionMonolith> {
+pub fn action_named(name: &str) -> Option<InputAction> {
     use bevy::reflect::enums::{DynamicEnum, DynamicVariant, VariantInfo};
     use bevy::reflect::{FromReflect, TypeInfo, Typed};
-    let TypeInfo::Enum(info) = Platformer2dInputActionMonolith::type_info() else {
+    let TypeInfo::Enum(info) = InputAction::type_info() else {
         return None;
     };
     // Unit variants only: every action is a unit variant, and a
@@ -231,7 +175,7 @@ pub fn action_named(name: &str) -> Option<Platformer2dInputActionMonolith> {
     if !matches!(info.variant(name), Some(VariantInfo::Unit(_))) {
         return None;
     }
-    Platformer2dInputActionMonolith::from_reflect(&DynamicEnum::new(name, DynamicVariant::Unit))
+    InputAction::from_reflect(&DynamicEnum::new(name, DynamicVariant::Unit))
 }
 
 /// Rebuild a participant's `InputMap` when its [`BindingRecipe`] changes.
@@ -246,29 +190,35 @@ pub fn action_named(name: &str) -> Option<Platformer2dInputActionMonolith> {
 ///   changes, because a press under the old bindings is not a press under the
 ///   new ones.
 ///
-/// Touch virtual controls are not re-added here. The touch crate's
-/// `Changed<InputMap>` hook re-binds them the same frame.
+/// Touch, keyboard, and pad controls are all projected from the same recipe.
 pub fn rebuild_maps_from_recipes(
     mut commands: Commands,
     mut participants: Query<
         (
             Entity,
             &BindingRecipe,
-            &mut InputMap<Platformer2dInputActionMonolith>,
-            &mut ActionState<Platformer2dInputActionMonolith>,
+            &mut InputMap<InputAction>,
+            &mut ActionState<InputAction>,
+            Option<&mut BindingTable>,
         ),
         Changed<BindingRecipe>,
     >,
 ) {
-    for (seat, recipe, mut map, mut actions) in &mut participants {
-        let mut built = recipe.build();
+    for (seat, recipe, mut map, mut actions, table) in &mut participants {
+        let (mut built, resolved) = recipe.resolve();
+        let table_changed = match table {
+            Some(mut table) => {
+                if *table != resolved { *table = resolved; true } else { false }
+            }
+            None => { commands.entity(seat).insert(resolved); false }
+        };
         if let Some(pad) = map.gamepad() {
             built.set_gamepad(pad);
         }
         // `Changed` includes `Added`. On the spawn frame the map already is
         // the recipe's output. The comparison stops that frame from resetting
-        // a fresh `ActionState` and from triggering the touch re-bind hook.
-        if *map != built {
+        // a fresh `ActionState` or publishing a redundant change.
+        if *map != built || table_changed {
             *map = built;
             actions.reset_all();
             // The reset is only half the fix. See [`Rebound`].
@@ -314,7 +264,7 @@ pub struct Rebound;
 /// This costs one frame, on a preset change or mode exit.
 pub fn swallow_the_rebinds_own_edges(
     mut commands: Commands,
-    mut seats: Query<(Entity, &mut ActionState<Platformer2dInputActionMonolith>), With<Rebound>>,
+    mut seats: Query<(Entity, &mut ActionState<InputAction>), With<Rebound>>,
 ) {
     use leafwing_input_manager::buttonlike::ButtonState;
 
@@ -334,6 +284,9 @@ pub fn swallow_the_rebinds_own_edges(
 pub enum PhysicalControl {
     Key(KeyCode),
     Button(GamepadButton),
+    Touch(crate::touch_state::TouchActionButton),
+    TouchDirection(crate::touch_state::TouchStickDirection),
+    Axis(crate::AxisSource),
     /// Something the projection could not name.
     ///
     /// It keeps the debug form. If a prompt drops an unknown binding, the
@@ -341,18 +294,32 @@ pub enum PhysicalControl {
     Other(String),
 }
 
+impl PhysicalControl {
+    pub fn device_class(&self) -> Option<crate::OverrideDeviceClass> {
+        use crate::OverrideDeviceClass as Device;
+        Some(match self {
+            Self::Key(_) => Device::Keyboard,
+            Self::Button(_) => Device::Gamepad,
+            Self::Touch(_) | Self::TouchDirection(_) => Device::Touch,
+            Self::Axis(source) => source.device_class(),
+            Self::Other(_) => return None,
+        })
+    }
+}
+
 /// One seat's bindings.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ActionBindings {
     /// Sorted by action name, so the order is stable across runs and machines.
     actions: Vec<(String, Vec<PhysicalControl>)>,
+    contextual: Option<Vec<(crate::InputProfile, InputAction, PhysicalControl)>>,
 }
 
 impl ActionBindings {
     /// Project one live `InputMap`. The system below is a thin loop over this,
     /// so a pure caller (test, rebind preview, docs generator) gets the same
     /// answer without a `World`.
-    pub fn from_map(map: &InputMap<Platformer2dInputActionMonolith>) -> Self {
+    pub fn from_map(map: &InputMap<InputAction>) -> Self {
         let mut actions: Vec<(String, Vec<PhysicalControl>)> = map
             .iter_buttonlike()
             .map(|(action, inputs)| {
@@ -366,11 +333,42 @@ impl ActionBindings {
             })
             .collect();
         actions.sort_by(|(a, _), (b, _)| a.cmp(b));
-        Self { actions }
+        Self { actions, contextual: None }
+    }
+
+    /// Union for the binding editor, with contextual rows for conflict checks.
+    pub fn from_resolved(_map: &InputMap<InputAction>, table: &BindingTable) -> Self {
+        Self::from_table(table, None)
+    }
+
+    /// A read-model of the effective table, including axes. A selected profile
+    /// is used for prompts; the union is used only for configuration/inspection.
+    pub fn from_table(table: &BindingTable, profile: Option<crate::InputProfile>) -> Self {
+        let mut rows: Vec<_> = table.rows().iter()
+            .filter(|row| profile.is_none_or(|p| row.profile == p))
+            .map(|row| (row.profile, row.action, physical_control_of(row.control.as_ref())))
+            .collect();
+        for axis in table.axes() {
+            for p in crate::InputProfile::ACTIVE {
+                if profile.is_none_or(|profile| profile == p) && p.accepts(axis.action) {
+                    rows.push((p, axis.action, PhysicalControl::Axis(axis.source)));
+                }
+            }
+        }
+        let mut actions = BTreeMap::<String, Vec<PhysicalControl>>::new();
+        for (_, action, control) in &rows {
+            let controls = actions.entry(action_name(action)).or_default();
+            if !controls.contains(control) { controls.push(control.clone()); }
+        }
+        Self { actions: actions.into_iter().collect(), contextual: Some(rows) }
+    }
+
+    pub fn contextual_rows(&self) -> Option<&[(crate::InputProfile, InputAction, PhysicalControl)]> {
+        self.contextual.as_deref()
     }
 
     /// Every physical control bound to this action, in insertion-stable order.
-    pub fn controls(&self, action: &Platformer2dInputActionMonolith) -> &[PhysicalControl] {
+    pub fn controls(&self, action: &InputAction) -> &[PhysicalControl] {
         let name = action_name(action);
         self.actions
             .iter()
@@ -390,16 +388,19 @@ impl ActionBindings {
     /// falls back to the other class.
     pub fn control_for(
         &self,
-        action: &Platformer2dInputActionMonolith,
+        action: &InputAction,
         device: crate::ActiveDevice,
     ) -> Option<&PhysicalControl> {
-        let want_key = device.draws_keyboard_glyphs();
-        self.controls(action).iter().find(|control| {
-            matches!(
-                (control, want_key),
-                (PhysicalControl::Key(_), true) | (PhysicalControl::Button(_), false)
-            )
-        })
+        let class = match device {
+            crate::ActiveDevice::Keyboard | crate::ActiveDevice::Mouse => crate::OverrideDeviceClass::Keyboard,
+            crate::ActiveDevice::Gamepad(_) => crate::OverrideDeviceClass::Gamepad,
+            crate::ActiveDevice::Touch => crate::OverrideDeviceClass::Touch,
+        };
+        // Analog sticks are the primary glyph for a vector action when both
+        // the stick and a digital D-pad are bound.
+        let controls = self.controls(action);
+        controls.iter().find(|control| matches!(control, PhysicalControl::Axis(crate::AxisSource::LeftStick | crate::AxisSource::RightStick)) && control.device_class() == Some(class))
+            .or_else(|| controls.iter().find(|control| control.device_class() == Some(class)))
     }
 
     /// Every bound action and its controls, in canonical order. For a help
@@ -419,38 +420,47 @@ impl ActionBindings {
 ///
 /// This replaces two hand-kept maps in `ambition_touch_input`
 /// (`TouchActionButton -> ControlSlot` and
-/// `TouchActionButton -> Platformer2dInputActionMonolith`).
+/// `TouchActionButton -> InputAction`).
 ///
 /// `ControlSlot` is the ability vocabulary (`ambition_entity_catalog`) and
-/// `Platformer2dInputActionMonolith` is the input vocabulary. The mapping is
+/// `InputAction` is the input vocabulary. The mapping is
 /// an input-layer fact, so it lives here, where prompts and the overlay can
 /// reach it.
 ///
 /// `None` is for a slot with no single action (for example, a future chord).
 pub fn action_for_slot(
     slot: ambition_entity_catalog::action_scheme::ControlSlot,
-) -> Option<Platformer2dInputActionMonolith> {
+) -> Option<InputAction> {
     use ambition_entity_catalog::action_scheme::ControlSlot;
     Some(match slot {
-        ControlSlot::Jump => Platformer2dInputActionMonolith::Jump,
-        ControlSlot::Attack => Platformer2dInputActionMonolith::Attack,
-        ControlSlot::Special => Platformer2dInputActionMonolith::Special,
-        ControlSlot::Projectile => Platformer2dInputActionMonolith::Projectile,
-        ControlSlot::Burst => Platformer2dInputActionMonolith::Burst,
-        ControlSlot::Blink => Platformer2dInputActionMonolith::Blink,
-        ControlSlot::Interact => Platformer2dInputActionMonolith::Interact,
-        ControlSlot::Utility => Platformer2dInputActionMonolith::Utility,
-        ControlSlot::Shield => Platformer2dInputActionMonolith::Shield,
-        ControlSlot::Grab => Platformer2dInputActionMonolith::Grab,
-        ControlSlot::Taunt => Platformer2dInputActionMonolith::Taunt,
-        ControlSlot::Modifier => Platformer2dInputActionMonolith::Modifier,
+        ControlSlot::Jump => InputAction::Jump,
+        ControlSlot::Attack => InputAction::Attack,
+        ControlSlot::Special => InputAction::Special,
+        ControlSlot::Projectile => InputAction::Projectile,
+        ControlSlot::Burst => InputAction::Burst,
+        ControlSlot::Blink => InputAction::Blink,
+        ControlSlot::Interact => InputAction::Interact,
+        ControlSlot::Utility => InputAction::Utility,
+        ControlSlot::Shield => InputAction::Shield,
+        ControlSlot::Grab => InputAction::Grab,
+        ControlSlot::Taunt => InputAction::Taunt,
+        ControlSlot::Modifier => InputAction::Modifier,
     })
+}
+
+/// The ability slot for a built-in action, if it has one.
+pub fn slot_for_action(action: InputAction) -> Option<ambition_entity_catalog::action_scheme::ControlSlot> {
+    use ambition_entity_catalog::action_scheme::ControlSlot as Slot;
+    [Slot::Jump, Slot::Attack, Slot::Special, Slot::Projectile, Slot::Burst,
+     Slot::Blink, Slot::Interact, Slot::Utility, Slot::Shield, Slot::Grab,
+     Slot::Taunt, Slot::Modifier].into_iter().find(|&slot| action_for_slot(slot) == Some(action))
 }
 
 /// Every seat's bindings, keyed by participant slot.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct SeatBindings {
     seats: BTreeMap<u8, ActionBindings>,
+    profiles: BTreeMap<(u8, crate::InputProfile), ActionBindings>,
 }
 
 impl SeatBindings {
@@ -459,6 +469,10 @@ impl SeatBindings {
         static NONE: std::sync::LazyLock<ActionBindings> =
             std::sync::LazyLock::new(ActionBindings::default);
         self.seats.get(&slot).unwrap_or(&NONE)
+    }
+
+    pub fn for_profile(&self, slot: u8, profile: crate::InputProfile) -> &ActionBindings {
+        self.profiles.get(&(slot, profile)).unwrap_or_else(|| self.for_seat(slot))
     }
 
     pub fn seats(&self) -> impl Iterator<Item = (u8, &ActionBindings)> {
@@ -476,16 +490,18 @@ impl SeatBindings {
 pub fn publish_seat_bindings(
     participants: Query<(
         &InputParticipant,
-        &InputMap<Platformer2dInputActionMonolith>,
+        &InputMap<InputAction>,
+        Option<&BindingTable>,
     )>,
     changed: Query<
         (),
         Or<(
             Changed<InputParticipant>,
-            Changed<InputMap<Platformer2dInputActionMonolith>>,
+            Changed<InputMap<InputAction>>,
+            Changed<BindingTable>,
         )>,
     >,
-    mut removed_maps: RemovedComponents<InputMap<Platformer2dInputActionMonolith>>,
+    mut removed_maps: RemovedComponents<InputMap<InputAction>>,
     mut removed_participants: RemovedComponents<InputParticipant>,
     mut bindings: ResMut<SeatBindings>,
 ) {
@@ -495,17 +511,28 @@ pub fn publish_seat_bindings(
         return;
     }
     let mut next: BTreeMap<u8, ActionBindings> = BTreeMap::new();
-    for (participant, map) in &participants {
-        next.insert(participant.id.slot(), ActionBindings::from_map(map));
+    let mut profiles = BTreeMap::new();
+    for (participant, map, table) in &participants {
+        let slot = participant.id.slot();
+        if let Some(table) = table {
+            next.insert(slot, ActionBindings::from_resolved(map, table));
+            for profile in crate::InputProfile::ACTIVE {
+                profiles.insert((slot, profile), ActionBindings::from_table(table, Some(profile)));
+            }
+            profiles.insert((slot, crate::InputProfile::Blocked), ActionBindings::default());
+        } else {
+            next.insert(slot, ActionBindings::from_map(map));
+        }
     }
-    if bindings.seats != next {
+    if bindings.seats != next || bindings.profiles != profiles {
         bindings.seats = next;
+        bindings.profiles = profiles;
     }
 }
 
 /// The action's stable name: its `Debug` form, which the trace and the
 /// settings file also use. [`action_named`] is its inverse.
-pub fn action_name(action: &Platformer2dInputActionMonolith) -> String {
+pub fn action_name(action: &InputAction) -> String {
     format!("{action:?}")
 }
 
@@ -522,7 +549,7 @@ pub fn gamepad_button_of(
 /// becomes [`PhysicalControl::Other`] with its `Debug` form. This is the one
 /// place a `dyn Buttonlike` becomes comparable. [`crate::layout`] uses it to
 /// remove a binding, so a layout displaces what a prompt shows on that button.
-pub(crate) fn physical_control_of(
+pub fn physical_control_of(
     input: &dyn leafwing_input_manager::prelude::Buttonlike,
 ) -> PhysicalControl {
     let reflected = input.as_reflect();
@@ -531,6 +558,12 @@ pub(crate) fn physical_control_of(
     }
     if let Some(button) = gamepad_button_of(input) {
         return PhysicalControl::Button(button);
+    }
+    if let Some(button) = reflected.downcast_ref::<crate::touch_device::TouchVirtualButton>() {
+        return PhysicalControl::Touch(button.0);
+    }
+    if let Some(direction) = reflected.downcast_ref::<crate::touch_state::TouchStickDirection>() {
+        return PhysicalControl::TouchDirection(*direction);
     }
     PhysicalControl::Other(format!("{input:?}"))
 }
@@ -547,7 +580,7 @@ mod tests {
             .expect("projection runs");
     }
 
-    fn app_with_seats(seats: &[(u8, InputMap<Platformer2dInputActionMonolith>)]) -> App {
+    fn app_with_seats(seats: &[(u8, InputMap<InputAction>)]) -> App {
         let mut app = App::new();
         app.init_resource::<SeatBindings>();
         for (slot, map) in seats {
@@ -568,8 +601,8 @@ mod tests {
         publish(&mut app);
 
         let bindings = app.world().resource::<SeatBindings>();
-        let seat0 = bindings.label(0, &Platformer2dInputActionMonolith::Jump);
-        let seat1 = bindings.label(1, &Platformer2dInputActionMonolith::Jump);
+        let seat0 = bindings.label(0, &InputAction::Jump);
+        let seat1 = bindings.label(1, &InputAction::Jump);
         assert!(seat0.is_some() && seat1.is_some(), "both seats bind Jump");
         assert_ne!(
             seat0, seat1,
@@ -587,17 +620,17 @@ mod tests {
         let before = app
             .world()
             .resource::<SeatBindings>()
-            .label(0, &Platformer2dInputActionMonolith::Jump);
+            .label(0, &InputAction::Jump);
 
         // Rebind Jump to a key nothing else uses, the way a remap screen would.
-        map.clear_action(&Platformer2dInputActionMonolith::Jump);
-        map.insert(Platformer2dInputActionMonolith::Jump, KeyCode::F13);
+        map.clear_action(&InputAction::Jump);
+        map.insert(InputAction::Jump, KeyCode::F13);
         let mut app = app_with_seats(&[(0, map)]);
         publish(&mut app);
         let after = app
             .world()
             .resource::<SeatBindings>()
-            .label(0, &Platformer2dInputActionMonolith::Jump);
+            .label(0, &InputAction::Jump);
 
         assert_ne!(before, after, "the projection followed the rebind");
         assert_eq!(
@@ -617,7 +650,7 @@ mod tests {
         let bindings = app.world().resource::<SeatBindings>();
         let jump = bindings
             .for_seat(3)
-            .controls(&Platformer2dInputActionMonolith::Jump);
+            .controls(&InputAction::Jump);
         assert!(
             jump.iter()
                 .any(|control| matches!(control, PhysicalControl::Button(_))),
@@ -625,7 +658,7 @@ mod tests {
         );
         assert_eq!(
             bindings
-                .label(3, &Platformer2dInputActionMonolith::Jump)
+                .label(3, &InputAction::Jump)
                 .as_deref(),
             Some("A"),
             "and it prints as a face button, which is what goes on a glyph"
@@ -680,7 +713,7 @@ mod tests {
         let bindings = app.world().resource::<SeatBindings>();
         assert!(bindings.for_seat(2).is_empty());
         assert_eq!(
-            bindings.label(2, &Platformer2dInputActionMonolith::Jump),
+            bindings.label(2, &InputAction::Jump),
             None
         );
     }
@@ -699,7 +732,7 @@ mod tests {
                 InputParticipant::with_id(crate::ParticipantId(0)),
                 recipe,
                 map,
-                ActionState::<Platformer2dInputActionMonolith>::default(),
+                ActionState::<InputAction>::default(),
             ))
             .id();
         app.update();
@@ -712,11 +745,11 @@ mod tests {
         let map = app
             .world()
             .entity(seat)
-            .get::<InputMap<Platformer2dInputActionMonolith>>()
+            .get::<InputMap<InputAction>>()
             .expect("the participant keeps its map");
         assert_eq!(
             ActionBindings::from_map(map)
-                .label(&Platformer2dInputActionMonolith::Jump)
+                .label(&InputAction::Jump)
                 .as_deref(),
             Some("Space"),
             "the rebuilt map is the new preset's (WASD binds Jump to Space)"
@@ -765,10 +798,10 @@ mod tests {
     /// layout says X.
     #[test]
     fn a_user_remap_beats_the_modes_layout() {
-        let smash = BindingRecipe::gamepad_only().with_layout(crate::BindingLayout::Smash);
+        let smash = BindingRecipe::gamepad_only().with_layout(crate::fixture_catalog::fixture_layout());
         let layout_only = ActionBindings::from_map(&smash.build());
         assert_eq!(
-            layout_only.controls(&Platformer2dInputActionMonolith::Special),
+            layout_only.controls(&InputAction::Special),
             [PhysicalControl::Button(GamepadButton::West)],
             "the mode's layout is what an unremapped player gets"
         );
@@ -779,14 +812,14 @@ mod tests {
         )]);
         let after = ActionBindings::from_map(&remapped.build());
         assert_eq!(
-            after.controls(&Platformer2dInputActionMonolith::Special),
+            after.controls(&InputAction::Special),
             [PhysicalControl::Button(GamepadButton::North)],
             "the USER's remap wins over the mode's layout"
         );
         // The remap displaces; it does not add a second button.
         assert!(
             !after
-                .controls(&Platformer2dInputActionMonolith::Special)
+                .controls(&InputAction::Special)
                 .contains(&PhysicalControl::Button(GamepadButton::West)),
             "the layout's West binding is gone, not doubled"
         );
@@ -799,7 +832,7 @@ mod tests {
         let base = BindingRecipe::preset(PresetId::ArrowsZxc);
         let before = ActionBindings::from_map(&base.build());
         let pad_before: Vec<_> = before
-            .controls(&Platformer2dInputActionMonolith::Jump)
+            .controls(&InputAction::Jump)
             .iter()
             .filter(|control| matches!(control, PhysicalControl::Button(_)))
             .cloned()
@@ -810,7 +843,7 @@ mod tests {
             .clone()
             .with_overrides(vec![BindingOverride::key("Jump", KeyCode::F13)]);
         let after = ActionBindings::from_map(&remapped.build());
-        let jump = after.controls(&Platformer2dInputActionMonolith::Jump);
+        let jump = after.controls(&InputAction::Jump);
 
         assert_eq!(
             jump.iter()
@@ -839,11 +872,11 @@ mod tests {
             .with_overrides(overrides)
             .build();
 
-        let jump = |map: &InputMap<Platformer2dInputActionMonolith>| {
-            ActionBindings::from_map(map).label(&Platformer2dInputActionMonolith::Jump)
+        let jump = |map: &InputMap<InputAction>| {
+            ActionBindings::from_map(map).label(&InputAction::Jump)
         };
-        let attack = |map: &InputMap<Platformer2dInputActionMonolith>| {
-            ActionBindings::from_map(map).label(&Platformer2dInputActionMonolith::Attack)
+        let attack = |map: &InputMap<InputAction>| {
+            ActionBindings::from_map(map).label(&InputAction::Attack)
         };
         assert_eq!(jump(&arrows).as_deref(), Some("F13"));
         assert_eq!(
@@ -894,12 +927,12 @@ mod tests {
         use leafwing_input_manager::prelude::{Buttonlike, InputManagerPlugin};
 
         const HELD: KeyCode = KeyCode::KeyJ;
-        let jump = Platformer2dInputActionMonolith::Jump;
+        let jump = InputAction::Jump;
 
         let mut app = App::new();
         app.add_plugins(bevy::MinimalPlugins)
             .add_plugins(bevy::input::InputPlugin)
-            .add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default())
+            .add_plugins(InputManagerPlugin::<InputAction>::default())
             .add_systems(Update, rebuild_maps_from_recipes)
             .add_systems(
                 bevy::app::PreUpdate,
@@ -915,7 +948,7 @@ mod tests {
                 InputParticipant::with_id(crate::ParticipantId(0)),
                 recipe.clone(),
                 recipe.build(),
-                ActionState::<Platformer2dInputActionMonolith>::default(),
+                ActionState::<InputAction>::default(),
             ))
             .id();
         app.update();
@@ -924,7 +957,7 @@ mod tests {
             let actions = app
                 .world()
                 .entity(seat)
-                .get::<ActionState<Platformer2dInputActionMonolith>>()
+                .get::<ActionState<InputAction>>()
                 .expect("the seat keeps its action state");
             (actions.pressed(&jump), actions.just_pressed(&jump))
         };
@@ -973,7 +1006,7 @@ mod tests {
                 InputParticipant::with_id(crate::ParticipantId(0)),
                 recipe.clone(),
                 recipe.build(),
-                ActionState::<Platformer2dInputActionMonolith>::default(),
+                ActionState::<InputAction>::default(),
             ))
             .id();
         app.update();
@@ -986,11 +1019,11 @@ mod tests {
         let map = app
             .world()
             .entity(seat)
-            .get::<InputMap<Platformer2dInputActionMonolith>>()
+            .get::<InputMap<InputAction>>()
             .expect("the participant keeps its map");
         assert_eq!(
             ActionBindings::from_map(map)
-                .label(&Platformer2dInputActionMonolith::Jump)
+                .label(&InputAction::Jump)
                 .as_deref(),
             Some("F13"),
             "the live map the router reads is the overridden one"

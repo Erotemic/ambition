@@ -104,7 +104,7 @@ pub fn emit_brain_action_messages(
 
 /// Bevy system: emit one `ActorActionMessage::PlayerProjectileTick`
 /// per charge-capable actor per tick. The charge-projectile input
-/// consumer (`charge_projectile_input` in `ambition_platformer2d_actor_monolith`) drives its
+/// consumer (`charge_projectile_input` in `ambition_platformer2d_actor`) drives its
 /// motion-recognition buffer + Fireball charge state machine from
 /// this stream from the already translated `ambition_characters::control::ActorControl` rather than raw slot input.
 ///

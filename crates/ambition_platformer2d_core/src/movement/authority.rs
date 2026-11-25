@@ -40,7 +40,7 @@ use crate::{SweepSample, Vec2};
 /// if edge_exit { clusters.kinematics.vel = old_velocity; }
 /// ```
 ///
-/// Five lines, character-for-character identical, in `ambition_platformer2d_actor_monolith`'s
+/// Five lines, character-for-character identical, in `ambition_platformer2d_actor`'s
 /// room load and `ambition_platformer2d_runtime`'s lifecycle commit — two crates,
 /// one arrival authority, no shared name. Surfaced by
 /// `engine.velocity-writes-are-authority-only` on its first run.

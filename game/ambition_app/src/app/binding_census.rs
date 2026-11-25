@@ -1,146 +1,49 @@
-//! Print the bindings from the same recipes as the input host.
+//! Print the effective contextual rows used by the runtime sampler.
 
-use ambition_platformer2d::input::{
-    ActionBindings, BindingLayout, BindingRecipe, InputProfile, KeyboardPreset, MenuButtonIntent,
-    MenuShortcutPages, Platformer2dInputActionMonolith as Action, contextual_button_rows,
-};
+use ambition_platformer2d::input::{BindingLayout, InputProfile, MenuButtonIntent,
+    MenuShortcutPages, PresetId, contextual_button_rows};
 use ambition_platformer2d::persistence::settings::persistence::{load_settings, settings_path};
 
 pub(super) fn print() {
-    use InputProfile::*;
-
     let settings = load_settings(&settings_path());
-    println!("game\tpreset\tcontext\tcontrol\tbindings\torigin\toutput\tsample");
+    println!("game\tpreset\tcontext\tcontrol\taction\torigin\toutput\tsample");
     let ambition_pages = ambition_platformer2d::menu::backend::InventoryUiBackend::default()
-        .effective()
-        .is_available();
+        .effective().is_available();
+    let defaults = ambition_input_opinions::defaults();
     for (game, layout, shortcuts) in [
-        ("Ambition", BindingLayout::Standard, ambition_pages),
-        ("Mary-O", BindingLayout::Standard, false),
-        ("Sanic", BindingLayout::Standard, false),
-        ("Smash", BindingLayout::Smash, false),
+        ("Ambition", BindingLayout::default(), ambition_pages),
+        ("Mary-O", BindingLayout::default(), false),
+        ("Sanic", BindingLayout::default(), false),
+        ("Smash", ambition_demo_smash::input_bindings::layout(), false),
+        ("TwinTrack", BindingLayout::default(), false),
     ] {
-        let pages = MenuShortcutPages {
-            inventory: shortcuts,
-            map: shortcuts,
-        };
-        for preset in KeyboardPreset::presets() {
-            let recipe = BindingRecipe::preset(preset.id);
-            let preset_bindings = ActionBindings::from_map(&recipe.build());
-            let recipe = recipe.with_layout(layout);
-            let layout_bindings = ActionBindings::from_map(&recipe.build());
-            let map = recipe
-                .with_overrides(settings.controls.binding_overrides.clone())
-                .build();
-            let user_bindings = ActionBindings::from_map(&map);
-            #[cfg(feature = "mobile_touch")]
-            let map = {
-                let mut map = map;
-                ambition_platformer2d::touch_input::virtual_device::insert_touch_virtual_bindings(
-                    &mut map,
-                );
-                map
-            };
-            let bindings = ActionBindings::from_map(&map);
-            for (surface, profile) in [
-                ("Gameplay", Gameplay),
-                ("GateTerminal", SessionUi),
-                ("Pause", Paused),
-                ("Frontend", Frontend),
-                ("Blocked", Blocked),
-            ] {
-                let prefix = format!("{game}\t{:?}\t{surface}", preset.id);
-                for (control, declared, intent) in contextual_button_rows(&bindings, profile) {
-                    let names = declared
-                        .iter()
-                        .map(|action| format!("{action:?}"))
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    let origins = declared
-                        .iter()
-                        .map(|action| {
-                            if !user_bindings.controls(action).contains(&control) {
-                                "Touch"
-                            } else if !layout_bindings.controls(action).contains(&control) {
-                                "Override"
-                            } else if !preset_bindings.controls(action).contains(&control) {
-                                "Layout"
-                            } else {
-                                "Preset"
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    let (output, sample) = if let Some(intent) =
-                        intent.filter(|intent| pages.allows(*intent))
-                    {
-                        let sample = match intent {
-                            MenuButtonIntent::Confirm | MenuButtonIntent::Back => "Edge and held",
-                            _ => "Edge",
-                        };
-                        (format!("{intent:?}"), sample)
-                    } else {
-                        (remaining_actions(profile, &declared), "Button")
+        let pages = MenuShortcutPages { inventory: shortcuts, map: shortcuts };
+        for preset in PresetId::ALL {
+            let recipe = defaults.recipe(preset).with_touch(cfg!(feature = "mobile_touch"));
+            let (_, base) = recipe.resolve();
+            let recipe = recipe.with_layout(layout.clone());
+            let (_, game_rows) = recipe.resolve();
+            let (_, table) = recipe
+                .with_overrides(settings.controls.binding_overrides.clone()).resolve();
+            for profile in [InputProfile::Gameplay, InputProfile::SessionUi, InputProfile::Paused,
+                InputProfile::Frontend, InputProfile::Blocked] {
+                let prefix = format!("{game}\t{preset:?}\t{profile:?}");
+                for (control, action) in contextual_button_rows(&table, profile) {
+                    let origin = if action != game_rows.action_for(profile, &control) { "Override" }
+                        else if action != base.action_for(profile, &control) { "Game" } else { "Default" };
+                    let output = match action {
+                        Some(action) if MenuButtonIntent::from_action(action).is_some_and(|intent| !pages.allows(intent)) => "Unavailable".to_string(),
+                        Some(action) => format!("{action:?}"),
+                        None => "None".to_string(),
                     };
-                    println!("{prefix}\t{control:?}\t{names}\t{origins}\t{output}\t{sample}");
+                    println!("{prefix}\t{control:?}\t{action:?}\t{origin}\t{output}\tButton");
                 }
-                let mut axes = map
-                    .iter_axislike()
-                    .flat_map(|(action, inputs)| {
-                        inputs
-                            .iter()
-                            .map(move |input| (format!("{input:?}"), *action, "Scalar"))
-                    })
-                    .chain(map.iter_dual_axislike().flat_map(|(action, inputs)| {
-                        inputs
-                            .iter()
-                            .map(move |input| (format!("{input:?}"), *action, "Vector"))
-                    }))
-                    .collect::<Vec<_>>();
-                axes.sort_by_key(|(control, action, _)| (control.clone(), format!("{action:?}")));
-                for (control, action, sample) in axes {
-                    let output = remaining_actions(profile, &[action]);
-                    let origin = if control.starts_with("Touch") {
-                        "Touch"
-                    } else {
-                        "Preset"
-                    };
-                    println!("{prefix}\t{control}\t{action:?}\t{origin}\t{output}\t{sample}");
+                for axis in table.axes().iter().filter(|axis| profile.accepts(axis.action)) {
+                    let origin = if !game_rows.axes().contains(axis) { "Override" }
+                        else if !base.axes().contains(axis) { "Game" } else { "Default" };
+                    println!("{prefix}\t{:?}\t{:?}\t{origin}\t{:?}\tAxis", axis.source, axis.action, axis.action);
                 }
             }
         }
-    }
-}
-
-fn remaining_actions(profile: InputProfile, declared: &[Action]) -> String {
-    use Action::*;
-    use InputProfile::*;
-    let enabled = |action: &Action| match profile {
-        Gameplay => !action.is_menu_only() && !matches!(action, Start | Map | Inventory),
-        SessionUi | Paused | Frontend => matches!(
-            action,
-            MenuNavigateUp
-                | MenuNavigateDown
-                | MenuNavigateLeft
-                | MenuNavigateRight
-                | MenuPageLeft
-                | MenuPageRight
-                | MenuStick
-        ),
-        Blocked => false,
-    };
-    let output = declared
-        .iter()
-        .filter(|action| enabled(action))
-        .map(|action| match action {
-            Reset => "Development Reset".to_string(),
-            _ => format!("{action:?}"),
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
-    if output.is_empty() {
-        "None".to_string()
-    } else {
-        output
     }
 }

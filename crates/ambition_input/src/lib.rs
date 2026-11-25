@@ -1,13 +1,13 @@
 //! Device -> engine-owned `ControlFrame` input adapter layer for the sandbox.
 //!
-//! Physical inputs are bound to `Platformer2dInputActionMonolith` with Leafwing Input Manager.
+//! Physical inputs are bound to `InputAction` with Leafwing Input Manager.
 //! The engine-owned compact `ControlFrame` keeps movement physics independent
 //! from keyboards, gamepads, UI rebinding, or replay input.
 //!
 //! This is the upper-sibling input abstraction (ADR 0019). It depends on
 //! `ambition_platformer2d_core` for `ControlFrame` and on the input-domain
 //! `settings` (deadzones, trigger hysteresis, burst mode). It never depends
-//! on `ambition_platformer2d_actor_monolith` or `ambition_characters`.
+//! on `ambition_platformer2d_actor` or `ambition_characters`.
 //!
 //! TODO(compat-remove): migrate the remaining `crate::ControlFrame` caller
 //! (`ambition_touch_input::bevy_plugin`) to
@@ -20,6 +20,8 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 
 mod actions;
+mod axis;
+pub use axis::AxisSource;
 mod active_input;
 #[cfg(feature = "input")]
 mod bindings;
@@ -27,6 +29,8 @@ pub mod channels;
 mod control;
 #[cfg(feature = "input")]
 mod contextual;
+#[cfg(feature = "input")]
+mod table;
 pub mod cues;
 #[cfg(feature = "input")]
 mod glyphs;
@@ -40,6 +44,9 @@ mod menu;
 mod motion_input;
 pub mod participant;
 mod presets;
+pub mod touch_state;
+#[cfg(feature = "input")]
+pub mod touch_device;
 #[cfg(feature = "input")]
 mod rebind;
 pub mod seating;
@@ -49,6 +56,11 @@ pub mod sources;
 
 #[cfg(test)]
 mod tests;
+#[cfg(all(test, feature = "input"))]
+extern crate self as ambition_input;
+#[cfg(all(test, feature = "input"))]
+#[path = "../tests/support/catalog.rs"]
+mod fixture_catalog;
 
 /// Directional motion recognition (a rolling input buffer and a subsequence
 /// matcher) and the content-owned technique registry. Pure and headless. A
@@ -59,9 +71,9 @@ pub use motion_input::{
 };
 
 #[cfg(feature = "input")]
-pub use actions::Platformer2dInputActionMonolith;
+pub use actions::InputAction;
 #[cfg(feature = "input")]
-pub use contextual::{ButtonRoute, ContextualButtonHistory, InputProfile, MenuButtonIntent, MenuShortcutPages, resolve_menu_button, contextual_button_rows};
+pub use contextual::{ButtonRoute, ContextualButtonHistory, InputProfile, MenuButtonIntent, MenuShortcutPages, contextual_button_rows};
 #[cfg(feature = "input")]
 pub use active_input::update_seat_active_devices;
 pub use active_input::{gamepad_style_of, ActiveDevice, GamepadStyle, SeatActiveDevices};
@@ -106,14 +118,16 @@ pub enum InputSet {
 }
 #[cfg(feature = "input")]
 pub use bindings::{
-    action_for_slot, action_name, action_named, gamepad_button_of, publish_seat_bindings,
+    action_for_slot, slot_for_action, action_name, physical_control_of, action_named, gamepad_button_of, publish_seat_bindings,
     rebuild_maps_from_recipes,
     swallow_the_rebinds_own_edges, ActionBindings, BindingRecipe, BindingSources, PhysicalControl,
     Rebound, SeatBindings,
 };
 pub use cues::{ActiveUiCues, UiCue};
 #[cfg(feature = "input")]
-pub use layout::{BindingLayout, DeclaredBindingLayout, PadSlot};
+pub use layout::{BindingLayout, DeclaredBindingLayout};
+#[cfg(feature = "input")]
+pub use table::{bind, unbind, Binding, BindingDefaults, BindingScheme, BindingTable, AxisBinding, ResolvedButton};
 pub use menu::{
     analog_to_dir, MenuControlFrame, MenuFramePopulate, MenuFrameConsume, MenuNavConsume, MenuDir, MenuInputFrame, MenuInputState, SeatMenuFrames,
 };
@@ -172,6 +186,7 @@ pub fn install_input_pipeline(app: &mut bevy::prelude::App) {
         )
             .chain(),
     );
+    crate::axis::register(app);
     app.init_resource::<LocalDeviceOrder>();
     app.init_resource::<LocalSeatClaims>();
     app.add_systems(

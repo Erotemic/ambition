@@ -65,7 +65,7 @@ PROVIDER_HALL_IDS = {
 
 # Mirror of the Rust `CharacterAnim::from_name` Idle-equivalent
 # aliases. Keep in sync with
-# `crates/ambition_platformer2d_actor_monolith/src/presentation/character_sprites/anim.rs`.
+# `crates/ambition_platformer2d_actor/src/presentation/character_sprites/anim.rs`.
 IDLE_ALIASES = {"idle", "opening", "rest", "front_idle", "side_idle"}
 
 

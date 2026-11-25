@@ -383,7 +383,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
 
 #[test]
 fn goblin_melee_knockback_is_an_absolute_launch_speed() {
-    let feel = Platformer2dFeelTuningMonolith::default();
+    let feel = FeelTuning::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);
     let knockback = ambition_combat::HitKnockback {
@@ -462,7 +462,7 @@ fn hitstun_scales_with_the_launch_and_never_with_its_bare_number() {
 
 #[test]
 fn knockback_impulse_is_frame_equivalent() {
-    let feel = Platformer2dFeelTuningMonolith::default();
+    let feel = FeelTuning::default();
     let local_expected = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y);
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     for gravity_dir in [
@@ -515,7 +515,7 @@ fn scaled_launch_speed_conjugates_under_rotated_gravity() {
     // C4: a growth-scaled authored speed under rotated gravity produces the
     // conjugated trajectory. The speed remains an engine-unit magnitude; only
     // the local launch direction rotates with gravity.
-    let feel = Platformer2dFeelTuningMonolith::default();
+    let feel = FeelTuning::default();
     // `launch_speed(100, 2, {damage 30, weight 2, scale 1})` — the law's own
     // arithmetic, stated as its result so this file needs no dependency on the
     // catalog to assert something about gravity.
@@ -561,7 +561,7 @@ fn scaled_launch_speed_conjugates_under_rotated_gravity() {
 
 #[test]
 fn authored_launch_dir_sets_the_angle_and_keeps_the_authored_speed() {
-    let feel = Platformer2dFeelTuningMonolith::default();
+    let feel = FeelTuning::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let down = ae::Vec2::new(0.0, 1.0);
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0); // hit from local left
@@ -670,7 +670,7 @@ fn authored_launch_dir_conjugates_under_the_gravity_of_the_source() {
     // resolved velocity, read on the side and down axes of the source, is
     // `n * speed` under each gravity of the source and each gravity of the
     // victim. The victim's frame has no part in it.
-    let feel = Platformer2dFeelTuningMonolith::default();
+    let feel = FeelTuning::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let speed = 120.0;
     let n = ae::Vec2::new(0.6, -0.8); // already unit-length
@@ -718,7 +718,7 @@ fn authored_launch_dir_conjugates_under_the_gravity_of_the_source() {
 fn zero_length_launch_dir_falls_back_to_the_default_diagonal() {
     // A degenerate authored vector (bad data) must not NaN the launch —
     // it reads as un-authored.
-    let feel = Platformer2dFeelTuningMonolith::default();
+    let feel = FeelTuning::default();
     let victim_pos = ae::Vec2::new(100.0, 200.0);
     let down = ae::Vec2::new(0.0, 1.0);
     let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);
@@ -1584,7 +1584,7 @@ fn even_an_unstoppable_hit_refuses_a_body_that_is_already_dead() {
 /// own tests cover what the model then does with it.
 #[test]
 fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
-    let feel = Platformer2dFeelTuningMonolith::default();
+    let feel = FeelTuning::default();
     let mut vel = ae::Vec2::ZERO;
     let mut flight = ae::BodyFlightState::default();
     let mut combat = BodyCombat::default();
@@ -1682,7 +1682,7 @@ fn an_autolink_pulse_aims_the_victim_back_at_its_attacker() {
             None,
             None,
             None,
-            Platformer2dFeelTuningMonolith::default(),
+            FeelTuning::default(),
         );
         (vel, combat)
     };
@@ -1727,7 +1727,7 @@ fn an_autolink_pulse_aims_the_victim_back_at_its_attacker() {
 /// The ordinary (non-meteor) recoil lock, so the assertion above names a number
 /// the tuning owns rather than a literal.
 fn feel_meteor_floor() -> f32 {
-    Platformer2dFeelTuningMonolith::default().knockback_recoil_lock_time
+    FeelTuning::default().knockback_recoil_lock_time
 }
 
 /// A hit that carries NO knockback publishes nothing — AND LEAVES THE BODY
@@ -1765,7 +1765,7 @@ fn a_hit_with_no_knockback_publishes_no_launch_and_keeps_the_ride() {
         None,
         None,
         None,
-        Platformer2dFeelTuningMonolith::default(),
+        FeelTuning::default(),
     );
 
     assert_eq!(
@@ -2037,7 +2037,7 @@ const HIT_DAMAGE: i32 = 10;
 fn meteor_reaction(
     launch_dir: ae::Vec2,
     grounded: bool,
-    feel: Platformer2dFeelTuningMonolith,
+    feel: FeelTuning,
 ) -> f32 {
     let body = ae::Vec2::new(100.0, 150.0);
     let knockback = ambition_combat::HitKnockback {
@@ -2099,7 +2099,7 @@ fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
             follow: None,
             guard: Default::default(),
         };
-        let mut feel = Platformer2dFeelTuningMonolith::default();
+        let mut feel = FeelTuning::default();
         feel.crouch_cancel_scale = scale;
         let mut vel = ae::Vec2::ZERO;
         let mut flight = ae::BodyFlightState::default();
@@ -2153,7 +2153,7 @@ fn crouching_takes_less_of_the_launch_when_the_rules_declare_it() {
 /// nothing here to trigger.
 #[test]
 fn a_downward_launch_on_an_airborne_body_locks_it_longer() {
-    let mut feel = Platformer2dFeelTuningMonolith::default();
+    let mut feel = FeelTuning::default();
     feel.knockback_recoil_lock_time = 0.10;
     feel.meteor_lock_time = 0.45;
 
@@ -2419,7 +2419,7 @@ fn a_hazard_respawn_does_not_turn_the_body_around() {
                 &safety,
                 &mut combat,
                 ae::MovementTuning::default(),
-                Platformer2dFeelTuningMonolith::default(),
+                FeelTuning::default(),
                 ae::Vec2::new(500.0, 500.0),
                 &mut model,
             );

@@ -119,7 +119,7 @@ A replacement rig can assign that index to a different point.
 Live rig retraction is supported. The existing
 `a_character_that_stops_authoring_a_body_rig_has_it_retracted` test replaces
 the prepared character and removes its rig and pose
-(`ambition_platformer2d_actor_monolith/src/character_projection/tests.rs:766–797`). It does not test
+(`ambition_platformer2d_actor/src/character_projection/tests.rs:766–797`). It does not test
 the capture failure; it establishes that the definition can change in use.
 
 Keep the semantic selector and bind its resolved slot to the prepared owner

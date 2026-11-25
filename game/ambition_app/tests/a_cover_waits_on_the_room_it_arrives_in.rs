@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::InputMap;
 
 use ambition_platformer2d::game_shell::ShellCommand;
-use ambition_platformer2d::input::{InputParticipant, Platformer2dInputActionMonolith};
+use ambition_platformer2d::input::{InputParticipant, InputAction};
 use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::runtime::room_transition::{RoomTransitionLoadPhase, RoomTransitionLoadState};
@@ -41,10 +41,10 @@ fn a_committed_crossing_names_the_live_room_it_arrived_in() {
     let interact = {
         let world = app.world_mut();
         world
-            .query_filtered::<&InputMap<Platformer2dInputActionMonolith>, With<InputParticipant>>()
+            .query_filtered::<&InputMap<InputAction>, With<InputParticipant>>()
             .iter(world)
             .next()
-            .and_then(|map| map.get_buttonlike(&Platformer2dInputActionMonolith::Interact))
+            .and_then(|map| map.get_buttonlike(&InputAction::Interact))
             .and_then(|bindings| bindings.first().cloned())
             .expect("Interact has a binding")
     };

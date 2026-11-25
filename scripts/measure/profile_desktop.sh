@@ -1026,7 +1026,7 @@ make_profile_dir() {
 find_game_pid() {
     if [[ -n "$pid" ]]; then printf '%s\n' "$pid"; return 0; fi
     local found="" candidate
-    local names=(ambition_game_bin ambition_platformer2d_actor_monolith)
+    local names=(ambition_game_bin ambition_platformer2d_actor)
     [[ -n "$plan_bin" ]] && names=("$plan_bin" "${names[@]}")
     for candidate in "${names[@]}"; do
         found="$(pgrep -n -x "$candidate" 2>/dev/null || true)"

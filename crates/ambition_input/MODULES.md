@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`actions`](src/actions.rs) | The `Platformer2dInputActionMonolith` leafwing action enum. |
+| [`actions`](src/actions.rs) | The `InputAction` leafwing action enum. |
 | [`active_input`](src/active_input.rs) | Most recent genuine input device per seat and across the machine. |
 | [`bindings`](src/bindings.rs) | One authority for "which physical control is this action on". |
 | [`channels`](src/channels.rs) | Mapping between local input sources and dense session control channels. |
@@ -18,7 +18,7 @@
 | [`menu`](src/menu.rs) | Menu-side input vocabulary: the `MenuInputFrame`, `MenuControlFrame`, and `MenuInputState` resources and the `MenuDir` / `analog_to_dir` helpers. |
 | [`motion_input`](src/motion_input.rs) | Motion-input gesture recognition: a rolling directional buffer, a generic ordered-subsequence matcher ([`MotionInputBuffer::detect_sequence`]), and an open, content-owned [`MotionTechniqueCatalog`] of named techniques. |
 | [`participant`](src/participant.rs) | The persistent input participant — the person in front of a controller. |
-| [`presets`](src/presets.rs) | Default binding presets: the selectable keyboard layouts (`PresetId` / `KeyboardPreset` / `MovementKeys` / `ActionKeys`) and the shared gamepad bindings that seed leafwing's input map for `Platformer2dInputActionMonolith`. |
+| [`presets`](src/presets.rs) | Default binding presets: the selectable keyboard layouts (`PresetId` / `KeyboardPreset` / `MovementKeys` / `ActionKeys`) and the shared gamepad bindings that seed leafwing's input map for `InputAction`. |
 | [`press_all_action_update`](src/press_all_action_update.rs) | Leafwing's `update_action_state`, without the clash pass where it does nothing. |
 | [`rebind`](src/rebind.rs) | Pure capture of physical input into persisted binding overrides. |
 | [`seating`](src/seating.rs) | Where a session's local seats come from, and who decides. |

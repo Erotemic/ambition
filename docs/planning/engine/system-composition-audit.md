@@ -32,7 +32,7 @@ the runtime census's 1,950 or 2,059 as a before/after speed result.
 
 | Source crate | Static registered systems | Why inspect it |
 | --- | ---: | --- |
-| `ambition_platformer2d_actor_monolith` | 204 | Large actor, world and feature implementation |
+| `ambition_platformer2d_actor` | 204 | Large actor, world and feature implementation |
 | `ambition_render` | 155 | Character and effect presentation |
 | `ambition_platformer2d_runtime` | 137 | Installs and orders many systems from other crates |
 | `ambition_app` | 131 | Host, session and developer composition |

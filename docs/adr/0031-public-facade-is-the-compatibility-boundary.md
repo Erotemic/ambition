@@ -16,7 +16,7 @@ item — rollback as a public knob — was delivered by slice F with the six
 properties it demanded, each carrying its own acceptance test.
 
 ⚠ One prediction it got wrong, recorded because the correction is more useful
-than the score: it framed the `ambition_platformer2d_actor_monolith` decomposition as the carve most
+than the score: it framed the `ambition_platformer2d_actor` decomposition as the carve most
 likely to be authorised. The carve the campaign actually needed was
 `SnapshotState` down to `ambition_platformer2d_core` — invisible from the API side,
 and reachable only by asking why a consumer had to name `ambition_platformer2d_runtime` to
@@ -99,7 +99,7 @@ itself.
 
 It is also what
 [`../architecture/package-and-capability-boundaries.md`](../architecture/package-and-capability-boundaries.md)
-already anticipated. Its settled "no size-driven `ambition_platformer2d_actor_monolith` carve" ruling
+already anticipated. Its settled "no size-driven `ambition_platformer2d_actor` carve" ruling
 ends: *"This ruling does not protect misplaced named content or prevent a later
 split that **a real second consumer demonstrates**."* Building the public API
 first is how that consumer gets a voice; it is the mechanism that ruling named,
@@ -185,7 +185,7 @@ external composition, a movement-only minimal game, a noncombat actor, a module
 standalone *and* embedded, Smash, and Ambition itself. An API proven against one
 consumer is an API shaped like that consumer.
 
-**The `ambition_platformer2d_actor_monolith` decomposition is deferred, deliberately, and gains a
+**The `ambition_platformer2d_actor` decomposition is deferred, deliberately, and gains a
 trigger.** The diagnosis that it has become a gravitational sink is accepted —
 it owns audio, menu content, persistence compatibility, LDtk loading, session
 lifecycle, cutscene playback and boss orchestration alongside actor simulation.
@@ -201,7 +201,7 @@ work, not decided here.
 
 ## Alternatives considered
 
-**Split `ambition_platformer2d_actor_monolith` first, then design the API over the result.** Rejected
+**Split `ambition_platformer2d_actor` first, then design the API over the result.** Rejected
 on sequencing, not on merit. It designs boundaries from the inside, and the
 stated objective is an engine another game can be built on — a property only a
 consumer can measure. It also risks weeks of refactor during which new features

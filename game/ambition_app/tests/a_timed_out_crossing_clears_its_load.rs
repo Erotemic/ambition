@@ -14,7 +14,7 @@ use leafwing_input_manager::prelude::InputMap;
 
 use ambition_platformer2d::session::rooms::passage::ZonePassage;
 use ambition_platformer2d::game_shell::ShellCommand;
-use ambition_platformer2d::input::{InputParticipant, Platformer2dInputActionMonolith};
+use ambition_platformer2d::input::{InputParticipant, InputAction};
 use ambition_platformer2d::load::{LoadCommand, LoadCoordinator, LoadWorkSpec};
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
@@ -73,10 +73,10 @@ fn a_timed_out_crossing_clears_the_host_load_and_its_cover() {
     let interact = {
         let world = app.world_mut();
         world
-            .query_filtered::<&InputMap<Platformer2dInputActionMonolith>, With<InputParticipant>>()
+            .query_filtered::<&InputMap<InputAction>, With<InputParticipant>>()
             .iter(world)
             .next()
-            .and_then(|map| map.get_buttonlike(&Platformer2dInputActionMonolith::Interact))
+            .and_then(|map| map.get_buttonlike(&InputAction::Interact))
             .and_then(|bindings| bindings.first().cloned())
             .expect("Interact has a binding")
     };

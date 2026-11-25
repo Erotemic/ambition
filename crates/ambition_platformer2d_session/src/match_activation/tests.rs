@@ -123,7 +123,7 @@ fn seating_app() -> App {
             // writer happened to do, which is precisely how this was missed. It
             // is chained after seating so the body exists before the derive looks
             // for it.
-            ambition_platformer2d_actor_monolith::avatar::apply_worn_character_gameplay,
+            ambition_platformer2d_actor::avatar::apply_worn_character_gameplay,
             ambition_combat::hand::reconcile_effective_repertoire,
         )
             .chain(),
@@ -756,7 +756,7 @@ fn a_seated_fighter_receives_its_definitions_action_set() {
     // The projection is the system that actually serves a seated body.
     app.add_systems(
         Update,
-        ambition_platformer2d_actor_monolith::character_projection::project_prepared_character_definitions,
+        ambition_platformer2d_actor::character_projection::project_prepared_character_definitions,
     );
 
     let gunner = ActionSet {
@@ -992,7 +992,7 @@ fn a_match_grant_does_not_overwrite_a_characters_authored_moves() {
     let mut app = seating_app();
     app.add_systems(
         Update,
-        ambition_platformer2d_actor_monolith::character_projection::project_prepared_character_definitions,
+        ambition_platformer2d_actor::character_projection::project_prepared_character_definitions,
     );
     app.register_character(
         CharacterDefinition::new("fighter", "Fighter", "demo").with_moveset(signature.clone()),
@@ -1049,7 +1049,7 @@ fn a_seated_fighter_moves_by_its_definitions_motion_model() {
     let mut app = seating_app();
     app.add_systems(
         Update,
-        ambition_platformer2d_actor_monolith::character_projection::project_prepared_character_definitions,
+        ambition_platformer2d_actor::character_projection::project_prepared_character_definitions,
     );
 
     let momentum = MotionModelSpec::SurfaceMomentum(ambition_platformer2d_core::MomentumParams {
@@ -1093,7 +1093,7 @@ fn a_seated_fighter_gets_authored_movement_feel_and_only_when_authored() {
     let mut app = seating_app();
     app.add_systems(
         Update,
-        ambition_platformer2d_actor_monolith::character_projection::project_prepared_character_definitions,
+        ambition_platformer2d_actor::character_projection::project_prepared_character_definitions,
     );
 
     let springy = ambition_platformer2d_core::MovementTuning {
@@ -1156,7 +1156,7 @@ fn a_match_states_its_own_body_numbers_on_every_seat_and_disturbs_nothing_else()
     let mut app = seating_app();
     app.add_systems(
         Update,
-        ambition_platformer2d_actor_monolith::character_projection::project_prepared_character_definitions,
+        ambition_platformer2d_actor::character_projection::project_prepared_character_definitions,
     );
 
     // A character with a body of its own: the fighter somebody designed.
@@ -1779,7 +1779,7 @@ fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
     let mut app = seating_app();
     app.add_systems(
         Update,
-        ambition_platformer2d_actor_monolith::character_projection::project_prepared_character_definitions,
+        ambition_platformer2d_actor::character_projection::project_prepared_character_definitions,
     );
     app.register_character(
         CharacterDefinition::new("veteran", "Veteran", "demo").with_action_set(swiping(3)),
@@ -3553,7 +3553,7 @@ fn fixture_home_body(
     health: ambition_characters::actor::Health,
 ) -> impl Bundle {
     (
-        ambition_platformer2d_actor_monolith::avatar::PlayerSimulationBundle::from_scratch_as_character(
+        ambition_platformer2d_actor::avatar::PlayerSimulationBundle::from_scratch_as_character(
             ambition_characters::control::PlayerSlot::PRIMARY,
             scratch, health, "match-bystander", None,
             &mut ambition_characters::brain::RangedExecution::MovesetVerb,

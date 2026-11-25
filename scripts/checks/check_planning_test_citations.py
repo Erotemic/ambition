@@ -82,7 +82,7 @@ CITED = re.compile(rf"`({_NAME_BODY})`")
 # cutoff there are **2,291 backticked names of which 1,127 do not resolve** --
 # 29/28 at one word, 858/585 at two, 944/422 at three, 351/84 at four, 109/8 at
 # five. The unresolved mass is not broken citations: it is CRATE names
-# (`ambition_platformer2d_actor_monolith`), content ids (`central_hub_main`,
+# (`ambition_platformer2d_actor`), content ids (`central_hub_main`,
 # `cutscene_lab_intro`) and Bevy/std API names, none of which has a `fn`, a `def`
 # or a tracked file with that stem. ⇒ Dropping to five costs three new roads
 # (Cargo package names, `mod NAME`, and a `cite-ok` for a name a page records as

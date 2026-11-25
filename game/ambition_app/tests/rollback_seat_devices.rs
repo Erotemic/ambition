@@ -30,7 +30,7 @@ use ambition_app::rl_sim::{
 // reaches it by.
 use ambition_platformer2d::input::{
     assign_local_seat_devices, track_local_device_order, InputParticipant, LocalDeviceOrder,
-    Platformer2dInputActionMonolith,
+    InputAction,
 };
 use ambition_platformer2d::versus_match::{
     ControllerBinding, MatchParticipant, MatchParticipantRoster,
@@ -137,7 +137,7 @@ fn pad_per_seat(sim: &mut Platformer2dSimHarness) -> Vec<(u8, Option<Entity>)> {
     let world = sim.world_mut();
     let mut query = world.query::<(
         &InputParticipant,
-        &InputMap<Platformer2dInputActionMonolith>,
+        &InputMap<InputAction>,
     )>();
     let mut seats: Vec<(u8, Option<Entity>)> = query
         .iter(world)

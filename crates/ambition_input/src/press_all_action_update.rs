@@ -138,7 +138,7 @@ pub fn actions_without_clash_pass<A: Actionlike>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BindingRecipe, Platformer2dInputActionMonolith as Action, PresetId};
+    use crate::{BindingRecipe, InputAction as Action, PresetId};
     use leafwing_input_manager::plugin::InputManagerPlugin;
 
     /// The copy gives what `process_actions` gives under `PressAll`, with keys

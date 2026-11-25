@@ -86,7 +86,7 @@ If you write a new rendering probe:
 
 - **Art file names on disk.** The generated sheets are git-ignored. If your
   checkout still has `actor_*` files in
-  `crates/ambition_platformer2d_actor_monolith/assets/sprites/`, regenerate or
+  `crates/ambition_platformer2d_actor/assets/sprites/`, regenerate or
   rename them to `performer_*`. `declared_art_resolves` shows when it is done.
 - **Trap duration (tuning, Jon's call).** She crosses the ~465 px stage in 1.9 s
   against a 3.0 s beat, so from mid-stage she waits at a ledge for more than half

@@ -156,7 +156,7 @@ def test_the_repos_own_ratchet_verdicts_are_recorded():
     # 2026-09-12 gate run.
     got = collect([
         "  baseline frozen at b3bd00a4a (2026-09-05T17:07:31-0400), headroom 2%\n",
-        "  REGRESSED  largest_unit_lines (ambition_platformer2d_actor_monolith):"
+        "  REGRESSED  largest_unit_lines (ambition_platformer2d_actor):"
         " 100,742 -> 106,714 (+5,972, budget +2,014).\n",
     ])
     assert any("largest_unit_lines" in line for line in got), got

@@ -262,7 +262,7 @@ lowers `EnemySpawn.path_ref` to `CharacterBrain::Patrol` and rejects a
 simultaneous nonempty legacy `brain` field. It separately accepts
 `brain_profile`; it does not establish every policy combination here.
 The seed attaches `ActorMotionPath`, but the only live advance in
-[`body/movement.rs`](../../../crates/ambition_platformer2d_actor_monolith/src/body/movement.rs)
+[`body/movement.rs`](../../../crates/ambition_platformer2d_actor/src/body/movement.rs)
 is `let _ = motion.advance(self.kin.pos, dt);` after body integration.
 The result is discarded. The
 [patrol brain](../../../crates/ambition_characters/src/brain/state_machine/mod.rs)

@@ -40,7 +40,7 @@ The source review at `6895e5168638` found these representations:
 | `crates/ambition_platformer2d_core/src/effects.rs` | One operation and timer per `(EffectSource, NumericAttribute)` | One application cannot both add and multiply the same attribute. Its second operation replaces the first. Several attributes repeat the lifetime. |
 | `crates/ambition_platformer2d_core/src/ability_projection.rs` | One `AbilityContribution` variant per static source name | A source cannot both lend swimming and impose a flight ceiling without extra source names. Those names need coordinated withdrawal. |
 | `crates/ambition_combat/src/extension/contact.rs` | Every `ControlHoldPort` producer writes the `Sequence` bit | One module can release another module's hold. The adapter discards the producer identity. |
-| `crates/ambition_platformer2d_actor_monolith/src/body/transform_beat.rs` and the pose port in `combat::extension::contact` | Both write or remove `ActorAnimOverride` | A transform's expiry can remove a pose supplied by another owner. `PinnedRow.writer` only partly solves this for named clips. |
+| `crates/ambition_platformer2d_actor/src/body/transform_beat.rs` and the pose port in `combat::extension::contact` | Both write or remove `ActorAnimOverride` | A transform's expiry can remove a pose supplied by another owner. `PinnedRow.writer` only partly solves this for named clips. |
 | `crates/ambition_combat/src/empowerment.rs` | One `Empowered` value with one timer and trait set | Independent temporary grants cannot coexist. A form and one grant can coexist through `empowerment_of`. |
 
 These were source-derived counterexamples at the initial baseline. For

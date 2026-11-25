@@ -81,7 +81,7 @@ scope = "engine"
 path = "crates/ambition_sim_view"
 scope = "engine"
 [[root]]
-path = "crates/ambition_platformer2d_actor_monolith"
+path = "crates/ambition_platformer2d_actor"
 scope = "engine"
 [[root]]
 path = "crates/ambition_platformer2d_session"

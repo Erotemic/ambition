@@ -1,6 +1,6 @@
 //! THE MOUNT PAIR: two linked bodies where one carries the other.
 //!
-//! ⭐⭐ CARVED OUT OF `ambition_platformer2d_actor_monolith` (D33). What made it
+//! ⭐⭐ CARVED OUT OF `ambition_platformer2d_actor` (D33). What made it
 //! carvable was not line count: this module reached the monolith four ways and
 //! all four were removed first — the dismount brain rebuild became an answer to
 //! the `MountDied` this crate already announces, `ResolvedMotionFrame` turned
@@ -2183,7 +2183,7 @@ pub fn enforce_mount_rider_link(
 // The fifteen arms that cover these rules build real riders through the actor
 // monolith's construction road (`ActorClusterSeed`, `ActorDisposition`, the boss
 // systems), so they stayed where their fixtures are:
-// `ambition_platformer2d_actor_monolith::mount_pair_tests`.
+// `ambition_platformer2d_actor::mount_pair_tests`.
 //
 // ⭐ THEY STILL TEST THIS CRATE — from the composition, against the real bodies
 // the game makes, which is the stronger half of the coverage. What is missing is

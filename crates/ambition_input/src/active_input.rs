@@ -192,7 +192,7 @@ pub fn update_seat_active_devices(
     topology: Option<Res<crate::local_seats::LocalSeatTopology>>,
     participants: Query<(
         &crate::participant::InputParticipant,
-        &leafwing_input_manager::prelude::InputMap<crate::Platformer2dInputActionMonolith>,
+        &leafwing_input_manager::prelude::InputMap<crate::InputAction>,
     )>,
     mut devices: ResMut<SeatActiveDevices>,
 ) {

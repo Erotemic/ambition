@@ -11,7 +11,7 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
-use ambition_input::Platformer2dInputActionMonolith as Action;
+use ambition_input::InputAction as Action;
 use ambition_input::{BindingRecipe, PresetId};
 use bevy::prelude::*;
 use leafwing_input_manager::input_map::UpdatedActions;
@@ -69,7 +69,7 @@ fn allocations_of_one_seat_update() {
     let store = app.world().resource::<CentralInputStore>();
 
     for preset in [PresetId::ArrowsZxc, PresetId::WasdJkl] {
-        let map = BindingRecipe::preset(preset).build();
+        let map = fixture_catalog::defaults().recipe(preset).build();
         let (whole, _) = count(|| map.process_actions(None, store, ClashStrategy::PressAll));
         let (clashes, _) = count(|| {
             let mut updated = UpdatedActions::<Action>::default();
@@ -83,3 +83,6 @@ fn allocations_of_one_seat_update() {
         );
     }
 }
+
+#[path = "support/catalog.rs"]
+mod fixture_catalog;

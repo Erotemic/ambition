@@ -408,6 +408,8 @@ fn profile_for_pad(style: crate::GamepadStyle) -> ControllerProfileId {
 pub enum OverrideControl {
     Key(KeyCode),
     Button(GamepadButton),
+    Touch(crate::touch_state::TouchActionButton),
+    Axis(crate::AxisSource),
 }
 
 impl OverrideControl {
@@ -418,6 +420,8 @@ impl OverrideControl {
         match self {
             Self::Key(_) => OverrideDeviceClass::Keyboard,
             Self::Button(_) => OverrideDeviceClass::Gamepad,
+            Self::Touch(_) => OverrideDeviceClass::Touch,
+            Self::Axis(source) => source.device_class(),
         }
     }
 }
@@ -427,6 +431,7 @@ impl OverrideControl {
 pub enum OverrideDeviceClass {
     Keyboard,
     Gamepad,
+    Touch,
 }
 
 /// One persisted override: "this action is on this control instead".
@@ -451,6 +456,10 @@ impl BindingOverride {
             action: action.into(),
             control: OverrideControl::Key(key),
         }
+    }
+
+    pub fn axis(action: impl Into<String>, source: crate::AxisSource) -> Self {
+        Self { action: action.into(), control: OverrideControl::Axis(source) }
     }
 
     pub fn button(action: impl Into<String>, button: GamepadButton) -> Self {

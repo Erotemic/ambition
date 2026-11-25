@@ -631,7 +631,7 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
         air_jumps_remaining: 0,
     };
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-    ambition_platformer2d_actor_monolith::brain_tick::tick_brain_with_actions(&mut brain, &actions, &snapshot, None, &mut frame);
+    ambition_platformer2d_actor::brain_tick::tick_brain_with_actions(&mut brain, &actions, &snapshot, None, &mut frame);
     assert!(
         frame.melee_pressed,
         "a body forced hostile with a melee in its kit should commit a swing \

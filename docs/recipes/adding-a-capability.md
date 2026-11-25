@@ -85,7 +85,7 @@ because `sim_schedule()` defaults to `Update` there.
 
 Define your own components rather than borrowing the actor crate's —
 `capability_demo` has `PulseBody` and `PulseAffected` instead of using
-`BodyKinematics`, and that is what keeps `ambition_platformer2d_actor_monolith` out of its manifest.
+`BodyKinematics`, and that is what keeps `ambition_platformer2d_actor` out of its manifest.
 A composition adapts its bodies to what you describe.
 
 ## 2. An authored schema
@@ -205,7 +205,7 @@ need parallel bare-app, host-app and replay suites.
 The measurement that tells you whether you built a capability or a plugin:
 
 ```bash
-cargo tree -p my_mechanic --edges normal | grep -c 'ambition_platformer2d_actor_monolith\|ambition_platformer2d_runtime'
+cargo tree -p my_mechanic --edges normal | grep -c 'ambition_platformer2d_actor\|ambition_platformer2d_runtime'
 ```
 
 Zero is the target. Non-zero is not automatically wrong — but it should be a

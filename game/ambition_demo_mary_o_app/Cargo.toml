@@ -39,6 +39,7 @@ perf_probe = ["ambition_platformer2d/perf_probe"]
 input = ["ambition_platformer2d/input"]
 
 [dependencies]
+ambition_input_opinions = { path = "../../opinions/ambition_input_opinions" }
 # The engine, host, and vocabulary — through the ONE umbrella surface. A demo app
 # depends on `ambition_platformer2d`, never on `ambition_app`. That is the demo gate.
 # `wasm_modules`: a developer run loads the enemy brains from `.wasm` files

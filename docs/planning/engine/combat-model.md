@@ -196,7 +196,7 @@ when changing its result. Preserve the existing
 [`ResolvedHurtboxes`](../../../crates/ambition_combat/src/hurtbox_resolution.rs)
 rule: `None` means Unauthored, while `Some(empty)` is an authored empty
 answer. Ordinary and boss
-[target-volume publication](../../../crates/ambition_platformer2d_actor_monolith/src/body/target_volumes.rs)
+[target-volume publication](../../../crates/ambition_platformer2d_actor/src/body/target_volumes.rs)
 already respects that priority. Extend it through sprite sampling; do
 not reconstruct a static damageable box merely because a vector is empty.
 Preserve the separate physical collision owner. Boss inspection is not

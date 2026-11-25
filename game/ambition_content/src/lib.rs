@@ -3,7 +3,7 @@
 //! the enemy roster, music cues, and the cross-content validator.
 //!
 //! This is the content crate, distinct from the reusable machinery crate
-//! `ambition_platformer2d_actor_monolith` it depends on. The dependency direction is strict and
+//! `ambition_platformer2d_actor` it depends on. The dependency direction is strict and
 //! one-way — content → machinery, never the reverse — so the named cast and
 //! data installed here build on top of the generic schemas/pipelines that
 //! live machinery-side. Registration flows through one seam,

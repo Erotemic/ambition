@@ -583,7 +583,7 @@ dependencies = [
  "ambition_match",
  "ambition_mount",
  "ambition_persistence",
- "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_assets",
  "ambition_platformer2d_construction",
@@ -617,7 +617,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ambition_platformer2d_actor_monolith"
+name = "ambition_platformer2d_actor"
 version = "0.2.0"
 dependencies = [
  "ambition_abilities",
@@ -820,7 +820,7 @@ dependencies = [
  "ambition_characters",
  "ambition_game_shell",
  "ambition_load",
- "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_construction",
  "ambition_platformer2d_core",
@@ -895,7 +895,7 @@ dependencies = [
  "ambition_match",
  "ambition_mount",
  "ambition_persistence",
- "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_assets",
  "ambition_platformer2d_construction",
@@ -946,7 +946,7 @@ dependencies = [
  "ambition_match",
  "ambition_mount",
  "ambition_persistence",
- "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_assets",
  "ambition_platformer2d_construction",
@@ -1137,7 +1137,7 @@ dependencies = [
  "ambition_interaction",
  "ambition_mount",
  "ambition_persistence",
- "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_core",
  "ambition_platformer2d_interaction",

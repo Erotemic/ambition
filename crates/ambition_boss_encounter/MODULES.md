@@ -42,7 +42,7 @@ _29 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --writ
 
 ## Notes
 
-Carved out of `ambition_platformer2d_actor_monolith` on 2026-08-17 (D33), 7,635
+Carved out of `ambition_platformer2d_actor` on 2026-08-17 (D33), 7,635
 lines. It depends on nothing above it and **no facade re-export stands in the
 monolith** — callers name this crate, or reach it as `ambition_platformer2d::boss_encounter`
 through the umbrella (which is what the `game.*-umbrella-only` policies require of

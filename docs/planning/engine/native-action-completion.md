@@ -26,7 +26,7 @@ bounded guarantees in [immutable content and construction](immutable-content-and
 | Boundary | Current source | Lost fact or incorrect dependency |
 | --- | --- | --- |
 | Ride adapter to summon executor | [`lower_summon_rides`, `answer_ride_summons`](../../../crates/ambition_abilities/src/ride.rs) | The adapter predicts an ID from only its own requests, then treats any matching live entity as success |
-| Shared summon allocation and construction | [`apply_summon_effects`](../../../crates/ambition_platformer2d_actor_monolith/src/body/summon.rs) | All producers share the sequence; the executor discards the actual construction receipt |
+| Shared summon allocation and construction | [`apply_summon_effects`](../../../crates/ambition_platformer2d_actor/src/body/summon.rs) | All producers share the sequence; the executor discards the actual construction receipt |
 | Receipt to post-construction initialization | [`ConstructionReceipt::entity`](../../../crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs) and the summon executor | Reservation and birth statuses scan live IDs even though the receipt already names each new entity |
 | Portable cancellation to native cancellation | [`cancel_actions`](../../../crates/ambition_platformer2d_runtime/src/action_replies.rs) | A new pending action is reserved before native cancellation can run |
 | Action admission | [`ActionMailbox::begin`, `reject`, `record`](../../../crates/ambition_platformer2d_shared_tangle/src/action_results.rs) | The 32-pending bound blocks cancellation; the same journal already supports terminal refusal without a pending slot |

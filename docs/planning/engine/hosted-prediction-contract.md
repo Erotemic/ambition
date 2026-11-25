@@ -152,7 +152,7 @@ mode, or use the latest received tick as a substitute for an authority policy.
 An accepted no-launch damaging hit can reset a spent air dodge and arm
 hitstop, then return without writing velocity. See
 [`apply_body_hit_reaction`](../../../crates/ambition_combat/src/hit_reaction.rs)
-and its [native actor-hit caller](../../../crates/ambition_platformer2d_actor_monolith/src/body/damage/actor_hit.rs).
+and its [native actor-hit caller](../../../crates/ambition_platformer2d_actor/src/body/damage/actor_hit.rs).
 A stationary victim can have unchanged `BodyRow` values while its freeze
 and next legal dodge differ. `LifeRow` transfers current HP and death
 display fields; it does not supply those combat/dodge facts.
@@ -444,8 +444,8 @@ supported unit. Rebuild derived collision state through the existing owner.
 
 `SpawnRow.seat` currently copies the current driver once and also selects
 the home-body constructor. Native possession changes
-[`PossessionState`](../../../crates/ambition_platformer2d_actor_monolith/src/control/possession.rs)
-and claims, then [projects `DrivingParticipant`](../../../crates/ambition_platformer2d_actor_monolith/src/control/authority.rs).
+[`PossessionState`](../../../crates/ambition_platformer2d_actor/src/control/possession.rs)
+and claims, then [projects `DrivingParticipant`](../../../crates/ambition_platformer2d_actor/src/control/authority.rs).
 The wire carries no equivalent assignment change.
 
 Updating the seat field alone would preserve the wrong conflation.

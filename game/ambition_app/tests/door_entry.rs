@@ -92,7 +92,7 @@ fn standing_in_a_door_and_pressing_interact_changes_the_room() {
 fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     use ambition_app::app::shell_host;
     use ambition_platformer2d::game_shell::ShellCommand;
-    use ambition_platformer2d::input::{InputParticipant, Platformer2dInputActionMonolith};
+    use ambition_platformer2d::input::{InputParticipant, InputAction};
     use bevy::asset::AssetPlugin;
     use bevy::image::ImagePlugin;
     use bevy::prelude::*;
@@ -132,12 +132,12 @@ fn a_door_in_the_shipped_host_opens_for_the_interact_key() {
     let interact_key = {
         let world = app.world_mut();
         let mut q = world
-            .query_filtered::<&InputMap<Platformer2dInputActionMonolith>, With<InputParticipant>>();
+            .query_filtered::<&InputMap<InputAction>, With<InputParticipant>>();
         let map = q
             .iter(world)
             .next()
             .expect("the host spawns a primary input participant at boot");
-        map.get_buttonlike(&Platformer2dInputActionMonolith::Interact)
+        map.get_buttonlike(&InputAction::Interact)
             .and_then(|bindings| bindings.first().cloned())
             .expect("Interact has a binding, or no key opens a door at all")
     };

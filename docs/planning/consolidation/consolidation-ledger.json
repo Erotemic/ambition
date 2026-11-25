@@ -395,7 +395,7 @@
       "id": "AUTH-CONTENT-BINDING",
       "category": "authority",
       "name": "Live session content binding",
-      "owner": "ambition_platformer2d_actor_monolith::publication::transaction",
+      "owner": "ambition_platformer2d_actor::publication::transaction",
       "status": "SOURCE_CONFIRMED",
       "complexity": "TRANSITIONAL_COMPLEXITY",
       "current_truth": "ActiveContentBinding is the room-construction commit boundary answer for the content epoch under which the session is live. Session activation and hot reload write it; ordinary transitions and resets do not. CORRECTED 2026-09-16: this item recorded it as a Resource, and it is a Component (`#[derive(bevy::prelude::Component)]`, one declaration, `publication/transaction.rs`). The distinction is load-bearing for C05 -- a Resource is process-global and a Component is carried by an entity, which is the difference between 'another App-global write at the generation boundary' and 'a value the admitted candidate already owns'.",
@@ -823,14 +823,14 @@
       "owner": "ambition_combat::feel",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "Platformer2dFeelTuningMonolith remains the simulation authority. EditableFeelTuning is a desired-value mirror and publishes through the shared edit protocol.",
+      "current_truth": "FeelTuning remains the simulation authority. EditableFeelTuning is a desired-value mirror and publishes through the shared edit protocol.",
       "source_paths": [
         "crates/ambition_combat/src/feel.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "Platformer2dFeelTuningMonolith remains the simulation authority. EditableFeelTuning is a desired-value mirror and publishes through the shared edit protocol.",
+          "claim": "FeelTuning remains the simulation authority. EditableFeelTuning is a desired-value mirror and publishes through the shared edit protocol.",
           "sources": [
             "crates/ambition_combat/src/feel.rs"
           ]
@@ -1405,7 +1405,7 @@
       "source_paths": [
         "crates/ambition_characters/src/brain/fighter/options.rs",
         "crates/ambition_entity_catalog/src/lib.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs"
+        "crates/ambition_platformer2d_actor/src/body/actors/update.rs"
       ],
       "evidence": [
         {
@@ -1413,7 +1413,7 @@
           "claim": "One owner answers how far a move reaches and what region it covers: `MoveSpec::frame_data()`. A grab's reach used to be answered twice -- the catalog folded only hit VOLUMES, which a capture is not (it rides an Active window's `sustain_effect`), so the catalog said every grab reaches nowhere, and `capture_candidate` in the actor tick re-derived `reach`, `coverage` and `ignores_guard` from the capture params and overwrote the catalog's answer after the fact. Every OTHER reader of `frame_data()` -- the fighter brain's option layer, the content tests, the offer census -- got the wrong copy. Measured 2026-09-20: the option layer rejected `polygon_brawler_collar` (58px of authored reach) as unable to touch anybody. The fold now runs in the catalog and `capture_candidate` is a legality gate that reads `frame_data()` like every other caller. SECOND INCREMENT, 2026-09-20, and it went UP a level rather than adding a field: `{reach, speed}` can only describe uniform motion and half the shipped hazards are not uniform. A boomerang decelerates to a standstill at its turnaround, so its average speed is exact at maximum range and nowhere else -- the polygon's ponytail covers 40px of centre travel in 0.111s where the average said 0.186s, 15px of excess lead at a 200px/s closing speed. A laid bomb does not travel at all and sits on a four-second fuse while `speed: 0.0` was documented as \"the whole reach is available the moment it exists\". => `ThreatTravel::{Straight, Boomerang, Placed}` carries the LAW and answers `travel_to(distance)`, returning None for a distance it never covers; a new travel law is a new variant, not a new scalar on an existing one. AND the fuse is not the flight: answering both questions with one function fed four seconds to the aim lead and deleted the polygon's bomb from her repertoire (144/228 -> 131/183, 17 distinct moves -> 15), so `live_at_s` is split from `travel_to`; nothing prices a fuse yet and that is recorded on the type rather than patched into the lead. AND an unresolvable ranged request is now NO hazard: the join returned early and left the request standing, so the one layer that had just proven the press fires nothing handed the brain the 1000px placeholder.",
           "sources": [
             "crates/ambition_entity_catalog/src/lib.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs",
+            "crates/ambition_platformer2d_actor/src/body/actors/update.rs",
             "game/ambition_content/src/pugnacious_polygon_moveset.rs"
           ]
         }
@@ -1485,16 +1485,16 @@
       "complexity": "ACCIDENTAL_COMPLEXITY",
       "current_truth": "Release restores the mind and writes no body fact (2026-09-23). The full account is the `DUP-RELEASE-MIND` row of `architecture-census.md`.",
       "source_paths": [
-        "crates/ambition_platformer2d_actor_monolith/src/body/brain_command.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/body/autonomous_reconcile.rs"
+        "crates/ambition_platformer2d_actor/src/body/brain_command.rs",
+        "crates/ambition_platformer2d_actor/src/body/autonomous_reconcile.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
           "claim": "Release restores the mind and writes no body fact (2026-09-23). The full account is the `DUP-RELEASE-MIND` row of `architecture-census.md`.",
           "sources": [
-            "crates/ambition_platformer2d_actor_monolith/src/body/brain_command.rs",
-            "crates/ambition_platformer2d_actor_monolith/src/body/autonomous_reconcile.rs"
+            "crates/ambition_platformer2d_actor/src/body/brain_command.rs",
+            "crates/ambition_platformer2d_actor/src/body/autonomous_reconcile.rs"
           ]
         }
       ],
@@ -1543,7 +1543,7 @@
         "crates/ambition_combat/src/hitbox/mod.rs",
         "crates/ambition_combat/src/capture/systems.rs",
         "crates/ambition_characters/src/perception.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs",
+        "crates/ambition_platformer2d_actor/src/body/actors/update.rs",
         "crates/ambition_entity_catalog/src/lib.rs"
       ],
       "evidence": [
@@ -2351,7 +2351,7 @@
       ],
       "semantic_lifetime": "developer desired state plus admitted mutable mechanical state",
       "representation": "Resources and, where needed, component projection",
-      "authoritative_for": "Platformer2dFeelTuningMonolith",
+      "authoritative_for": "FeelTuning",
       "classification": "shared protocol present",
       "consolidation_hypothesis": "Keep the central admission protocol. Add any future live mechanical editor domain to this ledger and require an explicit stage map.",
       "metric_tags": [
@@ -3213,8 +3213,8 @@
     {
       "id": "CRATE-ACTOR-MONOLITH",
       "category": "crate_boundary",
-      "name": "ambition_platformer2d_actor_monolith",
-      "owner": "ambition_platformer2d_actor_monolith",
+      "name": "ambition_platformer2d_actor",
+      "owner": "ambition_platformer2d_actor",
       "status": "SOURCE_CONFIRMED",
       "complexity": "UNCERTAIN",
       "current_truth": "Large and multi-responsibility, but durable architecture explicitly says it is not awaiting size-driven carving. Extract only proven owner boundaries that remove dependency/change fanout. \u2b50 MEASURED 2026-09-18, with a correction: the durable architecture says decomposition is not SIZE-driven, and in the same paragraph says this crate is not the desired permanent boundary and the target is a small residual actor kernel. The row carried only the qualifier. The measurement is the `CRATE-ACTOR-MONOLITH` row of `docs/planning/consolidation/architecture-census.md`.",

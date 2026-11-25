@@ -9,7 +9,7 @@
 //! (`ActorMut`, `ActorClusterQueryData`), combat timing, provocation of a body
 //! already in the world, the fighter-ladder projection over live brains and the
 //! dismounted-rider rebuild all belong to the actor kernel
-//! (`ambition_platformer2d_actor_monolith`), which consumes this crate from
+//! (`ambition_platformer2d_actor`), which consumes this crate from
 //! above and is never named by it. A live system may call a builder here; it may
 //! not find a query, a schedule membership or a timing constant here.
 //! `scripts/tests/test_actor_spawn_boundary.py` holds that line.

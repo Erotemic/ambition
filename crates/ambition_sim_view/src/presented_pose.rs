@@ -330,7 +330,7 @@ pub fn advance_presented_body_poses(
     // Optional: an app that registers this system alone has no warps.
     mut warps: Option<ResMut<DeclaredPoseWarps>>,
     // The hitlag law's reference, for the shake's strength (see `pose_view`).
-    feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
+    feel: Option<Res<ambition_combat::feel::FeelTuning>>,
     // Whether this game draws bodies between ticks or ahead of them.
     framing: Option<Res<ambition_platformer2d_shared_tangle::markers::CastFramingTuning>>,
     rules: ambition_combat::rules::CombatTuningOf,

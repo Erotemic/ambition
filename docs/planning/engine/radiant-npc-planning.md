@@ -32,7 +32,7 @@ dialogue, `eureka_nikobolt` and `eureka_coulomba`).
 | Need | What exists | Where |
 |---|---|---|
 | A clock for schedules | `DayClock` and the game-authored `DayCycle` (morning, day, evening, night); rollback state that stops while paused | `ambition_time::day`, Ambition's cycle in `ambition_content::day_cycle` |
-| A goal given to a body from outside | `Errand { fetch: SimId, outcome }` with `Pending` / `Done` / `Refused(NoRoute \| Gone \| HandFull)`, rollback state | `ambition_platformer2d_actor_monolith::body::errand` |
+| A goal given to a body from outside | `Errand { fetch: SimId, outcome }` with `Pending` / `Done` / `Refused(NoRoute \| Gone \| HandFull)`, rollback state | `ambition_platformer2d_actor::body::errand` |
 | Going somewhere with the body's real movement | the in-room surface graph and flight map, the `NavAdvice` the advisor writes, the `Roam` brain that follows it | [navigation](platformer-navigation-and-reachability.md#the-first-slice-a-surface-graph-a-brain-can-follow-2026-10-09) |
 | Going to another room | an errand body crosses a zone into the next live room (`cross_on_errands`); into a room that is not live it leaves through its `Placed` whereabouts row and is rebuilt there when the room is live again | `body::errand`, [the cross-room slices](platformer-navigation-and-reachability.md#the-cross-room-slices-a-character-fetches-an-item-from-another-room-design-2026-10-09) |
 | Facts a plan can test | `world_facts`, `WorldFactConditionsPlugin`, `WorldMemory`, `PerceptionMemory` | [world facts](world-facts-observations-and-memory.md) |
@@ -432,7 +432,7 @@ between a predicted fact and a settled local outcome.
 
 The live and dormant roads currently make that decision differently:
 
-| Owner in [`body::life`](../../../crates/ambition_platformer2d_actor_monolith/src/body/life.rs) | Current decision |
+| Owner in [`body::life`](../../../crates/ambition_platformer2d_actor/src/body/life.rs) | Current decision |
 | --- | --- |
 | `carry_out`, `hold` | A walk needs a valid place and `VisitOutcome::Arrived`; a timed step completes only when due |
 | `live_lives` | A new hour replaces the old plan before `carry_out` settles it |

@@ -65,7 +65,7 @@ No choice in this table is made implicitly by using the word “surface.”
 | Crawler | [Adhesive movement](../../../crates/ambition_platformer2d_core/src/movement/adhesive_crawler.rs) owns its attachment and corner law | Adhesion already has an explicit policy owner; it should not become an accidental effect of all gravity |
 | Frame resolution | [`FrameEnv`](../../../crates/ambition_platformer2d_shared_tangle/src/frame_env.rs) separates the reference basis, gravity response, external forces and carried acceleration | Extend this owner; do not make every force rotate the body |
 | Gravity selection | [`GravityZones` and `gravity_dir_for`](../../../crates/ambition_platformer2d_shared_tangle/src/gravity.rs) select constant directional zones by body overlap and deterministic precedence | A radial or surface field needs a sampling rule in addition to eligibility |
-| Held movement | [`HeldControlFrame`](../../../crates/ambition_platformer2d_actor_monolith/src/control/participant_input.rs) retains the press-time frame for interpreting the current stick through gravity turns | Keeping a local walk command while orbiting requires a different, explicit continuation choice |
+| Held movement | [`HeldControlFrame`](../../../crates/ambition_platformer2d_actor/src/control/participant_input.rs) retains the press-time frame for interpreting the current stick through gravity turns | Keeping a local walk command while orbiting requires a different, explicit continuation choice |
 | Ordinary sweeps | [Integration](../../../crates/ambition_platformer2d_core/src/movement/integration.rs) chooses gravity-X when `down.x != 0`; [collision semantics](../../../crates/ambition_platformer2d_core/src/collision_semantics.rs) use the dominant component | A continuous field exposes contradictory cardinal assumptions |
 | Navigation | [`TraversalEnvelope::measure`](../../../crates/ambition_platformer2d_world/src/navigation/envelope.rs) rejects noncardinal frames | A player proof does not establish NPC navigation around a planet |
 
@@ -564,7 +564,7 @@ or torque on portal-separated material.
 
 ### Held input needs an explicit continuation rule
 
-Current [`hold_stick_through_turns`](../../../crates/ambition_platformer2d_actor_monolith/src/control/participant_input.rs)
+Current [`hold_stick_through_turns`](../../../crates/ambition_platformer2d_actor/src/control/participant_input.rs)
 retains the press-time control frame while interpreting the current held
 stick. For an unchanged stick, this preserves its original world direction
 until release, sufficient redirection or a control/mode change. Small analog

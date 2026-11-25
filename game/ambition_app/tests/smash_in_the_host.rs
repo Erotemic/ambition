@@ -371,7 +371,7 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
         "nothing is paused before anybody presses anything"
     );
 
-    // Escape is `Platformer2dInputActionMonolith::Start` on a keyboard: the pause press.
+    // Escape is `InputAction::Start` on a keyboard: the pause press.
     tap(&mut app, KeyCode::Escape);
     settle(&mut app);
 
@@ -5597,12 +5597,12 @@ fn on_the_smash_pad_y_starts_the_fighters_authored_grab() {
     // Non-vacuity 2: Y is where the smash layout puts Grab.
     {
         use ambition_platformer2d::input::{
-            ActionBindings, PhysicalControl, Platformer2dInputActionMonolith,
+            ActionBindings, PhysicalControl, InputAction,
         };
         use leafwing_input_manager::prelude::InputMap;
         let world = app.world_mut();
         let mut q = world.query_filtered::<
-            &InputMap<Platformer2dInputActionMonolith>,
+            &InputMap<InputAction>,
             With<ambition_platformer2d::input::InputParticipant>,
         >();
         let bound: Vec<PhysicalControl> = q
@@ -5610,7 +5610,7 @@ fn on_the_smash_pad_y_starts_the_fighters_authored_grab() {
             .next()
             .map(|map| {
                 ActionBindings::from_map(map)
-                    .controls(&Platformer2dInputActionMonolith::Grab)
+                    .controls(&InputAction::Grab)
                     .iter()
                     .filter(|control| matches!(control, PhysicalControl::Button(_)))
                     .cloned()
@@ -6019,14 +6019,14 @@ fn on_the_smash_pad_b_jumps_and_a_attacks() {
 #[test]
 fn quitting_a_smash_match_gives_the_pad_back() {
     use ambition_platformer2d::input::{
-        ActionBindings, PhysicalControl, Platformer2dInputActionMonolith,
+        ActionBindings, PhysicalControl, InputAction,
     };
     use leafwing_input_manager::prelude::InputMap;
 
-    fn pad_verbs(app: &mut App, action: Platformer2dInputActionMonolith) -> Vec<PhysicalControl> {
+    fn pad_verbs(app: &mut App, action: InputAction) -> Vec<PhysicalControl> {
         let world = app.world_mut();
         let mut q = world.query_filtered::<
-            &InputMap<Platformer2dInputActionMonolith>,
+            &InputMap<InputAction>,
             With<ambition_platformer2d::input::InputParticipant>,
         >();
         // Any seat: the layout is a fact about the GAME, so every participant
@@ -6047,13 +6047,13 @@ fn quitting_a_smash_match_gives_the_pad_back() {
     let (mut app, _pad, _body) = a_pad_player_fighting_as(OTHER_PREPARED_FIGHTER);
 
     assert_eq!(
-        pad_verbs(&mut app, Platformer2dInputActionMonolith::Jump),
+        pad_verbs(&mut app, InputAction::Jump),
         vec![PhysicalControl::Button(GamepadButton::East)],
         "inside a smash match Jump has to be on B, or nothing else here is a \
          measurement of anything"
     );
     assert_eq!(
-        pad_verbs(&mut app, Platformer2dInputActionMonolith::Special),
+        pad_verbs(&mut app, InputAction::Special),
         vec![PhysicalControl::Button(GamepadButton::West)],
         "inside a smash match Special has to be on X"
     );
@@ -6071,14 +6071,14 @@ fn quitting_a_smash_match_gives_the_pad_back() {
     }
 
     assert_eq!(
-        pad_verbs(&mut app, Platformer2dInputActionMonolith::Jump),
+        pad_verbs(&mut app, InputAction::Jump),
         vec![PhysicalControl::Button(GamepadButton::South)],
         "⛔ ONE SMASH MATCH REDEFINED THE HOST'S PAD. A=Jump is Ambition's \
          default and a mode's layout is a LOAN: the declaration goes back when \
          its experience leaves, exactly like the stage's combat rules"
     );
     assert!(
-        pad_verbs(&mut app, Platformer2dInputActionMonolith::Special).is_empty(),
+        pad_verbs(&mut app, InputAction::Special).is_empty(),
         "Special kept a gamepad button after the smash experience left. The \
          default pad is fully assigned and declines to double-bind one; only a \
          layout may claim one, and only for as long as it is declared"

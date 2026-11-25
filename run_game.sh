@@ -378,7 +378,7 @@ run_dialogue_lint() {
     # Fast pre-flight: catch malformed Yarn markup (e.g. a `[STAGE DIRECTION]`
     # bracket the runtime parses as a tag and panics on at line delivery —
     # "Expected a = inside markup"). Mirrors the authoritative Rust guard
-    # `ambition_platformer2d_actor_monolith::dialog_lint::no_malformed_yarn_markup_tags`, but
+    # `ambition_platformer2d_actor::dialog_lint::no_malformed_yarn_markup_tags`, but
     # runs in milliseconds without a cargo build.
     echo "Linting Yarn dialogue..."
     print_cmd env "PYTHONPATH=$repo_root/tools/ambition_ldtk_tools" \

@@ -7,45 +7,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::gameplay_presentation::ScreenRect;
 
-/// Marker and identity for touch action buttons. Each is a Bevy `Button`
-/// whose `Interaction` is collected into its `TouchInputState` field each
-/// frame; the virtual-device input kinds (`crate::virtual_device`) then
-/// resolve it through the participant's bindings like a physical button.
-/// Leafwing user inputs need the reflect/serde derives.
-#[derive(
-    Component,
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    Hash,
-    bevy::prelude::Reflect,
-    serde::Serialize,
-    serde::Deserialize,
-)]
-pub enum TouchActionButton {
-    Jump,
-    Attack,
-    Special,
-    /// The shared dodge/dash press. Named for the channel, not the outcome:
-    /// the body decides what a press does, and the label comes from the live
-    /// `ControlPrompt`.
-    Burst,
-    Blink,
-    Interact,
-    Projectile,
-    FlyToggle,
-    Shield,
-    /// Capture attempt. Availability-gated like Special: only a body granted
-    /// the verb that also authors a grab shows the button.
-    Grab,
-    /// Sustained-technique slot. Held, not tapped; content decides what
-    /// holding it does (a locomotion mode, a stance).
-    Modifier,
-    Start,
-    Reset,
-}
+pub use ambition_input::touch_state::TouchActionButton;
 
 /// Uniform scale for every touch-control dimension (action cluster, button
 /// positions and sizes, menu row). Smaller than 1.0 so the HUD takes less of

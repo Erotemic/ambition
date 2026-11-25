@@ -66,9 +66,9 @@ content_pack = [
 #   - `ambition_audio`: declaring SILENCE is an audio-catalog registration
 #     (`ModuleDraft::no_audio` → `AudioCatalogFragment`), so the composition
 #     path needs the crate even for a game with no sound. It also arrives via
-#     `ambition_platformer2d_actor_monolith` regardless, so gating the facade edge would cut nothing.
+#     `ambition_platformer2d_actor` regardless, so gating the facade edge would cut nothing.
 #   - 13 more of the 19 "never asked for" crates arrive through
-#     `ambition_platformer2d_actor_monolith` alone; making their facade edges optional would change
+#     `ambition_platformer2d_actor` alone; making their facade edges optional would change
 #     no measurement. They wait on the §4 carve, not on this manifest.
 default = ["all_capabilities"]
 # Every optional edge on: the facade exactly as it was when every edge was
@@ -102,7 +102,7 @@ dialogue = [
     "dep:ambition_dialog",
     "ambition_platformer2d_runtime/dialogue",
     "ambition_platformer2d_host/dialogue",
-    "ambition_platformer2d_actor_monolith/dialogue",
+    "ambition_platformer2d_actor/dialogue",
 ]
 rollback = ["dep:ambition_platformer2d_rollback_ggrs"]
 # ⭐ SPELLED OUT rather than left as the optional dependency's implicit feature,
@@ -124,26 +124,26 @@ ambition_menu = ["dep:ambition_menu", "ambition_platformer2d_runtime/map"]
 # through one facade instead of copying every lower crate into their manifests.
 # `visible` implies the render edge: a visible face draws through
 # `ambition_platformer2d::presentation`, which is `ambition_render`.
-visible = ["physics_debris", "ambition_platformer2d_actor_monolith/visible", "ambition_render"]
-visible_web_base = ["ldtk_runtime", "static_map", "ambition_platformer2d_actor_monolith/visible_web_base"]
-desktop_platform = ["ambition_platformer2d_actor_monolith/desktop_platform"]
-android_platform = ["ambition_platformer2d_actor_monolith/android_platform"]
+visible = ["physics_debris", "ambition_platformer2d_actor/visible", "ambition_render"]
+visible_web_base = ["ldtk_runtime", "static_map", "ambition_platformer2d_actor/visible_web_base"]
+desktop_platform = ["ambition_platformer2d_actor/desktop_platform"]
+android_platform = ["ambition_platformer2d_actor/android_platform"]
 web_platform = [
-    "ambition_platformer2d_actor_monolith/web_platform",
+    "ambition_platformer2d_actor/web_platform",
     # The rollback backend owns the wasm clock requirement.
     "ambition_platformer2d_rollback_ggrs?/web_platform",
 ]
-web_served = ["ambition_platformer2d_actor_monolith/web_served"]
+web_served = ["ambition_platformer2d_actor/web_served"]
 web_audio = ["audio"]
-headless = ["ambition_platformer2d_actor_monolith/headless"]
+headless = ["ambition_platformer2d_actor/headless"]
 dev_tools = [
-    "ambition_platformer2d_actor_monolith/dev_tools",
+    "ambition_platformer2d_actor/dev_tools",
     # Weak: developer tooling configures the settings capability when present;
     # it must not pull the settings/system-menu IR into a composition that did
     # not select that capability.
     "ambition_settings_menu?/dev_tools",
 ]
-dev_hot_reload = ["ambition_platformer2d_actor_monolith/dev_hot_reload"]
+dev_hot_reload = ["ambition_platformer2d_actor/dev_hot_reload"]
 static_map = ["ambition_asset_manager/static_map", "dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/static_map"]
 ldtk_runtime = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime"]
 # Load procedural modules from `.wasm` files at startup, so a module edit
@@ -154,7 +154,7 @@ wasm_modules = ["ambition_platformer2d_runtime/wasm_modules", "dep:ambition_exte
 script_modules = ["ambition_platformer2d_runtime/script_modules"]
 physics_debris = ["ambition_platformer2d_runtime/physics_debris"]
 frame_pacing = ["ambition_render", "ambition_platformer2d_host/frame_pacing"]
-profile = ["ambition_platformer2d_actor_monolith/profile"]
+profile = ["ambition_platformer2d_actor/profile"]
 # Allocation and archetype-churn attribution: `ambition_dev_tools::perf_probe`.
 perf_probe = ["ambition_dev_tools/perf_probe"]
 portal_ldtk = ["portal", "ldtk_runtime", "ambition_platformer2d_ldtk/portal_ldtk"]
@@ -170,7 +170,7 @@ mobile_touch = ["ambition_touch_input/mobile_touch"]
 portal = [
     "ambition_portal2d",
     "ambition_held_items/portal",
-    "ambition_platformer2d_actor_monolith/portal",
+    "ambition_platformer2d_actor/portal",
     "ambition_platformer2d_runtime/portal",
     "ambition_platformer2d_host/portal",
 ]
@@ -184,9 +184,9 @@ audio = [
     "ambition_audio/kira",
     "ambition_platformer2d_provider/audio",
 ]
-ui = ["ambition_platformer2d_actor_monolith/ui", "ambition_conversation?/ui"]
-bevy_ui_menu = ["ambition_platformer2d_actor_monolith/bevy_ui_menu", "ambition_menu/bevy_ui_menu"]
-kaleidoscope_menu = ["ambition_platformer2d_actor_monolith/kaleidoscope_menu", "ambition_menu/kaleidoscope_menu"]
+ui = ["ambition_platformer2d_actor/ui", "ambition_conversation?/ui"]
+bevy_ui_menu = ["ambition_platformer2d_actor/bevy_ui_menu", "ambition_menu/bevy_ui_menu"]
+kaleidoscope_menu = ["ambition_platformer2d_actor/kaleidoscope_menu", "ambition_menu/kaleidoscope_menu"]
 relativity = ["dep:ambition_relativity", "dep:ambition_relativity2d"]
 basic_shell_presentation = [
     "load_presentation",
@@ -217,7 +217,7 @@ ambition_damage = { path = "../ambition_damage" }
 ambition_mount = { path = "../ambition_mount" }
 ambition_shrine = { path = "../ambition_shrine" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
-ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false }
+ambition_platformer2d_actor = { path = "../ambition_platformer2d_actor", default-features = false }
 ambition_platformer2d_publication = { path = "../ambition_platformer2d_publication" }
 ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
 # Re-exported as `world_items`: the touched-collectible domain the kernel gave
@@ -246,7 +246,7 @@ ambition_interaction = { path = "../ambition_interaction" }
 # ⛔⛔ THE EIGHT BELOW ARE NOT OPTIONAL AND ADVERTISING THEM WAS THE DEFECT (A9).
 # Measured by `scripts/measure/measure_minimum_profile_parentage.py`: each is linked by a
 # NON-OPTIONAL dependency of this facade -- every one of them by
-# `ambition_platformer2d_actor_monolith` and/or `ambition_platformer2d_runtime`,
+# `ambition_platformer2d_actor` and/or `ambition_platformer2d_runtime`,
 # which are the engine and can never be optional. So no feature a consumer
 # selects could ever make them absent, while the manifest offered them as
 # declinable. ⇒ The promise is WITHDRAWN rather than the edge removed, because

@@ -68,7 +68,7 @@ For a targeted check, choose the owner that changed:
 
 ```bash
 ./run_tests.sh -p ambition_characters -k <new_policy>
-./run_tests.sh -p ambition_platformer2d_actor_monolith -k <new_action>
+./run_tests.sh -p ambition_platformer2d_actor -k <new_action>
 ```
 
 The examples are alternatives, not a requirement to run both or the entire

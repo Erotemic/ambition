@@ -10,8 +10,8 @@
 //!
 //! `ResolvedCombatTuning` has to live at or below `ambition_combat`, because
 //! `on_hit`, `hitbox` and `targeting` are its readers. Its INPUTS do not both
-//! live there — `di_max_angle` belongs to `ambition_platformer2d_actor_monolith`' feel tuning — so
-//! the projection system lives in `ambition_platformer2d_actor_monolith`, one layer up, where both
+//! live there — `di_max_angle` belongs to `ambition_platformer2d_actor`' feel tuning — so
+//! the projection system lives in `ambition_platformer2d_actor`, one layer up, where both
 //! inputs are visible. Ownership travels down with the type; the fold happens
 //! where the facts are.
 
@@ -418,7 +418,7 @@ pub struct CombatRules {
     /// struck body keeps the attack verb once the short recoil lock clears.
     /// `true` is the genre's: a body in hitstun can DI and nothing else, which
     /// is what makes a landed hit an advantage. See
-    /// `crate::feel::Platformer2dFeelTuningMonolith::hitstun_locks_actions`.
+    /// `crate::feel::FeelTuning::hitstun_locks_actions`.
     pub hitstun_locks_actions: Option<bool>,
     /// Does a connect freeze the WORLD (`impact_hitstop`: the sim clock, for
     /// every body in the match)? `None`/`true` is the engine's rule, the beat
@@ -632,7 +632,7 @@ impl ResolvedCombatTuning {
     /// the input gate): the stage's rule is the authority and the baseline is
     /// only what an undeclared world keeps. A field added here reaches every
     /// reader; a field folded at one site reached one.
-    pub fn fold_into_feel(&self, feel: &mut crate::feel::Platformer2dFeelTuningMonolith) {
+    pub fn fold_into_feel(&self, feel: &mut crate::feel::FeelTuning) {
         feel.di_max_angle = self.di_max_angle;
         feel.sakurai_angle = self.sakurai_angle;
         feel.meteor_lock_time = self.meteor_lock_time;
@@ -704,11 +704,11 @@ impl ResolvedCombatTuning {
     /// resources resolves the same as one with them untouched.
     pub fn resolve_over(
         declared: Option<CombatRules>,
-        baseline_feel: Option<&crate::feel::Platformer2dFeelTuningMonolith>,
+        baseline_feel: Option<&crate::feel::FeelTuning>,
         baseline_ff: Option<&crate::targeting::FriendlyFire>,
     ) -> Self {
         let baseline_di = baseline_feel.map_or_else(
-            || crate::feel::Platformer2dFeelTuningMonolith::default().di_max_angle,
+            || crate::feel::FeelTuning::default().di_max_angle,
             |feel| feel.di_max_angle,
         );
         let baseline_ff = baseline_ff.copied().unwrap_or_default().enabled;
@@ -929,7 +929,7 @@ mod tests {
     fn a_world_without_its_baselines_resolves_as_one_with_them_untouched() {
         let untouched = ResolvedCombatTuning::resolve_over(
             None,
-            Some(&crate::feel::Platformer2dFeelTuningMonolith::default()),
+            Some(&crate::feel::FeelTuning::default()),
             Some(&crate::targeting::FriendlyFire::default()),
         );
         assert_eq!(ResolvedCombatTuning::resolve_over(None, None, None), untouched);

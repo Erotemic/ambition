@@ -259,6 +259,6 @@ pub(crate) fn spawn_binding_participant(app: &mut App, owner: ambition_platforme
         ambition_platformer2d::input::InputParticipant::with_id(owner),
         recipe.build(),
         recipe,
-        leafwing_input_manager::prelude::ActionState::<ambition_platformer2d::input::Platformer2dInputActionMonolith>::default(),
+        leafwing_input_manager::prelude::ActionState::<ambition_platformer2d::input::InputAction>::default(),
     )).id()
 }

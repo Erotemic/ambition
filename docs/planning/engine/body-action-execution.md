@@ -47,11 +47,11 @@ The following are source findings. The proposed tests below have not been run.
 | --- | --- |
 | [`apply_post_hit_input_gates`](../../../crates/ambition_combat/src/attack_support.rs) | Reaction, guard and landing locks filter a local movement `InputState` |
 | [`trigger_moveset_moves`](../../../crates/ambition_combat/src/moveset/mod.rs) | Ordinary and buffered starts read raw actor control plus selected movement gates, but do not read `BodyCombat` |
-| [Actor integration](../../../crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs), [movement adapter](../../../crates/ambition_platformer2d_actor_monolith/src/body/movement.rs) | The adapter filters movement input, then republishes the actor control frame; that frame is not the filtered input |
+| [Actor integration](../../../crates/ambition_platformer2d_actor/src/body/actors/update.rs), [movement adapter](../../../crates/ambition_platformer2d_actor/src/body/movement.rs) | The adapter filters movement input, then republishes the actor control frame; that frame is not the filtered input |
 | [Combat schedule](../../../crates/ambition_platformer2d_runtime/src/combat_schedule.rs) | Move triggers run before `resolve_aerial_landings` charges landing lag |
 | [Hit reaction](../../../crates/ambition_combat/src/hit_reaction.rs) and [move teardown callers](../../../crates/ambition_combat/src/moveset/mod.rs) | Ordinary hit reaction does not retire the victim's active `MovePlayback`; capture, guard, clank, landing and leaving play have their own teardown paths |
 | [`advance_move_playback`](../../../crates/ambition_combat/src/moveset/mod.rs), [body step](../../../crates/ambition_characters/src/actor/body_step.rs) | Move time uses proper time and room freeze; body hitlag separately stops movement. The move query has no body-hitlag input |
-| [`decay_reaction_timers`](../../../crates/ambition_characters/src/actor/body.rs), [reaction schedule adapter](../../../crates/ambition_platformer2d_actor_monolith/src/body/reactions.rs) | Hitstop expires in unscaled step time. The current thaw calculation subtracts that duration from proper time |
+| [`decay_reaction_timers`](../../../crates/ambition_characters/src/actor/body.rs), [reaction schedule adapter](../../../crates/ambition_platformer2d_actor/src/body/reactions.rs) | Hitstop expires in unscaled step time. The current thaw calculation subtracts that duration from proper time |
 | [Single-room clock policy](../../../crates/ambition_platformer2d_runtime/src/sim_clock/time_control/mod.rs) | A primary driven body's hitstop can stop the world independently of the room's `world_freezes_on_hit` rule |
 | [`tick_knockdown`, `resolve_getup`](../../../crates/ambition_platformer2d_core/src/movement/knockdown.rs) | A tech or getup clears prone/tumble state, grants invulnerability and assigns velocity; it has no separate action duration |
 | [Movement facts](../../../crates/ambition_platformer2d_core/src/movement/facts.rs) | The visible getup kind is present only while `getup_invuln_timer` is positive |
@@ -339,7 +339,7 @@ refire floor. Later, `dispatch_move_events` resolves the then-current ranged
 source or the move's brandished weapon. It sends
 [`RangedCommitment::CommittedMove`](../../../crates/ambition_characters/src/brain/action_set/mod.rs)
 with a move occurrence, but no selected weapon binding. The
-[projectile consumer](../../../crates/ambition_platformer2d_actor_monolith/src/body/brain_effects.rs)
+[projectile consumer](../../../crates/ambition_platformer2d_actor/src/body/brain_effects.rs)
 therefore skips the new source's readiness checks. A form/equipment change
 can retain the move while replacing that source. The old occurrence answers
 whose shot this is; it does not prove that the selected weapon was admitted.

@@ -171,10 +171,10 @@ it fires, that domain needs `ResMut<CausalRecording>` instead.
 ## Turning it on in a build
 
 `causal` is an optional, default-OFF feature on `ambition_platformer2d_runtime` and
-`ambition_platformer2d_actor_monolith` — a game that never opens an inspector must not link one.
+`ambition_platformer2d_actor` — a game that never opens an inspector must not link one.
 
 ```bash
-cargo test -p ambition_platformer2d_actor_monolith --features causal
+cargo test -p ambition_platformer2d_actor --features causal
 cargo test -p ambition_platformer2d_runtime --features causal
 ```
 

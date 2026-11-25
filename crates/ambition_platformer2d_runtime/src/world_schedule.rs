@@ -4,8 +4,8 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 #[cfg(test)]
 use ambition_platformer2d_shared_tangle::schedule::ActorDecisionSet;
-use ambition_platformer2d_actor_monolith::body::*;
-use ambition_platformer2d_actor_monolith::body;
+use ambition_platformer2d_actor::body::*;
+use ambition_platformer2d_actor::body;
 use ambition_boss_encounter::ecs::{
     drive_boss_animators, project_boss_attack_state_from_move, update_ecs_bosses,
 };
@@ -135,7 +135,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // release that announces its end, so both land this tick.
                 crate::effect_bus::apply_npc_provocations
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_persistence::npc_provocation::NpcProvocationChanged>)
-                    .after(ambition_platformer2d_actor_monolith::body::apply_release_provocations),
+                    .after(ambition_platformer2d_actor::body::apply_release_provocations),
                 crate::effect_bus::apply_gameplay_sfx_effects
                     .run_if(ambition_platformer2d_core::a_message_waits::<ambition_combat::events::GameplaySfxRequested>),
             )
@@ -232,11 +232,11 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             // the conversation plugin. the CHANNEL is untouched — chests, pickups and
             // interactions still write it from inside the simulation, and `sim_core_resources`
             // registers it.
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::body::ChallengeRequested>::default(),
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::body::BrainCommand>::default(),
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::body::ReleaseProvocation>::default(),
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::body::PetRequested>::default(),
-            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor_monolith::body::WearRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor::body::ChallengeRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor::body::BrainCommand>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor::body::ReleaseProvocation>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor::body::PetRequested>::default(),
+            ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_actor::body::WearRequested>::default(),
             ambition_conversation::NarrativeInputPlugin::<ambition_items::ItemGrantRequested>::default(),
             // `<<checkpoint>>`: a dialogue banks what it gave (Q164).
             ambition_conversation::NarrativeInputPlugin::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointEstablishRequested>::default(),
@@ -246,11 +246,11 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // body writes them too, and their readers validate on tick one.
         #[cfg(not(feature = "dialogue"))]
         {
-            app.add_message::<ambition_platformer2d_actor_monolith::body::ChallengeRequested>();
-            app.add_message::<ambition_platformer2d_actor_monolith::body::BrainCommand>();
-            app.add_message::<ambition_platformer2d_actor_monolith::body::ReleaseProvocation>();
-            app.add_message::<ambition_platformer2d_actor_monolith::body::PetRequested>();
-            app.add_message::<ambition_platformer2d_actor_monolith::body::WearRequested>();
+            app.add_message::<ambition_platformer2d_actor::body::ChallengeRequested>();
+            app.add_message::<ambition_platformer2d_actor::body::BrainCommand>();
+            app.add_message::<ambition_platformer2d_actor::body::ReleaseProvocation>();
+            app.add_message::<ambition_platformer2d_actor::body::PetRequested>();
+            app.add_message::<ambition_platformer2d_actor::body::WearRequested>();
             app.add_message::<ambition_items::ItemGrantRequested>();
             app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointEstablishRequested>();
             app.add_message::<ambition_items::shop::ShopTransactionRequested>();
@@ -310,11 +310,11 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             .add_systems(
                 sim,
                 (
-                    ambition_platformer2d_actor_monolith::body::select_interactions
+                    ambition_platformer2d_actor::body::select_interactions
                         .in_set(ambition_platformer2d_interaction::InteractSelectionSet)
                         .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PlayerInput)
                         .after(ambition_characters::control::PrimarySlotInputCommit),
-                    ambition_platformer2d_actor_monolith::body::project_mount_presses
+                    ambition_platformer2d_actor::body::project_mount_presses
                         .after(ambition_platformer2d_interaction::InteractSelectionSet)
                         .before(ambition_mount::MountsCommandeered),
                 ),
@@ -324,9 +324,9 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // consumer of finished control reads the walk.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::control::drive_commanded_moves
+            ambition_platformer2d_actor::control::drive_commanded_moves
                 .run_if(bevy::prelude::any_with_component::<ambition_characters::control::CommandedMove>)
-                .after(ambition_platformer2d_actor_monolith::control::blank_scripted_control_frames)
+                .after(ambition_platformer2d_actor::control::blank_scripted_control_frames)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::ControlGate),
         );
         // The cast half of the conversation break. It sits in a set the
@@ -335,7 +335,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         #[cfg(feature = "dialogue")]
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::body::speak_conversation_cut_barks
+            ambition_platformer2d_actor::body::speak_conversation_cut_barks
                 .run_if(ambition_platformer2d_core::a_message_waits::<ambition_conversation::ConversationCutBark,
                     >,
                 )
@@ -595,7 +595,7 @@ pub struct WorldPrepSchedulePlugin;
 impl Plugin for WorldPrepSchedulePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        app.add_plugins(ambition_platformer2d_actor_monolith::body::BodySimulationPlugin);
+        app.add_plugins(ambition_platformer2d_actor::body::BodySimulationPlugin);
         // The authored difficulty rung over each fighter brain, in the same
         // decision preparation set.
         app.add_plugins(ambition_combat::brain::fighter::ladder::FighterLadderPlugin);

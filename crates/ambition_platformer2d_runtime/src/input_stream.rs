@@ -90,7 +90,7 @@ pub fn record_input_stream(
     stream.push(
         tick.get(),
         (0..slot_count).map(|slot| {
-            ambition_platformer2d_actor_monolith::control::seat_frame_this_tick(
+            ambition_platformer2d_actor::control::seat_frame_this_tick(
                 latches.as_deref(),
                 rollback.as_deref(),
                 &slots,

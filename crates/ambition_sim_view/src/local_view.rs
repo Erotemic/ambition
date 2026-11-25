@@ -166,7 +166,7 @@ fn declared_subject(
 ) -> Option<Entity> {
     subject.map(|subject| subject.0).or_else(|| {
         participant.and_then(|participant| {
-            ambition_platformer2d_actor_monolith::control::body_driving_seat(drivers, participant.0)
+            ambition_platformer2d_actor::control::body_driving_seat(drivers, participant.0)
         })
     })
 }
@@ -328,7 +328,7 @@ pub fn split_views_by_live_room(
     let seats: Vec<(PlayerSlot, ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance)> = slots
         .into_iter()
         .filter_map(|slot| {
-            let body = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot)?;
+            let body = ambition_platformer2d_actor::control::body_driving_seat(&drivers, slot)?;
             Some((slot, live.of(body)?))
         })
         .collect();
@@ -389,7 +389,7 @@ pub fn split_views_by_live_room(
         }
         Some(policy) => {
             // Each other seat's body against seat zero's, in seat zero's room.
-            let anchor = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, PlayerSlot::PRIMARY)
+            let anchor = ambition_platformer2d_actor::control::body_driving_seat(&drivers, PlayerSlot::PRIMARY)
                 .and_then(|body| bodies.get(body).ok().map(|kin| (body, kin.pos)));
             let offsets: Vec<ambition_platformer2d_core::Vec2> = anchor
                 .map(|(anchor, at)| {
@@ -397,7 +397,7 @@ pub fn split_views_by_live_room(
                         .iter()
                         .filter(|(slot, room)| *slot != PlayerSlot::PRIMARY && Some(*room) == live.of(anchor))
                         .filter_map(|(slot, _)| {
-                            let body = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, *slot)?;
+                            let body = ambition_platformer2d_actor::control::body_driving_seat(&drivers, *slot)?;
                             Some((bodies.get(body).ok()?.pos - at).abs())
                         })
                         .collect()
@@ -461,7 +461,7 @@ pub fn split_views_by_live_room(
     // is not resolved yet, so the declaration is asked, by the rule the
     // resolve uses.
     let shows = |slot: PlayerSlot| {
-        let body = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot);
+        let body = ambition_platformer2d_actor::control::body_driving_seat(&drivers, slot);
         views.iter().any(|(_, _, subject, participant, _, _, _, focus)| {
             let participant = participant.filter(|participant| !(leader.is_none()
                 && focus.is_some_and(|focus| **participant == ViewParticipant(focus.0))));
@@ -1469,7 +1469,7 @@ mod tests {
         let mut admitted = SessionParticipants::default(); admitted.admit(PlayerSlot(0)); admitted.admit(PlayerSlot(1));
         app.world_mut().spawn((SessionRoot(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1)), party, admitted));
         app.world_mut().spawn((ambition_input::InputParticipant::with_id(ambition_input::ParticipantId(1)),
-            ambition_input::KeyboardPreset::arrows_zxc().input_map()));
+            crate::fixture_catalog::recipe(ambition_input::PresetId::ArrowsZxc).build()));
         let room = LiveRoomInstance::ACTIVATION;
         let leader = app.world_mut().spawn((DrivingParticipant(PlayerSlot(0)), InRoomInstance(room),
             BodyWallet { balance: 7 }, BodyHealth::new(Health::new(5)),
@@ -1487,7 +1487,7 @@ mod tests {
         assert_eq!(app.world().get::<SharedViewHudFacts>(view).unwrap().0.iter().map(|(slot, facts)| (*slot, facts.balance)).collect::<Vec<_>>(),
             vec![(PlayerSlot(1), 9)]);
         app.world_mut().run_system_once(rebuild_party_return_prompts).unwrap();
-        let expected = app.world().resource::<ambition_input::SeatBindings>().label(1, &ambition_input::Platformer2dInputActionMonolith::Reset).unwrap();
+        let expected = app.world().resource::<ambition_input::SeatBindings>().label(1, &ambition_input::InputAction::Reset).unwrap();
         assert_eq!(app.world().resource::<PartyReturnPrompts>().0.get(&PlayerSlot(1)), Some(&format!("{expected}: Return to leader")));
         app.world_mut().entity_mut(follower).insert(InRoomInstance(room));
         app.world_mut().run_system_once(rebuild_party_return_prompts).unwrap();

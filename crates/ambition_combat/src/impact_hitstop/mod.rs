@@ -106,7 +106,7 @@ fn is_a_connect(source: &crate::HitSource) -> bool {
 /// connect, which `LandedBodyHit` used to answer by construction.
 pub fn request_impact_hitstop_on_resolved_hits(
     mut hits: ReplayMessageReader<crate::hitbox::ResolvedBodyHit>,
-    feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
+    feel: Option<Res<crate::feel::FeelTuning>>,
     room_rules: crate::rules::CombatTuningOf,
     tick: Option<Res<ambition_time::SimTick>>,
     mut hold: ResMut<ImpactHitstop>,

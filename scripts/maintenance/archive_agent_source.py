@@ -168,12 +168,12 @@ CONFIG = {
     'cargo_check_warnings_output': '.agent/reports/cargo-check-warnings.md',
     'cargo_modules_reports': [
         {
-            'output': '.agent/reports/module-tree-ambition_platformer2d_actor_monolith.md',
-            'command': ['cargo', 'modules', 'structure', '--package', 'ambition_platformer2d_actor_monolith', '--lib'],
+            'output': '.agent/reports/module-tree-ambition_platformer2d_actor.md',
+            'command': ['cargo', 'modules', 'structure', '--package', 'ambition_platformer2d_actor', '--lib'],
         },
         {
-            'output': '.agent/reports/module-dependencies-ambition_platformer2d_actor_monolith.md',
-            'command': ['cargo', 'modules', 'dependencies', '--package', 'ambition_platformer2d_actor_monolith', '--lib'],
+            'output': '.agent/reports/module-dependencies-ambition_platformer2d_actor.md',
+            'command': ['cargo', 'modules', 'dependencies', '--package', 'ambition_platformer2d_actor', '--lib'],
         },
     ],
 

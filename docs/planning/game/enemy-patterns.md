@@ -57,7 +57,7 @@ Row names are the contract. A sheet without a row draws as before (`PinnedRow`).
 - **`windup`:** pinned over a melee swing's startup, a skirmisher's volley windup, and a flyer's tell before its dive. An exaggerated, held anticipation pose: crouched, cocked, horns down. Every frame is the full pose, because the row loops on the sim clock and only a small shiver is allowed.
 - **`attack_side`:** the strike. It is played by the move's progress over the whole move, so the frames after the windup land on the strike and the recovery. A row alias (`ROW_ALIASES`) can name another clip, e.g. the raptor's `attack_side` is its `pounce`.
 
-The pin system is `body::pin_telegraph_rows` (`ambition_platformer2d_actor_monolith/src/body/telegraph_rows.rs`). It runs after the fade rows, and leaves another writer's pin alone.
+The pin system is `body::pin_telegraph_rows` (`ambition_platformer2d_actor/src/body/telegraph_rows.rs`). It runs after the fade rows, and leaves another writer's pin alone.
 
 ## The primeval trail (done 2026-10-30)
 

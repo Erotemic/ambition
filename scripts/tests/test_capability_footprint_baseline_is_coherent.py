@@ -41,7 +41,7 @@ BASELINE = REPO / "scripts/baselines/capability-footprint-baseline.json"
 #: The lists whose members must all be crates the sentinel actually links.
 SUBSET_KEYS = (
     "never_asked_for",
-    "reachable_via_ambition_platformer2d_actor_monolith_alone",
+    "reachable_via_ambition_platformer2d_actor_alone",
     "reachable_only_through_the_facade",
 )
 
@@ -139,7 +139,7 @@ def test_the_two_reachability_lists_do_not_overlap(baseline):
     """`why_the_split_matters` rests on them being different questions: one is
     closable by a manifest change and the other is not. A crate in both makes
     that sentence false."""
-    both = set(baseline["reachable_via_ambition_platformer2d_actor_monolith_alone"]) & set(
+    both = set(baseline["reachable_via_ambition_platformer2d_actor_alone"]) & set(
         baseline["reachable_only_through_the_facade"]
     )
     assert not both, f"a crate cannot be in both reachability lists: {sorted(both)}"

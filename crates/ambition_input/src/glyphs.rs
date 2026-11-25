@@ -18,8 +18,10 @@ use bevy::prelude::*;
 
 use crate::active_input::{ActiveDevice, GamepadStyle};
 use crate::bindings::{action_for_slot, ActionBindings, PhysicalControl, SeatBindings};
-use crate::presets::{KeyboardPreset, PresetId};
-use crate::Platformer2dInputActionMonolith;
+use crate::presets::PresetId;
+#[cfg(test)]
+use crate::presets::KeyboardPreset;
+use crate::InputAction;
 
 /// Name the glyph that represents `action` on `device`, for a seat whose
 /// bindings are `bindings` and whose keyboard preset is `preset`.
@@ -27,8 +29,8 @@ use crate::Platformer2dInputActionMonolith;
 /// The mouse draws keyboard glyphs, because it is part of the
 /// keyboard-and-mouse pair.
 pub fn glyph_for(
-    action: Platformer2dInputActionMonolith,
-    preset: &KeyboardPreset,
+    action: InputAction,
+    preset: PresetId,
     bindings: &ActionBindings,
     device: ActiveDevice,
 ) -> Cow<'static, str> {
@@ -46,7 +48,7 @@ pub fn glyph_for(
 /// can fall back instead. Each call site states its own miss policy.
 fn bound_control(
     bindings: &ActionBindings,
-    action: Platformer2dInputActionMonolith,
+    action: InputAction,
     want_key: bool,
 ) -> Option<&PhysicalControl> {
     let device = if want_key {
@@ -59,82 +61,28 @@ fn bound_control(
     bindings.control_for(&action, device)
 }
 
-/// Keyboard glyph for an action.
-///
-/// Movement returns the preset's summary label ("Arrows" / "WASD"), which
-/// names four keys at once. Other verbs come from the seat's live binding.
-fn keyboard_glyph(
-    action: Platformer2dInputActionMonolith,
-    preset: &KeyboardPreset,
-    bindings: &ActionBindings,
-) -> Cow<'static, str> {
-    let movement_label = match preset.id {
-        PresetId::ArrowsZxc | PresetId::ArrowsQwer => "Arrows",
-        PresetId::WasdJkl | PresetId::WasdUipo => "WASD",
-    };
-    match action {
-        Platformer2dInputActionMonolith::Move
-        | Platformer2dInputActionMonolith::MoveLeft
-        | Platformer2dInputActionMonolith::MoveRight
-        | Platformer2dInputActionMonolith::MoveUp
-        | Platformer2dInputActionMonolith::MoveDown
-        | Platformer2dInputActionMonolith::MenuStick => Cow::Borrowed(movement_label),
-        Platformer2dInputActionMonolith::MenuNavigateUp
-        | Platformer2dInputActionMonolith::MenuNavigateDown
-        | Platformer2dInputActionMonolith::MenuNavigateLeft
-        | Platformer2dInputActionMonolith::MenuNavigateRight => Cow::Borrowed(movement_label),
-        // Pogo has no dedicated key on every preset. The fallback is a chord,
-        // which no single binding can name.
-        Platformer2dInputActionMonolith::Pogo
-            if bound_control(bindings, action, true).is_none() =>
-        {
-            Cow::Borrowed("D+X")
+/// Derive the familiar movement summary from the actual direction bindings.
+/// The preset identifier is not a source of physical controls.
+fn keyboard_glyph(action: InputAction, _preset: PresetId, bindings: &ActionBindings) -> Cow<'static, str> {
+    if action == InputAction::Move && (bindings.contextual_rows().is_none() || bindings.controls(&action).contains(&PhysicalControl::Axis(crate::AxisSource::KeyboardDirections))) {
+        let directions = [InputAction::MoveUp, InputAction::MoveLeft, InputAction::MoveDown, InputAction::MoveRight];
+        let keys = directions.map(|direction| bound_control(bindings, direction, true));
+        if keys == [Some(&PhysicalControl::Key(KeyCode::ArrowUp)), Some(&PhysicalControl::Key(KeyCode::ArrowLeft)),
+                    Some(&PhysicalControl::Key(KeyCode::ArrowDown)), Some(&PhysicalControl::Key(KeyCode::ArrowRight))] {
+            return Cow::Borrowed("Arrows");
         }
-        _ => match bound_control(bindings, action, true) {
-            Some(control) => Cow::Owned(control.label()),
-            None => Cow::Borrowed(""),
-        },
+        if keys == [Some(&PhysicalControl::Key(KeyCode::KeyW)), Some(&PhysicalControl::Key(KeyCode::KeyA)),
+                    Some(&PhysicalControl::Key(KeyCode::KeyS)), Some(&PhysicalControl::Key(KeyCode::KeyD))] {
+            return Cow::Borrowed("WASD");
+        }
+        let label = keys.into_iter().flatten().map(PhysicalControl::label).collect::<Vec<_>>().join(" / ");
+        return Cow::Owned(label);
     }
+    bound_control(bindings, action, true).map_or(Cow::Borrowed(""), |control| Cow::Owned(control.label()))
 }
 
-/// Gamepad glyph for an action under the given vendor style.
-///
-/// The binding projection gives the control; only the vendor spelling is a
-/// table.
-fn gamepad_glyph(
-    action: Platformer2dInputActionMonolith,
-    style: GamepadStyle,
-    bindings: &ActionBindings,
-) -> Cow<'static, str> {
-    // Sticks are dual-axis inputs, so `iter_buttonlike` correctly does not
-    // list them and no binding projection can name one.
-    if matches!(
-        action,
-        Platformer2dInputActionMonolith::Move
-            | Platformer2dInputActionMonolith::MoveLeft
-            | Platformer2dInputActionMonolith::MoveRight
-            | Platformer2dInputActionMonolith::MoveUp
-            | Platformer2dInputActionMonolith::MoveDown
-            | Platformer2dInputActionMonolith::MenuStick
-            | Platformer2dInputActionMonolith::MenuNavigateUp
-            | Platformer2dInputActionMonolith::MenuNavigateDown
-            | Platformer2dInputActionMonolith::MenuNavigateLeft
-            | Platformer2dInputActionMonolith::MenuNavigateRight
-    ) {
-        return Cow::Borrowed("L-Stick");
-    }
-    if matches!(
-        action,
-        Platformer2dInputActionMonolith::BurstAnalog | Platformer2dInputActionMonolith::AimStick
-    ) {
-        return Cow::Borrowed("R-Stick");
-    }
-    match bound_control(bindings, action, false) {
-        Some(PhysicalControl::Button(button)) => Cow::Borrowed(button_label(*button, style)),
-        // Bound to no gamepad control: empty until someone binds it (for
-        // example `Special`).
-        _ => Cow::Borrowed(""),
-    }
+fn gamepad_glyph(action: InputAction, style: GamepadStyle, bindings: &ActionBindings) -> Cow<'static, str> {
+    bound_control(bindings, action, false).map_or(Cow::Borrowed(""), |control| Cow::Owned(control.label_for(style)))
 }
 
 /// How this pad's vendor draws a button. Presentation only; the binding
@@ -233,14 +181,14 @@ mod tests {
         let arrows_zxc = KeyboardPreset::arrows_zxc();
         // Arrows+ZXC: Jump = Z, Attack = X, Burst = C.
         for (action, glyph) in [
-            (Platformer2dInputActionMonolith::Jump, "Z"),
-            (Platformer2dInputActionMonolith::Attack, "X"),
-            (Platformer2dInputActionMonolith::Burst, "C"),
+            (InputAction::Jump, "Z"),
+            (InputAction::Attack, "X"),
+            (InputAction::Burst, "C"),
         ] {
             assert_eq!(
                 glyph_for(
                     action,
-                    &arrows_zxc,
+                    arrows_zxc.id,
                     &bindings(&arrows_zxc),
                     ActiveDevice::Keyboard
                 ),
@@ -251,12 +199,12 @@ mod tests {
         let wasd = KeyboardPreset::wasd_jkl();
         // WASD: Jump = Space, Attack = J, Burst = K.
         for (action, glyph) in [
-            (Platformer2dInputActionMonolith::Jump, "Space"),
-            (Platformer2dInputActionMonolith::Attack, "J"),
-            (Platformer2dInputActionMonolith::Burst, "K"),
+            (InputAction::Jump, "Space"),
+            (InputAction::Attack, "J"),
+            (InputAction::Burst, "K"),
         ] {
             assert_eq!(
-                glyph_for(action, &wasd, &bindings(&wasd), ActiveDevice::Keyboard),
+                glyph_for(action, wasd.id, &bindings(&wasd), ActiveDevice::Keyboard),
                 glyph
             );
         }
@@ -268,8 +216,8 @@ mod tests {
         let preset = KeyboardPreset::arrows_zxc();
         assert_eq!(
             glyph_for(
-                Platformer2dInputActionMonolith::Jump,
-                &preset,
+                InputAction::Jump,
+                preset.id,
                 &bindings(&preset),
                 ActiveDevice::Mouse
             ),
@@ -287,8 +235,8 @@ mod tests {
         ] {
             assert_eq!(
                 glyph_for(
-                    Platformer2dInputActionMonolith::Jump,
-                    &preset,
+                    InputAction::Jump,
+                    preset.id,
                     &bound,
                     ActiveDevice::Gamepad(style)
                 ),
@@ -296,8 +244,8 @@ mod tests {
             );
             assert_eq!(
                 glyph_for(
-                    Platformer2dInputActionMonolith::Attack,
-                    &preset,
+                    InputAction::Attack,
+                    preset.id,
                     &bound,
                     ActiveDevice::Gamepad(style)
                 ),
@@ -310,11 +258,11 @@ mod tests {
     fn touch_glyph_is_empty() {
         let preset = KeyboardPreset::arrows_zxc();
         for action in [
-            Platformer2dInputActionMonolith::Jump,
-            Platformer2dInputActionMonolith::Attack,
+            InputAction::Jump,
+            InputAction::Attack,
         ] {
             assert_eq!(
-                glyph_for(action, &preset, &bindings(&preset), ActiveDevice::Touch),
+                glyph_for(action, preset.id, &bindings(&preset), ActiveDevice::Touch),
                 ""
             );
         }
@@ -344,6 +292,9 @@ impl PhysicalControl {
         match self {
             Self::Key(key) => key_label(*key),
             Self::Button(button) => crate::glyphs::button_label(*button, style).to_string(),
+            Self::Axis(source) => source.label().to_string(),
+            Self::Touch(button) => format!("Touch {button:?}"),
+            Self::TouchDirection(direction) => format!("Touch {direction:?}"),
             Self::Other(raw) => raw.clone(),
         }
     }
@@ -369,7 +320,7 @@ impl PhysicalControl {
                 };
                 format!("{}_{}", style_word(style), snake_case(&format!("{button:?}")))
             }
-            Self::Other(_) => return None,
+            Self::Axis(_) | Self::Touch(_) | Self::TouchDirection(_) | Self::Other(_) => return None,
         };
         Some(format!("{GLYPH_FOLDER}/input_glyph_{name}.png"))
     }
@@ -387,7 +338,7 @@ impl PhysicalControl {
         match self {
             Self::Key(key) => Some(format!("{key:?}")),
             Self::Button(button) => Some(format!("{button:?}")),
-            Self::Other(_) => None,
+            Self::Axis(_) | Self::Touch(_) | Self::TouchDirection(_) | Self::Other(_) => None,
         }
     }
 }
@@ -472,7 +423,7 @@ impl ActionBindings {
     /// It ignores the device: gamepad buttons use Xbox names and a mixed map
     /// gives its keyboard half. Use it only with no seat (docs generator,
     /// rebind list). A prompt for a seat uses [`Self::label_for`].
-    pub fn label(&self, action: &Platformer2dInputActionMonolith) -> Option<String> {
+    pub fn label(&self, action: &InputAction) -> Option<String> {
         self.controls(action).first().map(PhysicalControl::label)
     }
 
@@ -483,7 +434,7 @@ impl ActionBindings {
     /// reads as "this action has no control".
     pub fn label_for(
         &self,
-        action: &Platformer2dInputActionMonolith,
+        action: &InputAction,
         device: crate::ActiveDevice,
     ) -> Option<String> {
         self.control_for(action, device)
@@ -496,7 +447,7 @@ impl ActionBindings {
     /// the renderer's rule names no file for the control.
     pub fn glyph_for(
         &self,
-        action: &Platformer2dInputActionMonolith,
+        action: &InputAction,
         device: crate::ActiveDevice,
     ) -> Option<String> {
         self.control_for(action, device)
@@ -504,63 +455,21 @@ impl ActionBindings {
             .and_then(|control| control.glyph_path(device.gamepad_style()))
     }
 
-    /// The control of the device's class that is also bound to a `prefer`
-    /// action (in that order), else the first not bound to an `avoid` action,
-    /// else the first of the class. No fallback to the other class here; the
-    /// caller decides.
-    fn control_preferring(
-        &self,
-        action: &Platformer2dInputActionMonolith,
-        prefer: &[Platformer2dInputActionMonolith],
-        avoid: &[Platformer2dInputActionMonolith],
-        device: crate::ActiveDevice,
-    ) -> Option<&PhysicalControl> {
-        let want_key = device.draws_keyboard_glyphs();
-        let of_class: Vec<&PhysicalControl> = self
-            .controls(action)
-            .iter()
-            .filter(|control| matches!((control, want_key), (PhysicalControl::Key(_), true) | (PhysicalControl::Button(_), false)))
-            .collect();
-        let bound_to = |other: &Platformer2dInputActionMonolith, control: &PhysicalControl| self.controls(other).contains(control);
-        prefer
-            .iter()
-            .find_map(|other| of_class.iter().find(|control| bound_to(other, control)))
-            .or_else(|| of_class.iter().find(|control| !avoid.iter().any(|other| bound_to(other, control))))
-            .or_else(|| of_class.first())
-            .copied()
-    }
-
     /// [`Self::label_for`]'s control, named for `device`.
-    pub fn named_for(&self, action: &Platformer2dInputActionMonolith, device: crate::ActiveDevice) -> Option<NamedControl> {
+    pub fn named_for(&self, action: &InputAction, device: crate::ActiveDevice) -> Option<NamedControl> {
         self.control_for(action, device)
             .or_else(|| self.controls(action).first())
             .map(|control| NamedControl::of(control, device))
     }
 
-    /// The control a prompt names for confirm: a `MenuSelect` control also
-    /// bound to Jump (the pad's A and its keyboard stand-in), else the first.
+    /// Call on the active UI profile's binding projection.
     pub fn confirm_named(&self, device: crate::ActiveDevice) -> Option<NamedControl> {
-        use Platformer2dInputActionMonolith as A;
-        self.named_preferring(&A::MenuSelect, &[A::Jump], &[], device)
+        self.named_for(&InputAction::MenuSelect, device)
     }
 
-    /// The control a prompt names for back: a `MenuBack` control that is not
-    /// also Start, because Start opens the pause menu over the dialogue.
+    /// Call on the active UI profile's binding projection.
     pub fn back_named(&self, device: crate::ActiveDevice) -> Option<NamedControl> {
-        use Platformer2dInputActionMonolith as A;
-        self.named_preferring(&A::MenuBack, &[], &[A::Start], device)
-    }
-
-    fn named_preferring(
-        &self,
-        action: &Platformer2dInputActionMonolith,
-        prefer: &[Platformer2dInputActionMonolith],
-        avoid: &[Platformer2dInputActionMonolith],
-        device: crate::ActiveDevice,
-    ) -> Option<NamedControl> {
-        self.control_preferring(action, prefer, avoid, device)
-            .map(|control| NamedControl::of(control, device))
-            .or_else(|| self.named_for(action, device))
+        self.named_for(&InputAction::MenuBack, device)
     }
 
 }
@@ -568,7 +477,7 @@ impl ActionBindings {
 impl SeatBindings {
 
     /// The label this seat's prompt should show for this action.
-    pub fn label(&self, slot: u8, action: &Platformer2dInputActionMonolith) -> Option<String> {
+    pub fn label(&self, slot: u8, action: &InputAction) -> Option<String> {
         self.for_seat(slot).label(action)
     }
 
@@ -584,7 +493,7 @@ impl SeatBindings {
         devices: Option<&crate::SeatActiveDevices>,
     ) -> Option<String> {
         let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
-        self.for_seat(seat)
+        self.for_profile(seat, crate::InputProfile::Gameplay)
             .label_for(&action_for_slot(slot)?, device)
     }
 
@@ -596,7 +505,7 @@ impl SeatBindings {
         devices: Option<&crate::SeatActiveDevices>,
     ) -> Option<String> {
         let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
-        self.for_seat(seat).glyph_for(&action_for_slot(slot)?, device)
+        self.for_profile(seat, crate::InputProfile::Gameplay).glyph_for(&action_for_slot(slot)?, device)
     }
 
     /// The control an ability slot's prompt names on the seat's device.
@@ -607,7 +516,7 @@ impl SeatBindings {
         devices: Option<&crate::SeatActiveDevices>,
     ) -> Option<NamedControl> {
         let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
-        self.for_seat(seat).named_for(&action_for_slot(slot)?, device)
+        self.for_profile(seat, crate::InputProfile::Gameplay).named_for(&action_for_slot(slot)?, device)
     }
 
 }

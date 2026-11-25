@@ -50,6 +50,7 @@ pub fn build_demo_app_with_home(home_route: &str) -> App {
 /// home. The provider is host-independent — only these host lines (the two
 /// routes, and the host spec) are host-specific.
 fn compose_sanic_shell(app: &mut App, home_route: &str) {
+    ambition_input_opinions::install(app);
     use ambition_demo_sanic::{SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
 
     // The seven standard host steps, plus the one thing this demo actually

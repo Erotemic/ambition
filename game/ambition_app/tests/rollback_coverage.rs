@@ -58,7 +58,7 @@ const WAIVED: &[(&str, &str)] = &[
         "the session's content generation: written only by a content authority in `Update` (activation, hot reload), never by the simulation; the hot reload restarts the local session and refuses an external one, so no rewind crosses a change",
     ),
     (
-        "ambition_platformer2d_actor_monolith::body::life::LifeBook",
+        "ambition_platformer2d_actor::body::life::LifeBook",
         "the authored NPC lives (domains, schedules, holds): prepared content, published at build and by a content reload's publication, which stops and rebases the local timeline, so no rewind crosses a change; the simulation only reads it",
     ),
     (
@@ -189,7 +189,7 @@ const WAIVED: &[(&str, &str)] = &[
          component-canonical",
     ),
     (
-        "ambition_platformer2d_actor_monolith::avatar::character_execution::HomeBodyAbilities",
+        "ambition_platformer2d_actor::avatar::character_execution::HomeBodyAbilities",
         "the same activation input for what the experience GRANTS and PERMITS its \
          home body, read only by `simulation_world` when it builds the body. The \
          abilities it seeds (AbilityBase, BodyAbilities) are registered",
@@ -1675,7 +1675,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // frame N reads the policy frame N had. Whether the policy is match-wide or
     // per participant (`Q127`) changes the shape of this resource, not the road.
     // ⭐ THE EDITOR MIRROR, NOT THE AUTHORITY — and that is the whole point of it.
-    // `Platformer2dFeelTuningMonolith` is waived below as forward-only feel
+    // `FeelTuning` is waived below as forward-only feel
     // tuning; this resource is what the INSPECTOR writes, and it reaches that
     // authority only through `MechanicalEditSet::Publish` with the timeline's
     // admission. Simulation never reads it. Same status as every other editable
@@ -1755,7 +1755,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
         // The WAIVER's reason is unchanged because the decision is unchanged — feel tuning is still
         // a forward-only knob, not per-frame state. Only its address moved.
-        "::feel::Platformer2dFeelTuningMonolith",
+        "::feel::FeelTuning",
         "feel tuning, forward-only",
     ),
     (

@@ -33,7 +33,7 @@ use ambition_platformer2d_shared_tangle::camera_ease::{hit_shake_amplitude, Came
 /// far side of the confirmed-frame boundary; see the module docs for why the
 /// earlier in-place kick could not be made correct by any guard living here.
 pub fn shake_camera_on_landed_hits(
-    feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
+    feel: Option<Res<crate::feel::FeelTuning>>,
     mut requests: MessageWriter<CameraShakeRequest>,
     bodies: Query<(
         &ambition_characters::actor::BodyCombat,
@@ -79,7 +79,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<CameraShakeState>();
         app.init_resource::<CameraShakeTuning>();
-        app.init_resource::<crate::feel::Platformer2dFeelTuningMonolith>();
+        app.init_resource::<crate::feel::FeelTuning>();
         app.add_message::<CameraShakeRequest>();
         for &hitstop in hitstops {
             app.world_mut().spawn(BodyCombat {
@@ -112,7 +112,7 @@ mod tests {
 
     fn reference(app: &App) -> f32 {
         app.world()
-            .resource::<crate::feel::Platformer2dFeelTuningMonolith>()
+            .resource::<crate::feel::FeelTuning>()
             .hitlag_time
     }
 
@@ -216,11 +216,11 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<CameraShakeState>();
         app.init_resource::<CameraShakeTuning>();
-        app.init_resource::<crate::feel::Platformer2dFeelTuningMonolith>();
+        app.init_resource::<crate::feel::FeelTuning>();
         app.add_message::<CameraShakeRequest>();
         let hard = app
             .world()
-            .resource::<crate::feel::Platformer2dFeelTuningMonolith>()
+            .resource::<crate::feel::FeelTuning>()
             .hitlag_time
             * 4.0;
         app.world_mut().spawn(BodyCombat {

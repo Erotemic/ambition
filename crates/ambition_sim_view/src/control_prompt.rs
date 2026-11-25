@@ -1279,10 +1279,10 @@ mod tests {
         );
         // Drive the REAL projection the way the host does — spawn the participant holding the
         // map — rather than hand-writing a `SeatBindings`.
-        let arrows = KeyboardPreset::arrows_zxc();
+        let arrows = crate::fixture_catalog::recipe(ambition_input::PresetId::ArrowsZxc);
         app.world_mut().spawn((
             ambition_input::InputParticipant::primary(),
-            arrows.input_map(),
+            arrows.build(),
         ));
         let body = app
             .world_mut()
@@ -1329,11 +1329,11 @@ mod tests {
         {
             let world = app.world_mut();
             let mut maps =
-                world.query::<&mut InputMap<ambition_input::Platformer2dInputActionMonolith>>();
+                world.query::<&mut InputMap<ambition_input::InputAction>>();
             for mut map in maps.iter_mut(world) {
-                map.clear_action(&ambition_input::Platformer2dInputActionMonolith::Jump);
+                map.clear_action(&ambition_input::InputAction::Jump);
                 map.insert(
-                    ambition_input::Platformer2dInputActionMonolith::Jump,
+                    ambition_input::InputAction::Jump,
                     KeyCode::F13,
                 );
             }
@@ -1373,8 +1373,7 @@ mod tests {
         // prints — is a pad button rather than a key.
         app.world_mut().spawn((
             ambition_input::InputParticipant::primary(),
-            ambition_input::KeyboardPreset::of(ambition_input::KeyboardPreset::by_index(0).id)
-                .map_for(ambition_input::BindingSources::GamepadOnly),
+            crate::fixture_catalog::gamepad_only().build(),
         ));
         let body = app
             .world_mut()
@@ -1912,7 +1911,7 @@ mod tests {
         app.add_systems(
             Update,
             (
-                ambition_platformer2d_actor_monolith::control::gate_body_control,
+                ambition_platformer2d_actor::control::gate_body_control,
                 rebuild_control_prompt,
             )
                 .chain(),

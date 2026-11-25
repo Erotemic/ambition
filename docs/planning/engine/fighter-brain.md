@@ -620,8 +620,8 @@ authored content. General use by another game does not require a second brain.
 | Authored move | [Admiral moveset](../../../game/ambition_content/assets/data/movesets/pirate_admiral.ron): `call_the_shark` summons at 0.18 s, ends at 0.34 s and advertises a 5 s, 650 px sustained route |
 | Forecast | [`RecoveryLens::carried`](../../../crates/ambition_combat/src/brain/fighter/recovery.rs): move the rider instantly toward nearby geometry by scalar reach, zero velocity, then run a falling-body probe; do not simulate the ride |
 | Input | [`MovementVerb::Recover`](../../../crates/ambition_combat/src/brain/fighter/decision.rs): write walking axes and press/hold jump; no flight velocity target |
-| Control mode | [Snapshot construction](../../../crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs): `actor_aerial` sees the mount, but Fighter does not use it and the motion law still comes from the rider |
-| Motor | [Mount steering](../../../crates/ambition_mount/src/lib.rs) forwards `velocity_target`; [flight integration](../../../crates/ambition_platformer2d_actor_monolith/src/body/movement.rs) uses that target instead of walking axes |
+| Control mode | [Snapshot construction](../../../crates/ambition_platformer2d_actor/src/body/actors/update.rs): `actor_aerial` sees the mount, but Fighter does not use it and the motion law still comes from the rider |
+| Motor | [Mount steering](../../../crates/ambition_mount/src/lib.rs) forwards `velocity_target`; [flight integration](../../../crates/ambition_platformer2d_actor/src/body/movement.rs) uses that target instead of walking axes |
 | Release | [Native shark status](../../../game/ambition_demo_smash_modules/src/shark.rs): jump or burst aboard produces `DismountWhy::Bailed` |
 | Existing witness | [`two_admirals_ride_their_own_sharks_at_the_same_time`](../../../game/ambition_app/tests/smash_ride.rs) stops when both first board. Its comment permits the CPU to be off again within twenty frames |
 
@@ -987,7 +987,7 @@ fighter scoring.
 while the press road calls `move_for_attack(.., RUNNING)`. So while a body runs,
 the brain scores one move's frame data and the body performs another. The fix
 (the "truthful kit") is behind `--features truthful_attack_kit` on
-`ambition_platformer2d_actor_monolith`, default off; with the feature off the
+`ambition_platformer2d_actor`, default off; with the feature off the
 resolver is today's.
 
 **Measured, and not yet explained.** On the pirate admiral duel the truthful kit

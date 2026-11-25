@@ -129,7 +129,7 @@ def ensure_climbable_layer_def(project: dict) -> dict:
     returns it without modifying the project.
 
     Mirrors the runtime's Climbable IntGrid value mapping in
-    `crates/ambition_platformer2d_actor_monolith/src/ldtk_world.rs`:
+    `crates/ambition_platformer2d_actor/src/ldtk_world.rs`:
         1 = Ladder, 2 = Vine, 3 = Wall
     """
     existing = find_layer_def_optional(project, "Climbable")

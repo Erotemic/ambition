@@ -9,7 +9,7 @@
 //! `TextureAtlasLayout` (a render-feature type), so this crate stays headless.
 //! A consumer turns an [`AtlasPage`]'s `rects` into a `TextureAtlasLayout`
 //! with a short loop (see `build_atlas_layout` in
-//! `ambition_platformer2d_actor_monolith`).
+//! `ambition_platformer2d_actor`).
 //!
 //! Key contract: [`SheetRecord::atlas_page`] and
 //! [`SheetRecord::flat_index_in_page`] walk rows in the same order and assign

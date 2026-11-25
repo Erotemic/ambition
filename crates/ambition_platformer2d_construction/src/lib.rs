@@ -54,6 +54,7 @@ pub const RELATION_MOUNT: &str = "ambition.mount";
 
 pub const ACTOR_CONSTRUCTION_DOMAIN: &str = "actor";
 
+// Keep the registration owner ID stable: it is part of the prepared-content fingerprint.
 const OWNER: &str = "ambition_platformer2d_actor_monolith";
 // v3: character bodies carry faction; hosts reserve their limb identity range.
 const SCHEMA: &str = "actor-construction-v3";

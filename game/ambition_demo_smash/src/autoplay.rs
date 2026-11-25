@@ -164,7 +164,7 @@ pub fn drive_smash_autoplay(world: &mut World) {
                     world.insert_resource(
                         ambition_platformer2d::input::DeclaredBindingLayout::new(
                             crate::SMASH_EXPERIENCE,
-                            ambition_platformer2d::input::BindingLayout::Smash,
+                            crate::input_bindings::layout(),
                         ),
                     );
                     world.insert_resource(roster);

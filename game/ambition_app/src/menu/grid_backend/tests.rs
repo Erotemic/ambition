@@ -1389,8 +1389,8 @@ fn each_menu_publishes_and_refreshes_its_owners_rebind_rows() {
         KaleidoscopeSystemNav { open_entry: Some(SystemMenuEntryId::Rebind) },
     )).id();
     crate::menu::test_support::spawn_binding_participant(&mut app, ParticipantId::PRIMARY,
-        BindingRecipe::preset(KeyboardPreset::arrows_zxc().id).with_sources(BindingSources::KeyboardOnly));
-    let mut recipe = BindingRecipe::gamepad_only();
+        ambition_input_opinions::recipe(ambition_platformer2d::input::PresetId::ArrowsZxc).with_sources(BindingSources::KeyboardOnly));
+    let mut recipe = ambition_input_opinions::gamepad_only();
     recipe.set_binding_override(BindingOverride { action: "Attack".into(), control: OverrideControl::Button(GamepadButton::North) });
     let person = crate::menu::test_support::spawn_binding_participant(&mut app, ParticipantId::SECONDARY, recipe);
     app.add_systems(Update, (ambition_platformer2d::input::rebuild_maps_from_recipes, ambition_platformer2d::input::publish_seat_bindings).chain().before(crate::menu::system_cache::cache_system_menu));

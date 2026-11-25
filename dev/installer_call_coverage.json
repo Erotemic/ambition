@@ -2,7 +2,7 @@
   {
     "file": "crates/ambition_platformer2d_runtime/src/combat_schedule.rs",
     "line": 77,
-    "call": "ambition_platformer2d_actor_monolith::features::install_actor_spawn_requests(app, sim);",
+    "call": "ambition_platformer2d_actor::features::install_actor_spawn_requests(app, sim);",
     "verdict": "caught by 42 failing test(s)"
   },
   {
@@ -26,13 +26,13 @@
   {
     "file": "crates/ambition_platformer2d_runtime/src/player_schedule.rs",
     "line": 153,
-    "call": "ambition_platformer2d_actor_monolith::avatar::install_avatar_player_input(app, sim);",
+    "call": "ambition_platformer2d_actor::avatar::install_avatar_player_input(app, sim);",
     "verdict": "caught by 121 failing test(s)"
   },
   {
     "file": "crates/ambition_platformer2d_runtime/src/progression_schedule.rs",
     "line": 69,
-    "call": "ambition_platformer2d_actor_monolith::features::install_save_mirror(app, sim);",
+    "call": "ambition_platformer2d_actor::features::install_save_mirror(app, sim);",
     "verdict": "ALL GREEN \u2014 nothing witnessed the removal"
   },
   {
@@ -44,7 +44,7 @@
   {
     "file": "crates/ambition_platformer2d_runtime/src/sim_core_resources.rs",
     "line": 196,
-    "call": "ambition_platformer2d_actor_monolith::time::time_control::install_sim_clock_reporting(app);",
+    "call": "ambition_platformer2d_actor::time::time_control::install_sim_clock_reporting(app);",
     "verdict": "ALL GREEN \u2014 nothing witnessed the removal"
   },
   {

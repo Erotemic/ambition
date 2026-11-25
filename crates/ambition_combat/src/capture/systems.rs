@@ -344,7 +344,7 @@ pub fn acquire_captures(
 pub fn rebound_from_parried_grabs(
     mut parried: ReplayMessageReader<GrabsParried>,
     tuning: crate::rules::CombatTuningOf,
-    feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
+    feel: Option<Res<crate::feel::FeelTuning>>,
     mut bodies: Query<(&mut ae::BodyKinematics, &mut ambition_characters::actor::BodyCombat)>,
 ) {
     let lock = feel.as_deref().copied().unwrap_or_default().knockback_recoil_lock_time;
@@ -578,7 +578,7 @@ pub fn arm_smash_throw_edge(
 /// against a PHASE instead of against this function's identity.**
 ///
 /// ⭐⭐ IT EXISTS BECAUSE A CONSUMER WAS NAMING THE SYSTEM.
-/// `ambition_platformer2d_actor_monolith` listed this function by name inside its
+/// `ambition_platformer2d_actor` listed this function by name inside its
 /// `BeforeIntegrate` chain, which is one crate asserting the position of another
 /// crate's private system — the private cross-domain ordering authority the
 /// architecture program refuses. It did so because there was nothing else to name.
@@ -3287,7 +3287,7 @@ pub fn apply_capture_throws(
         &mut ae::BodyDodgeState,
     )>,
     gravity: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-    feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
+    feel: Option<Res<crate::feel::FeelTuning>>,
     // ⭐ A THROW OBEYS THE SAME PERCENT CURVE AS A SWING. This road calls
     // `ambition_entity_catalog::launch::launch_speed` itself rather than going
     // through the hitbox resolver, so a ruleset knob wired only into the

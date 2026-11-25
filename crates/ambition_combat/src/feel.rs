@@ -5,11 +5,11 @@
 
 use bevy::prelude::*;
 
-/// The developer-editable MIRROR of [`Platformer2dFeelTuningMonolith`].
+/// The developer-editable MIRROR of [`FeelTuning`].
 ///
 /// ⛔⛤ **THE INSPECTOR USED TO EDIT THE AUTHORITY ITSELF.**
 /// `game/ambition_app/src/dev/mod.rs` installed
-/// `ResourceInspectorPlugin::<Platformer2dFeelTuningMonolith>`, so bevy-inspector
+/// `ResourceInspectorPlugin::<FeelTuning>`, so bevy-inspector
 /// wrote the resource deterministic simulation reads — no proposal, no
 /// admission, no rebase — while `developer_edits_under_rollback.rs` already
 /// carried `editing_feel_tuning_mid_timeline_changes_what_history_resimulates_to`
@@ -22,7 +22,7 @@ use bevy::prelude::*;
 /// mechanical value a composition without developer tools keeps.
 #[derive(Resource, Reflect, Clone, Copy, Debug, Default, Deref, DerefMut)]
 #[reflect(Resource)]
-pub struct EditableFeelTuning(pub Platformer2dFeelTuningMonolith);
+pub struct EditableFeelTuning(pub FeelTuning);
 
 /// The marker type that OWNS this domain. Identity is the type, not the label.
 pub struct FeelTuningDomain;
@@ -58,7 +58,7 @@ pub fn publish_editable_feel_tuning(
     editable: Res<EditableFeelTuning>,
     admission: Option<Res<ambition_platformer2d_core::MechanicalEditAdmission>>,
     mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
-    mut active: ResMut<Platformer2dFeelTuningMonolith>,
+    mut active: ResMut<FeelTuning>,
 ) {
     if !pending.is_pending(feel_tuning_domain()) {
         return;
@@ -83,7 +83,7 @@ pub fn publish_editable_feel_tuning(
 #[derive(Resource, Reflect, Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 #[reflect(Resource)]
 #[serde(default, deny_unknown_fields)]
-pub struct Platformer2dFeelTuningMonolith {
+pub struct FeelTuning {
     pub bullet_time_scale: f32,
     pub blink_hold_slow_scale: f32,
     pub time_ramp_down_rate: f32,
@@ -189,7 +189,7 @@ pub struct Platformer2dFeelTuningMonolith {
     pub sakurai_angle: Option<ambition_platformer2d_core::hit_response::SakuraiAngle>,
 }
 
-impl Default for Platformer2dFeelTuningMonolith {
+impl Default for FeelTuning {
     fn default() -> Self {
         Self {
             bullet_time_scale: 0.125,
@@ -234,7 +234,7 @@ impl Default for Platformer2dFeelTuningMonolith {
     }
 }
 
-impl Platformer2dFeelTuningMonolith {
+impl FeelTuning {
     pub fn feature_combat_tuning(self) -> crate::events::FeatureCombatTuning {
         crate::events::FeatureCombatTuning {
             enemy_attack_windup: self.enemy_attack_windup,
@@ -251,7 +251,7 @@ mod tests {
 
     #[test]
     fn defaults_are_finite_and_positive_where_expected() {
-        let f = Platformer2dFeelTuningMonolith::default();
+        let f = FeelTuning::default();
         // Time-domain scales between (0, 1] (slow-mo etc.).
         assert!(f.bullet_time_scale > 0.0 && f.bullet_time_scale <= 1.0);
         assert!(f.blink_hold_slow_scale > 0.0 && f.blink_hold_slow_scale <= 1.0);
@@ -282,7 +282,7 @@ mod tests {
 
     #[test]
     fn feature_combat_tuning_extracts_attack_windows() {
-        let f = Platformer2dFeelTuningMonolith::default();
+        let f = FeelTuning::default();
         let combat = f.feature_combat_tuning();
         assert_eq!(combat.enemy_attack_windup, f.enemy_attack_windup);
         assert_eq!(combat.enemy_attack_active, f.enemy_attack_active);
@@ -296,7 +296,7 @@ mod tests {
         // the player feel it kick in); recovering to normal speed
         // should be snappy. This invariant guards against accidentally
         // swapping the two in defaults.
-        let f = Platformer2dFeelTuningMonolith::default();
+        let f = FeelTuning::default();
         assert!(
             f.time_ramp_up_rate > f.time_ramp_down_rate,
             "time_ramp_up_rate should be faster than time_ramp_down_rate \
@@ -309,7 +309,7 @@ mod tests {
         // A cooldown shorter than the flash means the player could
         // re-enter a transition while the flash from the previous one
         // is still on screen — visible double-trigger.
-        let f = Platformer2dFeelTuningMonolith::default();
+        let f = FeelTuning::default();
         assert!(f.edge_transition_flash >= f.edge_transition_cooldown);
         assert!(f.door_transition_flash >= f.door_transition_cooldown);
     }
@@ -318,7 +318,7 @@ mod tests {
     fn attack_active_window_is_at_least_one_frame() {
         // 60fps frame is ~16.6ms = 0.017s. Any active hitbox window
         // shorter than a frame would be unhittable; not a useful state.
-        let f = Platformer2dFeelTuningMonolith::default();
+        let f = FeelTuning::default();
         assert!(f.enemy_attack_active >= 0.017);
         assert!(f.boss_attack_active >= 0.017);
     }
@@ -334,8 +334,8 @@ mod feel_tuning_domain_tests {
         admission: ambition_platformer2d_core::MechanicalEditAdmission,
     ) -> App {
         let mut app = App::new();
-        app.init_resource::<Platformer2dFeelTuningMonolith>();
-        app.insert_resource(EditableFeelTuning(Platformer2dFeelTuningMonolith::default()));
+        app.init_resource::<FeelTuning>();
+        app.insert_resource(EditableFeelTuning(FeelTuning::default()));
         app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
         app.insert_resource(admission);
         app.add_systems(
@@ -370,7 +370,7 @@ mod feel_tuning_domain_tests {
         );
         let before = app
             .world()
-            .resource::<Platformer2dFeelTuningMonolith>()
+            .resource::<FeelTuning>()
             .down_double_tap_window;
         let edited = edit_the_window(&mut app);
         assert_ne!(
@@ -382,7 +382,7 @@ mod feel_tuning_domain_tests {
 
         assert_eq!(
             app.world()
-                .resource::<Platformer2dFeelTuningMonolith>()
+                .resource::<FeelTuning>()
                 .down_double_tap_window,
             edited,
             "an ADMITTED feel edit never reached the authority simulation reads",
@@ -397,7 +397,7 @@ mod feel_tuning_domain_tests {
 
     /// ⛔⛤ AND A REFUSED EDIT DOES NOT MOVE THE AUTHORITY — the whole reason this
     /// road exists. Until 2026-09-14 the inspector wrote
-    /// `Platformer2dFeelTuningMonolith` itself, so there was no state in which a
+    /// `FeelTuning` itself, so there was no state in which a
     /// foreign or unhealthy rollback timeline could decline the edit at all.
     #[test]
     fn a_refused_feel_edit_stays_in_the_editor_and_the_authority_does_not_move() {
@@ -406,7 +406,7 @@ mod feel_tuning_domain_tests {
         );
         let before = app
             .world()
-            .resource::<Platformer2dFeelTuningMonolith>()
+            .resource::<FeelTuning>()
             .down_double_tap_window;
         let edited = edit_the_window(&mut app);
 
@@ -414,7 +414,7 @@ mod feel_tuning_domain_tests {
 
         assert_eq!(
             app.world()
-                .resource::<Platformer2dFeelTuningMonolith>()
+                .resource::<FeelTuning>()
                 .down_double_tap_window,
             before,
             "a REFUSED feel edit moved the value deterministic simulation reads",

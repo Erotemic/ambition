@@ -52,7 +52,7 @@ DEFAULT_OUTPUT = DEV / "compile_report.html"
 
 # The crate the "cheapest per line" claim is about, and the crate that turned out
 # to be the real outlier. Both are direct-labelled on the scatter.
-MONOLITH = "ambition_platformer2d_actor_monolith"
+MONOLITH = "ambition_platformer2d_actor"
 
 
 # --------------------------------------------------------------------------- #

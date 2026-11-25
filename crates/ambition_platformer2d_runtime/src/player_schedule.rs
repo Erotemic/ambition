@@ -101,17 +101,17 @@ impl Plugin for PlayerSchedulePlugin {
                 // current time snapshot. Each has its own state owner.
                 // The sandbox reset runs before `InputTimersAdvanced`.
                 (
-                    ambition_platformer2d_actor_monolith::control::tick_room_transition_cooldown
-                        .run_if(ambition_platformer2d_actor_monolith::control::input_systems::a_room_cooldown_runs),
-                    ambition_platformer2d_actor_monolith::body::advance_body_reactions,
-                    ambition_platformer2d_actor_monolith::control::derive_slot_direction_gestures,
+                    ambition_platformer2d_actor::control::tick_room_transition_cooldown
+                        .run_if(ambition_platformer2d_actor::control::input_systems::a_room_cooldown_runs),
+                    ambition_platformer2d_actor::body::advance_body_reactions,
+                    ambition_platformer2d_actor::control::derive_slot_direction_gestures,
                 )
-                    .in_set(ambition_platformer2d_actor_monolith::control::InputTimersAdvanced)
+                    .in_set(ambition_platformer2d_actor::control::InputTimersAdvanced)
                     .in_set(GameplayGated)
                     .after(ambition_time::refresh_world_time)
                     .in_set(ambition_input::InputSet::Route),
-                ambition_platformer2d_actor_monolith::control::interaction_input_system
-                    .in_set(ambition_platformer2d_actor_monolith::control::InteractionInputBuffered)
+                ambition_platformer2d_actor::control::interaction_input_system
+                    .in_set(ambition_platformer2d_actor::control::InteractionInputBuffered)
                     .in_set(GameplayGated)
                     .after(ambition_time::refresh_world_time),
                 // Portal input stays owned by `PortalPlugin`. Resolve the body driven by each
@@ -119,8 +119,8 @@ impl Plugin for PlayerSchedulePlugin {
                 // seats. Mirror the primary slot only for consumers of the legacy `ControlFrame`
                 // surface.
                 (
-                    ambition_platformer2d_actor_monolith::control::possession::resolve_controlled_subject,
-                    ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does
+                    ambition_platformer2d_actor::control::possession::resolve_controlled_subject,
+                    ambition_platformer2d_actor::control::publish_seat_controls_when_nobody_else_does
                         .in_set(ambition_characters::control::PrimarySlotInputCommit),
                     //  and the MIRROR, once, for every host. `ControlFrame`
                     // is seat zero's output now; the forensic trace codec and the
@@ -154,7 +154,7 @@ impl Plugin for PlayerSchedulePlugin {
         // Resolve the persona before body-control consumers.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::avatar::apply_worn_character_gameplay
+            ambition_platformer2d_actor::avatar::apply_worn_character_gameplay
                 .in_set(PlayerInputSet::Persona),
         );
         // Rebuild granted actions after the persona phase.
@@ -167,14 +167,14 @@ impl Plugin for PlayerSchedulePlugin {
         );
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::control::tick_controlled_brains
-                .in_set(ambition_platformer2d_actor_monolith::control::ControlledBrainTick)
+            ambition_platformer2d_actor::control::tick_controlled_brains
+                .in_set(ambition_platformer2d_actor::control::ControlledBrainTick)
                 .in_set(PlayerInputSet::Brain),
         );
         // Body mode consumes finished participant and autonomous control before integration.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::body_mode::update_body_mode
+            ambition_platformer2d_actor::body_mode::update_body_mode
                 .in_set(PlayerInputSet::BodyMode),
         );
         // Causal recording runs in the simulation schedule after the frame stamp so
@@ -189,7 +189,7 @@ impl Plugin for PlayerSchedulePlugin {
                     // Observe movement intent after the brain. The observer is read-only so
                     // instrumentation cannot perturb rollback state.
                     crate::causal::record_player_movement_intent
-                        .after(ambition_platformer2d_actor_monolith::control::ControlledBrainTick),
+                        .after(ambition_platformer2d_actor::control::ControlledBrainTick),
                 )
                     .in_set(crate::causal::RecordingSet::Publish),
             )
@@ -246,20 +246,20 @@ impl Plugin for PlayerSchedulePlugin {
                 // for `SmashHoldState`.
                 ambition_combat::capture::systems::arm_smash_throw_edge.run_if(ambition_combat::capture::a_capture_stands).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
                 // Held bodies are the ones that carry `ControlHolds`.
-                ambition_platformer2d_actor_monolith::control::blank_scripted_control_frames
+                ambition_platformer2d_actor::control::blank_scripted_control_frames
                     .run_if(bevy::prelude::any_with_component::<ambition_characters::control::ControlHolds>),
                 ambition_combat::capture::systems::restrict_captor_control.run_if(ambition_combat::capture::a_capture_stands).in_set(ambition_platformer2d_shared_tangle::capability::CapabilitySet(ambition_platformer2d_shared_tangle::capability::Capability::Captures)),
                 // ActionSet gates the generic resolver, but the body shield,
                 // slash/recoil, and charge-projectile paths still read raw control.
                 // Sanitize those direct verbs from the same worn kit before any
                 // simulation/effects phase consumes them.
-                ambition_platformer2d_actor_monolith::control::gate_body_control
-                    .in_set(ambition_platformer2d_actor_monolith::control::BodyControlGate),
+                ambition_platformer2d_actor::control::gate_body_control
+                    .in_set(ambition_platformer2d_actor::control::BodyControlGate),
                 // A folded `bubble_shield` special MOVE forces `shield_held` for
                 // its duration, so pressing Special raises the ONE shield through
                 // the same kernel path a held guard does. After the gate, which
                 // keeps the persona's shield verb alive.
-                ambition_platformer2d_actor_monolith::avatar::sustain_bubble_shield,
+                ambition_platformer2d_actor::avatar::sustain_bubble_shield,
             )
                 .chain()
                 .in_set(PlayerInputSet::ControlGate),
@@ -295,16 +295,16 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_platformer2d_actor_monolith::control::possession::possession_trigger_system
+                ambition_platformer2d_actor::control::possession::possession_trigger_system
                     .in_set(GameplayGated),
-                ambition_platformer2d_actor_monolith::control::possession::release_possession_if_target_lost.run_if(
-                    |state: bevy::prelude::Res<ambition_platformer2d_actor_monolith::control::possession::PossessionState>| {
+                ambition_platformer2d_actor::control::possession::release_possession_if_target_lost.run_if(
+                    |state: bevy::prelude::Res<ambition_platformer2d_actor::control::possession::PossessionState>| {
                         state.any_possessed()
                     },
                 ),
                 // Reproject body custody after possession settles. It remains ungated so room
                 // transitions can read settled residency while gameplay is suspended.
-                ambition_platformer2d_actor_monolith::body_custody::project_body_custody
+                ambition_platformer2d_actor::body_custody::project_body_custody
                     //  the LABEL the item domain orders against, and it is
                     // on the system rather than on `Possession` because what the
                     // item chain depends on is body custody being SETTLED, not
@@ -312,7 +312,7 @@ impl Plugin for PlayerSchedulePlugin {
                     .in_set(ambition_platformer2d_shared_tangle::lifecycle::BodyCustodySettled),
                 // Reproject `DrivingParticipant` from settled possession state so later systems
                 // can query control authority without depending on the brain representation.
-                ambition_platformer2d_actor_monolith::control::project_driving_participant,
+                ambition_platformer2d_actor::control::project_driving_participant,
             )
                 .chain()
                 .in_set(PlayerSimulationSet::Possession),
@@ -358,14 +358,14 @@ impl Plugin for PlayerSchedulePlugin {
         // `ambition_platformer2d_core`, so this composes into the same
         // Propose→Admit→Publish chain the other four use without it.
         //
-        // The inspector edited `Platformer2dFeelTuningMonolith` DIRECTLY until
+        // The inspector edited `FeelTuning` DIRECTLY until
         // 2026-09-14 — the resource deterministic simulation reads, with no
         // proposal, no admission and no rebase. See
         // `ambition_combat::feel::EditableFeelTuning`.
         {
             let seeded = app
                 .world()
-                .get_resource::<ambition_combat::feel::Platformer2dFeelTuningMonolith>()
+                .get_resource::<ambition_combat::feel::FeelTuning>()
                 .copied()
                 .unwrap_or_default();
             app.insert_resource(ambition_combat::feel::EditableFeelTuning(seeded));
@@ -390,7 +390,7 @@ impl Plugin for PlayerSchedulePlugin {
                 // Kernel deaths bypass hit resolution, so publish their death fact here after
                 // movement has flagged the reset. This remains ungated so suspended dialogue
                 // cannot swallow a pit/drown/tile-hazard death.
-                ambition_platformer2d_actor_monolith::avatar::publish_kernel_reset_death,
+                ambition_platformer2d_actor::avatar::publish_kernel_reset_death,
                 // Open the out-of-play window in the death frame so later simulation stops acting
                 // on the body. Tick it in the same chain; a zero-length interlude closes immediately.
                 ambition_platformer2d_session::death::open_death_interlude
@@ -478,7 +478,7 @@ impl Plugin for PlayerSchedulePlugin {
         // Presentation timers decay even while gameplay is suspended.
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::control::cleanup_timers_system
+            ambition_platformer2d_actor::control::cleanup_timers_system
                 .in_set(Platformer2dSimulationPhase::PresentationSync),
         );
     }

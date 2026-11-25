@@ -1,7 +1,7 @@
 """The Steam Deck deploy must ship the binary it just built.
 
 The script built `ambition_game_bin` and then rsync'd, launched and verified
-`ambition_platformer2d_actor_monolith` — a name that stopped being an executable
+`ambition_platformer2d_actor` — a name that stopped being an executable
 when that crate became a library. Nothing failed on the machine that ran it,
 because an old `target/release` still held a file of the old name; a clean tree
 would have failed at rsync, after the whole asset compose and release build.

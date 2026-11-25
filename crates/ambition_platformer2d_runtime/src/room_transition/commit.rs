@@ -10,7 +10,7 @@ use ambition_platformer2d_publication as publication;
 use ambition_platformer2d_shared_tangle::lifecycle::RoomResident;
 use ambition_platformer2d_world::rooms as world_rooms;
 
-use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+use ambition_combat::feel::FeelTuning;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::time_control::ClockResetRequest;
@@ -624,7 +624,7 @@ pub struct RoomTransitionFinalize<'w, 's> {
     /// The live rooms AFTER publication: the arrival effect is drawn in the
     /// live room the body arrived in.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms<'w, 's>,
-    feel: Res<'w, Platformer2dFeelTuningMonolith>,
+    feel: Res<'w, FeelTuning>,
     /// A body that came through a passage comes out of its door or gate: it
     /// is not flashed in.
     passages: Query<'w, 's, &'static mut ambition_platformer2d_session::rooms::passage::ZonePassage>,

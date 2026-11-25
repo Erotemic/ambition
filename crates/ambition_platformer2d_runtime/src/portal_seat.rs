@@ -10,7 +10,7 @@
 use bevy::prelude::*;
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
-use ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak;
+use ambition_platformer2d_actor::avatar::trail::TrailContinuityBreak;
 use ambition_portal2d::{
     BodyTeleported, PortalBodyTransited, PortalEmission, PortalInputWarp, PortalTuning,
 };
@@ -51,7 +51,7 @@ pub fn guard_the_driven_body_after_portal_transit(
         let Ok(driver) = drivers.get(ev.body) else {
             continue;
         };
-        let frame = ambition_platformer2d_actor_monolith::control::seat_frame_this_tick(
+        let frame = ambition_platformer2d_actor::control::seat_frame_this_tick(
             latches.as_deref(),
             rollback.as_deref(),
             &slots,
@@ -144,7 +144,7 @@ pub fn warp_portal_input(
         if warp.is_none() && emission.is_none() {
             continue;
         }
-        let frame = ambition_platformer2d_actor_monolith::control::seat_frame_this_tick(
+        let frame = ambition_platformer2d_actor::control::seat_frame_this_tick(
             latches.as_deref(),
             rollback.as_deref(),
             &slots,

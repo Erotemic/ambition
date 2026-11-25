@@ -29,7 +29,7 @@ pub fn project_combat_rules(
     landing_lag: ambition_platformer2d_world::governing_rules::GoverningRules<ambition_combat::landing_lag::LandingLagRules>,
     // The room's hit feel: its hitlag law replaces the ruleset's.
     hit_feel: ambition_platformer2d_world::governing_rules::GoverningRules<ambition_combat::hit_feel::HitFeelRules>,
-    baseline_feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
+    baseline_feel: Option<Res<ambition_combat::feel::FeelTuning>>,
     baseline_ff: Option<Res<ambition_combat::targeting::FriendlyFire>>,
     participant_rule: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_combat::targeting::ParticipantFriendlyFire,

@@ -37,7 +37,7 @@ ambition_combat_port = { path = "../ambition_combat_port" }
 ambition_extension_host = { path = "../ambition_extension_host" }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_extension_sdk = { path = "../ambition_extension_sdk" }
-# ⛔ NEVER ambition_platformer2d_actor_monolith: that edge is what the carve removed.
+# ⛔ NEVER ambition_platformer2d_actor: that edge is what the carve removed.
 bevy = { version = "0.19.1", default-features = false, features = ["bevy_state"] }
 
 [dev-dependencies]

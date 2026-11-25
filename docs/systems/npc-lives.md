@@ -22,7 +22,7 @@ is not a general world-object interaction system.
 - `ambition_life_planning::LifePlanner` is the planner interface: given
   `Facts`, produce steps, then apply a completed step's effects. Ambition's
   authored domains use the `ambition_htn` implementation.
-- `ambition_platformer2d_actor_monolith/src/body/life.rs` owns the `Life`
+- `ambition_platformer2d_actor/src/body/life.rs` owns the `Life`
   executor, live-room claims, interruptions, offscreen catch-up, and ledger.
 
 A `lives` entry identifies its character and planner `domain`. Its `facts`

@@ -20,10 +20,12 @@ use super::layout::{
     MENU_ROW_MARGIN, MENU_ROW_W,
 };
 use super::menu_bridge::fold_touch_gestures;
-use super::state::TouchInputState;
-use ambition_input::{ControlFrame, KeyboardPreset, Platformer2dInputActionMonolith};
+pub use ambition_input::touch_state::MobileTouchState;
+use ambition_input::{BindingTable, ButtonRoute, ControlFrame, InputAction, InputParticipant, InputProfile, ParticipantContexts, ParticipantId, PhysicalControl, PresetId};
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
-use ambition_sim_view::{ControlContextKind, ControlPrompt, ControlSlot};
+use ambition_sim_view::{ControlContextKind, ControlPrompt};
+#[cfg(test)]
+use ambition_sim_view::ControlSlot;
 use ambition_ui_nav::DragScrollState;
 
 /// Global z-band for the on-screen touch HUD (joystick, action and menu
@@ -54,11 +56,6 @@ pub enum MobileStick {
     Move,
     Aim,
 }
-
-/// Live touch-input state. Updated each frame from the stick messages and
-/// button state, then published as leafwing virtual-device controls.
-#[derive(Resource, Default, Clone, Copy, Debug)]
-pub struct MobileTouchState(pub TouchInputState);
 
 /// Last non-control touch position, used for menu drag scrolling.
 ///
@@ -205,7 +202,7 @@ impl Plugin for TouchControlsPlugin {
         // Touch is a virtual leafwing device, not a second input system.
         // `MobileTouchState` is collected in PreUpdate, the registered input
         // kinds publish it into leafwing's central store, and
-        // `bind_touch_virtual_inputs` binds them in the participant's
+        // The participant binding recipe binds them in the participant's
         // `InputMap`. Then touch resolves like a keyboard or gamepad. No
         // system here writes `ControlFrame` or the `MenuControlFrame`
         // buttons or stick directly. Drag-scroll in `menu_bridge` is the one
@@ -253,13 +250,6 @@ impl Plugin for TouchControlsPlugin {
                     .chain()
                     .after(bevy::ui::UiSystems::Focus)
                     .before(InputManagerSystem::Unify),
-            )
-            // Bind the virtual device in the participant's InputMap, and
-            // re-bind after a preset swap.
-            .add_systems(
-                Update,
-                crate::virtual_device::bind_touch_virtual_inputs
-                    .in_set(ambition_input::InputSet::ResolveActions),
             )
             .add_systems(
                 Update,
@@ -898,7 +888,7 @@ pub struct TouchActionLabel(pub TouchActionButton);
 // spawn a label and a verb without press state.
 #[require(ButtonReady)]
 pub struct ButtonVerb {
-    /// Spawn-time fallback label. Only buttons without a [`ControlSlot`] keep
+    /// Spawn-time fallback label. Only buttons without a [`ambition_sim_view::ControlSlot`] keep
     /// it permanently.
     fallback: &'static str,
     /// What the prompt says this frame, if anything. A `String` so authored
@@ -920,168 +910,94 @@ impl ButtonVerb {
     }
 }
 
-/// The control SLOT a touch button labels, or `None` for the menu/system
-/// buttons (Start / Reset) that carry no gameplay action.
-fn touch_button_slot(action: TouchActionButton) -> Option<ControlSlot> {
+/// Read the same resolved contextual rows used by the input router. Geometry
+/// and labels of the physical virtual buttons are not binding declarations.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct TouchBindings<'w, 's> {
+    primary: Query<'w, 's, (&'static InputParticipant, &'static BindingTable, Option<&'static ParticipantContexts>)>,
+}
+
+struct TouchView<'a> {
+    table: Option<&'a BindingTable>,
+    profile: InputProfile,
+}
+
+fn prompt_profile(prompt: Option<&ControlPrompt>) -> InputProfile {
+    match prompt.map(|p| p.context) {
+        Some(ControlContextKind::Menu) => InputProfile::Paused,
+        Some(ControlContextKind::Dialogue) => InputProfile::SessionUi,
+        Some(ControlContextKind::Empty) => InputProfile::Frontend,
+        _ => InputProfile::Gameplay,
+    }
+}
+
+impl TouchBindings<'_, '_> {
+    fn view(&self, prompt: Option<&ControlPrompt>) -> TouchView<'_> {
+        let Some((_, table, contexts)) = self.primary.iter().find(|(p, _, _)| p.id == ParticipantId::PRIMARY) else {
+            return TouchView { table: None, profile: InputProfile::Blocked };
+        };
+        let profile = contexts.map_or_else(|| prompt_profile(prompt), |contexts| ButtonRoute::from_contexts(Some(contexts)).profile);
+        TouchView { table: Some(table), profile }
+    }
+}
+
+impl TouchView<'_> {
+    fn action(&self, button: TouchActionButton) -> Option<InputAction> {
+        self.table?.action_for(self.profile, &PhysicalControl::Touch(button))
+    }
+
+    fn live(&self, button: TouchActionButton, prompt: &ControlPrompt, gameplay: bool) -> bool {
+        let Some(action) = self.action(button) else { return false; };
+        if let Some(slot) = ambition_input::slot_for_action(action) {
+            return gameplay && prompt.label_for(slot).is_some();
+        }
+        true
+    }
+}
+
+const DEFAULT_MENU_CONFIRM: &str = "Select";
+
+fn button_verb(action: InputAction, prompt: &ControlPrompt) -> Option<String> {
+    if let Some(slot) = ambition_input::slot_for_action(action) {
+        return prompt.label_for(slot).map(str::to_owned);
+    }
     Some(match action {
-        TouchActionButton::Jump => ControlSlot::Jump,
-        TouchActionButton::Attack => ControlSlot::Attack,
-        TouchActionButton::Special => ControlSlot::Special,
-        TouchActionButton::Burst => ControlSlot::Burst,
-        TouchActionButton::Blink => ControlSlot::Blink,
-        TouchActionButton::Interact => ControlSlot::Interact,
-        TouchActionButton::Projectile => ControlSlot::Projectile,
-        TouchActionButton::FlyToggle => ControlSlot::Utility,
-        TouchActionButton::Shield => ControlSlot::Shield,
-        TouchActionButton::Grab => ControlSlot::Grab,
-        TouchActionButton::Modifier => ControlSlot::Modifier,
-        TouchActionButton::Start | TouchActionButton::Reset => return None,
+        InputAction::Start => "Menu".into(),
+        InputAction::Reset => "Reset".into(),
+        InputAction::MenuBack => "Back".into(),
+        InputAction::MenuSelect => prompt.menu_confirm.clone().unwrap_or_else(|| DEFAULT_MENU_CONFIRM.into()),
+        InputAction::Map => "Map".into(),
+        InputAction::Inventory => "Inventory".into(),
+        other => ambition_input::action_name(&other),
     })
 }
 
-/// Confirm-button text when the menu names no verb.
-///
-/// A specific word ("Play", "Equip") is for a game to publish through
-/// `ControlPrompt::menu_confirm`. This only makes sure the button never shows
-/// a gameplay verb.
-const DEFAULT_MENU_CONFIRM: &str = "Select";
-
-/// The select-functional touch buttons: in a menu these fold into
-/// `MenuControlFrame.select`, so they wear the menu's confirm verb.
-fn is_menu_confirm_button(action: TouchActionButton) -> bool {
-    crate::virtual_device::touch_button_actions(action).contains(&Platformer2dInputActionMonolith::MenuSelect)
-}
-
-/// The menu-row buttons (Menu / Back). Always shown; the gameplay scheme does
-/// not drive them.
-fn is_menu_button(action: TouchActionButton) -> bool {
-    matches!(action, TouchActionButton::Start | TouchActionButton::Reset)
-}
-
-/// Per frame: bring every touch button in line with the [`ControlPrompt`]
-/// read-model: its label and readiness ([`label_touch_buttons`]) and whether it
-/// is drawn ([`show_live_touch_buttons`]).
-///
-/// One system, because both halves read the same prompt in the same frame and
-/// write disjoint components (the label node's verb and readiness, the
-/// button's `Visibility`). Each half is still its own function with its own
-/// rule. Reads the sim-published read-model, never the sim's live components.
+/// Labels, readiness and visibility are projections of the primary seat's
+/// effective bindings, combined with its character's published abilities.
 pub fn reconcile_touch_action_prompt(
     prompt: Res<ControlPrompt>,
-    // Whether gameplay owns the participant's actions this frame. Optional:
-    // apps without the participant-context resolver get prompt-only behavior.
     active_context: Option<Res<ambition_input::SeatInputContexts>>,
+    bindings: TouchBindings,
     mut labels: Query<(&TouchActionLabel, &mut ButtonVerb, &mut ButtonReady)>,
     mut buttons: Query<(&TouchActionButton, &mut Visibility)>,
 ) {
-    label_touch_buttons(&prompt, &mut labels);
-    // The touch overlay is one device on one screen: the local primary seat.
-    let gameplay = active_context
-        .as_deref()
-        .is_none_or(|seats| seats.primary().gameplay_owned());
-    show_live_touch_buttons(&prompt, gameplay, &mut buttons);
-}
-
-/// Label each touch button from the prompt.
-///
-/// - Gameplay: the controlled subject's own action names. A slot the scheme
-///   lacks is left as is (hidden by [`show_live_touch_buttons`]).
-/// - Menu / Dialogue: Jump and Interact show the menu's confirm verb, so a
-///   menu button never reads "Jump".
-fn label_touch_buttons(
-    prompt: &ControlPrompt,
-    labels: &mut Query<(&TouchActionLabel, &mut ButtonVerb, &mut ButtonReady)>,
-) {
-    for (TouchActionLabel(action), mut verb, mut ready) in labels.iter_mut() {
-        // Readiness uses the same slot lookup. Change-detected, so an unchanged
-        // button does not trigger a restyle.
-        let next_ready = touch_button_slot(*action).is_none_or(|slot| prompt.ready_for(slot));
-        if ready.0 != next_ready {
-            ready.0 = next_ready;
-        }
-        let next: Option<String> = if *action == TouchActionButton::Reset {
-            let action = touch_display_action(*action, prompt.context);
-            Some(if action == Some(Platformer2dInputActionMonolith::MenuBack) { "Back" } else { "Reset" }.into())
-        } else {
-            match prompt.context {
-                ControlContextKind::Gameplay => touch_button_slot(*action)
-                    .and_then(|slot| prompt.label_for(slot))
-                    .map(str::to_owned),
-                ControlContextKind::Menu | ControlContextKind::Dialogue => {
-                    // In a menu these buttons confirm, in every composition. A
-                    // game with a better word publishes it through `menu_confirm`.
-                    is_menu_confirm_button(*action).then(|| {
-                        prompt
-                            .menu_confirm
-                            .clone()
-                            .unwrap_or_else(|| DEFAULT_MENU_CONFIRM.to_owned())
-                    })
-                }
-                ControlContextKind::Empty => None,
-            }
-        };
-        // Change-detected, so `Changed<ButtonVerb>` stays accurate for
-        // `render_touch_button_text`.
-        if verb.current != next {
-            verb.current = next;
-        }
+    let view = bindings.view(Some(&prompt));
+    let gameplay = active_context.as_deref().is_none_or(|seats| seats.primary().gameplay_owned());
+    for (TouchActionLabel(button), mut verb, mut ready) in &mut labels {
+        let action = view.action(*button);
+        let next_ready = action.and_then(ambition_input::slot_for_action).is_none_or(|slot| prompt.ready_for(slot));
+        if ready.0 != next_ready { ready.0 = next_ready; }
+        let next = action.and_then(|action| button_verb(action, &prompt));
+        if verb.current != next { verb.current = next; }
+    }
+    for (button, mut vis) in &mut buttons {
+        let target = if view.live(*button, &prompt, gameplay) { Visibility::Inherited } else { Visibility::Hidden };
+        if *vis != target { *vis = target; }
     }
 }
 
-/// Whether a touch button is active in the current prompt context.
-///
-/// - Gameplay: if and only if the controlled subject's scheme has the
-///   button's slot (Sanic has no Attack, so its hidden circle cannot fire).
-/// - Menu / Dialogue: only Jump / Interact and the Menu / Back row.
-/// - Empty (no controllable subject, cold start): only the Menu / Back row.
-pub fn touch_action_available(action: TouchActionButton, prompt: &ControlPrompt) -> bool {
-    match prompt.context {
-        ControlContextKind::Gameplay => match touch_button_slot(action) {
-            Some(slot) => prompt.label_for(slot).is_some(),
-            None => true, // Start / Reset carry no gameplay slot; always available
-        },
-        ControlContextKind::Menu | ControlContextKind::Dialogue => {
-            is_menu_confirm_button(action) || is_menu_button(action)
-        }
-        ControlContextKind::Empty => is_menu_button(action),
-    }
-}
-
-/// Whether this button is live this frame: drawn and touchable.
-///
-/// Both the visibility sync and the touch mask call this, so a button cannot
-/// be drawn but untouchable, or touchable but hidden. `Start` and `Reset` are
-/// always live: they are pause and restart, and a phone without a keyboard
-/// needs them to get out.
-pub fn touch_action_live(
-    action: TouchActionButton,
-    prompt: &ControlPrompt,
-    gameplay_owns_input: bool,
-) -> bool {
-    if !touch_action_available(action, prompt) {
-        return false;
-    }
-    let always_available = matches!(action, TouchActionButton::Start | TouchActionButton::Reset);
-    if always_available {
-        return true;
-    }
-    // The gameplay-ownership term applies only to a gameplay prompt.
-    // `publish_frontend_context_prompt` already rewrites the prompt to `Menu`
-    // when a non-gameplay context owns the seat. The term covers the stale
-    // case: the prompt keeps its last value when no seat resolves an owner, so
-    // a prompt that still says Gameplay while nobody owns gameplay must not
-    // show gameplay verbs.
-    if !matches!(prompt.context, ControlContextKind::Gameplay) {
-        return true;
-    }
-    gameplay_owns_input
-}
-
-/// Clear the held flag of any action that is not live this frame. The raw
-/// hit test then cannot fire an unavailable action, and a held action that
-/// becomes unavailable gets a clean release edge.
-fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt, gameplay: bool) {
-    let avail = |a| touch_action_live(a, prompt, gameplay);
+/// Mask the same physical buttons that the HUD hides.
+fn mask_buttons(now: &mut TouchButtonEdges, avail: impl Fn(TouchActionButton) -> bool) {
     now.jump &= avail(TouchActionButton::Jump);
     now.attack &= avail(TouchActionButton::Attack);
     now.special &= avail(TouchActionButton::Special);
@@ -1093,7 +1009,8 @@ fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt, gameplay
     now.shield &= avail(TouchActionButton::Shield);
     now.grab &= avail(TouchActionButton::Grab);
     now.modifier &= avail(TouchActionButton::Modifier);
-    // Start / Reset are always available: no mask.
+    now.start &= avail(TouchActionButton::Start);
+    now.reset &= avail(TouchActionButton::Reset);
 }
 
 /// Per frame: show the movement stick only when it steers something.
@@ -1104,21 +1021,17 @@ pub fn sync_touch_stick_visibility_from_context(
     active_context: Option<Res<ambition_input::SeatInputContexts>>,
     prompt: Res<ControlPrompt>,
     visible: Res<TouchControlsVisible>,
+    bindings: TouchBindings,
     mut sticks: Query<(&TouchSurface, &mut Visibility)>,
 ) {
     // The touch overlay is one device on one screen: the local primary seat.
     let gameplay = active_context
         .as_deref()
         .is_none_or(|seats| seats.primary().gameplay_owned());
-    // The stick also steers menus: `bind_touch_virtual_inputs` maps
-    // `TouchVirtualStick` to both `Move` and `MenuStick`. So keep it visible in
-    // Menu and Dialogue. `Empty` means no surface reads those frames (see
-    // `surface_prompt` in `ambition_sim_view::control_prompt`), so hide it.
-    let steers_something = gameplay
-        || matches!(
-            prompt.context,
-            ControlContextKind::Menu | ControlContextKind::Dialogue
-        );
+    let view = bindings.view(Some(&prompt));
+    let steers_something = view.table.is_some_and(|table| table.axes().iter().any(|axis|
+        axis.source == ambition_input::AxisSource::TouchStick && view.profile.accepts(axis.action)
+        && (view.profile != InputProfile::Gameplay || gameplay)));
     let target = if visible.0 && steers_something {
         Visibility::Inherited
     } else {
@@ -1128,30 +1041,6 @@ pub fn sync_touch_stick_visibility_from_context(
         if !matches!(surface, TouchSurface::Movement) {
             continue;
         }
-        if *vis != target {
-            *vis = target;
-        }
-    }
-}
-
-/// Show exactly the buttons that are live (see
-/// [`touch_action_live`]). Shown buttons use `Visibility::Inherited`, not
-/// `Visible`, so they still obey the [`TouchControlsVisible`] root toggle.
-fn show_live_touch_buttons(
-    prompt: &ControlPrompt,
-    gameplay: bool,
-    buttons: &mut Query<(&TouchActionButton, &mut Visibility)>,
-) {
-    // A verb nobody can press must not be on screen. The prompt describes what
-    // the controlled subject can do, even while a menu owns input; whether
-    // anyone can drive it now is a question for the input context.
-    // Start and Reset are exempt (see `touch_action_live`).
-    for (action, mut vis) in buttons.iter_mut() {
-        let target = if touch_action_live(*action, prompt, gameplay) {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        };
         if *vis != target {
             *vis = target;
         }
@@ -1285,22 +1174,6 @@ impl Default for ButtonReady {
     }
 }
 
-/// Map a touch button to its gameplay [`Platformer2dInputActionMonolith`].
-///
-/// Composes button → slot → action through `ambition_input::action_for_slot`,
-/// so there is no second table to keep in sync. Start and Reset have no slot
-/// and map directly. Returns `None` for a button with no action; it gets no
-/// glyph and no press.
-fn touch_action_to_sandbox_action(
-    action: TouchActionButton,
-) -> Option<Platformer2dInputActionMonolith> {
-    match action {
-        TouchActionButton::Start => Some(Platformer2dInputActionMonolith::Start),
-        TouchActionButton::Reset => Some(Platformer2dInputActionMonolith::Reset),
-        gameplay => touch_button_slot(gameplay).and_then(ambition_input::action_for_slot),
-    }
-}
-
 /// Resolve the primary seat's button pictures from its current bindings.
 /// The touch screen on a phone or handheld shows pad controls.
 pub fn update_button_glyph_from_active_input(
@@ -1308,19 +1181,22 @@ pub fn update_button_glyph_from_active_input(
     environment: Option<Res<ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationEnvironment>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     seat_bindings: Option<Res<ambition_input::SeatBindings>>,
+    defaults: Option<Res<ambition_input::BindingDefaults>>,
     recipes: Query<(
         &ambition_input::InputParticipant,
         Ref<ambition_input::BindingRecipe>,
     )>,
     prompt: Option<Res<ControlPrompt>>,
+    touch_bindings: TouchBindings,
     images: ambition_render::control_glyphs::ControlGlyphImages,
     mut touch_style: Local<ambition_input::GamepadStyle>,
-    mut shown_context: Local<Option<ControlContextKind>>,
+    mut shown_context: Local<Option<InputProfile>>,
     mut labels: Query<(&TouchActionLabel, Ref<TouchActionLabel>, &mut ButtonGlyph)>,
 ) {
     use ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationEnvironment;
 
-    let context = prompt.as_ref().map_or(ControlContextKind::Gameplay, |prompt| prompt.context);
+    let view = touch_bindings.view(prompt.as_deref());
+    let profile = view.profile;
     let recipe = recipes
         .iter()
         .find(|(seat, _)| seat.id == ambition_input::ParticipantId::PRIMARY)
@@ -1334,16 +1210,16 @@ pub fn update_button_glyph_from_active_input(
             .as_ref()
             .is_some_and(|bindings| bindings.is_changed())
         || recipe.as_ref().is_some_and(|recipe| recipe.is_changed())
-        || *shown_context != Some(context)
+        || *shown_context != Some(profile)
         || images.is_changed();
     if !changed && !labels.iter().any(|(_, label, _)| label.is_added()) {
         return;
     }
-    *shown_context = Some(context);
+    *shown_context = Some(profile);
     let preset = settings
         .as_ref()
-        .map(|s| KeyboardPreset::by_index(s.controls.keyboard_preset_index))
-        .unwrap_or_else(KeyboardPreset::arrows_zxc);
+        .map(|s| PresetId::by_index(s.controls.keyboard_preset_index))
+        .unwrap_or(PresetId::ArrowsZxc);
     let active = devices.for_seat(ambition_input::ParticipantId::PRIMARY.slot());
     if let ambition_input::ActiveDevice::Gamepad(style) = active {
         *touch_style = style;
@@ -1370,18 +1246,21 @@ pub fn update_button_glyph_from_active_input(
         let mut reference = recipe
             .as_deref()
             .cloned()
-            .unwrap_or_else(|| ambition_input::BindingRecipe::preset(preset.id));
+            .unwrap_or_else(|| ambition_input::BindingRecipe::new(preset, defaults.as_deref().cloned().unwrap_or_default()));
         reference.sources = ambition_input::BindingSources::GamepadOnly;
-        Some(ambition_input::ActionBindings::from_map(&reference.build()))
+        Some(ambition_input::ActionBindings::from_table(&reference.resolve().1, Some(profile)))
     } else {
         None
     };
-    let bound = reference.as_ref().unwrap_or(bound);
+    let bound = reference.as_ref().unwrap_or_else(|| seat_bindings.as_deref().map_or(&empty, |seats| {
+        seats.for_profile(ambition_input::ParticipantId::PRIMARY.slot(), profile)
+    }));
     for (TouchActionLabel(action), _, mut glyph) in &mut labels {
-        let Some(action) = touch_display_action(*action, context) else {
+        let Some(action) = view.action(*action) else {
+            if *glyph != ButtonGlyph::default() { *glyph = ButtonGlyph::default(); }
             continue;
         };
-        let label = ambition_input::glyph_for(action, &preset, bound, device);
+        let label = ambition_input::glyph_for(action, preset, bound, device);
         let image = bound
             .control_for(&action, device)
             .and_then(|control| control.glyph_path(device.gamepad_style()))
@@ -1391,22 +1270,6 @@ pub fn update_button_glyph_from_active_input(
             *glyph = next;
         }
     }
-}
-
-fn touch_display_action(
-    action: TouchActionButton,
-    context: ControlContextKind,
-) -> Option<Platformer2dInputActionMonolith> {
-    use ambition_input::InputProfile;
-    let profile = match context {
-        ControlContextKind::Gameplay => InputProfile::Gameplay,
-        ControlContextKind::Dialogue => InputProfile::SessionUi,
-        ControlContextKind::Menu => InputProfile::Paused,
-        ControlContextKind::Empty => InputProfile::Frontend,
-    };
-    let actions = crate::virtual_device::touch_button_actions(action);
-    ambition_input::resolve_menu_button(profile, actions).map(|intent| intent.action())
-        .or_else(|| touch_action_to_sandbox_action(action))
 }
 
 /// Show held controls for the primary seat. The Modifier uses its published
@@ -1419,29 +1282,29 @@ fn touch_display_action(
 pub fn update_button_pressed_from_actions(
     actions_q: Query<(
         &ambition_input::InputParticipant,
-        &leafwing_input_manager::prelude::ActionState<Platformer2dInputActionMonolith>,
+        &leafwing_input_manager::prelude::ActionState<InputAction>,
     )>,
     prompt: Option<Res<ControlPrompt>>,
     frame: Option<Res<ambition_input::ControlFrame>>,
+    touch_bindings: TouchBindings,
+    menu_frames: Option<Res<ambition_input::SeatMenuFrames>>,
     mut buttons: Query<(&TouchActionButton, &mut ButtonPressed)>,
 ) {
     let actions = actions_q
         .iter()
         .find(|(participant, _)| participant.id == ambition_input::ParticipantId::PRIMARY)
         .map(|(_, actions)| actions);
+    let view = touch_bindings.view(prompt.as_deref());
     for (touch_action, mut pressed) in &mut buttons {
-        // A button with no action reads as not held.
-        let context = prompt
-            .as_ref()
-            .map_or(ControlContextKind::Gameplay, |prompt| prompt.context);
-        let held = touch_display_action(*touch_action, context)
-            .zip(actions)
-            .is_some_and(|(sa, a)| a.pressed(&sa));
-        let held = if *touch_action == TouchActionButton::Modifier {
-            frame.as_ref().map_or(held, |frame| frame.modifier_held)
-        } else {
-            held
+        let action = view.action(*touch_action);
+        let held = match (action, menu_frames.as_deref()) {
+            (Some(InputAction::MenuSelect), Some(frames)) => frames.for_seat(ParticipantId::PRIMARY.slot()).select_held,
+            (Some(InputAction::MenuBack), Some(frames)) => frames.for_seat(ParticipantId::PRIMARY.slot()).back_held,
+            _ => action.zip(actions).is_some_and(|(action, actions)| actions.pressed(&action)),
         };
+        let held = if action == Some(InputAction::Modifier) {
+            frame.as_ref().map_or(held, |frame| frame.modifier_held)
+        } else { held };
         if pressed.0 != held {
             pressed.0 = held;
         }
@@ -1513,6 +1376,8 @@ fn update_buttons_from_interactions(
     active_context: Option<Res<ambition_input::SeatInputContexts>>,
     mut state: ResMut<MobileTouchState>,
     mut edges: ResMut<TouchButtonEdges>,
+    bindings: TouchBindings,
+    mut blocked: Local<std::collections::BTreeSet<TouchActionButton>>,
 ) {
     let gameplay = active_context
         .as_deref()
@@ -1551,7 +1416,14 @@ fn update_buttons_from_interactions(
 
     // Same `touch_action_live` inputs as the visibility pass, so drawn buttons
     // and touch targets agree.
-    mask_unavailable(&mut now, &prompt, gameplay);
+    let view = bindings.view(Some(&prompt));
+    // A finger that began on an unavailable button must be released before
+    // that position can become a new press in another context.
+    for button in crate::virtual_device::ALL_TOUCH_BUTTONS {
+        if !held_of(&now, button) { blocked.remove(&button); }
+        else if !view.live(button, &prompt, gameplay) { blocked.insert(button); }
+    }
+    mask_buttons(&mut now, |button| view.live(button, &prompt, gameplay) && !blocked.contains(&button));
 
     let make_btn = |held_now: bool, held_prev: bool| super::TouchButton {
         held: held_now,
@@ -1576,9 +1448,7 @@ fn update_buttons_from_interactions(
 
 /// Read one action's held flag from the edge mask; the inverse of
 /// [`set_button_held`]. Lets tests ask whether an action is touchable without
-/// a second copy of the mapping. Test-only, because production only writes the
-/// mask.
-#[cfg(test)]
+/// a second copy of the mapping. Used to suppress a held finger across visibility changes.
 fn held_of(edges: &TouchButtonEdges, action: TouchActionButton) -> bool {
     match action {
         TouchActionButton::Jump => edges.jump,
@@ -1769,6 +1639,31 @@ mod prompt_tests {
     use super::*;
     use ambition_sim_view::PromptEntry;
 
+    fn fixture_table() -> BindingTable {
+        crate::fixture_catalog::recipe(PresetId::ArrowsZxc).with_touch(true).resolve().1
+    }
+    fn test_app() -> App {
+        let mut app = App::new();
+        app.world_mut().spawn((InputParticipant::primary(), fixture_table()));
+        app
+    }
+    fn touch_action_live(button: TouchActionButton, prompt: &ControlPrompt, gameplay: bool) -> bool {
+        TouchView { table: Some(&fixture_table()), profile: prompt_profile(Some(prompt)) }.live(button, prompt, gameplay)
+    }
+    fn touch_action_available(button: TouchActionButton, prompt: &ControlPrompt) -> bool {
+        touch_action_live(button, prompt, true)
+    }
+    fn is_menu_confirm_button(button: TouchActionButton) -> bool {
+        fixture_table().action_for(InputProfile::Paused, &PhysicalControl::Touch(button)) == Some(InputAction::MenuSelect)
+    }
+    fn touch_button_slot(button: TouchActionButton) -> Option<ControlSlot> {
+        fixture_table().action_for(InputProfile::Gameplay, &PhysicalControl::Touch(button)).and_then(ambition_input::slot_for_action)
+    }
+    fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt, gameplay: bool) {
+        mask_buttons(now, |button| touch_action_live(button, prompt, gameplay));
+    }
+
+
     fn prompt(context: ControlContextKind, entries: Vec<(ControlSlot, &str)>) -> ControlPrompt {
         ControlPrompt {
             context,
@@ -1799,7 +1694,7 @@ mod prompt_tests {
 
     #[test]
     fn attack_button_relabels_from_the_prompt() {
-        let mut app = App::new();
+        let mut app = test_app();
         app.insert_resource(prompt(
             ControlContextKind::Gameplay,
             vec![(ControlSlot::Attack, "Cleave")],
@@ -1824,7 +1719,7 @@ mod prompt_tests {
     #[test]
     fn the_utility_button_wears_whatever_the_subject_calls_that_slot() {
         fn verb_of_fly_button(prompt: ControlPrompt) -> String {
-            let mut app = App::new();
+            let mut app = test_app();
             app.insert_resource(prompt);
             app.add_systems(Update, reconcile_touch_action_prompt);
             let button = app
@@ -1863,7 +1758,7 @@ mod prompt_tests {
 
     #[test]
     fn button_for_a_slot_the_scheme_lacks_is_hidden() {
-        let mut app = App::new();
+        let mut app = test_app();
         // Gameplay prompt with ONLY a Jump action (a movement-only body).
         app.insert_resource(prompt(
             ControlContextKind::Gameplay,
@@ -1895,7 +1790,7 @@ mod prompt_tests {
     /// visibility, so `render_touch_button_text` and the restyle stay idle.
     #[test]
     fn a_steady_prompt_marks_no_button_changed() {
-        let mut app = App::new();
+        let mut app = test_app();
         app.insert_resource(prompt(
             ControlContextKind::Gameplay,
             vec![(ControlSlot::Attack, "Cleave")],
@@ -1944,7 +1839,7 @@ mod prompt_tests {
     fn menu_relabels_select_buttons_and_hides_gameplay_buttons() {
         // In a menu the select-functional Jump reads the confirm verb (never
         // "Jump"), gameplay-only Attack is hidden, and the Back button stays.
-        let mut app = App::new();
+        let mut app = test_app();
         app.insert_resource(menu_prompt("Equip"));
         app.add_systems(
             Update,
@@ -2030,9 +1925,9 @@ mod prompt_tests {
         assert!(touch_action_available(TouchActionButton::Reset, &m));
         assert!(!touch_action_available(TouchActionButton::Attack, &m));
 
-        // Empty: gameplay actions hidden, only the menu row survives.
+        // The frontend has its own confirm and Back controls.
         let e = ControlPrompt::default(); // context = Empty
-        assert!(!touch_action_available(TouchActionButton::Jump, &e));
+        assert!(touch_action_available(TouchActionButton::Jump, &e));
         assert!(!touch_action_available(TouchActionButton::Attack, &e));
         assert!(touch_action_available(TouchActionButton::Start, &e));
     }
@@ -2043,7 +1938,7 @@ mod prompt_tests {
     #[test]
     fn every_button_a_dialogue_shows_reads_what_it_does() {
         let confirm = "Advance";
-        let mut app = App::new();
+        let mut app = test_app();
         app.insert_resource(menu_prompt(confirm));
         app.add_systems(
             Update,
@@ -2102,9 +1997,10 @@ mod prompt_tests {
     #[test]
     fn every_button_the_overlay_can_draw_can_also_be_pressed() {
         let bound: std::collections::HashSet<TouchActionButton> =
-            crate::virtual_device::touch_bindings()
-                .into_iter()
-                .map(|(_, button)| button.0)
+            fixture_table().rows().iter().filter_map(|row| match ambition_input::physical_control_of(row.control.as_ref()) {
+                PhysicalControl::Touch(button) => Some(button),
+                _ => None,
+            })
                 .collect();
         for action in crate::virtual_device::ALL_TOUCH_BUTTONS {
             if touch_button_slot(action).is_none() {
@@ -2129,7 +2025,7 @@ mod prompt_tests {
     #[test]
     fn a_menu_with_no_authored_verb_still_never_reads_a_gameplay_one() {
         let gameplay_verbs = ["Spin Dash", "Jump", "Talk", "Atk"];
-        let mut app = App::new();
+        let mut app = test_app();
         app.insert_resource(ControlPrompt {
             context: ControlContextKind::Menu,
             entries: Vec::new(),
@@ -2186,12 +2082,12 @@ mod prompt_tests {
     }
 
     /// The move stick is shown wherever it steers something, including a menu
-    /// or a dialogue. `bind_touch_virtual_inputs` maps `TouchVirtualStick` to
+    /// or a dialogue. the binding catalog maps `TouchVirtualStick` to
     /// both `Move` and `MenuStick`, and a hidden node takes no drags.
     #[test]
     fn the_move_stick_is_shown_wherever_it_steers_something() {
         fn stick_visibility(prompt_value: ControlPrompt) -> Visibility {
-            let mut app = App::new();
+            let mut app = test_app();
             app.insert_resource(prompt_value);
             // Nobody owns gameplay — the dialogue/menu case.
             app.init_resource::<ambition_input::SeatInputContexts>();
@@ -2215,9 +2111,8 @@ mod prompt_tests {
         );
         assert_eq!(
             stick_visibility(ControlPrompt::default()),
-            Visibility::Hidden,
-            "the Empty context routes neither binding, and the standing rule is \
-             that a control nobody can use must not be on screen"
+            Visibility::Inherited,
+            "the frontend has its own menu-stick binding"
         );
     }
 
@@ -2306,7 +2201,7 @@ mod prompt_tests {
     #[test]
     fn hidden_action_is_not_tappable_end_to_end() {
         // Drive the interaction system with a "pressed" Attack button the scheme lacks.
-        let mut app = App::new();
+        let mut app = test_app();
         app.insert_resource(prompt(
             ControlContextKind::Gameplay,
             vec![(ControlSlot::Jump, "Jump")], // Attack absent from the scheme
@@ -2335,7 +2230,7 @@ mod prompt_tests {
     /// "Hidden" has to mean removed from layout, not resized to nothing.
     #[test]
     fn an_unplaced_touch_surface_leaves_the_layout_entirely() {
-        let mut app = App::new();
+        let mut app = test_app();
         app.init_resource::<crate::placement::TouchControlPlacement>();
         app.add_systems(Update, apply_touch_control_placement);
         let surface = app
@@ -2419,14 +2314,15 @@ mod glyph_picture_tests {
                 )
                     .chain(),
             );
-        app.world_mut()
-            .spawn((InputParticipant::primary(), recipe.build(), recipe));
+        let recipe = recipe.with_touch(true);
+        let (map, table) = recipe.resolve();
+        app.world_mut().spawn((InputParticipant::primary(), map, table, recipe));
         app
     }
 
     #[test]
     fn touch_uses_the_primary_seats_pad_reference_and_keeps_action_words() {
-        let mut recipe = BindingRecipe::preset(ambition_input::PresetId::ArrowsZxc);
+        let mut recipe = crate::fixture_catalog::recipe(ambition_input::PresetId::ArrowsZxc);
         recipe.sources = BindingSources::KeyboardOnly;
         recipe.set_binding_override(ambition_input::BindingOverride {
             action: "Jump".into(),
@@ -2467,7 +2363,7 @@ mod glyph_picture_tests {
     #[test]
     fn decoded_pictures_replace_only_the_control_subtitle_and_keep_the_verb() {
         use bevy::asset::AssetApp;
-        let mut app = glyph_app(BindingRecipe::preset(ambition_input::PresetId::ArrowsZxc));
+        let mut app = glyph_app(crate::fixture_catalog::recipe(ambition_input::PresetId::ArrowsZxc));
         app.add_plugins((
             bevy::app::TaskPoolPlugin::default(),
             bevy::asset::AssetPlugin::default(),
@@ -2512,7 +2408,7 @@ mod glyph_picture_tests {
     fn the_handheld_touch_overlay_keeps_pad_glyphs_after_mouse_input() {
         use ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationEnvironment;
 
-        let mut app = glyph_app(BindingRecipe::preset(ambition_input::PresetId::ArrowsZxc));
+        let mut app = glyph_app(crate::fixture_catalog::recipe(ambition_input::PresetId::ArrowsZxc));
         app.insert_resource(PresentationEnvironment::Handheld);
         app.update();
         let jump = label(&mut app, TouchActionButton::Jump);

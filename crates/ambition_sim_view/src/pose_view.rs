@@ -673,7 +673,7 @@ pub fn rebuild_body_pose_views(
     mut commands: Commands,
     // The reference the hitlag law scales from, so the published strength is a
     // fraction rather than a raw freeze presentation would have to interpret.
-    feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
+    feel: Option<Res<ambition_combat::feel::FeelTuning>>,
     // The room's hitlag law: under an affine law the reference is that law's
     // ordinary freeze, not the world's, or a smash would read as a blink.
     rules: ambition_combat::rules::CombatTuningOf,

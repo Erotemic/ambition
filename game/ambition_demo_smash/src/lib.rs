@@ -11,6 +11,8 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
+pub mod input_bindings;
+
 pub mod autoplay;
 pub mod bolt;
 pub mod bomb;
@@ -1922,7 +1924,7 @@ fn start_the_battle_when_asked(
     // the only way gamepad Special gets a button.
     commands.insert_resource(ambition_platformer2d::input::DeclaredBindingLayout::new(
         SMASH_EXPERIENCE,
-        ambition_platformer2d::input::BindingLayout::Smash,
+        crate::input_bindings::layout(),
     ));
     shell.write(ambition_platformer2d::game_shell::ShellCommand::GoTo(
         ambition_platformer2d::game_shell::ShellRouteId::new(SMASH_GAMEPLAY_ROUTE),

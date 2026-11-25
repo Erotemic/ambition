@@ -10,15 +10,15 @@ autotests = false
 [features]
 default = []
 # Forwarders: the cfg(feature = "...") gates inside this crate's code key off
-# OUR feature names; each forwards to the matching ambition_platformer2d_actor_monolith machinery
+# OUR feature names; each forwards to the matching ambition_platformer2d_actor machinery
 # feature so a mismatched combination is a compile error, never a silent
 # missing-registration.
 # The runtime's portal edge offers the held portal pair port and the light
 # line port, which GNU-ton's conductor asks for (`ambition.portal.held_pair`,
 # `ambition.portal.light_line`).
-portal = ["ambition_platformer2d_actor_monolith/portal", "ambition_platformer2d_runtime/portal"]
+portal = ["ambition_platformer2d_actor/portal", "ambition_platformer2d_runtime/portal"]
 portal_render = ["portal", "dep:ambition_portal2d_presentation"]
-ui = ["ambition_platformer2d_actor_monolith/ui", "ambition_dialog/ui", "dep:bevy_yarnspinner", "dep:yarnspinner"]
+ui = ["ambition_platformer2d_actor/ui", "ambition_dialog/ui", "dep:bevy_yarnspinner", "dep:yarnspinner"]
 audio = ["ambition_audio/kira"]
 # Embed the LDtk world JSON into the binary (web / Android / bundled builds
 # + the desktop disk-failure fallback). Forwards to the machinery feature so
@@ -85,7 +85,7 @@ ambition_platformer2d_ldtk = { path = "../../crates/ambition_platformer2d_ldtk",
 ambition_mount = { path = "../../crates/ambition_mount" }
 ambition_platformer2d_interaction = { path = "../../crates/ambition_platformer2d_interaction" }
 ambition_platformer2d_actor_spawn = { path = "../../crates/ambition_platformer2d_actor_spawn" }
-ambition_platformer2d_actor_monolith = { path = "../../crates/ambition_platformer2d_actor_monolith", default-features = false, features = [
+ambition_platformer2d_actor = { path = "../../crates/ambition_platformer2d_actor", default-features = false, features = [
     "portal",
 ] }
 # The pressed collectible (D33, 2026-09-03): the portal adapters equip/unequip

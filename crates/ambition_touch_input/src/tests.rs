@@ -6,17 +6,17 @@ use super::state::TouchButton;
 //
 // These run the real leafwing pipeline: `MobileTouchState` → the registered
 // input kinds → the participant's `InputMap` bindings →
-// `ActionState<Platformer2dInputActionMonolith>`. The same resolution a
+// `ActionState<InputAction>`. The same resolution a
 // keyboard or gamepad gets.
 
 #[cfg(feature = "mobile_touch")]
 mod virtual_device_tests {
     use super::super::bevy_plugin::MobileTouchState;
     use super::super::virtual_device::{
-        bind_touch_virtual_inputs, TouchStickDirection, TouchVirtualButton, TouchVirtualStick,
+        TouchStickDirection, TouchVirtualButton, TouchVirtualStick,
     };
     use super::TouchButton;
-    use ambition_input::{InputParticipant, ParticipantContexts, Platformer2dInputActionMonolith};
+    use ambition_input::{InputParticipant, ParticipantContexts, InputAction};
     use bevy::prelude::*;
     use leafwing_input_manager::plugin::{CentralInputStorePlugin, InputManagerPlugin};
     use leafwing_input_manager::prelude::updating::InputRegistration;
@@ -27,9 +27,10 @@ mod virtual_device_tests {
     /// the touch virtual device bound in its `InputMap`.
     fn app() -> (App, Entity) {
         let mut app = App::new();
+        crate::fixture_catalog::install(&mut app);
         app.add_plugins(bevy::time::TimePlugin);
         app.add_plugins(bevy::input::InputPlugin);
-        app.add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default());
+        app.add_plugins(InputManagerPlugin::<InputAction>::default());
         if !app.is_plugin_added::<CentralInputStorePlugin>() {
             app.add_plugins(CentralInputStorePlugin);
         }
@@ -37,14 +38,15 @@ mod virtual_device_tests {
         app.register_input_kind::<TouchStickDirection>(InputControlKind::Button);
         app.register_input_kind::<TouchVirtualStick>(InputControlKind::DualAxis);
         app.init_resource::<MobileTouchState>();
-        app.add_systems(Update, bind_touch_virtual_inputs);
+        app.add_systems(Update, ambition_input::rebuild_maps_from_recipes);
+        let recipe = crate::fixture_catalog::recipe(ambition_input::PresetId::ArrowsZxc).with_touch(true);
+        let (map, table) = recipe.resolve();
         let participant = app
             .world_mut()
             .spawn((
                 InputParticipant::primary(),
-                ParticipantContexts::default(),
-                ActionState::<Platformer2dInputActionMonolith>::default(),
-                InputMap::<Platformer2dInputActionMonolith>::default(),
+                ActionState::<InputAction>::default(),
+                map, table, recipe,
             ))
             .id();
         // First frame binds the virtual device into the fresh InputMap.
@@ -55,9 +57,9 @@ mod virtual_device_tests {
     fn actions<'a>(
         app: &'a App,
         participant: Entity,
-    ) -> &'a ActionState<Platformer2dInputActionMonolith> {
+    ) -> &'a ActionState<InputAction> {
         app.world()
-            .get::<ActionState<Platformer2dInputActionMonolith>>(participant)
+            .get::<ActionState<InputAction>>(participant)
             .unwrap()
     }
 
@@ -75,15 +77,15 @@ mod virtual_device_tests {
         app.update();
         let a = actions(&app, participant);
         assert!(
-            a.pressed(&Platformer2dInputActionMonolith::Jump),
+            a.pressed(&InputAction::Jump),
             "touch Jump -> Jump"
         );
         assert!(
-            a.pressed(&Platformer2dInputActionMonolith::MenuSelect),
+            a.pressed(&InputAction::MenuSelect),
             "touch Jump also -> MenuSelect (declared menu-confirm binding)"
         );
         assert!(
-            a.just_pressed(&Platformer2dInputActionMonolith::Jump),
+            a.just_pressed(&InputAction::Jump),
             "first frame is an edge"
         );
 
@@ -91,9 +93,9 @@ mod virtual_device_tests {
         hold(&mut app, |s| s.0.jump = TouchButton::held_continued());
         app.update();
         let a = actions(&app, participant);
-        assert!(a.pressed(&Platformer2dInputActionMonolith::Jump));
+        assert!(a.pressed(&InputAction::Jump));
         assert!(
-            !a.just_pressed(&Platformer2dInputActionMonolith::Jump),
+            !a.just_pressed(&InputAction::Jump),
             "a held touch button is held, not a fresh press every frame"
         );
 
@@ -101,7 +103,7 @@ mod virtual_device_tests {
         hold(&mut app, |s| s.0.jump = TouchButton::off());
         app.update();
         let a = actions(&app, participant);
-        assert!(a.just_released(&Platformer2dInputActionMonolith::Jump));
+        assert!(a.just_released(&InputAction::Jump));
     }
 
     #[test]
@@ -116,23 +118,23 @@ mod virtual_device_tests {
         app.update();
         let a = actions(&app, participant);
         assert!(
-            a.pressed(&Platformer2dInputActionMonolith::Reset),
+            a.pressed(&InputAction::Reset),
             "Reset -> Reset"
         );
         assert!(
-            a.pressed(&Platformer2dInputActionMonolith::MenuBack),
+            a.pressed(&InputAction::MenuBack),
             "Reset doubles as menu Back (declared binding)"
         );
         assert!(
-            a.pressed(&Platformer2dInputActionMonolith::Utility),
+            a.pressed(&InputAction::Utility),
             "Fly -> Utility"
         );
         assert!(
-            a.pressed(&Platformer2dInputActionMonolith::Shield),
+            a.pressed(&InputAction::Shield),
             "the overlay Shield button feeds the Shield action"
         );
         assert!(
-            a.pressed(&Platformer2dInputActionMonolith::Special),
+            a.pressed(&InputAction::Special),
             "the dedicated Special button reaches the Special slot (gate 5)"
         );
     }
@@ -144,8 +146,8 @@ mod virtual_device_tests {
         hold(&mut app, |s| s.0.move_y = 1.0);
         app.update();
         let a = actions(&app, participant);
-        let move_pair = a.clamped_axis_pair(&Platformer2dInputActionMonolith::Move);
-        let menu_pair = a.clamped_axis_pair(&Platformer2dInputActionMonolith::MenuStick);
+        let move_pair = a.clamped_axis_pair(&InputAction::Move);
+        let menu_pair = a.clamped_axis_pair(&InputAction::MenuStick);
         assert!(
             move_pair.y < -0.9,
             "down-drag publishes -Y in leafwing's +Y-up convention (got {move_pair:?}); \
@@ -163,16 +165,16 @@ mod virtual_device_tests {
         hold(&mut app, |s| s.0.move_y = 1.0);
         app.update();
         assert!(
-            actions(&app, participant).just_pressed(&Platformer2dInputActionMonolith::MoveDown),
+            actions(&app, participant).just_pressed(&InputAction::MoveDown),
             "crossing the direction threshold is a MoveDown press edge"
         );
         // Held past the threshold: no new edge, so double-tap-down detectors
         // do not see a held stick as repeated taps.
         app.update();
         let a = actions(&app, participant);
-        assert!(a.pressed(&Platformer2dInputActionMonolith::MoveDown));
+        assert!(a.pressed(&InputAction::MoveDown));
         assert!(
-            !a.just_pressed(&Platformer2dInputActionMonolith::MoveDown),
+            !a.just_pressed(&InputAction::MoveDown),
             "a held direction is held, not a fresh tap every frame"
         );
     }
@@ -182,13 +184,13 @@ mod virtual_device_tests {
         let (mut app, participant) = app();
         // A preset swap replaces the whole InputMap (sync_preset_input_map).
         *app.world_mut()
-            .get_mut::<InputMap<Platformer2dInputActionMonolith>>(participant)
-            .unwrap() = ambition_input::KeyboardPreset::by_index(1).input_map();
+            .get_mut::<ambition_input::BindingRecipe>(participant)
+            .unwrap() = crate::fixture_catalog::recipe(ambition_input::PresetId::WasdJkl).with_touch(true);
         app.update(); // re-bind runs on Changed<InputMap>
         hold(&mut app, |s| s.0.jump = TouchButton::pressed_now());
         app.update();
         assert!(
-            actions(&app, participant).pressed(&Platformer2dInputActionMonolith::Jump),
+            actions(&app, participant).pressed(&InputAction::Jump),
             "touch stays bound after the preset swap replaced the map"
         );
     }
@@ -210,9 +212,9 @@ mod virtual_device_tests {
         app.update();
         assert!(
             !app.world()
-                .get::<ActionState<Platformer2dInputActionMonolith>>(primary)
+                .get::<ActionState<InputAction>>(primary)
                 .unwrap()
-                .pressed(&Platformer2dInputActionMonolith::Modifier)
+                .pressed(&InputAction::Modifier)
         );
         assert!(app.world().get::<ButtonPressed>(button).unwrap().0);
         app.world_mut()
@@ -240,8 +242,8 @@ mod virtual_device_tests {
             .spawn((
                 InputParticipant::with_id(ParticipantId::SECONDARY),
                 ParticipantContexts::default(),
-                ActionState::<Platformer2dInputActionMonolith>::default(),
-                InputMap::<Platformer2dInputActionMonolith>::default(),
+                ActionState::<InputAction>::default(),
+                InputMap::<InputAction>::default(),
             ))
             .id();
         // One overlay button entity, the shape the pressed-visual operates on.
@@ -255,11 +257,11 @@ mod virtual_device_tests {
         app.update();
 
         assert!(
-            actions(&app, primary).pressed(&Platformer2dInputActionMonolith::Jump),
+            actions(&app, primary).pressed(&InputAction::Jump),
             "the machine's own screen still drives the PRIMARY seat"
         );
         assert!(
-            !actions(&app, couch).pressed(&Platformer2dInputActionMonolith::Jump),
+            !actions(&app, couch).pressed(&InputAction::Jump),
             "one screen tap must not press Jump on the couch seat"
         );
         assert!(
@@ -285,6 +287,7 @@ fn genuine_touch_activity_marks_touch_active() {
     use bevy::prelude::*;
 
     let mut app = App::new();
+        crate::fixture_catalog::install(&mut app);
     app.init_resource::<Touches>();
     app.init_resource::<ButtonInput<MouseButton>>();
     app.init_resource::<MobileTouchState>();
@@ -328,6 +331,7 @@ fn a_drag_outside_the_controls_is_reported_as_a_drag() {
     use bevy::window::PrimaryWindow;
 
     let mut app = App::new();
+        crate::fixture_catalog::install(&mut app);
     app.init_resource::<Touches>();
     app.init_resource::<ButtonInput<MouseButton>>();
     app.init_resource::<MobileTouchState>();

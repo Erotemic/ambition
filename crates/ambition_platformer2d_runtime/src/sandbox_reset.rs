@@ -4,7 +4,7 @@
 //! that is where it USED to sit -- the sentence explains why this crate exists), a module that also
 //! composes `load_room` and therefore imports `ambition_render` — a dependency this crate must
 //! never take. Nothing about the RESET half needed render: it names only
-//! `ambition_platformer2d_core`, `ambition_platformer2d_actor_monolith`, `ambition_characters`,
+//! `ambition_platformer2d_core`, `ambition_platformer2d_actor`, `ambition_characters`,
 //! `ambition_sfx`, and `ambition_vfx`, all of which `ambition_platformer2d_runtime` already depends
 //! on. Splitting the reset out of that module is the whole reason it could not move earlier.
 //!
@@ -20,7 +20,7 @@
 use bevy::prelude::*;
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
-use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+use ambition_combat::feel::FeelTuning;
 use ambition_combat::RoomReplayAdmitted;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
@@ -71,7 +71,7 @@ pub fn reset_sandbox(
         &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
     >,
     tuning: ae::MovementTuning,
-    feel: Platformer2dFeelTuningMonolith,
+    feel: FeelTuning,
 ) {
     let reset_from = clusters.kinematics.pos;
     ae::reset_body_clusters(
@@ -275,7 +275,7 @@ pub fn return_the_replay_subject_to_spawn(
     // so while two rooms were live nobody went back to spawn.
     world: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
-    feel_tuning: Res<Platformer2dFeelTuningMonolith>,
+    feel_tuning: Res<FeelTuning>,
     mut sim_state: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<RoomTransitionCooldown>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut sfx_writer: SfxWriter,
@@ -401,7 +401,7 @@ pub fn return_a_fallen_participant(
     rooms: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     save: Option<Res<ambition_persistence::save::AmbitionGameSave>>,
     active_tuning: Res<ae::ActiveMovementTuning>,
-    feel_tuning: Res<Platformer2dFeelTuningMonolith>,
+    feel_tuning: Res<FeelTuning>,
     live_roots: Query<
         &ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
         With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
@@ -770,7 +770,7 @@ mod tests {
                 &mut gestures,
                 Some(&mut blink_cam),
                 ae::DEFAULT_TUNING,
-                ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
+                ambition_combat::feel::FeelTuning::default(),
             );
         }
         probe.snapped = blink_cam.camera_snap_timer;

@@ -297,7 +297,7 @@ ADJUDICATED: dict[str, str] = {
         "*\"Shared presentation pulse state for save/heal shrines\"* "
         "(`crates/ambition_platformer2d_shared_tangle/src/shrine.rs:1`). It is "
         "SET in the sim on activation "
-        "(`crates/ambition_platformer2d_actor_monolith/src/shrine.rs:91`) and the "
+        "(`crates/ambition_platformer2d_actor/src/shrine.rs:91`) and the "
         "only reader is `ambition_render`'s shrine visuals "
         "(`crates/ambition_render/src/rendering/shrine_visuals.rs:184`, "
         "`Res<..>`). ⭐ It also uses the RIGHT clock — `world_time.sim_dt()`, "

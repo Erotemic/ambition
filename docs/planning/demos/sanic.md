@@ -101,7 +101,7 @@ The axis-swept arm already respects the opt-in lock, with an in-water override
 **One bounded fix:** Give the producer the **resolved ability to turn this
 tick**, derived from the body's effective movement policy and actual
 water/flight/ground facts at the snapshot builder in
-`crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs`, or
+`crates/ambition_platformer2d_actor/src/body/actors/update.rs`, or
 place the equivalent single gate at the shared consumer. Do not infer this
 from vertical velocity, confuse `actor_aerial` with jumping, change Smash's
 attack gesture directions, or hard-code game IDs. Keep input neutral from

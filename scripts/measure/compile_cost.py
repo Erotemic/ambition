@@ -98,7 +98,7 @@ class Scenario:
 SCENARIOS: list[Scenario] = [
     Scenario(
         name="check",
-        edit="crates/ambition_platformer2d_actor_monolith/src/lib.rs",
+        edit="crates/ambition_platformer2d_actor/src/lib.rs",
         command=["cargo", "check", "-p", "ambition_app"],
         why="the AGENTS.md gate, after an edit to the crate most work touches",
     ),
@@ -113,7 +113,7 @@ SCENARIOS: list[Scenario] = [
     # makes the two rows subtractable.
     Scenario(
         name="check-pub",
-        edit="crates/ambition_platformer2d_actor_monolith/src/lib.rs",
+        edit="crates/ambition_platformer2d_actor/src/lib.rs",
         command=["cargo", "check", "-p", "ambition_app"],
         why="`check`'s control for edit CLASS: an exported item, not a private one",
         edit_class=PUBLIC_MARKER_EDIT_CLASS,
@@ -121,7 +121,7 @@ SCENARIOS: list[Scenario] = [
     ),
     Scenario(
         name="test-build",
-        edit="crates/ambition_platformer2d_actor_monolith/src/lib.rs",
+        edit="crates/ambition_platformer2d_actor/src/lib.rs",
         command=["cargo", "test", "-p", "ambition_app", "--test", "app_it", "--no-run"],
         why="what an agent pays before one test runs; codegen, not frontend",
     ),
@@ -136,7 +136,7 @@ SCENARIOS: list[Scenario] = [
 SCENARIOS.append(
     Scenario(
         name="edit-cycle",
-        edit="crates/ambition_platformer2d_actor_monolith/src/lib.rs",
+        edit="crates/ambition_platformer2d_actor/src/lib.rs",
         command=["cargo", "test", "-p", "ambition_app", "--test", "app_it", "--no-run"],
         why="the whole engine loop: build the tests, run one targeted arm, draw the game's first frame",
         then=(

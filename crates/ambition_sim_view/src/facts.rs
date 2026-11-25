@@ -166,7 +166,7 @@ pub fn rebuild_view_hud_facts(
                 .into_iter()
                 .filter(|slot| !followed_seats.contains(slot))
                 .filter_map(|slot| {
-                    let body = ambition_platformer2d_actor_monolith::control::body_driving_seat(
+                    let body = ambition_platformer2d_actor::control::body_driving_seat(
                         &drivers, slot,
                     )?;
                     let shares = body != subject
@@ -1257,7 +1257,7 @@ pub fn rebuild_blink_preview_fact(
     let reticles: Vec<BlinkReticle> = slots
         .into_iter()
         .filter_map(|slot| {
-            let subject = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot)?;
+            let subject = ambition_platformer2d_actor::control::body_driving_seat(&drivers, slot)?;
             let controls = seats.as_deref().map_or_else(Default::default, |seats| seats.get(slot));
             let (kin, abilities, motion_facts) = player_q.get(subject).ok()?;
             blink_reticle(&collision, &live, subject, kin, abilities, motion_facts, controls)
@@ -2207,12 +2207,12 @@ pub fn rebuild_party_return_prompts(
 ) {
     let mut next = std::collections::BTreeMap::new();
     if let Ok((party, admitted)) = parties.single() {
-        let leader = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, party.rules().leader);
+        let leader = ambition_platformer2d_actor::control::body_driving_seat(&drivers, party.rules().leader);
         if party.rules().return_to_leader && leader.is_some_and(|body| bodies.contains(body)) {
             let frame = views.iter().find_map(|view| view.frame());
             for slot in party.members(admitted) {
                 if slot == party.rules().leader { continue; }
-                let Some(body) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot) else { continue; };
+                let Some(body) = ambition_platformer2d_actor::control::body_driving_seat(&drivers, slot) else { continue; };
                 let Ok(kin) = bodies.get(body) else { continue; };
                 let Some(frame) = frame else { continue; };
                 let delta = kin.pos - frame.snapshot.center_world;
@@ -2222,7 +2222,7 @@ pub fn rebuild_party_return_prompts(
                 if live.of(body) == Some(frame.room) && offset.x <= half.x && offset.y <= half.y { continue; }
                 let device = devices.as_deref().map_or_else(Default::default, |devices| devices.for_seat(slot.0));
                 if let Some(binding) = bindings.as_deref().and_then(|bindings| bindings.for_seat(slot.0)
-                    .label_for(&ambition_input::Platformer2dInputActionMonolith::Reset, device)) {
+                    .label_for(&ambition_input::InputAction::Reset, device)) {
                     next.insert(slot, format!("{binding}: Return to leader"));
                 }
             }

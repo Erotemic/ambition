@@ -43,7 +43,7 @@ ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_world_items = { path = "../ambition_world_items" }
 ambition_body_seed = { path = "../ambition_body_seed", features = ["test-support"] }
 # `portal`: the portal gun is a capability-owned construction lane, which one test proves.
-ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = ["portal"] }
+ambition_platformer2d_actor = { path = "../ambition_platformer2d_actor", default-features = false, features = ["portal"] }
 ambition_portal2d = { path = "../ambition_portal2d" }
 ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
 ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["test-support"] }

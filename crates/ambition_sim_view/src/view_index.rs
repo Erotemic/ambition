@@ -280,7 +280,7 @@ pub fn rebuild_feature_view_index(
     mut index: ResMut<FeatureViewIndex>,
     // The reference the hitlag law scales from, so the published strength is a
     // fraction rather than a raw freeze presentation would have to interpret.
-    feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
+    feel: Option<Res<ambition_combat::feel::FeelTuning>>,
     // The room's hitlag law, for the strength reference (see `pose_view`).
     rules: ambition_combat::rules::CombatTuningOf,
     // Which live room each feature is in, for the row's `room`.

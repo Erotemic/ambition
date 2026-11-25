@@ -2,13 +2,13 @@
 
 **2026-10-26 review boundary:** D33's carve receipts describe historical and current
 implementation work, not a permanent prerequisite for reconsidering package names or using a
-non-rollback game profile. Before renaming `ambition_platformer2d_actor_monolith`, validate its
-actual control/body/action responsibility, exports and consumers; preserve content-owner
-identifiers, scripts and asset paths independently. Crate merges require higher evidence than a
+non-rollback game profile. The actor crate is now `ambition_platformer2d_actor`.
+The name describes its body, control and action responsibility; further carves remain valid.
+Keep content-owner identities stable across source-only renames. Crate merges require higher evidence than a
 successful carve; see [ADR 0039](../../adr/0039-evidence-based-crate-boundaries.md) and
 [architecture reassessment](architecture-reassessment-and-composable-multiplayer.md).
 **Scope:** the rules for carving responsibilities out of
-`ambition_platformer2d_actor_monolith` (track D33), the carve safety map and the
+`ambition_platformer2d_actor` (track D33), the carve safety map and the
 exit condition.
 **Doctrine and target authorities:** [engine architecture](architecture.md).
 **Packets:** [ownership migration packets](actor-monolith-work-frontier.md).
@@ -43,7 +43,7 @@ on a lower domain is valid when the kernel needs that domain's facts.
 The instrument counts textual `crate::<module>` paths inside one crate. It
 misses many imported names, cross-crate dependencies, shared writers, message
 timing, plugin prerequisites, macros and re-exports. Use
-`scripts/measure/module_graph.py --crate ambition_platformer2d_actor_monolith` to
+`scripts/measure/module_graph.py --crate ambition_platformer2d_actor` to
 inspect `use` edges as a second view. The generated ECS and Cargo indexes
 show system registrations and declared/resolved crate dependencies, but the
 resolved Cargo graph is feature-unified across the workspace. A consumer's
@@ -918,8 +918,8 @@ because it is durable decomposition doctrine.
 | `crates/ambition_characters/src/smash_fighter/` | `the-smash-fighter-facet-is-read-only-by-its-owner` |
 | `crates/ambition_platformer2d_assets/src/materialization/presentation.rs` | `the-provider-resolver-is-confined-to-one-file` |
 | `crates/ambition_characters/src/actor/character_catalog/registry.rs`, `crates/ambition_platformer2d_assets/src/materialization/audit.rs`, or `game/ambition_app/tests/app_local_catalog_composition.rs` | `the-catalog-owners-map-is-not-a-provider-authority` |
-| `crates/ambition_characters/src/prepared.rs`, `crates/ambition_platformer2d_actor_monolith/src/avatar/character_execution.rs`, or `crates/ambition_characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-is-confined-to-one-file` |
-| `crates/ambition_platformer2d_actor_monolith/src/avatar/character_execution.rs` or `crates/ambition_platformer2d_actor_monolith/src/avatar/mod.rs` | `the-movement-tuning-resolver-is-confined-to-one-file` |
+| `crates/ambition_characters/src/prepared.rs`, `crates/ambition_platformer2d_actor/src/avatar/character_execution.rs`, or `crates/ambition_characters/src/actor/character_catalog/mod.rs` | `the-catalog-axis-tuning-is-confined-to-one-file` |
+| `crates/ambition_platformer2d_actor/src/avatar/character_execution.rs` or `crates/ambition_platformer2d_actor/src/avatar/mod.rs` | `the-movement-tuning-resolver-is-confined-to-one-file` |
 | `crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`, `crates/ambition_platformer2d_shared_tangle/src/lifecycle/session.rs`, or `crates/ambition_platformer2d_publication/src/stage.rs` | `only-the-candidate-builder-hides-a-root` |
 | `crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs`, `crates/ambition_platformer2d_publication/src/transaction.rs`, or `crates/ambition_platformer2d_provider/src/lifecycle.rs` | `only-the-publication-authority-publishes-a-candidate` |
 | `crates/ambition_platformer2d_provider/src/authoring.rs` or `crates/ambition_game_shell/` | `one-registrar-installs-the-session-teardown` |

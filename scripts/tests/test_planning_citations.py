@@ -152,7 +152,7 @@ def test_the_repositorys_own_abbreviations_do_not_report(checked) -> None:
     still reads: `platformer2d_core/src/abilities.rs` IS
     `crates/ambition_platformer2d_core/src/abilities.rs`, and
     `actor_monolith/src/participant_seat.rs` IS a crate directory named
-    `ambition_platformer2d_actor_monolith`. Both are correct, both are common,
+    `ambition_platformer2d_actor`. Both are correct, both are common,
     and a checker that flagged them would be the "teaches its reader to skim"
     failure the checker's own docstring warns about — worse than no check.
     """

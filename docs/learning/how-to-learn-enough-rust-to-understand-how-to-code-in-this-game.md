@@ -1234,7 +1234,7 @@ Useful landmarks:
 
 - `crates/ambition_platformer2d_core` — reusable movement and geometry logic;
 - `crates/ambition_platformer2d_shared_tangle` — lifecycle, schedule, and shared platformer vocabulary;
-- `crates/ambition_platformer2d_actor_monolith` — the largest body of gameplay machinery;
+- `crates/ambition_platformer2d_actor` — the largest body of gameplay machinery;
 - `crates/ambition_platformer2d_runtime` — canonical runtime/session state;
 - `crates/ambition_render` — presentation systems;
 - `crates/ambition_game_shell` — title routes, startup, launchers, and session bridging;

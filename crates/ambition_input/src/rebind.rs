@@ -3,7 +3,7 @@
 
 use crate::bindings::{ActionBindings, PhysicalControl};
 use crate::settings::{BindingOverride, OverrideControl};
-use crate::Platformer2dInputActionMonolith;
+use crate::InputAction;
 
 /// The control a capture accepted. `PhysicalControl::Other` is not persistable
 /// and is therefore refused.
@@ -11,6 +11,9 @@ pub fn bindable(control: &PhysicalControl) -> Option<OverrideControl> {
     match control {
         PhysicalControl::Key(key) => Some(OverrideControl::Key(*key)),
         PhysicalControl::Button(button) => Some(OverrideControl::Button(*button)),
+        PhysicalControl::Touch(button) => Some(OverrideControl::Touch(*button)),
+        PhysicalControl::TouchDirection(_) => None,
+        PhysicalControl::Axis(source) => Some(OverrideControl::Axis(*source)),
         PhysicalControl::Other(_) => None,
     }
 }
@@ -22,10 +25,17 @@ pub fn bindable(control: &PhysicalControl) -> Option<OverrideControl> {
 /// bindable one wins. A frame with only unbindable presses captures nothing
 /// and the row stays armed, because the game cannot store that press.
 pub fn capture(
-    action: &Platformer2dInputActionMonolith,
+    action: &InputAction,
     pressed: impl IntoIterator<Item = PhysicalControl>,
 ) -> Option<BindingOverride> {
-    let control = pressed.into_iter().find_map(|control| bindable(&control))?;
+    use leafwing_input_manager::prelude::Actionlike;
+    let control = pressed.into_iter().filter_map(|control| bindable(&control)).find(|control| {
+        let kind = match control {
+            OverrideControl::Axis(source) => source.kind(),
+            _ => leafwing_input_manager::InputControlKind::Button,
+        };
+        kind == action.input_control_kind()
+    })?;
     Some(BindingOverride {
         action: crate::bindings::action_name(action),
         control,
@@ -33,17 +43,34 @@ pub fn capture(
 }
 
 /// Other actions already bound to this control, in canonical order. Duplicate
-/// bindings are reported rather than rejected because one control may drive
-/// multiple actions.
+/// controls may be reused in different profiles. A same-profile remap
+/// displaces the previous action.
 pub fn also_bound_to(
     bindings: &ActionBindings,
-    action: &Platformer2dInputActionMonolith,
+    action: &InputAction,
     control: OverrideControl,
 ) -> Vec<String> {
     let wanted = match control {
         OverrideControl::Key(key) => PhysicalControl::Key(key),
         OverrideControl::Button(button) => PhysicalControl::Button(button),
+        OverrideControl::Touch(button) => PhysicalControl::Touch(button),
+        OverrideControl::Axis(source) => PhysicalControl::Axis(source),
     };
+    if let Some(rows) = bindings.contextual_rows() {
+        let mut profiles = rows.iter().filter(|(_, a, c)| a == action && c.device_class() == Some(control.device_class()))
+            .map(|(profile, _, _)| *profile).collect::<Vec<_>>();
+        if profiles.is_empty() {
+            profiles.extend(rows.iter().filter(|(_, a, _)| a == action).map(|(p, _, _)| *p));
+        }
+        if profiles.is_empty() {
+            profiles.extend(crate::InputProfile::ACTIVE.into_iter().filter(|p| p.accepts(*action)));
+        }
+        let mut conflicts = rows.iter().filter(|(p, a, c)| profiles.contains(p) && a != action && c == &wanted)
+            .map(|(_, a, _)| crate::bindings::action_name(a)).collect::<Vec<_>>();
+        conflicts.sort();
+        conflicts.dedup();
+        return conflicts;
+    }
     let self_name = crate::bindings::action_name(action);
     bindings
         .all()
@@ -90,7 +117,7 @@ mod tests {
     #[test]
     fn the_first_bindable_press_becomes_the_override() {
         let captured = capture(
-            &Platformer2dInputActionMonolith::Jump,
+            &InputAction::Jump,
             [PhysicalControl::Key(KeyCode::KeyJ)],
         )
         .expect("a key is bindable");
@@ -103,7 +130,7 @@ mod tests {
         // `Other` exists so the projection is total. It cannot be rebuilt
         // from its debug string, so a stored `Other` would load as nothing.
         assert!(capture(
-            &Platformer2dInputActionMonolith::Jump,
+            &InputAction::Jump,
             [PhysicalControl::Other("Chord(A, B)".into())]
         )
         .is_none());
@@ -112,7 +139,7 @@ mod tests {
     #[test]
     fn an_unbindable_press_does_not_hide_a_bindable_one_behind_it() {
         let captured = capture(
-            &Platformer2dInputActionMonolith::Attack,
+            &InputAction::Attack,
             [
                 PhysicalControl::Other("Chord(A, B)".into()),
                 PhysicalControl::Key(KeyCode::KeyK),
@@ -125,12 +152,12 @@ mod tests {
     #[test]
     fn a_collision_is_reported_rather_than_refused() {
         let mut map = KeyboardPreset::arrows_zxc().input_map();
-        map.insert(Platformer2dInputActionMonolith::Start, KeyCode::F13);
-        map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::F13);
+        map.insert(InputAction::Start, KeyCode::F13);
+        map.insert(InputAction::MenuBack, KeyCode::F13);
         let bindings = ActionBindings::from_map(&map);
         let start = OverrideControl::Key(KeyCode::F13);
 
-        let others = also_bound_to(&bindings, &Platformer2dInputActionMonolith::Start, start);
+        let others = also_bound_to(&bindings, &InputAction::Start, start);
         assert!(
             others.iter().any(|name| name == "MenuBack"),
             "the screen can tell the player this control is also MenuBack, got {others:?}"
@@ -147,7 +174,7 @@ mod tests {
         let bindings = ActionBindings::from_map(&map);
         assert!(also_bound_to(
             &bindings,
-            &Platformer2dInputActionMonolith::Jump,
+            &InputAction::Jump,
             OverrideControl::Key(KeyCode::F13),
         )
         .is_empty());
@@ -180,7 +207,7 @@ mod tests {
         );
 
         let captured = capture(
-            &Platformer2dInputActionMonolith::Jump,
+            &InputAction::Jump,
             pressed_controls_this_frame(Some(&keys), []),
         )
         .expect("an unbound key is exactly what a rebind is for");

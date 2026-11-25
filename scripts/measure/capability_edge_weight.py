@@ -9,7 +9,7 @@ obvious proxy is wrong.
 ⛔⛔ DEPENDENT COUNT IS NOT COUPLING, and picking by it sends you at the worst
 crate in the list. MEASURED 2026-09-05: `ambition_match` has TWO dependent
 manifests — the fewest but one — and is used in SIXTEEN files of
-`ambition_platformer2d_actor_monolith` alone, across `character_runtime/`,
+`ambition_platformer2d_actor` alone, across `character_runtime/`,
 `features/` and `avatar/`. A carve sized by "only two crates depend on it" would
 have been sized at the wrong granularity, which is a mistake this repo has
 already made more than once.

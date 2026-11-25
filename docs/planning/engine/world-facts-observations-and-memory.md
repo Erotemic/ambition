@@ -173,7 +173,7 @@ corrects which exact rows are admitted. This packet corrects what an
 admitted row or report means. The pure values stay in
 [`ambition_characters::perception`](../../../crates/ambition_characters/src/perception.rs);
 native collection, combat settlement and crew delivery stay in
-[`body::perception`](../../../crates/ambition_platformer2d_actor_monolith/src/body/perception.rs).
+[`body::perception`](../../../crates/ambition_platformer2d_actor/src/body/perception.rs).
 
 **Landed 2026-11-23, `4488b2d65`** (rollback schema 530 → 531).
 
@@ -222,9 +222,9 @@ The code already supports useful narrow social policies. Preserve them.
 | `PersistedDialogVisit` | A seat has visited a dialogue node | Saved seat history; deliberately survives death/checkpoint fact restore |
 | `ConversationsInRooms` | Room-local continuity of live conversation authority | Rewind horizon; not a durable transcript |
 
-Sources: [aggression](../../../crates/ambition_platformer2d_actor_monolith/src/body/aggression.rs)
-and its [Player-only durability guard](../../../crates/ambition_platformer2d_actor_monolith/src/body/aggression/tests.rs),
-[rally](../../../crates/ambition_platformer2d_actor_monolith/src/body/rally.rs),
+Sources: [aggression](../../../crates/ambition_platformer2d_actor/src/body/aggression.rs)
+and its [Player-only durability guard](../../../crates/ambition_platformer2d_actor/src/body/aggression/tests.rs),
+[rally](../../../crates/ambition_platformer2d_actor/src/body/rally.rs),
 [checkpoint facts](../../../crates/ambition_platformer2d_session/src/fact_horizon.rs),
 [saved dialogue visits](../../../crates/ambition_persistence/src/save_data.rs),
 and [conversation continuity](../../../crates/ambition_conversation/src/rooms.rs).

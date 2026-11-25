@@ -64,7 +64,7 @@ fn live_initial_body_uses_the_sessions_frozen_cast() {
         app.world_mut(),
         (
             crate::initial_body::HomeBodyResources::default(),
-            ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities::default(),
+            ambition_platformer2d_actor::avatar::HomeBodyAbilities::default(),
         ),
     );
     app.insert_resource(ActiveSessionCast(Some(cast(17))));

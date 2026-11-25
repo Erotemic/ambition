@@ -29,7 +29,7 @@ use ambition_causal::{domains, CausalFact, CausalRecording, FactDetail, SubjectK
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::causal::BodyMovementOps;
+use ambition_platformer2d_actor::causal::BodyMovementOps;
 
 use ambition_platformer2d_core::{BodyGroundState, BodyKinematics};
 use ambition_characters::control::ActorControl;

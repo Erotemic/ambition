@@ -558,7 +558,7 @@ would leave these decisions independent:
 | --- | --- |
 | [`BossAnimFrame::tick`](../../../crates/ambition_sprite_sheet/src/boss.rs) | The simulation cursor reads the selected frame and timing policy. Windup and active phases remain distinct plays of the same role. |
 | [`drive_boss_animators`](../../../crates/ambition_boss_encounter/src/ecs/tick.rs), [`ecs_boss_animation_frame_sample`](../../../crates/ambition_boss_encounter/src/anim.rs) | Resolve role and sample association through the retained session binding/catalog. Preserve the explicit rest sample and existing profile/sample precedence. |
-| [`BossVolumeContext::hurtbox_selection`](../../../crates/ambition_boss_encounter/src/attack_geometry/mod.rs), [native target volumes](../../../crates/ambition_platformer2d_actor_monolith/src/body/target_volumes.rs) | The selected sample reaches actual damageable hurt parts. Preserve authored/rig `ResolvedHurtboxes` precedence over the boss frame-part fallback. |
+| [`BossVolumeContext::hurtbox_selection`](../../../crates/ambition_boss_encounter/src/attack_geometry/mod.rs), [native target volumes](../../../crates/ambition_platformer2d_actor/src/body/target_volumes.rs) | The selected sample reaches actual damageable hurt parts. Preserve authored/rig `ResolvedHurtboxes` precedence over the boss frame-part fallback. |
 | [Rig-driven hurt geometry](../../../crates/ambition_combat/src/body_rig.rs) | Pinned row, move binding and pose clocks remain distinct supported sources. Do not assume the boss enum controls this route. |
 | [Boss construction](../../../crates/ambition_platformer2d_actor_spawn/src/actor_spawn/mod.rs) | `DeathBeat` reads the selected death-row duration. Preserve lifecycle timing deliberately. |
 | [Boss drawing](../../../crates/ambition_render/src/rendering/actors/boss.rs) | Base cells and parts consume the prepared named relation; companion products resolve their own named references. |
@@ -737,11 +737,11 @@ headless (`capture_scene` can show them).
 | Grant and retraction | `crates/ambition_platformer2d_actor_spawn/src/character_body.rs` |
 | Pose and schedule set | `crates/ambition_combat/src/body_rig.rs` |
 | Hurtbox resolution | `crates/ambition_combat/src/hurtbox_resolution.rs` |
-| Hand muzzle | `crates/ambition_platformer2d_actor_monolith/src/body/brain_effects.rs` |
+| Hand muzzle | `crates/ambition_platformer2d_actor/src/body/brain_effects.rs` |
 | Landmark names and table | `crates/ambition_characters/src/actor/landmarks.rs` |
 | Landmark query | `crates/ambition_combat/src/body_landmarks.rs` |
 | Embedded landmark tables and digest | `crates/ambition_sprite_sheet/build.rs`, `src/baked_landmarks.rs`, `src/character/landmarks_published.rs` |
-| Pet mark | `crates/ambition_platformer2d_actor_monolith/src/body/pet.rs` |
+| Pet mark | `crates/ambition_platformer2d_actor/src/body/pet.rs` |
 | Player shot origin | `crates/ambition_projectile_combat/src/systems.rs` |
 | Flipbook asset and switch | `crates/ambition_sprite_sheet/src/character/rigged.rs` |
 | Rigged draw | `crates/ambition_render/src/rendering/actors/rigged*` |

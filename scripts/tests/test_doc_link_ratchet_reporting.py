@@ -322,7 +322,7 @@ def test_identities_are_parsed_out_of_real_rustdoc_output():
         "  --> crates/ambition_combat/src/clank.rs:88:46\n"
         "   |\n"
         "warning: public documentation for `body_mode` links to private item `mechanics`\n"
-        " --> crates/ambition_platformer2d_actor_monolith/src/body_mode/mod.rs:3:7\n"
+        " --> crates/ambition_platformer2d_actor/src/body_mode/mod.rs:3:7\n"
         "   |\n"
         "warning: unresolved link to `super::blink::blink_target`\n"
         "  |\n"
@@ -331,7 +331,7 @@ def test_identities_are_parsed_out_of_real_rustdoc_output():
     found = module.identities(output)
     assert found == sorted([
         "crates/ambition_combat/src/clank.rs: unresolved `HitboxLifetime`",
-        "crates/ambition_platformer2d_actor_monolith/src/body_mode/mod.rs: "
+        "crates/ambition_platformer2d_actor/src/body_mode/mod.rs: "
         "private `body_mode -> mechanics`",
         "<no location>: unresolved `super::blink::blink_target`",
     ]), found

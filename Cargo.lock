@@ -195,6 +195,7 @@ dependencies = [
  "ambition_demo_sanic",
  "ambition_demo_smash",
  "ambition_hosted_world",
+ "ambition_input_opinions",
  "ambition_menu_kaleidoscope",
  "ambition_platformer2d",
  "ambition_sim_harness",
@@ -459,7 +460,7 @@ dependencies = [
  "ambition_mount",
  "ambition_persistence",
  "ambition_platformer2d",
- "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_assets",
  "ambition_platformer2d_core",
@@ -620,6 +621,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_demo_mary_o",
  "ambition_demo_mary_o_modules",
+ "ambition_input_opinions",
  "ambition_platformer2d",
  "bevy",
  "bevy_kira_audio",
@@ -663,6 +665,7 @@ name = "ambition_demo_sanic_app"
 version = "0.1.0"
 dependencies = [
  "ambition_demo_sanic",
+ "ambition_input_opinions",
  "ambition_platformer2d",
  "bevy",
  "bevy_kira_audio",
@@ -697,6 +700,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_content_modules",
  "ambition_demo_smash",
+ "ambition_input_opinions",
  "ambition_platformer2d",
  "bevy",
  "clap",
@@ -726,6 +730,7 @@ name = "ambition_demo_twintrack_app"
 version = "0.1.0"
 dependencies = [
  "ambition_demo_twintrack",
+ "ambition_input_opinions",
  "ambition_platformer2d",
  "bevy",
 ]
@@ -969,7 +974,7 @@ dependencies = [
  "ambition_characters",
  "ambition_combat",
  "ambition_entity_catalog",
- "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_core",
  "ambition_platformer2d_runtime",
@@ -1004,6 +1009,14 @@ dependencies = [
  "bevy_window",
  "leafwing-input-manager",
  "serde",
+]
+
+[[package]]
+name = "ambition_input_opinions"
+version = "0.1.0"
+dependencies = [
+ "ambition_input",
+ "bevy",
 ]
 
 [[package]]
@@ -1174,7 +1187,7 @@ dependencies = [
  "ambition_menu",
  "ambition_mount",
  "ambition_persistence",
- "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_assets",
  "ambition_platformer2d_audio",
@@ -1219,7 +1232,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ambition_platformer2d_actor_monolith"
+name = "ambition_platformer2d_actor"
 version = "0.2.0"
 dependencies = [
  "ambition_abilities",
@@ -1496,7 +1509,7 @@ dependencies = [
  "ambition_game_shell",
  "ambition_load",
  "ambition_load_presentation",
- "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_construction",
  "ambition_platformer2d_core",
@@ -1526,7 +1539,7 @@ dependencies = [
  "ambition_held_items",
  "ambition_interaction",
  "ambition_mount",
- "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_construction",
  "ambition_platformer2d_core",
@@ -1607,7 +1620,7 @@ dependencies = [
  "ambition_menu",
  "ambition_mount",
  "ambition_persistence",
- "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_assets",
  "ambition_platformer2d_construction",
@@ -1665,7 +1678,7 @@ dependencies = [
  "ambition_match",
  "ambition_mount",
  "ambition_persistence",
- "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_assets",
  "ambition_platformer2d_construction",
@@ -1967,7 +1980,7 @@ dependencies = [
  "ambition_interaction",
  "ambition_mount",
  "ambition_persistence",
- "ambition_platformer2d_actor_monolith",
+ "ambition_platformer2d_actor",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_core",
  "ambition_platformer2d_interaction",

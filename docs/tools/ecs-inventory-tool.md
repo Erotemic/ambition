@@ -43,9 +43,9 @@ python scripts/agent_query.py crate ambition_input
 
 ```bash
 uv run --script scripts/ecs_inventory.py \
-  --crate crates/ambition_platformer2d_actor_monolith \
-  --json target/ambition_platformer2d_actor_monolith_ecs.json \
-  --markdown target/ambition_platformer2d_actor_monolith_ecs.md
+  --crate crates/ambition_platformer2d_actor \
+  --json target/ambition_platformer2d_actor_ecs.json \
+  --markdown target/ambition_platformer2d_actor_ecs.md
 ```
 
 Add `--include-tests` only when test-only registrations/spawns are relevant.

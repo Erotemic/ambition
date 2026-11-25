@@ -1,7 +1,7 @@
 //! Body-generic hit reaction: knockback, directional influence, and reaction
 //! timers. Avatar-specific damage application remains outside this module.
 
-use crate::feel::Platformer2dFeelTuningMonolith;
+use crate::feel::FeelTuning;
 use ambition_characters::actor::BodyCombat;
 use ambition_platformer2d_core as ae;
 
@@ -145,7 +145,7 @@ pub fn apply_body_hit_reaction(
     // `None` where a hang is impossible by construction: a captive being thrown
     // is not holding an edge.
     ledge: Option<(&mut ae::MotionModel, &mut ae::BodyLedgeState)>,
-    feel: Platformer2dFeelTuningMonolith,
+    feel: FeelTuning,
 ) -> BodyReactionOutcome {
     // ═══ THE FACTS OF BEING HIT ═══════════════════════════════════════════
     //
@@ -576,11 +576,11 @@ pub struct VictimStance {
 /// cannot pick different rows for the same hit.
 ///  `feel.di_max_angle` must already be the RESOLVED match value (AE6).
 /// Directional influence is a rule of the match being played, not world tuning,
-/// so the system that reads `Res<Platformer2dFeelTuningMonolith>` folds the resolved rules
+/// so the system that reads `Res<FeelTuning>` folds the resolved rules
 /// into its LOCAL copy before the hit path sees it — see `resolved_feel`. The
 /// row travels as one struct so the launch and the hitstun cannot disagree.
 pub fn hit_response_tuning(
-    feel: &Platformer2dFeelTuningMonolith,
+    feel: &FeelTuning,
     boss_hit: bool,
 ) -> ae::hit_response::HitResponseTuning {
     ae::hit_response::HitResponseTuning {
@@ -617,8 +617,8 @@ mod super_armor_tests {
     use ambition_characters::actor::ArmorPolicy;
     use super::*;
 
-    fn feel() -> Platformer2dFeelTuningMonolith {
-        Platformer2dFeelTuningMonolith::default()
+    fn feel() -> FeelTuning {
+        FeelTuning::default()
     }
 
     fn hard_knockback() -> crate::HitKnockback {
@@ -1391,7 +1391,7 @@ mod hit_status_tests {
             ae::Vec2::new(20.0, 0.0), 1.0, ae::Vec2::new(0.0, 1.0), false,
             knockback, 12, properties, status,
             ae::Vec2::ZERO, stance, None, None, None,
-            Platformer2dFeelTuningMonolith::default(),
+            FeelTuning::default(),
         );
         (vel, !flight.pending_launch_state().is_empty(), combat)
     }

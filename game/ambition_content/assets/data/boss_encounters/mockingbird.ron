@@ -8,7 +8,7 @@
 // to existing boss tracks if the audio asset isn't on disk.
 //
 // The profile lives in
-// `crates/ambition_platformer2d_actor_monolith/src/boss_encounter/`.
+// `crates/ambition_platformer2d_actor/src/boss_encounter/`.
 //
 //  this comment used to point at `crates/ambition_engine/`, which no longer
 // exists — that crate was collapsed years ago — and to claim the spec

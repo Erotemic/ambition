@@ -62,7 +62,7 @@ HTML index. This fills that gap and reuses `cargo metadata` for the crate layer.
 Run it directly (uv resolves deps from the inline metadata):
 
     scripts/measure/module_graph.py                 # writes to .agent/reports/module-graph/
-    scripts/measure/module_graph.py --crate ambition_platformer2d_actor_monolith
+    scripts/measure/module_graph.py --crate ambition_platformer2d_actor
     scripts/measure/module_graph.py --no-print --graphml
 """
 
@@ -222,7 +222,7 @@ def count_lines(path: Path) -> int:
 
 @dataclass
 class ModuleNode:
-    node_id: str  # e.g. "ambition_platformer2d_actor_monolith::player::input"
+    node_id: str  # e.g. "ambition_platformer2d_actor::player::input"
     kind: str  # "crate" | "module"
     crate: str
     file: Path | None

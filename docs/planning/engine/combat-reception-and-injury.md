@@ -35,8 +35,8 @@ Neither packet changes contact geometry or requires a general damage graph.
 | --- | --- |
 | [`BodyHitReporter`, `BodyHitResolved`](../../../crates/ambition_damage/src/reception.rs) | Native reception retains source and victim identities before retirement |
 | [`BodyHitResolution`](../../../crates/ambition_damage/src/lib.rs), [`BodyHitReporter::connect`](../../../crates/ambition_damage/src/reception.rs) | Health/defense decisions and native connect publication remain separate operations within the reporter contract |
-| [`apply_actor_hit`](../../../crates/ambition_platformer2d_actor_monolith/src/body/damage/actor_hit.rs) | Actor reception is reported before reaction; a second call later publishes connect or block |
-| [`apply_boss_hit`, `apply_entity_boss_damage`](../../../crates/ambition_platformer2d_actor_monolith/src/body/damage/boss_hit.rs) | The completed first slice now reports damaging boss connect with actual amount and zero hitlag |
+| [`apply_actor_hit`](../../../crates/ambition_platformer2d_actor/src/body/damage/actor_hit.rs) | Actor reception is reported before reaction; a second call later publishes connect or block |
+| [`apply_boss_hit`, `apply_entity_boss_damage`](../../../crates/ambition_platformer2d_actor/src/body/damage/boss_hit.rs) | The completed first slice now reports damaging boss connect with actual amount and zero hitlag |
 | [`mark_move_playback_resolved_hits`](../../../crates/ambition_combat/src/moveset/mod.rs) | `connected_hit` reads `ResolvedBodyHit`; `landed_hit` is a different overlap fact |
 | [`mount_view`, `pass_limb_blows`](../../../crates/ambition_boss_encounter/src/conduct.rs) | GNU's limb damage is reconstructed from missing HP, healed, and directly subtracted from the scholar |
 | [GNU conductor](../../../game/ambition_content_modules/src/gnu_ton/conductor.rs) | `lost_health` drives a one-blow opening rule and separate clash behavior |
@@ -124,7 +124,7 @@ questions and are not redundant events.
 ### Proof
 
 Preserve the completed move-attributed boss witness in the
-[native damage tests](../../../crates/ambition_platformer2d_actor_monolith/src/body/damage/tests.rs).
+[native damage tests](../../../crates/ambition_platformer2d_actor/src/body/damage/tests.rs).
 The remaining finalization work must keep one reception and one connect
 with the same attacker, move occurrence and resolved amount. Complete the
 phase-immunity and lethal home-body controls where still absent. Use the

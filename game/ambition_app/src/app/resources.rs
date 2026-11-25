@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use ambition_content::world_preparation::{StartRoomMustResolve, StartRoomOverride};
-use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
+use ambition_platformer2d::combat::feel::FeelTuning;
 use ambition_platformer2d::sim as physics;
 use ambition_platformer2d::dev_tools::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
@@ -105,7 +105,7 @@ fn insert_host_resources(
     app: &mut App,
     sandbox_data: ambition_platformer2d::assets::gameplay_defaults::Platformer2dGameplayDefaults,
 ) {
-    let feel: Platformer2dFeelTuningMonolith = sandbox_data.feel;
+    let feel: FeelTuning = sandbox_data.feel;
     // The host ceiling permits each game's authored grants.
     let editable_abilities = EditableAbilitySet::default();
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);

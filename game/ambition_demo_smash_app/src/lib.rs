@@ -111,6 +111,7 @@ pub fn build_windowed_demo_app(display: ambition_platformer2d::app::Display) -> 
 }
 
 fn compose_smash_shell(app: &mut App) {
+    ambition_input_opinions::install(app);
     // Home is the select screen, not the stage: a platform fighter asks who
     // you are before the match, and leaving a match returns to that screen.
     ambition_platformer2d::provider::ShellComposition::new(

@@ -178,7 +178,7 @@ pub fn install_autoplay(app: &mut App, game: impl Into<String>) {
             app.add_systems(Update, (sample_local_inputs, publish_sampled_local_inputs).chain()
                 .after(AutoplayPolicy)
                 .after(ambition_input::InputSet::Route)
-                .before(ambition_platformer2d_actor_monolith::control::InteractionInputBuffered)
+                .before(ambition_platformer2d_actor::control::InteractionInputBuffered)
                 .before(ambition_characters::control::PrimarySlotInputCommit));
         }
     }

@@ -141,7 +141,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
             // Cycle the preset index modulo the fixed preset count, matching the
             // pause menu's `keyboard_preset_count`-driven wrap (count is always
             // `KeyboardPreset::presets().len()`).
-            let len = ambition_input::KeyboardPreset::presets().len();
+            let len = ambition_input::PresetId::ALL.len();
             if len != 0 {
                 let cur = settings.controls.keyboard_preset_index;
                 settings.controls.keyboard_preset_index = if dir < 0 {

@@ -468,9 +468,9 @@ fn content_files_saved_while_the_game_runs_are_played() {
             after_launch > before_launch * 1.05,
             "the player's jump launch did not follow the saved tuning: {before_launch} before, {after_launch} after"
         );
-        use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
-        let hitlag = |sim: &Sim| sim.world().resource::<Platformer2dFeelTuningMonolith>().hitlag_time;
-        assert_eq!(hitlag(&sim), Platformer2dFeelTuningMonolith::default().hitlag_time, "the premise: the shipped hitlag");
+        use ambition_platformer2d::combat::feel::FeelTuning;
+        let hitlag = |sim: &Sim| sim.world().resource::<FeelTuning>().hitlag_time;
+        assert_eq!(hitlag(&sim), FeelTuning::default().hitlag_time, "the premise: the shipped hitlag");
         let with_feel = |jump_speed: f32, feel: &str| {
             let moved = shipped.replace(&stated, &format!("jump_speed: {jump_speed:.1},"));
             let close = moved.rfind(')').expect("the file is one tuple");

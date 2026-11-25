@@ -342,7 +342,7 @@ runs only when `AMBITION_PROFILE_CENSUS` is set, which
 
 ```text
 [census] frame          t=12.000 frames=60 mean=16.71 p50=16.70 p95=18.20 p99=24.00 min=15.90 max=41.20
-[census] resources      t=12.000 total=1478 by_payload: ambition_combat=92 ambition_platformer2d_actor_monolith=90 ... generic: GgrsSnapshots=330 Messages=291 ...
+[census] resources      t=12.000 total=1478 by_payload: ambition_combat=92 ambition_platformer2d_actor=90 ... generic: GgrsSnapshots=330 Messages=291 ...
 [census] ecs            t=12.000 entities=8123 live=1312 resources=407 archetypes=1975 resource_archetypes=1478 scene_archetypes=113 empty_archetypes=384 components=1904 bodies=7 players=1
 [census] schedules      t=12.000 schedules=14 systems=1183 Update=822 PostUpdate=15 PreUpdate=9 StateTransition=8 First=4
 [census] views          t=12.000 cameras=5 active=5 world_rendering=3 offscreen=2 local_views=1
@@ -557,7 +557,7 @@ cargo build --profile profiling -p ambition_app --bin ambition_game_bin
 # directly (not via `cargo run`), so Bevy looks for assets relative
 # to the binary path instead of the package's
 # `game/ambition_content_library/generated/runtime/`.
-BEVY_ASSET_ROOT=$PWD/crates/ambition_platformer2d_actor_monolith \
+BEVY_ASSET_ROOT=$PWD/crates/ambition_platformer2d_actor \
 cargo flamegraph -p ambition_app --bin ambition_game_bin \
     --profile profiling \
     --output flamegraph_startup.svg \
@@ -960,7 +960,7 @@ heap-profile mappings back to the local `libambition_app.so` symbols.
 To verify the latest profile APK:
 
 ```bash
-readelf -n target/android/ambition_platformer2d_actor_monolith_android/app/src/main/jniLibs/arm64-v8a/libambition_app.so | grep -A1 "Build ID"
+readelf -n target/android/ambition_platformer2d_actor_android/app/src/main/jniLibs/arm64-v8a/libambition_app.so | grep -A1 "Build ID"
 ```
 
 If the capture reports heapprofd buffer overruns, rerun with a coarser

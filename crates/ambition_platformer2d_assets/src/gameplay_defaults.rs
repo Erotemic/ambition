@@ -11,9 +11,9 @@ use ambition_platformer2d_core as ae;
 pub struct Platformer2dGameplayDefaults {
     pub tuning: ae::MovementTuning,
     /// The combat and time feel values this game changes. A field the file
-    /// does not state keeps `Platformer2dFeelTuningMonolith::default()`.
+    /// does not state keeps `FeelTuning::default()`.
     #[serde(default)]
-    pub feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
+    pub feel: ambition_combat::feel::FeelTuning,
 }
 
 impl Platformer2dGameplayDefaults {

@@ -374,13 +374,13 @@ pub fn allowlist_is_justified() {
 pub fn poison_self_tests() {
     let m = "AMBITION_REVIEW(control_frame)";
     let holders = |_marker: &str, t: &str| {
-        control_frame_holders(m, "crates/ambition_platformer2d_actor_monolith/src/x.rs", t)
+        control_frame_holders(m, "crates/ambition_platformer2d_actor/src/x.rs", t)
     };
 
     // An injected sim reader is seen, attributed to its fn.
     let found = control_frame_holders(
         m,
-        "crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs",
+        "crates/ambition_platformer2d_actor/src/body/actors/update.rs",
         "use bevy::prelude::*;\npub fn step_bodies(frame: Res<ControlFrame>, mut q: Query<&mut BodyKinematics>) {\n    for mut b in &mut q { b.vel.x = frame.axis_x; }\n}\n",
     );
     assert_eq!(

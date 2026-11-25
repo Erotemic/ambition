@@ -21,7 +21,7 @@
 //! remaining suspects are all machine-local (persisted save, settings, devices).
 
 use ambition_platformer2d::game_shell::ShellCommand;
-use ambition_platformer2d::input::{InputParticipant, Platformer2dInputActionMonolith};
+use ambition_platformer2d::input::{InputParticipant, InputAction};
 use ambition_app::app::shell_host;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::InputMap;
@@ -61,12 +61,12 @@ fn a_door_still_opens_with_the_touch_overlay_installed() {
     let interact_key = {
         let world = app.world_mut();
         let mut q = world
-            .query_filtered::<&InputMap<Platformer2dInputActionMonolith>, With<InputParticipant>>();
+            .query_filtered::<&InputMap<InputAction>, With<InputParticipant>>();
         let map = q
             .iter(world)
             .next()
             .expect("the host spawns a primary input participant at boot");
-        map.get_buttonlike(&Platformer2dInputActionMonolith::Interact)
+        map.get_buttonlike(&InputAction::Interact)
             .and_then(|bindings| bindings.first().cloned())
             .expect("Interact has a binding, or no key opens a door at all")
     };

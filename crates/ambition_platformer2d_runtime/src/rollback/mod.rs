@@ -78,7 +78,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     ambition_world_items::register_rollback_state(registrar);
     ambition_match::register_rollback_state(registrar);
     ambition_damage::register_rollback_state(registrar);
-    ambition_platformer2d_actor_monolith::register_rollback_state(registrar);
+    ambition_platformer2d_actor::register_rollback_state(registrar);
     ambition_platformer2d_session::register_rollback_state(registrar);
     ambition_mount::register_rollback_state(registrar);
     ambition_characters::register_rollback_state(registrar);
@@ -115,7 +115,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // and any semantic-identity entity that does not fit those families.
     //
     //  actor-owned anchors now live in
-    // `ambition_platformer2d_actor_monolith::register_rollback_state`; only
+    // `ambition_platformer2d_actor::register_rollback_state`; only
     // foundation/runtime-owned rows remain below. In-flight strike volumes (moveset melee
     // windows, DamageBox effects, world AOEs).
 
@@ -123,7 +123,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // by PreparedContentIdentity; only mutable selection/cursor state rewinds.
     //
     //  actor-owned members moved to
-    // `ambition_platformer2d_actor_monolith::register_rollback_state`, and the
+    // `ambition_platformer2d_actor::register_rollback_state`, and the
     // geometry to `ambition_platformer2d_core`'s own.
 
     // Global authoritative resources.
@@ -247,7 +247,7 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // These values are guaranteed to be republished before any downstream
     // consumer in each GGRS frame, so storing them would duplicate authority.
     //  this DECLARED-DERIVED group lost its actor-owned head to
-    // `ambition_platformer2d_actor_monolith::register_rollback_state`; the rest belongs to
+    // `ambition_platformer2d_actor::register_rollback_state`; the rest belongs to
     // `ambition_characters`.
     registrar.declare_rollback_derived_component::<bevy::prelude::GlobalTransform>(
         ENGINE,

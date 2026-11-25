@@ -45,7 +45,7 @@ ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_
 # The portal mechanic this crate draws: placed portals, gun, shot, transit
 # components, and the pieces/view-cone geometry (the Core invariant math every
 # visual derives from). Presentation sits directly above the mechanic; never a
-# host crate (ambition_platformer2d_actor_monolith / ambition_content).
+# host crate (ambition_platformer2d_actor / ambition_content).
 ambition_portal2d = { path = "../ambition_portal2d" }
 # The sprite-effect concept (hue shift for a gun on a non-default pair) and
 # `sprite_frame_basis`, which this crate wrote first and no longer owns.

@@ -40,13 +40,13 @@ FACADE = "ambition_platformer2d"
 
 # The crates the row identifies as PARENTS OF NEARLY EVERYTHING. Named here
 # rather than derived so the classification is auditable: the row says
-# "`ambition_platformer2d_runtime` and `ambition_platformer2d_actor_monolith` are
+# "`ambition_platformer2d_runtime` and `ambition_platformer2d_actor` are
 # parents of nearly everything, and `ambition_platformer2d_core` has 33 parents".
 # `provider`, `host` and `sim_view` join them because the facade's own composition
 # names them and a consumer selecting no capability cannot decline any of the six.
 HUBS = {
     "ambition_platformer2d_runtime",
-    "ambition_platformer2d_actor_monolith",
+    "ambition_platformer2d_actor",
     "ambition_platformer2d_core",
     "ambition_platformer2d_provider",
     "ambition_platformer2d_host",

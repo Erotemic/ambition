@@ -304,7 +304,7 @@ pub struct MovingPlatformsAdvanced;
 /// monolith name this set — `ambition_content`'s `bosses`, and one each in the
 /// Mary-O and Sanic demos (the falling-sand room's two were deleted with it,
 /// 2026-10-11) — and to say WHEN their own systems run they had to name
-/// `ambition_platformer2d_actor_monolith`, or the facade's `actors` alias for it.
+/// `ambition_platformer2d_actor`, or the facade's `actors` alias for it.
 /// ⛔ AND TWO MORE COULD NOT NAME IT AT ALL: `ambition_combat::hazards` and
 /// `ambition_damage` each describe this set in PROSE, citing it as the precedent
 /// for publishing a one-member set *"a general crate consumed by content owed

@@ -138,7 +138,7 @@ fn only_the_driven_body_is_marked_and_guarded_on_arrival() {
     fn hear(
         mut heard: ResMut<Heard>,
         mut teleported: MessageReader<BodyTeleported>,
-        mut breaks: MessageReader<ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak>,
+        mut breaks: MessageReader<ambition_platformer2d_actor::avatar::trail::TrailContinuityBreak>,
     ) {
         heard.0.extend(teleported.read().map(|m| m.body));
         heard.1.extend(breaks.read().map(|m| m.body));
@@ -342,7 +342,7 @@ fn the_emergence_guard_reads_the_bodys_resolved_frame() {
 /// right. Controls: ordinary gravity with the warp, and the turn alone.
 #[test]
 fn a_held_stick_through_a_transit_and_a_gravity_turn_is_mapped_once() {
-    use ambition_platformer2d_actor_monolith::control::{publish_seat_controls_when_nobody_else_does, tick_controlled_brains};
+    use ambition_platformer2d_actor::control::{publish_seat_controls_when_nobody_else_does, tick_controlled_brains};
     use ambition_platformer2d_core::{ControlFrameModes, InputFrameMode, MotionFrame};
     use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
 

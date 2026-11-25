@@ -157,7 +157,7 @@ The current
 [`NavGraphKey::probe_body`](../../../crates/ambition_platformer2d_world/src/navigation/cache.rs)
 creates a default, identity-material body and assigns the key's `size` to
 `canonical_size`. Both consumers supply a world size. The
-[`advisor`](../../../crates/ambition_platformer2d_actor_monolith/src/body/navigation.rs)
+[`advisor`](../../../crates/ambition_platformer2d_actor/src/body/navigation.rs)
 uses the live stance size; the
 [`autopilot`](../../../crates/ambition_platformer2d/src/autopilot.rs)
 uses standing base size times material scale. Thus the probe keeps a box's
@@ -291,7 +291,7 @@ list. The answer is the one chosen fresh (`choose_waypoints`), and feet
 anywhere on the surface read it. Witness:
 `the_waypoints_are_reachable_and_the_same_for_one_seed`.
 
-The [advisor](../../../crates/ambition_platformer2d_actor_monolith/src/body/navigation.rs)
+The [advisor](../../../crates/ambition_platformer2d_actor/src/body/navigation.rs)
 asks `reachable_from` through waypoints, target placement and errands.
 That routine allocates and traverses the graph each time. Retain ordered
 reachability or membership for demanded origin surfaces in the immutable
@@ -428,10 +428,10 @@ selection. Express it as navigation policy instead of visual fill.
 
 This is the concrete geometry customer for E4's existing distinction between
 unsupported, incomplete and no route. Keep that distinction through
-[`advise_navigation`](../../../crates/ambition_platformer2d_actor_monolith/src/body/navigation.rs):
+[`advise_navigation`](../../../crates/ambition_platformer2d_actor/src/body/navigation.rs):
 it currently turns a missing target surface into `ErrandSight::NoRoute`.
-[`settle_errands`](../../../crates/ambition_platformer2d_actor_monolith/src/body/errand.rs)
-and [`settle_visits`](../../../crates/ambition_platformer2d_actor_monolith/src/body/visit.rs)
+[`settle_errands`](../../../crates/ambition_platformer2d_actor/src/body/errand.rs)
+and [`settle_visits`](../../../crates/ambition_platformer2d_actor/src/body/visit.rs)
 make that terminal. `NavGraph::next` also calls a missing goal
 `Unreachable`.
 

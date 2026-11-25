@@ -2,7 +2,7 @@
 //! "FORWARD-ONLY" IS NOT A ROLLBACK CATEGORY.**
 //!
 //! `rollback_coverage.rs` waives `ActiveMovementTuning` and
-//! `Platformer2dFeelTuningMonolith` with the reason *"forward-only"* — a
+//! `FeelTuning` with the reason *"forward-only"* — a
 //! developer knob, not per-frame simulation state. That reasoning answers the
 //! wrong question. The one that matters under rollback is not *"do we want to
 //! rewind this value"* but **"can its value affect the simulation of a
@@ -171,7 +171,7 @@ fn editing_movement_tuning_mid_timeline_changes_what_history_resimulates_to() {
 
 /// ⛔⛤ **THE SAME, FOR THE OTHER WAIVED TUNING RESOURCE.**
 ///
-/// `Platformer2dFeelTuningMonolith` carries the same *"feel tuning,
+/// `FeelTuning` carries the same *"feel tuning,
 /// forward-only"* waiver, and the inspector edits the resource itself while
 /// combat and time-control systems consume it. This arm exists separately rather
 /// than as a loop because the two are waived for the same STATED reason and a
@@ -184,7 +184,7 @@ fn editing_feel_tuning_mid_timeline_changes_what_history_resimulates_to() {
         if frame == EDIT_AT {
             let mut feel = sim
                 .world_mut()
-                .resource_mut::<ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith>();
+                .resource_mut::<ambition_platformer2d::combat::feel::FeelTuning>();
             // A double-tap WINDOW is as mechanical as a value gets: it decides
             // whether a press becomes a dash.
             feel.down_double_tap_window *= 2.0;

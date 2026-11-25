@@ -1,4 +1,4 @@
-//! The `Platformer2dInputActionMonolith` leafwing action enum. The binding
+//! The `InputAction` leafwing action enum. The binding
 //! layer maps physical keys and sticks onto it, then folds it into the
 //! device-agnostic `ControlFrame`/`MenuInputFrame`. Gated behind `input`.
 
@@ -20,7 +20,7 @@ use super::*;
 /// engine-core `ControlFrame` instead.
 #[cfg(feature = "input")]
 #[derive(Actionlike, Clone, Copy, Debug, Hash, PartialEq, Eq, Reflect)]
-pub enum Platformer2dInputActionMonolith {
+pub enum InputAction {
     #[actionlike(DualAxis)]
     Move,
     MoveLeft,
@@ -124,7 +124,7 @@ pub enum Platformer2dInputActionMonolith {
 }
 
 #[cfg(feature = "input")]
-impl Platformer2dInputActionMonolith {
+impl InputAction {
     /// Returns true if only a menu surface reads this action.
     ///
     /// The pad shares buttons between gameplay and menus (`MenuSelect` on

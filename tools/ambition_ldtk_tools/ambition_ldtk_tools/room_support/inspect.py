@@ -17,11 +17,11 @@ from ambition_ldtk_tools.edit.intgrid import find_intgrid_layer
 
 def _find_repo_root() -> Path:
     cwd = Path.cwd().resolve()
-    if (cwd / "crates" / "ambition_platformer2d_actor_monolith").exists():
+    if (cwd / "crates" / "ambition_platformer2d_actor").exists():
         return cwd
     here = Path(__file__).resolve()
     for parent in [here.parent, *here.parents]:
-        if (parent / "crates" / "ambition_platformer2d_actor_monolith").exists():
+        if (parent / "crates" / "ambition_platformer2d_actor").exists():
             return parent
     # Fall back to the historical repo-relative layout used by installed tools;
     # callers can always pass --ldtk explicitly.

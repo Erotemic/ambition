@@ -1,7 +1,7 @@
 //! The platformer's audio runtime: the Kira install and channels, the
 //! acoustic environment, and the music direction ([`music`]) that turns
 //! encounter, boss, room, conversation and radio state into a music intent.
-//! Carved out of `ambition_platformer2d_actor_monolith` (D33, 2026-10-23): it
+//! Carved out of `ambition_platformer2d_actor` (D33, 2026-10-23): it
 //! named nothing else in that crate. A composition with audio installs
 //! [`Platformer2dAudioPlugin`]; a headless one leaves the crate out.
 //!

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "The gameplay trace recorder: the systems that sample the player and every body into the flight-recorder buffer each simulation frame, detect out-of-bounds and teleports, and write a dump on request. Carved out of ambition_platformer2d_actor_monolith (D33); the format is ambition_gameplay_trace."
+description = "The gameplay trace recorder: the systems that sample the player and every body into the flight-recorder buffer each simulation frame, detect out-of-bounds and teleports, and write a dump on request. Carved out of ambition_platformer2d_actor (D33); the format is ambition_gameplay_trace."
 
 [lib]
 crate-type = ["rlib"]

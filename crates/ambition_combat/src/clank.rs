@@ -291,7 +291,7 @@ pub fn rebound_from_clanks(
     mut clanked: ReplayMessageReader<AttacksClanked>,
     // The rules of each rebounding body's own live room.
     tuning: crate::rules::CombatTuningOf,
-    feel: Option<Res<crate::feel::Platformer2dFeelTuningMonolith>>,
+    feel: Option<Res<crate::feel::FeelTuning>>,
     mut bodies: Query<(
         &mut ae::BodyKinematics,
         &mut ambition_characters::actor::BodyCombat,

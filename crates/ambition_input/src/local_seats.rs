@@ -17,7 +17,7 @@ use crate::channels::{LocalChannelPlan, LocalInputSource};
 use crate::participant::ParticipantId;
 pub use crate::seating::LocalDeviceOrder;
 use crate::seating::{PadIdentity, PadMark};
-use crate::{InputParticipant, Platformer2dInputActionMonolith};
+use crate::{InputParticipant, InputAction};
 
 /// The association of a seat that hears no pad: a keyboard seat, a seat whose
 /// controller is unplugged, and a seat the plan gives no source.
@@ -219,7 +219,7 @@ pub fn claim_local_seats(
     order: Res<LocalDeviceOrder>,
     seating: Option<Res<crate::seating::SessionSeatingSource>>,
     pads: Query<&Gamepad>,
-    seats: Query<(&InputParticipant, &InputMap<Platformer2dInputActionMonolith>)>,
+    seats: Query<(&InputParticipant, &InputMap<InputAction>)>,
     mut claims: ResMut<LocalSeatClaims>,
 ) {
     let plan = seating.as_deref().and_then(|seating| seating.channel_plan());
@@ -333,7 +333,7 @@ pub fn assign_local_seat_devices(
     pads: Query<&Gamepad>,
     mut seats: Query<(
         &InputParticipant,
-        &mut InputMap<Platformer2dInputActionMonolith>,
+        &mut InputMap<InputAction>,
     )>,
     // The pad each shared seat's player used last. Not the map's pad: a map
     // can hold a pad that leafwing or a fallback gave it and nobody pressed.
@@ -422,7 +422,7 @@ pub fn assign_local_seat_devices(
 /// ```
 ///
 /// `cargo test --workspace` enables the feature through
-/// `ambition_platformer2d_actor_monolith`
+/// `ambition_platformer2d_actor`
 /// (`default -> desktop_dev -> visible -> input`).
 #[cfg(test)]
 mod tests {
@@ -443,7 +443,7 @@ mod tests {
         app.world_mut()
             .spawn((
                 InputParticipant::with_id(id),
-                InputMap::<Platformer2dInputActionMonolith>::default(),
+                InputMap::<InputAction>::default(),
             ))
             .id()
     }
@@ -451,7 +451,7 @@ mod tests {
     fn assigned(app: &App, seat: Entity) -> Option<Entity> {
         app.world()
             .entity(seat)
-            .get::<InputMap<Platformer2dInputActionMonolith>>()
+            .get::<InputMap<InputAction>>()
             .expect("the seat keeps its input map")
             .gamepad()
     }

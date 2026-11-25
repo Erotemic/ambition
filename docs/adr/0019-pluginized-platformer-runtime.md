@@ -6,7 +6,7 @@ Accepted as a historical migration technique; superseded as a general crate-crea
 
 ## Context
 
-`ambition_platformer2d_actor_monolith` contains reusable platformer behavior, Ambition-specific
+`ambition_platformer2d_actor` contains reusable platformer behavior, Ambition-specific
 content, presentation adapters, authoring adapters, and app assembly. That made
 feature work fast early on, but the central app plugin file and room lifecycle
 conventions are now carrying too much architectural meaning implicitly.
@@ -59,7 +59,7 @@ to be lower than. `PlatformerRuntimeSet` never gained a member and was deleted: 
 
 ```bash
 ./run_tests.sh -p ambition_workspace_policy
-./run_tests.sh -p ambition_platformer2d_actor_monolith -k room_scoped
+./run_tests.sh -p ambition_platformer2d_actor -k room_scoped
 ./run_tests.sh -p ambition_app -k portal
 ./run_tests.sh -p ambition_app -k gravity
 ```
@@ -73,11 +73,11 @@ Same-crate proto-boundaries remain an effective *technique*, not a mandatory pip
 - The crate extraction this ADR set up has LARGELY HAPPENED (Stage 20, 2026-06).
   The workspace is now `ambition_platformer2d_core` / `ambition_platformer2d_shared_tangle` /
   `ambition_portal2d` / `ambition_time` / `ambition_input` / `ambition_menu` /
-  `ambition_audio` (foundations) ← `ambition_platformer2d_actor_monolith` (machinery lib) ←
+  `ambition_audio` (foundations) ← `ambition_platformer2d_actor` (machinery lib) ←
   `ambition_content` (named game content) ← `ambition_app` (assembly + bins +
   tests). See `docs/architecture/engine-architecture.md` and `docs/concepts/engine-mental-model.md`.
 - The `crate::{engine_core, kinematic, input, ui_nav, interaction, actor, brain}`
-  compat re-exports inside `ambition_platformer2d_actor_monolith` were REMOVED (2026-06-25). Import
+  compat re-exports inside `ambition_platformer2d_actor` were REMOVED (2026-06-25). Import
   each by its canonical path — `ambition_platformer2d_core`,
   `ambition_platformer2d_shared_tangle::kinematic`, `ambition_input`, `ambition_ui_nav`,
   `ambition_interaction`, `ambition_characters::{actor, brain}` — and edit the crate
@@ -89,4 +89,4 @@ Same-crate proto-boundaries remain an effective *technique*, not a mandatory pip
 - New gameplay subsystems should be self-owning `Plugin`s (components-as-plugins),
   not functions hand-wired in the app assembly.
 - Integration tests + binaries live in `ambition_app`; machinery unit tests in
-  `ambition_platformer2d_actor_monolith --lib`; content tests in `ambition_content --all-features`.
+  `ambition_platformer2d_actor --lib`; content tests in `ambition_content --all-features`.

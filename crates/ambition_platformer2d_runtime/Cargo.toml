@@ -30,7 +30,7 @@ ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-f
 # already wired those two systems; it names their owner now.
 ambition_mount = { path = "../ambition_mount" }
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }
-ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [
+ambition_platformer2d_actor = { path = "../ambition_platformer2d_actor", default-features = false, features = [
     "headless",
 ] }
 # The gameplay trace recorder, installed with the engine (`TraceSchedulePlugin`).
@@ -106,7 +106,7 @@ ambition_dev_tools = { path = "../ambition_dev_tools" }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 # `AuthoredSheets`, the provider-authored sheet registry the combat schedule
 # snapshots into `AuthoredAttackVolumeResolver`. This edge was always here — it
-# was laundered through `ambition_platformer2d_actor_monolith::character_sprites`,
+# was laundered through `ambition_platformer2d_actor::character_sprites`,
 # a facade that re-exported 22 `ambition_sprite_sheet` names purely so consumers
 # would not have to name the owner. The facade is gone; the edge is
 # now visible. `ambition_sprite_sheet` is a leaf asset/vocabulary crate below the
@@ -124,6 +124,7 @@ bevy = { version = "0.19.1", default-features = false, features = [
 ] }
 
 [dev-dependencies]
+
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet", features = ["test-support"] }
 ambition_body_seed = { path = "../ambition_body_seed", features = ["test-support"] }
 ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["test-support"] }
@@ -151,17 +152,17 @@ dialogue = [
     "dep:ambition_dialog",
     "ambition_platformer2d_session/dialogue",
     "ambition_sim_view/dialogue",
-    "ambition_platformer2d_actor_monolith/dialogue",
+    "ambition_platformer2d_actor/dialogue",
 ]
 physics_debris = ["ambition_platformer2d_physics_debris/physics_debris"]
 # Structured causal facts. Optional and default-OFF for the same §2e reason the
 # character capability's is: a game that never opens an inspector must not link
 # one. `ambition_causal` has zero dependencies of its own.
-causal = ["dep:ambition_causal", "ambition_platformer2d_actor_monolith/causal", "ambition_combat/causal"]
+causal = ["dep:ambition_causal", "ambition_platformer2d_actor/causal", "ambition_combat/causal"]
 # Forward the sim-relevant feature gates so a consumer can opt into the same
 # optional subsystems the plugin group conditionally bundles. Kept minimal for
 # the first assembly; widened as more plugins migrate in.
-portal = ["ambition_platformer2d_publication/portal", "ambition_platformer2d_session/portal", "dep:ambition_portal2d", "ambition_held_items/portal", "ambition_platformer2d_actor_monolith/portal", "ambition_platformer2d_trace/portal"]
+portal = ["ambition_platformer2d_publication/portal", "ambition_platformer2d_session/portal", "dep:ambition_portal2d", "ambition_held_items/portal", "ambition_platformer2d_actor/portal", "ambition_platformer2d_trace/portal"]
 # The WORLD MAP's simulation half. Default-OFF, and it was not optional at all
 # until 2026-09-09: this crate installed `MapStatePlugin` and
 # `install_map_simulation_systems` unconditionally, so `ambition_menu` was in

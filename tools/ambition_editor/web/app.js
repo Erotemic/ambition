@@ -412,7 +412,7 @@
       const version = ++loadVersion, subject = document.getElementById("framing").value === "subject";
       [cw, ch] = subject ? a.layout.framing?.cell || [128, 128] : a.layout.cell || [96, 96];
       row = i; frame = 0; strip = null; playing = true;
-      document.querySelectorAll("#anims .anim").forEach((el) => el.classList.toggle("on", +el.dataset.row === i));
+      document.querySelectorAll("#anims .anim, #poses .pose").forEach((el) => el.classList.toggle("on", +el.dataset.row === i));
       source.load(i, subject).then((drawer) => { if (version === loadVersion) { strip = drawer; draw(); } }, () => { info.textContent = "preview not drawn: run the build without --no-previews"; });
       restart();
     }
@@ -430,7 +430,8 @@
         draw(); } }, ms));
     }
     document.getElementById("anims").addEventListener("click", (e) => { const el = e.target.closest("[data-row]"); if (el) select(+el.dataset.row); });
-    document.getElementById("poses").addEventListener("click", (e) => { const el = e.target.closest("[data-row]"); if (el) { select(+el.dataset.row); window.scrollTo({ top: 0 }); } });
+    // Choosing a pose plays it in the player above without moving the page.
+    document.getElementById("poses").addEventListener("click", (e) => { const el = e.target.closest("[data-row]"); if (el) select(+el.dataset.row); });
     document.getElementById("play").addEventListener("click", () => {
       if (!playing && document.getElementById("playmode").value === "death") {
         const death = rows.findIndex(r => r.name === "death");

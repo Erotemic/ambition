@@ -72,7 +72,7 @@ partial.replace(catalog)
     editor = Path(__file__).resolve().parents[1]
     runner = (f"import sys; sys.path.insert(0, {str(editor)!r}); "
               "from pathlib import Path; from asset_index.server import serve; "
-              f"serve(Path.cwd(), Path.cwd() / 'inspector', port=0, refresh_command={refresh_command!r})")
+              f"serve(Path.cwd(), Path.cwd() / 'inspector', host='localhost', port=0, refresh_command={refresh_command!r})")
     with subprocess.Popen([sys.executable, "-c", runner], cwd=tmp_path, stdout=subprocess.PIPE, text=True) as server:
         try:
             line = server.stdout.readline().strip()

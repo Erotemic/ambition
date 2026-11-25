@@ -132,7 +132,7 @@ fn app_anchored(sprite_content: &ambition_sprite_sheet::SpriteContent, admit: bo
         .init_resource::<ComposedBodyDemand>()
         .insert_resource(Composite(true))
         .insert_resource(RiggedSpriteAdmission { admit })
-        .add_systems(Update, (animate, declare, bind_rigged_presentations, drive_rigged_presentations).chain());
+        .add_systems(Update, (animate, declare, bind_rigged_presentations, prepare_rigged_slots, drive_rigged_presentations).chain());
     let mut assets = GameAssets::default();
     assets.characters.declare("raider");
     assets.characters.publish(&sprite_content, "raider", sheet.clone());
@@ -291,6 +291,48 @@ fn a_rigged_root_draws_its_impostor_from_parts_in_reusable_slots() {
         assert!(close(*at, *want), "mirrored: a part moved to {at:?} from {want:?}");
     }
     assert!(close(app.world().get::<Anchor>(root).unwrap().0, Vec2::new(-anchor.x, anchor.y)));
+}
+
+#[test]
+fn rigged_slots_follow_view_and_image_demand() {
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app(&sprite_content, true);
+    app.world_mut().resource_mut::<Composite>().0 = false;
+    let mut camera = Camera::default();
+    camera.computed.target_info = Some(bevy::camera::RenderTargetInfo {
+        physical_size: UVec2::splat(400),
+        ..default()
+    });
+    let projection = OrthographicProjection {
+        area: Rect::from_center_size(Vec2::ZERO, Vec2::splat(400.0)),
+        ..OrthographicProjection::default_2d()
+    };
+    app.world_mut().spawn((camera, Projection::Orthographic(projection), GlobalTransform::IDENTITY));
+    let home = *app.world().get::<Transform>(root).unwrap();
+    let away = Transform::from_xyz(8000.0, 0.0, 0.0);
+    *app.world_mut().get_mut::<Transform>(root).unwrap() = away;
+
+    settle(&mut app);
+    let owner = owner(&app, root);
+    assert!(slots(&app, owner).is_empty());
+    assert_eq!(app.world().get::<Visibility>(owner), Some(&Visibility::Hidden));
+
+    *app.world_mut().get_mut::<Transform>(root).unwrap() = home;
+    app.update();
+    assert!(slots(&app, owner).iter().any(|&(_, shown)| shown));
+    assert_eq!(app.world().get::<Visibility>(owner), Some(&Visibility::Inherited));
+
+    *app.world_mut().get_mut::<Transform>(root).unwrap() = away;
+    for _ in 0..SLOT_HOLD_FRAMES {
+        app.update();
+    }
+    assert!(slots(&app, owner).is_empty());
+    assert_eq!(app.world().get::<Visibility>(owner), Some(&Visibility::Hidden));
+
+    app.world_mut().resource_mut::<Composite>().0 = true;
+    settle(&mut app);
+    assert!(draws_impostor(&app, root, owner));
+    assert!(slots(&app, owner).iter().any(|&(_, shown)| shown));
 }
 
 /// Posed parts are made from the flipbook's draw program and the admitted body
@@ -2108,7 +2150,7 @@ fn a_paired_opening_composites_only_the_pictures_it_can_carry() {
             "portal picture", Vec2::splat(1000.0), Vec2::ZERO, Vec::new())));
     let channel = PortalChannel::Authored(PortalChannelColor::Purple);
     app.world_mut().spawn(PlacedPortal::fixed(channel, Vec2::new(550.0, 500.0), -Vec2::X, 40.0).unwrap());
-    app.add_systems(Update, crate::rendering::portal_body_demand::declare_portal_body_demand.before(drive_rigged_presentations));
+    app.add_systems(Update, crate::rendering::portal_body_demand::declare_portal_body_demand.before(prepare_rigged_slots));
     let composited = |app: &App| app.world().get::<RiggedPresentation>(owner(app, root)).unwrap().impostor.is_some();
     settle(&mut app);
     assert!(!composited(&app), "an unpaired opening cannot carry the picture");

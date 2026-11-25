@@ -97,11 +97,11 @@ migration; the earlier five-pirate/three-form list is not a current corpus censu
   both, or a row the sheet does not have.
 - Pages ride on the sheet realization (`CharacterSpriteAsset::rigged`), so the
   sheet's demand, quality and retirement roads own them.
-- `CharacterAnimator` selects row, frame and facing. The rigged driver retains
-  one presentation owner and reusable part slots per body. Ordinary part
-  presentation draws those slots directly; the root carries no drawable image
-  on that road. Required whole-body effects or image consumers request
-  composition, with the existing hold and page-retirement policies.
+- `CharacterAnimator` selects row, frame and facing. Each body retains its
+  presentation owner and flipbook binding. Allocate part slots when a view
+  or a reader needs the pose. Retire the slots after the body stays out of
+  view with no reader. Ordinary part presentation draws the slots directly.
+  Whole-body effects or image consumers request composition.
 - A parts-only realization does not request or retain baked pages.
   `character_sprites::assets::parts_only_realization` keeps frame-layout metadata
   with `NO_BAKED_IMAGE`; a hybrid requests only pages referenced by its baked

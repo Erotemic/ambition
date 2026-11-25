@@ -64,6 +64,7 @@ impl Plugin for IntroPlugin {
         // fire.
         use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
         let sim = app.sim_schedule();
+        super::workshop::install(app, sim);
         app.add_systems(
             sim,
             super::route_state::emit_intro_flag_chains

@@ -83,6 +83,7 @@ use bevy::ecs::system::SystemState;
 use bevy::prelude::{App, Commands, Component, Entity, Query, World};
 
 use super::brain_command::BrainCommand;
+use super::errand::Errand;
 use super::visit::{Visit, VisitOutcome};
 
 /// A body sent out through a loading zone: when it reaches the zone it goes
@@ -114,6 +115,11 @@ const CHARACTER_KIND: ParamSpec = ParamSpec {
     kind: ParamKind::Name,
     summary: "the character id of the bodies counted",
 };
+const ROOM_ANCHOR: ParamSpec = ParamSpec {
+    name: "anchor",
+    kind: ParamKind::Individual,
+    summary: "a bound role in the live room to check",
+};
 const PLACE: ParamSpec = ParamSpec {
     name: "place",
     kind: ParamKind::Name,
@@ -143,6 +149,12 @@ const SPACING: ParamSpec = ParamSpec {
     name: "spacing",
     kind: ParamKind::Number,
     summary: "horizontal pixels between bodies, in simulation identity order; negative goes left",
+};
+
+const ITEM_PLACEMENT: ParamSpec = ParamSpec {
+    name: "item",
+    kind: ParamKind::Name,
+    summary: "the stable placement id of a physical item",
 };
 
 const WAY: ParamSpec = ParamSpec {
@@ -283,6 +295,38 @@ pub(crate) fn publish_actor_vocabulary(app: &mut App) {
         },
         throw,
     );
+    app.publish_command(
+        CommandDescriptor {
+            id: CommandId::new("actor", "throw_at"),
+            summary: "throw the carried object at a mark in the room",
+            params: &[CHARACTER, PLACE],
+        },
+        throw_at,
+    );
+    app.publish_command(
+        CommandDescriptor {
+            id: CommandId::new("actor", "depart"),
+            summary: "retire a body that reached its last mark",
+            params: &[CHARACTER],
+        },
+        depart,
+    );
+    app.publish_command(
+        CommandDescriptor {
+            id: CommandId::new("actor", "fetch"),
+            summary: "send a body to pick up an item by its placement id",
+            params: &[CHARACTER, ITEM_PLACEMENT, BRAIN],
+        },
+        fetch,
+    );
+    app.publish_condition(
+        ConditionDescriptor {
+            id: ConditionId::new("actor", "holds_item"),
+            summary: "the named body has custody of the item",
+            params: &[CHARACTER, ITEM_PLACEMENT],
+        },
+        holds_item,
+    );
     app.publish_condition(
         ConditionDescriptor {
             id: ConditionId::new("actor", "beaten"),
@@ -309,6 +353,22 @@ pub(crate) fn publish_actor_vocabulary(app: &mut App) {
     );
     app.publish_condition(
         ConditionDescriptor {
+            id: ConditionId::new("actor", "group_count"),
+            summary: "exactly this many bodies of the character are live in the role's room",
+            params: &[CHARACTER_KIND, COUNT, ROOM_ANCHOR],
+        },
+        group_count,
+    );
+    app.publish_condition(
+        ConditionDescriptor {
+            id: ConditionId::new("actor", "group_arrived"),
+            summary: "each live body of the character in the role's room reached its mark",
+            params: &[CHARACTER_KIND, ROOM_ANCHOR],
+        },
+        group_arrived,
+    );
+    app.publish_condition(
+        ConditionDescriptor {
             id: ConditionId::new("actor", "fallen_is"),
             summary: "exactly this many bodies of the character have fallen and lie where they fell",
             params: &[CHARACTER_KIND, COUNT],
@@ -331,14 +391,7 @@ pub(crate) fn publish_actor_vocabulary(app: &mut App) {
         },
         gone,
     );
-    app.publish_condition(
-        ConditionDescriptor {
-            id: ConditionId::new("actor", "throw_landed"),
-            summary: "the character holds nothing to throw, and nothing it threw is still in the air or lit",
-            params: &[CHARACTER],
-        },
-        throw_landed,
-    );
+
 }
 
 /// The bodies of `character` in `room` (every live room when `None`), with
@@ -468,9 +521,12 @@ fn alive(health: Option<&ambition_characters::actor::BodyHealth>) -> bool {
 }
 
 /// How many live bodies wear `character`.
-fn live_count(world: &World, character: &str) -> Option<usize> {
-    let mut bodies = world.try_query::<(&CharacterForm, Option<&ambition_characters::actor::BodyHealth>)>()?;
-    Some(bodies.iter(world).filter(|(worn, health)| worn.0.as_str() == character && alive(*health)).count())
+fn live_count(world: &World, character: &str, room: Option<LiveRoomInstance>) -> Option<usize> {
+    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+    let mut bodies = world.try_query::<(&CharacterForm, Option<&ambition_characters::actor::BodyHealth>, Option<&InRoomInstance>)>()?;
+    Some(bodies.iter(world).filter(|(worn, health, at)| {
+        worn.0.as_str() == character && alive(*health) && room.is_none_or(|room| at.is_some_and(|at| at.0 == room))
+    }).count())
 }
 
 /// How many fallen bodies wear `character`.
@@ -544,17 +600,8 @@ fn send(
         };
         point.x += spacing * index as f32;
         let mut entity = world.entity_mut(body);
-        // A body an encounter spawned carries no brain binding, and the one
-        // brain authority switches only a bound body. Bind it to its own
-        // character's policy (what `actor.release` restores), homed where it
-        // stands.
-        if !entity.contains::<ambition_characters::control::brain_binding::BrainBinding>() {
-            let x = entity.get::<ae::BodyKinematics>().map(|k| k.pos.x).unwrap_or_default();
-            entity.insert((
-                ambition_characters::control::brain_binding::BrainBinding::from_character_profile(),
-                ambition_characters::control::brain_binding::AuthoredBrainContext::from_placement(x, 0.0),
-            ));
-        }
+        bind_direction(&mut entity);
+        entity.remove::<Errand>();
         entity.insert(Visit::to(point));
         if leaving {
             entity.insert(Leaving { zone: place.to_owned() });
@@ -569,6 +616,70 @@ fn send(
         return CommandOutcome::refused(format!("the room of {character} has no {what} named `{place}`"));
     }
     CommandOutcome::Done
+}
+
+fn bind_direction(entity: &mut bevy::ecs::world::EntityWorldMut<'_>) {
+    use ambition_characters::control::brain_binding::{AuthoredBrainContext, BrainBinding};
+    if !entity.contains::<BrainBinding>() {
+        let x = entity.get::<ae::BodyKinematics>().map_or(0.0, |body| body.pos.x);
+        entity.insert((BrainBinding::from_character_profile(), AuthoredBrainContext::from_placement(x, 0.0)));
+    }
+}
+
+fn fetch(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let (Some(who), Some(item), Some(preset)) = (Who::of(&args[0]), args[1].as_name(), args[2].as_name()) else {
+        return CommandOutcome::refused("actor.fetch needs a body, an item placement and a brain");
+    };
+    let cast = match cast_of(world, who, context.room) {
+        Ok(cast) => cast,
+        Err(why) => return CommandOutcome::refused(why),
+    };
+    let Some((body, id, room)) = cast.first() else {
+        return CommandOutcome::refused("actor.fetch needs a live body");
+    };
+    let mut entity = world.entity_mut(*body);
+    bind_direction(&mut entity);
+    entity.remove::<(Visit, Leaving, Posed)>();
+    entity.insert(Errand::fetch(SimId::placement(item)));
+    world.write_message(BrainCommand::use_preset(LiveBodyId::new(id.clone(), *room), preset.to_owned()));
+    CommandOutcome::Done
+}
+
+fn depart(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let Some(who @ Who::Body(..)) = Who::of(&args[0]) else {
+        return CommandOutcome::refused("actor.depart needs a bound body");
+    };
+    let cast = match cast_of(world, who, context.room) {
+        Ok(cast) => cast,
+        Err(why) => return CommandOutcome::refused(why),
+    };
+    let body = cast[0].0;
+    if world.get::<Visit>(body).is_none_or(|visit| visit.outcome != VisitOutcome::Arrived)
+        || world.get::<ambition_combat::held_items::HeldItem>(body).is_some()
+    {
+        return CommandOutcome::refused("the body must reach its last mark and release its hand");
+    }
+    world.despawn(body);
+    CommandOutcome::Done
+}
+
+fn holds_item(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    use ambition_held_items::ItemCustody;
+    let (Some(who), Some(item)) = (Who::of(&args[0]), args[1].as_name()) else {
+        return ConditionOutcome::unanswerable("actor.holds_item needs a body and an item placement");
+    };
+    let item_id = SimId::placement(item);
+    let held = world.try_query::<(&SimId, &ItemCustody)>().is_some_and(|mut items| {
+        items.iter(world).any(|(id, custody)| {
+            if *id != item_id { return false; }
+            let ItemCustody::Held { holder } = *custody else { return false };
+            match who {
+                Who::Body(id, room) => bound_body(world, id, room) == Ok((holder, true)),
+                Who::Character(character) => world.get::<CharacterForm>(holder).is_some_and(|form| form.id() == character),
+            }
+        })
+    });
+    ConditionOutcome::from_bool(held, || WhyNot::new("actor.holds_item", item, "the body does not hold the item"))
 }
 
 fn walk_to(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
@@ -599,7 +710,7 @@ fn release(world: &mut World, args: &[AuthoredArg], context: &ambition_platforme
         Err(why) => return CommandOutcome::refused(why),
     };
     for (body, sim_id, at) in cast {
-        world.entity_mut(body).remove::<(Visit, Leaving, Posed)>();
+        world.entity_mut(body).remove::<(Visit, Leaving, Posed, Errand)>();
         world.write_message(BrainCommand::restore_default(LiveBodyId::new(sim_id, at)));
     }
     CommandOutcome::Done
@@ -855,7 +966,6 @@ const THROW_PACE: f32 = 380.0;
 
 fn throw(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
     let room = context.room;
-    use ambition_combat::held_items::HeldItem;
     let (Some(character), Some(target)) = (Who::of(&args[0]), Who::of(&args[1])) else {
         return CommandOutcome::refused("`actor.throw` takes a character and a target character");
     };
@@ -870,66 +980,70 @@ fn throw(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2
     .iter()
         .filter_map(|(body, _, at)| world.get::<ae::BodyKinematics>(*body).map(|k| (*at, k.pos)))
         .collect();
-    let scope = world
-        .get_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>()
-        .map_or(ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED, |scope| scope.spawn_scope());
-    let mut thrown = 0;
-    for (body, sim_id, at) in cast {
-        let Some(spec) = world.get::<HeldItem>(body).map(|held| held.spec.clone()) else {
-            continue;
-        };
-        let Some((here, size)) = world.get::<ae::BodyKinematics>(body).map(|k| (k.pos, k.size())) else {
-            continue;
-        };
-        let Some(aim) = targets
-            .iter()
-            .filter(|(room, _)| *room == at)
-            .map(|(_, pos)| *pos)
+    throw_towards(world, cast, |_, at, here| {
+        targets.iter().filter(|(room, _)| *room == at).map(|(_, pos)| *pos)
             .min_by(|a, b| (*a - here).length().total_cmp(&(*b - here).length()))
-        else {
+    })
+}
+
+fn throw_at(world: &mut World, args: &[AuthoredArg], context: &ambition_platformer2d_shared_tangle::authored_logic::CommandContext) -> CommandOutcome {
+    let (Some(who), Some(mark)) = (Who::of(&args[0]), args[1].as_name()) else {
+        return CommandOutcome::refused("actor.throw_at needs a body and a mark");
+    };
+    let cast = match cast_of(world, who, context.room) {
+        Ok(cast) => cast,
+        Err(why) => return CommandOutcome::refused(why),
+    };
+    let aims: Vec<_> = cast.iter().filter_map(|(body, ..)| place_of(world, *body, mark, false).map(|pos| (*body, pos))).collect();
+    throw_towards(world, cast, |body, _, _| {
+        aims.iter().find_map(|(thrower, pos)| (*thrower == body).then_some(*pos))
+    })
+}
+
+fn throw_towards(
+    world: &mut World,
+    cast: Vec<(Entity, SimId, Option<LiveRoomInstance>)>,
+    aim_of: impl Fn(Entity, Option<LiveRoomInstance>, ae::Vec2) -> Option<ae::Vec2>,
+) -> CommandOutcome {
+    use ambition_combat::hand::RepertoireQuery;
+    use ambition_held_items::{GroundItem, ItemBody, ItemCustody, Release};
+    use ambition_held_items::{HeldMaterialBasis, ItemReleaseWorld, release_carried_item};
+
+    let mut state: SystemState<(
+        Commands,
+        ItemReleaseWorld,
+        Query<(&mut ae::BodyKinematics, RepertoireQuery), bevy::prelude::Without<GroundItem>>,
+        Query<(Entity, &GroundItem, &ae::BodyKinematics, &mut ItemCustody, &HeldMaterialBasis)>,
+        Query<&ItemBody>,
+    )> = SystemState::new(world);
+    let Ok((mut commands, release_world, mut bodies, mut items, item_physics)) = state.get_mut(world) else {
+        return CommandOutcome::refused("the item release system is absent");
+    };
+    let mut thrown = 0;
+    for (body, _, room) in cast {
+        let Ok((mut kin, mut repertoire)) = bodies.get_mut(body) else { continue };
+        let Some(aim) = aim_of(body, room, kin.pos) else { continue };
+        let Some((item, _, stored, _, basis)) = items.iter_mut().find(|(_, _, _, custody, _)| custody.held_by(body)) else {
             continue;
         };
-        let side = if aim.x >= here.x { 1.0 } else { -1.0 };
-        // Out of the hand ahead of the body, clear of its own box, so the
-        // item does not strike the body that threw it.
-        let from = here
-            + ae::Vec2::new(
-                side * (size.x * 0.5 + ambition_held_items::MINTED_ITEM_HALF_EXTENT.x + 6.0),
-                -size.y * 0.3,
-            );
-        // The arc that lands at the target: a fall under the items' own
-        // gravity, its time set by the distance.
+        let Ok(material) = basis.present(stored.material, kin.material) else { continue };
+        let side = if aim.x >= kin.pos.x { 1.0 } else { -1.0 };
+        let size = kin.size();
+        let item_size = stored.canonical_size * material.scale();
+        let from = kin.pos + ae::Vec2::new(side * ((size.x + item_size.x) * 0.5 + 6.0), -size.y * 0.3);
         let gap = aim - from;
         let flight = (gap.x.abs() / THROW_PACE).clamp(THROW_FLIGHT_S.0, THROW_FLIGHT_S.1);
-        let gravity = ambition_held_items::GROUND_ITEM_GRAVITY;
+        let scale = item_physics.get(item).map_or(1.0, |physics| physics.gravity_scale);
+        let gravity = ambition_held_items::GROUND_ITEM_GRAVITY * scale;
         let vel = ae::Vec2::new(gap.x / flight, (gap.y - 0.5 * gravity * flight * flight) / flight);
-        let Some(sequence) = world
-            .get_mut::<ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>(body)
-            .map(|mut counter| counter.next())
-        else {
-            continue;
-        };
-        if let Some(mut kinematics) = world.get_mut::<ae::BodyKinematics>(body) {
-            kinematics.facing = side;
+        if matches!(release_carried_item(&mut commands, body, &mut repertoire, &mut items, &kin, &release_world, from, vel, Release::Throw), Ok(true)) {
+            kin.facing = side;
+            thrown += 1;
         }
-        world.entity_mut(body).remove::<HeldItem>();
-        ambition_combat::hand::refold_in_world_with_held(world, body, None);
-        let mut commands = world.commands();
-        ambition_platformer2d_items::loot::throw_minted_item(
-            &mut commands,
-            scope.in_room(at),
-            &sim_id,
-            sequence,
-            spec,
-            from,
-            vel,
-            ambition_held_items::MINTED_ITEM_HALF_EXTENT,
-        );
-        world.flush();
-        thrown += 1;
     }
+    state.apply(world);
     if thrown == 0 {
-        return CommandOutcome::refused(format!("no body of {character} holds anything it can throw"));
+        return CommandOutcome::refused("no body could release a physical item at the target");
     }
     CommandOutcome::Done
 }
@@ -1026,15 +1140,21 @@ fn arrived(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
         }
         None => return ConditionOutcome::Unanswerable("`actor.arrived` takes a character".into()),
     };
-    let Some(mut bodies) =
-        world.try_query::<(&CharacterForm, Option<&Visit>, Option<&ambition_characters::actor::BodyHealth>)>()
+    arrived_in(world, character, None)
+}
+
+fn arrived_in(world: &World, character: &str, room: Option<LiveRoomInstance>) -> ConditionOutcome {
+    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
+    let Some(mut bodies) = world.try_query::<(&CharacterForm, Option<&Visit>, Option<&ambition_characters::actor::BodyHealth>, Option<&InRoomInstance>)>()
     else {
         return ConditionOutcome::Unanswerable("no body has a character in this composition".into());
     };
     let visits: Vec<Option<VisitOutcome>> = bodies
         .iter(world)
-        .filter(|(worn, _, health)| worn.0.as_str() == character && alive(*health))
-        .map(|(_, visit, _)| visit.map(|v| v.outcome))
+        .filter(|(worn, _, health, at)| {
+            worn.0.as_str() == character && alive(*health) && room.is_none_or(|room| at.is_some_and(|at| at.0 == room))
+        })
+        .map(|(_, visit, _, _)| visit.map(|v| v.outcome))
         .collect();
     let waiting = visits.iter().filter(|v| **v != Some(VisitOutcome::Arrived)).count();
     if !visits.is_empty() && waiting == 0 {
@@ -1046,6 +1166,13 @@ fn arrived(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
             if visits.is_empty() { "no body of it lives".to_owned() } else { format!("{waiting} of {} not there yet", visits.len()) },
         ))
     }
+}
+
+fn group_arrived(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    let (Some(character), AuthoredArg::Occupant(_, room)) = (args[0].as_name(), &args[1]) else {
+        return ConditionOutcome::Unanswerable("`actor.group_arrived` needs a character and a bound room role".into());
+    };
+    arrived_in(world, character, Some(*room))
 }
 
 fn gone(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
@@ -1061,77 +1188,11 @@ fn gone(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
         }
         None => return ConditionOutcome::Unanswerable("`actor.gone` takes a character".into()),
     };
-    let live = live_count(world, character).unwrap_or(0);
+    let live = live_count(world, character, None).unwrap_or(0);
     if live == 0 {
         ConditionOutcome::Satisfied
     } else {
         ConditionOutcome::NotSatisfied(WhyNot::new("actor.gone", character, format!("{live} live")))
-    }
-}
-
-/// Has what `who` threw (`actor.throw`) come down? A thrown item is still
-/// in the air while it moves, and a thrown bomb is still to come while its
-/// fuse burns; one that burst is gone, and one that was caught is no longer
-/// thrown. The items answer by their identity (`SimId::spawned` of the
-/// thrower), so a thrower that has since left still answers for its throw.
-///
-/// ⚠ A thrower that still holds what it could throw has not thrown yet, and
-/// the answer is no. A scene's command is a request applied after the scene
-/// asks its next wait, so on the first answer after a throw beat the item may
-/// not exist yet: "nothing is in the air" must not be read as "it landed"
-/// before the throw has happened.
-///
-/// It is the result a scene waits for when what follows the throw depends on
-/// its impact (the brute's bomb must have burst before the Creator is let go
-/// to his own mind, which would dodge it); a fixed delay is not that result,
-/// and a skipped scene has no delays.
-fn throw_landed(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
-    use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
-    // A bound thrower's room tells its throw apart from the same placement's
-    // in another live instance of the room; a character's throws are all of them.
-    let mut room = None;
-    let throwers: Vec<SimId> = match Who::of(&args[0]) {
-        Some(Who::Body(id, at)) => {
-            room = at;
-            vec![id.clone()]
-        }
-        Some(Who::Character(character)) => {
-            let Some(mut bodies) = world.try_query::<(&CharacterForm, &SimId)>() else {
-                return ConditionOutcome::Satisfied;
-            };
-            bodies.iter(world).filter(|(worn, _)| worn.0.as_str() == character).map(|(_, id)| id.clone()).collect()
-        }
-        None => return ConditionOutcome::Unanswerable("`actor.throw_landed` takes a character".into()),
-    };
-    let here = |at: Option<&InRoomInstance>| room.is_none() || at.is_none_or(|at| Some(at.0) == room);
-    let still_holding = world.try_query::<(&SimId, &ambition_combat::held_items::HeldItem, Option<&InRoomInstance>)>().is_some_and(|mut holders| {
-        holders.iter(world).any(|(id, _, at)| throwers.contains(id) && here(at))
-    });
-    if still_holding {
-        let who = throwers.first().map_or_else(String::new, SimId::to_string);
-        return ConditionOutcome::NotSatisfied(WhyNot::new("actor.throw_landed", who, "it has not thrown yet".to_owned()));
-    }
-    let Some(mut items) = world.try_query::<(
-        &SimId,
-        &ae::BodyKinematics,
-        &ambition_held_items::ReleasedAs,
-        bevy::prelude::Has<ambition_abilities::ranged::bomb::BombFuse>,
-        Option<&InRoomInstance>,
-    )>() else {
-        return ConditionOutcome::Satisfied;
-    };
-    let coming = items
-        .iter(world)
-        .filter(|(id, _, released, _, at)| {
-            released.0 == ambition_held_items::Release::Throw && throwers.iter().any(|thrower| id.spawned_by(thrower)) && here(*at)
-        })
-        .filter(|(_, kinematics, _, lit, _)| *lit || kinematics.vel.length_squared() > 1.0)
-        .count();
-    if coming == 0 {
-        ConditionOutcome::Satisfied
-    } else {
-        let who = throwers.first().map_or_else(String::new, SimId::to_string);
-        ConditionOutcome::NotSatisfied(WhyNot::new("actor.throw_landed", who, format!("{coming} still coming down")))
     }
 }
 
@@ -1265,7 +1326,18 @@ fn count_is(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let (Some(character), Some(count)) = (args[0].as_name(), args[1].as_number()) else {
         return ConditionOutcome::Unanswerable("`actor.count_is` takes a character and a count".into());
     };
-    let live = live_count(world, character).unwrap_or(0);
+    check_live_count(world, character, count, None)
+}
+
+fn group_count(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
+    let (Some(character), Some(count), AuthoredArg::Occupant(_, room)) = (args[0].as_name(), args[1].as_number(), &args[2]) else {
+        return ConditionOutcome::Unanswerable("`actor.group_count` needs a character, a count and a bound room role".into());
+    };
+    check_live_count(world, character, count, Some(*room))
+}
+
+fn check_live_count(world: &World, character: &str, count: f64, room: Option<LiveRoomInstance>) -> ConditionOutcome {
+    let live = live_count(world, character, room).unwrap_or(0);
     if live as f64 == count {
         ConditionOutcome::Satisfied
     } else {
@@ -1300,5 +1372,20 @@ mod tests {
             assert!(matches!(outcome, ConditionOutcome::NotSatisfied(_)), "room {}: {outcome:?}", room.ordinal());
         }
         assert!(matches!(gone(&world, &[AuthoredArg::Occupant(id.clone(), rooms[0])]), ConditionOutcome::NotSatisfied(why) if why.to_string().contains("1 live")));
+    }
+
+    #[test]
+    fn a_formation_waits_for_the_bodies_in_its_own_room() {
+        let mut world = World::new();
+        world.register_component::<ambition_characters::actor::BodyHealth>();
+        let [here, away] = [1, 2].map(LiveRoomInstance::from_ordinal);
+        let role = AuthoredArg::Occupant(SimId::placement("director"), here);
+        let cast = AuthoredArg::Name("raider".into());
+        let mut visit = Visit::to(ae::Vec2::ZERO);
+        visit.outcome = VisitOutcome::Arrived;
+        world.spawn((CharacterForm("raider".into()), InRoomInstance(here), visit));
+        world.spawn((CharacterForm("raider".into()), InRoomInstance(away)));
+        assert_eq!(group_count(&world, &[cast.clone(), AuthoredArg::Number(1.0), role.clone()]), ConditionOutcome::Satisfied);
+        assert_eq!(group_arrived(&world, &[cast, role]), ConditionOutcome::Satisfied);
     }
 }

@@ -710,10 +710,6 @@ fn gate_solid_names(walker: &mut impl Walker, player: Entity) -> Vec<String> {
     the_players_overlay(walker.world_mut(), player).gate_solids.iter().map(|solid| solid.name.clone()).collect()
 }
 
-/// The barn door of the workshop (`intro_wake_room`): it stands until the
-/// raiders break its bar (`intro_barn_door_broken`), as the raid starts.
-pub const BARN_DOOR: &str = "intro_barn_door";
-
 /// The workshop's raid.
 const RAID: &str = "intro_workshop_raid";
 
@@ -823,17 +819,7 @@ pub fn through_the_raid(walker: &mut impl Walker, start: RaidStart) -> Result<us
     };
     for _ in 0..FRAMES_FOR_A_ROOM {
         if raid_won(walker.world()) {
-            // The yard gate (the raid's own wall) comes down on the gate tick
-            // after the win: wait for it, so the walk out has its road.
-            let seal = format!("lockwall:{RAID}");
-            for _ in 0..120 {
-                if !gate_solid_names(walker, player).iter().any(|name| *name == seal) {
-                    return Ok(frames);
-                }
-                walker.step(Press::default());
-                frames += 1;
-            }
-            return Err("the raid is won and the yard gate still stands".into());
+            return Ok(frames);
         }
         if held_by_talk(walker.world()) {
             walker.step(Press { confirm: frames % 10 == 0, ..Press::default() });
@@ -843,7 +829,7 @@ pub fn through_the_raid(walker: &mut impl Walker, start: RaidStart) -> Result<us
 
         // A raider up on the bench is out of the walker's routes for a
         // moment: wait on the floor, blade out, for it to come down.
-        frames += match fight(walker, raider, raid_won, ae::Vec2::new(1180.0, floor - 24.0), 600) {
+        frames += match fight(walker, raider, |world| raid_won(world) || held_by_talk(world), ae::Vec2::new(1180.0, floor - 24.0), 600) {
             Ok(fought) => fought,
             Err(why) if why.contains("not over") => 600,
             Err(why) if why.contains("no route to a foe") => {

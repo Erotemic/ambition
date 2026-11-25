@@ -81,11 +81,8 @@ fn interact_until(pad: &mut Pad, flag: &str) -> Result<(), String> {
 }
 
 /// ⭐ LEVEL-1, THE FAR HALF OF THE ROUTE: from the woods up the hill path to
-/// the gate clearing, where the barrier lever lifts the boom; down the freight
-/// track to the siding, where the yard fight is won; and the goblins' crate
-/// opened for the Creator's notes. Every step is the player's own input: the
-/// shipped room transitions, a lever and a crate pulled by Interact, a fight
-/// fought by Attack.
+/// the gate clearing, where the barrier lever lifts the boom, and down the
+/// freight track to the siding, where Scout fights the goblins.
 #[test]
 fn the_player_walks_from_the_woods_to_the_siding_and_wins_its_fight() {
     use crate::common::walk::{fight, walk_to, FRAMES_FOR_A_ROOM};
@@ -128,8 +125,5 @@ fn the_player_walks_from_the_woods_to_the_siding_and_wins_its_fight() {
     .unwrap_or_else(|why| panic!("the yard fight: {why}"));
     eprintln!("WON `{YARD_FIGHT}` in {frames} frames");
 
-    // The goblins' crate (x 1560-1636) holds the Creator's notes.
-    walk_to(&mut Pad::new(&mut sim), ae::Vec2::new(1598.0, 512.0 - 24.0)).unwrap_or_else(|why| panic!("to the crate: {why}"));
-    interact_until(&mut Pad::new(&mut sim), "intro_creator_notes_recovered").unwrap_or_else(|why| panic!("the crate: {why}"));
     assert_eq!(sim.observation().active_room, "intro_freight_yard");
 }

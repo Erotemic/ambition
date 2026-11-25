@@ -189,13 +189,21 @@ fn choose(app: &mut App, label: &str) {
         .iter()
         .position(|text| text == label)
         .unwrap_or_else(|| panic!("no {label:?} in {choices:?}"));
-    for _ in 0..index {
+    let selected = |app: &App| app.world().resource::<ambition_platformer2d::dialog::DialogState>().selected_option();
+    for _ in 0..choices.len() {
+        if selected(app) == index {
+            break;
+        }
         Buttonlike::press(&KeyCode::ArrowDown, app.world_mut());
         app.update();
         Buttonlike::release(&KeyCode::ArrowDown, app.world_mut());
         app.update();
     }
-    confirm(app);
+    assert_eq!(selected(app), index, "the keyboard selected {label:?}");
+    Buttonlike::press(&KeyCode::Space, app.world_mut());
+    app.update();
+    Buttonlike::release(&KeyCode::Space, app.world_mut());
+    app.update();
     wait(app, 120);
 }
 
@@ -208,8 +216,13 @@ fn finish_conversation(app: &mut App) {
         {
             return;
         }
-        confirm(app);
-        wait(app, 120);
+        let first = app.world().resource::<DialogView>().option_labels.first().cloned();
+        if let Some(first) = first {
+            choose(app, &first);
+        } else {
+            confirm(app);
+            wait(app, 120);
+        }
     }
     panic!("the conversation did not end");
 }

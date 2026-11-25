@@ -2275,6 +2275,13 @@ pub fn spawn_encounter_mob(sprite_content: &ambition_sprite_sheet::SpriteContent
     if let Some(definition) = definition {
         initialize_prepared_character(&sprite_content,
             &mut RootScope::new(commands, session_scope, entity), definition, prepared.generation());
+        if definition.autonomous_profile.is_some() {
+            use ambition_characters::control::brain_binding::{AuthoredBrainContext, BrainBinding};
+            commands.entity(entity).insert((
+                BrainBinding::from_character_profile(),
+                AuthoredBrainContext::from_placement(pos.x, 0.0),
+            ));
+        }
     }
     commands
         .entity(entity)

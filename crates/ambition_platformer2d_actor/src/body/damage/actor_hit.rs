@@ -278,7 +278,8 @@ pub(crate) fn apply_actor_hit(
         let victim_size = em.kin.size();
         // A body beaten at a floor takes no more than brings it there; the
         // blast zone is not a blow, and still ends it.
-        let damage = match caps.beaten_at {
+        let floor = em.scene_damage_floor.map(|floor| floor.0).or(caps.beaten_at);
+        let damage = match floor {
             Some(floor) if !left_the_world => event.damage.min((em.health.current() - floor).max(0)),
             _ => event.damage,
         };

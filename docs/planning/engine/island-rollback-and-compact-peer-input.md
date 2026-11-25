@@ -295,6 +295,68 @@ native import at its destination input cut, including its construction and
 custody result. Replaying that import is additional work. Keeping B's old
 snapshots alone does not establish it, and it is not required for ISL-3a.
 
+**Landed (2026-11-25).** The host no longer refuses every room's rewind and
+drops every room's history while any crossing is under way.
+
+- **The footprint.** `room_preparation::pending_transfer_footprint` reads the
+  pending operation through the custody param that preparation already uses
+  (`CustodyEndingAtCommit::footprint`, over `room_transfer_plan`), so
+  networking keeps no second room list. `sources` are the rooms that decided
+  it: its members' rooms, or the room a bodyless rebuild names. `rooms` adds
+  the rooms its custody carries bodies from, a live room it joins, and each
+  room it retires. A checkpoint operation counts every room, because it may
+  restart the session.
+- **Suspension.** The readiness chain (`Update`) and the commit chain
+  (`RoomTransitionSet::Apply`) do not run while `RoomReplay` exists. An
+  operation and its readiness wait outside a replay and resume on the next
+  live tick, and no room's history is dropped for them.
+- **Corrections before the cut.** Any room replays while a crossing is
+  pending, its own rooms included. A replay of a source room from tick T
+  takes back a pending operation recorded at or after T
+  (`retract_recorded_on`). No rewind reopens a confirmed tick, so such an
+  operation is still undecided, and the replay records it again only if the
+  corrected inputs still make it. Replaying a room the operation only joins
+  or retires does not retract it, because that replay does not run the tick
+  that recorded it.
+- **The cut.** On each live tick the host follows the operation, and does so
+  before late inputs are taken as well as at the tick head, because
+  publication happens inside a tick. When the operation leaves the slot
+  without a withdrawal, each room of its footprint loses its history from
+  before the cut. On a refusal this is conservative: nothing moved, and those
+  rooms' late inputs drive their seats from the next tick (the declared
+  policy). Each guest seat keeps the room it is in and the tick it was first
+  driven there. A late sample that names a tick before its seat changed rooms
+  is dropped (`RoomRollbackStats::before_the_cut`); it never runs in the room
+  the body is in now. A seat's first room is not a change, so a joining
+  seat's early samples keep their old disposition.
+- **Kept.** The registered match refusal; the whole-session barrier for
+  checkpoints (a commit still drops every history); the one-operation slot;
+  the global confirmation floor (ISL-3b). The guest's own-body prediction
+  keeps its crossing barrier: it is one room on the guest's side.
+
+Witnesses (`a_guests_room_rewinds_on_the_host`):
+- `an_unrelated_room_rewinds_while_another_room_crosses`: Alice, the host's
+  seat, leaves the hub through a door to a third room while Bob's late inputs
+  arrive in `switch_lab`. Bob's room rewinds while her crossing is pending,
+  nothing is refused, and his room ends where the on-time run ends.
+- `a_seat_joins_a_live_room_at_one_cut`: both seats are guests. Bob's inputs
+  arrive ten ticks late, and he goes through his door into Alice's live hub.
+  The replay that applied his late press decided the crossing. At the cut he
+  has one body, in the hub. `switch_lab` retires. His ten samples from before
+  the cut are dropped, and no rewind of the hub reaches back past the cut.
+  The first run of this witness found a defect, now fixed: the host followed
+  membership only at the tick head. A pre-cut sample arriving on the next
+  frame rewound the hub into a snapshot without Bob's body, and he vanished.
+- `a_late_correction_takes_back_a_crossing_the_host_guessed`: Alice is a
+  late guest. She steps toward the hub's walk-in exit for two ticks and
+  stops; the host's prediction walks her in and records a crossing. Her stop
+  arrives, the hub replays, the crossing is retracted and not made again, and
+  she stays in the hub.
+
+Not done: the custody-owner check across a split capture at the cut (the
+footprint includes custody's rooms, but no witness holds a capture through
+a crossing), and ISL-3b's scoped finality.
+
 ### ISL-3b / CW4 — ask finality of the history that produced the request
 
 This refines [CW4](causal-world-commit.md#cw4--replace-the-global-confirmation-floor-only-when-useful),

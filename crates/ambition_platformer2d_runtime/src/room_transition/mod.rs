@@ -121,6 +121,13 @@ impl Plugin for RoomTransitionComposerPlugin {
                     .run_if(loading::a_transition_is_in(loading::RoomTransitionLoadPhase::Failed)),
             )
                 .chain()
+                // Not while a room replays (ISL-3a): the other rooms are
+                // hidden, so a destination or roster found now is not the
+                // world's. The operation waits, with its readiness, for the
+                // first live tick after the replay.
+                .run_if(bevy::prelude::not(bevy::prelude::resource_exists::<
+                    ambition_platformer2d_shared_tangle::lifecycle::RoomReplay,
+                >))
                 .in_set(RoomTransitionReadinessSet),
         );
         app.init_resource::<commit::CommittedRoomTransitionRestore>();
@@ -152,6 +159,11 @@ impl Plugin for RoomTransitionComposerPlugin {
                 commit::terminalize_abandoned_checkpoint_restore_system,
             )
                 .chain()
+                // Publication waits for the live cut too (ISL-3a): a replay
+                // hides every room but its own.
+                .run_if(bevy::prelude::not(bevy::prelude::resource_exists::<
+                    ambition_platformer2d_shared_tangle::lifecycle::RoomReplay,
+                >))
                 // THE transaction phase — detection has run, the reset has not.
                 .in_set(ambition_platformer2d_shared_tangle::schedule::RoomTransitionSet::Apply),
         );

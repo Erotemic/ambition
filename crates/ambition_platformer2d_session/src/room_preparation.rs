@@ -11,6 +11,28 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 use bevy::prelude::*;
 use std::sync::Arc;
 
+/// The live rooms one lifecycle operation touches (ISL-3a).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TransferFootprint {
+    /// The rooms that decided it: where its members stand, or the room a
+    /// bodyless rebuild names. A replay of one of these can decide it again.
+    pub sources: std::collections::BTreeSet<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    /// Every live room whose population, custody or existence it changes:
+    /// the sources, the rooms its custody carries bodies from, a live room it
+    /// joins, and each room it retires.
+    pub rooms: std::collections::BTreeSet<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+}
+
+/// The footprint of the pending lifecycle operation, from the same transfer
+/// plan preparation and publication use. A checkpoint operation may restart
+/// the session, so it counts every live room. `None` when nothing is pending.
+pub fn pending_transfer_footprint(world: &mut World) -> Option<TransferFootprint> {
+    let pending = world.get_resource::<PendingLifecycleCommit>()?.peek()?.clone();
+    let mut state = bevy::ecs::system::SystemState::<custody::CustodyEndingAtCommit>::new(world);
+    let custody = state.get(world).ok()?;
+    Some(custody.footprint(&pending.kind, pending.checkpoint_operation.is_some()))
+}
+
 /// Continuity selected for one room operation. Host readiness cannot change it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RoomContinuityInputs {

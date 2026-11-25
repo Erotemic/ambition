@@ -313,8 +313,11 @@ value as completion of that owner's contract.
    rider's mount and limbs, stand the mount under the arrived rider, and end
    split rides and holds natively. Publication road and possession home
    landed the same day, with the late-refusal witness, and the captured
-   body's automatic exit from a room another seat keeps. What remains is
-   ISL-3a's: its transfer footprint consumes this cohort.)
+   body's automatic exit from a room another seat keeps. ISL-3a landed
+   2026-11-25: the host scopes a crossing to its footprint, suspends
+   lifecycle work during replays, retracts an undecided crossing a replay
+   decides again, and retires history at one cut. See the
+   [receipt](engine/island-rollback-and-compact-peer-input.md#isl-3a--retain-the-transfer-footprint-and-its-membership-cut).)
 6. [Story SS7/SS8](engine/story-sequences.md#own-each-admitted-playback-before-binding-its-roles)
    first gives each admitted cutscene run an owner occurrence. A request
    follows that run's transitions; it cannot start from the presence of an

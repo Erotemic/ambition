@@ -56,6 +56,12 @@ pub struct RoomRollbackStats {
     pub not_rewound: u32,
     /// The tick the latest rewind replayed from.
     pub last_rewound_from: Option<u64>,
+    /// Late inputs dropped because they name a tick before their seat's room
+    /// changed: they belong to a history the crossing retired (also counted
+    /// in `not_rewound`).
+    pub before_the_cut: u32,
+    /// Room crossings a corrected replay took back before they were decided.
+    pub crossings_retracted: u32,
 }
 
 /// The shared clock at the start of a tick: the timeline, the frame's time,
@@ -137,6 +143,12 @@ pub(crate) struct GuestInputs {
     saved: BTreeMap<LiveRoomInstance, BTreeMap<u64, (RoomSnapshot, Clock)>>,
     /// The live checkpoint commits read so far.
     commits: bevy::ecs::message::MessageCursor<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>,
+    /// The lifecycle operation under way (its recording frame) and the rooms
+    /// it touches, taken on live ticks (ISL-3a).
+    crossing: Option<(i32, ambition_platformer2d_session::room_preparation::TransferFootprint)>,
+    /// Each guest seat's live room, the tick it was first driven there, and
+    /// whether it came there from another room.
+    member_since: BTreeMap<PlayerSlot, (LiveRoomInstance, u64, bool)>,
 }
 
 impl GuestInputs {
@@ -185,6 +197,7 @@ impl GuestInputs {
         self.local.remove(&seat);
         self.last_sequence.remove(&seat);
         self.owned_since.remove(&seat);
+        self.member_since.remove(&seat);
     }
 
     /// The input for `seat` on `tick`: the one it sent for that tick, or else
@@ -281,12 +294,12 @@ pub(crate) fn drive_guests_and_save_rooms(world: &mut World) {
         }
     }
     // A lifecycle operation (a crossing, a room's reset, a return) moves or
-    // rebuilds what the saves hold. One a replay records commits on the first
-    // live tick after it (the boundary `rewind_room` publishes); while one is
-    // recorded or loading the host keeps no history, so no later replay runs
-    // it a second time.
-    if !inputs.replaying && a_crossing_is_under_way(world) {
-        inputs.saved.clear();
+    // rebuilds what the saves of the rooms it touches hold, and nothing else
+    // (ISL-3a). Its publication waits for a live tick, never a replay, so the
+    // other rooms keep recording and replaying while it is under way; at its
+    // cut the history of each room it touched is retired.
+    if !inputs.replaying {
+        follow_the_live_cut(world, &mut inputs, &rooms, tick);
     }
     for seat in rooms.keys() {
         let frame = inputs.input_for(*seat, tick);
@@ -332,16 +345,114 @@ pub(crate) fn drive_guests_and_save_rooms(world: &mut World) {
     world.insert_resource(inputs);
 }
 
+/// On a live tick, before anything reads the histories: follow the lifecycle
+/// operation under way and each guest seat's room. `next` is the first tick a
+/// seat that changed rooms is driven in its new one. Both the arrival of late
+/// inputs and the tick head ask this, because an operation publishes inside a
+/// tick and the next arrivals are taken before the next tick's head.
+fn follow_the_live_cut(
+    world: &mut World,
+    inputs: &mut GuestInputs,
+    rooms: &BTreeMap<PlayerSlot, LiveRoomInstance>,
+    next: u64,
+) {
+    track_the_lifecycle_operation(world, inputs);
+    for (seat, room) in rooms {
+        match inputs.member_since.get(seat) {
+            Some((at, _, _)) if at == room => {}
+            previous => {
+                let moved = previous.is_some();
+                inputs.member_since.insert(*seat, (*room, next, moved));
+            }
+        }
+    }
+}
+
+/// Follow the lifecycle operation under way on a live tick. While it is
+/// pending its footprint is taken again each tick (a seat can walk into one
+/// of its rooms). When it leaves the slot without a withdrawal, it was
+/// published or refused: the cut. Each room it touched loses its history from
+/// before the cut, which a replay could not reproduce (a member came or went,
+/// or the room was rebuilt). A refused operation changed nothing, and its
+/// rooms lose only their chance to correct a late input before the cut: those
+/// inputs drive their seats from the next tick, the declared policy.
+fn track_the_lifecycle_operation(world: &mut World, inputs: &mut GuestInputs) {
+    use ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit;
+    let (pending, withdrawn) = match world.get_resource::<PendingLifecycleCommit>() {
+        Some(slot) => (slot.peek().map(|intent| intent.frame), slot.withdrawn.as_ref().map(|withdrawn| withdrawn.recorded_on)),
+        None => (None, None),
+    };
+    if let Some((frame, footprint)) = inputs.crossing.take() {
+        if pending == Some(frame) {
+            // Still pending: widen with what it touches now.
+            let mut footprint = footprint;
+            if let Some(now) = ambition_platformer2d_session::room_preparation::pending_transfer_footprint(world) {
+                footprint.sources.extend(now.sources);
+                footprint.rooms.extend(now.rooms);
+            }
+            inputs.crossing = Some((frame, footprint));
+            return;
+        }
+        if withdrawn != Some(frame) {
+            for room in &footprint.rooms {
+                inputs.saved.remove(room);
+            }
+        }
+    }
+    if let Some(frame) = pending {
+        inputs.crossing = ambition_platformer2d_session::room_preparation::pending_transfer_footprint(world)
+            .map(|footprint| (frame, footprint));
+    }
+}
+
+/// A replay of `room` from `tick` decides again what that room decided since.
+/// A pending operation it recorded then is not yet confirmed (no rewind
+/// reopens a confirmed tick), so it is taken back, and the replay records it
+/// again only if the corrected inputs still make it. Only the room that
+/// decided it does this: replaying a room it merely joins or retires does not
+/// run the tick that recorded it.
+fn retract_an_undecided_operation(world: &mut World, room: LiveRoomInstance, tick: u64, now: u64) -> bool {
+    use ambition_platformer2d_session::lifecycle_commit::PendingLifecycleCommit;
+    let decided_here = world
+        .get_resource::<GuestInputs>()
+        .and_then(|inputs| inputs.crossing.as_ref())
+        .is_some_and(|(_, footprint)| footprint.sources.contains(&room));
+    let Some(frame) = world
+        .get_resource::<PendingLifecycleCommit>()
+        .and_then(|slot| slot.peek())
+        .map(|intent| intent.frame)
+        .filter(|frame| decided_here && *frame >= tick as i32)
+    else {
+        return false;
+    };
+    world.resource_mut::<PendingLifecycleCommit>().retract_recorded_on(frame, now as i32)
+}
+
 /// Take each arrived input into the record, and rewind each guest room whose
 /// past input arrived different from the one used.
 pub(crate) fn take_arrived_inputs(world: &mut World, arrived: Vec<(PlayerSlot, u64, ControlFrame)>) {
     let now = world.resource::<SimTick>().0;
     let (rooms, _) = guest_rooms(world);
     let mut inputs = world.remove_resource::<GuestInputs>().unwrap_or_default();
+    if !inputs.replaying && world.contains_resource::<RewindsGuestRooms>() {
+        follow_the_live_cut(world, &mut inputs, &rooms, now + 1);
+    }
     let mut stats = world.remove_resource::<RoomRollbackStats>().unwrap_or_default();
     let mut rewind: BTreeMap<LiveRoomInstance, u64> = BTreeMap::new();
     let mut unseated = BTreeMap::<PlayerSlot, ControlFrame>::new();
     for (seat, tick, frame) in arrived {
+        // A tick before the seat came into its room belongs to the history
+        // its crossing retired: it must not run in the room the body is in
+        // now. Dropped, the declared disposition.
+        let before_the_cut = inputs
+            .member_since
+            .get(&seat)
+            .is_some_and(|(room, since, moved)| *moved && rooms.get(&seat) == Some(room) && tick < *since);
+        if before_the_cut {
+            stats.before_the_cut += 1;
+            stats.not_rewound += 1;
+            continue;
+        }
         if !rooms.contains_key(&seat) {
             let pending = unseated.entry(seat).or_default();
             *pending = pending.merge_sample(frame);
@@ -373,17 +484,19 @@ pub(crate) fn take_arrived_inputs(world: &mut World, arrived: Vec<(PlayerSlot, u
     for (seat, frame) in unseated {
         ambition_platformer2d_runtime::input_drive::drive_slot_frame(world, seat, frame);
     }
-    // A crossing spans two rooms, and a replay hides every room but one: the
-    // crossing's plan would not find the room it joins and would build a
-    // second one. While a crossing is recorded or loading, or a registered
-    // refusal holds (a match), a late input drives the seat from the next
-    // tick instead.
-    let refused = a_crossing_is_under_way(world)
-        || ambition_platformer2d_shared_tangle::lifecycle::room_replay_refusal(world).is_some();
+    // A crossing spans rooms, and a replay hides every room but one; its
+    // preparation and publication wait for the live tick after the replay
+    // (ISL-3a), so a room replays whether or not one is under way. While a
+    // registered refusal holds (a match), a late input drives the seat from
+    // the next tick instead.
+    let refused = ambition_platformer2d_shared_tangle::lifecycle::room_replay_refusal(world).is_some();
     for (room, tick) in rewind {
         if refused {
             stats.not_rewound += 1;
             continue;
+        }
+        if retract_an_undecided_operation(world, room, tick, now) {
+            stats.crossings_retracted += 1;
         }
         let replayed = rewind_room(world, room, tick, now);
         match replayed {

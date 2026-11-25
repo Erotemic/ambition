@@ -48,7 +48,12 @@ pub(super) fn install(app: &mut App, schedule: bevy::ecs::schedule::InternedSche
         },
         ship_case,
     );
-    app.add_systems(schedule, observe_workshop.in_set(Platformer2dSimulationPhase::Cutscene));
+    app.add_systems(
+        schedule,
+        observe_workshop
+            .before(ambition_platformer2d_runtime::cutscene::drain_cutscene_triggers)
+            .in_set(Platformer2dSimulationPhase::Cutscene),
+    );
 }
 
 fn observe_workshop(
@@ -161,10 +166,11 @@ fn ship_case(world: &mut World, _: &[AuthoredArg], context: &CommandContext) -> 
         Commands,
         LiveRoomSpecs,
         ResMut<AuthoredOccurrences>,
+        Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
         Query<(&CharacterForm, ambition_combat::hand::RepertoireQuery), bevy::prelude::Without<GroundItem>>,
         Query<(Entity, &SimId, &mut ItemCustody, &mut BodyKinematics), bevy::prelude::With<GroundItem>>,
     )> = SystemState::new(world);
-    let Ok((mut commands, specs, mut ledger, mut cast, mut items)) = state.get_mut(world) else {
+    let Ok((mut commands, specs, mut ledger, geometry, mut cast, mut items)) = state.get_mut(world) else {
         return CommandOutcome::refused("the case needs the live room and item ledger");
     };
     let Some(destination) = specs.rooms().definition_by_id(SIDING) else {
@@ -195,6 +201,15 @@ fn ship_case(world: &mut World, _: &[AuthoredArg], context: &CommandContext) -> 
         Some(OccurrenceWhereabouts::Placed { room, .. }) if room == WORKSHOP => {}
         _ => return CommandOutcome::refused("the case already left the workshop"),
     }
+    let placement = if let Some(&target) = live_targets.first() {
+        let desired = BodyKinematics { pos: at, vel: Vec2::ZERO, ..*body };
+        let admission = geometry.as_deref().and_then(|geometry| geometry.motion_for(entity, Some(target)));
+        let pose = ambition_platformer2d::engine_core::movement::prepare_body_materialization(desired, at, admission, []);
+        let Ok(pose) = pose else { return CommandOutcome::refused("the siding cannot admit the case"); };
+        Some((target, pose))
+    } else {
+        None
+    };
     // The carried case becomes a shipment when it leaves the workshop.
     let mut shipped = ledger.with_custody_held(&[case.clone()].into_iter().collect());
     if !shipped.republish_placements(SIDING, [(case, at)].into_iter().collect()).is_empty() {
@@ -202,12 +217,11 @@ fn ship_case(world: &mut World, _: &[AuthoredArg], context: &CommandContext) -> 
     }
     *ledger = shipped;
     ambition_held_items::empty_hand(&mut commands, holder, &mut hand);
-    if let Some(target) = live_targets.first() {
+    if let Some((target, pose)) = placement {
+        pose.commit(&mut body, None);
         *custody = ItemCustody::InWorld;
-        body.pos = at;
-        body.vel = Vec2::ZERO;
         commands.entity(entity)
-            .insert((InRoomInstance(*target), SweepSample::at_tick_end(*body, Vec2::ZERO)))
+            .insert((InRoomInstance(target), SweepSample::at_tick_end(*body, body.vel)))
             .remove::<(ambition_held_items::ErrandPickupOnly, ambition_held_items::SettledItem)>();
     } else {
         commands.entity(entity).despawn();

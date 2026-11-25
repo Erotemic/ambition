@@ -412,14 +412,11 @@ impl Plugin for AuthoredCommandPlugin {
             .add_message::<RunAuthoredCommand>()
             .configure_sets(
                 sim,
-                // INSIDE the root set, so a frozen session at a title or
-                // loading route does not perform authored verbs, and
-                // after `CoreSimulation` / before `GameplayEffects` — both
-                // sets live in this same schedule, so neither pin is the
-                // silently-vacuous cross-schedule kind.
+                // Run after the cutscene writes its commands and before
+                // gameplay effects use them. A rewind clears the queue.
                 AuthoredCommandSet
                     .in_set(GameplaySimulationRoot)
-                    .after(Platformer2dSimulationPhase::CoreSimulation)
+                    .after(Platformer2dSimulationPhase::Cutscene)
                     .before(Platformer2dSimulationPhase::GameplayEffects),
             )
             .add_systems(

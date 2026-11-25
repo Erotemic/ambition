@@ -659,10 +659,10 @@ later story. This work adds neither a universal sequencer nor a global story
 transaction.
 
 **SS8 repair (2026-11-25).** A skip removes the presentation and keeps the
-script cursor. Each wait uses the answer for its own beat. A new wait gives
-the preceding commands time to reach the simulation. `WaitUntil` requires an
-observed result. `WaitFor` can still expire. The seen flag is written at
-completion.
+script cursor. Each wait uses the answer for its own beat. The command runner
+applies cutscene requests in the same tick, before a rewind can clear its
+queue. `WaitUntil` requires an observed result. `WaitFor` can still expire.
+The seen flag is written at completion.
 
 `AllowDamage` lets a bound role take damage while the scene controls its
 movement. It can specify a temporary health floor. The scene removes its

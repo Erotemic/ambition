@@ -442,10 +442,12 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                         .run_if(bevy::prelude::any_with_component::<shrine_visuals::ShrineVisual>)
                         .after(actors::animate_props),
                     unauthored_volumes::draw_unauthored_attack_volumes
+                        .after(ambition_sim_view::PresentedPoseSet)
                         .run_if(unauthored_volumes::a_strike_or_its_volume_stands),
                     // A swing's passes run only while a cue is unread or a
                     // swing is on screen.
                     slash_visuals::spawn_slash_effects
+                        .after(ambition_sim_view::PresentedPoseSet)
                         .run_if(ambition_platformer2d_core::a_message_waits::<ambition_vfx::vfx::VfxInRoom>),
                     // After the spawn, so a swing born this frame is on its body
                     // when drawn.

@@ -256,3 +256,47 @@ Simulation still reads the cells when it prepares the room geometry.
 The same 1280 × 720 Hall entry view admitted all 595 roots and settled at
 6,168 spawned entities, down from 13,115 after the rigged part change. The
 captured frame showed the platforms, exhibits, and Scout on the entry floor.
+
+### Frame observations
+
+The frame reads combat geometry, boss cursors, attack art, and pooled shield
+and launch views after the simulation steps. Pooled effects use the current
+presented pose. Pose clocks and passage state still advance at each tick.
+
+Two 1280 × 720 software-rendered runs used the full cast and 15 simulation
+ticks per displayed frame. The median settled `FeatureViewSync` cost fell
+from 4.58 to 2.58 ms per tick. The two settled frame windows had median frame
+times of 529–541 ms before the change and 505–513 ms after it. This comparison
+measures work in the desktop build. The Android rate needs a device capture.
+
+### Combat target selection
+
+Build the spatial index when a seeker can have a foe under the current
+faction, team, or grudge rules. Use the same relationship rule to select
+work and to evaluate a candidate. A new grudge or hostile faction can
+request the index on the same tick. An actor with no foe still clears its
+target and updates its combat standing.
+
+In a third full Hall run, the targeting phase took 1.24 ms per settled tick
+after this change. The frame observation build took 2.07 ms in that phase.
+The third run had 541–548 ms median frame times in its two settled windows.
+Other phases also took longer in this run. The phase time identifies less
+targeting work. The frame time does not establish a gain from this change.
+
+### Next measurement
+
+At 60 simulation ticks per second, a 30 FPS frame needs two ticks on
+average. If rendering and frame work take 5 ms, each tick has about 14 ms.
+The latest desktop run took about 32 ms per tick in the measured phases and
+ran 15 ticks per displayed frame. On Android, measure the full cast with
+the new build and record tick, frame, and GPU times before changing the
+simulation schedule. Use elapsed time and committed ticks to check the
+simulation rate.
+
+Use the measured tick costs to select work by domain. A grounded body can
+retain an exact movement result. The systems that consume it can also
+retain their facts when their inputs stay valid. Contact, targeting, and
+combat must accept a change in their inputs on the correct tick. Enable
+facility work while a live room or pending operation needs it. Use the
+shared execution plan in
+[execution specialization and selection of active work](../../docs/planning/engine/execution-specialization-and-work-selection.md).

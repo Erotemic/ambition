@@ -24,9 +24,9 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::game_shell::{
-    BasicShellUiRoot, LauncherTab, ShellExperienceRegistry, ShellLaunchEntry, ShellLauncherState,
-};
+#[cfg(feature = "basic_shell_presentation")]
+use ambition_platformer2d::game_shell::BasicShellUiRoot;
+use ambition_platformer2d::game_shell::{LauncherTab, ShellExperienceRegistry, ShellLaunchEntry, ShellLauncherState};
 use ambition_platformer2d::menu::render::bevy_ui::{AmbitionMenuControlKind, BevyUiMenuPanel, BevyUiMenuTab};
 use ambition_platformer2d::menu::{MenuControlKind, MenuVisualState};
 use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
@@ -243,6 +243,8 @@ impl Plugin for TitleScreenPlugin {
         // After the menu is made (`Update`) and before its layout, so a menu
         // is never drawn for one frame in the renderer's shape: a change of
         // tab makes the menu again, and that frame would show as a blink.
+        // The launcher menu is the basic shell presentation's.
+        #[cfg(feature = "basic_shell_presentation")]
         app.add_systems(
             PostUpdate,
             style_the_launcher_menu
@@ -400,6 +402,7 @@ fn take_the_backdrop_away(mut commands: Commands, roots: Query<Entity, With<Titl
 
 /// `entity` is a part of the launcher's menu: one of the `steps` entities
 /// above it is the launcher's root.
+#[cfg(feature = "basic_shell_presentation")]
 fn in_the_launcher(entity: Entity, steps: usize, parents: &Query<&ChildOf>, roots: &Query<(), With<BasicShellUiRoot>>) -> bool {
     parents.iter_ancestors(entity).take(steps).any(|above| roots.contains(above))
 }
@@ -414,6 +417,7 @@ fn cursor_edge_alpha(seconds: f32) -> f32 {
 ///
 /// Each write is only on a difference, so a menu at rest changes one thing in
 /// a frame: the edge of the cursor's row.
+#[cfg(feature = "basic_shell_presentation")]
 fn style_the_launcher_menu(
     mut commands: Commands,
     time: Res<Time>,

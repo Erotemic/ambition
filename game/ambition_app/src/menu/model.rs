@@ -100,6 +100,7 @@ pub struct InventoryLayout {
 }
 
 impl InventoryLayout {
+    #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
     pub(crate) fn for_region(region: Option<&super::regions::MenuRegion>) -> Self {
         let portrait = region.and_then(|region| region.0)
             .is_some_and(|rect| rect.height() > rect.width());

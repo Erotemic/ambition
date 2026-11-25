@@ -310,8 +310,8 @@ What CB4 still names, and what this slice did not do:
 
 - ~~**Harness consumer.**~~ Landed 2026-11-25, below.
 - ~~**Persistence.**~~ Its windowed Bevy is cut (2026-11-25, below).
-- **Command families.** The offline/simulation/capture families have not
-  been split further. Only the offline report is separated, by default.
+- ~~**Command families.**~~ The simulation family is split from capture
+  (2026-11-25, below).
 
 **Harness consumer (2026-11-25).** `fixtures/harness_alone` is the first
 consumer of the harness alone. It is its own workspace with its own
@@ -344,6 +344,37 @@ crates) from 188 to 144. The `bevy_window` crate itself stays, through
 renderer or asset server is in that graph. The workspace checks with every
 target, persistence's 140 lib tests pass, and `item_report` still refuses a
 missing save (exit 2). No compile-time result is claimed.
+
+**Simulation family (2026-11-25).** `ambition_app_tools` has a `sim`
+feature beside `game`: the composed game at `ambition_app/rl_sim` with no
+`visible` persona, the facade and harness without `capture`, Bevy, content
+and Avian. `game` is `sim` plus the desktop development persona, both
+`capture` features, the cube menu, `image` and the Smash demo, which is what
+every bin had before. `headless`, `rl_smoke`, `rl_random_walker`,
+`room_census`, `fight_discovery` and `trace_replay` require only `sim`;
+`moveset_export` still names the Smash roster and stays on `game`. The
+tools depend on `ambition_app` without its defaults, so `game` names
+`ambition_app/desktop_dev` itself. A workspace lane selecting
+`ambition_app_tools/game` unions both and builds every bin as before.
+
+For this the app compiles at `rl_sim` alone, which it did not: the launcher
+styling (needs `basic_shell_presentation`), the menu's departures (needs a
+menu backend), three debug-overlay drawers (need `input`) and the
+no-window plugin groups' `WinitPlugin` disable (there is no winit without a
+platform feature) are gated on what defines them. The app root allows
+unused helpers when `visible` is off, since the menu and overlay modules
+still compile for their always-on parts.
+
+Normal graphs (`cargo tree -p ambition_app_tools --no-default-features
+--features F -e normal`, unique crates): `sim` 503, `game` 665. Absent
+from `sim`: winit, `bevy_winit`, the wayland and x11 crates, kira/cpal
+audio, egui and the inspector, lunex, yarnspinner and the Smash app.
+Surviving in `sim`, by name: `wgpu`, `bevy_render` and `ambition_render`,
+through `ambition_content`, which selects the facade's `all_capabilities`
+(the provider cut above). Behaviour: `headless 300 --start-room
+goblin_encounter --dump-trace` gives the same trace (every frame and event;
+only the dump's timestamp differs) built under `sim` and under `game`.
+No compile-time result is claimed.
 
 **Execution owner:** `ambition_app_tools` command packaging and
 `ambition_sim_harness` dependency selection, coordinated with supported launch

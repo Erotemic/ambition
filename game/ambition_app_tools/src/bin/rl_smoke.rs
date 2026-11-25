@@ -11,8 +11,8 @@
 //! Usage:
 //!
 //! ```bash
-//! cargo run -p ambition_app_tools --features game --bin rl_smoke               # 200 steps per room, seed=1
-//! cargo run -p ambition_app_tools --features game --bin rl_smoke -- 500 42     # 500 steps, seed=42
+//! cargo run -p ambition_app_tools --features sim --bin rl_smoke               # 200 steps per room, seed=1
+//! cargo run -p ambition_app_tools --features sim --bin rl_smoke -- 500 42     # 500 steps, seed=42
 //! ```
 
 use ambition_app::rl_sim::TimestepMode;

@@ -118,7 +118,6 @@ mod publication_measurements_tests;
 #[cfg(test)]
 mod capability_isolation_tests {
     use super::*;
-    use ambition_platformer2d_shared_tangle::body::geometry::{publish_body_geometry_before_motion, publish_body_geometry_after_motion};
     use ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission;
     use ambition_platformer2d_shared_tangle::capability::{Capability, UsedCapabilities};
     use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
@@ -143,8 +142,8 @@ mod capability_isolation_tests {
         app.insert_resource(rules).init_resource::<BodyGeometry>();
         app.add_message::<crate::PortalFireIntent>().add_message::<crate::PortalShotFired>();
         app.add_systems(Update, (
-            crate::portal_fire_system, publish_body_geometry_before_motion, publish_portal_apertures, pose,
-            publish_body_geometry_after_motion, publish_portal_passages,
+            crate::portal_fire_system, publish_portal_apertures, pose,
+            publish_portal_passages,
         ).chain());
         let mut owners = Vec::new();
         for room in [first, second] {

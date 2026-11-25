@@ -284,6 +284,7 @@ fn write_folded_meshes(
     world: LiveRoomOf<ambition_platformer2d_core::RoomGeometry>,
     rooms: LiveRooms,
     passages: Option<Res<BodyGeometry>>,
+    carriers: Query<&ae::BodyKinematics>,
     mut folded: Query<(Entity, &FoldedMesh, Option<&FoldedMeshDrawn>, &mut Transform), Changed<FoldedMesh>>,
 ) {
     for (entity, mesh, drawn, mut transform) in &mut folded {
@@ -293,7 +294,16 @@ fn write_folded_meshes(
         let room = rooms.of(entity);
         let tris = match (passages.as_deref(), mesh.tris.bounds()) {
             (Some(passages), Some(bounds)) if passages.cuts_in(room, mesh.source.carrier()) => {
-                let Ok(pieces) = passages.pieces(&ae::CombatVolume::aabb(bounds), mesh.source, mesh.root, room) else { continue; };
+                let volume = ae::CombatVolume::aabb(bounds);
+                let pieces = match mesh.source {
+                    PartSource::World { owner } => passages.world_pieces(&volume, owner, mesh.root, room),
+                    PartSource::Body(body) => {
+                        let Ok(carrier) = carriers.get(body) else { continue; };
+                        let Ok(material) = carrier.material_map() else { continue; };
+                        passages.body_world_pieces(&volume, body, material, mesh.root, room)
+                    }
+                };
+                let Ok(pieces) = pieces else { continue; };
                 let Ok(tris) = fold(&mesh.tris, &pieces) else { continue; };
                 tris
             }

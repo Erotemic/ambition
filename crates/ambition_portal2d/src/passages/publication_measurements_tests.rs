@@ -17,14 +17,8 @@ fn measure_body_geometry_publication() {
             let mut app = App::new();
             app.init_resource::<BodyGeometry>();
             app.init_schedule(Apertures).init_schedule(Occupancy);
-            app.add_systems(Apertures, (
-                ambition_platformer2d_shared_tangle::body::geometry::publish_body_geometry_before_motion,
-                publish_portal_apertures,
-            ).chain());
-            app.add_systems(Occupancy, (
-                ambition_platformer2d_shared_tangle::body::geometry::publish_body_geometry_after_motion,
-                publish_portal_passages,
-            ).chain());
+            app.add_systems(Apertures, publish_portal_apertures);
+            app.add_systems(Occupancy, publish_portal_passages);
             let first = ambition_platformer2d_world::governing_rules::test_fixtures::two_game_session(&mut app, true);
             assert_eq!(first, LiveRoomInstance::ACTIVATION);
             use ambition_platformer2d_world::scoped_rules::{DeclaredRules, RulesScope};
@@ -66,13 +60,12 @@ fn measure_body_geometry_publication() {
             for _ in 0..10 {
                 for (entity, body, room) in &bodies {
                     let shape = ae::CombatVolume::aabb(ae::Aabb::new(body.pos, body.size() * 0.5));
-                    std::hint::black_box(geometry.pieces(&shape,
-                        ambition_platformer2d_shared_tangle::body::geometry::PartSource::Body(*entity), body.pos, Some(*room)).unwrap());
+                    std::hint::black_box(geometry.body_world_pieces(&shape, *entity,
+                        body.material_map().unwrap(), body.pos, Some(*room)).unwrap());
                 }
             }
             let consumer_us = start.elapsed().as_secs_f64() * 100_000.0;
-            let material_payload_bytes = count as usize * std::mem::size_of::<(Entity, Result<ae::frame::Sim2, ae::frame::NumericFault>)>();
-            eprintln!("PUBLICATION_COST bodies={count} pairs={pairs} rooms=2 aperture_us={aperture_us:.3} occupancy_us={occupancy_us:.3} consumer_batch_us={consumer_us:.3} material_payload_bytes={material_payload_bytes}");
+            eprintln!("PUBLICATION_COST bodies={count} pairs={pairs} rooms=2 aperture_us={aperture_us:.3} occupancy_us={occupancy_us:.3} consumer_batch_us={consumer_us:.3}");
         }
     }
 }

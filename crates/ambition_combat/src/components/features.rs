@@ -244,7 +244,6 @@ impl DamageableVolumes {
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
     ) -> ae::frame::thread::Partition {
         use ae::frame::thread::{MaterialPrimitive, Refusal, RefusalReason, VolumePiece};
-        use ambition_platformer2d_shared_tangle::body::geometry::PartSource;
         if self.domains().is_empty() {
             return Ok(Vec::new());
         }
@@ -255,9 +254,9 @@ impl DamageableVolumes {
                 (Some(geometry), HurtSpace::Body) => {
                     pieces.extend(geometry.body_pieces(MaterialPrimitive { domain, to_world: map }, owner, room)?)
                 }
-                (Some(geometry), HurtSpace::World) => pieces.extend(geometry.pieces(
+                (Some(geometry), HurtSpace::World) => pieces.extend(geometry.world_pieces(
                     domain,
-                    PartSource::World { owner: Some(owner) },
+                    Some(owner),
                     domain.center(),
                     room,
                 )?),
@@ -675,7 +674,7 @@ mod hurt_material_tests {
     }
     #[test]
     fn sampled_sweeps_retain_the_clipped_far_side_cap_and_live_body_pose() {
-        use ae::frame::{MapConvention, PortalAperture, PortalFrame, Sim2};
+        use ae::frame::{MapConvention, PortalAperture, PortalFrame};
         use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
         let owner = Entity::PLACEHOLDER;
         let mut geometry = BodyGeometry::new(MapConvention::Reflection);
@@ -683,7 +682,6 @@ mod hurt_material_tests {
             PortalAperture { frame: PortalFrame::fixed(ae::Vec2::ZERO, ae::Vec2::NEG_Y), half_length: 40.0 },
             PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, -200.0), ae::Vec2::Y), half_length: 80.0 },
         ));
-        geometry.set_body_material(owner, Ok(Sim2::IDENTITY));
         let body = ae::BodyKinematics {
             pos: ae::Vec2::new(0.0, -5.0),
             material: BodyMaterial::new(0.5, bevy::math::Mat2::from_cols(ae::Vec2::NEG_X, ae::Vec2::Y)).unwrap(),

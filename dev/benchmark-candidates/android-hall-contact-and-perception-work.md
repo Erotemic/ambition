@@ -298,20 +298,40 @@ displayed frame in the settled windows. Frame medians were 502–528 ms
 before and 512–524 ms after. The new build also contains the portal contact
 change `526983e9c`. This comparison does not establish a frame-rate gain.
 
-### Next measurement
+### Android baseline
+
+The Android capture at `48fd44c9cb78` spent 57% of inclusive CPU
+samples in the parallel body integration worker. The settled frame median
+was 497–547 ms in the last six windows. That build had about 30,000
+entities. The desktop runs with the later work retained about 6,160 entities.
+The captures ran different builds on different hardware. Use a new phone
+capture to measure the combined changes.
+
+### Portal material queries
+
+The portal publisher stores apertures and transit occupancy. Contact and
+folded mesh consumers get the material map from the body they query.
+In a desktop schedule probe with 596 bodies and no portals, the two
+publication passes took 373 µs per tick before the change and 28 µs after it.
+Each median covers seven batches of 300 ticks.
+
+### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on
 average. If rendering and frame work take 5 ms, each tick has about 14 ms.
-The latest desktop run took about 32 ms per tick in the measured phases and
-ran 15 ticks per displayed frame. On Android, measure the full cast with
-the new build and record tick, frame, and GPU times before changing the
-simulation schedule. Use elapsed time and committed ticks to check the
-simulation rate.
+The earlier desktop run took about 32 ms per tick in the measured phases
+and ran 15 ticks per displayed frame. Use elapsed time and committed ticks
+to check the simulation rate. Collect the full-cast Android phase census
+with `./scripts/measure/autoprofile_android.sh hall --warmup 40 --duration 45
+--launch-env AMBITION_PROFILE_CENSUS=1`.
 
-Use the measured tick costs to select work by domain. A grounded body can
-retain an exact movement result. The systems that consume it can also
-retain their facts when their inputs stay valid. Contact, targeting, and
-combat must accept a change in their inputs on the correct tick. Enable
-facility work while a live room or pending operation needs it. Use the
+Select work by domain. A grounded body can retain an exact movement result.
+Motion should validate that result from the identity of its inputs without
+encoding a snapshot on every hit. Contact and targeting should select the
+active sources before gathering possible recipients in their live rooms.
+Body combat geometry should be projected when an observer asks for it.
+Rendering live strikes has its own active population. Each owner must
+accept changes on the tick that applies them. Measure each boundary with
+the same full cast and include a change that requires the full path. Use the
 shared execution plan in
 [execution specialization and selection of active work](../../docs/planning/engine/execution-specialization-and-work-selection.md).

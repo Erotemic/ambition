@@ -315,6 +315,12 @@ In a desktop schedule probe with 596 bodies and no portals, the two
 publication passes took 373 µs per tick before the change and 28 µs after it.
 Each median covers seven batches of 300 ticks.
 
+Two uncapped desktop Hall runs on each build used the headless host and
+measured the settled windows. The median `WorldPrep.BeforeIntegrate` time
+changed from 0.56–0.57 ms to 0.26–0.30 ms per tick. Other merged changes
+were present in the comparison. The isolated schedule probe measures the
+publisher change.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

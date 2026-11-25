@@ -53,4 +53,7 @@ used 27,715 rollouts. Both directions used the same local graph.
 A separate prototype streamed shared range and contact queries. In
 360-update desktop development runs with idle input, it took 42.7–44.0 s.
 Three baseline runs took 38.0–41.7 s. That general rewrite was removed.
-The navigation build result does not establish steady Android frame time.
+A later matched desktop pair with the retained patch took 35.4 s before
+and 33.5 s after. The median of the steady window medians went from
+65.0 ms to 60.6 ms. This is one desktop pair. The navigation build result
+does not establish steady Android frame time.

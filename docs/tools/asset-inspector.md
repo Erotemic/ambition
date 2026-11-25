@@ -1,6 +1,6 @@
 ---
 status: current
-last_verified: 2026-11-24
+last_verified: 2026-11-25
 related_docs:
   - docs/tools/generated-visual-tools.md
   - docs/concepts/asset-management.md
@@ -21,7 +21,12 @@ python3 scripts/asset_inspector.py build --open
 ```
 
 `build` opens an offline view of character forms, parts, animation coverage,
-lineage, publication tiers and available previews. `serve --open` can also save
+lineage, publication tiers and available previews. A character's page starts
+with its canonical image in a zoomable viewer: the vector design from its
+bundle's review files when the target writes one (a chargen character's
+five-view turnaround, sharp at any zoom), and the canonical image (one pose
+at the sheet's frame size). A character's animation player loops by default
+and scales up to 8x. `serve --open` can also save
 reviews of every asset kind, in the music tool's review format: a score from 1
 to 10, notes and issue tags for one exact version. `reviews backlog --json`
 lists the reviews that ask for work.

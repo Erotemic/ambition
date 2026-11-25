@@ -162,6 +162,7 @@
       ${descriptions.map(text => `<p class="lede">${esc(text)}</p>`).join('')}
       <div class="chips">${(actor.catalog.tags || []).map(tag => `<span>${esc(tag)}</span>`).join('')}</div>
       <p class="controls"><a href="#character-lineage" data-jump="character-lineage">Character lineage</a><a href="#asset-reviews" data-jump="asset-reviews">Reviews</a><a href="#character-coverage" data-jump="character-coverage">Animation coverage</a><a href="#character-products" data-jump="character-products">Art and generation</a></p>
+      <div id="character-reference">${selected ? ui.referenceBox(selected) : ''}</div>
       ${sameArt.length ? `<p>Entries using the same art: ${sameArt.map(other => characterLink(other.key)).join(' · ')}</p>` : ''}
       <dl class="kv"><dt>Added to game</dt><dd>${esc(dateLabel(actor.added_at))}</dd><dt>Art generated</dt><dd>${esc(generationLabel(actor))}</dd></dl>
       <section class="box"><h2>Forms, parts, and derivations</h2>${relations(actor)}</section>
@@ -171,7 +172,7 @@
         <p>Manifest: <code>${esc(actor.catalog.manifest || 'Not declared')}</code></p>
         ${assets.length > 1 ? `<label>Published sheet <select id="character-art">${assets.map(asset => `<option value="${esc(asset.id)}">${esc(asset.art_label || asset.name)}</option>`).join('')}</select></label>` : ''}
         ${units.map(unit => `<p>${unitLink(unit)} ${badge(unit.status.state, needsArt(actor))} · ${esc(unit.game_use)}<br><code>${esc(unit.repair)}</code></p>`).join('') || '<p class="empty">No art bundle is registered for this character.</p>'}
-      </section><div id="character-art-panels">${selected ? ui.assetPanels(selected) : '<p class="empty">No published art is available. This character remains in the roster.</p>'}</div>
+      </section><div id="character-art-panels">${selected ? ui.assetPanels(selected, {references: false}) : '<p class="empty">No published art is available. This character remains in the roster.</p>'}</div>
       <section class="box" id="character-coverage"><h2>Animation coverage</h2>${table(['Action', 'Tier', 'Resolution', 'Row', 'Source', 'Profile', 'Runtime product'], coverage)}</section>
       <section class="box"><h2>Character data</h2><details><summary>Prepared catalog record</summary><pre class="evidence">${esc(JSON.stringify(actor.catalog, null, 2))}</pre></details></section></div>`;
   }
@@ -206,7 +207,8 @@
       const select = document.getElementById('character-art');
       if (select) select.onchange = () => {
         const asset = assets.find(item => item.id === select.value);
-        document.getElementById('character-art-panels').innerHTML = ui.assetPanels(asset);
+        document.getElementById('character-reference').innerHTML = ui.referenceBox(asset);
+        document.getElementById('character-art-panels').innerHTML = ui.assetPanels(asset, {references: false});
         ui.wireAnimation(asset);
       };
     }

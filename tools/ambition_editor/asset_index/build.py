@@ -281,6 +281,8 @@ def _catalog(repo: Path, out: Path, products, assets, ev, uses, placements, foun
             "frames": frames,
             "bytes": sum(products[p].bytes for p in asset.products),
             "errors": data.get("errors", []),
+            "references": [{"kind": r["kind"], "label": r["label"], "bytes": r["bytes"], "href": os.path.relpath(r["file"], out)}
+                           for r in (ev.records.get(asset.generator) or {}).get("references", [])],
         }
 
     product_rows = {}

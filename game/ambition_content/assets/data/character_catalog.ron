@@ -3539,7 +3539,7 @@
         ),
         hall_dialogue_id: Some("hall_npc_oiler"),
         ),
-        // Faith "Fia" Knoss, the town mechanic who works under Oiler
+        // Fia Knoss, the town mechanic who works under Oiler
         // (docs/storylines/cannon.md). Drawn by chargen with a hand-drawn
         // overlay (sprite renderer `targets/characters/fia.py`). No goggles.
         "npc_fia": (
@@ -3555,9 +3555,28 @@
             tags: ["story", "mechanic", "peaceful"],
             barks: (
                 idle: ["Hold still. I'm nearly done with your everything.", "Oiler says measure twice. I measure once and listen."],
-                hall: ["First thing I ever fixed was a clock. It ran better after. Faster, too.", "Trust me. Mostly.", "Oiler taught me every bolt in town. I'm teaching myself the rest.", "The streak? Born with it. Probably."],
+                hall: ["First thing I ever fixed was a clock. It ran better after. Faster, too.", "Trust me. Mostly.", "Oiler taught me every bolt in town. I'm teaching myself the rest.", "Fingerless gloves. You can't hear a bearing through leather."],
             ),
             hall_dialogue_id: Some("hall_npc_fia"),
+        ),
+        "npc_fia_touched": (
+            display_name: "Fia (touched)",
+            manifest: "sprites/fia_touched_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["story", "variant", "void"],
+            barks: (
+                idle: ["My hands are cold. They're never cold.", "There's white in my hair again."],
+                hall: ["It starts in the hands. It always starts in the hands.", "I can feel every gear in the room. Is that normal? Don't answer."],
+            ),
+            // The void's first traces on Fia, between her own look and the
+            // void's (`<<transform>>` in `hall_npc_fia`).
+            form_of: Some("npc_fia"),
         ),
         "npc_fia_void": (
             display_name: "Fia (void)",

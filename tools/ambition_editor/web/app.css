@@ -93,6 +93,13 @@ th.sorted { color: var(--fg); }
 td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stage { display: grid; place-items: center; min-height: 260px; border-radius: 4px; overflow: hidden; }
 .stage img, .stage canvas { max-width: 100%; }
+.stage.scroll { display: block; overflow: auto; max-height: 80vh; }
+.zoomer { position: relative; height: min(70vh, 640px); overflow: hidden; border-radius: 4px; cursor: grab; touch-action: none; user-select: none; }
+.zoomer.dragging { cursor: grabbing; }
+.zoomer img { position: absolute; max-width: none; }
+.zoomer[data-bg="dark"] { background: #16181c; }
+.zoomer[data-bg="light"] { background: #f4f4f2; }
+.reference .controls button.on { border-color: var(--accent); background: var(--accent-soft); }
 .controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0; font-size: 13px; }
 .anims { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; max-height: 340px; overflow: auto; margin-top: 6px; }
 .anim { display: flex; justify-content: space-between; gap: 6px; padding: 3px 7px; border-radius: 3px; cursor: pointer; font-size: 12.5px; border: 1px solid transparent; }

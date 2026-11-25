@@ -8,6 +8,12 @@
             (room: "central_hub_complex", way: Fly, cross: false),
         ],
     ),
+    "hall": (
+        fight_at_stops: false, repeat: false, equip: None,
+        stops: [
+            (room: "hall_of_characters", way: Walk, cross: false),
+        ],
+    ),
     "castle_godwin": (
         fight_at_stops: true, repeat: false, equip: Some("fireball"),
         stops: [

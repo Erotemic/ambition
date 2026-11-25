@@ -30,3 +30,27 @@ Navigation graph construction and per-tick body integration remain measured
 costs. Capture Sanic Act 3 separately with
 `scripts/measure/autoprofile_android.sh sanic_act3` before assigning its FPS
 drop to portals.
+
+## November 25 capture
+
+`android-all-ambition-auto-20261125T060553Z` recorded 577 admitted Hall roots.
+Navigation rollouts account for 54.4% of the CPU samples and material axis
+queries for 24.2%. These costs overlap. Autoplay's 27,715 Hall rollouts took
+28.5 seconds from request to first movement. After construction, five-second
+windows still had frame medians of 462–523 ms until the return to the hub.
+The hub's first complete window had a median of 26.9 ms.
+
+The profiles answer different questions. Use
+`./scripts/measure/autoprofile_android.sh ambition` for the crossing and
+`./scripts/measure/autoprofile_android.sh hall --warmup 40 --duration 45` for
+steady play. The second route enters the Hall and stays at the entrance.
+It removes the crossing request without changing the room or its actors.
+
+The desktop integration run crossed the gap and returned to the hub with
+two measured links and 12 rollouts. The full build of the same 93 surfaces
+used 27,715 rollouts. Both directions used the same local graph.
+
+A separate prototype streamed shared range and contact queries. In
+360-update desktop development runs with idle input, it took 42.7–44.0 s.
+Three baseline runs took 38.0–41.7 s. That general rewrite was removed.
+The navigation build result does not establish steady Android frame time.

@@ -4,6 +4,7 @@
 # launches and records.
 #
 #   scripts/measure/autoprofile_android.sh                 # Ambition (the hall of characters, then a flight through the primeval trail)
+#   scripts/measure/autoprofile_android.sh hall            # Enter the Hall of Characters and stay there
 #   scripts/measure/autoprofile_android.sh castle_godwin   # Castle Godwin combat route
 #   scripts/measure/autoprofile_android.sh mary_o          # Mary-O (the cosmic form, to each goal)
 #   scripts/measure/autoprofile_android.sh sanic_act3      # Sanic Act 3, with portals and replay
@@ -29,7 +30,7 @@ set -euo pipefail
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '2,/^set -euo pipefail/{ /^#/p; }' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit 0
 fi
 
@@ -40,13 +41,12 @@ if [[ $# -gt 0 && "$1" != -* ]]; then
 fi
 
 case "$autoplay_profile" in
-    ambition) game="ambition"; route="ambition_gameplay" ;;
-    castle_godwin) game="ambition"; route="ambition_gameplay" ;;
+    ambition|hall|castle_godwin) game="ambition"; route="ambition_gameplay" ;;
     mary_o) game="mary_o"; route="mary_o_gameplay" ;;
     sanic_act3|sanic_all) game="sanic"; route="sanic_gameplay" ;;
     smash|smash_4p) game="smash"; route="smash_select" ;;
     *)
-        echo "autoprofile_android.sh: no autoplay policy for '$autoplay_profile' (ambition, castle_godwin, mary_o, sanic_act3, sanic_all, smash, smash_4p)" >&2
+        echo "autoprofile_android.sh: no autoplay policy for '$autoplay_profile' (ambition, hall, castle_godwin, mary_o, sanic_act3, sanic_all, smash, smash_4p)" >&2
         exit 2
         ;;
 esac

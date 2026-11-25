@@ -435,6 +435,14 @@ and [`settle_visits`](../../../crates/ambition_platformer2d_actor/src/body/visit
 make that terminal. `NavGraph::next` also calls a missing goal
 `Unreachable`.
 
+**Local routes.** Autoplay uses the standing map when both endpoints resolve
+to one surface. For two surfaces it measures links between them in
+both directions. The existing kernel verifies each admitted link. If the
+local graph cannot answer the request, or its route fails, autoplay requests
+the full graph. The same follower runs both plans.
+`a_continuous_walk_skips_link_rollouts` checks a walk, a jump across a gap,
+and a request that needs the full graph.
+
 A consumer may explicitly decline work outside its supported profile. It need
 not wait forever or run exhaustive motion search. It must retain why it
 declined instead of presenting an unexamined endpoint as an exhausted

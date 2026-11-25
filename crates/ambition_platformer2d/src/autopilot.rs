@@ -42,7 +42,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay;
 use ambition_platformer2d_world::collision::{CollisionWorld, GeometryRevision};
-use ambition_platformer2d_world::navigation::{FlightMap, FlightSearch, NavGraph, NavGraphCache, NavGraphKey, NavMotion};
+use ambition_platformer2d_world::navigation::{DirectWalk, FlightMap, FlightSearch, NavGraph, NavGraphCache, NavGraphKey, NavMotion};
 use ambition_platformer2d_world::rooms::LiveRoomSpecs;
 
 use crate::scripted_input::ScriptedControls;
@@ -373,38 +373,16 @@ pub fn drive_autopilot(
             .unwrap_or_default(),
     };
     let unchanged = pilot.inputs.as_ref().is_some_and(|kept| kept.same_as(&inputs));
-    if pilot.wanted.is_none() || !unchanged || pilot.body != Some(body) {
-        let world = room.still_solids();
-        let exits = inputs.exits.clone();
-        let key = NavGraphKey::new(&world, &exits, body.spec, body.abilities, body.size, body.material, body.base_size, motion);
-        // A graph not kept and not on the way is built. A build for an
-        // older geometry is dropped, which cancels it.
-        if pilot.graphs.get(&key).is_none() && pilot.pending.as_ref().is_none_or(|pending| pending.key != key) {
-            // In the background, and its surfaces on the background pool too,
-            // not on the pool the frame's systems run on.
-            // The body's motion is measured once whatever room: a graph for
-            // a new room, or the same room after a block broke, is built from
-            // the motion kept, and only a body never measured measures it.
-            let kept = pilot.graphs.kept_motion(&key).map(|motion| motion.cloned());
-            let task = AsyncComputeTaskPool::get().spawn(async move {
-                let body = key.probe_body();
-                let (measured, motion_of) = match kept {
-                    Some(kept) => (None, kept),
-                    None => {
-                        let fresh = NavMotion::measure(&body, motion);
-                        (Some(fresh.clone()), fresh)
-                    }
-                };
-                let graph = motion_of.as_ref().and_then(|measured| {
-                    NavGraph::build_measured(&world, &exits, &body, motion, measured, Some(&**AsyncComputeTaskPool::get()))
-                });
-                (measured, graph)
-            });
-            pilot.pending = Some(PendingGraph { key, task });
-        }
+    let changed = pilot.wanted.is_none() || !unchanged || pilot.body != Some(body);
+    let new_world = changed.then(|| room.still_solids());
+    if let Some(world) = &new_world {
+        let key = NavGraphKey::new(world, &inputs.exits, body.spec, body.abilities, body.size, body.material, body.base_size, motion);
         pilot.wanted = Some(key);
         pilot.inputs = Some(inputs);
         pilot.body = Some(body);
+        if pilot.pending.as_ref().is_some_and(|pending| pending.key != key) {
+            pilot.pending = None;
+        }
     }
     if let Some(pending) = pilot.pending.as_mut() {
         if let Some((measured, graph)) = check_ready(&mut pending.task) {
@@ -415,6 +393,44 @@ pub fn drive_autopilot(
             }
             pilot.graphs.insert(key, graph);
         }
+    }
+    let wanted = pilot.wanted.expect("navigation inputs have a key");
+    let direct_walk = match goal {
+        NavGoal::Stand(destination) if !flight.fly_enabled => Some(DirectWalk { center: kin.pos, destination }),
+        _ => None,
+    };
+    let committed = pilot.goal == Some(goal) && pilot.follower.committed();
+    let cached = pilot.graphs.get(&wanted);
+    let needs_links = cached.flatten().is_some_and(|graph| {
+        graph.local_only() && (pilot.status == AutopilotStatus::NoRoute
+            || (!(committed && pilot.active == Some(wanted))
+                && !direct_walk.is_some_and(|walk| graph.can_answer_walk(walk))))
+    });
+    if (cached.is_none() || needs_links) && pilot.pending.is_none() {
+        let world = new_world.unwrap_or_else(|| room.still_solids());
+        let exits = pilot.inputs.as_ref().expect("navigation inputs").exits.clone();
+        let direct_walk = if needs_links { None } else { direct_walk };
+        // Both builds use the background pool, separate from the frame's systems.
+        let kept = pilot.graphs.kept_motion(&wanted).map(|motion| motion.cloned());
+        let task = AsyncComputeTaskPool::get().spawn(async move {
+            let body = wanted.probe_body();
+            let (measured, motion_of) = match kept {
+                Some(kept) => (None, kept),
+                None => {
+                    let fresh = NavMotion::measure(&body, motion);
+                    (Some(fresh.clone()), fresh)
+                }
+            };
+            let graph = motion_of.as_ref().and_then(|measured| {
+                NavGraph::build_measured_for(&world, &exits, &body, motion, measured, Some(&**AsyncComputeTaskPool::get()), direct_walk)
+            });
+            (measured, graph)
+        });
+        pilot.pending = Some(PendingGraph { key: wanted, task });
+    }
+    if pilot.graph().is_some_and(NavGraph::local_only) && !committed && (pilot.active != Some(wanted) || needs_links) {
+        pilot.active = None;
+        pilot.follower.stop();
     }
     // The room changed (a block broke, a gate opened): the new graph is
     // followed once it is built, and not in the middle of a leg. A leg under
@@ -427,7 +443,8 @@ pub fn drive_autopilot(
         pilot.follower.stop();
     }
     if pilot.active != pilot.wanted
-        && pilot.wanted.is_some_and(|wanted| pilot.graphs.get(&wanted).is_some())
+        && !needs_links
+        && pilot.graphs.get(&wanted).is_some()
         && !pilot.follower.committed()
     {
         pilot.active = pilot.wanted;
@@ -458,7 +475,7 @@ pub fn drive_autopilot(
         return;
     }
     pilot.toggle_wait = pilot.toggle_wait.saturating_sub(1);
-    match goal {
+    let destination = match goal {
         // A goal in the air: take off, then fly the route.
         NavGoal::Fly(_) | NavGoal::FlyInto(_) => {
             pilot.follower.stop();
@@ -481,15 +498,15 @@ pub fn drive_autopilot(
             script.0 = pilot.edges(input);
             return;
         }
-        NavGoal::Stand(_) => {}
-    }
+        NavGoal::Stand(destination) => destination,
+    };
     let feet = kin.pos + graph.frame.down * graph.half.y;
     // A new goal, or the last one was reached or given up and its wait is
     // over. A leg past its start is not dropped for a new goal: the body is
     // in its run-up or in the air.
     let renew = pilot.goal != Some(goal) || (pilot.follower.goal.is_none() && pilot.retry_in == 0);
     if renew && !pilot.follower.committed() {
-        match stand_point(graph, goal) {
+        match graph.standing_destination(destination) {
             Some(point) => pilot.follower.go_to(point),
             None => pilot.follower.stop(),
         }
@@ -630,7 +647,10 @@ pub fn report_autopilot(
     let at = players.single().map(|(_, kin)| kin.pos).ok();
     let graph = pilot
         .graph()
-        .map(|graph| format!("surfaces={} links={} rollouts={}", graph.surfaces.len(), graph.links.len(), graph.cost.rollouts))
+        .map(|graph| {
+            let plan = if graph.local_only() { "local" } else { "full" };
+            format!("plan={plan} surfaces={} links={} rollouts={}", graph.surfaces.len(), graph.links.len(), graph.cost.rollouts)
+        })
         .unwrap_or_else(|| "no graph".to_owned());
     eprintln!(
         "[autopilot] status={:?} at={at:?} goal={:?} follower_goal={:?} {graph}",
@@ -661,15 +681,6 @@ impl Autopilot {
         self.last = frame;
         frame
     }
-}
-
-/// The feet point of `goal` on the graph: on the surface under it, nearest it.
-fn stand_point(graph: &NavGraph, goal: NavGoal) -> Option<ae::Vec2> {
-    let at = match goal { NavGoal::Stand(at) | NavGoal::Fly(at) => at, NavGoal::FlyInto(opening) => opening.center() };
-    (0..graph.surfaces.len())
-        .map(|index| graph.point_on(index, graph.frame.along(at)))
-        .filter(|feet| graph.frame.below(*feet) >= graph.frame.below(at) - 1.0)
-        .min_by(|a, b| (*a - at).length_squared().total_cmp(&(*b - at).length_squared()))
 }
 
 #[cfg(test)]

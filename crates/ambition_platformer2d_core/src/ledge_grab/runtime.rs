@@ -290,8 +290,18 @@ pub fn chain_ledges(
     world: &World,
     frame: crate::AccelerationFrame,
 ) -> impl Iterator<Item = (usize, usize, Ledge)> + '_ {
+    chain_ledges_in(world, frame, None)
+}
+
+fn chain_ledges_in(
+    world: &World,
+    frame: crate::AccelerationFrame,
+    region: Option<Aabb>,
+) -> impl Iterator<Item = (usize, usize, Ledge)> + '_ {
     let up = -frame.down;
-    world.chains.iter().enumerate().flat_map(move |(ci, chain)| {
+    let all = region.is_none().then(|| world.chains.iter().enumerate());
+    let nearby = region.map(|region| world.chains.indexed_near(region));
+    all.into_iter().flatten().chain(nearby.into_iter().flatten()).flat_map(move |(ci, chain)| {
         let usable = !chain.closed
             && chain.points.len() >= 2
             && chain.junctions.is_empty()
@@ -303,6 +313,9 @@ pub fn chain_ledges(
             .filter(move |_| usable)
             .filter_map(move |(end, next)| {
                 let (lip, toward) = (chain.points[end], chain.points[next]);
+                if region.is_some_and(|region| lip.cmplt(region.min).any() || lip.cmpgt(region.max).any()) {
+                    return None;
+                }
                 let inward = (toward - lip).try_normalize()?;
                 // The segment's top faces away from the feet: a floor.
                 let (a, b) = if end == 0 { (lip, toward) } else { (toward, lip) };
@@ -316,8 +329,9 @@ pub fn chain_ledges(
                     return None;
                 }
                 // No other line goes on from this end.
-                let joined = world.chains.iter().enumerate().any(|(other, c)| {
-                    other != ci && c.points.iter().any(|p| p.distance(lip) <= LEDGE_JOIN_TOL)
+                let join = Aabb::new(lip, Vec2::splat(LEDGE_JOIN_TOL));
+                let joined = world.chains.near(join).into_iter().any(|other| {
+                    !std::ptr::eq(other, chain) && other.points.iter().any(|p| p.distance(lip) <= LEDGE_JOIN_TOL)
                 });
                 (!joined).then_some((ci, end, Ledge { lip, inward, side_normal: -across.signum() }))
             })
@@ -357,12 +371,18 @@ pub fn probe_ledge_grab_in_frame(
     }
     let side_normal = wall_normal_x.signum();
     let frame = crate::AccelerationFrame::new(gravity_dir);
-    let block_ledges = world
-        .blocks
-        .iter()
+    let reach = Vec2::new(LEDGE_HORIZONTAL_REACH, (LEDGE_REACH_UP + LEDGE_REACH_DOWN) * 0.5);
+    let offset = Vec2::new(-side_normal * player_size.x * 0.5, (LEDGE_REACH_DOWN - LEDGE_REACH_UP - player_size.y) * 0.5);
+    let region = Aabb::new(player_pos + frame.to_world(offset), frame.to_world_half(reach) + Vec2::ONE);
+    // A block's lip is a corner of its bounds in the local frame. Under
+    // oblique gravity that corner can lie outside the block's world bounds.
+    let cardinal = frame.down.x == 0.0 || frame.down.y == 0.0;
+    let all_blocks = (!cardinal).then(|| world.blocks.iter());
+    let nearby_blocks = cardinal.then(|| world.blocks.near(region));
+    let block_ledges = all_blocks.into_iter().flatten().chain(nearby_blocks.into_iter().flatten())
         .filter(|block| ledge_surface_kind(block.kind))
         .map(|block| (Ledge::of_block(block.aabb, side_normal, frame), Some(block)));
-    let line_ledges = chain_ledges(world, frame)
+    let line_ledges = chain_ledges_in(world, frame, Some(region))
         .filter(|(_, _, ledge)| ledge.side_normal == side_normal)
         .map(|(_, _, ledge)| (ledge, None));
 

@@ -7,10 +7,10 @@
 //! brain follows it by (`ae::navigation::follow_leg`). There is no second
 //! physics, and no second follower.
 //!
-//! The graph is a pure function of the room, the body's tuning and the frame.
-//! It is the same on each peer and after each rewind, so it is a derived
-//! cache and no part of a snapshot. It must be built whole: a graph that is
-//! built a part at a time gives an answer that depends on when it was asked.
+//! A full graph is a pure function of the room, the body's tuning and the
+//! frame. It is the same on each peer and after each rewind. Autoplay can
+//! request a local graph for two surfaces. Both builds complete the work
+//! for their selected coverage before they publish a result.
 //!
 //! An air jump is modelled as one double hop: the second press at the top of
 //! the first arc, proposed only where one jump does not reach. A wall verb is
@@ -40,6 +40,8 @@
 //! kernel rollout does not run), a surface that moves, and standing on a
 //! slope (a route from the middle of a slope finds no surface under it).
 
+use std::collections::BTreeMap;
+
 use ambition_platformer2d_core as ae;
 use ae::movement::{step_motion, ActionEdges, Edge, InputState, MotionStepContext, MovementAction};
 use ae::navigation::{
@@ -65,6 +67,8 @@ const MAX_CLIMB: f32 = 600.0;
 /// The most further than a jump a dash hop is proposed for. A filter of the
 /// proposals only: the kernel rollout says whether the leg arrives.
 const MAX_DASH_GAIN: f32 = 400.0;
+
+type SettledStarts = BTreeMap<[u32; 2], Option<BodyClusterScratch>>;
 
 /// A leg the body can do, from one surface to another.
 #[derive(Clone, Debug, PartialEq)]
@@ -121,6 +125,7 @@ pub struct NavGraph {
     /// The air of the room for this body, when it can fly: the routes of a
     /// flight that stays in the air ([`FlightMap::route`]).
     pub flight: Option<FlightMap>,
+    local_only: bool,
     /// The links that leave each surface.
     out: Vec<Vec<usize>>,
     /// The surfaces each surface reaches ([`Self::reach_from`]), found the
@@ -132,6 +137,13 @@ pub struct NavGraph {
     /// The answers of [`Self::waypoints`] lately asked for, by the feet's
     /// surface and the seed: a pure function of the graph and those two.
     waypoint_sets: KeptWaypoints,
+}
+
+/// A request that can use a walk or a direct link between two surfaces.
+#[derive(Clone, Copy, Debug)]
+pub struct DirectWalk {
+    pub center: Vec2,
+    pub destination: Vec2,
 }
 
 /// How many (surface, seed) waypoint answers a graph keeps: one or two per
@@ -265,6 +277,20 @@ impl NavGraph {
         motion: &NavMotion,
         pool: Option<&bevy_tasks::TaskPool>,
     ) -> Option<Self> {
+        Self::build_measured_for(world, exits, body, frame, motion, pool, None)
+    }
+
+    /// Try a continuous walk or a measured link between the requested
+    /// surfaces. Build the full graph if neither is available.
+    pub fn build_measured_for(
+        world: &World,
+        exits: &[ae::Aabb],
+        body: &BodyClusterScratch,
+        frame: MotionFrame,
+        motion: &NavMotion,
+        pool: Option<&bevy_tasks::TaskPool>,
+        direct: Option<DirectWalk>,
+    ) -> Option<Self> {
         let envelope = &motion.envelope;
         let nav = NavFrame { side: frame.side(), down: frame.down() };
         let half = Vec2::new(envelope.body_width * 0.5, envelope.body_height * 0.5);
@@ -296,18 +322,26 @@ impl NavGraph {
             surfaces,
             links: Vec::new(),
             cost: BuildCost::default(),
-            flight: motion.flight.map(|law| FlightMap::build(world, exits, half, law)),
+            flight: None,
+            local_only: false,
         };
+        let endpoints = direct.and_then(|walk| graph.walk_endpoints(walk));
+        if endpoints.is_some_and(|(from, to)| from == to) {
+            graph.local_only = true;
+            return Some(graph);
+        }
         // The links that leave each surface are a pure function of the graph
         // so far, so the surfaces are taken on the compute pool, one to a task,
         // and their links put back in surface order: the graph is the one a
         // single thread builds, on each peer and after each rewind (the hub's
         // dog graph is 83 ms on one thread: MEASURED, `nav_graph_census`,
         // 2026-10-18).
-        let links_from = |from: usize| -> (Vec<(usize, NavLeg, f32)>, BuildCost) {
+        let links_from = |from: usize, direct_to: Option<usize>| -> (Vec<(usize, NavLeg, f32)>, BuildCost) {
             let mut found = Vec::new();
             let mut spent = BuildCost::default();
-            for to in 0..graph.surfaces.len() {
+            let mut starts = SettledStarts::new();
+            let targets = direct_to.map_or(0..graph.surfaces.len(), |to| to..to + 1);
+            for to in targets {
                 if from == to {
                     continue;
                 }
@@ -335,11 +369,12 @@ impl NavGraph {
                     continue;
                 }
                 let mut cost = BuildCost::default();
-                let arrived = |legs: Vec<NavLeg>, cost: &mut BuildCost| {
+                let mut arrived = |legs: Vec<NavLeg>, cost: &mut BuildCost| {
                     legs.into_iter()
                         .filter_map(|leg| {
                             let leg = graph.in_world(leg);
-                            graph.rollout(world, exits, body, frame, &leg, to, cost).map(|seconds| (leg, seconds))
+                            graph.rollout(world, exits, body, frame, &leg, to, &mut starts, cost)
+                                .map(|seconds| (leg, seconds))
                         })
                         .min_by(|x, y| x.1.total_cmp(&y.1))
                 };
@@ -376,26 +411,45 @@ impl NavGraph {
             }
             (found, spent)
         };
+        let local_cost = if let Some((from, to)) = endpoints {
+            let (outbound, spent) = links_from(from, Some(to));
+            if !outbound.is_empty() {
+                let (returning, return_cost) = links_from(to, Some(from));
+                graph.local_only = true;
+                graph.add_links(from, outbound, spent);
+                graph.add_links(to, returning, return_cost);
+                return Some(graph);
+            }
+            spent
+        } else {
+            BuildCost::default()
+        };
         let surfaces = graph.surfaces.len();
         let rows: Vec<(Vec<(usize, NavLeg, f32)>, BuildCost)> = match pool {
             Some(pool) if pool.thread_num() > 1 && surfaces > 1 => {
                 let links_from = &links_from;
                 pool.scope(|scope| {
                     for from in 0..surfaces {
-                        scope.spawn(async move { links_from(from) });
+                        scope.spawn(async move { links_from(from, None) });
                     }
                 })
             }
-            _ => (0..surfaces).map(links_from).collect(),
+            _ => (0..surfaces).map(|from| links_from(from, None)).collect(),
         };
+        graph.cost.add(local_cost);
+        graph.flight = motion.flight.map(|law| FlightMap::build(world, exits, half, law));
         for (from, (found, spent)) in rows.into_iter().enumerate() {
-            graph.cost.add(spent);
-            for (to, leg, cost) in found {
-                graph.out[from].push(graph.links.len());
-                graph.links.push(NavLink { from, to, leg, cost });
-            }
+            graph.add_links(from, found, spent);
         }
         Some(graph)
+    }
+
+    fn add_links(&mut self, from: usize, links: Vec<(usize, NavLeg, f32)>, cost: BuildCost) {
+        self.cost.add(cost);
+        for (to, leg, cost) in links {
+            self.out[from].push(self.links.len());
+            self.links.push(NavLink { from, to, leg, cost });
+        }
     }
 
     /// Flights from `a` up to `b` that start beside each end of a block the
@@ -457,13 +511,22 @@ impl NavGraph {
         frame: MotionFrame,
         leg: &NavLeg,
         to: usize,
+        starts: &mut SettledStarts,
         cost: &mut BuildCost,
     ) -> Option<f32> {
         let mut slowest = 0.0_f32;
         // The follower starts a leg in the tolerance of its start point, so
         // the leg must hold at both ends of the tolerance.
         for offset in [0.0, ARRIVE_TOLERANCE, -ARRIVE_TOLERANCE] {
-            let (seconds, steps) = self.rollout_from(world, exits, body, frame, leg, to, offset);
+            let feet = leg.start + self.frame.side * offset;
+            // Legs with the same start share the neutral steps before input.
+            let mut settling_steps = 0;
+            let settled = starts.entry(feet.to_array().map(f32::to_bits))
+                .or_insert_with(|| self.settle_start(world, frame, body, feet, &mut settling_steps));
+            let (seconds, steps) = settled.as_ref().map_or((None, 0), |body| {
+                self.rollout_from(world, exits, body.clone(), frame, leg, to)
+            });
+            let steps = steps + settling_steps;
             cost.rollouts += 1;
             cost.steps += steps;
             if seconds.is_none() {
@@ -474,21 +537,16 @@ impl NavGraph {
         Some(slowest)
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn rollout_from(
+    fn settle_start(
         &self,
         world: &World,
-        exits: &[ae::Aabb],
-        body: &BodyClusterScratch,
         frame: MotionFrame,
-        leg: &NavLeg,
-        to: usize,
-        offset: f32,
-    ) -> (Option<f32>, usize) {
-        let dt = EnvelopeProbe::default().dt;
+        body: &BodyClusterScratch,
+        feet: Vec2,
+        steps: &mut usize,
+    ) -> Option<BodyClusterScratch> {
         let mut body = body.clone();
         {
-            let feet = leg.start + self.frame.side * offset;
             let (model, mut clusters) = body.parts();
             ae::movement::transit_body(
                 model,
@@ -497,15 +555,25 @@ impl NavGraph {
                 ae::movement::TransitVelocity::Zero,
             );
         }
-        // The body finds its floor before the leg starts.
         for _ in 0..3 {
-            if step(&mut body, world, frame, dt, ae::navigation::LegInput::default()) {
-                return (None, 3);
+            *steps += 1;
+            if step(&mut body, world, frame, EnvelopeProbe::default().dt, LegInput::default()) {
+                return None;
             }
         }
-        if !body.ground.on_ground {
-            return (None, 3);
-        }
+        body.ground.on_ground.then_some(body)
+    }
+
+    fn rollout_from(
+        &self,
+        world: &World,
+        exits: &[ae::Aabb],
+        mut body: BodyClusterScratch,
+        frame: MotionFrame,
+        leg: &NavLeg,
+        to: usize,
+    ) -> (Option<f32>, usize) {
+        let dt = EnvelopeProbe::default().dt;
         let mut phase = LegPhase::Commit;
         // Where the feet were when the body last moved on the ground.
         let mut moved_at = (0, self.frame.along(body.kinematics.pos));
@@ -529,7 +597,7 @@ impl NavGraph {
                 if (along - moved_at.1).abs() > 1.0 {
                     moved_at = (index, along);
                 } else if index - moved_at.0 >= STALL_STEPS {
-                    return (None, index + 3);
+                    return (None, index);
                 }
             }
             // A flight under a ceiling hovers there until the step limit.
@@ -538,7 +606,7 @@ impl NavGraph {
                 if (feet - flown_at.1).length() > 1.0 {
                     flown_at = (index, feet);
                 } else if index - flown_at.0 >= STALL_STEPS {
-                    return (None, index + 3);
+                    return (None, index);
                 }
             }
             let facts = LegFacts {
@@ -554,24 +622,24 @@ impl NavGraph {
             let (input, progress) = follow_leg(leg, phase, &facts);
             match progress {
                 LegProgress::Going(next) => phase = next,
-                LegProgress::Failed => return (None, index + 3),
+                LegProgress::Failed => return (None, index),
                 LegProgress::Arrived => {
                     // On the surface the leg names, not another at its height.
-                    return ((self.surface_at(feet) == Some(to)).then_some(index as f32 * dt), index + 3);
+                    return ((self.surface_at(feet) == Some(to)).then_some(index as f32 * dt), index);
                 }
             }
             // A leg that touches a hazard (or leaves the world) fails: the
             // body that does it is reset, and it does not arrive.
             if step(&mut body, world, frame, dt, input) {
-                return (None, index + 4);
+                return (None, index + 1);
             }
             // A body in an exit is in another room: the leg did not arrive.
             let reach = body.kinematics.aabb();
             if exits.iter().any(|exit| ae::AabbExt::strict_intersects(reach, *exit)) {
-                return (None, index + 4);
+                return (None, index + 1);
             }
         }
-        (None, steps + 3)
+        (None, steps)
     }
 
     /// How this body stops on a point ([`ae::navigation::ApproachLaw`]):
@@ -630,6 +698,38 @@ impl NavGraph {
     pub fn point_on(&self, surface: usize, along: f32) -> Vec2 {
         let surface = &self.surfaces[surface];
         self.frame.point(surface.clamp(along), surface.top)
+    }
+
+    /// The nearest standing point at or below the destination.
+    pub fn standing_destination(&self, destination: Vec2) -> Option<Vec2> {
+        (0..self.surfaces.len())
+            .map(|index| self.point_on(index, self.frame.along(destination)))
+            .filter(|feet| self.frame.below(*feet) >= self.frame.below(destination) - 1.0)
+            .min_by(|a, b| (*a - destination).length_squared().total_cmp(&(*b - destination).length_squared()))
+    }
+
+    /// True if this build covers standing surfaces and selected direct links.
+    pub fn local_only(&self) -> bool {
+        self.local_only
+    }
+
+    /// This request has a continuous walk or a measured direct link.
+    pub fn can_answer_walk(&self, walk: DirectWalk) -> bool {
+        self.walk_endpoints(walk).is_some_and(|(from, to)| {
+            from == to || self.direct_link(from, to).is_some()
+        })
+    }
+
+    fn walk_endpoints(&self, walk: DirectWalk) -> Option<(usize, usize)> {
+        let feet = walk.center + self.frame.down * self.half.y;
+        let from = self.surface_at(feet)?;
+        let to = self.surface_at(self.standing_destination(walk.destination)?)?;
+        Some((from, to))
+    }
+
+    fn direct_link(&self, from: usize, to: usize) -> Option<NavLeg> {
+        self.out[from].iter().map(|&link| &self.links[link])
+            .find(|link| link.to == to).map(|link| link.leg)
     }
 
     /// The surfaces a body on `from` can get to, `from` first, in the order
@@ -738,7 +838,7 @@ impl NavGraph {
             return NavNext::Unknown;
         };
         let Some(to) = self.surface_at(goal) else {
-            return NavNext::Unreachable;
+            return if self.local_only { NavNext::Unknown } else { NavNext::Unreachable };
         };
         if from == to {
             let land = self.point_on(to, self.frame.along(goal));
@@ -748,6 +848,9 @@ impl NavGraph {
             let span = &self.surfaces[to];
             let land_span = [span.left - self.half.x, span.right + self.half.x];
             return NavNext::Leg(NavLeg { kind: NavLegKind::Walk, start: land, takeoff: land, land, land_span });
+        }
+        if self.local_only {
+            return self.direct_link(from, to).map_or(NavNext::Unknown, NavNext::Leg);
         }
         // The first leg of the cheapest route: of the links leaving the feet's
         // surface, the one whose walk to its takeoff, its own cost and its

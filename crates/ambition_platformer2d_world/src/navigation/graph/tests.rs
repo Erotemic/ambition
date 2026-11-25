@@ -127,6 +127,40 @@ impl Fixture {
 }
 
 #[test]
+fn a_continuous_walk_skips_link_rollouts() {
+    let fixture = Fixture::new();
+    let frame = normal_frame();
+    let motion = NavMotion::measure(&fixture.body, frame).unwrap();
+    let feet = fixture.middle("floor");
+    let walk = DirectWalk {
+        center: feet - Vec2::Y * fixture.graph.half.y,
+        destination: feet + Vec2::new(120.0, -16.0),
+    };
+    let build = |request| {
+        NavGraph::build_measured_for(&fixture.world, &[], &fixture.body, frame, &motion, None, Some(request)).unwrap()
+    };
+    let standing = build(walk);
+    assert!(standing.local_only());
+    assert_eq!(standing.cost.rollouts, 0);
+    let goal = fixture.graph.standing_destination(walk.destination).unwrap();
+    assert_eq!(standing.next(feet, goal), fixture.graph.next(feet, goal));
+
+    let across = DirectWalk { destination: fixture.middle("ledge"), ..walk };
+    assert!(!standing.can_answer_walk(across));
+    assert_eq!(standing.next(feet, across.destination), NavNext::Unknown);
+    let local = build(across);
+    assert!(local.local_only());
+    assert!(local.can_answer_walk(across));
+    assert!(local.cost.rollouts > 0 && local.cost.rollouts < fixture.graph.cost.rollouts);
+    assert!(local.links.iter().all(|link| fixture.graph.links.contains(link)));
+
+    let high = DirectWalk { destination: fixture.middle("shelf"), ..walk };
+    let verified = build(high);
+    assert!(!verified.local_only());
+    assert_eq!(verified.links, fixture.graph.links);
+}
+
+#[test]
 fn the_graph_links_what_the_body_can_do_and_nothing_else() {
     let fixture = Fixture::new();
     assert_eq!(fixture.linked("floor", "perch"), Some(NavLegKind::Hop));
@@ -816,6 +850,7 @@ fn stated_graph(surfaces: &[(f32, f32, f32)], links: &[(usize, usize, f32, f32, 
         links,
         cost: BuildCost::default(),
         flight: None,
+        local_only: false,
         reach: (0..out.len()).map(|_| std::sync::OnceLock::new()).collect(),
         destinations: Default::default(),
         waypoint_sets: Default::default(),

@@ -1,12 +1,12 @@
 //! The surface graphs in use, kept by what each one is a function of.
 //!
-//! A [`NavGraph`] is a pure function of the geometry it is built over, the
+//! A full [`NavGraph`] is a pure function of the geometry it is built over, the
 //! exits it avoids, the body's tuning, abilities and size, and its motion
 //! frame. [`NavGraphKey`] is that function's argument as a value, and
-//! [`NavGraphCache`] keeps a bounded number of graphs by it, each built whole.
+//! [`NavGraphCache`] keeps a bounded number of graphs by that key.
 //! The simulation's navigation advisor keeps one cache, and the autopilot of a
-//! player's seat keeps another: one keying rule, so two graphs for the same
-//! argument are the same graph.
+//! player's seat keeps another. Autopilot checks the request against any
+//! local graph before use. A request outside its coverage needs a full build.
 
 use ambition_platformer2d_core as ae;
 use ae::movement::MotionModelSpec;

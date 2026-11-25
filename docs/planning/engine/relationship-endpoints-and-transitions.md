@@ -384,9 +384,22 @@ The hold, the ride and every room stamp stay as they were. The same batch
 committed takes the mount (an attachment of a room-scoped rider) and
 releases the hold the crossing splits.
 
-Still open:
-- the capture/automatic-exit witness with source retention in a real room;
-- ISL-3's consumption of the cohort.
+**Progress (2026-11-24): the captured body's automatic exit.**
+`a_captured_body_crossing_from_a_kept_room_leaves_its_captor_and_the_hold_behind`
+(`carried_item_crosses_rooms`). Bob keeps `vertical_shaft` live; its enemy
+seizes Alice through `begin_capture`, and the hub door, made a walk-in exit
+under her, takes her across with no press (a captive's input is held). A
+hold is not custody, so the captor is outside the cohort and the crossing
+splits the hold. On the frame the room changes, Alice has no `CapturedBy`
+and no `Relationship` control hold, the captor is still stamped into the
+shaft, and it holds nobody. Ten ticks later she is still where she arrived.
+The late refusal for a held capture is the publication witness above; no
+real-room fixture yet stages a crossing and then invalidates it before
+commit.
+
+REL3's own roads are done. What remains is
+[ISL-3a](island-rollback-and-compact-peer-input.md#isl-3a--retain-the-transfer-footprint-and-its-membership-cut)'s:
+its history footprint must consume this cohort when it is built.
 
 ## REL4 — retain exit context and authorize endpoint succession
 

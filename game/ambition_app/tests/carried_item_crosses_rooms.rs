@@ -1539,3 +1539,113 @@ fn a_possessed_body_crossing_from_a_kept_room_takes_its_home_with_it() {
     assert!(recovered.distance(let_go_at) < 96.0, "the home came back at {recovered:?}, not at the body it let go of at {let_go_at:?}");
     assert_eq!(room(&sim, avatar), Some(away), "after release the home is not in the room it stands in");
 }
+
+/// ⭐ A CAPTURED BODY THAT CROSSES WHILE ANOTHER PLAYER KEEPS THE ROOM LEAVES
+/// THE HOLD BEHIND (REL3). Bob holds `vertical_shaft`; its enemy seizes
+/// Alice, and a walk-in exit under her takes her to the hub with no press:
+/// a captive's input is held, so only an automatic exit can carry it. The
+/// captor is not in the crossing's cohort (a hold is not custody), so the
+/// crossing splits the hold, and capture's own release ends it at the
+/// accepted cut: Alice arrives free, with her control back, and the captor
+/// stays a member of the shaft that Bob keeps live. The authorities:
+/// `CapturedBy`, the `Relationship` control hold and both `InRoomInstance`
+/// stamps, read on the frame the room changed, before another ordinary tick
+/// could repair them.
+#[test]
+fn a_captured_body_crossing_from_a_kept_room_leaves_its_captor_and_the_hold_behind() {
+    use ambition_platformer2d::characters::control::{ControlHold, ControlHolds};
+    use ambition_platformer2d::combat::capture::CapturedBy;
+    use ambition_platformer2d::engine_core::{Aabb, BodyKinematics, Vec2};
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+    use ambition_platformer2d::world::rooms::{LoadingZoneActivation, RoomSet};
+
+    const HOME: &str = "vertical_shaft";
+    const AWAY: &str = "central_hub_complex";
+
+    let mut sim = fixed_60hz_room_sim(HOME);
+    crate::common::doors_cross_at_once(&mut sim);
+    let shaft = crate::two_players_two_live_rooms::bob_beside_alice(
+        &mut sim,
+        HOME,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+    );
+    let (captor, _id) = the_authored_enemy(&mut sim);
+    let alice = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<Entity, PrimaryPlayerOnly>();
+        q.single(world).expect("setup: one player body for Alice")
+    };
+    make_invulnerable(&mut sim, captor);
+    make_invulnerable(&mut sim, alice);
+    {
+        let world = sim.world_mut();
+        let mut state = bevy::ecs::system::SystemState::<bevy::prelude::Commands>::new(world);
+        let mut commands = state.get_mut(world).expect("commands");
+        ambition_platformer2d::combat::capture::systems::begin_capture(
+            &mut commands, captor, alice, Vec2::new(24.0, 0.0), None, 60.0, None, None,
+        );
+        state.apply(world);
+    }
+    settle(&mut sim, 4);
+    let held = |sim: &Platformer2dSimHarness| sim.world().get::<CapturedBy>(alice).map(|held| held.captor);
+    assert_eq!(held(&sim), Some(captor), "setup: the shaft's enemy never took hold of Alice");
+
+    // The door to the hub, turned into a walk-in exit under the captive.
+    let at = sim.world().get::<BodyKinematics>(alice).expect("Alice has kinematics").pos;
+    let door = door_for_body(&sim, alice, AWAY);
+    {
+        let world = sim.world_mut();
+        let mut q = world.query::<&mut RoomSet>();
+        let mut set = q.iter_mut(world).next().expect("a room set");
+        // ⚠ Without change detection: a changed `RoomSet` reloads its rooms.
+        let set = bevy::ecs::change_detection::DetectChangesMut::bypass_change_detection(&mut set);
+        let home = set.rooms.iter_mut().find(|spec| spec.id == HOME).expect("the shaft's spec");
+        let under = Aabb::new(at, Vec2::splat(120.0));
+        for zone in home.loading_zones.iter_mut() {
+            if zone.id == door.id {
+                zone.activation = LoadingZoneActivation::Walk;
+                zone.aabb = Aabb::new(at, zone.aabb.half_size());
+            } else if zone.aabb.min.x < under.max.x
+                && zone.aabb.max.x > under.min.x
+                && zone.aabb.min.y < under.max.y
+                && zone.aabb.max.y > under.min.y
+            {
+                zone.aabb = Aabb::new(Vec2::splat(-100_000.0), zone.aabb.half_size());
+            }
+        }
+    }
+
+    let mut crossed = false;
+    for _ in 0..90 {
+        sim.step(base());
+        if body_room(&sim, alice) == AWAY {
+            crossed = true;
+            break;
+        }
+    }
+    assert!(crossed, "setup: the captive never crossed the walk-in exit to '{AWAY}'");
+    let live: std::collections::BTreeSet<String> =
+        crate::two_players_two_live_rooms::live_rooms(&mut sim).into_iter().map(|(_, id)| id).collect();
+    assert!(live.contains(HOME) && live.contains(AWAY), "setup: Bob keeps '{HOME}' live beside '{AWAY}': {live:?}");
+
+    let room = |sim: &Platformer2dSimHarness, e: Entity| sim.world().get::<InRoomInstance>(e).map(|at| at.0);
+    assert_eq!(held(&sim), None, "Alice arrived in '{AWAY}' still held by a body in '{HOME}'");
+    assert!(
+        !sim.world().get::<ControlHolds>(alice).is_some_and(|holds| holds.holds(ControlHold::Relationship)),
+        "the hold ended but Alice's control is still claimed by it"
+    );
+    assert_eq!(room(&sim, captor), Some(shaft), "the captor left the shaft with the body it no longer holds");
+    {
+        let world = sim.world_mut();
+        let mut q = world.query::<&CapturedBy>();
+        assert!(q.iter(world).all(|held| held.captor != captor), "the captor still holds somebody after the crossing");
+    }
+
+    // Free, she stays where she arrived: no pin drags her back to the captor.
+    let arrived_at = sim.world().get::<BodyKinematics>(alice).expect("Alice").pos;
+    settle(&mut sim, 10);
+    assert_eq!(body_room(&sim, alice), AWAY, "Alice did not stay in '{AWAY}'");
+    let now = sim.world().get::<BodyKinematics>(alice).expect("Alice").pos;
+    assert!(now.distance(arrived_at) < 96.0, "Alice moved from her arrival {arrived_at:?} to {now:?}");
+}

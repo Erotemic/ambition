@@ -392,14 +392,35 @@ Witnesses (core):
 - `the_sweep_meets_a_stretching_line_when_its_end_arrives`, through
   `World::first_material_contact`.
 
-**Not yet moved** (MOVING-SUPPORT stays open on these):
+**Source phase (landed the same day).** `follow_drawn_ledges` reads the
+phase the owner pinned this tick (`PinnedRow.elapsed`). Before, it read
+that phase plus a fixed 1/60, a forecast of another owner's clock: GNU's walk
+pins a distance-based stride, and a held row does not advance. The support's
+shape is now the drawing at the selected phase, published at the same cut
+as the mount's accepted step (its `SweepSample`). A row change or restart is
+the table's own cut. Witness: `a_drawn_ledge_is_where_the_pinned_phase_draws_it`
+(runtime) checks placement at the pinned phase, and that a held phase moves
+no shape.
 
-- **Portal cells.** A cell cut by a portal or carried on a curve still
-  reads the rigid fit (P2's accepted interval owns that case).
-- **Source phase.** The source-phase / host cut (`follow_drawn_ledges`
-  `elapsed + 1/60`) is unchanged.
-- **The real GNU transition.** It has no witness in the running game yet.
-- **Portals.** Portal hosting on a stretching line still slides by arc
+**The real GNU transition.** `a_body_on_a_shoulder_rides_it_through_a_hammer`
+(app_it) pins the hammer's rows on the real giant, with its source phase and
+host. At three places on the far shoulder a body stays on through windup,
+strike, hold and recover. Its feet are at most 0.0 px off the ground line,
+at most 9.8 px off the drawn frame (the frame's own step), and it moves at
+most 4.9 px in a tick. All 43 `gnu_ton_fight` tests pass on the new law,
+including `you_can_stand_on_the_giants_shoulders_until_it_bucks`, which was
+red before this work.
+
+**Done for the no-portal scope (2026-11-25).** Steps 1–3 are delivered
+without portals: the support interval and queries, every native reader
+(prior support, carry, ledges, contact, velocity, bounds and the continuous
+sweeps), the coherent source-phase cut, and the real GNU witness. As this
+section requires, the portal cases are NOT marked complete from these
+witnesses. They stay open under portal P2/M1/M2:
+
+- a cell cut by a portal or carried on a curve still reads the published
+  rigid fit;
+- a portal hosted on a stretching line still attaches by world arc
   distance.
 
 ### Separate authoring decision: the whole curved hump

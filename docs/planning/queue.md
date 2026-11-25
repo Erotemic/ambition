@@ -977,18 +977,20 @@ visual product gate.
 
 ### MOVING-SUPPORT — retain a support's shape motion
 
-**State:** IN PROGRESS 2026-11-25. Step 1 and the time-sliced readers of
-step 2 landed. A changing support publishes its start shape
-(`SurfaceChain::shape_before`). Carry, prior support, ledges, point
-velocity and bounds read it
-([landed](engine/slopes-feet-ride-surfaces.md#landed-2026-11-25-the-shape-motion-and-its-time-sliced-readers)).
-The continuous sweeps cast a changing segment by its own motion (the same
-day). Still open:
+**State:** DONE 2026-11-25 for the no-portal scope. A changing support
+publishes its start shape (`SurfaceChain::shape_before`).
 
-- portal-cut cells, which keep the rigid fit;
-- the source-phase cut;
-- the real GNU witness;
-- portal hosting.
+- **Readers.** Every native reader uses that shape: carry, prior support,
+  ledges, point velocity, bounds and the continuous sweeps (an exact
+  deforming-segment cast).
+- **Source phase.** The support follows the phase its owner pinned, with
+  no forecast.
+- **The real GNU giant.** The giant's shoulder carries a body through a
+  hammer, and all 43 `gnu_ton_fight` tests pass
+  ([landed](engine/slopes-feet-ride-surfaces.md#landed-2026-11-25-the-shape-motion-and-its-time-sliced-readers)).
+
+The portal cases stay with portal P2/M1/M2, as SUP1 requires: a
+portal-cut or curve-carried cell, and a portal hosted on a stretching line.
 
 Static source review at `00bf92c22142`, 2026-11-22:
 

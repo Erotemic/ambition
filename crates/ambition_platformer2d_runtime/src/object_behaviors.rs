@@ -80,6 +80,10 @@ impl SnapshotState for LocalCallWatches {
     }
 }
 
+impl LocalCallWatches {
+    pub(crate) fn is_empty(&self) -> bool { self.rows.is_empty() }
+}
+
 pub(crate) fn maintain_watches(world: &mut World, state: Entity, objects: &ObjectIndex, now: u64) {
     let Some(watches) = world.get::<LocalCallWatches>(state) else { return; };
     if watches.rows.is_empty() { return; }
@@ -134,7 +138,7 @@ pub(crate) fn install(app: &mut App) {
     action_results::register_action_domain(app, "objects.complete_call", action_results::ActionCancellationPolicy::Unsupported);
     action_results::register_action_domain(app, "objects.call", action_results::ActionCancellationPolicy::Handler(cancel_call));
     app.install_extension_trigger::<ObjectCallPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime",
-        crate::behavior_inbox::collect::<BehaviorInstance>(crate::behavior_inbox::Lane::Request));
+        crate::behavior_inbox::collect::<BehaviorInstance>(crate::behavior_inbox::Lane::Request, BehaviorInstance::has_open_call));
     app.install_extension_submitted_request::<AttachBehaviorsPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime", attach);
     app.install_extension_submitted_request::<CallObjectPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime", call);
     app.install_extension_submitted_request::<CompleteObjectCallPort, _>(ACTOR_THINK, "ambition_platformer2d_runtime", complete);
@@ -505,6 +509,8 @@ pub(crate) fn maintain(world: &mut World, state: Entity, objects: &ObjectIndex, 
     for origin in expired { publish(world, objects, state, &origin, ActionStage::Failed, "object_call_expired", None); }
 }
 impl BehaviorInstance {
+    /// A call that is not terminal still waits, expires or is delivered.
+    pub(crate) fn has_open_call(&self) -> bool { self.calls.iter().any(|row| !row.terminal) }
     pub(crate) fn method_entry(&self, name: &str) -> Option<&str> {
         self.methods.iter().find(|method| method.name == name).map(|method| method.entry.as_str())
     }

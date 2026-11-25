@@ -55,7 +55,7 @@ fn install_source<P: Port>(app: &mut App, owner: &'static str, selector: &str, t
     // source installs its collector, and later ones only offer their port.
     if first {
         app.install_extension_trigger::<P, _>(ACTOR_THINK, owner,
-            crate::behavior_inbox::collect::<EventMailbox>(crate::behavior_inbox::Lane::Fact));
+            crate::behavior_inbox::collect::<EventMailbox>(crate::behavior_inbox::Lane::Fact, EventMailbox::has_pending));
     } else {
         app.offer_extension_trigger::<P>(ACTOR_THINK, owner);
     }
@@ -288,6 +288,7 @@ pub(crate) fn admit_signal(world: &mut World, source: ObjectRef, authority: Simu
 }
 
 impl EventMailbox {
+    pub(crate) fn has_pending(&self) -> bool { self.rows.iter().any(|row| row.delivery.progress.pending()) }
     pub(crate) fn deliveries<'a>(&'a self, instance: &'a BehaviorInstance)
         -> impl Iterator<Item = (u64, u64, String, &'a str)> + 'a {
         self.rows.iter().filter(|row| row.delivery.progress.pending()).filter_map(|row| {

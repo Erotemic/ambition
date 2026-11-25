@@ -27,13 +27,17 @@ pub(crate) fn install(app: &mut App) {
     use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
     app.init_resource::<BehaviorInbox>();
     let schedule = app.sim_schedule();
-    app.add_systems(schedule, deliver.in_set(ExtensionSet::Deliver(ACTOR_THINK)));
+    app.add_systems(schedule, (retire_orphans, deliver).chain().in_set(ExtensionSet::Deliver(ACTOR_THINK)));
 }
 
-pub(crate) fn collect<T: Component>(lane: Lane) -> impl Fn(
-    Query<(Entity, &SessionScopedEntity, &ObjectOccurrence), With<T>>, ResMut<BehaviorInbox>) {
+/// Collect the receivers of one lane that have journal work: a pending row,
+/// an open call, or a caller watch. An idle receiver costs nothing here; an
+/// orphaned one is retired by [`retire_orphans`], not by delivery.
+pub(crate) fn collect<T: Component>(lane: Lane, active: fn(&T) -> bool) -> impl Fn(
+    Query<(Entity, &SessionScopedEntity, &ObjectOccurrence, &T, Option<&object_behaviors::LocalCallWatches>)>, ResMut<BehaviorInbox>) {
     move |scopes, mut inbox| {
-        for (state, session, occurrence) in &scopes {
+        for (state, session, occurrence, journal, watches) in &scopes {
+            if !active(journal) && watches.is_none_or(|watches| watches.is_empty()) { continue; }
             let (_, lanes) = inbox.sources.entry(occurrence.reference(session.0)).or_insert((state, Vec::new()));
             lanes.push(lane);
         }
@@ -57,6 +61,43 @@ impl Candidate {
     }
 }
 
+/// The lifecycle facts an owner's resolution reads: object addresses, their
+/// session, their enablement, and the state's own owner link and journals.
+type OwnerCut = SystemState<(
+    RemovedComponents<'static, 'static, ObjectOccurrence>,
+    RemovedComponents<'static, 'static, SessionScopedEntity>,
+    RemovedComponents<'static, 'static, bevy::ecs::entity_disabling::Disabled>,
+    Query<'static, 'static, (), Or<(Changed<ObjectOccurrence>, Changed<SessionScopedEntity>, Changed<ObjectScopeOwner>,
+        Added<BehaviorInstance>, Added<ActionMailbox>, Added<crate::behavior_events::EventMailbox>)>>,
+    Query<'static, 'static, (), (Added<bevy::ecs::entity_disabling::Disabled>, With<ObjectOccurrence>)>,
+)>;
+
+/// Retire a behavior state whose owner no longer resolves, at the owner's
+/// lifecycle cut: its open calls fail and the state is despawned. Runs only
+/// when an address, enablement or owner link changed, so idle states are not
+/// revisited each tick; delivery collects only receivers with work.
+fn retire_orphans(world: &mut World, mut cut: Local<Option<OwnerCut>>) {
+    let cut = cut.get_or_insert_with(|| SystemState::new(world));
+    let (mut lost, mut left, mut enabled, changed, disabled) = cut.get_mut(world).expect("owner lifecycle readers are installed");
+    // Drain every reader so each change is seen once.
+    let moved = lost.read().count() + left.read().count() + enabled.read().count() > 0;
+    let moved = moved | !changed.is_empty() | !disabled.is_empty();
+    cut.apply(world);
+    if !moved { return; }
+    let objects = ObjectIndex::capture(world);
+    let orphans: Vec<_> = world.query_filtered::<(Entity, &SessionScopedEntity, &ObjectOccurrence),
+        (With<ObjectScopeOwner>, Or<(With<BehaviorInstance>, With<ActionMailbox>, With<crate::behavior_events::EventMailbox>)>)>()
+        .iter(world)
+        .filter(|(state, session, occurrence)| objects.resolve(session.0, occurrence.reference(session.0)) == Ok(*state))
+        .map(|(state, ..)| state)
+        .filter(|state| subject(world, *state, &objects).is_none())
+        .collect();
+    for state in orphans {
+        object_behaviors::retire(world, state);
+        world.despawn(state);
+    }
+}
+
 type DeliveryReads = SystemState<(RoomFreeze<'static, 'static>, RulesOf<'static, 'static, ActionDeliveryPolicy>)>;
 fn deliver(world: &mut World, mut reads: Local<Option<DeliveryReads>>) {
     let sources = std::mem::take(&mut world.resource_mut::<BehaviorInbox>().sources);
@@ -68,11 +109,8 @@ fn deliver(world: &mut World, mut reads: Local<Option<DeliveryReads>>) {
     for (reference, (state, lanes)) in sources {
         // Validate the collected address again before it can receive a payload.
         if objects.resolve(SessionScopeId(reference.session), reference) != Ok(state) { continue; }
-        let Some(subject) = subject(world, state, &objects) else {
-            object_behaviors::retire(world, state);
-            world.despawn(state);
-            continue;
-        };
+        // An orphan was retired at its owner's cut, before this pass.
+        let Some(subject) = subject(world, state, &objects) else { continue; };
         let (pace, policies) = reads.get(world).expect("addressed delivery readers are installed");
         if world.resource::<ambition_time::WorldTime>().sim_dt() <= 0.0 || pace.scale_of(subject) <= 0.0 { continue; }
         let policy = policies.of(subject).copied().unwrap_or_default();

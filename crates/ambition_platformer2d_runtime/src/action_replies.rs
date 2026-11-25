@@ -28,7 +28,8 @@ pub fn install(app: &mut App) {
     app.install_extension_trigger::<ActionResultPort, _>(
         ACTOR_THINK,
         "ambition_platformer2d_runtime",
-        crate::behavior_inbox::collect::<ActionMailbox>(crate::behavior_inbox::Lane::Outcome),
+        crate::behavior_inbox::collect::<ActionMailbox>(crate::behavior_inbox::Lane::Outcome,
+            |mailbox| mailbox.deliveries().next().is_some()),
     );
     app.install_extension_submitted_request::<CancelActionPort, _>(
         ACTOR_THINK,

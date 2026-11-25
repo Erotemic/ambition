@@ -54,5 +54,9 @@
         // spaceport town in the pass, its refinery, and Marshal Gallus's
         // Ore Corral.
         (id: "world.frontier_ldtk", file: "frontier.ldtk"),
+        // The Business dimension, by the gate DEALINGS: Capital, the city
+        // where everyone is doing business. Founders' Plaza, Records &
+        // Processing, and the Business College.
+        (id: "world.business_ldtk", file: "business.ldtk"),
     ],
 )

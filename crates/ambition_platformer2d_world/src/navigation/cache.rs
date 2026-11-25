@@ -11,6 +11,7 @@
 use ambition_platformer2d_core as ae;
 use ae::movement::MotionModelSpec;
 use ae::{AbilitySet, Aabb, BodyBaseSize, BodyClusterScratch, MotionFrame, Vec2, World};
+use ae::frame::BodyMaterial;
 
 use super::{NavGraph, NavMotion};
 use crate::collision::{GeometryRevision, RoomCollision};
@@ -22,7 +23,13 @@ pub struct NavGraphKey {
     room: u64,
     spec: MotionModelSpec,
     abilities: AbilitySet,
+    /// The canonical (unscaled) size; `material` scales it.
     size: Vec2,
+    /// The body's material scale, with canonical orientation (the probe's
+    /// start is aligned). The probe converts its controls by it as the
+    /// runtime does, under a frame whose gravity already converted (SR1): a
+    /// graph of the physical size with canonical controls was another body.
+    material: BodyMaterial,
     base_size: BodyBaseSize,
     /// The whole frame, and not its net acceleration: the graph is built from
     /// which way is down, from the gravity a jump law can scale, and from the
@@ -40,10 +47,11 @@ impl NavGraphKey {
         spec: MotionModelSpec,
         abilities: AbilitySet,
         size: Vec2,
+        material: BodyMaterial,
         base_size: BodyBaseSize,
         frame: MotionFrame,
     ) -> Self {
-        Self::from_stamp(geometry_stamp(world, exits), spec, abilities, size, base_size, frame)
+        Self::from_stamp(geometry_stamp(world, exits), spec, abilities, size, material, base_size, frame)
     }
 
     /// The key of a graph whose world and exits have the stamp `room`
@@ -54,10 +62,11 @@ impl NavGraphKey {
         spec: MotionModelSpec,
         abilities: AbilitySet,
         size: Vec2,
+        material: BodyMaterial,
         base_size: BodyBaseSize,
         frame: MotionFrame,
     ) -> Self {
-        Self { room, spec, abilities, size, base_size, frame }
+        Self { room, spec, abilities, size, material: material.scale_only(), base_size, frame }
     }
 
     /// The stamp of the world and exits the graph was built from
@@ -69,7 +78,7 @@ impl NavGraphKey {
     /// What the body's [`NavMotion`] is a function of: this key without its
     /// room.
     fn motion_key(&self) -> NavMotionKey {
-        NavMotionKey { spec: self.spec, abilities: self.abilities, size: self.size, base_size: self.base_size, frame: self.frame }
+        NavMotionKey { spec: self.spec, abilities: self.abilities, size: self.size, material: self.material, base_size: self.base_size, frame: self.frame }
     }
 
     /// The probe body the graph is built for: the tuning with no history. A
@@ -78,6 +87,7 @@ impl NavGraphKey {
         let mut body = BodyClusterScratch::new_with_abilities(Vec2::ZERO, self.abilities);
         ae::movement::switch_motion_model(&mut body.model, self.spec);
         body.kinematics.canonical_size = self.size;
+        body.kinematics.material = self.material;
         body.base_size = self.base_size;
         body
     }
@@ -90,6 +100,7 @@ struct NavMotionKey {
     spec: MotionModelSpec,
     abilities: AbilitySet,
     size: Vec2,
+    material: BodyMaterial,
     base_size: BodyBaseSize,
     frame: MotionFrame,
 }
@@ -503,7 +514,7 @@ mod tests {
     fn graphs_asked_for_each_tick_are_not_evicted_before_their_next_use() {
         let body = BodyClusterScratch::new_with_abilities(Vec2::ZERO, AbilitySet::NONE);
         let key = |room: u64| {
-            NavGraphKey::from_stamp(room, body.model.spec(), body.abilities.abilities, Vec2::splat(16.0), body.base_size, MotionFrame::from_direction(Vec2::Y, 980.0))
+            NavGraphKey::from_stamp(room, body.model.spec(), body.abilities.abilities, Vec2::splat(16.0), BodyMaterial::IDENTITY, body.base_size, MotionFrame::from_direction(Vec2::Y, 980.0))
         };
         let mut cache = NavGraphCache::with_capacity(16);
         for _tick in 0..2 {

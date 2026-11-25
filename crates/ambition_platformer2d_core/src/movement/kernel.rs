@@ -158,9 +158,18 @@ pub fn step_motion(
     ctx: MotionStepContext<'_>,
 ) -> MotionStepResult {
     let retained_down = SweepSample::down_or(clusters.sweep.as_deref(), ctx.frame.down());
-    let refusal = match try_motion(model, clusters, ctx, retained_down) {
-        Ok(result) => return result,
-        Err(refusal) => refusal,
+    // A frame whose gravity response was refused moves nothing: the body
+    // holds as any refused step does, with the fault reported.
+    let refusal = if ctx.frame.response_refused() {
+        crate::frame::thread::Refusal {
+            path: Vec::new(), link: None,
+            reason: crate::frame::thread::RefusalReason::Numeric(crate::frame::NumericFault::InvalidFrame),
+        }
+    } else {
+        match try_motion(model, clusters, ctx, retained_down) {
+            Ok(result) => return result,
+            Err(refusal) => refusal,
+        }
     };
     // ⭐ A REFUSAL LEAVES THE WORLD PLAYABLE (PSIM-5). A refused step used to
     // keep the old body whole, velocity and all, and every later tick asked
@@ -179,7 +188,8 @@ pub fn step_motion(
     // other one as its host's solid: a body in J's first cut, whose far side
     // runs into the second cut beyond its hop budget, stops at the second
     // cut's backing instead of being refused there every tick.
-    if let Some(admission) = ctx.admission.filter(|admission| !admission.links.is_empty()) {
+    // A refused response is not about portal material: no retry admits it.
+    if let Some(admission) = ctx.admission.filter(|admission| !admission.links.is_empty() && !ctx.frame.response_refused()) {
         let retry = match straddled_links(clusters.kinematics, admission) {
             Some(keys) if keys.is_empty() => Some(Vec::new()),
             Some(keys) => {

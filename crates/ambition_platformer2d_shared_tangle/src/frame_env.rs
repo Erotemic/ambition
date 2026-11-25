@@ -189,6 +189,29 @@ impl FrameEnv<'_, '_> {
             external_acceleration,
         ).with_carried_acceleration(carried.0)
     }
+
+    /// The frame of a body of `material` whose canonical gravity response
+    /// (authored gravity × its response factor) is `canonical_response`: the
+    /// response converts to the body's scale
+    /// ([`BodyMaterial::gravity_response`]) and nothing else does. A response
+    /// that cannot be derived gives the refused frame
+    /// ([`MotionFrame::with_refused_response`]), which the movement kernel
+    /// will not step.
+    ///
+    /// [`BodyMaterial::gravity_response`]: ambition_platformer2d_core::frame::BodyMaterial::gravity_response
+    pub fn resolve_body(
+        &self,
+        body: ambition_platformer2d_core::Aabb,
+        room: Option<crate::lifecycle::LiveRoomInstance>,
+        canonical_response: f32,
+        material: ambition_platformer2d_core::frame::BodyMaterial,
+        carried: CarriedAcceleration,
+    ) -> MotionFrame {
+        match material.gravity_response(canonical_response) {
+            Ok(response) => self.resolve(body, room, response, carried),
+            Err(_) => self.resolve(body, room, 0.0, carried).with_refused_response(),
+        }
+    }
 }
 
 #[cfg(test)]

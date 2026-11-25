@@ -243,11 +243,11 @@ Puppy Slug: *blorb*
 
 title: hall_npc_ninja_shadow_oni_leader
 ---
-Shadow Oni Leader: You came close without being invited. Once is enough.
+Zorlack: You came close without being invited. Once is enough.
 -> What do you lead?
-    Shadow Oni Leader: They'll do exactly what I tell them. Ask the Duelist how long I take to decide.
+    Zorlack: They'll do exactly what I tell them. Ask the Duelist how long I take to decide.
 -> Do you know my weaknesses?
-    Shadow Oni Leader: I know where you leave your guard open. I have no reason to help you close it.
+    Zorlack: I know where you leave your guard open. I have no reason to help you close it.
 ===
 
 title: hall_npc_ninja_shadow_duelist
@@ -5101,6 +5101,46 @@ Fanihi: *it hangs and chews a fig*
     Fanihi: Hunting and the brown tree snake nearly ended my kind on Guam. Leave me in my tree.
 ===
 
+title: hall_npc_business_dirk_quarterly
+---
+Dirk: Let's take this offline.
+-> What do you do here?
+    Dirk: Executive, Capital. I've been on this call since the second quarter. Nobody wants to be the one who hangs up.
+-> Anything else?
+    Dirk: My calendar has a meeting about my calendar. I'm late for it.
+===
+title: hall_npc_business_solly_darity
+---
+Solly: Local 17. Don't cross the line.
+-> What do you do here?
+    Solly: Picket captain of the records clerks. They pay us by the form, then they made the forms longer.
+-> Anything else?
+    Solly: The Founder made himself. Then he made us do his paperwork.
+===
+title: hall_npc_business_barista
+---
+Ines: What can I get you?
+-> What do you do here?
+    Ines: I run the counter at The Bottom Line. Everyone in there is pitching. I sell the coffee they pitch over.
+-> Anything else?
+    Ines: A man paid me with a business card once. I framed it. He still owes me two coins.
+===
+title: hall_npc_business_records_clerk
+---
+Marguerite: Take a number.
+-> What do you do here?
+    Marguerite: Senior clerk, Records & Processing. Eleven years on one form. It's nearly done.
+-> Anything else?
+    Marguerite: I'm still inside while the others strike. Somebody has to process the strike notices.
+===
+title: hall_npc_business_professor
+---
+Gail: Take your seat.
+-> What do you do here?
+    Gail: Professor of Synergy, Capital Business College. Thirty years, and nobody has asked me what it is.
+-> Anything else?
+    Gail: My best student bought the college. Now I report to her.
+===
 title: hall_npc_frontier_clerk
 ---
 Dolores: Name, origin, cargo.

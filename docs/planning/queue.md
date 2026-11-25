@@ -3594,7 +3594,11 @@ is not evidence of moving-map residual time or completed multi-view support.
 
 ### SCALE-FEEL — the same body behavior at a different scale
 
-**State:** PLANNED, maintainer-selected 2026-11-21; source `f41218979625`.
+**State:** IN PROGRESS. SR1 landed 2026-11-25: the frame resolver converts
+each body's gravity response to its material scale, an underivable response
+is a refused frame the kernel will not step, and the navigation key carries
+the body's scale so the probe converts its controls as the runtime does.
+SR2 and SR3 are open.
 
 **Failure / customer:** canonical controls scale but ordinary body gravity
 does not, changing jump time and relative height. Fixed contact bands,
@@ -3607,9 +3611,7 @@ runtime reproduction.
 SR1–SR3 use the existing frame, movement, combat, item and relation owners.
 P2/P3 keep portal time/contact authority; E4 keeps the standing experiment.
 
-**Next action:** SR1 converts canonical gravity response at the shared frame
-resolver and brings runtime/probe inputs into agreement. The kernel consumes
-the resolved world frame unchanged. SR2 classifies support/ledge/crawler
+**Next action:** SR2 classifies support/ledge/crawler
 bands and destination-relative exit assistance. SR3 completes the listed
 action, splash, free-mover and relation consumers. Keep authored mass and
 damage policies; do not scale every world vector or add another solver.

@@ -436,6 +436,11 @@ pub struct MotionFrame {
     external_acceleration: Vec2,
     carried_acceleration: Vec2,
     basis: AccelerationFrame,
+    /// The body's gravity response could not be derived (a non-finite or
+    /// overflowing product). The frame keeps its basis and world forces for
+    /// every reader, carries no gravity, and the movement kernel refuses the
+    /// step: see [`Self::with_refused_response`].
+    response_refused: bool,
 }
 
 impl MotionFrame {
@@ -466,6 +471,7 @@ impl MotionFrame {
             external_acceleration,
             carried_acceleration: Vec2::ZERO,
             basis,
+            response_refused: false,
         }
     }
 
@@ -473,6 +479,23 @@ impl MotionFrame {
     pub const fn with_carried_acceleration(mut self, acceleration: Vec2) -> Self {
         self.carried_acceleration = acceleration;
         self
+    }
+
+    /// This frame for a body whose gravity response was refused: no gravity
+    /// contribution, with its basis and world forces kept, so a reader of
+    /// orientation still sees a finite frame. The movement kernel refuses to
+    /// step a body under it, so no motion is committed from an invalid
+    /// response.
+    pub const fn with_refused_response(mut self) -> Self {
+        self.gravity_acceleration = Vec2::ZERO;
+        self.response_refused = true;
+        self
+    }
+
+    /// Whether the body's gravity response was refused
+    /// ([`Self::with_refused_response`]).
+    pub const fn response_refused(self) -> bool {
+        self.response_refused
     }
 
     /// The carried contribution must pass through the material's portal path.

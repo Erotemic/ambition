@@ -162,6 +162,12 @@
         portal_sprite_name: "Pad Three Gate Portal",
         ring_sprite_name: "Pad Three Gate Ring",
     ),
+    // The Business dimension's gate, in Founders' Plaza (DEALINGS).
+    "business_plaza_gate": (
+        command: Dialed,
+        portal_sprite_name: "Founders' Plaza Gate Portal",
+        ring_sprite_name: "Founders' Plaza Gate Ring",
+    ),
     // The Frontier's auxiliary gate at Halfway Siding (SIDING).
     "frontier_siding_gate": (
         command: Dialed,

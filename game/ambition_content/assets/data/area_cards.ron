@@ -96,4 +96,8 @@
     (name: "Halfway Siding", subtitle: Some("The Frontier"), rooms: ["frontier_siding_station", "frontier_siding_street", "frontier_lie_down_inn", "frontier_siding_trestle", "frontier_sprocket_row"]),
     (name: "The Number 9 Freight", subtitle: Some("The Frontier"), rooms: ["frontier_freight_tail", "frontier_freight_cars", "frontier_rustler_head"]),
     (name: "Clinker Flats", subtitle: Some("The Frontier"), rooms: ["frontier_clinker_yard", "frontier_clinker_works", "frontier_clinker_row", "frontier_clinker_railhead"]),
+    // ---- the Business dimension ----
+    (name: "Founders' Plaza", subtitle: Some("Capital"), rooms: ["business_founders_plaza"]),
+    (name: "Records & Processing", subtitle: Some("Capital"), rooms: ["business_records_processing"]),
+    (name: "Capital Business College", subtitle: Some("Capital"), rooms: ["business_college_lecture_hall"]),
 ]

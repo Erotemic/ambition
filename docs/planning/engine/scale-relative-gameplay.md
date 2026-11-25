@@ -1,6 +1,7 @@
 # Scale-relative gameplay
 
-**State:** PLANNED, selected by the maintainer on 2026-11-21. A body made
+**State:** SR1 DONE 2026-11-25; SR2 and SR3 PLANNED. Selected by the
+maintainer on 2026-11-21. A body made
 small or large by a portal should keep its normal movement and action timing
 at that scale. This changes the earlier controls-only gravity policy.
 Production source reviewed: `f41218979625`. No game, build or timing run was
@@ -72,6 +73,20 @@ clear where a real consumer needs it.
 
 ## SR1 — resolve ordinary gravity and the standing experiment together
 
+**Delivered 2026-11-25.** `BodyMaterial::gravity_response` is the narrow
+derivation: finite input checked before the clamp, widened product, identity
+fast path. `FrameEnv::resolve_body` applies it in both resolver arms; a fault
+publishes `MotionFrame::with_refused_response` (orientation and world forces
+kept, no gravity), which `step_motion` refuses as
+`Numeric(InvalidFrame)` without a portal retry. `NavGraphKey` now holds the
+canonical size and the body's scale-only material, so `probe_body` converts
+controls exactly as the runtime kernel does. Witnesses:
+`a_scaled_body_falls_and_jumps_in_its_own_units_at_the_same_times` (resolver
+→ kernel free fall, the navigation probe's jump envelope, and a world-force
+counterexample) and `a_response_that_overflows_is_refused_and_moves_nothing`
+in `gravity/resolve.rs`. The kernel fixture is renamed
+`material_scale_changes_authored_control_units_and_takes_the_frame_as_given`.
+
 ### Existing boundary
 
 [`step_admitted_motion`](../../../crates/ambition_platformer2d_core/src/movement/kernel.rs)
@@ -135,7 +150,7 @@ kernel converts it. Its existing cardinal/aligned start restriction remains
 explicit; preserving scale does not certify every transient orientation.
 
 The current
-[`material_scale_changes_authored_control_units_and_keeps_gravity_in_world_units`](../../../crates/ambition_platformer2d_core/src/movement/kernel/tests.rs)
+[`material_scale_changes_authored_control_units_and_takes_the_frame_as_given`](../../../crates/ambition_platformer2d_core/src/movement/kernel/tests.rs)
 fixture supplies the same explicit world frame at two scales. Equal falling
 speed is correct for that low-level input, but it is not the new product
 policy. Retain or rename that narrower input contract if useful. Add the

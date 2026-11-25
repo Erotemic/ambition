@@ -983,7 +983,7 @@ fn a_body_built_in_two_rooms_measures_its_motion_once() {
     use crate::navigation::{NavGraphCache, NavGraphKey};
     let mut cache = NavGraphCache::with_capacity(4);
     let key_of = |world: &World, size: Vec2| {
-        NavGraphKey::new(world, &[], body.model.spec(), body.abilities.abilities, size, body.base_size, normal_frame())
+        NavGraphKey::new(world, &[], body.model.spec(), body.abilities.abilities, size, ambition_platformer2d_core::frame::BodyMaterial::IDENTITY, body.base_size, normal_frame())
     };
     let size = body.kinematics.canonical_size;
     for world in &rooms {

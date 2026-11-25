@@ -161,6 +161,7 @@ from the start.
 | `LEGACY` (hidden) | `boss_lobby_gate` | `boss_lobby` | the stage door to the final boss ([final-boss](final-boss.md)); the green room's door home to the lobby | yes |
 | `LEADENSADDLE` | `frontier_pad_gate` | `frontier_landing_pad` | east into Dry Dock, up through the refinery to Marshal Gallus's corral ([leadensaddle](leadensaddle.md)) | yes |
 | `SIDING` | `frontier_siding_gate` | `frontier_siding_station` | Halfway Siding's street, the inn, the trestle (down onto the Number 9 freight), on to Clinker Flats and the rail line east to Pad Three ([first slice](techno-western-frontier-first-slice.md)) | yes |
+| `DEALINGS` | `business_plaza_gate` | `business_founders_plaza` | Capital: Founders' Plaza, Records & Processing east of it, the Business College by a door ([business dimension](business-dimension.md)) | yes |
 | glyphs | `math_gate_home_zone` | `gate_stack_lower` (Ring 7) | the gate stack | when its breaker is on; `TANGENT` is posted on it |
 | glyphs | `intro_portal_zone` | `gate_stack_lower` (Ring 1, the intro's gate) | the gate stack; its door to the hub | when its power switch is on; `LEGAL` is posted on it |
 

@@ -56,6 +56,23 @@ impl BodyMaterial {
     }
 
     pub fn scale(self) -> f32 { self.scale as f32 }
+
+    /// This material's scale with canonical orientation: what a probe of the
+    /// body's standing experiment keeps of it (its start is aligned).
+    pub fn scale_only(self) -> Self { Self { scale: self.scale, orthogonal: DMat2::IDENTITY } }
+
+    /// The gravity a body of this material falls by, from its canonical
+    /// response `g * r`: `s * max(g * r, 0)`, so a body at any scale crosses
+    /// its own height in the same time. Validated before the clamp, so `max`
+    /// cannot hide a NaN, and multiplied wide, so an overflow is a fault and
+    /// not an infinity. Only the gravity response converts: world forces and
+    /// carried acceleration are already world accelerations.
+    pub fn gravity_response(self, canonical: f32) -> Result<f32, NumericFault> {
+        if !canonical.is_finite() { return Err(NumericFault::NonFinite); }
+        let canonical = canonical.max(0.0);
+        if self.scale == 1.0 { return Ok(canonical); }
+        super::scale_quantity(canonical, self.scale())
+    }
     pub fn orthogonal(self) -> Mat2 { Mat2::from_cols(self.orthogonal.x_axis.as_vec2(), self.orthogonal.y_axis.as_vec2()) }
     pub fn reflected(self) -> bool { self.orthogonal.determinant() < 0.0 }
 

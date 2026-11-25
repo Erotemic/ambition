@@ -113,10 +113,11 @@ impl RoomNavigation {
         spec: ae::movement::MotionModelSpec,
         abilities: ae::AbilitySet,
         size: ae::Vec2,
+        material: ae::frame::BodyMaterial,
         base_size: ae::BodyBaseSize,
         frame: ae::MotionFrame,
     ) -> Option<&NavGraph> {
-        let key = NavGraphKey::from_stamp(stamp, spec, abilities, size, base_size, frame);
+        let key = NavGraphKey::from_stamp(stamp, spec, abilities, size, material, base_size, frame);
         if !self.in_use.contains(&key) {
             self.in_use.push(key);
         }
@@ -201,14 +202,17 @@ pub fn advise_navigation(
         };
         let world = room.base();
         let stamp = cache.stamps.of(room);
+        // The canonical size beside the material: the probe converts its
+        // controls by the body's scale as the runtime does.
         cache.by_body.insert(entity, NavGraphKey::from_stamp(stamp, model.spec(), abilities.abilities,
-            kinematics.size(), *base_size, frame.get()));
+            kinematics.canonical_size, kinematics.material, *base_size, frame.get()));
         let graph = cache.graph_of(
             world,
             stamp,
             model.spec(),
             abilities.abilities,
-            kinematics.size(),
+            kinematics.canonical_size,
+            kinematics.material,
             *base_size,
             frame.get(),
         );
@@ -360,7 +364,7 @@ mod tests {
         let abilities = AbilitySet { move_horizontal: true, jump: true, ..AbilitySet::NONE };
         let body = ae::BodyClusterScratch::new_with_abilities(Vec2::ZERO, abilities);
         let stamp = ambition_platformer2d_world::navigation::geometry_stamp(world, &[]);
-        read(cache.graph_of(world, stamp, body.model.spec(), abilities, body.kinematics.size(), body.base_size, frame))
+        read(cache.graph_of(world, stamp, body.model.spec(), abilities, body.kinematics.canonical_size, body.kinematics.material, body.base_size, frame))
     }
 
     /// Two bodies whose frames have one net acceleration and are not one

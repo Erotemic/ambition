@@ -39,6 +39,13 @@ use ambition_combat::actor_tuning::ActorConfig;
 /// - A DEAD body falls by all of its gravity, whatever its authored scale:
 ///   see `gravity_scale_of`.
 ///
+/// - Every arm's response then converts to the body's material scale
+///   ([`FrameEnv::resolve_body`], SR1): a body at half size falls by half the
+///   gravity, so it crosses its own height in the same time and its jump,
+///   whose speed the kernel converts the same way, peaks at the same moment
+///   at half the height. World force zones and carried acceleration do not
+///   convert: they are world accelerations.
+///
 /// [`PoseOwnedExternally`]: ambition_platformer2d_core::PoseOwnedExternally
 /// [`CapturedBy`]: ambition_combat::capture::CapturedBy
 pub fn resolve_body_motion_frames(
@@ -94,7 +101,7 @@ pub fn resolve_body_motion_frames(
     // never go red.
     let player_response = tuning.gravity;
     for (entity, kin, carried, mut resolved) in &mut players {
-        resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), player_response, carried.copied().unwrap_or_default()));
+        resolved.publish_resolved_frame(env.resolve_body(kin.aabb(), live.of(entity), player_response, kin.material, carried.copied().unwrap_or_default()));
     }
     for (entity, kin, carried, config, authored, surface, health, posed, captive, mut resolved) in &mut actors {
         let response = if posed || captive {
@@ -108,7 +115,7 @@ pub fn resolve_body_motion_frames(
             authored.map_or(config.tuning.movement.gravity, |a| a.0.gravity)
                 * gravity_scale_of(surface, health.is_none_or(|health| health.alive()))
         };
-        resolved.publish_resolved_frame(env.resolve(kin.aabb(), live.of(entity), response, carried.copied().unwrap_or_default()));
+        resolved.publish_resolved_frame(env.resolve_body(kin.aabb(), live.of(entity), response, kin.material, carried.copied().unwrap_or_default()));
     }
 }
 
@@ -435,6 +442,148 @@ mod tests {
             frame_of(&app, body).down(),
             "presentation mirror derives from the SAME resolved artifact"
         );
+    }
+
+    /// The resolver's frame for a player body of `scale`, beside a control
+    /// with no zone, when `force` (a world force zone over the body) is set.
+    fn resolved_frames(scales: &[f32], force: Option<ae::Vec2>) -> Vec<ae::MotionFrame> {
+        use ambition_platformer2d_shared_tangle::frame_env::ForceZone;
+        let mut app = resolver_app();
+        let here = ae::Vec2::new(50_000.0, 50_000.0);
+        if let Some(accel) = force {
+            app.world_mut().spawn(ForceZone { aabb: ae::Aabb::new(here, ae::Vec2::splat(10_000.0)), accel });
+        }
+        let bodies: Vec<Entity> = scales.iter().map(|&scale| {
+            let body = spawn_player(&mut app, here);
+            app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap().material =
+                ae::frame::BodyMaterial::new(scale, bevy::math::Mat2::IDENTITY).unwrap();
+            body
+        }).collect();
+        app.update();
+        bodies.into_iter().map(|body| frame_of(&app, body)).collect()
+    }
+
+    /// One body of `scale` falling free for `ticks` under `frame`, stepped by
+    /// the movement kernel as the integrator steps it: its fall, tick by tick.
+    fn free_fall(frame: ae::MotionFrame, scale: f32, ticks: usize) -> Vec<f32> {
+        let tuning = ae::ActiveMovementTuning::default();
+        let start = ae::Vec2::splat(50_000.0);
+        let world = ae::World::new("sr1 free fall", ae::Vec2::splat(100_000.0), start, Vec::new());
+        let mut body = ae::BodyClusterScratch::new_with_abilities(start, ae::AbilitySet::default());
+        body.kinematics.material = ae::frame::BodyMaterial::new(scale, bevy::math::Mat2::IDENTITY).unwrap();
+        let mut model = ae::movement::MotionModel::axis_swept(tuning.axis_swept_params());
+        (0..ticks).map(|_| {
+            let result = ae::movement::step_motion(&mut model, &mut body.as_mut(), ae::movement::MotionStepContext {
+                world: &world,
+                admission: None,
+                input: Default::default(),
+                frame,
+                facing_intent: 0.0,
+                dt: 1.0 / 60.0,
+                contact: ae::movement::body_contact::BodyContactField::NONE,
+                pose_owned_externally: false,
+                recovery_commitment_outstanding: false,
+            });
+            assert!(result.events.motion_refusal.is_none());
+            body.kinematics.pos.y - start.y
+        }).collect()
+    }
+
+    /// SR1 (SCALE-FEEL): a body at half or twice the size falls and jumps in
+    /// its own units at the same times. Through the resolver that publishes
+    /// the frame, the kernel that steps it, and the navigation probe built
+    /// from the body's key: each normalized displacement agrees at 0.5, 1
+    /// and 2, and the jump's apex comes on the same step. A world force zone
+    /// is the counterexample: it moves every body by the same world distance.
+    #[test]
+    fn a_scaled_body_falls_and_jumps_in_its_own_units_at_the_same_times() {
+        let scales = [0.5, 1.0, 2.0];
+        let frames = resolved_frames(&scales, None);
+        let gravity = ae::ActiveMovementTuning::default().gravity;
+        for (scale, frame) in scales.iter().zip(&frames) {
+            assert_eq!(frame.gravity_acceleration().y, gravity * scale, "the response converts at {scale}");
+            assert_eq!(frame.down(), ae::Vec2::Y, "and the orientation does not");
+        }
+
+        // Free fall, normalized by each body's scale.
+        let falls: Vec<Vec<f32>> = scales.iter().zip(&frames)
+            .map(|(&scale, &frame)| free_fall(frame, scale, 45).into_iter().map(|dy| dy / scale).collect())
+            .collect();
+        assert!(falls[1][44] > 100.0, "the control falls: {:?}", falls[1][44]);
+        for fall in &falls {
+            for (tick, (a, b)) in fall.iter().zip(&falls[1]).enumerate() {
+                assert!((a - b).abs() <= 1e-3 * b.abs().max(1.0), "tick {tick}: {a} against {b}");
+            }
+        }
+
+        // The standing probe: the navigation key's body, under the same frame.
+        let tuning = ae::ActiveMovementTuning::default();
+        let walker = ae::BodyClusterScratch::new_with_abilities(ae::Vec2::ZERO, ae::AbilitySet::default());
+        let empty = ae::World::new("sr1 probe", ae::Vec2::splat(1_000.0), ae::Vec2::ZERO, Vec::new());
+        let envelopes: Vec<_> = scales.iter().zip(&frames).map(|(&scale, &frame)| {
+            let key = ambition_platformer2d_world::navigation::NavGraphKey::new(
+                &empty, &[], ae::movement::MotionModelSpec::AxisSwept(tuning.axis_swept_params()),
+                ae::AbilitySet::default(), walker.kinematics.canonical_size,
+                ae::frame::BodyMaterial::new(scale, bevy::math::Mat2::IDENTITY).unwrap(), walker.base_size, frame);
+            ambition_platformer2d_world::navigation::TraversalEnvelope::measure(
+                &key.probe_body(), frame, Default::default()).expect("an aligned frame is measured")
+        }).collect();
+        let apex_step = |envelope: &ambition_platformer2d_world::navigation::TraversalEnvelope| {
+            let apex = envelope.apex_rise();
+            envelope.jump.iter().position(|sample| sample.rise == apex).unwrap()
+        };
+        assert!(envelopes[1].apex_rise() > 20.0, "the control jumps: {}", envelopes[1].apex_rise());
+        for (scale, envelope) in scales.iter().zip(&envelopes) {
+            let (rise, control) = (envelope.apex_rise() / scale, envelopes[1].apex_rise());
+            assert!((rise - control).abs() <= 1e-3 * control, "{scale}: apex {rise} against {control}");
+            assert_eq!(apex_step(envelope), apex_step(&envelopes[1]), "{scale}: the apex comes on the same step");
+            let (body, control) = (envelope.body_height / scale, envelopes[1].body_height);
+            assert!((body - control).abs() <= 1e-4 * control, "{scale}: the probe is the body's size");
+        }
+
+        // The counterexample: a world force is no body's response. What it
+        // adds to each fall is the same WORLD distance at every scale.
+        let forced = resolved_frames(&scales, Some(ae::Vec2::new(0.0, 300.0)));
+        let pushed: Vec<f32> = scales.iter().zip(&forced).zip(&frames)
+            .map(|((&scale, &forced), &free)| free_fall(forced, scale, 30)[29] - free_fall(free, scale, 30)[29])
+            .collect();
+        assert!(pushed[1] > 10.0, "the force moves the control: {}", pushed[1]);
+        for (scale, push) in scales.iter().zip(&pushed) {
+            assert!((push - pushed[1]).abs() <= 1e-2 * pushed[1], "{scale}: the force's {push} world units against {}", pushed[1]);
+        }
+    }
+
+    /// A response that cannot be derived is refused before it is published:
+    /// the frame keeps its orientation and carries no gravity, and the
+    /// movement kernel will not step the body under it.
+    #[test]
+    fn a_response_that_overflows_is_refused_and_moves_nothing() {
+        let mut app = resolver_app();
+        app.world_mut().resource_mut::<ae::ActiveMovementTuning>().0.gravity = f32::MAX;
+        let body = spawn_player(&mut app, ae::Vec2::ZERO);
+        app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap().material =
+            ae::frame::BodyMaterial::new(4.0, bevy::math::Mat2::IDENTITY).unwrap();
+        let control = spawn_player(&mut app, ae::Vec2::ZERO);
+        app.update();
+        let frame = frame_of(&app, body);
+        assert!(frame.response_refused());
+        assert_eq!(frame.gravity_acceleration(), ae::Vec2::ZERO);
+        assert_eq!(frame.down(), ae::Vec2::Y);
+        assert!(!frame_of(&app, control).response_refused(), "control: the identity scale converts nothing");
+
+        let start = ae::Vec2::splat(500.0);
+        let world = ae::World::new("sr1 refusal", ae::Vec2::splat(1_000.0), start, Vec::new());
+        let mut scratch = ae::BodyClusterScratch::new_with_abilities(start, ae::AbilitySet::default());
+        scratch.kinematics.vel = ae::Vec2::new(40.0, 0.0);
+        let mut model = ae::movement::MotionModel::axis_swept(ae::ActiveMovementTuning::default().axis_swept_params());
+        let result = ae::movement::step_motion(&mut model, &mut scratch.as_mut(), ae::movement::MotionStepContext {
+            world: &world, admission: None, input: Default::default(), frame, facing_intent: 0.0,
+            dt: 1.0 / 60.0, contact: ae::movement::body_contact::BodyContactField::NONE,
+            pose_owned_externally: false, recovery_commitment_outstanding: false,
+        });
+        assert_eq!(scratch.kinematics.pos, start, "nothing moved under a refused frame");
+        assert_eq!(result.events.motion_refusal.map(|refusal| refusal.reason),
+            Some(ae::frame::thread::RefusalReason::Numeric(ae::frame::NumericFault::InvalidFrame)));
     }
 }
 

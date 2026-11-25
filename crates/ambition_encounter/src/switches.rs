@@ -379,6 +379,10 @@ pub enum SwitchAction {
     /// in the switch's own live room) to the stop it is not at. The switch
     /// stores nothing; the platform domain moves the lift.
     MoveLift,
+    /// Open or shut the scripted door its target names (a mechanism door's
+    /// id in the switch's own live room). The switch stores nothing; the door
+    /// keeps whether it is open.
+    ToggleDoor,
     /// Authored but not a kind this engine acts on. Carried rather than dropped
     /// so a consumer can report it; the string road could not tell this apart
     /// from a handled action that did nothing.
@@ -442,6 +446,9 @@ impl SwitchAction {
         }
         if action == "MoveLift" {
             return Self::MoveLift;
+        }
+        if action == "ToggleDoor" {
+            return Self::ToggleDoor;
         }
         Self::Unhandled(action.to_string())
     }
@@ -651,7 +658,11 @@ pub fn drain_switch_activations(
                     .map(|alive| !alive)
                     .unwrap_or(false)
             }
-            SwitchAction::Activate | SwitchAction::GateTerminal | SwitchAction::MoveLift | SwitchAction::Unhandled(_) => save.data().switch(&activation.id),
+            SwitchAction::Activate
+            | SwitchAction::GateTerminal
+            | SwitchAction::MoveLift
+            | SwitchAction::ToggleDoor
+            | SwitchAction::Unhandled(_) => save.data().switch(&activation.id),
         };
         resolved.0.push(ResolvedSwitchActivation {
             subject,

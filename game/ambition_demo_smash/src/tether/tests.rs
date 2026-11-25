@@ -200,7 +200,7 @@ fn where_the_reel_releases_her_is_a_place_the_authority_would_catch() {
         kin.size(),
         -1.0,
         &world,
-        ambition_platformer2d::world::ResolvedMotionFrame::default().down(),
+        ambition_platformer2d::world::ResolvedMotionFrame::default().down(), ae::ledge_grab::LedgeReach::CANONICAL,
     );
     assert!(contact.is_some(), "the reel released her at {:?}, where the authority's probe finds no ledge", kin.pos);
 }

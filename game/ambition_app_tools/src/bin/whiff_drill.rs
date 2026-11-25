@@ -19,7 +19,7 @@
 //! there (`scripts/measure/smash_punish_windows.py`), does the CPU take it?
 //!
 //! ```bash
-//! cargo run -p ambition_app_tools --bin whiff_drill -- \
+//! cargo run -p ambition_app_tools --features game --bin whiff_drill -- \
 //!     --whiffer pugnacious_polygon --verb smash_forward --cpu pointed_polygon --level 9 --seconds 60
 //! ```
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};

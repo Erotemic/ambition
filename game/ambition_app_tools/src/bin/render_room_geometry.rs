@@ -5,8 +5,8 @@
 //! For live geometry, use `inspect_geometry` or `capture_scene --geometry-overlay`.
 //!
 //! Usage:
-//!   cargo run -p ambition_app_tools --bin render_room_geometry -- [ROOM_ID] [OUT.png]
-//!   cargo run -p ambition_app_tools --bin render_room_geometry -- capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]
+//!   cargo run -p ambition_app_tools --features game --bin render_room_geometry -- [ROOM_ID] [OUT.png]
+//!   cargo run -p ambition_app_tools --features game --bin render_room_geometry -- capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]
 //!
 //! With no room ID, list the rooms in Ambition's world manifest.
 

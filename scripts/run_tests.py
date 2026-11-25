@@ -124,6 +124,16 @@ if not os.path.exists(CARGO):
 NEXTEST = os.path.exists(os.path.expanduser("~/.cargo/bin/cargo-nextest"))
 
 
+# The tools package's simulating and capturing bins (`ambition_app_tools`)
+# require its `game` feature, which is off by default so an offline report
+# builds without the game (CB4). `required-features` SKIPS a bin, and its
+# `#[test]` arms with it, rather than failing, so every workspace-wide lane
+# names the feature: without it a green run would cover 25 fewer targets.
+WORKSPACE_FEATURES = ["--features", "ambition_app_tools/game"]
+# A package-filtered lane over the tools package needs the same feature.
+PACKAGE_FEATURES = {"ambition_app_tools": ["--features", "game"]}
+
+
 def cargo_test(args: list[str], libtest: list[str]) -> list[str]:
     """One `cargo test`-shaped invocation, routed through nextest when present.
 
@@ -751,7 +761,8 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
             package = package_name(crate)
             if package in only:
                 jobs.append(Job(f"{package} (default features)",
-                                cargo_test(["-p", package], list(libtest_args))))
+                                cargo_test(["-p", package, *PACKAGE_FEATURES.get(package, [])],
+                                           list(libtest_args))))
                 # A package with no library has no doctests: `cargo test
                 # --doc` exits 101 ("no library targets found"), and the job
                 # failed a run whose tests all passed.
@@ -763,7 +774,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                           file=sys.stderr)
     else:
         jobs.append(Job("workspace (default features)",
-                        cargo_test(["--workspace"], list(libtest_args))))
+                        cargo_test(["--workspace", *WORKSPACE_FEATURES], list(libtest_args))))
         if NEXTEST:
             jobs.append(Job("workspace doctests",
                             [CARGO, "test", "--workspace", "--doc"]))
@@ -837,7 +848,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # reported the error and both exited 101 — a warm tree cannot pass where
         # a cold one fails.
         jobs.append(Job("clippy (workspace, all targets, deny-by-default lints)",
-                        [CARGO, "clippy", "--workspace", "--all-targets"]))
+                        [CARGO, "clippy", "--workspace", "--all-targets", *WORKSPACE_FEATURES]))
 
     # The embedded sprite tree. A development build reads the tree at run time,
     # so the default lanes never compile the road a player build takes (the
@@ -867,7 +878,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # package-filtered runs stay scoped to the requested crate.
     if not only:
         jobs.append(Job("acceptance: the render composition draws a frame",
-                        [CARGO, "run", "-p", "ambition_app_tools",
+                        [CARGO, "run", "-p", "ambition_app_tools", "--features", "game",
                          "--bin", "capture_scene", "--",
                          "central_hub_complex", "player",
                          "target/composition_boot.png", "320x180",
@@ -934,7 +945,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
             jobs.append(Job(
                 "workspace [every headless-safe feature] — one graph, every gated test",
                 [CARGO, "test", "--workspace", "--no-fail-fast",
-                 "--features", ",".join(sorted(set(union_features))), *libtest()],
+                 "--features", ",".join(sorted(set(union_features) | {"ambition_app_tools/game"})), *libtest()],
             ))
         else:
             # The causal instrument against the real composition, kept for the
@@ -1112,7 +1123,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # `scripts/tests/test_probe_tests_are_named_probe.py` keeps the naming
         # honest, so this `--skip` cannot quietly stop matching.
         jobs.append(Job("workspace (+ ignored, probes skipped, serial)",
-                        cargo_test(["--workspace"],
+                        cargo_test(["--workspace", *WORKSPACE_FEATURES],
                                    list(libtest_args)
                                    + ["--include-ignored", "--skip", "probe_",
                                       "--test-threads=1"])))

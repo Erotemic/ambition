@@ -25,4 +25,4 @@ ambition_require_python_module "$python_bin" ambition_ldtk_tools \
 "$python_bin" -m ambition_ldtk_tools validate \
     game/ambition_content/assets/worlds/sandbox.ldtk
 # `--` first: everything after it is the BINARY's, not cargo's.
-RUST_BACKTRACE=1 cargo run -p ambition_app_tools --bin headless --release -- "$@"
+RUST_BACKTRACE=1 cargo run -p ambition_app_tools --features game --bin headless --release -- "$@"

@@ -36,7 +36,7 @@ route="${PRESS_DURING_ROUTE:-ambition_launcher}"
 press="${PRESS_DURING_PRESS:-Enter}"
 
 echo "building capture_scene ..."
-cargo build -p ambition_app_tools --bin capture_scene
+cargo build -p ambition_app_tools --features game --bin capture_scene
 bin=target/debug/capture_scene
 
 shoot() {

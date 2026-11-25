@@ -138,7 +138,7 @@ centring the cell would reproduce, in the viewer, the exact defect the engine's
 own sprite anchor had until 2026-08-27.
 
 ```bash
-cargo run -p ambition_app_tools --bin moveset_takes -- --characters npc_pirate_admiral
+cargo run -p ambition_app_tools --features game --bin moveset_takes -- --characters npc_pirate_admiral
 ```
 
 It drives the nineteen repertoire presses through the real control frame into a
@@ -218,7 +218,7 @@ browser refuses a manifest whose scenario differs from the take it is showing.
 regenerates the semantic take first, then GPU evidence for that take's horizon.
 
 ```bash
-cargo build -p ambition_app_tools --bin moveset_render
+cargo build -p ambition_app_tools --features game --bin moveset_render
 target/debug/moveset_render --character projectile_polygon --verb attack \
     --out /tmp/a --frames 24 --stride 2
 ```
@@ -280,7 +280,7 @@ measures it: a window being open is not the same as a press arriving inside it.
 ### Does A chain into B?
 
 ```bash
-cargo run -p ambition_app_tools --bin moveset_takes -- \
+cargo run -p ambition_app_tools --features game --bin moveset_takes -- \
     --characters npc_pirate_admiral --verbs attack --spacing 40 \
     --chain attack --chain-at 14
 ```
@@ -311,7 +311,7 @@ The chain above says WHAT changed. WHY — `ignored` / `blocked` / `armored` /
 the take carries the inspector's facts:
 
 ```bash
-cargo run -p ambition_app_tools --bin moveset_takes --features causal -- \
+cargo run -p ambition_app_tools --features game --bin moveset_takes --features causal -- \
     --characters npc_pirate_admiral --verbs attack --spacing 40
 ```
 
@@ -512,7 +512,7 @@ beside `opponent_output` so a zero there reads as the scenario rather than as
 evidence.
 
 ```bash
-cargo run -p ambition_app_tools --bin moveset_takes -- \
+cargo run -p ambition_app_tools --features game --bin moveset_takes -- \
     --characters npc_pirate_admiral --target projectile_polygon
 ```
 
@@ -541,7 +541,7 @@ toggles between "sprites" and "boxes" with no sprites to toggle to — which rea
 as a dead control rather than as missing data.
 
 ```bash
-cargo run -p ambition_app_tools --bin moveset_takes -- --characters <id>,<id>
+cargo run -p ambition_app_tools --features game --bin moveset_takes -- --characters <id>,<id>
 ```
 
 The Status tab reports it directly — `14390/14445 bodies with art, 481/481
@@ -578,7 +578,7 @@ you switch tabs. Status names coverage too.
 Or record the whole grid:
 
 ```bash
-cargo run -p ambition_app_tools --bin moveset_takes -- --characters grid
+cargo run -p ambition_app_tools --features game --bin moveset_takes -- --characters grid
 ```
 
 ⚠ MEASURED 2026-08-27: **~1m17 per character**, so the 21-fighter grid is about
@@ -742,7 +742,7 @@ The GPU path renders a fighter **performing a selected move**, one PNG per exact
 simulation tick.
 
 ```bash
-cargo build -p ambition_app_tools --bin moveset_render
+cargo build -p ambition_app_tools --features game --bin moveset_render
 target/debug/moveset_render --character npc_pirate_admiral --verb special_up \
     --out /tmp/upb --frames 24 --stride 2
 ```

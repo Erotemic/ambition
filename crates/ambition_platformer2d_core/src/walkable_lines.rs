@@ -26,7 +26,7 @@
 //! It is stateless: what a body stands on is found again each tick from where
 //! it is, as for a box top. Nothing here is rollback state.
 
-use crate::collision_semantics::ONE_WAY_CROSSING_SLOP;
+use crate::collision_semantics::ContactBands;
 use crate::world::{Boarding, World};
 use crate::{Aabb, AabbExt, Vec2};
 
@@ -35,10 +35,6 @@ pub const WALK_SLOPE_LIMIT_DEG: f32 = 50.0;
 
 /// How far up the stick is held to step onto a line whose boarding is `Up`.
 pub const BOARDING_UP: f32 = 0.5;
-
-/// How much of a line must be under the foot span for the body to stand on
-/// it (the box-top rule's `EDGE_OVERLAP_SLOP`).
-const SPAN_OVERLAP_SLOP: f32 = crate::collision_semantics::EDGE_OVERLAP_SLOP;
 
 /// The line a body stands on, under its foot span.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -67,15 +63,17 @@ fn across(down: Vec2) -> Vec2 {
 
 /// Each walkable line under `body`'s foot span whose highest point there is
 /// within `[feet - above, feet + below]` of the body's feet coordinate: one
-/// for each chain, at its highest point under the span.
-pub fn lines_under_feet(world: &World, body: Aabb, down: Vec2, above: f32, below: f32) -> Vec<LineSupport> {
-    lines_under(world, body, down, above, below, false)
+/// for each chain, at its highest point under the span. At least
+/// `edge_overlap` of a line must be under the span (the box-top rule's
+/// [`ContactBands::edge_overlap`]).
+pub fn lines_under_feet(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, edge_overlap: f32) -> Vec<LineSupport> {
+    lines_under(world, body, down, above, below, edge_overlap, false)
 }
 
 /// [`lines_under_feet`], each line measured against `body` moved by the
 /// displacement that line made this tick: which line the body stood on as
 /// the tick began, when the lines that move have already moved.
-fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, with_motion: bool) -> Vec<LineSupport> {
+fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, edge_overlap: f32, with_motion: bool) -> Vec<LineSupport> {
     let mut found: Vec<LineSupport> = Vec::new();
     if world.chains.is_empty() || down == Vec2::ZERO {
         return found;
@@ -111,7 +109,7 @@ fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, wi
             }
             let (sa, sb) = (a.dot(side), b.dot(side));
             let (u0, u1) = (sa.min(sb).max(lo), sa.max(sb).min(hi));
-            if u1 - u0 <= SPAN_OVERLAP_SLOP {
+            if u1 - u0 <= edge_overlap {
                 continue;
             }
             // The line's feet coordinate at each end of the overlap; the
@@ -125,8 +123,17 @@ fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, wi
             let coord = point.dot(down);
             // A line that turned moved its points across the body's width by
             // different amounts: the body, carried by the motion at the middle
-            // of its feet, is off its support by up to that much.
-            let turned = if with_motion { chain.turn.abs() * half_span * 2.0 } else { 0.0 };
+            // of its feet, is off its support by up to that much. A segment
+            // whose ends travelled apart differs across the width by the
+            // difference of its ends' travel, in proportion.
+            let turned = if !with_motion {
+                0.0
+            } else if chain.deforms() {
+                let spread = (chain.travel_at(si, 1.0) - chain.travel_at(si, 0.0)).length();
+                spread * (half_span * 2.0 / len).min(1.0)
+            } else {
+                chain.turn.abs() * half_span * 2.0
+            };
             if coord < feet - above - turned || coord > feet + below + turned {
                 continue;
             }
@@ -138,7 +145,7 @@ fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, wi
                     point,
                     normal,
                     ends: [p0, p1],
-                    velocity: chain.velocity,
+                    velocity: if chain.deforms() { chain.travel_at(si, (point - a).dot(t) / (len * len)) } else { chain.velocity },
                     carry: chain.carried(point) - point,
                 });
             }
@@ -150,8 +157,8 @@ fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, wi
 
 /// The highest walkable line under `body`'s foot span within
 /// `[feet - above, feet + below]` (see [`lines_under_feet`]).
-pub fn line_under_feet(world: &World, body: Aabb, down: Vec2, above: f32, below: f32) -> Option<LineSupport> {
-    lines_under_feet(world, body, down, above, below)
+pub fn line_under_feet(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, edge_overlap: f32) -> Option<LineSupport> {
+    lines_under_feet(world, body, down, above, below, edge_overlap)
         .into_iter()
         .min_by(|a, b| a.feet_coord.total_cmp(&b.feet_coord))
 }
@@ -159,15 +166,15 @@ pub fn line_under_feet(world: &World, body: Aabb, down: Vec2, above: f32, below:
 /// Is `body` standing on a walkable line where it is: its feet on the line,
 /// or over it within the contact slop? A line above the feet (the foot of a
 /// ramp the body stands beside) is not under them.
-pub fn standing_on_line(world: &World, body: Aabb, down: Vec2) -> Option<LineSupport> {
-    line_under_feet(world, body, down, ON_LINE_EPSILON, crate::collision_semantics::CONTACT_SLOP)
+pub fn standing_on_line(world: &World, body: Aabb, down: Vec2, bands: ContactBands) -> Option<LineSupport> {
+    line_under_feet(world, body, down, ON_LINE_EPSILON, bands.contact, bands.edge_overlap)
 }
 
 /// [`standing_on_line`] as a tick begins: a line that moved this tick (a
 /// ridden mount's slope) is where the body stood on it once the body is
 /// moved with it.
-pub fn stood_on_line(world: &World, body: Aabb, down: Vec2) -> Option<LineSupport> {
-    lines_under(world, body, down, ON_LINE_EPSILON, crate::collision_semantics::CONTACT_SLOP, true)
+pub fn stood_on_line(world: &World, body: Aabb, down: Vec2, bands: ContactBands) -> Option<LineSupport> {
+    lines_under(world, body, down, ON_LINE_EPSILON, bands.contact, bands.edge_overlap, true)
         .into_iter()
         .min_by(|a, b| a.feet_coord.total_cmp(&b.feet_coord))
 }
@@ -177,7 +184,7 @@ pub fn stood_on_line(world: &World, body: Aabb, down: Vec2) -> Option<LineSuppor
 /// point there is at its feet, as [`standing_on_line`] finds them. The whole
 /// segment, not only the part under the box: the support of a body goes on
 /// past its box (`collision_semantics::footing`).
-pub fn spans_underfoot(world: &World, body: Aabb, down: Vec2, side: Vec2) -> Vec<(f32, f32)> {
+pub fn spans_underfoot(world: &World, body: Aabb, down: Vec2, side: Vec2, bands: ContactBands) -> Vec<(f32, f32)> {
     let mut spans = Vec::new();
     if world.chains.is_empty() || down == Vec2::ZERO {
         return spans;
@@ -199,7 +206,7 @@ pub fn spans_underfoot(world: &World, body: Aabb, down: Vec2, side: Vec2) -> Vec
             }
             let (sa, sb) = (a.dot(side), b.dot(side));
             let (u0, u1) = (sa.min(sb).max(lo), sa.max(sb).min(hi));
-            if u1 - u0 <= SPAN_OVERLAP_SLOP {
+            if u1 - u0 <= bands.edge_overlap {
                 continue;
             }
             let at = |u: f32| {
@@ -207,7 +214,7 @@ pub fn spans_underfoot(world: &World, body: Aabb, down: Vec2, side: Vec2) -> Vec
                 a + t * k
             };
             let highest = at(u0).dot(down).min(at(u1).dot(down));
-            if highest < feet - ON_LINE_EPSILON || highest > feet + crate::collision_semantics::CONTACT_SLOP {
+            if highest < feet - ON_LINE_EPSILON || highest > feet + bands.contact {
                 continue;
             }
             spans.push((sa.min(sb), sa.max(sb)));
@@ -241,28 +248,38 @@ pub(crate) fn material_lines(
         for si in 0..chain.segment_count() {
             let (a, b) = chain.segment(si);
             let face = chain.normal_at_time(si, time).map_err(numeric)?;
+            // The segment where it is at the query's time. A line whose shape
+            // changed is queried there as it stands, since its query interval
+            // is one instant; a rigid line keeps its own motion law.
+            let (a_at, b_at) = chain.segment_at_time(si, time).map_err(numeric)?;
+            let deforms = chain.deforms();
             for part in cells.parts() {
-                let Some(hit) = cells.against_rigid_where(part, &[a, b], chain.velocity, chain.turn, chain.pivot,
-                    |hit| hit.normal.dot(-down) >= min_up && hit.map.direction(hit.normal).dot(face) > 0.5)? else { continue; };
-                let physical_point = chain.pivot.as_dvec2() + crate::frame::rotation_ending_at(f64::from(chain.turn), time)
-                    * (a.as_dvec2() - chain.pivot.as_dvec2()) - chain.velocity.as_dvec2() * (1.0 - time);
-                let edge = b.as_dvec2() - a.as_dvec2();
-                let outward = crate::frame::rotation_ending_at(f64::from(chain.turn), time)
-                    * bevy_math::DVec2::new(edge.y, -edge.x).normalize();
-                if hit.toi == 0.0 && !cells.in_front_of(part, 0.0, physical_point, outward)? { continue; }
-                let inverse = hit.map.inverse().map_err(numeric)?;
-                let at = |point: Vec2| -> Result<Vec2, crate::frame::NumericFault> {
-                    let point = chain.pivot.as_dvec2() + crate::frame::rotation_ending_at(f64::from(chain.turn), time)
-                        * (point.as_dvec2() - chain.pivot.as_dvec2()) - chain.velocity.as_dvec2() * (1.0 - time);
-                    inverse.point_from_wide(point)
+                let accepts = |hit: &crate::frame::material_cast::MaterialCastHit| hit.normal.dot(-down) >= min_up && hit.map.direction(hit.normal).dot(face) > 0.5;
+                let hit = if deforms {
+                    cells.against_rigid_where(part, &[a_at.as_vec2(), b_at.as_vec2()], Vec2::ZERO, 0.0, Vec2::ZERO, accepts)?
+                } else {
+                    cells.against_rigid_where(part, &[a, b], chain.velocity, chain.turn, chain.pivot, accepts)?
                 };
-                let ends = [at(a).map_err(numeric)?, at(b).map_err(numeric)?];
+                let Some(hit) = hit else { continue; };
+                let edge = b_at - a_at;
+                let outward = bevy_math::DVec2::new(edge.y, -edge.x).normalize();
+                if hit.toi == 0.0 && !cells.in_front_of(part, 0.0, a_at, outward)? { continue; }
+                let inverse = hit.map.inverse().map_err(numeric)?;
+                let ends = [inverse.point_from_wide(a_at).map_err(numeric)?, inverse.point_from_wide(b_at).map_err(numeric)?];
                 let correction = -above + (above + below) * hit.toi as f32;
+                // The tick's travel of the material point under the contact.
+                let (velocity, carry) = if deforms {
+                    let u = if edge.length_squared() > 0.0 { ((hit.world_point.as_dvec2() - a_at).dot(edge) / edge.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
+                    let travel = chain.travel_at(si, u as f32);
+                    (travel, travel)
+                } else {
+                    (chain.velocity, chain.carried(hit.world_point) - hit.world_point)
+                };
                 let line = LineSupport { chain: ci, segment: si,
                     feet_coord: body.aabb().feet_coord(down) + correction,
                     point: hit.point, normal: hit.normal, ends,
-                    velocity: inverse.vector(chain.velocity).map_err(numeric)?,
-                    carry: inverse.vector(chain.carried(hit.world_point) - hit.world_point).map_err(numeric)?,
+                    velocity: inverse.vector(velocity).map_err(numeric)?,
+                    carry: inverse.vector(carry).map_err(numeric)?,
                 };
                 if best.is_none_or(|known| line.feet_coord < known.feet_coord) { best = Some(line); }
             }
@@ -276,7 +293,7 @@ pub(crate) fn stood_on_material_line(
     world: &World, body: &crate::BodyKinematics, down: Vec2,
     admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) -> Result<Option<LineSupport>, crate::frame::thread::Refusal> {
-    Ok(material_lines(world, body, down, ON_LINE_EPSILON, crate::collision_semantics::CONTACT_SLOP, 0.0, admission)?
+    Ok(material_lines(world, body, down, ON_LINE_EPSILON, ContactBands::of(body.material).contact, 0.0, admission)?
         .into_iter().min_by(|a,b| a.feet_coord.total_cmp(&b.feet_coord)))
 }
 
@@ -286,9 +303,9 @@ const ON_LINE_EPSILON: f32 = 0.05;
 
 /// How far a line may rise or fall under a body that moves `travel` across
 /// the floor and still be walked: the slope limit's rise over that travel,
-/// and the one-way surface's crossing slop.
-pub fn walk_allowance(travel: f32) -> f32 {
-    ONE_WAY_CROSSING_SLOP + travel.abs() * WALK_SLOPE_LIMIT_DEG.to_radians().tan()
+/// and the body's one-way crossing band ([`ContactBands::crossing`]).
+pub fn walk_allowance(travel: f32, crossing: f32) -> f32 {
+    crossing + travel.abs() * WALK_SLOPE_LIMIT_DEG.to_radians().tan()
 }
 
 /// What a step did on a line.
@@ -342,7 +359,7 @@ pub fn settle_on_line(world: &World, kinematics: &crate::BodyKinematics, down: V
     let feet = body.feet_coord(down);
     let side = across(down);
     let travel = step.moved.dot(side);
-    let allowance = walk_allowance(travel);
+    let allowance = walk_allowance(travel, ContactBands::of(kinematics.material).crossing);
     // Above the feet: the line rose under a body that walked up it, or the
     // body fell through it this step. Either way the feet were not under the
     // line by more than the allowance at the start of the step.
@@ -495,6 +512,60 @@ mod tests {
         world_with(vec![Vec2::new(0.0, 200.0), Vec2::new(100.0, 200.0), Vec2::new(300.0, 100.0), Vec2::new(400.0, 100.0)])
     }
 
+    /// SUP1: a line whose shape changed is queried, carried and bounded by
+    /// its shape. A floor that contracts from `[-20,20]` to `[-10,10]` about a
+    /// fixed centre has no displacement and no turn, so a rigid reading saw
+    /// the short line as the tick began, left the old outer parts out of its
+    /// bounds, and carried a point three quarters along the old line nowhere.
+    #[test]
+    fn a_contracting_line_carries_its_material_and_keeps_its_old_extent() {
+        let mut world = world_with(vec![Vec2::new(-10.0, 200.0), Vec2::new(10.0, 200.0)]);
+        world.chains[0].shape_before = vec![Vec2::new(-20.0, 200.0), Vec2::new(20.0, 200.0)];
+        let line = &world.chains[0];
+        assert!(line.moves(), "a line whose shape changed moves");
+        assert_eq!(line.carried(Vec2::new(10.0, 200.0)), Vec2::new(5.0, 200.0), "three quarters along stays three quarters along");
+        let bounds = crate::spatial::Spatial::swept_bounds(line);
+        assert!(bounds.min.x <= -20.0 && bounds.max.x >= 20.0, "the bounds keep the old extent: {bounds:?}");
+        // A body over the old outer part stood on the line as the tick began,
+        // and is off it now.
+        let body = body_at(Vec2::new(30.0, 200.0));
+        let start = material_lines(&world, &body, DOWN, 1.0, 1.0, 0.0, None).unwrap();
+        assert_eq!(start.len(), 1, "the line as the tick began is under it");
+        assert!(material_lines(&world, &body, DOWN, 1.0, 1.0, 1.0, None).unwrap().is_empty(), "the line now is not");
+        // The material under it (at least nine tenths along) goes inward
+        // with its end: 10 - 20u.
+        let carry = start[0].carry;
+        assert!((-10.0..=-8.0).contains(&carry.x) && carry.y == 0.0, "{carry:?}");
+        assert_eq!(start[0].velocity, carry, "the point's travel is its velocity");
+        // The same end pose, rigid: nothing moves, nothing is under the body.
+        world.chains[0].shape_before.clear();
+        assert!(!world.chains[0].moves());
+        assert!(material_lines(&world, &body, DOWN, 1.0, 1.0, 0.0, None).unwrap().is_empty());
+    }
+
+    /// SUP1: the continuous sweep meets a stretching line when its end
+    /// arrives. The line's end goes from x 20 to x 30 while its start stays;
+    /// a body standing still at x 25..35 is reached half way through the
+    /// tick, and the surface there travels with that end. The rigid fit the
+    /// line still publishes (moved 5 as a whole) put its end at 25 when the
+    /// tick began, a contact at once.
+    #[test]
+    fn the_sweep_meets_a_stretching_line_when_its_end_arrives() {
+        let mut world = world_with(vec![Vec2::new(-20.0, 5.0), Vec2::new(30.0, 5.0)]);
+        world.chains[0].shape_before = vec![Vec2::new(-20.0, 5.0), Vec2::new(20.0, 5.0)];
+        world.chains[0].velocity = Vec2::new(5.0, 0.0);
+        let body = crate::BodyKinematics { pos: Vec2::new(30.0, 5.0), canonical_size: Vec2::splat(10.0), ..Default::default() };
+        let domain = body.canonical_box().unwrap();
+        let cells = crate::frame::material_cast::MaterialCast::new(crate::frame::thread::MaterialPrimitive {
+            domain: &domain, to_world: body.material_map().unwrap(),
+        }, body.pos, Vec2::ZERO, 0.0..1.0).cells(None).unwrap();
+        let hit = world.first_material_contact(&cells, |_, _, _| Ok(true)).unwrap().expect("the end reaches the body");
+        assert!((hit.contact.world_time - 0.5).abs() < 1e-6, "{}", hit.contact.world_time);
+        assert!(matches!(hit.collider, crate::world::MaterialCollider::Chain { segment: 0, .. }));
+        let travel = hit.collider.displacement_at(hit.contact.world_point, hit.contact.world_time);
+        assert!((travel - Vec2::new(10.0, 0.0)).length() < 1e-3, "the surface there goes with its end: {travel:?}");
+    }
+
     #[test]
     fn unknown_line_motion_refuses_support_until_it_has_a_finite_envelope() {
         let mut world = world_with(vec![Vec2::new(-100.0, 200.0), Vec2::new(100.0, 200.0)]);
@@ -518,7 +589,7 @@ mod tests {
     fn the_feet_rest_on_the_highest_point_of_the_line_under_the_box() {
         let world = ramp();
         // Centred at x 200 the box spans 186..214; the line is highest at 214.
-        let line = standing_on_line(&world, body_at(Vec2::new(200.0, 143.0)).aabb(), DOWN).expect("on the ramp");
+        let line = standing_on_line(&world, body_at(Vec2::new(200.0, 143.0)).aabb(), DOWN, crate::collision_semantics::ContactBands::CANONICAL).expect("on the ramp");
         assert!((line.feet_coord - 143.0).abs() < 1.0e-3, "{line:?}");
         assert!((line.point.x - 214.0).abs() < 1.0e-3);
     }
@@ -530,7 +601,7 @@ mod tests {
         let rising = settle_on_line(&world, &under, DOWN, step(Vec2::new(0.0, -100.0), 175.0, 0.0, false), None).unwrap();
         assert!(rising.is_none(), "a rising body passes the line");
         let wall = world_with(vec![Vec2::new(0.0, 300.0), Vec2::new(20.0, 100.0)]);
-        assert!(line_under_feet(&wall, body_at(Vec2::new(10.0, 200.0)).aabb(), DOWN, 500.0, 500.0).is_none());
+        assert!(line_under_feet(&wall, body_at(Vec2::new(10.0, 200.0)).aabb(), DOWN, 500.0, 500.0, crate::collision_semantics::EDGE_OVERLAP_SLOP).is_none());
     }
 
     #[test]

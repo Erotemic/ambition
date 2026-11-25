@@ -178,7 +178,7 @@ done
 # marker can take a per-command environment, say so out loud rather than let the
 # banner below be believed.
 if [[ "$with_tests" -eq 1 ]]; then
-    mark_commands+=("test --no-run --workspace")
+    mark_commands+=("test --no-run --workspace --features ambition_app_tools/game")
     printf '⚠ the test graph is marked under CARGO_INCREMENTAL=1 (this repo defaults
 '
     printf '  incremental=true) but run_tests.sh builds it with CARGO_INCREMENTAL=0.

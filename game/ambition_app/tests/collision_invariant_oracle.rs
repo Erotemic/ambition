@@ -14,7 +14,7 @@
 //! ```
 //!
 //! Each flagged step prints `(room, seed, tick, pos)` so it reproduces through
-//! `cargo run -p ambition_app_tools --bin rl_random_walker -- <STEPS> <SEED>` after a `--start-room`.
+//! `cargo run -p ambition_app_tools --features game --bin rl_random_walker -- <STEPS> <SEED>` after a `--start-room`.
 
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::AmbitionSim;

@@ -119,7 +119,7 @@ python -m ambition_ldtk_tools.edit.intgrid paint --level central_hub_basement \
 Photograph the room with the navigation overlay:
 
 ```bash
-cargo run -p ambition_app_tools --bin capture_scene -- central_hub_complex 950,1500 out.png 1500x1584 \
+cargo run -p ambition_app_tools --features game --bin capture_scene -- central_hub_complex 950,1500 out.png 1500x1584 \
     --fit-room --warmup 900 --nav-overlay
 ```
 

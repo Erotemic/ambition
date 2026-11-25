@@ -271,8 +271,11 @@ value as completion of that owner's contract.
    binding landed 2026-11-24: a `lift_called` lift waits at both stops and a
    `MoveLift` switch in its room sends it. `create_mechanism` landed the same
    day: one scripted request builds lifts and the switches that send them,
-   bound by local key, with two copies in one room kept apart. Open: the
-   door, which needs a per-instance owner; lift occurrences; the
+   bound by local key, with two copies in one room kept apart. Lift occurrences
+   landed 2026-11-25: each lift is an object of the batch that a caller
+   retires alone (schema 543). Door occurrences landed the same day: a
+   scripted door stands in its own room's gate solids while shut, and a
+   `ToggleDoor` switch of the same request opens it (schema 544). Open: the
    second-instance witness, which waits on two concurrent copies of one
    room. Rollback through one child's retirement is witnessed.) Producer-validity delegation
    follows the existing [asset owner](engine/asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings).
@@ -717,8 +720,13 @@ the schema library). CB2's typed entrypoints now hand plain values to one untype
 one reducer body each across phases (2026-11-22). For CB4, the offline item report builds without the game (2026-11-22,
 `--no-default-features`), and the harness no longer inherits the facade's
 defaults (2026-11-25: its own graph lost the renderer, menus and LDtk, 626 →
-549 crates; no current consumer's graph changes). Next, make `game`
-default-off in the launch descriptors. Try explicit optional feature families before adding packages.
+549 crates; no current consumer's graph changes). `game` is now default-off
+(2026-11-25). Every launch descriptor names it, and every workspace-wide
+lane names `ambition_app_tools/game`, so no bin's tests are silently
+skipped. The plain tools graph is 247 crates against 939
+([slice](engine/compiler-boundaries-and-build-products.md#cb4--select-command-dependencies-and-the-harnesss-actual-services)).
+Remaining: a harness-alone consumer and persistence's windowed Bevy. Try
+explicit optional feature families before adding packages.
 Do not move tool binaries back into app integration-test builds.
 
 **Acceptance:** an independent schema consumer excludes the checker; the
@@ -972,7 +980,22 @@ visual product gate.
 
 ### MOVING-SUPPORT — retain a support's shape motion
 
-**State:** PLANNED, static source review at `00bf92c22142`, 2026-11-22.
+**State:** DONE 2026-11-25 for the no-portal scope. A changing support
+publishes its start shape (`SurfaceChain::shape_before`).
+
+- **Readers.** Every native reader uses that shape: carry, prior support,
+  ledges, point velocity, bounds and the continuous sweeps (an exact
+  deforming-segment cast).
+- **Source phase.** The support follows the phase its owner pinned, with
+  no forecast.
+- **The real GNU giant.** The giant's shoulder carries a body through a
+  hammer, and all 43 `gnu_ton_fight` tests pass
+  ([landed](engine/slopes-feet-ride-surfaces.md#landed-2026-11-25-the-shape-motion-and-its-time-sliced-readers)).
+
+The portal cases stay with portal P2/M1/M2, as SUP1 requires: a
+portal-cut or curve-carried cell, and a portal hosted on a stretching line.
+
+Static source review at `00bf92c22142`, 2026-11-22:
 
 **Failure / customer:** GNU's drawn hump maps its current polyline by an
 endpoint similarity, including length change. Its published motion keeps
@@ -1006,7 +1029,15 @@ The existing visual play gate remains separate.
 
 ### AUTHORED-PATHS — share geometry and retain movement authority
 
-**State:** PLANNED, static source review at `00bf92c22142`, 2026-11-22.
+**State:** DONE 2026-11-25. PATH1 landed 2026-11-25: core's `PreparedPath` is the
+one path law (prepared geometry, a seeded phase, interval proposal and
+cut), hazards and platforms use it, and both old evaluators are deleted
+([landed](engine/kinematic-world-objects.md#landed-2026-11-25)). PATH2 landed
+the same day: an actor route is ordered progress advanced from accepted
+arrival, and the brain walks it through ordinary intent
+([PATH2](engine/kinematic-world-objects.md#landed-2026-11-25-path2)). DONE
+2026-11-25; a route leg needing a jump, climb or flight stays with navigation.
+Planned from a static source review at `00bf92c22142`, 2026-11-22.
 
 **Failure / customer:** combat and world duplicate waypoint evaluation.
 Both admit a coincident-point cycle that consumes no distance and never
@@ -3594,11 +3625,21 @@ is not evidence of moving-map residual time or completed multi-view support.
 
 ### SCALE-FEEL — the same body behavior at a different scale
 
-**State:** IN PROGRESS. SR1 landed 2026-11-25: the frame resolver converts
+**State:** DONE 2026-11-25. SR1 landed 2026-11-25: the frame resolver converts
 each body's gravity response to its material scale, an underivable response
 is a refused frame the kernel will not step, and the navigation key carries
 the body's scale so the probe converts its controls as the runtime does.
-SR2 and SR3 are open.
+SR2a landed the same day: support, one-way crossing and edge-overlap bands
+are the body's own (`ContactBands::of`), and the balance fractions are no
+longer scaled twice. SR2b: ledge reach, roll overshoot and fall-snap speed
+are the body's own (`LedgeReach::of`). SR2c/d: crawler capture slack
+converts, the momentum bands are classified geometry or numerical, exit
+assistance is in the leaving body's units, and a scaled rider keeps its
+platform's world velocity. SR3 landed the same day: move impulses, the
+victim's feel launch and hitstun reference, the autolink ceiling,
+projectile and free-item gravity, and splash size are each in their owner's
+units (mount seats already were, since A1). DONE 2026-11-25; admitted and
+unadmitted scope are named in the owner page's *Delivered scope*.
 
 **Failure / customer:** canonical controls scale but ordinary body gravity
 does not, changing jump time and relative height. Fixed contact bands,
@@ -3611,10 +3652,9 @@ runtime reproduction.
 SR1–SR3 use the existing frame, movement, combat, item and relation owners.
 P2/P3 keep portal time/contact authority; E4 keeps the standing experiment.
 
-**Next action:** SR2 classifies support/ledge/crawler
-bands and destination-relative exit assistance. SR3 completes the listed
-action, splash, free-mover and relation consumers. Keep authored mass and
-damage policies; do not scale every world vector or add another solver.
+**Next action:** none. Reopen only for a named unadmitted case, such as the
+brain rollout's canonical edge sliver. Keep authored mass and damage
+policies; do not scale every world vector or add another solver.
 
 **Acceptance:** equivalent scenes at `0.5`, `1` and `2` retain normalized
 nonzero motion and action timing. Use the real frame writer, a near-boundary

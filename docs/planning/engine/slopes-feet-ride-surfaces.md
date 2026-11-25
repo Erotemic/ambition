@@ -315,6 +315,114 @@ and a rigid control before claiming this conditional delivery complete.
 Do not mark those cases complete from the local witness.
 Preserve the existing frozen-body clock policy and GNU visual receipts.
 
+### Landed (2026-11-25): the shape motion and its time-sliced readers
+
+Delivery step 1 and the time-sliced part of step 2 are done.
+
+**The law.** `SurfaceChain::shape_before` holds the line's points as the
+tick began when its shape changed. Each point goes straight to its place in
+`points`, which is the table's own interpolation within a span: a drawn
+ledge's ends are interpolated linearly, and the slope's similarity
+coefficients are affine in them. A place on the line is a segment and a
+fraction `u`. The chain gains these queries:
+
+- `place_before`, `travel_at` (the per-tick travel at fixed `u`) and
+  `segment_at_time`;
+- `segment_before`, which a rigid line answers by its inverse motion.
+
+**Readers moved to the law:**
+
+- carry (`carried`) and `moves`;
+- the prior-support query at the start of the tick (`material_lines` at
+  `time`, which sees the segment where it stood then);
+- `lines_under`'s carried probe and its turn slack, which becomes the
+  difference of the ends' travel;
+- the line velocity and carry a support reports;
+- `MaterialCollider::velocity_at` and `normal_at_time`;
+- the ledge latch (the lip where that end began the tick) and the ledge
+  carry;
+- swept bounds, which add the start shape, so a shrink keeps its old
+  extent;
+- the navigation filter, which now uses `moves()`.
+
+`clears_material_contact` keeps the continuous result for such a line.
+
+**The producer.** `mount_backs_are_ground` publishes the start shape only
+when a drawing changed (`DrawnLedge::changed`). A held frame and a
+translating mount keep the rigid fast path, and nothing is copied per
+rider. Both shapes come from one end order: `DrawnLedge::ends` chooses the
+order once, left to right now, so an end keeps its identity when the
+drawing turns it past upright.
+
+**Witnesses:**
+
+- `a_contracting_line_carries_its_material_and_keeps_its_old_extent` (core)
+  covers the `[-20,20]` to `[-10,10]` case above. It checks carry 10 to 5,
+  the bounds, support at the start but not now, and a rigid control.
+- `a_slope_that_follows_the_drawing_is_where_its_ends_are_drawn` (mount)
+  now checks the true start geometry, both lengths (`sqrt(43600)` and
+  `sqrt(46400)`), and that every point is carried to its own place where
+  the rigid fit falls short.
+
+**Continuous sweeps (landed the same day).** `first_material_contact` (the
+kernel, projectile and righting sweeps) casts a changing segment by its own
+motion. `MaterialCastCells::against_deforming_where` puts each end in the
+cell's chart with its own relative motion. `deforming_segment_cast` then
+finds the first contact from two events:
+
+- an end reaching the body, which is the existing point cast with that
+  end's motion;
+- a body corner reaching the segment between its ends, which is a quadratic
+  in time. A circle body uses conservative advancement, whose step is the
+  clearance over the faster end's speed, so it cannot pass a contact.
+
+`MaterialCollider::displacement_at` gives the travel of the material under
+a contact. The kernel's approach test, its carry and its contact's surface
+velocity read it. The rigid fit is still published only for a cell cut by a
+portal or carried on a curve, which this cast does not admit.
+
+Witnesses (core):
+
+- `a_deforming_segment_cast_with_equal_end_motion_is_the_translation_cast`
+  compares 400 random configurations against the translation cast;
+- `a_stretching_segment_meets_the_body_when_its_end_arrives` (contact at
+  `t = 0.5`, where the rigid fit reaches `t = 1`);
+- `a_tilting_segment_meets_a_body_corner_between_its_ends` (`t = 7/15`, and
+  a circle);
+- `the_sweep_meets_a_stretching_line_when_its_end_arrives`, through
+  `World::first_material_contact`.
+
+**Source phase (landed the same day).** `follow_drawn_ledges` reads the
+phase the owner pinned this tick (`PinnedRow.elapsed`). Before, it read
+that phase plus a fixed 1/60, a forecast of another owner's clock: GNU's walk
+pins a distance-based stride, and a held row does not advance. The support's
+shape is now the drawing at the selected phase, published at the same cut
+as the mount's accepted step (its `SweepSample`). A row change or restart is
+the table's own cut. Witness: `a_drawn_ledge_is_where_the_pinned_phase_draws_it`
+(runtime) checks placement at the pinned phase, and that a held phase moves
+no shape.
+
+**The real GNU transition.** `a_body_on_a_shoulder_rides_it_through_a_hammer`
+(app_it) pins the hammer's rows on the real giant, with its source phase and
+host. At three places on the far shoulder a body stays on through windup,
+strike, hold and recover. Its feet are at most 0.0 px off the ground line,
+at most 9.8 px off the drawn frame (the frame's own step), and it moves at
+most 4.9 px in a tick. All 43 `gnu_ton_fight` tests pass on the new law,
+including `you_can_stand_on_the_giants_shoulders_until_it_bucks`, which was
+red before this work.
+
+**Done for the no-portal scope (2026-11-25).** Steps 1–3 are delivered
+without portals: the support interval and queries, every native reader
+(prior support, carry, ledges, contact, velocity, bounds and the continuous
+sweeps), the coherent source-phase cut, and the real GNU witness. As this
+section requires, the portal cases are NOT marked complete from these
+witnesses. They stay open under portal P2/M1/M2:
+
+- a cell cut by a portal or carried on a curve still reads the published
+  rigid fit;
+- a portal hosted on a stretching line still attaches by world arc
+  distance.
+
 ### Separate authoring decision: the whole curved hump
 
 GNU's `_barrel_placed` stretches along the barrel's axis. The native hump

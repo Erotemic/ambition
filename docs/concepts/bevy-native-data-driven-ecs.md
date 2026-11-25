@@ -85,5 +85,5 @@ outcomes:
 ```bash
 python scripts/agent_query.py tests "<invariant>"
 ./run_tests.sh -p <owning-crate>
-cargo run -p ambition_app_tools --bin headless -- 30
+cargo run -p ambition_app_tools --features game --bin headless -- 30
 ```

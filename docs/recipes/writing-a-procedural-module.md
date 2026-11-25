@@ -191,7 +191,7 @@ uses this path and a separate tagged group patrol.
 ## Inspecting what runs
 
 ```bash
-cargo run -p ambition_app_tools --release --bin extension_inspect -- \
+cargo run -p ambition_app_tools --features game --release --bin extension_inspect -- \
     --boss mockingbird --ticks 900 \
     [--modules target/extension-modules/wasm32-unknown-unknown/release] \
     [--try-replace target/extension-modules/wasm32-unknown-unknown/release/ambition_content_modules.wasm]

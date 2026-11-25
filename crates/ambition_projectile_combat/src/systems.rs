@@ -666,6 +666,14 @@ mod coalesce_tests {
 
 /// Resolve a splash through the common strike path. The shot supplies its
 /// emission scope, captured allegiance, cause, and move credit before retirement.
+/// A splash authored in the shot's canonical units, sized in the image that
+/// made contact: `map` is the shot's canonical material into that physical
+/// image. `None` for no splash, or for one its map cannot carry.
+fn splash_half_in(map: ae::frame::Sim2, canonical_half: f32) -> Option<f32> {
+    if canonical_half <= 0.0 { return None; }
+    map.length(canonical_half).ok()
+}
+
 pub(crate) fn emit_landing_splash(
     projectile: Entity,
     allegiance: Option<&AttackAllegiance>,
@@ -1130,7 +1138,9 @@ pub fn step_projectiles(
             // this is gameplay, not presentation: the area `HitEvent` is
             // centred there, so a wrong centre hits different recipients —
             // possibly on the far side of geometry that lies after the contact.
-            let mut struck_at: Option<ae::Vec2> = None;
+            // The point and the map of the image that touched it: a splash is
+            // sized in that image, which may not be the root's during transit.
+            let mut struck_at: Option<(ae::Vec2, ae::frame::Sim2)> = None;
             // ⛔⛔ NEAREST FIRST, AND IT USED TO BE QUERY ORDER. This loop `break`s
             // on the first row that qualifies, and `&victims` is a Bevy query —
             // archetype order, which is not a promise and is not reproduced by a
@@ -1494,11 +1504,11 @@ pub fn step_projectiles(
                     ));
                 }
                 already_hit.hit.insert(victim.entity);
-                struck_at = Some(contact.hit.point);
+                struck_at = Some((contact.hit.point, contact.hit.source_map));
                 #[cfg(feature="portal")]
                 {hit_this_tick=true;}
             }
-            if let Some(impact) = struck_at {
+            if let Some((impact, impact_map)) = struck_at {
                 trace.push_event(
                     ProjectileTraceEvent::Hit {
                         kind,
@@ -1511,13 +1521,13 @@ pub fn step_projectiles(
                 // thrown and caught, and a throw that ends in the first body it
                 // touches is not the move Jon asked for.
                 if !game.returns(*acceleration) {
-                    if game.splash_half_extent > 0.0 {
+                    if let Some(half) = splash_half_in(impact_map, game.splash_half_extent) {
                         emit_landing_splash(
                             proj_entity,
                             allegiance.as_ref(),
                             impact,
                             game.damage.max(1),
-                            game.splash_half_extent,
+                            half,
                             owner_entity,
                             shot_room,
                             fired_by_move,
@@ -1576,7 +1586,7 @@ pub fn step_projectiles(
                     let at = contact.contact.hit.point;
                     outcome_fx.write(said_by(burst.request(shot_room, at), bolt_source.as_ref()));
                 }
-                if game.splash_half_extent > 0.0 {
+                if let Some(half) = splash_half_in(contact.contact.hit.source_map, game.splash_half_extent) {
                     emit_landing_splash(
                         proj_entity,
                         allegiance.as_ref(),
@@ -1587,7 +1597,7 @@ pub fn step_projectiles(
                         // reconstruct.
                         contact.contact.hit.point,
                         game.damage.max(1),
-                        game.splash_half_extent,
+                        half,
                         owner_entity,
                         shot_room,
                         fired_by_move,
@@ -1645,13 +1655,17 @@ pub fn step_projectiles(
                 continue 'projectiles;
             }
             WorldHitOutcome::Expired { pos } => {
-                if game.splash_half_extent > 0.0 {
+                // Expiry on a wall always has its contact; the shot's material
+                // into the image that touched it sizes the splash.
+                let wall_map = world_contact.contact.as_ref()
+                    .and_then(|hit| before.material_map().ok()?.then(hit.contact.map).ok());
+                if let Some(half) = wall_map.and_then(|map| splash_half_in(map, game.splash_half_extent)) {
                     emit_landing_splash(
                         proj_entity,
                         allegiance.as_ref(),
                         pos,
                         game.damage.max(1),
-                        game.splash_half_extent,
+                        half,
                         owner_entity,
                         shot_room,
                         fired_by_move,
@@ -1855,6 +1869,23 @@ mod parry_tests {
             ae::Vec2::new(-100.0, 40.0) * PROJECTILE_REFLECT_SPEED_SCALE,
             "velocity reversed and boosted by the reflect scale"
         );
+    }
+}
+
+#[cfg(test)]
+mod splash_size_tests {
+    /// A splash is authored in the shot's canonical units and lands at the
+    /// size of the image that touched: a double-size shot whose contacting
+    /// image passed a halving pair splashes at its canonical size, not twice.
+    #[test]
+    fn a_splash_is_sized_by_the_image_that_touched() {
+        use ambition_platformer2d_core as ae;
+        let material = ae::frame::BodyMaterial::new(2.0, bevy::math::Mat2::IDENTITY).unwrap();
+        let root = material.at(ae::Vec2::new(40.0, 0.0)).unwrap();
+        assert_eq!(super::splash_half_in(root, 10.0), Some(20.0));
+        let halving = ae::frame::Sim2::new(0.5, bevy::math::Mat2::IDENTITY, ae::Vec2::new(300.0, 0.0)).unwrap();
+        assert_eq!(super::splash_half_in(root.then(halving).unwrap(), 10.0), Some(10.0));
+        assert_eq!(super::splash_half_in(root, 0.0), None, "no authored splash, none emitted");
     }
 }
 

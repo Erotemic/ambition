@@ -497,7 +497,7 @@ fn came_out_at(app: &mut App, body: Entity, at: ae::Vec2) {
     app.world_mut().write_message(crate::PortalBodyTransited {
         body,
         transfer: crate::PortalTransfer::new(
-            ae::Vec2::ZERO, ae::Vec2::ZERO,
+            ae::Vec2::ZERO, ae::Vec2::ZERO, ae::frame::BodyMaterial::IDENTITY,
             &crate::PlacedPortal::fixed(crate::PortalChannel::Gun(crate::PortalGunColor::BLUE), ae::Vec2::ZERO, -ae::Vec2::Y, 40.0).unwrap(),
             &crate::PlacedPortal::fixed(crate::PortalChannel::Gun(crate::PortalGunColor::ORANGE), at, ae::Vec2::Y, 40.0).unwrap(),
             &crate::PortalTuning::default(),

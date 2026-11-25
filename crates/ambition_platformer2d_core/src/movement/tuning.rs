@@ -2206,7 +2206,7 @@ impl AxisLocomotion {
         self.max_air_speed = crate::frame::scale_quantity(self.max_air_speed, scale)?;
         self.initial_dash_speed = crate::frame::scale_quantity(self.initial_dash_speed, scale)?;
         self.walk_speed = crate::frame::scale_quantity(self.walk_speed, scale)?;
-        self.teeter_margin = crate::frame::scale_quantity(self.teeter_margin, scale)?;
+        // `teeter_margin` is a fraction of the footprint: it does not convert.
         self.max_fall_speed = crate::frame::scale_bound(self.max_fall_speed, scale)?;
         self.jump_speed = crate::frame::scale_quantity(self.jump_speed, scale)?;
         self.double_jump_speed = crate::frame::scale_quantity(self.double_jump_speed, scale)?;
@@ -2230,10 +2230,10 @@ impl AxisLocomotion {
             for offset in &mut law.launch_offsets { *offset = crate::frame::scale_quantity(*offset, scale)?; }
             law.held_phase_min_upward_speed = crate::frame::scale_quantity(law.held_phase_min_upward_speed, scale)?;
         }
-        if let Some(balance) = &mut self.balance {
-            balance.teeter_band = crate::frame::scale_quantity(balance.teeter_band, scale)?;
-            balance.tip_speed = crate::frame::scale_quantity(balance.tip_speed, scale)?;
-        }
+        // The balance is in half-widths (`teeter_band`) and half-widths per
+        // second (`tip_speed`): `footing` multiplies both by the body's
+        // physical half-span, which already carries the scale. Converting
+        // them here applied the scale twice.
         Ok(self)
     }
 }

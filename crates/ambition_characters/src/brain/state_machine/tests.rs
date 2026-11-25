@@ -289,6 +289,28 @@ fn wanderer_turns_away_from_a_semantic_side_contact() {
     assert!(out.locomotion.x < 0.0);
 }
 
+/// A walker on an authored route steers to its route target, and a wall
+/// between it and the target does not turn it: the route's owner keeps the
+/// same target until the body arrives, and the brain keeps facing it.
+#[test]
+fn a_routed_wanderer_keeps_its_target_against_a_wall() {
+    let mut sm = StateMachineCfg::Wanderer { cfg: WandererCfg::PUPPY_SLUG_DEFAULT };
+    let mut s = BrainSnapshot::idle();
+    s.actor_pos = ae::Vec2::new(100.0, 0.0);
+    s.actor_facing = -1.0;
+    s.route = Some(crate::brain::RouteStep { target_x: 300.0, speed: 95.0 });
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    tick_simple_state_machine(&mut sm, &s, &mut out);
+    assert_eq!(out.facing, 1.0, "it turns toward its route target");
+    assert!(out.locomotion.x > 0.0);
+    s.actor_facing = 1.0;
+    s.turns_at_walls = true;
+    s.side_contact_normal = Some(-1.0);
+    tick_simple_state_machine(&mut sm, &s, &mut out);
+    assert_eq!(out.facing, 1.0, "a wall short of the target does not turn it away");
+    assert!(out.locomotion.x > 0.0);
+}
+
 #[test]
 fn wanderer_does_not_invent_a_wall_from_zero_velocity() {
     let mut sm = StateMachineCfg::Wanderer {

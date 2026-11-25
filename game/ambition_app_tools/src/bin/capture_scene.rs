@@ -2,7 +2,7 @@
 //! composition and camera policy.
 //!
 //! Usage:
-//! `cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui]`
+//! `cargo run -p ambition_app_tools --features game --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui]`
 //!
 //! For Smash captures, `--press touch:XxY,...` can drive the select screen before
 //! capture; keep coordinate recipes covered by host tests because the UI layout can

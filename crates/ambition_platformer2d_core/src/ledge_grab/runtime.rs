@@ -172,13 +172,14 @@ fn line_ledge_carry(
     let frame = crate::AccelerationFrame::new(gravity_dir);
     let lip = Ledge::lip_of(contact, body_size * 0.5, frame);
     let side_normal = contact.wall_normal_x.signum();
-    let carrier = chain_ledges(world, frame).find(|(ci, _, ledge)| {
+    let carrier = chain_ledges(world, frame).find(|(ci, end, ledge)| {
         let chain = &world.chains[*ci];
-        // The line moved before the bodies: its lip was where it is less its
-        // move, and a stored contact describes where it was.
+        // The line moved before the bodies: its lip was where that end of the
+        // line began the tick, and a stored contact describes where it was.
+        let before = if *end == 0 { chain.segment_before(0).0 } else { chain.segment_before(end - 1).1 };
         chain.moves()
             && ledge.side_normal == side_normal
-            && (ledge.lip.distance(lip) <= LEDGE_LATCH_TOL || (ledge.lip - chain.velocity).distance(lip) <= LEDGE_LATCH_TOL)
+            && (ledge.lip.distance(lip) <= LEDGE_LATCH_TOL || before.distance(lip) <= LEDGE_LATCH_TOL)
     });
     let Some((ci, _, ledge)) = carrier else {
         return LedgeCarry::Stay;
@@ -359,6 +360,7 @@ pub fn probe_ledge_grab_in_frame(
     wall_normal_x: f32,
     world: &World,
     gravity_dir: Vec2,
+    reach: LedgeReach,
 ) -> Option<LedgeContact> {
     // AMBITION_REVIEW(discrete_ok): CC2 §3.3 ledge audit — this probe fires
     // OFF a resolved wall contact (`wall_normal_x`, a Class-A kernel output;
@@ -371,9 +373,9 @@ pub fn probe_ledge_grab_in_frame(
     }
     let side_normal = wall_normal_x.signum();
     let frame = crate::AccelerationFrame::new(gravity_dir);
-    let reach = Vec2::new(LEDGE_HORIZONTAL_REACH, (LEDGE_REACH_UP + LEDGE_REACH_DOWN) * 0.5);
-    let offset = Vec2::new(-side_normal * player_size.x * 0.5, (LEDGE_REACH_DOWN - LEDGE_REACH_UP - player_size.y) * 0.5);
-    let region = Aabb::new(player_pos + frame.to_world(offset), frame.to_world_half(reach) + Vec2::ONE);
+    let band = Vec2::new(reach.horizontal, (reach.up + reach.down) * 0.5);
+    let offset = Vec2::new(-side_normal * player_size.x * 0.5, (reach.down - reach.up - player_size.y) * 0.5);
+    let region = Aabb::new(player_pos + frame.to_world(offset), frame.to_world_half(band) + Vec2::ONE);
     // A block's lip is a corner of its bounds in the local frame. Under
     // oblique gravity that corner can lie outside the block's world bounds.
     let cardinal = frame.down.x == 0.0 || frame.down.y == 0.0;
@@ -389,7 +391,7 @@ pub fn probe_ledge_grab_in_frame(
     let head_down = player_pos.dot(frame.down) - player_size.y * 0.5;
     let mut best: Option<(LedgeContact, f32)> = None;
     for (ledge, block) in block_ledges.chain(line_ledges) {
-        let Some(candidate) = ledge_contact_at(player_pos, player_size, ledge, block, world, frame) else {
+        let Some(candidate) = ledge_contact_at(player_pos, player_size, ledge, block, world, frame, reach) else {
             continue;
         };
         let distance = (ledge.lip.dot(frame.down) - head_down).abs();
@@ -411,6 +413,7 @@ fn ledge_contact_at(
     block: Option<&crate::world::Block>,
     world: &World,
     frame: crate::AccelerationFrame,
+    reach: LedgeReach,
 ) -> Option<LedgeContact> {
     let half = player_size * 0.5;
     let player_side = player_pos.dot(frame.side);
@@ -418,14 +421,14 @@ fn ledge_contact_at(
     let lip_down = ledge.lip.dot(frame.down);
     // Window where the lip must sit. Under normal gravity this is the old
     // world-Y top-face / head-Y band.
-    if lip_down < head_down - LEDGE_REACH_UP || lip_down > head_down + LEDGE_REACH_DOWN {
+    if lip_down < head_down - reach.up || lip_down > head_down + reach.down {
         return None;
     }
     // The body's side that reaches toward the face. side_normal = +1 means
     // the face looks toward local-right, so the body reaches with its
     // local-left side.
     let cling_side = player_side - ledge.side_normal * half.x;
-    if (ledge.lip.dot(frame.side) - cling_side).abs() > LEDGE_HORIZONTAL_REACH {
+    if (ledge.lip.dot(frame.side) - cling_side).abs() > reach.horizontal {
         return None;
     }
     if !ledge.grabbable(frame) {
@@ -509,7 +512,7 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         let duration_scale = ledge_getup_duration_scale(state, &tuning);
         let duration = state.getup_duration() * duration_scale;
         let progress = (state.climb_elapsed / duration).clamp(0.0, 1.0);
-        clusters.kinematics.pos = getup_position(state, progress, frame.down());
+        clusters.kinematics.pos = getup_position(state, progress, frame.down(), LedgeReach::of(clusters.kinematics.material));
         clusters.kinematics.vel = Vec2::ZERO;
         clusters.ground.on_ground = false;
         axis_state.wall_clinging = false;
@@ -517,7 +520,7 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         clusters.wall.on_wall = false;
 
         if progress >= 1.0 {
-            clusters.kinematics.pos = getup_end_position(state, frame.down());
+            clusters.kinematics.pos = getup_end_position(state, frame.down(), LedgeReach::of(clusters.kinematics.material));
             // Carry HORIZONTAL momentum into exit; drop the Y so the
             // player doesn't relaunch off the platform they just stood
             // on. (Ledge-jump path keeps Y because that's a hop.)
@@ -823,7 +826,7 @@ pub fn ledge_getup_duration_scale(state: LedgeGrabState, tuning: &AxisSweptParam
 /// trigger. Kept above gentle drift so a player who is loitering near
 /// a ledge with no stick input doesn't get snagged by accident, but
 /// low enough that normal falling recovery catches near-miss lips.
-const FALL_SNAP_MIN_VY: f32 = 45.0;
+pub(super) const FALL_SNAP_MIN_VY: f32 = 45.0;
 
 /// Probe for and start a new ledge grab after normal collision has established
 /// this frame's wall/airborne state. Returns true when a new grab latched.
@@ -869,6 +872,7 @@ pub fn try_start_ledge_grab_clusters_in_frame(
         return false;
     }
 
+    let reach = LedgeReach::of(clusters.kinematics.material);
     let mut contact: Option<LedgeContact> = None;
     if let Some(wall_normal) =
         requested_wall_normal_clusters(clusters.wall, axis_state, clusters.ground, input)
@@ -879,9 +883,10 @@ pub fn try_start_ledge_grab_clusters_in_frame(
             wall_normal,
             world,
             frame.down(),
+            reach,
         );
     }
-    if contact.is_none() && clusters.kinematics.vel.dot(frame.down()) > FALL_SNAP_MIN_VY {
+    if contact.is_none() && clusters.kinematics.vel.dot(frame.down()) > reach.fall_snap_speed {
         // Smash-style auto-snap during a falling recovery: try BOTH
         // sides and snap to whichever has a grabbable lip in the chin
         // band.
@@ -892,6 +897,7 @@ pub fn try_start_ledge_grab_clusters_in_frame(
                 trial_normal,
                 world,
                 frame.down(),
+                reach,
             ) {
                 contact = Some(found);
                 break;

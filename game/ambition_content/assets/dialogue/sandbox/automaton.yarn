@@ -1,0 +1,70 @@
+title: automaton_busy_beaver
+---
+<<present_speaker "npc_busy_beaver">>
+<<if verdict("world.flag_set", "automaton_busy_beaver_met") == "satisfied">>
+    Busy Beaver: Block. Block. Block. Don't count them, you'll only fall behind.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "automaton_busy_beaver_met") == "not_satisfied">>
+    <<command "world.set_flag" "automaton_busy_beaver_met" true>>
+    Busy Beaver: Mind the block. That one's load-bearing. They're all load-bearing.
+    -> What are you building?
+        Busy Beaver: Stairs. Then whatever the stairs are for. Then more stairs.
+        Busy Beaver: The chest on top is for whoever gets there first. I keep not getting there. I keep adding a step.
+    -> Aren't you in Math Town?
+        Busy Beaver: That's the prototype. Or I am. We've agreed not to look into it.
+        Busy Beaver: Here I'm the machine I'm named for: five states, one tape, as many ones as I can write before I stop.
+    -> When will you stop?
+        Busy Beaver: For five states, somebody proved it: 47,176,870 steps. They took the long way round to prove it.
+        Busy Beaver: For six, nobody knows. I like those odds.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===
+title: automaton_moore
+---
+<<present_speaker "npc_automaton_neighbour_moore">>
+<<if verdict("world.flag_set", "automaton_moore_met") == "satisfied">>
+    Neighbour Moore: Still here. So is the block. So are you, for now.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "automaton_moore_met") == "not_satisfied">>
+    <<command "world.set_flag" "automaton_moore_met" true>>
+    Neighbour Moore: Evening. You're standing in my neighbourhood. That's fine. Everybody is in somebody's.
+    -> What is this place?
+        Neighbour Moore: The Life field. Every cell looks at its eight neighbours and decides.
+        Neighbour Moore: Two or three living ones around you, and you stay. Exactly three around an empty cell, and something's born there. Any other count, and you're gone by the next generation.
+    -> What's that square?
+        Neighbour Moore: The block. Four cells, each with three live neighbours. It hasn't changed since the first generation.
+        Neighbour Moore: People call it boring. I call it a good neighbour.
+    -> How do I get across?
+        Neighbour Moore: Ride a glider. Five cells that keep rebuilding themselves one step over.
+        Neighbour Moore: Every four generations it's moved one cell on the diagonal. Stand on it and you move too.
+        Neighbour Moore: And keep clear of the spaceships. They don't mean anything by it. They don't mean anything at all.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===
+title: automaton_head
+---
+<<present_speaker "npc_automaton_head">>
+<<if verdict("world.flag_set", "automaton_head_met") == "satisfied">>
+    The Head: Read. Write. Move. Change state. Where were we? Step 47,176,870. Halted.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "automaton_head_met") == "not_satisfied">>
+    <<command "world.set_flag" "automaton_head_met" true>>
+    The Head: Halted! Finally halted. Do you know how long I've wanted to say that?
+    -> Who are you?
+        The Head: The head. The part of the machine that does anything. The tape remembers, the table decides, and I go back and forth.
+        The Head: I read the cell under me, write a one or a zero, move one cell left or right, and change state. That is the whole of my education.
+    -> What is the table on the wall?
+        The Head: Five states, A to E. Two entries each: what to do on a zero, what to do on a one. Ten rules.
+        The Head: Ten rules, and it runs for 47,176,870 steps, and leaves 4,098 ones on the tape. Then the rule for E on a zero says: halt.
+    -> How do you know it stops?
+        The Head: Somebody checked every other machine with five states. All of them. In 2024 they finished, and a proof checker agreed.
+        The Head: Every machine of five states that ever stops has stopped by then. I'm the one that took the longest.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===

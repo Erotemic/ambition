@@ -19,7 +19,7 @@ repeating them after each edit displaces implementation and playtesting.
 | a new param on a shared `SystemParam` struct | `git grep -l '<the system>'`, then `cargo test -p` **each crate that names it** | nothing else. See "Hand-built apps" below. |
 | Bevy app WIRING (plugins, systems, ordering) | `cargo test -p ambition_app --test app_it -- <module>` | Pin `TimeUpdateStrategy` in any new test app, or it measures machine load. |
 | authored CONTENT (LDtk, catalogs, characters) | `cargo test -p ambition_app --test app_it -- declared_art_resolves registered_character_art` | that it plays; use `capture_scene` |
-| anything you can SEE | `cargo run -p ambition_app_tools --bin capture_scene -- --route <id> out.png 1280x720 --warmup N` | correctness; it proves only what is drawn |
+| anything you can SEE | `cargo run -p ambition_app_tools --features game --bin capture_scene -- --route <id> out.png 1280x720 --warmup N` | correctness; it proves only what is drawn |
 | generated assets or a regen script | the regen script, then the guard it feeds | another session may regenerate the same tree |
 | Python tooling or a guard in `scripts/` | `python3 -m pytest scripts/tests/ -q` | everything Rust |
 | LDtk tooling | `tools/ambition_ldtk_tools/.venv/bin/python -m pytest tests -q` (from that directory) | anything that consumes what it emits |

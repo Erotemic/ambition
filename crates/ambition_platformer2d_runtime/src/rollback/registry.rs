@@ -383,7 +383,19 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 539 -> 540: a body whose role states its flight over its character's (a
 // boss) carries `actor.flight_stated_by_role`, which a change of form leaves
 // alone (FORM-REBIND); the persona baseline's probe covers its applied form.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 540;
+// 540 -> 541: an actor route's continuation is its prepared path phase
+// (`actor.motion_path` encodes the phase bits, not a segment and direction;
+// PATH1), and a platform path's RON carries the prepared path and phase. The
+// cutscene's authored wait-until/allow-damage/camera-track beats (9071f13cc,
+// b05b15fa4) had changed its bytes without a bump; this one records them.
+// 541 -> 542: an actor route is its ordered target and direction
+// (`actor.motion_path`), advanced from accepted arrival; the phase it carried
+// for one release is gone (PATH2).
+// 542 -> 543: a scripted lift's occurrence (`entity:mechanism_lift`) is an
+// object GGRS reproduces, so a caller can retire the lift alone (W2).
+// 543 -> 544: a scripted door (`entity:mechanism_door`, with its open state
+// `entity.mechanism_door`) is an object of its own live room (W2).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 544;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

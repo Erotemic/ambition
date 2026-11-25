@@ -169,13 +169,22 @@ impl ProjectileGameplay {
     /// bearing projectiles (fireballs, bombs, apple-rain) accelerate toward that
     /// direction instead of assuming world +Y. Normal gravity remains byte-
     /// identical because `gravity_dir == (0, 1)`.
+    ///
+    /// `gravity` is authored in canonical units and falls in the projectile's
+    /// own (`s * g`), converted here once per tick; carried acceleration is
+    /// already a world acceleration. A gravity its material cannot carry ends
+    /// the projectile rather than flying it unscaled.
     pub fn tick(&mut self, body: &mut BodyKinematics, acceleration: CarriedAcceleration, dt: f32, gravity_dir: Vec2) -> bool {
         self.age += dt;
         if self.age >= self.max_lifetime {
             return false;
         }
+        let Ok(gravity) = body.material.body_rate(self.gravity) else {
+            bevy::log::warn!("a projectile's material cannot carry its gravity {} — retired", self.gravity);
+            return false;
+        };
         let down = projectile_down(gravity_dir);
-        body.vel += (down * self.gravity + acceleration.0) * dt;
+        body.vel += (down * gravity + acceleration.0) * dt;
         body.pos += body.vel * dt;
         true
     }
@@ -300,6 +309,30 @@ mod tests {
         // vy gains gravity*dt first, then pos integrates the new velocity.
         assert!((p.kin.vel.y - 20.0).abs() < 1e-3);
         assert!((p.kin.pos.x - 10.0).abs() < 1e-3 && (p.kin.pos.y - 2.0).abs() < 1e-3);
+    }
+
+    /// A scaled shot launched at its own `s * v` lands its arc at `s` times
+    /// the canonical one in the same time: its authored gravity falls in its
+    /// own units, once per tick, and the lifetime is unchanged.
+    #[test]
+    fn a_scaled_projectile_falls_in_its_own_units() {
+        let flight = |scale: f32| {
+            let mut p = fireball(Vec2::ZERO, Vec2::new(100.0, -50.0) * scale, 0);
+            p.kin.material = ambition_platformer2d_core::frame::BodyMaterial::new(
+                scale, bevy::math::Mat2::IDENTITY).unwrap();
+            p.game.gravity = 200.0;
+            let path: Vec<Vec2> = (0..10).map(|_| { assert!(p.tick(0.05, Vec2::Y)); p.kin.pos }).collect();
+            (path, p.game.age)
+        };
+        let (canonical, age) = flight(1.0);
+        assert!(canonical[9].y > canonical[2].y && canonical[2].y < 0.0, "the control arcs: {canonical:?}");
+        for scale in [0.5_f32, 2.0] {
+            let (path, scaled_age) = flight(scale);
+            assert_eq!(scaled_age, age, "the lifetime clock is not scaled");
+            for (at, (scaled, one)) in path.iter().zip(&canonical).enumerate() {
+                assert!((*scaled - *one * scale).length() < 1e-3, "scale {scale} tick {at}: {scaled:?} vs {one:?}");
+            }
+        }
     }
 
     #[test]

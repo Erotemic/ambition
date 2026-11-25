@@ -262,6 +262,20 @@ pub struct BrainSnapshot {
     /// (`ae::navigation`). Written by the navigation advisor for a body whose
     /// brain navigates; the default (no place, no answer) for every other.
     pub navigation: ae::navigation::NavAdvice,
+    /// The authored route this body follows, as its next ordered target. The
+    /// route's owner advanced it from the body's accepted arrival before this
+    /// tick; a brain steers toward it through ordinary intent and never reads
+    /// a position off the path. `None` for a body with no route.
+    pub route: Option<RouteStep>,
+}
+
+/// One step of an authored route: where the next ordered waypoint is on the
+/// world side axis a grounded walker travels, and the route's requested speed
+/// (px/s, the movement units the brain already asks in).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RouteStep {
+    pub target_x: f32,
+    pub speed: f32,
 }
 
 /// The facing a brain asks for toward a target `side` px away along the body's
@@ -329,6 +343,7 @@ impl BrainSnapshot {
     /// the fields that matter for the test.
     pub fn idle() -> Self {
         Self {
+            route: None,
             captured: false,
             captured_for: 0.0,
             holding_captive: false,

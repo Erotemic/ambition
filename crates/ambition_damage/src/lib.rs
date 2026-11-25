@@ -1007,6 +1007,7 @@ pub(crate) fn apply_player_knockback(
             grounded: clusters.ground.on_ground,
             crouching: clusters.body_mode.body_mode == ae::BodyMode::Crouching,
             pose_held,
+            material: clusters.kinematics.material,
         },
         // The refresh used to be a separate call right here, and being the
         // CALLER's is exactly how the actor and throw roads came to be without

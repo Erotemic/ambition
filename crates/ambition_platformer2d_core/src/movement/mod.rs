@@ -443,7 +443,7 @@ fn carry_frozen_rider(world: &World, clusters: &mut crate::body_clusters::BodyCl
     let delta = if let Some(line) = crate::walkable_lines::stood_on_material_line(world, clusters.kinematics, g, admission)? {
         line.carry
     } else if let Some((_, contact)) = crate::walkable_lines::material_block_support(world,
-        clusters.kinematics, g, crate::collision_semantics::CONTACT_SLOP, false, 0.0, admission)? {
+        clusters.kinematics, g, crate::collision_semantics::ContactBands::of(clusters.kinematics.material).contact, false, 0.0, admission)? {
         contact.surface_velocity
     } else {
         Vec2::ZERO

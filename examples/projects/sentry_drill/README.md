@@ -30,9 +30,9 @@ which line.
 The tools take the project too:
 
 ```bash
-cargo run -p ambition_app_tools --bin extension_inspect -- --project examples/projects/sentry_drill
-cargo run -p ambition_app_tools --bin capture_scene -- central_hub_complex player shot.png --project examples/projects/sentry_drill
-cargo run -p ambition_app_tools --bin inspect_geometry -- --project examples/projects/sentry_drill --room central_hub_complex
+cargo run -p ambition_app_tools --features game --bin extension_inspect -- --project examples/projects/sentry_drill
+cargo run -p ambition_app_tools --features game --bin capture_scene -- central_hub_complex player shot.png --project examples/projects/sentry_drill
+cargo run -p ambition_app_tools --features game --bin inspect_geometry -- --project examples/projects/sentry_drill --room central_hub_complex
 ```
 
 Paths are relative to `project.ron`. The host's adapter is

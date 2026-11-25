@@ -405,6 +405,24 @@ pub struct HitResponseTuning {
     pub sakurai: Option<SakuraiAngle>,
 }
 
+impl HitResponseTuning {
+    /// This row in the struck body's own units. Its feel launch speeds and the
+    /// hitstun reference speed are victim speeds and scale with it, so a
+    /// uniformly scaled exchange keeps `launch / reference` and therefore its
+    /// hitstun. Times, angles and ratios stay as they are. Identity at scale
+    /// one; an overflow is a fault, never an infinite launch.
+    pub fn in_body_units(self, material: crate::frame::BodyMaterial) -> Result<Self, crate::frame::NumericFault> {
+        if material.scale_only() == crate::frame::BodyMaterial::IDENTITY { return Ok(self); }
+        let scale = material.scale();
+        Ok(Self {
+            knockback_x: crate::frame::scale_quantity(self.knockback_x, scale)?,
+            knockback_y: crate::frame::scale_quantity(self.knockback_y, scale)?,
+            hitstun_reference_launch: crate::frame::scale_quantity(self.hitstun_reference_launch, scale)?,
+            ..self
+        })
+    }
+}
+
 /// Smash directional influence during hitlag: shift the frozen body in the
 /// victim's body-local input direction, transformed through gravity. `step <= 0`
 /// or null input is inert. Stick magnitude is clamped rather than normalized so

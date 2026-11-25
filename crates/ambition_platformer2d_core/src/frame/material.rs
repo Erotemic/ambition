@@ -73,6 +73,24 @@ impl BodyMaterial {
         if self.scale == 1.0 { return Ok(canonical); }
         super::scale_quantity(canonical, self.scale())
     }
+    /// A velocity authored in canonical body units, in this body's own:
+    /// `s * v`, so an authored lunge carries the body the same number of its
+    /// own lengths in the same time at any scale. Converts an authored delta
+    /// or target only, never a velocity the body already has. Identity at
+    /// scale one; multiplied wide, so an overflow is a fault.
+    pub fn body_velocity(self, canonical: Vec2) -> Result<Vec2, NumericFault> {
+        Ok(Vec2::new(self.body_rate(canonical.x)?, self.body_rate(canonical.y)?))
+    }
+
+    /// A signed speed or acceleration authored in canonical body units, in
+    /// this body's own: `s * q`. Unlike [`Self::gravity_response`] it keeps
+    /// its sign, for a quantity whose sign is authored (a projectile that
+    /// floats up). Identity at scale one; an overflow is a fault.
+    pub fn body_rate(self, canonical: f32) -> Result<f32, NumericFault> {
+        if !canonical.is_finite() { return Err(NumericFault::NonFinite); }
+        if self.scale == 1.0 { return Ok(canonical); }
+        super::scale_quantity(canonical, self.scale())
+    }
     pub fn orthogonal(self) -> Mat2 { Mat2::from_cols(self.orthogonal.x_axis.as_vec2(), self.orthogonal.y_axis.as_vec2()) }
     pub fn reflected(self) -> bool { self.orthogonal.determinant() < 0.0 }
 

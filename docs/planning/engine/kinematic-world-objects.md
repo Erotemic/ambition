@@ -255,6 +255,49 @@ implementation of the path law. No compile, binary-size or frame-time
 saving was measured. `ambition_body_seed` has other combat dependencies;
 moving this type does not by itself remove that dependency closure.
 
+### Landed (2026-11-25)
+
+`PreparedPath` in [core](../../../crates/ambition_platformer2d_core/src/kinematic_path.rs)
+is the one path law. `prepare` checks that the points, speed and offset are
+finite, that the speed is positive and the offset is not negative, and that
+the total length is positive. It drops each point that repeats the one
+before it, and for `Loop` a last point that repeats the first. It records
+the cumulative distance, including `Loop`'s closing leg.
+
+The continuation is a `PathPhase`: distance within one cycle, and a
+ping-pong's way back is part of the cycle. The phase API:
+
+- `seed` places a new mover at its authored offset.
+- `propose` returns a `PathInterval` without moving anything.
+- `at` cuts that interval with its own mapping, and `end` takes its endpoint.
+- `position` finds the leg by binary search.
+
+One remainder reduces a step of any number of laps. The two old evaluators,
+`PathMotion::advance` with its cursor arithmetic and the platform's
+`advance_path_position` family, are deleted.
+
+How each consumer uses it:
+
+- **Hazards.** `HazardRuntime::new` refuses a path it cannot prepare. A
+  moving hazard's pose is its seed, so the inline and named roads agree.
+- **Platforms.** `MovingPlatformMotion::Path` holds the prepared path and
+  its phase. `from_path` refuses with the platform and path named. Wrapping
+  loops are untouched.
+- **Actor routes.** These keep the phase (PATH2 still owns consuming them).
+
+The LDtk `KinematicPath` converter and inline hazard paths are prepared at
+conversion, so a fault names its entity and fields. Rollback schema 541
+encodes the actor route's phase.
+
+Witnesses:
+
+- `prepared_path_tests` cover degenerate input, coincident waypoints, the
+  closing leg, reversal, a nonzero seed offset, a step across 2500 laps
+  against small steps, and a cut.
+- `a_shipped_moving_hazard_starts_at_its_seed_and_travels_its_prepared_path`
+  (app_it, under sync-test rollback) covers the real LDtk-to-hazard
+  publication in `basement_hazards`.
+
 ## PATH2 — Let an authored route produce ordinary intent
 
 [`convert_enemy_spawn`](../../../crates/ambition_platformer2d_ldtk/src/conversion/entity_converters.rs)
@@ -313,6 +356,41 @@ Acceptance is one native authored patrol that reaches and reverses at its
 real route target, then remains on the correct route occurrence when a wall
 blocks it. The normal body kernel must remain the movement writer. A new
 planner framework, general task graph or combat-brain rewrite is not needed.
+
+### Landed (2026-11-25): PATH2
+
+`ActorMotionPath` now holds a `PatrolRoute` (in `ambition_body_seed`). It is
+the prepared path plus route progress: the next ordered waypoint and the
+direction along the route.
+
+- **Placement.** Nothing assigns the body a path position. The NPC and
+  enemy roads keep the admitted spawn place, and a new route heads for its
+  first waypoint.
+- **Arrival.** After each movement step, `PatrolRoute::arrive` reads the
+  body's accepted position. It advances the target only when that position
+  is within `ROUTE_ARRIVAL_PX` of it in x (a grounded walker's travel axis under up or down gravity): `Once` holds
+  at its end, `Loop` wraps, and `PingPong` reverses. This replaces the
+  discarded post-movement `advance`, which is deleted.
+- **Brain input.** The next target and the route's speed reach the brain as
+  `BrainSnapshot::route`. `follow_route` steers toward it through ordinary
+  intent. It is used by the patrol preset's patrol intent, by the wanderer
+  (both shipped routes run wanderer-template brains), and by MeleeBrute while
+  idle, which now patrols only when a route is attached.
+- **Walls and interruption.** A wall short of the target turns nothing and
+  advances nothing. Chase, attack and hold stay with each brain.
+- **Rollback.** Schema 542 encodes route progress as the target index and
+  direction.
+
+Witnesses:
+
+- `route_progress_advances_only_on_arrival` (body_seed);
+- `a_routed_wanderer_keeps_its_target_against_a_wall` (characters);
+- `a_route_driven_walker_reaches_its_route_target_and_reverses` (app_it):
+  the `basement_enemies` goblin keeps its spawn x 522, walks to 820,
+  reverses and comes back, under sync-test rollback.
+
+Not admitted: a route leg that needs a jump, climb or flight. A brain only
+walks toward the target's x. A route under sideways gravity is not admitted either. Navigation owns such legs.
 
 ## Acceptance
 

@@ -16,7 +16,7 @@ WARMUP=${2:-400}
 OUT=${OUT:-$(mktemp -d)}
 mkdir -p "$OUT" || { echo "cannot create $OUT" >&2; exit 2; }
 [ -x ./target/debug/capture_scene ] || {
-  echo "no target/debug/capture_scene -- cargo build -p ambition_app_tools --bin capture_scene" >&2
+  echo "no target/debug/capture_scene -- cargo build -p ambition_app_tools --features game --bin capture_scene" >&2
   exit 2; }
 strip() { sed 's/\x1b\[[0-9;]*m//g'; }
 printf '%-8s %11s %10s %s\n' profile placeholders 1st-warn transition

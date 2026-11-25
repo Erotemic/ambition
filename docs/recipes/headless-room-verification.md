@@ -44,11 +44,11 @@ stand in for the real capture.
 ./run_tests.sh -k <test_substring>
 
 # Inspect collision and room geometry (no rendered sprites).
-cargo run -p ambition_app_tools --bin render_room_geometry -- <ROOM_ID>
+cargo run -p ambition_app_tools --features game --bin render_room_geometry -- <ROOM_ID>
 
 # Capture actual presentation. The tool prints its full option vocabulary.
-cargo run -p ambition_app_tools --bin capture_scene -- --help
-cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> player /tmp/room.png
+cargo run -p ambition_app_tools --features game --bin capture_scene -- --help
+cargo run -p ambition_app_tools --features game --bin capture_scene -- <ROOM_ID> player /tmp/room.png
 ```
 
 `capture_scene` accepts `--route smash_gameplay --character <id>` for a fighter

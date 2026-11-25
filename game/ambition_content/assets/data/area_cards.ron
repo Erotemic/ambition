@@ -108,4 +108,10 @@
     (name: "The Concourse", subtitle: Some("The Central Hub"), rooms: ["authority_concourse"]),
     (name: "Authority Plaza", subtitle: Some("The Central Hub"), rooms: ["authority_plaza"]),
     (name: "The Manifest Office", subtitle: Some("Authority Plaza"), rooms: ["authority_manifest_office"]),
+    (name: "The Staging Area", subtitle: Some("The Unfinished Dimension"), rooms: ["unfinished_staging"]),
+    (name: "The Draft", subtitle: Some("The Unfinished Dimension"), rooms: ["unfinished_draft"]),
+    (name: "The Site Office", subtitle: Some("The Staging Area"), rooms: ["unfinished_site_office"]),
+    (name: "The Works", subtitle: Some("The Automaton Dimension"), rooms: ["automaton_works"]),
+    (name: "The Life Field", subtitle: Some("The Automaton Dimension"), rooms: ["automaton_life"]),
+    (name: "The Tape Room", subtitle: Some("The Works"), rooms: ["automaton_tape_room"]),
 ]

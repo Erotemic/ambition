@@ -178,7 +178,7 @@ fn path_driven_platform_advances_along_authored_path() {
         start_offset_seconds: 0.0,
     };
     let mut platform =
-        MovingPlatformState::from_path("lift_a", "Lift A", ae::Vec2::new(64.0, 16.0), path);
+        MovingPlatformState::from_path("lift_a", "Lift A", ae::Vec2::new(64.0, 16.0), &path).unwrap();
     assert_eq!(platform.pos, ae::Vec2::new(100.0, 200.0));
     let delta = platform.update(0.5);
     assert_eq!(delta, ae::Vec2::new(40.0, 0.0));
@@ -272,8 +272,8 @@ fn projected_half_for_test(half: ae::Vec2, axis: ae::Vec2) -> f32 {
 // ── Looping paths ─────────────────────────────────────────────────────────
 
 /// A two-point `Loop` must keep circulating without stalling on a zero-distance
-/// target. `advance_path_position` terminates if an advance leaves the cursor
-/// unchanged, and loop indexing closes the circuit back to the first point.
+/// target: the prepared path has no zero-length leg, so every step travels, and
+/// `Loop` closes the circuit back to the first point.
 #[test]
 fn a_two_point_looping_path_circulates_instead_of_spinning() {
     let bottom = ae::Vec2::new(0.0, 400.0);
@@ -282,13 +282,14 @@ fn a_two_point_looping_path_circulates_instead_of_spinning() {
         "elevator",
         "elevator",
         ae::Vec2::new(64.0, 16.0),
-        ambition_platformer2d_core::KinematicPath {
+        &ambition_platformer2d_core::KinematicPath {
             points: vec![bottom, top],
             speed: 600.0,
             mode: ambition_platformer2d_core::KinematicPathMode::Loop,
             start_offset_seconds: 0.0,
         },
-    );
+    )
+    .unwrap();
 
     let dt = 1.0 / 60.0;
     let step = 600.0 * dt;
@@ -328,13 +329,14 @@ fn loop_mode_closes_the_circuit_back_to_its_first_point() {
         "circuit",
         "circuit",
         ae::Vec2::new(64.0, 16.0),
-        ambition_platformer2d_core::KinematicPath {
+        &ambition_platformer2d_core::KinematicPath {
             points: vec![a, b, c],
             speed: 600.0,
             mode: ambition_platformer2d_core::KinematicPathMode::Loop,
             start_offset_seconds: 0.0,
         },
-    );
+    )
+    .unwrap();
 
     let dt = 1.0 / 60.0;
     let step = 600.0 * dt;

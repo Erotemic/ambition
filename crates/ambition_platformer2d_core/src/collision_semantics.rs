@@ -24,6 +24,45 @@ pub const MOTION_EPS: f32 = 1.0e-5;
 /// [`perpendicular_overlap`].
 pub const EDGE_OVERLAP_SLOP: f32 = 1.0;
 
+/// A body's contact bands, in its own units (SCALE-FEEL SR2).
+///
+/// [`CONTACT_SLOP`], [`ONE_WAY_CROSSING_SLOP`] and [`EDGE_OVERLAP_SLOP`] are a
+/// canonical body's affordances: how near its feet must be to a face to rest
+/// on it, how far past a one-way face one tick of its own motion may carry its
+/// feet, and how thin a sliver of its width counts as hanging off an edge. A
+/// body at half size moves half as far in a tick and is half as wide, so each
+/// band is the canonical band times its scale. A tolerance for joining two
+/// geometric surfaces (a seam between a line and a block) is geometry, not a
+/// body band, and does not convert.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ContactBands {
+    pub contact: f32,
+    pub crossing: f32,
+    pub edge_overlap: f32,
+}
+
+impl ContactBands {
+    /// The bands of a body at its canonical scale.
+    pub const CANONICAL: Self = Self {
+        contact: CONTACT_SLOP,
+        crossing: ONE_WAY_CROSSING_SLOP,
+        edge_overlap: EDGE_OVERLAP_SLOP,
+    };
+
+    /// The bands of a body of `material`: the canonical bands at its scale.
+    pub fn of(material: crate::frame::BodyMaterial) -> Self {
+        let scale = material.scale();
+        if scale == 1.0 {
+            return Self::CANONICAL;
+        }
+        Self {
+            contact: CONTACT_SLOP * scale,
+            crossing: ONE_WAY_CROSSING_SLOP * scale,
+            edge_overlap: EDGE_OVERLAP_SLOP * scale,
+        }
+    }
+}
+
 /// A world axis. The world is axis-aligned, so sweeps and penetration repair
 /// step one world axis at a time even though support/wall *decisions* are
 /// expressed in gravity-relative (feet/head/side) terms.
@@ -188,18 +227,21 @@ pub fn is_contact_range_snap(snap: Vec2, body: Aabb) -> bool {
 
 /// Overlap on the axis PERPENDICULAR to gravity — the "width" a body must share
 /// with a surface to rest on it (the X span under vertical gravity, the Y span
-/// under wall-walking). Requires [`EDGE_OVERLAP_SLOP`] of real overlap on each
-/// side, so a body hanging off an edge by a sliver does not count as resting.
-pub fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bool {
+/// under wall-walking). Requires `edge_overlap` (the body's
+/// [`ContactBands::edge_overlap`]) of real overlap on each side, so a body
+/// hanging off an edge by a sliver does not count as resting.
+pub fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2, edge_overlap: f32) -> bool {
     if gravity_dir.y.abs() >= gravity_dir.x.abs() {
         spans_overlap_for_support(
             (body.left(), body.right()),
             (surface.left(), surface.right()),
+            edge_overlap,
         )
     } else {
         spans_overlap_for_support(
             (body.top(), body.bottom()),
             (surface.top(), surface.bottom()),
+            edge_overlap,
         )
     }
 }
@@ -208,14 +250,14 @@ pub fn perpendicular_overlap(body: Aabb, surface: Aabb, gravity_dir: Vec2) -> bo
 ///
 /// The whole of [`perpendicular_overlap`] once the perpendicular axis has been
 /// chosen: two `(min, max)` intervals, overlapping by more than
-/// [`EDGE_OVERLAP_SLOP`] at each end. Both arguments are already projected onto
+/// `edge_overlap` at each end. Both arguments are already projected onto
 /// the axis perpendicular to the body's own gravity, so this is as
 /// gravity-generic as its caller's projection.
 ///
 ///  exposed so a body that is not an [`Aabb`] can ask the SAME question, rather than
 /// re-deriving support from a centre.
-pub fn spans_overlap_for_support(body: (f32, f32), surface: (f32, f32)) -> bool {
-    body.1 > surface.0 + EDGE_OVERLAP_SLOP && body.0 < surface.1 - EDGE_OVERLAP_SLOP
+pub fn spans_overlap_for_support(body: (f32, f32), surface: (f32, f32), edge_overlap: f32) -> bool {
+    body.1 > surface.0 + edge_overlap && body.0 < surface.1 - edge_overlap
 }
 
 /// Whether a body may LAND on a one-way surface this step: it must be moving
@@ -236,14 +278,15 @@ pub fn one_way_landing_from_previous_feet(
     gravity_dir: Vec2,
     drop_through: bool,
     prev_feet_coord: f32,
+    bands: ContactBands,
 ) -> bool {
     if drop_through || gravity_dir == Vec2::ZERO {
         return false;
     }
     let rose = (-block_velocity.dot(gravity_dir)).max(0.0);
     moving_toward_feet(delta, gravity_dir)
-        && prev_feet_coord <= block.head_coord(gravity_dir) + ONE_WAY_CROSSING_SLOP + rose
-        && perpendicular_overlap(body, block, gravity_dir)
+        && prev_feet_coord <= block.head_coord(gravity_dir) + bands.crossing + rose
+        && perpendicular_overlap(body, block, gravity_dir, bands.edge_overlap)
 }
 
 /// The mirror of [`one_way_landing_from_previous_feet`]: does this body's HEAD
@@ -257,7 +300,7 @@ pub fn one_way_landing_from_previous_feet(
 /// an omission: dropping through is a request to stop being held UP, and nothing
 /// is holding you up here. The one-way rule needs it; this one has nothing to
 /// waive.
-pub fn bonk_strike_from_head(body: Aabb, block: Aabb, delta: Vec2, gravity_dir: Vec2) -> bool {
+pub fn bonk_strike_from_head(body: Aabb, block: Aabb, delta: Vec2, gravity_dir: Vec2, bands: ContactBands) -> bool {
     if gravity_dir == Vec2::ZERO {
         return false;
     }
@@ -265,8 +308,8 @@ pub fn bonk_strike_from_head(body: Aabb, block: Aabb, delta: Vec2, gravity_dir: 
     // the block's underside before this step, so the block is being entered
     // from beneath rather than already overlapped.
     delta.dot(gravity_dir) < -MOTION_EPS
-        && body.head_coord(gravity_dir) >= block.feet_coord(gravity_dir) - ONE_WAY_CROSSING_SLOP
-        && perpendicular_overlap(body, block, gravity_dir)
+        && body.head_coord(gravity_dir) >= block.feet_coord(gravity_dir) - bands.crossing
+        && perpendicular_overlap(body, block, gravity_dir, bands.edge_overlap)
 }
 
 /// Whether `surface` supports `body` at rest under this gravity: a support kind,
@@ -279,15 +322,16 @@ pub fn surface_supports_body_at_rest(
     surface: Aabb,
     gravity_dir: Vec2,
     drop_through: bool,
+    bands: ContactBands,
 ) -> bool {
-    if !is_support_surface(kind) || !perpendicular_overlap(body, surface, gravity_dir) {
+    if !is_support_surface(kind) || !perpendicular_overlap(body, surface, gravity_dir, bands.edge_overlap) {
         return false;
     }
     if matches!(kind, BlockKind::OneWay) && drop_through {
         return false;
     }
     body_on_support_side(body, surface, gravity_dir)
-        && support_face_separation(body, surface, gravity_dir).abs() <= CONTACT_SLOP
+        && support_face_separation(body, surface, gravity_dir).abs() <= bands.contact
 }
 
 /// Are `stomper`'s feet on `victim`'s head? — the body-vs-body twin of
@@ -296,8 +340,8 @@ pub fn surface_supports_body_at_rest(
 ///  the SAME two primitives a resting body uses, so a footstool cannot disagree with a
 /// landing about where a head is: [`perpendicular_overlap`] for the lateral share (with its
 /// `EDGE_OVERLAP_SLOP`), [`support_face_separation`] for the gravity axis.
-pub fn feet_on_head(stomper: Aabb, victim: Aabb, gravity_dir: Vec2, band: f32) -> bool {
-    if !perpendicular_overlap(stomper, victim, gravity_dir) {
+pub fn feet_on_head(stomper: Aabb, victim: Aabb, gravity_dir: Vec2, band: f32, edge_overlap: f32) -> bool {
+    if !perpendicular_overlap(stomper, victim, gravity_dir, edge_overlap) {
         return false;
     }
     let separation = support_face_separation(stomper, victim, gravity_dir);
@@ -310,9 +354,10 @@ pub fn supporting_block<'a>(
     body: Aabb,
     gravity_dir: Vec2,
     drop_through: bool,
+    bands: ContactBands,
 ) -> Option<&'a Block> {
     world.blocks.iter().find(|block| {
-        surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, drop_through)
+        surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, drop_through, bands)
     })
 }
 
@@ -349,6 +394,7 @@ pub fn footing(
     gravity_dir: Vec2,
     drop_through: bool,
     balance: crate::Balance,
+    bands: ContactBands,
 ) -> Footing {
     if gravity_dir == Vec2::ZERO {
         return Footing::Balanced;
@@ -369,10 +415,10 @@ pub fn footing(
                 && body_hi > lo
                 && body_lo < hi
                 && body_on_support_side(body, block.aabb, gravity_dir)
-                && support_face_separation(body, block.aabb, gravity_dir).abs() <= CONTACT_SLOP
+                && support_face_separation(body, block.aabb, gravity_dir).abs() <= bands.contact
         })
         .map(|block| across(block.aabb));
-    let lines = crate::walkable_lines::spans_underfoot(world, body, gravity_dir, side);
+    let lines = crate::walkable_lines::spans_underfoot(world, body, gravity_dir, side, bands);
     let Some((lo, hi)) = blocks
         .chain(lines)
         .reduce(|(lo, hi), (a, b)| (lo.min(a), hi.max(b)))

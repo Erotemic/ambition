@@ -13,7 +13,7 @@
 # in it; they are small next to the simulation once the room is loaded.
 #
 # BIN defaults to target/profiling/headless:
-#   cargo build -p ambition_app_tools --bin headless --profile profiling
+#   cargo build -p ambition_app_tools --features game --bin headless --profile profiling
 set -euo pipefail
 room="${1:-hall_of_characters}"
 shift || true

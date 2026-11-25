@@ -77,7 +77,7 @@ if (( build_tools )); then
     cd "$repo"
     cargo build \
       --manifest-path "$repo/Cargo.toml" \
-      -p ambition_app_tools \
+      -p ambition_app_tools --features game \
       --bin moveset_export \
       --bin moveset_takes \
       --bin moveset_render
@@ -129,7 +129,7 @@ report_bin() {
       "$name" "$path" "$(date -r "$path" '+%Y-%m-%d %H:%M')" "$age"
   else
     printf '[inspector] %-15s NOT BUILT — %s\n' "$name" "$lost" >&2
-    printf '[inspector] %-15s   cargo build -p ambition_app_tools --bin %s\n' "" "$name" >&2
+    printf '[inspector] %-15s   cargo build -p ambition_app_tools --features game --bin %s\n' "" "$name" >&2
     return 1
   fi
 }
@@ -149,7 +149,7 @@ if (( build_tools )); then
 else
   echo "[inspector] refresh binaries explicitly with --build, or run:"
 fi
-echo "[inspector]   cargo build -p ambition_app_tools --bin moveset_export --bin moveset_takes --bin moveset_render"
+echo "[inspector]   cargo build -p ambition_app_tools --features game --bin moveset_export --bin moveset_takes --bin moveset_render"
 
 report_bin moveset_export "serving whatever bundle is already on disk" || true
 report_bin moveset_takes  "new interactive runtime takes cannot be generated"  || true

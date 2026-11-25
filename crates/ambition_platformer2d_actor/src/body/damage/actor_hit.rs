@@ -494,6 +494,7 @@ pub(crate) fn apply_actor_hit(
                     grounded: em.ground.on_ground,
                     crouching: em.body_mode.body_mode == ae::BodyMode::Crouching,
                     pose_held,
+                    material: em.kin.material,
                 },
                 // ⭐ THE AIR DODGE A HIT GIVES BACK — one resource, and the
                 // reaction's rather than each road's (D203). ⛔ NOT the double

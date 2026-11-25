@@ -517,7 +517,7 @@ def take_evidence(scenario: CombatScenario, force: bool = False) -> tuple[int, d
                 "available": False,
                 "state": "error",
                 "reason": "moveset_takes is not built",
-                "hint": "cargo build -p ambition_app_tools --bin moveset_takes",
+                "hint": "cargo build -p ambition_app_tools --features game --bin moveset_takes",
                 "scenario": scenario.document(),
                 "looked_in": [str(p) for p in binary_candidates("moveset_takes")],
             }
@@ -726,7 +726,7 @@ def render_animation(
         return 503, {
             "available": False,
             "reason": "moveset_render is not built",
-            "hint": "cargo build -p ambition_app_tools --bin moveset_render",
+            "hint": "cargo build -p ambition_app_tools --features game --bin moveset_render",
             "looked_in": [str(p) for p in renderer_candidates()],
         }
 
@@ -882,7 +882,7 @@ def inspector_status() -> dict:
             "found": found is not None,
             "path": str(found) if found else None,
             "built": _built_at(found) if found else None,
-            "build_command": f"cargo build -p ambition_app_tools --bin {name}",
+            "build_command": f"cargo build -p ambition_app_tools --features game --bin {name}",
             "looked_in": [str(p) for p in binary_candidates(name)],
         }
 
@@ -1232,7 +1232,7 @@ def main(argv: list[str] | None = None) -> int:
     if not (DATA / "moveset_bundle.json").exists():
         print(
             "[inspector] no bundle yet — run:\n"
-            "    cargo run -p ambition_app_tools --bin moveset_export\n"
+            "    cargo run -p ambition_app_tools --features game --bin moveset_export\n"
             "the UI will load but every view will be empty."
         )
 

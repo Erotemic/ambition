@@ -1,4 +1,4 @@
-//! The two roads into `gate_solids`, registered in one place.
+//! The roads into `gate_solids`, registered in one place.
 //!
 //! ⛔ THEY WERE CO-LOCATED BY ACCIDENT OF HISTORY, AND THAT MATTERED ONCE. Both
 //! systems derive seal walls onto the collision overlay's `gate_solids` in
@@ -60,6 +60,9 @@ impl bevy::prelude::Plugin for WorldGatingSchedulePlugin {
                 // Authored condition → the same overlay field. Registered beside
                 // its sibling ON PURPOSE; see the module doc.
                 ambition_platformer2d_world::gated_lock_walls::sync_authored_gated_lock_walls,
+                // A scripted door's own state → its own room's overlay.
+                ambition_platformer2d_world::mechanism_doors::contribute_mechanism_doors
+                    .run_if(bevy::prelude::any_with_component::<ambition_platformer2d_world::mechanism_doors::MechanismDoor>),
             )
                 .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions)
                 .before(ambition_combat::hazards::HazardTickSet)
@@ -79,9 +82,9 @@ mod tests {
         FeatureWorldOverlayContributions, Platformer2dSimulationPhase, SimScheduleExt as _,
     };
 
-    /// Both writers of `gate_solids`, both overlay contributors.
+    /// Every writer of `gate_solids` is an overlay contributor.
     ///
-    /// ⛔ THE INVARIANT IS THE PAIR, not either system. Each derives seal walls
+    /// ⛔ THE INVARIANT IS THE SET OF WRITERS, not any one system. Each derives seal walls
     /// onto an overlay field that `rebuild_feature_ecs_world_overlay` clears
     /// every frame. `FeatureWorldOverlayContributions` runs after that rebuild
     /// and before every body that collides with the overlay, so a writer
@@ -111,12 +114,12 @@ mod tests {
         // `<Enable the debug feature to see the name>` unless the build graph
         // happens to unify `bevy_ecs/debug` on, so a name-keyed lookup passes
         // under one `-p` and fails under another. The plugin schedules exactly
-        // the pair and nothing else, so "every system it scheduled" IS the pair.
+        // the writers and nothing else, so "every system it scheduled" IS the writers.
         let systems: Vec<SystemKey> = graph.systems.iter().map(|(key, _, _)| key).collect();
         assert_eq!(
             systems.len(),
-            2,
-            "WorldGatingSchedulePlugin schedules the two gate_solids writers and nothing else; \
+            3,
+            "WorldGatingSchedulePlugin schedules the three gate_solids writers and nothing else; \
              a writer that fell out took its road with it"
         );
 

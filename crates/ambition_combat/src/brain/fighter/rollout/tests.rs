@@ -1117,7 +1117,7 @@ fn the_shadow_lets_go_of_the_lip_where_the_kernel_does() {
     let half = s.me.half_extent.x;
     let footprint = (s.me.pos.x - half, s.me.pos.x + half);
     assert!(
-        !ae::collision_semantics::spans_overlap_for_support(footprint, span),
+        !ae::collision_semantics::spans_overlap_for_support(footprint, span, ae::collision_semantics::EDGE_OVERLAP_SLOP),
         "the shadow let go at x={} with its footprint still at {:?} on the \
          platform {:?} — the real kernel asked at this position stands the body \
          straight back up, so a recovery probe taken here is reprieved by the \

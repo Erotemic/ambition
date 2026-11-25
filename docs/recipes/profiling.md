@@ -240,7 +240,7 @@ Do this before you measure anything you intend to act on. Do not assume a noise
 floor; an assumed floor once dismissed real work by an order of magnitude.
 
 ```bash
-cargo build -q -p ambition_app_tools --bin smash_match_profile
+cargo build -q -p ambition_app_tools --features game --bin smash_match_profile
 for i in 1 2 3 4 5; do
   AMBITION_PROFILE_CENSUS=1 AMBITION_PROFILE_CENSUS_HZ=2 \
     target/debug/smash_match_profile --ticks 2000 2>&1 \

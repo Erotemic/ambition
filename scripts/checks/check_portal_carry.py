@@ -255,11 +255,11 @@ def main() -> int:
     )
     args = parser.parse_args()
     if args.build:
-        built = subprocess.run(["cargo", "build", "-j", "6", "-p", "ambition_app_tools", "--bin", "capture_scene"], cwd=REPO)
+        built = subprocess.run(["cargo", "build", "-j", "6", "-p", "ambition_app_tools", "--features", "game", "--bin", "capture_scene"], cwd=REPO)
         if built.returncode != 0:
             return built.returncode
     if not CAPTURE.exists():
-        print(f"{CAPTURE} is missing: cargo build -p ambition_app_tools --bin capture_scene", file=sys.stderr)
+        print(f"{CAPTURE} is missing: cargo build -p ambition_app_tools --features game --bin capture_scene", file=sys.stderr)
         return 2
     wanted = set(args.cases.split(","))
     cases = [c for c in CASES if c.name in wanted]

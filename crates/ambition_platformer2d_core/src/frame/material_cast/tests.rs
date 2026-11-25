@@ -1123,3 +1123,66 @@ fn initial_overlap_policy_applies_to_a_turning_obstacle() {
         if let Some(hit) = hit { assert_eq!(hit.toi, 0.0); }
     }
 }
+
+/// SUP1: a segment whose ends move together is a translation, and the
+/// deforming cast answers exactly what the translation cast answers.
+#[test]
+fn a_deforming_segment_cast_with_equal_end_motion_is_the_translation_cast() {
+    let body = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::new(2.0, 1.0)));
+    let mut seed = 0x2545_f491_4f6c_dd1d_u64;
+    let mut number = || { seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17; (seed >> 11) as f64 / (1u64 << 53) as f64 };
+    let mut compared = 0;
+    for _ in 0..400 {
+        let mut point = || DVec2::new(number() * 20.0 - 10.0, number() * 20.0 - 10.0);
+        let (a, b, motion) = (point(), point(), point());
+        let rigid = primitive_cast(&body, -motion, &[a, b]).map(|mut hit| { hit.point += motion * hit.time; hit });
+        let deforming = deforming_segment_cast(&body, [a, b], [motion, motion], InitialOverlap::AllowSeparation).unwrap();
+        match (rigid, deforming) {
+            (None, None) => {}
+            (Some(r), Some(d)) => {
+                compared += 1;
+                assert!((r.time - d.time).abs() < 1e-9, "time {} against {} for {a:?} {b:?} {motion:?}", r.time, d.time);
+                if r.time > 0.0 {
+                    assert!(r.normal.dot(d.normal) > 0.999, "normal {:?} against {:?} for {a:?} {b:?} {motion:?}", r.normal, d.normal);
+                }
+            }
+            (r, d) => panic!("translation {:?} against deforming {:?} for {a:?} {b:?} {motion:?}", r.map(|h| h.time), d.map(|h| h.time)),
+        }
+    }
+    assert!(compared > 20, "the sample must contain contacts: {compared}");
+}
+
+/// SUP1: a segment that stretches meets the body when its end does. One end
+/// stays, the other goes 10 to the right: the end reaches the face 5 away
+/// half way through, where the rigid fit (the whole line moved by the mean
+/// 5) arrives only at the end of the tick.
+#[test]
+fn a_stretching_segment_meets_the_body_when_its_end_arrives() {
+    let body = CombatVolume::aabb(Aabb::new(Vec2::new(30.0, 5.0), Vec2::splat(5.0)));
+    let ends = [DVec2::new(-20.0, 5.0), DVec2::new(20.0, 5.0)];
+    let hit = deforming_segment_cast(&body, ends, [DVec2::ZERO, DVec2::new(10.0, 0.0)], InitialOverlap::AllowSeparation)
+        .unwrap().expect("the stretching end reaches the body");
+    assert!((hit.time - 0.5).abs() < 1e-9, "{}", hit.time);
+    assert!(hit.normal.x > 0.999, "the segment pushes the body away along +x: {:?}", hit.normal);
+    let rigid = primitive_cast(&body, -DVec2::new(5.0, 0.0), &ends).unwrap();
+    assert!((rigid.time - 1.0).abs() < 1e-9, "the rigid fit: {}", rigid.time);
+}
+
+/// SUP1: a segment that tilts as one end rises reaches a body corner
+/// between its ends: the quadratic event. At x = 10 (three quarters along)
+/// the line's height is 10 - 15t, which meets the corner at y = 3 at t = 7/15.
+#[test]
+fn a_tilting_segment_meets_a_body_corner_between_its_ends() {
+    let body = CombatVolume::aabb(Aabb::new(Vec2::new(7.5, -1.0), Vec2::new(2.5, 4.0)));
+    let ends = [DVec2::new(-20.0, 10.0), DVec2::new(20.0, 10.0)];
+    let hit = deforming_segment_cast(&body, ends, [DVec2::ZERO, DVec2::new(0.0, -20.0)], InitialOverlap::AllowSeparation)
+        .unwrap().expect("the corner is reached");
+    assert!((hit.time - 7.0 / 15.0).abs() < 1e-9, "{}", hit.time);
+    assert!((hit.point - DVec2::new(10.0, 3.0)).length() < 1e-9, "{:?}", hit.point);
+    assert!(hit.normal.y < -0.9, "the line pushes up into the body: {:?}", hit.normal);
+    // A circle meets the stretching end by conservative advancement.
+    let ball = CombatVolume::circle(Vec2::new(30.0, 5.0), 5.0);
+    let hit = deforming_segment_cast(&ball, [DVec2::new(-20.0, 5.0), DVec2::new(20.0, 5.0)],
+        [DVec2::ZERO, DVec2::new(10.0, 0.0)], InitialOverlap::AllowSeparation).unwrap().expect("the end reaches the ball");
+    assert!((hit.time - 0.5).abs() < 1e-6, "{}", hit.time);
+}

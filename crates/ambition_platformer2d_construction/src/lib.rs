@@ -40,6 +40,10 @@ pub const RECIPE_CHARACTER_BODY: &str = "ambition.character-body";
 pub const RECIPE_AUTHORED_PLACEMENT: &str = "ambition.authored-placement";
 /// An authored heal/save shrine.
 pub const RECIPE_AUTHORED_SHRINE: &str = "ambition.authored-shrine";
+/// The object occurrence of a lift a script made (`create_mechanism`).
+pub const RECIPE_MECHANISM_LIFT: &str = "ambition.mechanism-lift";
+/// A door a script made (`create_mechanism`).
+pub const RECIPE_MECHANISM_DOOR: &str = "ambition.mechanism-door";
 /// An authored gravity zone.
 /// An authored boss pulled into the planner because a relation names it.
 pub const RECIPE_AUTHORED_BOSS: &str = "ambition.authored-boss";
@@ -85,6 +89,12 @@ pub fn recipe_authored_placement() -> RecipeId {
 }
 pub fn recipe_authored_shrine() -> RecipeId {
     RecipeId::new(RECIPE_AUTHORED_SHRINE)
+}
+pub fn recipe_mechanism_lift() -> RecipeId {
+    RecipeId::new(RECIPE_MECHANISM_LIFT)
+}
+pub fn recipe_mechanism_door() -> RecipeId {
+    RecipeId::new(RECIPE_MECHANISM_DOOR)
 }
 pub fn relation_grudge() -> RelationKind {
     RelationKind::new(RELATION_GRUDGE)
@@ -201,6 +211,20 @@ pub enum ActorConstructionParams {
     /// Now it is a plan row like everything else in the room.
     Shrine {
         spec: ambition_platformer2d_world::rooms::ShrineSpec,
+    },
+    /// The occurrence of a scripted lift: an object a caller can retire. The
+    /// lift is the platform row `platform` names; the platform domain owns
+    /// its motion and removes the row when this occurrence goes.
+    MechanismLift {
+        platform: String,
+    },
+    /// A scripted door: its own object in the caller's live room, a wall
+    /// there while it is shut.
+    MechanismDoor {
+        id: String,
+        min: [f32; 2],
+        size: [f32; 2],
+        open: bool,
     },
 }
 
@@ -471,6 +495,14 @@ impl ConstructionDomain for ActorConstruction {
                 recipe: recipe_authored_shrine(),
                 construct: construct_shrine,
             },
+            ActorConstructionParams::MechanismLift { .. } => RecipeDispatch {
+                recipe: recipe_mechanism_lift(),
+                construct: construct_mechanism_lift,
+            },
+            ActorConstructionParams::MechanismDoor { .. } => RecipeDispatch {
+                recipe: recipe_mechanism_door(),
+                construct: construct_mechanism_door,
+            },
         }
     }
 
@@ -543,6 +575,10 @@ impl ConstructionDomain for ActorConstruction {
                 )
             }
             ActorConstructionParams::Shrine { spec } => format!("shrine {}", spec.id),
+            ActorConstructionParams::MechanismLift { platform } => format!("mechanism-lift {platform}"),
+            ActorConstructionParams::MechanismDoor { id, min, size, open } => {
+                format!("mechanism-door {id} {min:?} {size:?} open={open}")
+            }
         }
     }
 
@@ -1018,6 +1054,37 @@ fn construct_shrine(
     );
 }
 
+fn construct_mechanism_lift(
+    parameters: &ActorConstructionParams,
+    ctx: &mut RootCtx<'_, '_, '_>,
+) {
+    let ActorConstructionParams::MechanismLift { platform } = parameters else {
+        unreachable!("dispatch pairs this fn with MechanismLift parameters")
+    };
+    ctx.insert_in_session((
+        bevy::prelude::Name::new(format!("Lift: {platform}")),
+        ambition_platformer2d_world::platforms::MechanismLift { platform: platform.clone() },
+    ));
+}
+
+fn construct_mechanism_door(
+    parameters: &ActorConstructionParams,
+    ctx: &mut RootCtx<'_, '_, '_>,
+) {
+    let ActorConstructionParams::MechanismDoor { id, min, size, open } = parameters else {
+        unreachable!("dispatch pairs this fn with MechanismDoor parameters")
+    };
+    ctx.insert_in_session((
+        bevy::prelude::Name::new(format!("Door: {id}")),
+        ambition_platformer2d_world::mechanism_doors::MechanismDoor {
+            id: id.clone(),
+            min: (*min).into(),
+            size: (*size).into(),
+            open: *open,
+        },
+    ));
+}
+
 fn construct_placement(
     parameters: &ActorConstructionParams,
     ctx: &mut RootCtx<'_, '_, '_>,
@@ -1412,6 +1479,8 @@ pub fn install_actor_construction_recipes(
     registry.try_register_recipe(recipe_authored_boss(), OWNER, "authored-room", SCHEMA)?;
     registry.try_register_recipe(recipe_authored_placement(), OWNER, "authored-room", SCHEMA)?;
     registry.try_register_recipe(recipe_authored_shrine(), OWNER, "authored-room", SCHEMA)?;
+    registry.try_register_recipe(recipe_mechanism_lift(), OWNER, "scripted-mechanism", SCHEMA)?;
+    registry.try_register_recipe(recipe_mechanism_door(), OWNER, "scripted-mechanism", SCHEMA)?;
     // Metadata only — the wiring and the checks come from
     // `ActorConstruction::dispatch_relation`, so there is nothing here for an
     // outside registration to replace or to win an insertion-order race for.
@@ -1491,7 +1560,9 @@ pub fn mount_capabilities_of(
         // A placement is never a mount-link end today (links name enemy/boss
         // ids); an NPC that should ride something becomes an enemy/boss row.
         ActorConstructionParams::Placement { .. } => PlannedMountCapabilities::default(),
-        ActorConstructionParams::Shrine { .. } => PlannedMountCapabilities::default(),
+        ActorConstructionParams::Shrine { .. }
+        | ActorConstructionParams::MechanismLift { .. }
+        | ActorConstructionParams::MechanismDoor { .. } => PlannedMountCapabilities::default(),
         ActorConstructionParams::AuthoredBoss { .. } => PlannedMountCapabilities {
             mount_class: None,
             pilots: planned_boss_profile(parameters, bosses)
@@ -1588,6 +1659,8 @@ fn family_of(parameters: &ActorConstructionParams) -> &'static str {
         ActorConstructionParams::AuthoredBoss { .. } => "authored-boss",
         ActorConstructionParams::Placement { .. } => "placement",
         ActorConstructionParams::Shrine { .. } => "shrine",
+        ActorConstructionParams::MechanismLift { .. } => "mechanism-lift",
+        ActorConstructionParams::MechanismDoor { .. } => "mechanism-door",
     }
 }
 
@@ -1617,7 +1690,9 @@ fn planned_body_character(parameters: &ActorConstructionParams) -> Option<&str> 
         ActorConstructionParams::AuthoredBoss { .. }
         | ActorConstructionParams::Placement { .. }
         | ActorConstructionParams::GroundItem { .. }
-        | ActorConstructionParams::Shrine { .. } => None,
+        | ActorConstructionParams::Shrine { .. }
+        | ActorConstructionParams::MechanismLift { .. }
+        | ActorConstructionParams::MechanismDoor { .. } => None,
     }
 }
 

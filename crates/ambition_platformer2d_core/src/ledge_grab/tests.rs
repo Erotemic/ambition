@@ -22,7 +22,7 @@ fn finds_ledge_when_clinging_to_a_wall_with_open_space_above() {
     // the player's right pushes them left).
     let player_pos = Vec2::new(86.0, 110.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     assert!(contact.is_some(), "expected ledge contact");
     let contact = contact.unwrap();
     assert!(contact.wall_normal_x < 0.0);
@@ -47,7 +47,7 @@ fn rejects_when_above_is_blocked() {
     ]);
     let player_pos = Vec2::new(86.0, 110.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     assert!(
         contact.is_none(),
         "should not return a ledge whose top has another block above"
@@ -66,7 +66,7 @@ fn rejects_when_hang_space_has_wall_in_front_of_ledge() {
     ]);
     let player_pos = Vec2::new(86.0, 110.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     assert!(
         contact.is_none(),
         "ledge should be rejected when the hang space in front is blocked"
@@ -78,7 +78,7 @@ fn rejects_when_no_wall_present() {
     let world = world_with(vec![]);
     let player_pos = Vec2::new(50.0, 50.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     assert!(contact.is_none());
 }
 
@@ -89,7 +89,7 @@ fn rejects_zero_wall_normal() {
         Vec2::new(100.0, 100.0),
         Vec2::new(200.0, 200.0),
     )]);
-    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), 0.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), 0.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     assert!(contact.is_none());
 }
 
@@ -110,7 +110,7 @@ fn rejects_ledge_when_player_would_land_above_world_top() {
     // their head right under the block's top.
     let player_pos = Vec2::new(86.0, 24.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     assert!(
         contact.is_none(),
         "ceiling-adjacent ledge must be rejected (climb_target would be OOB)"
@@ -129,7 +129,7 @@ fn finds_ledge_on_left_facing_wall() {
     )]);
     let player_size = Vec2::new(28.0, 46.0);
     let player_pos = Vec2::new(114.0, 110.0); // hugging right edge of block
-    let contact = probe_ledge_grab_in_frame(player_pos, player_size, 1.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, 1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     assert!(contact.is_some(), "should find ledge on the right face");
     let contact = contact.unwrap();
     assert!(contact.wall_normal_x > 0.0);
@@ -150,7 +150,7 @@ fn finds_ledge_when_player_is_slightly_low() {
     // head. The previous 12px upward reach rejected this common
     // near-miss; the forgiving reach should still catch it.
     let player_pos = Vec2::new(86.0, 150.0);
-    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     assert!(
         contact.is_some(),
         "ledge slightly above the old chin band should be reachable"
@@ -166,7 +166,7 @@ fn finds_ledge_when_player_is_slightly_off_wall() {
     )]);
     let player_size = Vec2::new(28.0, 46.0);
     let player_pos = Vec2::new(78.0, 110.0);
-    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     assert!(
         contact.is_some(),
         "a small horizontal near-miss should still grab the ledge"
@@ -182,7 +182,7 @@ fn forgiving_vertical_grab_is_not_precise_for_boost() {
     )]);
     let player_size = Vec2::new(28.0, 46.0);
     let player_pos = Vec2::new(86.0, 150.0);
-    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN)
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL)
         .expect("forgiving ledge probe should still catch the player");
     assert!(
         !classify_ledge_grab_in_frame(player_pos, player_size, contact, DOWN).is_precise(),
@@ -199,7 +199,7 @@ fn forgiving_horizontal_grab_is_not_precise_for_boost() {
     )]);
     let player_size = Vec2::new(28.0, 46.0);
     let player_pos = Vec2::new(78.0, 110.0);
-    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN)
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL)
         .expect("forgiving ledge probe should still catch the player");
     assert!(
         !classify_ledge_grab_in_frame(player_pos, player_size, contact, DOWN).is_precise(),
@@ -331,9 +331,9 @@ fn precise_grab_quality_is_reported_as_an_explicit_state() {
     let player_size = Vec2::new(28.0, 46.0);
     let precise_pos = Vec2::new(86.0, 110.0);
     let forgiving_pos = Vec2::new(86.0, 150.0);
-    let precise_contact = probe_ledge_grab_in_frame(precise_pos, player_size, -1.0, &world, DOWN)
+    let precise_contact = probe_ledge_grab_in_frame(precise_pos, player_size, -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL)
         .expect("precise ledge probe should catch");
-    let forgiving_contact = probe_ledge_grab_in_frame(forgiving_pos, player_size, -1.0, &world, DOWN)
+    let forgiving_contact = probe_ledge_grab_in_frame(forgiving_pos, player_size, -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL)
         .expect("forgiving ledge probe should catch");
 
     assert_eq!(
@@ -354,7 +354,7 @@ fn finds_ledge_on_blink_wall() {
         Vec2::new(200.0, 200.0),
         crate::world::BlinkWallTier::Soft,
     )]);
-    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     assert!(
         contact.is_some(),
         "blink walls are standable ledge surfaces"
@@ -368,7 +368,7 @@ fn finds_ledge_on_one_way_platform_edge() {
         Vec2::new(100.0, 100.0),
         Vec2::new(200.0, 16.0),
     )]);
-    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     assert!(contact.is_some(), "one-way platforms can be pulled up onto");
 }
 
@@ -378,7 +378,7 @@ fn rejects_when_lock_door_blocks_pull_up_space() {
         Block::one_way("ledge", Vec2::new(100.0, 100.0), Vec2::new(200.0, 16.0)),
         Block::solid("lock_door", Vec2::new(104.0, 40.0), Vec2::new(48.0, 80.0)),
     ]);
-    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     assert!(
         contact.is_none(),
         "a solid lock door in the climb target must block the grab"
@@ -408,7 +408,7 @@ fn finds_ledge_at_top_of_stacked_solid_wall() {
     // pushes player left), with head near the upper block's top.
     let player_pos = Vec2::new(86.0, 110.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     let contact = contact.expect("stacked-wall ledge must surface a contact");
     assert!(contact.wall_normal_x < 0.0);
     // Anchor should hug the wall edge (block.left = 100) just
@@ -441,7 +441,7 @@ fn finds_ledge_at_l_corner_when_clinging_to_upper_block() {
     ]);
     let player_pos = Vec2::new(86.0, 110.0);
     let player_size = Vec2::new(28.0, 46.0);
-    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN);
+    let contact = probe_ledge_grab_in_frame(player_pos, player_size, -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL);
     let contact = contact.expect("L-corner ledge must surface a contact");
     assert!(
         contact.climb_target.y < 100.0,
@@ -1989,7 +1989,7 @@ fn world_with_line(lip: Vec2, deg: f32, velocity: Vec2) -> World {
 #[test]
 fn grabs_the_end_of_a_tilted_one_way_line_under_the_limit() {
     let world = world_with_line(Vec2::new(100.0, 100.0), 10.0, Vec2::ZERO);
-    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN)
+    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL)
         .expect("the end of a line tilted 10 degrees is a ledge");
     assert_eq!(contact.wall_normal_x, -1.0);
     assert!(contact.anchor.distance(Vec2::new(87.0, 119.0)) < 0.01, "anchor {:?}", contact.anchor);
@@ -2003,7 +2003,7 @@ fn grabs_the_end_of_a_tilted_one_way_line_under_the_limit() {
 #[test]
 fn no_grab_on_a_line_tilted_past_the_limit() {
     let world = world_with_line(Vec2::new(100.0, 100.0), LEDGE_TILT_LIMIT_DEG + 5.0, Vec2::ZERO);
-    assert!(probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN).is_none());
+    assert!(probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), Vec2::new(28.0, 46.0), -1.0, &world, DOWN, crate::ledge_grab::LedgeReach::CANONICAL).is_none());
 }
 
 /// A hang on a moving line is carried with its lip, and a line that tilts
@@ -2012,7 +2012,7 @@ fn no_grab_on_a_line_tilted_past_the_limit() {
 fn a_moving_line_carries_its_hanger_and_knocks_it_off_past_the_limit() {
     let size = Vec2::new(28.0, 46.0);
     let held = world_with_line(Vec2::new(100.0, 100.0), 10.0, Vec2::ZERO);
-    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), size, -1.0, &held, DOWN).expect("a grab");
+    let contact = probe_ledge_grab_in_frame(Vec2::new(86.0, 110.0), size, -1.0, &held, DOWN, crate::ledge_grab::LedgeReach::CANONICAL).expect("a grab");
     let body = Aabb::new(contact.anchor, size * 0.5);
     // The line rose 6 this tick and is still level enough: it carries.
     let rose = world_with_line(Vec2::new(100.0, 94.0), 15.0, Vec2::new(0.0, -6.0));
@@ -2058,6 +2058,30 @@ fn a_carried_body_faces_the_ledge_on_acquisition_and_while_hanging() {
                     assert_eq!(scratch.kinematics.material, material);
                 }
             }
+        }
+    }
+}
+
+/// SR2 (SCALE-FEEL): a body's ledge reach is its own. In equivalent scenes
+/// at 0.5, 1 and 2 (the wall, the body and its fall all scaled together), a
+/// body falling past a wall with its head 20 body-pixels under the lip snaps
+/// to it, and one 34 under does not: the canonical reach up is 28. A fixed
+/// reach missed the first at twice the size and caught the second at half.
+#[test]
+fn a_ledge_reach_is_the_bodys_own_at_every_scale() {
+    for (under, grabs) in [(20.0_f32, true), (34.0, false)] {
+        for scale in [0.5_f32, 1.0, 2.0] {
+            let world = World::new("ledge", Vec2::new(800.0, 600.0) * scale, Vec2::ZERO,
+                vec![Block::solid("ledge", Vec2::splat(100.0 * scale), Vec2::splat(200.0 * scale))]);
+            let mut scratch = scratch_at(Vec2::ZERO);
+            scratch.abilities.abilities.ledge_grab = true;
+            scratch.kinematics.material = crate::frame::BodyMaterial::new(scale, bevy_math::Mat2::IDENTITY).unwrap();
+            let half = scratch.kinematics.size() * 0.5;
+            scratch.kinematics.pos = Vec2::new(100.0 * scale - half.x, 100.0 * scale + under * scale + half.y);
+            scratch.kinematics.vel = Vec2::new(0.0, 200.0 * scale);
+            let mut events = crate::movement::FrameEvents::default();
+            let latched = try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events);
+            assert_eq!(latched, grabs, "scale {scale}, head {under} under the lip");
         }
     }
 }

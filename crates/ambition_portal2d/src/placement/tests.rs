@@ -5,7 +5,7 @@ fn transfer_step(center: Vec2, vel: Vec2, enter: PlacedPortal, exit: PlacedPorta
     super::transfer_step(PortalCrossing {
         root: ae::frame::RootCrossing { point: center, toi: 0.0, world_time: 0.0, aperture: enter.aperture() },
         exit: exit.aperture(), entry_channel: enter.channel, exit_channel: exit.channel,
-    }, center, vel, tuning)
+    }, center, vel, ae::frame::BodyMaterial::IDENTITY, tuning)
 }
 
 fn floor(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
@@ -598,7 +598,7 @@ fn unequal_aperture_transfer_keeps_actual_velocity_samples_and_inverse_map() {
     let velocity = Vec2::new(30.0, 1000.0);
     for convention in [crate::PortalConvention::Rotation, crate::PortalConvention::Reflection] {
         let tuning = PortalTuning { convention, min_exit_speed: 0.0, ..Default::default() };
-        let forward = PortalTransfer::new(position, velocity, &enter, &exit, &tuning).unwrap();
+        let forward = PortalTransfer::new(position, velocity, ae::frame::BodyMaterial::IDENTITY, &enter, &exit, &tuning).unwrap();
         assert_eq!(forward.map.scale(), 0.5);
         assert_eq!(forward.entry_pos, position);
         assert_eq!(forward.entry_vel, velocity);
@@ -619,7 +619,7 @@ fn exit_assistance_does_not_rewrite_the_measured_entry_velocity() {
     exit.vel = Vec2::new(80.0, 0.0);
     let velocity = Vec2::new(0.0, 5.0);
     let tuning = PortalTuning::default();
-    let transfer = PortalTransfer::new(Vec2::ZERO, velocity, &enter, &exit, &tuning).unwrap();
+    let transfer = PortalTransfer::new(Vec2::ZERO, velocity, ae::frame::BodyMaterial::IDENTITY, &enter, &exit, &tuning).unwrap();
     assert_eq!(transfer.entry_vel, velocity);
     assert_eq!(transfer.mapped_vel, Vec2::new(85.0, 0.0));
     assert_eq!(transfer.exit_vel, Vec2::new(80.0 + tuning.min_exit_speed, 0.0));
@@ -634,7 +634,7 @@ fn an_unrepresentable_transfer_is_a_typed_refusal() {
     assert!(matches!(super::transfer_step(PortalCrossing {
             root: ae::frame::RootCrossing { point: Vec2::ZERO, toi: 0.0, world_time: 0.0, aperture: enter.aperture() },
             exit: exit.aperture(), entry_channel: enter.channel, exit_channel: exit.channel,
-        }, Vec2::ZERO, Vec2::Y, &PortalTuning::default()),
+        }, Vec2::ZERO, Vec2::Y, ae::frame::BodyMaterial::IDENTITY, &PortalTuning::default()),
         TransitStep::Refused { reason: ae::frame::thread::RefusalReason::Numeric(ae::frame::NumericFault::NonFinite), channel: Some(PURPLE) }));
 }
 
@@ -686,5 +686,26 @@ fn a_turned_material_box_fits_its_opening_even_when_its_envelope_does_not() {
             assert!(matches!(step, TransitStep::Transfer { .. }),
                 "root fit must use canonical material: scale={scale}, reflected={reflected}, step={step:?}");
         }
+    }
+}
+
+/// SR2 (SCALE-FEEL): exit assistance is in the leaving body's units. A body
+/// that comes out of a portal too slowly is pushed clear at `min_exit_speed`
+/// times the scale it leaves at: its own scale through the pair's map. A
+/// still body of scale 2 through an equal pair leaves at twice the canonical
+/// speed, a canonical one through a halving pair at half of it, and a body
+/// of scale 2 through the halving pair at the canonical speed.
+#[test]
+fn exit_assistance_is_in_the_leaving_bodys_units() {
+    let tuning = PortalTuning::default();
+    let material = |scale: f32| ae::frame::BodyMaterial::new(scale, bevy::math::Mat2::IDENTITY).unwrap();
+    let enter = PlacedPortal::fixed(PURPLE, Vec2::new(100.0, 100.0), -Vec2::Y, 40.0).unwrap();
+    let equal = PlacedPortal::fixed(YELLOW, Vec2::new(500.0, 200.0), Vec2::X, 40.0).unwrap();
+    let halving = PlacedPortal::fixed(YELLOW, Vec2::new(500.0, 200.0), Vec2::X, 20.0).unwrap();
+    for (scale, exit, leaving) in [(1.0, &equal, 1.0), (2.0, &equal, 2.0), (1.0, &halving, 0.5), (2.0, &halving, 1.0)] {
+        let transfer = PortalTransfer::new(Vec2::new(100.0, 100.0), Vec2::ZERO, material(scale), &enter, exit, &tuning).unwrap();
+        let out = transfer.exit_vel.dot(Vec2::X);
+        assert!((out - tuning.min_exit_speed * leaving).abs() < 1.0e-3,
+            "scale {scale} leaving at {leaving}: {out} against {}", tuning.min_exit_speed * leaving);
     }
 }

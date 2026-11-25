@@ -187,6 +187,49 @@ pub const LEDGE_REACH_DOWN: f32 = 30.0;
 /// contact; 10px catches near-misses without pulling from across gaps.
 pub const LEDGE_HORIZONTAL_REACH: f32 = 10.0;
 
+/// A body's ledge reach, in its own units (SCALE-FEEL SR2).
+///
+/// The reach band, the roll's overshoot and the fall speed that arms the
+/// auto-snap are the canonical body's: a body at half size reaches half as
+/// far, rolls half as far past the lip and falls half as fast. The latch and
+/// join tolerances match one geometric surface against another and do not
+/// convert.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LedgeReach {
+    pub up: f32,
+    pub down: f32,
+    pub horizontal: f32,
+    pub roll_overshoot: f32,
+    pub fall_snap_speed: f32,
+}
+
+impl LedgeReach {
+    /// The reach of a body at its canonical scale.
+    pub const CANONICAL: Self = Self {
+        up: LEDGE_REACH_UP,
+        down: LEDGE_REACH_DOWN,
+        horizontal: LEDGE_HORIZONTAL_REACH,
+        roll_overshoot: LEDGE_ROLL_OVERSHOOT,
+        fall_snap_speed: runtime::FALL_SNAP_MIN_VY,
+    };
+
+    /// The reach of a body of `material`: the canonical reach at its scale.
+    pub fn of(material: crate::frame::BodyMaterial) -> Self {
+        let scale = material.scale();
+        if scale == 1.0 {
+            return Self::CANONICAL;
+        }
+        let c = Self::CANONICAL;
+        Self {
+            up: c.up * scale,
+            down: c.down * scale,
+            horizontal: c.horizontal * scale,
+            roll_overshoot: c.roll_overshoot * scale,
+            fall_snap_speed: c.fall_snap_speed * scale,
+        }
+    }
+}
+
 /// The steepest a ledge's standing surface may tilt from level (degrees)
 /// for a body to grab its lip, and to keep hanging on it: the end of a
 /// tilted one-way line is a ledge up to this tilt, and a body that hangs on
@@ -408,47 +451,47 @@ fn climb_position(contact: LedgeContact, progress: f32) -> Vec2 {
 /// Roll target: ``climb_target`` plus an extra ``LEDGE_ROLL_OVERSHOOT``
 /// along the into-platform axis, so the player lands a body-width
 /// past the lip rather than right at the edge.
-fn roll_target_in_frame(contact: LedgeContact, gravity_dir: Vec2) -> Vec2 {
+fn roll_target_in_frame(contact: LedgeContact, gravity_dir: Vec2, overshoot: f32) -> Vec2 {
     contact.climb_target
-        + into_platform_world_axis_in_frame(contact, gravity_dir) * LEDGE_ROLL_OVERSHOOT
+        + into_platform_world_axis_in_frame(contact, gravity_dir) * overshoot
 }
 
 #[cfg(test)]
 fn roll_target(contact: LedgeContact) -> Vec2 {
-    roll_target_in_frame(contact, Vec2::new(0.0, 1.0))
+    roll_target_in_frame(contact, Vec2::new(0.0, 1.0), LEDGE_ROLL_OVERSHOOT)
 }
 
-fn roll_position_in_frame(contact: LedgeContact, progress: f32, gravity_dir: Vec2) -> Vec2 {
+fn roll_position_in_frame(contact: LedgeContact, progress: f32, gravity_dir: Vec2, overshoot: f32) -> Vec2 {
     // Roll should not read as a diagonal drift. Use the same
     // "rise onto the platform, then sweep inboard" arc as climb, but
     // keep the roll's fast-commit timing by mirroring the easing so
     // the horizontal commitment starts immediately and settles
     // smoothly into the landing.
     let t = 1.0 - smoothstep(1.0 - progress.clamp(0.0, 1.0));
-    let target = roll_target_in_frame(contact, gravity_dir);
+    let target = roll_target_in_frame(contact, gravity_dir, overshoot);
     let control = climb_control_point_in_frame(contact, target, gravity_dir);
     quadratic_bezier(contact.anchor, control, target, t)
 }
 
 #[cfg(test)]
 fn roll_position(contact: LedgeContact, progress: f32) -> Vec2 {
-    roll_position_in_frame(contact, progress, Vec2::new(0.0, 1.0))
+    roll_position_in_frame(contact, progress, Vec2::new(0.0, 1.0), LEDGE_ROLL_OVERSHOOT)
 }
 
-fn getup_position(state: LedgeGrabState, progress: f32, gravity_dir: Vec2) -> Vec2 {
+fn getup_position(state: LedgeGrabState, progress: f32, gravity_dir: Vec2, reach: LedgeReach) -> Vec2 {
     match state.getup_kind {
         LedgeGetupKind::Climb => climb_position_in_frame(state.contact, progress, gravity_dir),
-        LedgeGetupKind::Roll => roll_position_in_frame(state.contact, progress, gravity_dir),
+        LedgeGetupKind::Roll => roll_position_in_frame(state.contact, progress, gravity_dir, reach.roll_overshoot),
         // Attack uses the same arc as Climb — only the timing,
         // invuln, and triggered slash differ.
         LedgeGetupKind::Attack => climb_position_in_frame(state.contact, progress, gravity_dir),
     }
 }
 
-fn getup_end_position(state: LedgeGrabState, gravity_dir: Vec2) -> Vec2 {
+fn getup_end_position(state: LedgeGrabState, gravity_dir: Vec2, reach: LedgeReach) -> Vec2 {
     match state.getup_kind {
         LedgeGetupKind::Climb => state.contact.climb_target,
-        LedgeGetupKind::Roll => roll_target_in_frame(state.contact, gravity_dir),
+        LedgeGetupKind::Roll => roll_target_in_frame(state.contact, gravity_dir, reach.roll_overshoot),
         LedgeGetupKind::Attack => state.contact.climb_target,
     }
 }

@@ -715,6 +715,10 @@ fn the_player_rides_a_horizontally_moving_platform() {
     // carried right by the platform — EMERGENT in the movement sweep, which is the
     // sweep EVERY body runs, not a player-specific ride path. This is also why an
     // enemy and the brain-driven clone ride: they run this exact movement core.
+    //
+    // SR2 (SCALE-FEEL): the platform's motion is the world's, so a rider at
+    // half or twice the size rides the same +3 px a frame. Only the rider
+    // scales; the platform does not become `s` times faster under it.
     use crate::world::{Block, World};
     let mut platform = Block::solid("platform", Vec2::new(0.0, 400.0), Vec2::new(400.0, 40.0));
     platform.velocity = Vec2::new(3.0, 0.0); // 3 px/frame right
@@ -728,9 +732,24 @@ fn the_player_rides_a_horizontally_moving_platform() {
         edges: Default::default(),
         water_regions: Vec::new(),
     };
-    let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 360.0));
-    let tuning = TEST_TUNING;
-    for _ in 0..30 {
+    for scale in [0.5_f32, 1.0, 2.0] {
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 400.0 - 30.0 * scale));
+        scratch.kinematics.material = crate::frame::BodyMaterial::new(scale, bevy_math::Mat2::IDENTITY).unwrap();
+        let tuning = TEST_TUNING;
+        for _ in 0..30 {
+            update_player_with_tuning_scratch(
+                &world,
+                &mut scratch,
+                InputState::default(),
+                1.0 / 60.0,
+                tuning,
+            );
+        }
+        assert!(
+            scratch.ground.on_ground,
+            "precondition: the player is resting on the platform (scale {scale})"
+        );
+        let x_before = scratch.kinematics.pos.x;
         update_player_with_tuning_scratch(
             &world,
             &mut scratch,
@@ -738,24 +757,12 @@ fn the_player_rides_a_horizontally_moving_platform() {
             1.0 / 60.0,
             tuning,
         );
+        assert!(
+            (scratch.kinematics.pos.x - (x_before + 3.0)).abs() < 0.05,
+            "the player should ride +3px right with the platform at scale {scale}, got dx={}",
+            scratch.kinematics.pos.x - x_before
+        );
     }
-    assert!(
-        scratch.ground.on_ground,
-        "precondition: the player is resting on the platform"
-    );
-    let x_before = scratch.kinematics.pos.x;
-    update_player_with_tuning_scratch(
-        &world,
-        &mut scratch,
-        InputState::default(),
-        1.0 / 60.0,
-        tuning,
-    );
-    assert!(
-        (scratch.kinematics.pos.x - (x_before + 3.0)).abs() < 0.05,
-        "the player should ride +3px right with the platform, got dx={}",
-        scratch.kinematics.pos.x - x_before
-    );
 }
 
 #[test]

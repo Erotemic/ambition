@@ -15,7 +15,8 @@ fn floor(from: f32, to: f32) -> Block {
 }
 
 fn step(world: &World, from: f32, to: f32) -> bool {
-    step_is_safe(world, Vec2::new(from, LEVEL), Vec2::new(to, LEVEL), HALF, DOWN)
+    step_is_safe(world, Vec2::new(from, LEVEL), Vec2::new(to, LEVEL), HALF, DOWN,
+        ambition_platformer2d_core::collision_semantics::ContactBands::CANONICAL)
 }
 
 /// The control: an open floor is safe to step on, in both directions.

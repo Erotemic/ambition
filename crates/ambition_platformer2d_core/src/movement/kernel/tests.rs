@@ -2119,3 +2119,55 @@ fn a_reflected_crawler_faces_its_route_on_blocks_and_turned_chains() {
         }
     }
 }
+
+/// SR2 (SCALE-FEEL): the one-way crossing band is the body's own. In
+/// equivalent scenes at 0.5, 1 and 2 (the platform, the body, its speed and
+/// its gravity all scaled together), a body whose feet start 6 body-pixels
+/// under a one-way's top lands on it, and one whose feet start 10 under it
+/// falls through: the canonical band is 8. A fixed 8 px band turned the
+/// first into a fall at twice the size and the second into a landing at half.
+#[test]
+fn a_one_way_crossing_band_is_the_bodys_own_at_every_scale() {
+    for (below, lands) in [(6.0_f32, true), (10.0, false)] {
+        for scale in [0.5_f32, 1.0, 2.0] {
+            let top = 400.0 * scale;
+            let world = World::new("sr2 one way", Vec2::splat(4000.0), Vec2::splat(100.0),
+                vec![Block::one_way("ledge", Vec2::new(0.0, top), Vec2::new(1000.0 * scale, 16.0 * scale))]);
+            let mut model = MotionModel::default();
+            let mut body = BodyClusterScratch::new_with_abilities(Vec2::ZERO, AbilitySet::default());
+            body.kinematics.material = crate::frame::BodyMaterial::new(scale, bevy_math::Mat2::IDENTITY).unwrap();
+            let half = body.kinematics.size() * 0.5;
+            body.kinematics.pos = Vec2::new(500.0 * scale, top + below * scale - half.y);
+            body.kinematics.vel = Vec2::new(0.0, 60.0 * scale);
+            step(&mut model, &world, &mut body, MotionFrame::from_direction(Vec2::Y, 900.0 * scale), InputState::default());
+            let stood = body.ground.on_ground && (crate::geometry::AabbExt::feet_coord(body.kinematics.aabb(), Vec2::Y) - top).abs() < 0.01 * scale;
+            assert_eq!(stood, lands, "scale {scale}, feet {below} under the top: {:?}", body.kinematics);
+        }
+    }
+}
+
+/// SR2 (SCALE-FEEL): a crawler's adhesion reach is its own. In equivalent
+/// scenes at 0.5, 1 and 2, a crawler with no gravity whose underside hangs
+/// 1.5 body-pixels over a chain is captured by it, and one 3 over is not:
+/// the canonical capture slack is 2. A fixed 2 px missed the first at twice
+/// the size and caught the second at half.
+#[test]
+fn a_crawlers_adhesion_reach_is_its_own_at_every_scale() {
+    for (gap, captured) in [(1.5_f32, true), (3.0, false)] {
+        for scale in [0.5_f32, 1.0, 2.0] {
+            let floor = 600.0 * scale;
+            let chain = SurfaceChain::open("floor", vec![Vec2::new(0.0, floor), Vec2::new(4_000.0 * scale, floor)]);
+            let world = World::new("sr2 crawler", Vec2::splat(10_000.0), Vec2::splat(500.0), Vec::new())
+                .with_chains(vec![chain]);
+            let mut model = MotionModel::adhesive_crawler(CrawlerParams::default());
+            let mut body = BodyClusterScratch::new_with_abilities(Vec2::ZERO, AbilitySet::default());
+            body.kinematics.material = crate::frame::BodyMaterial::new(scale, bevy_math::Mat2::IDENTITY).unwrap();
+            let half = body.kinematics.size().y * 0.5;
+            body.kinematics.pos = Vec2::new(600.0 * scale, floor - half - gap * scale);
+            step(&mut model, &world, &mut body, MotionFrame::from_direction(Vec2::Y, 0.0), InputState::default());
+            let MotionModel::AdhesiveCrawler(motion) = &model else { unreachable!() };
+            assert_eq!(matches!(motion.state.attachment(), Some(crate::movement::adhesive_crawler::CrawlAttachment::Chain { .. })), captured,
+                "scale {scale}, {gap} body-px over the chain: {:?}", motion.state);
+        }
+    }
+}

@@ -148,7 +148,7 @@ pub(super) fn sweep_player_axis_clusters(
         let cells = cast.cells(*admission)?;
         let result = world.first_material_contact(&cells, |collider, _, hit| {
             let normal = hit.map.direction(hit.normal);
-            let relative = hit.map.vector(delta).map_err(numeric)? - collider.displacement();
+            let relative = hit.map.vector(delta).map_err(numeric)? - collider.displacement_at(hit.world_point, hit.world_time);
             if relative.dot(normal) >= -1.0e-7 { return Ok(false); }
             let gravity_pass = axis_role(axis, gravity_dir) == AxisRole::Gravity;
             Ok(match collider {
@@ -160,7 +160,7 @@ pub(super) fn sweep_player_axis_clusters(
                         // through it, as `one_way_landing_from_previous_feet`.
                         BlockKind::OneWay => gravity_pass && !drop_through && normal.dot(-gravity_dir) > 0.5
                             && prev_feet_coord <= block.aabb.head_coord(gravity_dir)
-                                + crate::collision_semantics::ONE_WAY_CROSSING_SLOP
+                                + crate::collision_semantics::ContactBands::of(kinematics.material).crossing
                                 + (-block.velocity.dot(gravity_dir)).max(0.0),
                         BlockKind::BonkOnly => normal.dot(gravity_dir) > 0.5,
                         // A SEAM IS NOT A WALL. A body that walks up a line
@@ -171,6 +171,8 @@ pub(super) fn sweep_player_axis_clusters(
                         // A face whose top is no more than the edge slop above
                         // a grounded body's feet is walked onto, and the
                         // gravity repair stands the body on the top.
+                        // A seam joins two surfaces: geometry, not a body
+                        // band, so it does not convert with the body.
                         kind => is_full_collision_surface(kind) && !(!gravity_pass && grounded_feet.is_some_and(|feet|
                             block.aabb.head_coord(gravity_dir) >= feet - crate::collision_semantics::EDGE_OVERLAP_SLOP)),
                     } }
@@ -201,7 +203,8 @@ pub(super) fn sweep_player_axis_clusters(
             }
         }
         let physical_normal = contact.map.direction(normal);
-        let remaining_surface = hit.collider.displacement() * (1.0 - contact.toi) as f32;
+        let surface_step = hit.collider.displacement_at(contact.world_point, contact.world_time);
+        let remaining_surface = surface_step * (1.0 - contact.toi) as f32;
         let carry = physical_normal * remaining_surface.dot(physical_normal).max(0.0);
         let carry = match contact.map.inverse().and_then(|inverse| inverse.vector(carry)) {
             Ok(carry) => carry,
@@ -224,7 +227,7 @@ pub(super) fn sweep_player_axis_clusters(
             apply_side_contact(wall, normal, gravity_dir);
             ContactKind::Side
         };
-        let surface_velocity = match contact.map.inverse().and_then(|map| map.vector(hit.collider.displacement())) {
+        let surface_velocity = match contact.map.inverse().and_then(|map| map.vector(surface_step)) {
             Ok(velocity) => velocity,
             Err(fault) => {
                 *refusal = Some(crate::frame::thread::Refusal { path: contact.path.clone(), link: None,
@@ -265,7 +268,7 @@ fn material_axis_hits<'w>(
         let eligible = match collider {
             crate::world::MaterialCollider::Block(block) => !policy.passes_through(block) && match block.kind {
                 BlockKind::OneWay => role == AxisRole::Gravity && !drop_through && support
-                    && prev_feet_coord <= hit.contact.point.dot(gravity_dir) + crate::collision_semantics::ONE_WAY_CROSSING_SLOP,
+                    && prev_feet_coord <= hit.contact.point.dot(gravity_dir) + crate::collision_semantics::ContactBands::of(kinematics.material).crossing,
                 BlockKind::BonkOnly => false,
                 kind => is_full_collision_surface(kind),
             },
@@ -305,7 +308,7 @@ pub(super) fn material_support_at_rest(
     // where it stands, every body placed on its floor read airborne and
     // "landed" on its first tick, with a landing sound.
     let mut probe = *clusters.kinematics;
-    probe.pos += gravity_dir.normalize_or_zero() * crate::collision_semantics::CONTACT_SLOP;
+    probe.pos += gravity_dir.normalize_or_zero() * crate::collision_semantics::ContactBands::of(clusters.kinematics.material).contact;
     let hits = material_axis_hits(world, &probe, policy,
         crate::collision_semantics::gravity_axis(gravity_dir), clusters.kinematics.aabb().feet_coord(gravity_dir),
         false, gravity_dir, admission)?;
@@ -382,7 +385,7 @@ fn resolve_material_axis_repair(
             apply_side_contact(wall, normal, gravity_dir);
             ContactKind::Side
         };
-        let surface_velocity = match hit.contact.map.inverse().and_then(|map| map.vector(collider.displacement())) {
+        let surface_velocity = match hit.contact.map.inverse().and_then(|map| map.vector(collider.displacement_at(hit.contact.world_point, hit.contact.world_time))) {
             Ok(velocity) => velocity,
             Err(fault) => { *refusal = Some(numeric(fault)); return None; }
         };
@@ -399,11 +402,11 @@ fn resolve_material_axis_repair(
 /// rests on the one-way's anti-gravity support face, so drop-through detection
 /// flips with gravity like the landing sweep already does. A walkable line
 /// (`walkable_lines`) is one-way too, so standing on one counts.
-pub fn standing_on_one_way_aabb(world: &World, body: Aabb, gravity_dir: Vec2) -> bool {
+pub fn standing_on_one_way_aabb(world: &World, body: Aabb, gravity_dir: Vec2, bands: crate::collision_semantics::ContactBands) -> bool {
     world.blocks.iter().any(|block| {
         matches!(block.kind, BlockKind::OneWay)
-            && surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, false)
-    }) || crate::walkable_lines::standing_on_line(world, body, gravity_dir).is_some()
+            && surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, false, bands)
+    }) || crate::walkable_lines::standing_on_line(world, body, gravity_dir, bands).is_some()
 }
 
 /// IS THIS BODY STANDING ON THE BRINK — supported where it is, but not if it
@@ -422,6 +425,7 @@ pub fn teetering_at_edge(
     frame: crate::MotionFrame,
     facing: f32,
     margin: f32,
+    bands: crate::collision_semantics::ContactBands,
 ) -> bool {
     if margin <= 0.0 || facing == 0.0 {
         return false;
@@ -429,7 +433,7 @@ pub fn teetering_at_edge(
     let gravity_dir = frame.down();
     let supported = |at: Aabb| {
         world.blocks.iter().any(|block| {
-            surface_supports_body_at_rest(block.kind, at, block.aabb, gravity_dir, false)
+            surface_supports_body_at_rest(block.kind, at, block.aabb, gravity_dir, false, bands)
         })
     };
     if !supported(body) {
@@ -473,7 +477,7 @@ pub fn teetering_at_edge(
 /// A body whose middle is already over no floor (on a slope this cannot see,
 /// or teetering past the lip) is not held: the cut only ever refuses to carry
 /// a supported middle off.
-pub fn floor_held_step(world: &World, body: Aabb, down: Vec2, axis: Vec2, delta: f32) -> f32 {
+pub fn floor_held_step(world: &World, body: Aabb, down: Vec2, axis: Vec2, delta: f32, bands: crate::collision_semantics::ContactBands) -> f32 {
     if delta == 0.0 {
         return 0.0;
     }
@@ -487,8 +491,8 @@ pub fn floor_held_step(world: &World, body: Aabb, down: Vec2, axis: Vec2, delta:
     };
     let supported = |shift: f32| {
         let probe = sliver(shift);
-        world.blocks.iter().any(|block| surface_supports_body_at_rest(block.kind, probe, block.aabb, down, false))
-            || crate::walkable_lines::standing_on_line(world, probe, down).is_some()
+        world.blocks.iter().any(|block| surface_supports_body_at_rest(block.kind, probe, block.aabb, down, false, bands))
+            || crate::walkable_lines::standing_on_line(world, probe, down, bands).is_some()
     };
     if !supported(0.0) || supported(delta) {
         return delta;
@@ -690,7 +694,7 @@ mod tests {
             b,
             floor,
             Vec2::new(0.0, 1.0),
-            false,
+            false, crate::collision_semantics::ContactBands::CANONICAL,
         ));
 
         let wall = aabb_from_min_size(Vec2::new(100.0, 0.0), Vec2::new(20.0, 100.0));
@@ -702,7 +706,7 @@ mod tests {
             sideways,
             wall,
             Vec2::new(1.0, 0.0),
-            false,
+            false, crate::collision_semantics::ContactBands::CANONICAL,
         ));
     }
 
@@ -715,14 +719,14 @@ mod tests {
             b,
             platform,
             Vec2::new(1.0, 0.0),
-            false,
+            false, crate::collision_semantics::ContactBands::CANONICAL,
         ));
         assert!(!surface_supports_body_at_rest(
             BlockKind::OneWay,
             b,
             platform,
             Vec2::new(1.0, 0.0),
-            true,
+            true, crate::collision_semantics::ContactBands::CANONICAL,
         ));
     }
 }

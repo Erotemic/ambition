@@ -663,6 +663,17 @@ pub struct SurfaceChain {
     /// material, which no search can resolve.
     #[serde(default)]
     pub carrier: Option<u64>,
+    /// The line's points as the tick began, when its SHAPE changed this tick
+    /// (a support a sheet draws, which stretches and bends as it is drawn):
+    /// each point went in a straight line from here to its place in `points`
+    /// over the tick. A place on such a line is a segment and a fraction
+    /// along it, not a distance, because the line's length changes. Empty for
+    /// a line that keeps its shape, whose motion is `velocity` and `turn`
+    /// alone. When it is set, `velocity`, `turn` and `pivot` are only the
+    /// rigid fit that the continuous sweeps read (SUP1 has not moved those);
+    /// carry, support, ledges, point velocity and bounds read the shape.
+    #[serde(default)]
+    pub shape_before: Vec<Vec2>,
 }
 
 /// How a walking body standing on other ground steps onto a line where they
@@ -681,8 +692,13 @@ pub enum Boarding {
 impl SurfaceChain {
     /// Where the point of the line that was at `p` a tick ago is now: moved by
     /// `velocity`, then turned by `turn` about `pivot`. What a body standing
-    /// on it at `p` is carried to.
+    /// on it at `p` is carried to. A line whose shape changed carries `p` by
+    /// its material place: the same fraction along the same segment.
     pub fn carried(&self, p: Vec2) -> Vec2 {
+        if self.deforms() {
+            let (segment, u) = self.place_before(p);
+            return p + self.travel_at(segment, u);
+        }
         let moved = p + self.velocity;
         if self.turn == 0.0 {
             return moved;
@@ -694,7 +710,83 @@ impl SurfaceChain {
 
     /// Does the line move this tick?
     pub fn moves(&self) -> bool {
-        self.velocity != Vec2::ZERO || self.turn != 0.0
+        self.velocity != Vec2::ZERO || self.turn != 0.0 || self.deforms()
+    }
+
+    /// Does the line's shape change this tick ([`Self::shape_before`])?
+    pub fn deforms(&self) -> bool {
+        self.shape_before.len() == self.points.len() && self.shape_before != self.points
+    }
+
+    /// Segment `i` as the tick began.
+    pub fn segment_before(&self, i: usize) -> (Vec2, Vec2) {
+        if !self.deforms() {
+            let (a, b) = self.segment(i);
+            return (self.carried_back(a), self.carried_back(b));
+        }
+        let n = self.shape_before.len();
+        (self.shape_before[i % n], self.shape_before[(i + 1) % n])
+    }
+
+    /// Where a rigid line's point now was as the tick began.
+    fn carried_back(&self, p: Vec2) -> Vec2 {
+        if self.turn == 0.0 {
+            return p - self.velocity;
+        }
+        let (sin, cos) = (-self.turn).sin_cos();
+        let r = p - self.pivot;
+        self.pivot + Vec2::new(r.x * cos - r.y * sin, r.x * sin + r.y * cos) - self.velocity
+    }
+
+    /// The material place of `p` on the line as the tick began: the nearest
+    /// segment and how far along it (`0..=1`). Ties go to the lower segment.
+    pub fn place_before(&self, p: Vec2) -> (usize, f32) {
+        let mut best = (0, 0.0, f32::INFINITY);
+        for segment in 0..self.segment_count() {
+            let (a, b) = self.segment_before(segment);
+            let edge = b - a;
+            let u = if edge.length_squared() > 0.0 { ((p - a).dot(edge) / edge.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
+            let distance = p.distance_squared(a + edge * u);
+            if distance < best.2 {
+                best = (segment, u, distance);
+            }
+        }
+        (best.0, best.1)
+    }
+
+    /// How far the material point `u` along `segment` travelled this tick.
+    /// For a line whose shape changed, the two ends of a segment travel apart
+    /// and a point between them goes the same fraction of each.
+    pub fn travel_at(&self, segment: usize, u: f32) -> Vec2 {
+        if !self.deforms() {
+            let (a, b) = self.segment(segment);
+            let p = a + (b - a) * u;
+            return p - self.carried_back(p);
+        }
+        let (a0, b0) = self.segment_before(segment);
+        let (a1, b1) = self.segment(segment);
+        (a1 - a0) * (1.0 - u) + (b1 - b0) * u
+    }
+
+    /// Segment `i` at `time` in the tick (`0` as it began, `1` now), in the
+    /// shared comparison clock: a rigid line turned and moved back, a line
+    /// whose shape changed with each end the same fraction of its way.
+    pub fn segment_at_time(&self, i: usize, time: f64) -> Result<(bevy_math::DVec2, bevy_math::DVec2), crate::frame::NumericFault> {
+        use crate::frame::NumericFault;
+        if !time.is_finite() || !self.turn.is_finite() || !self.velocity.is_finite() || (self.turn != 0.0 && !self.pivot.is_finite()) {
+            return Err(NumericFault::NonFinite);
+        }
+        if !(0.0..=1.0).contains(&time) || i >= self.segment_count() { return Err(NumericFault::InvalidFrame); }
+        let (a, b) = self.segment(i);
+        if self.deforms() {
+            let (a0, b0) = self.segment_before(i);
+            let at = |p0: Vec2, p1: Vec2| p0.as_dvec2() + (p1.as_dvec2() - p0.as_dvec2()) * time;
+            return Ok((at(a0, a), at(b0, b)));
+        }
+        let rotation = crate::frame::rotation_ending_at(f64::from(self.turn), time);
+        let at = |p: Vec2| self.pivot.as_dvec2() + rotation * (p.as_dvec2() - self.pivot.as_dvec2())
+            - self.velocity.as_dvec2() * (1.0 - time);
+        Ok((at(a), at(b)))
     }
 
     /// This chain with the part inside `hole` cut out (a portal's opening on
@@ -758,6 +850,7 @@ impl SurfaceChain {
             turn: 0.0,
             pivot: Vec2::ZERO,
             carrier: None,
+            shape_before: Vec::new(),
         }
     }
 
@@ -777,6 +870,7 @@ impl SurfaceChain {
             turn: 0.0,
             pivot: Vec2::ZERO,
             carrier: None,
+            shape_before: Vec::new(),
         }
     }
 
@@ -872,6 +966,13 @@ impl SurfaceChain {
         use crate::frame::{NumericFault,Sim2};
         if !time.is_finite() || !self.turn.is_finite() { return Err(NumericFault::NonFinite); }
         if !(0.0..=1.0).contains(&time) || segment>=self.segment_count() { return Err(NumericFault::InvalidFrame); }
+        if self.deforms() {
+            let (a,b)=self.segment_at_time(segment,time)?;
+            if !a.is_finite() || !b.is_finite() { return Err(NumericFault::NonFinite); }
+            let edge=b-a;
+            if edge==bevy_math::DVec2::ZERO { return Err(NumericFault::InvalidFrame); }
+            return Sim2::IDENTITY.vector_from_wide(bevy_math::DVec2::new(edge.y,-edge.x).normalize());
+        }
         let (a,b)=self.segment(segment);
         if !a.is_finite() || !b.is_finite() { return Err(NumericFault::NonFinite); }
         let edge=b.as_dvec2()-a.as_dvec2();
@@ -1113,7 +1214,17 @@ impl crate::spatial::Spatial for SurfaceChain {
         crate::layered::bounds_of(&self.points)
     }
     fn swept_bounds(&self) -> Aabb {
-        surface_swept_bounds(&self.points, self.velocity, self.turn, self.pivot)
+        let rigid = surface_swept_bounds(&self.points, self.velocity, self.turn, self.pivot);
+        if !self.deforms() {
+            return rigid;
+        }
+        // Each point went straight from its start to its end, so the two
+        // shapes' bounds hold every place between, a shrink's old extent too.
+        let before = crate::layered::bounds_of(&self.shape_before);
+        if !before.min.is_finite() || !before.max.is_finite() {
+            return crate::layered::UNBOUNDED;
+        }
+        Aabb { min: rigid.min.min(before.min), max: rigid.max.max(before.max) }
     }
 }
 
@@ -1276,7 +1387,7 @@ impl MaterialCollider<'_> {
                 cell.clears_obstacle(polygon, &[a.min, Vec2::new(a.max.x, a.min.y), a.max,
                     Vec2::new(a.min.x, a.max.y)], block.velocity, hit, time_span)
             }
-            Self::Chain { chain, segment, .. } if chain.turn == 0.0 => {
+            Self::Chain { chain, segment, .. } if chain.turn == 0.0 && !chain.deforms() => {
                 if chain.closed && chain.kind == SurfaceKind::Solid {
                     cell.clears_obstacle(polygon, &chain.points, chain.velocity, hit, time_span)
                 } else {
@@ -1312,6 +1423,21 @@ impl MaterialCollider<'_> {
         match self { Self::Block(block) => block.velocity, Self::Chain { chain, .. } => chain.velocity }
     }
 
+    /// The tick's displacement of the surface's material at a contact
+    /// (`point` where the surface is at `time`): [`Self::displacement`], except
+    /// on a line whose shape changes, whose ends travel apart.
+    pub fn displacement_at(self, point: Vec2, time: f64) -> Vec2 {
+        match self {
+            Self::Chain { chain, segment, .. } if chain.deforms() => {
+                let Ok((a, b)) = chain.segment_at_time(segment, time.clamp(0.0, 1.0)) else { return chain.velocity };
+                let edge = b - a;
+                let u = if edge.length_squared() > 0.0 { ((point.as_dvec2() - a).dot(edge) / edge.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
+                chain.travel_at(segment, u as f32)
+            }
+            _ => self.displacement(),
+        }
+    }
+
     /// Pull this surface's physical velocity into the cast body's root chart.
     pub fn velocity_in_root(self, contact: &crate::frame::material_cast::MaterialCastHit,
         dt: f32, admission: Option<crate::frame::thread::MotionAdmission<'_>>,
@@ -1337,6 +1463,17 @@ impl MaterialCollider<'_> {
             return Err(NumericFault::NonFinite);
         }
         if !(0.0..=1.0).contains(&time) { return Err(NumericFault::InvalidFrame); }
+        if let Self::Chain { chain, segment, .. } = self {
+            if chain.deforms() {
+                // The material point under the contact at its time, and how far
+                // that point travels in the tick.
+                if dt <= 0.0 { return Err(NumericFault::InvalidFrame); }
+                let (a, b) = chain.segment_at_time(segment, time)?;
+                let edge = b - a;
+                let u = if edge.length_squared() > 0.0 { ((point.as_dvec2() - a).dot(edge) / edge.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
+                return Sim2::IDENTITY.vector_from_wide(chain.travel_at(segment, u as f32).as_dvec2() / f64::from(dt));
+            }
+        }
         if displacement == Vec2::ZERO && turn == 0.0 { return Ok(Vec2::ZERO); }
         if dt <= 0.0 { return Err(NumericFault::InvalidFrame); }
         let mut velocity = displacement.as_dvec2() / f64::from(dt);
@@ -1854,11 +1991,21 @@ impl World {
                 }
                 for (segment, (a, b)) in chain.segments().enumerate() {
                     let edge = [a, b];
+                    let collider = MaterialCollider::Chain { chain,index,segment };
+                    if chain.deforms() {
+                        // Its ends travel apart: the segment's own motion.
+                        let (a0, b0) = chain.segment_before(segment);
+                        let swept = Aabb { min: a.min(b).min(a0).min(b0), max: a.max(b).max(a0).max(b0) };
+                        if !crate::spatial::touches(bounds, swept) { continue; }
+                        let _ = cells.against_deforming_where(part, [a0, b0], edge, (chain.velocity, chain.turn, chain.pivot), |contact| {
+                            consider(MaterialWorldHit { collider,contact:contact.clone() },part)
+                        })?;
+                        continue;
+                    }
                     // The chain bounds can cover terrain far from this cell.
                     if !crate::spatial::touches(bounds, surface_swept_bounds(&edge, chain.velocity, chain.turn, chain.pivot)) {
                         continue;
                     }
-                    let collider = MaterialCollider::Chain { chain,index,segment };
                     let _ = cells.against_rigid_where(part,&edge,chain.velocity,chain.turn,chain.pivot,|contact| {
                         consider(MaterialWorldHit { collider,contact:contact.clone() },part)
                     })?;

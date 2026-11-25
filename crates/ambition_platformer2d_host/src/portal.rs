@@ -1747,7 +1747,7 @@ mod tests {
             app.world_mut().write_message(PortalBodyTransited {
                 body,
                 transfer: ambition_portal2d::PortalTransfer::new(
-                    Vec2::new(95.0, 500.0), -Vec2::X * 400.0,
+                    Vec2::new(95.0, 500.0), -Vec2::X * 400.0, ambition_platformer2d_core::frame::BodyMaterial::IDENTITY,
                     &PlacedPortal::fixed(purple, Vec2::new(100.0, 500.0), Vec2::X, 46.0).unwrap(),
                     &PlacedPortal::fixed(yellow, Vec2::new(1500.0, 500.0), -Vec2::X, 46.0).unwrap(),
                     &ambition_portal2d::PortalTuning::default(),

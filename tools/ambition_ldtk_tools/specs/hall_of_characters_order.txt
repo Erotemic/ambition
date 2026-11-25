@@ -181,6 +181,17 @@ npc_authority_baggage
 npc_authority_gatekeeper
 npc_authority_registrar
 
+[The Unfinished dimension, which the Boss's agents are still building]
+npc_unfinished_subclause_surveyor
+npc_unfinished_subclause_painter
+npc_unfinished_placeholder
+glitch_bug
+
+[The Automaton dimension, clockwork and cells]
+npc_automaton_neighbour_moore
+npc_automaton_head
+life_spaceship
+
 [The orbital station]
 npc_station_okafor
 npc_station_reyes

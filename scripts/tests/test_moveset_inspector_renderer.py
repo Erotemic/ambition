@@ -197,5 +197,5 @@ def test_with_no_renderer_the_cache_is_served_and_labelled(sandbox):
 def test_with_no_renderer_and_no_cache_the_build_command_is_the_answer(sandbox):
     status, doc = server.render_animation("npc_pirate_admiral", "special_up", 24, 2)
     assert status == 503
-    assert doc["hint"] == "cargo build -p ambition_app_tools --bin moveset_render"
+    assert doc["hint"] == "cargo build -p ambition_app_tools --features game --bin moveset_render"
     assert doc["looked_in"]

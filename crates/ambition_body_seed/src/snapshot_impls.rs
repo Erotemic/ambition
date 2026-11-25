@@ -3,18 +3,20 @@
 //! actor kernel may implement neither. The kernel still REGISTERS the type under
 //! its stable name (`actor.motion_path`).
 
-use ambition_platformer2d_core::snapshot::{put_bool, put_i32, put_u32, SnapshotCursor};
+use ambition_platformer2d_core::snapshot::{put_bool, put_u32, SnapshotCursor};
 
 use crate::ActorMotionPath;
 
 impl SnapshotCursor for ActorMotionPath {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
         match &self.0 {
-            Some(motion) => {
-                let (segment, dir) = motion.cursor();
+            // Route progress is the ordered target and direction; the
+            // prepared path is authored content and never changes.
+            Some(route) => {
+                let (target, forward) = route.progress();
                 put_bool(out, true);
-                put_u32(out, segment as u32);
-                put_i32(out, dir);
+                put_u32(out, target as u32);
+                put_bool(out, forward);
             }
             // A body with no path is a state a body with a path can reach.
             None => put_bool(out, false),

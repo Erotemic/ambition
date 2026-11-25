@@ -1,6 +1,6 @@
 //! How does a Smash fighter MOVE, set against Ultimate's cast?
 //!
-//! `cargo run -p ambition_app_tools --bin fighter_motion -- [ID ...] [anchor=Mario] [tsv] [demo]`
+//! `cargo run -p ambition_app_tools --features game --bin fighter_motion -- [ID ...] [anchor=Mario] [tsv] [demo]`
 //!
 //! Seats each fighter on the real Smash stage, takes both brains off, and
 //! drives the production input road through scripted presses: a run from rest,

@@ -365,6 +365,20 @@ fn wall_turn_facing(snapshot: &BrainSnapshot) -> Option<f32> {
     (wall_normal.abs() > 0.5 && wall_normal * facing < 0.0).then_some(wall_normal.signum())
 }
 
+/// Steer an idle walker along its authored route: face the route's next
+/// ordered target and walk at the route's speed through ordinary intent. The
+/// route's owner advances the target from accepted arrival, so a body a wall
+/// holds short keeps facing the same target; it does not turn away from the
+/// wall, and it does not skip ahead. `false` for a body with no route.
+fn follow_route(snapshot: &BrainSnapshot, out: &mut crate::actor::control::ActorControlFrame) -> bool {
+    let Some(route) = snapshot.route else { return false };
+    let side = route.target_x - snapshot.actor_pos.x;
+    let facing = if side.abs() > 0.5 { side.signum() } else { snapshot.actor_facing.signum_or(1.0) };
+    out.facing = facing;
+    out.locomotion = snapshot.locomotion_for(ae::LocalAxes::new(facing * route.speed, 0.0));
+    true
+}
+
 fn tick_patrol(
     cfg: &PatrolCfg,
     state: &mut PatrolState,
@@ -396,6 +410,10 @@ fn tick_patrol(
             }
         }
         crate::actor::ai::CharacterAiIntent::Patrol => {
+            // An authored route replaces the lane.
+            if follow_route(snapshot, out) {
+                return;
+            }
             // Bounce within the authored world lane, with a semantic side
             // contact taking precedence over the geometric lane bound. Both are
             // steering decisions owned by this brain.
@@ -460,6 +478,10 @@ fn tick_wanderer(
     out: &mut crate::actor::control::ActorControlFrame,
 ) {
     *out = crate::actor::control::ActorControlFrame::neutral();
+    // A wanderer given an authored route walks it instead of wandering.
+    if follow_route(snapshot, out) {
+        return;
+    }
     // Surface wrapping is movement physics; choosing to reverse a simple
     // walker is autonomous control policy.
     out.facing = wall_turn_facing(snapshot).unwrap_or_else(|| snapshot.actor_facing.signum_or(1.0));
@@ -606,7 +628,8 @@ fn tick_melee_brute(
     let ai = crate::actor::ai::evaluate_character_ai_output(snapshot.to_character_ai_snapshot(
         cfg.aggro_radius,
         snapshot.melee_reach.unwrap_or(cfg.attack_range),
-        false,
+        // It patrols only an authored route; with none it holds while idle.
+        snapshot.route.is_some(),
     ));
     state.mode = ai.mode;
     *out = crate::actor::control::ActorControlFrame::neutral();
@@ -705,7 +728,8 @@ fn tick_melee_brute(
     match ai.intent {
         crate::actor::ai::CharacterAiIntent::Hold => {}
         crate::actor::ai::CharacterAiIntent::Patrol => {
-            // Not used by MeleeBrute today (patrol_enabled=false).
+            // Idle with an authored route: walk it until a foe is noticed.
+            follow_route(snapshot, out);
         }
         crate::actor::ai::CharacterAiIntent::Chase { direction_side } => {
             let toward = local_target_side(snapshot);

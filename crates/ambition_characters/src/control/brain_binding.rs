@@ -172,9 +172,9 @@ impl BrainBuildContext {
 /// wherever the actor happened to wander. A separate component (rather than a
 /// field on [`BrainBinding`]) so the binding stays compact and equality-friendly.
 ///
-/// Note on patrol PATHS: a `path_id` is a separate movement attachment
-/// (`ActorMotionPath`), not a brain-build parameter — the lane-based patrol
-/// preset does not consume one. So it is deliberately absent here.
+/// Note on patrol PATHS: a `path_id` is the body's route (`ActorMotionPath`),
+/// not a brain-build parameter. Its next ordered target reaches the brain each
+/// tick through `BrainSnapshot::route`, so it is deliberately absent here.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct AuthoredBrainContext {
     /// The actor's authored world-space spawn X — the patrol lane center anchor.

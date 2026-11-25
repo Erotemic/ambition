@@ -16,7 +16,7 @@
 //! the rest is reported as `(elsewhere)`, never dropped.
 //!
 //! ```text
-//! cargo run -p ambition_app_tools --release --bin room_census -- \
+//! cargo run -p ambition_app_tools --features game --release --bin room_census -- \
 //!     --room pirate_sky_lookout [--policy all|sandbag|chase] [--seconds 60]
 //! ```
 

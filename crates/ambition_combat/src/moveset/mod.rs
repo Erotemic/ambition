@@ -1606,9 +1606,12 @@ pub fn advance_move_playback(
                     // burst pointed wherever the body happened to be looking
                     // three windows later would not be the move that was
                     // committed to.
+                    let Some(authored) = authored_move_velocity(
+                        kin.material, ae::Vec2::new(local.0 * pb.facing, local.1), &pb.spec.id,
+                    ) else { continue };
                     let current = body_frame.to_local(kin.vel);
                     let resolved = mode.apply_local(
-                        (current.x, current.y), (local.0 * pb.facing, local.1),
+                        (current.x, current.y), (authored.x, authored.y),
                     );
                     kin.vel = body_frame.to_world(ae::Vec2::new(resolved.0, resolved.1));
                     continue;
@@ -2423,6 +2426,26 @@ impl ProposedVerb {
             ProposedVerb::Attack => buffer.spend_attack(),
             ProposedVerb::Grab => buffer.grab = 0.0,
             ProposedVerb::Special => buffer.special = 0.0,
+        }
+    }
+}
+
+/// An authored move velocity — body-local `(+x = facing, +y = gravity-down)`,
+/// already mirrored — in the owner's own units. The one conversion every
+/// impulse path shares (start, cancel and timed), so a move carries a scaled
+/// body the same number of its own lengths at any scale. Only the authored
+/// delta or target converts: `Add`/`Set`/`SetSide` then combine it with the
+/// velocity the body already has, which is never multiplied. `None` when the
+/// conversion faults; the impulse is then refused, not applied unscaled.
+fn authored_move_velocity(material: ae::frame::BodyMaterial, local: ae::Vec2, move_id: &str) -> Option<ae::Vec2> {
+    match material.body_velocity(local) {
+        Ok(velocity) => Some(velocity),
+        Err(fault) => {
+            bevy::log::warn!(
+                target: "ambition::moves",
+                "move `{move_id}` authored an impulse its owner's material cannot carry ({fault:?}) — refused"
+            );
+            None
         }
     }
 }
@@ -4105,8 +4128,9 @@ pub fn trigger_moveset_moves(
             // The move is SHAPED toward the drawn side: its lunge, and below
             // its volumes. For a mirrored body that is its facing.
             let side = ae::mirror_side(kin.facing, unmirrored);
-            if let Some((ix, iy)) = spec.start_impulse {
-                let local = ae::Vec2::new(ix * side, iy);
+            if let Some(local) = spec.start_impulse.and_then(|(ix, iy)| {
+                authored_move_velocity(kin.material, ae::Vec2::new(ix * side, iy), &spec.id)
+            }) {
                 let world_impulse = body_frame.to_world(local);
                 let before = kin.vel;
                 kin.vel += world_impulse;
@@ -4230,8 +4254,9 @@ pub fn trigger_moveset_moves(
             // The move is SHAPED toward the drawn side: its lunge, and below
             // its volumes. For a mirrored body that is its facing.
             let side = ae::mirror_side(kin.facing, unmirrored);
-            if let Some((ix, iy)) = spec.start_impulse {
-                let local = ae::Vec2::new(ix * side, iy);
+            if let Some(local) = spec.start_impulse.and_then(|(ix, iy)| {
+                authored_move_velocity(kin.material, ae::Vec2::new(ix * side, iy), &spec.id)
+            }) {
                 let world_impulse = body_frame.to_world(local);
                 let before = kin.vel;
                 kin.vel += world_impulse;

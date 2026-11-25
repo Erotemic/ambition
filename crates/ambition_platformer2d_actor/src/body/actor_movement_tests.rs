@@ -97,6 +97,7 @@ fn tick_peaceful(
     gravity: ae::Vec2,
 ) {
     let snapshot = ambition_characters::brain::BrainSnapshot {
+        route: None,
         captured: false,
         captured_for: 0.0,
         holding_captive: false,

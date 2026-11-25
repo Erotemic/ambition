@@ -1,6 +1,7 @@
 # Scale-relative gameplay
 
-**State:** SR1 DONE 2026-11-25; SR2 and SR3 PLANNED. Selected by the
+**State:** DONE 2026-11-25 (SR1, SR2 and SR3; admitted scope in
+[Delivered scope](#delivered-scope)). Selected by the
 maintainer on 2026-11-21. A body made
 small or large by a portal should keep its normal movement and action timing
 at that scale. This changes the earlier controls-only gravity policy.
@@ -177,6 +178,50 @@ small body. Classify their purpose before converting them.
 | [Movement integration](../../../crates/ambition_platformer2d_core/src/movement/integration.rs) | Surface lead and submerged-ground probes. Their length owner must be explicit. |
 | [Portal placement](../../../crates/ambition_portal2d/src/placement.rs) | The current raw `min_exit_speed` floor. Ordinary exit assistance uses destination body units and exit-relative velocity. An explicit world launcher may own a world speed. |
 
+**SR2a delivered 2026-11-25 (support and landing bands).** `ContactBands::of`
+in `collision_semantics` carries `CONTACT_SLOP`, `ONE_WAY_CROSSING_SLOP` and
+`EDGE_OVERLAP_SLOP` at the body's scale (identity fast path). Every kernel
+support/landing predicate, the walkable-line probes, the resting-support
+probe, teeter/footing/floor-held queries, the footstool and talk spacing
+take the stepping body's bands. The line/block seam allowance stays geometry.
+`for_material` no longer converts `teeter_margin`, `Balance::teeter_band`
+or `Balance::tip_speed`: they are fractions of the body's half-width (and
+half-widths per second) that `footing` already multiplies by the physical
+half-span, so the conversion applied the scale twice. Witness:
+`a_one_way_crossing_band_is_the_bodys_own_at_every_scale` (kernel tests).
+Open gap: the fighter brain's shadow rollout keeps the canonical edge sliver
+because perception publishes no material scale.
+
+**SR2b delivered 2026-11-25 (ledge reach).** `LedgeReach::of` carries the
+reach band (up 28, down 30, across 10), the roll overshoot (36) and the
+auto-snap fall speed (45) at the body's scale. The probe, the getup arc and
+the fall snap take the body's reach; the abilities ledge query passes its
+body's. `LEDGE_LATCH_TOL` and `LEDGE_JOIN_TOL` match one geometric surface
+against another and stay geometry. Witness:
+`a_ledge_reach_is_the_bodys_own_at_every_scale` (ledge_grab tests).
+
+**SR2c delivered 2026-11-25 (crawler and momentum).** The crawler's
+adhesion capture slack (2) is the body's reach and converts with its scale.
+The momentum policy's remaining fixed numbers are classified, not
+converted: `ROUTE_LOOKAHEAD` classifies a junction's routes by the track's
+own shape (the same for every rider); `SURFACE_TIE_SLOP`,
+`COINCIDENT_SLOP` and `OCCLUSION_CLEAR_SLOP` decide when two authored
+surfaces or a launch and a foreign-lane track coincide (geometry); the
+release `CONTACT_SLOP`, `TOI_EPSILON` and `SPEED_EPS` are numerical.
+Momentum speed gates are tuning and already convert in `for_material`.
+Witness: `a_crawlers_adhesion_reach_is_its_own_at_every_scale`.
+
+**SR2d delivered 2026-11-25 (exit assistance, moving support).**
+`PortalTransfer` takes the crossing body's material, and
+`min_exit_speed` is applied at the scale the body leaves at (its scale
+through the pair's map). Witness:
+`exit_assistance_is_in_the_leaving_bodys_units`. The moving-frame law
+needed no change: `the_player_rides_a_horizontally_moving_platform` now
+rides at 0.5, 1 and 2 and the rider moves the platform's +3 px a frame at
+every scale.
+
+**SR2 is complete.**
+
 Do not multiply every epsilon. Gameplay slack, authored world geometry and
 floating-point uncertainty are different quantities. Numerical predicates
 need representability bounds at the accepted geometry/scale. Keep the
@@ -240,6 +285,54 @@ An integrated crossing, continued action, reverse crossing and rewind can
 extend [portal_similarity_slice](../../../game/ambition_app/tests/portal_similarity_slice.rs)
 and [portal_scale_lab](../../../game/ambition_app/tests/portal_scale_lab.rs).
 Do not describe their existing geometry/contact checks as timing evidence.
+
+**SR3 delivered (2026-11-25).**
+
+- Moveset: `BodyMaterial::body_velocity` converts the authored delta or
+  target once, in `authored_move_velocity`, shared by the start, cancel
+  and timed `Impulse` paths. `Add`/`Set`/`SetSide` then combine it with
+  the unscaled current velocity. A fault refuses the impulse. Witnesses:
+  `a_start_impulse_is_in_the_bodys_own_units` and
+  `a_timed_impulse_is_in_the_owners_own_units`.
+- Hit reaction: `HitResponseTuning::in_body_units` scales the victim's
+  feel launch speeds and the hitstun reference. `VictimStance` carries the
+  victim's material on every road (body, actor, throw). A row the material
+  cannot carry refuses the launch; the hit and its freeze still stand.
+  Witness: `a_scaled_victim_keeps_its_hitstun_in_its_own_units`.
+- Melee autolink: `max_speed` is the source's speed and is mapped into the
+  victim chart through the same material map as `LaunchSpeed`. Carry and
+  pull stay dimensionless.
+- Projectiles: `ProjectileGameplay::tick` converts the authored gravity
+  once per tick with `body_rate`, which keeps its sign. Lifetime and the
+  one-tick advance before the leg loop are unchanged. Witness:
+  `a_scaled_projectile_falls_in_its_own_units`.
+- Splashes: `splash_half_in` sizes the splash through the map of the image
+  that made contact. That is the body or feature hit's `source_map`, or the
+  shot's material followed by the wall contact's map. Witness:
+  `a_splash_is_sized_by_the_image_that_touched`.
+- Free held items: `falling` converts `GROUND_ITEM_GRAVITY`. The scaled
+  rest threshold and the bounce/slide ratios are unchanged. Witness:
+  `a_scaled_item_falls_in_its_own_units`.
+- Mount seat: this was already delivered by A1 (`f1183103f`). The seat maps
+  through the mount's material and the soles through the rider's. Witness:
+  `unequal_scales_give_the_two_endpoint_answer`.
+
+### Delivered scope
+
+Admitted: ordinary motion (gravity, controls, jump), contact affordances
+(support, crossing, edge, ledge, crawler capture, exit assistance), and
+the action and relation consumers listed above.
+
+Not admitted:
+
+- The fighter brain's shadow rollout keeps the canonical edge sliver,
+  because perception carries no material scale.
+- World forces, wells and `HeldForce` keep their world units and mass law
+  (see below).
+- Partial-body field sampling and unsupported orientations keep the frame
+  resolver's existing scope.
+- No integrated portal_similarity_slice timing run was added. Its existing
+  geometry and contact checks are not timing evidence.
 
 ## Mass and world forces remain explicit choices
 

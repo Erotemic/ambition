@@ -69,5 +69,12 @@
         // capital. The Concourse (the baggage hall under it), Authority
         // Plaza, and the Manifest Office.
         (id: "world.authority_ldtk", file: "authority.ldtk"),
+        // The Unfinished dimension, by the gate INSTALLING: the site the
+        // Boss's agents are still building. The Staging Area, the Draft over
+        // the void, and the Site Office.
+        (id: "world.unfinished_ldtk", file: "unfinished.ldtk"),
+        // The Automaton dimension, by the gate CELLS: clockwork and cells.
+        // The Works, the Life field, and the Tape Room.
+        (id: "world.automaton_ldtk", file: "automaton.ldtk"),
     ],
 )

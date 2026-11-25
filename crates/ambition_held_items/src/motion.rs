@@ -124,10 +124,7 @@ pub fn ground_item_physics(
                     legs: vec![Leg { body: start, sample, first }], struck: 0.0, settles: false,
                     #[cfg(feature = "portal")] transfers: vec![] }
             } else {
-                let mut moving = before;
-                ambition_platformer2d_shared_tangle::gravity::apply_world_forces(&mut moving.vel,
-                    GROUND_ITEM_GRAVITY * response.gravity_scale,
-                    &ambition_platformer2d_shared_tangle::gravity::GravityField { dir: down }, dt);
+                let moving = falling(before, response, down, dt)?;
                 prepare_flight(world, moving, down, dt, response, admission,
                     #[cfg(feature = "portal")] placed.in_room(room),
                     #[cfg(feature = "portal")] portals.backside.get(entity).ok().copied(),
@@ -209,6 +206,16 @@ pub fn ground_item_physics(
         }
         if flight.settles { commands.entity(entity).insert(SettledItem { impact_speed: flight.struck }); }
     }
+}
+
+/// A free item's fall for one tick. Canonical item gravity falls in the
+/// item's own units, as a body's does; the rest threshold in
+/// [`prepare_flight`] is already scaled and bounce/slide are ratios.
+fn falling(mut body: BodyKinematics, response: ItemBody, down: Vec2, dt: f32) -> Result<BodyKinematics, Refusal> {
+    let gravity = body.material.body_rate(GROUND_ITEM_GRAVITY * response.gravity_scale).map_err(numeric)?;
+    ambition_platformer2d_shared_tangle::gravity::apply_world_forces(&mut body.vel, gravity,
+        &ambition_platformer2d_shared_tangle::gravity::GravityField { dir: down }, dt);
+    Ok(body)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -323,6 +330,22 @@ mod tests {
             #[cfg(feature = "portal")] None,
             #[cfg(feature = "portal")] None,
         ).unwrap()
+    }
+
+    /// A free item falls in its own units: a half-size apple gains half the
+    /// speed per tick, so it crosses its own height in the same time.
+    #[test]
+    fn a_scaled_item_falls_in_its_own_units() {
+        let fall = |scale: f32| {
+            let body = BodyKinematics { material: ae::frame::BodyMaterial::new(scale, bevy::math::Mat2::IDENTITY).unwrap(),
+                canonical_size: Vec2::splat(4.0), ..Default::default() };
+            super::falling(body, ItemBody { gravity_scale: 1.0, ..response() }, Vec2::Y, 0.1).unwrap().vel
+        };
+        let one = fall(1.0);
+        assert!(one.y > 0.0 && one.x == 0.0, "the control falls: {one:?}");
+        for scale in [0.5_f32, 2.0] {
+            assert!((fall(scale) - one * scale).length() < 1e-3, "scale {scale}: {:?} vs {one:?}", fall(scale));
+        }
     }
 
     #[test]

@@ -111,7 +111,9 @@ pub use input_stream::{
     InputStream, InputStreamError, InputStreamFrame, CONTROL_FRAME_WIRE_IDENTITY,
     INPUT_STREAM_VERSION,
 };
-pub use kinematic_path::{resolve_kinematic_path, KinematicPath, KinematicPathMode};
+pub use kinematic_path::{
+    resolve_kinematic_path, KinematicPath, KinematicPathMode, PathFault, PathInterval, PathPhase, PreparedPath,
+};
 pub use ledge_grab::{
     LedgeContact, LedgeGetupKind, LedgeGrabState, LEDGE_CLIMB_TIME,
     LEDGE_GRAB_INVULN_TIME, LEDGE_MIN_CLIMB_DELAY, LEDGE_ROLL_OVERSHOOT, LEDGE_ROLL_TIME,

@@ -22,7 +22,7 @@
 //! move are read off the components the game itself reads.
 //!
 //! ```text
-//! cargo run -p ambition_app_tools --release --bin fight_discovery -- \
+//! cargo run -p ambition_app_tools --features game --release --bin fight_discovery -- \
 //!     --room gnu_ton_arena [--policy all|sandbag|random|aggressor] \
 //!     [--seconds 180] [--seeds 2] [--out target/fight_discovery]
 //! ```

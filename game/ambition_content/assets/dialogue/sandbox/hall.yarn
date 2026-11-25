@@ -994,6 +994,19 @@ Giant GNU: Gnu Ton brought me a quotation about shoulders. I asked for a saddle.
     Giant GNU: Mine. In a fight he borrows them. Left when convenient, right when blamed.
 ===
 
+title: hall_npc_giant_gnu2
+---
+GNU2: I sleep in a cell. The scholar calls. I come out.
+-> Who made you?
+    GNU2: I do not know. I was called into the hall.
+-> Who's the scholar?
+    GNU2: He built the frame. I escort him.
+-> What do you do?
+    GNU2: I fall with him.
+-> Where does it end?
+    GNU2: I do not know.
+===
+
 title: hall_npc_news_board
 ---
 News Board: BREAKING: LAB WALL COLLAPSES. OTHER WALLS REMAIN EMPLOYED.

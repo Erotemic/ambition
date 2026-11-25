@@ -237,6 +237,22 @@ impl BodyKinematics {
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default)]
 pub struct BodyInStorage;
 
+/// The portal links a step's motion was accepted under. A step the kernel
+/// refused and then took again with portals closed records it here, so a
+/// later reader of the same travel (generic transit) does not find, in that
+/// travel, a crossing the kernel refused.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PortalRestriction {
+    /// Every link the admission offered.
+    #[default]
+    Open,
+    /// Only the pairs the body was already through: it may finish going
+    /// through the one it straddles and enter no other.
+    Straddled,
+    /// Every portal closed to this body: its hosts are solid to it.
+    Closed,
+}
+
 /// A complete line or a closed prefix of its original parameterization.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum LinearTravel {
@@ -302,12 +318,14 @@ pub struct SweepSample {
     pub half: Vec2,
     /// The resolved movement reference. This does not set the material axes.
     pub down: Vec2,
+    /// The portal links this travel was accepted under.
+    pub restriction: PortalRestriction,
 }
 
 impl Default for SweepSample {
     fn default() -> Self {
         Self { turn: None, travel: LinearTravel::Complete, material: Default::default(), time: [0.0, 1.0], prev: Vec2::ZERO, curr: Vec2::ZERO,
-            vel: Vec2::ZERO, half: Vec2::ZERO, down: Vec2::ZERO }
+            vel: Vec2::ZERO, half: Vec2::ZERO, down: Vec2::ZERO, restriction: PortalRestriction::Open }
     }
 }
 
@@ -315,7 +333,7 @@ impl SweepSample {
     /// The record of a step that moved nothing: `body` at rest where it is,
     /// with its box turned to `down`.
     pub fn at_rest(body: BodyKinematics, down: Vec2) -> Self {
-        Self {
+        Self { restriction: Default::default(),
             time: [0.0, 1.0],
             travel: LinearTravel::Complete,
             turn: None,

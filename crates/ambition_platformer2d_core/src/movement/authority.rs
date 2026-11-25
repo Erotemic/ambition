@@ -192,7 +192,7 @@ pub fn reconcile_transit(model: &mut MotionModel, clusters: &mut BodyClustersMut
         // Start a new record in the accepted material chart. Keep the movement
         // reference until the environment resolves the next step.
         let down = sweep.down;
-        *sweep = SweepSample { turn: None, travel: Default::default(), time: [0.0, 1.0],
+        *sweep = SweepSample { restriction: Default::default(), turn: None, travel: Default::default(), time: [0.0, 1.0],
             material: clusters.kinematics.material,
             prev: pos,
             curr: pos,
@@ -752,7 +752,7 @@ mod tests {
         let mut model = MotionModel::axis_swept(crate::AxisSweptParams::default());
         // The scratch body carries no sweep sample unless a test asks for one,
         // and a test that did not ask would pass over an absent fact.
-        let mut sample = SweepSample { turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
+        let mut sample = SweepSample { restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(10.0, 10.0),
             curr: Vec2::new(10.0, 10.0),
             vel: incoming,
@@ -833,7 +833,7 @@ mod tests {
             BodyClusterScratch::new_with_abilities(Vec2::new(10.0, 10.0), AbilitySet::default());
         scratch.kinematics.vel = Vec2::new(-500.0, 220.0);
         let mut model = MotionModel::axis_swept(crate::AxisSweptParams::default());
-        let mut sample = SweepSample { turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
+        let mut sample = SweepSample { restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(10.0, 10.0),
             curr: Vec2::new(10.0, 10.0),
             vel: Vec2::new(-500.0, 220.0),
@@ -948,7 +948,7 @@ mod tests {
         let mut scratch =
             BodyClusterScratch::new_with_abilities(Vec2::new(50.0, 50.0), AbilitySet::default());
         scratch.ground.on_ground = true;
-        let mut sample = SweepSample { turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
+        let mut sample = SweepSample { restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(40.0, 50.0),
             curr: Vec2::new(50.0, 50.0),
             vel: Vec2::ZERO,

@@ -444,6 +444,25 @@ pub fn transit_step_with_tuning(
     let center = kinematics.pos;
     let vel = kinematics.vel;
     let sweep = sweep.filter(|sample| sample.ending_at(center).is_some());
+    // The links the motion kernel accepted this travel under. A step it
+    // refused and took again with portals closed must not cross here what
+    // the kernel refused: closed is no portal, straddled is only the pair
+    // the body is already in.
+    let narrowed: Vec<PlacedPortal>;
+    let portals = match sweep.map(|sample| sample.restriction) {
+        Some(ae::PortalRestriction::Closed) => &[][..],
+        Some(ae::PortalRestriction::Straddled) => {
+            narrowed = portals
+                .iter()
+                .filter(|portal| {
+                    transit.is_some_and(|t| portal.channel == t.straddling || portal.channel == t.straddling.partner())
+                })
+                .cloned()
+                .collect();
+            &narrowed[..]
+        }
+        Some(ae::PortalRestriction::Open) | None => portals,
+    };
     let body = kinematics.aabb();
     // Resolve `(straddled, its linked exit)` for a color — both must be placed.
     let pair_for = |c: PortalChannel| -> Option<(PlacedPortal, PlacedPortal)> {

@@ -132,6 +132,19 @@ budget and rebased occupancy for item/projectile owners. The kernel fixture
 stops before this generic phase, which can rediscover the refused crossing.
 Extend that existing fixture through transit to expose the composed result.
 
+**Landed (2026-11-25): transit keeps the accepted restriction.** A probe of
+`transit_step_with_tuning` over the fixture's recovered travel (the same
+mouth, the body from y 465 to 600) returned `Transfer` to the exit: the
+crossing the kernel refused at `HopLimit` was taken by generic transit.
+`SweepSample` now carries `restriction` (`PortalRestriction::Open`,
+`Straddled` or `Closed`). The kernel writes `Closed` when it recovers with
+every portal closed and `Straddled` when it keeps only the straddled
+pairs. Transit reads it: closed is no portal, straddled is only the pair of
+the body's `PortalTransit`. Under `Closed` the same probe is `Idle`, and the
+fixture's sweep records `Closed`. The field rides in `body.sweep_sample`'s
+codec (schema 545). This closes the override; M1's accepted completed-step
+history apart from the next-step seed is still open.
+
 ### Exact CCD is followed by an incomplete velocity rule
 
 `platformer2d_core/src/movement/collision.rs:149–152` filters native contact

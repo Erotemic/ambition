@@ -337,6 +337,11 @@ impl SnapshotState for crate::body_clusters::SweepSample {
                 crate::snapshot::put_u64(out, turn.duration.to_bits());
             }
         }
+        out.push(match self.restriction {
+            crate::PortalRestriction::Open => 0,
+            crate::PortalRestriction::Straddled => 1,
+            crate::PortalRestriction::Closed => 2,
+        });
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let time = [f64::from_bits(r.u64()?), f64::from_bits(r.u64()?)];
@@ -364,7 +369,13 @@ impl SnapshotState for crate::body_clusters::SweepSample {
             }
             _ => return None,
         };
-        Some(Self { time, travel, prev, curr, vel, half, down, material, turn })
+        let restriction = match r.u8()? {
+            0 => crate::PortalRestriction::Open,
+            1 => crate::PortalRestriction::Straddled,
+            2 => crate::PortalRestriction::Closed,
+            _ => return None,
+        };
+        Some(Self { time, travel, prev, curr, vel, half, down, material, turn, restriction })
     }
 }
 

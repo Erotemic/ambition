@@ -1782,7 +1782,7 @@ fn a_motion_refusal_steps_with_portals_closed_and_does_not_replay_an_old_sweep()
     let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 465.0), AbilitySet::default());
     scratch.kinematics.vel = Vec2::new(0.0, 6000.0);
     let initial = scratch.kinematics;
-    let mut sweep = crate::SweepSample { turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: initial.pos - Vec2::Y * 20.0, curr: initial.pos,
+    let mut sweep = crate::SweepSample { restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: initial.pos - Vec2::Y * 20.0, curr: initial.pos,
         vel: initial.vel, half: initial.size() * 0.5, down: Vec2::Y };
     let mut model = MotionModel::axis_swept(AxisSweptParams::default());
     let frame = MotionFrame::from_direction(Vec2::Y, 0.0);

@@ -201,9 +201,19 @@ pub fn step_motion(
         };
         if let Some(kept) = retry {
             let narrowed = (!kept.is_empty()).then(|| MotionAdmission { links: &kept, first: admission.first.filter(|first| kept.iter().any(|link| link.key == *first)), ..admission });
+            let restriction = if narrowed.is_some() {
+                crate::PortalRestriction::Straddled
+            } else {
+                crate::PortalRestriction::Closed
+            };
             let retried = MotionStepContext { admission: narrowed, ..ctx };
             if let Ok(mut result) = try_motion(model, clusters, retried, retained_down) {
                 result.events.motion_refusal = Some(refusal);
+                // The travel was accepted under these links only: a later
+                // reader of it (generic transit) must not cross the others.
+                if let Some(sample) = clusters.sweep.as_deref_mut() {
+                    sample.restriction = restriction;
+                }
                 return result;
             }
         }
@@ -807,7 +817,7 @@ pub(crate) fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec
     let curr = clusters.kinematics.pos;
     let step_half = clusters.kinematics.half_extent();
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
-        *sweep = SweepSample { turn: None, travel: Default::default(), time: [0.0, 1.0],
+        *sweep = SweepSample { restriction: Default::default(), turn: None, travel: Default::default(), time: [0.0, 1.0],
             material: entry.2,
             prev: entry.0,
             curr,

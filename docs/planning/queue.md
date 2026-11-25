@@ -3601,9 +3601,11 @@ not been reproduced by a new Rust/game run in this review.
 **Next action:** P1's first two slices are done (2026-11-22): scoped reset
 and same-position held recast; released-pair cooldown cleanup and held lease
 release on room transfer. Its owner retains those receipts. P1 still needs
-the published accepted/refused reply to the requesting module. Start
-P2 with the existing max-hops-zero recovery fixture extended through generic
-transit, then a moving exit and retained target trajectory. P4 can independently
+the published accepted/refused reply to the requesting module. P2's first
+step landed 2026-11-25: generic transit no longer crosses what the kernel's
+refusal recovery closed (`SweepSample::restriction`, schema 545; see
+[the receipt](engine/portals-are-moving-frames.md#refusal-recovery-can-be-overridden-by-later-crossing-discovery)).
+Next in P2: a moving exit and retained target trajectory. P4 can independently
 prove/fix full-turn bounds and repeated-link candidate exclusion. P3 removes
 static contact-velocity reconstruction and the AABB snag authority after the
 accepted motion contract is in place. P5/P6 complete observer identity,

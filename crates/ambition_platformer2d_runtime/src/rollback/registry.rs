@@ -395,7 +395,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // object GGRS reproduces, so a caller can retire the lift alone (W2).
 // 543 -> 544: a scripted door (`entity:mechanism_door`, with its open state
 // `entity.mechanism_door`) is an object of its own live room (W2).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 544;
+// 544 -> 545: a body's sweep (`body.sweep_sample`) carries the portal links
+// its travel was accepted under (open, straddled, closed), so generic transit
+// does not cross what the kernel refused (portal P2/M1).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 545;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

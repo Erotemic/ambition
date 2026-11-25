@@ -1,4 +1,5 @@
-"""Packages use accepted sprites and omit old loose files."""
+"""Packages use the accepted publication."""
+import json
 from pathlib import Path
 import sys
 
@@ -81,3 +82,40 @@ def test_a_package_uses_the_selected_bundle_and_excludes_old_loose_pages(tmp_pat
     assert (out / packaged).read_bytes() == b"accepted pixels"
     assert not (out / "__libraries/shared/sprites/body.png").exists()
     assert not (out / "__libraries/shared/sprites/body.9.png").exists()
+
+
+def test_published_music_products_resolve_from_the_manifest_directory(tmp_path, monkeypatch):
+    (tmp_path / guard.CONTENT_ASSET_ROOT).mkdir(parents=True)
+    library = tmp_path / "library"
+    library.mkdir()
+    manifest = library / "library.json"
+    manifest.write_text('{"schema":"ambition.content_library.v1","id":"shared","version":"1",'
+                        '"asset_roots":{"generated":"generated"},"publication":"publication"}')
+    cue = "audio/music/generated/example"
+    product_path = "playback/intro/intro.band.ogg"
+    description = tmp_path / "description.json"
+    description.write_text(json.dumps({
+        "music_playback": {"sections": [{"products": [{"path": product_path}]}]},
+        "diagnostics": {"path": "preview/review.ogg"},
+    }))
+    stem = tmp_path / "stem.ogg"
+    stem.write_bytes(b"accepted stem")
+    store = Store(library / "publication")
+    key = store.accept("producer:music:cue:example", {
+        f"{cue}/example.adaptive_manifest.json": (description, "runtime", "full"),
+        f"{cue}/{product_path}": (stem, "runtime", "full"),
+    }, None)
+    store.publish({"producer:music:cue:example": key}, None)
+    inputs = guard.PackInputs(set(), {}, [manifest], [
+        guard.LibraryPackageFile("shared", logical, f'content://shared/__art/{row["path"]}', store.root / row["path"])
+        for logical, row in store.selected()["files"].items()
+    ])
+    monkeypatch.setattr(guard, "read_pack_inputs", lambda *_: inputs)
+    contract, _ = guard.build_contract(tmp_path, "android")
+    product = next(file for file in inputs.library_files if file.logical.endswith(product_path))
+    packaged = guard.normalize_package_path(product.address)
+    assert any(origin.startswith("manifest:") for origin in contract.entries[packaged].origins)
+
+    inputs.library_files.remove(product)
+    with pytest.raises(guard.AssetContractError, match=f"{cue}/{product_path}"):
+        guard.build_contract(tmp_path, "android")

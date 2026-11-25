@@ -15,6 +15,8 @@ from its id. So the pack's declarations come from the content compiler
 (``ambition_content --package-inputs``), never from a pattern match over its
 files. The pattern match stays for the manifests no schema owns yet: sheet and
 parallax manifests, LDtk worlds, and asset constants in Rust.
+For other published music descriptions, the guard reads the playback products
+from the report. Their paths start at the description's directory.
 
 A pack asset that is in neither root is reported and the package ships without
 it, as the desktop game runs without it. ``--strict-pack-assets`` refuses.
@@ -558,6 +560,22 @@ def read_pack_inputs(repo: Path, source_files: dict[str, SourceFile]) -> PackInp
     return inputs
 
 
+def music_product_paths(report: str, manifest: str) -> list[str] | None:
+    """Read the product paths in a published music playback description."""
+    try:
+        playback = json.loads(report).get("music_playback")
+        if playback is None:
+            return None
+        directory = PurePosixPath(manifest).parent
+        return [
+            (directory / product["path"]).as_posix()
+            for section in playback["sections"]
+            for product in section["products"]
+        ]
+    except (AttributeError, KeyError, TypeError, ValueError) as error:
+        raise AssetContractError(f"cannot read music product paths from {manifest}: {error}") from error
+
+
 def scan_manifest_declarations(
     repo: Path, source_files: dict[str, SourceFile], pack: PackInputs | None = None,
     *, source_root: Path | None = None,
@@ -582,6 +600,14 @@ def scan_manifest_declarations(
             text = source_file.source.read_text(encoding="utf8")
         except UnicodeDecodeError:
             continue
+        if logical.endswith(".adaptive_manifest.json"):
+            products = music_product_paths(text, logical)
+            if products is not None:
+                # Products use the logical directory of the playback description.
+                # The outer report can name files for review.
+                for path in products:
+                    add_declaration(declarations, path, f"manifest:{rel}:music_playback.sections.products.path")
+                continue
         sheet_manifest = logical.endswith("_spritesheet.ron") or logical.endswith("_portraits.ron")
         for match in DECLARATION_FIELD_RE.finditer(text):
             line = text.count("\n", 0, match.start()) + 1

@@ -23,7 +23,12 @@ use crate::hurtbox_resolution::{BodyPoseClock, Gait, POSE_AIRBORNE, POSE_CROUCH,
 
 /// The prepared rig this body's character granted. Shared by every body of
 /// the character.
+///
+/// It requires its [`BodyRigPose`]: the pose is rollback-derived and never
+/// snapshotted, so a body a restore builds again gets its rig back and no
+/// pose, and the resolver only fills a pose the body already carries.
 #[derive(Component, Debug, Clone, PartialEq)]
+#[require(BodyRigPose)]
 pub struct BodyRig(pub Arc<PreparedBodyRig>);
 
 /// Where this body's FEET (its rig's origin) are from its centre, in rig axes

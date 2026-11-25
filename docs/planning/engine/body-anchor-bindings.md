@@ -244,10 +244,23 @@ tick has no point rather than yesterday's. The captive is then left where it
 is, as for a missing pose. Witness:
 `a_replaced_rig_is_solved_again_and_an_old_pose_is_not_its_pose`.
 
+**Rollback through a rig replacement landed (2026-11-24).** The pose is
+rollback-derived and never snapshotted. A body that lives through a restore
+keeps whatever pose the resolver last wrote. A body the restore builds again
+gets its rig back and no pose. The resolver filled only a pose the body
+already carried, so a rebuilt body had no points (no hold point, no
+attachment, no rig hurt volume) for the rest of its life. `BodyRig` now
+requires `BodyRigPose`, so inserting a rig, at spawn or by a restore, brings
+the empty pose the resolver fills. Witness:
+`a_restore_to_the_first_rig_is_solved_from_it_whatever_pose_it_left`. A body
+restored to its first rig after wearing a second is solved from the first
+rig, both when the second rig's pose was left standing and when the body
+was built again with no pose.
+
 Open from A2:
-- The authored seat work through the same point query.
-- A rollback witness through a rig replacement (the pose is rollback-derived:
-  a restore drops it and the resolver rebuilds it from the restored rig).
+- The authored seat work through the same point query. This is
+  customer-gated: no character authors a rig seat point today, and seats are
+  `Mountable::seat` offsets.
 
 ### A3 — point velocity when a consumer needs it
 

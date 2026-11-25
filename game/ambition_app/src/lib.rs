@@ -10,6 +10,11 @@
 //! Binaries: `ambition_game_bin`, `headless`, `rl_random_walker`, `rl_smoke`,
 //! and `trace_replay` (rl_sim feature for the stepping drivers).
 
+// A simulation-only build (`rl_sim` without `visible`, the tools' `sim`
+// family) still compiles the menu and debug-overlay modules whose systems only
+// a visible app installs; their helpers are unused there, not dead.
+#![cfg_attr(not(feature = "visible"), allow(dead_code, unused_imports))]
+
 // Process-wide allocator, declared in the LIB so it covers every entry point that links it: the
 // desktop bin, the headless drivers, AND the Android shared library that `build_for_android.sh`
 // asks for (a bin-local declaration never reaches

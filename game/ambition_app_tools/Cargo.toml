@@ -50,18 +50,31 @@ description = "Ambition's non-game binaries: headless/RL drivers, trace replay, 
 # fewer targets: `scripts/run_tests.py` names it on each one
 # (`WORKSPACE_FEATURES`). A bin added here must carry `required-features` too:
 # without it a default build fails to find its optional dependencies.
+#
+# `sim` is the simulation family alone: the composed game with no window,
+# no presentation features and no capture. A command that steps the game and
+# prints what it did requires `sim`; one that takes a picture, plays a Smash
+# match or opens a menu requires `game`, which includes `sim`. Selecting both
+# (any workspace lane) unions them, as Cargo always does.
 default = []
-game = [
+sim = [
     "dep:ambition_app",
-    "dep:ambition_menu_kaleidoscope",
+    "ambition_app/rl_sim",
     "dep:ambition_platformer2d",
     "dep:ambition_sim_harness",
     "dep:bevy",
     "dep:ambition_content",
+    "dep:avian2d",
+]
+game = [
+    "sim",
+    "ambition_app/desktop_dev",
+    "ambition_platformer2d/capture",
+    "ambition_sim_harness/capture",
+    "dep:ambition_menu_kaleidoscope",
     "dep:ambition_demo_smash",
     "dep:ambition_demo_smash_app",
     "dep:image",
-    "dep:avian2d",
 ]
 causal = ["game", "ambition_app/causal"]
 # Tracy zones and Bevy's render diagnostics, forwarded for the SAME reason
@@ -82,14 +95,16 @@ ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
 # The save format and its reader, from their owner: the offline reports read
 # a save file without the game.
 ambition_persistence = { path = "../../crates/ambition_persistence" }
-ambition_app = { path = "../ambition_app", optional = true }
+# Without its defaults: `sim` selects the no-window simulation (`rl_sim`),
+# and `game` adds the desktop development persona the other commands had.
+ambition_app = { path = "../ambition_app", default-features = false, optional = true }
 # The cube menu's camera marker, so `--include-ui` photographs an open menu.
 ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope", optional = true }
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["capture"], optional = true }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", optional = true }
 # ⭐ THE MOVE-EXERCISE AND CAPTURE MACHINERY, which used to be a `#[path]`-included
 # source file in `src/bin/support/`. `capture` is opt-in on the harness so a test
 # or RL driver keeps paying for no renderer; a picture-taking tool asks for it.
-ambition_sim_harness = { path = "../../crates/ambition_sim_harness", features = ["capture"], optional = true }
+ambition_sim_harness = { path = "../../crates/ambition_sim_harness", optional = true }
 bevy = { version = "0.19.1", default-features = false, features = ["ui_api"], optional = true }
 # `capture_scene` stages real rooms and `preview_vanity_card` plays a real shell
 # segment, so both reach the content crate directly rather than through the app.
@@ -154,7 +169,7 @@ test = true
 
 [[bin]]
 name = "headless"
-required-features = ["game"]
+required-features = ["sim"]
 path = "src/bin/headless.rs"
 test = false
 
@@ -162,7 +177,7 @@ test = false
 # write its choreography and a FightReport-shaped summary (boss-design.md §4).
 [[bin]]
 name = "fight_discovery"
-required-features = ["game"]
+required-features = ["sim"]
 path = "src/bin/fight_discovery.rs"
 bench = false
 
@@ -170,7 +185,7 @@ bench = false
 # (ceiling contact, vertical dithering, sounds by kind and stutter).
 [[bin]]
 name = "room_census"
-required-features = ["game"]
+required-features = ["sim"]
 path = "src/bin/room_census.rs"
 bench = false
 
@@ -193,21 +208,21 @@ bench = false
 
 [[bin]]
 name = "rl_random_walker"
-required-features = ["game"]
+required-features = ["sim"]
 path = "src/bin/rl_random_walker.rs"
 test = false
 bench = false
 
 [[bin]]
 name = "rl_smoke"
-required-features = ["game"]
+required-features = ["sim"]
 path = "src/bin/rl_smoke.rs"
 test = false
 bench = false
 
 [[bin]]
 name = "trace_replay"
-required-features = ["game"]
+required-features = ["sim"]
 path = "src/bin/trace_replay.rs"
 bench = false
 

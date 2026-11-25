@@ -732,9 +732,13 @@ The first harness-alone consumer landed 2026-11-25
 (`fixtures/harness_alone`: it steps and observes a sim, and its own graph
 of 372 crates links no renderer, window or product shell).
 Persistence no longer asks Bevy for `bevy_window` (2026-11-25: the offline
-report's graph 188 → 144 crates). Remaining: the further command-family
-split (simulation versus capture). Try explicit optional feature families
-before adding packages.
+report's graph 188 → 144 crates). The simulation family is split from
+capture (2026-11-25): a `sim` feature that `game` includes, six stepping
+commands on it, the app compiling at `rl_sim` alone; `sim` resolves 503
+crates against `game`'s 665, and a headless trace is the same under both.
+Remaining: the Ambition provider's presentation cut (`ambition_content`
+still selects the facade's `all_capabilities`, so the renderer survives in
+`sim`).
 Do not move tool binaries back into app integration-test builds.
 
 **Acceptance:** an independent schema consumer excludes the checker; the

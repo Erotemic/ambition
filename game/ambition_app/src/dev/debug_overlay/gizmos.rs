@@ -518,6 +518,7 @@ pub(crate) fn draw_health_bar(
 /// volumes when an attack is firing. This is the "solid box" view the player
 /// expects when `Hide Sprites` is also on — sprites disappear and the boxes
 /// reveal exactly where each entity lives.
+#[cfg(feature = "input")]
 pub(crate) fn draw_feature_debug(
     gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
@@ -753,6 +754,7 @@ pub(crate) fn draw_feature_debug(
 /// it has left and its time, and a mark where each shot bounced lately. Color
 /// comes from frozen combat allegiance, never from whether the shot used named
 /// or open-visual presentation.
+#[cfg(feature = "input")]
 pub(crate) fn draw_projectile_debug(
     gizmos: &mut GizmoBuffer<impl GizmoConfigGroup, ()>,
     world: &ae::World,
@@ -835,6 +837,7 @@ pub(crate) fn draw_projectile_debug(
 
 /// Label each combat body with what decides a blow on it, above its box: its
 /// side, its health, whether it is invulnerable, a boss's guard. And each live hitbox with the damage it deals.
+#[cfg(feature = "input")]
 pub(crate) fn label_combat_properties(feature_q: &FeatureDebugQueries, labels: &mut RoomLabels) {
     let room = labels.room;
     for body in feature_q

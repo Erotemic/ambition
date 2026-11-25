@@ -650,6 +650,7 @@ pub(crate) struct KaleidoscopeScroll {
 pub(crate) struct SystemMenuParams<'w, 's> {
     #[cfg(feature = "input")]
     pub(super) bindings: crate::menu::bindings::MenuBindings<'w, 's>,
+    #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
     pub(super) departures: crate::menu::departure::MenuDepartures<'w, 's>,
     // A seat's leave is a host intent: the simulation retires it on the
     // stamped tick.
@@ -934,6 +935,7 @@ impl SystemMenuParams<'_, '_> {
             &self.dev_snapshot(),
             quality,
         );
+        #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
         let model = self.departures.attach(model, menu);
         #[cfg(feature = "input")]
         {

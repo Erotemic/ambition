@@ -1036,7 +1036,7 @@ pub(super) fn build_visible_app_for_project(
                     })
                     // No window means no event loop; tests run off the main
                     // thread where winit refuses to initialize one.
-                    .disable::<bevy::winit::WinitPlugin>(),
+                    .without_winit(),
             );
             // ⛔⛤ **BEVY INSTALLS THE RENDER-SYNC HOOKS AND OMITS THE RESOURCE
             // THEY READ WHEN THERE IS NO BACKEND — `Q114`, MEASURED 2026-09-13.**
@@ -1099,7 +1099,7 @@ pub(super) fn build_visible_app_for_project(
                         close_when_requested: false,
                         ..default()
                     })
-                    .disable::<bevy::winit::WinitPlugin>(),
+                    .without_winit(),
             );
             // Winit is the loop runner for a windowed app; without it `run()`
             // executes ONE update and exits, having drawn nothing. That is the
@@ -1392,5 +1392,20 @@ mod io_threads_tests {
         for raw in [None, Some(""), Some("0"), Some("four"), Some("-1"), Some("2.5")] {
             assert_eq!(super::io_threads_from(raw), None, "{raw:?}");
         }
+    }
+}
+
+/// Leave winit out of a plugin group. A build with no platform feature has
+/// no winit in its Bevy and so none to leave out.
+trait WithoutWinit {
+    fn without_winit(self) -> Self;
+}
+
+impl WithoutWinit for bevy::app::PluginGroupBuilder {
+    fn without_winit(self) -> Self {
+        #[cfg(any(feature = "desktop_platform", feature = "android_platform", feature = "web_platform"))]
+        return self.disable::<bevy::winit::WinitPlugin>();
+        #[cfg(not(any(feature = "desktop_platform", feature = "android_platform", feature = "web_platform")))]
+        self
     }
 }

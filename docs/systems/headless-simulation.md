@@ -28,16 +28,16 @@ required for simulation to advance.
 ## Run a room
 
 ```bash
-cargo run -p ambition_app_tools --features game --bin headless -- 120
-cargo run -p ambition_app_tools --features game --bin headless -- 600 --start-room goblin_encounter
+cargo run -p ambition_app_tools --features sim --bin headless -- 120
+cargo run -p ambition_app_tools --features sim --bin headless -- 600 --start-room goblin_encounter
 ```
 
 For a trace and replay:
 
 ```bash
-cargo run -p ambition_app_tools --features game --bin headless -- 600 --dump-trace target/trace
+cargo run -p ambition_app_tools --features sim --bin headless -- 600 --dump-trace target/trace
 TRACE=$(find target/trace -maxdepth 1 -name 'ambition_gameplay_trace_*.json' -type f | sort | tail -n 1)
-cargo run -p ambition_app_tools --features game --bin trace_replay -- "$TRACE"
+cargo run -p ambition_app_tools --features sim --bin trace_replay -- "$TRACE"
 ```
 
 The dump command writes a timestamped `ambition_gameplay_trace_*.json`, **not**

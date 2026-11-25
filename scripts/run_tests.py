@@ -922,6 +922,16 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
             [CARGO, "check", "-p", "ambition_platformer2d_actor",
              "--no-default-features"]))
 
+    # The tools' simulation family builds without the capture family. Every
+    # other lane selects `ambition_app_tools/game`, which unions both, so only
+    # this run sees a `sim` bin that reaches for a capture or presentation item
+    # (or the app no longer compiling at `rl_sim` alone).
+    if everything and (not only or "ambition_app_tools" in only):
+        check_jobs.append(Job(
+            "the tools' simulation family builds alone (--features sim)",
+            [CARGO, "check", "-p", "ambition_app_tools", "--no-default-features",
+             "--features", "sim", "--bins"]))
+
     # ⭐ THE HEADLESS PROFILES MUST HOLD WITH NO RENDERER COMPILED. The default-feature
     # run of `supported_profiles` builds the drawing host too, so it cannot show that a
     # headless profile does not depend on it; this run can. It also carries the dependency

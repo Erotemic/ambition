@@ -14,8 +14,8 @@
 //! Usage:
 //!
 //! ```bash
-//! cargo run -p ambition_app_tools --features game --bin rl_random_walker            # 600 steps, seed=1
-//! cargo run -p ambition_app_tools --features game --bin rl_random_walker -- 1200 42 # 1200 steps, seed=42
+//! cargo run -p ambition_app_tools --features sim --bin rl_random_walker            # 600 steps, seed=1
+//! cargo run -p ambition_app_tools --features sim --bin rl_random_walker -- 1200 42 # 1200 steps, seed=42
 //! ```
 //!
 //! Prints a per-100-step heartbeat plus end-of-run summary (final pos,

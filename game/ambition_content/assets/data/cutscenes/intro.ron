@@ -284,10 +284,12 @@
         beats: [
             Dialogue(
                 speaker: "Foreman",
+                speaker_character_id: "npc_goblin_brute",
                 text: "That's the robot from the barn. It walked here.",
             ),
             Dialogue(
                 speaker: "Foreman",
+                speaker_character_id: "npc_goblin_brute",
                 text: "Window's tomorrow, lads. We're not sitting next to that all night. Get it.",
             ),
             SetFlag(

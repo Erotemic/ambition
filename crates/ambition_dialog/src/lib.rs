@@ -33,7 +33,8 @@ pub use ambition_ui_nav::DialogChoiceSlot;
 pub use content::DialogChoice;
 pub use context::{DialogueContext, DialogueNodeIndex, SELF_NODE_SUFFIX};
 pub use continuity::DialogueBreak;
-pub use runtime::DialogState;
+pub use runtime::{DialogSpeechStyle, DialogState};
+pub use speech_sfx::typewriter_blip;
 pub use systems::{a_conversation_is_open_or_held, dialog_input, dialog_pointer_input, dialog_reveal_tick, slot_dialog_input};
 
 /// Input acts on the previous display; narrative work then publishes the next view.

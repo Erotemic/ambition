@@ -11,7 +11,6 @@
 use bevy::prelude::*;
 
 use crate::runtime::DialogState;
-use crate::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker};
 use ambition_sfx::voice::DialogueVoiceCatalog;
 #[cfg(feature = "input")]
 use ambition_input::{ActiveDevice, MenuControlFrame, SeatActiveDevices, SeatMenuFrames, ParticipantId, LocalSeatTopology, KeyboardOwner, DIALOGUE_CONTEXT};
@@ -65,20 +64,21 @@ pub(crate) fn reveal(
         let previous_visible_chars = dialogue.visible_line_char_count();
         dialogue.tick_reveal(delta_secs);
         let visible_chars = dialogue.visible_line_char_count();
-        if dialogue.settings().speech_blips && should_play_talk_blip(
-            &dialogue.current_line,
-            previous_visible_chars,
-            visible_chars,
-        ) {
-            sfx.write(SfxMessage::Play {
-                id: talk_blip_id_for_speaker(
-                    voice_catalog,
-                    dialogue.speaker_label_for_sfx(),
-                    dialogue.dialogue_id(),
-                    dialogue.speech_style(),
-                ),
-                emitter: ambition_sfx::SfxEmitter::Global,
-            });
+        if dialogue.settings().speech_blips {
+            if let Some(id) = crate::typewriter_blip(
+                voice_catalog,
+                dialogue.speaker_label_for_sfx(),
+                dialogue.dialogue_id(),
+                dialogue.speech_style(),
+                &dialogue.current_line,
+                previous_visible_chars,
+                visible_chars,
+            ) {
+                sfx.write(SfxMessage::Play {
+                    id,
+                    emitter: ambition_sfx::SfxEmitter::Global,
+                });
+            }
         }
         return;
     }

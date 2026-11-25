@@ -151,12 +151,9 @@ pub struct DialogState {
     pub(crate) held: bool,
 }
 
+/// The speech style used to select a typewriter sound.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-// The shout/whisper variants are constructed by the Yarn bridge when the
-// `ui` feature is enabled. Default headless/dialog-model builds still match
-// on them from the SFX selector, but do not construct them.
-#[cfg_attr(not(feature = "ui"), allow(dead_code))]
-pub(crate) enum DialogSpeechStyle {
+pub enum DialogSpeechStyle {
     #[default]
     Normal,
     Whisper,

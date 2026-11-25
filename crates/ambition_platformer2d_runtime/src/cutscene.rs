@@ -394,6 +394,11 @@ fn cutscene_seat(
 pub fn tick_active_cutscene(
     #[cfg(feature = "dialogue")]
     dialogue_settings: ambition_platformer2d_world::governing_rules::RulesOf<ambition_dialog::DialogSettings>,
+    #[cfg(feature = "dialogue")]
+    (voice_catalog, mut dialogue_sfx): (
+        Option<Res<ambition_sfx::voice::DialogueVoiceCatalog>>,
+        Option<ambition_sfx::SfxWriter>,
+    ),
     time: Res<ambition_time::WorldTime>,
     controls: Res<ambition_characters::control::SlotControls>,
     mut active: ResMut<ActiveCutscene>,
@@ -509,7 +514,12 @@ pub fn tick_active_cutscene(
         #[cfg(not(feature = "dialogue"))]
         let beat_dt = dt;
         #[cfg(feature = "dialogue")]
-        if let Some(ambition_cutscene::CutsceneBeat::Dialogue { text, .. }) = runtime.current_beat().filter(|_| !runtime.skipping) {
+        if let Some(ambition_cutscene::CutsceneBeat::Dialogue {
+            speaker,
+            text,
+            speaker_character_id,
+        }) = runtime.current_beat().filter(|_| !runtime.skipping)
+        {
             let policy = dialogue_settings.in_live_room(room.map(
                 ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal,
             )).copied().unwrap_or_default();
@@ -530,6 +540,33 @@ pub fn tick_active_cutscene(
                 }
             } else if let ambition_dialog::LineAdvance::Automatic { delay_seconds } = policy.line_advance {
                 dismiss = runtime.elapsed >= duration + delay_seconds;
+            }
+            if let Some(sfx) = dialogue_sfx.as_mut().filter(|_| {
+                policy.speech_blips && !skip && !dismiss && reveal_to.is_none() && beat_dt > 0.0
+            }) {
+                let count = text.chars().count();
+                let identity = if speaker_character_id.is_empty() {
+                    speaker
+                } else {
+                    speaker_character_id
+                };
+                let previous = policy.text_reveal.visible_chars(count, runtime.elapsed);
+                let visible = policy.text_reveal.visible_chars(count, runtime.elapsed + beat_dt);
+                if let Some(id) = ambition_dialog::typewriter_blip(
+                    voice_catalog.as_deref(),
+                    identity,
+                    &script_id,
+                    ambition_dialog::DialogSpeechStyle::Normal,
+                    text,
+                    previous,
+                    visible,
+                ) {
+                    sfx.in_space(room.map(ambition_sfx::SfxSpace))
+                        .write(ambition_sfx::SfxMessage::Play {
+                            id,
+                            emitter: ambition_sfx::SfxEmitter::Global,
+                        });
+                }
             }
         }
 
@@ -884,6 +921,45 @@ impl Plugin for CutsceneSchedulePlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "dialogue")]
+    #[test]
+    fn a_cutscene_blips_during_reveal_and_keeps_confirm_quiet() {
+        use ambition_cutscene::{CutsceneBeat, CutsceneScript};
+        use ambition_sfx::{OwnedSfxMessage, SfxId, SfxMessage, voice::DialogueVoiceCatalog};
+
+        let mut app = App::new();
+        let room = ambition_platformer2d_world::governing_rules::test_fixtures::two_game_session(&mut app, true);
+        let voice = SfxId::from_static("test.dialogue.foreman");
+        let mut voices = DialogueVoiceCatalog::default();
+        voices.register_voiceprint(voice, &["npc_test_foreman"], &[]).unwrap();
+        app.insert_resource(voices);
+        app.insert_resource(ambition_time::WorldTime::new(0.1, 0.1));
+        app.init_resource::<ambition_characters::control::SlotControls>();
+        app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
+        app.init_resource::<CutsceneWaitAnswer>();
+        app.init_resource::<ActiveCutscene>();
+        app.add_message::<OwnedSfxMessage>();
+        app.add_systems(Update, tick_active_cutscene);
+        let script = CutsceneScript::new("freight", vec![CutsceneBeat::Dialogue {
+            speaker: "Foreman".into(), speaker_character_id: "npc_test_foreman".into(),
+            text: "The freight window opens tomorrow, at noon.".into(),
+        }]);
+        app.world_mut().resource_mut::<ActiveCutscene>()
+            .start(PlayingCutscene::new(CutsceneRuntime::new(script), Some(room.ordinal())));
+
+        app.update();
+        let mut audio = app.world_mut().resource_mut::<Messages<OwnedSfxMessage>>();
+        assert!(matches!(audio.drain().next().map(|message| message.request),
+            Some(SfxMessage::Play { id, .. }) if id == voice));
+
+        app.world_mut().resource_mut::<ambition_characters::control::SlotControls>().set(
+            ambition_characters::control::PlayerSlot::PRIMARY,
+            ambition_platformer2d_core::ControlFrame { confirm_pressed: true, ..Default::default() },
+        );
+        app.update();
+        assert!(app.world().resource::<Messages<OwnedSfxMessage>>().is_empty());
+    }
 
     #[test]
     fn each_games_cutscene_uses_its_own_skip_timing_and_meter() {

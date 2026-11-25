@@ -15,6 +15,20 @@ use crate::runtime::DialogSpeechStyle;
 /// advance the counter.
 const TALK_BLIP_CHAR_INTERVAL: usize = 5;
 
+/// Select one sound for the characters revealed since the last update.
+pub fn typewriter_blip(
+    catalog: Option<&DialogueVoiceCatalog>,
+    speaker: &str,
+    dialogue_id: &str,
+    style: DialogSpeechStyle,
+    line: &str,
+    previous: usize,
+    visible: usize,
+) -> Option<SfxId> {
+    should_play_talk_blip(line, previous, visible)
+        .then(|| talk_blip_id_for_speaker(catalog, speaker, dialogue_id, style))
+}
+
 /// Return true when a reveal tick should emit one dialogue blip.
 ///
 /// `previous_visible_chars` and `visible_chars` are character counts into

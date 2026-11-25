@@ -4,10 +4,13 @@
 
 use ambition_app::rl_sim::AmbitionSim as _;
 use ambition_platformer2d::characters::actor::CharacterForm;
+use ambition_platformer2d::combat::components::{ActorAggression, Grudge};
+use ambition_platformer2d::engine_core::{BodyClusterQueryData, BodyKinematics, Vec2};
+use ambition_platformer2d::engine_core::movement::{transit_body, MotionModel, TransitVelocity};
 use ambition_platformer2d::held_items::ItemCustody;
 use ambition_platformer2d::persistence::save::AmbitionGameSave;
 use ambition_platformer2d::platformer::sim_id::SimId;
-use bevy::prelude::World;
+use bevy::prelude::{Entity, World};
 
 use crate::common::walk::{through_the_raid, walk_through, Pad, Press, RaidStart, Walker as _};
 use crate::common::{base, fixed_60hz_room_options};
@@ -43,8 +46,7 @@ fn a_bomb_flies(world: &mut World) -> bool {
     items.iter(world).any(|(id, _)| *id == SimId::placement("intro_brute_bomb"))
 }
 
-fn cases(world: &mut World) -> Vec<(ItemCustody, ambition_platformer2d::engine_core::Vec2)> {
-    use ambition_platformer2d::engine_core::BodyKinematics;
+fn cases(world: &mut World) -> Vec<(ItemCustody, Vec2)> {
     let case = SimId::placement("intro_bench_case");
     world.query::<(&SimId, &ItemCustody, &BodyKinematics)>()
         .iter(world).filter(|(id, _, _)| **id == case)
@@ -60,6 +62,8 @@ struct Watching<'a, 'b> {
     carried: bool,
     warning_ticks: u32,
     rewinding: bool,
+    dennis_starts_behind_brute: bool,
+    staging_health: Option<i32>,
 }
 
 /// The brute's scene, if it plays: whether its presentation is skipped.
@@ -71,6 +75,25 @@ fn brute_scene(world: &World) -> Option<bool> {
         .map(|playing| playing.runtime.skipping)
 }
 
+fn put_dennis_behind_the_brute(world: &mut World) {
+    // Dennis can fight the brute before the scene. Start his walk in contact
+    // range, with the brute still able to target him.
+    let mut dennis = None;
+    let mut brute = None;
+    let mut bodies = world.query::<(Entity, &CharacterForm, BodyClusterQueryData, &mut MotionModel)>();
+    for (entity, form, mut body, mut model) in bodies.iter_mut(world) {
+        let x = match form.id() {
+            "npc_raid_brute" => { brute = Some(entity); 1300.0 }
+            "npc_creator" => { dennis = Some(entity); 1318.0 }
+            _ => continue,
+        };
+        let at = Vec2::new(x, 352.0 - body.kinematics.size().y * 0.5);
+        transit_body(&mut model, &mut body.as_clusters_mut(), at, TransitVelocity::Zero);
+    }
+    world.get_mut::<ActorAggression>(brute.expect("the scene has a brute"))
+        .expect("the brute can target a foe").grudge = Some(Grudge::Body(dennis.expect("the scene has Dennis")));
+}
+
 impl crate::common::walk::Walker for Watching<'_, '_> {
     fn world(&self) -> &World {
         self.pad.world()
@@ -80,6 +103,18 @@ impl crate::common::walk::Walker for Watching<'_, '_> {
     }
     fn step(&mut self, mut press: Press) {
         let scene = brute_scene(self.pad.world());
+        use ambition_platformer2d::cutscene::{ActiveCutscene, CutsceneBeat};
+        if self.dennis_starts_behind_brute && self.staging_health.is_none() && scene.is_some()
+            && self.pad.world().resource::<ActiveCutscene>().iter().any(|scene| {
+                scene.script_id() == "intro_brute_takes_the_case"
+                    && matches!(scene.runtime.current_beat(), Some(CutsceneBeat::Command { line })
+                        if line.starts_with("actor.walk_to @dennis "))
+            })
+        {
+            let world = self.pad.world_mut();
+            self.staging_health = creator_health(world);
+            put_dennis_behind_the_brute(world);
+        }
         if self.skip && scene.is_some() && !self.rewinding {
             use ambition_platformer2d::rollback::{start_sync_test_session, SyncTestSettings};
             start_sync_test_session(self.pad.world_mut(), SyncTestSettings { check_distance: 2, max_prediction_window: 12, players: 1 })
@@ -89,7 +124,6 @@ impl crate::common::walk::Walker for Watching<'_, '_> {
         self.skipped |= scene == Some(true);
         press.cancel = self.skip && scene == Some(false);
         if !self.skip && self.warning_ticks < 180 {
-            use ambition_platformer2d::cutscene::{ActiveCutscene, CutsceneBeat};
             let warning = self.pad.world().resource::<ActiveCutscene>().iter().any(|scene| {
                 scene.script_id() == "intro_brute_takes_the_case"
                     && matches!(scene.runtime.current_beat(), Some(CutsceneBeat::Dialogue { speaker, .. }) if speaker == "Dennis")
@@ -126,16 +160,21 @@ impl crate::common::walk::Walker for Watching<'_, '_> {
 
 #[test]
 fn the_raid_brute_takes_the_case_and_bombs_the_creator() {
-    the_brute_scene_ends_the_raid(false);
+    the_brute_scene_ends_the_raid(false, false);
 }
 
 /// Cancel on the first tick. The shove, wound and case transfer still occur.
 #[test]
 fn a_skipped_brute_scene_ends_the_raid_as_a_played_one_does() {
-    the_brute_scene_ends_the_raid(true);
+    the_brute_scene_ends_the_raid(true, false);
 }
 
-fn the_brute_scene_ends_the_raid(skip: bool) {
+#[test]
+fn the_raid_ends_when_dennis_starts_behind_the_brute() {
+    the_brute_scene_ends_the_raid(false, true);
+}
+
+fn the_brute_scene_ends_the_raid(skip: bool, dennis_starts_behind_brute: bool) {
     let options = fixed_60hz_room_options("intro_wake_room");
     let options = if skip { options.with_sync_test_rollback_settings(0, 12) } else { options };
     let mut sim = ambition_app::Platformer2dSimHarness::new_with_options(options).expect("the workshop boots");
@@ -146,13 +185,20 @@ fn the_brute_scene_ends_the_raid(skip: bool) {
     let mut pad = Pad::new(&mut sim);
     // The Creator's health as the bomb leaves the brute's hand, and the
     // least of it after.
-    let mut watching = Watching { pad: &mut pad, skip, skipped: false, thrown_at: None, after: i32::MAX, carried: false, warning_ticks: 0, rewinding: false };
+    let mut watching = Watching { pad: &mut pad, skip, skipped: false, thrown_at: None, after: i32::MAX, carried: false, warning_ticks: 0, rewinding: false, dennis_starts_behind_brute, staging_health: None };
     if let Err(why) = through_the_raid(&mut watching, RaidStart::Door) {
         let world = watching.world_mut();
         let live = bodies_of(world, "npc_lab_raider");
         let brute = bodies_of(world, "npc_raid_brute");
         let health = creator_health(world);
-        panic!("the raid: {why}; raiders {live:?}; brute {brute:?}; Dennis {health:?}; wounded {}, case taken {}, case in transit {}",
+        let beat = world.resource::<ambition_platformer2d::cutscene::ActiveCutscene>().iter()
+            .find_map(|scene| scene.runtime.current_beat()).cloned();
+        use ambition_platformer2d::actors::body::{errand::Errand, visit::Visit};
+        use ambition_platformer2d::characters::control::brain_binding::BrainBinding;
+        let cast: Vec<_> = world.query::<(&CharacterForm, &BodyKinematics, Option<&Visit>, Option<&Errand>, Option<&BrainBinding>)>()
+            .iter(world).filter(|(form, ..)| matches!(form.id(), "npc_creator" | "npc_raid_brute"))
+            .map(|(form, kin, visit, errand, brain)| (form.id(), kin.pos, kin.vel, visit, errand, brain)).collect();
+        panic!("the raid: {why}; raiders {live:?}; brute {brute:?}; Dennis {health:?}; beat {beat:?}; cast {cast:?}; wounded {}, case taken {}, case in transit {}",
             flag(world, "intro_dennis_wounded"), flag(world, "intro_case_taken"), flag(world, "intro_case_in_transit"));
     }
     // The raid is won the tick he goes; the scene sees him gone on its next
@@ -164,6 +210,10 @@ fn the_brute_scene_ends_the_raid(skip: bool) {
         watching.step(Press { confirm: frame % 10 == 0, ..Press::default() });
     }
     let (skipped, thrown_at, after, carried, warning) = (watching.skipped, watching.thrown_at, watching.after, watching.carried, watching.warning_ticks);
+    if dennis_starts_behind_brute {
+        assert_eq!(watching.staging_health, thrown_at, "Dennis keeps his health until the bomb leaves the hand");
+        assert!(watching.staging_health.is_some(), "Dennis started his walk on the far side of the brute");
+    }
     assert_eq!(skipped, skip, "the premise: the scene was skipped exactly when the walker held cancel");
     assert!(flag(sim.world(), "intro_brute_scene_seen"), "the brute's scene played; brutes live and fallen: {:?}", bodies_of(sim.world_mut(), "npc_raid_brute"));
     assert!(carried && flag(sim.world(), "intro_case_taken"), "the brute took the bench case");
@@ -178,6 +228,18 @@ fn the_brute_scene_ends_the_raid(skip: bool) {
     sim.rollback_health().expect("the raid remains consistent under rewind");
     if skip {
         assert!(sim.rollback_execution_stats().is_some_and(|stats| stats.load_runs > 0), "the brute's scene replayed");
+    }
+    if dennis_starts_behind_brute {
+        let mut pad = Pad::new(&mut sim);
+        for frame in 0..240 {
+            if flag(pad.world(), "intro_creator_fragment_seen") {
+                break;
+            }
+            pad.step(Press { confirm: frame % 10 == 0, ..Press::default() });
+        }
+        assert!(flag(pad.world(), "intro_creator_fragment_seen"), "the final words play after the raid");
+        assert_eq!(creator_health(pad.world_mut()), Some(0), "Dennis dies after his final words");
+        return;
     }
     if !skip {
         let save = sim.world().resource::<AmbitionGameSave>().data().clone();

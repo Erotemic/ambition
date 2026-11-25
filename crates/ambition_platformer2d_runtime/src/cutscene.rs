@@ -282,9 +282,11 @@ pub fn a_cutscene_hold_is_owed(
     active: Res<ActiveCutscene>,
     held: Query<&ambition_characters::control::ControlHolds>,
     floors: Query<(), With<ambition_combat::components::SceneDamageFloor>>,
+    cast: Query<&ambition_characters::actor::BodyHealth, With<ambition_characters::control::ActorControl>>,
 ) -> bool {
     active.is_playing() || !floors.is_empty()
         || held.iter().any(|holds| holds.holds(ambition_characters::control::ControlHold::Cutscene))
+        || cast.iter().any(|health| health.health.invulnerable.holds(ambition_characters::actor::Invulnerability::CUTSCENE))
 }
 
 /// Hold every body in a playing cutscene's room (every body, for a cutscene
@@ -297,10 +299,10 @@ pub fn a_cutscene_hold_is_owed(
 /// in the room starts a move, and it cannot be hurt, so a strike already in
 /// flight lands on nobody. Bodies in other rooms play on (ISL-1b).
 ///
-/// A body on its way somewhere it was sent (a pending visit: an
-/// `actor.walk_to` or `actor.leave_through` of this very scene, or a life
-/// going about its day) is not held while it goes: the scene directed it,
-/// and it is held again when it gets there.
+/// A pending visit or errand can move while the scene plays. An autonomous
+/// body bound to a role stays protected during the move unless its role has
+/// an `AllowDamage` beat. After a skip, the scene continues to direct these
+/// bodies while the participants regain control.
 ///
 /// A projection of [`ActiveCutscene`], rewritten each tick, so a rewind that
 /// restores the cutscene restores the hold with it.
@@ -318,6 +320,7 @@ pub fn project_cutscene_hold(
             Option<&ambition_platformer2d_actor::body::errand::Errand>,
             Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
             Option<&ambition_combat::components::SceneDamageFloor>,
+            Has<ambition_characters::control::DrivingParticipant>,
         ),
         With<ambition_characters::control::ActorControl>,
     >,
@@ -325,7 +328,7 @@ pub fn project_cutscene_hold(
     use ambition_characters::actor::Invulnerability;
     use ambition_characters::control::ControlHold;
     use ambition_combat::components::SceneDamageFloor;
-    for (body, holds, health, visit, errand, identity, floor) in &mut bodies {
+    for (body, holds, health, visit, errand, identity, floor, driven) in &mut bodies {
         if replay.as_ref().is_some_and(|replay| !replay.allows(rooms.of(body))) {
             continue;
         }
@@ -333,14 +336,17 @@ pub fn project_cutscene_hold(
         let fetching = errand.is_some_and(|errand| errand.outcome
             == ambition_platformer2d_actor::body::errand::ErrandOutcome::Pending);
         let room = rooms.of(body).map(|room| room.ordinal());
-        let held = !going && !fetching && active.holds(room);
-        let exposure = identity.and_then(|id| {
-            active.iter().filter(|scene| scene.room.is_none() || scene.room == room).find_map(|scene| {
-                scene.runtime.script.beats[..scene.runtime.beat_index].iter().rev().find_map(|beat| {
-                    let ambition_cutscene::CutsceneBeat::AllowDamage { role, minimum_health } = beat else { return None };
-                    scene.roles.iter().any(|(bound, body)| bound == role && body == id.as_str())
-                        .then_some(*minimum_health)
-                })
+        let scene = identity.and_then(|id| {
+            active.iter().find(|scene| (scene.room.is_none() || scene.room == room)
+                && scene.roles.iter().any(|(_, body)| body == id.as_str()))
+        });
+        let staged = scene.is_some() && !driven;
+        let held = !going && !fetching && (staged || active.holds(room));
+        let exposure = scene.zip(identity).and_then(|(scene, id)| {
+            scene.runtime.script.beats[..scene.runtime.beat_index].iter().rev().find_map(|beat| {
+                let ambition_cutscene::CutsceneBeat::AllowDamage { role, minimum_health } = beat else { return None };
+                scene.roles.iter().any(|(bound, body)| bound == role && body == id.as_str())
+                    .then_some(*minimum_health)
             })
         });
         match (floor, exposure.flatten().map(SceneDamageFloor)) {
@@ -368,7 +374,7 @@ pub fn project_cutscene_hold(
             None => {}
         }
         if let Some(mut health) = health {
-            let protected = held && exposure.is_none();
+            let protected = (held || staged) && exposure.is_none();
             if health.health.invulnerable.holds(Invulnerability::CUTSCENE) != protected {
                 health.health.invulnerable.set(Invulnerability::CUTSCENE, protected);
             }

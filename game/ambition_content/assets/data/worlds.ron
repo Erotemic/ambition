@@ -8,7 +8,10 @@
 // still boots. A world added here is in the next start, with no Rust build;
 // a build without a source tree (`static_map`) embeds each file listed here.
 (
-    // A fresh session starts in the sandbox. The workshop is reached from the hub.
+    // The sandbox hub is the intentional development start (maintainer decision D3).
+    // Do not change this to intro_wake_room as an intro bug fix.
+    // Start the workshop explicitly for intro tests. Change the default only
+    // when the maintainer requests the release entry point.
     entry_room: "central_hub_complex",
     worlds: [
         (id: "world.sandbox_ldtk", file: "sandbox.ldtk", required: true),

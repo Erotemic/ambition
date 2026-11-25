@@ -24,7 +24,10 @@ use bevy_window::CursorMoved;
 /// (Switch mirrors the positions).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub enum GamepadStyle {
-    /// Xbox 360 / One / Series and most XInput pads: A/B/X/Y, LB/RB/LT/RT.
+    /// Xbox 360 / One / Series, most XInput pads, and a Steam Deck (its
+    /// buttons are A/B/X/Y in the Xbox places): A/B/X/Y, LB/RB/LT/RT. Also
+    /// the touch screen's style when no pad has spoken (Jon, 2026-11-24: the
+    /// Deck and touch count as Xbox).
     #[default]
     XboxLike,
     /// DualShock / DualSense: shape names, L1/R1/L2/R2.
@@ -46,6 +49,7 @@ pub fn gamepad_style_of(vendor_id: Option<u16>, name: Option<&str>) -> GamepadSt
         Some(0x054c) => return GamepadStyle::PlayStation, // Sony
         Some(0x057e) => return GamepadStyle::Switch,      // Nintendo
         Some(0x045e) => return GamepadStyle::XboxLike,    // Microsoft
+        Some(0x28de) => return GamepadStyle::XboxLike,    // Valve: the Steam Deck, Steam Input's virtual pads
         _ => {}
     }
     let Some(name) = name else {
@@ -69,7 +73,7 @@ pub fn gamepad_style_of(vendor_id: Option<u16>, name: Option<&str>) -> GamepadSt
         .any(|hint| name.contains(hint))
     {
         GamepadStyle::Switch
-    } else if ["xbox", "x-box", "xinput", "microsoft"]
+    } else if ["xbox", "x-box", "xinput", "microsoft", "steam"]
         .iter()
         .any(|hint| name.contains(hint))
     {
@@ -456,6 +460,8 @@ mod tests {
         );
         assert_eq!(gamepad_style_of(Some(0x057e), None), GamepadStyle::Switch);
         assert_eq!(gamepad_style_of(Some(0x045e), None), GamepadStyle::XboxLike);
+        assert_eq!(gamepad_style_of(Some(0x28de), None), GamepadStyle::XboxLike);
+        assert_eq!(gamepad_style_of(None, Some("Steam Deck")), GamepadStyle::XboxLike);
         assert_eq!(
             gamepad_style_of(None, Some("Nintendo Switch Pro Controller")),
             GamepadStyle::Switch

@@ -219,7 +219,9 @@ mod tests {
         assert_eq!(path(PhysicalControl::Button(GamepadButton::South), S::XboxLike), "sprites/input_glyphs/input_glyph_xbox_south.png");
         assert_eq!(path(PhysicalControl::Button(GamepadButton::South), S::PlayStation), "sprites/input_glyphs/input_glyph_playstation_south.png");
         assert_eq!(path(PhysicalControl::Button(GamepadButton::DPadUp), S::Switch), "sprites/input_glyphs/input_glyph_switch_d_pad_up.png");
-        assert_eq!(path(PhysicalControl::Button(GamepadButton::LeftTrigger2), S::Generic), "sprites/input_glyphs/input_glyph_generic_left_trigger2.png");
+        // An unclassified pad draws the Xbox pictures, as it prints the Xbox names.
+        assert_eq!(path(PhysicalControl::Button(GamepadButton::South), S::Generic), "sprites/input_glyphs/input_glyph_xbox_south.png");
+        assert_eq!(path(PhysicalControl::Button(GamepadButton::LeftTrigger2), S::Generic), "sprites/input_glyphs/input_glyph_xbox_left_trigger2.png");
         for (key, name) in [(KeyCode::KeyF, "f"), (KeyCode::Escape, "esc"), (KeyCode::ShiftRight, "shift"), (KeyCode::BracketLeft, "bracketleft"), (KeyCode::Digit3, "digit3")] {
             assert_eq!(path(PhysicalControl::Key(key), S::PlayStation), format!("sprites/input_glyphs/input_glyph_key_{name}.png"));
         }
@@ -357,7 +359,16 @@ impl PhysicalControl {
     pub fn glyph_path(&self, style: crate::GamepadStyle) -> Option<String> {
         let name = match self {
             Self::Key(key) => format!("key_{}", key_label(*key).to_lowercase()),
-            Self::Button(button) => format!("{}_{}", style_word(style), snake_case(&format!("{button:?}"))),
+            // An unclassified pad (a Steam Deck, an 8BitDo) is drawn as an Xbox
+            // pad, as its labels are: the coloured A, B, X and Y say which
+            // button each is.
+            Self::Button(button) => {
+                let style = match style {
+                    crate::GamepadStyle::Generic => crate::GamepadStyle::XboxLike,
+                    style => style,
+                };
+                format!("{}_{}", style_word(style), snake_case(&format!("{button:?}")))
+            }
             Self::Other(_) => return None,
         };
         Some(format!("{GLYPH_FOLDER}/input_glyph_{name}.png"))

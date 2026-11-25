@@ -51,6 +51,10 @@ where
     // a shrine's, so a rewind across its creation or retirement brings back
     // the object a caller names. Its one field is written at construction.
     registrar.require_rollback::<crate::platforms::MechanismLift>(OWNER, "entity:mechanism_lift");
+    // A scripted door: GGRS reproduces the entity, and its state rewinds
+    // with it, since a switch press opens or shuts it inside the window.
+    registrar.require_rollback::<crate::mechanism_doors::MechanismDoor>(OWNER, "entity:mechanism_door");
+    registrar.rollback_component_canonical::<crate::mechanism_doors::MechanismDoor>(OWNER, "entity.mechanism_door");
     registrar.rollback_component_clone_checksum::<super::RoomSet>(
         OWNER,
         "root.room_set",

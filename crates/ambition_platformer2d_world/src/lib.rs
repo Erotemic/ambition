@@ -38,6 +38,7 @@ pub mod prelude {
 pub mod authored_room_commands;
 
 pub mod gated_lock_walls;
+pub mod mechanism_doors;
 
 mod rollback_registration;
 pub use rollback_registration::register_rollback_state;

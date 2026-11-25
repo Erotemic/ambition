@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v543
+ggrs-rollback-schema-v544
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -269,6 +269,7 @@ encounter.release_on_death	component-clone	ReleaseOnDeath	bevy_ggrs clone snapsh
 encounter.script	component-clone-custom-checksum	EncounterScript	bevy_ggrs clone snapshot + cursor and beat-elapsed bits
 encounter.track	component-clone	EncounterTrack	bevy_ggrs clone snapshot; not in the session checksum
 encounter.waves	component-clone-resolved	EncounterWaves	bevy_ggrs clone snapshot + canonical authored-reference checksum projection
+entity.mechanism_door	component-canonical	MechanismDoor	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity.name	component-clone	Name	bevy_ggrs clone snapshot; not in the session checksum
 entity.sim_id	component-canonical	SimId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity.spawn_origin	component-canonical	SpawnOrigin	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -288,6 +289,7 @@ entity:hitbox	required-rollback	Hitbox	component presence automatically installs
 entity:knocked_out_of_the_world	component-canonical	KnockedOutOfTheWorld	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 entity:live_projectile	required-rollback	LiveProjectile	component presence automatically installs bevy_ggrs::Rollback
 entity:mary_o_mode_owner	required-rollback	MaryOLevelState	component presence automatically installs bevy_ggrs::Rollback
+entity:mechanism_door	required-rollback	MechanismDoor	component presence automatically installs bevy_ggrs::Rollback
 entity:mechanism_lift	required-rollback	MechanismLift	component presence automatically installs bevy_ggrs::Rollback
 entity:module_entity	required-rollback	ModuleEntity	component presence automatically installs bevy_ggrs::Rollback
 entity:object_occurrence	required-rollback	ObjectOccurrence	component presence automatically installs bevy_ggrs::Rollback

@@ -1,7 +1,7 @@
-//! W2: one scripted request builds a mechanism from parts of two native
-//! domains: a lift the platform domain moves and a switch that sends it. The
-//! switch names its lift by local key, so two copies made with the same keys
-//! bind each to its own lift.
+//! W2: one scripted request builds a mechanism from parts of different native
+//! domains: a lift the platform domain moves, a door in the gate road, and
+//! switches that send the lift or open the door. A switch names its part by
+//! local key, so two copies made with the same keys bind each to its own.
 
 #![cfg(feature = "rl_sim")]
 use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness};
@@ -29,6 +29,7 @@ fn declare() {
             #{tag: 6, name: "retired", kind: "bool"},
             #{tag: 7, name: "first_lift", kind: "opt object"},
             #{tag: 8, name: "lift_retired", kind: "bool"},
+            #{tag: 9, name: "door_sent", kind: "bool"},
         ]},
     ], entries: [
         #{key: "tick", phase: "actor_think", trigger: #{port: "story_tick", selector: "intro_wake_room"},
@@ -43,6 +44,17 @@ fn lift_and_call(request, x, floor, sends) {
       switches: [#{key: "call", at: [x - 90.0, floor - 16.0], sends: #{local: sends}}]}
 }
 fn tick() {
+    // A door and the switch that opens it, beside the driven body.
+    if this.trigger.flags.contains("mechanism_door") && !this.state.memory.door_sent {
+        this.state.memory.door_sent = true;
+        let p = this.trigger.bodies[0].position;
+        for body in this.trigger.bodies { if body.driven { p = body.position; } }
+        let floor = p[1] + 24.0;
+        this.requests.push(request("create_mechanism", #{reply: #{request: 4, selector: "mechanism_probe::yard/result"},
+            doors: [#{key: "door", at: [p[0] + 200.0, floor - 32.0], size: [16.0, 64.0]}],
+            switches: [#{key: "lever", at: [p[0] - 120.0, floor - 16.0], sends: #{local: "door"}}]}));
+        return;
+    }
     // The first copy's lift leaves the world by its own occurrence.
     if this.trigger.flags.contains("mechanism_retire_lift") && !this.state.memory.lift_retired {
         this.state.memory.lift_retired = true;
@@ -236,5 +248,68 @@ fn a_scripted_mechanism_binds_each_switch_to_its_own_lift() {
         q.iter(world).map(|lift| lift.platform.clone()).collect::<Vec<_>>()
     };
     assert_eq!(left, vec![second.1.clone()], "only the retired lift's occurrence left");
+
+    // W2: a door is an object of its own room. One request makes a door and
+    // the switch that works it; the shut door stands in its own room's gate
+    // solids, a press opens it, and the next press shuts it again (still
+    // under sync-test rollback).
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::session::AmbitionGameSave>()
+        .data_mut()
+        .set_flag("mechanism_door", true);
+    sim.rebase_rollback_history().unwrap();
+    sim.step_n(AgentAction::default(), 8);
+    let memory = sim
+        .world()
+        .get::<BodyRecords>(root)
+        .unwrap()
+        .get(&SchemaKey::new("mechanism_probe", "memory", 1))
+        .unwrap()
+        .clone();
+    assert_eq!(memory.get(FieldRef(1)).ok(), Some(&Value::U32(3)), "the door's mechanism was made");
+    let lever = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&SwitchFeature, &CenteredAabb)>();
+        let rows: Vec<_> = q
+            .iter(world)
+            .filter(|(feature, _)| feature.activation.action == "ToggleDoor")
+            .map(|(feature, aabb)| (feature.activation.target_encounter.clone(), (aabb.center.x, aabb.center.y)))
+            .collect();
+        assert_eq!(rows.len(), 1, "one door switch: {rows:?}");
+        rows[0].clone()
+    };
+    let door = |sim: &mut Platformer2dSimHarness| {
+        let world = sim.world_mut();
+        let mut q = world.query::<&ambition_platformer2d::world::mechanism_doors::MechanismDoor>();
+        let doors: Vec<_> = q.iter(world).map(|door| (door.id.clone(), door.open)).collect();
+        assert_eq!(doors.len(), 1, "one door: {doors:?}");
+        let mut overlays = world.query_filtered::<
+            &ambition_platformer2d::world::FeatureEcsWorldOverlay,
+            With<RoomInstanceRoot>,
+        >();
+        let standing = overlays
+            .iter(world)
+            .flat_map(|overlay| overlay.gate_solids.iter())
+            .filter(|block| block.name == format!("mechanism_door:{}", doors[0].0))
+            .count();
+        (doors[0].0.clone(), doors[0].1, standing)
+    };
+    let (door_id, open, standing) = door(&mut sim);
+    assert_eq!(door_id, lever.0, "the switch names its own door");
+    assert_eq!((open, standing), (false, 1), "a new door is shut and stands in its room's gate solids");
+    let press = |sim: &mut Platformer2dSimHarness| {
+        sim.teleport_player(lever.1);
+        sim.step(crate::common::base());
+        sim.step(AgentAction { interact: true, ..crate::common::base() });
+        for _ in 0..10 {
+            sim.step(crate::common::base());
+        }
+    };
+    press(&mut sim);
+    let (_, open, standing) = door(&mut sim);
+    assert_eq!((open, standing), (true, 0), "the press opened the door, and an open door is no wall");
+    press(&mut sim);
+    let (_, open, standing) = door(&mut sim);
+    assert_eq!((open, standing), (false, 1), "the next press shut it again");
     let _ = std::fs::remove_dir_all(dir);
 }

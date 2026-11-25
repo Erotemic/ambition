@@ -1,7 +1,8 @@
 //! Build a mechanism from parts of different native domains in one request:
-//! lifts the platform domain moves and switches that send them. A switch
-//! names its lift by the lift's local key in the same request, so the
-//! binding is complete when the batch commits.
+//! lifts the platform domain moves, doors that stand in the gate road, and
+//! switches that send a lift or open a door. A switch names its part by the
+//! part's local key in the same request, so the binding is complete when the
+//! batch commits.
 
 use ambition_extension_sdk::{
     action::ReplyTo,
@@ -32,6 +33,25 @@ ambition_extension_sdk::port_record! {
     }
 }
 #[derive(Clone, Debug, PartialEq)]
+pub struct DoorNode {
+    pub key: String,
+    pub at: [f32; 2],
+    pub size: [f32; 2],
+    pub open: bool,
+}
+ambition_extension_sdk::port_record! {
+    DoorNode {
+        /// Unique key within this request; switches name the door by it.
+        key: String,
+        /// Centre in the caller's room chart, +Y down.
+        at: [f32; 2],
+        /// Full width and height, both positive.
+        size: [f32; 2] = [16.0, 64.0],
+        /// Whether it starts open. A shut door is a wall.
+        open: bool = false,
+    }
+}
+#[derive(Clone, Debug, PartialEq)]
 pub struct SwitchNode {
     pub key: String,
     pub at: [f32; 2],
@@ -47,7 +67,9 @@ ambition_extension_sdk::port_record! {
         at: [f32; 2],
         size: [f32; 2] = [24.0, 32.0],
         prompt: String = "Use".to_string(),
-        /// The lift a press sends to its other stop: `#{local: "lift_key"}`.
+        /// The part a press works: `#{local: "key"}` names a lift of this
+        /// request, which goes to its other stop, or a door, which opens or
+        /// shuts.
         sends: crate::object_target::ObjectTarget,
     }
 }
@@ -55,10 +77,16 @@ ambition_extension_sdk::port_record! {
 pub struct CreateMechanism {
     pub reply: ReplyTo,
     pub lifts: Vec<LiftNode>,
+    pub doors: Vec<DoorNode>,
     pub switches: Vec<SwitchNode>,
 }
 ambition_extension_sdk::port_record! {
-    CreateMechanism { reply: ReplyTo, lifts: Vec<LiftNode> = Vec::new(), switches: Vec<SwitchNode> = Vec::new() }
+    CreateMechanism {
+        reply: ReplyTo,
+        lifts: Vec<LiftNode> = Vec::new(),
+        doors: Vec<DoorNode> = Vec::new(),
+        switches: Vec<SwitchNode> = Vec::new(),
+    }
 }
 pub struct CreateMechanismPort;
 impl Port for CreateMechanismPort {

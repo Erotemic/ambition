@@ -535,6 +535,14 @@ pub fn drive_wave_encounters(
                 let switch = activation.id.clone();
                 commands.queue(move |world: &mut bevy::prelude::World| send_lift_from_switch(world, room, &switch, &lift));
             }
+            // The door the target names, in the switch's own live room: it
+            // opens or shuts, and its own state says which.
+            ambition_encounter::switches::SwitchAction::ToggleDoor => {
+                let room = activation.room;
+                let door = activation.target_encounter.clone();
+                let switch = activation.id.clone();
+                commands.queue(move |world: &mut bevy::prelude::World| toggle_door_from_switch(world, room, &switch, &door));
+            }
             ambition_encounter::switches::SwitchAction::Unhandled(action) => {
                 bevy::log::warn!(
                     target: "ambition_encounter::switches",
@@ -855,6 +863,28 @@ fn send_lift_from_switch(
     if !platform.send() {
         bevy::log::debug!(target: "ambition_encounter::switches", "switch {switch}: lift {lift:?} is not waiting for a switch");
     }
+}
+
+fn toggle_door_from_switch(
+    world: &mut bevy::prelude::World,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    switch: &str,
+    door: &str,
+) {
+    use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
+    use ambition_platformer2d_world::mechanism_doors::MechanismDoor;
+    let room = room.or_else(|| {
+        ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<LiveRoomInstance>(world).copied()
+    });
+    let mut doors = world.query::<(&mut MechanismDoor, Option<&InRoomInstance>)>();
+    let Some((mut found, _)) = doors
+        .iter_mut(world)
+        .find(|(candidate, at)| candidate.id == door && at.map(|at| at.0) == room)
+    else {
+        bevy::log::warn!(target: "ambition_encounter::switches", "switch {switch} toggles door {door:?}, which its room does not have");
+        return;
+    };
+    found.toggle();
 }
 
 fn turn_gravity_from_switch(

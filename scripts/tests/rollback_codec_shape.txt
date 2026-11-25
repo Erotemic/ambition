@@ -30,6 +30,7 @@ crates/ambition_platformer2d_shared_tangle/src/lifecycle/object_occurrence.rs	5	
 crates/ambition_platformer2d_shared_tangle/src/lifecycle/object_scope.rs	2	2129b50cb9fa606a
 crates/ambition_platformer2d_shared_tangle/src/lifecycle/round.rs	6	ebfd75dd6ce790b8
 crates/ambition_platformer2d_shared_tangle/src/snapshot_impls.rs	77	7bb5f5364bba0440
+crates/ambition_platformer2d_world/src/mechanism_doors.rs	4	35abe3f3f09a1f88
 crates/ambition_platformer2d_world/src/rooms/rollback.rs	5	ea594d3817dc7cc8
 crates/ambition_platformer2d_world/src/snapshot_impls.rs	2	f571bd2cf345bda8
 crates/ambition_portal2d/src/extension.rs	4	a6f9c44535332e26

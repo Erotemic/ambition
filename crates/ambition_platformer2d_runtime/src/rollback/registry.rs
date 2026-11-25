@@ -393,7 +393,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // for one release is gone (PATH2).
 // 542 -> 543: a scripted lift's occurrence (`entity:mechanism_lift`) is an
 // object GGRS reproduces, so a caller can retire the lift alone (W2).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 543;
+// 543 -> 544: a scripted door (`entity:mechanism_door`, with its open state
+// `entity.mechanism_door`) is an object of its own live room (W2).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 544;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

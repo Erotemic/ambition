@@ -1576,8 +1576,9 @@ fn spawn_authored_interactable(
 }
 
 /// Block-name prefixes that `sync_lock_wall_visuals` draws with the
-/// `LockWallTile` sprite: encounter lock walls and flag-gated lock walls.
-const LOCK_WALL_BLOCK_PREFIXES: &[&str] = &["lockwall:", "gated_lock:"];
+/// `LockWallTile` sprite: encounter lock walls, flag-gated lock walls and
+/// scripted mechanism doors.
+const LOCK_WALL_BLOCK_PREFIXES: &[&str] = &["lockwall:", "gated_lock:", "mechanism_door:"];
 
 fn is_lock_wall_block(name: &str) -> bool {
     LOCK_WALL_BLOCK_PREFIXES

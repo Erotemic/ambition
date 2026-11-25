@@ -7,8 +7,6 @@
 //! `present_ldtk_levels_per_live_room` (each live room's bundles and the
 //! `LevelSet` each shows).
 
-use std::collections::BTreeMap;
-
 use bevy::asset::{AssetServer, Handle};
 use bevy::prelude::{
     Commands, Component, DetectChangesMut, Query, Res, Resource, Transform, Vec3, With,
@@ -17,7 +15,7 @@ use bevy_ecs_ldtk::prelude::LevelSet;
 
 use ambition_platformer2d_core::config::WORLD_Z_BLOCK;
 
-use super::super::{LdtkLevel, LdtkProject};
+pub use super::super::index::{LdtkAreaBounds, LdtkRuntimeIndex};
 use ambition_platformer2d_world::world_manifest::{world_bevy_asset_path, WorldManifest};
 
 /// Loaded bevy_ecs_ldtk project handles, one per prepared
@@ -48,79 +46,9 @@ pub fn load_ldtk_asset_handle(
 #[derive(Component)]
 pub struct LdtkWorldRoot;
 
-#[derive(Clone, Copy, Debug)]
-pub struct LdtkAreaBounds {
-    pub min_x: i32,
-    pub min_y: i32,
-    pub max_x: i32,
-    pub max_y: i32,
-}
-
-impl LdtkAreaBounds {
-    fn from_level(level: &LdtkLevel) -> Self {
-        Self {
-            min_x: level.world_x,
-            min_y: level.world_y,
-            max_x: level.world_x + level.px_wid,
-            max_y: level.world_y + level.px_hei,
-        }
-    }
-
-    fn include_level(&mut self, level: &LdtkLevel) {
-        self.min_x = self.min_x.min(level.world_x);
-        self.min_y = self.min_y.min(level.world_y);
-        self.max_x = self.max_x.max(level.world_x + level.px_wid);
-        self.max_y = self.max_y.max(level.world_y + level.px_hei);
-    }
-}
-
-/// The LDtk project's area table: the levels each area holds and the area's
-/// bounds in project pixels.
-///
-/// It is prepared content. It is built once from the project and does not know
-/// which area is active: `RoomSet` holds that fact, and the LDtk bundles'
-/// `LevelSet` holds which area they show. It is not rollback state, because
-/// no simulation system writes it: only a content authority does, at
-/// activation and at a hot reload, and the hot reload rebases the local
-/// rollback session in the same step. No rewind crosses a change.
-#[derive(Component, Clone, Debug, Default)]
-pub struct LdtkRuntimeIndex {
-    area_level_iids: BTreeMap<String, Vec<String>>,
-    area_bounds: BTreeMap<String, LdtkAreaBounds>,
-}
-
-impl LdtkRuntimeIndex {
-    pub fn from_project(project: &LdtkProject) -> Self {
-        let mut area_level_iids: BTreeMap<String, Vec<String>> = BTreeMap::new();
-        let mut area_bounds: BTreeMap<String, LdtkAreaBounds> = BTreeMap::new();
-        for level in &project.levels {
-            let active_area = level.active_area();
-            area_level_iids
-                .entry(active_area.clone())
-                .or_default()
-                .push(level.iid.clone());
-            area_bounds
-                .entry(active_area)
-                .and_modify(|bounds| bounds.include_level(level))
-                .or_insert_with(|| LdtkAreaBounds::from_level(level));
-        }
-        Self {
-            area_level_iids,
-            area_bounds,
-        }
-    }
-
-    pub fn level_iids_for(&self, area: &str) -> Vec<String> {
-        self.area_level_iids.get(area).cloned().unwrap_or_default()
-    }
-
-    pub fn level_set_for(&self, area: &str) -> LevelSet {
-        LevelSet::from_iids(self.level_iids_for(area))
-    }
-
-    pub fn area_bounds(&self, area: &str) -> Option<LdtkAreaBounds> {
-        self.area_bounds.get(area).copied()
-    }
+/// The levels `index` shows for `area`, as the `bevy_ecs_ldtk` bundle's set.
+pub fn level_set_for(index: &LdtkRuntimeIndex, area: &str) -> LevelSet {
+    LevelSet::from_iids(index.level_iids_for(area))
 }
 
 /// Run condition: did an authoring format install an LDtk world into the
@@ -188,7 +116,7 @@ pub fn present_ldtk_levels_per_live_room(
     };
     for (room, definition) in rooms.live_rooms() {
         let spec = rooms.rooms().spec(definition);
-        let shown = index.level_set_for(&spec.id);
+        let shown = level_set_for(&index, &spec.id);
         let target = ldtk_world_translation(&spec.world);
         let mut drawn = false;
         for (stamp, mut level_set, mut transform) in &mut presented {

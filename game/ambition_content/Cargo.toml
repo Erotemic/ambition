@@ -24,6 +24,7 @@ portal_render = ["portal", "render", "dep:ambition_portal2d_presentation"]
 # same game and publishes nothing a renderer reads, and links no renderer.
 render = [
     "dep:ambition_render",
+    "dep:ambition_sprite_fx",
     "ambition_platformer2d/ambition_render",
     "ambition_platformer2d/ambition_inventory_ui",
 ]
@@ -105,7 +106,8 @@ ambition_platformer2d_actor = { path = "../../crates/ambition_platformer2d_actor
 ambition_held_items = { path = "../../crates/ambition_held_items", features = ["portal"] }
 ambition_body_seed = { path = "../../crates/ambition_body_seed" }
 ambition_sprite_sheet = { path = "../../crates/ambition_sprite_sheet" }
-ambition_sprite_fx = { path = "../../crates/ambition_sprite_fx" }
+# A render crate (it declares a `Material2d`): the presentation module's.
+ambition_sprite_fx = { path = "../../crates/ambition_sprite_fx", optional = true }
 # `content_pack`: the `projectile_visuals` schema Ambition's looks are read through.
 ambition_projectiles = { path = "../../crates/ambition_projectiles", features = ["content_pack"] }
 ambition_render = { path = "../../crates/ambition_render", optional = true }

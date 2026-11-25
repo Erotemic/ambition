@@ -16,6 +16,8 @@ use ambition_platformer2d_core as ae;
 #[cfg(feature = "ldtk_runtime")]
 pub mod bevy_runtime;
 pub mod contract;
+mod index;
+pub use index::{LdtkAreaBounds, LdtkRuntimeIndex};
 mod conversion;
 mod fields;
 mod intgrid;

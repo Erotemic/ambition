@@ -22,6 +22,7 @@ projectile_polygon
 [The intro lab]
 npc_creator
 npc_oiler
+npc_fia
 npc_erdish
 npc_alice
 npc_bob

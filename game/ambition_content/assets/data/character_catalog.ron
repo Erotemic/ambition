@@ -3539,6 +3539,45 @@
         ),
         hall_dialogue_id: Some("hall_npc_oiler"),
         ),
+        // Faith "Fia" Knoss, the town mechanic who works under Oiler
+        // (docs/storylines/cannon.md). Drawn by chargen with a hand-drawn
+        // overlay (sprite renderer `targets/characters/fia.py`). No goggles.
+        "npc_fia": (
+            display_name: "Fia",
+            manifest: "sprites/fia_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["story", "mechanic", "peaceful"],
+            barks: (
+                idle: ["Hold still. I'm nearly done with your everything.", "Oiler says measure twice. I measure once and listen."],
+                hall: ["First thing I ever fixed was a clock. It ran better after. Faster, too.", "Trust me. Mostly.", "Oiler taught me every bolt in town. I'm teaching myself the rest.", "The streak? Born with it. Probably."],
+            ),
+            hall_dialogue_id: Some("hall_npc_fia"),
+        ),
+        "npc_fia_void": (
+            display_name: "Fia (void)",
+            manifest: "sprites/fia_void_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm: the void changes how she looks, not how tall she is.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["story", "variant", "void"],
+            barks: (
+                idle: ["It is so quiet in here. Everything is where it should be.", "Black and white. No grey left to argue in."],
+                hall: ["I can hear every loose part in the world from here.", "It wants nothing. That is what makes it easy to talk to.", "Don't worry. I can stop whenever I like."],
+            ),
+            // The void-embraced look of Fia: the Hall shows it on her body
+            // (`<<transform>>` in `hall_npc_fia`).
+            form_of: Some("npc_fia"),
+        ),
         "npc_gate_janitor": (
             display_name: "Gate Janitor",
             manifest: "sprites/kernel_guide_spritesheet.ron",

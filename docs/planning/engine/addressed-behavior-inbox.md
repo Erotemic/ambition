@@ -202,8 +202,8 @@ retired, signal) ran nine identical scans of every mailbox each tick. Each
 scan pushed the same `Lane::Fact` onto the receiver's lane list. The first
 source now installs the collector. Later sources call the host's new
 `offer_extension_trigger`, which records the trigger offer for admission
-with no adapter system. A new fact port adds no scan. Deriving active receiver
-work from the journals (below) is still open.
+with no adapter system. A new fact port adds no scan. Collection now admits
+only receivers with journal work (2026-11-24, below).
 
 Derive active receiver work from the canonical journals. Keep delivery-ready rows,
 retry rows, incomplete calls with active-time deadlines, unbound handlers waiting
@@ -232,6 +232,19 @@ trigger (the owner's lifecycle cut, not the delivery pass) before narrowing
 collection. The active criteria themselves are local: an `ActionMailbox`
 with a pending row, a non-empty `LocalCallWatches`, a `BehaviorInstance`
 with a non-terminal call, an `EventMailbox` with a pending row.
+
+**Done (2026-11-24).** `retire_orphans` runs just before `deliver` in
+`Deliver(actor_think)`. It retires a state whose owner no longer resolves
+(its open calls fail, and the state is despawned) on the same tick the old
+pass did. It looks only when the owner's resolution could have changed: an
+`ObjectOccurrence` or `SessionScopedEntity` was added, changed or removed, an
+object was disabled or enabled, an owner link changed, or a journal was added
+to a state. Each collector now takes its lane's local active test, and a
+non-empty `LocalCallWatches` counts for any lane. So an idle receiver no
+longer pays for subject resolution, room-pace reads, maintenance or building
+candidates. Collection still checks each journal once per tick. Still open:
+a persistent ready/waiting set with wake conditions (the paragraphs above),
+which would make that check incremental.
 
 No asynchronous worker-ready flag may decide whether a canonical delivery runs.
 An invalidated address/work projection is rebuilt synchronously or uses the

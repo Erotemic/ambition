@@ -339,6 +339,8 @@ def main(argv: list[str] | None = None) -> int:
     b = sub.add_parser("build", help="index the art and write the inspector page")
     s = sub.add_parser("serve", help="build the inspector and serve it; the page can save reviews")
     s.add_argument("--port", type=int, default=8767)
+    s.add_argument("--host", default="localhost",
+                   help="IPv4 bind address, localhost (default), or all (0.0.0.0)")
     s.add_argument("--kill", action="store_true", help="stop an asset inspector already serving this port, then serve")
     for page in (b, s):
         page.add_argument("--out", type=Path, default=None, help="default: <repo>/.agent/asset_inspector")
@@ -456,11 +458,14 @@ def main(argv: list[str] | None = None) -> int:
         from .server import serve
         # The same options, as a build in its own process (`serve` runs it at low priority).
         options = list(argv[1:])
-        if "--port" in options:
-            del options[options.index("--port"):options.index("--port") + 2]
-        options = [o for o in options if o not in ("--open", "--kill") and not o.startswith("--port=")]
+        for flag in ("--port", "--host"):
+            if flag in options:
+                del options[options.index(flag):options.index(flag) + 2]
+        options = [o for o in options if o not in ("--open", "--kill")
+                   and not o.startswith(("--port=", "--host="))]
         command = [sys.executable, str(repo / "scripts" / "asset_inspector.py"), "build", *options]
-        return serve(repo, out, port=args.port, open_browser=args.open, build=run, refresh_command=command, kill=args.kill)
+        return serve(repo, out, host=args.host, port=args.port, open_browser=args.open, build=run,
+                     refresh_command=command, kill=args.kill)
     run()
     if args.open:
         webbrowser.open((out / "index.html").as_uri())

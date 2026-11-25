@@ -38,6 +38,51 @@ pub struct CustodyEndingAtCommit<'w, 's> {
 }
 
 impl CustodyEndingAtCommit<'_, '_> {
+    /// The live rooms `intent` changes: each transferring member's room and
+    /// the rooms of the bodies its custody carries along, the room it
+    /// departs, a live room it joins, and each room it retires. A source
+    /// another seat keeps is in it: it loses a member. The same plan
+    /// preparation and publication use, so networking keeps no second room
+    /// list (ISL-3a).
+    pub fn footprint(
+        &self,
+        intent: &crate::lifecycle_commit::LifecycleIntent,
+        restart: bool,
+    ) -> super::TransferFootprint {
+        let stamp = |entity| {
+            self.bodies
+                .get(entity)
+                .ok()
+                .and_then(|(_, _, stamp)| stamp)
+                .map(|stamp| stamp.0)
+        };
+        let members: Vec<_> = intent.transfers().map(|transfer|
+            (self.live_bodies.entity_of(&transfer.subject), transfer.participant)).collect();
+        let plan = rooms::room_transfer_plan(
+            members.iter().map(|(entity, slot)| (*entity, *slot, entity.and_then(stamp))),
+            self.drivers.iter().map(|(entity, driver)| (entity, driver.0, stamp(entity))),
+            self.roots.iter().map(|(live, definition)| (*live, definition.copied())),
+            self.room_sets.single().ok().and_then(|rooms| rooms.definition_by_id(intent.target_room())),
+            intent.rebuilds_source_room(), restart,
+        );
+        let custody: Vec<_> = self.custody.iter().map(|(entity, custody)| (entity, custody.custodian)).collect();
+        let moving = ambition_platformer2d_shared_tangle::lifecycle::custody_closure(
+            members.iter().filter_map(|(entity, _)| *entity), &custody);
+        // Where the operation was decided: its members' rooms, or for a
+        // rebuild nobody takes part in, the room it rebuilds.
+        let mut sources: std::collections::BTreeSet<_> =
+            members.iter().filter_map(|(entity, _)| entity.and_then(stamp)).collect();
+        if members.is_empty() {
+            sources.extend(plan.departing);
+        }
+        let mut rooms: std::collections::BTreeSet<_> = moving.iter().filter_map(|entity| stamp(*entity)).collect();
+        rooms.extend(sources.iter().copied());
+        rooms.extend(plan.departing);
+        rooms.extend(plan.joins);
+        rooms.extend(plan.retiring);
+        super::TransferFootprint { sources, rooms }
+    }
+
     /// Away occurrences left in source rooms that the selected roster releases.
     pub fn released_by(
         &self,

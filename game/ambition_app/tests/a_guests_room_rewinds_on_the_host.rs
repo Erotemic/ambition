@@ -694,3 +694,242 @@ fn a_guests_room_rewinds_over_a_real_link() {
         }
     }
 }
+
+/// A door of `room` that leads to neither `room` nor any of `not`: its
+/// centre and the room it reaches.
+fn door_elsewhere(sim: &mut Platformer2dSimHarness, room: &str, not: &[&str]) -> ((f32, f32), String) {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    let world = sim.world_mut();
+    let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+        ambition_platformer2d::world::rooms::RoomSet,
+    >(world)
+    .expect("the session keeps its room set");
+    let definition = rooms.definition_by_id(room).expect("the room is authored");
+    rooms
+        .spec(definition)
+        .loading_zones
+        .iter()
+        .filter(|zone| zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door)
+        .find_map(|zone| {
+            let to = rooms
+                .transition_for_player(definition, zone.aabb, ambition_platformer2d::engine_core::Vec2::ZERO, true)
+                .and_then(|transition| rooms.rooms.get(transition.target_room))
+                .map(|destination| destination.id.clone())?;
+            (to != room && !not.contains(&to.as_str())).then(|| ((zone.aabb.center().x, zone.aabb.center().y), to))
+        })
+        .unwrap_or_else(|| panic!("'{room}' has no door to a third room"))
+}
+
+fn a_crossing_is_pending(host: &Platformer2dSimHarness) -> bool {
+    host.world()
+        .resource::<ambition_platformer2d::session::lifecycle_commit::PendingLifecycleCommit>()
+        .peek()
+        .is_some()
+}
+
+/// ISL-3a: a crossing's footprint is its own rooms. Alice (the host's seat)
+/// leaves the hub through a door to a third room while Bob's late inputs keep
+/// arriving in `switch_lab`, which the crossing does not touch. Bob's room
+/// rewinds through the whole crossing and ends where the run with his inputs
+/// on time ends. Before, any crossing refused every room's rewind and dropped
+/// every room's history, so Bob's turn applied late.
+#[test]
+fn an_unrelated_room_rewinds_while_another_room_crosses() {
+    let run = |arrival: Arrival| {
+        let (mut host, apart) = host_with_rooms(Alice::Apart);
+        assert!(apart, "premise: Alice and Bob are in two rooms");
+        let (hub, lab) = where_they_are(&mut host);
+        let lab = lab.flatten().expect("Bob is in his room");
+        let (door, _) = door_elsewhere(&mut host, "central_hub_complex", &[ROOM]);
+        host.teleport_player(door);
+        let client = host.world_mut().spawn(GuestSeat(PlayerSlot(1))).id();
+        host.world_mut().insert_resource(RewindsGuestRooms);
+        let mut in_flight: VecDeque<(i32, GuestInput)> = VecDeque::new();
+        let deliver = |host: &mut Platformer2dSimHarness, input: GuestInput| {
+            host.world_mut()
+                .resource_mut::<Messages<FromClient<GuestInput>>>()
+                .write(FromClient { client_id: ClientId::Client(client), message: input });
+        };
+        let mut during = 0;
+        for frame in 1..=90 {
+            let tick = host.world().resource::<ambition_platformer2d::time::SimTick>().0 + 1;
+            in_flight.push_back((frame, GuestInput { sequence: tick, tick, frame: bobs(frame) }));
+            let due = if arrival == Arrival::OnTime { frame } else { frame - LATENCY };
+            while in_flight.front().is_some_and(|(sent, _)| *sent <= due) {
+                let (_, input) = in_flight.pop_front().expect("checked");
+                deliver(&mut host, input);
+            }
+            // Alice presses interact on the door just before Bob turns, so his
+            // turn arrives while her crossing waits for it.
+            host.drive_seat(0, ControlFrame {
+                interact_pressed: frame == 11,
+                interact_held: (11..14).contains(&frame),
+                ..Default::default()
+            });
+            let crossing = a_crossing_is_pending(&host);
+            let before = host.world().get_resource::<RoomRollbackStats>().map_or(0, |stats| stats.rewinds);
+            host.app_mut().update();
+            if crossing && host.world().resource::<RoomRollbackStats>().rewinds > before {
+                during += 1;
+            }
+        }
+        for (_, input) in in_flight.drain(..) {
+            deliver(&mut host, input);
+        }
+        host.drive_seat(0, ControlFrame::default());
+        host.app_mut().update();
+        let alice_now = where_they_are(&mut host).0;
+        let stats = *host.world().resource::<RoomRollbackStats>();
+        (bodies(&mut host, Some(lab)), stats, during, hub, alice_now)
+    };
+    let (on_time, _, _, hub, alice_on_time) = run(Arrival::OnTime);
+    let (late, stats, during, _, alice_late) = run(Arrival::Late);
+    println!("[ISL-3a] late: {stats:?}, rewinds while Alice's crossing was pending: {during}");
+    assert!(alice_on_time != hub && alice_late != hub, "premise: Alice crossed in both runs");
+    assert!(during > 0, "premise: Bob's room rewound while Alice's crossing was pending");
+    assert_eq!(stats.not_rewound, 0, "a crossing that is not Bob's refused his room's rewind");
+    assert!(differing(&on_time, &late).is_empty(), "Bob's room did not end where it ends on time: {:?}",
+        differing(&on_time, &late));
+}
+
+/// ISL-3a: the cut. Both seats are guests; Bob (seat 1) goes through his
+/// room's door into Alice's live hub while his inputs arrive ten ticks late.
+/// The crossing waits for his press to be confirmed, so it is decided by a
+/// replay of his room, never by a guess. At the cut his body moves rooms, and
+/// his samples that name a tick before it arrive after it: they belong to the
+/// history the crossing retired and are dropped, never run in the hub. The hub
+/// keeps one Bob, and no rewind of it reaches back past the cut.
+#[test]
+fn a_seat_joins_a_live_room_at_one_cut() {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    const LATE: i32 = 10;
+    let (mut host, apart) = host_with_rooms(Alice::Apart);
+    assert!(apart, "premise: Alice and Bob are in two rooms");
+    let (hub, lab) = where_they_are(&mut host);
+    let (hub, lab) = (hub.expect("Alice is in the hub"), lab.flatten().expect("Bob is in his room"));
+    let door = crate::two_players_two_live_rooms::door_of(&mut host, ROOM, "central_hub_complex").aabb.center();
+    crate::two_players_two_live_rooms::put_bob_at(&mut host, door);
+    host.world_mut().insert_resource(RewindsGuestRooms);
+    let clients = [0, 1].map(|seat| host.world_mut().spawn(GuestSeat(PlayerSlot(seat))).id());
+    let mut in_flight: VecDeque<(i32, GuestInput)> = VecDeque::new();
+    let (mut cut, mut reached_back) = (None, Vec::new());
+    for frame in 1..=120 {
+        let tick = host.world().resource::<ambition_platformer2d::time::SimTick>().0 + 1;
+        // Alice stands, on time; Bob presses interact on the door, then jumps.
+        host.world_mut().write_message(FromClient {
+            client_id: ClientId::Client(clients[0]),
+            message: GuestInput { sequence: tick, tick, frame: ControlFrame::default() },
+        });
+        let bob = ControlFrame {
+            interact_pressed: frame == 5,
+            interact_held: (5..8).contains(&frame),
+            jump_pressed: frame % 7 == 0,
+            jump_held: frame % 7 < 3,
+            ..Default::default()
+        };
+        in_flight.push_back((frame, GuestInput { sequence: tick, tick, frame: bob }));
+        while in_flight.front().is_some_and(|(sent, _)| *sent <= frame - LATE) {
+            let (_, input) = in_flight.pop_front().expect("checked");
+            host.world_mut().write_message(FromClient { client_id: ClientId::Client(clients[1]), message: input });
+        }
+        let before = host.world().get_resource::<RoomRollbackStats>().copied().unwrap_or_default();
+        host.app_mut().update();
+        let after = *host.world().resource::<RoomRollbackStats>();
+        // A rewind in an update after the one that published the cut.
+        if let (Some(cut), true) = (cut, after.rewinds > before.rewinds) {
+            if after.last_rewound_from.is_some_and(|from| from <= cut) {
+                reached_back.push(after.last_rewound_from);
+            }
+        }
+        if cut.is_none() && where_they_are(&mut host).1.flatten() == Some(hub) {
+            cut = Some(host.world().resource::<ambition_platformer2d::time::SimTick>().0);
+        }
+    }
+    let stats = *host.world().resource::<RoomRollbackStats>();
+    println!("[ISL-3a] join: cut at {cut:?}, {stats:?}");
+    let bobs_bodies = {
+        let world = host.world_mut();
+        world
+            .query::<&ambition_platformer2d::combat::components::FeatureId>()
+            .iter(world)
+            .filter(|feature| feature.0 == "ow1_bob")
+            .count()
+    };
+    assert!(cut.is_some(), "Bob never joined the hub");
+    assert_eq!(where_they_are(&mut host), (Some(hub), Some(Some(hub))), "Bob joined Alice's live hub");
+    assert!(crate::two_players_two_live_rooms::live_rooms(&mut host).iter().all(|(room, _)| *room != lab),
+        "Bob's old room, which nobody holds, retired");
+    assert_eq!(bobs_bodies, 1, "one Bob after the crossing");
+    assert!(stats.before_the_cut > 0, "premise: Bob's samples from before the cut arrived after it");
+    assert!(reached_back.is_empty(), "a rewind of the hub reached back past the cut: {reached_back:?}");
+}
+
+/// ISL-3a: a late correction withdraws the crossing's own trigger. Alice is a
+/// guest whose inputs arrive late. She steps toward a walk-in exit of the hub
+/// for one tick and stops; the host, predicting her held direction, walks her
+/// into the exit and records a crossing it has not confirmed. Her stop arrives,
+/// the hub replays, the guessed crossing is taken back, and the replay does
+/// not make it again: she never leaves. Only the corrected decision may change
+/// rooms.
+#[test]
+fn a_late_correction_takes_back_a_crossing_the_host_guessed() {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    const LATE: i32 = 30;
+    let (mut host, apart) = host_with_rooms(Alice::Apart);
+    assert!(apart, "premise: Alice and Bob are in two rooms");
+    let hub = where_they_are(&mut host).0.expect("Alice is in the hub");
+    let (exit, toward) = {
+        let world = host.world_mut();
+        let rooms = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >(world)
+        .expect("the session keeps its room set");
+        let definition = rooms.definition_by_id("central_hub_complex").expect("the hub is authored");
+        let spec = rooms.spec(definition);
+        let zones: Vec<_> = spec.loading_zones.iter().map(|zone| (zone.activation, zone.aabb)).collect();
+        let exit = spec
+            .loading_zones
+            .iter()
+            .find(|zone| zone.activation != ambition_platformer2d::world::rooms::LoadingZoneActivation::Door)
+            .unwrap_or_else(|| panic!("the hub has no walk-in exit: {zones:?}"));
+        let toward = if exit.aabb.center().x < spec.world.size.x * 0.5 { -1.0 } else { 1.0 };
+        (exit.aabb, toward)
+    };
+    let start = (exit.center().x - toward * ((exit.max.x - exit.min.x) * 0.5 + 48.0), exit.center().y);
+    let run = |late: bool| {
+        let (mut host, _) = host_with_rooms(Alice::Apart);
+        host.teleport_player(start);
+        for _ in 0..30 {
+            host.app_mut().update();
+        }
+        host.world_mut().insert_resource(RewindsGuestRooms);
+        let clients = [0, 1].map(|seat| host.world_mut().spawn(GuestSeat(PlayerSlot(seat))).id());
+        let mut in_flight: VecDeque<(i32, GuestInput)> = VecDeque::new();
+        let mut guessed = false;
+        for frame in 1..=90 {
+            let tick = host.world().resource::<ambition_platformer2d::time::SimTick>().0 + 1;
+            host.world_mut().write_message(FromClient {
+                client_id: ClientId::Client(clients[1]),
+                message: GuestInput { sequence: tick, tick, frame: ControlFrame::default() },
+            });
+            let alice = ControlFrame { axis_x: if frame <= 2 { toward } else { 0.0 }, ..Default::default() };
+            in_flight.push_back((frame, GuestInput { sequence: tick, tick, frame: alice }));
+            let due = if late { frame - LATE } else { frame };
+            while in_flight.front().is_some_and(|(sent, _)| *sent <= due) {
+                let (_, input) = in_flight.pop_front().expect("checked");
+                host.world_mut().write_message(FromClient { client_id: ClientId::Client(clients[0]), message: input });
+            }
+            host.app_mut().update();
+            guessed |= a_crossing_is_pending(&host);
+        }
+        let stats = host.world().get_resource::<RoomRollbackStats>().copied().unwrap_or_default();
+        (where_they_are(&mut host).0, guessed, stats)
+    };
+    let (on_time_room, on_time_guessed, _) = run(false);
+    let (late_room, late_guessed, stats) = run(true);
+    println!("[ISL-3a] guessed crossing: {stats:?}");
+    assert!(!on_time_guessed && on_time_room == Some(hub), "premise: on time, Alice stops short of the exit");
+    assert!(late_guessed, "premise: the host's prediction walked Alice into the exit");
+    assert!(stats.crossings_retracted > 0, "the corrected replay did not take the guessed crossing back");
+    assert_eq!(late_room, Some(hub), "a crossing the corrected inputs do not make changed Alice's room");
+}

@@ -282,6 +282,38 @@ what the harness manifest promises. Still open: `game` default-off in the
 tools launch descriptors (about 60 direct cargo invocations in `scripts/`
 and the catalog).
 
+**Default-off slice (2026-11-25).** `game` is no longer a default of
+`ambition_app_tools`. The plain selection's normal graph is 247 unique
+crates against 939 with `game`, and `cargo build -p ambition_app_tools`
+builds `item_report` alone.
+
+- **Bins.** The three bins cargo had been discovering by file name
+  (`officer_probe`, `whiff_drill`, `project_export`) are declared with
+  `required-features = ["game"]`. Discovery gives a bin no gate, so a
+  default build would otherwise have failed on their optional
+  dependencies.
+- **Launch sites.** Every launch site names the feature: CI, `run_headless.sh`,
+  `run_game.sh`'s match profiler, the capture and measure scripts, the
+  moveset inspector, `commands.json`, the bins' own usage lines and the user
+  docs.
+- **Workspace lanes.** `required-features` SKIPS a target and its tests
+  without a word, so every workspace-wide lane names
+  `ambition_app_tools/game` (`WORKSPACE_FEATURES` in `scripts/run_tests.py`):
+  the default and serial test lanes, clippy, the feature-union lane, CI
+  clippy and the target sweep's marker. Without it a green run would cover 25
+  fewer targets.
+
+`cargo check -p ambition_app_tools --features game --all-targets` is clean.
+No compile-time result is claimed.
+
+What CB4 still names, and what this slice did not do:
+
+- **Harness consumer.** The first real harness-alone consumer is still
+  absent.
+- **Persistence.** It still brings windowed Bevy (above).
+- **Command families.** The offline/simulation/capture families have not
+  been split further. Only the offline report is separated, by default.
+
 **Execution owner:** `ambition_app_tools` command packaging and
 `ambition_sim_harness` dependency selection, coordinated with supported launch
 and test lanes. The Ambition provider's presentation cut is a separate proof.

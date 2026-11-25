@@ -7,11 +7,11 @@
 //! Usage:
 //!
 //! ```bash
-//! cargo run -p ambition_app_tools --bin headless                       # 120 ticks (default)
-//! cargo run -p ambition_app_tools --bin headless -- 600                # 600 ticks
-//! cargo run -p ambition_app_tools --bin headless -- 600 --dump-trace path/  # dump trace to dir
-//! cargo run -p ambition_app_tools --bin headless -- 600 --start-room goblin_encounter
-//! cargo run -p ambition_app_tools --bin headless -- 600 --bench --start-room hall_of_characters
+//! cargo run -p ambition_app_tools --features game --bin headless                       # 120 ticks (default)
+//! cargo run -p ambition_app_tools --features game --bin headless -- 600                # 600 ticks
+//! cargo run -p ambition_app_tools --features game --bin headless -- 600 --dump-trace path/  # dump trace to dir
+//! cargo run -p ambition_app_tools --features game --bin headless -- 600 --start-room goblin_encounter
+//! cargo run -p ambition_app_tools --features game --bin headless -- 600 --bench --start-room hall_of_characters
 //! ```
 //!
 //! `--dump-trace DIR` writes a GameplayTraceBuffer JSON+Markdown dump

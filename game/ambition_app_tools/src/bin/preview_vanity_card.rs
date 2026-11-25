@@ -1,7 +1,7 @@
 //! Looped preview of the programmatic startup vanity card using the real shell
 //! sequence and completion path.
 //!
-//!     cargo run -p ambition_app_tools --bin preview_vanity_card
+//!     cargo run -p ambition_app_tools --features game --bin preview_vanity_card
 //!
 //! Set `AMBITION_PREVIEW_SCALE_FACTOR=3` to emulate a phone-scale pixel density.
 //! The preview composes shell presentation only: no session, simulation, or launcher.

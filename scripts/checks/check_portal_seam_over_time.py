@@ -214,7 +214,7 @@ def main() -> int:
     parser.add_argument("--build", action="store_true", help="build capture_scene first")
     args = parser.parse_args()
     if args.build:
-        built = subprocess.run(["cargo", "build", "-j", "6", "-p", "ambition_app_tools", "--bin", "capture_scene"], cwd=REPO)
+        built = subprocess.run(["cargo", "build", "-j", "6", "-p", "ambition_app_tools", "--features", "game", "--bin", "capture_scene"], cwd=REPO)
         if built.returncode != 0:
             return built.returncode
     out = Path(args.out)

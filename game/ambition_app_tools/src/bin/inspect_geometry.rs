@@ -7,9 +7,9 @@
 //! `docs/planning/engine/geometry-observability-and-f1.md` (GOBS-1).
 //!
 //! ```text
-//! cargo run -p ambition_app_tools --bin inspect_geometry -- --list
-//! cargo run -p ambition_app_tools --bin inspect_geometry -- --room basement_breakables
-//! cargo run -p ambition_app_tools --bin inspect_geometry -- --room basement_breakables \
+//! cargo run -p ambition_app_tools --features game --bin inspect_geometry -- --list
+//! cargo run -p ambition_app_tools --features game --bin inspect_geometry -- --room basement_breakables
+//! cargo run -p ambition_app_tools --features game --bin inspect_geometry -- --room basement_breakables \
 //!     --provider collision.composed,combat.volumes --ticks 30 --no-subject --out geometry.json
 //! ```
 //!

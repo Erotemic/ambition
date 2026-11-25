@@ -9,9 +9,9 @@
 //! instruments; the counting is theirs, unchanged.
 //!
 //! ```bash
-//! cargo run -p ambition_app_tools --bin smash_cpu_report -- \
+//! cargo run -p ambition_app_tools --features game --bin smash_cpu_report -- \
 //!     match-report 60 pointed_polygon --opponent pugnacious_polygon
-//! cargo run -p ambition_app_tools --bin smash_cpu_report -- \
+//! cargo run -p ambition_app_tools --features game --bin smash_cpu_report -- \
 //!     capture-probe 60 --character pointed_polygon --opponent pugnacious_polygon
 //! ```
 use ambition_demo_smash_app::tools::{capture_probe, match_report};

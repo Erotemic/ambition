@@ -135,7 +135,7 @@ def main() -> int:
     if not args.no_build:
         subprocess.run(["scripts/setup/target_bindmount.sh", "--check"], cwd=REPO, check=True)
         subprocess.run(
-            ["cargo", "build", "-q", "-p", "ambition_app_tools", "--bin", "capture_scene", "--profile", args.profile],
+            ["cargo", "build", "-q", "-p", "ambition_app_tools", "--features", "game", "--bin", "capture_scene", "--profile", args.profile],
             cwd=REPO,
             check=True,
         )

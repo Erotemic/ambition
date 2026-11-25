@@ -99,7 +99,7 @@ reports and returns before it scans bodies or calls any provider.
 Build the tools once, then use the binaries:
 
 ```sh
-cargo build -p ambition_app_tools --bin inspect_geometry --bin capture_scene
+cargo build -p ambition_app_tools --features game --bin inspect_geometry --bin capture_scene
 target/debug/inspect_geometry --list
 target/debug/inspect_geometry --room portal_lab --subjects
 target/debug/inspect_geometry --room portal_lab --provider collision.,body.,combat.,portal. --ticks 30 --out /tmp/geometry.json
@@ -165,7 +165,7 @@ label code will not compile until they draw it. A role without a colour in
 Check a room headless:
 
 ```sh
-cargo run -p ambition_app_tools --bin inspect_geometry -- \
+cargo run -p ambition_app_tools --features game --bin inspect_geometry -- \
     --room boss_main_stage --provider collision.composed --ticks 30 --no-subject --out geometry.json
 ```
 

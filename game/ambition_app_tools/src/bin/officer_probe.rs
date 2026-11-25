@@ -1,7 +1,7 @@
 //! Which way does the officer's round go?
 //!
-//! `cargo run -p ambition_app_tools --bin officer_probe -- right`
-//! `cargo run -p ambition_app_tools --bin officer_probe -- left`
+//! `cargo run -p ambition_app_tools --features game --bin officer_probe -- right`
+//! `cargo run -p ambition_app_tools --features game --bin officer_probe -- left`
 //!
 //! The existing test pins when the round leaves (frame 6, 0.348s, where the
 //! muzzle flares). Nothing else states which way it leaves.

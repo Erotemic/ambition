@@ -14,11 +14,11 @@
 //! ```bash
 //! # No GPU: step the match by hand, as fast as the machine will go.
 //! AMBITION_PROFILE_CENSUS=1 AMBITION_PROFILE_CENSUS_HZ=20 \
-//!   cargo run -p ambition_app_tools --bin smash_match_profile -- --ticks 3000
+//!   cargo run -p ambition_app_tools --features game --bin smash_match_profile -- --ticks 3000
 //!
 //! # A GPU desktop: a real window, winit's loop, hardware rendering.
 //! AMBITION_PROFILE_CENSUS=1 \
-//!   cargo run -p ambition_app_tools --bin smash_match_profile -- --window
+//!   cargo run -p ambition_app_tools --features game --bin smash_match_profile -- --window
 //! ```
 //!
 //! Census rows are sampled on wall time. A windowless match runs far faster

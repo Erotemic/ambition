@@ -18,7 +18,7 @@ the move's phase.
     python3 scripts/measure/smash_move_sheet.py --character npc_bob --out /tmp/sheets
     python3 scripts/measure/smash_move_sheet.py --character npc_bob --verbs smash_forward,attack_up --out /tmp/sheets
 
-Needs `target/debug/moveset_render` (cargo build -p ambition_app_tools --bin
+Needs `target/debug/moveset_render` (cargo build -p ambition_app_tools --features game --bin
 moveset_render) and `xvfb-run`.
 """
 from __future__ import annotations
@@ -173,7 +173,7 @@ def main() -> int:
     ap.add_argument("--rerender", action="store_true")
     args = ap.parse_args()
     if not RENDER.exists():
-        print(f"missing {RENDER}: cargo build -p ambition_app_tools --bin moveset_render", file=sys.stderr)
+        print(f"missing {RENDER}: cargo build -p ambition_app_tools --features game --bin moveset_render", file=sys.stderr)
         return 2
     verbs = [v for v in args.verbs.split(",") if v]
     if args.rerender:

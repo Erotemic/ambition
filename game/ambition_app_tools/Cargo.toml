@@ -39,11 +39,18 @@ description = "Ambition's non-game binaries: headless/RL drivers, trace replay, 
 # there is one switch and it is the app's.
 #
 # `game` is the composed game and everything a simulating or picture-taking
-# command needs. Every bin but the offline reports requires it. It is a
-# default only so the existing launch descriptors keep working while they are
-# moved to name it; `item_report` builds with `--no-default-features` and
-# reaches persistence alone.
-default = ["game"]
+# command needs. Every bin but the offline reports requires it, and every
+# launch descriptor names it (`--features game`, or
+# `--features ambition_app_tools/game` on a workspace-wide lane). It is OFF by
+# default, so `cargo run -p ambition_app_tools --bin item_report` builds the
+# report with persistence alone.
+#
+# ⛔ `required-features` SKIPS a target that lacks its feature, tests and all,
+# and says nothing. A workspace lane that forgets the feature is green over 25
+# fewer targets: `scripts/run_tests.py` names it on each one
+# (`WORKSPACE_FEATURES`). A bin added here must carry `required-features` too:
+# without it a default build fails to find its optional dependencies.
+default = []
 game = [
     "dep:ambition_app",
     "dep:ambition_menu_kaleidoscope",
@@ -275,3 +282,20 @@ name = "smash_cpu_report"
 required-features = ["game"]
 path = "src/bin/smash_cpu_report.rs"
 test = false
+
+# Bins cargo used to discover on its own. Discovery gives a bin no
+# `required-features`, so with `game` off by default each needs its row.
+[[bin]]
+name = "officer_probe"
+required-features = ["game"]
+path = "src/bin/officer_probe.rs"
+
+[[bin]]
+name = "whiff_drill"
+required-features = ["game"]
+path = "src/bin/whiff_drill.rs"
+
+[[bin]]
+name = "project_export"
+required-features = ["game"]
+path = "src/bin/project_export.rs"

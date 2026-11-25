@@ -15,7 +15,7 @@ Build the host and inspection tool once, from the repository root:
 
 ```bash
 cargo build -p ambition_app --bin ambition_game_bin
-cargo build -p ambition_app_tools --bin extension_inspect
+cargo build -p ambition_app_tools --features game --bin extension_inspect
 ```
 
 Use the built executables for each development run:
@@ -97,7 +97,7 @@ installed content and maps. The external project's scripts and content still
 use the normal paired reload path.
 
 ```bash
-cargo build -p ambition_app_tools --bin project_export
+cargo build -p ambition_app_tools --features game --bin project_export
 CARGO_INCREMENTAL=0 cargo build --release -p pulse_forge_host --no-default-features --features desktop_player
 python3 scripts/package/package_project.py --project examples/projects/pulse_forge/project-linked.ron --host target/release/pulse_forge_host --out /tmp/pulse-forge-desktop --ticks 30 --presentation-frames 600
 cd /

@@ -717,8 +717,13 @@ the schema library). CB2's typed entrypoints now hand plain values to one untype
 one reducer body each across phases (2026-11-22). For CB4, the offline item report builds without the game (2026-11-22,
 `--no-default-features`), and the harness no longer inherits the facade's
 defaults (2026-11-25: its own graph lost the renderer, menus and LDtk, 626 →
-549 crates; no current consumer's graph changes). Next, make `game`
-default-off in the launch descriptors. Try explicit optional feature families before adding packages.
+549 crates; no current consumer's graph changes). `game` is now default-off
+(2026-11-25). Every launch descriptor names it, and every workspace-wide
+lane names `ambition_app_tools/game`, so no bin's tests are silently
+skipped. The plain tools graph is 247 crates against 939
+([slice](engine/compiler-boundaries-and-build-products.md#cb4--select-command-dependencies-and-the-harnesss-actual-services)).
+Remaining: a harness-alone consumer and persistence's windowed Bevy. Try
+explicit optional feature families before adding packages.
 Do not move tool binaries back into app integration-test builds.
 
 **Acceptance:** an independent schema consumer excludes the checker; the

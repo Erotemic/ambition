@@ -590,7 +590,10 @@ if [[ "$target_kind" == "demo" ]]; then
         game_args=(--window "${game_args[@]}")
     fi
 elif [[ "$target_kind" == "match_profile" ]]; then
-    # The match profiler carries no `visible` feature of its own: it reaches the
+    # The match profiler lives in the tools package, whose `game` feature (the
+    # composed game) is off by default so offline reports build without it.
+    features+=(game)
+    # It carries no `visible` feature of its own: it reaches the
     # renderer through `ambition_app`, whose DEFAULT features already include
     # it. What the launcher owes it is the same `--window` word the demo shells
     # read, because that is what selects a real window over the windowless

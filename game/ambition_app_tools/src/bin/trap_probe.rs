@@ -1,6 +1,6 @@
 //! What does the performer's down-B do, tick by tick?
 //!
-//! `cargo run -p ambition_app_tools --bin trap_probe`
+//! `cargo run -p ambition_app_tools --features game --bin trap_probe`
 //!
 //! The authoring test proves the spec carries a policy, and the integration
 //! test proves she is `Submerged` long enough and that a press cuts it short.

@@ -145,7 +145,7 @@ SCENARIOS.append(
             # Building the capture binary for the edit is part of seeing it,
             # but it costs much more than the drawing, so the row keeps the two
             # numbers apart.
-            ("first_frame_build", ("cargo", "build", "-p", "ambition_app_tools", "--bin", "capture_scene")),
+            ("first_frame_build", ("cargo", "build", "-p", "ambition_app_tools", "--features", "game", "--bin", "capture_scene")),
             ("first_frame", (
                 "target/debug/capture_scene",
                 "central_hub_complex", "player", "target/edit_cycle_frame.png", "320x180", "--warmup", "20",

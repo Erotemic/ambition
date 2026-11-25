@@ -21,7 +21,7 @@ WARMUP="${WARMUP:-400}"
 OUTDIR="${1:-${ROOT}/target/tmp/asset-pacer-ab}"
 BIN="${ROOT}/target/debug/capture_scene"
 
-[ -x "$BIN" ] || { echo "error: $BIN not built (cargo build -p ambition_app_tools --bin capture_scene)" >&2; exit 1; }
+[ -x "$BIN" ] || { echo "error: $BIN not built (cargo build -p ambition_app_tools --features game --bin capture_scene)" >&2; exit 1; }
 mkdir -p "$OUTDIR"
 
 # Arm name -> the environment that defines it. "default" sets nothing.

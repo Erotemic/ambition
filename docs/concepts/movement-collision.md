@@ -78,5 +78,5 @@ python scripts/agent_query.py "<mechanic> collision sweep"
 python scripts/agent_query.py tests "<geometry case>"
 ./run_tests.sh -p ambition_platformer2d_core
 ./run_tests.sh -k <test-substring>
-cargo run -p ambition_app_tools --bin headless -- 120
+cargo run -p ambition_app_tools --features game --bin headless -- 120
 ```

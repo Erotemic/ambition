@@ -31,7 +31,7 @@ its facts are included.
 ## Capture and inspect
 
 ```bash
-cargo run -p ambition_app_tools --bin headless -- 600 --dump-trace target/trace
+cargo run -p ambition_app_tools --features game --bin headless -- 600 --dump-trace target/trace
 ```
 
 This headless command records an idle-input baseline. For a particular action,

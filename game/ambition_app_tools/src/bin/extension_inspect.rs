@@ -10,7 +10,7 @@
 //! it, and why not.
 //!
 //! ```text
-//! cargo run -p ambition_app_tools --release --bin extension_inspect -- \
+//! cargo run -p ambition_app_tools --features game --release --bin extension_inspect -- \
 //!     [--modules target/extension-modules/wasm32-unknown-unknown/release] \
 //!     [--boss mockingbird] [--ticks 600] [--try-replace path/to/modules.wasm] [--time]
 //! ```

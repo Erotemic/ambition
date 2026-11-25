@@ -1,6 +1,6 @@
 //! What does the performer's up-B do, tick by tick?
 //!
-//! `cargo run -p ambition_app_tools --bin wire_probe -- right render`
+//! `cargo run -p ambition_app_tools --features game --bin wire_probe -- right render`
 //!
 //! Rules this binary follows:
 //!

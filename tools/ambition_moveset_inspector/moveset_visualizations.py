@@ -64,7 +64,7 @@ def render_corpus(out: Path, characters: str, verbs: str, frames: int, stride: i
         return {
             "ran": False,
             "why": "moveset_render is not built",
-            "fix": "cargo build -p ambition_app_tools --bin moveset_render",
+            "fix": "cargo build -p ambition_app_tools --features game --bin moveset_render",
         }
     out.mkdir(parents=True, exist_ok=True)
     started = time.time()
@@ -120,7 +120,7 @@ def diagnostic_corpus(out: Path, takes: Path, character: str | None) -> dict:
         return {
             "ran": False,
             "why": f"no recording at {takes}",
-            "fix": "cargo run -p ambition_app_tools --bin moveset_takes -- --characters grid",
+            "fix": "cargo run -p ambition_app_tools --features game --bin moveset_takes -- --characters grid",
         }
     started = time.time()
     argv = ["--takes", str(takes), "--out", str(out)]

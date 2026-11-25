@@ -22,7 +22,7 @@ window does not show it.
 
     python3 scripts/checks/check_portal_window_seams.py [--build] [--tiers low,high] [--cases A,D] [--out DIR] [--jobs 3]
 
-`--build` builds the tool first (`cargo build -p ambition_app_tools --bin
+`--build` builds the tool first (`cargo build -p ambition_app_tools --features game --bin
 capture_scene`). It runs under `xvfb-run` when there is no display. Writes
 `DIR/report.json` and, for each case, the two shots and a picture of the
 differing pixels (red). The default test plan (`scripts/run_tests.py`) runs
@@ -162,11 +162,11 @@ def main() -> int:
     parser.add_argument("--build", action="store_true", help="build capture_scene first")
     args = parser.parse_args()
     if args.build:
-        built = subprocess.run(["cargo", "build", "-j", "6", "-p", "ambition_app_tools", "--bin", "capture_scene"], cwd=REPO)
+        built = subprocess.run(["cargo", "build", "-j", "6", "-p", "ambition_app_tools", "--features", "game", "--bin", "capture_scene"], cwd=REPO)
         if built.returncode != 0:
             return built.returncode
     if not CAPTURE.exists():
-        print(f"{CAPTURE} is missing: cargo build -p ambition_app_tools --bin capture_scene", file=sys.stderr)
+        print(f"{CAPTURE} is missing: cargo build -p ambition_app_tools --features game --bin capture_scene", file=sys.stderr)
         return 2
     wanted = set(args.cases.split(","))
     cases = [c for c in CASES if c.name in wanted]

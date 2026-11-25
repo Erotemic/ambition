@@ -1221,7 +1221,11 @@ fn a_moving_exit_carries_its_drift_into_the_contact_frame() {
     let carried = |link: PortalLink| {
         let links = [link];
         let admission = MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
-        admission.carry_displacement(&[0], point, delta, 1.0).unwrap()
+        let carried = admission.carry_displacement(&[0], point, delta, 1.0).unwrap();
+        let far = link.snapshot_at(1.0).unwrap().map(MapConvention::Reflection).unwrap().point(point).unwrap();
+        let back = admission.uncarry_displacement(&[0], far, carried, 1.0).unwrap();
+        assert!((back - delta).length() < 1.0e-4, "uncarry undoes carry: {back:?}");
+        carried
     };
     let mapped = link.snapshot_at(1.0).unwrap().map(MapConvention::Reflection).unwrap().vector(delta).unwrap();
     assert_eq!(carried(link), mapped, "a still pair carries by its map alone");

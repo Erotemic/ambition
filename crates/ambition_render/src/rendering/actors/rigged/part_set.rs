@@ -22,7 +22,7 @@ use bevy::prelude::*;
 
 use ambition_sprite_sheet::character::rigged::PartDraw;
 
-use super::{RiggedPresentation, SLOT_DEPTH_STEP};
+use super::RiggedPresentation;
 
 /// The asks of the readers of a rigged root: for each reader, by its name,
 /// the draws of these tracks, each frame.
@@ -162,9 +162,7 @@ pub(super) fn answer(
             size: part.size,
             anchor: part.anchor(),
             // As a slot is placed (`write_slots`).
-            local: Transform::from_translation(Vec3::new(draw.at.x, -draw.at.y, index as f32 * SLOT_DEPTH_STEP))
-                .with_rotation(Quat::from_rotation_z(-draw.rotation))
-                .with_scale(draw.scale.extend(1.0)),
+            local: super::slot_local(draw, index),
         };
         for reader in readers {
             answers.get_mut(reader).expect("each reader has its list").push(placed.clone());

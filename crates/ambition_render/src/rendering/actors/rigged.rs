@@ -127,6 +127,19 @@ use super::BoundSpriteQuality;
 /// Depth between two part slots of one body: the draw order of the flipbook.
 const SLOT_DEPTH_STEP: f32 = 1.0e-4;
 
+/// A part draw's place in its body: offset, turn, scale, and its rank in the
+/// body's draw order. Under its owner one unit is one sheet pixel from the
+/// feet, +y up; clockwise in the sheet's +y-down frame is a negative angle.
+/// The scale is in the transform, not the quad, so a mirrored draw
+/// (`scale.x < 0`) mirrors about its pivot, then turns. The body's own slots
+/// (`write_slots`) and a reader's placed parts (`part_set::answer`) both
+/// take their placement from here.
+pub(super) fn slot_local(draw: &PartDraw, index: usize) -> Transform {
+    Transform::from_translation(Vec3::new(draw.at.x, -draw.at.y, index as f32 * SLOT_DEPTH_STEP))
+        .with_rotation(Quat::from_rotation_z(-draw.rotation))
+        .with_scale(draw.scale.extend(1.0))
+}
+
 /// Frames a body stays composited after the last frame something read it as
 /// one image: half a second at 60 Hz, so a demand that flickers (a blink, a
 /// flash cue, a body edging along a portal) does not move it between the
@@ -1751,9 +1764,6 @@ fn write_slots(presentation: &RiggedPresentation, draws: &[PartDraw], slots: &mu
             continue;
         };
         let part = flipbook.parts[usize::from(draw.part)];
-        // Under its owner, one unit is one sheet pixel, from the feet, +y up.
-        // Clockwise in the sheet's +y-down frame is a negative angle.
-        let local = Vec2::new(draw.at.x, -draw.at.y);
         let page = &presentation.pages.pages[usize::from(part.page)];
         if sprite.image != *page {
             sprite.image = page.clone();
@@ -1780,13 +1790,7 @@ fn write_slots(presentation: &RiggedPresentation, draws: &[PartDraw], slots: &mu
         if slot_anchor.0 != part.anchor() {
             slot_anchor.0 = part.anchor();
         }
-        // The scale in the transform, not the quad: a mirrored draw
-        // (`scale.x < 0`) mirrors about its pivot, then turns.
-        transform.set_if_neq(
-            Transform::from_translation(local.extend(index as f32 * SLOT_DEPTH_STEP))
-                .with_rotation(Quat::from_rotation_z(-draw.rotation))
-                .with_scale(draw.scale.extend(1.0)),
-        );
+        transform.set_if_neq(slot_local(draw, index));
         visibility.set_if_neq(Visibility::Inherited);
     }
 }

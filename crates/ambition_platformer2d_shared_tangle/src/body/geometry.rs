@@ -1,13 +1,12 @@
 //! Body material geometry and optional spatial restrictions for each live room.
 //!
-//! Material maps are sampled before movement and after chart transfers. Optional
-//! mechanics publish their aperture restrictions into this same snapshot. A
-//! missing body map is an error; world material has an explicit identity map.
+//! The snapshot contains aperture and traversal policy. Each query supplies
+//! material in its current chart.
 
 use ambition_platformer2d_core::frame::thread::{
     MaterialPrimitive, Partition, PieceBudget, PortalLink, Refusal, RefusalReason, partition, partition_reaching,
 };
-use ambition_platformer2d_core::frame::{MapConvention, NumericFault, PortalAperture, Sim2};
+use ambition_platformer2d_core::frame::{MapConvention, PortalAperture, Sim2};
 use ambition_platformer2d_core::{CombatVolume, Vec2};
 use bevy::prelude::{Component, Entity, Resource};
 
@@ -53,7 +52,6 @@ pub struct ReachesFrom(pub Vec2);
 #[derive(Resource, Clone, Debug)]
 pub struct BodyGeometry {
     convention: MapConvention,
-    materials: std::collections::BTreeMap<Entity, Result<Sim2, NumericFault>>,
     /// How far the volumes of a room with no budget of its own are cut.
     default_budget: PieceBudget,
     /// The bodies with a policy of their own ([`MaterialBudget`]).
@@ -84,7 +82,6 @@ impl BodyGeometry {
     pub fn new(convention: MapConvention) -> Self {
         Self {
             convention,
-            materials: Default::default(),
             default_budget: PieceBudget::SINGLE_HOP,
             bodies: Vec::new(),
             rooms: Vec::new(),
@@ -92,19 +89,13 @@ impl BodyGeometry {
         }
     }
 
-    /// Replace optional aperture restrictions without changing the body sample.
+    /// Replace the current aperture restrictions.
     pub fn reset_apertures(&mut self, convention: MapConvention, budget: PieceBudget) {
         self.convention = convention;
         self.default_budget = budget;
         self.bodies.clear();
         self.rooms.clear();
         self.straddling.clear();
-    }
-
-    pub fn clear_materials(&mut self) { self.materials.clear(); }
-
-    pub fn set_body_material(&mut self, body: Entity, material: Result<Sim2, NumericFault>) {
-        self.materials.insert(body, material);
     }
 
     /// How far the volumes of every room are cut, unless a room says
@@ -202,40 +193,33 @@ impl BodyGeometry {
         self.straddling.iter().find(|(b, _)| *b == body).map(|(_, link)| *link)
     }
 
-    /// Can a volume in `room` that `carrier` carries be cut: has the room a
-    /// pair, or does the carrier straddle one? These are the links
-    /// [`Self::pieces`] cuts by, so a `false` here is a whole volume there. A
-    /// body in transit in another room, or another body in transit, cuts
-    /// nothing of this volume.
+    /// A volume can be cut by a pair in its room or by a pair its carrier
+    /// straddles. A volume stays whole when this returns false.
     pub fn cuts_in(&self, room: Option<LiveRoomInstance>, carrier: Option<Entity>) -> bool {
         !self.links_in(room).is_empty() || carrier.is_some_and(|carrier| self.straddled_by(carrier).is_some())
     }
 
-    /// Cut `volume` from `root` in `room`. A body source uses its material
-    /// map and active transit. A world source uses world material. Both use
-    /// their owner's policy, or the room policy when no owner is set.
-    /// A refusal returns no partial geometry.
-    pub fn pieces(
+    /// Cut a volume supplied in world coordinates.
+    pub fn world_pieces(
         &self,
         volume: &CombatVolume,
-        source: PartSource,
+        owner: Option<Entity>,
         root: Vec2,
         room: Option<LiveRoomInstance>,
     ) -> Partition {
-        self.pieces_from(volume, source, root, false, room)
+        self.pieces_from(volume, PartSource::World { owner }, Sim2::IDENTITY, root, room)
     }
 
-    /// [`Self::pieces`] for a volume that reaches from `root` (a strike from
-    /// its owner): it goes through an opening in the wedge from `root`
-    /// through the opening's ends ([`partition_reaching`]).
-    pub fn pieces_reaching(
+    /// Cut a world volume that moves with a body. The body supplies its map.
+    pub fn body_world_pieces(
         &self,
         volume: &CombatVolume,
-        source: PartSource,
+        body: Entity,
+        material_map: Sim2,
         root: Vec2,
         room: Option<LiveRoomInstance>,
     ) -> Partition {
-        self.pieces_from(volume, source, root, true, room)
+        self.pieces_from(volume, PartSource::Body(body), material_map, root, room)
     }
 
     /// Partition accepted body material that reaches from its owner.
@@ -274,30 +258,19 @@ impl BodyGeometry {
         self.cut_material(material, PartSource::Body(body), root, reaching, room)
     }
 
-    fn body_material(&self, body: Entity) -> Result<Sim2, Refusal> {
-        self.materials.get(&body).copied()
-            .ok_or(Refusal { path: Vec::new(), link: None, reason: RefusalReason::MissingMaterial })?
-            .map_err(|fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) })
-    }
-
     fn pieces_from(
         &self,
         volume: &CombatVolume,
         source: PartSource,
+        root_map: Sim2,
         root: Vec2,
-        reaching: bool,
         room: Option<LiveRoomInstance>,
     ) -> Partition {
         let numeric = |fault| Refusal { path: Vec::new(), link: None, reason: RefusalReason::Numeric(fault) };
-        let carrier = source.carrier();
-        let root_map = match carrier {
-            Some(owner) => self.body_material(owner)?,
-            None => Sim2::IDENTITY,
-        };
         let canonical = ambition_platformer2d_core::frame::thread::map_volume(volume, &root_map.inverse().map_err(numeric)?)
             .map_err(numeric)?;
         let material = MaterialPrimitive { domain: &canonical, to_world: root_map };
-        self.cut_material(material, source, root, reaching, room)
+        self.cut_material(material, source, root, false, room)
     }
 
     fn cut_material(
@@ -360,7 +333,6 @@ mod tests {
         let (here, there) = (LiveRoomInstance::ACTIVATION, LiveRoomInstance::from_ordinal(1));
         let (traveller, other) = (Entity::from_raw_u32(1).unwrap(), Entity::from_raw_u32(2).unwrap());
         let mut passages = BodyGeometry::default();
-        for body in [traveller, other] { passages.set_body_material(body, Ok(Sim2::IDENTITY)); }
         passages.add_pair(Some(there), (floor, ceiling));
         passages.add_straddler(traveller, Some(there), floor, ceiling);
 
@@ -372,7 +344,11 @@ mod tests {
         // Across the floor opening: a carrier that straddles it is cut.
         let volume = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::splat(12.0)));
         for carrier in [None, Some(other), Some(traveller)] {
-            let pieces = passages.pieces(&volume, match carrier { Some(body) => PartSource::Body(body), None => PartSource::World { owner: None } }, Vec2::new(0.0, -1.0), Some(here)).unwrap();
+            let root = Vec2::new(0.0, -1.0);
+            let pieces = match carrier {
+                Some(body) => passages.body_world_pieces(&volume, body, Sim2::IDENTITY, root, Some(here)),
+                None => passages.world_pieces(&volume, None, root, Some(here)),
+            }.unwrap();
             let whole = pieces == vec![VolumePiece::whole(volume.clone())];
             assert_eq!(!passages.cuts_in(Some(here), carrier), whole, "{carrier:?}: the predicate and the pieces disagree");
         }
@@ -399,7 +375,7 @@ mod material_tests {
         assert_eq!(pieces[0].source().bounds(), ambition_platformer2d_core::Aabb::new(Vec2::ZERO, Vec2::new(10.0, 5.0)));
         kinematics.canonical_size = Vec2::ZERO;
         assert_eq!(geometry.physical_body_pieces(body, &kinematics, None).unwrap_err().reason,
-            RefusalReason::Numeric(NumericFault::InvalidScale));
+            RefusalReason::Numeric(ambition_platformer2d_core::frame::NumericFault::InvalidScale));
     }
 
     #[test]
@@ -408,55 +384,15 @@ mod material_tests {
         let root = Sim2::new(2.0, bevy::math::Mat2::from_cols(-Vec2::X, Vec2::Y), Vec2::new(100.0, 200.0)).unwrap();
         let canonical = CombatVolume::aabb(ambition_platformer2d_core::Aabb::new(Vec2::ZERO, Vec2::new(10.0, 20.0)));
         let world = ambition_platformer2d_core::frame::thread::map_volume(&canonical, &root).unwrap();
-        let mut passages = BodyGeometry::default();
-        passages.set_body_material(body, Ok(root));
-        let pieces = passages.pieces(&world, PartSource::Body(body), Vec2::new(100.0, 200.0), None).unwrap();
+        let passages = BodyGeometry::default();
+        let pieces = passages.body_world_pieces(&world, body, root, Vec2::new(100.0, 200.0), None).unwrap();
         assert_eq!(pieces.len(), 1);
         assert_eq!(pieces[0].source(), &canonical);
         assert!(pieces[0].transform().reflected());
         assert_eq!(pieces[0].world_volume(), &world);
         assert_eq!(pieces[0].carry(Vec2::new(103.0, 205.0)).unwrap(), Vec2::new(103.0, 205.0));
-        let independent = passages.pieces(&world, PartSource::World { owner: None }, Vec2::new(100.0, 200.0), None).unwrap();
+        let independent = passages.world_pieces(&world, None, Vec2::new(100.0, 200.0), None).unwrap();
         assert_eq!(independent[0].source(), &world);
         assert!(!independent[0].transform().reflected());
-    }
-    #[test]
-    fn a_body_source_requires_a_published_material_map() {
-        let body = Entity::from_raw_u32(1).unwrap();
-        let shape = CombatVolume::aabb(ambition_platformer2d_core::Aabb::new(Vec2::ZERO, Vec2::ONE));
-        let mut geometry = BodyGeometry::default();
-        let query = |geometry: &BodyGeometry| geometry.pieces(&shape, PartSource::Body(body), Vec2::ZERO, None);
-        assert_eq!(query(&geometry).unwrap_err().reason, RefusalReason::MissingMaterial);
-        geometry.set_body_material(body, Ok(Sim2::IDENTITY));
-        assert_eq!(query(&geometry).unwrap().len(), 1);
-        geometry.clear_materials();
-        assert_eq!(query(&geometry).unwrap_err().reason, RefusalReason::MissingMaterial);
-        assert!(geometry.pieces(&shape, PartSource::World { owner: Some(body) }, Vec2::ZERO, None).is_ok());
-    }
-}
-
-/// Sample body material before motion. Optional mechanics do not own this map.
-pub fn publish_body_geometry_before_motion(
-    mut geometry: bevy::prelude::ResMut<BodyGeometry>,
-    bodies: bevy::prelude::Query<(Entity, &ambition_platformer2d_core::BodyKinematics)>,
-) {
-    sample_body_material(&mut geometry, &bodies);
-}
-
-/// Refresh body material after chart transfers, before geometry consumers run.
-pub fn publish_body_geometry_after_motion(
-    mut geometry: bevy::prelude::ResMut<BodyGeometry>,
-    bodies: bevy::prelude::Query<(Entity, &ambition_platformer2d_core::BodyKinematics)>,
-) {
-    sample_body_material(&mut geometry, &bodies);
-}
-
-fn sample_body_material(
-    geometry: &mut BodyGeometry,
-    bodies: &bevy::prelude::Query<(Entity, &ambition_platformer2d_core::BodyKinematics)>,
-) {
-    geometry.clear_materials();
-    for (body, kin) in bodies {
-        geometry.set_body_material(body, kin.material_map());
     }
 }

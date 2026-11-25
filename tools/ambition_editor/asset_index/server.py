@@ -251,7 +251,7 @@ def kill_server(port: int, log=print) -> bool:
     return True
 
 
-def serve(repo: Path, out: Path, *, host="localhost", port=8767, open_browser=False, build=None,
+def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, build=None,
           refresh_command=None, kill=False):
     """Serve the last index while a refresh runs in a separate process.
 

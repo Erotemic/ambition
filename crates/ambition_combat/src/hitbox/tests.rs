@@ -3189,19 +3189,8 @@ fn portal_strike_app(passages: Option<ambition_platformer2d_shared_tangle::body:
     if let Some(passages) = passages {
         app.insert_resource(passages);
     }
-    app.add_systems(Update, (publish_fixture_materials, apply_hitbox_damage, capture_hits).chain());
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     app
-}
-
-fn publish_fixture_materials(
-    geometry: Option<ResMut<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
-    bodies: Query<(Entity, &ae::BodyKinematics)>,
-) {
-    let Some(mut geometry) = geometry else { return; };
-    geometry.clear_materials();
-    for (entity, kin) in &bodies {
-        geometry.set_body_material(entity, kin.material_map());
-    }
 }
 
 fn strike(app: &mut App, owner: Entity, anchor: HitboxAnchor, half_extent: ae::Vec2) {
@@ -3566,8 +3555,7 @@ fn a_strike_uses_current_material_and_keeps_its_canonical_source() {
             assert!(matches!(hitbox.world_volume(None).unwrap_err().reason, RefusalReason::MissingMaterial));
             let world = hitbox.world_volume(Some(&body)).unwrap();
             assert!((world.center() - expected).length() < 0.001);
-            let mut geometry = ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::default();
-            geometry.set_body_material(owner, body.material_map());
+            let geometry = ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::default();
             let pieces = strike_pieces(Some(&geometry), &hitbox, Some(&body), None).unwrap();
             assert_eq!(pieces.len(), 1);
             assert_eq!(pieces[0].source(), &hitbox.source_volume());
@@ -3592,8 +3580,7 @@ fn a_strike_partition_preserves_source_coordinates_at_large_translation() {
     let mut query = app.world_mut().query::<&Hitbox>();
     let hitbox = query.single(app.world()).unwrap();
     let body = app.world().get::<ae::BodyKinematics>(owner).unwrap();
-    let mut geometry = ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::default();
-    geometry.set_body_material(owner, body.material_map());
+    let geometry = ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry::default();
     let pieces = strike_pieces(Some(&geometry), hitbox, Some(body), None).unwrap();
     assert_eq!(pieces[0].source(), &hitbox.source_volume());
 }

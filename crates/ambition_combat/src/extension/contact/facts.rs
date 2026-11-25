@@ -9,7 +9,8 @@ use ambition_platformer2d_shared_tangle::{
     lifecycle::{LiveRoomInstance, RoomFreeze, SessionScopeId, SessionScopedEntity},
 };
 use ambition_platformer2d_world::governing_rules::RulesOf;
-use bevy::ecs::system::SystemState;
+use bevy::ecs::{query::QueryData, system::{SystemParam, SystemState}};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// A game can bound the bodies and surface points in each contact sample.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -44,11 +45,56 @@ impl ContactFactsLimits {
     }
 }
 
-type Context = SystemState<(
-    LiveRooms<'static, 'static>,
-    RoomFreeze<'static, 'static>,
-    RulesOf<'static, 'static, ContactFactsLimits>,
-)>;
+type Context = SystemState<ContactContext<'static, 'static>>;
+
+#[derive(SystemParam)]
+pub struct ContactContext<'w, 's> {
+    rooms: LiveRooms<'w, 's>,
+    freeze: RoomFreeze<'w, 's>,
+    rules: RulesOf<'w, 's, ContactFactsLimits>,
+    bodies: Query<'w, 's, ContactBodySource>,
+}
+
+#[derive(QueryData)]
+struct ContactBodySource {
+    entity: Entity,
+    id: &'static SimId,
+    kinematics: &'static ae::BodyKinematics,
+    config: Option<&'static crate::actor_tuning::ActorConfig>,
+    statuses: Option<&'static super::super::status::BodyStatuses>,
+    health: Option<&'static BodyHealth>,
+    out_of_play: Has<crate::death_rules::OutOfPlay>,
+    plane: Option<&'static ae::DepthPlane>,
+    session: Option<&'static SessionScopedEntity>,
+    driven: Has<DrivingParticipant>,
+}
+
+impl ContactBodySourceItem<'_, '_> {
+    fn selectors(&self) -> impl Iterator<Item = &str> + '_ {
+        let brain = self.config.and_then(|config| match &config.brain {
+            ambition_entity_catalog::placements::CharacterBrain::Custom(key) => Some(key.as_str()),
+            _ => None,
+        });
+        self.statuses.into_iter().flat_map(|statuses| statuses.0.iter().map(String::as_str)).chain(brain)
+    }
+
+    fn scope(
+        &self,
+        rooms: &LiveRooms,
+        freeze: &RoomFreeze,
+        rules: &RulesOf<ContactFactsLimits>,
+    ) -> Option<(PartitionKey, ContactFactsLimits)> {
+        if crate::util::body_is_untouchable(self.health, self.out_of_play, self.plane) {
+            return None;
+        }
+        let room = rooms.of(self.entity);
+        if (room.is_none() && rooms.count() > 0) || freeze.scale_of(self.entity) <= 0.0 {
+            return None;
+        }
+        let limits = rules.of(self.entity).copied().unwrap_or_default();
+        limits.problems().is_empty().then_some(((self.session.map(|session| session.0), room), limits))
+    }
+}
 struct Sample {
     entity: Entity,
     id: String,
@@ -86,8 +132,8 @@ struct ContactPartition {
 /// tens of pieces.
 const PIECES_WORTH_A_GRID: usize = 256;
 
-fn contact_partitions(samples: &[Sample]) -> std::collections::BTreeMap<PartitionKey, ContactPartition> {
-    let mut partitions = std::collections::BTreeMap::<PartitionKey, (Vec<Envelope>, Vec<usize>)>::new();
+fn contact_partitions(samples: &[Sample]) -> BTreeMap<PartitionKey, ContactPartition> {
+    let mut partitions = BTreeMap::<PartitionKey, (Vec<Envelope>, Vec<usize>)>::new();
     for (index, sample) in samples.iter().enumerate() {
         let (material, refused) = partitions.entry((sample.session, sample.room)).or_default();
         if sample.refusal.is_some() { refused.push(index); }
@@ -127,84 +173,51 @@ pub fn queue_body_contacts(world: &mut World, mut context: Local<Option<Context>
     if world.resource::<ambition_time::WorldTime>().sim_dt() <= 0.0 {
         return;
     }
-    let bound: std::collections::BTreeSet<String> = world
+    let context = context.get_or_insert_with(|| SystemState::new(world));
+    let bound: BTreeSet<&str> = world
         .resource::<AdmittedExtensions>()
         .0
         .entries
         .iter()
         .filter(|entry| entry.descriptor.trigger.port == BodyContactPort::KEY)
-        .map(|entry| entry.descriptor.trigger.selector.to_string())
+        .map(|entry| entry.descriptor.trigger.selector.as_ref())
         .collect();
     if bound.is_empty() {
         return;
     }
-    let mut query = world.query::<(
-        Entity,
-        &SimId,
-        &ae::BodyKinematics,
-        Option<&crate::actor_tuning::ActorConfig>,
-        Option<&super::super::status::BodyStatuses>,
-        Option<&BodyHealth>,
-        Has<crate::death_rules::OutOfPlay>,
-        Option<&ae::DepthPlane>,
-        Option<&SessionScopedEntity>,
-        Has<DrivingParticipant>,
-    )>();
-    let mut samples: Vec<Sample> = query
-        .iter(world)
-        .filter_map(
-            |(entity, id, kin, config, statuses, health, out, plane, session, driven)| {
-                if crate::util::body_is_untouchable(health, out, plane) {
-                    return None;
-                }
-                let mut keys = statuses.map_or_else(Vec::new, |statuses| statuses.0.clone());
-                if let Some(crate::actor_tuning::ActorConfig {
-                    brain: ambition_entity_catalog::placements::CharacterBrain::Custom(key),
-                    ..
-                }) = config
-                {
-                    keys.push(key.clone());
-                }
-                keys.retain(|key| bound.contains(key));
-                keys.sort();
-                keys.dedup();
-                Some(Sample {
-                    entity,
-                    id: id.as_str().into(),
-                    kinematics: *kin,
-                    session: session.map(|session| session.0),
-                    room: None,
-                    driven,
-                    keys,
-                    limits: ContactFactsLimits::default(),
-                    pieces: Vec::new(),
-                    refusal: None,
-                })
-            },
-        )
-        .collect();
-    {
-        let (rooms, freeze, rules) = context
-            .get_or_insert_with(|| SystemState::new(world))
-            .get(world)
-            .expect("contact read context");
-        samples.retain_mut(|sample| {
-            sample.room = rooms.of(sample.entity);
-            if (sample.room.is_none() && rooms.count() > 0) || freeze.scale_of(sample.entity) <= 0.0
-            {
-                return false;
-            }
-            sample.limits = rules.of(sample.entity).copied().unwrap_or_default();
-            sample.limits.problems().is_empty()
-        });
-    }
-    let observed: std::collections::BTreeSet<_> = samples.iter()
-        .filter(|sample| !sample.keys.is_empty())
-        .map(|sample| (sample.session, sample.room)).collect();
-    if observed.is_empty() {
-        return;
-    }
-    samples.retain(|sample| observed.contains(&(sample.session, sample.room)));
+    let mut samples: Vec<Sample> = {
+        let ContactContext { rooms, freeze, rules, bodies } = context.get(world).expect("contact read context");
+        let mut observed = BTreeSet::new();
+        let mut recipients = BTreeMap::new();
+        for body in &bodies {
+            let mut keys: Vec<_> = body.selectors().filter(|key| bound.contains(key)).collect();
+            if keys.is_empty() { continue; }
+            let Some((scope, _)) = body.scope(&rooms, &freeze, &rules) else { continue; };
+            keys.sort_unstable();
+            keys.dedup();
+            observed.insert(scope);
+            recipients.insert(body.entity, keys.into_iter().map(str::to_owned).collect());
+        }
+        if observed.is_empty() {
+            return;
+        }
+        bodies.iter().filter_map(|body| {
+            let ((session, room), limits) = body.scope(&rooms, &freeze, &rules)?;
+            if !observed.contains(&(session, room)) { return None; }
+            Some(Sample {
+                entity: body.entity,
+                id: body.id.as_str().into(),
+                kinematics: *body.kinematics,
+                session,
+                room,
+                driven: body.driven,
+                keys: recipients.remove(&body.entity).unwrap_or_default(),
+                limits,
+                pieces: Vec::new(),
+                refusal: None,
+            })
+        }).collect()
+    };
     let empty_geometry = BodyGeometry::default();
     let geometry = world
         .get_resource::<BodyGeometry>()

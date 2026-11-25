@@ -143,10 +143,8 @@ fn with_the_portal_transit(app: &mut App) {
     app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
     app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
-    app.add_systems(Update,(
-        ambition_platformer2d_shared_tangle::body::geometry::publish_body_geometry_before_motion,
-        ambition_portal2d::publish_portal_apertures,
-    ).chain().before(ambition_projectile_combat::step_projectiles));
+    app.add_systems(Update,
+        ambition_portal2d::publish_portal_apertures.before(ambition_projectile_combat::step_projectiles));
     app.add_systems(Update,
         ambition_portal2d::portal_transit.after(ambition_projectile_combat::step_projectiles),
     );

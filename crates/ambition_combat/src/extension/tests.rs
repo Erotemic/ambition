@@ -722,7 +722,7 @@ fn cast_world(
 fn a_held_ray_uses_the_same_scaled_path_for_reach_and_strike_material() {
     use ae::frame::thread::{PieceBudget, VolumePiece};
     use ae::frame::{MapConvention, PortalAperture, PortalFrame};
-    use ambition_platformer2d_shared_tangle::body::geometry::{PartSource, BodyGeometry};
+    use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
     let owner=Entity::from_raw_u32(1).unwrap();
     let mut passages=BodyGeometry::new(MapConvention::Reflection);
     passages.add_pair(None,(
@@ -743,7 +743,7 @@ fn a_held_ray_uses_the_same_scaled_path_for_reach_and_strike_material() {
         let (origin,strike,shape)=cast_world(&request, Some(&world),Some(&passages),owner,None).unwrap();
         assert_eq!(strike.length,expected_length);
         let volume=shape.place_at(origin,1.0,ae::Vec2::Y);
-        let parts=passages.pieces(&volume,PartSource::World { owner:Some(owner) },origin,None).unwrap();
+        let parts=passages.world_pieces(&volume,Some(owner),origin,None).unwrap();
         let meets=|x| {
             let sample=VolumePiece::whole(ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::new(x,0.0),ae::Vec2::splat(0.1))));
             parts.iter().any(|part|part.meets(&sample))

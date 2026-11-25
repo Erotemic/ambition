@@ -1,7 +1,6 @@
 //! The per-frame actor tick: syncing poses from feature AABBs, driving the
 //! enemy + NPC updates, neighbor/crowding queries, and brain snapshots.
 
-use ambition_platformer2d_shared_tangle::body::geometry::PartSource;
 use super::*;
 use crate::body::ActorMutIntegrationExt;
 use ambition_body_seed::clusters::ActorMut;
@@ -1254,7 +1253,8 @@ pub fn snapshot_body_contact(
         let Some(passages) = passages.as_deref().filter(|passages| passages.straddled_by(entity).is_some()) else {
             continue;
         };
-        let Ok(pieces) = passages.pieces(&ae::CombatVolume::aabb(contact_box), PartSource::Body(entity), kinematics.pos, room) else { continue; };
+        let Ok(material) = kinematics.material_map() else { continue; };
+        let Ok(pieces) = passages.body_world_pieces(&ae::CombatVolume::aabb(contact_box), entity, material, kinematics.pos, room) else { continue; };
         for piece in pieces.iter()
             .filter(|piece| piece.is_carried())
         {

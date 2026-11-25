@@ -3,7 +3,6 @@
 //! `HitboxHits` deduplicates victims across a multi-tick active window. `HitboxAnchor::FollowOwner`
 //! resolves world geometry from the owner's current position each tick.
 
-use ambition_platformer2d_shared_tangle::body::geometry::PartSource;
 use bevy::ecs::query::QueryData;
 use bevy::prelude::{Commands, Entity, Has, Message, MessageWriter, Query, Res, With};
 
@@ -810,7 +809,7 @@ fn strike_cut(
     let owner_pos = owner.map_or(volume.center(), |owner| owner.pos);
     match passages {
         Some(passages) => {
-            let cut = passages.pieces(&volume, PartSource::World { owner: Some(hitbox.owner) }, spatial_source_of(hitbox, owner_pos), room);
+            let cut = passages.world_pieces(&volume, Some(hitbox.owner), spatial_source_of(hitbox, owner_pos), room);
             if short_of_refusal { passages.short_of_refusal(cut, MaterialPrimitive::world(&volume), None, room) } else { cut }
         }
         None => Ok(vec![VolumePiece::whole(volume)]),

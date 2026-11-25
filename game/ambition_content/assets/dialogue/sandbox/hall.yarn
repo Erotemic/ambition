@@ -351,11 +351,9 @@ Fia: You're the one Oiler keeps glaring at. Come here, your left knee is singing
     Fia: Fia. I work under Oiler. He fixes the town; I fix whatever the town drags in. Today that's you.
 -> Where are your goggles?
     Fia: Never wore them. I like to see what I'm getting into.
--> Why fingerless gloves?
-    Fia: You can't hear a loose bearing through leather. You can't hold a hot one with bare skin. So: half and half.
+-> What is the white streak?
+    Fia: Born with it. Probably. Oiler says it showed up the week I first opened a gate panel. Oiler exaggerates.
 -> Show me the void.
-    <<transform "npc_fia_touched">>
-    Fia: It starts in the hands. A cold that isn't cold. And there's the white in my hair again.
     <<transform "npc_fia_void">>
     Fia: Oh. It's quiet in here. Every part of everything, exactly where it belongs.
     Fia: Don't look so worried. I can stop whenever I like.
@@ -998,141 +996,141 @@ Giant GNU: Gnu Ton brought me a quotation about shoulders. I asked for a saddle.
 
 title: hall_npc_giant_gnu2
 ---
-GNU2: I sleep in a cell. The scholar calls. I come out.
+GNU2: They call the other giant GNU. They call me GNU2. I have often wondered why I needed a number.
+-> Is he your brother?
+    GNU2: I would like to ask him. There is never much time for conversation when the scholar calls us into battle.
 -> Who made you?
-    GNU2: I do not know. I was called into the hall.
--> Who's the scholar?
-    GNU2: He built the frame. I escort him.
--> What do you do?
-    GNU2: I fall with him.
--> Where does it end?
-    GNU2: I do not know.
+    GNU2: I remember the walls of the cell and the weight of this harness. If there was a time before that, I cannot remember it.
+-> Do you want to fight for the scholar?
+    GNU2: When he opens the portal, I go. I have yet to discover what would happen if I refused.
+-> What would you do if you were free?
+    GNU2: I would like to go somewhere of my own choosing. I have not decided where.
 ===
 
 title: hall_practice_sandbag
 ---
 Practice Bag: Go on. I can take it.
--> Do you have anything to say?
-    Practice Bag: Something about the second hit. The first is nothing.
--> Do you mind being hit?
-    Practice Bag: Not if it's for practice.
+-> Does it hurt?
+    Practice Bag: Not particularly. I've got a lot of padding. You should see what happens to people who practise on the wall.
+-> Any advice?
+    Practice Bag: Get your feet under you after a hit. You'll have more trouble with an opponent who hits back.
 ===
 
 title: hall_barrow_king
 ---
-The Barrow King: A king needs a throne. A stand will do, for now.
--> What's under the stand?
-    The Barrow King: Treasure. They buried me with it. They kept adding to it.
--> Do you want it back?
-    The Barrow King: No. I want the throne.
+The Barrow King: You stand before the King of the Valley! Have they stopped teaching people to kneel?
+-> What have you got in your barrow?
+    The Barrow King: Gold, silver, toasters. Sixty chargers and not one that fits my lamp. The living have been most generous.
+-> What do you do with all that treasure?
+    The Barrow King: Do with it? I am a king. It is supposed to sit there looking expensive.
 ===
 
 title: hall_npc_raid_brute
 ---
-Raid Brute: Sheet say case. Brute take case.
--> What does the sheet say?
-    Raid Brute: Brute not read sheet. Brute kick things that open.
--> Was the bomb for the door?
-    Raid Brute: Door was open. Brute improvised.
+Raid Brute: A case. One case. That was the job. How hard could it be?
+-> Who hired you?
+    Raid Brute: I get paid to bring the case back. If I start asking questions, they might want me to read the whole work order.
+-> Why do you carry bombs?
+    Raid Brute: Locked doors. One good bang and you don't have to bother looking for the key.
 ===
 
 title: hall_solid_snake
 ---
-Solid Snake: The shell is load-bearing. Please stop.
--> What's load-bearing?
-    Solid Snake: I am.
--> Is the corridor real?
-    Solid Snake: I was told there would be a corridor.
+Solid Snake: Keep your voice down. I'm trying not to draw attention to myself.
+-> What's your mission?
+    Solid Snake: Surveillance. From down here, I get a very good look at everybody's shoes.
+-> What about the shell?
+    Solid Snake: My last line of defense. Unfortunately, if somebody kicks it, I also become the ammunition.
 ===
 
 title: hall_snake_plant
 ---
-Snake Plant: I am a plant. Plants do not bite. Come closer.
--> Do you bite?
-    Snake Plant: Not if you stand exactly where you are.
--> Do you eat?
-    Snake Plant: Photosynthesis is slow. Lunch is faster.
+Snake Plant: Hello, dear. Don't stand directly over me. It's for your own good.
+-> Are you a snake or a plant?
+    Snake Plant: Both, thank you. I take after my mother's side of the garden.
+-> How do you look after a snake plant?
+    Snake Plant: A little water twice a month. Some sunlight. And please keep your fingers away when I come up out of the pipe.
 ===
 
 title: hall_void_lizard
 ---
-Void Lizard: I am what is left when the light goes out.
--> Did you miss anything?
-    Void Lizard: Stars. I ate them.
--> What's a bridge for?
-    Void Lizard: I drank tea on it. It held.
+Void Lizard: Hhhh. I left the kettle on my bridge. I hope nobody's touched the switch.
+-> What switch?
+    Void Lizard: The one that drops the bridge into the lava. I've asked the castle architects to move it. They keep sending me the original plans.
+-> What sort of tea do you drink?
+    Void Lizard: Void tea. Steep a little nothing in hot water. You can leave the bag in as long as you like.
 ===
 
 title: hall_smash_george_booul
 ---
-George Booul: Either you are on the stage or you are not.
--> Are you TRUE?
-    George Booul: I do not flip on purpose. You flip me by asking.
--> How do you toggle?
-    George Booul: White is TRUE. Charcoal is FALSE. I flip the sheet.
+George Booul: I've been accused of seeing everything in black and white. The accusation is true.
+-> What happens if you negate yourself?
+    George Booul: I turn black. Negate me again and I turn white. Very useful if you can't decide which sheet to wear.
+-> Do ghosts really exist?
+    George Booul: I should think I've saved you the trouble of finding a counterexample.
 ===
 
 title: hall_npc_clockwork_warden
 ---
-Clockwork Warden: Tick. Tock. You are standing in my schedule.
--> How do you know my schedule?
-    Clockwork Warden: I run the schedule in this hall.
--> What time is it?
-    Clockwork Warden: Tick. Tock. You are late.
+Clockwork Warden: Most opponents spend the first minute of a fight teaching me how to beat them.
+-> How?
+    Clockwork Warden: Jump, strike, retreat. Jump, strike, retreat. On the third repetition, I shall be waiting where they land.
+-> What if they do something different?
+    Clockwork Warden: Then I shall have to start counting again.
 ===
 
 title: hall_npc_mode_collapse
 ---
-Mode Collapse: I have one idea. I have it very many times.
--> Does that bother you?
-    Mode Collapse: I would rather be consistent than correct.
--> Do you get surprised?
-    Mode Collapse: Not in a way that matters.
+Mode Collapse: I have an excellent idea. There ought to be more of me.
+-> Have you considered making something else?
+    Mode Collapse: I have an excellent idea. There ought to be more of me.
+-> How do you tell your copies apart?
+    Mode Collapse: Why would I want to?
 ===
 
 title: hall_npc_overflow
 ---
-Overflow: Bounds are a suggestion I have stopped taking.
--> What happens when you run out?
-    Overflow: I go one more.
--> Why is this place full?
-    Overflow: It isn't. I'm making it.
+Overflow: I counted my steps on the way here. Negative 32,768. I must have walked quite a distance.
+-> Negative?
+    Overflow: I was at 32,767 and took one more step.
+-> What are you going to do now?
+    Overflow: Keep going. It'll come round again eventually.
 ===
 
 title: hall_npc_gram_reaper
 ---
-Gram Reaper: Everything ends orthogonal. I just do the projecting.
--> What ends?
-    Gram Reaper: Everything.
--> Do you think about the guests?
-    Gram Reaper: They check in. I check them out.
+Gram Reaper: Have you ever heard a hotel groan in the middle of the night, with nobody in the corridor? That's when I like to visit.
+-> What's happening in Hylbert's Hotel?
+    Gram Reaper: A door slams and, several corridors away, the walls begin to shake. The old spectral wing is particularly good for it.
+-> Did you cause the haunting?
+    Gram Reaper: Hylbert would love to put my name on the repair bill. Ask him about his spectral gap.
 ===
 
 title: hall_npc_marshal_gallus
 ---
-Marshal Gallus: Shift starts at six. You're late, and that's a citation.
--> Are you a chicken?
-    Marshal Gallus: A marshal with feathers.
--> Are you the marshal of the train?
-    Marshal Gallus: I pack through gates. The train doesn't mind.
+Marshal Gallus: If anybody asks, you haven't seen me or my partner.
+-> Aren't you a marshal?
+    Marshal Gallus: If you see a real marshal, do us a favor and send him the other way.
+-> What are you and Lean up to?
+    Marshal Gallus: Going after the train. Cash, freight, whatever they're hauling. We won't know what we've got till we open the cars.
 ===
 
 title: hall_npc_supreme_leader
 ---
-The Supreme Leader: I planned this exhibit. I planned you reading it.
--> What does that mean?
-    The Supreme Leader: I read ahead.
--> Are you worried?
-    The Supreme Leader: The Gate Authority calls it a stalemate. I call it a schedule.
+The Supreme Leader: Who authorized you to approach me?
+-> Nobody.
+    The Supreme Leader: Then someone has neglected his duty. I shall see that he is disciplined.
+-> Why do you need that uplink?
+    The Supreme Leader: I expect every unit to receive my orders. I do not permit local commanders to improvise.
 ===
 
 title: hall_npc_command_uplink
 ---
-Command Uplink: ORDER RECEIVED. ORDER RELAYED. ORDER RECEIVED.
--> What's the order?
-    Command Uplink: Nobody asks the uplink what it thinks.
--> Is the order real?
-    Command Uplink: ORDER RECEIVED.
+Command Uplink: COMMAND CHANNEL OPEN. AWAITING AUTHENTICATION.
+-> Who gives you orders?
+    Command Uplink: SOURCE: SUPREME LEADER. LOCAL OVERRIDE: DISABLED.
+-> What happens if you lose contact?
+    Command Uplink: AWAITING INSTRUCTIONS TO RESTORE CONTACT.
 ===
 
 title: hall_npc_news_board

@@ -756,7 +756,7 @@ fn a_games_simulation_systems_sleep_outside_its_rooms(app: &mut App) {
 #[test]
 fn mary_o_body_admission_ignores_an_ambition_rooms_live_portals() {
     use ambition_platformer2d::engine_core as ae;
-    use ambition_platformer2d::platformer::body::geometry::{BodyGeometry, MaterialBudget, publish_body_geometry_before_motion};
+    use ambition_platformer2d::platformer::body::geometry::{BodyGeometry, MaterialBudget};
     use ambition_platformer2d::platformer::body::pose::BodyPoseAdmission;
     use ambition_platformer2d::platformer::capability::UsedCapabilities;
     use ambition_platformer2d::platformer::lifecycle::{InRoomInstance, RoomInstanceRoot, SessionRoot, SessionScopeId};
@@ -792,7 +792,6 @@ fn mary_o_body_admission_ignores_an_ambition_rooms_live_portals() {
         owners.push(app.world_mut().spawn((body, ae::SweepSample::at_rest(body, ae::Vec2::Y), InRoomInstance(room),
             MaterialBudget(ae::frame::thread::PieceBudget { max_hops: 0, ..ae::frame::thread::PieceBudget::COMPOSED }))).id());
     }
-    app.world_mut().run_system_once(publish_body_geometry_before_motion).unwrap();
     app.world_mut().run_system_once(ambition_platformer2d::portal::publish_portal_apertures).unwrap();
     app.world_mut().run_system_once(request).unwrap();
     assert_eq!(app.world().get::<ae::BodyKinematics>(owners[0]).unwrap().pos.x, -30.0);

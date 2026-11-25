@@ -368,8 +368,8 @@ fn cast_ray(
     let shape = strike.shape();
     if let Some(passages) = passages {
         let volume = shape.place_at(origin, 1.0, ae::Vec2::Y);
-        if let Err(refusal) = passages.pieces(
-            &volume, ambition_platformer2d_shared_tangle::body::geometry::PartSource::World { owner: Some(owner) }, origin, room,
+        if let Err(refusal) = passages.world_pieces(
+            &volume, Some(owner), origin, room,
         ) {
             trace!(?owner, ?refusal, "ray material refused before publication");
             return None;

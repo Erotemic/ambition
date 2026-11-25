@@ -341,7 +341,7 @@ def main(argv: list[str] | None = None) -> int:
     b = sub.add_parser("build", help="index the art and write the inspector page")
     s = sub.add_parser("serve", help="build the inspector and serve it; the page can save reviews")
     s.add_argument("--port", type=int, default=8767)
-    s.add_argument("--host", default="localhost",
+    s.add_argument("--host", default="all",
                    help="IPv4 bind address, localhost (default), or all (0.0.0.0)")
     s.add_argument("--kill", action="store_true", help="stop an asset inspector already serving this port, then serve")
     for page in (b, s):

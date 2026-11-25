@@ -84,28 +84,28 @@ pub fn queue_group_thinks(
     tracked: Query<&ae::BodyKinematics>,
     rooms: LiveRooms,
     pace: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
+    mut bindings: Local<BTreeMap<String, Vec<String>>>,
 ) {
-    if time.sim_dt() <= 0.0 {
-        return;
+    if admitted.is_changed() || catalog.is_changed() {
+        let tags: BTreeSet<&str> = admitted.0.entries.iter()
+            .filter(|entry| entry.descriptor.trigger.port == GroupThinkPort::KEY)
+            .map(|entry| entry.descriptor.trigger.selector.as_ref())
+            .collect();
+        bindings.clear();
+        for (id, entry) in catalog.iter() {
+            let matching: BTreeSet<_> = entry.tags.iter().filter(|tag| tags.contains(tag.as_str())).collect();
+            if !matching.is_empty() {
+                bindings.insert(id.clone(), matching.into_iter().cloned().collect());
+            }
+        }
     }
-    let tags: BTreeSet<String> = admitted
-        .0
-        .entries
-        .iter()
-        .filter(|e| e.descriptor.trigger.port == GroupThinkPort::KEY)
-        .map(|e| e.descriptor.trigger.selector.to_string())
-        .collect();
-    if tags.is_empty() {
+    if time.sim_dt() <= 0.0 || bindings.is_empty() {
         return;
     }
     let root_of: BTreeMap<LiveRoomInstance, Entity> = roots.iter().map(|(entity, room)| (*room, entity)).collect();
     let mut groups = BTreeMap::<(&str, LiveRoomInstance), Vec<GroupMember>>::new();
     for (entity, form, health, kin, id, target, held, support, driven) in &bodies {
-        let Some(entry) = catalog.get(form.id()) else { continue; };
-        let matching: BTreeSet<_> = entry.tags.iter().map(String::as_str)
-            .filter(|tag| tags.contains(*tag)).collect();
-        let mut matching = matching.into_iter();
-        let Some(first) = matching.next() else { continue; };
+        let Some((first, rest)) = bindings.get(form.id()).and_then(|tags| tags.split_first()) else { continue; };
         let Some(room) = rooms.of(entity).filter(|room| root_of.contains_key(room)) else { continue; };
         let target = target.and_then(|t| t.entity).and_then(|t| tracked.get(t).ok());
         let member = GroupMember {
@@ -121,7 +121,7 @@ pub fn queue_group_thinks(
             target: target.map(|t| t.pos.to_array()),
             target_velocity: target.map(|t| t.vel.to_array()),
         };
-        for tag in matching {
+        for tag in rest {
             groups.entry((tag, room)).or_default().push(member.clone());
         }
         groups.entry((first, room)).or_default().push(member);

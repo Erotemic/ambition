@@ -298,20 +298,84 @@ displayed frame in the settled windows. Frame medians were 502–528 ms
 before and 512–524 ms after. The new build also contains the portal contact
 change `526983e9c`. This comparison does not establish a frame-rate gain.
 
-### Next measurement
+### Android baseline
+
+The Android capture at `48fd44c9cb78` spent 57% of inclusive CPU
+samples in the parallel body integration worker. The settled frame median
+was 497–547 ms in the last six windows. That build had about 30,000
+entities. The desktop runs with the later work retained about 6,160 entities.
+The captures ran different builds on different hardware. Use a new phone
+capture to measure the combined changes.
+
+### Portal material queries
+
+The portal publisher stores apertures and transit occupancy. Contact and
+folded mesh consumers get the material map from the body they query.
+In a desktop schedule probe with 596 bodies and no portals, the two
+publication passes took 373 µs per tick before the change and 28 µs after it.
+Each median covers seven batches of 300 ticks.
+
+Two uncapped desktop Hall runs on each build used the headless host and
+measured the settled windows. The median `WorldPrep.BeforeIntegrate` time
+changed from 0.56–0.57 ms to 0.26–0.30 ms per tick. Other merged changes
+were present in the comparison. The isolated schedule probe measures the
+publisher change.
+
+### Extension observations
+
+Contact collection first finds bodies with a bound brain or status selector
+and an active room. It copies body IDs and prepares material in the rooms
+those receivers can observe. A desktop schedule probe with 596 bodies and
+no matching receiver took 228 µs per tick before this change and 89 µs after
+it. Both times are medians of seven batches of 300 ticks.
+
+Group observation prepares the matching tags for each character form when
+the catalog or admitted rules change. Each tick reads that mapping before
+it gathers the live members and items of each group.
+
+The headless desktop Hall admitted 596 bodies on both builds. The median
+`WorldPrep.AfterIntegrate` time fell from 1.03 to 0.57 ms per tick in the
+settled windows. `WorldPrep.Decision.Observe` stayed near 0.95 ms. The builds
+also differ by merged portal and rendering changes.
+
+### Material cast storage probe
+
+The prototype stored the single cell of an unpartitioned cast inline. It
+also stored up to four polygon points inline during contact and penetration
+repair and computed static bounds at one endpoint.
+
+An optimized desktop probe stepped 596 walking bodies on a floor with no
+apertures. Allocations per body step fell from 52 to 23. The positions,
+velocities, and contact counts gave the same digest on both builds. The
+median tick times from three interleaved runs on each build were 3.17 ms
+before and 3.15 ms with the prototype. The run-to-run ranges overlap.
+The median headless Hall update times across four runs were 37–46 ms on the
+existing build and 40–44 ms with the prototype. The prototype was removed
+after this comparison.
+
+A second probe let all 596 bodies come to rest. With settled reuse active,
+all 596 reused their results and the complete kernel pass took 0.22–0.24 ms
+per tick. With reuse disabled, it took 3.11–3.15 ms. Both modes produced the
+same position, velocity, and contact-count digest. This probe covers only
+the movement kernel. Measure the warm Hall outside that boundary before
+changing the proof's state encoding.
+
+### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on
 average. If rendering and frame work take 5 ms, each tick has about 14 ms.
-The latest desktop run took about 32 ms per tick in the measured phases and
-ran 15 ticks per displayed frame. On Android, measure the full cast with
-the new build and record tick, frame, and GPU times before changing the
-simulation schedule. Use elapsed time and committed ticks to check the
-simulation rate.
+The earlier desktop run took about 32 ms per tick in the measured phases
+and ran 15 ticks per displayed frame. Use elapsed time and committed ticks
+to check the simulation rate. Collect the full-cast Android phase census
+with `./scripts/measure/autoprofile_android.sh hall --warmup 40 --duration 45
+--launch-env AMBITION_PROFILE_CENSUS=1`.
 
-Use the measured tick costs to select work by domain. A grounded body can
-retain an exact movement result. The systems that consume it can also
-retain their facts when their inputs stay valid. Contact, targeting, and
-combat must accept a change in their inputs on the correct tick. Enable
-facility work while a live room or pending operation needs it. Use the
-shared execution plan in
+Select work by domain. A grounded body can retain an exact movement result.
+Confirm the cost of its surrounding tick systems before tuning the cache
+key. Contact and targeting should select the active sources before they
+gather possible recipients in their live rooms. Body combat geometry should
+be projected when an observer asks for it. Rendering live strikes has its
+own active population. Each owner must accept changes on the tick that
+applies them. Measure each boundary with the same full cast and include a
+change that requires the full path. Use the shared execution plan in
 [execution specialization and selection of active work](../../docs/planning/engine/execution-specialization-and-work-selection.md).

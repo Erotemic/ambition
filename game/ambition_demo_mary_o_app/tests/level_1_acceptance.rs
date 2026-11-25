@@ -1233,6 +1233,10 @@ fn bonk_from_beneath(app: &mut App, block: &ae::world::Block, frames: usize) -> 
             with_jump(move_x(0.0, false))
         } else if b.on_ground {
             move_x((centre - b.pos.x).clamp(-1.0, 1.0), false)
+        } else if (b.pos.x - centre).abs() > block.aabb.half_size().x {
+            // Airborne beside the block (a stomp bounce carries her run
+            // speed): steer back under it, or she keeps going past.
+            move_x((centre - b.pos.x).clamp(-1.0, 1.0), false)
         } else if b.head() > underside {
             with_jump(move_x(0.0, false))
         } else {

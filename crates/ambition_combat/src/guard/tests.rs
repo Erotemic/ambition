@@ -225,6 +225,7 @@ fn a_deflected_attacker_is_thrown_away_in_every_gravity() {
 
 #[test]
 fn guard_rebound_uses_the_contact_chart_for_scale_parity_and_surface_motion() {
+    const DT: f32 = 1.0 / 60.0;
     use ae::frame::{MapConvention, PortalAperture, PortalFrame};
     use ae::frame::thread::{MaterialPrimitive, MotionAdmission, PieceBudget, PortalLink, partition};
     for ratio in [0.5, 2.0] {
@@ -239,8 +240,13 @@ fn guard_rebound_uses_the_contact_chart_for_scale_parity_and_surface_motion() {
                         exit.velocity = ae::Vec2::new(-30.0, 50.0);
                         exit.spin = -0.2;
                     }
-                    let link = PortalLink::new(PortalAperture { frame: entry, half_length: 80.0 },
+                    // A host publishes each mouth's rate and its travel in the tick
+                    // from one shift (`portal_world::hosts`).
+                    let step = |frame: PortalFrame| ae::frame::ApertureStep::ending_at(frame, frame.velocity * DT, frame.spin * DT);
+                    let mut link = PortalLink::new(PortalAperture { frame: entry, half_length: 80.0 },
                         PortalAperture { frame: exit, half_length: 80.0 * ratio }, 0);
+                    link.enter_step = step(entry);
+                    link.exit_step = step(exit);
                     let links = [link];
                     let admission = MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED, convention };
                     let source = ae::Vec2::new(0.0, 90.0);
@@ -272,7 +278,7 @@ fn guard_rebound_uses_the_contact_chart_for_scale_parity_and_surface_motion() {
                                 map.inverse().unwrap().velocity(&exit, &entry, point, boost).unwrap()
                             } else { boost };
                             let body = ae::BodyKinematics { vel: resting, ..Default::default() };
-                            let prepared = chart.prepare_throw(&body, DOWN, Some(out), 1.0, speed, lift, boost).unwrap();
+                            let prepared = chart.prepare_throw(&body, DT, DOWN, Some(out), 1.0, speed, lift, boost).unwrap();
                             let (velocity, right) = if piece.is_carried() {
                                 (map.velocity(&entry, &exit, root_point, prepared.launch).unwrap(), map.direction(ae::Vec2::X))
                             } else { (prepared.launch, ae::Vec2::X) };

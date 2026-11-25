@@ -213,7 +213,7 @@ pub(super) fn sweep_player_axis_clusters(
                 } else { kinematics.pos[component].next_down() };
             }
         }
-        let surface_velocity = match surface_step_in_body_chart(&hit.collider, &contact, *admission) {
+        let surface_velocity = match hit.collider.step_in_root(&contact, *admission) {
             Ok(step) => step,
             Err(reason) => { *refusal = Some(reason); return None; }
         };
@@ -326,25 +326,6 @@ fn geometry_moves_near(
             .any(|(_, chain)| chain.moves() && !(chain.carrier.is_some() && chain.carrier == carrier))
 }
 
-/// The obstacle's per-tick travel at a contact, as the body's chart sees it.
-/// Through a moving portal the frames' own travel is taken out (M3,
-/// [`MotionAdmission::uncarry_displacement`](crate::frame::thread::MotionAdmission::uncarry_displacement)),
-/// so carry and the reported surface velocity are relative to the body's
-/// chart. Without a portal on the path it is the inverse map's vector.
-fn surface_step_in_body_chart(
-    collider: &crate::world::MaterialCollider<'_>,
-    contact: &crate::frame::material_cast::MaterialCastHit,
-    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
-) -> Result<Vec2, crate::frame::thread::Refusal> {
-    let step = collider.displacement_at(contact.world_point, contact.world_time);
-    match admission.filter(|_| !contact.path.is_empty()) {
-        Some(links) => links.uncarry_displacement(&contact.path, contact.world_point, step, contact.world_time),
-        None => contact.map.inverse().and_then(|inverse| inverse.vector(step)).map_err(|fault|
-            crate::frame::thread::Refusal { path: contact.path.clone(), link: None,
-                reason: crate::frame::thread::RefusalReason::Numeric(fault) }),
-    }
-}
-
 /// Repair and support use the same material cells as continuous contact.
 #[allow(clippy::too_many_arguments)]
 fn resolve_material_axis_repair(
@@ -413,7 +394,7 @@ fn resolve_material_axis_repair(
             apply_side_contact(wall, normal, gravity_dir);
             ContactKind::Side
         };
-        let surface_velocity = match surface_step_in_body_chart(&collider, &hit.contact, admission) {
+        let surface_velocity = match collider.step_in_root(&hit.contact, admission) {
             Ok(velocity) => velocity,
             Err(reason) => { *refusal = Some(reason); return None; }
         };

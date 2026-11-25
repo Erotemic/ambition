@@ -131,34 +131,45 @@ impl GuardState {
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct DeflectChart {
     into_contact: ae::frame::Sim2,
-    // Root velocity that keeps this contact point fixed in the contact chart.
-    stationary_velocity: ae::Vec2,
+    // Root travel in this tick that keeps the contact point fixed in the
+    // contact chart. A step has no clock; each body reads it on its own.
+    stationary_step: ae::Vec2,
 }
 
 impl DeflectChart {
     fn at(piece: &VolumePiece, point: ae::Vec2,
         admission: Option<ae::frame::thread::MotionAdmission<'_>>,
     ) -> Result<Self, Refusal> {
-        let stationary_velocity = match admission {
-            Some(admission) => admission.uncarry_velocity(&piece.path, point, ae::Vec2::ZERO, 1.0)?,
+        let stationary_step = match admission {
+            Some(admission) => admission.uncarry_displacement(&piece.path, point, ae::Vec2::ZERO, 1.0)?,
             None if piece.path.is_empty() => ae::Vec2::ZERO,
             None => return Err(Refusal { path: piece.path.clone(), link: None, reason: RefusalReason::MissingMaterial }),
         };
-        Ok(Self { into_contact: piece.path_transform().map_err(GuardPiece::numeric)?, stationary_velocity })
+        Ok(Self { into_contact: piece.path_transform().map_err(GuardPiece::numeric)?, stationary_step })
     }
 
-    fn velocity(self, velocity: ae::Vec2) -> Result<ae::Vec2, ae::frame::NumericFault> {
-        self.into_contact.vector_from_wide(velocity.as_dvec2() - self.stationary_velocity.as_dvec2())
+    /// The stationary root velocity on the clock of a body whose tick is
+    /// `dt`: a body in a room at half pace keeps up with the contact at twice
+    /// the shared rate. A stopped clock states no rate (no epsilon division).
+    fn stationary_velocity(self, dt: f32) -> Result<bevy::math::DVec2, ae::frame::NumericFault> {
+        if self.stationary_step == ae::Vec2::ZERO { return Ok(bevy::math::DVec2::ZERO); }
+        if !dt.is_finite() { return Err(ae::frame::NumericFault::NonFinite); }
+        if dt <= 0.0 { return Err(ae::frame::NumericFault::InvalidFrame); }
+        Ok(self.stationary_step.as_dvec2() / f64::from(dt))
     }
 
-    fn prepare_throw(self, kin: &ae::BodyKinematics, down: ae::Vec2,
+    fn velocity(self, velocity: ae::Vec2, dt: f32) -> Result<ae::Vec2, ae::frame::NumericFault> {
+        self.into_contact.vector_from_wide(velocity.as_dvec2() - self.stationary_velocity(dt)?)
+    }
+
+    fn prepare_throw(self, kin: &ae::BodyKinematics, dt: f32, down: ae::Vec2,
         out: Option<ae::Vec2>, default_side: f32, speed: f32, lift: f32, contact_velocity: ae::Vec2,
     ) -> Result<PreparedThrow, ae::frame::NumericFault> {
         use bevy::math::DVec2;
         let right = ae::Vec2::new(down.y, -down.x);
         let contact_down = self.into_contact.direction(down).as_dvec2();
         let contact_right = self.into_contact.direction(right).as_dvec2();
-        let velocity = self.velocity(kin.vel)?.as_dvec2() - contact_velocity.as_dvec2();
+        let velocity = self.velocity(kin.vel, dt)?.as_dvec2() - contact_velocity.as_dvec2();
         let side = out.map_or(f64::from(default_side), |out| if contact_right.dot(out.as_dvec2()) < 0.0 { -1.0 } else { 1.0 });
         let along = side * f64::from(speed);
         let fall = velocity.dot(contact_down);
@@ -173,7 +184,7 @@ impl DeflectChart {
         let into_root = self.into_contact.inverse()?;
         let leaves_ground = into_root.vector_from_wide(launch)?.as_dvec2().dot(down.as_dvec2()) < 0.0;
         let root = into_root.vector_from_wide(launch + contact_velocity.as_dvec2())?;
-        let launch = ae::frame::Sim2::IDENTITY.vector_from_wide(root.as_dvec2() + self.stationary_velocity.as_dvec2())?;
+        let launch = ae::frame::Sim2::IDENTITY.vector_from_wide(root.as_dvec2() + self.stationary_velocity(dt)?)?;
         let run = f64::from(launch.x) * f64::from(right.x) + f64::from(launch.y) * f64::from(right.y);
         let run = ae::frame::Sim2::IDENTITY.vector_from_wide(DVec2::new(run, 0.0))?.x;
         Ok(PreparedThrow { launch, run, leaves_ground })
@@ -362,7 +373,17 @@ pub fn resolve_deflects(
     mut sfx: ambition_sfx::SfxWriter,
     mut vfx: ambition_vfx::vfx::VfxWriter,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    // Each body's own tick, the clock its stored velocity is on.
+    // Absent: no clock, so only a contact that does not move can be answered.
+    world_time: Option<Res<ambition_time::WorldTime>>,
+    clocks: Query<(Option<&ambition_time::ProperTimeScale>, Option<&ambition_time::ClockDilation>)>,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
+    let dt_of = |body: Entity| {
+        let (scale, dilation) = clocks.get(body).unwrap_or((None, None));
+        world_time.as_deref().map_or(0.0, |time| time.entity_dt(ambition_time::ProperTimeScale::dilated(scale, dilation)))
+            * freeze.scale_of(body)
+    };
     for deflect in deflects.read() {
         let Some(spec) = guards_of(characters.as_deref(), worn.get(deflect.defender).ok()).get(usize::from(deflect.guard))
         else {
@@ -376,14 +397,14 @@ pub fn resolve_deflects(
             let defender = bodies.get(deflect.defender).ok().map(|(kin, ..)| kin);
             // The guard sets the contact frame's velocity. A common boost must
             // not change either body's relative response.
-            let contact_velocity = defender.map(|kin| deflect.contact.defender.velocity(kin.vel)).transpose()?.unwrap_or(ae::Vec2::ZERO);
+            let contact_velocity = defender.map(|kin| deflect.contact.defender.velocity(kin.vel, dt_of(deflect.defender))).transpose()?.unwrap_or(ae::Vec2::ZERO);
             let material = deflect.contact.guard_material;
             let rebound = material.length(feel.rebound_speed)?;
             let lift = material.length(feel.rebound_lift)?;
             let push = material.length(feel.push)?;
-            let attacker = attacker.map(|kin| deflect.contact.attacker.prepare_throw(kin,
+            let attacker = attacker.map(|kin| deflect.contact.attacker.prepare_throw(kin, dt_of(deflect.attacker),
                 down_of(deflect.attacker), deflect.contact.outward, 1.0, rebound, lift, contact_velocity)).transpose()?;
-            let defender = defender.map(|kin| deflect.contact.defender.prepare_throw(kin,
+            let defender = defender.map(|kin| deflect.contact.defender.prepare_throw(kin, dt_of(deflect.defender),
                 down_of(deflect.defender), deflect.contact.outward.map(|out| -out), -1.0, push, 0.0, contact_velocity)).transpose()?;
             Ok::<_, ae::frame::NumericFault>((attacker, defender))
         })();

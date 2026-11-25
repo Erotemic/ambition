@@ -286,9 +286,43 @@ face and stays there for the rest of the run (x 625.00 with the wall at 625);
 the root moves 3 px a tick to pay for the drift. In the control without the
 wall, the same drift carries that edge more than 20 px past the face.
 
+Receipt (M3, paced rooms, 2026-11-25): `MaterialCollider::velocity_in_root`,
+the surface rate that loose items, projectiles and surface momentum compare
+with their own stored velocity, now uses the per-tick law of the kernel's
+contact. It takes `step_in_root` (the material point's travel in the tick,
+with each mouth's travel taken out by `uncarry_displacement`) and divides it
+by the caller's own `dt`. A step has no clock, so dividing by the room's
+effective `dt` gives the surface's speed on that room's clock. The old body
+mixed two clocks: the surface step over the room's `dt`, plus the mouths'
+per-shared-second `velocity`. The witness is
+`a_co_moving_mouth_and_body_have_no_relative_speed_at_any_room_pace`. A mouth
+hosted at full pace drifts 0.5 a shared tick, and a body in a room at pace 1
+or 0.5 keeps up with it. On the body's clock the still block seen through the
+mouth moves at exactly the body's stored velocity at both paces, while the
+per-second law reads the shared-clock rate (half the body's speed at half
+pace). At pace 0 there is no clock to state a rate on: `velocity_in_root`
+refuses and divides by no epsilon, and the step still reports the mouth's
+travel. Held items keep their frozen-body policy (a frozen item skips its
+tick). At pace 1 the two laws agree, as the clock reading above showed.
+
+The guard's deflect chart (`ambition_combat::guard::DeflectChart`) mixed
+the clocks the same way. It subtracted the per-shared-second
+`uncarry_velocity` from a body's stored velocity. It now keeps the
+stationary root step (`uncarry_displacement`) and reads it on each body's own
+clock, the `dt` that `tick_guard_states` already uses (proper time scale,
+dilation, room freeze). Two tests had modelled a moving mouth by its
+per-second fields alone (frame `velocity`/`spin` with fixed steps), a pair
+no host publishes. They now give the matching steps, as
+`portal_world::hosts` does, and keep their expected values, because the laws
+agree at pace 1: the far-side projectile bounce still gives −26.5, and the
+guard's portal rebound tests pass unchanged.
+
 Still open in M3:
-- The paced two-room cases.
-- SUP1's changing-support input.
+- SUP1's changing-support input through a portal. Without portals the
+  kernel's contact already reads SUP1's per-point travel (`displacement_at`
+  on a deforming line, landed with SUP1). A cell cut by a portal still reads
+  the published rigid fit, because the deforming cast does not admit portal
+  cells. That is the portal case SUP1's page leaves open under P2/M1/M2.
 
 ## Required motion operation
 

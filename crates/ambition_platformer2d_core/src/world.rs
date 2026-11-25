@@ -1447,7 +1447,28 @@ impl MaterialCollider<'_> {
         }
     }
 
-    /// Pull this surface's physical velocity into the cast body's root chart.
+    /// How far the material point under `contact` travels in this tick,
+    /// pulled back into the cast body's root chart: the surface's own step,
+    /// less what each portal on the path carries (`uncarry_displacement`). A
+    /// step has no clock, so a surface, an aperture and the body compare in
+    /// it whatever pace each one's room runs at.
+    pub fn step_in_root(self, contact: &crate::frame::material_cast::MaterialCastHit,
+        admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    ) -> Result<Vec2, crate::frame::thread::Refusal> {
+        let step = self.displacement_at(contact.world_point, contact.world_time);
+        match admission.filter(|_| !contact.path.is_empty()) {
+            Some(links) => links.uncarry_displacement(&contact.path, contact.world_point, step, contact.world_time),
+            None => contact.map.inverse().and_then(|inverse| inverse.vector(step)).map_err(|fault|
+                crate::frame::thread::Refusal { path: contact.path.clone(), link: None,
+                    reason: crate::frame::thread::RefusalReason::Numeric(fault) }),
+        }
+    }
+
+    /// The surface's velocity at `contact` in the cast body's root chart, on
+    /// the caller's clock: [`Self::step_in_root`] over the caller's own `dt`.
+    /// A body in a room at half pace passes half the shared tick, so a
+    /// surface or aperture that moves with it reads its own speed, not twice
+    /// or half of it.
     pub fn velocity_in_root(self, contact: &crate::frame::material_cast::MaterialCastHit,
         dt: f32, admission: Option<crate::frame::thread::MotionAdmission<'_>>,
     ) -> Result<Vec2, crate::frame::thread::Refusal> {
@@ -1456,11 +1477,11 @@ impl MaterialCollider<'_> {
             let link = path.pop();
             crate::frame::thread::Refusal { path, link, reason: crate::frame::thread::RefusalReason::Numeric(reason) }
         };
-        let velocity = self.velocity_at(contact.world_point, dt, contact.world_time).map_err(numeric)?;
-        match admission {
-            Some(admission) => admission.uncarry_velocity(&contact.path, contact.world_point, velocity, contact.world_time),
-            None => Ok(velocity),
-        }
+        let step = self.step_in_root(contact, admission)?;
+        if !step.is_finite() || !dt.is_finite() { return Err(numeric(crate::frame::NumericFault::NonFinite)); }
+        if step == Vec2::ZERO { return Ok(Vec2::ZERO); }
+        if dt <= 0.0 { return Err(numeric(crate::frame::NumericFault::InvalidFrame)); }
+        crate::frame::Sim2::IDENTITY.vector_from_wide(step.as_dvec2() / f64::from(dt)).map_err(numeric)
     }
 
     /// Surface speed at the physical contact point, in world units per second.

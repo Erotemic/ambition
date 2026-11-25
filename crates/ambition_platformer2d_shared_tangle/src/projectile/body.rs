@@ -180,7 +180,7 @@ impl ProjectileGameplay {
             return false;
         }
         let Ok(gravity) = body.material.body_rate(self.gravity) else {
-            bevy::log::warn!("a projectile's material cannot carry its gravity {} — retired", self.gravity);
+            tracing::warn!("a projectile's material cannot carry its gravity {} — retired", self.gravity);
             return false;
         };
         let down = projectile_down(gravity_dir);

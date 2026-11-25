@@ -445,7 +445,10 @@ fn a_far_side_bounce_uses_relative_surface_motion_in_the_root_chart() {
     let mut enter=PortalAperture { frame:PortalFrame::fixed(Vec2::ZERO,-Vec2::Y),half_length:40.0 };
     let mut exit=PortalAperture { frame:PortalFrame::fixed(Vec2::new(100.0,0.0),Vec2::X),half_length:20.0 };
     enter.frame.velocity=Vec2::new(0.0,5.0); exit.frame.velocity=Vec2::new(3.0,0.0);
-    let links=PortalLink::both_ways(0,(enter,exit));
+    // A host publishes each mouth's rate and its travel in the tick from one
+    // shift (`portal_world::hosts`): the travel is the rate over this tick's 0.1.
+    let step=|aperture:PortalAperture| ae::frame::ApertureStep::ending_at(aperture.frame,aperture.frame.velocity*0.1,0.0);
+    let links=PortalLink::both_ways_with_steps(0,[(enter,step(enter)),(exit,step(exit))]);
     let mut shot=falling_shot(Vec2::new(0.0,-12.0),2);
     shot.kin.canonical_size=Vec2::splat(10.0);
     shot.kin.vel=Vec2::new(0.0,110.0);

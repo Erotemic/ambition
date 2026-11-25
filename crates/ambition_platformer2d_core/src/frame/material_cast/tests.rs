@@ -1234,3 +1234,47 @@ fn a_moving_exit_carries_its_drift_into_the_contact_frame() {
     link.enter_step = crate::frame::ApertureStep::ending_at(enter.frame, delta, 0.0);
     assert!((carried(link) - Vec2::new(3.0, 0.0)).length() < 1.0e-5, "riding the entrance leaves only the exit's travel");
 }
+
+/// M3, the paced case (portals-are-moving-frames.md): a body rides an entry
+/// mouth hosted in a room at full pace, and sees a still block through it.
+/// The host publishes its rate per shared second, as `portal_world::hosts`
+/// does. The body's own room runs at full or half pace, so its stored speed
+/// is in that room's clock. Co-moving means no relative motion whatever the
+/// pace: the block's apparent velocity, read on the body's clock, is the
+/// body's own stored velocity.
+#[test]
+fn a_co_moving_mouth_and_body_have_no_relative_speed_at_any_room_pace() {
+    const SHARED_DT: f32 = 1.0 / 60.0;
+    let drift = Vec2::new(0.0, 0.5);
+    let mut enter = PortalAperture { frame: PortalFrame::fixed(Vec2::ZERO, Vec2::NEG_X), half_length: 10.0 };
+    enter.frame.velocity = drift / SHARED_DT;
+    let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(100.0, 0.0), Vec2::X), half_length: 10.0 };
+    let mut link = PortalLink::new(enter, exit, 0);
+    link.enter_step = crate::frame::ApertureStep::ending_at(enter.frame, drift, 0.0);
+    let links = [link];
+    let admission = MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
+    let block = crate::world::Block::solid("still block past the exit", Vec2::new(101.0, -5.0), Vec2::new(10.0, 10.0));
+    let collider = crate::world::MaterialCollider::Block(&block);
+    let world_time = 0.5;
+    let map = link.snapshot_at(world_time).unwrap().map(MapConvention::Reflection).unwrap();
+    let world_point = Vec2::new(101.0, 2.0);
+    let contact = MaterialCastHit { toi: world_time, world_time, normal: Vec2::NEG_X,
+        point: map.inverse().unwrap().point(world_point).unwrap(), world_point, path: vec![0], map };
+    for pace in [1.0_f32, 0.5] {
+        let dt = SHARED_DT * pace;
+        // The body keeps up with the mouth: `drift` a shared tick, so its
+        // stored speed in its own room's clock is `drift / dt`.
+        let body_velocity = drift / dt;
+        let surface = collider.velocity_in_root(&contact, dt, Some(admission)).unwrap();
+        assert!((body_velocity - surface).length() < 1.0e-3,
+            "pace {pace}: the block seems to move at {surface:?} beside a body at {body_velocity:?}");
+    }
+    // The per-second law reads the mouth on the shared clock, so beside a
+    // half-pace body it invents a relative speed of half the body's own.
+    let shared = admission.uncarry_velocity(&[0], world_point, Vec2::ZERO, world_time).unwrap();
+    assert!((shared - drift / SHARED_DT).length() < 1.0e-3, "{shared:?}");
+    // A stopped room has no clock to state a rate on: no epsilon division.
+    // The step itself has no clock, so the mouth still carries what rides it.
+    assert!(collider.velocity_in_root(&contact, 0.0, Some(admission)).is_err());
+    assert!((collider.step_in_root(&contact, Some(admission)).unwrap() - drift).length() < 1.0e-5);
+}

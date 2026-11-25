@@ -169,7 +169,8 @@ pub fn space_the_talkers(
         let safe = |mark: f32| {
             grounded
                 && solids.as_deref().is_some_and(|world| {
-                    step_is_safe(world, initiator_kin.pos, place(mark), half, frame.down)
+                    step_is_safe(world, initiator_kin.pos, place(mark), half, frame.down,
+                        ambition_platformer2d_core::collision_semantics::ContactBands::of(initiator_kin.material))
                 })
         };
         // The initiator's own side first. A body beside a wall is talked to from
@@ -219,6 +220,7 @@ fn step_is_safe(
     to: Vec2,
     half: Vec2,
     down: Vec2,
+    bands: ambition_platformer2d_core::collision_semantics::ContactBands,
 ) -> bool {
     use ambition_platformer2d_core::{collision_semantics, Aabb, BlockKind};
     let swept = Aabb::new((from + to) * 0.5, half + ((to - from) * 0.5).abs());
@@ -235,7 +237,7 @@ fn step_is_safe(
     let steps = ((to - from).length() / width.max(1.0)).ceil().max(1.0) as usize;
     (0..=steps).all(|step| {
         let at = from.lerp(to, step as f32 / steps as f32);
-        collision_semantics::supporting_block(world, Aabb::new(at, half), down, false).is_some()
+        collision_semantics::supporting_block(world, Aabb::new(at, half), down, false, bands).is_some()
     })
 }
 

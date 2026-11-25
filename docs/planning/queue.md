@@ -3598,7 +3598,10 @@ is not evidence of moving-map residual time or completed multi-view support.
 each body's gravity response to its material scale, an underivable response
 is a refused frame the kernel will not step, and the navigation key carries
 the body's scale so the probe converts its controls as the runtime does.
-SR2 and SR3 are open.
+SR2a landed the same day: support, one-way crossing and edge-overlap bands
+are the body's own (`ContactBands::of`), and the balance fractions are no
+longer scaled twice. SR2b–d (ledge reach, crawler/momentum, exit
+assistance) and SR3 are open.
 
 **Failure / customer:** canonical controls scale but ordinary body gravity
 does not, changing jump time and relative height. Fixed contact bands,

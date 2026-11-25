@@ -668,6 +668,9 @@ fn integrate(f: &mut ShadowFighter, dt: f32, down: ae::Vec2, tuning: &ShadowTuni
             ae::collision_semantics::spans_overlap_for_support(
                 (lateral - half_width, lateral + half_width),
                 span,
+                // Perception shows no material scale, so the shadow keeps the
+                // canonical sliver; a scaled body's is `ContactBands::of`.
+                ae::collision_semantics::EDGE_OVERLAP_SLOP,
             )
         })
         .unwrap_or(true);

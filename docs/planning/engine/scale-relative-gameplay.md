@@ -1,6 +1,6 @@
 # Scale-relative gameplay
 
-**State:** SR1 DONE 2026-11-25; SR2 and SR3 PLANNED. Selected by the
+**State:** SR1 and SR2a DONE 2026-11-25; SR2b–d (ledge, crawler/momentum, exit assistance) and SR3 PLANNED. Selected by the
 maintainer on 2026-11-21. A body made
 small or large by a portal should keep its normal movement and action timing
 at that scale. This changes the earlier controls-only gravity policy.
@@ -176,6 +176,20 @@ small body. Classify their purpose before converting them.
 | [Crawler](../../../crates/ambition_platformer2d_core/src/movement/adhesive_crawler.rs) and [momentum movement](../../../crates/ambition_platformer2d_core/src/movement/surface_momentum/mod.rs) | Capture slack, route lookahead, contact slack and speed gates. Surface tie/coincidence rules need their own numerical or geometry meaning. |
 | [Movement integration](../../../crates/ambition_platformer2d_core/src/movement/integration.rs) | Surface lead and submerged-ground probes. Their length owner must be explicit. |
 | [Portal placement](../../../crates/ambition_portal2d/src/placement.rs) | The current raw `min_exit_speed` floor. Ordinary exit assistance uses destination body units and exit-relative velocity. An explicit world launcher may own a world speed. |
+
+**SR2a delivered 2026-11-25 (support and landing bands).** `ContactBands::of`
+in `collision_semantics` carries `CONTACT_SLOP`, `ONE_WAY_CROSSING_SLOP` and
+`EDGE_OVERLAP_SLOP` at the body's scale (identity fast path). Every kernel
+support/landing predicate, the walkable-line probes, the resting-support
+probe, teeter/footing/floor-held queries, the footstool and talk spacing
+take the stepping body's bands. The line/block seam allowance stays geometry.
+`for_material` no longer converts `teeter_margin`, `Balance::teeter_band`
+or `Balance::tip_speed`: they are fractions of the body's half-width (and
+half-widths per second) that `footing` already multiplies by the physical
+half-span, so the conversion applied the scale twice. Witness:
+`a_one_way_crossing_band_is_the_bodys_own_at_every_scale` (kernel tests).
+Open gap: the fighter brain's shadow rollout keeps the canonical edge sliver
+because perception publishes no material scale.
 
 Do not multiply every epsilon. Gameplay slack, authored world geometry and
 floating-point uncertainty are different quantities. Numerical predicates

@@ -229,6 +229,7 @@ pub fn handle_jump_buffer_clusters(
             world,
             kinematics.aabb(),
             frame.down(),
+            crate::collision_semantics::ContactBands::of(kinematics.material),
         )
     {
         begin_drop_through(state, ground);

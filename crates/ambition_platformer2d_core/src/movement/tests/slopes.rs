@@ -287,7 +287,7 @@ fn a_body_rides_a_moving_ramp_and_walks_on_it_with_no_tick_in_the_air() {
     }
     assert!(scratch.ground.on_ground, "it settles on the ramp (feet {})", feet(&scratch));
     let line_at = |world: &World, scratch: &BodyClusterScratch| {
-        crate::walkable_lines::standing_on_line(world, scratch.kinematics.aabb(), DOWN)
+        crate::walkable_lines::standing_on_line(world, scratch.kinematics.aabb(), DOWN, crate::collision_semantics::ContactBands::CANONICAL)
     };
     let start_x = scratch.kinematics.pos.x;
     // The ramp goes up and to the right, then back down and left; the body

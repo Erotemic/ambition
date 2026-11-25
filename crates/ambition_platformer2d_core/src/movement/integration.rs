@@ -98,6 +98,7 @@ pub(super) fn platform_drop_requested(
                 world,
                 kinematics.aabb(),
                 frame.down(),
+                crate::collision_semantics::ContactBands::of(kinematics.material),
             ),
         )
 }
@@ -315,7 +316,8 @@ pub(super) fn integrate_velocity_clusters(
                     crate::collision_semantics::Axis::X => crate::Vec2::X,
                     crate::collision_semantics::Axis::Y => crate::Vec2::Y,
                 };
-                let held = super::collision::floor_held_step(world, clusters.kinematics.aabb(), frame.down(), unit, delta_along);
+                let held = super::collision::floor_held_step(world, clusters.kinematics.aabb(), frame.down(), unit, delta_along,
+                    crate::collision_semantics::ContactBands::of(clusters.kinematics.material));
                 if held != delta_along {
                     match axis {
                         crate::collision_semantics::Axis::X => clusters.kinematics.vel.x = 0.0,
@@ -405,7 +407,7 @@ pub(super) fn integrate_velocity_clusters(
         let g = frame.down();
         if clusters.kinematics.vel.dot(g) >= 0.0 {
             let receding = match crate::walkable_lines::material_block_support(world, clusters.kinematics,
-                g, crate::collision_semantics::CONTACT_SLOP, true, 1.0, admission) {
+                g, crate::collision_semantics::ContactBands::of(clusters.kinematics.material).contact, true, 1.0, admission) {
                 Ok(support) => support,
                 Err(reason) => { events.motion_refusal = Some(reason); return; }
             };
@@ -490,6 +492,7 @@ pub(super) fn integrate_velocity_clusters(
             g,
             drop_through,
             balance,
+            crate::collision_semantics::ContactBands::of(clusters.kinematics.material),
         ) {
             crate::collision_semantics::Footing::Balanced => {}
             crate::collision_semantics::Footing::Teetering => teeters_by_balance = true,
@@ -686,6 +689,7 @@ pub(super) fn integrate_velocity_clusters(
                 frame,
                 clusters.kinematics.facing,
                 tuning.locomotion.teeter_margin,
+                crate::collision_semantics::ContactBands::of(clusters.kinematics.material),
             ));
     // ⭐ WHAT IS LEFT OF THE RISE THE AIR JUMP PUT IN — the amount a
     // double-jump cancel may take back. Post-sweep beside the other two for the

@@ -85,10 +85,10 @@ fn perpendicular_overlap_requires_real_overlap_not_a_sliver() {
     let dir = Vec2::new(0.0, 1.0);
     // Body whose right edge clears the surface left by only 0.5px -> sliver.
     let sliver = Aabb::new(Vec2::new(-9.5, 80.0), Vec2::new(10.0, 10.0)); // right = 0.5
-    assert!(!perpendicular_overlap(sliver, surface, dir));
+    assert!(!perpendicular_overlap(sliver, surface, dir, crate::collision_semantics::EDGE_OVERLAP_SLOP));
     // Two px of real overlap -> rests.
     let resting = Aabb::new(Vec2::new(-8.0, 80.0), Vec2::new(10.0, 10.0)); // right = 2.0
-    assert!(perpendicular_overlap(resting, surface, dir));
+    assert!(perpendicular_overlap(resting, surface, dir, crate::collision_semantics::EDGE_OVERLAP_SLOP));
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn at_rest_uses_the_body_on_support_side_guard() {
         resting,
         surface,
         dir,
-        false
+        false, crate::collision_semantics::ContactBands::CANONICAL
     ));
     // Center past the surface center: not on the support side, not resting.
     let embedded = Aabb::new(Vec2::new(40.0, 130.0), Vec2::new(10.0, 10.0));
@@ -119,7 +119,7 @@ fn at_rest_uses_the_body_on_support_side_guard() {
         embedded,
         surface,
         dir,
-        false
+        false, crate::collision_semantics::ContactBands::CANONICAL
     ));
     // A one-way dropping through is never a resting support.
     assert!(!surface_supports_body_at_rest(
@@ -127,7 +127,7 @@ fn at_rest_uses_the_body_on_support_side_guard() {
         resting,
         surface,
         dir,
-        true
+        true, crate::collision_semantics::ContactBands::CANONICAL
     ));
 }
 
@@ -143,7 +143,7 @@ fn one_way_landing_is_false_without_gravity() {
         Vec2::new(0.0, 5.0),
         Vec2::ZERO,
         false,
-        88.0,
+        88.0, crate::collision_semantics::ContactBands::CANONICAL,
     ));
     // With down gravity and a feet-side crossing, it lands.
     assert!(one_way_landing_from_previous_feet(
@@ -153,7 +153,7 @@ fn one_way_landing_is_false_without_gravity() {
         Vec2::new(0.0, 5.0),
         Vec2::new(0.0, 1.0),
         false,
-        96.0,
+        96.0, crate::collision_semantics::ContactBands::CANONICAL,
     ));
 }
 
@@ -256,13 +256,13 @@ fn nothing_ever_rests_on_a_bonk_only_block() {
     // The control: this body IS resting, and both other kinds say so.
     for kind in [BlockKind::Solid, BlockKind::OneWay] {
         assert!(
-            surface_supports_body_at_rest(kind, body, block, down, false),
+            surface_supports_body_at_rest(kind, body, block, down, false, crate::collision_semantics::ContactBands::CANONICAL),
             "the fixture is wrong: a {kind:?} does not support this body either, \
              so the assertion below proves nothing"
         );
     }
     assert!(
-        !surface_supports_body_at_rest(BlockKind::BonkOnly, body, block, down, false),
+        !surface_supports_body_at_rest(BlockKind::BonkOnly, body, block, down, false, crate::collision_semantics::ContactBands::CANONICAL),
         "a bonk-only block held a body up — which is an invisible floor, the \
          exact thing the kind was added to stop"
     );
@@ -278,18 +278,18 @@ fn a_bonk_only_block_is_struck_from_below_and_only_from_below() {
     // A body just under the block, moving UP into it.
     let rising = Aabb::new(Vec2::new(16.0, 142.0), Vec2::new(10.0, 10.0));
     assert!(
-        bonk_strike_from_head(rising, block, Vec2::new(0.0, -6.0), down),
+        bonk_strike_from_head(rising, block, Vec2::new(0.0, -6.0), down, crate::collision_semantics::ContactBands::CANONICAL),
         "a head rising into the block did not strike it, so the reward is \
          unreachable"
     );
     // The same body FALLING through the same space strikes nothing.
     assert!(
-        !bonk_strike_from_head(rising, block, Vec2::new(0.0, 6.0), down),
+        !bonk_strike_from_head(rising, block, Vec2::new(0.0, 6.0), down, crate::collision_semantics::ContactBands::CANONICAL),
         "falling through counted as a strike"
     );
     // Walking sideways past it strikes nothing.
     assert!(
-        !bonk_strike_from_head(rising, block, Vec2::new(6.0, 0.0), down),
+        !bonk_strike_from_head(rising, block, Vec2::new(6.0, 0.0), down, crate::collision_semantics::ContactBands::CANONICAL),
         "walking past counted as a strike"
     );
     // And a body nowhere near it, rising, strikes nothing.
@@ -298,7 +298,7 @@ fn a_bonk_only_block_is_struck_from_below_and_only_from_below() {
         elsewhere,
         block,
         Vec2::new(0.0, -6.0),
-        down
+        down, crate::collision_semantics::ContactBands::CANONICAL
     ));
 }
 
@@ -367,7 +367,7 @@ fn a_stack_reads_as_feet_on_a_head_in_every_cardinal_frame() {
         let victim = Aabb::new(Vec2::ZERO, half);
         let stomper = Aabb::new(-dir * size.y, half);
         assert!(
-            feet_on_head(stomper, victim, dir, BAND),
+            feet_on_head(stomper, victim, dir, BAND, crate::collision_semantics::EDGE_OVERLAP_SLOP),
             "a body resting on a head was not standing on it under gravity {dir:?}"
         );
         seen_true += 1;
@@ -375,7 +375,7 @@ fn a_stack_reads_as_feet_on_a_head_in_every_cardinal_frame() {
         // The mirror: the SAME two bodies with the stomper underneath.
         let below = Aabb::new(dir * size.y, half);
         assert!(
-            !feet_on_head(below, victim, dir, BAND),
+            !feet_on_head(below, victim, dir, BAND, crate::collision_semantics::EDGE_OVERLAP_SLOP),
             "a body UNDER a head was reported as standing on it under gravity {dir:?}"
         );
     }
@@ -392,17 +392,17 @@ fn hovering_above_a_head_is_not_standing_on_it() {
 
     // Feet 8px INTO the head: inside the band.
     let sunk = Aabb::new(Vec2::new(0.0, -size.y + 8.0), size * 0.5);
-    assert!(feet_on_head(sunk, victim, down, BAND));
+    assert!(feet_on_head(sunk, victim, down, BAND, crate::collision_semantics::EDGE_OVERLAP_SLOP));
 
     let hovering = Aabb::new(Vec2::new(0.0, -size.y - 8.0), size * 0.5);
     assert!(
-        !feet_on_head(hovering, victim, down, BAND),
+        !feet_on_head(hovering, victim, down, BAND, crate::collision_semantics::EDGE_OVERLAP_SLOP),
         "a body hovering above another was standing on it"
     );
 
     // And past the band on the far side is through it, not on it.
     let through = Aabb::new(Vec2::new(0.0, -size.y + BAND + 4.0), size * 0.5);
-    assert!(!feet_on_head(through, victim, down, BAND));
+    assert!(!feet_on_head(through, victim, down, BAND, crate::collision_semantics::EDGE_OVERLAP_SLOP));
 }
 
 /// AND IT NEEDS A REAL LATERAL SHARE, THROUGH THE SHARED PRIMITIVE.
@@ -413,5 +413,5 @@ fn a_body_beside_a_head_is_not_on_it() {
     let size = Vec2::new(24.0, 40.0);
     let victim = Aabb::new(Vec2::ZERO, size * 0.5);
     let beside = Aabb::new(Vec2::new(size.x * 1.5, -size.y), size * 0.5);
-    assert!(!feet_on_head(beside, victim, down, BAND));
+    assert!(!feet_on_head(beside, victim, down, BAND, crate::collision_semantics::EDGE_OVERLAP_SLOP));
 }

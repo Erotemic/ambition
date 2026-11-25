@@ -26,7 +26,7 @@
 //! It is stateless: what a body stands on is found again each tick from where
 //! it is, as for a box top. Nothing here is rollback state.
 
-use crate::collision_semantics::ONE_WAY_CROSSING_SLOP;
+use crate::collision_semantics::ContactBands;
 use crate::world::{Boarding, World};
 use crate::{Aabb, AabbExt, Vec2};
 
@@ -35,10 +35,6 @@ pub const WALK_SLOPE_LIMIT_DEG: f32 = 50.0;
 
 /// How far up the stick is held to step onto a line whose boarding is `Up`.
 pub const BOARDING_UP: f32 = 0.5;
-
-/// How much of a line must be under the foot span for the body to stand on
-/// it (the box-top rule's `EDGE_OVERLAP_SLOP`).
-const SPAN_OVERLAP_SLOP: f32 = crate::collision_semantics::EDGE_OVERLAP_SLOP;
 
 /// The line a body stands on, under its foot span.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -67,15 +63,17 @@ fn across(down: Vec2) -> Vec2 {
 
 /// Each walkable line under `body`'s foot span whose highest point there is
 /// within `[feet - above, feet + below]` of the body's feet coordinate: one
-/// for each chain, at its highest point under the span.
-pub fn lines_under_feet(world: &World, body: Aabb, down: Vec2, above: f32, below: f32) -> Vec<LineSupport> {
-    lines_under(world, body, down, above, below, false)
+/// for each chain, at its highest point under the span. At least
+/// `edge_overlap` of a line must be under the span (the box-top rule's
+/// [`ContactBands::edge_overlap`]).
+pub fn lines_under_feet(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, edge_overlap: f32) -> Vec<LineSupport> {
+    lines_under(world, body, down, above, below, edge_overlap, false)
 }
 
 /// [`lines_under_feet`], each line measured against `body` moved by the
 /// displacement that line made this tick: which line the body stood on as
 /// the tick began, when the lines that move have already moved.
-fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, with_motion: bool) -> Vec<LineSupport> {
+fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, edge_overlap: f32, with_motion: bool) -> Vec<LineSupport> {
     let mut found: Vec<LineSupport> = Vec::new();
     if world.chains.is_empty() || down == Vec2::ZERO {
         return found;
@@ -111,7 +109,7 @@ fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, wi
             }
             let (sa, sb) = (a.dot(side), b.dot(side));
             let (u0, u1) = (sa.min(sb).max(lo), sa.max(sb).min(hi));
-            if u1 - u0 <= SPAN_OVERLAP_SLOP {
+            if u1 - u0 <= edge_overlap {
                 continue;
             }
             // The line's feet coordinate at each end of the overlap; the
@@ -150,8 +148,8 @@ fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, wi
 
 /// The highest walkable line under `body`'s foot span within
 /// `[feet - above, feet + below]` (see [`lines_under_feet`]).
-pub fn line_under_feet(world: &World, body: Aabb, down: Vec2, above: f32, below: f32) -> Option<LineSupport> {
-    lines_under_feet(world, body, down, above, below)
+pub fn line_under_feet(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, edge_overlap: f32) -> Option<LineSupport> {
+    lines_under_feet(world, body, down, above, below, edge_overlap)
         .into_iter()
         .min_by(|a, b| a.feet_coord.total_cmp(&b.feet_coord))
 }
@@ -159,15 +157,15 @@ pub fn line_under_feet(world: &World, body: Aabb, down: Vec2, above: f32, below:
 /// Is `body` standing on a walkable line where it is: its feet on the line,
 /// or over it within the contact slop? A line above the feet (the foot of a
 /// ramp the body stands beside) is not under them.
-pub fn standing_on_line(world: &World, body: Aabb, down: Vec2) -> Option<LineSupport> {
-    line_under_feet(world, body, down, ON_LINE_EPSILON, crate::collision_semantics::CONTACT_SLOP)
+pub fn standing_on_line(world: &World, body: Aabb, down: Vec2, bands: ContactBands) -> Option<LineSupport> {
+    line_under_feet(world, body, down, ON_LINE_EPSILON, bands.contact, bands.edge_overlap)
 }
 
 /// [`standing_on_line`] as a tick begins: a line that moved this tick (a
 /// ridden mount's slope) is where the body stood on it once the body is
 /// moved with it.
-pub fn stood_on_line(world: &World, body: Aabb, down: Vec2) -> Option<LineSupport> {
-    lines_under(world, body, down, ON_LINE_EPSILON, crate::collision_semantics::CONTACT_SLOP, true)
+pub fn stood_on_line(world: &World, body: Aabb, down: Vec2, bands: ContactBands) -> Option<LineSupport> {
+    lines_under(world, body, down, ON_LINE_EPSILON, bands.contact, bands.edge_overlap, true)
         .into_iter()
         .min_by(|a, b| a.feet_coord.total_cmp(&b.feet_coord))
 }
@@ -177,7 +175,7 @@ pub fn stood_on_line(world: &World, body: Aabb, down: Vec2) -> Option<LineSuppor
 /// point there is at its feet, as [`standing_on_line`] finds them. The whole
 /// segment, not only the part under the box: the support of a body goes on
 /// past its box (`collision_semantics::footing`).
-pub fn spans_underfoot(world: &World, body: Aabb, down: Vec2, side: Vec2) -> Vec<(f32, f32)> {
+pub fn spans_underfoot(world: &World, body: Aabb, down: Vec2, side: Vec2, bands: ContactBands) -> Vec<(f32, f32)> {
     let mut spans = Vec::new();
     if world.chains.is_empty() || down == Vec2::ZERO {
         return spans;
@@ -199,7 +197,7 @@ pub fn spans_underfoot(world: &World, body: Aabb, down: Vec2, side: Vec2) -> Vec
             }
             let (sa, sb) = (a.dot(side), b.dot(side));
             let (u0, u1) = (sa.min(sb).max(lo), sa.max(sb).min(hi));
-            if u1 - u0 <= SPAN_OVERLAP_SLOP {
+            if u1 - u0 <= bands.edge_overlap {
                 continue;
             }
             let at = |u: f32| {
@@ -207,7 +205,7 @@ pub fn spans_underfoot(world: &World, body: Aabb, down: Vec2, side: Vec2) -> Vec
                 a + t * k
             };
             let highest = at(u0).dot(down).min(at(u1).dot(down));
-            if highest < feet - ON_LINE_EPSILON || highest > feet + crate::collision_semantics::CONTACT_SLOP {
+            if highest < feet - ON_LINE_EPSILON || highest > feet + bands.contact {
                 continue;
             }
             spans.push((sa.min(sb), sa.max(sb)));
@@ -276,7 +274,7 @@ pub(crate) fn stood_on_material_line(
     world: &World, body: &crate::BodyKinematics, down: Vec2,
     admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) -> Result<Option<LineSupport>, crate::frame::thread::Refusal> {
-    Ok(material_lines(world, body, down, ON_LINE_EPSILON, crate::collision_semantics::CONTACT_SLOP, 0.0, admission)?
+    Ok(material_lines(world, body, down, ON_LINE_EPSILON, ContactBands::of(body.material).contact, 0.0, admission)?
         .into_iter().min_by(|a,b| a.feet_coord.total_cmp(&b.feet_coord)))
 }
 
@@ -286,9 +284,9 @@ const ON_LINE_EPSILON: f32 = 0.05;
 
 /// How far a line may rise or fall under a body that moves `travel` across
 /// the floor and still be walked: the slope limit's rise over that travel,
-/// and the one-way surface's crossing slop.
-pub fn walk_allowance(travel: f32) -> f32 {
-    ONE_WAY_CROSSING_SLOP + travel.abs() * WALK_SLOPE_LIMIT_DEG.to_radians().tan()
+/// and the body's one-way crossing band ([`ContactBands::crossing`]).
+pub fn walk_allowance(travel: f32, crossing: f32) -> f32 {
+    crossing + travel.abs() * WALK_SLOPE_LIMIT_DEG.to_radians().tan()
 }
 
 /// What a step did on a line.
@@ -342,7 +340,7 @@ pub fn settle_on_line(world: &World, kinematics: &crate::BodyKinematics, down: V
     let feet = body.feet_coord(down);
     let side = across(down);
     let travel = step.moved.dot(side);
-    let allowance = walk_allowance(travel);
+    let allowance = walk_allowance(travel, ContactBands::of(kinematics.material).crossing);
     // Above the feet: the line rose under a body that walked up it, or the
     // body fell through it this step. Either way the feet were not under the
     // line by more than the allowance at the start of the step.
@@ -518,7 +516,7 @@ mod tests {
     fn the_feet_rest_on_the_highest_point_of_the_line_under_the_box() {
         let world = ramp();
         // Centred at x 200 the box spans 186..214; the line is highest at 214.
-        let line = standing_on_line(&world, body_at(Vec2::new(200.0, 143.0)).aabb(), DOWN).expect("on the ramp");
+        let line = standing_on_line(&world, body_at(Vec2::new(200.0, 143.0)).aabb(), DOWN, crate::collision_semantics::ContactBands::CANONICAL).expect("on the ramp");
         assert!((line.feet_coord - 143.0).abs() < 1.0e-3, "{line:?}");
         assert!((line.point.x - 214.0).abs() < 1.0e-3);
     }
@@ -530,7 +528,7 @@ mod tests {
         let rising = settle_on_line(&world, &under, DOWN, step(Vec2::new(0.0, -100.0), 175.0, 0.0, false), None).unwrap();
         assert!(rising.is_none(), "a rising body passes the line");
         let wall = world_with(vec![Vec2::new(0.0, 300.0), Vec2::new(20.0, 100.0)]);
-        assert!(line_under_feet(&wall, body_at(Vec2::new(10.0, 200.0)).aabb(), DOWN, 500.0, 500.0).is_none());
+        assert!(line_under_feet(&wall, body_at(Vec2::new(10.0, 200.0)).aabb(), DOWN, 500.0, 500.0, crate::collision_semantics::EDGE_OVERLAP_SLOP).is_none());
     }
 
     #[test]

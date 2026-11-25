@@ -168,6 +168,8 @@ pub fn claim_footstools(
                     victim.kin.aabb(),
                     gravity_dir,
                     rules.band,
+                    // The stomper's own sliver: its feet, in its units.
+                    ae::collision_semantics::ContactBands::of(stomper.kin.material).edge_overlap,
                 ) {
                     continue;
                 }

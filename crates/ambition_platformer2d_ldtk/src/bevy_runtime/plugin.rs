@@ -8,7 +8,8 @@
 //! `components`, the rebuild system in `systems`.
 
 use bevy::prelude::{
-    Added, App, Commands, Entity, IntoScheduleConfigs, Name, Plugin, Query, ResMut, Startup, Update,
+    Added, App, Commands, Entity, IntoScheduleConfigs, Name, Plugin, PreUpdate, Query, ResMut, Startup,
+    Update,
 };
 use bevy_ecs_ldtk::prelude::{EntityInstance as PluginEntityInstance, LdtkEntityAppExt};
 
@@ -38,21 +39,18 @@ impl Plugin for LdtkRuntimePlugin {
             // entity lifecycle without also drawing a background rectangle
             // behind every level.
             level_background: LevelBackground::Nonexistent,
-            // bevy_ecs_ldtk's default `IntGridRendering::Colorful` spawns a
-            // colored tile sprite per non-zero IntGrid cell when no tileset
-            // is configured (1004 sprites for central_hub_main alone). Those
-            // tiles render in raw LDtk world-pixel coordinates from
-            // `LdtkWorldBundle`'s default transform, while the compose path
-            // (`int_grid_value_to_block` → `spawn_block`) renders in the
-            // centered Bevy frame via `world_to_bevy`. The two frames disagree
-            // by ~half-room-width on x, so the plugin's IntGrid output appeared
-            // as a duplicated, horizontally-shifted copy of the room. Collision
-            // comes from the world IR, not from these cells.
+            // Keep the cell color overlay off when a layer name is shared.
             int_grid_rendering: IntGridRendering::Invisible,
             ..Default::default()
         });
         app.add_plugins(AmbitionLdtkRegistrationPlugin)
             .add_systems(Startup, super::asset::load_ldtk_asset_handle)
+            .add_systems(
+                PreUpdate,
+                super::asset::select_painted_layers
+                    .after(bevy::asset::AssetTrackingSystems)
+                    .before(bevy_ecs_ldtk::systems::process_ldtk_levels),
+            )
             .add_systems(
                 Update,
                 super::asset::present_ldtk_levels_per_live_room

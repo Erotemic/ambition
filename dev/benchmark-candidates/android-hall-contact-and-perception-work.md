@@ -245,7 +245,14 @@ active views and readers, the same entry view had 13,115 spawned entities.
 The captured frame showed Scout and the nearby exhibits. Use these counts
 to compare entity work. Host load and software rendering varied between runs.
 
-The rendered census still counted 6,948 IntGrid cells. Collision already
-comes from the prepared room geometry. If a new capture shows time in the
-LDtk render path, check which layers need painted tiles before creating
-their render entities.
+### LDtk layer selection
+
+The Hall had 6,948 cells in its unpainted `Collision` layer. The LDtk
+adapter spawned these cells even with its color overlay off. Presentation
+now selects the adapter's layer exclusions from the loaded projects. If a
+layer name has painted tiles or entities in any project, keep that name.
+Simulation still reads the cells when it prepares the room geometry.
+
+The same 1280 × 720 Hall entry view admitted all 595 roots and settled at
+6,168 spawned entities, down from 13,115 after the rigged part change. The
+captured frame showed the platforms, exhibits, and Scout on the entry floor.

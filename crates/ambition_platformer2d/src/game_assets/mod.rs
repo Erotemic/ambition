@@ -6,6 +6,7 @@
 //! The umbrella crate owns this composition because the lower host/presentation layers
 //! intentionally do not depend on the actor/content catalogs.
 
+#[cfg(feature = "ambition_render")]
 use bevy::prelude::*;
 
 /// Asset loading from the registered content catalogs.
@@ -15,7 +16,16 @@ pub use sheets::{
     load_the_prop_sheets_in_reach, reload_prop_sheets_of_targets, restate_prop_sheet_rows,
     PropSheetDemandSet,
 };
+// The room's prop sheets are prepared where a room is drawn.
+#[cfg(feature = "ambition_render")]
 pub(crate) use sheets::{RoomPropSheets, room_prop_kinds};
+
+// The install for a game that draws: its plugin and binder.
+#[cfg(feature = "ambition_render")]
+pub use drawing::*;
+#[cfg(feature = "ambition_render")]
+mod drawing {
+use super::*;
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog;
@@ -223,4 +233,5 @@ fn bind_game_assets(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::Sp
         quality.as_deref().map(|q| &q.budget),
         &prop_sheets,
     );
+}
 }

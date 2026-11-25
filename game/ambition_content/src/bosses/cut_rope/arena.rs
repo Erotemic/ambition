@@ -250,6 +250,7 @@ pub fn tick_cut_rope_flavor(
 /// state. Separate from the gameplay systems so the rendering query does not
 /// grow their parameter count. Each live cut-rope room draws its own arena:
 /// its props are the prop visuals in that live room.
+#[cfg(feature = "render")]
 pub fn sync_cut_rope_boss_arena_prop_visuals(
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     state: Res<CutRopeBossArenaState>,
@@ -327,6 +328,7 @@ fn pulse_waiting_rope_explosions(
 /// answers "what is it drawn as now", not "which prop is it". The caption
 /// (`prop.name`) is not an identity either. A third heavy object needs no new
 /// arm here.
+#[cfg(feature = "render")]
 pub(super) fn is_heavy_object(prop: &PropVisual, anvil: &PropSpec) -> bool {
     prop.id == anvil.id
 }
@@ -345,6 +347,7 @@ fn prop_aabb(prop: &PropSpec) -> ae::Aabb {
     ae::Aabb::new(prop.pos, prop.size * 0.5)
 }
 
+#[cfg(feature = "render")]
 fn sync_cut_rope_prop_visuals(
     prop_visuals: &mut Query<(
         Entity,
@@ -420,6 +423,7 @@ fn sync_cut_rope_prop_visuals(
     }
 }
 
+#[cfg(feature = "render")]
 fn apply_cut_rope_heavy_object_sprite(
     prop: &mut PropVisual,
     sprite: &mut Sprite,
@@ -463,6 +467,9 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
     mut heavy_object: ResMut<CutRopeHeavyObjectCycle>,
     tuning: Res<crate::tuning::AmbitionTuning>,
     mut reset_events: ambition_combat::events::AdmittedReplays,
+    // The rope and anvil props are drawn by the renderer; without it there
+    // is nothing to restore on the reset frame but the arena's own state.
+    #[cfg(feature = "render")]
     mut prop_visuals: Query<(
         Entity,
         &mut PropVisual,
@@ -472,6 +479,7 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
         Option<&mut Anchor>,
         Option<&mut Visibility>,
     )>,
+    #[cfg(feature = "render")]
     assets: Option<Res<GameAssets>>,
 ) {
     let Some(subject_room) = reset_events
@@ -496,6 +504,7 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
     heavy_object.advance(trap.heavy_objects.len());
     let arena = CutRopeArena::default();
     state.arenas.insert(replayed, arena.clone());
+    #[cfg(feature = "render")]
     if let Some(anvil) = authored_prop(&spec.props, ANVIL_KIND) {
         sync_cut_rope_prop_visuals(
             &mut prop_visuals,

@@ -12,6 +12,9 @@ description = "Installs the fighter specials that more than one game's cast auth
 [dependencies]
 ambition_demo_smash_modules = { path = "../ambition_demo_smash_modules" }
 # `portal` installs the held portal pair in `technique_execution`. Without it
-# the portal recovery is admitted and opens apertures nothing transits.
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "portal"] }
+# the portal recovery is admitted and opens apertures nothing transits. No
+# other capability: the specials name the combat, catalog, extension and
+# runtime modules, which every selection has, and a game that draws them
+# selects its own renderer.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["portal"] }
 bevy = { version = "0.19.1", default-features = false }

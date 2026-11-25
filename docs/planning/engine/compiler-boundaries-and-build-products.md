@@ -376,6 +376,43 @@ goblin_encounter --dump-trace` gives the same trace (every frame and event;
 only the dump's timestamp differs) built under `sim` and under `game`.
 No compile-time result is claimed.
 
+**Provider cut (2026-11-25).** `ambition_content` no longer selects the
+facade's `all_capabilities`. It asks for what it simulates with (`rollback`,
+`ldtk`, `ambition_portal2d`, `dialogue`, `content_pack`, `script_modules`), and
+a new `render` feature brings `ambition_render` (now an optional edge), the
+facade's renderer and the inventory UI. Under `render` sit the content
+`presentation` module, the item art roster's wielded visuals, and what only
+the renderer reads: the area cards, daylight, platform looks, the reload's
+publishers of those rows (each family stays in the reload table and
+publishes nothing without its reader), and the cut-rope arena's rope and
+anvil sprites (the arena's own state still resets on a replay). The provider's
+presentation declarations (framing profiles, defense cues, player glow) name
+their owner, `shared_tangle::gameplay_presentation`, and are made in every
+build. `ambition_fighter_specials` selected `all_capabilities` too; it now
+asks for `portal` only. That selection showed the facade did not compile
+without its renderer: `content::live_reload` and `sprite_reload` (under
+`content_pack`) call the prop and fx sheet restaters in `game_assets`, which
+was gated whole on `ambition_render`. The module is now in every selection,
+and only its drawing install (the plugin and binder) is gated.
+
+Content's own normal graph (`cargo tree -p ambition_content -e normal`, its
+dev-dependencies removed so cargo does not unify their features; unique
+crates): 451 at the parent commit, 440 now. Gone: `ambition_render`,
+`ambition_menu`, `ambition_inventory_ui`, `ambition_settings_menu`,
+`ambition_touch_input`, `ambition_portal2d_presentation`, `bevy_ui_render`.
+Still there, by name: `bevy_render`, `wgpu`, `bevy_core_pipeline` and
+`bevy_sprite_render`, through the runtime's `ldtk` feature, which turns on
+`ambition_platformer2d_ldtk/ldtk_runtime` and so `bevy_ecs_ldtk` with its
+default `render`. That is the next edge, and it is the engine's, not the
+provider's.
+
+No consumer changes. The app takes the facade's defaults, which link the
+renderer in every persona, so it selects `ambition_content/render`
+unconditionally, and the `sim` tools graph is unchanged. Content's tests
+select `render` through the self dev-dependency. `run_tests.py` checks
+`ambition_content --lib` with no features, the one run that sees a renderer
+name outside the gate. No compile-time result is claimed.
+
 **Execution owner:** `ambition_app_tools` command packaging and
 `ambition_sim_harness` dependency selection, coordinated with supported launch
 and test lanes. The Ambition provider's presentation cut is a separate proof.

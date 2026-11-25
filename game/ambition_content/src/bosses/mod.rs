@@ -30,7 +30,7 @@ pub use cut_rope::{
     detect_cut_rope_rope_cut, emit_cut_rope_room_replay_after_the_conversation_ends,
     cut_rope_music_is_claimed, is_cut_rope_boss, release_cut_rope_music_outside_its_room, reset_cut_rope_attempt_on_replay, reset_cut_rope_boss_arena_on_room_reset,
     reset_cut_rope_boss_attempt, spawn_cut_rope_victory_npc,
-    sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_flavor, CutRopeBossArenaState,
+    tick_cut_rope_flavor, CutRopeBossArenaState,
     CutRopeHeavyObjectCycle, CutRopeRoomReplayRequested, PendingCutRopeRoomReplay,
     SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID,
     CUT_ROPE_VICTORY_NPC_ID,
@@ -396,7 +396,9 @@ impl Plugin for AmbitionBossContentPlugin {
             (
                 detect_cut_rope_rope_cut.in_set(GameplayGated),
                 tick_cut_rope_flavor.in_set(GameplayGated),
-                sync_cut_rope_boss_arena_prop_visuals,
+                // The rope and anvil drawn as the arena's state says.
+                #[cfg(feature = "render")]
+                cut_rope::sync_cut_rope_boss_arena_prop_visuals,
             )
                 .chain()
                 .run_if(cut_rope::a_cut_rope_arena_is_live_or_held)

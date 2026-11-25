@@ -11,9 +11,10 @@
 pub mod app;
 pub mod autopilot;
 pub mod demo_shell;
-/// Asset install for a game that DRAWS — rides the `ambition_render` capability
-/// edge, because its Startup ordering anchor is `ambition_render`'s.
-#[cfg(feature = "ambition_render")]
+/// Asset install for a game that DRAWS, and the sheet rows a content reload
+/// restates. The install rides the `ambition_render` capability edge, because
+/// its Startup ordering anchor is `ambition_render`'s; the sheet restaters do
+/// not draw, and a provider's reload names them in every selection.
 pub mod game_assets;
 #[cfg(feature = "ambition_render")]
 pub mod world_flow;

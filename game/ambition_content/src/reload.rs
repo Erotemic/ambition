@@ -1095,6 +1095,17 @@ fn publish_wielded_item_art(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
 ) {
+    #[cfg(not(feature = "render"))]
+    let _ = (world, pack);
+    #[cfg(feature = "render")]
+    publish_wielded_item_art_rows(world, pack);
+}
+
+#[cfg(feature = "render")]
+fn publish_wielded_item_art_rows(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
     let Some(previous) = world.get_resource::<crate::items::wielded_visuals::AmbitionWieldedItemArt>().cloned() else {
         return;
     };
@@ -1150,6 +1161,7 @@ fn publish_ambition_tuning(
                 authored.restate_starting_character(crate::provider::AMBITION_EXPERIENCE, &rules.starting_character);
             }
             world.insert_resource(crate::day_cycle::day_cycle(&rules.day));
+            #[cfg(feature = "render")]
             world.insert_resource(crate::day_cycle::daylight(&rules.day));
             // The arena room stages the new duel the next time its
             // contents are staged.
@@ -1188,6 +1200,17 @@ fn publish_prop_sheets(
 /// frame. Another provider's kind is refused, and the reload keeps
 /// Ambition's looks.
 fn publish_platform_looks(
+    world: &mut bevy::ecs::world::World,
+    pack: &ambition_content_pack::PreparedContentPack,
+) {
+    #[cfg(not(feature = "render"))]
+    let _ = (world, pack);
+    #[cfg(feature = "render")]
+    publish_platform_look_rows(world, pack);
+}
+
+#[cfg(feature = "render")]
+fn publish_platform_look_rows(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
 ) {

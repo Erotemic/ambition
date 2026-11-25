@@ -143,6 +143,7 @@ mod pointed_polygon_moveset;
 /// Content-owned presentation passes (visible builds; Ambition's provider adds
 /// [`presentation::AmbitionPresentationPlugin`] where the renderer's
 /// presentation is installed).
+#[cfg(feature = "render")]
 pub mod presentation;
 #[cfg(test)]
 mod projectile_polygon_moveset;

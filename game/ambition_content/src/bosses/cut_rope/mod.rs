@@ -30,6 +30,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_actor_spawn::actor_bundles::{EnemyActorBundle, FeatureRenderedBundle};
 use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_core::{self as ae, AabbExt};
+#[cfg(feature = "render")]
 use ambition_render::rendering::PropVisual;
 use ambition_sfx::SfxMessage;
 use ambition_sprite_sheet::character::{
@@ -45,7 +46,9 @@ const CUT_ROPE_ROOM_ID: &str = "you_have_to_cut_the_rope";
 const ROPE_KIND: &str = "cut_rope_rope";
 /// The prop the level authors where the heavy object hangs. What hangs there
 /// is the rules' `cut_rope_trap.heavy_objects`; this names only the place.
+#[cfg(feature = "render")]
 const ANVIL_KIND: &str = "cut_rope_anvil";
+#[cfg(feature = "render")]
 const ANVIL_Z_OFFSET: f32 = 0.75;
 
 pub fn is_cut_rope_boss(id: &str) -> bool {

@@ -1002,10 +1002,8 @@ fn label_touch_buttons(
         if ready.0 != next_ready {
             ready.0 = next_ready;
         }
-        let next: Option<String> = if *action == TouchActionButton::Reset
-            && prompt.context == ControlContextKind::Gameplay
-        {
-            Some("Reset".into())
+        let next: Option<String> = if *action == TouchActionButton::Reset {
+            Some(if prompt.context == ControlContextKind::Gameplay { "Reset" } else { "Back" }.into())
         } else {
             match prompt.context {
                 ControlContextKind::Gameplay => touch_button_slot(*action)

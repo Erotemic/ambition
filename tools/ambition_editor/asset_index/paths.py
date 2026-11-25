@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import os
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 
 def repo_root() -> Path:
@@ -32,6 +35,14 @@ class Root:
 
 def library_path(repo: Path) -> Path:
     return repo / os.environ.get("AMBITION_CONTENT_LIBRARY", "game/ambition_content_library/library.json")
+
+
+def publication_file(repo: Path) -> Path | None:
+    from lib.art_publication import store
+
+    manifest = library_path(repo)
+    publication = store(manifest) if manifest.is_file() else None
+    return publication.root / "published.json" if publication else None
 
 
 _LIBRARY: dict[str, tuple] = {}
@@ -95,8 +106,6 @@ def roots(repo: Path) -> list[Root]:
 
 def _read_roots(repo: Path) -> list[Root]:
     a = asset_root(repo)
-    import sys
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
     from lib.art_publication import files as art_files
     out = [Root("sprites", a / "sprites", origin="unmanaged")]
     out += [Root("sprites"+suffix, a / ("sprites"+suffix), tier, "sprites", "unmanaged") for suffix, tier in TIERS.items()]

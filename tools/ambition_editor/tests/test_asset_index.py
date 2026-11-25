@@ -8,7 +8,9 @@ import hashlib
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
+from urllib.request import urlopen
 
 import pytest
 from PIL import Image
@@ -46,6 +48,59 @@ def test_no_command_serves_and_opens(monkeypatch, tmp_path):
     monkeypatch.setattr(server, "serve", lambda repo, out, **kw: served.update(kw) or 0)
     assert build.main([]) == 0
     assert served["open_browser"] and callable(served["build"])
+
+
+def test_served_index_refreshes_after_new_art_is_published(tmp_path, monkeypatch):
+    monkeypatch.delenv("AMBITION_ART_STORE", raising=False)
+    library = tmp_path / "library.json"
+    library.write_text('{"publication":"art"}')
+    monkeypatch.setenv("AMBITION_CONTENT_LIBRARY", str(library))
+    publication = tmp_path / "art/published.json"
+    publication.parent.mkdir()
+    publication.write_text('{"generation":"first"}')
+    out = tmp_path / "inspector"
+    out.mkdir()
+    catalog = out / "catalog.js"
+    refresh = tmp_path / "refresh.py"
+    refresh.write_text(f"""from pathlib import Path
+catalog = Path({str(catalog)!r})
+partial = catalog.with_suffix('.partial')
+partial.write_text('window.ART_CATALOG = ' + Path({str(publication)!r}).read_text() + ';')
+partial.replace(catalog)
+""")
+    refresh_command = [sys.executable, str(refresh)]
+    editor = Path(__file__).resolve().parents[1]
+    runner = (f"import sys; sys.path.insert(0, {str(editor)!r}); "
+              "from pathlib import Path; from asset_index.server import serve; "
+              f"serve(Path.cwd(), Path.cwd() / 'inspector', port=0, refresh_command={refresh_command!r})")
+    with subprocess.Popen([sys.executable, "-c", runner], cwd=tmp_path, stdout=subprocess.PIPE, text=True) as server:
+        try:
+            line = server.stdout.readline().strip()
+            assert line.startswith("Ambition Editor: http://"), line
+            base = line.split()[2].rsplit("/inspector/", 1)[0]
+
+            def wait_for_generation(generation):
+                deadline = time.monotonic() + 10
+                while time.monotonic() < deadline:
+                    with urlopen(base + "/api/build-status", timeout=2) as response:
+                        status = json.load(response)
+                    assert status["state"] != "failed", status
+                    if status["state"] == "done" and status.get("generation") == generation:
+                        return
+                    time.sleep(0.05)
+                pytest.fail(f"The server did not finish indexing {generation}: {status}")
+
+            wait_for_generation("first")
+            staged = publication.with_suffix(".partial")
+            staged.write_text('{"generation":"second"}')
+            staged.replace(publication)
+            wait_for_generation("second")
+            with urlopen(base + "/inspector/catalog.js", timeout=2) as response:
+                assert response.headers["Cache-Control"] == "no-store"
+                assert b'"generation":"second"' in response.read()
+        finally:
+            server.terminate()
+            server.wait(timeout=5)
 
 
 LAYOUT = """target: foo

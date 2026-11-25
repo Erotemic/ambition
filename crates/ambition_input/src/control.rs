@@ -297,9 +297,8 @@ fn confirm_pressed(actions: &ActionState<Platformer2dInputActionMonolith>) -> bo
     actions.just_pressed(&Platformer2dInputActionMonolith::MenuSelect)
 }
 
-/// The participant's cancel level: the menu-back or reset binding held.
+/// The participant's cancel level: the menu-back binding held.
 #[cfg(feature = "input")]
 fn cancel_held(actions: &ActionState<Platformer2dInputActionMonolith>) -> bool {
     actions.pressed(&Platformer2dInputActionMonolith::MenuBack)
-        || actions.pressed(&Platformer2dInputActionMonolith::Reset)
 }

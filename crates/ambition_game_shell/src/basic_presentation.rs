@@ -258,13 +258,8 @@ fn basic_shell_menu_intent(
         (frame.page_right as i32) - (frame.page_left as i32)
     });
     if launcher.active {
-        // Dedicated Start opens settings; the pause cube yields to the launcher.
-        // A shared Start/Select control confirms the selected route.
-        if actions.pause
-            && !menu_frame
-                .as_ref()
-                .is_some_and(|frame| frame.start_shared_with_select)
-        {
+        // The contextual resolver distinguishes dedicated Start from Confirm.
+        if actions.pause {
             launcher_commands.write(ShellLauncherCommand::CycleTab(1));
             sfx.write(SfxMessage::Play {
                 id: ids::UI_MENU_MOVE,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import threading
 import webbrowser
@@ -13,7 +14,7 @@ from urllib.parse import urlsplit
 
 import yaml
 
-from . import page, reviews
+from . import page, paths, reviews
 
 #: What the page says when this server runs older code than the page it serves.
 RESTART = "./scripts/asset_inspector.py --kill"
@@ -46,15 +47,21 @@ def make_handler(repo: Path, catalog, status=None):
             self.wfile.write(body)
 
         def do_GET(self):
-            if urlsplit(self.path).path == "/api/build-status":
-                return self.reply(200, dict(status or {"state": "done"}, server_stale=_code_stamp() != started,
+            path = urlsplit(self.path).path
+            if path == "/api/build-status":
+                return self.reply(200, dict(status() if status else {"state": "done"}, server_stale=_code_stamp() != started,
                                             restart=RESTART))
-            if urlsplit(self.path).path != "/api/asset-reviews":
+            if path != "/api/asset-reviews":
                 return super().do_GET()
             try:
                 self.reply(200, reviews.snapshot(repo, current_catalog()))
             except (ValueError, OSError, yaml.YAMLError) as error:
                 self.reply(500, {"error": str(error)})
+
+        def end_headers(self):
+            if urlsplit(self.path).path.endswith("/catalog.js"):
+                self.send_header("Cache-Control", "no-store")
+            super().end_headers()
 
         def mutate(self):
             try:
@@ -181,10 +188,11 @@ def kill_server(port: int, log=print) -> bool:
 
 
 def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, refresh_command=None, kill=False):
-    """Serve `out`. A page built before opens at once and `refresh_command` (a
-    build command line) refreshes it behind, in its own low-priority process, so
-    the server answers the page while it runs. The page polls `/api/build-status`
-    and offers a reload. With no page yet, `build(log)` runs first."""
+    """Serve the last index while a refresh runs in a separate process.
+
+    Refresh on startup and when an open page sees a new art publication.
+    If there is no index, build it before the server starts.
+    """
     cached = None
     stamp = None
     def current_catalog():
@@ -207,49 +215,78 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, r
         print(f"Port {port} is in use by {'another asset inspector' if ours else 'another program'} (pid {holder}). "
               + ("Rerun with --kill to replace it, or use --port." if ours else "Use --port to choose another."), flush=True)
         return 1
-    if build is not None and not (out / "index.html").is_file():
+    publication = paths.publication_file(repo) if refresh_command else None
+
+    def publication_stamp():
+        if publication is not None:
+            try:
+                stat = publication.stat()
+                return (stat.st_ino, stat.st_mtime_ns, stat.st_size)
+            except FileNotFoundError:
+                pass
+        return None
+
+    seen_publication = publication_stamp()
+    first_build = build is not None and not (out / "index.html").is_file()
+    if first_build:
         build(log)
-        refresh_command = None
     elif (out / "catalog.js").is_file():
         # The previous index shows until the refresh is done; its page files are
         # this code's, so the page asks this server for the routes it has.
         page.copy(out)
     child_box: list = []
+    refresh_lock = threading.Lock()
+    nice = shutil.which("nice")
+
+    def refresh(has_publication):
+        child = None
+        try:
+            generation = json.loads(publication.read_text())["generation"] if has_publication else None
+            command = [nice, "-n", "10", *refresh_command] if nice else refresh_command
+            child = subprocess.Popen(command, cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                     env=dict(os.environ, PYTHONUNBUFFERED="1"))
+            child_box.append(child)
+            lines = []
+            for line in child.stdout:
+                line = line.rstrip("\n")
+                lines.append(line)
+                log(line)
+            if child.wait():
+                raise RuntimeError("\n".join(lines[-8:]))
+            status.update(state="done", generation=generation)
+        except Exception as error:
+            status.update(state="failed", step=f"{type(error).__name__}: {str(error).splitlines()[-1] if str(error) else ''}")
+            print(f"Ambition Editor: the refresh failed; the page shows the previous index.\n{error}", flush=True)
+        finally:
+            if child is not None:
+                child_box.remove(child)
+
+    def refresh_status(force=False):
+        nonlocal seen_publication
+        with refresh_lock:
+            if refresh_command and status["state"] != "building":
+                current = publication_stamp()
+                if force or current != seen_publication:
+                    seen_publication = current
+                    status.update(state="building", step="starting")
+                    threading.Thread(target=refresh, args=(current is not None,), daemon=True).start()
+            return dict(status)
+
     def stop(_signum, _frame):  # `--kill` from another run: take the refresh down too
         for child in child_box:
             child.terminate()
         raise SystemExit(0)
     import signal
     signal.signal(signal.SIGTERM, stop)
-    with ThreadingHTTPServer(("127.0.0.1", port), make_handler(repo, current_catalog, status)) as server:
+    with ThreadingHTTPServer(("127.0.0.1", port), make_handler(repo, current_catalog, refresh_status)) as server:
         url = f"http://127.0.0.1:{server.server_port}/{(out / 'index.html').relative_to(repo).as_posix()}#overview"
         print(f"Ambition Editor: {url}", flush=True)
         print("Reviews: tools/ambition_editor/reviews/ (music: the music tool's reviews/music/)", flush=True)
         if open_browser:
             webbrowser.open(url)
-        if refresh_command:
-            def refresh():
-                # A separate process at low priority: a refresh is pure Python work and a
-                # possible cargo build, which in a thread here would starve page requests.
-                status["state"] = "building"
-                try:
-                    child = subprocess.Popen(refresh_command, cwd=repo, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                                             env=dict(os.environ, PYTHONUNBUFFERED="1"),
-                                             preexec_fn=(lambda: os.nice(10)) if hasattr(os, "nice") else None)
-                    child_box.append(child)
-                    lines = []
-                    for line in child.stdout:
-                        line = line.rstrip("\n")
-                        lines.append(line)
-                        log(line)
-                    if child.wait():
-                        raise RuntimeError("\n".join(lines[-8:]))
-                    status["state"] = "done"
-                except Exception as error:  # the open page stays usable; say why it did not refresh
-                    status.update(state="failed", step=f"{type(error).__name__}: {str(error).splitlines()[-1] if str(error) else ''}")
-                    print(f"Ambition Editor: the refresh failed; the page shows the previous index.\n{error}", flush=True)
+        if refresh_command and not first_build:
             print("Showing the previous index while it refreshes.", flush=True)
-            threading.Thread(target=refresh, daemon=True).start()
+            refresh_status(force=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

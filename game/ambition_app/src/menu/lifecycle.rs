@@ -74,12 +74,13 @@ fn sync_session_menus(
 pub(crate) struct MenuPauseState {
     scope: Option<ambition_platformer2d::platformer::lifecycle::SessionScopeId>,
     initialized: bool,
-    resume: Option<GameMode>,
+    hold: ambition_platformer2d::platformer::lifecycle::MenuPauseHold,
 }
 
 /// Apply the combined pause claim after all menu input and actions.
 pub(crate) fn aggregate_menu_pause(
-    mut menus: Query<&mut InventoryUiState>,
+    mut menus: Query<(&ambition_platformer2d::inventory_ui::InventoryMenu, &mut InventoryUiState)>,
+    roster: Option<Res<ambition_platformer2d::platformer::lifecycle::MenuPauseRoster>>,
     mode: Res<State<GameMode>>,
     mut next: ResMut<NextState<GameMode>>,
     scope: ambition_platformer2d::platformer::lifecycle::LiveSessionScope,
@@ -88,41 +89,31 @@ pub(crate) fn aggregate_menu_pause(
 ) {
     let scope = scope.get();
     if pause.initialized && pause.scope != scope {
-        for mut menu in &mut menus { menu.close(); }
-        pause.resume = None;
+        for (_, mut menu) in &mut menus { menu.close(); }
+        pause.hold = Default::default();
         pause.scope = scope;
         return;
     }
     pause.initialized = true;
     pause.scope = scope;
-    // A local surface cannot pause a remote timeline. Its input context
-    // captures that participant's controls while the shared simulation runs.
+    // Use the admitted roster, not the number of controllers or visible menus.
+    // Without the host roster, isolated menu fixtures still exercise the
+    // same nonempty unanimity rule. Remote votes must come from an agreed
+    // control-plane state; a local request cannot stop a peer timeline.
     let remote = ownership.is_some_and(|ownership| ownership.has_remote_peers());
-    let open = !remote && menus.iter().any(|menu| menu.visible);
+    let open = !remote && match roster.as_deref() {
+        Some(roster) => roster.scope == scope && roster.session_pause(|slot| {
+            menus.iter().any(|(menu, state)| menu.owner.slot() == slot && state.visible)
+        }),
+        None => !menus.is_empty() && menus.iter().all(|(_, state)| state.visible),
+    };
     let requested = match &*next {
         NextState::Pending(mode) | NextState::PendingIfNeq(mode) => Some(*mode),
         NextState::Unchanged => None,
     };
-    let underlying = requested.unwrap_or(*mode.get());
-    if open {
-        match underlying {
-            GameMode::Playing | GameMode::Dialogue | GameMode::Cutscene => {
-                pause.resume = Some(underlying);
-                ambition_platformer2d::platformer::world_log::note_game_mode_request(GameMode::Paused, "local_menu_pause");
-                next.set(GameMode::Paused);
-            }
-            GameMode::Paused => {
-                if requested.is_some() || pause.resume.is_none() {
-                    pause.resume = Some(GameMode::Paused);
-                }
-            }
-            _ => {}
-        }
-    } else if let Some(resume) = pause.resume.take() {
-        if requested.is_none() && underlying == GameMode::Paused && resume != GameMode::Paused {
-            ambition_platformer2d::platformer::world_log::note_game_mode_request(resume, "local_menu_release");
-            next.set(resume);
-        }
+    if let Some(target) = pause.hold.update(open, *mode.get(), requested) {
+        ambition_platformer2d::platformer::world_log::note_game_mode_request(target, "menu_pause_vote");
+        next.set(target);
     }
 }
 
@@ -171,27 +162,17 @@ pub(crate) fn route_menu_lifecycle(
     ) in &mut menus
     {
         let input = frames.for_seat(owner.owner.slot());
-        // A control shared by Start and Select selects inside the open menu.
-        // Outside it, even over a conversation, cutscene or terminal, it is
-        // Start: a player can always pause (Q184).
-        let selecting = input.start_shared_with_select && overlay.visible;
-        let start = input.start && !latch.last_start && !selecting;
+        let start = input.start && !latch.last_start;
         latch.last_start = input.start;
         let platform_pause = platform_pause && owner.owner == ParticipantId::PRIMARY;
         if !platform_pause && !super::inventory_input_allowed(&access, owner.owner) {
             continue;
         }
         if overlay.visible && capture.armed().is_some() {
-            // Raw device capture owns this participant's menu input.
             *frames.for_seat_mut(owner.owner.slot()) = Default::default();
             continue;
         }
-        if selecting {
-            frames.for_seat_mut(owner.owner.slot()).start = false;
-        }
-        let back_opens = input.back && !input.back_shared_with_gameplay && !overlay.visible
-            && matches!(access.owner(owner.owner), None | Some(ambition_platformer2d::input::GAMEPLAY_CONTEXT));
-        if start || platform_pause || back_opens {
+        if start || platform_pause || input.inventory || input.map {
             // The opening or closing press belongs only to this menu lifecycle.
             // A dedicated Start can share a press with another menu control.
             let frame = frames.for_seat_mut(owner.owner.slot());
@@ -212,8 +193,6 @@ pub(crate) fn route_menu_lifecycle(
                 play_ui(&mut sfx, ids::UI_MENU_CLOSE);
                 continue;
             }
-            MenuPage::System
-        } else if back_opens {
             MenuPage::System
         } else if input.inventory {
             MenuPage::Items
@@ -282,21 +261,19 @@ mod tests {
     fn mode(app: &App) -> GameMode { *app.world().resource::<State<GameMode>>().get() }
 
     #[test]
-    fn only_the_last_menu_close_restores_the_underlying_mode() {
+    fn unanimous_menu_pause_restores_the_underlying_mode_when_any_player_resumes() {
         for base in [GameMode::Playing, GameMode::Dialogue, GameMode::Cutscene, GameMode::Paused] {
             for first in 0..2 {
                 let (mut app, menus) = pause_app(base);
                 visible(&mut app, menus[first], true);
                 settle(&mut app);
-                assert_eq!(mode(&app), GameMode::Paused);
+                assert_eq!(mode(&app), base);
                 visible(&mut app, menus[1 - first], true);
                 settle(&mut app);
+                assert_eq!(mode(&app), GameMode::Paused);
                 visible(&mut app, menus[first], false);
                 settle(&mut app);
-                assert_eq!(mode(&app), GameMode::Paused, "the other menu still holds pause");
-                app.world_mut().entity_mut(menus[1 - first]).despawn();
-                settle(&mut app);
-                assert_eq!(mode(&app), base, "removal releases the last menu claim");
+                assert_eq!(mode(&app), base);
             }
         }
     }
@@ -314,7 +291,7 @@ mod tests {
         assert!(app.world().get::<InventoryUiState>(menus[1]).unwrap().visible);
         app.world_mut().resource_mut::<NextState<GameMode>>().set(GameMode::Playing);
         settle(&mut app);
-        assert_eq!(mode(&app), GameMode::Paused, "the remaining menu still holds pause");
+        assert_eq!(mode(&app), GameMode::Playing, "one player resumed");
         visible(&mut app, menus[1], false);
         settle(&mut app);
         assert_eq!(mode(&app), GameMode::Playing, "the transition replaced the old dialogue mode");
@@ -330,6 +307,7 @@ mod tests {
             (GameMode::Playing, GameMode::Paused),
         ] {
             let (mut app, menus) = pause_app(base);
+            app.world_mut().entity_mut(menus[1]).despawn();
             app.insert_resource(RequestedMode(Some(requested)));
             app.add_systems(Update, |mut request: ResMut<RequestedMode>, mut next: ResMut<NextState<GameMode>>| {
                 if let Some(request) = request.0.take() { next.set(request); }
@@ -351,6 +329,7 @@ mod tests {
         let root = app.world_mut().spawn(SessionRoot(SessionScopeId(1))).id();
         app.update();
         visible(&mut app, menus[0], true);
+        visible(&mut app, menus[1], true);
         settle(&mut app);
         assert_eq!(mode(&app), GameMode::Paused);
         app.world_mut().entity_mut(root).despawn();
@@ -372,6 +351,7 @@ mod tests {
         let (mut app, menus) = pause_app(GameMode::Playing);
         app.insert_resource(RollbackSessionOwnership::Peer);
         visible(&mut app, menus[0], true);
+        visible(&mut app, menus[1], true);
         settle(&mut app);
         assert_eq!(mode(&app), GameMode::Playing);
         app.world_mut().remove_resource::<RollbackSessionOwnership>();

@@ -272,6 +272,8 @@ fn set_touch_button(world: &mut World, action: TouchActionButton, held: bool) {
     };
 }
 
+// Reset and MenuBack share a physical position. The contextual resolver
+// gives it only the intent for the current interaction profile.
 pub fn touch_bindings() -> Vec<(
     ambition_input::Platformer2dInputActionMonolith,
     TouchVirtualButton,

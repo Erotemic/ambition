@@ -146,6 +146,10 @@ fn a_continuous_walk_skips_link_rollouts() {
     let goal = fixture.graph.standing_destination(walk.destination).unwrap();
     assert_eq!(standing.next(feet, goal), fixture.graph.next(feet, goal));
     assert_eq!(standing.ground.walk(feet, goal), Some(standing.next(feet, goal)));
+    let (stops, count) = standing.ground.local_trip(feet, 0, Some(80.0)).unwrap();
+    assert_eq!(count, 1);
+    assert!(stops[0].distance(feet) > 80.0);
+    assert!(standing.ground.walk(feet, stops[0]).is_some());
 
     let across = DirectWalk { destination: fixture.middle("ledge"), ..walk };
     assert!(!standing.can_answer_walk(across));
@@ -199,14 +203,14 @@ fn a_measured_arc_estimates_clear_jumps_and_drops_without_room_rollouts() {
     };
     graph.add_link(NavLink { from, to: across, leg: too_short, cost: 0.1, evidence: LinkEvidence::Envelope });
     assert_eq!(graph.next(feet, goal), NavNext::Leg(too_short));
-    let (cold, work) = graph.refined_next(&world, &[], &body, frame, feet, goal, 8);
+    let (cold, work) = graph.refined_next(&world, &[], &body, frame, feet, goal, 0.0, 8);
     assert!(matches!(cold, NavNext::Leg(leg) if leg != too_short), "{cold:?}");
     assert!(work.attempted >= 2 && work.kernel.rollouts > 0);
     assert_eq!(work.retained, 0);
-    let (warm, reused) = graph.refined_next(&world, &[], &body, frame, feet, goal, 8);
+    let (warm, reused) = graph.refined_next(&world, &[], &body, frame, feet, goal, 0.0, 8);
     assert_eq!(cold, warm);
     assert_eq!((reused.attempted, reused.retained, reused.kernel.rollouts), (work.attempted, work.attempted, 0));
-    let (limited, work) = graph.refined_next(&world, &[], &body, frame, feet, goal, 1);
+    let (limited, work) = graph.refined_next(&world, &[], &body, frame, feet, goal, 0.0, 1);
     assert_eq!(limited, NavNext::Waiting(RouteWait::Deferred));
     assert_eq!((work.attempted, work.retained, work.kernel.rollouts), (1, 1, 0));
 
@@ -931,6 +935,19 @@ fn stated_graph(surfaces: &[(f32, f32, f32)], links: &[(usize, usize, f32, f32, 
         refinement: Default::default(),
         out,
     }
+}
+
+#[test]
+fn a_landing_margin_changes_the_route_without_removing_a_feasible_leg() {
+    let graph = stated_graph(
+        &[(0.0, 200.0, 0.0), (400.0, 800.0, 0.0)],
+        &[(0, 1, 120.0, 402.0, 10.0), (0, 1, 120.0, 440.0, 10.0)],
+    );
+    let feet = Vec2::new(120.0, 0.0);
+    let destination = Vec2::new(402.0, 0.0);
+    assert_eq!(graph.next(feet, destination), NavNext::Leg(graph.links[0].leg));
+    assert_eq!(graph.next_with_landing_margin(feet, destination, 60.0), NavNext::Leg(graph.links[1].leg));
+    assert_eq!(graph.next_with_landing_margin(feet, destination, 0.0), NavNext::Leg(graph.links[0].leg));
 }
 
 /// What a route costs under the graph's model: each leg, the walk to each

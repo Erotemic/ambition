@@ -297,6 +297,7 @@ pub fn advise_navigation(
         let task_kind = pending_errand.map(|_| NavigationTask::Fetch)
             .or_else(|| pending_visit.map(|_| NavigationTask::Visit));
         let method = if task_kind.is_some() { NavigationMethod::SimulationBacked } else { request.method };
+        let preferred_margin = if task_kind.is_some() { 0.0 } else { request.preferred_landing_margin };
         let task_needs_place = ground.on_ground && task_kind.is_some();
         let failed_task_goal = request.failed_task_goal
             .filter(|(kind, _)| task_kind == Some(*kind))
@@ -392,6 +393,8 @@ pub fn advise_navigation(
         let mut waypoints = request.destination_seed.and_then(|seed| {
             if method == NavigationMethod::LocalGround {
                 map.local_waypoints(physical_feet, seed)
+            } else if request.local_trip_min_px.is_some() {
+                map.local_trip(physical_feet, seed, request.local_trip_min_px)
             } else {
                 map.only_support_waypoints(physical_feet, seed)
             }
@@ -425,7 +428,7 @@ pub fn advise_navigation(
                     if method == NavigationMethod::Hybrid {
                         refine = Some(goal);
                     } else {
-                        next = Some(graph.next(feet, goal));
+                        next = Some(graph.next_with_landing_margin(feet, goal, preferred_margin));
                     }
                 }
                 if let Some(seed) = request.destination_seed.filter(|_| waypoints.is_none()) {
@@ -443,7 +446,9 @@ pub fn advise_navigation(
                 }
             }
             if let Some(goal) = refine {
-                let (answer, work) = cache.graphs.refined_next(key, world, &[], feet, goal, REFINEMENTS_PER_LEG);
+                let (answer, work) = cache.graphs.refined_next(
+                    key, world, &[], feet, goal, preferred_margin, REFINEMENTS_PER_LEG,
+                );
                 next = Some(answer);
                 cache.refinement.add(work);
             }

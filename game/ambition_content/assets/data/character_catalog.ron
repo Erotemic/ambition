@@ -274,6 +274,8 @@
         // rests at each, and pays the player no mind.
         "townsfolk_roam": Roam(
             navigation: Approximate,
+            preferred_landing_margin: 36.0,
+            local_trip_min_px: Some(64.0),
             speed: 40.0,
             trot_speed: 64.0,
             rest_min_s: 2.0,

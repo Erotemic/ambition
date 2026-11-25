@@ -11,6 +11,18 @@ implemented; its native belief/reporting boundary was not. OBS1 closed
 that boundary on 2026-11-23 (`6fe56fb12`) without reopening the earlier
 allocation and dense-room receipts. No timing result is claimed.
 
+The room demand gate in `bfb9e94fc` uses the native and OBS3 readers.
+A room without a reader prepares no peer rows. A committed pursuit can
+keep its belief until its next decision without a scan. A resolved hit
+can still supply evidence. See the
+[behavioral fidelity plan](behavioral-fidelity-and-approximate-navigation.md#12-subsequent-customer-bounded-perception).
+
+Sighted viewers share the live room's spatial index. Each viewport asks
+for nearby peer rows before the exact visibility and attention tests.
+The census reports both the room population offered to the viewer and
+the rows it examines. The viewport test checks the same visible order
+with four of 100 rows. Omniscient viewers still receive the room.
+
 ## The rule
 
 > A brain does not receive the room. It receives a **bounded tactical

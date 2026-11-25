@@ -1,10 +1,8 @@
 # Behavioral fidelity and approximate navigation
 
-**State:** Proposed implementation direction, 2026-11-25. The maintainer
-wants reusable abstractions that let full-fidelity and approximate behavior
-work together. This document specifies a navigation-first implementation
-and the boundaries for subsequent perception and deliberation work. It is
-not a receipt for completed implementation or measured performance gains.
+**State:** The actor navigation, perception and cadence slices below are
+in use. The receipts give their coverage and measured work. The other
+capabilities described here remain options for later work.
 
 **Source basis:** `d49467d5b877` (the incremental source archive from
 `7c0c36e2c6cd`), the subsequent actor/input naming changes, and the
@@ -369,6 +367,11 @@ native follower. The hill-path test walks in both directions with zero
 envelope measurements and zero jump rollouts. The seat keeps its measured
 preparation path.
 
+**Local destinations.** The townsfolk preset asks for a walk of at least
+64 px on its current support. It asks the estimated planner for a wider
+choice when the support cannot offer that walk. The standing-map test
+checks that the local choice stays on the support and meets the distance.
+
 ## 7. Approximate traversal proposals
 
 ### 7.1 Use native measurements as a compact model
@@ -413,6 +416,8 @@ along the measured arc. Each launch sample has its own landing and travel
 cost. The test executes an estimated jump and walk-off in the native
 kernel. It also places a wall across the gap and checks that the planner
 withholds the route. Preparation runs zero room-specific rollouts.
+The planner queries the solid index once per trajectory and reuses the
+candidates for its runway and clearance segments.
 Running jumps and walk-offs on still blocks have coverage. Chains, moving
 blocks, water, and exits along an estimated trajectory cause a refusal.
 
@@ -473,6 +478,12 @@ additional evidence, not a permanent certificate of validity. No calibrated
 probability field is necessary for the first implementation.
 
 ### 7.4 Remove surgical movement as a default objective
+
+**Landing preference.** A roaming profile can ask for more space between
+a landing and the edge. The preference adds a cost to the concrete leg.
+It changes route selection and leaves the physical capability and the
+follower unchanged. The route test selects a wider landing when the
+profile asks for it.
 
 Current trajectories can look excessively precise because a planner chooses
 an exact edge-adjacent takeoff or landing that minimizes its estimated cost.
@@ -824,6 +835,11 @@ behavior until the new cadence contract demonstrably supports it. Do not
 rewrite all brains in one increment.
 
 ## 14. Measurement plan
+
+The [Hall benchmark receipt](../../../dev/benchmark-candidates/android-hall-contact-and-perception-work.md#desktop-navigation-demand-sweep)
+records passive, local and approximate runs at 100, 250 and 500 roots.
+It includes the cold work removed by the local destination preference
+and the stationary Android baseline.
 
 Performance matters at increasing populations and on the intended platforms.
 A change that saves time on one snapshot of the Hall may not solve its

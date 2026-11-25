@@ -118,6 +118,7 @@ pub struct BuildCost {
     pub failed_steps: usize,
     pub candidate_pairs: usize,
     pub clearance_sweeps: usize,
+    pub clearance_queries: usize,
 }
 
 impl BuildCost {
@@ -128,6 +129,7 @@ impl BuildCost {
         self.failed_steps += other.failed_steps;
         self.candidate_pairs += other.candidate_pairs;
         self.clearance_sweeps += other.clearance_sweeps;
+        self.clearance_queries += other.clearance_queries;
     }
 }
 
@@ -983,6 +985,7 @@ impl NavGraph {
         frame: MotionFrame,
         feet: Vec2,
         goal: Vec2,
+        preferred_margin: f32,
         limit: usize,
     ) -> (NavNext, RefinementWork) {
         let mut work = RefinementWork::default();
@@ -992,6 +995,7 @@ impl NavGraph {
             let route = self.route_with_cost(feet, goal, |index| {
                 tried.iter().find(|(known, _)| *known == index)
                     .map_or(Some(self.links[index].cost), |(_, cost)| *cost)
+                    .map(|cost| cost + self.landing_penalty(index, preferred_margin))
             });
             let Some(route) = route else {
                 return (NavNext::Waiting(RouteWait::Unsupported), work);
@@ -1021,6 +1025,27 @@ impl NavGraph {
             };
             tried.push((index, cost));
         }
+    }
+
+    /// Prefer landings with space beside them. The preference changes route cost.
+    pub fn next_with_landing_margin(&self, feet: Vec2, goal: Vec2, preferred_margin: f32) -> NavNext {
+        if preferred_margin > 0.0 && !self.local_only() {
+            let route = self.route_with_cost(feet, goal, |index| {
+                Some(self.links[index].cost + self.landing_penalty(index, preferred_margin))
+            });
+            if let Some(first) = route.as_ref().and_then(|route| route.first()) {
+                return NavNext::Leg(self.links[*first].leg);
+            }
+        }
+        self.next(feet, goal)
+    }
+
+    fn landing_penalty(&self, index: usize, preferred_margin: f32) -> f32 {
+        let link = &self.links[index];
+        let span = &self.ground.surfaces[link.to];
+        let at = self.ground.frame.along(link.leg.land);
+        let margin = (at - span.left).min(span.right - at);
+        (preferred_margin - margin).max(0.0) * 2.0 / self.run_speed
     }
 
     /// What a body at `feet` does first to get to `goal`.

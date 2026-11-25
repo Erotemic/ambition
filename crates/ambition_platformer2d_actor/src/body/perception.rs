@@ -6,6 +6,10 @@
 //! player/enemy branch. Peer/projectile snapshots are collected before mutable
 //! per-body updates to avoid conflicting world borrows.
 
+use std::collections::BTreeMap;
+use std::sync::OnceLock;
+
+use ae::layered::Layered;
 use ae::AabbExt;
 use ambition_platformer2d_core as ae;
 
@@ -255,6 +259,7 @@ pub struct PerceptionPortal {
 pub struct PerceptionPeers {
     rows: Vec<PerceptionPeer>,
     by_entity: Vec<(bevy::prelude::Entity, usize)>,
+    by_room: BTreeMap<Option<LiveRoomInstance>, OnceLock<Layered<ae::Aabb>>>,
 }
 
 impl PerceptionPeers {
@@ -265,6 +270,27 @@ impl PerceptionPeers {
     fn peer(&self, entity: bevy::prelude::Entity) -> Option<&PerceptionPeer> {
         let index = self.by_entity.binary_search_by_key(&entity, |(entity, _)| *entity).ok()?;
         self.rows.get(self.by_entity[index].1)
+    }
+}
+
+pub(crate) struct PeerCandidates<'a> {
+    rows: &'a [PerceptionPeer],
+    near: Option<Vec<(usize, &'a ae::Aabb)>>,
+}
+
+impl<'a> PeerCandidates<'a> {
+    fn all(rows: &'a [PerceptionPeer]) -> Self {
+        Self { rows, near: None }
+    }
+
+    fn examined(&self) -> usize {
+        self.near.as_ref().map_or(self.rows.len(), Vec::len)
+    }
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = &'a PerceptionPeer> + Clone + '_ {
+        (0..self.examined()).map(|index| {
+            &self.rows[self.near.as_ref().map_or(index, |near| near[index].0)]
+        })
     }
 }
 
@@ -461,6 +487,7 @@ pub fn collect_perception_peers(
     if required.is_empty() {
         peers.rows.clear();
         peers.by_entity.clear();
+        peers.by_room.clear();
     } else {
         collect_peer_rows(&mut peers, &bodies, &rooms, |room| required.contains(&room));
     }
@@ -583,10 +610,18 @@ fn collect_peer_rows(
     // run (`PerceivedWorld::peers_in`). The sort is stable: the order inside
     // a room is the order the query gave, as it was before.
     peers.rows.sort_by_key(|peer| peer.room);
-    let PerceptionPeers { rows, by_entity } = peers;
+    let PerceptionPeers { rows, by_entity, by_room } = peers;
     by_entity.clear();
     by_entity.extend(rows.iter().enumerate().map(|(index, peer)| (peer.entity, index)));
     by_entity.sort_unstable_by_key(|(entity, _)| *entity);
+    by_room.clear();
+    let mut previous = None;
+    for peer in rows.iter() {
+        if previous != Some(peer.room) {
+            by_room.entry(peer.room).or_default();
+            previous = Some(peer.room);
+        }
+    }
 }
 
 /// Per-frame snapshot of every live projectile, refreshed by
@@ -941,16 +976,11 @@ pub(crate) fn peer_is_hostile_to_body(
 /// `String` id clone that dominates `PerceivedActor` never happens.
 pub(crate) fn nearest_hostile_peer<'p>(
     body: &PerceptionBody,
-    peers: &'p [PerceptionPeer],
+    peers: impl IntoIterator<Item = &'p PerceptionPeer>,
     relations: &FactionRelations,
     perception: Perception,
 ) -> CheapPerception<'p> {
     let viewport = Viewport::around(body.pos, perception.tactical_extent());
-    let visible = || {
-        peers
-            .iter()
-            .filter(|p| peer_is_visible_to_body(perception, &viewport, body, p))
-    };
     // ⛔⛔ THE COUNT IS NOT OPTIONAL, AND IT IS EASY TO LOSE HERE. `[census]
     // perception`'s `kept` IS `world_view.actors.len()` — every peer that passed
     // the VISIBILITY filter, allies included, not the hostiles. A cheap road
@@ -958,9 +988,10 @@ pub(crate) fn nearest_hostile_peer<'p>(
     // seven of the nine templates, and the instrument that priced this work
     // would start understating the population it measures. Counted on the same
     // pass that finds the target.
-    let visible_count = visible().count();
-    // A dead body is seen (and folded into memory) but is not a candidate.
-    let nearest = visible()
+    let mut visible_count = 0;
+    let nearest = peers.into_iter()
+        .filter(|p| peer_is_visible_to_body(perception, &viewport, body, p))
+        .inspect(|_| visible_count += 1)
         .filter(|p| p.alive && peer_is_hostile_to_body(body, relations, p))
         .min_by(|a, b| {
             // ⛔ THE SAME ORDER AS `WorldView::nearest_hostile`, squared distance
@@ -996,9 +1027,9 @@ pub(crate) struct CheapPerception<'p> {
 /// line-of-fire / reachability queries reuse the real geometry, never a parallel
 /// sensor.
 #[allow(clippy::too_many_arguments)]
-pub fn build_world_view(
+pub fn build_world_view<'p>(
     body: &PerceptionBody,
-    peers: &[PerceptionPeer],
+    peers: impl IntoIterator<Item = &'p PerceptionPeer>,
     projectiles: &[PerceptionProjectile],
     portals: &[PerceptionPortal],
     world: &ae::World,
@@ -1181,7 +1212,7 @@ pub fn build_world_view(
 /// reads the kept set, so two peers at equal distance must be kept in the
 /// same order on every host — the id tiebreak is not a nicety.
 fn attend<'p>(
-    peers: &'p [PerceptionPeer],
+    peers: impl IntoIterator<Item = &'p PerceptionPeer>,
     body: &PerceptionBody,
     relations: &FactionRelations,
     perception: Perception,
@@ -1192,7 +1223,7 @@ fn attend<'p>(
 ) {
     use ambition_characters::perception::{AttentionRemainder, TACTICAL_ATTENTION};
     let mut visible: Vec<(bool, f32, &'p PerceptionPeer)> = peers
-        .iter()
+        .into_iter()
         // A body is not its own peer. This is the whole job `peers_seen_by`
         // used to do by copying the other 129 rows.
         .filter(|p| peer_is_visible_to_body(perception, viewport, body, p))
@@ -1455,7 +1486,7 @@ pub(crate) fn enforce_empty_belief_for_none(
 pub(crate) fn perceive_for_decision(
     need: ambition_characters::perception::PerceptionRequirement,
     body: &PerceptionBody,
-    peers: &[PerceptionPeer],
+    peers: &PeerCandidates<'_>,
     projectiles: &[PerceptionProjectile],
     world: &ae::World,
     open_gates: &[&str],
@@ -1476,7 +1507,7 @@ pub(crate) fn perceive_for_decision(
     if need.needs_world_view() {
         let view = build_world_view(
             body,
-            peers,
+            peers.iter(),
             projectiles,
             &[],
             world,
@@ -1487,7 +1518,8 @@ pub(crate) fn perceive_for_decision(
         );
         let believed = believed_target(perception, &view, memory.as_deref_mut(), cut, dt);
         note_world_view(ViewSample {
-            offered: peers.len(),
+            offered: peers.rows.len(),
+            examined: peers.examined(),
             visible: view.actors.len() + view.remainder.actors,
             kept: view.actors.len(),
             admitted: view.actors.len(),
@@ -1496,7 +1528,7 @@ pub(crate) fn perceive_for_decision(
         });
         return (view, believed);
     }
-    let cheap = nearest_hostile_peer(body, peers, relations, perception);
+    let cheap = nearest_hostile_peer(body, peers.iter(), relations, perception);
     if let Some(memory) = memory.as_deref_mut() {
         memory.0.update_from_seen(
             sim_time,
@@ -1521,7 +1553,8 @@ pub(crate) fn perceive_for_decision(
         memory.as_deref(),
     );
     note_world_view(ViewSample {
-        offered: peers.len(),
+        offered: peers.rows.len(),
+        examined: peers.examined(),
         visible: cheap.visible_count,
         // The cheap road's `kept` is its visible count, so a density sweep
         // over `TargetBelief` brains reads the population it decided over.
@@ -1624,6 +1657,25 @@ impl PerceivedWorld<'_, '_> {
         let start = peers.partition_point(|peer| peer.room < room);
         let end = peers.partition_point(|peer| peer.room <= room);
         &peers[start..end]
+    }
+
+    pub(crate) fn candidates_in(
+        &self,
+        room: Option<LiveRoomInstance>,
+        center: ae::Vec2,
+        perception: Perception,
+    ) -> PeerCandidates<'_> {
+        let rows = self.peers_in(room);
+        if perception.knows_bodies_anywhere() || rows.len() <= ambition_characters::perception::TACTICAL_ATTENTION {
+            return PeerCandidates::all(rows);
+        }
+        let Some(index) = self.peers.as_deref().and_then(|peers| peers.by_room.get(&room)) else {
+            return PeerCandidates::all(rows);
+        };
+        let index = index.get_or_init(|| rows.iter().map(|peer| ae::Aabb::new(peer.pos, ae::Vec2::ZERO)).collect());
+        // The exact visibility test still checks the viewport edges.
+        let bounds = ae::Aabb::new(center, perception.tactical_extent() + ae::Vec2::ONE);
+        PeerCandidates { rows, near: Some(index.indexed_near(bounds)) }
     }
 
     /// This body's OWN peer row.

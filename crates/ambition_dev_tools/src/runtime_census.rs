@@ -864,9 +864,10 @@ pub fn report_sim_phase_census(
     // The phases in `unmeasured=` have no declared order, so they have no bucket.
     if let Some(census) = ambition_characters::perception::census::drain() {
         row.push_str(&format!(
-            " views={} offered={:.1} visible={:.1} kept={:.1} kept_max={} admitted={:.1} rich={:.1} retained={:.1} reports={:.2}",
+            " views={} offered={:.1} examined={:.1} visible={:.1} kept={:.1} kept_max={} admitted={:.1} rich={:.1} retained={:.1} reports={:.2}",
             census.views,
             census.offered_mean,
+            census.examined_mean,
             census.visible_mean,
             census.kept_mean,
             census.kept_max,

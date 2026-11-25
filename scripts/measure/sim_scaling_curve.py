@@ -27,7 +27,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 SIM_PHASES = re.compile(r"\[census\] sim_phases t=\S+ ticks=(\d+)(.*)")
 BODIES = re.compile(r"\[census\] populations .* AbilityBase=(\d+)")
-NOT_PHASES = {"views", "offered", "visible", "kept", "kept_max", "admitted", "rich", "retained", "reports", "actor_cap"}
+NOT_PHASES = {"views", "offered", "examined", "visible", "kept", "kept_max", "admitted", "rich", "retained", "reports", "actor_cap"}
 
 
 def build(target_dir: Path) -> Path:

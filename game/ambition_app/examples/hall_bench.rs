@@ -80,7 +80,7 @@ fn main() {
     // reports a number for the right one.
     let active = sim.observation().active_room;
     assert_eq!(active, room, "after {warmup} ticks the active room is {active:?}, not {room:?}");
-    println!("[hall_bench] warmup={warmup} entry_ms={:.1}", entered_at.elapsed().as_secs_f64() * 1000.0);
+    println!("[hall_bench] warmup={warmup} through_warmup_ms={:.1}", entered_at.elapsed().as_secs_f64() * 1000.0);
     report_navigation("after_warmup", sim.world().resource::<RoomNavigation>());
 
     // One-second windows of wall time per tick, so the printed number is a
@@ -118,9 +118,9 @@ fn report_navigation(boundary: &str, navigation: &RoomNavigation) {
     let preparation = navigation.preparation_work();
     let refinement = navigation.refinement_work();
     println!(
-        "[hall_bench] nav={boundary} questions={} ground_maps={} motion_measures={} graphs={} candidates={} sweeps={} rollouts={} slope_rollouts={} refined={} retained={} refinement_rollouts={}",
+        "[hall_bench] nav={boundary} questions={} ground_maps={} motion_measures={} graphs={} candidates={} broad_queries={} sweeps={} rollouts={} slope_rollouts={} refined={} retained={} refinement_rollouts={}",
         navigation.questions(), navigation.ground_preparations(), navigation.motion_measures(), navigation.builds(),
-        preparation.candidate_pairs, preparation.clearance_sweeps, preparation.rollouts, preparation.slope_rollouts,
+        preparation.candidate_pairs, preparation.clearance_queries, preparation.clearance_sweeps, preparation.rollouts, preparation.slope_rollouts,
         refinement.attempted, refinement.retained, refinement.kernel.rollouts,
     );
 }

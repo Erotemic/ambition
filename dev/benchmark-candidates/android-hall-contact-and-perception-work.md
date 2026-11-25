@@ -95,3 +95,68 @@ at `cff0179a0d74`, had a median of 541.7 ms across nine frame windows
 included integration, 0.46% included perception collection, and 0.01%
 included navigation advice. No sample included a navigation rollout.
 Use a route with an active navigation request to measure route preparation.
+
+## Desktop navigation demand sweep
+
+The development `hall_bench` build at `bfb9e94fc` ran on CPUs 0–5.
+Each run warmed for 220 updates and measured 240 updates. The roaming
+runs used `AMBITION_ACTOR_BRAIN_OVERRIDE=ambition::townsfolk_roam`. Each
+cap admitted the stated number of roots. The times are medians of
+one-second windows from the headless rollback host.
+
+| Hall roots | Stock ms/tick | Local roaming ms/tick | Approximate roaming ms/tick | Approximate segment checks |
+| ---: | ---: | ---: | ---: | ---: |
+| 100 | 19.1 | 23.4 | 23.6 | 4,987,816 |
+| 250 | 33.3 | 53.3 | 52.3 | 12,414,362 |
+| 500 | 64.0 | 73.2 | 71.8 | 23,418,769 |
+
+Stock runs prepared zero navigation maps, measured zero motion envelopes,
+and prepared zero peer rows at the sample boundary. Local roaming built
+96, 241, and 458 standing maps. It built no traversal graphs or motion
+envelopes. Approximate roaming prepared 98, 243, and 464 graphs and ran
+zero room-specific rollouts. All of its segment checks occurred during
+warm-up. The 500-root run took 91.0 s through warm-up, compared with
+33.9 s for local roaming. Both times include harness and room startup.
+The stock Hall has fewer than 1,000 authored actors.
+
+The local trip preference in `3bf42f47a` kept all three forced roaming
+runs on standing geometry. The benchmark repeated the same caps and
+update counts. Each run used zero envelopes, traversal graphs, and
+segment checks.
+
+| Hall roots | Time through warm-up before, s | Time through warm-up after, s | After, ms/tick |
+| ---: | ---: | ---: | ---: |
+| 100 | 29.3 | 20.3 | 29.4 |
+| 250 | 56.1 | 21.5 | 39.0 |
+| 500 | 91.0 | 27.7 | 64.8 |
+
+These are single desktop runs. The work counters establish what each
+run omitted. The timings include startup and are subject to load on
+the host. The runs exercised the local destination preference. They
+do not measure the change in cost per approximate trajectory.
+
+The same headless harness also forced the shipped hub companion to
+each traversal method in separate runs. Each method prepared one graph
+and one envelope. The simulation-backed method ran 1,341 rollouts.
+The approximate graph checked 359 support pairs and 4,632 clearance
+segments with 587 solid-index queries and zero rollouts. Hybrid kept
+the same estimated graph. The companion's goals in this short run did
+not call for refinement. The graph fixture separately checks a live
+jump and drop, a rejected jump, and cold and warm refinement.
+
+At 100 Hall roots, the sighted `melee_brute_striker` sweep offered 101
+peer rows per view, including the player. The spatial query left a mean
+of 16.8 rows to examine and 15.8 visible rows in each sampled window.
+This shows the input work after spatial selection. The separate
+viewport test compares the visible order with a full scan.
+
+The headless slow-frame test admitted 594 Hall roots. Autoplay crossed
+the Hall and returned to the hub with a 200 ms frame interval. It used
+two measured links and 12 rollouts in the Hall.
+
+An Xvfb desktop run rendered the approach to the gap and the far side
+of the Hall at 1280 × 800 with 100 roots. The seat arrived at its Hall
+destination with two measured links and 12 rollouts. Its first hub
+request still used the full graph fallback, with 6,352 rollouts.
+Software rendering makes the render-time split unsuitable for
+comparison with the Android capture.

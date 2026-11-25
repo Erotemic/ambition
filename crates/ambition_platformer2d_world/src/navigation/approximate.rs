@@ -105,11 +105,7 @@ impl<'a> Approximate<'a> {
         // Each takeoff has its own landing. Search can choose a leg by its arrival cost.
         let starts = if hi - lo > 24.0 { [Some(middle), Some(lo), Some(hi)] } else { [Some(middle), None, None] };
         for takeoff in starts.into_iter().flatten() {
-            let frame = self.ground.frame;
-            work.clearance_sweeps += 1;
-            if self.clear_segment(frame.point(takeoff - lead_in, a.top), frame.point(takeoff, a.top))
-                && self.clear_arc(takeoff, a.top, direction, &self.envelope.jump, landing, work)
-            {
+            if self.clear_arc(takeoff - lead_in, takeoff, a.top, direction, &self.envelope.jump, landing, work) {
                 let leg = self.leg(NavLegKind::Hop, a.top, b, takeoff - lead_in, takeoff, takeoff + offset);
                 found.push((to, leg, self.time(landing, RUN_UP)));
             }
@@ -132,11 +128,7 @@ impl<'a> Approximate<'a> {
         if start < a.left || start > a.right || at < b.left + margin || at > b.right - margin {
             return None;
         }
-        let frame = self.ground.frame;
-        work.clearance_sweeps += 1;
-        if !self.clear_segment(frame.point(start, a.top), frame.point(takeoff, a.top))
-            || !self.clear_arc(takeoff, a.top, direction, &self.envelope.drop, landing, work)
-        {
+        if !self.clear_arc(start, takeoff, a.top, direction, &self.envelope.drop, landing, work) {
             return None;
         }
         Some((self.leg(NavLegKind::Drop, a.top, b, start, takeoff, at), self.time(landing, RUN_UP)))
@@ -161,6 +153,7 @@ impl<'a> Approximate<'a> {
 
     fn clear_arc(
         &self,
+        start: f32,
         takeoff: f32,
         top: f32,
         direction: f32,
@@ -176,17 +169,34 @@ impl<'a> Approximate<'a> {
         let crest = before_landing.iter().enumerate()
             .max_by(|a, b| a.1.rise.total_cmp(&b.1.rise))
             .map(|(index, _)| index);
+        let frame = self.ground.frame;
         let points = before_landing.iter().enumerate()
             .filter(|(index, _)| (index + 1) % stride == 0
                 || crest.is_some_and(|crest| crest == *index || crest + 1 == *index))
             .map(|(_, sample)| *sample)
-            .chain(std::iter::once(landing));
-        let point = |sample: ArcSample| self.ground.frame.point(takeoff + direction * sample.lead, top - sample.rise);
-        let mut from = self.ground.frame.point(takeoff, top);
-        for sample in points {
-            let to = point(sample);
+            .chain(std::iter::once(landing))
+            .map(|sample| frame.point(takeoff + direction * sample.lead, top - sample.rise));
+        let first = frame.point(start, top);
+        let points = std::iter::once(frame.point(takeoff, top)).chain(points);
+        let start_box = self.body_at(first);
+        let extent = points.clone().fold(start_box, |bounds, feet| {
+            let body = self.body_at(feet);
+            Aabb { min: bounds.min.min(body.min), max: bounds.max.max(body.max) }
+        });
+        if extent.min.cmplt(Vec2::ZERO).any() || extent.max.cmpgt(self.world.size).any() {
+            return false;
+        }
+        // Query the room index once for the runway and all chords.
+        let broad = Aabb { min: extent.min - Vec2::ONE, max: extent.max + Vec2::ONE };
+        work.clearance_queries += 1;
+        let blocks = self.world.blocks.near(broad);
+        let chains_near = !self.world.chains.swept_near(extent).is_empty();
+        let moving_blocks_near = self.moving_blocks
+            && self.world.blocks.swept_near(extent).iter().any(|block| block.velocity != Vec2::ZERO);
+        let mut from = first;
+        for to in points {
             work.clearance_sweeps += 1;
-            if !self.clear_segment(from, to) {
+            if !self.clear_segment(from, to, &blocks, chains_near, moving_blocks_near) {
                 return false;
             }
             from = to;
@@ -194,30 +204,45 @@ impl<'a> Approximate<'a> {
         true
     }
 
-    fn clear_segment(&self, from: Vec2, to: Vec2) -> bool {
+    fn body_at(&self, feet: Vec2) -> Aabb {
         let frame = self.ground.frame;
         let half = self.ground.half;
         let axes = frame.side.abs() * half.x + frame.down.abs() * half.y;
         // Contact at the start and at the landing is permitted.
         let relief = 0.5_f32.min(half.y * 0.125);
-        let body = Aabb::new(from - frame.down * (half.y + relief * 0.5), axes - frame.down.abs() * relief);
+        Aabb::new(feet - frame.down * (half.y + relief * 0.5), axes - frame.down.abs() * relief)
+    }
+
+    fn clear_segment(
+        &self,
+        from: Vec2,
+        to: Vec2,
+        blocks: &[&ae::Block],
+        chains_near: bool,
+        moving_blocks_near: bool,
+    ) -> bool {
+        let down = self.ground.frame.down;
+        let body = self.body_at(from);
         let delta = to - from;
         let swept = Aabb { min: body.min.min(body.min + delta), max: body.max.max(body.max + delta) };
-        if swept.min.cmplt(Vec2::ZERO).any() || swept.max.cmpgt(self.world.size).any()
-            || !self.world.chains.swept_near(swept).is_empty()
-            || (self.moving_blocks
+        if (chains_near && !self.world.chains.swept_near(swept).is_empty())
+            || (moving_blocks_near
                 && self.world.blocks.swept_near(swept).iter().any(|block| block.velocity != Vec2::ZERO))
             || self.world.water_regions.iter().any(|water| swept.strict_intersects(water.aabb))
             || self.exits.iter().any(|exit| swept.strict_intersects(*exit))
         {
             return false;
         }
-        self.world.first_body_sweep(body, delta, |block| {
-            is_full_collision_surface(block.kind)
-                || block.kind == BlockKind::Hazard
-                || (block.kind == BlockKind::OneWay && delta.dot(frame.down) > 0.0
-                    && body_on_support_side(body, block.aabb, frame.down))
-        }).is_none()
+        let min = swept.min - Vec2::ONE;
+        let max = swept.max + Vec2::ONE;
+        !blocks.iter().any(|block| {
+            !min.cmpgt(block.aabb.max).any() && !max.cmplt(block.aabb.min).any()
+                && (is_full_collision_surface(block.kind)
+                    || block.kind == BlockKind::Hazard
+                    || (block.kind == BlockKind::OneWay && delta.dot(down) > 0.0
+                        && body_on_support_side(body, block.aabb, down)))
+                && body.sweep_hit(delta, block.aabb).is_some()
+        })
     }
 
     fn leg(&self, kind: NavLegKind, top: f32, b: &StandSurface, start: f32, takeoff: f32, at: f32) -> NavLeg {

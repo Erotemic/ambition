@@ -794,7 +794,7 @@ pub fn tick_actor_brains(
                         // `PerceptionBody::viewer`; this used to be a per-actor
                         // `Vec` clone of every other row and was measured at half
                         // the hall's cognition cost.
-                        let view_peers = perceived.peers_in(room);
+                        let view_peers = perceived.candidates_in(room, body.kin.pos, perception_policy);
                         // Self's own move phase / i-frames come from the SAME per-tick
                         // snapshot every peer's do — one derivation (`body_phase`), so a
                         // body cannot read itself more precisely than its opponent reads it.
@@ -837,7 +837,7 @@ pub fn tick_actor_brains(
                         super::super::perception::perceive_for_decision(
                             fresh_need,
                             &perception_body,
-                            view_peers,
+                            &view_peers,
                             perceived.projectiles_in(room),
                             feature_world,
                             &open_gates,

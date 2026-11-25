@@ -31,7 +31,7 @@ fn lesson() {
     let room = this.trigger;
     let state = this.state.lesson;
     if !("intro_training_active" in room.flags) {
-        if !room.busy && "intro_raid_ready" in room.flags && !("intro_raiders_coming" in room.flags) {
+        if !room.busy && "intro_raid_ready" in room.flags && !("intro_raid_arrival_seen" in room.flags) && !("intro_creator_fragment_seen" in room.flags) {
             this.scene("intro_raid_at_the_door");
         }
         state.phase = 0;

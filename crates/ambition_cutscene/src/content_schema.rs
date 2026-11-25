@@ -124,7 +124,7 @@ fn declare(facet: &FacetSource<'_>, scripts: &AuthoredCutscenes, out: &mut Facet
                 format!("cutscene {id:?} has an empty seen flag; omit the field instead"),
             ));
         }
-        for (index, beat) in script.beats.iter().enumerate() {
+        for (index, beat) in crate::authored_beats(&script.beats).into_iter().enumerate() {
             if let Some(problem) = beat_problem(beat) {
                 out.report(facet.diagnostic(
                     DiagnosticCode::MalformedSource,
@@ -148,6 +148,14 @@ fn beat_problem(beat: &CutsceneBeat) -> Option<String> {
         | CutsceneBeat::CameraRelease { seconds } => duration(*seconds),
         CutsceneBeat::WaitFor { condition, seconds_at_most } => duration(*seconds_at_most)
             .or_else(|| condition.trim().is_empty().then(|| "the condition line is empty".to_string())),
+        CutsceneBeat::WaitUntil { condition } => condition.trim().is_empty().then(|| "the condition line is empty".to_string()),
+        CutsceneBeat::AllowDamage { role, minimum_health } =>
+            (role.trim().is_empty() || minimum_health.is_some_and(|health| health < 1))
+                .then(|| "the damage permission needs a role and a positive health floor".to_string()),
+        CutsceneBeat::CameraTrack { roles, seconds } => duration(*seconds)
+            .or_else(|| roles.is_empty().then(|| "the camera has no subject".to_string())),
+        CutsceneBeat::BeforeFact { flag, beats } => (flag.trim().is_empty() || beats.is_empty())
+            .then(|| "the guarded section needs a flag and beats".to_string()),
         CutsceneBeat::Command { line } => line.trim().is_empty().then(|| "the command line is empty".to_string()),
         CutsceneBeat::Fade {
             from_alpha,

@@ -104,6 +104,18 @@ pub enum CutsceneBeat {
     /// is how a scene says its next beat depends on an arrival, a spawn, a
     /// departure or an impact, which a skip cannot hurry.
     WaitFor { condition: String, seconds_at_most: f32 },
+    /// Wait until a required result is true.
+    WaitUntil { condition: String },
+    /// Let the bound role take damage for the rest of the scene.
+    AllowDamage {
+        role: String,
+        #[serde(default)]
+        minimum_health: Option<i32>,
+    },
+    /// Aim at the center of the live subjects named by the bound roles.
+    CameraTrack { roles: Vec<String>, seconds: f32 },
+    /// Include these beats only if the flag is unset when playback starts.
+    BeforeFact { flag: String, beats: Vec<CutsceneBeat> },
 }
 
 /// Everything a cutscene is SHOWING right now, derived from where it is.
@@ -173,7 +185,7 @@ impl CutsceneRuntime {
         // TARGET, which keeps the projection a pure function of
         // `(script, beat_index, elapsed)`.
         let standing = self.standing_fade();
-        let camera = self.camera();
+        let camera = self.camera_with(|_| None);
         let shown = match beat {
             CutsceneBeat::Dialogue { speaker, text, speaker_character_id } => CutscenePresentation {
                 dialogue: Some((speaker.clone(), text.clone())),
@@ -186,7 +198,7 @@ impl CutsceneRuntime {
                 fade_alpha: standing,
                 ..Default::default()
             },
-            CutsceneBeat::CameraPan { .. } | CutsceneBeat::CameraRelease { .. } => CutscenePresentation {
+            CutsceneBeat::CameraPan { .. } | CutsceneBeat::CameraTrack { .. } | CutsceneBeat::CameraRelease { .. } => CutscenePresentation {
                 fade_alpha: standing,
                 ..Default::default()
             },
@@ -213,7 +225,10 @@ impl CutsceneRuntime {
             | CutsceneBeat::SetFlag { .. }
             | CutsceneBeat::Fall { .. }
             | CutsceneBeat::Command { .. }
-            | CutsceneBeat::WaitFor { .. } => CutscenePresentation {
+            | CutsceneBeat::WaitFor { .. }
+            | CutsceneBeat::WaitUntil { .. }
+            | CutsceneBeat::AllowDamage { .. }
+            | CutsceneBeat::BeforeFact { .. } => CutscenePresentation {
                 fade_alpha: standing,
                 ..Default::default()
             },
@@ -224,10 +239,11 @@ impl CutsceneRuntime {
     /// Where the camera points now: the current pan or release in progress,
     /// else the target the last one before this beat left standing. Like
     /// [`Self::standing_fade`], a pure function of where the cutscene is.
-    fn camera(&self) -> Option<CutsceneCamera> {
+    pub fn camera_with(&self, target_of: impl Fn(&[String]) -> Option<[f32; 2]>) -> Option<CutsceneCamera> {
         let standing = |before: usize| {
             self.script.beats.get(..before).unwrap_or_default().iter().rev().find_map(|beat| match beat {
                 CutsceneBeat::CameraPan { target, .. } => Some(Some(*target)),
+                CutsceneBeat::CameraTrack { roles, .. } => Some(target_of(roles)),
                 CutsceneBeat::CameraRelease { .. } => Some(None),
                 _ => None,
             })
@@ -237,6 +253,9 @@ impl CutsceneRuntime {
         let camera = match self.script.beats.get(self.beat_index)? {
             CutsceneBeat::CameraPan { target, seconds } => {
                 CutsceneCamera { from, to: Some(*target), progress: progress(*seconds) }
+            }
+            CutsceneBeat::CameraTrack { roles, seconds } => {
+                CutsceneCamera { from, to: target_of(roles), progress: progress(*seconds) }
             }
             CutsceneBeat::CameraRelease { seconds } => CutsceneCamera { from, to: None, progress: progress(*seconds) },
             _ => CutsceneCamera { from, to: from, progress: 1.0 },
@@ -268,7 +287,40 @@ impl CutsceneRuntime {
     }
 }
 
+/// Visit every declared beat, including beats inside an admission guard.
+pub fn authored_beats(beats: &[CutsceneBeat]) -> Vec<&CutsceneBeat> {
+    let mut result = Vec::new();
+    fn add<'a>(beats: &'a [CutsceneBeat], result: &mut Vec<&'a CutsceneBeat>) {
+        for beat in beats {
+            result.push(beat);
+            if let CutsceneBeat::BeforeFact { beats, .. } = beat {
+                add(beats, result);
+            }
+        }
+    }
+    add(beats, &mut result);
+    result
+}
+
+fn admit_beats(beats: Vec<CutsceneBeat>, flag_set: &impl Fn(&str) -> bool, admitted: &mut Vec<CutsceneBeat>) {
+    for beat in beats {
+        match beat {
+            CutsceneBeat::BeforeFact { flag, beats } if !flag_set(&flag) => admit_beats(beats, flag_set, admitted),
+            CutsceneBeat::BeforeFact { .. } => {}
+            beat => admitted.push(beat),
+        }
+    }
+}
+
 impl CutsceneBeat {
+    pub fn condition(&self) -> Option<(&str, Option<f32>)> {
+        match self {
+            Self::WaitFor { condition, seconds_at_most } => Some((condition, Some(*seconds_at_most))),
+            Self::WaitUntil { condition } => Some((condition, None)),
+            _ => None,
+        }
+    }
+
     /// What this beat does to the world, apart from what it shows: the event
     /// the caller applies. `None` for a beat that only shows something.
     pub fn consequence(&self) -> Option<CutsceneEvent> {
@@ -325,6 +377,11 @@ pub struct CutsceneScript {
 }
 
 impl CutsceneScript {
+    pub fn admit(mut self, flag_set: impl Fn(&str) -> bool) -> Self {
+        admit_beats(std::mem::take(&mut self.beats), &flag_set, &mut self.beats);
+        self
+    }
+
     pub fn new(id: impl Into<String>, beats: Vec<CutsceneBeat>) -> Self {
         Self {
             id: id.into(),
@@ -438,12 +495,18 @@ impl CutsceneRuntime {
                 advance_dialogue
             },
             CutsceneBeat::CameraPan { seconds, .. }
+            | CutsceneBeat::CameraTrack { seconds, .. }
             | CutsceneBeat::CameraRelease { seconds }
             | CutsceneBeat::Fade { seconds, .. } => {
                 self.elapsed += dt;
                 self.elapsed >= *seconds
             }
-            CutsceneBeat::SetFlag { .. } | CutsceneBeat::Fall { .. } | CutsceneBeat::Command { .. } => true,
+            CutsceneBeat::SetFlag { .. }
+            | CutsceneBeat::Fall { .. }
+            | CutsceneBeat::Command { .. }
+            | CutsceneBeat::AllowDamage { .. }
+            | CutsceneBeat::BeforeFact { .. } => true,
+            CutsceneBeat::WaitUntil { condition } => holds(condition),
             CutsceneBeat::WaitFor { condition, seconds_at_most } => {
                 self.elapsed += dt;
                 holds(condition) || self.elapsed >= *seconds_at_most
@@ -464,21 +527,23 @@ impl CutsceneRuntime {
         out
     }
 
-    /// A skipped scene's tick: every beat passes at once, in order, until a
-    /// `WaitFor` whose condition does not hold and whose longest hold has not
-    /// run out, or the end.
+    /// Use a condition answer only for the beat that had it at tick start.
+    /// This lets earlier commands apply before the next condition is read.
     fn tick_skipped(&mut self, dt: f32, holds: impl Fn(&str) -> bool) -> Vec<CutsceneEvent> {
+        let answered_beat = self.beat_index;
         let mut out = Vec::new();
         while let Some(beat) = self.script.beats.get(self.beat_index).cloned() {
-            if self.elapsed == 0.0 {
-                out.extend(beat.consequence());
-                out.push(CutsceneEvent::BeatEntered { index: self.beat_index, beat: beat.clone() });
-            }
-            if let CutsceneBeat::WaitFor { condition, seconds_at_most } = &beat {
-                self.elapsed += dt;
-                if !(holds(condition) || self.elapsed >= *seconds_at_most) {
+            if let Some((condition, timeout)) = beat.condition() {
+                if self.beat_index != answered_beat {
                     return out;
                 }
+                self.elapsed += dt;
+                if !(holds(condition) || timeout.is_some_and(|seconds| self.elapsed >= seconds)) {
+                    return out;
+                }
+            } else {
+                out.extend(beat.consequence());
+                out.push(CutsceneEvent::BeatEntered { index: self.beat_index, beat });
             }
             self.beat_index += 1;
             self.elapsed = 0.0;
@@ -1132,6 +1197,7 @@ mod tests {
                 CutsceneBeat::WaitFor { condition: "arrived".into(), seconds_at_most: 8.0 },
                 CutsceneBeat::Dialogue { speaker_character_id: String::new(), speaker: "C".into(), text: "D".into() },
                 CutsceneBeat::Command { line: "release".into() },
+                CutsceneBeat::WaitUntil { condition: "settled".into() },
             ],
         );
         let asked = |events: &[CutsceneEvent]| -> Vec<String> {
@@ -1154,8 +1220,13 @@ mod tests {
         assert!(asked(&events).is_empty(), "nothing after the wait is asked before it is answered");
         let events = runtime.tick_asking(0.1, false, |condition| condition == "arrived");
         assert_eq!(asked(&events), ["release"]);
+        assert!(!runtime.finished, "the arrival answer does not also settle the release");
+        let events = runtime.tick_asking(60.0, false, |_| false);
+        assert!(!runtime.finished, "required waits do not expire");
+        assert!(events.is_empty());
+        assert!(runtime.tick_asking(0.1, false, |condition| condition == "settled")
+            .contains(&CutsceneEvent::Completed));
         assert!(runtime.finished);
-        assert!(events.contains(&CutsceneEvent::Completed));
     }
 
     #[test]
@@ -1219,6 +1290,10 @@ mod snapshot {
     const COMMAND: u32 = 7;
     const WAIT_FOR: u32 = 8;
     const CAMERA_RELEASE: u32 = 9;
+    const WAIT_UNTIL: u32 = 10;
+    const ALLOW_DAMAGE: u32 = 11;
+    const CAMERA_TRACK: u32 = 12;
+    const BEFORE_FACT: u32 = 13;
 
     impl SnapshotState for CutsceneBeat {
         fn encode(&self, out: &mut Vec<u8>) {
@@ -1272,6 +1347,27 @@ mod snapshot {
                     put_str(out, condition);
                     put_f32(out, *seconds_at_most);
                 }
+                Self::WaitUntil { condition } => {
+                    put_u32(out, WAIT_UNTIL);
+                    put_str(out, condition);
+                }
+                Self::AllowDamage { role, minimum_health } => {
+                    put_u32(out, ALLOW_DAMAGE);
+                    put_str(out, role);
+                    put_u32(out, minimum_health.unwrap_or(0) as u32);
+                }
+                Self::CameraTrack { roles, seconds } => {
+                    put_u32(out, CAMERA_TRACK);
+                    put_f32(out, *seconds);
+                    put_u32(out, roles.len() as u32);
+                    for role in roles { put_str(out, role); }
+                }
+                Self::BeforeFact { flag, beats } => {
+                    put_u32(out, BEFORE_FACT);
+                    put_str(out, flag);
+                    put_u32(out, beats.len() as u32);
+                    for beat in beats { beat.encode(out); }
+                }
                 Self::CameraRelease { seconds } => {
                     put_u32(out, CAMERA_RELEASE);
                     put_f32(out, *seconds);
@@ -1315,6 +1411,22 @@ mod snapshot {
                 WAIT_FOR => Self::WaitFor {
                     condition: reader.str()?.to_owned(),
                     seconds_at_most: reader.f32()?,
+                },
+                WAIT_UNTIL => Self::WaitUntil { condition: reader.str()?.to_owned() },
+                ALLOW_DAMAGE => Self::AllowDamage {
+                    role: reader.str()?.to_owned(),
+                    minimum_health: match reader.u32()? {
+                        0 => None,
+                        floor => Some(i32::try_from(floor).ok()?),
+                    },
+                },
+                CAMERA_TRACK => Self::CameraTrack {
+                    seconds: reader.f32()?,
+                    roles: (0..reader.u32()?).map(|_| reader.str().map(str::to_owned)).collect::<Option<_>>()?,
+                },
+                BEFORE_FACT => Self::BeforeFact {
+                    flag: reader.str()?.to_owned(),
+                    beats: (0..reader.u32()?).map(|_| Self::decode(reader)).collect::<Option<_>>()?,
                 },
                 CAMERA_RELEASE => Self::CameraRelease {
                     seconds: reader.f32()?,

@@ -95,6 +95,10 @@ pub struct CombatCapabilities {
     pub bursts_into: Option<ambition_characters::actor::DeathBurst>,
 }
 
+/// The current scene's minimum health for a body allowed to take damage.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SceneDamageFloor(pub i32);
+
 impl CombatCapabilities {
     /// Whether this body's death row leads into what it becomes (its blast,
     /// its two halves), which comes at the row's end and not at the kill.

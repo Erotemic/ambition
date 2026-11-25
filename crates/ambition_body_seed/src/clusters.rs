@@ -60,6 +60,7 @@ pub struct ActorMut<'a> {
     /// the per-frame integration and the damage hook branch on these
     /// instead of calling back into the named archetype enum.
     pub caps: &'a ambition_combat::CombatCapabilities,
+    pub scene_damage_floor: Option<&'a ambition_combat::components::SceneDamageFloor>,
     /// The body's live held item, if it has one. See the query member.
     pub held_item: Option<&'a ambition_combat::held_items::HeldItem>,
     // ── The 18 ancillary movement clusters (real components) ──
@@ -140,6 +141,7 @@ pub struct ActorClusterQueryData {
     pub spawn: &'static mut SpawnBaseline,
     pub motion: &'static mut ActorMotionPath,
     pub caps: &'static ambition_combat::CombatCapabilities,
+    pub scene_damage_floor: Option<&'static ambition_combat::components::SceneDamageFloor>,
     /// What this body is holding RIGHT NOW, if anything.
     ///
     /// `Option` because most bodies hold nothing, and because an OPTIONAL query
@@ -188,6 +190,7 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
             spawn: &mut self.spawn,
             motion: &mut self.motion,
             caps: self.caps,
+            scene_damage_floor: self.scene_damage_floor,
             held_item: self.held_item,
             abilities: &*self.abilities,
             base_size: &mut self.base_size,
@@ -243,6 +246,7 @@ impl SeedActorMut for ActorClusterSeed {
             spawn: &mut self.spawn,
             motion: &mut self.motion,
             caps: &self.caps,
+            scene_damage_floor: None,
             // A seed is pre-spawn scratch: nothing is holding anything yet.
             held_item: None,
             abilities: &body.abilities,

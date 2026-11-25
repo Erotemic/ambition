@@ -940,6 +940,7 @@ fn put_on_gear(
 struct HeldControls {
     axis: Vec2,
     jump: bool,
+    confirm: bool,
     attack: bool,
     special: bool,
     shield: bool,
@@ -961,6 +962,7 @@ impl HeldControls {
                 "right" => held.axis.x = 1.0,
                 "walk" => walk = true,
                 "jump" => held.jump = true,
+                "confirm" => held.confirm = true,
                 "attack" => held.attack = true,
                 "special" => held.special = true,
                 "shield" => held.shield = true,
@@ -969,7 +971,7 @@ impl HeldControls {
                 other => {
                     return Err(format!(
                         "--player-holds does not know '{other}'. Known: up, down, left, right, walk, \
-                         jump, attack, special, shield, projectile, blink, none"
+                         jump, attack, special, shield, projectile, blink, confirm, none"
                     ))
                 }
             }
@@ -994,6 +996,7 @@ impl HeldControls {
             blink_released: !self.blink && before.is_some_and(|before| before.blink),
             jump_held: self.jump,
             jump_pressed: pressed(self.jump, |held| held.jump),
+            confirm_pressed: pressed(self.confirm, |held| held.confirm),
             attack_held: self.attack,
             attack_pressed: pressed(self.attack, |held| held.attack),
             special_held: self.special,

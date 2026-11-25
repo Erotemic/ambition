@@ -1,15 +1,12 @@
 #![cfg(feature = "rl_sim")]
-//! The end of level 1's raid (story sequences in content,
-//! `data/cutscenes/intro.ron`): when the three raiders are down, a brute comes
-//! in at the barn door. He cannot be killed there (`beaten_at`), and when he
-//! is beaten a cutscene that starts on that condition (`starts_when:
-//! actor.beaten npc_raid_brute`) throws everyone back (`actor.shove`), walks
-//! him to the bench, throws a bomb at the Creator (`actor.throw`), puts the
-//! case in his hand (`actor.hold`) and sends him out through the lane edge
-//! (`actor.leave_through`). His going wins the raid. The player fights with
-//! its own inputs.
+//! Scout fights the workshop raiders. The beaten brute wounds Dennis with a
+//! bomb and leaves with the case from the bench.
 
 use ambition_app::rl_sim::AmbitionSim as _;
+use ambition_platformer2d::characters::actor::CharacterForm;
+use ambition_platformer2d::held_items::ItemCustody;
+use ambition_platformer2d::persistence::save::AmbitionGameSave;
+use ambition_platformer2d::platformer::sim_id::SimId;
 use bevy::prelude::World;
 
 use crate::common::walk::{through_the_raid, walk_through, Pad, Press, RaidStart, Walker as _};
@@ -37,26 +34,31 @@ fn bodies_of(world: &mut World, character: &str) -> (usize, usize) {
 }
 
 fn flag(world: &World, id: &str) -> bool {
-    world
-        .get_resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
-        .is_some_and(|save| save.data().flag(id))
+    world.resource::<AmbitionGameSave>().data().flag(id)
 }
 
-/// Is a thrown bomb in the world?
 fn a_bomb_flies(world: &mut World) -> bool {
-    let mut items = world.query::<&ambition_platformer2d::held_items::GroundItem>();
-    items.iter(world).any(|item| item.spec.id == "bomb")
+    use ambition_platformer2d::held_items::ReleasedAs;
+    let mut items = world.query::<(&SimId, &ReleasedAs)>();
+    items.iter(world).any(|(id, _)| *id == SimId::placement("intro_brute_bomb"))
 }
 
-/// A walker that watches the Creator's health from the tick a bomb is first
-/// in the world: the scene plays inside the raid's walk. With `skip`, it holds
-/// cancel while the brute's scene plays, as a player skipping it does.
+fn cases(world: &mut World) -> Vec<(ItemCustody, ambition_platformer2d::engine_core::Vec2)> {
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    let case = SimId::placement("intro_bench_case");
+    world.query::<(&SimId, &ItemCustody, &BodyKinematics)>()
+        .iter(world).filter(|(id, _, _)| **id == case)
+        .map(|(_, custody, body)| (*custody, body.pos)).collect()
+}
+
 struct Watching<'a, 'b> {
     pad: &'a mut Pad<'b>,
     skip: bool,
     skipped: bool,
     thrown_at: Option<i32>,
     after: i32,
+    carried: bool,
+    warning_ticks: u32,
 }
 
 /// The brute's scene, if it plays: whether its presentation is skipped.
@@ -79,13 +81,38 @@ impl crate::common::walk::Walker for Watching<'_, '_> {
         let scene = brute_scene(self.pad.world());
         self.skipped |= scene == Some(true);
         press.cancel = self.skip && scene == Some(false);
+        if !self.skip && self.warning_ticks < 180 {
+            use ambition_platformer2d::cutscene::{ActiveCutscene, CutsceneBeat};
+            let warning = self.pad.world().resource::<ActiveCutscene>().iter().any(|scene| {
+                scene.script_id() == "intro_brute_takes_the_case"
+                    && matches!(scene.runtime.current_beat(), Some(CutsceneBeat::Dialogue { speaker, .. }) if speaker == "Dennis")
+            });
+            if warning {
+                self.warning_ticks += 1;
+                press.confirm = false;
+            }
+        }
         self.pad.step(press);
+        use ambition_platformer2d::platformer::authored_logic::{AuthoredVerdictLog, CommandId};
+        if let Some(verdict) = self.pad.world().get_resource::<AuthoredVerdictLog>()
+            .and_then(|log| log.latest_run_of_id(&CommandId::new("workshop", "ship_case")))
+        {
+            assert!(verdict.refusal().is_none(), "case transfer refused: {verdict}");
+        }
         let health = creator_health(self.pad.world_mut());
         if self.thrown_at.is_none() && a_bomb_flies(self.pad.world_mut()) {
             self.thrown_at = health;
         }
         if self.thrown_at.is_some() {
             self.after = self.after.min(health.unwrap_or(i32::MAX));
+        }
+        if scene.is_some() {
+            let all = cases(self.pad.world_mut());
+            assert!(all.len() <= 1, "the case has one physical identity: {all:?}");
+            if let [(ItemCustody::Held { holder }, _)] = all.as_slice() {
+                assert!(self.pad.world().get::<CharacterForm>(*holder).is_some_and(|form| form.id() == "npc_raid_brute"));
+                self.carried = true;
+            }
         }
     }
 }
@@ -95,11 +122,7 @@ fn the_raid_brute_takes_the_case_and_bombs_the_creator() {
     the_brute_scene_ends_the_raid(false);
 }
 
-/// STORY SEQUENCES SS8: skipping the brute's scene skips its show, not its
-/// story. The skip holds cancel from the scene's first tick, before the
-/// shove, the walk, the throw and the departure; the scene still waits on
-/// the Creator reaching the bench, the bomb bursting and the brute going,
-/// and its outcome is normal play's.
+/// Cancel on the first tick. The shove, wound and case transfer still occur.
 #[test]
 fn a_skipped_brute_scene_ends_the_raid_as_a_played_one_does() {
     the_brute_scene_ends_the_raid(true);
@@ -109,13 +132,21 @@ fn the_brute_scene_ends_the_raid(skip: bool) {
     let mut sim = ambition_app::Platformer2dSimHarness::new_with_options(fixed_60hz_room_options("intro_wake_room"))
         .expect("the workshop boots");
     sim.step_n(base(), 30);
+    assert!(matches!(cases(sim.world_mut()).as_slice(), [(ItemCustody::InWorld, at)] if at.x > 1000.0 && at.y < 320.0), "one case rests on the bench before the raid");
     let refusals = sim.world().resource::<ambition_platformer2d::runtime::cutscene::CutsceneLineRefusals>().0.clone();
     assert!(refusals.is_empty(), "every shipped cutscene line prepares: {refusals:?}");
     let mut pad = Pad::new(&mut sim);
     // The Creator's health as the bomb leaves the brute's hand, and the
     // least of it after.
-    let mut watching = Watching { pad: &mut pad, skip, skipped: false, thrown_at: None, after: i32::MAX };
-    through_the_raid(&mut watching, RaidStart::Door).unwrap_or_else(|why| panic!("the raid: {why}"));
+    let mut watching = Watching { pad: &mut pad, skip, skipped: false, thrown_at: None, after: i32::MAX, carried: false, warning_ticks: 0 };
+    if let Err(why) = through_the_raid(&mut watching, RaidStart::Door) {
+        let world = watching.world_mut();
+        let live = bodies_of(world, "npc_lab_raider");
+        let brute = bodies_of(world, "npc_raid_brute");
+        let health = creator_health(world);
+        panic!("the raid: {why}; raiders {live:?}; brute {brute:?}; Dennis {health:?}; wounded {}, case taken {}, case in transit {}",
+            flag(world, "intro_dennis_wounded"), flag(world, "intro_case_taken"), flag(world, "intro_case_in_transit"));
+    }
     // The raid is won the tick he goes; the scene sees him gone on its next
     // tick, and the Creator's last words follow.
     for frame in 0..1200 {
@@ -124,15 +155,38 @@ fn the_brute_scene_ends_the_raid(skip: bool) {
         }
         watching.step(Press { confirm: frame % 10 == 0, ..Press::default() });
     }
-    let (skipped, thrown_at, after) = (watching.skipped, watching.thrown_at, watching.after);
+    let (skipped, thrown_at, after, carried, warning) = (watching.skipped, watching.thrown_at, watching.after, watching.carried, watching.warning_ticks);
     assert_eq!(skipped, skip, "the premise: the scene was skipped exactly when the walker held cancel");
     assert!(flag(sim.world(), "intro_brute_scene_seen"), "the brute's scene played; brutes live and fallen: {:?}", bodies_of(sim.world_mut(), "npc_raid_brute"));
-    assert!(flag(sim.world(), "intro_case_taken"), "the yard gate's flag is set");
+    assert!(carried && flag(sim.world(), "intro_case_taken"), "the brute took the bench case");
+    assert_eq!(warning, if skip { 0 } else { 180 }, "normal play waits on the warning");
+    assert!(flag(sim.world(), "intro_dennis_wounded"), "the exact bomb damaged Dennis");
+    assert!(cases(sim.world_mut()).is_empty(), "the case left the workshop");
     assert_eq!(bodies_of(sim.world_mut(), "npc_lab_raider"), (0, 3), "the three raiders fell");
     assert_eq!(bodies_of(sim.world_mut(), "npc_raid_brute"), (0, 0), "the brute went out with the case rather than fell");
     let thrown_at = thrown_at.expect("the brute threw a bomb");
     assert!(after < thrown_at, "the bomb hurt the Creator: {thrown_at} when it was thrown, {after} after");
     assert!(after > 0, "the bomb wounded him and did not kill him: he falls after his last words");
+    if !skip {
+        let save = sim.world().resource::<AmbitionGameSave>().data().clone();
+        let siding = "intro_freight_yard";
+        let mut restored = ambition_app::Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(siding).with_save(save))
+            .expect("the siding boots from the raid save");
+        restored.step_n(base(), 35);
+        let all = cases(restored.world_mut());
+        let [(ItemCustody::InWorld, at)] = all.as_slice() else {
+            panic!("the raid save restores one case at the siding: {all:?}");
+        };
+        restored.teleport_player((at.x, at.y));
+        for frame in 0..120 {
+            if flag(restored.world(), "intro_creator_notes_recovered") {
+                break;
+            }
+            Pad::new(&mut restored).step(Press { attack: frame % 12 == 0, confirm: frame % 12 == 6, ..Press::default() });
+        }
+        assert!(flag(restored.world(), "intro_creator_notes_recovered"), "picking up that case starts the recovery");
+        assert!(matches!(cases(restored.world_mut()).as_slice(), [(ItemCustody::Held { .. }, _)]));
+    }
 }
 
 /// The Creator's health, in the live workshop.

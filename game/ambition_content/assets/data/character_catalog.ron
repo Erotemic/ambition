@@ -3469,7 +3469,7 @@
             // The raid wounds him and does not kill him: the brute's bomb is
             // the blow, and he falls after his last words
             // (`creator_final_fragment`).
-            death_traits: Some((beaten_at: Some(1))),
+            death_traits: Some((beaten_at: Some(5))),
             tags: ["intro", "story"],
         barks: (
             on_hit: ["Ow. That's my good arm.", "Not the bench!", "Scout, behind you!"],

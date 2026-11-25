@@ -729,7 +729,7 @@ fn composed_quest_ids(
     // A cutscene's `SetFlag` beat writes its flag too, and a skip still
     // applies it.
     for script in crate::dialogue::cutscene_defaults::cutscene_scripts_of(pack) {
-        for beat in &script.beats {
+        for beat in ambition_cutscene::authored_beats(&script.beats) {
             if let ambition_cutscene::CutsceneBeat::SetFlag { id, on: true } = beat {
                 flags.insert(id.clone());
             }

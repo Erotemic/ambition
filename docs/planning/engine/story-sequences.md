@@ -659,76 +659,28 @@ presentation-dismissal state must be distinguished where the seen flag gates
 later story. This work adds neither a universal sequencer nor a global story
 transaction.
 
-**SS8 landed (2026-11-21).** A skip ends the presentation and keeps the
-script's cursor. `CutsceneRuntime::begin_skip` marks the playback skipping
-(rollback state: schema 525). From then on the scene shows nothing, holds no
-player (`PlayingCutscene::holds`), and passes every beat at once, in order,
-except a `WaitFor`. A `WaitFor` still waits for its answer or its longest
-hold. The seen flag is written at completion, by the one ending
-(`end_cutscene`), not when the skip is asked. The blanket rule is deleted:
-`CutsceneRuntime::skip`, which emitted every remaining command at once and
-ended the scene, and its `Skipped` event. One authored sequence serves both
-the played and the skipped scene.
+**SS8 repair (2026-11-25).** A skip removes the presentation and keeps the
+script cursor. Each wait uses the answer for its own beat. A new wait gives
+the preceding commands time to reach the simulation. `WaitUntil` requires an
+observed result. `WaitFor` can still expire. The seen flag is written at
+completion.
 
-A plain `Wait` is a delay, and a skip drops it. A scene whose next beat
-depends on a result must wait on that result. The brute scene had one such
-dependency written as a delay: the bomb must burst before the Creator is
-released to his own mind, which would dodge it. The 1.4 s delay after the
-throw is now `WaitFor actor.throw_landed @brute`.
+`AllowDamage` lets a bound role take damage while the scene controls its
+movement. It can specify a temporary health floor. The scene removes its
+own floor and protection when it ends. The workshop waits for damage from
+the specific bomb before the brute takes the case. `BeforeFact` omits a beat
+group when its result is already in the save. `CameraTrack` follows bound
+subjects in the scene's live room.
 
-A second dependency is easy to break by "fixing" it. A body a playing scene
-holds is invulnerable (`project_cutscene_hold`, `Invulnerability::CUTSCENE`)
-unless it is on its way somewhere (a pending `Visit`). The bomb hurts the
-Creator in normal play because it is thrown while he is still walking to the
-bench. Waiting for his arrival before the throw (tried first) made him held,
-and so immune, when the bomb burst. The skipped scene holds no body, so only
-the normal-play arm caught it.
-
-`actor.throw_landed` is new. It answers from the thrown items themselves: an
-item minted by `SimId::spawned` of the thrower, `ReleasedAs::Throw`, still
-moving or with a lit fuse. So a thrower that has left still answers for its
-throw. A thrower that still holds what it could throw has not thrown yet,
-and the answer is no. That clause is load-bearing: a scene's command is a
-request applied after the scene answers its next wait, so the first answer
-after a throw beat can come before the bomb exists. Without the clause,
-"nothing in the air" held at once, the Creator was let go before the blast,
-and he dodged it in normal play. The same timing applies to any wait that
-follows a command: the condition must be false before the command takes
-effect, not only after. The doorway scene already waited on its results:
-`actor.arrived @creator`, the raiders' spawn (`actor.count_is
-npc_lab_raider 3`) before `form_up`, and their arrival. So a skip before
-`intro_raiders_coming` still directs the cohort only after it exists.
-
-Witnesses:
-
-- The unit test `a_skipped_scene_still_waits_for_what_it_waits_for`, and
-  `a_skip_keeps_the_flags_and_falls_it_skipped` rewritten over `begin_skip`.
-- `a_skipped_brute_scene_ends_the_raid_as_a_played_one_does`. It holds
-  cancel from the scene's first tick and asserts normal play's outcome: the
-  case taken, the brute gone, the three raiders fallen, and the Creator
-  wounded by the bomb but alive.
-- Still open: a scene's harm to a body it holds depends on that body being
-  on its way somewhere. A scene that means to hurt a body standing still has
-  no way to say so.
-
-Still open:
-
-- A `WaitFor` that times out proceeds, as before. No scene yet needs a
-  required result with its own failure policy (refusal and unanswerable told
-  apart from timeout).
-- A skip cancels no scene-owned work, because none is pending as a
-  scene-owned operation. A launched bomb is committed world work and flies on.
-- The shell's own sequence skip (`ShellSequenceCommand::Skip`) is another
-  runtime, with no gameplay commands, and is unchanged.
+The workshop tests cover enemy-initiated combat, the same case in the
+brute's hand, the wound in normal and skipped play, and Dennis' death after
+his final words. Still open: a general recovery policy when a required
+command is refused, and save recovery during an active projectile flight.
 
 ## Acceptance for the first slice (SS1 + SS2)
 
-The raid's last raider, at one left, runs out of the barn door with the
-case (a cutscene with `Command` beats using `actor.leave_through`; met
-2026-11-14, and since 2026-11-17 the brute does it, above). The
-Creator's last words then play, and the siding's crate is the case the
-goblins carried. It is written entirely in content files, with no engine
-change after the slice lands. Static verb/argument errors are diagnosed when
-the library loads. Current actor/zone names are checked at execution; SS7
-adds explicit invocation binding and its diagnostics without claiming that
-all live objects exist at pack-load time.
+The workshop brute takes the bench case with the ordinary item pickup. He
+carries it to the end of the yard before the scene records its placement at
+the siding. Dennis' last words follow his departure. The content describes
+the order of the actions. The library checks the verbs and arguments when
+it loads. Commands resolve live bodies and items when they run.

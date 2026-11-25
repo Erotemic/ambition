@@ -1433,6 +1433,10 @@ impl DrivenBodies<'_, '_> {
     }
 }
 
+/// A hand can take this item only through an assigned fetch errand.
+#[derive(Component)]
+pub struct ErrandPickupOnly;
+
 /// `Attack` while empty-handed and overlapping a `GroundItem` picks it up:
 /// stash the current action set, overlay the item's verbs, attach `HeldItem`.
 ///
@@ -1456,7 +1460,7 @@ pub fn pickup_held_item_system(
     mut commands: Commands,
     driven: DrivenBodies,
     mut bodies: Query<(&mut ActorControl, &BodyKinematics, RepertoireQuery)>,
-    mut grounds: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody)>,
+    mut grounds: Query<(Entity, &GroundItem, &BodyKinematics, &mut ItemCustody), Without<ErrandPickupOnly>>,
     // A body picks up only an item in its own live room (OW1 cut 4).
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {

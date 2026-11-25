@@ -144,13 +144,6 @@ Dennis: Anything else before I put the tools away?
 -> ‹not yet›
 ===
 
-title: creator_intro__interrupted
----
-<<present_speaker "npc_creator">>
-Dennis: Scout, stay clear of the door.
--> ‹go›
-===
-
 title: alice_lane
 ---
 <<present_speaker "npc_alice">>

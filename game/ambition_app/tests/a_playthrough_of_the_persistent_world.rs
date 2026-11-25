@@ -141,9 +141,7 @@ fn live_room(app: &mut App) -> String {
 /// door takes Interact. The crossing is the shipped room transition.
 fn go_through(app: &mut App, target: &str) {
     let from = live_room(app);
-    // The workshop's way out is shut until its raid is beaten. A save that
-    // has the raid beaten already has the door down.
-    if from == "intro_wake_room" && gate_stands(app, crate::common::walk::BARN_DOOR) {
+    if from == "intro_wake_room" && !flag(app, "intro_creator_fragment_seen") {
         // With the Blink in hand, Attack is a blink and strikes nothing, and
         // the raid's brute has to be beaten: set it aside first (Shield and
         // Attack throws what the hand holds), as a player does, and take it

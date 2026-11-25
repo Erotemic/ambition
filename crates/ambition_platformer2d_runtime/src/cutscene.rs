@@ -154,7 +154,7 @@ pub fn drain_cutscene_triggers(
             }
             continue;
         }
-        let mut runtime = CutsceneRuntime::new(script.clone());
+        let mut runtime = CutsceneRuntime::new(script.clone().admit(|flag| save.data().flag(flag)));
         runtime.settings = match trigger.room {
             Some(room) => settings.in_live_room(Some(LiveRoomInstance::from_ordinal(room))),
             None => settings.of_subject(None),
@@ -281,8 +281,9 @@ pub fn a_cutscene_plays(active: bevy::prelude::Res<ActiveCutscene>) -> bool {
 pub fn a_cutscene_hold_is_owed(
     active: Res<ActiveCutscene>,
     held: Query<&ambition_characters::control::ControlHolds>,
+    floors: Query<(), With<ambition_combat::components::SceneDamageFloor>>,
 ) -> bool {
-    active.is_playing()
+    active.is_playing() || !floors.is_empty()
         || held.iter().any(|holds| holds.holds(ambition_characters::control::ControlHold::Cutscene))
 }
 
@@ -314,18 +315,39 @@ pub fn project_cutscene_hold(
             Option<&mut ambition_characters::control::ControlHolds>,
             Option<&mut ambition_characters::actor::BodyHealth>,
             Option<&ambition_platformer2d_actor::body::visit::Visit>,
+            Option<&ambition_platformer2d_actor::body::errand::Errand>,
+            Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+            Option<&ambition_combat::components::SceneDamageFloor>,
         ),
         With<ambition_characters::control::ActorControl>,
     >,
 ) {
     use ambition_characters::actor::Invulnerability;
     use ambition_characters::control::ControlHold;
-    for (body, holds, health, visit) in &mut bodies {
+    use ambition_combat::components::SceneDamageFloor;
+    for (body, holds, health, visit, errand, identity, floor) in &mut bodies {
         if replay.as_ref().is_some_and(|replay| !replay.allows(rooms.of(body))) {
             continue;
         }
         let going = visit.is_some_and(|visit| visit.outcome == ambition_platformer2d_actor::body::visit::VisitOutcome::Pending);
-        let held = !going && active.holds(rooms.of(body).map(|room| room.ordinal()));
+        let fetching = errand.is_some_and(|errand| errand.outcome
+            == ambition_platformer2d_actor::body::errand::ErrandOutcome::Pending);
+        let room = rooms.of(body).map(|room| room.ordinal());
+        let held = !going && !fetching && active.holds(room);
+        let exposure = identity.and_then(|id| {
+            active.iter().filter(|scene| scene.room.is_none() || scene.room == room).find_map(|scene| {
+                scene.runtime.script.beats[..scene.runtime.beat_index].iter().rev().find_map(|beat| {
+                    let ambition_cutscene::CutsceneBeat::AllowDamage { role, minimum_health } = beat else { return None };
+                    scene.roles.iter().any(|(bound, body)| bound == role && body == id.as_str())
+                        .then_some(*minimum_health)
+                })
+            })
+        });
+        match (floor, exposure.flatten().map(SceneDamageFloor)) {
+            (old, Some(new)) if old != Some(&new) => { commands.entity(body).insert(new); }
+            (Some(_), None) => { commands.entity(body).remove::<SceneDamageFloor>(); }
+            _ => {}
+        }
         match holds {
             Some(mut holds) if holds.holds(ControlHold::Cutscene) != held => {
                 if held {
@@ -346,8 +368,9 @@ pub fn project_cutscene_hold(
             None => {}
         }
         if let Some(mut health) = health {
-            if health.health.invulnerable.holds(Invulnerability::CUTSCENE) != held {
-                health.health.invulnerable.set(Invulnerability::CUTSCENE, held);
+            let protected = held && exposure.is_none();
+            if health.health.invulnerable.holds(Invulnerability::CUTSCENE) != protected {
+                health.health.invulnerable.set(Invulnerability::CUTSCENE, protected);
             }
         }
     }
@@ -399,6 +422,7 @@ pub fn tick_active_cutscene(
         Option<Res<ambition_sfx::voice::DialogueVoiceCatalog>>,
         Option<ambition_sfx::SfxWriter>,
     ),
+    positions: Query<(Entity, &ambition_platformer2d_shared_tangle::sim_id::SimId, &ambition_platformer2d_core::BodyKinematics)>,
     time: Res<ambition_time::WorldTime>,
     controls: Res<ambition_characters::control::SlotControls>,
     mut active: ResMut<ActiveCutscene>,
@@ -615,7 +639,27 @@ pub fn tick_active_cutscene(
         // A pure function of `(script, beat_index, elapsed)` — so restoring mid-beat
         // restores the picture with it, and no beat can leave another's fields
         // standing because there are no individual fields to leave.
-        cutscene.presentation = cutscene.runtime.presentation();
+        let runtime = &cutscene.runtime;
+        cutscene.presentation = runtime.presentation();
+        if !runtime.skipping {
+            cutscene.presentation.camera = runtime.camera_with(|roles| {
+                let mut bounds = None;
+                for role in roles {
+                    let Some((_, identity)) = cutscene.roles.iter().find(|(name, _)| name == role) else { continue };
+                    let Some((_, _, body)) = positions.iter().find(|(entity, id, _)| {
+                        id.as_str() == identity && (room.is_none() || rooms.of(*entity).map(|room| room.ordinal()) == room)
+                    }) else { continue };
+                    use ambition_platformer2d_core::Vec2;
+                    let at = body.pos;
+                    let (min, max): (Vec2, Vec2) = bounds.unwrap_or((at, at));
+                    bounds = Some((min.min(at), max.max(at)));
+                }
+                bounds.map(|(min, max)| {
+                    let at = (min + max) * 0.5;
+                    [at.x, at.y - 35.0]
+                })
+            });
+        }
         going.push(cutscene);
     }
     active.put(going);
@@ -706,17 +750,17 @@ pub fn answer_cutscene_wait(world: &mut World) {
         .map(|active| {
             active
                 .iter()
-                .filter_map(|cutscene| match cutscene.runtime.current_beat()? {
-                    ambition_cutscene::CutsceneBeat::WaitFor { condition, .. } => Some((
+                .filter_map(|cutscene| {
+                    let (condition, _) = cutscene.runtime.current_beat()?.condition()?;
+                    Some((
                         CutsceneWaitKey {
                             room: cutscene.room,
                             script: cutscene.script_id().to_owned(),
                             beat: cutscene.runtime.beat_index,
                         },
-                        condition.clone(),
+                        condition.to_owned(),
                         cutscene.roles.clone(),
-                    )),
-                    _ => None,
+                    ))
                 })
                 .collect()
         })
@@ -779,10 +823,11 @@ pub fn check_cutscene_lines(
                 .find(|role| !script.roles.iter().any(|(declared, _)| declared == role))
                 .map(|role| format!("`{line}` names the role `@{role}`, which the script does not declare"))
         };
-        for (index, beat) in script.beats.iter().enumerate() {
+        for (index, beat) in ambition_cutscene::authored_beats(&script.beats).into_iter().enumerate() {
             let named = match beat {
                 ambition_cutscene::CutsceneBeat::Command { line } => undeclared(line),
-                ambition_cutscene::CutsceneBeat::WaitFor { condition, .. } => undeclared(condition),
+                ambition_cutscene::CutsceneBeat::WaitFor { condition, .. }
+                | ambition_cutscene::CutsceneBeat::WaitUntil { condition } => undeclared(condition),
                 _ => None,
             };
             if let Some(problem) = named {
@@ -796,7 +841,8 @@ pub fn check_cutscene_lines(
                     Some(catalog) => catalog.prepare_line(line).err().map(|e| e.to_string()),
                     None => Some(format!("`{line}`: this composition publishes no commands")),
                 },
-                ambition_cutscene::CutsceneBeat::WaitFor { condition, .. } => match conditions.as_deref() {
+                ambition_cutscene::CutsceneBeat::WaitFor { condition, .. }
+                | ambition_cutscene::CutsceneBeat::WaitUntil { condition } => match conditions.as_deref() {
                     Some(catalog) => catalog.prepare_line(condition).err().map(|e| e.to_string()),
                     None => Some(format!("`{condition}`: this composition publishes no conditions")),
                 },

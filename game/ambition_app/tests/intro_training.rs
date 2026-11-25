@@ -167,15 +167,14 @@ fn the_raiders_wait_in_view_until_the_last_line_is_dismissed() {
                 (creator.pos.x - 1060.0).abs() < 24.0,
                 "the Creator reaches the bench: {creator:?}"
             );
-            let (raider, _) = body(&mut sim, "npc_lab_raider");
-            assert!(
-                raider.pos.x < 1320.0,
-                "the raider has walked through the door: {raider:?}"
-            );
-            assert!(
-                (raider.pos.x - creator.pos.x).abs() < 360.0,
-                "both speakers fit in the shot"
-            );
+            let world = sim.world_mut();
+            let raiders: Vec<_> = world.query::<(&CharacterForm, &ae::BodyKinematics)>()
+                .iter(world)
+                .filter(|(form, _)| form.id() == "npc_lab_raider")
+                .map(|(_, body)| body.pos.x)
+                .collect();
+            assert_eq!(raiders.len(), 3);
+            assert!(raiders.iter().all(|x| *x < 1320.0), "the three raiders entered: {raiders:?}");
             for _ in 0..180 {
                 sim.step(base());
             }
@@ -201,6 +200,25 @@ fn the_raiders_wait_in_view_until_the_last_line_is_dismissed() {
     }
     assert!(saw_raider, "the arrival scene reaches its staged raider");
     finish_scene(&mut sim);
+    let before = body(&mut sim, "player_robot_v3").1.current();
+    let mut dennis_struck = false;
+    let mut raider_struck = false;
+    for _ in 0..360 {
+        sim.step(base());
+        let world = sim.world_mut();
+        for (form, combat) in world.query::<(&CharacterForm, &BodyCombat)>().iter(world) {
+            if form.id() == "npc_lab_raider" && combat.recently_struck() {
+                dennis_struck = true;
+            }
+            if form.id() == "player_robot_v3" && combat.recently_struck() {
+                raider_struck = true;
+            }
+        }
+        if dennis_struck && raider_struck { break; }
+    }
+    assert!(raider_struck && body(&mut sim, "player_robot_v3").1.current() < before,
+        "the raiders strike Scout while Scout remains idle");
+    assert!(dennis_struck, "Dennis hits a raider while Scout remains idle");
     assert!(sim
         .world()
         .resource::<AmbitionGameSave>()

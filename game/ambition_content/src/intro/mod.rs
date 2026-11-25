@@ -13,6 +13,7 @@
 pub mod plugin;
 pub mod route_state;
 pub mod sprites;
+mod workshop;
 
 #[cfg(test)]
 mod tests;

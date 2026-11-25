@@ -163,41 +163,23 @@ stands beside the Creator, so the first view holds Scout waking and him at
 his bench; the door is in the same view when they talk, and the yard is out
 of it (staging rules: [level design guide](../../authoring/level-design-guide.md)).
 
-1. `intro_wake` (entry cutscene): fade up on the cart. The Creator: "Hey
-   you, you're finally awake." Then "Don't sit up fast. The left knee servo
-   is new and I haven't set its torque yet."
-2. `creator_intro`: he asks for the torque gauge, which is up on the loft
-   ("Use the crate."). Scout can ask who he is and where this is, go for the
-   gauge, or ask for the questions first. The gauge is a pickup that writes
-   `intro_torque_gauge_found` (D15); his next talk reads it, reads both
-   knees ("Twelve. They match.") and sets `intro_joints_checked`.
-3. `creator_intro__questions`: the evaluation of his method. Scout's name
-   (`scout_gave_its_name` when it answers "Scout."), the wrench and the
-   hammer, then "Is there anything you want to ask me?". His answer lands
-   first; then "Hang on. Was that a cart?" calls the raid
-   (`intro_raiders_coming`: the room's `while_live` line starts it while
-   that flag is set). The raiders come up the yard out of shot. "The door's
-   barred. It'll hold." Then the bar breaks (`intro_barn_door_broken`, the
-   barn door's `gated_by`) and they walk in through the door, in view.
-4. `creator_intro__interrupted`: the first raider within earshot breaks into
-   the conversation (`conversation.join npc_lab_raider`). One reads the job
-   sheet: "It says a lab with a big sign. This is a barn."
-   (`wrong_list_clue_1`). The Creator: "Who sent you? Put that d—". The
-   conversation ends and the fight is on.
-5. The raid is called the other way too: Scout goes to the barn door
-   without talking to him (`intro_raid_at_the_door`, a cutscene volume in
-   front of it, sets both flags a beat apart). The goblins come either way.
-6. The raid: three raiders in one wave, up the yard and in at the door. The
-   yard gate (a `LockWall` with no `gated_by`, the raid's own wall) stands
-   while the fight is on. Its clear greens a raider's dropped whistle (a
-   `Switch`, `ResetEncounter`); blowing it calls the raid back. A won raid
-   spawns finished, so the room's line does not start it again.
-7. Out in the yard, once the raid is won (`after_encounter` on the trigger),
-   `creator_final_fragment`: "Scout. Over here. Are you damaged?", the case
-   taken off the bench with Scout's logs in it, "I have to sit down for a
-   minute.", "You answered like yourself, all the way through. I want to
-   write that d—". He falls (`Fall npc_creator`, `intro_creator_dead`).
-   Q173's default (D6).
+1. Scout wakes on the charging cart. Dennis is at his bench. His case
+   is on the bench. Scout can explore, ask Dennis questions, and do the
+   practice lesson with the torque gauge, the plinth, and the sandbag.
+2. Dennis hears a cart during the conversation. Scout can also start the
+   raid by approaching the barn door. A raider takes a charge from the yard
+   and throws it at the barred door. The blast breaks the door.
+3. All three raiders enter. One reads the job sheet and questions the
+   address (`wrong_list_clue_1`). The scene releases the raiders to combat.
+   Dennis joins when he sees the fight. The brute enters after the three
+   raiders fall.
+4. Scout beats the brute. The brute knocks the group back and takes a
+   second charge from the yard. Dennis moves to stop him. The bomb wounds
+   Dennis. The brute takes the bench case and carries it to the far end of
+   the yard. The case keeps its identity when the save places it at the
+   siding.
+5. The camera returns to Dennis. He tells Scout what is in the case and
+   dies. His death persists. The yard gate opens after his final words.
 
 ### Hobford Lane (`intro_hobford_lane`)
 
@@ -244,15 +226,13 @@ gate the freight track goes down the hill to the siding.
 
 ### The freight siding (`intro_freight_yard`)
 
-Stacked freight and pallets on the platform. `foreman_siding` at the foot of
-the freight track ("That's the robot from the barn. It walked here."). The fight
-(`intro_freight_yard_fight`): two raiders, then the brute and another
-raider. The platform bell is its linked switch. The work order on the
-goblins' crate (`work_order`): "THE WORKSHOP AT THE OLD MILL, HOBFORD", not
-the barn (`wrong_list_clue_2`, D17). The crate holds the Creator's case
-(`intro_creator_notes_recovered`, a story-flag reward, D8); the quest
-`intro_creator_case` reads it. It is a dead end below the gate; the way
-out is back up the track.
+The foreman confronts Scout at the foot of the freight track. Two raiders
+fight first, followed by the foreman and another raider. The platform bell
+can reset this fight. The work order on the goblins' crate names the
+workshop at the old mill (`wrong_list_clue_2`, D17). Scout recovers Dennis'
+notes when they take the case beside the crate. The quest
+`intro_creator_case` reads `intro_creator_notes_recovered`. The track back
+up the hill is the way out.
 
 ### The millstream (`intro_millstream`)
 
@@ -338,29 +318,20 @@ closed (D21). It is a step over, so no way waits on it.
 ## Systems used
 
 - `withheld_verbs` on every level-1 room (`SMALL_KIT_WITHHELD`).
-- Encounters with waves, each with a linked switch, so a won fight stays
-  won (the whistle, the bell).
+- Encounters with waves. The siding bell resets its fight. The workshop
+  raid occurs once.
 - A room's `while_live` line held back by `while_live_when` (a condition
   line): the raid starts when the conversation sets its flag. Dialogue
   cannot start an encounter itself (it cannot name an occurrence).
-- Multi-party conversation: `conversation.join` brings the raiders into
-  `creator_intro__interrupted` (the coordinator's PRIORITY 2, landed).
+- Cutscene roles identify Dennis, Scout, and the brute. The arrival waits
+  for the raiders in Dennis' room. The theft waits for bomb damage, case
+  custody, and departure.
 - Gated `LockWall`s on `encounter.cleared`, `world.switch_on` and
   `world.flag_set`.
 - Story-flag pickups and chest rewards (`flag:` kinds); content validation
   counts a chest's story-flag reward as a writer of its flag.
 - The gate network: a facility and ring row in `gate_network.ron`, the zone
   in `gate_portals.ron`.
-
-Requests to the engine, none needed for the level to work:
-
-1. **Item custody for stolen property** (a raider who spawns carrying an
-   item and drops it where it falls). Coordinator: not now; the case is in
-   the goblins' crate (D8).
-2. **A looter's goal** (a raider who leaves with an item). Not now.
-3. Multi-party conversation: landed and used.
-4. A "take" verb in dialogue: not needed. The gauge is a story flag, so the
-   Creator reads it and nothing leaves the bag.
 
 ## Art
 
@@ -401,8 +372,8 @@ residents (row 9 there).
 | D4 | Oiler is not in level 1. He stays at the Drain Market under the gate stack (canon: the largest town's mechanic). His lines name Hobford. | put his `NpcSpawn` back in a level-1 room |
 | D5 | `drain_alley` and `under_town_pipes` stay as town rooms outside level 1; their ways to the removed rooms are walled. The culvert's raft walk (`across_the_raft`) is deleted with its crossing. | regenerate the old rooms from the previous generator in git history |
 | D6 | The Creator dies (Q173's default). Open: whether something the player does could keep him alive. | a branch in `creator_final_fragment` on a world fact |
-| D7 | The raid starts at a line of the conversation (`encounter.start`), and the raiders join it at `creator_intro__interrupted`. | move the start back to a trigger volume |
-| D8 | The raid's brute runs off with the Creator's case in his hand (`actor.hold npc_raid_brute creator_case`, 2026-11-17: the case is a held item with its own art, `creator_case`). It is his own and leaves the world with him, so the siding finds it again as a story flag (`intro_creator_notes_recovered`) in the goblins' crate, with its own quest (`intro_creator_case`). | put the case in the crate as a ground item the player carries home, when a carried story object can complete a quest |
+| D7 | The conversation or the barn door approach starts the same raid sequence. | Change its request in `intro_training.rhai` or its door trigger in the map. |
+| D8 | The brute carries the case from Dennis' bench. Scout recovers that case at the siding. | Keep its placement identity through pickup, departure, and recovery. |
 | D9 | Alice's message: move the camp off the goblins' trail. Bob returns her chain himself. | rewrite her node |
 | D10 | The clearing's ring is a ring of a new facility (`hobford_ring`, dimension `hobford`); its barrier and lever stand in front of it. | delete the facility and ring rows; wall the clearing |
 | D11 | Music: `something_worth_building` (the workshop), `first_goblin_tune_v2_radio` (the siding), `doves_of_the_commons` (Hobford). Since 2026-11-17 the country is Hobford Goblins (`hobford_goblins`, Jon: goblin-motif variants in place of `a_possible_morning`), bound in `music_cues.ron`: `lurking` in the lane, the meadow and the millstream, `shadowed` in the woods, the gate clearing and the fell; the workshop raid plays `break_in` at the knock, `raid`, `brute` for the brute's wave and `aftermath` when it is won. The rooms' own `music` fields still name `a_possible_morning`, which a room binding takes the place of. | change the room fields or the bindings |

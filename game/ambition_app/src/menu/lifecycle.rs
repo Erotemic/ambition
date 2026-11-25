@@ -14,9 +14,24 @@ use super::quality_confirm::VisualQualityConfirmState;
 
 pub(crate) fn install_session_menus(app: &mut App) {
     app.init_resource::<SeatMenuFrames>();
+    #[cfg(feature = "input")]
+    app.init_resource::<ambition_platformer2d::input::MenuShortcutPages>()
+        .add_systems(Update, publish_shortcut_pages.in_set(ambition_platformer2d::input::InputSet::ResolveContext));
     app.add_systems(Update, sync_session_menus
         .after(ambition_platformer2d::input::InputSet::Route)
         .before(ambition_platformer2d::input::MenuNavConsume));
+}
+
+#[cfg(feature = "input")]
+fn publish_shortcut_pages(
+    room: ambition_platformer2d::runtime::CurrentRoom,
+    backend: Option<Res<InventoryUiBackend>>,
+    mut pages: ResMut<ambition_platformer2d::input::MenuShortcutPages>,
+) {
+    let available = backend.is_some_and(|backend| backend.effective().is_available())
+        && ambition_platformer2d::runtime::in_base_mode(room);
+    pages.inventory = available;
+    pages.map = available;
 }
 
 /// Menu lifetime follows session admission and local input authority.
@@ -81,6 +96,8 @@ pub(crate) struct MenuPauseState {
 pub(crate) fn aggregate_menu_pause(
     mut menus: Query<(&ambition_platformer2d::inventory_ui::InventoryMenu, &mut InventoryUiState)>,
     roster: Option<Res<ambition_platformer2d::platformer::lifecycle::MenuPauseRoster>>,
+    mut votes: Option<ResMut<ambition_platformer2d::platformer::lifecycle::LocalMenuPauseVotes>>,
+    network: Option<Res<ambition_platformer2d::platformer::lifecycle::NetworkMenuPause>>,
     mode: Res<State<GameMode>>,
     mut next: ResMut<NextState<GameMode>>,
     scope: ambition_platformer2d::platformer::lifecycle::LiveSessionScope,
@@ -90,17 +107,21 @@ pub(crate) fn aggregate_menu_pause(
     let scope = scope.get();
     if pause.initialized && pause.scope != scope {
         for (_, mut menu) in &mut menus { menu.close(); }
+        if let Some(votes) = votes.as_mut() { votes.publish(scope, []); }
         pause.hold = Default::default();
         pause.scope = scope;
         return;
     }
     pause.initialized = true;
     pause.scope = scope;
+    if let Some(votes) = votes.as_mut() {
+        votes.publish(scope, menus.iter().filter(|(_, state)| state.visible).map(|(menu, _)| menu.owner.slot()));
+    }
     // Use the admitted roster, not the number of controllers or visible menus.
     // Without the host roster, isolated menu fixtures still exercise the
     // same nonempty unanimity rule. Remote votes must come from an agreed
     // control-plane state; a local request cannot stop a peer timeline.
-    let remote = ownership.is_some_and(|ownership| ownership.has_remote_peers());
+    let remote = network.is_some() || ownership.is_some_and(|ownership| ownership.has_remote_peers());
     let open = !remote && match roster.as_deref() {
         Some(roster) => roster.scope == scope && roster.session_pause(|slot| {
             menus.iter().any(|(menu, state)| menu.owner.slot() == slot && state.visible)

@@ -83,9 +83,8 @@ fn a_conversation_waits_under_the_pause_menu() {
     assert!(revealing, "Interact beside Alice did not start her first line");
     assert_eq!(shown_dialog_boxes(&mut app), 1, "premise: the conversation draws its box");
 
-    // Start (Enter) opens the menu over the conversation (Q184); Escape is Back, which the conversation
-    // keeps for itself (`ad6b7ecae`).
-    tap(&mut app, KeyCode::Enter);
+    // Escape opens the pause menu during the conversation.
+    tap(&mut app, KeyCode::Escape);
     for _ in 0..4 {
         app.update();
     }
@@ -119,9 +118,7 @@ fn a_conversation_waits_under_the_pause_menu() {
     assert_eq!(body_text(&app), held, "a press for the pause menu reached the conversation");
     assert_eq!(shown_dialog_boxes(&mut app), 0, "the box came back while the menu is open");
 
-    // Close: the same line comes back from the same reveal point. Inside the
-    // menu Enter confirms, so the keyboard closes it with Back (Q184): one
-    // press per page it has opened, then the root closes.
+    // Escape returns from each nested page and closes the menu at its root.
     for _ in 0..4 {
         if !menu_open(&app) {
             break;

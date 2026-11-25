@@ -703,6 +703,7 @@ fn install_session_with_ownership(
     session: AmbitionGgrsSession,
     ownership: RollbackSessionOwnership,
 ) {
+    use ambition_platformer2d_shared_tangle::lifecycle::NetworkMenuPause;
     let contract = timeline_contract(world);
     let owner = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world);
     // AC23 and the cross-session rule are one rule, in
@@ -724,6 +725,11 @@ fn install_session_with_ownership(
         .unwrap_or_default();
     world.insert_resource(carried.rebased());
     world.insert_resource(ownership);
+    if ownership.has_remote_peers() {
+        world.insert_resource(NetworkMenuPause);
+    } else {
+        world.remove_resource::<NetworkMenuPause>();
+    }
     world.insert_resource(session);
 
     // A new session is a new timeline. The generation lives on the authority
@@ -757,6 +763,7 @@ pub fn stop_session(world: &mut World) {
     reset_input_authority(world);
     world.remove_resource::<AmbitionGgrsSession>();
     world.remove_resource::<RollbackSessionOwnership>();
+    world.remove_resource::<ambition_platformer2d_shared_tangle::lifecycle::NetworkMenuPause>();
     // A stopped peer session has no next generation.
     world.remove_resource::<crate::peer::PeerLineage>();
     // Nothing speculates any more, so external effects and persistence return

@@ -604,7 +604,7 @@ impl SeatSourceEdges {
 /// ⛔ GATED, and it was the one system in this module that was NOT. The module
 /// header states the rule -- *"All gated behind the `input` feature except the
 /// context claim"* -- `schedule/mod.rs` already re-exports it under the gate,
-/// and its sibling `populate_menu_control_frame_from_actions` carries the
+/// and its sibling `project_primary_menu_frame` carries the
 /// attribute. Without it `--no-default-features` failed with seven errors, all
 /// of them in this one body: `ActionState`,
 /// `Platformer2dInputActionMonolith`, `SeatSourceEdges` and the four
@@ -753,10 +753,7 @@ pub fn populate_seat_control_frames(
         // preference the settings screen changed since.
         next_frame.control_frame_modes = modes;
         next_frame.party_preference = preference;
-        if can_return {
-            next_frame.return_to_leader_pressed = next_frame.reset_pressed;
-            next_frame.reset_pressed = false;
-        }
+        next_frame.return_to_leader_pressed &= can_return;
         // THE ASYMMETRY IS GONE: every seat's raw frame lands in one table, and the shaping
         // stages run over it before anything is committed.
         raw.set(slot, next_frame);
@@ -897,65 +894,18 @@ pub fn install_latched_slot_publication(app: &mut bevy::prelude::App) {
 /// `ActionState<Platformer2dInputActionMonolith>`. Keyboard, gamepad, and virtual touch controls
 /// are already unified in the participant's action state; mouse-wheel and
 /// pointer-drag gestures add their scroll contribution before consumers run.
-pub fn populate_menu_control_frame_from_actions(
-    world_time: Option<Res<ambition_time::WorldTime>>,
-    // The primary seat owns this resource, so its pad decides the calibration.
-    devices: Option<Res<ambition_input::SeatActiveDevices>>,
-    player_input: Query<(
-        &InputParticipant,
-        &ActionState<Platformer2dInputActionMonolith>,
-        Option<Ref<InputMap<Platformer2dInputActionMonolith>>>,
-        Option<&ParticipantContexts>,
-    )>,
-    mut button_sources: MenuButtonSources,
-    mut button_history: Local<ambition_input::ContextualButtonHistory>,
+pub fn project_primary_menu_frame(
+    frames: Res<ambition_input::SeatMenuFrames>,
     mut menu_frame: ResMut<MenuControlFrame>,
-    mut menu_input_state: ResMut<MenuInputState>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     mut mouse_wheel: MessageReader<MouseWheel>,
     windows: Query<&Window>,
 ) {
-    let wall_dt = world_time.as_deref().map_or(0.0, |time| time.wall_dt());
-    let mut next = MenuControlFrame::default();
-
-    // Optional unfocus guard: leave the menu frame cleared while the window is
-    // unfocused (and the setting is on). Drain the wheel so a buffered scroll
-    // doesn't fire on refocus.
-    let enabled = !input_suppressed_by_unfocus(&user_settings, windows.iter().map(|w| w.focused));
-
-    // `single()` returns `Err` the moment a SECOND participant exists, so the global menu frame
-    // went neutral for everybody: two people at a couch, one presses Start, and the pause menu does
-    // not open.
-    //
-    // The policy is now stated rather than emergent: the primary seat owns
-    // the global shell controls. `SeatMenuFrames` is where a per-seat surface
-    // (a select screen, four cursors) reads instead, and this resource stays the
-    // one global answer a pause menu wants.
-    if let Some((actions, map, contexts)) = player_input
-        .iter()
-        .find(|(participant, ..)| participant.id == ambition_input::ParticipantId::PRIMARY)
-        .map(|(_, actions, map, contexts)| (actions, map, contexts))
-    {
-        let filters = filters_for_seat(
-            &user_settings,
-            devices.as_deref(),
-            ambition_input::ParticipantId::PRIMARY.slot(),
-        );
-        next = decode_menu_frame(
-            actions,
-            &mut menu_input_state,
-            &user_settings,
-            filters,
-            wall_dt,
-        );
-        button_sources.resolve(map, contexts, &mut button_history, enabled, &mut next);
+    let enabled = !input_suppressed_by_unfocus(&user_settings, windows.iter().map(|window| window.focused));
+    let mut next = frames.for_seat(ambition_input::ParticipantId::PRIMARY.slot());
+    for event in mouse_wheel.read() {
+        if enabled { next.scroll_y += event.y; }
     }
-
-    for ev in mouse_wheel.read() {
-        if enabled { next.scroll_y += ev.y; }
-    }
-    if !enabled { next = MenuControlFrame::default(); }
-
     *menu_frame = next;
 }
 
@@ -963,24 +913,31 @@ pub fn populate_menu_control_frame_from_actions(
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct MenuButtonSources<'w, 's> {
     store: Option<Res<'w, leafwing_input_manager::user_input::updating::CentralInputStore>>,
+    pages: Option<Res<'w, ambition_input::MenuShortcutPages>>,
     pads: Query<'w, 's, Entity, With<Gamepad>>,
 }
 
 impl MenuButtonSources<'_, '_> {
-    fn resolve(&mut self, map: Option<Ref<InputMap<Platformer2dInputActionMonolith>>>,
+    fn resolve(&mut self, actions: &ActionState<Platformer2dInputActionMonolith>,
+        map: Option<Ref<InputMap<Platformer2dInputActionMonolith>>>,
         contexts: Option<&ParticipantContexts>, history: &mut ambition_input::ContextualButtonHistory,
         enabled: bool, frame: &mut MenuControlFrame)
     {
         // ActionState-only fixtures provide semantic edges without a device map.
-        let (Some(map), Some(store)) = (map, self.store.as_deref()) else {
+        let Some(map) = map else {
             if !enabled { *frame = MenuControlFrame::default(); }
+            return;
+        };
+        let Some(store) = self.store.as_deref() else {
+            *frame = MenuControlFrame::default();
             return;
         };
         let pad = map.gamepad().unwrap_or_else(|| {
             leafwing_input_manager::user_input::gamepad::find_gamepad(Some(self.pads.reborrow()))
         });
         let route = ambition_input::ButtonRoute::from_contexts(contexts);
-        history.sample(&map, store, pad, route, map.is_changed(), enabled, frame);
+        let pages = self.pages.as_deref().copied().unwrap_or_default();
+        history.sample(&map, actions, store, pad, route, map.is_changed(), enabled, pages, frame);
     }
 }
 
@@ -1118,7 +1075,7 @@ pub fn populate_seat_menu_frames(
         let state = states.entry(slot).or_default();
         let filters = filters_for_seat(&user_settings, devices.as_deref(), slot);
         let mut frame = decode_menu_frame(actions, state, &user_settings, filters, wall_dt);
-        button_sources.resolve(map, contexts, histories.entry(slot).or_default(), enabled, &mut frame);
+        button_sources.resolve(actions, map, contexts, histories.entry(slot).or_default(), enabled, &mut frame);
         frames.set(slot, frame);
     }
 }
@@ -2099,7 +2056,7 @@ mod focus_gate_tests {
 
     /// A SECOND PLAYER MUST NOT SILENCE THE PAUSE MENU.
     ///
-    /// `populate_menu_control_frame_from_actions` folded participants with `single()`, which
+    /// `project_primary_menu_frame` folded participants with `single()`, which
     /// returns `Err` the moment there are two — so the global `MenuControlFrame` went neutral
     /// for everybody and pressing Start opened nothing.
     ///
@@ -2122,7 +2079,7 @@ mod focus_gate_tests {
         for seats in [1usize, 2, 4] {
             let mut app = App::new();
             app.init_resource::<MenuControlFrame>();
-            app.init_resource::<ambition_input::MenuInputState>();
+            app.init_resource::<ambition_input::SeatMenuFrames>();
             app.init_resource::<ambition_persistence::settings::UserSettings>();
             app.add_message::<bevy::input::mouse::MouseWheel>();
             app.world_mut()
@@ -2133,7 +2090,7 @@ mod focus_gate_tests {
                 app.world_mut()
                     .spawn(seat(slot, Platformer2dInputActionMonolith::MenuBack));
             }
-            app.add_systems(Update, super::populate_menu_control_frame_from_actions);
+            app.add_systems(Update, (super::populate_seat_menu_frames, super::project_primary_menu_frame).chain());
             app.update();
 
             let frame = *app.world().resource::<MenuControlFrame>();
@@ -2624,10 +2581,7 @@ mod modifier_toggle_tests {
             } else {
                 ambition_input::BindingSources::GamepadOnly
             });
-            if seat == 1 {
-                map.clear_action(&Platformer2dInputActionMonolith::Modifier);
-                map.insert(Platformer2dInputActionMonolith::Modifier, GamepadButton::C);
-            }
+            map.insert(Platformer2dInputActionMonolith::Modifier, GamepadButton::C);
             map.set_gamepad(pad);
             let mut contexts = ParticipantContexts::default();
             contexts.declare(ContextClaim::capturing(
@@ -2658,6 +2612,12 @@ mod modifier_toggle_tests {
         app.update();
 
         button(&mut app, pads[0], GamepadButton::RightThumb, 1.0);
+        assert!(!frame(&app, 0).modifier_held);
+        assert!(app.world().get::<ActionState<Platformer2dInputActionMonolith>>(seats[0]).unwrap()
+            .just_pressed(&Platformer2dInputActionMonolith::Inventory));
+        button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
+
+        button(&mut app, pads[0], GamepadButton::C, 1.0);
         assert!(frame(&app, 0).modifier_held);
         assert!(frame(&app, 0).modifier_pressed);
         assert!(
@@ -2670,11 +2630,11 @@ mod modifier_toggle_tests {
         app.update();
         assert!(frame(&app, 0).modifier_held);
         assert!(!frame(&app, 0).modifier_pressed);
-        button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
+        button(&mut app, pads[0], GamepadButton::C, 0.0);
         assert!(frame(&app, 0).modifier_held);
-        button(&mut app, pads[0], GamepadButton::RightThumb, 1.0);
+        button(&mut app, pads[0], GamepadButton::C, 1.0);
         assert!(!frame(&app, 0).modifier_held);
-        button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
+        button(&mut app, pads[0], GamepadButton::C, 0.0);
 
         let key = KeyboardPreset::arrows_zxc().actions.modifier;
         key.press(app.world_mut());
@@ -2685,12 +2645,8 @@ mod modifier_toggle_tests {
         assert!(!frame(&app, 0).modifier_held);
 
         button(&mut app, pads[0], GamepadButton::Select, 1.0);
-        assert!(
-            app.world()
-                .get::<ActionState<Platformer2dInputActionMonolith>>(seats[0])
-                .unwrap()
-                .just_pressed(&Platformer2dInputActionMonolith::Inventory)
-        );
+        assert!(frame(&app, 0).reset_pressed);
+        assert!(!frame(&app, 0).return_to_leader_pressed);
         button(&mut app, pads[0], GamepadButton::Select, 0.0);
         assert!(!frame(&app, 0).modifier_held);
 
@@ -2699,8 +2655,8 @@ mod modifier_toggle_tests {
         assert!(frame(&app, 1).modifier_held);
         assert!(!frame(&app, 0).modifier_held);
 
-        button(&mut app, pads[0], GamepadButton::RightThumb, 1.0);
-        button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
+        button(&mut app, pads[0], GamepadButton::C, 1.0);
+        button(&mut app, pads[0], GamepadButton::C, 0.0);
         app.world_mut()
             .get_mut::<ParticipantContexts>(seats[0])
             .unwrap()
@@ -2710,8 +2666,8 @@ mod modifier_toggle_tests {
             ));
         app.update();
         assert!(!frame(&app, 0).modifier_held);
-        button(&mut app, pads[0], GamepadButton::RightThumb, 1.0);
-        button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
+        button(&mut app, pads[0], GamepadButton::C, 1.0);
+        button(&mut app, pads[0], GamepadButton::C, 0.0);
         app.world_mut()
             .get_mut::<ParticipantContexts>(seats[0])
             .unwrap()
@@ -2722,15 +2678,15 @@ mod modifier_toggle_tests {
         app.world_mut()
             .entity_mut(seats[0])
             .insert(ambition_input::Rebound);
-        button(&mut app, pads[0], GamepadButton::RightThumb, 1.0);
+        button(&mut app, pads[0], GamepadButton::C, 1.0);
         app.world_mut()
             .entity_mut(seats[0])
             .remove::<ambition_input::Rebound>();
         app.update();
         assert!(!frame(&app, 0).modifier_held);
-        button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
-        button(&mut app, pads[0], GamepadButton::RightThumb, 1.0);
-        button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
+        button(&mut app, pads[0], GamepadButton::C, 0.0);
+        button(&mut app, pads[0], GamepadButton::C, 1.0);
+        button(&mut app, pads[0], GamepadButton::C, 0.0);
         assert!(frame(&app, 0).modifier_held);
         app.world_mut().entity_mut(pads[0]).despawn();
         app.update();

@@ -8,10 +8,11 @@
 |---|---|
 | [`body_row`](src/body_row.rs) | A body's replicated motion row, and the guest's adoption of it. |
 | [`input_clock`](src/input_clock.rs) | Input sample order is independent of the estimated host tick. |
+| [`menu_pause`](src/menu_pause.rs) | Pause votes use the host's connection and seat assignment. |
 | [`prediction`](src/prediction.rs) | A guest that predicts its own body (NA-3), in production. |
 | [`room_rollback`](src/room_rollback.rs) | A host that keeps a guest's room correct by rollback (SIMULATION-ISLANDS). |
 
-_4 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 
@@ -34,4 +35,4 @@ join press through the normal control path.
 
 Automatic allocation reserves admitted session participants and connected guest
 seats. Authorized clients without a seat remain eligible on later updates.
-The UDP protocol id is `ambhost2`; both ends must use this input format.
+The UDP protocol ID is `ambhost3`. Both ends must support the pause messages.

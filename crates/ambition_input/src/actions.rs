@@ -83,6 +83,7 @@ pub enum Platformer2dInputActionMonolith {
     Inventory,
     Pogo,
     Reset,
+    PartyReturn,
     Start,
     /// Player projectile / spell action. Default binding: `F` (keyboard) and
     /// the gamepad West face button (shared with Attack when no projectile is
@@ -167,6 +168,7 @@ impl Platformer2dInputActionMonolith {
             | Self::Inventory
             | Self::Pogo
             | Self::Reset
+            | Self::PartyReturn
             | Self::Start
             | Self::Projectile
             | Self::TrailToggle

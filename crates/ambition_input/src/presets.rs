@@ -61,6 +61,7 @@ pub const KEYBOARD_MENU_KEYS: &[(Platformer2dInputActionMonolith, KeyCode)] = &[
     (Act::MenuSelect, KeyCode::Space),
     (Act::MenuBack, KeyCode::Escape),
     (Act::MenuBack, KeyCode::Backspace),
+    (Act::MenuBack, ANDROID_BACK),
     (Act::MenuPageLeft, KeyCode::KeyQ),
     (Act::MenuPageRight, KeyCode::KeyE),
     (Act::MenuPageLeft, KeyCode::PageUp),
@@ -70,6 +71,8 @@ pub const KEYBOARD_MENU_KEYS: &[(Platformer2dInputActionMonolith, KeyCode)] = &[
     (Act::MenuNavigateLeft, KeyCode::ArrowLeft),
     (Act::MenuNavigateRight, KeyCode::ArrowRight),
 ];
+
+const ANDROID_BACK: KeyCode = KeyCode::Unidentified(bevy::input::keyboard::NativeKeyCode::Android(4));
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PresetId {
@@ -362,7 +365,7 @@ impl KeyboardPreset {
             Platformer2dInputActionMonolith::Reset,
             self.actions.select_reset,
         );
-        map.insert(Platformer2dInputActionMonolith::Reset, KeyCode::Delete);
+        map.insert(Platformer2dInputActionMonolith::PartyReturn, KeyCode::Home);
         map.insert(Platformer2dInputActionMonolith::Start, self.actions.pause);
         map.insert(Platformer2dInputActionMonolith::Start, KeyCode::NumpadEnter);
         map.insert(Platformer2dInputActionMonolith::Start, KeyCode::Escape);
@@ -580,7 +583,9 @@ pub fn key_name(key: KeyCode) -> &'static str {
         KeyCode::Tab => "Tab",
         KeyCode::Escape => "Esc",
         KeyCode::Delete => "Delete",
+        KeyCode::Home => "Home",
         KeyCode::Backspace => "Backspace",
+        ANDROID_BACK => "Back",
         KeyCode::PageUp => "PageUp",
         KeyCode::PageDown => "PageDown",
         _ => "?",

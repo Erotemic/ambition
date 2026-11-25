@@ -949,10 +949,7 @@ const DEFAULT_MENU_CONFIRM: &str = "Select";
 /// The select-functional touch buttons: in a menu these fold into
 /// `MenuControlFrame.select`, so they wear the menu's confirm verb.
 fn is_menu_confirm_button(action: TouchActionButton) -> bool {
-    matches!(
-        action,
-        TouchActionButton::Jump | TouchActionButton::Interact
-    )
+    crate::virtual_device::touch_button_actions(action).contains(&Platformer2dInputActionMonolith::MenuSelect)
 }
 
 /// The menu-row buttons (Menu / Back). Always shown; the gameplay scheme does
@@ -1003,7 +1000,8 @@ fn label_touch_buttons(
             ready.0 = next_ready;
         }
         let next: Option<String> = if *action == TouchActionButton::Reset {
-            Some(if prompt.context == ControlContextKind::Gameplay { "Reset" } else { "Back" }.into())
+            let action = touch_display_action(*action, prompt.context);
+            Some(if action == Some(Platformer2dInputActionMonolith::MenuBack) { "Back" } else { "Reset" }.into())
         } else {
             match prompt.context {
                 ControlContextKind::Gameplay => touch_button_slot(*action)
@@ -1399,15 +1397,16 @@ fn touch_display_action(
     action: TouchActionButton,
     context: ControlContextKind,
 ) -> Option<Platformer2dInputActionMonolith> {
-    if context != ControlContextKind::Gameplay {
-        if is_menu_confirm_button(action) {
-            return Some(Platformer2dInputActionMonolith::MenuSelect);
-        }
-        if action == TouchActionButton::Reset {
-            return Some(Platformer2dInputActionMonolith::MenuBack);
-        }
-    }
-    touch_action_to_sandbox_action(action)
+    use ambition_input::InputProfile;
+    let profile = match context {
+        ControlContextKind::Gameplay => InputProfile::Gameplay,
+        ControlContextKind::Dialogue => InputProfile::SessionUi,
+        ControlContextKind::Menu => InputProfile::Paused,
+        ControlContextKind::Empty => InputProfile::Frontend,
+    };
+    let actions = crate::virtual_device::touch_button_actions(action);
+    ambition_input::resolve_menu_button(profile, actions).map(|intent| intent.action())
+        .or_else(|| touch_action_to_sandbox_action(action))
 }
 
 /// Show held controls for the primary seat. The Modifier uses its published

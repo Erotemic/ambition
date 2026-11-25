@@ -106,7 +106,8 @@ pub fn install_unified_menu_shared(app: &mut App) {
                 .before(crate::menu::KaleidoscopeMenuNav),
         );
     #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
-    app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause);
+    app.add_systems(PostUpdate, crate::menu::lifecycle::aggregate_menu_pause
+        .run_if(ambition_platformer2d::runtime::in_base_mode));
     #[cfg(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"))]
     app.add_systems(
         PostUpdate,

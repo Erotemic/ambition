@@ -23,7 +23,7 @@ use ambition_menu::{
     MenuActionActivated, MenuColor, MenuControlKind, MenuPageModel, MenuRect, MenuTextAlign,
 };
 use ambition_platformer2d_shared_tangle::schedule::GameMode;
-use ambition_platformer2d_shared_tangle::lifecycle::{MenuPauseHold, MenuPauseRoster, SessionScopeId};
+use ambition_platformer2d_shared_tangle::lifecycle::{LocalMenuPauseVotes, MenuPauseHold, MenuPauseRoster, NetworkMenuPause, SessionScopeId};
 use std::collections::BTreeMap;
 use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
 use bevy::ecs::system::SystemParam;
@@ -334,6 +334,7 @@ fn drive_shell_pause_menu(
     // Absent in a standalone demo; then the global frame is the only seat.
     seat_frames: Option<Res<ambition_input::SeatMenuFrames>>,
     context: PauseMenuContext,
+    roster: Option<Res<MenuPauseRoster>>,
     suppressed: Res<ShellPauseMenuSuppressed>,
     // The menu must not open over the launcher. `ShellPauseMenuSuppressed`
     // does not cover this: it tracks Ambition's own session, and the title
@@ -373,9 +374,13 @@ fn drive_shell_pause_menu(
     // Every seat can open or close its own menu even while another is open.
     // The shared presentation displays one seat at a time. Navigation from
     // a paused seat can bring that seat's own cursor to the foreground.
-    let permits = |slot| access.permits(ambition_input::ParticipantId(slot),
-        ambition_input::ContextClaim::capturing(ambition_input::PAUSE_CONTEXT,
-            ambition_input::participant::context_priority::PAUSE));
+    let permits = |slot| {
+        roster.as_deref().filter(|roster| in_session && roster.scope == scope)
+            .is_none_or(|roster| roster.members.iter().any(|(admitted, _)| *admitted == slot))
+            && access.permits(ambition_input::ParticipantId(slot),
+                ambition_input::ContextClaim::capturing(ambition_input::PAUSE_CONTEXT,
+                    ambition_input::participant::context_priority::PAUSE))
+    };
     let inputs: Vec<_> = match seat_frames.as_deref() {
         Some(frames) => frames.seats().filter(|(slot, _)| permits(*slot)).collect(),
         None if permits(0) => vec![(0, menu_frame.as_deref().copied().unwrap_or_default())],
@@ -637,7 +642,10 @@ fn render_shell_pause_menu(
 fn aggregate_shell_menu_pause(
     menu: Res<ShellPauseMenu>,
     session: Res<ActiveGameplaySession>,
+    suppressed: Res<ShellPauseMenuSuppressed>,
     roster: Option<Res<MenuPauseRoster>>,
+    mut votes: Option<ResMut<LocalMenuPauseVotes>>,
+    network: Option<Res<NetworkMenuPause>>,
     mode: Option<Res<State<GameMode>>>,
     next: Option<ResMut<NextState<GameMode>>>,
     mut hold: Local<MenuPauseHold>,
@@ -648,8 +656,13 @@ fn aggregate_shell_menu_pause(
         *hold = Default::default();
         *previous_scope = scope;
     }
+    if !suppressed.0 {
+        if let Some(votes) = votes.as_mut() {
+            votes.publish(scope, menu.seats.keys().copied());
+        }
+    }
     let (Some(mode), Some(mut next)) = (mode, next) else { return; };
-    let open = roster.as_deref().is_some_and(|roster| roster.scope == scope &&
+    let open = !suppressed.0 && network.is_none() && roster.as_deref().is_some_and(|roster| roster.scope == scope &&
         roster.session_pause(|slot| menu.seats.contains_key(&slot)));
     let pending = match &*next {
         NextState::Pending(mode) | NextState::PendingIfNeq(mode) => Some(*mode),

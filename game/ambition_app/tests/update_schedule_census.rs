@@ -552,7 +552,7 @@ fn name_the_menu_frame_conflicts() {
                 name!("dialog_input", ambition_platformer2d::dialog::dialog_input);
                 name!("fold_touch_gestures", ambition_platformer2d::touch_input::menu_bridge::fold_touch_gestures);
                 name!("handle_map_menu_hotkeys", ambition_platformer2d::menu::map::handle_map_menu_hotkeys);
-                name!("populate_menu_control_frame_from_actions", ambition_platformer2d::runtime::input::populate_menu_control_frame_from_actions);
+                name!("project_primary_menu_frame", ambition_platformer2d::runtime::input::project_primary_menu_frame);
 
                 let who = |k: &bevy::ecs::schedule::SystemKey| -> String {
                     for (n, keys) in &named {

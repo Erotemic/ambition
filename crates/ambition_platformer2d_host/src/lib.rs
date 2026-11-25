@@ -23,8 +23,6 @@ pub use framepace::FramePacePlugin;
 
 pub mod developer_keys;
 pub mod gameplay_presentation;
-#[cfg(feature = "input")]
-mod menu_pause;
 #[cfg(feature = "portal_render")]
 pub mod portal;
 
@@ -67,8 +65,8 @@ pub struct HostInputBindingsPlugin;
 #[cfg(feature = "input")]
 impl Plugin for HostInputBindingsPlugin {
     fn build(&self, app: &mut App) {
-        use ambition_input::{MenuControlFrame, MenuInputState, Platformer2dInputActionMonolith};
-        use ambition_platformer2d_runtime::input::{commit_seat_raw_frames, declare_gameplay_input_context, declare_in_session_input_contexts, populate_menu_control_frame_from_actions, populate_seat_control_frames, populate_seat_menu_frames, spawn_primary_input_participant, sync_primary_recipe_from_settings, toggle_player_trail_emission_from_actions};
+        use ambition_input::{MenuControlFrame, Platformer2dInputActionMonolith};
+        use ambition_platformer2d_runtime::input::{commit_seat_raw_frames, declare_gameplay_input_context, declare_in_session_input_contexts, project_primary_menu_frame, populate_seat_control_frames, populate_seat_menu_frames, spawn_primary_input_participant, sync_primary_recipe_from_settings, toggle_player_trail_emission_from_actions};
         use ambition_input::{MenuFrameConsume, MenuFramePopulate, MenuNavConsume};
         use leafwing_input_manager::prelude::InputManagerPlugin;
 
@@ -78,8 +76,6 @@ impl Plugin for HostInputBindingsPlugin {
         // where the sets and the systems live. The `configure_sets` went WITH them —
         // leaving it behind is the half that gets forgotten, and it fails silently by
         // turning "consumed this frame" into "may arrive one frame later".
-        app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::MenuPauseRoster>();
-        app.add_systems(PreUpdate, menu_pause::publish_menu_pause_roster);
         ambition_input::install_input_pipeline(app);
         ambition_input::install_provider_action_road(app);
         ambition_input::install_seat_device_tracking(app);
@@ -185,8 +181,7 @@ impl Plugin for HostInputBindingsPlugin {
         // RL and `tests/standard_input_path.rs` need.
         app.add_message::<bevy::window::CursorMoved>();
 
-        app.init_resource::<MenuInputState>()
-            .init_resource::<MenuControlFrame>()
+        app.init_resource::<MenuControlFrame>()
             .init_resource::<ambition_input::SeatMenuFrames>()
             .init_resource::<ambition_input::SeatActiveDevices>()
             .add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default())
@@ -292,13 +287,10 @@ impl Plugin for HostInputBindingsPlugin {
             .add_systems(
                 Update,
                 (
-                    populate_menu_control_frame_from_actions
+                    populate_seat_menu_frames
                         .in_set(ambition_input::InputSet::Route)
                         .in_set(MenuFramePopulate),
-                    // The per-seat companion. Same phase, same inputs, different
-                    // question: the global frame answers "did anybody press
-                    // this", this one answers "which seat did".
-                    populate_seat_menu_frames
+                    project_primary_menu_frame
                         .in_set(ambition_input::InputSet::Route)
                         .in_set(MenuFramePopulate),
                     //  ONE registration. There were two adjacent entries

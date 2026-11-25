@@ -63,6 +63,7 @@ use bevy_replicon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 mod body_row;
+mod menu_pause;
 pub use body_row::BodyRow;
 
 /// A body's life: its health, and its death's beat (seconds since it died,
@@ -269,6 +270,7 @@ pub struct HostedWorldPlugin {
 
 impl Plugin for HostedWorldPlugin {
     fn build(&self, app: &mut App) {
+        menu_pause::install(app, self.role);
         app.insert_resource(ambition_platformer2d_shared_tangle::lifecycle::SimulationIslands(|world|
             world.contains_resource::<room_rollback::RewindsGuestRooms>()
                 || world.contains_resource::<prediction::PredictsOwnBody>()));
@@ -1177,7 +1179,7 @@ pub mod udp {
     pub use bevy_replicon_renet::{RenetClient, RenetServer, RepliconRenetPlugins};
 
     /// Both ends must name the same protocol, or netcode refuses the join.
-    pub const PROTOCOL_ID: u64 = u64::from_le_bytes(*b"ambhost2");
+    pub const PROTOCOL_ID: u64 = u64::from_le_bytes(*b"ambhost3");
 
     fn connection(world: &World) -> ConnectionConfig {
         let channels = world.resource::<RepliconChannels>();

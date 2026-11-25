@@ -21,6 +21,8 @@
 // `crate::headless` installs the same log plugin under `--features profile`,
 // because Tracy records through a layer on the tracing subscriber.
 pub(crate) mod cli;
+#[cfg(all(feature = "input", not(target_arch = "wasm32")))]
+mod binding_census;
 mod combo_trace;
 mod dev_runtime;
 mod feedback;
@@ -53,7 +55,7 @@ pub mod visible_composition;
 mod world_flow_fixture_tests;
 
 #[cfg(feature = "input")]
-pub use ambition_platformer2d::runtime::input::populate_menu_control_frame_from_actions;
+pub use ambition_platformer2d::runtime::input::project_primary_menu_frame;
 pub use ambition_platformer2d::input::MenuNavConsume;
 pub use ambition_platformer2d::runtime::schedule::configure_platformer2d_simulation_phases;
 pub use ambition_platformer2d::sim::{

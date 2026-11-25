@@ -3,7 +3,7 @@
 //!
 //! The shell reads no raw devices. Every device reaches it through
 //! [`MenuControlFrame`], filled from the persistent input participant's
-//! `ActionState` (see `populate_menu_control_frame_from_actions`) and the
+//! `ActionState` (see `project_primary_menu_frame`) and the
 //! virtual-device folds. The participant exists from boot, so the frame works
 //! at the startup cards and the launcher with no session.
 //!

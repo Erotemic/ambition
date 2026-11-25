@@ -485,8 +485,9 @@ pub static ENGINE_ACTIONS: &[SemanticActionDef] = &[
         "reset",
         ActionControlKind::Button,
         GAMEPLAY,
-        "Restart / soft reset",
+        "Development reset",
     ),
+    engine("party_return", ActionControlKind::Button, GAMEPLAY, "Return to the party leader"),
     engine(
         "start",
         ActionControlKind::Button,

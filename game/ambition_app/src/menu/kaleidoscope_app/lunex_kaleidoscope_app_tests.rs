@@ -971,7 +971,6 @@ fn real_input_cube_app(
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>();
-    app.init_resource::<ambition_platformer2d::input::MenuInputState>();
     app.init_resource::<ambition_platformer2d::platformer::host_intents::HostIntentLedger<
         ambition_platformer2d::items::ItemUseRequested,
     >>();
@@ -1009,7 +1008,7 @@ fn real_input_cube_app(
         (
             ambition_platformer2d::inventory_ui::declare_inventory_input_context,
             ambition_platformer2d::runtime::input::populate_seat_menu_frames,
-            ambition_platformer2d::runtime::input::populate_menu_control_frame_from_actions,
+            ambition_platformer2d::runtime::input::project_primary_menu_frame,
             crate::menu::lifecycle::route_menu_lifecycle,
             kaleidoscope_focus_nav,
         )
@@ -1096,6 +1095,27 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     press_esc(&mut app, false);
     app.update();
     assert!(!visible(&app), "third Esc (top level) closes the cube");
+}
+
+#[test]
+fn page_shortcuts_open_the_requested_page_via_real_input() {
+    let map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
+    let mut app = real_input_cube_app(map);
+    let tap = |app: &mut App, key| {
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(key);
+        app.update();
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(key);
+        app.update();
+    };
+    tap(&mut app, KeyCode::KeyI);
+    assert!(!crate::menu::test_support::inventory_state(app.world()).visible);
+
+    app.insert_resource(ambition_platformer2d::input::MenuShortcutPages { inventory: true, map: true });
+    tap(&mut app, KeyCode::KeyI);
+    assert!(crate::menu::test_support::inventory_state(app.world()).visible);
+    assert_eq!(crate::menu::test_support::active_pages(app.world()).active, Some(MenuPage::Items));
+    tap(&mut app, KeyCode::KeyM);
+    assert_eq!(crate::menu::test_support::active_pages(app.world()).active, Some(MenuPage::Map));
 }
 
 #[cfg(feature = "bevy_ui_menu")]

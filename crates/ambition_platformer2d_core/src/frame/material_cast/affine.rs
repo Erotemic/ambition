@@ -186,6 +186,9 @@ pub(super) fn build(
     {
         return Err(initial(RefusalReason::ScaleLimit));
     }
+    if admission.links.is_empty() {
+        return Ok(vec![cast.whole_cell()]);
+    }
     let mut links = Vec::new();
     for link in admission.links {
         let numeric = |reason| failure(&[], Some(link.key), RefusalReason::Numeric(reason));
@@ -219,15 +222,7 @@ pub(super) fn build(
         });
     }
     let first = Work {
-        cell: MaterialCell {
-            path: vec![],
-            world_planes: vec![],
-            curve:None,
-            map: cast.material.to_world,
-            travel: cast.delta.as_dvec2(),
-            planes: vec![],
-            time: 0.0..cast.until,
-        },
+        cell: cast.whole_cell(),
         root: Reference {
             origin: cast.root.as_dvec2(),
             travel: cast.delta.as_dvec2(),

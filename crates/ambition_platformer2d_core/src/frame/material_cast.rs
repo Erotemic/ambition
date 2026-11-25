@@ -142,6 +142,18 @@ impl<'a> MaterialCast<'a> {
         SourceMotion { map: self.material.to_world, root: self.root.as_dvec2(), delta: self.delta.as_dvec2(), rotation: self.rotation }
     }
 
+    fn whole_cell(&self) -> MaterialCell {
+        MaterialCell {
+            path: Vec::new(),
+            map: self.material.to_world,
+            travel: self.delta.as_dvec2(),
+            planes: Vec::new(),
+            world_planes: Vec::new(),
+            time: 0.0..self.until,
+            curve: None,
+        }
+    }
+
     /// Restrict the original parameter interval without changing the curve or clock.
     pub fn prefix(mut self, until: f64) -> Result<Self, Refusal> {
         if !until.is_finite() { return Err(numeric(NumericFault::NonFinite)); }
@@ -310,8 +322,11 @@ impl<'a> MaterialCast<'a> {
             let scene = scene.as_ref().unwrap().clone();
             if admission.is_some() { arcs::build(&self, policy, scene)? }
             else {
-                vec![MaterialCell { world_planes: Vec::new(), path: vec![], map: self.material.to_world, travel: DVec2::ZERO,
-                    planes: vec![], time: 0.0..self.until, curve: Some(std::sync::Arc::new(arcs::CurveCell::whole(scene))) }]
+                vec![MaterialCell {
+                    travel: DVec2::ZERO,
+                    curve: Some(std::sync::Arc::new(arcs::CurveCell::whole(scene))),
+                    ..self.whole_cell()
+                }]
             }
         } else if let Some(admission) = admission {
             if admission.links.iter().any(|link|link.enter_step.turn!=0.0 || link.exit_step.turn!=0.0) {
@@ -324,8 +339,7 @@ impl<'a> MaterialCast<'a> {
                 } else {arcs::build(&self,admission,scene.as_ref().unwrap().clone())?}
             } else {affine::build(&self, admission)?}
         } else {
-            vec![MaterialCell { world_planes: Vec::new(), path: vec![], curve:None,map: self.material.to_world,
-                travel: self.delta.as_dvec2(), planes: vec![], time: 0.0..self.until }]
+            vec![self.whole_cell()]
         };
         let mut bounds=Vec::with_capacity(parts.len());
         let mut validated = self.material.to_world;

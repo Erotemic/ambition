@@ -8,6 +8,30 @@ fn box_at(center: Vec2, half: Vec2) -> Vec<Vec2> {
 }
 
 #[test]
+fn an_empty_aperture_search_preserves_contact_and_budget_checks() {
+    let shape = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::ONE));
+    let cast = MaterialCast::new(
+        MaterialPrimitive::world(&shape), Vec2::ZERO, Vec2::new(10.0, 0.0), 0.0..1.0,
+    );
+    let mut admission = MotionAdmission {
+        links: &[],
+        first: None,
+        budget: PieceBudget::COMPOSED,
+        convention: MapConvention::Reflection,
+    };
+    let obstacle = box_at(Vec2::new(5.0, 0.0), Vec2::ONE);
+    let contact = |cells: MaterialCastCells<'_>| {
+        assert_eq!(cells.parts().len(), 1);
+        let bounds = cells.swept_bounds().next().unwrap();
+        let hit = cells.against(&cells.parts()[0], &obstacle, Vec2::ZERO).unwrap().unwrap();
+        (bounds, hit)
+    };
+    assert_eq!(contact(cast.clone().cells(Some(admission)).unwrap()), contact(cast.clone().cells(None).unwrap()));
+    admission.budget.max_pieces = 0;
+    assert!(matches!(cast.cells(Some(admission)), Err(Refusal { reason: RefusalReason::PieceLimit, .. })));
+}
+
+#[test]
 fn non_finite_collider_input_refuses_before_a_portal_cut() {
     let aperture = |x, normal| PortalAperture {
         frame: PortalFrame::fixed(Vec2::new(x, 0.0), normal), half_length: 10.0,

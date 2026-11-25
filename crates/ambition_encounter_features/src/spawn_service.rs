@@ -21,7 +21,6 @@ use ambition_platformer2d_actor_spawn::spawn_encounter_mob;
 pub fn serve_encounter_spawn_commands(
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands<'_, '_>,
     mut events: bevy::prelude::MessageReader<ambition_encounter::EncounterEventMsg>,
-    catalog: bevy::prelude::Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     // The session's cast, not the App's (`SessionCast`). A shell session that
     // lost its generation is answered with no spawn, as a live room rebuild is.
     cast: ambition_characters::prepared::SessionCast,
@@ -76,7 +75,6 @@ pub fn serve_encounter_spawn_commands(
         });
         spawn_encounter_mob(&generation.sprite_content,
             &mut commands,
-            &catalog,
             authored_sheets,
             prepared,
             // ⛔ INTO THE OCCURRENCE'S LIVE ROOM, which the request carries. An

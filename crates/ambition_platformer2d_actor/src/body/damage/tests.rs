@@ -1583,13 +1583,9 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.add_systems(
         Update,
-        { let sprite_content = sprite_content.clone(); move |mut c: Commands,
-         catalog: bevy::prelude::Res<
-            ambition_characters::actor::character_catalog::CharacterCatalog,
-        >| {
+        { let sprite_content = sprite_content.clone(); move |mut c: Commands| {
             spawn_split_offspring(&sprite_content,
                 &mut c,
-                &catalog,
                 &Default::default(),
                 Some(&ambition_characters::prepared_fixtures::fixture_cast(&["npc_puppy_slug",
                 ])),
@@ -1632,13 +1628,9 @@ fn a_split_with_no_prepared_cast_is_refused() {
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_systems(
         Update,
-        { let sprite_content = sprite_content.clone(); move |mut c: Commands,
-         catalog: bevy::prelude::Res<
-            ambition_characters::actor::character_catalog::CharacterCatalog,
-        >| {
+        { let sprite_content = sprite_content.clone(); move |mut c: Commands| {
             spawn_split_offspring(&sprite_content,
                 &mut c,
-                &catalog,
                 &Default::default(),
                 None,
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,

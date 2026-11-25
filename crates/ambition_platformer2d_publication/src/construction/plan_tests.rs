@@ -1441,12 +1441,10 @@ fn an_authored_giant_host_carries_the_rooms_frozen_paths() {
 fn a_runtime_minion_giant_is_refused_before_it_spawns() {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut world = World::new();
-    let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
     let root = {
         let mut commands = world.commands();
         ambition_platformer2d_actor_spawn::spawn_runtime_minion(&sprite_content,
             &mut commands,
-            &catalog,
             &Default::default(),
             // the giant IS in the cast, so the refusal under test is the
             // limb-rig one rather than "this names no character" (AC6).
@@ -1475,12 +1473,10 @@ fn a_runtime_minion_giant_is_refused_before_it_spawns() {
 fn an_encounter_wave_giant_is_refused_before_it_spawns() {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let mut world = World::new();
-    let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
     {
         let mut commands = world.commands();
         ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
             &mut commands,
-            &catalog,
             &Default::default(),
             // See the minion twin: the cast holds the giant, so the refusal
             // under test is the limb-rig one.

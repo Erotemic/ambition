@@ -222,7 +222,6 @@ pub fn install_actor_spawn_requests(
 pub fn apply_spawn_actor_requests(sprite_content: bevy::prelude::Res<ambition_sprite_sheet::SpriteContent>,
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<SpawnActorRequest>,
-    character_catalog: bevy::prelude::Res<CharacterCatalog>,
     authored_sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     // `Option`, matching its sibling on the authored path, and the absence is MEANINGFUL rather
     // than defensive: a composition that never registered a character has no such resource at
@@ -262,7 +261,6 @@ pub fn apply_spawn_actor_requests(sprite_content: bevy::prelude::Res<ambition_sp
         };
         let Some(entity) = spawn_staged_actor(&sprite_content,
             &mut commands,
-            &character_catalog,
             &authored_sheets,
             prepared.get().unwrap_or(&empty_cast),
             &boss_catalog,
@@ -294,7 +292,6 @@ pub fn apply_spawn_actor_requests(sprite_content: bevy::prelude::Res<ambition_sp
 /// late once the allocation belongs to the caller).
 pub fn spawn_staged_actor(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
-    character_catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     boss_catalog: &BossCatalog,
@@ -332,7 +329,6 @@ pub fn spawn_staged_actor(sprite_content: &ambition_sprite_sheet::SpriteContent,
     let root = commands.spawn_empty().id();
     spawn_staged_actor_into(&sprite_content,
         &mut RootScope::new(commands, session_scope, root),
-        character_catalog,
         authored_sheets,
         prepared,
         boss_catalog,
@@ -346,7 +342,6 @@ pub fn spawn_staged_actor(sprite_content: &ambition_sprite_sheet::SpriteContent,
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_staged_actor_into(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut RootScope,
-    character_catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     boss_catalog: &BossCatalog,
@@ -366,7 +361,6 @@ pub fn spawn_staged_actor_into(sprite_content: &ambition_sprite_sheet::SpriteCon
             // A runtime-staged boss stands in no authored room: never practice.
             spawn_boss_with_overrides_into(&sprite_content,
                 &mut scope.reborrow(),
-                character_catalog,
                 boss_catalog,
                 prepared,
                 authored_sheets,
@@ -408,7 +402,6 @@ pub fn spawn_staged_actor_into(sprite_content: &ambition_sprite_sheet::SpriteCon
             // any authored enemy.
             spawn_enemy_with_faction_into(&sprite_content,
                 &mut scope.reborrow(),
-                character_catalog,
                 authored_sheets,
                 prepared,
                 //  no placement, so no placement-authored policy. A staged
@@ -659,11 +652,11 @@ impl NpcActorSpawnPlan {
         // swipe and a gun-sword, and were being handed `pirate_raider`'s instead.
         //
         //  the NPC road's fallback is narrower than the enemy road's, and so
-        // is its refusal. An NPC's BODY comes from its catalog row, not from
-        // the definition — so an unregistered-but-cataloged character still gets
-        // the right body and only the KIT is borrowed. What has no fallback at
-        // all is a character in NEITHER, where `new_peaceful_npc_in` drops to a
-        // display-name match: a person built by resembling somebody.
+        // is its refusal. A character the App's catalog names but the admitted
+        // cast does not (a newer generation than the running session's) is
+        // built as the peaceful default body with no kit, and reported; the
+        // catalog is read only to say so. A character in NEITHER has no
+        // fallback at all.
         let authored_kit = match npc_character_id(&interactable) {
             None => None,
             Some(character) => match prepared.get(character) {
@@ -676,7 +669,7 @@ impl NpcActorSpawnPlan {
                         catalog
                             .display_name(character)
                             .is_some()
-                            .then_some("its catalog row's body with a borrowed kit"),
+                            .then_some("the peaceful default body with no kit"),
                     );
                     None
                 }
@@ -696,7 +689,6 @@ impl NpcActorSpawnPlan {
             .unwrap_or_else(ambition_characters::brain::ActionSet::peaceful);
         let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
             authored_sheets,
-            catalog,
             Some(prepared),
             id.clone(),
             name.clone(),
@@ -960,7 +952,6 @@ fn compose_boss_role(
 /// Populate a boss onto a root the construction executor allocated.
 pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut RootScope,
-    character_catalog: &CharacterCatalog,
     boss_catalog: &BossCatalog,
     // The cast the boss's character is prepared in, and the sheets a
     // consumer authored: a boss is an instance of its character.
@@ -1123,7 +1114,6 @@ pub fn spawn_boss_with_overrides_into(sprite_content: &ambition_sprite_sheet::Sp
     let mut seed = ambition_body_seed::ActorClusterSeed::new_character_in(
         sprite_content,
         authored_sheets,
-        character_catalog,
         authored.id.clone(),
         character.role_blueprint(role_locomotion),
         authored.aabb,
@@ -1310,7 +1300,6 @@ pub fn summon_cast<'a>(
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_runtime_minion(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
-    catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
@@ -1329,7 +1318,6 @@ pub fn spawn_runtime_minion(sprite_content: &ambition_sprite_sheet::SpriteConten
     let root = commands.spawn_empty().id();
     spawn_runtime_minion_into(&sprite_content,
         &mut RootScope::new(commands, session_scope, root),
-        catalog,
         authored_sheets,
         prepared,
         id,
@@ -1350,7 +1338,6 @@ pub fn spawn_runtime_minion(sprite_content: &ambition_sprite_sheet::SpriteConten
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_runtime_minion_into(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut RootScope,
-    catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     id: impl Into<String>,
@@ -1403,7 +1390,6 @@ pub fn spawn_runtime_minion_into(sprite_content: &ambition_sprite_sheet::SpriteC
     let name = body.display_name.to_string();
     let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(&sprite_content,
         authored_sheets,
-        catalog,
         id.clone(),
         body,
         aabb,
@@ -1587,7 +1573,6 @@ pub const UNDESCRIBED_BODY_RESPAWN: ambition_entity_catalog::placements::Respawn
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_enemy_with_faction_into(sprite_content: &ambition_sprite_sheet::SpriteContent,
     scope: &mut RootScope,
-    catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     // The published controller policies, so this PLACEMENT may name one.
@@ -1670,7 +1655,6 @@ pub fn spawn_enemy_with_faction_into(sprite_content: &ambition_sprite_sheet::Spr
         }
         let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(&sprite_content,
             authored_sheets,
-            catalog,
             plan.context().feature_id.to_string(),
             body,
             plan.context().aabb,
@@ -2164,7 +2148,6 @@ pub fn spawn_interactable_into(sprite_content: &ambition_sprite_sheet::SpriteCon
 /// feature entity queried by actor, projectile, rendering, and health systems.
 pub fn spawn_encounter_mob(sprite_content: &ambition_sprite_sheet::SpriteContent,
     commands: &mut Commands,
-    catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     // The prepared cast — the body authority for every encounter mob that
     // names a character. `kind` is controller policy, not an alternate body key.
@@ -2226,7 +2209,6 @@ pub fn spawn_encounter_mob(sprite_content: &ambition_sprite_sheet::SpriteContent
         Some(definition) => {
             let enemy = ambition_body_seed::ActorClusterSeed::new_character_in(&sprite_content,
                 authored_sheets,
-                catalog,
                 // The instance identity.  NOT the character: two goblins in one
                 // wave are two bodies, and every id-keyed index in the actor
                 // runtime — the encounter's own `FeatureId` liveness lookup

@@ -496,6 +496,36 @@ rechecks for mutable progress or ownership that can change before publication.
 The [generation owner](content-generation-and-reload.md#link-one-selected-generation)
 owns the rest of this transaction and cross-submodule candidate selection.
 
+**Construction reads the admitted cast (2026-11-25).** The body seed
+asked the App's `CharacterCatalog` one mechanical question: whether a
+row's tags make the body a machine (its hurt profile). A session frozen
+at cast N could therefore build a room's body from N's definition and
+N+1's catalog row. Preparation now resolves that fact
+(`PreparedCharacterDefinition::mechanical`, `MECHANICAL_BODY_TAGS` in
+`ambition_characters::prepared`), and the seed reads it from the
+blueprint. Neither seed constructor takes the catalog any more. Nor do
+the staged-actor, boss, enemy, runtime-minion, encounter-mob, split
+offspring, match-seat and cut-rope victory roads that only passed it on;
+their systems no longer hold `Res<CharacterCatalog>`. The NPC road still
+reads the catalog, but only to word its report for a character the
+admitted cast lacks. Ambient bark text stays a presentation read.
+
+Sheets, as found: a sheet table that changes a mechanical fact
+(`PreparedSheetTable::changes_mechanics_of`) waits for the session
+boundary and then restates the cast (`restate_the_cast_from_the_sheets`),
+so within one session construction's geometry and the admitted cast read
+one sheet generation. Still open: a pack candidate binds the sheet
+metadata that is live when it is prepared (`stage_cast_from_pack`,
+`candidate_bosses`, `candidate_content_graph`) and keeps no identity of
+it. A mechanical sheet table is not published while a session is live or
+a route prepares (`publish_the_staged_sheets`), which covers the ordinary
+road; activation does not check it. The two-owner candidate is witnessed
+(`reload_tests::a_candidate_that_changes_a_moveset_and_a_catalog_row_publishes_both_or_neither`):
+the goblin's moves retimed and its row tagged a machine in one candidate
+publish both at activation and neither at the request; a body built
+afterwards from the admitted cast is the machine; the same candidate with
+its row naming an undeclared action-set preset changes nothing.
+
 ### L3 — Make one installed service an honest optional contribution
 
 Use cutscene playback as the bounded candidate: it is already omittable, has

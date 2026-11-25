@@ -542,7 +542,6 @@ fn build_spawned_bodies(
     mut commands: Commands,
     rows: Query<(Entity, &SpawnRow, Option<&BodyRow>), (With<Remote>, Without<BodyKinematics>, Without<BuiltFromSpawnRow>)>,
     sprite_content: Res<ambition_sprite_sheet::SpriteContent>,
-    character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     prepared: ambition_characters::prepared::SessionCast,
     boss_catalog: Res<ambition_boss_encounter::BossCatalog>,
@@ -579,7 +578,6 @@ fn build_spawned_bodies(
         ambition_platformer2d_actor_spawn::spawn_staged_actor_into(
             &sprite_content,
             &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(&mut commands, session, root),
-            &character_catalog,
             &authored_sheets,
             prepared.get().unwrap_or(&empty_cast),
             &boss_catalog,

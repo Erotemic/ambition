@@ -256,7 +256,11 @@ value as completion of that owner's contract.
    native charge.)
    [FORM-REBIND](#form-rebind--admit-and-apply-a-complete-form-on-the-existing-body)
    supplies L2's live form/generation customer and can be corrected before
-   broader linking. The independent
+   broader linking. (L2, 2026-11-25: body construction reads only the
+   admitted cast; the mechanical-body tag is prepared, and no spawn road
+   takes the App's `CharacterCatalog` for a body fact; a two-owner candidate
+   publishes both changes at activation or neither. Open: a candidate's
+   sheet identity.) The independent
    [authored-empty geometry slice](engine/combat-model.md#preserve-an-authored-empty-geometry-sample)
    carries Unauthored/Empty/Shape through the sprite/combat boundary.
    An empty selected strike sample contributes no strike or AI strike

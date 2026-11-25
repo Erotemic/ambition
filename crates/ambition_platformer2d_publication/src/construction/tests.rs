@@ -61,7 +61,6 @@ fn body_driven_by(sprite_content: &ambition_sprite_sheet::SpriteContent,
     );
     let seed = ambition_body_seed::ActorClusterSeed::new_character_in(&sprite_content,
         &Default::default(),
-        &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         "test".to_string(),
         finalized
             .prepared
@@ -268,13 +267,9 @@ fn encounter_mob_brain_comes_from_its_characters_profile() {
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.add_systems(
         Update,
-        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-         catalog: bevy::prelude::Res<
-            ambition_characters::actor::character_catalog::CharacterCatalog,
-        >| {
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
             spawn_encounter_mob(&sprite_content,
                 &mut commands,
-                &catalog,
                 &Default::default(),
                 &smash_fixture_cast(),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -311,13 +306,9 @@ fn an_encounter_mob_persists_no_death() {
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.add_systems(
         Update,
-        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-         catalog: bevy::prelude::Res<
-            ambition_characters::actor::character_catalog::CharacterCatalog,
-        >| {
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
             spawn_encounter_mob(&sprite_content,
                 &mut commands,
-                &catalog,
                 &Default::default(),
                 &smash_fixture_cast(),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -399,7 +390,6 @@ fn boss_spawn_attaches_brain_components() {
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 root,
             ),
-            &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &ambition_boss_encounter::test_boss_catalog(),
             super::fixtures::fixture_cast(),
             &Default::default(),
@@ -480,13 +470,9 @@ fn encounter_mob_spawns_with_brain_components() {
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.add_systems(
         Update,
-        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-         catalog: bevy::prelude::Res<
-            ambition_characters::actor::character_catalog::CharacterCatalog,
-        >| {
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
             spawn_encounter_mob(&sprite_content,
                 &mut commands,
-                &catalog,
                 &Default::default(),
                 &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -879,9 +865,6 @@ mod authored_enemy_reads_its_character {
         app.add_systems(
             Update,
             move |mut commands: Commands,
-                  catalog: bevy::prelude::Res<
-                ambition_characters::actor::character_catalog::CharacterCatalog,
-            >,
                   prepared: bevy::prelude::Res<
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
@@ -892,7 +875,6 @@ mod authored_enemy_reads_its_character {
                         SessionSpawnScope::UNSCOPED,
                         root,
                     ),
-                    &catalog,
                     &Default::default(),
                     &prepared,
                     &Default::default(),
@@ -1215,9 +1197,6 @@ mod authored_enemy_reads_its_character {
         app.add_systems(
             Update,
             move |mut commands: Commands,
-                  catalog: bevy::prelude::Res<
-                ambition_characters::actor::character_catalog::CharacterCatalog,
-            >,
                   prepared: bevy::prelude::Res<
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
@@ -1228,7 +1207,6 @@ mod authored_enemy_reads_its_character {
                         SessionSpawnScope::UNSCOPED,
                         root,
                     ),
-                    &catalog,
                     &Default::default(),
                     &prepared,
                     &Default::default(),
@@ -1346,9 +1324,6 @@ mod authored_enemy_reads_its_character {
         app.add_systems(
             Update,
             { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-                  catalog: bevy::prelude::Res<
-                ambition_characters::actor::character_catalog::CharacterCatalog,
-            >,
                   prepared: bevy::prelude::Res<
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
@@ -1359,7 +1334,6 @@ mod authored_enemy_reads_its_character {
                         SessionSpawnScope::UNSCOPED,
                         root,
                     ),
-                    &catalog,
                     &Default::default(),
                     &prepared,
                     &profiles,
@@ -1532,9 +1506,6 @@ mod authored_enemy_reads_its_character {
         app.add_systems(
             Update,
             { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-                  catalog: bevy::prelude::Res<
-                ambition_characters::actor::character_catalog::CharacterCatalog,
-            >,
                   prepared: bevy::prelude::Res<
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
@@ -1545,7 +1516,6 @@ mod authored_enemy_reads_its_character {
                         SessionSpawnScope::UNSCOPED,
                         root,
                     ),
-                    &catalog,
                     &Default::default(),
                     &prepared,
                     // These fixtures author no placement-side policy, so an
@@ -1676,9 +1646,6 @@ mod authored_enemy_reads_its_character {
         app.add_systems(
             Update,
             { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-                  catalog: bevy::prelude::Res<
-                ambition_characters::actor::character_catalog::CharacterCatalog,
-            >,
                   prepared: bevy::prelude::Res<
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
@@ -1689,7 +1656,6 @@ mod authored_enemy_reads_its_character {
                         SessionSpawnScope::UNSCOPED,
                         root,
                     ),
-                    &catalog,
                     &Default::default(),
                     &prepared,
                     // These fixtures author no placement-side policy, so an
@@ -1742,9 +1708,6 @@ mod authored_enemy_reads_its_character {
         app.add_systems(
             Update,
             { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-                  catalog: bevy::prelude::Res<
-                ambition_characters::actor::character_catalog::CharacterCatalog,
-            >,
                   prepared: bevy::prelude::Res<
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
@@ -1755,7 +1718,6 @@ mod authored_enemy_reads_its_character {
                         SessionSpawnScope::UNSCOPED,
                         root,
                     ),
-                    &catalog,
                     &Default::default(),
                     &prepared,
                     // These fixtures author no placement-side policy, so an
@@ -1800,9 +1762,6 @@ mod authored_enemy_reads_its_character {
         app.add_systems(
             Update,
             { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-                  catalog: bevy::prelude::Res<
-                ambition_characters::actor::character_catalog::CharacterCatalog,
-            >,
                   prepared: bevy::prelude::Res<
                 ambition_characters::prepared::PreparedCharacterRegistry,
             >| {
@@ -1813,7 +1772,6 @@ mod authored_enemy_reads_its_character {
                         SessionSpawnScope::UNSCOPED,
                         root,
                     ),
-                    &catalog,
                     &Default::default(),
                     &prepared,
                     // These fixtures author no placement-side policy, so an

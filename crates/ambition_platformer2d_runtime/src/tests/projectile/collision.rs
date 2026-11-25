@@ -64,11 +64,9 @@ fn a_shot_across_live_rooms(sprite_content: &ambition_sprite_sheet::SpriteConten
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
-        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-         catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
             ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                 &mut commands,
-                &catalog,
                 &Default::default(),
                 &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -316,11 +314,9 @@ fn fireball_damages_enemy_on_intersect() {
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
-        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-         catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
             ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                 &mut commands,
-                &catalog,
                 &Default::default(),
                 &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -594,14 +590,10 @@ fn a_shot_reaching_two_bodies_hits_the_nearer_one_whichever_was_spawned_first() 
         };
         app.add_systems(
             Startup,
-            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-                  catalog: Res<
-                ambition_characters::actor::character_catalog::CharacterCatalog,
-            >| {
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
                 for (id, x) in order {
                     ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                         &mut commands,
-                        &catalog,
                         &Default::default(),
                         &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                         ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -690,11 +682,9 @@ fn a_shot_does_not_damage_a_victim_standing_behind_a_wall() {
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
-        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-         catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
             ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                 &mut commands,
-                &catalog,
                 &Default::default(),
                 &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -877,11 +867,9 @@ fn the_earliest_contact_wins_whether_it_is_a_body_or_a_crate() {
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
         app.add_systems(
             Startup,
-            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-             catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
                 ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                     &mut commands,
-                    &catalog,
                     &Default::default(),
                     &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                     ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -1004,11 +992,9 @@ fn a_wall_inside_a_wide_body_past_its_near_face_does_not_stop_the_hit() {
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
-        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-         catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
             ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                 &mut commands,
-                &catalog,
                 &Default::default(),
                 &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -1091,11 +1077,9 @@ fn a_fast_shot_hits_a_thin_body_it_crosses_within_one_tick() {
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
         app.add_systems(
             Startup,
-            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-             catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
                 ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                     &mut commands,
-                    &catalog,
                     &Default::default(),
                     &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                     ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -1648,11 +1632,9 @@ fn a_one_way_stops_a_bouncing_shot_descending_onto_it_and_not_one_rising_through
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
         app.add_systems(
             Startup,
-            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-                  catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
                 ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                     &mut commands,
-                    &catalog,
                     &Default::default(),
                     &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                     ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -1746,11 +1728,9 @@ fn a_one_way_blocks_the_shot_whose_policy_says_it_should_and_no_other() {
         app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
         app.add_systems(
             Startup,
-            { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-             catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+            { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
                 ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                     &mut commands,
-                    &catalog,
                     &Default::default(),
                     &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                     ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -1990,12 +1970,10 @@ fn the_body_a_stacked_shot_strikes(sprite_content: &ambition_sprite_sheet::Sprit
     app.init_resource::<ambition_platformer2d_construction::mechanics::SessionMechanics>();
     app.add_systems(
         Startup,
-        { let sprite_content = sprite_content.clone(); move |mut commands: Commands,
-              catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+        { let sprite_content = sprite_content.clone(); move |mut commands: Commands| {
             for id in spawn_order {
                 ambition_platformer2d_actor_spawn::spawn_encounter_mob(&sprite_content,
                     &mut commands,
-                    &catalog,
                     &Default::default(),
                     &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
                     ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
@@ -3193,10 +3171,9 @@ fn a_projectile_damages_a_bodys_far_side_hurt_cap_and_keeps_its_contact_chart() 
     app.init_resource::<Contacts>();
     app.add_systems(Update, record.after(ambition_projectile_combat::step_projectiles));
     app.add_systems(Startup, |mut commands: Commands,
-        sprites: Res<ambition_sprite_sheet::SpriteContent>,
-        catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>| {
+        sprites: Res<ambition_sprite_sheet::SpriteContent>| {
         ambition_platformer2d_actor_spawn::spawn_encounter_mob(
-            &sprites, &mut commands, &catalog, &Default::default(),
+            &sprites, &mut commands, &Default::default(),
             &ambition_characters::prepared_fixtures::fixture_cast(&["fixture_striker"]),
             ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
             "sampled_contact", ambition_encounter::mob_seed::EncounterMobSeed {

@@ -23,7 +23,6 @@ pub fn spawn_cut_rope_victory_npc(sprite_content: bevy::prelude::Res<ambition_pl
     mut commands: ambition_platformer2d::platformer::lifecycle::SessionCommands,
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
-    character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     tuning: Res<crate::tuning::AmbitionTuning>,
     mut released: ReplayMessageReader<ambition_boss_encounter::PayloadReleased>,
@@ -94,7 +93,6 @@ pub fn spawn_cut_rope_victory_npc(sprite_content: bevy::prelude::Res<ambition_pl
         spawn_victory_npc_entity(&sprite_content,
             &mut commands,
             session_scope.in_room(Some(room)),
-            &character_catalog,
             &authored_sheets,
             npc,
             spawn_pos,
@@ -105,7 +103,6 @@ pub fn spawn_cut_rope_victory_npc(sprite_content: bevy::prelude::Res<ambition_pl
 fn spawn_victory_npc_entity(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     commands: &mut Commands,
     session_scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
-    character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     npc: &ambition_content_schemas::rules::VictoryNpc,
     pos: ae::Vec2,
@@ -130,7 +127,6 @@ fn spawn_victory_npc_entity(sprite_content: &ambition_platformer2d::sprite_sheet
     let mut seed =
         ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
             authored_sheets,
-            character_catalog,
             // The victory NPC names no character, so nothing here can be decided by
             // one — see the flight rule in `new_peaceful_npc_in`.
             None,

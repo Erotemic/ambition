@@ -5123,3 +5123,96 @@ fn a_candidate_that_changes_only_item_art_restates_ambitions_rows() {
     assert_eq!(wielded(&app, "gun_sword_heavy"), None, "the withdrawn wielded art is still drawn");
     assert!(wielded(&app, "gun_sword_heavy_withdrawn").is_some(), "the renamed wielded art was not published");
 }
+
+/// The goblin's moves retimed and its catalog row made a machine, in ONE
+/// candidate: a repertoire owner and a character-form fact change together.
+/// `invalid` also points the row at an action-set preset nobody declares.
+fn pack_with_the_goblin_retimed_and_mechanical(invalid: bool) -> Result<ambition_content_pack::PreparedContentPack, String> {
+    let (mut retimed, mut tagged) = (false, false);
+    let pack = crate::pack::compile_pack_with(|declared, text| {
+        if declared == "data/character_catalog.ron" {
+            let row = text.find("\n        \"goblin\": (").expect("the shipped catalog has a goblin row");
+            let tags = row + text[row..].find("tags: [\"enemy\", \"base\"]").expect("the goblin row's tags");
+            let mut edited = text.clone();
+            edited.replace_range(tags..tags + "tags: [\"enemy\", \"base\"]".len(), "tags: [\"enemy\", \"base\", \"automaton\"]");
+            if invalid {
+                let preset = row + edited[row..].find("default_action_set: \"").expect("the goblin row names its action set");
+                let start = preset + "default_action_set: \"".len();
+                let end = start + edited[start..].find('"').unwrap();
+                edited.replace_range(start..end, "no_such_preset");
+            }
+            tagged = true;
+            return edited;
+        }
+        let Ok(mut doc) = ambition_entity_catalog::EntityCatalogDoc::parse(&text) else {
+            return text;
+        };
+        let Some(goblin) = doc.entities.iter_mut().find(|entity| entity.id == "goblin") else {
+            return text;
+        };
+        for spec in goblin.contracts.moveset.as_mut().map(|moveset| moveset.moves.iter_mut()).into_iter().flatten() {
+            spec.duration_s += 0.5;
+            retimed = true;
+        }
+        doc.to_ron().expect("the edited table serializes")
+    })
+    .map_err(|failure| failure.render());
+    assert!(retimed && tagged, "the fixture changed retimed={retimed} tagged={tagged}");
+    pack
+}
+
+/// L2: a candidate that changes the repertoire and the form fact of one
+/// character publishes both at its activation and neither before it, and a
+/// body built afterwards from the admitted cast has both. A candidate whose
+/// row names an undeclared preset leaves generation N whole.
+#[test]
+fn a_candidate_that_changes_a_moveset_and_a_catalog_row_publishes_both_or_neither() {
+    let mechanical = |app: &bevy::app::App| {
+        app.world().resource::<PreparedCharacterRegistry>().get("goblin").expect("published").mechanical
+    };
+    let mut app = host_with_the_shipped_cast();
+    shell_active_on(&mut app, true);
+    app.add_systems(bevy::app::Update, (adopt_preparation_transaction, commit_content_generation).chain());
+    let live = live_pack(&app);
+    let (duration, was_mechanical) = (shipped_duration(&app, "goblin"), mechanical(&app));
+    assert!(!was_mechanical, "premise: the shipped goblin is not a machine");
+
+    // One reference made invalid: refused, and nothing of either change lands.
+    match pack_with_the_goblin_retimed_and_mechanical(true) {
+        Err(_) => {}
+        Ok(invalid) => {
+            let outcome = request_reload(
+                app.world_mut(),
+                ambition_content_pack::CandidateGeneration::prepared_against(std::sync::Arc::new(invalid), Some(live.fingerprint)),
+            );
+            assert!(matches!(outcome, ReloadRequest::Refused(_)), "an undeclared preset was requested; got {outcome:?}");
+        }
+    }
+    assert_eq!((shipped_duration(&app, "goblin"), mechanical(&app)), (duration, false), "a refused candidate changed the cast");
+
+    let candidate = std::sync::Arc::new(pack_with_the_goblin_retimed_and_mechanical(false).expect("the valid candidate compiles"));
+    let outcome = request_reload(
+        app.world_mut(),
+        ambition_content_pack::CandidateGeneration::prepared_against(std::sync::Arc::clone(&candidate), Some(live.fingerprint)),
+    );
+    assert!(matches!(outcome, ReloadRequest::Requested { .. }), "the two-owner candidate was not requested; got {outcome:?}");
+    assert_eq!((shipped_duration(&app, "goblin"), mechanical(&app)), (duration, false), "the REQUEST published; generation N stays until activation");
+    let mine = a_preparation_for(&mut app, "shell.game.1");
+    app.world_mut().write_message(ambition_platformer2d::game_shell::ShellEvent::RouteActivated(mine));
+    app.update();
+    assert_eq!(shipped_duration(&app, "goblin"), duration + 0.5, "the activation did not publish the retimed moves");
+    assert!(mechanical(&app), "the activation did not publish the catalog row's tag");
+
+    // A body built after the activation, from the admitted cast alone.
+    let goblin = app.world().resource::<PreparedCharacterRegistry>().get("goblin").unwrap().clone();
+    let seed = ambition_body_seed::ActorClusterSeed::new_character_in(
+        app.world().resource::<ambition_platformer2d::sprite_sheet::SpriteContent>(),
+        &Default::default(),
+        "goblin",
+        goblin.body_blueprint().expect("the goblin states its locomotion"),
+        ambition_platformer2d_core::aabb_from_min_size(ambition_platformer2d_core::Vec2::ZERO, ambition_platformer2d_core::Vec2::new(32.0, 32.0)),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("idle".to_string()),
+        &[],
+    );
+    assert_eq!(seed.hurt_feedback, ambition_vfx::HurtFeedback::ROBOT, "a body built after the activation is not the admitted machine");
+}

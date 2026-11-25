@@ -69,7 +69,6 @@ fn seed_for(sprite_content: &ambition_sprite_sheet::SpriteContent,
     let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
     let seed = ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
-        &CharacterCatalog::empty(),
         prepared,
         "flyer",
         "Flyer",
@@ -186,7 +185,6 @@ fn is_aerial(sprite_content: &ambition_sprite_sheet::SpriteContent,
     let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
     let seed = ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
-        &CharacterCatalog::empty(),
         prepared,
         "flyer",
         "Flyer",
@@ -294,7 +292,6 @@ fn a_peaceful_npc_that_authors_a_sprite_body_is_built_from_its_sheet() {
     let interactable = npc_at(Some("npc_test_flyer"));
     let seed = ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
-        &CharacterCatalog::empty(),
         Some(&registry),
         "flyer",
         "Flyer",
@@ -344,7 +341,6 @@ fn a_prepared_npc_without_a_blueprint_keeps_its_authored_abilities() {
 
     let seed = ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
-        &CharacterCatalog::empty(),
         Some(&registry),
         "walker",
         "Walker",
@@ -386,7 +382,7 @@ fn a_floating_catalog_row_is_a_silhouette_not_a_flight_answer() {
             ),
         },
     )"#;
-    let catalog = CharacterCatalog::from_data(
+    let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
         ambition_characters::actor::character_catalog::parse_catalog(ROWS),
     );
     let cast = ambition_characters::prepared::prepare_cast_for_test(&catalog, []);
@@ -400,7 +396,6 @@ fn a_floating_catalog_row_is_a_silhouette_not_a_flight_answer() {
     let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
     let seed = ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
-        &catalog,
         Some(&cast),
         "drifter",
         "Drifter",

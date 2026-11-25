@@ -344,6 +344,24 @@ Oiler: Hear that tick? No? Robot shoulder. Give it another minute.
     Oiler: I can hear a loose bearing from here and they will not let me cross the rope. Miserable place.
 ===
 
+title: hall_npc_fia
+---
+Fia: You're the one Oiler keeps glaring at. Come here, your left knee is singing.
+-> Who are you?
+    Fia: Fia. I work under Oiler. He fixes the town; I fix whatever the town drags in. Today that's you.
+-> Where are your goggles?
+    Fia: Never wore them. I like to see what I'm getting into.
+-> What is the white streak?
+    Fia: Born with it. Probably. Oiler says it showed up the week I first opened a gate panel. Oiler exaggerates.
+-> Show me the void.
+    <<transform "npc_fia_void">>
+    Fia: Oh. It's quiet in here. Every part of everything, exactly where it belongs.
+    Fia: Don't look so worried. I can stop whenever I like.
+-> Come back.
+    <<transform "npc_fia">>
+    Fia: There. Hands last, always. They remember it longest.
+===
+
 title: hall_npc_gate_janitor
 ---
 Gate Janitor: They put the janitor in the exhibit. Somebody must have noticed the floors.

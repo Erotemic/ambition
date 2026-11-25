@@ -2,8 +2,8 @@
 //!
 //! Every actor — was-NPC, was-enemy, encounter mob, seated fighter — is built
 //! from one [`ActorClusterSeed`]. The seed is a VALUE over the character,
-//! combat and body-cluster vocabularies: its two constructors read the catalog
-//! and the authored sheets, resolve the collision box, the tuning and the
+//! combat and body-cluster vocabularies: its two constructors read the prepared
+//! cast and the authored sheets, resolve the collision box, the tuning and the
 //! patrol path, and hand back something that names no simulation. The actor
 //! kernel consumes it — [`ActorClusterSeed::into_components`] is the whole
 //! contract between preparation and construction — and the kernel's per-tick
@@ -26,7 +26,6 @@ use ambition_combat::actor_tuning::{ActorConfig, ActorPolicy};
 use ambition_platformer2d_core::BodyKinematics;
 use bevy::prelude::Component;
 
-use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_combat::components::{ActorIdentity, BodyMelee};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
@@ -276,25 +275,9 @@ fn actor_spawn_center_for_collision(authored: ae::Aabb, collision_size: ae::Vec2
     )
 }
 
-/// Catalog tags that declare a body as MECHANICAL — the vocabulary an author
-/// writes to make a material-aware strike land as a machine hit instead of a
-/// flesh one. No character ID appears here: a body is a machine because its
-/// catalog row SAYS so, which is what keeps a second provider's robot working
-/// without teaching the engine its name.
-const MECHANICAL_BODY_TAGS: [&str; 4] = ["robot", "automaton", "mechanical", "synthetic"];
-
-fn actor_hurt_feedback(
-    catalog: &CharacterCatalog,
-    character_id: Option<&str>,
-) -> ambition_vfx::HurtFeedback {
-    let mechanical = character_id
-        .and_then(|id| catalog.get(id))
-        .is_some_and(|entry| {
-            entry
-                .tags
-                .iter()
-                .any(|tag| MECHANICAL_BODY_TAGS.contains(&tag.as_str()))
-        });
+/// How a body reacts to a hit: a machine's crunch for a character prepared as
+/// mechanical (`PreparedCharacterDefinition::mechanical`), flesh otherwise.
+fn actor_hurt_feedback(mechanical: bool) -> ambition_vfx::HurtFeedback {
     if mechanical {
         ambition_vfx::HurtFeedback::ROBOT
     } else {
@@ -371,7 +354,6 @@ impl ActorClusterSeed {
     /// Build a peaceful actor from the caller's App-local character catalog.
     pub fn new_peaceful_npc_in(sprite_content: &ambition_sprite_sheet::SpriteContent,
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        catalog: &CharacterCatalog,
         // The prepared cast, so this road can ask the CHARACTER whether it
         // flies before it asks the catalog. `Option` because a composition with
         // no registered characters is the ordinary case, not a degraded one.
@@ -512,7 +494,6 @@ impl ActorClusterSeed {
         if let Some(body) = authored_body {
             let mut seed = Self::new_character_in(&sprite_content,
                 authored,
-                catalog,
                 id,
                 body,
                 aabb,
@@ -528,7 +509,6 @@ impl ActorClusterSeed {
             // The patrol PATH is authored on the interactable; the body keeps
             // its admitted placement and walks to its first waypoint.
             seed.motion = ActorMotionPath(motion);
-            seed.hurt_feedback = actor_hurt_feedback(catalog, character_id);
             // `respawn` is already `DeadStaysDead` on that road — a match
             // seat's death is the match's business and an NPC's is permanent
             // (ADR 0022), and the two happen to agree. Stated here so the
@@ -601,7 +581,7 @@ impl ActorClusterSeed {
                 .and_then(|prepared| prepared.death_traits.as_ref())
                 .map(ambition_combat::CombatCapabilities::from)
                 .unwrap_or_default(),
-            hurt_feedback: actor_hurt_feedback(catalog, character_id),
+            hurt_feedback: actor_hurt_feedback(prepared_character.is_some_and(|character| character.mechanical)),
             death_beat: death_beat_of(&sprite_content, authored, prepared_character.and_then(|character| character.sheet.as_deref())),
             // Resolved above when the character authors a sprite body; `None`
             // for a placement whose character states no `BodySource`.
@@ -630,7 +610,6 @@ impl ActorClusterSeed {
     /// happened to name. Each becomes a character fact as its field lands.
     pub fn new_character_in(sprite_content: &ambition_sprite_sheet::SpriteContent,
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-        catalog: &CharacterCatalog,
         id: impl Into<String>,
         // THE PREPARED CHARACTER, AS ONE VALUE.
         //
@@ -656,7 +635,6 @@ impl ActorClusterSeed {
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     ) -> Self {
         let ambition_characters::prepared::CharacterBodyBlueprint {
-            character_id,
             display_name,
             max_health,
             locomotion,
@@ -673,6 +651,7 @@ impl ActorClusterSeed {
             death_traits,
             knockback_weight,
             resting_armor,
+            mechanical,
             ..
         } = body;
         // a body with no policy still needs one to be paced against. The
@@ -825,7 +804,7 @@ impl ActorClusterSeed {
             caps: death_traits
                 .map(ambition_combat::CombatCapabilities::from)
                 .unwrap_or_default(),
-            hurt_feedback: actor_hurt_feedback(catalog, Some(character_id)),
+            hurt_feedback: actor_hurt_feedback(mechanical),
             // Resolved above, beside the collision size, and carried rather
             // than re-derived — see the field's own note.
             posed: geometry.posed,
@@ -907,6 +886,7 @@ pub fn fixture_body_blueprint(
         body: None,
         sheet: None,
         sheet_sizing: None,
+        mechanical: false,
     }
 }
 
@@ -927,7 +907,6 @@ impl ActorClusterSeed {
         let name: String = name.into();
         Self::new_character_in(&sprite_content,
             &Default::default(),
-            &CharacterCatalog::empty(),
             id,
             fixture_body_blueprint(&name),
             aabb,
@@ -948,9 +927,7 @@ impl ActorClusterSeed {
             // A content-free constructor has no providers, so no authored
             // sheets — the empty registry is the honest value, not a stand-in.
             &Default::default(),
-            &CharacterCatalog::empty(),
-            // A content-free constructor registers no characters either, so the
-            // catalog rule is the only one that can apply.
+            // A content-free constructor registers no characters either.
             None,
             id,
             name,
@@ -1014,6 +991,7 @@ mod tests {
             body: None,
             sheet: None,
             sheet_sizing: None,
+            mechanical: false,
         }
     }
 
@@ -1030,11 +1008,6 @@ mod tests {
     #[test]
     fn a_characters_authored_projectile_art_reaches_its_tuning() {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
-        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
-            ambition_characters::actor::character_catalog::parse_catalog(
-                "(autonomous_profiles: {}, brain_presets: {}, action_set_presets: {}, characters: {})",
-            ),
-        );
         let authored = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let seed_for = |vfx: Option<&str>| {
             let mut blueprint = test_blueprint(
@@ -1048,7 +1021,6 @@ mod tests {
             blueprint.ranged_vfx = vfx;
             ActorClusterSeed::new_character_in(&sprite_content,
                 &authored,
-                &catalog,
                 "gunner",
                 blueprint,
                 ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(32.0, 32.0)),
@@ -1112,7 +1084,6 @@ mod tests {
         blueprint.sheet_sizing = Some(sizing);
         let seed = ActorClusterSeed::new_character_in(&sprite_content,
             &authored,
-            &CharacterCatalog::empty(),
             "sheet_worn",
             blueprint,
             ldtk,
@@ -1156,7 +1127,6 @@ mod tests {
         blueprint.body = Some(&explicit);
         let seed = ActorClusterSeed::new_character_in(&sprite_content,
             &authored,
-            &CharacterCatalog::empty(),
             "explicit_worn",
             blueprint,
             ldtk,
@@ -1184,7 +1154,6 @@ mod tests {
         const WORLD_PER_PIXEL: f32 = 0.5;
 
         let authored = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
-        let catalog = CharacterCatalog::empty();
         // Deliberately NOT the sheet's answer, so a constructor that ignores the
         // body source cannot pass by coincidence.
         let ldtk = ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(108.0, 48.0));
@@ -1202,7 +1171,6 @@ mod tests {
             blueprint.sheet = Some(SHEET);
             ActorClusterSeed::new_character_in(&sprite_content,
                 &authored,
-                &catalog,
                 "sheet_body",
                 blueprint,
                 ldtk,
@@ -1299,22 +1267,33 @@ mod tests {
                 ),
             },
         )"#;
-        let catalog = CharacterCatalog::from_data(
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_characters::actor::character_catalog::parse_catalog(CATALOG),
         );
-
-        assert_eq!(
-            actor_hurt_feedback(&catalog, Some("tin_man")),
-            ambition_vfx::HurtFeedback::ROBOT,
-        );
-        assert_eq!(
-            actor_hurt_feedback(&catalog, Some("ogre")),
-            ambition_vfx::HurtFeedback::ENEMY,
-        );
-        assert_eq!(
-            actor_hurt_feedback(&catalog, None),
-            ambition_vfx::HurtFeedback::ENEMY,
-        );
+        // The tag is read once, by preparation; the body is built from the
+        // prepared character and never asks the catalog.
+        let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+        for (id, expected) in [
+            ("tin_man", ambition_vfx::HurtFeedback::ROBOT),
+            ("ogre", ambition_vfx::HurtFeedback::ENEMY),
+        ] {
+            let character = ambition_characters::prepared::prepare_and_finalize_against_for_test(
+                ambition_characters::actor::definition::CharacterDefinition::new(id, id, "test")
+                    .with_locomotion(Default::default()),
+                &ambition_characters::prepared::CharacterBindings::default(),
+                Some(&catalog),
+            )
+            .prepared;
+            let seed = ActorClusterSeed::new_character_in(&sprite_content,
+                &Default::default(),
+                id,
+                character.body_blueprint().expect("the fixture states its locomotion"),
+                ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(32.0, 32.0)),
+                ambition_entity_catalog::placements::CharacterBrain::Custom("idle".to_string()),
+                &[],
+            );
+            assert_eq!(seed.hurt_feedback, expected, "{id}");
+        }
     }
 
     /// Character-first construction must preserve profile-authored patrol/chase
@@ -1328,9 +1307,6 @@ mod tests {
             action_set_presets: { "peaceful": (move_style: Walk) },
             characters: {},
         )"#;
-        let catalog = CharacterCatalog::from_data(
-            ambition_characters::actor::character_catalog::parse_catalog(CATALOG),
-        );
         let authored = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let locomotion = ambition_characters::actor::CharacterLocomotion {
             run_speed: 200.0,
@@ -1343,7 +1319,6 @@ mod tests {
         };
         let seed = ActorClusterSeed::new_character_in(&sprite_content,
             &authored,
-            &catalog,
             "gnu",
             test_blueprint("giant_gnu", "Giant GNU", 42, locomotion, profile, false),
             ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(40.0, 40.0)),
@@ -1368,7 +1343,6 @@ mod tests {
         // not be handed the stage's sprinter default.
         let still = ActorClusterSeed::new_character_in(&sprite_content,
             &authored,
-            &catalog,
             "gnu",
             test_blueprint(
                 "giant_gnu",
@@ -1393,7 +1367,6 @@ mod tests {
 
         let dummy = ActorClusterSeed::new_character_in(&sprite_content,
             &authored,
-            &catalog,
             "dummy",
             test_blueprint(
                 "sandbag",
@@ -1427,11 +1400,6 @@ mod tests {
     #[test]
     fn a_character_first_body_walks_the_patrol_path_its_placement_names() {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
-        let catalog = CharacterCatalog::from_data(
-            ambition_characters::actor::character_catalog::parse_catalog(
-                r#"(brain_presets: {}, action_set_presets: {}, characters: {})"#,
-            ),
-        );
         let authored = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
         let paths = vec![(
             "lab_patrol_line".to_string(),
@@ -1444,7 +1412,6 @@ mod tests {
         let seed = |practice_target: bool| {
             ActorClusterSeed::new_character_in(&sprite_content,
                 &authored,
-                &catalog,
                 "slug",
                 test_blueprint(
                     "npc_puppy_slug",

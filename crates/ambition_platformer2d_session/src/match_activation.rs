@@ -251,11 +251,6 @@ pub fn prepare_the_match(sprite_content: Res<ambition_sprite_sheet::SpriteConten
     // The running session's frozen cast, or the published one with no session
     // (`SessionCast`).
     cast: ambition_characters::prepared::SessionCast,
-    // REQUIRED, not optional: `engine.character-authority-is-app-local` forbids
-    // making the character authority optional. A composition with no catalog
-    // must be NAMED by the capability audit, not silently prepare fighters that
-    // resolve their sprite identity against nothing.
-    catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     // The published controller policies a CPU seat may name (P4). `Option` like
     // every other reader: a composition that publishes none is ordinary.
@@ -328,7 +323,6 @@ pub fn prepare_the_match(sprite_content: Res<ambition_sprite_sheet::SpriteConten
     match prepare_match(&sprite_content,
         &roster,
         &registry,
-        &catalog,
         &authored_sheets,
         profiles.as_deref(),
         centre,

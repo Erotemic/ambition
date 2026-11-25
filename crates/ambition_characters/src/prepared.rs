@@ -176,6 +176,12 @@ pub enum PreparedKit {
 /// portrait, voice, cue/vfx dependency inventories, the checked/unresolved
 /// report). They belong to a prepared definition and not to a body, and a
 /// constructor that could see them would eventually read one.
+/// The catalog tags that make a body a machine. No character ID appears
+/// here: a body is a machine because its catalog row SAYS so, which is what
+/// keeps a second provider's robot working without teaching the engine its
+/// name.
+pub const MECHANICAL_BODY_TAGS: [&str; 4] = ["robot", "automaton", "mechanical", "synthetic"];
+
 #[derive(Clone, Copy, Debug)]
 pub struct CharacterBodyBlueprint<'a> {
     pub character_id: &'a str,
@@ -235,6 +241,8 @@ pub struct CharacterBodyBlueprint<'a> {
     pub sheet: Option<&'a str>,
     /// [`PreparedCharacterDefinition::sheet_sizing`].
     pub sheet_sizing: Option<SheetSizing>,
+    /// [`PreparedCharacterDefinition::mechanical`].
+    pub mechanical: bool,
 }
 
 /// Why this character cannot build a body on its own, named rather than
@@ -341,6 +349,7 @@ impl PreparedCharacterDefinition {
             body: self.body.as_ref(),
             sheet: self.sheet.as_deref(),
             sheet_sizing: self.sheet_sizing,
+            mechanical: self.mechanical,
         }
     }
 }
@@ -1285,6 +1294,11 @@ pub struct PreparedCharacterDefinition {
     pub mount: Option<crate::actor::CharacterMount>,
     /// See [`CharacterDefinition::unmirrored`].
     pub unmirrored: bool,
+    /// Is this body a machine? Its catalog row says so by a tag
+    /// ([`MECHANICAL_BODY_TAGS`]): a strike that knows materials lands on it
+    /// as a machine hit. Resolved here, so construction reads the admitted
+    /// cast and not whichever catalog the App holds now.
+    pub mechanical: bool,
     /// The boxes of the body's ordinary smaller forms, from the catalog row
     /// (`forms`). `None`: the engine's.
     pub forms: Option<ambition_platformer2d_core::BodyForms>,
@@ -2088,6 +2102,11 @@ fn finalize_character(
     let preserves_mirror_symmetry =
         preserves_mirror_symmetry || catalog_row.is_some_and(|row| row.preserves_mirror_symmetry);
     let unmirrored = unmirrored || catalog_row.is_some_and(|row| row.unmirrored);
+    let mechanical = catalog_row.is_some_and(|row| {
+        row.tags
+            .iter()
+            .any(|tag| MECHANICAL_BODY_TAGS.contains(&tag.as_str()))
+    });
     let forms = catalog_row.and_then(|row| row.forms);
     let sheet_sizing = catalog_row.map(|row| SheetSizing {
         tuning: row.sprite_tuning,
@@ -2200,6 +2219,7 @@ fn finalize_character(
         preserves_mirror_symmetry,
         mount,
         unmirrored,
+        mechanical,
         forms,
         carries,
         hands,

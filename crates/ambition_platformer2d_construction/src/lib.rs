@@ -843,7 +843,6 @@ fn construct_staged_actor(
     let fate = ctx.facts.staged_fate(request);
     ambition_platformer2d_actor_spawn::spawn_staged_actor_into(&sprite_content,
         &mut ctx.root_scope(),
-        &services.context.characters,
         &services.context.sheets,
         //  the cast this construction context has carried all along — the
         // staged path simply never asked for it.
@@ -865,7 +864,6 @@ fn construct_summoned_minion(
     let services = ctx.services;
     ambition_platformer2d_actor_spawn::spawn_runtime_minion_into(&sprite_content,
         &mut ctx.root_scope(),
-        &services.context.characters,
         &services.context.sheets,
         &services.context.prepared,
         minion.feature_id.clone(),
@@ -920,7 +918,6 @@ fn construct_giant_host(
     // construction cares about.
     ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
         &mut ctx.root_scope(),
-        &services.context.characters,
         &services.context.sheets,
         &services.context.prepared,
         &services.context.brain_profiles,
@@ -958,7 +955,6 @@ fn construct_giant_hand(
     // host's rig entry come from the `ambition.limb` relation, not from here.
     ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
         &mut ctx.root_scope(),
-        &services.context.characters,
         &services.context.sheets,
         &services.context.prepared,
         &services.context.brain_profiles,
@@ -1000,7 +996,6 @@ fn construct_character_body(
     let fate = ctx.facts.enemy_fate(authored);
     ambition_platformer2d_actor_spawn::spawn_enemy_with_faction_into(&sprite_content,
         &mut ctx.root_scope(),
-        &services.context.characters,
         &services.context.sheets,
         &services.context.prepared,
         &services.context.brain_profiles,
@@ -1023,7 +1018,6 @@ fn construct_authored_boss(
     let fate = ctx.facts.boss_fate(&authored.id);
     ambition_platformer2d_actor_spawn::spawn_boss_with_overrides_into(&sprite_content,
         &mut ctx.root_scope(),
-        &services.context.characters,
         &services.boss_catalog,
         &services.context.prepared,
         &services.context.sheets,

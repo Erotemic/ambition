@@ -109,7 +109,6 @@ impl<'w, 's> SessionContents<'_, 'w, 's> {
         };
         let entity = ambition_platformer2d_actor_spawn::spawn_staged_actor(self.actors.sprite_content,
             self.commands,
-            self.actors.character_catalog,
             self.actors.sheets,
             characters,
             self.actors.bosses,

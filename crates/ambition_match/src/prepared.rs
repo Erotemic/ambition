@@ -558,7 +558,6 @@ const SEAT_BODY_PX: Vec2 = Vec2::new(30.0, 48.0);
 pub fn prepare_match(sprite_content: &ambition_sprite_sheet::SpriteContent,
     roster: &MatchParticipantRoster,
     registry: &PreparedCharacterRegistry,
-    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     // The controller policies this composition published: the only source of
     // a seat's policy.
@@ -750,7 +749,6 @@ pub fn prepare_match(sprite_content: &ambition_sprite_sheet::SpriteContent,
         body.practice_target = false;
         let mut seed = ambition_body_seed::ActorClusterSeed::new_character_in(&sprite_content,
             authored_sheets,
-            catalog,
             body_id.clone(),
             body,
             aabb,

@@ -1937,6 +1937,7 @@ pub fn request_reload(
             bosses,
             audio,
             adaptive_cues,
+            sheets: sheet_mechanics(world),
         },
     );
     // `ReplaceWith`, not `GoTo`: a reload is not navigation and must not push
@@ -2014,6 +2015,19 @@ pub struct PendingGeneration {
     /// changes no cue domain. Preparation retains its cue definitions through
     /// `PendingGenerationInputs::adaptive_cues` before native publication.
     adaptive_cues: AdaptiveCues,
+    /// The mechanics of the sheet generation this candidate was prepared
+    /// against (`SheetGeneration::mechanics_digest`); `None` in an App with
+    /// no sprite content. Its cast, bosses and content graph read those
+    /// sheets, so activation refuses when another generation's mechanics are
+    /// live by then. A table that changes only frames does not refuse.
+    sheets: Option<String>,
+}
+
+/// The mechanics digest of the sheet generation `world` reads now.
+fn sheet_mechanics(world: &bevy::ecs::world::World) -> Option<String> {
+    world
+        .get_resource::<ambition_platformer2d::sprite_sheet::SpriteContent>()
+        .map(|content| ambition_sprite_sheet::baked_sheet_rons::current(content).mechanics_digest().to_owned())
 }
 
 impl PendingGeneration {
@@ -2252,6 +2266,9 @@ pub enum ActivationRefusal {
     /// Another provider holds a cutscene id the candidate would publish
     /// (`candidate_cutscene_ownership`).
     CutsceneOwnershipChanged(String),
+    /// A sheet table that changes mechanics was published after the candidate
+    /// bound its cast to the one before it (`PendingGeneration::sheets`).
+    SheetMechanicsChanged,
 }
 
 impl std::fmt::Display for ActivationRefusal {
@@ -2267,14 +2284,19 @@ impl std::fmt::Display for ActivationRefusal {
                 "another provider claimed a cutscene id while the transaction was in \
                  flight, and publishing would overwrite it ({why})"
             ),
+            Self::SheetMechanicsChanged => write!(
+                f,
+                "the sprite sheets' mechanics changed while the transaction was in \
+                 flight, and the candidate's cast was bound to the sheets before them"
+            ),
         }
     }
 }
 
 /// The first content-side precondition of the pending generation that no longer
 /// holds, or `None` (also when nothing is pending). Quest compatibility is asked
-/// first, then cutscene ownership; a generation that fails both reports the
-/// first, and cancelling it ends both.
+/// first, then cutscene ownership, then the sheet mechanics; a generation that
+/// fails several reports the first, and cancelling it ends them all.
 pub fn activation_refusal(world: &bevy::ecs::world::World) -> Option<ActivationRefusal> {
     let pending = world.get_resource::<PendingGeneration>()?;
     if let Err(why) = candidate_quest_book(world, &pending.pack) {
@@ -2282,6 +2304,9 @@ pub fn activation_refusal(world: &bevy::ecs::world::World) -> Option<ActivationR
     }
     if let Err(why) = candidate_cutscene_ownership(world, &pending.pack) {
         return Some(ActivationRefusal::CutsceneOwnershipChanged(why));
+    }
+    if pending.sheets.is_some() && pending.sheets != sheet_mechanics(world) {
+        return Some(ActivationRefusal::SheetMechanicsChanged);
     }
     None
 }

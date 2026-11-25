@@ -401,7 +401,6 @@ fn spawn_character_npc(
     app.insert_resource(cast.clone());
     let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
-        &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         Some(cast),
         "parrot",
         "Parrot",

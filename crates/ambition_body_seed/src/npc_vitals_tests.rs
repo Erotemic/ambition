@@ -56,7 +56,6 @@ fn a_character_without_locomotion_is_built_with_its_authored_vitals() {
     let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
     let seed = ActorClusterSeed::new_peaceful_npc_in(&sprite_content,
         &Default::default(),
-        &CharacterCatalog::empty(),
         Some(&cast),
         "fragile",
         "Fragile",
@@ -98,7 +97,6 @@ fn a_blueprint_body_is_built_with_its_authored_death_traits_and_weight() {
     let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
     let seed = ActorClusterSeed::new_character_in(&sprite_content,
         &Default::default(),
-        &CharacterCatalog::empty(),
         "divider",
         blueprint,
         aabb,

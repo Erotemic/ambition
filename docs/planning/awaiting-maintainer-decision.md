@@ -412,3 +412,22 @@ there. The capital was begun as its own dimension, the Concourse at
 **Owner:** `game/ambition_content/assets/data/gate_network.ron`,
 `docs/planning/game/gate-network.md`,
 `game/ambition_map_assets/ambition_content/generators/authority/`.
+
+## Q186 — Does Fia wear goggles?
+
+**Context (2026-11-25, Fia's sprites).** Every concept sheet in
+`assets/concept_art/character-concepts/Fia` gives Fia mechanic's goggles on
+her head. Jon: "I think we also don't give her goggles. I'm not sure
+though." Her sprites (`npc_fia`, `npc_fia_void`; sprite renderer
+`targets/characters/fia.py`) draw none: the red bandana is her head's mark,
+and her Hall line says she never wore them.
+
+**Options:**
+
+* **(a) No goggles** (what is drawn): nothing changes.
+* **(b) Goggles on her head:** an overlay group over the bandana in each
+  view of `data/overlays/fia.overlay.svg` (and a black-and-white pair in
+  `fia_void.overlay.svg`), and her Hall line about them changes.
+
+**Owner:** `tools/ambition_sprite2d_renderer/.../data/overlays/fia*.overlay.svg`,
+`game/ambition_content/assets/dialogue/sandbox/hall.yarn` (`hall_npc_fia`).

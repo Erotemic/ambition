@@ -718,7 +718,6 @@ use ambition_platformer2d::actor::spawn_encounter_mob;
     // One snake, spawned through the ordinary encounter-mob path.
     {
         let world = app.world_mut();
-        let catalog = world.resource::<CharacterCatalog>().clone();
         // The prepared cast this demo registers. Its two enemies are CHARACTERS
         // now, so a mob that names one is built from it rather than from a
         // roster row — the row is gone.
@@ -730,7 +729,6 @@ use ambition_platformer2d::actor::spawn_encounter_mob;
         let mut commands = world.commands();
         spawn_encounter_mob(&sprite_content,
             &mut commands,
-            &catalog,
             &Default::default(),
             &world_prepared,
             SessionSpawnScope::UNSCOPED,

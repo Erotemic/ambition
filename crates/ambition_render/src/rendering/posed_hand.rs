@@ -94,6 +94,10 @@ pub struct VisualRoots<'w, 's> {
     // A feature's stand-in (`UnclaimedBodyPlaceholder`) can carry the feature's
     // id for a frame of a transition, and it draws no parts.
     visuals: Query<'w, 's, (Entity, &'static FeatureVisual), Without<super::features::UnclaimedBodyPlaceholder>>,
+    // Where each root is drawn: its depth is the one a part drawn apart from
+    // it (an item with no posed hand, a string with no posed foot) is placed
+    // against, not the player plane (a body seated in a cart is under it).
+    placed: Query<'w, 's, &'static GlobalTransform>,
 }
 
 impl VisualRoots<'_, '_> {
@@ -106,6 +110,11 @@ impl VisualRoots<'_, '_> {
         feature
             .and_then(|feature| self.visuals.iter().find(|(_, visual)| visual.id == feature))
             .map_or(body, |(root, _)| root)
+    }
+
+    /// The depth the root that draws `body` was last placed at.
+    pub fn drawn_z(&self, body: Entity, feature: Option<&str>) -> Option<f32> {
+        self.placed.get(self.of(body, feature)).ok().map(|placed| placed.translation().z)
     }
 }
 
@@ -120,6 +129,11 @@ impl PosedHands<'_, '_> {
     /// The rigged root that draws `holder` ([`VisualRoots::of`]).
     pub fn root(&self, holder: &ItemHolder) -> Entity {
         self.roots.of(holder.body, holder.feature.as_deref())
+    }
+
+    /// The depth `holder`'s root was last placed at ([`VisualRoots::drawn_z`]).
+    pub fn root_z(&self, holder: &ItemHolder) -> Option<f32> {
+        self.roots.drawn_z(holder.body, holder.feature.as_deref())
     }
 
     /// The hand `holder` holds an item in, in the frame it draws now.

@@ -386,6 +386,17 @@ shared value preparation are sufficient until source proves otherwise.
    Keep explicit effect roles and independent limbs. Replace absolute player-z
    item biases and repeated private part-rank calculations as their consumers
    migrate. Keep local lists compiled and changed membership work bounded.
+
+   **Item depths follow their holder (2026-11-25).** Two consumers still
+   placed at the player plane. A wielded item whose holder has no posed hand
+   took `WORLD_Z_PLAYER`; it now takes the depth the holder's root is drawn
+   at (`VisualRoots::drawn_z`, `PosedHands::root_z`), so a seated or tied
+   holder's item is in its seat. A shared load's string (`supported_carry`)
+   was drawn at `WORLD_Z_PLAYER - 0.01` whatever the holder's foot depth; it
+   is drawn just under the foot it hangs from (`UNDER_HOLDER`), or under the
+   holder's root when no foot is posed. Still open: bodies and features,
+   attachment order and an active rider on the vessel's placement, and the
+   private part-rank calculations.
 3. **RV1 — shared sample and view ownership.** Complete the needed PVS-2
    extraction, with the current 2D path as its first consumer. Separate
    camera/application and device roots by view/renderer. Remove the old

@@ -213,7 +213,12 @@ pub fn sync_wielded_item_visuals(sprite_content: bevy::prelude::Res<ambition_spr
         // Over the hand that holds it, wherever its body is drawn (a body
         // seated in a cart is drawn under the cart's near side, and the item
         // in its hand with it), also when the item is placed by its support.
-        let hand_z = hands.of(&fact.holder).map_or(WORLD_Z_PLAYER, |posed| posed.z);
+        // A holder with no posed hand holds it at its own depth.
+        let hand_z = hands
+            .of(&fact.holder)
+            .map(|posed| posed.z)
+            .or_else(|| hands.root_z(&fact.holder))
+            .unwrap_or(WORLD_Z_PLAYER);
         let mut translation = world_to_bevy(&world.0, hand_world, hand_z + spec.z_bias);
 
         let mut sprite = Sprite::from_image(texture);

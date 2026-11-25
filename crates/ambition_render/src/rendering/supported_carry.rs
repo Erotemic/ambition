@@ -14,6 +14,8 @@ use bevy::prelude::*;
 use std::collections::BTreeSet;
 
 const FADE_SECONDS: f32 = 0.4;
+/// A string is drawn just under the foot (or body) it hangs from.
+const UNDER_HOLDER: f32 = 0.01;
 const FOOT_READER: &str = "supported_carry:feet";
 const FOOT_TRACKS: [&str; 6] = [
     "near_foot",
@@ -97,6 +99,8 @@ pub(super) fn sync_strings(
         .filter_map(|(holder, room, arm, body, end, load)| {
             let geometry = rooms.in_room(room)?;
             let root = roots.of(body.body, body.feature.as_deref());
+            // The holder's own depth: a seated holder's string is in its seat.
+            let holder_z = roots.drawn_z(body.body, body.feature.as_deref()).unwrap_or(WORLD_Z_PLAYER);
             let a = posed
                 .get(root)
                 .ok()
@@ -107,11 +111,11 @@ pub(super) fn sync_strings(
                             .transform_point3(Vec3::ZERO),
                     )
                 })
-                .unwrap_or_else(|| world_to_bevy(&geometry.0, end, WORLD_Z_PLAYER - 0.01));
-            let b = world_to_bevy(&geometry.0, load, WORLD_Z_PLAYER - 0.01);
+                .unwrap_or_else(|| world_to_bevy(&geometry.0, end, holder_z));
+            let b = world_to_bevy(&geometry.0, load, a.z);
             let delta = b - a;
             let mut centre = (a + b) * 0.5;
-            centre.z = WORLD_Z_PLAYER - 0.01;
+            centre.z = a.z - UNDER_HOLDER;
             Some((
                 holder,
                 room,

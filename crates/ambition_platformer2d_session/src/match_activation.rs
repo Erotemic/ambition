@@ -231,7 +231,7 @@ fn bind_seat_control(commands: &mut Commands, body: Entity, authority: &ControlA
             commands
                 .entity(body)
                 .insert(ambition_characters::control::DrivingParticipant(
-                    ambition_platformer2d_actor_monolith::participant_seat::player_slot_of(*channel),
+                    ambition_platformer2d_actor::participant_seat::player_slot_of(*channel),
                 ));
         }
         // The seed already carries the archetype's brain, derived in
@@ -477,7 +477,7 @@ pub fn activate_the_prepared_match(sprite_content: bevy::prelude::Res<ambition_s
             crate::participants::admit_participant(
                 &mut commands,
                 session_scope,
-                ambition_platformer2d_actor_monolith::participant_seat::player_slot_of(channel),
+                ambition_platformer2d_actor::participant_seat::player_slot_of(channel),
             );
         }
         if occupied.contains(&seat.seat) {

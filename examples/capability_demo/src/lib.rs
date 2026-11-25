@@ -73,7 +73,7 @@ pub struct PulseFired {
 }
 
 /// A body that can be pushed by a pulse. Deliberately this crate's OWN marker:
-/// a capability that keyed off `ambition_platformer2d_actor_monolith`' body components would have to
+/// a capability that keyed off `ambition_platformer2d_actor`' body components would have to
 /// depend on it.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PulseAffected;

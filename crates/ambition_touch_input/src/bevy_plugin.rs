@@ -21,7 +21,7 @@ use super::layout::{
 };
 use super::menu_bridge::fold_touch_gestures;
 use super::state::TouchInputState;
-use ambition_input::{ControlFrame, KeyboardPreset, Platformer2dInputActionMonolith};
+use ambition_input::{ControlFrame, KeyboardPreset, InputAction};
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_sim_view::{ControlContextKind, ControlPrompt, ControlSlot};
 use ambition_ui_nav::DragScrollState;
@@ -949,7 +949,7 @@ const DEFAULT_MENU_CONFIRM: &str = "Select";
 /// The select-functional touch buttons: in a menu these fold into
 /// `MenuControlFrame.select`, so they wear the menu's confirm verb.
 fn is_menu_confirm_button(action: TouchActionButton) -> bool {
-    crate::virtual_device::touch_button_actions(action).contains(&Platformer2dInputActionMonolith::MenuSelect)
+    crate::virtual_device::touch_button_actions(action).contains(&InputAction::MenuSelect)
 }
 
 /// The menu-row buttons (Menu / Back). Always shown; the gameplay scheme does
@@ -1001,7 +1001,7 @@ fn label_touch_buttons(
         }
         let next: Option<String> = if *action == TouchActionButton::Reset {
             let action = touch_display_action(*action, prompt.context);
-            Some(if action == Some(Platformer2dInputActionMonolith::MenuBack) { "Back" } else { "Reset" }.into())
+            Some(if action == Some(InputAction::MenuBack) { "Back" } else { "Reset" }.into())
         } else {
             match prompt.context {
                 ControlContextKind::Gameplay => touch_button_slot(*action)
@@ -1285,7 +1285,7 @@ impl Default for ButtonReady {
     }
 }
 
-/// Map a touch button to its gameplay [`Platformer2dInputActionMonolith`].
+/// Map a touch button to its gameplay [`InputAction`].
 ///
 /// Composes button → slot → action through `ambition_input::action_for_slot`,
 /// so there is no second table to keep in sync. Start and Reset have no slot
@@ -1293,10 +1293,10 @@ impl Default for ButtonReady {
 /// glyph and no press.
 fn touch_action_to_sandbox_action(
     action: TouchActionButton,
-) -> Option<Platformer2dInputActionMonolith> {
+) -> Option<InputAction> {
     match action {
-        TouchActionButton::Start => Some(Platformer2dInputActionMonolith::Start),
-        TouchActionButton::Reset => Some(Platformer2dInputActionMonolith::Reset),
+        TouchActionButton::Start => Some(InputAction::Start),
+        TouchActionButton::Reset => Some(InputAction::Reset),
         gameplay => touch_button_slot(gameplay).and_then(ambition_input::action_for_slot),
     }
 }
@@ -1396,7 +1396,7 @@ pub fn update_button_glyph_from_active_input(
 fn touch_display_action(
     action: TouchActionButton,
     context: ControlContextKind,
-) -> Option<Platformer2dInputActionMonolith> {
+) -> Option<InputAction> {
     use ambition_input::InputProfile;
     let profile = match context {
         ControlContextKind::Gameplay => InputProfile::Gameplay,
@@ -1419,7 +1419,7 @@ fn touch_display_action(
 pub fn update_button_pressed_from_actions(
     actions_q: Query<(
         &ambition_input::InputParticipant,
-        &leafwing_input_manager::prelude::ActionState<Platformer2dInputActionMonolith>,
+        &leafwing_input_manager::prelude::ActionState<InputAction>,
     )>,
     prompt: Option<Res<ControlPrompt>>,
     frame: Option<Res<ambition_input::ControlFrame>>,

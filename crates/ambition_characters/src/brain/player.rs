@@ -256,7 +256,7 @@ pub fn tick_player_brain_from_control(
     // Same carry, same reason: a verb absent here is CPU-ONLY.
     out.taunt_pressed = c.taunt_pressed;
     // No dedicated "special" input today — `blink_pressed` is the
-    // Special now has its OWN dedicated input slot (`Platformer2dInputActionMonolith::Special` →
+    // Special now has its OWN dedicated input slot (`InputAction::Special` →
     // `ControlFrame.special_pressed`), retiring the old
     // `special_pressed = blink_pressed` alias. Blink and Special are separate
     // actions: pressing blink no longer fires a body's signature special.

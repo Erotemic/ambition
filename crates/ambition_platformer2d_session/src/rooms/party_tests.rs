@@ -53,7 +53,7 @@ fn fixture(mode: PartyTravelMode, activation: LoadingZoneActivation) -> (App, [E
     app.init_resource::<ambition_platformer2d_interaction::InteractSelection>();
     app.add_systems(
         Update,
-        (ambition_platformer2d_actor_monolith::body::select_interactions, detect_room_transition_system).chain(),
+        (ambition_platformer2d_actor::body::select_interactions, detect_room_transition_system).chain(),
     );
     (app, bodies)
 }

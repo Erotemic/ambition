@@ -47,7 +47,7 @@ that the creator did not retain.
 
 | Creation road | Canonical size | Source |
 | --- | --- | --- |
-| Ordinary actor weapon drop | 32 × 32 | `ambition_platformer2d_actor_monolith/src/body/damage/actor_hit.rs`, `drop_held_weapon` |
+| Ordinary actor weapon drop | 32 × 32 | `ambition_platformer2d_actor/src/body/damage/actor_hit.rs`, `drop_held_weapon` |
 | Boss signature weapon drop | 36 × 36 | `body/damage/boss_hit.rs`, the same item-domain drop road |
 | Shipped trailhead regrown coconut | 14 × 11 | `ambition_platformer2d_items/src/regrowth.rs`, LDtk conversion, and `game/ambition_map_assets/ambition_content/worlds/dinosaur.ldtk` |
 | Shipped orchard regrown apple | 16 × 16 | The same regrowth road and `game/ambition_map_assets/ambition_content/worlds/science.ldtk` |

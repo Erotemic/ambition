@@ -368,7 +368,7 @@ bindings. The runtime interprets their absence on a charging body as
 permission to use native charge. Raw charge edges remain admitted when
 room/body ranged permission allows them. The relevant roads are
 [held specs](../../../crates/ambition_characters/src/brain/action_set/mod.rs),
-[control acceptance](../../../crates/ambition_platformer2d_actor_monolith/src/control/acceptance.rs),
+[control acceptance](../../../crates/ambition_platformer2d_actor/src/control/acceptance.rs),
 and [charge consumption](../../../crates/ambition_projectile_combat/src/systems.rs).
 Keeping that inherited attack, if desired by a product, must be an
 explicit hand policy; it cannot result from interpreting empty twice.

@@ -61,7 +61,7 @@ fn a_body_that_grabs_a_ledge_turns_to_face_it() {
             &mut model,
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             None,
-            ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
+            ambition_combat::feel::FeelTuning::default(),
             None,
             &mut ambition_characters::actor::BodyCombat::default(),
             false,

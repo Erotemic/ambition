@@ -251,7 +251,7 @@ fn resolve_authored_defaults(doc: &HurtboxDoc, pose: Option<(&str, f32)>) -> Res
 /// so in its own words: *"the one intra-crate edge that is genuinely between two
 /// systems: the character runtime resolves the silhouette this reads."* The edge
 /// is real — `refresh_body_damageable_volumes` reads what this publishes — but
-/// expressing it required `ambition_platformer2d_actor_monolith` to name a
+/// expressing it required `ambition_platformer2d_actor` to name a
 /// function in this crate, which is private cross-domain ordering authority.
 /// It did so because there was nothing else to name.
 ///

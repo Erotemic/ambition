@@ -11,7 +11,7 @@ use ambition_platformer2d_core::AabbExt;
 /// Marks the single body whose position drives the room's live gravity
 /// resolution (the active player). The runtime's `resolve_active_gravity`
 /// queries `(&BodyKinematics, With<PrimaryBody>)` so it stays content-free; the
-/// host (`ambition_platformer2d_actor_monolith`) adds this marker to its primary player entity.
+/// host (`ambition_platformer2d_actor`) adds this marker to its primary player entity.
 ///
 /// Distinct from [`crate::markers::PrimaryPlayer`]: `PrimaryBody` is the
 /// gravity-relevant body, `PrimaryPlayer` is the presentation/HUD-followed

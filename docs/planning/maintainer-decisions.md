@@ -29,7 +29,7 @@ Open questions belong in
 | 2026-07-16 | Keep the compiler term **lowering** for authored world IR becoming live ECS state. | High |
 | 2026-07-16 | Repository-wide knowledge-base hygiene checks are CI/maintainer tools, not routine local validation. | High |
 | 2026-07-16 | Preserve historical journals as historical records during documentation cleanup. | High |
-| 2026-07-16 | A full rename of `ambition_platformer2d_actor_monolith/src/features/` may be worthwhile, but the name `sim` is not settled and the work is low priority. | Low |
+| 2026-07-16 | A full rename of `ambition_platformer2d_actor/src/features/` may be worthwhile, but the name `sim` is not settled and the work is low priority. | Low |
 | 2026-07-29 | Label occlusion and transition nameplates are low priority. Do not touch them until combat is good. | Low |
 | 2026-07-29 | Do not gate or redesign `Interact` yet. It needs a design discussion. | High |
 | 2026-07-29 | Build the portrait target → art resolver. | High |

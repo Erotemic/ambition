@@ -1,6 +1,6 @@
 //! A live quality change must reach the bodies already on screen.
 //!
-//! `ambition_platformer2d_actor_monolith::character_runtime` guards the engine
+//! `ambition_platformer2d_actor::character_runtime` guards the engine
 //! side: retire a stale realization and re-materialize it at the applied tier.
 //! This file guards what a participant sees: a body bound to the old
 //! realization rebinds to the new one on the same entity, keeps its identity,

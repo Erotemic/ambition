@@ -27,7 +27,7 @@ world and repairing it afterward.
    permission to commit.
 
 Some construction integration still resides in
-`ambition_platformer2d_actor_monolith` and app adapters. Follow the
+`ambition_platformer2d_actor` and app adapters. Follow the
 existing canonical path for a new authored object.
 
 ## Loading-zone direction

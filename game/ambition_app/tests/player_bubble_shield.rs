@@ -1,7 +1,7 @@
 //! Bubble Shield END-TO-END through the real headless sim: the canonical player's
 //! Special slot deploys the ONE shield on the SAME tick the button is pressed.
 //!
-//! The unit tests in `ambition_platformer2d_actor_monolith` prove the two halves separately — that
+//! The unit tests in `ambition_platformer2d_actor` prove the two halves separately — that
 //! pressing Special starts the folded `bubble_shield` move, and that
 //! `sustain_bubble_shield` forces `shield_held` while that move plays. Neither
 //! exercises the INTEGRATED production path, and the folded move alone would raise

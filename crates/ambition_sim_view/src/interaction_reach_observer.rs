@@ -3,7 +3,7 @@
 //!
 //! `interaction.reach` asks the rule the press and the prompt ask
 //! ([`InteractReach`], and gameplay's choice of target,
-//! `ambition_platformer2d_actor_monolith::body::InteractTargets`) for one body:
+//! `ambition_platformer2d_actor::body::InteractTargets`) for one body:
 //! - its touch box (`interact_touch`: what a chest or a switch must touch),
 //!   its talk box (`interact_talk`) and the point it reaches with
 //!   (`interact_front`: the press is for the nearest thing to it);
@@ -60,7 +60,7 @@ fn reach_of_subject(
     actors: Talkers,
     chests: Chests,
     switches: Switches,
-    targets: ambition_platformer2d_actor_monolith::body::InteractTargets,
+    targets: ambition_platformer2d_actor::body::InteractTargets,
 ) -> Vec<GeometryObservation> {
     let Some(subject) = query.subject else {
         return Vec::new();

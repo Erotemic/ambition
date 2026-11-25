@@ -279,7 +279,7 @@ fn install_egui_inspectors(app: &mut App) {
         )
         .add_plugins(
             // ⛔⛤ **THE MIRROR, NOT THE AUTHORITY.** This was
-            // `ResourceInspectorPlugin::<Platformer2dFeelTuningMonolith>`, so
+            // `ResourceInspectorPlugin::<FeelTuning>`, so
             // bevy-inspector wrote the resource deterministic simulation reads
             // with no proposal, no admission and no rebase — while
             // `developer_edits_under_rollback.rs` already carried a test naming

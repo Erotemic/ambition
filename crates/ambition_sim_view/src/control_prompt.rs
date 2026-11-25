@@ -1329,11 +1329,11 @@ mod tests {
         {
             let world = app.world_mut();
             let mut maps =
-                world.query::<&mut InputMap<ambition_input::Platformer2dInputActionMonolith>>();
+                world.query::<&mut InputMap<ambition_input::InputAction>>();
             for mut map in maps.iter_mut(world) {
-                map.clear_action(&ambition_input::Platformer2dInputActionMonolith::Jump);
+                map.clear_action(&ambition_input::InputAction::Jump);
                 map.insert(
-                    ambition_input::Platformer2dInputActionMonolith::Jump,
+                    ambition_input::InputAction::Jump,
                     KeyCode::F13,
                 );
             }
@@ -1912,7 +1912,7 @@ mod tests {
         app.add_systems(
             Update,
             (
-                ambition_platformer2d_actor_monolith::control::gate_body_control,
+                ambition_platformer2d_actor::control::gate_body_control,
                 rebuild_control_prompt,
             )
                 .chain(),

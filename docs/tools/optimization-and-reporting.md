@@ -84,7 +84,7 @@ bytes actually are before blaming monomorphized machine code:
 ```bash
 python3 scripts/measure/monomorphization_report.py sections \
     --find app_it \
-    --find libambition_platformer2d_actor_monolith \
+    --find libambition_platformer2d_actor \
     --find libambition_platformer2d_runtime
 ```
 

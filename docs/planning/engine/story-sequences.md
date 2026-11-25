@@ -146,7 +146,7 @@ own binding/admission point (SS7). None needs a new scripting language.
 
 ## What landed (2026-11-14)
 
-- **SS1, actor commands** (`crates/ambition_platformer2d_actor_monolith/src/body/direction.rs`):
+- **SS1, actor commands** (`crates/ambition_platformer2d_actor/src/body/direction.rs`):
   `actor.walk_to <character> <place> <brain>`, `actor.leave_through
   <character> <zone> <brain>`, `actor.release <character>`, and the
   conditions `actor.arrived`, `actor.gone`, `actor.fallen_is <character> <n>` and `actor.count_is <character>
@@ -418,7 +418,7 @@ Update the existing identity codec/checksum where its representation changes.
 #### Bind participants and calls
 
 **Current source:** actor commands select bodies by character name through
-[`direction::cast_in`](../../../crates/ambition_platformer2d_actor_monolith/src/body/direction.rs),
+[`direction::cast_in`](../../../crates/ambition_platformer2d_actor/src/body/direction.rs),
 optionally in the command's room. `arrived`, `gone` and `beaten` independently
 query the matching population without that room context. The
 [`cutscene adapter`](../../../crates/ambition_platformer2d_runtime/src/cutscene.rs)

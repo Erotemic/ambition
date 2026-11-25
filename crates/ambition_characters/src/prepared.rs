@@ -2948,7 +2948,7 @@ fn cast_with_catalog_rows(
 // contribution) and `PreparedCharacterRegistry` (the finished read). A host that
 // wants to enrich a registration — the engine's baked sheet and portrait
 // vocabularies, say — does that to the `CharacterBindings` it passes IN, which is
-// why `ambition_platformer2d_actor_monolith::character_runtime` still owns
+// why `ambition_platformer2d_actor::character_runtime` still owns
 // `with_engine_vocabularies` and this crate has never heard of a sprite sheet.
 // ─────────────────────────────────────────────────────────────────────────────
 

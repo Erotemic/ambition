@@ -1,6 +1,6 @@
 //! Provider-contributed art declarations for walk-into world items.
 //!
-//! A `WorldItem` (in `ambition_platformer2d_actor_monolith`) carries a presentation `sprite` id (an art
+//! A `WorldItem` (in `ambition_platformer2d_actor`) carries a presentation `sprite` id (an art
 //! key, deliberately separate from the equipment it grants).
 //! The render layer draws that id as a real sprite through its `WorldItemArt`
 //! handle map — but a gameplay PROVIDER crate (which owns the asset knowledge:

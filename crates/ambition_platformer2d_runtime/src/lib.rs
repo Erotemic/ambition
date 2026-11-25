@@ -485,14 +485,14 @@ impl PluginGroup for PlatformerEnginePlugins {
             // `WorldPrepSet::BeforeIntegrate`.
             .add(ambition_character_sprites::SpritePosedBodyPlugin)
             .add(ambition_platformer2d_assets::materialization::CharacterMaterializationPlugin)
-            .add(ambition_platformer2d_actor_monolith::character_projection::ActorCharacterPlugin)
+            .add(ambition_platformer2d_actor::character_projection::ActorCharacterPlugin)
             .add(ambition_platformer2d_session::MatchLifecyclePlugin)
             // Universal-brain messages/resources (player/NPC/enemy/boss).
             .add(ambition_characters::brain::BrainPlugin)
             // Traversal ability/weapon kit + shared app state.
-            .add(ambition_platformer2d_actor_monolith::control::possession::PossessionPlugin)
+            .add(ambition_platformer2d_actor::control::possession::PossessionPlugin)
             // The emitted player trail substrate.
-            .add(ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailPlugin)
+            .add(ambition_platformer2d_actor::avatar::trail::PlayerTrailPlugin)
             // Gravity zones/switches + the ambient-gravity snapshot.
             .add(crate::gravity::GravityPlugin)
             // The PRESSED collectible: a held weapon taken with `Attack`, its
@@ -553,7 +553,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // the actor crate.
             .add(ambition_encounter_features::EncounterSpawnServicePlugin)
             // Runtime brain-switch authority (BrainCommand) + actor-directive routing.
-            .add(ambition_platformer2d_actor_monolith::body::BrainCommandPlugin)
+            .add(ambition_platformer2d_actor::body::BrainCommandPlugin)
             .add(ambition_sim_view::FeatureViewSyncSchedulePlugin)
             // The observation-boundary view resources (E4): HUD facts, held
             // items/shots, marks, shrines, gravity switches, gun-swords.
@@ -596,7 +596,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(PlayerSchedulePlugin)
             // Room-transition detection + per-room feature reset; the host's
             // transition APPLY (the composition tier) slots in between.
-            .add(ambition_platformer2d_actor_monolith::body::transform_beat::TransformBeatPlugin)
+            .add(ambition_platformer2d_actor::body::transform_beat::TransformBeatPlugin)
             // The empowerment LIFECYCLE — the clock that ends a timed grant and
             // the release that follows the component out of the world. Both are
             // invariants of what `Empowered::for_seconds(…, 2.0)` means, not

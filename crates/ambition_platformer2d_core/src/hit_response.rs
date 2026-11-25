@@ -3,7 +3,7 @@
 //!
 //! * the authoritative victim path (`resolve_body_hit`) resolves real hits with it;
 //! * the fighter brain's shadow rollout (`brain::fighter::rollout`) predicts
-//!   hits with it — and `ambition_characters` cannot name `ambition_platformer2d_actor_monolith`
+//!   hits with it — and `ambition_characters` cannot name `ambition_platformer2d_actor`
 //!   (the dependency points the other way), which is why the kernel lives on
 //!   the floor.
 //!

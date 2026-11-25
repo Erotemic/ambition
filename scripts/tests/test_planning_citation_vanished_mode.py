@@ -193,7 +193,7 @@ def test_a_field_that_disappeared_is_not_reported(tree, capsys):
 
 
 def test_a_live_crate_is_not_reported_when_a_mod_line_for_it_goes_away(tree):
-    """⛔ ALSO MEASURED: a `mod ambition_platformer2d_actor_monolith` present at
+    """⛔ ALSO MEASURED: a `mod ambition_platformer2d_actor` present at
     the baseline and absent at HEAD made the differential report the MONOLITH as
     vanished, while the crate is alive and named in Cargo.toml. The manifest is
     the authority on whether a crate exists; a `mod` line is not.

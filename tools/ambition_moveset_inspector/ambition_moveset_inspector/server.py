@@ -61,7 +61,7 @@ REPO = HERE.parent.parent
 SPRITES = (
     HERE.parent.parent
     / "crates"
-    / "ambition_platformer2d_actor_monolith"
+    / "ambition_platformer2d_actor"
     / "assets"
     / "sprites"
 )

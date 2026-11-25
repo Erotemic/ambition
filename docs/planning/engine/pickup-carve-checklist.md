@@ -1,7 +1,7 @@
 # Crate carve checklist
 
 **State:** standing checklist. Use it when you move a family of systems and types
-out of the kernel (`ambition_platformer2d_actor_monolith`) into its own crate.
+out of the kernel (`ambition_platformer2d_actor`) into its own crate.
 The pickup, abilities and world-items carves were cut against it. Section 1 is
 the D33 schedule-ownership rule. The decomposition program is
 [`actor-monolith-decomposition.md`](actor-monolith-decomposition.md).
@@ -51,7 +51,7 @@ A carve touches three rows in `tests/ambition_workspace_policy/policies/*.toml`:
 1. `engine.<crate>-manifest-allow`: the new crate's dependency closure.
    Derive it by compiling.
 2. `engine.<crate>-source-purity`: roots `crates/<crate>/src`; it must never
-   name `ambition_platformer2d_actor_monolith`.
+   name `ambition_platformer2d_actor`.
 3. `engine.runtime-manifest-allow`: the runtime composes the plugin, so its
    allow-list gains the crate, with a rationale comment.
 

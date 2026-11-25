@@ -20,7 +20,7 @@ ambition_resource_spec = { path = "../ambition_resource_spec" }
 ambition_input = { path = "../ambition_input" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
-# ⛔ NEVER ambition_platformer2d_actor_monolith: the kernel activates the plan this crate prepares.
+# ⛔ NEVER ambition_platformer2d_actor: the kernel activates the plan this crate prepares.
 bevy = { version = "0.19.1", default-features = false }
 ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 ron = { workspace = true, optional = true }

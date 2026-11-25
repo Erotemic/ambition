@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "The platformer's audio runtime: the Kira install and channels, the acoustic environment, and the music direction from encounter, boss, room, conversation and radio state. Carved out of ambition_platformer2d_actor_monolith (D33); a composition with audio installs it, a headless one leaves it out."
+description = "The platformer's audio runtime: the Kira install and channels, the acoustic environment, and the music direction from encounter, boss, room, conversation and radio state. Carved out of ambition_platformer2d_actor (D33); a composition with audio installs it, a headless one leaves it out."
 
 [lib]
 crate-type = ["rlib"]

@@ -161,7 +161,7 @@ SYMBOL = re.compile(r"`([A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)+)`")
 # than no check. Three conventions are all correct and all common:
 #
 #     platformer2d_core/src/abilities.rs   crates/ambition_platformer2d_core/…
-#     actor_monolith/src/…/grapple.rs      …ambition_platformer2d_actor_monolith
+#     actor_monolith/src/…/grapple.rs      …ambition_platformer2d_actor
 #     core/draw.py                         inside the sprite-renderer SUBMODULE
 #
 # ⭐ SO THE RULE IS ORDERED CONTAINMENT, not a suffix match: the basename must
@@ -495,7 +495,7 @@ def crate_names() -> set[str]:
     """Every crate the workspace currently declares, from its manifests.
 
     ⛔ A CRATE NAME IS NOT AN ITEM, and the index cannot tell the difference: a
-    `mod ambition_platformer2d_actor_monolith` at the baseline that is not there
+    `mod ambition_platformer2d_actor` at the baseline that is not there
     now made the differential report the MONOLITH as vanished while the crate is
     alive and named in `Cargo.toml`. The manifest is the authority on whether a
     crate exists, so ask it rather than infer from a `mod` line.
@@ -893,7 +893,7 @@ def _same_component(have: str, want: str) -> bool:
     """One path component, allowing the crate-directory abbreviation.
 
     `ambition_characters` IS `characters` for citation purposes, and
-    `ambition_platformer2d_actor_monolith` is `actor_monolith`: prose drops the
+    `ambition_platformer2d_actor` is `actor_monolith`: prose drops the
     vendor prefix and as much of the crate path as still reads unambiguously.
     Anchored on `_` so it stays a word boundary — `combat` must not match
     `ambition_precombat`.

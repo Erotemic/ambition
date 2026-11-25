@@ -23,7 +23,7 @@ ambition_interaction = { path = "../ambition_interaction" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_vfx = { path = "../ambition_vfx" }
-# ⛔ NEVER ambition_platformer2d_actor_monolith: the seed is what the kernel consumes.
+# ⛔ NEVER ambition_platformer2d_actor: the seed is what the kernel consumes.
 bevy = { version = "0.19.1", default-features = false }
 
 [dev-dependencies]

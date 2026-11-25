@@ -135,7 +135,7 @@ pub(crate) fn apply_actor_hit(
     banner: &mut GameplayBanner,
     // Knockback feel values (§A2 step 6) — the same tuning the player's
     // knockback resolution reads.
-    feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
+    feel: ambition_combat::feel::FeelTuning,
     // The struck actor's held locomotion (local frame) for DI (CM2) — the SAME
     // `ActorControl` the brain writes, so a brain/RL victim DIs like a human.
     di_input_local: ae::Vec2,

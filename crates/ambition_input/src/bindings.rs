@@ -6,7 +6,7 @@
 //! ## Derived, never parallel
 //!
 //! [`SeatBindings`] is projected from the same
-//! `InputMap<Platformer2dInputActionMonolith>` the router reads. It is not a
+//! `InputMap<InputAction>` the router reads. It is not a
 //! second table. A rebind changes the map, and the projection follows on the
 //! next frame.
 //!
@@ -23,7 +23,7 @@ use leafwing_input_manager::prelude::{ActionState, InputMap};
 
 use crate::presets::{KeyboardPreset, PresetId};
 use crate::settings::{BindingOverride, OverrideControl, OverrideDeviceClass};
-use crate::{InputParticipant, Platformer2dInputActionMonolith};
+use crate::{InputParticipant, InputAction};
 
 /// Which physical devices this seat hears.
 ///
@@ -138,7 +138,7 @@ impl BindingRecipe {
     /// Layer order is precedence: base, then the game's layout, then the
     /// user's overrides. A user remap wins inside a mode that ships its own
     /// pad. Guarded by `a_user_remap_beats_the_modes_layout`.
-    pub fn build(&self) -> InputMap<Platformer2dInputActionMonolith> {
+    pub fn build(&self) -> InputMap<InputAction> {
         let mut map = KeyboardPreset::of(self.preset).map_for(self.sources);
         self.layout.apply(&mut map);
         for over in &self.overrides {
@@ -166,7 +166,7 @@ impl BindingRecipe {
 /// * an action name this build does not have;
 /// * an action that is not buttonlike (`Move`, `AimStick`). A button in an
 ///   axis action's map corrupts it, and nothing downstream checks.
-fn apply_override(map: &mut InputMap<Platformer2dInputActionMonolith>, over: &BindingOverride) {
+fn apply_override(map: &mut InputMap<InputAction>, over: &BindingOverride) {
     use leafwing_input_manager::prelude::{Actionlike, Buttonlike};
 
     let Some(action) = action_named(&over.action) else {
@@ -220,10 +220,10 @@ fn device_class_of(control: &PhysicalControl) -> Option<OverrideDeviceClass> {
 ///
 /// The name is the enum's variant spelling, the string [`action_name`]
 /// publishes and a settings file stores. It resolves through `Reflect`.
-pub fn action_named(name: &str) -> Option<Platformer2dInputActionMonolith> {
+pub fn action_named(name: &str) -> Option<InputAction> {
     use bevy::reflect::enums::{DynamicEnum, DynamicVariant, VariantInfo};
     use bevy::reflect::{FromReflect, TypeInfo, Typed};
-    let TypeInfo::Enum(info) = Platformer2dInputActionMonolith::type_info() else {
+    let TypeInfo::Enum(info) = InputAction::type_info() else {
         return None;
     };
     // Unit variants only: every action is a unit variant, and a
@@ -231,7 +231,7 @@ pub fn action_named(name: &str) -> Option<Platformer2dInputActionMonolith> {
     if !matches!(info.variant(name), Some(VariantInfo::Unit(_))) {
         return None;
     }
-    Platformer2dInputActionMonolith::from_reflect(&DynamicEnum::new(name, DynamicVariant::Unit))
+    InputAction::from_reflect(&DynamicEnum::new(name, DynamicVariant::Unit))
 }
 
 /// Rebuild a participant's `InputMap` when its [`BindingRecipe`] changes.
@@ -254,8 +254,8 @@ pub fn rebuild_maps_from_recipes(
         (
             Entity,
             &BindingRecipe,
-            &mut InputMap<Platformer2dInputActionMonolith>,
-            &mut ActionState<Platformer2dInputActionMonolith>,
+            &mut InputMap<InputAction>,
+            &mut ActionState<InputAction>,
         ),
         Changed<BindingRecipe>,
     >,
@@ -314,7 +314,7 @@ pub struct Rebound;
 /// This costs one frame, on a preset change or mode exit.
 pub fn swallow_the_rebinds_own_edges(
     mut commands: Commands,
-    mut seats: Query<(Entity, &mut ActionState<Platformer2dInputActionMonolith>), With<Rebound>>,
+    mut seats: Query<(Entity, &mut ActionState<InputAction>), With<Rebound>>,
 ) {
     use leafwing_input_manager::buttonlike::ButtonState;
 
@@ -352,7 +352,7 @@ impl ActionBindings {
     /// Project one live `InputMap`. The system below is a thin loop over this,
     /// so a pure caller (test, rebind preview, docs generator) gets the same
     /// answer without a `World`.
-    pub fn from_map(map: &InputMap<Platformer2dInputActionMonolith>) -> Self {
+    pub fn from_map(map: &InputMap<InputAction>) -> Self {
         let mut actions: Vec<(String, Vec<PhysicalControl>)> = map
             .iter_buttonlike()
             .map(|(action, inputs)| {
@@ -370,7 +370,7 @@ impl ActionBindings {
     }
 
     /// Every physical control bound to this action, in insertion-stable order.
-    pub fn controls(&self, action: &Platformer2dInputActionMonolith) -> &[PhysicalControl] {
+    pub fn controls(&self, action: &InputAction) -> &[PhysicalControl] {
         let name = action_name(action);
         self.actions
             .iter()
@@ -390,7 +390,7 @@ impl ActionBindings {
     /// falls back to the other class.
     pub fn control_for(
         &self,
-        action: &Platformer2dInputActionMonolith,
+        action: &InputAction,
         device: crate::ActiveDevice,
     ) -> Option<&PhysicalControl> {
         let want_key = device.draws_keyboard_glyphs();
@@ -419,31 +419,31 @@ impl ActionBindings {
 ///
 /// This replaces two hand-kept maps in `ambition_touch_input`
 /// (`TouchActionButton -> ControlSlot` and
-/// `TouchActionButton -> Platformer2dInputActionMonolith`).
+/// `TouchActionButton -> InputAction`).
 ///
 /// `ControlSlot` is the ability vocabulary (`ambition_entity_catalog`) and
-/// `Platformer2dInputActionMonolith` is the input vocabulary. The mapping is
+/// `InputAction` is the input vocabulary. The mapping is
 /// an input-layer fact, so it lives here, where prompts and the overlay can
 /// reach it.
 ///
 /// `None` is for a slot with no single action (for example, a future chord).
 pub fn action_for_slot(
     slot: ambition_entity_catalog::action_scheme::ControlSlot,
-) -> Option<Platformer2dInputActionMonolith> {
+) -> Option<InputAction> {
     use ambition_entity_catalog::action_scheme::ControlSlot;
     Some(match slot {
-        ControlSlot::Jump => Platformer2dInputActionMonolith::Jump,
-        ControlSlot::Attack => Platformer2dInputActionMonolith::Attack,
-        ControlSlot::Special => Platformer2dInputActionMonolith::Special,
-        ControlSlot::Projectile => Platformer2dInputActionMonolith::Projectile,
-        ControlSlot::Burst => Platformer2dInputActionMonolith::Burst,
-        ControlSlot::Blink => Platformer2dInputActionMonolith::Blink,
-        ControlSlot::Interact => Platformer2dInputActionMonolith::Interact,
-        ControlSlot::Utility => Platformer2dInputActionMonolith::Utility,
-        ControlSlot::Shield => Platformer2dInputActionMonolith::Shield,
-        ControlSlot::Grab => Platformer2dInputActionMonolith::Grab,
-        ControlSlot::Taunt => Platformer2dInputActionMonolith::Taunt,
-        ControlSlot::Modifier => Platformer2dInputActionMonolith::Modifier,
+        ControlSlot::Jump => InputAction::Jump,
+        ControlSlot::Attack => InputAction::Attack,
+        ControlSlot::Special => InputAction::Special,
+        ControlSlot::Projectile => InputAction::Projectile,
+        ControlSlot::Burst => InputAction::Burst,
+        ControlSlot::Blink => InputAction::Blink,
+        ControlSlot::Interact => InputAction::Interact,
+        ControlSlot::Utility => InputAction::Utility,
+        ControlSlot::Shield => InputAction::Shield,
+        ControlSlot::Grab => InputAction::Grab,
+        ControlSlot::Taunt => InputAction::Taunt,
+        ControlSlot::Modifier => InputAction::Modifier,
     })
 }
 
@@ -476,16 +476,16 @@ impl SeatBindings {
 pub fn publish_seat_bindings(
     participants: Query<(
         &InputParticipant,
-        &InputMap<Platformer2dInputActionMonolith>,
+        &InputMap<InputAction>,
     )>,
     changed: Query<
         (),
         Or<(
             Changed<InputParticipant>,
-            Changed<InputMap<Platformer2dInputActionMonolith>>,
+            Changed<InputMap<InputAction>>,
         )>,
     >,
-    mut removed_maps: RemovedComponents<InputMap<Platformer2dInputActionMonolith>>,
+    mut removed_maps: RemovedComponents<InputMap<InputAction>>,
     mut removed_participants: RemovedComponents<InputParticipant>,
     mut bindings: ResMut<SeatBindings>,
 ) {
@@ -505,7 +505,7 @@ pub fn publish_seat_bindings(
 
 /// The action's stable name: its `Debug` form, which the trace and the
 /// settings file also use. [`action_named`] is its inverse.
-pub fn action_name(action: &Platformer2dInputActionMonolith) -> String {
+pub fn action_name(action: &InputAction) -> String {
     format!("{action:?}")
 }
 
@@ -547,7 +547,7 @@ mod tests {
             .expect("projection runs");
     }
 
-    fn app_with_seats(seats: &[(u8, InputMap<Platformer2dInputActionMonolith>)]) -> App {
+    fn app_with_seats(seats: &[(u8, InputMap<InputAction>)]) -> App {
         let mut app = App::new();
         app.init_resource::<SeatBindings>();
         for (slot, map) in seats {
@@ -568,8 +568,8 @@ mod tests {
         publish(&mut app);
 
         let bindings = app.world().resource::<SeatBindings>();
-        let seat0 = bindings.label(0, &Platformer2dInputActionMonolith::Jump);
-        let seat1 = bindings.label(1, &Platformer2dInputActionMonolith::Jump);
+        let seat0 = bindings.label(0, &InputAction::Jump);
+        let seat1 = bindings.label(1, &InputAction::Jump);
         assert!(seat0.is_some() && seat1.is_some(), "both seats bind Jump");
         assert_ne!(
             seat0, seat1,
@@ -587,17 +587,17 @@ mod tests {
         let before = app
             .world()
             .resource::<SeatBindings>()
-            .label(0, &Platformer2dInputActionMonolith::Jump);
+            .label(0, &InputAction::Jump);
 
         // Rebind Jump to a key nothing else uses, the way a remap screen would.
-        map.clear_action(&Platformer2dInputActionMonolith::Jump);
-        map.insert(Platformer2dInputActionMonolith::Jump, KeyCode::F13);
+        map.clear_action(&InputAction::Jump);
+        map.insert(InputAction::Jump, KeyCode::F13);
         let mut app = app_with_seats(&[(0, map)]);
         publish(&mut app);
         let after = app
             .world()
             .resource::<SeatBindings>()
-            .label(0, &Platformer2dInputActionMonolith::Jump);
+            .label(0, &InputAction::Jump);
 
         assert_ne!(before, after, "the projection followed the rebind");
         assert_eq!(
@@ -617,7 +617,7 @@ mod tests {
         let bindings = app.world().resource::<SeatBindings>();
         let jump = bindings
             .for_seat(3)
-            .controls(&Platformer2dInputActionMonolith::Jump);
+            .controls(&InputAction::Jump);
         assert!(
             jump.iter()
                 .any(|control| matches!(control, PhysicalControl::Button(_))),
@@ -625,7 +625,7 @@ mod tests {
         );
         assert_eq!(
             bindings
-                .label(3, &Platformer2dInputActionMonolith::Jump)
+                .label(3, &InputAction::Jump)
                 .as_deref(),
             Some("A"),
             "and it prints as a face button, which is what goes on a glyph"
@@ -680,7 +680,7 @@ mod tests {
         let bindings = app.world().resource::<SeatBindings>();
         assert!(bindings.for_seat(2).is_empty());
         assert_eq!(
-            bindings.label(2, &Platformer2dInputActionMonolith::Jump),
+            bindings.label(2, &InputAction::Jump),
             None
         );
     }
@@ -699,7 +699,7 @@ mod tests {
                 InputParticipant::with_id(crate::ParticipantId(0)),
                 recipe,
                 map,
-                ActionState::<Platformer2dInputActionMonolith>::default(),
+                ActionState::<InputAction>::default(),
             ))
             .id();
         app.update();
@@ -712,11 +712,11 @@ mod tests {
         let map = app
             .world()
             .entity(seat)
-            .get::<InputMap<Platformer2dInputActionMonolith>>()
+            .get::<InputMap<InputAction>>()
             .expect("the participant keeps its map");
         assert_eq!(
             ActionBindings::from_map(map)
-                .label(&Platformer2dInputActionMonolith::Jump)
+                .label(&InputAction::Jump)
                 .as_deref(),
             Some("Space"),
             "the rebuilt map is the new preset's (WASD binds Jump to Space)"
@@ -768,7 +768,7 @@ mod tests {
         let smash = BindingRecipe::gamepad_only().with_layout(crate::BindingLayout::Smash);
         let layout_only = ActionBindings::from_map(&smash.build());
         assert_eq!(
-            layout_only.controls(&Platformer2dInputActionMonolith::Special),
+            layout_only.controls(&InputAction::Special),
             [PhysicalControl::Button(GamepadButton::West)],
             "the mode's layout is what an unremapped player gets"
         );
@@ -779,14 +779,14 @@ mod tests {
         )]);
         let after = ActionBindings::from_map(&remapped.build());
         assert_eq!(
-            after.controls(&Platformer2dInputActionMonolith::Special),
+            after.controls(&InputAction::Special),
             [PhysicalControl::Button(GamepadButton::North)],
             "the USER's remap wins over the mode's layout"
         );
         // The remap displaces; it does not add a second button.
         assert!(
             !after
-                .controls(&Platformer2dInputActionMonolith::Special)
+                .controls(&InputAction::Special)
                 .contains(&PhysicalControl::Button(GamepadButton::West)),
             "the layout's West binding is gone, not doubled"
         );
@@ -799,7 +799,7 @@ mod tests {
         let base = BindingRecipe::preset(PresetId::ArrowsZxc);
         let before = ActionBindings::from_map(&base.build());
         let pad_before: Vec<_> = before
-            .controls(&Platformer2dInputActionMonolith::Jump)
+            .controls(&InputAction::Jump)
             .iter()
             .filter(|control| matches!(control, PhysicalControl::Button(_)))
             .cloned()
@@ -810,7 +810,7 @@ mod tests {
             .clone()
             .with_overrides(vec![BindingOverride::key("Jump", KeyCode::F13)]);
         let after = ActionBindings::from_map(&remapped.build());
-        let jump = after.controls(&Platformer2dInputActionMonolith::Jump);
+        let jump = after.controls(&InputAction::Jump);
 
         assert_eq!(
             jump.iter()
@@ -839,11 +839,11 @@ mod tests {
             .with_overrides(overrides)
             .build();
 
-        let jump = |map: &InputMap<Platformer2dInputActionMonolith>| {
-            ActionBindings::from_map(map).label(&Platformer2dInputActionMonolith::Jump)
+        let jump = |map: &InputMap<InputAction>| {
+            ActionBindings::from_map(map).label(&InputAction::Jump)
         };
-        let attack = |map: &InputMap<Platformer2dInputActionMonolith>| {
-            ActionBindings::from_map(map).label(&Platformer2dInputActionMonolith::Attack)
+        let attack = |map: &InputMap<InputAction>| {
+            ActionBindings::from_map(map).label(&InputAction::Attack)
         };
         assert_eq!(jump(&arrows).as_deref(), Some("F13"));
         assert_eq!(
@@ -894,12 +894,12 @@ mod tests {
         use leafwing_input_manager::prelude::{Buttonlike, InputManagerPlugin};
 
         const HELD: KeyCode = KeyCode::KeyJ;
-        let jump = Platformer2dInputActionMonolith::Jump;
+        let jump = InputAction::Jump;
 
         let mut app = App::new();
         app.add_plugins(bevy::MinimalPlugins)
             .add_plugins(bevy::input::InputPlugin)
-            .add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default())
+            .add_plugins(InputManagerPlugin::<InputAction>::default())
             .add_systems(Update, rebuild_maps_from_recipes)
             .add_systems(
                 bevy::app::PreUpdate,
@@ -915,7 +915,7 @@ mod tests {
                 InputParticipant::with_id(crate::ParticipantId(0)),
                 recipe.clone(),
                 recipe.build(),
-                ActionState::<Platformer2dInputActionMonolith>::default(),
+                ActionState::<InputAction>::default(),
             ))
             .id();
         app.update();
@@ -924,7 +924,7 @@ mod tests {
             let actions = app
                 .world()
                 .entity(seat)
-                .get::<ActionState<Platformer2dInputActionMonolith>>()
+                .get::<ActionState<InputAction>>()
                 .expect("the seat keeps its action state");
             (actions.pressed(&jump), actions.just_pressed(&jump))
         };
@@ -973,7 +973,7 @@ mod tests {
                 InputParticipant::with_id(crate::ParticipantId(0)),
                 recipe.clone(),
                 recipe.build(),
-                ActionState::<Platformer2dInputActionMonolith>::default(),
+                ActionState::<InputAction>::default(),
             ))
             .id();
         app.update();
@@ -986,11 +986,11 @@ mod tests {
         let map = app
             .world()
             .entity(seat)
-            .get::<InputMap<Platformer2dInputActionMonolith>>()
+            .get::<InputMap<InputAction>>()
             .expect("the participant keeps its map");
         assert_eq!(
             ActionBindings::from_map(map)
-                .label(&Platformer2dInputActionMonolith::Jump)
+                .label(&InputAction::Jump)
                 .as_deref(),
             Some("F13"),
             "the live map the router reads is the overridden one"

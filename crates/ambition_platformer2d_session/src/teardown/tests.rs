@@ -5,7 +5,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 
 use super::*;
-use ambition_platformer2d_actor_monolith::control::possession::PossessionState;
+use ambition_platformer2d_actor::control::possession::PossessionState;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_characters::control::SlotInteractionState;
 

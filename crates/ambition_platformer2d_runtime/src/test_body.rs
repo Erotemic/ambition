@@ -20,7 +20,7 @@ pub(crate) fn home_body(
     let finalized = prepare_and_finalize_for_test(definition, &CharacterBindings::default());
     let mut cast = PreparedCharacterRegistry::default();
     cast.insert_prepared(finalized.prepared);
-    let body = ambition_platformer2d_actor_monolith::avatar::PlayerSimulationBundle::from_scratch_as_character(
+    let body = ambition_platformer2d_actor::avatar::PlayerSimulationBundle::from_scratch_as_character(
         ambition_characters::control::PlayerSlot::PRIMARY,
         scratch, health, "fixture_home", Some(&cast), &mut RangedExecution::MovesetVerb,
     );

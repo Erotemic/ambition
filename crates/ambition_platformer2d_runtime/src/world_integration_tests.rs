@@ -5,7 +5,7 @@
 //! invariants. Extracted from `ecs/mod.rs` to keep the implementation
 //! file focused on systems.
 
-use ambition_platformer2d_actor_monolith::body::*;
+use ambition_platformer2d_actor::body::*;
 use crate::world_overlay::rebuild_feature_ecs_world_overlay;
 use ambition_vfx::vfx::VfxInRoom;
 use ambition_platformer2d_items::chests::open_ecs_chests;
@@ -258,7 +258,7 @@ fn interact_buffered_opens_adjacent_chest() {
 
     // The press opens what it is selected for: the selection runs first.
     app.init_resource::<ambition_platformer2d_interaction::InteractSelection>();
-    app.add_systems(Update, (ambition_platformer2d_actor_monolith::body::select_interactions, open_ecs_chests).chain());
+    app.add_systems(Update, (ambition_platformer2d_actor::body::select_interactions, open_ecs_chests).chain());
     app.update();
 
     assert!(
@@ -303,7 +303,7 @@ fn interact_buffered_does_not_open_distant_chest() {
 
     // The press opens what it is selected for: the selection runs first.
     app.init_resource::<ambition_platformer2d_interaction::InteractSelection>();
-    app.add_systems(Update, (ambition_platformer2d_actor_monolith::body::select_interactions, open_ecs_chests).chain());
+    app.add_systems(Update, (ambition_platformer2d_actor::body::select_interactions, open_ecs_chests).chain());
     app.update();
 
     assert!(
@@ -340,7 +340,7 @@ fn interact_does_not_reopen_already_opened_chest() {
 
     // The press opens what it is selected for: the selection runs first.
     app.init_resource::<ambition_platformer2d_interaction::InteractSelection>();
-    app.add_systems(Update, (ambition_platformer2d_actor_monolith::body::select_interactions, open_ecs_chests).chain());
+    app.add_systems(Update, (ambition_platformer2d_actor::body::select_interactions, open_ecs_chests).chain());
     app.update();
 
     // The entity should still have Opened (idempotent) but we verify the
@@ -437,7 +437,7 @@ fn interact_buffered_starts_npc_dialogue() {
     app.add_systems(
         Update,
         (
-            ambition_platformer2d_actor_monolith::body::select_interactions,
+            ambition_platformer2d_actor::body::select_interactions,
             interact_ecs_actors_and_switches,
             ambition_conversation::project_the_dialog_ui_from_the_conversation,
         )

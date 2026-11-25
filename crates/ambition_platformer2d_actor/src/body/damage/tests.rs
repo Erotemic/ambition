@@ -1990,7 +1990,7 @@ fn a_blocked_strike_says_so_on_its_own_channel_and_names_who_swung() {
 fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
     let mut app = shield_test_app();
     let victim = spawn_hostile_actor(&mut app);
-    let feel = ambition_combat::feel::Platformer2dFeelTuningMonolith::default();
+    let feel = ambition_combat::feel::FeelTuning::default();
     // Attacker to the LEFT of the victim (victim at origin): expect a launch
     // toward +x with the feel-tuned enemy knockback, rising (world -y).
     app.world_mut().write_message(HitEvent { status: None,
@@ -2295,7 +2295,7 @@ fn a_hit_returns_the_air_dodge_and_leaves_the_double_jump_spent() {
 /// the query is matching everything and the assertion above proves nothing.
 #[test]
 fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
-    let feel = ambition_combat::feel::Platformer2dFeelTuningMonolith::default();
+    let feel = ambition_combat::feel::FeelTuning::default();
     assert!(
         feel.boss_hitstun_time > feel.enemy_hitstun_time,
         "the fixture only distinguishes the two paths if the tuning does"
@@ -2369,7 +2369,7 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
 fn a_slash_knockback_rides_the_shared_resolution() {
     let mut app = shield_test_app();
     let victim = spawn_hostile_actor(&mut app);
-    let feel = ambition_combat::feel::Platformer2dFeelTuningMonolith::default();
+    let feel = ambition_combat::feel::FeelTuning::default();
     // Slash volume centered on the victim (side derivation degenerates) with a
     // -x impulse: the stored dir carries the launch side.
     app.world_mut()

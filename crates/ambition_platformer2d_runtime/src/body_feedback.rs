@@ -1,7 +1,7 @@
 //! Emit movement feedback for every integrated body.
 
 use bevy::prelude::*;
-use ambition_platformer2d_actor_monolith::body::{
+use ambition_platformer2d_actor::body::{
     BodyFrameOutput, arm_ground_contact_anim_overlay, arm_movement_anim_overlays, emit_movement_fx,
 };
 use ambition_platformer2d_core::BodyKinematics;

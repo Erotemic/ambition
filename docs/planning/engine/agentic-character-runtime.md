@@ -61,7 +61,7 @@ brains should be interchangeable policy providers above the same action seam.
 
 ### Current source and the knowledge boundary
 
-Native [decision wiring](../../../crates/ambition_platformer2d_actor_monolith/src/body/actors/update.rs)
+Native [decision wiring](../../../crates/ambition_platformer2d_actor/src/body/actors/update.rs)
 resolves the union of native and module demand before acquisition.
 `enforce_empty_belief_for_none` clears memory only when that effective
 demand is empty. A sighted belief overrides the call's local `BrainSnapshot`;

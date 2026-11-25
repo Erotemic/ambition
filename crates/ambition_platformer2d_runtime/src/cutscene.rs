@@ -313,7 +313,7 @@ pub fn project_cutscene_hold(
             Entity,
             Option<&mut ambition_characters::control::ControlHolds>,
             Option<&mut ambition_characters::actor::BodyHealth>,
-            Option<&ambition_platformer2d_actor_monolith::body::visit::Visit>,
+            Option<&ambition_platformer2d_actor::body::visit::Visit>,
         ),
         With<ambition_characters::control::ActorControl>,
     >,
@@ -324,7 +324,7 @@ pub fn project_cutscene_hold(
         if replay.as_ref().is_some_and(|replay| !replay.allows(rooms.of(body))) {
             continue;
         }
-        let going = visit.is_some_and(|visit| visit.outcome == ambition_platformer2d_actor_monolith::body::visit::VisitOutcome::Pending);
+        let going = visit.is_some_and(|visit| visit.outcome == ambition_platformer2d_actor::body::visit::VisitOutcome::Pending);
         let held = !going && active.holds(rooms.of(body).map(|room| room.ordinal()));
         match holds {
             Some(mut holds) if holds.holds(ControlHold::Cutscene) != held => {
@@ -456,7 +456,7 @@ pub fn tick_active_cutscene(
                     health.health.current = 0;
                     if let Some((identity, config)) = kept.filter(|(identity, _)| !identity.id.starts_with("encounter:")) {
                         flags.extend(
-                            ambition_platformer2d_actor_monolith::body::enemy_death_flag(config.tuning.respawn, &identity.id)
+                            ambition_platformer2d_actor::body::enemy_death_flag(config.tuning.respawn, &identity.id)
                                 .map(|id| (id, true)),
                         );
                     }

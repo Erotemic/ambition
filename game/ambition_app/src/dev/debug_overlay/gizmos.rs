@@ -281,7 +281,7 @@ pub(crate) fn draw_body_debug(
     // one collision read-API's answer now, so the preview and the action cannot disagree.
     blink_world: &ae::World,
     attack: Option<&ambition_platformer2d::combat::components::MeleeSwing>,
-    actions: Option<&ActionState<Platformer2dInputActionMonolith>>,
+    actions: Option<&ActionState<InputAction>>,
     gameplay_active: bool,
     developer_tools: &DeveloperTools,
     gravity_dir: ae::Vec2,

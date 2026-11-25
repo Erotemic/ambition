@@ -438,7 +438,7 @@ mod tests {
     fn const_ids_resolve_in_real_bank() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("..")
-            .join("ambition_platformer2d_actor_monolith")
+            .join("ambition_platformer2d_actor")
             .join("assets")
             .join("audio")
             .join("sfx.bank");

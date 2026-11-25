@@ -356,7 +356,7 @@ const fn engine(
 
 /// The engine's vocabulary, and the whole of it.
 ///
-/// One entry per `Platformer2dInputActionMonolith` variant.
+/// One entry per `InputAction` variant.
 /// `every_device_action_is_registered` fails when a variant has no entry.
 pub static ENGINE_ACTIONS: &[SemanticActionDef] = &[
     engine(
@@ -597,7 +597,7 @@ mod tests {
 
     /// A capability adds an action without editing the engine.
     ///
-    /// `Platformer2dInputActionMonolith` is a closed enum that a capability cannot
+    /// `InputAction` is a closed enum that a capability cannot
     /// extend; the registry is the open half.
     #[test]
     fn a_capability_registers_its_own_action_without_touching_the_engine_enum() {
@@ -656,13 +656,13 @@ mod tests {
     #[cfg(feature = "input")]
     #[test]
     fn every_device_action_is_registered() {
-        use crate::Platformer2dInputActionMonolith;
+        use crate::InputAction;
         use bevy::reflect::{TypeInfo, Typed};
 
         // `Actionlike` has no `variants()` in leafwing 0.20, but it requires
         // `Reflect + Typed`, so the enum's type info gives a list that cannot go stale.
-        let TypeInfo::Enum(info) = Platformer2dInputActionMonolith::type_info() else {
-            panic!("Platformer2dInputActionMonolith is an enum");
+        let TypeInfo::Enum(info) = InputAction::type_info() else {
+            panic!("InputAction is an enum");
         };
         let registry = ActionRegistry::with_engine_actions();
         let missing: Vec<String> = (0..info.variant_len())
@@ -672,7 +672,7 @@ mod tests {
             .collect();
         assert!(
             missing.is_empty(),
-            "these `Platformer2dInputActionMonolith` variants have no semantic entry, so nothing that asks the \
+            "these `InputAction` variants have no semantic entry, so nothing that asks the \
              registry can see them: {missing:?}\nadd them to `ENGINE_ACTIONS`"
         );
     }

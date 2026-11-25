@@ -1,6 +1,6 @@
 //! Default binding presets: the selectable keyboard layouts (`PresetId` /
 //! `KeyboardPreset` / `MovementKeys` / `ActionKeys`) and the shared gamepad
-//! bindings that seed leafwing's input map for `Platformer2dInputActionMonolith`.
+//! bindings that seed leafwing's input map for `InputAction`.
 
 use super::*;
 
@@ -14,12 +14,12 @@ use super::*;
 const STICK_DIRECTION_THRESHOLD: f32 = 0.5;
 
 #[cfg(feature = "input")]
-use super::Platformer2dInputActionMonolith as Act;
+use super::InputAction as Act;
 
 /// The standard pad buttons. A game layout changes gameplay bindings.
 /// Session and UI bindings stay the same.
 #[cfg(feature = "input")]
-pub const STANDARD_PAD: &[(Platformer2dInputActionMonolith, GamepadButton)] = &[
+pub const STANDARD_PAD: &[(InputAction, GamepadButton)] = &[
     (Act::Jump, GamepadButton::South),
     (Act::Blink, GamepadButton::East),
     (Act::Attack, GamepadButton::West),
@@ -40,7 +40,7 @@ pub const STANDARD_PAD: &[(Platformer2dInputActionMonolith, GamepadButton)] = &[
 /// ([`KeyboardPreset::key_for_button`]): Jump's key confirms, Blink's backs
 /// out. Changing a menu control is one row here.
 #[cfg(feature = "input")]
-pub const MENU_BUTTONS: &[(Platformer2dInputActionMonolith, GamepadButton)] = &[
+pub const MENU_BUTTONS: &[(InputAction, GamepadButton)] = &[
     (Act::MenuSelect, GamepadButton::South),
     (Act::MenuBack, GamepadButton::East),
     (Act::MenuPageLeft, GamepadButton::LeftTrigger),
@@ -55,7 +55,7 @@ pub const MENU_BUTTONS: &[(Platformer2dInputActionMonolith, GamepadButton)] = &[
 /// also Start: gameplay pauses; an interface confirms. Escape also binds
 /// Start: it pauses in a session and goes Back in an open pause menu.
 #[cfg(feature = "input")]
-pub const KEYBOARD_MENU_KEYS: &[(Platformer2dInputActionMonolith, KeyCode)] = &[
+pub const KEYBOARD_MENU_KEYS: &[(InputAction, KeyCode)] = &[
     (Act::MenuSelect, KeyCode::Enter),
     (Act::MenuSelect, KeyCode::NumpadEnter),
     (Act::MenuSelect, KeyCode::Space),
@@ -311,7 +311,7 @@ impl KeyboardPreset {
     /// data, so a later TOML/RON keybinding config can deserialize into the same
     /// shape. Gated behind `input` because the return type is leafwing's.
     #[cfg(feature = "input")]
-    pub fn input_map(&self) -> InputMap<Platformer2dInputActionMonolith> {
+    pub fn input_map(&self) -> InputMap<InputAction> {
         self.map_for(crate::BindingSources::Unified)
     }
 
@@ -324,7 +324,7 @@ impl KeyboardPreset {
     pub fn map_for(
         &self,
         sources: crate::BindingSources,
-    ) -> InputMap<Platformer2dInputActionMonolith> {
+    ) -> InputMap<InputAction> {
         let mut map = InputMap::default();
         if sources.admits_keyboard() {
             self.insert_keyboard_bindings(&mut map);
@@ -338,40 +338,40 @@ impl KeyboardPreset {
     /// The keyboard half of a preset: everything whose binding is a key this
     /// preset chose.
     #[cfg(feature = "input")]
-    fn insert_keyboard_bindings(&self, map: &mut InputMap<Platformer2dInputActionMonolith>) {
+    fn insert_keyboard_bindings(&self, map: &mut InputMap<InputAction>) {
         let keyboard_move = match self.id {
             PresetId::ArrowsZxc | PresetId::ArrowsQwer => VirtualDPad::arrow_keys(),
             PresetId::WasdJkl | PresetId::WasdUipo => VirtualDPad::wasd(),
         };
-        map.insert_dual_axis(Platformer2dInputActionMonolith::Move, keyboard_move);
+        map.insert_dual_axis(InputAction::Move, keyboard_move);
         map.insert(
-            Platformer2dInputActionMonolith::MoveLeft,
+            InputAction::MoveLeft,
             self.movement.left,
         );
         map.insert(
-            Platformer2dInputActionMonolith::MoveRight,
+            InputAction::MoveRight,
             self.movement.right,
         );
-        map.insert(Platformer2dInputActionMonolith::MoveUp, self.movement.up);
+        map.insert(InputAction::MoveUp, self.movement.up);
         map.insert(
-            Platformer2dInputActionMonolith::MoveDown,
+            InputAction::MoveDown,
             self.movement.down,
         );
-        map.insert(Platformer2dInputActionMonolith::Jump, self.actions.jump);
-        map.insert(Platformer2dInputActionMonolith::ShortHop, self.actions.short_hop);
-        map.insert(Platformer2dInputActionMonolith::Attack, self.actions.attack);
-        map.insert(Platformer2dInputActionMonolith::Burst, self.actions.burst);
+        map.insert(InputAction::Jump, self.actions.jump);
+        map.insert(InputAction::ShortHop, self.actions.short_hop);
+        map.insert(InputAction::Attack, self.actions.attack);
+        map.insert(InputAction::Burst, self.actions.burst);
         map.insert(
-            Platformer2dInputActionMonolith::Reset,
+            InputAction::Reset,
             self.actions.select_reset,
         );
-        map.insert(Platformer2dInputActionMonolith::PartyReturn, KeyCode::Home);
-        map.insert(Platformer2dInputActionMonolith::Start, self.actions.pause);
-        map.insert(Platformer2dInputActionMonolith::Start, KeyCode::NumpadEnter);
-        map.insert(Platformer2dInputActionMonolith::Start, KeyCode::Escape);
+        map.insert(InputAction::PartyReturn, KeyCode::Home);
+        map.insert(InputAction::Start, self.actions.pause);
+        map.insert(InputAction::Start, KeyCode::NumpadEnter);
+        map.insert(InputAction::Start, KeyCode::Escape);
 
         map.insert(
-            Platformer2dInputActionMonolith::Blink,
+            InputAction::Blink,
             self.actions.secondary,
         );
         // Special has its own key on every preset; it does not alias Blink. The
@@ -384,43 +384,43 @@ impl KeyboardPreset {
         // `the_default_pad_leaves_special_to_a_profile_and_a_profile_can_take_it`
         // guard the two halves.
         map.insert(
-            Platformer2dInputActionMonolith::Special,
+            InputAction::Special,
             self.actions.special,
         );
-        map.insert(Platformer2dInputActionMonolith::Shield, self.actions.shield);
-        map.insert(Platformer2dInputActionMonolith::Grab, self.actions.grab);
-        map.insert(Platformer2dInputActionMonolith::Taunt, self.actions.taunt);
+        map.insert(InputAction::Shield, self.actions.shield);
+        map.insert(InputAction::Grab, self.actions.grab);
+        map.insert(InputAction::Taunt, self.actions.taunt);
         map.insert(
-            Platformer2dInputActionMonolith::Interact,
+            InputAction::Interact,
             self.actions.interact,
         );
         for key in self.actions.shift_layer {
-            map.insert(Platformer2dInputActionMonolith::ShiftLayer, key);
+            map.insert(InputAction::ShiftLayer, key);
         }
         map.insert(
-            Platformer2dInputActionMonolith::Modifier,
+            InputAction::Modifier,
             self.actions.modifier,
         );
         map.insert(
-            Platformer2dInputActionMonolith::Utility,
+            InputAction::Utility,
             self.actions.utility,
         );
-        map.insert(Platformer2dInputActionMonolith::Map, self.actions.map);
+        map.insert(InputAction::Map, self.actions.map);
         map.insert(
-            Platformer2dInputActionMonolith::Inventory,
+            InputAction::Inventory,
             self.actions.inventory,
         );
         map.insert(
-            Platformer2dInputActionMonolith::Projectile,
+            InputAction::Projectile,
             self.actions.projectile,
         );
         map.insert(
-            Platformer2dInputActionMonolith::TrailToggle,
+            InputAction::TrailToggle,
             self.actions.trail_toggle,
         );
         insert_optional(
             map,
-            Platformer2dInputActionMonolith::Pogo,
+            InputAction::Pogo,
             self.actions.dedicated_pogo,
         );
 
@@ -455,7 +455,7 @@ impl KeyboardPreset {
     /// and no key means two things inside a menu. The keyboard's own keys bind
     /// first so a menu prompt names Enter and Esc.
     #[cfg(feature = "input")]
-    fn insert_menu_keys(&self, map: &mut InputMap<Platformer2dInputActionMonolith>) {
+    fn insert_menu_keys(&self, map: &mut InputMap<InputAction>) {
         let derived: Vec<_> = MENU_BUTTONS.iter()
             .filter_map(|(role, button)| Some((*role, self.key_for_button(*button)?)))
             .collect();
@@ -475,12 +475,12 @@ impl KeyboardPreset {
 /// The buttons are [`STANDARD_PAD`] and [`MENU_BUTTONS`]; the D-pad and left
 /// stick also move, the left stick is the menu stick, and the right stick aims.
 #[cfg(feature = "input")]
-fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) {
-    map.insert_dual_axis(Platformer2dInputActionMonolith::Move, VirtualDPad::dpad());
-    map.insert_dual_axis(Platformer2dInputActionMonolith::Move, GamepadStick::LEFT);
+fn insert_gamepad_bindings(map: &mut InputMap<InputAction>) {
+    map.insert_dual_axis(InputAction::Move, VirtualDPad::dpad());
+    map.insert_dual_axis(InputAction::Move, GamepadStick::LEFT);
 
     // Gamepad bindings for the discrete `MoveX` actions. Without them,
-    // `just_pressed(&Platformer2dInputActionMonolith::MoveDown)` never fires on a
+    // `just_pressed(&InputAction::MoveDown)` never fires on a
     // controller, and double-tap-down into MorphBall is keyboard-only. The D-pad
     // and a stick direction past the threshold give the same press edge.
     //
@@ -512,25 +512,25 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
     }
 
     map.insert_dual_axis(
-        Platformer2dInputActionMonolith::MenuStick,
+        InputAction::MenuStick,
         GamepadStick::LEFT,
     );
     map.insert_dual_axis(
-        Platformer2dInputActionMonolith::AimStick,
+        InputAction::AimStick,
         GamepadStick::RIGHT,
     );
     // RIGHT_Z is the analog right-trigger axis on most pads. Read it as an axis
     // so hysteresis is applied here, not by the binary just_pressed edge.
     map.insert_axis(
-        Platformer2dInputActionMonolith::BurstAnalog,
+        InputAction::BurstAnalog,
         GamepadControlAxis::RIGHT_Z,
     );
 }
 
 #[cfg(feature = "input")]
 fn insert_optional(
-    map: &mut InputMap<Platformer2dInputActionMonolith>,
-    action: Platformer2dInputActionMonolith,
+    map: &mut InputMap<InputAction>,
+    action: InputAction,
     key: Option<KeyCode>,
 ) {
     if let Some(key) = key {
@@ -600,7 +600,7 @@ mod tests {
     #[test]
     fn standard_pad_actions_use_separate_controls() {
         use crate::{ActionBindings, ActiveDevice, GamepadStyle, PhysicalControl};
-        use Platformer2dInputActionMonolith as Action;
+        use InputAction as Action;
 
         let actions = [
             Action::Shield,
@@ -657,7 +657,7 @@ mod tests {
     #[test]
     fn a_menu_confirms_on_a_and_backs_out_on_b_and_their_keyboard_stand_ins() {
         use crate::{ActionBindings, PhysicalControl};
-        use Platformer2dInputActionMonolith as A;
+        use InputAction as A;
         let key = |k| PhysicalControl::Key(k);
         let pad = |b| PhysicalControl::Button(b);
         for preset in KeyboardPreset::presets() {
@@ -698,10 +698,10 @@ mod tests {
             let bindings = ActionBindings::from_map(&preset.input_map());
             let enter = PhysicalControl::Key(KeyCode::Enter);
             let escape = PhysicalControl::Key(KeyCode::Escape);
-            assert!(bindings.controls(&Platformer2dInputActionMonolith::Start).contains(&enter));
-            assert!(bindings.controls(&Platformer2dInputActionMonolith::Start).contains(&escape));
-            assert!(bindings.controls(&Platformer2dInputActionMonolith::MenuBack).contains(&escape));
-            assert!(bindings.controls(&Platformer2dInputActionMonolith::MenuSelect).contains(&PhysicalControl::Key(KeyCode::Space)));
+            assert!(bindings.controls(&InputAction::Start).contains(&enter));
+            assert!(bindings.controls(&InputAction::Start).contains(&escape));
+            assert!(bindings.controls(&InputAction::MenuBack).contains(&escape));
+            assert!(bindings.controls(&InputAction::MenuSelect).contains(&PhysicalControl::Key(KeyCode::Space)));
         }
     }
 
@@ -745,7 +745,7 @@ mod tests {
         let default_pad = KeyboardPreset::by_index(0).map_for(crate::BindingSources::GamepadOnly);
         assert!(
             ActionBindings::from_map(&default_pad)
-                .controls(&Platformer2dInputActionMonolith::Special)
+                .controls(&InputAction::Special)
                 .is_empty(),
             "the DEFAULT pad is fully assigned, so it declines to double-bind \
              Special onto a button that already means something"
@@ -755,7 +755,7 @@ mod tests {
         BindingLayout::Smash.apply(&mut smash_pad);
         assert_eq!(
             ActionBindings::from_map(&smash_pad)
-                .controls(&Platformer2dInputActionMonolith::Special),
+                .controls(&InputAction::Special),
             [crate::PhysicalControl::Button(GamepadButton::West)],
             "a GAME's layout permutes the pad, so it CAN free a button for \
              Special — that is the difference between a profile and a default"
@@ -816,7 +816,7 @@ mod tests {
                     .collect();
                 assert_eq!(
                     actions,
-                    vec![Platformer2dInputActionMonolith::ShiftLayer],
+                    vec![InputAction::ShiftLayer],
                     "{:?}: {shift:?} is bound to {actions:?}",
                     preset.id
                 );
@@ -842,7 +842,7 @@ mod tests {
         // buttons have the same type, so only the count tells them apart. The full
         // preset binds Move three ways (keys, D-pad, stick).
         assert_eq!(
-            map.get_dual_axislike(&Platformer2dInputActionMonolith::Move)
+            map.get_dual_axislike(&InputAction::Move)
                 .map(Vec::len),
             Some(2),
             "the second seat's Move should be D-pad + left stick and nothing else"
@@ -850,7 +850,7 @@ mod tests {
         assert_eq!(
             KeyboardPreset::by_index(0)
                 .input_map()
-                .get_dual_axislike(&Platformer2dInputActionMonolith::Move)
+                .get_dual_axislike(&InputAction::Move)
                 .map(Vec::len),
             Some(3),
             "player one's Move should still be keys + D-pad + left stick; if \

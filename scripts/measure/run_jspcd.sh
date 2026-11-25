@@ -7,7 +7,7 @@
 # Examples:
 #   scripts/measure/run_jspcd.sh
 #   scripts/measure/run_jspcd.sh --min-lines 12 --min-tokens 120
-#   JSCPD_TARGETS="crates/ambition_platformer2d_actor_monolith/src crates/ambition_platformer2d_shared_tangle/src" scripts/measure/run_jspcd.sh
+#   JSCPD_TARGETS="crates/ambition_platformer2d_actor/src crates/ambition_platformer2d_shared_tangle/src" scripts/measure/run_jspcd.sh
 
 set -Eeuo pipefail
 

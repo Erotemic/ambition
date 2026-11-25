@@ -101,7 +101,7 @@ pub struct DialogView {
 impl DialogView {
     pub fn controls_seat(&self, seat: ambition_characters::control::PlayerSlot) -> bool {
         self.input_owner.is_some_and(|owner| owner.accepts(
-            ambition_platformer2d_actor_monolith::participant_seat::participant_of(seat),
+            ambition_platformer2d_actor::participant_seat::participant_of(seat),
         ))
     }
 }
@@ -187,7 +187,7 @@ fn cutscene_line_view(
         ambition_characters::control::PlayerSlot::PRIMARY,
     );
     let owner = Some(ambition_input::InputOwner::Participant(
-        ambition_platformer2d_actor_monolith::participant_seat::participant_of(seat),
+        ambition_platformer2d_actor::participant_seat::participant_of(seat),
     ));
     DialogView {
         confirm_action: policy.reveal_confirm_action(elapsed >= policy.text_reveal.duration(text))

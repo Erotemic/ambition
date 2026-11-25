@@ -8,7 +8,7 @@ use leafwing_input_manager::prelude::{ActionState, Buttonlike, InputMap};
 use leafwing_input_manager::user_input::updating::CentralInputStore;
 
 use crate::{ActionBindings, InputContextId, MenuControlFrame, ParticipantContexts,
-    PhysicalControl, Platformer2dInputActionMonolith as A};
+    PhysicalControl, InputAction as A};
 
 /// Interaction policy, separate from the identity of the surface.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

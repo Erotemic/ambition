@@ -18,7 +18,7 @@ use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::engine_core::config::world_to_bevy;
 #[cfg(feature = "input")]
-use ambition_platformer2d::input::Platformer2dInputActionMonolith;
+use ambition_platformer2d::input::InputAction;
 use ambition_platformer2d::input::read_gameplay_control_frame;
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::render::rendering::CameraViewState;
@@ -153,7 +153,7 @@ pub(crate) fn draw_debug_overlay(
     mut overlay_labels: ResMut<DebugOverlayLabels>,
     action_query: Query<(
         &ambition_platformer2d::input::InputParticipant,
-        &ActionState<Platformer2dInputActionMonolith>,
+        &ActionState<InputAction>,
     )>,
     bodies: Query<(
         Entity,

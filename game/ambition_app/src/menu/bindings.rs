@@ -201,7 +201,7 @@ mod tests {
     use crate::menu::kaleidoscope_app::{capture_armed_rebind, RebindCapture};
     use ambition_platformer2d::input::{
         BindingRecipe, BindingSources, InputParticipant, KeyboardPreset, ParticipantId,
-        PhysicalControl, Platformer2dInputActionMonolith as Action,
+        PhysicalControl, InputAction as Action,
     };
     use ambition_platformer2d::persistence::settings::UserSettings;
     use leafwing_input_manager::prelude::{ActionState, InputMap};

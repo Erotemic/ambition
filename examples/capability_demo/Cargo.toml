@@ -20,7 +20,7 @@ description = "A SENTINEL capability: one self-contained mechanic that contribut
 
 # THE DEPENDENCY LIST IS THE PROOF.
 #
-# No `ambition_platformer2d_actor_monolith`, no `ambition_content`, no game. A capability that had to
+# No `ambition_platformer2d_actor`, no `ambition_content`, no game. A capability that had to
 # reach into the actor crate to exist would tell us the seams are not seams —
 # so this one deliberately cannot, and the compiler enforces it.
 #

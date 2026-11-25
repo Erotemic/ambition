@@ -219,7 +219,7 @@ pub fn request_party_return(
     let members = party.members(admitted);
     let leader = party.rules().leader;
     if !members.contains(&leader) { return; }
-    let driven = |slot| ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot)
+    let driven = |slot| ambition_platformer2d_actor::control::body_driving_seat(&drivers, slot)
         .filter(|body| bodies.contains(*body));
     let Some(anchor) = driven(leader) else { return; };
     let Some(reference) = identities.id_of(anchor).filter(|id| id.room.is_some()) else { return; };

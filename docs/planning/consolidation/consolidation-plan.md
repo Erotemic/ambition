@@ -485,7 +485,7 @@ reversible branch experiment under ADR 0039. A C03 prerequisite applies only
 when that state owner affects the selected boundary.
 
 Size is a navigation signal, not a split rule. The durable architecture rejects a
-size-only carve of `ambition_platformer2d_actor_monolith`, but it also names the
+size-only carve of `ambition_platformer2d_actor`, but it also names the
 target: a small residual actor kernel. Split only at a proven independent owner.
 Merge only a boundary that forwards one tightly coupled owner. A package's LOC
 mixes source and tests; `game/ambition_app` is large mostly because of its

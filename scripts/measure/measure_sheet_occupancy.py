@@ -49,7 +49,7 @@ REPO = Path(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, cwd=Path(__file__).resolve().parents[2]).stdout.strip()
 )
 
-ASSET_OWNER = REPO / "crates/ambition_platformer2d_actor_monolith"
+ASSET_OWNER = REPO / "crates/ambition_platformer2d_actor"
 # The four dirs build.rs scans, in its order. `sprites` is the Full tier.
 SPRITE_DIRS = [
     ("full", ASSET_OWNER / "assets/sprites"),

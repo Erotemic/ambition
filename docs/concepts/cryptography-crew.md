@@ -10,7 +10,7 @@ implemented_by:
   - tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/toon_side.py
   - tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/eve_eavesdropper.py
   - tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/review/
-  - crates/ambition_platformer2d_actor_monolith/assets/sprites/
+  - crates/ambition_platformer2d_actor/assets/sprites/
 related_docs:
   - docs/concepts/llm-spatial-authoring-discipline.md
 last_verified: 2026-09-03
@@ -54,7 +54,7 @@ Lean into the names as character ideas, not as job descriptions.
 ## Batch 1
 
 These six have review configs in `configs/review/` and render into
-`crates/ambition_platformer2d_actor_monolith/assets/sprites/` via `draw-runtime-npcs`. Bob, Alice,
+`crates/ambition_platformer2d_actor/assets/sprites/` via `draw-runtime-npcs`. Bob, Alice,
 Eve, and Trent now use bespoke Python targets; Mallory and Judy remain on the
 shared toon target.
 
@@ -221,7 +221,7 @@ from preset tuning alone.
   to iterate on one character without overwriting the live assets.
 - Per the repo's "never commit binary/generated data" rule, the
   spritesheet + canonical PNGs are gitignored under
-  `crates/ambition_platformer2d_actor_monolith/assets/sprites/.gitignore` (`*.png`). The
+  `crates/ambition_platformer2d_actor/assets/sprites/.gitignore` (`*.png`). The
   manifest YAMLs (`*_spritesheet.yaml`) ARE committed because they
   carry the frame/animation metadata the runtime reads. PNGs
   regenerate deterministically from the seed in the review YAML, so

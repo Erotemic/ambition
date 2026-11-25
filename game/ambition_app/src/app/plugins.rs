@@ -1,6 +1,6 @@
 //! Ambition app plugin composition.
 
-use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
+use ambition_platformer2d::combat::feel::FeelTuning;
 use ambition_platformer2d::dev_tools::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
     MovementProfile, PlayerBodyProfile,
@@ -222,7 +222,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         .register_type::<EditableAbilitySet>()
         .register_type::<EditableMovementTuning>()
         .register_type::<EditablePlayerStats>()
-        .register_type::<Platformer2dFeelTuningMonolith>()
+        .register_type::<FeelTuning>()
         .register_type::<ambition_platformer2d::portal::PortalConvention>()
         .register_type::<ambition_platformer2d::portal::PortalTuning>();
 

@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
-use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+use ambition_combat::feel::FeelTuning;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_time::time_control::{
     ClockRequester, ClockResetRequest, ClockScaleRequest, RequestedClockScale,
@@ -35,7 +35,7 @@ pub fn emit_primary_observer_time_intent(
         Option<&ambition_platformer2d_core::BodyAbilities>,
         Option<&ambition_abilities::observer_slow::ObserverSlowAsked>,
     )>,
-    feel: Res<Platformer2dFeelTuningMonolith>,
+    feel: Res<FeelTuning>,
     // The match hold is independent of the local observer.
     impact: Option<Res<ambition_combat::impact_hitstop::ImpactHitstop>>,
     tick: Option<Res<ambition_time::SimTick>>,
@@ -71,7 +71,7 @@ pub fn emit_primary_observer_time_intent(
     let one_room = !ambition_platformer2d_shared_tangle::lifecycle::rooms_keep_their_own_clocks(live_rooms.iter().count());
     // A root with no pace yet takes the handed scale as its start.
     let seed = clock.as_deref_mut().and_then(|clock| {
-        let observed_room = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, PlayerSlot::PRIMARY)
+        let observed_room = ambition_platformer2d_actor::control::body_driving_seat(&drivers, PlayerSlot::PRIMARY)
             .and_then(|body| rooms_of.of(body));
         hand_over_the_slow_down(clock, &mut roots, one_room, observed_room)
     });
@@ -87,7 +87,7 @@ pub fn emit_primary_observer_time_intent(
             return;
         }
     }
-    let observed_body = ambition_platformer2d_actor_monolith::control::body_driving_seat(
+    let observed_body = ambition_platformer2d_actor::control::body_driving_seat(
         &drivers, PlayerSlot::PRIMARY,
     );
     let observed = observed_body.and_then(|body| bodies.get(body).ok());
@@ -222,7 +222,7 @@ fn ease_room_clocks(
     commands: &mut Commands,
     wanted: Option<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, f32)>,
     seed: Option<(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance, f32)>,
-    feel: &Platformer2dFeelTuningMonolith,
+    feel: &FeelTuning,
     frame_dt: f32,
 ) {
     for (root, room, pace) in roots.iter_mut() {
@@ -257,7 +257,7 @@ fn ease_room_clocks(
 /// shipped.
 pub fn smooth_sim_clock_toward_target_system(
     target: Res<RequestedClockScale>,
-    feel: Res<Platformer2dFeelTuningMonolith>,
+    feel: Res<FeelTuning>,
     world_time: Res<ambition_time::WorldTime>,
     mut clock: ResMut<ClockState>,
 ) {

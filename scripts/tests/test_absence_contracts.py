@@ -288,18 +288,18 @@ def test_a_transitive_edge_is_a_violation_not_just_a_direct_one():
     """
     graph = {
         "ambition_platformer2d_shared_tangle": {"innocent_helper"},
-        "innocent_helper": {"ambition_platformer2d_actor_monolith"},
-        "ambition_platformer2d_actor_monolith": set(),
+        "innocent_helper": {"ambition_platformer2d_actor"},
+        "ambition_platformer2d_actor": set(),
     }
     contract = {
         "id": "test",
         "crate": "ambition_platformer2d_shared_tangle",
-        "forbidden": ["ambition_platformer2d_actor_monolith"],
+        "forbidden": ["ambition_platformer2d_actor"],
         "reason": "",
     }
     found = dependency_violations(contract, graph)
     assert found == [
-        "ambition_platformer2d_shared_tangle -> innocent_helper -> ambition_platformer2d_actor_monolith"
+        "ambition_platformer2d_shared_tangle -> innocent_helper -> ambition_platformer2d_actor"
     ], f"the two-hop inversion was not reported: {found}"
 
 
@@ -416,13 +416,13 @@ def test_the_allowlist_does_not_count_self_as_a_module():
 
 
 def test_the_allowlist_does_not_confuse_a_crate_name_with_the_facade():
-    """`ambition_platformer2d_actor_monolith::` is an engine crate, not the facade.
+    """`ambition_platformer2d_actor::` is an engine crate, not the facade.
 
     An engine developer may name it; a consumer depending only on `ambition_platformer2d`
     cannot reach it. Matching it here would report leaks that do not exist and
     the contract would be waived within a week.
     """
-    assert modules_in("use ambition_platformer2d_actor_monolith::features::Body;") == set()
+    assert modules_in("use ambition_platformer2d_actor::features::Body;") == set()
 
 
 def test_the_allowlist_stays_silent_on_prose_naming_a_module():

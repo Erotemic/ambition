@@ -97,7 +97,7 @@ def attach(repo: Path, out: Path, assets: dict[str, Any], rows: dict[str, dict],
     head = store_mod.git(local, "rev-parse", "HEAD", check=False).strip() if local else ""
 
     records = {}
-    record_dir = repo / "crates" / "ambition_platformer2d_actor_monolith" / "asset_provenance" / "sprites"
+    record_dir = repo / "crates" / "ambition_platformer2d_actor" / "asset_provenance" / "sprites"
     for path in sorted(record_dir.glob("*.json")) if authorship and record_dir.is_dir() else []:
         try:
             records[path.stem] = json.loads(path.read_text(encoding="utf-8"))

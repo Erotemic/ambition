@@ -1,13 +1,13 @@
 //! Device -> engine-owned `ControlFrame` input adapter layer for the sandbox.
 //!
-//! Physical inputs are bound to `Platformer2dInputActionMonolith` with Leafwing Input Manager.
+//! Physical inputs are bound to `InputAction` with Leafwing Input Manager.
 //! The engine-owned compact `ControlFrame` keeps movement physics independent
 //! from keyboards, gamepads, UI rebinding, or replay input.
 //!
 //! This is the upper-sibling input abstraction (ADR 0019). It depends on
 //! `ambition_platformer2d_core` for `ControlFrame` and on the input-domain
 //! `settings` (deadzones, trigger hysteresis, burst mode). It never depends
-//! on `ambition_platformer2d_actor_monolith` or `ambition_characters`.
+//! on `ambition_platformer2d_actor` or `ambition_characters`.
 //!
 //! TODO(compat-remove): migrate the remaining `crate::ControlFrame` caller
 //! (`ambition_touch_input::bevy_plugin`) to
@@ -59,7 +59,7 @@ pub use motion_input::{
 };
 
 #[cfg(feature = "input")]
-pub use actions::Platformer2dInputActionMonolith;
+pub use actions::InputAction;
 #[cfg(feature = "input")]
 pub use contextual::{ButtonRoute, ContextualButtonHistory, InputProfile, MenuButtonIntent, MenuShortcutPages, resolve_menu_button, contextual_button_rows};
 #[cfg(feature = "input")]

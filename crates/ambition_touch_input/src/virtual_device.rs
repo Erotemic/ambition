@@ -272,8 +272,8 @@ fn set_touch_button(world: &mut World, action: TouchActionButton, held: bool) {
     };
 }
 
-pub fn touch_button_actions(button: TouchActionButton) -> &'static [ambition_input::Platformer2dInputActionMonolith] {
-    use ambition_input::Platformer2dInputActionMonolith as A;
+pub fn touch_button_actions(button: TouchActionButton) -> &'static [ambition_input::InputAction] {
+    use ambition_input::InputAction as A;
     use TouchActionButton as B;
     match button {
         B::Jump => &[A::Jump, A::MenuSelect],
@@ -292,16 +292,16 @@ pub fn touch_button_actions(button: TouchActionButton) -> &'static [ambition_inp
     }
 }
 
-pub fn touch_bindings() -> impl Iterator<Item = (ambition_input::Platformer2dInputActionMonolith, TouchVirtualButton)> {
+pub fn touch_bindings() -> impl Iterator<Item = (ambition_input::InputAction, TouchVirtualButton)> {
     ALL_TOUCH_BUTTONS.into_iter().flat_map(|button| {
         touch_button_actions(button).iter().map(move |&action| (action, TouchVirtualButton(button)))
     })
 }
 
 pub fn insert_touch_virtual_bindings(
-    map: &mut leafwing_input_manager::prelude::InputMap<ambition_input::Platformer2dInputActionMonolith>,
+    map: &mut leafwing_input_manager::prelude::InputMap<ambition_input::InputAction>,
 ) {
-    use ambition_input::Platformer2dInputActionMonolith as A;
+    use ambition_input::InputAction as A;
     for (action, button) in touch_bindings() {
         map.insert(action, button);
     }
@@ -328,12 +328,12 @@ pub fn bind_touch_virtual_inputs(
         (
             &ambition_input::InputParticipant,
             &mut leafwing_input_manager::prelude::InputMap<
-                ambition_input::Platformer2dInputActionMonolith,
+                ambition_input::InputAction,
             >,
         ),
         Changed<
             leafwing_input_manager::prelude::InputMap<
-                ambition_input::Platformer2dInputActionMonolith,
+                ambition_input::InputAction,
             >,
         >,
     >,

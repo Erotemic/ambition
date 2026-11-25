@@ -905,10 +905,10 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
 
     # The LDtk dependency is optional only if the monolith type-checks with default features off;
     # test that boundary directly rather than scanning source text for one dependency name.
-    if everything and (not only or "ambition_platformer2d_actor_monolith" in only):
+    if everything and (not only or "ambition_platformer2d_actor" in only):
         check_jobs.append(Job(
             "the monolith's LDtk feature is REALLY optional (--no-default-features)",
-            [CARGO, "check", "-p", "ambition_platformer2d_actor_monolith",
+            [CARGO, "check", "-p", "ambition_platformer2d_actor",
              "--no-default-features"]))
 
     # ⭐ THE HEADLESS PROFILES MUST HOLD WITH NO RENDERER COMPILED. The default-feature

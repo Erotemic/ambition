@@ -1,6 +1,6 @@
 //! Trail geometry captured on the presentation clock.
 
-use ambition_platformer2d_actor_monolith::avatar::trail::{PlayerTrail, TrailStatus};
+use ambition_platformer2d_actor::avatar::trail::{PlayerTrail, TrailStatus};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;

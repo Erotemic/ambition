@@ -55,7 +55,7 @@ pub fn derive_slot_direction_gestures(
     // `.after(refresh_world_time)` where it is scheduled; a snapshot resource
     // has an ordering dependency that Bevy's `Time` does not.
     world_time: Res<ambition_time::WorldTime>,
-    feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
+    feel_tuning: Res<ambition_combat::feel::FeelTuning>,
     // WHO IS DRIVING WHAT, so each seat's gesture resolves against the
     // gravity of the body that seat is actually steering.
     drivers: Query<(Entity, &ambition_characters::control::DrivingParticipant)>,
@@ -165,7 +165,7 @@ pub struct InteractionInputBuffered;
 pub fn interaction_input_system(
     // Unscaled sim step — see `derive_slot_direction_gestures`.
     world_time: Res<ambition_time::WorldTime>,
-    feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
+    feel_tuning: Res<ambition_combat::feel::FeelTuning>,
     // Proposal-side input for this frame; confirmed simulation input is in `slots`.
     raw: Res<ambition_characters::control::SeatRawFrames>,
     slots: Res<ambition_characters::control::SlotControls>,
@@ -296,7 +296,7 @@ mod per_seat_gesture_tests {
     use ambition_characters::control::{
         PlayerSlot, SeatRawFrames, SlotControls, SlotInteractionState,
     };
-    use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+    use ambition_combat::feel::FeelTuning;
     use ambition_platformer2d_core::ControlFrame;
 
     /// PLAYER TWO CAN FAST-FALL.
@@ -310,7 +310,7 @@ mod per_seat_gesture_tests {
     fn every_seat_derives_its_own_fast_fall_double_tap() {
         let mut app = App::new();
         app.insert_resource(Time::<()>::default());
-        app.insert_resource(Platformer2dFeelTuningMonolith::default());
+        app.insert_resource(FeelTuning::default());
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<SlotControls>();
         // The seat's frame-mode policy, beside the seat table it interprets.
@@ -393,7 +393,7 @@ mod per_seat_gesture_tests {
     fn each_seat_resolves_its_gesture_under_its_own_frame_mode() {
         let mut app = App::new();
         app.insert_resource(Time::<()>::default());
-        app.insert_resource(Platformer2dFeelTuningMonolith::default());
+        app.insert_resource(FeelTuning::default());
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<SlotControls>();
         app.init_resource::<SeatRawFrames>();
@@ -465,7 +465,7 @@ mod per_seat_gesture_tests {
     fn one_seats_taps_do_not_arm_another_seats_double_tap() {
         let mut app = App::new();
         app.insert_resource(Time::<()>::default());
-        app.insert_resource(Platformer2dFeelTuningMonolith::default());
+        app.insert_resource(FeelTuning::default());
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<SlotControls>();
         // The seat's frame-mode policy, beside the seat table it interprets.
@@ -508,7 +508,7 @@ mod interaction_suppression_tests {
     use super::*;
     use ambition_characters::actor::BodyCombat;
     use ambition_characters::control::SlotInteractionState;
-    use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+    use ambition_combat::feel::FeelTuning;
     use ambition_platformer2d_core::ControlFrame;
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 
@@ -518,7 +518,7 @@ mod interaction_suppression_tests {
     fn buffered_after(interact: bool, axis_y: f32) -> bool {
         let mut app = App::new();
         app.insert_resource(Time::<()>::default());
-        app.insert_resource(Platformer2dFeelTuningMonolith::default());
+        app.insert_resource(FeelTuning::default());
         app.init_resource::<SlotInteractionState>();
         // The seat's RAW row — the pre-publish device sample this system reads,
         // which used to be the global `ControlFrame` (D175).
@@ -555,7 +555,7 @@ mod interaction_suppression_tests {
         use ambition_characters::control::{PlayerSlot, SeatRawFrames, SlotControls};
         let mut app = App::new();
         app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
-        app.init_resource::<Platformer2dFeelTuningMonolith>();
+        app.init_resource::<FeelTuning>();
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<SeatRawFrames>();
         app.init_resource::<SlotControls>();
@@ -604,7 +604,7 @@ mod interaction_suppression_tests {
             .expect("the recorded input runs decode");
         let mut app = App::new();
         app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
-        app.init_resource::<Platformer2dFeelTuningMonolith>();
+        app.init_resource::<FeelTuning>();
         app.init_resource::<SlotInteractionState>();
         app.init_resource::<SeatRawFrames>();
         app.init_resource::<SlotControls>();
@@ -635,7 +635,7 @@ mod interaction_suppression_tests {
     fn a_sub_tick_press_survives_on_a_latching_host() {
         let mut app = App::new();
         app.insert_resource(Time::<()>::default());
-        app.insert_resource(Platformer2dFeelTuningMonolith::default());
+        app.insert_resource(FeelTuning::default());
         app.init_resource::<SlotInteractionState>();
         // The latch's presence is what says which clock this composition runs on.
         app.init_resource::<ambition_characters::control::SlotControlLatches>();

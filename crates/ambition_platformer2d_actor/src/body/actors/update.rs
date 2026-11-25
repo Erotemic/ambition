@@ -1006,7 +1006,7 @@ fn integrate_actor_body(
     // clusters — and read on BOTH roads, which is the part that was missing.
     out_of_play: bool,
     dt: f32,
-    feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
+    feel: ambition_combat::feel::FeelTuning,
     // This body's own movement feel, when its character authored one.
     //
     // The actor twin of the player loop's `authored_tuning`. Threaded rather
@@ -1368,7 +1368,7 @@ pub fn integrate_sim_bodies(
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     // Each body collides with the walls of its own live room.
     body_rooms: Query<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-    feel_tuning: Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>,
+    feel_tuning: Res<ambition_combat::feel::FeelTuning>,
     steering: Res<ActorSteering>,
     active_tuning: Res<ambition_platformer2d_core::ActiveMovementTuning>,
     mut cues: BodyIntegrationMessages,

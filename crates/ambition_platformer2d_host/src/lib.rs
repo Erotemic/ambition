@@ -65,7 +65,7 @@ pub struct HostInputBindingsPlugin;
 #[cfg(feature = "input")]
 impl Plugin for HostInputBindingsPlugin {
     fn build(&self, app: &mut App) {
-        use ambition_input::{MenuControlFrame, Platformer2dInputActionMonolith};
+        use ambition_input::{MenuControlFrame, InputAction};
         use ambition_platformer2d_runtime::input::{commit_seat_raw_frames, declare_gameplay_input_context, declare_in_session_input_contexts, project_primary_menu_frame, populate_seat_control_frames, populate_seat_menu_frames, spawn_primary_input_participant, sync_primary_recipe_from_settings, toggle_player_trail_emission_from_actions};
         use ambition_input::{MenuFrameConsume, MenuFramePopulate, MenuNavConsume};
         use leafwing_input_manager::prelude::InputManagerPlugin;
@@ -184,7 +184,7 @@ impl Plugin for HostInputBindingsPlugin {
         app.init_resource::<MenuControlFrame>()
             .init_resource::<ambition_input::SeatMenuFrames>()
             .init_resource::<ambition_input::SeatActiveDevices>()
-            .add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default())
+            .add_plugins(InputManagerPlugin::<InputAction>::default())
             // ⭐ The SECOND action map's per-action registrations moved into
             // `ambition_input::install_provider_action_road` with the defect they
             // avoid: `InputManagerPlugin::<A>::build` adds two systems
@@ -335,7 +335,7 @@ impl Plugin for HostInputBindingsPlugin {
         // nothing (`ClashStrategy::PressAll`): three quarters of a standalone
         // frame's allocations. Same result for every strategy.
         ambition_input::press_all_action_update::install_press_all_action_update::<
-            Platformer2dInputActionMonolith,
+            InputAction,
         >(app);
         // The roster-driven seating pair installs ITSELF: both systems live in the
         // monolith and its ordering against `InputSet::Collect` is that crate's
@@ -360,7 +360,7 @@ fn tune_clash_strategy_to_bindings(
     maps: Query<
         bevy::ecs::change_detection::Ref<
             leafwing_input_manager::prelude::InputMap<
-                ambition_input::Platformer2dInputActionMonolith,
+                ambition_input::InputAction,
             >,
         >,
     >,
@@ -561,11 +561,11 @@ impl Plugin for HostCameraPlugin {
 #[cfg(all(test, feature = "input"))]
 mod clash_strategy_tests {
     use super::tune_clash_strategy_to_bindings;
-    use ambition_input::Platformer2dInputActionMonolith;
+    use ambition_input::InputAction;
     use bevy::prelude::*;
     use leafwing_input_manager::prelude::{ButtonlikeChord, ClashStrategy, InputMap};
 
-    fn app_with_map(map: InputMap<Platformer2dInputActionMonolith>) -> App {
+    fn app_with_map(map: InputMap<InputAction>) -> App {
         let mut app = App::new();
         app.init_resource::<ClashStrategy>()
             .add_systems(Update, tune_clash_strategy_to_bindings);
@@ -575,7 +575,7 @@ mod clash_strategy_tests {
 
     #[test]
     fn chord_free_bindings_relax_to_press_all() {
-        let map = InputMap::new([(Platformer2dInputActionMonolith::Jump, KeyCode::Space)]);
+        let map = InputMap::new([(InputAction::Jump, KeyCode::Space)]);
         let mut app = app_with_map(map);
         app.update();
         assert_eq!(
@@ -586,7 +586,7 @@ mod clash_strategy_tests {
 
     #[test]
     fn authoring_a_chord_reenables_clash_resolution_same_frame() {
-        let map = InputMap::new([(Platformer2dInputActionMonolith::Jump, KeyCode::Space)]);
+        let map = InputMap::new([(InputAction::Jump, KeyCode::Space)]);
         let mut app = app_with_map(map);
         app.update();
         assert_eq!(
@@ -595,14 +595,14 @@ mod clash_strategy_tests {
         );
         let entity = app
             .world_mut()
-            .query_filtered::<Entity, With<InputMap<Platformer2dInputActionMonolith>>>()
+            .query_filtered::<Entity, With<InputMap<InputAction>>>()
             .single(app.world())
             .unwrap();
         app.world_mut()
-            .get_mut::<InputMap<Platformer2dInputActionMonolith>>(entity)
+            .get_mut::<InputMap<InputAction>>(entity)
             .unwrap()
             .insert(
-                Platformer2dInputActionMonolith::Interact,
+                InputAction::Interact,
                 ButtonlikeChord::new([KeyCode::ControlLeft, KeyCode::KeyE]),
             );
         app.update();

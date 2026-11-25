@@ -7,7 +7,7 @@
 //! `intro.ldtk`.
 //!
 //! Keeping intro content isolated here preserves the sandbox/game split: generic
-//! machinery stays in `ambition_platformer2d_actor_monolith`, while narrative content lives in the game
+//! machinery stays in `ambition_platformer2d_actor`, while narrative content lives in the game
 //! content layer.
 
 pub mod plugin;

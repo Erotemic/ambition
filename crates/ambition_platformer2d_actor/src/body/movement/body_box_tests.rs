@@ -62,7 +62,7 @@ fn step_with_material(
         &mut model,
         ae::MotionFrame::from_direction(down, ae::GRAVITY),
         None,
-        ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
+        ambition_combat::feel::FeelTuning::default(),
         None,
         &mut combat,
         false,

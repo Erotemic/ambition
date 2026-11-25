@@ -134,7 +134,7 @@ pub struct SpawnRow {
 /// the host's planner touches `Life` every tick, and replicating `Life`
 /// itself sent it whole every frame.
 #[derive(Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct PlanRow(pub ambition_platformer2d_actor_monolith::body::life::Life);
+pub struct PlanRow(pub ambition_platformer2d_actor::body::life::Life);
 
 /// On the guest: a replicated entity its spawn row has been built into (or
 /// refused), so it is not built twice.
@@ -524,7 +524,7 @@ struct HomeBodyRecipe<'w, 's> {
         (
             &'static ambition_platformer2d_shared_tangle::lifecycle::SessionRoot,
             &'static ambition_platformer2d_session::initial_body::HomeBodyResources,
-            &'static ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities,
+            &'static ambition_platformer2d_actor::avatar::HomeBodyAbilities,
         ),
     >,
     tuning: Res<'w, ambition_platformer2d_core::ActiveMovementTuning>,
@@ -736,7 +736,7 @@ fn view_own_seat(
     let Some(seat) = seat.filter(|_| asleep.is_some() || predicts.is_some()) else {
         return;
     };
-    let own = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, seat.0);
+    let own = ambition_platformer2d_actor::control::body_driving_seat(&drivers, seat.0);
     if own.is_some() && subject.0 != own {
         subject.0 = own;
     }
@@ -1062,8 +1062,8 @@ fn write_life_rows(
 fn write_plan_rows(
     mut commands: Commands,
     mut lives: Query<
-        (Entity, &ambition_platformer2d_actor_monolith::body::life::Life, Option<&mut PlanRow>),
-        (With<Replicated>, Changed<ambition_platformer2d_actor_monolith::body::life::Life>),
+        (Entity, &ambition_platformer2d_actor::body::life::Life, Option<&mut PlanRow>),
+        (With<Replicated>, Changed<ambition_platformer2d_actor::body::life::Life>),
     >,
 ) {
     for (entity, life, row) in &mut lives {
@@ -1084,8 +1084,8 @@ fn write_plan_rows(
 fn apply_plan_rows(
     mut commands: Commands,
     mut lives: Query<
-        (Entity, &PlanRow, Option<&mut ambition_platformer2d_actor_monolith::body::life::Life>),
-        Or<(Changed<PlanRow>, Added<ambition_platformer2d_actor_monolith::body::life::Life>)>,
+        (Entity, &PlanRow, Option<&mut ambition_platformer2d_actor::body::life::Life>),
+        Or<(Changed<PlanRow>, Added<ambition_platformer2d_actor::body::life::Life>)>,
     >,
 ) {
     for (entity, row, life) in &mut lives {

@@ -60,7 +60,7 @@ read as single-capability until that distinction existed.
 ✔ **RE-EXPORTS ARE RESOLVED** (see [`reexport_map`]), and doing so moved the totals from
 24/20 to **18/26** — six blocks that looked carveable belong to a crate the host only
 mentions through a facade. `ambition_platformer2d_runtime::host_input` is the case that
-forced it: a re-export of systems defined in `ambition_platformer2d_actor_monolith`,
+forced it: a re-export of systems defined in `ambition_platformer2d_actor`,
 which is another session's lane, so the mislabel was a lane violation waiting to happen
 rather than a cosmetic one.
 
@@ -141,7 +141,7 @@ def reexport_map() -> dict[str, str]:
 
     ⚠ PER NAME, NOT PER MODULE, and that was the third try. `host_input` re-exports from
     FOUR crates (`ambition_characters`, `ambition_dialog`,
-    `ambition_platformer2d_actor_monolith`, `ambition_platformer2d_shared_tangle`), so
+    `ambition_platformer2d_actor`, `ambition_platformer2d_shared_tangle`), so
     mapping the module to a single crate silently skipped it — which is exactly the
     module this function exists for.
     """

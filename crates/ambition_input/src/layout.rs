@@ -9,7 +9,7 @@
 use bevy::prelude::{GamepadButton, Query, Res, Resource};
 use leafwing_input_manager::prelude::InputMap;
 
-use crate::Platformer2dInputActionMonolith;
+use crate::InputAction;
 use crate::bindings::{BindingRecipe, PhysicalControl};
 
 /// One physical button, and the gameplay action a layout puts on it.
@@ -23,10 +23,10 @@ pub struct PadSlot {
     /// empty. [`BindingLayout::apply`] clears every claimed button first and
     /// then binds the slots that have an action, so a blank slot removes a
     /// button from the base preset.
-    pub action: Option<Platformer2dInputActionMonolith>,
+    pub action: Option<InputAction>,
 }
 
-const fn slot(button: GamepadButton, action: Platformer2dInputActionMonolith) -> PadSlot {
+const fn slot(button: GamepadButton, action: InputAction) -> PadSlot {
     PadSlot {
         button,
         action: Some(action),
@@ -54,35 +54,35 @@ pub enum BindingLayout {
 const SMASH_PAD: &[PadSlot] = &[
     slot(
         GamepadButton::South,
-        Platformer2dInputActionMonolith::Attack,
+        InputAction::Attack,
     ),
-    slot(GamepadButton::East, Platformer2dInputActionMonolith::Jump),
+    slot(GamepadButton::East, InputAction::Jump),
     slot(
         GamepadButton::West,
-        Platformer2dInputActionMonolith::Special,
+        InputAction::Special,
     ),
-    slot(GamepadButton::North, Platformer2dInputActionMonolith::Grab),
+    slot(GamepadButton::North, InputAction::Grab),
     // The d-pad taunts; a fighter moves on the stick.
     slot(
         GamepadButton::DPadUp,
-        Platformer2dInputActionMonolith::Taunt,
+        InputAction::Taunt,
     ),
     slot(
         GamepadButton::DPadDown,
-        Platformer2dInputActionMonolith::Taunt,
+        InputAction::Taunt,
     ),
     slot(
         GamepadButton::LeftTrigger,
-        Platformer2dInputActionMonolith::Shield,
+        InputAction::Shield,
     ),
     slot(
         GamepadButton::LeftTrigger2,
-        Platformer2dInputActionMonolith::Shield,
+        InputAction::Shield,
     ),
     // Short hop replaces Interact, which a stage does not use.
     slot(
         GamepadButton::RightTrigger,
-        Platformer2dInputActionMonolith::ShortHop,
+        InputAction::ShortHop,
     ),
 ];
 
@@ -102,7 +102,7 @@ impl BindingLayout {
     /// Clear all claimed buttons first, then install, in two passes. One pass
     /// would let a later slot's clear remove an earlier slot's install, because
     /// one action can be on two buttons (Shield is).
-    pub fn apply(self, map: &mut InputMap<Platformer2dInputActionMonolith>) {
+    pub fn apply(self, map: &mut InputMap<InputAction>) {
         let slots = self.pad_slots();
         if slots.is_empty() {
             return;
@@ -124,11 +124,11 @@ impl BindingLayout {
 /// Removal is by button, through the same `PhysicalControl` projection that
 /// prompts read, so what the layout displaces is what the screen showed.
 fn clear_gameplay_bindings_of(
-    map: &mut InputMap<Platformer2dInputActionMonolith>,
+    map: &mut InputMap<InputAction>,
     button: GamepadButton,
 ) {
     let target = PhysicalControl::Button(button);
-    let displaced: Vec<(Platformer2dInputActionMonolith, Vec<usize>)> = map
+    let displaced: Vec<(InputAction, Vec<usize>)> = map
         .iter_buttonlike()
         .filter(|(action, _)| !action.is_menu_only())
         .filter_map(|(action, inputs)| {
@@ -223,9 +223,9 @@ mod tests {
     /// The gameplay actions a button drives, so tests ask about the pad and
     /// not about table insertion order.
     fn gameplay_actions_on(
-        map: &InputMap<Platformer2dInputActionMonolith>,
+        map: &InputMap<InputAction>,
         button: GamepadButton,
-    ) -> Vec<Platformer2dInputActionMonolith> {
+    ) -> Vec<InputAction> {
         let target = PhysicalControl::Button(button);
         let mut found: Vec<_> = map
             .iter_buttonlike()
@@ -241,7 +241,7 @@ mod tests {
         found
     }
 
-    fn smash_pad() -> InputMap<Platformer2dInputActionMonolith> {
+    fn smash_pad() -> InputMap<InputAction> {
         let mut map = KeyboardPreset::of(KeyboardPreset::by_index(0).id)
             .map_for(crate::BindingSources::GamepadOnly);
         BindingLayout::Smash.apply(&mut map);
@@ -255,31 +255,31 @@ mod tests {
         for (button, expected) in [
             (
                 GamepadButton::South,
-                vec![Platformer2dInputActionMonolith::Attack],
+                vec![InputAction::Attack],
             ),
             (
                 GamepadButton::East,
-                vec![Platformer2dInputActionMonolith::Jump],
+                vec![InputAction::Jump],
             ),
             (
                 GamepadButton::West,
-                vec![Platformer2dInputActionMonolith::Special],
+                vec![InputAction::Special],
             ),
             (
                 GamepadButton::North,
-                vec![Platformer2dInputActionMonolith::Grab],
+                vec![InputAction::Grab],
             ),
             (
                 GamepadButton::LeftTrigger,
-                vec![Platformer2dInputActionMonolith::Shield],
+                vec![InputAction::Shield],
             ),
             (
                 GamepadButton::LeftTrigger2,
-                vec![Platformer2dInputActionMonolith::Shield],
+                vec![InputAction::Shield],
             ),
             (
                 GamepadButton::Select,
-                vec![Platformer2dInputActionMonolith::Reset],
+                vec![InputAction::Reset],
             ),
         ] {
             assert_eq!(
@@ -299,10 +299,10 @@ mod tests {
         BindingLayout::Smash.apply(&mut map);
 
         for action in [
-            Platformer2dInputActionMonolith::Blink,
-            Platformer2dInputActionMonolith::Projectile,
-            Platformer2dInputActionMonolith::Utility,
-            Platformer2dInputActionMonolith::Modifier,
+            InputAction::Blink,
+            InputAction::Projectile,
+            InputAction::Utility,
+            InputAction::Modifier,
         ] {
             let controls = crate::ActionBindings::from_map(&map);
             let bound = controls.controls(&action);
@@ -329,15 +329,15 @@ mod tests {
         let bindings = crate::ActionBindings::from_map(&map);
         for (action, button) in [
             (
-                Platformer2dInputActionMonolith::MenuSelect,
+                InputAction::MenuSelect,
                 GamepadButton::South,
             ),
             (
-                Platformer2dInputActionMonolith::MenuBack,
+                InputAction::MenuBack,
                 GamepadButton::East,
             ),
             (
-                Platformer2dInputActionMonolith::MenuPageLeft,
+                InputAction::MenuPageLeft,
                 GamepadButton::LeftTrigger,
             ),
         ] {
@@ -369,12 +369,12 @@ mod tests {
         );
         assert_eq!(
             gameplay_actions_on(&after, GamepadButton::South),
-            vec![Platformer2dInputActionMonolith::Jump],
+            vec![InputAction::Jump],
             "A=Jump is still Ambition's default"
         );
         assert_eq!(
             gameplay_actions_on(&after, GamepadButton::West),
-            vec![Platformer2dInputActionMonolith::Attack],
+            vec![InputAction::Attack],
         );
         assert_ne!(smash, after, "…and the smash map really is different");
     }

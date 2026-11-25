@@ -179,7 +179,7 @@ do not centralize all creators merely to fix reconstruction.
 ## Lifetime matrix (2026-10-22)
 
 Each item lifetime, its owner and its phase. Paths: `AM` is
-`crates/ambition_platformer2d_actor_monolith/src`, `HI` is
+`crates/ambition_platformer2d_actor/src`, `HI` is
 `crates/ambition_held_items/src/lib.rs`, `ST` is
 `crates/ambition_platformer2d_shared_tangle/src`, `RT` is
 `crates/ambition_platformer2d_runtime/src`. Durable families: **H** is

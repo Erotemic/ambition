@@ -247,13 +247,13 @@ impl FeatureHitWriters<'_, '_> {
 pub struct BarkDraw<'w, 's> {
     tick: Option<Res<'w, ambition_time::SimTick>>,
     active: Option<Res<'w, ambition_match::ActiveMatch>>,
-    feel_tuning: Option<Res<'w, ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
+    feel_tuning: Option<Res<'w, ambition_combat::feel::FeelTuning>>,
     combat_rules: ambition_combat::rules::CombatTuningOf<'w, 's>,
 }
 
 impl BarkDraw<'_, '_> {
     /// The world's feel tuning, or the default for a composition without it.
-    pub fn feel(&self) -> ambition_combat::feel::Platformer2dFeelTuningMonolith {
+    pub fn feel(&self) -> ambition_combat::feel::FeelTuning {
         self.feel_tuning.as_deref().copied().unwrap_or_default()
     }
 

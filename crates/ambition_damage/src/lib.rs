@@ -47,7 +47,7 @@ use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletS
 use ambition_characters::equipment::WornEquipment;
 use ambition_combat::death_rules::ActorDiedMessage;
 use ambition_combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
-use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+use ambition_combat::feel::FeelTuning;
 use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
 use ambition_platformer2d_shared_tangle::safe_position::{
     remember_safe_player_position, RoomTransitionCooldown, SafePositionContext,
@@ -515,7 +515,7 @@ pub(crate) fn handle_player_damage_events(
     tuning: ae::MovementTuning,
     // The body's frame down direction, resolved by the environment.
     gravity_dir: ae::Vec2,
-    feel: Platformer2dFeelTuningMonolith,
+    feel: FeelTuning,
     difficulty_multiplier: f32,
     // The controlled body's held locomotion (local frame) for DI (CM2).
     di_input_local: ae::Vec2,
@@ -813,7 +813,7 @@ pub(crate) fn safe_respawn_player(
     safety: &PlayerSafetyState,
     combat: &mut BodyCombat,
     tuning: ae::MovementTuning,
-    feel: Platformer2dFeelTuningMonolith,
+    feel: FeelTuning,
     from: ae::Vec2,
     motion_model: &mut ae::MotionModel,
 ) {
@@ -878,7 +878,7 @@ pub(crate) fn resolved_body_knockback_velocity(
     boss_hit: bool,
     knockback: Option<&ambition_combat::HitKnockback>,
     di_input_local: ae::Vec2,
-    feel: Platformer2dFeelTuningMonolith,
+    feel: FeelTuning,
 ) -> ae::Vec2 {
     ae::hit_response::knockback_velocity(
         victim_pos,
@@ -899,7 +899,7 @@ fn knockback_reaction_scale(knockback: Option<&ambition_combat::HitKnockback>) -
     ae::hit_response::reaction_scale(
         knockback,
         &hit_response_tuning(
-            &ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
+            &ambition_combat::feel::FeelTuning::default(),
             false,
         ),
     )
@@ -968,7 +968,7 @@ pub(crate) fn apply_player_knockback(
     combat: &mut BodyCombat,
     // The body's frame down direction, resolved by the environment.
     gravity_dir: ae::Vec2,
-    feel: Platformer2dFeelTuningMonolith,
+    feel: FeelTuning,
     damage: &FeatureHitEvent,
     // The controlled body's held locomotion (local frame) for DI (CM2).
     di_input_local: ae::Vec2,
@@ -1314,7 +1314,7 @@ pub fn apply_player_hit_events(
         Option<Res<ambition_platformer2d_shared_tangle::lifecycle::RoomReplay>>,
     ),
     active_tuning: Res<ae::ActiveMovementTuning>,
-    feel_tuning: Res<Platformer2dFeelTuningMonolith>,
+    feel_tuning: Res<FeelTuning>,
     // ⛔ THE PROJECTED POLICY, not `Res<UserSettings>` — see `PlayerDamagePolicy`.
     // This system runs in the simulation schedule.
     damage_policy: Res<PlayerDamagePolicy>,

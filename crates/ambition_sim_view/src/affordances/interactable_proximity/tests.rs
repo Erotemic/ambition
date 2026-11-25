@@ -80,7 +80,7 @@ fn prompt(arm: Arm) -> InteractVariant {
         .init_resource::<ambition_dialog::DialogueNodeIndex>();
     app.add_systems(
         Update,
-        (ambition_platformer2d_actor_monolith::body::select_interactions, update_nearest_interactable).chain(),
+        (ambition_platformer2d_actor::body::select_interactions, update_nearest_interactable).chain(),
     );
 
     app.world_mut().spawn((

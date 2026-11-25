@@ -6,7 +6,7 @@
 //! the kernel's, which is the orchestration/construction line the decomposition
 //! doctrine draws. While the type lived in the kernel, an encounter could not
 //! say what it wanted spawned without naming
-//! `ambition_platformer2d_actor_monolith` — so an ADAPTER inside the kernel had
+//! `ambition_platformer2d_actor` — so an ADAPTER inside the kernel had
 //! to say it on the domain's behalf.
 //!
 //! ⛔ It carries NO kernel types and never should: `String`, `&str`,

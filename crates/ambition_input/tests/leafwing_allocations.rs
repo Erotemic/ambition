@@ -11,7 +11,7 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
-use ambition_input::Platformer2dInputActionMonolith as Action;
+use ambition_input::InputAction as Action;
 use ambition_input::{BindingRecipe, PresetId};
 use bevy::prelude::*;
 use leafwing_input_manager::input_map::UpdatedActions;

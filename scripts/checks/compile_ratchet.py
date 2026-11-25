@@ -71,7 +71,7 @@ CONSUMER = "ambition_app"
 # * the core is the floor — `compile_cost.py`'s `check-leaf` scenario, the
 #   worst-case fan-out an edit can have.
 WATCHED = [
-    "ambition_platformer2d_actor_monolith",
+    "ambition_platformer2d_actor",
     "ambition_platformer2d_core",
 ]
 
@@ -1579,7 +1579,7 @@ def adopt_wins(current: dict, frozen: dict) -> tuple[dict, list[str], list[str]]
     """A baseline that banks every IMPROVED number and keeps every regressed one.
 
     ⛔⛔ `--update` IS ALL OR NOTHING, AND THAT IS WHY THIS GATE SITS RED. Today it
-    reports two real carves in `ambition_platformer2d_actor_monolith` (-7,622
+    reports two real carves in `ambition_platformer2d_actor` (-7,622
     lines, -48.0s) beside four regressions elsewhere. Banking the wins with
     `--update` also banks the regressions -- it launders them into the baseline
     as the new normal, and the next regression of the same size then lands

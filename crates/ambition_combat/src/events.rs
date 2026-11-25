@@ -12,8 +12,8 @@ pub struct FeatureCombatTuning {
 }
 
 /// Default attack-phase timings (seconds). Single source of truth, shared by
-/// [`FeatureCombatTuning::default`] and `Platformer2dFeelTuningMonolith::default` (which
-/// projects them back out via `Platformer2dFeelTuningMonolith::feature_combat_tuning`).
+/// [`FeatureCombatTuning::default`] and `FeelTuning::default` (which
+/// projects them back out via `FeelTuning::feature_combat_tuning`).
 pub const DEFAULT_ENEMY_ATTACK_WINDUP: f32 = 0.36;
 pub const DEFAULT_ENEMY_ATTACK_ACTIVE: f32 = 0.20;
 pub const DEFAULT_BOSS_ATTACK_WINDUP: f32 = 0.52;

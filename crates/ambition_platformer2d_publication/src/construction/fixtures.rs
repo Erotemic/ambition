@@ -223,7 +223,7 @@ pub fn run_summon(world: &mut World, summoner: Entity, spec: ambition_characters
             spec: spec,
         });
     world
-        .run_system_cached(ambition_platformer2d_actor_monolith::body::apply_summon_effects)
+        .run_system_cached(ambition_platformer2d_actor::body::apply_summon_effects)
         .expect("the summon executor runs");
     world.flush();
 }

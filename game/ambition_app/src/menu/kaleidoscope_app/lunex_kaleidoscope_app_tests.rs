@@ -939,10 +939,10 @@ fn pointer_motion_selects_a_kaleidoscope_control() {
 /// routing, nav and action consumer, with one primary participant bound by `map`.
 fn real_input_cube_app(
     map: leafwing_input_manager::prelude::InputMap<
-        ambition_platformer2d::input::Platformer2dInputActionMonolith,
+        ambition_platformer2d::input::InputAction,
     >,
 ) -> App {
-    use ambition_platformer2d::input::Platformer2dInputActionMonolith;
+    use ambition_platformer2d::input::InputAction;
     use ambition_platformer2d::render::rendering::PlayerVisual;
     use leafwing_input_manager::prelude::*;
 
@@ -953,7 +953,7 @@ fn real_input_cube_app(
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f64(1.0 / 60.0)));
     app.add_plugins(bevy::input::InputPlugin);
-    app.add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default());
+    app.add_plugins(InputManagerPlugin::<InputAction>::default());
     app.init_state::<GameMode>();
     app.init_resource::<InventoryUiBackend>();
 
@@ -1024,7 +1024,7 @@ fn real_input_cube_app(
     app.world_mut().spawn((
         ambition_platformer2d::input::InputParticipant::primary(),
         contexts,
-        ActionState::<Platformer2dInputActionMonolith>::default(),
+        ActionState::<InputAction>::default(),
         map,
     ));
     app.world_mut().spawn((
@@ -1122,7 +1122,7 @@ fn page_shortcuts_open_the_requested_page_via_real_input() {
 #[test]
 fn enter_confirms_and_escape_or_dedicated_pause_interrupts_session_ui() {
     use ambition_platformer2d::input::{ContextClaim, InputParticipant, ParticipantContexts,
-        Platformer2dInputActionMonolith as Action, DIALOGUE_CONTEXT, CUTSCENE_CONTEXT,
+        InputAction as Action, DIALOGUE_CONTEXT, CUTSCENE_CONTEXT,
         participant::context_priority};
     for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope] {
         for (context, priority, mode) in [
@@ -1179,7 +1179,7 @@ fn enter_confirms_and_escape_or_dedicated_pause_interrupts_session_ui() {
 #[cfg(feature = "bevy_ui_menu")]
 #[test]
 fn a_shared_start_select_control_opens_pause_then_selects_in_either_backend() {
-    use ambition_platformer2d::input::Platformer2dInputActionMonolith as Action;
+    use ambition_platformer2d::input::InputAction as Action;
     for backend in [InventoryUiBackend::Grid, InventoryUiBackend::LunexKaleidoscope] {
         for key in [KeyCode::Enter, KeyCode::NumpadEnter, KeyCode::F14] {
             let mut map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
@@ -1257,7 +1257,7 @@ fn back_closes_the_kaleidoscope_and_resumes_play_via_real_input() {
 
 #[test]
 fn a_gameplay_control_shared_with_back_does_not_open_the_menu() {
-    use ambition_platformer2d::input::Platformer2dInputActionMonolith as Action;
+    use ambition_platformer2d::input::InputAction as Action;
     let mut map = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().input_map();
     map.insert(Action::MenuBack, KeyCode::F13);
     map.insert(Action::Blink, KeyCode::F13);

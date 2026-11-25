@@ -21,7 +21,7 @@ made three times in one day:
     3  ambition_sim_view
     3  ambition_render
     3  ambition_conversation
-    2  ambition_platformer2d_actor_monolith
+    2  ambition_platformer2d_actor
     1  ambition_game_shell
     1  ambition_content
     ────

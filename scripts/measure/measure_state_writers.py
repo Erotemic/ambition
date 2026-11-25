@@ -116,7 +116,7 @@ OWNERS: dict[str, dict[str, set[str]]] = {
         "occurrence": {"ambition_held_items", "ambition_world_items"},
         "custody": {"ambition_held_items"},
         "inventory": {"ambition_items"},
-        "checkpoint": {"ambition_platformer2d_actor_monolith"},
+        "checkpoint": {"ambition_platformer2d_actor"},
     },
     # ⚠ FOR A4 THE "OWNER" IS WHERE THE TYPE IS DEFINED TODAY, WHICH IS THE
     # QUESTION, NOT THE ANSWER. The packet's destination is "coherent logical

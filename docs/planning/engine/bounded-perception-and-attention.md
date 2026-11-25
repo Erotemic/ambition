@@ -61,7 +61,7 @@ Standing facts:
 bounded view and then also took the cheap road, folding every visible
 peer into memory: with 17 visible foes it built 16 rich actors, refreshed
 17 exact memories, and could call all 17 out to its crew.
-[`perceive_for_decision`](../../../crates/ambition_platformer2d_actor_monolith/src/body/perception.rs)
+[`perceive_for_decision`](../../../crates/ambition_platformer2d_actor/src/body/perception.rs)
 now owns per-body admission. `TacticalWorld` folds exactly the attended
 view; `TargetBelief` keeps the borrowed cheap road and builds no view;
 `Perception::Omniscient` keeps its global target (belief `None`). The

@@ -23,7 +23,7 @@ ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 ambition_time = { path = "../ambition_time" }
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
-# ⛔ NEVER ambition_platformer2d_actor_monolith: that edge is what the carve removed.
+# ⛔ NEVER ambition_platformer2d_actor: that edge is what the carve removed.
 bevy = { version = "0.19.1", default-features = false, features = ["bevy_state"] }
 
 [dev-dependencies]

@@ -25,7 +25,7 @@ use ambition_characters::brain::{
     ActorActionMessage,
 };
 #[cfg(test)]
-use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+use ambition_combat::feel::FeelTuning;
 use ambition_projectiles::{ProjectileSpawn};
 use ambition_combat::projectile_spawn::{ProjectileSpawnRequest, ProjectileStart};
 use ambition_sfx::{SfxMessage, SfxWriter};
@@ -509,10 +509,10 @@ pub fn spawn_projectiles_from_brain_actions(
 
 /// Helper: combat-tuning lookup. Lives on the test side to make
 /// the helper available to the unit tests below without leaking
-/// `Platformer2dFeelTuningMonolith` through the public API.
+/// `FeelTuning` through the public API.
 #[cfg(test)]
 fn default_combat_tuning() -> ambition_combat::events::FeatureCombatTuning {
-    Platformer2dFeelTuningMonolith::default().feature_combat_tuning()
+    FeelTuning::default().feature_combat_tuning()
 }
 
 #[cfg(test)]

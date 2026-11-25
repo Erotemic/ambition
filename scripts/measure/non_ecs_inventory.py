@@ -6,7 +6,7 @@
 #   "tree-sitter-rust>=0.24,<0.25",
 # ]
 # ///
-"""Build a static inventory of non-ECS Rust code in ambition_platformer2d_actor_monolith.
+"""Build a static inventory of non-ECS Rust code in ambition_platformer2d_actor.
 
 This complements tools/ecs_inventory.py. The ECS inventory answers "what is
 already Bevy ECS?" This script answers "what game-facing code is not directly
@@ -823,7 +823,7 @@ def collect_functions(
 
 
 def module_name(file: str) -> str:
-    marker = "crates/ambition_platformer2d_actor_monolith/src/"
+    marker = "crates/ambition_platformer2d_actor/src/"
     if marker in file:
         rel = file.split(marker, 1)[1]
     else:
@@ -1701,7 +1701,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=pathlib.Path, default=pathlib.Path.cwd())
     parser.add_argument(
-        "--crate", type=pathlib.Path, default=pathlib.Path("crates/ambition_platformer2d_actor_monolith")
+        "--crate", type=pathlib.Path, default=pathlib.Path("crates/ambition_platformer2d_actor")
     )
     parser.add_argument(
         "--json",

@@ -87,7 +87,7 @@ impl CapabilityComposition for Capability {
             // Not a unit either: three of the group's schedules register them.
             Capability::Captures => group,
             Capability::Trails => {
-                group.disable::<ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailPlugin>()
+                group.disable::<ambition_platformer2d_actor::avatar::trail::PlayerTrailPlugin>()
             }
             // Not a unit either: the world-prep schedule registers the stock
             // systems with the rest of its combat settle.
@@ -136,8 +136,8 @@ impl CapabilityComposition for Capability {
             Capability::Encounters => app.is_plugin_added::<ambition_encounter_features::EncounterSimulationSchedulePlugin>(),
             Capability::Captures => app.is_plugin_added::<crate::CombatSchedulePlugin>(),
             Capability::Trails => {
-                app.is_plugin_added::<ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailPlugin>()
-                    || world.contains_resource::<ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailEnabled>()
+                app.is_plugin_added::<ambition_platformer2d_actor::avatar::trail::PlayerTrailPlugin>()
+                    || world.contains_resource::<ambition_platformer2d_actor::avatar::trail::PlayerTrailEnabled>()
             }
             Capability::MatchStocks => {
                 app.is_plugin_added::<crate::WorldPrepSchedulePlugin>()

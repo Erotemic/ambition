@@ -772,7 +772,7 @@ mod tests {
     ///
     /// ✔ that case IS producible, and is driven end-to-end by
     /// `a_roster_with_an_unseatable_participant_never_latches` in
-    /// `ambition_platformer2d_actor_monolith`: a roster naming a character nothing registered never
+    /// `ambition_platformer2d_actor`: a roster naming a character nothing registered never
     /// completes, so the match never activates.
     #[test]
     fn the_countdown_holds_until_every_seat_is_filled() {

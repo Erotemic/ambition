@@ -158,7 +158,7 @@ pub fn hard_fall_shake_amplitude(impact_speed: Option<f32>) -> f32 {
 pub const HIT_SHAKE_GAIN_PX_PER_S: f32 = 48.0;
 
 /// the reference is a PARAMETER, not a constant here. `hitlag_time` is the
-/// route's `Platformer2dFeelTuningMonolith` value; restating 0.070 in this crate
+/// route's `FeelTuning` value; restating 0.070 in this crate
 /// would be a second literal agreeing with the first by coincidence, and a route
 /// that retunes its hitlag would silently retune its camera in the wrong
 /// direction.

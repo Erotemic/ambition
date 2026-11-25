@@ -38,7 +38,7 @@ ends when the relevant fight ends, restoring the authored brain.
 
 Ambition authors the `dangerous` room field in LDtk and declares its NPC
 alliance in provider setup. For gameplay changes, inspect
-`crates/ambition_platformer2d_actor_monolith/src/body/rally.rs` and the
+`crates/ambition_platformer2d_actor/src/body/rally.rs` and the
 related combat targeting policy rather than duplicating faction logic in a
 named NPC or boss.
 

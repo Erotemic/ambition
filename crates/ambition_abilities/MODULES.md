@@ -35,12 +35,12 @@ _Hand-written notes live here and survive regeneration: the crate's authoritativ
 ### ⛔ What is deliberately NOT here
 
 **`possession`, `teleport`, `trapdoor`, `flyline`** stayed in
-`ambition_platformer2d_actor_monolith::abilities`. They share that directory name
+`ambition_platformer2d_actor::abilities`. They share that directory name
 and nothing else: their systems are registered by
 `ambition_platformer2d_runtime`, not by the item-pickup family, and `possession`
 is named 87 times outside the directory (`teleport` 61 — counted WITHIN the
 actor monolith, `grep -rn <name> --include=*.rs
-crates/ambition_platformer2d_actor_monolith/src` minus its own `abilities/`; the
+crates/ambition_platformer2d_actor/src` minus its own `abilities/`; the
 same grep across `crates` and `game` gives 256 and 603, so the scope is part of
 the figure) by `body_custody`,
 `control::authority`, `features::ecs::dormancy` and `control::input_systems`.
@@ -75,7 +75,7 @@ with their numbers, so neither gets carved by line count later.
 ### The one test that moved the other way
 
 `a_module_entitys_bolt_damages_the_enemy_it_was_fired_at` lives in
-`ambition_platformer2d_actor_monolith::projectile::module_entity_bolt_damage_tests`
+`ambition_platformer2d_actor::projectile::module_entity_bolt_damage_tests`
 (it was the native sentry's until the sentry became a module, 2026-10-01). It
 chains a module entity's request → `materialize_projectiles_for_this_tick` →
 `stamp_new_projectile_allegiance` → `step_projectiles`, and the last two are the

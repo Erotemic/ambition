@@ -1,8 +1,8 @@
-# `ambition_platformer2d_actor_monolith` — module map
+# `ambition_platformer2d_actor` — module map
 
 <!-- BEGIN generated module map (scripts/measure/modules_md.py) -->
 
-**ambition_platformer2d_actor_monolith** — The body, control, and action kernel.
+**ambition_platformer2d_actor** — The body, control, and action kernel.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

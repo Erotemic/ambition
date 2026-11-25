@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable, content-free derivations FROM a character sheet: the animation-row picker over body state, the sheet-authored collision/quad geometry (and the sim pass that keeps a body equal to the pose it shows), and the manifest attack hitbox in world space. Extracted from ambition_platformer2d_actor_monolith, which does NOT depend on it — everything here answers upward."
+description = "Reusable, content-free derivations FROM a character sheet: the animation-row picker over body state, the sheet-authored collision/quad geometry (and the sim pass that keeps a body equal to the pose it shows), and the manifest attack hitbox in world space. Extracted from ambition_platformer2d_actor, which does NOT depend on it — everything here answers upward."
 
 [lib]
 crate-type = ["rlib"]

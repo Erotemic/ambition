@@ -7,7 +7,7 @@ publish = false
 # The ROOM-FEATURE side of encounters: LDtk loading, ECS spawning, banners,
 # save/quest projection, switch indexing and lock-wall contribution.
 #
-# ⛔ IT MAY NEVER NAME `ambition_platformer2d_actor_monolith`. That edge is what
+# ⛔ IT MAY NEVER NAME `ambition_platformer2d_actor`. That edge is what
 # the 2026-09-03 carve removed — this code ran inside the actor kernel — and
 # `engine.ambition_encounter_features-source-purity` exists to keep it removed.
 # It sits ABOVE `ambition_encounter`, whose own purity rows forbid exactly this

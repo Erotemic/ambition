@@ -36,7 +36,7 @@ pub struct SimulationSetup<'a> {
     /// What the home body holds, when there is one.
     pub home_body_resources: &'a crate::initial_body::HomeBodyResources,
     /// What the experience grants and permits the home body.
-    pub home_body_abilities: &'a ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities,
+    pub home_body_abilities: &'a ambition_platformer2d_actor::avatar::HomeBodyAbilities,
     /// The prepared cast, when this composition registered one.
     ///
     /// `None` is the ordinary case for a composition that registers no
@@ -66,7 +66,7 @@ pub struct LiveInitialBodySetup<'w, 's> {
         's,
         (
             &'static crate::initial_body::HomeBodyResources,
-            &'static ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities,
+            &'static ambition_platformer2d_actor::avatar::HomeBodyAbilities,
         ),
         With<SessionRoot>,
     >,
@@ -200,7 +200,7 @@ pub struct HomeBody<'a> {
     /// What the home body holds.
     pub resources: &'a crate::initial_body::HomeBodyResources,
     /// What the experience grants and permits the home body.
-    pub abilities: &'a ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities,
+    pub abilities: &'a ambition_platformer2d_actor::avatar::HomeBodyAbilities,
 }
 
 impl HomeBody<'_> {
@@ -372,7 +372,7 @@ fn build_home_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
     // applied — so building the host-code kit here instead left the default
     // character's authored repertoire unapplied, with the derive told it was
     // current.
-    let player_bundle = ambition_platformer2d_actor_monolith::avatar::PlayerSimulationBundle::from_scratch_as_character(
+    let player_bundle = ambition_platformer2d_actor::avatar::PlayerSimulationBundle::from_scratch_as_character(
         seat,
         initial_scratch,
         player_health,
@@ -417,7 +417,7 @@ fn build_home_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
     // overlay resolved it and the bundle holds no answer of its own. And the
     // applied-template stamp, with an EMPTY displacement: nothing was taken
     // from a body that was BUILT as this character.
-    ambition_platformer2d_actor_monolith::avatar::sync_charge_projectile_capability(commands, player, ranged, false);
+    ambition_platformer2d_actor::avatar::sync_charge_projectile_capability(commands, player, ranged, false);
     // What the body holds, from the same prepared bank a reset returns it to
     // the start of. Absent is the answer for an experience that declared none.
     if let Some(bank) = resources.bank() {
@@ -472,7 +472,7 @@ fn build_home_body(sprite_content: &ambition_sprite_sheet::SpriteContent,
                 ambition_characters::repertoire::Hand::Empty,
             );
         }
-        None => ambition_platformer2d_actor_monolith::avatar::apply_worn_motion_model(
+        None => ambition_platformer2d_actor::avatar::apply_worn_motion_model(
             prepared_characters,
             commands,
             player,

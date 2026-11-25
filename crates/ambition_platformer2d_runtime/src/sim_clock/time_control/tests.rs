@@ -18,7 +18,7 @@ fn smoother_ramps_sim_state_time_scale_toward_target() {
         .insert_resource(RegimePolicy::default())
         .insert_resource(RequestedClockScale::default())
         .insert_resource(ClockState::default())
-        .insert_resource(Platformer2dFeelTuningMonolith::default())
+        .insert_resource(FeelTuning::default())
         .insert_resource(Time::<()>::default())
         .init_resource::<ambition_time::WorldTime>()
         .add_systems(
@@ -44,7 +44,7 @@ fn smoother_ramps_sim_state_time_scale_toward_target() {
     }
 
     let clock = app.world().resource::<ClockState>();
-    // Platformer2dFeelTuningMonolith::time_ramp_down_rate is 6.0 (units/s).
+    // FeelTuning::time_ramp_down_rate is 6.0 (units/s).
     // 30 frames * 16ms = 480ms => deltas of ~2.88 units, way
     // past the (1.0 -> 0.125) gap of 0.875.
     assert!(
@@ -64,7 +64,7 @@ fn a_freeze_snaps_on_and_off() {
         .insert_resource(RegimePolicy::default())
         .insert_resource(RequestedClockScale::default())
         .insert_resource(ClockState::default())
-        .insert_resource(Platformer2dFeelTuningMonolith::default())
+        .insert_resource(FeelTuning::default())
         .insert_resource(Time::<()>::default())
         .init_resource::<ambition_time::WorldTime>()
         .add_systems(
@@ -215,7 +215,7 @@ fn gameplay_frame_preserves_world_time_scaled_dt() {
 #[test]
 fn observer_time_requests_follow_the_seat_instead_of_its_home_body() {
     let mut app = App::new();
-    app.init_resource::<Platformer2dFeelTuningMonolith>();
+    app.init_resource::<FeelTuning>();
     app.add_message::<ClockScaleRequest>();
     app.add_systems(Update, emit_primary_observer_time_intent);
     let home = app
@@ -287,7 +287,7 @@ fn bullet_time_slows_only_player_ones_room_while_two_rooms_are_live() {
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
     let (here, there) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
     let mut app = App::new();
-    app.init_resource::<Platformer2dFeelTuningMonolith>();
+    app.init_resource::<FeelTuning>();
     app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_message::<ClockScaleRequest>();
     app.add_systems(Update, emit_primary_observer_time_intent);
@@ -308,7 +308,7 @@ fn bullet_time_slows_only_player_ones_room_while_two_rooms_are_live() {
     }
     let request = app.world_mut().resource_mut::<Messages<ClockScaleRequest>>().drain().last().unwrap();
     assert_eq!((request.scale, request.reason), (1.0, "room_clock"), "bullet time scaled the shared clock with two rooms live");
-    let bullet = app.world().resource::<Platformer2dFeelTuningMonolith>().bullet_time_scale;
+    let bullet = app.world().resource::<FeelTuning>().bullet_time_scale;
     assert_eq!(pace_of(&mut app, here), bullet, "Player 1's room did not reach the bullet scale");
     assert_eq!(pace_of(&mut app, there), 1.0, "the other room was slowed");
 
@@ -329,7 +329,7 @@ fn the_slow_down_passes_between_the_clocks_when_the_room_count_changes() {
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
     let (here, there) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
     let mut app = App::new();
-    app.init_resource::<Platformer2dFeelTuningMonolith>();
+    app.init_resource::<FeelTuning>();
     app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.insert_resource(ClockState::default());
     app.add_message::<ClockScaleRequest>();
@@ -345,7 +345,7 @@ fn the_slow_down_passes_between_the_clocks_when_the_room_count_changes() {
     for _ in 0..30 {
         app.update();
     }
-    let bullet = app.world().resource::<Platformer2dFeelTuningMonolith>().bullet_time_scale;
+    let bullet = app.world().resource::<FeelTuning>().bullet_time_scale;
     assert_eq!((pace_of(&mut app, here), app.world().resource::<ClockState>().time_scale), (bullet, 1.0));
 
     app.world_mut().despawn(other);
@@ -387,7 +387,7 @@ fn an_aim_without_the_blink_slow_verb_leaves_the_world_at_full_speed() {
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
     let here = LiveRoomInstance::from_ordinal(1);
     let mut app = App::new();
-    app.init_resource::<Platformer2dFeelTuningMonolith>();
+    app.init_resource::<FeelTuning>();
     app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.add_message::<ClockScaleRequest>();
     app.add_systems(Update, emit_primary_observer_time_intent);
@@ -411,7 +411,7 @@ fn an_aim_without_the_blink_slow_verb_leaves_the_world_at_full_speed() {
     app.world_mut().entity_mut(player).insert(ambition_platformer2d_core::BodyAbilities::new(with));
     app.update();
     let request = app.world_mut().resource_mut::<Messages<ClockScaleRequest>>().drain().last().unwrap();
-    let bullet = app.world().resource::<Platformer2dFeelTuningMonolith>().bullet_time_scale;
+    let bullet = app.world().resource::<FeelTuning>().bullet_time_scale;
     assert_eq!((request.scale, request.reason), (bullet, "bullet_blink"), "control: with the verb the aim slows the world");
 }
 
@@ -424,7 +424,7 @@ fn a_fresh_technique_slow_ask_slows_the_observers_room() {
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance, RoomInstanceRoot};
     let (here, there) = (LiveRoomInstance::from_ordinal(1), LiveRoomInstance::from_ordinal(2));
     let mut app = App::new();
-    app.init_resource::<Platformer2dFeelTuningMonolith>();
+    app.init_resource::<FeelTuning>();
     app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
     app.insert_resource(ambition_time::SimTick(100));
     app.add_message::<ClockScaleRequest>();
@@ -447,7 +447,7 @@ fn a_fresh_technique_slow_ask_slows_the_observers_room() {
         app.update();
         app.world_mut().resource_mut::<ambition_time::SimTick>().0 += 1;
     }
-    let bullet = app.world().resource::<Platformer2dFeelTuningMonolith>().bullet_time_scale;
+    let bullet = app.world().resource::<FeelTuning>().bullet_time_scale;
     assert_eq!(pace_of(&mut app, here), bullet, "the asked slow did not reach the bullet scale");
     assert_eq!(pace_of(&mut app, there), 1.0, "the other room was slowed");
 

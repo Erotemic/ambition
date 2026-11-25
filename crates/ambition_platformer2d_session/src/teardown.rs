@@ -40,7 +40,7 @@ use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_characters::control::SlotInteractionState;
 use ambition_persistence::quest::QuestRegistry;
-use ambition_platformer2d_actor_monolith::control::possession::PossessionState;
+use ambition_platformer2d_actor::control::possession::PossessionState;
 
 /// The process-global resources that mirror ONE live session's state.
 ///

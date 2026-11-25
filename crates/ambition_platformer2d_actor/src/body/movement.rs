@@ -32,7 +32,7 @@ pub(crate) trait ActorMutIntegrationExt {
         motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
         motion_frame: ae::MotionFrame,
         playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
-        feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
+        feel: ambition_combat::feel::FeelTuning,
         authored_tuning: Option<ae::MovementTuning>,
         combat: &mut ambition_characters::actor::BodyCombat,
         tumbling: bool,
@@ -53,7 +53,7 @@ pub(crate) trait ActorMutIntegrationExt {
         dt: f32,
         motion_frame: ae::MotionFrame,
         playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
-        feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
+        feel: ambition_combat::feel::FeelTuning,
         authored_tuning: Option<ae::MovementTuning>,
         combat: &mut ambition_characters::actor::BodyCombat,
         tumbling: bool,
@@ -93,7 +93,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
         // Post-hit stagger (§A2 step 7): the body's own `BodyCombat`, applied to
         // the FINAL InputState by the SAME gate the player's input bridge uses.
-        feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
+        feel: ambition_combat::feel::FeelTuning,
         // The body's OWN feel, when its character authored one.
         //
         // without this the line below overwrote the axis params from the
@@ -257,7 +257,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         motion_frame: ae::MotionFrame,
         // Threaded to `update`'s helpless derivation. See its parameter.
         playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
-        feel: ambition_combat::feel::Platformer2dFeelTuningMonolith,
+        feel: ambition_combat::feel::FeelTuning,
         // The body's OWN feel, when its character authored one.
         //
         // without this the line below overwrote the axis params from the
@@ -557,7 +557,7 @@ pub(crate) trait SeedActorIntegrationTestExt:
                 motion_frame,
                 // No move playing on a scratch rig, so it is never helpless.
                 None,
-                ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
+                ambition_combat::feel::FeelTuning::default(),
                 None,
                 &mut ambition_characters::actor::BodyCombat::default(),
                 // Not tumbling — a scratch harness body is not in a floor game.

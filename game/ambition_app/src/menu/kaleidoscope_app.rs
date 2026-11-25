@@ -536,7 +536,7 @@ pub(crate) fn capture_armed_rebind(
     mut participants: Query<(
         &ambition_platformer2d::input::InputParticipant,
         &leafwing_input_manager::prelude::InputMap<
-            ambition_platformer2d::input::Platformer2dInputActionMonolith,
+            ambition_platformer2d::input::InputAction,
         >,
         &mut ambition_platformer2d::input::BindingRecipe,
     )>,

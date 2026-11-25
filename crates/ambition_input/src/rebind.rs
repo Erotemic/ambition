@@ -3,7 +3,7 @@
 
 use crate::bindings::{ActionBindings, PhysicalControl};
 use crate::settings::{BindingOverride, OverrideControl};
-use crate::Platformer2dInputActionMonolith;
+use crate::InputAction;
 
 /// The control a capture accepted. `PhysicalControl::Other` is not persistable
 /// and is therefore refused.
@@ -22,7 +22,7 @@ pub fn bindable(control: &PhysicalControl) -> Option<OverrideControl> {
 /// bindable one wins. A frame with only unbindable presses captures nothing
 /// and the row stays armed, because the game cannot store that press.
 pub fn capture(
-    action: &Platformer2dInputActionMonolith,
+    action: &InputAction,
     pressed: impl IntoIterator<Item = PhysicalControl>,
 ) -> Option<BindingOverride> {
     let control = pressed.into_iter().find_map(|control| bindable(&control))?;
@@ -37,7 +37,7 @@ pub fn capture(
 /// multiple actions.
 pub fn also_bound_to(
     bindings: &ActionBindings,
-    action: &Platformer2dInputActionMonolith,
+    action: &InputAction,
     control: OverrideControl,
 ) -> Vec<String> {
     let wanted = match control {
@@ -90,7 +90,7 @@ mod tests {
     #[test]
     fn the_first_bindable_press_becomes_the_override() {
         let captured = capture(
-            &Platformer2dInputActionMonolith::Jump,
+            &InputAction::Jump,
             [PhysicalControl::Key(KeyCode::KeyJ)],
         )
         .expect("a key is bindable");
@@ -103,7 +103,7 @@ mod tests {
         // `Other` exists so the projection is total. It cannot be rebuilt
         // from its debug string, so a stored `Other` would load as nothing.
         assert!(capture(
-            &Platformer2dInputActionMonolith::Jump,
+            &InputAction::Jump,
             [PhysicalControl::Other("Chord(A, B)".into())]
         )
         .is_none());
@@ -112,7 +112,7 @@ mod tests {
     #[test]
     fn an_unbindable_press_does_not_hide_a_bindable_one_behind_it() {
         let captured = capture(
-            &Platformer2dInputActionMonolith::Attack,
+            &InputAction::Attack,
             [
                 PhysicalControl::Other("Chord(A, B)".into()),
                 PhysicalControl::Key(KeyCode::KeyK),
@@ -125,12 +125,12 @@ mod tests {
     #[test]
     fn a_collision_is_reported_rather_than_refused() {
         let mut map = KeyboardPreset::arrows_zxc().input_map();
-        map.insert(Platformer2dInputActionMonolith::Start, KeyCode::F13);
-        map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::F13);
+        map.insert(InputAction::Start, KeyCode::F13);
+        map.insert(InputAction::MenuBack, KeyCode::F13);
         let bindings = ActionBindings::from_map(&map);
         let start = OverrideControl::Key(KeyCode::F13);
 
-        let others = also_bound_to(&bindings, &Platformer2dInputActionMonolith::Start, start);
+        let others = also_bound_to(&bindings, &InputAction::Start, start);
         assert!(
             others.iter().any(|name| name == "MenuBack"),
             "the screen can tell the player this control is also MenuBack, got {others:?}"
@@ -147,7 +147,7 @@ mod tests {
         let bindings = ActionBindings::from_map(&map);
         assert!(also_bound_to(
             &bindings,
-            &Platformer2dInputActionMonolith::Jump,
+            &InputAction::Jump,
             OverrideControl::Key(KeyCode::F13),
         )
         .is_empty());
@@ -180,7 +180,7 @@ mod tests {
         );
 
         let captured = capture(
-            &Platformer2dInputActionMonolith::Jump,
+            &InputAction::Jump,
             pressed_controls_this_frame(Some(&keys), []),
         )
         .expect("an unbound key is exactly what a rebind is for");

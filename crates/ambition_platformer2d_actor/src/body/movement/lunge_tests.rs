@@ -81,7 +81,7 @@ fn windup_travel(sprite_content: &ambition_sprite_sheet::SpriteContent, melee: M
             &mut model,
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             Some(&playback),
-            ambition_combat::feel::Platformer2dFeelTuningMonolith::default(),
+            ambition_combat::feel::FeelTuning::default(),
             None,
             &mut combat,
             false,

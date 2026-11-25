@@ -63,7 +63,7 @@ fn crowd(count: usize, workload: Workload) -> App {
     app.init_resource::<BodyTiming>();
     app.init_resource::<ActorSteering>();
     app.init_resource::<ae::ActiveMovementTuning>();
-    app.init_resource::<ambition_combat::feel::Platformer2dFeelTuningMonolith>();
+    app.init_resource::<ambition_combat::feel::FeelTuning>();
     app.init_resource::<ambition_platformer2d_shared_tangle::body::BodyContactSnapshot>();
     app.init_resource::<ambition_platformer2d_world::collision::ComposedSolids>();
     app.add_message::<ambition_combat::events::HitEvent>();

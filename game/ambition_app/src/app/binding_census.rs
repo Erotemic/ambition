@@ -2,7 +2,7 @@
 
 use ambition_platformer2d::input::{
     ActionBindings, BindingLayout, BindingRecipe, InputProfile, KeyboardPreset, MenuButtonIntent,
-    MenuShortcutPages, Platformer2dInputActionMonolith as Action, contextual_button_rows,
+    MenuShortcutPages, InputAction as Action, contextual_button_rows,
 };
 use ambition_platformer2d::persistence::settings::persistence::{load_settings, settings_path};
 

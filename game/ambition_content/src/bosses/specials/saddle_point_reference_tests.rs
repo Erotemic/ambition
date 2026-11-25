@@ -11,7 +11,7 @@ use ambition_platformer2d_core as ae;
 use ambition_time::WorldTime;
 
 // ===================================================================
-// Migrated boss-special Techniques (from ambition_platformer2d_actor_monolith brain_effects).
+// Migrated boss-special Techniques (from ambition_platformer2d_actor brain_effects).
 // Each owns its key + per-boss state + params + behavior; the engine
 // names none of them.
 // ===================================================================

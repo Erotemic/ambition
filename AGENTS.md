@@ -83,7 +83,7 @@ indexes help find code but do not override it.
 * LDtk owns world/level authoring. RON remains appropriate for tuning, save/settings, and other structured data.
 * Named content says it in data. Content packs compile through `ambition_content_pack::compile` against schemas that capability owners register, and a running game reloads most content families. A Rust table that duplicates authored content is migration scaffolding: move it to data, do not extend it.
 * Preserve desktop, web, Android/mobile/touch, controller, and Steam Deck paths. iOS is deferred for hardware, not excluded.
-* **Crate layering:** foundations and domain services feed the unified simulation heart; observation/presentation consume it; runtime/provider/host compose it; game providers own named content. Do not carve `ambition_platformer2d_actor_monolith` merely because it is large. See `docs/architecture/engine-architecture.md` and `docs/planning/tracks.md`.
+* **Crate layering:** foundations and domain services feed the unified simulation heart; observation/presentation consume it; runtime/provider/host compose it; game providers own named content. Do not carve `ambition_platformer2d_actor` merely because it is large. See `docs/architecture/engine-architecture.md` and `docs/planning/tracks.md`.
 
 ### Other agents and cloned VMs
 

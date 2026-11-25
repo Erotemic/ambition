@@ -526,7 +526,7 @@ impl ModuleDraft {
 
     /// Declare the semantic actions a mounted capability contributes.
     ///
-    /// `Platformer2dInputActionMonolith` is a closed leafwing enum a capability cannot extend, so
+    /// `InputAction` is a closed leafwing enum a capability cannot extend, so
     /// the OPEN half is `crate::input::SemanticActionId` and the registry
     /// that holds it. This is where a capability's actions reach a composition:
     ///
@@ -2009,7 +2009,7 @@ mod tests {
     /// A capability's semantic action reaches the composition's registry,
     /// beside the engine's own vocabulary and without editing a closed enum.
     ///
-    /// `Platformer2dInputActionMonolith` is leafwing's concrete `Actionlike` and cannot grow a
+    /// `InputAction` is leafwing's concrete `Actionlike` and cannot grow a
     /// variant from outside. This is the open half arriving where a prompt, a
     /// help screen or a rebind UI can ask ONE question.
     #[test]

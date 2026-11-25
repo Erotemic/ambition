@@ -27,7 +27,7 @@ fn gameplay_systems_must_not_read_res_time_directly() {
     let src = manifest_dir.join("src");
 
     // Files that are explicitly allowed to read `Res<Time>`.
-    // Path is relative to `crates/ambition_platformer2d_actor_monolith/src/`.
+    // Path is relative to `crates/ambition_platformer2d_actor/src/`.
     //
     // Add a one-line justification next to each entry — "why
     // does this need raw wall-clock dt and not WorldTime?"

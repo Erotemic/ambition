@@ -172,7 +172,7 @@ fn menu_state_back_passes_through() {
 /// not change.
 #[cfg(feature = "input")]
 mod the_walk_modifier {
-    use crate::actions::Platformer2dInputActionMonolith as Action;
+    use crate::actions::InputAction as Action;
     use crate::control::{read_gameplay_control_frame_with_settings, WALK_AXIS_CAP};
     use crate::settings::{ControlFilters, GameplayEdgeState};
     use leafwing_input_manager::prelude::ActionState;
@@ -267,7 +267,7 @@ mod the_walk_modifier {
 /// The right stick as an attack stick — the device half of parity inventory §9.
 #[cfg(feature = "input")]
 mod the_attack_stick {
-    use crate::actions::Platformer2dInputActionMonolith as Action;
+    use crate::actions::InputAction as Action;
     use crate::control::read_gameplay_control_frame_with_settings;
     use crate::settings::{
         ControlFilters, ControlSettings, GameplayEdgeState, RightStickMode,

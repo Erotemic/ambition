@@ -184,7 +184,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_platformer2d_core::ControlFrame>()
             // Feel + physics tuning defaults; the game's assembly pre-inserts
             // its authored values (init never clobbers).
-            .init_resource::<ambition_combat::feel::Platformer2dFeelTuningMonolith>()
+            .init_resource::<ambition_combat::feel::FeelTuning>()
             .init_resource::<ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings>()
             // Engine-typed settings/inventory defaults; games pre-insert
             // their authored starters.

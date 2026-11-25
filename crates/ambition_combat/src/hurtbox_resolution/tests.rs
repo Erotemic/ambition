@@ -102,7 +102,7 @@ fn a_move_override_is_sampled_on_the_move_clock() {
 ///
 /// The resolver is a pure function of an authored doc plus two clocks. There is no
 /// asset, no `AssetServer`, no texture, no animator, and no renderer anywhere in
-/// its inputs — `ambition_platformer2d_actor_monolith` cannot even name `ambition_render` — so a
+/// its inputs — `ambition_platformer2d_actor` cannot even name `ambition_render` — so a
 /// headless rollout and a windowed playtest compute the same volumes by
 /// construction rather than by care.
 ///

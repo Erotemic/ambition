@@ -2,7 +2,7 @@
 //!
 //! The brain-facing [`ControlFrame`] vocabulary lives in
 //! `ambition_platformer2d_core`. This module translates Leafwing
-//! `Platformer2dInputActionMonolith` actions, control settings, and trigger
+//! `InputAction` actions, control settings, and trigger
 //! hysteresis into that frame. Headless, replay, and netcode callers can build
 //! `ControlFrame` directly without this crate.
 
@@ -13,7 +13,7 @@ use leafwing_input_manager::prelude::ActionState;
 use ambition_platformer2d_core::ControlFrame;
 
 #[cfg(feature = "input")]
-use crate::actions::Platformer2dInputActionMonolith;
+use crate::actions::InputAction;
 
 /// The largest movement magnitude the walk modifier permits.
 ///
@@ -38,11 +38,11 @@ pub const WALK_AXIS_CAP: f32 = 0.5;
 #[cfg(feature = "input")]
 
 pub fn read_gameplay_control_frame_with_settings(
-    actions: &ActionState<Platformer2dInputActionMonolith>,
+    actions: &ActionState<InputAction>,
     controls: crate::settings::ControlFilters,
     edges: crate::settings::GameplayEdgeState,
 ) -> (ControlFrame, crate::settings::GameplayEdgeState) {
-    let raw_move = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::Move);
+    let raw_move = actions.clamped_axis_pair(&InputAction::Move);
     // Deadzone first. The simulation reads stick magnitude as the gait
     // (`run * max_run_speed`, cut by `run_commit_frac`), so drift here would
     // make a body walk by itself.
@@ -55,8 +55,8 @@ pub fn read_gameplay_control_frame_with_settings(
 
     // Report the modifier raw (held level and press edge). The adapter gives it
     // no meaning; each body's rules decide what holding it does.
-    let modifier_held = actions.pressed(&Platformer2dInputActionMonolith::Modifier);
-    let modifier_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::Modifier);
+    let modifier_held = actions.pressed(&InputAction::Modifier);
+    let modifier_pressed = actions.just_pressed(&InputAction::Modifier);
     // The shift layer. Shift + Move is a walk: the simulation reads stick
     // magnitude as the gait, and a digital source always gives 1.0, so without
     // this cap a keyboard or D-pad body cannot walk. Cap the magnitude; do not
@@ -65,7 +65,7 @@ pub fn read_gameplay_control_frame_with_settings(
     //
     // Read `ShiftLayer`, not `Modifier`: the modifier is a body slot that a
     // technique may hold.
-    let shift_held = actions.pressed(&Platformer2dInputActionMonolith::ShiftLayer);
+    let shift_held = actions.pressed(&InputAction::ShiftLayer);
     let axis = if shift_held {
         let magnitude = axis.length();
         if magnitude > WALK_AXIS_CAP {
@@ -76,10 +76,10 @@ pub fn read_gameplay_control_frame_with_settings(
     } else {
         axis
     };
-    let left_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveLeft);
-    let right_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveRight);
-    let up_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveUp);
-    let down_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveDown);
+    let left_pressed = actions.just_pressed(&InputAction::MoveLeft);
+    let right_pressed = actions.just_pressed(&InputAction::MoveRight);
+    let up_pressed = actions.just_pressed(&InputAction::MoveUp);
+    let down_pressed = actions.just_pressed(&InputAction::MoveDown);
 
     // Burst press level: the larger of the analog right trigger and the binary
     // Burst button. The press/release thresholds from settings collapse
@@ -90,9 +90,9 @@ pub fn read_gameplay_control_frame_with_settings(
     // `"Burst"`. The persisted `dash_input_mode` key stays pinned with
     // `#[serde(rename)]`.
     let raw_trigger = actions
-        .value(&Platformer2dInputActionMonolith::BurstAnalog)
+        .value(&InputAction::BurstAnalog)
         .clamp(0.0, 1.0);
-    let burst_button_value = if actions.pressed(&Platformer2dInputActionMonolith::Burst) {
+    let burst_button_value = if actions.pressed(&InputAction::Burst) {
         1.0
     } else {
         0.0
@@ -109,15 +109,15 @@ pub fn read_gameplay_control_frame_with_settings(
         // Button mode: ignore trigger hysteresis, only the configured Burst
         // button counts (e.g. RB on a 360 pad).
         crate::settings::BurstInputMode::Button => {
-            actions.just_pressed(&Platformer2dInputActionMonolith::Burst)
+            actions.just_pressed(&InputAction::Burst)
         }
         crate::settings::BurstInputMode::Both => {
-            trigger_edge_pressed || actions.just_pressed(&Platformer2dInputActionMonolith::Burst)
+            trigger_edge_pressed || actions.just_pressed(&InputAction::Burst)
         }
     };
 
     // Deadzone the aim stick so controller drift does not move the blink target.
-    let raw_aim = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::AimStick);
+    let raw_aim = actions.clamped_axis_pair(&InputAction::AimStick);
     let (aim_x_raw, aim_y_raw) = crate::settings::ControlSettings::apply_deadzone(
         raw_aim.x,
         raw_aim.y,
@@ -174,11 +174,11 @@ pub fn read_gameplay_control_frame_with_settings(
         axis_y: -axis.y,
         // A short-hop press is a jump press with no hold: the squat sees the
         // button up at takeoff and launches the short hop.
-        jump_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Jump)
-            || actions.just_pressed(&Platformer2dInputActionMonolith::ShortHop)
+        jump_pressed: actions.just_pressed(&InputAction::Jump)
+            || actions.just_pressed(&InputAction::ShortHop)
             || tap_jumped,
-        jump_held: actions.pressed(&Platformer2dInputActionMonolith::Jump) || tap_jump_held,
-        jump_released: actions.just_released(&Platformer2dInputActionMonolith::Jump)
+        jump_held: actions.pressed(&InputAction::Jump) || tap_jump_held,
+        jump_released: actions.just_released(&InputAction::Jump)
             || (controls.tap_jump
                 && matches!(edges.tap_jump, crate::settings::TriggerEdgeState::Pressed)
                 && !tap_jump_held),
@@ -188,22 +188,22 @@ pub fn read_gameplay_control_frame_with_settings(
         up_pressed,
         down_pressed,
         fast_fall_pressed: false,
-        blink_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Blink),
-        blink_held: actions.pressed(&Platformer2dInputActionMonolith::Blink),
-        blink_released: actions.just_released(&Platformer2dInputActionMonolith::Blink),
-        special_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Special),
-        special_held: actions.pressed(&Platformer2dInputActionMonolith::Special),
-        attack_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Attack)
+        blink_pressed: actions.just_pressed(&InputAction::Blink),
+        blink_held: actions.pressed(&InputAction::Blink),
+        blink_released: actions.just_released(&InputAction::Blink),
+        special_pressed: actions.just_pressed(&InputAction::Special),
+        special_held: actions.pressed(&InputAction::Special),
+        attack_pressed: actions.just_pressed(&InputAction::Attack)
             || stick_attack.is_some(),
-        attack_held: actions.pressed(&Platformer2dInputActionMonolith::Attack),
-        attack_released: actions.just_released(&Platformer2dInputActionMonolith::Attack),
+        attack_held: actions.pressed(&InputAction::Attack),
+        attack_released: actions.just_released(&InputAction::Attack),
         // `RightStickMode::TiltAttack`/`SmashAttack` make the right stick force
         // `Tilt` or `Smash`. The stick outranks the button on the same frame,
         // because its purpose is to force a strength. A `StrongAttack` press
         // without a flick means `Smash`. Otherwise `Auto`: the interpreter
         // reads the stick, as an ordinary attack button asks.
         attack_strength_hint: stick_attack.unwrap_or(
-            if actions.pressed(&Platformer2dInputActionMonolith::StrongAttack) {
+            if actions.pressed(&InputAction::StrongAttack) {
                 ambition_platformer2d_core::AttackStrengthHint::Smash
             } else {
                 ambition_platformer2d_core::AttackStrengthHint::Auto
@@ -218,24 +218,24 @@ pub fn read_gameplay_control_frame_with_settings(
             0.0
         },
         attack_aim_y: if stick_attack.is_some() { -aim_y } else { 0.0 },
-        pogo_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Pogo),
-        fly_toggle_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Utility),
-        interact_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Interact),
-        interact_held: actions.pressed(&Platformer2dInputActionMonolith::Interact),
-        reset_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Reset),
-        return_to_leader_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::PartyReturn),
+        pogo_pressed: actions.just_pressed(&InputAction::Pogo),
+        fly_toggle_pressed: actions.just_pressed(&InputAction::Utility),
+        interact_pressed: actions.just_pressed(&InputAction::Interact),
+        interact_held: actions.pressed(&InputAction::Interact),
+        reset_pressed: actions.just_pressed(&InputAction::Reset),
+        return_to_leader_pressed: actions.just_pressed(&InputAction::PartyReturn),
         party_preference: Default::default(),
-        start_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Start),
-        projectile_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Projectile),
-        projectile_held: actions.pressed(&Platformer2dInputActionMonolith::Projectile),
-        projectile_released: actions.just_released(&Platformer2dInputActionMonolith::Projectile),
-        shield_held: actions.pressed(&Platformer2dInputActionMonolith::Shield),
+        start_pressed: actions.just_pressed(&InputAction::Start),
+        projectile_pressed: actions.just_pressed(&InputAction::Projectile),
+        projectile_held: actions.pressed(&InputAction::Projectile),
+        projectile_released: actions.just_released(&InputAction::Projectile),
+        shield_held: actions.pressed(&InputAction::Shield),
         // Read the edge, not the level: a grab is one attempt, and the grab
         // move owns how long it stays active. Reading the level would retry
         // every tick the button is held and remove the cost of a miss.
-        grab_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Grab),
+        grab_pressed: actions.just_pressed(&InputAction::Grab),
         // A taunt is one press, one performance. Read the edge, as for grab.
-        taunt_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Taunt),
+        taunt_pressed: actions.just_pressed(&InputAction::Taunt),
         modifier_held,
         modifier_pressed,
         aim_x: aim_x_raw,
@@ -263,7 +263,7 @@ pub fn read_gameplay_control_frame_with_settings(
 /// control settings and a fresh trigger state.
 #[cfg(feature = "input")]
 pub fn read_gameplay_control_frame(
-    actions: &ActionState<Platformer2dInputActionMonolith>,
+    actions: &ActionState<InputAction>,
 ) -> ControlFrame {
     let defaults = crate::settings::ControlSettings::default();
     let (frame, _) = read_gameplay_control_frame_with_settings(
@@ -280,10 +280,10 @@ pub fn read_gameplay_control_frame(
 /// suppressed.
 #[cfg(feature = "input")]
 pub fn read_menu_control_frame(
-    actions: &ActionState<Platformer2dInputActionMonolith>,
+    actions: &ActionState<InputAction>,
 ) -> ControlFrame {
     ControlFrame {
-        start_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Start),
+        start_pressed: actions.just_pressed(&InputAction::Start),
         confirm_pressed: confirm_pressed(actions),
         cancel_held: cancel_held(actions),
         ..ControlFrame::default()
@@ -293,12 +293,12 @@ pub fn read_menu_control_frame(
 /// The participant's confirm edge: the menu-select binding, which includes the
 /// jump and interact keys, so a dialogue habit dismisses a cutscene beat.
 #[cfg(feature = "input")]
-fn confirm_pressed(actions: &ActionState<Platformer2dInputActionMonolith>) -> bool {
-    actions.just_pressed(&Platformer2dInputActionMonolith::MenuSelect)
+fn confirm_pressed(actions: &ActionState<InputAction>) -> bool {
+    actions.just_pressed(&InputAction::MenuSelect)
 }
 
 /// The participant's cancel level: the menu-back binding held.
 #[cfg(feature = "input")]
-fn cancel_held(actions: &ActionState<Platformer2dInputActionMonolith>) -> bool {
-    actions.pressed(&Platformer2dInputActionMonolith::MenuBack)
+fn cancel_held(actions: &ActionState<InputAction>) -> bool {
+    actions.pressed(&InputAction::MenuBack)
 }

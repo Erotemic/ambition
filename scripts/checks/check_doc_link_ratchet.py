@@ -24,7 +24,7 @@ BASELINE = os.path.join(REPO, "dev", "doc_link_ratchet_baseline.json")
 # scanning the whole workspace would make the check too expensive for routine use.
 CRATES = [
     "ambition_platformer2d_publication",
-    "ambition_platformer2d_actor_monolith",
+    "ambition_platformer2d_actor",
     "ambition_platformer2d_session",
     "ambition_platformer2d_items",
     "ambition_breakables",

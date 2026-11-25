@@ -11,7 +11,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::body::BodyFrameOutput;
+use ambition_platformer2d_actor::body::BodyFrameOutput;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_core::frame::NumericFault;
 use ambition_platformer2d_core::frame::thread::{PortalLink, RefusalReason};

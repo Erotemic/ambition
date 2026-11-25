@@ -125,7 +125,7 @@ is which.
 ## Session-scoped process globals
 
 The same class of bug lives wherever a resource mirrors one live session. The
-eleven in `ambition_platformer2d_actor_monolith::session::teardown` were reset
+eleven in `ambition_platformer2d_actor::session::teardown` were reset
 **only** at retirement, and nine of them change the next session's behaviour if
 that reset is delayed, misordered, or skipped: a dangling possessed-body handle,
 a `specs_loaded` latch that suppresses the next session's repopulation, a

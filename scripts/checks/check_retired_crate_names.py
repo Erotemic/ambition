@@ -24,7 +24,7 @@ RETIRED_CRATE_NAMES = {
     "ambition_platformer_provider": "ambition_platformer2d_provider",
     "ambition_runtime": "ambition_platformer2d_runtime",
     "ambition_host": "ambition_platformer2d_host",
-    "ambition_actors": "ambition_platformer2d_actor_monolith",
+    "ambition_actors": "ambition_platformer2d_actor",
     # `ambition_portal` is deliberately ABSENT: it is a prefix of the live
     # `ambition_portal2d`, so a substring search for it matches every correct
     # use. The prefix relation is what makes it safe to omit — a stale
@@ -38,7 +38,7 @@ RETIRED_CRATE_NAMES = {
     # returns nothing, so the honest conclusion from that row was "this is already done". A stale
     # crate name breaks a build; a stale TYPE name in a planning doc quietly retires a piece of
     # work.
-    "SandboxAction": "Platformer2dInputActionMonolith",
+    "SandboxAction": "InputAction",
     # the filter that separates them is whether the mention sits under an OPEN row: only there
     # does a dead name send somebody after work.
     #

@@ -91,7 +91,7 @@ members = [
     "crates/ambition_settings_menu",
     "crates/ambition_portal2d_presentation",
     "crates/ambition_platformer2d_actor_spawn",
-    "crates/ambition_platformer2d_actor_monolith",
+    "crates/ambition_platformer2d_actor",
     "crates/ambition_platformer2d_audio",
     "crates/ambition_platformer2d_physics_debris",
     "crates/ambition_platformer2d_trace",

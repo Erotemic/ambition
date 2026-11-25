@@ -52,7 +52,7 @@ pub use ambition_platformer2d_session::durable_horizon::publish_durable_pose_ove
 pub use ambition_platformer2d_session::initial_body::{
     HomeBodyResources, InitialBodyPolicy, StartingCharacter,
 };
-pub use ambition_platformer2d_actor_monolith::avatar::HomeBodyAbilities;
+pub use ambition_platformer2d_actor::avatar::HomeBodyAbilities;
 
 /// Session lifecycle operations and their domain installers.
 pub use ambition_platformer2d_session::{initial_body, checkpoint, death, durable_horizon, join, leave, participants, party_travel, lifecycle_commit, match_activation, reset, rooms, setup, teardown, MatchLifecyclePlugin, SessionTeardownPlugin};

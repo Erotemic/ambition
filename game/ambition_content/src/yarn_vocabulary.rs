@@ -134,7 +134,7 @@ pub fn cmd_challenge(
     // one room hold the same authored ids, and the command means THIS body.
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut narrative: NarrativeInputWriter<
-        ambition_platformer2d_actor_monolith::body::ChallengeRequested,
+        ambition_platformer2d_actor::body::ChallengeRequested,
     >,
 ) {
     let Some(actor) = conversation.talker() else {
@@ -146,7 +146,7 @@ pub fn cmd_challenge(
         return;
     };
     narrative.write(
-        ambition_platformer2d_actor_monolith::body::ChallengeRequested {
+        ambition_platformer2d_actor::body::ChallengeRequested {
             target,
             challenger: conversation.initiator().and_then(|initiator| bodies.id_of(initiator)),
         },
@@ -161,7 +161,7 @@ pub fn cmd_pet(
     conversation: ambition_conversation::RunnerConversation,
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut narrative: NarrativeInputWriter<
-        ambition_platformer2d_actor_monolith::body::PetRequested,
+        ambition_platformer2d_actor::body::PetRequested,
     >,
 ) {
     let (Some(initiator), Some(talker)) = (conversation.initiator(), conversation.talker()) else {
@@ -172,7 +172,7 @@ pub fn cmd_pet(
         warn!("<<pet>>: a participant has no SimId; ignoring");
         return;
     };
-    narrative.write(ambition_platformer2d_actor_monolith::body::PetRequested { petter, petted });
+    narrative.write(ambition_platformer2d_actor::body::PetRequested { petter, petted });
 }
 
 /// `<<transform "character_id">>` — the character the player talks to wears
@@ -185,7 +185,7 @@ pub fn cmd_transform(
     conversation: ambition_conversation::RunnerConversation,
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut narrative: NarrativeInputWriter<
-        ambition_platformer2d_actor_monolith::body::WearRequested,
+        ambition_platformer2d_actor::body::WearRequested,
     >,
 ) {
     let Some(actor) = conversation.talker() else {
@@ -196,7 +196,7 @@ pub fn cmd_transform(
         warn!("<<transform>>: speaker has no SimId; ignoring");
         return;
     };
-    narrative.write(ambition_platformer2d_actor_monolith::body::WearRequested {
+    narrative.write(ambition_platformer2d_actor::body::WearRequested {
         body,
         character: ambition_entity_catalog::CharacterId::new(character),
     });
@@ -206,7 +206,7 @@ pub fn cmd_transform(
 /// explicit brain preset at runtime, changing its AUTONOMOUS behaviour (a
 /// dialogue outcome like "fight me" pairs this with the `<<challenge>>` command
 /// for the disposition change). Emits a
-/// [`BrainCommand`](ambition_platformer2d_actor_monolith::body::BrainCommand) routed by the speaker's stable
+/// [`BrainCommand`](ambition_platformer2d_actor::body::BrainCommand) routed by the speaker's stable
 /// id, so the runtime switch is deterministic and snapshot-safe; it never edits
 /// the `Brain` component directly. No-ops (with a log) if the speaker has no
 /// stable id (scripted/anonymous dialogue).
@@ -215,7 +215,7 @@ pub fn cmd_use_brain(
     conversation: ambition_conversation::RunnerConversation,
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut narrative: NarrativeInputWriter<
-        ambition_platformer2d_actor_monolith::body::BrainCommand,
+        ambition_platformer2d_actor::body::BrainCommand,
     >,
 ) {
     let Some(actor) = conversation.talker() else {
@@ -227,7 +227,7 @@ pub fn cmd_use_brain(
         return;
     };
     narrative.write(
-        ambition_platformer2d_actor_monolith::body::BrainCommand::use_preset(
+        ambition_platformer2d_actor::body::BrainCommand::use_preset(
             target,
             ambition_characters::actor::character_catalog::BrainPresetId::new(preset),
         ),
@@ -236,7 +236,7 @@ pub fn cmd_use_brain(
 
 /// `<<restore_brain>>` — free the NPC the player is talking to ("you are free"):
 /// the inverse of `<<challenge>>`. Emits a
-/// [`ReleaseProvocation`](ambition_platformer2d_actor_monolith::body::ReleaseProvocation) by the speaker's
+/// [`ReleaseProvocation`](ambition_platformer2d_actor::body::ReleaseProvocation) by the speaker's
 /// stable id, which restores BOTH the peaceful disposition and the catalog-default
 /// autonomous source + complete config. (A bare `BrainCommand::RestoreDefault`
 /// would restore only the brain/source, leaving a provoked NPC still hostile.)
@@ -244,7 +244,7 @@ pub fn cmd_restore_brain(
     conversation: ambition_conversation::RunnerConversation,
     bodies: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     mut narrative: NarrativeInputWriter<
-        ambition_platformer2d_actor_monolith::body::ReleaseProvocation,
+        ambition_platformer2d_actor::body::ReleaseProvocation,
     >,
 ) {
     let Some(actor) = conversation.talker() else {
@@ -255,7 +255,7 @@ pub fn cmd_restore_brain(
         warn!("<<restore_brain>>: speaker has no SimId; ignoring");
         return;
     };
-    narrative.write(ambition_platformer2d_actor_monolith::body::ReleaseProvocation::new(target));
+    narrative.write(ambition_platformer2d_actor::body::ReleaseProvocation::new(target));
 }
 
 /// `<<give_item "kind" count>>` — grant the player an item by adding

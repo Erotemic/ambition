@@ -59,7 +59,7 @@ fn seating_app_with_the_real_cast() -> App {
             prepare_the_match,
             activate_the_prepared_match,
             release_the_opening_hold,
-            ambition_platformer2d_actor_monolith::avatar::apply_worn_character_gameplay,
+            ambition_platformer2d_actor::avatar::apply_worn_character_gameplay,
         )
             .chain(),
     );

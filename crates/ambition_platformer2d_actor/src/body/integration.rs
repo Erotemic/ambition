@@ -3,7 +3,7 @@
 use ambition_platformer2d_core as ae;
 use ambition_characters::actor::BodyCombat;
 use ambition_combat::attack_support::engine_input_from_actor_control;
-use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+use ambition_combat::feel::FeelTuning;
 
 use ae::{BodyFrameOutput, BodyReset};
 
@@ -37,7 +37,7 @@ pub(super) fn integrate_home_body(
     motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
     motion_frame: ae::MotionFrame,
     axis_tuning: ae::MovementTuning,
-    feel: Platformer2dFeelTuningMonolith,
+    feel: FeelTuning,
     // The live move's authored motion lock (`MovePlayback::motion_scale_now`;
     // `1.0` with no move playing), applied to this body's steering INTENT — the
     // same rule, through the same helper, that the actor integrator applies.

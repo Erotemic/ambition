@@ -18,10 +18,10 @@ input = ["ambition_input/input"]
 # No source file in this crate names `ambition_portal2d`; the portal types this
 # view reads arrive through the monolith. The `dep:` was a second edge to the
 # same crate with no user, and the feature keeps its meaning without it.
-portal = ["ambition_platformer2d_actor_monolith/portal"]
+portal = ["ambition_platformer2d_actor/portal"]
 # The dialogue read model (`DialogView`): what a dialogue box shows, from the
 # conversation and the dialogue runner. A game without dialogue links neither.
-dialogue = ["dep:ambition_dialog", "dep:ambition_conversation", "ambition_platformer2d_actor_monolith/dialogue"]
+dialogue = ["dep:ambition_dialog", "dep:ambition_conversation", "ambition_platformer2d_actor/dialogue"]
 
 [dependencies]
 ambition_world_port = { path = "../ambition_world_port" }
@@ -34,7 +34,7 @@ ambition_platformer2d_session = { path = "../ambition_platformer2d_session" }
 ambition_abilities = { path = "../ambition_abilities" }
 # The sim this crate observes (Tier 3 → Tier 4 arrow; render depends on THIS
 # crate for views instead of querying the sim heart).
-ambition_platformer2d_actor_monolith = { path = "../ambition_platformer2d_actor_monolith", default-features = false, features = [] }
+ambition_platformer2d_actor = { path = "../ambition_platformer2d_actor", default-features = false, features = [] }
 # `ProjectedCharacterKit`, the kernel's record of which prepared character a
 # body's geometry was granted from — what `BodyPoseView::geometry` reads.
 ambition_platformer2d_actor_spawn = { path = "../ambition_platformer2d_actor_spawn" }

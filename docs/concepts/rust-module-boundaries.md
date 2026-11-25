@@ -8,7 +8,7 @@ aliases:
   - attribute drift
 implemented_by:
   - crates/ambition_platformer2d_core/src
-  - crates/ambition_platformer2d_actor_monolith/src
+  - crates/ambition_platformer2d_actor/src
 related_memory:
   - dev/journals/rust-module-split-import-visibility-lessons-2026-05-11.md
   - dev/journals/movement-refactor-lessons-2026-05-11.md

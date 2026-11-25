@@ -792,7 +792,7 @@ fn declare_versus_experience_scope(app: &mut App) {
 #[cfg(test)]
 mod stage_rule_tests {
     use super::*;
-    use ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith;
+    use ambition_platformer2d::combat::feel::FeelTuning;
 
     /// The roster plays the pack's `match_rules.ron`: health rounds with no
     /// clock and no stocks, and the duel's ceiling with no floor.
@@ -813,7 +813,7 @@ mod stage_rule_tests {
 
     fn stage_rule_app() -> App {
         let mut app = App::new();
-        app.init_resource::<Platformer2dFeelTuningMonolith>();
+        app.init_resource::<FeelTuning>();
         app.init_resource::<ambition_platformer2d::combat::targeting::FriendlyFire>();
         app.init_resource::<super::super::versus_rules::VersusMatch>();
         app.init_resource::<ambition_platformer2d::characters::load_demand::CharacterLoadDemand>();
@@ -982,7 +982,7 @@ mod stage_rule_tests {
         );
         assert_eq!(
             app.world()
-                .resource::<Platformer2dFeelTuningMonolith>()
+                .resource::<FeelTuning>()
                 .di_max_angle,
             0.0,
             "the stage reached its DI budget by WRITING the world's tuning \
@@ -1016,14 +1016,14 @@ mod stage_rule_tests {
         // Some other experience's authored tuning. Neither value is a default.
         const PRIOR_DI: f32 = 0.12;
         app.world_mut()
-            .resource_mut::<Platformer2dFeelTuningMonolith>()
+            .resource_mut::<FeelTuning>()
             .di_max_angle = PRIOR_DI;
         app.world_mut()
             .resource_mut::<ambition_platformer2d::combat::targeting::FriendlyFire>()
             .enabled = true;
         assert_ne!(
             PRIOR_DI,
-            Platformer2dFeelTuningMonolith::default().di_max_angle,
+            FeelTuning::default().di_max_angle,
             "the premise: this test is only meaningful while the prior value \
              differs from the value a reset would write"
         );
@@ -1032,7 +1032,7 @@ mod stage_rule_tests {
         let authored_is_intact = |app: &App, when: &str| {
             assert_eq!(
                 app.world()
-                    .resource::<Platformer2dFeelTuningMonolith>()
+                    .resource::<FeelTuning>()
                     .di_max_angle,
                 PRIOR_DI,
                 "{when}: the versus route wrote another experience's authored DI \

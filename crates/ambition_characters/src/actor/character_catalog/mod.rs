@@ -325,7 +325,7 @@ impl CharacterCatalog {
 
 // The roster-data tests (catalog parses, validator passes over the real
 // roster, every entry's presets resolve, renderer coverage, display
-// names, plugin install) live in `ambition_platformer2d_actor_monolith::character_roster` —
+// names, plugin install) live in `ambition_platformer2d_actor::character_roster` —
 // they pin the GAME's data, which lives there. This crate keeps only
 // the synthetic resolver-math tests below.
 #[cfg(test)]

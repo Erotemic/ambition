@@ -1,6 +1,6 @@
 //! The Interact prompt's label, per driven body.
 //!
-//! The selection is gameplay's (`ambition_platformer2d_actor_monolith::body::select_interactions`,
+//! The selection is gameplay's (`ambition_platformer2d_actor::body::select_interactions`,
 //! interaction I1): what each body's press is for, from the domains' own
 //! availability, rebuilt with the gameplay that executes the press. This
 //! module only names it ([`InteractVariant`]), so a composition without the

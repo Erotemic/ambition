@@ -74,7 +74,7 @@ The platformer simulation composes body state, accepted control/intent,
 movement/contact integration, world mechanics, action execution, and
 simulation facts.
 
-`ambition_platformer2d_actor_monolith` remains a migration-era composition hub,
+`ambition_platformer2d_actor` remains a migration-era composition hub,
 not the desired permanent package boundary. Decomposition is chosen by semantic
 ownership and dependency closure rather than source-line count. The target is a
 small residual actor kernel containing only tightly coupled actor/body

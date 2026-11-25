@@ -23,10 +23,10 @@ autotests = false
 crate-type = ["rlib"]
 
 [features]
-# Personas mirror the pre-split ambition_platformer2d_actor_monolith graph; each forwards to the
-# machinery lib (ambition_platformer2d_actor_monolith) and the content crate so one selection
+# Personas mirror the pre-split ambition_platformer2d_actor graph; each forwards to the
+# machinery lib (ambition_platformer2d_actor) and the content crate so one selection
 # configures the whole stack. Command lines change from
-# `-p ambition_platformer2d_actor_monolith` to `-p ambition_app` and keep the same feature names.
+# `-p ambition_platformer2d_actor` to `-p ambition_app` and keep the same feature names.
 default = ["desktop_dev"]
 desktop_dev = [
     "visible",

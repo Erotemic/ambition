@@ -81,7 +81,7 @@ pub(crate) struct Clock(
     ImpactHitstop,
     RequestedClockScale,
     SlotInteractionState,
-    ambition_platformer2d_actor_monolith::control::possession::PossessionState,
+    ambition_platformer2d_actor::control::possession::PossessionState,
 );
 
 pub(crate) fn clock(world: &World) -> Option<Clock> {
@@ -94,7 +94,7 @@ pub(crate) fn clock(world: &World) -> Option<Clock> {
         world.get_resource::<ImpactHitstop>().copied().unwrap_or_default(),
         world.get_resource::<RequestedClockScale>().copied().unwrap_or_default(),
         world.get_resource::<SlotInteractionState>().copied().unwrap_or_default(),
-        world.get_resource::<ambition_platformer2d_actor_monolith::control::possession::PossessionState>().cloned().unwrap_or_default(),
+        world.get_resource::<ambition_platformer2d_actor::control::possession::PossessionState>().cloned().unwrap_or_default(),
     ))
 }
 
@@ -110,7 +110,7 @@ fn set_clock(world: &mut World, clock: Clock) {
     if let Some(mut gestures) = world.get_resource_mut::<SlotInteractionState>() {
         *gestures = clock.7;
     }
-    if let Some(mut possession) = world.get_resource_mut::<ambition_platformer2d_actor_monolith::control::possession::PossessionState>() {
+    if let Some(mut possession) = world.get_resource_mut::<ambition_platformer2d_actor::control::possession::PossessionState>() {
         *possession = clock.8;
     }
     if let Some(mut elapsed) =
@@ -451,7 +451,7 @@ pub(crate) fn replay_room(
     correct(world);
     ambition_platformer2d_shared_tangle::lifecycle::begin_room_replay(world, room);
     let live_gestures = world.get_resource::<SlotInteractionState>().copied();
-    let live_possession = world.get_resource::<ambition_platformer2d_actor_monolith::control::possession::PossessionState>().cloned();
+    let live_possession = world.get_resource::<ambition_platformer2d_actor::control::possession::PossessionState>().cloned();
     let saved_at = at.0 .0;
     set_clock(world, at);
     ambition_platformer2d_shared_tangle::lifecycle::retract_room_writes(world, room, saved_at);
@@ -516,7 +516,7 @@ pub(crate) fn replay_room(
         .filter(|(_, at)| at.0 == room)
         .map(|(driver, _)| driver.0)
         .collect();
-    if let (Some(live), Some(mut possession)) = (live_possession, world.get_resource_mut::<ambition_platformer2d_actor_monolith::control::possession::PossessionState>()) {
+    if let (Some(live), Some(mut possession)) = (live_possession, world.get_resource_mut::<ambition_platformer2d_actor::control::possession::PossessionState>()) {
         for index in 0..ambition_characters::control::SlotControls::MAX_SLOTS {
             let seat = PlayerSlot(index as u8);
             if !inside.contains(&seat) && possession.get(seat) != live.get(seat) {

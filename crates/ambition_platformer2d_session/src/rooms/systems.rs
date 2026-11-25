@@ -187,7 +187,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
         if party.has_votes() { party.retain_votes(|slot, vote| {
             use ae::AabbExt as _;
             if !members.contains(&slot) { return false; }
-            let Some(entity) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot)
+            let Some(entity) = ambition_platformer2d_actor::control::body_driving_seat(&drivers, slot)
                 else { return false; };
             if sim_ids.id_of(entity).as_ref() != Some(&vote.body)
                 || rooms.live().of(entity) != vote.body.room { return false; }
@@ -213,7 +213,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
         if sim_state.holds(index) {
             continue;
         }
-        let Some(subject_entity) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, seat) else {
+        let Some(subject_entity) = ambition_platformer2d_actor::control::body_driving_seat(&drivers, seat) else {
             continue;
         };
         let Ok((kin, sweep, driver, in_passage)) = bodies.get(subject_entity) else {
@@ -384,7 +384,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
             if pending_lifecycle.peek().is_some() { continue; }
             let mut available = true;
             for slot in &group {
-                let Some(entity) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, *slot)
+                let Some(entity) = ambition_platformer2d_actor::control::body_driving_seat(&drivers, *slot)
                     else { available = false; break; };
                 if bodies.get(entity).map_or(true, |(_, _, _, in_passage)| in_passage)
                     || sim_state.holds(slot.0 as usize) { available = false; break; }
@@ -529,7 +529,7 @@ pub fn contribute_party_exit_barriers(
     if party.rules().mode != ambition_platformer2d_core::party_controls::PartyTravelMode::Leader { return; }
     for slot in party.members(admitted) {
         if slot == party.rules().leader { continue; }
-        let Some(entity) = ambition_platformer2d_actor_monolith::control::body_driving_seat(&drivers, slot)
+        let Some(entity) = ambition_platformer2d_actor::control::body_driving_seat(&drivers, slot)
             else { continue; };
         let Some(definition) = rooms.definition_of(entity) else { continue; };
         let stamp = rooms.live().of(entity).map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);

@@ -575,7 +575,7 @@ fn contextual_input_preserves_the_gate_in_both_menu_backends() {
     use bevy::prelude::*;
     use ambition_content::gate_terminal::{TerminalFocus, TerminalUi, WheelSlot};
     use ambition_platformer2d::{input::{InputParticipant, ParticipantId, KeyboardPreset,
-        Platformer2dInputActionMonolith as Action}, inventory_ui::{InventoryMenu, InventoryUiState},
+        InputAction as Action}, inventory_ui::{InventoryMenu, InventoryUiState},
         menu::backend::InventoryUiBackend, platformer::{lifecycle::LiveBodyId, schedule::GameMode}};
     use leafwing_input_manager::prelude::InputMap;
 

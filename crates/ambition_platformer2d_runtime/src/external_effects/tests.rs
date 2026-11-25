@@ -310,7 +310,7 @@ mod camera_shake {
     use super::*;
     use ambition_characters::actor::BodyCombat;
     use ambition_combat::hit_camera_shake::shake_camera_on_landed_hits;
-    use ambition_combat::feel::Platformer2dFeelTuningMonolith;
+    use ambition_combat::feel::FeelTuning;
     use ambition_camera_presentation::{apply_camera_shake_requests, CameraShakeState};
     use ambition_platformer2d_shared_tangle::camera_ease::{CameraShakeRequest, CameraShakeTuning};
     use bevy::prelude::Entity;
@@ -328,7 +328,7 @@ mod camera_shake {
             world.init_resource::<ExternalEffectJournal<CameraShakeRequest>>();
             world.init_resource::<CameraShakeState>();
             world.init_resource::<CameraShakeTuning>();
-            world.init_resource::<Platformer2dFeelTuningMonolith>();
+            world.init_resource::<FeelTuning>();
             world.insert_resource(ConfirmedFrameBoundary {
                 current: 0,
                 confirmed: -1,
@@ -341,7 +341,7 @@ mod camera_shake {
         /// The hardest connect the hitlag band admits — a smash, not a poke.
         fn hard_hit(&self) -> f32 {
             self.world
-                .resource::<Platformer2dFeelTuningMonolith>()
+                .resource::<FeelTuning>()
                 .hitlag_time
                 * 4.0
         }

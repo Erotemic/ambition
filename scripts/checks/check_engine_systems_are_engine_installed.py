@@ -51,7 +51,7 @@ RENDER_PATH_PREFIXES = (
 # The broad form, kept for `--all`: every engine crate, umbrella included.
 ENGINE_PATH_ROOTS = (
     "ambition_platformer2d",
-    "ambition_platformer2d_actor_monolith",
+    "ambition_platformer2d_actor",
     "ambition_audio",
     "ambition_character_sprites",
     "ambition_combat",

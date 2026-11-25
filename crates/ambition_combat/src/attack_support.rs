@@ -28,7 +28,7 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 use crate::BodyMelee;
 use crate::{AttackIntent, AttackView};
 
-use crate::feel::Platformer2dFeelTuningMonolith;
+use crate::feel::FeelTuning;
 use ambition_platformer2d_shared_tangle::frame_env as physics;
 use ambition_sfx::SfxMessage;
 
@@ -58,7 +58,7 @@ use ambition_sfx::SfxMessage;
 ///   even while still inside a boss and flashing (Hollow-Knight feel).
 pub fn engine_input_from_actor_control(
     actor: ActorControlFrame,
-    feel: Platformer2dFeelTuningMonolith,
+    feel: FeelTuning,
     combat: &ambition_characters::actor::BodyCombat,
     shield: &ae::BodyShieldState,
     control_dt: f32,
@@ -100,7 +100,7 @@ pub fn body_action_lock_timer(combat: &ambition_characters::actor::BodyCombat, s
 /// bridge and the actor's `integrate_body` both call this.
 pub fn apply_post_hit_input_gates(
     input: &mut ae::InputState,
-    feel: Platformer2dFeelTuningMonolith,
+    feel: FeelTuning,
     // the BODY, so the two gates read the same authority and neither caller
     // can spell one of them differently. See `engine_input_from_actor_control`.
     combat: &ambition_characters::actor::BodyCombat,
@@ -524,7 +524,7 @@ mod tests {
     /// checked "the attack is gone" would pass against that.
     #[test]
     fn a_helpless_fighter_keeps_its_drift_and_loses_everything_else() {
-        use crate::feel::Platformer2dFeelTuningMonolith;
+        use crate::feel::FeelTuning;
         use ambition_characters::actor::control::ActorControlFrame;
 
         let mut frame = ActorControlFrame::neutral();
@@ -537,7 +537,7 @@ mod tests {
         let gated = |helpless: bool| {
             engine_input_from_actor_control(
                 frame,
-                Platformer2dFeelTuningMonolith::default(),
+                FeelTuning::default(),
                 &ambition_characters::actor::BodyCombat::default(),
                 &ae::BodyShieldState::default(),
                 1.0 / 60.0,
@@ -578,7 +578,7 @@ mod tests {
     /// consumes — including the edge-granular post-hit stagger gates.
     #[test]
     fn ai_body_movement_routes_through_action_edges_and_gates() {
-        use crate::feel::Platformer2dFeelTuningMonolith;
+        use crate::feel::FeelTuning;
         use ambition_characters::actor::control::ActorControlFrame;
         let dt = 1.0 / 60.0;
 
@@ -590,7 +590,7 @@ mod tests {
         frame.blink_released = true;
         let input = engine_input_from_actor_control(
             frame,
-            Platformer2dFeelTuningMonolith::default(),
+            FeelTuning::default(),
             &ambition_characters::actor::BodyCombat::default(),
             &ae::BodyShieldState::default(),
             dt,
@@ -608,7 +608,7 @@ mod tests {
         recoiled.burst_pressed = true;
         let input = engine_input_from_actor_control(
             recoiled,
-            Platformer2dFeelTuningMonolith::default(),
+            FeelTuning::default(),
             &ambition_characters::actor::BodyCombat {
                 recoil_lock_timer: 1.0,
                 ..Default::default()
@@ -627,7 +627,7 @@ mod tests {
         stunned.jump_held = true;
         let input = engine_input_from_actor_control(
             stunned,
-            Platformer2dFeelTuningMonolith::default(),
+            FeelTuning::default(),
             &ambition_characters::actor::BodyCombat {
                 hitstun_timer: 1.0,
                 ..Default::default()
@@ -707,7 +707,7 @@ mod tests {
 
         let input = engine_input_from_actor_control(
             frame,
-            Platformer2dFeelTuningMonolith::default(),
+            FeelTuning::default(),
             // TUMBLING is what makes the Burst a tech rather than a dodge.
             &ambition_characters::actor::BodyCombat::default(),
             &ae::BodyShieldState::default(),

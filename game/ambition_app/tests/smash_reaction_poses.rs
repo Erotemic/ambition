@@ -215,7 +215,7 @@ fn interrupt_for_hit(app: &mut App, body: Entity) {
         }
     }).expect("the fixture interrupts the body's current move");
     let lock = app.world().resource::<
-        ambition_platformer2d::combat::feel::Platformer2dFeelTuningMonolith,
+        ambition_platformer2d::combat::feel::FeelTuning,
     >().knockback_recoil_lock_time;
     {
         let mut combat = app.world_mut().get_mut::<BodyCombat>(body).unwrap();

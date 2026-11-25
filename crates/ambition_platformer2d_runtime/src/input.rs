@@ -12,7 +12,7 @@ use ambition_input::{
 use ambition_platformer2d_core::ControlFrame;
 use ambition_input::{
     read_gameplay_control_frame_with_settings, read_menu_control_frame,
-    Platformer2dInputActionMonolith,
+    InputAction,
 };
 use ambition_platformer2d_shared_tangle::lifecycle::LiveSessionScope;
 use ambition_platformer2d_shared_tangle::schedule::{DialogueStopsTheWorld, GameMode};
@@ -79,7 +79,7 @@ pub fn spawn_primary_input_participant(
     commands.spawn((
         InputParticipant::primary(),
         ParticipantContexts::default(),
-        ActionState::<Platformer2dInputActionMonolith>::default(),
+        ActionState::<InputAction>::default(),
         recipe.build(),
         recipe,
         // Burst edge state is participant-local so every seat contributes to
@@ -263,7 +263,7 @@ pub fn seat_input_participants_for_roster(
             // commit republishes every raw row, so a row left behind would
             // carry the last edge it wrote past the latch's next drain. A
             // remote, harness or authored producer's row is not this one's.
-            let slot = ambition_platformer2d_actor_monolith::participant_seat::player_slot_of(participant.id);
+            let slot = ambition_platformer2d_actor::participant_seat::player_slot_of(participant.id);
             if let Some(raw) = raw.as_deref_mut() {
                 raw.set(slot, ambition_platformer2d_core::ControlFrame::default());
             }
@@ -335,7 +335,7 @@ pub fn seat_input_participants_for_roster(
         commands.spawn((
             InputParticipant::with_id(id),
             ParticipantContexts::default(),
-            ActionState::<Platformer2dInputActionMonolith>::default(),
+            ActionState::<InputAction>::default(),
             recipe.build(),
             recipe,
             SeatSourceEdges::default(),
@@ -420,16 +420,16 @@ pub fn declare_in_session_input_contexts(
 /// Toggle player-trail emission from the logical input action.
 ///
 /// The physical key or button belongs to `KeyboardPreset::input_map`; this bridge
-/// only consumes the semantic `Platformer2dInputActionMonolith` and flips the simulation resource
+/// only consumes the semantic `InputAction` and flips the simulation resource
 /// that the trail system reads.
 pub fn toggle_player_trail_emission_from_actions(
     mode: Res<State<GameMode>>,
     active_context: Res<SeatInputContexts>,
     player_input: Query<(
         &InputParticipant,
-        &ActionState<Platformer2dInputActionMonolith>,
+        &ActionState<InputAction>,
     )>,
-    enabled: Option<ResMut<ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailEnabled>>,
+    enabled: Option<ResMut<ambition_platformer2d_actor::avatar::trail::PlayerTrailEnabled>>,
 ) {
     // The participant exists at the launcher too; only a session that owns
     // input (and is actually in a gameplay mode) may consume the toggle.
@@ -446,7 +446,7 @@ pub fn toggle_player_trail_emission_from_actions(
     else {
         return;
     };
-    if actions.just_pressed(&Platformer2dInputActionMonolith::TrailToggle) {
+    if actions.just_pressed(&InputAction::TrailToggle) {
         enabled.enabled = !enabled.enabled;
     }
 }
@@ -517,7 +517,7 @@ impl PadModifierLatch {
 /// Read the same bindings and input cache as Leafwing. Pad controls toggle;
 /// keyboard and virtual controls retain their hold behavior.
 fn modifier_sources(
-    map: Option<&InputMap<Platformer2dInputActionMonolith>>,
+    map: Option<&InputMap<InputAction>>,
     store: Option<&leafwing_input_manager::user_input::updating::CentralInputStore>,
     pads: &mut Query<Entity, With<Gamepad>>,
 ) -> Option<(Option<Entity>, bool, bool)> {
@@ -529,7 +529,7 @@ fn modifier_sources(
     let mut down = false;
     let mut held = false;
     for input in map
-        .get_buttonlike(&Platformer2dInputActionMonolith::Modifier)
+        .get_buttonlike(&InputAction::Modifier)
         .into_iter()
         .flatten()
     {
@@ -548,7 +548,7 @@ impl SeatSourceEdges {
     /// observed the device at all.
     fn observe(
         &mut self,
-        actions: &ActionState<Platformer2dInputActionMonolith>,
+        actions: &ActionState<InputAction>,
         filters: ambition_input::ControlFilters,
         valid: bool,
     ) {
@@ -563,7 +563,7 @@ impl SeatSourceEdges {
     /// The gameplay frame of this sample, and the history after it.
     fn read(
         &mut self,
-        actions: &ActionState<Platformer2dInputActionMonolith>,
+        actions: &ActionState<InputAction>,
         filters: ambition_input::ControlFilters,
         valid: bool,
     ) -> ambition_platformer2d_core::ControlFrame {
@@ -607,7 +607,7 @@ impl SeatSourceEdges {
 /// and its sibling `project_primary_menu_frame` carries the
 /// attribute. Without it `--no-default-features` failed with seven errors, all
 /// of them in this one body: `ActionState`,
-/// `Platformer2dInputActionMonolith`, `SeatSourceEdges` and the four
+/// `InputAction`, `SeatSourceEdges` and the four
 /// `ambition_input` readers are every one of them behind `input` at the `use`
 /// site. Found by the exhaustive plan 2026-09-03; nothing but that lane builds
 /// this crate without its defaults.
@@ -631,12 +631,12 @@ pub fn populate_seat_control_frames(
     mut pads: Query<Entity, With<Gamepad>>,
     mut seats: Query<(
         &InputParticipant,
-        &ActionState<Platformer2dInputActionMonolith>,
+        &ActionState<InputAction>,
         &mut SeatSourceEdges,
         // The map was rewritten this frame and the action state zeroed: this
         // sample observed nothing.
         Has<ambition_input::Rebound>,
-        Option<&InputMap<Platformer2dInputActionMonolith>>,
+        Option<&InputMap<InputAction>>,
     )>,
     // EVERY SEAT'S DESTINATION, and there is only one now. A raw frame goes here to be shaped;
     // the commit stage folds it into that seat's latch after every shaping stage has run.
@@ -679,7 +679,7 @@ pub fn populate_seat_control_frames(
         // exact shape the reviewer asked new code to stop writing — a bare
         // `PlayerSlot(id.slot())` asserts the two numberings are the same thing,
         // and they are two lifecycles that happen to agree today.
-        let slot = ambition_platformer2d_actor_monolith::participant_seat::player_slot_of(participant.id);
+        let slot = ambition_platformer2d_actor::participant_seat::player_slot_of(participant.id);
         // ⛔⛤ **THE FRAME-MODE POLICY IS RESOLVED HERE, AT CAPTURE, AND NOWHERE
         // ELSE.** It is published BEFORE the `!gameplay` early-out on purpose: a
         // paused seat still has a preference, and a row that went stale while the
@@ -891,7 +891,7 @@ pub fn install_latched_slot_publication(app: &mut bevy::prelude::App) {
 /// Bridge keyboard/gamepad/menu-wheel input into the device-agnostic menu frame.
 ///
 /// Menu systems should read this resource instead of reading raw
-/// `ActionState<Platformer2dInputActionMonolith>`. Keyboard, gamepad, and virtual touch controls
+/// `ActionState<InputAction>`. Keyboard, gamepad, and virtual touch controls
 /// are already unified in the participant's action state; mouse-wheel and
 /// pointer-drag gestures add their scroll contribution before consumers run.
 pub fn project_primary_menu_frame(
@@ -918,8 +918,8 @@ pub struct MenuButtonSources<'w, 's> {
 }
 
 impl MenuButtonSources<'_, '_> {
-    fn resolve(&mut self, actions: &ActionState<Platformer2dInputActionMonolith>,
-        map: Option<Ref<InputMap<Platformer2dInputActionMonolith>>>,
+    fn resolve(&mut self, actions: &ActionState<InputAction>,
+        map: Option<Ref<InputMap<InputAction>>>,
         contexts: Option<&ParticipantContexts>, history: &mut ambition_input::ContextualButtonHistory,
         enabled: bool, frame: &mut MenuControlFrame)
     {
@@ -961,7 +961,7 @@ fn filters_for_seat(
 
 /// One decode, so the global menu frame and every seat's frame agree.
 pub fn decode_menu_frame(
-    actions: &ActionState<Platformer2dInputActionMonolith>,
+    actions: &ActionState<InputAction>,
     menu_input_state: &mut MenuInputState,
     user_settings: &ambition_persistence::settings::UserSettings,
     // RESOLVED by the caller, which is the only place that knows the seat.
@@ -970,12 +970,12 @@ pub fn decode_menu_frame(
     filters: ambition_input::ControlFilters,
     wall_dt: f32,
 ) -> MenuControlFrame {
-    let edge_up = actions.just_pressed(&Platformer2dInputActionMonolith::MenuNavigateUp);
-    let edge_down = actions.just_pressed(&Platformer2dInputActionMonolith::MenuNavigateDown);
-    let edge_left = actions.just_pressed(&Platformer2dInputActionMonolith::MenuNavigateLeft);
-    let edge_right = actions.just_pressed(&Platformer2dInputActionMonolith::MenuNavigateRight);
+    let edge_up = actions.just_pressed(&InputAction::MenuNavigateUp);
+    let edge_down = actions.just_pressed(&InputAction::MenuNavigateDown);
+    let edge_left = actions.just_pressed(&InputAction::MenuNavigateLeft);
+    let edge_right = actions.just_pressed(&InputAction::MenuNavigateRight);
 
-    let raw = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::MenuStick);
+    let raw = actions.clamped_axis_pair(&InputAction::MenuStick);
     // the seat's OWN deadzone, not the machine-wide slider. A couch seat
     // cannot reach the settings screen — it belongs to the primary — so reading
     // that slider here meant player two's pad was filtered by whatever suited
@@ -993,22 +993,22 @@ pub fn decode_menu_frame(
         edge_left,
         edge_right,
         analog_dir,
-        actions.just_pressed(&Platformer2dInputActionMonolith::MenuSelect),
-        actions.just_pressed(&Platformer2dInputActionMonolith::MenuBack),
-        actions.just_pressed(&Platformer2dInputActionMonolith::Start),
+        actions.just_pressed(&InputAction::MenuSelect),
+        actions.just_pressed(&InputAction::MenuBack),
+        actions.just_pressed(&InputAction::Start),
         wall_dt,
         user_settings.controls.menu_repeat_initial_delay,
         user_settings.controls.menu_repeat_interval,
     );
     let mut next = MenuControlFrame::from_menu_input(input);
-    next.select_held = actions.pressed(&Platformer2dInputActionMonolith::MenuSelect);
-    next.back_held = actions.pressed(&Platformer2dInputActionMonolith::MenuBack);
-    next.inventory = actions.just_pressed(&Platformer2dInputActionMonolith::Inventory);
-    next.map = actions.just_pressed(&Platformer2dInputActionMonolith::Map);
+    next.select_held = actions.pressed(&InputAction::MenuSelect);
+    next.back_held = actions.pressed(&InputAction::MenuBack);
+    next.inventory = actions.just_pressed(&InputAction::Inventory);
+    next.map = actions.just_pressed(&InputAction::Map);
     // Paged-menu page-turn bumpers (Fix 2): just-pressed edge so one bumper tap
     // turns exactly one page, independent of the arrow/d-pad item cursor.
-    next.page_left = actions.just_pressed(&Platformer2dInputActionMonolith::MenuPageLeft);
-    next.page_right = actions.just_pressed(&Platformer2dInputActionMonolith::MenuPageRight);
+    next.page_left = actions.just_pressed(&InputAction::MenuPageLeft);
+    next.page_right = actions.just_pressed(&InputAction::MenuPageRight);
     // THE STICK'S HELD DEFLECTION — see `MenuControlFrame::analog`. Everything
     // above is an EDGE, which is what a list wants and what a free cursor
     // cannot be built from; this is the same stick, undecided, so a screen that
@@ -1047,8 +1047,8 @@ pub fn populate_seat_menu_frames(
     devices: Option<Res<ambition_input::SeatActiveDevices>>,
     participants: Query<(
         &InputParticipant,
-        &ActionState<Platformer2dInputActionMonolith>,
-        Option<Ref<InputMap<Platformer2dInputActionMonolith>>>,
+        &ActionState<InputAction>,
+        Option<Ref<InputMap<InputAction>>>,
         Option<&ParticipantContexts>,
     )>,
     mut button_sources: MenuButtonSources,
@@ -1088,7 +1088,7 @@ mod focus_gate_tests {
     };
     use ambition_input::{
         resolve_active_input_context, InputParticipant, MenuControlFrame, ParticipantContexts,
-        ParticipantId, Platformer2dInputActionMonolith, SeatInputContexts,
+        ParticipantId, InputAction, SeatInputContexts,
     };
     use ambition_persistence::settings::UserSettings;
     use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
@@ -1112,13 +1112,13 @@ mod focus_gate_tests {
         assert!(
             app.world()
                 .entity(participant)
-                .contains::<ActionState<Platformer2dInputActionMonolith>>(),
+                .contains::<ActionState<InputAction>>(),
             "the participant owns the leafwing action state"
         );
         assert!(
             app.world()
                 .entity(participant)
-                .contains::<InputMap<Platformer2dInputActionMonolith>>(),
+                .contains::<InputMap<InputAction>>(),
             "the participant owns the active input map"
         );
     }
@@ -1177,14 +1177,14 @@ mod focus_gate_tests {
 
         let mut maps = app.world_mut().query::<(
             &InputParticipant,
-            &InputMap<Platformer2dInputActionMonolith>,
+            &InputMap<InputAction>,
         )>();
         for (participant, map) in maps.iter(app.world()) {
             let bindings = ActionBindings::from_map(map);
             if participant.id == ParticipantId::PRIMARY {
                 assert_eq!(
                     bindings
-                        .label(&Platformer2dInputActionMonolith::Jump)
+                        .label(&InputAction::Jump)
                         .as_deref(),
                     Some("Space"),
                     "the primary's live map follows the preset (WASD binds Jump to Space)"
@@ -1192,7 +1192,7 @@ mod focus_gate_tests {
             } else {
                 assert!(
                     !bindings
-                        .controls(&Platformer2dInputActionMonolith::Jump)
+                        .controls(&InputAction::Jump)
                         .iter()
                         .any(|control| matches!(control, PhysicalControl::Key(_))),
                     "a couch seat's map binds no key, whatever preset the keyboard player picked"
@@ -1249,7 +1249,7 @@ mod focus_gate_tests {
         let before = app
             .world()
             .resource::<SeatBindings>()
-            .label(0, &Platformer2dInputActionMonolith::Jump);
+            .label(0, &InputAction::Jump);
         assert_ne!(
             before.as_deref(),
             Some("F13"),
@@ -1267,7 +1267,7 @@ mod focus_gate_tests {
         assert_eq!(
             app.world()
                 .resource::<SeatBindings>()
-                .label(0, &Platformer2dInputActionMonolith::Jump)
+                .label(0, &InputAction::Jump)
                 .as_deref(),
             Some("F13"),
             "the primary's published label is the key the player just bound"
@@ -1275,11 +1275,11 @@ mod focus_gate_tests {
 
         let mut maps = app.world_mut().query::<(
             &InputParticipant,
-            &InputMap<Platformer2dInputActionMonolith>,
+            &InputMap<InputAction>,
         )>();
         for (participant, map) in maps.iter(app.world()) {
             let bindings = ActionBindings::from_map(map);
-            let jump = bindings.controls(&Platformer2dInputActionMonolith::Jump);
+            let jump = bindings.controls(&InputAction::Jump);
             if participant.id == ParticipantId::PRIMARY {
                 // Behaviour: the map the router reads, not just the read-model.
                 assert_eq!(
@@ -1450,7 +1450,7 @@ mod focus_gate_tests {
         let world = app.world_mut();
         let mut seats = world.query::<(
             &InputParticipant,
-            &InputMap<Platformer2dInputActionMonolith>,
+            &InputMap<InputAction>,
         )>();
         let (_, map) = seats
             .iter(world)
@@ -1533,12 +1533,12 @@ mod focus_gate_tests {
         fn seat(slot: u8, context: ambition_input::InputContextId, priority: i32) -> impl Bundle {
             let mut contexts = ParticipantContexts::default();
             contexts.declare(ContextClaim::capturing(context, priority));
-            let mut actions = ActionState::<Platformer2dInputActionMonolith>::default();
+            let mut actions = ActionState::<InputAction>::default();
             // Hold JUMP on every seat, so the only thing that can differ
             // downstream is the context — not what the player is doing. (Held
             // rather than an edge: `just_pressed` needs a tick this bare
             // `ActionState` never gets, and the question here is routing.)
-            actions.press(&Platformer2dInputActionMonolith::Jump);
+            actions.press(&InputAction::Jump);
             (
                 InputParticipant {
                     id: ParticipantId(slot),
@@ -1582,7 +1582,7 @@ mod focus_gate_tests {
                 // a fixture that ran only the producer and then read
                 // `SlotControls` would be asserting against a table nothing
                 // had written this frame.
-                ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does,
+                ambition_platformer2d_actor::control::publish_seat_controls_when_nobody_else_does,
             )
                 .chain(),
         );
@@ -1662,8 +1662,8 @@ mod focus_gate_tests {
                     GAMEPLAY_CONTEXT,
                     context_priority::GAMEPLAY,
                 ));
-                let mut actions = ActionState::<Platformer2dInputActionMonolith>::default();
-                actions.press(&Platformer2dInputActionMonolith::Jump);
+                let mut actions = ActionState::<InputAction>::default();
+                actions.press(&InputAction::Jump);
                 app.world_mut().spawn((
                     InputParticipant {
                         id: ParticipantId(slot),
@@ -1683,13 +1683,13 @@ mod focus_gate_tests {
                 (
                     resolve_active_input_context,
                     super::populate_seat_control_frames,
-                    ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does,
+                    ambition_platformer2d_actor::control::publish_seat_controls_when_nobody_else_does,
                     // the COMMIT, because the producer no longer publishes.
                     // It fills every seat's raw row and one stage commits them;
                     // a fixture that ran only the producer and then read
                     // `SlotControls` would be asserting against a table nothing
                     // had written this frame.
-                    ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does,
+                    ambition_platformer2d_actor::control::publish_seat_controls_when_nobody_else_does,
                 )
                     .chain(),
             );
@@ -1756,7 +1756,7 @@ mod focus_gate_tests {
                     id: ParticipantId(slot),
                 },
                 contexts,
-                ActionState::<Platformer2dInputActionMonolith>::default(),
+                ActionState::<InputAction>::default(),
                 super::SeatSourceEdges::default(),
             )
         }
@@ -1826,8 +1826,8 @@ mod focus_gate_tests {
                 GAMEPLAY_CONTEXT,
                 context_priority::GAMEPLAY,
             ));
-            let mut actions = ActionState::<Platformer2dInputActionMonolith>::default();
-            actions.press(&Platformer2dInputActionMonolith::Jump);
+            let mut actions = ActionState::<InputAction>::default();
+            actions.press(&InputAction::Jump);
             (
                 InputParticipant {
                     id: ParticipantId(slot),
@@ -1869,7 +1869,7 @@ mod focus_gate_tests {
                 // a fixture that ran only the producer and then read
                 // `SlotControls` would be asserting against a table nothing
                 // had written this frame.
-                ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does,
+                ambition_platformer2d_actor::control::publish_seat_controls_when_nobody_else_does,
             )
                 .chain(),
         );
@@ -1964,8 +1964,8 @@ mod focus_gate_tests {
             GAMEPLAY_CONTEXT,
             context_priority::GAMEPLAY,
         ));
-        let mut actions = ActionState::<Platformer2dInputActionMonolith>::default();
-        actions.press(&Platformer2dInputActionMonolith::Jump);
+        let mut actions = ActionState::<InputAction>::default();
+        actions.press(&InputAction::Jump);
 
         let mut app = App::new();
         app.init_resource::<SeatInputContexts>();
@@ -2000,7 +2000,7 @@ mod focus_gate_tests {
                 // a fixture that ran only the producer and then read
                 // `SlotControls` would be asserting against a table nothing
                 // had written this frame.
-                ambition_platformer2d_actor_monolith::control::publish_seat_controls_when_nobody_else_does,
+                ambition_platformer2d_actor::control::publish_seat_controls_when_nobody_else_does,
             )
                 .chain(),
         );
@@ -2064,8 +2064,8 @@ mod focus_gate_tests {
     /// controls. A per-seat surface reads `SeatMenuFrames` instead.
     #[test]
     fn a_second_participant_does_not_silence_the_global_menu_frame() {
-        fn seat(slot: u8, press: Platformer2dInputActionMonolith) -> impl Bundle {
-            let mut actions = ActionState::<Platformer2dInputActionMonolith>::default();
+        fn seat(slot: u8, press: InputAction) -> impl Bundle {
+            let mut actions = ActionState::<InputAction>::default();
             actions.press(&press);
             (
                 InputParticipant {
@@ -2083,12 +2083,12 @@ mod focus_gate_tests {
             app.init_resource::<ambition_persistence::settings::UserSettings>();
             app.add_message::<bevy::input::mouse::MouseWheel>();
             app.world_mut()
-                .spawn(seat(0, Platformer2dInputActionMonolith::MenuSelect));
+                .spawn(seat(0, InputAction::MenuSelect));
             // Every other seat holds something DIFFERENT, so a fold that mixed
             // them would be visible rather than accidentally agreeing.
             for slot in 1..seats as u8 {
                 app.world_mut()
-                    .spawn(seat(slot, Platformer2dInputActionMonolith::MenuBack));
+                    .spawn(seat(slot, InputAction::MenuBack));
             }
             app.add_systems(Update, (super::populate_seat_menu_frames, super::project_primary_menu_frame).chain());
             app.update();
@@ -2128,11 +2128,11 @@ mod focus_gate_tests {
         use ambition_input::{ActiveDevice, GamepadStyle, SeatActiveDevices, SeatMenuFrames};
 
         fn seat(slot: u8) -> impl Bundle {
-            let mut actions = ActionState::<Platformer2dInputActionMonolith>::default();
+            let mut actions = ActionState::<InputAction>::default();
             // The SAME physical push for both seats — so any difference in the
             // frames is a difference in calibration and nothing else.
             actions.set_axis_pair(
-                &Platformer2dInputActionMonolith::MenuStick,
+                &InputAction::MenuStick,
                 bevy::math::Vec2::new(0.0, 0.58),
             );
             (
@@ -2263,7 +2263,7 @@ mod focus_gate_tests {
         assert!(
             app.world()
                 .entity(participant)
-                .contains::<ActionState<Platformer2dInputActionMonolith>>(),
+                .contains::<ActionState<InputAction>>(),
             "participant device state survives session teardown"
         );
     }
@@ -2561,7 +2561,7 @@ mod modifier_toggle_tests {
             bevy::time::TimePlugin,
             bevy::input::InputPlugin,
             bevy::state::app::StatesPlugin,
-            leafwing_input_manager::plugin::InputManagerPlugin::<Platformer2dInputActionMonolith>::default(),
+            leafwing_input_manager::plugin::InputManagerPlugin::<InputAction>::default(),
         ));
         app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
             std::time::Duration::from_secs_f64(1.0 / 60.0),
@@ -2581,7 +2581,7 @@ mod modifier_toggle_tests {
             } else {
                 ambition_input::BindingSources::GamepadOnly
             });
-            map.insert(Platformer2dInputActionMonolith::Modifier, GamepadButton::C);
+            map.insert(InputAction::Modifier, GamepadButton::C);
             map.set_gamepad(pad);
             let mut contexts = ParticipantContexts::default();
             contexts.declare(ContextClaim::capturing(
@@ -2593,7 +2593,7 @@ mod modifier_toggle_tests {
                     .spawn((
                         InputParticipant::with_id(ambition_input::ParticipantId(seat)),
                         contexts,
-                        ActionState::<Platformer2dInputActionMonolith>::default(),
+                        ActionState::<InputAction>::default(),
                         map,
                         SeatSourceEdges::default(),
                     ))
@@ -2613,8 +2613,8 @@ mod modifier_toggle_tests {
 
         button(&mut app, pads[0], GamepadButton::RightThumb, 1.0);
         assert!(!frame(&app, 0).modifier_held);
-        assert!(app.world().get::<ActionState<Platformer2dInputActionMonolith>>(seats[0]).unwrap()
-            .just_pressed(&Platformer2dInputActionMonolith::Inventory));
+        assert!(app.world().get::<ActionState<InputAction>>(seats[0]).unwrap()
+            .just_pressed(&InputAction::Inventory));
         button(&mut app, pads[0], GamepadButton::RightThumb, 0.0);
 
         button(&mut app, pads[0], GamepadButton::C, 1.0);
@@ -2622,9 +2622,9 @@ mod modifier_toggle_tests {
         assert!(frame(&app, 0).modifier_pressed);
         assert!(
             !app.world()
-                .get::<ActionState<Platformer2dInputActionMonolith>>(seats[0])
+                .get::<ActionState<InputAction>>(seats[0])
                 .unwrap()
-                .just_pressed(&Platformer2dInputActionMonolith::Inventory)
+                .just_pressed(&InputAction::Inventory)
         );
         assert!(!frame(&app, 1).modifier_held);
         app.update();

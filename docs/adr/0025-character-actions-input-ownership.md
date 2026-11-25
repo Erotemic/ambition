@@ -17,7 +17,7 @@ Landed:
 - **`MovementAction`** + enum-indexed **`ActionEdges`** in `ambition_platformer2d_core`,
   and the movement kernel consuming them through typed accessors
   (`InputState` re-keyed).
-- Dedicated **`Platformer2dInputActionMonolith::Special`** slot; the `special_pressed =
+- Dedicated **`InputAction::Special`** slot; the `special_pressed =
   blink_pressed` alias is retired.
 - The **shared resolver** (§Decision 6): the persona gate and `ControlPrompt`
   both call `derive_action_scheme` on the body's immediate authorities — the
@@ -62,7 +62,7 @@ could disagree with what actually fired.
    even when the scheme changed inside the rollback window (powerup, possession,
    form toggle). **Streaming resolved actions is forbidden.**
 
-2. **`Platformer2dInputActionMonolith` is the slot vocabulary** (device-free semantic buttons).
+2. **`InputAction` is the slot vocabulary** (device-free semantic buttons).
    The physical-input → slot binding (`ActiveBindings`, planned) is the input
    layer's concern; one binding source must feed both the live `InputMap` and
    the on-screen glyphs.
@@ -136,7 +136,7 @@ could disagree with what actually fired.
   unregistered type is a review event, not a silent stream of resolved actions
   (the `ControlFrame`-is-POD invariant).
 - The scheme⇔behavior derivation guard (a slot is in the scheme iff the authority
-  that gates its behavior provides it) — `ambition_platformer2d_actor_monolith::action_scheme`.
+  that gates its behavior provides it) — `ambition_platformer2d_actor::action_scheme`.
 - The shared-resolver same-tick no-drift test: the real gate and the real prompt,
   run together across a kit swap, keep the visible slot and the executable verb in
   lockstep — `ambition_sim_view::control_prompt`.

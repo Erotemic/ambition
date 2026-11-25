@@ -26,7 +26,7 @@ use ambition_platformer2d_core::AabbExt;
 
 use ambition_combat::hurtbox_resolution::{AuthoredHurtboxes, ResolvedHurtboxes};
 use ambition_entity_catalog::{HurtboxDoc, HurtboxVolume};
-use ambition_platformer2d_actor_monolith::body::refresh_body_damageable_volumes;
+use ambition_platformer2d_actor::body::refresh_body_damageable_volumes;
 
 /// The body's coarse box: 28 wide, 40 tall, centred on the origin.
 const COARSE_HALF: ae::Vec2 = ae::Vec2::new(14.0, 20.0);
@@ -413,7 +413,7 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
         .spawn(ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
             ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),
         ));
-    app.add_plugins((ambition_platformer2d_assets::materialization::CharacterMaterializationPlugin, ambition_platformer2d_actor_monolith::character_projection::ActorCharacterPlugin));
+    app.add_plugins((ambition_platformer2d_assets::materialization::CharacterMaterializationPlugin, ambition_platformer2d_actor::character_projection::ActorCharacterPlugin));
     // A2a: the damage-facing publication covers BOSSES as well as ordinary
     // bodies now, and the boss publisher reads the catalog. This fixture has no
     // boss, so the empty catalog is all it owes — but it owes it explicitly

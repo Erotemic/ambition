@@ -14,7 +14,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 
-use ambition_platformer2d_actor_monolith::avatar::{HomeBodyAbilities};
+use ambition_platformer2d_actor::avatar::{HomeBodyAbilities};
 use crate::initial_body::{HomeBodyResources, InitialBodyPolicy, StartingCharacter};
 use crate::setup::{spawn_home_body, HomeBody};
 

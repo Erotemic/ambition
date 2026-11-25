@@ -387,9 +387,10 @@ pub(crate) fn install(app: &mut App) {
         .after(Platformer2dSimulationPhase::FeatureInteraction));
     app.add_message::<DefeatCommitted>();
     clear_message_at_session_activation::<DefeatCommitted>(app);
+    // Keep the port registration owner ID stable across the crate rename.
     install_native_source::<ObjectDefeatedPort>(app, "ambition_platformer2d_actor_monolith", "defeated");
     app.add_systems(schedule, publish_defeats.in_set(Platformer2dSimulationPhase::GameplayEffects)
-        .after(ambition_platformer2d_actor_monolith::body::apply_feature_hit_events));
+        .after(ambition_platformer2d_actor::body::apply_feature_hit_events));
     app.add_message::<BrokenCommitted>();
     clear_message_at_session_activation::<BrokenCommitted>(app);
     install_native_source::<ObjectBrokenPort>(app, "ambition_breakables", "broken");
@@ -397,9 +398,9 @@ pub(crate) fn install(app: &mut App) {
     clear_message_at_session_activation::<CollectedCommitted>(app);
     install_native_source::<ObjectCollectedPort>(app, "ambition_platformer2d_items", "collected");
     app.add_systems(schedule, publish_collected.in_set(Platformer2dSimulationPhase::GameplayEffects)
-        .after(ambition_platformer2d_actor_monolith::body::apply_feature_hit_events));
+        .after(ambition_platformer2d_actor::body::apply_feature_hit_events));
     app.add_systems(schedule, publish_broken.in_set(Platformer2dSimulationPhase::GameplayEffects)
-        .after(ambition_platformer2d_actor_monolith::body::apply_feature_hit_events));
+        .after(ambition_platformer2d_actor::body::apply_feature_hit_events));
     install_native_source::<ObjectBornPort>(app, "ambition_platformer2d_runtime", "born");
     install_native_source::<ObjectCrossedPort>(app, "ambition_platformer2d_runtime", "crossed");
     install_native_source::<ObjectCrossingRefusedPort>(app, "ambition_platformer2d_runtime", "crossing_refused");

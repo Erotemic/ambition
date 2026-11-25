@@ -1,5 +1,5 @@
 use super::*;
-use crate::feel::Platformer2dFeelTuningMonolith;
+use crate::feel::FeelTuning;
 use crate::hitbox::ResolvedBodyHit;
 use ambition_time::SimTick;
 use ambition_platformer2d_shared_tangle::lifecycle::{RoomFreeze, RoomPace};
@@ -9,7 +9,7 @@ fn app() -> App {
     app.add_message::<ResolvedBodyHit>();
     app.init_resource::<ImpactHitstop>();
     app.init_resource::<SimTick>();
-    app.insert_resource(Platformer2dFeelTuningMonolith::default());
+    app.insert_resource(FeelTuning::default());
     app.add_systems(Update, request_impact_hitstop_on_resolved_hits);
     app
 }
@@ -64,7 +64,7 @@ fn a_game_whose_hitlag_is_per_body_asks_for_no_world_freeze() {
     let mut rules = crate::rules::ResolvedCombatTuning::resolve_over(None, None, None);
     rules.world_freezes_on_hit = false;
     app.insert_resource(rules);
-    let hitlag = Platformer2dFeelTuningMonolith::default().hitlag_time;
+    let hitlag = FeelTuning::default().hitlag_time;
     land_a_hit(&mut app, hitlag);
     app.update();
     assert!(
@@ -76,7 +76,7 @@ fn a_game_whose_hitlag_is_per_body_asks_for_no_world_freeze() {
 #[test]
 fn two_cpus_trading_hits_freeze_the_world_with_no_player_in_it() {
     let mut app = app();
-    let hitlag = Platformer2dFeelTuningMonolith::default().hitlag_time;
+    let hitlag = FeelTuning::default().hitlag_time;
     land_a_hit(&mut app, hitlag);
     app.update();
     assert!(
@@ -97,7 +97,7 @@ fn two_cpus_trading_hits_freeze_the_world_with_no_player_in_it() {
 #[test]
 fn a_freeze_expires_against_a_tick_that_keeps_advancing() {
     let mut app = app();
-    let hitlag = Platformer2dFeelTuningMonolith::default().hitlag_time;
+    let hitlag = FeelTuning::default().hitlag_time;
     land_a_hit(&mut app, hitlag);
     app.update();
     let bound = (hitlag * TICKS_PER_SECOND).round() as u64;
@@ -128,7 +128,7 @@ fn a_freeze_expires_against_a_tick_that_keeps_advancing() {
 #[test]
 fn overlapping_connects_extend_rather_than_accumulate() {
     let mut app = app();
-    let hitlag = Platformer2dFeelTuningMonolith::default().hitlag_time;
+    let hitlag = FeelTuning::default().hitlag_time;
     let bound = (hitlag * TICKS_PER_SECOND).round() as u64;
 
     land_a_hit(&mut app, hitlag);
@@ -168,7 +168,7 @@ fn the_freeze_is_proportional_to_the_hit_and_bounded_above() {
         app.update();
         app.world().resource::<ImpactHitstop>().until_tick
     };
-    let hard = Platformer2dFeelTuningMonolith::default().hitlag_time;
+    let hard = FeelTuning::default().hitlag_time;
     assert!(
         read(hard * 0.25) < read(hard),
         "a weak connect stopped the world as long as a hard one"
@@ -194,7 +194,7 @@ fn the_freeze_is_proportional_to_the_hit_and_bounded_above() {
 /// source that is a connect and three that are not.
 #[test]
 fn attrition_and_the_blast_zone_do_not_stop_the_world() {
-    let hitlag = Platformer2dFeelTuningMonolith::default().hitlag_time;
+    let hitlag = FeelTuning::default().hitlag_time;
     let froze = |source: crate::HitSource| {
         let mut app = app();
         land_a(&mut app, hitlag, source);

@@ -375,6 +375,10 @@ pub enum SwitchAction {
     /// A gate network terminal: the press opens the terminal of the ring the
     /// network catalog names for this switch id. The switch stores nothing.
     GateTerminal,
+    /// Send the switch-called lift its target names (a moving platform's id
+    /// in the switch's own live room) to the stop it is not at. The switch
+    /// stores nothing; the platform domain moves the lift.
+    MoveLift,
     /// Authored but not a kind this engine acts on. Carried rather than dropped
     /// so a consumer can report it; the string road could not tell this apart
     /// from a handled action that did nothing.
@@ -435,6 +439,9 @@ impl SwitchAction {
         }
         if action == "GateTerminal" {
             return Self::GateTerminal;
+        }
+        if action == "MoveLift" {
+            return Self::MoveLift;
         }
         Self::Unhandled(action.to_string())
     }
@@ -644,7 +651,7 @@ pub fn drain_switch_activations(
                     .map(|alive| !alive)
                     .unwrap_or(false)
             }
-            SwitchAction::Activate | SwitchAction::GateTerminal | SwitchAction::Unhandled(_) => save.data().switch(&activation.id),
+            SwitchAction::Activate | SwitchAction::GateTerminal | SwitchAction::MoveLift | SwitchAction::Unhandled(_) => save.data().switch(&activation.id),
         };
         resolved.0.push(ResolvedSwitchActivation {
             subject,

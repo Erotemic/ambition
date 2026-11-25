@@ -490,6 +490,61 @@ fn a_gravity_switch_turns_only_the_live_room_it_is_in() {
     );
 }
 
+/// A `MoveLift` switch sends the lift of its own live room and of no other
+/// (W2). Each room gets a switch-called lift with the same id; Bob's press
+/// sends Bob's, through the switch drain and the platform domain, and
+/// Alice's waits. The authority: each room's `MovingPlatformSet`.
+#[test]
+fn a_lift_switch_sends_only_the_lift_in_its_own_live_room() {
+    use ambition_platformer2d::encounter::switches::{QueuedSwitchActivation, SwitchActivationQueue};
+    use ambition_platformer2d::platformer::lifecycle::LiveRoomInstance;
+    use ambition_platformer2d::world::collision::MovingPlatformSet;
+    use ambition_platformer2d::world::platforms::{LiftStage, MovingPlatformState};
+    let (mut sim, first) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    let (alice, bob) = where_they_are(&mut sim);
+    assert_eq!((alice, bob), (Some(first.next()), Some(Some(first))), "Alice in the hub, Bob in switch_lab");
+    let rest = ambition_platformer2d::engine_core::Vec2::new(-4000.0, -4000.0);
+    {
+        let world = sim.world_mut();
+        let mut rooms = world.query::<(&LiveRoomInstance, &mut MovingPlatformSet)>();
+        for (_, mut set) in rooms.iter_mut(world) {
+            set.0.push(
+                MovingPlatformState::lift("w2_lift", "Lift", rest, ambition_platformer2d::engine_core::Vec2::new(96.0, 16.0), -200.0, 600.0)
+                    .sent_by_switch(),
+            );
+        }
+    }
+    let lift = |sim: &mut Platformer2dSimHarness, room: LiveRoomInstance| {
+        let world = sim.world_mut();
+        let mut rooms = world.query::<(&LiveRoomInstance, &MovingPlatformSet)>();
+        rooms
+            .iter(world)
+            .find(|(at, _)| **at == room)
+            .and_then(|(_, set)| set.0.iter().find(|platform| platform.id == "w2_lift"))
+            .map(|platform| (platform.pos.y, platform.lift_stage()))
+            .expect("the room keeps its lift")
+    };
+    sim.step(base());
+    assert_eq!(lift(&mut sim, first), (rest.y, Some(LiftStage::Resting)), "setup: Bob's lift waits");
+    ambition_platformer2d::platformer::lifecycle::session_world_component_mut::<SwitchActivationQueue>(sim.world_mut())
+        .expect("the live session root carries the switch queue")
+        .0
+        .push(QueuedSwitchActivation {
+            subject: None,
+            activation: ambition_platformer2d::encounter::registry::SwitchActivation {
+                id: "w2_call".to_string(),
+                action: "MoveLift".to_string(),
+                target_encounter: "w2_lift".to_string(),
+            },
+            room: Some(first),
+        });
+    for _ in 0..40 {
+        sim.step(base());
+    }
+    assert_eq!(lift(&mut sim, first), (rest.y - 200.0, Some(LiftStage::Parked)), "Bob's lift did not go to its far stop and wait");
+    assert_eq!(lift(&mut sim, first.next()), (rest.y, Some(LiftStage::Resting)), "Bob's switch sent the lift in Alice's room");
+}
+
 /// The Door from authored room `room` to `target`.
 pub(crate) fn door_of(sim: &mut Platformer2dSimHarness, room: &str, target: &str) -> ambition_platformer2d::world::rooms::LoadingZone {
     let world = sim.world_mut();

@@ -70,7 +70,16 @@ pub enum MovingPlatformMotionSpec {
     /// body stands on it, then carries it `dy` (negative rises) at `speed`
     /// and, once there, comes back down to rest the way it went. A ride out of
     /// a room through its ceiling: a shark that swoops down for you.
-    Lift { dy: f32, speed: f32 },
+    ///
+    /// `called`: a switch drives it instead of a rider. It waits at either
+    /// stop and moves only when sent ([`MovingPlatformState::send`]), to the
+    /// stop it is not at.
+    Lift {
+        dy: f32,
+        speed: f32,
+        #[serde(default)]
+        called: bool,
+    },
 }
 
 /// How long a [`MovingPlatformMotionSpec::HorizontalLoop`] takes to rise and
@@ -101,6 +110,8 @@ pub struct AuthoredPlatformMotion {
     pub loop_anchor_x: Option<f32>,
     pub bob: Option<f32>,
     pub lift_dy: Option<f32>,
+    /// A switch sends the lift instead of a rider (`lift_called`).
+    pub lift_called: Option<bool>,
 }
 
 impl AuthoredPlatformMotion {
@@ -153,6 +164,9 @@ impl AuthoredPlatformMotion {
                  wrapping lane starts, so on its own it describes no motion at all"
                 .to_string());
         }
+        if self.lift_called.is_some() && self.lift_dy.is_none() {
+            return Err("authors lift_called without lift_dy — only a lift is sent by a switch".to_string());
+        }
         if self.bob.is_some() && self.loop_dx.is_none() {
             return Err("authors bob without loop_dx — only a horizontal loop bobs".to_string());
         }
@@ -178,6 +192,7 @@ impl AuthoredPlatformMotion {
             return Ok(MovingPlatformMotionSpec::Lift {
                 dy,
                 speed: self.speed.unwrap_or(DEFAULT_PLATFORM_SPEED),
+                called: self.lift_called.unwrap_or(false),
             });
         }
 
@@ -402,14 +417,10 @@ impl MovingPlatformSpec {
                     bob,
                 ))
             }
-            MovingPlatformMotionSpec::Lift { dy, speed } => Ok(MovingPlatformState::lift(
-                self.id,
-                self.name,
-                self.start_pos,
-                self.size,
-                dy,
-                speed,
-            )),
+            MovingPlatformMotionSpec::Lift { dy, speed, called } => {
+                let lift = MovingPlatformState::lift(self.id, self.name, self.start_pos, self.size, dy, speed);
+                Ok(if called { lift.sent_by_switch() } else { lift })
+            }
             MovingPlatformMotionSpec::Sweep { dx, speed } => Ok(MovingPlatformState::from_sweep(
                 self.id,
                 self.name,
@@ -497,6 +508,9 @@ enum MovingPlatformMotion {
         /// A body stood on it at the last advance ([`MovingPlatformState::set_ridden`]).
         ridden: bool,
         stage: LiftStage,
+        /// A switch sends it, not a rider: it waits at both stops.
+        #[serde(default)]
+        called: bool,
     },
     /// A carrier that comes up under a falling body, lifts it to `rise_to_y`
     /// and then flies off with the flock, out past `gone_x`: the fall rescue.
@@ -513,6 +527,8 @@ enum MovingPlatformMotion {
 pub enum LiftStage {
     Resting,
     Carrying,
+    /// A called lift waiting at its far stop for the next send.
+    Parked,
     Returning,
 }
 
@@ -685,6 +701,7 @@ impl MovingPlatformState {
                 speed: speed.max(1.0),
                 ridden: false,
                 stage: LiftStage::Resting,
+                called: false,
             },
             last_delta: ae::Vec2::ZERO,
             visual: None,
@@ -744,6 +761,30 @@ impl MovingPlatformState {
         if let MovingPlatformMotion::Lift { ridden, .. } = &mut self.motion {
             *ridden = on;
         }
+    }
+
+    /// Make a lift one a switch sends: it waits at both stops and ignores
+    /// riders. Any other motion is unchanged.
+    pub fn sent_by_switch(mut self) -> Self {
+        if let MovingPlatformMotion::Lift { called, .. } = &mut self.motion {
+            *called = true;
+        }
+        self
+    }
+
+    /// Send a called lift to the stop it is not at. Answers whether it left:
+    /// a lift already travelling, a rider's lift and any other motion stay as
+    /// they are.
+    pub fn send(&mut self) -> bool {
+        let MovingPlatformMotion::Lift { called: true, stage, .. } = &mut self.motion else {
+            return false;
+        };
+        *stage = match *stage {
+            LiftStage::Resting => LiftStage::Carrying,
+            LiftStage::Parked => LiftStage::Returning,
+            LiftStage::Carrying | LiftStage::Returning => return false,
+        };
+        true
     }
 
     /// Whether this is a lift (so the advance asks whether it is ridden).
@@ -815,7 +856,7 @@ impl MovingPlatformState {
             | MovingPlatformMotion::SideLoop { min_x, max_x, speed, .. } => max_x > min_x && *speed != 0.0,
             MovingPlatformMotion::Loop { min_y, max_y, speed, .. } => max_y > min_y && *speed != 0.0,
             MovingPlatformMotion::Path { path, .. } => path.speed != 0.0 && path.points.windows(2).any(|pair| pair[0] != pair[1]),
-            MovingPlatformMotion::Lift { stage, .. } => *stage != LiftStage::Resting,
+            MovingPlatformMotion::Lift { stage, .. } => !matches!(stage, LiftStage::Resting | LiftStage::Parked),
             MovingPlatformMotion::Ferry { .. } => true,
         };
         !turns && !carried
@@ -898,25 +939,33 @@ impl MovingPlatformState {
                 speed,
                 ridden,
                 stage,
+                called,
             } => {
                 let toward = |from: f32, to: f32, max: f32| from + (to - from).clamp(-max, max);
                 match stage {
                     LiftStage::Resting => {
                         self.pos.y = *rest_y;
-                        if *ridden {
+                        if *ridden && !*called {
                             *stage = LiftStage::Carrying;
                         }
                     }
                     LiftStage::Carrying => {
                         self.pos.y = toward(self.pos.y, *end_y, *speed * dt);
                         if (self.pos.y - *end_y).abs() < 0.5 {
-                            *stage = LiftStage::Returning;
+                            if *called {
+                                self.pos.y = *end_y;
+                                *stage = LiftStage::Parked;
+                            } else {
+                                *stage = LiftStage::Returning;
+                            }
                         }
                     }
+                    LiftStage::Parked => self.pos.y = *end_y,
                     LiftStage::Returning => {
-                        // Back the way it went, a little slower: it swoops
-                        // down to wait again.
-                        self.pos.y = toward(self.pos.y, *rest_y, *speed * 0.8 * dt);
+                        // A rider's lift comes back a little slower: it swoops
+                        // down to wait again. A called lift keeps its speed.
+                        let back = if *called { *speed } else { *speed * 0.8 };
+                        self.pos.y = toward(self.pos.y, *rest_y, back * dt);
                         if (self.pos.y - *rest_y).abs() < 0.5 {
                             self.pos.y = *rest_y;
                             *stage = LiftStage::Resting;

@@ -161,6 +161,31 @@ occurrence isolation. If W1 and W2 share only the spelling of a container,
 keep their helpers separate. If they share that operation, define the minimal
 authored assembly format and its domain lowering at this point.
 
+**Progress (2026-11-24): the native binding a switch makes to a lift.**
+Before this, a lift moved only when ridden, and no switch could drive one. Now:
+- A lift authored with `lift_called` (LDtk field; spec
+  `MovingPlatformMotionSpec::Lift { called }`) is sent by a switch instead.
+  It waits at both stops (`LiftStage::Parked` at the far one), ignores
+  riders, and `MovingPlatformState::send` takes it to the stop it is not at.
+  A lift already travelling, or a rider's lift, refuses the send.
+- A switch whose action is `MoveLift` names the lift's id as its target.
+  `ambition_encounter_features` resolves the press in the switch's own live
+  room, so the switch explicitly binds to the lift, and the platform domain
+  still owns the motion. Each floor's switch sends the lift away from where
+  it stands, so two switches serve both stops.
+
+Witnesses:
+- `a_called_lift_goes_only_when_sent_and_waits_at_each_stop` (world lib);
+- `a_lift_switch_sends_only_the_lift_in_its_own_live_room` (app_it): the
+  same lift id in two live rooms, and Bob's press sends only Bob's.
+
+Still open, which is the composition itself: scripted construction of the
+lift, both switches and the door from one request with local keys. Today a
+script can create actors and breakables. A lift is a row in its room's
+`MovingPlatformSet` and a door is a gated lock wall, so neither is a
+placement the runtime construction road lowers. Then comes isolation of two
+copies in one room and a third copy in a second live instance.
+
 ### W3 — expose placement and reuse through existing authoring tools
 
 Let an LDtk placement select the prepared definition and supply its parameters

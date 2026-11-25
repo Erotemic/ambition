@@ -920,6 +920,16 @@
           "note": "a lift that waits for a rider: it rests until a body stands on it, carries it this signed height (negative travels UP) at `speed`, and comes back down. Zero is refused."
         },
         {
+          "name": "lift_called",
+          "presence": "optional",
+          "requires_fields": [
+            "lift_dy"
+          ],
+          "on_invalid": "open",
+          "sample": "true",
+          "note": "a switch sends this lift instead of a rider (a switch whose action is MoveLift and whose target is this platform's id): it waits at both stops and moves only when sent. Refused without lift_dy."
+        },
+        {
           "name": "visual",
           "presence": "optional",
           "on_invalid": "open",

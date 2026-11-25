@@ -527,6 +527,14 @@ pub fn drive_wave_encounters(
             ambition_encounter::switches::SwitchAction::BossLife => {}
             // The gate network opens the terminal (`run_gate_network`).
             ambition_encounter::switches::SwitchAction::GateTerminal => {}
+            // The lift the target names, in the switch's own live room: the
+            // platform domain sends it to its other stop.
+            ambition_encounter::switches::SwitchAction::MoveLift => {
+                let room = activation.room;
+                let lift = activation.target_encounter.clone();
+                let switch = activation.id.clone();
+                commands.queue(move |world: &mut bevy::prelude::World| send_lift_from_switch(world, room, &switch, &lift));
+            }
             ambition_encounter::switches::SwitchAction::Unhandled(action) => {
                 bevy::log::warn!(
                     target: "ambition_encounter::switches",
@@ -821,6 +829,34 @@ fn the_outcome_that_stands(
 
 /// A gravity switch turns its room's ambient, logged as that room's write on
 /// this tick so a rewind of the room puts it back.
+/// Send the lift `lift` in `room` (the sole live room when `None`). A target
+/// that names no lift of that room, or a lift that cannot go (travelling, or
+/// sent by riders), is reported and changes nothing.
+fn send_lift_from_switch(
+    world: &mut bevy::prelude::World,
+    room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+    switch: &str,
+    lift: &str,
+) {
+    use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
+    use ambition_platformer2d_world::collision::MovingPlatformSet;
+    let room = room.or_else(|| {
+        ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<LiveRoomInstance>(world).copied()
+    });
+    let mut rooms = world.query::<(&LiveRoomInstance, &mut MovingPlatformSet)>();
+    let Some(platform) = rooms
+        .iter_mut(world)
+        .find(|(at, _)| Some(**at) == room)
+        .and_then(|(_, set)| set.into_inner().0.iter_mut().find(|platform| platform.id == lift))
+    else {
+        bevy::log::warn!(target: "ambition_encounter::switches", "switch {switch} sends lift {lift:?}, which its room does not have");
+        return;
+    };
+    if !platform.send() {
+        bevy::log::debug!(target: "ambition_encounter::switches", "switch {switch}: lift {lift:?} is not waiting for a switch");
+    }
+}
+
 fn turn_gravity_from_switch(
     world: &mut bevy::prelude::World,
     room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,

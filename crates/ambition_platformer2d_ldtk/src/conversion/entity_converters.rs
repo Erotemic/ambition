@@ -1157,6 +1157,7 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
         loop_anchor_x: field_f32(entity, "loop_min_x").map(|x| x + ctx.offset.x),
         bob: field_f32(entity, "bob"),
         lift_dy: field_f32(entity, "lift_dy"),
+        lift_called: field_bool(entity, "lift_called"),
     }
     .classify()?;
     // What it is drawn as: a registered prop sheet (`burning_flying_shark`).

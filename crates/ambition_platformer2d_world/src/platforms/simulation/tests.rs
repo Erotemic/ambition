@@ -2,7 +2,7 @@
 
 use super::{MovingPlatformStep, install_moving_platform_simulation};
 use crate::collision::MovingPlatformSet;
-use crate::platforms::MovingPlatformState;
+use crate::platforms::{LiftStage, MovingPlatformState};
 use ambition_platformer2d_core as ae;
 use bevy_app::{App, Update};
 use bevy_ecs::prelude::*;
@@ -304,4 +304,41 @@ fn the_world_step_retires_old_walls_before_contact_readers() {
         1,
         "the cache keeps the current room geometry and releases its old pose"
     );
+}
+
+/// A switch-called lift waits at both stops: a rider does not start it, a
+/// send takes it to the far stop and it parks there, the next send brings it
+/// back, and a send while it travels is refused.
+#[test]
+fn a_called_lift_goes_only_when_sent_and_waits_at_each_stop() {
+    let mut lift = MovingPlatformState::lift(
+        "lift",
+        "Lift",
+        ae::Vec2::new(400.0, 800.0),
+        ae::Vec2::new(155.0, 18.0),
+        -100.0,
+        600.0,
+    )
+    .sent_by_switch();
+    let dt = 1.0 / 60.0;
+    lift.set_ridden(true);
+    for _ in 0..30 {
+        lift.update(dt);
+    }
+    assert_eq!(lift.pos.y, 800.0, "a rider started a lift only a switch sends");
+    assert!(lift.send(), "a resting called lift refused a send");
+    lift.update(dt);
+    assert!(!lift.send(), "a travelling lift took a second send");
+    for _ in 0..30 {
+        lift.update(dt);
+    }
+    assert_eq!((lift.pos.y, lift.lift_stage()), (700.0, Some(LiftStage::Parked)), "the lift did not park at its far stop");
+    assert!(lift.send(), "a parked lift refused a send");
+    for _ in 0..30 {
+        lift.update(dt);
+    }
+    assert_eq!((lift.pos.y, lift.lift_stage()), (800.0, Some(LiftStage::Resting)), "the lift did not come back to rest");
+    let mut rider_lift =
+        MovingPlatformState::lift("l", "L", ae::Vec2::new(0.0, 0.0), ae::Vec2::new(10.0, 10.0), -100.0, 60.0);
+    assert!(!rider_lift.send(), "a rider's lift took a switch's send");
 }

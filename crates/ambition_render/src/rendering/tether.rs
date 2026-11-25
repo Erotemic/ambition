@@ -16,6 +16,7 @@ pub fn sync_tether_visuals(
     sprite: Option<Res<super::flyline::FlylineSprite>>,
     active_session: Option<Res<ActiveSessionScope>>,
     mut lines: Query<(Entity, &mut TetherVisual, &mut Transform, &mut Sprite)>,
+    roots: Query<&Transform, Without<TetherVisual>>,
 ) {
     super::attached_visuals::reconcile_presented_visuals(
         &mut commands,
@@ -27,10 +28,10 @@ pub fn sync_tether_visuals(
         |body| {
             body.grab_reach
                 .or(body.line_anchor)
-                .map(|reach| (reach, body.pos))
+                .map(|reach| (reach, body.pos, super::flyline::wire_z(&roots, body.visual)))
         },
-        |room, transform, art, (reach, at)| {
-            super::flyline::place_wire(room, transform, art, *reach, *at)
+        |room, transform, art, (reach, at, z)| {
+            super::flyline::place_wire(room, transform, art, *reach, *at, *z)
         },
     );
 }

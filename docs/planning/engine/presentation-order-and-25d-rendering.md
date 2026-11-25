@@ -1,6 +1,6 @@
 # Presentation order and optional 2.5D rendering
 
-**State:** PO1 landed 2026-11-25; PO2 and RV1-RV3 PLANNED. Selected by the maintainer on 2026-11-21. The customers
+**State:** PO1 and PO2 landed 2026-11-25; RV1-RV3 PLANNED. Selected by the maintainer on 2026-11-21. The customers
 are Scout inside and outside the cart, consistent order for body parts and
 effects, and Bevy 2D and 3D presentation tools that can coexist. Production
 source reviewed: `f41218979625`; planning includes the preceding runtime
@@ -374,8 +374,8 @@ shared value preparation are sufficient until source proves otherwise.
    (2026-11-25); only a holder with no posed hand keeps `WORLD_Z_PLAYER`.
 
    **Same-plane actors (2026-11-25).** Two actors of one plane no longer
-   share one z: each takes a tie fixed for its life (`occurrence_tie`,
-   0.01 steps by entity index mod 16), above its own parts' spread, under a
+   share one z: each takes a tie fixed for its life (`order_block_tie`,
+   0.01 steps by body index mod 16), above its own parts' spread, under a
    depth plane and with its flash under an enclosure. Players take the same
    tie; the bubble shield, the one overlay drawn over every body of the
    layer, is drawn above the whole span (`OCCURRENCE_SPAN` + 0.05). The
@@ -418,7 +418,24 @@ shared value preparation are sufficient until source proves otherwise.
    npc_pirate_raider --warmup 90`) shows all three raiders drawn over their
    sharks.
 
-   Still open: bodies and features, and attachment order.
+   **Players and features take one tie law; ropes draw under their owner
+   (2026-11-25).**
+   - The player road ordered its bodies by its own `occurrence_tie`. It now
+     calls the same `order_block_tie` the actor road does: a player's visual
+     is its body. The old function is gone.
+   - The flyline rope and the grab tether (`place_wire`) were drawn at
+     `WORLD_Z_PLAYER - 0.05` whoever owned them. An actor's grab line was
+     therefore drawn 4.95 in front of its own body and of every actor of its
+     layer.
+   - Both are now drawn `WIRE_UNDER_BODY` under the owner's drawn root
+     (`wire_z`), and keep the player plane when no root is drawn.
+   - In the tether witness the roots sit at z 0. The expected line is at
+     −0.05, where the old code drew it at 19.95.
+
+   The morph ball and the trapdoor replace a hidden body, so their absolute
+   depths stand, as stated above. The bubble shield is drawn above the
+   layer's whole span. PO2 is complete. No capture was taken of an actor's
+   tether, because no room authors a grabbing actor at rest.
 3. **RV1 — shared sample and view ownership.** Complete the needed PVS-2
    extraction, with the current 2D path as its first consumer. Separate
    camera/application and device roots by view/renderer. Remove the old

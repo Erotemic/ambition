@@ -209,14 +209,11 @@ const _: () = assert!(1.5 + OCCURRENCE_SPAN < super::BODY_DEPTH_BAND);
 
 /// The tie of one drawn body within its layer: fixed for its life, so two
 /// bodies keep their order while both are drawn.
-pub(super) fn occurrence_tie(entity: Entity) -> f32 {
-    (entity.index_u32() % OCCURRENCE_TIES) as f32 * OCCURRENCE_DEPTH_STEP
-}
-
-/// The tie of a body drawn by its published order block
-/// (`ambition_sim_view::OrderBlock`): the block's own tie, and one step per
-/// seat over it, so an active rider is drawn just over the mount it sits. A
-/// row with no body is ordered by the drawn entity, as [`occurrence_tie`].
+///
+/// It is the tie of its published order block (`ambition_sim_view::OrderBlock`):
+/// the block's own tie, and one step per seat over it, so an active rider is
+/// drawn just over the mount it sits. A row with no body is ordered by the
+/// drawn entity. Players and features both take their tie here.
 pub(super) fn order_block_tie(order: ambition_sim_view::OrderBlock, drawn: Entity) -> f32 {
     let body = order.body.unwrap_or(drawn.index_u32());
     ((body % OCCURRENCE_TIES) + u32::from(order.seat)) as f32 * OCCURRENCE_DEPTH_STEP

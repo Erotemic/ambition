@@ -360,8 +360,10 @@ pub fn sync_visuals(
             continue;
         };
         let draw_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
-        // Two players at one spot are two order blocks (`occurrence_tie`).
-        let player_z = WORLD_Z_PLAYER + super::primitives::occurrence_tie(entity);
+        // Two players at one spot are two order blocks, by the one law every
+        // body of a layer is ordered by (`order_block_tie`): the player's
+        // visual is its body, so its own block is the drawn entity's.
+        let player_z = WORLD_Z_PLAYER + super::primitives::order_block_tie(Default::default(), entity);
         transform.translation = world_to_bevy(&world.0, draw_pos, player_z);
         // Aerial roll (portal somersault / future gravity-room orientation).
         transform.rotation = Quat::from_rotation_z(pose.material.render_angle());

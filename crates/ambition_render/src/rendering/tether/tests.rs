@@ -262,12 +262,18 @@ fn body_attachments_follow_room_identity_and_retire_with_their_owners() {
     };
     let mut expected = Transform::default();
     let mut art = Sprite::default();
+    // Under its owner's drawn root, as the system draws it.
+    let wire_z = |app: &App, owner: Entity| {
+        app.world().get::<Transform>(owner).map_or(ambition_platformer2d_core::config::WORLD_Z_PLAYER, |t| t.translation.z)
+            - crate::rendering::flyline::WIRE_UNDER_BODY
+    };
     crate::rendering::flyline::place_wire(
         &geometry,
         &mut expected,
         &mut art,
         Vec2::new(REACH.x, REACH.y),
         Vec2::new(600.0, AT.y),
+        wire_z(&app, fighters[1]),
     );
     assert_eq!(line_for(&mut app, fighters[1]), expected);
 
@@ -281,6 +287,7 @@ fn body_attachments_follow_room_identity_and_retire_with_their_owners() {
         &mut art,
         Vec2::new(REACH.x, REACH.y),
         Vec2::new(AT.x, AT.y),
+        wire_z(&app, player),
     );
     assert_eq!(line_for(&mut app, player), expected);
     assert_eq!(lines(&mut app).len(), 3);

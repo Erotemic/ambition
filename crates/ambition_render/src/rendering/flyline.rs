@@ -99,6 +99,7 @@ pub fn sync_flyline_visuals(
     sprite: Option<Res<FlylineSprite>>,
     active_session: Option<Res<ActiveSessionScope>>,
     mut wires: Query<(Entity, &mut FlylineVisual, &mut Transform, &mut Sprite)>,
+    roots: Query<&Transform, Without<FlylineVisual>>,
 ) {
     super::attached_visuals::reconcile_presented_visuals(
         &mut commands,
@@ -110,12 +111,26 @@ pub fn sync_flyline_visuals(
             .filter(|handle| **handle != Handle::default()),
         &mut wires,
         "Flyline Visual",
-        |body| body.wire_anchor.map(|anchor| (anchor, body.pos)),
-        |room, transform, art, (anchor, at)| place_wire(room, transform, art, *anchor, *at),
+        |body| body.wire_anchor.map(|anchor| (anchor, body.pos, wire_z(&roots, body.visual))),
+        |room, transform, art, (anchor, at, z)| place_wire(room, transform, art, *anchor, *at, *z),
     );
 }
 
-/// Stretch and rotate the rope so it runs from `anchor` to `at`.
+/// How far under its body a rope is drawn, so it does not cut across it.
+pub(crate) const WIRE_UNDER_BODY: f32 = 0.05;
+
+/// The depth a body's rope is drawn at: just under the body's drawn root,
+/// whatever layer or seat the body is drawn in. A player is at the player
+/// plane and an actor at the actor layer, and a rope at the player plane cut
+/// across every actor of its layer, its own body included. A body whose root
+/// is not drawn keeps the player plane.
+pub(crate) fn wire_z<F: bevy::ecs::query::QueryFilter>(roots: &Query<&Transform, F>, visual: Entity) -> f32 {
+    roots.get(visual).map_or(ambition_platformer2d_core::config::WORLD_Z_PLAYER, |root| root.translation.z)
+        - WIRE_UNDER_BODY
+}
+
+/// Stretch and rotate the rope so it runs from `anchor` to `at`, at depth `z`
+/// ([`wire_z`]).
 ///
 /// One sprite at the midpoint, rotated, not a chain of segments like
 /// `grapple.rs`. A swinging rope changes angle every frame, and a chain
@@ -126,6 +141,7 @@ pub(crate) fn place_wire(
     art: &mut Sprite,
     anchor: bevy::math::Vec2,
     at: bevy::math::Vec2,
+    z: f32,
 ) {
     let span = at - anchor;
     let length = span.length().max(1.0);
@@ -133,8 +149,7 @@ pub(crate) fn place_wire(
     transform.translation = ambition_platformer2d_core::config::world_to_bevy(
         room,
         ambition_platformer2d_core::Vec2::new(middle.x, middle.y),
-        // Behind the body, so the rope does not cut across it.
-        ambition_platformer2d_core::config::WORLD_Z_PLAYER - 0.05,
+        z,
     );
     // The texture axis is its height. World +y is down and Bevy +y is up, so
     // the angle is measured from straight down in world terms and the sign

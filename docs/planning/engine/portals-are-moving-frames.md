@@ -145,6 +145,21 @@ strike-victim road (projectiles) passes the record; the boss feature road,
 held items and the pose-held/kernel-collapsed `reconcile_transit` seed are
 unchanged, and the next-step seed still restarts at the arrival.
 
+**Landed (2026-11-25): generic transit takes every root crossing the
+budget admits.** After a transfer, the rest of the tick is a straight leg in
+the exit's chart (from the mapped crossing point at `tau` to the transfer's
+end); `continue_after_crossing` searches that leg for the next root crossing
+(not the exit just left) and composes the transfers: one map, the last exit
+pair, the input warp of each hop, the final position and velocity. The
+hop budget is the portal geometry's (`PortalGeometry::budget().max_hops`), so
+the default single hop runs no extra search. Witness
+`placement/tests.rs::a_body_crosses_two_pairs_in_one_tick`: the pairs above,
+under a composed budget, end at x 320 with the entry velocity; under single
+hop the same travel ends at 170 through A only. Not covered: the leg between
+two crossings is in no contact record (`CrossedTravel` holds the travel
+before the first), and the kernel still integrates the whole tick in the
+entry chart (its material collision already threads both cuts).
+
 ### Refusal recovery can be overridden by later crossing discovery
 
 `platformer2d_core/src/movement/kernel.rs:182–198` retries a refused motion

@@ -3507,6 +3507,56 @@ mod tests {
             assert!(outgoing.into_iter().all(|entity| app.world().get_entity(entity).is_ok()));
             assert_eq!(live_room_definitions(&mut app).len(), 2);
         }
+
+        /// ⭐ REL3: A LATE REFUSAL CHANGES NO RELATION, AND AN ACCEPTED CUT
+        /// SETTLES THEM. Member `a` holds a captive that stays and rides a
+        /// mount. Held, the batch is refused at its final check because `b`
+        /// is gone: the hold, the ride and every member's room are as they
+        /// were. The same batch committed takes the mount with its rider (an
+        /// attachment, though the rider is room-scoped and the mount in no
+        /// custody) and releases the hold the crossing splits.
+        #[test]
+        fn a_late_refusal_keeps_relations_and_an_accepted_batch_settles_them() {
+            use ambition_combat::capture::CapturedBy;
+            use ambition_mount::{MountSlot, RidingOn};
+            let first = LiveRoomInstance::ACTIVATION;
+            let relate = |app: &mut bevy::prelude::App| {
+                let a = body(app.world_mut(), first, "member-a");
+                let b = body(app.world_mut(), first.next(), "member-b");
+                let captive = body(app.world_mut(), first, "captive");
+                let mount = body(app.world_mut(), first, "mount");
+                app.world_mut().entity_mut(captive).insert(CapturedBy {
+                    captor: a, hold_offset_local: ae::Vec2::new(10.0, 0.0), hold_point: None,
+                });
+                app.world_mut().entity_mut(a).insert(RidingOn { mount });
+                app.world_mut().entity_mut(mount).insert(MountSlot { rider: Some(a) });
+                (a, b, captive, mount)
+            };
+
+            let (mut app, outgoing) = two_live_rooms();
+            let (a, b, captive, mount) = relate(&mut app);
+            let publication = stage(&mut app, [a, b], outgoing.clone(), true,
+                LiveRoomSuccession::opening(first, first.next().next()));
+            app.world_mut().despawn(b);
+            assert!(!transaction::commit_held_publication(app.world_mut(), publication));
+            app.update();
+            assert_eq!(app.world().get::<CapturedBy>(captive).map(|held| held.captor), Some(a), "a refused crossing released the hold");
+            assert_eq!(ambition_mount::active_mount_in(app.world(), a), Some(mount), "a refused crossing ended the ride");
+            for member in [a, captive, mount] {
+                assert_eq!(app.world().get::<InRoomInstance>(member), Some(&InRoomInstance(first)), "a refused crossing moved {member:?}");
+            }
+
+            let (mut app, outgoing) = two_live_rooms();
+            let (a, b, captive, mount) = relate(&mut app);
+            let third = first.next().next();
+            let publication = stage(&mut app, [a, b], outgoing, true, LiveRoomSuccession::opening(first, third));
+            assert!(transaction::commit_held_publication(app.world_mut(), publication));
+            app.update();
+            assert_eq!(app.world().get::<InRoomInstance>(mount), Some(&InRoomInstance(third)), "the mount stayed behind its rider");
+            assert_eq!(ambition_mount::active_mount_in(app.world(), a), Some(mount), "the ride did not survive a crossing that took both");
+            assert_eq!(app.world().get::<InRoomInstance>(captive), Some(&InRoomInstance(first)), "the captive crossed though nothing carries it");
+            assert!(app.world().get::<CapturedBy>(captive).is_none(), "a hold between two rooms was kept");
+        }
     }
 
 }

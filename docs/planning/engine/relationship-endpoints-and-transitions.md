@@ -376,9 +376,16 @@ operation: the direct roads have none after the decision, and publication
 applies them after its last arrival. So a refused or held crossing changes no
 relation.
 
+Late-refusal witness:
+`a_late_refusal_keeps_relations_and_an_accepted_batch_settles_them`
+(publication `batch_arrivals`). A held batch whose captor member also rides
+a mount is refused at its final check, because the other member is gone.
+The hold, the ride and every room stamp stay as they were. The same batch
+committed takes the mount (an attachment of a room-scoped rider) and
+releases the hold the crossing splits.
+
 Still open:
-- the dedicated late-refusal witness, and the capture/automatic-exit witness
-  with source retention;
+- the capture/automatic-exit witness with source retention in a real room;
 - ISL-3's consumption of the cohort.
 
 ## REL4 — retain exit context and authorize endpoint succession

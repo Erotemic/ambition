@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::content::hole;
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::presentation::profiles;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::profiles;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition_platformer2d::world::rooms::RoomSet;
 use ambition_platformer2d::session::StartingCharacter;
@@ -121,24 +121,24 @@ impl Plugin for SanicExperiencePlugin {
         // The ring tally. One declared readout; the engine never learns what a
         // ring is — `publish_sanic_ring_readout` writes the word "RINGS".
         .with_hud(
-            ambition_platformer2d::presentation::HudDeclaration::new()
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudDeclaration::new()
                 .slot(
-                    ambition_platformer2d::presentation::HudSlotSpec::new(RINGS_HUD_SLOT)
-                        .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
+                    ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec::new(RINGS_HUD_SLOT)
+                        .with_region(ambition_platformer2d_shared_tangle::gameplay_presentation::SurroundRegion::Top)
                         .with_font_size(22.0)
                         .with_color([1.0, 0.85, 0.25, 1.0]),
                 )
                 // The clock of the act, beside the rings.
                 .slot(
-                    ambition_platformer2d::presentation::HudSlotSpec::new(TIME_HUD_SLOT)
-                        .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
+                    ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec::new(TIME_HUD_SLOT)
+                        .with_region(ambition_platformer2d_shared_tangle::gameplay_presentation::SurroundRegion::Top)
                         .with_order(1)
                         .with_font_size(22.0)
                         .with_color([0.96, 0.97, 1.0, 1.0]),
                 )
                 // The name of the act, for its first seconds.
                 .slot(
-                    ambition_platformer2d::presentation::HudSlotSpec::new(TITLE_HUD_SLOT)
+                    ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec::new(TITLE_HUD_SLOT)
                         .with_order(98)
                         .with_font_size(34.0)
                         .with_color([1.0, 1.0, 1.0, 1.0])
@@ -147,7 +147,7 @@ impl Plugin for SanicExperiencePlugin {
                 // The results card. Published only while the act is cleared, so it
                 // needs no hide path — an unpublished slot draws nothing.
                 .slot(
-                    ambition_platformer2d::presentation::HudSlotSpec::new(RESULTS_HUD_SLOT)
+                    ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec::new(RESULTS_HUD_SLOT)
                         .with_order(99)
                         .with_font_size(30.0)
                         .with_color([1.0, 0.94, 0.60, 1.0])
@@ -155,7 +155,7 @@ impl Plugin for SanicExperiencePlugin {
                 ),
         )
         .with_defense_presentation(
-            ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
+            ambition_platformer2d_shared_tangle::gameplay_presentation::DefensePresentationPolicy::shared_iframe_blink(),
         )
         .install(app, sanic_prepared_session_world);
         // Sanic's readouts, only while Sanic is on screen: in the hub, another
@@ -209,7 +209,7 @@ fn publish_sanic_ring_readout(
     >,
     // The room the runner is in: its act has the name the title card shows.
     rooms: ambition_platformer2d::world::rooms::LiveRoomSpecs,
-    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
+    mut readouts: bevy::prelude::ResMut<ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts>,
 ) {
     if !facts.present {
         return;
@@ -240,7 +240,7 @@ fn publish_sanic_ring_readout(
     match title {
         Some((name, number)) => readouts.set(
             TITLE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(title_card(&name, number)),
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(title_card(&name, number)),
         ),
         None => readouts.clear_slot(TITLE_HUD_SLOT),
     }
@@ -252,7 +252,7 @@ fn publish_sanic_ring_readout(
     }) {
         Some((time, rings)) => readouts.set(
             RESULTS_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(results_card(time, rings)),
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(results_card(time, rings)),
         ),
         None => readouts.clear_slot(RESULTS_HUD_SLOT),
     }

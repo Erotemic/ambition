@@ -538,11 +538,11 @@ pub fn compose_versus_experience(app: &mut App) {
     // Declare one health gauge per possible seat. `publish_versus_hud` owns
     // round-specific text; the engine does not model rounds.
     .with_hud({
-        let mut hud = ambition_platformer2d::presentation::HudDeclaration::new();
+        let mut hud = ambition_platformer2d_shared_tangle::gameplay_presentation::HudDeclaration::new();
         for (seat, slot) in super::versus_rules::HEALTH_HUD_SLOTS.iter().enumerate() {
             hud = hud.slot(
-                ambition_platformer2d::presentation::HudSlotSpec::new(*slot)
-                    .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
+                ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec::new(*slot)
+                    .with_region(ambition_platformer2d_shared_tangle::gameplay_presentation::SurroundRegion::Top)
                     .with_font_size(22.0)
                     // The gauge's full extent is the slot's declared minimum
                     // width, so a stage sizes its bar by saying how much room it
@@ -558,10 +558,10 @@ pub fn compose_versus_experience(app: &mut App) {
             );
         }
         hud.slot(
-            ambition_platformer2d::presentation::HudSlotSpec::new(
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec::new(
                 super::versus_rules::ROUNDS_HUD_SLOT,
             )
-            .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
+            .with_region(ambition_platformer2d_shared_tangle::gameplay_presentation::SurroundRegion::Top)
             .with_font_size(16.0)
             .with_color([0.75, 0.8, 0.95, 1.0]),
         )
@@ -572,7 +572,7 @@ pub fn compose_versus_experience(app: &mut App) {
         //
         // Without that the word FIGHT would sit over the whole round.
         .slot(
-            ambition_platformer2d::presentation::HudSlotSpec::new(
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec::new(
                 super::versus_rules::ANNOUNCE_HUD_SLOT,
             )
             .centered()
@@ -594,7 +594,7 @@ pub fn compose_versus_experience(app: &mut App) {
     // about the launcher listing it.
     .unlisted()
     .with_defense_presentation(
-        ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
+        ambition_platformer2d_shared_tangle::gameplay_presentation::DefensePresentationPolicy::shared_iframe_blink(),
     )
     .install(app, versus_prepared_session_world);
 

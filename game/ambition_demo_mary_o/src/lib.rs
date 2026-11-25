@@ -21,9 +21,12 @@ mod binding_tests;
 pub mod bricks;
 pub mod castle_end;
 pub mod cosmic;
+#[cfg(feature = "render")]
 pub mod cosmic_aura;
+#[cfg(feature = "render")]
 pub mod cosmic_barrier;
 pub mod death;
+#[cfg(feature = "render")]
 pub mod fire_shader;
 pub mod flag;
 pub mod forms;
@@ -33,13 +36,16 @@ pub mod ldtk_vocabulary;
 pub mod level_1_2;
 pub mod movement;
 pub mod pipe;
+#[cfg(feature = "render")]
 pub mod pipe_signs;
 pub mod plane;
 pub mod plant;
 pub mod powerups;
 pub mod provider;
+#[cfg(feature = "render")]
 pub mod quasar_shader;
 pub mod scenery;
+#[cfg(feature = "render")]
 pub mod shimmer_shader;
 pub mod pack;
 pub mod rules;
@@ -52,6 +58,7 @@ pub mod swallow;
 pub mod test_course;
 pub mod text;
 pub mod void_lizard;
+#[cfg(feature = "render")]
 pub mod void_look;
 pub mod void_star;
 
@@ -1196,6 +1203,7 @@ pub fn install_mary_o_content(app: &mut App) {
     // so the decorative props authored on the level resolve to real art instead
     // of the placeholder quad.
     scenery::register_mary_o_construction_props(app);
+    #[cfg(feature = "render")]
     app.add_systems(
         bevy::prelude::Update,
         bevy::prelude::IntoScheduleConfigs::in_set((

@@ -15,6 +15,9 @@ static_content = []
 # The pack check binary (`smash_content_check`): the content CLI with this demo's
 # own schemas. Off by default: the demo never links the CLI.
 content_check = ["ambition_platformer2d/content_check"]
+# The demo's looks: the renderer's effects, the portal view and the select
+# screen's menu font. A visible composition selects it.
+render = ["ambition_platformer2d/ambition_render", "ambition_platformer2d/ambition_portal2d_presentation", "ambition_platformer2d/ambition_menu"]
 
 [build-dependencies]
 ambition_sprite_part_format = { path = "../../crates/ambition_sprite_part_format" }
@@ -50,10 +53,16 @@ ambition_fighter_specials = { path = "../ambition_fighter_specials" }
 # shipped game and was inert in the standalone demo.
 # ⚠ This crate REGISTERS those systems unconditionally, so the requirement
 # belongs here rather than on each app that composes it.
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack", "portal"] }
+# The capabilities the demo simulates with. Its looks and its select screen's
+# font are `render`'s, so a simulation-only composition links no renderer or
+# menu crate through it.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["content_pack", "portal", "rollback", "ldtk", "dialogue"] }
+ambition_platformer2d_shared_tangle = { path = "../../crates/ambition_platformer2d_shared_tangle" }
 bevy = { version = "0.19.1", default-features = false }
 
 [dev-dependencies]
+# The demo's own tests see its looks; downstream crates are unaffected.
+ambition_demo_smash = { path = ".", features = ["render"] }
 # The riposte's loaded-file arm builds the module crate for wasm32 and runs it
 # (`riposte_tests`).
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["wasm_modules", "test-support"] }

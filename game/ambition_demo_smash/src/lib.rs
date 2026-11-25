@@ -464,6 +464,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             // A viewer-dependent cone is undefined with no primary player, and
             // seamless camera transit is a single-camera effect. The portal
             // presentation's own configuration stays as its owner set it.
+            #[cfg(feature = "render")]
             {
                 use ambition_platformer2d::portal_presentation as portal_view;
                 app.declare_rules(
@@ -709,7 +710,7 @@ pub fn publish_smash_hud(
     content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     // The running session's frozen cast, or the published one with no session.
     declared: ambition_platformer2d::characters::prepared::SessionCast,
-    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
+    mut readouts: bevy::prelude::ResMut<ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts>,
 ) {
     let mut rows: Vec<(usize, String, f32, Option<(u32, u32)>, Option<HudFace>, f32)> = fighters
         .iter()
@@ -751,12 +752,12 @@ pub fn publish_smash_hud(
         let (remaining, started) = stocks.unwrap_or((0, 0));
         readouts.set(
             *slot,
-            ambition_platformer2d::presentation::HudReadout::standing(
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::standing(
                 // No label: `text()` joins label and value, and a name would
                 // overflow the 132px panel. The portrait identifies the fighter.
                 String::new(),
                 value,
-                ambition_platformer2d::presentation::HudStanding {
+                ambition_platformer2d_shared_tangle::gameplay_presentation::HudStanding {
                     portrait: face.as_ref().map(|face| face.image.clone()),
                     portrait_frame: face.as_ref().and_then(|face| face.frame),
                     stock_icon: Some(STOCK_ICON_ASSET.to_string()),
@@ -795,7 +796,7 @@ fn announce_the_opening_countdown(
     sudden_death: Option<
         bevy::prelude::Res<ambition_platformer2d::versus_match::SuddenDeathEntered>,
     >,
-    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
+    mut readouts: bevy::prelude::ResMut<ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts>,
 ) {
     use ambition_platformer2d::versus_match::OpeningPhase;
     let (Some(active), Some(prepared), Some(tick)) = (active, prepared, tick) else {
@@ -827,7 +828,7 @@ fn announce_the_opening_countdown(
     if sudden_death.is_some_and(|entered| entered.entered(&active)) {
         readouts.set(
             SMASH_ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(text::line("announce.sudden_death")),
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(text::line("announce.sudden_death")),
         );
         return;
     }
@@ -844,7 +845,7 @@ fn announce_the_opening_countdown(
     match word {
         Some(word) => readouts.set(
             SMASH_ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(word),
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(word),
         ),
         // Unconditional: the arms above already handed the slot over.
         None => readouts.clear_slot(SMASH_ANNOUNCE_HUD_SLOT),
@@ -1152,7 +1153,7 @@ fn return_to_the_select_screen_when_the_match_ends(
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     time: bevy::prelude::Res<bevy::prelude::Time>,
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
-    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
+    mut readouts: bevy::prelude::ResMut<ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts>,
     // Whether this match is over, from the authority that rewinds.
     settled: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::StocksMatchSettled>>,
     active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
@@ -1263,7 +1264,7 @@ fn announce_the_winner(
         Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
         &bevy::prelude::Name,
     )>,
-    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
+    mut readouts: bevy::prelude::ResMut<ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts>,
 ) {
     let Some((settled, active)) = settled.as_deref().zip(active.as_deref()) else {
         return;
@@ -1314,7 +1315,7 @@ fn announce_the_winner(
         });
         readouts.set(
             SMASH_ANNOUNCE_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(victory_banner(
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(victory_banner(
                 verdict,
                 named.as_deref(),
             )),
@@ -1975,13 +1976,23 @@ fn leave_the_select_screen_when_asked(
 /// It assembles the roster, stage and ruleset into something bootable.
 pub struct SmashExperiencePlugin;
 
+/// The deterministic loading activity, which is a look (`load_presentation`,
+/// under `render`): a composition that draws nothing has no loading screen.
+fn with_loading_activity(
+    authoring: ambition_platformer2d::provider::PlatformerExperienceAuthoring,
+) -> ambition_platformer2d::provider::PlatformerExperienceAuthoring {
+    #[cfg(feature = "render")]
+    let authoring = authoring.with_loading_activity(ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID);
+    authoring
+}
+
 impl bevy::prelude::Plugin for SmashExperiencePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         install_smash_content(app);
         // Before the authoring below: it advertises the select screen as the
         // entry and refuses an unregistered route.
         app.add_plugins(SmashSelectPlugin);
-        ambition_platformer2d::provider::PlatformerExperienceAuthoring::new(
+        with_loading_activity(ambition_platformer2d::provider::PlatformerExperienceAuthoring::new(
             SMASH_EXPERIENCE,
             SMASH_GAMEPLAY_ROUTE,
             // The name of the game, as its row of a launcher shows it.
@@ -2004,11 +2015,11 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         // and money readouts. Four slots because the stage seats four; the
         // publisher clears unused ones.
         .with_hud({
-            let mut hud = ambition_platformer2d::presentation::HudDeclaration::new();
+            let mut hud = ambition_platformer2d_shared_tangle::gameplay_presentation::HudDeclaration::new();
             for (seat, slot) in FIGHTER_HUD_SLOTS.iter().enumerate() {
                 hud = hud.slot(
-                    ambition_platformer2d::presentation::HudSlotSpec::new(*slot)
-                        .with_region(ambition_platformer2d::presentation::SurroundRegion::Bottom)
+                    ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec::new(*slot)
+                        .with_region(ambition_platformer2d_shared_tangle::gameplay_presentation::SurroundRegion::Bottom)
                         .with_font_size(22.0)
                         .with_min_px(ambition_platformer2d::engine_core::Vec2::new(220.0, 30.0))
                         // Coloured by seat parity, so partners read as partners.
@@ -2020,18 +2031,15 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 );
             }
             hud.slot(
-                ambition_platformer2d::presentation::HudSlotSpec::new(SMASH_ANNOUNCE_HUD_SLOT)
+                ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec::new(SMASH_ANNOUNCE_HUD_SLOT)
                     .centered()
                     .with_font_size(34.0)
                     .with_color([1.0, 0.85, 0.3, 1.0]),
             )
         })
-        .entered_at(SMASH_SELECT_ROUTE)
-        .with_loading_activity(
-            ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID,
-        )
+        .entered_at(SMASH_SELECT_ROUTE))
         .with_defense_presentation(
-            ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
+            ambition_platformer2d_shared_tangle::gameplay_presentation::DefensePresentationPolicy::shared_iframe_blink(),
         )
         .install(app, smash_prepared_session_world);
         app.add_plugins(SmashRulesPlugin);

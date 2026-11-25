@@ -26,7 +26,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::persistence::settings::UserSettings;
 use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
-use ambition_platformer2d::presentation::gameplay_presentation::ResolvedGameplayPresentation;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation;
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 
 /// Gap between the Menu/Back row and the counter tucked under it.

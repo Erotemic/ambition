@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::content::hole;
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::presentation::profiles;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::profiles;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition_platformer2d::world::rooms::RoomSet;
 use ambition_platformer2d::session::StartingCharacter;
@@ -174,13 +174,16 @@ pub struct MaryOExperiencePlugin;
 impl Plugin for MaryOExperiencePlugin {
     fn build(&self, app: &mut App) {
         crate::install_mary_o_content(app);
-        crate::quasar_shader::install(app);
-        crate::shimmer_shader::install(app);
-        crate::pipe_signs::install(app);
-        crate::fire_shader::install(app);
-        crate::void_look::install(app);
-        crate::cosmic_aura::install(app);
-        crate::cosmic_barrier::install(app);
+        #[cfg(feature = "render")]
+        {
+            crate::quasar_shader::install(app);
+            crate::shimmer_shader::install(app);
+            crate::pipe_signs::install(app);
+            crate::fire_shader::install(app);
+            crate::void_look::install(app);
+            crate::cosmic_aura::install(app);
+            crate::cosmic_barrier::install(app);
+        }
         register_world_item_art(app);
         register_projectile_looks(app);
         {
@@ -212,7 +215,7 @@ impl Plugin for MaryOExperiencePlugin {
         // a 4:3 gameplay rectangle precisely so the HUD has somewhere to live
         // that is not over the level.
         .with_hud(
-            ambition_platformer2d::presentation::HudDeclaration::new()
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudDeclaration::new()
                 .slot(hud_slot(SCORE_HUD_SLOT))
                 .slot(hud_slot(COINS_HUD_SLOT))
                 .slot(hud_slot(TIME_HUD_SLOT))
@@ -221,7 +224,7 @@ impl Plugin for MaryOExperiencePlugin {
                 // on the flag. One slot for both, because they never overlap —
                 // you are either starting the level or finishing it.
                 .slot(
-                    ambition_platformer2d::presentation::HudSlotSpec::new(CARD_HUD_SLOT)
+                    ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec::new(CARD_HUD_SLOT)
                         .with_order(99)
                         .with_font_size(34.0)
                         .with_color([1.0, 0.96, 0.72, 1.0])
@@ -229,7 +232,7 @@ impl Plugin for MaryOExperiencePlugin {
                 )
                 // The boss of a castle: its name and a gauge of its health.
                 .slot(
-                    ambition_platformer2d::presentation::HudSlotSpec::new(BOSS_HUD_SLOT)
+                    ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec::new(BOSS_HUD_SLOT)
                         .with_order(98)
                         .with_font_size(26.0)
                         .with_color([0.94, 0.94, 0.98, 1.0])
@@ -237,7 +240,7 @@ impl Plugin for MaryOExperiencePlugin {
                 ),
         )
         .with_defense_presentation(
-            ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
+            ambition_platformer2d_shared_tangle::gameplay_presentation::DefensePresentationPolicy::shared_iframe_blink(),
         )
         .install(app, mary_o_prepared_session_world);
         app.add_systems(
@@ -278,9 +281,9 @@ pub const CARD_HUD_SLOT: &str = "mary_o_card";
 pub const BOSS_HUD_SLOT: &str = "mary_o_boss";
 
 /// One readout in Mary-O's house style: top surround, chunky, white.
-fn hud_slot(id: &str) -> ambition_platformer2d::presentation::HudSlotSpec {
-    ambition_platformer2d::presentation::HudSlotSpec::new(id)
-        .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
+fn hud_slot(id: &str) -> ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec {
+    ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec::new(id)
+        .with_region(ambition_platformer2d_shared_tangle::gameplay_presentation::SurroundRegion::Top)
         .with_font_size(20.0)
         .with_color([0.97, 0.97, 0.99, 1.0])
 }
@@ -314,7 +317,7 @@ fn publish_mary_o_readouts(
         &ambition_platformer2d::engine_core::BodyKinematics,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
-    mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
+    mut readouts: bevy::prelude::ResMut<ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts>,
 ) {
     let Ok((level, flag)) = level.single() else {
         return;
@@ -329,7 +332,7 @@ fn publish_mary_o_readouts(
     match boss {
         Some((_, health, _, identity)) => readouts.set(
             BOSS_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::gauge(
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::gauge(
                 identity.name.to_uppercase(),
                 format!("{}/{}", health.health.current, health.health.max),
                 health.health.current as f32 / (health.health.max.max(1)) as f32,
@@ -363,7 +366,7 @@ fn publish_mary_o_readouts(
     match card_text(level, flag, title) {
         Some(text) => readouts.set(
             CARD_HUD_SLOT,
-            ambition_platformer2d::presentation::HudReadout::bare(text),
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(text),
         ),
         None => readouts.clear_slot(CARD_HUD_SLOT),
     }

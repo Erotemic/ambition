@@ -56,8 +56,21 @@ desktop_player = [
 # can A/B it: `./run_game.sh --features mimalloc_alloc`.
 mimalloc_alloc = ["dep:mimalloc"]
 
+# What draws: the engine renderer, the portal presentation, and each
+# provider's looks. Both drawing personas include it; `rl_sim` alone does not,
+# so a stepping command links no renderer of the app's choosing.
+render = [
+    "ambition_platformer2d/ambition_render",
+    "ambition_platformer2d/ambition_portal2d_presentation",
+    "ambition_content/render",
+    "ambition_demo_sanic/render",
+    "ambition_demo_smash/render",
+    "ambition_demo_mary_o/render",
+]
+
 visible = [
     "ambition_platformer2d/visible",
+    "render",
     "ambition_content/portal",
     "ambition_content/portal_render",
     "ambition_content/ui",
@@ -95,6 +108,7 @@ web_platform = [
 
 visible_web_base = [
     "ambition_platformer2d/visible_web_base",
+    "render",
     "ambition_content/portal",
     "ambition_content/portal_render",
     "ldtk_runtime",
@@ -203,10 +217,22 @@ ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 ambition_demo_smash = { path = "../ambition_demo_smash" }
 # `ldtk_runtime`: the app installs the LDtk runtime spine (`LdtkWorldPlugin`),
 # whose index its debug overlay and headless summary read.
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["content_pack", "wasm_modules", "script_modules", "ldtk_runtime"] }
-# `render`: the app links the facade's renderer in every persona (it takes
-# the facade's defaults), so Ambition's looks are always installed with it.
-ambition_content = { path = "../ambition_content", features = ["render"] }
+# The facade at the capabilities every persona simulates with. The renderer,
+# the menus and the inventory UI are a presentation persona's (`visible`,
+# `visible_web_base`), so the simulation family links none of them.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = [
+    "content_pack", "wasm_modules", "script_modules", "ldtk_runtime",
+    "rollback", "ldtk", "ambition_portal2d", "ambition_settings_menu", "ambition_touch_input", "dialogue",
+    # CPU-side vocabularies every persona compiles: the menu model and its
+    # map (`ambition_menu` also installs the runtime's map simulation), the
+    # inventory pages, and the loading screen's state. None of them brings a
+    # renderer; `render` below does.
+    "ambition_menu", "ambition_inventory_ui", "load_presentation",
+] }
+ambition_content = { path = "../ambition_content" }
+# The gameplay presentation vocabulary (HUD declarations, defense cues,
+# framing) from its owner: every persona declares it; only `render` draws it.
+ambition_platformer2d_shared_tangle = { path = "../../crates/ambition_platformer2d_shared_tangle" }
 # The reusable programmatic sim harness (reset/step/action/observation/reward).
 # ambition_app supplies the Ambition-specific composition (see rl_sim::AmbitionSim).
 ambition_sim_harness = { path = "../../crates/ambition_sim_harness", optional = true }
@@ -244,7 +270,7 @@ ambition_hosted_world = { path = "../../crates/ambition_hosted_world", features 
 # content <pack-dir>`), with the schemas the game compiles against. Native
 # only: a browser build has no command line.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["content_check"] }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["content_check"] }
 ambition_content_schemas = { path = "../ambition_content_schemas" }
 
 [target.'cfg(target_os = "android")'.dependencies]
@@ -299,6 +325,8 @@ getrandom_04 = { package = "getrandom", version = "=0.4.2", features = ["wasm_js
 [[bin]]
 name = "ambition_game_bin"
 path = "src/bin/ambition_game_bin.rs"
+# The game draws; a simulation-only selection (`rl_sim`) has no window to run.
+required-features = ["render"]
 test = false
 bench = false
 

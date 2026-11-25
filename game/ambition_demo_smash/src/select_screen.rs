@@ -428,6 +428,8 @@ pub struct ScreenArt<'w> {
     /// The decoded entity art, for the random square's interrobang. Loaded by
     /// the same asset pass as every other sprite.
     pub entities: Option<Res<'w, ambition_platformer2d::view::GameAssets>>,
+    /// The menu's font, where the menus are linked (`render`).
+    #[cfg(feature = "render")]
     pub menu_font: Option<Res<'w, ambition_platformer2d::menu::render::bevy_ui::MenuFont>>,
 }
 
@@ -572,11 +574,14 @@ pub fn spawn_select_screen(
         return;
     }
     let catalog = Some(&*art.catalog);
+    #[cfg(feature = "render")]
     let font = art
         .menu_font
         .as_deref()
         .and_then(|font| font.0.clone())
         .unwrap_or_default();
+    #[cfg(not(feature = "render"))]
+    let font: Handle<Font> = Default::default();
     let text_font = |size: f32| TextFont {
         font: font.clone().into(),
         font_size: FontSize::Px(size),

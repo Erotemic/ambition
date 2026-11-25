@@ -71,7 +71,9 @@ pub fn box_sprite_of(block_name: &str) -> Option<&'static str> {
 
 /// The box sheet's rows: it idles whole, plays its break once, then shows the
 /// smashed shell.
+#[cfg_attr(not(feature = "render"), allow(dead_code))]
 const BREAK_ROW: &str = "break";
+#[cfg_attr(not(feature = "render"), allow(dead_code))]
 const BROKEN_ROW: &str = "broken";
 
 /// Dress every monitor of `room` in its box: the block draws nothing (its
@@ -123,6 +125,7 @@ pub fn dress_monitors(sprite_content: &ambition_platformer2d::sprite_sheet::Spri
 
 /// The row a monitor's box shows (`None`: its idle), from whether the monitor
 /// is broken, the row it shows now, and whether that row has played out.
+#[cfg_attr(not(feature = "render"), allow(dead_code))]
 fn box_row(broken: bool, showing: Option<&str>, played_out: bool) -> Option<&'static str> {
     match (broken, showing) {
         (false, _) => None,
@@ -138,6 +141,7 @@ fn box_row(broken: bool, showing: Option<&str>, played_out: bool) -> Option<&'st
 /// Derived from [`SpentMonitors`] every frame, not from the break: that set is
 /// rollback state, so a box broken on a frame a rewind throws away stands
 /// again, which a look driven by the break event would not.
+#[cfg(feature = "render")]
 pub fn dress_monitor_boxes(
     mut commands: Commands,
     spent: Res<SpentMonitors>,

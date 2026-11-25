@@ -6,6 +6,7 @@ use ambition_platformer2d::game_assets as actor_game_assets;
 use ambition_platformer2d::persistence::settings::TextureResolutionScale;
 use ambition_platformer2d::sprite_sheet::game_assets::{self, GameAssetConfig};
 
+#[cfg(feature = "render")]
 use super::scene_setup;
 
 /// App-local authored catalogs consumed together by presentation asset loading.
@@ -56,7 +57,7 @@ fn host_music_registry(
 /// No world visuals, no HUD, no player — those are SESSION-owned and spawn per activation
 /// (`shell_host::ambition_activate_session_visuals`). The launcher/title route
 /// therefore renders over an empty stage with zero gameplay entities.
-#[cfg(feature = "audio")]
+#[cfg(all(feature = "audio", feature = "render"))]
 pub(crate) fn setup_host_presentation_system(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut commands: Commands,
     // Absent in a hub without Ambition (`hub_games`).
@@ -134,7 +135,7 @@ pub(crate) fn setup_host_presentation_system(sprite_content: bevy::prelude::Res<
     }
 }
 
-#[cfg(not(feature = "audio"))]
+#[cfg(all(not(feature = "audio"), feature = "render"))]
 pub(crate) fn setup_host_presentation_system(
     sprite_content: Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut commands: Commands,
@@ -208,6 +209,7 @@ pub(crate) fn setup_host_presentation_system(
 ///
 /// and it took two other things with it that nobody ever put back: the per-`Prop.kind` sheets
 /// and the realizations a host published itself without declaring them.
+#[cfg(feature = "render")]
 pub(crate) fn reload_visual_quality_assets_on_scale_change(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     quality: Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>,
 

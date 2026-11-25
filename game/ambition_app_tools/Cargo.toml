@@ -61,6 +61,10 @@ sim = [
     "dep:ambition_app",
     "ambition_app/rl_sim",
     "dep:ambition_platformer2d",
+    "ambition_platformer2d/rollback",
+    "ambition_platformer2d/ldtk",
+    "ambition_platformer2d/ambition_portal2d",
+    "ambition_platformer2d/dialogue",
     "dep:ambition_sim_harness",
     "dep:bevy",
     "dep:ambition_content",
@@ -69,10 +73,12 @@ sim = [
 game = [
     "sim",
     "ambition_app/desktop_dev",
+    "ambition_platformer2d/all_capabilities",
     "ambition_platformer2d/capture",
     "ambition_sim_harness/capture",
     "dep:ambition_menu_kaleidoscope",
     "dep:ambition_demo_smash",
+    "ambition_demo_smash/render",
     "dep:ambition_demo_smash_app",
     "dep:image",
 ]
@@ -100,7 +106,10 @@ ambition_persistence = { path = "../../crates/ambition_persistence" }
 ambition_app = { path = "../ambition_app", default-features = false, optional = true }
 # The cube menu's camera marker, so `--include-ui` photographs an open menu.
 ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope", optional = true }
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", optional = true }
+# Without its defaults: `sim` takes the capabilities a stepping command reads,
+# and `game` adds every capability (the renderer among them) for the
+# picture-taking and menu commands.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, optional = true }
 # ⭐ THE MOVE-EXERCISE AND CAPTURE MACHINERY, which used to be a `#[path]`-included
 # source file in `src/bin/support/`. `capture` is opt-in on the harness so a test
 # or RL driver keeps paying for no renderer; a picture-taking tool asks for it.

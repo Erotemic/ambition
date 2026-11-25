@@ -193,7 +193,7 @@ fn give_each_fire_its_glow(
                 FireGlow,
                 // What the fire lights in a dark room: twice its glow's
                 // reach (the glow is the flame's halo, not its light), orange.
-                ambition_platformer2d::presentation::CastsLight {
+                ambition_platformer2d_shared_tangle::gameplay_presentation::CastsLight {
                     radius: size * GLOW_SCALE,
                     intensity: 0.9,
                     color: [1.0, 0.6, 0.25],

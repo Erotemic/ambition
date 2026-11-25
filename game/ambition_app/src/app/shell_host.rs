@@ -192,11 +192,10 @@ pub const AMBITION_STARTUP_ROUTE: &str = "ambition_startup";
 /// consumer that cares how long the run-in lasts derives it from
 /// [`ambition_startup_duration`] rather than restating a number.
 fn ambition_startup_segments(world: &mut World) -> Vec<ambition_platformer2d::game_shell::ShellSegmentSpec> {
-    use ambition_platformer2d::game_shell::{
-        ShellSegmentPolicy, ShellSegmentRole, ShellSegmentSpec,
-    };
+    use ambition_platformer2d::game_shell::{ShellSegmentPolicy, ShellSegmentSpec};
 
-    vec![
+    #[cfg_attr(not(feature = "render"), allow(unused_mut))]
+    let mut segments = vec![
         // The ENGINE card: its words are `startup.engine_card` in the host's
         // text file, and its hold is `engine_card_s` in the title look.
         ShellSegmentSpec::text("powered_by_ambition", super::host_pack::host_text().line("startup.engine_card")).with_policy(
@@ -205,6 +204,11 @@ fn ambition_startup_segments(world: &mut World) -> Vec<ambition_platformer2d::ga
                 ..Default::default()
             },
         ),
+    ];
+    // The authorship card is drawn art (Ambition's looks, `ambition_content/render`):
+    // a persona that draws nothing (the simulation family) composes the text card alone.
+    #[cfg(feature = "render")]
+    segments.push(
         // The AUTHORSHIP card — the authored comic beat, DRAWN rather than played back. Its length
         // is still DERIVED — `made_this_meme_card_duration()` is `frame_ms × frames.len()` off
         // `vanity_card_made_this_meme.ron` — so re-exporting the animation retimes this segment and
@@ -219,7 +223,7 @@ fn ambition_startup_segments(world: &mut World) -> Vec<ambition_platformer2d::ga
         // studio name, rename this segment to it.
         ShellSegmentSpec::registered(
             "i_made_this",
-            ShellSegmentRole::Vanity,
+            ambition_platformer2d::game_shell::ShellSegmentRole::Vanity,
             ambition_content::presentation::vanity_card_made_this_meme::MADE_THIS_MEME_CARD_SEGMENT_KIND,
         )
         .with_policy(ShellSegmentPolicy {
@@ -227,8 +231,11 @@ fn ambition_startup_segments(world: &mut World) -> Vec<ambition_platformer2d::ga
                 ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration(world),
             ),
             ..Default::default()
-        }),
-    ]
+        })
+    );
+    #[cfg(not(feature = "render"))]
+    let _ = world;
+    segments
 }
 
 /// How long the composed startup run-in plays if nobody presses confirm.
@@ -303,6 +310,7 @@ pub fn compose_ambition_startup_sequence(app: &mut App) {
 /// moving platforms, HUD, LDtk visual spine roots) constructed on Ambition
 /// activation with the session's captured scope. Registered only by the
 /// windowed composition — headless hosts run the same lifecycle without it.
+#[cfg(feature = "render")]
 pub fn install_ambition_shell_visuals(app: &mut App) {
     // Provider-agnostic per-session room presentation: parallax + static room
     // visuals for WHATEVER RoomSet the activating provider owns —
@@ -322,6 +330,7 @@ pub fn install_ambition_shell_visuals(app: &mut App) {
 /// after the session bridge + providers (command flush between), so the
 /// session's player entity already exists.
 #[allow(clippy::too_many_arguments)]
+#[cfg(feature = "render")]
 fn ambition_activate_session_visuals(
     mut sessions: MessageReader<GameplaySessionEvent>,
     mut commands: Commands,

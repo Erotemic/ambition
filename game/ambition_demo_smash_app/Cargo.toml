@@ -88,7 +88,7 @@ ambition_input_opinions = { path = "../../opinions/ambition_input_opinions" }
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
 # The volley module's own bolt, for the ladder rig's shots.
 ambition_content_modules = { path = "../ambition_content_modules" }
-ambition_demo_smash = { path = "../ambition_demo_smash" }
+ambition_demo_smash = { path = "../ambition_demo_smash", features = ["render"] }
 bevy = { version = "0.19.1", default-features = false }
 # Argument parsing for `smash_tool`, the crate's single modal tool binary.
 clap = { workspace = true }

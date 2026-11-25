@@ -2,6 +2,7 @@
 //! …) and window/display-mode controls.
 
 pub mod platform;
+#[cfg(feature = "render")]
 pub mod render_asset_budget;
 pub mod render_recovery;
 pub mod vsync;

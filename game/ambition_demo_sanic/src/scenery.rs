@@ -9,13 +9,16 @@ use bevy::prelude::*;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::world::rooms::{PropDraw, PropSpec, RoomSpec};
 
+#[cfg_attr(not(feature = "render"), allow(unused_imports))]
 use crate::{SanicActPhase, SanicActState};
 
 /// The sheet of the goal post, and the name of its prop.
 pub const GOAL_POST_SPRITE: &str = "sanic_goal_post";
 
 /// The rows of the sheet: it turns over once, then shows its other side.
+#[cfg_attr(not(feature = "render"), allow(dead_code))]
 const SPIN_ROW: &str = "spin";
+#[cfg_attr(not(feature = "render"), allow(dead_code))]
 const CLEARED_ROW: &str = "cleared";
 
 /// The ground at `x`: the lowest surface there that a body stands on, from
@@ -92,6 +95,7 @@ pub fn dress_goal(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteCo
 
 /// The row the post shows (`None`: its idle), from whether the act is
 /// cleared, the row it shows now, and whether that row has played out.
+#[cfg_attr(not(feature = "render"), allow(dead_code))]
 fn post_row(cleared: bool, showing: Option<&str>, played_out: bool) -> Option<&'static str> {
     match (cleared, showing) {
         (false, _) => None,
@@ -107,6 +111,7 @@ fn post_row(cleared: bool, showing: Option<&str>, played_out: bool) -> Option<&'
 /// Derived from [`SanicActState`] every frame, not from the clear: that state
 /// is rollback state, so a clear on a frame a rewind throws away turns the
 /// sign back.
+#[cfg(feature = "render")]
 pub fn dress_goal_posts(
     mut commands: Commands,
     acts: Query<&SanicActState>,

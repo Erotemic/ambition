@@ -25,6 +25,7 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
     registrar.require_rollback::<crate::HangingItem>(OWNER, "entity:hanging_item");
     registrar
         .rollback_component_clone::<crate::GroundItem>(OWNER, "item.ground_item");
+    registrar.rollback_component_clone::<crate::ErrandPickupOnly>(OWNER, "item.errand_pickup_only");
     // ⭐ SLEEP IS SIMULATION STATE, and this one is presence/absence rather than
     // a value. `ground_item_physics` skips a settled object entirely, so a
     // rewind past the frame an object landed must also un-settle it — otherwise

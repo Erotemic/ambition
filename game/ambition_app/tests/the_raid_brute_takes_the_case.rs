@@ -59,6 +59,7 @@ struct Watching<'a, 'b> {
     after: i32,
     carried: bool,
     warning_ticks: u32,
+    rewinding: bool,
 }
 
 /// The brute's scene, if it plays: whether its presentation is skipped.
@@ -79,6 +80,12 @@ impl crate::common::walk::Walker for Watching<'_, '_> {
     }
     fn step(&mut self, mut press: Press) {
         let scene = brute_scene(self.pad.world());
+        if self.skip && scene.is_some() && !self.rewinding {
+            use ambition_platformer2d::rollback::{start_sync_test_session, SyncTestSettings};
+            start_sync_test_session(self.pad.world_mut(), SyncTestSettings { check_distance: 2, max_prediction_window: 12, players: 1 })
+                .expect("start rewinds for the brute's scene");
+            self.rewinding = true;
+        }
         self.skipped |= scene == Some(true);
         press.cancel = self.skip && scene == Some(false);
         if !self.skip && self.warning_ticks < 180 {
@@ -130,7 +137,7 @@ fn a_skipped_brute_scene_ends_the_raid_as_a_played_one_does() {
 
 fn the_brute_scene_ends_the_raid(skip: bool) {
     let options = fixed_60hz_room_options("intro_wake_room");
-    let options = if skip { options.with_sync_test_rollback_settings(2, 12) } else { options };
+    let options = if skip { options.with_sync_test_rollback_settings(0, 12) } else { options };
     let mut sim = ambition_app::Platformer2dSimHarness::new_with_options(options).expect("the workshop boots");
     sim.step_n(base(), 30);
     assert!(matches!(cases(sim.world_mut()).as_slice(), [(ItemCustody::InWorld, at)] if at.x > 1000.0 && at.y < 320.0), "one case rests on the bench before the raid");
@@ -139,7 +146,7 @@ fn the_brute_scene_ends_the_raid(skip: bool) {
     let mut pad = Pad::new(&mut sim);
     // The Creator's health as the bomb leaves the brute's hand, and the
     // least of it after.
-    let mut watching = Watching { pad: &mut pad, skip, skipped: false, thrown_at: None, after: i32::MAX, carried: false, warning_ticks: 0 };
+    let mut watching = Watching { pad: &mut pad, skip, skipped: false, thrown_at: None, after: i32::MAX, carried: false, warning_ticks: 0, rewinding: false };
     if let Err(why) = through_the_raid(&mut watching, RaidStart::Door) {
         let world = watching.world_mut();
         let live = bodies_of(world, "npc_lab_raider");
@@ -169,6 +176,9 @@ fn the_brute_scene_ends_the_raid(skip: bool) {
     assert!(after < thrown_at, "the bomb hurt the Creator: {thrown_at} when it was thrown, {after} after");
     assert!(after > 0, "the bomb wounded him and did not kill him: he falls after his last words");
     sim.rollback_health().expect("the raid remains consistent under rewind");
+    if skip {
+        assert!(sim.rollback_execution_stats().is_some_and(|stats| stats.load_runs > 0), "the brute's scene replayed");
+    }
     if !skip {
         let save = sim.world().resource::<AmbitionGameSave>().data().clone();
         assert!(!save.flag("intro_creator_fragment_seen"), "the save precedes the final words");

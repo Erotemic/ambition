@@ -1434,7 +1434,7 @@ impl DrivenBodies<'_, '_> {
 }
 
 /// A hand can take this item only through an assigned fetch errand.
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct ErrandPickupOnly;
 
 /// `Attack` while empty-handed and overlapping a `GroundItem` picks it up:

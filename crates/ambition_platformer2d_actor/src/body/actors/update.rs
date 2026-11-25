@@ -511,7 +511,6 @@ pub fn tick_actor_brains(
         ),
     ) in &mut actors
     {
-        let combat_rules = room_rules.of(this_actor_entity);
         // A body whose senses this session cannot decide does not decide. It
         // still integrates and still takes hits; see `perception::perception_of`.
         let Some(perception_policy) =
@@ -528,15 +527,7 @@ pub fn tick_actor_brains(
         let Some(feature_world) = composed.solids(&collision, stamp.as_ref()) else {
             continue;
         };
-        // GATE-PER-ACTOR (Q54): the gates open for THIS body. Its movement
-        // queries pass through them, as its integration does (`solids_for`);
-        // its line of fire does not, as its projectile does not.
-        let open_gates = collision
-            .room(stamp.as_ref())
-            .map(|room| room.gates_open_for(this_actor_entity))
-            .unwrap_or_default();
         let room = rooms.of(this_actor_entity);
-        let dt = dt * rooms.scale_in(room);
         // Tactical memory is room-local (`WorldMemory::enter_room`). The key is
         // the body's own stamp, not `room`: an unstamped body is put in the
         // sole live room, and that answer changes when a second room goes
@@ -620,7 +611,27 @@ pub fn tick_actor_brains(
                 if driver.is_some() {
                     continue;
                 }
+                if let (None, Some(frame)) = (
+                    module_observation.as_deref(),
+                    brain.as_deref().and_then(|brain| brain.fixed_control()),
+                ) {
+                    super::super::perception::enforce_empty_belief_for_none(
+                        ambition_characters::perception::PerceptionRequirement::None,
+                        perception_memory.as_deref_mut(),
+                    );
+                    if has_control {
+                        decisions.frames.push((this_actor_entity, frame));
+                    }
+                    continue;
+                }
                 let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
+                    let combat_rules = room_rules.of(this_actor_entity);
+                    let dt = dt * rooms.scale_in(room);
+                    // Movement queries use the gates open for this body.
+                    let open_gates = collision
+                        .room(stamp.as_ref())
+                        .map(|room| room.gates_open_for(this_actor_entity))
+                        .unwrap_or_default();
                     let crowding = decision_facts.crowd.crowding(this_actor_entity);
                     let capture = ambition_combat::capture::systems::CaptureFacts::resolve(
                         this_actor_entity,

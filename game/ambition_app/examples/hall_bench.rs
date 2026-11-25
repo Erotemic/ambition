@@ -24,18 +24,21 @@ use ambition_platformer2d::actors::body::navigation::RoomNavigation;
 use ambition_platformer2d::actors::body::perception::PerceptionPeers;
 use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
 use ambition_platformer2d::engine_core::navigation::NavigationMethod;
+use ambition_platformer2d::engine_core::movement::SettledMotion;
 
 fn main() {
     let mut room = "hall_of_characters".to_string();
     let mut ticks: usize = 3000;
     let mut warmup: usize = 300;
     let mut navigation = None;
+    let mut full_steps = false;
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
         match arg.as_str() {
             "--room" => room = it.next().expect("--room ID"),
             "--ticks" => ticks = it.next().expect("--ticks N").parse().expect("--ticks N"),
             "--warmup" => warmup = it.next().expect("--warmup N").parse().expect("--warmup N"),
+            "--full-steps" => full_steps = true,
             "--navigation" => navigation = Some(match it.next().as_deref() {
                 Some("local") => NavigationMethod::LocalGround,
                 Some("ground") => NavigationMethod::ConnectedGround,
@@ -82,6 +85,15 @@ fn main() {
     assert_eq!(active, room, "after {warmup} ticks the active room is {active:?}, not {room:?}");
     println!("[hall_bench] warmup={warmup} through_warmup_ms={:.1}", entered_at.elapsed().as_secs_f64() * 1000.0);
     report_navigation("after_warmup", sim.world().resource::<RoomNavigation>());
+    if full_steps {
+        let world = sim.world_mut();
+        let entities: Vec<_> = world
+            .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<SettledMotion>>()
+            .iter(world).collect();
+        for entity in entities {
+            world.entity_mut(entity).remove::<SettledMotion>();
+        }
+    }
 
     // One-second windows of wall time per tick, so the printed number is a
     // median over windows rather than a mean a single hitch can own.
@@ -112,6 +124,16 @@ fn main() {
     );
     report_navigation("after_run", sim.world().resource::<RoomNavigation>());
     println!("[hall_bench] peer_rows={}", sim.world().resource::<PerceptionPeers>().row_count());
+    let world = sim.world_mut();
+    let mut settled = world.query::<&SettledMotion>();
+    let total = settled.iter(world).count();
+    let reused = settled.iter(world).filter(|motion| motion.reused()).count();
+    println!("[hall_bench] reused_last_tick={reused} cached_bodies={total}");
+    let mut statuses = std::collections::BTreeMap::new();
+    for motion in settled.iter(world) {
+        *statuses.entry(motion.status()).or_insert(0usize) += 1;
+    }
+    println!("[hall_bench] motion={statuses:?}");
 }
 
 fn report_navigation(boundary: &str, navigation: &RoomNavigation) {

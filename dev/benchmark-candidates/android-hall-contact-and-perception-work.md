@@ -211,3 +211,27 @@ grows with the cast. It gives no estimate of phone frame time.
 Use the full Hall on the phone for frame time. Keep the population caps in
 the desktop scaling probe. At 20, 30, and 40 FPS the frame budgets are
 50, 33.3, and 25 ms. Record the rate of simulation advance with each result.
+
+### Settled movement results
+
+The shared movement kernel can retain a result when the complete step
+leaves the body state unchanged. It checks the next step's input and the
+terrain that the original step queried. Moving mount terrain elsewhere in
+the room can change each tick without making these bodies solve their
+contacts again. A change in local terrain, control, or body state can
+require a full step immediately.
+
+For each desktop run, `hall_bench --warmup 140 --ticks 140` ran on CPUs
+0–5 with `AMBITION_PROFILE_CENSUS=1`. `--full-steps` removed the derived
+cache after warm-up. Both modes used the same binary and the full cast.
+
+| Movement steps | Median ms/tick, two runs | Median integration ms/tick |
+| --- | ---: | ---: |
+| Solve each step | 71.54, 72.23 | 28.12, 28.93 |
+| Reuse settled results | 48.36, 64.17 | 8.83, 12.08 |
+
+The two reuse runs skipped 539 of 596 solves on their last tick. All four
+runs recorded zero navigation requests. Host load varied across runs.
+These measurements precede the fixed-control brain change. Android frame
+time and simulation advance need a new capture. The frame census now logs
+`sim_ticks` for each window.

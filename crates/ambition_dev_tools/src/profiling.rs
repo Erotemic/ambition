@@ -186,6 +186,8 @@ pub struct FrameCensus {
     last_frame_at: Option<Instant>,
     window_started_at: Instant,
     window_frames_ms: Vec<f64>,
+    last_sim_tick: Option<u64>,
+    window_sim_ticks: u64,
     spikes_logged: usize,
     /// Archetype count at the last summary, to print the growth per window.
     last_archetypes: usize,
@@ -200,6 +202,8 @@ impl Default for FrameCensus {
             last_frame_at: None,
             window_started_at: now,
             window_frames_ms: Vec::new(),
+            last_sim_tick: None,
+            window_sim_ticks: 0,
             spikes_logged: 0,
             last_archetypes: 0,
         }
@@ -243,8 +247,14 @@ pub fn report_frame_census(
     mut census: ResMut<FrameCensus>,
     archetypes: &bevy::ecs::archetype::Archetypes,
     entities: &bevy::ecs::entity::Entities,
+    sim_tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let now = Instant::now();
+    let sim_tick = sim_tick.map(|tick| tick.get());
+    let previous_tick = core::mem::replace(&mut census.last_sim_tick, sim_tick);
+    if let Some((tick, previous)) = sim_tick.zip(previous_tick) {
+        census.window_sim_ticks += tick.saturating_sub(previous);
+    }
     // The first observation has no predecessor to subtract, and the interval
     // from app construction to frame one is startup, not a frame time —
     // counting it would report a fake multi-second spike every launch.
@@ -281,10 +291,11 @@ pub fn report_frame_census(
     let archetype_count = archetypes.len();
     let new_archetypes = archetype_count.saturating_sub(census.last_archetypes);
     census.last_archetypes = archetype_count;
+    let sim_ticks = core::mem::take(&mut census.window_sim_ticks);
     eprintln!(
         "[frame-census] {window_start:8.3}s-{at:.3}s frames={count} \
          p50={:.1}ms p95={:.1}ms p99={:.1}ms max={:.1}ms \
-         archetypes={archetype_count} (+{new_archetypes}) entities={}",
+         archetypes={archetype_count} (+{new_archetypes}) entities={} sim_ticks={sim_ticks}",
         FrameCensus::percentile(&sorted, 0.50),
         FrameCensus::percentile(&sorted, 0.95),
         FrameCensus::percentile(&sorted, 0.99),

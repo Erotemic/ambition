@@ -27,7 +27,10 @@ capture = ["ambition_platformer2d/capture"]
 # vocabulary. The harness reaches these through the facade exactly as the moved
 # code did; the facade does NOT depend on ambition_app/ambition_content, so the
 # harness stays below the product shell.
-ambition_platformer2d = { path = "../ambition_platformer2d" }
+# No facade defaults: they enable every capability, renderer and menus
+# included. The harness needs only the rollback session it drives; a caller
+# that wants more asks the facade for it (CB4).
+ambition_platformer2d = { path = "../ambition_platformer2d", default-features = false, features = ["rollback"] }
 # Bevy App/World/Time — the sim the harness owns and steps.
 bevy = { version = "0.19.1", default-features = false }
 # The observation artifact's own format. `combat_observation` is the ONE place a

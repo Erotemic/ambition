@@ -27,7 +27,9 @@ impl SwitchActivation {
     /// downstream systems can read the typed fields without re-parsing
     /// the wire format every frame.
     pub fn parse_custom(payload: &str) -> Option<Self> {
-        let mut parts = payload.split(':');
+        // The target is the rest of the payload: a construction identity can
+        // hold the separator.
+        let mut parts = payload.splitn(4, ':');
         if parts.next()? != "switch" {
             return None;
         }

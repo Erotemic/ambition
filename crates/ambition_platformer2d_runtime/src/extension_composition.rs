@@ -103,6 +103,7 @@ pub fn install_ports(app: &mut App) {
     crate::world_values::install(app);
     crate::actor_creation::install(app);
     crate::breakable_creation::install(app);
+    crate::mechanism_creation::install(app);
     crate::contact_consumption::install(app);
     ambition_platformer2d_items::inventory::install(app);
     // Where the things a scope's records name are (P5 step 3).
@@ -421,6 +422,7 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_world_port::behavior::ObjectCallResultPort>("object_call_result")
         .add::<ambition_world_port::creation::CreateActorsPort>("create_actors")
         .add::<ambition_world_port::breakables::CreateBreakablesPort>("create_breakables")
+        .add::<ambition_world_port::mechanisms::CreateMechanismPort>("create_mechanism")
         .add::<ambition_extension_sdk::action::ActionResultPort>("action_result")
         .add::<ambition_extension_sdk::action::ActionResultsPort>("action_history")
         .add::<ambition_world_port::StoryTickPort>("story_tick")

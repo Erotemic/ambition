@@ -265,6 +265,23 @@ unchanged. Making it genuinely default-off means updating those descriptors
 to name it; that is the next step, together with the harness's facade
 defaults and one real harness consumer. No compile-time result is claimed.
 
+**Harness slice (2026-11-25).** `ambition_sim_harness` no longer takes the
+facade's defaults (`all_capabilities`); it asks for `rollback`, the one
+capability its runtime drives, and `capture` still adds the renderer. The
+harness's own normal graph (`cargo tree -e normal`, unique crates) fell from
+626 to 549 and no longer contains `ambition_render`, `bevy_render`, `wgpu`,
+the menus, the settings menu, touch input, the inventory UI, the portal
+presentation or the LDtk crate. Its 36 lib tests and its integration tests
+pass, and the tools package checks.
+
+No current consumer's graph changes. The app selects facade defaults
+itself, the tools package asks for `capture` and `game`, and
+`capability_demo` takes the harness as a dev-dependency beside its own
+facade. The first beneficiary is a consumer of the harness alone, which is
+what the harness manifest promises. Still open: `game` default-off in the
+tools launch descriptors (about 60 direct cargo invocations in `scripts/`
+and the catalog).
+
 **Execution owner:** `ambition_app_tools` command packaging and
 `ambition_sim_harness` dependency selection, coordinated with supported launch
 and test lanes. The Ambition provider's presentation cut is a separate proof.

@@ -269,8 +269,12 @@ value as completion of that owner's contract.
    work follows only if the operation is shared. (W1 landed 2026-11-22: the Bridge Warden is made with its binding to the
    posts' local keys; no result indexing or follow-up attach. W2's native
    binding landed 2026-11-24: a `lift_called` lift waits at both stops and a
-   `MoveLift` switch in its room sends it. Open: one scripted request that
-   builds the lift, switches and door with local keys.) Producer-validity delegation
+   `MoveLift` switch in its room sends it. `create_mechanism` landed the same
+   day: one scripted request builds lifts and the switches that send them,
+   bound by local key, with two copies in one room kept apart. Open: the
+   door, which needs a per-instance owner; lift occurrences; the
+   second-instance witness, which waits on two concurrent copies of one
+   room. Rollback through one child's retirement is witnessed.) Producer-validity delegation
    follows the existing [asset owner](engine/asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings).
 5. [Body anchors A1/A2](engine/body-anchor-bindings.md#delivery-packets-and-proof)
    replace private saddle/capture point conversion with two independently
@@ -622,7 +626,8 @@ fact ports, 2026-11-22), and `run_phase` buckets its queue by trigger once.
 Dispatch spans and entry lookup are prepared at admission (2026-11-24:
 `Admitted::dispatch`, read by `run_phase` and the inbox). Call completion,
 retirement and publication batches share one occurrence view each
-(2026-11-24). Next, derive active journal work. Navigation's cost-state
+(2026-11-24). Active journal work is derived (2026-11-24: orphans retire
+only on an owner cut, and the collectors visit only active lanes). Navigation's cost-state
 reduction is fixed (2026-11-22: route searches arrivals and charges the final
 walk), and the advisor measures a body's motion once across rooms
 (`NavMotion`, 2026-11-22). The graph cache pins the graphs demanded each
@@ -672,7 +677,9 @@ contact consumers (K1, `ambition_geometry::spatial::RangeGrid`), and the
 occurrence/binding ambiguity reduction is shared (K2,
 `ambition_binding::cardinality`), both 2026-11-22. Next is K3: compare
 direct scans with indexed implementations before selecting target/workload
-policies. Preserve all domain lifetime and acceptance rules.
+policies. Preserve all domain lifetime and acceptance rules. (K3 measured
+2026-11-24: a per-tick contact grid pays only above 256 pieces, and a call
+batch indexes its bindings only from 16 calls; both select the scan below.)
 
 **Acceptance:** ordinary operations select the cheapest supported local case;
 adding unrelated portals, installed entries or dormant receivers does not add
@@ -708,8 +715,10 @@ proves the reusable harness and game provider cuts separately.
 the schema library). CB2's typed entrypoints now hand plain values to one untyped installer
 (2026-11-22). CB3's projectile and held-status customers share
 one reducer body each across phases (2026-11-22). For CB4, the offline item report builds without the game (2026-11-22,
-`--no-default-features`); next, make `game` default-off in the launch
-descriptors and cut one real harness consumer. Try explicit optional feature families before adding packages.
+`--no-default-features`), and the harness no longer inherits the facade's
+defaults (2026-11-25: its own graph lost the renderer, menus and LDtk, 626 →
+549 crates; no current consumer's graph changes). Next, make `game`
+default-off in the launch descriptors. Try explicit optional feature families before adding packages.
 Do not move tool binaries back into app integration-test builds.
 
 **Acceptance:** an independent schema consumer excludes the checker; the

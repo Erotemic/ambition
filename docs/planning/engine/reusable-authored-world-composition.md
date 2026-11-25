@@ -179,12 +179,46 @@ Witnesses:
 - `a_lift_switch_sends_only_the_lift_in_its_own_live_room` (app_it): the
   same lift id in two live rooms, and Bob's press sends only Bob's.
 
-Still open, which is the composition itself: scripted construction of the
-lift, both switches and the door from one request with local keys. Today a
-script can create actors and breakables. A lift is a row in its room's
-`MovingPlatformSet` and a door is a gated lock wall, so neither is a
-placement the runtime construction road lowers. Then comes isolation of two
-copies in one room and a third copy in a second live instance.
+**Progress (2026-11-24): one request builds the mechanism.**
+`create_mechanism` (`ambition_world_port::mechanisms`, lowered in
+`ambition_platformer2d_runtime::mechanism_creation`) makes lifts and switches
+together. A switch's `sends` names a lift of the same request by local key
+(`#{local: "lift"}`, the `ObjectTarget` W1's bindings use). Each part keeps
+its native owner:
+- a switch is the interactable placement an authored `Switch` lowers to,
+  committed through the runtime construction road, with `MoveLift` bound to
+  its lift's construction identity;
+- the lift is a switch-sent row added to the caller's room's
+  `MovingPlatformSet` once the switches have committed.
+
+Everything is checked before anything is made: keys unique, boxes finite,
+each `sends` naming a lift of the request. A refusal names the switch, the
+field and the key, and makes nothing. Both kinds of part have the caller
+room's lifetime, as scripted breakables do. The switch wire parser now keeps
+the rest of the payload as the target, because a construction identity can
+contain its separator.
+
+Witness: `a_scripted_mechanism_binds_each_switch_to_its_own_lift`
+(`scripted_mechanism`, under sync-test rollback). Two copies made with the
+same keys in one room each bind their switch to their own lift. A player's
+press on the first sends only its lift, which parks at its far stop. A third
+request with a dangling key is refused whole. Then the caller retires the
+first copy's switch (`retire_creation`) under the same rollback. It leaves,
+its lift stays where it was, and the second copy's switch still sends only
+its own lift: a rollback through one child's retirement leaves the other
+instance alone.
+
+Still open:
+- the door. A gated lock wall or a loading-zone door is authored room data
+  shared by every live instance of the room, so a runtime door needs a
+  per-instance owner first;
+- a lift has no object occurrence, so it cannot be retired alone, and its
+  identity follows request order;
+- the third copy in a second live instance of the same authored room. This
+  waits on the session: nothing yet makes two copies of one room live at
+  once (the re-entry witness `a5ad66041` records that as open). The per-room
+  binding is already witnessed across two different live rooms
+  (`a_lift_switch_sends_only_the_lift_in_its_own_live_room`).
 
 ### W3 — expose placement and reuse through existing authoring tools
 

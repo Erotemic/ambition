@@ -70,13 +70,21 @@ struct PhysicalPiece {
 struct Envelope { sample: usize, bounds: ae::Aabb }
 
 type PartitionKey = (Option<SessionScopeId>, Option<LiveRoomInstance>);
-/// A partition's material pieces and the range grid over their bounds: no
-/// overlay, since a partition is built once and only read.
+/// A partition's material pieces and, for a large one, the range grid over
+/// their bounds: no overlay, since a partition is built once and only read.
 struct ContactPartition {
     material: Vec<Envelope>,
-    grid: ae::spatial::RangeGrid,
+    grid: Option<ae::spatial::RangeGrid>,
     refused: Vec<usize>,
 }
+
+/// The material count above which a partition's grid pays for its build.
+/// Measured (K3): a partition is built every tick and asked once per
+/// recipient, and its recipients are its own samples, so the work is about
+/// pieces². Built and asked, the grid beats the direct scan only near 256 x
+/// 256 (141 µs against 151 µs); below that the scan is cheaper, by 7-25x at
+/// tens of pieces.
+const PIECES_WORTH_A_GRID: usize = 256;
 
 fn contact_partitions(samples: &[Sample]) -> std::collections::BTreeMap<PartitionKey, ContactPartition> {
     let mut partitions = std::collections::BTreeMap::<PartitionKey, (Vec<Envelope>, Vec<usize>)>::new();
@@ -88,7 +96,8 @@ fn contact_partitions(samples: &[Sample]) -> std::collections::BTreeMap<Partitio
         }
     }
     partitions.into_iter().map(|(key, (material, refused))| {
-        let grid = ae::spatial::RangeGrid::build(material.iter().map(|envelope| envelope.bounds));
+        let grid = (material.len() > PIECES_WORTH_A_GRID)
+            .then(|| ae::spatial::RangeGrid::build(material.iter().map(|envelope| envelope.bounds)));
         (key, ContactPartition {material, grid, refused})
     }).collect()
 }
@@ -99,8 +108,12 @@ impl ContactPartition {
         let mut near = self.refused.clone();
         for piece in &recipient.pieces {
             let region = piece.volume.bounds();
-            near.extend(self.grid.near(region).into_iter().map(|i| &self.material[i as usize])
-                .filter(|envelope| ae::spatial::touches(envelope.bounds, region)).map(|envelope| envelope.sample));
+            match &self.grid {
+                Some(grid) => near.extend(grid.near(region).into_iter().map(|i| &self.material[i as usize])
+                    .filter(|envelope| ae::spatial::touches(envelope.bounds, region)).map(|envelope| envelope.sample)),
+                None => near.extend(self.material.iter()
+                    .filter(|envelope| ae::spatial::touches(envelope.bounds, region)).map(|envelope| envelope.sample)),
+            }
         }
         // Grid cells and multiple portal pieces must not change identity order.
         near.sort_unstable();

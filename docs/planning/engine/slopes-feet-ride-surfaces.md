@@ -364,13 +364,38 @@ drawing turns it past upright.
   `sqrt(46400)`), and that every point is carried to its own place where
   the rigid fit falls short.
 
+**Continuous sweeps (landed the same day).** `first_material_contact` (the
+kernel, projectile and righting sweeps) casts a changing segment by its own
+motion. `MaterialCastCells::against_deforming_where` puts each end in the
+cell's chart with its own relative motion. `deforming_segment_cast` then
+finds the first contact from two events:
+
+- an end reaching the body, which is the existing point cast with that
+  end's motion;
+- a body corner reaching the segment between its ends, which is a quadratic
+  in time. A circle body uses conservative advancement, whose step is the
+  clearance over the faster end's speed, so it cannot pass a contact.
+
+`MaterialCollider::displacement_at` gives the travel of the material under
+a contact. The kernel's approach test, its carry and its contact's surface
+velocity read it. The rigid fit is still published only for a cell cut by a
+portal or carried on a curve, which this cast does not admit.
+
+Witnesses (core):
+
+- `a_deforming_segment_cast_with_equal_end_motion_is_the_translation_cast`
+  compares 400 random configurations against the translation cast;
+- `a_stretching_segment_meets_the_body_when_its_end_arrives` (contact at
+  `t = 0.5`, where the rigid fit reaches `t = 1`);
+- `a_tilting_segment_meets_a_body_corner_between_its_ends` (`t = 7/15`, and
+  a circle);
+- `the_sweep_meets_a_stretching_line_when_its_end_arrives`, through
+  `World::first_material_contact`.
+
 **Not yet moved** (MOVING-SUPPORT stays open on these):
 
-- **Continuous sweeps.** The kernel sweep, the projectile sweep and the
-  righting sweep (`first_material_contact`), plus `MaterialCollider::displacement`,
-  still read the line's rigid fit (`velocity`, `turn`, `pivot`, which the
-  producer still writes for them). A deforming segment against a moving
-  material cell needs its own time-of-contact law inside the native cast.
+- **Portal cells.** A cell cut by a portal or carried on a curve still
+  reads the rigid fit (P2's accepted interval owns that case).
 - **Source phase.** The source-phase / host cut (`follow_drawn_ledges`
   `elapsed + 1/60`) is unchanged.
 - **The real GNU transition.** It has no witness in the running game yet.

@@ -148,7 +148,7 @@ pub(super) fn sweep_player_axis_clusters(
         let cells = cast.cells(*admission)?;
         let result = world.first_material_contact(&cells, |collider, _, hit| {
             let normal = hit.map.direction(hit.normal);
-            let relative = hit.map.vector(delta).map_err(numeric)? - collider.displacement();
+            let relative = hit.map.vector(delta).map_err(numeric)? - collider.displacement_at(hit.world_point, hit.world_time);
             if relative.dot(normal) >= -1.0e-7 { return Ok(false); }
             let gravity_pass = axis_role(axis, gravity_dir) == AxisRole::Gravity;
             Ok(match collider {
@@ -203,7 +203,8 @@ pub(super) fn sweep_player_axis_clusters(
             }
         }
         let physical_normal = contact.map.direction(normal);
-        let remaining_surface = hit.collider.displacement() * (1.0 - contact.toi) as f32;
+        let surface_step = hit.collider.displacement_at(contact.world_point, contact.world_time);
+        let remaining_surface = surface_step * (1.0 - contact.toi) as f32;
         let carry = physical_normal * remaining_surface.dot(physical_normal).max(0.0);
         let carry = match contact.map.inverse().and_then(|inverse| inverse.vector(carry)) {
             Ok(carry) => carry,
@@ -226,7 +227,7 @@ pub(super) fn sweep_player_axis_clusters(
             apply_side_contact(wall, normal, gravity_dir);
             ContactKind::Side
         };
-        let surface_velocity = match contact.map.inverse().and_then(|map| map.vector(hit.collider.displacement())) {
+        let surface_velocity = match contact.map.inverse().and_then(|map| map.vector(surface_step)) {
             Ok(velocity) => velocity,
             Err(fault) => {
                 *refusal = Some(crate::frame::thread::Refusal { path: contact.path.clone(), link: None,
@@ -384,7 +385,7 @@ fn resolve_material_axis_repair(
             apply_side_contact(wall, normal, gravity_dir);
             ContactKind::Side
         };
-        let surface_velocity = match hit.contact.map.inverse().and_then(|map| map.vector(collider.displacement())) {
+        let surface_velocity = match hit.contact.map.inverse().and_then(|map| map.vector(collider.displacement_at(hit.contact.world_point, hit.contact.world_time))) {
             Ok(velocity) => velocity,
             Err(fault) => { *refusal = Some(numeric(fault)); return None; }
         };

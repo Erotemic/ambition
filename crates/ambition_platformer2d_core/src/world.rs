@@ -1423,6 +1423,21 @@ impl MaterialCollider<'_> {
         match self { Self::Block(block) => block.velocity, Self::Chain { chain, .. } => chain.velocity }
     }
 
+    /// The tick's displacement of the surface's material at a contact
+    /// (`point` where the surface is at `time`): [`Self::displacement`], except
+    /// on a line whose shape changes, whose ends travel apart.
+    pub fn displacement_at(self, point: Vec2, time: f64) -> Vec2 {
+        match self {
+            Self::Chain { chain, segment, .. } if chain.deforms() => {
+                let Ok((a, b)) = chain.segment_at_time(segment, time.clamp(0.0, 1.0)) else { return chain.velocity };
+                let edge = b - a;
+                let u = if edge.length_squared() > 0.0 { ((point.as_dvec2() - a).dot(edge) / edge.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
+                chain.travel_at(segment, u as f32)
+            }
+            _ => self.displacement(),
+        }
+    }
+
     /// Pull this surface's physical velocity into the cast body's root chart.
     pub fn velocity_in_root(self, contact: &crate::frame::material_cast::MaterialCastHit,
         dt: f32, admission: Option<crate::frame::thread::MotionAdmission<'_>>,
@@ -1976,11 +1991,21 @@ impl World {
                 }
                 for (segment, (a, b)) in chain.segments().enumerate() {
                     let edge = [a, b];
+                    let collider = MaterialCollider::Chain { chain,index,segment };
+                    if chain.deforms() {
+                        // Its ends travel apart: the segment's own motion.
+                        let (a0, b0) = chain.segment_before(segment);
+                        let swept = Aabb { min: a.min(b).min(a0).min(b0), max: a.max(b).max(a0).max(b0) };
+                        if !crate::spatial::touches(bounds, swept) { continue; }
+                        let _ = cells.against_deforming_where(part, [a0, b0], edge, (chain.velocity, chain.turn, chain.pivot), |contact| {
+                            consider(MaterialWorldHit { collider,contact:contact.clone() },part)
+                        })?;
+                        continue;
+                    }
                     // The chain bounds can cover terrain far from this cell.
                     if !crate::spatial::touches(bounds, surface_swept_bounds(&edge, chain.velocity, chain.turn, chain.pivot)) {
                         continue;
                     }
-                    let collider = MaterialCollider::Chain { chain,index,segment };
                     let _ = cells.against_rigid_where(part,&edge,chain.velocity,chain.turn,chain.pivot,|contact| {
                         consider(MaterialWorldHit { collider,contact:contact.clone() },part)
                     })?;

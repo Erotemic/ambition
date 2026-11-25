@@ -501,6 +501,52 @@ impl MaterialCastCells<'_> {
         match failed {Some(reason)=>Err(reason),None=>Ok(selected)}
     }
 
+    /// Follow a segment whose two ends travel apart over the world tick
+    /// (a support whose shape changes): `from` where its ends began the tick,
+    /// `to` where they end it, each end in a straight line between. The
+    /// first contact is exact for an ordinary cell: an end reaching the body
+    /// is a point cast with that end's own motion, and a body corner reaching
+    /// the segment between its ends is a quadratic in time.
+    ///
+    /// A cell cut by a portal or carried on a curve is not admitted here
+    /// (SUP1's portal delivery); it reads the rigid fit `fit` names, as
+    /// every reader did before the shape was published.
+    pub(crate) fn against_deforming_where(
+        &self, part: &MaterialCell, from: [Vec2; 2], to: [Vec2; 2],
+        fit: (Vec2, f32, Vec2), mut accepts: impl FnMut(&MaterialCastHit) -> bool,
+    ) -> Result<Option<MaterialCastHit>, Refusal> {
+        if from.iter().chain(&to).any(|point| !point.is_finite()) {
+            return Err(numeric_at(part, NumericFault::NonFinite));
+        }
+        if part.curve.is_some() || self.scene.is_some() || !part.planes.is_empty() {
+            let (displacement, turn, pivot) = fit;
+            return self.against_rigid_where(part, &to, displacement, turn, pivot, accepts);
+        }
+        let inverse = part.map.inverse().map_err(|reason| numeric_at(part, reason))?;
+        let span = self.time.end - self.time.start;
+        let travel = inverse.direction_wide(part.travel) * inverse.scale_wide();
+        let interval = if part.time.start == part.time.end && part.time.start > 0.0 {
+            0.0..part.time.end
+        } else { part.time.clone() };
+        let duration = interval.end - interval.start;
+        // Each end in the cell's chart at the start of its interval, and its
+        // motion over the interval relative to the body.
+        let end = |from: Vec2, to: Vec2| {
+            let (from, to) = (from.as_dvec2(), to.as_dvec2());
+            let start = inverse.point_wide(from + (to - from) * self.time.start);
+            let motion = inverse.direction_wide(to - from) * inverse.scale_wide() * span - travel;
+            (start + motion * interval.start, motion * duration)
+        };
+        let (a, motion_a) = end(from[0], to[0]);
+        let (b, motion_b) = end(from[1], to[1]);
+        let contact = deforming_segment_cast(self.material.domain, [a, b], [motion_a, motion_b], self.initial_overlap)
+            .map_err(|fault| numeric_at(part, fault))?;
+        let Some(contact) = contact else { return Ok(None); };
+        let time = interval.start + duration * contact.time;
+        if time < part.time.start { return Ok(None); }
+        Ok(self.contact(part, CastHit { time, ..contact })?.filter(|hit| accepts(hit)))
+    }
+
     fn obstacle_scopes<'b>(&self, part: &'b MaterialCell, obstacle: &[Vec2], displacement: Vec2,
         turn: f32, pivot: Vec2) -> Result<std::borrow::Cow<'b, [MaterialCell]>, Refusal> {
         Ok(if obstacle.len()<=2 {
@@ -693,6 +739,110 @@ fn polygon_cast(body: &[DVec2], delta: DVec2, obstacle: &[DVec2]) -> Option<Cast
         normal,
         point,
     })
+}
+
+/// First contact of a body standing still in its chart with a segment whose
+/// ends move in straight lines, `ends[i]` by `motion[i]` over the unit
+/// interval. The point is where the contact is, with the segment where it is
+/// then; the normal points from the segment to the body.
+fn deforming_segment_cast(
+    body: &CombatVolume, ends: [DVec2; 2], motion: [DVec2; 2], initial_overlap: InitialOverlap,
+) -> Result<Option<CastHit>, NumericFault> {
+    if ends.iter().chain(&motion).any(|v| !v.is_finite()) { return Err(NumericFault::NonFinite); }
+    let at = |time: f64| [ends[0] + motion[0] * time, ends[1] + motion[1] * time];
+    let travel_at = |point: DVec2, [a, b]: [DVec2; 2]| {
+        let edge = b - a;
+        let u = if edge.length_squared() > 0.0 { ((point - a).dot(edge) / edge.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
+        motion[0] * (1.0 - u) + motion[1] * u
+    };
+    // Already touching: the motion of the material under the contact says
+    // whether the segment is coming in.
+    if let Some(hit) = primitive_cast(body, DVec2::ZERO, &ends) {
+        let into = (-travel_at(hit.point, ends)).dot(hit.normal) <= 0.0;
+        return Ok((initial_overlap == InitialOverlap::Report || into).then_some(hit));
+    }
+    let mut best: Option<CastHit> = None;
+    let mut take = |hit: CastHit| {
+        if (0.0..=1.0).contains(&hit.time) && hit.normal != DVec2::ZERO && best.is_none_or(|best| hit.time < best.time) {
+            best = Some(hit);
+        }
+    };
+    // An end reaches the body.
+    for (end, motion) in ends.iter().zip(&motion) {
+        if let Some(mut hit) = primitive_cast(body, -*motion, &[*end]) {
+            hit.point += *motion * hit.time;
+            take(hit);
+        }
+    }
+    match body {
+        CombatVolume::Circle { center, radius } => {
+            // The distance from the centre to the segment changes no faster
+            // than its faster end moves: advance by the clearance over that
+            // bound, which cannot step past a contact.
+            let (center, radius) = (center.as_dvec2(), f64::from(*radius));
+            let bound = motion[0].length().max(motion[1].length());
+            let mut time = 0.0_f64;
+            if bound > 0.0 {
+                for _ in 0..256 {
+                    let [a, b] = at(time);
+                    let closest = closest_on_segment(center, a, b);
+                    let clearance = center.distance(closest) - radius;
+                    if clearance <= radius.max(1.0) * 1.0e-9 {
+                        let normal = (center - closest).normalize_or_zero();
+                        take(CastHit { time, normal, point: closest });
+                        break;
+                    }
+                    time += clearance / bound;
+                    if time > 1.0 { break; }
+                }
+            }
+        }
+        body => {
+            // A corner reaches the segment between its ends: the corner is on
+            // the moving line when cross(B - A, p - A) = 0, a quadratic.
+            let polygon = body.polygon().unwrap().iter().map(|p| p.as_dvec2()).collect::<Vec<_>>();
+            let centre = polygon.iter().copied().sum::<DVec2>() / polygon.len() as f64;
+            let (edge, edge_rate) = (ends[1] - ends[0], motion[1] - motion[0]);
+            for &p in &polygon {
+                let (r, r_rate) = (p - ends[0], -motion[0]);
+                let c0 = edge.perp_dot(r);
+                let c1 = edge_rate.perp_dot(r) + edge.perp_dot(r_rate);
+                let c2 = edge_rate.perp_dot(r_rate);
+                for time in quadratic_roots(c2, c1, c0) {
+                    if !(0.0..=1.0).contains(&time) { continue; }
+                    let [a, b] = at(time);
+                    let segment = b - a;
+                    if segment.length_squared() == 0.0 { continue; }
+                    let u = (p - a).dot(segment) / segment.length_squared();
+                    if !(0.0..=1.0).contains(&u) { continue; }
+                    let mut normal = DVec2::new(-segment.y, segment.x).normalize();
+                    if normal.dot(centre - p) < 0.0 { normal = -normal; }
+                    // The segment comes in at that corner.
+                    if (-travel_at(p, [a, b])).dot(normal) >= 0.0 { continue; }
+                    take(CastHit { time, normal, point: p });
+                }
+            }
+        }
+    }
+    Ok(best)
+}
+
+/// Real roots of `a t^2 + b t + c`, ascending; a linear or constant one when
+/// `a` (and `b`) is zero.
+fn quadratic_roots(a: f64, b: f64, c: f64) -> Vec<f64> {
+    let scale = a.abs().max(b.abs()).max(c.abs());
+    if scale == 0.0 { return Vec::new(); }
+    if a.abs() <= scale * 1.0e-12 {
+        return if b != 0.0 { vec![-c / b] } else { Vec::new() };
+    }
+    let discriminant = b * b - 4.0 * a * c;
+    if discriminant < 0.0 { return Vec::new(); }
+    // The numerically stable pair.
+    let q = -0.5 * (b + b.signum() * discriminant.sqrt());
+    let mut roots = vec![q / a];
+    if q != 0.0 { roots.push(c / q); }
+    roots.sort_by(f64::total_cmp);
+    roots
 }
 
 fn closest_on_segment(p: DVec2, a: DVec2, b: DVec2) -> DVec2 {

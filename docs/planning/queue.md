@@ -982,9 +982,10 @@ step 2 landed. A changing support publishes its start shape
 (`SurfaceChain::shape_before`). Carry, prior support, ledges, point
 velocity and bounds read it
 ([landed](engine/slopes-feet-ride-surfaces.md#landed-2026-11-25-the-shape-motion-and-its-time-sliced-readers)).
-Still open:
+The continuous sweeps cast a changing segment by its own motion (the same
+day). Still open:
 
-- the continuous sweeps' deforming-edge contact;
+- portal-cut cells, which keep the rigid fit;
 - the source-phase cut;
 - the real GNU witness;
 - portal hosting.

@@ -543,6 +543,29 @@ mod tests {
         assert!(material_lines(&world, &body, DOWN, 1.0, 1.0, 0.0, None).unwrap().is_empty());
     }
 
+    /// SUP1: the continuous sweep meets a stretching line when its end
+    /// arrives. The line's end goes from x 20 to x 30 while its start stays;
+    /// a body standing still at x 25..35 is reached half way through the
+    /// tick, and the surface there travels with that end. The rigid fit the
+    /// line still publishes (moved 5 as a whole) put its end at 25 when the
+    /// tick began, a contact at once.
+    #[test]
+    fn the_sweep_meets_a_stretching_line_when_its_end_arrives() {
+        let mut world = world_with(vec![Vec2::new(-20.0, 5.0), Vec2::new(30.0, 5.0)]);
+        world.chains[0].shape_before = vec![Vec2::new(-20.0, 5.0), Vec2::new(20.0, 5.0)];
+        world.chains[0].velocity = Vec2::new(5.0, 0.0);
+        let body = crate::BodyKinematics { pos: Vec2::new(30.0, 5.0), canonical_size: Vec2::splat(10.0), ..Default::default() };
+        let domain = body.canonical_box().unwrap();
+        let cells = crate::frame::material_cast::MaterialCast::new(crate::frame::thread::MaterialPrimitive {
+            domain: &domain, to_world: body.material_map().unwrap(),
+        }, body.pos, Vec2::ZERO, 0.0..1.0).cells(None).unwrap();
+        let hit = world.first_material_contact(&cells, |_, _, _| Ok(true)).unwrap().expect("the end reaches the body");
+        assert!((hit.contact.world_time - 0.5).abs() < 1e-6, "{}", hit.contact.world_time);
+        assert!(matches!(hit.collider, crate::world::MaterialCollider::Chain { segment: 0, .. }));
+        let travel = hit.collider.displacement_at(hit.contact.world_point, hit.contact.world_time);
+        assert!((travel - Vec2::new(10.0, 0.0)).length() < 1e-3, "the surface there goes with its end: {travel:?}");
+    }
+
     #[test]
     fn unknown_line_motion_refuses_support_until_it_has_a_finite_envelope() {
         let mut world = world_with(vec![Vec2::new(-100.0, 200.0), Vec2::new(100.0, 200.0)]);

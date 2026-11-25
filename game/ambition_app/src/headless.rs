@@ -107,6 +107,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     app.add_plugins(crate::app::cli::ambition_log_plugin());
 
     // `--project`: its modules, pack and entry room, before any plugin builds.
+    #[cfg(not(target_arch = "wasm32"))]
     crate::app::project::compose_cli_project(&mut app);
     // Validate the selected worlds before provider preparation so this runner
     // can return a diagnostic. The provider adds its App-local catalogs later.

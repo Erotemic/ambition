@@ -48,7 +48,8 @@ def _code_stamp() -> tuple:
     return tuple(sorted((path.name, path.stat().st_mtime_ns) for path in Path(__file__).parent.glob("*.py")))
 
 
-def make_handler(repo: Path, catalog, status=None):
+def make_handler(repo: Path, catalog, status=None, landing=None):
+    """`landing` is the page's path relative to `repo`; `/` redirects to it."""
     lock = threading.Lock()
     started = _code_stamp()
     def current_catalog():
@@ -69,6 +70,13 @@ def make_handler(repo: Path, catalog, status=None):
 
         def do_GET(self):
             path = urlsplit(self.path).path
+            if path == "/" and landing:
+                # The repository root is not a page; the landing page is the inspector.
+                self.send_response(302)
+                self.send_header("Location", "/" + landing + "#overview")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                return
             if path == "/api/build-status":
                 return self.reply(200, dict(status() if status else {"state": "done"}, server_stale=_code_stamp() != started,
                                             restart=RESTART))
@@ -243,12 +251,16 @@ def kill_server(port: int, log=print) -> bool:
     return True
 
 
-def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, refresh_command=None, kill=False):
+def serve(repo: Path, out: Path, *, host="localhost", port=8767, open_browser=False, build=None,
+          refresh_command=None, kill=False):
     """Serve the last index while a refresh runs in a separate process.
 
     Refresh on startup and when an open page sees a new art publication.
     If there is no index, build it before the server starts.
     """
+    # A small alias map so the CLI reads like the web bundle tool's. The inspector
+    # serves the POST review/preflight routes too, so a non-loopback bind is opt-in.
+    bind = {"localhost": "127.0.0.1", "all": "0.0.0.0"}.get(host, host)
     cached = None
     stamp = None
     def current_catalog():
@@ -334,8 +346,13 @@ def serve(repo: Path, out: Path, *, port=8767, open_browser=False, build=None, r
         raise SystemExit(0)
     import signal
     signal.signal(signal.SIGTERM, stop)
-    with ThreadingHTTPServer(("127.0.0.1", port), make_handler(repo, current_catalog, refresh_status)) as server:
-        url = f"http://127.0.0.1:{server.server_port}/{(out / 'index.html').relative_to(repo).as_posix()}#overview"
+    if bind not in {"127.0.0.1", "::1"}:
+        print(f"Ambition Editor: binding {bind} — the review and preflight POST routes are reachable from other machines.",
+              flush=True)
+    landing = (out / "index.html").relative_to(repo).as_posix()
+    with ThreadingHTTPServer((bind, port), make_handler(repo, current_catalog, refresh_status, landing)) as server:
+        url_host = "localhost" if bind in {"127.0.0.1", "0.0.0.0"} else bind
+        url = f"http://{url_host}:{server.server_port}/"
         print(f"Ambition Editor: {url}", flush=True)
         print("Reviews: tools/ambition_editor/reviews/ (music: the music tool's reviews/music/)", flush=True)
         if open_browser:

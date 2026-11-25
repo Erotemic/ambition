@@ -77,7 +77,7 @@ partial.replace(catalog)
         try:
             line = server.stdout.readline().strip()
             assert line.startswith("Ambition Editor: http://"), line
-            base = line.split()[2].rsplit("/inspector/", 1)[0]
+            base = line.split()[2].rstrip("/")
 
             def wait_for_generation(generation):
                 deadline = time.monotonic() + 10

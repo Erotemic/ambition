@@ -18,8 +18,8 @@ Use `--library <manifest>` or `AMBITION_CONTENT_LIBRARY` to select another libra
 python3 scripts/asset_inspector.py status --needs-generation --json
 ```
 
-Use `--check --target <name>` to check only the requested targets. Repeat
-`--target` for several targets. This check does not require library-wide shared
+Use `--check --target <name>` to check only the requested targets. Pass several
+names in one flag, space-separated, or repeat the flag. This check does not require library-wide shared
 atlases. A full collection check also reports the shared atlas products.
 
 The default scope is the selected library's collection in
@@ -55,9 +55,10 @@ python3 scripts/checks/check_quality_variants_are_fresh.py --require-evidence
 ```
 
 Each build reads a private source snapshot and writes into a clean directory.
-Repeat `--target` to build several targets in one run: the run builds
-`--jobs` targets at a time (default half the CPUs, at most 6) and publishes
-once. A shell loop of one target per run builds them one at a time and
+Pass the targets with one flag, space-separated, or repeat the flag:
+`./scripts/regen/sprites.sh --target hand_saint alice_v2 --jobs 4` builds both
+in one run, `--jobs` targets at a time (default half the CPUs, at most 6), and
+publishes once. A shell loop of one target per run builds them one at a time and
 publishes the whole set again for each one. `--missing-only` keeps every
 selected target, including stale and partial products. A targeted request does not build shared atlases or their other
 parents. A full collection request still builds the shared atlas products.

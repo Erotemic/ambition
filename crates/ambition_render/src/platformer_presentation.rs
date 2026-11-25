@@ -550,6 +550,7 @@ mod tests {
             sprite_offset: None,
             // The fixture's one live room, as the index builder names it.
             room: Some(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION),
+            order: Default::default(),
         }
     }
 

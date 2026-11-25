@@ -117,6 +117,7 @@ fn a_feature_view() -> ambition_sim_view::FeatureView {
         defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
         sprite_offset: None,
         room: None,
+        order: Default::default(),
     }
 }
 

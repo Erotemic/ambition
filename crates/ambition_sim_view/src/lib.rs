@@ -84,7 +84,7 @@ pub use ambition_boss_encounter::BossStage;
 pub use view_index::{
     rebuild_actor_render_index, rebuild_boss_render_index, rebuild_feature_view_index,
     rebuild_nameplate_index, ActorRenderIndex, ActorRenderView, BossRenderIndex, BossRenderView,
-    FeatureView, FeatureViewIndex, NameplateFact, NameplateIndex,
+    FeatureView, FeatureViewIndex, OrderBlock, NameplateFact, NameplateIndex,
 };
 
 /// Publish observation views on their readers' clocks. Keep tick observations

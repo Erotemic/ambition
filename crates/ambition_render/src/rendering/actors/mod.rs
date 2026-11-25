@@ -360,8 +360,10 @@ pub fn sync_visuals(
             continue;
         };
         let draw_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
-        // Two players at one spot are two order blocks (`occurrence_tie`).
-        let player_z = WORLD_Z_PLAYER + super::primitives::occurrence_tie(entity);
+        // Two players at one spot are two order blocks, by the one law every
+        // body of a layer is ordered by (`order_block_tie`): the player's
+        // visual is its body, so its own block is the drawn entity's.
+        let player_z = WORLD_Z_PLAYER + super::primitives::order_block_tie(Default::default(), entity);
         transform.translation = world_to_bevy(&world.0, draw_pos, player_z);
         // Aerial roll (portal somersault / future gravity-room orientation).
         transform.rotation = Quat::from_rotation_z(pose.material.render_angle());
@@ -565,7 +567,7 @@ pub fn sync_visuals(
         let mut placed = *transform;
         // Bodies of one plane are drawn as separate order blocks: an actor's
         // parts never interleave with another's at the same spot.
-        let tie = if view.kind == FeatureVisualKind::Actor { super::primitives::occurrence_tie(entity) } else { 0.0 };
+        let tie = if view.kind == FeatureVisualKind::Actor { super::primitives::order_block_tie(view.order, entity) } else { 0.0 };
         placed.translation = world_to_bevy(&world.0, draw_pos, feature_z_in_plane(view.kind, view.depth_plane) + tie);
         // Surface-walking enemies (PuppySlug) rotate the sprite so
         // its authored "up" axis aligns with the surface normal —

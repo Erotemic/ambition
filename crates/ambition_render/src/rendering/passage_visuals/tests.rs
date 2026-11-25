@@ -34,6 +34,7 @@ fn actor_view(height: f32) -> FeatureView {
         defense_cues: ambition_sim_view::DefenseCueCauses::NONE,
         sprite_offset: None,
         room: None,
+        order: Default::default(),
     }
 }
 

@@ -85,6 +85,7 @@ pub enum Brain {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct NavigationRequest {
     pub method: ae::navigation::NavigationMethod,
+    pub preferred_landing_margin: f32,
     pub next_leg: Option<ae::Vec2>,
     pub destination_seed: Option<u64>,
     pub approach: ApproachDemand,
@@ -266,6 +267,7 @@ impl Brain {
                 let nearby = cfg.notice_radius.max(if grounded { cfg.greet_within } else { 0.0 });
                 Some(NavigationRequest {
                     method: cfg.navigation,
+                    preferred_landing_margin: cfg.preferred_landing_margin,
                     next_leg: state.nav.needs_route(),
                     destination_seed: due.then_some(state.picks as u64),
                     approach: if due && (cfg.company > 0.0 || cfg.stay_within > 0.0) {

@@ -306,13 +306,14 @@ impl NavGraphCache {
         exits: &[Aabb],
         feet: Vec2,
         goal: Vec2,
+        preferred_margin: f32,
         limit: usize,
     ) -> (NavNext, RefinementWork) {
         let key = key.estimated();
         let Some(graph) = self.get_or_build_measured(key, world, exits, None) else {
             return (NavNext::Waiting(RouteWait::Unsupported), RefinementWork::default());
         };
-        graph.refined_next(world, exits, &key.probe_body(), key.frame, feet, goal, limit)
+        graph.refined_next(world, exits, &key.probe_body(), key.frame, feet, goal, preferred_margin, limit)
     }
 
     pub fn len(&self) -> usize {

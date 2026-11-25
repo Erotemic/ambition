@@ -474,6 +474,12 @@ probability field is necessary for the first implementation.
 
 ### 7.4 Remove surgical movement as a default objective
 
+**Landing preference.** A roaming profile can ask for more space between
+a landing and the edge. The preference adds a cost to the concrete leg.
+It changes route selection and leaves the physical capability and the
+follower unchanged. The route test selects a wider landing when the
+profile asks for it.
+
 Current trajectories can look excessively precise because a planner chooses
 an exact edge-adjacent takeoff or landing that minimizes its estimated cost.
 Do not optimize only for traversal duration when generating NPC routes.

@@ -1095,6 +1095,8 @@ pub enum BrainPreset {
         #[serde(default)]
         look_interval_s: f32,
         #[serde(default)]
+        preferred_landing_margin: f32,
+        #[serde(default)]
         company: f32,
         /// Farther than this from the player, the body goes to the player
         /// next. Zero: it does not keep near.

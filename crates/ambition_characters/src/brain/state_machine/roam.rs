@@ -29,6 +29,8 @@ const SAME_PLACE: f32 = 48.0;
 pub struct RoamCfg {
     pub navigation: NavigationMethod,
     pub look_interval_s: f32,
+    /// The space the actor prefers between a landing and the support edge (px).
+    pub preferred_landing_margin: f32,
     /// The walk speed between take-offs (px/s). A run-up and a jump are at
     /// the body's top speed.
     pub speed: f32,
@@ -206,6 +208,7 @@ mod tests {
     const CFG: RoamCfg = RoamCfg {
         navigation: NavigationMethod::SimulationBacked,
         look_interval_s: 0.0,
+        preferred_landing_margin: 0.0,
         speed: 50.0,
         trot_speed: 100.0,
         rest_min_s: 1.0,

@@ -2639,8 +2639,6 @@ impl PlatformerSessionBuilder<'_, '_> {
                 home_body: built.player,
                 actors: crate::session_contents::StagedActorAuthorities {
                     sprite_content: &mechanical.sprite_content,
-                    character_catalog: candidate_catalog
-                        .map_or(&*self.character_catalog, |candidate| &candidate.assembled.catalog),
                     sheets: &mechanical.sheets,
                     characters: cast.cast(),
                     bosses: &mechanical.bosses,

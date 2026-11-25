@@ -90,6 +90,24 @@ translation pair. Preserve that result and narrow its completion claim.
 and outward velocity, while `a_full_turn_takes_a_still_root_at_the_crossing_pose`
 checks the instantaneous crossing pose. Neither establishes residual motion.
 
+**Landed (2026-11-25): generic transit continues from the crossing.**
+`PortalTransfer::at_crossing_completed` maps the root where it crossed
+(`M_tau(x_tau)`), sends its remaining travel relative to the entry surface
+through the map's linear part, and adds the exit surface point's own travel
+for the rest of the tick. Each surface point moves at its published step's
+per-tick rate (`shift + turn x arm`), so a translating exit is exact and a
+turning aperture releases the body straight rather than along the turn.
+`PortalCrossing` carries both steps. A static pair still gives
+`M_tau(x(T))`. Probe (deleted): a body crossing at `tau = 0.5` into an exit
+that moves 40 px this tick ends where a still exit at the end pose puts it
+(x 500, not the old 480).
+`a_full_turn_takes_a_still_root_at_the_crossing_pose` now asserts the
+released root's straight travel at its mapped velocity, not the exit plane.
+Not covered: the kernel still collapses the step at the crossing (M2's
+continuation in the destination chart, with its contacts, and two crossings
+in one tick); exit-speed assistance changes velocity, not this tick's
+travel; the item/projectile road (`prepare_body_crossing`) is unchanged.
+
 ### A chart change erases the target trajectory before projectile contact
 
 `platformer2d_core/src/movement/authority.rs:172–202`, `reconcile_transit`,

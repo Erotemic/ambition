@@ -70,8 +70,6 @@ pub struct SessionContents<'a, 'w, 's> {
 /// What the staged-actor constructor reads, from the generation being built.
 pub(crate) struct StagedActorAuthorities<'a> {
     pub(crate) sprite_content: &'a ambition_sprite_sheet::SpriteContent,
-    pub(crate) character_catalog:
-        &'a ambition_characters::actor::character_catalog::CharacterCatalog,
     pub(crate) sheets: &'a ambition_sprite_sheet::character::sheets::AuthoredSheets,
     pub(crate) characters: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     pub(crate) bosses: &'a ambition_boss_encounter::BossCatalog,

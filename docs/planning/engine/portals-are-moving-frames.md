@@ -254,10 +254,31 @@ whenever the reader's `dt` is the tick's. The contact comparisons against
 reads the body's own velocity against the source normal, as it does with no
 portal.
 
+Receipt (M3, still body, 2026-11-25): `sweep_player_axis_clusters` skips
+the sweep for a zero axis delta only while `geometry_moves_near` finds no
+moving source within reach. That means no block with a velocity, no moving
+line other than the body's own carrier, and no moving portal link whose
+swept bounds reach the body. Otherwise the still body is swept like a moving
+one. The witness `a_still_body_is_met_by_a_wall_that_sweeps_across_it_in_one_tick`
+uses an 8 px wall that crosses the body inside one tick and carries it to
+the far side. The control (the old unconditional skip) leaves the body at
+x 195–225 with the wall at 229–237. The skip remains for still geometry,
+which is the common case. The gate costs one grid query over the region
+repair already reads.
+
+Receipt (M3, spinning obstacle, 2026-11-25): `MaterialCollider::displacement_at`
+gave a rigid line only its translation (`chain.velocity`) and dropped its
+`turn`. A bar spinning about a still pivot therefore read as still: its
+contacts failed the axis filter as separating, and it tunnelled through a
+still body. Its point now also goes round the pivot, at the per-tick rate of
+the same law `velocity_at` applies per second. The witness is
+`a_still_body_is_met_by_a_bar_that_spins_across_it_in_one_tick` (movement
+`slopes` tests). Before the turn term, the body stayed wholly on the bar's
+start side. The swinging and lifting plank riders are unchanged.
+
 Still open in M3:
-- The packet's witnesses.
-- The zero-delta early return in `sweep_player_axis_clusters`: a still body
-  meeting a moving obstacle takes endpoint repair only.
+- A witness of an exit driving material into a stationary wall through the
+  whole kernel step. The unit witnesses cover the carry law.
 - The paced two-room cases.
 - SUP1's changing-support input.
 

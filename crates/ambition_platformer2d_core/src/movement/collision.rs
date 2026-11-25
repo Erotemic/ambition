@@ -117,7 +117,10 @@ pub(super) fn sweep_player_axis_clusters(
             drop_through, gravity_dir, contacts, *admission, refusal, RepairStage::BeforeSweep);
         if conflict.is_some() || refusal.is_some() { return conflict; }
     }
-    if delta_along == 0.0 {
+    // A still body needs no sweep only while nothing that could reach it
+    // moves: a moving obstacle can cross a thin body inside one tick and
+    // leave no overlap at the endpoint for repair to see (M3).
+    if delta_along == 0.0 && !geometry_moves_near(world, kinematics.aabb(), carrier, *admission) {
         return resolve_material_axis_repair(
             world,
             kinematics,
@@ -307,6 +310,20 @@ pub(super) fn material_support_at_rest(
         crate::collision_semantics::gravity_axis(gravity_dir), clusters.kinematics.aabb().feet_coord(gravity_dir),
         false, gravity_dir, admission)?;
     Ok(hits.iter().any(|(_, hit)| hit.contact.normal.dot(-gravity_dir) > 0.5))
+}
+
+/// Could relative motion this tick bring geometry to `body`, though the body
+/// itself does not move along the axis? A moving block or line whose swept
+/// bounds reach it (its own carrier excepted, as in the sweep), or a moving
+/// portal on its admission.
+fn geometry_moves_near(
+    world: &World, body: crate::Aabb, carrier: Option<u64>,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+) -> bool {
+    admission.is_some_and(|admission| admission.links.iter().any(|link| link.moves()))
+        || world.blocks.swept_near(body).iter().any(|block| block.velocity != Vec2::ZERO)
+        || world.chains.indexed_swept_near(body).iter()
+            .any(|(_, chain)| chain.moves() && !(chain.carrier.is_some() && chain.carrier == carrier))
 }
 
 /// The obstacle's per-tick travel at a contact, as the body's chart sees it.

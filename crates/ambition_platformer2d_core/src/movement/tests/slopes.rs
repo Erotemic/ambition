@@ -434,3 +434,36 @@ fn a_body_meets_a_turned_solid_as_its_shape() {
     assert!(crate::solid_lines::push_out(scratch.kinematics.aabb(), &corners).is_none());
     assert!(scratch.kinematics.pos.y < centre.y - 40.0, "{:?}", scratch.kinematics.pos);
 }
+
+/// M3 (portals-are-moving-frames.md): a bar spinning about a still pivot
+/// sweeps across a still body inside one tick. The body ends on the far side
+/// of the bar's end pose, not inside or behind it.
+#[test]
+fn a_still_body_is_met_by_a_bar_that_spins_across_it_in_one_tick() {
+    let world = test_world();
+    let mut scratch = BodyClusterScratch::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+    for _ in 0..30 { step_scratch(&world, &mut scratch, InputState::default()); }
+    assert!(scratch.ground.on_ground, "settled on the floor");
+    let body = scratch.kinematics.aabb();
+    let centre = (body.min + body.max) * 0.5;
+    // Hung above the body (y down), the bar's tip passes below its middle.
+    let pivot = centre - Vec2::new(0.0, 150.0);
+    let bar = |angle: f32| {
+        let along = Vec2::from_angle(angle);
+        let across = along.perp() * 3.0;
+        vec![pivot - across, pivot + along * 200.0 - across, pivot + along * 200.0 + across, pivot + across]
+    };
+    let (start, end) = (std::f32::consts::FRAC_PI_2 + 0.25, std::f32::consts::FRAC_PI_2 - 0.25);
+    let mut swept = world.clone();
+    let mut chain = SurfaceChain::solid("spinning bar", bar(end));
+    chain.turn = end - start;
+    chain.pivot = pivot;
+    swept.chains.push(chain);
+    step_scratch(&swept, &mut scratch, InputState::default());
+    let after = scratch.kinematics.aabb();
+    let along = Vec2::from_angle(end);
+    let corners = [after.min, Vec2::new(after.max.x, after.min.y), after.max, Vec2::new(after.min.x, after.max.y)];
+    let side = corners.map(|corner| along.perp_dot(corner - pivot));
+    assert!(side.iter().all(|distance| *distance <= -2.5),
+        "the body is past the bar's end pose: signed distances {side:?}, body {after:?}");
+}

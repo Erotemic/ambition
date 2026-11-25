@@ -213,12 +213,8 @@ pub fn report_unloadable_item_art(
     poll_art_watch(&assets, "held item art", &mut watch.held, &mut failed.held);
 }
 
-/// The z of a ground item: over a portal's frame and its window, as a body
-/// is, so an item that crosses a portal is not covered by the portal's line
-/// of light at the seam (measured with the seam gauge: at 8.0, under the
-/// frame's 9.3, half the gauge was hidden as it crossed), and an item in
-/// front of a window is not covered by the window. Under the bodies.
-const GROUND_ITEM_Z: f32 = ambition_platformer2d_core::config::WORLD_Z_DUMMY - 0.2;
+/// Ground items draw above scenery and portal frames, and below actors.
+const GROUND_ITEM_Z: f32 = super::world::CLIMBABLE_Z + 0.01;
 
 /// Marks a sprite entity visualizing a [`GroundItem`]: the item it draws.
 #[derive(Component)]
@@ -1180,10 +1176,10 @@ mod tests {
             item,
             pos: ambition_platformer2d_core::Vec2::new(x, 200.0),
             half_extent: ambition_platformer2d_core::Vec2::new(8.0, 8.0),
-            item_id: "key".to_string(),
+            item_id: "bomb".to_string(),
             room: Some(LiveRoomInstance::ACTIVATION),
             material: Default::default(),
-            fuse_left_s: None,
+            fuse_left_s: Some(1.0),
             hanging: None,
         };
         app.insert_resource(GroundItemsView(vec![row(100.0)]));
@@ -1195,11 +1191,12 @@ mod tests {
             app.world_mut()
                 .query_filtered::<(Entity, Ref<Transform>), With<GroundItemVisual>>()
                 .iter(app.world())
-                .map(|(entity, transform)| (entity, transform.translation.x, transform.last_changed()))
+                .map(|(entity, transform)| (entity, transform.translation, transform.last_changed()))
                 .collect::<Vec<_>>()
         };
         let first = visual(&mut app);
         assert_eq!(first.len(), 1, "one row, one visual");
+        assert!(first[0].1.z > super::super::world::SCENERY_Z_FRONT, "scenery hides the bomb");
         app.update();
         let still = visual(&mut app);
         assert_eq!((still[0].0, still[0].2), (first[0].0, first[0].2), "a still row keeps its visual and writes nothing");
@@ -1207,7 +1204,7 @@ mod tests {
         app.update();
         let moved = visual(&mut app);
         assert_eq!(moved[0].0, first[0].0, "a moved row keeps its visual");
-        assert_eq!(moved[0].1 - first[0].1, 40.0, "and moves it");
+        assert_eq!(moved[0].1.x - first[0].1.x, 40.0, "and moves it");
         app.world_mut().resource_mut::<GroundItemsView>().0.clear();
         app.update();
         assert!(visual(&mut app).is_empty(), "a row that is gone takes its visual");

@@ -715,8 +715,10 @@ proves the reusable harness and game provider cuts separately.
 the schema library). CB2's typed entrypoints now hand plain values to one untyped installer
 (2026-11-22). CB3's projectile and held-status customers share
 one reducer body each across phases (2026-11-22). For CB4, the offline item report builds without the game (2026-11-22,
-`--no-default-features`); next, make `game` default-off in the launch
-descriptors and cut one real harness consumer. Try explicit optional feature families before adding packages.
+`--no-default-features`), and the harness no longer inherits the facade's
+defaults (2026-11-25: its own graph lost the renderer, menus and LDtk, 626 →
+549 crates; no current consumer's graph changes). Next, make `game`
+default-off in the launch descriptors. Try explicit optional feature families before adding packages.
 Do not move tool binaries back into app integration-test builds.
 
 **Acceptance:** an independent schema consumer excludes the checker; the

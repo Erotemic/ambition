@@ -849,12 +849,7 @@ impl ActorRenderIndex {
     }
 }
 
-/// Rebuild [`ActorRenderIndex`] from the live actor clusters + the shared
-/// [`ActorRenderSize`] component (joined on the same entity, so
-/// the pass is O(actors), not a per-actor cross-scan). Runs in the sim's
-/// `FeatureViewSync` set beside [`rebuild_feature_view_index`], so the snapshot
-/// is ready before presentation reads it. Bosses have their OWN sprite path
-/// (`upgrade_boss_sprites`) and props aren't actors, so neither appears here.
+/// Join actor data and [`ActorRenderSize`] on the same entity before drawing.
 pub fn rebuild_actor_render_index(
     mut index: ResMut<ActorRenderIndex>,
     actors: Query<(
@@ -1009,9 +1004,7 @@ fn staged_with_its_card(
     stage
 }
 
-/// Rebuild [`BossRenderIndex`] from the live boss clusters. Runs in the sim's
-/// `FeatureViewSync` set beside the other read-model rebuilds; a row that has not
-/// changed costs a compare and no allocation.
+/// Rebuild [`BossRenderIndex`] from the live boss clusters before drawing.
 pub fn rebuild_boss_render_index(
     mut index: ResMut<BossRenderIndex>,
     bosses: Query<(&FeatureId, ambition_boss_encounter::BossClusterRef)>,

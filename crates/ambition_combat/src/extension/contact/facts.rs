@@ -198,6 +198,13 @@ pub fn queue_body_contacts(world: &mut World, mut context: Local<Option<Context>
             sample.limits.problems().is_empty()
         });
     }
+    let observed: std::collections::BTreeSet<_> = samples.iter()
+        .filter(|sample| !sample.keys.is_empty())
+        .map(|sample| (sample.session, sample.room)).collect();
+    if observed.is_empty() {
+        return;
+    }
+    samples.retain(|sample| observed.contains(&(sample.session, sample.room)));
     let empty_geometry = BodyGeometry::default();
     let geometry = world
         .get_resource::<BodyGeometry>()

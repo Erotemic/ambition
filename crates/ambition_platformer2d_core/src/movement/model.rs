@@ -526,7 +526,7 @@ impl Default for AxisManeuverState {
 /// Cross-variant entry installs a fresh value (default state); a same-variant
 /// parameter refresh touches only `params`, so maneuver state is preserved by
 /// construction — no external initializer exists or is needed.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AxisSweptMotion {
     pub params: AxisSweptParams,
     pub state: AxisManeuverState,
@@ -548,7 +548,7 @@ impl Default for AxisSweptMotion {
 }
 
 /// Surface-momentum model-owned parameters and persistent solver state.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SurfaceMomentumMotion {
     pub params: MomentumParams,
     pub state: SurfaceMotion,
@@ -645,7 +645,8 @@ impl SurfaceMomentumMotion {
 /// spawn, and no query may interpret a missing component as axis-swept.
 /// Runtime swaps go through [`switch_motion_model`] so destination-private
 /// state is initialized without touching unrelated body state.
-#[derive(Component, Clone, Debug)]
+#[derive(Component, Clone, Debug, PartialEq)]
+#[require(super::SettledMotion)]
 pub enum MotionModel {
     AxisSwept(AxisSweptMotion),
     SurfaceMomentum(SurfaceMomentumMotion),

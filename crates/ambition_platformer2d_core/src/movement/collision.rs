@@ -403,7 +403,7 @@ fn resolve_material_axis_repair(
 /// flips with gravity like the landing sweep already does. A walkable line
 /// (`walkable_lines`) is one-way too, so standing on one counts.
 pub fn standing_on_one_way_aabb(world: &World, body: Aabb, gravity_dir: Vec2, bands: crate::collision_semantics::ContactBands) -> bool {
-    world.blocks.iter().any(|block| {
+    world.blocks.in_region(crate::collision_semantics::support_region(body, gravity_dir, bands.contact)).any(|block| {
         matches!(block.kind, BlockKind::OneWay)
             && surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, false, bands)
     }) || crate::walkable_lines::standing_on_line(world, body, gravity_dir, bands).is_some()
@@ -432,9 +432,7 @@ pub fn teetering_at_edge(
     }
     let gravity_dir = frame.down();
     let supported = |at: Aabb| {
-        world.blocks.iter().any(|block| {
-            surface_supports_body_at_rest(block.kind, at, block.aabb, gravity_dir, false, bands)
-        })
+        crate::collision_semantics::supporting_block(world, at, gravity_dir, false, bands).is_some()
     };
     if !supported(body) {
         return false;
@@ -491,7 +489,7 @@ pub fn floor_held_step(world: &World, body: Aabb, down: Vec2, axis: Vec2, delta:
     };
     let supported = |shift: f32| {
         let probe = sliver(shift);
-        world.blocks.iter().any(|block| surface_supports_body_at_rest(block.kind, probe, block.aabb, down, false, bands))
+        crate::collision_semantics::supporting_block(world, probe, down, false, bands).is_some()
             || crate::walkable_lines::standing_on_line(world, probe, down, bands).is_some()
     };
     if !supported(0.0) || supported(delta) {

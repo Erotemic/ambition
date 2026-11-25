@@ -158,6 +158,21 @@ pub fn step_motion(
     ctx: MotionStepContext<'_>,
 ) -> MotionStepResult {
     let retained_down = SweepSample::down_or(clusters.sweep.as_deref(), ctx.frame.down());
+    if let Some(settled) = clusters.settled.take() {
+        let result = settled.step(model, clusters, ctx, retained_down);
+        clusters.settled = Some(settled);
+        result
+    } else {
+        solve_motion(model, clusters, ctx, retained_down)
+    }
+}
+
+pub(super) fn solve_motion(
+    model: &mut MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    ctx: MotionStepContext<'_>,
+    retained_down: Vec2,
+) -> MotionStepResult {
     // A frame whose gravity response was refused moves nothing: the body
     // holds as any refused step does, with the fault reported.
     let refusal = if ctx.frame.response_refused() {

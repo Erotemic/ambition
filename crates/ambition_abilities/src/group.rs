@@ -88,19 +88,51 @@ pub fn queue_group_thinks(
     if time.sim_dt() <= 0.0 {
         return;
     }
-    let mut tags: Vec<String> = admitted
+    let tags: BTreeSet<String> = admitted
         .0
         .entries
         .iter()
         .filter(|e| e.descriptor.trigger.port == GroupThinkPort::KEY)
         .map(|e| e.descriptor.trigger.selector.to_string())
         .collect();
-    tags.sort_unstable();
-    tags.dedup();
+    if tags.is_empty() {
+        return;
+    }
     let root_of: BTreeMap<LiveRoomInstance, Entity> = roots.iter().map(|(entity, room)| (*room, entity)).collect();
+    let mut groups = BTreeMap::<(&str, LiveRoomInstance), Vec<GroupMember>>::new();
+    for (entity, form, health, kin, id, target, held, support, driven) in &bodies {
+        let Some(entry) = catalog.get(form.id()) else { continue; };
+        let matching: BTreeSet<_> = entry.tags.iter().map(String::as_str)
+            .filter(|tag| tags.contains(*tag)).collect();
+        let mut matching = matching.into_iter();
+        let Some(first) = matching.next() else { continue; };
+        let Some(room) = rooms.of(entity).filter(|room| root_of.contains_key(room)) else { continue; };
+        let target = target.and_then(|t| t.entity).and_then(|t| tracked.get(t).ok());
+        let member = GroupMember {
+            id: id.as_str().to_owned(),
+            form: form.id().to_owned(),
+            position: kin.pos.to_array(),
+            velocity: kin.vel.to_array(),
+            size: kin.size().to_array(),
+            alive: health.alive(),
+            driven,
+            held: held.map(|held| held.id().to_owned()),
+            supporter: support.and_then(|s| ids.get(s.supporter).ok()).map(|id| id.as_str().to_owned()),
+            target: target.map(|t| t.pos.to_array()),
+            target_velocity: target.map(|t| t.vel.to_array()),
+        };
+        for tag in matching {
+            groups.entry((tag, room)).or_default().push(member.clone());
+        }
+        groups.entry((first, room)).or_default().push(member);
+    }
+    if groups.is_empty() {
+        return;
+    }
+    let observed_rooms: BTreeSet<_> = groups.keys().map(|&(_, room)| room).collect();
     let mut room_items: BTreeMap<LiveRoomInstance, Vec<GroupItem>> = BTreeMap::new();
     for (entity, ground, kin, custody, id, at_rest) in items.iter() {
-        let Some(room) = rooms.of(entity).filter(|_| custody.in_world()) else {
+        let Some(room) = rooms.of(entity).filter(|room| custody.in_world() && observed_rooms.contains(room)) else {
             continue;
         };
         room_items.entry(room).or_default().push(GroupItem {
@@ -113,37 +145,12 @@ pub fn queue_group_thinks(
     for list in room_items.values_mut() {
         list.sort_by(|a, b| a.id.cmp(&b.id));
     }
-    for tag in tags {
-        let mut groups: BTreeMap<LiveRoomInstance, Vec<GroupMember>> = BTreeMap::new();
-        for (entity, form, health, kin, id, target, held, support, driven) in bodies.iter() {
-            let tagged = catalog.get(form.id()).is_some_and(|entry| entry.tags.iter().any(|t| *t == tag));
-            let Some(room) = rooms.of(entity).filter(|_| tagged) else {
-                continue;
-            };
-            let target = target.and_then(|t| t.entity).and_then(|t| tracked.get(t).ok());
-            groups.entry(room).or_default().push(GroupMember {
-                id: id.as_str().to_owned(),
-                form: form.id().to_owned(),
-                position: [kin.pos.x, kin.pos.y],
-                velocity: [kin.vel.x, kin.vel.y],
-                size: [kin.size().x, kin.size().y],
-                alive: health.alive(),
-                driven,
-                held: held.map(|held| held.id().to_owned()),
-                supporter: support.and_then(|s| ids.get(s.supporter).ok()).map(|id| id.as_str().to_owned()),
-                target: target.map(|t| [t.pos.x, t.pos.y]),
-                target_velocity: target.map(|t| [t.vel.x, t.vel.y]),
-            });
-        }
-        for (room, mut members) in groups {
-            let Some(&root) = root_of.get(&room) else {
-                continue;
-            };
-            members.sort_by(|a, b| a.id.cmp(&b.id));
-            let items = room_items.get(&room).cloned().unwrap_or_default();
-            let dt = time.sim_dt() * pace.scale_of(root);
-            invocations.trigger::<GroupThinkPort>(&ACTOR_THINK, tag.clone(), root, None, false, GroupThink { dt, members, items });
-        }
+    for ((tag, room), mut members) in groups {
+        let root = root_of[&room];
+        members.sort_by(|a, b| a.id.cmp(&b.id));
+        let items = room_items.get(&room).cloned().unwrap_or_default();
+        let dt = time.sim_dt() * pace.scale_of(root);
+        invocations.trigger::<GroupThinkPort>(&ACTOR_THINK, tag.to_owned(), root, None, false, GroupThink { dt, members, items });
     }
 }
 

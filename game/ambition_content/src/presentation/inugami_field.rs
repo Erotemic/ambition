@@ -29,7 +29,9 @@ pub fn install(app: &mut App) {
     // boss visual and no aura (e.g. in another game), there is no work.
     app.add_plugins(SpiritFieldPlugin).add_systems(
         Update,
-        reconcile_inugami_fields.run_if(any_with_component::<BossAnimator>.or_else(any_with_component::<SpiritAura>)),
+        reconcile_inugami_fields
+            .after(ambition_sim_view::PresentedPoseSet)
+            .run_if(any_with_component::<BossAnimator>.or_else(any_with_component::<SpiritAura>)),
     );
 }
 

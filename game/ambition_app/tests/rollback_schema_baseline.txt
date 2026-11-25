@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v547
+ggrs-rollback-schema-v548
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -250,6 +250,7 @@ derived.resolved_switch_activations	derived	ResolvedSwitchActivations	this tick'
 derived.resolved_technique_edges	derived	ResolvedTechniqueEdges	cleared and republished from current input every frame
 derived.room_combat_tuning	derived	RoomCombatTuning	refolded on each live room root from that room's CombatRules over the world baseline every WorldPrep
 derived.room_navigation	derived	RoomNavigation	a cache of surface graphs, each a pure function of a room's authored geometry and a body's tuning
+derived.settled_motion	derived	SettledMotion	the kernel checks the restored inputs before it reuses the result
 derived.sim_step_period	derived	SimStepPeriod	fixed period derived from the host tick rate at installation; immutable within a timeline
 derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
 derived.tick_parries	derived	TickParries	written again in each tick's hit_reaction collect and read only by that tick's lowering

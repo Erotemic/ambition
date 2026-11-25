@@ -170,6 +170,12 @@ impl Brain {
         sm.perception_requirement()
     }
 
+    /// Control that the brain can emit without preparing a decision snapshot.
+    pub fn fixed_control(&self) -> Option<crate::actor::control::ActorControlFrame> {
+        let Self::StateMachine(sm) = self;
+        sm.fixed_control()
+    }
+
     /// A committed pursuit leg can use the actor's current belief.
     pub fn retains_target_belief(&self) -> bool {
         matches!(self, Self::StateMachine(StateMachineCfg::MeleeBrute { cfg, state })

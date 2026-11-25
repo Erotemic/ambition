@@ -41,6 +41,86 @@ fn floor_world() -> World {
     )
 }
 
+#[test]
+fn settled_steps_keep_contact_and_wake_when_support_changes() {
+    use crate::movement::SettledMotion;
+
+    let mut world = floor_world();
+    world.blocks.add(Block::solid("remote", Vec2::splat(900.0), Vec2::splat(20.0)));
+    let mut cached = BodyClusterScratch::new_with_abilities(world.spawn, AbilitySet::default());
+    let mut reference = cached.clone();
+    let mut cache = SettledMotion::default();
+    let frame = MotionFrame::from_direction(Vec2::Y, 900.0);
+    let mut sample = SweepSample::at_rest(cached.kinematics, Vec2::Y);
+    let mut reference_sample = sample;
+    let initial = cached.clone();
+    let initial_sample = sample;
+    let mut observed_reuse = false;
+
+    for tick in 0..222 {
+        world.blocks.hide(1);
+        let overlay = if tick == 180 {
+            Block::hazard("hazard", cached.kinematics.aabb().min, cached.kinematics.size())
+        } else {
+            Block::solid("remote", Vec2::new(900.0, 500.0 + tick as f32), Vec2::splat(20.0))
+        };
+        world.blocks.add(overlay);
+        if tick == 110 {
+            assert!(observed_reuse);
+            cached = initial.clone();
+            reference = initial.clone();
+            sample = initial_sample;
+            reference_sample = initial_sample;
+            observed_reuse = false;
+        }
+        if tick == 220 {
+            assert!(observed_reuse);
+            assert!(cached.ground.on_ground);
+            world.blocks.hide(0);
+        }
+        let ctx = MotionStepContext {
+            world: &world,
+            admission: None,
+            input: InputState::default(),
+            frame,
+            facing_intent: 0.0,
+            dt: DT,
+            contact: crate::movement::body_contact::BodyContactField::NONE,
+            pose_owned_externally: false,
+            recovery_commitment_outstanding: false,
+        };
+        let (model, mut clusters) = cached.parts();
+        clusters.settled = Some(&mut cache);
+        clusters.sweep = Some(&mut sample);
+        let result = step_motion(model, &mut clusters, ctx);
+        let (model, mut clusters) = reference.parts();
+        clusters.sweep = Some(&mut reference_sample);
+        let expected = step_motion(model, &mut clusters, ctx);
+        assert_eq!(cached, reference, "tick {tick}");
+        assert_eq!(sample, reference_sample, "tick {tick}");
+        assert_eq!(result.support, expected.support, "tick {tick}");
+        assert_eq!(result.events.contacts, expected.events.contacts, "tick {tick}");
+        assert_eq!(result.events.ground_contact, expected.events.ground_contact);
+        assert_eq!(result.events.reset, expected.events.reset);
+        observed_reuse |= cache.reused();
+        if tick == 219 {
+            assert!(cache.reused());
+        }
+        if tick == 110 {
+            assert!(!cache.reused());
+        }
+        if tick == 180 {
+            assert!(!cache.reused());
+            assert_eq!(result.events.reset, Some(ResetCause::Hazard));
+        }
+        if tick == 220 {
+            assert!(!cache.reused());
+            assert_eq!(result.events.ground_contact, GroundContactTransition::LeftGround);
+            assert!(cached.kinematics.vel.y > 0.0);
+        }
+    }
+}
+
 fn step(
     model: &mut MotionModel,
     world: &World,

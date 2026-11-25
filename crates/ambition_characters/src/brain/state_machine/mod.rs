@@ -99,6 +99,14 @@ pub enum StateMachineCfg {
 }
 
 impl StateMachineCfg {
+    /// Control for a brain that has no decision inputs or mutable state.
+    pub(super) fn fixed_control(&self) -> Option<crate::actor::control::ActorControlFrame> {
+        match self {
+            Self::StandStill => Some(crate::actor::control::ActorControlFrame::neutral()),
+            _ => None,
+        }
+    }
+
     /// Whether the body turns to face whoever talks to it. A body that stands
     /// and has not opted in to turning ([`Self::StandStill`]) keeps its
     /// facing in a conversation too; a body that moves turns as it moves.
@@ -193,7 +201,7 @@ pub fn tick_simple_state_machine(
         return true;
     }
     match sm {
-        StateMachineCfg::StandStill => *out = crate::actor::control::ActorControlFrame::neutral(),
+        StateMachineCfg::StandStill => *out = sm.fixed_control().expect("fixed brain control"),
         StateMachineCfg::TurnToVisitors => tick_turn_to_visitors(snapshot, out),
         StateMachineCfg::Patrol { cfg, state } => tick_patrol(cfg, state, snapshot, out),
         StateMachineCfg::Wanderer { cfg } => tick_wanderer(cfg, snapshot, out),

@@ -348,6 +348,17 @@ pub fn feet_on_head(stomper: Aabb, victim: Aabb, gravity_dir: Vec2, band: f32, e
     (0.0..=band).contains(&separation)
 }
 
+/// Bounds for a support-face query with cardinal gravity.
+pub(crate) fn support_region(body: Aabb, down: Vec2, band: f32) -> Option<Aabb> {
+    if !matches!(down, Vec2::X | Vec2::NEG_X | Vec2::Y | Vec2::NEG_Y)
+        || !band.is_finite() || band < 0.0
+    {
+        return None;
+    }
+    let extension = down.abs() * band;
+    Some(Aabb { min: body.min - extension, max: body.max + extension })
+}
+
 /// The first world block that supports `body` at rest under this gravity, if any.
 pub fn supporting_block<'a>(
     world: &'a World,
@@ -356,7 +367,7 @@ pub fn supporting_block<'a>(
     drop_through: bool,
     bands: ContactBands,
 ) -> Option<&'a Block> {
-    world.blocks.iter().find(|block| {
+    world.blocks.in_region(support_region(body, gravity_dir, bands.contact)).find(|block| {
         surface_supports_body_at_rest(block.kind, body, block.aabb, gravity_dir, drop_through, bands)
     })
 }
@@ -407,7 +418,7 @@ pub fn footing(
     let (body_lo, body_hi) = across(body);
     let blocks = world
         .blocks
-        .iter()
+        .in_region(support_region(body, gravity_dir, bands.contact))
         .filter(|block| {
             let (lo, hi) = across(block.aabb);
             is_support_surface(block.kind)

@@ -12,6 +12,7 @@ use crate::Vec2;
 
 /// Mutable body-cluster view consumed by movement entry points.
 pub struct BodyClustersMut<'a> {
+    pub settled: Option<&'a mut crate::movement::SettledMotion>,
     /// This body's key for the lines it carries (`SurfaceChain::carrier`):
     /// its entity's bits, or `None` for a scratch body that carries none.
     pub carrier: Option<u64>,
@@ -50,6 +51,7 @@ pub struct BodyClustersMut<'a> {
 #[query_data(mutable)]
 pub struct BodyClusterQueryData {
     pub entity: bevy_ecs::entity::Entity,
+    pub settled: Option<&'static mut crate::movement::SettledMotion>,
     pub abilities: &'static BodyAbilities,
     pub kinematics: &'static mut BodyKinematics,
     pub sweep: Option<&'static mut SweepSample>,
@@ -79,6 +81,7 @@ impl<'w, 's> BodyClusterQueryDataItem<'w, 's> {
         's: 'a,
     {
         BodyClustersMut {
+            settled: self.settled.as_deref_mut(),
             carrier: Some(self.entity.to_bits()),
             abilities: &*self.abilities,
             kinematics: &mut *self.kinematics,
@@ -104,7 +107,7 @@ impl<'w, 's> BodyClusterQueryDataItem<'w, 's> {
 }
 
 /// Active ability set for this player.
-#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default)]
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyAbilities {
     pub abilities: AbilitySet,
 }
@@ -1464,7 +1467,7 @@ pub struct BodyLifeStats {
 /// not a body). Construct via [`BodyClusterScratch::new_with_abilities`] and
 /// re-borrow the cluster view via [`BodyClusterScratch::as_mut`], or split
 /// model + clusters via [`BodyClusterScratch::parts`].
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BodyClusterScratch {
     /// The movement policy, held ALONGSIDE the clusters (in ECS it is its own
     /// component). Persistent across steps so model-private maneuver state
@@ -1605,6 +1608,7 @@ impl BodyClusterScratch {
     /// clusters) so scratch callers can hand both to [`crate::step_motion`].
     pub fn parts(&mut self) -> (&mut crate::movement::MotionModel, BodyClustersMut<'_>) {
         let clusters = BodyClustersMut {
+            settled: None,
             carrier: None,
             abilities: &self.abilities,
             kinematics: &mut self.kinematics,
@@ -1652,6 +1656,7 @@ impl BodyClusterScratch {
 
     pub fn as_mut(&mut self) -> BodyClustersMut<'_> {
         BodyClustersMut {
+            settled: None,
             carrier: None,
             abilities: &self.abilities,
             kinematics: &mut self.kinematics,

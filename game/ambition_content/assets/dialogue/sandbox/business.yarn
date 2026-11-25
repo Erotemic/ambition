@@ -1,0 +1,128 @@
+title: business_dirk
+---
+<<present_speaker "npc_business_dirk_quarterly">>
+<<if verdict("world.flag_set", "business_dirk_met") == "satisfied">>
+    Dirk: Still on the call. Hour nine. We're aligning.
+    -> Who's on the other end?
+        Dirk: The board. Or my mother. Either way it's a quarterly review.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "business_dirk_met") == "not_satisfied">>
+    <<command "world.set_flag" "business_dirk_met" true>>
+    Dirk: No. No. Let's take this offline.
+    Dirk: Sorry. Dirk Quarterly. You're with...?
+    -> I came through the gate.
+        Dirk: Inbound talent. Love it. My people will circle back to your people.
+        Dirk: A word of advice, free of charge, this once: directions in Capital are licensed. Don't read a map you haven't paid for.
+    -> Who's the statue?
+        Dirk: The Founder. Started with nothing but a briefcase and a small loan.
+        Dirk: The size of the loan is proprietary.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===
+title: business_solly
+---
+<<present_speaker "npc_business_solly_darity">>
+<<if verdict("world.flag_set", "business_solly_met") == "satisfied">>
+    Solly: Still here. They offered us a pizza party.
+    Solly: We asked for the pizza in writing.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "business_solly_met") == "not_satisfied">>
+    <<command "world.set_flag" "business_solly_met" true>>
+    Solly: Morning. You're not crossing the line, are you?
+    -> What's the strike about?
+        Solly: Records & Processing pays us by the form. Last year they made every form twice as long.
+        Solly: Same pay, twice the boxes. So we stopped filling in boxes.
+    -> Who is Local 17?
+        Solly: The records clerks. Sixty of us out here, and Marguerite, who's still inside processing our strike notices.
+        Solly: Somebody has to. She says it's the fastest the forms have moved in years.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===
+title: business_barista
+---
+<<present_speaker "npc_business_barista">>
+<<if verdict("world.flag_set", "business_barista_met") == "satisfied">>
+    Ines: Back again. The table by the window has been pitching the same app since Tuesday.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "business_barista_met") == "not_satisfied">>
+    <<command "world.set_flag" "business_barista_met" true>>
+    Ines: Welcome to The Bottom Line. What can I get you?
+    -> A coffee.
+        Ines: Two coins, and the licence fee on the cup.
+        Ines: The shape of the cup is patented. I pour into it anyway.
+    -> Is it always this busy?
+        Ines: Everyone at the tables is pitching everyone else. Nobody has bought anything in years. They just keep refilling.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===
+title: business_clerk
+---
+<<present_speaker "npc_business_records_clerk">>
+<<if verdict("world.flag_set", "business_clerk_met") == "satisfied">>
+    Marguerite: Number five. Not you. Sit down.
+    -> What happens to the shredded forms?
+        Marguerite: They're filed. Under S.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "business_clerk_met") == "not_satisfied">>
+    <<command "world.set_flag" "business_clerk_met" true>>
+    Marguerite: Take a number. We're on number four.
+    -> What is this place?
+        Marguerite: Records & Processing. Every form in Capital comes through here. It gets stamped and goes back out to be filled in again.
+        Marguerite: Mind the shredder by the stairs. It doesn't read the forms either.
+    -> What are you working on?
+        Marguerite: Form 27-B. I started it eleven years ago. It's nearly done.
+        Marguerite: Every spring someone sends it back for a signature from the person who sent it back.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===
+title: business_professor
+---
+<<present_speaker "npc_business_professor">>
+<<if verdict("world.flag_set", "business_professor_met") == "satisfied">>
+    Gail: Back for the second lecture? It's the first one again, louder.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "business_professor_met") == "not_satisfied">>
+    <<command "world.set_flag" "business_professor_met" true>>
+    Gail: Sit anywhere with a desk. Today's lecture is Synergy.
+    -> What is synergy?
+        Gail: Two departments do the work of three and are paid as one. The difference is synergy.
+        Gail: It's on the exam.
+    -> Who is in the armour at the back?
+        Gail: Mr. Zorlack. Best attendance in the class. He bows when he hands in his work.
+        Gail: The careers office has a form about the bowing.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===
+title: business_zorlack
+---
+<<present_speaker "npc_ninja_shadow_oni_leader">>
+<<if verdict("world.flag_set", "business_zorlack_met") == "satisfied">>
+    Zorlack: The professor says a leader can lead anything. I asked her what she would choose to lead.
+    Zorlack: She said a department with a parking space.
+    -> ‹go›
+<<elseif verdict("world.flag_set", "business_zorlack_met") == "not_satisfied">>
+    <<command "world.set_flag" "business_zorlack_met" true>>
+    Zorlack: You are not the recruiter. Good. I have rehearsed for the recruiter, and not for you.
+    -> What are you doing here?
+        Zorlack: Synergy 101. Sixty-five thousand five hundred and thirty-five Zorlacks led the clan before me, and none of them took a class.
+        Zorlack: The wall at home has a place for each of us. Mine is the last one. Nobody has told me what comes after the wall.
+        Zorlack: So I am asking a college.
+    -> Why the armour?
+        Zorlack: The careers office asked the same. Their dress code says: bring your whole self, in a navy suit.
+        Zorlack: This is my whole self. It was my grandfather's whole self before me. I polished it for the interview.
+        Zorlack: I have not been given an interview.
+    -> ‹go›
+<<else>>
+    <<stop>>
+<<endif>>
+===

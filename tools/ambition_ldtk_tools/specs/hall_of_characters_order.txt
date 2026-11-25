@@ -160,6 +160,13 @@ npc_frontier_crane_driver
 npc_frontier_laundress
 npc_peyote_lean
 
+[Capital, the city of the Business dimension]
+npc_business_dirk_quarterly
+npc_business_solly_darity
+npc_business_barista
+npc_business_records_clerk
+npc_business_professor
+
 [The orbital station]
 npc_station_okafor
 npc_station_reyes

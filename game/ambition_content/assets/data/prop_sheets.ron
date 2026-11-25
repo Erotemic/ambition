@@ -1083,6 +1083,19 @@
     "jungle_nest": (),
     "jungle_idol_head": (),
     "jungle_ribcage": (),
+    // The Business dimension's scenery (`targets/props/business_props.py`):
+    // each piece is drawn in its room's coordinates, over the room's walk
+    // lines; the folder carrier is the look of a moving platform.
+    "business_cafe_front": (),
+    "business_founder_statue": (),
+    "business_picket_line": (),
+    "business_college_front": (),
+    "business_records_conveyor": (),
+    "business_stamp_press": (),
+    "business_shredder": (),
+    "business_records_desk": (),
+    "business_lecture_room": (),
+    "business_folder_carrier": (),
     // The Frontier's scenery (`targets/props/frontier_props.py`): each piece
     // is drawn in its room's coordinates, over the room's walk lines.
     "frontier_pad_booth": (),

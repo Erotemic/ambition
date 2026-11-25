@@ -82,7 +82,7 @@
     (
         cue: "dialogue.blip.ninja",
         exact: ["ninja"],
-        aliases: ["ninja", "shadow", "oni", "duelist"],
+        aliases: ["ninja", "shadow", "oni", "duelist", "zorlack"],
     ),
     (
         cue: "dialogue.blip.oiler",

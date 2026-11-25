@@ -3184,7 +3184,9 @@
 
         // ===== Ninja dojo.
         "npc_ninja_shadow_oni_leader": (
-            display_name: "Shadow Oni Leader",
+            // Zorlack 65536, the last of the numbered leaders of the Shadow
+            // Clan: the ancestral wall has 65536 places and his is the last.
+            display_name: "Zorlack 65536",
             manifest: "sprites/ninja_shadow_oni_leader_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -15631,6 +15633,98 @@
                 hall: ["I do the night shift's shirts under the works. The soot comes out at one o'clock.", "The wind can't get in under the works. The soot can."],
             ),
             hall_dialogue_id: Some("hall_npc_frontier_laundress"),
+        ),
+        // Capital, the city of the Business dimension (gate address DEALINGS,
+        // `docs/planning/game/business-dimension.md`): its residents.
+        "npc_business_dirk_quarterly": (
+            display_name: "Dirk Quarterly",
+            // An executive of Capital, on a call in Founders' Plaza. He talks in the city's jargon: it is his joke.
+            manifest: "sprites/business_dirk_quarterly_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 183 cm.
+            standing_height: Some(70.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "business", "peaceful"],
+            barks: (
+                idle: ["Let's take this offline.", "Circle back to me on that.", "I'm on a call."],
+                hall: ["I've been on this call since the second quarter. Nobody wants to be the one who hangs up.", "My calendar has a meeting about my calendar. I'm late for it."],
+            ),
+            hall_dialogue_id: Some("hall_npc_business_dirk_quarterly"),
+        ),
+        "npc_business_solly_darity": (
+            display_name: "Solly Darity",
+            // The picket captain of the Records Clerks' Union, Local 17, on strike in Founders' Plaza.
+            manifest: "sprites/business_solly_darity_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "business", "peaceful"],
+            barks: (
+                idle: ["Don't cross the line, friend.", "Local 17. Ask me why."],
+                hall: ["They pay us by the form. Then they made the forms longer.", "The Founder made himself. Then he made us do the paperwork."],
+            ),
+            hall_dialogue_id: Some("hall_npc_business_solly_darity"),
+        ),
+        "npc_business_barista": (
+            display_name: "Ines Vale",
+            // The barista of The Bottom Line, the café of Founders' Plaza.
+            manifest: "sprites/business_barista_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "business", "peaceful"],
+            barks: (
+                idle: ["What can I get you?", "We don't take equity. Cash or coin."],
+                hall: ["A man paid for a coffee with a business card. I framed it. He still owes me two.", "Everyone in here is pitching. I sell the coffee they pitch over."],
+            ),
+            hall_dialogue_id: Some("hall_npc_business_barista"),
+        ),
+        "npc_business_records_clerk": (
+            display_name: "Marguerite Pell",
+            // The senior clerk of Records & Processing, who has processed the same form for eleven years.
+            manifest: "sprites/business_records_clerk_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 158 cm.
+            standing_height: Some(61.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "business", "peaceful"],
+            barks: (
+                idle: ["Take a number.", "Form 27-B goes in the tube. The other tube."],
+                hall: ["Eleven years on one form. It's nearly done. Someone keeps sending it back for a signature.", "I'm not on strike. Somebody has to process the strike notices."],
+            ),
+            hall_dialogue_id: Some("hall_npc_business_records_clerk"),
+        ),
+        "npc_business_professor": (
+            display_name: "Gail Margin",
+            // Professor of Synergy at Capital Business College.
+            manifest: "sprites/business_professor_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 172 cm.
+            standing_height: Some(66.7),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "business", "peaceful"],
+            barks: (
+                idle: ["Take your seat. Any seat with a desk.", "Office hours are by invoice."],
+                hall: ["I've taught Synergy for thirty years. I still can't tell you what it is, and nobody asks.", "My best student bought the college. Now I report to her."],
+            ),
+            hall_dialogue_id: Some("hall_npc_business_professor"),
         ),
         // Peyote Lean: a coyote outlaw who rides with Marshal Gallus (concept
         // art `assets/concept_art/misc/Peyote Lean*.png`; renderer resident

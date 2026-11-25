@@ -34,7 +34,7 @@ mod tests {
     fn flagship_exact_and_alias_names_keep_their_authored_voiceprints() {
         let catalog = catalog();
         assert_eq!(catalog.resolve("Bob", ""), Some(SfxId::from_static("dialogue.blip.bob")));
-        assert_eq!(catalog.resolve("Shadow Oni Leader", ""), Some(SfxId::from_static("dialogue.blip.ninja")));
+        assert_eq!(catalog.resolve("Zorlack 65536", ""), Some(SfxId::from_static("dialogue.blip.ninja")));
         assert_eq!(catalog.resolve("", "hall_npc_oiler"), Some(SfxId::from_static("dialogue.blip.oiler")));
         assert_eq!(catalog.resolve("Iron Mary", ""), Some(SfxId::from_static("dialogue.blip.pirate")));
     }

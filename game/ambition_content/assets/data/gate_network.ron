@@ -77,6 +77,9 @@
         // The Frontier's auxiliary terminal at Halfway Siding, on the gulch
         // rim west of Dry Dock (`techno-western-frontier-first-slice.md`).
         (id: "halfway_siding", name: "Halfway Siding Auxiliary Terminal", dimension: "frontier"),
+        // The Business dimension's city, Capital
+        // (`docs/planning/game/business-dimension.md`).
+        (id: "founders_plaza", name: "Founders' Plaza Gate", dimension: "business"),
     ],
     rings: [
         // ── Home ──────────────────────────────────────────────────────────
@@ -456,6 +459,19 @@
             terminal: Some("frontier_siding_terminal"),
             posted: ["LEGAL", "LEADENSADDLE"],
             note: "Auxiliary gate. Rest at the inn before travelling on.",
+        ),
+        // ── Business (Capital) ───────────────────────────────────────────
+        // Founders' Plaza, by the Founder's fountain
+        // (`docs/planning/game/business-dimension.md`).
+        (
+            zone: "business_plaza_gate",
+            name: "Capital, Founders' Plaza",
+            facility: "founders_plaza",
+            room: "business_founders_plaza",
+            address: Some("DEALINGS"),
+            terminal: Some("business_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "Plaza gate. Directions beyond this point are licensed.",
         ),
     ],
 )

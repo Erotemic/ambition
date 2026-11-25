@@ -18,6 +18,10 @@
     // `SEESAW_*`, `CRAYON_*`).
     "art_brush_seesaw": (row: "idle", frame_px: (384.0, 64.0), span_px: (16.0, 368.0), top_px: 22.0),
     "art_crayon_rail": (row: "idle", frame_px: (320.0, 64.0), span_px: (16.0, 304.0), top_px: 18.0),
+    // The Business dimension's folder carrier: the top of its bar is the
+    // platform; the folders hang under it (`targets/props/business_props.py`:
+    // `CARRIER_FRAME`, `CARRIER_SPAN`, `CARRIER_TOP`).
+    "business_folder_carrier": (row: "idle", frame_px: (320.0, 96.0), span_px: (16.0, 304.0), top_px: 40.0),
     // The History dimension's felucca: the top of its deck IS the platform;
     // the sail rises over it (`targets/props/history_nile_props.py`:
     // `FELUCCA_FRAME`, `FELUCCA_SPAN`, `FELUCCA_TOP`).

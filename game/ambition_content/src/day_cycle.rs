@@ -4,7 +4,9 @@
 //! under the ground and keeps its lamps.
 
 use ambition_content_schemas::rules::Day;
+#[cfg(feature = "render")]
 use ambition_render::rendering::daylight::DaylightStyle;
+#[cfg(feature = "render")]
 use ambition_sprite_sheet::game_assets::ParallaxTheme;
 use ambition_time::DayCycle;
 use bevy::prelude::*;
@@ -23,6 +25,7 @@ pub fn day_cycle(day: &Day) -> DayCycle {
 
 /// The light of the pack's `day` over a sunlit room: the veil's colour at each
 /// hour. The town of the Math dimension is the sunlit theme.
+#[cfg(feature = "render")]
 pub fn daylight(day: &Day) -> DaylightStyle {
     DaylightStyle {
         keys: day.daylight.iter().map(|(hour, (r, g, b, a))| (*hour, Color::srgba(*r, *g, *b, *a))).collect(),
@@ -36,6 +39,8 @@ impl Plugin for AmbitionDayPlugin {
     fn build(&self, app: &mut App) {
         let day = app.world().resource::<crate::tuning::AmbitionTuning>().0.day.clone();
         app.insert_resource(day_cycle(&day));
+        // The light is the renderer's veil; the clock is the simulation's.
+        #[cfg(feature = "render")]
         app.insert_resource(daylight(&day));
     }
 }

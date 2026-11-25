@@ -932,6 +932,16 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
             [CARGO, "check", "-p", "ambition_app_tools", "--no-default-features",
              "--features", "sim", "--bins"]))
 
+    # The Ambition provider builds without its looks: `render` off, it links
+    # neither `ambition_render` nor the menus. Every other lane unions the
+    # app's `ambition_content/render` (and the crate's own tests select it), so
+    # only this run sees a renderer name outside the gate. `--lib` alone: the
+    # test targets select `render` through the self dev-dependency.
+    if everything and (not only or "ambition_content" in only):
+        check_jobs.append(Job(
+            "the Ambition provider builds without its looks (ambition_content --lib, no render)",
+            [CARGO, "check", "-p", "ambition_content", "--lib"]))
+
     # ⭐ THE HEADLESS PROFILES MUST HOLD WITH NO RENDERER COMPILED. The default-feature
     # run of `supported_profiles` builds the drawing host too, so it cannot show that a
     # headless profile does not depend on it; this run can. It also carries the dependency

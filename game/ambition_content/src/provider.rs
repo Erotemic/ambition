@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::presentation::profiles;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::profiles;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition_platformer2d_ldtk::LdtkRuntimeIndex;
 use ambition_platformer2d::world::rooms::RoomSet;
@@ -154,10 +154,10 @@ impl Plugin for AmbitionExperiencePlugin {
         // under a thumb.
         .with_presentation_profiles(profiles::adaptive_platformer())
         .with_defense_presentation(
-            ambition_platformer2d::presentation::DefensePresentationPolicy::shared_iframe_blink(),
+            ambition_platformer2d_shared_tangle::gameplay_presentation::DefensePresentationPolicy::shared_iframe_blink(),
         )
         .with_player_glow(
-            PLAYER_HIGHLIGHT_GLOW.then(ambition_platformer2d::presentation::ActorGlow::player_highlight),
+            PLAYER_HIGHLIGHT_GLOW.then(ambition_platformer2d_shared_tangle::gameplay_presentation::ActorGlow::player_highlight),
         )
         // The first bag of an Ambition session: the starter set. Its save
         // replaces it when the save holds an inventory.
@@ -235,6 +235,7 @@ fn install_ambition_game(app: &mut App) {
     }
     // Ambition's looks compose onto the renderer's presentation seams, so they
     // install where that presentation is installed, and only there.
+    #[cfg(feature = "render")]
     if app.is_plugin_added::<ambition_render::rendering::PresentationVisualAnimationPlugin>() {
         if !app.is_plugin_added::<crate::presentation::AmbitionPresentationPlugin>() {
             app.add_plugins(crate::presentation::AmbitionPresentationPlugin);

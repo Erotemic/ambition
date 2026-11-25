@@ -17,6 +17,7 @@ use bevy::prelude::*;
 
 pub(crate) mod held_visuals;
 pub mod thrown_impact;
+#[cfg(feature = "render")]
 pub(crate) mod wielded_visuals;
 pub(crate) mod worn_gear;
 
@@ -27,6 +28,7 @@ impl Plugin for AmbitionItemRosterPlugin {
     fn build(&self, app: &mut App) {
         // Presentation-only item art is provider-owned and registered through
         // the reusable render catalog before the visual schedule consumes it.
+        #[cfg(feature = "render")]
         wielded_visuals::register(app);
         // Ground/held item prop art (axe / javelin / gun-sword / gauntlet icons)
         // is contributed to the render layer's held-item manifest here; the

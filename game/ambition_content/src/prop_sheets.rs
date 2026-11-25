@@ -11,6 +11,7 @@
 //! frame, and a reload restates them (`reload::publish_platform_looks`).
 
 use ambition_sprite_sheet::prop_sheets::PropSheetsAppExt;
+#[cfg(feature = "render")]
 use ambition_render::rendering::moving_platforms::PlatformLooksAppExt;
 use bevy::prelude::{App, Resource};
 
@@ -24,6 +25,7 @@ pub(crate) struct AmbitionPropSheets(pub(crate) Vec<String>);
 
 /// The platform look kinds Ambition's pack registered: the rows a reload
 /// restates, and no other provider's.
+#[cfg(feature = "render")]
 #[derive(Resource, Clone, Debug, Default)]
 pub(crate) struct AmbitionPlatformLooks(pub(crate) Vec<String>);
 
@@ -33,9 +35,13 @@ pub(super) fn register(app: &mut App) {
     let rows = ambition_sprite_sheet::prop_sheets::lowered_prop_sheets(&pack).cloned().unwrap_or_default();
     let kinds = app.register_prop_sheet_rows(crate::AMBITION_CONTENT_PROVIDER, &rows);
     app.insert_resource(AmbitionPropSheets(kinds));
-    let looks = ambition_sprite_sheet::prop_sheets::lowered_platform_looks(&pack).cloned().unwrap_or_default();
-    let kinds = app.register_platform_look_rows(&looks);
-    app.insert_resource(AmbitionPlatformLooks(kinds));
+    // The looks are the renderer's to read; without it there is no reader.
+    #[cfg(feature = "render")]
+    {
+        let looks = ambition_sprite_sheet::prop_sheets::lowered_platform_looks(&pack).cloned().unwrap_or_default();
+        let kinds = app.register_platform_look_rows(&looks);
+        app.insert_resource(AmbitionPlatformLooks(kinds));
+    }
 }
 
 #[cfg(test)]

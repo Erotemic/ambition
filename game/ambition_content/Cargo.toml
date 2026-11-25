@@ -17,7 +17,16 @@ default = []
 # line port, which GNU-ton's conductor asks for (`ambition.portal.held_pair`,
 # `ambition.portal.light_line`).
 portal = ["ambition_platformer2d_actor/portal", "ambition_platformer2d_runtime/portal"]
-portal_render = ["portal", "dep:ambition_portal2d_presentation"]
+portal_render = ["portal", "render", "dep:ambition_portal2d_presentation"]
+# Ambition's looks, on the renderer's presentation seams: the room skies and
+# overlays, the area cards, daylight, platform and prop looks, the wielded
+# item art and the gate terminal. Off, the provider declares and simulates the
+# same game and publishes nothing a renderer reads, and links no renderer.
+render = [
+    "dep:ambition_render",
+    "ambition_platformer2d/ambition_render",
+    "ambition_platformer2d/ambition_inventory_ui",
+]
 ui = ["ambition_platformer2d_actor/ui", "ambition_dialog/ui", "dep:bevy_yarnspinner", "dep:yarnspinner"]
 audio = ["ambition_audio/kira"]
 # Embed the LDtk world JSON into the binary (web / Android / bundled builds
@@ -66,7 +75,10 @@ ambition_extension_host = { path = "../../crates/ambition_extension_host" }
 # `content_pack`: this crate's own content goes through the compiler, and the facade's
 # `content::engine_schemas()` is the ONE list of engine-owned schemas it compiles against.
 # `script_modules`: the swallows' coconut rule is a script the game ships (`rhai/swallows.rhai`).
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack", "script_modules"] }
+# The facade's capabilities this provider simulates with. Not
+# `all_capabilities`: the renderer and the inventory UI come with `render`,
+# and the menus, settings menu and touch input are the host's to select.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["rollback", "ldtk", "ambition_portal2d", "dialogue", "content_pack", "script_modules"] }
 # The fighter specials its cast authors (a counter, a spring, a portal pair,
 # ...), installed for their keys without the Smash demo.
 ambition_fighter_specials = { path = "../ambition_fighter_specials" }
@@ -96,7 +108,7 @@ ambition_sprite_sheet = { path = "../../crates/ambition_sprite_sheet" }
 ambition_sprite_fx = { path = "../../crates/ambition_sprite_fx" }
 # `content_pack`: the `projectile_visuals` schema Ambition's looks are read through.
 ambition_projectiles = { path = "../../crates/ambition_projectiles", features = ["content_pack"] }
-ambition_render = { path = "../../crates/ambition_render" }
+ambition_render = { path = "../../crates/ambition_render", optional = true }
 # Identity read-model for the content-owned actor overlay presentation
 # (the puppy-slug deep-dream pass reads dream participation from it).
 ambition_sim_view = { path = "../../crates/ambition_sim_view", features = ["dialogue"] }
@@ -152,7 +164,7 @@ ambition_boss_special_port = { path = "../../crates/ambition_boss_special_port" 
 # is inside a #[cfg(test)] module.
 serde_json = "1"
 # Downstream crates are unaffected; only content's dev/test profile gets the feature.
-ambition_content = { path = ".", features = ["portal"] }
+ambition_content = { path = ".", features = ["portal", "render"] }
 # `tests/puppy_slug_forced_seat.rs` is an INTEGRATION test, so it is its own
 # crate and compiles WITHOUT the library's `cfg(test)`. It needs the gated raw
 # closer, and `[dependencies]` above deliberately does not carry the feature:

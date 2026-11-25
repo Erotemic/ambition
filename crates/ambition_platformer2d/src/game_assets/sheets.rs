@@ -57,12 +57,14 @@ pub(crate) fn room_prop_kinds(room: &ambition_platformer2d_world::rooms::RoomSpe
         }))
 }
 
+#[cfg_attr(not(feature = "ambition_render"), allow(dead_code))]
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct RoomPropSheets<'w> {
     sheets: Option<Res<'w, PropSheets>>,
     config: Option<Res<'w, GameAssetConfig>>,
 }
 
+#[cfg_attr(not(feature = "ambition_render"), allow(dead_code))]
 impl RoomPropSheets<'_> {
     pub(crate) fn prepare(
         &self,

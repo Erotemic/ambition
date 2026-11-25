@@ -241,6 +241,21 @@ impl CollisionWorld<'_, '_> {
         room_of(self.rooms.iter(), room, self.composed.as_deref())
     }
 
+    /// Prepare the live room walls and their per-body collision rules once.
+    pub fn prepare_physical(&self) -> PreparedRooms<'_> {
+        let mut composed = ComposedRooms::default();
+        for (_, live, ..) in &self.rooms {
+            if let Some(live) = live {
+                composed.room(self, Some(&InRoomInstance(*live)));
+            }
+        }
+        let sole = self.rooms.single().ok().map(|(_, live, ..)| live.copied().map(InRoomInstance));
+        if sole == Some(None) {
+            composed.room(self, None);
+        }
+        PreparedRooms { sole, rooms: composed.rooms }
+    }
+
     /// [`RoomCollision::solids`] of the sole live room.
     pub fn solids(&self) -> Option<Cow<'_, ae::World>> {
         self.room(None)?.solids()
@@ -326,22 +341,15 @@ fn room_of<'a>(
 /// run: the overlays and platforms change between ticks.
 #[derive(Default)]
 pub struct ComposedRooms<'a> {
-    rooms: Vec<(Option<InRoomInstance>, Option<Cow<'a, ae::World>>)>,
+    rooms: Vec<(Option<InRoomInstance>, Option<ComposedRoom<'a>>)>,
+}
+
+struct ComposedRoom<'a> {
+    inputs: RoomCollision<'a>,
+    walls: Cow<'a, ae::World>,
 }
 
 impl<'a> ComposedRooms<'a> {
-    /// Compose these rooms before independent body steps read their walls.
-    pub fn prepare(
-        mut self,
-        collision: &'a CollisionWorld<'_, '_>,
-        rooms: impl IntoIterator<Item = Option<InRoomInstance>>,
-    ) -> PreparedRooms<'a> {
-        for room in rooms {
-            self.solids(collision, room.as_ref());
-        }
-        PreparedRooms { rooms: self.rooms }
-    }
-
     /// Physical solids with this body's gate passes and barriers applied.
     pub fn physical_for(
         &mut self,
@@ -349,8 +357,7 @@ impl<'a> ComposedRooms<'a> {
         room: Option<&InRoomInstance>,
         subject: bevy_ecs::entity::Entity,
     ) -> Option<Cow<'_, ae::World>> {
-        let walls = self.solids(collision, room)?;
-        Some(physical_for_subject(walls, collision, room, subject))
+        Some(self.room(collision, room)?.physical_for(collision, subject))
     }
 
     /// [`Self::solids`] as `subject` meets them: without the gate solids that
@@ -366,12 +373,10 @@ impl<'a> ComposedRooms<'a> {
         room: Option<&InRoomInstance>,
         subject: bevy_ecs::entity::Entity,
     ) -> Option<Cow<'_, ae::World>> {
-        let (open, holes, glues, barriers) = collision
-            .room(room)
-            .map(|room| (room.gates_open_for(subject), room.holes_open_for(subject), room.glues_open_for(subject), room.barriers_for(subject)))
-            .unwrap_or_default();
-        let walls = self.solids(collision, room)?;
-        Some(as_met_by(walls, &open, &holes, &glues, &barriers))
+        let room = self.room(collision, room)?;
+        let inputs = room.inputs;
+        Some(as_met_by(&room.walls, &inputs.gates_open_for(subject), &inputs.holes_open_for(subject),
+            &inputs.glues_open_for(subject), &inputs.barriers_for(subject)))
     }
 
     /// The walls of the live room `room` names, as [`CollisionWorld::room`]
@@ -381,22 +386,33 @@ impl<'a> ComposedRooms<'a> {
         collision: &'a CollisionWorld<'_, '_>,
         room: Option<&InRoomInstance>,
     ) -> Option<&ae::World> {
+        Some(&self.room(collision, room)?.walls)
+    }
+
+    fn room(
+        &mut self,
+        collision: &'a CollisionWorld<'_, '_>,
+        room: Option<&InRoomInstance>,
+    ) -> Option<&ComposedRoom<'a>> {
         let room = room.copied();
         let index = match self.rooms.iter().position(|(seen, _)| *seen == room) {
             Some(index) => index,
             None => {
-                let solids = collision.room(room.as_ref()).and_then(RoomCollision::solids);
-                self.rooms.push((room, solids));
+                let composed = collision.room(room.as_ref()).and_then(|inputs| {
+                    Some(ComposedRoom { inputs, walls: inputs.solids()? })
+                });
+                self.rooms.push((room, composed));
                 self.rooms.len() - 1
             }
         };
-        self.rooms[index].1.as_deref()
+        self.rooms[index].1.as_ref()
     }
 }
 
 /// Composed room walls that independent body steps can read together.
 pub struct PreparedRooms<'a> {
-    rooms: Vec<(Option<InRoomInstance>, Option<Cow<'a, ae::World>>)>,
+    sole: Option<Option<InRoomInstance>>,
+    rooms: Vec<(Option<InRoomInstance>, Option<ComposedRoom<'a>>)>,
 }
 
 impl PreparedRooms<'_> {
@@ -407,31 +423,26 @@ impl PreparedRooms<'_> {
         room: Option<&InRoomInstance>,
         subject: bevy_ecs::entity::Entity,
     ) -> Option<Cow<'_, ae::World>> {
-        let walls = self.rooms.iter().find(|(key, _)| *key == room.copied())?.1.as_deref()?;
-        Some(physical_for_subject(walls, collision, room, subject))
+        let key = room.copied().map(Some).or(self.sole)?;
+        let room = self.rooms.iter().find(|(stored, _)| *stored == key)?.1.as_ref()?;
+        Some(room.physical_for(collision, subject))
     }
 }
 
-fn physical_for_subject<'a>(
-    walls: &'a ae::World,
-    collision: &CollisionWorld<'_, '_>,
-    room: Option<&InRoomInstance>,
-    subject: bevy_ecs::entity::Entity,
-) -> Cow<'a, ae::World> {
-    if collision.passes.contains(subject) {
-        // Stone does not hold it: the room keeps its size and edges, nothing else.
-        return Cow::Owned(ae::World {
-            blocks: Default::default(),
-            chains: Default::default(),
-            water_regions: Vec::new(),
-            climbable_regions: Vec::new(),
-            ..walls.clone()
-        });
+impl ComposedRoom<'_> {
+    fn physical_for(&self, collision: &CollisionWorld<'_, '_>, subject: bevy_ecs::entity::Entity) -> Cow<'_, ae::World> {
+        let walls = self.walls.as_ref();
+        if collision.passes.contains(subject) {
+            return Cow::Owned(ae::World {
+                blocks: Default::default(),
+                chains: Default::default(),
+                water_regions: Vec::new(),
+                climbable_regions: Vec::new(),
+                ..walls.clone()
+            });
+        }
+        as_met_by(walls, &self.inputs.gates_open_for(subject), &[], &[], &self.inputs.barriers_for(subject))
     }
-    let (open, barriers) = collision.room(room)
-        .map(|room| (room.gates_open_for(subject), room.barriers_for(subject)))
-        .unwrap_or_default();
-    as_met_by(walls, &open, &[], &[], &barriers)
 }
 
 /// One live room's collision inputs, from [`CollisionWorld::room`].
@@ -1205,7 +1216,7 @@ mod collision_world_tests {
             let second = InRoomInstance(LiveRoomInstance::ACTIVATION.next());
             let missing = InRoomInstance(LiveRoomInstance::ACTIVATION.next().next());
             let keys = [Some(first), Some(second), Some(missing), None];
-            let prepared = ComposedRooms::default().prepare(&collision, keys);
+            let prepared = collision.prepare_physical();
             let mut lazy = ComposedRooms::default();
             seen.0.clear();
             for key in keys {

@@ -283,6 +283,21 @@ The third run had 541–548 ms median frame times in its two settled windows.
 Other phases also took longer in this run. The phase time identifies less
 targeting work. The frame time does not establish a gain from this change.
 
+### Room collision inputs and rebound geometry
+
+Prepare each live room's collision inputs before body steps start. Each
+body uses its room's walls, gate grants, and barriers. The integration
+phase no longer scans the cast to collect its room IDs before it steps
+the cast. Sampled hurt regions reuse their storage. Ordinary pogo contacts
+use the resolved hit. Only declared world surfaces project hurt regions
+into the collision overlay.
+
+In two full-cast desktop runs at 1280 × 720, the median integration phase
+fell from 6.20 to 5.71 ms per fixed tick. Both runs advanced 15 ticks per
+displayed frame in the settled windows. Frame medians were 502–528 ms
+before and 512–524 ms after. The new build also contains the portal contact
+change `526983e9c`. This comparison does not establish a frame-rate gain.
+
 ### Next measurement
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

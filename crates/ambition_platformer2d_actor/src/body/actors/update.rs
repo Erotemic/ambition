@@ -1511,11 +1511,7 @@ pub fn integrate_sim_bodies(
     let dt = world_time.sim_dt();
     // Compose before the parallel reads. Every body reads the same entry
     // geometry and contact snapshot; only its own components can change.
-    let composed = ambition_platformer2d_world::collision::ComposedRooms::default().prepare(
-        &collision,
-        actors.iter().map(|body| body_rooms.get(body.0).ok().copied())
-            .chain(players.iter().map(|body| body_rooms.get(body.0).ok().copied())),
-    );
+    let composed = collision.prepare_physical();
     let BodyIntegrationBuffers { workers, completed } = &mut *buffers;
     #[cfg(feature = "causal")]
     let record_operations = cues.movement_ops.is_some();
@@ -1543,7 +1539,8 @@ pub fn integrate_sim_bodies(
         };
         // The walls as they stand for this body: a gate open for it (Q54) is
         // not among them.
-        let Some(feature_world) = composed.physical_for(&collision, body_rooms.get(actor_entity).ok(), actor_entity)
+        let room = body_rooms.get(actor_entity).ok();
+        let Some(feature_world) = composed.physical_for(&collision, room, actor_entity)
         else {
             return;
         };
@@ -1585,11 +1582,11 @@ pub fn integrate_sim_bodies(
             #[cfg(feature = "causal")]
             record_operations,
             contact.field_for(actor_entity, &mut scratch.contacts),
-            passages.as_deref().and_then(|p| p.motion_for(actor_entity, body_rooms.get(actor_entity).ok().map(|room| room.0))),
+            passages.as_deref().and_then(|p| p.motion_for(actor_entity, room.map(|room| room.0))),
         );
         frame_out.stamp = tick.as_ref().map(|tick| ae::BodyStepStamp {
             tick: tick.0,
-            room: body_rooms.get(actor_entity).ok().map(|room| room.0.ordinal()),
+            room: room.map(|room| room.0.ordinal()),
             session: sessions.get(actor_entity).ok().map(|session| session.0.0),
         });
         // Publish the semantic movement facts this step produced (ADR 0024):
@@ -1635,7 +1632,8 @@ pub fn integrate_sim_bodies(
         let player_tuning = authored_tuning
             .map(|t| t.0)
             .unwrap_or(editable_player_tuning);
-        let Some(feature_world) = composed.physical_for(&collision, body_rooms.get(player_entity).ok(), player_entity,
+        let room = body_rooms.get(player_entity).ok();
+        let Some(feature_world) = composed.physical_for(&collision, room, player_entity,
         )
         else {
             return;
@@ -1674,11 +1672,11 @@ pub fn integrate_sim_bodies(
             // the spec's gate rather than the component's presence.
             playback.map(|pb| &*pb),
             contact.field_for(player_entity, &mut scratch.contacts),
-            passages.as_deref().and_then(|p| p.motion_for(player_entity, body_rooms.get(player_entity).ok().map(|room| room.0))),
+            passages.as_deref().and_then(|p| p.motion_for(player_entity, room.map(|room| room.0))),
         );
         frame_out.stamp = tick.as_ref().map(|tick| ae::BodyStepStamp {
             tick: tick.0,
-            room: body_rooms.get(player_entity).ok().map(|room| room.0.ordinal()),
+            room: room.map(|room| room.0.ordinal()),
             session: sessions.get(player_entity).ok().map(|session| session.0.0),
         });
         *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model, clusters.effects);

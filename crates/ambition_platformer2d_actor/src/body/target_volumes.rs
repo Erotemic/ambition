@@ -1,21 +1,14 @@
-//! Per-frame damageable and pogo-target volume derivation.
-//!
-//! This module keeps the rule "damageable implies pogoable by default" in body
-//! data. Family-specific systems publish current damageable volumes; the generic
-//! derivation mirrors them into pogo affordance geometry unless a feature opts
-//! out. World collision geometry is a separate explicit contribution and never
-//! inferred merely because a body can be struck.
+//! Publish damageable regions for live bodies.
 
 use super::*;
 use ambition_breakables::BreakableFeature;
-use ambition_combat::components::{CenteredAabb, DamageableVolumes, PogoPolicy, PogoTargetVolumes};
+use ambition_combat::components::{CenteredAabb, DamageableVolumes};
 
 /// Publish current damageable volumes for every ordinary live body.
 ///
 /// Disposition does not affect hittability: player, peaceful NPC, and hostile
-/// bodies use the same rule. This system runs in `WorldPrep` for pogo/world
-/// consumers and again after player movement so combat sees post-movement
-/// geometry. Both phases invoke this one publishing rule.
+/// bodies use the same rule. Publish before world and item contacts, then
+/// update the sample after movement for combat.
 pub fn refresh_body_damageable_volumes(
     mut bodies: Query<
         (
@@ -55,9 +48,9 @@ pub fn refresh_body_damageable_volumes(
             continue;
         }
         match authored_body_volumes(hurtboxes, kin, unmirrored) {
-            Some(volumes) => damageable.publish_body(volumes),
+            Some(volumes) => damageable.replace_body_volumes(volumes),
             None => match kin {
-                Some(kin) => *damageable = DamageableVolumes::body_box(kin.canonical_size * 0.5),
+                Some(kin) => damageable.set_body_box(kin.canonical_size * 0.5),
                 None => damageable.set_world_box(aabb.aabb()),
             },
         }
@@ -69,11 +62,11 @@ pub fn refresh_body_damageable_volumes(
 /// `None` permits the physical body-box fallback.
 /// `Some(vec![])` is an explicit intangible window and must remain empty.
 /// Keep the authored shape in canonical body coordinates.
-fn authored_body_volumes(
-    hurtboxes: Option<&ambition_combat::hurtbox_resolution::ResolvedHurtboxes>,
+fn authored_body_volumes<'a>(
+    hurtboxes: Option<&'a ambition_combat::hurtbox_resolution::ResolvedHurtboxes>,
     kin: Option<&ambition_platformer2d_core::BodyKinematics>,
     unmirrored: bool,
-) -> Option<Vec<ambition_platformer2d_core::CombatVolume>> {
+) -> Option<impl Iterator<Item = ambition_platformer2d_core::CombatVolume> + 'a> {
     let (resolved, kin) = hurtboxes.zip(kin)?;
     let side = ambition_platformer2d_core::mirror_side(kin.facing, unmirrored);
     resolved.canonical_volumes(side)
@@ -136,7 +129,7 @@ pub fn refresh_boss_damageable_volumes(
             continue;
         }
         if let Some(volumes) = authored_body_volumes(hurtboxes, kin, feature.unmirrored) {
-            damageable.publish_body(volumes);
+            damageable.replace_body_volumes(volumes);
             continue;
         }
         let ctx = ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
@@ -146,73 +139,5 @@ pub fn refresh_boss_damageable_volumes(
         )
         .with_animation_frame(animation_frame);
         damageable.publish_body(ambition_combat::body_geometry::canonical_damageable_volumes(&ctx));
-    }
-}
-
-/// Derive pogo target volumes from damageable volumes by default.
-///
-/// `PogoPolicy::Custom` is deliberately a no-op so another system can own the
-/// current `PogoTargetVolumes` for a feature family without fighting this
-/// generic derivation pass.
-pub fn derive_pogo_target_volumes(
-    mut targets: Query<(&DamageableVolumes,
-        Option<&ae::BodyKinematics>,
-        &PogoPolicy, &mut PogoTargetVolumes,
-    )>,
-) {
-    for (damageable, kin, policy, mut pogo) in &mut targets {
-        match *policy {
-            PogoPolicy::FromDamageable => {
-                // Coarsened ON PURPOSE for pogo affordance geometry. Damage keeps
-                // the original `CombatVolume`s; this projection is for proximity
-                // and for features that explicitly opt into world-surface boxes.
-                pogo.volumes.clear();
-                pogo.volumes.extend(damageable.bounds(kin).into_iter().flatten());
-            }
-            PogoPolicy::Custom => {}
-            PogoPolicy::Disabled => pogo.volumes.clear(),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use bevy::prelude::{App, Update};
-
-    #[test]
-    fn derive_pogo_target_volumes_copies_damageable_by_default() {
-        let mut app = App::new();
-        let aabb = ae::Aabb::new(ae::Vec2::new(4.0, 5.0), ae::Vec2::new(2.0, 3.0));
-        app.world_mut().spawn((
-            DamageableVolumes::world_box(aabb),
-            PogoPolicy::FromDamageable,
-            PogoTargetVolumes::default(),
-        ));
-        app.add_systems(Update, derive_pogo_target_volumes);
-        app.update();
-
-        let mut q = app.world_mut().query::<&PogoTargetVolumes>();
-        let pogo = q.single(app.world()).expect("one pogo target");
-        assert_eq!(pogo.volumes, vec![aabb]);
-    }
-
-    #[test]
-    fn derive_pogo_target_volumes_respects_disabled_policy() {
-        let mut app = App::new();
-        let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(8.0, 8.0));
-        app.world_mut().spawn((
-            DamageableVolumes::world_box(aabb),
-            PogoPolicy::Disabled,
-            PogoTargetVolumes {
-                volumes: vec![aabb],
-            },
-        ));
-        app.add_systems(Update, derive_pogo_target_volumes);
-        app.update();
-
-        let mut q = app.world_mut().query::<&PogoTargetVolumes>();
-        let pogo = q.single(app.world()).expect("one pogo target");
-        assert!(pogo.volumes.is_empty());
     }
 }

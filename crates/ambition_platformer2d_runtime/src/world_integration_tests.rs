@@ -101,28 +101,24 @@ fn combat_body_pogo_geometry_stays_entity_side() {
             seed.into_components(),
             DamageableVolumes::default(),
             PogoPolicy::FromDamageable,
-            PogoTargetVolumes::default(),
         ))
         .id();
     app.add_systems(
         Update,
         (
             refresh_body_damageable_volumes,
-            derive_pogo_target_volumes,
             rebuild_feature_ecs_world_overlay,
         )
             .chain(),
     );
     app.update();
 
-    let pogo = app
-        .world()
-        .get::<PogoTargetVolumes>(body)
-        .expect("combat body should publish pogo affordance geometry");
+    let world = app.world();
+    let damageable = world.get::<DamageableVolumes>(body).unwrap();
     assert_eq!(
-        pogo.volumes,
+        damageable.bounds(world.get::<ae::BodyKinematics>(body)).unwrap(),
         vec![aabb],
-        "damageable => pogoable remains body data"
+        "the body still has hurt geometry for entity contacts"
     );
 
     let overlay = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<FeatureEcsWorldOverlay,
@@ -144,7 +140,7 @@ fn explicit_pogo_contributor_lowers_published_world_surface() {
     let mut app = App::new();
     ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), FeatureEcsWorldOverlay::default(),
     );
-    app.world_mut().spawn((
+    let surface = app.world_mut().spawn((
         FeatureSimEntity,
         FeatureId::new("moving_pogo_surface"),
         FeatureName::new("moving pogo surface"),
@@ -153,24 +149,23 @@ fn explicit_pogo_contributor_lowers_published_world_surface() {
         PogoTargetVolumes {
             volumes: vec![pogo_surface],
         },
-    ));
+    )).id();
     app.add_systems(Update, rebuild_feature_ecs_world_overlay);
     app.update();
+    let rebound_surfaces = |app: &App| {
+        let overlay = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<FeatureEcsWorldOverlay>(app.world()).unwrap();
+        overlay.blocks.iter().filter(|block| matches!(block.kind, ae::BlockKind::PogoOrb))
+            .map(|block| block.aabb).collect::<Vec<_>>()
+    };
+    assert_eq!(rebound_surfaces(&app), vec![pogo_surface]);
 
-    let overlay = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<FeatureEcsWorldOverlay,
-    >(app.world()).expect("the live room has a collision overlay");
-    assert!(
-        overlay.blocks.iter().any(|block| {
-            matches!(block.kind, ae::BlockKind::PogoOrb) && block.aabb == pogo_surface
-        }),
-        "an explicit world contributor should lower its published pogo surface"
-    );
-    assert!(
-        !overlay.blocks.iter().any(|block| {
-            matches!(block.kind, ae::BlockKind::PogoOrb) && block.aabb == coarse_body
-        }),
-        "explicit world pogo uses its published surface, not a coarse body envelope"
-    );
+    let hurt_surface = ae::Aabb::new(ae::Vec2::new(460.0, 430.0), ae::Vec2::new(6.0, 7.0));
+    app.world_mut().entity_mut(surface).insert((
+        PogoPolicy::FromDamageable,
+        DamageableVolumes::world_box(hurt_surface),
+    ));
+    app.update();
+    assert_eq!(rebound_surfaces(&app), vec![hurt_surface]);
 }
 
 #[test]

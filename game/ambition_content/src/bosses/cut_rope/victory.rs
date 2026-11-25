@@ -174,7 +174,6 @@ fn spawn_victory_npc_entity(sprite_content: &ambition_platformer2d::sprite_sheet
                 combat,
                 damageable_volumes: DamageableVolumes::default(),
                 pogo_policy: PogoPolicy::FromDamageable,
-                pogo_target_volumes: PogoTargetVolumes::default(),
                 anim: Default::default(),
             },
             cluster_bundle,

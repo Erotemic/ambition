@@ -21,7 +21,7 @@ use ambition_characters::brain::BossAttackState;
 use ambition_characters::control::ActorControl;
 use ambition_combat::components::{
     CenteredAabb, DamageableVolumes, FeatureId, FeatureName, PogoPolicy,
-    PogoTargetVolumes, PostBossNpc,
+    PostBossNpc,
 };
 use ambition_combat::{GameplayBanner, HitEvent, HitSource, RoomReplayAdmitted};
 use ambition_content_schemas::rules::CutRopeTrap;

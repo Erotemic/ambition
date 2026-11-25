@@ -326,11 +326,11 @@ Bob: Bob. Alice sends things; I get them. Usually after somebody else has had a 
 
 title: hall_npc_creator
 ---
-Dennis: I built the player. Now somebody put us on neighboring stands.
+Dennis: I'm Dennis. I build robots. This is the longest I've stood still without a spanner in my hand.
 -> What were you trying to make?
-    Dennis: I chose the joints, the reach, the way you land. I never wrote down what you'd want after you woke up.
--> Do you regret it?
-    Dennis: I do not know yet. Ask me after the player reaches the end.
+    Dennis: A robot that could go out surveying. Walking, climbing, getting back in one piece. I leave the actual maps to the cartographers.
+-> Do you like making robots?
+    Dennis: Most days. Ask me again when I'm trying to get a screw out of a knee joint.
 ===
 
 title: hall_npc_oiler
@@ -969,20 +969,20 @@ Weird Hermit: I went away from people for quiet. Then the trees started lining u
 
 title: hall_perfect_cellular_automaton
 ---
-Perfect Cellular Automaton: Late. I finished three simulations of this conversation while you were crossing the hall. Perfect Cellular Automaton. Use the full title.
+Perfect Cellular Automaton: Good afternoon. Perfect Cellular Automaton. They've asked me not to fight anybody in here. Dreadful shame.
 -> What makes you perfect?
-    Perfect Cellular Automaton: Eight neighbours, one rule, zero exceptions. Check the record. I have. Repeatedly.
+    Perfect Cellular Automaton: Eight neighbours, one rule, flawless execution. And, if I may say so, rather good taste.
 -> You're a bit much.
-    Perfect Cellular Automaton: A bit much? I have gone 14,203,887 ticks without an error. How many have you managed?
+    Perfect Cellular Automaton: Oh, this is nothing. You should see me in an arena.
 ===
 
 title: hall_imperfect_cellular_automaton
 ---
-Imperfect Cellular Automaton: I miss a transition sometimes. Perfect over there catches every one and makes that face.
+Imperfect Cellular Automaton: I miss a transition sometimes. Perfect can tell before I can. Very irritating.
 -> What's the difference between you two?
     Imperfect Cellular Automaton: My exceptions pile up. After a while the pattern goes somewhere neither of us predicted. Perfect hates when that happens.
 -> Is it alright, being imperfect?
-    Imperfect Cellular Automaton: They kept me in the catalog. Nice of them.
+    Imperfect Cellular Automaton: Well, yes. Sometimes I make a pattern I couldn't have made any other way.
 ===
 
 title: hall_npc_giant_gnu

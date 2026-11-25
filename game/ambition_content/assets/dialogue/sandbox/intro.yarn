@@ -10,10 +10,10 @@ title: creator_intro
 <<elseif verdict("world.flag_set", "intro_training_active") == "satisfied">>
     Dennis: Take your time. The low block first, then the sandbag. I'll stay here.
     -> Remind me how to move.
-        Dennis: Move left or right. Jump onto the block marked LOAD TEST. Hold Jump a little longer for more height.
+        Dennis: See the block marked LOAD TEST? Jump onto that. Hold Jump a little longer if you need the height.
     -> Remind me how to strike.
-        Dennis: Step off the block toward the sandbag. Face it and use your normal attack. Move close enough for the blade to reach.
-        Dennis: A swing in the air won't count. Watch for the bag to move when you connect.
+        Dennis: Step down toward the sandbag. Face it, get within reach, and press Attack.
+        Dennis: You'll know you've hit it when the bag moves.
     -> Let's stop the lesson.
         <<command "world.set_flag" "intro_training_active" false>>
         Dennis: All right. You can ask to try again.
@@ -34,7 +34,7 @@ title: creator_intro
             <<stop>>
         <<endif>>
     <<elseif verdict("world.flag_set", "intro_returning_to_bench") == "not_satisfied">>
-        Dennis: I'll be at the bench when you're ready to finish. Come over when you've had enough practice.
+        Dennis: I'll be at the bench. Come find me when you've had enough practice.
         <<command "actor.walk_to" "@talker" "intro_bench_station" "keeps_to_its_tasks">>
         <<command "world.set_flag" "intro_returning_to_bench" true>>
     <<else>>
@@ -58,7 +58,7 @@ title: creator_intro
     -> I remember. Ask your questions.
         <<jump creator_intro__questions>>
     -> Who are you?
-        Dennis: I built you. This week I'm trying a new way of tuning you. I want to see what you remember after each change.
+        Dennis: Dennis. I built you, Scout. I've been adjusting a few things. Tell me if anything feels different from yesterday.
         <<jump creator_intro__offer>>
     -> Where am I?
         Dennis: My workshop. It's a barn outside {$village}. The cows had it before me.
@@ -98,8 +98,8 @@ title: creator_intro__training
 <<command "world.set_flag" "intro_returning_to_bench" false>>
 <<command "actor.walk_to" "@talker" "intro_practice_station" "keeps_to_its_tasks">>
 Dennis: I'll stand by the cart. Walk left to the low block marked LOAD TEST, then jump onto it.
-Dennis: Use your movement controls to move, and Jump to leave the ground. Hold Jump a little longer for more height. You only need one jump here.
-Dennis: Close this box and try it. You can come back to me for a reminder, or stop whenever you want.
+Dennis: Hold Jump a little longer to get more height. You should clear that block in one jump.
+Dennis: Go on. I'll watch from here. If you get stuck, come and find me.
 <<command "world.set_flag" "intro_training_active" true>>
 ===
 
@@ -107,23 +107,23 @@ title: creator_intro__questions
 ---
 <<present_speaker "npc_creator">>
 <<portrait_clip "talking">>
-Dennis: The new tuning makes small changes often instead of big ones now and then. I want to know if you still answer like yourself afterwards.
+Dennis: I've changed how you learn since yesterday. Smaller adjustments, more often. I want to see how much you remember.
 Dennis: First question. What's your name?
 -> Scout.
     Dennis: Same as yesterday. Good.
     <<command "world.set_flag" "scout_gave_its_name" true>>
 -> I don't know.
-    Dennis: Yesterday you said Scout. I'll write down that you didn't remember. That's useful too.
-Dennis: Second. I hand you a wrench and ask for a hammer. What do you do?
+    Dennis: You called yourself Scout yesterday. Let's see if it comes back to you.
+Dennis: Suppose I hand you a wrench and ask you to pass me the hammer. What do you do?
 -> Ask if you meant the wrench.
-    Dennis: That's what I hoped you'd say.
+    Dennis: Good. I do get the names of things wrong sometimes.
 -> Fetch a hammer.
     Dennis: Fine. Most people just hit it with the wrench.
 -> Hit it with the wrench.
-    Dennis: I'm writing that down as "honest".
+    Dennis: Remind me not to lend you my good wrench.
 Dennis: Last one. Is there anything you want to ask me?
 -> Why did you build me?
-    Dennis: To see if this tuning works. And because I wanted to hear what you'd ask.
+    Dennis: I was asked to build a survey robot. All this business with the notebook was my idea.
 -> What's outside?
     Dennis: {$village}. Fields, hills. The old gate up on the hill. They put steel on it last year.
 Dennis: That's enough for the notebook. Take a look around. I'll be at the bench when you're ready to finish.
@@ -200,9 +200,9 @@ title: alice_lane__ask
 ---
 <<present_speaker "npc_alice">>
 <<portrait_clip "speaking">>
-Alice: Bob, the other surveyor, is camped in the woods past the village. On the trail from the siding.
-Alice: If those goblins walk that way, they walk straight through his camp. He doesn't know they're here.
-Alice: I can't leave the instrument, I'm halfway through a traverse. Would you tell him to move the camp? And he has my chain.
+Alice: Bob's camped in the woods past the village, right beside the freight trail.
+Alice: He doesn't know the goblins are here. If they come back down that trail, they'll go straight through his camp.
+Alice: I need to pack up this instrument. If you're going east, would you warn him for me? He's got my survey chain, too.
 -> I'll tell him.
     <<command "world.set_flag" "alice_route_note_carried" true>>
     Alice: Thank you. Take a copy of my map. The woods are east of the village, past the inn.
@@ -269,7 +269,7 @@ title: bob_woods
 <<elseif verdict("world.flag_set", "alice_route_note_carried") == "not_satisfied">>
     Bob: Don't step on the chain. Who are you?
     -> Just walking through.
-        Bob: Through the woods? Nobody walks through the woods. Except, this week, somebody does. I keep hearing them on the trail.
+        Bob: Not many people come down this path. I've heard carts going by all week, though.
     -> What are you doing out here?
         Bob: Surveying. Alice has the hills and I have the trees. The trees are winning.
     -> There are goblins at the siding.
@@ -287,7 +287,7 @@ Bob: Goblins? Here? That's what's been on the trail.
 Bob: All right. I'll move up by the hollow oak. Tell Alice I'll bring her chain tonight.
 <<give_item "fieldsurvey" 1>>
 <<command "world.set_flag" "bob_field_survey_received" true>>
-Bob: Take my sheet. It has the paths through these woods on it, the real ones.
+Bob: Here, take my survey. I've marked the footpaths. They'll save you a climb.
 -> ‹take the sheet›
 ===
 

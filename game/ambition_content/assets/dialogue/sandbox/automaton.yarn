@@ -72,28 +72,28 @@ title: automaton_pca
 ---
 <<present_speaker "perfect_cellular_automaton">>
 <<if verdict("world.flag_set", "automaton_pca_met") == "satisfied">>
-    Perfect Cell-ular Automaton: Back again. The bottom row of the log is still lit for you.
+    Perfect Cell-ular Automaton: Back already? Wonderful. Shall we get straight to the fighting?
 <<else>>
     <<command "world.set_flag" "automaton_pca_met" true>>
-    Perfect Cell-ular Automaton: Welcome to my arena. I built it on the field my kind comes from, so the crowd knows the rule. Every one of them is a cell, and every one of them is on time.
-    Perfect Cell-ular Automaton: Perfect Cell-ular Automaton. Yes, "Perfect" is part of the name. The stands are allowed to chant it.
+    Perfect Cell-ular Automaton: Welcome to my arena. I built it right on the Life field. Do you like the crowd? Impeccable timing.
+    Perfect Cell-ular Automaton: I'm the Perfect Cellular Automaton. You may call me Perfect.
 <<endif>>
 <<jump automaton_pca__ring>>
 ===
 title: automaton_pca__ring
 ---
 -> What is the failure log?
-    Perfect Cell-ular Automaton: The name of everyone who has stepped into this ring, written in cells. Every row ends the same way. Read it, it's educational.
+    Perfect Cell-ular Automaton: My guest book. Everyone who's fought here gets a row. They don't get to write the ending.
     <<jump automaton_pca__ring>>
 -> What's on the big screen?
-    Perfect Cell-ular Automaton: A glider gun. Gosper found it in 1970, the year the rule was published. It fires a glider every thirty generations, forever.
-    Perfect Cell-ular Automaton: I fire them faster. That's what the ring is for.
+    Perfect Cell-ular Automaton: A Gosper glider gun, 1970. One glider every thirty generations, indefinitely. Elegant, isn't it?
+    Perfect Cell-ular Automaton: I've always found thirty generations a rather leisurely pace.
     <<jump automaton_pca__ring>>
 -> Who is that on the gallery?
-    Perfect Cell-ular Automaton: An early draft. It misses a transition now and then. I keep it by the log so it remembers.
+    Perfect Cell-ular Automaton: The Imperfect Cellular Automaton. Delightful company. You never quite know what they're going to do next. Neither do they.
     <<jump automaton_pca__ring>>
--> Challenge it.
-    Perfect Cell-ular Automaton: Into the ring, then. Mind the edges. The cells under them are very punctual.
+-> Let's fight.
+    Perfect Cell-ular Automaton: Splendid. Do try to surprise me.
     <<music "glider_gun">>
     <<challenge>>
 -> ‹go›
@@ -108,8 +108,8 @@ title: automaton_imperfect
 <<elseif verdict("world.flag_set", "automaton_imperfect_met") == "not_satisfied">>
     <<command "world.set_flag" "automaton_imperfect_met" true>>
     Imperfect Cellular Automaton: Don't read the log. The third row. And the fifth. Just don't read the log.
-    -> You lost to it?
-        Imperfect Cellular Automaton: I lost to myself; it only watched. One of my cells was late, its neighbours copied it, and eight generations later I was a different pattern.
+    -> You lost to Perfect?
+        Imperfect Cellular Automaton: I lost to myself. Perfect just stood there. One of my cells was late, its neighbours copied it, and eight generations later I was a different pattern.
         Imperfect Cellular Automaton: A mistake can only spread one cell a generation. That's the speed of light here. Mine went all the way.
     -> Why do you stay?
         Imperfect Cellular Automaton: Somebody has to cheer for the challengers. The stands won't. They're all on the rule's side.

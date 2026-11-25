@@ -170,6 +170,7 @@ pub fn tick_controlled_brains(
         input.axis_y = stick.y;
         // Same slot frame plus same body snapshot produces the same control frame.
         let snapshot = BrainSnapshot {
+            route: None,
             // A possessed body's brain drives a body a person is steering; it is
             // never in a capture on this road, and saying so beats inheriting a
             // default nobody chose.

@@ -582,6 +582,7 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
     };
 
     let snapshot = ambition_characters::brain::BrainSnapshot {
+        route: None,
         captured: false,
         captured_for: 0.0,
         holding_captive: false,

@@ -28,7 +28,6 @@ use bevy::prelude::Component;
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_combat::components::{ActorIdentity, BodyMelee};
-use ambition_combat::path_motion::PathMotion;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 use ambition_platformer2d_core::AabbExt;
@@ -44,15 +43,87 @@ pub use physical_baseline::{
     PhysicalRetraction,
 };
 
-/// Optional patrol path the kinematic step advances each tick.
+/// An actor's authored route: the prepared path and its route progress, the
+/// next ordered waypoint. Nothing here moves the body. The body's accepted
+/// arrival advances the target ([`PatrolRoute::arrive`]), and a brain steers
+/// toward it through ordinary intent (`BrainSnapshot::route`).
 #[derive(Component, Clone, Debug, Default)]
-pub struct ActorMotionPath(pub Option<PathMotion>);
+pub struct ActorMotionPath(pub Option<PatrolRoute>);
+
+/// How near (px, in x: a grounded walker's travel axis) a body's
+/// accepted position must come to its target to have arrived.
+pub const ROUTE_ARRIVAL_PX: f32 = 4.0;
+
+/// Route progress over a prepared path: which ordered waypoint is next and
+/// which way along the route the walker is going. An ordered occurrence, so
+/// a self-crossing route is never recovered from the nearest point after a
+/// knockback.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PatrolRoute {
+    path: ambition_platformer2d_core::PreparedPath,
+    target: usize,
+    forward: bool,
+}
+
+impl PatrolRoute {
+    /// A route heading for its first waypoint. The body keeps its admitted
+    /// placement and walks there.
+    pub fn new(path: &ambition_platformer2d_core::KinematicPath) -> Result<Self, ambition_platformer2d_core::PathFault> {
+        Ok(Self { path: ambition_platformer2d_core::PreparedPath::prepare(path)?, target: 0, forward: true })
+    }
+
+    /// The next ordered waypoint.
+    pub fn target(&self) -> ae::Vec2 {
+        self.path.points()[self.target]
+    }
+
+    /// The route's requested speed (px/s).
+    pub fn speed(&self) -> f32 {
+        self.path.speed()
+    }
+
+    /// Route progress, for the rollback cursor: the target index and direction.
+    pub fn progress(&self) -> (usize, bool) {
+        (self.target, self.forward)
+    }
+
+    /// The step a brain steers by.
+    pub fn step(&self) -> ambition_characters::brain::RouteStep {
+        ambition_characters::brain::RouteStep { target_x: self.target().x, speed: self.speed() }
+    }
+
+    /// Advance to the next ordered waypoint when the body's ACCEPTED position
+    /// has reached the target. A body a wall holds short has not arrived, so
+    /// its target stays: progress comes from arrival, never from elapsed
+    /// time. `Once` holds at its last point, `Loop` wraps, and `PingPong`
+    /// reverses at each end. Returns whether the target changed.
+    pub fn arrive(&mut self, accepted: ae::Vec2) -> bool {
+        if (accepted.x - self.target().x).abs() > ROUTE_ARRIVAL_PX {
+            return false;
+        }
+        let last = self.path.points().len() - 1;
+        let before = (self.target, self.forward);
+        match self.path.mode() {
+            ambition_platformer2d_core::KinematicPathMode::Once => self.target = (self.target + 1).min(last),
+            ambition_platformer2d_core::KinematicPathMode::Loop => self.target = (self.target + 1) % (last + 1),
+            ambition_platformer2d_core::KinematicPathMode::PingPong => {
+                if self.forward && self.target == last {
+                    self.forward = false;
+                } else if !self.forward && self.target == 0 {
+                    self.forward = true;
+                }
+                self.target = if self.forward { self.target + 1 } else { self.target - 1 };
+            }
+        }
+        (self.target, self.forward) != before
+    }
+}
 
 /// An actor's route, prepared. Content preparation already refused an
 /// unpreparable path with its source; a native one that reaches here is
 /// reported and attaches no route.
-fn prepared_route(path: &ambition_platformer2d_core::KinematicPath, path_id: &str) -> Option<PathMotion> {
-    PathMotion::new(path)
+fn prepared_route(path: &ambition_platformer2d_core::KinematicPath, path_id: &str) -> Option<PatrolRoute> {
+    PatrolRoute::new(path)
         .map_err(|fault| bevy::log::error!("route `{path_id}` cannot be prepared ({fault}); no route attached"))
         .ok()
 }
@@ -356,10 +427,9 @@ impl ActorClusterSeed {
         );
         let (collision_size, render_size) = (geometry.collision, geometry.render);
         let posed = geometry.posed;
-        let pos = motion
-            .as_ref()
-            .map(PathMotion::position)
-            .unwrap_or_else(|| actor_spawn_center_for_collision(aabb, collision_size));
+        // A body on a route keeps its admitted placement: the route is walked
+        // to, never assigned (PATH2).
+        let pos = actor_spawn_center_for_collision(aabb, collision_size);
         // Body capability comes from authored character data when available;
         // patrol/chase speed remains controller policy. A possessed NPC can use
         // its physical top speed without changing its autonomous stroll. Respawn
@@ -455,11 +525,8 @@ impl ActorClusterSeed {
             // NPC placement is the other answer, and the aggression component
             // `NpcActorSpawnPlan::peaceful` sets is the same claim said to the brain.
             seed.config.tuning.is_hostile = false;
-            // The patrol PATH is authored on the interactable, and a body that
-            // starts on one starts at its first waypoint.
-            if let Some(start) = motion.as_ref().map(PathMotion::position) {
-                seed.place_at(start);
-            }
+            // The patrol PATH is authored on the interactable; the body keeps
+            // its admitted placement and walks to its first waypoint.
             seed.motion = ActorMotionPath(motion);
             seed.hurt_feedback = actor_hurt_feedback(catalog, character_id);
             // `respawn` is already `DeadStaysDead` on that road — a match
@@ -896,6 +963,26 @@ impl ActorClusterSeed {
 
 #[cfg(test)]
 mod tests {
+    /// Route progress comes from accepted arrival: a body short of its target
+    /// (a wall held it) keeps that target; arriving advances it, and a
+    /// ping-pong reverses at each end.
+    #[test]
+    fn route_progress_advances_only_on_arrival() {
+        let mut route = PatrolRoute::new(&ae::KinematicPath {
+            points: vec![ae::Vec2::new(520.0, 650.0), ae::Vec2::new(820.0, 650.0)],
+            speed: 95.0, mode: ae::KinematicPathMode::PingPong, start_offset_seconds: 0.0,
+        }).unwrap();
+        assert_eq!(route.target().x, 520.0, "a new route heads for its first waypoint");
+        assert!(route.arrive(ae::Vec2::new(522.0, 600.0)));
+        assert_eq!(route.target().x, 820.0);
+        assert!(!route.arrive(ae::Vec2::new(700.0, 600.0)), "held short by a wall: not arrived");
+        assert_eq!(route.target().x, 820.0, "the target is kept, not skipped");
+        assert!(route.arrive(ae::Vec2::new(818.0, 600.0)));
+        assert_eq!((route.target().x, route.progress().1), (520.0, false), "it reverses at the far end");
+        assert!(route.arrive(ae::Vec2::new(521.0, 600.0)));
+        assert_eq!((route.target().x, route.progress().1), (820.0, true), "and again at the near end");
+    }
+
     /// A blueprint the way a prepared character produces one, for the
     /// construction tests.
     #[cfg(test)]

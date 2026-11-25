@@ -2452,6 +2452,9 @@ fn build_enemy_brain_snapshot(
     // jump 450 and has no air jump.
     let movement_law = movement_law_of(body.config, authored_tuning);
     ambition_characters::brain::BrainSnapshot {
+        // The authored route's next ordered target, advanced from the body's
+        // accepted arrival at the end of its last movement step.
+        route: body.motion.0.as_ref().map(ambition_body_seed::PatrolRoute::step),
         actor_pos: body.kin.pos,
         actor_vel: body.kin.vel,
         actor_facing: model.project_facing(body.kin.material, body.kin.facing, ae::AccelerationFrame::new(gravity_dir).side),

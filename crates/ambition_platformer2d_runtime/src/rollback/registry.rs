@@ -388,7 +388,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // PATH1), and a platform path's RON carries the prepared path and phase. The
 // cutscene's authored wait-until/allow-damage/camera-track beats (9071f13cc,
 // b05b15fa4) had changed its bytes without a bump; this one records them.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 541;
+// 541 -> 542: an actor route is its ordered target and direction
+// (`actor.motion_path`), advanced from accepted arrival; the phase it carried
+// for one release is gone (PATH2).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 542;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

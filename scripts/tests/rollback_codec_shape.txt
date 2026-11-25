@@ -1,4 +1,4 @@
-crates/ambition_body_seed/src/snapshot_impls.rs	3	2f896a79bc47c804
+crates/ambition_body_seed/src/snapshot_impls.rs	4	f6a58fd6b6a7c6c7
 crates/ambition_boss_encounter/src/clusters.rs	7	74d25c89ab527d86
 crates/ambition_boss_encounter/src/conduct.rs	2	335fa17331478011
 crates/ambition_characters/src/snapshot_impls.rs	393	a99901e28843a187

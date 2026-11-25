@@ -357,6 +357,41 @@ real route target, then remains on the correct route occurrence when a wall
 blocks it. The normal body kernel must remain the movement writer. A new
 planner framework, general task graph or combat-brain rewrite is not needed.
 
+### Landed (2026-11-25): PATH2
+
+`ActorMotionPath` now holds a `PatrolRoute` (in `ambition_body_seed`). It is
+the prepared path plus route progress: the next ordered waypoint and the
+direction along the route.
+
+- **Placement.** Nothing assigns the body a path position. The NPC and
+  enemy roads keep the admitted spawn place, and a new route heads for its
+  first waypoint.
+- **Arrival.** After each movement step, `PatrolRoute::arrive` reads the
+  body's accepted position. It advances the target only when that position
+  is within `ROUTE_ARRIVAL_PX` of it in x (a grounded walker's travel axis under up or down gravity): `Once` holds
+  at its end, `Loop` wraps, and `PingPong` reverses. This replaces the
+  discarded post-movement `advance`, which is deleted.
+- **Brain input.** The next target and the route's speed reach the brain as
+  `BrainSnapshot::route`. `follow_route` steers toward it through ordinary
+  intent. It is used by the patrol preset's patrol intent, by the wanderer
+  (both shipped routes run wanderer-template brains), and by MeleeBrute while
+  idle, which now patrols only when a route is attached.
+- **Walls and interruption.** A wall short of the target turns nothing and
+  advances nothing. Chase, attack and hold stay with each brain.
+- **Rollback.** Schema 542 encodes route progress as the target index and
+  direction.
+
+Witnesses:
+
+- `route_progress_advances_only_on_arrival` (body_seed);
+- `a_routed_wanderer_keeps_its_target_against_a_wall` (characters);
+- `a_route_driven_walker_reaches_its_route_target_and_reverses` (app_it):
+  the `basement_enemies` goblin keeps its spawn x 522, walks to 820,
+  reverses and comes back, under sync-test rollback.
+
+Not admitted: a route leg that needs a jump, climb or flight. A brain only
+walks toward the target's x. A route under sideways gravity is not admitted either. Navigation owns such legs.
+
 ## Acceptance
 
 - An Ambition level author can build a complex moving platform through

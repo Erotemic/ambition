@@ -419,8 +419,10 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
             self.jump.air_jumps_available = MAX_ENEMY_AIR_JUMPS;
         }
 
-        if let Some(motion) = &mut self.motion.0 {
-            let _ = motion.step(dt);
+        // Route progress from the ACCEPTED position, after this step's
+        // collision: a body held short by a wall has not arrived.
+        if let Some(route) = &mut self.motion.0 {
+            route.arrive(self.kin.pos);
         }
         events
     }

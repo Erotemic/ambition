@@ -1006,10 +1006,14 @@ The existing visual play gate remains separate.
 
 ### AUTHORED-PATHS — share geometry and retain movement authority
 
-**State:** IN PROGRESS. PATH1 landed 2026-11-25: core's `PreparedPath` is the
+**State:** DONE 2026-11-25. PATH1 landed 2026-11-25: core's `PreparedPath` is the
 one path law (prepared geometry, a seeded phase, interval proposal and
 cut), hazards and platforms use it, and both old evaluators are deleted
-([landed](engine/kinematic-world-objects.md#landed-2026-11-25)). PATH2 is open.
+([landed](engine/kinematic-world-objects.md#landed-2026-11-25)). PATH2 landed
+the same day: an actor route is ordered progress advanced from accepted
+arrival, and the brain walks it through ordinary intent
+([PATH2](engine/kinematic-world-objects.md#landed-2026-11-25-path2)). DONE
+2026-11-25; a route leg needing a jump, climb or flight stays with navigation.
 Planned from a static source review at `00bf92c22142`, 2026-11-22.
 
 **Failure / customer:** combat and world duplicate waypoint evaluation.

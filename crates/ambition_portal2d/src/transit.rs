@@ -540,7 +540,7 @@ pub fn portal_transit(
             kin.vel.y
         );
         let (prepared,carried_run)=match step {
-            TransitStep::Transfer {transfer,input_warp}=>{
+            TransitStep::Transfer {transfer,input_warp,..}=>{
                 let payload=(|| {
                     let prepared=PreparedPortalTransfer::new(*kin,acceleration.as_deref().map(|a|a.0),transfer,input_warp)?;
                     let destination_side=frame_env.reference_basis(prepared.body.aabb(),room).side;
@@ -569,11 +569,13 @@ pub fn portal_transit(
                 // An Ambition audio adapter plays the enter cue.
                 entered.write(super::messages::PortalBodyEntered { pos: portal_pos });
             }
-            TransitStep::Transfer {transfer,..} => {
-                // The tick's travel up to the crossing, for contact readers:
-                // the body's own record restarts at the arrival (M1).
-                if let Some(crossed)=sweep.and_then(|sweep| ae::CrossedTravel::up_to(
+            TransitStep::Transfer {transfer,ref between,..} => {
+                // The tick's travel before the arrival, for contact readers:
+                // the leg up to the first crossing and each leg between two
+                // (M1/M2). The body's own record restarts at the arrival.
+                if let Some(mut crossed)=sweep.and_then(|sweep| ae::CrossedTravel::up_to(
                     sweep,transfer.crossing_point,transfer.crossing_time)) {
+                    crossed.0.extend_from_slice(between);
                     commands.entity(entity).insert(crossed);
                 }
                 if let Some((flight,run))=flight.as_deref_mut().zip(carried_run) {flight.carried_run=run;}

@@ -325,31 +325,41 @@ pub struct SweepSample {
     pub restriction: PortalRestriction,
 }
 
-/// The travel a body made this tick in the chart it left, up to its root
-/// crossing (portal M1). Transit restarts the body's [`SweepSample`] at the
-/// arrival, so a contact reader that queries the whole tick queries this
-/// prefix over `[time[0], crossing]` and the arrival only from the crossing on:
-/// a projectile can still meet the body before it crossed, and cannot meet it
-/// at the exit before it got there. The transit that moves a body writes it;
-/// every tick's transit clears it first, so no reader sees an older tick's.
-#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
-pub struct CrossedTravel(pub SweepSample);
+/// The travel a body made this tick before its arrival, one leg per chart it
+/// crossed out of (portal M1/M2): the leg in the chart it left, up to its
+/// first root crossing, then each leg between two crossings, cut at the next.
+/// Transit restarts the body's [`SweepSample`] at the arrival, so a contact
+/// reader that queries the whole tick queries these legs over their own
+/// intervals and the arrival only from the last crossing on: a projectile can
+/// still meet the body where it was before or between crossings, and cannot
+/// meet it at the exit before it got there. The transit that moves a body
+/// writes it; every tick's transit clears it first, so no reader sees an
+/// older tick's.
+#[derive(bevy_ecs::component::Component, Clone, Debug, PartialEq)]
+pub struct CrossedTravel(pub Vec<SweepSample>);
 
 impl CrossedTravel {
     /// `sweep` cut at the crossing: its line up to `point`, reached at world
     /// time `at`. `None` when the crossing lies outside the sample's interval.
     pub fn up_to(sweep: SweepSample, point: Vec2, at: f64) -> Option<Self> {
-        (sweep.time[0] <= at && at <= sweep.time[1] && point.is_finite()).then(|| Self(SweepSample {
+        Self::leg(sweep, point, at).map(|leg| Self(vec![leg]))
+    }
+
+    /// One leg: `sweep` cut at the crossing `point`, reached at world time `at`.
+    pub fn leg(sweep: SweepSample, point: Vec2, at: f64) -> Option<SweepSample> {
+        (sweep.time[0] <= at && at <= sweep.time[1] && point.is_finite()).then(|| SweepSample {
             time: [sweep.time[0], at],
             travel: LinearTravel::Complete,
             curr: point,
             ..sweep
-        }))
+        })
     }
 
-    /// The arrival record restricted to the rest of the tick after the crossing.
+    /// The arrival record restricted to the rest of the tick after the last
+    /// crossing.
     pub fn after(&self, arrival: SweepSample) -> SweepSample {
-        SweepSample { time: [self.0.time[1].max(arrival.time[0]), arrival.time[1]], ..arrival }
+        let crossed = self.0.last().map_or(arrival.time[0], |leg| leg.time[1]);
+        SweepSample { time: [crossed.max(arrival.time[0]), arrival.time[1]], ..arrival }
     }
 }
 

@@ -186,7 +186,7 @@ pub(crate) fn approach_face(portal: &PlacedPortal) -> ae::frame::FaceRect {
 /// One step of the transit machine for any body. Pure: from the body geometry,
 /// transit and cooldown state, and the portals, it returns the action the
 /// caller applies. Every body uses this one path.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum TransitStep {
     /// Not touching a portal (or latched) — do nothing.
     Idle,
@@ -199,6 +199,10 @@ pub enum TransitStep {
     Transfer {
         transfer: PortalTransfer,
         input_warp: bool,
+        /// The legs the body made between this tick's root crossings, each in
+        /// the chart it was made in and cut at the next crossing. Empty for
+        /// one crossing.
+        between: Vec<ae::SweepSample>,
     },
     /// Leave the current body unchanged when the map cannot be represented.
     Refused {
@@ -387,6 +391,7 @@ fn transfer_step(
         transfer,
         input_warp: portal_input_warp_flips_horizontal_for_convention(tuning.convention.map_convention(),
             transfer.enter.frame.normal,transfer.exit.frame.normal),
+        between: Vec::new(),
     }
 }
 
@@ -485,7 +490,7 @@ fn swept_crossing_step(
 /// cannot be cast or transferred ends the chain at the transfer before it.
 fn continue_after_crossing(step: TransitStep, sweep: ae::SweepSample, domain: &ae::CombatVolume,
     portals: &[PlacedPortal], tuning: &PortalTuning,) -> TransitStep {
-    let TransitStep::Transfer { transfer: mut composed, mut input_warp } = step else { return step; };
+    let TransitStep::Transfer { transfer: mut composed, mut input_warp, mut between } = step else { return step; };
     let mut material = sweep.material;
     let mut last = composed;
     for _ in 1..tuning.geometry.budget().max_hops {
@@ -504,9 +509,11 @@ fn continue_after_crossing(step: TransitStep, sweep: ae::SweepSample, domain: &a
             let next = PortalTransfer::at_crossing_completed(hit, composed.exit_pos, composed.exit_vel,
                 material, tuning).ok()?;
             let map = composed.map.then(next.map).ok()?;
-            Some((next, map))
+            let travelled = ae::CrossedTravel::leg(leg, hit.root.point, hit.root.world_time)?;
+            Some((next, map, travelled))
         })();
-        let Some((next, map)) = next else { break; };
+        let Some((next, map, travelled)) = next else { break; };
+        between.push(travelled);
         input_warp ^= portal_input_warp_flips_horizontal_for_convention(tuning.convention.map_convention(),
             next.enter.frame.normal, next.exit.frame.normal);
         composed = PortalTransfer {
@@ -515,7 +522,7 @@ fn continue_after_crossing(step: TransitStep, sweep: ae::SweepSample, domain: &a
         };
         last = next;
     }
-    TransitStep::Transfer { transfer: composed, input_warp }
+    TransitStep::Transfer { transfer: composed, input_warp, between }
 }
 
 /// Compute transit from recorded travel. An overlap can begin or clear a

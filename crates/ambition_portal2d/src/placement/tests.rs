@@ -739,15 +739,21 @@ fn a_body_crosses_two_pairs_in_one_tick() {
         Some(ae::SweepSample { restriction: Default::default(), turn: None, down: Vec2::Y, travel: Default::default(), time: [0.0, 1.0],
             prev: Vec2::new(-10.0, 0.0), curr: Vec2::new(70.0, 0.0), vel, material: Default::default(), half: Vec2::splat(8.0) }),
         None, None, &portals, tuning);
-    let TransitStep::Transfer { transfer, .. } = step(&composed) else {
+    let TransitStep::Transfer { transfer, between, .. } = step(&composed) else {
         panic!("the body crosses A");
     };
+    // The leg between the two crossings, for contact readers: from A's exit
+    // at x 100 (tau 10/80) to B's mouth at x 150 (tau 60/80), in A's exit chart.
+    let [leg] = between.as_slice() else { panic!("one leg between two crossings, got {between:?}") };
+    assert!(leg.prev.distance(Vec2::new(100.0, 0.0)) < 1.0e-3 && leg.curr.distance(Vec2::new(150.0, 0.0)) < 1.0e-3, "got {leg:?}");
+    assert!((leg.time[0] - 0.125).abs() < 1.0e-6 && (leg.time[1] - 0.75).abs() < 1.0e-6, "got {:?}", leg.time);
     assert_eq!(transfer.entry_channel, PURPLE);
     assert_eq!(transfer.exit_channel, RED, "the chain ends at B's exit");
     assert!(transfer.exit_pos.distance(Vec2::new(320.0, 0.0)) < 1.0e-3, "got {:?}", transfer.exit_pos);
     assert!(transfer.exit_vel.distance(vel) < 1.0e-2, "got {:?}", transfer.exit_vel);
     // Control: a single-hop path crosses A only and ends 70 px past its exit.
-    let TransitStep::Transfer { transfer, .. } = step(&PortalTuning::default()) else { panic!("the body crosses A") };
+    let TransitStep::Transfer { transfer, between, .. } = step(&PortalTuning::default()) else { panic!("the body crosses A") };
+    assert!(between.is_empty());
     assert_eq!(transfer.exit_channel, YELLOW);
     assert!(transfer.exit_pos.distance(Vec2::new(170.0, 0.0)) < 1.0e-3, "got {:?}", transfer.exit_pos);
 }

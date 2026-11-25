@@ -314,8 +314,8 @@ impl DamageableVolumes {
         // A body that crossed a portal this tick was in the chart it left
         // until the crossing, and at its arrival only from then on (M1).
         let (lead, motion) = match (motion, crossed) {
-            (Some(sample), Some(crossed)) => (Some(crossed.0), Some(crossed.after(*sample))),
-            (sample, _) => (None, sample.copied()),
+            (Some(sample), Some(crossed)) => (crossed.0.as_slice(), Some(crossed.after(*sample))),
+            (sample, _) => (&[][..], sample.copied()),
         };
         let samples = || lead.iter().chain(motion.iter());
         if let Ok(map) = self.material(body) {

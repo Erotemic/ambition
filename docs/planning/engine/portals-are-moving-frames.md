@@ -155,10 +155,18 @@ hop budget is the portal geometry's (`PortalGeometry::budget().max_hops`), so
 the default single hop runs no extra search. Witness
 `placement/tests.rs::a_body_crosses_two_pairs_in_one_tick`: the pairs above,
 under a composed budget, end at x 320 with the entry velocity; under single
-hop the same travel ends at 170 through A only. Not covered: the leg between
-two crossings is in no contact record (`CrossedTravel` holds the travel
-before the first), and the kernel still integrates the whole tick in the
-entry chart (its material collision already threads both cuts).
+hop the same travel ends at 170 through A only. The kernel still integrates
+the whole tick in the entry chart (its material collision already threads
+both cuts).
+
+**Landed (2026-11-25): contact reads the legs between crossings.** A chained
+transfer keeps each leg it searched, cut at the next crossing
+(`TransitStep::Transfer::between`), and `CrossedTravel` holds every leg
+before the arrival: the one in the chart the body left, then each between
+two crossings. `swept_body_contact` queries each over its own interval and
+the arrival from the last crossing on. In the two-pair witness the middle
+leg runs from x 100 at tau 0.125 to x 150 at tau 0.75, in A's exit chart;
+a single crossing records none.
 
 ### Refusal recovery can be overridden by later crossing discovery
 

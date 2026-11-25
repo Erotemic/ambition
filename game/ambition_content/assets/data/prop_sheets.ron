@@ -1141,6 +1141,8 @@
     "automaton_tape": (),
     "automaton_state_table": (),
     "automaton_glider_lift": (),
+    "automaton_arena_ring": (),
+    "automaton_failure_log": (),
     // The Frontier's scenery (`targets/props/frontier_props.py`): each piece
     // is drawn in its room's coordinates, over the room's walk lines.
     "frontier_pad_booth": (),

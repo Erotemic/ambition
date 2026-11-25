@@ -5,7 +5,7 @@ use ae::spatial::{Spatial, SpatialFilter, SpatialTree};
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 use std::collections::{BTreeMap, HashMap};
 
-type Candidate<'a> = (
+pub(super) type Candidate<'a> = (
     Entity,
     ae::Vec2,
     ActorFaction,
@@ -13,13 +13,6 @@ type Candidate<'a> = (
     Option<&'a MatchTeam>,
     Option<LiveRoomInstance>,
 );
-const FACTIONS: [ActorFaction; FACTION_COUNT] = [
-    ActorFaction::Player,
-    ActorFaction::Enemy,
-    ActorFaction::Npc,
-    ActorFaction::Boss,
-    ActorFaction::Neutral,
-];
 
 #[derive(Clone, Copy)]
 struct Point {

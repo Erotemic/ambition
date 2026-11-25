@@ -24,6 +24,13 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 /// Number of [`ActorFaction`] variants (Player / Enemy / Npc / Boss / Neutral).
 /// The relations matrix is indexed by `faction as usize`.
 const FACTION_COUNT: usize = 5;
+const FACTIONS: [ActorFaction; FACTION_COUNT] = [
+    ActorFaction::Player,
+    ActorFaction::Enemy,
+    ActorFaction::Npc,
+    ActorFaction::Boss,
+    ActorFaction::Neutral,
+];
 
 /// Directed faction hostility used for autonomous target selection.
 ///
@@ -90,14 +97,7 @@ impl FactionRelations {
     /// `from`'s allies. The variants are asked in declaration order, so the
     /// answer is deterministic.
     pub fn fights_beside(&self, from: ActorFaction, foe: ActorFaction) -> Option<ActorFaction> {
-        const ALL: [ActorFaction; FACTION_COUNT] = [
-            ActorFaction::Player,
-            ActorFaction::Enemy,
-            ActorFaction::Npc,
-            ActorFaction::Boss,
-            ActorFaction::Neutral,
-        ];
-        ALL.into_iter().find(|&ally| {
+        FACTIONS.into_iter().find(|&ally| {
             ally != from
                 && ally != foe
                 && self.allied[from as usize][ally as usize]
@@ -239,6 +239,14 @@ pub fn combat_relation(
     }
     let attacker_faction = effective_faction(attacker_faction, attacker_driver);
     let candidate_faction = effective_faction(candidate_faction, candidate_driver);
+    faction_relation(relations, attacker_faction, candidate_faction)
+}
+
+fn faction_relation(
+    relations: Option<&FactionRelations>,
+    attacker_faction: ActorFaction,
+    candidate_faction: ActorFaction,
+) -> CombatRelation {
     if attacker_faction != candidate_faction
         && relations.is_some_and(|r| r.is_allied(attacker_faction, candidate_faction))
     {
@@ -288,7 +296,7 @@ pub fn damage_lands_between(
 /// [`ActorDisposition::Peaceful`]. Match participation is not inferred from
 /// whether a target exists.
 ///
-/// Candidate bounds and relationship summaries are rebuilt once per tick.
+/// Build the candidate index once if an actor can acquire a foe this tick.
 /// Exact nearest queries retain the canonical candidate order for ties.
 pub fn select_actor_targets(
     mut spatial: Local<TargetSelectionIndex>,
@@ -361,76 +369,58 @@ pub fn select_actor_targets(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     let relations = relations.map(|r| r.clone()).unwrap_or_default();
-    // REACHABLE candidates only: a body the world cannot touch is never a valid
-    // target. So the instant a foe dies the actor goes target-less — it stops
-    // swinging at the corpse and stands down in this same targeting phase —
-    // instead of chasing it until it despawns.
-    //
-    // ⛔⛔ AND HEALTH IS NOT THE UNIFORM LIVENESS GATE ANY MORE, though this
-    // comment said it was. D201's stock loss calls `health.reset()` the instant
-    // the stock is spent — a fighter comes back FRESH — so a body waiting out its
-    // death beat reads FULL HEALTH while lying untouchable at the blast line. A
-    // surviving CPU went on selecting, chasing and aiming at it for the whole
-    // respawn interval, and the hit filters that stop it HURTING that body do
-    // nothing about where it walks. `body_is_untouchable` is the gate that knows
-    // both facts.
-    // ONE candidate set — the player is just another body, carrying faction Player.
-    // No unconditional player special-case; nearest foe wins.
-    // Borrowed, not cloned: both identities are Strings, and this list is
-    // rebuilt each tick.
-    let mut candidates: Vec<(
-        Entity,
-        ae::Vec2,
-        ActorFaction,
-        Option<&SimId>,
-        Option<&MatchTeam>,
-        Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-    )> = players
-        .iter()
-        .filter(|(_, _, hp, _, _, out_of_play, plane)| {
-            !crate::util::body_is_untouchable(Some(*hp), *out_of_play, *plane)
+    let faction_has_foes = FACTIONS.map(|attacker| {
+        FACTIONS.into_iter().any(|candidate| {
+            faction_relation(Some(&relations), attacker, candidate).is_target()
         })
-        .map(|(e, kin, _, faction, team, _, _)| {
-            (
-                e,
-                kin.pos,
-                *faction,
-                sim_ids.get(e).ok(),
-                team,
-                rooms.of(e),
-            )
-        })
-        .chain(
-            others
-                .iter()
-                .filter(|(_, _, _, hp, _, _, out_of_play, plane)| {
-                    !crate::util::body_is_untouchable(Some(*hp), *out_of_play, *plane)
-                })
-                .map(|(e, aabb, faction, _, driver, team, _, _)| {
-                    (
-                        e,
-                        aabb.center,
-                        effective_faction(*faction, driver),
-                        sim_ids.get(e).ok(),
-                        team,
-                        rooms.of(e),
-                    )
-                }),
-        )
-        .collect();
-    // Canonical candidate order BEFORE any nearest-foe scan. Bevy's Query order
-    // is not stable, and under GGRS rollback entity recreation the raw `Entity`
-    // ids are not stable either — so neither can be allowed to decide anything.
-    // Sorting by the stable `SimId` makes the exact-distance tie-break below
-    // reproducible across a rewind. (`None` SimIds sort last among themselves by
-    // `Entity`; a body without semantic identity is not snapshot-relevant.)
-    candidates.sort_by(|a, b| match (&a.3, &b.3) {
-        (Some(x), Some(y)) => x.cmp(y),
-        (Some(_), None) => std::cmp::Ordering::Less,
-        (None, Some(_)) => std::cmp::Ordering::Greater,
-        (None, None) => a.0.cmp(&b.0),
     });
-    let teams = spatial.rebuild(&candidates);
+    let live_candidates = || {
+        // Use the liveness rule shared with damage so an actor drops a foe
+        // that dies or waits to respawn with its health restored.
+        let mut candidates: Vec<spatial::Candidate<'_>> = players
+            .iter()
+            .filter(|(_, _, hp, _, _, out_of_play, plane)| {
+                !crate::util::body_is_untouchable(Some(*hp), *out_of_play, *plane)
+            })
+            .map(|(e, kin, _, faction, team, _, _)| {
+                (
+                    e,
+                    kin.pos,
+                    *faction,
+                    sim_ids.get(e).ok(),
+                    team,
+                    rooms.of(e),
+                )
+            })
+            .chain(
+                others
+                    .iter()
+                    .filter(|(_, _, _, hp, _, _, out_of_play, plane)| {
+                        !crate::util::body_is_untouchable(Some(*hp), *out_of_play, *plane)
+                    })
+                    .map(|(e, aabb, faction, _, driver, team, _, _)| {
+                        (
+                            e,
+                            aabb.center,
+                            effective_faction(*faction, driver),
+                            sim_ids.get(e).ok(),
+                            team,
+                            rooms.of(e),
+                        )
+                    }),
+            )
+            .collect();
+        // Sort by stable identity so equal distances give the same result
+        // after rollback recreates an entity.
+        candidates.sort_by(|a, b| match (&a.3, &b.3) {
+            (Some(x), Some(y)) => x.cmp(y),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => a.0.cmp(&b.0),
+        });
+        candidates
+    };
+    let mut index = None;
     for (
         self_entity,
         aabb,
@@ -444,27 +434,32 @@ pub fn select_actor_targets(
     ) in actors.iter_mut()
     {
         let actor_pos = aabb.center;
-        let self_room = rooms.of(self_entity);
-        // The acting body's OWN effective allegiance (Player while possessed). A
-        // body with neither an authored faction nor player control has no
-        // faction-relational foes (only a personal grudge can point it) — same as
-        // the old `faction.is_some()` gate.
-        let player_controlled = driver.is_some();
-        let has_allegiance = faction.is_some() || player_controlled;
+        let has_allegiance = faction.is_some() || driver.is_some();
         let self_faction = effective_faction(faction.copied().unwrap_or_default(), driver);
         let policy = aggression.target_policy();
-        // One relational rule: a candidate is a FOE iff this actor's faction is
-        // hostile to it (`FactionRelations`) OR this actor holds a grudge against
-        // that exact entity (a provoked NPC chasing its attacker). The player is a
-        // candidate like any other — it's hunted because the actor's faction opposes
-        // Player (a born Enemy) or it's the grudge target (a provoked NPC), never
-        // because it is "the player". Nearest foe wins.
-        let best = (policy != AggressionTarget::None).then(|| spatial.nearest(
-            &candidates, &teams, self_entity, actor_pos, self_room,
-            has_allegiance.then_some(&relations),
-            Combatant { faction: self_faction, driver: None, team: self_team },
-            aggression.grudge,
-        )).flatten();
+        let can_acquire = policy != AggressionTarget::None
+            && (aggression.grudge.is_some()
+                || self_team.is_some()
+                || (has_allegiance && faction_has_foes[self_faction as usize]));
+        let best = if can_acquire {
+            let (candidates, teams) = index.get_or_insert_with(|| {
+                let candidates = live_candidates();
+                let teams = spatial.rebuild(&candidates);
+                (candidates, teams)
+            });
+            spatial.nearest(
+                candidates,
+                teams,
+                self_entity,
+                actor_pos,
+                rooms.of(self_entity),
+                has_allegiance.then_some(&relations),
+                Combatant { faction: self_faction, driver: None, team: self_team },
+                aggression.grudge,
+            )
+        } else {
+            None
+        };
         if let Some((entity, pos, _)) = best {
             target.pos = pos;
             target.entity = Some(entity);

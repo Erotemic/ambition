@@ -2100,6 +2100,57 @@
       "twinkle": 0.7,
       "twinkle_rate": 1.0,
       "front": 0.25
+    },
+    "automaton": {
+      "count": 18,
+      "velocity": [
+        6.0,
+        3.0
+      ],
+      "wander": 14.0,
+      "wander_rate": 0.3,
+      "size": [
+        1.4,
+        2.8
+      ],
+      "alpha": 0.55,
+      "twinkle": 0.15,
+      "twinkle_rate": 0.4,
+      "front": 0.3
+    },
+    "automaton_life": {
+      "count": 24,
+      "velocity": [
+        0.0,
+        -3.0
+      ],
+      "wander": 6.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.2,
+        2.2
+      ],
+      "alpha": 0.6,
+      "twinkle": 0.5,
+      "twinkle_rate": 0.8,
+      "front": 0.25
+    },
+    "automaton_tower": {
+      "count": 14,
+      "velocity": [
+        1.0,
+        2.0
+      ],
+      "wander": 8.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.0,
+        2.0
+      ],
+      "alpha": 0.45,
+      "twinkle": 0.2,
+      "twinkle_rate": 0.3,
+      "front": 0.2
     }
   }
 }

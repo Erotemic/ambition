@@ -670,6 +670,10 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.45, damage: 1, reach_px: 34.0, step_px: 0.0, rush_px: 120.0)),
         ),
+        "life_spaceship_dash": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.45, active_s: 0.2, recover_s: 0.5, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 140.0)),
+        ),
         "inflated_coin_rush": (
             move_style: Float,
             melee: Some(Lunge(windup_s: 0.5, active_s: 0.2, recover_s: 0.5, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 130.0)),
@@ -7942,6 +7946,37 @@
             hall: ["Known issue. Won't fix.", "I was here before the floor. I'll be here after the patch."],
         ),
         hall_dialogue_id: Some("hall_glitch_bug"),
+        ),
+        // The Spaceship: the lightweight spaceship of the Game of Life, loose
+        // on the Automaton dimension's Life field. It flies in its four
+        // generations, brightens when it sees you, and dashes into you. It has
+        // no shot, so it is `Aerial`.
+        "life_spaceship": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Spaceship",
+            manifest: "sprites/life_spaceship_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(36.0),
+            composition: None,
+            default_action_set: "life_spaceship_dash",
+            locomotion: Some((run_speed: 140.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 480.0,
+                attack_range: 120.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.5, notice_s: 0.4),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "automaton", "cellular_automaton"],
+        barks: (
+            on_hit: ["*two cells blink out*", "*it skips a generation*"],
+            provoked: ["*its cells brighten*"],
+            idle: ["*it shifts through its four phases*", "*c/2*"],
+            hall: ["Lightweight spaceship. Nine cells, period four, two cells along every four generations: half the speed of light, if the light is a cell a generation.", "Nobody built me. A rule did. Two or three neighbours to live, three to be born. I'm what fell out."],
+        ),
+        hall_dialogue_id: Some("hall_life_spaceship"),
         ),
         // The asp: a cobra with its hood out. It keeps its distance and spits
         // (the `shoot` of a skirmisher): it draws its head back first (its
@@ -16040,6 +16075,45 @@
                 hall: ["I'm a placeholder. They'll replace me with someone better. Any sprint now.", "The ticket says: a wise old someone, to be decided. I've been practising the wise part."],
             ),
             hall_dialogue_id: Some("hall_npc_unfinished_placeholder"),
+        ),
+        // The Automaton dimension, clockwork and cells (gate address CELLS,
+        // `docs/planning/game/automaton-dimension.md`): its residents. Busy
+        // Beaver (`npc_busy_beaver`) builds in the Works as well.
+        "npc_automaton_neighbour_moore": (
+            display_name: "Neighbour Moore",
+            // An automaton of dark cubes; his chest is the Moore neighbourhood, him the amber middle cell.
+            manifest: "sprites/automaton_neighbour_moore_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // About as tall as a person.
+            standing_height: Some(64.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "automaton", "peaceful", "machine"],
+            barks: (
+                idle: ["Two or three, and you stay.", "Evening, neighbours. All eight of you."],
+                hall: ["I have eight neighbours: north, south, east, west, and the four corners. Most people only count four. That is why most people are lonely.", "The block next to me has not changed since the first generation. Each of its cells has three live neighbours. That is all it takes to stay."],
+            ),
+            hall_dialogue_id: Some("hall_npc_automaton_neighbour_moore"),
+        ),
+        "npc_automaton_head": (
+            display_name: "The Head",
+            // The read/write head of the Busy Beaver's machine: a carriage with a lens, a stamp and five state lamps.
+            manifest: "sprites/automaton_head_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // Knee high: a carriage on a rail.
+            standing_height: Some(32.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "automaton", "peaceful", "machine"],
+            barks: (
+                idle: ["Read. Write. Move. Again.", "State B. No, C."],
+                hall: ["I read the cell under me. I write a one or a zero. I move one cell left or right. I change state. That is the whole of my education, and it was enough to keep me busy for 47,176,870 steps.", "People ask whether I will ever stop. For five states, someone finally proved it. For six, ask me later. Much later."],
+            ),
+            hall_dialogue_id: Some("hall_npc_automaton_head"),
         ),
         // Peyote Lean: a coyote outlaw who rides with Marshal Gallus (concept
         // art `assets/concept_art/misc/Peyote Lean*.png`; renderer resident

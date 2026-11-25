@@ -89,6 +89,9 @@
         // The Unfinished dimension's gate, in the Staging Area
         // (`docs/planning/game/unfinished-dimension.md`).
         (id: "unfinished_staging", name: "Staging Gate", dimension: "unfinished"),
+        // The Automaton dimension's gate, in the Works
+        // (`docs/planning/game/automaton-dimension.md`).
+        (id: "automaton_works", name: "Works Gate", dimension: "automaton"),
     ],
     rings: [
         // ── Home ──────────────────────────────────────────────────────────
@@ -519,6 +522,18 @@
             terminal: Some("unfinished_gate_terminal"),
             posted: ["LEGAL"],
             note: "Site gate. Hard hats past this point.",
+        ),
+        // The Automaton dimension: the ring in the Works, the clockwork
+        // town (`docs/planning/game/automaton-dimension.md`).
+        (
+            zone: "automaton_works_gate",
+            name: "The Works",
+            facility: "automaton_works",
+            room: "automaton_works",
+            address: Some("CELLS"),
+            terminal: Some("automaton_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "Wound daily. Mind the gears.",
         ),
     ],
 )

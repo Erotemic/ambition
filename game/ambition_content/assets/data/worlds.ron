@@ -70,5 +70,8 @@
         // Boss's agents are still building. The Staging Area, the Draft over
         // the void, and the Site Office.
         (id: "world.unfinished_ldtk", file: "unfinished.ldtk"),
+        // The Automaton dimension, by the gate CELLS: clockwork and cells.
+        // The Works, the Life field, and the Tape Room.
+        (id: "world.automaton_ldtk", file: "automaton.ldtk"),
     ],
 )

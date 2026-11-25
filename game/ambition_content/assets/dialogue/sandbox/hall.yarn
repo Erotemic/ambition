@@ -5363,3 +5363,30 @@ Bug: *bzzt*
 -> Anything else?
     Bug: Works on my machine.
 ===
+
+title: hall_npc_automaton_neighbour_moore
+---
+Neighbour Moore: Evening. I have eight neighbours, and I know every one of them.
+-> Eight?
+    Neighbour Moore: North, south, east, west, and the four corners. Most people only count four. That's why most people are lonely.
+-> What keeps a cell alive?
+    Neighbour Moore: Two or three live neighbours. Fewer and it dies alone; more and it dies crowded.
+===
+
+title: hall_npc_automaton_head
+---
+The Head: Read. Write. Move. Change state.
+-> Is that all you do?
+    The Head: That is the whole of my education. It kept me busy for 47,176,870 steps.
+-> Will you ever stop?
+    The Head: For five states, someone proved it. For six, ask me later. Much later.
+===
+
+title: hall_life_spaceship
+---
+Spaceship: *its nine cells shift through their four phases*
+-> What are you?
+    Spaceship: Lightweight spaceship. Two cells along every four generations. Half the speed of light, if light is one cell a generation.
+-> Who built you?
+    Spaceship: Nobody. A rule did. Two or three neighbours to live, three to be born. I'm what fell out.
+===

@@ -165,6 +165,7 @@ from the start.
 | `LATENT` | `neural_callosum_gate` | `neural_callosum` | the Callosum: the Neural Cathedral west, the Weights east and the Echo Chamber in it ([neural dimension](neural-dimension.md)) | yes |
 | `LICENSED` | `authority_concourse_gate` | `authority_concourse` | the Gate Authority's capital: the Concourse and the baggage hall under it, Authority Plaza east, the Manifest Office by a door ([central hub](central-hub-dimension.md)) | yes |
 | `INSTALLING` | `unfinished_staging_gate` | `unfinished_staging` | the Staging Area, the Site Office by a door, the Draft east over the void ([unfinished dimension](unfinished-dimension.md)) | yes |
+| `CELLS` | `automaton_works_gate` | `automaton_works` | the Works, the Tape Room by a door, the Life field east ([automaton dimension](automaton-dimension.md)) | yes |
 | glyphs | `math_gate_home_zone` | `gate_stack_lower` (Ring 7) | the gate stack | when its breaker is on; `TANGENT` is posted on it |
 | glyphs | `intro_portal_zone` | `gate_stack_lower` (Ring 1, the intro's gate) | the gate stack; its door to the hub | when its power switch is on; `LEGAL` is posted on it |
 

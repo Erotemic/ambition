@@ -186,6 +186,12 @@
         portal_sprite_name: "Staging Gate Portal",
         ring_sprite_name: "Staging Gate Ring",
     ),
+    // The Automaton dimension's gate, in the Works (CELLS).
+    "automaton_works_gate": (
+        command: Dialed,
+        portal_sprite_name: "Works Gate Portal",
+        ring_sprite_name: "Works Gate Ring",
+    ),
     // The Frontier's auxiliary gate at Halfway Siding (SIDING).
     "frontier_siding_gate": (
         command: Dialed,

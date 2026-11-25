@@ -29,6 +29,9 @@ ambition_characters = { path = "../ambition_characters", optional = true }
 # the composition root is the only place the two can meet.
 ambition_menu = { path = "../ambition_menu", features = ["bevy_ui_menu"], optional = true }
 ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime", default-features = false }
+# The pause roster reads session admission (`SessionParticipants`). The runtime
+# already depends on the session owner, so this adds no crate to the graph.
+ambition_platformer2d_session = { path = "../ambition_platformer2d_session" }
 ambition_sim_view = { path = "../ambition_sim_view" }
 ambition_persistence = { path = "../ambition_persistence" }
 # Sprite metadata for the projectile visual passes this crate registers:
@@ -107,7 +110,6 @@ portal_render = [
 
 [dev-dependencies]
 # The direct-entry fixture assembles the session and construction owners.
-ambition_platformer2d_session = { path = "../ambition_platformer2d_session" }
 ambition_platformer2d_construction = { path = "../ambition_platformer2d_construction" }
 ambition_platformer2d_publication = { path = "../ambition_platformer2d_publication" }
 # The portal rule projection test declares a room's rules and builds the rooms.

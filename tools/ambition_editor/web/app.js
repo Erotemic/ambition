@@ -768,7 +768,8 @@
     stamp.after(live);
     const poll = async () => {
       let s;
-      try { s = await (await fetch("/api/build-status", { cache: "no-store" })).json(); } catch (e) { return; }
+      try { s = await (await fetch("/api/build-status", { cache: "no-store" })).json(); }
+      catch (e) { setTimeout(poll, 4000); return; }
       // A server started before an update keeps its old code; this page is new.
       // A server older than this check sends no `server_stale` at all.
       if (s.server_stale !== false && !document.getElementById("stale-server")) {
@@ -778,9 +779,20 @@
         old.innerHTML = `<b>The inspector server is older than this page</b>, so saving a review can fail. Stop it and start it again: <code>${esc(s.restart || "./scripts/asset_inspector.py --kill")}</code>`;
         stamp.after(old);
       }
-      if (s.state === "building") { live.hidden = false; live.textContent = `Showing the previous index; refreshing: ${s.step}`; setTimeout(poll, 1500); }
-      else if (s.state === "failed") { live.hidden = false; live.className = "stamp stale"; live.textContent = `The refresh failed; this is the previous index. ${s.step}`; }
-      else if (!live.hidden) { live.innerHTML = `The refreshed index is ready. <button type="button">Reload</button>`; live.querySelector("button").onclick = () => location.reload(); }
+      const outdated = s.generation !== undefined && s.generation !== (C.inventory?.publication?.generation ?? null);
+      live.className = s.state === "failed" ? "stamp stale" : "stamp";
+      if (s.state === "building") {
+        live.hidden = false;
+        live.textContent = `Showing the previous index. Refresh in progress (${s.step}).`;
+      } else if (s.state === "failed") {
+        live.hidden = false;
+        live.textContent = `The refresh failed. This is the previous index. ${s.step}`;
+      } else if ((outdated || !live.hidden) && !live.querySelector("button")) {
+        live.hidden = false;
+        live.innerHTML = `The refreshed index is ready. <button type="button">Reload</button>`;
+        live.querySelector("button").onclick = () => location.reload();
+      }
+      setTimeout(poll, s.state === "building" ? 1500 : 4000);
     };
     poll();
   }

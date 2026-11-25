@@ -1096,6 +1096,30 @@
     "business_records_desk": (),
     "business_lecture_room": (),
     "business_folder_carrier": (),
+    // The Neural dimension's scenery (`targets/props/neural_props.py`): each
+    // piece is drawn in its room's coordinates, over the room's walk lines.
+    "neural_signpost": (),
+    "neural_callosum_caps": (),
+    "neural_memory_gallery": (),
+    "neural_dendrite_tree": (),
+    "neural_logic_gates": (),
+    "neural_red_herring_board": (),
+    "neural_weights_racks": (),
+    "neural_echo_screens": (),
+    // The Central Hub's scenery (`targets/props/authority_props.py`): each
+    // piece drawn in its room's coordinates.
+    "authority_info_booth": (),
+    "authority_catwalk": (),
+    "authority_stairwell": (),
+    "authority_baggage_wall_west": (),
+    "authority_baggage_wall_east": (),
+    "authority_baggage_hall": (),
+    "authority_clock_arcade": (),
+    "authority_blossom_tree": (),
+    "authority_notice_board": (),
+    "authority_manifest_portico": (),
+    "authority_office_counter": (),
+    "authority_filing_cabinets": (),
     // The Frontier's scenery (`targets/props/frontier_props.py`): each piece
     // is drawn in its room's coordinates, over the room's walk lines.
     "frontier_pad_booth": (),

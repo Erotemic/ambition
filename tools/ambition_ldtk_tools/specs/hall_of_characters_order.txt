@@ -167,6 +167,20 @@ npc_business_barista
 npc_business_records_clerk
 npc_business_professor
 
+[The Neural dimension: the Cortex and the Weights]
+npc_neural_grandmother_cell
+npc_neural_hebb
+npc_neural_perceptron
+npc_neural_echo
+intrusive_thought
+attention_head
+
+[The Central Hub, the Gate Authority's capital]
+npc_authority_information
+npc_authority_baggage
+npc_authority_gatekeeper
+npc_authority_registrar
+
 [The orbital station]
 npc_station_okafor
 npc_station_reyes

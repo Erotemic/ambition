@@ -388,3 +388,27 @@ uses.
 
 **Owner:** `character_catalog.ron` (`npc_supreme_leader`),
 `boss_encounters/supreme_leader.ron`, `docs/planning/game/bosses.md`.
+
+## Q185 — Should LEGAL, the address every terminal posts home, reach the Gate Authority's capital?
+
+**Context (2026-11-25, [the Central Hub dimension](game/central-hub-dimension.md)).**
+The lore puts the public network's centre in the Gate Authority's capital:
+"the gate authority generally doesn't let anyone know any gate address
+except for the location to the central hub". In the game today `LEGAL`
+reaches the sandbox's central hub (`central_hub_complex`), which also holds
+the halls, the gate stack and the developer wing, and a new game starts
+there. The capital was begun as its own dimension, the Concourse at
+`LICENSED`, and its terminal posts `LEGAL` like every other.
+
+**Options:**
+
+* **(a) Keep them apart** (recommended default): `LEGAL` stays the sandbox
+  hub's; the capital keeps `LICENSED`. Nothing changes.
+* **(b) Move home to the capital:** `LEGAL` goes to the Concourse ring and
+  the sandbox hub's public ring takes another address. Every posted `LEGAL`
+  then leads to the capital; the halls and the developer wing are reached
+  from it (or only from the sandbox). Tests that dial `LEGAL` home follow.
+
+**Owner:** `game/ambition_content/assets/data/gate_network.ron`,
+`docs/planning/game/gate-network.md`,
+`game/ambition_map_assets/ambition_content/generators/authority/`.

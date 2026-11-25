@@ -481,6 +481,17 @@
             move_style: Walk,
             melee: Some(Swipe(windup_s: 0.2, active_s: 0.08, recover_s: 0.3, damage: 1, reach_px: 26.0)),
         ),
+        // The Neural dimension: the Intrusive Thought swells (its windup row)
+        // and barges in; the Attention Head narrows its eye and fires a bolt.
+        "intrusive_thought_barge": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.45, active_s: 0.2, recover_s: 0.6, damage: 1, reach_px: 34.0, step_px: 0.0, rush_px: 170.0)),
+        ),
+        "attention_head_bolt": (
+            move_style: Float,
+            melee: Some(Bite(windup_s: 0.2, active_s: 0.08, recover_s: 0.3, damage: 1, reach_px: 26.0)),
+            ranged: Some(Rock(speed: 420.0, damage: 1)),
+        ),
         "ink_wisp_spit": (
             move_style: Float,
             melee: Some(Bite(windup_s: 0.2, active_s: 0.08, recover_s: 0.3, damage: 1, reach_px: 30.0)),
@@ -7161,6 +7172,65 @@
             hall: ["Everything in this dimension was ink before it was anything. Some of us did not want to be anything.", "Drip. That was a word. You missed it."],
         ),
         hall_dialogue_id: Some("hall_ink_wisp"),
+        ),
+        // The Neural dimension's enemies. The Intrusive Thought drifts at you
+        // through the Cathedral and barges in (an Aerial lunge); the Attention
+        // Head hovers over the Weights, watches, and fires a bolt.
+        "intrusive_thought": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Intrusive Thought",
+            manifest: "sprites/intrusive_thought_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(40.0),
+            composition: None,
+            default_action_set: "intrusive_thought_barge",
+            locomotion: Some((run_speed: 100.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 480.0,
+                attack_range: 140.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.45, notice_s: 0.5),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "neural", "thought"],
+        barks: (
+            on_hit: ["*it scatters, and gathers again*", "What if you fall?"],
+            provoked: ["Remember that thing you said in school?"],
+            idle: ["*mutter mutter*", "Did you lock the door?", "What if?"],
+            hall: ["I came in uninvited. I'll leave when I'm ready. I'm never ready.", "You were thinking about something else. Now you're thinking about me."],
+        ),
+        hall_dialogue_id: Some("hall_intrusive_thought"),
+        ),
+        "attention_head": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Attention Head",
+            manifest: "sprites/attention_head_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(36.0),
+            composition: None,
+            default_action_set: "attention_head_bolt",
+            ranged_vfx: Some("spit"),
+            locomotion: Some((run_speed: 130.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Skirmisher,
+                aggro_radius: 600.0,
+                attack_range: 320.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.8,
+                ranged_volley: Some((windup_s: 0.6, firing_s: 0.15, recovery_s: 1.2)),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "neural", "machine"],
+        barks: (
+            on_hit: ["*its eye blinks*", "*whirr*"],
+            provoked: ["*the brackets close in on you*"],
+            idle: ["*whirr*", "*it looks at you, then at the wall, then at you*"],
+            hall: ["*it attends to one thing at a time. At the moment, the thing is you.*", "*its brackets frame you. You are, for now, the most important thing in the room.*"],
+        ),
+        hall_dialogue_id: Some("hall_attention_head"),
         ),
         // The origami bird: a paper crane that flies. It does not attack: it
         // patrols and turns at walls (a Wanderer), and it has no contact
@@ -15725,6 +15795,155 @@
                 hall: ["I've taught Synergy for thirty years. I still can't tell you what it is, and nobody asks.", "My best student bought the college. Now I report to her."],
             ),
             hall_dialogue_id: Some("hall_npc_business_professor"),
+        ),
+        // The Neural dimension (gate address LATENT,
+        // `docs/planning/game/neural-dimension.md`): its residents.
+        "npc_neural_grandmother_cell": (
+            display_name: "the Grandmother Cell",
+            // A neuron of the Cortex that fires for one person only; she is sure it is you.
+            manifest: "sprites/neural_grandmother_cell_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 156 cm.
+            standing_height: Some(60.5),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "neural", "peaceful"],
+            barks: (
+                idle: ["There you are!", "Look how you've grown."],
+                hall: ["I fire for one face in the whole world. Yours, dear. Every time.", "The others laugh at me. One cell for one grandchild. Well, I never missed you once."],
+            ),
+            hall_dialogue_id: Some("hall_npc_neural_grandmother_cell"),
+        ),
+        "npc_neural_hebb": (
+            display_name: "Donna Hebb",
+            // The matchmaker of the Neural Cathedral: the cells that fire together, she wires together.
+            manifest: "sprites/neural_hebb_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 170 cm.
+            standing_height: Some(65.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "neural", "peaceful"],
+            barks: (
+                idle: ["Fire together, wire together.", "You two keep lighting up at the same time. I've noticed."],
+                hall: ["I introduce cells who fire at the same moment. After that they can't stop. That's learning.", "I once wired a smell of bread to a whole childhood. Nobody asked me to."],
+            ),
+            hall_dialogue_id: Some("hall_npc_neural_hebb"),
+        ),
+        "npc_neural_echo": (
+            display_name: "Echo",
+            // The host of the Echo Chamber in the Weights, who agrees with whatever you say, louder.
+            manifest: "sprites/neural_echo_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 168 cm.
+            standing_height: Some(65.1),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "neural", "peaceful"],
+            barks: (
+                idle: ["Exactly.", "So true. So, so true."],
+                hall: ["Everyone in here agrees with you. I checked. I checked with you.", "Disagreement? We had one in here once. We all agreed it was wrong."],
+            ),
+            hall_dialogue_id: Some("hall_npc_neural_echo"),
+        ),
+        "npc_neural_perceptron": (
+            display_name: "Percy the Perceptron",
+            // An old learning machine of one layer on the floor of the Weights. It answers yes or no, and it cannot do XOR.
+            manifest: "sprites/neural_perceptron_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // A cabinet of 56 by 96 world units; its sheet draws it 86 tall.
+            standing_height: Some(86.0),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["townsfolk", "neural", "machine", "prop_like", "peaceful"],
+            barks: (
+                on_hit: ["NO.", "NO. NO."],
+                idle: ["YES.", "NO.", "Ask me something with a straight line through it."],
+                hall: ["I learned to tell a square from a circle in nineteen fifty-eight. They called it the future. Then they asked me XOR.", "One layer. One lamp. Green or red. I have never once said maybe."],
+            ),
+            hall_dialogue_id: Some("hall_npc_neural_perceptron"),
+        ),
+        // The Central Hub, the Gate Authority's capital (gate address
+        // LICENSED, `docs/planning/game/central-hub-dimension.md`): its residents.
+        "npc_authority_information": (
+            display_name: "Ottilie",
+            // At the information booth on the Concourse; she will tell you any address you like, so long as it is this one.
+            manifest: "sprites/authority_information_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 166 cm.
+            standing_height: Some(64.3),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "authority", "peaceful"],
+            barks: (
+                idle: ["Information!", "You are here. That much I can tell you."],
+                hall: ["I can give you directions to anywhere. Here. I can give you directions to here.", "Every address is confidential except ours. Ours is on the ceiling, in gold."],
+            ),
+            hall_dialogue_id: Some("hall_npc_authority_information"),
+        ),
+        "npc_authority_baggage": (
+            display_name: "Bertram",
+            // Lost Baggage, under the Concourse: what comes back through a gate is not always what went in.
+            manifest: "sprites/authority_baggage_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 176 cm.
+            standing_height: Some(68.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "authority", "peaceful"],
+            barks: (
+                idle: ["Ticket?", "If it's moving, it's not yours."],
+                hall: ["A bag went through the dinosaur gate once. It came back a nest. We kept the egg.", "Organic travellers' bags: declare any sentience. The bag will, if you don't."],
+            ),
+            hall_dialogue_id: Some("hall_npc_authority_baggage"),
+        ),
+        "npc_authority_gatekeeper": (
+            display_name: "Gatekeeper Imre",
+            // On duty in Authority Plaza, in the navy and gold of the Gate Authority.
+            manifest: "sprites/authority_gatekeeper_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 181 cm.
+            standing_height: Some(70.2),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "authority", "gatekeeper", "peaceful"],
+            barks: (
+                idle: ["Move along, licensed traveller.", "Mind the clock. It is never wrong. It is occasionally corrected."],
+                hall: ["Gates come unlocked. We map them and fit the locks. That's what Authority means: we got there first, with a clipboard.", "The armistice holds. We say holds a lot, round here."],
+            ),
+            hall_dialogue_id: Some("hall_npc_authority_gatekeeper"),
+        ),
+        "npc_authority_registrar": (
+            display_name: "the Registrar",
+            // The keeper of the Manifest Office, who has never deleted a record, only corrected one.
+            manifest: "sprites/authority_registrar_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // 188 cm.
+            standing_height: Some(72.9),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "bare_hands",
+            tags: ["townsfolk", "authority", "peaceful"],
+            barks: (
+                idle: ["Take a number.", "Now serving four thousand and ninety-six."],
+                hall: ["We never delete anything. Deleting is crude. We correct, and then it was always so.", "You are not on the manifest. Don't worry. Soon you won't have been anywhere at all."],
+            ),
+            hall_dialogue_id: Some("hall_npc_authority_registrar"),
         ),
         // Peyote Lean: a coyote outlaw who rides with Marshal Gallus (concept
         // art `assets/concept_art/misc/Peyote Lean*.png`; renderer resident

@@ -321,6 +321,23 @@ changed from 0.56–0.57 ms to 0.26–0.30 ms per tick. Other merged changes
 were present in the comparison. The isolated schedule probe measures the
 publisher change.
 
+### Extension observations
+
+Contact collection first finds bodies with a bound brain or status selector
+and an active room. It copies body IDs and prepares material in the rooms
+those receivers can observe. A desktop schedule probe with 596 bodies and
+no matching receiver took 228 µs per tick before this change and 89 µs after
+it. Both times are medians of seven batches of 300 ticks.
+
+Group observation prepares the matching tags for each character form when
+the catalog or admitted rules change. Each tick reads that mapping before
+it gathers the live members and items of each group.
+
+The headless desktop Hall admitted 596 bodies on both builds. The median
+`WorldPrep.AfterIntegrate` time fell from 1.03 to 0.57 ms per tick in the
+settled windows. `WorldPrep.Decision.Observe` stayed near 0.95 ms. The builds
+also differ by merged portal and rendering changes.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

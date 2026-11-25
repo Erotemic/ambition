@@ -268,6 +268,13 @@ navigating several rooms measures its motion once. Witness:
 `a_body_built_in_two_rooms_measures_its_motion_once` (both graphs equal a
 fresh build; a body of another size is measured again).
 
+**Standing geometry (2026-11-25).** The actor advisor answers direct walks
+from `GroundMap` before it requests a traversal graph. The native graph
+uses the same standing geometry. The cache shares this geometry across
+body tunings with the same physical footprint and axes. See the
+[behavioral fidelity plan](behavioral-fidelity-and-approximate-navigation.md)
+for current coverage and verification.
+
 **Seat autopilot (2026-11-24).** The autopilot still builds on a
 background task, and now hands that task the motion its `NavGraphCache`
 keeps (`kept_motion`). Only a body never measured measures in the task,

@@ -1,11 +1,9 @@
 //! The navigation advisor: what a body that navigates can know of its room,
 //! this tick.
 //!
-//! PERCEPTION, not decision and not state. For each body whose brain
-//! navigates, [`advise_navigation`] reads the room's surface graph for that
-//! body's tuning and writes an [`ae::navigation::NavAdvice`]: some places the
-//! body can reach, and the next leg toward the goal its brain holds. The brain
-//! reads it in its `BrainSnapshot` and decides. No brain reads a room.
+//! [`advise_navigation`] answers the current navigation questions. It sends
+//! the live position of the feet for each retained leg. The brain gets the
+//! advice in its `BrainSnapshot`.
 //!
 //! The graph ([`ambition_platformer2d_world::navigation::NavGraph`]) is a pure
 //! function of the room's authored geometry, the body's tuning and its motion
@@ -20,7 +18,9 @@ use std::collections::BTreeMap;
 
 use ambition_platformer2d_core as ae;
 use ae::navigation::{ErrandSight, NavAdvice, NavNext};
-use ambition_platformer2d_world::navigation::{NavGraph, NavGraphCache, NavGraphKey};
+use ae::Vec2;
+use ambition_characters::brain::ApproachDemand;
+use ambition_platformer2d_world::navigation::{GroundMap, NavGraph, NavGraphCache, NavGraphKey};
 use bevy::prelude::{Entity, Query, ResMut, Resource};
 
 /// How far beside its target a body stands, past its own width (px).
@@ -62,15 +62,34 @@ pub struct RoomNavigation {
     /// Each live room's geometry stamp, folded again only when the room's
     /// geometry is written.
     stamps: ambition_platformer2d_world::navigation::GeometryStamps,
+    questions: u64,
 }
 
 impl Default for RoomNavigation {
     fn default() -> Self {
-        Self { graphs: NavGraphCache::with_capacity(GRAPHS_KEPT), in_use: Vec::new(), by_body: BTreeMap::new(), stamps: Default::default() }
+        Self {
+            graphs: NavGraphCache::with_capacity(GRAPHS_KEPT),
+            in_use: Vec::new(),
+            by_body: BTreeMap::new(),
+            stamps: Default::default(),
+            questions: 0,
+        }
     }
 }
 
 impl RoomNavigation {
+    pub fn questions(&self) -> u64 {
+        self.questions
+    }
+
+    pub fn ground_preparations(&self) -> u64 {
+        self.graphs.ground_preparations()
+    }
+
+    pub fn motion_measures(&self) -> u64 {
+        self.graphs.motion_measures()
+    }
+
     /// How many graphs are kept. For tests and instruments.
     pub fn len(&self) -> usize {
         self.graphs.len()
@@ -105,27 +124,52 @@ impl RoomNavigation {
     /// The graph for a body of this tuning, in this room and this motion
     /// frame: kept, or built whole now. `None`: the body has no graph there.
     /// A body no slot drives crosses no room by a zone: its graph has no exits.
-    fn graph_of(
-        &mut self,
-        world: &ae::World,
-        // `geometry_stamp(world, &[])`, kept by `GeometryStamps`.
-        stamp: u64,
-        spec: ae::movement::MotionModelSpec,
-        abilities: ae::AbilitySet,
-        size: ae::Vec2,
-        material: ae::frame::BodyMaterial,
-        base_size: ae::BodyBaseSize,
-        frame: ae::MotionFrame,
-    ) -> Option<&NavGraph> {
-        let key = NavGraphKey::from_stamp(stamp, spec, abilities, size, material, base_size, frame);
+    fn graph_of(&mut self, world: &ae::World, key: NavGraphKey) -> Option<&NavGraph> {
         if !self.in_use.contains(&key) {
             self.in_use.push(key);
         }
-        // The body's motion is measured once whatever room: only the room's
-        // legs are built here.
-        self.graphs.get_or_build_measured(key, |motion| {
-            NavGraph::build_measured(world, &[], &key.probe_body(), frame, motion,
-                bevy::tasks::ComputeTaskPool::try_get().map(|pool| &**pool))
+        self.graphs.get_or_build_measured(key, world, &[],
+            bevy::tasks::ComputeTaskPool::try_get().map(|pool| &**pool))
+    }
+}
+
+#[derive(Clone, Copy)]
+enum TaskPlace {
+    Result(ErrandSight),
+    InRoom(Vec2),
+    Door { point: Vec2, depth: f32 },
+}
+
+impl Default for TaskPlace {
+    fn default() -> Self {
+        Self::Result(ErrandSight::None)
+    }
+}
+
+impl TaskPlace {
+    /// `None` means this method could not answer the task's question.
+    fn sight(
+        self,
+        map: &GroundMap,
+        feet: Vec2,
+        reaches: impl FnOnce(usize, usize, Vec2) -> bool,
+    ) -> Option<ErrandSight> {
+        let (target, depth) = match self {
+            Self::Result(result) => return Some(result),
+            Self::InRoom(point) => (point, TARGET_DEPTH),
+            Self::Door { point, depth } => (point, depth),
+        };
+        let Some(from) = map.surface_at(feet) else {
+            return Some(ErrandSight::None);
+        };
+        let to = map.surface_under(target, depth)?;
+        let place = map.point_on(to, map.frame.along(target));
+        if !reaches(from, to, place) {
+            return None;
+        }
+        Some(match self {
+            Self::Door { .. } => ErrandSight::Door(place),
+            _ => ErrandSight::At(place),
         })
     }
 }
@@ -135,6 +179,9 @@ impl RoomNavigation {
 pub fn advise_navigation(
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
+    time: bevy::prelude::Res<ambition_time::WorldTime>,
+    elapsed: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_time::GameplayElapsed>,
     // The room graph and the live rooms, for an errand item in another room.
     specs: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     mut cache: ResMut<RoomNavigation>,
@@ -158,6 +205,7 @@ pub fn advise_navigation(
             // body with durable whereabouts.
             Option<&ambition_combat::actor_tuning::ActorConfig>,
             Option<&ambition_platformer2d_shared_tangle::construction::SpawnOrigin>,
+            (bevy::prelude::Has<super::dormancy::Dormant>, bevy::prelude::Has<ambition_characters::control::DrivingParticipant>),
         ),
     >,
     // Where an errand item lies when it lies in no live room.
@@ -181,8 +229,8 @@ pub fn advise_navigation(
     cache.in_use.clear();
     cache.graphs.begin_demand();
     cache.by_body.clear();
-    for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand, visit, config, origin) in &bodies {
-        let Some(request) = brain.navigation_request() else {
+    for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand, visit, config, origin, (dormant, driven)) in &bodies {
+        let Some(mut request) = brain.navigation_request(elapsed.0, ground.on_ground) else {
             continue;
         };
         // A body the movement kernel has not stepped yet has the motion model
@@ -194,6 +242,49 @@ pub fn advise_navigation(
         if !ground.contact_initialized {
             continue;
         }
+        if time.sim_dt() <= 0.0 || freeze.scale_of(entity) <= 0.0 {
+            continue;
+        }
+        if dormant || driven {
+            // A task owner can still need an answer while the brain cannot decide.
+            request = Default::default();
+        }
+        let pending_errand = errand.filter(|errand| errand.outcome == super::errand::ErrandOutcome::Pending);
+        let pending_visit = visit.filter(|visit| visit.outcome == super::visit::VisitOutcome::Pending);
+        let live_room = rooms.of(entity);
+        let selected = target.filter(|target| target.entity.is_some()).map(|target| target.pos);
+        let attended = match request.approach {
+            ApproachDemand::None => None,
+            ApproachDemand::CombatTarget => selected,
+            ApproachDemand::Nearby(_) | ApproachDemand::Any => selected.or_else(|| {
+                players.iter()
+                    .filter(|(player, _)| *player != entity && rooms.of(*player) == live_room)
+                    .map(|(_, player)| player.pos)
+                    .min_by(|a, b| a.distance_squared(kinematics.pos).total_cmp(&b.distance_squared(kinematics.pos))
+                        .then(a.x.total_cmp(&b.x)).then(a.y.total_cmp(&b.y)))
+            }),
+        };
+        let down = frame.down();
+        let size = kinematics.size();
+        let physical_feet = kinematics.pos + down * ((size * down).length() * 0.5);
+        let attended = attended.filter(|at| {
+            let ApproachDemand::Nearby(radius) = request.approach else { return true; };
+            // Allow for the projection to support and the space beside the target.
+            let slack = TARGET_DEPTH + TARGET_ROOM + 3.0 * size.length();
+            at.distance(physical_feet) <= radius + slack
+        });
+        let route_goal = request.next_leg.filter(|_| ground.on_ground);
+        let task_needs_place = ground.on_ground && (pending_errand.is_some() || pending_visit.is_some());
+        if route_goal.is_none() && request.destination_seed.is_none() && attended.is_none() && !task_needs_place {
+            if request.following_leg {
+                advice.by_body.insert(entity, NavAdvice { feet: physical_feet, ..NavAdvice::default() });
+            }
+            continue;
+        }
+        cache.questions += u64::from(route_goal.is_some())
+            + u64::from(request.destination_seed.is_some())
+            + u64::from(attended.is_some())
+            + u64::from(task_needs_place);
         let stamp = rooms
             .stamped(entity)
             .map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
@@ -202,136 +293,105 @@ pub fn advise_navigation(
         };
         let world = room.base();
         let stamp = cache.stamps.of(room);
-        // The canonical size beside the material: the probe converts its
-        // controls by the body's scale as the runtime does.
-        cache.by_body.insert(entity, NavGraphKey::from_stamp(stamp, model.spec(), abilities.abilities,
-            kinematics.canonical_size, kinematics.material, *base_size, frame.get()));
-        let graph = cache.graph_of(
-            world,
-            stamp,
-            model.spec(),
-            abilities.abilities,
-            kinematics.canonical_size,
-            kinematics.material,
-            *base_size,
-            frame.get(),
-        );
-        let Some(graph) = graph else {
+        let task = if task_needs_place {
+            pending_errand.map_or_else(
+                || pending_visit.map_or(TaskPlace::default(), |visit| TaskPlace::InRoom(visit.place)),
+                |errand| {
+                    match super::errand::errand_item_at(errand, live_room, &rooms, &items) {
+                        // Not in this room: in another live room, through the zone
+                        // where the route there starts, when the body gets to it.
+                        None => {
+                            let crossing = specs.as_ref().zip(live_room).map(|(specs, body_room)| {
+                                let may_leave = config.is_some_and(|config| {
+                                    ambition_platformer2d_construction::whereabouts::keeps_durable_whereabouts(specs, config, origin)
+                                });
+                                super::errand::errand_crossing(
+                                    errand,
+                                    body_room,
+                                    may_leave,
+                                    specs,
+                                    ledger.as_deref(),
+                                    items.iter().map(|(entity, id, _, custody)| (entity, id, custody)),
+                                )
+                            });
+                            // An item that lies somewhere no route reaches is not
+                            // gone: the errand says there is no route.
+                            let crossing = match crossing {
+                                Some(Ok(crossing)) => crossing,
+                                Some(Err(super::errand::ErrandRefusal::NoRoute)) => return TaskPlace::Result(ErrandSight::NoRoute),
+                                Some(Err(_)) | None => return TaskPlace::Result(ErrandSight::Gone),
+                            };
+                            use ae::AabbExt as _;
+                            TaskPlace::Door {
+                                point: crossing.zone.center(),
+                                depth: crossing.zone.half_size().length() + TARGET_DEPTH,
+                            }
+                        }
+                        Some(point) => TaskPlace::InRoom(point),
+                    }
+                },
+            )
+        } else {
+            TaskPlace::default()
+        };
+        let key = NavGraphKey::from_stamp(stamp, model.spec(), abilities.abilities,
+            kinematics.canonical_size, kinematics.material, *base_size, frame.get());
+        let Some(map) = cache.graphs.ground(&key, world) else {
+            advice.by_body.insert(entity, NavAdvice { feet: physical_feet, ..NavAdvice::default() });
             continue;
         };
-        let mut feet = kinematics.pos + graph.frame.down * graph.half.y;
-        // The graph models no slope, so a body standing on one stood on no
-        // surface the graph knows and waited for a landing that had happened:
-        // the intro's creator walked up the cart ramp after the player and
-        // stayed there. A grounded body off the graph plans from the surface
-        // its slope rises off, under its feet within its own height. A body in
-        // the air still waits to land.
-        if ground.on_ground && graph.surface_at(feet).is_none() {
-            if let Some(under) = graph.surface_under(feet, graph.half.y * 2.0) {
-                feet = graph.point_on(under, graph.frame.along(feet));
+        let feet = if ground.on_ground && map.surface_at(physical_feet).is_none() {
+            // A ramp can rise from a flat support. Native routes can start at that support.
+            map.surface_under(physical_feet, map.half.y * 2.0)
+                .map_or(physical_feet, |under| map.point_on(under, map.frame.along(physical_feet)))
+        } else {
+            physical_feet
+        };
+
+        let mut next = route_goal.and_then(|goal| map.walk(physical_feet, goal));
+        let mut waypoints = request.destination_seed.and_then(|seed| map.only_support_waypoints(physical_feet, seed));
+        let beside = size.x + TARGET_ROOM;
+        let approach = attended.and_then(|at| map.approach(feet, at, beside, TARGET_DEPTH));
+        let target_shares_surface = approach.is_some_and(|(from, to, _)| from == to);
+        let mut target_place = approach.and_then(|(from, to, place)| {
+            (from == to && map.walk(physical_feet, place).is_some()).then_some(place)
+        });
+        let mut errand = task.sight(&map, feet, |_, _, place| map.walk(physical_feet, place).is_some());
+        if (route_goal.is_some() && next.is_none())
+            || (request.destination_seed.is_some() && waypoints.is_none())
+            || (approach.is_some() && target_place.is_none())
+            || errand.is_none()
+        {
+            cache.by_body.insert(entity, key);
+            if let Some(graph) = cache.graph_of(world, key) {
+                if let Some(goal) = route_goal.filter(|_| next.is_none()) {
+                    next = Some(graph.next(feet, goal));
+                }
+                if let Some(seed) = request.destination_seed.filter(|_| waypoints.is_none()) {
+                    waypoints = Some(graph.waypoints(feet, seed));
+                }
+                if let Some((from, to, place)) = approach {
+                    if target_place.is_none() && graph.reaches(from, to) {
+                        target_place = Some(place);
+                    }
+                }
+                if errand.is_none() {
+                    errand = task.sight(&map, feet, |from, to, _| graph.reaches(from, to))
+                        .or(Some(ErrandSight::NoRoute));
+                }
             }
         }
-        let (waypoints, waypoint_count) = graph.waypoints(feet, request.choice);
-        let next = request.goal.map_or(NavNext::Unknown, |goal| graph.next(feet, goal));
-        let live_room = rooms.of(entity);
-        let attended = target.filter(|target| target.entity.is_some()).map(|target| target.pos).or_else(|| {
-            players
-                .iter()
-                .filter(|(player, _)| *player != entity && rooms.of(*player) == live_room)
-                .map(|(_, player)| player.pos)
-                // The nearest; of two as near, the one at the lesser point,
-                // so the choice is a fact of positions and of no query order.
-                .min_by(|a, b| {
-                    a.distance_squared(kinematics.pos)
-                        .total_cmp(&b.distance_squared(kinematics.pos))
-                        .then(a.x.total_cmp(&b.x))
-                        .then(a.y.total_cmp(&b.y))
-                })
+        let (waypoints, waypoint_count) = waypoints.unwrap_or_default();
+        advice.by_body.insert(entity, NavAdvice {
+            errand: errand.unwrap_or(ErrandSight::None),
+            feet: physical_feet,
+            waypoints,
+            waypoint_count,
+            goal: route_goal,
+            next: next.unwrap_or(NavNext::Unknown),
+            target_place,
+            target_shares_surface,
         });
-        let target_place = attended
-            .and_then(|at| graph.place_beside(feet, at, kinematics.size().x + TARGET_ROOM, TARGET_DEPTH));
-        let target_shares_surface = attended.is_some_and(|at| {
-            let under = graph.surface_under(at, TARGET_DEPTH);
-            under.is_some() && under == graph.surface_at(feet)
-        });
-        // A pending errand comes before a visit: the brain follows one place.
-        let pending_errand = errand.filter(|errand| errand.outcome == super::errand::ErrandOutcome::Pending);
-        let visit_sight = || {
-            let Some(visit) = visit.filter(|visit| visit.outcome == super::visit::VisitOutcome::Pending) else {
-                return ErrandSight::None;
-            };
-            let Some(from) = graph.surface_at(feet) else {
-                return ErrandSight::None;
-            };
-            match graph.surface_under(visit.place, TARGET_DEPTH) {
-                Some(under) if graph.reaches(from, under) => {
-                    ErrandSight::At(graph.point_on(under, graph.frame.along(visit.place)))
-                }
-                _ => ErrandSight::NoRoute,
-            }
-        };
-        let errand = pending_errand
-            .map_or_else(visit_sight, |errand| {
-                // A body in the air stands on no surface: no route is judged
-                // from there, and the errand waits for the body to land.
-                let Some(from) = graph.surface_at(feet) else {
-                    return ErrandSight::None;
-                };
-                let reached = |at: ae::Vec2, depth: f32| {
-                    graph.surface_under(at, depth).filter(|under| graph.reaches(from, *under))
-                };
-                match super::errand::errand_item_at(errand, live_room, &rooms, &items) {
-                    // Not in this room: in another live room, through the zone
-                    // where the route there starts, when the body gets to it.
-                    None => {
-                        let crossing = specs.as_ref().zip(live_room).map(|(specs, body_room)| {
-                            let may_leave = config.is_some_and(|config| {
-                                ambition_platformer2d_construction::whereabouts::keeps_durable_whereabouts(specs, config, origin)
-                            });
-                            super::errand::errand_crossing(
-                                errand,
-                                body_room,
-                                may_leave,
-                                specs,
-                                ledger.as_deref(),
-                                items.iter().map(|(entity, id, _, custody)| (entity, id, custody)),
-                            )
-                        });
-                        // An item that lies somewhere no route reaches is not
-                        // gone: the errand says there is no route.
-                        let crossing = match crossing {
-                            Some(Ok(crossing)) => crossing,
-                            Some(Err(super::errand::ErrandRefusal::NoRoute)) => return ErrandSight::NoRoute,
-                            Some(Err(_)) | None => return ErrandSight::Gone,
-                        };
-                        use ae::AabbExt as _;
-                        let door = crossing.zone.center();
-                        match reached(door, crossing.zone.half_size().length() + TARGET_DEPTH) {
-                            Some(under) => ErrandSight::Door(graph.point_on(under, graph.frame.along(door))),
-                            None => ErrandSight::NoRoute,
-                        }
-                    }
-                    Some(at) => match graph.surface_under(at, TARGET_DEPTH) {
-                        Some(under) if graph.reaches(from, under) => {
-                            ErrandSight::At(graph.point_on(under, graph.frame.along(at)))
-                        }
-                        _ => ErrandSight::NoRoute,
-                    },
-                }
-            });
-        advice.by_body.insert(
-            entity,
-            NavAdvice {
-                errand,
-                feet,
-                waypoints,
-                waypoint_count,
-                goal: request.goal,
-                next,
-                target_place,
-                target_shares_surface,
-            },
-        );
     }
     cache.stamps.retire_unused();
 }
@@ -357,14 +417,16 @@ mod tests {
 
     /// What a test reads of a graph: which way is down in it, and its size.
     fn read(graph: Option<&NavGraph>) -> Option<(Vec2, usize, usize)> {
-        graph.map(|graph| (graph.frame.down, graph.surfaces.len(), graph.links.len()))
+        graph.map(|graph| (graph.ground.frame.down, graph.ground.surfaces.len(), graph.links.len()))
     }
 
     fn ask(cache: &mut RoomNavigation, world: &World, frame: MotionFrame) -> Option<(Vec2, usize, usize)> {
         let abilities = AbilitySet { move_horizontal: true, jump: true, ..AbilitySet::NONE };
         let body = ae::BodyClusterScratch::new_with_abilities(Vec2::ZERO, abilities);
         let stamp = ambition_platformer2d_world::navigation::geometry_stamp(world, &[]);
-        read(cache.graph_of(world, stamp, body.model.spec(), abilities, body.kinematics.canonical_size, body.kinematics.material, body.base_size, frame))
+        let key = NavGraphKey::from_stamp(stamp, body.model.spec(), abilities, body.kinematics.canonical_size,
+            body.kinematics.material, body.base_size, frame);
+        read(cache.graph_of(world, key))
     }
 
     /// Two bodies whose frames have one net acceleration and are not one
@@ -464,8 +526,8 @@ fn observe_navigation(
             .filter_map(|(_, graph)| graph)
     }).collect();
     for (g, graph) in graphs.into_iter().enumerate() {
-        for (k, surface) in graph.surfaces.iter().enumerate() {
-            let (a, b) = (graph.frame.point(surface.left, surface.top), graph.frame.point(surface.right, surface.top));
+        for (k, surface) in graph.ground.surfaces.iter().enumerate() {
+            let (a, b) = (graph.ground.frame.point(surface.left, surface.top), graph.ground.frame.point(surface.right, surface.top));
             out.push(piece(format!("graph{g}/surface{k}"), "nav_surface", ObservedShape::Segment { a: a.to_array(), b: b.to_array() }));
         }
         for (k, link) in graph.links.iter().enumerate() {

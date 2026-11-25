@@ -600,8 +600,8 @@ fn pursue_by_route(
     out: &mut crate::actor::control::ActorControlFrame,
 ) -> bool {
     let pace = |_far: bool| cfg.chase_speed;
-    // A body in a run-up or in the air finishes its leg.
-    if state.nav.committed() {
+    // Keep the leg during pursuit. Finish a committed maneuver if pursuit ends.
+    if state.nav.committed() || (chasing && state.nav.leg.is_some()) {
         return state.nav.drive(snapshot, pace, out) == Followed::Going;
     }
     let advice = &snapshot.navigation;

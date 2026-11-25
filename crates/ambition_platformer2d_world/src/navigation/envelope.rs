@@ -102,12 +102,8 @@ impl TraversalEnvelope {
     pub fn measure(body: &BodyClusterScratch, frame: MotionFrame, probe: EnvelopeProbe) -> Option<Self> {
         let side = frame.side();
         let down = frame.down();
-        if !is_cardinal(side) || !is_cardinal(down) {
-            return None;
-        }
-        let size = body.kinematics.size();
-        let half_along = (size * side).abs().length() * 0.5;
-        let half_tall = (size * down).abs().length() * 0.5;
+        let half = super::surfaces::NavFrame { side, down }.body_half(body.kinematics.size())?;
+        let (half_along, half_tall) = (half.x, half.y);
         // Room for any speed the kernel can give a running body in the time
         // the probe allows. The world is a square around `origin`, so every
         // block and the whole arc have positive coordinates.
@@ -291,11 +287,6 @@ fn step(body: &mut BodyClusterScratch, world: &World, frame: MotionFrame, dt: f3
             recovery_commitment_outstanding: false,
         },
     );
-}
-
-fn is_cardinal(axis: Vec2) -> bool {
-    (axis.x.abs() < 1e-4 && (axis.y.abs() - 1.0).abs() < 1e-4)
-        || (axis.y.abs() < 1e-4 && (axis.x.abs() - 1.0).abs() < 1e-4)
 }
 
 /// The feet height where the leading edge first reaches `lead`, by linear

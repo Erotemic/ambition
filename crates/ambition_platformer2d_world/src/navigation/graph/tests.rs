@@ -2,6 +2,7 @@ use super::*;
 use ae::movement::GRAVITY;
 use ae::navigation::LegInput;
 use ae::{AbilitySet, Block};
+use crate::navigation::standing_surfaces;
 
 const DT: f32 = 1.0 / 60.0;
 const FLOOR: f32 = 2000.0;
@@ -57,13 +58,13 @@ impl Fixture {
 
     fn surface(&self, name: &str) -> usize {
         let block = self.world.blocks.iter().find(|block| block.name == name).expect("a block of the fixture");
-        let top = self.graph.frame.point((block.aabb.min.x + block.aabb.max.x) * 0.5, block.aabb.min.y);
+        let top = self.graph.ground.frame.point((block.aabb.min.x + block.aabb.max.x) * 0.5, block.aabb.min.y);
         self.graph.surface_at(top).unwrap_or_else(|| panic!("`{name}` is no standing surface"))
     }
 
     fn middle(&self, name: &str) -> Vec2 {
-        let surface = &self.graph.surfaces[self.surface(name)];
-        self.graph.frame.point((surface.left + surface.right) * 0.5, surface.top)
+        let surface = &self.graph.ground.surfaces[self.surface(name)];
+        self.graph.ground.frame.point((surface.left + surface.right) * 0.5, surface.top)
     }
 
     fn linked(&self, from: &str, to: &str) -> Option<NavLegKind> {
@@ -82,7 +83,7 @@ impl Fixture {
     /// and stops by its braking, as a player's seat does.
     fn travel_by(&self, from: Vec2, goal: Vec2, approach: Option<ae::navigation::ApproachLaw>) -> Result<usize, String> {
         let mut body = self.body.clone();
-        let half = self.graph.half;
+        let half = self.graph.ground.half;
         {
             let (model, mut clusters) = body.parts();
             ae::movement::transit_body(model, &mut clusters, from - Vec2::Y * half.y, ae::movement::TransitVelocity::Zero);
@@ -133,7 +134,7 @@ fn a_continuous_walk_skips_link_rollouts() {
     let motion = NavMotion::measure(&fixture.body, frame).unwrap();
     let feet = fixture.middle("floor");
     let walk = DirectWalk {
-        center: feet - Vec2::Y * fixture.graph.half.y,
+        center: feet - Vec2::Y * fixture.graph.ground.half.y,
         destination: feet + Vec2::new(120.0, -16.0),
     };
     let build = |request| {
@@ -144,9 +145,11 @@ fn a_continuous_walk_skips_link_rollouts() {
     assert_eq!(standing.cost.rollouts, 0);
     let goal = fixture.graph.standing_destination(walk.destination).unwrap();
     assert_eq!(standing.next(feet, goal), fixture.graph.next(feet, goal));
+    assert_eq!(standing.ground.walk(feet, goal), Some(standing.next(feet, goal)));
 
     let across = DirectWalk { destination: fixture.middle("ledge"), ..walk };
     assert!(!standing.can_answer_walk(across));
+    assert_eq!(standing.ground.walk(feet, across.destination), None);
     assert_eq!(standing.next(feet, across.destination), NavNext::Unknown);
     let local = build(across);
     assert!(local.local_only());
@@ -256,7 +259,7 @@ fn the_waypoints_are_reachable_and_the_same_for_one_seed() {
     // Chosen once for each surface and seed (EXECUTION-COST): feet elsewhere
     // on the floor read the kept answer, which is the answer chosen fresh.
     let floor = fixture.surface("floor");
-    let elsewhere = Vec2::new(fixture.graph.surfaces[floor].left + 1.0, feet.y);
+    let elsewhere = Vec2::new(fixture.graph.ground.surfaces[floor].left + 1.0, feet.y);
     assert_eq!(fixture.graph.surface_at(elsewhere), Some(floor), "premise: still on the floor");
     assert_eq!(fixture.graph.waypoints(elsewhere, 7), (points, count));
     assert_eq!(fixture.graph.choose_waypoints(floor, 7), (points, count));
@@ -839,14 +842,17 @@ fn stated_graph(surfaces: &[(f32, f32, f32)], links: &[(usize, usize, f32, f32, 
         })
         .collect();
     NavGraph {
-        frame: NavFrame { side: Vec2::X, down: Vec2::Y },
-        half: Vec2::splat(1.0),
+        ground: Arc::new(GroundMap {
+            frame: NavFrame { side: Vec2::X, down: Vec2::Y },
+            half: Vec2::splat(1.0),
+            surfaces,
+            slope_pieces: Vec::new(),
+        }),
         run_speed: 1.0,
         braking: 0.0,
         start_speed: 0.0,
         apex_rise: 0.0,
         jump_reach: 0.0,
-        surfaces,
         links,
         cost: BuildCost::default(),
         flight: None,
@@ -937,12 +943,12 @@ fn a_route_costs_what_trying_every_chain_costs() {
         ],
     );
     let mut compared = 0;
-    for from in 0..graph.surfaces.len() {
-        for to in 0..graph.surfaces.len() {
+    for from in 0..graph.ground.surfaces.len() {
+        for to in 0..graph.ground.surfaces.len() {
             if from == to {
                 continue;
             }
-            let (a, b) = (&graph.surfaces[from], &graph.surfaces[to]);
+            let (a, b) = (&graph.ground.surfaces[from], &graph.ground.surfaces[to]);
             let (feet, goal) = (Vec2::new(a.left, a.top), Vec2::new(b.right, b.top));
             let found = graph.route(feet, goal).map(|route| route_cost(&graph, feet, goal, &route));
             let reference = cheapest_by_enumeration(&graph, feet, goal);
@@ -973,8 +979,8 @@ fn one_search_from_a_goal_answers_every_start() {
         ],
     );
     let mut compared = 0;
-    for to in 0..graph.surfaces.len() {
-        let goal = Vec2::new(graph.surfaces[to].right, graph.surfaces[to].top);
+    for to in 0..graph.ground.surfaces.len() {
+        let goal = Vec2::new(graph.ground.surfaces[to].right, graph.ground.surfaces[to].top);
         let table = graph.to_goal(to, goal.x);
         assert!(std::sync::Arc::ptr_eq(&table, &graph.to_goal(to, goal.x)), "the same goal searched again");
         for (index, link) in graph.links.iter().enumerate() {
@@ -985,8 +991,8 @@ fn one_search_from_a_goal_answers_every_start() {
             assert!((table[index] - reference).abs() < 1e-3 || (table[index].is_infinite() && reference.is_infinite()),
                 "link {index} to surface {to}: {} not {reference}", table[index]);
         }
-        for from in (0..graph.surfaces.len()).filter(|from| *from != to) {
-            let feet = Vec2::new(graph.surfaces[from].left, graph.surfaces[from].top);
+        for from in (0..graph.ground.surfaces.len()).filter(|from| *from != to) {
+            let feet = Vec2::new(graph.ground.surfaces[from].left, graph.ground.surfaces[from].top);
             let reference = cheapest_by_enumeration(&graph, feet, goal);
             match (graph.next(feet, goal), reference) {
                 (NavNext::Leg(leg), Some(reference)) => {
@@ -1024,16 +1030,17 @@ fn a_body_built_in_two_rooms_measures_its_motion_once() {
     for world in &rooms {
         let key = key_of(world, size);
         let kept = cache
-            .get_or_build_measured(key, |motion| NavGraph::build_measured(world, &[], &key.probe_body(), normal_frame(), motion, None))
+            .get_or_build_measured(key, world, &[], None)
             .expect("a graph")
             .clone();
         let fresh = NavGraph::build(world, &key.probe_body(), normal_frame()).expect("a graph");
-        assert_eq!((kept.surfaces, kept.links, kept.out), (fresh.surfaces, fresh.links, fresh.out));
+        assert_eq!(kept.ground.surfaces, fresh.ground.surfaces);
+        assert_eq!((kept.links, kept.out), (fresh.links, fresh.out));
     }
     assert_ne!(key_of(&rooms[0], size), key_of(&rooms[1], size), "premise: two rooms");
     assert_eq!(cache.motion_measures(), 1, "the walker's motion was measured again in the second room");
     let bigger = key_of(&rooms[0], size * 1.5);
-    let _ = cache.get_or_build_measured(bigger, |motion| NavGraph::build_measured(&rooms[0], &[], &bigger.probe_body(), normal_frame(), motion, None));
+    let _ = cache.get_or_build_measured(bigger, &rooms[0], &[], None);
     assert_eq!(cache.motion_measures(), 2, "control: another body is measured");
 }
 
@@ -1046,7 +1053,7 @@ fn a_surfaces_reach_is_searched_once_and_kept() {
         &[(0.0, 0.0, 0.0), (0.0, 100.0, 50.0), (200.0, 200.0, 100.0), (500.0, 500.0, 150.0)],
         &[(0, 1, 0.0, 0.0, 1.0), (0, 2, 0.0, 200.0, 1.5), (2, 1, 200.0, 100.0, 0.5), (1, 3, 100.0, 500.0, 1.0)],
     );
-    for from in 0..graph.surfaces.len() {
+    for from in 0..graph.ground.surfaces.len() {
         let first = graph.reach_from(from);
         assert_eq!(first, graph.search_reach(from).as_slice());
         assert!(std::ptr::eq(first, graph.reach_from(from)), "{from}: searched again");

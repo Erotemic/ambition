@@ -69,7 +69,7 @@ fn the_basement_dog_is_peaceful_and_goes_to_places_on_the_rooms_surfaces() {
     // ⛔ THE PREMISES: the basement gives the dog places to go, and the room
     // has places it cannot go (the hall above it).
     assert!(reachable.len() >= 6, "the dog can reach only {} surfaces", reachable.len());
-    assert!(reachable.len() < graph.surfaces.len(), "control: each surface of the room is in reach");
+    assert!(reachable.len() < graph.ground.surfaces.len(), "control: each surface of the room is in reach");
 
     let mut stood_on = BTreeSet::new();
     let mut take_offs = Vec::new();
@@ -290,8 +290,7 @@ fn the_dog_climbs_to_a_player_who_stands_far_away_on_the_upper_deck() {
         let goal = sim
             .world()
             .get::<ambition_platformer2d::characters::brain::Brain>(dog)
-            .and_then(|brain| brain.navigation_request())
-            .and_then(|request| request.goal);
+            .and_then(ambition_platformer2d::characters::brain::Brain::navigation_goal);
         first_goal = first_goal.or(goal);
         let gap = at(&sim, dog) - at(&sim, player);
         if gap.x.abs() < 200.0 && gap.y.abs() < 40.0 {

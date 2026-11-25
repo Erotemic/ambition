@@ -56,7 +56,7 @@ Read the following owners before editing their implementation:
 - [Bounded perception and attention](bounded-perception-and-attention.md): evidence admission, target beliefs, retained memory, attention budgets and replay requirements.
 - [Agentic character runtime](agentic-character-runtime.md): controller demand, observation and behavior boundaries.
 - [One body, one path](../../concepts/one-body-one-path.md): one authoritative physical execution path for all actors.
-- [Opinions and monorepo transition](opinions-and-monorepo-transition.md), when present in the checkout: ownership of shared defaults and game policy.
+- [Engine architecture](../../architecture/engine-architecture.md) defines the engine and game ownership boundaries.
 - [Performance and iteration](performance-and-iteration.md): measurement and benchmark ownership.
 
 This plan extends the above contracts. It does not supersede the native
@@ -351,6 +351,18 @@ movement, but the ground model must have useful stated semantics.
 
 This is useful work even if approximate jumps are not ready. It should be
 possible to stop after this increment with a coherent engine.
+
+**First work admission slice, 2026-11-25.** Roam asks for destinations when
+its rest ends. A retained leg gets live feet and can continue without another
+route search. The advisor answers direct walks and approaches on one
+standing span from the same `GroundMap` the native graph uses. One-support
+roaming keeps its existing destination choice. The visit integration test
+checks zero work for a passive actor, one prepared ground map for a direct
+visit, and zero motion measurements and traversal graphs. The reference
+graph test checks a walk and a gap. The existing
+[Android measurements](../../../dev/benchmark-candidates/android-hall-contact-and-perception-work.md)
+give the stationary and crossing baselines. Connected ground, the seat's
+preparation path and the broader result contract remain open.
 
 ## 7. Approximate traversal proposals
 

@@ -41,18 +41,19 @@
 //! slope (a route from the middle of a slope finds no surface under it).
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use ambition_platformer2d_core as ae;
 use ae::movement::{step_motion, ActionEdges, Edge, InputState, MotionStepContext, MovementAction};
 use ae::navigation::{
     follow_leg, mix, FlightLaw, LegInput, LegFacts, LegPhase, LegProgress, NavLeg, NavLegKind, NavNext, ARRIVE_TOLERANCE,
-    LAND_TOLERANCE, NAV_WAYPOINTS,
+    NAV_WAYPOINTS,
 };
 use ae::{BodyClusterScratch, LocalAxes, MotionFrame, Vec2, World};
 
 use super::envelope::{EnvelopeProbe, TraversalEnvelope};
 use super::flight::FlightMap;
-use super::surfaces::{chain_walks, standing_surfaces, NavFrame, StandSurface};
+use super::surfaces::{GroundMap, NavFrame, StandSurface, SLOPE_END_REACH};
 
 /// The most kernel steps one leg may take in its rollout.
 const MAX_LEG_STEPS: usize = 360;
@@ -102,9 +103,7 @@ impl BuildCost {
 /// The standing surfaces of a room and the legs between them, for one body.
 #[derive(Clone, Debug)]
 pub struct NavGraph {
-    pub frame: NavFrame,
-    /// Half the body along the side axis and against the fall.
-    pub half: Vec2,
+    pub ground: Arc<GroundMap>,
     /// The body's top speed along a surface, for the cost of a walk.
     pub run_speed: f32,
     /// The body's braking on a surface with no stick (px/s²), measured in
@@ -118,7 +117,6 @@ pub struct NavGraph {
     /// leading edge goes in one. What an author sizes a room by.
     pub apex_rise: f32,
     pub jump_reach: f32,
-    pub surfaces: Vec<StandSurface>,
     pub links: Vec<NavLink>,
     /// What the build cost.
     pub cost: BuildCost,
@@ -291,11 +289,23 @@ impl NavGraph {
         pool: Option<&bevy_tasks::TaskPool>,
         direct: Option<DirectWalk>,
     ) -> Option<Self> {
-        let envelope = &motion.envelope;
         let nav = NavFrame { side: frame.side(), down: frame.down() };
-        let half = Vec2::new(envelope.body_width * 0.5, envelope.body_height * 0.5);
-        let slope_pieces = chain_walks(world, nav).pieces;
-        let surfaces = split_at_touchdowns(standing_surfaces(world, nav, half * 2.0), &slope_pieces, nav, half.x);
+        let ground = Arc::new(GroundMap::build(world, nav, body.kinematics.size())?);
+        Self::build_on_ground(world, exits, body, frame, motion, pool, direct, ground)
+    }
+
+    pub(super) fn build_on_ground(
+        world: &World,
+        exits: &[ae::Aabb],
+        body: &BodyClusterScratch,
+        frame: MotionFrame,
+        motion: &NavMotion,
+        pool: Option<&bevy_tasks::TaskPool>,
+        direct: Option<DirectWalk>,
+        ground: Arc<GroundMap>,
+    ) -> Option<Self> {
+        let envelope = &motion.envelope;
+        let (nav, half, count) = (ground.frame, ground.half, ground.surfaces.len());
         let jump_reach = envelope.jump.iter().map(|sample| sample.lead).fold(0.0, f32::max);
         let drop_reach = envelope.drop.iter().map(|sample| sample.lead).fold(0.0, f32::max);
         let apex = envelope.apex_rise();
@@ -308,18 +318,16 @@ impl NavGraph {
         let can_dash = verbs.dash;
         let can_wall_jump = verbs.wall_jump;
         let mut graph = Self {
-            frame: nav,
-            half,
+            ground,
             run_speed: envelope.takeoff_speed.max(1.0),
             braking: envelope.braking(),
             start_speed: envelope.start_speed,
             apex_rise: apex,
             jump_reach,
-            out: vec![Vec::new(); surfaces.len()],
-            reach: (0..surfaces.len()).map(|_| std::sync::OnceLock::new()).collect(),
+            out: vec![Vec::new(); count],
+            reach: (0..count).map(|_| std::sync::OnceLock::new()).collect(),
             destinations: DestinationTables::default(),
             waypoint_sets: KeptWaypoints::default(),
-            surfaces,
             links: Vec::new(),
             cost: BuildCost::default(),
             flight: None,
@@ -340,12 +348,12 @@ impl NavGraph {
             let mut found = Vec::new();
             let mut spent = BuildCost::default();
             let mut starts = SettledStarts::new();
-            let targets = direct_to.map_or(0..graph.surfaces.len(), |to| to..to + 1);
+            let targets = direct_to.map_or(0..graph.ground.surfaces.len(), |to| to..to + 1);
             for to in targets {
                 if from == to {
                     continue;
                 }
-                let (a, b) = (&graph.surfaces[from], &graph.surfaces[to]);
+                let (a, b) = (&graph.ground.surfaces[from], &graph.ground.surfaces[to]);
                 // Up is positive: how far the landing is above the take-off.
                 let rise = a.top - b.top;
                 let gap = (b.left - a.right).max(a.left - b.right).max(0.0);
@@ -362,7 +370,7 @@ impl NavGraph {
                 let wall_jump = can_wall_jump && rise > 1.0 && rise <= MAX_CLIMB && gap <= jump_reach + slack;
                 // Flight is for going up: a drop gets down.
                 let fly = can_fly && rise > 1.0;
-                let slopes = slope_proposals(&slope_pieces, nav, a, b, half.x);
+                let slopes = slope_proposals(&graph.ground.slope_pieces, nav, a, b, half.x);
                 if slopes.is_empty()
                     && (rise < -envelope.probe.max_drop || !(hop || drop || double || dash || climb || wall_jump || fly))
                 {
@@ -424,7 +432,7 @@ impl NavGraph {
         } else {
             BuildCost::default()
         };
-        let surfaces = graph.surfaces.len();
+        let surfaces = graph.ground.surfaces.len();
         let rows: Vec<(Vec<(usize, NavLeg, f32)>, BuildCost)> = match pool {
             Some(pool) if pool.thread_num() > 1 && surfaces > 1 => {
                 let links_from = &links_from;
@@ -458,14 +466,14 @@ impl NavGraph {
     /// only from under it, and an opening starts beside the end of a block.
     fn fly_proposals(&self, world: &World, a: &StandSurface, b: &StandSurface) -> Vec<NavLeg> {
         // What the body passes through when it rises from `a` to above `b`.
-        let band = (b.top - self.half.y * 2.0 - ae::navigation::FLIGHT_CLEARANCE, a.top);
+        let band = (b.top - self.ground.half.y * 2.0 - ae::navigation::FLIGHT_CLEARANCE, a.top);
         let mut starts: Vec<f32> = Vec::new();
         for block in &world.blocks {
             if matches!(block.kind, ae::BlockKind::OneWay | ae::BlockKind::PogoOrb) {
                 continue;
             }
-            let along = [self.frame.along(block.aabb.min), self.frame.along(block.aabb.max)];
-            let below = [self.frame.below(block.aabb.min), self.frame.below(block.aabb.max)];
+            let along = [self.ground.frame.along(block.aabb.min), self.ground.frame.along(block.aabb.max)];
+            let below = [self.ground.frame.below(block.aabb.min), self.ground.frame.below(block.aabb.max)];
             let (top, bottom) = (below[0].min(below[1]), below[0].max(below[1]));
             if bottom <= band.0 || top >= band.1 {
                 continue;
@@ -473,7 +481,7 @@ impl NavGraph {
             let (left, right) = (along[0].min(along[1]), along[0].max(along[1]));
             // Clear of the end by the follower's tolerance too: it starts the
             // leg anywhere in it.
-            let clear = self.half.x + ARRIVE_TOLERANCE + 2.0;
+            let clear = self.ground.half.x + ARRIVE_TOLERANCE + 2.0;
             starts.push(left - clear);
             starts.push(right + clear);
         }
@@ -487,14 +495,14 @@ impl NavGraph {
                 start: Vec2::new(start, a.top),
                 takeoff: Vec2::new(start, a.top),
                 land: Vec2::new(b.clamp(start), b.top),
-                land_span: [b.left - self.half.x, b.right + self.half.x],
+                land_span: [b.left - self.ground.half.x, b.right + self.ground.half.x],
             })
             .collect()
     }
 
     /// A leg whose points are (along, below) pairs, as world points.
     fn in_world(&self, leg: NavLeg) -> NavLeg {
-        let point = |p: Vec2| self.frame.point(p.x, p.y);
+        let point = |p: Vec2| self.ground.frame.point(p.x, p.y);
         // The span is places on the side axis, and they are the same in
         // each of the two forms.
         NavLeg { start: point(leg.start), takeoff: point(leg.takeoff), land: point(leg.land), ..leg }
@@ -518,7 +526,7 @@ impl NavGraph {
         // The follower starts a leg in the tolerance of its start point, so
         // the leg must hold at both ends of the tolerance.
         for offset in [0.0, ARRIVE_TOLERANCE, -ARRIVE_TOLERANCE] {
-            let feet = leg.start + self.frame.side * offset;
+            let feet = leg.start + self.ground.frame.side * offset;
             // Legs with the same start share the neutral steps before input.
             let mut settling_steps = 0;
             let settled = starts.entry(feet.to_array().map(f32::to_bits))
@@ -551,7 +559,7 @@ impl NavGraph {
             ae::movement::transit_body(
                 model,
                 &mut clusters,
-                feet - self.frame.down * self.half.y,
+                feet - self.ground.frame.down * self.ground.half.y,
                 ae::movement::TransitVelocity::Zero,
             );
         }
@@ -576,9 +584,9 @@ impl NavGraph {
         let dt = EnvelopeProbe::default().dt;
         let mut phase = LegPhase::Commit;
         // Where the feet were when the body last moved on the ground.
-        let mut moved_at = (0, self.frame.along(body.kinematics.pos));
+        let mut moved_at = (0, self.ground.frame.along(body.kinematics.pos));
         // Where the feet were when the body last moved in flight.
-        let mut flown_at = (0, body.kinematics.pos + self.frame.down * self.half.y);
+        let mut flown_at = (0, body.kinematics.pos + self.ground.frame.down * self.ground.half.y);
         // A slope is walked, and a long one (a freight track down a hill)
         // takes longer than the step limit at a walk: it has a step per two
         // pixels of its length, at least the limit.
@@ -587,13 +595,13 @@ impl NavGraph {
             _ => MAX_LEG_STEPS,
         };
         for index in 0..steps {
-            let feet = body.kinematics.pos + self.frame.down * self.half.y;
+            let feet = body.kinematics.pos + self.ground.frame.down * self.ground.half.y;
             // A body that runs into a wall in `Commit` stands there until the
             // step limit: a walk-off with a wall past the edge. Measured, that
             // was most of the steps of the failed rollouts. Stopped for
             // STALL_STEPS on the ground means it has failed.
             if phase == LegPhase::Commit && body.ground.on_ground {
-                let along = self.frame.along(feet);
+                let along = self.ground.frame.along(feet);
                 if (along - moved_at.1).abs() > 1.0 {
                     moved_at = (index, along);
                 } else if index - moved_at.0 >= STALL_STEPS {
@@ -613,8 +621,8 @@ impl NavGraph {
                 feet,
                 vel: body.kinematics.vel,
                 on_ground: body.ground.on_ground,
-                side: self.frame.side,
-                down: self.frame.down,
+                side: self.ground.frame.side,
+                down: self.ground.frame.down,
                 dt,
                 wall: body.wall.on_wall.then_some(body.wall.wall_normal_x.signum()),
                 approach: None,
@@ -657,17 +665,7 @@ impl NavGraph {
 
     /// The surface the feet point `feet` stands on.
     pub fn surface_at(&self, feet: Vec2) -> Option<usize> {
-        let (along, below) = (self.frame.along(feet), self.frame.below(feet));
-        self.surfaces
-            .iter()
-            .enumerate()
-            .filter(|(_, surface)| {
-                (surface.top - below).abs() <= LAND_TOLERANCE
-                    && along >= surface.left - self.half.x
-                    && along <= surface.right + self.half.x
-            })
-            .min_by(|(_, a), (_, b)| (a.clamp(along) - along).abs().total_cmp(&(b.clamp(along) - along).abs()))
-            .map(|(index, _)| index)
+        self.ground.surface_at(feet)
     }
 
     /// Where a body in the air at `feet` should come down, when no leg
@@ -677,18 +675,18 @@ impl NavGraph {
     /// spend gains), with a lean toward `toward` (its goal). `None`: no
     /// surface is there.
     pub fn landing_in_reach(&self, feet: Vec2, rise: f32, toward: Vec2) -> Option<Vec2> {
-        let (along, below) = (self.frame.along(feet), self.frame.below(feet));
-        let goal_along = self.frame.along(toward);
-        (0..self.surfaces.len())
-            .filter(|index| self.surfaces[*index].top >= below - rise)
+        let (along, below) = (self.ground.frame.along(feet), self.ground.frame.below(feet));
+        let goal_along = self.ground.frame.along(toward);
+        (0..self.ground.surfaces.len())
+            .filter(|index| self.ground.surfaces[*index].top >= below - rise)
             .map(|index| {
-                let surface = &self.surfaces[index];
+                let surface = &self.ground.surfaces[index];
                 let at = surface.clamp(along);
                 // The way along to the surface, the fall to it, and a lean
                 // toward the goal: the nearest landing first, and of two as
                 // near, the one on the way.
                 let cost = (at - along).abs() + (surface.top - below).abs() * 0.25 + (at - goal_along).abs() * 0.05;
-                (self.frame.point(at, surface.top), cost)
+                (self.ground.frame.point(at, surface.top), cost)
             })
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(point, _)| point)
@@ -696,16 +694,12 @@ impl NavGraph {
 
     /// The feet point at `along` on `surface`, kept on the surface.
     pub fn point_on(&self, surface: usize, along: f32) -> Vec2 {
-        let surface = &self.surfaces[surface];
-        self.frame.point(surface.clamp(along), surface.top)
+        self.ground.point_on(surface, along)
     }
 
     /// The nearest standing point at or below the destination.
     pub fn standing_destination(&self, destination: Vec2) -> Option<Vec2> {
-        (0..self.surfaces.len())
-            .map(|index| self.point_on(index, self.frame.along(destination)))
-            .filter(|feet| self.frame.below(*feet) >= self.frame.below(destination) - 1.0)
-            .min_by(|a, b| (*a - destination).length_squared().total_cmp(&(*b - destination).length_squared()))
+        self.ground.standing_destination(destination)
     }
 
     /// True if this build covers standing surfaces and selected direct links.
@@ -721,7 +715,7 @@ impl NavGraph {
     }
 
     fn walk_endpoints(&self, walk: DirectWalk) -> Option<(usize, usize)> {
-        let feet = walk.center + self.frame.down * self.half.y;
+        let feet = walk.center + self.ground.frame.down * self.ground.half.y;
         let from = self.surface_at(feet)?;
         let to = self.surface_at(self.standing_destination(walk.destination)?)?;
         Some((from, to))
@@ -751,7 +745,7 @@ impl NavGraph {
     }
 
     fn search_reach(&self, from: usize) -> Vec<usize> {
-        let mut seen = vec![false; self.surfaces.len()];
+        let mut seen = vec![false; self.ground.surfaces.len()];
         let mut order = vec![from];
         seen[from] = true;
         let mut next = 0;
@@ -786,10 +780,10 @@ impl NavGraph {
             return Some(Vec::new());
         }
         let start = self.links.len();
-        let goal_along = self.frame.along(goal);
+        let goal_along = self.ground.frame.along(goal);
         let arrival = |state: usize| match state == start {
-            true => (from, self.frame.along(feet)),
-            false => (self.links[state].to, self.frame.along(self.links[state].leg.land)),
+            true => (from, self.ground.frame.along(feet)),
+            false => (self.links[state].to, self.ground.frame.along(self.links[state].leg.land)),
         };
         // Cost to each arrival and the arrival it came from.
         let mut best: Vec<Option<(f32, usize)>> = vec![None; start + 1];
@@ -815,7 +809,7 @@ impl NavGraph {
             }
             for index in &self.out[surface] {
                 let link = &self.links[*index];
-                let total = cost + (self.frame.along(link.leg.start) - at).abs() / self.run_speed + link.cost;
+                let total = cost + (self.ground.frame.along(link.leg.start) - at).abs() / self.run_speed + link.cost;
                 if !done[*index] && best[*index].is_none_or(|(known, _)| total < known) {
                     best[*index] = Some((total, state));
                     open.push(RouteOpen { cost: total, state: *index });
@@ -841,13 +835,7 @@ impl NavGraph {
             return if self.local_only { NavNext::Unknown } else { NavNext::Unreachable };
         };
         if from == to {
-            let land = self.point_on(to, self.frame.along(goal));
-            if (self.frame.along(land) - self.frame.along(feet)).abs() <= ARRIVE_TOLERANCE {
-                return NavNext::Arrived;
-            }
-            let span = &self.surfaces[to];
-            let land_span = [span.left - self.half.x, span.right + self.half.x];
-            return NavNext::Leg(NavLeg { kind: NavLegKind::Walk, start: land, takeoff: land, land, land_span });
+            return self.ground.walk_on(to, feet, goal);
         }
         if self.local_only {
             return self.direct_link(from, to).map_or(NavNext::Unknown, NavNext::Leg);
@@ -856,14 +844,14 @@ impl NavGraph {
         // surface, the one whose walk to its takeoff, its own cost and its
         // cost on to the goal ([`Self::to_goal`]) are least; of two as cheap,
         // the lower link. Only the walk from the feet is asked each tick.
-        let to_goal = self.to_goal(to, self.frame.along(goal));
-        let at = self.frame.along(feet);
+        let to_goal = self.to_goal(to, self.ground.frame.along(goal));
+        let at = self.ground.frame.along(feet);
         let first = self.out[from]
             .iter()
             .filter(|link| to_goal[**link].is_finite())
             .map(|link| {
                 let leg = &self.links[*link];
-                ((self.frame.along(leg.leg.start) - at).abs() / self.run_speed + leg.cost + to_goal[*link], *link)
+                ((self.ground.frame.along(leg.leg.start) - at).abs() / self.run_speed + leg.cost + to_goal[*link], *link)
             })
             .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
         match first {
@@ -889,7 +877,7 @@ impl NavGraph {
         }
         // Links arriving on each surface: the predecessors of a link are the
         // links that land where it leaves.
-        let mut into = vec![Vec::new(); self.surfaces.len()];
+        let mut into = vec![Vec::new(); self.ground.surfaces.len()];
         for (index, link) in self.links.iter().enumerate() {
             into[link.to].push(index);
         }
@@ -897,7 +885,7 @@ impl NavGraph {
         let mut done = vec![false; self.links.len()];
         let mut open = std::collections::BinaryHeap::new();
         for &arrive in &into[to] {
-            let walk = (goal_along - self.frame.along(self.links[arrive].leg.land)).abs() / self.run_speed;
+            let walk = (goal_along - self.ground.frame.along(self.links[arrive].leg.land)).abs() / self.run_speed;
             if walk < cost[arrive] {
                 cost[arrive] = walk;
                 open.push(RouteOpen { cost: walk, state: arrive });
@@ -909,9 +897,9 @@ impl NavGraph {
             }
             done[state] = true;
             let link = &self.links[state];
-            let (start, onward) = (self.frame.along(link.leg.start), known + link.cost);
+            let (start, onward) = (self.ground.frame.along(link.leg.start), known + link.cost);
             for &before in &into[link.from] {
-                let total = (start - self.frame.along(self.links[before].leg.land)).abs() / self.run_speed + onward;
+                let total = (start - self.ground.frame.along(self.links[before].leg.land)).abs() / self.run_speed + onward;
                 if !done[before] && total < cost[before] {
                     cost[before] = total;
                     open.push(RouteOpen { cost: total, state: before });
@@ -933,29 +921,14 @@ impl NavGraph {
     /// from it along the surface, on the side the body comes from. `None`
     /// when no surface in reach is under the point within `depth`.
     pub fn place_beside(&self, feet: Vec2, point: Vec2, beside: f32, depth: f32) -> Option<Vec2> {
-        let from = self.surface_at(feet)?;
-        let under = self.surface_under(point, depth)?;
-        if !self.reaches(from, under) {
-            return None;
-        }
-        let along = self.frame.along(point);
-        let side = if self.frame.along(feet) < along { -1.0 } else { 1.0 };
-        Some(self.point_on(under, along + side * beside))
+        let (from, to, place) = self.ground.approach(feet, point, beside, depth)?;
+        self.reaches(from, to).then_some(place)
     }
 
     /// The nearest surface under `point` (a body's centre, or its feet),
     /// no more than `depth` below it.
     pub fn surface_under(&self, point: Vec2, depth: f32) -> Option<usize> {
-        let (along, below) = (self.frame.along(point), self.frame.below(point));
-        (0..self.surfaces.len())
-            .filter(|index| {
-                let surface = &self.surfaces[*index];
-                along >= surface.left - self.half.x
-                    && along <= surface.right + self.half.x
-                    && surface.top >= below - LAND_TOLERANCE
-                    && surface.top <= below + depth
-            })
-            .min_by(|a, b| self.surfaces[*a].top.total_cmp(&self.surfaces[*b].top).then(a.cmp(b)))
+        self.ground.surface_under(point, depth)
     }
 
     /// Up to [`NAV_WAYPOINTS`] points a body at `feet` can get to, one on each
@@ -991,9 +964,7 @@ impl NavGraph {
         reachable.sort_by_key(|surface| mix(seed ^ (*surface as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)));
         reachable.truncate(NAV_WAYPOINTS);
         for (slot, surface) in reachable.iter().enumerate() {
-            let stretch = &self.surfaces[*surface];
-            let fraction = (mix(seed.rotate_left(17) ^ *surface as u64) % 1000) as f32 / 999.0;
-            points[slot] = self.frame.point(stretch.left + stretch.width() * fraction, stretch.top);
+            points[slot] = self.ground.waypoint(*surface, seed);
         }
         (points, reachable.len() as u8)
     }
@@ -1001,8 +972,6 @@ impl NavGraph {
 
 /// The legs worth a rollout from surface `a` to surface `b`, as (along, below)
 /// points. Few: each one costs a rollout.
-/// How near a surface's top, and its ends, a slope's end must be to join it.
-const SLOPE_END_REACH: f32 = 12.0;
 
 /// Walks from `a` to `b` along a slope piece of a chain (the part between
 /// two flats, or a flat and an end: [`chain_walks`]) with one end at the top
@@ -1051,41 +1020,6 @@ fn slope_proposals(pieces: &[(Vec2, Vec2)], frame: NavFrame, a: &StandSurface, b
         }
     }
     legs
-}
-
-/// Each surface cut where a slope piece touches down inside it from above. A
-/// walking body that reaches the touchdown leaves the floor up the slope (the
-/// charging cart's ramp comes down onto the middle of the workshop's floor),
-/// so the floor on the two sides of it is two surfaces: the body's feet stop
-/// half a body short of the touchdown on each.
-fn split_at_touchdowns(surfaces: Vec<StandSurface>, pieces: &[(Vec2, Vec2)], frame: NavFrame, half_width: f32) -> Vec<StandSurface> {
-    let mut out = Vec::with_capacity(surfaces.len());
-    for surface in surfaces {
-        let mut cuts: Vec<f32> = pieces
-            .iter()
-            .flat_map(|&(p, q)| [(p, q), (q, p)])
-            .filter(|(touch, other)| {
-                let along = frame.along(*touch);
-                (frame.below(*touch) - surface.top).abs() <= SLOPE_END_REACH / 2.0
-                    && frame.below(*other) < surface.top - SLOPE_END_REACH
-                    && along - half_width > surface.left
-                    && along + half_width < surface.right
-            })
-            .map(|(touch, _)| frame.along(touch))
-            .collect();
-        cuts.sort_by(f32::total_cmp);
-        let mut left = surface.left;
-        for cut in cuts {
-            if cut - half_width > left {
-                out.push(StandSurface { left, right: cut - half_width, ..surface.clone() });
-            }
-            left = left.max(cut + half_width);
-        }
-        if left <= surface.right {
-            out.push(StandSurface { left, ..surface });
-        }
-    }
-    out
 }
 
 fn proposals(a: &StandSurface, b: &StandSurface, half_width: f32, hop: bool, drop: bool) -> Vec<NavLeg> {

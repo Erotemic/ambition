@@ -248,7 +248,7 @@ fn the_players_body(world: &World, player: Entity) -> ae::BodyClusterScratch {
 /// beside the end of a floor.
 fn nearest_the_zone(graph: &NavGraph, zone: ae::Aabb) -> Option<ae::Vec2> {
     let gap = |feet: ae::Vec2| {
-        let body = ae::Aabb::new(feet - graph.frame.down * graph.half.y, graph.half);
+        let body = ae::Aabb::new(feet - graph.ground.frame.down * graph.ground.half.y, graph.ground.half);
         let dx = (zone.min.x - body.max.x).max(body.min.x - zone.max.x);
         let dy = (zone.min.y - body.max.y).max(body.min.y - zone.max.y);
         if dx > 0.0 || dy > 0.0 {
@@ -257,8 +257,8 @@ fn nearest_the_zone(graph: &NavGraph, zone: ae::Aabb) -> Option<ae::Vec2> {
             -(dx * dy)
         }
     };
-    (0..graph.surfaces.len())
-        .map(|index| graph.point_on(index, graph.frame.along(zone.center())))
+    (0..graph.ground.surfaces.len())
+        .map(|index| graph.point_on(index, graph.ground.frame.along(zone.center())))
         .min_by(|a, b| gap(*a).total_cmp(&gap(*b)))
 }
 
@@ -290,6 +290,28 @@ fn the_players_graph(walker: &mut impl Walker, player: Entity, keep: Option<ae::
     let frame = ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, ae::movement::GRAVITY)).expect("gravity");
     let body = the_players_body(walker.world(), player);
     NavGraph::build_avoiding(&world, &exits, &body, frame).ok_or_else(|| format!("`{room}` has no graph for the player"))
+}
+
+pub(crate) fn actor_navigation_graph(sim: &mut ambition_app::Platformer2dSimHarness, entity: Entity) -> (NavGraph, ae::Vec2) {
+    use ambition_platformer2d::platformer::frame_env::ResolvedMotionFrame;
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    use ambition_platformer2d::world::collision::CollisionWorld;
+    use ambition_platformer2d::world::navigation::NavGraphKey;
+    use bevy::ecs::system::SystemState;
+
+    let mut state = SystemState::<CollisionWorld>::new(sim.world_mut());
+    let world = sim.world();
+    let kin = world.get::<ae::BodyKinematics>(entity).expect("actor body");
+    let spec = world.get::<ae::MotionModel>(entity).expect("actor movement").spec();
+    let abilities = world.get::<ae::BodyAbilities>(entity).expect("actor abilities").abilities;
+    let base_size = *world.get::<ae::BodyBaseSize>(entity).expect("actor size");
+    let frame = world.get::<ResolvedMotionFrame>(entity).expect("actor motion frame").get();
+    let collision = state.get(world).expect("collision inputs");
+    let room = collision.room(world.get::<InRoomInstance>(entity)).expect("actor's room");
+    let key = NavGraphKey::new(room.base(), &[], spec, abilities, kin.canonical_size, kin.material, base_size, frame);
+    let graph = NavGraph::build(room.base(), &key.probe_body(), frame).expect("actor navigation graph");
+    let feet = kin.pos + graph.ground.frame.down * graph.ground.half.y;
+    (graph, feet)
 }
 
 /// An exit a walk leaves its room by.
@@ -342,9 +364,9 @@ fn walk_through_the_first_exit(walker: &mut impl Walker, target: &str, zone_id: 
 pub fn walk_to(walker: &mut impl Walker, at: ae::Vec2) -> Result<usize, String> {
     let player = the_player(walker.world_mut());
     let graph = the_players_graph(walker, player, None)?;
-    let goal = (0..graph.surfaces.len())
-        .map(|index| graph.point_on(index, graph.frame.along(at)))
-        .filter(|feet| graph.frame.below(*feet) >= graph.frame.below(at) - 1.0)
+    let goal = (0..graph.ground.surfaces.len())
+        .map(|index| graph.point_on(index, graph.ground.frame.along(at)))
+        .filter(|feet| graph.ground.frame.below(*feet) >= graph.ground.frame.below(at) - 1.0)
         .min_by(|a, b| (*a - at).length().total_cmp(&(*b - at).length()))
         .ok_or("no surface under the place")?;
     walk(walker, player, &graph, goal, None)
@@ -391,7 +413,7 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
         let wall = world
             .get::<ae::BodyWallState>(player)
             .and_then(|wall| wall.on_wall.then_some(wall.wall_normal_x.signum()));
-        let feet = kinematics.pos + graph.frame.down * graph.half.y;
+        let feet = kinematics.pos + graph.ground.frame.down * graph.ground.half.y;
         let mut press = Press::default();
         // A flight that no leg steers (a fight can end in the air of a Fly
         // leg): turn it off, and land. A leg starts from the ground.
@@ -405,9 +427,9 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
                 // An exit over the body's head (a shaft up, a ladder's top):
                 // hold up and climb, kept under it. One beside the body: walk
                 // on into it.
-                let head = graph.frame.below(feet) - 2.0 * graph.half.y;
-                let overhead = graph.frame.below(exit.zone.max) <= head;
-                let along = (exit.zone.center() - feet).dot(graph.frame.side);
+                let head = graph.ground.frame.below(feet) - 2.0 * graph.ground.half.y;
+                let overhead = graph.ground.frame.below(exit.zone.max) <= head;
+                let along = (exit.zone.center() - feet).dot(graph.ground.frame.side);
                 if overhead {
                     press.up = true;
                     press.axis = if along.abs() > 6.0 { along.signum() * 0.5 } else { 0.0 };
@@ -417,7 +439,7 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
                 // One under the body's feet (a hole under a hatch): hold down
                 // and jump, to drop through the one-way floor over it; a body
                 // that took the ladder down the hole instead climbs on down.
-                let underfoot = graph.frame.below(exit.zone.min) >= graph.frame.below(feet) - 1.0;
+                let underfoot = graph.ground.frame.below(exit.zone.min) >= graph.ground.frame.below(feet) - 1.0;
                 if underfoot && along.abs() <= exit.zone.half_size().x {
                     press.down = true;
                     press.jump_pressed = on_ground && step % 20 == 0;
@@ -445,7 +467,7 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
                     Some(exit) => {
                         press.interact = exit.door && step % 10 < 2;
                         if !exit.door {
-                            press.axis = (exit.zone.center() - feet).dot(graph.frame.side).signum();
+                            press.axis = (exit.zone.center() - feet).dot(graph.ground.frame.side).signum();
                             into_the_exit = true;
                         }
                     }
@@ -455,7 +477,7 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
                 NavNext::Unreachable => return Err(format!("no route from {feet:?} to {goal:?} in `{from}`")),
                 // On no surface of the graph: a platform that moves. Walk
                 // toward the goal, off it, to a surface the graph has.
-                NavNext::Unknown => press.axis = (goal - feet).dot(graph.frame.side).signum(),
+                NavNext::Unknown => press.axis = (goal - feet).dot(graph.ground.frame.side).signum(),
             }
         }
         if let Some((current, phase)) = leg {
@@ -463,8 +485,8 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
                 feet,
                 vel: kinematics.vel,
                 on_ground,
-                side: graph.frame.side,
-                down: graph.frame.down,
+                side: graph.ground.frame.side,
+                down: graph.ground.frame.down,
                 dt: 1.0 / 60.0,
                 wall,
                 approach: None,
@@ -491,12 +513,12 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
     let ground = world.get::<ae::BodyGroundState>(player);
     let wall = world.get::<ae::BodyWallState>(player);
     let flight = world.get::<ae::BodyFlightState>(player);
-    let next = body.map(|body| graph.next(body.pos + graph.frame.down * graph.half.y, goal));
+    let next = body.map(|body| graph.next(body.pos + graph.ground.frame.down * graph.ground.half.y, goal));
     Err(format!(
         "still in `{from}` after {FRAMES_FOR_A_ROOM} frames, aiming at {goal:?}; \
          body={body:?}, ground={ground:?}, wall={wall:?}, flight={flight:?}, \
          graph_half={:?}, leg={leg:?}, next={next:?}, into_exit={into_the_exit}",
-        graph.half,
+        graph.ground.half,
     ))
 }
 
@@ -577,13 +599,13 @@ pub fn fight(
                     == player_room
             })
             .min_by(|a, b| (a.1 - kinematics.pos).length().total_cmp(&(b.1 - kinematics.pos).length()));
-        let feet = kinematics.pos + graph.frame.down * graph.half.y;
+        let feet = kinematics.pos + graph.ground.frame.down * graph.ground.half.y;
         let mut press = Press::default();
         let at = match nearest {
             Some((_, at, _)) => at,
             // No foe stands: to the rally place, unless the body is there.
             // At the rally place: in a fight's strip, which is narrow.
-            None if (rally - kinematics.pos).dot(graph.frame.side).abs() <= ae::navigation::ARRIVE_TOLERANCE * 2.0 => {
+            None if (rally - kinematics.pos).dot(graph.ground.frame.side).abs() <= ae::navigation::ARRIVE_TOLERANCE * 2.0 => {
                 leg = None;
                 goal = None;
                 walker.step(press);
@@ -592,15 +614,15 @@ pub fn fight(
             None => rally,
         };
         let offset = at - kinematics.pos;
-        let (along, tall) = (offset.dot(graph.frame.side), offset.dot(graph.frame.down));
+        let (along, tall) = (offset.dot(graph.ground.frame.side), offset.dot(graph.ground.frame.down));
         // Reach and the jump under a foe are for a foe; the rally place is
         // walked to.
         let foe_stands = nearest.is_some();
         // The foe's half box on the two axes, and the reach to its edge.
         let foe_half = nearest.map_or(ae::Vec2::ZERO, |(_, _, half)| half);
-        let foe_half_along = (foe_half * graph.frame.side.abs()).length();
-        let reach_along = foe_half_along + graph.half.x + BLADE_REACH;
-        let reach_tall = (foe_half * graph.frame.down.abs()).length() + REACH_TALL;
+        let foe_half_along = (foe_half * graph.ground.frame.side.abs()).length();
+        let reach_along = foe_half_along + graph.ground.half.x + BLADE_REACH;
+        let reach_tall = (foe_half * graph.ground.frame.down.abs()).length() + REACH_TALL;
         if foe_stands && along.abs() <= reach_along && tall.abs() <= reach_tall {
             // In reach: face it, and swing on an edge once the last swing is
             // over. In the air, keep the jump held.
@@ -644,9 +666,9 @@ pub fn fight(
             continue;
         }
         if on_ground && (goal.is_none() || step % RETARGET_FRAMES == 0) && leg.is_none() {
-            goal = (0..graph.surfaces.len())
-                .map(|index| graph.point_on(index, graph.frame.along(at)))
-                .filter(|place| graph.frame.below(*place) >= graph.frame.below(at) - 1.0)
+            goal = (0..graph.ground.surfaces.len())
+                .map(|index| graph.point_on(index, graph.ground.frame.along(at)))
+                .filter(|place| graph.ground.frame.below(*place) >= graph.ground.frame.below(at) - 1.0)
                 .min_by(|a, b| (*a - at).length().total_cmp(&(*b - at).length()));
         }
         if leg.is_none() && on_ground {
@@ -659,7 +681,7 @@ pub fn fight(
             }
         }
         if let Some((current, phase)) = leg {
-            let facts = LegFacts { feet, vel: kinematics.vel, on_ground, side: graph.frame.side, down: graph.frame.down, dt: 1.0 / 60.0, wall, approach: None };
+            let facts = LegFacts { feet, vel: kinematics.vel, on_ground, side: graph.ground.frame.side, down: graph.ground.frame.down, dt: 1.0 / 60.0, wall, approach: None };
             let (input, progress) = follow_leg(&current, phase, &facts);
             press.axis = input.axis;
             press.up = input.up;

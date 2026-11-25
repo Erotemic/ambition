@@ -129,8 +129,9 @@ fn a_skipped_brute_scene_ends_the_raid_as_a_played_one_does() {
 }
 
 fn the_brute_scene_ends_the_raid(skip: bool) {
-    let mut sim = ambition_app::Platformer2dSimHarness::new_with_options(fixed_60hz_room_options("intro_wake_room"))
-        .expect("the workshop boots");
+    let options = fixed_60hz_room_options("intro_wake_room");
+    let options = if skip { options.with_sync_test_rollback_settings(2, 12) } else { options };
+    let mut sim = ambition_app::Platformer2dSimHarness::new_with_options(options).expect("the workshop boots");
     sim.step_n(base(), 30);
     assert!(matches!(cases(sim.world_mut()).as_slice(), [(ItemCustody::InWorld, at)] if at.x > 1000.0 && at.y < 320.0), "one case rests on the bench before the raid");
     let refusals = sim.world().resource::<ambition_platformer2d::runtime::cutscene::CutsceneLineRefusals>().0.clone();
@@ -167,8 +168,25 @@ fn the_brute_scene_ends_the_raid(skip: bool) {
     let thrown_at = thrown_at.expect("the brute threw a bomb");
     assert!(after < thrown_at, "the bomb hurt the Creator: {thrown_at} when it was thrown, {after} after");
     assert!(after > 0, "the bomb wounded him and did not kill him: he falls after his last words");
+    sim.rollback_health().expect("the raid remains consistent under rewind");
     if !skip {
         let save = sim.world().resource::<AmbitionGameSave>().data().clone();
+        assert!(!save.flag("intro_creator_fragment_seen"), "the save precedes the final words");
+        let mut resumed = ambition_app::Platformer2dSimHarness::new_with_options(
+            fixed_60hz_room_options("intro_wake_room").with_save(save.clone()),
+        ).expect("the workshop boots after departure");
+        let mut pad = Pad::new(&mut resumed);
+        for frame in 0..240 {
+            if flag(pad.world(), "intro_creator_fragment_seen") {
+                break;
+            }
+            pad.step(Press { confirm: frame % 10 == 0, ..Press::default() });
+        }
+        assert!(flag(pad.world(), "intro_creator_fragment_seen"), "the final words play after loading");
+        assert_eq!(creator_health(pad.world_mut()), Some(0));
+        assert_eq!(bodies_of(pad.world_mut(), "npc_raid_brute"), (0, 0));
+        assert!(cases(pad.world_mut()).is_empty(), "the bench stays empty after loading");
+
         let siding = "intro_freight_yard";
         let mut restored = ambition_app::Platformer2dSimHarness::new_with_options(fixed_60hz_room_options(siding).with_save(save))
             .expect("the siding boots from the raid save");

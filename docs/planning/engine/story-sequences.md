@@ -540,8 +540,7 @@ Still open:
   `AuthoredArg::Occupant(id, live room)`. Commands and `WaitFor` lines of a
   scene playing in a live room both get it. The actor conditions and
   commands narrow two bodies carrying one id to that room: `beaten`,
-  `arrived`, `gone` and `throw_landed` (a thrower's held item and its
-  thrown items in that room). A bound body is still found wherever it
+  `arrived`, `gone` and `holds_item`. A bound body is still found wherever it
   lives; the room only tells two apart. No evaluator signature changed. A
   scene of the whole world binds bare ids, as before. Witnesses:
   `a_bound_condition_answers_in_its_own_live_room` (no room is unanswerable

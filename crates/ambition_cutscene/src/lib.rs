@@ -1354,7 +1354,10 @@ mod snapshot {
                 Self::AllowDamage { role, minimum_health } => {
                     put_u32(out, ALLOW_DAMAGE);
                     put_str(out, role);
-                    put_u32(out, minimum_health.unwrap_or(0) as u32);
+                    put_bool(out, minimum_health.is_some());
+                    if let Some(floor) = minimum_health {
+                        put_u32(out, *floor as u32);
+                    }
                 }
                 Self::CameraTrack { roles, seconds } => {
                     put_u32(out, CAMERA_TRACK);
@@ -1415,10 +1418,7 @@ mod snapshot {
                 WAIT_UNTIL => Self::WaitUntil { condition: reader.str()?.to_owned() },
                 ALLOW_DAMAGE => Self::AllowDamage {
                     role: reader.str()?.to_owned(),
-                    minimum_health: match reader.u32()? {
-                        0 => None,
-                        floor => Some(i32::try_from(floor).ok()?),
-                    },
+                    minimum_health: if reader.bool()? { Some(reader.u32()? as i32) } else { None },
                 },
                 CAMERA_TRACK => Self::CameraTrack {
                     seconds: reader.f32()?,

@@ -158,7 +158,11 @@ fn the_raiders_wait_in_view_until_the_last_line_is_dismissed() {
         .set_flag("intro_raid_ready", true);
     sim.rebase_rollback_history().unwrap();
     let mut saw_raider = false;
+    let mut charge_released = false;
     for tick in 0..1500 {
+        let world = sim.world_mut();
+        charge_released |= world.query::<(&SimId, &ambition_platformer2d::held_items::ReleasedAs)>()
+            .iter(world).any(|(id, _)| *id == SimId::placement("intro_breach_bomb"));
         let active = sim.world().resource::<ActiveCutscene>();
         let raider_speaks = active.iter().any(|playing| playing.presentation.speaker_character_id == "npc_lab_raider");
         if raider_speaks {
@@ -168,6 +172,9 @@ fn the_raiders_wait_in_view_until_the_last_line_is_dismissed() {
                 "the Creator reaches the bench: {creator:?}"
             );
             let world = sim.world_mut();
+            let door = SimId::placement("intro_barn_door");
+            assert!(charge_released && world.query::<(&SimId, &ambition_platformer2d::breakables::BreakableFeature)>()
+                .iter(world).any(|(id, state)| *id == door && state.broken()), "the charge opened the barn door");
             let raiders: Vec<_> = world.query::<(&CharacterForm, &ae::BodyKinematics)>()
                 .iter(world)
                 .filter(|(form, _)| form.id() == "npc_lab_raider")

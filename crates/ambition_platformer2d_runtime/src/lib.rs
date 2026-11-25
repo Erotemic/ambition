@@ -72,6 +72,7 @@ pub mod input_stream;
 #[cfg(feature = "ldtk")]
 pub mod ldtk_world;
 mod mode_scope;
+mod menu_pause;
 pub mod module_save_road;
 mod player_schedule;
 #[cfg(feature = "portal")]
@@ -340,6 +341,10 @@ impl Plugin for Platformer2dSimulationFoundationPlugin {
         crate::schedule::configure_platformer2d_simulation_phases(
             app,
         );
+        app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::MenuPauseRoster>()
+            .init_resource::<ambition_platformer2d_shared_tangle::lifecycle::LocalMenuPauseVotes>()
+            .add_systems(bevy::app::PreUpdate, menu_pause::publish_menu_pause_roster
+                .in_set(ambition_platformer2d_shared_tangle::lifecycle::MenuPauseRosterPublished));
         // The Class-B transit ledger (`docs/concepts/movement-collision.md`). Frame-scoped:
         // cleared at the head of the sim, appended to by portal transit, room
         // transitions, death/respawn, and the teleport abilities. It belongs to

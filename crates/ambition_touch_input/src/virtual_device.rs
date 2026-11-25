@@ -272,38 +272,45 @@ fn set_touch_button(world: &mut World, action: TouchActionButton, held: bool) {
     };
 }
 
-// Reset and MenuBack share a physical position. The contextual resolver
-// gives it only the intent for the current interaction profile.
-pub fn touch_bindings() -> Vec<(
-    ambition_input::Platformer2dInputActionMonolith,
-    TouchVirtualButton,
-)> {
+pub fn touch_button_actions(button: TouchActionButton) -> &'static [ambition_input::Platformer2dInputActionMonolith] {
     use ambition_input::Platformer2dInputActionMonolith as A;
     use TouchActionButton as B;
-    vec![
-        (A::Jump, TouchVirtualButton(B::Jump)),
-        (A::MenuSelect, TouchVirtualButton(B::Jump)),
-        (A::Attack, TouchVirtualButton(B::Attack)),
-        (A::Special, TouchVirtualButton(B::Special)),
-        (A::Burst, TouchVirtualButton(B::Burst)),
-        (A::Blink, TouchVirtualButton(B::Blink)),
-        (A::Interact, TouchVirtualButton(B::Interact)),
-        (A::MenuSelect, TouchVirtualButton(B::Interact)),
-        (A::Projectile, TouchVirtualButton(B::Projectile)),
-        // The Fly button is the Utility slot (fly toggle); Shield is the
-        // Shield action. Same actions as the keyboard and gamepad bindings.
-        (A::Utility, TouchVirtualButton(B::FlyToggle)),
-        (A::Shield, TouchVirtualButton(B::Shield)),
-        // Grab sends the same Grab action as the Smash pad's North button and
-        // every keyboard preset's grab key.
-        (A::Grab, TouchVirtualButton(B::Grab)),
-        // Modifier is a gameplay slot on the overlay, so it needs a
-        // virtual-device binding like keyboard and gamepad input.
-        (A::Modifier, TouchVirtualButton(B::Modifier)),
-        (A::Start, TouchVirtualButton(B::Start)),
-        (A::Reset, TouchVirtualButton(B::Reset)),
-        (A::MenuBack, TouchVirtualButton(B::Reset)),
-    ]
+    match button {
+        B::Jump => &[A::Jump, A::MenuSelect],
+        B::Attack => &[A::Attack],
+        B::Special => &[A::Special],
+        B::Burst => &[A::Burst],
+        B::Blink => &[A::Blink],
+        B::Interact => &[A::Interact, A::MenuSelect],
+        B::Projectile => &[A::Projectile],
+        B::FlyToggle => &[A::Utility],
+        B::Shield => &[A::Shield],
+        B::Grab => &[A::Grab],
+        B::Modifier => &[A::Modifier],
+        B::Start => &[A::Start],
+        B::Reset => &[A::Reset, A::MenuBack],
+    }
+}
+
+pub fn touch_bindings() -> impl Iterator<Item = (ambition_input::Platformer2dInputActionMonolith, TouchVirtualButton)> {
+    ALL_TOUCH_BUTTONS.into_iter().flat_map(|button| {
+        touch_button_actions(button).iter().map(move |&action| (action, TouchVirtualButton(button)))
+    })
+}
+
+pub fn insert_touch_virtual_bindings(
+    map: &mut leafwing_input_manager::prelude::InputMap<ambition_input::Platformer2dInputActionMonolith>,
+) {
+    use ambition_input::Platformer2dInputActionMonolith as A;
+    for (action, button) in touch_bindings() {
+        map.insert(action, button);
+    }
+    map.insert_dual_axis(A::Move, TouchVirtualStick);
+    map.insert_dual_axis(A::MenuStick, TouchVirtualStick);
+    map.insert(A::MoveUp, TouchStickDirection::Up);
+    map.insert(A::MoveDown, TouchStickDirection::Down);
+    map.insert(A::MoveLeft, TouchStickDirection::Left);
+    map.insert(A::MoveRight, TouchStickDirection::Right);
 }
 
 /// Add the touch virtual-device bindings to the primary participant's
@@ -331,20 +338,10 @@ pub fn bind_touch_virtual_inputs(
         >,
     >,
 ) {
-    use ambition_input::Platformer2dInputActionMonolith as A;
     for (participant, mut map) in &mut maps {
         if participant.id != ambition_input::ParticipantId::PRIMARY {
             continue;
         }
-        let map = map.bypass_change_detection();
-        for (action, button) in touch_bindings() {
-            map.insert(action, button);
-        }
-        map.insert_dual_axis(A::Move, TouchVirtualStick);
-        map.insert_dual_axis(A::MenuStick, TouchVirtualStick);
-        map.insert(A::MoveUp, TouchStickDirection::Up);
-        map.insert(A::MoveDown, TouchStickDirection::Down);
-        map.insert(A::MoveLeft, TouchStickDirection::Left);
-        map.insert(A::MoveRight, TouchStickDirection::Right);
+        insert_touch_virtual_bindings(map.bypass_change_detection());
     }
 }

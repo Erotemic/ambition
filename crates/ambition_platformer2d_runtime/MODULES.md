@@ -35,6 +35,7 @@
 | [`input_sampling`](src/input_sampling.rs) | Local input sources that read the body before each new input tick. |
 | [`input_stream`](src/input_stream.rs) | Input-stream capture (netcode N0.2) — the one place a session's input is recorded. |
 | [`ldtk_world`](src/ldtk_world.rs) | Opt-in host composition for games that use an LDtk world. |
+| [`menu_pause`](src/menu_pause.rs) | Publish the pause roster from session admission and simulation authority. |
 | [`mode_scope`](src/mode_scope.rs) | Scoped game-mode runtime for hosted demos/rulesets. |
 | [`module_save_road`](src/module_save_road.rs) | The session durable save road of the extension host ([`SaveRoad::SessionDurable`]): a module's session record whose schema says `SaveEligibility::Durable` is kept in the durable world save, and comes back when that save loads. |
 | [`object_behaviors`](src/object_behaviors.rs) | Private reusable behavior instances and bounded directed object calls. |
@@ -71,7 +72,7 @@
 | [`world_schedule`](src/world_schedule.rs) | Cross-domain simulation assembly for world objects, matches, and gameplay effects. |
 | [`world_values`](src/world_values.rs) | Named world values: state the durable save keeps and every room reads. |
 
-_64 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_65 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

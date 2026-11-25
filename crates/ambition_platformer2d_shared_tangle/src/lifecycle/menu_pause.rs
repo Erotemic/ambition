@@ -3,6 +3,33 @@
 use bevy::prelude::*;
 use super::{SessionScopeId, SimulationIsland};
 
+/// Menu requests from the local presentation for the current session.
+#[derive(Resource, Default)]
+pub struct LocalMenuPauseVotes {
+    scope: Option<SessionScopeId>,
+    slots: Vec<u8>,
+}
+
+impl LocalMenuPauseVotes {
+    pub fn publish(&mut self, scope: Option<SessionScopeId>, slots: impl IntoIterator<Item = u8>) {
+        self.scope = scope;
+        self.slots.clear();
+        self.slots.extend(slots);
+    }
+
+    pub fn requested(&self, scope: SessionScopeId, slot: u8) -> bool {
+        self.scope == Some(scope) && self.slots.contains(&slot)
+    }
+}
+
+/// A network backend owns pause execution while this resource is present.
+#[derive(Resource)]
+pub struct NetworkMenuPause;
+
+/// The runtime refreshes the admitted pause roster in this set.
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct MenuPauseRosterPublished;
+
 /// The host publishes the admitted roster and the rollback authority of each
 /// member. An unknown island prevents a pause decision, not a resume.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]

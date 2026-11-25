@@ -571,9 +571,9 @@ fn the_visible_app_builds_its_update_schedule_with_the_gate_network() {
 
 #[cfg(all(feature = "kaleidoscope_menu", feature = "bevy_ui_menu"))]
 #[test]
-fn contextual_back_and_global_start_preserve_the_gate_in_both_menu_backends() {
+fn contextual_input_preserves_the_gate_in_both_menu_backends() {
     use bevy::prelude::*;
-    use ambition_content::gate_terminal::{TerminalUi, WheelSlot};
+    use ambition_content::gate_terminal::{TerminalFocus, TerminalUi, WheelSlot};
     use ambition_platformer2d::{input::{InputParticipant, ParticipantId, KeyboardPreset,
         Platformer2dInputActionMonolith as Action}, inventory_ui::{InventoryMenu, InventoryUiState},
         menu::backend::InventoryUiBackend, platformer::{lifecycle::LiveBodyId, schedule::GameMode}};
@@ -619,13 +619,17 @@ fn contextual_back_and_global_start_preserve_the_gate_in_both_menu_backends() {
         assert!(panel(&mut app), "{backend:?}: the terminal is drawn before pause");
         {
             let mut ui = app.world_mut().get_mut::<TerminalUi>(participant).unwrap();
+            ui.focus = TerminalFocus::Wheel;
             ui.press_slot(WheelSlot::Chevron(2));
-            ui.press_slot(WheelSlot::Chevron(7));
+            ui.point(WheelSlot::Chevron(7));
             ui.list_cursor = 3;
         }
         app.update();
-        let before = app.world().get::<TerminalUi>(participant).unwrap().clone();
         tap(&mut app, KeyCode::Enter);
+        assert!(!open_menu(&mut app));
+        let before = app.world().get::<TerminalUi>(participant).unwrap().clone();
+        assert_eq!(before.entered, [2, 7]);
+        tap(&mut app, KeyCode::Escape);
         for _ in 0..10 { app.update(); }
         assert!(open_menu(&mut app));
         assert_eq!(*app.world().resource::<State<GameMode>>().get(), GameMode::Paused);
@@ -640,19 +644,19 @@ fn contextual_back_and_global_start_preserve_the_gate_in_both_menu_backends() {
             let world = app.world_mut();
             assert!(world.query::<&Name>().iter(world).any(|name| name.as_str() == "bevy_ui menu root"));
         }
-        // Inside the menu Enter confirms; Back at its root closes it (Q184).
+        // Escape closes the pause menu at its root.
         tap(&mut app, KeyCode::Escape);
         assert!(!open_menu(&mut app));
         assert_eq!(*app.world().resource::<State<GameMode>>().get(), GameMode::Playing);
         assert!(panel(&mut app));
         assert_eq!(app.world().get::<TerminalUi>(participant).unwrap(), &before);
         for remaining in [1, 0, 0] {
-            tap(&mut app, KeyCode::Escape);
+            tap(&mut app, KeyCode::Backspace);
             assert!(!open_menu(&mut app), "Back cannot open the pause menu over the terminal");
             assert_eq!(app.world().get::<TerminalUi>(participant).unwrap().entered.len(), remaining);
             assert!(app.world().resource::<GateNetworkState>().terminals.contains_key(&subject));
         }
-        tap(&mut app, KeyCode::Escape);
+        tap(&mut app, KeyCode::Backspace);
         assert!(!open_menu(&mut app));
         assert!(!app.world().resource::<GateNetworkState>().terminals.contains_key(&subject));
     }

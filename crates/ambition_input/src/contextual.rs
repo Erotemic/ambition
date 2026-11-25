@@ -1,13 +1,12 @@
 //! Contextual interpretation of button bindings. The InputMap is the source of
 //! bindings; these rules give each physical button one menu or session intent.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use bevy::prelude::*;
-use leafwing_input_manager::prelude::InputMap;
+use leafwing_input_manager::prelude::{ActionState, Buttonlike, InputMap};
 use leafwing_input_manager::user_input::updating::CentralInputStore;
 
-use crate::bindings::physical_control_of;
 use crate::{ActionBindings, InputContextId, MenuControlFrame, ParticipantContexts,
     PhysicalControl, Platformer2dInputActionMonolith as A};
 
@@ -58,6 +57,35 @@ pub enum MenuButtonIntent {
     Map,
 }
 
+impl MenuButtonIntent {
+    pub fn action(self) -> A {
+        match self {
+            Self::Pause => A::Start,
+            Self::Confirm => A::MenuSelect,
+            Self::Back => A::MenuBack,
+            Self::Inventory => A::Inventory,
+            Self::Map => A::Map,
+        }
+    }
+}
+
+/// Pages that the active game lets a seat open with a shortcut.
+#[derive(Resource, Clone, Copy, Default)]
+pub struct MenuShortcutPages {
+    pub inventory: bool,
+    pub map: bool,
+}
+
+impl MenuShortcutPages {
+    pub fn allows(self, intent: MenuButtonIntent) -> bool {
+        match intent {
+            MenuButtonIntent::Inventory => self.inventory,
+            MenuButtonIntent::Map => self.map,
+            _ => true,
+        }
+    }
+}
+
 /// Resolve one physical button's complete set of declared actions.
 ///
 /// Start+Confirm means Enter: pause in gameplay, confirm in interfaces.
@@ -70,6 +98,9 @@ pub fn resolve_menu_button(profile: InputProfile, actions: &[A]) -> Option<MenuB
     use MenuButtonIntent::*;
     let has = |a| actions.contains(&a);
     if profile == Blocked { return None; }
+    if has(A::Reset) {
+        return (profile != Gameplay && has(A::MenuBack)).then_some(Back);
+    }
     if has(A::Start) {
         if has(A::MenuBack) {
             return Some(match profile {
@@ -118,7 +149,7 @@ pub fn contextual_button_rows(bindings: &ActionBindings, profile: InputProfile)
 /// current context does not use it.
 #[derive(Default)]
 pub struct ContextualButtonHistory {
-    held: BTreeMap<PhysicalControl, Option<(ButtonRoute, MenuButtonIntent)>>,
+    held: HashMap<Box<dyn Buttonlike>, Option<(ButtonRoute, MenuButtonIntent)>>,
     pad: Option<Entity>,
     initialized: bool,
 }
@@ -126,26 +157,28 @@ pub struct ContextualButtonHistory {
 impl ContextualButtonHistory {
     /// Read the Leafwing input cache, including custom virtual buttons. Map
     /// changes or focus loss inhibit a new edge until the button is released.
-    pub fn sample(&mut self, map: &InputMap<A>, store: &CentralInputStore,
-        pad: Entity, route: ButtonRoute, map_changed: bool, enabled: bool,
+    pub fn sample(&mut self, map: &InputMap<A>, actions: &ActionState<A>, store: &CentralInputStore,
+        pad: Entity, route: ButtonRoute, map_changed: bool, enabled: bool, pages: MenuShortcutPages,
         frame: &mut MenuControlFrame)
     {
-        let mut rows = BTreeMap::<PhysicalControl, (Vec<A>, bool)>::new();
+        let mut rows = HashMap::<&Box<dyn Buttonlike>, Vec<A>>::new();
         for (action, inputs) in map.iter_buttonlike() {
             for input in inputs {
-                let row = rows.entry(physical_control_of(input.as_ref())).or_default();
-                if !row.0.contains(action) { row.0.push(*action); }
-                row.1 |= input.pressed(store, pad);
+                if input.pressed(store, pad) {
+                    rows.entry(input).or_default().push(*action);
+                }
             }
         }
         let resync = self.initialized && (map_changed || self.pad != Some(pad));
         self.initialized = true;
         self.pad = Some(pad);
-        self.apply(rows, route, enabled, resync, frame);
+        self.apply(rows, route, enabled && !actions.disabled(), resync, frame,
+            |intent| pages.allows(intent) && !actions.action_disabled(&intent.action()));
     }
 
-    fn apply(&mut self, rows: BTreeMap<PhysicalControl, (Vec<A>, bool)>,
-        route: ButtonRoute, enabled: bool, resync: bool, frame: &mut MenuControlFrame)
+    fn apply(&mut self, rows: HashMap<&Box<dyn Buttonlike>, Vec<A>>,
+        route: ButtonRoute, enabled: bool, resync: bool, frame: &mut MenuControlFrame,
+        action_enabled: impl Fn(MenuButtonIntent) -> bool)
     {
         frame.start = false;
         frame.select = false;
@@ -158,11 +191,10 @@ impl ContextualButtonHistory {
             frame.consume_nav_edges();
             frame.analog = Vec2::ZERO;
         }
-        let mut held = BTreeMap::new();
-        for (control, (actions, down)) in rows {
-            if !down { continue; }
-            let intent = resolve_menu_button(route.profile, &actions);
-            let previous = self.held.get(&control);
+        let mut held = HashMap::new();
+        for (control, actions) in rows {
+            let intent = resolve_menu_button(route.profile, &actions).filter(|intent| action_enabled(*intent));
+            let previous = self.held.get(control.as_ref());
             let edge = enabled && !resync && previous.is_none();
             let accepted = if edge {
                 intent.map(|intent| (route, intent))
@@ -170,7 +202,7 @@ impl ContextualButtonHistory {
                 previous.copied().flatten().filter(|(old_route, old_intent)|
                     *old_route == route && Some(*old_intent) == intent)
             } else { None };
-            held.insert(control, accepted);
+            held.insert(control.clone(), accepted);
             if let Some((_, intent)) = accepted {
                 match intent {
                     MenuButtonIntent::Pause => frame.start |= edge,
@@ -213,6 +245,8 @@ mod tests {
                     (PhysicalControl::Button(GamepadButton::South), [None, Some(Confirm), Some(Confirm)]),
                     (PhysicalControl::Button(GamepadButton::East), [None, Some(Back), Some(Back)]),
                     (PhysicalControl::Button(GamepadButton::Select), [None; 3]),
+                    (PhysicalControl::Key(KeyCode::Backspace), [None, Some(Back), Some(Back)]),
+                    (PhysicalControl::Key(KeyCode::Unidentified(bevy::input::keyboard::NativeKeyCode::Android(4))), [None, Some(Back), Some(Back)]),
                 ] {
                     for (profile, wanted) in [Gameplay, SessionUi, Paused].into_iter().zip(expected) {
                         let rows = contextual_button_rows(&bindings, profile);
@@ -235,21 +269,43 @@ mod tests {
         assert_eq!(resolve_menu_button(SessionUi, &reset), Some(Back));
         assert_eq!(resolve_menu_button(Paused, &reset), Some(Back));
         assert_eq!(resolve_menu_button(Blocked, &reset), None);
+        assert_eq!(resolve_menu_button(Gameplay, &[A::Reset, A::Start]), None);
+        assert_eq!(resolve_menu_button(SessionUi, &[A::Reset, A::Start]), None);
     }
 
     #[test]
     fn a_held_enter_does_not_confirm_after_it_opens_pause() {
         let mut history = ContextualButtonHistory::default();
         let mut frame = MenuControlFrame::default();
-        let rows = |down| BTreeMap::from([(PhysicalControl::Key(KeyCode::Enter),
-            (vec![A::Start, A::MenuSelect], down))]);
+        let enter: Box<dyn Buttonlike> = Box::new(KeyCode::Enter);
+        let rows = || HashMap::from([(&enter, vec![A::Start, A::MenuSelect])]);
         let route = |profile| ButtonRoute { profile, owner: None };
-        history.apply(rows(true), route(InputProfile::Gameplay), true, false, &mut frame);
+        history.apply(rows(), route(InputProfile::Gameplay), true, false, &mut frame, |_| true);
         assert!(frame.start && !frame.select);
-        history.apply(rows(true), route(InputProfile::Paused), true, false, &mut frame);
+        history.apply(rows(), route(InputProfile::Paused), true, false, &mut frame, |_| true);
         assert!(!frame.start && !frame.select && !frame.select_held);
-        history.apply(rows(false), route(InputProfile::Paused), true, false, &mut frame);
-        history.apply(rows(true), route(InputProfile::Paused), true, false, &mut frame);
+        history.apply(HashMap::new(), route(InputProfile::Paused), true, false, &mut frame, |_| true);
+        history.apply(rows(), route(InputProfile::Paused), true, false, &mut frame, |_| true);
         assert!(frame.select && !frame.start);
+    }
+
+    #[test]
+    fn confirm_buttons_keep_separate_edges_and_held_buttons_resync() {
+        let enter: Box<dyn Buttonlike> = Box::new(KeyCode::Enter);
+        let space: Box<dyn Buttonlike> = Box::new(KeyCode::Space);
+        let rows = || HashMap::from([(&enter, vec![A::Start, A::MenuSelect]), (&space, vec![A::MenuSelect])]);
+        let route = ButtonRoute { profile: InputProfile::SessionUi, owner: None };
+        let mut history = ContextualButtonHistory::default();
+        let mut frame = MenuControlFrame::default();
+        history.apply(HashMap::from([(&enter, vec![A::Start, A::MenuSelect])]), route, true, false, &mut frame, |_| true);
+        assert!(frame.select);
+        history.apply(rows(), route, true, false, &mut frame, |_| true);
+        assert!(frame.select);
+        history.apply(rows(), route, false, false, &mut frame, |_| true);
+        history.apply(rows(), route, true, false, &mut frame, |_| true);
+        assert!(!frame.select && !frame.select_held);
+        history.apply(HashMap::new(), route, true, false, &mut frame, |_| true);
+        history.apply(rows(), route, true, true, &mut frame, |_| true);
+        assert!(!frame.select && !frame.select_held);
     }
 }

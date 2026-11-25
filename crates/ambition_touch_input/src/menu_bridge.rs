@@ -6,7 +6,7 @@
 //!
 //! - one-finger drags outside the controls fold into
 //!   [`MenuControlFrame::scroll_y`], the mouse wheel's lane
-//!   (`populate_menu_control_frame_from_actions` adds wheel scroll; this adds
+//!   (`project_primary_menu_frame` adds wheel scroll; this adds
 //!   drag scroll after it);
 //! - real touch activity marks the primary seat [`ActiveDevice::Touch`], like
 //!   the keyboard/mouse/gamepad detector.
@@ -22,7 +22,7 @@ use ambition_input::{ActiveDevice, MenuControlFrame, SeatActiveDevices};
 /// Fold non-control touch drags into menu scroll, and mark touch as the
 /// active input source while the overlay drives the game.
 ///
-/// Runs after `populate_menu_control_frame_from_actions` (which rebuilds the
+/// Runs after `project_primary_menu_frame` (which rebuilds the
 /// frame each frame) and before `MenuNavConsume`, so the drag lands in the
 /// frame menus read this frame.
 #[allow(clippy::too_many_arguments)]

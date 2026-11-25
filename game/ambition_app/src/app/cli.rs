@@ -151,6 +151,11 @@ mod headless_arg_tests {
 /// number of ticks with `--headless-ticks N` (default 120).
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run_visible() {
+    #[cfg(feature = "input")]
+    if std::env::args().any(|arg| arg == "--explain-bindings") {
+        super::binding_census::print();
+        return;
+    }
     // Wall-clock zero for `[startup]`, taken before any Bevy work. Anchoring it
     // later -- as the profiler resource's own creation used to -- hides plugin
     // construction, which is the larger half of startup.

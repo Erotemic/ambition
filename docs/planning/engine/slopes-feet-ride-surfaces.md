@@ -315,6 +315,68 @@ and a rigid control before claiming this conditional delivery complete.
 Do not mark those cases complete from the local witness.
 Preserve the existing frozen-body clock policy and GNU visual receipts.
 
+### Landed (2026-11-25): the shape motion and its time-sliced readers
+
+Delivery step 1 and the time-sliced part of step 2 are done.
+
+**The law.** `SurfaceChain::shape_before` holds the line's points as the
+tick began when its shape changed. Each point goes straight to its place in
+`points`, which is the table's own interpolation within a span: a drawn
+ledge's ends are interpolated linearly, and the slope's similarity
+coefficients are affine in them. A place on the line is a segment and a
+fraction `u`. The chain gains these queries:
+
+- `place_before`, `travel_at` (the per-tick travel at fixed `u`) and
+  `segment_at_time`;
+- `segment_before`, which a rigid line answers by its inverse motion.
+
+**Readers moved to the law:**
+
+- carry (`carried`) and `moves`;
+- the prior-support query at the start of the tick (`material_lines` at
+  `time`, which sees the segment where it stood then);
+- `lines_under`'s carried probe and its turn slack, which becomes the
+  difference of the ends' travel;
+- the line velocity and carry a support reports;
+- `MaterialCollider::velocity_at` and `normal_at_time`;
+- the ledge latch (the lip where that end began the tick) and the ledge
+  carry;
+- swept bounds, which add the start shape, so a shrink keeps its old
+  extent;
+- the navigation filter, which now uses `moves()`.
+
+`clears_material_contact` keeps the continuous result for such a line.
+
+**The producer.** `mount_backs_are_ground` publishes the start shape only
+when a drawing changed (`DrawnLedge::changed`). A held frame and a
+translating mount keep the rigid fast path, and nothing is copied per
+rider. Both shapes come from one end order: `DrawnLedge::ends` chooses the
+order once, left to right now, so an end keeps its identity when the
+drawing turns it past upright.
+
+**Witnesses:**
+
+- `a_contracting_line_carries_its_material_and_keeps_its_old_extent` (core)
+  covers the `[-20,20]` to `[-10,10]` case above. It checks carry 10 to 5,
+  the bounds, support at the start but not now, and a rigid control.
+- `a_slope_that_follows_the_drawing_is_where_its_ends_are_drawn` (mount)
+  now checks the true start geometry, both lengths (`sqrt(43600)` and
+  `sqrt(46400)`), and that every point is carried to its own place where
+  the rigid fit falls short.
+
+**Not yet moved** (MOVING-SUPPORT stays open on these):
+
+- **Continuous sweeps.** The kernel sweep, the projectile sweep and the
+  righting sweep (`first_material_contact`), plus `MaterialCollider::displacement`,
+  still read the line's rigid fit (`velocity`, `turn`, `pivot`, which the
+  producer still writes for them). A deforming segment against a moving
+  material cell needs its own time-of-contact law inside the native cast.
+- **Source phase.** The source-phase / host cut (`follow_drawn_ledges`
+  `elapsed + 1/60`) is unchanged.
+- **The real GNU transition.** It has no witness in the running game yet.
+- **Portals.** Portal hosting on a stretching line still slides by arc
+  distance.
+
 ### Separate authoring decision: the whole curved hump
 
 GNU's `_barrel_placed` stretches along the barrel's axis. The native hump

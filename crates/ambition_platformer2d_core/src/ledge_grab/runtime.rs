@@ -172,13 +172,14 @@ fn line_ledge_carry(
     let frame = crate::AccelerationFrame::new(gravity_dir);
     let lip = Ledge::lip_of(contact, body_size * 0.5, frame);
     let side_normal = contact.wall_normal_x.signum();
-    let carrier = chain_ledges(world, frame).find(|(ci, _, ledge)| {
+    let carrier = chain_ledges(world, frame).find(|(ci, end, ledge)| {
         let chain = &world.chains[*ci];
-        // The line moved before the bodies: its lip was where it is less its
-        // move, and a stored contact describes where it was.
+        // The line moved before the bodies: its lip was where that end of the
+        // line began the tick, and a stored contact describes where it was.
+        let before = if *end == 0 { chain.segment_before(0).0 } else { chain.segment_before(end - 1).1 };
         chain.moves()
             && ledge.side_normal == side_normal
-            && (ledge.lip.distance(lip) <= LEDGE_LATCH_TOL || (ledge.lip - chain.velocity).distance(lip) <= LEDGE_LATCH_TOL)
+            && (ledge.lip.distance(lip) <= LEDGE_LATCH_TOL || before.distance(lip) <= LEDGE_LATCH_TOL)
     });
     let Some((ci, _, ledge)) = carrier else {
         return LedgeCarry::Stay;

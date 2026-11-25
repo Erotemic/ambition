@@ -102,7 +102,7 @@ pub(crate) fn chain_walks(world: &World, frame: NavFrame) -> ChainWalks {
     let mut walks = ChainWalks { flats: Vec::new(), pieces: Vec::new() };
     for chain in world.chains.iter() {
         let points = &chain.points;
-        if points.len() < 2 || chain.velocity != Vec2::ZERO || chain.turn != 0.0 || chain.carrier.is_some() {
+        if points.len() < 2 || chain.moves() || chain.carrier.is_some() {
             continue;
         }
         let segments = if chain.closed { points.len() } else { points.len() - 1 };

@@ -972,7 +972,19 @@ visual product gate.
 
 ### MOVING-SUPPORT — retain a support's shape motion
 
-**State:** PLANNED, static source review at `00bf92c22142`, 2026-11-22.
+**State:** IN PROGRESS 2026-11-25. Step 1 and the time-sliced readers of
+step 2 landed. A changing support publishes its start shape
+(`SurfaceChain::shape_before`). Carry, prior support, ledges, point
+velocity and bounds read it
+([landed](engine/slopes-feet-ride-surfaces.md#landed-2026-11-25-the-shape-motion-and-its-time-sliced-readers)).
+Still open:
+
+- the continuous sweeps' deforming-edge contact;
+- the source-phase cut;
+- the real GNU witness;
+- portal hosting.
+
+Static source review at `00bf92c22142`, 2026-11-22:
 
 **Failure / customer:** GNU's drawn hump maps its current polyline by an
 endpoint similarity, including length change. Its published motion keeps

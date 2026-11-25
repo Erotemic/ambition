@@ -237,15 +237,30 @@ impl DrawnLedge {
     /// and how far it turned (radians, `+` turns `+x` toward `+y`). `None`
     /// when it is not drawn now.
     pub fn motion(&self, side: f32) -> Option<([ae::Vec2; 2], ae::Vec2, f32)> {
-        let mirrored = |p: ae::Vec2| ae::Vec2::new(side * p.x, p.y);
-        let sorted = |[a, b]: [ae::Vec2; 2]| if a.x <= b.x { [a, b] } else { [b, a] };
         let angle = |[a, b]: [ae::Vec2; 2]| (b.y - a.y).atan2(b.x - a.x);
-        let now = sorted(self.now?.map(mirrored));
-        let (moved, turned) = self.before.map_or((ae::Vec2::ZERO, 0.0), |before| {
-            let before = sorted(before.map(mirrored));
+        let (now, before) = self.ends(side)?;
+        let (moved, turned) = before.map_or((ae::Vec2::ZERO, 0.0), |before| {
             ((now[0] + now[1] - before[0] - before[1]) * 0.5, angle(now) - angle(before))
         });
         Some((now, moved, turned))
+    }
+
+    /// Where it is drawn now and where it was drawn the tick before (mirrored
+    /// by `side`, about the mount's centre), each end of the one paired with
+    /// the same end of the other: the order is chosen once, left to right
+    /// now, so an end keeps its identity when the drawing turns it past
+    /// upright. `None` when it is not drawn now.
+    pub fn ends(&self, side: f32) -> Option<([ae::Vec2; 2], Option<[ae::Vec2; 2]>)> {
+        let mirrored = |p: ae::Vec2| ae::Vec2::new(side * p.x, p.y);
+        let now = self.now?.map(mirrored);
+        let before = self.before.map(|before| before.map(mirrored));
+        Some(if now[0].x <= now[1].x { (now, before) } else { ([now[1], now[0]], before.map(|[a, b]| [b, a])) })
+    }
+
+    /// Did its drawing change between the tick before and now? A drawing
+    /// that held its frame moves only with the mount.
+    pub fn changed(&self) -> bool {
+        self.before.is_some_and(|before| Some(before) != self.now)
     }
 }
 
@@ -316,15 +331,26 @@ impl BackLedge {
     /// it goes with it, and its ends are ledges a body can hang from while
     /// they are level enough (`ledge_grab::chain_ledges`).
     pub fn drawn_chains(&self, mount: &ae::BodyKinematics, unmirrored: bool, moved: ae::Vec2) -> Vec<ae::SurfaceChain> {
-        self.drawn_lines(mount, unmirrored)
-            .map(|(ends, drawn_moved, turned)| {
+        let side = ae::mirror_side(mount.facing, unmirrored);
+        self.drawn
+            .iter()
+            .filter_map(|ledge| {
+                let (now, before) = ledge.ends(side)?;
+                let (_, drawn_moved, turned) = ledge.motion(side)?;
+                let ends = now.map(|p| p + mount.pos);
                 let mut line = ae::SurfaceChain::open(DRAWN_LEDGE_LINE, ends.to_vec());
                 line.velocity = moved + drawn_moved;
                 line.turn = turned;
                 line.pivot = (ends[0] + ends[1]) * 0.5;
+                // A drawing that changed moves each end its own way (its
+                // length can change): the line's shape motion, from where
+                // each end was drawn on the mount where it was a tick ago.
+                if let Some(before) = before.filter(|_| ledge.changed()) {
+                    line.shape_before = before.map(|p| p + mount.pos - moved).to_vec();
+                }
                 // The mount's art draws it.
                 line.hidden = true;
-                line
+                Some(line)
             })
             .collect()
     }
@@ -334,11 +360,28 @@ impl BackLedge {
     /// follows the art (`slope_drawn`) is moved, turned and scaled so its two
     /// ends are the drawn ones.
     pub fn slope_line(&self, mount: &ae::BodyKinematics, unmirrored: bool) -> Option<Vec<ae::Vec2>> {
+        let side = ae::mirror_side(mount.facing, unmirrored);
+        // Unmirrored: the drawn ends are mirrored with the typed line below.
+        let drawn = self.slope_drawn.as_ref().and_then(|ledge| ledge.ends(1.0)).map(|(now, _)| now);
+        self.slope_at(mount.pos, side, drawn)
+    }
+
+    /// The slope where it was a tick ago, when its drawing changed: the line
+    /// placed on the ends drawn the tick before, about where the mount was
+    /// (`moved` back). Each point is the same typed point as in
+    /// [`Self::slope_line`], so the two are one material line's two shapes.
+    /// `None` when the slope does not follow a drawing that changed.
+    pub fn slope_line_before(&self, mount: &ae::BodyKinematics, unmirrored: bool, moved: ae::Vec2) -> Option<Vec<ae::Vec2>> {
+        let side = ae::mirror_side(mount.facing, unmirrored);
+        let ledge = self.slope_drawn.as_ref().filter(|ledge| ledge.changed())?;
+        let (_, before) = ledge.ends(1.0)?;
+        self.slope_at(mount.pos - moved, side, Some(before?))
+    }
+
+    fn slope_at(&self, pos: ae::Vec2, side: f32, drawn: Option<[ae::Vec2; 2]>) -> Option<Vec<ae::Vec2>> {
         if self.slope.len() < 2 {
             return None;
         }
-        let side = ae::mirror_side(mount.facing, unmirrored);
-        let drawn = self.slope_drawn.as_ref().and_then(|ledge| ledge.now).map(|[a, b]| if a.x <= b.x { [a, b] } else { [b, a] });
         let (r0, r1) = (self.slope[0], self.slope[self.slope.len() - 1]);
         let place = |p: ae::Vec2| match drawn {
             // The similarity that takes the typed ends to the drawn ones.
@@ -354,7 +397,7 @@ impl BackLedge {
             .slope
             .iter()
             .map(|&p| place(p))
-            .map(|p| ae::Vec2::new(mount.pos.x + side * p.x, mount.pos.y + p.y))
+            .map(|p| ae::Vec2::new(pos.x + side * p.x, pos.y + p.y))
             .collect();
         // A line is one-sided by its winding: a floor runs left to right.
         if side < 0.0 {
@@ -448,6 +491,12 @@ pub fn mount_backs_are_ground(
                 line.velocity += drawn_moved;
                 line.turn = turned;
                 line.pivot = mount.pos + (ends[0] + ends[1]) * 0.5;
+            }
+            // A drawing that changed moves each point of the slope its own
+            // way (the line is placed on its drawn ends, which can stretch):
+            // its shape motion, point for point.
+            if let Some(before) = back.slope_line_before(mount, unmirrored, moved) {
+                line.shape_before = before;
             }
             // The mount's art draws it.
             line.hidden = true;
@@ -3421,6 +3470,7 @@ mod back_tests {
         let mut drawn = DrawnLedge::new("hump");
         drawn.before = Some([slope[0] + ae::Vec2::new(0.0, -6.0), slope[2] + ae::Vec2::new(0.0, -6.0)]);
         drawn.now = Some([slope[0] + ae::Vec2::new(0.0, -6.0), slope[2] + ae::Vec2::new(0.0, -26.0)]);
+        let drawn_now = drawn.now;
         back.slope_drawn = Some(drawn);
         let line = back.slope_line(&kin, false).unwrap();
         let near = |a: ae::Vec2, b: ae::Vec2| (a - b).length() < 1e-3;
@@ -3445,6 +3495,28 @@ mod back_tests {
             .expect("the slope is ground");
         assert!(chain.turn < 0.0, "the hump's far end rose: the line turns up, {}", chain.turn);
         assert!(near(chain.velocity, ae::Vec2::new(0.0, -10.0)), "its middle rose by 10: {:?}", chain.velocity);
+        // SUP1: its ends went from (200,-60) apart to (200,-80) apart, two
+        // lengths no rigid map joins. The line keeps both shapes: as the tick
+        // began it was the typed line placed on the ends drawn then, point
+        // for point, and a fixed point of its material is carried to the
+        // same point placed on the ends drawn now.
+        assert_eq!(chain.shape_before.len(), chain.points.len(), "the line's shape motion is published");
+        assert!(near(chain.shape_before[0], kin.pos + ae::Vec2::new(-100.0, -6.0)), "{:?}", chain.shape_before);
+        assert!(near(chain.shape_before[2], kin.pos + ae::Vec2::new(100.0, -66.0)), "{:?}", chain.shape_before);
+        let before_len = (chain.shape_before[2] - chain.shape_before[0]).length();
+        let now_len = (chain.points[2] - chain.points[0]).length();
+        assert!((before_len - 43600f32.sqrt()).abs() < 1e-2 && (now_len - 46400f32.sqrt()).abs() < 1e-2, "{before_len} {now_len}");
+        for (i, (&was, &is)) in chain.shape_before.iter().zip(&chain.points).enumerate() {
+            assert!(near(chain.carried(was), is), "point {i} is carried to its own place: {:?} -> {:?}, not {is:?}", was, chain.carried(was));
+        }
+        // The far end, where the hump stretched: a rigid reading put it short.
+        let rigid = ae::SurfaceChain { shape_before: Vec::new(), ..chain.clone() };
+        assert!(!near(rigid.carried(chain.shape_before[2]), chain.points[2]), "the rigid fit cannot carry the stretch");
+        // A drawing that held its frame moves with the mount alone.
+        let mut held = DrawnLedge::new("hump");
+        held.before = drawn_now;
+        held.now = drawn_now;
+        assert!(!held.changed());
     }
 
     #[test]

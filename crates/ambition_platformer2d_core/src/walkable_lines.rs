@@ -123,8 +123,17 @@ fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, ed
             let coord = point.dot(down);
             // A line that turned moved its points across the body's width by
             // different amounts: the body, carried by the motion at the middle
-            // of its feet, is off its support by up to that much.
-            let turned = if with_motion { chain.turn.abs() * half_span * 2.0 } else { 0.0 };
+            // of its feet, is off its support by up to that much. A segment
+            // whose ends travelled apart differs across the width by the
+            // difference of its ends' travel, in proportion.
+            let turned = if !with_motion {
+                0.0
+            } else if chain.deforms() {
+                let spread = (chain.travel_at(si, 1.0) - chain.travel_at(si, 0.0)).length();
+                spread * (half_span * 2.0 / len).min(1.0)
+            } else {
+                chain.turn.abs() * half_span * 2.0
+            };
             if coord < feet - above - turned || coord > feet + below + turned {
                 continue;
             }
@@ -136,7 +145,7 @@ fn lines_under(world: &World, body: Aabb, down: Vec2, above: f32, below: f32, ed
                     point,
                     normal,
                     ends: [p0, p1],
-                    velocity: chain.velocity,
+                    velocity: if chain.deforms() { chain.travel_at(si, (point - a).dot(t) / (len * len)) } else { chain.velocity },
                     carry: chain.carried(point) - point,
                 });
             }
@@ -239,28 +248,38 @@ pub(crate) fn material_lines(
         for si in 0..chain.segment_count() {
             let (a, b) = chain.segment(si);
             let face = chain.normal_at_time(si, time).map_err(numeric)?;
+            // The segment where it is at the query's time. A line whose shape
+            // changed is queried there as it stands, since its query interval
+            // is one instant; a rigid line keeps its own motion law.
+            let (a_at, b_at) = chain.segment_at_time(si, time).map_err(numeric)?;
+            let deforms = chain.deforms();
             for part in cells.parts() {
-                let Some(hit) = cells.against_rigid_where(part, &[a, b], chain.velocity, chain.turn, chain.pivot,
-                    |hit| hit.normal.dot(-down) >= min_up && hit.map.direction(hit.normal).dot(face) > 0.5)? else { continue; };
-                let physical_point = chain.pivot.as_dvec2() + crate::frame::rotation_ending_at(f64::from(chain.turn), time)
-                    * (a.as_dvec2() - chain.pivot.as_dvec2()) - chain.velocity.as_dvec2() * (1.0 - time);
-                let edge = b.as_dvec2() - a.as_dvec2();
-                let outward = crate::frame::rotation_ending_at(f64::from(chain.turn), time)
-                    * bevy_math::DVec2::new(edge.y, -edge.x).normalize();
-                if hit.toi == 0.0 && !cells.in_front_of(part, 0.0, physical_point, outward)? { continue; }
-                let inverse = hit.map.inverse().map_err(numeric)?;
-                let at = |point: Vec2| -> Result<Vec2, crate::frame::NumericFault> {
-                    let point = chain.pivot.as_dvec2() + crate::frame::rotation_ending_at(f64::from(chain.turn), time)
-                        * (point.as_dvec2() - chain.pivot.as_dvec2()) - chain.velocity.as_dvec2() * (1.0 - time);
-                    inverse.point_from_wide(point)
+                let accepts = |hit: &crate::frame::material_cast::MaterialCastHit| hit.normal.dot(-down) >= min_up && hit.map.direction(hit.normal).dot(face) > 0.5;
+                let hit = if deforms {
+                    cells.against_rigid_where(part, &[a_at.as_vec2(), b_at.as_vec2()], Vec2::ZERO, 0.0, Vec2::ZERO, accepts)?
+                } else {
+                    cells.against_rigid_where(part, &[a, b], chain.velocity, chain.turn, chain.pivot, accepts)?
                 };
-                let ends = [at(a).map_err(numeric)?, at(b).map_err(numeric)?];
+                let Some(hit) = hit else { continue; };
+                let edge = b_at - a_at;
+                let outward = bevy_math::DVec2::new(edge.y, -edge.x).normalize();
+                if hit.toi == 0.0 && !cells.in_front_of(part, 0.0, a_at, outward)? { continue; }
+                let inverse = hit.map.inverse().map_err(numeric)?;
+                let ends = [inverse.point_from_wide(a_at).map_err(numeric)?, inverse.point_from_wide(b_at).map_err(numeric)?];
                 let correction = -above + (above + below) * hit.toi as f32;
+                // The tick's travel of the material point under the contact.
+                let (velocity, carry) = if deforms {
+                    let u = if edge.length_squared() > 0.0 { ((hit.world_point.as_dvec2() - a_at).dot(edge) / edge.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
+                    let travel = chain.travel_at(si, u as f32);
+                    (travel, travel)
+                } else {
+                    (chain.velocity, chain.carried(hit.world_point) - hit.world_point)
+                };
                 let line = LineSupport { chain: ci, segment: si,
                     feet_coord: body.aabb().feet_coord(down) + correction,
                     point: hit.point, normal: hit.normal, ends,
-                    velocity: inverse.vector(chain.velocity).map_err(numeric)?,
-                    carry: inverse.vector(chain.carried(hit.world_point) - hit.world_point).map_err(numeric)?,
+                    velocity: inverse.vector(velocity).map_err(numeric)?,
+                    carry: inverse.vector(carry).map_err(numeric)?,
                 };
                 if best.is_none_or(|known| line.feet_coord < known.feet_coord) { best = Some(line); }
             }
@@ -491,6 +510,37 @@ mod tests {
     /// A ramp up to the right at 27 degrees (rise 1 in 2).
     fn ramp() -> World {
         world_with(vec![Vec2::new(0.0, 200.0), Vec2::new(100.0, 200.0), Vec2::new(300.0, 100.0), Vec2::new(400.0, 100.0)])
+    }
+
+    /// SUP1: a line whose shape changed is queried, carried and bounded by
+    /// its shape. A floor that contracts from `[-20,20]` to `[-10,10]` about a
+    /// fixed centre has no displacement and no turn, so a rigid reading saw
+    /// the short line as the tick began, left the old outer parts out of its
+    /// bounds, and carried a point three quarters along the old line nowhere.
+    #[test]
+    fn a_contracting_line_carries_its_material_and_keeps_its_old_extent() {
+        let mut world = world_with(vec![Vec2::new(-10.0, 200.0), Vec2::new(10.0, 200.0)]);
+        world.chains[0].shape_before = vec![Vec2::new(-20.0, 200.0), Vec2::new(20.0, 200.0)];
+        let line = &world.chains[0];
+        assert!(line.moves(), "a line whose shape changed moves");
+        assert_eq!(line.carried(Vec2::new(10.0, 200.0)), Vec2::new(5.0, 200.0), "three quarters along stays three quarters along");
+        let bounds = crate::spatial::Spatial::swept_bounds(line);
+        assert!(bounds.min.x <= -20.0 && bounds.max.x >= 20.0, "the bounds keep the old extent: {bounds:?}");
+        // A body over the old outer part stood on the line as the tick began,
+        // and is off it now.
+        let body = body_at(Vec2::new(30.0, 200.0));
+        let start = material_lines(&world, &body, DOWN, 1.0, 1.0, 0.0, None).unwrap();
+        assert_eq!(start.len(), 1, "the line as the tick began is under it");
+        assert!(material_lines(&world, &body, DOWN, 1.0, 1.0, 1.0, None).unwrap().is_empty(), "the line now is not");
+        // The material under it (at least nine tenths along) goes inward
+        // with its end: 10 - 20u.
+        let carry = start[0].carry;
+        assert!((-10.0..=-8.0).contains(&carry.x) && carry.y == 0.0, "{carry:?}");
+        assert_eq!(start[0].velocity, carry, "the point's travel is its velocity");
+        // The same end pose, rigid: nothing moves, nothing is under the body.
+        world.chains[0].shape_before.clear();
+        assert!(!world.chains[0].moves());
+        assert!(material_lines(&world, &body, DOWN, 1.0, 1.0, 0.0, None).unwrap().is_empty());
     }
 
     #[test]

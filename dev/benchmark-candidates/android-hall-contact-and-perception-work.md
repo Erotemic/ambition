@@ -235,3 +235,17 @@ runs recorded zero navigation requests. Host load varied across runs.
 These measurements precede the fixed-control brain change. Android frame
 time and simulation advance need a new capture. The frame census now logs
 `sim_ticks` for each window.
+
+### Rigged part allocation
+
+A 1280 × 720 desktop run with software rendering admitted the full cast.
+Before the renderer allocated parts on demand, the loaded Hall had 18,545
+rigged part slots and 30,717 spawned entities. With allocation based on the
+active views and readers, the same entry view had 13,115 spawned entities.
+The captured frame showed Scout and the nearby exhibits. Use these counts
+to compare entity work. Host load and software rendering varied between runs.
+
+The rendered census still counted 6,948 IntGrid cells. Collision already
+comes from the prepared room geometry. If a new capture shows time in the
+LDtk render path, check which layers need painted tiles before creating
+their render entities.

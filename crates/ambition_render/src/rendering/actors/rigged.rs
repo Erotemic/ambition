@@ -508,6 +508,10 @@ pub struct RiggedPresentation {
     pub pages: RiggedSpritePages,
     /// Reusable part sprites, children of the owner, in draw order.
     pub slots: Vec<Entity>,
+    /// Whether a view or a reader needs this owner's current pose.
+    drawing: bool,
+    /// Frames to keep allocated slots after their last use.
+    slot_hold: u8,
     /// Its cell of the impostor atlas while the body is composited (something
     /// reads it as one image: [`ComposedBodyDemand`], a fading frame), else
     /// `None`: its parts are drawn directly in world space.
@@ -680,6 +684,7 @@ type RootShows = (
 /// place are those of the last frame (`camera_system` and the transform
 /// propagation run in `PostUpdate`).
 const VIEW_MARGIN: f32 = 256.0;
+const SLOT_HOLD_FRAMES: u8 = 8;
 
 /// The cameras, for what each one shows. A part slot is not a camera; the
 /// filter says so, because the slots' layers are written beside this read.
@@ -1033,9 +1038,7 @@ fn take_cell(commands: &mut Commands, assets: &mut ImpostorAssets, class: usize)
     (page, cell, true)
 }
 
-/// A presentation for `root`: an owner with one reusable sprite slot per draw
-/// of its flipbook's busiest frame. It starts drawn directly; the driver
-/// composites it into an impostor cell while something reads it as one image.
+/// Bind the flipbook before a view or a reader asks for its part sprites.
 fn spawn_presentation(
     commands: &mut Commands,
     root: Entity,
@@ -1051,25 +1054,12 @@ fn spawn_presentation(
             RiggedPresentationOf(root),
         ))
         .id();
-    let slots = (0..pages.flipbook.max_draws())
-        .map(|_| {
-            commands
-                .spawn((
-                    RiggedPartSlot,
-                    Sprite::default(),
-                    Anchor::default(),
-                    Transform::default(),
-                    Visibility::Hidden,
-                    RenderLayers::default(),
-                    ChildOf(owner),
-                ))
-                .id()
-        })
-        .collect();
     commands.entity(owner).insert(RiggedPresentation {
         target: target.to_owned(),
         pages,
-        slots,
+        slots: Vec::new(),
+        drawing: false,
+        slot_hold: 0,
         impostor: None,
         composed_hold: 0,
         overflow_hold: 0,
@@ -1085,6 +1075,53 @@ fn spawn_presentation(
         swing: None,
     });
     owner
+}
+
+/// Give part sprites to the views and readers that need the pose this frame.
+pub(in crate::rendering) fn prepare_rigged_slots(
+    mut commands: Commands,
+    views: Views,
+    demand: Option<Res<ComposedBodyDemand>>,
+    roots: Query<(&Transform, &Sprite, Option<&RenderLayers>, Has<ChildOf>, Has<PartSetRequest>)>,
+    mut owners: Query<(Entity, &RiggedPresentationOf, &mut RiggedPresentation)>,
+) {
+    let views = world_views(&views);
+    for (owner, &RiggedPresentationOf(root), mut presentation) in &mut owners {
+        let Ok((transform, sprite, layers, parented, part_reader)) = roots.get(root) else {
+            continue;
+        };
+        presentation.drawing = part_reader
+            || parented
+            || demand.as_ref().is_some_and(|demand| demand.is_declared(root))
+            || seen_by_a_view(&views, transform, sprite, layers);
+        if presentation.drawing {
+            presentation.slot_hold = SLOT_HOLD_FRAMES;
+            if presentation.slots.is_empty() {
+                let count = presentation.pages.flipbook.max_draws();
+                presentation.slots.extend((0..count).map(|_| {
+                    commands.spawn((
+                        RiggedPartSlot,
+                        Sprite::default(),
+                        Anchor::default(),
+                        Transform::default(),
+                        Visibility::Hidden,
+                        RenderLayers::default(),
+                        ChildOf(owner),
+                    )).id()
+                }));
+                presentation.layers = RenderLayers::default();
+                presentation.shown = None;
+            }
+        } else {
+            presentation.slot_hold = presentation.slot_hold.saturating_sub(1);
+            if presentation.slot_hold == 0 && !presentation.slots.is_empty() {
+                for slot in presentation.slots.drain(..) {
+                    commands.entity(slot).try_despawn();
+                }
+                presentation.shown = None;
+            }
+        }
+    }
 }
 
 /// `target`'s tracks bound to the joints of the body rig its sheet publishes,
@@ -1135,9 +1172,6 @@ pub fn drive_rigged_presentations(
         Without<RiggedPartSlot>,
     >,
     mut cameras: Query<&mut Camera, With<RiggedImpostorCamera>>,
-    // The views that draw the world. A body that none of them shows is not
-    // posed (`seen_by_a_view`).
-    views: Views,
     mut roots: Roots,
     mut slots: Slots,
     mut too_large: Local<HashSet<String>>,
@@ -1162,6 +1196,15 @@ pub fn drive_rigged_presentations(
     // so a body given a cell in one draws directly once more.
     let mut fresh_pages: Vec<(usize, usize)> = Vec::new();
     for (_, &RiggedPresentationOf(root), mut presentation, _, _) in &mut owners {
+        if !presentation.drawing {
+            if let Some(impostor) = presentation.impostor.take() {
+                impostors.atlas.give(&impostor);
+                presentation.shown = None;
+            }
+            presentation.composed_hold = 0;
+            presentation.overflow_hold = 0;
+            continue;
+        }
         let Ok((animator, _, _, _, _, _, root_layers, pose, _, performed, _, _)) = roots.get(root) else {
             continue;
         };
@@ -1283,7 +1326,6 @@ pub fn drive_rigged_presentations(
     // The bodies drawn into their page this frame: if the page renders, their
     // cells hold this frame's draws under its new generation.
     let mut drawn_into: Vec<(Entity, usize, usize)> = Vec::new();
-    let views = world_views(&views);
     for (owner, &RiggedPresentationOf(root), mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
         let Ok((
             animator,
@@ -1292,7 +1334,7 @@ pub fn drive_rigged_presentations(
             color_shift,
             root_transform,
             root_visibility,
-            root_layers,
+            _,
             pose,
             frame_in_sprite,
             performed,
@@ -1302,16 +1344,7 @@ pub fn drive_rigged_presentations(
         else {
             continue;
         };
-        // A body drawn directly that no view shows is hidden and not posed:
-        // its parts keep the last frame they drew, and the frame a view shows
-        // it again poses it before it is drawn. A body read as one image, or
-        // whose parts a reader asked for, is posed wherever it is.
-        let parented = root_visibility.2;
-        if presentation.impostor.is_none()
-            && asked.is_none()
-            && !parented
-            && !seen_by_a_view(&views, root_transform, &root_sprite, root_layers)
-        {
+        if !presentation.drawing {
             owner_visibility.set_if_neq(Visibility::Hidden);
             // Unseen, it draws nothing to blend from: the frame it is seen
             // again is drawn as it is.
@@ -1323,6 +1356,9 @@ pub fn drive_rigged_presentations(
             // draw it under no parts.
             if root_sprite.image != ambition_sprite_sheet::character::NO_BAKED_IMAGE {
                 root_sprite.image = ambition_sprite_sheet::character::NO_BAKED_IMAGE;
+            }
+            if frame_in_sprite.is_some() {
+                commands.entity(root).try_remove::<FrameInSprite>();
             }
             continue;
         }

@@ -65,3 +65,26 @@ enabled. The driver advanced 15 simulation ticks per rendered frame.
 Body integration took 29–31 ms per tick and feature view publication took
 5–6 ms per tick. Profile those costs separately from route preparation on
 the phone. The desktop run used an older asset bundle.
+
+## Stationary Android capture
+
+`android-all-hall-auto-20261125T142408Z` admitted 594 Hall roots and stopped
+autoplay at the entrance. The median of eight frame-census medians
+between 44 s and 90 s was 550.4 ms. None of the 7,831 CPU
+samples included navigation rollouts. Body integration accounted for 63.9%
+of samples, including work on the compute pool. Material axis queries
+accounted for 23.0%, repeated swept bounds for 8.3%, and affine cell
+construction for 7.4%. These inclusive shares overlap.
+
+The shared terrain index now retains the bounds used to build it. An
+ordinary geometry edit invalidates both the bounds and the index.
+The affine builder returns one full cell when the aperture search finds
+no reachable links. It applies the same piece and scale limits first.
+
+In 360-update headless desktop comparisons, the median share of measured
+simulation time in body integration moved from 48–49% to 43–45%. Absolute
+frame times varied between runs. They give no device FPS result.
+Two 240-update comparisons with `perf stat` counted 238–244 billion
+instructions before and 232–235 billion after. The two paired reductions
+were 2.6% and 3.8%. Each run used the same six desktop CPU cores, room,
+idle input, and census settings.

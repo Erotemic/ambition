@@ -235,7 +235,12 @@ impl<T: Clone> Layered<T> {
 /// time something asks what is near a place.
 struct Base<T> {
     items: Vec<T>,
-    grids: [OnceLock<RangeGrid>;2],
+    grids: [OnceLock<BoundIndex>; 2],
+}
+
+struct BoundIndex {
+    bounds: Vec<Aabb>,
+    grid: RangeGrid,
 }
 
 impl<T> Base<T> {
@@ -261,14 +266,18 @@ impl<T> std::ops::Deref for Base<T> {
 use ambition_geometry::spatial::{touches, RangeGrid, Spatial};
 
 impl<T: Spatial> Layered<T> {
-    /// The base entries near `region`, not hidden, by base index.
+    /// Visible base entries with bounds that touch `region`.
     fn base_near(&self, region: Aabb, swept: bool) -> Vec<u32> {
         let cache = &self.base.grids[usize::from(swept)];
-        let grid = cache.get_or_init(|| RangeGrid::build(self.base.items.iter()
-            .map(|item| if swept { item.swept_bounds() } else { item.spatial_bounds() })));
-        let mut near = grid.near(region);
-        near.retain(|i| self.hidden.binary_search(i).is_err() && touches(
-            if swept { self.base.items[*i as usize].swept_bounds() } else { self.base.items[*i as usize].spatial_bounds() },region));
+        let index = cache.get_or_init(|| {
+            let bounds: Vec<_> = self.base.items.iter()
+                .map(|item| if swept { item.swept_bounds() } else { item.spatial_bounds() })
+                .collect();
+            let grid = RangeGrid::build(bounds.iter().copied());
+            BoundIndex { bounds, grid }
+        });
+        let mut near = index.grid.near(region);
+        near.retain(|i| self.hidden.binary_search(i).is_err() && touches(index.bounds[*i as usize], region));
         near
     }
 
@@ -547,6 +556,10 @@ mod tests {
         seen.hide_near(Aabb::new(crate::Vec2::new(505.0, 0.0), crate::Vec2::splat(10.0)), |a| a.0 != 510.0);
         assert_eq!(near(&seen), vec![510.0]);
         assert_eq!(seen.len(), 1999);
+        assert_eq!(near(&row), vec![500.0, 510.0]);
+        let mut moved = row.clone();
+        moved.get_mut(50).unwrap().0 = 9000.0;
+        assert_eq!(near(&moved), vec![510.0]);
         assert_eq!(near(&row), vec![500.0, 510.0]);
         // A write folds the layer into a base of its own.
         body.push(12);

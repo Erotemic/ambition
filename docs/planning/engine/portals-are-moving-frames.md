@@ -276,9 +276,17 @@ the same law `velocity_at` applies per second. The witness is
 `slopes` tests). Before the turn term, the body stayed wholly on the bar's
 start side. The swinging and lifting plank riders are unchanged.
 
+Receipt (M3, whole step, 2026-11-25): through `step_motion` with no gravity,
+a body hangs half through a floor mouth while the exit drifts 3 px a tick
+toward a still wall beside the half that is through
+(`a_drifting_exit_holds_the_material_through_it_at_a_still_wall`, movement
+`wall_collision` tests). Each tick the body is admitted, and it still
+straddles the mouth. The far half's edge on the exit side reaches the wall
+face and stays there for the rest of the run (x 625.00 with the wall at 625);
+the root moves 3 px a tick to pay for the drift. In the control without the
+wall, the same drift carries that edge more than 20 px past the face.
+
 Still open in M3:
-- A witness of an exit driving material into a stationary wall through the
-  whole kernel step. The unit witnesses cover the carry law.
 - The paced two-room cases.
 - SUP1's changing-support input.
 

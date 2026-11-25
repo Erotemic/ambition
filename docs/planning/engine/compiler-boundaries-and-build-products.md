@@ -413,6 +413,31 @@ select `render` through the self dev-dependency. `run_tests.py` checks
 `ambition_content --lib` with no features, the one run that sees a renderer
 name outside the gate. No compile-time result is claimed.
 
+**LDtk edge (2026-11-25).** The renderer in content's graph came through
+the LDtk runtime: the runtime's `ldtk` feature turned on
+`ambition_platformer2d_ldtk/ldtk_runtime`, so `bevy_ecs_ldtk` and with it
+`bevy_ecs_tilemap`, which asks Bevy for `bevy_render`, the core pipeline and
+sprite render whatever its own `render` feature says. What the session world
+holds from LDtk is only the area table, `LdtkRuntimeIndex`, which is built
+from the pure parser's project. It and `LdtkAreaBounds` moved out of the
+`bevy_ecs_ldtk` module (`ambition_platformer2d_ldtk::index`); the bundles'
+`LevelSet` is a function there (`level_set_for`). The runtime's `ldtk` is now
+the index alone, and `ldtk_runtime` (the spine, `LdtkWorldPlugin`, whose
+index the app's debug overlay and headless summary read) brings
+`bevy_ecs_ldtk`. The facade's `ldtk_runtime` forwards to it and the app
+selects it, so the app installs the spine as before. `ambition_sprite_fx`,
+the workspace's render floor (it declares a `Material2d`), was the last
+holder: content names it only in `presentation`, and it is now under
+`render` too.
+
+Content's own normal graph (same measure as above): 408 crates, against 451
+at the start of the provider cut. Absent now as well: `bevy_render`, `wgpu`,
+`bevy_core_pipeline`, `bevy_sprite_render`, `bevy_gizmos_render`,
+`bevy_ecs_ldtk`, `bevy_ecs_tilemap`. Surviving by name: `naga`, through
+`bevy_shader` (Bevy's CPU-side shader asset type, from its common features),
+not a GPU device. The app still takes the facade's defaults, so the `sim`
+tools graph still holds the renderer; the app's own cut is what remains.
+
 **Execution owner:** `ambition_app_tools` command packaging and
 `ambition_sim_harness` dependency selection, coordinated with supported launch
 and test lanes. The Ambition provider's presentation cut is a separate proof.

@@ -70,7 +70,7 @@ pub mod schedule;
 pub mod input_drive;
 pub mod input_stream;
 /// The opt-in LDtk world install: the format's runtime spine + its rollback row.
-#[cfg(feature = "ldtk")]
+#[cfg(feature = "ldtk_runtime")]
 pub mod ldtk_world;
 mod mode_scope;
 mod menu_pause;
@@ -160,7 +160,7 @@ pub use sim_core_resources::SimCoreResourcesPlugin;
 pub use ambition_time::{SimStepPeriod, SimTick};
 /// The per-tick input recorder (netcode N0.2).
 pub use input_stream::{AdmittedSeatInput, InputStreamRecorder, input_stream_recording, record_input_stream};
-#[cfg(feature = "ldtk")]
+#[cfg(feature = "ldtk_runtime")]
 pub use ldtk_world::LdtkWorldPlugin;
 
 #[cfg(feature = "causal")]

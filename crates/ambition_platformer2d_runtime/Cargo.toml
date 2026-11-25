@@ -174,9 +174,15 @@ portal = ["ambition_platformer2d_publication/portal", "ambition_platformer2d_ses
 # ⭐ `ProgressionSet::Map` is `shared_tangle`'s and stays configured either way,
 # so a composition without the map keeps the phase its neighbours order against.
 map = ["dep:ambition_menu"]
-# The LDtk runtime spine and its rollback row, offered to a game that has an
-# LDtk world. Default-OFF: see the dependency's own note.
-ldtk = ["dep:ambition_platformer2d_ldtk", "ambition_platformer2d_ldtk/ldtk_runtime"]
+# An LDtk world's area table (`LdtkRuntimeIndex`), which the session world
+# holds. Default-OFF: see the dependency's own note. It is the pure parser's:
+# no `bevy_ecs_ldtk`, so no tilemap renderer.
+ldtk = ["dep:ambition_platformer2d_ldtk"]
+# The LDtk runtime spine (`LdtkWorldPlugin`): the index of the entities
+# `bevy_ecs_ldtk` spawns, read by the app's debug overlay and headless
+# summary. `bevy_ecs_ldtk` brings `bevy_ecs_tilemap`, which asks Bevy for its
+# renderer whatever its own features say.
+ldtk_runtime = ["ldtk", "ambition_platformer2d_ldtk/ldtk_runtime"]
 # Loaded procedural modules (fast-iteration I6/I7): the WebAssembly backend
 # of the extension host. Default-OFF so a game that never loads a module does
 # not link an interpreter. With it on, `AMBITION_EXTENSION_MODULES` names

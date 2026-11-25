@@ -201,7 +201,9 @@ ambition_input_opinions = { path = "../../opinions/ambition_input_opinions" }
 ambition_demo_sanic = { path = "../ambition_demo_sanic" }
 ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 ambition_demo_smash = { path = "../ambition_demo_smash" }
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["content_pack", "wasm_modules", "script_modules"] }
+# `ldtk_runtime`: the app installs the LDtk runtime spine (`LdtkWorldPlugin`),
+# whose index its debug overlay and headless summary read.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["content_pack", "wasm_modules", "script_modules", "ldtk_runtime"] }
 # `render`: the app links the facade's renderer in every persona (it takes
 # the facade's defaults), so Ambition's looks are always installed with it.
 ambition_content = { path = "../ambition_content", features = ["render"] }

@@ -743,9 +743,10 @@ crates against `game`'s 665, and a headless trace is the same under both.
 The provider's presentation cut landed (2026-11-25): `ambition_content`
 selects its simulation capabilities and a `render` feature for its looks;
 its own graph lost `ambition_render`, the menus and the inventory UI (451 →
-440 crates). Remaining: `bevy_render`/`wgpu` through the runtime's LDtk
-edge (`bevy_ecs_ldtk`'s default `render`), and the app, which still takes the
-facade's defaults, so the `sim` tools graph is unchanged.
+440 crates), and the LDtk edge after it: the runtime's `ldtk` is the pure
+area table and `ldtk_runtime` the `bevy_ecs_ldtk` spine, so content's graph
+(408 crates) holds no `bevy_render` or `wgpu`. Remaining: the app, which
+still takes the facade's defaults, so the `sim` tools graph is unchanged.
 Do not move tool binaries back into app integration-test builds.
 
 **Acceptance:** an independent schema consumer excludes the checker; the

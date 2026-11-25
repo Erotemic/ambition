@@ -5141,6 +5141,54 @@ Gail: Take your seat.
 -> Anything else?
     Gail: My best student bought the college. Now I report to her.
 ===
+title: hall_npc_neural_grandmother_cell
+---
+Grandmother: There you are!
+-> What do you do here?
+    Grandmother: I fire for one face in the whole world. Yours, dear. Every time.
+-> Anything else?
+    Grandmother: The others laugh. One cell for one grandchild. Well, I never once missed you.
+===
+title: hall_npc_neural_hebb
+---
+Donna: Fire together, wire together.
+-> What do you do here?
+    Donna: I introduce cells that fire at the same moment. After that they can't stop. That's learning.
+-> Anything else?
+    Donna: I once wired the smell of bread to a whole childhood. Nobody asked me to.
+===
+title: hall_npc_neural_echo
+---
+Echo: Exactly.
+-> What do you do here?
+    Echo: I host the Echo Chamber. Everyone in there agrees with you. I checked. With you.
+-> Anything else?
+    Echo: We had a disagreement in there once. We all agreed it was wrong.
+===
+title: hall_npc_neural_perceptron
+---
+Percy: QUESTION?
+-> What are you?
+    Percy: A perceptron. One layer. One lamp. Green for yes, red for no.
+-> Can you do XOR?
+    Percy: NO. Also YES. I am sorry.
+===
+title: hall_intrusive_thought
+---
+Intrusive Thought: Did you lock the door?
+-> What are you?
+    Intrusive Thought: I came in uninvited. I'll leave when I'm ready. I'm never ready.
+-> Go away.
+    Intrusive Thought: You were thinking about something else. Now you're thinking about me.
+===
+title: hall_attention_head
+---
+Attention Head: *its brackets close round you*
+-> What are you?
+    Attention Head: *it attends to one thing at a time. At the moment, the thing is you.*
+-> Look away.
+    Attention Head: *it looks at the wall. Then back at you.*
+===
 title: hall_npc_frontier_clerk
 ---
 Dolores: Name, origin, cargo.

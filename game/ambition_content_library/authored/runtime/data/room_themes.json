@@ -1998,6 +1998,40 @@
       "twinkle": 0.2,
       "twinkle_rate": 0.4,
       "front": 0.3
+    },
+    "neural": {
+      "count": 22,
+      "velocity": [
+        2.0,
+        -6.0
+      ],
+      "wander": 14.0,
+      "wander_rate": 0.2,
+      "size": [
+        1.6,
+        3.2
+      ],
+      "alpha": 0.75,
+      "twinkle": 0.8,
+      "twinkle_rate": 1.6,
+      "front": 0.35
+    },
+    "neural_circuit": {
+      "count": 18,
+      "velocity": [
+        0.0,
+        -2.0
+      ],
+      "wander": 4.0,
+      "wander_rate": 0.05,
+      "size": [
+        1.2,
+        2.2
+      ],
+      "alpha": 0.6,
+      "twinkle": 0.9,
+      "twinkle_rate": 2.2,
+      "front": 0.3
     }
   }
 }

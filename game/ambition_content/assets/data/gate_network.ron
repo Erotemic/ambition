@@ -80,6 +80,9 @@
         // The Business dimension's city, Capital
         // (`docs/planning/game/business-dimension.md`).
         (id: "founders_plaza", name: "Founders' Plaza Gate", dimension: "business"),
+        // The Neural dimension's bridge between its two halves
+        // (`docs/planning/game/neural-dimension.md`).
+        (id: "neural_callosum", name: "Callosum Gate", dimension: "neural"),
     ],
     rings: [
         // ── Home ──────────────────────────────────────────────────────────
@@ -472,6 +475,19 @@
             terminal: Some("business_gate_terminal"),
             posted: ["LEGAL"],
             note: "Plaza gate. Directions beyond this point are licensed.",
+        ),
+        // ── Neural (the Cortex and the Weights) ─────────────────────────
+        // The Callosum, the bridge between the living half and the built
+        // half (`docs/planning/game/neural-dimension.md`).
+        (
+            zone: "neural_callosum_gate",
+            name: "The Callosum",
+            facility: "neural_callosum",
+            room: "neural_callosum",
+            address: Some("LATENT"),
+            terminal: Some("neural_gate_terminal"),
+            posted: ["LEGAL"],
+            note: "Bridge gate. Living half west, built half east.",
         ),
     ],
 )

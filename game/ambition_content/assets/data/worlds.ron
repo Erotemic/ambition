@@ -58,5 +58,9 @@
         // where everyone is doing business. Founders' Plaza, Records &
         // Processing, and the Business College.
         (id: "world.business_ldtk", file: "business.ldtk"),
+        // The Neural dimension, by the gate LATENT: the Callosum between the
+        // living half (the Neural Cathedral) and the built half (the Weights,
+        // and the Echo Chamber in it).
+        (id: "world.neural_ldtk", file: "neural.ldtk"),
     ],
 )

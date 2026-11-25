@@ -168,6 +168,12 @@
         portal_sprite_name: "Founders' Plaza Gate Portal",
         ring_sprite_name: "Founders' Plaza Gate Ring",
     ),
+    // The Neural dimension's gate, on the Callosum (LATENT).
+    "neural_callosum_gate": (
+        command: Dialed,
+        portal_sprite_name: "Callosum Gate Portal",
+        ring_sprite_name: "Callosum Gate Ring",
+    ),
     // The Frontier's auxiliary gate at Halfway Siding (SIDING).
     "frontier_siding_gate": (
         command: Dialed,

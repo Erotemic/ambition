@@ -100,4 +100,9 @@
     (name: "Founders' Plaza", subtitle: Some("Capital"), rooms: ["business_founders_plaza"]),
     (name: "Records & Processing", subtitle: Some("Capital"), rooms: ["business_records_processing"]),
     (name: "Capital Business College", subtitle: Some("Capital"), rooms: ["business_college_lecture_hall"]),
+    // ---- the Neural dimension ----
+    (name: "The Callosum", subtitle: Some("The Neural Dimension"), rooms: ["neural_callosum"]),
+    (name: "The Neural Cathedral", subtitle: Some("The Cortex"), rooms: ["neural_cathedral"]),
+    (name: "The Weights", subtitle: Some("The Neural Dimension"), rooms: ["neural_weights"]),
+    (name: "The Echo Chamber", subtitle: Some("The Weights"), rooms: ["neural_echo_chamber"]),
 ]

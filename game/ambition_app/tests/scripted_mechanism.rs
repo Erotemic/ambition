@@ -25,10 +25,12 @@ fn declare() {
             #{tag: 2, name: "created", kind: "u32"},
             #{tag: 3, name: "refused", kind: "u32"},
             #{tag: 4, name: "message", kind: "text 256"},
+            #{tag: 5, name: "first", kind: "opt object"},
+            #{tag: 6, name: "retired", kind: "bool"},
         ]},
     ], entries: [
         #{key: "tick", phase: "actor_think", trigger: #{port: "story_tick", selector: "intro_wake_room"},
-          writes: ["memory"], requests: ["create_mechanism"], limit: 3},
+          writes: ["memory"], requests: ["create_mechanism", "retire_creation"], limit: 4},
         #{key: "result", phase: "actor_think", trigger: #{port: "action_result", selector: "result"}, writes: ["memory"]},
     ]}
 }
@@ -39,6 +41,13 @@ fn lift_and_call(request, x, floor, sends) {
       switches: [#{key: "call", at: [x - 90.0, floor - 16.0], sends: #{local: sends}}]}
 }
 fn tick() {
+    // The first copy's switch leaves the world; the second copy keeps working.
+    if this.trigger.flags.contains("mechanism_retire") && !this.state.memory.retired {
+        this.state.memory.retired = true;
+        this.requests.push(request("retire_creation", #{object: this.state.memory.first,
+            reply: #{request: 9, selector: "mechanism_probe::yard/result"}}));
+        return;
+    }
     if !this.trigger.flags.contains("mechanism_begin") || this.state.memory.sent { return; }
     this.state.memory.sent = true;
     let p = this.trigger.bodies[0].position;
@@ -49,7 +58,10 @@ fn tick() {
 }
 fn result() {
     if !this.trigger.terminal { return; }
-    if this.trigger.code == "mechanism_created" { this.state.memory.created += 1; }
+    if this.trigger.code == "mechanism_created" {
+        this.state.memory.created += 1;
+        if this.trigger.ticket.request == 1 { this.state.memory.first = this.trigger.subjects[0].object; }
+    }
     if this.trigger.code == "mechanism_refused" {
         this.state.memory.refused += 1;
         this.state.memory.message = this.trigger.message;
@@ -156,5 +168,30 @@ fn a_scripted_mechanism_binds_each_switch_to_its_own_lift() {
         "the pressed switch did not send its own lift to the far stop"
     );
     assert_eq!(lift(&mut sim, &second.1), Some(second_rest), "the press sent the other copy's lift");
+
+    // Retire the first copy's switch (still under sync-test rollback): it
+    // leaves, its lift stays parked, and the second copy's switch still sends
+    // only its own lift.
+    sim.world_mut()
+        .resource_mut::<ambition_platformer2d::session::AmbitionGameSave>()
+        .data_mut()
+        .set_flag("mechanism_retire", true);
+    // A rewind restores the save, so the flag joins the history as a new base.
+    sim.rebase_rollback_history().unwrap();
+    sim.step_n(AgentAction::default(), 8);
+    let left = switches(&mut sim);
+    assert_eq!(left.iter().map(|row| &row.0).collect::<Vec<_>>(), vec![&second.0], "only the first copy's switch left");
+    assert_eq!(lift(&mut sim, &first.1).map(|(_, stage)| stage), Some(Some(LiftStage::Parked)), "retiring the switch moved its lift");
+    sim.teleport_player(second.2);
+    sim.step(crate::common::base());
+    sim.step(AgentAction { interact: true, ..crate::common::base() });
+    for _ in 0..40 {
+        sim.step(crate::common::base());
+    }
+    assert_eq!(
+        lift(&mut sim, &second.1),
+        Some((second_rest.0 - 160.0, Some(LiftStage::Parked))),
+        "after the other copy's retirement, the second switch did not send its own lift"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }

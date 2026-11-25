@@ -273,7 +273,8 @@ value as completion of that owner's contract.
    day: one scripted request builds lifts and the switches that send them,
    bound by local key, with two copies in one room kept apart. Open: the
    door, which needs a per-instance owner; lift occurrences; the
-   second-instance and save/restore witnesses.) Producer-validity delegation
+   second-instance witness, which waits on two concurrent copies of one
+   room. Rollback through one child's retirement is witnessed.) Producer-validity delegation
    follows the existing [asset owner](engine/asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings).
 5. [Body anchors A1/A2](engine/body-anchor-bindings.md#delivery-packets-and-proof)
    replace private saddle/capture point conversion with two independently

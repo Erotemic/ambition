@@ -202,7 +202,11 @@ Witness: `a_scripted_mechanism_binds_each_switch_to_its_own_lift`
 (`scripted_mechanism`, under sync-test rollback). Two copies made with the
 same keys in one room each bind their switch to their own lift. A player's
 press on the first sends only its lift, which parks at its far stop. A third
-request with a dangling key is refused whole.
+request with a dangling key is refused whole. Then the caller retires the
+first copy's switch (`retire_creation`) under the same rollback. It leaves,
+its lift stays where it was, and the second copy's switch still sends only
+its own lift: a rollback through one child's retirement leaves the other
+instance alone.
 
 Still open:
 - the door. A gated lock wall or a loading-zone door is authored room data
@@ -210,8 +214,11 @@ Still open:
   per-instance owner first;
 - a lift has no object occurrence, so it cannot be retired alone, and its
   identity follows request order;
-- the third copy in a second live instance of the same room;
-- save/restore through one child's retirement.
+- the third copy in a second live instance of the same authored room. This
+  waits on the session: nothing yet makes two copies of one room live at
+  once (the re-entry witness `a5ad66041` records that as open). The per-room
+  binding is already witnessed across two different live rooms
+  (`a_lift_switch_sends_only_the_lift_in_its_own_live_room`).
 
 ### W3 — expose placement and reuse through existing authoring tools
 

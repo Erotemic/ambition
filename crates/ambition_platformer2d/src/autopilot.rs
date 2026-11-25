@@ -332,7 +332,7 @@ pub fn drive_autopilot(
         }
         AutopilotOrder::GoTo(goal) => goal,
     };
-    let (now, dt) = (clock.now, clock.dt);
+    let dt = clock.dt;
     let Ok((entity, (kin, ground, wall, model, abilities, base_size, frame, in_room, flight))) = players.single() else {
         script.0 = pilot.edges(LegInput::default());
         return;
@@ -514,7 +514,6 @@ pub fn drive_autopilot(
     }
     pilot.retry_in = pilot.retry_in.saturating_sub(1);
     let facts = FollowFacts {
-        now,
         leg: LegFacts {
             feet,
             vel: kin.vel,
@@ -535,7 +534,7 @@ pub fn drive_autopilot(
         Followed::Idle => AutopilotStatus::Idle,
         Followed::Going => AutopilotStatus::Going,
         Followed::Arrived => AutopilotStatus::Arrived,
-        Followed::GaveUp => {
+        Followed::NoRoute | Followed::ExecutionFailed => {
             pilot.retry_in = RETRY_FRAMES;
             AutopilotStatus::NoRoute
         }

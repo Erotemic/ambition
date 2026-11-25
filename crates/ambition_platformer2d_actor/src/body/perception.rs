@@ -10,6 +10,10 @@ use ae::AabbExt;
 use ambition_platformer2d_core as ae;
 
 use ambition_characters::actor::ActorFaction;
+use ambition_characters::brain::Brain;
+use ambition_characters::perception::{ModuleObservation, PerceptionRequirement};
+use ambition_platformer2d_shared_tangle::lifecycle::{FeatureSimEntity, LiveRoomInstance, LiveRooms};
+use bevy::prelude::{Entity, Query, ResMut, With, Without};
 use ambition_characters::perception::{
     BodyPhase, PerceivedActor, PerceivedPortal, PerceivedProjectile, PerceivedSolid, SelfView,
     SolidKind, StageView, Viewport, WorldView,
@@ -254,6 +258,10 @@ pub struct PerceptionPeers {
 }
 
 impl PerceptionPeers {
+    pub fn row_count(&self) -> usize {
+        self.rows.len()
+    }
+
     fn peer(&self, entity: bevy::prelude::Entity) -> Option<&PerceptionPeer> {
         let index = self.by_entity.binary_search_by_key(&entity, |(entity, _)| *entity).ok()?;
         self.rows.get(self.by_entity[index].1)
@@ -379,37 +387,90 @@ fn body_invulnerable(combat: Option<&ambition_characters::actor::BodyCombat>) ->
     combat.is_some_and(|c| c.damage_invuln_timer > 0.0)
 }
 
-pub fn collect_perception_peers(
-    mut peers: bevy::prelude::ResMut<PerceptionPeers>,
-    bodies: bevy::prelude::Query<(
-        bevy::prelude::Entity,
-        Option<&ambition_combat::components::FeatureId>,
-        // ⛔⛤ **THE PEER-STABLE FALLBACK, AND IT IS HERE BECAUSE THE OLD ONE WAS
-        // AN ECS ENTITY INDEX.** See the id assignment below.
-        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-        &ambition_platformer2d_core::BodyKinematics,
-        &ambition_characters::actor::BodyHealth,
-        &ActorFaction,
-        Option<&ae::BodyGroundState>,
-        Option<&ae::BodyShieldState>,
-        Option<&ambition_characters::actor::BodyCombat>,
-        ambition_combat::moveset::MeleeSwingQuery,
-        // The match team, so hostility can follow the same precedence the DAMAGE
-        // rule follows. `None` for anything not seated in a match, which is most
-        // of the world.
-        Option<&ambition_combat::targeting::MatchTeam>,
-        // The published motion facts, for the two a watcher can see: tumbling,
-        // and hanging on a ledge.
-        Option<&ae::BodyMotionFacts>,
-        // ⭐ HOW HEAVY THIS BODY IS. `None` is the reference body, which is the
-        // same answer `knockback_growth_inputs` gives a body with no tuning.
-        Option<&ambition_combat::components::CombatTuning>,
-        // The body's own frame: its facing and its swing are along it.
-        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-        // Its repertoire: how far it threatens before it swings.
-        Option<bevy::prelude::Ref<ambition_combat::moveset::ActorMoveset>>,
+pub(crate) fn read_requirement(brain: &Brain, module: Option<&ModuleObservation>) -> PerceptionRequirement {
+    brain.perception_requirement().union(module.map_or(PerceptionRequirement::None, |module| module.demand))
+}
+
+pub(crate) fn fresh_requirement(brain: &Brain, module: Option<&ModuleObservation>) -> PerceptionRequirement {
+    if brain.retains_target_belief() {
+        module.map_or(PerceptionRequirement::None, |module| module.demand)
+    } else {
+        read_requirement(brain, module)
+    }
+}
+
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct PerceptionReaders<'w, 's> {
+    actors: Query<'w, 's, (Entity, &'static Brain, Option<&'static ModuleObservation>), (
+        With<FeatureSimEntity>,
+        Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+        Without<ambition_characters::control::DrivingParticipant>,
+        Without<super::dormancy::Dormant>,
+        Without<ambition_boss_encounter::BossConfig>,
     )>,
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+}
+
+impl PerceptionReaders<'_, '_> {
+    fn rooms(
+        &self,
+        rooms: &LiveRooms,
+        reads: impl Fn(PerceptionRequirement) -> bool,
+    ) -> std::collections::BTreeSet<Option<LiveRoomInstance>> {
+        self.actors.iter().filter_map(|(entity, brain, module)| {
+            reads(fresh_requirement(brain, module)).then(|| rooms.of(entity))
+        }).collect()
+    }
+}
+
+type PeerRead = (
+    Entity,
+    Option<&'static ambition_combat::components::FeatureId>,
+    // ⛔⛤ **THE PEER-STABLE FALLBACK, AND IT IS HERE BECAUSE THE OLD ONE WAS
+    // AN ECS ENTITY INDEX.** See the id assignment below.
+    Option<&'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
+    &'static ambition_platformer2d_core::BodyKinematics,
+    &'static ambition_characters::actor::BodyHealth,
+    &'static ActorFaction,
+    Option<&'static ae::BodyGroundState>,
+    Option<&'static ae::BodyShieldState>,
+    Option<&'static ambition_characters::actor::BodyCombat>,
+    ambition_combat::moveset::MeleeSwingQuery,
+    // The match team, so hostility can follow the same precedence the DAMAGE
+    // rule follows. `None` for anything not seated in a match, which is most
+    // of the world.
+    Option<&'static ambition_combat::targeting::MatchTeam>,
+    // The published motion facts, for the two a watcher can see: tumbling,
+    // and hanging on a ledge.
+    Option<&'static ae::BodyMotionFacts>,
+    // ⭐ HOW HEAVY THIS BODY IS. `None` is the reference body, which is the
+    // same answer `knockback_growth_inputs` gives a body with no tuning.
+    Option<&'static ambition_combat::components::CombatTuning>,
+    // The body's own frame: its facing and its swing are along it.
+    Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    // Its repertoire: how far it threatens before it swings.
+    Option<bevy::prelude::Ref<'static, ambition_combat::moveset::ActorMoveset>>,
+);
+
+pub fn collect_perception_peers(
+    mut peers: ResMut<PerceptionPeers>,
+    bodies: Query<PeerRead>,
+    rooms: LiveRooms,
+    readers: PerceptionReaders,
+) {
+    let required = readers.rooms(&rooms, PerceptionRequirement::needs_target_belief);
+    if required.is_empty() {
+        peers.rows.clear();
+        peers.by_entity.clear();
+    } else {
+        collect_peer_rows(&mut peers, &bodies, &rooms, |room| required.contains(&room));
+    }
+}
+
+fn collect_peer_rows(
+    peers: &mut PerceptionPeers,
+    bodies: &Query<PeerRead>,
+    rooms: &LiveRooms,
+    required: impl Fn(Option<LiveRoomInstance>) -> bool,
 ) {
     use bevy::prelude::DetectChanges;
     let mut count = 0;
@@ -429,8 +490,12 @@ pub fn collect_perception_peers(
         tuning,
         frame,
         moveset,
-    ) in &bodies
+    ) in bodies
     {
+        let room = rooms.of(entity);
+        if !required(room) {
+            continue;
+        }
         // Perception memory is rollback state. Its keys must be stable
         // across peers: prefer FeatureId, then SimId. Never fall back to
         // the ECS Entity index, which depends on local allocation order.
@@ -504,7 +569,7 @@ pub fn collect_perception_peers(
             damage_taken: health.damage_taken(),
             health_max: health.max(),
             team,
-            room: rooms.of(entity),
+            room,
         };
         if count < peers.rows.len() {
             peers.rows[count] = peer;
@@ -518,7 +583,7 @@ pub fn collect_perception_peers(
     // run (`PerceivedWorld::peers_in`). The sort is stable: the order inside
     // a room is the order the query gave, as it was before.
     peers.rows.sort_by_key(|peer| peer.room);
-    let PerceptionPeers { rows, by_entity } = &mut *peers;
+    let PerceptionPeers { rows, by_entity } = peers;
     by_entity.clear();
     by_entity.extend(rows.iter().enumerate().map(|(index, peer)| (peer.entity, index)));
     by_entity.sort_unstable_by_key(|(entity, _)| *entity);
@@ -538,31 +603,47 @@ pub struct PerceptionProjectiles(pub Vec<PerceptionProjectile>);
 /// part of perception: an open-visual projectile can be friendly, and a named
 /// projectile can be hostile after a reflect. An unstamped environmental shot
 /// carries `None`, matching the stepper's indiscriminate ownerless semantics.
+type ProjectileRead = (
+    Entity,
+    &'static ambition_platformer2d_core::BodyKinematics,
+    &'static ambition_projectiles::ProjectileGameplay,
+    Option<&'static ambition_combat::allegiance::AttackAllegiance>,
+    Option<&'static ambition_projectiles::ProjectileOwner>,
+);
+
 pub fn collect_perception_projectiles(
-    mut out: bevy::prelude::ResMut<PerceptionProjectiles>,
-    live: bevy::prelude::Query<
-        (
-            bevy::prelude::Entity,
-            &ambition_platformer2d_core::BodyKinematics,
-            &ambition_projectiles::ProjectileGameplay,
-            Option<&ambition_combat::allegiance::AttackAllegiance>,
-            Option<&ambition_projectiles::ProjectileOwner>,
-        ),
-        bevy::prelude::With<ambition_projectiles::LiveProjectile>,
-    >,
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    mut out: ResMut<PerceptionProjectiles>,
+    live: Query<ProjectileRead, With<ambition_projectiles::LiveProjectile>>,
+    rooms: LiveRooms,
+    readers: PerceptionReaders,
+) {
+    let required = readers.rooms(&rooms, |need| need == PerceptionRequirement::TacticalWorld);
+    if required.is_empty() {
+        out.0.clear();
+    } else {
+        collect_projectile_rows(&mut out, &live, &rooms, |room| required.contains(&room));
+    }
+}
+
+fn collect_projectile_rows(
+    out: &mut PerceptionProjectiles,
+    live: &Query<ProjectileRead, With<ambition_projectiles::LiveProjectile>>,
+    rooms: &LiveRooms,
+    required: impl Fn(Option<LiveRoomInstance>) -> bool,
 ) {
     out.0.clear();
-    for (shot, kin, game, allegiance, owner) in &live {
+    for (shot, kin, game, allegiance, owner) in live {
+        let room = rooms.stamped(shot).or_else(|| rooms.of(owner.map_or(shot, |owner| owner.0)));
+        if !required(room) {
+            continue;
+        }
         out.0.push(PerceptionProjectile {
             pos: kin.pos,
             vel: kin.vel,
             damage: game.damage,
             faction: allegiance.map(|side| side.effective_faction()),
             team: allegiance.and_then(|side| side.team.clone()),
-            room: rooms
-                .stamped(shot)
-                .or_else(|| rooms.of(owner.map_or(shot, |owner| owner.0))),
+            room,
         });
     }
     // Grouped by room, as the peers are.
@@ -679,22 +760,42 @@ pub fn remember_who_struck_it(
     perceived: PerceivedWorld,
     sim_clock: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_time::GameplayElapsed>,
     mut memories: bevy::prelude::Query<&mut ambition_characters::perception::PerceptionMemory>,
+    strikers: Query<(
+        Option<&ambition_combat::components::FeatureId>,
+        Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
+        &ae::BodyKinematics,
+        &ambition_characters::actor::BodyHealth,
+        &ActorFaction,
+    )>,
 ) {
     for hit in hits.read() {
         let Some(attacker) = hit.attacker.filter(|attacker| *attacker != hit.victim) else {
             continue;
         };
-        let (Some(striker), Ok(mut memory)) = (perceived.peer(attacker), memories.get_mut(hit.victim)) else {
+        let Ok(mut memory) = memories.get_mut(hit.victim) else {
             continue;
         };
+        let facts = if let Some(striker) = perceived.peer(attacker) {
+            (striker.id.as_str(), striker.pos, striker.vel, striker.faction, striker.alive)
+        } else {
+            // A resolved hit can supply evidence in a room with no viewer.
+            let Ok((id, sim_id, kin, health, faction)) = strikers.get(attacker) else {
+                continue;
+            };
+            let Some(id) = id.map(|id| id.as_str()).or_else(|| sim_id.map(|id| id.as_str())) else {
+                continue;
+            };
+            (id, kin.pos, kin.vel, *faction, health.alive())
+        };
+        let (id, pos, vel, faction, alive) = facts;
         memory.0.struck_by(
-            &striker.id,
+            id,
             ambition_characters::perception::RememberedActor {
-                pos: striker.pos,
-                vel: striker.vel,
-                faction: striker.faction,
+                pos,
+                vel,
+                faction,
                 hostile_to_self: true,
-                alive: striker.alive,
+                alive,
                 last_seen: sim_clock.0,
                 confidence: 1.0,
                 source: ambition_characters::perception::EvidenceSource::Hit,
@@ -1417,7 +1518,7 @@ pub(crate) fn perceive_for_decision(
     let believed = belief_from_nearest(
         perception,
         cheap.nearest_hostile.map(|p| p.pos),
-        memory.as_deref_mut(),
+        memory.as_deref(),
     );
     note_world_view(ViewSample {
         offered: peers.len(),
@@ -1442,7 +1543,7 @@ pub(crate) fn believed_target(
     if let Some(mem) = memory.as_deref_mut() {
         mem.0.update(view, cut, dt);
     }
-    belief_from_nearest(policy, view.nearest_hostile().map(|a| a.pos), memory)
+    belief_from_nearest(policy, view.nearest_hostile().map(|a| a.pos), memory.as_deref())
 }
 
 /// The belief itself, once the fold has happened and the nearest hostile is
@@ -1459,7 +1560,7 @@ pub(crate) fn believed_target(
 pub(crate) fn belief_from_nearest(
     policy: Perception,
     nearest_hostile: Option<ae::Vec2>,
-    memory: Option<&mut ambition_characters::perception::PerceptionMemory>,
+    memory: Option<&ambition_characters::perception::PerceptionMemory>,
 ) -> Option<Option<ae::Vec2>> {
     match policy {
         Perception::Omniscient => None,
@@ -1467,9 +1568,7 @@ pub(crate) fn belief_from_nearest(
         // the body REMEMBERS — pursuit of one that left the viewport (invariant
         // I6).
         Perception::Sighted { .. } => Some(nearest_hostile.or_else(|| {
-            memory
-                .as_deref()
-                .and_then(|m| m.0.last_known_hostile().map(|r| r.pos))
+            memory.and_then(|m| m.0.last_known_hostile().map(|r| r.pos))
         })),
     }
 }

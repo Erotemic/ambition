@@ -17,10 +17,10 @@
 use std::collections::BTreeMap;
 
 use ambition_platformer2d_core as ae;
-use ae::navigation::{ErrandSight, NavAdvice, NavNext};
+use ae::navigation::{ErrandSight, NavAdvice, NavNext, NavigationMethod, NavigationTask, RouteWait};
 use ae::Vec2;
 use ambition_characters::brain::ApproachDemand;
-use ambition_platformer2d_world::navigation::{GroundMap, NavGraph, NavGraphCache, NavGraphKey};
+use ambition_platformer2d_world::navigation::{GroundMap, NavGraph, NavGraphCache, NavGraphKey, RefinementWork};
 use bevy::prelude::{Entity, Query, ResMut, Resource};
 
 /// How far beside its target a body stands, past its own width (px).
@@ -29,6 +29,7 @@ const TARGET_ROOM: f32 = 12.0;
 const TARGET_DEPTH: f32 = 160.0;
 /// The most graphs kept: rooms times body tunings that navigate in them.
 const GRAPHS_KEPT: usize = 16;
+const REFINEMENTS_PER_LEG: usize = 4;
 
 /// This tick's advice, by body. Written again each tick, before the brains
 /// decide; a body with no entry has the default (no place, no answer).
@@ -63,6 +64,7 @@ pub struct RoomNavigation {
     /// geometry is written.
     stamps: ambition_platformer2d_world::navigation::GeometryStamps,
     questions: u64,
+    refinement: RefinementWork,
 }
 
 impl Default for RoomNavigation {
@@ -73,6 +75,7 @@ impl Default for RoomNavigation {
             by_body: BTreeMap::new(),
             stamps: Default::default(),
             questions: 0,
+            refinement: RefinementWork::default(),
         }
     }
 }
@@ -88,6 +91,18 @@ impl RoomNavigation {
 
     pub fn motion_measures(&self) -> u64 {
         self.graphs.motion_measures()
+    }
+
+    pub fn builds(&self) -> u64 {
+        self.graphs.builds()
+    }
+
+    pub fn preparation_work(&self) -> ambition_platformer2d_world::navigation::graph::BuildCost {
+        self.graphs.preparation_work()
+    }
+
+    pub fn refinement_work(&self) -> RefinementWork {
+        self.refinement
     }
 
     /// How many graphs are kept. For tests and instruments.
@@ -142,35 +157,40 @@ enum TaskPlace {
 
 impl Default for TaskPlace {
     fn default() -> Self {
-        Self::Result(ErrandSight::None)
+        Self::Result(ErrandSight::NoRequest)
     }
 }
 
 impl TaskPlace {
-    /// `None` means this method could not answer the task's question.
     fn sight(
         self,
         map: &GroundMap,
         feet: Vec2,
-        reaches: impl FnOnce(usize, usize, Vec2) -> bool,
-    ) -> Option<ErrandSight> {
+        failed_goal: Option<Vec2>,
+        check: impl FnOnce(usize, usize, Vec2) -> Result<(), ErrandSight>,
+    ) -> ErrandSight {
         let (target, depth) = match self {
-            Self::Result(result) => return Some(result),
+            Self::Result(result) => return result,
             Self::InRoom(point) => (point, TARGET_DEPTH),
             Self::Door { point, depth } => (point, depth),
         };
         let Some(from) = map.surface_at(feet) else {
-            return Some(ErrandSight::None);
+            return ErrandSight::Waiting(RouteWait::Unsupported);
         };
-        let to = map.surface_under(target, depth)?;
+        let Some(to) = map.surface_under(target, depth) else {
+            return ErrandSight::Waiting(RouteWait::Unsupported);
+        };
         let place = map.point_on(to, map.frame.along(target));
-        if !reaches(from, to, place) {
-            return None;
+        if failed_goal == Some(place) {
+            return ErrandSight::ExecutionFailed;
         }
-        Some(match self {
+        if let Err(result) = check(from, to, place) {
+            return result;
+        }
+        match self {
             Self::Door { .. } => ErrandSight::Door(place),
             _ => ErrandSight::At(place),
-        })
+        }
     }
 }
 
@@ -181,7 +201,6 @@ pub fn advise_navigation(
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     time: bevy::prelude::Res<ambition_time::WorldTime>,
-    elapsed: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ambition_time::GameplayElapsed>,
     // The room graph and the live rooms, for an errand item in another room.
     specs: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     mut cache: ResMut<RoomNavigation>,
@@ -230,7 +249,11 @@ pub fn advise_navigation(
     cache.graphs.begin_demand();
     cache.by_body.clear();
     for (entity, brain, model, abilities, kinematics, ground, base_size, frame, target, errand, visit, config, origin, (dormant, driven)) in &bodies {
-        let Some(mut request) = brain.navigation_request(elapsed.0, ground.on_ground) else {
+        let dt = time.sim_dt() * freeze.scale_of(entity);
+        if dt <= 0.0 {
+            continue;
+        }
+        let Some(mut request) = brain.navigation_request(dt, ground.on_ground) else {
             continue;
         };
         // A body the movement kernel has not stepped yet has the motion model
@@ -240,9 +263,6 @@ pub fn advise_navigation(
         // build for nothing (measured: 54 to 112 ms for each dog). The kernel
         // marks the body's ground contact on that first step.
         if !ground.contact_initialized {
-            continue;
-        }
-        if time.sim_dt() <= 0.0 || freeze.scale_of(entity) <= 0.0 {
             continue;
         }
         if dormant || driven {
@@ -274,10 +294,24 @@ pub fn advise_navigation(
             at.distance(physical_feet) <= radius + slack
         });
         let route_goal = request.next_leg.filter(|_| ground.on_ground);
-        let task_needs_place = ground.on_ground && (pending_errand.is_some() || pending_visit.is_some());
+        let task_kind = pending_errand.map(|_| NavigationTask::Fetch)
+            .or_else(|| pending_visit.map(|_| NavigationTask::Visit));
+        let method = if task_kind.is_some() { NavigationMethod::SimulationBacked } else { request.method };
+        let task_needs_place = ground.on_ground && task_kind.is_some();
+        let failed_task_goal = request.failed_task_goal
+            .filter(|(kind, _)| task_kind == Some(*kind))
+            .map(|(_, place)| place);
+        let waiting = |reason| NavAdvice {
+            feet: physical_feet,
+            goal: request.next_leg,
+            next: request.next_leg.map_or(NavNext::NoRequest, |_| NavNext::Waiting(reason)),
+            errand: if task_kind.is_some() { ErrandSight::Waiting(reason) } else { ErrandSight::NoRequest },
+            task: task_kind,
+            ..NavAdvice::default()
+        };
         if route_goal.is_none() && request.destination_seed.is_none() && attended.is_none() && !task_needs_place {
-            if request.following_leg {
-                advice.by_body.insert(entity, NavAdvice { feet: physical_feet, ..NavAdvice::default() });
+            if request.following_leg || request.next_leg.is_some() || task_kind.is_some() {
+                advice.by_body.insert(entity, waiting(RouteWait::NotApplicable));
             }
             continue;
         }
@@ -289,6 +323,7 @@ pub fn advise_navigation(
             .stamped(entity)
             .map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
         let Some(room) = collision.room(stamp.as_ref()) else {
+            advice.by_body.insert(entity, waiting(RouteWait::Deferred));
             continue;
         };
         let world = room.base();
@@ -332,12 +367,17 @@ pub fn advise_navigation(
                 },
             )
         } else {
-            TaskPlace::default()
+            TaskPlace::Result(waiting(RouteWait::NotApplicable).errand)
         };
         let key = NavGraphKey::from_stamp(stamp, model.spec(), abilities.abilities,
             kinematics.canonical_size, kinematics.material, *base_size, frame.get());
+        let key = match method {
+            NavigationMethod::Approximate | NavigationMethod::Hybrid => key.estimated(),
+            NavigationMethod::ConnectedGround => key.connected_ground(),
+            _ => key,
+        };
         let Some(map) = cache.graphs.ground(&key, world) else {
-            advice.by_body.insert(entity, NavAdvice { feet: physical_feet, ..NavAdvice::default() });
+            advice.by_body.insert(entity, waiting(RouteWait::Unsupported));
             continue;
         };
         let feet = if ground.on_ground && map.surface_at(physical_feet).is_none() {
@@ -349,23 +389,44 @@ pub fn advise_navigation(
         };
 
         let mut next = route_goal.and_then(|goal| map.walk(physical_feet, goal));
-        let mut waypoints = request.destination_seed.and_then(|seed| map.only_support_waypoints(physical_feet, seed));
+        let mut waypoints = request.destination_seed.and_then(|seed| {
+            if method == NavigationMethod::LocalGround {
+                map.local_waypoints(physical_feet, seed)
+            } else {
+                map.only_support_waypoints(physical_feet, seed)
+            }
+        });
         let beside = size.x + TARGET_ROOM;
         let approach = attended.and_then(|at| map.approach(feet, at, beside, TARGET_DEPTH));
         let target_shares_surface = approach.is_some_and(|(from, to, _)| from == to);
         let mut target_place = approach.and_then(|(from, to, place)| {
             (from == to && map.walk(physical_feet, place).is_some()).then_some(place)
         });
-        let mut errand = task.sight(&map, feet, |_, _, place| map.walk(physical_feet, place).is_some());
-        if (route_goal.is_some() && next.is_none())
-            || (request.destination_seed.is_some() && waypoints.is_none())
-            || (approach.is_some() && target_place.is_none())
-            || errand.is_none()
+        let mut task_needs_graph = false;
+        let mut errand = task.sight(&map, feet, failed_task_goal, |_, _, place| {
+            if map.walk(physical_feet, place).is_some() {
+                Ok(())
+            } else {
+                task_needs_graph = true;
+                Err(ErrandSight::Waiting(RouteWait::Unsupported))
+            }
+        });
+        let route_needs_graph = next.is_none() && route_goal.is_some_and(|goal| map.surface_at(goal).is_some());
+        let roaming_needs_graph = request.destination_seed.is_some() && waypoints.is_none();
+        if method != NavigationMethod::LocalGround
+            && ((map.surface_at(feet).is_some() && (route_needs_graph || roaming_needs_graph))
+                || (approach.is_some() && target_place.is_none())
+                || task_needs_graph)
         {
             cache.by_body.insert(entity, key);
+            let mut refine = None;
             if let Some(graph) = cache.graph_of(world, key) {
                 if let Some(goal) = route_goal.filter(|_| next.is_none()) {
-                    next = Some(graph.next(feet, goal));
+                    if method == NavigationMethod::Hybrid {
+                        refine = Some(goal);
+                    } else {
+                        next = Some(graph.next(feet, goal));
+                    }
                 }
                 if let Some(seed) = request.destination_seed.filter(|_| waypoints.is_none()) {
                     waypoints = Some(graph.waypoints(feet, seed));
@@ -375,22 +436,27 @@ pub fn advise_navigation(
                         target_place = Some(place);
                     }
                 }
-                if errand.is_none() {
-                    errand = task.sight(&map, feet, |from, to, _| graph.reaches(from, to))
-                        .or(Some(ErrandSight::NoRoute));
+                if task_needs_graph {
+                    errand = task.sight(&map, feet, failed_task_goal, |from, to, _| {
+                        graph.reaches(from, to).then_some(()).ok_or(ErrandSight::NoRoute)
+                    });
                 }
+            }
+            if let Some(goal) = refine {
+                let (answer, work) = cache.graphs.refined_next(key, world, &[], feet, goal, REFINEMENTS_PER_LEG);
+                next = Some(answer);
+                cache.refinement.add(work);
             }
         }
         let (waypoints, waypoint_count) = waypoints.unwrap_or_default();
         advice.by_body.insert(entity, NavAdvice {
-            errand: errand.unwrap_or(ErrandSight::None),
-            feet: physical_feet,
+            errand,
             waypoints,
             waypoint_count,
-            goal: route_goal,
-            next: next.unwrap_or(NavNext::Unknown),
+            next: next.unwrap_or_else(|| waiting(if ground.on_ground { RouteWait::Unsupported } else { RouteWait::NotApplicable }).next),
             target_place,
             target_shares_surface,
+            ..waiting(RouteWait::Unsupported)
         });
     }
     cache.stamps.retire_unused();

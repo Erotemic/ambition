@@ -48,6 +48,7 @@ impl Errand {
             ErrandOutcome::Refused(ErrandRefusal::NoRoute) => 2,
             ErrandOutcome::Refused(ErrandRefusal::Gone) => 3,
             ErrandOutcome::Refused(ErrandRefusal::HandFull) => 4,
+            ErrandOutcome::Refused(ErrandRefusal::ExecutionFailed) => 5,
         };
         ae::navigation::mix(named ^ outcome)
     }
@@ -69,6 +70,8 @@ pub enum ErrandRefusal {
     /// route of rooms leads into (another live instance of the body's own
     /// room, or past a room that is live twice).
     NoRoute,
+    /// The actor could not complete the route after its permitted retries.
+    ExecutionFailed,
     /// The item lies nowhere the body could go for it: another body holds it,
     /// or no live room and no ledger row has it.
     Gone,
@@ -354,13 +357,15 @@ pub fn settle_errands(
                 errand.outcome = ErrandOutcome::Refused(ErrandRefusal::NoRoute);
                 continue;
             }
+            ErrandSight::ExecutionFailed => {
+                errand.outcome = ErrandOutcome::Refused(ErrandRefusal::ExecutionFailed);
+                continue;
+            }
             ErrandSight::Gone => {
                 errand.outcome = ErrandOutcome::Refused(ErrandRefusal::Gone);
                 continue;
             }
-            // Not looked at this tick (the body is in the air, or has not
-            // stepped yet): the errand waits.
-            ErrandSight::None => continue,
+            ErrandSight::NoRequest | ErrandSight::Waiting(_) => continue,
             // On the way to the zone that leads to the item.
             ErrandSight::Door(_) => continue,
             ErrandSight::At(_) => {}

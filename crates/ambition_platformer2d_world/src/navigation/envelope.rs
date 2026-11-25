@@ -243,12 +243,12 @@ impl TraversalEnvelope {
     /// Where the leading edge is when the falling jump arc comes down to
     /// `rise`: a landing surface must reach this far for the body to stay on it.
     pub fn landing_lead(&self, rise: f32) -> Option<f32> {
-        descending_crossing(&self.jump, rise)
+        descending_crossing(&self.jump, rise).map(|sample| sample.lead)
     }
 
     /// [`Self::landing_lead`] for the walk-off.
     pub fn drop_landing_lead(&self, rise: f32) -> Option<f32> {
-        descending_crossing(&self.drop, rise)
+        descending_crossing(&self.drop, rise).map(|sample| sample.lead)
     }
 }
 
@@ -312,13 +312,13 @@ fn arc_reaches(arc: &[ArcSample], gap: f32, rise: f32) -> bool {
     over_the_edge >= rise && descending_crossing(arc, rise).is_some()
 }
 
-/// The leading edge where the arc, falling, comes down through `rise`.
-fn descending_crossing(arc: &[ArcSample], rise: f32) -> Option<f32> {
+/// The point where the falling arc crosses `rise` and the step that contains it.
+pub(super) fn descending_crossing(arc: &[ArcSample], rise: f32) -> Option<ArcSample> {
     let mut previous = ArcSample { step: 0, lead: 0.0, rise: 0.0 };
     for sample in arc {
         if previous.rise >= rise && sample.rise < rise && sample.rise < previous.rise {
             let t = (previous.rise - rise) / (previous.rise - sample.rise);
-            return Some(previous.lead + (sample.lead - previous.lead) * t);
+            return Some(ArcSample { step: sample.step, lead: previous.lead + (sample.lead - previous.lead) * t, rise });
         }
         previous = *sample;
     }

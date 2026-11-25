@@ -474,10 +474,10 @@ fn walk(walker: &mut impl Walker, player: Entity, graph: &NavGraph, goal: ae::Ve
                     None => return Ok(step),
                 },
                 NavNext::Leg(next) => leg = Some((next, LegPhase::Approach)),
-                NavNext::Unreachable => return Err(format!("no route from {feet:?} to {goal:?} in `{from}`")),
+                NavNext::NoRoute => return Err(format!("no route from {feet:?} to {goal:?} in `{from}`")),
                 // On no surface of the graph: a platform that moves. Walk
                 // toward the goal, off it, to a surface the graph has.
-                NavNext::Unknown => press.axis = (goal - feet).dot(graph.ground.frame.side).signum(),
+                NavNext::NoRequest | NavNext::Waiting(_) => press.axis = (goal - feet).dot(graph.ground.frame.side).signum(),
             }
         }
         if let Some((current, phase)) = leg {
@@ -675,8 +675,8 @@ pub fn fight(
             if let Some(goal) = goal {
                 match graph.next(feet, goal) {
                     NavNext::Leg(next) => leg = Some((next, LegPhase::Approach)),
-                    NavNext::Arrived | NavNext::Unknown => press.axis = along.signum(),
-                    NavNext::Unreachable => return Err(format!("no route to a foe at {at:?} in `{room}` from {feet:?}")),
+                    NavNext::Arrived | NavNext::NoRequest | NavNext::Waiting(_) => press.axis = along.signum(),
+                    NavNext::NoRoute => return Err(format!("no route to a foe at {at:?} in `{room}` from {feet:?}")),
                 }
             }
         }

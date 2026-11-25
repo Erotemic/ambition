@@ -159,6 +159,8 @@ impl StateMachineCfg {
             Self::TurnToVisitors => Need::None,
             // Steers by wall contact and its own facing; names no target.
             Self::Wanderer { .. } => Need::None,
+            // Roam reads the navigation advice for its company and its goal.
+            Self::Roam { .. } => Need::None,
 
             // Reads the belief directly (`target_pos` / `target_alive`).
             Self::Patrol { .. }
@@ -166,9 +168,6 @@ impl StateMachineCfg {
             | Self::Sniper { .. }
             | Self::ChargeCrash { .. }
             | Self::Aerial { .. } => Need::TargetBelief,
-            // Faces a near target and can choose the place nearest it
-            // (`target_pos`, `target_alive`, `target_delta_local`).
-            Self::Roam { .. } => Need::TargetBelief,
             // Reads it through `to_character_ai_snapshot`.
             Self::MeleeBrute { .. } => Need::TargetBelief,
             // `tick.rs` copies `target_pos` into the boss pattern's own snapshot.

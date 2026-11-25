@@ -151,7 +151,10 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                     .run_if(sources_or_rows::<ambition_boss_encounter::BossConfig, BossRenderIndex>),
                 rebuild_boss_frame_index
                     .run_if(sources_or_rows::<ambition_boss_encounter::BossConfig, BossFrameIndex>),
-                rebuild_attack_vfx_views,
+                // A host with no character catalog (an SDK game) has no forms
+                // to resolve, and the system needs the catalog.
+                rebuild_attack_vfx_views.run_if(bevy::prelude::resource_exists::<
+                    ambition_characters::actor::character_catalog::CharacterCatalog>),
                 rebuild_combat_geometry_view,
             )
                 .after(Platformer2dSimulationPhase::FeatureViewSync)

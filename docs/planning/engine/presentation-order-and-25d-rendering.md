@@ -394,9 +394,17 @@ shared value preparation are sufficient until source proves otherwise.
    holder's item is in its seat. A shared load's string (`supported_carry`)
    was drawn at `WORLD_Z_PLAYER - 0.01` whatever the holder's foot depth; it
    is drawn just under the foot it hangs from (`UNDER_HOLDER`), or under the
-   holder's root when no foot is posed. Still open: bodies and features,
-   attachment order and an active rider on the vessel's placement, and the
-   private part-rank calculations.
+   holder's root when no foot is posed.
+
+   **One part-rank law (2026-11-25).** A body's own slots
+   (`write_slots`) and a reader's placed parts (`part_set::answer`) each
+   rebuilt a part's local transform and its rank `index × SLOT_DEPTH_STEP`.
+   Both now take it from `rigged::slot_local`, so a reader's copy of a part
+   cannot rank differently from the part it copies. No other actor renderer
+   computes a part rank (searched `ambition_render` for depth steps).
+
+   Still open: bodies and features, attachment order, and an active rider
+   on the vessel's placement.
 3. **RV1 — shared sample and view ownership.** Complete the needed PVS-2
    extraction, with the current 2D path as its first consumer. Separate
    camera/application and device roots by view/renderer. Remove the old

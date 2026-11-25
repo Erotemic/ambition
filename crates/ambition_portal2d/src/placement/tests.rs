@@ -718,3 +718,36 @@ fn exit_assistance_is_in_the_leaving_bodys_units() {
             "scale {scale} leaving at {leaving}: {out} against {}", tuning.min_exit_speed * leaving);
     }
 }
+
+/// Two aligned static pairs, A (x 0 to 100) and B (x 150 to 300): a small
+/// body that travels from x -10 to 70 in its own chart crosses A after 10 px,
+/// comes out at 100 with 70 px left, crosses B 50 px later and comes out at
+/// 300 with 20 px left, so it ends at 320 with its velocity. One map through
+/// A alone put it at 170, inside B's mouth. The budget admits two crossings;
+/// the default single hop crosses A only.
+#[test]
+fn a_body_crosses_two_pairs_in_one_tick() {
+    const TEAL: PortalChannel = PortalChannel::Authored(PortalChannelColor::Teal);
+    const RED: PortalChannel = PortalChannel::Authored(PortalChannelColor::Red);
+    let a = [wall_portal(PURPLE, Vec2::new(0.0, 0.0), Vec2::NEG_X), wall_portal(YELLOW, Vec2::new(100.0, 0.0), Vec2::X)];
+    let b = [wall_portal(TEAL, Vec2::new(150.0, 0.0), Vec2::NEG_X), wall_portal(RED, Vec2::new(300.0, 0.0), Vec2::X)];
+    let vel = Vec2::new(80.0 * 60.0, 0.0);
+    let composed = PortalTuning { geometry: crate::tuning::PortalGeometry::Composed { max_hops: 4, max_pieces: 32, max_scale_exponent: 12 }, ..PortalTuning::default() };
+    let portals = [a[0].clone(), a[1].clone(), b[0].clone(), b[1].clone()];
+    let step = |tuning: &PortalTuning| transit_step_with_tuning(
+        ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(70.0, 0.0), canonical_size: Vec2::splat(16.0), vel, ..Default::default() },
+        Some(ae::SweepSample { restriction: Default::default(), turn: None, down: Vec2::Y, travel: Default::default(), time: [0.0, 1.0],
+            prev: Vec2::new(-10.0, 0.0), curr: Vec2::new(70.0, 0.0), vel, material: Default::default(), half: Vec2::splat(8.0) }),
+        None, None, &portals, tuning);
+    let TransitStep::Transfer { transfer, .. } = step(&composed) else {
+        panic!("the body crosses A");
+    };
+    assert_eq!(transfer.entry_channel, PURPLE);
+    assert_eq!(transfer.exit_channel, RED, "the chain ends at B's exit");
+    assert!(transfer.exit_pos.distance(Vec2::new(320.0, 0.0)) < 1.0e-3, "got {:?}", transfer.exit_pos);
+    assert!(transfer.exit_vel.distance(vel) < 1.0e-2, "got {:?}", transfer.exit_vel);
+    // Control: a single-hop path crosses A only and ends 70 px past its exit.
+    let TransitStep::Transfer { transfer, .. } = step(&PortalTuning::default()) else { panic!("the body crosses A") };
+    assert_eq!(transfer.exit_channel, YELLOW);
+    assert!(transfer.exit_pos.distance(Vec2::new(170.0, 0.0)) < 1.0e-3, "got {:?}", transfer.exit_pos);
+}

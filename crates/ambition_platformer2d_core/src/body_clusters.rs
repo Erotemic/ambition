@@ -322,6 +322,34 @@ pub struct SweepSample {
     pub restriction: PortalRestriction,
 }
 
+/// The travel a body made this tick in the chart it left, up to its root
+/// crossing (portal M1). Transit restarts the body's [`SweepSample`] at the
+/// arrival, so a contact reader that queries the whole tick queries this
+/// prefix over `[time[0], crossing]` and the arrival only from the crossing on:
+/// a projectile can still meet the body before it crossed, and cannot meet it
+/// at the exit before it got there. The transit that moves a body writes it;
+/// every tick's transit clears it first, so no reader sees an older tick's.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
+pub struct CrossedTravel(pub SweepSample);
+
+impl CrossedTravel {
+    /// `sweep` cut at the crossing: its line up to `point`, reached at world
+    /// time `at`. `None` when the crossing lies outside the sample's interval.
+    pub fn up_to(sweep: SweepSample, point: Vec2, at: f64) -> Option<Self> {
+        (sweep.time[0] <= at && at <= sweep.time[1] && point.is_finite()).then(|| Self(SweepSample {
+            time: [sweep.time[0], at],
+            travel: LinearTravel::Complete,
+            curr: point,
+            ..sweep
+        }))
+    }
+
+    /// The arrival record restricted to the rest of the tick after the crossing.
+    pub fn after(&self, arrival: SweepSample) -> SweepSample {
+        SweepSample { time: [self.0.time[1].max(arrival.time[0]), arrival.time[1]], ..arrival }
+    }
+}
+
 impl Default for SweepSample {
     fn default() -> Self {
         Self { turn: None, travel: LinearTravel::Complete, material: Default::default(), time: [0.0, 1.0], prev: Vec2::ZERO, curr: Vec2::ZERO,

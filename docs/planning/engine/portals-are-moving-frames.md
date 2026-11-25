@@ -131,6 +131,35 @@ both crossings. One final map through A produces x=170. Canonical cells
 can describe both cuts; generic root state and its collapsed record cannot.
 Use a budget admitting two crossings when witnessing this case.
 
+**Landed (2026-11-25): contact reads the travel before the crossing.**
+Generic transit records the tick's travel up to the root crossing
+(`ae::CrossedTravel`: the body's sample cut at the crossing point and
+world time, in the chart it left). `clear_crossed_travel` runs before
+transit every tick, so no reader sees an older tick's, and the record is
+declared rollback-derived (`portal.crossed_travel`). `swept_body_contact`
+queries that prefix over `[t0, tau]` and the arrival record only over
+`[tau, 1]`. Probe (deleted): a shot where the body was before it crossed now
+hits (t 0.15, was a miss); a shot at the exit before the crossing no longer
+hits (was a hit at t 0); a later one at the exit hits from t 0.5. The
+strike-victim road (projectiles) passes the record; the boss feature road,
+held items and the pose-held/kernel-collapsed `reconcile_transit` seed are
+unchanged, and the next-step seed still restarts at the arrival.
+
+**Landed (2026-11-25): generic transit takes every root crossing the
+budget admits.** After a transfer, the rest of the tick is a straight leg in
+the exit's chart (from the mapped crossing point at `tau` to the transfer's
+end); `continue_after_crossing` searches that leg for the next root crossing
+(not the exit just left) and composes the transfers: one map, the last exit
+pair, the input warp of each hop, the final position and velocity. The
+hop budget is the portal geometry's (`PortalGeometry::budget().max_hops`), so
+the default single hop runs no extra search. Witness
+`placement/tests.rs::a_body_crosses_two_pairs_in_one_tick`: the pairs above,
+under a composed budget, end at x 320 with the entry velocity; under single
+hop the same travel ends at 170 through A only. Not covered: the leg between
+two crossings is in no contact record (`CrossedTravel` holds the travel
+before the first), and the kernel still integrates the whole tick in the
+entry chart (its material collision already threads both cuts).
+
 ### Refusal recovery can be overridden by later crossing discovery
 
 `platformer2d_core/src/movement/kernel.rs:182–198` retries a refused motion

@@ -569,7 +569,13 @@ pub fn portal_transit(
                 // An Ambition audio adapter plays the enter cue.
                 entered.write(super::messages::PortalBodyEntered { pos: portal_pos });
             }
-            TransitStep::Transfer {..} => {
+            TransitStep::Transfer {transfer,..} => {
+                // The tick's travel up to the crossing, for contact readers:
+                // the body's own record restarts at the arrival (M1).
+                if let Some(crossed)=sweep.and_then(|sweep| ae::CrossedTravel::up_to(
+                    sweep,transfer.crossing_point,transfer.crossing_time)) {
+                    commands.entity(entity).insert(crossed);
+                }
                 if let Some((flight,run))=flight.as_deref_mut().zip(carried_run) {flight.carried_run=run;}
                 commit_body_transfer(&mut commands,entity,&mut kin,acceleration.as_deref_mut(),
                     transit.as_deref_mut(),prepared.unwrap(),tuning.teleport_cooldown_s);
@@ -579,6 +585,16 @@ pub fn portal_transit(
                 commands.entity(entity).remove::<PortalTransit>();
             }
         }
+    }
+}
+
+/// Forget last tick's [`ae::CrossedTravel`] before this tick's transit writes
+/// its own, so a contact reader sees only the crossing of the tick it reads.
+/// It is derived state: a rewind need not restore it, because this runs before
+/// any reader in every tick.
+pub fn clear_crossed_travel(mut commands: Commands, crossed: Query<Entity, With<ae::CrossedTravel>>) {
+    for entity in &crossed {
+        commands.entity(entity).remove::<ae::CrossedTravel>();
     }
 }
 

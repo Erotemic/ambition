@@ -4467,6 +4467,7 @@ fn pending_generation_of(world: &mut bevy::ecs::world::World, pack: ambition_con
         bosses: None,
         audio: None,
         adaptive_cues: None,
+        sheets: None,
     });
 }
 

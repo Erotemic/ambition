@@ -261,6 +261,7 @@ impl DamageableVolumes {
         owner: Entity,
         body: Option<&ae::BodyKinematics>,
         motion: Option<&ae::SweepSample>,
+        crossed: Option<&ae::CrossedTravel>,
         geometry: Option<&ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>,
         room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
         cells: &ae::frame::material_cast::MaterialCastCells<'_>,
@@ -310,11 +311,18 @@ impl DamageableVolumes {
             && body.is_some_and(|body| sample.ending_at(body.pos).is_some()
                 && sample.turn.map_or(Ok(sample.material), |turn| sample.material.turned(turn.radians))
                     .map_or(true, |material| material == body.material)));
+        // A body that crossed a portal this tick was in the chart it left
+        // until the crossing, and at its arrival only from then on (M1).
+        let (lead, motion) = match (motion, crossed) {
+            (Some(sample), Some(crossed)) => (Some(crossed.0), Some(crossed.after(*sample))),
+            (sample, _) => (None, sample.copied()),
+        };
+        let samples = || lead.iter().chain(motion.iter());
         if let Ok(map) = self.material(body) {
             let possible = self.domains().iter().any(|domain| {
                 let Ok(bounds) = projected_bounds(domain, map) else { return true; };
                 let (mut min, mut max) = (bounds.min.as_dvec2(), bounds.max.as_dvec2());
-                if let Some(sample) = motion {
+                for sample in samples() {
                     let Ok(linear) = sample.material.at(ae::Vec2::ZERO) else { return true; };
                     let Ok(domain) = projected_bounds(domain, linear) else { return true; };
                     let radius = domain.min.as_dvec2().abs().max(domain.max.as_dvec2().abs()).length();
@@ -337,10 +345,10 @@ impl DamageableVolumes {
             });
             if !possible { return Ok(None); }
         }
-        if let Some(sample) = motion {
+        if motion.is_some() {
             let mut earliest: Option<BodySweepContact> = None;
             let policy = geometry.and_then(|geometry| geometry.motion_for(owner, room));
-            for domain in self.domains() {
+            for (sample, domain) in samples().flat_map(|sample| self.domains().iter().map(move |domain| (sample, domain))) {
                 let target = sample.material_cast(domain)?.cells(policy)?;
                 if let Some(hit) = cells.against_moving(&target)? {
                     if earliest.as_ref().is_none_or(|before| hit.toi < before.hit.toi) {
@@ -452,7 +460,7 @@ mod hurt_material_tests {
         let cells=ae::frame::material_cast::MaterialCast::new(ae::frame::thread::MaterialPrimitive {
             domain:&domain,to_world:source.material_map().map_err(numeric)? },source.pos,delta,0.0..1.0)
             .with_initial_overlap(ae::frame::material_cast::InitialOverlap::Report).cells(None)?;
-        hurt.swept_body_contact(owner,body,None,geometry,room,&cells)
+        hurt.swept_body_contact(owner,body,None,None,geometry,room,&cells)
     }
 
     fn box_hit(hurt: &DamageableVolumes, body: Option<&ae::BodyKinematics>, start: ae::Vec2, half: ae::Vec2, delta: ae::Vec2)
@@ -471,9 +479,9 @@ mod hurt_material_tests {
         let cells = ae::frame::material_cast::MaterialCast::new(ae::frame::thread::MaterialPrimitive::world(&source),
             ae::Vec2::ZERO, ae::Vec2::ZERO, 0.25..1.0).cells(None).unwrap();
         let hurt = DamageableVolumes::body_box(ae::Vec2::ONE);
-        assert!(hurt.swept_body_contact(Entity::PLACEHOLDER, Some(&body), None, None, None, &cells)
+        assert!(hurt.swept_body_contact(Entity::PLACEHOLDER, Some(&body), None, None, None, None, &cells)
             .unwrap().is_none());
-        let hit = hurt.swept_body_contact(Entity::PLACEHOLDER, Some(&body), Some(&sample), None, None, &cells)
+        let hit = hurt.swept_body_contact(Entity::PLACEHOLDER, Some(&body), Some(&sample), None, None, None, &cells)
             .unwrap().expect("the target crosses the shot before its final pose");
         assert!((hit.hit.world_time-0.4).abs() < 1.0e-10, "{hit:?}");
     }
@@ -512,7 +520,7 @@ mod hurt_material_tests {
             domain:&domain,to_world:source.material_map().unwrap() },source.pos,ae::Vec2::ZERO,0.0..1.0)
             .cells(geometry.motion_for(source_owner,None)).unwrap();
         let body=ae::BodyKinematics {pos:ae::Vec2::new(250.0,-100.0),..Default::default()};
-        assert!(hurt.swept_body_contact(owner,Some(&body),None,Some(&geometry),None,&cells).unwrap().is_none(),
+        assert!(hurt.swept_body_contact(owner,Some(&body),None,None,Some(&geometry),None,&cells).unwrap().is_none(),
             "the space between independent source cells is not a contact candidate");
     }
 

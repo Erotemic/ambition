@@ -401,7 +401,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // 545 -> 546: a roaming brain's state carries its clock, its next look and
 // its navigation task, and a nav follower its time left (bfb9e94fc and
 // a82dd1a95 changed these bytes without a bump; this one records them).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 546;
+// 546 -> 547: a body that crossed a root this tick carries the travel it made
+// before the crossing (`portal.crossed_travel`, derived), so contact reads the
+// tick's whole path across a portal (portal M1).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 547;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

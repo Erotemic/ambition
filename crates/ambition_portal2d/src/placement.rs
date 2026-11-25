@@ -467,11 +467,55 @@ fn swept_crossing_step(
             let carried = if (vel - frame.velocity_at(hit.root.point)).dot(frame.normal) < 0.0 {
                 vel
             } else { sweep.vel };
-            Some(transfer_step(hit, center, carried, body.material, tuning))
+            Some(continue_after_crossing(transfer_step(hit, center, carried, body.material, tuning),
+                sweep, &domain, portals, tuning))
         }
         Ok(None) => None,
         Err(refusal) => Some(TransitStep::Refused { channel: Some(refusal.channel), reason: refusal.reason }),
     }
+}
+
+/// Carry a transferred body through every further root it reaches before the
+/// tick ends. After a crossing the rest of the tick is a straight leg in the
+/// exit's chart, from where the root came out to where the transfer put it;
+/// a root crossing on that leg is taken as well, up to the body's hop budget,
+/// and the transfers compose into one. One map through the first pair alone
+/// left a body that ran on through a second mouth inside that mouth's wall.
+/// The exit just left is not searched: the body sits on its face. A leg that
+/// cannot be cast or transferred ends the chain at the transfer before it.
+fn continue_after_crossing(step: TransitStep, sweep: ae::SweepSample, domain: &ae::CombatVolume,
+    portals: &[PlacedPortal], tuning: &PortalTuning,) -> TransitStep {
+    let TransitStep::Transfer { transfer: mut composed, mut input_warp } = step else { return step; };
+    let mut material = sweep.material;
+    let mut last = composed;
+    for _ in 1..tuning.geometry.budget().max_hops {
+        let next = (|| {
+            material = material.carried(last.map).ok()?;
+            let from = last.map.point(last.crossing_point).ok()?;
+            let leg = ae::SweepSample {
+                time: [last.crossing_time, 1.0], travel: ae::LinearTravel::Complete, turn: None,
+                material, prev: from, curr: composed.exit_pos, vel: composed.exit_vel,
+                restriction: ae::PortalRestriction::Open, ..sweep
+            };
+            let cast = leg.material_cast(domain).ok()?;
+            let rest: Vec<PlacedPortal> =
+                portals.iter().filter(|portal| portal.channel != last.exit_channel).cloned().collect();
+            let hit = first_portal_crossing_through(&cast, &rest, None, 1.0).ok()??;
+            let next = PortalTransfer::at_crossing_completed(hit, composed.exit_pos, composed.exit_vel,
+                material, tuning).ok()?;
+            let map = composed.map.then(next.map).ok()?;
+            Some((next, map))
+        })();
+        let Some((next, map)) = next else { break; };
+        input_warp ^= portal_input_warp_flips_horizontal_for_convention(tuning.convention.map_convention(),
+            next.enter.frame.normal, next.exit.frame.normal);
+        composed = PortalTransfer {
+            map, exit: next.exit, exit_channel: next.exit_channel,
+            mapped_vel: next.mapped_vel, exit_pos: next.exit_pos, exit_vel: next.exit_vel, ..composed
+        };
+        last = next;
+    }
+    TransitStep::Transfer { transfer: composed, input_warp }
 }
 
 /// Compute transit from recorded travel. An overlap can begin or clear a

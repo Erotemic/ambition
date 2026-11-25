@@ -33,7 +33,7 @@ pub fn projectile_reaches_breakable(
         .filter(|(entity, _, _, feature)| may_touch(*entity) && breakable_is_eligible(feature))
     {
         if let Some(hit) = DamageableVolumes::world_box(aabb.aabb())
-            .swept_body_contact(entity, None, None, geometry, room, cells)? {
+            .swept_body_contact(entity, None, None, None, geometry, room, cells)? {
             let contact = FeatureContact {
                 contact: hit,
                 target_center: aabb.aabb().center(),
@@ -109,7 +109,7 @@ pub fn projectile_reaches_boss(
                 && damageable.published()
         })
     {
-        if let Some(hit) = damageable.swept_body_contact(entity, kin, motion, geometry, room, cells)? {
+        if let Some(hit) = damageable.swept_body_contact(entity, kin, motion, None, geometry, room, cells)? {
             let contact = FeatureContact {
                 contact: hit,
                 target_center: aabb.aabb().center(),

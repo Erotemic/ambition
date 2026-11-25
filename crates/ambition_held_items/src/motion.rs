@@ -163,7 +163,7 @@ pub fn ground_item_physics(
                 for &recipient in &targets {
                     if contacts.iter().any(|(_, hit, _)| hit.entity == recipient.entity) { continue; }
                     let hit = recipient.hurt.swept_body_contact(recipient.entity, recipient.body.as_ref(), recipient.motion.as_ref(),
-                        geometry, room, &cells)?;
+                        None, geometry, room, &cells)?;
                     let Some(hit) = hit else { continue; };
                     // A released item can start inside its holder. Only a new
                     // entry into each recipient produces an impact fact.

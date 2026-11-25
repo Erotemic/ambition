@@ -7,11 +7,16 @@
 //! `present_ldtk_levels_per_live_room` (each live room's bundles and the
 //! `LevelSet` each shows).
 
-use bevy::asset::{AssetServer, Handle};
+use std::collections::BTreeMap;
+
+use bevy::asset::{AssetServer, Assets, Handle};
 use bevy::prelude::{
-    Commands, Component, DetectChangesMut, Query, Res, Resource, Transform, Vec3, With,
+    Commands, Component, DetectChanges, DetectChangesMut, Query, Res, ResMut, Resource, Transform,
+    Vec3, With,
 };
-use bevy_ecs_ldtk::prelude::LevelSet;
+use bevy_ecs_ldtk::assets::LdtkProject;
+use bevy_ecs_ldtk::ldtk::{LayerInstance, Type, raw_level_accessor::RawLevelAccessor};
+use bevy_ecs_ldtk::prelude::{IntGridRendering, LdtkSettings, LevelSet};
 
 use ambition_platformer2d_core::config::WORLD_Z_BLOCK;
 
@@ -24,7 +29,7 @@ use ambition_platformer2d_world::world_manifest::{world_bevy_asset_path, WorldMa
 /// Ambition's merged JSON loader, so every world file gets its own
 /// handle + `LdtkWorldBundle` to render its painted tile layers.
 #[derive(Resource, Clone, Debug, Default)]
-pub struct LdtkWorldAssets(pub Vec<Handle<bevy_ecs_ldtk::assets::LdtkProject>>);
+pub struct LdtkWorldAssets(pub Vec<Handle<LdtkProject>>);
 
 pub fn load_ldtk_asset_handle(
     mut commands: Commands,
@@ -37,6 +42,46 @@ pub fn load_ldtk_asset_handle(
         .map(|source| asset_server.load(world_bevy_asset_path(source)))
         .collect();
     commands.insert_resource(LdtkWorldAssets(handles));
+}
+
+/// Keep unpainted grids out of the presentation ECS. The room IR reads their cells.
+pub(super) fn select_painted_layers(
+    projects: Res<Assets<LdtkProject>>,
+    settings: ResMut<LdtkSettings>,
+) {
+    if !projects.is_changed() {
+        return;
+    }
+    let excluded = if settings.int_grid_rendering == IntGridRendering::Invisible
+        && projects.iter().all(|(_, project)| !project.json_data().external_levels)
+    {
+        let layers = projects.iter().flat_map(|(_, project)| {
+            project.iter_raw_levels().flat_map(|level| level.layer_instances.iter().flatten())
+        });
+        unpainted_grid_names(layers)
+    } else {
+        Vec::new()
+    };
+    settings
+        .map_unchanged(|settings| &mut settings.exclusions.layer_identifiers)
+        .set_if_neq(excluded);
+}
+
+fn unpainted_grid_names<'a>(layers: impl Iterator<Item = &'a LayerInstance>) -> Vec<String> {
+    let mut excluded_by_name = BTreeMap::new();
+    for layer in layers {
+        let unpainted_grid = layer.layer_instance_type == Type::IntGrid
+            && layer.tileset_def_uid.is_none()
+            && layer.auto_layer_tiles.is_empty()
+            && layer.grid_tiles.is_empty();
+        // The adapter excludes names across all its projects.
+        *excluded_by_name.entry(layer.identifier.as_str()).or_insert(true) &= unpainted_grid;
+    }
+    excluded_by_name
+        .into_iter()
+        .filter(|(_, exclude)| *exclude)
+        .map(|(name, _)| name.to_owned())
+        .collect()
 }
 
 /// Marker for every LDtk world-root entity (one per manifest row and live
@@ -163,11 +208,31 @@ pub fn ldtk_world_translation(world: &ambition_platformer2d_core::World) -> Vec3
 
 #[cfg(test)]
 mod tests {
+    use bevy_ecs_ldtk::ldtk::{LayerInstance, Type};
     use bevy::ecs::system::RunSystemOnce as _;
     use bevy::prelude::World;
     use bevy_ecs_ldtk::prelude::LevelSet;
 
     use ambition_platformer2d_core as ae;
+
+    #[test]
+    fn a_painted_or_entity_layer_keeps_its_name_in_the_renderer() {
+        let grid = |name: &str| LayerInstance {
+            identifier: name.into(),
+            layer_instance_type: Type::IntGrid,
+            int_grid_csv: vec![3, 0, 3],
+            ..Default::default()
+        };
+        let layers = [
+            grid("Collision"),
+            grid("Ground"),
+            LayerInstance { tileset_def_uid: Some(7), ..grid("Ground") },
+            LayerInstance { layer_instance_type: Type::Entities, ..grid("Props") },
+            grid("Props"),
+        ];
+        assert_eq!(super::unpainted_grid_names(layers.iter()), ["Collision"]);
+        assert_eq!(layers[0].int_grid_csv, [3, 0, 3]);
+    }
     use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, LiveRoomInstance};
     use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
 

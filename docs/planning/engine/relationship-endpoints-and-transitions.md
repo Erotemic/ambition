@@ -353,12 +353,32 @@ seats an NPC on `gnu_ton_arena`'s authored giant (two fists and a hoof) and
 sends it through a door into a second live room. Rider, mount and limbs all
 arrive, the rider's soles are on the seat, and the next pin keeps the rider
 at the arrival. The test moves no body; it moves only the door.
+
+**Progress (2026-11-24): the publication road.** `apply_world_replacement`
+builds its moving set from the same edges: custody plus
+`attachment_edges`. Each arrival's attachments stand at the arrival
+(`apply_staged_arrival` → `arrive_attachments`). Split rides and holds end
+after the last arrival (`settle_split_relations`). The rider/mount/limbs
+crossing in `carried_item_crosses_rooms` no longer pins the mount; it now
+asserts the mount arrives at the rider's riding offset.
+
+An arrival held in another body's custody is a possessed body: the
+inactive home is its custodian. The home's membership moves with it, one
+hop from the arrivals, read at the accepted cut. It is not a reverse custody
+edge and not an arrival: release still places the home.
+`a_possessed_body_crossing_from_a_kept_room_takes_its_home_with_it` is the
+retained-source witness. Bob keeps `vertical_shaft` live and Alice's
+possessed enemy enters the hub. The home's room stamp follows, and release
+puts it at the let-go point in that room.
+
+The relation effects on both roads come after every refusal check in their
+operation: the direct roads have none after the decision, and publication
+applies them after its last arrival. So a refused or held crossing changes no
+relation.
+
 Still open:
-- the publication road, which still starts from `InCustodyOf` alone; its
-  rider/mount fixture still pins the mount with `place_body`;
-- the possession home's membership-only companion (retained-source case);
-- final-cut revalidation with the late-refusal witness;
-- a capture/automatic-exit witness;
+- the dedicated late-refusal witness, and the capture/automatic-exit witness
+  with source retention;
 - ISL-3's consumption of the cohort.
 
 ## REL4 — retain exit context and authorize endpoint succession

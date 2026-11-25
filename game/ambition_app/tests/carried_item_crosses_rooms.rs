@@ -1149,14 +1149,10 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
         if !has_door {
             break;
         }
-        // Hold the mount where its rider stands (a crossing moves the rider, and
-        // the test pins the mount under it, as the arena crossing below did), and
-        // keep the door under wherever the rider settles.
-        let rider_at = sim.world().get::<BodyKinematics>(rider).map(|k| k.pos).unwrap();
-        let mount_at = (rider_at.x - saddle.0, rider_at.y - saddle.1);
+        // Keep the door under wherever the rider settles. The mount is not
+        // moved by the test: the crossing stands it under its rider (REL3).
         let mut crossed = false;
         for _ in 0..120 {
-            place_body(&mut sim, mount, mount_at);
             bring_the_door_to(&mut sim, rider);
             let room = sim
                 .step(AgentAction {
@@ -1171,6 +1167,17 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
             }
         }
         assert!(crossed, "the ridden mount never left '{before}'");
+        // The mount came through standing where its rider rides it, not at
+        // its coordinates in the room it left.
+        let offset = {
+            let m = sim.world().get::<BodyKinematics>(mount).map(|k| k.pos).unwrap();
+            let r = sim.world().get::<BodyKinematics>(rider).map(|k| k.pos).unwrap();
+            (r.x - m.x, r.y - m.y)
+        };
+        assert!(
+            (offset.0 - saddle.0).abs() < 64.0 && (offset.1 - saddle.1).abs() < 64.0,
+            "after crossing {crossing}, the rider is at {offset:?} from its mount; it rode at {saddle:?}"
+        );
         if crossing == 0 {
             let arrived = sim.observation().active_room.clone();
             assert!(sim.world().get_entity(rider).is_ok(), "the rider did not survive into '{arrived}'");
@@ -1463,4 +1470,72 @@ fn a_mount_dying_under_a_possession_survives_rewinds() {
         Some(rider),
         "and possession itself was never in question"
     );
+}
+
+/// ⭐ A POSSESSED BODY THAT CROSSES WHILE ANOTHER PLAYER KEEPS THE ROOM TAKES
+/// ITS HOME'S MEMBERSHIP WITH IT (REL3). Bob holds `vertical_shaft`; Alice
+/// possesses its authored enemy and drives it through the door to the hub,
+/// so the shaft stays live and nothing remaps its residents. The inactive
+/// home avatar moves rooms with the body it is possessing, as a member and
+/// not as an arrival: it keeps its own position until release, and release
+/// puts it at the body it let go of, in the room both are in. The
+/// authorities: the home's `InRoomInstance` against the driven body's, and
+/// the home's position after release.
+///
+/// The solo arm (`an_actor_released_in_a_foreign_room_...`) is the control for
+/// the placement: there the source room retires and every survivor is
+/// remapped, so membership never splits.
+#[test]
+fn a_possessed_body_crossing_from_a_kept_room_takes_its_home_with_it() {
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::platformer::lifecycle::InRoomInstance;
+    use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+
+    const HOME: &str = "vertical_shaft";
+    const AWAY: &str = "central_hub_complex";
+
+    let mut sim = fixed_60hz_room_sim(HOME);
+    crate::common::doors_cross_at_once(&mut sim);
+    let shaft = crate::two_players_two_live_rooms::bob_beside_alice(
+        &mut sim,
+        HOME,
+        Some(ambition_platformer2d::characters::control::PlayerSlot(1)),
+    );
+    let (actor, _id) = the_authored_enemy(&mut sim);
+    let avatar = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<Entity, PrimaryPlayerOnly>();
+        q.single(world).expect("setup: one player body to begin with")
+    };
+    make_invulnerable(&mut sim, actor);
+    assert!(possess_by_holding_on(&mut sim, actor), "setup: Alice never possessed the shaft's enemy");
+    assert_ne!(avatar, actor, "setup: the driven body is the home");
+
+    let arrived = drive_through_the_door_to(&mut sim, actor, AWAY);
+    assert_eq!(arrived.as_deref(), Some(AWAY), "setup: the driven body never left '{HOME}'");
+    settle(&mut sim, 4);
+    let live: std::collections::BTreeSet<String> =
+        crate::two_players_two_live_rooms::live_rooms(&mut sim).into_iter().map(|(_, id)| id).collect();
+    assert!(live.contains(HOME) && live.contains(AWAY), "setup: Bob keeps '{HOME}' live beside '{AWAY}': {live:?}");
+
+    let room = |sim: &Platformer2dSimHarness, e: Entity| sim.world().get::<InRoomInstance>(e).map(|at| at.0);
+    let away = room(&sim, actor).expect("the driven body is in a live room");
+    assert_ne!(Some(away), Some(shaft), "setup: the driven body is in the hub, not the shaft");
+    assert_eq!(
+        room(&sim, avatar),
+        Some(away),
+        "the home stayed a member of '{HOME}' while the body it possesses went to '{AWAY}': \
+         a release would place it at hub coordinates in the shaft"
+    );
+
+    // Let go away from the arrival, so a reset to the spawn cannot pass.
+    place_body(&mut sim, actor, (1500.0, 386.0));
+    settle(&mut sim, 4);
+    let let_go_at = sim.world().get::<BodyKinematics>(actor).map(|k| k.pos).expect("the driven body");
+    sim.step(AgentAction { move_y: 1.0, interact: true, interact_held: true, ..base() });
+    assert_eq!(primary_possessed(&sim), None, "setup: a fresh Down+Interact did not release the body");
+    settle(&mut sim, 10);
+    let recovered = sim.world().get::<BodyKinematics>(avatar).map(|k| k.pos).expect("the home survives the release");
+    assert!(recovered.distance(let_go_at) < 96.0, "the home came back at {recovered:?}, not at the body it let go of at {let_go_at:?}");
+    assert_eq!(room(&sim, avatar), Some(away), "after release the home is not in the room it stands in");
 }

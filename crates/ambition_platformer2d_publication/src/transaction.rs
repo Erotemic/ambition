@@ -1206,18 +1206,33 @@ pub(crate) fn apply_world_replacement(
             .and_then(|(replaces, scope)| live_room_root_for(world, scope, replaces)),
     };
     let replaced = room_root.zip(minted).map(|(_, succession)| (succession.leaves(), succession.enters()));
-    // All arrivals and their custody move to the destination, including
+    // All arrivals, their custody and their native attachments (an active
+    // ride's mount, a body's limbs: REL3) move to the destination, including
     // members from other live rooms. Other residents of a retained room stay.
+    //
+    // ⭐ AN ARRIVAL IN ANOTHER BODY'S CUSTODY BRINGS THAT CUSTODIAN'S
+    // MEMBERSHIP. A driven arrival is in custody only when it is possessed,
+    // and its custodian is the inactive home (`project_body_custody`). The
+    // home moves rooms with it, as a member and not as an arrival: release
+    // still places it at the possessed body. Read here, at the accepted cut,
+    // so a possession released while the crossing waited adds nothing. One
+    // hop from the arrivals, not a reverse closure.
     let moving = {
         use ambition_platformer2d_shared_tangle::lifecycle::InCustodyOf;
-        let custody: Vec<(bevy::ecs::entity::Entity, bevy::ecs::entity::Entity)> = world
+        let mut edges: Vec<(bevy::ecs::entity::Entity, bevy::ecs::entity::Entity)> = world
             .query::<(bevy::ecs::entity::Entity, &InCustodyOf)>()
             .iter(world)
             .map(|(entity, custody)| (entity, custody.custodian))
             .collect();
+        let homes: Vec<bevy::ecs::entity::Entity> = pending
+            .arrivals
+            .iter()
+            .filter_map(|arrival| world.get::<InCustodyOf>(arrival.subject).map(|custody| custody.custodian))
+            .collect();
+        edges.extend(ambition_mount::attachment_edges(world));
         ambition_platformer2d_shared_tangle::lifecycle::custody_closure(
-            pending.arrivals.iter().map(|arrival| arrival.subject),
-            &custody,
+            pending.arrivals.iter().map(|arrival| arrival.subject).chain(homes),
+            &edges,
         )
     };
     // ⭐ WHAT THE SWEEP LEFT STANDING IN THE REPLACED ROOM IS NOW IN THE NEW
@@ -1269,8 +1284,9 @@ pub(crate) fn apply_world_replacement(
             }
         }
         for arrival in pending.arrivals {
-            apply_staged_arrival(world, arrival);
+            apply_staged_arrival(world, arrival, &moving);
         }
+        settle_split_relations(world, &moving);
         return;
     }
     if let Some((room_root, definition)) = room_root.zip(definition) {
@@ -1302,8 +1318,9 @@ pub(crate) fn apply_world_replacement(
     // plan's world by the caller, and the body is placed into a world that is
     // already the one it was validated against.
     for arrival in pending.arrivals {
-        apply_staged_arrival(world, arrival);
+        apply_staged_arrival(world, arrival, &moving);
     }
+    settle_split_relations(world, &moving);
 }
 
 /// The session scope a publication target root belongs to, candidate or
@@ -1386,22 +1403,38 @@ fn scope_of_root(
 }
 
 /// Apply one member of the accepted arrival batch through the shared body path.
-fn apply_staged_arrival(world: &mut World, arrival: StagedArrival) {
+/// Place one arrival, then the attachments that follow it (REL3): an actively
+/// ridden mount stands beneath its arrived rider and a limb keeps its offset
+/// from its anchor (`ambition_mount::arrive_attachments`).
+fn apply_staged_arrival(
+    world: &mut World,
+    arrival: StagedArrival,
+    moving: &std::collections::BTreeSet<bevy::ecs::entity::Entity>,
+) {
     let mut bodies = world.query::<(
         ambition_platformer2d_core::BodyClusterQueryData,
         &mut ambition_platformer2d_core::MotionModel,
     )>();
-    if let Ok((mut item, mut model)) = bodies.get_mut(world, arrival.subject) {
-        let mut clusters = item.as_clusters_mut();
-        ambition_platformer2d_core::movement::arrive_body_in_room(
-            &mut model,
-            &mut clusters,
-            arrival.arrival,
-            arrival.air_jumps,
-            arrival.momentum,
-            arrival.material,
-        );
-    }
+    let Ok((mut item, mut model)) = bodies.get_mut(world, arrival.subject) else { return };
+    let before = item.kinematics.pos;
+    let mut clusters = item.as_clusters_mut();
+    ambition_platformer2d_core::movement::arrive_body_in_room(
+        &mut model,
+        &mut clusters,
+        arrival.arrival,
+        arrival.air_jumps,
+        arrival.momentum,
+        arrival.material,
+    );
+    let moved_by = clusters.kinematics.pos - before;
+    ambition_mount::arrive_attachments(world, arrival.subject, moved_by, moving);
+}
+
+/// A ride or hold the publication splits, one end moving and the other
+/// staying, ends by its own owner's road at the accepted cut (REL3).
+fn settle_split_relations(world: &mut World, moving: &std::collections::BTreeSet<bevy::ecs::entity::Entity>) {
+    ambition_mount::end_separated_rides(world, moving);
+    ambition_combat::capture::systems::release_separated_captures(world, moving);
 }
 
 /// What the last construction transaction's verification concluded.

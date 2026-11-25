@@ -85,10 +85,12 @@ fn new_bubble_sprite(handle: Handle<Image>) -> impl Bundle {
     )
 }
 
-/// In FRONT of the body — the fighter is inside the bubble, not behind it.
-/// Still well under the hit-flash overlay's z bias, so a struck body's white
-/// silhouette is never covered by its own guard.
-const BUBBLE_Z: f32 = ambition_platformer2d_core::config::WORLD_Z_PLAYER + 0.05;
+/// In FRONT of the body — the fighter is inside the bubble, not behind it:
+/// over every player's occurrence tie (`OCCURRENCE_SPAN`). Still well under
+/// the hit-flash overlay's z bias, so a struck body's white silhouette is
+/// never covered by its own guard.
+const BUBBLE_Z: f32 =
+    ambition_platformer2d_core::config::WORLD_Z_PLAYER + super::primitives::OCCURRENCE_SPAN + 0.05;
 
 /// Load only the shield images that the selected catalog declares.
 pub fn build_bubble_shield_sprite(

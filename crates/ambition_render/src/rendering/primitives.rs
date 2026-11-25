@@ -200,9 +200,10 @@ pub(super) const DEPTH_PLANE_Z_STEP: f32 = 0.4;
 pub(super) const OCCURRENCE_DEPTH_STEP: f32 = 0.01;
 /// How many such steps a layer has. The span stays inside a depth plane, and
 /// a body's flash (+1.5) still stays under an enclosure (`BODY_DEPTH_BAND`).
-/// Actors only: a player's own overlays (its bubble shield, its trapdoor) are
-/// drawn at the player layer + 0.05, which a tie would pass.
 const OCCURRENCE_TIES: u32 = 16;
+/// The most a tie raises a body. An overlay drawn over every body of a layer
+/// (the bubble shield) is drawn above this.
+pub(crate) const OCCURRENCE_SPAN: f32 = OCCURRENCE_TIES as f32 * OCCURRENCE_DEPTH_STEP;
 const _: () = assert!((OCCURRENCE_TIES as f32) * OCCURRENCE_DEPTH_STEP < DEPTH_PLANE_Z_STEP);
 const _: () = assert!(1.5 + (OCCURRENCE_TIES as f32) * OCCURRENCE_DEPTH_STEP < super::BODY_DEPTH_BAND);
 

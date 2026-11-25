@@ -360,7 +360,9 @@ pub fn sync_visuals(
             continue;
         };
         let draw_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
-        transform.translation = world_to_bevy(&world.0, draw_pos, WORLD_Z_PLAYER);
+        // Two players at one spot are two order blocks (`occurrence_tie`).
+        let player_z = WORLD_Z_PLAYER + super::primitives::occurrence_tie(entity);
+        transform.translation = world_to_bevy(&world.0, draw_pos, player_z);
         // Aerial roll (portal somersault / future gravity-room orientation).
         transform.rotation = Quat::from_rotation_z(pose.material.render_angle());
         let scale = pose.material.scale();
@@ -434,7 +436,7 @@ pub fn sync_visuals(
                     // normal gravity); the standing center is `dy` opposite
                     // gravity from the compact center.
                     let render_pos = native_compact_render_pos(draw_pos, pose.gravity_dir, dy);
-                    transform.translation = world_to_bevy(&world.0, render_pos, WORLD_Z_PLAYER);
+                    transform.translation = world_to_bevy(&world.0, render_pos, player_z);
                 }
             } else {
                 // HACK(crouch-sprite-row): when the player crouches (or

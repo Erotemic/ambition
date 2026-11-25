@@ -372,9 +372,11 @@ shared value preparation are sufficient until source proves otherwise.
    **Same-plane actors (2026-11-25).** Two actors of one plane no longer
    share one z: each takes a tie fixed for its life (`occurrence_tie`,
    0.01 steps by entity index mod 16), above its own parts' spread, under a
-   depth plane and with its flash under an enclosure. Players keep one z:
-   their own overlays (bubble shield, trapdoor) are drawn at the player
-   layer + 0.05, which a tie would pass; they move with PO2.
+   depth plane and with its flash under an enclosure. Players take the same
+   tie; the bubble shield, the one overlay drawn over every body of the
+   layer, is drawn above the whole span (`OCCURRENCE_SPAN` + 0.05). The
+   trapdoor and morph ball replace a hidden body and the rope is under it,
+   so their absolute depths stand.
 2. **PO2 — common placement consumers.** Move player/feature bodies,
    attachment order and a real active rider onto the same placement authority.
    Keep explicit effect roles and independent limbs. Replace absolute player-z

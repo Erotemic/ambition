@@ -549,7 +549,7 @@ before promotion.
   gravity response with controls, then contact bands and existing action/
   relation quantities. World fields and already resolved values keep their
   meaning. [The owner](engine/scale-relative-gameplay.md) defines SR1–SR3;
-  the portal motion/contact authorities remain in P2/P3.
+  the portal motion/contact authorities remain in P2/P3. DONE 2026-11-25.
 - **Execution cost (selected via EXECUTION-COST).** Full/reference semantics
   remain available while gameplay selects local specializations. Prepare
   immutable clip and dispatch relationships; retain correct occurrence views;

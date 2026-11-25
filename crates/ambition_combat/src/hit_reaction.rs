@@ -224,7 +224,19 @@ pub fn apply_body_hit_reaction(
     // `body_is_helpless` actually asks.
     // ONE tuning row for the whole reaction, so the launch and the hitstun
     // cannot disagree about which feel numbers this hit uses (FB6b).
-    let response = hit_response_tuning(&feel, boss_hit);
+    let canonical_response = hit_response_tuning(&feel, boss_hit);
+    // The launch half in the struck body's own units (SR3): its feel speeds
+    // and the hitstun reference scale with it, so a uniform scale keeps the
+    // stun. A row its material cannot carry refuses the LAUNCH only; the hit
+    // and its freeze (a time) stand.
+    let scaled_response = canonical_response.in_body_units(stance.material);
+    if let Err(fault) = scaled_response {
+        bevy::log::warn!(
+            target: "ambition::combat",
+            "a struck body's material cannot carry its hit response ({fault:?}) — launch refused"
+        );
+    }
+    let response = scaled_response.unwrap_or(canonical_response);
     // HITLAG IS THE HIT, not the launch. The freeze on contact is what makes a
     // hit read as a hit at all: an armoured trade or a damage-only tick that
     // passed through in silence would look like a whiff to both players.
@@ -318,7 +330,7 @@ pub fn apply_body_hit_reaction(
             HitStatusKind::Bury | HitStatusKind::Crumple => {}
         }
     }
-    let Some(knockback) = knockback.filter(|_| !armor_absorbs) else {
+    let Some(knockback) = knockback.filter(|_| !armor_absorbs && scaled_response.is_ok()) else {
         // No launch: a status authored without one still holds the body.
         if let Some(status) = holding {
             hold_for(combat, status);
@@ -555,7 +567,7 @@ pub fn apply_body_hit_reaction(
 /// shifted two positional arguments into the wrong slots and the compiler
 /// reported it as a type error three parameters away."* Two adjacent booleans in
 /// a twelve-argument list is that failure waiting.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct VictimStance {
     /// Standing on something? The meteor rule reads it: a spike on a
     /// grounded body is not a spike.
@@ -568,6 +580,9 @@ pub struct VictimStance {
     /// (`PoseOwnedExternally`: a saddle, a hold)? Then the launch is only
     /// staged, and the velocity is not written.
     pub pose_held: bool,
+    /// The struck body's material: its feel launch and hitstun reference
+    /// speeds are in its own units.
+    pub material: ae::frame::BodyMaterial,
 }
 
 /// The kernel-tuning row for one struck body: the boss/enemy feel SELECTION is
@@ -1300,6 +1315,42 @@ mod super_armor_tests {
         );
         assert!(held_combat.hitstun_timer > 0.0, "the held body is still hit");
         assert_eq!(held_flight.carried_run, free_flight.carried_run);
+    }
+    /// Small to small is the same exchange as canonical to canonical: a
+    /// strike whose launch was mapped into a scaled victim's chart (`s * L`)
+    /// stuns that victim for the same time, and a feel-scaled hit launches it
+    /// at its own `s *` feel speed with the same stun.
+    #[test]
+    fn a_scaled_victim_keeps_its_hitstun_in_its_own_units() {
+        let hit = |scale: f32, magnitude: ae::hit_response::HitKnockbackMagnitude| {
+            let mut vel = ae::Vec2::ZERO;
+            let mut flight = ae::BodyFlightState::default();
+            let mut combat = BodyCombat::default();
+            let knockback = crate::HitKnockback { magnitude, ..hard_knockback() };
+            apply_body_hit_reaction(
+                &mut vel, &mut flight, &mut combat,
+                ae::Vec2::new(20.0, 0.0), 1.0, ae::Vec2::new(0.0, 1.0), false,
+                Some(&knockback), 12, Default::default(), None, ae::Vec2::ZERO,
+                VictimStance {
+                    material: ae::frame::BodyMaterial::new(scale, bevy::math::Mat2::IDENTITY).unwrap(),
+                    ..Default::default()
+                },
+                None, None, None, feel(),
+            );
+            (vel, combat.hitstun_timer)
+        };
+        use ae::hit_response::HitKnockbackMagnitude::{FeelScale, LaunchSpeed};
+        let (launch_one, stun_launch) = hit(1.0, LaunchSpeed(300.0));
+        let (feel_one, stun_feel) = hit(1.0, FeelScale(1.0));
+        assert!(stun_launch > 0.0 && stun_feel > 0.0 && launch_one.length() > 0.0 && feel_one.length() > 0.0);
+        for scale in [0.5_f32, 2.0] {
+            let (launch, stun) = hit(scale, LaunchSpeed(300.0 * scale));
+            assert!((stun - stun_launch).abs() < 1e-5, "scale {scale}: stun {stun} vs {stun_launch}");
+            assert!((launch - launch_one * scale).length() < 1e-2, "scale {scale}: {launch:?}");
+            let (feel_vel, stun) = hit(scale, FeelScale(1.0));
+            assert!((stun - stun_feel).abs() < 1e-5, "scale {scale}: feel stun {stun} vs {stun_feel}");
+            assert!((feel_vel - feel_one * scale).length() < 1e-2, "scale {scale}: {feel_vel:?}");
+        }
     }
     #[test]
     fn contact_properties_control_freeze_armor_and_the_staged_launch() {

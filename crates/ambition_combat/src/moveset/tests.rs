@@ -849,6 +849,44 @@ fn ending_side_motion_preserves_fall_in_the_owners_gravity_frame() {
     }
 }
 
+/// A timed self-motion event is in its owner's own units: an `Add` burst
+/// scales with the body and leaves the velocity it already had alone, and a
+/// `SetSide` target scales while keeping the fall. The start impulse takes the
+/// same conversion (`a_start_impulse_is_in_the_bodys_own_units`).
+#[test]
+fn a_timed_impulse_is_in_the_owners_own_units() {
+    for scale in [0.5_f32, 1.0, 2.0] {
+        for (mode, expect_side) in [
+            (ambition_entity_catalog::ImpulseMode::Add, 30.0 + 200.0 * scale),
+            (ambition_entity_catalog::ImpulseMode::SetSide, 200.0 * scale),
+        ] {
+            let (mut app, _) = app_with_victim();
+            let mut spec = simple_melee(&SimpleMeleeParams::default());
+            spec.events = vec![MoveEvent {
+                at_s: 0.01,
+                kind: MoveEventKind::Impulse { local: (200.0, -100.0), mode },
+            }];
+            let body = spawn_attacker(&mut app, ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0), spec);
+            {
+                let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(body).unwrap();
+                kin.material = ae::frame::BodyMaterial::new(scale, bevy::math::Mat2::IDENTITY).unwrap();
+                kin.vel = ae::Vec2::new(30.0, 70.0);
+            }
+            app.update();
+            let vel = app.world().get::<ae::BodyKinematics>(body).unwrap().vel;
+            let facing = app.world().get::<MovePlayback>(body).unwrap().facing;
+            let expect_down = match mode {
+                ambition_entity_catalog::ImpulseMode::Add => 70.0 - 100.0 * scale,
+                _ => 70.0,
+            };
+            assert!(
+                (vel.x * facing - expect_side).abs() < 1e-3 && (vel.y - expect_down).abs() < 1e-3,
+                "scale {scale} {mode:?}: {vel:?}, wanted side {expect_side} down {expect_down}"
+            );
+        }
+    }
+}
+
 /// Authored move events capture their CHARACTER PROVIDER at the move clock,
 /// before the event enters the external-effect quarantine. A crossover match
 /// can therefore play Sanic and Mary-O cues under one session owner without
@@ -2006,9 +2044,24 @@ fn an_unmirrored_body_plays_its_move_the_way_it_is_drawn() {
     assert_eq!(played_toward, 1.0, "its volumes are placed toward +x");
 }
 
+/// The start lunge is authored in canonical body units and lands in the body's
+/// own: a half-size body lunges half as fast, a double-size one twice.
+#[test]
+fn a_start_impulse_is_in_the_bodys_own_units() {
+    for scale in [0.5_f32, 1.0, 2.0] {
+        let (vel, _) = lunge_facing_left_at(false, scale);
+        assert!((vel.x + 150.0 * scale).abs() < 1e-3, "scale {scale}: vel={vel:?}");
+        assert!(vel.y.abs() < 1e-3, "scale {scale}: vel={vel:?}");
+    }
+}
+
 /// Trigger a 150 px/s-lunge move on a body facing left, and return the
 /// velocity it took and the facing its playback was started with.
 fn lunge_facing_left(unmirrored: bool) -> (ae::Vec2, f32) {
+    lunge_facing_left_at(unmirrored, 1.0)
+}
+
+fn lunge_facing_left_at(unmirrored: bool, scale: f32) -> (ae::Vec2, f32) {
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxInRoom>();
@@ -2059,7 +2112,8 @@ fn lunge_facing_left(unmirrored: bool) -> (ae::Vec2, f32) {
     let body = app
         .world_mut()
         .spawn((
-            ae::BodyKinematics { material: Default::default(),
+            ae::BodyKinematics {
+                material: ae::frame::BodyMaterial::new(scale, bevy::math::Mat2::IDENTITY).unwrap(),
                 pos: ae::Vec2::ZERO,
                 vel: ae::Vec2::ZERO,
                 canonical_size: ae::Vec2::new(28.0, 46.0),

@@ -1393,7 +1393,11 @@ pub fn apply_hitbox_damage(
                         anchor_world: into_victim.point(hitbox.anchor_world(
                             ae::Vec2::new(link.anchor.0, link.anchor.1), owner_kin.get(hitbox.owner).ok(),
                         )?).map_err(numeric)?,
-                        carry: link.carry, pull: link.pull, max_speed: link.max_speed,
+                        // The ceiling is the source's authored speed, mapped
+                        // into the victim's chart as its launch speed is; the
+                        // carry share and pull gain are dimensionless.
+                        carry: link.carry, pull: link.pull,
+                        max_speed: material_into_victim.length(link.max_speed.max(0.0)).map_err(numeric)?,
                         source_vel: into_victim.vector(owner_kin.get(hitbox.owner).map(|kin| kin.vel).unwrap_or(ae::Vec2::ZERO)).map_err(numeric)?,
                     })
                 }).transpose();

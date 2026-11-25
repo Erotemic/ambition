@@ -3594,7 +3594,7 @@ is not evidence of moving-map residual time or completed multi-view support.
 
 ### SCALE-FEEL — the same body behavior at a different scale
 
-**State:** IN PROGRESS. SR1 landed 2026-11-25: the frame resolver converts
+**State:** DONE 2026-11-25. SR1 landed 2026-11-25: the frame resolver converts
 each body's gravity response to its material scale, an underivable response
 is a refused frame the kernel will not step, and the navigation key carries
 the body's scale so the probe converts its controls as the runtime does.
@@ -3604,7 +3604,11 @@ longer scaled twice. SR2b: ledge reach, roll overshoot and fall-snap speed
 are the body's own (`LedgeReach::of`). SR2c/d: crawler capture slack
 converts, the momentum bands are classified geometry or numerical, exit
 assistance is in the leaving body's units, and a scaled rider keeps its
-platform's world velocity. SR2 is complete; SR3 is open.
+platform's world velocity. SR3 landed the same day: move impulses, the
+victim's feel launch and hitstun reference, the autolink ceiling,
+projectile and free-item gravity, and splash size are each in their owner's
+units (mount seats already were, since A1). DONE 2026-11-25; admitted and
+unadmitted scope are named in the owner page's *Delivered scope*.
 
 **Failure / customer:** canonical controls scale but ordinary body gravity
 does not, changing jump time and relative height. Fixed contact bands,
@@ -3617,10 +3621,9 @@ runtime reproduction.
 SR1–SR3 use the existing frame, movement, combat, item and relation owners.
 P2/P3 keep portal time/contact authority; E4 keeps the standing experiment.
 
-**Next action:** SR2 classifies support/ledge/crawler
-bands and destination-relative exit assistance. SR3 completes the listed
-action, splash, free-mover and relation consumers. Keep authored mass and
-damage policies; do not scale every world vector or add another solver.
+**Next action:** none. Reopen only for a named unadmitted case, such as the
+brain rollout's canonical edge sliver. Keep authored mass and damage
+policies; do not scale every world vector or add another solver.
 
 **Acceptance:** equivalent scenes at `0.5`, `1` and `2` retain normalized
 nonzero motion and action timing. Use the real frame writer, a near-boundary

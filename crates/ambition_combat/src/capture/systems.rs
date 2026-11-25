@@ -3442,6 +3442,7 @@ pub fn apply_capture_throws(
             .unwrap_or(ae::DEFAULT_GRAVITY_DIR);
         let pos = kin.pos;
         let facing = kin.facing;
+        let material = kin.material;
         crate::hit_reaction::apply_body_hit_reaction(
             &mut kin.vel,
             &mut flight,
@@ -3463,8 +3464,8 @@ pub fn apply_capture_throws(
             // eligible for the meteor lock exactly like a spike is.  and it is
             // not crouching: a captive has no stance of its own, and letting a
             // thrown body crouch-cancel its own throw would refund the captor
-            // the only beat a grab is paid for.
-            Default::default(),
+            // the only beat a grab is paid for. Its launch is in its own units.
+            crate::hit_reaction::VictimStance { material, ..Default::default() },
             // ⛔ THE JUMP IS NOT THE THROW'S TO GIVE — the CATCH already gave
             // it, at `acquire_captures`. A throw hands over what an ordinary hit
             // hands over, and nothing more.

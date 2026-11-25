@@ -10,6 +10,8 @@ pub mod consumption;
 
 pub mod breakables;
 
+pub mod mechanisms;
+
 pub mod behavior;
 
 pub mod object_target;

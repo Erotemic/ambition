@@ -269,8 +269,11 @@ value as completion of that owner's contract.
    work follows only if the operation is shared. (W1 landed 2026-11-22: the Bridge Warden is made with its binding to the
    posts' local keys; no result indexing or follow-up attach. W2's native
    binding landed 2026-11-24: a `lift_called` lift waits at both stops and a
-   `MoveLift` switch in its room sends it. Open: one scripted request that
-   builds the lift, switches and door with local keys.) Producer-validity delegation
+   `MoveLift` switch in its room sends it. `create_mechanism` landed the same
+   day: one scripted request builds lifts and the switches that send them,
+   bound by local key, with two copies in one room kept apart. Open: the
+   door, which needs a per-instance owner; lift occurrences; the
+   second-instance and save/restore witnesses.) Producer-validity delegation
    follows the existing [asset owner](engine/asset-library-editor-and-delivery.md#dependency-evidence-has-three-meanings).
 5. [Body anchors A1/A2](engine/body-anchor-bindings.md#delivery-packets-and-proof)
    replace private saddle/capture point conversion with two independently

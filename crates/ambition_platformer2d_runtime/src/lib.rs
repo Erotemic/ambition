@@ -21,6 +21,7 @@ pub mod behavior_events;
 pub mod world_posts;
 pub mod world_values;
 mod breakable_creation;
+mod mechanism_creation;
 mod contact_consumption;
 pub mod authored_verdict_timeline;
 pub mod checkpoint_horizon;

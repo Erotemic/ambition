@@ -117,6 +117,7 @@ struct BodyTuning {
     spec: ae::movement::MotionModelSpec,
     abilities: ae::AbilitySet,
     size: ae::Vec2,
+    material: ae::frame::BodyMaterial,
     base_size: ae::BodyBaseSize,
     frame: ae::MotionFrame,
 }
@@ -348,7 +349,10 @@ pub fn drive_autopilot(
         // a crouch is not another body. Keyed by the live size, a drop
         // through a one-way (down, held on the platform) crouched the body,
         // dropped its graph and waited for a new one, frame after frame.
-        size: base_size.base_size * kin.material.scale(),
+        // Canonical, beside the body's scale: the probe converts its
+        // controls by that scale as the runtime does.
+        size: base_size.base_size,
+        material: kin.material.scale_only(),
         base_size: *base_size,
         frame: motion,
     };
@@ -372,7 +376,7 @@ pub fn drive_autopilot(
     if pilot.wanted.is_none() || !unchanged || pilot.body != Some(body) {
         let world = room.still_solids();
         let exits = inputs.exits.clone();
-        let key = NavGraphKey::new(&world, &exits, body.spec, body.abilities, body.size, body.base_size, motion);
+        let key = NavGraphKey::new(&world, &exits, body.spec, body.abilities, body.size, body.material, body.base_size, motion);
         // A graph not kept and not on the way is built. A build for an
         // older geometry is dropped, which cancels it.
         if pilot.graphs.get(&key).is_none() && pilot.pending.as_ref().is_none_or(|pending| pending.key != key) {

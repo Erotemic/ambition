@@ -1808,7 +1808,7 @@ fn a_motion_refusal_steps_with_portals_closed_and_does_not_replay_an_old_sweep()
 
 
 #[test]
-fn material_scale_changes_authored_control_units_and_keeps_gravity_in_world_units() {
+fn material_scale_changes_authored_control_units_and_takes_the_frame_as_given() {
     for policy in [MotionModelSpec::AxisSwept(AxisSweptParams::default()),
         MotionModelSpec::SurfaceMomentum(MomentumParams::default()),
         MotionModelSpec::AdhesiveCrawler(CrawlerParams::default())] {
@@ -1828,7 +1828,7 @@ fn material_scale_changes_authored_control_units_and_keeps_gravity_in_world_unit
         assert!((scaled - normal * 3.0).length() < 0.001, "{policy:?}: {normal:?} -> {scaled:?}");
         let falling = sample(1.0, 900.0, InputState::default());
         let scaled_falling = sample(3.0, 900.0, InputState::default());
-        assert!((falling - scaled_falling).length() < 0.001, "world gravity must stay in world units");
+        assert!((falling - scaled_falling).length() < 0.001, "the kernel takes the frame as given: the resolver converted its gravity");
     }
 }
 

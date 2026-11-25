@@ -338,6 +338,28 @@ The headless desktop Hall admitted 596 bodies on both builds. The median
 settled windows. `WorldPrep.Decision.Observe` stayed near 0.95 ms. The builds
 also differ by merged portal and rendering changes.
 
+### Material cast storage probe
+
+The prototype stored the single cell of an unpartitioned cast inline. It
+also stored up to four polygon points inline during contact and penetration
+repair and computed static bounds at one endpoint.
+
+An optimized desktop probe stepped 596 walking bodies on a floor with no
+apertures. Allocations per body step fell from 52 to 23. The positions,
+velocities, and contact counts gave the same digest on both builds. The
+median tick times from three interleaved runs on each build were 3.17 ms
+before and 3.15 ms with the prototype. The run-to-run ranges overlap.
+The median headless Hall update times across four runs were 37–46 ms on the
+existing build and 40–44 ms with the prototype. The prototype was removed
+after this comparison.
+
+A second probe let all 596 bodies come to rest. With settled reuse active,
+all 596 reused their results and the complete kernel pass took 0.22–0.24 ms
+per tick. With reuse disabled, it took 3.11–3.15 ms. Both modes produced the
+same position, velocity, and contact-count digest. This probe covers only
+the movement kernel. Measure the warm Hall outside that boundary before
+changing the proof's state encoding.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on
@@ -349,12 +371,11 @@ with `./scripts/measure/autoprofile_android.sh hall --warmup 40 --duration 45
 --launch-env AMBITION_PROFILE_CENSUS=1`.
 
 Select work by domain. A grounded body can retain an exact movement result.
-Motion should validate that result from the identity of its inputs without
-encoding a snapshot on every hit. Contact and targeting should select the
-active sources before gathering possible recipients in their live rooms.
-Body combat geometry should be projected when an observer asks for it.
-Rendering live strikes has its own active population. Each owner must
-accept changes on the tick that applies them. Measure each boundary with
-the same full cast and include a change that requires the full path. Use the
-shared execution plan in
+Confirm the cost of its surrounding tick systems before tuning the cache
+key. Contact and targeting should select the active sources before they
+gather possible recipients in their live rooms. Body combat geometry should
+be projected when an observer asks for it. Rendering live strikes has its
+own active population. Each owner must accept changes on the tick that
+applies them. Measure each boundary with the same full cast and include a
+change that requires the full path. Use the shared execution plan in
 [execution specialization and selection of active work](../../docs/planning/engine/execution-specialization-and-work-selection.md).

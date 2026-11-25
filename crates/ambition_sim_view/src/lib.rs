@@ -1,9 +1,8 @@
 //! Plain-data observation boundary over simulation state.
 //!
-//! Simulation read-models are rebuilt from authoritative state in the sim tail;
-//! observers consume these snapshots instead of querying live simulation ECS.
-//! Camera and trail snapshots use the presentation clock. They follow the
-//! same one-way observation boundary.
+//! Tick views read authoritative state at the end of simulation. Frame views
+//! sample the latest state after the frame's simulation steps. Observers read
+//! these views through the same one-way boundary.
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 pub mod affordances;
@@ -89,8 +88,7 @@ pub use view_index::{
 };
 
 /// Publish observation views on their readers' clocks. Keep tick observations
-/// and animation clocks in the simulation. Sample render identities, feature
-/// views, and labels once after the frame's simulation steps.
+/// and animation clocks in the simulation.
 pub struct FeatureViewSyncSchedulePlugin;
 
 impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
@@ -151,15 +149,24 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 rebuild_actor_render_index,
                 rebuild_boss_render_index
                     .run_if(sources_or_rows::<ambition_boss_encounter::BossConfig, BossRenderIndex>),
+                rebuild_boss_frame_index
+                    .run_if(sources_or_rows::<ambition_boss_encounter::BossConfig, BossFrameIndex>),
+                rebuild_attack_vfx_views,
+                rebuild_combat_geometry_view,
             )
                 .after(Platformer2dSimulationPhase::FeatureViewSync)
                 .before(PresentedPoseSet)
                 .before(Platformer2dSimulationPhase::PresentationVisualSync),
         );
         app.add_systems(
+            bevy::prelude::Update,
+            (rebuild_shield_views, rebuild_launched_bodies_view)
+                .after(PresentedPoseSet)
+                .before(Platformer2dSimulationPhase::PresentationVisualSync),
+        );
+        app.add_systems(
             sim,
             (
-                rebuild_boss_frame_index.run_if(sources_or_rows::<ambition_boss_encounter::BossConfig, BossFrameIndex>),
                 // Overlay clocks advance right before their one reader
                 // rebuilds the pose snapshot (§A9 ordering, preserved). The
                 // overlay ADVANCE mutates sim components, so it stays defined
@@ -169,28 +176,11 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                     rebuild_actor_anim_index,
                 )
                     .chain(),
-                // Player-bodied pose components + the pooled shield-ring rows —
-                // the per-body half of the pose read-model (E4 slices 1–4).
                 rebuild_body_pose_views.after(mark_bodies_the_death_look_took),
                 mark_bodies_the_death_look_took,
                 // A body in a passage draws what its passage says, over the
                 // pose the rebuild picked.
                 rebuild_passage_views.after(rebuild_body_pose_views).after(rebuild_actor_anim_index),
-                // The raised guards and the shattered ones, in one pass: a
-                // raised guard and a broken one are two different rows, not
-                // one with a flag.
-                rebuild_shield_views,
-                // Which bodies are in an INVOLUNTARY flight, so a
-                // flight-readability cue never has to infer that from speed.
-                rebuild_launched_bodies_view,
-                // Which bodies' characters author their own attack art, so no
-                // render system has to ask the catalog — see the module docs
-                // for why an absent catalog must stay ABSENT here.
-                rebuild_attack_vfx_views,
-                // Exact combat truth for debug/RL/tool observers: effective body
-                // hurtboxes plus live world-space strike volumes, independent of
-                // which controller (if any) drives each body.
-                rebuild_combat_geometry_view,
                 // "What does each control do right now" for the controlled
                 // subject — the touch overlay reads this instead of the sim.
                 rebuild_control_prompt.in_set(ControlPromptRebuilt),

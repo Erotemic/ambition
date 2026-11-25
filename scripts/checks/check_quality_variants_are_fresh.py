@@ -69,7 +69,7 @@ def main() -> int:
             if manifest["recipe"] is None:
                 unknown.append(unit)
             else:
-                state, reasons = recipe_state(manifest["recipe"], sources, chain, hashes)
+                state, reasons = recipe_state(manifest["recipe"], sources, chain, hashes, unit=unit)
                 if state != "current":
                     failures.append(f"{unit}: {state}: {reasons}")
                 if manifest["recipe"].get("quality") is False:

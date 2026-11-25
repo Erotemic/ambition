@@ -210,7 +210,11 @@ pub fn sync_wielded_item_visuals(sprite_content: bevy::prelude::Res<ambition_spr
             fact.aim_world.x - hand_world.x,
             fact.aim_world.y - hand_world.y,
         );
-        let mut translation = world_to_bevy(&world.0, hand_world, WORLD_Z_PLAYER + spec.z_bias);
+        // Over the hand that holds it, wherever its body is drawn (a body
+        // seated in a cart is drawn under the cart's near side, and the item
+        // in its hand with it), also when the item is placed by its support.
+        let hand_z = hands.of(&fact.holder).map_or(WORLD_Z_PLAYER, |posed| posed.z);
+        let mut translation = world_to_bevy(&world.0, hand_world, hand_z + spec.z_bias);
 
         let mut sprite = Sprite::from_image(texture);
         sprite.custom_size = Some(render_size);
@@ -221,10 +225,6 @@ pub fn sync_wielded_item_visuals(sprite_content: bevy::prelude::Res<ambition_spr
         if let Some(posed) = fact.support.is_none().then(|| hands.of(&fact.holder)).flatten() {
             translation.x = posed.at.x;
             translation.y = posed.at.y;
-            // Over the hand that holds it, wherever its body is drawn: a
-            // body seated in a cart is drawn under the cart's near side, and
-            // the item in its hand with it.
-            translation.z = posed.z + spec.z_bias;
             if !fact.ranged {
                 bevy_angle = posed.angle();
                 // A mirrored body holds the mirror image of the item.

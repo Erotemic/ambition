@@ -366,8 +366,9 @@ shared value preparation are sufficient until source proves otherwise.
    the cart it is in front of the wheels.
 
    Not covered: a limb drawn apart (`LimbTwin`) still floors at
-   `LIMB_OVER_BODIES_Z`, over the rail; an unposed wielded item (support
-   geometry) still uses `WORLD_Z_PLAYER`. Those are PO2's consumers.
+   `LIMB_OVER_BODIES_Z`, over the rail (PO2). A wielded item placed by its
+   support takes its holder's hand depth too (2026-11-25); only a holder
+   with no posed hand keeps `WORLD_Z_PLAYER`.
 
    **Same-plane actors (2026-11-25).** Two actors of one plane no longer
    share one z: each takes a tie fixed for its life (`occurrence_tie`,

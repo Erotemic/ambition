@@ -937,6 +937,8 @@ mod host_adapter {
                 // By the transfer's own map, scale included: the camera
                 // centre goes through it above, and a target mapped without
                 // the scale eased the view off the shrunk body.
+                // The last goal belongs to the entry chart.
+                camera_ease.previous_goal_world = None;
                 if camera_ease.target_initialized {
                     if let Ok(target) = ev.transfer.map.point(camera_ease.live_target_world) {
                         camera_ease.live_target_world = target;

@@ -28,6 +28,8 @@ pub struct CameraEaseState {
     /// Smoothed world-space camera target. Presentation-only: avoids hard
     /// jumps when look-ahead flips with facing or when framing presets change.
     pub live_target_world: ae::Vec2,
+    /// The last composed goal. Use it to follow a moving goal between frames.
+    pub previous_goal_world: Option<ae::Vec2>,
     pub target_initialized: bool,
     pub active_composition: Option<usize>,
     pub transition_from: ae::Vec2,
@@ -96,6 +98,7 @@ impl Default for CameraEaseState {
         Self {
             live_scale: 1.0,
             live_target_world: ae::Vec2::ZERO,
+            previous_goal_world: None,
             target_initialized: false,
             active_composition: None,
             transition_from: ae::Vec2::ZERO,

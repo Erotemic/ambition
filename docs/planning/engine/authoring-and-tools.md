@@ -322,6 +322,10 @@ it. The renderer checkout appeared twice on the import path during the
 build. The check reported a toolchain change because the receipt counted
 the same package more than once. Record each package name and version once.
 
+The Sketchbook Cliffs fold build reported an unknown target when an import
+error prevented discovery. Show the module name and its import error in
+the build result when discovery fails.
+
 Machine mode returns parseable result data for normal refusal or partial
 failure even when the exit status is nonzero. If a killed or crashed producer
 returns no receipt, report its outcome as unavailable or unconfirmed.

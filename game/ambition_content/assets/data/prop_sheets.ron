@@ -65,6 +65,7 @@
     // tall as a door, and a heap of pots of paint.
     "art_easel": (),
     "art_plaza_open_gallery": (backdrop: true),
+    "art_cliffs_fold": (backdrop: true),
     // The look of the palette lifts of the plaza and the cliffs.
     "art_palette_lift": (),
     "art_giant_crayon": (),

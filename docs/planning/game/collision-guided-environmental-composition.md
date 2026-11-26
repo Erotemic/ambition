@@ -358,6 +358,9 @@ author changes a path.
 Show encounter spawn boxes with the room hazards in the geometry preview.
 In the Reliquary, the first knot of the last wave started inside a spike
 tray. Its spawn came from the wave file.
+The Inkfall Caverns show the same spike art as other damage regions. Let
+an author choose an ink surface for a damage region. Use the damage bounds
+to draw the surface up to the edge of each dry foothold.
 
 ### Terrain under water
 

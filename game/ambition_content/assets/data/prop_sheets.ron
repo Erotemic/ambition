@@ -66,6 +66,9 @@
     "art_easel": (),
     "art_plaza_open_gallery": (backdrop: true),
     "art_cliffs_fold": (backdrop: true),
+    "art_garden_scaffold": (backdrop: true),
+    "art_caverns_cork": (),
+    "art_gallery_staging": (backdrop: true),
     // The look of the palette lifts of the plaza and the cliffs.
     "art_palette_lift": (),
     "art_giant_crayon": (),
@@ -465,6 +468,8 @@
     // glows, and a street lamp whose post is a quill in a pot of ink.
     "art_book_tower": (),
     "art_library_stair": (),
+    "art_library_endings": (backdrop: true),
+    "art_stacks_ladder_case": (backdrop: true),
     "art_lectern": (),
     "art_quill_lamp": (),
     // The Amphitheatre (`targets/props/art_stage_props.py`). Its curtain is
@@ -476,6 +481,8 @@
     "art_spotlight": (),
     "art_theatre_masks": (),
     "art_costume_trunk": (),
+    "art_amphi_pit_walkway": (backdrop: true),
+    "art_amphi_east_aisle": (backdrop: true),
     // The Resonant Reach (`targets/props/art_resonance_props.py`). Each of its
     // three chimes is a brass tube on a stand; each door of the Concert Hall's
     // stage is a golden organ pipe with its note on it, and the chime of the

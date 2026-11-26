@@ -5,8 +5,8 @@
 use bevy::prelude::*;
 use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
 
-use ambition_persistence::settings::video::FramePaceCap;
 use ambition_persistence::settings::UserSettings;
+use ambition_persistence::settings::video::{FramePaceCap, VsyncMode};
 
 /// Set the native display's frame cap from the Video setting.
 pub struct FramePacePlugin;
@@ -36,12 +36,49 @@ fn sync_framepace_from_settings(
         framepace.limiter = Limiter::Off;
         return;
     }
-    framepace.limiter = match settings.video.frame_cap {
-        FramePaceCap::Auto => Limiter::Auto,
-        FramePaceCap::Off => Limiter::Off,
-        cap => match cap.target_fps() {
+    framepace.limiter = match (settings.video.frame_cap, settings.video.vsync) {
+        // V-Sync already limits frames to the refresh rate. The automatic
+        // software cap uses a lower rate and can cause missed refreshes.
+        (FramePaceCap::Auto, VsyncMode::On) | (FramePaceCap::Off, _) => Limiter::Off,
+        (FramePaceCap::Auto, VsyncMode::Off) => Limiter::Auto,
+        (cap, _) => match cap.target_fps() {
             Some(fps) => Limiter::from_framerate(fps),
             None => Limiter::Auto,
         },
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn auto_uses_one_refresh_limiter_and_keeps_explicit_caps() {
+        let mut app = App::new();
+        app.init_resource::<UserSettings>()
+            .init_resource::<FramepaceSettings>()
+            .add_systems(Update, sync_framepace_from_settings);
+
+        app.update();
+        assert!(matches!(
+            app.world().resource::<FramepaceSettings>().limiter,
+            Limiter::Off
+        ));
+
+        app.world_mut().resource_mut::<UserSettings>().video.vsync = VsyncMode::Off;
+        app.update();
+        assert!(matches!(
+            app.world().resource::<FramepaceSettings>().limiter,
+            Limiter::Auto
+        ));
+
+        let mut settings = app.world_mut().resource_mut::<UserSettings>();
+        settings.video.vsync = VsyncMode::On;
+        settings.video.frame_cap = FramePaceCap::Hz30;
+        app.update();
+        assert!(matches!(
+            app.world().resource::<FramepaceSettings>().limiter,
+            Limiter::Manual(period) if period == std::time::Duration::from_secs_f64(1.0 / 30.0)
+        ));
+    }
 }

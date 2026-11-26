@@ -235,6 +235,8 @@ For the Curry House, show which shelf edges support a body. Show the udon
 pickup and the tip jar at their authored heights in the same view.
 For the Fizzy Flats, show the water cells, solid banks, and damage volumes
 with the spring art. Use the solid bank edges to place the caps.
+For the Fizzuvius Slopes, show the ladder cells with the ladder art.
+Show where the ladder overlaps the one-way landing at the top.
 The Noodly Cistern adds pipes and plates for each wheel. Give the art
 generator the switch and gate bounds and the gate conditions. Keep the
 pipe bends in the art so an author can route around labels.

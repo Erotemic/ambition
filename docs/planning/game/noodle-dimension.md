@@ -131,6 +131,14 @@ from the ground and use the stone in the middle pool. Caps and bubbles
 mark the soda. The hermitage and spring warning have signs with a dark
 background.
 
+## Fizzuvius Slopes
+
+After the first soda channel, a ladder on the dry shelf leads to two
+landings below the lost thermos. From the thermos, the outcrops lead to
+the rim. The lower trail crosses a second channel on its way to the
+soda tube. Pilgrims can also climb from the tube to the thermos by the
+east outcrops. The parrot starts above the rim trail.
+
 ## The soda
 
 A pool of soda is two things in one box. Neither needs a Rust change:

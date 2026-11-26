@@ -19,10 +19,12 @@
 //!
 //! Which rooms are dangerous and which factions ally are the game's content.
 
+use std::collections::BTreeSet;
+
 use bevy::prelude::*;
 
 use ambition_characters::actor::{ActorFaction, BodyHealth};
-use ambition_characters::control::brain_binding::{AutonomousSource, BrainBinding};
+use ambition_characters::control::brain_binding::BrainBinding;
 use ambition_combat::components::{
     ActorAggression, ActorDisposition, ActorTarget, AggressionMode, CenteredAabb, Grudge,
 };
@@ -61,6 +63,7 @@ pub fn rally_allies_to_the_fight(
     room_specs: Option<ambition_platformer2d_world::rooms::LiveRoomSpecs>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     mut brain_commands: MessageWriter<BrainCommand>,
+    mut sources: Local<Vec<Entity>>,
     // Every body that can be a foe or a foe's quarry, players included.
     bodies: Query<(
         Entity,
@@ -109,21 +112,38 @@ pub fn rally_allies_to_the_fight(
             Without<ambition_combat::death_rules::OutOfPlay>,
         ),
     >,
+    Query<
+        (Entity, Option<&ActorTarget>, Option<&ActorAggression>, Option<&BrainBinding>),
+        (With<FeatureSimEntity>, Or<(With<ActorTarget>, With<BrainBinding>)>),
+    >,
     )>,
 ) {
     let Some(relations) = relations else {
         return;
     };
+    // A rally can start with a target or grudge. A prior rally can end after both clear.
+    sources.clear();
+    let mut rallied = false;
+    for (entity, target, aggression, binding) in &sets.p2() {
+        if target.is_some_and(|target| {
+            target.entity.is_some() || aggression.and_then(|agg| agg.grudge).and_then(Grudge::body).is_some()
+        }) {
+            sources.push(entity);
+        }
+        rallied |= binding.is_some_and(BrainBinding::is_provoked)
+            && aggression.is_some_and(|agg| matches!(agg.mode, AggressionMode::RetaliatesWhenHit { .. }));
+    }
+    if sources.is_empty() && !rallied {
+        return;
+    }
     // The foes this tick, in canonical order, so a tie in distance is decided
     // by stable identity and not by `Entity` (which a rewind does not keep).
     let mut candidates: Vec<_> = sets
         .p0()
-        .iter()
+        .iter_many(sources.iter().copied())
         .filter_map(|(entity, aabb, faction, driver, target, hp, out_of_play, plane, id, policy, aggression, swing)| {
             let grudge = aggression.and_then(|aggression| aggression.grudge?.body());
-            if (target.entity.is_none() && grudge.is_none())
-                || ambition_combat::util::body_is_untouchable(Some(hp), out_of_play, plane)
-            {
+            if ambition_combat::util::body_is_untouchable(Some(hp), out_of_play, plane) {
                 return None;
             }
             // Whom this body is fighting NOW: its target, when the target is
@@ -157,6 +177,21 @@ pub fn rally_allies_to_the_fight(
         (None, Some(_)) => std::cmp::Ordering::Greater,
         (None, None) => a.entity.cmp(&b.entity),
     });
+    let recruit_rooms = room_specs.as_ref().map_or_else(BTreeSet::new, |specs| {
+        let mut fighting_rooms: BTreeSet<_> = candidates
+            .iter()
+            .filter(|candidate| candidate.blows.is_some())
+            .filter_map(|candidate| candidate.room)
+            .collect();
+        fighting_rooms.retain(|room| {
+            specs.definition_in(*room)
+                .is_some_and(|definition| specs.rooms().spec(definition).metadata.dangerous)
+        });
+        fighting_rooms
+    });
+    if recruit_rooms.is_empty() && !rallied {
+        return;
+    }
     let faction_of = |entity: Entity| {
         bodies
             .get(entity)
@@ -187,8 +222,7 @@ pub fn rally_allies_to_the_fight(
         if !matches!(aggression.mode, AggressionMode::RetaliatesWhenHit { .. }) {
             continue;
         }
-        let rallied = binding
-            .is_some_and(|binding| matches!(binding.source, AutonomousSource::ProvokedProfile { .. }));
+        let rallied = binding.is_some_and(BrainBinding::is_provoked);
 
         // THE FIGHT IS OVER: targeting found no foe and stood it down, or
         // its foe fights nobody on its side any more. Its feud ends with the
@@ -220,17 +254,13 @@ pub fn rally_allies_to_the_fight(
             }
             continue;
         }
-        if !disposition.is_peaceful() || candidates.is_empty() {
+        if !disposition.is_peaceful() || recruit_rooms.is_empty() {
             continue;
         }
 
-        let dangerous = room_specs
-            .as_ref()
-            .and_then(|specs| specs.spec_of(entity))
-            .is_some_and(|spec| spec.metadata.dangerous);
-        if !dangerous {
+        let Some(self_room) = rooms.of(entity).filter(|room| recruit_rooms.contains(room)) else {
             continue;
-        }
+        };
         let has_kit = repertoire.is_some_and(|set| set.melee.is_some() || set.ranged.is_some())
             || moveset.is_some_and(|moveset| !moveset.0.moves.is_empty());
         if !has_kit {
@@ -253,14 +283,13 @@ pub fn rally_allies_to_the_fight(
         if ambition_combat::util::body_is_untouchable(Some(hp), false, plane) {
             continue;
         }
-        let self_room = rooms.of(entity);
         let reach_sq = policy.0.aggro_radius * policy.0.aggro_radius;
 
         // The nearest foe of its side, in its room and in its notice range,
         // that is fighting its side now.
         let mut best: Option<(Entity, f32)> = None;
         for candidate in &candidates {
-            if candidate.entity == entity || candidate.room != self_room {
+            if candidate.entity == entity || candidate.room != Some(self_room) {
                 continue;
             }
             let Some(side) = relations.fights_beside(self_faction, candidate.faction) else {

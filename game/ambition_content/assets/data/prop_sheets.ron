@@ -483,6 +483,7 @@
     "art_costume_trunk": (),
     "art_amphi_pit_walkway": (backdrop: true),
     "art_amphi_east_aisle": (backdrop: true),
+    "art_backstage_costume_rig": (backdrop: true),
     // The Resonant Reach (`targets/props/art_resonance_props.py`). Each of its
     // three chimes is a brass tube on a stand; each door of the Concert Hall's
     // stage is a golden organ pipe with its note on it, and the chime of the

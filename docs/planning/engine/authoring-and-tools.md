@@ -409,6 +409,11 @@ recipe. Let the recipe use the authored platform positions. Show the
 sprite bounds and collision surfaces together in the room preview so an
 author can check the deck heights and floor contact.
 
+The Backstage generator placed a 16-pixel one-way platform at y=456.
+The rectangle touched two grid rows. It made two visible decks at y=448
+and y=464. Show the resulting walk surfaces before the author applies a
+one-way rectangle. Warn when one rectangle makes two rows.
+
 ### Content diffs need domain-aware comparison (Q62, Q78)
 
 Rulings 2026-10-04 ([`../maintainer-decisions.md`](../maintainer-decisions.md)):

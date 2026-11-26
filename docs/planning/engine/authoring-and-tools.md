@@ -413,6 +413,10 @@ ladder. A ladder beside the balcony let the body climb in both directions.
 Show the ladder contact and the space to enter and leave at each end in
 the room preview.
 
+The Callosum fibre bundle uses ladder art from the Neural theme.
+The vine placeholder covers the local prop with a green rectangle.
+Let themes supply art for vines and climbable walls as they do for ladders.
+
 ### Scenery and platform alignment
 
 The Unfinished Gallery staging uses one scenery sprite for six platform

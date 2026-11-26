@@ -339,6 +339,9 @@ Use the one-way ledge bounds to place each tread and the raised walk.
 In the Manifest Office, use the bounds of the sorting counter and file
 tray to place their tops. Show the Registrar's talk prompt below the
 counter so authors can check the space for a conversation.
+In the Callosum, use the cap bounds to place each synapse and the climbable
+bounds to place the fibre bundle. Show the space to leave the bundle at
+the top of the arch.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

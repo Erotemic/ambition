@@ -752,6 +752,26 @@ The 942 core tests passed. The movement probe matched positions,
 velocities, contact counts, and support point and normal digests with
 settled, mixed, and moving bodies.
 
+### Room queries for pending work
+
+Conversation selection checks reach and facing before it reads a candidate's
+live room. An ambient bark clock stores its timer and line rotation together
+and reads room metadata when it starts or comes due. Death beats read room
+pace when they advance an active death clock.
+
+The windowed comparison used the terrain preparation build as the reference.
+The four runs used 596 bodies and the same viewport, quality, and run order.
+
+| Median after 30 s | Reference runs, ms/tick | Candidate runs, ms/tick |
+| --- | ---: | ---: |
+| All measured simulation phases | 20.59, 19.52 | 20.39, 19.64 |
+| Progression | 0.84, 0.79 | 0.54, 0.51 |
+| World preparation | 0.60, 0.56 | 0.45, 0.44 |
+
+The total tick results overlap. Focused checks used the built libraries
+to verify talk reach across rooms, death and revival under two room clocks,
+and bark timing and rotation after a catalog replacement.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

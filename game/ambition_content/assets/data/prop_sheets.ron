@@ -1214,6 +1214,7 @@
     "automaton_clock_tower": (),
     "automaton_tower_balcony": (),
     "automaton_still_life": (),
+    "automaton_life_relay_ramp": (),
     "automaton_sierpinski_panel": (),
     "automaton_tape": (),
     "automaton_tape_landings": (),

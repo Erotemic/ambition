@@ -200,6 +200,8 @@ after the session starts. Consider an option in `room render` that draws
 published props over the room geometry. Use the existing publication
 index and prop draw modes. Include doors and climbable surfaces so an
 author can check the relation between the art and the route.
+At the east end of the waterfront, show the net decks over the facades.
+The preview must use the game draw order where the decks cross the walls.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

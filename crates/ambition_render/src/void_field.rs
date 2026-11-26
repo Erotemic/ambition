@@ -18,19 +18,12 @@
 
 use bevy::{
     asset::embedded_asset,
-    core_pipeline::{
-        fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin},
-        schedule::Core2d,
-        tonemapping::tonemapping,
-        Core2dSystems,
-    },
-    ecs::{schedule::ScheduleConfigs, system::BoxedSystem},
     camera::visibility::RenderLayers,
     prelude::*,
     render::{extract_component::ExtractComponent, render_resource::ShaderType},
-    shader::ShaderRef,
 };
 
+use crate::screen_pass::{view_in_target, ScreenPass, ScreenPassPlugin, ScreenPassStage};
 use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
 
 /// The most auras one camera draws. The nearest to the middle of its view win.
@@ -78,7 +71,7 @@ pub struct VoidFieldPlugin;
 impl Plugin for VoidFieldPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "shaders/void_field.wgsl");
-        app.add_plugins(FullscreenMaterialPlugin::<VoidFieldSettings>::default())
+        app.add_plugins(ScreenPassPlugin::<VoidFieldSettings>::default())
             .add_systems(
                 PostUpdate,
                 sync_void_fields.run_if(a_void_or_its_field_stands).after(bevy::transform::TransformSystems::Propagate),
@@ -113,21 +106,9 @@ pub struct VoidFieldSettings {
     pub view: Vec4,
 }
 
-impl FullscreenMaterial for VoidFieldSettings {
-    fn fragment_shader() -> ShaderRef {
-        "embedded://ambition_render/shaders/void_field.wgsl".into()
-    }
-
-    /// Ambition is a 2D game; the default is `Core3d`.
-    fn schedule() -> impl bevy::ecs::schedule::ScheduleLabel + Clone {
-        Core2d
-    }
-
-    /// After tonemapping, with the other screen filters: the field is of the
-    /// colour a player sees.
-    fn schedule_configs(system: ScheduleConfigs<BoxedSystem>) -> ScheduleConfigs<BoxedSystem> {
-        system.in_set(Core2dSystems::PostProcess).after(tonemapping)
-    }
+impl ScreenPass for VoidFieldSettings {
+    const SHADER: &'static str = "embedded://ambition_render/shaders/void_field.wgsl";
+    const STAGE: ScreenPassStage = ScreenPassStage::Void;
 }
 
 /// One aura as a camera sees it: its middle in the view (0 to 1, y down),
@@ -179,20 +160,6 @@ fn pack_sources(seen: Vec<Vec4>, wards: Vec<Vec4>, aspect: f32, view: Vec4) -> O
         view,
     })
 }
-
-/// The view of `camera` as a part of its target: its top left and its size,
-/// each from 0 to 1. The whole target when the camera states no part.
-pub(crate) fn view_in_target(camera: &Camera) -> Vec4 {
-    match (camera.logical_viewport_rect(), camera.logical_target_size()) {
-        (Some(rect), Some(target)) if target.x > 0.0 && target.y > 0.0 && rect.width() > 0.0 && rect.height() > 0.0 => {
-            Vec4::new(rect.min.x / target.x, rect.min.y / target.y, rect.width() / target.x, rect.height() / target.y)
-        }
-        _ => WHOLE_TARGET,
-    }
-}
-
-/// A view that is its whole target.
-const WHOLE_TARGET: Vec4 = Vec4::new(0.0, 0.0, 1.0, 1.0);
 
 /// Does a camera on `camera` draw a thing on `thing`? The rule of the
 /// renderer: no `RenderLayers` is layer 0. `RenderLayers` does not go down to
@@ -284,6 +251,7 @@ fn sync_void_fields(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::screen_pass::WHOLE_TARGET;
     use bevy::camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy::ecs::system::RunSystemOnce;
 

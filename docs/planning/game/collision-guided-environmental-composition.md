@@ -191,6 +191,16 @@ should not repeatedly conceal critical combat or movement information.
 - Respect generated-versus-editor-owned LDtk room authority. Change the
   actual authoring source, not a generated copy that will be overwritten.
 
+## Follow-up: prop placement in room previews
+
+The Pirate Port waterfront audit needed the LDtk prop positions and the
+published sprite rectangles in one image to check the tavern sign. The
+geometry preview shows the prop boxes. The game capture shows the art
+after the session starts. Consider an option in `room render` that draws
+published props over the room geometry. Use the existing publication
+index and prop draw modes. Include doors and climbable surfaces so an
+author can check the relation between the art and the route.
+
 ## Three visual acceptance scenes
 
 Use **the same practical camera compositions before and after**. Source room

@@ -26,6 +26,11 @@ where
     R: RollbackRegistrar,
 {
     registrar
+        .declare_rollback_derived_component::<crate::pose_view::BodyPoseHistory>(
+            OWNER,
+            "derived.body_pose_history",
+            "Body animation history advances each simulation tick",
+        )
         .declare_rollback_derived_resource::<crate::affordances::interactable_proximity::NearestInteractable>(
             OWNER,
             "derived.nearest_interactable",

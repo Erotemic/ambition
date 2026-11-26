@@ -14,7 +14,7 @@ use ambition_sprite_sheet::character::CharacterAnim;
 
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
 
-use crate::{ActorAnimIndex, BodyPoseView, ClipRequest};
+use crate::{pose_view::BodyPoseHistory, ActorAnimIndex};
 
 /// How a body in a passage is drawn: about its feet, `scale` of its size,
 /// `alpha` of it showing, `shade` of the way to black, `transit` of the way
@@ -61,7 +61,7 @@ impl PassageViews {
     }
 }
 
-fn row_of(pose: PassagePose) -> (&'static [&'static str], CharacterAnim) {
+pub(crate) fn row_of(pose: PassagePose) -> (&'static [&'static str], CharacterAnim) {
     match pose {
         PassagePose::TurnAway => (&["turn_away", "climb"], CharacterAnim::LadderClimb),
         PassagePose::WalkAway => (&["walk_away", "climb"], CharacterAnim::LadderClimb),
@@ -72,19 +72,15 @@ fn row_of(pose: PassagePose) -> (&'static [&'static str], CharacterAnim) {
     }
 }
 
-/// Publish each passage's look, after the pose views are rebuilt.
-///
-/// A player body takes it beside its `BodyPoseView`. A body drawn on the
-/// actor road (a possessed body, an NPC) takes it in its `ActorAnimIndex`
-/// frame, which clears the override each tick.
-pub fn rebuild_passage_views(
+/// Set the passage pose after the body and actor animation states advance.
+pub(crate) fn rebuild_passage_views(
     mut commands: Commands,
     mut views: ResMut<PassageViews>,
     mut actors: Option<ResMut<ActorAnimIndex>>,
     mut bodies: Query<(
         Entity,
         &ZonePassage,
-        Option<&mut BodyPoseView>,
+        Option<&mut BodyPoseHistory>,
         Option<&PassageLookView>,
         Option<&ambition_combat::components::FeatureId>,
     )>,
@@ -105,9 +101,7 @@ pub fn rebuild_passage_views(
         match passage.look() {
             Some(look) => {
                 if let Some(mut pose) = pose {
-                    let (chain, anim) = row_of(look.pose);
-                    pose.anim = anim;
-                    pose.clip = ClipRequest::from_chain(chain);
+                    pose.passage = Some(look.pose);
                 }
                 let view = PassageLookView { scale: look.scale, alpha: look.alpha, shade: look.shade, transit: look.transit };
                 if let Some((id, actors)) = feature.zip(actors.as_deref_mut()) {
@@ -183,12 +177,18 @@ mod tests {
     #[test]
     fn a_body_on_the_actor_road_draws_its_passage() {
         use crate::anim_index::{advance_actor_anim_poses, rebuild_actor_anim_index, spawn_pose_fixture};
+        use crate::pose_view::{advance_body_pose_history, rebuild_body_pose_views, BodyPoseView};
+        use ambition_platformer2d_shared_tangle::lifecycle::PosedBody;
 
         let mut app = App::new();
         app.init_resource::<PassageViews>();
         app.init_resource::<ActorAnimIndex>();
-        app.add_systems(FixedUpdate, (advance_actor_anim_poses, rebuild_passage_views).chain());
-        app.add_systems(Update, rebuild_actor_anim_index);
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
+        app.add_systems(
+            FixedUpdate,
+            ((advance_actor_anim_poses, advance_body_pose_history), rebuild_passage_views).chain(),
+        );
+        app.add_systems(Update, (rebuild_actor_anim_index, rebuild_body_pose_views));
         let passage = ZonePassage {
             kind: PassageKind::Door,
             stage: PassageStage::Entering,
@@ -207,7 +207,7 @@ mod tests {
         };
         let look = passage.look().expect("premise: the passage holds the body and has a look");
         let npc = spawn_pose_fixture(&mut app, "npc");
-        app.world_mut().entity_mut(npc).insert(passage);
+        app.world_mut().entity_mut(npc).insert((PosedBody, passage));
         spawn_pose_fixture(&mut app, "bystander");
         app.world_mut().run_schedule(FixedUpdate);
         app.world_mut().run_schedule(Update);
@@ -223,6 +223,9 @@ mod tests {
             ),
             "the actor frame draws the passage's row and look"
         );
+        let pose = app.world().get::<BodyPoseView>(npc).unwrap();
+        assert_eq!(pose.anim, frame.anim);
+        assert_eq!(pose.clip, frame.clip);
         let bystander = index.get("bystander").expect("the bystander's frame");
         assert_eq!(
             (bystander.anim, bystander.clip.is_none(), bystander.passage_look),
@@ -236,5 +239,8 @@ mod tests {
         let frame = app.world().resource::<ActorAnimIndex>().get("npc").unwrap();
         assert_eq!(frame.anim, CharacterAnim::Idle);
         assert!(frame.clip.is_none() && frame.passage_look.is_none());
+        let pose = app.world().get::<BodyPoseView>(npc).unwrap();
+        assert_eq!(pose.anim, CharacterAnim::Idle);
+        assert!(pose.clip.is_none());
     }
 }

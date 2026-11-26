@@ -1437,6 +1437,31 @@ viewport, Potato quality, and software rendering, the medians were
 The build also includes upstream changes. Use the isolated probes to
 measure this patch. The desktop target remains 13.75 ms/tick.
 
+### Body pose publication
+
+Advance the body animation clocks on each simulation tick. Build the
+complete body pose once for each frame with a new tick. A passage can
+set the animation and clip that the frame displays.
+
+An isolated desktop development comparison used the 596-body Hall.
+All 596 displayed poses matched after one or more ticks. They also
+matched during turns, hit reactions, and changes to pose pins.
+
+| Ticks per frame | Before, ms/frame | After, ms/frame |
+| ---: | ---: | ---: |
+| 1 | 0.197 | 0.288 |
+| 2 | 0.389 | 0.349 |
+| 3 | 0.642 | 0.433 |
+| 15 | 3.049 | 1.640 |
+
+Two windowed development runs used 1280 × 800, Potato quality, and
+llvmpipe. All 596 bodies were present. The map and catalog matched the
+previous runs. After 30 s, 75 and 77 windows gave medians of 13.74 and
+13.59 ms/tick across the measured simulation phases. The
+`FeatureViewSync` medians were 1.25 and 1.22 ms/tick. Both runs met the
+13.75 ms/tick desktop target. The frame medians were 238 and 226 ms
+with software rendering. Measure Android frame time on the device.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

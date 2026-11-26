@@ -241,9 +241,8 @@ pub fn draw_held_frame(
 /// Drive the player sprite's animation state, atlas index, and facing flip.
 /// Runs every frame; no-op on color-rectangle fallbacks (no `CharacterAnimator`).
 ///
-/// The anim pick is sim-side: `rebuild_body_pose_views` resolves the pose in
-/// `FeatureViewSync`. This system only consumes [`BodyPoseView`], ticks the
-/// animator by presentation dt, and sets the frame.
+/// Read the selected animation from [`BodyPoseView`]. Advance the animator
+/// with the presentation clock and set the sprite frame.
 pub fn animate_player(
     presentation_time: ambition_time::PresentationTime,
     mut query: Query<

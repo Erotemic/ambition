@@ -406,7 +406,8 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // tick's whole path across a portal (portal M1).
 // 547 -> 548: stale wall velocity age stops at its freshness limit. The
 // movement kernel can reuse a settled step from the same saved state.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 548;
+// 548 -> 549: register the body animation history that advances on each tick.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 549;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

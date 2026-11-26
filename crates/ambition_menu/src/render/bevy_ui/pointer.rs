@@ -10,6 +10,14 @@ fn tap_bounds(
     transform: &UiGlobalTransform,
     camera: &Camera,
 ) -> Option<crate::PointerTapBounds> {
+    Some(crate::PointerTapBounds {
+        rect: logical_node_rect(node, transform, camera)?,
+        target: location.target.clone(),
+    })
+}
+
+/// The node's rectangle in the target's logical pointer coordinates.
+pub fn logical_node_rect(node: &ComputedNode, transform: &UiGlobalTransform, camera: &Camera) -> Option<Rect> {
     if node.is_empty() {
         return None;
     }
@@ -17,13 +25,7 @@ fn tap_bounds(
     let origin = camera
         .physical_viewport_rect()
         .map_or(Vec2::ZERO, |rect| rect.min.as_vec2());
-    Some(crate::PointerTapBounds {
-        rect: Rect::from_center_size(
-            (transform.translation + origin) / scale,
-            node.size() / scale,
-        ),
-        target: location.target.clone(),
-    })
+    Some(Rect::from_center_size((transform.translation + origin) / scale, node.size() / scale))
 }
 
 fn activate<Action>(
@@ -81,12 +83,14 @@ pub(super) fn press_actions<Action: Clone + Send + Sync + 'static>(
         return;
     };
     if let Ok(mut state) = menus.get_mut(surface.0) {
-        state.press_pointer(
+        if !state.press_pointer(
             press.pointer_id,
             control.focus,
             action,
             press.pointer_location.position,
-        );
+        ) {
+            return;
+        }
         state.bounds = nodes
             .get(press.entity)
             .ok()
@@ -201,8 +205,8 @@ pub(super) fn finish_actions<Action: Clone + PartialEq + Send + Sync + 'static>(
                             &mut activated,
                         );
                     }
-                    state.cancel_pointer(input.pointer_id);
                 }
+                state.cancel_pointer(input.pointer_id);
             }
         }
     }

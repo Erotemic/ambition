@@ -1170,6 +1170,9 @@ pub fn register_mary_o_cast(app: &mut App) {
 pub struct MaryOPresentationSet;
 
 pub fn install_mary_o_content(app: &mut App) {
+    #[cfg(feature = "render")]
+    use bevy::prelude::IntoScheduleConfigs as _;
+
     app.configure_sets(
         bevy::prelude::Update,
         bevy::prelude::IntoScheduleConfigs::run_if(
@@ -1222,6 +1225,10 @@ pub fn install_mary_o_content(app: &mut App) {
             scenery::dress_fire,
             // The switch of a castle, up or down, and its gate.
             castle_end::dress_the_goal,
+            pipe::draw_inside_the_pipe
+                .after(ambition_platformer2d::render::rendering::actors::sync_visuals)
+                .before(ambition_platformer2d::render::rendering::actors::rigged::RiggedDriveSet)
+                .before(ambition_platformer2d::render::rendering::BodyOwnedDrawableSync),
         ), MaryOPresentationSet),
     );
 

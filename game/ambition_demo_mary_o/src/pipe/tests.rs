@@ -4,6 +4,30 @@
 
 use super::*;
 
+#[cfg(feature = "render")]
+#[test]
+fn the_terrain_covers_the_body_at_the_back_of_the_pipe() {
+    use ambition_platformer2d::render::rendering::{BODY_DEPTH_BAND, PlayerVisual};
+
+    let mut app = App::new();
+    app.add_systems(Update, draw_inside_the_pipe);
+    let body = app.world_mut().spawn((
+        PlayerVisual,
+        Transform::from_xyz(32.0, 32.0, ae::config::WORLD_Z_PLAYER),
+        PipeTransit { phase: TransitPhase::Centering, ..descent() },
+    )).id();
+    app.update();
+    assert_eq!(app.world().get::<Transform>(body).unwrap().translation.z, ae::config::WORLD_Z_PLAYER);
+
+    for phase in [TransitPhase::Swallowing, TransitPhase::Emerging, TransitPhase::Leaving] {
+        app.world_mut().get_mut::<PipeTransit>(body).unwrap().phase = phase;
+        app.update();
+        let position = app.world().get::<Transform>(body).unwrap().translation;
+        assert!(position.z + BODY_DEPTH_BAND < ae::config::WORLD_Z_BLOCK);
+        assert_eq!(position.truncate(), Vec2::splat(32.0));
+    }
+}
+
 const DT: f32 = 1.0 / 60.0;
 const TILE: f32 = 32.0;
 

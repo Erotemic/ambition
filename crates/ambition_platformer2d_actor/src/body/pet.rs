@@ -214,8 +214,8 @@ pub(super) fn half_on(half_size: ambition_platformer2d_core::Vec2, axis: ambitio
 ///
 /// The mark is on the petter's side of the petted body when the petter's body
 /// fits there, and on the other side when only that one fits: a dog beside a
-/// wall is petted from the open side. With no room on either side, there is
-/// no pet.
+/// wall is petted from the open side. If neither side fits, the petter starts
+/// the gesture where they are standing.
 #[allow(clippy::too_many_arguments)]
 pub fn apply_pet_requests(
     poses: ambition_platformer2d_shared_tangle::body::pose::BodyPoseAdmission,
@@ -320,15 +320,11 @@ pub fn apply_pet_requests(
         } else {
             -1.0
         };
-        let Some(side) = [near, -near].into_iter().find(|side| fits(*side)) else {
-            warn!(
-                target: "crate::body::pet",
-                "no room beside {} for {} to stand and pet it; ignoring the pet",
-                request.petted,
-                request.petter,
-            );
-            continue;
-        };
+        let current_mark = on_side(petter_kin.pos);
+        let (side, mark) = [near, -near]
+            .into_iter()
+            .find(|side| fits(*side))
+            .map_or((near, current_mark), |side| (side, mark_for(side)));
         // The petted body turns to that side now, and waits there. `side` is
         // a sign on the side axis, as a facing is.
         // It stops where it stands: the hold blanks its control from the next
@@ -336,23 +332,22 @@ pub fn apply_pet_requests(
         // momentum. A pin, through the motion authority (ADR 0024).
         if stop_where_it_stands(&poses, petted, &mut petted_kin, frame.down).is_err() { continue; }
         petted_kin.facing = side;
-        let mark = mark_for(side);
-        let walk = (mark - on_side(petter_kin.pos)).abs() / PET_WALK_SPEED;
-        commands.entity(petter).insert((
-            CommandedMove {
+        let distance = (mark - current_mark).abs();
+        if distance > PET_ARRIVE_TOLERANCE {
+            commands.entity(petter).insert(CommandedMove {
                 target: place(mark),
                 speed: PET_WALK_SPEED,
                 arrive_tolerance: PET_ARRIVE_TOLERANCE,
+            });
+        }
+        commands.entity(petter).insert(PetBeat {
+            petted: request.petted.clone(),
+            mark,
+            side,
+            stage: PetStage::Walk {
+                remaining: distance / PET_WALK_SPEED + PET_WALK_SLACK_SECONDS,
             },
-            PetBeat {
-                petted: request.petted.clone(),
-                mark,
-                side,
-                stage: PetStage::Walk {
-                    remaining: walk + PET_WALK_SLACK_SECONDS,
-                },
-            },
-        ));
+        });
     }
 }
 

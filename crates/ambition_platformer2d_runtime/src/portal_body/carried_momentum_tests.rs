@@ -19,7 +19,9 @@ fn carried_run_after_fling(body_down: Vec2) -> f32 {
     app.init_resource::<PortalTuning>();
     app.add_message::<ambition_portal2d::PortalBodyEntered>();
     app.add_message::<PortalBodyTransited>();
-    app.add_systems(Update, ambition_portal2d::portal_transit);
+    app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
+    // Transit crosses the pairs the step admitted (M1b): publish them first.
+    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, ambition_portal2d::portal_transit).chain());
     for (channel, at, normal) in [
         (PortalChannel::Gun(PortalGunColor::BLUE), Vec2::ZERO, ENTER_NORMAL),
         (PortalChannel::Gun(PortalGunColor::ORANGE), Vec2::new(100.0, 100.0), EXIT_NORMAL),

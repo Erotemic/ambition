@@ -488,18 +488,26 @@ fn update_body_simulation_inner(
     // Nothing about the rule was player-specific; only its ingredients were, and reading the
     // solid's own velocity off the collision world removes them.
     if let Some(grab) = state.ledge_grab {
-        match crate::ledge_grab::ledge_carry_for_frame(
-            world,
-            grab.contact,
-            // The box a solid stops is the body's box turned to the frame's
-            // DOWN, as in every collision of the step.
-            clusters.kinematics.aabb(),
-            clusters.kinematics.size(),
-            frame.down(),
-        ) {
+        let body = clusters.kinematics.aabb();
+        let carry = if crate::ledge_grab::hang_straddles_an_aperture(body, admission) {
+            crate::ledge_grab::LedgeCarry::KnockOff
+        } else {
+            crate::ledge_grab::ledge_carry_for_frame(
+                world,
+                grab.contact,
+                body,
+                clusters.kinematics.size(),
+                frame.down(),
+            )
+        };
+        match carry {
             crate::ledge_grab::LedgeCarry::Stay => {}
             crate::ledge_grab::LedgeCarry::KnockOff => {
                 state.ledge_grab = None;
+                state.wall_clinging = false;
+                state.wall_climbing = false;
+                clusters.wall.on_wall = false;
+                state.ledge_invuln_timer = 0.0;
                 clusters.ledge.release_cooldown = clusters
                     .ledge
                     .release_cooldown
@@ -813,6 +821,7 @@ fn update_body_simulation_inner(
         frame,
         &tuning,
         &mut events,
+        admission,
     );
 
     (events, SimPhaseReach::Completed)

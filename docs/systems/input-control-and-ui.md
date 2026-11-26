@@ -143,14 +143,17 @@ last local menu closes. A local menu does not stop a remote shared timeline.
 
 ## Map
 
-The Cube and Grid use the same map page and navigation actions. The first level
-shows the dimensions, including the sandbox. Select a dimension or group to open
-it. Select a room to see its map. Back returns to the parent level. Back at the
-first level closes the menu.
+The Cube and Grid open the map on the room that the menu owner's body is in.
+If there is no current room on the map, it opens at Dimensions. Dimensions
+includes the sandbox. Select a dimension or group to open it. Select a room
+to see its map. Back returns to the parent level. Back at Dimensions closes
+the menu.
 
 Use the map tools to zoom, pan, or fit the level. Drag on the map to pan. Use the
 wheel or vertical touchpad scroll to zoom. Horizontal touchpad scroll pans
 the map. Directional input selects a room or group.
+On a touch screen, spread two fingers to zoom in or pinch them together
+to zoom out. Move both fingers together to pan.
 Press Up when there is no entry above the selection to reach the map tools.
 Previous and Next can select rooms that overlap or are outside the viewport.
 
@@ -161,8 +164,10 @@ rectangle. Select any of these rectangles to open the same room.
 A game can set world titles and room group paths in `MapHierarchy`. Each path
 can contain any number of groups inside the room's world. `MapBrowser` supplies
 the viewport, selection, and actions for one menu. `MapAccess` supplies visits,
-the current room, and permissions. The view uses fractions of the viewport. A renderer uses these fractions and the entry IDs to draw and
-select the same rooms.
+the current room, and permissions. The view uses fractions of the viewport.
+A renderer uses these fractions and the entry IDs to draw and select the
+same rooms. For pinch input, give `MapBrowser::pinch_viewport` the old and new
+midpoints in viewport fractions and the ratio of the new span to the old span.
 
 Ambition offers Fast Travel on the room detail page in development builds with
 a local timeline. The host sends a `RoomTravelRequested` intent for the menu

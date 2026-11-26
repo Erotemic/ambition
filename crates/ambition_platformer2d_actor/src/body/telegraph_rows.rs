@@ -26,6 +26,8 @@ pub const TELEGRAPH_ROW_WRITER: &str = "telegraph";
 pub const NOTICE_ROW: &str = "notice";
 /// The row held over a swing's startup.
 pub const WINDUP_ROW: &str = "windup";
+/// Optional row for a tell that precedes the attack's own startup.
+const BRAIN_WINDUP_ROW: &str = "brain_windup";
 
 /// The row an enemy is pinned to now, and how far into it: its notice beat,
 /// else the startup of its swing. (pure)
@@ -34,7 +36,7 @@ pub fn telegraph_row(brain: Option<&Brain>, swing: Option<&ambition_combat::Mele
         return Some((NOTICE_ROW, clock));
     }
     if brain.is_some_and(Brain::is_winding_up) {
-        return Some((WINDUP_ROW, clock));
+        return Some((BRAIN_WINDUP_ROW, clock));
     }
     let swing = swing.filter(|swing| !swing.done())?;
     matches!(swing.phase()?, AttackPhase::Startup).then_some((WINDUP_ROW, swing.elapsed))
@@ -49,15 +51,23 @@ pub fn pin_telegraph_rows(
 ) {
     let clock = tick.get() as f32 * TICK_S;
     for (entity, brain, swing, pinned) in &mut bodies {
-        let row = telegraph_row(brain, swing.swing().as_ref(), clock);
+        let row = telegraph_row(brain, swing.swing().as_ref(), clock)
+            .map(|(row, elapsed)| {
+                let rows = match row {
+                    BRAIN_WINDUP_ROW => &[BRAIN_WINDUP_ROW, WINDUP_ROW][..],
+                    WINDUP_ROW => &[WINDUP_ROW],
+                    _ => &[NOTICE_ROW],
+                };
+                (rows, elapsed)
+            });
         match (row, pinned) {
-            (Some((row, elapsed)), None) => {
+            (Some((rows, elapsed)), None) => {
                 let mut pin = PinnedRow::default();
-                pin.pin_as(TELEGRAPH_ROW_WRITER, &[row], elapsed, true);
+                pin.pin_as(TELEGRAPH_ROW_WRITER, rows, elapsed, true);
                 commands.entity(entity).try_insert(pin);
             }
-            (Some((row, elapsed)), Some(mut pinned)) if pinned.written_by(TELEGRAPH_ROW_WRITER) || !pinned.is_pinned() => {
-                pinned.pin_as(TELEGRAPH_ROW_WRITER, &[row], elapsed, true);
+            (Some((rows, elapsed)), Some(mut pinned)) if pinned.written_by(TELEGRAPH_ROW_WRITER) || !pinned.is_pinned() => {
+                pinned.pin_as(TELEGRAPH_ROW_WRITER, rows, elapsed, true);
             }
             (None, Some(mut pinned)) if pinned.written_by(TELEGRAPH_ROW_WRITER) => pinned.clear(),
             _ => {}

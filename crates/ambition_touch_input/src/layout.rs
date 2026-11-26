@@ -102,58 +102,23 @@ pub fn touch_action_layout() -> [TouchActionSpec; 11] {
         size: size * TOUCH_SCALE,
         font_size: font_size * TOUCH_FONT_SCALE,
     };
-    // Four bands, read as a controller face. Each band is a full row, so the
-    // arrangement holds when a character shows only some buttons (missing
-    // slots are hidden, not repacked).
-    //
-    //   shoulder   Blink    Fly      Shot
-    //   utility    Shield   Interact Special
-    //   face       Attack            Burst
-    //   primary        Run      Jump
-    //
-    // The primary band is the thumb's home. Run and Jump sit next to each
-    // other, closer than to anything else, so a thumb can hold Run while
-    // tapping Jump. `no_touch_button_overlaps_another` checks the spacing.
+    // The face diamond follows the standard pad. Left and right shoulders
+    // sit above it, and the extra touch controls sit beside the thumb.
+    let centered = |action, label, x, y, size, font_size| {
+        scaled(action, label, x - size * 0.5, y - size * 0.5, size, font_size)
+    };
     [
-        // Shoulder band.
-        scaled(TouchActionButton::Blink, "Blink", 14.0, 4.0, 62.0, 13.0),
-        scaled(TouchActionButton::FlyToggle, "Fly", 124.0, 0.0, 62.0, 14.0),
-        scaled(
-            TouchActionButton::Projectile,
-            "Shot",
-            234.0,
-            4.0,
-            62.0,
-            13.0,
-        ),
-        // Utility band.
-        scaled(TouchActionButton::Shield, "Shield", 8.0, 84.0, 60.0, 12.0),
-        scaled(
-            TouchActionButton::Interact,
-            "Interact",
-            125.0,
-            76.0,
-            60.0,
-            12.0,
-        ),
-        // Signature slot. Hidden when the scheme has no Special (the
-        // availability check gates visibility and the hit test).
-        scaled(
-            TouchActionButton::Special,
-            "Special",
-            242.0,
-            84.0,
-            60.0,
-            12.0,
-        ),
-        // Face band.
-        scaled(TouchActionButton::Attack, "Attack", 30.0, 158.0, 70.0, 14.0),
-        // Smaller than its neighbors (58 vs 70) to keep the gap.
-        scaled(TouchActionButton::Grab, "Grab", 125.0, 158.0, 58.0, 12.0),
-        scaled(TouchActionButton::Burst, "Burst", 210.0, 158.0, 70.0, 14.0),
-        // Primary band: the pair.
-        scaled(TouchActionButton::Modifier, "Run", 82.0, 240.0, 66.0, 14.0),
-        scaled(TouchActionButton::Jump, "Jump", 162.0, 240.0, 66.0, 14.0),
+        centered(TouchActionButton::FlyToggle, "Utility", 42.0, 33.0, 54.0, 12.0),
+        centered(TouchActionButton::Shield, "Shield", 111.0, 33.0, 54.0, 12.0),
+        centered(TouchActionButton::Interact, "Interact", 199.0, 33.0, 54.0, 12.0),
+        centered(TouchActionButton::Burst, "Burst", 268.0, 33.0, 54.0, 12.0),
+        centered(TouchActionButton::Projectile, "Shot", 155.0, 101.0, 66.0, 14.0),
+        centered(TouchActionButton::Attack, "Attack", 96.0, 159.0, 66.0, 14.0),
+        centered(TouchActionButton::Blink, "Blink", 214.0, 159.0, 66.0, 14.0),
+        centered(TouchActionButton::Jump, "Jump", 155.0, 215.0, 68.0, 14.0),
+        centered(TouchActionButton::Special, "Special", 268.0, 229.0, 54.0, 12.0),
+        centered(TouchActionButton::Grab, "Grab", 28.0, 220.0, 52.0, 12.0),
+        centered(TouchActionButton::Modifier, "Run", 96.0, 267.0, 60.0, 13.0),
     ]
 }
 

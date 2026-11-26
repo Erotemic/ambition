@@ -62,7 +62,7 @@ mod parity_tests;
     ambition_platformer2d::menu::map::browser::MapBrowser)]
 #[cfg_attr(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"), require(lifecycle::MenuLifecycleState))]
 #[cfg_attr(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"), require(regions::MenuRegion, system_cache::CachedSystemMenu))]
-#[cfg_attr(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")), require(map_pointer::MapDrag))]
+#[cfg_attr(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")), require(map_pointer::MapGesture))]
 #[cfg_attr(feature = "bevy_ui_menu", require(grid_backend::GridMenuTabState))]
 #[cfg_attr(feature = "kaleidoscope_menu", require(kaleidoscope_app::KaleidoscopeScroll,
     kaleidoscope_app::MenuPublication, ambition_menu_kaleidoscope::KaleidoscopeOpenState))]

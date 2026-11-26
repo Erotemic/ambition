@@ -454,7 +454,10 @@ pub fn commit_body_transfer(
 /// coordinates, and a blue and an orange in two rooms are not a pair.
 pub fn portal_transit(
     mut commands: Commands,
-    portals: Query<(Entity, &PlacedPortal)>,
+    // The pairs as the bodies' step admitted them (`publish_portal_apertures`),
+    // not as they stand now: one snapshot for the step and its crossings.
+    // Without a publisher there is no admitted pair to cross.
+    admitted: Option<Res<crate::AdmittedPortals>>,
     live: crate::rooms::PortalRooms,
     mut bodies: Query<
         (
@@ -478,7 +481,8 @@ pub fn portal_transit(
     tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let tick = tick.map_or(0, |tick| tick.get());
-    let by_room = PortalsByRoom::collect(&portals, &live);
+    let none = PortalsByRoom::default();
+    let by_room = admitted.as_deref().map_or(&none, |admitted| &admitted.0);
 
     for (entity, mut kin, mut acceleration, mut flight, frame, mut transit, cooldown, record, backside, held, stored) in &mut bodies {
         if stored || !live.allows(entity) {

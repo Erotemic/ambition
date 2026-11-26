@@ -216,8 +216,7 @@ mod tests {
             &action_set,
             &spam_fire(0),
             &ae::BodyKinematics::default(),
-        );
-        assert_eq!(requests.len(), 1);
-        assert!(matches!(requests[0], ActionRequest::Ranged { .. }));
+        ).collect::<Vec<_>>();
+        assert!(matches!(requests.as_slice(), [ActionRequest::Ranged { .. }]));
     }
 }

@@ -204,6 +204,8 @@ pub struct ActionSchemeContract {
     actions: Vec<ActionSpec>,
     #[serde(skip)]
     positions: [u8; CANONICAL_SLOT_ORDER.len()],
+    #[serde(skip)]
+    technique_indices: u16,
 }
 
 #[derive(Deserialize)]
@@ -230,11 +232,15 @@ impl ActionSchemeContract {
         });
         actions.dedup_by_key(|action| action.slot);
         let mut positions = [0; CANONICAL_SLOT_ORDER.len()];
+        let mut technique_indices = 0;
         for (index, action) in actions.iter().enumerate() {
             // Zero marks a slot without an action.
             positions[action.slot as usize] = (index + 1) as u8;
+            if matches!(action.gate, ActionGate::Technique(_)) {
+                technique_indices |= 1 << index;
+            }
         }
-        Self { actions, positions }
+        Self { actions, positions, technique_indices }
     }
 
     /// The action on a given slot, if the subject claims it.
@@ -249,6 +255,23 @@ impl ActionSchemeContract {
 
     pub fn iter(&self) -> impl Iterator<Item = &ActionSpec> {
         self.actions.iter()
+    }
+
+    /// Read the technique slots in scheme order.
+    pub fn techniques(&self) -> impl Iterator<Item = (ControlSlot, &str)> {
+        let mut indices = self.technique_indices;
+        std::iter::from_fn(move || {
+            if indices == 0 {
+                return None;
+            }
+            let index = indices.trailing_zeros() as usize;
+            indices &= indices - 1;
+            let action = &self.actions[index];
+            let ActionGate::Technique(id) = &action.gate else {
+                unreachable!("the index selects a technique");
+            };
+            Some((action.slot, id.as_str()))
+        })
     }
 
     /// Derive the COMBAT actions (attack / special / ranged) from a moveset.
@@ -461,7 +484,14 @@ mod tests {
             visual: None,
             gate: ActionGate::Move("attack".to_owned()),
         };
-        let scheme = ActionSchemeContract::new(vec![mk("swipe"), mk("cleave")]);
+        let technique = ActionSpec {
+            id: ActionId::new("spin"),
+            slot: ControlSlot::Utility,
+            display_name: None,
+            visual: None,
+            gate: ActionGate::Technique("spin".to_owned()),
+        };
+        let scheme = ActionSchemeContract::new(vec![technique, mk("swipe"), mk("cleave")]);
         assert_eq!(
             scheme
                 .iter()
@@ -473,5 +503,6 @@ mod tests {
         let restored: ActionSchemeContract = ron::from_str(&saved).unwrap();
         assert_eq!(restored.action_for_slot(ControlSlot::Attack).unwrap().id.as_str(), "swipe");
         assert!(!restored.has_slot(ControlSlot::Special));
+        assert_eq!(restored.techniques().collect::<Vec<_>>(), [(ControlSlot::Utility, "spin")]);
     }
 }

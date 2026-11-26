@@ -190,6 +190,28 @@ impl MapPageSource<'_, '_> {
         }
     }
 
+    #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
+    pub(crate) fn pinch_viewport(
+        &self,
+        browser: &mut MapBrowser,
+        body: Option<Entity>,
+        aspect: f32,
+        from: Vec2,
+        to: Vec2,
+        scale: f32,
+    ) {
+        if let Some(map) = self.map.as_ref() {
+            browser.pinch_viewport(
+                &MapAtlas::new(&map.rooms, self.hierarchy.as_deref()),
+                self.access(map, body),
+                aspect,
+                from,
+                to,
+                scale,
+            );
+        }
+    }
+
     /// The Map page for `view`, as the game draws it.
     pub(crate) fn page(
         &self,
@@ -615,17 +637,8 @@ mod owner_tests {
                 |source: MapPageSource, bodies: crate::menu::effects::MenuBodySource| {
                     [ParticipantId(0), ParticipantId(1)].map(|owner| {
                         let body = Some(bodies.read(owner)?.entity);
-                        let map = source.map.as_ref()?;
-                        let atlas = MapAtlas::new(&map.rooms, None);
-                        let mut browser = MapBrowser::default();
-                        browser.apply(
-                            &atlas,
-                            source.access(map, body),
-                            MAP_FRAME_ASPECT,
-                            MapAction::Confirm,
-                        );
                         source
-                            .view(body, Some(&browser), MAP_FRAME_ASPECT)?
+                            .view(body, None, MAP_FRAME_ASPECT)?
                             .entries
                             .into_iter()
                             .find(|entry| entry.here)

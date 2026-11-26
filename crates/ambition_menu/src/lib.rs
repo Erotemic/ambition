@@ -663,6 +663,7 @@ pub struct MenuInteraction<Action> {
     pub(crate) preview: Option<Action>,
     pub(crate) bounds: Option<PointerTapBounds>,
     pointer: Option<bevy::picking::pointer::PointerId>,
+    suppressed: Vec<bevy::picking::pointer::PointerId>,
 }
 
 impl<Action> Default for MenuInteraction<Action> {
@@ -674,6 +675,7 @@ impl<Action> Default for MenuInteraction<Action> {
             preview: None,
             bounds: None,
             pointer: None,
+            suppressed: Vec::new(),
         }
     }
 }
@@ -686,7 +688,10 @@ impl<Action> MenuInteraction<Action> {
         focus: MenuFocusKey,
         action: Action,
         position: Vec2,
-    ) {
+    ) -> bool {
+        if self.suppressed.contains(&pointer) {
+            return false;
+        }
         if self.confirm_armed != Some(focus) {
             self.confirm_armed = None;
         }
@@ -694,6 +699,18 @@ impl<Action> MenuInteraction<Action> {
         self.pointer = Some(pointer);
         self.arm.press(focus, Some(position));
         self.armed = Some(action);
+        true
+    }
+
+    /// Give this press to a gesture. The pointer can tap again after release.
+    pub fn suppress_pointer(&mut self, pointer: bevy::picking::pointer::PointerId) {
+        self.cancel_pointer(pointer);
+        self.suppressed.push(pointer);
+    }
+
+    /// End suppression after the input source reports a release or cancel.
+    pub fn clear_pointer_suppression(&mut self, pointer: bevy::picking::pointer::PointerId) {
+        self.suppressed.retain(|id| *id != pointer);
     }
 
     /// Motion from another pointer cannot cancel this gesture.
@@ -708,6 +725,7 @@ impl<Action> MenuInteraction<Action> {
         &mut self,
         pointer: bevy::picking::pointer::PointerId,
     ) -> Option<Action> {
+        self.clear_pointer_suppression(pointer);
         if self.pointer != Some(pointer) {
             return None;
         }
@@ -720,6 +738,7 @@ impl<Action> MenuInteraction<Action> {
 
     /// Cancel only the gesture that belongs to this pointer.
     pub(crate) fn cancel_pointer(&mut self, pointer: bevy::picking::pointer::PointerId) {
+        self.clear_pointer_suppression(pointer);
         if self.pointer == Some(pointer) {
             self.pointer = None;
             self.bounds = None;

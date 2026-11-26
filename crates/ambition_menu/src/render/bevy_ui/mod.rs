@@ -832,4 +832,5 @@ mod tests;
 mod spawn;
 mod text;
 mod pointer;
+pub use pointer::logical_node_rect;
 use spawn::spawn_node;

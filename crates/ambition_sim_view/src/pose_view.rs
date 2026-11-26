@@ -682,10 +682,9 @@ type BodyPoseSources = (
         &'static ambition_platformer2d_core::BodyKinematics,
         Option<&'static ambition_platformer2d_core::BodyGroundState>,
         Option<&'static ambition_platformer2d_core::BodyMotionFacts>,
-        Option<&'static ambition_platformer2d_core::BodyFlightState>,
         Option<&'static BodyCombat>,
         Option<&'static ambition_characters::actor::BodyAnimFacts>,
-        Option<&'static ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
+        bevy::prelude::Has<ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
         // This body's own resolved basis: the locomotion metric is
         // measured along ITS run axis and the facing flip follows ITS
         // gravity. Not `GravityField`, which mirrors the PRIMARY body.
@@ -695,17 +694,10 @@ type BodyPoseSources = (
     ),
     (
         Option<&'static ambition_platformer2d_core::BodyModeState>,
-        Option<&'static ambition_platformer2d_core::BodyEnvironmentContact>,
-        Option<&'static ambition_platformer2d_core::BodyAbilities>,
         Option<&'static ambition_platformer2d_core::BodyShieldState>,
-        // With the playback, it gives the swing (`melee_swing_of`).
-        Option<&'static ambition_combat::moveset::ActorMoveset>,
         Option<&'static ambition_platformer2d_core::BodyBaseSize>,
         Option<&'static BodyHealth>,
         Option<&'static ambition_projectiles::PlayerProjectileState>,
-        // The movement policy, for the body's own top speed (the
-        // sprint row).
-        Option<&'static ambition_platformer2d_core::MotionModel>,
     ),
     // Art inputs and the pose that this pass writes.
     (
@@ -773,6 +765,14 @@ pub fn rebuild_body_pose_views(
     // Where a charging body's shot is born, so its charge is drawn there.
     landmarks: ambition_combat::body_landmarks::BodyLandmarks,
     mut bodies: Query<BodyPoseSources, PosedBodies>,
+    animation_inputs: Query<(
+        &ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
+        &ambition_platformer2d_core::BodyFlightState,
+        &ambition_platformer2d_core::BodyEnvironmentContact,
+        &ambition_platformer2d_core::BodyAbilities,
+        Option<&ambition_platformer2d_core::MotionModel>,
+        Option<&ambition_combat::moveset::ActorMoveset>,
+    )>,
     unpublished: Query<
         (),
         (
@@ -795,23 +795,18 @@ pub fn rebuild_body_pose_views(
             kinematics,
             ground,
             motion_facts,
-            flight,
             combat,
             anim_facts,
-            blink_cam,
+            has_blink_cam,
             body_frame,
             wall,
         ),
         (
             body_mode,
-            env_contact,
-            abilities,
             shield,
-            moveset,
             base_size,
             health,
             projectile_state,
-            model,
         ),
         (
             anim_override,
@@ -841,18 +836,21 @@ pub fn rebuild_body_pose_views(
             anim_facts.is_some_and(|f| f.land_anim_hard),
             motion_facts.is_some_and(|f| f.jump_squatting),
         );
-        // The anim pick runs only over the FULL cluster set `animate_player`
-        // used to require — a partial body keeps `Idle` (it never animated
-        // before either) while its transform facts stay live.
+        // A partial body uses the idle row and still publishes its transform.
+        // Read the extra animation inputs only for a body with a blink state.
+        let inputs = if has_blink_cam { animation_inputs.get(entity).ok() } else { None };
+        let swing = inputs.and_then(|(_, _, _, _, _, moveset)| {
+            ambition_combat::moveset::melee_swing_of(playback, moveset)
+        });
         let pick = |swing| match (
-            (ground, motion_facts, flight),
-            (combat, anim_facts, blink_cam),
-            (body_mode, env_contact, abilities, shield),
+            (ground, motion_facts, combat),
+            (anim_facts, body_mode, shield),
+            inputs,
         ) {
             (
-                (Some(ground), Some(motion_facts), Some(flight)),
-                (Some(combat), Some(anim_facts), Some(blink_cam)),
-                (Some(body_mode), Some(env_contact), Some(abilities), Some(shield)),
+                (Some(ground), Some(motion_facts), Some(combat)),
+                (Some(anim_facts), Some(body_mode), Some(shield)),
+                Some((blink_cam, flight, env_contact, abilities, model, _)),
             ) => ambition_character_sprites::pick_player_anim(
                 anim_facts,
                 combat,
@@ -878,7 +876,6 @@ pub fn rebuild_body_pose_views(
             ),
             _ => CharacterAnim::Idle,
         };
-        let swing = ambition_combat::moveset::melee_swing_of(playback, moveset);
         let anim = pick(swing.as_ref());
         // The move's row is the picture of the upper body: the legs are
         // drawn by what the body does under the move. The same ladder with

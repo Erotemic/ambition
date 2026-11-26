@@ -61,8 +61,12 @@ impl Candidate {
     }
 }
 
-/// The lifecycle facts an owner's resolution reads: object addresses, their
-/// session, their enablement, and the state's own owner link and journals.
+type OwnedBehaviorStates = (
+    With<ObjectScopeOwner>,
+    Or<(With<BehaviorInstance>, With<ActionMailbox>, With<crate::behavior_events::EventMailbox>)>,
+);
+
+/// The lifecycle facts used to resolve an owner and its behavior states.
 type OwnerCut = SystemState<(
     RemovedComponents<'static, 'static, ObjectOccurrence>,
     RemovedComponents<'static, 'static, SessionScopedEntity>,
@@ -70,6 +74,7 @@ type OwnerCut = SystemState<(
     Query<'static, 'static, (), Or<(Changed<ObjectOccurrence>, Changed<SessionScopedEntity>, Changed<ObjectScopeOwner>,
         Added<BehaviorInstance>, Added<ActionMailbox>, Added<crate::behavior_events::EventMailbox>)>>,
     Query<'static, 'static, (), (Added<bevy::ecs::entity_disabling::Disabled>, With<ObjectOccurrence>)>,
+    Query<'static, 'static, (), (OwnedBehaviorStates, With<SessionScopedEntity>, With<ObjectOccurrence>)>,
 )>;
 
 /// Retire a behavior state whose owner no longer resolves, at the owner's
@@ -78,15 +83,15 @@ type OwnerCut = SystemState<(
 /// revisited each tick; delivery collects only receivers with work.
 fn retire_orphans(world: &mut World, mut cut: Local<Option<OwnerCut>>) {
     let cut = cut.get_or_insert_with(|| SystemState::new(world));
-    let (mut lost, mut left, mut enabled, changed, disabled) = cut.get_mut(world).expect("owner lifecycle readers are installed");
+    let (mut lost, mut left, mut enabled, changed, disabled, owners) = cut.get_mut(world).expect("owner lifecycle readers are installed");
     // Drain every reader so each change is seen once.
     let moved = lost.read().count() + left.read().count() + enabled.read().count() > 0;
-    let moved = moved | !changed.is_empty() | !disabled.is_empty();
+    // Scan changed addresses only if a behavior state can have a missing owner.
+    let needs_retirement = !owners.is_empty() && (moved || !changed.is_empty() || !disabled.is_empty());
     cut.apply(world);
-    if !moved { return; }
+    if !needs_retirement { return; }
     let objects = ObjectIndex::capture(world);
-    let orphans: Vec<_> = world.query_filtered::<(Entity, &SessionScopedEntity, &ObjectOccurrence),
-        (With<ObjectScopeOwner>, Or<(With<BehaviorInstance>, With<ActionMailbox>, With<crate::behavior_events::EventMailbox>)>)>()
+    let orphans: Vec<_> = world.query_filtered::<(Entity, &SessionScopedEntity, &ObjectOccurrence), OwnedBehaviorStates>()
         .iter(world)
         .filter(|(state, session, occurrence)| objects.resolve(session.0, occurrence.reference(session.0)) == Ok(*state))
         .map(|(state, ..)| state)

@@ -81,6 +81,8 @@ pub struct SummonedRide {
     /// How long the mount waits to be reached before giving up and telling the
     /// ruleset. See `ambition_mount::MountReservedFor::expires_in`.
     pub board_deadline_s: f32,
+    /// Flight speed while the mount approaches its rider.
+    pub entry_speed: Option<f32>,
 }
 
 /// A summon request. The construction owner validates the live summoner.

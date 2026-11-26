@@ -33,6 +33,8 @@ pub struct SummonRideParams {
     /// How long the mount waits for its rider before nobody rides it, in
     /// seconds of sim time.
     pub board_deadline_s: f32,
+    /// Flight speed from the room edge to the rider.
+    pub entry_speed: f32,
 }
 
 /// The domain rule for a summon-and-ride's params, not only "serde can build
@@ -51,6 +53,9 @@ pub fn check_summon_ride_params(params: &ParamValue) -> Result<(), String> {
     }
     if typed.health == 0 {
         problems.push("`health` is 0; the mount would die before it can carry anyone".to_string());
+    }
+    if !typed.entry_speed.is_finite() || typed.entry_speed <= 0.0 {
+        problems.push("`entry_speed` must be finite and greater than zero".into());
     }
     if problems.is_empty() { Ok(()) } else { Err(problems.join("; ")) }
 }

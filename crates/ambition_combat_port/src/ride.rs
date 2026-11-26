@@ -54,6 +54,7 @@ pub struct SummonRide {
     pub seconds: f32,
     pub board_within: f32,
     pub board_deadline_s: f32,
+    pub entry_speed: Option<f32>,
     pub holds: String,
     pub reply: Option<ambition_extension_sdk::action::ReplyTo>,
 }
@@ -76,6 +77,8 @@ ambition_extension_sdk::port_record! {
         board_within: f32,
         /// How long the mount waits for its rider.
         board_deadline_s: f32,
+        /// Flight speed from the room edge to the rider. Empty starts at the rider.
+        entry_speed: Option<f32> = None,
         /// A status the mount holds from birth; empty for none.
         holds: String = String::new(),
         /// Optional correlated replies from the summon owner.
@@ -87,8 +90,8 @@ ambition_extension_sdk::port_record! {
 pub const SUMMON_RIDE_DOMAIN: &str = "world.summon_ride";
 
 impl Port for SummonRidePort {
-    /// Version 2 (2026-11-20): a correlated `reply`, and the record codec.
-    const KEY: PortKey = PortKey::new("ambition.world.summon_ride", 2);
+    /// Version 3 adds flight from the room edge.
+    const KEY: PortKey = PortKey::new("ambition.world.summon_ride", 3);
     const ROLE: PortRole = PortRole::Request;
     type Value = SummonRide;
 
@@ -429,6 +432,7 @@ mod tests {
             seconds: 5.0,
             board_within: 200.0,
             board_deadline_s: 1.0,
+            entry_speed: Some(2400.0),
             holds: "smash.summoned_ride".into(),
             reply: None,
         };

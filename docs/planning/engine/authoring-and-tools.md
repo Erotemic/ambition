@@ -434,6 +434,8 @@ The Resonant Reach lift recipe and the platform look have the same frame
 size and deck position. Use the sheet's published frame size and top
 anchor for the look. Add sheet anchors for the left and right deck ends
 so the renderer can align the art with the collision width.
+The Cathedral lift also needs a prop sheet entry for the moving deck.
+Give the platform look the sheet entry so an author enters the kind once.
 
 ### Route maps
 

@@ -903,6 +903,7 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
             lease_seconds: 5.0,
             board_within: 96.0,
             expires_in: 1.0,
+            entry_speed: Some(2400.0),
         },
         // The course a dismissed mount holds (`ambition.body.hold_course`),
         // spelled out because only a module asks for it: a component this

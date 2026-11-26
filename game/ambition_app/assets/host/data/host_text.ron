@@ -42,6 +42,10 @@
     "menu.map.previous": "Prev",
     "menu.map.next": "Next",
     "menu.map.travel": "Fast travel",
+    "menu.map.legend.door": "Door",
+    "menu.map.legend.resident": "Resident",
+    "menu.map.legend.shrine": "Shrine",
+    "menu.map.legend.unvisited": "Unvisited",
     "menu.quest.title": "QUEST",
     "menu.system.title": "SYSTEM",
     // The SYSTEM page's title inside one of its screens.

@@ -6,6 +6,7 @@
 
 use ambition_platformer2d_core::{self as ae, Vec2};
 
+use super::controlled_recovery::{self, RecoveryControl};
 use super::recovery::{BodyKit, RecoveryLens};
 use super::rollout::refine_by_rollout;
 use ambition_characters::actor::control::ActorControlFrame;
@@ -120,7 +121,7 @@ pub fn tick_fighter(
     view: Option<&WorldView>,
     out: &mut ActorControlFrame,
 ) {
-    tick_fighter_owned(cfg, state, snapshot, view.cloned(), out);
+    tick_fighter_owned(cfg, state, snapshot, view.cloned(), RecoveryControl::Absent, out);
 }
 
 /// Tick a fighter and consume the view produced for it by the actor update.
@@ -130,6 +131,7 @@ pub fn tick_fighter_owned(
     state: &mut FighterState,
     snapshot: &BrainSnapshot,
     view: Option<WorldView>,
+    recovery_control: RecoveryControl,
     out: &mut ActorControlFrame,
 ) {
     // The engaged-NPC pursuit rule uses one immediate visibility check. This
@@ -139,6 +141,16 @@ pub fn tick_fighter_owned(
         && view.as_ref().is_some_and(|view| view.nearest_hostile().is_none());
     if let Some(view) = view {
         state.perception.observe(view);
+    }
+    if let Some(frame) = controlled_recovery::recovery_input(state, snapshot, recovery_control) {
+        state.apm.elapsed_ticks = state.apm.elapsed_ticks.saturating_add(1);
+        watch_the_own_attack(state, snapshot);
+        state.pending_press = None;
+        state.charge_hold_ticks = 0;
+        state.held = ActorControlFrame::neutral();
+        state.ticks_until_decision = 0;
+        *out = frame;
+        return;
     }
 
     // A room's enemy fights only once it has noticed its foe. Until then, and

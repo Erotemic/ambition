@@ -79,7 +79,7 @@ fn lower_summon_rides(world: &mut World) {
         } else {
             world.get::<BodyKinematics>(submitted.scope).map(|kin| kin.pos).ok_or("no_body")
         };
-        let pos = match checked {
+        let mut pos = match checked {
             Ok(pos) => pos,
             Err(code) => {
                 if dispatch.reply.is_none() {
@@ -89,6 +89,24 @@ fn lower_summon_rides(world: &mut World) {
                 continue;
             }
         };
+        if let Some(speed) = summon.entry_speed {
+            let room = world.get::<ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>(submitted.scope);
+            let edge = ambition_platformer2d_world::collision::with_room_in_world(world, room, |room| {
+                (room.base().size.x, room.base().edges.side.unwrap_or(0.0))
+            });
+            let Some((width, margin)) = edge.filter(|_| speed.is_finite() && speed > 0.0) else {
+                publish_action_result(world, dispatch.reply.as_ref(), ActionStage::Rejected, true, "invalid_ride_entry", "", Vec::new());
+                continue;
+            };
+            let inset = (summon.half_size[0] + 16.0).min(margin);
+            let left = inset - margin;
+            let right = width + margin - inset;
+            let entry_x = if pos.x < width * 0.5 { left } else { right };
+            if (entry_x - pos.x).abs() <= summon.board_within {
+                pos.y -= summon.board_within + summon.half_size[1];
+            }
+            pos.x = entry_x;
+        }
         // The executor answers the terminal result at its commit: the mount
         // its receipt names, or `ride_not_made` when the batch was refused.
         let answer = dispatch.reply.as_ref().map(|reply| ambition_characters::summon::SummonReply {
@@ -101,7 +119,6 @@ fn lower_summon_rides(world: &mut World) {
             reply: answer,
             owner: submitted.scope,
             spec: ambition_characters::summon::SummonSpec {
-                // Birth at the summoner permits boarding without a transit.
                 pos,
                 half_size: Vec2::from(summon.half_size),
                 character_id: summon.character_id,
@@ -114,6 +131,7 @@ fn lower_summon_rides(world: &mut World) {
                     seconds: summon.seconds,
                     board_within: summon.board_within,
                     board_deadline_s: summon.board_deadline_s,
+                    entry_speed: summon.entry_speed,
                 }),
                 health: summon.health,
                 keeps_contact_damage: summon.keeps_contact_damage,

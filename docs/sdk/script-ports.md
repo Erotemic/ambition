@@ -1030,7 +1030,7 @@ Port `ambition.item.take@2`, request: `this.requests.push(request("<alias>", #{ 
 
 ## `summon_ride`
 
-Port `ambition.world.summon_ride@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+Port `ambition.world.summon_ride@3`, request: `this.requests.push(request("<alias>", #{ .. }))`.
 
 | field | value | when absent | meaning |
 |---|---|---|---|
@@ -1042,6 +1042,7 @@ Port `ambition.world.summon_ride@2`, request: `this.requests.push(request("<alia
 | `seconds` | number | required | How long the asker rides it. |
 | `board_within` | number | required | How near the asker must be to board. |
 | `board_deadline_s` | number | required | How long the mount waits for its rider. |
+| `entry_speed` | number or () | `()` | Flight speed from the room edge to the rider. Empty starts at the rider. |
 | `holds` | text | `""` | A status the mount holds from birth; empty for none. |
 | `reply` | { request: integer (u32), selector: text } or () | `()` | Optional correlated replies from the summon owner. |
 

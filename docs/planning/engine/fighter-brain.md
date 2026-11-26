@@ -603,10 +603,13 @@ becomes game content. Neither is an AI architecture question.
 
 ### REC1 — Execute the recovery after the move starts
 
-**State:** PLANNED, source review at `34b4ab0b7f4f`, 2026-11-22.
-The reported Admiral death was not reproduced. The traced source establishes
-a failure path consistent with the report; lease expiry, launch, mount death
-and a refused saddle pose remain distinct possible causes in a match.
+**State:** IN PROGRESS. A fighter can guide a leased flight mount after a
+move that gives it sustained movement authority. The fighter waits for the
+reservation, flies toward support, and uses the native lease to release.
+Badely's shark flies from the side of the stage to the saddle catch point
+before it gives him control. The recovery forecast still uses the authored
+reach estimate. The Smash ride test checks entry, boarding, steering, release,
+and landing with all stocks from both sides of the stage.
 
 **Priority:** the next recovery-correctness slice when BRAIN/Smash work is
 selected. It does not preempt the main Ambition work. Shared observation and
@@ -615,7 +618,7 @@ authored content. General use by another game does not require a second brain.
 
 #### Source chain
 
-| Boundary | Source and current behavior |
+| Boundary | Source and original behavior |
 | --- | --- |
 | Authored move | [Admiral moveset](../../../game/ambition_content/assets/data/movesets/pirate_admiral.ron): `call_the_shark` summons at 0.18 s, ends at 0.34 s and advertises a 5 s, 650 px sustained route |
 | Forecast | [`RecoveryLens::carried`](../../../crates/ambition_combat/src/brain/fighter/recovery.rs): move the rider instantly toward nearby geometry by scalar reach, zero velocity, then run a falling-body probe; do not simulate the ride |

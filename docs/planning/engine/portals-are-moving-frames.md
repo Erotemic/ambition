@@ -548,6 +548,53 @@ Extend the max-hops-zero fixture through real transit: the recovered body
 must not transfer or emit a crossing. Its admitted control still crosses.
 Delete generic transit's authority to override the accepted restriction set.
 
+The restriction half landed 2026-11-25 (above, "transit keeps the accepted
+restriction").
+
+**History and seed, read 2026-11-26.** The two are already separate
+records:
+- The next step's seed is the body's `BodyKinematics` at phase entry (pos,
+  vel, material).
+- The completed step's history is its `SweepSample`, plus the
+  `CrossedTravel` legs of any crossing:
+  - The kernel writes the sample from phase entry to phase exit on every
+    invocation, early returns included (`write_sweep_sample`), so a stepped
+    body never keeps an older tick's path.
+  - Transit clears the crossing legs every tick before it writes them.
+  - Post-kernel authorities (`carry_body`, `constrain_body_pose`,
+    `reconcile_transit`) extend or collapse the path to where they put the
+    body.
+- An explicit relocation is the remaining case. It leaves `curr` (where
+  the real travel ended) apart from the live `pos`. That gap is the
+  recorded discontinuity: `SweepSample::ending_at(pos)` refuses to place the
+  path at the live pose, so no reader draws a segment across it.
+
+A census of every non-test file that names `SweepSample` (50 files) looked
+for readers of the path's geometry (`prev`, `delta`, `touches`,
+`material_cast`, the end/start boxes) without that guard. Most of those
+reads are guarded, read the record itself (`prev → curr`: the geometry
+observer, the crossing legs, the righting proposal, the kernel's own gate
+in the step that wrote it), or are unrelated methods of the same name.
+One reader placed the step at the live pose unguarded:
+`mount_backs_are_ground` published a mount's ground with velocity
+`curr − prev` wherever the mount now stands. After a relocation that was
+ground travel that never happened, ending at the new place, and a rider
+was carried along it. It now publishes the step only when it
+`ending_at(mount.pos)`, and zero motion otherwise. A probe (deleted) gave a
+stepped mount's ground +10 with and without the guard, and a relocated
+one (sample ending 20 short of the mount) +10 before and 0 after. Mount lib
+(21) and the app's mount tests pass, except
+`smash_ride::a_mounted_launch_carries_the_same_travel_as_an_unmounted_one`.
+It fails on this VM with the change set aside too: the opening ceremony
+waits for entry music this VM has no registry for.
+
+Still open in M1:
+- binding the history to the simulation tick and the accepted aperture
+  snapshot. The sample has no tick stamp, so a body that skips the kernel
+  for a tick (not through an early return) keeps the previous path, and no
+  census of such skips was made;
+- carrying source-frame contact facts through readers.
+
 ### M2 — Continue the kernel at its actual chart-change events
 
 Use the prepared prefix/rebase primitives inside the kernel operation.

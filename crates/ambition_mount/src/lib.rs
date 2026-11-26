@@ -466,7 +466,13 @@ pub fn mount_backs_are_ground(
         let Some(mut overlay) = overlays.for_room(room) else {
             continue;
         };
-        let moved = step.map_or(ae::Vec2::ZERO, |step| step.curr - step.prev);
+        // Only a step that ends where the mount is moved its ground here. A
+        // mount relocated since its step (a respawn, a scripted place) did
+        // not travel to where it stands: its ground jumped, and no rider is
+        // carried across the gap.
+        let moved = step
+            .and_then(|step| step.ending_at(mount.pos))
+            .map_or(ae::Vec2::ZERO, |step| step.curr - step.prev);
         for aabb in back.ground(mount, unmirrored) {
             overlay.blocks.push(ae::Block {
                 id: ae::GeoId::anon(),

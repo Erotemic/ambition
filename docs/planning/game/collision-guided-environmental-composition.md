@@ -257,6 +257,9 @@ At Starless Hollow, show the stone ramp, the chest shelf, and the floor
 below the ramp. Show the first jump onto the ramp.
 At Stardune Road, show the cargo step, spring, and route below them.
 Use the spring impulse and the room exit to show where the launch ends.
+At the Void Keep, show the ramp ends on both galleries and the space
+under the raised entrance. Use the ramp points to place the stone edge
+and the rail.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

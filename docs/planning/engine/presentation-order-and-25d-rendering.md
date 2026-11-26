@@ -602,8 +602,27 @@ shared value preparation are sufficient until source proves otherwise.
    between the live scene and the witness (the camera pitch, the seated
    fact or the rim height). Not investigated yet.
 
-   Still unrealized in the card view: held and wielded art, portals (P5/P6),
-   room tiles, and bodies that have no rigged presentation.
+   **Held and wielded art (2026-11-25).** Both 2D roads (`sync_held_item_visual`
+   and `sync_wielded_item_visuals`) now mark their sprite with the root that
+   draws its holder (`HeldArtOf`, from `PosedHands::root`, kept current each
+   frame). The card view records each drawn root's card depth
+   (`CardRootDepths`) and draws each such sprite as a card at the sprite's
+   place on that depth. The sprite's 2D depth offset from the root, counted
+   in part slots, becomes the same number of card part steps, so the item is
+   between the same two parts in both views. Art at no hand (an absolute 2D
+   depth) is held within the body's band (±1). Witness
+   `held_art_is_a_card_on_its_holders_depth`: three slots in front of the
+   root is three part steps in front of the body; art at no hand stays in the
+   band; a hidden item, or one whose holder has no card, shows none. Render
+   lib: 529 (default), 534 (`card_view`).
+
+   A `goblin_encounter` capture with `--card-view` shows an empty card view
+   (no Scout, no item), the same with the card view as it was before today's
+   RV3 edits; the card view is only known to frame `intro_wake_room`. Not
+   investigated yet. Held art is witnessed by the unit test only.
+
+   Still unrealized in the card view: portals (P5/P6), room tiles, and bodies
+   that have no rigged presentation.
 
 PO1 can proceed before RV1/RV2. The scale-law work can proceed independently;
 both renderers must consume the resulting authoritative material and poses.

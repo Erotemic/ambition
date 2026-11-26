@@ -721,7 +721,10 @@ pub fn sync_held_item_visual(
     wielded_catalog: Option<Res<super::wielded_item_visuals::WieldedItemVisualCatalog>>,
     // The hand of the pose each holder draws (`posed_hand`).
     hands: super::posed_hand::PosedHands,
-    mut visuals: Query<(Entity, &HeldItemDrawn, &mut Transform, &mut Sprite, &mut ReachesFrom), With<HeldItemVisual>>,
+    mut visuals: Query<
+        (Entity, &HeldItemDrawn, &mut Transform, &mut Sprite, &mut ReachesFrom, Option<&mut super::posed_hand::HeldArtOf>),
+        With<HeldItemVisual>,
+    >,
     mut reported: Local<ReportedOnce>,
 ) {
     let Some(session_scope) =
@@ -738,7 +741,7 @@ pub fn sync_held_item_visual(
         reported.clear();
     }
     // Each item to draw, with where and how it is turned this frame.
-    let mut wanted: Vec<(InHand, LiveRoomInstance, Transform, bool, bool, bool)> = Vec::new();
+    let mut wanted: Vec<(InHand, LiveRoomInstance, Transform, bool, bool, bool, Entity)> = Vec::new();
     // One visual per driven holder. The view is ordered by `SimId`, so the
     // draw order is the same every run.
     let in_hand = held_view.0.iter().map(|held| {
@@ -855,19 +858,28 @@ pub fn sync_held_item_visual(
 
         let transform = Transform::from_translation(translation).with_rotation(rotation)
             .with_scale(Vec3::new(held.scale, held.scale, 1.0));
-        wanted.push((held, room, transform, flip_x, flip_y, false));
+        let art_root = hands.root(held.holder);
+        wanted.push((held, room, transform, flip_x, flip_y, false, art_root));
     }
-    for (entity, drawn, mut transform, mut sprite, mut root) in &mut visuals {
+    for (entity, drawn, mut transform, mut sprite, mut root, art_of) in &mut visuals {
         let kept = (!art_replaced)
             .then(|| {
-                wanted.iter_mut().find(|(held, room, .., taken)| {
+                wanted.iter_mut().find(|(held, room, .., taken, _)| {
                     !*taken && held.holder.body == drawn.holder && *room == drawn.room && held.item_id == drawn.item_id
                 })
             })
             .flatten();
         match kept {
-            Some((held, _, wanted_transform, flip_x, flip_y, taken)) => {
+            Some((held, _, wanted_transform, flip_x, flip_y, taken, art_root)) => {
                 root.set_if_neq(ReachesFrom(held.root));
+                match art_of {
+                    Some(mut art_of) => {
+                        art_of.set_if_neq(super::posed_hand::HeldArtOf(*art_root));
+                    }
+                    None => {
+                        commands.entity(entity).insert(super::posed_hand::HeldArtOf(*art_root));
+                    }
+                }
                 *taken = true;
                 transform.set_if_neq(*wanted_transform);
                 if (sprite.flip_x, sprite.flip_y) != (*flip_x, *flip_y) {
@@ -878,7 +890,7 @@ pub fn sync_held_item_visual(
             None => commands.entity(entity).despawn(),
         }
     }
-    for (held, room, transform, flip_x, flip_y, taken) in wanted {
+    for (held, room, transform, flip_x, flip_y, taken, art_root) in wanted {
         if taken {
             continue;
         }
@@ -913,6 +925,7 @@ pub fn sync_held_item_visual(
                 HeldItemVisual,
                 ReachesFrom(held.root),
                 PresentationOf(held.holder.body),
+                super::posed_hand::HeldArtOf(art_root),
                 HeldItemDrawn {
                     holder: held.holder.body,
                     room,

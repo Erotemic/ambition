@@ -706,9 +706,9 @@ overlay wrapper and repeated ambiguity reducers as their callers migrate.
 ### BUILD-BOUNDARIES — share implementation after typed selection
 
 **State:** CB1–CB4 cuts LANDED (2026-11-22 to 2026-11-25; the `sim` tools
-link no renderer). Open: CB4's per-command compiler work, which no slice has
-measured, and the conditional curved-search experiment. No compile-time,
-runtime or binary-size result is claimed yet.
+link no renderer). CB4's build work, one sample each: `headless` builds cold in 455 s under
+`sim` against 859 s under `game`, and an app edit rebuilds in 5.1 s against
+8.6 s. Open: the conditional curved-search experiment.
 
 **Failure / customer:** the game schema library normally imports the
 aggregate CLI that consumes it; the tool package selects desktop/capture

@@ -28,11 +28,18 @@
 //!   z), one [`CARD_BODY_STEP`] apart, nearer for a later one;
 //! - a body's parts are [`CARD_PART_STEP`] apart in paint order.
 //!
+//! # One picture, when the 2D view has one
+//!
+//! A body the 2D view composites (a fading frame, a flash, a warp, any reader
+//! of it as one image) is drawn here as one card of its composited cell, as
+//! the 2D root draws it: a fading frame fades as one picture, not part by
+//! part. A body's flash ([`PresentedFlash`]) is a silhouette card over each of
+//! its cards, in the cue's colour, as strong as the cue.
+//!
 //! # Not yet realized (RV3)
 //!
-//! Baked-frame bodies, held and wielded art, the hit flash, group fades
-//! (a fading frame's parts are each made translucent), portals and room
-//! tiles are not drawn in this view.
+//! Held and wielded art, the gate cue's scanlines (drawn as its flat tint),
+//! portals and room tiles are not drawn in this view.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -47,7 +54,10 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::camera_layers::CARD_VIEW_LAYER;
 use ambition_sprite_sheet::character::rigged::{PartDraw, RiggedSpriteAsset};
 
-use super::actors::rigged::{BakedFrame, RiggedLocalSample, RiggedPresentation, RiggedPresentationOf};
+use super::actors::rigged::{
+    BakedFrame, RiggedImpostorAtlas, RiggedLocalSample, RiggedPresentation, RiggedPresentationOf,
+};
+use super::hit_flash::PresentedFlash;
 use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
 use super::moving_platforms::{PresentedVessels, SeatedInVessel, VesselBox};
 
@@ -58,6 +68,9 @@ pub const VESSEL_DEPTH: f32 = 40.0;
 pub const CARD_BODY_STEP: f32 = 2.5;
 /// The gap between two parts of one body, in paint order.
 pub const CARD_PART_STEP: f32 = 0.05;
+/// A flash card's distance in front of the card it covers: inside the gap to
+/// the next part.
+const FLASH_STEP: f32 = CARD_PART_STEP * 0.5;
 /// The near panel's distance behind the play plane.
 const NEAR_PANEL_GAP: f32 = 1.0;
 /// Panel and floor thickness.
@@ -130,6 +143,7 @@ impl Plugin for CardViewPlugin {
                 .chain()
                 .after(ViewCameraSet)
                 .after(super::actors::rigged::RiggedDriveSet)
+                .after(super::hit_flash::sync_hit_flash_overlays)
                 .after(super::moving_platforms::seat_bodies_in_vessels),
         );
     }
@@ -260,6 +274,54 @@ pub struct CardMeshes {
     meshes: HashMap<(usize, u16), Handle<Mesh>>,
     baked_meshes: HashMap<(AssetId<Image>, [u32; 4], [u32; 4]), Handle<Mesh>>,
     materials: HashMap<(AssetId<Image>, [u8; 4], bool), Handle<StandardMaterial>>,
+    /// Silhouettes, by page and the cue's colour and strength in bytes.
+    flashes: HashMap<(AssetId<Image>, [u8; 4]), Handle<StandardMaterial>>,
+}
+
+/// A flash's silhouette over a card of `page`: the page's alpha, its colour
+/// replaced by the cue's (the base is black and unlit by nothing, so only the
+/// emission shows), as opaque as the cue is strong.
+pub fn flash_material(page: &Handle<Image>, flash: PresentedFlash) -> StandardMaterial {
+    let tint = Color::srgb(flash.tint.x, flash.tint.y, flash.tint.z);
+    StandardMaterial {
+        base_color: Color::srgba(0.0, 0.0, 0.0, flash.intensity.clamp(0.0, 1.0)),
+        base_color_texture: Some(page.clone()),
+        emissive: tint.to_linear(),
+        perceptual_roughness: 1.0,
+        reflectance: 0.0,
+        cull_mode: None,
+        double_sided: true,
+        alpha_mode: AlphaMode::Blend,
+        ..default()
+    }
+}
+
+fn flash_key(flash: PresentedFlash) -> [u8; 4] {
+    let byte = |value: f32| (value.clamp(0.0, 1.0) * 255.0).round() as u8;
+    [byte(flash.tint.x), byte(flash.tint.y), byte(flash.tint.z), byte(flash.intensity)]
+}
+
+/// The frame a composited root draws, as one picture: its cell of the atlas
+/// page, at the root's quad. `None` while the root does not draw a cell of
+/// its body's page (its page is fresh, or it is drawn part by part).
+fn composited_frame(
+    presentation: &RiggedPresentation,
+    atlas: &RiggedImpostorAtlas,
+    sprite: Option<&Sprite>,
+    anchor: Option<&bevy::sprite::Anchor>,
+    layouts: Option<&Assets<TextureAtlasLayout>>,
+) -> Option<BakedFrame> {
+    let impostor = presentation.impostor.as_ref()?;
+    let page = atlas.page(impostor)?;
+    let sprite = sprite.filter(|sprite| sprite.image == page.image)?;
+    let cell = sprite.texture_atlas.as_ref().filter(|cell| cell.index == impostor.cell as usize)?;
+    Some(BakedFrame {
+        image: page.image.clone(),
+        rect: *layouts?.get(&cell.layout)?.textures.get(cell.index)?,
+        size: sprite.custom_size?,
+        anchor: anchor.map_or(Vec2::ZERO, |anchor| anchor.0),
+        flip_x: sprite.flip_x,
+    })
 }
 
 /// One part's quad: its drawn size about its pivot, in sheet pixels (+y up),
@@ -374,7 +436,12 @@ pub fn card_part_local(draw: &PartDraw, index: usize) -> Transform {
 pub fn realize_card_bodies(
     mut commands: Commands,
     owners: Query<(Entity, &RiggedPresentationOf, &RiggedPresentation, &RiggedLocalSample)>,
-    roots: Query<(&Transform, Has<SeatedInVessel>), (Without<CardBody>, Without<CardPart>)>,
+    roots: Query<
+        (&Transform, Has<SeatedInVessel>, Option<&Sprite>, Option<&bevy::sprite::Anchor>, Option<&PresentedFlash>),
+        (Without<CardBody>, Without<CardPart>),
+    >,
+    atlas: Option<Res<RiggedImpostorAtlas>>,
+    layouts: Option<Res<Assets<TextureAtlasLayout>>>,
     mut bodies: Query<(Entity, &mut CardBody, &mut Transform, &mut Visibility), Without<CardPart>>,
     mut cards: CardQuery,
     images: Option<Res<Assets<Image>>>,
@@ -406,7 +473,7 @@ pub fn realize_card_bodies(
         if !drawable {
             continue;
         }
-        if let Ok((root, seated)) = roots.get(of.0) {
+        if let Ok((root, seated, ..)) = roots.get(of.0) {
             ranked.push((seated, root.translation.z, owner));
         }
     }
@@ -439,12 +506,18 @@ pub fn realize_card_bodies(
             // Spawned this frame: filled from the next.
             continue;
         };
-        let (Some(depth), Ok((root, _))) = (rank_of.get(&owner), roots.get(of.0)) else {
+        let (Some(depth), Ok((root, _, root_sprite, root_anchor, flash))) = (rank_of.get(&owner), roots.get(of.0)) else {
             body_visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
-        // A baked frame is one card at the root, drawn whole.
-        if let Some(baked) = &sample.baked {
+        let flash = flash.copied().filter(|flash| flash.intensity > 0.0);
+        // A baked frame is one card at the root, drawn whole; so is a body
+        // the 2D view composites, as its cell (its fade is in the cell).
+        let composited = sample.parts().and_then(|_| {
+            composited_frame(presentation, atlas.as_deref()?, root_sprite, root_anchor, layouts.as_deref())
+        });
+        if let Some(baked) = sample.baked.as_ref().or(composited.as_ref()) {
+            let opacity = if composited.is_some() { 1.0 } else { sample.frame_opacity };
             let mut place = *root;
             place.translation.z = *depth;
             body_transform.set_if_neq(place);
@@ -459,7 +532,7 @@ pub fn realize_card_bodies(
                 .entry(baked_key(baked))
                 .or_insert_with(|| meshes.add(baked_quad(baked, page_size)))
                 .clone();
-            let opacity = (sample.frame_opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
+            let opacity = (opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
             let material = cache
                 .materials
                 .entry((baked.image.id(), [255, 255, 255, opacity], opacity < 255))
@@ -476,7 +549,17 @@ pub fn realize_card_bodies(
                 })
                 .clone();
             let local = Transform::from_scale(Vec3::new(if baked.flip_x { -1.0 } else { 1.0 }, 1.0, 1.0));
-            show_cards(&mut commands, &mut card_body, &mut cards, body, &layer, &[(mesh, material, local)]);
+            shown.clear();
+            shown.push((mesh.clone(), material, local));
+            if let Some(flash) = flash {
+                let silhouette = cache
+                    .flashes
+                    .entry((baked.image.id(), flash_key(flash)))
+                    .or_insert_with(|| materials.add(flash_material(&baked.image, flash)))
+                    .clone();
+                shown.push((mesh, silhouette, local.with_translation(Vec3::Z * FLASH_STEP)));
+            }
+            show_cards(&mut commands, &mut card_body, &mut cards, body, &layer, &shown);
             continue;
         }
         let (Some(draws), Some(feet)) = (sample.parts(), sample.feet) else {
@@ -527,7 +610,18 @@ pub fn realize_card_bodies(
                     })
                 })
                 .clone();
-            shown.push((mesh, material, card_part_local(draw, index)));
+            let local = card_part_local(draw, index);
+            if let Some(flash) = flash {
+                let silhouette = cache
+                    .flashes
+                    .entry((page.id(), flash_key(flash)))
+                    .or_insert_with(|| materials.add(flash_material(page, flash)))
+                    .clone();
+                shown.push((mesh.clone(), material, local));
+                shown.push((mesh, silhouette, local * Transform::from_translation(Vec3::Z * FLASH_STEP)));
+            } else {
+                shown.push((mesh, material, local));
+            }
         }
         show_cards(&mut commands, &mut card_body, &mut cards, body, &layer, &shown);
     }

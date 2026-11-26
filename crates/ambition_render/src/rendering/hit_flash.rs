@@ -197,6 +197,19 @@ impl Material2d for HitFlashMaterial {
     }
 }
 
+/// The cue a body shows this frame, as the overlay decided it
+/// (`overlay_look`): its silhouette colour and how strongly it covers the
+/// body (0 shows nothing). Published on the source so another view of the
+/// body draws the same cue without deciding it again (RV3).
+///
+/// The gate's scanline light is published as its flat tint; only the 2D
+/// overlay's shader draws the scanlines.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Default)]
+pub struct PresentedFlash {
+    pub intensity: f32,
+    pub tint: Vec3,
+}
+
 /// Marker on the source sprite entity after its overlay sibling spawns.
 /// Stores the overlay entity so it can be synced or despawned without a scan.
 #[derive(Component, Debug, Clone, Copy)]
@@ -368,6 +381,7 @@ pub fn sync_hit_flash_overlays(
         &mut Visibility,
     )>,
     mut materials: ResMut<Assets<HitFlashMaterial>>,
+    mut presented: Query<&mut PresentedFlash>,
 ) {
     for (
         source_entity,
@@ -380,14 +394,6 @@ pub fn sync_hit_flash_overlays(
         source_visibility,
     ) in &sources
     {
-        let Some(render_size) = source_sprite.custom_size else {
-            continue;
-        };
-        let Some(uv_rect) = ambition_sprite_fx::sprite_uv_rect(source_sprite, &texture_layouts) else {
-            continue;
-        };
-        let flip = flip_flag(source_sprite);
-
         // One dispatch for player, NPC, enemy, and boss. Each has different
         // storage, but all reach the same shader uniform through this lookup.
         let mut facts = overlay_facts_for_source(
@@ -403,6 +409,26 @@ pub fn sync_hit_flash_overlays(
         let source_visibility = source_visibility.map(|visibility| *visibility);
         let (intensity, tint) = overlay_look(facts, tick.0, source_visibility);
         let transit = if tint == TRANSIT_TINT { facts.transit } else { 0.0 };
+        // Published before the overlay's own needs: a body drawn by another
+        // view shows its cue even when the root sprite has no frame.
+        let look = PresentedFlash { intensity, tint };
+        match presented.get_mut(source_entity) {
+            Ok(mut published) => {
+                published.set_if_neq(look);
+            }
+            Err(_) if intensity > 0.0 => {
+                commands.entity(source_entity).try_insert(look);
+            }
+            Err(_) => {}
+        }
+
+        let Some(render_size) = source_sprite.custom_size else {
+            continue;
+        };
+        let Some(uv_rect) = ambition_sprite_fx::sprite_uv_rect(source_sprite, &texture_layouts) else {
+            continue;
+        };
+        let flip = flip_flag(source_sprite);
 
         let Ok((
             mut overlay_transform,

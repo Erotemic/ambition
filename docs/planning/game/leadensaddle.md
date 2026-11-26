@@ -57,7 +57,7 @@ and the livery are interiors, so their ways in are doors
 | `frontier_livery` | The livery has stalls and a hayloft. A ladder and a crate lead up at the west end. Stacked bales give access at the east end below the loft window. | Gus Bell, who hires out mules. |
 | `frontier_refinery` | The refinery on the flank of the east mesa: terraces cut into the slope, pipe racks, tanks, the cracking tower, catwalks. The Marshal's posse are here (chickens). | Ruth Harlan, the night-shift foreman. |
 | `frontier_ore_corral` | The arena: a level yard on a shelf of the mesa, ore carts, the corral fence, the steam whistle on its stack. Two raised loading docks at the sides, one jump up. | Marshal Gallus. |
-| `frontier_saddle_lookout` | The top of the east mesa, behind the corral's grille: the whole town below, the pads and the ships. The Marshal sits on an ore cart there, hoarse. The reward chest. | Marshal Gallus, beaten. |
+| `frontier_saddle_lookout` | The mesa path and the survey decks lead from the corral to the summit. The upper deck leads to the shelter roof. The shelter, spyglass, and reward chest are on the summit. | Marshal Gallus after the fight (planned). |
 | `hall_marshal_gallus_corral` | The Hall of Bosses' practice copy of the corral (placement `hall.marshal_gallus`). | |
 
 Each room has a title and a blurb (two Room DebugLabels) that says where it

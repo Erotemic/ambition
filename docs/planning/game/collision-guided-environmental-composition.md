@@ -358,6 +358,8 @@ In the Wet Whistle, show the balcony and the bar top with their ledge
 bounds. Show the talk prompt below the bar top from the floor.
 At Bell's Livery, show the ladder cells beside the crate and the loft
 edge. Use the ledge bounds to set where the boards and bales end.
+At Saddle Lookout, use the ledge bounds to place the tops of the survey
+decks. Use the slope profile to set the length of each support.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

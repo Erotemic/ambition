@@ -2081,6 +2081,7 @@ fn gate_kaleidoscope_menu(
 /// keeps working identically.
 #[cfg(feature = "kaleidoscope_menu")]
 fn kaleidoscope_sync_focus_visuals(
+    map: Option<Res<ambition_platformer2d::menu::map::MapMenuState>>,
     menus: Query<(
         &ActiveMenuPages<MenuPage, MenuPageAction>,
         &KaleidoscopeCursor,
@@ -2115,7 +2116,8 @@ fn kaleidoscope_sync_focus_visuals(
         }
         // Only the active face highlights; inactive faces always resolve to `false`
         // (and so get reset), never matched against the cursor.
-        let focused = on_active_face && focus_for_action(action, active_page, rows) == cursor.focus;
+        let map_has_focus = active_page == MenuPage::Map && map.as_ref().is_some_and(|map| !map.rooms.is_empty());
+        let focused = on_active_face && !map_has_focus && focus_for_action(action, active_page, rows) == cursor.focus;
         // Change-detection friendly: only write when the flags actually flip, so the
         // lib's `Changed<MenuVisualState>` recolor stays cheap.
         if vis.focused != focused || vis.selected != focused {

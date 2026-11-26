@@ -14,6 +14,7 @@ use super::{
 pub struct MapHierarchy {
     pub root_title: Option<String>,
     pub world_titles: BTreeMap<String, String>,
+    /// Group path for each playable room ID.
     pub room_groups: BTreeMap<String, Vec<String>>,
 }
 
@@ -62,8 +63,8 @@ pub struct MapEntryView {
     pub id: MapEntryId,
     pub kind: MapEntryKind,
     pub title: String,
-    /// Bounds in viewport fractions, with Y down. Absent when outside the viewport.
-    pub rect: Option<Rect>,
+    /// Visible pieces in viewport fractions, with Y down.
+    pub pieces: Vec<Rect>,
     pub here: bool,
     pub visited: bool,
     pub selected: bool,
@@ -85,8 +86,29 @@ struct Entry<'a> {
     parent: MapEntryId,
     children: Vec<MapEntryId>,
     title: String,
-    room: Option<&'a MapRoomNode>,
+    pieces: Vec<&'a MapRoomNode>,
     key: Vec<&'a str>,
+}
+
+impl<'a> Entry<'a> {
+    fn room(&self) -> Option<&'a MapRoomNode> {
+        self.pieces.first().copied()
+    }
+
+    fn room_bounds(&self) -> Option<Rect> {
+        self.pieces
+            .iter()
+            .map(|room| room_rect(room))
+            .reduce(|a, b| a.union(b))
+    }
+}
+
+fn room_id(room: &MapRoomNode) -> &str {
+    if room.area.is_empty() {
+        &room.id
+    } else {
+        &room.area
+    }
 }
 
 /// Build the map from room definitions. A game can supply any number of group levels.
@@ -109,13 +131,18 @@ impl<'a> MapAtlas<'a> {
                 title: hierarchy
                     .and_then(|h| h.root_title.clone())
                     .unwrap_or_else(|| "Dimensions".into()),
-                room: None,
+                pieces: Vec::new(),
                 key: Vec::new(),
             }],
             room_ids: BTreeMap::new(),
         };
         let mut groups = BTreeMap::new();
         for room in rooms {
+            let room_id = room_id(room);
+            if let Some(id) = atlas.room_ids.get(room_id) {
+                atlas.entries[id.0].pieces.push(room);
+                continue;
+            }
             let mut key = vec![room.world.as_str()];
             let mut parent = *groups.entry(key.clone()).or_insert_with(|| {
                 let title = hierarchy
@@ -124,7 +151,7 @@ impl<'a> MapAtlas<'a> {
                     .unwrap_or_else(|| world_title(&room.world));
                 atlas.insert(ROOT, title, None, key.clone())
             });
-            if let Some(path) = hierarchy.and_then(|h| h.room_groups.get(&room.id)) {
+            if let Some(path) = hierarchy.and_then(|h| h.room_groups.get(room_id)) {
                 for group in path {
                     key.push(group);
                     parent = *groups
@@ -132,9 +159,9 @@ impl<'a> MapAtlas<'a> {
                         .or_insert_with(|| atlas.insert(parent, group.clone(), None, key.clone()));
                 }
             }
-            key.push(&room.id);
+            key.push(room_id);
             let id = atlas.insert(parent, room.title.clone(), Some(room), key);
-            atlas.room_ids.insert(room.id.as_str(), id);
+            atlas.room_ids.insert(room_id, id);
         }
         atlas
     }
@@ -151,7 +178,7 @@ impl<'a> MapAtlas<'a> {
             parent,
             children: Vec::new(),
             title,
-            room,
+            pieces: room.into_iter().collect(),
             key,
         });
         self.entries[parent.0].children.push(id);
@@ -202,12 +229,12 @@ impl Location {
     fn of(entry: &Entry) -> Self {
         Self {
             key: entry.key.iter().map(|part| (*part).to_owned()).collect(),
-            is_room: entry.room.is_some(),
+            is_room: entry.room().is_some(),
         }
     }
 
     fn matches(&self, entry: &Entry) -> bool {
-        entry.room.is_some() == self.is_room && entry.key == self.key
+        entry.room().is_some() == self.is_room && entry.key == self.key
     }
 }
 
@@ -237,7 +264,7 @@ impl MapBrowser {
             .and_then(|room| atlas.room_ids.get(room).copied());
         let visited = |room: &MapRoomNode| {
             access.reveal_all
-                || current == atlas.room_ids.get(room.id.as_str()).copied()
+                || current == atlas.room_ids.get(room_id(room)).copied()
                 || access.visited.contains(&room.id)
                 || access.visited.contains(&room.area)
         };
@@ -246,7 +273,7 @@ impl MapBrowser {
                 || atlas
                     .entries
                     .iter()
-                    .filter_map(|entry| entry.room)
+                    .flat_map(|entry| entry.pieces.iter().copied())
                     .any(|other| {
                         other.world == room.world
                             && visited(other)
@@ -256,15 +283,15 @@ impl MapBrowser {
         };
         let mut entries = Vec::new();
         let mut bounds: Option<Rect> = None;
-        if let Some(room) = level.room {
-            let rect = room_rect(room);
-            entries.push((id, rect, visited(room)));
+        if let Some(rect) = level.room_bounds() {
+            entries.push((id, rect, level.pieces.iter().any(|piece| visited(piece))));
             bounds = Some(rect);
         }
         for &child in &level.children {
-            if let Some(room) = atlas.entries[child.0].room.filter(|room| visible(room)) {
-                let rect = room_rect(room);
-                entries.push((child, rect, visited(room)));
+            let item = &atlas.entries[child.0];
+            if item.pieces.iter().any(|piece| visible(piece)) {
+                let rect = item.room_bounds().expect("a visible room has a piece");
+                entries.push((child, rect, item.pieces.iter().any(|piece| visited(piece))));
                 bounds = Some(bounds.map_or(rect, |b| b.union(rect)));
             }
         }
@@ -275,7 +302,7 @@ impl MapBrowser {
             .children
             .iter()
             .copied()
-            .filter(|child| atlas.entries[child.0].room.is_none())
+            .filter(|child| atlas.entries[child.0].pieces.is_empty())
             .enumerate()
         {
             let row = (i / 4) as f32;
@@ -357,7 +384,7 @@ impl MapBrowser {
         if level.entries.len() > 1 {
             tools.extend([MapAction::Browse(-1), MapAction::Browse(1)]);
         }
-        if travel_allowed && level.atlas.entries[level.id.0].room.is_some() {
+        if travel_allowed && level.atlas.entries[level.id.0].room().is_some() {
             tools.push(MapAction::Travel);
         }
         tools
@@ -378,34 +405,46 @@ impl MapBrowser {
             .iter()
             .map(|&(id, rect, visited)| {
                 let item = &atlas.entries[id.0];
-                let clipped = rect.intersect(frame);
-                let rect = (!clipped.is_empty())
-                    .then(|| Rect::from_corners(point(clipped.min), point(clipped.max)));
-                if let Some(room) = item.room.filter(|_| visited && rect.is_some()) {
-                    doors.extend(
-                        room.doors
-                            .iter()
-                            .map(|door| room.world_min + door.at)
-                            .filter(|&at| frame.contains(at))
-                            .map(point),
-                    );
-                    pins.extend(room.pins.iter().filter_map(|pin| {
-                        let at = room.world_min + pin.at;
-                        frame.contains(at).then(|| MapPin {
-                            at: point(at),
-                            kind: pin.kind,
-                        })
-                    }));
+                let project = |rect: Rect| {
+                    let clip = rect.intersect(frame);
+                    (!clip.is_empty()).then(|| Rect::from_corners(point(clip.min), point(clip.max)))
+                };
+                let mut pieces = Vec::new();
+                if item.pieces.is_empty() {
+                    pieces.extend(project(rect));
+                }
+                for room in &item.pieces {
+                    let Some(piece) = project(room_rect(room)) else {
+                        continue;
+                    };
+                    pieces.push(piece);
+                    // Leave space between markers at the scale of the visible piece.
+                    if visited && piece.size().cmpge(Vec2::new(0.035, 0.045)).all() {
+                        doors.extend(
+                            room.doors
+                                .iter()
+                                .map(|door| room.world_min + door.at)
+                                .filter(|&at| frame.contains(at))
+                                .map(point),
+                        );
+                        pins.extend(room.pins.iter().filter_map(|pin| {
+                            let at = room.world_min + pin.at;
+                            frame.contains(at).then(|| MapPin {
+                                at: point(at),
+                                kind: pin.kind,
+                            })
+                        }));
+                    }
                 }
                 MapEntryView {
                     id,
-                    kind: if item.room.is_some() {
+                    kind: if item.room().is_some() {
                         MapEntryKind::Room
                     } else {
                         MapEntryKind::Group
                     },
                     title: item.title.clone(),
-                    rect,
+                    pieces,
                     here: atlas.is_here(id, level.current),
                     visited,
                     selected: selected == Some(id),
@@ -416,7 +455,7 @@ impl MapBrowser {
             title: entry.title.clone(),
             parent_title: (level.id != ROOT).then(|| atlas.entries[entry.parent.0].title.clone()),
             entries,
-            room_detail: entry.room.is_some(),
+            room_detail: entry.room().is_some(),
             focused_tool: self.tool.filter(|tool| tools.contains(tool)),
             tools,
             doors,
@@ -443,8 +482,18 @@ impl MapBrowser {
     }
 
     fn zoom_level(&mut self, level: &Level, aspect: f32, steps: f32) {
+        let frame = self.frame(level, aspect);
         let zoom = self.zoom.unwrap_or(1.0);
-        self.centre = Some(self.frame(level, aspect).center());
+        let focus = (self.centre.is_none() && steps > 0.0)
+            .then(|| self.selected(level))
+            .flatten();
+        self.centre = Some(
+            level
+                .entries
+                .iter()
+                .find(|(id, _, _)| Some(*id) == focus)
+                .map_or(frame.center(), |(_, rect, _)| rect.center()),
+        );
         self.zoom = Some((zoom * MAP_ZOOM_STEP.powf(steps)).clamp(MAP_ZOOM_MIN, 16.0));
     }
 
@@ -466,7 +515,7 @@ impl MapBrowser {
         let tools = self.tools(&level, access.can_travel);
         self.tool = self.tool.filter(|tool| tools.contains(tool));
         let selected = self.selected(&level);
-        let detail = atlas.entries[level.id.0].room;
+        let detail = atlas.entries[level.id.0].room();
         let action = match action {
             MapAction::Confirm => match self
                 .tool
@@ -525,7 +574,7 @@ impl MapBrowser {
             }
             MapAction::Travel if access.can_travel => {
                 if let Some(room) = detail {
-                    return MapOutcome::TravelTo(&room.id);
+                    return MapOutcome::TravelTo(room_id(room));
                 }
             }
             _ => {}
@@ -643,8 +692,8 @@ mod tests {
             assert_eq!(view(&browser).title, title);
         }
         assert_eq!(
-            view(&browser).entries[0].rect,
-            view(&browser).entries[1].rect
+            view(&browser).entries[0].pieces,
+            view(&browser).entries[1].pieces
         );
         apply(&mut browser, MapAction::Browse(1));
         apply(&mut browser, MapAction::Confirm);
@@ -674,6 +723,34 @@ mod tests {
                 .unwrap()
                 .title,
             "crypt"
+        );
+    }
+
+    #[test]
+    fn stitched_pieces_share_one_selection_and_travel_destination() {
+        let mut lobby = room("hub_lobby", "sandbox", Vec2::ZERO);
+        let mut basement = room("hub_basement", "sandbox", Vec2::new(0.0, 300.0));
+        lobby.area = "hub".into();
+        basement.area = lobby.area.clone();
+        let rooms = [lobby, basement];
+        let atlas = MapAtlas::new(&rooms, None);
+        let mut browser = MapBrowser::default();
+        let visits = BTreeSet::new();
+        let access = MapAccess {
+            current_room: Some("hub"),
+            visited: &visits,
+            reveal_all: false,
+            can_travel: true,
+        };
+        browser.apply(&atlas, access, 1.7, MapAction::Confirm);
+        let world = browser.view(&atlas, access, 1.7);
+        assert_eq!(world.entries.len(), 1);
+        assert!(world.entries[0].here);
+        assert_eq!(world.entries[0].pieces.len(), 2);
+        browser.apply(&atlas, access, 1.7, MapAction::Open(world.entries[0].id));
+        assert_eq!(
+            browser.apply(&atlas, access, 1.7, MapAction::Travel),
+            MapOutcome::TravelTo("hub")
         );
     }
 

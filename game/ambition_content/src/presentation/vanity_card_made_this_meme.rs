@@ -191,8 +191,8 @@ struct VanityCardViewport;
 #[derive(Component)]
 struct VanityCardStage;
 
-const ROBOT: &str = "content://ambition_shared/sprites/player_robot_v3";
-const DIRECTOR: &str = "content://ambition_shared/sprites/director";
+const ROBOT: &str = "content://ambition_shared/sprites/player_robot_v3_closeup";
+const DIRECTOR: &str = "content://ambition_shared/sprites/director_closeup";
 
 fn spawn_vanity_card(
     mut commands: Commands,
@@ -215,7 +215,7 @@ fn spawn_vanity_card(
         RiggedSpriteAsset::baked(content, ROBOT),
         RiggedSpriteAsset::baked(content, DIRECTOR),
     ) else {
-        bevy::log::warn_once!("The vanity card requires the published robot and Director parts.");
+        bevy::log::warn_once!("Publish startup_character_parts to draw the vanity card.");
         return;
     };
     let mut robot = CardActor::new(robot, content, &assets, 2.00);

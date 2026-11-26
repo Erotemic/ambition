@@ -81,6 +81,7 @@
     "art_crayon_rail": (),
     "art_scribble_wall": (),
     "art_eraser": (),
+    "art_curators_route_map": (backdrop: true),
     // The Picture Palace (`targets/props/art_picture_palace_props.py`). The
     // pod bay door is the door of the space set: MAL-9000 will not open it;
     // pulling its memory module (the lever by the rack) does. A door fills
@@ -90,6 +91,8 @@
     "art_film_camera": (),
     "art_directors_chair": (),
     "art_studio_light": (),
+    "art_picture_catwalk": (backdrop: true),
+    "art_picture_orbital_flat": (backdrop: true),
     "art_monolith": (),
     "art_clapperboard": (),
     // The Fertile Crescent of the History dimension
@@ -489,6 +492,7 @@
     // stage is a golden organ pipe with its note on it, and the chime of the
     // same note opens it.
     "art_chime": (),
+    "art_concert_organ_case": (),
     "art_chord_bar_do": (),
     "art_chord_bar_mi": (),
     "art_chord_bar_sol": (),
@@ -509,6 +513,8 @@
     "art_potters_wheel": (),
     "art_great_loom": (),
     "art_crane": (),
+    "art_forge_firing_racks": (backdrop: true),
+    "art_loom_drying_rack": (backdrop: true),
     // The Math town. The cradle is the stand a gate ring sits in: a plinth
     // with stairs at each end (walked on zero-speed one-way platforms the
     // room places) and two pylons that hold the ring. The house fronts

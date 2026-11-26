@@ -95,10 +95,8 @@ pub struct FeatureDebugQueries<'w, 's> {
         (Entity, &'static ambition_platformer2d::world::HazardFeature),
         With<ambition_platformer2d::actor::FeatureSimEntity>,
     >,
-    /// Body-generic combat geometry read-model. Live hitboxes and effective
-    /// hurtboxes are extracted once from simulation truth and shared by every
-    /// host; this richer overlay consumes the same rows as standalone games.
-    pub combat_geometry: Res<'w, ambition_platformer2d::sim_view::CombatGeometryView>,
+    pub combat_bodies: ambition_platformer2d::sim_view::CombatBodyGeometry<'w, 's>,
+    pub combat_strikes: Res<'w, ambition_platformer2d::sim_view::CombatStrikesView>,
     /// This frame's presentation translation for each body. Authoritative
     /// combat geometry is tick-clock, and the body beside it is resampled on the
     /// frame clock, so every row of that body has to take the same translation
@@ -838,14 +836,12 @@ pub(crate) fn draw_projectile_debug(
 /// Label each combat body with what decides a blow on it, above its box: its
 /// side, its health, whether it is invulnerable, a boss's guard. And each live hitbox with the damage it deals.
 #[cfg(feature = "input")]
-pub(crate) fn label_combat_properties(feature_q: &FeatureDebugQueries, labels: &mut RoomLabels) {
-    let room = labels.room;
-    for body in feature_q
-        .combat_geometry
-        .bodies
-        .iter()
-        .filter(|body| feature_q.rooms.of(body.body) == Some(room))
-    {
+pub(crate) fn label_combat_properties(
+    feature_q: &FeatureDebugQueries,
+    combat: &ambition_platformer2d::sim_view::CombatGeometryView,
+    labels: &mut RoomLabels,
+) {
+    for body in &combat.bodies {
         let Ok((faction, health, boss, boss_config)) = feature_q.body_props.get(body.body) else {
             continue;
         };
@@ -880,12 +876,7 @@ pub(crate) fn label_combat_properties(feature_q: &FeatureDebugQueries, labels: &
             color: Color::srgba(0.95, 0.95, 0.95, 1.0),
         });
     }
-    for strike in feature_q
-        .combat_geometry
-        .strikes
-        .iter()
-        .filter(|strike| feature_q.rooms.of(strike.strike) == Some(room))
-    {
+    for strike in &combat.strikes {
         let delta = feature_q
             .body_deltas
             .get(strike.owner)

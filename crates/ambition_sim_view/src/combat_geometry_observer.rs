@@ -1,9 +1,8 @@
 //! The combat read model's geometry, for observation (GOBS-1,
 //! `docs/planning/engine/geometry-observability-and-f1.md`).
 //!
-//! `combat.volumes` reads [`CombatGeometryView`], the view F1's combat layer
-//! already draws: each body's hurt volumes and each live strike's hit volume,
-//! in the asked room. A body that is deliberately intangible is listed by its
+//! `combat.volumes` reads the same body and strike geometry as the F1 overlay
+//! for the selected room. A body that is deliberately intangible is listed by its
 //! collision box, inactive, so it is not mistaken for a body nobody resolved.
 //! A body or strike a portal pair cuts is listed by the pieces combat tests
 //! (GOBS-3): each piece's region where it reaches, role `portal_piece` (and
@@ -19,7 +18,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRooms, LiveRoomInstance};
 use bevy::prelude::*;
 
-use crate::{CombatGeometryView, HurtboxSource};
+use crate::{CombatBodyGeometry, CombatStrikesView, HurtboxSource};
 
 pub fn install(app: &mut App) {
     app.add_geometry_observer(
@@ -47,7 +46,8 @@ fn shape(volume: &ae::CombatVolume) -> ObservedShape {
 
 fn volumes(
     query: In<ObservationQuery>,
-    view: Res<CombatGeometryView>,
+    bodies: CombatBodyGeometry,
+    strikes: Option<Res<CombatStrikesView>>,
     roots: Query<&LiveRoomInstance>,
     live: LiveRooms,
     names: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
@@ -60,7 +60,7 @@ fn volumes(
     let here = |entity: Entity| room.is_none() || live.of(entity) == room;
     let name = |entity: Entity| names.get(entity).map_or_else(|_| format!("{entity}"), |id| id.as_str().to_owned());
     let mut out = Vec::new();
-    for body in view.bodies.iter().filter(|body| here(body.body)) {
+    for body in bodies.read(here) {
         let cut = body.hurt_pieces.is_some();
         if body.hurtbox_source == HurtboxSource::Intangible {
             out.push(GeometryObservation {
@@ -88,7 +88,7 @@ fn volumes(
             out.extend(observed_pieces(pieces, &format!("hurt {}", name(body.body)), "hurt"));
         }
     }
-    for strike in view.strikes.iter().filter(|strike| {
+    for strike in strikes.iter().flat_map(|view| view.strikes.iter()).filter(|strike| {
         room.is_none() || live.stamped(strike.strike).or_else(|| live.of(strike.owner)) == room
     }) {
         let mut roles = vec![Cow::Borrowed("hit")];
@@ -164,34 +164,23 @@ mod tests {
     fn a_cut_body_is_observed_by_the_pieces_combat_tests() {
         let mut app = App::new();
         install(&mut app);
-        let body = app.world_mut().spawn_empty().id();
-        let near = ae::Aabb::new(ae::Vec2::new(100.0, 80.0), ae::Vec2::new(6.0, 10.0));
-        let far = ae::Aabb::new(ae::Vec2::new(400.0, 80.0), ae::Vec2::new(6.0, 10.0));
-        let mut carried = ae::frame::thread::VolumePiece::whole(ae::CombatVolume::Aabb(far));
-        carried.path = vec![0];
-        let whole = ae::Aabb::new(ae::Vec2::new(103.0, 80.0), ae::Vec2::new(9.0, 10.0));
-        app.insert_resource(crate::CombatGeometryView {
-            bodies: vec![crate::CombatBodyGeometryView {
-                body,
-                collision: whole,
-                hurtboxes: vec![ae::CombatVolume::Aabb(whole)],
-                hurt_pieces: Some(vec![ae::frame::thread::VolumePiece::whole(ae::CombatVolume::Aabb(near)), carried]),
-                hurt_refusal: None,
-                hurtbox_source: HurtboxSource::Published,
-                damage_taken: 0,
-                facing: 1.0,
-                hitstun_s: 0.0,
-                hitlag_s: 0.0,
-                landing_lag_s: 0.0,
-                jump_squat_s: 0.0,
-                velocity: ae::Vec2::ZERO,
-                grounded: true,
-                on_wall: false,
-                wall_normal_x: 0.0,
-                move_state: None,
-            }],
-            strikes: Vec::new(),
-        });
+        use ae::frame::{PortalAperture, PortalFrame};
+        use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+
+        let pos = ae::Vec2::new(0.0, -5.0);
+        let half = ae::Vec2::new(9.0, 10.0);
+        let body = app.world_mut().spawn((
+            ae::CenteredAabb::from_center_size(pos, half * 2.0),
+            ae::BodyKinematics { pos, canonical_size: half * 2.0, ..Default::default() },
+            ambition_characters::actor::BodyCombat::default(),
+            ambition_combat::components::DamageableVolumes::body_box(half),
+        )).id();
+        let mut portals = BodyGeometry::default();
+        portals.add_pair(None, (
+            PortalAperture { frame: PortalFrame::fixed(ae::Vec2::ZERO, ae::Vec2::NEG_Y), half_length: 40.0 },
+            PortalAperture { frame: PortalFrame::fixed(ae::Vec2::new(500.0, -200.0), ae::Vec2::Y), half_length: 40.0 },
+        ));
+        app.insert_resource(portals);
         let layers = observe_all(app.world_mut(), ObservationQuery { room: None, subject: None }, |name| name == "combat.volumes");
         let ObserverAnswer::Observed { geometry } = &layers[0].answer else { panic!("{layers:?}") };
         let pieces: Vec<_> = geometry.iter().filter(|seen| seen.roles.iter().any(|role| role == "portal_piece")).collect();
@@ -200,9 +189,9 @@ mod tests {
         let carried: Vec<_> = pieces.iter().filter(|seen| seen.roles.iter().any(|role| role == "portal_carried")).collect();
         assert_eq!(carried.len(), 1, "the far piece is the carried one: {pieces:?}");
         let ObservedShape::Clipped { primitive, transform, path, .. } = &carried[0].shape else { panic!("a piece retains its source: {carried:?}") };
-        assert_eq!(**primitive, shape(&ae::CombatVolume::Aabb(far)));
-        assert_eq!(*transform, ae::frame::Sim2::IDENTITY.affine_rows());
-        assert_eq!(path, &[0]);
+        assert_eq!(**primitive, shape(&ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::ZERO, half))));
+        assert_ne!(*transform, ae::frame::Sim2::IDENTITY.affine_rows());
+        assert_eq!(path.len(), 1);
         let whole = geometry.iter().find(|seen| seen.key == format!("hurt {body} 0")).expect("the whole volume is listed");
         assert!(matches!(whole.state, ObservedState::Inactive { .. }), "the whole volume is not what combat tests: {whole:?}");
     }
@@ -247,7 +236,7 @@ mod tests {
                 anchored_to_body: true, depicted_by_owner: false, ray: None, hit: vec![],
             }
         });
-        app.insert_resource(CombatGeometryView { bodies: vec![], strikes: strikes.to_vec() });
+        app.insert_resource(CombatStrikesView { strikes: strikes.to_vec() });
         for (n, root) in roots.into_iter().enumerate() {
             let layers = observe_all(app.world_mut(), ObservationQuery { room: Some(root), subject: Some(owners[n]) }, |_| true);
             let ObserverAnswer::Observed { geometry } = &layers[0].answer else { panic!("{layers:?}") };

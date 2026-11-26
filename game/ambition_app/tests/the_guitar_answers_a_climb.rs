@@ -6,7 +6,7 @@ use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness};
 use ambition_platformer2d::{boss_encounter::BossConfig, characters::actor::{BodyHealth, CharacterForm}, engine_core as ae};
 use ambition_platformer2d::extension::{BodyRecords, ExtensionFaults, ExtensionProfile};
 use ambition_platformer2d::extension::sdk::{FieldRef, SchemaKey, Value};
-use ambition_platformer2d::{mount::BackLedge, platformer::markers::PrimaryPlayerOnly, sim_view::CombatGeometryView};
+use ambition_platformer2d::{mount::BackLedge, platformer::markers::PrimaryPlayerOnly, sim_view::CombatStrikesView};
 use bevy::prelude::*;
 
 const CHARGE: SchemaKey = SchemaKey::new("ambition", "boss_stage_feedback.charge", 1);
@@ -48,7 +48,7 @@ fn trace(rollback: bool) -> Vec<u32> {
     for _ in 0..180 {
         sim.step(AgentAction { move_x: -1.0, ..Default::default() });
         let phase = phase(&sim, boss);
-        let geometry = sim.world().resource::<CombatGeometryView>();
+        let geometry = sim.world().resource::<CombatStrikesView>();
         let rays: Vec<_> = geometry.strikes.iter().filter(|strike| strike.owner == boss
             && strike.ray.as_ref().is_some_and(|ray| ray.look.as_ref() == "force")).collect();
         if phase == 2 && trace.last() != Some(&2) {
@@ -87,7 +87,7 @@ fn leaving_the_guitar_avoids_the_pulse_and_a_dead_boss_cancels_it() {
     sim.rebase_rollback_history().unwrap();
     for _ in 0..120 {
         sim.step(AgentAction::default());
-        assert!(!sim.world().resource::<CombatGeometryView>().strikes.iter()
+        assert!(!sim.world().resource::<CombatStrikesView>().strikes.iter()
             .any(|strike| strike.ray.is_some() && strike.hit.contains(&player)));
     }
     sim.step_n(AgentAction::default(), 250);
@@ -102,7 +102,7 @@ fn leaving_the_guitar_avoids_the_pulse_and_a_dead_boss_cancels_it() {
     sim.rebase_rollback_history().unwrap();
     for _ in 0..100 {
         sim.step(AgentAction::default());
-        assert!(!sim.world().resource::<CombatGeometryView>().strikes.iter()
+        assert!(!sim.world().resource::<CombatStrikesView>().strikes.iter()
             .any(|strike| strike.owner == boss && strike.ray.is_some()));
     }
 }

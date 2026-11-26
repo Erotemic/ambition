@@ -36,8 +36,8 @@ pub use anim_index::{
     ActorSpriteData, BossFrameIndex, BossFrameView, ClipRequest, ClipTime, HazardLaneFact, SMASH_CHARGE_CLIP,
 };
 pub use combat_geometry_view::{
-    rebuild_combat_geometry_view, CombatBodyGeometryView, CombatGeometryView, CombatRayView,
-    CombatStrikeGeometryView, HurtboxSource,
+    rebuild_combat_strikes_view, CombatBodyGeometry, CombatBodyGeometryView, CombatGeometryView,
+    CombatRayView, CombatStrikeGeometryView, CombatStrikesView, HurtboxSource,
 };
 pub use control_prompt::{
     derive_weapon_readiness, project_interact_verb, project_prompt_readiness, publish_frontend_context_prompt,
@@ -126,7 +126,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         }
         app.init_resource::<ControlPrompt>();
         app.init_resource::<PassageViews>();
-        app.init_resource::<CombatGeometryView>();
+        app.init_resource::<CombatStrikesView>();
         // What F1 and headless inspection read of it (GOBS-1).
         combat_geometry_observer::install(app);
         body_geometry_observer::install(app);
@@ -155,7 +155,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // to resolve, and the system needs the catalog.
                 rebuild_attack_vfx_views.run_if(bevy::prelude::resource_exists::<
                     ambition_characters::actor::character_catalog::CharacterCatalog>),
-                rebuild_combat_geometry_view,
+                rebuild_combat_strikes_view,
             )
                 .after(Platformer2dSimulationPhase::FeatureViewSync)
                 .before(PresentedPoseSet)

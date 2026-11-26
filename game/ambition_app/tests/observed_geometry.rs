@@ -227,7 +227,7 @@ fn the_geometry_lab_observes_a_missed_swing_and_a_hit_on_the_practice_bag() {
     for tick in 0..60 {
         sim.step(AgentAction { attack: tick == 0, ..crate::common::base() });
         let world = sim.world_mut();
-        observed_miss |= world.resource::<ambition_platformer2d::sim_view::CombatGeometryView>().strikes.iter()
+        observed_miss |= world.resource::<ambition_platformer2d::sim_view::CombatStrikesView>().strikes.iter()
             .any(|strike| strike.owner == player);
         assert!(!world.query::<(&CharacterForm, &BodyCombat)>().iter(world)
             .any(|(form, combat)| form.id() == "practice_sandbag" && combat.recently_struck()));

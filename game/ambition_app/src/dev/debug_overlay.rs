@@ -218,18 +218,23 @@ pub(crate) fn draw_debug_overlay(
                     draw_ldtk_runtime_spine(gizmos, world, &ldtk_spine_index);
                 }
             }
-            let combat = ambition_platformer2d::render::rendering::debug_viz::combat_rows_in(
-                &feature_q.combat_geometry,
-                live,
-                |body| worlds.room_of(body),
-            );
-            draw_combat_geometry_view(
-                gizmos,
-                world,
-                &combat,
-                &developer_tools,
-                &presentation_deltas(&combat, &feature_q.body_deltas),
-            );
+            let combat = (developer_tools.show_feature_hitboxes || developer_tools.show_player_hitbox
+                || developer_tools.show_combat_preview).then(|| {
+                let combat = ambition_platformer2d::render::rendering::debug_viz::combat_rows_in(
+                    &feature_q.combat_bodies,
+                    &feature_q.combat_strikes,
+                    live,
+                    |body| worlds.room_of(body),
+                );
+                draw_combat_geometry_view(
+                    gizmos,
+                    world,
+                    &combat,
+                    &developer_tools,
+                    &presentation_deltas(&combat, &feature_q.body_deltas),
+                );
+                combat
+            });
             for (
                 entity,
                 clusters,
@@ -306,12 +311,9 @@ pub(crate) fn draw_debug_overlay(
                         .map(|(_, portal)| portal),
                 );
             }
-            if developer_tools.show_feature_hitboxes
-                || developer_tools.show_player_hitbox
-                || developer_tools.show_combat_preview
-            {
+            if let Some(combat) = &combat {
                 draw_projectile_debug(gizmos, world, &mut feature_q, &developer_tools, &mut labels);
-                label_combat_properties(&feature_q, &mut labels);
+                label_combat_properties(&feature_q, combat, &mut labels);
             }
             if developer_tools.show_feature_hitboxes || developer_tools.show_player_hitbox {
                 draw_ground_item_debug(

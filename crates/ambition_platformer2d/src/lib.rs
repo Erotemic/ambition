@@ -1568,10 +1568,7 @@ pub use bevy;
 /// was naming implementation topology to reach a supported capability, which is
 /// the definition of an SDK gap.
 ///
-/// ⛔ READ-ONLY BY CONSTRUCTION. `CombatGeometryView` is rebuilt from simulation
-/// truth every tick; an observer compares and keys on what it finds here and
-/// must not reach back through an entity to the authoritative component, which
-/// is the coupling this surface exists to remove.
+/// Observers sample the geometry with `CombatGeometryView::capture`.
 pub mod observation {
     /// The vocabulary an observation is expressed in. A consumer that can read a
     /// volume must be able to name its shape and its bounds.

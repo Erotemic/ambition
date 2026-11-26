@@ -115,7 +115,7 @@ DERIVED: dict[str, str] = {
         ty: "a sim_view read model, rebuilt each run from this tick's entities (read 2026-11-17)"
         for ty in (
             "ActorAnimIndex", "ActorRenderIndex", "BlinkPreviewFact", "BodyClocksView",
-            "BossFrameIndex", "BossRenderIndex", "CombatGeometryView", "ControlPrompt",
+            "BossFrameIndex", "BossRenderIndex", "CombatStrikesView", "ControlPrompt",
             "ControlledBodiesView", "DynamicFeatureViews", "FeatureViewIndex",
             "GroundItemsView", "GuardBreaksView", "HeldItemView", "HostileWieldedItemsView",
             "LaunchedBodiesView", "MarkBeaconsView", "NameplateIndex", "NearestInteractable",

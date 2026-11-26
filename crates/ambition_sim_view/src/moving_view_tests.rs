@@ -1,6 +1,6 @@
 //! Moving-body publication measurements through the production view systems.
 
-use crate::combat_geometry_view::{rebuild_combat_geometry_view, CombatGeometryView};
+use crate::combat_geometry_view::{rebuild_combat_strikes_view, CombatGeometryView, CombatStrikesView};
 use crate::view_index::{rebuild_feature_view_index, FeatureViewIndex};
 use ambition_combat::components::{ActorDisposition, DamageableVolumes, FeatureId};
 use ambition_platformer2d_core as ae;
@@ -52,12 +52,12 @@ fn measure_moving_view_publication() {
                 let mut app = App::new();
                 app.init_resource::<Clock>();
                 app.init_resource::<FeatureViewIndex>();
-                app.init_resource::<CombatGeometryView>();
+                app.init_resource::<CombatStrikesView>();
                 app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
                 if workload == "features" {
                     app.add_systems(Update, (advance, rebuild_feature_view_index).chain());
                 } else {
-                    app.add_systems(Update, (advance, rebuild_combat_geometry_view).chain());
+                    app.add_systems(Update, (advance, rebuild_combat_strikes_view).chain());
                 }
                 for index in 0..count {
                     let at = ae::Vec2::new((index % 32) as f32 * 80.0, (index / 32) as f32 * 90.0);
@@ -84,8 +84,12 @@ fn measure_moving_view_publication() {
                     app.update();
                 }
                 let start = std::time::Instant::now();
+                let mut geometry = None;
                 for _ in 0..40 {
                     app.update();
+                    if workload != "features" {
+                        geometry = CombatGeometryView::capture(app.world_mut());
+                    }
                 }
                 let elapsed = start.elapsed().as_nanos() / 40;
                 let text = if workload == "features" {
@@ -98,7 +102,7 @@ fn measure_moving_view_publication() {
                     rows.sort_by(|a, b| a.0.cmp(&b.0));
                     format!("{rows:?}")
                 } else {
-                    format!("{:?}", app.world().resource::<CombatGeometryView>())
+                    format!("{:?}", geometry.unwrap())
                 };
                 let hash = text
                     .bytes()

@@ -3,7 +3,7 @@
 //!
 //! Each source uses the same visual:
 //!
-//! * a RAY STRIKE (`CombatGeometryView`'s strikes with a `ray`): an attack,
+//! * a RAY STRIKE (`CombatStrikesView`'s strikes with a `ray`): an attack,
 //!   drawn as its named look from the ray's own published geometry. The
 //!   attack does not draw itself and the look does not hurt; a new kind of
 //!   ray attack is a ray with a look.
@@ -36,7 +36,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, LiveRoomOf, LiveRooms, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_sim_view::presented_pose::PresentedPose;
-use ambition_sim_view::CombatGeometryView;
+use ambition_sim_view::CombatStrikesView;
 use ambition_vfx::vfx::{VfxInRoom, VfxMessage};
 use ambition_vfx::{LightningEnd, LightningKey, LightningLook};
 
@@ -154,7 +154,7 @@ impl Plugin for LinesPlugin {
             (
                 receive_decorations,
                 // Only while a strike stands: a ray is one of its strikes.
-                follow_ray_strikes.run_if(|view: Option<bevy::prelude::Res<CombatGeometryView>>| {
+                follow_ray_strikes.run_if(|view: Option<bevy::prelude::Res<CombatStrikesView>>| {
                     view.is_some_and(|view| !view.strikes.is_empty())
                 }),
                 follow_projectile_lines,
@@ -222,7 +222,7 @@ fn receive_decorations(
 /// line, in its look.
 fn follow_ray_strikes(
     mut commands: Commands,
-    view: Option<Res<CombatGeometryView>>,
+    view: Option<Res<CombatStrikesView>>,
     rooms: LiveRooms,
     active_session: Option<Res<ActiveSessionScope>>,
     mut live: Query<&mut LineVisual>,

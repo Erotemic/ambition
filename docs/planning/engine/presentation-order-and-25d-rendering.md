@@ -616,10 +616,14 @@ shared value preparation are sufficient until source proves otherwise.
    band; a hidden item, or one whose holder has no card, shows none. Render
    lib: 529 (default), 534 (`card_view`).
 
-   A `goblin_encounter` capture with `--card-view` shows an empty card view
-   (no Scout, no item), the same with the card view as it was before today's
-   RV3 edits; the card view is only known to frame `intro_wake_room`. Not
-   investigated yet. Held art is witnessed by the unit test only.
+   A `goblin_encounter` capture with `--card-view` shows an empty card view,
+   as it did before today's RV3 edits. That is the declared framing, not a
+   fault (probe, deleted): the card camera is active and centred on the 2D
+   frame's centre (x −515), and Scout's root is at x −675 with his parts
+   sampled. At `zoom` 2.5 in a 0.42 viewport the card view shows the middle
+   ~227 world units of the 2D view's 568, and the 2D camera, held at the
+   room's edge, has Scout 160 units off its centre. Held art is witnessed by
+   the unit test only; no capture has a held item in the card frame yet.
 
    Still unrealized in the card view: portals (P5/P6), room tiles, and bodies
    that have no rigged presentation.

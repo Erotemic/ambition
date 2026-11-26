@@ -1190,6 +1190,7 @@
     "authority_baggage_lift_shaft": (),
     "authority_baggage_lift": (),
     "authority_clock_arcade": (),
+    "authority_clock_walk": (backdrop: true),
     "authority_blossom_tree": (),
     "authority_notice_board": (),
     "authority_manifest_portico": (),
@@ -1203,6 +1204,7 @@
     "unfinished_scaffold": (),
     "unfinished_spill": (),
     "unfinished_cranes": (),
+    "unfinished_inspection_scaffold": (),
     "unfinished_office_wall": (backdrop: true),
     "unfinished_gauges": (),
     "unfinished_backlog": (),
@@ -1222,6 +1224,7 @@
     "automaton_state_table": (),
     "automaton_glider_lift": (),
     "automaton_arena_ring": (),
+    "automaton_arena_viewing_gallery": (backdrop: true),
     "automaton_failure_log": (),
     // The Frontier's scenery (`targets/props/frontier_props.py`): each piece
     // is drawn in its room's coordinates, over the room's walk lines.

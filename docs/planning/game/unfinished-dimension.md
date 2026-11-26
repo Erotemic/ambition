@@ -54,10 +54,11 @@ a reference for the look, not a layout, and not for its colours.
   past a chest. The west step starts beside the trees. The east steps
   go down toward the Draft.
 - **The Draft** (`unfinished_draft`), east: the built ground ends and a
-  stream runs off it into the void. Slabs hang from cranes' cables over the
-  void, a jump apart; between them, the outlines of platforms not built yet
-  (they are drawings: they do not hold you). Subclause 4(c) paints the sky
-  from a hanging platform. A Bug and Feature Creep guard the built ground.
+  stream falls into the void. From the spill landing, visitors can jump
+  across the crane slabs or climb down to two inspection decks. A ladder
+  connects the decks to Subclause 4(c)'s painting platform. From there, the
+  eastern slabs reach the finished corner. Blue outlines mark future
+  platforms. A Bug and Feature Creep guard the built ground.
 - **The Site Office** (`unfinished_site_office`), by a door: the gauges of
   GRAVITY, WEATHER and LAYERS, the backlog, and the Placeholder. Windows
   look out on the work site. Visitors can jump onto the gauge bench and

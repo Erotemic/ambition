@@ -63,12 +63,13 @@ machine, the busy beaver that writes the most ones before it halts.
   come in on a gallery at the terrace's height: the failure log (a row of
   cells per challenger, each ending in a red cell; the bottom row lit and
   empty) and the Imperfect Cellular Automaton, who heckles the log. Steps
-  go down to the ground; the ring stands one jump high on it, its face lit
-  with the four generations of rule 150, a post of cubes at each corner.
-  The PCA waits in the middle (dialogue `automaton_pca`: "Challenge it"
-  plays `glider_gun` and starts the fight). Behind: stands of cubes whose
-  crowd is lit cells, light pylons, and a screen on chains showing Gosper's
-  glider gun with the two gliders it has fired by generation 120.
+  lead to the ground. A jump reaches a viewing deck with a ladder down to
+  the ring apron. The ring stands one jump above the ground. Its face shows
+  the four generations of rule 150. A post of cubes stands at each corner.
+  The PCA waits in the middle. Choose "Let's fight" in `automaton_pca` to
+  play `glider_gun` and start the fight. The stands have a crowd of lit
+  cells. A screen on chains shows Gosper's glider gun and the two gliders
+  it has fired by generation 120.
 
 ## The people and the things that fight
 

@@ -44,6 +44,9 @@ brain).
 - **The Callosum** (`neural_callosum`): the gate and terminal on a bridge of
   fibre over the dark, the signpost (MEMORY west, ATTENTION up, BIASES
   east), and the Grandmother Cell, who recognizes exactly one person.
+  The bridge leads to both halves. Three synapse caps lead up to the
+  arch from the west. A bundle of fibres gives visitors a way up and
+  down at the east end of the arch.
 - **The Neural Cathedral** (`neural_cathedral`), west: living arches and
   dendrite branches, synapse caps to climb, a gallery of memories, pools of
   fluid. Intrusive Thoughts drift in. Donna Hebb wires together the

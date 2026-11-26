@@ -208,6 +208,8 @@ At Wreckers’ Reef, pass the fallen mast surface points to the art generator.
 Show the mast edge, the decks at both ends, and the two ladders in the same view.
 At Lighthouse Point, show the lookout on the oil deck and a standing body
 below it. Use the same view to check both approaches to the lookout.
+At Pirate Cove, show the door threshold and the ladder top in the same view.
+Use the door bounds to place the sail pennant above the door.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

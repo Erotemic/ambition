@@ -82,7 +82,7 @@ impl MaterialCastCells<'_> {
     /// Use the same velocity law as payload admission at the contact point.
     /// Input velocity is at the source root before the recorded turn.
     pub fn contact_velocity_frame(&self, hit: &super::SampledPieceHit) -> Result<ContactVelocityFrame,Refusal> {
-        let cell=self.parts.iter().find(|cell| cell.path==hit.source_path
+        let cell=self.parts().iter().find(|cell| cell.path==hit.source_path
             && hit.toi>=cell.time.start && hit.toi<=cell.time.end)
             .ok_or_else(||super::numeric(NumericFault::InvalidFrame))?;
         let numeric=|fault|failure(cell,RefusalReason::Numeric(fault));
@@ -106,7 +106,7 @@ impl MaterialCastCells<'_> {
         }
         if time<0.0 || time>self.until { return Err(super::numeric(NumericFault::InvalidFrame)); }
         let Some(scene)=self.scene.as_ref() else {return Ok(());};
-        for cell in self.parts.iter().filter(|cell|time>=cell.time.start && time<=cell.time.end) {
+        for cell in self.parts().iter().filter(|cell|time>=cell.time.start && time<=cell.time.end) {
             let numeric=|fault|failure(cell,RefusalReason::Numeric(fault));
             let Some(planes)=cell.planes_at(time).map_err(numeric)? else {continue;};
             let planes=planes.into_iter().map(|plane|plane.plane).collect::<Vec<_>>();
@@ -130,7 +130,7 @@ impl MaterialCastCells<'_> {
         };
         let admission = scene.admission();
         let mut work = 0usize;
-        for cell in self.parts.iter().filter(|cell| !cell.path.is_empty() || self.source.rotation.is_some()) {
+        for cell in self.parts().iter().filter(|cell| !cell.path.is_empty() || self.source.rotation.is_some()) {
             let mut pending = vec![cell.time.clone()];
             while let Some(time) = pending.pop() {
                 work += 1;

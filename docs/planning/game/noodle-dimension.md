@@ -28,7 +28,7 @@ central hub's door to the narthex stays.
 | Room | Where and what | Who |
 | --- | --- | --- |
 | `noodle_village_square` | Brothlehem's square: the gate ring (ALDENTE), its terminal, a shrine. The roofs of the houses step up east to the market. | Richard Duckling counts the pilgrims (a meme is a thing you catch). |
-| `noodle_village_market` | The drying racks. Their rails are the high road. | |
+| `noodle_village_market` | The drying racks form the high road. A crate and bench give access from the springs road. A cloth awning marks the curry house entrance. | |
 | `noodle_village_curry_house` | Curry udon. | Marie Curry. She tells what the soda is. |
 | `noodle_durum_terraces` | Durum wheat (the wheat of pasta) on terraces, with paddies of broth (clear water). The low field climbs west, and the high field climbs back east. | noodlings |
 | `noodle_temple_stair` | The great stair to the temple's door. | a parrot |
@@ -69,8 +69,8 @@ A pool of soda is two things in one box. Neither needs a Rust change:
   `noodly` theme, and the spike sprite of each `DamageVolume` shows through
   it. A `look` on `DamageVolume` (as `LockWall` and `BreakablePlatform`
   have) or a soda water kind would fix this; both need Rust.
-- The rooms have no props: no houses, racks, mill or volcano. They have only
-  the `noodly` scene and terrain. The scenery needs prop targets in the
-  sprite renderer.
+- The houses in the gate square, the durum terraces, and the volcano still
+  need scenery. The market has art for the drying racks and curry house
+  entrance.
 - No app test walks the new rooms yet.
 - The Mint is a chest. It opens nothing.

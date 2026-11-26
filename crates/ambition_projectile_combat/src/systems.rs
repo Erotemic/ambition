@@ -1429,7 +1429,7 @@ pub fn step_projectiles(
                     victim.entity,AttackAllegiance::from_body(*victim.faction,victim.team,victim.driver),
                     ambition_projectiles::ownership::ProjectileCredit::capture(victim.sim_id,collision.room_of(victim.entity)),
                     victim.voice.map(ambition_sfx::BodyPresentationSource::id),shot_room,&mut sfx,&mut vfx) {
-                    commands.entity(proj_entity).insert(ae::SweepSample { restriction: Default::default(),turn:None,material:before.material,
+                    commands.entity(proj_entity).insert(ae::SweepSample { tick: 0, restriction: Default::default(),turn:None,material:before.material,
                         travel:ae::LinearTravel::Prefix {delta:attempted_delta,until:contact.hit.toi},time:[leg_time,1.0],
                         prev:leg_start,curr:kin.pos,vel:kin.vel,half:kin.half_extent(),down:ae::Vec2::ZERO});
                 }
@@ -1441,7 +1441,7 @@ pub fn step_projectiles(
             // straddles the opening and the pair takes it when its centre
             // crosses. Its leg is its sweep, so a fast shot that crossed a plane
             // this tick is taken through it, not stopped on the wall behind.
-            commands.entity(proj_entity).insert(ae::SweepSample { restriction: Default::default(), turn: None, material: before.material, travel, time: [leg_time, 1.0],
+            commands.entity(proj_entity).insert(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, material: before.material, travel, time: [leg_time, 1.0],
                 prev: leg_start,
                 curr: kin.pos,
                 vel: kin.vel,
@@ -1645,7 +1645,7 @@ pub fn step_projectiles(
             ae::LinearTravel::Prefix { delta: attempted_delta, until: hit.contact.toi }
         });
         game.bounces_remaining = world_response.bounces_remaining;
-        commands.entity(proj_entity).insert(ae::SweepSample { restriction: Default::default(), turn: None, material: before.material, travel: recorded_travel, time: [leg_time, 1.0],
+        commands.entity(proj_entity).insert(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, material: before.material, travel: recorded_travel, time: [leg_time, 1.0],
             prev: leg_start, curr: kin.pos, vel: candidate.vel,
             half: kin.half_extent(), down: ae::Vec2::ZERO,
         });

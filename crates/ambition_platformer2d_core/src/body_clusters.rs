@@ -336,6 +336,11 @@ pub struct SweepSample {
     pub down: Vec2,
     /// The portal links this travel was accepted under.
     pub restriction: PortalRestriction,
+    /// The simulation step whose travel this is (`SimTick`), stamped by the
+    /// system that stepped the body; `0` when no stepping system stamped it.
+    /// A body whose step was skipped keeps an older record, so a reader that
+    /// wants one step's path asks for it by number ([`Self::of_step`]).
+    pub tick: u64,
 }
 
 /// The travel a body made this tick before its arrival, one leg per chart it
@@ -379,7 +384,7 @@ impl CrossedTravel {
 impl Default for SweepSample {
     fn default() -> Self {
         Self { turn: None, travel: LinearTravel::Complete, material: Default::default(), time: [0.0, 1.0], prev: Vec2::ZERO, curr: Vec2::ZERO,
-            vel: Vec2::ZERO, half: Vec2::ZERO, down: Vec2::ZERO, restriction: PortalRestriction::Open }
+            vel: Vec2::ZERO, half: Vec2::ZERO, down: Vec2::ZERO, restriction: PortalRestriction::Open, tick: 0 }
     }
 }
 
@@ -397,7 +402,16 @@ impl SweepSample {
             vel: Vec2::ZERO,
             half: body.half_extent(),
             down,
+            tick: 0,
         }
+    }
+
+    /// This record if it is the travel of simulation step `tick`. A body
+    /// whose step was skipped (no live geometry for its room, no stepping
+    /// system this tick) keeps the record of an older step, and that motion
+    /// did not happen in step `tick`.
+    pub fn of_step(&self, tick: u64) -> Option<&Self> {
+        (self.tick == tick).then_some(self)
     }
 
     /// Record the final pose without a prior travel interval.

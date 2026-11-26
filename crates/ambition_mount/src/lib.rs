@@ -458,6 +458,9 @@ pub fn mount_backs_are_ground(
         Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
     )>,
     mut overlays: ambition_platformer2d_shared_tangle::feature_overlay::RoomOverlays,
+    // The step now running. The ground is built before the bodies step, so
+    // the mount's last step is the one before it.
+    tick: Option<bevy::prelude::Res<ambition_time::SimTick>>,
 ) {
     for (body, mount, back, unmirrored, step, room) in &mounts {
         // Its lines are part of it: they are ground for others, never for it.
@@ -470,8 +473,11 @@ pub fn mount_backs_are_ground(
         // mount relocated since its step (a respawn, a scripted place) did
         // not travel to where it stands: its ground jumped, and no rider is
         // carried across the gap.
+        // And only the step it made last tick: a mount whose step was
+        // skipped (M1a) keeps an older record, and its ground did not move.
         let moved = step
             .and_then(|step| step.ending_at(mount.pos))
+            .filter(|step| tick.as_ref().is_none_or(|now| step.of_step(now.get().wrapping_sub(1)).is_some()))
             .map_or(ae::Vec2::ZERO, |step| step.curr - step.prev);
         for aabb in back.ground(mount, unmirrored) {
             overlay.blocks.push(ae::Block {
@@ -3537,6 +3543,31 @@ mod back_tests {
         assert_eq!((left.min.x, left.max.x), (731.0, 1108.0), "{left:?}");
         // Unmirrored, a turn draws nothing different, so the back stays put.
         assert_eq!(BackLedge::new(GNU).aabb(&kin, true), right);
+    }
+
+    /// M1a: the ground is built before the bodies step, so it moves by the
+    /// step the mount made last tick. A mount whose step was skipped keeps an
+    /// older record; its ground did not move, and carries nobody.
+    #[test]
+    fn a_mount_whose_last_step_was_skipped_moves_no_ground() {
+        let velocity = |recorded: u64| {
+            let mut world = bevy::prelude::World::new();
+            insert_live_room_component(&mut world, FeatureEcsWorldOverlay::default());
+            world.insert_resource(ambition_time::SimTick(10));
+            let mut kin = ae::BodyKinematics::default();
+            kin.pos = ae::Vec2::new(900.0, 1040.0);
+            kin.facing = 1.0;
+            let step = ae::SweepSample { prev: kin.pos - ae::Vec2::new(0.5, -0.25), curr: kin.pos, tick: recorded, ..Default::default() };
+            world.spawn((kin, step, BackLedge { ledges: vec![SHOULDER], ..BackLedge::new(GNU) }));
+            let mut system = bevy::ecs::system::IntoSystem::into_system(mount_backs_are_ground);
+            bevy::ecs::system::System::initialize(&mut system, &mut world);
+            let _ = bevy::ecs::system::System::run(&mut system, (), &mut world);
+            let mut overlays = world.query::<&FeatureEcsWorldOverlay>();
+            overlays.iter(&world).flat_map(|overlay| overlay.blocks.iter())
+                .find(|block| block.name == BACK_BLOCK).map(|block| block.velocity)
+        };
+        assert_eq!(velocity(9), Some(ae::Vec2::new(0.5, -0.25)), "control: last tick's step moves the ground");
+        assert_eq!(velocity(8), Some(ae::Vec2::ZERO), "a step skipped last tick leaves the ground still");
     }
 
     /// ⭐ A body's ledges are one-way blocks in its own live room's overlay,

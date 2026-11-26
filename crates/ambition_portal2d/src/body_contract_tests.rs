@@ -87,7 +87,7 @@ fn a_crossing_that_skipped_begin_leaves_the_body_straddling_the_exit() {
     wall_pair(&mut app);
     // Kernel: its step began 30 px in front of blue and ends 6 px behind it.
     let kin = BodyKinematics { material: Default::default(), pos: Vec2::new(14.0, 200.0), vel: Vec2::new(-1800.0, 0.0), canonical_size: Vec2::splat(16.0), facing: 1.0 };
-    let record = SweepSample { restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: Vec2::new(44.0, 200.0), curr: kin.pos, vel: kin.vel, half: kin.size() * 0.5, down: Vec2::new(0.0, 1.0) };
+    let record = SweepSample { tick: 0, restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0], prev: Vec2::new(44.0, 200.0), curr: kin.pos, vel: kin.vel, half: kin.size() * 0.5, down: Vec2::new(0.0, 1.0) };
     let kernel = app.world_mut().spawn((kin, record)).id();
     let free = app
         .world_mut()
@@ -316,7 +316,7 @@ fn a_shots_leg_ends_only_where_the_transit_takes_it() {
     let taken = |from: Vec2, to: Vec2| {
         matches!(
             transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: to, canonical_size: size, vel: vel, ..Default::default() },
-                Some(ae::SweepSample { restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0], prev: from, vel, curr: to, material: Default::default(), half: Vec2::ZERO }),
+                Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0], prev: from, vel, curr: to, material: Default::default(), half: Vec2::ZERO }),
                 None,
                 None,
                 &portals,

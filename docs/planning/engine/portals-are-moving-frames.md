@@ -674,6 +674,18 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   checks the stamp. Test: a body whose stepping system is skipped for a
   tick keeps an old-stamped sample, and the geometry observer and a
   mount's ground read no motion from it.
+  *Done 2026-11-26 (schema 549).* `SweepSample::tick` names the step;
+  `integrate_sim_bodies` stamps it on both roads beside `BodyStepStamp`
+  (the kernel itself writes `0`, so a scratch body names no step), and a
+  pose carry keeps the stamp of the record it extends. Readers ask by
+  number with `SweepSample::of_step`: the room zones read this step's path,
+  and a mount's ground, built before the bodies step, reads the step before.
+  Witnesses: `rooms::tests::a_path_left_by_a_skipped_step_crosses_no_zone`
+  (session) and `back_tests::a_mount_whose_last_step_was_skipped_moves_no_ground`
+  (mount), each with this step's record as the control. Other readers of the
+  record (hazards, feature contact, snag, held items, transit) still use
+  `ending_at` alone; each moves to `of_step` when its writer population is
+  stamped (items and projectiles write `0` today).
 - **M1b — bind the history to the accepted aperture snapshot.** A crossing
   records the pair snapshot (revision and pose) it was admitted against.
   Test: an aperture that moves after the step leaves the crossing's record

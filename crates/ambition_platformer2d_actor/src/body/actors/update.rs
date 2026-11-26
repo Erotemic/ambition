@@ -1564,6 +1564,11 @@ pub fn integrate_sim_bodies(
             room: room.map(|room| room.0.ordinal()),
             session: session.map(|session| session.0.0),
         });
+        // The travel record names the step that made it (M1a), as the frame
+        // output does: a body this system skips keeps an older step's record.
+        if let (Some(sweep), Some(tick)) = (em.sweep.as_deref_mut(), tick.as_ref()) {
+            sweep.tick = tick.0;
+        }
         // Publish the semantic movement facts this step produced (ADR 0024):
         // presentation/combat consumers read THESE, never policy internals.
         *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model, em.effects);
@@ -1653,6 +1658,9 @@ pub fn integrate_sim_bodies(
             room: room.map(|room| room.0.ordinal()),
             session: session.map(|session| session.0.0),
         });
+        if let (Some(sweep), Some(tick)) = (clusters.sweep.as_deref_mut(), tick.as_ref()) {
+            sweep.tick = tick.0;
+        }
         *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model, clusters.effects);
         // Input-relative facts the model projection can't know: republished
         // here, beside the ridden-surface fact (all are per-tick projections of

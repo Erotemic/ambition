@@ -300,6 +300,7 @@ impl SnapshotState for crate::body_clusters::SweepSample {
             crate::PortalRestriction::Straddled => 1,
             crate::PortalRestriction::Closed => 2,
         });
+        crate::snapshot::put_u64(out, self.tick);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let time = [f64::from_bits(r.u64()?), f64::from_bits(r.u64()?)];
@@ -333,7 +334,8 @@ impl SnapshotState for crate::body_clusters::SweepSample {
             2 => crate::PortalRestriction::Closed,
             _ => return None,
         };
-        Some(Self { time, travel, prev, curr, vel, half, down, material, turn, restriction })
+        let tick = r.u64()?;
+        Some(Self { time, travel, prev, curr, vel, half, down, material, turn, restriction, tick })
     }
 }
 

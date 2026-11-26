@@ -164,7 +164,9 @@ pub fn detect_room_transition_system(
     sim_ids: ambition_platformer2d_shared_tangle::lifecycle::LiveBodies,
     // Track B: under a rollback host, defer the transition instead of engaging the
     // (not-rollback-registered) multi-tick load machine on a speculative frame.
-    boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
+    // And the step now running: a body's path is read only if it is this
+    // step's (M1a); a body whose step was skipped did not travel it now.
+    (boundary, tick): (Option<Res<ae::ConfirmedFrameBoundary>>, Option<Res<ambition_time::SimTick>>),
     mut pending_lifecycle: ResMut<crate::lifecycle_commit::PendingLifecycleCommit>,
     // What each seat's press is selected for, at the input cut.
     selection: Option<Res<ambition_platformer2d_interaction::InteractSelection>>,
@@ -234,6 +236,7 @@ use crate::party_travel::{PartyAdmission, PartyExit, PartyVote};
         // tested where it stands.
         let (path_end, delta) = sweep
             .and_then(|sample| sample.ending_at(kin.pos))
+            .filter(|sample| tick.as_ref().is_none_or(|now| sample.of_step(now.get()).is_some()))
             .map_or((kin.aabb(), ae::Vec2::ZERO), |path| {
                 (path.end_aabb(), path.delta())
             });

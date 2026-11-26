@@ -838,7 +838,9 @@ pub(crate) fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec
     let curr = clusters.kinematics.pos;
     let step_half = clusters.kinematics.half_extent();
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
-        *sweep = SweepSample { restriction: Default::default(), turn: None, travel: Default::default(), time: [0.0, 1.0],
+        // Unstamped: the system that stepped the body names the step
+        // (`SweepSample::tick`); a scratch body has no step to name.
+        *sweep = SweepSample { tick: 0, restriction: Default::default(), turn: None, travel: Default::default(), time: [0.0, 1.0],
             material: entry.2,
             prev: entry.0,
             curr,

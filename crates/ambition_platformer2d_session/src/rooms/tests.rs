@@ -165,6 +165,31 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
 /// speed leaping straight over the exit band).
 #[test]
 fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
+    assert_eq!(
+        room_reached_through_a_walk_zone_in_one_frame(None).as_deref(),
+        Some("b"),
+        "a body that tunnelled through the walk zone in one frame still triggers \
+         the transition — the reader sweeps its path (CC2), it does not sample \
+         the endpoint",
+    );
+}
+
+/// M1a: the path is read only if it is this step's. A body whose stepping
+/// was skipped keeps the record of an older step (stamped 4 here, read in
+/// step 5); it did not travel that path now, so it crosses no zone. The
+/// control is the same record stamped with the step now running.
+#[test]
+fn a_path_left_by_a_skipped_step_crosses_no_zone() {
+    assert_eq!(room_reached_through_a_walk_zone_in_one_frame(Some((5, 5))).as_deref(), Some("b"),
+        "control: this step's path crosses the zone");
+    assert_eq!(room_reached_through_a_walk_zone_in_one_frame(Some((4, 5))), None,
+        "an older step's path is not travel of this step");
+}
+
+/// The room a body reaches when its path this frame runs from before a thin
+/// walk zone to past it. `stamp` is the record's step and the step now
+/// running; `None` runs with no step clock, as a minimal app does.
+fn room_reached_through_a_walk_zone_in_one_frame(stamp: Option<(u64, u64)>) -> Option<String> {
     use ambition_characters::control::SlotInteractionState;
     use ambition_platformer2d_core::BodyKinematics;
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
@@ -266,7 +291,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
             canonical_size: ae::Vec2::new(24.0, 40.0),
             facing: 1.0,
         },
-        ae::SweepSample { restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
+        ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
             prev: start,
             curr: end,
             vel,
@@ -275,16 +300,14 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
         },
     )).id();
     app.world_mut().entity_mut(body).insert(ambition_characters::control::DrivingParticipant(ambition_characters::control::PlayerSlot::PRIMARY));
+    if let Some((recorded, now)) = stamp {
+        app.world_mut().get_mut::<ae::SweepSample>(body).unwrap().tick = recorded;
+        app.insert_resource(ambition_time::SimTick(now));
+    }
 
     app.update();
 
-    assert_eq!(
-        app.world().resource::<Captured>().0.as_deref(),
-        Some("b"),
-        "a body that tunnelled through the walk zone in one frame still triggers \
-         the transition — the reader sweeps its path (CC2), it does not sample \
-         the endpoint",
-    );
+    app.world().resource::<Captured>().0.clone()
 }
 
 /// A body that WALKED into an edge exit and was stopped by the boundary still
@@ -424,7 +447,7 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
     };
 
     // The kernel's record of the frame: it walked 40 px east and was stopped.
-    let travelled = ae::SweepSample { restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
+    let travelled = ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
         prev: stopped_at - ae::Vec2::new(40.0, 0.0),
         curr: stopped_at,
         vel: ae::Vec2::new(2400.0, 0.0),
@@ -1024,7 +1047,7 @@ fn the_real_kernel_publishes_a_sample_that_crosses_the_zone_it_was_stopped_on() 
     let mut arrival: Option<(ae::SweepSample, ae::Vec2, ae::Vec2)> = None;
     for _ in 0..240 {
         let before = scratch.kinematics.pos;
-        let mut sample = ae::SweepSample { restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
+        let mut sample = ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(), time: [0.0, 1.0],
             prev: before,
             curr: before,
             vel: ae::Vec2::ZERO,

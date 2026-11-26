@@ -13,10 +13,12 @@ crates/ambition_held_items/src/release.rs	4	712594d3e4f9ebca
 crates/ambition_match/src/snapshot_impls.rs	88	0fb6cd81f15b654d
 crates/ambition_platformer2d_core/src/effects.rs	15	0832ef7bb3fc8433
 crates/ambition_platformer2d_core/src/frame/material.rs	4	67dcb51a1f947910
-crates/ambition_platformer2d_core/src/motion_codec.rs	489	e28cae0683c3fad6
+crates/ambition_platformer2d_core/src/motion_codec/axis/state.rs	7	7de8eface985a847
+crates/ambition_platformer2d_core/src/motion_codec/axis.rs	17	b1b63edfba8d3ecf
+crates/ambition_platformer2d_core/src/motion_codec.rs	75	b3a58053a427ee54
 crates/ambition_platformer2d_core/src/player_state.rs	5	90d235c47500296d
-crates/ambition_platformer2d_core/src/snapshot.rs	19	5344ccb517105bc3
-crates/ambition_platformer2d_core/src/snapshot_impls.rs	175	be168bbe67476921
+crates/ambition_platformer2d_core/src/snapshot.rs	21	c9d627faef9a5f56
+crates/ambition_platformer2d_core/src/snapshot_impls.rs	103	4c1ce13ee6078854
 crates/ambition_platformer2d_interaction/src/lib.rs	1	9e2720c86e063ff7
 crates/ambition_platformer2d_runtime/src/behavior_events.rs	2	a7358cc4f5eff261
 crates/ambition_platformer2d_runtime/src/object_behaviors.rs	4	e7154c4253450829

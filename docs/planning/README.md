@@ -68,6 +68,7 @@ links to.
 - [`test-corpus-static-audit-phase2.md`](test-corpus-static-audit-phase2.md) — initial static test-corpus inventory and analyzer limits.
 - [`test-corpus-static-audit-findings-2026-10-26.md`](test-corpus-static-audit-findings-2026-10-26.md) — corrected historical test-audit evidence.
 - [`test-suite-consolidation-action-plan-2026-10-26.md`](test-suite-consolidation-action-plan-2026-10-26.md) — selected TEST-LANES fixture and diagnostic cleanup plan.
+- [`contextual-input-and-island-pause-2026-11-24.md`](contextual-input-and-island-pause-2026-11-24.md) — the contextual binding contract (what each control means per context) and island pause.
 
 ### Game (`game/`)
 
@@ -152,6 +153,10 @@ links to.
   carve checklist.
 - [`engine/source-text-guard-exposure.md`](engine/source-text-guard-exposure.md)
   — source-text guards that can go blind.
+- [`engine/contextual-binding-tables-transition.md`](engine/contextual-binding-tables-transition.md)
+  — contextual binding tables and the shared input opinions crate.
+- [`engine/crushing-and-obstruction-response.md`](engine/crushing-and-obstruction-response.md)
+  — crushing, compression and motion authority (Q187), staged C0-C6.
 
 ### Engine: the three highest-risk seams
 

@@ -45,6 +45,8 @@ pub mod grid_backend;
 // headless or web build pays for no 3D UI toolkit; it just gets to have a menu.
 pub mod kaleidoscope_app;
 pub mod map_page;
+#[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
+mod map_pointer;
 pub mod model;
 pub(crate) mod quality_confirm;
 #[cfg(test)]
@@ -56,9 +58,11 @@ mod parity_tests;
 /// State owned by one inventory menu. Both backends use these components.
 #[derive(bevy::prelude::Component, Default)]
 #[require(kaleidoscope_app::KaleidoscopeCursor, kaleidoscope_app::KaleidoscopeSystemNav,
-    kaleidoscope_app::RebindCapture, quality_confirm::VisualQualityConfirmState)]
+    kaleidoscope_app::RebindCapture, quality_confirm::VisualQualityConfirmState,
+    ambition_platformer2d::menu::map::browser::MapBrowser)]
 #[cfg_attr(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"), require(lifecycle::MenuLifecycleState))]
 #[cfg_attr(any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu"), require(regions::MenuRegion, system_cache::CachedSystemMenu))]
+#[cfg_attr(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")), require(map_pointer::MapDrag))]
 #[cfg_attr(feature = "bevy_ui_menu", require(grid_backend::GridMenuTabState))]
 #[cfg_attr(feature = "kaleidoscope_menu", require(kaleidoscope_app::KaleidoscopeScroll,
     kaleidoscope_app::MenuPublication, ambition_menu_kaleidoscope::KaleidoscopeOpenState))]

@@ -67,12 +67,14 @@ pub(super) fn spawn_node<Action>(
             rect,
             color,
             action,
-        } => spawn_panel(
+            layer,
+        } => spawn_panel_at_depth(
             ui,
             materials,
             *rect,
             menu_color(*color),
             action.clone(),
+            layered_panel_depth(*rect, action.is_some(), *layer),
             active,
         ),
         MenuNode::Text {
@@ -175,6 +177,11 @@ pub(super) fn spawn_node<Action>(
     ));
 }
 
+pub(super) fn layered_panel_depth(rect: MenuRect, actionable: bool, layer: Option<f32>) -> f32 {
+    // Keep the viewport, its contents and markers between the page and its text.
+    layer.map_or_else(|| panel_depth(rect, actionable), |layer| -0.12 - 0.72 * layer)
+}
+
 fn spawn_panel<Action>(
     ui: &mut ChildSpawnerCommands,
     materials: &mut Assets<StandardMaterial>,
@@ -219,7 +226,6 @@ where
                 action: Some(action),
                 focus: MenuFocusKey::default(),
             },
-            MenuVisualState::default(),
             // Mark as an interactive control so the `cube_3d_picking` candidate query
             // (filtered `With<KaleidoscopeControlStyle>`) treats an actionable panel as a
             // pick target, exactly like a `spawn_control` button.

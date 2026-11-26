@@ -55,3 +55,34 @@ fn inside_the_bakery_the_map_shows_lower_godwin_and_its_door() {
     assert_eq!(here, ["evil_lower_godwin"]);
     assert_eq!(view.marked_door, Some(0));
 }
+
+#[test]
+fn a_named_room_travel_request_reaches_another_dimension() {
+    use ambition_platformer2d::platformer::host_intents::write_host_intent;
+    use ambition_platformer2d::platformer::lifecycle::LiveBodyId;
+    use ambition_platformer2d::session::rooms::RoomTravelRequested;
+    use crate::neighbor_prefetch_prepares_rooms::{alice, room_of};
+
+    let mut app = crate::alices_reading_reaches_bob::the_shipped_session();
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_millis(17),
+    ));
+    let body = alice(&mut app);
+    let initial = LiveBodyId::of_entity(app.world(), body).expect("the controlled body has an ID");
+    let destination = "pirate_port_gate_plaza";
+    assert_ne!(room_of(&app, body).as_deref(), Some(destination));
+    write_host_intent(app.world_mut(), RoomTravelRequested {
+        body: initial.clone(),
+        destination: destination.into(),
+    });
+
+    for _ in 0..120 {
+        app.update();
+        let body = alice(&mut app);
+        if room_of(&app, body).as_deref() == Some(destination) {
+            assert_eq!(LiveBodyId::of_entity(app.world(), body).unwrap().sim_id, initial.sim_id);
+            return;
+        }
+    }
+    panic!("the travel request did not reach {destination}");
+}

@@ -247,6 +247,28 @@ impl RoomArrival {
 }
 
 impl RoomTransitionIntent {
+    /// Move a body to the destination room's spawn point.
+    pub fn to_room_spawn(
+        body: LiveBodyId,
+        participant: Option<ambition_characters::control::PlayerSlot>,
+        destination: &ambition_platformer2d_world::rooms::RoomSpec,
+    ) -> Self {
+        Self {
+            disposition: RoomTransitionDisposition::Travel,
+            source_zone: None,
+            initiator: RoomBodyTransfer {
+                requirement: BodyTransferRequirement::InPlay,
+                subject: body,
+                arrival: RoomArrival::At(destination.world.spawn),
+                participant,
+            },
+            companions: Vec::new(),
+            target_room: destination.id.clone(),
+            edge_exit: false,
+            zone_sfx: None,
+        }
+    }
+
     pub fn transfers(&self) -> impl Iterator<Item = &RoomBodyTransfer> {
         std::slice::from_ref(&self.initiator).iter().chain(self.companions.iter())
     }

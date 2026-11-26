@@ -544,6 +544,14 @@ Offline scripts/models may produce artifacts. Live simulation scripts use the
 registered state and deterministic service contract; the two modes are not
 interchangeable. Preserve the existing LDtk/sprite/audio tool boundaries.
 
+### Record a generated room after all authoring steps
+
+The room generator for Hylbert's Hotel reproduced the lobby, but the LDtk
+ownership report classified it as hand-edited until the author recorded
+the new fingerprint. Give room generators a shared operation that validates
+the final room and records its fingerprint. Call it after all entity and
+IntGrid changes so the next generation can tell which rooms have manual edits.
+
 ## Repeatable scenario and truthful activation result
 
 [Generation/reload](content-generation-and-reload.md) defines the operation and

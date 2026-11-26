@@ -16,6 +16,7 @@ pub mod gate_network;
 pub mod passage;
 pub mod residency;
 mod systems;
+mod travel;
 
 #[cfg(test)]
 mod tests;
@@ -28,6 +29,7 @@ mod zone_wall_tests;
 // crate: a forward here would let this crate's own coupling census count the
 // world crate as monolith coupling, which is what it did until 2026-08-26.
 // What this module re-exports below is what it OWNS.
+pub use travel::{admit_room_travel, RoomTravelRequested};
 pub use reconstitution::retire_the_previous_attempt;
 pub use residency::{room_transfer_plan, RoomTransferPlan, rooms_released_by_transfer, claims_on, live_room_claims, live_room_claims_in, RoomClaim};
 pub use systems::{

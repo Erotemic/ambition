@@ -403,6 +403,11 @@ lines) is five new `DebugLabel` entities, one entity field def and one level
 field def; `056079f` placed one dog in `sandbox.ldtk` and also regenerated the
 Hall (exhibits moved, the exit door `name` overwritten).
 
+The first regeneration of the Weights gave a moved Attention Head a new
+LDtk instance ID. To keep its runtime placement key, move the existing
+spawn before regeneration. Let generators give spawns stable authored keys
+that the tool and the runtime can use.
+
 **What is known about the recurring rewrite (2026-10-04).** Two fixes did not
 stop it: `54d99e7fb` (reuse tileset and rule uids; write only when changed)
 and `2e69e81b9` (`scripts/checks/check_ldtk_uid_leak.py`, a leaked-uid warning in

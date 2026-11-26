@@ -48,8 +48,9 @@ brain).
   dendrite branches, synapse caps to climb, a gallery of memories, pools of
   fluid. Intrusive Thoughts drift in. Donna Hebb wires together the
   neurons that fire together.
-- **The Weights** (`neural_weights`), east: racks of memory, logic gates for
-  platforms, the classifier's board, a pit of spikes. Attention Heads
+- **The Weights** (`neural_weights`), east: racks of memory and the
+  classifier's board. Logic gates cross the training spikes. Ladders at
+  both ends lead to a maintenance tunnel under the spikes. Attention Heads
   watch from the air. Percy the Perceptron is on the floor.
 - **The Echo Chamber** (`neural_echo_chamber`), by a door in the Weights: a
   round room of screens and Echo, who agrees with you.

@@ -1117,6 +1117,7 @@
     "neural_memory_gallery": (),
     "neural_dendrite_tree": (),
     "neural_logic_gates": (),
+    "neural_training_bypass": (backdrop: true),
     "neural_red_herring_board": (),
     "neural_weights_racks": (),
     "neural_echo_screens": (),

@@ -212,6 +212,13 @@ the same input works for surfaces and controls.
 The Celtic Frontier ramp also needs the `SurfaceChain` points. The points
 give the art generator the height of each rail and support on the ramp.
 
+### Terrain under water
+
+The Viking North fjord put the same grass and barrels on the channel bed
+as on the banks. Use the water bounds when the terrain system selects
+decoration for a floor. A theme can use bare stone or sediment on the part
+below water and keep its usual ground cover on the bank.
+
 ## Three visual acceptance scenes
 
 Use **the same practical camera compositions before and after**. Source room

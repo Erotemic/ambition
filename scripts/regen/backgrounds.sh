@@ -65,12 +65,18 @@ print_help() {
     ' "$0"
 }
 
-for arg in "$@"; do
-    case "$arg" in
+jobs=6
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --jobs)
+            jobs="${2:-}"
+            shift ;;
         -h|--help) print_help; exit 0 ;;
-        *) echo "unknown arg: $arg" >&2; exit 2 ;;
+        *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
+    shift
 done
+[[ "$jobs" =~ ^[1-9][0-9]*$ ]] || { echo "--jobs needs a positive integer" >&2; exit 2; }
 
 setup_hint="run ./run_developer_setup.sh or set the corresponding AMBITION_*_PYTHON override"
 background_python="$(ambition_select_tool_python "$background_renderer_dir" AMBITION_BACKGROUND_PYTHON)"
@@ -91,7 +97,7 @@ echo "==> parallax scenes -> $parallax_dir"
 (
     cd "$scene_renderer_dir"
     "$scene_python" -m ambition_sprite2d_renderer.backgrounds draw \
-        --out-dir "$parallax_dir"
+        --out-dir "$parallax_dir" --jobs "$jobs"
 )
 
 # The parts of the Mockingbird's space, which the game poses as its fight

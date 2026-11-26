@@ -580,11 +580,14 @@ def run_variants(selected, store, hashes, arguments, mode):
     if "--sprites-only" in arguments or "backgrounds" not in producers:
         return 0
     selection = store.selected()
+    jobs = option_values(arguments, "--jobs")
+    job_arguments = ["--jobs", jobs[-1]] if jobs else []
     if not parallax_sources(selection):
         if mode == BuildMode.POSSIBLY_STALE:
             return 0
         status = subprocess.call([str(ROOT / "scripts/regen/backgrounds.sh"),
-                                  *(["--only-missing"] if mode == BuildMode.MISSING else [])], cwd=ROOT,
+                                  *(["--only-missing"] if mode == BuildMode.MISSING else []),
+                                  *job_arguments], cwd=ROOT,
                                  env={key: value for key, value in os.environ.items() if key != "AMBITION_PRODUCER_OWNER"})
         if status:
             return status
@@ -622,7 +625,7 @@ def run_variants(selected, store, hashes, arguments, mode):
                    AMBITION_QUALITY_OUTPUTS=json.dumps(scope["sources"]),
                    AMBITION_ART_PUBLISHED_PARENTS=json.dumps(parents))
         status = subprocess.call([*command, "--backgrounds-only", "--source-root", str(source_root),
-                                  *(["--force"] if mode == BuildMode.FORCE else [])], cwd=ROOT, env=env)
+                                  *(["--force"] if mode == BuildMode.FORCE else []), *job_arguments], cwd=ROOT, env=env)
         if status:
             return status
         accept_outputs("variants", selected, store, staging, before, hashes, arguments, variant_units=variant_units)
@@ -699,7 +702,8 @@ def run(family: str, arguments: list[str]) -> int:
         states = accepted_scenery_status(store, selection, hashes)
         pending = [uid for uid, status in states.items() if mode.includes(*status)]
         if pending:
-            scenery_publication.build(pending, force=mode == BuildMode.FORCE,
+            jobs = option_values(arguments, "--jobs")
+            scenery_publication.build(pending, jobs=int(jobs[-1]) if jobs else 1, force=mode == BuildMode.FORCE,
                                       loose=mode == BuildMode.LOOSE,
                                       possibly_stale_only=mode == BuildMode.POSSIBLY_STALE)
             selection = store.selected()

@@ -204,19 +204,20 @@ From a fresh clone, the supported zero-to-runnable path is:
 
 ```bash
 ./run_developer_setup.sh
-./run_game.sh
+./run_game.sh dev
 ```
 
-The setup script installs host and Rust dependencies, initializes submodules,
-creates an isolated environment for each active Python authoring tool under
-`~/.cache/ambition-tool-venvs/` (a venv is machine state, so it does not live in
-a checkout two machines may share), regenerates all runtime assets and the
-`.agent/` navigation index, and checks the desktop game target. It is a fresh-clone or
-environment-repair command, not a prerequisite for ordinary asset regeneration.
-Once the tool-local environments exist, run the relevant renderer or regeneration
-script directly. Re-run setup only after dependency, Python-version, submodule,
-or host-tooling changes. Use `./run_developer_setup.sh --help` for phase-specific
-skip flags.
+Setup fast-forwards a tracking `main` to its upstream when Git can preserve local
+work. Use `--skip-update` to set up the current superproject revision. Setup
+installs dependencies, prepares the submodules and Python environments, updates
+the runtime assets and the `.agent/` index, and links the desktop game.
+
+Use `./run_developer_setup.sh --assets-only` to prepare the asset tools, keep
+verified assets, and repair missing, damaged, or stale products. If the tools
+are ready, run `scripts/setup/generated_content.sh` for the same asset update and
+checks. The audio libraries use tens of GB. Set `AMBITION_AUDIO_TOOLS_ROOT` to a
+writable directory on a volume with sufficient space to use it in place of
+`/data/audio-tools`.
 
 ## Run the game
 

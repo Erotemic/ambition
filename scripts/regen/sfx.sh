@@ -54,14 +54,20 @@ sfx_collection="$(ambition_library_producer sfx collection)"
 
 force=0
 skip_render=0
-for arg in "$@"; do
-    case "$arg" in
+jobs=6
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --jobs)
+            jobs="${2:-}"
+            shift ;;
         --force) force=1 ;;
         --skip-render) skip_render=1 ;;
         -h|--help) print_help; exit 0 ;;
-        *) echo "unknown arg: $arg" >&2; exit 2 ;;
+        *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
+    shift
 done
+[[ "$jobs" =~ ^[1-9][0-9]*$ ]] || { echo "--jobs needs a positive integer" >&2; exit 2; }
 
 renderer_py="$(ambition_select_tool_python "$renderer_dir" AMBITION_SFX_PYTHON)"
 ambition_require_python_module \
@@ -71,10 +77,8 @@ ambition_require_python_module \
 if [ "$skip_render" -eq 0 ]; then
     echo "==> fetch public samples"
     (cd "$renderer_dir" && "$renderer_py" -m ambition_sfx_renderer fetch-samples)
-    # Six, not auto: the box is shared and a pool of every CPU starves the
-    # other builds (maintainer rule).
-    echo "==> render-all sfx cues (jobs=6$([ "$force" -eq 1 ] && echo ', force'))"
-    render_args=(render-all --group "$sfx_collection" --jobs 6)
+    echo "==> render-all sfx cues (jobs=$jobs$([ "$force" -eq 1 ] && echo ', force'))"
+    render_args=(render-all --group "$sfx_collection" --jobs "$jobs")
     if [ "$force" -eq 1 ]; then
         render_args+=(--force)
     fi

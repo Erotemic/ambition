@@ -175,20 +175,7 @@ pub(super) fn build(
     cast: &MaterialCast<'_>,
     admission: MotionAdmission<'_>,
 ) -> Result<Vec<MaterialCell>, Refusal> {
-    let initial = |reason| failure(&[], None, reason);
-    if admission.budget.max_pieces == 0 {
-        return Err(initial(RefusalReason::PieceLimit));
-    }
-    if !cast
-        .material
-        .to_world
-        .admits_scale_exponent(admission.budget.max_scale_exponent)
-    {
-        return Err(initial(RefusalReason::ScaleLimit));
-    }
-    if admission.links.is_empty() {
-        return Ok(vec![cast.whole_cell()]);
-    }
+    cast.admit_root(admission.budget)?;
     let mut links = Vec::new();
     for link in admission.links {
         let numeric = |reason| failure(&[], Some(link.key), RefusalReason::Numeric(reason));

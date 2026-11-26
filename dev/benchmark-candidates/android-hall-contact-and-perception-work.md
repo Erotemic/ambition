@@ -492,6 +492,17 @@ All steps reused their proof in both builds. Position, velocity, and
 contact-count digests match in the settled and walking probes. The
 walking times overlap. These runs measure only the movement kernel.
 
+The fixed-size body clusters also use comparisons from their snapshot
+field declarations. Reuse still checks resource changes, live effects,
+and signed zero. A comparison of 78 rollback fixtures found the same bytes.
+
+In the 596-body development probe, the settled pass took 1.91–1.95 ms
+per tick before and 1.32–1.33 ms after. In the optimized probe the
+same pass took 0.118–0.121 ms before and 0.130–0.132 ms after. Both
+versions reused all steps and matched the position, velocity, and contact
+counts. The result shows a development-build gain and an optimized cost
+of about 0.01 ms per tick in this workload.
+
 ### Inline collision cast storage
 
 A whole material cell retains its bounds inline. Boxes and segments use

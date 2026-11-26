@@ -78,13 +78,18 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
             reference_sample = initial_sample;
             observed_reuse = false;
         }
-        if tick == 205 {
+        if matches!(tick, 205 | 210) {
             assert!(cache.reused());
             for body in [&mut cached, &mut reference] {
                 let (MotionModel::AxisSwept(axis), _) = body.parts() else {
                     panic!("expected the axis-swept model");
                 };
-                axis.params.flight.hover_speed = -0.0;
+                if tick == 205 {
+                    axis.params.flight.hover_speed = -0.0;
+                } else {
+                    assert_eq!(axis.state.pre_wall_vel.x.to_bits(), 0);
+                    axis.state.pre_wall_vel.x = -0.0;
+                }
             }
         }
         if tick == 220 {
@@ -131,7 +136,7 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
             assert!(!cache.reused());
             assert_eq!(result.events.reset, Some(ResetCause::Hazard));
         }
-        if tick == 205 {
+        if matches!(tick, 205 | 210) {
             assert!(!cache.reused());
         }
         if tick == 220 {

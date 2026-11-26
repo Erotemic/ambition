@@ -36,6 +36,10 @@ macro_rules! axis_fields {
     (@compare $a:expr, $b:expr, out_of_shield) => { $a == $b };
 }
 
+mod state;
+
+pub(super) use state::{axis_maneuver_state, put_axis_maneuver_state};
+
 macro_rules! axis_scalar {
     ($ty:ty, $put:ident, $get:ident, $key:expr) => {
         impl AxisField for $ty {
@@ -215,8 +219,8 @@ impl AxisField for crate::AxisJumpLaw {
     }
 }
 
-pub(crate) fn same_axis_law(a: &crate::AxisSweptParams, b: &crate::AxisSweptParams) -> bool {
-    a.same_bits(b)
+pub(crate) fn same_axis_motion(a: &crate::AxisSweptMotion, b: &crate::AxisSweptMotion) -> bool {
+    a.state.same_bits(&b.state) && a.params.same_bits(&b.params)
 }
 
 pub(super) fn put_axis_swept_params(out: &mut Vec<u8>, params: &crate::AxisSweptParams) {

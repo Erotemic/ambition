@@ -85,7 +85,7 @@ pub(crate) fn observe_actor_decision_inputs(
             Entity,
             &ActorDisposition,
             &ambition_combat::components::ActorTarget,
-            Option<ambition_body_seed::clusters::ActorClusterQueryDataReadOnly>,
+            &ambition_characters::actor::BodyHealth,
             Option<&ambition_characters::actor::ActorFaction>,
             bevy::prelude::Has<ambition_combat::components::ActiveCombatant>,
             // A ridden mount contests no space of its own. See below.
@@ -106,11 +106,14 @@ pub(crate) fn observe_actor_decision_inputs(
             Without<crate::body::dormancy::Dormant>,
         ),
     >,
+    clusters: Query<ambition_body_seed::clusters::ActorClusterQueryDataReadOnly>,
 ) {
     facts.side_contacts.clear();
     let mut observation = super::crowd_observation::CrowdObservation::default();
     for (entity, health) in &controlled {
-        observation.note_controlled_liveness(entity, health.current() > 0);
+        if health.current() <= 0 {
+            observation.note_dead(entity);
+        }
     }
     // ⭐ A RIDER AND ITS MOUNT ARE ONE BODY IN A CROWD. The rider's brain
     // steers the pair and the mount's is idle, so the pair contests space at
@@ -127,43 +130,116 @@ pub(crate) fn observe_actor_decision_inputs(
     let alive = |body: Entity| {
         actors
             .get(body)
-            .ok()
-            .and_then(|(.., cluster, _, _, _, _)| cluster.map(|c| c.health.alive()))
-            .unwrap_or(false)
+            .is_ok_and(|(.., health, _, _, _, _)| health.alive() && clusters.contains(body))
     };
-    for (entity, disposition, target, body, faction, in_a_fight, carrying, room) in &actors {
-        if !contact.is_empty() {
-            if let Some(body) = body.as_ref() {
-                let down = frames.get(entity).map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
-                let facing = body.kin.facing.signum();
-                let right = ae::Vec2::new(down.y, -down.x);
-                if contact.blocks_side(entity, right * facing) {
-                    facts.side_contacts.insert(entity, -facing);
-                }
+    // Only a body with a contact box can report a side contact.
+    for entity in contact.subjects().filter(|&entity| actors.contains(entity)) {
+        let Ok(body) = clusters.get(entity) else {
+            continue;
+        };
+        let down = frames.get(entity).map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
+        let facing = body.kin.facing.signum();
+        let right = ae::Vec2::new(down.y, -down.x);
+        if contact.blocks_side(entity, right * facing) {
+            facts.side_contacts.insert(entity, -facing);
+        }
+    }
+    for (entity, disposition, target, health, faction, in_a_fight, carrying, room) in &actors {
+        if !health.alive() {
+            if clusters.contains(entity) {
+                observation.note_dead(entity);
             }
+            continue;
         }
         let fighting = ambition_combat::components::CombatStanding::of(*disposition, in_a_fight)
             .takes_damage();
-        let ridden = carrying.and_then(|slot| slot.rider).is_some_and(alive) && alive(entity);
-        observation.note_actor(
+        if !fighting || carrying.and_then(|slot| slot.rider).is_some_and(alive) {
+            continue;
+        }
+        let Ok(body) = clusters.get(entity) else {
+            continue;
+        };
+        observation.note_fighter(
             entity,
-            body.as_ref().is_some_and(|body| body.health.alive()),
-            body.as_ref()
-                .map(|body| super::crowd_observation::ObservedBody {
-                    id: body.identity.id.as_str(),
-                    pos: body.kin.pos,
-                    kind: body.config.tuning.crowd_kind(),
-                    faction: faction.copied(),
-                    foe: target.entity,
-                    room: room.map(|room| room.0),
-                }),
-            // A ridden mount is carried by its rider's crowd entry.
-            fighting && !ridden,
+            super::crowd_observation::ObservedBody {
+                id: body.identity.id.as_str(),
+                pos: body.kin.pos,
+                kind: body.config.tuning.crowd_kind(),
+                faction: faction.copied(),
+                foe: target.entity,
+                room: room.map(|room| room.0),
+            },
         );
     }
     let crowd = observation.finish();
     steering.neighbor_by_entity = crowd.neighbor_index().clone();
     facts.crowd = crowd;
+}
+
+#[cfg(test)]
+#[test]
+fn decision_observation_selects_fighters_contacts_and_deaths() {
+    use ambition_characters::actor::{ActorFaction, BodyHealth, Health};
+    use ambition_combat::components::ActorTarget;
+    use ambition_platformer2d_shared_tangle::{body::BodyContactSnapshot, markers::PlayerEntity};
+
+    let mut app = App::new();
+    app.init_resource::<ActorDecisionFacts>()
+        .init_resource::<ActorSteering>()
+        .init_resource::<BodyContactSnapshot>()
+        .add_systems(Update, observe_actor_decision_inputs);
+    let sprites = ambition_sprite_sheet::SpriteContent::default();
+    let mut spawn = |id: &str, x: f32, disposition: ActorDisposition| {
+        let position = ae::Vec2::new(x, 0.0);
+        let half = ae::Vec2::splat(4.0);
+        let bounds = ae::Aabb::new(position, half);
+        let seed = ambition_body_seed::ActorClusterSeed::new(
+            &sprites,
+            id.to_owned(),
+            id.to_owned(),
+            bounds,
+            ambition_entity_catalog::placements::CharacterBrain::Custom("stand_still".into()),
+            &[],
+        );
+        let mut body = app.world_mut().spawn((
+            seed.into_components(),
+            FeatureSimEntity,
+            ActorTarget::default(),
+            BodyCombat::default(),
+            ae::CenteredAabb::new(position, half),
+            ae::MotionModel::default(),
+            disposition,
+            ActorFaction::Enemy,
+        ));
+        body.get_mut::<ae::BodyKinematics>().unwrap().facing = 1.0;
+        (body.id(), bounds)
+    };
+    let (first, first_box) = spawn("first", 0.0, ActorDisposition::Hostile);
+    let (second, second_box) = spawn("second", 8.0, ActorDisposition::Hostile);
+    let (bystander, _) = spawn("bystander", 2.0, ActorDisposition::Peaceful);
+    let home = app.world_mut().spawn((PlayerEntity, BodyHealth::new(Health::new(5)))).id();
+    let mut contacts = app.world_mut().resource_mut::<BodyContactSnapshot>();
+    contacts.push(first, None, first_box, ae::Vec2::ZERO, 1.0);
+    contacts.push(second, None, second_box, ae::Vec2::ZERO, 1.0);
+
+    app.update();
+    let facts = app.world().resource::<ActorDecisionFacts>();
+    assert_eq!(facts.crowd.crowding(first).unwrap().same_faction_count, 1);
+    assert!(facts.crowd.crowding(bystander).is_none());
+    assert!(facts.crowd.is_alive(bystander));
+    assert_eq!(facts.side_contacts.get(&first), Some(&-1.0));
+
+    for entity in [second, home] {
+        app.world_mut().get_mut::<BodyHealth>(entity).unwrap().health.current = 0;
+    }
+    app.world_mut().resource_mut::<BodyContactSnapshot>().clear();
+    app.update();
+    let facts = app.world().resource::<ActorDecisionFacts>();
+    assert!(!facts.crowd.is_alive(second));
+    assert!(!facts.crowd.is_alive(home));
+    assert!(facts.crowd.is_alive(first));
+    assert!(facts.crowd.crowding(first).is_none());
+    assert!(facts.side_contacts.is_empty());
 }
 
 /// The causal log's slot in the brain-tick system's parameter bundle.

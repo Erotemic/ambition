@@ -19,7 +19,7 @@
 use ambition_platformer2d_core::Vec2;
 use ambition_time::SimTick;
 use bevy::prelude::{
-    Commands, Component, Entity, Fixed, IntoScheduleConfigs, Query, Res, ResMut, Resource,
+    Commands, Component, Entity, Fixed, IntoScheduleConfigs, Local, Query, Res, ResMut, Resource,
     SystemSet, Time, Update,
 };
 
@@ -425,7 +425,11 @@ pub(crate) fn travelled_under_own_power(from: Vec2, to: Vec2, vel: Vec2, ticks: 
 
 /// The bodies a warp carried to their pose since the last frame (a portal
 /// pair): they did not travel there, however short the hop. The system that
-/// knows declares them; [`advance_presented_body_poses`] reads and clears it.
+/// knows declares them. Two observers read the frame's declarations, each
+/// only when its own pose takes a new tick: [`advance_presented_feature_poses`]
+/// (a body drawn by its feature row), then [`advance_presented_body_poses`],
+/// which clears them. That clear is the retention cut: a declaration lives
+/// one frame, the frame whose ticks wrote it.
 /// The travel guess cannot see a short hop: a thin-wall door moves a body
 /// 16 px, which it takes for a step and draws the whole hop ahead.
 #[derive(bevy::prelude::Resource, Default, Debug)]
@@ -433,7 +437,7 @@ pub struct DeclaredPoseWarps(Vec<(bevy::prelude::Entity, DeclaredWarp)>);
 
 /// One declared warp of a body.
 #[derive(Clone, Copy, Debug)]
-enum DeclaredWarp {
+pub enum DeclaredWarp {
     /// In the last tick, with where the body went inside it when known.
     Last(Option<PresentedCrossing>),
     /// In an earlier tick of the frame: the last tick was travel after it.
@@ -454,6 +458,10 @@ impl DeclaredPoseWarps {
     /// A warp in an earlier tick than the last one the frame ran.
     pub fn declare_before(&mut self, body: bevy::prelude::Entity) {
         self.0.push((body, DeclaredWarp::Before));
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     fn of(&self, body: bevy::prelude::Entity) -> Option<DeclaredWarp> {
@@ -589,14 +597,39 @@ pub fn advance_presented_feature_poses(
     views: Res<FeatureViewIndex>,
     mut presented: ResMut<PresentedFeaturePoses>,
     framing: Option<Res<ambition_platformer2d_shared_tangle::markers::CastFramingTuning>>,
+    // A row whose body a warp carried (a portal pair) is drawn as the body's
+    // own pose is: the size guess cannot see a short hop.
+    warps: Option<Res<DeclaredPoseWarps>>,
+    bodies: Query<(&ambition_combat::components::FeatureId, &ambition_platformer2d_core::BodyKinematics)>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    mut warped: Local<Vec<(String, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Vec2, DeclaredWarp)>>,
 ) {
     let phase = phase.get();
     let interpolate = framing.is_some_and(|framing| framing.interpolate_poses);
+    warped.clear();
+    if let Some(warps) = warps.as_deref().filter(|warps| !warps.is_empty()) {
+        for &(body, _) in &warps.0 {
+            let Ok((id, kinematics)) = bodies.get(body) else { continue };
+            let room = live.of(body);
+            if warped.iter().any(|(seen, seen_room, ..)| seen == &id.0 && *seen_room == room) {
+                continue;
+            }
+            if let Some(warp) = warps.of(body) {
+                warped.push((id.0.clone(), room, kinematics.vel, warp));
+            }
+        }
+    }
     for (id, view) in views.iter() {
         let rows = presented.poses.entry(view.room).or_default();
         match rows.get_mut(id) {
             Some(pose) => {
-                if pose.tick != tick.0 {
+                let warp = warped.iter().find(|(warped, room, ..)| warped == id && *room == view.room);
+                if let (true, Some(&(_, _, vel, warp))) = (pose.tick != tick.0, warp) {
+                    match warp {
+                        DeclaredWarp::Last(crossing) => pose.push_warped(view.pos, vel, tick.0, crossing),
+                        DeclaredWarp::Before => pose.push_warped_before(view.pos, vel, tick.0),
+                    }
+                } else if pose.tick != tick.0 {
                     // Per TICK, times the ticks this frame actually spanned —
                     // the body-side guard scales the same way and for the same
                     // reason.
@@ -694,9 +727,12 @@ impl bevy::prelude::Plugin for PresentedPosePlugin {
         app.add_systems(
             Update,
             (
-                advance_presented_body_poses,
+                // The feature rows read the frame's declared warps before the
+                // body poses clear them.
                 advance_presented_feature_poses,
+                advance_presented_body_poses,
             )
+                .chain()
                 .in_set(PresentedPoseStage::Resample),
         );
     }

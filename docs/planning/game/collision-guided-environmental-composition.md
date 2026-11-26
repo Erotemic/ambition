@@ -260,6 +260,8 @@ Use the spring impulse and the room exit to show where the launch ends.
 At the Void Keep, show the ramp ends on both galleries and the space
 under the raised entrance. Use the ramp points to place the stone edge
 and the rail.
+At Void Bridge, show the Lizard's facing and the range of the talk prompt
+with the nearest chain posts and tea table.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

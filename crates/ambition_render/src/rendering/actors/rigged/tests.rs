@@ -2369,7 +2369,7 @@ fn a_baked_frame_is_one_card_at_the_root() {
     assert_eq!(Some(baked.size), sprite.custom_size, "the quad the animator gave the root");
     assert_eq!(baked.flip_x, sprite.flip_x);
     assert_eq!(baked.image, animator.pages[animator.current_page() as usize].texture);
-    assert_eq!(baked.rect, grid.textures[animator.atlas_index()], "the region of the frame the animator chose");
+    assert_eq!(baked.rect, grid.textures[animator.atlas_index()].as_rect(), "the region of the frame the animator chose");
     let (visible, place) = shown(&mut app);
     assert_eq!(visible, 1, "a baked frame is one card");
     let root_place = *app.world().get::<Transform>(root).unwrap();

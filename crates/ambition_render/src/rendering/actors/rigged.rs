@@ -563,7 +563,7 @@ pub struct RiggedLocalSample {
 #[derive(Clone, Debug, PartialEq)]
 pub struct BakedFrame {
     pub image: Handle<Image>,
-    pub rect: URect,
+    pub rect: Rect,
     pub size: Vec2,
     pub anchor: Vec2,
     pub flip_x: bool,
@@ -1398,7 +1398,7 @@ fn baked_frame(
         .pages
         .get(animator.current_page() as usize)
         .or_else(|| animator.pages.first())?;
-    let rect = *layouts?.get(&page.layout)?.textures.get(animator.atlas_index())?;
+    let rect = layouts?.get(&page.layout)?.textures.get(animator.atlas_index())?.as_rect();
     let sprite = root_sprite?;
     Some(BakedFrame {
         image: page.texture.clone(),

@@ -199,7 +199,7 @@ impl SheetRow {
 /// Shrink a cell by `inset` on every side so bilinear filtering at the seam
 /// can't pull pixels from neighbouring cells. The inset is clamped so a tiny
 /// cell can't invert (min ≥ max).
-fn inset_rect(r: URect, inset: u32) -> URect {
+pub(crate) fn inset_rect(r: URect, inset: u32) -> URect {
     let inset = inset.min(r.width().min(r.height()) / 4);
     URect {
         min: UVec2::new(r.min.x + inset, r.min.y + inset),

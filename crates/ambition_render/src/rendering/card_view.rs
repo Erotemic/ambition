@@ -466,7 +466,7 @@ fn composited_frame(
     let cell = sprite.texture_atlas.as_ref().filter(|cell| cell.index == impostor.cell as usize)?;
     Some(BakedFrame {
         image: page.image.clone(),
-        rect: *layouts?.get(&cell.layout)?.textures.get(cell.index)?,
+        rect: layouts?.get(&cell.layout)?.textures.get(cell.index)?.as_rect(),
         size: sprite.custom_size?,
         anchor: anchor.map_or(Vec2::ZERO, |anchor| anchor.0),
         flip_x: sprite.flip_x,
@@ -496,7 +496,7 @@ fn part_quad(flipbook: &RiggedSpriteAsset, part: u16, page_size: Vec2) -> Mesh {
 fn baked_key(baked: &BakedFrame) -> (AssetId<Image>, [u32; 4], [u32; 4]) {
     (
         baked.image.id(),
-        [baked.rect.min.x, baked.rect.min.y, baked.rect.max.x, baked.rect.max.y],
+        [baked.rect.min.x.to_bits(), baked.rect.min.y.to_bits(), baked.rect.max.x.to_bits(), baked.rect.max.y.to_bits()],
         [baked.size.x.to_bits(), baked.size.y.to_bits(), baked.anchor.x.to_bits(), baked.anchor.y.to_bits()],
     )
 }
@@ -508,8 +508,8 @@ fn baked_quad(baked: &BakedFrame, page_size: Vec2) -> Mesh {
     let anchor = baked.anchor;
     let (x0, x1) = (-(0.5 + anchor.x) * w, (0.5 - anchor.x) * w);
     let (y0, y1) = (-(0.5 + anchor.y) * h, (0.5 - anchor.y) * h);
-    let (u0, u1) = (baked.rect.min.x as f32 / page_size.x, baked.rect.max.x as f32 / page_size.x);
-    let (v0, v1) = (baked.rect.min.y as f32 / page_size.y, baked.rect.max.y as f32 / page_size.y);
+    let (u0, u1) = (baked.rect.min.x / page_size.x, baked.rect.max.x / page_size.x);
+    let (v0, v1) = (baked.rect.min.y / page_size.y, baked.rect.max.y / page_size.y);
     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD)
         .with_inserted_attribute(
             Mesh::ATTRIBUTE_POSITION,
@@ -896,15 +896,18 @@ fn sprite_frame(
     layouts: Option<&Assets<TextureAtlasLayout>>,
 ) -> Option<(BakedFrame, Vec2)> {
     let page_size = images.get(&sprite.image)?.size().as_vec2();
-    let rect = match (&sprite.texture_atlas, sprite.rect) {
-        (Some(cell), _) => *layouts?.get(&cell.layout)?.textures.get(cell.index)?,
-        (None, Some(rect)) => rect.as_urect(),
-        (None, None) => URect::from_corners(UVec2::ZERO, page_size.as_uvec2()),
+    let frame_rect = if let Some(cell) = &sprite.texture_atlas {
+        layouts?.get(&cell.layout)?.textures.get(cell.index)?.as_rect()
+    } else {
+        Rect::from_corners(Vec2::ZERO, page_size)
     };
+    let rect = sprite.rect.map_or(frame_rect, |crop| {
+        Rect::from_corners(frame_rect.min + crop.min, frame_rect.min + crop.max)
+    });
     let frame = BakedFrame {
         image: sprite.image.clone(),
         rect,
-        size: sprite.custom_size.unwrap_or_else(|| rect.size().as_vec2()),
+        size: sprite.custom_size.unwrap_or_else(|| rect.size()),
         anchor: anchor.map_or(Vec2::ZERO, |anchor| anchor.0),
         flip_x: sprite.flip_x,
     };

@@ -431,3 +431,34 @@ and her Hall line says she never wore them.
 
 **Owner:** `tools/ambition_sprite2d_renderer/.../data/overlays/fia*.overlay.svg`,
 `game/ambition_content/assets/dialogue/sandbox/hall.yarn` (`hall_npc_fia`).
+
+## Q187 — When a moving surface would carry a portal into a place where what is going through it hits a solid, what gives way?
+
+**Context (2026-11-26, [portals are moving frames](engine/portals-are-moving-frames.md#driven-aperture-motion-is-admitted-before-the-host-commits)).**
+A portal can sit on something that moves: a moving platform, a spinning
+plank, a stretching line. Today the platform moves first, and the portal
+follows it afterwards (`refresh_hosted_portal_frames`). Nothing checks
+whether a body halfway through the portal ends up inside a wall on the far
+side. The plan says the check must happen before the move is committed,
+and that the host, the portal and the body must never come apart. It
+leaves open which of them gives way, and that choice is visible in play.
+
+**Options:**
+
+* **(a) The surface stops** (the plan's preferred reading): the platform's
+  motion law gets the refusal and holds, or takes the part of its move
+  that is still valid, until the body is through. A platform carrying a
+  portal can stall while someone stands in it. This takes the most work:
+  every mover that can host a portal must accept a refusal.
+* **(b) The portal closes:** the platform keeps its schedule, and the
+  portal shuts. The body halfway through is evicted the way it is when its
+  portal is removed today. It is simple, but a player's portal can vanish
+  under them.
+* **(c) The body is pushed out:** the platform and the portal keep moving,
+  and the body is resolved out of the solid like an ordinary collision
+  (pushed back through, or out on the near side). This is the least
+  visible, but a crusher-like push through a portal is possible.
+
+**Owner:** `crates/ambition_platformer2d_runtime/src/portal_world/hosts.rs`
+(`refresh_hosted_portal_frames`), the moving-platform motion in
+`ambition_platformer2d_world::platforms`, and `ambition_portal2d::eviction`.

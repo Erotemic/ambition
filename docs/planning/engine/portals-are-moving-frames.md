@@ -464,6 +464,11 @@ proposal/admission before the host writer commits (a refused trajectory
 keeps the combined state), and opening fit on a stretch, which the place
 binding does not decide.
 
+Which of the host, the portal and the material gives way on a refusal is
+visible in play. It is filed as
+[Q187](../awaiting-maintainer-decision.md#q187--when-a-moving-surface-would-carry-a-portal-into-a-place-where-what-is-going-through-it-hits-a-solid-what-gives-way)
+(2026-11-26). The admission boundary waits on that ruling.
+
 ## Shared kinematics, distinct movement policy
 
 At a contact point and time, velocity obeys

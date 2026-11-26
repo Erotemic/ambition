@@ -174,7 +174,7 @@
         portal_sprite_name: "Callosum Gate Portal",
         ring_sprite_name: "Callosum Gate Ring",
     ),
-    // The Gate Authority's own gate, on the Concourse (LICENSED).
+    // The Gate Authority's own gate, on the Concourse (LEGAL).
     "authority_concourse_gate": (
         command: Dialed,
         portal_sprite_name: "Concourse Gate Portal",

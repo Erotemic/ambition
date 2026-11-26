@@ -67,9 +67,12 @@ ring's zone. A dial never moves a body.
    or pending crossing keeps it open. Use from either end restarts the shared
    timer. A hangup from either terminal closes both ends; a redial replaces the
    whole connection. Leaving the terminal panel keeps the connection open.
-9. **Every terminal away from home posts a way home** (`posted`, here
-   `LEGAL`). Its Known view always lists it, so no destination needs a known
-   address to leave.
+9. **Every terminal away from home posts a way home** (`posted`). Every
+   terminal posts `LEGAL`, the Gate Authority capital's public ring, and the
+   capital's terminal posts `TESTING`, the sandbox hub ([Q185](../maintainer-decisions.md),
+   2026-11-26): home is at most two dials from anywhere. The Known view
+   always lists a posted address, so no destination needs a known address
+   to leave.
 10. **Knowledge** is the save flag `gate.known.<ADDRESS>`. A dial that answers
     sets it; a sign, a person or a document sets it with Yarn
     `<<command "world.set_flag" "gate.known.TANGENT" true>>`. The catalog's
@@ -142,7 +145,7 @@ from the start.
 
 | address | ring (zone) | arrival room | local routes from the arrival | reachable from a new game |
 | --- | --- | --- | --- | --- |
-| `LEGAL` | `hub_public_gate_zone` | `central_hub_complex` | the hub's local doors, the basement, the developer wing | yes (home) |
+| `TESTING` | `hub_public_gate_zone` | `central_hub_complex` | the hub's local doors, the basement, the developer wing | yes (home; posted on the capital's terminal) |
 | `TANGENT` | `math_gate_return_zone` | `math_gate_hall` | up to `math_town_street`, its cafe, surveyors' office, observatory | yes |
 | `GENESIS` | `primeval_trailhead_gate` | `primeval_trailhead` | the trail east to the tyrant's hall | yes |
 | `CITADEL` | `evil_gate_return_zone` | `evil_gate_forest` | the road to Castle Godwin's gatehouse | yes |
@@ -163,7 +166,7 @@ from the start.
 | `SIDING` | `frontier_siding_gate` | `frontier_siding_station` | Halfway Siding's street, the inn, the trestle (down onto the Number 9 freight), on to Clinker Flats and the rail line east to Pad Three ([first slice](techno-western-frontier-first-slice.md)) | yes |
 | `DEALINGS` | `business_plaza_gate` | `business_founders_plaza` | Capital: Founders' Plaza, Records & Processing east of it, the Business College by a door ([business dimension](business-dimension.md)) | yes |
 | `LATENT` | `neural_callosum_gate` | `neural_callosum` | the Callosum: the Neural Cathedral west, the Weights east and the Echo Chamber in it ([neural dimension](neural-dimension.md)) | yes |
-| `LICENSED` | `authority_concourse_gate` | `authority_concourse` | the Gate Authority's capital: the Concourse and the baggage hall under it, Authority Plaza east, the Manifest Office by a door ([central hub](central-hub-dimension.md)) | yes |
+| `LEGAL` | `authority_concourse_gate` | `authority_concourse` | the Gate Authority's capital: the Concourse and the baggage hall under it, Authority Plaza east, the Manifest Office by a door ([central hub](central-hub-dimension.md)) | yes |
 | `INSTALLING` | `unfinished_staging_gate` | `unfinished_staging` | the Staging Area, the Site Office by a door, the Draft east over the void ([unfinished dimension](unfinished-dimension.md)) | yes |
 | `CELLS` | `automaton_works_gate` | `automaton_works` | the Works, the Tape Room by a door, the Life field east ([automaton dimension](automaton-dimension.md)) | yes |
 | glyphs | `math_gate_home_zone` | `gate_stack_lower` (Ring 7) | the gate stack | when its breaker is on; `TANGENT` is posted on it |
@@ -228,6 +231,32 @@ then the loop restarted at frame 0; after, the landing frame drew frame 7
 (`CharacterAnimator::continued_on`) and the gate's systems run after it. This
 is one wrong frame per landing, so it is a candidate for the reported flicker,
 not a proof: a cold-start capture on the Deck is still owed.
+
+## Engine and game parts (planned 2026-11-26)
+
+Jon (2026-11-26): the gate network's Ambition details belong to the game,
+not the engine, and the games are to move to their own repository so the
+engine's is dedicated. The tier rule is already stated
+([architecture](../engine/architecture.md#converged-shape): engine crates in
+`crates/`, named games in `game/`), and an author outside the engine
+repository is the [runtime-authoring target](../engine/runtime-authoring-audit-2026-11-14/execution-plan.md).
+Shared conventions sit between the two as opinions (`opinions/`, as the
+input bindings did on 2026-11-24). About 2 400 lines of gate code live in
+engine crates today (`ambition_platformer2d_world::rooms::{gate_network,
+gate_portal}`, `ambition_platformer2d_session::rooms::gate_network`, and the
+terminal and ring visuals in `ambition_render`). They are two things:
+
+| Part | What it is | Where it belongs |
+| --- | --- | --- |
+| A dialed passage | Endpoints in rooms, each with a key; a dial that finds the endpoint or refuses (none answers, down, busy, same site); one link joining two endpoints, its idle timeout and hangup; the phases a passage opens, holds and closes through (`GatePortalPhases`); rollback, room retraction and the navigator's route through a link | engine: a generic "linked passages" capability another game can use with any key |
+| Ambition's gates | Addresses as words over the ring's inscription (the k-th use of a letter is its k-th chevron, `position_grid`), the fifteen-chevron limit, posted addresses and `gate.known.*` knowledge, facilities and dimensions as a directory, the terminal panel and its words, `LEGAL` and the Gate Authority | game (`game/`, the gate catalog's own crate or `ambition_content`), with the terminal's UI conventions as an opinion if a second game wants them |
+
+The cut: the engine keeps endpoint keys opaque (an address is a key the game
+supplies and compares), the dial reasons generic, and the panel out. The
+game supplies the spelling, the directory and the terminal. Witness: the
+same engine capability serves a fixture game that dials numbered endpoints
+with no inscription, and Ambition's gate tests pass unchanged. Queue:
+GATE-SPLIT. Changing the addresses (GATE-LEGAL) touched only game data.
 
 ## Future expansion
 

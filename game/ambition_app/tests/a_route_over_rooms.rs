@@ -194,12 +194,12 @@ fn autoplay_uses_the_gate_network_and_returns_from_the_primeval_trail() {
         network.reports.values().any(|report| report.address == address && report.outcome.is_ok())
     };
     assert!(dialed("GENESIS"), "autoplay never dialed GENESIS: {network:?}; visits={visits:?}");
-    // Home is LEGAL, the hub's ring. A trip shorter than the idle timeout
+    // Home is TESTING, the sandbox hub's ring (LEGAL is the capital's). A trip shorter than the idle timeout
     // (30 s) finds the outbound wormhole still open and walks home through
     // it without dialing, which is the same gate home; the arch chain made
     // the trip that short (2026-11-18).
     assert!(
-        came_home_by_gate && (dialed("LEGAL") || network.route_from("hub_public_gate_zone").is_some()),
+        came_home_by_gate && (dialed("TESTING") || network.route_from("hub_public_gate_zone").is_some()),
         "autoplay did not come home through the hub's gate: {network:?}; visits={visits:?}"
     );
 }

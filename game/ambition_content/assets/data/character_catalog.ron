@@ -16435,7 +16435,7 @@
             hall_dialogue_id: Some("hall_npc_neural_perceptron"),
         ),
         // The Central Hub, the Gate Authority's capital (gate address
-        // LICENSED, `docs/planning/game/central-hub-dimension.md`): its residents.
+        // LEGAL, `docs/planning/game/central-hub-dimension.md`): its residents.
         "npc_authority_information": (
             display_name: "Ottilie",
             // At the information booth on the Concourse; she will tell you any address you like, so long as it is this one.

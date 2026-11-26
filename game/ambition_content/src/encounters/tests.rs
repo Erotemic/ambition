@@ -113,7 +113,7 @@ fn the_chamber_starts_the_attunement_in_its_world_file() {
             (
                 "intro_wake_room".to_string(),
                 "encounter.start encounter:intro_workshop_raid".to_string(),
-                Some("world.flag_set intro_raiders_coming".to_string()),
+                Some("workshop.raid_in_progress".to_string()),
             ),
             ("symmetry_room".to_string(), format!("encounter.start encounter:{SYMMETRY_ATTUNEMENT_ID}"), None),
         ]

@@ -10,9 +10,10 @@ title: authority_information
     -> Where can I go from here?
         Ottilie: Anywhere at all! Which address would you like?
         Ottilie: Oh, I can't tell you that one. Or that one. Addresses are confidential.
-        Ottilie: Except LEGAL. LEGAL takes you home. Everyone gets LEGAL. It's posted on every terminal in the network.
+        Ottilie: Except LEGAL. You're standing in it. Everyone gets LEGAL. It's posted on every terminal in the network.
+        Ottilie: And our terminal posts the one address you came in wanting. Home, presumably. We don't ask.
     -> Where am I?
-        Ottilie: The Central Hub, seat of the Gate Authority. You came in by our own gate, LICENSED.
+        Ottilie: The Central Hub, seat of the Gate Authority. You came in by our own gate, LEGAL.
         Ottilie: Authority Plaza is east. Lost Baggage is down through the grate. Mind the claw.
     -> ‹go›
 <<else>>

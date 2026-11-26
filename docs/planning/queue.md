@@ -1062,8 +1062,10 @@ The existing visual play gate remains separate.
 
 **State:** the architecture is ruled; the numerical model and the
 deterministic fallback for irreconcilable constraints still need design
-(before C4). Nothing is built. The kernel reports `AxisConstraintConflict`
-and nothing consumes it; platforms take no refusal.
+(before C4). C1's core landed 2026-11-26: each `AxisConstraintConflict`
+carries the root-chart motion of both claimants and answers `obstruction()`
+with the driver chosen by relative motion (receipt in the owner's C1
+stage). Nothing consumes it yet; platforms take no refusal.
 
 **Next action:** C0, pin today's behaviour: a moving block's pinch reports
 one conflict with both sources; Mary-O's moving one-way platform lets a
@@ -2737,7 +2739,7 @@ accelerate it; holding back brakes it; the existing Sanic lanes stay green.
 
 **Blocked by:** none.
 
-### GATE-LEGAL — `LEGAL` is the capital's public address (Q185, ruled 2026-11-26)
+### GATE-LEGAL — `LEGAL` is the capital's public address (Q185, ruled 2026-11-26) — ✅ DONE 2026-11-26
 
 **Owner:** `game/ambition_content/assets/data/gate_network.ron`,
 [gate network](game/gate-network.md), [Central Hub
@@ -2748,8 +2750,32 @@ dimension](game/central-hub-dimension.md).
 the tests that dial `LEGAL` home with it. Where a new game starts is a
 separate ruling (it starts in the sandbox hub) and does not change here.
 
+**Done:** `LEGAL` answers at the Concourse (`authority_concourse_gate`); the
+sandbox hub's ring is `TESTING`, posted on the Concourse's terminal, and the
+hub's terminal posts `LEGAL`. `LICENSED` is retired. The content test
+`every_terminal_away_from_home_posts_a_way_home` follows posted addresses
+(at most two dials), `legal_is_the_capitals_and_the_capital_posts_the_sandbox`
+holds the ruling, and the app tests travel home through the capital.
+
 **Acceptance:** every terminal's posted `LEGAL` reaches the capital; the
 sandbox hub is reached by its own address; the gate network tests pass.
+
+**Blocked by:** none.
+
+### GATE-SPLIT — the gate network's engine capability apart from Ambition's gates
+
+**Owner:** [gate network, engine and game parts](game/gate-network.md#engine-and-game-parts-planned-2026-11-26).
+
+**Next action:** move the inscription spelling, chevron grid, posted and
+known addresses, directory and terminal panel out of
+`ambition_platformer2d_world::rooms::gate_network` and `ambition_render`
+into the game; the engine keeps dialed passages with opaque keys (dial,
+link, idle timeout, phases, rollback, navigation). One move per slice,
+each leaving the game playable.
+
+**Acceptance:** no engine crate names an inscription, chevron, dimension
+directory or Ambition address; a fixture game dials numbered endpoints
+through the same capability; the gate network app and content tests pass.
 
 **Blocked by:** none.
 
@@ -3712,8 +3738,9 @@ draw a crossing at its time, and a line host binds SUP1's material place.
 Next in P2: M1's completed-step history apart from the next-step seed, M2's
 kernel continuation in the destination chart, host admission before the
 aperture writer commits, and SUP1 through a portal cell (which needs a
-deforming line split, not only a clipped cast). P4 can independently
-prove/fix full-turn bounds and repeated-link candidate exclusion. P3 removes
+deforming line split, not only a clipped cast). P4's full-turn bounds and repeated-link candidate exclusion landed
+2026-11-26 (receipt in the owner's P4 section); its shared projectile source
+leg remains. P3 removes
 static contact-velocity reconstruction and the AABB snag authority after the
 accepted motion contract is in place. P5/P6 complete observer identity,
 chart transport and demand/ready-image capture without replacing working pools.

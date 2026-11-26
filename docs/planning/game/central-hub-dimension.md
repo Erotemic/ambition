@@ -36,7 +36,7 @@ reference for the look, not a layout.
 | --- | --- |
 | world file | `authority.ldtk` (`data/worlds.ron`: `world.authority_ldtk`) |
 | biomes | `authority` (the plaza, outdoors), `authority_hall` (the concourse and the offices) |
-| gate address | `LICENSED`, on the Concourse (`data/gate_network.ron`, posted `LEGAL`) |
+| gate address | `LEGAL`, on the Concourse (`data/gate_network.ron`; its terminal posts `TESTING`, the sandbox hub) |
 | generator | `game/ambition_map_assets/ambition_content/generators/authority/make_specs.py` |
 | dialogue | `dialogue/sandbox/authority.yarn`; the Hall's nodes in `hall.yarn` |
 | art | renderer `backgrounds/authority.py`, `targets/props/authority_props.py`, `data/townsfolk/authority_*.chargen.yaml` |
@@ -44,14 +44,13 @@ reference for the look, not a layout.
 
 ## Home and the capital
 
-The game's home is the sandbox's central hub (`central_hub_complex`, address
-`LEGAL`): every terminal away from home posts `LEGAL`, and a new game starts
-there. This slice leaves that alone. The Authority's capital is a dimension
-of its own with its own address, `LICENSED`, and the Concourse's terminal
-posts `LEGAL` like every other. Ruled 2026-11-26
-([Q185](../maintainer-decisions.md)): `LEGAL` becomes the capital's public
-address, and the developer sandbox gets its own address. Not built yet:
-queue GATE-LEGAL.
+The game's home is the sandbox's central hub (`central_hub_complex`), and a
+new game starts there. Ruled 2026-11-26 ([Q185](../maintainer-decisions.md))
+and built the same day (queue GATE-LEGAL): `LEGAL`, the one address every
+terminal posts, is the capital's public ring on the Concourse, and the
+sandbox hub has its own address, `TESTING`, posted on the Concourse's
+terminal. Home is two dials from anywhere: `LEGAL`, then `TESTING`. The
+capital was first built at `LICENSED`; that address is retired.
 
 ## The shape of it
 

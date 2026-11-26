@@ -20,6 +20,9 @@ use crate::common::{base, finish_passages, fixed_60hz_room_options};
 const HUB: &str = "central_hub_complex";
 const HUB_RING: &str = "hub_public_gate_zone";
 const HUB_TERMINAL: &str = "hub_public_terminal";
+const CAPITAL: &str = "authority_concourse";
+const CAPITAL_RING: &str = "authority_concourse_gate";
+const CAPITAL_TERMINAL: &str = "authority_gate_terminal";
 const MATH: &str = "math_gate_hall";
 const MATH_RING: &str = "math_gate_return_zone";
 const MATH_TERMINAL: &str = "math_gate_terminal";
@@ -211,7 +214,9 @@ fn travel(sim: &mut Platformer2dSimHarness, terminal: &str, ring: &str, address:
     open_terminal(sim, terminal, ring);
     assert_eq!(dial(sim, ring, address), "link", "`{address}` answers from `{ring}`");
     ask(sim, ring, GateTerminalAction::Close);
-    for _ in 0..60 {
+    // A ring that already holds a link (the way the traveller came in) closes
+    // it before it opens to the new address: a redial is a full cycle.
+    for _ in 0..360 {
         if portal_on(sim, ring) {
             break;
         }
@@ -238,8 +243,9 @@ fn standing_in(sim: &mut Platformer2dSimHarness, ring: &str) -> bool {
 
 /// Acceptance 1: a fresh save dials TANGENT with no knowledge, walks into the
 /// public gate and comes out of Math Town's ring; the address is known now,
-/// the knowledge survives a save and a load, and the Math ring's terminal
-/// takes the traveller home without a known address (LEGAL is written on it).
+/// the knowledge survives a save and a load, and the traveller comes home
+/// without a known address: the Math terminal posts LEGAL, the capital's
+/// ring (Q185), and the capital's terminal posts the sandbox hub.
 #[test]
 fn a_fresh_save_dials_tangent_reaches_math_town_and_comes_home() {
     let mut sim = room(HUB);
@@ -258,17 +264,19 @@ fn a_fresh_save_dials_tangent_reaches_math_town_and_comes_home() {
     let mut reloaded = room_with(MATH, read);
     assert!(save(&mut reloaded).flag(&flag));
 
-    // Home, from the reloaded save, by the address on the Math terminal.
-    assert_eq!(travel(&mut reloaded, MATH_TERMINAL, MATH_RING, "LEGAL"), HUB);
+    // Home, from the reloaded save, by the addresses posted on the way.
+    assert_eq!(travel(&mut reloaded, MATH_TERMINAL, MATH_RING, "LEGAL"), CAPITAL);
+    assert!(standing_in(&mut reloaded, CAPITAL_RING), "LEGAL comes out at the capital's Concourse");
+    assert_eq!(travel(&mut reloaded, CAPITAL_TERMINAL, CAPITAL_RING, "TESTING"), HUB);
     assert!(standing_in(&mut reloaded, HUB_RING), "the traveller comes home out of the public gate");
 }
 
 /// Acceptance 2: each public address reaches its arrival from a fresh save
-/// with nothing known, and the arrival's terminal takes the traveller home by
-/// the address written on it. ASCENT starts the gravity trail, not GNU-ton's
+/// with nothing known, and the arrival's terminal takes the traveller to the
+/// capital by the address written on it (LEGAL; the capital posts home). ASCENT starts the gravity trail, not GNU-ton's
 /// arena; CITADEL lands in the forest outside Castle Godwin, not its throne.
 #[test]
-fn each_destination_is_reached_from_the_hub_and_its_terminal_leads_home() {
+fn each_destination_is_reached_from_the_hub_and_its_terminal_leads_to_the_capital() {
     for (address, room_id, ring, terminal) in [
         ("GENESIS", "primeval_trailhead", "primeval_trailhead_gate", "primeval_gate_terminal"),
         ("CITADEL", "evil_gate_forest", "evil_gate_return_zone", "evil_gate_terminal"),
@@ -286,8 +294,8 @@ fn each_destination_is_reached_from_the_hub_and_its_terminal_leads_home() {
         let mut sim = room(HUB);
         assert_eq!(travel(&mut sim, HUB_TERMINAL, HUB_RING, address), room_id, "`{address}`");
         assert!(standing_in(&mut sim, ring), "`{address}` comes out of `{ring}`");
-        assert_eq!(travel(&mut sim, terminal, ring, "LEGAL"), HUB, "home from `{address}`");
-        assert!(standing_in(&mut sim, HUB_RING), "home out of the public gate from `{address}`");
+        assert_eq!(travel(&mut sim, terminal, ring, "LEGAL"), CAPITAL, "LEGAL from `{address}`");
+        assert!(standing_in(&mut sim, CAPITAL_RING), "out of the capital's ring from `{address}`");
     }
 }
 
@@ -357,7 +365,7 @@ fn each_failed_dial_says_why_and_opens_nothing() {
         (spell(&sim, "TANGEN"), "unknown"),
         (wrong_tau, "unknown"),
         (spell(&sim, "SAND"), "unknown"),
-        (spell(&sim, "LEGAL"), "same_facility"),
+        (spell(&sim, "TESTING"), "same_facility"),
     ] {
         assert_eq!(dial_chevrons(&mut sim, HUB_RING, &address), kind, "`{address:?}`");
         assert!(network(&mut sim).links.is_empty(), "`{address:?}` opened a link");

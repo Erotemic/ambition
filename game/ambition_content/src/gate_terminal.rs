@@ -709,7 +709,8 @@ mod tests {
         let posted = [catalog.spell("LEGAL").unwrap()];
         let rows = ui.list(&catalog, &state, &posted);
         assert_eq!(rows.iter().filter(|row| matches!(row, ListRow::Dimension { .. })).count(), 1);
-        assert!(matches!(&rows[0], ListRow::Dimension { id, destinations: 1, .. } if id == "home"));
+        // LEGAL is the Gate Authority capital's (Q185).
+        assert!(matches!(&rows[0], ListRow::Dimension { id, destinations: 1, .. } if id == "authority"));
     }
 
     #[test]
@@ -745,7 +746,9 @@ mod tests {
         let flag = gate_address_known_flag("GENESIS");
         let known = known_addresses(&catalog, &GateRingPositions::default(), "math_gate_return_zone", |id| id == flag);
         assert_eq!(known, [spell("LEGAL"), spell("GENESIS")]);
-        assert!(known_addresses(&catalog, &GateRingPositions::default(), "hub_public_gate_zone", |_| false).is_empty(), "the hub posts nothing");
+        // The sandbox hub posts the capital, and the capital posts the hub (Q185).
+        assert_eq!(known_addresses(&catalog, &GateRingPositions::default(), "hub_public_gate_zone", |_| false), [spell("LEGAL")]);
+        assert_eq!(known_addresses(&catalog, &GateRingPositions::default(), "authority_concourse_gate", |_| false), [spell("TESTING")]);
     }
 
     /// The status line reads the network: an open link, then a refusal by

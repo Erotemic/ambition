@@ -14,7 +14,10 @@
 //   orbital station are far apart).
 // - A status reads only authored facts (a switch, a flag), never chance.
 // - A `posted` address is written on the ring's terminal, so every
-//   destination has a way home that needs no knowledge.
+//   destination has a way home that needs no knowledge. Every terminal
+//   posts LEGAL, the Gate Authority's capital (Q185, 2026-11-26), and the
+//   capital's terminal posts TESTING, the sandbox hub: home is at most
+//   two dials away.
 // - A ring whose room is not built yet is `Offline` with a reason; it is
 //   never "unknown".
 //
@@ -100,8 +103,10 @@
             name: "Central Hub public gate",
             facility: "home_gate_station",
             room: "central_hub_complex",
-            address: Some("LEGAL"),
+            // The developer sandbox's own address; LEGAL is the capital's.
+            address: Some("TESTING"),
             terminal: Some("hub_public_terminal"),
+            posted: ["LEGAL"],
             note: "Public ring. Organic travellers: expect nausea for an hour.",
         ),
         // Ring 1 of the gate stack: the intro's gate. Its old switch is its
@@ -506,9 +511,10 @@
             name: "The Concourse",
             facility: "authority_concourse",
             room: "authority_concourse",
-            address: Some("LICENSED"),
+            // The one address everyone is given (Q185).
+            address: Some("LEGAL"),
             terminal: Some("authority_gate_terminal"),
-            posted: ["LEGAL"],
+            posted: ["TESTING"],
             note: "The Authority's own ring. Declare any sentience in your luggage.",
         ),
         // The Unfinished dimension: the ring the agents set up first, in the

@@ -158,7 +158,8 @@ mod tests {
     fn the_working_addresses_reach_their_places() {
         let catalog = lowered_gate_network(crate::pack::shipped());
         for (address, room) in [
-            ("LEGAL", "central_hub_complex"),
+            ("LEGAL", "authority_concourse"),
+            ("TESTING", "central_hub_complex"),
             ("TANGENT", "math_gate_hall"),
             ("GENESIS", "primeval_trailhead"),
             ("CITADEL", "evil_gate_forest"),
@@ -214,10 +215,13 @@ mod tests {
         }
     }
 
-    /// Every terminal lists a way home: each ring with a terminal outside the
-    /// home dimension posts an address of a home ring. A portal arch is not
-    /// held to it: it reaches only its own world's arches, so no home address
-    /// would answer it, and its way home is the walk to its world's gate.
+    /// Every terminal lists a way home: from each ring with a terminal
+    /// outside the home dimension, following posted addresses alone (no
+    /// knowledge) reaches a home ring. Every terminal posts LEGAL, the
+    /// capital, and the capital's terminal posts the sandbox hub (Q185), so
+    /// the walk is at most two dials. A portal arch is not held to it: it
+    /// reaches only its own world's arches, so no home address would answer
+    /// it, and its way home is the walk to its world's gate.
     #[test]
     fn every_terminal_away_from_home_posts_a_way_home() {
         let catalog = lowered_gate_network(crate::pack::shipped());
@@ -225,19 +229,39 @@ mod tests {
             let ring = catalog.ring(zone).expect("a ring");
             catalog.facility(&ring.facility).expect("a facility").dimension.clone()
         };
+        let posted_rings = |zone: &str| -> Vec<String> {
+            let ring = catalog.ring(zone).expect("a ring");
+            ring.posted
+                .iter()
+                .filter(|address| normalize_address(address) == **address)
+                .filter_map(|address| catalog.ring_named(address))
+                .map(|far| far.zone.clone())
+                .collect()
+        };
         for ring in catalog.rings.iter().filter(|ring| ring.terminal.is_some()) {
             if dimension(&ring.zone) == "home" || ring.kind == ambition_platformer2d::world::rooms::RingKind::Portal {
                 continue;
             }
-            assert!(
-                ring.posted.iter().any(|address| catalog
-                    .ring_named(address)
-                    .is_some_and(|home| dimension(&home.zone) == "home" && normalize_address(address) == *address)),
-                "`{}` posts no way home: {:?}",
-                ring.zone,
-                ring.posted
-            );
+            let first = posted_rings(&ring.zone);
+            let home = first.iter().any(|zone| dimension(zone) == "home")
+                || first.iter().any(|zone| posted_rings(zone).iter().any(|far| dimension(far) == "home"));
+            assert!(home, "`{}` posts no way home within two dials: {:?}", ring.zone, ring.posted);
         }
+    }
+
+    /// LEGAL is the Gate Authority capital's public address (Q185,
+    /// 2026-11-26), and the sandbox hub has its own: every terminal away
+    /// from the capital posts LEGAL, and the capital's posts the sandbox hub.
+    #[test]
+    fn legal_is_the_capitals_and_the_capital_posts_the_sandbox() {
+        let catalog = lowered_gate_network(crate::pack::shipped());
+        let legal = catalog.ring_named("LEGAL").expect("a ring answers LEGAL");
+        assert_eq!(legal.zone, "authority_concourse_gate");
+        let hub = catalog.ring("hub_public_gate_zone").expect("the sandbox hub's ring");
+        assert_ne!(hub.address.as_deref(), Some("LEGAL"), "the sandbox hub keeps its own address");
+        let sandbox = hub.address.clone().expect("the sandbox hub has an address");
+        assert!(legal.posted.contains(&sandbox), "the capital posts the sandbox hub: {:?}", legal.posted);
+        assert!(hub.posted.iter().any(|address| address == "LEGAL"), "the sandbox posts the capital");
     }
 
     /// The catalog is the pack's file: an edit is the lowered catalog, and a

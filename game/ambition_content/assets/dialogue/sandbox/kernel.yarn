@@ -55,7 +55,8 @@ Kernel Guide: Up already aims, climbs, and flies. A single Up press should not o
 title: hub_guide__gate
 ---
 Kernel Guide: Press the dialer, enter an address on the chevrons, and walk into the ring once it opens. A ring takes one traveller and shuts behind them.
-Kernel Guide: TANGENT is Math Town. GENESIS is the primeval trail. CITADEL is the forest under Castle Godwin. Every ring out there lists LEGAL, the way home.
+Kernel Guide: TANGENT is Math Town. GENESIS is the primeval trail. CITADEL is the forest under Castle Godwin. Every ring out there lists LEGAL, the Gate Authority's Concourse, and theirs lists TESTING. That's here. Home is two dials from anywhere.
+<<command "world.set_flag" "gate.known.TESTING" true>>
 <<command "world.set_flag" "gate.known.TANGENT" true>>
 <<command "world.set_flag" "gate.known.GENESIS" true>>
 <<command "world.set_flag" "gate.known.CITADEL" true>>

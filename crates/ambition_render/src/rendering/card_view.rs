@@ -47,7 +47,7 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::camera_layers::CARD_VIEW_LAYER;
 use ambition_sprite_sheet::character::rigged::{PartDraw, RiggedSpriteAsset};
 
-use super::actors::rigged::{RiggedLocalSample, RiggedPresentation, RiggedPresentationOf};
+use super::actors::rigged::{BakedFrame, RiggedLocalSample, RiggedPresentation, RiggedPresentationOf};
 use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
 use super::moving_platforms::{PresentedVessels, SeatedInVessel, VesselBox};
 
@@ -258,6 +258,7 @@ pub fn card_body_depth(seated: bool, rank: usize) -> f32 {
 #[derive(Resource, Default)]
 pub struct CardMeshes {
     meshes: HashMap<(usize, u16), Handle<Mesh>>,
+    baked_meshes: HashMap<(AssetId<Image>, [u32; 4], [u32; 4]), Handle<Mesh>>,
     materials: HashMap<(AssetId<Image>, [u8; 4], bool), Handle<StandardMaterial>>,
 }
 
@@ -281,6 +282,85 @@ fn part_quad(flipbook: &RiggedSpriteAsset, part: u16, page_size: Vec2) -> Mesh {
         .with_inserted_indices(Indices::U32(vec![0, 1, 2, 0, 2, 3]))
 }
 
+fn baked_key(baked: &BakedFrame) -> (AssetId<Image>, [u32; 4], [u32; 4]) {
+    (
+        baked.image.id(),
+        [baked.rect.min.x, baked.rect.min.y, baked.rect.max.x, baked.rect.max.y],
+        [baked.size.x.to_bits(), baked.size.y.to_bits(), baked.anchor.x.to_bits(), baked.anchor.y.to_bits()],
+    )
+}
+
+/// A baked frame's quad: `size` world units about its anchor, with its page
+/// region as texture coordinates.
+fn baked_quad(baked: &BakedFrame, page_size: Vec2) -> Mesh {
+    let (w, h) = (baked.size.x, baked.size.y);
+    let anchor = baked.anchor;
+    let (x0, x1) = (-(0.5 + anchor.x) * w, (0.5 - anchor.x) * w);
+    let (y0, y1) = (-(0.5 + anchor.y) * h, (0.5 - anchor.y) * h);
+    let (u0, u1) = (baked.rect.min.x as f32 / page_size.x, baked.rect.max.x as f32 / page_size.x);
+    let (v0, v1) = (baked.rect.min.y as f32 / page_size.y, baked.rect.max.y as f32 / page_size.y);
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD)
+        .with_inserted_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[x0, y0, 0.0], [x1, y0, 0.0], [x1, y1, 0.0], [x0, y1, 0.0]],
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 4])
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[u0, v1], [u1, v1], [u1, v0], [u0, v0]])
+        .with_inserted_indices(Indices::U32(vec![0, 1, 2, 0, 2, 3]))
+}
+
+type CardQuery<'w, 's> = Query<
+    'w,
+    's,
+    (&'static mut Mesh3d, &'static mut MeshMaterial3d<StandardMaterial>, &'static mut Transform, &'static mut Visibility),
+    (With<CardPart>, Without<CardBody>),
+>;
+
+/// Show `shown` as a body's cards, in order, spawning what it lacks and
+/// hiding the rest.
+fn show_cards(
+    commands: &mut Commands,
+    body: &mut CardBody,
+    cards: &mut CardQuery,
+    owner: Entity,
+    layer: &RenderLayers,
+    shown: &[(Handle<Mesh>, Handle<StandardMaterial>, Transform)],
+) {
+    for (index, (mesh, material, local)) in shown.iter().enumerate() {
+        if body.parts.len() <= index {
+            let card = commands
+                .spawn((
+                    CardPart,
+                    Mesh3d(mesh.clone()),
+                    MeshMaterial3d(material.clone()),
+                    *local,
+                    Visibility::Inherited,
+                    layer.clone(),
+                    ChildOf(owner),
+                ))
+                .id();
+            body.parts.push(card);
+            continue;
+        }
+        let Ok((mut card_mesh, mut card_material, mut transform, mut visibility)) = cards.get_mut(body.parts[index]) else {
+            continue;
+        };
+        if card_mesh.0 != *mesh {
+            card_mesh.0 = mesh.clone();
+        }
+        if card_material.0 != *material {
+            card_material.0 = material.clone();
+        }
+        transform.set_if_neq(*local);
+        visibility.set_if_neq(Visibility::Inherited);
+    }
+    for &card in body.parts.iter().skip(shown.len()) {
+        if let Ok((_, _, _, mut visibility)) = cards.get_mut(card) {
+            visibility.set_if_neq(Visibility::Hidden);
+        }
+    }
+}
+
 /// A part's card place in its body: the same pivot, turn and scale as its
 /// 2D slot (`slot_local`), at its paint-order depth.
 pub fn card_part_local(draw: &PartDraw, index: usize) -> Transform {
@@ -296,16 +376,14 @@ pub fn realize_card_bodies(
     owners: Query<(Entity, &RiggedPresentationOf, &RiggedPresentation, &RiggedLocalSample)>,
     roots: Query<(&Transform, Has<SeatedInVessel>), (Without<CardBody>, Without<CardPart>)>,
     mut bodies: Query<(Entity, &mut CardBody, &mut Transform, &mut Visibility), Without<CardPart>>,
-    mut cards: Query<
-        (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut Visibility),
-        (With<CardPart>, Without<CardBody>),
-    >,
+    mut cards: CardQuery,
     images: Option<Res<Assets<Image>>>,
     meshes: Option<ResMut<Assets<Mesh>>>,
     materials: Option<ResMut<Assets<StandardMaterial>>>,
     mut cache: ResMut<CardMeshes>,
     mut by_owner: Local<HashMap<Entity, Entity>>,
     mut ranked: Local<Vec<(bool, f32, Entity)>>,
+    mut shown: Local<Vec<(Handle<Mesh>, Handle<StandardMaterial>, Transform)>>,
 ) {
     let (Some(images), Some(mut meshes), Some(mut materials)) = (images, meshes, materials) else {
         return;
@@ -324,7 +402,8 @@ pub fn realize_card_bodies(
     // Rank the drawn bodies on each depth by their logical order.
     ranked.clear();
     for (owner, of, _, sample) in &owners {
-        if sample.parts().is_none() || sample.feet.is_none() {
+        let drawable = (sample.parts().is_some() && sample.feet.is_some()) || sample.baked.is_some();
+        if !drawable {
             continue;
         }
         if let Ok((root, seated)) = roots.get(of.0) {
@@ -360,9 +439,47 @@ pub fn realize_card_bodies(
             // Spawned this frame: filled from the next.
             continue;
         };
-        let (Some(draws), Some(feet), Some(depth), Ok((root, _))) =
-            (sample.parts(), sample.feet, rank_of.get(&owner), roots.get(of.0))
-        else {
+        let (Some(depth), Ok((root, _))) = (rank_of.get(&owner), roots.get(of.0)) else {
+            body_visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        };
+        // A baked frame is one card at the root, drawn whole.
+        if let Some(baked) = &sample.baked {
+            let mut place = *root;
+            place.translation.z = *depth;
+            body_transform.set_if_neq(place);
+            body_visibility.set_if_neq(Visibility::Inherited);
+            let Some(page_size) = images.get(&baked.image).map(|image| image.size().as_vec2()) else {
+                // Not loaded yet: draw nothing rather than the last clip's parts.
+                show_cards(&mut commands, &mut card_body, &mut cards, body, &layer, &[]);
+                continue;
+            };
+            let mesh = cache
+                .baked_meshes
+                .entry(baked_key(baked))
+                .or_insert_with(|| meshes.add(baked_quad(baked, page_size)))
+                .clone();
+            let opacity = (sample.frame_opacity.clamp(0.0, 1.0) * 255.0).round() as u8;
+            let material = cache
+                .materials
+                .entry((baked.image.id(), [255, 255, 255, opacity], opacity < 255))
+                .or_insert_with(|| {
+                    materials.add(StandardMaterial {
+                        base_color: Color::srgba(1.0, 1.0, 1.0, f32::from(opacity) / 255.0),
+                        base_color_texture: Some(baked.image.clone()),
+                        unlit: true,
+                        cull_mode: None,
+                        double_sided: true,
+                        alpha_mode: if opacity < 255 { AlphaMode::Blend } else { AlphaMode::Mask(0.5) },
+                        ..default()
+                    })
+                })
+                .clone();
+            let local = Transform::from_scale(Vec3::new(if baked.flip_x { -1.0 } else { 1.0 }, 1.0, 1.0));
+            show_cards(&mut commands, &mut card_body, &mut cards, body, &layer, &[(mesh, material, local)]);
+            continue;
+        }
+        let (Some(draws), Some(feet)) = (sample.parts(), sample.feet) else {
             body_visibility.set_if_neq(Visibility::Hidden);
             continue;
         };
@@ -372,6 +489,7 @@ pub fn realize_card_bodies(
         body_transform.set_if_neq(place);
         body_visibility.set_if_neq(Visibility::Inherited);
 
+        shown.clear();
         let flipbook: &Arc<RiggedSpriteAsset> = &presentation.pages.flipbook;
         let flipbook_key = Arc::as_ptr(flipbook) as usize;
         let translucent = sample.frame_opacity < 1.0;
@@ -409,40 +527,9 @@ pub fn realize_card_bodies(
                     })
                 })
                 .clone();
-            if card_body.parts.len() <= index {
-                let card = commands
-                    .spawn((
-                        CardPart,
-                        Mesh3d(mesh.clone()),
-                        MeshMaterial3d(material.clone()),
-                        card_part_local(draw, index),
-                        Visibility::Inherited,
-                        layer.clone(),
-                        ChildOf(body),
-                    ))
-                    .id();
-                card_body.parts.push(card);
-                continue;
-            }
-            let Ok((mut card_mesh, mut card_material, mut transform, mut visibility)) =
-                cards.get_mut(card_body.parts[index])
-            else {
-                continue;
-            };
-            if card_mesh.0 != mesh {
-                card_mesh.0 = mesh;
-            }
-            if card_material.0 != material {
-                card_material.0 = material;
-            }
-            transform.set_if_neq(card_part_local(draw, index));
-            visibility.set_if_neq(Visibility::Inherited);
+            shown.push((mesh, material, card_part_local(draw, index)));
         }
-        for &card in card_body.parts.iter().skip(draws.len()) {
-            if let Ok((_, _, _, mut visibility)) = cards.get_mut(card) {
-                visibility.set_if_neq(Visibility::Hidden);
-            }
-        }
+        show_cards(&mut commands, &mut card_body, &mut cards, body, &layer, &shown);
     }
 }
 

@@ -231,6 +231,12 @@ pub struct PortalTransfer {
     pub mapped_vel: Vec2,
     pub exit_pos: Vec2,
     pub exit_vel: Vec2,
+    /// Where the body's last straight leg of the tick begins, in the final
+    /// chart, and when: the last crossing point carried by that crossing's
+    /// map. From it the body travels straight to `exit_pos`. One crossing
+    /// gives `map(crossing_point)` at `crossing_time`; a chain, its last hop's.
+    pub arrival_point: Vec2,
+    pub arrival_time: f64,
 }
 
 impl PortalTransfer {
@@ -304,6 +310,7 @@ impl PortalTransfer {
             entry_channel, exit_channel,
             crossing_time: 1.0, crossing_point: center,
             entry_pos: center, entry_vel: velocity, mapped_vel, exit_pos, exit_vel,
+            arrival_point: exit_pos, arrival_time: 1.0,
         })
     }
 }
@@ -338,6 +345,8 @@ impl PortalTransfer {
         transfer.crossing_point=crossing.root.point;
         transfer.entry_pos=center;
         transfer.exit_pos=transfer.map.point(center)?;
+        transfer.arrival_point=transfer.map.point(crossing.root.point)?;
+        transfer.arrival_time=crossing.root.world_time;
         Ok(transfer)
     }
 
@@ -517,7 +526,8 @@ fn continue_after_crossing(step: TransitStep, sweep: ae::SweepSample, domain: &a
             next.enter.frame.normal, next.exit.frame.normal);
         composed = PortalTransfer {
             map, exit: next.exit, exit_channel: next.exit_channel,
-            mapped_vel: next.mapped_vel, exit_pos: next.exit_pos, exit_vel: next.exit_vel, ..composed
+            mapped_vel: next.mapped_vel, exit_pos: next.exit_pos, exit_vel: next.exit_vel,
+            arrival_point: next.arrival_point, arrival_time: next.arrival_time, ..composed
         };
         last = next;
     }

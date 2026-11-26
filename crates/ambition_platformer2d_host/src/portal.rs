@@ -604,43 +604,47 @@ mod host_adapter {
     /// to the frame-clock smoothing, which takes a short hop (a thin-wall door
     /// moves a body 16 px) for a step and draws the body the whole hop ahead.
     ///
-    /// When the body crossed once in the last tick, also say where it went
-    /// inside that tick (portal M4): its leg up to the crossing in the chart
-    /// it left (its `CrossedTravel`, which holds only the last tick's), and
-    /// the crossing point carried by the pair's map, from which it travelled
-    /// straight to its end pose. An interpolated view then changes the
-    /// body's side at the crossing time. A chain of crossings, or a crossing
-    /// in an earlier tick of the frame (no `CrossedTravel` left), is declared
-    /// as a plain warp.
+    /// When the body crossed in the last tick, also say where it went inside
+    /// that tick (portal M4): its legs before the arrival, each in the chart
+    /// it was made in and cut at its crossing (its `CrossedTravel`, which
+    /// holds only the last tick's), and the arrival, from the last crossing
+    /// point carried by its map (`PortalTransfer::arrival_point`) straight to
+    /// its end pose. An interpolated view then changes the body's side at
+    /// each crossing time. A crossing in an earlier tick of the frame (no
+    /// `CrossedTravel` left) is declared as a plain warp.
     pub fn declare_portal_pose_warps(
         mut transited: MessageReader<ambition_portal2d::PortalBodyTransited>,
         // Absent in a host that does not smooth poses on the frame clock.
         warps: Option<ResMut<ambition_sim_view::DeclaredPoseWarps>>,
         crossed: Query<&ambition_platformer2d_core::CrossedTravel>,
+        mut legs: Local<Vec<ambition_sim_view::CrossingLeg>>,
     ) {
         let Some(mut warps) = warps else {
             transited.clear();
             return;
         };
         for transit in transited.read() {
-            let projection = crossed
-                .get(transit.body)
-                .ok()
-                .and_then(|crossed| match crossed.0.as_slice() {
-                    [leg] => Some(*leg),
-                    _ => None,
-                })
-                .filter(|leg| (leg.time[1] - transit.transfer.crossing_time).abs() < 1e-9)
-                .and_then(|leg| {
-                    let arrived_at = transit.transfer.map.point(leg.curr).ok()?;
-                    Some(ambition_sim_view::PresentedCrossing {
-                        from: leg.prev,
-                        start: leg.time[0] as f32,
-                        crossed_at: leg.curr,
-                        at: leg.time[1] as f32,
-                        arrived_at,
-                    })
-                });
+            let transfer = transit.transfer;
+            let projection = crossed.get(transit.body).ok().and_then(|crossed| {
+                // The record is this transfer's when its last leg ends where
+                // the arrival begins.
+                let last = crossed.0.last()?;
+                if (last.time[1] - transfer.arrival_time).abs() > 1e-9 {
+                    return None;
+                }
+                legs.clear();
+                legs.extend(crossed.0.iter().map(|leg| ambition_sim_view::CrossingLeg {
+                    from: leg.prev,
+                    to: leg.curr,
+                    start: leg.time[0] as f32,
+                    end: leg.time[1] as f32,
+                }));
+                ambition_sim_view::PresentedCrossing::new(
+                    &legs,
+                    transfer.arrival_point,
+                    transfer.arrival_time as f32,
+                )
+            });
             match projection {
                 Some(projection) => warps.declare_crossing(transit.body, projection),
                 None => warps.declare(transit.body),

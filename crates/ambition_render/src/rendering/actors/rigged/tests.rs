@@ -2313,3 +2313,67 @@ fn the_cards_and_the_slots_draw_one_sample() {
     assert_eq!(trimmed, sampled - 1);
     assert_eq!((slots_shown, cards_shown), (trimmed, trimmed), "a draw taken out of the sample is drawn by neither renderer");
 }
+
+/// RV3: a hybrid body on its baked clip is one card in the card view, at the
+/// root, with the frame the animator chose (its page region and quad); back
+/// on a part clip it is one card per sampled draw again. Before, a baked
+/// sample drew nothing in the card view.
+#[cfg(feature = "card_view")]
+#[test]
+fn a_baked_frame_is_one_card_at_the_root() {
+    use crate::rendering::card_view::{realize_card_bodies, CardBody, CardMeshes};
+    use ambition_sprite_sheet::character::CharacterAnim;
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let hybrid = hybrid_raider(&sprite_content, "slash");
+    let (mut app, root) = app_with(&sprite_content, true, raider_with(&sprite_content, Some(hybrid)));
+    app.init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<CardMeshes>()
+        .add_systems(Update, realize_card_bodies.after(RiggedDriveSet));
+    settle(&mut app);
+    app.update();
+    let owner = owner(&app, root);
+    let shown = |app: &mut App| {
+        let world = app.world_mut();
+        let mut bodies = world.query::<(&CardBody, &Transform, &Visibility)>();
+        let (body, place, visibility) = bodies.iter(world).find(|(body, ..)| body.owner == owner).expect("the body has cards");
+        assert_ne!(*visibility, Visibility::Hidden);
+        let place = *place;
+        let visible = body.parts.iter().filter(|card| *world.get::<Visibility>(**card).unwrap() != Visibility::Hidden).count();
+        (visible, place)
+    };
+    let sampled = app.world().get::<RiggedLocalSample>(owner).unwrap().draws.len();
+    assert!(sampled > 1);
+    assert_eq!(shown(&mut app).0, sampled, "a part clip: one card per draw");
+
+    // The fixture's sheet pages are neither laid out nor loaded; give them
+    // a layout and a picture, as a loaded sheet has.
+    let pages = app.world().get::<CharacterAnimator>(root).unwrap().pages.clone();
+    let grid = TextureAtlasLayout::from_grid(UVec2::splat(32), 16, 16, None, None);
+    for page in &pages {
+        let _ = app.world_mut().resource_mut::<Assets<TextureAtlasLayout>>().insert(page.layout.id(), grid.clone());
+        if !app.world().resource::<Assets<Image>>().contains(&page.texture) {
+            let _ = app.world_mut().resource_mut::<Assets<Image>>().insert(page.texture.id(), Image::default());
+        }
+    }
+    app.world_mut().get_mut::<CharacterAnimator>(root).unwrap().request(CharacterAnim::Slash);
+    app.update();
+    let sample = app.world().get::<RiggedLocalSample>(owner).unwrap();
+    assert_eq!(sample.state, LocalSampleState::Baked);
+    let baked = app.world().get::<RiggedLocalSample>(owner).unwrap().baked.clone().expect("the baked sample carries its frame");
+    let animator = app.world().get::<CharacterAnimator>(root).unwrap();
+    let sprite = app.world().get::<Sprite>(root).unwrap();
+    assert_eq!(Some(baked.size), sprite.custom_size, "the quad the animator gave the root");
+    assert_eq!(baked.flip_x, sprite.flip_x);
+    assert_eq!(baked.image, animator.pages[animator.current_page() as usize].texture);
+    assert_eq!(baked.rect, grid.textures[animator.atlas_index()], "the region of the frame the animator chose");
+    let (visible, place) = shown(&mut app);
+    assert_eq!(visible, 1, "a baked frame is one card");
+    let root_place = *app.world().get::<Transform>(root).unwrap();
+    assert_eq!(place.translation.truncate(), root_place.translation.truncate(), "at the root");
+
+    app.world_mut().get_mut::<CharacterAnimator>(root).unwrap().request(CharacterAnim::Idle);
+    app.update();
+    let sampled = app.world().get::<RiggedLocalSample>(owner).unwrap().draws.len();
+    assert_eq!(shown(&mut app).0, sampled, "back to parts");
+}

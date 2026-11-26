@@ -566,6 +566,21 @@ shared value preparation are sufficient until source proves otherwise.
    until proved. A successful cart pilot does not certify all scenes or
    arbitrary perspective views.
 
+   **Baked frames (2026-11-25).** A rigged body on a baked clip (a hybrid's
+   baked row) drew nothing in the card view. Its sample now carries the frame
+   the animator chose (`BakedFrame`: the page region, the quad the animator
+   gave the root, its anchor and mirror), and the card view draws it as one
+   card at the root. A card body whose page is not loaded yet shows no card;
+   before, it kept the last clip's parts on screen. The witness is
+   `a_baked_frame_is_one_card_at_the_root`: on a part clip there is one card
+   per draw, on the baked clip one card at the root carrying the animator's
+   region and quad, and back on parts one card per draw again. Render lib:
+   529 passed (default), 532 with `card_view`.
+
+   Still unrealized in the card view: held and wielded art, the hit flash,
+   group fades, portals (P5/P6), room tiles, and bodies that have no rigged
+   presentation.
+
 PO1 can proceed before RV1/RV2. The scale-law work can proceed independently;
 both renderers must consume the resulting authoritative material and poses.
 Keep the maintainer's product order in the queue.

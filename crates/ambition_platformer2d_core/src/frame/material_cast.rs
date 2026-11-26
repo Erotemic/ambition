@@ -223,6 +223,13 @@ impl<'a> MaterialCast<'a> {
     /// link left out here acts closed for this body: its host stays solid, so
     /// a miss blocks and never tunnels. The bounds are inflated, never
     /// tightened, so a link the material can reach is not left out.
+    ///
+    /// Two rules keep that promise (portal-parts-similarity-and-chirality.md,
+    /// P4). A link is revisited by any region it has not already carried: a
+    /// visited endpoint is not a visited state, and material that comes back
+    /// to a link by another path lands somewhere new. And a turning end
+    /// carries a point round the aperture, so its image orbits at the point's
+    /// distance from the entry, not within the endpoint poses' box.
     fn reachable_links(&self, policy: MotionAdmission<'_>) -> Result<Vec<super::thread::PortalLink>, Refusal> {
         let links = policy.links;
         if links.is_empty() {
@@ -264,31 +271,58 @@ impl<'a> MaterialCast<'a> {
         // Where material that went through `link` from inside `region` can be.
         let carried = |link: &super::thread::PortalLink, region: &Aabb| -> Result<Aabb, Refusal> {
             let refusal = |reason| Refusal { path: vec![], link: Some(link.key), reason: RefusalReason::Numeric(reason) };
-            let mut min = Vec2::splat(f32::INFINITY);
-            let mut max = Vec2::splat(f32::NEG_INFINITY);
-            for time in [0.0, 1.0] {
+            let maps = [0.0, 1.0].map(|time| -> Result<_, Refusal> {
                 let pose = (*link).snapshot_at(time).map_err(refusal)?;
                 let map = super::Sim2::through(&pose.enter, &pose.exit, policy.convention).map_err(refusal)?;
-                let image = map.bounds(*region).map_err(refusal)?;
-                min = min.min(image.min);
-                max = max.max(image.max);
+                Ok((pose, map))
+            });
+            let [start, end] = maps;
+            let ends = [start?, end?];
+            let bounded = |min: Vec2, max: Vec2, pad: f32| {
+                if pad.is_finite() { Ok(Aabb::new((min + max) * 0.5, (max - min) * 0.5 + Vec2::splat(pad))) } else { Err(refusal(NumericFault::Overflow)) }
+            };
+            if link.enter_step.turn == 0.0 && link.exit_step.turn == 0.0 {
+                // A translating pair carries the region in a line between
+                // its endpoint images.
+                let (mut min, mut max) = (Vec2::splat(f32::INFINITY), Vec2::splat(f32::NEG_INFINITY));
+                for (_, map) in &ends {
+                    let image = map.bounds(*region).map_err(refusal)?;
+                    (min, max) = (min.min(image.min), max.max(image.max));
+                }
+                let sweep = link.enter_step.displacement.length() + link.exit_step.displacement.length() + 1.0;
+                return bounded(min, max, sweep);
             }
-            let diagonal = min.distance(max);
-            let turn = link.enter_step.turn.abs() + link.exit_step.turn.abs();
-            let sweep = diagonal * turn + link.enter_step.displacement.length() + link.exit_step.displacement.length() + 1.0;
-            if !sweep.is_finite() {
-                return Err(refusal(NumericFault::Overflow));
+            // A turning pair: a similarity keeps each point's distance from
+            // the entry's origin, scaled, from the exit's origin, at every
+            // instant. Each origin stays within its arm's length of its
+            // pivot, and a pivot moves in a line, so the orbit about the
+            // endpoint exit pivots holds every image, the endpoint images
+            // among them.
+            let corners = [region.min, region.max, Vec2::new(region.min.x, region.max.y), Vec2::new(region.max.x, region.min.y)];
+            let (mut reach, mut scale, mut exit_arm) = (0.0_f32, 0.0_f32, 0.0_f32);
+            let (mut min, mut max) = (Vec2::splat(f32::INFINITY), Vec2::splat(f32::NEG_INFINITY));
+            for (pose, map) in &ends {
+                let (pivot, arm) = (pose.enter.frame.pivot, pose.enter.frame.origin.distance(pose.enter.frame.pivot));
+                reach = reach.max(corners.iter().map(|corner| corner.distance(pivot)).fold(0.0, f32::max) + arm);
+                scale = scale.max(map.scale());
+                exit_arm = exit_arm.max(pose.exit.frame.origin.distance(pose.exit.frame.pivot));
+                (min, max) = (min.min(pose.exit.frame.pivot), max.max(pose.exit.frame.pivot));
             }
-            Ok(Aabb::new((min + max) * 0.5, (max - min) * 0.5 + Vec2::splat(sweep)))
+            bounded(min, max, reach * scale + exit_arm + 1.0)
         };
-        let mut admitted = vec![false; links.len()];
+        let contains = |outer: &Aabb, inner: &Aabb| outer.min.x <= inner.min.x && inner.max.x <= outer.max.x
+            && outer.min.y <= inner.min.y && inner.max.y <= outer.max.y;
+        let entries = links.iter().map(entry).collect::<Result<Vec<_>, _>>()?;
+        // The regions each link has carried. A link carries a region again
+        // only when none of these contains it.
+        let mut carried_from: Vec<Vec<Aabb>> = vec![Vec::new(); links.len()];
         let mut frontier = vec![swept];
         // The link the root crosses this tick is this body's whatever its
         // bounds say: a root is captured by the portal's face, not its line.
         if let Some(first) = policy.first {
             for (index, link) in links.iter().enumerate() {
                 if link.key == first {
-                    admitted[index] = true;
+                    carried_from[index].push(swept);
                     frontier.push(carried(link, &swept)?);
                 }
             }
@@ -296,16 +330,10 @@ impl<'a> MaterialCast<'a> {
         for _ in 0..=policy.budget.max_hops {
             let mut next = Vec::new();
             for (index, link) in links.iter().enumerate() {
-                if admitted[index] {
-                    continue;
-                }
-                let aperture = entry(link)?;
-                if frontier.iter().any(|region| touches(region, &aperture)) {
-                    admitted[index] = true;
-                    for region in &frontier {
-                        if touches(region, &aperture) {
-                            next.push(carried(link, region)?);
-                        }
+                for region in &frontier {
+                    if touches(region, &entries[index]) && !carried_from[index].iter().any(|seen| contains(seen, region)) {
+                        carried_from[index].push(*region);
+                        next.push(carried(link, region)?);
                     }
                 }
             }
@@ -314,6 +342,7 @@ impl<'a> MaterialCast<'a> {
             }
             frontier = next;
         }
+        let admitted = carried_from.iter().map(|regions| !regions.is_empty());
         Ok(links.iter().zip(admitted).filter(|(_, kept)| *kept).map(|(link, _)| *link).collect())
     }
 

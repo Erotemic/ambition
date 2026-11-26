@@ -1285,3 +1285,67 @@ fn a_co_moving_mouth_and_body_have_no_relative_speed_at_any_room_pace() {
     assert!(collider.velocity_in_root(&contact, 0.0, Some(admission)).is_err());
     assert!((collider.step_in_root(&contact, Some(admission)).unwrap() - drift).length() < 1.0e-5);
 }
+
+/// The links a cast admits, by key.
+fn admitted_keys(cast: &MaterialCast<'_>, links: &[PortalLink], first: Option<u32>) -> Vec<u32> {
+    let policy = MotionAdmission { links, first, budget: PieceBudget::COMPOSED, convention: MapConvention::Rotation };
+    let mut keys: Vec<u32> = cast.reachable_links(policy).unwrap().iter().map(|link| link.key).collect();
+    keys.sort();
+    keys
+}
+
+/// Both directions of a fixed pair whose entry faces left and exit right.
+fn fixed_pair(entry: Vec2, entry_half: f32, exit: Vec2, exit_half: f32, key: u32) -> [PortalLink; 2] {
+    let enter = PortalAperture { frame: PortalFrame::fixed(entry, Vec2::NEG_X), half_length: entry_half };
+    let leave = PortalAperture { frame: PortalFrame::fixed(exit, Vec2::X), half_length: exit_half };
+    [PortalLink::new(enter, leave, key), PortalLink::new(leave, enter, key + 100)]
+}
+
+/// P4's repeated-link counterexample (portal-parts-similarity-and-chirality.md,
+/// "A finite repeated-link counterexample"). Material point `(69, 0.4)` goes
+/// through A to `(169, 0.4)`, B to `(108, 3.8)`, then A AGAIN to
+/// `(208, 3.8)`, which is through C's opening. A link admitted once was never
+/// revisited, so the second region through A was dropped and C left out: a
+/// reachable opening acting closed. C is a candidate now; the inverse links
+/// it does not reach stay out.
+#[test]
+fn a_link_revisited_by_another_path_carries_its_new_region() {
+    let links: Vec<PortalLink> = [
+        fixed_pair(Vec2::new(0.0, 0.0), 10.0, Vec2::new(100.0, 0.0), 10.0, 0),
+        fixed_pair(Vec2::new(110.0, 0.0), 1.0, Vec2::new(-10.0, 3.0), 2.0, 1),
+        fixed_pair(Vec2::new(200.0, 3.8), 3.0, Vec2::new(1000.0, 3.8), 3.0, 2),
+    ].concat();
+    let shape = CombatVolume::aabb(Aabb::new(Vec2::new(-1.0, 0.0), Vec2::new(71.0, 0.5)));
+    let cast = MaterialCast::new(MaterialPrimitive::world(&shape), Vec2::new(-1.0, 0.0), Vec2::ZERO, 0.0..1.0);
+    let keys = admitted_keys(&cast, &links, Some(0));
+    assert!(keys.contains(&2), "C is reached through A's second region: {keys:?}");
+    assert!(keys.contains(&0) && keys.contains(&1), "{keys:?}");
+    // Control: without B there is no second pass through A, and C stays out.
+    let without_b: Vec<PortalLink> = links.iter().copied().filter(|link| link.key % 100 != 1).collect();
+    assert!(!admitted_keys(&cast, &without_b, Some(0)).contains(&2), "C is out of reach without B");
+}
+
+/// P4's full-turn counterexample ("Curved support includes the pivot
+/// distance"). A's entry turns a whole revolution about its own origin, so
+/// both endpoint maps put a source 1000 px above it near `(9999, 1000)`; but
+/// at a quarter turn the image is near `(11000, 1)`, where C's small entry
+/// is. Padding the endpoint box by its diagonal times the turn missed C. The
+/// image orbits at the source's distance from the entry, so C is a
+/// candidate. Control: the same pair without the turn does not reach C.
+#[test]
+fn a_turning_link_bounds_its_image_by_the_orbit_not_the_endpoints() {
+    let turning = |turn: f32| {
+        let enter = PortalAperture { frame: PortalFrame::fixed(Vec2::ZERO, Vec2::NEG_X), half_length: 2000.0 };
+        let leave = PortalAperture { frame: PortalFrame::fixed(Vec2::new(10_000.0, 0.0), Vec2::X), half_length: 2000.0 };
+        let mut a = PortalLink::new(enter, leave, 0);
+        a.enter_step = crate::frame::ApertureStep::ending_at(enter.frame, Vec2::ZERO, turn);
+        let mut links = vec![a];
+        links.extend(fixed_pair(Vec2::new(10_990.0, 1.0), 3.0, Vec2::new(20_000.0, 1.0), 3.0, 2));
+        links
+    };
+    let shape = CombatVolume::aabb(Aabb::new(Vec2::new(-1.0, 1000.0), Vec2::splat(0.5)));
+    let cast = MaterialCast::new(MaterialPrimitive::world(&shape), Vec2::new(-1.0, 1000.0), Vec2::ZERO, 0.0..1.0);
+    let keys = admitted_keys(&cast, &turning(std::f32::consts::TAU), Some(0));
+    assert!(keys.contains(&2), "a quarter turn carries the source to C's entry: {keys:?}");
+    assert!(!admitted_keys(&cast, &turning(0.0), Some(0)).contains(&2), "a still A never carries it there");
+}

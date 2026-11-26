@@ -129,23 +129,50 @@ pub struct PresentedPose {
     crossing: Option<PresentedCrossing>,
 }
 
-/// One portal crossing inside a tick, as presentation draws it (portal M4).
-///
-/// Times are fractions of the tick. The body travelled from `from` to
-/// `crossed_at` in the chart it left over `[start, at]`, then arrived at
-/// `arrived_at` (the crossing point carried by the pair's map at the
-/// crossing) and travelled straight to the tick's end pose. An interpolated
-/// view applies the chart change at `at` and at no other time.
+/// One straight leg of a body's travel inside a tick, over `[start, end]`
+/// (fractions of the tick), in the chart it was made in.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct CrossingLeg {
+    pub from: Vec2,
+    pub to: Vec2,
+    pub start: f32,
+    pub end: f32,
+}
+
+/// The most crossings one tick's projection holds; a longer chain is drawn
+/// as a plain warp.
+pub const MAX_CROSSING_LEGS: usize = 4;
+
+/// The portal crossings inside one tick, as presentation draws them (portal
+/// M4): the body's legs before its arrival, each cut at the crossing that
+/// ended it, then the arrival, from `arrived_at` at `at` (the last crossing
+/// point carried by its map) straight to the tick's end pose. An interpolated
+/// view changes the body's side at each crossing time and at no other.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PresentedCrossing {
-    pub from: Vec2,
-    pub start: f32,
-    pub crossed_at: Vec2,
-    pub at: f32,
+    legs: [CrossingLeg; MAX_CROSSING_LEGS],
+    count: u8,
     pub arrived_at: Vec2,
+    pub at: f32,
 }
 
 impl PresentedCrossing {
+    /// The crossings of `legs` (in order, each ending where the next crossing
+    /// was), arriving at `arrived_at` at `at`. `None` with no leg or more than
+    /// [`MAX_CROSSING_LEGS`].
+    pub fn new(legs: &[CrossingLeg], arrived_at: Vec2, at: f32) -> Option<Self> {
+        if legs.is_empty() || legs.len() > MAX_CROSSING_LEGS {
+            return None;
+        }
+        let mut held = [CrossingLeg::default(); MAX_CROSSING_LEGS];
+        held[..legs.len()].copy_from_slice(legs);
+        Some(Self { legs: held, count: legs.len() as u8, arrived_at, at })
+    }
+
+    pub fn legs(&self) -> &[CrossingLeg] {
+        &self.legs[..usize::from(self.count)]
+    }
+
     /// Where the body was `time` of the way through the tick that ended at
     /// `end`.
     pub fn position(&self, time: f32, end: Vec2) -> Vec2 {
@@ -156,11 +183,12 @@ impl PresentedCrossing {
                 a.lerp(b, ((time - t0) / (t1 - t0)).clamp(0.0, 1.0))
             }
         };
-        if time < self.at {
-            along(self.from, self.crossed_at, self.start, self.at)
-        } else {
-            along(self.arrived_at, end, self.at, 1.0)
+        for leg in self.legs() {
+            if time < leg.end {
+                return along(leg.from, leg.to, leg.start, leg.end);
+            }
         }
+        along(self.arrived_at, end, self.at, 1.0)
     }
 }
 
@@ -886,13 +914,8 @@ mod tests {
     /// for the whole tick.
     #[test]
     fn interpolated_draws_a_crossing_on_its_side_of_the_crossing_time() {
-        let crossing = PresentedCrossing {
-            from: Vec2::new(0.0, 0.0),
-            start: 0.0,
-            crossed_at: Vec2::new(10.0, 0.0),
-            at: 0.5,
-            arrived_at: Vec2::new(500.0, 0.0),
-        };
+        let leg = CrossingLeg { from: Vec2::ZERO, to: Vec2::new(10.0, 0.0), start: 0.0, end: 0.5 };
+        let crossing = PresentedCrossing::new(&[leg], Vec2::new(500.0, 0.0), 0.5).unwrap();
         let end = Vec2::new(510.0, 0.0);
         let drawn = |crossing: Option<PresentedCrossing>, phase: f32| {
             let mut pose = pose_at(Vec2::ZERO);
@@ -915,6 +938,31 @@ mod tests {
         ahead.push_warped(end, Vec2::new(1200.0, 0.0), 1, Some(crossing));
         ahead.resample(0.25, false);
         assert!(ahead.presented().x >= end.x);
+    }
+
+    /// A chain of crossings in one tick is drawn leg by leg: each leg in its
+    /// own chart over its own interval, then the arrival from the last
+    /// crossing (the two-pair witness of `placement/tests.rs`: A at x 0 to
+    /// 100, B at x 150 to 300).
+    #[test]
+    fn interpolated_draws_a_chain_of_crossings_leg_by_leg() {
+        let legs = [
+            CrossingLeg { from: Vec2::new(-10.0, 0.0), to: Vec2::new(0.0, 0.0), start: 0.0, end: 0.125 },
+            CrossingLeg { from: Vec2::new(100.0, 0.0), to: Vec2::new(150.0, 0.0), start: 0.125, end: 0.75 },
+        ];
+        let crossing = PresentedCrossing::new(&legs, Vec2::new(300.0, 0.0), 0.75).unwrap();
+        let end = Vec2::new(320.0, 0.0);
+        let drawn = |phase: f32| {
+            let mut pose = pose_at(Vec2::ZERO);
+            pose.push_warped(end, Vec2::new(4800.0, 0.0), 1, Some(crossing));
+            pose.resample(phase, true);
+            pose.presented()
+        };
+        assert_eq!(drawn(0.0625), Vec2::new(-5.0, 0.0), "before the first crossing");
+        assert_eq!(drawn(0.4375), Vec2::new(125.0, 0.0), "between the pairs, in A's exit chart");
+        assert_eq!(drawn(0.875), Vec2::new(310.0, 0.0), "after the second crossing");
+        assert!(PresentedCrossing::new(&[], end, 0.5).is_none());
+        assert!(PresentedCrossing::new(&[legs[0]; MAX_CROSSING_LEGS + 1], end, 0.5).is_none());
     }
 
     #[test]

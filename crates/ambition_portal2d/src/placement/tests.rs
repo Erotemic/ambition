@@ -751,9 +751,15 @@ fn a_body_crosses_two_pairs_in_one_tick() {
     assert_eq!(transfer.exit_channel, RED, "the chain ends at B's exit");
     assert!(transfer.exit_pos.distance(Vec2::new(320.0, 0.0)) < 1.0e-3, "got {:?}", transfer.exit_pos);
     assert!(transfer.exit_vel.distance(vel) < 1.0e-2, "got {:?}", transfer.exit_vel);
+    // The last straight leg begins at B's exit (x 300) when B was crossed.
+    assert!(transfer.arrival_point.distance(Vec2::new(300.0, 0.0)) < 1.0e-3, "got {:?}", transfer.arrival_point);
+    assert!((transfer.arrival_time - 0.75).abs() < 1.0e-6, "got {}", transfer.arrival_time);
     // Control: a single-hop path crosses A only and ends 70 px past its exit.
     let TransitStep::Transfer { transfer, between, .. } = step(&PortalTuning::default()) else { panic!("the body crosses A") };
     assert!(between.is_empty());
     assert_eq!(transfer.exit_channel, YELLOW);
     assert!(transfer.exit_pos.distance(Vec2::new(170.0, 0.0)) < 1.0e-3, "got {:?}", transfer.exit_pos);
+    // Its arrival begins at A's exit when A was crossed.
+    assert!(transfer.arrival_point.distance(Vec2::new(100.0, 0.0)) < 1.0e-3, "got {:?}", transfer.arrival_point);
+    assert!((transfer.arrival_time - 0.125).abs() < 1.0e-6, "got {}", transfer.arrival_time);
 }

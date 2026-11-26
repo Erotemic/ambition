@@ -580,11 +580,19 @@ transfer's map:
 x 5 at a quarter of the tick, the mapped point at `tau`, and x 505 after it.
 Its control, a plain warp, parks at the exit.
 
+A chain is drawn leg by leg too (same day): `PortalTransfer` carries where
+its last straight leg begins (`arrival_point`, `arrival_time`: the last
+crossing point carried by that hop's map), and `PresentedCrossing` holds up
+to `MAX_CROSSING_LEGS` (4) legs. The two-pair placement witness now asserts
+the chain's arrival (x 300 at 0.75) and the single hop's (x 100 at 0.125).
+`interpolated_draws_a_chain_of_crossings_leg_by_leg` draws x −5, x 125 (in
+A's exit chart) and x 310 at those quarter-tick times.
+
 What still parks at the exit:
-- a chain of crossings;
 - a crossing in an earlier tick of a multi-tick frame (it left no
   `CrossedTravel`);
-- a push that spans more than one tick.
+- a push that spans more than one tick;
+- a chain longer than four legs.
 
 Extrapolated views draw past the tick's end, so the crossing is behind
 them. Only position follows the crossing; the body's turn and material still

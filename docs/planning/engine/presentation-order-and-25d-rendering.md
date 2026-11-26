@@ -625,8 +625,23 @@ shared value preparation are sufficient until source proves otherwise.
    room's edge, has Scout 160 units off its centre. Held art is witnessed by
    the unit test only; no capture has a held item in the card frame yet.
 
-   Still unrealized in the card view: portals (P5/P6), room tiles, and bodies
-   that have no rigged presentation.
+   **Bodies drawn from a sheet (2026-11-25).** A body with no rigged
+   presentation drew nothing in the card view. An actor (`BoundFeatureKind`
+   `Actor`) or a player (`PlayerVisual`) whose 2D sprite is not a rigged
+   root is now ranked in the same pass as the rigged bodies, by its 2D z on
+   its depth. It is drawn as one card of the cell its sprite shows
+   (`realize_card_sprite_bodies`). Its depth goes into `CardRootDepths`, so
+   an item in its hand finds its holder. Props, pickups and hidden bodies
+   get no card. The held-art road and this one share the sprite-to-card
+   helpers. Witness `a_sheet_drawn_body_is_one_card_ranked_on_its_depth`:
+   the player and an actor, one depth step apart in logical order, with no
+   card for a chest or a hidden actor. Render lib with `card_view`: 535
+   passed. Capture `intro_fell player --card-view --player-beside
+   npc_fell_sheep`: the sheep stands behind Scout in the card view, in the
+   same order as in 2D. The same capture with the old `card_view.rs` has no
+   sheep there. The rigged shepherd is drawn in both.
+
+   Still unrealized in the card view: portals (P5/P6) and room tiles.
 
 PO1 can proceed before RV1/RV2. The scale-law work can proceed independently;
 both renderers must consume the resulting authoritative material and poses.

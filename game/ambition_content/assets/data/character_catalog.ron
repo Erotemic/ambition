@@ -492,6 +492,27 @@
             move_style: Float,
             melee: Some(Lunge(windup_s: 0.45, active_s: 0.2, recover_s: 0.6, damage: 1, reach_px: 34.0, step_px: 0.0, rush_px: 170.0)),
         ),
+        // Starless Hollow: the flame flares before its dash.
+        "will_o_the_wisp_dash": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.55, active_s: 0.23, recover_s: 0.65, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 120.0)),
+        ),
+        // Wanda's default melee and her star projectile; the full directional
+        // repertoire lives in movesets/wanda.ron.
+        "wanda_magic": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.15, active_s: 0.12, recover_s: 0.30, damage: 2, reach_px: 44.0)),
+            ranged: Some(Weapon((
+                style: Bolt,
+                speed: 440.0,
+                damage: 2,
+                flight: Some((gravity: 0.0, bounces: 0, bounce_on_world_contact: false, max_lifetime: 1.5, half_extent: (10.0, 8.0), boomerang_return_s: None)),
+                visual: Some("wanda_star"),
+                discharge: Some((muzzle: Offset(x: 1.20, y: -0.12))),
+                refire_s: 0.50,
+                max_live: Some(3),
+            ))),
+        ),
         "attention_head_bolt": (
             move_style: Float,
             melee: Some(Bite(windup_s: 0.2, active_s: 0.08, recover_s: 0.3, damage: 1, reach_px: 26.0)),
@@ -533,9 +554,24 @@
             move_style: Float,
             melee: Some(Lunge(windup_s: 0.3, active_s: 0.2, recover_s: 0.5, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 150.0)),
         ),
+        // Loan Shark: open jaws, a short rush and a bite, then check the ledger.
+        "loan_shark_bite": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.60, active_s: 0.24, recover_s: 0.76, damage: 3, reach_px: 48.0, step_px: 0.0, rush_px: 84.0)),
+        ),
+        // Hedge Fund: coil a woody arm, sweep, and pause to recover.
+        "hedge_fund_sweep": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.68, active_s: 0.28, recover_s: 0.72, damage: 2, reach_px: 68.0, step_px: 8.0, rush_px: 0.0)),
+        ),
         "paper_tiger_pounce": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.6, active_s: 0.3, recover_s: 0.8, damage: 2, reach_px: 60.0, step_px: 0.0, rush_px: 200.0)),
+        ),
+        // Moving Goalposts: narrow the goal, then extend and charge.
+        "moving_goalposts_charge": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.66, active_s: 0.30, recover_s: 0.68, damage: 2, reach_px: 56.0, step_px: 0.0, rush_px: 68.0)),
         ),
         // The Amphitheatre (the performance quarter of the Art dimension). A
         // stagehand swings its sandbag over its head and down in front; a
@@ -622,6 +658,16 @@
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.35, active_s: 0.15, recover_s: 0.4, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 120.0)),
         ),
+        // Feature Creep: elaborate attachments and a long piston strike.
+        "feature_creep_piston": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.85, active_s: 0.30, recover_s: 1.02, damage: 3, reach_px: 80.0, step_px: 0.0, rush_px: 0.0)),
+        ),
+        // Cuckoo Clock: a bird lunges from a door on a scissor linkage.
+        "cuckoo_clock_peck": (
+            move_style: Walk,
+            melee: Some(Lunge(windup_s: 0.65, active_s: 0.22, recover_s: 0.76, damage: 2, reach_px: 78.0, step_px: 0.0, rush_px: 0.0)),
+        ),
         // The Unfinished dimension's Bug bites with a short rush.
         "glitch_bug_bite": (
             move_style: Walk,
@@ -688,6 +734,20 @@
         "life_spaceship_dash": (
             move_style: Float,
             melee: Some(Lunge(windup_s: 0.45, active_s: 0.2, recover_s: 0.5, damage: 1, reach_px: 30.0, step_px: 0.0, rush_px: 140.0)),
+        ),
+        // HighLife's replicator and its smaller, finite copies.
+        "replicator_dash": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.48, active_s: 0.20, recover_s: 0.52, damage: 2, reach_px: 36.0, step_px: 0.0, rush_px: 100.0)),
+        ),
+        "replicator_copy_dash": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.48, active_s: 0.20, recover_s: 0.52, damage: 1, reach_px: 18.0, step_px: 0.0, rush_px: 65.0)),
+        ),
+        // The hydroxyl radical: one charged tell, followed by a fast lunge.
+        "free_radical_react": (
+            move_style: Float,
+            melee: Some(Lunge(windup_s: 0.50, active_s: 0.20, recover_s: 0.58, damage: 2, reach_px: 48.0, step_px: 0.0, rush_px: 95.0)),
         ),
         "inflated_coin_rush": (
             move_style: Float,
@@ -8044,6 +8104,68 @@
         ),
         hall_dialogue_id: Some("hall_scarab_beetle"),
         ),
+        // A prototype that can never resist adding another feature.
+        "feature_creep": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Feature Creep",
+            manifest: "sprites/feature_creep_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(88.0),
+            composition: None,
+            default_action_set: "feature_creep_piston",
+            locomotion: Some((run_speed: 72.0, move_style: WalkHeavy)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 290.0,
+                attack_range: 80.0,
+                patrol_effort: 0.20,
+                chase_effort: 0.75,
+                attack_cooldown_s: 1.3,
+                tactics: (notice_s: 0.55),
+            )),
+            max_health: Some(12),
+            mass: Some(5.0),
+            tags: ["enemy", "unfinished", "machine", "prototype"],
+            barks: (
+                on_hit: ["I'll add a shield.", "We can fix that in the next release."],
+                provoked: ["I have just the attachment for this."],
+                idle: ["While we're at it...", "One more thing.", "It's practically done."],
+                hall: ["I was commissioned to push a button. Would you like coffee?", "The coffee holder needs a firmware update."],
+            ),
+            hall_dialogue_id: Some("hall_feature_creep"),
+        ),
+        // A walking clock from the Works, with an articulated cuckoo.
+        "cuckoo_clock": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Cuckoo Clock",
+            manifest: "sprites/cuckoo_clock_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(88.0),
+            composition: None,
+            default_action_set: "cuckoo_clock_peck",
+            locomotion: Some((run_speed: 92.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 300.0,
+                attack_range: 78.0,
+                patrol_effort: 0.30,
+                chase_effort: 0.80,
+                attack_cooldown_s: 0.9,
+                tactics: (notice_s: 0.4),
+            )),
+            max_health: Some(6),
+            mass: Some(2.5),
+            tags: ["enemy", "automaton", "machine", "clockwork"],
+            barks: (
+                on_hit: ["*the gears skip*", "You're early."],
+                provoked: ["Right on time!"],
+                idle: ["Tick.", "Tock."],
+                hall: ["The bird does the announcing. I handle scheduling.", "He gets out once an hour. I never get out."],
+            ),
+            hall_dialogue_id: Some("hall_cuckoo_clock"),
+        ),
         // The Bug: a beetle loose on the Unfinished dimension, its shell the
         // checkerboard of a missing texture. It scuttles, rears, and bites
         // with a short rush.
@@ -8107,6 +8229,95 @@
             hall: ["Lightweight spaceship. Nine cells, period four, two cells along every four generations: half the speed of light, if the light is a cell a generation.", "Nobody built me. A rule did. Two or three neighbours to live, three to be born. I'm what fell out."],
         ),
         hall_dialogue_id: Some("hall_life_spaceship"),
+        ),
+        // A HighLife B36/S23 replicator. Its death art computes the twelve
+        // generations, then the existing split finale makes the copies real.
+        "replicator": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Replicator",
+            manifest: "sprites/replicator_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(54.0),
+            composition: None,
+            default_action_set: "replicator_dash",
+            death_traits: Some((divides_into: Some("replicator_copy"), death_sound: Some("enemy.slime.split"), corpse: Some(Gone))),
+            locomotion: Some((run_speed: 108.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 390.0,
+                attack_range: 95.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.48, notice_s: 0.5),
+            )),
+            max_health: Some(4),
+            tags: ["enemy", "automaton", "cellular_automaton", "highlife"],
+            barks: (
+                on_hit: ["*the cells brighten*", "Twelve generations, please."],
+                provoked: ["*it turns sideways*"],
+                idle: ["B36/S23.", "*twelve cells pulse*"],
+                hall: ["Two or three to survive. Three or six to be born.", "I have twelve generations to be twice the creature I am today."],
+            ),
+            hall_dialogue_id: Some("hall_replicator"),
+        ),
+        // The offspring are smaller, and do not divide again. In the game
+        // this keeps the encounter finite; HighLife itself keeps replicating.
+        "replicator_copy": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Replicator Copy",
+            manifest: "sprites/replicator_copy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(24.0),
+            composition: None,
+            default_action_set: "replicator_copy_dash",
+            death_traits: Some((corpse: Some(Vanish))),
+            locomotion: Some((run_speed: 128.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 390.0,
+                attack_range: 65.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.48, notice_s: 0.35),
+            )),
+            max_health: Some(1),
+            tags: ["enemy", "automaton", "cellular_automaton", "highlife", "offspring"],
+            barks: (
+                on_hit: ["*a cell winks out*"],
+                idle: ["*twelve cells pulse*"],
+                hall: ["Copy one? Copy two? We didn't number ourselves."],
+            ),
+            hall_dialogue_id: Some("hall_replicator_copy"),
+        ),
+        // A stylized hydroxyl radical. The sparks are a visual tell, not
+        // simulated chemical reactions or a projectile.
+        "free_radical": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Free Radical",
+            manifest: "sprites/free_radical_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(46.0),
+            composition: None,
+            default_action_set: "free_radical_react",
+            death_traits: Some((corpse: Some(Vanish))),
+            locomotion: Some((run_speed: 135.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 420.0,
+                attack_range: 100.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.50, notice_s: 0.45),
+            )),
+            max_health: Some(3),
+            tags: ["enemy", "science", "molecule", "radical"],
+            barks: (
+                on_hit: ["Oh!", "*the dot flickers*"],
+                provoked: ["I need a reaction."],
+                idle: ["Looking for a pair.", "*crackle*"],
+                hall: ["Hydroxyl radical. One unpaired electron.", "I tried settling down, but the chemistry wasn't right."],
+            ),
+            hall_dialogue_id: Some("hall_free_radical"),
         ),
         // The asp: a cobra with its hood out. It keeps its distance and spits
         // (the `shoot` of a skirmisher): it draws its head back first (its
@@ -11997,6 +12208,62 @@
                 hall: ["Forty years of complimenting lamps. They light up out of embarrassment.", "The stars go down the well in the day. Lately not all of them come back up."],
             ),
             hall_dialogue_id: Some("hall_npc_magical_lumen"),
+        ),
+        // Native to the Starless Hollow; not one of the monochrome Void Stars.
+        "will_o_the_wisp": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Will-o'-the-Wisp",
+            manifest: "sprites/will_o_the_wisp_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            standing_height: Some(27.0),
+            composition: None,
+            default_action_set: "will_o_the_wisp_dash",
+            death_traits: Some((corpse: Some(Vanish))),
+            locomotion: Some((run_speed: 122.0, move_style: Float, baseline_free_flight: Some(true))),
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 390.0,
+                attack_range: 105.0,
+                shares_sightings: false,
+                tactics: (dive_tell_s: 0.55, notice_s: 0.4),
+            )),
+            max_health: Some(2),
+            tags: ["enemy", "magical", "spirit", "flame"],
+            barks: (
+                idle: ["This way!", "*a blue flame dances*"],
+                provoked: ["Wrong way!"],
+                on_hit: ["*flicker*"],
+                hall: ["I know a shortcut. It takes rather longer.", "I light the way. I don't say where it goes."],
+            ),
+            hall_dialogue_id: Some("hall_will_o_the_wisp"),
+        ),
+        // Wanda is the wand repairer named by Celeste in Starlight Square.
+        // A friendly local, with a repertoire of her own when seated as a fighter.
+        "npc_magical_wanda": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Wanda",
+            manifest: "sprites/wanda_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(63.0),
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "wanda_magic",
+            ranged_vfx: Some("wanda_star"),
+            locomotion: Some((run_speed: 218.0, move_style: Walk)),
+            abilities: Some([RunJump, AirJump, FastFall, Attack, DirectionalPrimary, DirectionalSpecial, Shield, Dodge]),
+            max_health: Some(5),
+            tags: ["magical", "mechanic", "playable_candidate"],
+            authoring_description: "Wanda, the wand repairer of Starlight Square. A teal travelling coat, purple pointed hat, red scarf, and a crescent wrench she uses as a magical focus.",
+            gameplay_description: "A staff fighter with sweeping wand attacks, a ranged star bolt, a forward burst and a rising spell. A friendly resident in the Magical dimension.",
+            barks: (
+                idle: ["Third wand today. Same bend.", "That's a five-point thread."],
+                provoked: ["That's not covered by the warranty."],
+                on_hit: ["Mind the threads!", "That was calibrated."],
+                hall: ["I repair wands. Lately the wands have been coming back without the people.", "Mary-O breaks the walls. I fix the wands."],
+            ),
+            hall_dialogue_id: Some("hall_npc_magical_wanda"),
         ),
         "npc_math_lucas": (
             display_name: "Brother Lucas",
@@ -15907,6 +16174,68 @@
             ),
             hall_dialogue_id: Some("hall_npc_frontier_laundress"),
         ),
+        // Capital's predatory lender, not one of its peaceful workers.
+        "loan_shark": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Loan Shark",
+            manifest: "sprites/loan_shark_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(84.0),
+            composition: None,
+            default_action_set: "loan_shark_bite",
+            locomotion: Some((run_speed: 104.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 400.0,
+                attack_range: 132.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.85,
+                attack_cooldown_s: 0.85,
+                tactics: (notice_s: 0.6),
+            )),
+            max_health: Some(8),
+            mass: Some(3.0),
+            tags: ["enemy", "business", "shark"],
+            barks: (
+                on_hit: ["That's going on your account.", "Administrative fee!"],
+                provoked: ["Payment is overdue."],
+                idle: ["Interest never sleeps.", "Let's see here..."],
+                hall: ["The interest is compounded daily. The teeth are complimentary."],
+            ),
+            hall_dialogue_id: Some("hall_loan_shark"),
+        ),
+        // The literal money-growing hedge of Capital.
+        "hedge_fund": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Hedge Fund",
+            manifest: "sprites/hedge_fund_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(76.0),
+            composition: None,
+            default_action_set: "hedge_fund_sweep",
+            locomotion: Some((run_speed: 78.0, move_style: WalkHeavy)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 380.0,
+                attack_range: 76.0,
+                patrol_effort: 0.35,
+                chase_effort: 0.8,
+                attack_cooldown_s: 1.05,
+                tactics: (notice_s: 0.55),
+            )),
+            max_health: Some(9),
+            mass: Some(4.0),
+            tags: ["enemy", "business", "plant"],
+            barks: (
+                on_hit: ["Unrealized losses!", "That was principal!"],
+                provoked: ["I have a fiduciary duty to defend myself."],
+                idle: ["Growth. Growth. Growth.", "A little pruning never hurt anyone."],
+                hall: ["My assets are rooted in this market.", "I diversify. Two kinds of leaf. Three kinds of coin."],
+            ),
+            hall_dialogue_id: Some("hall_hedge_fund"),
+        ),
         // Capital, the city of the Business dimension (gate address DEALINGS,
         // `docs/planning/game/business-dimension.md`): its residents.
         "npc_business_dirk_quarterly": (
@@ -15962,6 +16291,37 @@
                 hall: ["A man paid for a coffee with a business card. I framed it. He still owes me two.", "Everyone in here is pitching. I sell the coffee they pitch over."],
             ),
             hall_dialogue_id: Some("hall_npc_business_barista"),
+        ),
+        // The performance-target referee, made literal.
+        "moving_goalposts": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Moving Goalposts",
+            manifest: "sprites/moving_goalposts_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(82.0),
+            composition: None,
+            default_action_set: "moving_goalposts_charge",
+            locomotion: Some((run_speed: 96.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 340.0,
+                attack_range: 124.0,
+                patrol_effort: 0.35,
+                chase_effort: 0.85,
+                attack_cooldown_s: 0.95,
+                tactics: (notice_s: 0.45, footsies: Some((hold_px: 120.0, wait_s: 0.55))),
+            )),
+            max_health: Some(7),
+            mass: Some(3.0),
+            tags: ["enemy", "business", "machine"],
+            barks: (
+                on_hit: ["That doesn't count.", "We're measuring something else now."],
+                provoked: ["Revised target!"],
+                idle: ["Almost there.", "The benchmark has been updated."],
+                hall: ["You met the goal. We have revised the goal.", "Targets are not set in stone. Mine are set in telescoping steel."],
+            ),
+            hall_dialogue_id: Some("hall_moving_goalposts"),
         ),
         "npc_business_records_clerk": (
             display_name: "Marguerite Pell",

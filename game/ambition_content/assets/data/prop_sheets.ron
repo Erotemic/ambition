@@ -650,6 +650,7 @@
     "port_warehouse": (),
     "port_gantry": (),
     "port_brig": (),
+    "port_cove_entrance": (),
     "port_dock_clutter": (),
     "port_manifest_page": (scale: 1.4),
     // The General's tower inside, one floor each (`targets/props/

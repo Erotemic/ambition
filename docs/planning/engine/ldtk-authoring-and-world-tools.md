@@ -202,6 +202,12 @@ For common operations, tools should express the author's intent:
 
 The generated `.ldtk` remains ordinary editor-compatible data.
 
+**Follow-up for district generators.** The Pirate Port generator applies
+all ten rooms. To regenerate only the waterfront or the docks, the author
+must call the room builder and repeat the ladder paint step. Consider a
+room selector that runs the build and the selected room's later steps
+together. Use the semantic diff to confirm the scope of the result.
+
 ### L4.1 — prepare the complete edit before writing source
 
 **State:** PLANNED after review of `3ed50e318392`, 2026-11-21. This is the

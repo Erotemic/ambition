@@ -1,0 +1,27 @@
+// First-pass platform-fighter facet for Wanda. Balance in the running game.
+(
+    character: "npc_magical_wanda",
+    knockback_weight: Some(0.94),
+    body: Some((
+        max_run_speed: Some(310.0), initial_dash_speed: Some(320.0),
+        run_accel: Some(400.0), ground_friction: Some(700.0),
+        max_air_speed: Some(255.0), air_accel: Some(1020.0),
+        gravity: Some(990.0), max_fall_speed: Some(285.0), fast_fall_speed: Some(455.0),
+        jump_speed: Some(450.0), double_jump_speed: Some(485.0), dodge_roll_speed: Some(350.0),
+    )),
+    move_timing: {
+        "wanda_jab": (hit_s: 0.08, last_s: 0.16, total_s: 0.36, swing: Some("swing.light")),
+        "wanda_attack_side": (hit_s: 0.15, last_s: 0.27, total_s: 0.57, swing: Some("swing.light")),
+        "wanda_attack_up": (hit_s: 0.14, last_s: 0.26, total_s: 0.56, swing: Some("swing.light")),
+        "wanda_attack_down": (hit_s: 0.16, last_s: 0.28, total_s: 0.61, swing: Some("swing.light")),
+        "wanda_attack_dash": (hit_s: 0.13, last_s: 0.31, total_s: 0.66, swing: Some("swing.light")),
+        "wanda_attack_air": (hit_s: 0.13, last_s: 0.31, total_s: 0.6, landing_lag_s: Some(0.16), swing: Some("swing.aerial")),
+        "wanda_attack_air_forward": (hit_s: 0.17, last_s: 0.3, total_s: 0.64, landing_lag_s: Some(0.16), swing: Some("swing.aerial")),
+        "wanda_attack_air_back": (hit_s: 0.17, last_s: 0.3, total_s: 0.61, landing_lag_s: Some(0.16), swing: Some("swing.aerial")),
+        "wanda_attack_air_up": (hit_s: 0.14, last_s: 0.28, total_s: 0.58, landing_lag_s: Some(0.16), swing: Some("swing.aerial")),
+        "wanda_attack_air_down": (hit_s: 0.2, last_s: 0.36, total_s: 0.74, landing_lag_s: Some(0.16), swing: Some("swing.aerial")),
+        "wanda_smash_forward": (hit_s: 0.3, last_s: 0.47, total_s: 0.9, swing: Some("swing.heavy")),
+        "wanda_smash_up": (hit_s: 0.28, last_s: 0.44, total_s: 0.84, swing: Some("swing.heavy")),
+        "wanda_smash_down": (hit_s: 0.27, last_s: 0.45, total_s: 0.9, swing: Some("swing.heavy")),
+    },
+)

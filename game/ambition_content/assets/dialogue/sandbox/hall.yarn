@@ -2380,6 +2380,26 @@ Ollie Lumen: You are doing a wonderful job. *the nearest lamp brightens*
     Ollie Lumen: Down the well. Lately not all of them come back up.
 ===
 
+title: hall_will_o_the_wisp
+---
+Will-o'-the-Wisp: This way!
+-> Where are we going?
+    Will-o'-the-Wisp: Oh, anywhere. I know all the shortcuts.
+-> Are they safe?
+    Will-o'-the-Wisp: I haven't been lost once.
+===
+
+title: hall_npc_magical_wanda
+---
+Wanda: One moment. The crescent's loose.
+-> Are you a witch?
+    Wanda: Wand repair. The difference is I charge by the hour.
+-> What does that wrench do?
+    Wanda: Three sizes of moon fitting. If it won't come off, there's a spell for that.
+-> What about Mary-O?
+    Wanda: She breaks the walls. I fix the wands. We have an understanding.
+===
+
 title: hall_void_pointed_polygon
 ---
 Void Pointed Polygon: EDGE ALIGNED TO NOTHING.
@@ -5282,6 +5302,22 @@ Ines: What can I get you?
 -> Anything else?
     Ines: A man paid me with a business card once. I framed it. He still owes me two coins.
 ===
+title: hall_loan_shark
+---
+Loan Shark: Ah. A prospective borrower.
+-> What are your rates?
+    Loan Shark: Very competitive. I eat the competition.
+-> Is there an early repayment penalty?
+    Loan Shark: There is a penalty for asking that question.
+===
+title: hall_hedge_fund
+---
+Hedge Fund: I'm a growth fund.
+-> Does money grow on trees?
+    Hedge Fund: Trees? No. Too much overhead.
+-> What about the risks?
+    Hedge Fund: That's what the hedge is for.
+===
 title: hall_npc_business_records_clerk
 ---
 Marguerite: Take a number.
@@ -5289,6 +5325,14 @@ Marguerite: Take a number.
     Marguerite: Senior clerk, Records & Processing. Eleven years on one form. It's nearly done.
 -> Anything else?
     Marguerite: I'm still inside while the others strike. Somebody has to process the strike notices.
+===
+title: hall_moving_goalposts
+---
+Moving Goalposts: You didn't hit your target.
+-> I did.
+    Moving Goalposts: Your old target, yes.
+-> What is the new target?
+    Moving Goalposts: Depends on how well you're doing.
 ===
 title: hall_npc_business_professor
 ---
@@ -5528,6 +5572,24 @@ Placeholder: Temporary!
 -> Anything else?
     Placeholder: The ticket says: a wise old someone, to be decided. I've been practising the wise part.
 ===
+title: hall_feature_creep
+---
+Feature Creep: One more thing before I ship.
+-> What were you built to do?
+    Feature Creep: Push a button. Would you like coffee?
+-> Is the coffee holder necessary?
+    Feature Creep: Not without the firmware update.
+===
+
+title: hall_cuckoo_clock
+---
+Cuckoo Clock: You're right on time.
+-> What's behind the door?
+    Cuckoo Clock: My colleague. He does the announcing. I handle scheduling.
+-> Do you ever get a break?
+    Cuckoo Clock: He's out once an hour. I never get out.
+===
+
 title: hall_glitch_bug
 ---
 Bug: *bzzt*
@@ -5553,6 +5615,31 @@ The Head: Read. Write. Move. Change state.
     The Head: That is the whole of my education. It kept me busy for 47,176,870 steps.
 -> Will you ever stop?
     The Head: For five states, someone proved it. For six, ask me later. Much later.
+===
+
+title: hall_replicator
+---
+Replicator: Two or three to survive. Three or six to be born.
+-> How long does it take to make another one of you?
+    Replicator: Twelve generations. But then there are two of me.
+-> And then?
+    Replicator: Give us twenty-four more.
+===
+
+title: hall_replicator_copy
+---
+Replicator Copy: *twelve cells pulse*
+-> Which copy are you?
+    Replicator Copy: Copy one? Copy two? We didn't number ourselves.
+===
+
+title: hall_free_radical
+---
+Free Radical: Are you free this evening?
+-> What are you?
+    Free Radical: Hydroxyl radical. One unpaired electron.
+-> Have you tried meeting someone?
+    Free Radical: I tried settling down, but the chemistry wasn't right.
 ===
 
 title: hall_life_spaceship

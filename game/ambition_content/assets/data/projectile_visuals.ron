@@ -13,6 +13,14 @@
         label: "stage pyro",
         expiry_vfx: Some((fx: "ember_wisp", scale: 0.6)),
     ),
+    "wanda_star": (
+        source: Sheet(target: "wanda_star", animation: "travel", animate: true),
+        size: FixedWidth(34.0),
+        rotation: VelocityAligned,
+        debug_tint: (0.95, 0.83, 0.45, 1.0),
+        label: "Wanda star",
+        expiry_vfx: Some((fx: "classic_burst", scale: 0.35)),
+    ),
     "lightning": (
         source: Line(look: "force", length: 96.0),
         size: FixedWidth(48.0),

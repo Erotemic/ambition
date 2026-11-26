@@ -1,0 +1,31 @@
+(
+    schema_version: 1,
+    entities: [(
+        id: "stereotyping",
+        contracts: (
+            body: None,
+            hurtboxes: None,
+            presentation: None,
+            moveset: Some((
+                verbs: {"ranged": "print_labels"},
+                moves: [(
+                    id: "print_labels",
+                    display_name: Some("Print Labels"),
+                    clip: (clip: "attack_side", fallbacks: ["idle"]),
+                    duration_s: 1.2,
+                    windows: [
+                        (start_s: 0.0, end_s: 0.24, tag: Startup, volumes: [], motion_scale: 0.0),
+                        (start_s: 0.24, end_s: 0.78, tag: Active, volumes: [], motion_scale: 0.0),
+                        (start_s: 0.78, end_s: 1.2, tag: Recovery, volumes: [], motion_scale: 0.0),
+                    ],
+                    events: [
+                        (at_s: 0.24, kind: Ranged),
+                        (at_s: 0.48, kind: Ranged),
+                        (at_s: 0.72, kind: Ranged),
+                    ],
+                    gates: (grounded: Some(true), roots_steering: true, stops_at_ledge: true),
+                )],
+            )),
+        ),
+    )],
+)

@@ -483,6 +483,7 @@
     "art_costume_trunk": (),
     "art_amphi_pit_walkway": (backdrop: true),
     "art_amphi_east_aisle": (backdrop: true),
+    "art_backstage_costume_rig": (backdrop: true),
     // The Resonant Reach (`targets/props/art_resonance_props.py`). Each of its
     // three chimes is a brass tube on a stand; each door of the Concert Hall's
     // stage is a golden organ pipe with its note on it, and the chime of the
@@ -495,6 +496,8 @@
     // ticks.
     "art_grand_piano": (),
     "art_metronome": (),
+    "art_tuning_lift": (),
+    "art_tuning_lift_rails": (backdrop: true),
     // The Workshop Deeps (`targets/props/art_forge_props.py`). The bridge the
     // crane swings in over the kiln fire: a row of planks on two ropes (a
     // door: it fills the box of its wall, 224 by 24).

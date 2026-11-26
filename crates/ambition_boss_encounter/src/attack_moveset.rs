@@ -140,6 +140,26 @@ pub fn boss_attack_moveset(
                 }
                 (volumes, None)
             };
+            let mut windows = Vec::with_capacity(2);
+            if let Some(scale) = behavior.telegraph_speed_scale.filter(|_| tel > 0.0) {
+                windows.push(MoveWindow {
+                    start_s: 0.0,
+                    end_s: tel,
+                    tag: WindowTag::Startup,
+                    volumes: Vec::new(),
+                    sustain_effect: None,
+                    motion_scale: scale.clamp(0.0, 1.0),
+                });
+            }
+            windows.push(MoveWindow {
+                start_s: active_start,
+                end_s: active_end,
+                tag: WindowTag::Active,
+                volumes,
+                sustain_effect,
+                // Limit steering for every controller during the strike.
+                motion_scale: behavior.strike_speed_scale.clamp(0.0, 1.0),
+            });
             Some(MoveSpec {
                 // A boss move's label is its title-cased id.
                 display_name: None,
@@ -149,18 +169,7 @@ pub fn boss_attack_moveset(
                     fallbacks: vec!["idle".to_string()],
                 },
                 duration_s: active_end,
-                windows: vec![MoveWindow {
-                    start_s: active_start,
-                    end_s: active_end,
-                    tag: WindowTag::Active,
-                    volumes,
-                    sustain_effect,
-                    // The boss's authored strike-speed throttle is the move's
-                    // motion lock: while the strike is live, the body's
-                    // steering intent is scaled down at integration, so the
-                    // boss cannot outrun its own strike, for any controller.
-                    motion_scale: behavior.strike_speed_scale.clamp(0.0, 1.0),
-                }],
+                windows,
                 events,
                 gates: Default::default(),
                 start_impulse: None,

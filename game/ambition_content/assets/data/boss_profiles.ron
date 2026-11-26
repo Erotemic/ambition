@@ -1577,113 +1577,104 @@
     // summons — pure projectile pressure that ramps each phase. Reuses proven
     // attack profiles. Encounter numbers in boss_encounters/exploding_gradient_boss.ron.
     // ============================================================
-    // The Gram Reaper (Jon, 2026-10-31): the boss of the haunted floors of
-    // Hylbert's Hotel, a hooded spectral executioner. Its moves are the
-    // engine's geometry strikes (their hitboxes are the engine's), each with a
-    // clear telegraph, a committed strike and a punishable rest:
-    // - the GRAPH-CUT SLASH: a huge sweep in front (`side_sweep`);
-    // - the ORTHOGONAL DOUBLE-SLASH (Gram-Schmidt): a level sweep, then the
-    //   cut square to it, a column (`side_sweep`, `hazard_column`). The column
-    //   keeps its own tell (the edge-volley pose) after a short rest: a strike
-    //   takes its windup only from the telegraph of the same move just before
-    //   it, so without one the column would strike with no windup;
-    // - the EDGE VOLLEY: its wing fires edges, columns of light
-    //   (`hazard_column`);
-    // - ENRAGE: a burst out of its whole body (`full_body_pulse`).
-    // It floats and sways, stalking: its sheet is `gram_reaper` (the
-    // phase-change roar is its `enrage` row).
+    // The Gram Reaper. Rhai sets the danger areas and controls the poses.
     // ============================================================
     "gram_reaper_boss": (
         id: "gram_reaper_boss",
         character: "npc_gram_reaper",
-        // The placement sets the scale. The sheet defines the body.
         movement: AnchorSway(
-            x_radius: 140.0,
-            y_bob: 10.0,
-            x_frequency: 0.5,
+            x_radius: 112.0,
+            y_bob: 8.0,
+            x_frequency: 0.44,
             y_frequency: 0.9,
-            chase_scale: 0.3,
-            chase_limit: 140.0,
-            speed: 180.0,
+            chase_scale: 0.38,
+            chase_limit: 205.0,
+            speed: 142.0,
         ),
         movement_enrage: Some(AnchorSway(
-            x_radius: 200.0,
-            y_bob: 14.0,
-            x_frequency: 0.8,
-            y_frequency: 1.2,
-            chase_scale: 0.5,
-            chase_limit: 220.0,
-            speed: 260.0,
+            x_radius: 144.0,
+            y_bob: 11.0,
+            x_frequency: 0.60,
+            y_frequency: 1.15,
+            chase_scale: 0.50,
+            chase_limit: 240.0,
+            speed: 186.0,
         )),
-        strike_speed_scale: 0.25,
+        strike_speed_scale: 0.08,
+        telegraph_speed_scale: Some(0.09),
         macro_tuning: (
-            too_close_distance: 90.0,
-            too_far_distance: 420.0,
-            engage_distance: 180.0,
-            approach_duration_s: 2.6,
-            retreat_duration_s: 1.8,
-            engage_max_duration_s: 8.0,
-            approach_speed_scale: 1.3,
-            retreat_speed_scale: 0.8,
-            retreat_distance: 220.0,
+            too_close_distance: 70.0,
+            too_far_distance: 460.0,
+            engage_distance: 190.0,
+            approach_duration_s: 2.1,
+            retreat_duration_s: 1.5,
+            engage_max_duration_s: 13.0,
+            approach_speed_scale: 1.25,
+            retreat_speed_scale: 0.7,
+            retreat_distance: 160.0,
         ),
         attacks: [
-            Strike("side_sweep"),
-            Strike("hazard_column"),
-            Strike("full_body_pulse"),
+            Special("reaper_graph_cut"),
+            Special("reaper_projection"),
+            Special("reaper_edge_volley"),
+            Special("reaper_null_space"),
+        ],
+        possessed_verbs: [
+            ("attack", "reaper_graph_cut"),
+            ("attack_up", "reaper_projection"),
+            ("special", "reaper_edge_volley"),
         ],
         attack_cooldown: 1.2,
         attack_windup: 0.5,
         attack_active: 0.3,
         attack_damage: 2,
-        body_damage: 1,
+        body_damage: 0,
         attack_pattern: Scripted(
-            // PHASE 1: it stalks and cuts.
             phase1: (steps: [
-                // The graph-cut slash: scythe raised back, eyes flare.
-                Telegraph(profile: Strike("side_sweep"), duration: 0.9,
+                Telegraph(profile: Special("reaper_graph_cut"), duration: 0.95,
                     telegraph: Some((pose: Some("attack_side"), cue: Some("enemy.gram_reaper.tell")))),
-                Strike(profile: Strike("side_sweep"), duration: 0.35),
-                Rest(duration: 1.4),
-                // The edge volley: it points, its wing fires.
-                Telegraph(profile: Strike("hazard_column"), duration: 1.0,
-                    telegraph: Some((pose: Some("edge_volley"), cue: Some("enemy.gram_reaper.tell")))),
-                Strike(profile: Strike("hazard_column"), duration: 0.8),
-                Rest(duration: 1.3),
+                Strike(profile: Special("reaper_graph_cut"), duration: 0.33),
+                Rest(duration: 0.95),
+                Telegraph(profile: Special("reaper_edge_volley"), duration: 1.05,
+                    telegraph: Some((pose: Some("edge_volley"), cue: Some("boss.gram_reaper.edge_tell")))),
+                Strike(profile: Special("reaper_edge_volley"), duration: 0.66),
+                Rest(duration: 1.15),
             ]),
-            // PHASE 2: Gram-Schmidt: the projection, then the cut square to it.
             phase2: (steps: [
-                Telegraph(profile: Strike("side_sweep"), duration: 0.8,
-                    telegraph: Some((pose: Some("ortho_slash"), cue: Some("enemy.gram_reaper.tell")))),
-                Strike(profile: Strike("side_sweep"), duration: 0.3),
-                Rest(duration: 0.3),
-                Telegraph(profile: Strike("hazard_column"), duration: 0.7,
-                    telegraph: Some((pose: Some("edge_volley"), cue: Some("enemy.gram_reaper.tell")))),
-                Strike(profile: Strike("hazard_column"), duration: 0.5),
-                Rest(duration: 1.5),
-                Telegraph(profile: Strike("side_sweep"), duration: 0.75,
+                Telegraph(profile: Special("reaper_projection"), duration: 0.90,
+                    telegraph: Some((pose: Some("ortho_slash"), cue: Some("boss.gram_reaper.projection_tell")))),
+                Strike(profile: Special("reaper_projection"), duration: 0.29),
+                Rest(duration: 0.95),
+                Telegraph(profile: Special("reaper_graph_cut"), duration: 0.75,
                     telegraph: Some((pose: Some("attack_side"), cue: Some("enemy.gram_reaper.tell")))),
-                Strike(profile: Strike("side_sweep"), duration: 0.35),
-                Rest(duration: 1.1),
-                Telegraph(profile: Strike("hazard_column"), duration: 0.9,
-                    telegraph: Some((pose: Some("edge_volley"), cue: Some("enemy.gram_reaper.tell")))),
-                Strike(profile: Strike("hazard_column"), duration: 0.8),
-                Rest(duration: 1.2),
+                Strike(profile: Special("reaper_graph_cut"), duration: 0.33),
+                Rest(duration: 0.62),
+                Telegraph(profile: Special("reaper_edge_volley"), duration: 0.90,
+                    telegraph: Some((pose: Some("edge_volley"), cue: Some("boss.gram_reaper.edge_tell")))),
+                Strike(profile: Special("reaper_edge_volley"), duration: 0.63),
+                Rest(duration: 1.05),
+                Telegraph(profile: Special("reaper_graph_cut"), duration: 0.75,
+                    telegraph: Some((pose: Some("attack_side"), cue: Some("enemy.gram_reaper.tell")))),
+                Strike(profile: Special("reaper_graph_cut"), duration: 0.33),
+                Rest(duration: 0.82),
             ]),
-            // ENRAGE: a burst out of its whole body, then the double-slash.
             enrage: (steps: [
-                Telegraph(profile: Strike("full_body_pulse"), duration: 1.0,
+                Telegraph(profile: Special("reaper_null_space"), duration: 1.30,
                     telegraph: Some((pose: Some("enrage"), cue: Some("enemy.gram_reaper.notice")))),
-                Strike(profile: Strike("full_body_pulse"), duration: 0.5),
-                Rest(duration: 0.9),
-                Telegraph(profile: Strike("side_sweep"), duration: 0.6,
-                    telegraph: Some((pose: Some("ortho_slash"), cue: Some("enemy.gram_reaper.tell")))),
-                Strike(profile: Strike("side_sweep"), duration: 0.3),
-                Rest(duration: 0.3),
-                Telegraph(profile: Strike("hazard_column"), duration: 0.7,
-                    telegraph: Some((pose: Some("edge_volley"), cue: Some("enemy.gram_reaper.tell")))),
-                Strike(profile: Strike("hazard_column"), duration: 0.5),
-                Rest(duration: 1.2),
+                Strike(profile: Special("reaper_null_space"), duration: 0.38),
+                Rest(duration: 1.30),
+                Telegraph(profile: Special("reaper_graph_cut"), duration: 0.63,
+                    telegraph: Some((pose: Some("attack_side"), cue: Some("enemy.gram_reaper.tell")))),
+                Strike(profile: Special("reaper_graph_cut"), duration: 0.33),
+                Rest(duration: 0.64),
+                Telegraph(profile: Special("reaper_projection"), duration: 0.72,
+                    telegraph: Some((pose: Some("ortho_slash"), cue: Some("boss.gram_reaper.projection_tell")))),
+                Strike(profile: Special("reaper_projection"), duration: 0.29),
+                Rest(duration: 0.95),
+                Telegraph(profile: Special("reaper_edge_volley"), duration: 0.82,
+                    telegraph: Some((pose: Some("edge_volley"), cue: Some("boss.gram_reaper.edge_tell")))),
+                Strike(profile: Special("reaper_edge_volley"), duration: 0.60),
+                Rest(duration: 0.92),
             ]),
         ),
     ),

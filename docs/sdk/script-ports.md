@@ -129,6 +129,44 @@ Port `ambition.presentation.drawn_row@4`, request: `this.requests.push(request("
 | `elapsed` | number | `0.0` | Seconds into the row. |
 | `looping` | bool | `false` | Loop the row, or hold its last frame. |
 
+## `attack_mark`
+
+Port `ambition.feedback.attack_mark@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `slot` | integer (u32) | required |  |
+| `center` | [x, y] | required | World center in world units, with +Y down. |
+| `half_extent` | [x, y] | required |  |
+| `progress` | number | required | Progress within the warning or strike, from zero to one. |
+| `active` | bool | required | Show the strike treatment when true. This has no effect on damage. |
+
+## `held_damage_box`
+
+Port `ambition.combat.held_damage_box@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `slot` | integer (u32) | required | Slot within this entry and body. |
+| `generation` | integer (u32) | required | Change this when a new strike starts in the slot. |
+| `center` | [x, y] | required | World center of the box, with +Y down. |
+| `half_extent` | [x, y] | required |  |
+| `damage` | integer (i32) | required |  |
+| `knockback` | number | required |  |
+| `lifetime_s` | number | required |  |
+
+## `burst`
+
+Port `ambition.feedback.burst@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `at` | [x, y] | required |  |
+| `count` | integer (u32) | required |  |
+| `speed` | number | required |  |
+| `color` | list of number | required |  |
+| `kind` | text | required |  |
+
 ## `held_ray`
 
 Port `ambition.combat.held_ray@5`, request: `this.requests.push(request("<alias>", #{ .. }))`.

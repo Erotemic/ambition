@@ -511,6 +511,29 @@ pub enum VfxMessage {
     },
 }
 
+/// The identity of a mark in a live room.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct AttackMarkKey {
+    pub owner: Entity,
+    pub entry: std::sync::Arc<str>,
+    pub slot: u32,
+}
+
+/// The warning or strike mark for a rectangle in world space.
+#[derive(Clone, Debug)]
+pub struct AttackMark {
+    pub key: AttackMarkKey,
+    pub room: LiveRoomInstance,
+    pub center: ae::Vec2,
+    pub half: ae::Vec2,
+    pub progress: f32,
+    pub active: bool,
+}
+
+/// The attack marks from the latest gameplay step.
+#[derive(Resource, Default)]
+pub struct AttackMarks(pub Vec<AttackMark>);
+
 /// A reusable effect CUE request: a sim system writes this to ask for an
 /// effect's visual and its paired sound, without depending on the renderer.
 /// The presentation `process_fx_requests` fans it out to [`VfxMessage`] + the

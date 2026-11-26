@@ -145,6 +145,17 @@ impl Port for BurstPort {
     }
 }
 
+ambition_extension_sdk::port_record! {
+    Burst {
+        at: [f32; 2],
+        count: u32,
+        speed: f32,
+        color: [f32; 4],
+        kind: String,
+    }
+}
+ambition_extension_sdk::script_port!(BurstPort);
+
 /// The request port marker for a speech bubble.
 ///
 /// Port card:

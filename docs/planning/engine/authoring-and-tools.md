@@ -410,6 +410,8 @@ that the tool and the runtime can use.
 The Collider automaton kept its ID with the same method. The move command
 checked the Science file alone and reported valid gate arrivals as errors.
 Use the same world composition for entity moves and room generation.
+The Lab 0 grant chest also needs this ID when it moves. A save uses it to
+record that the chest is open.
 
 **What is known about the recurring rewrite (2026-10-04).** Two fixes did not
 stop it: `54d99e7fb` (reuse tileset and rule uids; write only when changed)

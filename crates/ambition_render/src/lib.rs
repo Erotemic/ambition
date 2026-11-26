@@ -22,6 +22,7 @@ pub mod gameplay_surround;
 /// The in-world HUD overlay: health/mana bars, ability pips, banner text.
 pub mod hud;
 pub mod lines;
+mod attack_marks;
 pub mod mesh2d_late_meshes;
 /// The presentation face a demo can add. See its module docs.
 pub mod platformer_presentation;

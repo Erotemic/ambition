@@ -72,6 +72,9 @@ pub struct BossBehaviorProfile {
     /// Movement multiplier while a strike is committed. At moveset bake time this
     /// becomes the strike Active-window `motion_scale`.
     pub strike_speed_scale: f32,
+    /// Limit steering during a telegraph. An absent value leaves steering unchanged.
+    #[serde(default)]
+    pub telegraph_speed_scale: Option<f32>,
     /// Optional `(amplitude_px, frequency_hz)` self-dodge while striking.
     #[serde(default)]
     pub self_dodge: Option<(f32, f32)>,

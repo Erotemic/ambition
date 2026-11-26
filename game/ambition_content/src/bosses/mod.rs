@@ -261,6 +261,11 @@ pub fn register_rollback_state(
 impl Plugin for AmbitionBossContentPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
+        ambition_platformer2d::extension::add_shipped_script(
+            app,
+            "game/ambition_content/rhai/gram_reaper.rhai",
+            include_str!("../../rhai/gram_reaper.rhai"),
+        );
         // Compose all authored boss behavior, encounter, sheet, and special-row
         // data into this App. The same provider fragment serves standalone and
         // multi-game hosts without process-global install order.

@@ -16,6 +16,7 @@ mod a_scripted_lever_spends_its_barrier;
 mod playtest_ability_access;
 mod lightning_is_authored_in_rhai;
 mod the_boss_stage_has_scripted_pyro;
+mod gram_reaper;
 mod smash_hit_properties;
 mod the_creator_answers_each_confirm;
 mod a_project_authors_a_technique;

@@ -86,3 +86,41 @@ parry index. `credit` and `struck.striker` supply opaque decimal tokens for
 `blast.credit`. A script can retain a token in a `u64` record field. All
 `u64` values use decimal strings in scripts, including initial values such
 as `initial: "18446744073709551615"`. Use `u32` for small arithmetic counters.
+
+## Script an encounter pattern
+
+The [Gram Reaper](../../game/ambition_content/rhai/gram_reaper.rhai) uses
+`Special("move_key")` for the warning and strike in
+[`boss_profiles.ron`](../../game/ambition_content/assets/data/boss_profiles.ron).
+Give each move its own pose and sound. Set its warning, strike, and rest
+durations in the pattern. Bind a `boss_conduct` entry to the boss profile ID
+to use the same script at all placements of that profile.
+Set `telegraph_speed_scale` to limit steering for a move that must wind up
+in place. Bounds are zero for a stop and one for full steering.
+
+Import the SDK library with `import "ambition/boss_beats.rhai" as beats;`.
+Declare a body record with `beats::schema("your_script.beat")`. On each
+invocation, call `beats::advance(this.state.beat, this.trigger, this.dt)` and
+save the returned `beat`. Read its `stage` for `warning`, `strike`,
+`recovery`, or `idle`. Use `started` to set the shape and aim of a new
+attack. Use `entered` for sound and particles at the start of a stage. The
+pattern supplies the clock. The library gives a progress fraction for each
+warning and strike.
+
+Keep a committed rectangle in a body record with `beats::box_kind()`.
+Use `beats::show_box` and `beats::strike_box` with that rectangle for the
+warning and strike. Declare the `attack_mark` and `held_damage_box` request
+aliases. Each box has a slot. During the strike, submit the box with the same
+slot and the beat's generation on each tick. This keeps the hit history for
+the full strike. Stop submitting it during recovery.
+Use `beats::boxes` to play a list of rectangles together or in order.
+Its `fired` field gives the first active slot on the tick it starts.
+Use that edge for a sound or particle burst.
+When the body needs its ordinary animation again, clear a pinned row with
+`beats::pose("", 0.0)`.
+
+Play the Reaper in Hylbert's Hotel or use its practice door in the Hall
+of Bosses. Set `AMBITION_EXTENSION_MODULES=game/ambition_content/rhai/gram_reaper.rhai`
+to edit its poses and regions in a running development session. The
+Platformer2D host supplies the SDK library to shipped and development
+scripts. The example uses the room's measured floor and side boundaries.

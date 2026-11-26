@@ -18,6 +18,8 @@
             "trex_tail_whip", // the T-rex: the tail coils, then sweeps low behind him
             "trex_stomp",     // the T-rex: he rears and stamps, and a shock runs the floor both ways
             "side_sweep",           // two arms, boss-relative left+right
+            "reaper_graph_cut",      // A low scythe sweep in front of the Reaper.
+            "reaper_edge_volley",    // Three floor cuts fire in sequence.
             "pendulum",             // GNU-ton: a fist on a string, low across where you stood
             "cradle",               // GNU-ton: Newton's cradle, one fist swinging at a time
             "stomp",                // GNU-ton's gnu: a shock rolling out along the floor
@@ -75,6 +77,7 @@
             "trex_jaw_grab",  // the T-rex: a low lunge, jaws wide; caught, you are thrashed and flung
             "floor_slam",    // wide flat rect at the feet
             "demonstrate",      // GNU-ton: a fist tracks, locks, falls, and sticks
+            "reaper_projection", // A vertical cut at the target's first position.
             "demonstrate_pair", // GNU-ton: the second fist falls where you dodged to
             "portal_punch",     // GNU-ton: the giant's fist comes out of a portal by you (down, at a slant, across or up, by where you are), and stays
             "portal_kick",      // GNU-ton: the giant's hoof comes out of a portal by you, along the floor or down on you
@@ -100,6 +103,25 @@
     ),
 
     // ============================================================
+    "sweep_with_gap": (
+        archetype: Sweep,
+        intent: "Threaten both sides of the floor. The gap gives a route back to the boss. Show its full width for the complete warning.",
+        skill_tested: "Move into the gap or jump over the cut.",
+        fair_counters: [Jump, Dash, WalkOut],
+        threat: Heavy,
+        telegraph: (min_s: 1.30, max_s: 1.30),
+        active: (min_s: 0.38, max_s: 0.38),
+        instances: ["reaper_null_space"],
+        recipes: [
+            (
+                name: "central_gap",
+                telegraph_s: 1.30,
+                active_s: 0.38,
+                notes: "Keep the gap near the boss. Leave time to attack from the gap during recovery.",
+            ),
+        ],
+    ),
+
     "body_nova": (
         archetype: BodyNova,
         intent: "A burst centered on the boss's own body. It exists to punish the player who solved the fight by standing inside the boss, where most sweeps and slams cannot reach. Its answer is distance, which means it RESETS neutral — the only seed here that does.",

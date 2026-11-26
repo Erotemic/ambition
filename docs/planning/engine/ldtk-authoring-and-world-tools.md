@@ -210,6 +210,9 @@ together. Use the semantic diff to confirm the scope of the result.
 The Frontier refinery spec puts its ladders in `intgrid.climbable`. Use
 this field for the Pirate Port ladders when the generator can supply all
 ladder positions in the room spec.
+The Records & Processing room had a stale generator record after an edit
+that put the same enemies in the map and the generator. A room preview
+could show the generated changes before the author updates the record.
 
 ### L4.1 — prepare the complete edit before writing source
 

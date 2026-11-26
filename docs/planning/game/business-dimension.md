@@ -55,9 +55,10 @@ are a reference for the look, not a layout.
   Business College and its door. The east edge goes on to Records.
 - **Records & Processing** (`business_records_processing`): the conveyor and
   the APPROVED press on the floor, the shredder's pit (a `HazardBlock` at its
-  foot), and the climb up the east side: two catwalks, the folder carrier
-  (`MovingPlatform`, look `business_folder_carrier`) across to the west, the
-  walk to Marguerite Pell's desk, and the top of the archive with a chest.
+  foot). The service stairs on the east lead to the folder carrier
+  (`MovingPlatform`, look `business_folder_carrier`). It crosses to the west,
+  where the intake shelf leads to Marguerite Pell's desk and the archive
+  chest.
   The background is the records hall: arched bays of binders, brass tubes.
 - **Lecture Hall 101** (`business_college_lecture_hall`): Professor Gail
   Margin teaching Synergy from the stage; tiers of desks up to the back row,

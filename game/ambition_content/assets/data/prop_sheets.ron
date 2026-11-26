@@ -1097,6 +1097,8 @@
     "business_stamp_press": (),
     "business_shredder": (),
     "business_records_desk": (),
+    "business_records_service_stairs": (),
+    "business_records_archive_stairs": (),
     "business_lecture_room": (),
     "business_folder_carrier": (),
     // The Neural dimension's scenery (`targets/props/neural_props.py`): each

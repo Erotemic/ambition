@@ -94,6 +94,8 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
 ```
 
 - **Two roads over:** the floor, and the roofs from the shrine's terrace to the forest's branches.
+- **Cedar Forest:** a fallen cedar connects the ground path to the fourth
+  branch and the crows' hoard.
 - **Under:** a loose board in the street (a one-way floor, dropped through; `secret_`) into the hidden way, west to a stone slab in the shrine's floor, shut until the lever under it is pulled.
 - **Tests:** `game/ambition_app/tests/the_ninja_village.rs`.
 

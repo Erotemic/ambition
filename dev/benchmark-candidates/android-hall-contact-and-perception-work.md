@@ -570,6 +570,40 @@ reduced the median `Combat` phase from 3.96–4.64 ms to 3.52 ms. Full tick
 timings overlapped. The complete removal is a cost probe. The engine still
 accepts buffered moves, held follow-ups, movement cancels, and throws.
 
+Control admission uses the slot index to clear ungranted verbs. It reads
+declared techniques in canonical slot order to route edges and report
+unsupported bindings. A probe on the older desktop host loaded 596 Hall
+bodies. None had a technique binding. The isolated gate pass went from
+0.758–0.766 to 0.417–0.425 ms, with the same control frames and edges.
+
+A separate 596-body probe used the indexed action scheme. Resolver time
+fell from 0.142–0.150 to 0.031–0.035 ms per pass in the development
+build and from 0.016–0.022 to 0.009–0.014 ms per pass in the optimized
+build. A comparison of 4,096 mixed schemes kept the same control frames,
+edge order, and diagnostics. These tests measure the gate and its
+resolver. They do not measure an assembled tick.
+
+### Defense projection
+
+The guard pass reads the full body data for guards that exist, bodies with
+new or changed forms, and bodies that lose guard state. A new cast can add
+guards to forms already in the room. The wallet shield pass checks live
+room rules first and clears existing shields when no room grants the rule.
+Only timed empowerment grants read the clock of a body's room.
+
+| Isolated development pass in the loaded 596-body Hall | Before, ms | After, ms |
+| --- | ---: | ---: |
+| Guard volume projection | 0.085–0.122 | 0.027–0.034 |
+| Wallet shield projection | 0.063–0.066 | 0.002 |
+| Empowerment projection | 0.085–0.086 | 0.075 |
+
+The Hall had one guard, no wallet shields, and no temporary empowerment
+grants. The before and after passes gave the same output. The probe also
+checked guard reconstruction, form changes, and cast replacement. Three
+wallet shield tests covered the rule, leaving its rooms, and two rooms with
+different rules. These runs used cached host libraries and current system
+source. Full application and phone measurements remain open.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

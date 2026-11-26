@@ -179,12 +179,14 @@ def attach(repo: Path, out: Path, assets: dict[str, Any], rows: dict[str, dict],
     for aid, asset in assets.items():
         row = rows.get(aid)
         gid = asset.generator or ""
-        if row is None or not gid.startswith("target:"):
+        if row is None:
             continue
-        target = gid.split(":", 1)[1]
+        target = gid.split(":", 1)[1] if gid.startswith("target:") else ""
         found = [(n, f"target {target}") for n in matching_lineages(lineages, targets=[target], products=row["products"])]
-        if row.get("character_id"):
-            found += [h for h in join.find(row["character_id"]) if "current_products" not in lineages[h[0]] and h[0] not in {n for n, _ in found}]
+        character_ids = row.get("character_ids") or [row.get("character_id")]
+        for character_id in filter(None, character_ids):
+            found += [h for h in join.find(character_id)
+                      if "current_products" not in lineages[h[0]] and h[0] not in {n for n, _ in found}]
         if found:
             row["lineages"] = [dict(lineage(n), found_via=via) for n, via in found]
             linked += 1

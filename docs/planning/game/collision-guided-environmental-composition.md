@@ -200,6 +200,9 @@ after the session starts. Consider an option in `room render` that draws
 published props over the room geometry. Use the existing publication
 index and prop draw modes. Include doors and climbable surfaces so an
 author can check the relation between the art and the route.
+The Site Office shows an outdoor backdrop through windows in an indoor
+wall. Draw the room's selected backdrop under the props so authors can
+check those openings in the preview.
 
 ## Follow-up for room art generators
 
@@ -211,6 +214,8 @@ the positions of the Library's ledges and the Mine's switches to check that
 the same input works for surfaces and controls.
 The Celtic Frontier ramp also needs the `SurfaceChain` points. The points
 give the art generator the height of each rail and support on the ramp.
+The Staging Area scaffold is another case. Pass the ledge spans to the art
+generator so each step gets planks and braces at its landing surface.
 The Tape Room carriage gives its frame size and top anchor in the sprite
 source and again in `platform_looks.ron`. Read these values from the
 published sheet when the platform uses them. Keep the support span an
@@ -222,6 +227,10 @@ The Viking North fjord put the same grass and barrels on the channel bed
 as on the banks. Use the water bounds when the terrain system selects
 decoration for a floor. A theme can use bare stone or sediment on the part
 below water and keep its usual ground cover on the bank.
+
+The Site Office timber skin needs both published textures and entries in the
+asset catalog. Use the terrain product plan to list the missing catalog
+entries for a new skin.
 
 ## Three visual acceptance scenes
 

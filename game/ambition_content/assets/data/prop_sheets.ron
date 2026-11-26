@@ -1145,6 +1145,7 @@
     "unfinished_scaffold": (),
     "unfinished_spill": (),
     "unfinished_cranes": (),
+    "unfinished_office_wall": (backdrop: true),
     "unfinished_gauges": (),
     "unfinished_backlog": (),
     // The Automaton dimension's scenery (`targets/props/automaton_props.py`):

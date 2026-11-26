@@ -65,7 +65,7 @@ class SidecarCache:
     parsing the large sheet YAML is most of a rebuild otherwise. A reader's
     result must be plain JSON data. With no `path`, nothing is kept."""
 
-    VERSION = 4  # 4: score summaries carry their form (`kinds._score_summary`)
+    VERSION = 5  # 5: actor sidecars expose an art label
 
     def __init__(self, path: Path | None) -> None:
         self.path = path
@@ -172,7 +172,7 @@ def read_actor(path: Path) -> dict[str, Any]:
     text = path.read_text()
     out: dict[str, Any] = {
         "character_id": _ron_field(text, "character_id"),
-        "display_name": _ron_field(text, "display_name"),
+        "art_label": _ron_field(text, "art_label") or _ron_field(text, "display_name"),
         "renderer_target": _ron_field(text, "renderer_target"),
         "surface": _ron_field(text, "surface"),
         "description": _ron_field(text, "authoring_description"),

@@ -121,8 +121,8 @@ pub fn run_empowerments(
     freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let shared_dt = time.sim_dt();
+    let cast = cast.get();
     for (body, grant, worn, mut health) in &mut bodies {
-        let dt = shared_dt * freeze.scale_of(body);
         let mut live_grant = None;
         if let Some(mut empowered) = grant {
             // A HELD empowerment has no clock to run: it is live until its
@@ -131,6 +131,7 @@ pub fn run_empowerments(
             // minutes".
             let live = match empowered.remaining {
                 Some(remaining) => {
+                    let dt = shared_dt * freeze.scale_of(body);
                     let next = remaining - dt;
                     empowered.remaining = Some(next);
                     next > 0.0
@@ -148,8 +149,8 @@ pub fn run_empowerments(
         // Our reason only. A transformation beat overlapping this keeps its own,
         // and neither can strip the other by ending first. Written only when it
         // changes, because every worn body passes here each tick.
-        let untouchable = empowerment_of(live_grant.as_ref(), worn, cast.get())
-            .holds(Empowerment::UNTOUCHABLE);
+        let untouchable =
+            empowerment_of(live_grant.as_ref(), worn, cast).holds(Empowerment::UNTOUCHABLE);
         if health.health.invulnerable.holds(Invulnerability::EMPOWERED) != untouchable {
             health
                 .health

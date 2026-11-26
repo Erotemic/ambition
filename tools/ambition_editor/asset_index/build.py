@@ -128,6 +128,9 @@ def build(
     found += [{"code": "ldtk-unresolved", "severity": "info", "subject": f"{u['field']}={u['value']}", "message": f"{u['count']} placement(s) in {u['world']} name no asset the index can resolve.", **u} for u in unresolved_ldtk]
 
     catalog = _catalog(repo, out, products, assets, ev, content + literals, placements, found)
+    if inspection is not None:
+        catalog["inventory"] = inspection
+        _apply_prepared_identities(catalog["assets"], inspection)
     step("visual lineages" + (" and authorship" if lineages else " (cached history)"))
     catalog["lineages"], history_warnings = lineage.attach(repo, out, assets, catalog["assets"], targets,
                                                         authorship=lineages, previews=previews, log=log)
@@ -135,25 +138,6 @@ def build(
         catalog["findings"].append({"code": "lineage-warning", "severity": "info", "subject": "design history", "message": warning})
     step("related assets")
     related.relate(catalog["assets"], catalog["generators"], repo)
-    if inspection is not None:
-        catalog["inventory"] = inspection
-        for asset in catalog["assets"].values():
-            unit = inspection["units"].get(asset.get("generator"))
-            if not unit:
-                continue
-            asset["inspection_unit"] = unit["id"]
-            asset["identities"] = [cid for cid in unit["identities"]
-                if inspection["identities"][cid]["catalog"].get("manifest") in asset["products"]]
-            asset["art_label"] = asset["display"]
-            if asset["identities"]:
-                identities = [inspection["identities"][cid] for cid in asset["identities"]]
-                asset["display"] = " / ".join(dict.fromkeys(identity["display"] for identity in identities))
-                asset["tags"] = sorted(set(asset["tags"] + [tag for identity in identities for tag in identity["catalog"].get("tags", [])]))
-                for identity in identities:
-                    row = identity["catalog"].get("rest_row")
-                    identity["preview"] = {"asset": asset["id"], "row": row,
-                        "cover": asset.get("layout", {}).get("covers", {}).get(row, asset.get("cover"))}
-            unit.setdefault("assets", []).append(asset["id"])
     step("music, sound, fonts and worlds")
     try:
         families = family_report.result()
@@ -216,6 +200,35 @@ def _describe(value: Any) -> str | None:
     return value
 
 
+def _apply_prepared_identities(assets: dict, inspection: dict) -> None:
+    """Join the cast to the assets by the exact sheet each character wears."""
+    by_manifest: dict[str, list[dict]] = defaultdict(list)
+    for identity in inspection["identities"].values():
+        if manifest := identity["catalog"].get("manifest"):
+            by_manifest[manifest].append(identity)
+
+    for asset in assets.values():
+        identities = [identity for product in asset["products"] for identity in by_manifest.get(product, ())]
+        unit = inspection["units"].get(asset.get("generator"))
+        if unit:
+            asset["inspection_unit"] = unit["id"]
+            unit.setdefault("assets", []).append(asset["id"])
+        asset["identities"] = [identity["key"] for identity in identities]
+        if not identities:
+            continue
+        asset["art_label"] = asset["display"]
+        asset["character_ids"] = list(dict.fromkeys(identity["id"] for identity in identities))
+        asset["character_id"] = asset["character_ids"][0] if len(asset["character_ids"]) == 1 else None
+        asset["display"] = " / ".join(dict.fromkeys(identity["display"] for identity in identities))
+        asset["tags"] = sorted(set(asset["tags"]).union(
+            tag for identity in identities for tag in identity["catalog"].get("tags", [])
+        ))
+        for identity in identities:
+            row = identity["catalog"].get("rest_row")
+            cover = (asset.get("layout") or {}).get("covers", {}).get(row, asset.get("cover"))
+            identity["preview"] = {"asset": asset["id"], "row": row, "cover": cover}
+
+
 def _catalog(repo: Path, out: Path, products, assets, ev, uses, placements, found) -> dict[str, Any]:
     to_repo = os.path.relpath(repo, out)
     uses_by: dict[str, list] = defaultdict(list)
@@ -260,7 +273,7 @@ def _catalog(repo: Path, out: Path, products, assets, ev, uses, placements, foun
             "id": asset.id,
             "family": asset.family,
             "name": asset.name,
-            "display": actor.get("display_name") or asset.name,
+            "display": actor.get("art_label") or asset.name,
             "generator": asset.generator,
             "confidence": asset.confidence,
             "weakest": data.get("weakest"),

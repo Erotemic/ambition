@@ -73,8 +73,8 @@ def relate(rows: dict[str, dict], generators: dict[str, dict], repo: Path) -> No
         data = list(gen.get("data") or [])
         if gen.get("family") == "sprite_target" and gen.get("id") in specs:
             data.append(specs[gen["id"]])
-        if row.get("character_id"):
-            groups["character"][(row["character_id"],)].add(aid)
+        for character_id in filter(None, row.get("character_ids") or [row.get("character_id")]):
+            groups["character"][(character_id,)].add(aid)
         for lineage in row.get("lineages") or []:
             key = (lineage["lineage"], lineage["name"])
             groups["lineage"][key].add(aid)

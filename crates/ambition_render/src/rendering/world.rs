@@ -410,6 +410,22 @@ pub(crate) fn prop_sprite_bundle(
     (sprite, anchor, animator)
 }
 
+/// The horizontal part of a frame sampled by one piece of a repeating prop.
+#[derive(Component, Clone, Copy)]
+pub(crate) struct PropTile(pub BVec2);
+
+impl PropTile {
+    pub(crate) fn fit(self, bundle: &mut (Sprite, Anchor, CharacterAnimator), size: BVec2) {
+        let (sprite, anchor, animator) = bundle;
+        animator.crop_frame_x(self.0);
+        animator.keeps_its_quad = true;
+        sprite.rect = animator.sample_rect();
+        sprite.custom_size = Some(size);
+        sprite.image_mode = bevy::sprite::SpriteImageMode::Auto;
+        *anchor = Anchor::CENTER;
+    }
+}
+
 /// Where the scenery of a room draws: behind the actors of the playable plane
 /// (`feature_z(Actor)`) and over the limb trail (`WORLD_Z_DUMMY + 0.5`). The
 /// room's scenery draws in the order the room lists it, the first furthest
@@ -460,34 +476,49 @@ pub fn spawn_room_prop(
     } else {
         (SCENERY_Z_BACK + SCENERY_Z_STEP * index as f32).min(SCENERY_Z_FRONT)
     };
-    let translation = world_to_bevy(world, prop.pos, z);
-    let collision = BVec2::new(prop.size.x, prop.size.y);
-
-    let mut entity = commands.spawn_session_scoped(
-        session_scope,
-        (
-            Transform::from_translation(translation),
-            Name::new(format!("Prop: {}", prop.name)),
-            RoomVisual,
-            PropVisual {
-                id: prop.id.clone(),
-                kind: prop.kind.clone(),
-                name: prop.name.clone(),
-                size: BVec2::new(prop.size.x, prop.size.y),
-                draw: prop.draw,
-                flip_y: prop.flip_y,
-            },
-        ),
-    );
-
-    if let Some(asset) = assets.and_then(|a| a.characters.prop_asset_for_kind(&prop.kind)) {
-        entity.insert(prop_sprite_bundle(prop.draw, prop.flip_y, asset, collision));
-    } else if !prop_sheets.is_some_and(|sheets| sheets.contains(&prop.kind)) {
-        // Only unknown kinds use the marker. Declared sheets wait for the loader.
-        entity.insert(Sprite::from_color(
-            Color::srgba(0.55, 0.45, 0.85, 0.55),
-            collision,
-        ));
+    let mut spawn = |x: f32, width: f32, tile: Option<PropTile>| {
+        let translation = world_to_bevy(world, ae::Vec2::new(x, prop.pos.y), z);
+        let size = BVec2::new(width, prop.size.y);
+        let mut entity = commands.spawn_session_scoped(
+            session_scope,
+            (
+                Transform::from_translation(translation),
+                Name::new(format!("Prop: {}", prop.name)),
+                RoomVisual,
+                PropVisual {
+                    id: prop.id.clone(),
+                    kind: prop.kind.clone(),
+                    name: prop.name.clone(),
+                    size,
+                    draw: prop.draw,
+                    flip_y: prop.flip_y,
+                },
+            ),
+        );
+        if let Some(tile) = tile {
+            entity.insert(tile);
+        }
+        if let Some(asset) = assets.and_then(|a| a.characters.prop_asset_for_kind(&prop.kind)) {
+            let mut bundle = prop_sprite_bundle(prop.draw, prop.flip_y, asset, size);
+            if let Some(tile) = tile {
+                tile.fit(&mut bundle, size);
+            }
+            entity.insert(bundle);
+        } else if !prop_sheets.is_some_and(|sheets| sheets.contains(&prop.kind)) {
+            // Declared sheets wait for the loader.
+            entity.insert(Sprite::from_color(Color::srgba(0.55, 0.45, 0.85, 0.55), size));
+        }
+    };
+    if let Some(period) = prop_sheets.and_then(|sheets| sheets.repeat_width(&prop.kind)) {
+        let half_width = prop.size.x * 0.5;
+        let pieces = super::terrain_skin::anchored_pieces(prop.pos.x - half_width, prop.pos.x + half_width, period);
+        for (left, right, offset) in pieces {
+            let width = right - left;
+            let span = BVec2::new(offset / period, ((offset + width) / period).min(1.0));
+            spawn(left + width * 0.5, width, Some(PropTile(span)));
+        }
+    } else {
+        spawn(prop.pos.x, prop.size.x, None);
     }
 }
 

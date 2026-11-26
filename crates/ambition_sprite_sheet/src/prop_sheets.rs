@@ -45,6 +45,9 @@ pub struct AuthoredPropSheet {
     /// in front of the blocks and behind the cast.
     #[serde(default)]
     pub backdrop: bool,
+    /// Width in room units of one horizontal repeat. The prop box sets the height.
+    #[serde(default)]
+    pub repeat_width: Option<f32>,
 }
 
 fn one() -> f32 {
@@ -79,6 +82,8 @@ pub struct PropSheetSource {
     pub packed: bool,
     /// Drawn behind the room's blocks ([`AuthoredPropSheet::backdrop`]).
     pub backdrop: bool,
+    /// Horizontal period in room units ([`AuthoredPropSheet::repeat_width`]).
+    pub repeat_width: Option<f32>,
 }
 
 /// Prop sheet declarations shared by asset loading and presentation.
@@ -106,6 +111,14 @@ impl PropSheets {
     /// True when the sheet of this kind is drawn behind the room's blocks.
     pub fn is_backdrop(&self, kind: &str) -> bool {
         self.0.iter().any(|(known, source)| known == kind && source.backdrop)
+    }
+
+    /// The width of one repeat of this kind's art in room units.
+    pub fn repeat_width(&self, kind: &str) -> Option<f32> {
+        self.0.iter()
+            .find(|(known, _)| known == kind)
+            .and_then(|(_, source)| source.repeat_width)
+            .filter(|width| width.is_finite() && *width >= 1.0)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&str, &PropSheetSource)> {
@@ -146,6 +159,7 @@ fn sprite_folder_row(world_provider: &str, kind: &str, row: &AuthoredPropSheet) 
         tuning: row.tuning(),
         packed: row.packed,
         backdrop: row.backdrop,
+        repeat_width: row.repeat_width,
     }
 }
 
@@ -186,6 +200,9 @@ fn problems(rows: &PropSheetRows) -> Vec<String> {
         }
         if !(row.scale.is_finite() && row.scale > 0.0) {
             problems.push(format!("`{kind}.scale` is {}; it is finite and more than 0", row.scale));
+        }
+        if row.repeat_width.is_some_and(|width| !width.is_finite() || width < 1.0) {
+            problems.push(format!("`{kind}.repeat_width` must be finite and at least 1 room unit"));
         }
     }
     problems
@@ -315,7 +332,7 @@ mod tests {
 
     #[test]
     fn a_row_the_loader_cannot_draw_is_named_by_its_kind_and_field() {
-        let row = |scale| AuthoredPropSheet { scale, frame_sample_inset: 0, sheet: None, packed: false, backdrop: false };
+        let row = |scale| AuthoredPropSheet { scale, frame_sample_inset: 0, sheet: None, packed: false, backdrop: false, repeat_width: None };
         let good = PropSheetRows::from([("coconut_palm".to_string(), row(1.4))]);
         assert!(problems(&good).is_empty(), "{:?}", problems(&good));
         let bad = PropSheetRows::from([
@@ -368,6 +385,7 @@ fn a_prop_kind_has_one_sheet() {
         tuning: crate::character::SheetTuning::new(1.0, 0),
         packed: false,
         backdrop: false,
+        repeat_width: None,
     };
     let mut sheets = PropSheets::default();
     sheets.register("a", source());

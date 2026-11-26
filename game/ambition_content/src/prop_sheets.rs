@@ -70,7 +70,7 @@ mod tests {
         let shipped = lowered_prop_sheets(crate::pack::shipped()).expect("the pack states its prop sheets");
         for (kind, row) in shipped {
             let source = source_of(sheets, kind).unwrap_or_else(|| panic!("`{kind}` is not registered"));
-            assert_eq!((source.target.as_str(), source.tuning, source.packed), (row.target(kind), row.tuning(), row.packed), "`{kind}` is registered as the file states it");
+            assert_eq!((source.target.as_str(), source.tuning, source.packed, source.repeat_width), (row.target(kind), row.tuning(), row.packed, row.repeat_width), "`{kind}` is registered as the file states it");
             // A row names a published record with an idle row, and its page.
             let spec = ambition_sprite_sheet::character::try_load_spec_for_target(&sprite_content, &source.target, &source.tuning)
                 .unwrap_or_else(|| panic!("`{kind}` names the sheet `{}`, which is not published", source.target));
@@ -101,7 +101,7 @@ mod tests {
         register(&mut app);
         app.register_prop_sheet(
             "super_mary_o_lift",
-            PropSheetSource { world_provider: None, target: "super_mary_o_lift".into(), tuning: Default::default(), packed: false, backdrop: false },
+            PropSheetSource { world_provider: None, target: "super_mary_o_lift".into(), tuning: Default::default(), packed: false, backdrop: false, repeat_width: None },
         );
         let ours = app.world().resource::<AmbitionPropSheets>().0.clone();
         let mut next = lowered_prop_sheets(crate::pack::shipped()).cloned().unwrap();
@@ -109,7 +109,7 @@ mod tests {
         let mut sheets = app.world_mut().resource_mut::<PropSheets>();
         let owned = sheets.restate(crate::AMBITION_CONTENT_PROVIDER, ours.iter().map(String::as_str), &next).expect("Ambition's own kinds");
         assert!(tuning_of(&sheets, "coconut_palm").is_none() && sheets.iter().any(|(kind, _)| kind == "super_mary_o_lift"));
-        next.insert("super_mary_o_lift".into(), ambition_sprite_sheet::prop_sheets::AuthoredPropSheet { scale: 1.0, frame_sample_inset: 0, sheet: None, packed: false, backdrop: false });
+        next.insert("super_mary_o_lift".into(), ambition_sprite_sheet::prop_sheets::AuthoredPropSheet { scale: 1.0, frame_sample_inset: 0, sheet: None, packed: false, backdrop: false, repeat_width: None });
         assert!(sheets.restate(crate::AMBITION_CONTENT_PROVIDER, owned.iter().map(String::as_str), &next).is_err(), "another provider's kind");
     }
 

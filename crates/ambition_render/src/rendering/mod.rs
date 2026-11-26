@@ -167,10 +167,10 @@ pub use actors::{
     actor_sprite_path_owns, animate_bosses, animate_characters, animate_feature_sprites,
     animate_player, apply_hide_sprites_override, apply_placeholder_sprites_override,
     player_presentation_for_collision, refresh_player_sprites_for_resident_quality,
-    refresh_prop_sprites_on_game_assets_change,
     sync_visuals, upgrade_actor_sprites, upgrade_boss_sprites, BossAnimation,
     PlayerSpriteCharacter,
 };
+pub(crate) use actors::refresh_prop_sprites_on_game_assets_change;
 // `BoundFeatureKind` lives with the foundation feature taxonomy;
 // re-exported so render call sites resolve unchanged.
 pub use ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind;

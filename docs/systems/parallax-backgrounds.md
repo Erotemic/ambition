@@ -90,6 +90,10 @@ block/fixture artwork remains.
   Water tint and surface presentation remain separate.
 - Authored LDtk tile paint and `EntityArt` can override the generated
   dressing. The look's own skins take precedence when a room has a `palette`.
+- A prop sheet can declare `repeat_width` in room units. The prop box sets
+  the height. Each horizontal repeat starts at a multiple of that width
+  from the room's left edge. The renderer crops the pieces at the prop's
+  edges. Adjacent boxes with the same height and top edge share one pattern.
 - Surface trims are generated at presentation time. If a block is later
   removed, the removed block's trims go with it; the remaining neighbors do
   not automatically acquire newly exposed trim.

@@ -683,9 +683,35 @@ shared value preparation are sufficient until source proves otherwise.
    The portal's view of its far side (P5/P6, the window over the play
    plane) is not drawn here.
 
-   Still unrealized in the card view: the portal far-side window (P5/P6), the grass turf
-   pieces on a line (sprites, `ChainTurf`), room dressing props, and the
-   parallax backdrop.
+   **Room scenery (2026-11-26).** A room's props (`PropVisual`) and the
+   trim pieces on its lines (now marked `ChainTurfPiece`) are cards of the
+   cells the 2D view draws, at their 2D places (`realize_card_scenery`).
+   Their order is the 2D view's, band by band:
+   - backdrop props (2D z −12..−10) behind a vessel's back panel
+     (`BACKDROP_DEPTH`, −45);
+   - the turf (2D z 2) just in front of the block skin's layers
+     (`TURF_DEPTH`, −0.4);
+   - scenery props, doors and climbables (2D z 10.55..10.97) in front of
+     the turf and behind the portal line (`SCENERY_DEPTH`, −0.35, plus their
+     2D order);
+   - what 2D draws in front of its bodies (a prop that hides a body, a near
+     lane's turf) one body step in front of the front-most body.
+
+   They use the 2D blend: a prop picture has soft edges, and a mask would
+   make hard cutouts of them. A prop ranked as a body (a bound feature) is
+   left to the bodies. Only a prop's own sprite is drawn: a prop that draws
+   extra art on child sprites shows its root picture alone. Witness
+   `a_rooms_props_and_turf_are_cards_in_the_2d_order` covers each band's
+   depth and the order skin < turf < scenery < portal < bodies. No card is
+   made for a hidden prop, the actor prop is a body, and a despawned prop
+   takes its card with it. Render lib with `card_view,portal_render`: 6
+   card-view tests passed. Capture `intro_fell player --card-view
+   --player-beside npc_fell_sheep`: the hill in the card view now has its
+   grass cap (bare earth before), and the flowering gorse prop stands on
+   the slope at the panel's edge.
+
+   Still unrealized in the card view: the portal far-side window (P5/P6) and
+   the parallax backdrop.
 
 PO1 can proceed before RV1/RV2. The scale-law work can proceed independently;
 both renderers must consume the resulting authoritative material and poses.

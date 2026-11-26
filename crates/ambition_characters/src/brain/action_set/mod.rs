@@ -1832,53 +1832,40 @@ impl ActionRequest {
     }
 }
 
-/// Resolve a brain's abstract control frame into 0..N concrete
-/// action requests using the actor's `ActionSet`. Pure function;
-/// no Bevy, no side effects. Most ticks emit zero or one request;
-/// multi-request ticks are the boss-pattern case (e.g. a phase that
-/// simultaneously fires and lunges). The accepted body supplies origin and
-/// material facing; a controller request does not establish a physical pose.
-pub fn resolve(
-    actions: &ActionSet,
-    frame: &crate::actor::control::ActorControlFrame,
-    body: &ae::BodyKinematics,
-) -> Vec<ActionRequest> {
-    let origin = body.pos;
-    let mut out = Vec::with_capacity(2);
-    // A melee swing is triggered by the attack button OR the DEDICATED POGO button:
-    // pogo is the air-down variant of the same swing (the moveset resolves it to the
-    // `attack_air_down` move carrying the pogo on-hit technique from `pogo_pressed`).
-    // Without the pogo trigger here the dedicated pogo button would emit no melee
-    // message, so the moveset `"attack"` trigger would never start the swing that
-    // carries the bounce. AI brains never set `pogo_pressed`, so this only ever
-    // fires for a player-controlled body.
-    if frame.melee_pressed || frame.pogo_pressed {
-        if let Some(spec) = actions.melee {
-            out.push(ActionRequest::Melee {
-                spec,
-                origin,
-                facing: body.facing,
-                attack_axis: frame.attack_axis,
-            });
-        }
-    }
-    if let Some(req) = frame.fire {
-        if let Some(spec) = actions.ranged.clone() {
-            out.push(ActionRequest::Ranged {
-                spec,
-                origin,
-                fire: req,
-                // The brain polls; the weapon decides. See `RangedCommitment`.
-                commitment: RangedCommitment::Attempt,
-            });
-        }
-    }
-    // NOTE: `special_pressed` is resolved by the MOVESET, not here. `ActionSet.special` is now a
-    // pure CAPABILITY marker the brain reads to decide whether to press special; the move executes
-    // through the moveset runtime, and content techniques fire via the `Effect{key}` bridge in
-    // `dispatch_move_events`. Bosses already dispatched their multi-special repertoire through
-    // `dispatch_boss_special`, never this arm.
-    out
+fn requests_melee(frame: &crate::actor::control::ActorControlFrame) -> bool {
+    frame.melee_pressed || frame.pogo_pressed
+}
+
+/// Check for control that can produce an action request.
+pub fn requests_action(frame: &crate::actor::control::ActorControlFrame) -> bool {
+    requests_melee(frame) || frame.fire.is_some()
+}
+
+/// Read the body's melee and ranged requests in that order. Use its current
+/// pose as the source. The moveset resolves the special press.
+pub fn resolve<'a>(
+    actions: &'a ActionSet,
+    frame: &'a crate::actor::control::ActorControlFrame,
+    body: &'a ae::BodyKinematics,
+) -> impl Iterator<Item = ActionRequest> + 'a {
+    let melee = actions.melee
+        .filter(|_| requests_melee(frame))
+        .into_iter()
+        .map(|spec| ActionRequest::Melee {
+            spec,
+            origin: body.pos,
+            facing: body.facing,
+            attack_axis: frame.attack_axis,
+        });
+    let ranged = actions.ranged.as_ref().zip(frame.fire)
+        .into_iter()
+        .map(|(spec, fire)| ActionRequest::Ranged {
+            spec: spec.clone(),
+            origin: body.pos,
+            fire,
+            commitment: RangedCommitment::Attempt,
+        });
+    melee.chain(ranged)
 }
 
 #[cfg(test)]

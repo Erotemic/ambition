@@ -265,11 +265,8 @@ pub fn resolve_control_slots(
     }
 
     let mut unroutable = Vec::new();
-    for action in scheme.iter() {
-        let ActionGate::Technique(id) = &action.gate else {
-            continue;
-        };
-        let edge = match action.slot {
+    for (slot, id) in scheme.techniques() {
+        let edge = match slot {
             ControlSlot::Attack => {
                 let edge = Edge {
                     pressed: control.melee_pressed,
@@ -321,7 +318,7 @@ pub fn resolve_control_slots(
                 edge
             }
             ControlSlot::Jump | ControlSlot::Burst | ControlSlot::Interact => {
-                unroutable.push(UnroutableTechnique { slot: action.slot, id: id.clone() });
+                unroutable.push(UnroutableTechnique { slot, id: id.to_owned() });
                 continue;
             }
             // Grab and taunt press edges belong to the move resolver.

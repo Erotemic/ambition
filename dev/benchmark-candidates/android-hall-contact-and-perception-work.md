@@ -1184,6 +1184,32 @@ The total tick windows overlapped. In an isolated test with the same
 tick. Hurtbox publication fell from 69–71 to 49–50 µs per tick. The
 desktop target is 13.75 ms per tick. Device measurements are pending.
 
+### Combat request dispatch
+
+The combat emitter reads the control frame before it reads the body and
+action data. It sends melee and ranged requests in order without a
+temporary vector. The charge stream reads only bodies that can charge
+and have an empty hand. The action scheme records the technique slots
+at construction and reads them in scheme order.
+
+Four desktop runs used all 596 bodies at 1280 × 800, Potato quality,
+and the CPU renderer. The order was reference, candidate, candidate,
+reference. Each run had six or seven windows after 30 s.
+
+| Median after 30 s, ms/tick | Reference runs | Candidate runs |
+| --- | ---: | ---: |
+| All measured simulation phases | 15.19, 15.00 | 14.57, 14.39 |
+| Player simulation | 1.60, 1.55 | 1.47, 1.50 |
+| Control gate and body mode | 1.44, 1.43 | 1.38, 1.38 |
+
+The total tick windows overlapped. The candidate medians are 0.64–0.82 ms
+above the desktop target of 13.75 ms per tick.
+
+The isolated emitters produced the same ordered requests with the loaded
+cast. The four-request pass fell from 57–58 to 10–11 µs. The 25-request
+pass fell from 60–61 to 21–22 µs. The 531-request stress pass took 170–173 µs
+on the candidate and 101–102 µs on the reference.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

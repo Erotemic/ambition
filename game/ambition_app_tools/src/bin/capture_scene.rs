@@ -17,7 +17,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::camera_layers::{FrontHudCamera, MainCamera};
 use ambition_platformer2d::platformer::schedule::SimScheduleExt;
 use ambition_platformer2d::render::rendering::{
-    camera_follow, sync_parallax_layers, CameraViewState,
+    sync_parallax_layers, CameraViewState, ViewCameraSet,
 };
 use ambition_platformer2d::sim_view::camera_snapshot::{
     resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshotResolveInput,
@@ -1585,7 +1585,7 @@ fn install_room_capture(app: &mut App) {
             // order, a serial executor ran the motes and the daylight veil
             // against the camera before this pin, and drew them off the frame.
             apply_capture_snapshot
-                .after(camera_follow)
+                .after(ViewCameraSet)
                 .before(sync_parallax_layers)
                 .before(ambition_platformer2d::render::rendering::ambient_motes::drift_room_motes)
                 .before(ambition_platformer2d::render::rendering::daylight::light_the_world),
@@ -3229,7 +3229,7 @@ fn apply_capture_snapshot(
 
     let x = snapshot.center_world.x - world.0.size.x * 0.5;
     let y = world.0.size.y * 0.5 - snapshot.center_world.y;
-    // `camera_follow` sampled the camera before this pin, into the host view
+    // the camera stage sampled the camera before this pin, into the host view
     // and into each view's own sample: its centre and how much of the world
     // it shows. The portal windows read the view's own
     // sample (`PortalObserverViews`), so pin both. A window drawn for the

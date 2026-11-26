@@ -230,7 +230,7 @@ fn the_generic_presentation_face_places_world_labels() {
     );
 }
 
-/// The camera the host's `camera_follow` drives. Before OV1 the app spawned it;
+/// The camera the host's camera stage drives. Before OV1 the app spawned it;
 /// a demo that added the host group got follow logic pointed at nothing.
 #[test]
 fn the_demo_spawns_a_main_camera_and_publishes_it() {

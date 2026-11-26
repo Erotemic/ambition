@@ -16,7 +16,7 @@ use ambition_platformer2d::platformer::schedule::{
 #[cfg(all(feature = "input", feature = "render"))]
 use ambition_platformer2d::render::fx;
 #[cfg(feature = "render")]
-use ambition_platformer2d::render::rendering::{camera_follow, sync_visuals};
+use ambition_platformer2d::render::rendering::{sync_visuals, ViewCameraSet};
 #[cfg(feature = "render")]
 use ambition_platformer2d::render::ui_fonts;
 use bevy::prelude::*;
@@ -467,7 +467,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
         debug_overlay::render_debug_overlay_labels,
     )
         .chain()
-        .after(camera_follow)
+        .after(ViewCameraSet)
         .after(ambition_platformer2d::host::portal::PortalContinuityCameraTagged);
     #[cfg(not(feature = "portal_render"))]
     let overlay = (
@@ -477,7 +477,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
         debug_overlay::render_debug_overlay_labels,
     )
         .chain()
-        .after(camera_follow);
+        .after(ViewCameraSet);
     app.add_systems(
         Update,
         overlay.run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),

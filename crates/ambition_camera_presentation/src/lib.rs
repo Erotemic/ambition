@@ -202,7 +202,7 @@ pub fn apply_camera_shake_requests(
 
 /// Decay system: subtracts `CAMERA_SHAKE_DECAY_PX_PER_S * dt` from
 /// `amplitude_px` and clamps at zero. Runs every frame on `Update`
-/// before `camera_follow` so the follow logic sees the post-decay
+/// before the camera stage so the follow logic sees the post-decay
 /// amplitude.
 pub fn tick_camera_shake(
     time: bevy::prelude::Res<bevy::prelude::Time>,

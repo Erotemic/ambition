@@ -68,7 +68,7 @@ pub fn install_capture_cameras(app: &mut App) {
     app.configure_sets(Update, CaptureCameraSet
         .after(ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet)
         .after(crate::platformer_presentation::present_split_view_rigs)
-        .before(crate::rendering::camera_follow));
+        .before(crate::rendering::ViewCameraSet));
     app.add_systems(Update, adopt_cameras_into_capture_target.in_set(CaptureCameraSet));
 }
 

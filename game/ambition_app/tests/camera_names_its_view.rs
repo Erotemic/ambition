@@ -30,7 +30,7 @@ fn the_shipped_hosts_main_camera_names_the_view_it_presents() {
     let Some(PresentsView(view)) = presented else {
         panic!(
             "the host's main camera carries no `PresentsView`, so nothing states \
-             which view it presents and `camera_follow` is back to assuming there \
+             which view it presents and the camera stage is back to assuming there \
              is exactly one of each"
         );
     };
@@ -58,13 +58,13 @@ fn the_shipped_hosts_main_camera_names_the_view_it_presents() {
 ///
 /// the non-vacuity half is the point. Asserting the component EXISTS proves
 /// nothing on its own: it is spawned with the view, so it would be present even
-/// if `camera_follow` never wrote it and every overlay drew a default frame
+/// if the camera stage never wrote it and every overlay drew a default frame
 /// forever. What is asserted is that the presented view's state has been
 /// UPDATED — it carries the room's real framing rather than the `Default` a
 /// freshly spawned view starts with.
 #[test]
 fn the_presented_view_carries_camera_state_that_is_actually_written() {
-    // the DIRECT-GAMEPLAY persona, not the launcher. `camera_follow` reads
+    // the DIRECT-GAMEPLAY persona, not the launcher. The camera stage reads
     // the session's `RoomGeometry`, so on a launcher route it does not run at all
     // and the view's state stays exactly `Default` — which the assertion below
     // caught on the first run, correctly, by refusing to accept a component that

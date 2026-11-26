@@ -26,7 +26,7 @@ pub struct ProjectionRestingLayers(pub RenderLayers);
 
 /// Give each camera only its own view's projections.
 ///
-/// `With<MainCamera>`, not `With<Camera2d>`, as in `camera_follow`: the portal
+/// `With<MainCamera>`, not `With<Camera2d>`, as in the camera stage: the portal
 /// view-cone renderer spawns offscreen capture `Camera2d`s and the cube menu
 /// spawns a `Camera3d`. A capture rig is a lens inside the simulation, not an
 /// observer, so it presents no view.

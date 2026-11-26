@@ -89,25 +89,70 @@ pub fn publish_portal_camera_clamp(
     }
 }
 
-/// Apply the sim-resolved camera snapshot to each main camera, through the
-/// view it names, with the presentation-only deltas (portal camera
-/// continuity, shake) applied to a copy.
-pub fn camera_follow(
-    // The views, read through each camera's own link. A camera names the
-    // view it presents (`PresentsView`), so a second view or a second
-    // camera is not a special case.
+/// The camera stage: [`present_view_frames`] then
+/// [`apply_view_frames_to_2d_cameras`], chained.
+///
+/// Order against the set, not against one of its systems. A system that feeds
+/// the framing (shake decay, a capture pin, a new rig) runs before the stage;
+/// a system that reads a placed camera runs after it.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ViewCameraSet;
+
+/// The camera stage's systems, chained in [`ViewCameraSet`].
+pub fn view_camera_presentation() -> bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::ScheduleSystem> {
+    (present_view_frames, apply_view_frames_to_2d_cameras)
+        .chain()
+        .in_set(ViewCameraSet)
+}
+
+/// One view's presented framing: the resolved snapshot with the
+/// presentation-only deltas (portal continuity, shake, finishing zoom)
+/// applied, and the gameplay-to-Bevy axis conversion done.
+///
+/// It names no renderer. A renderer's adapter applies it to the camera that
+/// renderer realizes for the view.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PresentedViewFrame {
+    /// The live room the frame is in.
+    pub room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
+    /// The view's centre on the Bevy XY plane, with the shake applied.
+    pub plane_center: Vec2,
+    /// The view's roll about the plane normal.
+    pub roll_radians: f32,
+    /// World units per pixel, with the finishing zoom applied.
+    pub orthographic_scale: f32,
+}
+
+/// This frame's [`PresentedViewFrame`] of each presented view.
+///
+/// Rebuilt every run of [`present_view_frames`]. A view that is not framed
+/// this frame has no entry, so its cameras hold where they are.
+#[derive(Resource, Default, Debug)]
+pub struct PresentedViewFrames(Vec<(Entity, PresentedViewFrame)>);
+
+impl PresentedViewFrames {
+    /// The frame of `view`, when it was framed this frame.
+    pub fn of(&self, view: Entity) -> Option<&PresentedViewFrame> {
+        self.0.iter().find(|(entity, _)| *entity == view).map(|(_, frame)| frame)
+    }
+}
+
+/// Present the sim-resolved camera snapshot of each view some gameplay camera
+/// presents, once per view, with the presentation-only deltas (portal camera
+/// continuity, shake, finishing zoom) applied to a copy.
+pub fn present_view_frames(
     mut views: Query<
         (
             Entity,
             &ResolvedCameraSnapshot,
             &mut CameraPresentationInputs,
-            // The view this camera presents; its diagnostics go here.
+            // The view's own diagnostics.
             &mut CameraViewState,
         ),
         With<LocalView>,
     >,
-    // A camera places its view's frame by the geometry of the frame's own
-    // live room. A sole-room read does not run while two rooms are live.
+    // A view is placed by the geometry of its frame's own live room. A
+    // sole-room read does not run while two rooms are live.
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<
         ambition_platformer2d_core::RoomGeometry,
     >,
@@ -119,27 +164,21 @@ pub fn camera_follow(
     finish_zoom: Res<ambition_camera_presentation::FinishZoomState>,
     finish_zoom_tuning: Res<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>,
     #[cfg(feature = "portal_render")] mut portal_continuity: PortalCameraContinuityParams,
-    // `With<MainCamera>`, not `With<Camera2d>`: the #31 cube pause menu has a
-    // `Camera3d`, and the portal view-cone renderer spawns offscreen capture
-    // `Camera2d`s.
-    mut query: Query<
-        (
-            &mut Transform,
-            &mut Projection,
-            Option<&ambition_sim_view::PresentsView>,
-        ),
-        (
-            With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
-            Without<PlayerVisual>,
-        ),
+    // Every gameplay camera, whatever renders it: a view is framed when
+    // some camera presents it. `With<MainCamera>`, not `With<Camera2d>`: the
+    // portal view-cone renderer spawns offscreen capture `Camera2d`s.
+    cameras: Query<
+        Option<&ambition_sim_view::PresentsView>,
+        With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
     >,
+    mut frames: ResMut<PresentedViewFrames>,
+    mut presented: Local<Vec<Entity>>,
 ) {
+    frames.0.clear();
     // The binding rule is in `ambition_sim_view::ViewsOnHand`, shared with
-    // the viewport applier and the draw-side lookup, so all three agree on
-    // which view a camera is for.
+    // the viewport applier, the camera adapters and the draw-side lookup, so
+    // all of them agree on which view a camera is for.
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, ..)| view));
-    // Resolved once per run: both are process-wide, and an idle zoom is 1.0,
-    // so this is a no-op for hosts that never decide a match.
 
     // A view that is gone has no camera sample.
     #[cfg(feature = "portal_render")]
@@ -147,17 +186,26 @@ pub fn camera_follow(
         observer_views.retain(|observer| views.contains(observer));
     }
 
-    for (mut transform, mut projection, link) in &mut query {
+    // Each presented view once, in camera order: two cameras on one view
+    // present one frame, and the view's portal anchor steps once.
+    presented.clear();
+    for link in &cameras {
         let Some(view_entity) = on_hand.presented_by(link.copied()) else {
             continue;
         };
+        if !presented.contains(&view_entity) {
+            presented.push(view_entity);
+        }
+    }
+
+    for &view_entity in presented.iter() {
         let Ok((_, resolved, mut presentation, mut view_state)) = views.get_mut(view_entity) else {
             bevy::log::error_once!(
                 "a camera presents view {view_entity:?}, which is not a local view"
             );
             continue;
         };
-        // An unframed view is not presented; do not move the camera to a
+        // An unframed view is not presented; do not move its cameras to a
         // default frame.
         let Some(frame) = resolved.frame() else {
             continue;
@@ -182,7 +230,7 @@ pub fn camera_follow(
         let _ = &mut presentation; // written pre-resolve by publish_portal_camera_clamp
 
         // Portal camera continuity: this view's own anchor. The one
-        // `HostView` resource is the last camera's sample; each view's own is
+        // `HostView` resource is the last view's sample; each view's own is
         // in `PortalObserverViews`.
         #[cfg(feature = "portal_render")]
         {
@@ -220,9 +268,9 @@ pub fn camera_follow(
                     snapshot.active_camera_zone.clone(),
                 );
             }
-            // The same sample, for this camera's own view. The resource
-            // above is one, and with two cameras the last writer wins; the
-            // windows of a room are made for the view that frames it.
+            // The same sample, for this view. The resource above is one, and
+            // with two views the last writer wins; the windows of a room are
+            // made for the view that frames it.
             if let Some(observer_views) = portal_continuity.observer_views.as_deref_mut() {
                 observer_views.of_mut(view_entity).capture(
                     snapshot.center_world,
@@ -238,26 +286,76 @@ pub fn camera_follow(
             }
         }
 
-        let x = snapshot.center_world.x - world.0.size.x * 0.5;
-        let y = world.0.size.y * 0.5 - snapshot.center_world.y;
-
         *view_state = CameraViewState::from(&snapshot);
 
-        if let Projection::Orthographic(orthographic) = &mut *projection {
-            // The finishing zoom is applied here only. `snapshot.orthographic_scale`
-            // comes from a policy that floors at 1.0 (`CameraZoneSpec::effective_zoom`
-            // and `camera_snapshot`'s `target_scale`), because the design view is a
-            // readability floor. A finishing zoom goes below it, so it is applied to
-            // the presented projection, like shake to the presented transform.
-            // `scale_factor` is 1.0 when idle.
-            // The zoom of the room this view frames (ISL-1b).
-            orthographic.scale = snapshot.orthographic_scale * finish_zoom.scale_factor_in(Some(frame.room), *finish_zoom_tuning);
-        }
+        // The gameplay-to-Bevy axis conversion, once: gameplay y grows down
+        // from the room's top-left corner; the Bevy plane is centred on the
+        // room with y up.
+        let plane = Vec2::new(
+            snapshot.center_world.x - world.0.size.x * 0.5,
+            world.0.size.y * 0.5 - snapshot.center_world.y,
+        );
         // The shake of the room this view frames (ISL-1b).
         let shake_offset = shake.offset_in(Some(frame.room));
-        transform.translation.x = x + shake_offset.x;
-        transform.translation.y = y + shake_offset.y;
-        transform.rotation = Quat::from_rotation_z(snapshot.rotation_radians);
+        frames.0.push((
+            view_entity,
+            PresentedViewFrame {
+                room: frame.room,
+                plane_center: plane + shake_offset,
+                roll_radians: snapshot.rotation_radians,
+                // The finishing zoom is applied here only. `snapshot.orthographic_scale`
+                // comes from a policy that floors at 1.0 (`CameraZoneSpec::effective_zoom`
+                // and `camera_snapshot`'s `target_scale`), because the design view is a
+                // readability floor. A finishing zoom goes below it, so it is applied to
+                // the presented projection, like shake to the presented transform.
+                // `scale_factor` is 1.0 when idle. The zoom of the room this view
+                // frames (ISL-1b).
+                orthographic_scale: snapshot.orthographic_scale
+                    * finish_zoom.scale_factor_in(Some(frame.room), *finish_zoom_tuning),
+            },
+        ));
+    }
+}
+
+/// The 2D renderer's adapter: place each `Camera2d` gameplay camera at the
+/// presented frame of the view it presents.
+///
+/// Only this adapter writes a 2D camera, and it writes no other kind; a
+/// camera of another renderer is placed by that renderer's adapter from the
+/// same [`PresentedViewFrames`].
+pub fn apply_view_frames_to_2d_cameras(
+    frames: Res<PresentedViewFrames>,
+    views: Query<Entity, With<LocalView>>,
+    mut cameras: Query<
+        (
+            &mut Transform,
+            &mut Projection,
+            Option<&ambition_sim_view::PresentsView>,
+        ),
+        (
+            With<ambition_platformer2d_shared_tangle::camera_layers::MainCamera>,
+            With<Camera2d>,
+            Without<PlayerVisual>,
+        ),
+    >,
+) {
+    if frames.0.is_empty() {
+        return;
+    }
+    let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter());
+    for (mut transform, mut projection, link) in &mut cameras {
+        let Some(frame) = on_hand
+            .presented_by(link.copied())
+            .and_then(|view| frames.of(view))
+        else {
+            continue;
+        };
+        if let Projection::Orthographic(orthographic) = &mut *projection {
+            orthographic.scale = frame.orthographic_scale;
+        }
+        transform.translation.x = frame.plane_center.x;
+        transform.translation.y = frame.plane_center.y;
+        transform.rotation = Quat::from_rotation_z(frame.roll_radians);
     }
 }
 
@@ -271,6 +369,14 @@ mod two_views_one_simulation_tests {
     use ambition_sim_view::{LocalView, LocalViewId, PresentsView};
     use bevy::ecs::system::RunSystemOnce as _;
 
+    /// The camera stage as the schedule runs it: the view frames, then the
+    /// 2D adapter.
+    fn run_camera_stage(world: &mut World) -> Result<(), bevy::ecs::system::RunSystemError> {
+        world.init_resource::<PresentedViewFrames>();
+        world.run_system_once(present_view_frames)?;
+        world.run_system_once(apply_view_frames_to_2d_cameras)
+    }
+
     /// 800x600, so the world-to-Bevy flip below is easy to check by hand.
     fn room() -> ae::RoomGeometry {
         ae::RoomGeometry(ae::World::new(
@@ -281,7 +387,7 @@ mod two_views_one_simulation_tests {
         ))
     }
 
-    /// What `camera_follow` must write on the Bevy transform for a view centred
+    /// What the 2D adapter must write on the Bevy transform for a view centred
     /// here: the same flip as production, so the expectation is derived.
     fn expected_translation(center: ae::Vec2) -> Vec2 {
         Vec2::new(center.x - 800.0 * 0.5, 600.0 * 0.5 - center.y)
@@ -331,7 +437,7 @@ mod two_views_one_simulation_tests {
     /// names, and keeps spawn order, entity ids, and every snapshot value.
     ///
     /// Returns, per camera in spawn order, the transform translation and
-    /// orthographic scale `camera_follow` gave it, plus what each view's own
+    /// orthographic scale the camera stage gave it, plus what each view's own
     /// `CameraViewState` ended up holding.
     fn present(first_presents_left: bool) -> ([(Vec2, f32); 2], [ae::Vec2; 2]) {
         let mut world = World::new();
@@ -357,6 +463,7 @@ mod two_views_one_simulation_tests {
                 world
                     .spawn((
                         MainCamera,
+                        Camera2d,
                         Transform::default(),
                         Projection::Orthographic(OrthographicProjection::default_2d()),
                         PresentsView(view),
@@ -365,9 +472,8 @@ mod two_views_one_simulation_tests {
             })
             .collect();
 
-        world
-            .run_system_once(camera_follow)
-            .expect("camera_follow should run: the fixture provides the session world it reads");
+        run_camera_stage(&mut world)
+            .expect("the camera stage should run: the fixture provides the session world it reads");
 
         let mut presented = [(Vec2::ZERO, 0.0); 2];
         for (slot, camera) in cameras.into_iter().enumerate() {
@@ -457,12 +563,13 @@ mod two_views_one_simulation_tests {
         for view in views {
             world.spawn((
                 MainCamera,
+                Camera2d,
                 Transform::default(),
                 Projection::Orthographic(OrthographicProjection::default_2d()),
                 PresentsView(view),
             ));
         }
-        world.run_system_once(camera_follow).expect("camera_follow runs");
+        run_camera_stage(&mut world).expect("the camera stage runs");
         let recorded = |world: &World| {
             views.map(|view| {
                 world
@@ -477,7 +584,7 @@ mod two_views_one_simulation_tests {
 
         // A view that is gone has no sample on the next run.
         world.entity_mut(views[1]).despawn();
-        world.run_system_once(camera_follow).expect("camera_follow runs");
+        run_camera_stage(&mut world).expect("the camera stage runs");
         assert_eq!(recorded(&world), [Some(centers[0]), None]);
     }
 
@@ -501,6 +608,7 @@ mod two_views_one_simulation_tests {
         let camera = world
             .spawn((
                 MainCamera,
+                Camera2d,
                 Transform::default(),
                 Projection::Orthographic(OrthographicProjection::default_2d()),
                 PresentsView(view),
@@ -515,7 +623,7 @@ mod two_views_one_simulation_tests {
                 .unwrap()
                 .snapshot
                 .director_applied = directed;
-            world.run_system_once(camera_follow).unwrap();
+            run_camera_stage(&mut world).unwrap();
             let expected = if directed {
                 center
             } else {
@@ -564,20 +672,69 @@ mod two_views_one_simulation_tests {
             world
                 .spawn((
                     MainCamera,
+                    Camera2d,
                     Transform::default(),
                     Projection::Orthographic(OrthographicProjection::default_2d()),
                     PresentsView(view),
                 ))
                 .id()
         });
-        world
-            .run_system_once(camera_follow)
-            .expect("camera_follow runs while two rooms are live");
+        run_camera_stage(&mut world)
+            .expect("the camera stage runs while two rooms are live");
         let placed = cameras.map(|camera| world.entity(camera).get::<Transform>().expect("camera transform").translation.truncate());
         assert_eq!(
             placed,
             [expected_translation(center), Vec2::new(100.0 - 200.0, 150.0 - 200.0)],
             "a camera did not place its view by the geometry of the view's own room"
         );
+    }
+
+    /// Views own their camera choice (RV1): the view's frame is published
+    /// once, whatever renders it, and the 2D adapter writes only the 2D
+    /// camera. A `Camera3d` gameplay camera on the same view keeps the
+    /// transform and projection it was given; its own adapter places it.
+    #[test]
+    fn the_2d_adapter_writes_only_the_2d_camera_of_a_view() {
+        let mut world = World::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(&mut world, room());
+        world.init_resource::<CameraShakeState>();
+        world.init_resource::<ambition_camera_presentation::FinishZoomState>();
+        world.init_resource::<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>();
+        let center = ae::Vec2::new(300.0, 200.0);
+        let view = spawn_view(&mut world, 0, center, 2.0);
+        let flat = world
+            .spawn((MainCamera, Camera2d, PresentsView(view)))
+            .id();
+        let held = Transform::from_xyz(5.0, 6.0, 7.0);
+        let deep = world
+            .spawn((
+                MainCamera,
+                Camera3d::default(),
+                held,
+                Projection::Perspective(PerspectiveProjection::default()),
+                PresentsView(view),
+            ))
+            .id();
+        run_camera_stage(&mut world).expect("the camera stage runs");
+
+        let frames = world.resource::<PresentedViewFrames>();
+        assert_eq!(frames.0.len(), 1, "two cameras on one view present one frame");
+        let frame = *frames.of(view).expect("the presented view has a frame");
+        assert_eq!(frame.plane_center, expected_translation(center));
+        assert_eq!(frame.orthographic_scale, 2.0);
+        assert_eq!(
+            world.get::<Transform>(flat).unwrap().translation.truncate(),
+            frame.plane_center,
+            "the 2D camera is placed at its view's frame"
+        );
+        assert_eq!(
+            *world.get::<Transform>(deep).unwrap(),
+            held,
+            "the 2D adapter wrote a camera of another renderer"
+        );
+        assert!(matches!(
+            world.get::<Projection>(deep).unwrap(),
+            Projection::Perspective(_)
+        ));
     }
 }

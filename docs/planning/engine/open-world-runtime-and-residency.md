@@ -181,7 +181,7 @@ persistent characters.
 Each player sees their own live room:
 
 - The camera resolve frames each view in the live room of the body it frames
-  (V1). `camera_follow` places a view by that room's geometry (V2a).
+  (V1). The camera stage places a view by that room's geometry (V2a).
 - While two or more rooms are live, `isolate_live_rooms` puts each stamped
   entity and its descendants on its room's render band
   (`LIVE_ROOM_RENDER_LAYER_BASE` + the room's place in instance order). Each

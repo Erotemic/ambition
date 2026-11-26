@@ -3691,7 +3691,7 @@ path. A gravity-only repair does not close the whole packet.
 
 ### PRESENTATION-COMPOSITION — order appearances and add a 2.5D view
 
-**State:** IN PROGRESS: PO1 and PO2 landed 2026-11-25; RV1's shared sample landed 2026-11-25 (`RiggedLocalSample`, the 2D driver its first consumer; view ownership open); RV2-RV3 planned. Maintainer-selected 2026-11-21; source `f41218979625`.
+**State:** IN PROGRESS: PO1 and PO2 landed 2026-11-25; RV1 landed 2026-11-25 (`RiggedLocalSample`, the 2D driver its first consumer; `ViewCameraSet`: one renderer-free view frame, a 2D adapter that writes only `Camera2d`); RV2-RV3 planned. Maintainer-selected 2026-11-21; source `f41218979625`.
 
 **Failure / customer:** Scout must appear behind the cart panel inside and
 in front outside. Current seating writes root z 14.45 behind panel 14.5,

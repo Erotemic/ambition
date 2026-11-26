@@ -764,7 +764,7 @@ pub fn sync_parallax_layers(
 
     // Where each view's camera stands, and how much of the world it shows.
     //
-    // Two cameras on one view get the same framing from `camera_follow`, so
+    // Two cameras on one view get the same framing from the camera stage, so
     // `or_insert` is order-independent. Two views give two rows.
     let mut drawn_by: std::collections::HashMap<
         Entity,

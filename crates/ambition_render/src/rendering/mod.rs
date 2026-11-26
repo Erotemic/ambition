@@ -176,7 +176,10 @@ pub use ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind;
 pub use ambition_sim_view::camera_snapshot::{CameraSnapshot2d, SceneCaptureRequest};
 #[cfg(feature = "portal_render")]
 pub use camera::publish_portal_camera_clamp;
-pub use camera::{camera_follow, CameraViewState};
+pub use camera::{
+    apply_view_frames_to_2d_cameras, present_view_frames, view_camera_presentation,
+    CameraViewState, PresentedViewFrame, PresentedViewFrames, ViewCameraSet,
+};
 /// The fallback stand-in's marker: a feature the sim published that no render
 /// family has drawn for long enough to be a bug.
 ///
@@ -495,7 +498,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 bevy::prelude::Update,
                 cast_bubble::present_cast_bubbles
                     .run_if(cast_bubble::bubbles_are_asked_for_or_drawn)
-                    .after(camera::camera_follow),
+                    .after(camera::ViewCameraSet),
             );
         }
 
@@ -524,7 +527,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 Update,
                 PortalPresentationSet
                     .after(actors::animate_player)
-                    .after(camera::camera_follow)
+                    .after(camera::ViewCameraSet)
                     .after(ambition_portal2d_presentation::PortalObservationSet),
             );
             // Where each drawn limb is cut at a portal's line: the lines of

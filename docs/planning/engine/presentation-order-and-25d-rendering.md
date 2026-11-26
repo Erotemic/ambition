@@ -1,6 +1,6 @@
 # Presentation order and optional 2.5D rendering
 
-**State:** PO1 and PO2 landed 2026-11-25; RV1's shared sample landed 2026-11-25 (view ownership open); RV2-RV3 PLANNED. Selected by the maintainer on 2026-11-21. The customers
+**State:** PO1 and PO2 landed 2026-11-25; RV1 landed 2026-11-25 (the shared sample, then view-owned camera application); RV2-RV3 PLANNED. Selected by the maintainer on 2026-11-21. The customers
 are Scout inside and outside the cart, consistent order for body parts and
 effects, and Bevy 2D and 3D presentation tools that can coexist. Production
 source reviewed: `f41218979625`; planning includes the preceding runtime
@@ -477,8 +477,33 @@ shared value preparation are sufficient until source proves otherwise.
    that removes the last draw removes it from the picture, so the driver has
    no other source.
 
-   Still open in RV1: separate the camera/application and device roots by
-   view and renderer.
+   **Views own the camera application (2026-11-25).** `camera_follow`
+   resolved a view's framing and wrote every `MainCamera` in one system, so
+   a 3D camera on the same view would have been overwritten with a 2D XY
+   position and a Z-only roll. It is now two systems, chained in
+   `ViewCameraSet` (`view_camera_presentation()`):
+   - `present_view_frames` frames each presented view once, whatever renders
+     it. It applies portal continuity, shake and the finishing zoom to a copy
+     of the resolved snapshot, does the gameplay-to-Bevy axis conversion once,
+     and publishes a `PresentedViewFrame` (room, plane centre, roll,
+     orthographic scale) in `PresentedViewFrames`. A view with no frame this
+     frame has no entry, so its cameras hold, as before.
+   - `apply_view_frames_to_2d_cameras` is the 2D renderer's adapter. It
+     writes only gameplay cameras that are `Camera2d`. A camera of another
+     renderer is placed by that renderer's adapter from the same frame (RV2).
+
+   Two cameras on one view now step that view's portal anchor once, not once
+   per camera. Every ordering edge that named `camera_follow` names the set;
+   the name is gone, so no edge can order against a system that no longer
+   runs. The witness `the_2d_adapter_writes_only_the_2d_camera_of_a_view` puts
+   a `Camera2d` and a `Camera3d` on one view: one frame is published, the 2D
+   camera lands on it, and the 3D camera keeps its transform and perspective.
+
+   Roots by renderer: the 2D slots and impostor cells stay owned by the 2D
+   driver's `RiggedPresentation`; the sample they draw is separate from them.
+   A second renderer adds its own roots beside the sample and never reads the
+   2D slots (RV2). Spawning views' cameras through one adapter-chosen path
+   waits for the first non-2D adapter, which RV2 brings.
 4. **RV2 — one orthographic 3D cart view.** Use the same sampled actor parts
    as unlit cards, a simple authored cart mesh and one declared visual-depth
    policy. Draw it beside the 2D view in one App. Preserve the same platform,

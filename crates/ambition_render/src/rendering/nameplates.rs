@@ -128,7 +128,7 @@ impl Plugin for ActorNameplatePresentationPlugin {
                 Update,
                 ActorNameplateSet
                     .after(super::actors::sync_visuals)
-                    .after(super::camera::camera_follow),
+                    .after(super::camera::ViewCameraSet),
             )
             // The placement pass must run after every family publishes its anchor,
             // or it places against last frame. This is configured here because

@@ -139,6 +139,15 @@ the rim. The lower trail crosses a second channel on its way to the
 soda tube. Pilgrims can also climb from the tube to the thermos by the
 east outcrops. The parrot starts above the rim trail.
 
+## Fizzuvius Caldera
+
+Two small rock-candy stops let pilgrims wait for the corks and give
+pilgrims a place to land below the rim trail. A bubble lift from the
+east bank rises above the rim. Step east off the lift to reach the
+Mint. The arch over the chest marks the vent it plugged.
+The Noodlings start above the lake near the first stop and the east
+bank. The west bank has room to jump onto the first cork.
+
 ## The soda
 
 A pool of soda is two things in one box. Neither needs a Rust change:
@@ -156,8 +165,7 @@ A pool of soda is two things in one box. Neither needs a Rust change:
   `noodly` theme, and the spike sprite of each `DamageVolume` shows through
   it. A `look` on `DamageVolume` (as `LockWall` and `BreakablePlatform`
   have) or a soda water kind would fix this; both need Rust.
-- The houses in the gate square, the durum terraces, and the volcano still
-  need scenery. The market has art for the drying racks and curry house
-  entrance.
+- The volcano uses the same distant backdrop as the village and temple.
+  Give Mount Fizzuvius a crater backdrop to show the change in elevation.
 - No app test walks the new rooms yet.
 - The Mint is a chest. It opens nothing.

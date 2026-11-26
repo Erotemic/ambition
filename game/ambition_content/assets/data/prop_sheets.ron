@@ -46,6 +46,9 @@
     "noodle_curry_udon_pickup": (),
     "noodle_fizzy_flats_fixtures": (),
     "noodle_fizzuvius_slopes_fixtures": (),
+    "noodle_fizzuvius_caldera_fixtures": (),
+    "noodle_caldera_cork": (),
+    "noodle_caldera_bubble_car": (),
     "temple_gate_bell": (),
     // The Art dimension (`targets/props/art_props.py`). The keys of its
     // colour gate are jars of the three primaries; each door is a canvas in a

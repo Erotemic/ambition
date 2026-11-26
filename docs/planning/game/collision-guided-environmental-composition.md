@@ -237,6 +237,8 @@ For the Fizzy Flats, show the water cells, solid banks, and damage volumes
 with the spring art. Use the solid bank edges to place the caps.
 For the Fizzuvius Slopes, show the ladder cells with the ladder art.
 Show where the ladder overlaps the one-way landing at the top.
+For the Caldera, show the corks at both ends of each sweep with the
+fixed stops. Show the top of the bubble lift and the rim in the same view.
 The Noodly Cistern adds pipes and plates for each wheel. Give the art
 generator the switch and gate bounds and the gate conditions. Keep the
 pipe bends in the art so an author can route around labels.

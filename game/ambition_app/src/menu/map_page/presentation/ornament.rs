@@ -77,8 +77,7 @@ pub(super) fn room_engraving(
 }
 
 fn plaque(model: &mut MapModel, rect: MenuRect, palette: &MapLook) {
-    paint(model, rect, colour(palette.engraving), 0.054);
-    paint(model, rect.inset(0.23), colour(palette.plate), 0.056);
+    paint(model, rect.inset(0.38), colour(palette.plate), 0.05);
     corner_trim(
         model,
         rect,
@@ -136,7 +135,7 @@ fn diamond(model: &mut MapModel, centre: Vec2, color: MenuColor) {
             model,
             MenuRect::new(centre.x - w * 0.5, y, w, step),
             color,
-            0.064,
+            0.095,
         );
     }
 }

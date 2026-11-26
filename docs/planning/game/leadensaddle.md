@@ -51,7 +51,7 @@ and the livery are interiors, so their ways in are doors
 
 | Room | What it is | Who |
 | --- | --- | --- |
-| `frontier_landing_pad` | Pad Three: the gate on the pad's apron, its terminal and dialer, the clerk's booth. A docked freighter stands on the next pad; stacked cargo boxes give a high way east. | Dolores Pike, the pad clerk. A gate-sick traveller. |
+| `frontier_landing_pad` | Pad Three: the gate, terminal, and clerk's booth on the apron. The cargo scale leads to the booth roof. Loading walks connect the roof and containers to the freighter hold. Service steps return to the apron at the town end. | Dolores Pike, the pad clerk. |
 | `frontier_main_street` | The town's main street: a boardwalk under the shop awnings (a low tier), the roofs of the shops (a high tier), the water tower. The saloon door, the livery door. The Marshal's notices on a board. | Gus Bell (outside his livery), townsfolk. |
 | `frontier_wet_whistle` | The saloon: the bar, the piano, the stage; the balcony is a tier up. | Mae Calloway (behind the bar), Elias Crane (a prospector), the piano player. |
 | `frontier_livery` | The livery: stalls of hover-mules, a hayloft over them. | Gus Bell's daughter June, who shoes the mules. |

@@ -1234,6 +1234,8 @@
     // is drawn in its room's coordinates, over the room's walk lines.
     "frontier_pad_booth": (),
     "frontier_pad_cargo": (),
+    "frontier_pad_loading_walk": (),
+    "frontier_pad_service_steps": (),
     "frontier_pad_freighter": (),
     "frontier_saloon_front": (),
     "frontier_store_front": (),

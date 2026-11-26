@@ -999,6 +999,31 @@ live rooms, including an exemption added after the first step. Positions,
 velocities, and ordered movement events matched for all 595 Hall NPCs
 after 165 headless updates. The live Smash gate test also passed.
 
+### Prepared sprite pose boxes
+
+Sheet loading binds each pose to the first row in name order that gives
+it a body box. Body geometry reads the box by pose. Combat and inspection
+can still read the geometry by row name.
+
+The new lookup matched the previous lookup for 33,204 samples from the
+generated sheets. The loaded Hall had 13 bodies with sheet-derived
+geometry. For those bodies, one pass of box lookups took 64–68 µs before
+and about 0.26 µs after in the development build.
+
+The four windowed runs used 596 bodies, a 1280 × 800 viewport, Potato
+quality, and the CPU renderer. The run order was reference, candidate,
+candidate, reference. The medians use windows after second 30.
+
+| Measured phases | Reference runs, ms/tick | Candidate runs, ms/tick |
+| --- | ---: | ---: |
+| All simulation phases | 17.60, 16.76 | 16.30, 16.04 |
+| Presentation sync | 0.21, 0.20 | 0.09, 0.09 |
+
+Total tick windows overlapped. A separate experiment split actor animation
+publication across workers. The worker pass had no repeatable gain, so
+it stayed out of the build. The Android capture for the prepared boxes is
+pending.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

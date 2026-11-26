@@ -1210,6 +1210,30 @@ cast. The four-request pass fell from 57–58 to 10–11 µs. The 25-request
 pass fell from 60–61 to 21–22 µs. The 531-request stress pass took 170–173 µs
 on the candidate and 101–102 µs on the reference.
 
+### Pose rows and idle inputs
+
+The actor pose reader can reuse a row position when its ID agrees. An ID
+lookup preserves the animation clocks when an actor changes position in
+the query. The body pose reader fetches the full animation inputs for
+bodies with blink state. Petting, shield input, and script state retirement
+select active work before they read additional body or owner data.
+
+Four matched 1280 × 800 desktop development runs used the CPU renderer,
+Potato quality, and all 596 bodies. Each measured 17–19 windows after 30 s.
+
+| Median after 30 s, ms/tick | Reference runs | Candidate runs |
+| --- | ---: | ---: |
+| All measured simulation phases | 13.99, 14.24 | 13.53, 14.04 |
+| Control gate and body mode | 1.36, 1.36 | 1.22, 1.25 |
+
+The isolated 595-row actor pass took 0.35–0.37 ms before the change and
+0.34–0.35 ms after it. The 64-row sample took 0.06 ms before and 0.09–0.10 ms
+after. The isolated body pose pass took 0.14–0.15 ms before and 0.12–0.13 ms
+after. The comparison checked the published poses during movement,
+hitlag, departure, re-entry, and changes to actor identity. A trial with
+an additional worker pass took 16.09 and 16.35 ms/tick in the full run.
+The current pose pass uses the serial loop.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

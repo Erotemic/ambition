@@ -674,7 +674,7 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   checks the stamp. Test: a body whose stepping system is skipped for a
   tick keeps an old-stamped sample, and the geometry observer and a
   mount's ground read no motion from it.
-  *Done 2026-11-26 (schema 549).* `SweepSample::tick` names the step;
+  *Done 2026-11-26 (schema 550).* `SweepSample::tick` names the step;
   `integrate_sim_bodies` stamps it on both roads beside `BodyStepStamp`
   (the kernel itself writes `0`, so a scratch body names no step), and a
   pose carry keeps the stamp of the record it extends. Readers ask by
@@ -706,6 +706,19 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
 - **M1c — source-frame contact facts.** A contact keeps the chart it was
   met in through to its readers. Test: a support met on the exit side
   reports the exit chart's normal and surface velocity.
+  *Done 2026-11-26.* `Contact::met` (`MetThrough`: first link, hops, and
+  the point, normal and surface motion where the surface is) is written by
+  the kernel's sweep and repair contacts whenever the material met the
+  surface through a path; `point`/`normal`/`surface_velocity` stay the
+  root-chart facts the response is solved in. `Contact::physical()` is the
+  reader for anything placed on the surface: the wall-arrival dust now
+  sits at the wall, not behind the near wall. Scripts read the same facts
+  as `world[i].met` on `ambition.body.contact@4`. Contacts are not
+  rolled back (the step derives them), so no codec change. Witness:
+  `wall_collision::a_support_met_through_a_turned_pair_keeps_the_exit_charts_facts`
+  (a floor mouth to a wall exit a quarter turn away: the root normal faces
+  up, the met normal faces the exit, the met motion is the sliding
+  block's; control: the room floor carries no `met`).
 
 **M2 — kernel continuation at chart changes.**
 - **M2a — continue the rest of the tick in the exit chart.** Integrate to

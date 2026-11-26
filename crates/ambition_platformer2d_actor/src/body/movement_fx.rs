@@ -562,7 +562,10 @@ pub fn emit_movement_fx(
         // front of the wall rather than inside it. The normal points away from
         // the surface toward the body, which is the direction that works under
         // any gravity and for either facing.
-        write_splat(vfx, contact.point + contact.normal * (size.x * 0.25), splat);
+        // Where the wall is: through a portal that is the chart it was met
+        // in, not the root chart's point behind the near wall.
+        let (point, normal) = contact.physical();
+        write_splat(vfx, point + normal * (size.x * 0.25), splat);
     }
 }
 
@@ -909,7 +912,7 @@ mod tests {
     fn only_a_side_contact_splats_against_a_wall() {
         let contact = |kind, impact_speed| {
             let mut events = ae::FrameEvents::default();
-            events.contacts.push(ae::collision_semantics::Contact {
+            events.contacts.push(ae::collision_semantics::Contact { met: None,
                 involuntary: false,
                 kind,
                 point: ae::Vec2::new(40.0, 0.0),

@@ -233,7 +233,8 @@ pub(super) fn sweep_player_axis_clusters(
             ContactKind::Side
         };
         contacts.push(Contact { kind, point: contact.point, normal, toi: contact.toi as f32,
-            surface_velocity, impact_speed: impact, involuntary: false, source: hit.collider.source() });
+            surface_velocity, impact_speed: impact, involuntary: false, source: hit.collider.source(),
+            met: met_through(hit.collider, &contact) });
     } else {
         kinematics.pos += delta;
     }
@@ -243,6 +244,22 @@ pub(super) fn sweep_player_axis_clusters(
 
 #[derive(Clone, Copy)]
 enum RepairStage { BeforeSweep, AfterSweep }
+
+/// A contact met through a portal, in the chart it was met in (M1c): the
+/// physical point, the normal carried out of the root chart by the path's
+/// map, and the surface's own motion there. `None` for a contact met in the
+/// body's own chart, whose root facts are already where the surface is.
+fn met_through(collider: crate::world::MaterialCollider<'_>, hit: &crate::frame::material_cast::MaterialCastHit)
+    -> Option<crate::collision_semantics::MetThrough> {
+    let link = *hit.path.first()?;
+    Some(crate::collision_semantics::MetThrough {
+        link,
+        hops: u8::try_from(hit.path.len()).unwrap_or(u8::MAX),
+        point: hit.world_point,
+        normal: hit.map.direction(hit.normal),
+        surface_velocity: collider.displacement_at(hit.world_point, hit.world_time),
+    })
+}
 
 #[allow(clippy::too_many_arguments)]
 fn material_axis_hits<'w>(
@@ -411,7 +428,8 @@ fn resolve_material_axis_repair(
         let impact_speed = crate::collision_semantics::closing_speed(kinematics.vel, normal);
         zero_axis_vel(kinematics, axis);
         contacts.push(Contact { kind, point: hit.contact.point, normal, toi: 0.0,
-            surface_velocity, impact_speed, involuntary: false, source: collider.source() });
+            surface_velocity, impact_speed, involuntary: false, source: collider.source(),
+            met: met_through(collider, &hit.contact) });
     }
     conflict
 }

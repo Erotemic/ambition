@@ -3747,7 +3747,10 @@ Since landed (2026-11-25, [receipts](engine/portals-are-moving-frames.md)):
 transit continues from the crossing for a moving exit, contact reads the
 legs before and between crossings, an interpolated view and a feature row
 draw a crossing at its time, and a line host binds SUP1's material place.
-Next in P2: M1's completed-step history apart from the next-step seed, M2's
+M1 landed 2026-11-26 (a: the travel record names its step; b: crossings
+use the aperture snapshot the step was admitted against; c: a contact keeps
+the chart it was met in, also for scripts on `ambition.body.contact@4`).
+Next in P2: M2's
 kernel continuation in the destination chart, host admission before the
 aperture writer commits, and SUP1 through a portal cell (which needs a
 deforming line split, not only a clipped cast). P4's full-turn bounds and repeated-link candidate exclusion landed

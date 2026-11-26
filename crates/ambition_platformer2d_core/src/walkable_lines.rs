@@ -471,7 +471,7 @@ pub(crate) fn material_block_support(
     let Some(hit) = hit else { return Ok(None); };
     cells.admit_payloads(body.vel, &[])?;
     let surface_velocity = hit.contact.map.inverse().and_then(|map| map.vector(hit.collider.displacement())).map_err(numeric)?;
-    Ok(Some((delta * hit.contact.toi as f32, crate::collision_semantics::Contact {
+    Ok(Some((delta * hit.contact.toi as f32, crate::collision_semantics::Contact { met: None,
         kind: crate::collision_semantics::ContactKind::Support, point: hit.contact.point,
         normal: hit.contact.normal, toi: 0.0, surface_velocity, impact_speed: 0.0,
         involuntary: false, source: hit.collider.source(),

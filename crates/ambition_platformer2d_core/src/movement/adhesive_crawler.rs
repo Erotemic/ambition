@@ -381,7 +381,7 @@ fn crawl_chain(
         },
     );
     finish_attached(clusters);
-    contacts.push(Contact {
+    contacts.push(Contact { met: None,
         kind: ContactKind::Attachment,
         point: f.point,
         normal: f.normal,
@@ -455,7 +455,7 @@ fn publish_attachment_contact(
         surface_probe_half(Vec2::new(-normal.y, normal.x), normal, half.x, half.y),
     );
     let clung = world.first_overlapping_block(probe, cling_pred);
-    contacts.push(Contact {
+    contacts.push(Contact { met: None,
         kind: ContactKind::Attachment,
         point: clusters.kinematics.pos - normal * body_thick,
         normal,

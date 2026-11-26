@@ -267,7 +267,7 @@ macro_rules! port {
 port!(
     BodyContactPort,
     "ambition.body.contact",
-    3,
+    4,
     Trigger,
     BodyContact
 );

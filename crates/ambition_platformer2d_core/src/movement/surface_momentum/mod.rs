@@ -544,7 +544,7 @@ fn step_riding(
                 v_t: new_v_t,
             };
             if let (Some(hit), Some(sink)) = (&obstruction, contacts.as_deref_mut()) {
-                sink.push(Contact {
+                sink.push(Contact { met: None,
                     kind: crate::collision_semantics::classify_contact_normal(
                         hit.contact_normal,
                         motion_frame.down(),
@@ -562,7 +562,7 @@ fn step_riding(
                 });
             }
             if let Some(sink) = contacts.as_deref_mut() {
-                sink.push(Contact {
+                sink.push(Contact { met: None,
                     kind: crate::collision_semantics::ContactKind::Support,
                     point: f.point,
                     normal: f.normal,
@@ -1449,7 +1449,7 @@ fn step_airborne(
                 body.vel = v_t * f.tangent + per_frame_to_per_sec(surface.velocity, dt);
                 if let Some(sink) = contacts.as_deref_mut() {
                     // Landing (now Riding) is a support contact by construction.
-                    sink.push(Contact {
+                    sink.push(Contact { met: None,
                         kind: crate::collision_semantics::ContactKind::Support,
                         point: body.pos - hit.contact_normal * body.radius,
                         normal: hit.contact_normal,
@@ -1475,7 +1475,7 @@ fn step_airborne(
         if let Some(sink) = contacts.as_deref_mut() {
             // A deflect classifies frame-relatively (this solver has no
             // structural wall pass).
-            sink.push(Contact {
+            sink.push(Contact { met: None,
                 kind: crate::collision_semantics::classify_contact_normal(n, frame.down()),
                 point: body.pos - n * body.radius,
                 normal: n,

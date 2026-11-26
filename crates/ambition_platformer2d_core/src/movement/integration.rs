@@ -447,7 +447,7 @@ pub(super) fn integrate_velocity_clusters(
             let landed = matches!(step, crate::walkable_lines::LineStep::Landed(_));
             let contact = match step {
                 crate::walkable_lines::LineStep::Landed(line) | crate::walkable_lines::LineStep::Held(line) => {
-                    crate::collision_semantics::Contact {
+                    crate::collision_semantics::Contact { met: None,
                         kind: crate::collision_semantics::ContactKind::Support,
                         point: line.point,
                         normal: line.normal,

@@ -92,6 +92,28 @@ pub struct WorldContact {
     pub involuntary: bool,
     pub block: Option<BlockContact>,
     pub chain: Option<ChainContact>,
+    pub met: Option<MetContact>,
+}
+
+/// Where a contact met through a room aperture physically is.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MetContact {
+    pub hops: u8,
+    pub point: [f32; 2],
+    pub normal: [f32; 2],
+    pub surface_velocity: [f32; 2],
+}
+ambition_extension_sdk::port_record! {
+    MetContact {
+        /// How many apertures the body's material went through to meet it.
+        hops: u8,
+        /// The surface point in the room the surface is in, with +Y down.
+        point: [f32; 2],
+        /// The surface's outward normal there.
+        normal: [f32; 2],
+        /// The surface's own motion there this step (not per second).
+        surface_velocity: [f32; 2],
+    }
 }
 ambition_extension_sdk::port_record! {
     WorldContact {
@@ -110,5 +132,8 @@ ambition_extension_sdk::port_record! {
         involuntary: bool,
         block: Option<BlockContact>,
         chain: Option<ChainContact>,
+        /// The surface where it is, when it was met through an aperture.
+        /// `point` and `normal` above are then a place behind the near wall.
+        met: Option<MetContact>,
     }
 }

@@ -1871,3 +1871,58 @@ fn a_pinch_names_the_claimant_that_closes_on_the_body() {
     assert_eq!(both.driver(), Some(ConflictSide::Min), "the faster closer drives: {both:?}");
     assert!(named(&both.obstruction().driver.expect("a driver").0, "ceiling", &blocks));
 }
+
+/// Portal M1c (portals-are-moving-frames.md): a contact met through a portal
+/// keeps the chart it was met in. A body sinks into a floor mouth whose exit
+/// is a quarter turn away on a wall. Under the exit is a block sliding along
+/// its own face. The body stands on it through the pair. The response is
+/// solved in the body's root chart, so the root normal faces up. The surface
+/// itself faces back toward the exit, and its motion is the block's own.
+/// Control: the same body on the room floor, met in its own chart, carries
+/// no `met`.
+#[test]
+fn a_support_met_through_a_turned_pair_keeps_the_exit_charts_facts() {
+    use crate::collision_semantics::ContactKind;
+    use crate::frame::{MapConvention, PortalAperture, PortalFrame,
+        thread::{MotionAdmission, PieceBudget, PortalLink}};
+    let entry = PortalAperture { frame: PortalFrame::fixed(Vec2::new(100.0, 300.0), -Vec2::Y), half_length: 40.0 };
+    let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(600.0, 100.0), Vec2::X), half_length: 40.0 };
+    let links = [PortalLink::new(entry, exit, 0), PortalLink::new(exit, entry, 1)];
+    const SLIDE: Vec2 = Vec2::new(0.0, 2.0);
+    let mut block = Block::solid("sliding block beyond the exit", Vec2::new(608.0, 40.0), Vec2::new(80.0, 120.0));
+    block.velocity = SLIDE;
+    let mut world = World::new("turned pair", Vec2::splat(2000.0), Vec2::ZERO, vec![]);
+    world.chains.push(crate::SurfaceChain::open("floor", vec![Vec2::new(0.0, 300.0), Vec2::new(400.0, 300.0)]));
+    world.blocks.push(block);
+    let supports = |admitted: bool| {
+        // 4 px into the mouth, still 0.5 px a tick downward.
+        let mut body = scratch_with(AbilitySet::default(), Vec2::new(100.0, 300.0 - 12.0));
+        body.kinematics.canonical_size = Vec2::splat(32.0);
+        body.kinematics.vel = Vec2::new(0.0, 30.0);
+        let mut found = Vec::new();
+        for _ in 0..12 {
+            let (model, mut clusters) = body.parts();
+            let result = step_motion(model, &mut clusters, MotionStepContext {
+                admission: admitted.then_some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
+                    convention: MapConvention::Reflection }), world: &world,
+                input: InputState::default(), frame: crate::MotionFrame::from_direction(Vec2::Y, 0.0),
+                facing_intent: 0.0, dt: 1.0 / 60.0, contact: BodyContactField::NONE,
+                pose_owned_externally: false, recovery_commitment_outstanding: false,
+            });
+            assert!(result.events.motion_refusal.is_none(), "{:?}", result.events.motion_refusal);
+            found.extend(result.events.contacts.iter().filter(|c| c.kind == ContactKind::Support).cloned());
+        }
+        found
+    };
+    let through = supports(true);
+    let met = through.iter().find_map(|c| c.met.map(|met| (c.clone(), met)));
+    let Some((contact, met)) = met else { panic!("no support met through the pair: {through:?}") };
+    assert!(contact.normal.dot(-Vec2::Y) > 0.99, "the root normal faces up, toward the body: {contact:?}");
+    assert!(met.normal.dot(-Vec2::X) > 0.99, "the surface faces back toward the exit: {met:?}");
+    assert!((met.point.x - 608.0).abs() < 0.5 && (met.point.y - 100.0).abs() < 20.0, "the point is on the block face: {met:?}");
+    assert!((met.surface_velocity - SLIDE).length() < 1e-3, "the surface moves as the block does: {met:?}");
+    assert_eq!((met.link, met.hops), (0, 1), "met through the entry link alone: {met:?}");
+    assert_eq!(contact.physical(), (met.point, met.normal));
+    let own = supports(false);
+    assert!(!own.is_empty() && own.iter().all(|c| c.met.is_none()), "control: the floor is met in the body's own chart: {own:?}");
+}

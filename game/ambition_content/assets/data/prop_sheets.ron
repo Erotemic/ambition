@@ -611,6 +611,7 @@
     "gate_power_cabinet": (),
     "gate_traffic_board": (),
     "hub_gallery_doors": (),
+    "biome_gallery_signs": (),
     "gate_transit_bags": (),
     "gate_ring": (sheet: Some("interdimensional_gate_ring"), frame_sample_inset: 2),
     "gate_portal": (sheet: Some("interdimensional_gate_portal"), frame_sample_inset: 2),

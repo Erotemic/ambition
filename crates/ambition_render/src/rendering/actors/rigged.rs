@@ -551,6 +551,22 @@ pub struct RiggedLocalSample {
     /// by the body's scene placement (the root's transform); `None` with no
     /// parts.
     pub feet: Option<Transform>,
+    /// The frame when it is baked (`LocalSampleState::Baked`): one picture
+    /// a renderer draws whole. `None` otherwise, or while its page is not
+    /// laid out.
+    pub baked: Option<BakedFrame>,
+}
+
+/// One baked frame as the animator chose it: the region of its page, drawn
+/// at `size` world units about `anchor` (a sprite anchor: `(-0.5, -0.5)` is
+/// the bottom left), mirrored when `flip_x`. Placement is the root's.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BakedFrame {
+    pub image: Handle<Image>,
+    pub rect: URect,
+    pub size: Vec2,
+    pub anchor: Vec2,
+    pub flip_x: bool,
 }
 
 impl RiggedLocalSample {
@@ -1245,6 +1261,7 @@ pub fn sample_rigged_presentations(
         (Without<RiggedPresentation>, Without<RiggedPartSlot>),
     >,
     time: Option<Res<Time>>,
+    layouts: Option<Res<Assets<TextureAtlasLayout>>>,
 ) {
     for (&RiggedPresentationOf(root), mut presentation, mut sample) in &mut owners {
         let sample = &mut *sample;
@@ -1254,6 +1271,7 @@ pub fn sample_rigged_presentations(
         sample.frame = 0;
         sample.frame_opacity = 1.0;
         sample.feet = None;
+        sample.baked = None;
         let Ok((animator, pose, mask, root_sprite, root_anchor)) = roots.get(root) else {
             continue;
         };
@@ -1360,9 +1378,35 @@ pub fn sample_rigged_presentations(
                 root_sprite.flip_x,
             ));
         }
+        if sample.state == LocalSampleState::Baked {
+            sample.baked = baked_frame(animator, root_sprite, root_anchor, layouts.as_deref());
+        }
         presentation.drawn = drawn;
         presentation.posed_draws = posed_draws;
     }
+}
+
+/// The baked frame the animator chose: its page's region for this frame, at
+/// the quad the animator gave the root.
+fn baked_frame(
+    animator: &CharacterAnimator,
+    root_sprite: Option<&Sprite>,
+    root_anchor: Option<&Anchor>,
+    layouts: Option<&Assets<TextureAtlasLayout>>,
+) -> Option<BakedFrame> {
+    let page = animator
+        .pages
+        .get(animator.current_page() as usize)
+        .or_else(|| animator.pages.first())?;
+    let rect = *layouts?.get(&page.layout)?.textures.get(animator.atlas_index())?;
+    let sprite = root_sprite?;
+    Some(BakedFrame {
+        image: page.texture.clone(),
+        rect,
+        size: sprite.custom_size?,
+        anchor: root_anchor.map_or(Vec2::ZERO, |anchor| anchor.0),
+        flip_x: sprite.flip_x,
+    })
 }
 
 /// Draw each rigged root's current frame from parts: the slots take the

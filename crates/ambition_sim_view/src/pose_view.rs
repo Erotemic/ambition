@@ -789,11 +789,6 @@ pub fn rebuild_body_pose_views(
     // No feel tuning means no hitlag law to measure against: every body reports
     // no strength rather than a number derived from a reference nobody set.
     let world_hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
-    let hitlag_reference_of = |entity: Entity| {
-        rules
-            .of(entity)
-            .map_or(world_hitlag_reference, |rules| rules.hitlag.reference_s(world_hitlag_reference))
-    };
     let dt = time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs);
     let registry = registry.get();
     let default_shield = ambition_platformer2d_core::BodyShieldState::default();
@@ -1147,9 +1142,11 @@ pub fn rebuild_body_pose_views(
             hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
             hold: combat.map_or(ReactionHold::None, ReactionHold::of),
             parry_flash_secs: shield.map_or(0.0, |s| s.parry_caught_timer),
-            hit_strength: ambition_platformer2d_core::hit_response::hit_strength_fraction(
+            hit_strength: crate::defense_view::hit_strength(
+                entity,
                 combat.map_or(0.0, |c| c.hitstop_timer),
-                hitlag_reference_of(entity),
+                &rules,
+                world_hitlag_reference,
             ),
             // THE DAMAGE RULE ITSELF, inverted — not a second reading of it. A
             // body missing one of these clusters cannot be protected by it, so

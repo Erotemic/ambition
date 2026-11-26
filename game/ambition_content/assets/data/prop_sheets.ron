@@ -31,6 +31,7 @@
     "temple_gate_wheel_2": (),
     "temple_gate_wheel_3": (),
     "temple_gate_wheel_1_shut": (),
+    "noodly_cistern_plumbing": (),
     "temple_gate_bell": (),
     // The Art dimension (`targets/props/art_props.py`). The keys of its
     // colour gate are jars of the three primaries; each door is a canvas in a

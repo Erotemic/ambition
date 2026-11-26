@@ -218,6 +218,9 @@ the positions of the Library's ledges and the Mine's switches to check that
 the same input works for surfaces and controls.
 The Coil Lab rig also uses the positions of both gravity switches. Its
 conduit and control panels must move with those switches.
+The Noodly Cistern adds pipes and plates for each wheel. Give the art
+generator the switch and gate bounds and the gate conditions. Keep the
+pipe bends in the art so an author can route around labels.
 The Celtic Frontier ramp also needs the `SurfaceChain` points. The points
 give the art generator the height of each rail and support on the ramp.
 The Staging Area scaffold is another case. Pass the ledge spans to the art

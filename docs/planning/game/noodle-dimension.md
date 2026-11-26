@@ -52,6 +52,13 @@ dimensions. The narthex lost its ring and got a front door to the stair
 (`noodly_narthex_to_stair`). The narthex is LDtk-owned, so this edit was made
 in the map; the temple's `make_specs.py` writes the same door.
 
+## Cistern controls
+
+The temple cistern has three wheels. Pipes show the gates that each wheel
+controls. Blue plates mark gates that open when the wheel is on. Amber
+plates with a bar mark gates that close. The gates control the dry passages
+between the pools.
+
 ## The soda
 
 A pool of soda is two things in one box. Neither needs a Rust change:

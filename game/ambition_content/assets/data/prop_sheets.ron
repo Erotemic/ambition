@@ -1180,6 +1180,7 @@
     "neural_training_bypass": (backdrop: true),
     "neural_red_herring_board": (),
     "neural_weights_racks": (),
+    "neural_weights_circuit_walk": (),
     "neural_echo_screens": (),
     "neural_echo_viewing_balcony": (),
     // The Central Hub's scenery (`targets/props/authority_props.py`): each
@@ -1233,6 +1234,8 @@
     // is drawn in its room's coordinates, over the room's walk lines.
     "frontier_pad_booth": (),
     "frontier_pad_cargo": (),
+    "frontier_pad_loading_walk": (),
+    "frontier_pad_service_steps": (),
     "frontier_pad_freighter": (),
     "frontier_saloon_front": (),
     "frontier_store_front": (),

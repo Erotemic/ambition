@@ -347,6 +347,11 @@ the fibres behind the deck. Show the deck at both stops and a body at
 each transfer.
 In the Echo Chamber, show the balcony, the screens, and the speaking area
 on the floor. Use the ledge bounds to place the balcony trim and the steps.
+In the Weights, use the circuit ledge bounds to place each pad. Show the
+path of a paper label from Stereotyping's muzzle to a body on the floor.
+At Pad Three, use the ledge bounds for the cargo scale, loading walks,
+and service steps. Show the hold entrance and the clerk's window so an
+author can check where both routes start.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

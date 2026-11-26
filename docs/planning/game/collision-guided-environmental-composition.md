@@ -225,6 +225,8 @@ In the Mockingbird's sky, show the shark spans when the arrival ferry
 reaches the middle of the room. Include the first jump to each side.
 At Primeval Trailhead, show the survey walk, the two steps, and the path
 under the walk. Use the platform spans to place the plank edges.
+At Primeval Run, use the spine surface points to draw the exposed bone.
+Show the ledges at both ends and the space under the ribs.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

@@ -202,6 +202,8 @@ index and prop draw modes. Include doors and climbable surfaces so an
 author can check the relation between the art and the route.
 At the east end of the waterfront, show the net decks over the facades.
 The preview must use the game draw order where the decks cross the walls.
+At the Pirate Port docks, show the game-drawn rungs over the brig art.
+Use the climbable bounds to keep the shrouds clear of the rungs.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

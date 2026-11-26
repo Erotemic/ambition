@@ -1234,6 +1234,15 @@ hitlag, departure, re-entry, and changes to actor identity. A trial with
 an additional worker pass took 16.09 and 16.35 ms/tick in the full run.
 The current pose pass uses the serial loop.
 
+### In-process script invocation trial
+
+The trial passed staged values directly to the Rhai runner. The four
+windowed runs used all 596 bodies and measured 14 or 15 windows after 30 s.
+The reference medians were 16.98 and 16.02 ms/tick. The trial medians were
+19.07 and 25.09 ms/tick. The reference was also slower than in the previous
+batch. The trial gave no repeatable reduction in total tick time.
+The engine retains the guest ABI for these calls.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

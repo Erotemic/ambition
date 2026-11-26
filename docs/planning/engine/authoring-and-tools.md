@@ -371,6 +371,14 @@ check to look for a place where a body can stand and use the door. Show
 the support and the obstruction in the report so the author can adjust
 the placement.
 
+### Portal placement in room previews
+
+The Void Heart arch has a zone, two props for the arch, a terminal switch,
+and a prop for the terminal. Use the portal's existing references to find
+the zone, arch props, and switch. Attach the terminal prop to the switch.
+Let an author move the arch as a unit and adjust the terminal offset. Show
+the arrival area and the space in which a body can use the terminal.
+
 ### Jump reach in room previews
 
 In Starlight Heights, a held jump reached the first ledge on the west

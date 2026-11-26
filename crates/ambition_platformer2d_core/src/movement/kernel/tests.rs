@@ -43,7 +43,11 @@ fn floor_world() -> World {
 
 #[test]
 fn settled_steps_keep_contact_and_wake_when_support_changes() {
+    use ambition_resource_spec::{ResourceDeclaration, ResourceId, ResourceStart};
+
+    use crate::effects::{EffectSource, NumericAttribute, NumericOp};
     use crate::movement::SettledMotion;
+    use crate::resources::ActorResources;
 
     let mut world = floor_world();
     world.blocks[0].id = crate::GeoId::tile_layer("Collision", 0);
@@ -61,6 +65,10 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
     let initial = cached.clone();
     let initial_sample = sample;
     let mut observed_reuse = false;
+    let energy = ResourceId::new("proof-energy");
+    let bank = ActorResources::declared(&[ResourceDeclaration::new(
+        energy.clone(), 10.0, ResourceStart::Full,
+    )]).unwrap();
 
     for tick in 0..222 {
         world.blocks.hide(1);
@@ -78,13 +86,33 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
             reference_sample = initial_sample;
             observed_reuse = false;
         }
-        if tick == 205 {
+        if matches!(tick, 205 | 210) {
             assert!(cache.reused());
             for body in [&mut cached, &mut reference] {
                 let (MotionModel::AxisSwept(axis), _) = body.parts() else {
                     panic!("expected the axis-swept model");
                 };
-                axis.params.flight.hover_speed = -0.0;
+                if tick == 205 {
+                    axis.params.flight.hover_speed = -0.0;
+                } else {
+                    assert_eq!(axis.state.pre_wall_vel.x.to_bits(), 0);
+                    axis.state.pre_wall_vel.x = -0.0;
+                }
+            }
+        }
+        if matches!(tick, 198 | 200 | 213 | 215) {
+            assert!(cache.reused());
+            for body in [&mut cached, &mut reference] {
+                match tick {
+                    198 => body.resources = bank.clone(),
+                    200 => body.resources.as_mut().unwrap().level_of_mut(&energy).unwrap().drain(1.0),
+                    213 => body.shield.blow_from.x = -0.0,
+                    215 => body.effects.apply(
+                        EffectSource::named("proof-gravity"), NumericAttribute::Gravity,
+                        NumericOp::Mul(0.5), DT,
+                    ),
+                    _ => unreachable!(),
+                }
             }
         }
         if tick == 220 {
@@ -131,7 +159,7 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
             assert!(!cache.reused());
             assert_eq!(result.events.reset, Some(ResetCause::Hazard));
         }
-        if tick == 205 {
+        if matches!(tick, 198 | 200 | 205 | 210 | 213 | 215) {
             assert!(!cache.reused());
         }
         if tick == 220 {

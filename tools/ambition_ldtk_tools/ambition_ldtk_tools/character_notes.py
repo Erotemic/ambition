@@ -220,7 +220,7 @@ def notes_from_actor_metadata(metadata: Mapping[str, Any]) -> CharacterNotes:
     body = metadata.get("body") or {}
     return CharacterNotes(
         character_id=str(actor.get("character_id", "")).strip(),
-        display_name=str(actor.get("display_name", "")).strip(),
+        display_name=str(actor.get("display_name") or "").strip(),
         authoring_description=flatten_prose(metadata.get("authoring_description")),
         gameplay_description=flatten_prose(metadata.get("gameplay_description")),
         fallback_dialogue=fallback_pool(metadata.get("dialogue_hints")),

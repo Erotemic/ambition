@@ -453,7 +453,7 @@ fn two_different_tables_produce_two_different_fights() {
 /// stops the whole test from becoming a skip.
 ///
 /// A throw is not a decision. Any rising move satisfies this, including one
-/// authored as a juggle (the Pirate Admiral's `air_up`). So green means "the
+/// authored as a juggle (R. Badely's `air_up`). So green means "the
 /// fighter pressed something that displaces it", not "the fighter recovered
 /// with its recovery". `the_decision_log` asks what the brain selected in
 /// `Situation::Recovery`.

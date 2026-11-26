@@ -184,6 +184,20 @@ This window contains 2,882 samples.
 The shares overlap. They measure CPU work across threads. The capture has
 no GPU frame time or count of simulation steps per displayed frame.
 
+The later Pixel 5 capture `android-all-hall-auto-20261126T041153Z` used
+`2ef7f0cc831f`, before the later axis comparisons and inline cast storage.
+Across eight full Hall windows after second 95, the median of the frame
+medians was 120.5 ms. The fastest window median was 108.8 ms. The game
+advanced 59.0 simulation ticks per second and displayed 7.9 frames per
+second across those windows. This is 7.5 simulation ticks per frame.
+
+The median sum of the measured phases was 13.19 ms per tick. Integration
+used 3.80 ms, combat 1.46 ms, the decision gate 1.30 ms, and feature views
+1.21 ms. The native build ID `e652596b93c92d0e5b6af1563fe8eb2ff2aef1d4`
+matches the library in `symfs`. Of 6,154 CPU samples, 8.56% included body
+encoding for the settled movement check, and 7.34% included a full
+movement solve. The capture measures the combined build changes.
+
 One desktop sweep used the existing development `hall_bench` binary on
 CPUs 0–5. Each run warmed for 155 updates and measured 120 updates. The
 median time was 11.8, 30.6, and 70.8 ms per tick at the 2, 150, and 595
@@ -465,6 +479,30 @@ The build volume did not have space for a new full Hall executable.
 Measure the net desktop tick cost and phone frame time in the assembled
 game before assigning a frame rate to this change.
 
+The next change applies the same comparison to the axis maneuver state.
+The retained axis policy stores both its parameters and its state. A change
+to the sign of zero in a maneuver vector causes a new solve. Before and
+after, 48 wire fixtures match byte for byte. The fixtures include ledge,
+wire, and launch state.
+
+With 596 settled bodies, median desktop thread CPU time was 2.69–2.71
+ms per tick before and 1.95–1.96 ms after in the development build. In
+the optimized build it was 0.148–0.149 ms before and 0.120–0.128 ms after.
+All steps reused their proof in both builds. Position, velocity, and
+contact-count digests match in the settled and walking probes. The
+walking times overlap. These runs measure only the movement kernel.
+
+The fixed-size body clusters also use comparisons from their snapshot
+field declarations. Reuse still checks resource changes, live effects,
+and signed zero. A comparison of 78 rollback fixtures found the same bytes.
+
+In the 596-body development probe, the settled pass took 1.91–1.95 ms
+per tick before and 1.32–1.33 ms after. In the optimized probe the
+same pass took 0.118–0.121 ms before and 0.130–0.132 ms after. Both
+versions reused all steps and matched the position, velocity, and contact
+counts. The result shows a development-build gain and an optimized cost
+of about 0.01 ms per tick in this workload.
+
 ### Inline collision cast storage
 
 A whole material cell retains its bounds inline. Boxes and segments use
@@ -531,6 +569,19 @@ full-cast run on the earlier build, removing the complete move trigger
 reduced the median `Combat` phase from 3.96–4.64 ms to 3.52 ms. Full tick
 timings overlapped. The complete removal is a cost probe. The engine still
 accepts buffered moves, held follow-ups, movement cancels, and throws.
+
+Control admission uses the slot index to clear ungranted verbs. It reads
+declared techniques in canonical slot order to route edges and report
+unsupported bindings. A probe on the older desktop host loaded 596 Hall
+bodies. None had a technique binding. The isolated gate pass went from
+0.758–0.766 to 0.417–0.425 ms, with the same control frames and edges.
+
+A separate 596-body probe used the indexed action scheme. Resolver time
+fell from 0.142–0.150 to 0.031–0.035 ms per pass in the development
+build and from 0.016–0.022 to 0.009–0.014 ms per pass in the optimized
+build. A comparison of 4,096 mixed schemes kept the same control frames,
+edge order, and diagnostics. These tests measure the gate and its
+resolver. They do not measure an assembled tick.
 
 ### Full-cast budget
 

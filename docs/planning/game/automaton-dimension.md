@@ -54,7 +54,8 @@ machine, the busy beaver that writes the most ones before it halts.
   Sierpinski panel and chest. It splits into smaller copies when defeated.
 - **The Tape Room** (`automaton_tape_room`), by the clock tower's door: the
   tape along the wall with its ones, the Head on its rail, the table of
-  states, and the count.
+  states, and the count. The inspection carriage runs between two raised
+  landings. Steps connect both landings to the floor.
 - **The Cell-ular Arena** (`automaton_arena`), east of the Life field, where
   the Perfect Cellular Automaton challenges people (Jon, 2026-11-25). You
   come in on a gallery at the terrace's height: the failure log (a row of

@@ -1,12 +1,17 @@
 use bevy_ecs::component::Component;
 
+use crate::body_clusters::{
+    BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyDashState, BodyDodgeState,
+    BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics, BodyLedgeState, BodyModeState,
+    BodyRestartLatch, BodyShieldState, BodyWallState,
+};
 use crate::frame::{
     MapConvention,
     thread::{MotionAdmission, PieceBudget},
 };
 use crate::layered::LayeredIdentity;
-use crate::motion_codec::{put_axis_maneuver_state, same_axis_law};
-use crate::snapshot::SnapshotState;
+use crate::motion_codec::same_axis_motion;
+use crate::snapshot::{ExactState, SnapshotState};
 use crate::world::WorldEdgeMargins;
 use crate::{Block, BodyClustersMut, MotionFrame, SurfaceChain, SweepSample, Vec2, World};
 
@@ -48,7 +53,8 @@ pub enum ProofMiss {
 }
 
 struct SettledStep {
-    axis_law: Option<crate::AxisSweptParams>,
+    body: FixedBodyState,
+    axis_motion: Option<crate::AxisSweptMotion>,
     environment: Geometry,
     input: StepInput,
     result: MotionStepResult,
@@ -180,54 +186,62 @@ fn edge_bits(world: &World) -> [Option<u32>; 3] {
     [Some(fall), side, rise].map(|x| x.map(f32::to_bits))
 }
 
-// Use the snapshot codecs for mutable body state. Check the axis law separately.
-fn encode_body(model: &MotionModel, body: &BodyClustersMut<'_>, out: &mut Vec<u8>) {
-    let BodyClustersMut {
-        settled: _,
-        carrier: _,
-        sweep: _,
-        env_contact: _,
-        abilities,
-        kinematics,
-        base_size,
-        ground,
-        wall,
-        jump,
-        dash,
-        flight,
-        blink,
-        ledge,
-        dodge,
-        shield,
-        body_mode,
-        resources,
-        effects,
-        action_buffer,
-        restart,
-    } = body;
+// Retain fixed-size values once per proof. A reuse check reads the live values.
+macro_rules! fixed_body_state {
+    ($($field:ident: $ty:ty),+ $(,)?) => {
+        struct FixedBodyState { $($field: $ty),+ }
+
+        impl FixedBodyState {
+            fn capture(body: &BodyClustersMut<'_>) -> Self {
+                let BodyClustersMut {
+                    $($field,)+ settled: _, carrier: _, sweep: _, env_contact: _,
+                    resources: _, effects: _,
+                } = body;
+                Self { $($field: **$field),+ }
+            }
+
+            fn matches(&self, body: &BodyClustersMut<'_>) -> bool {
+                $(self.$field.same_bits(body.$field))&&+
+            }
+        }
+    };
+}
+
+fixed_body_state! {
+    abilities: BodyAbilities,
+    kinematics: BodyKinematics,
+    base_size: BodyBaseSize,
+    ground: BodyGroundState,
+    wall: BodyWallState,
+    jump: BodyJumpState,
+    dash: BodyDashState,
+    flight: BodyFlightState,
+    blink: BodyBlinkState,
+    ledge: BodyLedgeState,
+    dodge: BodyDodgeState,
+    shield: BodyShieldState,
+    body_mode: BodyModeState,
+    action_buffer: BodyActionBuffer,
+    restart: BodyRestartLatch,
+}
+
+fn encode_variable_state(model: &MotionModel, body: &BodyClustersMut<'_>, out: &mut Vec<u8>) {
     out.clear();
-    match model {
-        MotionModel::AxisSwept(axis) => put_axis_maneuver_state(out, &axis.state),
-        _ => model.encode(out),
+    let encode_model = !matches!(model, MotionModel::AxisSwept(_));
+    let has_effects = !body.effects.is_empty();
+    let has_resources = body.resources.is_some();
+    let fields = u8::from(encode_model) | (u8::from(has_effects) << 1) | (u8::from(has_resources) << 2);
+    if fields == 0 {
+        return;
     }
-    abilities.encode(out);
-    kinematics.encode(out);
-    base_size.encode(out);
-    ground.encode(out);
-    wall.encode(out);
-    jump.encode(out);
-    dash.encode(out);
-    flight.encode(out);
-    blink.encode(out);
-    ledge.encode(out);
-    dodge.encode(out);
-    shield.encode(out);
-    body_mode.encode(out);
-    effects.encode(out);
-    action_buffer.encode(out);
-    restart.encode(out);
-    out.push(u8::from(resources.is_some()));
-    if let Some(resources) = resources.as_deref() {
+    out.push(fields);
+    if encode_model {
+        model.encode(out);
+    }
+    if has_effects {
+        body.effects.encode(out);
+    }
+    if let Some(resources) = body.resources.as_deref() {
         resources.encode(out);
     }
 }
@@ -257,14 +271,17 @@ impl SettledMotion {
                 return solve_motion(model, body, ctx, prior_down);
             }
         };
-        let current_law = axis_law(model);
-        encode_body(model, body, &mut self.current);
+        let current_motion = axis_motion(model);
+        encode_variable_state(model, body, &mut self.current);
         let miss = if let Some(step) = &self.step {
             if step.input != input {
                 ProofMiss::StepInput
             } else if let Some(changed) = step.environment.changed(ctx.world) {
                 changed
-            } else if self.prior != self.current || !same_law(step.axis_law.as_ref(), current_law) {
+            } else if !step.body.matches(body)
+                || self.prior != self.current
+                || !same_motion(step.axis_motion.as_ref(), current_motion)
+            {
                 ProofMiss::BodyState
             } else {
                 *body
@@ -277,7 +294,8 @@ impl SettledMotion {
         } else {
             ProofMiss::New
         };
-        let prior_law = current_law.copied();
+        let prior_body = FixedBodyState::capture(body);
+        let prior_motion = current_motion.copied();
         self.step = None;
         self.status = SettledMotionStatus::Events;
         let mut observed = ctx.world.clone();
@@ -302,12 +320,16 @@ impl SettledMotion {
             && events.ground_contact == GroundContactTransition::Unchanged
             && *body.env_contact == Default::default()
         {
-            encode_body(model, body, &mut self.prior);
-            if self.prior == self.current && same_law(prior_law.as_ref(), axis_law(model)) {
+            encode_variable_state(model, body, &mut self.prior);
+            if prior_body.matches(body)
+                && self.prior == self.current
+                && same_motion(prior_motion.as_ref(), axis_motion(model))
+            {
                 result.events.contacts.share();
                 self.status = SettledMotionStatus::Proved(miss);
                 self.step = Some(Box::new(SettledStep {
-                    axis_law: prior_law,
+                    body: prior_body,
+                    axis_motion: prior_motion,
                     environment: Geometry::capture(&observed),
                     input,
                     result: result.clone(),
@@ -324,16 +346,16 @@ impl SettledMotion {
     }
 }
 
-fn axis_law(model: &MotionModel) -> Option<&crate::AxisSweptParams> {
+fn axis_motion(model: &MotionModel) -> Option<&crate::AxisSweptMotion> {
     match model {
-        MotionModel::AxisSwept(axis) => Some(&axis.params),
+        MotionModel::AxisSwept(axis) => Some(axis),
         _ => None,
     }
 }
 
-fn same_law(a: Option<&crate::AxisSweptParams>, b: Option<&crate::AxisSweptParams>) -> bool {
+fn same_motion(a: Option<&crate::AxisSweptMotion>, b: Option<&crate::AxisSweptMotion>) -> bool {
     match (a, b) {
-        (Some(a), Some(b)) => same_axis_law(a, b),
+        (Some(a), Some(b)) => same_axis_motion(a, b),
         (None, None) => true,
         _ => false,
     }

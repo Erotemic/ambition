@@ -935,7 +935,7 @@ pub struct RangedActionSpec {
 ///
 /// ⭐⭐ AUTHORED, BECAUSE IT WAS A STRING COMPARE. `brain_effects` decided the
 /// projectile visual, the muzzle, the fire cue and the recoil from
-/// `held_item_id == Some("gun_sword")`, so the Pirate Admiral's side-B — which
+/// `held_item_id == Some("gun_sword")`, so R. Badely's side-B — which
 /// draws `admiral_gun_sword`, a row whose own comment says *"same art, same
 /// discharge, same hand"* — got none of them. A comment stating a rule the code
 /// contradicts is the tell.

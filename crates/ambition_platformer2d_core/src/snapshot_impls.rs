@@ -12,85 +12,43 @@
 use crate::snapshot::{put_bool, put_f32, put_u32, put_vec2, Reader, SnapshotState};
 use crate::{snapshot_pod, snapshot_unit_enum};
 
-impl SnapshotState for crate::AbilitySet {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_bool(out, self.move_horizontal);
-        put_bool(out, self.jump);
-        put_bool(out, self.variable_jump);
-        put_bool(out, self.double_jump);
-        put_bool(out, self.fast_fall);
-        put_bool(out, self.wall_jump);
-        put_bool(out, self.wall_cling);
-        put_bool(out, self.wall_climb);
-        put_bool(out, self.dash);
-        put_bool(out, self.double_dash);
-        put_bool(out, self.fly);
-        put_bool(out, self.fly_toggle);
-        put_bool(out, self.blink);
-        put_bool(out, self.precision_blink);
-        put_bool(out, self.blink_through_soft_walls);
-        put_bool(out, self.blink_through_hard_walls);
-        put_bool(out, self.unrestricted_blink);
-        put_bool(out, self.attack);
-        put_bool(out, self.pogo);
-        put_bool(out, self.directional_primary);
-        put_bool(out, self.directional_special);
-        put_bool(out, self.rebound);
-        put_bool(out, self.reset);
-        put_bool(out, self.ledge_grab);
-        put_bool(out, self.swim);
-        put_bool(out, self.glide);
-        put_bool(out, self.dodge);
-        put_bool(out, self.shield);
-        put_bool(out, self.grab);
-        put_bool(out, self.interact);
-        put_bool(out, self.crouch);
-        put_bool(out, self.climb);
-        put_bool(out, self.morph);
-        put_bool(out, self.ranged);
-        put_bool(out, self.blink_slow);
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(Self {
-            move_horizontal: r.bool()?,
-            jump: r.bool()?,
-            variable_jump: r.bool()?,
-            double_jump: r.bool()?,
-            fast_fall: r.bool()?,
-            wall_jump: r.bool()?,
-            wall_cling: r.bool()?,
-            wall_climb: r.bool()?,
-            dash: r.bool()?,
-            double_dash: r.bool()?,
-            fly: r.bool()?,
-            fly_toggle: r.bool()?,
-            blink: r.bool()?,
-            precision_blink: r.bool()?,
-            blink_through_soft_walls: r.bool()?,
-            blink_through_hard_walls: r.bool()?,
-            unrestricted_blink: r.bool()?,
-            attack: r.bool()?,
-            pogo: r.bool()?,
-            directional_primary: r.bool()?,
-            directional_special: r.bool()?,
-            rebound: r.bool()?,
-            reset: r.bool()?,
-            ledge_grab: r.bool()?,
-            swim: r.bool()?,
-            glide: r.bool()?,
-            dodge: r.bool()?,
-            shield: r.bool()?,
-            grab: r.bool()?,
-            interact: r.bool()?,
-            crouch: r.bool()?,
-            climb: r.bool()?,
-            morph: r.bool()?,
-            ranged: r.bool()?,
-            blink_slow: r.bool()?,
-        })
-    }
-}
+snapshot_pod!(crate::AbilitySet {
+    move_horizontal: bool,
+    jump: bool,
+    variable_jump: bool,
+    double_jump: bool,
+    fast_fall: bool,
+    wall_jump: bool,
+    wall_cling: bool,
+    wall_climb: bool,
+    dash: bool,
+    double_dash: bool,
+    fly: bool,
+    fly_toggle: bool,
+    blink: bool,
+    precision_blink: bool,
+    blink_through_soft_walls: bool,
+    blink_through_hard_walls: bool,
+    unrestricted_blink: bool,
+    attack: bool,
+    pogo: bool,
+    directional_primary: bool,
+    directional_special: bool,
+    rebound: bool,
+    reset: bool,
+    ledge_grab: bool,
+    swim: bool,
+    glide: bool,
+    dodge: bool,
+    shield: bool,
+    grab: bool,
+    interact: bool,
+    crouch: bool,
+    climb: bool,
+    morph: bool,
+    ranged: bool,
+    blink_slow: bool,
+}, exact);
 
 /// The host-code playable kit is derived from this component. Registering the
 /// identity without its derivation input made a restore depend on whatever
@@ -158,12 +116,12 @@ snapshot_pod!(crate::body_clusters::BodyGroundState {
     // restore without it decides a ceiling tech from the wrong tick.
     head_contact: bool,
     contact_initialized: bool,
-});
+}, exact);
 
 snapshot_pod!(crate::body_clusters::BodyWallState {
     on_wall: bool,
     wall_normal_x: f32,
-});
+}, exact);
 
 snapshot_pod!(crate::body_clusters::ActorSurfaceState {
     surface_normal: vec2,
@@ -178,12 +136,12 @@ snapshot_pod!(crate::body_clusters::BodyJumpState {
     ladder_jump_boost: f32,
     ladder_drop_through_timer: f32,
     ladder_drop_through_hold_lock: bool,
-});
+}, exact);
 
 snapshot_pod!(crate::body_clusters::BodyDashState {
     charges_available: u8,
     cooldown: f32,
-});
+}, exact);
 
 snapshot_pod!(crate::body_clusters::BodyFlightState {
     fly_enabled: bool,
@@ -199,9 +157,9 @@ snapshot_pod!(crate::body_clusters::BodyFlightState {
     pending_launch: vec2,
     pending_launch_flinchless: bool,
     pending_launch_tech: state,
-});
+}, exact);
 
-snapshot_pod!(crate::body_clusters::BodyBlinkState { cooldown: f32 });
+snapshot_pod!(crate::body_clusters::BodyBlinkState { cooldown: f32 }, exact);
 
 snapshot_pod!(crate::body_clusters::BodyDodgeState {
     cooldown: f32,
@@ -211,7 +169,7 @@ snapshot_pod!(crate::body_clusters::BodyDodgeState {
     // gives a fighter back i-frames it had spent.
     evades_recent: u8,
     stale_decay: f32
-});
+}, exact);
 
 snapshot_pod!(crate::body_clusters::BodyShieldState {
     active: bool,
@@ -239,7 +197,7 @@ snapshot_pod!(crate::body_clusters::BodyShieldState {
     // ring from the same tick.
     blow_timer: f32,
     blow_from: vec2,
-});
+}, exact);
 
 snapshot_pod!(crate::body_clusters::BodyRestartLatch {
     // SNAPSHOT state, not bookkeeping to drop: a rewind into the tick between a
@@ -247,16 +205,16 @@ snapshot_pod!(crate::body_clusters::BodyRestartLatch {
     // the resimulation clears provider state the original run cleared and the
     // two diverge.
     pending: bool,
-});
+}, exact);
 
 snapshot_pod!(crate::body_clusters::BodyActionBuffer {
     attack: f32,
     pogo: f32,
     grab: f32,
     special: f32,
-});
+}, exact);
 
-snapshot_pod!(crate::body_clusters::BodyBaseSize { base_size: vec2 });
+snapshot_pod!(crate::body_clusters::BodyBaseSize { base_size: vec2 }, exact);
 
 snapshot_unit_enum!(crate::ledge_grab::LedgeGetupKind {
     Climb = 0,
@@ -316,7 +274,7 @@ snapshot_unit_enum!(crate::movement::MovementOp {
 // cluster keeps only the re-grab lockout.
 snapshot_pod!(crate::body_clusters::BodyLedgeState {
     release_cooldown: f32,
-});
+}, exact);
 
 impl SnapshotState for crate::body_clusters::SweepSample {
     fn encode(&self, out: &mut Vec<u8>) {
@@ -451,24 +409,55 @@ snapshot_unit_enum!(crate::reference_frame::GameplayFramePolicy {
     ScreenSpace = 3,
 });
 
-impl SnapshotState for crate::body_clusters::BodyKinematics {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_vec2(out, self.pos);
-        put_vec2(out, self.vel);
-        put_vec2(out, self.canonical_size);
-        put_f32(out, self.facing);
-        self.material.encode(out);
-    }
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::body_clusters::BodyKinematics {
-            pos: r.vec2()?,
-            vel: r.vec2()?,
-            canonical_size: r.vec2()?,
-            facing: r.f32()?,
-            material: crate::frame::BodyMaterial::decode(r)?,
-        })
+snapshot_pod!(crate::body_clusters::BodyKinematics {
+    pos: vec2,
+    vel: vec2,
+    canonical_size: vec2,
+    facing: f32,
+    material: state,
+}, exact);
+
+impl crate::snapshot::PasteEncode for crate::frame::BodyMaterial {
+    fn put(self, out: &mut Vec<u8>) {
+        self.encode(out);
     }
 }
+
+impl crate::snapshot::ExactState for crate::frame::BodyMaterial {
+    #[inline]
+    fn same_bits(&self, other: &Self) -> bool {
+        self.record() == other.record()
+    }
+}
+
+impl crate::snapshot::ExactState for crate::body_clusters::BodyAbilities {
+    #[inline]
+    fn same_bits(&self, other: &Self) -> bool {
+        self.abilities.same_bits(&other.abilities)
+    }
+}
+
+impl crate::snapshot::ExactState for crate::body_clusters::BodyModeState {
+    #[inline]
+    fn same_bits(&self, other: &Self) -> bool {
+        self.body_mode.same_bits(&other.body_mode)
+    }
+}
+
+macro_rules! exact_eq {
+    ($($ty:ty),+ $(,)?) => {
+        $(impl crate::snapshot::ExactState for $ty {
+            #[inline(always)]
+            fn same_bits(&self, other: &Self) -> bool {
+                #[inline(always)]
+                fn compare<T: Eq>(a: &T, b: &T) -> bool { a == b }
+                compare(self, other)
+            }
+        })+
+    };
+}
+
+exact_eq!(bool, u8, ambition_hit_spec::TechPolicy, crate::player_state::BodyMode);
 
 impl SnapshotState for Option<f32> {
     fn encode(&self, out: &mut Vec<u8>) {

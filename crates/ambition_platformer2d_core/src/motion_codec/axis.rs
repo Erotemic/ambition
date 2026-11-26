@@ -36,8 +36,12 @@ macro_rules! axis_fields {
     (@compare $a:expr, $b:expr, out_of_shield) => { $a == $b };
 }
 
+mod state;
+
+pub(super) use state::{axis_maneuver_state, put_axis_maneuver_state};
+
 macro_rules! axis_scalar {
-    ($ty:ty, $put:ident, $get:ident, $key:expr) => {
+    ($ty:ty, $put:ident, $get:ident) => {
         impl AxisField for $ty {
             fn write_axis(&self, out: &mut Vec<u8>) {
                 $put(out, *self);
@@ -49,15 +53,15 @@ macro_rules! axis_scalar {
 
             #[inline(always)]
             fn same_bits(&self, other: &Self) -> bool {
-                $key(*self) == $key(*other)
+                crate::snapshot::ExactState::same_bits(self, other)
             }
         }
     };
 }
 
-axis_scalar!(f32, put_f32, f32, f32::to_bits);
-axis_scalar!(u8, put_u8, u8, std::convert::identity);
-axis_scalar!(bool, put_bool, bool, std::convert::identity);
+axis_scalar!(f32, put_f32, f32);
+axis_scalar!(u8, put_u8, u8);
+axis_scalar!(bool, put_bool, bool);
 
 impl<T: AxisField> AxisField for Option<T> {
     fn write_axis(&self, out: &mut Vec<u8>) {
@@ -215,8 +219,8 @@ impl AxisField for crate::AxisJumpLaw {
     }
 }
 
-pub(crate) fn same_axis_law(a: &crate::AxisSweptParams, b: &crate::AxisSweptParams) -> bool {
-    a.same_bits(b)
+pub(crate) fn same_axis_motion(a: &crate::AxisSweptMotion, b: &crate::AxisSweptMotion) -> bool {
+    a.state.same_bits(&b.state) && a.params.same_bits(&b.params)
 }
 
 pub(super) fn put_axis_swept_params(out: &mut Vec<u8>, params: &crate::AxisSweptParams) {

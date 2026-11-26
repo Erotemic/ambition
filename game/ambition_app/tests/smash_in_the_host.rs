@@ -4255,7 +4255,7 @@ fn the_capture_tools_documented_taps_seat_two_cpus_on_two_fighters() {
     // shift along by one — every column moved, and the old points landed in the
     // GAPS between cells. Both taps missed, both tokens went home, and the picks
     // came back `[Random, Random]`. ⭐ The FIGHTERS are unchanged: George Booul
-    // is still cell 1 and the Pirate Admiral still cell 4, which is exactly why
+    // is still cell 1 and R. Badely still cell 4, which is exactly why
     // naming them rather than trusting the literals is what caught this.
     const PORTRAIT_A: Vec2 = Vec2::new(518.0, 105.0);
     const PORTRAIT_B: Vec2 = Vec2::new(761.0, 105.0);

@@ -220,7 +220,7 @@ pub fn spawn_projectiles_from_brain_actions(
         } else { kin.pos };
         // ⭐⭐ HOW THIS SHOT LEAVES THE WEAPON, ASKED OF THE WEAPON. These four
         // choices — the look, the muzzle, the cue, the kick — were decided here
-        // by `held_item_id == Some("gun_sword")`, so the Pirate Admiral's side-B
+        // by `held_item_id == Some("gun_sword")`, so R. Badely's side-B
         // got none of them despite drawing a weapon whose own row says *"same
         // art, same discharge, same hand"*. See
         // `ambition_characters::brain::action_set::Discharge`; this site no

@@ -1086,9 +1086,9 @@
             move_style: Walk,
             melee: Some(Swipe(windup_s: 0.42, active_s: 0.24, recover_s: 0.45, damage: 2, reach_px: 58.0)),
         ),
-        // The Barrow King's slash: the specter's swing, on its frames and its
-        // telegraph, with a king's weight behind it: armored once committed, so a
-        // flurry of blows does not stop it.
+        // The Barrow King winds up his claw across the first seven frames
+        // of his attack row and sweeps on frames 7–10. He is armored once
+        // committed, so a flurry of blows does not stop it.
         "barrow_king_slash": (
             move_style: Walk,
             melee: Some(Swipe(windup_s: 0.42, active_s: 0.24, recover_s: 0.45, damage: 6, reach_px: 58.0, armored: true)),
@@ -2241,7 +2241,7 @@
         // ===== Pirate cove (Pirate Cove faction).
         "npc_pirate_admiral": (
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
-            display_name: "Pirate Admiral",
+            display_name: "R. Badely",
             manifest: "sprites/pirate_admiral_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
@@ -6950,14 +6950,14 @@
         ),
         hall_dialogue_id: Some("hall_decomposing_specter"),
         ),
-        // The Barrow King (level 1, `intro_barrow`): the king of the valley
-        // under the moor, in the specter's shape and slash but a king's
-        // strength. The scavengers stack their freight in his grave, and he
-        // wants all of it, chargers included. The hardest fight in level 1.
+        // The Barrow King (level 1, `intro_barrow`) rules the valley under
+        // the moor, with a crown, a floor-lamp scepter and a spectral claw.
+        // The scavengers stack their freight in his grave, and he wants
+        // all of it, chargers included. The hardest fight in level 1.
         "barrow_king": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "The Barrow King",
-            manifest: "sprites/decomposing_specter_spritesheet.ron",
+            manifest: "sprites/barrow_king_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             standing_height: Some(70.0),

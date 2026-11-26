@@ -4,16 +4,15 @@
 //! ability-suppression guards that make a crossing feel right.
 
 use bevy::prelude::*;
-use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
 use crate::pieces as pp;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
-use ambition_platformer2d_shared_tangle::frame_env::{CarriedAcceleration, ResolvedMotionFrame};
+use ambition_platformer2d_shared_tangle::frame_env::CarriedAcceleration;
 
 use super::color::PortalChannel;
-use super::placement::{transit_step_with_tuning, TransitStep, TRANSIT_BEGIN_MARGIN};
+use super::placement::{transit_step_with_record, TransitStep, TRANSIT_BEGIN_MARGIN};
 use super::tuning::PortalTuning;
 use super::rooms::{PortalHostDepthsByRoom, PortalRoom, PortalsByRoom};
 use super::types::{find_portal, PlacedPortal, PortalTransitCooldown};
@@ -345,10 +344,6 @@ pub struct PortalBodyTransited {
     /// The sim step it crossed in (`SimTick`; 0 in an app that counts none).
     /// A frame that runs several steps reads the crossings of all of them.
     pub tick: u64,
-    /// The movement kernel moved the root and went on with the step in the
-    /// exit's chart (portal M2): the body's state and record are already the
-    /// arrival's, and nothing reconciles them again.
-    pub continued: bool,
 }
 
 /// A root pose and its carried acceleration, checked before one commit.
@@ -375,6 +370,7 @@ impl PreparedPortalTransfer {
     }
 
     pub fn body(&self) -> &BodyKinematics { &self.body }
+    pub fn transfer(&self) -> super::placement::PortalTransfer { self.transfer }
     pub fn acceleration(&self) -> Option<Vec2> { self.acceleration }
 }
 
@@ -425,14 +421,14 @@ pub fn commit_body_transfer(
 ) {
     if let Some((acceleration,mapped))=acceleration.zip(prepared.acceleration) {acceleration.0=mapped;}
     *body=prepared.body;
-    publish_body_transfer(commands,entity,transit,prepared.transfer,prepared.input_warp,cooldown,false);
+    publish_body_transfer(commands,entity,transit,prepared.transfer,prepared.input_warp,cooldown);
 }
 
 /// What a root crossing leaves behind, whoever moved the root: the latch on
 /// the pair, the body straddling the exit, the crossing's message.
 fn publish_body_transfer(
     commands:&mut Commands, entity:Entity, transit:Option<&mut PortalTransit>,
-    transfer:super::placement::PortalTransfer, input_warp:bool, cooldown:f32, continued:bool,
+    transfer:super::placement::PortalTransfer, input_warp:bool, cooldown:f32,
 ) {
     commands.entity(entity).remove::<PortalBackside>().insert(PortalTransitCooldown {
         remaining:cooldown,pair:transfer.exit_channel,
@@ -441,7 +437,7 @@ fn publish_body_transfer(
     commands.queue(move |world:&mut bevy::prelude::World| {
         if let Some(mut log)=world.get_resource_mut::<ClassBRemapLog>() {log.record(entity,ClassBRemap::PortalTransit);}
         let tick=world.get_resource::<ambition_time::SimTick>().map_or(0,|tick| tick.get());
-        world.write_message(PortalBodyTransited {body:entity,transfer,input_warp,tick,continued});
+        world.write_message(PortalBodyTransited {body:entity,transfer,input_warp,tick});
     });
 }
 
@@ -497,7 +493,7 @@ fn publish_kernel_crossings(
     if let Some(crossed)=(!legs.is_empty()).then(|| ae::CrossedTravel(legs)) {
         commands.entity(entity).insert(crossed);
     }
-    publish_body_transfer(commands,entity,transit,transfer,input_warp,tuning.teleport_cooldown_s,true);
+    publish_body_transfer(commands,entity,transit,transfer,input_warp,tuning.teleport_cooldown_s);
 }
 
 /// The generic transit algorithm: drive every body through a portal aperture
@@ -529,10 +525,8 @@ pub fn portal_transit(
     mut bodies: Query<
         (
             Entity,
-            &mut BodyKinematics,
+            &BodyKinematics,
             Option<&mut CarriedAcceleration>,
-            Option<&mut ae::BodyFlightState>,
-            Option<&ResolvedMotionFrame>,
             Option<&mut PortalTransit>,
             Option<&PortalTransitCooldown>,
             Option<&ae::SweepSample>,
@@ -543,7 +537,6 @@ pub fn portal_transit(
         ),
     >,
     geometry: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
-    frame_env: ambition_platformer2d_shared_tangle::frame_env::FrameEnv,
     tuning: Res<PortalTuning>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     // The measurement trace names its tick; a minimal app may not count.
@@ -554,7 +547,7 @@ pub fn portal_transit(
     let by_room = admitted.as_deref().map_or(&none, |admitted| &admitted.0);
     let kernel_reroots = geometry.as_deref().is_some_and(|geometry| geometry.kernel_reroots());
 
-    for (entity, mut kin, mut acceleration, mut flight, frame, mut transit, cooldown, record, backside, held, stored, frame_out) in &mut bodies {
+    for (entity, kin, mut acceleration, mut transit, cooldown, record, backside, held, stored, frame_out) in &mut bodies {
         if stored || !live.allows(entity) {
             commands.entity(entity).remove::<(PortalTransit, PortalBackside, PortalTransitCooldown)>();
             continue;
@@ -597,7 +590,6 @@ pub fn portal_transit(
         // (portal M2). Transit publishes those crossings and searches none of
         // its own in that body's travel; the overlap upkeep below still runs
         // from its pose.
-        let kernel_body = kernel_reroots && frame_out.is_some();
         if let Some(mut out) = frame_out.filter(|out| kernel_reroots && !out.events.chart_changes.is_empty()) {
             let changes = std::mem::take(&mut out.events.chart_changes);
             publish_kernel_crossings(&mut commands, entity, &kin, acceleration.as_deref_mut(),
@@ -607,45 +599,24 @@ pub fn portal_transit(
         // Body latch (`PortalTransitCooldown`), ticked by
         // `tick_portal_cooldowns`, scoped to the pair just crossed.
         let cooldown_pair = cooldown.map(|c| c.pair);
-        // The swept segment comes from the movement kernel's `SweepSample`. It
-        // is used only when its `curr` equals the live `kin.pos`, so teleports
-        // outside the sim phase are not swept travel.
-        let sweep = record.copied().filter(|_| !kernel_body);
+        // Only the record's restriction is read: a step the kernel refused
+        // and took again with portals closed opens no straddle here.
         let backside = backside.copied();
         let usable = usable_portals(all, backside);
-        let step = transit_step_with_tuning(*kin,
-            sweep,
-            transit.as_deref().copied(),
-            cooldown_pair,
-            &usable,
-            &tuning,);
+        let step = transit_step_with_record(*kin, record.copied(), transit.as_deref().copied(),
+            cooldown_pair, &usable);
         // A measurement trace (`RUST_LOG=ambition_portal::transit_trace=debug`,
-        // read by `scripts/measure/portal_seam_lab.py`), as a free body's.
+        // read by `scripts/measure/portal_seam_lab.py`).
         bevy::log::debug!(
             target: "ambition_portal::transit_trace",
-            "tick={tick} kernel body={entity:?} at={:.1},{:.1} vel={:.1},{:.1} step={step:?}",
+            "tick={tick} body={entity:?} at={:.1},{:.1} vel={:.1},{:.1} step={step:?}",
             kin.pos.x,
             kin.pos.y,
             kin.vel.x,
             kin.vel.y
         );
-        let (prepared,carried_run)=match step {
-            TransitStep::Transfer {transfer,input_warp,..}=>{
-                let payload=(|| {
-                    let prepared=PreparedPortalTransfer::new(*kin,acceleration.as_deref().map(|a|a.0),transfer,input_warp)?;
-                    let destination_side=frame_env.reference_basis(prepared.body.aabb(),room).side;
-                    let source_side=frame.map_or_else(||frame_env.reference_basis(kin.aabb(),room).side,|frame|frame.basis().side);
-                    let run=flight.as_deref().map(|flight|transfer.carried_run(source_side,destination_side,flight.carried_run)).transpose()?;
-                    Ok::<_,ae::frame::NumericFault>((prepared,run))
-                })();
-                let Ok((prepared,run))=payload else {continue;};
-                (Some(prepared),run)
-            }
-            TransitStep::Refused {..}=>continue,
-            _=>(None,None),
-        };
-        let crossing=transit.is_some() || !matches!(step,TransitStep::Idle);
-        if prepared.is_none() {update_backside(&mut commands,entity,backside,crossing,all,kin.aabb());}
+        let crossing = transit.is_some() || !matches!(step, TransitStep::Idle);
+        update_backside(&mut commands, entity, backside, crossing, all, kin.aabb());
         match step {
             TransitStep::Idle | TransitStep::Continue | TransitStep::Refused { .. } => {}
             TransitStep::Begin {
@@ -658,20 +629,6 @@ pub fn portal_transit(
                 });
                 // An Ambition audio adapter plays the enter cue.
                 entered.write(super::messages::PortalBodyEntered { pos: portal_pos });
-            }
-            TransitStep::Transfer {transfer,ref between,..} => {
-                // The tick's travel before the arrival, for contact readers:
-                // the leg up to the first crossing and each leg between two
-                // (M1/M2). The body's own record restarts at the arrival.
-                if let Some(mut crossed)=sweep.and_then(|sweep| ae::CrossedTravel::up_to(
-                    sweep,transfer.crossing_point,transfer.crossing_time)) {
-                    crossed.0.extend_from_slice(between);
-                    commands.entity(entity).insert(crossed);
-                }
-                if let Some((flight,run))=flight.as_deref_mut().zip(carried_run) {flight.carried_run=run;}
-                commit_body_transfer(&mut commands,entity,&mut kin,acceleration.as_deref_mut(),
-                    transit.as_deref_mut(),prepared.unwrap(),tuning.teleport_cooldown_s);
-                bevy::log::info!(target:"ambition_platformer2d::portal","transferred through the portal pair");
             }
             TransitStep::Clear => {
                 commands.entity(entity).remove::<PortalTransit>();
@@ -687,28 +644,6 @@ pub fn portal_transit(
 pub fn clear_crossed_travel(mut commands: Commands, crossed: Query<Entity, With<ae::CrossedTravel>>) {
     for entity in &crossed {
         commands.entity(entity).remove::<ae::CrossedTravel>();
-    }
-}
-
-/// Complete a transit for a kernel body (ADR 0024). The transit wrote the
-/// pose, so the facts of the departure point no longer hold: its contacts are
-/// invalidated, wall cling and ledge grab are released, a riding momentum body
-/// arrives airborne, an attached crawler arrives detached, and the motion
-/// record collapses to the arrival point. It runs in the same set after
-/// [`portal_transit`], so the next movement step sees the reconciled state.
-///
-/// A body without movement clusters (a projectile) has nothing to reconcile.
-pub fn reconcile_transited_bodies(
-    mut transited: ReplayMessageReader<PortalBodyTransited>,
-    mut bodies: Query<(ae::BodyClusterQueryData, &mut ae::movement::MotionModel)>,
-) {
-    for event in transited.read() {
-        // The kernel's own continuation already left the arrival's state.
-        if event.continued { continue; }
-        let Ok((mut clusters, mut model)) = bodies.get_mut(event.body) else {
-            continue;
-        };
-        ae::movement::reconcile_transit(&mut model, &mut clusters.as_clusters_mut());
     }
 }
 

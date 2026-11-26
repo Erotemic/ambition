@@ -24,16 +24,16 @@ fn speed(velocity: DVec2) -> Result<f32, Refusal> {
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ItemGeometry<'w, 's> {
     #[cfg(feature = "portal")]
-    placed: Query<'w, 's, (Entity, &'static ambition_portal2d::PlacedPortal)>,
+    pub(crate) placed: Query<'w, 's, (Entity, &'static ambition_portal2d::PlacedPortal)>,
     #[cfg(feature = "portal")]
-    rooms: ambition_portal2d::PortalRooms<'w, 's>,
+    pub(crate) rooms: ambition_portal2d::PortalRooms<'w, 's>,
     #[cfg(feature = "portal")]
-    tuning: Option<Res<'w, ambition_portal2d::PortalTuning>>,
+    pub(crate) tuning: Option<Res<'w, ambition_portal2d::PortalTuning>>,
     #[cfg(feature = "portal")]
-    backside: Query<'w, 's, &'static ambition_portal2d::PortalBackside>,
-    geometry: Option<Res<'w, BodyGeometry>>,
+    pub(crate) backside: Query<'w, 's, &'static ambition_portal2d::PortalBackside>,
+    pub(crate) geometry: Option<Res<'w, BodyGeometry>>,
     #[cfg(not(feature = "portal"))]
-    marker: Local<'s, ()>,
+    pub(crate) marker: Local<'s, ()>,
 }
 
 type Items<'w, 's> = Query<'w, 's,
@@ -217,8 +217,8 @@ pub fn ground_item_physics(
                 transfer, portals.tuning.as_deref().expect("an admitted crossing has tuning").teleport_cooldown_s);
         }
         *item = flight.body;
-        // Free-flight legs already produced contacts and root transfers.
-        // A support carry keeps its path for the shared transit phase.
+        // Free-flight legs already produced contacts and root transfers, as
+        // a support carry did for its own.
         *sweep = record;
         if !contacts.is_empty() {
             commands.entity(entity).insert(ItemStruckBody {
@@ -327,17 +327,19 @@ fn prepare_flight(world: &ae::World, mut body: BodyKinematics, down: Vec2, dt: f
             if let Some(crossing) = crossing {
                 let tuning = tuning.ok_or_else(|| numeric(NumericFault::InvalidFrame))?;
                 // The tick's fall after the crossing happens in the exit's
-                // chart (portal M2c): it is taken back before the map and
-                // given again there, at the item's scale there, so a quarter
-                // turn does not send it sideways.
+                // chart (portal M2c), at the item's scale there, so a quarter
+                // turn does not send it sideways. The item drifts at its
+                // velocity at the middle of the tick: the map takes its
+                // velocity at the crossing, and the exit side's fall brings it
+                // back to the middle of the tick (the kernel's continuation).
                 let rest = (1.0 - next_time) as f32;
-                let fall = |body: BodyKinematics| falling(BodyKinematics { vel: Vec2::ZERO, ..body }, response, down, dt)
-                    .map(|fallen| fallen.vel * rest);
-                body.vel -= fall(body)?;
+                let fall = |body: BodyKinematics, share: f32| falling(BodyKinematics { vel: Vec2::ZERO, ..body }, response, down, dt)
+                    .map(|fallen| fallen.vel * share);
+                body.vel += fall(body, 0.5 - rest)?;
                 let (transfer, reverse) = ambition_portal2d::prepare_body_crossing(body, None, crossing,
                     portals, policy, result.transfers.len() as u8, tuning)?;
                 body = *transfer.body();
-                body.vel += fall(body)?;
+                body.vel += fall(body, rest - 0.5)?;
                 result.transfers.push(transfer);
                 result.first = Some(reverse);
             } else { result.body = body; return Ok(result); }
@@ -470,8 +472,10 @@ mod tests {
         let crossed = first.sample.time[0] + (first.sample.time[1] - first.sample.time[0])
             * match first.sample.travel { ae::LinearTravel::Prefix { until, .. } => until, _ => 1.0 };
         let rest = (1.0 - crossed) as f32;
-        let at_crossing = before.vel + tick_fall * (1.0 - rest);
-        let expected = Vec2::new(at_crossing.y, 0.0) + tick_fall * rest;
+        // It drifts at the middle of the tick's velocity: at the crossing it
+        // is that plus the fall from the middle of the tick to the crossing.
+        let at_crossing = moving.vel + tick_fall * (0.5 - rest);
+        let expected = Vec2::new(at_crossing.y, 0.0) + tick_fall * (rest - 0.5);
         assert!(rest > 0.5, "the item crosses early in the tick: {crossed}");
         assert!((result.body.vel - expected).length() < 1e-2,
             "out of the wall at its fall so far, and falling down for the rest: {:?} vs {expected:?}", result.body.vel);

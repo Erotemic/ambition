@@ -230,7 +230,6 @@ impl Plugin for PortalSimulationPlugin {
                 crate::transit::clear_crossed_travel
                     .run_if(any_with_component::<ambition_platformer2d_core::CrossedTravel>),
                 portal_transit.run_if(crate::transit::portals_or_transits),
-                crate::reconcile_transited_bodies.run_if(ambition_platformer2d_core::a_message_waits::<crate::PortalBodyTransited>),
             )
                 .chain()
                 .in_set(PortalSet::Transit),

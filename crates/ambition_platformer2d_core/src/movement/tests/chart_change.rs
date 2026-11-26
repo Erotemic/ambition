@@ -48,7 +48,9 @@ fn pair(exit: PortalAperture) -> [PortalLink; 2] {
 /// the map at the crossing point and the rest of the tick stepped in the exit
 /// chart put it. The rest of the tick's gravity pulls it DOWN there: the
 /// whole step integrated before the map turned it sideways, so the body left
-/// with no fall at all (the derived 53 r px/s error).
+/// with no fall at all (the derived 53 r px/s error). The velocity it keeps
+/// is the one it drifted at, the middle of the tick's: the map takes the
+/// velocity at the crossing, half a tick of gravity on from the part's.
 #[test]
 fn a_crossing_through_a_turned_pair_falls_under_the_exit_sides_gravity() {
     let links = pair(PortalAperture { frame: PortalFrame::fixed(Vec2::new(600.0, 100.0), Vec2::X), half_length: 40.0 });
@@ -66,12 +68,14 @@ fn a_crossing_through_a_turned_pair_falls_under_the_exit_sides_gravity() {
     // The same law, stepped by hand: up to the crossing in open air...
     let mut alone = falling_body();
     step(&mut alone, &world, None, DT * at);
-    assert_eq!(change.transfer.entry_vel, alone.kinematics.vel, "the velocity at the crossing is the policy's by then");
+    let half = (alone.kinematics.vel - start_vel) / at * 0.5;
+    assert!((change.transfer.entry_vel - (alone.kinematics.vel + half)).length() < 1e-3,
+        "the velocity at the crossing is the policy's by then: {:?}", change.transfer.entry_vel);
     // ...through the pair at the crossing point...
     let transfer = RootTransfer::through(&change.pose.enter, &change.pose.exit, MapConvention::Reflection,
-        change.point, alone.kinematics.vel, alone.kinematics.material, 0.0).unwrap();
+        change.point, alone.kinematics.vel + half, alone.kinematics.material, 0.0).unwrap();
     alone.kinematics.pos = transfer.exit_pos;
-    alone.kinematics.vel = transfer.exit_vel;
+    alone.kinematics.vel = transfer.exit_vel - half;
     alone.kinematics.material = alone.kinematics.material.carried(transfer.map).unwrap();
     // What comes out along the run is carried by the world, not run by the
     // controller, as generic transit has it.
@@ -85,7 +89,7 @@ fn a_crossing_through_a_turned_pair_falls_under_the_exit_sides_gravity() {
         "{:?} vs {:?}", body.kinematics.vel, alone.kinematics.vel);
 
     let g = TEST_TUNING.base.gravity;
-    let fall = g * (DT - DT * at);
+    let fall = g * (DT - DT * at - DT * 0.5);
     assert!((body.kinematics.vel.y - fall).abs() < 1e-2,
         "the rest of the tick falls down in the exit chart: {:?}, expected vy {fall}", body.kinematics.vel);
     assert!(body.kinematics.vel.x > start_vel.y, "and the fall into the floor comes out of the wall: {:?}", body.kinematics.vel);
@@ -165,4 +169,34 @@ fn a_body_crosses_two_pairs_in_one_step() {
     let (end, changes) = run(&links[..2]);
     assert_eq!(changes.len(), 1, "{changes:?}");
     assert!(end.distance(Vec2::new(170.0, 0.0)) < 1e-2, "A alone: 70 px past its exit: {end:?}");
+}
+
+/// The run a crossing leaves carried is measured along the body's own run
+/// axis (the kernel crosses in the body's frame). A fall into a floor mouth
+/// out of a wall exit facing +x is the classic fling: under ordinary gravity
+/// the fall turned sideways is run the body did not steer, carried in full.
+/// A body whose own down is +x leaves along its down: that is fall, not run,
+/// so nothing is carried. (Moved from the runtime's transit tests when the
+/// kernel took the crossing.)
+#[test]
+fn a_fling_is_carried_along_the_bodys_own_run_axis() {
+    let carried = |down: Vec2| {
+        let links = pair(PortalAperture { frame: PortalFrame::fixed(Vec2::new(600.0, 100.0), Vec2::X), half_length: 40.0 });
+        let world = open_air();
+        let mut body = falling_body();
+        body.kinematics.vel = Vec2::new(0.0, 500.0);
+        let (model, mut clusters) = body.parts();
+        let result = step_motion(model, &mut clusters, MotionStepContext {
+            admission: Some(admitted(&links)), world: &world, input: InputState::default(),
+            frame: crate::MotionFrame::from_direction(down, 0.0), facing_intent: 0.0, dt: DT,
+            contact: BodyContactField::NONE, pose_owned_externally: false, recovery_commitment_outstanding: false,
+        });
+        assert!(result.events.motion_refusal.is_none(), "{:?}", result.events.motion_refusal);
+        assert_eq!(result.events.chart_changes.len(), 1, "it crosses");
+        (body.flight.carried_run, body.kinematics.vel)
+    };
+    let (run, vel) = carried(Vec2::Y);
+    assert!(vel.x > 0.0 && (run - vel.x).abs() < 1e-2, "the fling is carried: run {run}, vel {vel:?}");
+    let (run, vel) = carried(Vec2::X);
+    assert!(vel.x > 0.0 && run.abs() < 1e-2, "a fall along its own down carries no run: run {run}, vel {vel:?}");
 }

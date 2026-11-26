@@ -145,7 +145,7 @@ fn an_expired_pair_closes_at_both_ends() {
 }
 
 fn came_out_at(app: &mut App, body: Entity, at: ae::Vec2) {
-    app.world_mut().write_message(ambition_platformer2d::portal::PortalBodyTransited { continued: false,
+    app.world_mut().write_message(ambition_platformer2d::portal::PortalBodyTransited {
         body,
         transfer: ambition_platformer2d::portal::PortalTransfer::new(
             ae::Vec2::ZERO, ae::Vec2::ZERO, ae::frame::BodyMaterial::IDENTITY,

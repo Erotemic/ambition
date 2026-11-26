@@ -2474,3 +2474,54 @@ fn an_item_whose_holder_is_gone_comes_back_where_it_was_taken() {
     assert_eq!(app.world().get::<BodyKinematics>(item).map(|body| body.pos), Some(at));
     assert!(app.world().get::<SettledItem>(item).is_none(), "it is back under gravity");
 }
+
+/// Portal M2d: a settled item its platform carries into a wall mouth is
+/// carried through by its own owner, as a flying item is: it comes out of
+/// the exit with the platform's carry turned by the pair. Transit moves no
+/// root, so before this the item rode on into the mouth's wall.
+#[cfg(feature = "portal")]
+#[test]
+fn a_settled_item_its_platform_carries_into_a_mouth_comes_out_of_the_exit() {
+    use ambition_portal2d::{PlacedPortal, PortalChannel, PortalChannelColor, PortalTuning};
+    use ambition_platformer2d_shared_tangle::{body::geometry::BodyGeometry, lifecycle::{InRoomInstance, LiveRoomInstance}};
+    let room = LiveRoomInstance::ACTIVATION;
+    let half = Vec2::splat(PICKUP_HALF);
+    let mut app = App::new();
+    let mut platform = ae::Block::solid("platform", Vec2::new(0.0, 380.0), Vec2::new(400.0, 20.0));
+    platform.velocity = Vec2::new(6.0, 0.0);
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(),
+        ae::RoomGeometry(ae::World::new("carry", Vec2::splat(800.0), Vec2::ZERO, vec![platform])));
+    app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+    app.insert_resource(PortalTuning { min_exit_speed: 0.0, ..PortalTuning::default() });
+    app.add_message::<ambition_portal2d::PortalBodyTransited>();
+    let mouth = PlacedPortal::fixed(PortalChannel::Authored(PortalChannelColor::Purple),
+        Vec2::new(300.0, 360.0), -Vec2::X, 40.0).unwrap();
+    let exit = PlacedPortal::fixed(PortalChannel::Authored(PortalChannelColor::Yellow),
+        Vec2::new(100.0, 200.0), Vec2::X, 40.0).unwrap();
+    let mut geometry = BodyGeometry::new(PortalTuning::default().convention.map_convention());
+    geometry.add_pair(Some(room), (mouth.aperture(), exit.aperture()));
+    app.insert_resource(geometry);
+    app.world_mut().spawn((mouth, InRoomInstance(room)));
+    app.world_mut().spawn((exit, InRoomInstance(room)));
+    app.add_systems(Update, carry_or_wake_settled_items);
+    let at = Vec2::new(297.0, 380.0 - half.y);
+    let item = app.world_mut().spawn((GroundItem::released(axe_spec(), at, Vec2::ZERO, half), SettledItem::default(), InRoomInstance(room))).id();
+    app.update();
+    let after = *app.world().get::<BodyKinematics>(item).unwrap();
+    assert!((after.pos.y - 200.0).abs() < 40.0 && after.pos.x >= 100.0 && after.pos.x < 140.0,
+        "out of the exit: {after:?}");
+    let crossed: Vec<_> = app.world().resource::<Messages<ambition_portal2d::PortalBodyTransited>>()
+        .iter_current_update_messages().filter(|message| message.body == item).collect();
+    assert_eq!(crossed.len(), 1, "the crossing is published once");
+    // Control: with no pair, the platform carries it its 6 px.
+    let mut still = App::new();
+    let mut platform = ae::Block::solid("platform", Vec2::new(0.0, 380.0), Vec2::new(400.0, 20.0));
+    platform.velocity = Vec2::new(6.0, 0.0);
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(still.world_mut(),
+        ae::RoomGeometry(ae::World::new("carry", Vec2::splat(800.0), Vec2::ZERO, vec![platform])));
+    still.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+    still.add_systems(Update, carry_or_wake_settled_items);
+    let item = still.world_mut().spawn((GroundItem::released(axe_spec(), at, Vec2::ZERO, half), SettledItem::default())).id();
+    still.update();
+    assert_eq!(still.world().get::<BodyKinematics>(item).unwrap().pos, at + Vec2::new(6.0, 0.0));
+}

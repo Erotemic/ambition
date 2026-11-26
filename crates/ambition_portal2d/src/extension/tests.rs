@@ -494,7 +494,7 @@ fn open_ends(app: &mut App) -> Vec<(ae::Vec2, f32)> {
 }
 
 fn came_out_at(app: &mut App, body: Entity, at: ae::Vec2) {
-    app.world_mut().write_message(crate::PortalBodyTransited { continued: false,
+    app.world_mut().write_message(crate::PortalBodyTransited {
         body,
         transfer: crate::PortalTransfer::new(
             ae::Vec2::ZERO, ae::Vec2::ZERO, ae::frame::BodyMaterial::IDENTITY,

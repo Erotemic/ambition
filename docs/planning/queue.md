@@ -3753,10 +3753,12 @@ the chart it was met in, also for scripts on `ambition.body.contact@4`).
 M2a/M2b landed 2026-11-26: the kernel interrupts a body's step at each root
 crossing and continues it in the exit's chart; transit publishes the
 kernel's crossings. M2c landed the same day: items and projectiles give
-the rest of the tick's change of velocity in the exit's chart. Next in P2:
-M2d (delete the old completed-endpoint road), host admission before the
-aperture writer commits, and SUP1 through a portal cell (which needs a
-deforming line split, not only a clipped cast). P4's full-turn bounds and repeated-link candidate exclusion landed
+the rest of the tick's change of velocity in the exit's chart. M2d landed
+the same day: transit moves no root (a settled item's carry crosses in its
+owner), the old completed-endpoint road is deleted, and the crossing reads
+the velocity at mid-tick so a floor-to-floor loop keeps its energy. Next in
+P2: host admission before the aperture writer commits, and SUP1 through a
+portal cell (which needs a deforming line split, not only a clipped cast). P4's full-turn bounds and repeated-link candidate exclusion landed
 2026-11-26 (receipt in the owner's P4 section); its shared projectile source
 leg remains. P3 removes
 static contact-velocity reconstruction and the AABB snag authority after the

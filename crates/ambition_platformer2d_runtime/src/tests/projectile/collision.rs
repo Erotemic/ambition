@@ -316,8 +316,10 @@ fn a_falling_shot_through_a_turned_pair_falls_down_after_the_crossing() {
     let kin = *app.world().get::<ae::BodyKinematics>(shot).expect("the shot is alive");
     let tick_fall = GRAVITY * 0.016;
     assert!(kin.pos.x > 1200.0, "out of the wall exit: {kin:?}");
-    assert!(kin.vel.y > 0.5 * tick_fall && kin.vel.y < tick_fall,
-        "most of the tick's fall is down in the exit chart: {:?}, tick fall {tick_fall}", kin.vel);
+    // It drifts at its velocity at the middle of the tick: the fall after
+    // the crossing, less the half tick to the middle, is down.
+    assert!(kin.vel.y > 0.0 && kin.vel.y < 0.5 * tick_fall,
+        "the tick's fall after the crossing is down in the exit chart: {:?}, tick fall {tick_fall}", kin.vel);
     assert!((kin.vel.x + kin.vel.y - (600.0 + tick_fall)).abs() < 1e-2,
         "the fall before the crossing comes out along +x, the rest along down: {:?}", kin.vel);
 }

@@ -11,6 +11,17 @@
 //! an ordinary step over its own world-time window ([`StepSpan`]), so its
 //! casts meet moving geometry and the pair's recorded motion at the right
 //! time, and every movement model keeps its own law.
+//!
+//! A step kicks the velocity, then drifts at it: the velocity a body keeps
+//! from tick to tick is the one it drifted at, its velocity at the middle of
+//! the tick. Each part of an interrupted step kicks and drifts in turn, so the
+//! velocity a part ends with is half a part behind the crossing. Mapped as it
+//! is, a floor-to-floor loop lost one tick of gravity per crossing. So the
+//! velocity is brought to the crossing before the map (the step's
+//! acceleration over the half tick to go) and taken back to the middle of the
+//! tick after it, by the same acceleration: the body's frame is the same on
+//! both sides of a pair in one room. Only a free step is read this way; a
+//! step a contact changed keeps its velocity as the part left it.
 
 use super::*;
 use super::super::ChartChange;
@@ -33,6 +44,7 @@ pub(super) fn step_through_crossings(
     hops: u8,
 ) -> Result<MotionStepResult, Refusal> {
     let [start, end] = admission.span.window;
+    let entering = clusters.kinematics.vel;
     let (candidate, sweep, result) = candidate_motion(model, clusters, ctx, retained_down)?;
     let crossing = if hops < admission.budget.max_hops && end > start {
         let domain = clusters.kinematics.canonical_box().map_err(numeric)?;
@@ -44,6 +56,7 @@ pub(super) fn step_through_crossings(
         commit_candidate(candidate, sweep, model, clusters);
         return Ok(result);
     };
+    let probed = candidate.kinematics.vel;
     drop(candidate);
     let at = root.world_time.clamp(start, end);
     let share = ((at - start) / (end - start)) as f32;
@@ -64,15 +77,21 @@ pub(super) fn step_through_crossings(
     };
 
     // Through the pair, from where the root crossed, at the velocity the
-    // policy reached by then.
+    // policy reached by then: the part's velocity brought to the crossing by
+    // the step's acceleration, its change per tick in the whole-window probe.
+    // Only a free step has one: a body the probe found held or touching had
+    // its velocity changed by contact, which is no acceleration to carry on
+    // (read as one, a walk across a slope pair overshot into a refused cast).
     let pose = link.snapshot_at(at).map_err(numeric)?;
     let body = *clusters.kinematics;
+    let free = !result.support.is_held() && result.events.contacts.is_empty();
+    let to_crossing = if free { (probed - entering) / (end - start) as f32 * (end - 0.5) as f32 } else { Vec2::ZERO };
     let transfer = RootTransfer::through(&pose.enter, &pose.exit, admission.convention,
-        root.point, body.vel, body.material, reroot.min_exit_speed).map_err(numeric)?;
+        root.point, body.vel + to_crossing, body.material, reroot.min_exit_speed).map_err(numeric)?;
     let side = ctx.frame.basis().side;
     clusters.flight.carried_run = transfer.carried_run(side, side, clusters.flight.carried_run).map_err(numeric)?;
     clusters.kinematics.pos = transfer.exit_pos;
-    clusters.kinematics.vel = transfer.exit_vel;
+    clusters.kinematics.vel = transfer.exit_vel - to_crossing;
     clusters.kinematics.material = body.material.carried(transfer.map).map_err(numeric)?;
     super::super::authority::release_departure(model, clusters);
     events.chart_changes.push(ChartChange {

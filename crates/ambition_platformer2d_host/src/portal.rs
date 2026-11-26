@@ -1788,7 +1788,7 @@ mod tests {
         };
         let (view_a, view_b, view_c) = (view(&mut app, a, 300.0), view(&mut app, b, 250.0), view(&mut app, c, 700.0));
         for body in [a, b] {
-            app.world_mut().write_message(PortalBodyTransited { continued: false,
+            app.world_mut().write_message(PortalBodyTransited {
                 body,
                 transfer: ambition_portal2d::PortalTransfer::new(
                     Vec2::new(95.0, 500.0), -Vec2::X * 400.0, ambition_platformer2d_core::frame::BodyMaterial::IDENTITY,

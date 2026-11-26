@@ -50,6 +50,8 @@ fn app_with_transit() -> App {
         ..Default::default()
     });
     app.add_plugins(crate::PortalSchedulePlugin);
+    // Transit moves no root: a test body's own step crosses.
+    app.add_systems(Update, ambition_portal2d::test_owner::cross_recorded_steps.before(ambition_portal2d::PortalSet::Transit));
     app
 }
 

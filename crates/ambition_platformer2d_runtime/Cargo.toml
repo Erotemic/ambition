@@ -125,6 +125,9 @@ bevy = { version = "0.19.1", default-features = false, features = [
 
 [dev-dependencies]
 
+# Transit moves no root (portal M2): hand-posed test bodies cross through this
+# minimal motion owner.
+ambition_portal2d = { path = "../ambition_portal2d", features = ["test-owner"] }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet", features = ["test-support"] }
 ambition_body_seed = { path = "../ambition_body_seed", features = ["test-support"] }
 ambition_boss_encounter = { path = "../ambition_boss_encounter", features = ["test-support"] }

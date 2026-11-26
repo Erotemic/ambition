@@ -1,12 +1,24 @@
 use super::*;
 use crate::color::{PortalChannel, PortalChannelColor};
 
-fn transfer_step(center: Vec2, vel: Vec2, enter: PlacedPortal, exit: PlacedPortal, tuning: &PortalTuning) -> TransitStep {
-    super::transfer_step(PortalCrossing {
+/// The transfer at a crossing `center` reached at the start of the tick.
+fn transfer_at(center: Vec2, vel: Vec2, enter: PlacedPortal, exit: PlacedPortal, tuning: &PortalTuning)
+    -> Result<PortalTransfer, ae::frame::NumericFault> {
+    PortalTransfer::at_crossing(PortalCrossing {
         root: ae::frame::RootCrossing { point: center, toi: 0.0, world_time: 0.0, aperture: enter.aperture() },
         exit: exit.aperture(), entry_channel: enter.channel, exit_channel: exit.channel,
         entry_step: enter.step, exit_step: exit.step,
     }, center, vel, ae::frame::BodyMaterial::IDENTITY, tuning)
+}
+
+/// The crossing a motion owner takes in a recorded step (a flying item, a
+/// shot): the first root crossing of the record, transferred where the root
+/// reached the mouth, at the body's velocity.
+fn swept(body: ae::BodyKinematics, record: ae::SweepSample, portals: &[PlacedPortal], tuning: &PortalTuning) -> Option<PortalTransfer> {
+    let domain = body.canonical_box().unwrap();
+    let cast = record.material_cast(&domain).unwrap();
+    let hit = first_portal_crossing_through(&cast, portals, None, 1.0).unwrap()?;
+    Some(PortalTransfer::at_crossing(hit, hit.root.point, body.vel, record.material, tuning).unwrap())
 }
 
 fn floor(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
@@ -47,16 +59,14 @@ fn a_moving_portal_scoops_a_stationary_body() {
     let exit = floor(YELLOW, Vec2::new(500.0, 600.0));
     let portals = [enter, exit];
     let center = Vec2::new(100.0, 294.0); // stationary body, plane rose past it
-    let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::ZERO, ..Default::default() },
-        Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0],
+    let step = swept(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::ZERO, ..Default::default() },
+        ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0],
             prev: center,
-            vel: Vec2::ZERO, curr: center, material: Default::default(), half: Vec2::ZERO }), // no body motion
-        None,
-        None,
+            vel: Vec2::ZERO, curr: center, material: Default::default(), half: Vec2::ZERO }, // no body motion
         &portals,
         &PortalTuning::default(),);
     match step {
-        TransitStep::Transfer { transfer, .. } => {
+        Some(transfer) => {
                 let pos = transfer.exit_pos;
                 let vel = transfer.exit_vel;
             // Emerges at the exit's image of the crossing, moving out of the
@@ -90,14 +100,12 @@ fn a_turning_portal_scoops_a_still_body_and_gives_it_its_surface_speed() {
     let portals = [enter.clone(), exit];
     // 30 px along the plank and 2 px above it at the start of the tick.
     let center = Vec2::new(130.0, 298.0);
-    let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: Vec2::new(8.0, 8.0), vel: Vec2::ZERO, ..Default::default() },
-        Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0], prev: center, vel: Vec2::ZERO, curr: center, material: Default::default(), half: Vec2::ZERO }),
-        None,
-        None,
+    let step = swept(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: Vec2::new(8.0, 8.0), vel: Vec2::ZERO, ..Default::default() },
+        ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0], prev: center, vel: Vec2::ZERO, curr: center, material: Default::default(), half: Vec2::ZERO },
         &portals,
         &PortalTuning::default(),);
     match step {
-        TransitStep::Transfer { transfer, .. } => {
+        Some(transfer) => {
                 let vel = transfer.exit_vel;
             let surface = enter.frame().velocity_at(center).length();
             assert!(vel.dot(Vec2::new(0.0, -1.0)) > 0.0, "out of the exit face: {vel:?}");
@@ -125,16 +133,14 @@ fn a_body_co_moving_with_the_aperture_never_swept_transfers() {
     // Body 60px above the opening (outside the capture box), riding the
     // same host: it moved by exactly the aperture's delta this frame.
     let center = Vec2::new(100.0, 240.0);
-    let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::new(0.0, 720.0), ..Default::default() },
-        Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0],
+    let step = swept(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::new(0.0, 720.0), ..Default::default() },
+        ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0],
             prev: center - delta,
-            vel: Vec2::new(0.0, 720.0), curr: center, material: Default::default(), half: Vec2::ZERO }),
-        None,
-        None,
+            vel: Vec2::new(0.0, 720.0), curr: center, material: Default::default(), half: Vec2::ZERO },
         &portals,
         &PortalTuning::default(),);
     assert!(
-        matches!(step, TransitStep::Idle),
+        step.is_none(),
         "co-moving body must not transit, got {step:?}"
     );
 }
@@ -161,14 +167,14 @@ fn transfer_velocity_composes_galilean_and_floors_in_the_exit_rest_frame() {
     // entry (the aperture rises 120 to meet it). The mapped rest-frame
     // exit speed (300) clears the default floor (220); the exit's own +x
     // motion rides on top.
-    let vel_out = match transfer_step(
+    let vel_out = match transfer_at(
         Vec2::new(100.0, 301.0),
         Vec2::new(0.0, 180.0),
         enter.clone(),
         exit.clone(),
         &tuning,) {
-        TransitStep::Transfer { transfer, .. } => transfer.exit_vel,
-        other => panic!("expected Transfer, got {other:?}"),
+        Ok(transfer) => transfer.exit_vel,
+        other => panic!("expected a transfer, got {other:?}"),
     };
     let exit_normal = Vec2::new(0.0, -1.0);
     let rest_frame_out = (vel_out - exit.vel).dot(exit_normal);
@@ -184,14 +190,14 @@ fn transfer_velocity_composes_galilean_and_floors_in_the_exit_rest_frame() {
     // A very slow approach (5 px/s relative) floors to min_exit_speed in the
     // rest frame. The exit's own velocity must not count toward the floor.
     let slow_enter = floor(PURPLE, Vec2::new(100.0, 300.0));
-    let vel_out = match transfer_step(
+    let vel_out = match transfer_at(
         Vec2::new(100.0, 301.0),
         Vec2::new(0.0, 5.0),
         slow_enter,
         exit.clone(),
         &tuning,) {
-        TransitStep::Transfer { transfer, .. } => transfer.exit_vel,
-        other => panic!("expected Transfer, got {other:?}"),
+        Ok(transfer) => transfer.exit_vel,
+        other => panic!("expected a transfer, got {other:?}"),
     };
     let rest_frame_out = (vel_out - exit.vel).dot(exit_normal);
     assert!(
@@ -201,33 +207,6 @@ fn transfer_velocity_composes_galilean_and_floors_in_the_exit_rest_frame() {
     );
 }
 
-/// A fast fall (about 63 px per step vs a ~40 px body) can skip the straddle
-/// frames and end fully below the entry plane inside the open carve, with
-/// Begin blocked by the cooldown. The rescue must still transfer it.
-#[test]
-fn a_recorded_deep_crossing_transfers_even_on_cooldown() {
-    let portals = [
-        floor(PURPLE, Vec2::new(100.0, 300.0)),
-        floor(YELLOW, Vec2::new(500.0, 300.0)),
-    ];
-    // Body (24x40) entirely below the plane (top edge y=315 > 300) but
-    // within the carve volume, still falling in, mid ping-pong cooldown.
-    let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(100.0, 335.0), canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::new(0.0, 1600.0), ..Default::default() },
-        Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), prev: Vec2::new(100.0, 275.0), vel: Vec2::new(0.0, 1600.0), time: [0.0, 1.0], curr: Vec2::new(100.0, 335.0), material: Default::default(), half: Vec2::ZERO }),
-        None,
-        Some(PURPLE),
-        &portals, &PortalTuning::default(),);
-    match step {
-        TransitStep::Transfer { transfer, .. } => {
-                let pos = transfer.exit_pos;
-            assert!(
-                pos.y < 300.0,
-                "the transfer emerges in FRONT of the exit plane, got {pos:?}"
-            );
-        }
-        other => panic!("a deep carve crossing must transfer, got {other:?}"),
-    }
-}
 
 fn wall_portal(channel: PortalChannel, pos: Vec2, normal: Vec2) -> PlacedPortal {
     PlacedPortal::fixed(channel, pos, normal, crate::PORTAL_OPENING_HALF).unwrap()
@@ -299,13 +278,13 @@ fn ceiling(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
     ).unwrap()
 }
 
-/// Swept (CCD) transit on a floor→ceiling pair that forms an accelerating
-/// fall loop with a relaxed fall cap. The discrete tiers are sized for about
-/// 63 px per frame (`APPROACH_CARVE_REACH`, `CARVE_DEPTH`); faster steps skip
-/// both. The swept tier must transfer every cycle, beyond 800 px per frame,
-/// with the pair cooldown latched as in the live system.
+/// The swept crossing on a floor→ceiling pair that forms an accelerating
+/// fall loop with a relaxed fall cap: the overlap tiers are sized for about
+/// 63 px per frame (`APPROACH_CARVE_REACH`, `CARVE_DEPTH`); the crossing a
+/// motion owner finds in its record takes every cycle, beyond 800 px per
+/// frame.
 #[test]
-fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
+fn a_recorded_crossing_takes_the_accelerating_fall_loop_at_any_speed() {
     let floor_y = 300.0;
     let ceiling_y = floor_y - 680.0;
     let portals = [
@@ -320,8 +299,6 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
     let mut pos = Vec2::new(100.0, ceiling_y + 40.0);
     let mut vel = Vec2::new(0.0, 200.0);
     let mut prev = ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), prev: pos, vel, time: [0.0, 1.0], curr: pos, material: Default::default(), half: Vec2::ZERO };
-    let mut transit: Option<PortalTransit> = None;
-    let mut cooldown: Option<(PortalChannel, f32)> = None;
     let mut transfers = 0u32;
     let mut peak_step = 0.0f32;
 
@@ -329,36 +306,13 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
     // one-crossing-per-step bound (the loop is 680 px).
     for frame in 0..140 {
         prev.curr = pos;
-        let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: pos, canonical_size: size, vel: vel, ..Default::default() },
-            Some(prev),
-            transit,
-            cooldown.map(|(c, _)| c),
-            &portals,
-            &tuning,);
-        match step {
-            TransitStep::Begin { channel, .. } => {
-                transit = Some(PortalTransit {
-                    straddling: channel,
-                    crossed: false,
-                });
-            }
-            TransitStep::Transfer { transfer, .. } => {
-                let p = transfer.exit_pos;
-                let v = transfer.exit_vel;
-                let exit_channel = transfer.exit_channel;
-                pos = p;
-                vel = v;
-                transfers += 1;
-                cooldown = Some((exit_channel, tuning.teleport_cooldown_s));
-                transit = transit.map(|mut t| {
-                    t.crossed = true;
-                    t.straddling = exit_channel;
-                    t
-                });
-            }
-            TransitStep::Clear => transit = None,
-            TransitStep::Idle | TransitStep::Continue => {}
-            TransitStep::Refused { reason, .. } => panic!("unexpected transit refusal: {reason:?}"),
+        if let Some(transfer) = swept(ambition_platformer2d_core::BodyKinematics { pos: pos, canonical_size: size, vel: vel, ..Default::default() },
+            prev, &portals, &tuning) {
+            // Out of the exit for the rest of the frame, as its owner goes on.
+            let rest = (1.0 - transfer.crossing_time) as f32 * dt;
+            vel = transfer.exit_vel;
+            pos = transfer.exit_pos + vel * rest;
+            transfers += 1;
         }
 
         // No-embed invariant: the body may be past the floor plane only in
@@ -377,10 +331,6 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
         vel.y += gravity * dt;
         pos.y += vel.y * dt;
         peak_step = peak_step.max(vel.y * dt);
-        cooldown = cooldown.and_then(|(c, t)| {
-            let t = t - dt;
-            (t > 0.0).then_some((c, t))
-        });
     }
 
     assert!(
@@ -393,9 +343,11 @@ fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
     );
 }
 
-/// A position change needs a matching motion record before it can cross.
+/// Portal M2d: transit moves no root. A record through a mouth, or a stale
+/// one that does not end at the body, leaves the straddle machine idle: the
+/// body's motion owner takes the crossing in its own step.
 #[test]
-fn a_discontinuity_without_a_matching_segment_does_not_cross() {
+fn transit_takes_no_crossing_from_a_record() {
     let portals = [
         floor(PURPLE, Vec2::new(100.0, 300.0)),
         floor(YELLOW, Vec2::new(500.0, 300.0)),
@@ -404,45 +356,15 @@ fn a_discontinuity_without_a_matching_segment_does_not_cross() {
         canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::ZERO, ..Default::default() };
     let stale = ae::SweepSample { prev: Vec2::new(100.0, 250.0), curr: Vec2::new(100.0, 350.0),
         ..ae::SweepSample::at_rest(body, Vec2::Y) };
-    for record in [None, Some(stale)] {
-        let step = transit_step_with_tuning(body, record, None, None, &portals, &PortalTuning::default());
-        assert!(matches!(step, TransitStep::Idle),
-            "a position change without a matching record must not cross: {step:?}");
+    let through = ae::SweepSample { prev: Vec2::new(100.0, 250.0), curr: body.pos,
+        ..ae::SweepSample::at_rest(body, Vec2::Y) };
+    assert!(swept(body, through, &portals, &PortalTuning::default()).is_some(), "control: the record crosses");
+    for record in [None, Some(stale), Some(through)] {
+        let step = transit_step_with_record(body, record, None, None, &portals);
+        assert!(matches!(step, TransitStep::Idle), "transit crosses nothing: {step:?}");
     }
 }
 
-/// The swept tier keeps the entry momentum even when the integrator already
-/// stopped the body at the carve bottom. The previous sample proves the
-/// crossing and gives the exit velocity.
-#[test]
-fn swept_tier_transfers_a_stopped_body_with_its_entry_momentum() {
-    let portals = [
-        floor(PURPLE, Vec2::new(100.0, 300.0)),
-        ceiling(YELLOW, Vec2::new(100.0, -380.0)),
-    ];
-    // Last frame: 90 px above the plane, falling 15000 px/s (500 px/frame).
-    // This frame: stopped 110 px past the plane (beyond the 60 px carve, so
-    // the rescue cannot see it) with zero velocity.
-    let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(100.0, 410.0), canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::ZERO, ..Default::default() },
-        Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0],
-            prev: Vec2::new(100.0, 210.0),
-            vel: Vec2::new(0.0, 15000.0), curr: Vec2::new(100.0, 410.0), material: Default::default(), half: Vec2::ZERO }),
-        None,
-        Some(PURPLE), // even mid ping-pong cooldown
-        &portals,
-        &PortalTuning::default(),);
-    match step {
-        TransitStep::Transfer { transfer, .. } => {
-                let vel = transfer.exit_vel;
-            assert!(
-                vel.y > 10000.0,
-                "the exit must emit the ENTRY momentum, not the zeroed \
-                 post-stop velocity; got {vel:?}"
-            );
-        }
-        other => panic!("a swept crossing must transfer a stopped body, got {other:?}"),
-    }
-}
 
 /// The transit uses the convention in its `PortalTuning`, not a process
 /// global. Two sessions in one process can use different conventions, and
@@ -455,7 +377,7 @@ fn two_sessions_in_one_process_keep_their_own_portal_conventions() {
     let enter = wall_portal(PURPLE, Vec2::new(500.0, 450.0), Vec2::new(-1.0, 0.0));
     let exit = wall_portal(YELLOW, Vec2::new(900.0, 450.0), Vec2::new(-1.0, 0.0));
 
-    let roll_under = |convention| match transfer_step(
+    let roll_under = |convention| match transfer_at(
         Vec2::new(495.0, 450.0),
         Vec2::new(-200.0, 0.0),
         enter.clone(),
@@ -464,8 +386,8 @@ fn two_sessions_in_one_process_keep_their_own_portal_conventions() {
             convention,
             ..PortalTuning::default()
         },) {
-        TransitStep::Transfer { transfer, .. } => transfer.map,
-        other => panic!("expected Transfer, got {other:?}"),
+        Ok(transfer) => transfer.map,
+        other => panic!("expected a transfer, got {other:?}"),
     };
 
     // Session A first, then B; then B first, then A. Four calls, two answers.
@@ -495,9 +417,9 @@ fn a_transit_takes_its_convention_from_tuning() {
     use crate::tuning::PortalConvention;
     let enter = wall_portal(PURPLE, Vec2::new(500.0, 450.0), -Vec2::X);
     let exit = wall_portal(YELLOW, Vec2::new(900.0, 450.0), -Vec2::X);
-    let map_under = |convention| match transfer_step(Vec2::new(495.0, 450.0), -Vec2::X * 200.0,
+    let map_under = |convention| match transfer_at(Vec2::new(495.0, 450.0), -Vec2::X * 200.0,
         enter.clone(), exit.clone(), &PortalTuning { convention, ..Default::default() }) {
-        TransitStep::Transfer { transfer, .. } => transfer.map,
+        Ok(transfer) => transfer.map,
         other => panic!("expected transfer: {other:?}"),
     };
     assert_eq!(map_under(PortalConvention::Reflection).vector(Vec2::Y).unwrap(), Vec2::Y);
@@ -548,19 +470,18 @@ fn a_body_goes_through_a_portal_on_a_slope() {
         panic!("the body on the slanted face begins transit: {begin:?}");
     };
     assert_eq!(channel, PURPLE);
-    let transit = Some(crate::transit::PortalTransit { straddling: PURPLE, crossed: false });
-    let mut step = TransitStep::Continue;
+    let mut step = None;
     for _ in 0..30 {
         let previous = center;
         center += vel / 60.0;
-        step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: size, vel: vel, ..Default::default() },
-            Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), prev: previous, vel, time: [0.0, 1.0], curr: center, material: Default::default(), half: Vec2::ZERO }), transit, None, &portals, &PortalTuning::default());
-        if matches!(step, TransitStep::Transfer { .. }) {
+        step = swept(ambition_platformer2d_core::BodyKinematics { pos: center, canonical_size: size, vel: vel, ..Default::default() },
+            ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), prev: previous, vel, time: [0.0, 1.0], curr: center, material: Default::default(), half: Vec2::ZERO }, &portals, &PortalTuning::default());
+        if step.is_some() {
             break;
         }
     }
-    let TransitStep::Transfer { transfer, .. } = step else {
-        panic!("the centre crossed the slanted plane and the body transferred: {step:?}");
+    let Some(transfer) = step else {
+        panic!("the centre crossed the slanted plane and the body transferred");
     };
     let (pos, out, exit_channel) = (transfer.exit_pos, transfer.exit_vel, transfer.exit_channel);
     assert_eq!(exit_channel, YELLOW);
@@ -632,12 +553,8 @@ fn an_unrepresentable_transfer_is_a_typed_refusal() {
     let enter = floor(PURPLE, Vec2::ZERO);
     let mut exit = floor(YELLOW, Vec2::new(500.0, 100.0));
     exit.half_length = f32::NAN;
-    assert!(matches!(super::transfer_step(PortalCrossing {
-            root: ae::frame::RootCrossing { point: Vec2::ZERO, toi: 0.0, world_time: 0.0, aperture: enter.aperture() },
-            exit: exit.aperture(), entry_channel: enter.channel, exit_channel: exit.channel,
-            entry_step: enter.step, exit_step: exit.step,
-        }, Vec2::ZERO, Vec2::Y, ae::frame::BodyMaterial::IDENTITY, &PortalTuning::default()),
-        TransitStep::Refused { reason: ae::frame::thread::RefusalReason::Numeric(ae::frame::NumericFault::NonFinite), channel: Some(PURPLE) }));
+    assert_eq!(transfer_at(Vec2::ZERO, Vec2::Y, enter, exit, &PortalTuning::default()),
+        Err(ae::frame::NumericFault::NonFinite));
 }
 
 
@@ -649,24 +566,19 @@ fn a_full_turn_takes_a_still_root_at_the_crossing_pose() {
     let exit = floor(YELLOW, Vec2::new(500.0, 300.0));
     let root = enter.pos + Vec2::new(20.0, -4.0);
     let portals = [enter.clone(), exit.clone()];
-    let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: root, canonical_size: Vec2::splat(4.0), vel: Vec2::ZERO, ..Default::default() },
-        Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), prev: root, vel: Vec2::ZERO, time: [0.0, 1.0], curr: root, material: Default::default(), half: Vec2::ZERO }),
-        None, None, &portals, &PortalTuning::default());
-    let TransitStep::Transfer { transfer, .. } = step else { panic!("{step:?}"); };
+    let step = swept(ambition_platformer2d_core::BodyKinematics { pos: root, canonical_size: Vec2::splat(4.0), vel: Vec2::ZERO, ..Default::default() },
+        ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), prev: root, vel: Vec2::ZERO, time: [0.0, 1.0], curr: root, material: Default::default(), half: Vec2::ZERO },
+        &portals, &PortalTuning::default());
+    let Some(transfer) = step else { panic!("the turn takes the still root"); };
     assert!(transfer.crossing_time > 0.0 && transfer.crossing_time < 1.0);
     assert_eq!(transfer.crossing_point, root);
     assert!((root - transfer.enter.frame.origin).dot(transfer.enter.frame.normal).abs() < 1.0e-5);
     assert!(transfer.enter.frame.normal.distance(enter.normal) > 0.5);
     let expected = transfer.map.velocity(&transfer.enter.frame, &transfer.exit.frame, root, Vec2::ZERO).unwrap();
     assert!(transfer.mapped_vel.distance(expected) < 1.0e-4);
-    // Released at the crossing, the root leaves the exit straight at its
-    // mapped velocity for the rest of the tick (one turn per 1/60 s tick); it
-    // does not stay on the exit plane, and it does not follow the turn.
-    let crossed_at = transfer.map.point(root).unwrap();
-    assert!((crossed_at - exit.pos).dot(exit.normal).abs() < 1.0e-3, "the crossing maps onto the exit plane");
-    let rest = (1.0 - transfer.crossing_time) as f32 / 60.0;
-    assert!(transfer.exit_pos.distance(crossed_at + transfer.mapped_vel * rest) < 1.0e-2,
-        "{:?} vs {:?}", transfer.exit_pos, crossed_at + transfer.mapped_vel * rest);
+    // The crossing maps onto the exit plane; the rest of the tick is the
+    // motion owner's, in the exit's chart.
+    assert!((transfer.exit_pos - exit.pos).dot(exit.normal).abs() < 1.0e-3, "the crossing maps onto the exit plane");
 }
 
 
@@ -688,12 +600,12 @@ fn a_turned_material_box_fits_its_opening_even_when_its_envelope_does_not() {
             };
             assert!(!portal_fits(body.half_extent() * 2.0, &portals[0]),
                 "the envelope must be wider than this opening");
-            let step = transit_step_with_tuning(body,
-                Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), prev: normal * 100.0,
-                    vel: body.vel, time: [0.0, 1.0], curr: body.pos, material: body.material, half: Vec2::ZERO }),
-                None, None, &portals, &PortalTuning::default());
-            assert!(matches!(step, TransitStep::Transfer { .. }),
-                "root fit must use canonical material: scale={scale}, reflected={reflected}, step={step:?}");
+            let step = swept(body,
+                ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), prev: normal * 100.0,
+                    vel: body.vel, time: [0.0, 1.0], curr: body.pos, material: body.material, half: Vec2::ZERO },
+                &portals, &PortalTuning::default());
+            assert!(step.is_some(),
+                "root fit must use canonical material: scale={scale}, reflected={reflected}");
         }
     }
 }
@@ -719,47 +631,3 @@ fn exit_assistance_is_in_the_leaving_bodys_units() {
     }
 }
 
-/// Two aligned static pairs, A (x 0 to 100) and B (x 150 to 300): a small
-/// body that travels from x -10 to 70 in its own chart crosses A after 10 px,
-/// comes out at 100 with 70 px left, crosses B 50 px later and comes out at
-/// 300 with 20 px left, so it ends at 320 with its velocity. One map through
-/// A alone put it at 170, inside B's mouth. The budget admits two crossings;
-/// the default single hop crosses A only.
-#[test]
-fn a_body_crosses_two_pairs_in_one_tick() {
-    const TEAL: PortalChannel = PortalChannel::Authored(PortalChannelColor::Teal);
-    const RED: PortalChannel = PortalChannel::Authored(PortalChannelColor::Red);
-    let a = [wall_portal(PURPLE, Vec2::new(0.0, 0.0), Vec2::NEG_X), wall_portal(YELLOW, Vec2::new(100.0, 0.0), Vec2::X)];
-    let b = [wall_portal(TEAL, Vec2::new(150.0, 0.0), Vec2::NEG_X), wall_portal(RED, Vec2::new(300.0, 0.0), Vec2::X)];
-    let vel = Vec2::new(80.0 * 60.0, 0.0);
-    let composed = PortalTuning { geometry: crate::tuning::PortalGeometry::Composed { max_hops: 4, max_pieces: 32, max_scale_exponent: 12 }, ..PortalTuning::default() };
-    let portals = [a[0].clone(), a[1].clone(), b[0].clone(), b[1].clone()];
-    let step = |tuning: &PortalTuning| transit_step_with_tuning(
-        ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(70.0, 0.0), canonical_size: Vec2::splat(16.0), vel, ..Default::default() },
-        Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::Y, travel: Default::default(), time: [0.0, 1.0],
-            prev: Vec2::new(-10.0, 0.0), curr: Vec2::new(70.0, 0.0), vel, material: Default::default(), half: Vec2::splat(8.0) }),
-        None, None, &portals, tuning);
-    let TransitStep::Transfer { transfer, between, .. } = step(&composed) else {
-        panic!("the body crosses A");
-    };
-    // The leg between the two crossings, for contact readers: from A's exit
-    // at x 100 (tau 10/80) to B's mouth at x 150 (tau 60/80), in A's exit chart.
-    let [leg] = between.as_slice() else { panic!("one leg between two crossings, got {between:?}") };
-    assert!(leg.prev.distance(Vec2::new(100.0, 0.0)) < 1.0e-3 && leg.curr.distance(Vec2::new(150.0, 0.0)) < 1.0e-3, "got {leg:?}");
-    assert!((leg.time[0] - 0.125).abs() < 1.0e-6 && (leg.time[1] - 0.75).abs() < 1.0e-6, "got {:?}", leg.time);
-    assert_eq!(transfer.entry_channel, PURPLE);
-    assert_eq!(transfer.exit_channel, RED, "the chain ends at B's exit");
-    assert!(transfer.exit_pos.distance(Vec2::new(320.0, 0.0)) < 1.0e-3, "got {:?}", transfer.exit_pos);
-    assert!(transfer.exit_vel.distance(vel) < 1.0e-2, "got {:?}", transfer.exit_vel);
-    // The last straight leg begins at B's exit (x 300) when B was crossed.
-    assert!(transfer.arrival_point.distance(Vec2::new(300.0, 0.0)) < 1.0e-3, "got {:?}", transfer.arrival_point);
-    assert!((transfer.arrival_time - 0.75).abs() < 1.0e-6, "got {}", transfer.arrival_time);
-    // Control: a single-hop path crosses A only and ends 70 px past its exit.
-    let TransitStep::Transfer { transfer, between, .. } = step(&PortalTuning::default()) else { panic!("the body crosses A") };
-    assert!(between.is_empty());
-    assert_eq!(transfer.exit_channel, YELLOW);
-    assert!(transfer.exit_pos.distance(Vec2::new(170.0, 0.0)) < 1.0e-3, "got {:?}", transfer.exit_pos);
-    // Its arrival begins at A's exit when A was crossed.
-    assert!(transfer.arrival_point.distance(Vec2::new(100.0, 0.0)) < 1.0e-3, "got {:?}", transfer.arrival_point);
-    assert!((transfer.arrival_time - 0.125).abs() < 1.0e-6, "got {}", transfer.arrival_time);
-}

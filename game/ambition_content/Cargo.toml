@@ -153,6 +153,9 @@ serde = { workspace = true }
 ron = { workspace = true }
 
 [dev-dependencies]
+# Transit moves no root (portal M2): hand-posed test bodies cross through this
+# minimal motion owner.
+ambition_portal2d = { path = "../../crates/ambition_portal2d", features = ["test-owner"] }
 # `test_item_catalog`: the shipped `items.ron` as a test fixture.
 ambition_items = { path = "../../crates/ambition_items", features = ["content_pack", "test-support"] }
 # The echo fan's wasm parity arm builds the module crate for wasm32 and runs it.

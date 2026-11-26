@@ -195,15 +195,6 @@ pub enum TransitStep {
         channel: PortalChannel,
         portal_pos: Vec2,
     },
-    /// Commit the checked root crossing and its input policy.
-    Transfer {
-        transfer: PortalTransfer,
-        input_warp: bool,
-        /// The legs the body made between this tick's root crossings, each in
-        /// the chart it was made in and cut at the next crossing. Empty for
-        /// one crossing.
-        between: Vec<ae::SweepSample>,
-    },
     /// Leave the current body unchanged when the map cannot be represented.
     Refused {
         channel: Option<PortalChannel>,
@@ -317,76 +308,18 @@ impl PortalTransfer {
         transfer.arrival_time=crossing.root.world_time;
         Ok(transfer)
     }
-
-    /// The transfer of a body whose travel through the whole tick ended at
-    /// `completed` in the entry's chart, continued from the crossing event.
-    ///
-    /// Mapping the completed endpoint through the map at the crossing
-    /// (`M_tau(x(T))`) loses what the apertures did after the crossing: an exit
-    /// moving at `u` leaves the body `u (T - tau)` short, and a turning entry's
-    /// carry is dropped. The body is mapped where it crossed; its remaining
-    /// travel RELATIVE to the entry surface goes through the map's linear part,
-    /// and the exit surface point it left from adds its own motion:
-    /// `M_tau(x_tau) + L ((x_T - x_tau) - w r) + u r`, with `w` and `u` each
-    /// surface point's rate per tick at the crossing (`shift + turn x arm`,
-    /// from the published step) and `r` the rest of the tick. Once through, the
-    /// body moves straight, so a turning aperture's rate, not the curve its
-    /// point follows, is what carries it. A static pair gives `M_tau(x(T))`.
-    /// Exit-speed assistance changes the velocity, not this tick's travel.
-    pub fn at_crossing_completed(crossing: PortalCrossing, completed: Vec2, velocity: Vec2,
-        material: ae::frame::BodyMaterial, tuning: &PortalTuning,
-    ) -> Result<Self, ae::frame::NumericFault> {
-        let mut transfer=Self::at_crossing(crossing,completed,velocity,material,tuning)?;
-        let crossed=crossing.root.point;
-        let mapped=transfer.map.point(crossed)?;
-        let rest=(1.0-crossing.root.world_time).clamp(0.0,1.0);
-        let entry_rate=surface_rate(crossing.entry_step,crossing.root.aperture,crossed);
-        let exit_rate=surface_rate(crossing.exit_step,crossing.exit,mapped);
-        let relative=(completed.as_dvec2()-crossed.as_dvec2())-entry_rate*rest;
-        let exit_pos=mapped.as_dvec2()+transfer.map.vector_from_wide(relative)?.as_dvec2()+exit_rate*rest;
-        let narrowed=exit_pos.as_vec2();
-        if !narrowed.is_finite() { return Err(ae::frame::NumericFault::Overflow); }
-        transfer.exit_pos=narrowed;
-        Ok(transfer)
-    }
-}
-
-/// The travel per tick of the point `p` fixed to an aperture at `pose`.
-fn surface_rate(step: ae::frame::ApertureStep, pose: ae::frame::PortalAperture, p: Vec2) -> bevy::math::DVec2 {
-    step.point_travel(pose, p)
-}
-
-fn transfer_step(
-    crossing: PortalCrossing, center: Vec2, vel: Vec2, material: ae::frame::BodyMaterial, tuning: &PortalTuning,) -> TransitStep {
-    let transfer=match PortalTransfer::at_crossing_completed(crossing,center,vel,material,tuning) {
-        Ok(transfer)=>transfer,
-        Err(reason)=>return TransitStep::Refused {channel:Some(crossing.entry_channel),
-            reason:ae::frame::thread::RefusalReason::Numeric(reason)},
-    };
-    TransitStep::Transfer {
-        transfer,
-        input_warp: portal_input_warp_flips_horizontal_for_convention(tuning.convention.map_convention(),
-            transfer.enter.frame.normal,transfer.exit.frame.normal),
-        between: Vec::new(),
-    }
 }
 
 /// Compute the transit step for a body. See [`TransitStep`]. `cooldown_pair`
 /// is the body's post-jump latch, scoped to the pair it just crossed
-/// ([`super::types::PortalTransitCooldown`]). This form updates overlap state.
-/// It has no recorded travel and cannot transfer a root.
+/// ([`super::types::PortalTransitCooldown`]). Transit keeps the straddle; it
+/// moves no root (the body's motion owner crosses, portal M2).
 pub fn transit_step(
     body: ae::BodyKinematics,
     transit: Option<PortalTransit>,
     cooldown_pair: Option<PortalChannel>,
     portals: &[PlacedPortal],) -> TransitStep {
-    transit_step_with_tuning(
-        body,
-        None,
-        transit,
-        cooldown_pair,
-        portals,
-        &PortalTuning::default(),)
+    transit_step_with_record(body, None, transit, cooldown_pair, portals)
 }
 
 /// The first crossing of an axis-aligned body over a complete world tick.
@@ -429,89 +362,15 @@ pub fn first_portal_crossing_through(
     Ok(first)
 }
 
-fn swept_crossing_step(
-    sweep: ae::SweepSample, body: ae::BodyKinematics,
-    portals: &[PlacedPortal], tuning: &PortalTuning,) -> Option<TransitStep> {
-    let center = body.pos;
-    let vel = body.vel;
-    let domain = match body.canonical_box() {
-        Ok(domain) => domain,
-        Err(reason) => return Some(TransitStep::Refused { channel: None, reason: ae::frame::thread::RefusalReason::Numeric(reason) }),
-    };
-    let cast = match sweep.material_cast(&domain) {
-        Ok(cast) => cast,
-        Err(refusal) => return Some(TransitStep::Refused { channel: None, reason: refusal.reason }),
-    };
-    match first_portal_crossing_through(&cast, portals, None, 1.0) {
-        Ok(Some(hit)) => {
-            let frame = hit.root.aperture.frame;
-            let carried = if (vel - frame.velocity_at(hit.root.point)).dot(frame.normal) < 0.0 {
-                vel
-            } else { sweep.vel };
-            Some(continue_after_crossing(transfer_step(hit, center, carried, body.material, tuning),
-                sweep, &domain, portals, tuning))
-        }
-        Ok(None) => None,
-        Err(refusal) => Some(TransitStep::Refused { channel: Some(refusal.channel), reason: refusal.reason }),
-    }
-}
-
-/// Carry a transferred body through every further root it reaches before the
-/// tick ends. After a crossing the rest of the tick is a straight leg in the
-/// exit's chart, from where the root came out to where the transfer put it;
-/// a root crossing on that leg is taken as well, up to the body's hop budget,
-/// and the transfers compose into one. One map through the first pair alone
-/// left a body that ran on through a second mouth inside that mouth's wall.
-/// The exit just left is not searched: the body sits on its face. A leg that
-/// cannot be cast or transferred ends the chain at the transfer before it.
-fn continue_after_crossing(step: TransitStep, sweep: ae::SweepSample, domain: &ae::CombatVolume,
-    portals: &[PlacedPortal], tuning: &PortalTuning,) -> TransitStep {
-    let TransitStep::Transfer { transfer: mut composed, mut input_warp, mut between } = step else { return step; };
-    let mut material = sweep.material;
-    let mut last = composed;
-    for _ in 1..tuning.geometry.budget().max_hops {
-        let next = (|| {
-            material = material.carried(last.map).ok()?;
-            let from = last.map.point(last.crossing_point).ok()?;
-            let leg = ae::SweepSample {
-                time: [last.crossing_time, 1.0], travel: ae::LinearTravel::Complete, turn: None,
-                material, prev: from, curr: composed.exit_pos, vel: composed.exit_vel,
-                restriction: ae::PortalRestriction::Open, ..sweep
-            };
-            let cast = leg.material_cast(domain).ok()?;
-            let rest: Vec<PlacedPortal> =
-                portals.iter().filter(|portal| portal.channel != last.exit_channel).cloned().collect();
-            let hit = first_portal_crossing_through(&cast, &rest, None, 1.0).ok()??;
-            let next = PortalTransfer::at_crossing_completed(hit, composed.exit_pos, composed.exit_vel,
-                material, tuning).ok()?;
-            let map = composed.map.then(next.map).ok()?;
-            let travelled = ae::CrossedTravel::leg(leg, hit.root.point, hit.root.world_time)?;
-            Some((next, map, travelled))
-        })();
-        let Some((next, map, travelled)) = next else { break; };
-        between.push(travelled);
-        input_warp ^= portal_input_warp_flips_horizontal_for_convention(tuning.convention.map_convention(),
-            next.enter.frame.normal, next.exit.frame.normal);
-        composed = PortalTransfer {
-            map, exit: next.exit, exit_channel: next.exit_channel,
-            mapped_vel: next.mapped_vel, exit_pos: next.exit_pos, exit_vel: next.exit_vel,
-            arrival_point: next.arrival_point, arrival_time: next.arrival_time, ..composed
-        };
-        last = next;
-    }
-    TransitStep::Transfer { transfer: composed, input_warp, between }
-}
-
-/// Compute transit from recorded travel. An overlap can begin or clear a
-/// straddle, but only a directed root crossing can transfer the body.
+/// Compute transit from overlap. An overlap can begin or clear a straddle;
+/// the record says only which pairs the body's step admitted.
 #[allow(clippy::too_many_arguments)]
-pub fn transit_step_with_tuning(
+pub fn transit_step_with_record(
     kinematics: ae::BodyKinematics,
     sweep: Option<ae::SweepSample>,
     transit: Option<PortalTransit>,
     cooldown_pair: Option<PortalChannel>,
-    portals: &[PlacedPortal],
-    tuning: &PortalTuning,) -> TransitStep {
+    portals: &[PlacedPortal],) -> TransitStep {
     let center = kinematics.pos;
     let vel = kinematics.vel;
     let sweep = sweep.filter(|sample| sample.ending_at(center).is_some());
@@ -539,11 +398,6 @@ pub fn transit_step_with_tuning(
     let pair_for = |c: PortalChannel| -> Option<(PlacedPortal, PlacedPortal)> {
         Some((find_portal(portals, c)?, find_portal(portals, c.partner())?))
     };
-    if let Some(sweep) = sweep {
-        if let Some(step) = swept_crossing_step(sweep, kinematics, portals, tuning) {
-            return step;
-        }
-    }
     match transit {
         None => {
             // Begin into the first portal (across all pairs) the body enters.

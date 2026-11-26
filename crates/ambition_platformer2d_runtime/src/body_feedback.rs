@@ -35,11 +35,21 @@ pub(crate) fn emit_body_movement_feedback(
     for (kin, output, anim, combat, blink_camera, source, room, followed) in &mut bodies {
         if output.reset.is_some() { continue; }
         let events = &output.events;
-        emit_movement_fx(&mut sfx, &mut vfx.for_room(room.map(|room| room.0)),
-            events, kin.pos, kin.facing, kin.size(), source.map(BodyPresentationSource::id));
+        let transition = events.ground_contact;
+        if !events.operations.is_empty() || !events.blinks.is_empty()
+            || transition.landing_impact_speed().is_some()
+            || events.contacts.iter().any(|contact| contact.kind == ambition_platformer2d_core::collision_semantics::ContactKind::Side)
+        {
+            emit_movement_fx(&mut sfx, &mut vfx.for_room(room.map(|room| room.0)),
+                events, kin.pos, kin.facing, kin.size(), source.map(BodyPresentationSource::id));
+        }
         if let Some(mut anim) = anim {
-            arm_ground_contact_anim_overlay(&mut anim, events.ground_contact);
-            arm_movement_anim_overlays(&mut anim, events);
+            if transition != ambition_platformer2d_core::GroundContactTransition::Unchanged {
+                arm_ground_contact_anim_overlay(&mut anim, transition);
+            }
+            if !events.operations.is_empty() {
+                arm_movement_anim_overlays(&mut anim, events);
+            }
         }
         if let Some(mut blink_camera) = blink_camera {
             for blink in &events.blinks {
@@ -53,8 +63,8 @@ pub(crate) fn emit_body_movement_feedback(
                 combat.hit_flash = 0.12;
             }
         }
-        if followed {
-            let amplitude_px = hard_fall_shake_amplitude(events.ground_contact.landing_impact_speed());
+        if followed && transition.landing_impact_speed().is_some() {
+            let amplitude_px = hard_fall_shake_amplitude(transition.landing_impact_speed());
             if amplitude_px > 0.0 { shake.write(CameraShakeRequest { amplitude_px, room: room.map(|room| room.0) }); }
         }
     }

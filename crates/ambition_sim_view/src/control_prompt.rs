@@ -562,7 +562,12 @@ pub fn derive_weapon_readiness(
         )>,
     >,
     shots: Query<&ambition_projectiles::ProjectileOwner, With<ambition_projectiles::WeaponShot>>,
+    mut shot_counts: Local<bevy::platform::collections::HashMap<Entity, usize>>,
 ) {
+    shot_counts.clear();
+    for owner in &shots {
+        *shot_counts.entry(owner.0).or_default() += 1;
+    }
     for (body, refire, actions, fireball, charges, moveset, view, holding) in &mut bodies {
         let fireball = fireball.filter(|_| {
             ambition_combat::action_emission::charge_stream_owns_the_press(charges, holding, moveset)
@@ -573,7 +578,7 @@ pub fn derive_weapon_readiness(
                 ambition_projectiles::ProjectileKind::Fireball,
             ),
             (None, Some(refire)) => {
-                let live = shots.iter().filter(|owner| owner.0 == body).count();
+                let live = shot_counts.get(&body).copied().unwrap_or(0);
                 let spec = actions.and_then(|actions| actions.ranged.as_ref());
                 ambition_combat::WeaponReadiness::of(refire, spec, live)
             }

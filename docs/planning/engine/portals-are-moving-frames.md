@@ -621,4 +621,29 @@ Still open in M4:
 - per-observer cursors and rollback invalidation. Each view reads the
   same declared warps once per frame, and a rewind's resimulated ticks
   are declared again by their messages; no observer keeps a cursor yet;
-- cost measurement on single-leg and chained traffic.
+- ~~cost measurement on single-leg and chained traffic~~ (measured
+  2026-11-25, below).
+
+**Cost of one transit step (2026-11-25).** `transit_step_with_tuning` on the
+two-pair fixture of `a_body_crosses_two_pairs_in_one_tick` (four wall
+apertures, a 16 px body at 80 px a tick). Release build; 7 batches of 20 000
+calls per case; the median batch, in two runs that agreed within 1 %. The
+probe was deleted.
+
+| Case | ns per step |
+| --- | --- |
+| Travel 400 px from every aperture, default tuning | 1 290 |
+| The same, composed tuning (`max_hops` 4) | 1 274 |
+| One crossing, default single hop | 1 700 |
+| A chain through both pairs, composed | 3 800 |
+
+A chained step costs about 2.2 times a single hop, which is about what two
+hops plus their leg cost. The finding is the first row: a body that crosses
+nothing pays three quarters of a crossing's cost. `transit_step_with_tuning`
+asks every usable aperture in turn (sorted, then `MaterialCast::crossing`
+for each in `first_portal_crossing_through`, then the begin test's
+`material_fits` for each), with no bound test of its own; whether
+`MaterialCast::crossing` rejects a distant aperture cheaply inside was not
+read. A conservative swept-box test ahead of those queries is the candidate
+saving. No speedup is claimed: the probe measures the step alone,
+not a tick, and a room has few apertures.

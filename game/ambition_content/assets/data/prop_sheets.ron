@@ -877,6 +877,7 @@
     "coliseum_stand_west": (),
     "coliseum_stand_east": (),
     "wastes_dead_things": (),
+    "wastes_fallen_branch": (backdrop: true),
     "ledges_gap": (),
     "ledges_transfer_step": (),
     "ring_seat": (),

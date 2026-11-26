@@ -604,6 +604,25 @@ wallet shield tests covered the rule, leaving its rooms, and two rooms with
 different rules. These runs used cached host libraries and current system
 source. Full application and phone measurements remain open.
 
+### Actor decision observations
+
+The side contact pass reads the bodies in the contact snapshot. Crowd
+observation reads full body data for living fighters and records deaths
+without storing a row for every living body.
+
+| Isolated desktop pass in the loaded Hall | Before, ms | After, ms |
+| --- | ---: | ---: |
+| Development, 595 actors and one contact box | 0.484–0.487 | 0.038–0.039 |
+| Optimized, same actors and contact box | 0.026 | 0.005 |
+| Development, with 24 hostile actors and contact boxes | 0.784–0.794 | 0.338–0.342 |
+| Optimized, same hostile actors and contact boxes | 0.084 | 0.066–0.068 |
+
+Both versions gave the same liveness, contact normals, nearest neighbours,
+and crowd pressure. The second case set combat and contact state in the
+loaded Hall to test those paths. The system test checks both body
+populations, bystanders, and contacts. Two crowd tests check room scope and
+order. The probe uses cached host libraries. It measures one system pass.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

@@ -173,6 +173,11 @@ impl BodyContactSnapshot {
         self.bodies.len()
     }
 
+    /// Get the bodies with contact boxes. A body can have more than one box.
+    pub fn subjects(&self) -> impl Iterator<Item = Entity> + '_ {
+        self.bodies.iter().map(|(body, ..)| *body)
+    }
+
     /// Whether this pair touched at entry, before either body moved away.
     pub fn touching_pair(&self, first: Entity, second: Entity) -> bool {
         if first == second { return false; }

@@ -1257,6 +1257,22 @@ time and about 48 µs when they built the required movement parameters
 directly. Both probes gave the same results as the reference. The engine
 continues to use the existing code for these passes.
 
+### Contact claim withdrawal
+
+The contact phase keeps its query for hold and pose claims. When a status
+ends, the same ownership check reads just that body. Both paths keep the
+engine's rules for which bodies are visible.
+
+In a development schedule with 596 bodies, 2,956 archetypes, and no claims,
+median update time fell from 62.5 to 13.3 µs across 12 paired batches. This
+measures one maintenance system and its schedule.
+
+The assembled desktop pair kept all 596 bodies. The new build measured
+78.86 ms/tick and the `adec6e97d` reference measured 79.41 ms/tick over
+25 and 20 settled windows. Both runs were much slower than the earlier
+desktop runs across the measured phases. The ranges overlap. This pair
+does not establish a reduction in total Hall tick cost.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

@@ -5,12 +5,13 @@ use ambition_combat_port::{
     BodyContact, BodyContactPort, BodyDefeatPort, ContactBody, ContactBouncePort, ContactCuePort, ContactThreatPort,
     ControlHoldPort, KineticHazardPort, PosePinPort,
 };
-use ambition_extension_host::{AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
+use ambition_extension_host::{AdmittedEntry, AdmittedExtensions, ExtensionAppExt, ExtensionInvocations, ExtensionOutbox};
 use ambition_extension_sdk::phases::BODY_CONTACT;
 use ambition_extension_sdk::Port;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
+use bevy::ecs::{entity_disabling::DefaultQueryFilters, query::QueryState};
 use bevy::prelude::*;
 
 mod facts;
@@ -224,8 +225,11 @@ pub fn lower_pose_pins(world: &mut World) {
 /// Runs on every tick of the phase, whether or not anything was submitted,
 /// over the bodies that carry a claim. A claim another object issued is not
 /// this phase's to judge, and a native claim is its owner's.
-pub fn withdraw_unbound_attachment_claims(world: &mut World) {
-    withdraw_unbound_claims(world, None);
+fn withdraw_unbound_attachment_claims(world: &mut World, mut state: Local<Option<AttachmentClaimsQuery>>) {
+    let state = state.get_or_insert_with(|| world.query_filtered());
+    let entries = &world.resource::<AdmittedExtensions>().0.entries;
+    let withdrawn = unbound_claims(state.iter(world), entries);
+    withdraw_claims(world, withdrawn);
 }
 
 /// The same withdrawal for one body, at the moment its statuses dropped a
@@ -233,50 +237,65 @@ pub fn withdraw_unbound_attachment_claims(world: &mut World) {
 /// on the same tick (another phase holds the kind again) starts with none of
 /// them under its identical issuer key.
 pub fn withdraw_unbound_attachment_claims_of(world: &mut World, body: Entity) {
-    withdraw_unbound_claims(world, Some(body));
+    let Ok(body) = world.get_entity(body) else {
+        return;
+    };
+    // The direct read uses the same visibility rules as the scheduled query.
+    if world.get_resource::<DefaultQueryFilters>().is_some_and(|filters| {
+        filters.disabling_ids().any(|id| body.contains_id(id))
+    }) {
+        return;
+    }
+    let Ok(row) = body.get_components::<AttachmentClaims>() else {
+        return;
+    };
+    let entries = &world.resource::<AdmittedExtensions>().0.entries;
+    let withdrawn = unbound_claims([row], entries);
+    withdraw_claims(world, withdrawn);
 }
 
-fn withdraw_unbound_claims(world: &mut World, only: Option<Entity>) {
-    use ambition_characters::control::{release_hold_as, HoldClaims};
-    use ambition_platformer2d_core::applications::{module_of_entry, ApplicationKey};
-    use ambition_platformer2d_shared_tangle::lifecycle::{ObjectOccurrence, SessionScopedEntity};
-    use ambition_sprite_sheet::character::{release_pose, PoseClaims};
-    let mut state = world.query_filtered::<(
-        Entity,
-        Option<&HoldClaims>,
-        Option<&PoseClaims>,
-        Option<&ObjectOccurrence>,
-        Option<&SessionScopedEntity>,
-        Option<&super::status::BodyStatuses>,
-        Option<&crate::actor_tuning::ActorConfig>,
-    ), Or<(With<HoldClaims>, With<PoseClaims>)>>();
-    let world_ref: &World = world;
-    let selectors: Vec<(String, String)> = world_ref
-        .resource::<AdmittedExtensions>()
-        .0
-        .entries
-        .iter()
-        .filter(|entry| entry.descriptor.trigger.port == BodyContactPort::KEY)
-        .map(|entry| (entry.descriptor.trigger.selector.to_string(), module_of_entry(&entry.path).to_owned()))
-        .collect();
-    let mut withdrawn: Vec<(Entity, ApplicationKey, bool)> = Vec::new();
-    for (body, holds, poses, occurrence, session, statuses, config) in state.iter(world_ref) {
-        if only.is_some_and(|only| only != body) {
-            continue;
-        }
-        let (Some(occurrence), Some(session)) = (occurrence, session) else {
-            continue;
-        };
+type AttachmentClaims = (
+    Entity,
+    Option<&'static ambition_characters::control::HoldClaims>,
+    Option<&'static ambition_sprite_sheet::character::PoseClaims>,
+    &'static ambition_platformer2d_shared_tangle::lifecycle::ObjectOccurrence,
+    &'static ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity,
+    Option<&'static super::status::BodyStatuses>,
+    Option<&'static crate::actor_tuning::ActorConfig>,
+);
+
+type AttachmentClaimsQuery = QueryState<
+    AttachmentClaims,
+    Or<(
+        With<ambition_characters::control::HoldClaims>,
+        With<ambition_sprite_sheet::character::PoseClaims>,
+    )>,
+>;
+
+type Withdrawal = (Entity, ambition_platformer2d_core::applications::ApplicationKey, bool);
+
+fn unbound_claims<'w, 's>(
+    rows: impl IntoIterator<Item = bevy::ecs::query::QueryItem<'w, 's, AttachmentClaims>>,
+    entries: &[AdmittedEntry],
+) -> Vec<Withdrawal> {
+    use ambition_platformer2d_core::applications::module_of_entry;
+
+    let mut withdrawn = Vec::new();
+    for (body, holds, poses, occurrence, session, statuses, config) in rows {
         let own = occurrence.reference(session.0);
-        let mut keys: Vec<&str> = statuses.map_or_else(Vec::new, |statuses| statuses.0.iter().map(String::as_str).collect());
-        if let Some(crate::actor_tuning::ActorConfig {
-            brain: ambition_entity_catalog::placements::CharacterBrain::Custom(key),
-            ..
-        }) = config
-        {
-            keys.push(key.as_str());
-        }
-        let bound = |module: &str| selectors.iter().any(|(selector, owner)| owner == module && keys.contains(&selector.as_str()));
+        let brain = config.and_then(|config| match &config.brain {
+            ambition_entity_catalog::placements::CharacterBrain::Custom(key) => Some(key.as_str()),
+            _ => None,
+        });
+        let bound = |module: &str| {
+            entries.iter().any(|entry| {
+                let trigger = &entry.descriptor.trigger;
+                trigger.port == BodyContactPort::KEY
+                    && module_of_entry(&entry.path) == module
+                    && (brain == Some(trigger.selector.as_ref())
+                        || statuses.is_some_and(|statuses| statuses.holds(trigger.selector.as_ref())))
+            })
+        };
         let claims = holds
             .into_iter()
             .flat_map(|claims| claims.0.iter().map(|(key, _)| (key, true)))
@@ -291,6 +310,13 @@ fn withdraw_unbound_claims(world: &mut World, only: Option<Entity>) {
             }
         }
     }
+    withdrawn
+}
+
+fn withdraw_claims(world: &mut World, withdrawn: Vec<Withdrawal>) {
+    use ambition_characters::control::release_hold_as;
+    use ambition_sprite_sheet::character::release_pose;
+
     if withdrawn.is_empty() {
         return;
     }

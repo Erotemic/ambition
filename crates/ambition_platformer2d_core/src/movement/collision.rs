@@ -350,22 +350,35 @@ fn resolve_material_axis_repair(
     hits.sort_by(|(a, x), (b, y)| x.displacement.total_cmp(&y.displacement)
         .then(a.cmp_identity(*b)).then(x.contact.path.cmp(&y.contact.path)));
     let centre = axis_component(kinematics.pos, axis);
-    let mut lower: Option<(f64, crate::world::MaterialCollider<'_>)> = None;
-    let mut upper: Option<(f64, crate::world::MaterialCollider<'_>)> = None;
-    for (collider, hit) in &hits {
+    let mut lower: Option<(f64, usize)> = None;
+    let mut upper: Option<(f64, usize)> = None;
+    for (index, (_, hit)) in hits.iter().enumerate() {
         let bound = f64::from(centre) + hit.displacement;
         if hit.displacement > 0.0 && lower.as_ref().is_none_or(|(old, _)| bound > *old) {
-            lower = Some((bound, *collider));
+            lower = Some((bound, index));
         }
         if hit.displacement < 0.0 && upper.as_ref().is_none_or(|(old, _)| bound < *old) {
-            upper = Some((bound, *collider));
+            upper = Some((bound, index));
         }
     }
     let conflict = match (&lower, &upper) {
-        (Some((min, min_source)), Some((max, max_source))) if min > max => Some(AxisConstraintConflict {
-            axis, min_center: *min as f32, max_center: *max as f32,
-            min_source: min_source.source(), max_source: max_source.source(),
-        }),
+        (Some((min, min_at)), Some((max, max_at))) if min > max => {
+            // Each claimant's motion this step, in the root chart: what C1
+            // reads the driver from.
+            let motion = |at: usize| {
+                let (collider, hit) = &hits[at];
+                collider.step_in_root(&hit.contact, admission).map(|step| axis_component(step, axis))
+            };
+            let (min_motion, max_motion) = match (motion(*min_at), motion(*max_at)) {
+                (Ok(min), Ok(max)) => (min, max),
+                (Err(reason), _) | (_, Err(reason)) => { *refusal = Some(reason); return None; }
+            };
+            Some(AxisConstraintConflict {
+                axis, min_center: *min as f32, max_center: *max as f32,
+                min_source: hits[*min_at].0.source(), max_source: hits[*max_at].0.source(),
+                min_motion, max_motion,
+            })
+        }
         _ => None,
     };
     if conflict.is_none() {

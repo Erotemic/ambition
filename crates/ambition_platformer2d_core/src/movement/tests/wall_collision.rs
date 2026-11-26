@@ -1810,3 +1810,64 @@ fn a_drifting_exit_holds_the_material_through_it_at_a_still_wall() {
     assert!(held.iter().all(|right| *right <= wall.aabb.min.x + 0.01), "the far half sank into the wall: {held:?}");
     assert!((held.last().unwrap() - wall.aabb.min.x).abs() < 0.01, "the far half rests at the wall face: {held:?}");
 }
+
+/// Crushing C1 (crushing-and-obstruction-response.md): a conflict names its
+/// driver by relative motion. The same 32 px gap round a 48 px body: still,
+/// it is a pinch with no driver (the body was put where it does not fit);
+/// with the platform rising into the body, the platform drives and the
+/// ceiling is what it pushes against, by the platform's own step. Velocity
+/// alone does not choose: a ceiling descending faster than the platform
+/// rises drives instead.
+#[test]
+fn a_pinch_names_the_claimant_that_closes_on_the_body() {
+    use crate::collision_semantics::{ConflictSide, ContactSource};
+    let ceiling = |step: f32| {
+        let mut block = Block::solid("ceiling", Vec2::new(0.0, 200.0), Vec2::new(1600.0, 40.0));
+        block.velocity = Vec2::new(0.0, step);
+        block
+    };
+    let platform = |step: f32| {
+        let mut block = Block::solid("rising platform", Vec2::new(300.0, 272.0), Vec2::new(200.0, 40.0));
+        block.velocity = Vec2::new(0.0, step);
+        block
+    };
+    let start = Vec2::new(400.0, 256.0);
+    let conflict = |blocks: Vec<Block>| {
+        let world = World::new("pinch", Vec2::new(1600.0, 900.0), start, blocks);
+        let mut scratch = scratch_with(AbilitySet::sandbox_all(), start);
+        scratch.kinematics.pos = start;
+        scratch.kinematics.vel = Vec2::ZERO;
+        let gravity_dir = Vec2::new(0.0, 1.0);
+        let prev_feet_coord = scratch.kinematics.aabb().feet_coord(gravity_dir);
+        super::super::collision::sweep_player_axis_clusters(
+            &world, &mut scratch.kinematics, &mut scratch.ground, &mut scratch.wall,
+            &scratch.body_mode, &scratch.env_contact, crate::collision_semantics::Axis::Y,
+            0.0, prev_feet_coord, false, gravity_dir, &mut Vec::new(), &mut None, &mut None, None,
+        )
+        .expect("a 32px gap cannot hold a 48px body")
+    };
+    let named = |source: &ContactSource, name: &str, world: &[Block]| match source {
+        ContactSource::Block { id, .. } => world.iter().any(|block| block.id == *id && block.name == name),
+        ContactSource::Chain { .. } => false,
+    };
+
+    let still = conflict(vec![ceiling(0.0), platform(0.0)]);
+    assert_eq!(still.driver(), None, "nothing closes: {still:?}");
+    assert!(still.obstruction().driver.is_none());
+
+    let blocks = vec![ceiling(0.0), platform(-4.0)];
+    let rising = conflict(blocks.clone());
+    // The platform pushes the body up (toward -y): it is the max side.
+    assert_eq!(rising.driver(), Some(ConflictSide::Max), "{rising:?}");
+    let obstruction = rising.obstruction();
+    let (driver, closed) = obstruction.driver.clone().expect("a driver");
+    assert!(named(&driver, "rising platform", &blocks), "{obstruction:?}");
+    assert!(named(&obstruction.other, "ceiling", &blocks), "{obstruction:?}");
+    assert!((closed - 4.0).abs() < 1.0e-3, "it closed by its own step: {closed}");
+    assert!((obstruction.overconstraint - rising.overconstraint()).abs() < 1.0e-6);
+
+    let blocks = vec![ceiling(6.0), platform(-4.0)];
+    let both = conflict(blocks.clone());
+    assert_eq!(both.driver(), Some(ConflictSide::Min), "the faster closer drives: {both:?}");
+    assert!(named(&both.obstruction().driver.expect("a driver").0, "ceiling", &blocks));
+}

@@ -235,6 +235,16 @@ order. Tests: a still pinch has no driver; a moving block over a floor
 names the block; the same pinch built across a static portal pair names
 the far-side solid and produces the same numbers as the local pinch.
 
+*Receipt (2026-11-26, core).* `AxisConstraintConflict` now records
+`min_motion` and `max_motion`, each claimant's displacement this tick in the
+root chart (from `step_in_root`, so a far-side claimant reads through its
+portal), and `obstruction()` returns the `Obstruction` with `driver()`
+choosing the claimant that closes on the body (stillness below 1e-4 is no
+driver; a tie goes to the min side). Witness:
+`a_pinch_names_the_claimant_that_closes_on_the_body` in
+`movement/tests/wall_collision.rs`. Still open in C1: per-tick publication in
+identity order, and the across-a-portal pinch witness.
+
 **C2 — policy data.** The three policy tables, with content loading and
 validation. Defaults reproduce today exactly (no response). Tests:
 merge order (body over surface over game); a policy that names an

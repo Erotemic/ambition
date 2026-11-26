@@ -613,6 +613,23 @@ pub struct AxisConstraintConflict {
     pub min_source: ContactSource,
     /// The surface demanding `max_center` (it pushes the body toward -axis).
     pub max_source: ContactSource,
+    /// This step's displacement along `axis` of the `min_source` surface at
+    /// the body, in the body's root chart (px). Through a portal it is the
+    /// far-side solid's motion carried back, so a pinch across a pair reads
+    /// as the same pinch built locally.
+    pub min_motion: f32,
+    /// This step's displacement along `axis` of the `max_source` surface at
+    /// the body (px).
+    pub max_motion: f32,
+}
+
+/// Which claimant of an [`AxisConstraintConflict`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ConflictSide {
+    /// The `min_source` claimant (it pushes the body toward +axis).
+    Min,
+    /// The `max_source` claimant (it pushes the body toward -axis).
+    Max,
 }
 
 impl AxisConstraintConflict {
@@ -620,6 +637,59 @@ impl AxisConstraintConflict {
     pub fn overconstraint(&self) -> f32 {
         self.min_center - self.max_center
     }
+
+    /// How far each claimant closed on the body this step (px; positive is
+    /// closing), `(min side, max side)`. The min side pushes toward +axis,
+    /// so it closes by moving +axis; the max side by moving -axis.
+    pub fn closing(&self) -> (f32, f32) {
+        (self.min_motion, -self.max_motion)
+    }
+
+    /// The claimant that drives the pinch: the one closing on the body
+    /// faster (crushing-and-obstruction-response.md, C1). `None` when
+    /// neither closes (a still pinch: a body that walked or was placed into
+    /// a gap too small for it). On an exact tie the min side drives, so the
+    /// answer never depends on order.
+    pub fn driver(&self) -> Option<ConflictSide> {
+        const STILL: f32 = 1.0e-4;
+        let (min, max) = self.closing();
+        if min <= STILL && max <= STILL {
+            None
+        } else if min >= max {
+            Some(ConflictSide::Min)
+        } else {
+            Some(ConflictSide::Max)
+        }
+    }
+
+    /// The obstruction this conflict states: the body cannot be where both
+    /// claimants put it, and who is pushing.
+    pub fn obstruction(&self) -> Obstruction {
+        let (min, max) = self.closing();
+        let (driver, other) = match self.driver() {
+            Some(ConflictSide::Min) => (Some((self.min_source.clone(), min)), self.max_source.clone()),
+            Some(ConflictSide::Max) => (Some((self.max_source.clone(), max)), self.min_source.clone()),
+            None => (None, self.max_source.clone()),
+        };
+        Obstruction { axis: self.axis, overconstraint: self.overconstraint(), driver, other }
+    }
+}
+
+/// A body obstructed on one axis: the kernel's crush report read as who
+/// pushes and what it pushes against (crushing C1). The kernel publishes the
+/// conflicts per body on its frame events (`FrameEvents::constraint_conflicts`);
+/// this is their reading, and policy (stall, compress, damage) consumes it in
+/// later stages.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Obstruction {
+    pub axis: Axis,
+    /// The unsatisfiable overlap (px).
+    pub overconstraint: f32,
+    /// The claimant closing on the body and how far it closed this step
+    /// (px); `None` for a still pinch.
+    pub driver: Option<(ContactSource, f32)>,
+    /// What the body is pushed against (for a still pinch, the max side).
+    pub other: ContactSource,
 }
 
 /// Build a [`Contact`] for a body touching an axis-aligned face of `block`.

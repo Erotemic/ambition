@@ -498,7 +498,7 @@ macro_rules! snapshot_pod {
         $crate::snapshot_pod!($ty { $($field: $get),+ });
 
         impl $crate::snapshot::ExactState for $ty {
-            #[inline]
+            #[inline(always)]
             fn same_bits(&self, other: &Self) -> bool {
                 $($crate::snapshot::ExactState::same_bits(&self.$field, &other.$field))&&+
             }

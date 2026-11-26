@@ -95,8 +95,13 @@ impl BodyMaterial {
     pub fn reflected(self) -> bool { self.orthogonal.determinant() < 0.0 }
 
     pub fn record(self) -> BodyMaterialRecord {
-        BodyMaterialRecord([self.scale, self.orthogonal.x_axis.x, self.orthogonal.x_axis.y,
-            self.orthogonal.y_axis.x, self.orthogonal.y_axis.y].map(f64::to_bits))
+        BodyMaterialRecord([
+            self.scale.to_bits(),
+            self.orthogonal.x_axis.x.to_bits(),
+            self.orthogonal.x_axis.y.to_bits(),
+            self.orthogonal.y_axis.x.to_bits(),
+            self.orthogonal.y_axis.y.to_bits(),
+        ])
     }
 
     fn from_linear(map: Sim2) -> Self {

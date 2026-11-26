@@ -969,6 +969,36 @@ Reusing the validation of body material axes had no repeatable effect in
 the development fixture with 57 moving and 539 settled bodies. The
 prototype stayed out of the build measured above.
 
+### Settled comparisons and prepared rooms
+
+The settled step checks the same snapshot fields and floating-point bits.
+The exact comparisons inline in the development build. A material record
+copies its five bit values directly. Movement reads room and session stamps
+from the body query. The prepared room can return shared walls when it has
+no body-specific gates or barriers and no body has a solids exemption.
+
+In a development kernel fixture with 596 settled bodies and four additions
+to the terrain each tick, median times fell from 0.854–0.885 ms to
+0.670–0.678 ms. The state and contact digests matched. In the all-moving
+case the two builds each retired about 45.6 billion instructions. Optimized
+kernel results overlapped. A combined bounds check on additions had no
+repeatable gain and stayed out of the patch.
+
+Four windowed desktop runs kept all 596 bodies and the same viewport,
+quality, and CPU renderer. The run order was reference, candidate,
+candidate, reference.
+
+| Median after 30 s | Reference runs, ms/tick | Candidate runs, ms/tick |
+| --- | ---: | ---: |
+| All measured simulation phases | 16.94, 16.69 | 16.46, 16.24 |
+| Movement integration | 2.19, 2.18 | 1.99, 1.92 |
+
+The application build, 943 active core tests, and 17 collision tests
+passed. The room test checks per-body collision exceptions across two
+live rooms, including an exemption added after the first step. Positions,
+velocities, and ordered movement events matched for all 595 Hall NPCs
+after 165 headless updates. The live Smash gate test also passed.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

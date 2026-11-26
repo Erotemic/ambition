@@ -18,7 +18,7 @@ macro_rules! axis_fields {
                 Some(Self { $($field: axis_fields!(@read r $(, $codec)?)?),+ })
             }
 
-            #[inline]
+            #[inline(always)]
             fn same_bits(&self, other: &Self) -> bool {
                 $(axis_fields!(@compare &self.$field, &other.$field $(, $codec)?))&&+
             }

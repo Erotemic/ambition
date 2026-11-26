@@ -253,7 +253,11 @@ impl CollisionWorld<'_, '_> {
         if sole == Some(None) {
             composed.room(self, None);
         }
-        PreparedRooms { sole, rooms: composed.rooms }
+        PreparedRooms {
+            sole,
+            rooms: composed.rooms,
+            has_solids_exemptions: !self.passes.is_empty(),
+        }
     }
 
     /// [`RoomCollision::solids`] of the sole live room.
@@ -347,6 +351,7 @@ pub struct ComposedRooms<'a> {
 struct ComposedRoom<'a> {
     inputs: RoomCollision<'a>,
     walls: Cow<'a, ae::World>,
+    has_body_overrides: bool,
 }
 
 impl<'a> ComposedRooms<'a> {
@@ -399,7 +404,13 @@ impl<'a> ComposedRooms<'a> {
             Some(index) => index,
             None => {
                 let composed = collision.room(room.as_ref()).and_then(|inputs| {
-                    Some(ComposedRoom { inputs, walls: inputs.solids()? })
+                    Some(ComposedRoom {
+                        has_body_overrides: inputs.overlay.is_some_and(|overlay| {
+                            !overlay.gate_passes.is_empty() || !overlay.body_barriers.is_empty()
+                        }),
+                        inputs,
+                        walls: inputs.solids()?,
+                    })
                 });
                 self.rooms.push((room, composed));
                 self.rooms.len() - 1
@@ -413,6 +424,7 @@ impl<'a> ComposedRooms<'a> {
 pub struct PreparedRooms<'a> {
     sole: Option<Option<InRoomInstance>>,
     rooms: Vec<(Option<InRoomInstance>, Option<ComposedRoom<'a>>)>,
+    has_solids_exemptions: bool,
 }
 
 impl PreparedRooms<'_> {
@@ -425,7 +437,11 @@ impl PreparedRooms<'_> {
     ) -> Option<Cow<'_, ae::World>> {
         let key = room.copied().map(Some).or(self.sole)?;
         let room = self.rooms.iter().find(|(stored, _)| *stored == key)?.1.as_ref()?;
-        Some(room.physical_for(collision, subject))
+        if !self.has_solids_exemptions && !room.has_body_overrides {
+            Some(Cow::Borrowed(&room.walls))
+        } else {
+            Some(room.physical_for(collision, subject))
+        }
     }
 }
 
@@ -1272,6 +1288,15 @@ mod collision_world_tests {
         assert!(after[0].iter().any(|block| block.starts_with("lockwall:")));
         assert!(!after[1].iter().any(|block| block.starts_with("private-barrier:")));
         assert_eq!(before[2], after[2]);
+
+        app.world_mut().entity_mut(bodies[0]).insert(
+            ambition_platformer2d_shared_tangle::body::PassesSolids,
+        );
+        app.update();
+        let bypassed = &app.world().resource::<Seen>().0;
+        assert!(bypassed[0].is_empty());
+        assert!(bypassed[2].is_empty());
+        assert_eq!(bypassed[3], before[3]);
     }
 
     #[test]

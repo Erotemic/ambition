@@ -449,9 +449,7 @@ macro_rules! exact_eq {
         $(impl crate::snapshot::ExactState for $ty {
             #[inline(always)]
             fn same_bits(&self, other: &Self) -> bool {
-                #[inline(always)]
-                fn compare<T: Eq>(a: &T, b: &T) -> bool { a == b }
-                compare(self, other)
+                *self == *other
             }
         })+
     };

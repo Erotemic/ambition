@@ -382,6 +382,29 @@ fn a_walk_that_does_not_arrive_gives_up() {
 }
 
 #[test]
+fn a_dog_in_a_narrow_space_is_petted_from_the_petters_current_position() {
+    let mut app = app();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+        app.world_mut(),
+        ae::RoomGeometry(ae::World::new(
+            "dog alcove", ae::Vec2::splat(300.0), ae::Vec2::ZERO,
+            vec![
+                ae::Block::solid("left", ae::Vec2::ZERO, ae::Vec2::new(60.0, 300.0)),
+                ae::Block::solid("right", ae::Vec2::new(150.0, 0.0), ae::Vec2::splat(300.0)),
+            ],
+        )),
+    );
+    let start = ae::Vec2::new(125.0, 100.0);
+    let player = spawn_player(&mut app, start);
+    let dog = spawn_character(&mut app, ae::Vec2::splat(100.0), "good_dog");
+    ask_for_a_pet(&mut app, "good_dog");
+    app.update();
+    assert!(anim(&app, dog).petted);
+    assert!(walk_mark(&app, player).is_none());
+    assert_eq!(app.world().get::<BodyKinematics>(player).unwrap().pos, start);
+}
+
+#[test]
 fn a_character_without_a_petting_row_is_not_petted() {
     let mut app = app();
     let at = ae::Vec2::new(100.0, 100.0);

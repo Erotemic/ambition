@@ -261,6 +261,7 @@ pub(crate) fn try_start_ledge_grab_scratch(
         TEST_TUNING.frame(),
         &axis.params,
         events,
+        None,
     )
 }
 

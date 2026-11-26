@@ -528,6 +528,7 @@ title: hobford_dog
 ---
 The dog sniffs your knee for a long time. Then it wags.
 -> ‹scratch its ears›
+    <<pet>>
 ===
 
 title: oiler_intro

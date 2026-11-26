@@ -12,14 +12,11 @@ use bevy::prelude::*;
 use bevy_yarnspinner::events::PresentOptions;
 use bevy_yarnspinner::prelude::*;
 
-const NODE: &str = "hall_npc_companion_dog";
-
-/// The dog's node, cut verbatim from the shipped file.
-fn authored_node() -> String {
-    let file = include_str!("../assets/dialogue/sandbox/hall.yarn");
+/// Read the dog's node from the shipped file.
+fn authored_node(file: &str, node: &str) -> String {
     let start = file
-        .find(&format!("title: {NODE}\n"))
-        .expect("hall.yarn authors the dog's node");
+        .find(&format!("title: {node}\n"))
+        .expect("the file has the dog's node");
     let end = start + file[start..].find("\n===").expect("the node ends") + "\n===\n".len();
     file[start..end].to_string()
 }
@@ -37,7 +34,6 @@ fn stub_pet(mut pets: ResMut<Pets>) {
 fn install_stub_pet(
     commands: &mut Commands,
     runner: &mut DialogueRunner,
-    _mirror: &ambition_dialog::YarnStateMirror,
 ) {
     let id = commands.register_system(stub_pet);
     runner.commands_mut().add_command("pet", id);
@@ -53,7 +49,16 @@ fn record_options(event: On<PresentOptions>, mut offered: ResMut<Offered>) {
 
 #[test]
 fn choosing_pet_the_dog_runs_pet_and_the_other_choices_do_not() {
-    for (choice, pets) in [("Pet the dog.", 1), ("Say hello.", 0)] {
+    let hall = include_str!("../assets/dialogue/sandbox/hall.yarn");
+    let intro = include_str!("../assets/dialogue/sandbox/intro.yarn");
+    for (file, node, choice, pets) in [
+        (hall, "hall_npc_companion_dog", "Pet the dog.", 1),
+        (hall, "hall_npc_companion_dog", "Say hello.", 0),
+        (hall, "hall_npc_dog_honey", "Pet the dog.", 1),
+        (hall, "hall_npc_dog_roadie", "Pet the dog.", 1),
+        (hall, "hall_npc_dog_bezoar", "Pet the dog.", 1),
+        (intro, "hobford_dog", "‹scratch its ears›", 1),
+    ] {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_plugins(AssetPlugin {
@@ -61,7 +66,7 @@ fn choosing_pet_the_dog_runs_pet_and_the_other_choices_do_not() {
             ..default()
         });
         app.add_plugins(YarnSpinnerPlugin::with_yarn_source(YarnFileSource::InMemory(
-            YarnFile::new("the_dog.yarn", authored_node()),
+            YarnFile::new("the_dog.yarn", authored_node(file, node)),
         )));
         app.init_resource::<Pets>();
         app.init_resource::<Offered>();
@@ -73,17 +78,13 @@ fn choosing_pet_the_dog_runs_pet_and_the_other_choices_do_not() {
             bevy::ecs::system::SystemState::new(app.world_mut());
         let (mut commands, project) = state.get_mut(app.world_mut()).expect("yarn params");
         let mut runner = project.create_dialogue_runner(&mut commands);
-        install_stub_pet(
-            &mut commands,
-            &mut runner,
-            &ambition_dialog::YarnStateMirror::default(),
-        );
+        install_stub_pet(&mut commands, &mut runner);
         state.apply(app.world_mut());
         let runner = app.world_mut().spawn(runner).id();
         app.world_mut()
             .get_mut::<DialogueRunner>(runner)
             .expect("runner")
-            .start_node(NODE);
+            .start_node(node);
 
         // Read the greeting until the choices are offered.
         for _ in 0..8 {

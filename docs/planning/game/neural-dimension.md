@@ -55,8 +55,10 @@ brain).
   the east end of the gallery. A lift beside Donna reaches the west end.
 - **The Weights** (`neural_weights`), east: racks of memory and the
   classifier's board. Logic gates cross the training spikes. Ladders at
-  both ends lead to a maintenance tunnel under the spikes. Attention Heads
-  watch from the air. Percy the Perceptron is on the floor.
+  both ends lead to a maintenance tunnel under the spikes. The circuit
+  walk leads from the OR gate past the classifier to the Echo Chamber
+  deck. Attention Heads watch from the air. Percy the Perceptron is on
+  the floor.
 - **The Echo Chamber** (`neural_echo_chamber`), by a door in the Weights: a
   round room of screens. Echo speaks from the floor. Two sets of steps
   lead to a viewing balcony between the rows of screens.

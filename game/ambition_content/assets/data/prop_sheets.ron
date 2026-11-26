@@ -1180,6 +1180,7 @@
     "neural_training_bypass": (backdrop: true),
     "neural_red_herring_board": (),
     "neural_weights_racks": (),
+    "neural_weights_circuit_walk": (),
     "neural_echo_screens": (),
     "neural_echo_viewing_balcony": (),
     // The Central Hub's scenery (`targets/props/authority_props.py`): each

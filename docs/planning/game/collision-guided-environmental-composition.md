@@ -220,6 +220,8 @@ The Staging Area scaffold is another case. Pass the ledge spans to the art
 generator so each step gets planks and braces at its landing surface.
 Pass climbable bounds too. The Patent Office gallery needs the ladder's
 width and position to leave a gap in its rail.
+The Test Range shelter needs the roof's bottom edge to draw the passage
+at the same height as its collision clearance.
 The Tape Room carriage gives its frame size and top anchor in the sprite
 source and again in `platform_looks.ron`. Read these values from the
 published sheet when the platform uses them. Keep the support span an

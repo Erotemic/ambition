@@ -20,7 +20,7 @@
 //! (Sanic's spin claims the Attack slot in place of any moveset attack).
 
 use ambition_entity_catalog::action_scheme::{
-    ids, ActionGate, ActionId, ActionSchemeContract, ActionSpec, ControlSlot, CANONICAL_SLOT_ORDER,
+    ids, ActionGate, ActionId, ActionSchemeContract, ActionSpec, ControlSlot,
 };
 use ambition_entity_catalog::MovesetContract;
 use ambition_platformer2d_core::{AbilitySet, Edge};
@@ -197,7 +197,7 @@ impl ResolvedTechniqueEdges {
 }
 
 /// A technique the derived scheme declared on a control slot the combat frame has NO device
-/// verb for — a movement slot (Jump / Burst / Blink) or Interact.
+/// verb for. These slots are Jump, Burst, and Interact.
 ///
 /// Sanic's form toggle then reached around the resolver for the raw verb because declaring a
 /// technique there would have been rejected, which left its control wearing the engine's generic
@@ -242,180 +242,92 @@ pub fn resolve_control_slots(
     holds_item: bool,
 ) -> Vec<UnroutableTechnique> {
     edges.clear();
-    let mut unroutable = Vec::new();
 
-    for slot in CANONICAL_SLOT_ORDER {
-        // Borrowed: this runs for each body on each tick.
-        let gate = scheme.action_for_slot(slot).map(|a| &a.gate);
-        match slot {
-            ControlSlot::Attack => match gate {
-                Some(ActionGate::Technique(id)) => {
-                    edges.set(
-                        id,
-                        Edge {
-                            pressed: control.melee_pressed,
-                            held: control.melee_held,
-                            released: control.melee_released,
-                        },
-                    );
-                    clear_attack(control);
-                }
-                // Absent AND no held item → strip. Move / held-item → keep.
-                None if !holds_item => clear_attack(control),
-                _ => {}
-            },
-            ControlSlot::Special => match gate {
-                Some(ActionGate::Technique(id)) => {
-                    edges.set(
-                        id,
-                        Edge {
-                            pressed: control.special_pressed,
-                            ..Edge::NONE
-                        },
-                    );
-                    control.special_pressed = false;
-                }
-                // The scheme lacks Special → a special press must not survive.
-                None => control.special_pressed = false,
-                // Move → the moveset "special" verb owns the press; keep it.
-                _ => {}
-            },
-            ControlSlot::Projectile => match gate {
-                Some(ActionGate::Technique(id)) => {
-                    edges.set(
-                        id,
-                        Edge {
-                            pressed: control.projectile_pressed,
-                            held: control.projectile_held,
-                            released: control.projectile_released,
-                        },
-                    );
-                    clear_projectile(control);
-                }
-                // Absent → strip the resolved ranged request (raw charge verbs are
-                // additionally gated by the caller's capability marker). Held item
-                // keeps the throw/use path alive.
-                None if !holds_item => control.fire = None,
-                _ => {}
-            },
-            // THE GUARD, and it asks the same question every other slot does.
-            //
-            //  the capability is `AbilitySet::shield`, which `movement_actions`
-            // already turns into this slot. Absent slot → no guard; present slot →
-            // the kernel's `resolve_shield` decides the rest. A held item keeps the
-            // verb alive exactly as it does on Attack, because shield+attack is the
-            // universal throw gesture.
-            // Grab is stripped when the slot is absent, and never re-routed.
-            // A body whose scheme has no Grab slot must not be able to attempt a
-            // capture, which is what makes `AbilitySet::grab` a real permission
-            // rather than a label — the same shape as Attack and Shield above.
-            //
-            //  no `ActionGate::Technique` arm, deliberately. Every other combat
-            // slot can host a content technique on its press; a capture is not a
-            // technique the press invokes, it is an authored MOVE whose active
-            // window may establish a relationship. Routing the edge to a
-            // technique id here would give the same button two meanings and let
-            // content silently replace the capture with something that is not
-            // one. When a customer wants a technique on this slot, it arrives
-            // with the case that needs it.
-            ControlSlot::Grab => {
-                if gate.is_none() && !holds_item {
-                    control.grab_pressed = false;
-                }
-            }
-            // Same shape as Grab for the same reason: the press invokes an
-            // authored MOVE, so binding a technique here would give one button
-            // two meanings.
-            ControlSlot::Taunt => {
-                if gate.is_none() && !holds_item {
-                    control.taunt_pressed = false;
-                }
-            }
-            ControlSlot::Shield => match gate {
-                Some(ActionGate::Technique(id)) => {
-                    edges.set(
-                        id,
-                        Edge {
-                            held: control.shield_held,
-                            ..Edge::NONE
-                        },
-                    );
-                    control.shield_held = false;
-                }
-                None if !holds_item => control.shield_held = false,
-                _ => {}
-            },
-            // The SUSTAIN slot. A technique bound here is a MODE, not a moment, so
-            // the routing differs from every arm above in two ways: the edge
-            // carries `held` as well as `pressed`, and neither is cleared off the
-            // frame afterwards. Clearing is how a one-shot press is prevented from
-            // being consumed twice; a sustained technique has the opposite need —
-            // the body's own rules read the level every tick for as long as it is
-            // down, so consuming it would end the technique on the frame it began.
-            ControlSlot::Modifier => {
-                if let Some(ActionGate::Technique(id)) = gate.as_ref() {
-                    edges.set(
-                        id,
-                        Edge {
-                            pressed: control.modifier_pressed,
-                            held: control.modifier_held,
-                            released: false,
-                        },
-                    );
-                }
-            }
-            // The MODE-SWITCH slot, whose device verb is `fly_toggle_pressed`.
-            // Named for the engine's own fly toggle because that was the first
-            // thing to claim it, but the slot is generic — "flip this body into
-            // its other mode" — and a content technique bound here (Sanic's
-            // transformation) is the same shape as the base action it replaces.
-            //
-            // A non-technique gate is left alone, exactly as on `Modifier`: an
-            // absent Utility slot must not strip the verb, because a body with
-            // flight and no technique still steers its own fly toggle through it.
-            ControlSlot::Utility => {
-                if let Some(ActionGate::Technique(id)) = gate.as_ref() {
-                    edges.set(
-                        id,
-                        Edge {
-                            pressed: control.fly_toggle_pressed,
-                            ..Edge::NONE
-                        },
-                    );
-                    control.fly_toggle_pressed = false;
-                }
-            }
-            // A technique on Blink replaces the kernel's blink (Contextual and
-            // Precision Blink are content). It takes the whole edge, held and
-            // released too, because a blink aims while held and commits on
-            // release. Any other gate leaves the kernel's blink alone: the
-            // kernel's own `blink` capability decides it.
-            ControlSlot::Blink => {
-                if let Some(ActionGate::Technique(id)) = gate.as_ref() {
-                    edges.set(
-                        id,
-                        Edge {
-                            pressed: control.blink_pressed,
-                            held: control.blink_held,
-                            released: control.blink_released,
-                        },
-                    );
-                    control.blink_pressed = false;
-                    control.blink_held = false;
-                    control.blink_released = false;
-                }
-            }
-            // A technique on Jump, Burst or Interact has no wired path yet:
-            // reject it, never drop it.
-            ControlSlot::Jump | ControlSlot::Burst | ControlSlot::Interact => {
-                if let Some(ActionGate::Technique(id)) = gate.as_ref() {
-                    unroutable.push(UnroutableTechnique {
-                        slot,
-                        id: id.clone(),
-                    });
-                }
-            }
+    if !scheme.has_slot(ControlSlot::Special) {
+        control.special_pressed = false;
+    }
+    if !holds_item {
+        if !scheme.has_slot(ControlSlot::Attack) {
+            clear_attack(control);
         }
+        if !scheme.has_slot(ControlSlot::Projectile) {
+            control.fire = None;
+        }
+        if !scheme.has_slot(ControlSlot::Shield) {
+            control.shield_held = false;
+        }
+        if !scheme.has_slot(ControlSlot::Grab) {
+            control.grab_pressed = false;
+        }
+        if !scheme.has_slot(ControlSlot::Taunt) {
+            control.taunt_pressed = false;
+        }
+    }
+
+    let mut unroutable = Vec::new();
+    for action in scheme.iter() {
+        let ActionGate::Technique(id) = &action.gate else {
+            continue;
+        };
+        let edge = match action.slot {
+            ControlSlot::Attack => {
+                let edge = Edge {
+                    pressed: control.melee_pressed,
+                    held: control.melee_held,
+                    released: control.melee_released,
+                };
+                clear_attack(control);
+                edge
+            }
+            ControlSlot::Special => {
+                let edge = Edge { pressed: control.special_pressed, ..Edge::NONE };
+                control.special_pressed = false;
+                edge
+            }
+            ControlSlot::Projectile => {
+                let edge = Edge {
+                    pressed: control.projectile_pressed,
+                    held: control.projectile_held,
+                    released: control.projectile_released,
+                };
+                clear_projectile(control);
+                edge
+            }
+            ControlSlot::Shield => {
+                let edge = Edge { held: control.shield_held, ..Edge::NONE };
+                control.shield_held = false;
+                edge
+            }
+            // A sustained technique reads the modifier on each tick.
+            ControlSlot::Modifier => Edge {
+                pressed: control.modifier_pressed,
+                held: control.modifier_held,
+                released: false,
+            },
+            ControlSlot::Utility => {
+                let edge = Edge { pressed: control.fly_toggle_pressed, ..Edge::NONE };
+                control.fly_toggle_pressed = false;
+                edge
+            }
+            ControlSlot::Blink => {
+                let edge = Edge {
+                    pressed: control.blink_pressed,
+                    held: control.blink_held,
+                    released: control.blink_released,
+                };
+                control.blink_pressed = false;
+                control.blink_held = false;
+                control.blink_released = false;
+                edge
+            }
+            ControlSlot::Jump | ControlSlot::Burst | ControlSlot::Interact => {
+                unroutable.push(UnroutableTechnique { slot: action.slot, id: id.clone() });
+                continue;
+            }
+            // Grab and taunt press edges belong to the move resolver.
+            ControlSlot::Grab | ControlSlot::Taunt => continue,
+        };
+        edges.set(id, edge);
     }
 
     unroutable

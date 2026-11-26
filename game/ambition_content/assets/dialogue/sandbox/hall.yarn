@@ -5306,6 +5306,14 @@ Marguerite: Take a number.
 -> Anything else?
     Marguerite: I'm still inside while the others strike. Somebody has to process the strike notices.
 ===
+title: hall_moving_goalposts
+---
+Moving Goalposts: You didn't hit your target.
+-> I did.
+    Moving Goalposts: Your old target, yes.
+-> What is the new target?
+    Moving Goalposts: Depends on how well you're doing.
+===
 title: hall_npc_business_professor
 ---
 Gail: Take your seat.
@@ -5544,6 +5552,24 @@ Placeholder: Temporary!
 -> Anything else?
     Placeholder: The ticket says: a wise old someone, to be decided. I've been practising the wise part.
 ===
+title: hall_feature_creep
+---
+Feature Creep: One more thing before I ship.
+-> What were you built to do?
+    Feature Creep: Push a button. Would you like coffee?
+-> Is the coffee holder necessary?
+    Feature Creep: Not without the firmware update.
+===
+
+title: hall_cuckoo_clock
+---
+Cuckoo Clock: You're right on time.
+-> What's behind the door?
+    Cuckoo Clock: My colleague. He does the announcing. I handle scheduling.
+-> Do you ever get a break?
+    Cuckoo Clock: He's out once an hour. I never get out.
+===
+
 title: hall_glitch_bug
 ---
 Bug: *bzzt*

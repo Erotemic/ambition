@@ -79,7 +79,9 @@ fn confirm(app: &mut App) {
 fn assert_creator_portrait(app: &mut App) {
     let view = app.world().resource::<DialogView>();
     assert_eq!(view.speaker_character_id, "npc_creator");
-    assert_eq!(view.speaker_label, "Dennis");
+    let cast = app.world().resource::<ambition_platformer2d::character::PreparedCharacterRegistry>();
+    let creator = cast.get("npc_creator").unwrap();
+    assert_eq!(view.speaker_label, creator.display_name);
     let world = app.world_mut();
     let image = world
         .query::<(&Name, &ImageNode)>()

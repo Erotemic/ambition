@@ -4,7 +4,8 @@
 //
 // A script is an id, ordered beats and an optional seen flag (the runtime does
 // not play a script whose seen flag is set). Beats: Wait(seconds),
-// Dialogue(speaker, text) (waits for the dismiss button), CameraPan(target,
+// Dialogue(speaker_character_id, text) waits for the dismiss button. A
+// speaker label can name a voice or give a title for the scene. CameraPan(target,
 // seconds), Fade(from_alpha, to_alpha, seconds) with 0.0 clear and 1.0 black
 // (both ends are authored, Q143), SetFlag(id, on), Banner(text, seconds) and
 // Fall(character), a scripted death in the cutscene's room, Command(line), a
@@ -25,13 +26,13 @@
         beats: [
             WaitUntil(condition: "world.flag_set intro_brute_scene_seen"),
             CameraTrack(roles: ["dennis", "scout"], seconds: 0.45),
-            Dialogue(speaker: "Dennis", speaker_character_id: "npc_creator",
+            Dialogue(speaker_character_id: "npc_creator",
                 text: "Scout? Come here a moment. Are you hurt?"),
-            Dialogue(speaker: "Dennis", speaker_character_id: "npc_creator",
+            Dialogue(speaker_character_id: "npc_creator",
                 text: "They took the case. Your logs are in there, all on paper. Everything since Tuesday."),
-            Dialogue(speaker: "Dennis", speaker_character_id: "npc_creator",
+            Dialogue(speaker_character_id: "npc_creator",
                 text: "I think I need to sit down."),
-            Dialogue(speaker: "Dennis", speaker_character_id: "npc_creator",
+            Dialogue(speaker_character_id: "npc_creator",
                 text: "Stay here with me a minute, would you?"),
             Fall(character: "npc_creator"),
             SetFlag(id: "intro_creator_dead", on: true),
@@ -47,7 +48,7 @@
         beats: [
             CameraTrack(roles: ["brute", "scout"], seconds: 0.3),
             Command(line: "actor.pose @brute smash_down hold"),
-            Dialogue(speaker: "Raid Brute", speaker_character_id: "npc_raid_brute",
+            Dialogue(speaker_character_id: "npc_raid_brute",
                 text: "Enough. I'm taking the case myself."),
             Command(line: "actor.shove @brute 260"),
             Wait(seconds: 0.45),
@@ -61,7 +62,7 @@
                 WaitUntil(condition: "actor.arrived @brute"),
                 Command(line: "actor.face @brute @dennis"),
                 Command(line: "actor.face @dennis @brute"),
-                Dialogue(speaker: "Dennis", speaker_character_id: "npc_creator",
+                Dialogue(speaker_character_id: "npc_creator",
                     text: "Scout, down! He's got another one."),
                 Command(line: "actor.fight @dennis @brute"),
                 Command(line: "actor.pose @brute throw_forward hold"),
@@ -91,7 +92,7 @@
         beats: [
             SetFlag(id: "intro_training_active", on: false),
             CameraTrack(roles: ["dennis", "scout"], seconds: 0.35),
-            Dialogue(speaker: "Dennis", speaker_character_id: "npc_creator",
+            Dialogue(speaker_character_id: "npc_creator",
                 text: "Who on earth is that? Scout, away from the door."),
             Command(line: "actor.walk_to @dennis intro_bench_station runs_where_sent"),
             CameraPan(target: (1240.0, 284.0), seconds: 0.55),
@@ -109,12 +110,12 @@
             CameraPan(target: (1155.0, 282.0), seconds: 0.32),
             Command(line: "actor.face npc_lab_raider @dennis"),
             Command(line: "actor.face @dennis npc_lab_raider"),
-            Dialogue(speaker: "Raider", speaker_character_id: "npc_lab_raider",
+            Dialogue(speaker_character_id: "npc_lab_raider",
                 text: "This the lab? Says here there's a big sign."),
             SetFlag(id: "wrong_list_clue_1", on: true),
-            Dialogue(speaker: "Raider", speaker_character_id: "npc_lab_raider",
+            Dialogue(speaker_character_id: "npc_lab_raider",
                 text: "There's the robot. This must be it. Grab the case."),
-            Dialogue(speaker: "Dennis", speaker_character_id: "npc_creator",
+            Dialogue(speaker_character_id: "npc_creator",
                 text: "You keep your hands off them. Scout, behind me."),
             CameraRelease(seconds: 0.25),
             Command(line: "actor.release npc_lab_raider"),
@@ -125,20 +126,20 @@
     (
         id: "intro_training_combat",
         beats: [
-            Dialogue(speaker: "Dennis", speaker_character_id: "npc_creator",
+            Dialogue(speaker_character_id: "npc_creator",
                 text: "Good! Knee held. Come down on the sandbag side."),
-            Dialogue(speaker: "Dennis", speaker_character_id: "npc_creator",
+            Dialogue(speaker_character_id: "npc_creator",
                 text: "Face the bag, get within reach, and press Attack. See if you can get it swinging."),
-            Dialogue(speaker: "Dennis", speaker_character_id: "npc_creator",
+            Dialogue(speaker_character_id: "npc_creator",
                 text: "It won't hit back. Try as many times as you like."),
         ],
     ),
     (
         id: "intro_training_finished",
         beats: [
-            Dialogue(speaker: "Dennis", speaker_character_id: "npc_creator",
+            Dialogue(speaker_character_id: "npc_creator",
                 text: "There you go! Let the blade finish its swing before you try another."),
-            Dialogue(speaker: "Dennis", speaker_character_id: "npc_creator",
+            Dialogue(speaker_character_id: "npc_creator",
                 text: "That's the basic run. Keep practising if you want. Come and talk to me when you're ready, or if you'd like to do it again."),
             SetFlag(id: "intro_training_complete", on: true),
             SetFlag(id: "intro_training_active", on: false),
@@ -168,7 +169,6 @@
         id: "oiler_notices",
         beats: [
             Dialogue(
-                speaker: "Oiler",
                 speaker_character_id: "npc_oiler",
                 text: "Well. That\'s not a rat.",
             ),
@@ -185,7 +185,6 @@
         id: "first_ripple",
         beats: [
             Dialogue(
-                speaker: "Gate Janitor",
                 speaker_character_id: "npc_gate_janitor",
                 text: "Don\'t touch that. That\'s not a gate.",
             ),
@@ -193,7 +192,6 @@
                 seconds: 0.4,
             ),
             Dialogue(
-                speaker: "Gate Janitor",
                 speaker_character_id: "npc_gate_janitor",
                 text: "Okay. That\'s a problem.",
             ),
@@ -215,12 +213,10 @@
                 seconds: 0.8,
             ),
             Dialogue(
-                speaker: "Dennis",
                 speaker_character_id: "npc_creator",
                 text: "Hey you, you're finally awake.",
             ),
             Dialogue(
-                speaker: "Dennis",
                 speaker_character_id: "npc_creator",
                 text: "Don't sit up fast. The left knee servo is new and I haven't set its torque yet.",
             ),

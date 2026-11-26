@@ -33,7 +33,6 @@ pub struct FootstoolBody {
     /// A backdrop body is out of reach (`ae::DepthPlane`).
     pub plane: Option<&'static ambition_platformer2d_core::DepthPlane>,
     pub team: Option<&'static crate::targeting::MatchTeam>,
-    pub control: Option<&'static ambition_characters::control::ActorControl>,
     /// The swing, read ONLY to ask whether this body is mid-move — see the
     /// phantom footstool in the module doc.
     pub swing: crate::moveset::MeleeSwingQuery,
@@ -89,6 +88,7 @@ pub struct FootstoolsClaimed;
 /// by the two bodies' stable [`SimId`]s, and an accepted pair SPENDS BOTH ENDS:
 /// one press is one footstool, and one head is jumped off once.
 pub fn claim_footstools(
+    presses: Query<(Entity, &ambition_characters::control::ActorControl), Without<ambition_characters::control::ControlHolds>>,
     mut bodies: ParamSet<(
         Query<FootstoolBody, Without<ambition_characters::control::ControlHolds>>,
         Query<(
@@ -96,6 +96,11 @@ pub fn claim_footstools(
             &mut ae::BodyJumpState,
             &mut ambition_characters::actor::BodyCombat,
             &mut ae::MotionModel,
+        )>,
+        Query<&mut ae::BodyJumpState, (
+            With<ae::BodyKinematics>,
+            With<ambition_characters::actor::BodyCombat>,
+            With<ae::MotionModel>,
         )>,
     )>,
     // The rules of the stomper's own live room.
@@ -117,13 +122,13 @@ pub fn claim_footstools(
 
     {
         let decide = bodies.p0();
-        for stomper in decide.iter() {
-            // The press is the whole trigger. Without it a fighter would
-            // footstool every time an exchange put it briefly above somebody,
-            // which turns the mechanic from a read into an accident.
-            if !stomper.control.is_some_and(|c| c.0.jump_pressed) {
+        for (entity, control) in &presses {
+            if !control.0.jump_pressed {
                 continue;
             }
+            let Ok(stomper) = decide.get(entity) else {
+                continue;
+            };
             if stomper.ground.on_ground
                 || crate::util::body_is_untouchable(Some(stomper.health), stomper.out_of_play, stomper.plane)
             {
@@ -192,7 +197,6 @@ pub fn claim_footstools(
     pairs.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
 
     let mut spent: Vec<Entity> = Vec::new();
-    let mut effects = bodies.p1();
 
     //  THE CLAIM IS THIS TICK'S JUMP EDGE, and clearing it HERE is the only
     // thing that makes that true. The kernel spends the claim inside its
@@ -208,12 +212,13 @@ pub fn claim_footstools(
     //
     //  guarded rather than written flat, because an unconditional `false` would
     // mark every body's `BodyJumpState` changed every tick.
-    for (_, mut jump, _, _) in effects.iter_mut() {
+    for mut jump in bodies.p2().iter_mut() {
         if jump.footstool_claimed {
             jump.footstool_claimed = false;
         }
     }
 
+    let mut effects = bodies.p1();
     for (_, _, stomper, victim, rules, gravity_dir, victim_grounded, victim_mid_move) in pairs {
         // Spend both participants: one stomper can footstool once, and one victim
         // can be footstooled once per resolution pass.

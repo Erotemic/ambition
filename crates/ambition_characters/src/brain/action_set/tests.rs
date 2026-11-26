@@ -129,7 +129,7 @@ fn resolve_returns_predictable_request_count_per_intent_subset() {
             None
         };
         frame.special_pressed = special;
-        let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default());
+        let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default()).collect::<Vec<_>>();
         assert_eq!(
             reqs.len(),
             expected,
@@ -155,7 +155,7 @@ fn resolve_emits_a_melee_request_for_a_dedicated_pogo_press() {
         frame.wants_any_action(),
         "a pogo-only frame genuinely wants an action"
     );
-    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default());
+    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default()).collect::<Vec<_>>();
     assert_eq!(
         reqs.len(),
         1,
@@ -171,7 +171,7 @@ fn resolve_emits_a_melee_request_for_a_dedicated_pogo_press() {
         melee: None,
         ..Default::default()
     };
-    assert!(resolve(&no_melee, &frame, &ae::BodyKinematics::default()).is_empty());
+    assert!(resolve(&no_melee, &frame, &ae::BodyKinematics::default()).next().is_none());
 }
 
 #[test]
@@ -187,7 +187,7 @@ fn resolve_empty_when_frame_has_no_action_intent() {
     };
     let frame = crate::actor::control::ActorControlFrame::neutral();
     assert!(!frame.wants_any_action());
-    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default());
+    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default()).collect::<Vec<_>>();
     assert!(reqs.is_empty());
 }
 
@@ -206,7 +206,7 @@ fn resolve_with_only_ranged_capability_ignores_melee_intent() {
     frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
         ae::Vec2::new(1.0, 0.0),
     ));
-    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default());
+    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default()).collect::<Vec<_>>();
     assert_eq!(reqs.len(), 1);
     assert!(matches!(reqs[0], ActionRequest::Ranged { .. }));
 }
@@ -225,7 +225,7 @@ fn resolve_passes_attack_axis_through_to_melee_request() {
     frame.melee_pressed = true;
     frame.facing = 1.0;
     frame.attack_axis = ae::LocalAxes::new(0.0, -1.0); // up-tilt
-    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default());
+    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default()).collect::<Vec<_>>();
     match reqs[0] {
         ActionRequest::Melee { attack_axis, .. } => {
             assert_eq!(attack_axis, ae::LocalAxes::new(0.0, -1.0));
@@ -248,7 +248,7 @@ fn resolve_peaceful_action_set_emits_nothing_for_full_intent() {
         ae::Vec2::new(1.0, 0.0),
     ));
     frame.special_pressed = true;
-    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default());
+    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default()).collect::<Vec<_>>();
     assert!(
         reqs.is_empty(),
         "ActionSet::peaceful produces no requests regardless of intent"
@@ -295,7 +295,7 @@ fn resolve_no_intent_yields_no_requests() {
         ..Default::default()
     };
     let frame = crate::actor::control::ActorControlFrame::neutral();
-    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default());
+    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default()).collect::<Vec<_>>();
     assert!(reqs.is_empty());
 }
 
@@ -309,7 +309,7 @@ fn resolve_melee_uses_the_accepted_pose_instead_of_requested_facing() {
     frame.melee_pressed = true;
     frame.facing = 1.0;
     let body = ae::BodyKinematics { pos: ae::Vec2::new(10.0, 5.0), facing: -1.0, ..Default::default() };
-    let reqs = resolve(&actions, &frame, &body);
+    let reqs = resolve(&actions, &frame, &body).collect::<Vec<_>>();
     assert_eq!(reqs.len(), 1);
     match reqs[0] {
         ActionRequest::Melee {
@@ -334,7 +334,7 @@ fn resolve_melee_pressed_without_capability_emits_nothing() {
     let actions = ActionSet::peaceful();
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
     frame.melee_pressed = true;
-    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default());
+    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default()).collect::<Vec<_>>();
     assert!(reqs.is_empty());
 }
 
@@ -354,8 +354,8 @@ fn resolve_two_actionsets_differ_by_capability() {
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
     frame.melee_pressed = true;
     frame.facing = 1.0;
-    let g = resolve(&goblin, &frame, &ae::BodyKinematics::default());
-    let b = resolve(&brute, &frame, &ae::BodyKinematics::default());
+    let g = resolve(&goblin, &frame, &ae::BodyKinematics::default()).collect::<Vec<_>>();
+    let b = resolve(&brute, &frame, &ae::BodyKinematics::default()).collect::<Vec<_>>();
     assert_eq!(g.len(), 1);
     assert_eq!(b.len(), 1);
     match (&g[0], &b[0]) {
@@ -377,7 +377,7 @@ fn resolve_fire_pressed_emits_ranged_request() {
     frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
         ae::Vec2::new(1.0, 0.0),
     ));
-    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default());
+    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default()).collect::<Vec<_>>();
     assert_eq!(reqs.len(), 1);
     match &reqs[0] {
         ActionRequest::Ranged {
@@ -405,7 +405,7 @@ fn resolve_preserves_controlled_body_local_fire_policy() {
             ae::Vec2::new(0.0, -1.0),
         ),
     );
-    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default());
+    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default()).collect::<Vec<_>>();
     match &reqs[0] {
         ActionRequest::Ranged {
             fire: crate::actor::control::ActorFireRequest { dir, dir_policy, .. }, ..
@@ -608,17 +608,8 @@ fn resolve_multi_intent_emits_multi_request() {
         ae::Vec2::new(0.0, -1.0),
     ));
     frame.special_pressed = true;
-    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default());
-    // Melee + fire emit; `special_pressed` does NOT — the moveset subsumes the flat
-    // special arm (§A1), so a pressed special resolves to a MovePlayback elsewhere,
-    // not an `ActionRequest::Special` here.
-    assert_eq!(reqs.len(), 2);
-    assert!(
-        !reqs
-            .iter()
-            .any(|r| matches!(r, ActionRequest::Special { .. })),
-        "the flat special arm is retired — no Special request from resolve"
-    );
+    let reqs = resolve(&actions, &frame, &ae::BodyKinematics::default()).collect::<Vec<_>>();
+    assert!(matches!(reqs.as_slice(), [ActionRequest::Melee { .. }, ActionRequest::Ranged { .. }]));
 }
 
 // ── A CHARGED SHOT IS A DIFFERENT SHOT ───────────────────────────────────────

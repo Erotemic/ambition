@@ -411,7 +411,8 @@ fn skirmisher_brain_resolves_through_action_set_to_ranged_request() {
         ranged: Some(RangedActionSpec::bolt(500.0, 2)),
         ..Default::default()
     };
-    let req = resolve_action_requests(&kit, &frame, &ae::BodyKinematics { pos: snap.actor_pos, facing: snap.actor_facing, ..Default::default() });
+    let body = ae::BodyKinematics { pos: snap.actor_pos, facing: snap.actor_facing, ..Default::default() };
+    let req: Vec<_> = resolve_action_requests(&kit, &frame, &body).collect();
     assert_eq!(req.len(), 1, "exactly one ranged request");
     match req[0].clone() {
         ActionRequest::Ranged {
@@ -476,8 +477,9 @@ fn melee_brute_brain_resolves_through_action_set() {
         melee: Some(MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT)),
         ..Default::default()
     };
-    let goblin_req = resolve_action_requests(&goblin_kit, &frame_a, &ae::BodyKinematics { pos: snap.actor_pos, facing: snap.actor_facing, ..Default::default() });
-    let brute_req = resolve_action_requests(&brute_kit, &frame_b, &ae::BodyKinematics { pos: snap.actor_pos, facing: snap.actor_facing, ..Default::default() });
+    let body = ae::BodyKinematics { pos: snap.actor_pos, facing: snap.actor_facing, ..Default::default() };
+    let goblin_req: Vec<_> = resolve_action_requests(&goblin_kit, &frame_a, &body).collect();
+    let brute_req: Vec<_> = resolve_action_requests(&brute_kit, &frame_b, &body).collect();
     assert_eq!(goblin_req.len(), 1);
     assert_eq!(brute_req.len(), 1);
     match (goblin_req[0].clone(), brute_req[0].clone()) {

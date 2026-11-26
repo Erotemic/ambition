@@ -9,22 +9,22 @@ use super::{emit_brain_action_messages, observe_brain_action_counter};
 
 #[test]
 fn emit_brain_action_messages_skips_entities_missing_components() {
-    // Resolver queries Brain + ActionSet + ambition_characters::control::ActorControl +
-    // BodyKinematics. Entities missing any one are skipped silently
-    // (Bevy query filter). Pins this behavior so a future
-    // refactor that loosens the filter doesn't accidentally
-    // process partially-spawned entities and panic on the
-    // missing fields.
     use bevy::prelude::*;
     let mut app = App::new();
     app.add_message::<ActorActionMessage>();
     app.add_systems(Update, emit_brain_action_messages);
+    let control = ambition_characters::control::ActorControl(
+        ambition_characters::actor::control::ActorControlFrame {
+            melee_pressed: true,
+            ..Default::default()
+        },
+    );
     // Entity 1: missing ActionSet.
     let _e1 = app
         .world_mut()
         .spawn((
             Brain::stand_still(),
-            ambition_characters::control::ActorControl::default(),
+            control.clone(),
             ambition_platformer2d_core::BodyKinematics::default(),
         ))
         .id();
@@ -33,8 +33,8 @@ fn emit_brain_action_messages_skips_entities_missing_components() {
         .world_mut()
         .spawn((
             Brain::stand_still(),
-            ambition_characters::control::ActorControl::default(),
-            ActionSet::peaceful(),
+            control,
+            ActionSet { melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)), ..Default::default() },
         ))
         .id();
     app.update();

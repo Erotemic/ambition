@@ -65,9 +65,11 @@ pub fn charge_route_is_bound(
 /// The origin is the body's own position (`BodyKinematics`), never Bevy
 /// `Transform`, which belongs to presentation.
 pub fn emit_brain_action_messages(
-    actors: Query<(
-        Entity,
-        &ambition_characters::control::ActorControl,
+    controls: Query<
+        (Entity, &ambition_characters::control::ActorControl),
+        (With<ActionSet>, With<ambition_platformer2d_core::BodyKinematics>),
+    >,
+    bodies: Query<(
         &ActionSet,
         &ambition_platformer2d_core::BodyKinematics,
         Option<&ActorMoveset>,
@@ -75,7 +77,13 @@ pub fn emit_brain_action_messages(
     )>,
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
-    for (entity, control, action_set, kin, moveset, charges) in &actors {
+    for (entity, control) in &controls {
+        if !action_set::requests_action(&control.0) {
+            continue;
+        }
+        let Ok((action_set, kin, moveset, charges)) = bodies.get(entity) else {
+            continue;
+        };
         for request in action_set::resolve(action_set, &control.0, kin) {
             // A body whose ranged shot is a moveset `"ranged"` move fires through the
             // move's timed event (`MoveEventKind::Ranged`), not this flat
@@ -115,22 +123,19 @@ pub fn emit_brain_action_messages(
 /// the press frame). The consumer cheaply pushes the axis sample
 /// into the buffer on idle ticks.
 pub fn emit_player_projectile_tick_messages(
-    actors: Query<(
-        Entity,
-        &ambition_characters::control::ActorControl,
-        Option<&ChargesProjectiles>,
-        Option<&ActorMoveset>,
-        Has<crate::held_items::HeldItem>,
-    )>,
+    actors: Query<
+        (Entity, &ambition_characters::control::ActorControl, Option<&ActorMoveset>),
+        (With<ChargesProjectiles>, Without<crate::held_items::HeldItem>),
+    >,
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
-    for (entity, control, charges, moveset, holding) in &actors {
+    for (entity, control, moveset) in &actors {
         // Capability gate, not an identity gate: emit the charge-tick stream for
         // any actor that carries the chargeable-projectile ability — the player
         // today, a possessed body that adopts the player's kit tomorrow. (Was
         // `brain.is_player()`; bosses/enemies carry a `ranged` ActionSet for their
         // OWN projectiles, so this stays a dedicated opt-in marker, pay-for-use.)
-        if !charge_stream_owns_the_press(charges.is_some(), holding, moveset) {
+        if !charge_stream_owns_the_press(true, false, moveset) {
             continue;
         }
         let frame = &control.0;

@@ -77,11 +77,11 @@ impl InteractReach {
     /// The door rule is not part of it: see [`Self::a_door_keeps_the_press`].
     pub fn can_talk_to(
         &self,
-        room: Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
+        room: impl FnOnce() -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
         aabb: &CenteredAabb,
         requires_facing: bool,
     ) -> bool {
-        self.refuses_talk(room, aabb, requires_facing).is_none()
+        self.talk_geometry_refusal(aabb, requires_facing).is_none() && room() == self.room
     }
 
     /// Why the press cannot talk to a body at `aabb` in live room `room`: the
@@ -94,8 +94,13 @@ impl InteractReach {
     ) -> Option<&'static str> {
         // OW1 cut 7b: two live rooms can hold a body at one position.
         if room != self.room {
-            Some("in another live room")
-        } else if !aabb.aabb().strict_intersects(self.talk) {
+            return Some("in another live room");
+        }
+        self.talk_geometry_refusal(aabb, requires_facing)
+    }
+
+    fn talk_geometry_refusal(&self, aabb: &CenteredAabb, requires_facing: bool) -> Option<&'static str> {
+        if !aabb.aabb().strict_intersects(self.talk) {
             Some("out of talking reach")
         } else if !self.passes_the_facing_gate(aabb.center, requires_facing) {
             Some("not faced")

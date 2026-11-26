@@ -797,8 +797,16 @@ impl DeathBeat {
         }
     }
 
-    /// One sim tick. `corpse` is asked only on the tick the body dies.
-    pub fn advance(&mut self, alive: bool, dt: f32, corpse: impl FnOnce() -> ambition_characters::actor::Corpse) {
+    pub(crate) fn needs_update(&self, alive: bool) -> bool {
+        if alive {
+            !self.lived || self.since_s.is_some() || self.finale_due
+        } else {
+            self.lived || self.since_s.is_some()
+        }
+    }
+
+    /// Advance one sim tick. A running death row reads `dt`. A new death reads `corpse`.
+    pub(crate) fn advance(&mut self, alive: bool, dt: impl FnOnce() -> f32, corpse: impl FnOnce() -> ambition_characters::actor::Corpse) {
         if alive {
             self.lived = true;
             self.since_s = None;
@@ -806,7 +814,7 @@ impl DeathBeat {
             return;
         }
         match self.since_s {
-            Some(since) => self.since_s = Some(since + dt.max(0.0)),
+            Some(since) => self.since_s = Some(since + dt().max(0.0)),
             None if self.lived => {
                 self.since_s = Some(0.0);
                 self.corpse = corpse();
@@ -856,8 +864,8 @@ mod death_beat_tests {
 
     fn died(corpse: Corpse) -> DeathBeat {
         let mut beat = DeathBeat::with_row(Some(1.0));
-        beat.advance(true, 0.016, || unreachable!("a live body leaves no corpse"));
-        beat.advance(false, 0.016, || corpse);
+        beat.advance(true, || unreachable!(), || unreachable!("a live body leaves no corpse"));
+        beat.advance(false, || unreachable!(), || corpse);
         beat
     }
 
@@ -868,7 +876,7 @@ mod death_beat_tests {
             let mut beat = died(corpse);
             for _ in 0..55 {
                 assert!(beat.visible(false), "{corpse:?} body hidden during its death row");
-                beat.advance(false, 1.0 / 60.0, || unreachable!());
+                beat.advance(false, || 1.0 / 60.0, || unreachable!());
             }
         }
     }
@@ -879,8 +887,8 @@ mod death_beat_tests {
         let mut stays = died(Corpse::Stay);
         let mut vanishes = died(Corpse::Vanish);
         for _ in 0..600 {
-            stays.advance(false, 1.0 / 60.0, || unreachable!());
-            vanishes.advance(false, 1.0 / 60.0, || unreachable!());
+            stays.advance(false, || 1.0 / 60.0, || unreachable!());
+            vanishes.advance(false, || 1.0 / 60.0, || unreachable!());
         }
         assert!(stays.visible(false));
         assert!(!vanishes.visible(false));
@@ -890,7 +898,7 @@ mod death_beat_tests {
     #[test]
     fn a_body_that_never_lived_is_not_drawn_dead() {
         let mut beat = DeathBeat::with_row(Some(1.0));
-        beat.advance(false, 0.016, || Corpse::Stay);
+        beat.advance(false, || unreachable!(), || unreachable!());
         assert!(!beat.visible(false));
     }
 
@@ -899,10 +907,10 @@ mod death_beat_tests {
     fn a_revived_body_dies_again_in_full() {
         let mut beat = died(Corpse::Vanish);
         for _ in 0..600 {
-            beat.advance(false, 1.0 / 60.0, || unreachable!());
+            beat.advance(false, || 1.0 / 60.0, || unreachable!());
         }
-        beat.advance(true, 0.016, || unreachable!());
-        beat.advance(false, 0.016, || Corpse::Vanish);
+        beat.advance(true, || unreachable!(), || unreachable!());
+        beat.advance(false, || unreachable!(), || Corpse::Vanish);
         assert_eq!(beat.since_s, Some(0.0));
         assert!(beat.visible(false));
     }

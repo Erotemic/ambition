@@ -496,6 +496,8 @@
     // ticks.
     "art_grand_piano": (),
     "art_metronome": (),
+    "art_tuning_lift": (),
+    "art_tuning_lift_rails": (backdrop: true),
     // The Workshop Deeps (`targets/props/art_forge_props.py`). The bridge the
     // crane swings in over the kiln fire: a row of planks on two ropes (a
     // door: it fills the box of its wall, 224 by 24).

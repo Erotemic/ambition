@@ -414,6 +414,11 @@ The rectangle touched two grid rows. It made two visible decks at y=448
 and y=464. Show the resulting walk surfaces before the author applies a
 one-way rectangle. Warn when one rectangle makes two rows.
 
+The Resonant Reach lift recipe and the platform look have the same frame
+size and deck position. Use the sheet's published frame size and top
+anchor for the look. Add sheet anchors for the left and right deck ends
+so the renderer can align the art with the collision width.
+
 ### Content diffs need domain-aware comparison (Q62, Q78)
 
 Rulings 2026-10-04 ([`../maintainer-decisions.md`](../maintainer-decisions.md)):

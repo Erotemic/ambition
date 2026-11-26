@@ -539,15 +539,18 @@ pub fn advance_presented_body_poses(
             // A paralyzed body crackles the same way, at the freeze's least
             // strength, for as long as it is held.
             let frozen = combat.is_some_and(|c| (c.hitstop_timer > 0.0 && c.hit_flash > 0.0) || c.is_paralyzed());
-            let reference = rules
-                .of(entity)
-                .map_or(world_hitlag_reference, |rules| rules.hitlag.reference_s(world_hitlag_reference));
-            let strength = ambition_platformer2d_core::hit_response::hit_strength_fraction(
-                combat.map_or(0.0, |c| c.hitstop_timer),
-                reference,
-            );
-            let side = frame.map_or(Vec2::X, |frame| frame.down().perp());
-            presented.jitter = hitlag_jitter(frozen, strength, tick.0, side);
+            presented.jitter = if frozen {
+                let strength = crate::defense_view::hit_strength(
+                    entity,
+                    combat.map_or(0.0, |c| c.hitstop_timer),
+                    &rules,
+                    world_hitlag_reference,
+                );
+                let side = frame.map_or(Vec2::X, |frame| frame.down().perp());
+                hitlag_jitter(true, strength, tick.0, side)
+            } else {
+                Vec2::ZERO
+            };
             let down = frame.map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| frame.down());
             presented.posture = match combat {
                 Some(c) if c.is_buried() => down * (presented.size.y * BURY_SINK_FRACTION),

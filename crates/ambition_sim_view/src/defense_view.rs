@@ -5,8 +5,27 @@
 //! select cues without re-deriving combat rules or growing exception booleans.
 
 use ambition_characters::actor::{BodyCombat, Invulnerability};
+use ambition_combat::rules::CombatTuningOf;
 use ambition_platformer2d_core::{BodyMotionFacts, BodyShieldState};
 pub use ambition_platformer2d_shared_tangle::gameplay_presentation::DefenseCueCauses;
+use bevy::prelude::Entity;
+
+/// A body without hitstop has no hitlag strength. Read the room's reference
+/// only when it is necessary to normalize the timer.
+pub(crate) fn hit_strength(
+    body: Entity,
+    hitstop_s: f32,
+    rules: &CombatTuningOf<'_, '_>,
+    world_reference_s: f32,
+) -> f32 {
+    if hitstop_s == 0.0 {
+        return 0.0;
+    }
+    let reference_s = rules.of(body).map_or(world_reference_s, |rules| {
+        rules.hitlag.reference_s(world_reference_s)
+    });
+    ambition_platformer2d_core::hit_response::hit_strength_fraction(hitstop_s, reference_s)
+}
 
 /// Project canonical simulation state into presentation-facing defense causes.
 ///

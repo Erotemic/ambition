@@ -16,6 +16,7 @@ use ambition_characters::actor::CharacterForm;
 use ambition_sprite_sheet::character::PinnedRow;
 use ambition_time::SimTick;
 use bevy::prelude::*;
+use std::collections::BTreeMap;
 
 /// The length of a tick, for the clock of a rest row (s).
 const TICK_S: f32 = 1.0 / 60.0;
@@ -40,12 +41,19 @@ pub const REST_ROW_WRITER: &str = "rest_row";
 pub fn pin_rest_rows(
     tick: Res<SimTick>,
     catalog: Res<CharacterCatalog>,
+    mut rest_rows: Local<BTreeMap<String, String>>,
     mut bodies: Query<(&CharacterForm, Option<&mut PinnedRow>, Entity)>,
     mut commands: Commands,
 ) {
+    if catalog.is_changed() {
+        rest_rows.clear();
+        rest_rows.extend(catalog.data().characters.iter().filter_map(|(id, character)| {
+            character.rest_row.as_ref().map(|row| (id.clone(), row.clone()))
+        }));
+    }
     let elapsed = tick.get() as f32 * TICK_S;
     for (worn, pinned, entity) in &mut bodies {
-        match (catalog.rest_row(worn.id()), pinned) {
+        match (rest_rows.get(worn.id()).map(String::as_str), pinned) {
             // A body that no conductor draws has no pin yet: it gets one.
             (Some(row), None) => {
                 let mut pin = PinnedRow::default();
@@ -123,6 +131,17 @@ mod tests {
         *app.world_mut().get_mut::<CharacterForm>(whole).expect("the body") = CharacterForm::new("giant");
         app.update();
         assert!(rows(&app, whole).is_empty(), "the rest row of a look the body no longer wears stayed");
+
+        *app.world_mut().get_mut::<CharacterForm>(plain).unwrap() = CharacterForm::new("giant_whole");
+        app.update();
+        assert_eq!(rows(&app, plain), vec!["armed_rest".to_string()]);
+        app.insert_resource(CharacterCatalog::empty());
+        app.update();
+        assert!(rows(&app, plain).is_empty());
+        assert_eq!(rows(&app, fought), vec!["buck".to_string()]);
+        app.insert_resource(catalog());
+        app.update();
+        assert_eq!(rows(&app, plain), vec!["armed_rest".to_string()]);
     }
 
     /// A conductor that pins `attack` while the fight asks it to, and clears

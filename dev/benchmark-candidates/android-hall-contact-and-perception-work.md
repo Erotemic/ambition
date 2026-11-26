@@ -645,6 +645,28 @@ The candidate cleared a seeded belief and kept the change tick of the
 empty memory after the room stamp was set. The probe uses cached host
 libraries and measures the decision pass.
 
+### Hitlag views and rest rows
+
+The body pose, feature view, and frame sampler share a hitlag strength
+function. A zero hitstop timer gives zero strength without a room rule
+lookup. The frame sampler calculates jitter when a reaction calls for it.
+The feature view borrows the combat and shield state for both defense
+fields. The rest-row pass indexes the authored rows when the catalog
+changes. The tick lookup searches only entries that declare a rest row.
+
+| Isolated pass in the loaded 596-body Hall | Development before → after, ms | Optimized before → after, ms |
+| --- | ---: | ---: |
+| Body pose per tick | 0.776–0.777 → 0.600–0.630 | 0.261–0.262 → 0.125–0.126 |
+| Rest rows per tick | 0.133 → 0.045–0.046 | 0.119–0.120 → 0.009 |
+| Feature view per frame | 0.409–0.410 → 0.246–0.255 | 0.161–0.163 → 0.067–0.073 |
+| Presented pose per frame with a new tick | 0.175–0.178 → 0.066–0.067 | 0.106 → 0.014 |
+
+The probe measured thread CPU time with cached host libraries. Five of
+636 catalog entries declared rest rows. The pose, feature, and frame
+samples matched in the quiet Hall and with affine hitlag, including a
+paralyzed body and an attacker in hitstop. Three rest-row tests passed.
+The cases include catalog replacement and a separate pin writer.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

@@ -39,6 +39,34 @@ def test_font_replacement_retires_old_paths_and_a_failure_keeps_accepted_bytes(t
     first = run()
     assert first.returncode == 0, first.stdout + first.stderr
     selected = lambda: next(iter(read_libraries([manifest]).values())).files()
+    store = Store(library / "generated/publication")
+    unit = "producer:fonts"
+    accepted = store.selected()
+    key = accepted["bundles"][unit]
+    bundle = store.bundle(key)
+    recipe = bundle["recipe"]
+    recipe["generation"]["key"] = "previous-toolchain"
+    files = {logical: (store.root / "bundles" / key / item["path"], item["role"], item["tier"])
+             for logical, item in bundle["files"].items()}
+    store.publish({unit: store.accept(unit, files, recipe, roots=bundle["roots"])}, accepted)
+    shared = store.selected()
+    umbrella = str(ROOT / "scripts/regen/assets.sh")
+    preview = subprocess.run([umbrella, "--plan", "--only-possibly-stale", "fonts"],
+                             env=env, cwd=ROOT, text=True, capture_output=True)
+    assert preview.returncode == 0, preview.stdout + preview.stderr
+    assert "* producer:fonts: possibly stale" in preview.stdout
+    assert store.selected() == shared
+    loose = subprocess.run([*command, "--loose"], env=env, cwd=ROOT, text=True, capture_output=True)
+    assert loose.returncode == 0, loose.stdout + loose.stderr
+    assert store.selected() == shared
+    exact = subprocess.run([*command, "--only-possibly-stale"], env=env, cwd=ROOT, text=True, capture_output=True)
+    assert exact.returncode == 0, exact.stdout + exact.stderr
+    refreshed = store.selected()
+    assert refreshed != shared
+    original_receipt = store.bundle(key)["recipe"]["generation"]
+    assert store.bundle(refreshed["bundles"][unit])["recipe"]["generation"] == original_receipt
+    assert refreshed["files"]["fonts/bundled/first.ttf"]["sha256"] == accepted["files"]["fonts/bundled/first.ttf"]["sha256"]
+
     held = selected()["fonts/bundled/first.ttf"]
     source["extracts"] = [["face.ttf", "second.ttf"]]
     policy.write_text(json.dumps([source]))
@@ -154,6 +182,9 @@ def test_missing_background_tiers_use_the_selected_source_bundle(tmp_path):
     env = dict(os.environ, AMBITION_CONTENT_LIBRARY=str(manifest), AMBITION_SPRITE_PYTHON=sys.executable,
                PYTHONPATH=str(ROOT / "tools/ambition_sprite2d_renderer"))
     command = [sys.executable, str(ROOT / "scripts/regen/generate_library_content.py"), "variants", "--backgrounds-only"]
+    exact = subprocess.run([*command, "--only-possibly-stale"], env=env, cwd=ROOT, text=True, capture_output=True)
+    assert exact.returncode == 0, exact.stdout + exact.stderr
+    assert store.selected()["bundles"] == {"theme:fixture": key}
     for options in (["--only-missing"], ["--only-missing"], []):
         before = store.selected()
         result = subprocess.run([*command, *options], env=env, cwd=ROOT, text=True, capture_output=True)
@@ -166,3 +197,10 @@ def test_missing_background_tiers_use_the_selected_source_bundle(tmp_path):
             assert image.size == (8, 8)
         if options and len(before["bundles"]) > 1:
             assert store.selected() == before
+
+    preview = subprocess.run([*command, "--plan", "--json", "--target", "sky", "--tier", "0_25x"],
+                             env=env, cwd=ROOT, text=True, capture_output=True)
+    assert preview.returncode == 0, preview.stdout + preview.stderr
+    planned = json.loads(preview.stdout)
+    assert list(planned["states"]) == ["producer:variants:quarter:backgrounds/parallax_layers_0_25x/sky.png"]
+    assert planned["would_build"] == []

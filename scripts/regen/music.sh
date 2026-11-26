@@ -22,7 +22,9 @@
 # ./scripts/regen/music.sh --check [--loose]  # exit 1 unless every cue is current
 #                                             # (--loose: shared-only staleness passes)
 # ./scripts/regen/music.sh --json             # with --list/--plan/--check: JSON out
-# ./scripts/regen/music.sh --cue id,id        # render these cues, whatever their state
+# ./scripts/regen/music.sh --cue id,id        # limit the selection to these cues
+# ./scripts/regen/music.sh --loose            # keep cues stale only through shared inputs (the default)
+# ./scripts/regen/music.sh --only-possibly-stale # render only cues stale through shared inputs
 # ./scripts/regen/music.sh --include-shared   # also render cues stale only through shared inputs
 # ./scripts/regen/music.sh --only-missing     # render only cues never published
 # ./scripts/regen/music.sh --force            # re-render every selected cue, bypassing the cache

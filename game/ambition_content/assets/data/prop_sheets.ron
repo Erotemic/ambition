@@ -858,6 +858,7 @@
     "keep_gate": (),
     "keep_banner": (),
     "keep_star_statue": (),
+    "keep_gallery_ramps": (),
     "keep_stair": (),
     "bridge_span": (),
     "bridge_switch": (),

@@ -120,43 +120,32 @@ struct StepInput {
 
 impl StepInput {
     fn for_body(
-        ctx: MotionStepContext<'_>,
+        ctx: &MotionStepContext<'_>,
         body: &BodyClustersMut<'_>,
         prior_down: Vec2,
     ) -> Result<Self, SettledMotionStatus> {
-        let MotionStepContext {
-            world,
-            admission,
-            input,
-            frame,
-            facing_intent,
-            dt,
-            contact,
-            pose_owned_externally,
-            recovery_commitment_outstanding,
-        } = ctx;
-        if !(dt > 0.0 && dt.is_finite() && (body.ground.on_ground || body.flight.fly_enabled))
+        if !(ctx.dt > 0.0 && ctx.dt.is_finite() && (body.ground.on_ground || body.flight.fly_enabled))
             || body.sweep.is_none()
             || body.kinematics.vel != Vec2::ZERO
         {
             return Err(SettledMotionStatus::Motion);
         }
-        if input != InputState::default()
-            || input.control_dt.to_bits() != 0
-            || frame.response_refused()
-            || pose_owned_externally
-            || recovery_commitment_outstanding
-            || !contact.is_inert()
+        if ctx.input != InputState::default()
+            || ctx.input.control_dt.to_bits() != 0
+            || ctx.frame.response_refused()
+            || ctx.pose_owned_externally
+            || ctx.recovery_commitment_outstanding
+            || !ctx.contact.is_inert()
         {
             return Err(SettledMotionStatus::Control);
         }
-        if !world.water_regions.is_empty()
-            || !world.climbable_regions.is_empty()
+        if !ctx.world.water_regions.is_empty()
+            || !ctx.world.climbable_regions.is_empty()
             || *body.env_contact != Default::default()
         {
             return Err(SettledMotionStatus::Environment);
         }
-        let aperture_policy = match admission {
+        let aperture_policy = match ctx.admission {
             None => None,
             Some(MotionAdmission {
                 links: [],
@@ -167,14 +156,14 @@ impl StepInput {
             Some(_) => return Err(SettledMotionStatus::Aperture),
         };
         Ok(Self {
-            dt: dt.to_bits(),
+            dt: ctx.dt.to_bits(),
             grounding: body.grounding,
-            frame: frame_bits(frame),
-            facing: facing_intent.to_bits(),
+            frame: frame_bits(ctx.frame),
+            facing: ctx.facing_intent.to_bits(),
             control: [
-                bits(input.axes.vec()),
-                bits(input.blink_quick_dir.vec()),
-                bits(input.blink_aim_step.vec()),
+                bits(ctx.input.axes.vec()),
+                bits(ctx.input.blink_quick_dir.vec()),
+                bits(ctx.input.blink_aim_step.vec()),
             ],
             prior_down: bits(prior_down),
             carrier: body.carrier,
@@ -297,7 +286,7 @@ impl SettledMotion {
         &mut self,
         model: &mut MotionModel,
         body: &mut BodyClustersMut<'_>,
-        ctx: MotionStepContext<'_>,
+        ctx: &MotionStepContext<'_>,
         prior_down: Vec2,
     ) -> MotionStepResult {
         let input = match StepInput::for_body(ctx, body, prior_down) {
@@ -349,9 +338,9 @@ impl SettledMotion {
         let mut result = solve_motion(
             model,
             body,
-            MotionStepContext {
+            &MotionStepContext {
                 world: &observed,
-                ..ctx
+                ..*ctx
             },
             prior_down,
         );

@@ -12,6 +12,9 @@
 # ./scripts/regen/sfx.sh --only-missing     # keep existing published products
 # ./scripts/regen/sfx.sh              # render (incremental) + repack (default)
 # ./scripts/regen/sfx.sh --force      # force re-render every cue, then repack
+# ./scripts/regen/sfx.sh --loose      # keep the bank if it is only possibly stale
+# ./scripts/regen/sfx.sh --only-possibly-stale # rebuild the bank on shared-only changes
+# ./scripts/regen/sfx.sh --plan|--check [--json] # preview or check bank freshness
 # ./scripts/regen/sfx.sh --skip-render  # only repack from existing renders
 #
 # Environment:
@@ -30,11 +33,6 @@ if [ "${AMBITION_PRODUCER_WORKER:-}" != "sfx" ] && [ "${1:-}" != "--help" ] && [
     exec python3 "$repo_root/scripts/regen/generate_library_content.py" sfx "$@"
 fi
 
-source "$repo_root/scripts/lib/tool_python.sh"
-source "$repo_root/scripts/lib/asset_roots.sh"
-sfx_collection="$(ambition_library_producer sfx collection)"
-[ -d "$renderer_dir/sounds/$sfx_collection" ] || { echo "missing SFX collection: $sfx_collection" >&2; exit 2; }
-
 print_help() {
     awk '
         NR == 1 { next }
@@ -43,6 +41,16 @@ print_help() {
         /^# / { sub(/^# /, ""); print }
     ' "$0"
 }
+
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+    print_help
+    exit 0
+fi
+
+source "$repo_root/scripts/lib/tool_python.sh"
+source "$repo_root/scripts/lib/asset_roots.sh"
+sfx_collection="$(ambition_library_producer sfx collection)"
+[ -d "$renderer_dir/sounds/$sfx_collection" ] || { echo "missing SFX collection: $sfx_collection" >&2; exit 2; }
 
 force=0
 skip_render=0

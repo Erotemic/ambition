@@ -5282,6 +5282,22 @@ Ines: What can I get you?
 -> Anything else?
     Ines: A man paid me with a business card once. I framed it. He still owes me two coins.
 ===
+title: hall_loan_shark
+---
+Loan Shark: Ah. A prospective borrower.
+-> What are your rates?
+    Loan Shark: Very competitive. I eat the competition.
+-> Is there an early repayment penalty?
+    Loan Shark: There is a penalty for asking that question.
+===
+title: hall_hedge_fund
+---
+Hedge Fund: I'm a growth fund.
+-> Does money grow on trees?
+    Hedge Fund: Trees? No. Too much overhead.
+-> What about the risks?
+    Hedge Fund: That's what the hedge is for.
+===
 title: hall_npc_business_records_clerk
 ---
 Marguerite: Take a number.

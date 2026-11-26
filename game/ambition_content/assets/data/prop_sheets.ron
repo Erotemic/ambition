@@ -711,6 +711,7 @@
     "village_clan_gatehouse": (),
     "village_dojo_entry": (),
     "village_dojo_exam": (),
+    "village_dojo_exam_markers": (),
     // Eureka: the Patent Office and the observatory, outside and in.
     "eureka_patent_front": (),
     "eureka_observatory_front": (),

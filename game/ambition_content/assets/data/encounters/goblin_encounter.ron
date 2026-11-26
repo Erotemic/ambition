@@ -57,6 +57,23 @@
             ],
         ),
     ],
+    // The dojo floor is at y 512. Spawn coordinates are body centers.
+    "ninja_village.rank_exam": [
+        (
+            label: "Break the dummies",
+            mobs: [
+                (kind: "sandbag_finite", character: Some("sandbag"), spawn: (817.0, 483.0), size: (34.0, 58.0), delay: 0.0),
+                (kind: "sandbag_finite", character: Some("sandbag"), spawn: (937.0, 483.0), size: (34.0, 58.0), delay: 0.0),
+                (kind: "sandbag_finite", character: Some("sandbag"), spawn: (1057.0, 483.0), size: (34.0, 58.0), delay: 0.0),
+            ],
+        ),
+        (
+            label: "Face the examiner",
+            mobs: [
+                (kind: "combatant", character: Some("npc_ninja_shadow_duelist_eye_band"), spawn: (1436.0, 479.0), size: (32.0, 66.0), delay: 0.0),
+            ],
+        ),
+    ],
     // The workshop raid starts in the yard. The door scene sends the
     // raiders inside after their charge breaks the door.
     "intro_workshop_raid": [

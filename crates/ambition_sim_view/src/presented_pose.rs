@@ -305,9 +305,10 @@ impl PresentedPose {
     /// with it), so it is drawn neither a whole hop ahead nor parked. At rest
     /// it parks.
     ///
-    /// `crossing` is the crossing inside the last tick, when the warp was one
-    /// portal crossing in it; it is kept only when the push spans that one
-    /// tick, since an earlier tick's travel is not in it.
+    /// `crossing` is the crossing inside the last tick, when the warp was
+    /// portal crossings in it. It is kept however many ticks the push spans:
+    /// an interpolated view draws only the last tick, which is the interval
+    /// the crossing's legs cover.
     fn push_warped(&mut self, pos: Vec2, vel: Vec2, tick: u64, crossing: Option<PresentedCrossing>) {
         let pace = self.tick_delta().length();
         self.spanned = tick.saturating_sub(self.tick).clamp(1, u32::MAX as u64) as u32;
@@ -315,7 +316,16 @@ impl PresentedPose {
         self.current = pos;
         self.tick = tick;
         self.warped = true;
-        self.crossing = crossing.filter(|_| self.spanned == 1);
+        self.crossing = crossing;
+    }
+
+    /// A warp carried the body in an earlier tick than the last one of this
+    /// push (a frame that ran several ticks): the last tick was travel on
+    /// the far side, so it is drawn travelling along its new heading at the
+    /// pace it had, not parked at the warp's exit.
+    fn push_warped_before(&mut self, pos: Vec2, vel: Vec2, tick: u64) {
+        self.push_warped(pos, vel, tick, None);
+        self.warped = false;
     }
 
     /// Follow a point that is not a body's (a moving platform): take its tick
@@ -387,22 +397,36 @@ pub(crate) fn travelled_under_own_power(from: Vec2, to: Vec2, vel: Vec2, ticks: 
 /// The travel guess cannot see a short hop: a thin-wall door moves a body
 /// 16 px, which it takes for a step and draws the whole hop ahead.
 #[derive(bevy::prelude::Resource, Default, Debug)]
-pub struct DeclaredPoseWarps(Vec<(bevy::prelude::Entity, Option<PresentedCrossing>)>);
+pub struct DeclaredPoseWarps(Vec<(bevy::prelude::Entity, DeclaredWarp)>);
+
+/// One declared warp of a body.
+#[derive(Clone, Copy, Debug)]
+enum DeclaredWarp {
+    /// In the last tick, with where the body went inside it when known.
+    Last(Option<PresentedCrossing>),
+    /// In an earlier tick of the frame: the last tick was travel after it.
+    Before,
+}
 
 impl DeclaredPoseWarps {
     pub fn declare(&mut self, body: bevy::prelude::Entity) {
-        self.0.push((body, None));
+        self.0.push((body, DeclaredWarp::Last(None)));
     }
 
-    /// A warp that was one portal crossing in the last tick, with where the
-    /// body went inside that tick.
+    /// A warp that was portal crossings in the last tick, with where the body
+    /// went inside that tick.
     pub fn declare_crossing(&mut self, body: bevy::prelude::Entity, crossing: PresentedCrossing) {
-        self.0.push((body, Some(crossing)));
+        self.0.push((body, DeclaredWarp::Last(Some(crossing))));
     }
 
-    fn of(&self, body: bevy::prelude::Entity) -> Option<Option<PresentedCrossing>> {
-        // The last declaration of a body is its newest crossing.
-        self.0.iter().rev().find(|(entity, _)| *entity == body).map(|(_, crossing)| *crossing)
+    /// A warp in an earlier tick than the last one the frame ran.
+    pub fn declare_before(&mut self, body: bevy::prelude::Entity) {
+        self.0.push((body, DeclaredWarp::Before));
+    }
+
+    fn of(&self, body: bevy::prelude::Entity) -> Option<DeclaredWarp> {
+        // Declarations come in tick order: the last of a body is its newest.
+        self.0.iter().rev().find(|(entity, _)| *entity == body).map(|(_, warp)| *warp)
     }
 }
 
@@ -452,8 +476,11 @@ pub fn advance_presented_body_poses(
                 .0
                 .saturating_sub(presented.tick)
                 .clamp(1, u32::MAX as u64) as u32;
-            if let Some(crossing) = warps.as_ref().and_then(|warps| warps.of(entity)) {
-                presented.push_warped(pose.pos, pose.vel, tick.0, crossing);
+            if let Some(warp) = warps.as_ref().and_then(|warps| warps.of(entity)) {
+                match warp {
+                    DeclaredWarp::Last(crossing) => presented.push_warped(pose.pos, pose.vel, tick.0, crossing),
+                    DeclaredWarp::Before => presented.push_warped_before(pose.pos, pose.vel, tick.0),
+                }
             } else {
                 let down = frame
                     .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| frame.down());
@@ -906,6 +933,26 @@ mod tests {
         assert_eq!(pose.presented(), Vec2::new(500.0, 0.0));
     }
 
+    /// INTERPOLATED, a body a pair carried in an earlier tick of a frame that
+    /// ran two travelled on the far side through the last one, so it is drawn
+    /// moving there, a pace behind its pose at the frame's start, not parked
+    /// at the exit (portal M4). The parked control is a warp in the last tick.
+    #[test]
+    fn interpolated_draws_an_earlier_ticks_warp_travelling_on_the_far_side() {
+        let mut pose = pose_at(Vec2::ZERO);
+        pose.push(Vec2::new(6.0, 0.0), 1, true, Vec2::ZERO);
+        pose.push_warped_before(Vec2::new(500.0, 0.0), Vec2::new(360.0, 0.0), 3);
+        pose.resample(0.0, true);
+        assert_eq!(pose.presented(), Vec2::new(494.0, 0.0), "a pace behind, along its heading");
+        pose.resample(0.5, true);
+        assert_eq!(pose.presented(), Vec2::new(497.0, 0.0));
+        let mut parked = pose_at(Vec2::ZERO);
+        parked.push(Vec2::new(6.0, 0.0), 1, true, Vec2::ZERO);
+        parked.push_warped(Vec2::new(500.0, 0.0), Vec2::new(360.0, 0.0), 3, None);
+        parked.resample(0.0, true);
+        assert_eq!(parked.presented(), Vec2::new(500.0, 0.0), "control: a last-tick warp parks");
+    }
+
     /// INTERPOLATED, a body that crossed a portal pair inside the drawn tick
     /// is drawn on the entry side until the crossing time and on the exit
     /// side from it (portal M4): the chart change is applied when the body
@@ -928,11 +975,12 @@ mod tests {
         assert_eq!(drawn(Some(crossing), 0.5), Vec2::new(500.0, 0.0), "at the crossing: the mapped point");
         assert_eq!(drawn(Some(crossing), 0.75), Vec2::new(505.0, 0.0), "after: the exit side");
         assert_eq!(drawn(None, 0.25), end, "control: a warp with no crossing parks at the exit");
-        // Spanning two ticks, the crossing is not the whole travel: parked.
+        // Spanning two ticks, the view still draws only the last one, which
+        // the crossing covers: the same entry side.
         let mut late = pose_at(Vec2::ZERO);
         late.push_warped(end, Vec2::new(1200.0, 0.0), 2, Some(crossing));
         late.resample(0.25, true);
-        assert_eq!(late.presented(), end);
+        assert_eq!(late.presented(), Vec2::new(5.0, 0.0));
         // Extrapolated views draw after the tick's end, so the crossing is behind them.
         let mut ahead = pose_at(Vec2::ZERO);
         ahead.push_warped(end, Vec2::new(1200.0, 0.0), 1, Some(crossing));

@@ -610,10 +610,12 @@ mod host_adapter {
     /// holds only the last tick's), and the arrival, from the last crossing
     /// point carried by its map (`PortalTransfer::arrival_point`) straight to
     /// its end pose. An interpolated view then changes the body's side at
-    /// each crossing time. A crossing in an earlier tick of the frame (no
-    /// `CrossedTravel` left) is declared as a plain warp.
+    /// each crossing time. A crossing in an earlier tick of the frame (its
+    /// message's tick is before the newest) is declared as such: the last
+    /// tick was travel on its far side.
     pub fn declare_portal_pose_warps(
         mut transited: MessageReader<ambition_portal2d::PortalBodyTransited>,
+        now: Option<Res<ambition_platformer2d_runtime::SimTick>>,
         // Absent in a host that does not smooth poses on the frame clock.
         warps: Option<ResMut<ambition_sim_view::DeclaredPoseWarps>>,
         crossed: Query<&ambition_platformer2d_core::CrossedTravel>,
@@ -623,7 +625,12 @@ mod host_adapter {
             transited.clear();
             return;
         };
+        let now = now.map_or(0, |now| now.get());
         for transit in transited.read() {
+            if transit.tick < now {
+                warps.declare_before(transit.body);
+                continue;
+            }
             let transfer = transit.transfer;
             let projection = crossed.get(transit.body).ok().and_then(|crossed| {
                 // The record is this transfer's when its last leg ends where
@@ -1789,6 +1796,7 @@ mod tests {
                 ).unwrap(),
 
                 input_warp: false,
+                tick: 0,
             });
         }
         app.update();

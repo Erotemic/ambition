@@ -245,6 +245,8 @@ At the Gate Shrine, show a body under the stone stair. Display the stair
 treads and the low road with the stonework to check the opening.
 At the Village Dojo, show the exam trigger with the red strip. Show each
 wave's spawn points in the same view as the floor and the beam.
+At Bamboo Pass, show the bridge, the waterline, and the ford stones
+with a body on each route. Check the space under the bridge for the body.
 The Noodly Cistern adds pipes and plates for each wheel. Give the art
 generator the switch and gate bounds and the gate conditions. Keep the
 pipe bends in the art so an author can route around labels.

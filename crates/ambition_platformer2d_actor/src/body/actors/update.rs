@@ -354,16 +354,8 @@ pub fn tick_actor_brains(
     // `ambition_combat::authored_coverage`.
     coverage_source: AuthoredCoverageSource,
     mut decisions: ResMut<ActorDecisionFrames>,
-    // Any body's collision extent, read-only: a rider's mount, for its width,
-    // and whether turning it mirrors it at all.
-    //
-    // And a body's authored movement feel, when it has one: the tuning the
-    // integrator moves it by, for the brain snapshot's movement law.
-    //
-    // And its guards (`ambition_combat::guard`): the strikes they turned.
-    // The complete actor query checks eligibility for fixed control and
-    // supplies body data to decisions that need it.
-    (bodies, clusters): (
+    // Body state for a decision that reads the world or shares a sighting.
+    (bodies, clusters, decision_inputs): (
         Query<(
             &ae::BodyKinematics,
             bevy::prelude::Has<ae::Unmirrored>,
@@ -372,6 +364,19 @@ pub fn tick_actor_brains(
             Option<(&ae::ActorSurfaceState, &ae::BodyFlightState)>,
         )>,
         Query<ambition_body_seed::clusters::ActorClusterQueryDataReadOnly>,
+        // Only a brain that evaluates a decision reads the action kit.
+        Query<(
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            Option<&ambition_characters::brain::ActionSet>,
+            Option<&ambition_mount::RidingOn>,
+            Option<&ambition_combat::components::ActorAggression>,
+            Option<&ambition_combat::moveset::ActorMoveset>,
+            Option<&ambition_combat::moveset::MovePlayback>,
+            Option<&ambition_combat::stale::BodyStaleMoves>,
+            Option<&ae::BodyMotionFacts>,
+            Option<&ambition_characters::actor::CharacterForm>,
+            Option<&ambition_combat::components::ActorRenderSize>,
+        )>,
     ),
     // ACT1: what the move admission reads that the actor cluster does not
     // carry, so the kit is offered by the trigger's own rule.
@@ -380,98 +385,18 @@ pub fn tick_actor_brains(
         (
             Entity,
             &ambition_combat::components::ActorTarget,
-            // Stateful decision policy. The frame it produces is buffered in
-            // `ActorDecisionFrames`; this phase never borrows `ActorControl`.
-            // `Option` because dynamically-spawned actors (debug tools, scripted
-            // spawns) might skip brain attachment and therefore decide neutral.
+            &ae::MotionModel,
             Option<&mut ambition_characters::brain::Brain>,
-            // Driver authority suppresses autonomous decisions and contributes
-            // to the body's effective faction view.
             Option<&ambition_characters::control::DrivingParticipant>,
-            bevy::prelude::Has<ambition_characters::control::ActorControl>,
-            // ActionSet — read for the Smash brain so it knows which
-            // attacks (melee / ranged) the actor can commit. `Option`
-            // so dynamically-spawned actors without a set still tick.
-            Option<&ambition_characters::brain::ActionSet>,
-            // A rider's mount takes its facing, so the body that turns when this
-            // brain turns is the mount's, when the mount mirrors. See
-            // `BrainSnapshot::actor_half_width`.
-            Option<&ambition_mount::RidingOn>,
-            (
-                Option<&ambition_combat::actor_tuning::ActorPolicy>,
-                // The brain interprets controller input and perceives "down" through it — never
-                // through a private gravity lookup.
-                Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-                // Faction is still a self-view input; crowd observation consumed
-                // its own copy in the preceding phase.
-                Option<&ambition_characters::actor::ActorFaction>,
-                // §A7: this body's per-entity grudge, so its world-out `WorldView`
-                // resolves a same-faction grudge-duel opponent as hostile (matching
-                // `select_actor_targets`), not by faction alone. `Option` — a body
-                // with no personal feud has no grudge component read here.
-                Option<&ambition_combat::components::ActorAggression>,
-                // §A7: this body's persistent world-belief, updated each tick from its
-                // fresh `WorldView` so its brain can pursue a foe that has left the
-                // viewport. `Brain` requires it, so `None` is a body with no brain.
-                Option<&mut ambition_characters::perception::PerceptionMemory>,
-                // OBS3: what an admitted module consumer demands of this body's
-                // perception, and the projection prepared for it below.
-                Option<&mut ambition_characters::perception::ModuleObservation>,
-                // A seated match fighter keeps omniscient senses, and so does a
-                // body summoned into a fight; see `perception::perception_of`.
-                (
-                    bevy::prelude::Has<ambition_match::MatchSeat>,
-                    bevy::prelude::Has<ambition_combat::components::SummonedToTheFight>,
-                ),
-                Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
-                // FB4b §13.2: the body's own moveset, so the brain snapshot can
-                // carry the ATTACK KIT. The fighter brain scores real moves with
-                // real frame data and cannot reach a moveset itself —
-                // `ambition_combat` depends on `ambition_characters`, not the
-                // reverse — so this is the world-in port doing what it is for.
-                // `Option` because a body with no moveset (a peaceful NPC, a
-                // prop) has no kit, and an empty kit is the honest answer.
-                Option<&ambition_combat::moveset::ActorMoveset>,
-                // THE MOVE THAT CURRENTLY OWNS THIS BODY, so the attack kit
-                // can say which of its candidates could be STARTED this tick —
-                // see `ActionLegality`. Here for exactly the reason the moveset
-                // above is: the brain reads no ECS, so a fact it needs about the
-                // body arrives through the world-in port.
-                //
-                // A brain inferring "I look like I am in recovery" would be answering a different
-                // question and would be wrong for every move with a cancel window.
-                Option<&ambition_combat::moveset::MovePlayback>,
-                // THE RING OF THIS BODY'S RECENT LANDINGS, so the attack kit
-                // can price a worn move the way the hit resolver will resolve
-                // it. Here for the same reason the moveset and the playback
-                // above are. `Option` because `ActorMoveset` `#[require]`s the
-                // component, so a body with no moveset has no ring — and no
-                // kit to stale either.
-                Option<&ambition_combat::stale::BodyStaleMoves>,
-                // WHAT IS TRUE OF THIS BODY'S LOCOMOTION, published once per
-                // tick by the movement kernel. The brain snapshot's
-                // `turns_at_walls` reads it instead of the spawn-time
-                // `tuning.surface_walker` flag ADR 0024 §8 forbids at runtime.
-                // `Option` because a body without the movement clusters has no
-                // facts, and "not crawling" is the honest default for one.
-                Option<&ambition_platformer2d_core::BodyMotionFacts>,
-                // THE BODY'S MOTION MODEL, for the ONE burst-maneuver rule
-                // (`resolve_burst_maneuver`): dodge-vs-dash availability lives
-                // in the model's `AxisManeuverState` (air-dodge window, endlag)
-                // as well as in the dodge/dash clusters. A driver that decides
-                // its maneuver from CAPABILITIES instead names one thing and the
-                // kernel performs another — see `SelfView::burst`.
-                //
-                // Requiring it costs nothing: the integration query below
-                // (`integrate_sim_bodies`) already takes `&mut MotionModel` non-optionally over
-                // the same archetype, so a body without one is not integrated at all and has no
-                // locomotion for a brain to reason about.
-                &ambition_platformer2d_core::movement::MotionModel,
-                // The worn character and the drawn quad: what the strike
-                // spawn resolves the authored hit volume by.
-                Option<&ambition_characters::actor::CharacterForm>,
-                Option<&ambition_combat::components::ActorRenderSize>,
-            ),
+            Has<ambition_characters::control::ActorControl>,
+            Has<ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+            Option<&ambition_combat::actor_tuning::ActorPolicy>,
+            Option<&ambition_characters::actor::ActorFaction>,
+            Option<&mut ambition_characters::perception::PerceptionMemory>,
+            Option<&mut ambition_characters::perception::ModuleObservation>,
+            Has<ambition_match::MatchSeat>,
+            Has<ambition_combat::components::SummonedToTheFight>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         // Exclude BOSSES too: they carry the shared actor read-models
         // (`ActorIdentity`/`ActorDisposition`/… written at construction) but have NO
@@ -528,7 +453,7 @@ pub fn tick_actor_brains(
     let observation_cut = perceived.cut();
     let preceding_cut = observation_cut.checked_sub(1);
     let mut crew_calls = Vec::new();
-    for (entity, .., (policy, _, faction, _, memory, _, (seated, summoned), stamp, ..)) in actors.iter() {
+    for (entity, _, _, _, _, _, _, policy, faction, memory, _, seated, summoned, stamp) in actors.iter() {
         if !policy.is_some_and(|policy| policy.0.shares_sightings) {
             continue;
         }
@@ -558,34 +483,23 @@ pub fn tick_actor_brains(
     }
     ambition_characters::perception::census::note_reports(crew_calls.len());
 
-    // The population scan and body-state maintenance have already run. This
-    // loop is now one authority: evaluate autonomous decision state and produce
-    // the resulting intent value for the following publish phase.
+    // Fixed decisions need eligibility and belief state. Other decisions also
+    // read the action kit and the motion frame.
     for (
         this_actor_entity,
         target,
+        motion_model,
         mut brain,
         driver,
         has_control,
-        action_set,
-        riding,
-        (
-            policy,
-            resolved_frame,
-            faction,
-            aggression,
-            mut perception_memory,
-            mut module_observation,
-            (seated, summoned),
-            stamp,
-            moveset,
-            playback,
-            stale_moves,
-            motion_facts,
-            motion_model,
-            worn_character,
-            drawn_quad,
-        ),
+        has_frame,
+        policy,
+        faction,
+        mut perception_memory,
+        mut module_observation,
+        seated,
+        summoned,
+        stamp,
     ) in &mut actors
     {
         // A body whose senses this session cannot decide does not decide. It
@@ -631,11 +545,7 @@ pub fn tick_actor_brains(
             }
             {
                 // Both control paths require the resolved motion frame.
-                let Some(resolved_frame) = resolved_frame else {
-                    continue;
-                };
-                // Participant control is written by `tick_controlled_brains`.
-                if driver.is_some() {
+                if !has_frame || driver.is_some() {
                     continue;
                 }
                 if let (None, Some(frame)) = (
@@ -659,6 +569,12 @@ pub fn tick_actor_brains(
                 }
                 let brain_frame = if let Some(brain) = brain.as_mut() {
                     let Ok(body) = clusters.get(this_actor_entity) else {
+                        continue;
+                    };
+                    let Ok((
+                        resolved_frame, action_set, riding, aggression,
+                        moveset, playback, stale_moves, motion_facts, worn_character, drawn_quad,
+                    )) = decision_inputs.get(this_actor_entity) else {
                         continue;
                     };
                     let brain_ref = &mut **brain;

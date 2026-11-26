@@ -19,7 +19,7 @@
 use ambition_platformer2d_core::Vec2;
 use ambition_time::SimTick;
 use bevy::prelude::{
-    Commands, Component, Entity, Fixed, IntoScheduleConfigs, Query, Res, ResMut, Resource,
+    Commands, Component, Entity, Fixed, IntoScheduleConfigs, Local, Query, Res, ResMut, Resource,
     SystemSet, Time, Update,
 };
 
@@ -139,8 +139,8 @@ pub struct CrossingLeg {
     pub end: f32,
 }
 
-/// The most crossings one tick's projection holds; a longer chain is drawn
-/// as a plain warp.
+/// The most legs one tick's projection holds, the composed budget's hop
+/// count. A longer chain (a tuning with more hops) keeps its longest legs.
 pub const MAX_CROSSING_LEGS: usize = 4;
 
 /// The portal crossings inside one tick, as presentation draws them (portal
@@ -158,15 +158,47 @@ pub struct PresentedCrossing {
 
 impl PresentedCrossing {
     /// The crossings of `legs` (in order, each ending where the next crossing
-    /// was), arriving at `arrived_at` at `at`. `None` with no leg or more than
-    /// [`MAX_CROSSING_LEGS`].
+    /// was), arriving at `arrived_at` at `at`. `None` with no leg.
+    ///
+    /// More than [`MAX_CROSSING_LEGS`] keeps the longest, in order. Over a
+    /// dropped leg's interval the body is drawn where the next kept leg (or
+    /// the arrival) begins, a point on its path in the chart it is next drawn
+    /// in; a dropped leg is shorter than every kept one, so a frame rarely
+    /// samples it.
     pub fn new(legs: &[CrossingLeg], arrived_at: Vec2, at: f32) -> Option<Self> {
-        if legs.is_empty() || legs.len() > MAX_CROSSING_LEGS {
+        if legs.is_empty() {
             return None;
         }
         let mut held = [CrossingLeg::default(); MAX_CROSSING_LEGS];
-        held[..legs.len()].copy_from_slice(legs);
-        Some(Self { legs: held, count: legs.len() as u8, arrived_at, at })
+        if legs.len() <= MAX_CROSSING_LEGS {
+            held[..legs.len()].copy_from_slice(legs);
+            return Some(Self { legs: held, count: legs.len() as u8, arrived_at, at });
+        }
+        let mut longest = [0usize; MAX_CROSSING_LEGS];
+        let mut kept = 0;
+        for (index, leg) in legs.iter().enumerate() {
+            let span = leg.end - leg.start;
+            if kept < MAX_CROSSING_LEGS {
+                longest[kept] = index;
+                kept += 1;
+                continue;
+            }
+            // Replace the shortest held leg (the earliest on a tie).
+            let shortest = (0..MAX_CROSSING_LEGS)
+                .min_by(|&a, &b| {
+                    let span_of = |slot: usize| legs[longest[slot]].end - legs[longest[slot]].start;
+                    span_of(a).total_cmp(&span_of(b)).then(longest[a].cmp(&longest[b]))
+                })
+                .unwrap_or(0);
+            if span > legs[longest[shortest]].end - legs[longest[shortest]].start {
+                longest[shortest] = index;
+            }
+        }
+        longest.sort_unstable();
+        for (slot, &index) in longest.iter().enumerate() {
+            held[slot] = legs[index];
+        }
+        Some(Self { legs: held, count: MAX_CROSSING_LEGS as u8, arrived_at, at })
     }
 
     pub fn legs(&self) -> &[CrossingLeg] {
@@ -393,7 +425,11 @@ pub(crate) fn travelled_under_own_power(from: Vec2, to: Vec2, vel: Vec2, ticks: 
 
 /// The bodies a warp carried to their pose since the last frame (a portal
 /// pair): they did not travel there, however short the hop. The system that
-/// knows declares them; [`advance_presented_body_poses`] reads and clears it.
+/// knows declares them. Two observers read the frame's declarations, each
+/// only when its own pose takes a new tick: [`advance_presented_feature_poses`]
+/// (a body drawn by its feature row), then [`advance_presented_body_poses`],
+/// which clears them. That clear is the retention cut: a declaration lives
+/// one frame, the frame whose ticks wrote it.
 /// The travel guess cannot see a short hop: a thin-wall door moves a body
 /// 16 px, which it takes for a step and draws the whole hop ahead.
 #[derive(bevy::prelude::Resource, Default, Debug)]
@@ -401,7 +437,7 @@ pub struct DeclaredPoseWarps(Vec<(bevy::prelude::Entity, DeclaredWarp)>);
 
 /// One declared warp of a body.
 #[derive(Clone, Copy, Debug)]
-enum DeclaredWarp {
+pub enum DeclaredWarp {
     /// In the last tick, with where the body went inside it when known.
     Last(Option<PresentedCrossing>),
     /// In an earlier tick of the frame: the last tick was travel after it.
@@ -422,6 +458,10 @@ impl DeclaredPoseWarps {
     /// A warp in an earlier tick than the last one the frame ran.
     pub fn declare_before(&mut self, body: bevy::prelude::Entity) {
         self.0.push((body, DeclaredWarp::Before));
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     fn of(&self, body: bevy::prelude::Entity) -> Option<DeclaredWarp> {
@@ -557,14 +597,39 @@ pub fn advance_presented_feature_poses(
     views: Res<FeatureViewIndex>,
     mut presented: ResMut<PresentedFeaturePoses>,
     framing: Option<Res<ambition_platformer2d_shared_tangle::markers::CastFramingTuning>>,
+    // A row whose body a warp carried (a portal pair) is drawn as the body's
+    // own pose is: the size guess cannot see a short hop.
+    warps: Option<Res<DeclaredPoseWarps>>,
+    bodies: Query<(&ambition_combat::components::FeatureId, &ambition_platformer2d_core::BodyKinematics)>,
+    live: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+    mut warped: Local<Vec<(String, Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>, Vec2, DeclaredWarp)>>,
 ) {
     let phase = phase.get();
     let interpolate = framing.is_some_and(|framing| framing.interpolate_poses);
+    warped.clear();
+    if let Some(warps) = warps.as_deref().filter(|warps| !warps.is_empty()) {
+        for &(body, _) in &warps.0 {
+            let Ok((id, kinematics)) = bodies.get(body) else { continue };
+            let room = live.of(body);
+            if warped.iter().any(|(seen, seen_room, ..)| seen == &id.0 && *seen_room == room) {
+                continue;
+            }
+            if let Some(warp) = warps.of(body) {
+                warped.push((id.0.clone(), room, kinematics.vel, warp));
+            }
+        }
+    }
     for (id, view) in views.iter() {
         let rows = presented.poses.entry(view.room).or_default();
         match rows.get_mut(id) {
             Some(pose) => {
-                if pose.tick != tick.0 {
+                let warp = warped.iter().find(|(warped, room, ..)| warped == id && *room == view.room);
+                if let (true, Some(&(_, _, vel, warp))) = (pose.tick != tick.0, warp) {
+                    match warp {
+                        DeclaredWarp::Last(crossing) => pose.push_warped(view.pos, vel, tick.0, crossing),
+                        DeclaredWarp::Before => pose.push_warped_before(view.pos, vel, tick.0),
+                    }
+                } else if pose.tick != tick.0 {
                     // Per TICK, times the ticks this frame actually spanned —
                     // the body-side guard scales the same way and for the same
                     // reason.
@@ -662,9 +727,12 @@ impl bevy::prelude::Plugin for PresentedPosePlugin {
         app.add_systems(
             Update,
             (
-                advance_presented_body_poses,
+                // The feature rows read the frame's declared warps before the
+                // body poses clear them.
                 advance_presented_feature_poses,
+                advance_presented_body_poses,
             )
+                .chain()
                 .in_set(PresentedPoseStage::Resample),
         );
     }
@@ -1010,7 +1078,16 @@ mod tests {
         assert_eq!(drawn(0.4375), Vec2::new(125.0, 0.0), "between the pairs, in A's exit chart");
         assert_eq!(drawn(0.875), Vec2::new(310.0, 0.0), "after the second crossing");
         assert!(PresentedCrossing::new(&[], end, 0.5).is_none());
-        assert!(PresentedCrossing::new(&[legs[0]; MAX_CROSSING_LEGS + 1], end, 0.5).is_none());
+        // A chain past the cap keeps its longest legs: the short second leg
+        // goes, and over it the body is drawn where the next kept leg begins.
+        let x = |from: f32, start: f32, end: f32| CrossingLeg {
+            from: Vec2::new(from, 0.0), to: Vec2::new(from + 10.0, 0.0), start, end,
+        };
+        let long = [x(0.0, 0.0, 0.2), x(100.0, 0.2, 0.25), x(200.0, 0.25, 0.4), x(300.0, 0.4, 0.55), x(400.0, 0.55, 0.7)];
+        let kept = PresentedCrossing::new(&long, Vec2::new(500.0, 0.0), 0.7).unwrap();
+        assert_eq!(kept.legs(), &[long[0], long[2], long[3], long[4]]);
+        assert_eq!(kept.position(0.225, end), Vec2::new(200.0, 0.0), "over the dropped leg");
+        assert_eq!(kept.position(0.325, end), Vec2::new(205.0, 0.0));
     }
 
     #[test]

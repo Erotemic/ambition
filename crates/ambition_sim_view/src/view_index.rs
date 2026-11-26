@@ -1335,6 +1335,52 @@ mod view_index_tests {
         assert_eq!(poses.presented("shared", b, ae::Vec2::ZERO).x, 70.0);
     }
 
+    /// A body drawn by its feature row (an enemy, an NPC) is the second
+    /// observer of a declared portal crossing: interpolated, its row is drawn
+    /// on the entry side before the crossing time, as the body's own pose is.
+    /// Its control, an undeclared row, takes the 500 px hop for a jump and
+    /// parks at the exit.
+    #[test]
+    fn a_feature_row_draws_its_bodys_declared_crossing() {
+        use crate::{CrossingLeg, DeclaredPoseWarps, PresentedCrossing};
+        let mut app = bevy::prelude::App::new();
+        app.init_resource::<ambition_time::SimTick>()
+            .init_resource::<crate::PresentationPhase>()
+            .init_resource::<crate::PresentedFeaturePoses>()
+            .init_resource::<DeclaredPoseWarps>()
+            .insert_resource(ambition_platformer2d_shared_tangle::markers::CastFramingTuning {
+                interpolate_poses: true,
+                ..Default::default()
+            })
+            .add_systems(bevy::prelude::Update, crate::presented_pose::advance_presented_feature_poses);
+        let mut kinematics = ae::BodyKinematics::default();
+        kinematics.vel = ae::Vec2::new(1200.0, 0.0);
+        let body = app.world_mut().spawn((FeatureId("goblin".into()), kinematics)).id();
+        let publish = |app: &mut bevy::prelude::App, x: f32| {
+            let mut index = FeatureViewIndex::default();
+            index.begin_rebuild();
+            for id in ["goblin", "control"] {
+                let mut row = view(true);
+                row.pos = ae::Vec2::new(x, 0.0);
+                index.insert_if_absent(id, row);
+            }
+            index.end_rebuild();
+            app.insert_resource(index);
+        };
+        publish(&mut app, 0.0);
+        app.update();
+        publish(&mut app, 510.0);
+        app.world_mut().resource_mut::<ambition_time::SimTick>().0 += 1;
+        app.world_mut().resource_mut::<crate::PresentationPhase>().set(0.25);
+        let leg = CrossingLeg { from: ae::Vec2::ZERO, to: ae::Vec2::new(10.0, 0.0), start: 0.0, end: 0.5 };
+        let crossing = PresentedCrossing::new(&[leg], ae::Vec2::new(500.0, 0.0), 0.5).unwrap();
+        app.world_mut().resource_mut::<DeclaredPoseWarps>().declare_crossing(body, crossing);
+        app.update();
+        let poses = app.world().resource::<crate::PresentedFeaturePoses>();
+        assert_eq!(poses.presented("goblin", None, ae::Vec2::ZERO), ae::Vec2::new(5.0, 0.0), "the entry side");
+        assert_eq!(poses.presented("control", None, ae::Vec2::ZERO), ae::Vec2::new(510.0, 0.0), "control parks");
+    }
+
     /// THE PUBLICATION SEAM for a parry, and the bug it is named for.
     ///
     /// A caught parry is a full negation: no hit event, no landed-hit fact, no

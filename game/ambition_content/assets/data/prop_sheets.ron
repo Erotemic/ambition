@@ -543,6 +543,7 @@
     "orbital_bunks": (),
     "orbital_galley": (),
     "orbital_hydroponics": (),
+    "orbital_grow_deck": (),
     "orbital_machinery": (),
     "orbital_bench": (),
     // The spoke's tram car: the sheet of a moving platform (`platform_looks.ron`).

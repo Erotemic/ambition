@@ -261,7 +261,7 @@ impl Project {
 
     /// Build a desktop app that starts in this project. Register the asset
     /// source before Bevy creates its readers, then compose the game inputs.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
     pub fn app(&self, render: super::cli::VisibleRenderMode) -> App {
         super::cli::build_visible_app_for_project(render, false, Some(self), |_| {})
     }

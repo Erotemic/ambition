@@ -144,7 +144,7 @@ The invariant is one bound gameplay camera for every *active rendered* view,
 no unbound/stale extra camera, and no accidental second camera for the host's
 primary view. Registration must be idempotent at the composition boundary.
 
-**Camera application** (`rendering::camera_follow` and the host viewport
+**Camera application** (the camera stage (`rendering::ViewCameraSet`) and the host viewport
 applier) resolves a camera exclusively through its `PresentsView` link, using
 that view's camera snapshot, room geometry, physical viewport and scale.
 A camera should not inherit one global player-centered sample when two

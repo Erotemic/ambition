@@ -18,10 +18,12 @@ use ambition_platformer2d::publication::construction::RoomContentStagingRegistry
 use ambition_platformer2d::content::hole;
 use ambition_platformer2d::ldtk_map::LdtkWorldAssets;
 use ambition_platformer2d::platformer::lifecycle::{InitialGameplayReadiness, SessionRoot};
+#[cfg(feature = "render")]
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
 use ambition_platformer2d::world::rooms::RoomSet;
 
+#[cfg(feature = "render")]
 use ambition_platformer2d::world_flow::{
     build_loaded_room_asset_manifest, inspect_room_asset_manifest, RoomAssetManifest,
 };
@@ -89,24 +91,30 @@ pub fn cover_look() -> CoverLook {
 }
 
 #[derive(Component)]
+#[cfg(feature = "render")]
 struct DirectStartupLoadingRoot;
 
 #[derive(Component)]
+#[cfg(feature = "render")]
 struct DirectStartupLoadingProgressFill;
 
 #[derive(Component)]
+#[cfg(feature = "render")]
 struct DirectStartupLoadingProgressText;
 
 #[derive(Component)]
+#[cfg(feature = "render")]
 struct DirectStartupLoadingStatusText;
 
 #[derive(Clone, Debug)]
+#[cfg(feature = "render")]
 struct StartupAssetDependency {
     label: String,
     asset_id: UntypedAssetId,
 }
 
 #[derive(Clone, Debug, Default)]
+#[cfg(feature = "render")]
 struct StartupAssetManifest {
     /// Retain the music source until the startup cover retires.
     #[cfg(feature = "audio")]
@@ -123,6 +131,7 @@ struct StartupAssetManifest {
 }
 
 #[derive(Clone, Debug, Default)]
+#[cfg(feature = "render")]
 struct StartupReadinessSummary {
     settled: usize,
     total: usize,
@@ -130,6 +139,7 @@ struct StartupReadinessSummary {
     failed: Vec<String>,
 }
 
+#[cfg(feature = "render")]
 impl StartupReadinessSummary {
     fn is_ready(&self) -> bool {
         self.pending.is_empty() && self.failed.is_empty()
@@ -137,6 +147,7 @@ impl StartupReadinessSummary {
 }
 
 #[derive(Resource, Debug, Default)]
+#[cfg(feature = "render")]
 struct DirectStartupLoadingState {
     manifest: Option<StartupAssetManifest>,
     update_serial: u64,
@@ -152,6 +163,7 @@ struct DirectStartupLoadingState {
     waited_on_gpu_updates: u32,
 }
 
+#[cfg(feature = "render")]
 impl DirectStartupLoadingState {
     /// Returns true exactly when the cover may retire.
     fn observe_readiness(&mut self, ready: bool, failed: bool) -> bool {
@@ -170,6 +182,7 @@ impl DirectStartupLoadingState {
 }
 
 #[derive(SystemParam)]
+#[cfg(feature = "render")]
 struct StartupAssetInputs<'w, 's> {
     asset_server: Res<'w, AssetServer>,
     images: Res<'w, Assets<Image>>,
@@ -222,6 +235,7 @@ struct StartupAssetInputs<'w, 's> {
 }
 
 #[derive(SystemParam)]
+#[cfg(feature = "render")]
 struct StartupUi<'w, 's> {
     windows: Query<'w, 's, &'static mut Window, With<PrimaryWindow>>,
     roots: Query<'w, 's, Entity, With<DirectStartupLoadingRoot>>,
@@ -244,6 +258,7 @@ struct StartupUi<'w, 's> {
 /// Install the product-specific boot reveal used only by the visible direct
 /// sandbox. Shell-hosted startup has its own route/load lifecycle, and no-window
 /// harnesses deliberately do not need a presentation cover.
+#[cfg(feature = "render")]
 pub(super) fn install_direct_startup_loading(app: &mut App) {
     app.init_resource::<DirectStartupLoadingState>()
         .add_systems(
@@ -272,6 +287,7 @@ pub(super) fn install_direct_startup_loading(app: &mut App) {
     );
 }
 
+#[cfg(feature = "render")]
 fn spawn_direct_startup_loading_screen(mut commands: Commands) {
     let text = super::host_pack::host_text();
     let look = cover_look();
@@ -300,7 +316,7 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
             BackgroundColor(rgb(look.backdrop)),
             GlobalZIndex(10_000),
             DirectStartupLoadingRoot,
-            ambition_platformer2d::presentation::gameplay_presentation::PresentationCover,
+            ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationCover,
             Name::new("Ambition Direct Startup Loading Cover"),
         ))
         .with_children(|root| {
@@ -394,6 +410,7 @@ fn spawn_direct_startup_loading_screen(mut commands: Commands) {
         });
 }
 
+#[cfg(feature = "render")]
 fn drive_direct_startup_loading(sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
     mut state: ResMut<DirectStartupLoadingState>,
     mut gameplay: ResMut<InitialGameplayReadiness>,
@@ -510,10 +527,12 @@ fn drive_direct_startup_loading(sprite_content: bevy::prelude::Res<ambition_plat
 /// How long the cover waits, after gameplay opened, for the room to be drawn.
 /// Not a budget: past it, showing the room as it is beats a black screen, and
 /// the warning names what was still coming.
+#[cfg(feature = "render")]
 const PRESENTATION_DEADLINE: std::time::Duration = std::time::Duration::from_secs(8);
 
 /// Retire the cover once the room is drawn under it: a sim tick has run since
 /// gameplay opened, and nothing of the room is still coming in.
+#[cfg(feature = "render")]
 fn reveal_direct_startup_room(
     mut commands: Commands,
     mut state: ResMut<DirectStartupLoadingState>,
@@ -558,6 +577,7 @@ fn reveal_direct_startup_room(
     state.manifest = None;
 }
 
+#[cfg(feature = "render")]
 fn build_startup_manifest(sprite_content: &ambition_platformer2d::sprite_sheet::SpriteContent,
     inputs: &mut StartupAssetInputs<'_, '_>,
 ) -> Result<StartupAssetManifest, String> {
@@ -699,6 +719,7 @@ fn build_startup_manifest(sprite_content: &ambition_platformer2d::sprite_sheet::
     })
 }
 
+#[cfg(feature = "render")]
 fn inspect_startup_manifest(
     asset_server: &AssetServer,
     images: &Assets<Image>,
@@ -759,6 +780,7 @@ fn inspect_startup_manifest(
     summary
 }
 
+#[cfg(feature = "render")]
 fn update_startup_ui(
     ui: &mut StartupUi<'_, '_>,
     text: &ambition_platformer2d::content::ShownText,
@@ -781,7 +803,7 @@ fn update_startup_ui(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "render"))]
 mod tests {
     use super::*;
 

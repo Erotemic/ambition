@@ -438,6 +438,61 @@ at the start of the provider cut. Absent now as well: `bevy_render`, `wgpu`,
 not a GPU device. The app still takes the facade's defaults, so the `sim`
 tools graph still holds the renderer; the app's own cut is what remains.
 
+**App cut (2026-11-25).** The app no longer takes the facade's defaults. Its
+base selection is what every persona compiles: `content_pack`, the module
+backends, `ldtk_runtime`, `rollback`, `ldtk`, `ambition_portal2d`, the settings
+and touch vocabularies, `dialogue`, and three CPU-side vocabularies the menu
+model and shell need in every build (`ambition_menu`, which also installs the
+runtime's map simulation, `ambition_inventory_ui`, `load_presentation`; none
+of them reaches a renderer). A new app feature, `render`, holds what draws:
+the facade's `ambition_render` and portal presentation, and `render` on
+content and on each demo. `visible` and `visible_web_base` include it.
+
+The three demo providers do what content did. Each asks the facade for its
+simulation capabilities, names `shared_tangle::gameplay_presentation` for its
+HUD and defense declarations, and gates its looks under a `render` feature:
+Sanic's monitor and goal-post dressing and its view-cone rule; Smash's loading
+activity, portal view and the select screen's font; Mary-O's seven shader and
+overlay modules, her block, fire and castle-goal dressing and her platform
+looks. Each demo's tests select `render` through a self dev-dependency, and
+the standalone demo apps select it.
+
+The app had compiled at `rl_sim` only because Mary-O's manifest asked the
+facade for `ambition_render`; with that gone, 114 errors named what the app
+draws. Under `render` now:
+
+- the presentation half of `plugins.rs` and `AmbitionGamePresentationPlugin`;
+- `hud`, `scene_setup` and `visible_composition`;
+- the loading screen in `startup_loading`, while `CoverLook` and its schema
+  stay, since the host pack names them;
+- the visible builders (`build_visible_app*`, `run_visible`) and the
+  shared-host runners, which build the visible app with no window;
+- the session visuals in `shell_host`;
+- the presentation setup systems;
+- the debug, navigation, FPS and diagnostics overlays, and the render asset
+  budget;
+- the image census, which is the renderer's;
+- the "I made this" startup card, a registered render asset (the engine text
+  card is made in every build).
+
+The HUD vocabulary is named from its owner, as in the demos, and
+`ambition_game_bin` requires `render`. The `sim` bins call `run_headless` and
+`rl_sim` only. Every workspace lane unions `visible`, so the one run that
+compiles the app and the demos without their looks is `run_tests.py`'s
+existing `ambition_app_tools --features sim --bins` check.
+
+Normal graphs (same measure as the simulation family): `sim` 503 → 496,
+`game` 665 → 665. Gone from `sim`: `ambition_render`,
+`ambition_portal2d_presentation`, `ambition_sprite_fx`, `bevy_gizmos_render`,
+`bevy_post_process`, `bevy_scene`. The `game` graph is the same crate set, and
+every package in it resolves the same features (`{p}|{f}`) except the new
+`render` features on the app and the demos and the facade's empty `default`
+marker, so no build that draws lost or gained a capability. Surviving in
+`sim`, by name: `bevy_render`, `wgpu`, `bevy_ecs_ldtk`, through the app's
+`ldtk_runtime` spine, which the headless summary reads. Removing those needs a
+headless spine that does not build `bevy_ecs_ldtk`, which is the next edge,
+and an engine one. No compile-time result is claimed.
+
 **Execution owner:** `ambition_app_tools` command packaging and
 `ambition_sim_harness` dependency selection, coordinated with supported launch
 and test lanes. The Ambition provider's presentation cut is a separate proof.

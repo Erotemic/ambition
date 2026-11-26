@@ -1,6 +1,6 @@
 # Presentation order and optional 2.5D rendering
 
-**State:** PO1 and PO2 landed 2026-11-25; RV1-RV3 PLANNED. Selected by the maintainer on 2026-11-21. The customers
+**State:** PO1 and PO2 landed 2026-11-25; RV1 landed 2026-11-25 (the shared sample, then view-owned camera application); RV2-RV3 PLANNED. Selected by the maintainer on 2026-11-21. The customers
 are Scout inside and outside the cart, consistent order for body parts and
 effects, and Bevy 2D and 3D presentation tools that can coexist. Production
 source reviewed: `f41218979625`; planning includes the preceding runtime
@@ -440,6 +440,70 @@ shared value preparation are sufficient until source proves otherwise.
    extraction, with the current 2D path as its first consumer. Separate
    camera/application and device roots by view/renderer. Remove the old
    duplicated interpretation; an unused wrapper around it is not completion.
+
+   **The shared sample (2026-11-25).** `RiggedLocalSample`, on each rigged
+   presentation owner, is the body's whole local interpretation at this
+   frame's cut, made once by `sample_rigged_presentations` before any
+   renderer reads it:
+   - the clip frame and its tween, legs, head turn, expression, layer,
+     wounds, the blend from the last row, the follow-through, a `PartPose`,
+     and the track mask, in that order;
+   - each draw's pivot place, scale, rotation, part (its texture region)
+     and full RGBA (`PartDraw`);
+   - the row, frame, the frame's own opacity, and its state (`Parts`,
+     `Baked`, or `Unavailable` when not drawn or not sampled).
+
+   Placement is not in it: each renderer applies placement at its own stage.
+   The blend and follow-through clocks moved with the interpretation that
+   reads them.
+
+   The 2D driver is the first consumer. It places and draws the sample on
+   both roads (direct slots and impostor cells), answers part-set readers
+   from it, and reads the frame opacity from it. Two duplicated
+   interpretations are gone:
+   - the driver's own (`frame_draws` inside the driver);
+   - `posed_reach`, which re-ran the whole interpretation, without blend or
+     follow-through, to decide whether a pose leaves the cell. The cell
+     decision now measures the sample itself, so the bounds and the drawing
+     read the same final sample.
+
+   Both systems run chained in `RiggedDriveSet`
+   (`rigged_presentation_drive()`). Every edge that named the driver names
+   the stage, so a writer of the sample's inputs (the animators, a boss's
+   pose) is ordered before the sampler, not only before the driver.
+
+   The witness is `the_slots_draw_the_local_sample_and_nothing_else`. Every
+   sampled draw shows in a slot. A system between the sampler and the driver
+   that removes the last draw removes it from the picture, so the driver has
+   no other source.
+
+   **Views own the camera application (2026-11-25).** `camera_follow`
+   resolved a view's framing and wrote every `MainCamera` in one system, so
+   a 3D camera on the same view would have been overwritten with a 2D XY
+   position and a Z-only roll. It is now two systems, chained in
+   `ViewCameraSet` (`view_camera_presentation()`):
+   - `present_view_frames` frames each presented view once, whatever renders
+     it. It applies portal continuity, shake and the finishing zoom to a copy
+     of the resolved snapshot, does the gameplay-to-Bevy axis conversion once,
+     and publishes a `PresentedViewFrame` (room, plane centre, roll,
+     orthographic scale) in `PresentedViewFrames`. A view with no frame this
+     frame has no entry, so its cameras hold, as before.
+   - `apply_view_frames_to_2d_cameras` is the 2D renderer's adapter. It
+     writes only gameplay cameras that are `Camera2d`. A camera of another
+     renderer is placed by that renderer's adapter from the same frame (RV2).
+
+   Two cameras on one view now step that view's portal anchor once, not once
+   per camera. Every ordering edge that named `camera_follow` names the set;
+   the name is gone, so no edge can order against a system that no longer
+   runs. The witness `the_2d_adapter_writes_only_the_2d_camera_of_a_view` puts
+   a `Camera2d` and a `Camera3d` on one view: one frame is published, the 2D
+   camera lands on it, and the 3D camera keeps its transform and perspective.
+
+   Roots by renderer: the 2D slots and impostor cells stay owned by the 2D
+   driver's `RiggedPresentation`; the sample they draw is separate from them.
+   A second renderer adds its own roots beside the sample and never reads the
+   2D slots (RV2). Spawning views' cameras through one adapter-chosen path
+   waits for the first non-2D adapter, which RV2 brings.
 4. **RV2 — one orthographic 3D cart view.** Use the same sampled actor parts
    as unlit cards, a simple authored cart mesh and one declared visual-depth
    policy. Draw it beside the 2D view in one App. Preserve the same platform,

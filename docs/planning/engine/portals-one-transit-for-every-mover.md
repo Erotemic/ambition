@@ -73,7 +73,7 @@ Current source loses necessary facts:
   `PortalViewRig` identifies `(room, channel)`. Existing rig tests explicitly
   pin that restriction; two-room tests do not establish same-room multiview.
 - `PortalCameraContinuityHostView::capture` keeps center and visible extent,
-  but drops camera rotation. `camera_follow` applies that rotation to the
+  but drops camera rotation. The camera stage applies that rotation to the
   real camera. `portal_window_clip_rect` still clips an axis-aligned rectangle,
   and `portal_capture_camera_frame` maps global X instead of the observer basis.
 - `GameplayScreenDensity` reads the global gameplay rectangle or a first main

@@ -400,7 +400,7 @@ fn tune_clash_strategy_to_bindings(
 /// `ambition_sim_view::PresentedPoseSet`, and `ambition_render` depends on
 /// neither runtime nor the schedule. This crate's own description says it MAY
 /// name render, runtime and sim_view — that is what the host layer is for, and
-/// `camera_follow` is already here for exactly the same reason.
+/// the camera stage is already here for exactly the same reason.
 #[cfg(feature = "render")]
 pub struct HostProjectileVisualsPlugin;
 
@@ -481,24 +481,24 @@ impl Plugin for HostVfxPresentationPlugin {
 
 /// The camera follow/shake cluster: publish the observer viewport into the
 /// sim's camera-observation resolve, then apply the resolved snapshot
-/// (`camera_follow`) after shake ticks. With `portal_render`, also the portal
+/// (the camera stage, `ViewCameraSet`) after shake ticks. With `portal_render`, also the portal
 /// camera-continuity wiring and the portal observation glue.
 ///
 /// A host that needs to draw AFTER the camera lands (debug overlays, HUD
-/// anchors) orders `.after(ambition_render::rendering::camera_follow)`.
+/// anchors) orders `.after(ambition_render::rendering::ViewCameraSet)`.
 #[cfg(feature = "render")]
 pub struct HostCameraPlugin;
 
 #[cfg(feature = "render")]
 impl Plugin for HostCameraPlugin {
     fn build(&self, app: &mut App) {
-        use ambition_render::rendering::camera_follow;
+        use ambition_render::rendering::ViewCameraSet;
 
         // Render-owned camera view state, initialized with the presentation half that reads it
         // (nameplates, HUD, overlays) — the sim never touches it. The observer facts (gameplay
         // viewport + subject-safe region) are published by HostGameplayPresentationPlugin,
-        // which orders its whole cluster before the sim's observation resolve. `camera_follow`
-        // only APPLIES the resulting snapshot (E4-17).
+        // which orders its whole cluster before the sim's observation resolve. The camera
+        // stage only APPLIES the resulting snapshot (E4-17).
         app.add_plugins(crate::gameplay_presentation::HostGameplayPresentationPlugin);
         // Split views are observation facts. The shared render capability
         // builds their cameras for every platformer host, including Ambition.
@@ -514,9 +514,10 @@ impl Plugin for HostCameraPlugin {
         if !app.is_plugin_added::<ambition_camera_presentation::CameraSettlePlugin>() {
             app.add_plugins(ambition_camera_presentation::CameraSettlePlugin);
         }
+        app.init_resource::<ambition_render::rendering::PresentedViewFrames>();
         app.add_systems(
             Update,
-            camera_follow
+            ambition_render::rendering::view_camera_presentation()
                 // The follow reads the live shake and zoom: settle them first,
                 // or every frame presents a value one frame stale.
                 .after(ambition_camera_presentation::CameraPresentationSet::Settle)
@@ -537,7 +538,7 @@ impl Plugin for HostCameraPlugin {
                     crate::portal::apply_portal_camera_continuity
                         .after(Platformer2dSimulationPhase::CoreSimulation)
                         .after(crate::portal::sync_portal_camera_continuity_focus)
-                        .before(camera_follow),
+                        .before(ViewCameraSet),
                     // Same-frame pad into the sim resolve (E4-17): after the
                     // continuity update, before the observation resolves.
                     ambition_render::rendering::publish_portal_camera_clamp
@@ -552,7 +553,7 @@ impl Plugin for HostCameraPlugin {
                 Update,
                 crate::portal::tag_portal_camera_continuity_camera
                     .in_set(crate::portal::PortalContinuityCameraTagged)
-                    .after(camera_follow),
+                    .after(ViewCameraSet),
             );
         }
     }

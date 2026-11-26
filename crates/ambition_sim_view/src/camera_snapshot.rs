@@ -2075,7 +2075,7 @@ pub fn resolve_camera_observation(
         };
         // ⛔⛔ A VIEW WITH NOTHING TO FRAME SAYS SO, or `ResolvedCameraSnapshot`
         // keeps `Some(the frame from before its subject went away)`, which a
-        // reader cannot tell from a frame resolved this tick; `camera_follow`
+        // reader cannot tell from a frame resolved this tick; the camera stage
         // would present it, and local views outlive sessions.
         //
         // ⭐ THE EASE IS RESET WITH IT. A view that published no frame has
@@ -2401,7 +2401,7 @@ pub fn resolve_camera_observation(
 /// Ordering handle for the camera observation resolve.
 ///
 /// Everything that FEEDS the resolve (the host's presentation layout) orders
-/// `.before` this; everything that CONSUMES it (`camera_follow`, the physical
+/// `.before` this; everything that CONSUMES it (the camera stage, the physical
 /// viewport application, the surround) orders `.after`. One handle, one
 /// schedule, so the relationship is expressible rather than assumed.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -2484,7 +2484,7 @@ impl PresentedViewState<'_, '_> {
             return None;
         }
         // The binding rule is stated once, in `local_view` — this reader shares
-        // it with `camera_follow` and the physical viewport applier rather than
+        // it with the camera stage and the physical viewport applier rather than
         // keeping a third copy that can drift.
         let on_hand =
             crate::local_view::ViewsOnHand::survey(self.views.iter().map(|(view, _)| view));

@@ -270,7 +270,7 @@ fn changing_the_worn_form_rebinds_the_existing_super_sanic_sheet_path() {
     );
 }
 
-/// The camera the host's `camera_follow` drives. Before OV1 the app spawned it;
+/// The camera the host's camera stage drives. Before OV1 the app spawned it;
 /// a demo that added the host group got follow logic pointed at nothing.
 #[test]
 fn the_demo_spawns_a_main_camera_and_publishes_it() {
@@ -576,7 +576,7 @@ fn the_speedway_backdrop_follows_the_camera() {
     // SAMPLE THE WHOLE RUN, not the endpoints. This test compared `before`
     // against `after` alone and failed for four months' worth of wrong reasons —
     // it was read as a missing `sync_parallax_layers`, then as an unregistered
-    // `camera_follow`, then as a broken camera clamp, then as Sanic being slow.
+    // camera stage, then as a broken camera clamp, then as Sanic being slow.
     // He is not slow: he reaches 1216 px/s and x = 1533 by frame 120, and the
     // layers move ~1000px with him. The speedway LOOPS. By frame 240 he is
     // back at x ≈ 260, the camera is back on its left clamp (centre x = 400,

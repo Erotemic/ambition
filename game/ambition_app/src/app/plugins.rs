@@ -5,6 +5,7 @@ use ambition_platformer2d::dev_tools::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
     MovementProfile, PlayerBodyProfile,
 };
+#[cfg(feature = "render")]
 use ambition_platformer2d::inventory_ui;
 use ambition_platformer2d::platformer::schedule::{
     Platformer2dSimulationPhase, PresentationSetupSet, SimScheduleExt,
@@ -12,20 +13,25 @@ use ambition_platformer2d::platformer::schedule::{
 // The rest of `fx` moved to `HostVfxPresentationPlugin` (see
 // `install_projectile_and_vfx_systems`); the blink preview ring is the one
 // pass still registered here, and only under the `input` persona.
-#[cfg(feature = "input")]
+#[cfg(all(feature = "input", feature = "render"))]
 use ambition_platformer2d::render::fx;
-use ambition_platformer2d::render::rendering::{camera_follow, sync_visuals};
+#[cfg(feature = "render")]
+use ambition_platformer2d::render::rendering::{sync_visuals, ViewCameraSet};
+#[cfg(feature = "render")]
 use ambition_platformer2d::render::ui_fonts;
 use bevy::prelude::*;
 
+#[cfg(feature = "render")]
 use crate::dev::debug_overlay;
 use crate::host::windowing;
 
 use super::dev_runtime::{
     handle_debug_hotkeys, handle_ldtk_hot_reload, restart_local_ggrs_after_hot_reload,
 };
+#[cfg(feature = "render")]
 use super::hud::{update_hud, update_quest_panel};
 use super::resources::init_sandbox_resources;
+#[cfg(feature = "render")]
 use super::setup_systems::{
     reload_visual_quality_assets_on_scale_change, setup_host_presentation_system,
 };
@@ -171,6 +177,7 @@ fn register_app_local_sim_systems(app: &mut App) {
 
 /// Register presentation-side plugins (input, dialogue, inspector, audio
 /// and VFX subscribers, HUD, debug overlays). Visible binary only.
+#[cfg(feature = "render")]
 pub fn add_presentation_plugins(app: &mut App) {
     // Generic load presentation is a presentation-tier service, not a shell
     // service. Install it for direct entry, shell-hosted play, and no-window
@@ -213,6 +220,7 @@ pub fn add_presentation_plugins(app: &mut App) {
 /// Visible-side resources, registered types, and presentation child
 /// plugins (input, audio, dev_tools, ui, mobile touch, FPS overlay, font
 /// loader). Ambition's provider installs its physics debris.
+#[cfg(feature = "render")]
 fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
         .init_resource::<ambition_platformer2d::render::asset_census::ImageCensus>()
@@ -299,6 +307,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
 
 /// Pause menu, inventory, map menu, presentation startup, dev/dialog
 /// hotkeys.
+#[cfg(feature = "render")]
 fn install_menu_setup_and_hotkeys(app: &mut App) {
     // An open inventory OWNS the seat's input, declared rather than derived:
     // every site that wanted this fact used to spell it `Paused &&
@@ -442,6 +451,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     }
 }
 
+#[cfg(feature = "render")]
 fn install_camera_and_debug_overlay_systems(app: &mut App) {
     app.add_plugins(ambition_platformer2d::render::rendering::observed_geometry::ObservedGeometryPlugin);
     app.add_systems(PostUpdate, super::hud::fit_primary_inspection_hud.before(bevy::ui::UiSystems::Prepare));
@@ -457,7 +467,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
         debug_overlay::render_debug_overlay_labels,
     )
         .chain()
-        .after(camera_follow)
+        .after(ViewCameraSet)
         .after(ambition_platformer2d::host::portal::PortalContinuityCameraTagged);
     #[cfg(not(feature = "portal_render"))]
     let overlay = (
@@ -467,7 +477,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
         debug_overlay::render_debug_overlay_labels,
     )
         .chain()
-        .after(camera_follow);
+        .after(ViewCameraSet);
     app.add_systems(
         Update,
         overlay.run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
@@ -481,6 +491,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     );
 }
 
+#[cfg(feature = "render")]
 fn install_fx_and_hud_systems(app: &mut App) {
     // Until then this app was the only one that DREW a `VfxMessage` it had written — which is why
     // Mary-O's coin never popped.
@@ -526,7 +537,7 @@ fn install_fx_and_hud_systems(app: &mut App) {
             // Consumes THIS frame's resolved HUD regions, so a profile that
             // reserves surround for HUD actually gets the HUD put there.
             ambition_platformer2d::render::hud::place_player_hud.after(
-                ambition_platformer2d::presentation::gameplay_presentation::GameplayPresentationSet,
+                ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet,
             ),
         )
             .chain()
@@ -538,6 +549,7 @@ fn install_fx_and_hud_systems(app: &mut App) {
 /// lock-wall visuals, NPC sprite upgrade, map-menu pointer dismiss,
 /// quest panel. Each system is its own `add_systems` call because the
 /// big presentation tuple is already at Bevy's 20-system arity ceiling.
+#[cfg(feature = "render")]
 fn install_misc_visual_sync_systems(app: &mut App) {
     #[cfg(feature = "portal_render")]
     app.add_systems(
@@ -600,6 +612,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
 
 /// Projectile sprite ring + VFX/debris message subscribers + (input-
 /// feature-gated) blink preview ring.
+#[cfg(feature = "render")]
 fn install_projectile_and_vfx_systems(app: &mut App) {
     // Projectile presentation is entity-backed now: the host renders the shared
     // `LiveProjectile` occurrence family after simulation, using `ProjectileVisualId` /
@@ -695,8 +708,10 @@ impl Plugin for AmbitionGameSimulationPlugin {
 
 /// Installs all presentation-side plugins: input, audio, VFX, HUD, debug
 /// overlays, and platform plugins. Visible binary only.
+#[cfg(feature = "render")]
 pub struct AmbitionGamePresentationPlugin;
 
+#[cfg(feature = "render")]
 impl Plugin for AmbitionGamePresentationPlugin {
     fn build(&self, app: &mut App) {
         add_presentation_plugins(app);

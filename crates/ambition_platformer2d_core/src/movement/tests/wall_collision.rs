@@ -1754,3 +1754,59 @@ fn a_still_body_is_met_by_a_wall_that_sweeps_across_it_in_one_tick() {
     assert!(after.min.x >= wall.aabb.max.x - 0.5,
         "the wall carries the body to its far side: body {:?}, wall {:?}", after, wall.aabb);
 }
+
+/// M3 (portals-are-moving-frames.md), through the whole kernel step: a body
+/// hangs half through a floor mouth with no gravity, and the exit drifts
+/// sideways toward a still wall beside the half that is through. The drift
+/// carries that half into the wall, so the wall pushes it back: the half
+/// through the exit stops at the wall face instead of sinking in.
+#[test]
+fn a_drifting_exit_holds_the_material_through_it_at_a_still_wall() {
+    use crate::frame::{ApertureStep, MapConvention, PortalAperture, PortalFrame,
+        thread::{MotionAdmission, PieceBudget, PortalLink}};
+    const DRIFT: f32 = 3.0;
+    let entry = PortalAperture { frame: PortalFrame::fixed(Vec2::new(100.0, 300.0), -Vec2::Y), half_length: 40.0 };
+    let exit_at = |tick: u32| PortalAperture {
+        frame: PortalFrame::fixed(Vec2::new(600.0 + DRIFT * tick as f32, 100.0), Vec2::Y), half_length: 40.0 };
+    let links_at = |tick: u32| {
+        let exit = exit_at(tick);
+        let step = ApertureStep::ending_at(exit.frame, Vec2::new(DRIFT, 0.0), 0.0);
+        let mut there = PortalLink::new(entry, exit, 0);
+        there.exit_step = step;
+        let mut back = PortalLink::new(exit, entry, 1);
+        back.enter_step = step;
+        [there, back]
+    };
+    let wall = Block::solid("wall beside the exit", Vec2::new(625.0, 104.0), Vec2::new(75.0, 196.0));
+    // The far edge of the half through the mouth, on the exit side, after each tick.
+    let run = |with_wall: bool| -> Vec<f32> {
+        let mut world = World::new("drifting exit", Vec2::splat(2000.0), Vec2::ZERO, vec![]);
+        world.chains.push(crate::SurfaceChain::open("floor", vec![Vec2::new(0.0, 300.0), Vec2::new(400.0, 300.0)]));
+        if with_wall { world.blocks.push(wall.clone()); }
+        let mut body = scratch_with(AbilitySet::default(), Vec2::new(100.0, 300.0));
+        body.kinematics.canonical_size = Vec2::splat(32.0);
+        body.kinematics.vel = Vec2::ZERO;
+        (1..=12).map(|tick| {
+            let links = links_at(tick);
+            let (model, mut clusters) = body.parts();
+            let result = step_motion(model, &mut clusters, MotionStepContext {
+                admission: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
+                    convention: MapConvention::Reflection }), world: &world,
+                input: InputState::default(), frame: crate::MotionFrame::from_direction(Vec2::Y, 0.0),
+                facing_intent: 0.0, dt: 1.0 / 60.0, contact: BodyContactField::NONE,
+                pose_owned_externally: false, recovery_commitment_outstanding: false,
+            });
+            assert!(result.events.motion_refusal.is_none(), "{:?}", result.events.motion_refusal);
+            let map = links[0].snapshot_at(1.0).unwrap().map(MapConvention::Reflection).unwrap();
+            let aabb = body.kinematics.aabb();
+            assert!(aabb.min.y < 300.0 && aabb.max.y > 300.0, "the body still straddles the mouth: {aabb:?}");
+            [Vec2::new(aabb.min.x, 300.0), Vec2::new(aabb.max.x, 300.0), Vec2::new(aabb.min.x, aabb.max.y), Vec2::new(aabb.max.x, aabb.max.y)]
+                .into_iter().map(|p| map.point(p).unwrap().x).fold(f32::MIN, f32::max)
+        }).collect()
+    };
+    let free = run(false);
+    assert!(*free.last().unwrap() > wall.aabb.min.x + 20.0, "control: the drift carries the far half along: {free:?}");
+    let held = run(true);
+    assert!(held.iter().all(|right| *right <= wall.aabb.min.x + 0.01), "the far half sank into the wall: {held:?}");
+    assert!((held.last().unwrap() - wall.aabb.min.x).abs() < 0.01, "the far half rests at the wall face: {held:?}");
+}

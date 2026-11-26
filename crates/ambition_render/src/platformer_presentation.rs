@@ -164,14 +164,14 @@ impl Plugin for SessionRoomVisualsPlugin {
             Update,
             crate::rendering::daylight::light_the_world
                 .run_if(resource_exists::<crate::rendering::daylight::DaylightStyle>)
-                .after(crate::rendering::camera_follow),
+                .after(crate::rendering::ViewCameraSet),
         );
         // The darkness of a dark room (its level fields `darkness` and
         // `ambient`), over the camera's view; it sleeps in a lit room once
         // its veil is hidden.
         app.add_systems(
             Update,
-            crate::rendering::darkness::darken_the_room.after(crate::rendering::camera_follow),
+            crate::rendering::darkness::darken_the_room.after(crate::rendering::ViewCameraSet),
         );
         // The light a boss asks for in its room (`ambition.boss.stage`).
         // Both sleep where no live room's game has named bosses, after the
@@ -180,7 +180,7 @@ impl Plugin for SessionRoomVisualsPlugin {
             Update,
             crate::rendering::boss_stage::light_the_boss_stage
                 .run_if(crate::rendering::boss_stage::bosses_are_shown_or_were)
-                .after(crate::rendering::camera_follow)
+                .after(crate::rendering::ViewCameraSet)
                 .in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters)),
         );
         // And its name card, while the conductor asks for it.
@@ -209,7 +209,7 @@ impl Plugin for SessionRoomVisualsPlugin {
                 crate::rendering::ambient_motes::present_room_motes.in_set(SessionScopeSet::Presentation),
                 crate::rendering::ambient_motes::drift_room_motes
                     .run_if(any_with_component::<crate::rendering::ambient_motes::AmbientMote>)
-                    .after(crate::rendering::camera_follow),
+                    .after(crate::rendering::ViewCameraSet),
             ),
         );
         // Each live room's parallax, after the refresh has taken stale layers
@@ -231,7 +231,7 @@ impl Plugin for SessionRoomVisualsPlugin {
                 crate::rendering::sync_parallax_layers,
             )
                 .chain()
-                .after(crate::rendering::camera_follow)
+                .after(crate::rendering::ViewCameraSet)
                 .after(crate::rendering::present_live_room_parallax),
         );
     }
@@ -273,7 +273,7 @@ impl Plugin for SplitViewRigsPlugin {
             Update,
             present_split_view_rigs
                 .after(ambition_sim_view::camera_snapshot::CameraObservationSet)
-                .before(crate::rendering::camera_follow),
+                .before(crate::rendering::ViewCameraSet),
         );
     }
 }

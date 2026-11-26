@@ -87,7 +87,7 @@ fn hard_fall_saturates_through_kick_cap() {
 }
 
 /// ⭐ THE PROPERTY THAT MAKES THE CALL SITE SAFE: idle is exactly `1.0`, so
-/// `camera_follow` can multiply unconditionally and a host that never decides a
+/// the camera stage can multiply unconditionally and a host that never decides a
 /// match presents a byte-identical scale to one without the feature.
 #[test]
 fn an_idle_finish_zoom_is_exactly_the_identity() {

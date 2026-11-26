@@ -16,7 +16,7 @@ _0 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write
 The crate is one file. Its state is presentation and never rolls back: the
 runtime's engine group installs the request appliers and the session-activation
 rest beside the resources, and the windowed host ticks the shake and the zoom
-ahead of `camera_follow`. The simulation's half (the requests, the tunings, the
+ahead of the camera stage. The simulation's half (the requests, the tunings, the
 amplitude laws and `PlayerBlinkCameraState`) is
 `ambition_platformer2d_shared_tangle::camera_ease`; nothing simulated writes
 the state here.

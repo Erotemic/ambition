@@ -1006,6 +1006,7 @@ fn power_transition_sfx(from: &str, to: &str) -> Option<&'static str> {
     mary_o_forms().cue(from, to).map(ambition_platformer2d::content::interned_id)
 }
 
+#[cfg(feature = "render")]
 /// Re-arm every ?-block when level 1-1 (re)loads, so a cyclic replay pops fresh
 /// wand. Mirrors the snake restage; the wand items themselves are room-scoped and
 /// despawn with the room.

@@ -109,6 +109,7 @@ pub fn register_mary_o_construction_props(app: &mut App) {
     );
     app.add_plugins(ambition_platformer2d::content::live_reload::EmbeddedPackReloadPlugin::prop_sheets(&crate::pack::PACK, crate::provider::MARY_O_EXPERIENCE));
     // How the lift is laid on its platform: the pack's `platform_looks.ron`.
+    #[cfg(feature = "render")]
     {
         use ambition_platformer2d::render::rendering::moving_platforms::PlatformLooksAppExt;
         app.register_platform_look_rows(
@@ -142,6 +143,7 @@ pub fn lava_pools_of(room: &ambition_platformer2d::world::rooms::RoomSpec) -> Ve
 #[derive(Component)]
 pub struct LavaVisual;
 
+#[cfg(feature = "render")]
 /// In a room of Mary-O a damage volume is fire: each one is drawn as the fire
 /// orb, and not as the spikes that are the engine's picture of a hazard. A
 /// pit of lava is drawn by its props, so its own visual is hidden.

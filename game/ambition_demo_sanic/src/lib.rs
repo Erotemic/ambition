@@ -419,6 +419,7 @@ pub fn install_sanic_content(app: &mut App) {
         // `Update` (Mary-O's `dress_power_blocks` says why not in the sim).
         // Asleep while another game is on screen in the hub: no Sanic room is
         // live then.
+        #[cfg(feature = "render")]
         app.add_systems(
             bevy::prelude::Update,
             bevy::prelude::IntoScheduleConfigs::run_if(
@@ -605,6 +606,7 @@ impl Plugin for SanicRulesPlugin {
             // viewer-dependent cone misdraws at Sanic's speed. This is Sanic's
             // choice for its own rooms: the engine default stays `Dynamic`,
             // and a host's rooms keep the host's cones.
+            #[cfg(feature = "render")]
             app.declare_rules(
                 scope,
                 ambition_platformer2d::portal_presentation::PortalViewConeMode::Static,

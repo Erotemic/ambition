@@ -149,7 +149,7 @@ mod headless_arg_tests {
 /// short diagnostic so users on a headless VM get a working
 /// `cargo run` instead of a `bevy_winit` event-loop panic. Override the
 /// number of ticks with `--headless-ticks N` (default 120).
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
 pub fn run_visible() {
     #[cfg(feature = "input")]
     if std::env::args().any(|arg| arg == "--explain-bindings") {
@@ -278,7 +278,7 @@ pub const SHARED_HOST_HEADLESS_TICK_HZ: f64 = 60.0;
 /// Derived from the composed sequence rather than restated as a constant: the
 /// run-in has already grown from one card to two, and a hardcoded budget silently
 /// becomes "asserts the host is still on the first card" the moment it does.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
 pub fn shared_host_startup_ticks(world: &mut World) -> u32 {
     let seconds = super::shell_host::ambition_startup_duration(world).as_secs_f64();
     (seconds * SHARED_HOST_HEADLESS_TICK_HZ).ceil() as u32 + SHARED_HOST_HEADLESS_TICK_HZ as u32
@@ -289,6 +289,7 @@ pub fn shared_host_startup_ticks(world: &mut World) -> u32 {
 /// an instrument, exposed because the cost of FILLING the cache is the one thing its own
 /// counters never described — `hits`/`misses`/`stale_misses` all answer "what did a transition
 /// get out of it".
+#[cfg(feature = "render")]
 pub fn prefetch_preparations(world: &bevy::prelude::World) -> u64 {
     ambition_platformer2d::world_flow::prefetch_preparations(world)
 }
@@ -303,7 +304,7 @@ pub fn prefetch_preparations(world: &bevy::prelude::World) -> u64 {
 /// `AMBITION_HEADLESS_GAMEPLAY_ROOM=<room id>` selects a gameplay room instead of
 /// idling on the launcher; see [`run_shared_host_headless_in_room`], which is the
 /// same road with the room as an argument.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
 pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
     // ⭐ THE ENV VAR IS READ IN EXACTLY ONE PLACE AND IMMEDIATELY BECOMES AN
     // ARGUMENT. It used to be read inside the body, which made the gameplay-room
@@ -324,7 +325,7 @@ pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
 /// runs, minus the render app — in a room of choice, which is what
 /// `--start-room` cannot give (it selects the direct sandbox host, with no
 /// rollback session). `None`: idle on the launcher.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
 pub fn run_shared_host_headless_in_room(
     gameplay_room: Option<String>,
     max_ticks: u32,
@@ -609,7 +610,7 @@ impl std::fmt::Display for SharedHostAcceptanceReport {
 /// Execute startup -> launcher -> Ambition -> launcher -> Sanic -> launcher ->
 /// Mary-O -> launcher -> Sanic -> launcher -> Exit through the exact shipping
 /// composition. This is exposed to `run_game.sh -- --headless-acceptance-cycle`.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
 pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
     use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
     use bevy::time::TimeUpdateStrategy;
@@ -695,6 +696,7 @@ pub fn run_shared_host_acceptance_cycle() -> SharedHostAcceptanceReport {
 /// queues an insert on every camera it has not seen, so a camera that a room
 /// retirement despawns in that frame made the command panic, and its F1/F2
 /// keys are the developer hotkeys' too.
+#[cfg(feature = "render")]
 fn host_default_plugins() -> bevy::app::PluginGroupBuilder {
     use bevy::dev_tools::render_debug::RenderDebugOverlayPlugin;
     let plugins = ambition_platformer2d::app::default_plugins();
@@ -709,7 +711,7 @@ fn host_default_plugins() -> bevy::app::PluginGroupBuilder {
 ///
 /// Desktop-only: the browser build has exactly one surface (its `<canvas>`), so
 /// `run_web` composes plugins directly rather than selecting a mode.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum VisibleRenderMode {
     /// A real desktop window.
@@ -754,7 +756,7 @@ pub enum VisibleRenderMode {
 /// builder (both `not(wasm32)`) and disables the terminal Ctrl-C handler. Every
 /// caller (`run_visible`, the shared-host headless + acceptance runners) is
 /// already `not(wasm32)`; the browser entry is `run_web`.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
 pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     build_visible_app_with(render, shell_hosted, |_| {})
 }
@@ -881,7 +883,7 @@ pub(crate) fn ambition_log_plugin() -> bevy::log::LogPlugin {
 /// It runs AFTER [`insert_starting_character_override`] reads
 /// `AMBITION_START_CHARACTER`, so an explicit caller wins over the environment,
 /// and after `AmbitionShellHosted`, so nothing here can be undone by the builder.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
 pub fn build_visible_app_with(
     render: VisibleRenderMode,
     shell_hosted: bool,
@@ -890,7 +892,7 @@ pub fn build_visible_app_with(
     build_visible_app_for_project(render, shell_hosted, super::project::cli_project(), compose_inputs)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
 pub(super) fn build_visible_app_for_project(
     render: VisibleRenderMode,
     shell_hosted: bool,
@@ -1169,7 +1171,7 @@ pub(super) fn build_visible_app_for_project(
 ///
 /// Desktop-only, like every other reader of the command line: a browser has no
 /// argv to carry a development entry flag, so `run_web` never asks.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
 fn cli_direct_entry() -> bool {
     if std::env::var("AMBITION_DIRECT").is_ok_and(|v| v == "1") {
         return true;

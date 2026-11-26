@@ -99,7 +99,7 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
 
     // The view is spawned at plugin BUILD time, so it is already here; binding the link at
     // SPAWN makes "which view does this camera show" a composition decision on the entity
-    // rather than a uniqueness assumption re-derived every frame in `camera_follow`.
+    // rather than a uniqueness assumption re-derived every frame in the camera stage.
     //
     // deferred, because this helper takes only `Commands` — the view is spawned
     // at plugin BUILD time so it is already in the world when this runs.
@@ -130,7 +130,7 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
 
     // a single-camera SPAWN RECORD, published through the shared writer that
     // complains about a second rig instead of letting the last one win. Nothing
-    // in production reads it: `camera_follow` and the viewport applier each
+    // in production reads it: the camera stage and the viewport applier each
     // resolve through the camera's own `PresentsView` link, and the cube's
     // full-screen dim-scrim now targets its own display-scoped UI camera rather
     // than borrowing this one (which carries a `Camera::viewport` under any

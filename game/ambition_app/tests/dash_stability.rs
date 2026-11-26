@@ -5,7 +5,7 @@
 //! center pops 10.35px (= 0.225 * base_size.y). The camera tracked
 //! pos.y directly, so it visibly snapped.
 //!
-//! Fix lives in `rendering::camera_follow`: subtract the resize
+//! Fix lives in the camera stage (`rendering::ViewCameraSet`): subtract the resize
 //! offset `(base_size.y - size.y) * 0.5` from the camera target so
 //! the camera follows a stable "standing-pose center" point that
 //! doesn't move with body resizes. This test asserts on the feet

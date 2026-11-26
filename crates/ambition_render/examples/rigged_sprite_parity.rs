@@ -30,7 +30,7 @@ use bevy::sprite::Anchor;
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_render::rendering::actors::draw_held_frame;
 use ambition_render::rendering::actors::rigged::{
-    add_rigged_impostor_material_plugin, bind_rigged_presentations, drive_rigged_presentations, impostor_cell_class,
+    add_rigged_impostor_material_plugin, bind_rigged_presentations, rigged_presentation_drive, impostor_cell_class,
     RiggedImpostorAtlas, give_back_the_cell_of_a_removed_presentation, IMPOSTOR_CELL_CLASSES, IMPOSTOR_MARGIN, impostor_margin,
 };
 use ambition_render::rendering::actors::BoundSpriteQuality;
@@ -169,7 +169,7 @@ fn capture_all(
         .insert_resource(RiggedSpriteAdmission { admit: rigged })
         .insert_resource(Pin::default())
         .insert_resource(captured.clone())
-        .add_systems(Update, (pin, bind_rigged_presentations, drive_rigged_presentations).chain());
+        .add_systems(Update, (pin, bind_rigged_presentations, rigged_presentation_drive()).chain());
     let asset = {
         let world = app.world_mut();
         // Decoded here rather than through the asset server, which refuses a

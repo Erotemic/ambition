@@ -573,7 +573,7 @@ pub const ANNOUNCE_HUD_SLOT: &str = "versus_announce";
 pub fn a_versus_hud_is_owed(
     state: Option<Res<VersusMatch>>,
     roster: Option<Res<ambition_platformer2d::versus_match::MatchParticipantRoster>>,
-    readouts: Res<ambition_platformer2d::presentation::HudReadouts>,
+    readouts: Res<ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts>,
 ) -> bool {
     (state.is_some() && roster.is_some())
         || HEALTH_HUD_SLOTS
@@ -587,7 +587,7 @@ pub fn publish_versus_hud(
     state: Option<Res<VersusMatch>>,
     roster: Option<Res<ambition_platformer2d::versus_match::MatchParticipantRoster>>,
     fighters: Query<(&MatchSeat, Option<&MatchTeam>, &BodyHealth, &Name)>,
-    mut readouts: ResMut<ambition_platformer2d::presentation::HudReadouts>,
+    mut readouts: ResMut<ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts>,
 ) {
     let (Some(state), Some(_roster)) = (state, roster) else {
         for slot in HEALTH_HUD_SLOTS {
@@ -625,7 +625,7 @@ pub fn publish_versus_hud(
         written[*seat] = true;
         readouts.set(
             *slot,
-            ambition_platformer2d::presentation::HudReadout::gauge(
+            ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::gauge(
                 name.clone(),
                 format!("{hp}/{max}"),
                 if *max > 0 {
@@ -654,11 +654,11 @@ pub fn publish_versus_hud(
     }
     readouts.set(
         ROUNDS_HUD_SLOT,
-        ambition_platformer2d::presentation::HudReadout::bare(score_line(&state, &teams)),
+        ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(score_line(&state, &teams)),
     );
 
     match announce_line(&state) {
-        Some(line) => readouts.set(ANNOUNCE_HUD_SLOT, ambition_platformer2d::presentation::HudReadout::bare(line)),
+        Some(line) => readouts.set(ANNOUNCE_HUD_SLOT, ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadout::bare(line)),
         None => readouts.clear_slot(ANNOUNCE_HUD_SLOT),
     }
 }
@@ -711,7 +711,7 @@ mod tests {
     #[test]
     fn a_finished_scoreboard_is_cleared_once_and_then_rests() {
         use bevy::ecs::change_detection::DetectChanges as _;
-        use ambition_platformer2d::presentation::HudReadouts;
+        use ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts;
         let mut app = App::new();
         app.init_resource::<HudReadouts>();
         app.world_mut().resource_mut::<HudReadouts>().set_labelled(ROUNDS_HUD_SLOT, "ROUND", 3);

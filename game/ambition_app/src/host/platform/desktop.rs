@@ -10,7 +10,7 @@ use bevy::input::mouse::{MouseButtonInput, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::{CursorMoved, CursorOptions, Monitor, MonitorSelection, OnMonitor, PrimaryWindow, WindowMode};
 
-use ambition_platformer2d::presentation::gameplay_presentation::PresentationEnvironment;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationEnvironment;
 
 /// How long the mouse rests before the cursor hides.
 const CURSOR_REST: Duration = Duration::from_millis(2500);

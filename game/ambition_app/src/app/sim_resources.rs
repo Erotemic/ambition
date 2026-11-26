@@ -31,14 +31,6 @@ impl Plugin for AmbitionGameSimulationSetupPlugin {
             )
                 .chain(),
         )
-        // The image census counts decoded textures, so it reads as a
-        // presentation concern and its resource is installed with the other
-        // presentation resources — but the SYSTEM is registered here, which a
-        // headless app also runs. That split panicked every headless test with
-        // "Resource does not exist". Initialising it beside its own system is
-        // what makes the pairing local; `init_resource` is a no-op when the
-        // presentation side has already inserted it.
-        .init_resource::<ambition_platformer2d::render::asset_census::ImageCensus>()
         // ⛔ **THE CENSUS CLOCK MOVED INTO `PlatformerEnginePlugins` ON
         // 2026-09-20 AND MUST NOT BE ADDED AGAIN HERE.** It was composed by
         // this host alone, so the demo hosts — which compose the engine group
@@ -50,12 +42,17 @@ impl Plugin for AmbitionGameSimulationSetupPlugin {
         // `Last` so the frame census measures the whole frame, render work
         // included, rather than the part of it that happens to precede
         // whatever schedule we registered in.
-        .add_systems(
-            Last,
-            (
-                ambition_platformer2d::dev_tools::profiling::report_frame_census,
-                ambition_platformer2d::render::asset_census::report_image_census,
-            ),
-        );
+        .add_systems(Last, ambition_platformer2d::dev_tools::profiling::report_frame_census);
+        // The image census counts decoded textures, so it reads as a
+        // presentation concern and its resource is installed with the other
+        // presentation resources — but the SYSTEM is registered here, which a
+        // headless app also runs. That split panicked every headless test with
+        // "Resource does not exist". Initialising it beside its own system is
+        // what makes the pairing local; `init_resource` is a no-op when the
+        // presentation side has already inserted it.
+        // A build without the renderer has no image census to keep.
+        #[cfg(feature = "render")]
+        app.init_resource::<ambition_platformer2d::render::asset_census::ImageCensus>()
+            .add_systems(Last, ambition_platformer2d::render::asset_census::report_image_census);
     }
 }

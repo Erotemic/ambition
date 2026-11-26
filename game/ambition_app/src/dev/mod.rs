@@ -3,9 +3,13 @@
 //! no simulation-state ownership. The observatory's control resource is
 //! platform-neutral so desktop keys and future Android developer UI can share
 //! one proof-request seam.
+#[cfg(feature = "render")]
 pub mod debug_overlay;
+#[cfg(feature = "render")]
 pub mod navigation_overlay;
+#[cfg(feature = "render")]
 pub mod diagnostics_panel;
+#[cfg(feature = "render")]
 pub mod fps_overlay;
 #[cfg(feature = "dev_tools")]
 pub mod frame_step;
@@ -31,9 +35,11 @@ pub struct DevToolsPlugin;
 impl Plugin for DevToolsPlugin {
     fn build(&self, app: &mut App) {
         // FPS overlay (ON by default on wasm, OFF on desktop; F6 toggles).
+        #[cfg(feature = "render")]
         app.add_plugins(fps_overlay::FpsOverlayPlugin);
         // F1's numeric panel. Registered beside the FPS counter because both are
         // HOST diagnostics: neither needs a gameplay session to mean something.
+        #[cfg(feature = "render")]
         app.add_plugins(diagnostics_panel::AmbitionDiagnosticsPanelPlugin);
         // What the stick actually reports, per pad, with a peak-hold. Shift+F6.
         app.add_plugins(gamepad_probe::GamepadProbePlugin);

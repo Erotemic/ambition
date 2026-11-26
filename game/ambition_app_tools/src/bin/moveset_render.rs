@@ -125,7 +125,7 @@ struct RequestedOverlayLayers(CombatOverlayLayers);
 /// The gameplay camera frames a whole stage (568 to 1600 world units), so a
 /// 50-unit fighter is a few dozen pixels. An inspector needs a close-up.
 ///
-/// Written every frame after `camera_follow`. That policy runs in `Update`
+/// Written every frame after the camera stage. That policy runs in `Update`
 /// and re-derives the camera, so a one-shot write would be overwritten by the
 /// next zero-duration pump, which is the pump the picture is taken on.
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug)]
@@ -212,7 +212,7 @@ fn frame_for(
 /// rectangle directly.
 fn frame_the_inspection(
     framing: Option<Res<InspectorFraming>>,
-    // The room is part of the transform. `camera_follow` places the camera at
+    // The room is part of the transform. The camera stage places the camera at
     // `world.x - room.x/2`, `room.y/2 - world.y` (an offset and a Y flip), so
     // sim coordinates cannot go straight into the transform.
     room: ambition_platformer2d::platformer::lifecycle::SoleLiveRoom<
@@ -461,7 +461,7 @@ fn main() {
         // default both write this state, so a startup-only write races them.
         app.add_systems(Update, force_combat_overlay);
     }
-    // After the camera policy, before the parallax. `camera_follow`
+    // After the camera policy, before the parallax. The camera stage
     // re-derives the camera every `Update`, and the parallax layers read the
     // camera it leaves. `capture_scene` orders its snapshot here for the same
     // reasons.
@@ -469,7 +469,7 @@ fn main() {
         app.add_systems(
             Update,
             frame_the_inspection
-                .after(ambition_platformer2d::render::rendering::camera_follow)
+                .after(ambition_platformer2d::render::rendering::ViewCameraSet)
                 .before(ambition_platformer2d::render::rendering::sync_parallax_layers),
         );
     }
@@ -958,7 +958,7 @@ fn render_pair(
         }
 
         // Written before the shutter, read during it. `capture` pumps
-        // `Update`, so `camera_follow` re-derives the stage framing and
+        // `Update`, so the camera stage re-derives the stage framing and
         // `frame_the_inspection` puts this back after it.
         let framing = (view_width > 0.0)
             .then(|| frame_for(&observation, view_width, aspect))

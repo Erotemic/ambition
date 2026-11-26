@@ -26,6 +26,7 @@ mod binding_census;
 mod combo_trace;
 mod dev_runtime;
 mod feedback;
+#[cfg(feature = "render")]
 mod hud;
 #[cfg(not(feature = "static_content"))]
 pub mod movement_defaults_watch;
@@ -39,6 +40,7 @@ pub mod content_check;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod source_pairing;
 mod resources;
+#[cfg(feature = "render")]
 mod scene_setup;
 mod setup_systems;
 pub mod host_pack;
@@ -50,6 +52,7 @@ mod startup_loading;
 pub mod versus;
 pub mod versus_fighters;
 pub mod versus_rules;
+#[cfg(feature = "render")]
 pub mod visible_composition;
 #[cfg(test)]
 mod world_flow_fixture_tests;
@@ -61,24 +64,26 @@ pub use ambition_platformer2d::runtime::schedule::configure_platformer2d_simulat
 pub use ambition_platformer2d::sim::{
     BossSteerSlot, Platformer2dSimulationPhase, PresentationSetupSet,
 };
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
 pub use cli::run_visible;
 #[cfg(all(target_arch = "wasm32", feature = "web_platform"))]
 pub use cli::run_web;
 #[cfg(not(target_arch = "wasm32"))]
+pub use cli::{SharedHostAcceptanceReport, SharedHostHeadlessReport, SHARED_HOST_HEADLESS_TICK_HZ};
+// The shared-host runners build the visible app (with no window), so they
+// are a drawing persona's.
+#[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
 pub use cli::{
     build_visible_app, build_visible_app_with, prefetch_preparations,
     run_shared_host_acceptance_cycle, run_shared_host_headless,
-    run_shared_host_headless_in_room, shared_host_startup_ticks,
-    SharedHostAcceptanceReport, SharedHostHeadlessReport, VisibleRenderMode,
-    SHARED_HOST_HEADLESS_TICK_HZ,
+    run_shared_host_headless_in_room, shared_host_startup_ticks, VisibleRenderMode,
 };
 pub use feedback::ProgressionResources;
+#[cfg(feature = "render")]
 pub use hud::update_quest_panel;
-pub use plugins::{
-    add_presentation_plugins, add_simulation_plugins, AmbitionGamePresentationPlugin,
-    AmbitionGameSimulationPlugin,
-};
+pub use plugins::{add_simulation_plugins, AmbitionGameSimulationPlugin};
+#[cfg(feature = "render")]
+pub use plugins::{add_presentation_plugins, AmbitionGamePresentationPlugin};
 pub use ambition_content::world_preparation::{
     SeatsAMatchInsteadOfAHomeBody, StartRoomMustResolve, StartRoomOverride, StartingCharacterOverride,
 };

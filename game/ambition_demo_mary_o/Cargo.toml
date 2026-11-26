@@ -17,6 +17,10 @@ served_content = ["static_content"]
 # The pack check binary (`mary_o_content_check`): the content CLI with this demo's
 # own schemas. Off by default: the demo never links the CLI.
 content_check = ["ambition_platformer2d/content_check"]
+# Her looks: shaders, overlays and the systems that dress sim bodies. A host
+# that draws turns it on; a simulation or a pack check builds without the
+# renderer.
+render = ["ambition_platformer2d/ambition_render"]
 
 [build-dependencies]
 ambition_sprite_part_format = { path = "../../crates/ambition_sprite_part_format" }
@@ -32,7 +36,10 @@ ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
 # Its enemy brains, as extension modules: an edit to one compiles that crate
 # alone, and a running game loads the file (`MaryORulesPlugin` links them).
 ambition_demo_mary_o_modules = { path = "../ambition_demo_mary_o_modules" }
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["rollback", "ldtk", "ambition_render", "ambition_touch_input", "ambition_settings_menu", "content_pack"] }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["rollback", "ldtk", "ambition_touch_input", "ambition_settings_menu", "content_pack"] }
+# The gameplay presentation vocabulary (HUD slots, defense blink) without the
+# renderer the facade's `presentation` path brings.
+ambition_platformer2d_shared_tangle = { path = "../../crates/ambition_platformer2d_shared_tangle" }
 # A content crate that defines its own ECS components/resources cannot reach
 # bevy's derive macros through `ambition_platformer2d::bevy` — they resolve `bevy_ecs` through
 # the CONSUMER's manifest, so a re-export does not satisfy them. The E9 oracle's
@@ -52,5 +59,6 @@ test = false
 bench = false
 
 [dev-dependencies]
-
+# Her own tests draw: they run with her looks.
+ambition_demo_mary_o = { path = ".", features = ["render"] }
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["test-support"] }

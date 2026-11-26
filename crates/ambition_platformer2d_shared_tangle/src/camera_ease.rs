@@ -275,7 +275,7 @@ impl PlayerBlinkCameraState {
 /// ⇒ A finishing zoom wants to go the other way, and the tempting fix — let a
 /// transient push `zoom_multiplier` under 1.0 — would spend that guarantee for
 /// every consumer and put a second authority on a number `CameraZoneSpec` owns.
-/// So this rides where the SHAKE rides instead: applied by `camera_follow`, on
+/// So this rides where the SHAKE rides instead: applied by the camera stage, on
 /// the presented projection, downstream of the resolved snapshot. Nothing
 /// downstream of the snapshot feeds back into it, so a rollback host cannot
 /// desynchronise on it and gameplay framing is untouched.

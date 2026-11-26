@@ -16,7 +16,9 @@ use ambition_platformer2d::portal_presentation::{
     PortalCameraContinuityConfig, PortalCameraContinuityHostView, PortalCameraContinuitySelection,
     PortalCameraContinuityState,
 };
-use ambition_platformer2d::render::rendering::{camera_follow, CameraViewState};
+use ambition_platformer2d::render::rendering::{
+    view_camera_presentation, CameraViewState, PresentedViewFrames, ViewCameraSet,
+};
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;
@@ -91,7 +93,7 @@ impl HeadlessCameraHarness {
         app.init_resource::<PortalCameraContinuitySelection>();
         app.init_resource::<PortalCameraContinuityConfig>();
         app.init_resource::<PortalCameraContinuityHostView>();
-        // camera_follow is the PRESENTATION half now (E4-17): the sim's
+        // The camera stage is the PRESENTATION half now (E4-17): the sim's
         // CameraObservationPlugin (inside AmbitionGameSimulationPlugin's engine
         // group) resolves the snapshot as a tail observer after CoreSimulation;
         // the rig composes the render-side apply after it, exactly like the real
@@ -106,20 +108,22 @@ impl HeadlessCameraHarness {
                     .before(ambition_platformer2d::host::portal::apply_portal_camera_continuity),
                 ambition_platformer2d::host::portal::apply_portal_camera_continuity
                     .after(Platformer2dSimulationPhase::CoreSimulation)
-                    .before(camera_follow),
+                    .before(ViewCameraSet),
                 // Same-frame clamp pad into the sim resolve, like the host.
                 ambition_platformer2d::render::rendering::publish_portal_camera_clamp
                     .after(ambition_platformer2d::host::portal::apply_portal_camera_continuity)
                     .before(ambition_platformer2d::sim_view::camera_snapshot::CameraObservationSet),
-                camera_follow
+                view_camera_presentation()
                     .after(ambition_platformer2d::host::portal::apply_portal_camera_continuity)
                     .after(ambition_platformer2d::sim_view::camera_snapshot::CameraObservationSet),
             ),
         );
+        app.init_resource::<PresentedViewFrames>();
         app.world_mut().spawn((
             Transform::default(),
             Projection::Orthographic(OrthographicProjection::default_2d()),
             MainCamera,
+            Camera2d,
             Name::new("headless continuity test main camera"),
         ));
         app.update();

@@ -224,7 +224,7 @@ mod tests {
     }
     #[test]
     fn menus_use_the_full_display_and_split_shared_views() {
-        use ambition_platformer2d::presentation::gameplay_presentation::{
+        use ambition_platformer2d_shared_tangle::gameplay_presentation::{
             ResolvedGameplayPresentation, ScreenRect,
         };
         let mut app = App::new();

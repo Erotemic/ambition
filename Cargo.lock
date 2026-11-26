@@ -198,6 +198,7 @@ dependencies = [
  "ambition_input_opinions",
  "ambition_menu_kaleidoscope",
  "ambition_platformer2d",
+ "ambition_platformer2d_shared_tangle",
  "ambition_sim_harness",
  "ambition_sprite_part_format",
  "bevy",
@@ -607,9 +608,11 @@ name = "ambition_demo_mary_o"
 version = "0.1.0"
 dependencies = [
  "ambition_content_pack",
+ "ambition_demo_mary_o",
  "ambition_demo_mary_o_modules",
  "ambition_entity_catalog",
  "ambition_platformer2d",
+ "ambition_platformer2d_shared_tangle",
  "ambition_sprite_part_format",
  "bevy",
  "serde",
@@ -652,9 +655,11 @@ name = "ambition_demo_sanic"
 version = "0.1.0"
 dependencies = [
  "ambition_content_pack",
+ "ambition_demo_sanic",
  "ambition_demo_sanic_modules",
  "ambition_entity_catalog",
  "ambition_platformer2d",
+ "ambition_platformer2d_shared_tangle",
  "ambition_sprite_part_format",
  "bevy",
  "serde",
@@ -684,10 +689,12 @@ name = "ambition_demo_smash"
 version = "0.1.0"
 dependencies = [
  "ambition_content_pack",
+ "ambition_demo_smash",
  "ambition_demo_smash_modules",
  "ambition_entity_catalog",
  "ambition_fighter_specials",
  "ambition_platformer2d",
+ "ambition_platformer2d_shared_tangle",
  "ambition_resource_spec",
  "ambition_sprite_part_format",
  "bevy",

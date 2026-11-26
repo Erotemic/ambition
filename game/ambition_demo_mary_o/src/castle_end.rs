@@ -35,6 +35,7 @@ pub const GOAL_SWITCH: &str = "goal_switch";
 /// The name of the prop that draws the switch.
 pub const SWITCH_ART: &str = "goal_switch_art";
 /// The row of the sheet of the switch when it is down.
+#[cfg_attr(not(feature = "render"), allow(dead_code))]
 const PRESSED_ROW: &str = "pressed";
 /// The side of the square the switch is drawn in, in world px. The base of the
 /// square is on the floor, and the top of the button is the top of the block.
@@ -721,6 +722,7 @@ pub fn he_looks_at_her(
     }
 }
 
+#[cfg(feature = "render")]
 /// The switch shows that it is down, and the gate shows how far it is up.
 ///
 /// Derived from the sequence each frame, so a rewind to before the switch puts

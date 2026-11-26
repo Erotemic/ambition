@@ -92,7 +92,7 @@
 //! flipbook's stated overhang (`RiggedSpriteAsset::art_overhang`, a
 //! conservative envelope taken when the flipbook is read); parts placed by a
 //! [`PartPose`] are in no file, so they are measured each frame
-//! ([`posed_reach`]), and a body whose pose reaches past its cell draws
+//! (measured on its [`RiggedLocalSample`]), and a body whose pose reaches past its cell draws
 //! directly while it does, as a body that fits no cell.
 //!
 //! ⛔ Nothing here runs unless [`RiggedSpriteAdmission`] admits the flipbooks
@@ -513,8 +513,60 @@ pub struct Impostor {
     pub feet: Vec2,
 }
 
+/// What one rigged body's local sample is this frame.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum LocalSampleState {
+    /// Nothing is sampled: the body is not drawn, or it was never sampled.
+    #[default]
+    Unavailable,
+    /// The row is the baked sheet's (a baked clip of a hybrid): the body is
+    /// its baked frame, and there are no parts to draw.
+    Baked,
+    /// `draws` holds the body's parts, in draw order.
+    Parts,
+}
+
+/// One rigged body's local sample at this frame's presentation cut, made once
+/// before any renderer reads it (RV1, PVS-2).
+///
+/// It is the whole local interpretation of the animation: the clip's frame,
+/// its tween, legs, head turn, expression, layer, wounds, the blend from the
+/// last row, the follow-through, a pose, and the track mask, in that order.
+/// Each draw keeps its pivot place, scale, rotation, part (its texture region
+/// in the flipbook) and full RGBA. Where the body is in the world is not
+/// here: that is placement, which each renderer applies at its own stage.
+/// A renderer reads this; it never interprets the animation itself.
+#[derive(Component, Debug, Default)]
+pub struct RiggedLocalSample {
+    pub state: LocalSampleState,
+    /// The drawn row's index in the animator's spec, and its frame.
+    pub row: Option<usize>,
+    pub frame: usize,
+    /// The frame's own opacity (a fading frame is one picture fading).
+    pub frame_opacity: f32,
+    pub draws: Vec<PartDraw>,
+}
+
+impl RiggedLocalSample {
+    /// The parts to draw, when the sample has parts.
+    pub fn parts(&self) -> Option<&[PartDraw]> {
+        (self.state == LocalSampleState::Parts).then_some(self.draws.as_slice())
+    }
+}
+
+/// The rigged presentation stage: the local sample, then the 2D driver.
+/// Order a system against the whole stage, not one of its systems.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RiggedDriveSet;
+
+/// The stage's systems, in order, in [`RiggedDriveSet`].
+pub fn rigged_presentation_drive() -> bevy::ecs::schedule::ScheduleConfigs<bevy::ecs::system::ScheduleSystem> {
+    (sample_rigged_presentations, drive_rigged_presentations).chain().in_set(RiggedDriveSet)
+}
+
 /// The presentation owner of one rigged root.
 #[derive(Component)]
+#[require(RiggedLocalSample)]
 pub struct RiggedPresentation {
     /// The sheet target whose parts these are.
     pub target: String,
@@ -533,7 +585,7 @@ pub struct RiggedPresentation {
     /// ([`COMPOSED_HOLD_FRAMES`] after the last).
     pub composed_hold: u16,
     /// Frames the body stays OFF the composited road after the last frame its
-    /// [`PartPose`] put a part past its cell ([`posed_reach`]): the same hold,
+    /// [`PartPose`] put a part past its cell (measured on its [`RiggedLocalSample`]): the same hold,
     /// so a pose at the edge of the cell does not move the body between the
     /// atlas and the world every frame.
     pub overflow_hold: u16,
@@ -1170,6 +1222,117 @@ impl BoundParts {
     }
 }
 
+/// Make each drawn rigged body's [`RiggedLocalSample`] (RV1, PVS-2): the
+/// whole local interpretation of its animation, once, before any renderer
+/// reads it. The blend and follow-through clocks advance here, beside the one
+/// interpretation that reads them.
+pub fn sample_rigged_presentations(
+    mut owners: Query<(&RiggedPresentationOf, &mut RiggedPresentation, &mut RiggedLocalSample), Without<RiggedPartSlot>>,
+    roots: Query<
+        (&CharacterAnimator, Option<&PartPose>, Option<&RiggedTrackMask>),
+        (Without<RiggedPresentation>, Without<RiggedPartSlot>),
+    >,
+    time: Option<Res<Time>>,
+) {
+    for (&RiggedPresentationOf(root), mut presentation, mut sample) in &mut owners {
+        let sample = &mut *sample;
+        sample.state = LocalSampleState::Unavailable;
+        sample.draws.clear();
+        sample.row = None;
+        sample.frame = 0;
+        sample.frame_opacity = 1.0;
+        let Ok((animator, pose, mask)) = roots.get(root) else {
+            continue;
+        };
+        if !presentation.drawing {
+            // Unseen, it draws nothing to blend from: the frame it is seen
+            // again is drawn as it is.
+            presentation.last_row = None;
+            presentation.blend_left = 0.0;
+            presentation.swing = None;
+            continue;
+        }
+        let flipbook = presentation.pages.flipbook.clone();
+        // `None` for a baked clip of a hybrid: `check_rows` at attach makes
+        // sure that every other row has draws. A tweened clip draws the frame
+        // `frame_phase` of the way to the next (the flipbook's published rule).
+        let mut drawn = std::mem::take(&mut presentation.drawn);
+        let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row));
+        let mut posed_draws = std::mem::take(&mut presentation.posed_draws);
+        // POSE-CONTINUITY: a change of row between two carriage poses slides
+        // from the pose last drawn (blended or not, so an interrupted blend
+        // goes on from where it is) over `CLIP_BLEND_SECONDS`. A turn to face
+        // the other way is not a change of row here (the authored row, before
+        // facing), and a strike or an impact does not blend.
+        let authored_row = animator.authored_slot();
+        let blends = animator.drawn_clip().is_none() && animator.current.blends_in();
+        if !blends {
+            presentation.blend_left = 0.0;
+        } else if presentation.last_row.is_some_and(|last| last != authored_row) && !presentation.last_draws.is_empty() {
+            let RiggedPresentation { blend_from, last_draws, .. } = &mut *presentation;
+            blend_from.clone_from(last_draws);
+            presentation.blend_left = CLIP_BLEND_SECONDS;
+        }
+        // The follow-through: set off by coming into a pose that swings (a
+        // landing, a brake, a blow), carried on through the carriage poses
+        // after it, and dropped at once by a strike or any clip.
+        let row_changed = presentation.last_row.is_some_and(|last| last != authored_row);
+        let carriage = animator.drawn_clip().is_none()
+            && (animator.current.blends_in() || animator.current.follow_through().is_some());
+        if !carriage {
+            presentation.swing = None;
+        } else if let Some(follow) = animator.current.follow_through().filter(|_| row_changed) {
+            presentation.swing = Some((follow, 0.0));
+        }
+        // The sheet faces +x; a body drawing its mirror rows faces -x.
+        let forward = if animator.drawn_row() == Some(authored_row) { 1.0 } else { -1.0 };
+        let swing = presentation.swing.and_then(|(follow, seconds)| swing_at(follow, seconds, forward));
+        let blend_t = 1.0 - presentation.blend_left / CLIP_BLEND_SECONDS;
+        let blend_t = blend_t * blend_t * (3.0 - 2.0 * blend_t);
+        let blend_from = std::mem::take(&mut presentation.blend_from);
+        let draws = frame_draws(
+            &flipbook,
+            animator,
+            pose,
+            presentation.posed.as_deref(),
+            (presentation.blend_left > 0.0).then_some((blend_from.as_slice(), blend_t)),
+            swing,
+            &mut drawn,
+            &mut posed_draws,
+        );
+        presentation.blend_from = blend_from;
+        let dt = time.as_ref().map_or(0.0, |time| time.delta_secs());
+        presentation.blend_left = (presentation.blend_left - dt).max(0.0);
+        presentation.swing = presentation
+            .swing
+            .map(|(follow, seconds)| (follow, seconds + dt))
+            .filter(|(_, seconds)| *seconds < FOLLOW_THROUGH_SECONDS);
+        presentation.last_row = Some(authored_row);
+        presentation.last_draws.clear();
+        if let Some(draws) = draws {
+            presentation.last_draws.extend_from_slice(draws);
+        }
+        // A root that draws some of its tracks draws those only, on either
+        // road and into its cell.
+        sample.row = animator.drawn_row();
+        sample.frame = animator.frame;
+        sample.frame_opacity = row.map_or(1.0, |row| flipbook.frame_opacity(row, animator.frame));
+        match (draws, mask) {
+            (Some(draws), Some(mask)) => {
+                sample.draws = mask.keep(&flipbook, draws);
+                sample.state = LocalSampleState::Parts;
+            }
+            (Some(draws), None) => {
+                sample.draws.extend_from_slice(draws);
+                sample.state = LocalSampleState::Parts;
+            }
+            (None, _) => sample.state = LocalSampleState::Baked,
+        }
+        presentation.drawn = drawn;
+        presentation.posed_draws = posed_draws;
+    }
+}
+
 /// Draw each rigged root's current frame from parts: the slots take the
 /// frame's draws in the body's cell, the atlas cameras composite them, and the
 /// root draws its cell at its own size and feet.
@@ -1181,7 +1344,7 @@ pub fn drive_rigged_presentations(
     mut impostors: ImpostorAssets,
     demand: Option<ResMut<ComposedBodyDemand>>,
     mut owners: Query<
-        (Entity, &RiggedPresentationOf, &mut RiggedPresentation, &mut Visibility, &mut Transform),
+        (Entity, &RiggedPresentationOf, &mut RiggedPresentation, &mut Visibility, &mut Transform, &RiggedLocalSample),
         Without<RiggedPartSlot>,
     >,
     mut cameras: Query<&mut Camera, With<RiggedImpostorCamera>>,
@@ -1208,7 +1371,7 @@ pub fn drive_rigged_presentations(
     // Pages built this frame: their cameras arrive with this frame's commands,
     // so a body given a cell in one draws directly once more.
     let mut fresh_pages: Vec<(usize, usize)> = Vec::new();
-    for (_, &RiggedPresentationOf(root), mut presentation, _, _) in &mut owners {
+    for (_, &RiggedPresentationOf(root), mut presentation, _, _, sample) in &mut owners {
         if !presentation.drawing {
             if let Some(impostor) = presentation.impostor.take() {
                 impostors.atlas.give(&impostor);
@@ -1240,7 +1403,8 @@ pub fn drive_rigged_presentations(
         // ⛔ A POSE IS IN NO FILE, SO ITS REACH IS MEASURED. The margin holds
         // what the flipbook draws; a `PartPose` can put a part anywhere.
         let past_cell = pose
-            .and_then(|pose| posed_reach(&mut presentation, animator, pose))
+            .and_then(|_| presentation.posed.as_ref().and(sample.parts()))
+            .map(|draws| flipbook.reach_past_frame(draws))
             .filter(|reach| *reach + IMPOSTOR_FRINGE > margin);
         presentation.overflow_hold = match past_cell {
             Some(_) => COMPOSED_HOLD_FRAMES,
@@ -1339,7 +1503,7 @@ pub fn drive_rigged_presentations(
     // The bodies drawn into their page this frame: if the page renders, their
     // cells hold this frame's draws under its new generation.
     let mut drawn_into: Vec<(Entity, usize, usize)> = Vec::new();
-    for (owner, &RiggedPresentationOf(root), mut presentation, mut owner_visibility, mut owner_transform) in &mut owners {
+    for (owner, &RiggedPresentationOf(root), mut presentation, mut owner_visibility, mut owner_transform, sample) in &mut owners {
         let Ok((
             animator,
             mut root_sprite,
@@ -1348,22 +1512,17 @@ pub fn drive_rigged_presentations(
             root_transform,
             root_visibility,
             _,
-            pose,
+            _,
             frame_in_sprite,
             performed,
             mut asked,
-            mask,
+            _,
         )) = roots.get_mut(root)
         else {
             continue;
         };
         if !presentation.drawing {
             owner_visibility.set_if_neq(Visibility::Hidden);
-            // Unseen, it draws nothing to blend from: the frame it is seen
-            // again is drawn as it is.
-            presentation.last_row = None;
-            presentation.blend_left = 0.0;
-            presentation.swing = None;
             // The root draws nothing on the direct road, hidden or not: a
             // writer that gives it a baked frame (`animate_bosses`) does not
             // draw it under no parts.
@@ -1376,78 +1535,11 @@ pub fn drive_rigged_presentations(
             continue;
         }
         let flipbook = presentation.pages.flipbook.clone();
-        // `None` for a baked clip of a hybrid: `check_rows` at attach makes
-        // sure that every other row has draws. A tweened clip draws the frame
-        // `frame_phase` of the way to the next (the flipbook's published rule).
-        let mut drawn = std::mem::take(&mut presentation.drawn);
         let row = animator.drawn_row().and_then(|row| animator.spec.row_name(row));
-        let mut posed_draws = std::mem::take(&mut presentation.posed_draws);
-        // POSE-CONTINUITY: a change of row between two carriage poses slides
-        // from the pose last drawn (blended or not, so an interrupted blend
-        // goes on from where it is) over `CLIP_BLEND_SECONDS`. A turn to face
-        // the other way is not a change of row here (the authored row, before
-        // facing), and a strike or an impact does not blend.
-        let authored_row = animator.authored_slot();
-        let blends = animator.drawn_clip().is_none() && animator.current.blends_in();
-        if !blends {
-            presentation.blend_left = 0.0;
-        } else if presentation.last_row.is_some_and(|last| last != authored_row) && !presentation.last_draws.is_empty() {
-            let RiggedPresentation { blend_from, last_draws, .. } = &mut *presentation;
-            blend_from.clone_from(last_draws);
-            presentation.blend_left = CLIP_BLEND_SECONDS;
-        }
-        // The follow-through: set off by coming into a pose that swings (a
-        // landing, a brake, a blow), carried on through the carriage poses
-        // after it, and dropped at once by a strike or any clip.
-        let row_changed = presentation.last_row.is_some_and(|last| last != authored_row);
-        let carriage = animator.drawn_clip().is_none()
-            && (animator.current.blends_in() || animator.current.follow_through().is_some());
-        if !carriage {
-            presentation.swing = None;
-        } else if let Some(follow) = animator.current.follow_through().filter(|_| row_changed) {
-            presentation.swing = Some((follow, 0.0));
-        }
-        // The sheet faces +x; a body drawing its mirror rows faces -x.
-        let forward = if animator.drawn_row() == Some(authored_row) { 1.0 } else { -1.0 };
-        let swing = presentation.swing.and_then(|(follow, seconds)| swing_at(follow, seconds, forward));
-        let blend_t = 1.0 - presentation.blend_left / CLIP_BLEND_SECONDS;
-        let blend_t = blend_t * blend_t * (3.0 - 2.0 * blend_t);
-        let blend_from = std::mem::take(&mut presentation.blend_from);
-        let draws = frame_draws(
-            &flipbook,
-            animator,
-            pose,
-            presentation.posed.as_deref(),
-            (presentation.blend_left > 0.0).then_some((blend_from.as_slice(), blend_t)),
-            swing,
-            &mut drawn,
-            &mut posed_draws,
-        );
-        presentation.blend_from = blend_from;
-        let dt = time.as_ref().map_or(0.0, |time| time.delta_secs());
-        presentation.blend_left = (presentation.blend_left - dt).max(0.0);
-        presentation.swing = presentation
-            .swing
-            .map(|(follow, seconds)| (follow, seconds + dt))
-            .filter(|(_, seconds)| *seconds < FOLLOW_THROUGH_SECONDS);
-        presentation.last_row = Some(authored_row);
-        presentation.last_draws.clear();
-        if let Some(draws) = draws {
-            presentation.last_draws.extend_from_slice(draws);
-        }
-        // A root that draws some of its tracks draws those only, on either
-        // road and into its cell.
-        let masked: Vec<PartDraw>;
-        let draws = match (draws, mask) {
-            (Some(draws), Some(mask)) => {
-                masked = mask.keep(&flipbook, draws);
-                Some(masked.as_slice())
-            }
-            (draws, _) => draws,
-        };
+        // The body's local sample (`sample_rigged_presentations`): the
+        // driver places and draws it, and interprets nothing itself.
+        let draws = sample.parts();
         let (Some(draws), Some(basis), Some(mut root_anchor)) = (draws, animator.render_basis, root_anchor) else {
-            presentation.drawn = drawn;
-            presentation.posed_draws = posed_draws;
             // The baked frame draws the body, and is its whole image.
             draw_baked_frame(&mut root_sprite, animator);
             if let Some((_, answer)) = asked.as_mut() {
@@ -1476,7 +1568,7 @@ pub fn drive_rigged_presentations(
             if let Some((request, answer)) = asked.as_mut() {
                 part_set::answer(request, answer, &presentation, draws, place);
             }
-            let frame_opacity = row.map_or(1.0, |row| flipbook.frame_opacity(row, animator.frame));
+            let frame_opacity = sample.frame_opacity;
             drive_direct_presentation(
                 &mut presentation,
                 draws,
@@ -1488,14 +1580,10 @@ pub fn drive_rigged_presentations(
                 &mut owner_transform,
                 &mut slots,
             );
-            presentation.drawn = drawn;
-            presentation.posed_draws = posed_draws;
             continue;
         };
         let (class, page) = (impostor.class, impostor.page);
         let Some(atlas) = atlases.page(&impostor) else {
-            presentation.drawn = drawn;
-            presentation.posed_draws = posed_draws;
             continue;
         };
         drawing[class][page] = true;
@@ -1515,8 +1603,8 @@ pub fn drive_rigged_presentations(
                 flipbook.frame_size.x as f32,
             ),
             None => {
-                if let Some(row) = row {
-                    cells[class][page].set(impostor.cell, flipbook.frame_opacity(row, animator.frame));
+                if row.is_some() {
+                    cells[class][page].set(impostor.cell, sample.frame_opacity);
                 }
             }
         }
@@ -1608,8 +1696,6 @@ pub fn drive_rigged_presentations(
         if !current {
             write_slots(&presentation, draws, &mut slots, |draw| part_color(draw, LinearRgba::WHITE));
         }
-        presentation.drawn = drawn;
-        presentation.posed_draws = posed_draws;
     }
     let mut materials = materials.map(|materials| materials.into_inner());
     for (class, (pages, cells)) in atlases.0.iter_mut().zip(cells).enumerate() {
@@ -1650,7 +1736,7 @@ pub fn drive_rigged_presentations(
         let Some(generation) = atlases.0[class].get(page).map(|atlas| atlas.generation) else {
             continue;
         };
-        if let Ok((_, _, mut presentation, _, _)) = owners.get_mut(owner) {
+        if let Ok((_, _, mut presentation, _, _, _)) = owners.get_mut(owner) {
             if let Some((_, _, stamped)) = presentation.shown.as_mut() {
                 // A page that did not render keeps its generation, and so does
                 // every cell that was current; a page that rendered redrew
@@ -1730,25 +1816,6 @@ fn frame_draws<'a>(
         }
         _ => drawn.as_slice(),
     })
-}
-
-/// How far past its frame, in sheet pixels, `pose` puts a part of this body
-/// this frame. `None` when the pose places nothing: the body's tracks ride no
-/// rig, or its row is the baked sheet's.
-///
-/// The flipbook states how far its own draws reach (its frames and their
-/// in-betweens), and the cell is sized from that. A pose is not the
-/// flipbook's, so nothing states its reach before the frame it is drawn.
-fn posed_reach(presentation: &mut RiggedPresentation, animator: &CharacterAnimator, pose: &PartPose) -> Option<f32> {
-    let posed = presentation.posed.clone()?;
-    let flipbook = presentation.pages.flipbook.clone();
-    let mut drawn = std::mem::take(&mut presentation.drawn);
-    let mut posed_draws = std::mem::take(&mut presentation.posed_draws);
-    let reach = frame_draws(&flipbook, animator, Some(pose), Some(&posed), None, None, &mut drawn, &mut posed_draws)
-        .map(|draws| flipbook.reach_past_frame(draws));
-    presentation.drawn = drawn;
-    presentation.posed_draws = posed_draws;
-    reach
 }
 
 /// Write `draws` onto a presentation's slots, in draw order, each slot's

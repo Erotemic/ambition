@@ -28,7 +28,7 @@ use ambition_platformer2d::platformer::lifecycle::{
 use ambition_platformer2d::platformer::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::render::rendering::actors::PlayerSpriteCharacter;
 use ambition_platformer2d::render::rendering::PlayerSpriteBaseline;
-use ambition_platformer2d::presentation::gameplay_presentation::ResolvedGameplayPresentation;
+use ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation;
 use ambition_platformer2d::rollback::{RollbackExecutionStats, RollbackFrameCount};
 use ambition_platformer2d::sim::SimTick;
 use ambition_platformer2d::sim_view::{

@@ -745,8 +745,12 @@ selects its simulation capabilities and a `render` feature for its looks;
 its own graph lost `ambition_render`, the menus and the inventory UI (451 →
 440 crates), and the LDtk edge after it: the runtime's `ldtk` is the pure
 area table and `ldtk_runtime` the `bevy_ecs_ldtk` spine, so content's graph
-(408 crates) holds no `bevy_render` or `wgpu`. Remaining: the app, which
-still takes the facade's defaults, so the `sim` tools graph is unchanged.
+(408 crates) holds no `bevy_render` or `wgpu`. The app cut landed
+2026-11-25: the app and the three demo providers select simulation
+capabilities and put their looks under a `render` feature (the app's own
+drawing code is gated on it); `sim` 503 → 496 with no `ambition_render`,
+and `game` resolves the same crates and features. Remaining: `bevy_render`, `wgpu` and
+`bevy_ecs_ldtk` survive in `sim` through the app's `ldtk_runtime` spine.
 Do not move tool binaries back into app integration-test builds.
 
 **Acceptance:** an independent schema consumer excludes the checker; the
@@ -3687,7 +3691,7 @@ path. A gravity-only repair does not close the whole packet.
 
 ### PRESENTATION-COMPOSITION — order appearances and add a 2.5D view
 
-**State:** IN PROGRESS: PO1 and PO2 landed 2026-11-25; RV1-RV3 planned. Maintainer-selected 2026-11-21; source `f41218979625`.
+**State:** IN PROGRESS: PO1 and PO2 landed 2026-11-25; RV1 landed 2026-11-25 (`RiggedLocalSample`, the 2D driver its first consumer; `ViewCameraSet`: one renderer-free view frame, a 2D adapter that writes only `Camera2d`); RV2-RV3 planned. Maintainer-selected 2026-11-21; source `f41218979625`.
 
 **Failure / customer:** Scout must appear behind the cart panel inside and
 in front outside. Current seating writes root z 14.45 behind panel 14.5,

@@ -72,7 +72,7 @@ pub fn pace_render_asset_uploads(
 mod tests {
     use super::*;
     use ambition_platformer2d::platformer::lifecycle::SessionScopeId;
-    use ambition_platformer2d::presentation::gameplay_presentation::PresentationCover;
+    use ambition_platformer2d_shared_tangle::gameplay_presentation::PresentationCover;
 
     #[test]
     fn a_cover_over_one_view_keeps_the_gameplay_upload_budget() {

@@ -826,7 +826,7 @@ fn far_side_contact(motion:ContactMotion) {
                     Aabb::new(exit.pos-tangent*6.0,Vec2::new(5.0,0.5));
                 let mut portals=world.query::<&mut PlacedPortal>();
                 portals.iter_mut(world).find(|p|p.channel==exit.channel).unwrap().host=
-                    PortalHost::Line {line:"k_spinning_exit".into(),along:40.0,lift:0.0};
+                    PortalHost::Line {line:"k_spinning_exit".into(),segment:0,fraction:0.5,lift:0.0};
                 if matches!(motion,ContactMotion::TurningExitBody) {
                     let aabb=Aabb::new(exit.pos-tangent*6.0,Vec2::new(5.0,0.5));
                     world.query::<&mut RoomGeometry>().single_mut(world).unwrap().0.blocks

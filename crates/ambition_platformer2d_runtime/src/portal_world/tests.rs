@@ -184,6 +184,43 @@ fn a_portal_on_a_spinning_plank_turns_with_it_and_carries_its_spin() {
     assert!((p.pos.distance(p.pivot) - 40.0).abs() < 0.5, "{:?}", p.pos);
 }
 
+/// A portal on a line whose shape changes (SUP1's `shape_before`) keeps its
+/// material place. The line stretches from x 0..100 to x 0..200; the portal
+/// three quarters along goes from x 75 to x 150, and its step is that point's
+/// travel. A distance along the line stayed at x 75.
+#[test]
+fn a_portal_on_a_stretching_line_keeps_its_material_place() {
+    use super::hosts::{attach_portal_hosts, refresh_hosted_portal_frames};
+
+    let mut world = ae::World::new("stretch", Vec2::new(2000.0, 1000.0), Vec2::ZERO, vec![]);
+    world.chains.push(ae::SurfaceChain::open("stretch", vec![Vec2::new(0.0, 300.0), Vec2::new(100.0, 300.0)]));
+    let mut app = App::new();
+    ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), RoomGeometry(world));
+    app.insert_resource(ambition_time::WorldTime::new(0.0, 1.0 / 60.0));
+    app.add_systems(Update, (attach_portal_hosts, refresh_hosted_portal_frames).chain());
+    let portal = app
+        .world_mut()
+        .spawn(PlacedPortal::fixed(PURPLE, Vec2::new(75.0, 300.0), Vec2::new(0.0, -1.0), 10.0).unwrap())
+        .id();
+    app.update();
+    let host = app.world().get::<PlacedPortal>(portal).unwrap().host.clone();
+    assert!(matches!(host, PortalHost::Line { segment: 0, fraction, .. } if (fraction - 0.75).abs() < 1e-6), "{host:?}");
+
+    {
+        let mut geometry = ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component_mut::<RoomGeometry>(app.world_mut())
+            .expect("the live room has geometry");
+        let chain = &mut geometry.0.chains.to_mut()[0];
+        chain.shape_before = chain.points.clone();
+        chain.points[1].x = 200.0;
+    }
+    app.update();
+    let p = app.world().get::<PlacedPortal>(portal).unwrap().clone();
+    assert!(p.pos.distance(Vec2::new(150.0, 300.0)) < 1e-4, "at its material place: {:?}", p.pos);
+    assert!(p.step.displacement.distance(Vec2::new(75.0, 0.0)) < 1e-4, "its own point's travel: {:?}", p.step.displacement);
+    assert!(p.step.origin.distance(Vec2::new(75.0, 300.0)) < 1e-4, "from where it was: {:?}", p.step.origin);
+    assert!(p.spin.abs() < 1e-6 && p.step.turn.abs() < 1e-6, "a stretch does not turn it");
+}
+
 #[test]
 fn a_wrapping_host_closes_its_old_plane_without_sweeping_the_wrap() {
     use super::hosts::{attach_portal_hosts, refresh_hosted_portal_frames};

@@ -67,9 +67,12 @@ pub enum PortalHost {
     /// each re-derivation keeps the placement pose.
     Face { face: ae::GeoFaceRef, lift: f32 },
     /// The aperture rides the line named `line` (a plank platform, a slope
-    /// that moves), `along` its length from its first point, `lift` out along
-    /// its normal: it moves with the line and turns as it turns.
-    Line { line: String, along: f32, lift: f32 },
+    /// that moves) at its material place, `fraction` of the way along
+    /// `segment`, `lift` out along its normal: it moves with the line and
+    /// turns as it turns. A place, not a distance: on a line whose shape
+    /// changes (SUP1's `shape_before`), a stretch carries the portal with the
+    /// material under it.
+    Line { line: String, segment: u32, fraction: f32, lift: f32 },
 }
 
 impl PortalHost {

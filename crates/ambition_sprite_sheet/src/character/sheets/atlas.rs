@@ -141,7 +141,7 @@ impl CharacterSheetSpec {
             .filter(|(_, row)| names.contains(row.animation.as_str()))
             .flat_map(|(slot, row)| {
                 (0..row.frame_count as usize)
-                    .map(move |frame| self.record.frame_page_of(slot, frame))
+                    .map(move |frame| self.page_of_at(slot, frame))
             })
             .collect()
     }
@@ -149,7 +149,7 @@ impl CharacterSheetSpec {
     /// Which page image `(anim, frame)` draws from (per-frame: a freely-packed
     /// sheet can scatter one animation across pages).
     pub fn page_of(&self, anim: CharacterAnim, frame: usize) -> u32 {
-        self.record.frame_page_of(self.record_row(anim), frame)
+        self.page_of_at(self.record_row(anim), frame)
     }
 
     /// Build the atlas layout for one page image — only the frames on that page
@@ -166,7 +166,7 @@ impl CharacterSheetSpec {
 
     /// Page-local flat atlas index for `(anim, frame)`.
     pub fn flat_index(&self, anim: CharacterAnim, frame: usize) -> usize {
-        self.record.flat_index_in_page(self.record_row(anim), frame)
+        self.flat_index_at(self.record_row(anim), frame)
     }
 
     /// The row slot an authored clip chain resolves to on this sheet.
@@ -197,7 +197,10 @@ impl CharacterSheetSpec {
 
     /// Page-local flat atlas index for a slot resolved by [`Self::clip_slot`].
     pub fn flat_index_at(&self, slot: usize, frame: usize) -> usize {
-        self.record.flat_index_in_page(slot, frame)
+        self.frames.get(slot, frame).map_or_else(
+            || self.record.flat_index_in_page(slot, frame),
+            |address| address.index,
+        )
     }
 
     /// Trim geometry for a slot resolved by [`Self::clip_slot`].
@@ -206,13 +209,19 @@ impl CharacterSheetSpec {
     /// plays, the renderer must use the clip's trim, not the trim of the
     /// semantic pose that `current` still holds.
     pub fn frame_trim_at(&self, slot: usize, frame: usize) -> FrameTrim {
-        self.record.frame_trim(slot, frame)
+        self.frames.get(slot, frame).map_or_else(
+            || self.record.frame_trim(slot, frame),
+            |address| address.trim,
+        )
     }
 
     /// Which page image a clip slot's frame draws from: the row-keyed form of
     /// [`Self::page_of`].
     pub fn page_of_at(&self, slot: usize, frame: usize) -> u32 {
-        self.record.frame_page_of(slot, frame)
+        self.frames.get(slot, frame).map_or_else(
+            || self.record.frame_page_of(slot, frame),
+            |address| address.page,
+        )
     }
 
     /// Pixel extent of page 0's atlas texture (custom-material UV helper).
@@ -240,12 +249,12 @@ impl CharacterSheetSpec {
     /// True when any frame of this sheet was alpha-trimmed (renderer must adjust
     /// size + anchor per frame). False for legacy uniform sheets.
     pub fn is_trimmed(&self) -> bool {
-        self.record.is_trimmed()
+        self.frames.is_trimmed
     }
 
     /// Trim geometry for `(anim, frame)`.
     pub fn frame_trim(&self, anim: CharacterAnim, frame: usize) -> FrameTrim {
-        self.record.frame_trim(self.record_row(anim), frame)
+        self.frame_trim_at(self.record_row(anim), frame)
     }
 
     pub fn frame_count(&self, anim: CharacterAnim) -> usize {

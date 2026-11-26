@@ -76,8 +76,8 @@ fn write_row(out: &mut Vec<u8>, row: &SheetRow) {
 fn write_body_metrics(out: &mut Vec<u8>, metrics: &BodyMetrics) {
     put_opt(out, metrics.body_pixel_bbox.as_ref(), write_rect);
     put_seq(out, &metrics.body_pixel_parts, write_named_rect);
-    put_u64(out, metrics.animations.len() as u64);
-    for (name, animation) in &metrics.animations {
+    put_u64(out, metrics.animations().len() as u64);
+    for (name, animation) in metrics.animations() {
         put_str(out, name);
         write_animation(out, animation);
     }

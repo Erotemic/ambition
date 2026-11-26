@@ -34,7 +34,7 @@ fn jab(record: &SheetRecord) -> &AnimationBox {
         .body_metrics
         .as_ref()
         .expect("fixture publishes body metrics")
-        .animations
+        .animations()
         .get("jab")
         .expect("fixture publishes a jab row")
         .hitbox

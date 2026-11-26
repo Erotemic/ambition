@@ -419,6 +419,14 @@ size and deck position. Use the sheet's published frame size and top
 anchor for the look. Add sheet anchors for the left and right deck ends
 so the renderer can align the art with the collision width.
 
+### Route maps
+
+The Curator's Studio route map gives local names to a set of rooms and
+shows the routes between them. The painted lines and the loading zones
+are separate sources. Let the author choose rooms, names, and positions
+for a route map. Use the loading zones for the connections. Show drops
+and gated shortcuts with different marks.
+
 ### Content diffs need domain-aware comparison (Q62, Q78)
 
 Rulings 2026-10-04 ([`../maintainer-decisions.md`](../maintainer-decisions.md)):

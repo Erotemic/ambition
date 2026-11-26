@@ -81,6 +81,7 @@
     "art_crayon_rail": (),
     "art_scribble_wall": (),
     "art_eraser": (),
+    "art_curators_route_map": (backdrop: true),
     // The Picture Palace (`targets/props/art_picture_palace_props.py`). The
     // pod bay door is the door of the space set: MAL-9000 will not open it;
     // pulling its memory module (the lever by the rack) does. A door fills

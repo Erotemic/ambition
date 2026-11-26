@@ -388,6 +388,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
     mut damage_boxes: crate::damage_box::DamageBoxSpawner,
     mut outbox: ResMut<ExtensionOutbox>,
     admitted: Res<AdmittedExtensions>,
+    time: Option<Res<ambition_time::WorldTime>>,
     mut holders: Query<(Entity, &mut HeldDamageBoxes)>,
     mut hitboxes: Query<(&mut crate::strike::Hitbox, &mut crate::strike::HitboxLifetime, Option<&mut crate::strike::RayStrike>)>,
     factions: Query<(
@@ -399,8 +400,13 @@ fn lower_held_damage_boxes<P: LowersIn>(
     passages: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
     landmarks: crate::body_landmarks::BodyLandmarks,
 ) {
-    let mut asked: Vec<AskedHeld> = outbox
-        .drain::<HeldDamageBoxPort>(&P::PHASE)
+    let boxes = outbox.drain::<HeldDamageBoxPort>(&P::PHASE);
+    let rays = outbox.drain::<HeldRayPort>(&P::PHASE);
+    // Keep the hit history through hitstop. The next gameplay step renews or releases the box.
+    if time.is_some_and(|time| time.sim_dt() <= 0.0) {
+        return;
+    }
+    let mut asked: Vec<AskedHeld> = boxes
         .into_iter()
         .map(|s| AskedHeld {
             scope: s.scope,
@@ -417,7 +423,7 @@ fn lower_held_damage_boxes<P: LowersIn>(
             lifetime_s: s.value.lifetime_s,
         })
         .collect();
-    for s in outbox.drain::<HeldRayPort>(&P::PHASE) {
+    for s in rays {
         let (body, room) = bodies.get(s.scope).map_or((None, None), |(kin, room)| (Some(kin), room));
         let walls = collision.room(room).and_then(|room| room.solids());
         let Some((origin, ray, shape)) = ray_start(&s.value, s.scope, body, &landmarks).and_then(|(origin, width)| {

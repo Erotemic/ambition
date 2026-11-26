@@ -63,6 +63,7 @@ brain).
 | `npc_neural_perceptron` | Percy the Perceptron | Weights | An old machine of one layer. It answers yes or no, and it cannot do XOR. |
 | `npc_neural_echo` | Echo | Echo Chamber | Says what you said, louder. |
 | `intrusive_thought` | Intrusive Thought | Cathedral | A purple cloud of talk that drifts at you and will not leave. |
+| `sunk_cost_fallacy` | Sunk Cost Fallacy | Cathedral | A diver beside the pool who swings his salvage chest. |
 | `attention_head` | Attention Head | Weights | An eye on rotors that watches and fires at what it looks at. |
 
 ## Next

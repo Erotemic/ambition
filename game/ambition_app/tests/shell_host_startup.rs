@@ -279,10 +279,7 @@ fn controller_acknowledgement_uses_the_neutral_shell_action() {
     );
 }
 
-/// The run-in is TWO vanity cards: the engine card, then the authorship card —
-/// which is now DRAWN by the content crate rather than played back from
-/// rendered frames, so the card exists in a checkout that never fetched the
-/// git-ignored payload.
+/// The startup sequence shows the engine card before the authorship card.
 #[test]
 fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
     use ambition_platformer2d::game_shell::ShellSegmentPresentation;
@@ -291,7 +288,7 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
     shell_host::compose_ambition_startup_sequence(&mut app);
     settle(&mut app);
 
-    let card_duration = ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration(app.world_mut());
+    let card_duration = ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration();
     let sequence = app.world().resource::<ActiveShellSequence>();
     let segments = &sequence
         .runtime
@@ -334,13 +331,39 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
          nothing registers spawns no scene and the run-in shows a blank card",
     );
 
-    // The card's lifetime is DERIVED from the baked animation's own frame count
-    // and rate, so re-timing it in the exporter re-times the segment — there is
-    // no second number to keep in sync.
     assert_eq!(
         segment.policy.auto_advance_after,
         Some(card_duration),
-        "the segment's duration must be the baked card's own length",
+        "the segment must allow time for the full card",
+    );
+    for _ in 0..(hold * 60.0).ceil() as usize {
+        app.update();
+    }
+    settle(&mut app);
+
+    let mut images = app.world_mut().query::<&ImageNode>();
+    let assets = app.world().resource::<AssetServer>();
+    let paths: Vec<_> = images
+        .iter(app.world())
+        .filter_map(|image| assets.get_path(image.image.id()))
+        .collect();
+    for character_page in ["player_robot_v3_parts.png", "director_parts.png"] {
+        assert!(
+            paths.iter().any(|path| path.path().ends_with(character_page)),
+            "the card must draw the published character page {character_page}",
+        );
+    }
+    assert_eq!(
+        paths
+            .iter()
+            .filter(|path| {
+                ["gamepad.png", "apple_pie.png"]
+                    .iter()
+                    .any(|gift| path.path().ends_with(gift))
+            })
+            .count(),
+        1,
+        "the card must draw one gift",
     );
 }
 
@@ -394,10 +417,9 @@ fn the_title_music_survives_the_handoff_from_the_cards_to_the_launcher() {
 /// `startup_naturally_auto_advances_on_the_shipping_timeline` above, against the real host.
 #[test]
 fn the_drawn_card_declares_a_length_the_run_in_can_schedule() {
-    let mut app = startup_app();
     let total =
-        ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration(app.world_mut());
-    let run_in = shell_host::ambition_startup_duration(app.world_mut());
+        ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration();
+    let run_in = shell_host::ambition_startup_duration();
     assert!(
         run_in > total,
         "the run-in ({run_in:?}) must budget for the card ({total:?}) plus the engine card",

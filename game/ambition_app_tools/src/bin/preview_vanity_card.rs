@@ -6,6 +6,15 @@
 //! Set `AMBITION_PREVIEW_SCALE_FACTOR=3` to emulate a phone-scale pixel density.
 //! The preview composes shell presentation only: no session, simulation, or launcher.
 
+use ambition_content::presentation::vanity_card_made_this_meme::{
+    MADE_THIS_MEME_CARD_SEGMENT_KIND, MadeThisMemeCardPlugin, made_this_meme_card_duration,
+};
+use ambition_platformer2d::asset_manager::{
+    AssetProfile,
+    bevy_integration::AmbitionAssetCatalog,
+    library_source::{LibraryAssets, register_sources},
+    platformer_assets::Platformer2dAssetCatalog,
+};
 use bevy::prelude::*;
 
 use ambition_platformer2d::game_shell::{
@@ -39,19 +48,37 @@ fn main() {
             _ => panic!("{PREVIEW_SCALE_FACTOR_ENV} must be a positive number, got {raw:?}"),
         }
     }
+    register_sources(&mut app, "assets");
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(window),
         ..default()
     }));
     app.add_plugins(MinimalShellPlugins);
-    app.add_plugins(ambition_content::presentation::AmbitionPresentationPlugin);
+    ambition_app::app::host_pack::HOST_PACK.import_libraries(app.world_mut());
+    let snapshot = app.world().resource::<LibraryAssets>().snapshot();
+    let manifest = snapshot
+        .libraries
+        .asset_manifest()
+        .expect("Read the asset catalog");
+    app.insert_resource(
+        Platformer2dAssetCatalog::new(
+            AmbitionAssetCatalog::new(manifest),
+            AssetProfile::DesktopDevLoose,
+        )
+        .with_snapshot(&snapshot),
+    );
+    ambition_platformer2d::render::ui_fonts::UiFontsPlugin::ensure_installed(&mut app);
+    app.add_plugins(MadeThisMemeCardPlugin);
+    app.add_systems(Startup, |mut commands: Commands| {
+        commands.spawn(Camera2d);
+    });
     configure_preview_shell(&mut app);
     app.run();
 }
 
 fn configure_preview_shell(app: &mut App) {
     use ambition_platformer2d::game_shell::{
-        ShellExperienceId, ShellSegmentRole, ShellSegmentSpec,
+        ShellExperienceId, ShellSegmentPolicy, ShellSegmentRole, ShellSegmentSpec,
     };
 
     // `on_complete: GoTo(itself)` is what makes this a loop, and it is the
@@ -67,11 +94,17 @@ fn configure_preview_shell(app: &mut App) {
         .register(
             ShellExperienceId::new(PREVIEW_EXPERIENCE),
             ShellSequenceSpec {
-                segments: vec![ShellSegmentSpec::registered(
-                    "preview_programmatic_vanity_card",
-                    ShellSegmentRole::Vanity,
-                    ambition_content::presentation::vanity_card_made_this_meme::MADE_THIS_MEME_CARD_SEGMENT_KIND,
-                )],
+                segments: vec![
+                    ShellSegmentSpec::registered(
+                        "preview_programmatic_vanity_card",
+                        ShellSegmentRole::Vanity,
+                        MADE_THIS_MEME_CARD_SEGMENT_KIND,
+                    )
+                    .with_policy(ShellSegmentPolicy {
+                        auto_advance_after: Some(made_this_meme_card_duration()),
+                        ..default()
+                    }),
+                ],
             },
         );
     app.world_mut()

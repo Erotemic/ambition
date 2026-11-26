@@ -50,8 +50,8 @@ machine, the busy beaver that writes the most ones before it halts.
   platform that runs on a diagonal, its pattern turning through its four
   phases as it goes (a glider moves one cell diagonally every four
   generations). Neighbour Moore keeps the block, a still life. Spaceships
-  fly the field. The Sierpinski panel and a chest are at the top of the
-  east terrace.
+  fly the field. A Replicator starts above the east terrace, near the
+  Sierpinski panel and chest. It splits into smaller copies when defeated.
 - **The Tape Room** (`automaton_tape_room`), by the clock tower's door: the
   tape along the wall with its ones, the Head on its rail, the table of
   states, and the count.

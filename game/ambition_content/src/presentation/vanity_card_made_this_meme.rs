@@ -1,222 +1,233 @@
-//! Programmatic startup vanity-card segment.
-//!
-//! Rig solving and choreography are baked offline into
-//! the selected director-card bundle. Runtime code places baked
-//! parts from one packed texture. The scene is scoped to its shell segment and
-//! reports `ProgrammaticSegmentCompleted` when finished, so ordinary shell
-//! teardown handles skip, route replacement, and failure.
+//! Startup comic that plays the published character poses on a UI stage.
 
-use std::time::Duration;
+use std::{collections::hash_map::RandomState, hash::BuildHasher, time::Duration};
 
 use ambition_platformer2d::game_shell::{
-    ActiveShellSequence, FrontendOwnedEntity, FrontendPresentationKind, ShellActivationId,
-    ShellSegmentId, ShellSegmentScopedEntity, ShellSequenceCommand,
+    ActiveShellSequence, FrontendOwnedEntity, FrontendPresentationKind, ShellSegmentScopedEntity,
+    ShellSequenceSet,
+};
+use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
+use ambition_sprite_sheet::{
+    SpriteContent,
+    character::rigged::{PartDraw, RiggedSpriteAsset, blend_from},
+    game_assets::load_sheet_image,
 };
 use bevy::prelude::*;
-use serde::Deserialize;
 
-/// Registered shell-segment kind for the vanity card.
 pub const MADE_THIS_MEME_CARD_SEGMENT_KIND: &str = "ambition_vanity_card_made_this_meme";
 
-/// Read the selected animation, or embed it with `static_content`.
-const MADE_THIS_MEME_SOURCE_PATH: &str = "vanity_card_made_this_meme/manifest.ron";
-#[derive(Deserialize, Resource)]
-struct RigCard {
-    canvas: (f32, f32),
-    frame_ms: u64,
-    sheet: String,
-    look: CardLook,
-    parts: Vec<PartRect>,
-    frames: Vec<CardFrame>,
-}
+const CANVAS: Vec2 = Vec2::new(640.0, 360.0);
+const FLOOR: f32 = 320.0;
+const ARRIVE: f32 = 1.25;
+const ROBOT_LINE: f32 = 1.48;
+const QUESTION: f32 = 2.90;
+const REACH: f32 = 3.80;
+const TAKE: f32 = 4.32;
+const RELEASE: f32 = 4.62;
+const RETREAT_END: f32 = 5.80;
+const DIRECTOR_LINE: f32 = 6.50;
 
-/// The renderer's colours and card margin (`render_director_vanity_dialog.py`),
-/// as its exporter wrote them, and the screen around the card.
-#[derive(Deserialize)]
-struct CardLook {
-    margin: f32,
-    card_fill: [u8; 3],
-    card_outline: [u8; 3],
-    bubble_fill: [u8; 3],
-    bubble_outline: [u8; 3],
-    text: [u8; 3],
-    backdrop: [u8; 3],
-}
-
-fn rgb([r, g, b]: [u8; 3]) -> Color {
-    Color::srgb_u8(r, g, b)
-}
-
-#[derive(Deserialize)]
-struct PartRect {
-    #[allow(dead_code)]
-    name: String,
-    x: u32,
-    y: u32,
-    w: u32,
-    h: u32,
-}
-
-#[derive(Deserialize)]
-struct CardFrame {
-    draws: Vec<Draw>,
-    bubble: Option<Bubble>,
-}
-
-/// One part, on one frame: which sheet rect, where its CENTRE lands in canvas
-/// units, how big it is there, and how far it is spun clockwise.
-#[derive(Deserialize)]
-struct Draw {
-    part: usize,
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
-    deg: f32,
-}
-
-#[derive(Deserialize)]
-struct Bubble {
-    text: String,
-    tail_x: f32,
-    tail_y: f32,
-    box_x: f32,
-    box_y: f32,
-}
-
-fn read_card(snapshot: &ambition_platformer2d::asset_manager::content_library::LibrarySnapshot) -> RigCard {
-    let files = &snapshot.files;
-    let logical = format!("content://ambition_shared/{MADE_THIS_MEME_SOURCE_PATH}");
-    let file = files.get(&logical).expect("The director card is not selected; run ./scripts/regen/sprites.sh --target director_vanity_card");
-    let bytes = file.read().expect("The director card metadata is readable");
-    let mut card: RigCard = ron::de::from_bytes(&bytes).expect("The director card metadata must parse");
-    let image = files.get(&format!("content://{}/{}", file.library, card.sheet)).expect("The director card atlas is selected");
-    card.sheet = image.asset_path().to_owned();
-    card
-}
-
-impl RigCard {
-    fn duration(&self) -> Duration { Duration::from_millis(self.frame_ms * self.frames.len() as u64) }
-}
-
-#[cfg(test)]
-fn card() -> RigCard {
-    use ambition_platformer2d::asset_manager::content_library::{ContentLibraries, ContentLibrary};
-    let mut libraries = ContentLibraries::default();
-    libraries.insert(ContentLibrary::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../ambition_content_library/library.json")).unwrap()).unwrap();
-    read_card(&libraries.snapshot().unwrap())
-}
-
-fn install_card_metadata(world: &mut World) {
-    if world.contains_resource::<RigCard>() { return; }
-    let card = read_card(&world.resource::<ambition_platformer2d::asset_manager::library_source::LibraryAssets>().snapshot());
-    world.insert_resource(card);
-}
-
-pub fn made_this_meme_card_duration(world: &mut World) -> Duration {
-    install_card_metadata(world);
-    world.resource::<RigCard>().duration()
+pub fn made_this_meme_card_duration() -> Duration {
+    Duration::from_millis(8_500)
 }
 
 pub struct MadeThisMemeCardPlugin;
 
 impl Plugin for MadeThisMemeCardPlugin {
     fn build(&self, app: &mut App) {
-        // The card exists only inside a shell sequence. Gate all of its systems so
-        // shell-less compositions do not require shell resources or message types,
-        // and so they sleep in play, when no sequence runs and no card remains.
         app.add_systems(
             Update,
-            (install_card_metadata, spawn_vanity_card, animate_vanity_card, fit_card_to_display)
+            (spawn_vanity_card, animate_vanity_card, fit_card_to_display)
                 .chain()
+                .in_set(ShellSequenceSet::Programmatic)
                 .run_if(resource_exists::<ActiveShellSequence>)
-                .run_if(the_card_is_requested_or_remains),
+                .run_if(card_is_active),
         );
     }
 }
 
-fn the_card_is_requested_or_remains(
-    active: Res<ActiveShellSequence>,
-    roots: Query<(), With<VanityCardRoot>>,
-) -> bool {
-    active.registered_segment().is_some_and(|(_, _, kind)| kind.as_str() == MADE_THIS_MEME_CARD_SEGMENT_KIND)
-        || !roots.is_empty()
+fn card_is_active(active: Res<ActiveShellSequence>) -> bool {
+    active
+        .registered_segment()
+        .is_some_and(|(_, _, kind)| kind.as_str() == MADE_THIS_MEME_CARD_SEGMENT_KIND)
+}
+
+#[derive(Clone, Copy)]
+enum Gift {
+    Gamepad,
+    ApplePie,
+}
+
+impl Gift {
+    fn asset(self) -> (&'static str, Vec2) {
+        match self {
+            Self::Gamepad => (
+                "content://ambition_shared/sprites/gamepad.png",
+                Vec2::new(72.0, 35.44),
+            ),
+            Self::ApplePie => (
+                "content://ambition_shared/sprites/apple_pie.png",
+                Vec2::new(74.0, 41.11),
+            ),
+        }
+    }
+}
+
+struct CardActor {
+    rig: RiggedSpriteAsset,
+    pages: Vec<Handle<Image>>,
+    slots: Vec<Entity>,
+    draws: Vec<PartDraw>,
+    scratch: Vec<PartDraw>,
+    scale: f32,
+    feet: Vec2,
+}
+
+impl CardActor {
+    fn new(
+        rig: RiggedSpriteAsset,
+        content: &SpriteContent,
+        assets: &AssetServer,
+        scale: f32,
+    ) -> Self {
+        let pages = rig
+            .pages
+            .iter()
+            .map(|page| load_sheet_image(Some(content), assets, "vanity-card", page.clone()))
+            .collect();
+        let capacity = rig.max_draws();
+        Self {
+            rig,
+            pages,
+            slots: Vec::with_capacity(capacity),
+            draws: Vec::with_capacity(capacity),
+            scratch: Vec::with_capacity(capacity),
+            scale,
+            feet: Vec2::ZERO,
+        }
+    }
+
+    fn sample(&mut self, row: &str, elapsed: f32) {
+        if let Some((frame, phase)) = clip_phase(&self.rig, row, elapsed) {
+            self.rig.tween_into(row, frame, phase, &mut self.draws);
+        } else {
+            self.draws.clear();
+        }
+    }
+
+    fn sample_frame(&mut self, row: &str, frame: usize) {
+        self.draws.clear();
+        if let Some(draws) = self.rig.frame(row, frame) {
+            self.draws.extend_from_slice(draws);
+        }
+    }
+
+    fn blend(&mut self, row: &str, frame: usize, fraction: f32) {
+        if let Some(from) = self.rig.frame(row, frame) {
+            blend_from(from, fraction, &mut self.draws);
+        }
+    }
+
+    fn carry_walk(&mut self, elapsed: f32) {
+        self.sample("item_hold", elapsed);
+        if let Some((frame, phase)) = clip_phase(&self.rig, "walk", elapsed) {
+            self.rig
+                .legs_under("walk", frame, phase, &mut self.draws, &mut self.scratch);
+        }
+    }
+
+    fn track(&self, name: &str) -> Option<&PartDraw> {
+        self.draws.iter().find(|draw| {
+            draw.track
+                .is_some_and(|track| self.rig.tracks()[usize::from(track)] == name)
+        })
+    }
+
+    fn point(&self, track: &str) -> Vec2 {
+        self.feet
+            + self
+                .track(track)
+                .map_or(Vec2::ZERO, |draw| draw.at * self.scale)
+    }
+
+    fn tilt_head(&mut self, radians: f32) {
+        let Some(head) = self.track("head").copied() else {
+            return;
+        };
+        let turn = Rot2::radians(radians);
+        for draw in &mut self.draws {
+            if draw.track.is_some_and(|track| {
+                ambition_sprite_sheet::character::rigged::is_head_track(
+                    &self.rig.tracks()[usize::from(track)],
+                )
+            }) {
+                draw.at = head.at + turn * (draw.at - head.at);
+                draw.rotation += radians;
+            }
+        }
+    }
+}
+
+fn clip_phase(rig: &RiggedSpriteAsset, row: &str, elapsed: f32) -> Option<(usize, f32)> {
+    let clip = rig.clip(row)?;
+    let frame = (elapsed / clip.frame_duration_s).rem_euclid(clip.frame_count() as f32);
+    Some((frame.floor() as usize, frame.fract()))
 }
 
 #[derive(Component)]
 struct VanityCardRoot {
-    activation_id: ShellActivationId,
-    segment_id: ShellSegmentId,
-    elapsed: Duration,
-    completion_sent: bool,
-    stage: Entity,
-    slots: Vec<Entity>,
+    robot: CardActor,
+    director: CardActor,
+    gift: Entity,
+    gift_size: Vec2,
     bubble: Entity,
     bubble_text: Entity,
     bubble_tail: Entity,
 }
 
-/// The full-screen box the card is scaled to fit inside.
 #[derive(Component)]
 struct VanityCardViewport;
 
-/// The canvas-sized node everything is laid out in, scaled to the viewport.
 #[derive(Component)]
 struct VanityCardStage;
 
-fn spawn_vanity_card(card: Res<RigCard>, sprite_content: bevy::prelude::Res<ambition_platformer2d::sprite_sheet::SpriteContent>,
+const ROBOT: &str = "content://ambition_shared/sprites/player_robot_v3";
+const DIRECTOR: &str = "content://ambition_shared/sprites/director";
+
+fn spawn_vanity_card(
     mut commands: Commands,
     active: Res<ActiveShellSequence>,
-    roots: Query<&VanityCardRoot>,
+    roots: Query<(), With<VanityCardRoot>>,
     assets: Res<AssetServer>,
-    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    content: Option<Res<SpriteContent>>,
+    fonts: Option<Res<UiFonts>>,
 ) {
-    let Some((activation_id, segment_id, kind)) = active
-        .registered_segment()
-        .map(|(activation_id, segment_id, kind)| (activation_id, segment_id.clone(), kind.clone()))
-    else {
+    if !roots.is_empty() {
+        return;
+    }
+    let Some((activation_id, segment_id, _)) = active.registered_segment() else {
         return;
     };
-    if kind.as_str() != MADE_THIS_MEME_CARD_SEGMENT_KIND {
+    let Some(content) = content.as_deref() else {
         return;
-    }
-    if roots
-        .iter()
-        .any(|root| root.activation_id == activation_id && root.segment_id == segment_id)
-    {
+    };
+    let (Some(robot), Some(director)) = (
+        RiggedSpriteAsset::baked(content, ROBOT),
+        RiggedSpriteAsset::baked(content, DIRECTOR),
+    ) else {
+        bevy::log::warn_once!("The vanity card requires the published robot and Director parts.");
         return;
-    }
+    };
+    let mut robot = CardActor::new(robot, content, &assets, 2.00);
+    let mut director = CardActor::new(director, content, &assets, 1.94);
 
-    let card = &*card;
-    let (canvas_w, canvas_h) = card.canvas;
-
-    // ONE texture, and one layout naming every part's rect inside it.
-    // ⛔ THROUGH THE STAMPED ROAD, not `assets.load` directly. A bare load lands
-    // in `Assets<Image>` with no demand recorded, so the image-stage ledger
-    // reports it as `demand=unknown` — the census sees the insertion and has
-    // nothing to measure it against, which is the one shape that instrument
-    // cannot explain.
-    let sheet: Handle<Image> = ambition_sprite_sheet::game_assets::load_sheet_image(Some(&sprite_content),
-        &assets,
-        "vanity-card",
-        card.sheet.clone(),
-    );
-    let mut layout = TextureAtlasLayout::new_empty(UVec2::new(1, 1));
-    for part in &card.parts {
-        layout.add_texture(URect::new(part.x, part.y, part.x + part.w, part.y + part.h));
-    }
-    let layout = layouts.add(layout);
-
-    // As many part slots as the busiest frame needs, reused every frame. Parts
-    // come and go (the robot blinks), so a slot is hidden rather than despawned:
-    // spawning during playback would put command flushes on the animation path.
-    let slot_count = card.frames.iter().map(|f| f.draws.len()).max().unwrap_or(0);
-
-    let mut slots = Vec::with_capacity(slot_count);
-    let mut stage = Entity::PLACEHOLDER;
-    let mut bubble = Entity::PLACEHOLDER;
-    let mut bubble_text = Entity::PLACEHOLDER;
-    let mut bubble_tail = Entity::PLACEHOLDER;
+    let choice = if RandomState::new().hash_one(activation_id.0) & 1 == 0 {
+        Gift::Gamepad
+    } else {
+        Gift::ApplePie
+    };
+    let (gift_path, gift_size) = choice.asset();
+    let gift_image = load_sheet_image(Some(content), &assets, "vanity-card", gift_path);
 
     let root = commands
         .spawn((
@@ -230,7 +241,7 @@ fn spawn_vanity_card(card: Res<RigCard>, sprite_content: bevy::prelude::Res<ambi
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(rgb(card.look.backdrop)),
+            BackgroundColor(Color::srgb_u8(12, 14, 22)),
             GlobalZIndex(4_500),
             FrontendOwnedEntity::shell(activation_id, FrontendPresentationKind::StartupRoot),
             ShellSegmentScopedEntity {
@@ -239,158 +250,126 @@ fn spawn_vanity_card(card: Res<RigCard>, sprite_content: bevy::prelude::Res<ambi
             },
             Name::new("Ambition Vanity Card Root"),
         ))
-        .with_children(|root| {
-            root.spawn((
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                VanityCardViewport,
-                Name::new("Ambition Vanity Card Viewport"),
-            ))
-            .with_children(|viewport| {
-                let mut stage_cmds = viewport.spawn((
-                    Node {
-                        width: Val::Px(canvas_w),
-                        height: Val::Px(canvas_h),
-                        position_type: PositionType::Relative,
-                        ..default()
-                    },
-                    VanityCardStage,
-                    Name::new("Ambition Vanity Card Stage"),
-                ));
-                stage = stage_cmds.id();
-                stage_cmds.with_children(|stage| {
-                    // The comic panel the characters stand on.
-                    stage.spawn((
-                        Node {
-                            position_type: PositionType::Absolute,
-                            left: Val::Px(card.look.margin),
-                            top: Val::Px(card.look.margin),
-                            width: Val::Px(canvas_w - card.look.margin * 2.0),
-                            height: Val::Px(canvas_h - card.look.margin * 2.0),
-                            border: UiRect::all(Val::Px(2.0)),
-                            border_radius: BorderRadius::all(Val::Px(22.0)),
-                            ..default()
-                        },
-                        BackgroundColor(rgb(card.look.card_fill)),
-                        BorderColor::all(rgb(card.look.card_outline)),
-                        Name::new("Ambition Vanity Card Panel"),
-                    ));
-
-                    for index in 0..slot_count {
-                        slots.push(
-                            stage
-                                .spawn((
-                                    Node {
-                                        position_type: PositionType::Absolute,
-                                        ..default()
-                                    },
-                                    ImageNode::from_atlas_image(
-                                        sheet.clone(),
-                                        TextureAtlas {
-                                            layout: layout.clone(),
-                                            index: 0,
-                                        },
-                                    ),
-                                    Visibility::Hidden,
-                                    Name::new(format!("Ambition Vanity Part {index}")),
-                                ))
-                                .id(),
-                        );
-                    }
-
-                    bubble_tail = stage
-                        .spawn((
-                            Node {
-                                position_type: PositionType::Absolute,
-                                ..default()
-                            },
-                            BackgroundColor(rgb(card.look.bubble_fill)),
-                            BorderColor::all(rgb(card.look.bubble_outline)),
-                            Visibility::Hidden,
-                            Name::new("Ambition Vanity Bubble Tail"),
-                        ))
-                        .id();
-
-                    let mut bubble_cmds = stage.spawn((
-                        Node {
-                            position_type: PositionType::Absolute,
-                            padding: UiRect::axes(Val::Px(13.0), Val::Px(9.0)),
-                            border: UiRect::all(Val::Px(1.0)),
-                            border_radius: BorderRadius::all(Val::Px(13.0)),
-                            max_width: Val::Px(186.0),
-                            ..default()
-                        },
-                        BackgroundColor(rgb(card.look.bubble_fill)),
-                        BorderColor::all(rgb(card.look.bubble_outline)),
-                        Visibility::Hidden,
-                        Name::new("Ambition Vanity Speech Bubble"),
-                    ));
-                    bubble = bubble_cmds.id();
-                    bubble_cmds.with_children(|bubble| {
-                        bubble_text = bubble
-                            .spawn((
-                                Text::new(""),
-                                TextFont {
-                                    font_size: FontSize::Px(18.0),
-                                    ..default()
-                                },
-                                TextColor(rgb(card.look.text)),
-                                Name::new("Ambition Vanity Speech Text"),
-                            ))
-                            .id();
-                    });
-                });
-            });
-        })
         .id();
-
+    let viewport = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            VanityCardViewport,
+            ChildOf(root),
+        ))
+        .id();
+    let stage = commands
+        .spawn((
+            Node {
+                width: Val::Px(CANVAS.x),
+                height: Val::Px(CANVAS.y),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            VanityCardStage,
+            ChildOf(viewport),
+        ))
+        .id();
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(8.0),
+            top: Val::Px(8.0),
+            width: Val::Px(CANVAS.x - 16.0),
+            height: Val::Px(CANVAS.y - 16.0),
+            border: UiRect::all(Val::Px(2.0)),
+            border_radius: BorderRadius::all(Val::Px(22.0)),
+            ..default()
+        },
+        BackgroundColor(Color::srgb_u8(246, 247, 251)),
+        BorderColor::all(Color::srgb_u8(210, 216, 228)),
+        ChildOf(stage),
+    ));
+    for actor in [&mut robot, &mut director] {
+        for _ in 0..actor.rig.max_draws() {
+            actor.slots.push(
+                commands
+                    .spawn((
+                        absolute_node(),
+                        ImageNode::default().with_mode(NodeImageMode::Stretch),
+                        Visibility::Hidden,
+                        ChildOf(stage),
+                    ))
+                    .id(),
+            );
+        }
+    }
+    let gift = commands
+        .spawn((absolute_node(), ImageNode::new(gift_image), ChildOf(stage)))
+        .id();
+    let bubble_tail = commands
+        .spawn((
+            absolute_node(),
+            BackgroundColor(Color::srgb_u8(168, 178, 198)),
+            Visibility::Hidden,
+            ChildOf(stage),
+        ))
+        .id();
+    let bubble = commands
+        .spawn((
+            Node {
+                padding: UiRect::axes(Val::Px(13.0), Val::Px(9.0)),
+                border: UiRect::all(Val::Px(1.0)),
+                border_radius: BorderRadius::all(Val::Px(13.0)),
+                ..absolute_node()
+            },
+            BackgroundColor(Color::WHITE),
+            BorderColor::all(Color::srgb_u8(168, 178, 198)),
+            Visibility::Hidden,
+            ChildOf(stage),
+        ))
+        .id();
+    let bubble_text = commands
+        .spawn((
+            Text::new(""),
+            fonts.as_deref().map_or_else(
+                || TextFont::from_font_size(18.0),
+                |fonts| fonts.text_font(18.0, UiFontWeight::Regular),
+            ),
+            TextColor(Color::srgb_u8(32, 36, 46)),
+            ChildOf(bubble),
+        ))
+        .id();
     commands.entity(root).insert(VanityCardRoot {
-        activation_id,
-        segment_id,
-        elapsed: Duration::ZERO,
-        completion_sent: false,
-        stage,
-        slots,
+        robot,
+        director,
+        gift,
+        gift_size,
         bubble,
         bubble_text,
         bubble_tail,
     });
 }
 
-/// Scale the canvas-sized stage to fill whatever the card is being shown in.
-///
-/// Uniform scale, so the card letterboxes instead of stretching; every position
-/// in the baked table then means the same thing at 640x360 and at 4K, and the
-/// speech text scales with the art rather than growing out of its bubble.
-///
-/// the measurement is converted to LOGICAL pixels before it is compared to the
-/// canvas. `ComputedNode::size()` is PHYSICAL, and the stage is sized in `Val::Px`
-/// — which bevy_ui has already multiplied by the display scale factor — so
-/// dividing the raw sizes asks "how many device pixels fit in a logical canvas"
-/// and answers with a scale inflated by exactly that factor. A desktop at 1.0
-/// cannot tell the difference, which is why every check of this passed; a phone
-/// at 2.0-3.5 drew the card zoomed several times past the edges of the screen
-/// .
+fn absolute_node() -> Node {
+    Node {
+        position_type: PositionType::Absolute,
+        ..default()
+    }
+}
+
 fn fit_card_to_display(
-    card: Res<RigCard>,
     viewports: Query<(&ComputedNode, &Children), With<VanityCardViewport>>,
     mut stages: Query<&mut UiTransform, With<VanityCardStage>>,
 ) {
-    let (canvas_w, canvas_h) = card.canvas;
     for (computed, children) in &viewports {
+        // UI positions use logical pixels. The viewport size uses physical pixels.
         let size = computed.size() * computed.inverse_scale_factor();
-        if size.x <= 0.0 || size.y <= 0.0 {
-            continue;
-        }
-        let scale = (size.x / canvas_w).min(size.y / canvas_h);
-        for child in children.iter() {
-            if let Ok(mut transform) = stages.get_mut(child) {
-                if transform.scale != Vec2::splat(scale) {
+        if size.x > 0.0 && size.y > 0.0 {
+            let scale = (size / CANVAS).min_element();
+            for child in children.iter() {
+                if let Ok(mut transform) = stages.get_mut(child) {
                     transform.scale = Vec2::splat(scale);
                 }
             }
@@ -398,109 +377,187 @@ fn fit_card_to_display(
     }
 }
 
-fn animate_vanity_card(
-    card: Res<RigCard>,
-    time: Res<Time>,
-    mut roots: Query<&mut VanityCardRoot>,
-    mut nodes: Query<&mut Node>,
-    mut transforms: Query<&mut UiTransform>,
-    mut images: Query<&mut ImageNode>,
-    mut visibilities: Query<&mut Visibility>,
-    mut texts: Query<&mut Text>,
-    mut commands: MessageWriter<ShellSequenceCommand>,
-) {
-    let card = &*card;
-    let total = card.duration();
-    for mut root in &mut roots {
-        root.elapsed = (root.elapsed + time.delta()).min(total);
+fn ease(t: f32, start: f32, end: f32) -> f32 {
+    let phase = ((t - start) / (end - start)).clamp(0.0, 1.0);
+    phase * phase * (3.0 - 2.0 * phase)
+}
 
-        // The last frame is HELD rather than wrapping: the card ends on the
-        // author holding the game, and a wrap to the empty first frame would
-        // flash the stage bare on the way out.
-        let index = ((root.elapsed.as_millis() as u64) / card.frame_ms.max(1)) as usize;
-        let frame = &card.frames[index.min(card.frames.len() - 1)];
+fn pose_robot(robot: &mut CardActor, t: f32) {
+    let approach = ease(t, 0.0, ARRIVE);
+    let retreat = ease(t, RELEASE, RETREAT_END);
+    let lift = 30.0 * (ease(t, REACH, TAKE) - ease(t, RELEASE, RELEASE + 0.30));
+    robot.feet = Vec2::new(83.0 + 216.0 * approach - 94.0 * retreat, FLOOR - lift);
+    let gait = robot.rig.clip("walk").map_or(1.0, |clip| {
+        clip.frame_duration_s * clip.frame_count() as f32
+    });
 
-        for (slot, draw) in root.slots.iter().zip(frame.draws.iter()) {
-            let Some(part) = card.parts.get(draw.part) else {
-                continue;
+    if t < ARRIVE {
+        robot.carry_walk(gait * 3.0 * approach);
+    } else if t < RELEASE {
+        robot.sample("grab_hold", t - ARRIVE);
+        robot.blend("item_hold", 0, ease(t, ARRIVE, ROBOT_LINE + 0.14));
+    } else if t < RETREAT_END {
+        robot.sample("walk", -gait * 1.5 * retreat);
+        robot.blend("grab_hold", 0, ease(t, RELEASE, RELEASE + 0.29));
+    } else {
+        robot.sample("idle", t - RETREAT_END);
+        robot.blend("walk", 4, ease(t, RETREAT_END, RETREAT_END + 0.17));
+        robot.tilt_head(0.16 * ease(t, DIRECTOR_LINE + 0.3, DIRECTOR_LINE + 0.8));
+    }
+}
+
+fn pose_director(director: &mut CardActor, t: f32) {
+    director.feet = Vec2::new(458.0, FLOOR);
+    if t < QUESTION {
+        director.sample("idle", t);
+    } else if t < REACH {
+        director.sample("talk", t - QUESTION);
+        director.blend("idle", 0, ease(t, QUESTION, QUESTION + 0.24));
+    } else if t < RELEASE {
+        director.sample_frame("interact", 3);
+        director.blend("talk", 0, ease(t, REACH, TAKE));
+    } else {
+        director.sample("item_hold", t - RELEASE);
+        director.blend("interact", 3, ease(t, RELEASE, RELEASE + 0.68));
+        director.tilt_head(-0.29 * ease(t, RELEASE + 0.3, RETREAT_END + 0.35));
+    }
+}
+
+#[derive(bevy::ecs::system::SystemParam)]
+struct CardNodes<'w, 's> {
+    nodes: Query<'w, 's, &'static mut Node>,
+    transforms: Query<'w, 's, &'static mut UiTransform>,
+    images: Query<'w, 's, &'static mut ImageNode>,
+    visibility: Query<'w, 's, &'static mut Visibility>,
+}
+
+impl CardNodes<'_, '_> {
+    fn place(&mut self, entity: Entity, center: Vec2, size: Vec2, rotation: Rot2) {
+        if let Ok(mut node) = self.nodes.get_mut(entity) {
+            node.left = Val::Px(center.x - size.x / 2.0);
+            node.top = Val::Px(center.y - size.y / 2.0);
+            node.width = Val::Px(size.x);
+            node.height = Val::Px(size.y);
+        }
+        if let Ok(mut transform) = self.transforms.get_mut(entity) {
+            transform.rotation = rotation;
+        }
+    }
+
+    fn show(&mut self, entity: Entity, visible: bool) {
+        if let Ok(mut visibility) = self.visibility.get_mut(entity) {
+            *visibility = if visible {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
             };
-            if let Ok(mut node) = nodes.get_mut(*slot) {
-                node.left = Val::Px(draw.x - draw.w / 2.0);
-                node.top = Val::Px(draw.y - draw.h / 2.0);
-                node.width = Val::Px(draw.w);
-                node.height = Val::Px(draw.h);
-            }
-            if let Ok(mut transform) = transforms.get_mut(*slot) {
-                transform.rotation = Rot2::degrees(draw.deg);
-            }
-            if let Ok(mut image) = images.get_mut(*slot) {
-                if let Some(atlas) = image.texture_atlas.as_mut() {
-                    if atlas.index != draw.part {
-                        atlas.index = draw.part;
-                    }
-                }
-                let _ = part;
-            }
-            if let Ok(mut visibility) = visibilities.get_mut(*slot) {
-                *visibility = Visibility::Inherited;
-            }
         }
-        for slot in root.slots.iter().skip(frame.draws.len()) {
-            if let Ok(mut visibility) = visibilities.get_mut(*slot) {
-                *visibility = Visibility::Hidden;
+    }
+
+    fn draw_actor(&mut self, actor: &CardActor) {
+        let draws = actor.draws.iter().filter(|draw| {
+            // Keep the Director's pen out of the hand that takes the gift.
+            draw.track
+                .is_none_or(|track| actor.rig.tracks()[usize::from(track)] != "pen")
+        });
+        let mut slots = actor.slots.iter().copied();
+        for (draw, slot) in draws.zip(slots.by_ref()) {
+            let part = actor.rig.parts[usize::from(draw.part)];
+            let rotation = Rot2::radians(draw.rotation);
+            let scale = draw.scale * actor.scale;
+            let center = actor.feet
+                + draw.at * actor.scale
+                + rotation * ((part.size / 2.0 - part.pivot) * scale);
+            self.place(slot, center, part.size * scale.abs(), rotation);
+            if let Ok(mut image) = self.images.get_mut(slot) {
+                let tint = draw.tint();
+                image.image = actor.pages[usize::from(part.page)].clone();
+                image.rect = Some(Rect::new(
+                    part.rect.min.x as f32,
+                    part.rect.min.y as f32,
+                    part.rect.max.x as f32,
+                    part.rect.max.y as f32,
+                ));
+                image.flip_x = scale.x < 0.0;
+                image.flip_y = scale.y < 0.0;
+                image.color = Color::srgba(tint.x, tint.y, tint.z, draw.opacity());
             }
+            self.show(slot, true);
         }
-
-        match &frame.bubble {
-            Some(bubble) => {
-                if let Ok(mut node) = nodes.get_mut(root.bubble) {
-                    node.left = Val::Px(bubble.box_x);
-                    node.top = Val::Px(bubble.box_y);
-                }
-                if let Ok(mut text) = texts.get_mut(root.bubble_text) {
-                    if text.0 != bubble.text {
-                        text.0 = bubble.text.clone();
-                    }
-                }
-                // The tail is a thin quad from the bubble to the speaker's head:
-                // a rectangle rotated onto the line between them, which is the
-                // cheapest thing that still says WHO is talking.
-                let from = Vec2::new(bubble.box_x + 24.0, bubble.box_y + 34.0);
-                let to = Vec2::new(bubble.tail_x, bubble.tail_y);
-                let span = to - from;
-                let length = span.length().max(1.0);
-                if let Ok(mut node) = nodes.get_mut(root.bubble_tail) {
-                    node.left = Val::Px(from.x + span.x / 2.0 - length / 2.0);
-                    node.top = Val::Px(from.y + span.y / 2.0 - 1.5);
-                    node.width = Val::Px(length);
-                    node.height = Val::Px(3.0);
-                }
-                if let Ok(mut transform) = transforms.get_mut(root.bubble_tail) {
-                    transform.rotation = Rot2::radians(span.y.atan2(span.x));
-                }
-                for entity in [root.bubble, root.bubble_tail] {
-                    if let Ok(mut visibility) = visibilities.get_mut(entity) {
-                        *visibility = Visibility::Inherited;
-                    }
-                }
-            }
-            None => {
-                for entity in [root.bubble, root.bubble_tail] {
-                    if let Ok(mut visibility) = visibilities.get_mut(entity) {
-                        *visibility = Visibility::Hidden;
-                    }
-                }
-            }
+        for unused in slots {
+            self.show(unused, false);
         }
+    }
+}
 
-        let _ = root.stage;
+fn animate_vanity_card(
+    active: Res<ActiveShellSequence>,
+    mut roots: Query<&mut VanityCardRoot>,
+    mut ui: CardNodes,
+    mut texts: Query<&mut Text>,
+) {
+    let Some(sequence) = active.runtime.as_ref() else {
+        return;
+    };
+    let t = sequence.elapsed.as_secs_f32();
+    for mut root in &mut roots {
+        pose_robot(&mut root.robot, t);
+        pose_director(&mut root.director, t);
+        ui.draw_actor(&root.robot);
+        ui.draw_actor(&root.director);
 
-        if !root.completion_sent && root.elapsed >= total {
-            commands.write(ShellSequenceCommand::ProgrammaticSegmentCompleted {
-                activation_id: root.activation_id,
-                segment_id: root.segment_id.clone(),
-            });
-            root.completion_sent = true;
+        let transfer = ease(t, TAKE, RELEASE);
+        let from = root.robot.point("far_hand") + Vec2::new(22.0, -9.0);
+        let to = root.director.point("far_hand") + Vec2::new(-17.0, 5.0);
+        ui.place(
+            root.gift,
+            from.lerp(to, transfer),
+            root.gift_size,
+            Rot2::radians(-0.10 + 0.22 * transfer),
+        );
+
+        let speech = if (ROBOT_LINE..QUESTION).contains(&t) {
+            Some((
+                "I made this.",
+                Vec2::new(158.0, 50.0),
+                Vec2::new(88.0, 32.0),
+                root.robot.point("head") + Vec2::new(-28.0, -58.0),
+            ))
+        } else {
+            let line = if (QUESTION..TAKE).contains(&t) {
+                Some("You made this?")
+            } else {
+                (t >= DIRECTOR_LINE).then_some("I made this.")
+            };
+            line.map(|line| {
+                (
+                    line,
+                    Vec2::new(421.0, 30.0),
+                    Vec2::new(30.0, 32.0),
+                    root.director.point("head") - Vec2::new(0.0, 56.0),
+                )
+            })
+        };
+        ui.show(root.bubble, speech.is_some());
+        ui.show(root.bubble_tail, speech.is_some());
+        if let Some((line, position, tail_base, tip)) = speech {
+            if let Ok(mut text) = texts.get_mut(root.bubble_text) {
+                if text.0 != line {
+                    text.0 = line.to_owned();
+                }
+            }
+            if let Ok(mut node) = ui.nodes.get_mut(root.bubble) {
+                node.left = Val::Px(position.x);
+                node.top = Val::Px(position.y);
+            }
+            let base = position + tail_base;
+            let tail = tip - base;
+            ui.place(
+                root.bubble_tail,
+                base + tail / 2.0,
+                Vec2::new(tail.length(), 2.0),
+                Rot2::radians(tail.y.atan2(tail.x)),
+            );
         }
     }
 }
@@ -508,116 +565,33 @@ fn animate_vanity_card(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d::game_shell::{
+        ShellActivationId, ShellSegmentRole, ShellSegmentSpec, ShellSequenceRuntime,
+        ShellSequenceSpec,
+    };
 
     #[test]
-    fn unrelated_routes_do_not_require_the_director_card() {
-        use ambition_platformer2d::game_shell::{ShellSequenceRuntime, ShellSequenceSpec, ShellSegmentSpec, ShellSegmentRole};
+    fn unrelated_routes_do_not_require_vanity_card_assets() {
         for segment in [
             None,
             Some(ShellSegmentSpec::text("text", "A text card")),
-            Some(ShellSegmentSpec::registered("other", ShellSegmentRole::Vanity, "another_card")),
+            Some(ShellSegmentSpec::registered(
+                "other",
+                ShellSegmentRole::Vanity,
+                "another_card",
+            )),
         ] {
             let mut app = App::new();
             app.insert_resource(ActiveShellSequence {
                 activation_id: Some(ShellActivationId(1)),
-                runtime: segment.map(|segment| ShellSequenceRuntime::new(ShellSequenceSpec { segments: vec![segment] })),
+                runtime: segment.map(|segment| {
+                    ShellSequenceRuntime::new(ShellSequenceSpec {
+                        segments: vec![segment],
+                    })
+                }),
             });
             app.add_plugins(MadeThisMemeCardPlugin);
             app.update();
-            app.update();
-            assert!(!app.world().contains_resource::<RigCard>());
         }
-    }
-
-    /// The card's look is the renderer's: each colour and the margin in the
-    /// baked table are the constants of `render_director_vanity_dialog.py`.
-    /// A renderer edit with no new bake is red here.
-    #[test]
-    fn the_card_wears_the_renderers_colours() {
-        let renderer = std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../tools/ambition_sprite2d_renderer/scripts/render_director_vanity_dialog.py"
-        ))
-        .unwrap();
-        let constant = |name: &str| -> Vec<u8> {
-            let line = renderer
-                .lines()
-                .find(|line| line.starts_with(&format!("{name} = ")))
-                .unwrap_or_else(|| panic!("the renderer states {name}"));
-            line[name.len() + 3..]
-                .trim_matches(|c: char| c == '(' || c == ')' || c.is_whitespace())
-                .split(',')
-                .map(|part| part.trim().parse().unwrap())
-                .collect()
-        };
-        let look = &card().look;
-        for (name, baked) in [
-            ("CARD_FILL", look.card_fill),
-            ("CARD_OUTLINE", look.card_outline),
-            ("BUBBLE_FILL", look.bubble_fill),
-            ("BUBBLE_OUTLINE", look.bubble_outline),
-            ("TEXT_RGBA", look.text),
-            ("SCREEN_BACKDROP", look.backdrop),
-        ] {
-            assert_eq!(constant(name)[..3], baked, "{name}: the bake is not the renderer's; run the exporter");
-        }
-        assert_eq!(constant("CARD_MARGIN"), [look.margin as u8], "CARD_MARGIN");
-    }
-
-    /// The baked table has to be READABLE and internally consistent — every
-    /// draw must name a part that exists, or the card silently loses limbs.
-    #[test]
-    fn every_baked_draw_names_a_part_that_exists() {
-        let card = card();
-        assert!(!card.frames.is_empty(), "the card must have frames");
-        assert!(!card.parts.is_empty(), "the card must have parts");
-        for (index, frame) in card.frames.iter().enumerate() {
-            for draw in &frame.draws {
-                assert!(
-                    draw.part < card.parts.len(),
-                    "frame {index} draws part {} of {}",
-                    draw.part,
-                    card.parts.len(),
-                );
-            }
-        }
-    }
-
-    /// The card is a startup screen, so its length is a product fact rather than
-    /// an implementation detail: long enough to read the joke, short enough that
-    /// a player who has seen it is not stuck watching it.
-    #[test]
-    fn the_card_runs_for_a_plausible_startup_duration() {
-        let total = card().duration();
-        assert!(
-            total > Duration::from_secs(3) && total < Duration::from_secs(12),
-            "unexpected vanity card length: {total:?}",
-        );
-    }
-
-    /// Both speakers get their line, in the order the joke needs.
-    #[test]
-    fn the_robot_claims_it_first_and_the_author_claims_it_last() {
-        let card = card();
-        let lines: Vec<&str> = card
-            .frames
-            .iter()
-            .filter_map(|frame| frame.bubble.as_ref())
-            .map(|bubble| bubble.text.as_str())
-            .collect();
-        assert_eq!(
-            lines.first().map(|line| line.to_lowercase()),
-            Some("i made this.".to_string()),
-        );
-        assert!(
-            lines
-                .iter()
-                .any(|line| line.to_lowercase().contains("you made this")),
-            "the author has to ask: {lines:?}",
-        );
-        assert_eq!(
-            lines.last().map(|line| line.to_lowercase()),
-            Some("i made this.".to_string()),
-        );
     }
 }

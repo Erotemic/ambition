@@ -184,7 +184,7 @@ Open:
 | Item | Detail |
 | --- | --- |
 | Venv key collision | `ambition_tool_venv_dir` keys on `basename` only, so two checkouts with one directory name share a `scripts/` venv. `target_bindmount.sh`'s `store_for` (basename + path hash) is the fix to copy |
-| `.ipfs` sidecars | Six git-ignored payload directories restore only by manual `ipfs get`. On a fresh clone, `package_asset_guard.py compose` fails on exactly one family: `data/vanity_card.ron`'s nine frames (`assets/vanity_card.ipfs`). Backlog only: Jon owns asset distribution. Do not fold into feature work. This is not the tracked `vanity_card_made_this_meme` that `scripts/regen/sprites.sh` builds |
+| `.ipfs` sidecars | Six git-ignored payload directories restore only by manual `ipfs get`. On a fresh clone, `package_asset_guard.py compose` fails on exactly one family: `data/vanity_card.ron`'s nine frames (`assets/vanity_card.ipfs`). Backlog only: Jon owns asset distribution. Do not fold into feature work. |
 
 ### B5 — platform prerequisites
 

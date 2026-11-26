@@ -34,6 +34,16 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 use crate::body::BrainCommand;
 
+struct FightParticipant {
+    entity: Entity,
+    center: ambition_platformer2d_core::Vec2,
+    faction: ActorFaction,
+    engaged: Option<Entity>,
+    id: Option<SimId>,
+    room: Option<LiveRoomInstance>,
+    blows: Option<Entity>,
+}
+
 /// Rally each idle ally in a dangerous room to the nearest foe of its side
 /// that has come to blows with its side, and stand each rallied body down when
 /// its fight is over. A foe that only watches the player does not start a
@@ -90,6 +100,7 @@ pub fn rally_allies_to_the_fight(
             &ambition_platformer2d_core::BodyAbilities,
             &ambition_characters::actor::CharacterForm,
             Option<&BrainBinding>,
+            Option<(&CenteredAabb, &BodyHealth, Has<ActorTarget>, Option<&ambition_platformer2d_core::DepthPlane>)>,
         ),
         (
             With<FeatureSimEntity>,
@@ -108,10 +119,13 @@ pub fn rally_allies_to_the_fight(
     let mut candidates: Vec<_> = sets
         .p0()
         .iter()
-        .filter(|(_, _, _, _, _, hp, out_of_play, plane, ..)| {
-            !ambition_combat::util::body_is_untouchable(Some(*hp), *out_of_play, *plane)
-        })
-        .map(|(entity, aabb, faction, driver, target, _, _, _, sim_id, policy, aggression, swing)| {
+        .filter_map(|(entity, aabb, faction, driver, target, hp, out_of_play, plane, id, policy, aggression, swing)| {
+            let grudge = aggression.and_then(|aggression| aggression.grudge?.body());
+            if (target.entity.is_none() && grudge.is_none())
+                || ambition_combat::util::body_is_untouchable(Some(hp), out_of_play, plane)
+            {
+                return None;
+            }
             // Whom this body is fighting NOW: its target, when the target is
             // inside its own notice range. A foe that only points at a player
             // across the room is not in a fight yet.
@@ -122,17 +136,26 @@ pub fn rally_allies_to_the_fight(
             });
             // Whom it has come to blows with: the body its grudge names (a
             // body that struck it), or its quarry while it swings at it.
-            let blows = aggression
-                .and_then(|aggression| aggression.grudge?.body())
-                .or(engaged.filter(|_| swing.swing().is_some()));
-            (entity, aabb.center, effective_faction(*faction, driver), engaged, sim_id.cloned(), rooms.of(entity), blows)
+            let blows = grudge.or_else(|| engaged.filter(|_| swing.swing().is_some()));
+            if engaged.is_none() && blows.is_none() {
+                return None;
+            }
+            Some(FightParticipant {
+                entity,
+                center: aabb.center,
+                faction: effective_faction(*faction, driver),
+                engaged,
+                id: id.cloned(),
+                room: rooms.of(entity),
+                blows,
+            })
         })
         .collect();
-    candidates.sort_by(|a, b| match (&a.4, &b.4) {
+    candidates.sort_by(|a, b| match (&a.id, &b.id) {
         (Some(x), Some(y)) => x.cmp(y),
         (Some(_), None) => std::cmp::Ordering::Less,
         (None, Some(_)) => std::cmp::Ordering::Greater,
-        (None, None) => a.0.cmp(&b.0),
+        (None, None) => a.entity.cmp(&b.entity),
     });
     let faction_of = |entity: Entity| {
         bodies
@@ -156,6 +179,7 @@ pub fn rally_allies_to_the_fight(
         abilities,
         worn,
         binding,
+        receiver,
     ) in &mut sets.p1()
     {
         // A rally keeps the body's own retaliation mode; a passive body never
@@ -170,18 +194,18 @@ pub fn rally_allies_to_the_fight(
         // its foe fights nobody on its side any more. Its feud ends with the
         // fight, and its authored mind comes back.
         let self_faction = faction_of(entity);
-        let foe_still_fights = aggression.grudge.and_then(Grudge::body).is_some_and(|foe| {
-            candidates.iter().any(|(candidate, _, foe_faction, quarry, ..)| {
-                *candidate == foe
-                    && quarry.is_some_and(|quarry| {
+        let foe_still_fights = || aggression.grudge.and_then(Grudge::body).is_some_and(|foe| {
+            candidates.iter().any(|candidate| {
+                candidate.entity == foe
+                    && candidate.engaged.is_some_and(|quarry| {
                         quarry == entity
                             || self_faction
-                                .and_then(|me| relations.fights_beside(me, *foe_faction))
+                                .and_then(|me| relations.fights_beside(me, candidate.faction))
                                 .is_some_and(|side| faction_of(quarry) == Some(side))
                     })
             })
         });
-        if rallied && (disposition.is_peaceful() || !foe_still_fights) {
+        if rallied && (disposition.is_peaceful() || !foe_still_fights()) {
             aggression.grudge = None;
             aggression.target = None;
             brain_commands.write(BrainCommand::restore_default(LiveBodyId::new(
@@ -196,7 +220,7 @@ pub fn rally_allies_to_the_fight(
             }
             continue;
         }
-        if !disposition.is_peaceful() {
+        if !disposition.is_peaceful() || candidates.is_empty() {
             continue;
         }
 
@@ -223,34 +247,36 @@ pub fn rally_allies_to_the_fight(
         let Some(self_faction) = self_faction else {
             continue;
         };
-        let Some(&(_, self_center, ..)) = candidates.iter().find(|candidate| candidate.0 == entity)
-        else {
+        let Some((aabb, hp, true, plane)) = receiver else {
             continue;
         };
+        if ambition_combat::util::body_is_untouchable(Some(hp), false, plane) {
+            continue;
+        }
         let self_room = rooms.of(entity);
         let reach_sq = policy.0.aggro_radius * policy.0.aggro_radius;
 
         // The nearest foe of its side, in its room and in its notice range,
         // that is fighting its side now.
         let mut best: Option<(Entity, f32)> = None;
-        for (foe, at, foe_faction, _, _, foe_room, blows) in &candidates {
-            if *foe == entity || *foe_room != self_room {
+        for candidate in &candidates {
+            if candidate.entity == entity || candidate.room != self_room {
                 continue;
             }
-            let Some(side) = relations.fights_beside(self_faction, *foe_faction) else {
+            let Some(side) = relations.fights_beside(self_faction, candidate.faction) else {
                 continue;
             };
             // A FIGHT, not a foe in sight: the foe and the side have come to
             // blows. A foe that only watches the player leaves the ally
             // talkable at its post.
-            if blows.and_then(faction_of) != Some(side) {
+            if candidate.blows.and_then(faction_of) != Some(side) {
                 continue;
             }
-            let d = at.distance_squared(self_center);
+            let d = candidate.center.distance_squared(aabb.center);
             if d > reach_sq || best.is_some_and(|(_, best_d)| d >= best_d) {
                 continue;
             }
-            best = Some((*foe, d));
+            best = Some((candidate.entity, d));
         }
         let Some((foe, _)) = best else {
             continue;

@@ -920,6 +920,9 @@ pub fn apply_hitbox_damage(
     // a composition with no portals: every volume is whole.
     passages: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
 ) {
+    if hitboxes.is_empty() {
+        return;
+    }
     // Each victim's pieces, cut once a tick.
     let mut victim_pieces: std::collections::BTreeMap<Entity, ae::frame::thread::Partition> = std::collections::BTreeMap::new();
     // Each victim's guards, cut once a tick.
@@ -958,12 +961,7 @@ pub fn apply_hitbox_damage(
         let room = rooms.stamped(hitbox_entity).or_else(|| rooms.of(hitbox.owner));
         (room, strike_reach(passages.as_deref(), hitbox, owner_kin.get(hitbox.owner).ok(), room))
     };
-    // The victims in a stable order (see the victim loop), sorted once a
-    // tick: the order is the same for every strike.
-    let mut ordered: Vec<_> = victims.iter().collect();
-    ordered.sort_by(|a, b| {
-        victim_identity_key(a.sim_id.map(|id| id.as_str())).cmp(&victim_identity_key(b.sim_id.map(|id| id.as_str())))
-    });
+    let mut ordered = None;
     // Where each victim can be reached this tick (`VictimReach`), worked out
     // once.
     let mut victim_reach: std::collections::BTreeMap<Entity, VictimReach> = std::collections::BTreeMap::new();
@@ -1026,6 +1024,15 @@ pub fn apply_hitbox_damage(
         let feature_pieces = || if cut { pieces.clone() } else { Vec::new() };
         if let Some(source_kind) = body_source {
             let owner_grudge = attacker.grudge(hitbox.owner);
+            // Sort victims once per tick when a strike can reach bodies.
+            let ordered = ordered.get_or_insert_with(|| {
+                let mut rows: Vec<_> = victims.iter().collect();
+                rows.sort_by(|a, b| {
+                    victim_identity_key(a.sim_id.map(|id| id.as_str()))
+                        .cmp(&victim_identity_key(b.sim_id.map(|id| id.as_str())))
+                });
+                rows
+            });
 
             // ⛔⛤ IN A STABLE ORDER, NOT QUERY ORDER. This was
             // `for victim in &victims` — Bevy archetype order — and a rewind

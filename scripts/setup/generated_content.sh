@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerate every generated runtime asset, plus the `.agent/` navigation index.
+# Update and check all generated runtime assets and the `.agent/` index.
 #
 # Usage:
 #   scripts/setup/generated_content.sh
@@ -15,12 +15,8 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 AMBITION_SETUP_LABEL=generated-content
 # shellcheck source=../lib/setup_common.sh
 . "$repo_root/scripts/lib/setup_common.sh"
-# shellcheck source=../lib/tool_python.sh
-. "$repo_root/scripts/lib/tool_python.sh"
 setup_load_cargo_env
 
-skip_assets=0
-skip_python=0
 skip_navigation=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -37,22 +33,6 @@ verify_generated_content_is_current() {
     python3 "$repo_root/scripts/checks/check_regeneration_coverage.py"
 }
 
-regenerate_assets() {
-    if [ "$skip_assets" -eq 1 ]; then
-        log "skipping generated assets"
-        return 0
-    fi
-    if [ "$skip_python" -eq 1 ]; then
-        log "checking existing tool-local environments"
-        verify_tool_environments
-    fi
-
-    # Art needs no Cargo build, so it does not wait on the target bind.
-    log "regenerating all runtime assets"
-    "$repo_root/scripts/regen/assets.sh"
-    verify_generated_content_is_current
-}
-
 # ⛔ `scripts/agent_query.py` IS STEP 2 OF THE COLD START AGENTS.md MANDATES, AND
 # ON A FRESH CLONE IT ANSWERED NOTHING. The `.agent/` packets it queries are
 # generated, not committed — `git ls-files .agent` is two files — so a new
@@ -66,10 +46,6 @@ regenerate_assets() {
 # dangling doc reference) and has nothing to do with whether this checkout is
 # runnable. Setup must not refuse a working environment over it.
 regenerate_source_navigation() {
-    if [ "$skip_assets" -eq 1 ]; then
-        log "skipping generated navigation"
-        return 0
-    fi
     [ -x "$repo_root/scripts/regen/source_navigation.sh" ] || return 0
     # The ECS inventory resolves the dependency graph through cargo, and prints
     # `resolved dependency graph unavailable` and carries on when it cannot —
@@ -95,7 +71,11 @@ regenerate_source_navigation() {
     fi
 }
 
-regenerate_assets
+log "updating missing, damaged, or stale runtime assets"
+setup_limit_jobs
+"$repo_root/scripts/regen/assets.sh" --jobs "$AMBITION_SETUP_JOBS"
+export AMBITION_MUSIC_JOBS="$AMBITION_SETUP_JOBS"
+verify_generated_content_is_current
 if [ "$skip_navigation" -eq 0 ]; then
     regenerate_source_navigation
 fi

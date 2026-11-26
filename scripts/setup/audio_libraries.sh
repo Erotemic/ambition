@@ -31,7 +31,9 @@ AMBITION_SETUP_LABEL=audio-libraries
 # shellcheck source=../lib/setup_common.sh
 . "$repo_root/scripts/lib/setup_common.sh"
 
-want_audio_libraries=1
+# shellcheck source=../lib/tool_python.sh
+. "$repo_root/scripts/lib/tool_python.sh"
+
 show_status=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -50,8 +52,6 @@ report_status() {
     log "env.sh    : $([ -f "$root/env.sh" ] && echo present || echo MISSING)"
     log "sfizz     : $(command -v sfizz_render || echo MISSING)"
     local py
-    # shellcheck source=../lib/tool_python.sh
-    . "$repo_root/scripts/lib/tool_python.sh"
     py="$(ambition_select_tool_python "$repo_root/tools/ambition_music_renderer" AMBITION_MUSIC_PYTHON)"
     if ambition_python_exists "$py"; then
         ( cd "$repo_root/tools/ambition_music_renderer" && "$py" -c "
@@ -88,50 +88,23 @@ ensure_audio_libraries() {
     root="${AMBITION_AUDIO_TOOLS_ROOT:-/data/audio-tools}"
     renderer="$repo_root/tools/ambition_music_renderer"
 
-    if [ "$want_audio_libraries" -eq 0 ]; then
-        if [ -f "$root/env.sh" ]; then
-            log "sampled instrument libraries already present at $root"
-        else
-            log "sampled instruments not requested (--audio-libraries adds them);"
-            log "   music renders through the General-MIDI fallback until then"
+    [ -x "$renderer/setup.sh" ] || fatal "music renderer is missing. Run scripts/setup/submodules.sh."
+
+    if [ ! -d "$root" ] && ! mkdir -p "$root" 2>/dev/null; then
+        if [ "$root" = /data/audio-tools ] && have sudo; then
+            sudo mkdir -p "$root" && sudo chown "$(id -u):$(id -g)" "$root"
         fi
-        return 0
     fi
+    [ -w "$root" ] || fatal "$root is not writable. Set AMBITION_AUDIO_TOOLS_ROOT to a directory you can write to."
 
-    if [ ! -x "$renderer/setup.sh" ]; then
-        warn "$renderer/setup.sh is missing; skipping the audio toolchain"
-        return 0
-    fi
-
-    # sfizz first: without a player, a downloaded SFZ library is inert. The
-    # renderer's setup installs it by default (apt, then the sfztools OBS repo,
-    # then a source build) and fails when it cannot.
-    #
-    # AMBITION_SKIP_AUDIO_TOOLS_DOWNLOAD: that setup also runs the downloader,
-    # but this script does it below after fixing /data ownership — once is enough.
     log "installing the native audio toolchain (sfizz, LV2/VST3 hosts)"
-    AMBITION_SKIP_AUDIO_TOOLS_DOWNLOAD=1 "$renderer/setup.sh" \
-        || warn "audio toolchain setup reported a failure; continuing"
-
-    # /data is root-owned on a fresh box and the downloader does not escalate,
-    # so its first write would fail on a path the developer never chose.
-    #
-    # Test writability, NOT `mkdir -p`: mkdir -p SUCCEEDS on a directory that
-    # already exists no matter who owns it, so gating the escalation on its exit
-    # status skipped the chown on exactly the boxes that needed it.
-    if [ ! -w "$root" ] && have sudo; then
-        log "making $root writable for $(whoami)"
-        sudo mkdir -p "$root" && sudo chown "$(id -u):$(id -g)" "$root" || true
-    fi
-    if [ ! -w "$root" ]; then
-        warn "$root is not writable; skipping the library download"
-        warn "set AMBITION_AUDIO_TOOLS_ROOT to a path you own and rerun"
-        return 0
-    fi
+    setup_limit_jobs
+    CMAKE_BUILD_PARALLEL_LEVEL="$AMBITION_SETUP_JOBS" "$renderer/setup.sh" --native-only \
+        || fatal "native audio setup failed"
 
     log "downloading sampled instrument libraries into $root (this is large)"
     "$renderer/download_ambition_audio_tools.sh" "$root" \
-        || warn "instrument library download reported a failure; cues will use the fallback"
+        || fatal "instrument library setup failed. See $root/MANUAL_DOWNLOADS.md and the download log above."
 }
 
 ensure_audio_libraries

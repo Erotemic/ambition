@@ -29,6 +29,20 @@ have() {
     command -v "$1" >/dev/null 2>&1
 }
 
+setup_limit_jobs() {
+    local cpus memory_jobs
+    if [ -z "${AMBITION_SETUP_JOBS:-}" ]; then
+        cpus="$(getconf _NPROCESSORS_ONLN 2>/dev/null || printf '1')"
+        memory_jobs=1
+        if [ -r /proc/meminfo ]; then
+            memory_jobs="$(awk '/^MemAvailable:/ { jobs = int($2 / 2097152); print (jobs > 0 ? jobs : 1); exit }' /proc/meminfo)"
+        fi
+        AMBITION_SETUP_JOBS=$(( cpus < memory_jobs ? cpus : memory_jobs ))
+    fi
+    [[ "$AMBITION_SETUP_JOBS" =~ ^[1-9][0-9]*$ ]] || fatal "AMBITION_SETUP_JOBS must be a positive integer"
+    export AMBITION_SETUP_JOBS
+}
+
 # The usage block is the file's own header comment, so `--help` cannot describe
 # a script that has since changed underneath it.
 setup_usage() {

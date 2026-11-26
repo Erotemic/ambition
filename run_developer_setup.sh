@@ -32,12 +32,17 @@
 # such a machine cannot regenerate music.
 #
 # Usage:
-#   ./run_developer_setup.sh [--profile] [--full]
+#   ./run_developer_setup.sh [--profile] [--full] [--skip-update]
 #       [--skip-system-packages] [--skip-rust] [--skip-submodules]
 #       [--skip-tally] [--skip-python] [--skip-audio-libraries]
-#       [--skip-assets] [--skip-cargo-check]
+#       [--assets-only] [--skip-assets] [--skip-cargo-build]
+#
+#   --assets-only       prepare the asset tools and update runtime assets
+#                       without building the desktop game
+#   --skip-update       use the current superproject revision
 #
 # Environment:
+#   AMBITION_SETUP_JOBS=1
 #   AMBITION_TOOL_PYTHON=3.12
 #   UV_EXCLUDE_NEWER=YYYY-MM-DD
 #   AMBITION_AUDIO_TOOLS_ROOT=/data/audio-tools
@@ -52,25 +57,30 @@ AMBITION_SETUP_LABEL=developer-setup
 
 setup="$repo_root/scripts/setup"
 
+setup_arguments=("$@")
+skip_update=0
 skip_system_packages=0
 skip_rust=0
 skip_submodules=0
 skip_python=0
 skip_audio_libraries=0
 skip_assets=0
-skip_cargo_check=0
+skip_cargo_build=0
+assets_only=0
 skip_tally=0
 want_profiling=0
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --skip-system-packages) skip_system_packages=1 ;;
+        --skip-update) skip_update=1 ;;
         --skip-rust) skip_rust=1 ;;
         --skip-submodules) skip_submodules=1 ;;
         --skip-python) skip_python=1 ;;
         --skip-audio-libraries) skip_audio_libraries=1 ;;
         --skip-assets) skip_assets=1 ;;
-        --skip-cargo-check) skip_cargo_check=1 ;;
+        --skip-cargo-build|--skip-cargo-check) skip_cargo_build=1 ;;
+        --assets-only) assets_only=1; skip_cargo_build=1 ;;
         --skip-tally) skip_tally=1 ;;
         --profile|--full) want_profiling=1 ;;
         # Accepted so an existing invocation does not break; it is the default.
@@ -80,6 +90,35 @@ while [ "$#" -gt 0 ]; do
     esac
     shift
 done
+if [ "$assets_only" -eq 1 ] && [ "$skip_assets" -eq 1 ]; then
+    fatal "--assets-only requires asset generation"
+fi
+
+update_checkout() {
+    local upstream remote before
+    [ "$(git symbolic-ref --quiet --short HEAD)" = main ] || return 0
+    if ! upstream="$(git rev-parse --symbolic-full-name '@{upstream}' 2>/dev/null)"; then
+        log "main has no upstream. Using the current revision."
+        return 0
+    fi
+    remote="$(git config --get branch.main.remote)"
+    log "updating main from ${upstream#refs/remotes/}"
+    git fetch --no-recurse-submodules "$remote"
+    before="$(git rev-parse HEAD)"
+    git -c submodule.recurse=false merge --ff-only --no-autostash "$upstream" \
+        || fatal "main could not be fast-forwarded. Resolve the Git state or use --skip-update."
+    if [ "$before" != "$(git rev-parse HEAD)" ]; then
+        # Read the setup script from the new revision.
+        AMBITION_SETUP_ALREADY_UPDATED=1 exec "$repo_root/run_developer_setup.sh" "$@"
+    fi
+}
+
+if [ "$skip_update" -eq 0 ] && [ "${AMBITION_SETUP_ALREADY_UPDATED:-0}" -eq 0 ]; then
+    update_checkout "${setup_arguments[@]}"
+fi
+unset AMBITION_SETUP_ALREADY_UPDATED
+setup_limit_jobs
+log "using up to $AMBITION_SETUP_JOBS worker(s) per build phase"
 
 # Run phases in order. apt takes a machine-wide lock, and the asset pipeline
 # uses the available CPU capacity.
@@ -97,7 +136,12 @@ phase() {
 
 phase "$skip_system_packages" system_packages.sh
 phase "$skip_rust" rust_toolchain.sh
-"$setup/native_linker.sh" --install
+setup_load_cargo_env
+export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-$AMBITION_SETUP_JOBS}"
+if [ "$skip_cargo_build" -eq 0 ] || [ "$want_profiling" -eq 1 ]; then
+    "$setup/native_linker.sh" --install
+    "$setup/target_bindmount.sh"
+fi
 if [ "$want_profiling" -eq 1 ]; then
     "$setup/profiling_tools.sh"
 else
@@ -110,12 +154,14 @@ phase "$skip_python" python_tools.sh
 # find the instruments, so installing them afterwards would render the fallback.
 phase "$skip_audio_libraries" audio_libraries.sh
 phase "$skip_assets" generated_content.sh
-phase "$skip_cargo_check" desktop_check.sh
+phase "$skip_cargo_build" desktop_check.sh
 
 echo
-if [ "$skip_assets" -eq 0 ] && [ "$skip_cargo_check" -eq 0 ] && [ "$skip_audio_libraries" -eq 0 ]; then
+if [ "$skip_assets" -eq 0 ] && [ "$skip_cargo_build" -eq 0 ]; then
     log "developer setup complete"
-    log "the checkout is ready for: ./run_game.sh"
+    log "run the desktop build with: ./run_game.sh dev"
+elif [ "$assets_only" -eq 1 ]; then
+    log "runtime assets are current"
 else
     log "selected developer setup phases complete"
     log "rerun without skip flags for the zero-to-runnable setup"
@@ -126,8 +172,4 @@ fi
 if [ "$want_profiling" -eq 0 ]; then
     log "not installed (one argument away):"
     log "   --profile          profiling + cargo analysis toolchain"
-fi
-if [ "$skip_audio_libraries" -eq 1 ]; then
-    warn "sampled instruments were SKIPPED; this machine cannot render music"
-    log "   rerun without --skip-audio-libraries before regenerating it"
 fi

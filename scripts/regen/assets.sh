@@ -8,6 +8,7 @@
 # ./scripts/regen/assets.sh --only-possibly-stale        # shared-only staleness
 # ./scripts/regen/assets.sh --only-missing              # unpublished units
 # ./scripts/regen/assets.sh --force sprites music       # rebuild both categories
+# ./scripts/regen/assets.sh --jobs 1                    # one worker per renderer
 #
 # --loose keeps units that are possibly stale. --missing-only is an alias
 # for --only-missing. Use one build selection per command.
@@ -42,8 +43,17 @@ fi
 query=""
 selection=""
 requested=()
-for arg in "$@"; do
+jobs=()
+while [ "$#" -gt 0 ]; do
+    arg="$1"
+    shift
     case "$arg" in
+        --jobs)
+            if [[ ! "${1:-}" =~ ^[1-9][0-9]*$ ]]; then
+                echo "--jobs needs a positive integer" >&2; exit 2
+            fi
+            jobs=(--jobs "$1")
+            shift ;;
         --plan|--check)
             if [ -n "$query" ] && [ "$query" != "$arg" ]; then
                 echo "--plan and --check cannot be combined" >&2; exit 2
@@ -85,19 +95,23 @@ run_category() {
             python3 "$repo_root/scripts/regen/grab_font_assets.py" ${producer_args[@]+"${producer_args[@]}"}
             ;;
         backgrounds|background)
-            bash "$repo_root/scripts/regen/backgrounds.sh" ${producer_args[@]+"${producer_args[@]}"}
+            bash "$repo_root/scripts/regen/backgrounds.sh" "${producer_args[@]}" "${jobs[@]}"
             ;;
         sprites|sprite)
-            bash "$repo_root/scripts/regen/sprites.sh" ${producer_args[@]+"${producer_args[@]}"}
+            bash "$repo_root/scripts/regen/sprites.sh" "${producer_args[@]}" "${jobs[@]}"
             ;;
         variants|quality-variants|visual-quality)
-            bash "$repo_root/scripts/regen/quality_variants.sh" ${producer_args[@]+"${producer_args[@]}"}
+            bash "$repo_root/scripts/regen/quality_variants.sh" "${producer_args[@]}" "${jobs[@]}"
             ;;
         music)
-            bash "$repo_root/scripts/regen/music.sh" ${producer_args[@]+"${producer_args[@]}"}
+            local -a music_args=("${producer_args[@]}" "${jobs[@]}")
+            if [ -z "$selection" ] && [ "$query" != --check ]; then
+                music_args+=(--include-shared)
+            fi
+            bash "$repo_root/scripts/regen/music.sh" "${music_args[@]}"
             ;;
         sfx|effects)
-            bash "$repo_root/scripts/regen/sfx.sh" ${producer_args[@]+"${producer_args[@]}"}
+            bash "$repo_root/scripts/regen/sfx.sh" "${producer_args[@]}" "${jobs[@]}"
             ;;
         *)
             echo "unknown asset category: $category" >&2
@@ -145,13 +159,6 @@ echo "==> profile log: ${profile_log#$repo_root/}"
 # so the venv is real for one user and interpreter-less for anyone else on the
 # same filesystem, and tool resolution then falls back to a bare `python3`
 # missing the renderer's dependencies.
-tool_venv_unusable() {
-    local cfg="$repo_root/$1/.venv/pyvenv.cfg" home
-    [ -f "$cfg" ] || return 1   # no venv at all is someone else's problem to report
-    home="$(sed -n 's/^home = //p' "$cfg" | head -1)"
-    [ -n "$home" ] && [ ! -d "$home" ]
-}
-
 category_toolchain_missing() {
     case "$1" in
         sprites|sprite|variants|quality-variants|visual-quality)
@@ -160,14 +167,6 @@ category_toolchain_missing() {
             # because "can it import resvg" is more than a venv question.
             "$repo_root/scripts/regen/sprites.sh" --check-toolchain >/dev/null 2>&1 && return 1
             return 0
-            ;;
-        music)
-            # Fails loudly rather than substituting, but a loud failure still
-            # aborts the umbrella and costs every category after it.
-            tool_venv_unusable tools/ambition_music_renderer
-            ;;
-        sfx|effects)
-            tool_venv_unusable tools/ambition_sfx_renderer
             ;;
         *) return 1 ;;
     esac
@@ -186,13 +185,7 @@ for category in "${categories[@]}"; do
         status="skipped-toolchain"
         echo "    ⛔ SKIPPED: the renderer this category needs is not usable here." >&2
         echo "       Running it anyway publishes degraded art that looks fine on disk." >&2
-        case "$category" in
-            sprites|sprite|variants|quality-variants|visual-quality)
-                echo "       Diagnose with: ./scripts/regen/sprites.sh --check-toolchain" >&2 ;;
-            *)
-                echo "       Its tool venv points at an interpreter that is not on this machine." >&2
-                echo "       Re-provision it: ./run_developer_setup.sh" >&2 ;;
-        esac
+        echo "       Diagnose with: ./scripts/regen/sprites.sh --check-toolchain" >&2
         toolchain_skips=$((toolchain_skips + 1))
     else
         run_category "$category" || status="fail"

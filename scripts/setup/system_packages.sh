@@ -152,7 +152,7 @@ install_system_packages() {
     # these. Optional packages are attempted separately and never escalate on
     # their own, so a headless box that will never carry the Tracy GUI
     # libraries does not prompt for a password on every single setup run.
-    apt_ensure "${required_pkgs[@]}" \
+    UPDATE="${UPDATE-1}" apt_ensure "${required_pkgs[@]}" \
         || fatal "required host packages could not be installed (see the apt output above)"
     apt_ensure_optional "${optional_pkgs[@]}"
 }

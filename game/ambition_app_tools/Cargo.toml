@@ -68,7 +68,6 @@ sim = [
     "dep:ambition_sim_harness",
     "dep:bevy",
     "dep:ambition_content",
-    "dep:avian2d",
 ]
 game = [
     "sim",
@@ -82,6 +81,9 @@ game = [
     "ambition_demo_smash/render",
     "dep:ambition_demo_smash_app",
     "dep:image",
+    # Only `smash_match_profile` names Avian, and its defaults bring the
+    # renderer (`debug-plugin`), so it is not in `sim`.
+    "dep:avian2d",
 ]
 causal = ["game", "ambition_app/causal"]
 # Tracy zones and Bevy's render diagnostics, forwarded for the SAME reason

@@ -1,8 +1,10 @@
 # Compiler boundaries and build products
 
-**State:** PLANNED. Reviewed source: `3ed50e318392b9c2aedc7e900a3358f75f716474`.
-This review inspected source and manifests. No engine build, runtime witness
-or binary measurement was run. It establishes candidate cuts, not measured savings.
+**State:** CB1–CB4 cuts LANDED (2026-11-22 to 2026-11-25; receipts in each
+section). Open: CB4's per-command compiler work (the graphs are measured, the
+build work is not) and the conditional curved-search experiment. The original
+review (source `3ed50e318392b9c2aedc7e900a3358f75f716474`) inspected source and
+manifests only; no slice claims a compile-time saving yet.
 [The queue](../queue.md) selects packets from this owner.
 
 **Related owners:** [project builds](project-build-and-distribution.md),
@@ -492,6 +494,45 @@ marker, so no build that draws lost or gained a capability. Surviving in
 `ldtk_runtime` spine, which the headless summary reads. Removing those needs a
 headless spine that does not build `bevy_ecs_ldtk`, which is the next edge,
 and an engine one. No compile-time result is claimed.
+
+**Renderer-free `sim` (2026-11-25).** The spine needed no headless form. It
+indexes the entities `bevy_ecs_ldtk` spawns, and only a render app spawns
+them (content adds `LdtkRuntimePlugin` only when a `RenderApp` exists), so in
+a simulation build it indexed nothing. The headless summary's two spine
+lines (`ldtk entities`, `spine revision`) therefore always read zero there,
+and they are deleted from `HeadlessReport`. Three edges had kept the renderer
+in `sim`:
+
+- **The LDtk runtime.** The app's base selection no longer names the
+  facade's `ldtk_runtime`; the app's `render` feature does, so `visible`,
+  `visible_web_base` and anything else that draws keep `LdtkWorldPlugin`, the
+  spine resources and the debug overlay that reads them (each now gated on
+  the feature). `headless` no longer selects it. Two features that implied it
+  without using it stop doing so: `portal_ldtk`, in the LDtk crate and the
+  facade (portal conversion is project parsing), and the menu's `ldtk` (the
+  map's room rectangles come from the parsed `ActiveLdtkProject`). The
+  loading screen's `LdtkWorldAssets` import and `host::render_recovery` are
+  gated on `render`, which their only callers already were.
+- **`bevy_dev_tools`.** The app asked Bevy for it in every build for the FPS
+  counter and the F1 panel, both already under `render`; `render` asks now.
+- **Avian.** The tools' `sim` selected `avian2d` at its defaults, whose
+  `debug-plugin` brings `bevy_render`. Only `smash_match_profile`, a `game`
+  bin, names Avian, so the dependency moved to `game`.
+
+Normal graphs (same measure): `sim` 496 → 443 crate lines, `game` unchanged,
+and every package in `game` resolves the same features (`{p} [{f}]`, 670
+lines, no difference). Absent from `sim` now: `bevy_render`, `wgpu`,
+`bevy_core_pipeline`, `bevy_pbr`, `bevy_sprite_render`, `bevy_ui_render`,
+`bevy_dev_tools`, `bevy_ecs_ldtk`, `bevy_ecs_tilemap`, `bevy_asset_loader`,
+`avian2d`. Surviving CPU-side Bevy crates, by name: `bevy_ui`, `bevy_text`,
+`bevy_sprite`, `bevy_gizmos`, and `naga` through `bevy_shader` (the shader
+asset type). `headless 300 --start-room goblin_encounter --dump-trace` writes
+the same trace under `sim` and `game` (300 frames; every field but the
+timestamps). The LDtk crate builds and its 75 tests pass at `portal_ldtk`
+alone; the four `a_ron_game_installs_no_ldtk_world` tests (the LDtk game
+still installs the spine) pass; the 53 absence contracts hold.
+`scripts/tests/test_sim_tools_have_no_renderer.py` holds the absence, with
+`game`'s renderer as its control. No compile-time result is claimed.
 
 **Execution owner:** `ambition_app_tools` command packaging and
 `ambition_sim_harness` dependency selection, coordinated with supported launch

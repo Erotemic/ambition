@@ -60,6 +60,10 @@ mimalloc_alloc = ["dep:mimalloc"]
 # provider's looks. Both drawing personas include it; `rl_sim` alone does not,
 # so a stepping command links no renderer of the app's choosing.
 render = [
+    "bevy/bevy_dev_tools",
+    # The spine indexes what `bevy_ecs_ldtk` spawns in a render app; the debug
+    # overlay under `render` reads it.
+    "ldtk_runtime",
     "ambition_platformer2d/ambition_render",
     "ambition_platformer2d/ambition_portal2d_presentation",
     "ambition_content/render",
@@ -153,7 +157,7 @@ hosted_world = ["dep:ambition_hosted_world"]
 # and the causal test reaches it as `ambition_platformer2d::causal`. The direct
 # `dep:` was a second edge to the same crate that no source file used.
 causal = ["ambition_platformer2d/causal"]
-headless = ["ambition_platformer2d/headless", "ldtk_runtime", "input"]
+headless = ["ambition_platformer2d/headless", "input"]
 dev_tools = ["ambition_platformer2d/dev_tools", "dep:bevy-inspector-egui"]
 dev_hot_reload = ["ambition_platformer2d/dev_hot_reload", "ambition_content/dev_hot_reload"]
 static_map = ["ambition_platformer2d/static_map", "ambition_content/static_map"]
@@ -215,13 +219,14 @@ ambition_input_opinions = { path = "../../opinions/ambition_input_opinions" }
 ambition_demo_sanic = { path = "../ambition_demo_sanic" }
 ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 ambition_demo_smash = { path = "../ambition_demo_smash" }
-# `ldtk_runtime`: the app installs the LDtk runtime spine (`LdtkWorldPlugin`),
-# whose index its debug overlay and headless summary read.
+# `ldtk_runtime` is not here: the spine indexes entities `bevy_ecs_ldtk`
+# spawns, and only a render app spawns them, so the drawing personas and
+# `headless` select it through this crate's own `ldtk_runtime` feature.
 # The facade at the capabilities every persona simulates with. The renderer,
 # the menus and the inventory UI are a presentation persona's (`visible`,
 # `visible_web_base`), so the simulation family links none of them.
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = [
-    "content_pack", "wasm_modules", "script_modules", "ldtk_runtime",
+    "content_pack", "wasm_modules", "script_modules",
     "rollback", "ldtk", "ambition_portal2d", "ambition_settings_menu", "ambition_touch_input", "dialogue",
     # CPU-side vocabularies every persona compiles: the menu model and its
     # map (`ambition_menu` also installs the runtime's map simulation), the
@@ -241,13 +246,11 @@ ambition_sim_harness = { path = "../../crates/ambition_sim_harness", optional = 
 # Optional with the feature that reaches it: the cube renderer pulls bevy_lunex
 # + bevy_rich_text3d (cosmic-text), which a headless/CI build never touches.
 ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope", optional = true }
-# ⭐ `bevy_dev_tools` IS NOT A DEV-ONLY DEPENDENCY HERE, and that is deliberate:
-# it owns `fps_overlay` (the FPS counter is a shipped, persisted player setting)
-# and `diagnostics_overlay` (the F1 numeric panel). ⭐ IT COSTS NO NEW SUBGRAPH —
-# measured 2026-08-31, every one of its 24 dependencies including `bevy_pbr` is
-# already in all three personas (`bevy_gizmos_render` pulls `bevy_pbr` into the
-# shipping web build), so this adds one leaf crate, not a renderer.
-bevy = { version = "0.19.1", default-features = false, features = ["ui_api", "bevy_dev_tools"] }
+# `bevy_dev_tools` is not a dev-only dependency: it owns `fps_overlay` (the FPS
+# counter is a shipped, persisted player setting) and `diagnostics_overlay`
+# (the F1 numeric panel). Both draw, so `render` selects it; it brings
+# `bevy_render` and `bevy_pbr`, which a simulation-only build must not link.
+bevy = { version = "0.19.1", default-features = false, features = ["ui_api"] }
 bevy_common_assets = { version = "0.17", features = ["ron"] }
 bevy_yarnspinner = { version = "0.9", optional = true }
 bevy-inspector-egui = { version = "0.37", optional = true }

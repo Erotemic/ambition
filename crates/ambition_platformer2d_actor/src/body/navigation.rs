@@ -327,8 +327,9 @@ pub fn advise_navigation(
             advice.by_body.insert(entity, waiting(RouteWait::Deferred));
             continue;
         };
-        let world = room.base();
-        let stamp = cache.stamps.of(room);
+        // The authored room and the platforms at rest in it.
+        let (stamp, composed) = cache.stamps.of(room);
+        let world: &ae::World = composed.as_deref().unwrap_or(room.base());
         let task = if task_needs_place {
             pending_errand.map_or_else(
                 || pending_visit.map_or(TaskPlace::default(), |visit| TaskPlace::InRoom(visit.place)),
@@ -381,7 +382,17 @@ pub fn advise_navigation(
             advice.by_body.insert(entity, waiting(RouteWait::Unsupported));
             continue;
         };
-        let feet = if ground.on_ground && map.surface_at(physical_feet).is_none() {
+        // A body on a slope piece stands on no surface. It walks the piece to
+        // the surface at its end toward where it is going, and routes from
+        // there; a support under the piece (the floor under the cart's ramp)
+        // is not where it stands.
+        let toward = route_goal.or(pending_visit.map(|visit| visit.place)).unwrap_or(physical_feet);
+        let on_slope = (ground.on_ground && map.surface_at(physical_feet).is_none())
+            .then(|| map.slope_exit(physical_feet, toward))
+            .flatten();
+        let feet = if let Some((_, exit)) = on_slope {
+            exit
+        } else if ground.on_ground && map.surface_at(physical_feet).is_none() {
             // A ramp can rise from a flat support. Native routes can start at that support.
             map.surface_under(physical_feet, map.half.y * 2.0)
                 .map_or(physical_feet, |under| map.point_on(under, map.frame.along(physical_feet)))
@@ -452,6 +463,16 @@ pub fn advise_navigation(
                 next = Some(answer);
                 cache.refinement.add(work);
             }
+        }
+        if let (Some((surface, exit)), Some(_)) = (on_slope, route_goal) {
+            let span = &map.surfaces[surface];
+            next = Some(NavNext::Leg(ae::navigation::NavLeg {
+                kind: ae::navigation::NavLegKind::Slope,
+                start: physical_feet,
+                takeoff: physical_feet,
+                land: exit,
+                land_span: [span.left - map.half.x, span.right + map.half.x],
+            }));
         }
         let (waypoints, waypoint_count) = waypoints.unwrap_or_default();
         advice.by_body.insert(entity, NavAdvice {
@@ -590,7 +611,7 @@ fn observe_navigation(
         state: ObservedState::Active,
     };
     let mut out = Vec::new();
-    let stamp = ambition_platformer2d_world::navigation::geometry_stamp(walls.base(), &[]);
+    let stamp = ambition_platformer2d_world::navigation::geometry_stamp(&walls.navigation_ground(), &[]);
     let graphs: Vec<_> = navigation.iter().flat_map(|navigation| {
         navigation.graphs.iter().filter(|(key, _)| key.room_stamp() == stamp && navigation.in_use.contains(key)
             && query.subject.is_none_or(|body| navigation.by_body.get(&body) == Some(key)))

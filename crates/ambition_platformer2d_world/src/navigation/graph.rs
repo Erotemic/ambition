@@ -534,7 +534,9 @@ impl NavGraph {
             return graph;
         }
         for piece in &ground.slope_pieces {
-            for (start, end) in [(piece.0, piece.1), (piece.1, piece.0)] {
+            // Up or down the slope, end to end, and across a floor it touches
+            // down in, both surfaces at the one end.
+            for (start, end) in [(piece.0, piece.1), (piece.1, piece.0), (piece.0, piece.0), (piece.1, piece.1)] {
                 for from in ground.near_slope_end(start) {
                     for to in ground.near_slope_end(end).filter(|to| *to != from) {
                         let legs = slope_proposals(std::slice::from_ref(piece), ground.frame,
@@ -1238,6 +1240,40 @@ fn slope_proposals(pieces: &[(Vec2, Vec2)], frame: NavFrame, a: &StandSurface, b
                 start,
                 takeoff: start,
                 land: Vec2::new(b.clamp(frame.along(to) + direction * onto), b.top),
+                land_span: [b.left - half_width, b.right + half_width],
+            });
+        }
+    }
+    // Where a slope touches down inside a floor, the floor is two surfaces
+    // ([`split_at_touchdowns`]), but only one way round is it cut: from the
+    // part under the slope a body walks on past the touchdown, under the
+    // slope's foot, while from the open side the slope takes the body up. The
+    // walk aims past the foot, so the body neither stops nor turns under it,
+    // where a turn back would put it on the slope.
+    let reach = half_width + SLOPE_END_REACH;
+    for &(first, last) in pieces {
+        for (touch, other) in [(first, last), (last, first)] {
+            let along = frame.along(touch);
+            let direction = (along - frame.along(other)).signum();
+            let (a_end, b_start) = if direction > 0.0 { (a.right, b.left) } else { (a.left, b.right) };
+            if direction == 0.0
+                || (frame.below(touch) - a.top).abs() > SLOPE_END_REACH / 2.0
+                || (a.top - b.top).abs() > 0.5
+                || frame.below(other) >= a.top - SLOPE_END_REACH
+                || (a_end - along) * direction > 0.0
+                || (along - a_end).abs() > reach
+                || (b_start - along) * direction < 0.0
+                || (b_start - along).abs() > reach
+            {
+                continue;
+            }
+            let start = Vec2::new(a.clamp(along), a.top);
+            let onto = (half_width + 4.0).min(b.width() * 0.5);
+            legs.push(NavLeg {
+                kind: NavLegKind::Walk,
+                start,
+                takeoff: start,
+                land: Vec2::new(b.clamp(along + direction * onto), b.top),
                 land_span: [b.left - half_width, b.right + half_width],
             });
         }

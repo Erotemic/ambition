@@ -747,6 +747,33 @@ impl<'a> RoomCollision<'a> {
         still
     }
 
+    /// The platforms at rest this tick, as collision: a box platform is a
+    /// block, a plank a line.
+    pub fn still_platform_parts(self) -> (Vec<ae::Block>, Vec<ae::SurfaceChain>) {
+        let mut parts = (Vec::new(), Vec::new());
+        for platform in self.platforms.iter().filter(|platform| platform.is_still()) {
+            match platform.as_collision_line() {
+                Some(line) => parts.1.push(line),
+                None => parts.0.push(platform.as_collision_block()),
+            }
+        }
+        parts
+    }
+
+    /// What an actor's navigation plans over: the authored room and the
+    /// platforms at rest in it (a cart with its ramp let down is ground a body
+    /// can be knocked onto and walk off). Borrowed when no platform is still.
+    pub fn navigation_ground(self) -> Cow<'a, ae::World> {
+        let (blocks, lines) = self.still_platform_parts();
+        if blocks.is_empty() && lines.is_empty() {
+            return Cow::Borrowed(&self.geometry.0);
+        }
+        let mut world = self.geometry.0.clone();
+        world.blocks.add_all(blocks);
+        world.chains.add_all(lines);
+        Cow::Owned(world)
+    }
+
     /// The authored room and its stationary collision overlay.
     pub fn still_solids(self) -> ae::World {
         let still = self.still_overlay();

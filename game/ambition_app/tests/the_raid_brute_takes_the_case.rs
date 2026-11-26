@@ -126,7 +126,7 @@ impl crate::common::walk::Walker for Watching<'_, '_> {
         if !self.skip && self.warning_ticks < 180 {
             let warning = self.pad.world().resource::<ActiveCutscene>().iter().any(|scene| {
                 scene.script_id() == "intro_brute_takes_the_case"
-                    && matches!(scene.runtime.current_beat(), Some(CutsceneBeat::Dialogue { speaker, .. }) if speaker == "Dennis")
+                    && matches!(scene.runtime.current_beat(), Some(CutsceneBeat::Dialogue { speaker_character_id, .. }) if speaker_character_id == "npc_creator")
             });
             if warning {
                 self.warning_ticks += 1;

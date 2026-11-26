@@ -389,36 +389,69 @@ pub fn geometry_stamp(world: &World, exits: &[Aabb]) -> u64 {
     ae::navigation::mix(fold.0)
 }
 
-/// The stamps of live rooms' authored geometry ([`geometry_stamp`] with no
-/// exits), kept across ticks by [`GeometryRevision`]: a room's stamp is folded
-/// once for each write to its geometry, not once each tick. The fold reads the
+/// The stamps of live rooms' navigation ground ([`RoomCollision::navigation_ground`]:
+/// the authored geometry and the platforms at rest, [`geometry_stamp`] with no
+/// exits), kept across ticks by [`GeometryRevision`] and the still platforms:
+/// a room's stamp is folded once for each write to its geometry or each
+/// platform that stops or starts, not once each tick. The fold reads the
 /// whole world: 5 us for the median shipped room and 21 us for the largest
-/// (`hall_of_characters`), in a debug build (measured 2026-10-18).
+/// (`hall_of_characters`), in a debug build (measured 2026-10-18). A room
+/// with no platform at rest has the stamp of its authored geometry, and no
+/// composed copy.
 #[derive(Default)]
 pub struct GeometryStamps {
-    /// The stamps asked for before the last [`Self::retire_unused`].
-    kept: Vec<(GeometryRevision, u64)>,
-    /// The stamps asked for since.
-    used: Vec<(GeometryRevision, u64)>,
+    /// The grounds asked for before the last [`Self::retire_unused`].
+    kept: Vec<StampedGround>,
+    /// The grounds asked for since.
+    used: Vec<StampedGround>,
     folds: u64,
 }
 
+#[derive(Clone)]
+struct StampedGround {
+    revision: GeometryRevision,
+    /// The still platforms, folded; 0 for none.
+    platforms: u64,
+    stamp: u64,
+    /// The authored world with the still platforms; `None` when there are
+    /// none (the ground is the authored world).
+    composed: Option<Arc<World>>,
+}
+
 impl GeometryStamps {
-    /// The stamp of `room`'s authored geometry ([`RoomCollision::base`]).
-    pub fn of(&mut self, room: RoomCollision<'_>) -> u64 {
+    /// The stamp of `room`'s navigation ground, and that ground when it is
+    /// not the authored world ([`RoomCollision::base`]).
+    pub fn of(&mut self, room: RoomCollision<'_>) -> (u64, Option<Arc<World>>) {
         let revision = room.geometry_revision();
-        if let Some((_, stamp)) = self.used.iter().find(|(known, _)| *known == revision) {
-            return *stamp;
+        let (blocks, lines) = room.still_platform_parts();
+        let platforms = if blocks.is_empty() && lines.is_empty() {
+            0
+        } else {
+            use serde::Serialize as _;
+            let mut fold = fingerprint::Fold(0x7374_696c_6c5f_706c);
+            let _ = blocks.serialize(&mut fold);
+            let _ = lines.serialize(&mut fold);
+            ae::navigation::mix(fold.0) | 1
+        };
+        let same = |ground: &&StampedGround| ground.revision == revision && ground.platforms == platforms;
+        if let Some(ground) = self.used.iter().find(same) {
+            return (ground.stamp, ground.composed.clone());
         }
-        let stamp = match self.kept.iter().find(|(known, _)| *known == revision) {
-            Some((_, stamp)) => *stamp,
+        let ground = match self.kept.iter().find(same) {
+            Some(ground) => ground.clone(),
             None => {
                 self.folds += 1;
-                geometry_stamp(room.base(), &[])
+                let composed = match room.navigation_ground() {
+                    std::borrow::Cow::Borrowed(_) => None,
+                    std::borrow::Cow::Owned(world) => Some(Arc::new(world)),
+                };
+                let stamp = geometry_stamp(composed.as_deref().unwrap_or(room.base()), &[]);
+                StampedGround { revision, platforms, stamp, composed }
             }
         };
-        self.used.push((revision, stamp));
-        stamp
+        let out = (ground.stamp, ground.composed.clone());
+        self.used.push(ground);
+        out
     }
 
     /// Forget each stamp not asked for since the last call: of a room that
@@ -700,9 +733,10 @@ mod tests {
 
     fn stamp_the_room(collision: crate::collision::CollisionWorld, mut out: bevy_ecs::system::ResMut<Stamped>) {
         let out = &mut *out;
-        let stamp = out.0.of(collision.room(None).expect("one live room"));
+        let (stamp, composed) = out.0.of(collision.room(None).expect("one live room"));
+        assert!(composed.is_none(), "a room with no still platform is its authored world");
         // A second reader in one run reads the kept stamp.
-        assert_eq!(out.0.of(collision.room(None).expect("one live room")), stamp);
+        assert_eq!(out.0.of(collision.room(None).expect("one live room")).0, stamp);
         out.0.retire_unused();
         out.1.push(stamp);
     }

@@ -222,6 +222,33 @@ impl GroundMap {
         Some((from, to, self.point_on(to, along + side * beside)))
     }
 
+    /// For feet that stand on a slope piece and on no surface: the surface
+    /// at the piece's end toward `toward`, and the point just onto it, as a
+    /// slope leg lands (a body knocked onto the cart's ramp walks down it to
+    /// the floor past its foot, or up it onto the cart). `None` when the feet
+    /// are on no piece, or that end joins no surface.
+    pub fn slope_exit(&self, feet: Vec2, toward: Vec2) -> Option<(usize, Vec2)> {
+        let (along, below) = (self.frame.along(feet), self.frame.below(feet));
+        let piece = self.slope_pieces.iter().find(|(p, q)| {
+            let (a0, a1) = (self.frame.along(*p), self.frame.along(*q));
+            let (lo, hi) = (a0.min(a1), a0.max(a1));
+            if along < lo || along > hi || (a1 - a0).abs() < f32::EPSILON {
+                return false;
+            }
+            let t = (along - a0) / (a1 - a0);
+            let line = self.frame.below(*p) + t * (self.frame.below(*q) - self.frame.below(*p));
+            (line - below).abs() <= SLOPE_END_REACH
+        })?;
+        let direction = (self.frame.along(toward) - along).signum();
+        let end = if (self.frame.along(piece.1) - self.frame.along(piece.0)) * direction >= 0.0 { piece.1 } else { piece.0 };
+        let end_along = self.frame.along(end);
+        let ahead = |span: &StandSurface| if direction > 0.0 { span.right > end_along } else { span.left < end_along };
+        let surface = self.near_slope_end(end).find(|index| ahead(&self.surfaces[*index]))?;
+        let span = &self.surfaces[surface];
+        let onto = (self.half.x + 4.0).min(span.width() * 0.5);
+        Some((surface, self.point_on(surface, end_along + direction * onto)))
+    }
+
     pub(super) fn near_slope_end(&self, point: Vec2) -> impl Iterator<Item = usize> + '_ {
         let along = self.frame.along(point);
         let top = self.frame.below(point);

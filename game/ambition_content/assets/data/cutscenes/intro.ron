@@ -12,7 +12,9 @@
 // prepared command (the vocabulary of a Yarn `<<command>>` and a room line:
 // `actor.walk_to`, `actor.leave_through`, `encounter.start`), and
 // WaitUntil(condition), which requires the named result in normal and skipped
-// play. BeforeFact runs its beats when the saved result is absent at entry.
+// play, and WaitFor(condition, seconds_at_most), which waits on it no longer
+// than its longest hold (for staging, such as an arrival before a line).
+// BeforeFact runs its beats when the saved result is absent at entry.
 // A room plays a script on entry when its `entry_cutscene` level field names
 // it; a `CutsceneTrigger` volume plays one when a player body stands in it.
 //
@@ -104,9 +106,11 @@
                 Command(line: "actor.throw_at npc_lab_raider intro_barn_door_aim"),
                 WaitUntil(condition: "world.flag_set intro_barn_door_broken"),
             ]),
-            Command(line: "actor.form_up npc_lab_raider intro_raider_station 56 runs_where_sent"),
-            WaitUntil(condition: "actor.group_arrived npc_lab_raider @dennis"),
-            WaitUntil(condition: "actor.arrived @dennis"),
+            Command(line: "actor.form_up npc_lab_raider intro_raider_station -48 runs_where_sent"),
+            // Where they stand when they speak is staging, not a result the
+            // story needs: a walk that fails must not hold the scene.
+            WaitFor(condition: "actor.group_arrived npc_lab_raider @dennis", seconds_at_most: 5.0),
+            WaitFor(condition: "actor.arrived @dennis", seconds_at_most: 3.0),
             CameraPan(target: (1155.0, 282.0), seconds: 0.32),
             Command(line: "actor.face npc_lab_raider @dennis"),
             Command(line: "actor.face @dennis npc_lab_raider"),

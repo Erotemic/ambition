@@ -237,6 +237,10 @@ The Founders' Plaza café needs the resolved collision bounds. The IntGrid
 set the old awning and balcony eight pixels above the painted tops.
 The Hidden Way uses two sheets for one earth wall. Sample wall textures in
 room coordinates so adjacent sheets can share the same texture at the joint.
+In the Noodly Sanctum, show the boss and the attack effects over the room
+art at the battle camera scale. Use the boss's movement to check the
+contrast at both balconies and in the center. Include the top of the view.
+The boss's eyes can go above it during the fight.
 The Tape Room carriage gives its frame size and top anchor in the sprite
 source and again in `platform_looks.ron`. Read these values from the
 published sheet when the platform uses them. Keep the support span an

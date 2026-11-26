@@ -74,6 +74,11 @@ trays. Contact with a tray costs two health. The Colander Key is in a lit
 recess behind the grille. The last wave starts its west knot on the dry
 floor between the trays.
 
+## Sanctum
+
+Stone supports and gold edges show the two side balconies. The dark stone
+behind the fight makes the boss and its attacks easier to see.
+
 ## The soda
 
 A pool of soda is two things in one box. Neither needs a Rust change:

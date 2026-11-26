@@ -213,6 +213,10 @@ ladder positions in the room spec.
 The Records & Processing room had a stale generator record after an edit
 that put the same enemies in the map and the generator. A room preview
 could show the generated changes before the author updates the record.
+The Pirate Port generator's `build` function accepts `dangerous` and
+`extra` through keyword arguments. It does not pass them to the room
+builder. Check the intended values for the Reef and Lighthouse Point when
+the district generators use the same room interface.
 
 ### L4.1 — prepare the complete edit before writing source
 

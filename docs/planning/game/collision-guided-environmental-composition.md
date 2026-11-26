@@ -205,6 +205,8 @@ wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.
 The Observatory moves wall exhibits to the new landings. Show a player at
 each landing in the preview so authors can check the view at playing scale.
+Lecture Hall 101 also needs a standing player below the first row. Show the
+body and the painted underside at the same scale to check the aisle clearance.
 
 ## Follow-up for room art generators
 
@@ -228,6 +230,8 @@ QED-TV had painted rungs over the themed ladder. Show the themed ladder in
 the room preview so artists can leave that space clear.
 The Test Range shelter needs the roof's bottom edge to draw the passage
 at the same height as its collision clearance.
+The Founders' Plaza café needs the resolved collision bounds. The IntGrid
+set the old awning and balcony eight pixels above the painted tops.
 The Tape Room carriage gives its frame size and top anchor in the sprite
 source and again in `platform_looks.ron`. Read these values from the
 published sheet when the platform uses them. Keep the support span an

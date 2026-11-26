@@ -83,43 +83,21 @@ pub struct MotionStepContext<'a> {
     pub recovery_commitment_outstanding: bool,
 }
 
-/// The tick's SEMANTIC support fact, selected from contact KINDS — never from
-/// contact-list ordering. A lateral graze can no longer masquerade as support.
-///
-/// Holds a [`Contact`], which owns its block's `GeoId` and so is `Clone`, not
-/// `Copy` — this fact is likewise `Clone`.
-#[derive(Clone, Debug, PartialEq)]
+/// The support role selected from the step's contact kinds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SupportFact {
     /// No support or attachment this tick.
     Airborne,
     /// Resting on / riding a surface holding the body against its frame's pull.
-    Supported(Contact),
+    Supported,
     /// A surface carries the body with its local orientation.
-    Riding(Contact),
+    Riding,
     /// Adhesively attached (policy-owned cling); the normal is the attachment,
     /// deliberately independent of the frame's pull.
-    Attached(Contact),
+    Attached,
 }
 
 impl SupportFact {
-    /// The outward support/attachment normal, if any surface holds the body.
-    pub fn normal(&self) -> Option<Vec2> {
-        match self {
-            SupportFact::Airborne => None,
-            SupportFact::Supported(contact) | SupportFact::Riding(contact) | SupportFact::Attached(contact) => {
-                Some(contact.normal)
-            }
-        }
-    }
-
-    /// The supporting/attached contact, if any.
-    pub fn contact(&self) -> Option<&Contact> {
-        match self {
-            SupportFact::Airborne => None,
-            SupportFact::Supported(contact) | SupportFact::Riding(contact) | SupportFact::Attached(contact) => Some(contact),
-        }
-    }
-
     pub fn is_held(&self) -> bool {
         !matches!(self, SupportFact::Airborne)
     }
@@ -139,12 +117,22 @@ pub struct MotionStepResult {
 
 impl MotionStepResult {
     fn from_events(events: FrameEvents, frame: MotionFrame) -> Self {
-        let support = support_fact(&events.contacts);
+        let (support, contact) = support_fact(&events.contacts);
         Self {
-            surface_normal: support.normal().unwrap_or(-frame.down()),
+            surface_normal: contact.map_or_else(|| -frame.down(), |contact| contact.normal),
             support,
             events,
         }
+    }
+
+    /// Borrow the selected support contact from the step's contact list.
+    pub fn supporting_contact(&self) -> Option<&Contact> {
+        let kind = match self.support {
+            SupportFact::Airborne => return None,
+            SupportFact::Supported | SupportFact::Riding => ContactKind::Support,
+            SupportFact::Attached => ContactKind::Attachment,
+        };
+        self.events.contacts.iter().rfind(|contact| contact.kind == kind)
     }
 }
 
@@ -262,17 +250,17 @@ fn try_motion(
     if let Some(refusal) = result.events.motion_refusal.clone() {
         return Err(refusal);
     }
-    let target = match &result.support {
-        SupportFact::Riding(contact) | SupportFact::Attached(contact) => -contact.normal,
+    let target = match result.support {
+        SupportFact::Riding | SupportFact::Attached => -result.surface_normal,
         _ => ctx.frame.down(),
     };
     let air_step = 8.0 * f64::from(ctx.dt.max(0.0));
     let max_step = if ctx.pose_owned_externally { 0.0 }
-        else if matches!(result.support, SupportFact::Riding(_) | SupportFact::Attached(_)) {
+        else if matches!(result.support, SupportFact::Riding | SupportFact::Attached) {
             std::f64::consts::PI
         } else { air_step };
-    let support_turn = match &result.support {
-        SupportFact::Supported(contact) | SupportFact::Riding(contact) => Some((contact, air_step)),
+    let support_turn = match result.support {
+        SupportFact::Supported | SupportFact::Riding => result.supporting_contact().map(|contact| (contact, air_step)),
         _ => None,
     };
     super::admit_body_righting(&mut candidate.kinematics, &mut sweep,
@@ -755,10 +743,8 @@ fn step_surface_momentum(
     apply_world_hazard_gate(ctx.world, clusters, ctx.frame, step_half, &mut events);
 
     let mut result = MotionStepResult::from_events(events, ctx.frame);
-    if body.riding() {
-        if let SupportFact::Supported(contact) = result.support {
-            result.support = SupportFact::Riding(contact);
-        }
+    if body.riding() && result.support == SupportFact::Supported {
+        result.support = SupportFact::Riding;
     }
     result
 }
@@ -938,20 +924,20 @@ fn touching_hazard(world: &World, clusters: &BodyClustersMut<'_>, step_half: Vec
 /// Attachment wins (an adhesive policy's cling overrides gravity support),
 /// else the newest Support contact, else airborne. Head and Side contacts can
 /// NEVER become the published support.
-fn support_fact(contacts: &[Contact]) -> SupportFact {
-    if let Some(contact) = contacts
-        .iter()
-        .rev()
-        .find(|contact| contact.kind == ContactKind::Attachment)
-    {
-        return SupportFact::Attached(contact.clone());
+fn support_fact(contacts: &[Contact]) -> (SupportFact, Option<&Contact>) {
+    let mut support = None;
+    for contact in contacts.iter().rev() {
+        match contact.kind {
+            ContactKind::Attachment => return (SupportFact::Attached, Some(contact)),
+            ContactKind::Support if support.is_none() => support = Some(contact),
+            _ => {}
+        }
     }
-    contacts
-        .iter()
-        .rev()
-        .find(|contact| contact.kind == ContactKind::Support)
-        .map(|contact| SupportFact::Supported(contact.clone()))
-        .unwrap_or(SupportFact::Airborne)
+    if support.is_some() {
+        (SupportFact::Supported, support)
+    } else {
+        (SupportFact::Airborne, None)
+    }
 }
 
 #[cfg(test)]

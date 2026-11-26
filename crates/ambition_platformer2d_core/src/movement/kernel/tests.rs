@@ -28,6 +28,71 @@ fn empty_world() -> World {
     )
 }
 
+#[test]
+fn a_stationary_flyer_reuses_motion_until_terrain_or_input_changes() {
+    let mut world = empty_world();
+    let mut cached = BodyClusterScratch::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
+    cached.ground.on_ground = false;
+    cached.flight.fly_enabled = true;
+    let (MotionModel::AxisSwept(axis), _) = cached.parts() else { unreachable!() };
+    axis.params.flight.hover_speed = 0.0;
+    axis.params.flight.hover_hz = 0.0;
+    let floor = world.spawn + Vec2::new(-50.0, cached.kinematics.size().y * 0.5);
+    world.blocks.add(Block::solid("floor", floor, Vec2::new(100.0, 20.0)));
+    let mut reference = cached.clone();
+    let mut cache = crate::movement::SettledMotion::default();
+    let mut sample = SweepSample::at_rest(cached.kinematics, Vec2::Y);
+    let mut reference_sample = sample;
+
+    for tick in 0..49 {
+        if tick == 8 {
+            assert_eq!(cache.status(), crate::movement::SettledMotionStatus::Events);
+            world.blocks.hide(0);
+        }
+        if tick == 32 {
+            assert!(cache.reused());
+            let pos = cached.kinematics.pos + Vec2::new(10.0, 0.0);
+            world.blocks.add(Block::solid("new wall", pos, Vec2::splat(32.0)));
+        }
+        let input = if tick == 48 {
+            assert!(cache.reused());
+            InputState::with_axes(-1.0, 0.0)
+        } else {
+            InputState::default()
+        };
+        let ctx = MotionStepContext {
+            world: &world,
+            admission: None,
+            input,
+            frame: MotionFrame::from_direction(Vec2::Y, 900.0),
+            facing_intent: 0.0,
+            dt: DT,
+            contact: crate::movement::BodyContactField::NONE,
+            pose_owned_externally: false,
+            recovery_commitment_outstanding: false,
+        };
+        let (model, mut clusters) = cached.parts();
+        clusters.settled = Some(&mut cache);
+        clusters.sweep = Some(&mut sample);
+        let result = step_motion(model, &mut clusters, ctx);
+        let (model, mut clusters) = reference.parts();
+        clusters.sweep = Some(&mut reference_sample);
+        let expected = step_motion(model, &mut clusters, ctx);
+
+        assert_eq!(cached, reference, "tick {tick}");
+        assert_eq!(sample, reference_sample, "tick {tick}");
+        assert_eq!(result.events.contacts, expected.events.contacts, "tick {tick}");
+        assert_eq!(result.events.ground_contact, expected.events.ground_contact, "tick {tick}");
+        assert_eq!(result.support, expected.support, "tick {tick}");
+        if matches!(tick, 32 | 48) {
+            assert!(!cache.reused(), "tick {tick}");
+        }
+        // The actor driver treats powered flight as airborne at its boundary.
+        cached.ground.on_ground = false;
+        reference.ground.on_ground = false;
+    }
+}
+
 fn floor_world() -> World {
     World::new(
         "ground_baseline",

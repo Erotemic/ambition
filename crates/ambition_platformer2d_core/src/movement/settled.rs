@@ -38,6 +38,7 @@ pub enum SettledMotionStatus {
     Environment,
     Aperture,
     Events,
+    ReadyToProve,
     ChangedState,
     Proved(ProofMiss),
     Reused,
@@ -133,7 +134,7 @@ impl StepInput {
             pose_owned_externally,
             recovery_commitment_outstanding,
         } = ctx;
-        if !(dt > 0.0 && dt.is_finite() && body.ground.on_ground)
+        if !(dt > 0.0 && dt.is_finite() && (body.ground.on_ground || body.flight.fly_enabled))
             || body.sweep.is_none()
             || body.kinematics.vel != Vec2::ZERO
         {
@@ -260,6 +261,26 @@ fn encode_variable_state(model: &MotionModel, body: &BodyClustersMut<'_>, out: &
     }
 }
 
+fn can_retain_result(result: &MotionStepResult, body: &BodyClustersMut<'_>) -> bool {
+    let FrameEvents {
+        motion_refusal,
+        operations,
+        blinks,
+        reset,
+        ground_contact,
+        contacts: _,
+        constraint_conflicts,
+    } = &result.events;
+    (result.support.is_held() || body.flight.fly_enabled)
+        && motion_refusal.is_none()
+        && operations.is_empty()
+        && blinks.is_empty()
+        && reset.is_none()
+        && *ground_contact == GroundContactTransition::Unchanged
+        && constraint_conflicts.is_empty()
+        && *body.env_contact == Default::default()
+}
+
 impl SettledMotion {
     /// Whether the most recent movement step reused its settled result.
     pub fn reused(&self) -> bool {
@@ -285,6 +306,14 @@ impl SettledMotion {
                 return solve_motion(model, body, ctx, prior_down);
             }
         };
+        // Record terrain reads again after the solver produces a quiet step.
+        if self.status == SettledMotionStatus::Events {
+            let result = solve_motion(model, body, ctx, prior_down);
+            if can_retain_result(&result, body) {
+                self.status = SettledMotionStatus::ReadyToProve;
+            }
+            return result;
+        }
         let current_motion = axis_motion(model);
         encode_variable_state(model, body, &mut self.current);
         let miss = if let Some(step) = &self.step {
@@ -324,24 +353,7 @@ impl SettledMotion {
             },
             prior_down,
         );
-        let FrameEvents {
-            motion_refusal,
-            operations,
-            blinks,
-            reset,
-            ground_contact,
-            contacts: _,
-            constraint_conflicts,
-        } = &result.events;
-        if result.support.is_held()
-            && motion_refusal.is_none()
-            && operations.is_empty()
-            && blinks.is_empty()
-            && reset.is_none()
-            && *ground_contact == GroundContactTransition::Unchanged
-            && constraint_conflicts.is_empty()
-            && *body.env_contact == Default::default()
-        {
+        if can_retain_result(&result, body) {
             encode_variable_state(model, body, &mut self.prior);
             if prior_body.matches(body)
                 && self.prior == self.current

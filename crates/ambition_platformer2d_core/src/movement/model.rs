@@ -627,7 +627,7 @@ impl SurfaceMomentumMotion {
     }
 
     /// The params the kernel reads: the authored ones under the body's live
-    /// effects (Speed Shoes). The authored params are never written, so an
+    /// effects (Speed Shoes, a rolling ball's law). The authored params are never written, so an
     /// expiry has nothing to put back, and a re-wear that replaces the params
     /// keeps the effect over the new ones.
     pub fn params_under(&self, effects: &crate::effects::BodyEffects) -> MomentumParams {
@@ -635,6 +635,8 @@ impl SurfaceMomentumMotion {
         let mut params = self.params;
         params.top_speed = effects.resolve(NumericAttribute::TopSpeed, params.top_speed);
         params.ground_accel = effects.resolve(NumericAttribute::GroundAccel, params.ground_accel);
+        params.friction = effects.resolve(NumericAttribute::GroundFriction, params.friction);
+        params.brake = effects.resolve(NumericAttribute::GroundBrake, params.brake);
         params
     }
 }

@@ -666,6 +666,8 @@ impl Plugin for SanicRulesPlugin {
             // later tick, so `tick_rolling` after it cannot take it away.
             ball_dash::ball_up_on_jump,
             ball_dash::tick_rolling,
+            // The roll's law follows the roll authority settled above.
+            ball_dash::hold_roll_law,
             // Project the roll authority (`Rolling`) onto the anim fact after
             // both the launch (insert) and the stand-up (remove) have settled,
             // so the looping `ball` row tracks the physical ball for the frame.

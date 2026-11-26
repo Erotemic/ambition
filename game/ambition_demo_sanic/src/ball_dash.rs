@@ -35,6 +35,11 @@ pub struct BallDashTuning {
     /// The charges at which the rev sound climbs to its second and to its
     /// third tier ([`crate::rev_tier_id`]).
     pub rev_tiers: [f32; 2],
+    /// A rolling ball's hands-off friction, as a share of his run's.
+    pub roll_friction_scale: f32,
+    /// A rolling ball's braking (the stick held against the roll), as a
+    /// share of his run's.
+    pub roll_brake_scale: f32,
 }
 
 impl BallDashTuning {
@@ -43,6 +48,10 @@ impl BallDashTuning {
         ae::Vec2::splat(self.ball_side)
     }
 }
+
+/// The roll's own law ([`hold_roll_law`]): one effect source, so the law is
+/// one application the kernel resolves over his momentum params.
+pub const ROLL_LAW: ae::EffectSource = ae::EffectSource::named("sanic.roll_law");
 
 /// The spin dash tuning the demo plays: its pack's `spin_dash` row.
 pub fn spin_dash_tuning() -> ambition_platformer2d::content::PackRow<BallDashTuning> {
@@ -393,6 +402,36 @@ pub fn tick_rolling(
             commands.entity(entity).remove::<Rolling>();
         }
     }
+}
+
+/// A roll is not a run (Q181, a committed classic roll): while a spin dash's
+/// ball rolls, the stick does not drive it, friction is a share of the run's
+/// so it coasts, and holding back brakes it at a share of the run's brake.
+/// The law is an effect on the momentum params the kernel reads
+/// ([`ROLL_LAW`]), held while the ball is a [`RollEnd::Slow`] roll and
+/// ended the tick it is not, so it follows the [`Rolling`] authority through
+/// a stand-up, a restart or a rewind. A jump's ball keeps the run's law: it
+/// stands up on landing, so a ground law would never apply to it.
+pub fn hold_roll_law(mut bodies: Query<(Option<&Rolling>, &mut ae::BodyEffects), With<BallDash>>) {
+    let tuning = spin_dash_tuning();
+    for (rolling, mut effects) in &mut bodies {
+        let rolls = rolling.is_some_and(|rolling| rolling.ends == RollEnd::Slow);
+        if rolls && !effects.holds(ROLL_LAW) {
+            effects.grant(ROLL_LAW, &roll_law(&tuning), f32::MAX);
+        } else if !rolls && effects.holds(ROLL_LAW) {
+            effects.end(ROLL_LAW);
+        }
+    }
+}
+
+/// The terms of the roll's law: no drive, the tuning's shares of friction
+/// and brake.
+pub fn roll_law(tuning: &BallDashTuning) -> [(ae::NumericAttribute, ae::NumericOp); 3] {
+    [
+        (ae::NumericAttribute::GroundAccel, ae::NumericOp::Mul(0.0)),
+        (ae::NumericAttribute::GroundFriction, ae::NumericOp::Mul(tuning.roll_friction_scale)),
+        (ae::NumericAttribute::GroundBrake, ae::NumericOp::Mul(tuning.roll_brake_scale)),
+    ]
 }
 
 /// Sanic's answer to "this body starts again".

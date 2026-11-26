@@ -354,12 +354,15 @@ impl SanicRules {
                 problems.push(format!("`{field}` is {value}; it is finite and more than 0"));
             }
         }
-        // A charge and a stick deflection are each a share of a whole.
+        // A charge, a stick deflection and a roll's share of the run's law are
+        // each a share of a whole.
         for (field, value) in [
             ("spin_dash.min_launch_charge", dash.min_launch_charge),
             ("spin_dash.crouch_threshold", dash.crouch_threshold),
             ("spin_dash.rev_tiers[0]", dash.rev_tiers[0]),
             ("spin_dash.rev_tiers[1]", dash.rev_tiers[1]),
+            ("spin_dash.roll_friction_scale", dash.roll_friction_scale),
+            ("spin_dash.roll_brake_scale", dash.roll_brake_scale),
         ] {
             if !(value.is_finite() && value > 0.0 && value <= 1.0) {
                 problems.push(format!("`{field}` is {value}; it is more than 0 and at most 1"));

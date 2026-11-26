@@ -2720,7 +2720,7 @@ authored checkpointing dialogue banks its consequences; a single co-op death
 does not roll shared facts behind the survivor; a seen marker grants no reward
 or quest step.
 
-### SANIC-ROLL — a committed roll, distinct from the run (Q181, ruled 2026-11-26)
+### SANIC-ROLL — a committed roll, distinct from the run (Q181, ruled 2026-11-26) — ✅ DONE 2026-11-26
 
 **Owner:** `game/ambition_demo_sanic` and the [unified movement
 kernel](engine/unified-movement-kernel.md).
@@ -2732,6 +2732,17 @@ px/s², the stick drives and brakes it).
 half), and stick input that only brakes or turns weakly, so the roll keeps
 its momentum and is not steered like a run. Two fields on the move, no
 new kernel mode.
+
+**Done:** the roll's law is a numeric body effect, not a kernel mode. Two
+new effect attributes, `GroundFriction` and `GroundBrake`, resolve in
+`SurfaceMomentumMotion::params_under` beside `GroundAccel`. Sanic's
+`ball_dash::hold_roll_law` holds the source `sanic.roll_law` while the spin
+dash ball rolls (`Rolling { ends: Slow }`) and ends it otherwise: drive
+×0, friction × `roll_friction_scale` (0.5), brake × `roll_brake_scale` (0.25),
+both in `sanic_rules.ron` and validated as shares of a whole. Witnesses:
+`surface_momentum::tests::a_rolls_law_coasts_takes_no_drive_and_brakes_when_held_back`
+(core) and `ball_dash::tests::the_roll_law_is_held_while_a_spin_dash_ball_rolls`
+(Sanic); Sanic lib 103/103, core lib 948/948.
 
 **Acceptance:** from the same speed on flat ground, a roll with no input
 coasts farther than the run's hands-off stop; holding forward does not

@@ -34,6 +34,11 @@ pub enum NumericAttribute {
     /// The multiplier on an axis-swept body's gravity (the kernel's product,
     /// after the frame's own scale).
     Gravity,
+    /// A surface-momentum body's hands-off ground friction.
+    GroundFriction,
+    /// A surface-momentum body's braking deceleration (input against its
+    /// speed).
+    GroundBrake,
 }
 
 impl NumericAttribute {
@@ -42,6 +47,8 @@ impl NumericAttribute {
             Self::TopSpeed => 0,
             Self::GroundAccel => 1,
             Self::Gravity => 2,
+            Self::GroundFriction => 3,
+            Self::GroundBrake => 4,
         }
     }
 
@@ -50,6 +57,8 @@ impl NumericAttribute {
             0 => Self::TopSpeed,
             1 => Self::GroundAccel,
             2 => Self::Gravity,
+            3 => Self::GroundFriction,
+            4 => Self::GroundBrake,
             _ => return None,
         })
     }

@@ -13,6 +13,8 @@ fn tuning() -> BallDashTuning {
         crouch_threshold: 0.5,
         contact_grace_s: 0.12,
         rev_tiers: [0.5, 0.85],
+        roll_friction_scale: 0.5,
+        roll_brake_scale: 0.25,
     }
 }
 
@@ -180,7 +182,7 @@ fn body_app() -> (App, Entity) {
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_systems(
         bevy::app::Update,
-        (tick_ball_dash, ball_up_on_jump, tick_rolling).chain(),
+        (tick_ball_dash, ball_up_on_jump, tick_rolling, hold_roll_law).chain(),
     );
 
     let mut kin = ae::BodyKinematics::default();
@@ -648,4 +650,39 @@ fn a_rolling_jump_keeps_the_ball_until_the_landing() {
     app.world_mut().get_mut::<ae::BodyKinematics>(e).unwrap().vel = ae::Vec2::new(2.0, 0.0);
     app.update();
     assert!(app.world().get::<Rolling>(e).is_some(), "a slow apex stood the roll up");
+}
+
+/// The roll's law (Q181) follows the roll: a spin dash's ball takes it, the
+/// stand-up ends it, and a jump's ball never takes it (it stands up on
+/// landing, so a ground law would not apply). Its terms are the shipped
+/// tuning's shares.
+#[test]
+fn the_roll_law_is_held_while_a_spin_dash_ball_rolls() {
+    let (mut app, e) = body_app();
+    let holds = |app: &App| app.world().get::<ae::BodyEffects>(e).unwrap().holds(ROLL_LAW);
+    assert!(!holds(&app), "standing, he runs");
+    set_ball_dash_input(&mut app, e, true, true);
+    app.update();
+    set_ball_dash_input(&mut app, e, false, false);
+    app.update();
+    assert!(app.world().get::<Rolling>(e).is_some());
+    assert!(holds(&app), "the spin dash's ball rolls by the roll's law");
+    let effects = app.world().get::<ae::BodyEffects>(e).unwrap().clone();
+    let t = spin_dash_tuning();
+    assert_eq!(effects.resolve(ae::NumericAttribute::GroundAccel, 700.0), 0.0);
+    assert_eq!(effects.resolve(ae::NumericAttribute::GroundFriction, 400.0), 400.0 * t.roll_friction_scale);
+    assert_eq!(effects.resolve(ae::NumericAttribute::GroundBrake, 1800.0), 1800.0 * t.roll_brake_scale);
+
+    // He slows and stands up: the law ends with the roll.
+    set_surface_state(&mut app, e, SurfaceMotion::Riding { on: ae::SurfaceRef::Chain(0), s: 100.0, v_t: 5.0 });
+    app.update();
+    assert!(app.world().get::<Rolling>(e).is_none());
+    assert!(!holds(&app), "standing up ends the roll's law");
+
+    // A jump balls him up, by the run's law.
+    report_jump(&mut app, e);
+    set_surface_state(&mut app, e, SurfaceMotion::Airborne);
+    app.update();
+    assert!(app.world().get::<Rolling>(e).is_some_and(|rolling| rolling.ends == RollEnd::Landing));
+    assert!(!holds(&app), "a jump's ball keeps the run's law");
 }

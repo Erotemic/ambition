@@ -2400,3 +2400,50 @@ fn a_momentum_body_stops_inside_the_distance_its_model_says() {
     assert!((against - said).abs() <= speed * DT, "against the motion: {against} px, the model says {said} px");
     assert!(hands_off > 4.0 * said, "hands off: {hands_off} px, the model says {said} px");
 }
+
+/// SANIC-ROLL (Q181, a committed classic roll): a roll's law is effects on
+/// the momentum params the kernel reads (no drive, a share of the friction,
+/// a share of the brake). From one speed on flat ground: hands off, the roll
+/// coasts farther than the run's stop; held forward it does not speed up;
+/// held back it brakes, more gently than a run brakes.
+#[test]
+fn a_rolls_law_coasts_takes_no_drive_and_brakes_when_held_back() {
+    use crate::effects::{BodyEffects, EffectSource, NumericAttribute, NumericOp};
+    let world = world_with_chains(vec![SurfaceChain::open(
+        "flat",
+        vec![Vec2::new(0.0, 300.0), Vec2::new(4000.0, 300.0)],
+    )]);
+    let motion = crate::movement::model::SurfaceMomentumMotion::new(MomentumParams::default());
+    let mut law = BodyEffects::default();
+    law.grant(EffectSource::named("test.roll_law"), &[
+        (NumericAttribute::GroundAccel, NumericOp::Mul(0.0)),
+        (NumericAttribute::GroundFriction, NumericOp::Mul(0.5)),
+        (NumericAttribute::GroundBrake, NumericOp::Mul(0.25)),
+    ], f32::MAX);
+    let run = motion.params_under(&BodyEffects::default());
+    let roll = motion.params_under(&law);
+    assert_eq!((roll.ground_accel, roll.friction, roll.brake), (0.0, run.friction * 0.5, run.brake * 0.25));
+    let go = |params: &MomentumParams, stick: f32, steps: usize| {
+        let mut body = ride(0, 200.0, 600.0, &world, 12.0);
+        for _ in 0..steps {
+            step_surface_body(&mut body, &world, params, gframe(G), SurfaceInputs {
+                local_axes: crate::LocalAxes::new(stick, 0.0),
+                ..Default::default()
+            }, DT, None);
+        }
+        let SurfaceMotion::Riding { s, v_t, .. } = body.motion else { panic!("left the ground: {body:?}") };
+        (s, v_t)
+    };
+    // Hands off for four seconds: both have stopped, the roll much farther on.
+    let ((run_s, run_v), (roll_s, roll_v)) = (go(&run, 0.0, 240), go(&roll, 0.0, 240));
+    assert!(run_v.abs() < 1e-3 && roll_v.abs() < 1e-3, "both stop: run {run_v}, roll {roll_v}");
+    assert!(roll_s - 200.0 > 1.5 * (run_s - 200.0), "the roll coasts farther: run {run_s}, roll {roll_s}");
+    // Held forward for half a second: the run speeds up, the roll does not.
+    let ((_, run_v), (_, roll_v)) = (go(&run, 1.0, 30), go(&roll, 1.0, 30));
+    assert!(run_v > 600.0, "a held run accelerates: {run_v}");
+    assert!((roll_v - 600.0).abs() < 1e-3, "a held roll keeps its speed, no more: {roll_v}");
+    // Held back for half a second: the roll slows, and the run slows harder.
+    let ((_, run_v), (_, roll_v)) = (go(&run, -1.0, 30), go(&roll, -1.0, 30));
+    assert!(roll_v > 0.0 && roll_v < 600.0 - 100.0, "held back, the roll brakes: {roll_v}");
+    assert!(run_v < roll_v, "a run brakes harder than a roll: run {run_v}, roll {roll_v}");
+}

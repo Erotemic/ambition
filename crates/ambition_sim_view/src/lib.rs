@@ -32,8 +32,8 @@ mod trail_snapshot;
 pub use trail_snapshot::{snapshot_emitted_trails, TrailSnapshot, TrailStrip, TrailStripState};
 
 pub use anim_index::{
-    rebuild_actor_anim_index, rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex,
-    ActorSpriteData, BossFrameIndex, BossFrameView, ClipRequest, ClipTime, HazardLaneFact, SMASH_CHARGE_CLIP,
+    rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex, BossFrameIndex, BossFrameView,
+    ClipRequest, ClipTime, HazardLaneFact, SMASH_CHARGE_CLIP,
 };
 pub use combat_geometry_view::{
     rebuild_combat_strikes_view, CombatBodyGeometry, CombatBodyGeometryView, CombatGeometryView,
@@ -158,6 +158,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
             bevy::prelude::Update,
             (
                 (rebuild_feature_view_index, rebuild_nameplate_index).chain(),
+                anim_index::rebuild_actor_anim_index,
                 rebuild_actor_render_index,
                 rebuild_boss_render_index
                     .run_if(sources_or_rows::<ambition_boss_encounter::BossConfig, BossRenderIndex>),
@@ -186,14 +187,16 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // in the sim heart; this plugin only schedules it.
                 (
                     ambition_platformer2d_actor::body::advance_body_anim_overlay_clocks,
-                    rebuild_actor_anim_index,
+                    anim_index::advance_actor_anim_poses,
                 )
                     .chain(),
                 rebuild_body_pose_views.after(mark_bodies_the_death_look_took),
                 mark_bodies_the_death_look_took,
                 // A body in a passage draws what its passage says, over the
                 // pose the rebuild picked.
-                rebuild_passage_views.after(rebuild_body_pose_views).after(rebuild_actor_anim_index),
+                rebuild_passage_views
+                    .after(rebuild_body_pose_views)
+                    .after(anim_index::advance_actor_anim_poses),
                 // "What does each control do right now" for the controlled
                 // subject — the touch overlay reads this instead of the sim.
                 rebuild_control_prompt.in_set(ControlPromptRebuilt),

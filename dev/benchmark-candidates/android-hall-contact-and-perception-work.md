@@ -1299,6 +1299,69 @@ Costs also changed in phases outside this patch. These runs show fewer
 publications per frame. They do not measure an isolated change in total
 tick cost or provide an Android frame time.
 
+### Actor animation and clip requests
+
+The pose history advances each tick for stops and turns. A passage can
+override that tick's pose. The frame view builds the clip request for
+the final pose and reads the drawing inputs once per frame.
+
+The isolated comparison used 595 actor rows on the 596-body Hall state.
+Each arm ran ten batches of 144 frames on one thread. The two arms
+produced the same frame data after movement, turns, hit reactions, and
+changes to pinned rows.
+
+| Simulation ticks per frame | Reference ms/frame | Frame clip requests ms/frame |
+| ---: | ---: | ---: |
+| 1 | 0.502 | 0.607 |
+| 2 | 1.206 | 1.055 |
+| 3 | 1.809 | 1.238 |
+| 15 | 10.758 | 6.079 |
+
+The extra query pass costs time when a frame has one tick. With multiple
+ticks, the saved clip requests pay for that pass. These times measure
+the actor animation systems only.
+
+The focused tests cover a stop and turn between frames, a passage
+override, the rollback step, and GNU-ton's drawn facing. The full
+Smash reaction test failed on a CPU landing expectation. A rerun
+compared both publishers before rendering and found identical view
+rows through the same failure.
+
+The native development reference measured 18.16 ms/tick across 57
+windows. The first candidate run measured 46.03 ms/tick across 31
+windows. Costs increased in unrelated phases as well. The repeat
+reference reached the requested room at startup but produced no settled
+windows before the capture ended. This run did not measure a repeatable
+change in total tick cost.
+
+### Pixel 5 profiles on November 26
+
+The two stationary Hall captures used Medium quality, the frame census,
+and all 596 bodies. Each capture contains its matching native library.
+Both builds had local source edits. The newer one ran the actor pose
+clock in the tick schedule and published clips in the frame schedule.
+
+| Capture UTC | Complete Hall windows | Frames/s | Median window p50, ms | Simulation ms/tick |
+| --- | ---: | ---: | ---: | ---: |
+| `144616Z` | 2 | 17.08 | 52.65 | 10.30 |
+| `150037Z` | 9 | 21.01 | 47.30 | 9.54 |
+
+Both sets of frame windows advanced about 60 simulation ticks per
+second. The first capture had 105 CPU samples. The second had 7,919.
+Use the second for CPU attribution. In seconds 10–44 of its CPU
+recording, body integration accounted for 14.62% of samples and the
+render driver for 14.96%. Exact bit comparisons accounted for 2.82%
+and extension phase execution for 2.84%. These inclusive shares can
+overlap. Navigation rollouts had no samples on the main thread.
+
+The two later simulation-driver windows took 28.86 and 29.17 ms per
+frame. The later frame windows had a frame median of about 47 ms.
+At 40 frames per second, the total frame budget is 25 ms. At 60
+simulation ticks per second, 9.54 ms per tick consumes about 14.3 ms
+of that budget on average. This leaves about 10.7 ms for the
+remaining work. Reduce integration and frame preparation with the
+same cast and render quality.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

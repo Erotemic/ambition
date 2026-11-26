@@ -659,9 +659,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 )
                 .run_if(session_presentation_is_ready),
         );
-        // `ActorAnimIndex` is rebuilt sim-side (`FeatureViewSyncSchedulePlugin`,
-        // in the FeatureViewSync tail this chain runs after). Presentation only
-        // consumes it.
+        // FrameViewSync publishes the actor animation index before visual sync.
         app.add_systems(
             Update,
             (

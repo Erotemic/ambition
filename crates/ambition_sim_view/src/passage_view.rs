@@ -76,7 +76,7 @@ fn row_of(pose: PassagePose) -> (&'static [&'static str], CharacterAnim) {
 ///
 /// A player body takes it beside its `BodyPoseView`. A body drawn on the
 /// actor road (a possessed body, an NPC) takes it in its `ActorAnimIndex`
-/// frame, which is rebuilt each tick, so it needs no removal.
+/// frame, which clears the override each tick.
 pub fn rebuild_passage_views(
     mut commands: Commands,
     mut views: ResMut<PassageViews>,
@@ -110,12 +110,9 @@ pub fn rebuild_passage_views(
                     pose.clip = ClipRequest::from_chain(chain);
                 }
                 let view = PassageLookView { scale: look.scale, alpha: look.alpha, shade: look.shade, transit: look.transit };
-                let actor = feature.zip(actors.as_deref_mut()).and_then(|(id, actors)| actors.frame_mut(id.as_str()));
-                if let Some(frame) = actor {
+                if let Some((id, actors)) = feature.zip(actors.as_deref_mut()) {
                     let (chain, anim) = row_of(look.pose);
-                    frame.anim = anim;
-                    frame.clip = ClipRequest::from_chain(chain);
-                    frame.passage_look = Some(view);
+                    actors.apply_passage(id.as_str(), anim, chain, view);
                 }
                 if shown != Some(&view) {
                     commands.entity(entity).try_insert(view);
@@ -141,21 +138,6 @@ mod tests {
     use super::*;
     use ambition_platformer2d_session::rooms::passage::{PassageKind, PassageStage};
     use ambition_platformer2d_core as ae;
-
-    fn idle() -> crate::ActorAnimFrame {
-        crate::ActorAnimFrame {
-            anim: CharacterAnim::Idle,
-            conversation_held: false,
-            pos: ae::Vec2::ZERO,
-            facing: 1.0,
-            gravity_dir: ae::DEFAULT_GRAVITY_DIR,
-            clip: None,
-            move_charge: None,
-            passage_look: None,
-            stop: Default::default(),
-            turn: Default::default(),
-        }
-    }
 
     /// Review finding #9 (2026-10-19). Two live rooms each have a door
     /// `return_door`, and a body goes through the one in the first room:
@@ -200,13 +182,13 @@ mod tests {
     /// actor frame.
     #[test]
     fn a_body_on_the_actor_road_draws_its_passage() {
+        use crate::anim_index::{advance_actor_anim_poses, rebuild_actor_anim_index, spawn_pose_fixture};
+
         let mut app = App::new();
         app.init_resource::<PassageViews>();
-        app.insert_resource(ActorAnimIndex::from_rows([
-            ("npc".to_string(), idle()),
-            ("bystander".to_string(), idle()),
-        ]));
-        app.add_systems(Update, rebuild_passage_views);
+        app.init_resource::<ActorAnimIndex>();
+        app.add_systems(FixedUpdate, (advance_actor_anim_poses, rebuild_passage_views).chain());
+        app.add_systems(Update, rebuild_actor_anim_index);
         let passage = ZonePassage {
             kind: PassageKind::Door,
             stage: PassageStage::Entering,
@@ -224,9 +206,11 @@ mod tests {
             room: None,
         };
         let look = passage.look().expect("premise: the passage holds the body and has a look");
-        app.world_mut().spawn((passage, ambition_combat::components::FeatureId::new("npc")));
-        app.world_mut().spawn(ambition_combat::components::FeatureId::new("bystander"));
-        app.update();
+        let npc = spawn_pose_fixture(&mut app, "npc");
+        app.world_mut().entity_mut(npc).insert(passage);
+        spawn_pose_fixture(&mut app, "bystander");
+        app.world_mut().run_schedule(FixedUpdate);
+        app.world_mut().run_schedule(Update);
 
         let index = app.world().resource::<ActorAnimIndex>();
         let frame = index.get("npc").expect("the npc's frame");
@@ -245,5 +229,12 @@ mod tests {
             (CharacterAnim::Idle, true, None),
             "control: a body outside a passage keeps its frame"
         );
+
+        app.world_mut().entity_mut(npc).remove::<ZonePassage>();
+        app.world_mut().run_schedule(FixedUpdate);
+        app.world_mut().run_schedule(Update);
+        let frame = app.world().resource::<ActorAnimIndex>().get("npc").unwrap();
+        assert_eq!(frame.anim, CharacterAnim::Idle);
+        assert!(frame.clip.is_none() && frame.passage_look.is_none());
     }
 }

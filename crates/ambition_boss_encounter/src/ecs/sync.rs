@@ -103,7 +103,7 @@ pub(crate) fn boss_sprite_metrics_from_registry(
         body_pixel_parts: metrics.body_pixel_parts.clone(),
         sprite_render_size,
         combat_offset: ae::Vec2::ZERO,
-        animations: metrics.animations.clone(),
+        animations: metrics.animations().clone(),
     };
     let body_aabbs = crate::attack_geometry::world_space_body_aabbs_from_parts(
         &snapshot.body_pixel_parts,

@@ -125,7 +125,7 @@ pub fn manifest_attack_hitbox_local(
     clip_elapsed: Option<f32>,
 ) -> Option<ae::CombatVolume> {
     let metrics = record.body_metrics.as_ref()?;
-    let entry = metrics.animations.get(animation)?;
+    let entry = metrics.animations().get(animation)?;
     let hitbox = entry.hitbox.as_ref()?;
     let frame = clip_elapsed.and_then(|elapsed| frame_at(entry, elapsed));
     FrameToBody::planting_feet(record, render_size, collision).volume(hitbox, frame)

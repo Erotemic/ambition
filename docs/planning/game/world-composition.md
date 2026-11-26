@@ -63,6 +63,8 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
 
 - **Surface row:** the hamlet, the allotments and the moor, joined at the floor; the moor joins the gate forest (and the castle).
 - **Under:** the crypt stair in the moor, west through the catacombs, up the shaft under plot 13 into the allotments.
+  In the catacombs, the broken vault has a raised walk to the shrine. A
+  conscript is on the walk and a crawler is below it.
 - **Over:** the moor's watchtower up onto the ridge; west along it, over the plank bridge, onto Gallows Hill and down the hamlet's bell tower. The bridge is dropped through onto the allotments' greenhouse (a shortcut down).
 - **Tests:** `game/ambition_app/tests/the_searchlight_moor.rs`.
 

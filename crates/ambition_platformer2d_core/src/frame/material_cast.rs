@@ -65,16 +65,36 @@ pub struct MaterialCastHit {
 pub struct MaterialCastCells<'a> {
     material: MaterialPrimitive<'a>,
     /// Contact candidates share the cast's fixed source polygon.
-    polygon: std::sync::OnceLock<Option<Vec<DVec2>>>,
+    polygon: std::sync::OnceLock<Option<PolygonPoints>>,
     /// The canonical primitive stays fixed while its source map follows this curve.
     source: SourceMotion,
     until: f64,
-    parts: Vec<MaterialCell>,
-    bounds: Vec<Option<Aabb>>,
+    cells: CastCells,
     time: std::ops::Range<f64>,
     scene:Option<std::sync::Arc<arcs::Scene>>,
     initial_overlap: InitialOverlap,
     carrier: Option<u64>,
+}
+
+enum CastCells {
+    Whole { cell: MaterialCell, bounds: Option<Aabb> },
+    Partitioned { cells: Vec<MaterialCell>, bounds: Vec<Option<Aabb>> },
+}
+
+impl CastCells {
+    fn parts(&self) -> &[MaterialCell] {
+        match self {
+            Self::Whole { cell, .. } => std::slice::from_ref(cell),
+            Self::Partitioned { cells, .. } => cells,
+        }
+    }
+
+    fn bounds(&self) -> &[Option<Aabb>] {
+        match self {
+            Self::Whole { bounds, .. } => std::slice::from_ref(bounds),
+            Self::Partitioned { bounds, .. } => bounds,
+        }
+    }
 }
 
 fn carry_plane(
@@ -140,6 +160,16 @@ impl<'a> MaterialCast<'a> {
 
     pub(super) fn source(&self) -> SourceMotion {
         SourceMotion { map: self.material.to_world, root: self.root.as_dvec2(), delta: self.delta.as_dvec2(), rotation: self.rotation }
+    }
+
+    fn admit_root(&self, budget: super::thread::PieceBudget) -> Result<(), Refusal> {
+        if budget.max_pieces == 0 {
+            return Err(Refusal { path: Vec::new(), link: None, reason: RefusalReason::PieceLimit });
+        }
+        if !self.material.to_world.admits_scale_exponent(budget.max_scale_exponent) {
+            return Err(Refusal { path: Vec::new(), link: None, reason: RefusalReason::ScaleLimit });
+        }
+        Ok(())
     }
 
     fn whole_cell(&self) -> MaterialCell {
@@ -318,32 +348,8 @@ impl<'a> MaterialCast<'a> {
         let scene = (!policy.links.is_empty() || self.rotation.is_some())
             .then(|| arcs::Scene::new(&self, policy));
         let source = self.source();
-        let parts = if rotating {
-            let scene = scene.as_ref().unwrap().clone();
-            if admission.is_some() { arcs::build(&self, policy, scene)? }
-            else {
-                vec![MaterialCell {
-                    travel: DVec2::ZERO,
-                    curve: Some(std::sync::Arc::new(arcs::CurveCell::whole(scene))),
-                    ..self.whole_cell()
-                }]
-            }
-        } else if let Some(admission) = admission {
-            if admission.links.iter().any(|link|link.enter_step.turn!=0.0 || link.exit_step.turn!=0.0) {
-                if self.time.start==self.time.end {
-                    let links=admission.links.iter().map(|link| {
-                        let pose=link.snapshot_at(self.time.start).map_err(numeric)?;
-                        Ok(super::thread::PortalLink {depth:pose.depth,..super::thread::PortalLink::new(pose.enter,pose.exit,pose.key)})
-                    }).collect::<Result<Vec<_>,Refusal>>()?;
-                    affine::build(&self,MotionAdmission {links:&links,..admission})?
-                } else {arcs::build(&self,admission,scene.as_ref().unwrap().clone())?}
-            } else {affine::build(&self, admission)?}
-        } else {
-            vec![self.whole_cell()]
-        };
-        let mut bounds=Vec::with_capacity(parts.len());
         let mut validated = self.material.to_world;
-        for cell in &parts {
+        let mut prepare_bounds = |cell: &MaterialCell| {
             for time in [cell.time.start, cell.time.end] {
                 let map = cell.at(time).map_err(|e| numeric_at(cell, e))?;
                 if map != validated {
@@ -352,15 +358,44 @@ impl<'a> MaterialCast<'a> {
                     validated = map;
                 }
             }
-            bounds.push(cell.bounds(material_bounds, DVec2::ZERO).map_err(|e| numeric_at(cell, e))?);
-        }
+            cell.bounds(material_bounds, DVec2::ZERO).map_err(|e| numeric_at(cell, e))
+        };
+        let cells = if !rotating && policy.links.is_empty() {
+            if let Some(admission) = admission {
+                self.admit_root(admission.budget)?;
+            }
+            let cell = self.whole_cell();
+            let bounds = prepare_bounds(&cell)?;
+            CastCells::Whole { cell, bounds }
+        } else {
+            let parts = if rotating {
+                let scene = scene.as_ref().unwrap().clone();
+                if admission.is_some() { arcs::build(&self, policy, scene)? }
+                else {
+                    vec![MaterialCell {
+                        travel: DVec2::ZERO,
+                        curve: Some(std::sync::Arc::new(arcs::CurveCell::whole(scene))),
+                        ..self.whole_cell()
+                    }]
+                }
+            } else if policy.links.iter().any(|link|link.enter_step.turn!=0.0 || link.exit_step.turn!=0.0) {
+                if self.time.start==self.time.end {
+                    let links=policy.links.iter().map(|link| {
+                        let pose=link.snapshot_at(self.time.start).map_err(numeric)?;
+                        Ok(super::thread::PortalLink {depth:pose.depth,..super::thread::PortalLink::new(pose.enter,pose.exit,pose.key)})
+                    }).collect::<Result<Vec<_>,Refusal>>()?;
+                    affine::build(&self,MotionAdmission {links:&links,..policy})?
+                } else {arcs::build(&self,policy,scene.as_ref().unwrap().clone())?}
+            } else {affine::build(&self, policy)?};
+            let bounds = parts.iter().map(prepare_bounds).collect::<Result<_, _>>()?;
+            CastCells::Partitioned { cells: parts, bounds }
+        };
         Ok(MaterialCastCells {
             material: self.material,
             polygon: std::sync::OnceLock::new(),
             source,
             until: self.until,
-            parts,
-            bounds,
+            cells,
             time:self.time,
             scene,
             initial_overlap: self.initial_overlap,
@@ -371,9 +406,8 @@ impl<'a> MaterialCast<'a> {
 
 impl MaterialCastCells<'_> {
     fn source_polygon(&self) -> Option<&[DVec2]> {
-        self.polygon.get_or_init(|| self.material.domain.polygon()
-            .map(|points| points.into_iter().map(|point| point.as_dvec2()).collect()))
-            .as_deref()
+        self.polygon.get_or_init(|| PolygonPoints::from_volume(self.material.domain))
+            .as_ref().map(PolygonPoints::as_slice)
     }
 
     /// The key of the body this material is ([`MaterialCast::carried_by`]).
@@ -387,16 +421,16 @@ impl MaterialCastCells<'_> {
     }
 
     pub fn parts(&self) -> &[MaterialCell] {
-        &self.parts
+        self.cells.parts()
     }
 
     /// Separate physical envelopes for recipient broad phase.
     pub fn swept_bounds(&self) -> impl Iterator<Item=Aabb> + '_ {
-        self.bounds.iter().flatten().copied()
+        self.cells.bounds().iter().flatten().copied()
     }
 
     pub(crate) fn bounded_parts(&self) -> impl Iterator<Item=(&MaterialCell,Option<Aabb>)> {
-        self.parts.iter().zip(self.bounds.iter().copied())
+        self.parts().iter().zip(self.cells.bounds().iter().copied())
     }
 
     /// Broad phase bounds in each part's physical chart.
@@ -441,19 +475,20 @@ impl MaterialCastCells<'_> {
             .inverse()
             .map_err(|reason| numeric_at(part, reason))?;
         // The caller checks collider input before this projection.
-        let mut region = obstacle.iter().map(|point| inverse.point_wide(point.as_dvec2()))
-            .collect::<Vec<_>>();
         let full_motion=inverse.direction_wide(displacement.as_dvec2())*inverse.scale_wide();
-        for point in &mut region { *point-=full_motion*(1.0-self.time.start); }
+        let offset = full_motion * (1.0-self.time.start);
         let motion=full_motion*(self.time.end-self.time.start)
             - inverse.direction_wide(part.travel) * inverse.scale_wide();
         // A boundary stratum retains the incoming derivative at its instant.
         let interval=if part.time.start==part.time.end && part.time.start>0.0 {
             0.0..part.time.end
         } else { part.time.clone() };
-        for point in &mut region { *point += motion * interval.start; }
+        let advance = motion * interval.start;
+        let region = PolygonPoints::project(obstacle, |point| {
+            (inverse.point_wide(point.as_dvec2()) - offset) + advance
+        });
         let duration = interval.end - interval.start;
-        let contact = translation::cast(self.material.domain, DVec2::ZERO, &region, motion * duration,
+        let contact = translation::cast(self.material.domain, DVec2::ZERO, region.as_slice(), motion * duration,
             part.planes.iter().map(|p| p.during(interval.clone())), self.initial_overlap)
             .map_err(|fault| numeric_at(part, fault))?;
         let Some(contact) = contact else {
@@ -570,7 +605,7 @@ impl MaterialCastCells<'_> {
                     None=>arcs::CurveCell::from_affine(scene.clone(),part).map_err(|e|numeric_at(part,e))?,
                 };
                 let admitted=if part.curve.is_none() {
-                    Some(self.parts.iter().filter(|other|other.path.len()>part.path.len()
+                    Some(self.parts().iter().filter(|other|other.path.len()>part.path.len()
                         && other.path.starts_with(&part.path)
                         && (other.time.start.max(part.time.start)<other.time.end.min(part.time.end)
                             || other.time.start==other.time.end && other.time.start>=part.time.start && other.time.end<=part.time.end))
@@ -622,7 +657,44 @@ struct CastHit {
 fn primitive_cast(body:&CombatVolume,delta:DVec2,obstacle:&[DVec2]) -> Option<CastHit> {
     match body {
         CombatVolume::Circle {center,radius}=>circle_cast(center.as_dvec2(),f64::from(*radius),delta,obstacle),
-        body=>polygon_cast(&body.polygon().unwrap().iter().map(|p|p.as_dvec2()).collect::<Vec<_>>(),delta,obstacle),
+        body=>polygon_cast(PolygonPoints::from_volume(body).unwrap().as_slice(),delta,obstacle),
+    }
+}
+
+// Keep the vertices of a box or segment inline.
+enum PolygonPoints {
+    Inline { points: [DVec2; 4], len: usize },
+    Heap(Vec<DVec2>),
+}
+
+impl PolygonPoints {
+    fn project<T: Copy>(source: &[T], mut project: impl FnMut(T) -> DVec2) -> Self {
+        if source.len() <= 4 {
+            let mut points = [DVec2::ZERO; 4];
+            for (destination, source) in points.iter_mut().zip(source.iter().copied()) {
+                *destination = project(source);
+            }
+            Self::Inline { points, len: source.len() }
+        } else {
+            Self::Heap(source.iter().copied().map(project).collect())
+        }
+    }
+
+    fn from_volume(volume: &CombatVolume) -> Option<Self> {
+        match volume {
+            CombatVolume::Aabb(bounds) => Some(Self::Inline {
+                points: corners(*bounds).map(|point| point.as_dvec2()),
+                len: 4,
+            }),
+            volume => Some(Self::project(&volume.polygon()?, |point| point.as_dvec2())),
+        }
+    }
+
+    fn as_slice(&self) -> &[DVec2] {
+        match self {
+            Self::Inline { points, len } => &points[..*len],
+            Self::Heap(points) => points,
+        }
     }
 }
 
@@ -746,8 +818,8 @@ fn polygon_cast(body: &[DVec2], delta: DVec2, obstacle: &[DVec2]) -> Option<Cast
     {
         return None;
     }
-    let moved = body.iter().map(|p| *p + delta * time).collect::<Vec<_>>();
-    let point = closest_polygons(&moved, obstacle);
+    let moved = PolygonPoints::project(body, |p| p + delta * time);
+    let point = closest_polygons(moved.as_slice(), obstacle);
     Some(CastHit {
         time,
         normal,
@@ -876,7 +948,12 @@ fn closest_polygons(a: &[DVec2], b: &[DVec2]) -> DVec2 {
                 let q = closest_on_segment(*p, u, v);
                 let distance = p.distance_squared(q);
                 if distance < best.0 {
-                    best = (distance, (*p + q) * 0.5);
+                    let point = (*p + q) * 0.5;
+                    // Keep the first point when distances are equal.
+                    if distance == 0.0 {
+                        return point;
+                    }
+                    best = (distance, point);
                 }
             }
         }

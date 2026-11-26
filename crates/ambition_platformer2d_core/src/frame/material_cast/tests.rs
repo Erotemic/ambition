@@ -3,6 +3,13 @@ use crate::frame::thread::{PieceBudget, PortalLink};
 use crate::frame::{MapConvention, PortalAperture, PortalFrame};
 use bevy_math::Mat2;
 
+fn whole_cell_mut<'a>(cells: &'a mut MaterialCastCells<'_>) -> &'a mut MaterialCell {
+    let CastCells::Whole { cell, .. } = &mut cells.cells else {
+        panic!("expected one whole material cell");
+    };
+    cell
+}
+
 fn box_at(center: Vec2, half: Vec2) -> Vec<Vec2> {
     corners(Aabb::new(center, half)).to_vec()
 }
@@ -100,16 +107,16 @@ fn a_new_cell_owns_contact_at_a_topology_boundary() {
         0.0..1.0,
     ).cells(None).unwrap();
     let obstacle = box_at(Vec2::new(5.0, 0.0), Vec2::ONE);
-    cells.parts[0].time = 0.0..0.375;
-    assert!(cells.against(&cells.parts[0], &obstacle, Vec2::ZERO).unwrap().is_none());
-    cells.parts[0].time = 0.375..1.0;
-    let hit = cells.against(&cells.parts[0], &obstacle, Vec2::ZERO).unwrap().unwrap();
+    whole_cell_mut(&mut cells).time = 0.0..0.375;
+    assert!(cells.against(&cells.parts()[0], &obstacle, Vec2::ZERO).unwrap().is_none());
+    whole_cell_mut(&mut cells).time = 0.375..1.0;
+    let hit = cells.against(&cells.parts()[0], &obstacle, Vec2::ZERO).unwrap().unwrap();
     assert!((hit.toi - 0.375).abs() < 1.0e-12);
     let end_contact = box_at(Vec2::new(10.0, 0.0), Vec2::ONE);
-    let hit = cells.against(&cells.parts[0], &end_contact, Vec2::ZERO).unwrap().unwrap();
+    let hit = cells.against(&cells.parts()[0], &end_contact, Vec2::ZERO).unwrap().unwrap();
     assert_eq!(hit.toi, 1.0);
-    cells.parts[0].time=0.375..0.375;
-    let hit=cells.against(&cells.parts[0],&obstacle,Vec2::ZERO).unwrap().unwrap();
+    whole_cell_mut(&mut cells).time=0.375..0.375;
+    let hit=cells.against(&cells.parts()[0],&obstacle,Vec2::ZERO).unwrap().unwrap();
     assert_eq!(hit.toi,0.375,"a contact stratum owns its instant");
 }
 
@@ -277,7 +284,7 @@ fn a_rotating_solid_that_only_touches_the_cell_is_not_a_wall() {
         Vec2::ZERO,
         0.0..1.0,
     ).cells(None).unwrap();
-    cells.parts[0].planes.push(translation::MovingPlane {plane:MaterialPlane {inward:DVec2::X,offset:0.0},rate:0.0});
+    whole_cell_mut(&mut cells).planes.push(translation::MovingPlane {plane:MaterialPlane {inward:DVec2::X,offset:0.0},rate:0.0});
     let diamond=[Vec2::new(0.0,0.0),Vec2::new(-1.0,1.0),Vec2::new(-2.0,0.0),Vec2::new(-1.0,-1.0)];
     assert!(cells.against_rigid(&cells.parts()[0],&diamond,Vec2::ZERO,
         std::f32::consts::TAU,Vec2::new(-1.0,0.0)).unwrap().is_none());
@@ -355,7 +362,7 @@ fn a_cells_map_travel_sets_the_physical_contact_pose() {
         Vec2::ZERO,
         0.0..1.0,
     ).cells(None).unwrap();
-    cells.parts[0].travel = DVec2::new(20.0, 0.0);
+    whole_cell_mut(&mut cells).travel = DVec2::new(20.0, 0.0);
     let cell = &cells.parts()[0];
     let bounds = cells.bounds(cell).unwrap().unwrap();
     assert_eq!(bounds, Aabb { min: Vec2::splat(-1.0), max: Vec2::new(21.0, 1.0) });
@@ -403,7 +410,7 @@ fn a_cast_keeps_the_motion_of_its_cell_boundaries() {
         Vec2::ZERO,
         0.0..1.0,
     ).cells(None).unwrap();
-    cells.parts[0].planes.push(translation::MovingPlane {
+    whole_cell_mut(&mut cells).planes.push(translation::MovingPlane {
         plane: MaterialPlane { inward: DVec2::X, offset: 3.0 }, rate: -6.0,
     });
     let cell = &cells.parts()[0];
@@ -423,11 +430,11 @@ fn a_moving_cell_keeps_its_host_boundary_without_a_false_strip() {
             Vec2::new(20.0, 0.0),
             0.0..1.0,
         ).cells(None).unwrap();
-        cells.parts[0].planes.push(translation::MovingPlane {
+        whole_cell_mut(&mut cells).planes.push(translation::MovingPlane {
             plane: MaterialPlane { inward: -DVec2::X, offset: 0.0 }, rate: 0.0,
         });
         let host = box_at(Vec2::new(25.0, 0.0), Vec2::new(5.0, 20.0));
-        assert!(cells.against(&cells.parts[0], &host, Vec2::new(20.0, 0.0))
+        assert!(cells.against(&cells.parts()[0], &host, Vec2::new(20.0, 0.0))
             .unwrap().is_none());
     }
 }

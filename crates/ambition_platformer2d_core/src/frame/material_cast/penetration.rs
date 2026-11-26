@@ -92,9 +92,10 @@ impl<'c> PolygonAxisProbe<'c, '_> {
         if obstacle.len() >= 3 && !self.cells.collider_may_occupy(self.part, obstacle, Vec2::ZERO) { return Ok(None); }
         let prepared = self.prepared.get_or_init(|| self.prepare()).as_ref().map_err(Clone::clone)?;
         let StaticMaterial { body, root, inverse, direction, planes, has_area } = prepared;
-        let mut region: Vec<_> = obstacle.iter().map(|point| inverse.point_wide(point.as_dvec2())).collect();
+        let projected = PolygonPoints::project(obstacle, |point| inverse.point_wide(point.as_dvec2()));
+        let mut region = std::borrow::Cow::Borrowed(projected.as_slice());
         if region.iter().any(|point| !point.is_finite()) { return Err(numeric_at(self.part, NumericFault::NonFinite)); }
-        for plane in planes { region = clip(&region, plane.plane); }
+        for plane in planes { region = std::borrow::Cow::Owned(clip(&region, plane.plane)); }
         // Boundary strata carry crossing events, not static support.
         if !has_area { return Ok(None); }
         if region.is_empty() || obstacle.len() >= 3 && !crate::frame::thread::has_area(&region) { return Ok(None); }
@@ -133,8 +134,8 @@ impl<'c> PolygonAxisProbe<'c, '_> {
         if lower.0 > 0.0 || upper.0 < 0.0 { return Ok(None); }
         let (displacement, normal) = if upper.0.abs() < lower.0.abs() { upper } else { lower };
         if !displacement.is_finite() || normal == DVec2::ZERO { return Err(numeric_at(self.part, NumericFault::InvalidFrame)); }
-        let moved: Vec<_> = body.iter().map(|point| *point + *direction * displacement).collect();
-        let point = closest_polygons(&moved, &region);
+        let moved = PolygonPoints::project(body, |point| point + *direction * displacement);
+        let point = closest_polygons(moved.as_slice(), &region);
         let Some(contact) = self.cells.contact(self.part, CastHit { time: 1.0, normal, point })? else { return Ok(None); };
         Ok(Some(PolygonAxisContact { displacement, contact,
             minimum_normal: root.direction(minimum.1.as_vec2()).normalize_or_zero() }))

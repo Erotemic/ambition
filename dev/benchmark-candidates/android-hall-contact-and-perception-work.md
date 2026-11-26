@@ -465,6 +465,29 @@ The build volume did not have space for a new full Hall executable.
 Measure the net desktop tick cost and phone frame time in the assembled
 game before assigning a frame rate to this change.
 
+### Inline collision cast storage
+
+A whole material cell retains its bounds inline. Boxes and segments use
+inline vertices in the shared cast and repair code. Partitioned cells and
+larger polygons retain storage sized to their geometry. The admission
+budget, contact order, and closest-point tie rule still apply.
+
+The 596-body floor probe ran each build twice in reverse order. Both
+versions matched the position, velocity, and contact-count digests.
+The tests cover bounds, budget refusals, and portal clips. A separate
+comparison matched contact records from 3,240 casts across shapes and frames.
+
+| Desktop workload | Before, ms/tick | After, ms/tick |
+| --- | ---: | ---: |
+| Development, 57 moving and 539 reusing | 5.80–6.73 | 5.44 |
+| Optimized, 57 moving and 539 reusing | 0.40–0.41 | 0.35–0.39 |
+| Optimized, all moving | 2.84–2.94 | 2.45–2.46 |
+
+Heap allocations per moving body step fell from 47 to 17. In the mixed
+development run the instruction count fell from 18.39 to 17.60–17.61
+billion. The two active populations show how the saving changes with
+movement demand. The phone and full desktop room still need a new capture.
+
 ### Pose publication
 
 The actor pose and appearance queries select the same bodies. They read

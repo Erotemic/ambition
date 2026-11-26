@@ -577,6 +577,9 @@ The Ninja Village generator skips the LDtk-owned Gate Shrine, but it
 still appends the gate interface. This creates a second arrival zone.
 Use the ownership decision for the gate interface and IntGrid edits
 as well as room creation.
+When a generator moves a chest, let the author keep the chest's IID.
+Use the Smugglers' Hoard chest to check this operation. A save from
+before the move must still show an opened chest after the move.
 
 ## Repeatable scenario and truthful activation result
 

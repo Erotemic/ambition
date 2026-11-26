@@ -251,6 +251,8 @@ In the Customs Cellars, show the crate tops, barrel rack, and inspection
 decks with their collision and guard spawn points.
 At the Sail Loft, show the shelf edges, the ladder, and the patch kit
 with the canvas bolts. Check that the flags remain visible below the deck.
+At the Smugglers' Hoard, show the coin pile with its surface chain and
+the chest's support point at the top.
 The Noodly Cistern adds pipes and plates for each wheel. Give the art
 generator the switch and gate bounds and the gate conditions. Keep the
 pipe bends in the art so an author can route around labels.

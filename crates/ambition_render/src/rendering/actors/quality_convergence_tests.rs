@@ -599,6 +599,7 @@ fn a_declared_prop_waits_for_its_sheet_then_binds_on_the_same_entity() {
         tuning: ambition_sprite_sheet::character::SheetTuning::new(1.0, 1),
         packed: false,
         backdrop: false,
+        repeat_width: None,
     });
     let room = ae::World::new("prop_probe", ae::Vec2::new(640.0, 480.0), ae::Vec2::ZERO, vec![]);
     let spawn = |app: &mut App, kind: &str, assets: Option<&GameAssets>, declared: Option<&PropSheets>| {
@@ -644,6 +645,78 @@ fn a_declared_prop_waits_for_its_sheet_then_binds_on_the_same_entity() {
     assert_eq!(app.world().get::<Sprite>(ready).unwrap().image.id(), image);
     let world = app.world_mut();
     assert_eq!(world.query::<&PropVisual>().iter(world).count(), 4);
+}
+
+#[test]
+fn adjacent_props_share_a_horizontal_repeat_at_each_quality() {
+    use ambition_platformer2d_core as ae;
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
+    use ambition_platformer2d_world::rooms::{PropDraw, PropSpec};
+    use ambition_sprite_sheet::character::{CharacterAnim, SheetTuning, sheets::{try_load_spec_for_target, try_load_spec_for_target_scaled}};
+    use ambition_sprite_sheet::prop_sheets::{PropSheetSource, PropSheets};
+    use crate::rendering::primitives::PropVisual;
+
+    let mut app = asset_app();
+    app.add_systems(Update, super::refresh_prop_sprites_on_game_assets_change);
+    let mut declarations = PropSheets::default();
+    let tuning = SheetTuning::new(1.0, 1);
+    declarations.register("paper", PropSheetSource {
+        world_provider: None,
+        target: "hylbert_wallpaper_panel".into(),
+        tuning,
+        packed: false,
+        backdrop: true,
+        repeat_width: Some(100.0),
+    });
+    let room = ae::World::new("paper_probe", ae::Vec2::splat(400.0), ae::Vec2::ZERO, vec![]);
+    for (index, (left, right)) in [(24.0, 80.0), (80.0, 124.0)].into_iter().enumerate() {
+        let prop = PropSpec {
+            id: index.to_string(), name: "paper".into(), kind: "paper".into(),
+            pos: ae::Vec2::new((left + right) * 0.5, 90.0), size: ae::Vec2::new(right - left, 120.0),
+            flip_y: false, draw: PropDraw::Decoration,
+        };
+        crate::rendering::world::spawn_room_prop(
+            &mut app.world_mut().commands(), SessionSpawnScope::UNSCOPED,
+            &room, &prop, index, None, Some(&declarations),
+        );
+    }
+    app.world_mut().flush();
+    let mut assets = GameAssets::default();
+    let mut previous_width = f32::INFINITY;
+    for tier in [TextureResolutionScale::Full, TextureResolutionScale::Half] {
+        let mut asset = a_pending_realization(&mut app, tier);
+        let content = app.world().resource::<ambition_sprite_sheet::SpriteContent>();
+        let target = "hylbert_wallpaper_panel";
+        asset.spec = if tier == TextureResolutionScale::Full {
+            try_load_spec_for_target(content, target, &tuning)
+        } else {
+            try_load_spec_for_target_scaled(
+                content, target, &tuning, ambition_sprite_sheet::character::TextureResolutionScale::Half,
+            )
+        }.expect("the wallpaper has a sheet at this tier");
+        let cell = asset.spec.frame_trim(CharacterAnim::Idle, 0).trimmed.as_vec2() - Vec2::splat(2.0);
+        assert!(cell.x < previous_width);
+        previous_width = cell.x;
+        the_image_lands(&mut app, &asset);
+        assets.characters.props.insert("paper".into(), asset.clone());
+        app.insert_resource(assets.clone());
+        app.update();
+        let world = app.world_mut();
+        let mut query = world.query_filtered::<(&Transform, &Sprite), With<PropVisual>>();
+        let mut pieces = query.iter(world).collect::<Vec<_>>();
+        pieces.sort_by(|(a, _), (b, _)| a.translation.x.total_cmp(&b.translation.x));
+        assert_eq!(pieces.len(), 3);
+        for ((place, sprite), (left, right, start, end)) in pieces.into_iter().zip([
+            (24.0, 80.0, 0.24, 0.80), (80.0, 100.0, 0.80, 1.0), (100.0, 124.0, 0.0, 0.24),
+        ]) {
+            assert_eq!(sprite.image.id(), asset.texture.id());
+            assert_eq!(sprite.custom_size, Some(Vec2::new(right - left, 120.0)));
+            assert_eq!(place.translation.x + room.size.x * 0.5, (left + right) * 0.5);
+            let rect = sprite.rect.expect("the piece samples part of its atlas cell");
+            assert!((rect.min - Vec2::new(start * cell.x, 0.0)).length() < 0.001);
+            assert!((rect.max - Vec2::new(end * cell.x, cell.y)).length() < 0.001);
+        }
+    }
 }
 
 /// A prop's quality stamp is the tier of the asset it was built from, not the

@@ -317,6 +317,11 @@ their 2,052 conversions stale when the background bundle key changed.
 Record the digest of each source image in its conversion receipt. A change
 to a different image in the bundle must leave that receipt valid.
 
+The Void Ledges step rendered in the same Python environment that checked
+it. The renderer checkout appeared twice on the import path during the
+build. The check reported a toolchain change because the receipt counted
+the same package more than once. Record each package name and version once.
+
 Machine mode returns parseable result data for normal refusal or partial
 failure even when the exit status is nonzero. If a killed or crashed producer
 returns no receipt, report its outcome as unavailable or unconfirmed.

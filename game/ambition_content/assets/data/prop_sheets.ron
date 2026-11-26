@@ -746,7 +746,7 @@
     // frames are sampled 1 px in, so the sheet's clear gutter does not draw a
     // line where two panels meet.
     "hylbert_spectral_gap": (),
-    "hylbert_wallpaper_panel": (backdrop: true, frame_sample_inset: 1),
+    "hylbert_wallpaper_panel": (backdrop: true, frame_sample_inset: 1, repeat_width: Some(504.0)),
     "hylbert_room_door": (),
     // The haunted wing's barriers: the service lift's shut gate and the
     // treasury's sealed grille (lock-wall looks).
@@ -878,6 +878,7 @@
     "coliseum_stand_east": (),
     "wastes_dead_things": (),
     "ledges_gap": (),
+    "ledges_transfer_step": (),
     "ring_seat": (),
     "mine_tunnel": (),
     "hamlet_west": (),

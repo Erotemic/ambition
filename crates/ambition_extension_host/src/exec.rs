@@ -26,14 +26,14 @@ use std::time::{Duration, Instant};
 use ambition_extension_sdk::abi::{self, InvocationInput, InvocationOutput};
 use ambition_extension_sdk::invoke::{HostParts, Observation, OwnedPayload, Payload};
 use ambition_extension_sdk::{
-    encode_erased, DecodeFn, EncodeFn, Fault, Invocation, Name, Phase, Port, PortKey,
+    encode_erased, DecodeFn, EncodeFn, Fault, IdlePolicy, Invocation, Name, Phase, Port, PortKey,
     Record, SchemaKey,
 };
 use ambition_time::SimTick;
 use bevy::prelude::*;
 
 use crate::admission::{Admitted, AdmittedEntry, EntryRunner};
-use crate::store::{BodyRecords, RecordSet, SessionRecords};
+use crate::store::{BodyRecords, RecordSet, SessionRecords, StoredRecord};
 use ambition_extension_sdk::Attachment;
 use crate::AdmittedExtensions;
 
@@ -657,6 +657,12 @@ pub fn run_phase(phase: Phase) -> impl FnMut(&mut World) {
                         invocation.notify(world, InvocationEvent::IdleReset);
                         continue;
                     }
+                    if descriptor.on_idle == IdlePolicy::SkipIfInitial
+                        && state_is_initial(world, &admitted, invocation.scope.state, session, &descriptor.writes)
+                    {
+                        invocation.notify(world, InvocationEvent::Unavailable);
+                        continue;
+                    }
                 }
                 let started = world.contains_resource::<ExtensionProfile>().then(Instant::now);
                 let mut backend_time = started.map(|_| Duration::ZERO);
@@ -1007,6 +1013,52 @@ fn session_home(world: &World, homes: &mut QueryState<Entity, With<SessionRecord
     }
 }
 
+fn stored_state<'a>(
+    world: &'a World,
+    scope: Entity,
+    session: Option<Entity>,
+    key: &SchemaKey,
+    attachment: Attachment,
+) -> Result<Option<&'a StoredRecord>, Fault> {
+    let store = match attachment {
+        Attachment::Body => world.get::<BodyRecords>(scope).map(|r| &r.0),
+        Attachment::View => return Err(Fault::Module("view state requires a presentation invocation".into())),
+        Attachment::Session => {
+            let home = session.ok_or_else(|| Fault::NoSession(key.clone()))?;
+            world.get::<SessionRecords>(home).map(|r| &r.0)
+        }
+    };
+    Ok(store.and_then(|store| store.get_stored(key)))
+}
+
+fn state_is_initial(
+    world: &World,
+    admitted: &Admitted,
+    scope: Entity,
+    session: Option<Entity>,
+    writes: &[SchemaKey],
+) -> bool {
+    writes.iter().all(|key| {
+        let schema = &admitted.schemas[key];
+        match stored_state(world, scope, session, key, schema.schema.attachment) {
+            Ok(None) => true,
+            Ok(Some(stored)) if stored.shape == schema.shape => {
+                let initial = schema.schema.initial_record();
+                if stored.record != initial {
+                    return false;
+                }
+                // Compare the exact values, including the sign of zero.
+                let mut record_bytes = Vec::new();
+                let mut initial_bytes = Vec::new();
+                stored.record.put_wire(&mut record_bytes);
+                initial.put_wire(&mut initial_bytes);
+                record_bytes == initial_bytes
+            }
+            _ => false,
+        }
+    })
+}
+
 /// The records an invocation starts from, one for each declared write: the
 /// stored record from its store (the body's, or the session's), or the
 /// initial record when none is stored.
@@ -1022,17 +1074,10 @@ fn read_state(
         .map(|key| {
             let admitted_schema = &admitted.schemas[key];
             let schema = &admitted_schema.schema;
-            let stored = match schema.attachment {
-                Attachment::Body => world.get::<BodyRecords>(scope).map(|r| &r.0),
-                Attachment::View => return Err(Fault::Module("view state requires a presentation invocation".into())),
-                Attachment::Session => {
-                    let home = session.ok_or_else(|| Fault::NoSession(key.clone()))?;
-                    world.get::<SessionRecords>(home).map(|r| &r.0)
-                }
-            };
+            let stored = stored_state(world, scope, session, key, schema.attachment)?;
             // ⛔ The shape is checked, not dropped: a record written under
             // another shape of the schema is refused, never read as this one.
-            let record = match stored.and_then(|r| r.get_stored(key)) {
+            let record = match stored {
                 Some(stored) if stored.shape != admitted_schema.shape => {
                     return Err(Fault::StaleRecord {
                         schema: key.clone(),

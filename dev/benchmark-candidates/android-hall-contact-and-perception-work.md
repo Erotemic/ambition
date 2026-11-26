@@ -1379,6 +1379,19 @@ Retaining the projected motion facts gave mixed timings. The reference
 desktop run predates this change. The 455 movement tests and the
 assembled application check passed.
 
+### Idle group scripts
+
+Group triggers report idle when all members are alive and free of item
+custody and the room has no ground items. A script can opt out of an idle
+call while its records still have their initial values. Pending state can
+continue to run. The sheep and swallows use the same policy.
+
+In the loaded 596-body Hall, the two entries ran 120 times each over
+120 ticks with the old scripts. They took 1.25 ms/tick together under
+the extension profiler. With the new scripts both entries had zero
+calls over the same interval. In both arms, a defeated sheep produced
+one cloud without a script fault.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

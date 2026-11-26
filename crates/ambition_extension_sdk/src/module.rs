@@ -162,14 +162,16 @@ pub enum IdlePolicy {
     /// what continues from one strike to the next (a lane sequence, a summon
     /// counter). Each listed schema must be one the entry writes.
     ResetStateExcept(Vec<SchemaKey>),
+    /// Skip an idle trigger when every record the entry writes is initial.
+    /// Call the entry if it still has state to update.
+    SkipIfInitial,
 }
 
 impl IdlePolicy {
-    /// The records an idle tick puts back to initial, of `writes`; `None` when
-    /// the entry is called on an idle tick.
+    /// The records a reset policy restores on an idle tick.
     pub fn resets<'a>(&'a self, writes: &'a [SchemaKey]) -> Option<impl Iterator<Item = &'a SchemaKey> + 'a> {
         let keep: &[SchemaKey] = match self {
-            IdlePolicy::Invoke => return None,
+            IdlePolicy::Invoke | IdlePolicy::SkipIfInitial => return None,
             IdlePolicy::ResetState => &[],
             IdlePolicy::ResetStateExcept(keep) => keep,
         };
@@ -294,6 +296,7 @@ impl ModuleDescriptor {
                         key.digest_into(&mut d);
                     }
                 }
+                IdlePolicy::SkipIfInitial => { d.u8(3); }
             }
         }
         d.finish()
@@ -346,6 +349,7 @@ impl ModuleDescriptor {
                         key.put(out);
                     }
                 }
+                IdlePolicy::SkipIfInitial => put_u8(out, 3),
             }
         }
     }
@@ -397,6 +401,7 @@ impl ModuleDescriptor {
                     let n = r.read_len()?;
                     IdlePolicy::ResetStateExcept((0..n).map(|_| SchemaKey::read(r)).collect::<Result<_, _>>()?)
                 }
+                3 => IdlePolicy::SkipIfInitial,
                 other => return Err(crate::wire::WireError::BadTag(other)),
             };
             entries.push(EntryDescriptor {

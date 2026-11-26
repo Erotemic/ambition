@@ -35,9 +35,9 @@
 //! `module_entity_tick`: docs/sdk/script-ports.md); a schema is named by its
 //! key, and its provider and the module's are one. Defaults: a schema is
 //! body-attached, transient, revision 1; an entry's limit is 8 requests and
-//! it is called on an idle trigger (`idle: "reset"` resets its records
-//! instead). Every entry the declaration names must be a function of the
-//! script: a declared module has no native code to fall back on.
+//! it runs on an idle trigger. Use `idle: "reset"` to reset its records.
+//! Use `idle: "skip_if_initial"` to skip an idle call if all its records
+//! have their initial values. Each declared entry needs a script function.
 
 use ambition_extension_sdk::script::ScriptPorts;
 use ambition_extension_sdk::{
@@ -114,7 +114,8 @@ pub fn descriptor(table: &Dynamic, ports: &ScriptPorts) -> Result<ModuleDescript
             None => IdlePolicy::Invoke,
             Some(Ok(s)) if s == "invoke" => IdlePolicy::Invoke,
             Some(Ok(s)) if s == "reset" => IdlePolicy::ResetState,
-            Some(other) => return Err(format!("{at}.idle: expected \"invoke\" or \"reset\", got {other:?}")),
+            Some(Ok(s)) if s == "skip_if_initial" => IdlePolicy::SkipIfInitial,
+            Some(other) => return Err(format!("{at}.idle: expected \"invoke\", \"reset\", or \"skip_if_initial\", got {other:?}")),
         };
         entries.push(EntryDescriptor {
             key: Name::Owned(text(&entry, "key", &at)?),

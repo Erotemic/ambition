@@ -519,7 +519,7 @@ fn world_contacts_keep_solver_order_bounds_and_step_freshness() {
     second.source = ae::collision_semantics::ContactSource::Chain { chain: 3, segment: 7 };
     app.world_mut().entity_mut(recipient).insert(ae::BodyFrameOutput {
         stamp: Some(ae::BodyStepStamp { tick: 0, room: None, session: None }), events: ae::FrameEvents {
-            contacts: vec![first.clone(), second, first], ..Default::default()
+            contacts: vec![first.clone(), second, first].into(), ..Default::default()
         }, ..Default::default()
     });
     for tick in 0..5 {

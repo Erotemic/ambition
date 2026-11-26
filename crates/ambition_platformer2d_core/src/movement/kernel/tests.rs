@@ -46,6 +46,7 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
     use crate::movement::SettledMotion;
 
     let mut world = floor_world();
+    world.blocks[0].id = crate::GeoId::tile_layer("Collision", 0);
     world.blocks.add(Block::solid("remote", Vec2::splat(900.0), Vec2::splat(20.0)));
     let mut cached = BodyClusterScratch::new_with_abilities(world.spawn, AbilitySet::default());
     let mut reference = cached.clone();
@@ -92,7 +93,7 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
         let (model, mut clusters) = cached.parts();
         clusters.settled = Some(&mut cache);
         clusters.sweep = Some(&mut sample);
-        let result = step_motion(model, &mut clusters, ctx);
+        let mut result = step_motion(model, &mut clusters, ctx);
         let (model, mut clusters) = reference.parts();
         clusters.sweep = Some(&mut reference_sample);
         let expected = step_motion(model, &mut clusters, ctx);
@@ -102,6 +103,10 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
         assert_eq!(result.events.contacts, expected.events.contacts, "tick {tick}");
         assert_eq!(result.events.ground_contact, expected.events.ground_contact);
         assert_eq!(result.events.reset, expected.events.reset);
+        if cache.reused() && !observed_reuse {
+            assert!(!result.events.contacts.is_empty());
+            result.events.contacts.clear();
+        }
         observed_reuse |= cache.reused();
         if tick == 219 {
             assert!(cache.reused());

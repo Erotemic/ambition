@@ -96,6 +96,8 @@
     "sprites/entities/boss_core.png",
     "audio/sfx.bank",
     "sprites/director_parts.png",
+    "sprites/director_closeup_parts.png",
+    "sprites/player_robot_v3_closeup_parts.png",
     "sprites/gamepad.png",
     "sprites/apple_pie.png"
   ],

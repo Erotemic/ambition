@@ -610,6 +610,7 @@
     "gate_dialer_triangle": (),
     "gate_power_cabinet": (),
     "gate_traffic_board": (),
+    "hub_gallery_doors": (),
     "gate_transit_bags": (),
     "gate_ring": (sheet: Some("interdimensional_gate_ring"), frame_sample_inset: 2),
     "gate_portal": (sheet: Some("interdimensional_gate_portal"), frame_sample_inset: 2),
@@ -654,6 +655,8 @@
     "port_brig": (),
     "port_cove_entrance": (),
     "port_dock_clutter": (),
+    "port_east_pier_supports": (),
+    "port_swim_landing": (),
     "port_manifest_page": (scale: 1.4),
     // The General's tower inside, one floor each (`targets/props/
     // military_tower_props.py`): drawn in the room's coordinates, deck to deck.
@@ -760,6 +763,7 @@
     "pass_falls": (),
     "pass_scoreboard": (),
     "forest_kiln_camp": (),
+    "forest_fallen_cedar": (),
     "terminus_hall": (),
     "allotment_west": (),
     "allotment_beds": (),
@@ -1119,6 +1123,8 @@
     "authority_baggage_wall_west": (),
     "authority_baggage_wall_east": (),
     "authority_baggage_hall": (),
+    "authority_baggage_lift_shaft": (),
+    "authority_baggage_lift": (),
     "authority_clock_arcade": (),
     "authority_blossom_tree": (),
     "authority_notice_board": (),

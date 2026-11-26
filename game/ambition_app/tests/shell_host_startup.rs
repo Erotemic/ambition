@@ -347,7 +347,7 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
         .iter(app.world())
         .filter_map(|image| assets.get_path(image.image.id()))
         .collect();
-    for character_page in ["player_robot_v3_parts.png", "director_parts.png"] {
+    for character_page in ["player_robot_v3_closeup_parts.png", "director_closeup_parts.png"] {
         assert!(
             paths.iter().any(|path| path.path().ends_with(character_page)),
             "the card must draw the published character page {character_page}",

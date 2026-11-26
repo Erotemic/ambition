@@ -22,6 +22,9 @@ do not drive gameplay authority.
 - `game/ambition_app_tools/src/bin/headless.rs` can write a larger capture after
   stepping the simulator. `trace_replay` reads its JSON dump.
 - `F8` requests a gameplay trace dump in a developer-visible host.
+- Set `AMBITION_TRACE_AUTO_DUMP=1` to collect all-body history and dump it
+  when a body leaves its room bounds. A test app can initialize
+  `ActorTraceBuffer` to collect this history without automatic file writes.
 
 The ordinary recorder is a **bounded player/body-oriented flight recorder**,
 not an exhaustive recording of every entity and every ECS mutation.

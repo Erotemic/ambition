@@ -417,6 +417,23 @@ If the opening no longer fits, use admission/refusal or a separately
 authorized close, never slide it to another material place. This is a
 conditional SUP1/P2 obligation; local SUP1 can land first.
 
+**Landed (2026-11-25): a line host binds the material place.**
+`PortalHost::Line` now names `segment` and `fraction`, SUP1's place on a
+line, instead of a world arc distance. On a line whose shape changes
+(`shape_before`), the portal moves by its own point's travel
+(`SurfaceChain::travel_at`), and turns by its segment's change of angle
+about that point, not by the rigid fit. A rigid line keeps the proven
+velocity, turn and pivot path. A segment that no longer exists, or has
+no length, closes the portal as a vanished host does; it is not slid to
+another place. Witness:
+`a_portal_on_a_stretching_line_keeps_its_material_place`. The line goes
+from x 0..100 to 0..200, and the portal at u 0.75 goes from x 75 to x 150,
+with a step of +75 from x 75 and no turn. The spinning-plank host test and
+the three spinning-exit projectile transits still pass. Still open here:
+proposal/admission before the host writer commits (a refused trajectory
+keeps the combined state), and opening fit on a stretch, which the place
+binding does not decide.
+
 ## Shared kinematics, distinct movement policy
 
 At a contact point and time, velocity obeys
@@ -611,16 +628,45 @@ integration tests (`every_supported_profile_steps_a_body…`,
 without this change. They are inherited, as is portal2d's
 `the_pair_of_an_entry_that_is_no_longer_admitted_is_released`.
 
-What still parks at the exit: a chain longer than four legs.
+A chain longer than four legs (a tuning past the composed budget's four
+hops; no authored tuning sets `max_hops`) no longer parks at the exit
+(2026-11-25). `PresentedCrossing::new` keeps the four longest legs, in
+order, so the pose stays a fixed-size `Copy` value. Over a dropped leg's
+interval the body is drawn where the next kept leg begins. That point is on
+its path, in the chart it is drawn in next. A dropped leg is shorter than
+every kept one, so a frame rarely samples it. The leg-by-leg witness checks
+that a five-leg chain drops its shortest leg and draws that start point.
 
 Extrapolated views draw past the tick's end, so the crossing is behind
 them. Only position follows the crossing; the body's turn and material still
 change with the tick's pose. No game run was made: the projection is unit
 tested, and the host builds it from fields the M1/M2 receipts measured.
+**Observers, cursors and the retention cut (2026-11-25).** Two observers
+present a body that a pair carried: its own `PresentedPose`, and the
+feature row an enemy or NPC is drawn by (`PresentedFeaturePoses`). The row
+never read a declared warp. An interpolated view drew a thin-wall hop as
+travel through the wall, and a long hop parked at the exit for the whole
+tick. `advance_presented_feature_poses` now matches each declared body to
+its row by the body's `FeatureId` and live room. It draws that row the
+way the body's pose is drawn: the crossing's legs, or an earlier tick's
+travel on the far side. It runs before `advance_presented_body_poses`,
+which clears the declarations.
+
+Each observer's cursor is its pose's tick, and it consumes the frame's
+declarations only when that tick moves. The clear is the retention cut:
+a declaration lives one frame, the frame whose ticks wrote it, so nothing
+is resident for a lagging observer to rebase onto. Every observer presents
+the one frame time. A rewind's resimulated ticks are declared again by
+their messages. A resimulated crossing before the frame's last tick is
+`Before`, drawn as travel on the far side. That is the same draw a pose
+already past it on the same branch would have made, and the right one if
+the branch changed. A mispredicted crossing that the correction removes
+is caught by the ordinary travel test: the corrected pose is not
+reachable by travel, so it is drawn parked, not interpolated across. The
+witness is `a_feature_row_draws_its_bodys_declared_crossing`: x 5 at a
+quarter of the tick, with an undeclared control row parked at x 510.
+
 Still open in M4:
-- per-observer cursors and rollback invalidation. Each view reads the
-  same declared warps once per frame, and a rewind's resimulated ticks
-  are declared again by their messages; no observer keeps a cursor yet;
 - ~~cost measurement on single-leg and chained traffic~~ (measured
   2026-11-25, below).
 

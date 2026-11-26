@@ -746,7 +746,7 @@ fn step_surface_momentum(
     write_sweep_sample(clusters, sweep_entry, body_down);
 
     let mut events = FrameEvents {
-        contacts,
+        contacts: contacts.into(),
         ..FrameEvents::default()
     };
     if jumped {

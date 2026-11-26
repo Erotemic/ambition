@@ -394,6 +394,53 @@ phases was 27.5 ms per tick. `WorldPrep.Integrate` used 5.9 ms, `Combat`
 fallback requested parts for the full cast. Use the windowed count to
 estimate presentation work on a device.
 
+### Desktop trace and life observations
+
+The all-body trace runs when a tool requests its buffer or automatic dumps.
+The player trace still records for F8. NPC life plans build the room presence
+lookup when an observation asks if a character is present. This lookup uses
+the character identities from that tick.
+
+Three full-cast headless runs with the local rollback host took 37.6–46.6 ms
+per tick with the all-body recorder and 34.2–51.0 ms with it removed from the
+schedule. These ranges overlap. All runs reused 539 of 596 movement steps
+on the last tick.
+
+A separate windowed CPU sample captured 7,160 settled samples from the game
+and compute threads. The samples include time in child functions. Body-state
+encoding for settled movement used 10.0% of the samples. Encoding the axis
+movement parameters accounted for 4.4%. The all-body recorder used 2.5% and
+the NPC life executor used 1.0%. The movement kernel probe above used an
+optimized build. Use both build profiles when comparing changes to the reuse
+check. Keep its exact state comparisons and rollback behavior.
+
+Batching the axis parameter writes in a 596-body probe reduced median cost
+from 4.55–4.73 to 4.17–4.65 ms per tick without optimization and from
+0.23–0.26 to 0.19 ms with optimization. Both versions reused all steps and
+produced the same state digest. The optimized saving was less than 0.1 ms
+per tick. The batch is an experiment. Compare prepared movement parameters
+before making a change to the codec.
+
+### Contact storage and terrain candidates
+
+When a body reuses its settled step, it shares the contact list. A change
+to the returned list cannot change the retained result. Terrain queries read
+the grid's ordered candidates directly. Position repair uses one contact
+list and copies the boundary identities only when it reports a conflict.
+
+An optimized desktop kernel probe stepped 596 bodies in each test. Reuse
+went from four allocations per body step to one. Moving bodies used eight
+fewer allocations per body step. With one long floor, median moving ticks
+took 3.47–3.68 ms before and 2.95–3.05 ms after. With short floor blocks,
+the medians overlapped at 3.37–3.83 ms before and 3.40–3.46 ms after. Each
+pair produced the same digest of position, velocity, and contact count.
+
+A separate fixed-law probe omitted the axis parameters from the reuse key
+to measure the maximum saving from this change alone. The median optimized
+kernel cost decreased by 0.08–0.12 ms per tick. The development build saved
+1.6–2.1 ms per tick. The engine still checks these parameters on each reuse.
+These measurements do not give the full-room cost or the Android frame rate.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

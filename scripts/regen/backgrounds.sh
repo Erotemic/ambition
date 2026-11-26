@@ -5,7 +5,11 @@
 # Usage:
 # ./scripts/regen/backgrounds.sh
 # ./scripts/regen/backgrounds.sh --theme art --skin art   # only these products
-# ./scripts/regen/backgrounds.sh --only-missing           # only what is not published
+# ./scripts/regen/backgrounds.sh --only-missing           # unpublished scenery units
+# ./scripts/regen/backgrounds.sh --only-possibly-stale     # shared-only staleness
+# ./scripts/regen/backgrounds.sh --loose                  # keep possibly stale units
+# ./scripts/regen/backgrounds.sh --plan|--check [--json]   # preview or check freshness
+# ./scripts/regen/backgrounds.sh --force                  # repaint the selected units
 #   AMBITION_BACKGROUND_PYTHON=/path/to/python ./scripts/regen/backgrounds.sh
 #   AMBITION_SPRITE_PYTHON=/path/to/python ./scripts/regen/backgrounds.sh
 #

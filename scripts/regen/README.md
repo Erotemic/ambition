@@ -53,30 +53,44 @@ and missing bundles and keeps possibly stale ones. A plain run renders those too
 ./scripts/regen/sprites.sh --loose          # what its own edits changed
 ./scripts/regen/sprites.sh                  # everything not strictly current
 ```
-Use `--plan --json` to list definitions and `--audit --json` to inspect old loose
+Use `--plan --json` to see definitions and selected builds, and `--audit --json` to inspect old loose
 files. `./scripts/regen/sprites.sh --check-toolchain` checks the renderer setup.
 
 ⚠ Do not run a regen concurrently with a `static_content` build or with a
 running test: one writes the files the other is reading.
 
-## Generate only missing products
+## Select what to regenerate
 
-Every asset entry point accepts `--only-missing`. `--missing-only` is an alias.
-The umbrella passes the option to every selected family.
+Sprites, backgrounds, quality variants, music, SFX, and fonts accept the same
+selection options. Pass them to a family command or to `assets.sh`.
+
+| Option | Result |
+|---|---|
+| `--plan` | Show the units that the command would build. |
+| `--check` | Report freshness and return a nonzero status for a missing or stale unit. Add `--loose` to accept possibly stale units. |
+| `--loose` | Build missing, incomplete, and directly stale units. Keep units that are only possibly stale. |
+| `--only-possibly-stale` | Select published units whose staleness comes only from shared inputs. |
+| `--only-missing` | Select unpublished units. `--missing-only` is an alias. |
+| `--force` | Build every selected unit, including current ones. |
 
 ```bash
-./scripts/regen/music.sh --only-missing
-./scripts/regen/assets.sh --only-missing
-./scripts/regen/quality_variants.sh --only-missing
+./scripts/regen/assets.sh --plan --only-possibly-stale backgrounds sprites
+./scripts/regen/assets.sh --only-possibly-stale backgrounds sprites
+./scripts/regen/assets.sh --check --loose
+./scripts/regen/music.sh --plan --only-possibly-stale --json
 ```
 
-This mode builds units that have no accepted publication. It keeps existing
-units, including stale or partial units. Music selects each cue separately and
-updates the registry when it adds cues. Fonts and the SFX bank are family units.
-Sprite and scenery units include their quality tiers. Background conversions
-keep each existing tier image. Use a normal generation run to repair partial
-units or update stale products. Do not combine this mode with `--force` or
-`--clean`.
+A unit can be a sprite bundle, a background scene, a quality conversion, a
+music cue, the SFX bank, or the font bundle. For backgrounds, `--theme` and
+`--skin` select individual scene bundles. The bulk background bundle includes
+the placeholder profiles. The background `--only-missing` workflow selects
+unpublished scene, terrain, and sky bundles. Sprite atlases are maintained with
+a regular unscoped sprite build. Native scenery tiers are part of their source
+bundle. Standalone quality conversions follow the accepted full-size source.
+
+Music uses loose selection by default. `--include-shared` adds possibly stale
+cues to an ordinary music run. Use `--cue id,id` to limit the cue selection.
+Each family command accepts `--json` with `--plan` or `--check`.
 
 ## Selected library and accepted products
 

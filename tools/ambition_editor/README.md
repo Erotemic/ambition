@@ -367,6 +367,8 @@ renderer code, the toolchain or the set of renderer files changed is shown as
 first. `--needs-generation` leaves possibly stale units out; add `--strict` to
 count them. `./scripts/regen/sprites.sh --loose` rebuilds only directly stale
 art, and a plain run rebuilds everything that is not strictly current.
+Use `./scripts/regen/sprites.sh --only-possibly-stale` for the shared-only
+selection. Add `--plan` to preview it.
 See [sprite publication](../../docs/tools/sprite-publication.md) for planning,
 source snapshots, exact membership, and unmanaged files. A focused publish
 records evidence for that bundle:

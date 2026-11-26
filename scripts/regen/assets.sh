@@ -2,13 +2,15 @@
 # Regenerate all generated runtime assets for the sandbox crate.
 #
 # Usage:
-# ./scripts/regen/assets.sh                    # backgrounds, sprites, quality variants, music, sfx
-# ./scripts/regen/assets.sh sprites music      # selected categories, in the given order
-# ./scripts/regen/assets.sh --only-missing     # only the art that is not published
-# ./scripts/regen/assets.sh --only-missing backgrounds sprites
+# ./scripts/regen/assets.sh                            # all declared producers
+# ./scripts/regen/assets.sh --plan backgrounds sprites # preview selection
+# ./scripts/regen/assets.sh --check --loose             # check direct changes
+# ./scripts/regen/assets.sh --only-possibly-stale        # shared-only staleness
+# ./scripts/regen/assets.sh --only-missing              # unpublished units
+# ./scripts/regen/assets.sh --force sprites music       # rebuild both categories
 #
-# `--only-missing` keeps published products, including stale products.
-# `--missing-only` is an alias. Each producer selects its missing units.
+# --loose keeps units that are possibly stale. --missing-only is an alias
+# for --only-missing. Use one build selection per command.
 #
 # Category-specific options live on the category scripts:
 # ./scripts/regen/backgrounds.sh --help
@@ -37,20 +39,34 @@ if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
     exit 0
 fi
 
-missing_only=false
+query=""
+selection=""
 requested=()
 for arg in "$@"; do
     case "$arg" in
-        --only-missing|--missing-only) missing_only=true ;;
+        --plan|--check)
+            if [ -n "$query" ] && [ "$query" != "$arg" ]; then
+                echo "--plan and --check cannot be combined" >&2; exit 2
+            fi
+            query="$arg" ;;
+        --loose|--only-possibly-stale|--only-missing|--missing-only|--force)
+            [ "$arg" != --missing-only ] || arg=--only-missing
+            if [ -n "$selection" ] && [ "$selection" != "$arg" ]; then
+                echo "$selection and $arg cannot be combined" >&2; exit 2
+            fi
+            selection="$arg" ;;
+        -h|--help) print_help; exit 0 ;;
         -*) echo "unknown option: $arg (see --help)" >&2; exit 2 ;;
         *) requested+=("$arg") ;;
     esac
 done
-set -- ${requested[@]+"${requested[@]}"}
-missing_args=()
-if "$missing_only"; then
-    missing_args=(--only-missing)
+if [ "$query" = --check ] && [ -n "$selection" ] && [ "$selection" != --loose ]; then
+    echo "--check accepts only --loose as a selection option" >&2; exit 2
 fi
+set -- ${requested[@]+"${requested[@]}"}
+producer_args=()
+[ -z "$query" ] || producer_args+=("$query")
+[ -z "$selection" ] || producer_args+=("$selection")
 
 if [ "$#" -eq 0 ]; then
     producer_list="$(ambition_library_producer --list)"
@@ -66,30 +82,39 @@ run_category() {
     local category="$1"
     case "$category" in
         fonts)
-            python3 "$repo_root/scripts/regen/grab_font_assets.py" ${missing_args[@]+"${missing_args[@]}"}
+            python3 "$repo_root/scripts/regen/grab_font_assets.py" ${producer_args[@]+"${producer_args[@]}"}
             ;;
         backgrounds|background)
-            bash "$repo_root/scripts/regen/backgrounds.sh" ${missing_args[@]+"${missing_args[@]}"}
+            bash "$repo_root/scripts/regen/backgrounds.sh" ${producer_args[@]+"${producer_args[@]}"}
             ;;
         sprites|sprite)
-            bash "$repo_root/scripts/regen/sprites.sh" ${missing_args[@]+"${missing_args[@]}"}
+            bash "$repo_root/scripts/regen/sprites.sh" ${producer_args[@]+"${producer_args[@]}"}
             ;;
         variants|quality-variants|visual-quality)
-            bash "$repo_root/scripts/regen/quality_variants.sh" ${missing_args[@]+"${missing_args[@]}"}
+            bash "$repo_root/scripts/regen/quality_variants.sh" ${producer_args[@]+"${producer_args[@]}"}
             ;;
         music)
-            bash "$repo_root/scripts/regen/music.sh" ${missing_args[@]+"${missing_args[@]}"}
+            bash "$repo_root/scripts/regen/music.sh" ${producer_args[@]+"${producer_args[@]}"}
             ;;
         sfx|effects)
-            bash "$repo_root/scripts/regen/sfx.sh" ${missing_args[@]+"${missing_args[@]}"}
+            bash "$repo_root/scripts/regen/sfx.sh" ${producer_args[@]+"${producer_args[@]}"}
             ;;
         *)
             echo "unknown asset category: $category" >&2
-            echo "valid categories: backgrounds sprites variants music sfx" >&2
+            echo "valid categories: fonts backgrounds sprites variants music sfx" >&2
             exit 2
             ;;
     esac
 }
+
+if [ -n "$query" ]; then
+    result=0
+    for category in "${categories[@]}"; do
+        echo "==> $category $query"
+        run_category "$category" || result=1
+    done
+    exit "$result"
+fi
 
 # Profiling: log per-category timing to target/regen_assets/.
 # target/ is gitignored. Each run writes its own jsonl file; a symlink

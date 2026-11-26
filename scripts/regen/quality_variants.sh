@@ -6,7 +6,8 @@
 # Usage:
 #   ./scripts/regen/quality_variants.sh [--sprites-only|--backgrounds-only]
 #       [--target <fnmatch>]... [--tier <0_5x|0_25x|potato>]...
-#       [--only-missing] [--force] [--clean] [--jobs N]
+#       [--loose|--only-missing|--only-possibly-stale|--force] [--clean] [--jobs N]
+#       [--plan|--check] [--json]
 #
 # Environment:
 #   AMBITION_SPRITE_PYTHON=/path/to/python

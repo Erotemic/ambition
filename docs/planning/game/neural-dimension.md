@@ -58,7 +58,8 @@ brain).
   both ends lead to a maintenance tunnel under the spikes. Attention Heads
   watch from the air. Percy the Perceptron is on the floor.
 - **The Echo Chamber** (`neural_echo_chamber`), by a door in the Weights: a
-  round room of screens and Echo, who agrees with you.
+  round room of screens. Echo speaks from the floor. Two sets of steps
+  lead to a viewing balcony between the rows of screens.
 
 ## The people and the things that fight
 

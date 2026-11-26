@@ -1181,6 +1181,7 @@
     "neural_red_herring_board": (),
     "neural_weights_racks": (),
     "neural_echo_screens": (),
+    "neural_echo_viewing_balcony": (),
     // The Central Hub's scenery (`targets/props/authority_props.py`): each
     // piece drawn in its room's coordinates.
     "authority_info_booth": (),

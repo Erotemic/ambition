@@ -345,6 +345,8 @@ the top of the arch.
 In the Neural Cathedral, use the lift stops and the gallery edge to place
 the fibres behind the deck. Show the deck at both stops and a body at
 each transfer.
+In the Echo Chamber, show the balcony, the screens, and the speaking area
+on the floor. Use the ledge bounds to place the balcony trim and the steps.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

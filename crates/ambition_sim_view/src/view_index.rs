@@ -6,7 +6,7 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{Entity, Query, Res, ResMut, Resource, With, Without};
 
-use crate::anim_index::ActorSpriteData;
+use crate::anim_index::ActorSpriteBody;
 use ambition_combat::components::ActorDisposition;
 use ambition_combat::components::ActorIdentity;
 use ambition_combat::components::ActorRenderSize;
@@ -880,28 +880,37 @@ impl ActorRenderIndex {
 /// Join actor data and [`ActorRenderSize`] on the same entity before drawing.
 pub fn rebuild_actor_render_index(
     mut index: ResMut<ActorRenderIndex>,
-    actors: Query<(
-        ActorSpriteData,
-        Option<&ActorRenderSize>,
-        Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
-    )>,
+    actors: Query<
+        (
+            &FeatureId,
+            &ActorIdentity,
+            &ambition_characters::actor::BodyCombat,
+            &ambition_combat::actor_tuning::ActorConfig,
+            Option<&ambition_characters::actor::CharacterForm>,
+            Option<&ambition_characters::actor::WornSkin>,
+            Option<&ActorRenderSize>,
+            Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
+        ),
+        ActorSpriteBody,
+    >,
     // The running session's frozen cast, or the published one with no
     // session (`SessionCast`).
     registry: ambition_characters::prepared::SessionCast,
 ) {
     index.begin_rebuild();
-    for (a, render_size, granted) in &actors {
+    let registry = registry.get();
+    for (id, identity, combat, config, worn, skin, render_size, granted) in &actors {
         index.upsert(
-            a.feature_id.as_str(),
-            &a.identity.name,
+            id.as_str(),
+            &identity.name,
             // The art key: the skin the body wears, else its character.
-            a.skin
+            skin
                 .map(ambition_characters::actor::WornSkin::id)
-                .or_else(|| a.worn.map(ambition_characters::actor::CharacterForm::id)),
-            a.combat.training_dummy,
+                .or_else(|| worn.map(ambition_characters::actor::CharacterForm::id)),
+            combat.training_dummy,
             render_size.map(|s| s.0),
-            a.config.tuning.dream_seed,
-            crate::PoseGeometry::of(a.worn, granted, registry.get()),
+            config.tuning.dream_seed,
+            crate::PoseGeometry::of(worn, granted, registry),
         );
     }
     index.end_rebuild();

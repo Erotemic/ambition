@@ -733,9 +733,10 @@ pub fn resolve_follow_camera_snapshot(
             let duration = intent
                 .transition_seconds
                 .or_else(|| active_zone.and_then(|zone| zone.composition.transition_seconds));
-            if (composition_changed || intent.transition_id != state.transition_id)
-                && state.target_initialized
-            {
+            let composition_changed =
+                composition_changed || intent.transition_id != state.transition_id;
+            let previous_goal = state.previous_goal_world.replace(goal);
+            if composition_changed && state.target_initialized {
                 state.transition_from = state.live_target_world;
                 state.transition_elapsed = 0.0;
                 state.transition_duration = duration.unwrap_or(0.0);
@@ -754,8 +755,8 @@ pub fn resolve_follow_camera_snapshot(
                 }
                 state.transition_from + (goal - state.transition_from) * t
             } else {
-                state.live_target_world
-                    + (goal - state.live_target_world) * (1.0 - (-response.max(0.0) * dt).exp())
+                let from = previous_goal.filter(|_| !composition_changed).unwrap_or(goal);
+                ease_moving_goal(state.live_target_world, from, goal, response.max(0.0) * dt)
             };
             state.target_initialized = true;
             state.live_target_world = at;
@@ -921,6 +922,18 @@ fn compose_zone(target_world: ae::Vec2, zone: Option<&CameraZoneSpec>) -> ae::Ve
 
 /// The rate of the ease of the target where the zone gives no `easing_hz`.
 const DEFAULT_TARGET_EASE_HZ: f32 = 8.0;
+
+/// Integrate the exponential response while the goal moves from `from` to `to`.
+fn ease_moving_goal(current: ae::Vec2, from: ae::Vec2, to: ae::Vec2, step: f32) -> ae::Vec2 {
+    let weight = -(-step).exp_m1();
+    // Use the series near zero to preserve precision in the ramp weight.
+    let ramp_weight = if step < 0.01 {
+        step * (0.5 - step / 6.0)
+    } else {
+        1.0 - weight / step
+    };
+    current + (from - current) * weight + (to - from) * ramp_weight
+}
 
 /// Return the camera target that keeps the subject's protected bounds inside
 /// the safe region, moving `previous` as little as possible.
@@ -2259,6 +2272,7 @@ pub fn resolve_camera_observation(
             || (subject_placed && !portal_presents_this_translation);
         policy_state.was_snapping = blink_snap;
         if reset_policy || policy_state.program != program {
+            camera_state.previous_goal_world = None;
             camera_state.scroll_watermark_x = None;
             camera_state.active_composition = None;
             camera_state.transition_active = false;
@@ -2761,6 +2775,78 @@ mod m2_forward_scroll_tests {
             back < far - 100.0,
             "a free camera comes back: {far} -> {back}"
         );
+    }
+}
+
+#[cfg(test)]
+mod follow_ease_tests {
+    use super::*;
+
+    #[test]
+    fn steady_follow_has_the_same_speed_on_short_and_long_frames() {
+        let room = ae::World::new(
+            "steady_follow",
+            ae::Vec2::new(8000.0, 1600.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        );
+        let mut state = CameraEaseState::default();
+        let speed = 400.0;
+        let mut x = 2000.0;
+        let mut previous_center = x;
+        let mut max_error: f32 = 0.0;
+        for frame in 0..180 {
+            let dt = if frame % 2 == 0 { 1.0 / 120.0 } else { 1.0 / 40.0 };
+            x += speed * dt;
+            let position = ae::Vec2::new(x, 800.0);
+            let body = ae::Vec2::new(24.0, 40.0);
+            let view = ae::Vec2::new(640.0, 360.0);
+            let camera = resolve_follow_camera_snapshot(
+                CameraSnapshotResolveInput {
+                    policy: None,
+                    cutscene: None,
+                    world: &room,
+                    camera_zones: &[],
+                    focus: CameraFocus2d {
+                        center_world: position,
+                        tick_center_world: position,
+                        grounded: true,
+                        size: body,
+                        base_size: body,
+                        facing: 1.0,
+                        velocity_world: ae::Vec2::new(speed, 0.0),
+                        look: 0.0,
+                        scale: 1.0,
+                    },
+                    base_view: view,
+                    viewport_px: view,
+                    aspect_policy: CameraAspectPolicy::FixedHeight,
+                    framing: CameraFramingPreset::default(),
+                    overview_scale: 1.0,
+                    encounter_scale: 1.0,
+                    overview_camera: false,
+                    snap_camera: false,
+                    blink: None,
+                    dt,
+                    mode: CameraSnapshotResolveMode::Eased,
+                    extra_clamp_center_world: None,
+                    ease_tuning: CameraEaseTuning::default(),
+                    screen_framing: None,
+                    reference_frame: CameraReferenceFrame::default(),
+                    subject_down: None,
+                    chart_transit: None,
+                    must_frame_world: None,
+                    view_box: None,
+                },
+                Some(&mut state),
+            );
+            if frame >= 90 {
+                let pan_speed = (camera.center_world.x - previous_center) / dt;
+                max_error = max_error.max((pan_speed - speed).abs());
+            }
+            previous_center = camera.center_world.x;
+        }
+        assert!(max_error < 0.5, "the pan speed varied by {max_error} units per second");
     }
 }
 

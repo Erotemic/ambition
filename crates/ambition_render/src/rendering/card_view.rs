@@ -36,7 +36,11 @@
 //! part. A body's flash ([`PresentedFlash`]) is a silhouette card over each of
 //! its cards, in the cue's colour, as strong as the cue.
 //!
-//! # Not yet realized (RV3)
+//! # Bodies drawn from a sheet
+//!
+//! A body with no rigged presentation (an actor or a player the 2D view
+//! draws from a sheet cell) is one card of the cell it draws, ranked with the
+//! rigged bodies on its depth by the same logical order.
 //!
 //! # Held and wielded art
 //!
@@ -62,6 +66,8 @@ use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::camera_layers::CARD_VIEW_LAYER;
+use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, FeatureVisualKind};
+use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
 use ambition_sprite_sheet::character::rigged::{PartDraw, RiggedSpriteAsset};
 
 use super::actors::rigged::{
@@ -143,6 +149,19 @@ pub struct CardVessel;
 #[derive(Component)]
 pub struct CardHeldArt;
 
+/// The card of a body drawn from a sheet (no rigged presentation).
+#[derive(Component)]
+pub struct CardSpriteBody;
+
+/// A 2D sprite that draws a whole body from a sheet: a player or an actor.
+type SpriteBodyFilter = (
+    With<Sprite>,
+    Or<(With<PlayerVisual>, With<BoundFeatureKind>)>,
+    Without<CardBody>,
+    Without<CardPart>,
+    Without<CardSpriteBody>,
+);
+
 /// Each drawn rigged root's card depth and its 2D depth, this frame: where
 /// its held art goes.
 #[derive(Resource, Default, Debug)]
@@ -164,11 +183,13 @@ impl Plugin for CardViewPlugin {
                 present_card_view_rigs,
                 place_card_view_cameras,
                 realize_card_bodies,
+                realize_card_sprite_bodies,
                 realize_card_held_art,
                 realize_card_vessels,
             )
                 .chain()
                 .after(ViewCameraSet)
+                .after(super::actors::sync_visuals)
                 .after(super::actors::rigged::RiggedDriveSet)
                 .after(super::hit_flash::sync_hit_flash_overlays)
                 .after(super::item_visuals::sync_held_item_visual)
@@ -477,8 +498,14 @@ pub fn realize_card_bodies(
     meshes: Option<ResMut<Assets<Mesh>>>,
     materials: Option<ResMut<Assets<StandardMaterial>>>,
     mut cache: ResMut<CardMeshes>,
-    // Where held art goes. Optional: an app with bodies alone runs without it.
+    // Where held art goes, and sprite bodies. Optional: an app with rigged
+    // bodies alone runs without it.
     mut root_depths: Option<ResMut<CardRootDepths>>,
+    // Bodies drawn from a sheet, ranked with these on each depth.
+    sprite_bodies: Query<
+        (Entity, &Transform, Has<SeatedInVessel>, Option<&BoundFeatureKind>, Option<&Visibility>),
+        SpriteBodyFilter,
+    >,
     mut by_owner: Local<HashMap<Entity, Entity>>,
     mut ranked: Local<Vec<(bool, f32, Entity)>>,
     mut shown: Local<Vec<(Handle<Mesh>, Handle<StandardMaterial>, Transform)>>,
@@ -508,6 +535,14 @@ pub fn realize_card_bodies(
             ranked.push((seated, root.translation.z, owner));
         }
     }
+    let rigged_roots: Vec<Entity> = owners.iter().map(|(_, of, ..)| of.0).collect();
+    for (entity, place, seated, kind, visibility) in &sprite_bodies {
+        let body = kind.is_none_or(|kind| kind.kind == FeatureVisualKind::Actor);
+        let shown = visibility.is_none_or(|visibility| *visibility != Visibility::Hidden);
+        if body && shown && !rigged_roots.contains(&entity) {
+            ranked.push((seated, place.translation.z, entity));
+        }
+    }
     ranked.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.total_cmp(&b.1)));
     let mut rank_of: HashMap<Entity, f32> = HashMap::with_capacity(ranked.len());
     if let Some(depths) = root_depths.as_deref_mut() {
@@ -522,6 +557,13 @@ pub fn realize_card_bodies(
         }
         rank_of.insert(owner, card_body_depth(seated, rank));
         rank += 1;
+    }
+    if let Some(depths) = root_depths.as_deref_mut() {
+        for (entity, place, ..) in &sprite_bodies {
+            if let Some(depth) = rank_of.get(&entity) {
+                depths.0.insert(entity, (*depth, place.translation.z));
+            }
+        }
     }
 
     for (owner, of, presentation, sample) in &owners {
@@ -706,23 +748,8 @@ pub fn realize_card_held_art(
         let frame = shown
             .then(|| depths.0.get(root).copied())
             .flatten()
-            .and_then(|depth| {
-                let page_size = images.get(&sprite.image)?.size().as_vec2();
-                let rect = match (&sprite.texture_atlas, sprite.rect) {
-                    (Some(cell), _) => *layouts.as_deref()?.get(&cell.layout)?.textures.get(cell.index)?,
-                    (None, Some(rect)) => rect.as_urect(),
-                    (None, None) => URect::from_corners(UVec2::ZERO, page_size.as_uvec2()),
-                };
-                let frame = BakedFrame {
-                    image: sprite.image.clone(),
-                    rect,
-                    size: sprite.custom_size.unwrap_or_else(|| rect.size().as_vec2()),
-                    anchor: anchor.map_or(Vec2::ZERO, |anchor| anchor.0),
-                    flip_x: sprite.flip_x,
-                };
-                Some((depth, frame, page_size))
-            });
-        let Some(((depth, root_z), frame, page_size)) = frame else {
+            .and_then(|depth| Some((depth, sprite_frame(sprite, anchor, &images, layouts.as_deref())?)));
+        let Some(((depth, root_z), (frame, page_size))) = frame else {
             if let Some(card) = by_art.get(&entity) {
                 if let Ok((.., mut card_visibility)) = cards.get_mut(*card) {
                     card_visibility.set_if_neq(Visibility::Hidden);
@@ -730,36 +757,8 @@ pub fn realize_card_held_art(
             }
             continue;
         };
-        let mesh = cache
-            .baked_meshes
-            .entry(baked_key(&frame))
-            .or_insert_with(|| meshes.add(baked_quad(&frame, page_size)))
-            .clone();
-        let color = sprite.color.to_srgba().to_u8_array();
-        let blended = color[3] < 255;
-        let material = cache
-            .materials
-            .entry((frame.image.id(), color, blended))
-            .or_insert_with(|| {
-                materials.add(StandardMaterial {
-                    base_color: sprite.color,
-                    base_color_texture: Some(frame.image.clone()),
-                    unlit: true,
-                    cull_mode: None,
-                    double_sided: true,
-                    alpha_mode: if blended { AlphaMode::Blend } else { AlphaMode::Mask(0.5) },
-                    ..default()
-                })
-            })
-            .clone();
-        let flip = Vec3::new(
-            if sprite.flip_x { -1.0 } else { 1.0 },
-            if sprite.flip_y { -1.0 } else { 1.0 },
-            1.0,
-        );
-        let mut card_place = *place;
-        card_place.translation.z = depth + held_art_card_offset(place.translation.z, root_z);
-        card_place.scale *= flip;
+        let (mesh, material) = sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
+        let card_place = sprite_card_place(sprite, place, depth + held_art_card_offset(place.translation.z, root_z));
         match by_art.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
             Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
                 if card_mesh.0 != mesh {
@@ -784,6 +783,150 @@ pub fn realize_card_held_art(
                     ))
                     .id();
                 by_art.insert(entity, card);
+            }
+        }
+    }
+}
+
+/// The page cell a 2D sprite draws, as a card frame, and its page's size.
+/// `None` until the page is loaded.
+fn sprite_frame(
+    sprite: &Sprite,
+    anchor: Option<&bevy::sprite::Anchor>,
+    images: &Assets<Image>,
+    layouts: Option<&Assets<TextureAtlasLayout>>,
+) -> Option<(BakedFrame, Vec2)> {
+    let page_size = images.get(&sprite.image)?.size().as_vec2();
+    let rect = match (&sprite.texture_atlas, sprite.rect) {
+        (Some(cell), _) => *layouts?.get(&cell.layout)?.textures.get(cell.index)?,
+        (None, Some(rect)) => rect.as_urect(),
+        (None, None) => URect::from_corners(UVec2::ZERO, page_size.as_uvec2()),
+    };
+    let frame = BakedFrame {
+        image: sprite.image.clone(),
+        rect,
+        size: sprite.custom_size.unwrap_or_else(|| rect.size().as_vec2()),
+        anchor: anchor.map_or(Vec2::ZERO, |anchor| anchor.0),
+        flip_x: sprite.flip_x,
+    };
+    Some((frame, page_size))
+}
+
+/// A sprite's card quad and material, made once per cell and per colour.
+fn sprite_card(
+    sprite: &Sprite,
+    frame: &BakedFrame,
+    page_size: Vec2,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    cache: &mut CardMeshes,
+) -> (Handle<Mesh>, Handle<StandardMaterial>) {
+    let mesh = cache
+        .baked_meshes
+        .entry(baked_key(frame))
+        .or_insert_with(|| meshes.add(baked_quad(frame, page_size)))
+        .clone();
+    let color = sprite.color.to_srgba().to_u8_array();
+    let blended = color[3] < 255;
+    let material = cache
+        .materials
+        .entry((frame.image.id(), color, blended))
+        .or_insert_with(|| {
+            materials.add(StandardMaterial {
+                base_color: sprite.color,
+                base_color_texture: Some(frame.image.clone()),
+                unlit: true,
+                cull_mode: None,
+                double_sided: true,
+                alpha_mode: if blended { AlphaMode::Blend } else { AlphaMode::Mask(0.5) },
+                ..default()
+            })
+        })
+        .clone();
+    (mesh, material)
+}
+
+/// A sprite's card at its 2D place on card depth `z`, flipped as it is.
+fn sprite_card_place(sprite: &Sprite, place: &Transform, z: f32) -> Transform {
+    let mut card_place = *place;
+    card_place.translation.z = z;
+    card_place.scale *= Vec3::new(
+        if sprite.flip_x { -1.0 } else { 1.0 },
+        if sprite.flip_y { -1.0 } else { 1.0 },
+        1.0,
+    );
+    card_place
+}
+
+/// Realize each body drawn from a sheet (no rigged presentation) as one card
+/// of the cell it draws, at its 2D place on the depth `realize_card_bodies`
+/// ranked it to.
+#[allow(clippy::too_many_arguments)]
+pub fn realize_card_sprite_bodies(
+    mut commands: Commands,
+    bodies: Query<(Entity, &Sprite, Option<&bevy::sprite::Anchor>, &Transform), SpriteBodyFilter>,
+    depths: Res<CardRootDepths>,
+    mut cards: Query<
+        (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut Visibility),
+        (With<CardSpriteBody>, Without<Sprite>),
+    >,
+    images: Option<Res<Assets<Image>>>,
+    meshes: Option<ResMut<Assets<Mesh>>>,
+    materials: Option<ResMut<Assets<StandardMaterial>>>,
+    layouts: Option<Res<Assets<TextureAtlasLayout>>>,
+    mut cache: ResMut<CardMeshes>,
+    mut by_body: Local<HashMap<Entity, Entity>>,
+) {
+    let (Some(images), Some(mut meshes), Some(mut materials)) = (images, meshes, materials) else {
+        return;
+    };
+    by_body.retain(|body, card| {
+        let keep = bodies.contains(*body);
+        if !keep {
+            commands.entity(*card).try_despawn();
+        }
+        keep
+    });
+    for (entity, sprite, anchor, place) in &bodies {
+        // Ranked only when it is a shown body with no rigged presentation.
+        let drawn = depths
+            .0
+            .get(&entity)
+            .and_then(|(depth, _)| Some((*depth, sprite_frame(sprite, anchor, &images, layouts.as_deref())?)));
+        let Some((depth, (frame, page_size))) = drawn else {
+            if let Some(card) = by_body.get(&entity) {
+                if let Ok((.., mut card_visibility)) = cards.get_mut(*card) {
+                    card_visibility.set_if_neq(Visibility::Hidden);
+                }
+            }
+            continue;
+        };
+        let (mesh, material) = sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
+        let card_place = sprite_card_place(sprite, place, depth);
+        match by_body.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
+            Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
+                if card_mesh.0 != mesh {
+                    card_mesh.0 = mesh;
+                }
+                if card_material.0 != material {
+                    card_material.0 = material;
+                }
+                transform.set_if_neq(card_place);
+                card_visibility.set_if_neq(Visibility::Inherited);
+            }
+            None => {
+                let card = commands
+                    .spawn((
+                        CardSpriteBody,
+                        Mesh3d(mesh),
+                        MeshMaterial3d(material),
+                        card_place,
+                        Visibility::Inherited,
+                        RenderLayers::layer(CARD_VIEW_LAYER),
+                        Name::new("Card sprite body"),
+                    ))
+                    .id();
+                by_body.insert(entity, card);
             }
         }
     }
@@ -911,6 +1054,45 @@ mod tests {
         assert_eq!(places[0], Vec3::new(0.0, 0.0, -20.0 + HELD_ART_REACH), "held to the body's band");
         assert!((places[1] - Vec3::new(30.0, 40.0, -20.0 + 3.0 * CARD_PART_STEP)).length() < 1e-4, "three part steps in front");
         let _ = (in_hand, at_no_hand, hidden, unheld);
+    }
+
+    /// RV3: a body drawn from a sheet (no rigged presentation) is one card of
+    /// its cell at its 2D place, ranked by logical order with the others on
+    /// the play plane: the player and an actor each get a card, the later
+    /// (higher 2D z) one step nearer. A prop and a hidden actor get none.
+    #[test]
+    fn a_sheet_drawn_body_is_one_card_ranked_on_its_depth() {
+        let mut app = App::new();
+        app.init_resource::<Assets<Image>>()
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<Assets<TextureAtlasLayout>>()
+            .init_resource::<CardMeshes>()
+            .init_resource::<CardRootDepths>()
+            .add_systems(Update, (realize_card_bodies, realize_card_sprite_bodies).chain());
+        let image = app.world_mut().resource_mut::<Assets<Image>>().add(Image::default());
+        let sprite = |at: Vec3| {
+            (Sprite { image: image.clone(), custom_size: Some(Vec2::new(16.0, 24.0)), ..default() }, Transform::from_translation(at))
+        };
+        let actor = |kind| BoundFeatureKind::new(kind, Vec2::new(16.0, 24.0));
+        app.world_mut().spawn((sprite(Vec3::new(10.0, 0.0, 7.0)), actor(FeatureVisualKind::Actor)));
+        app.world_mut().spawn((sprite(Vec3::new(-10.0, 0.0, 3.0)), PlayerVisual));
+        app.world_mut().spawn((sprite(Vec3::new(50.0, 0.0, 9.0)), actor(FeatureVisualKind::Chest)));
+        app.world_mut().spawn((sprite(Vec3::new(90.0, 0.0, 1.0)), actor(FeatureVisualKind::Actor), Visibility::Hidden));
+        app.update();
+        let world = app.world_mut();
+        let mut cards = world.query_filtered::<(&Transform, &Visibility), With<CardSpriteBody>>();
+        let mut places: Vec<Vec3> = cards
+            .iter(world)
+            .filter(|(_, visibility)| **visibility != Visibility::Hidden)
+            .map(|(place, _)| place.translation)
+            .collect();
+        places.sort_by(|a, b| a.x.total_cmp(&b.x));
+        assert_eq!(
+            places,
+            vec![Vec3::new(-10.0, 0.0, card_body_depth(false, 0)), Vec3::new(10.0, 0.0, card_body_depth(false, 1))],
+            "the player and the actor, in logical order; no prop, no hidden body"
+        );
     }
 
     /// The declared depth policy: a seated body is behind the cart's near

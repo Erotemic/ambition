@@ -385,8 +385,7 @@ fn ease(t: f32, start: f32, end: f32) -> f32 {
 fn pose_robot(robot: &mut CardActor, t: f32) {
     let approach = ease(t, 0.0, ARRIVE);
     let retreat = ease(t, RELEASE, RETREAT_END);
-    let lift = 30.0 * (ease(t, REACH, TAKE) - ease(t, RELEASE, RELEASE + 0.30));
-    robot.feet = Vec2::new(83.0 + 216.0 * approach - 94.0 * retreat, FLOOR - lift);
+    robot.feet = Vec2::new(83.0 + 216.0 * approach - 94.0 * retreat, FLOOR);
     let gait = robot.rig.clip("walk").map_or(1.0, |clip| {
         clip.frame_duration_s * clip.frame_count() as f32
     });
@@ -412,13 +411,14 @@ fn pose_director(director: &mut CardActor, t: f32) {
         director.sample("idle", t);
     } else if t < REACH {
         director.sample("talk", t - QUESTION);
-        director.blend("idle", 0, ease(t, QUESTION, QUESTION + 0.24));
+        let gesture = ease(t, QUESTION, QUESTION + 0.24) - ease(t, REACH - 0.22, REACH);
+        director.blend("idle", 0, gesture);
     } else if t < RELEASE {
-        director.sample_frame("interact", 3);
-        director.blend("talk", 0, ease(t, REACH, TAKE));
+        director.sample_frame("receive_low", 0);
+        director.blend("idle", 0, ease(t, REACH, TAKE));
     } else {
         director.sample("item_hold", t - RELEASE);
-        director.blend("interact", 3, ease(t, RELEASE, RELEASE + 0.68));
+        director.blend("receive_low", 0, ease(t, RELEASE, RELEASE + 0.68));
         director.tilt_head(-0.29 * ease(t, RELEASE + 0.3, RETREAT_END + 0.35));
     }
 }

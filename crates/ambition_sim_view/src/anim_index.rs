@@ -2,37 +2,40 @@
 //! 19): id-keyed read-models rebuilt once per sim tick; presentation
 //! animates from these snapshots and never borrows the live clusters.
 
-use bevy::prelude::{Query, ResMut, Resource};
+use bevy::platform::collections::hash_map::EntryRef;
+use bevy::prelude::{Query, ResMut, Resource, With};
 
 use ambition_boss_encounter::anim::boss_anim_state_for;
 use ambition_characters::actor::ai::ActorStatus;
 use ambition_combat::actor_tuning::ActorConfig;
-use ambition_combat::components::FeatureId;
+use ambition_combat::components::{ActorIdentity, FeatureId};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
 
-/// Read-only query of the unified actor cluster every actor (was-NPC, was-enemy,
-/// encounter mob, mount/rider) carries — the SAME `Body*` movement/ability
-/// clusters the player reads, plus the actor's identity/status/config. Systems
-/// declare `Query<ActorSpriteData>`; the helpers take `&Query<ActorSpriteData>`.
-///
-/// All fields are required (not `Option`): every spawned actor carries the full
-/// [`ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle`] (the same bundle the player nests)
-/// plus `ActorStatus` / `ActorConfig`, so an entity that is missing
-/// any of them — a boss (its own cluster + anim path) or a prop — correctly does
-/// not match and is skipped, instead of half-resolving from a sparse read. This
-/// is what lets [`ecs_actor_anim_state`] build the player's FULL `BodyAnimView`
-/// from an actor's real clusters, so any ability a brain drives animates.
+/// Required body components for the actor pose and appearance indexes.
+pub type ActorSpriteBody = (
+    With<ActorIdentity>,
+    With<ActorStatus>,
+    With<ambition_characters::actor::BodyHealth>,
+    With<BodyKinematics>,
+    With<ae::BodyGroundState>,
+    With<ae::BodyMotionFacts>,
+    With<ae::BodyFlightState>,
+    With<ae::BodyModeState>,
+    With<ae::BodyEnvironmentContact>,
+    With<ae::BodyAbilities>,
+    With<ae::BodyShieldState>,
+);
+
+/// Movement and action facts used to select an actor's pose.
 #[derive(bevy::ecs::query::QueryData)]
 pub struct ActorSpriteData {
     pub feature_id: &'static FeatureId,
     pub kin: &'static BodyKinematics,
-    pub status: &'static ActorStatus,
     pub health: &'static ambition_characters::actor::BodyHealth,
     pub combat: &'static ambition_characters::actor::BodyCombat,
-    pub identity: &'static ambition_combat::components::ActorIdentity,
     pub config: &'static ActorConfig,
     /// The body's own moveset. With `playback` it gives the swing
     /// (`melee_swing_of`).
@@ -72,12 +75,6 @@ pub struct ActorSpriteData {
     /// move names. `None` for a body that is not mid-move, which is most of them
     /// most of the time. See [`ActorAnimFrame::clip`].
     pub playback: Option<&'static ambition_combat::moveset::MovePlayback>,
-    /// The character the body wears: its art identity. `None` for a body that
-    /// renders from a kind-default sheet.
-    pub worn: Option<&'static ambition_characters::actor::CharacterForm>,
-    /// The look the body is drawn in instead of its worn character's own
-    /// sheet (a Smash skin). Art only: it replaces the art key, nothing else.
-    pub skin: Option<&'static ambition_characters::actor::WornSkin>,
     /// A body with no left/right variant is drawn toward `+x` whatever its facing.
     pub unmirrored: bevy::prelude::Has<ae::Unmirrored>,
     /// A named row content pinned this body to: its clip, ahead of any move's.
@@ -429,13 +426,16 @@ impl ActorAnimIndex {
         self.frames.get_mut(id).map(|(frame, _)| frame)
     }
 
-    fn insert(&mut self, id: &str, frame: ActorAnimFrame) {
+    fn update(&mut self, id: &str, next: impl FnOnce(Option<&ActorAnimFrame>) -> ActorAnimFrame) {
         let gen = self.generation;
-        if let Some(slot) = self.frames.get_mut(id) {
-            slot.0 = frame;
-            slot.1 = gen;
-        } else {
-            self.frames.insert(id.to_string(), (frame, gen));
+        match self.frames.entry_ref(id) {
+            EntryRef::Occupied(mut entry) => {
+                let slot = entry.get_mut();
+                *slot = (next(Some(&slot.0)), gen);
+            }
+            EntryRef::Vacant(entry) => {
+                entry.insert((next(None), gen));
+            }
         }
     }
 }
@@ -451,7 +451,7 @@ impl ActorAnimIndex {
 /// [`ActorAnimIndex`] for the renderer to consume by id.
 pub fn rebuild_actor_anim_index(
     mut index: ResMut<ActorAnimIndex>,
-    actors: Query<ActorSpriteData>,
+    actors: Query<ActorSpriteData, ActorSpriteBody>,
     time: Option<bevy::prelude::Res<bevy::prelude::Time>>,
 ) {
     let dt = time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs);
@@ -496,19 +496,17 @@ pub fn rebuild_actor_anim_index(
         // withdraw cycle, which the disposition-agnostic picker cannot infer).
         let free = a.playback.is_none_or(|playback| playback.settled()) && a.anim_override.is_none();
         let anim = crate::pose_view::seated(a.anim_override.map(|o| o.0).unwrap_or(anim), a.riding);
-        let before = index.get(a.feature_id.as_str());
-        let stop = before
-            .map_or_else(crate::StopClock::default, |before| before.stop)
-            .next(before.map(|before| before.anim), anim, free, dt);
-        let facing = ae::mirror_side(a.kin.facing, a.unmirrored);
-        let turn = before
-            .map_or_else(crate::TurnClock::default, |before| before.turn)
-            .next(before.map(|before| (before.anim, before.facing)), anim, facing, free, dt);
         let charge = a
             .playback
             .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
-        index.insert(
-            a.feature_id.as_str(),
+        index.update(a.feature_id.as_str(), |before| {
+            let stop = before
+                .map_or_else(crate::StopClock::default, |before| before.stop)
+                .next(before.map(|before| before.anim), anim, free, dt);
+            let facing = ae::mirror_side(a.kin.facing, a.unmirrored);
+            let turn = before
+                .map_or_else(crate::TurnClock::default, |before| before.turn)
+                .next(before.map(|before| (before.anim, before.facing)), anim, facing, free, dt);
             ActorAnimFrame {
                 anim,
                 conversation_held: a.control_holds.is_some_and(|h| {
@@ -574,8 +572,8 @@ pub fn rebuild_actor_anim_index(
                     .or_else(|| charge.map(|_| ClipRequest::only(SMASH_CHARGE_CLIP)))
                     .or_else(|| aim_over_legs(a.anim.is_some_and(|f| f.aim_anim_active) && free, anim))
                     , a.pinned, crate::pose_view::crouched(anim), Some(anim)),
-            },
-        );
+            }
+        });
     }
     index.end_rebuild();
 }

@@ -704,3 +704,35 @@ for each in `first_portal_crossing_through`, then the begin test's
 read. A conservative swept-box test ahead of those queries is the candidate
 saving. No speedup is claimed: the probe measures the step alone,
 not a tick, and a room has few apertures.
+
+**Candidate selection inside the crossing (2026-11-25).** A second probe
+split the cost. Validation was most of it, not the root search.
+`MaterialCast::crossing` validated the aperture step (`sample_wide`, 83 ns
+alone) and the material map (49 ns) before it looked for a root. So an
+aperture whose plane the body moves away from cost 196 ns, and one it
+reaches but misses cost 300 ns. With neither the aperture nor the source
+turning, `first` decides from two numbers: the root's distance to the
+plane at the start, and its rate. `crossing` now computes those first,
+with the same arithmetic as `first`. When no root on the plane can come
+from the front within the interval, it answers none before validating.
+Non-finite numbers do not compare, so they still go on to be refused.
+This is a candidate selection: a far aperture's numeric faults are no
+longer reported to a body that cannot reach its plane. The material
+check now uses `validate_volume_map`, which applies the same checks as
+`map_volume` (tested equal in `thread/tests.rs`) without building the
+mapped volume and discarding it.
+
+Same fixture, release build, median of 7 batches:
+
+| Case | Before | After |
+| --- | --- | --- |
+| Whole step, no crossing | 1 374 ns | 739 ns |
+| An aperture whose plane is not reached | 196 ns | 16 ns |
+| An aperture whose plane is reached off the opening | 300 ns | 297 ns |
+
+A turning aperture or rotating source takes the full path as before.
+Core lib (941), portal2d lib (145), runtime portal tests (26) and the app's
+portal tests (53) pass. The probes were deleted. The swept-box test is no
+longer needed for this case. An aperture whose line the body does reach
+still pays full validation; that would need a per-tick prepared aperture
+step (`PreparedApertureStep`).

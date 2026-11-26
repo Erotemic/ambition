@@ -602,8 +602,21 @@ Still open in M1:
   `step_motion`. Out of play, held in place, collapsing and in hitlag, it
   runs with `dt` 0, which writes a zero-length sample at the pose. A skip
   is then a whole-system one (a gated schedule), whose readers are gated
-  with it. Items, projectiles and other bodies with their own steppers were
-  not checked;
+  with it. The other steppers (2026-11-26):
+  - Projectiles (`ambition_projectile_combat::systems`) write a sample on
+    every arm. A held room scales `dt` to 0 and still writes. The one exit
+    that writes none is a shot whose room is not live, and that room's
+    readers do not run either.
+  - Loose items (`ground_item_physics`) skipped a held room's item before
+    their reset, and so did the settled-item step. A held item kept its
+    last step as "this tick's" path for as long as the hold lasted. It now
+    records a zero-length sample at its pose, as an actor does at `dt` 0.
+    A probe (deleted) set a held item's sample from x −20 to 80, with the
+    item at 80 and moving at 2 000. After one held tick the sample was
+    80 → 80 with the fix; without it, the 100 px path survived. Held-items
+    lib passes (61; 63 with `portal`).
+
+  What remains is tying the sample to the accepted aperture snapshot;
 - carrying source-frame contact facts through readers.
 
 ### M2 — Continue the kernel at its actual chart-change events

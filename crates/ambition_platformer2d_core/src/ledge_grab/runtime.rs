@@ -22,6 +22,21 @@ fn half_along_axis(half: Vec2, axis: Vec2) -> f32 {
     half.x * axis.x.abs() + half.y * axis.y.abs()
 }
 
+/// A ledge hang needs a single frame of reference for the body and its anchor.
+pub(crate) fn hang_straddles_an_aperture(
+    body: Aabb,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+) -> bool {
+    admission.is_some_and(|admission| {
+        admission.links.iter().any(|link| {
+            let aperture = &link.enter;
+            let distance = (body.center() - aperture.frame.origin).dot(aperture.frame.normal);
+            distance.abs() < half_along_axis(body.half_size(), aperture.frame.normal)
+                && crate::frame::thread::reaches_through(&crate::CombatVolume::Aabb(body), aperture)
+        })
+    })
+}
+
 fn inside_world_bounds(center: Vec2, half: Vec2, world: &World) -> bool {
     center.x - half.x >= 0.0
         && center.y - half.y >= 0.0
@@ -856,6 +871,7 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     frame: crate::MotionFrame,
     tuning: &AxisSweptParams,
     events: &mut crate::movement::FrameEvents,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) -> bool {
     if !clusters.abilities.abilities.ledge_grab
         || axis_state.ledge_grab.is_some()
@@ -907,6 +923,11 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     let Some(contact) = contact else {
         return false;
     };
+    let body = clusters.kinematics.aabb();
+    let at_anchor = body.translated(contact.anchor - body.center());
+    if hang_straddles_an_aperture(body, admission) || hang_straddles_an_aperture(at_anchor, admission) {
+        return false;
+    }
 
     let grab_quality = classify_ledge_grab_in_frame(
         clusters.kinematics.pos,

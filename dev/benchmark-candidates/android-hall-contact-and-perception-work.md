@@ -373,13 +373,38 @@ Hall runs on each development build, the median `FeatureViewSync` time
 changed from 6.02–8.25 ms to 4.05–4.89 ms per tick. Use a phone capture to
 measure the effect at the Android frame rate.
 
+### Combat participant selection
+
+Strike resolution sorts victims when a strike can reach bodies. Ally rally
+sorts the bodies with an engaged target or a grudge. It reads an eligible
+ally's position from that body. Both systems keep the order of active rows.
+
+In an isolated desktop schedule with 596 bodies and no strikes, the median
+cost decreased from 110 to 23 µs per update. Each median covers nine batches
+of 1,200 updates. Three uncapped Hall runs per build used the production
+desktop host in headless mode. The run medians for `Combat` were 3.74–4.81
+ms per tick before the change and 3.49–4.92 ms after it. The ranges overlap.
+
+The windowed 1280 × 800 software-rendered run had 596 bodies and about
+6,280 entities. Its median frame time was 460 ms, with 15 sim ticks per
+frame and about 32.5 sim ticks per second. The sum of the measured sim
+phases was 27.5 ms per tick. `WorldPrep.Integrate` used 5.9 ms, `Combat`
+3.5 ms and `FeatureViewSync` 2.5 ms. The windowless host instead allocated
+18,544 rigged part sprites. Its camera had no measured viewport and its
+fallback requested parts for the full cast. Use the windowed count to
+estimate presentation work on a device.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on
 average. If rendering and frame work take 5 ms, each tick has about 14 ms.
 The earlier desktop run took about 32 ms per tick in the measured phases
 and ran 15 ticks per displayed frame. Use elapsed time and committed ticks
-to check the simulation rate. Collect the full-cast Android phase census
+to check the simulation rate. With 5 ms of frame work, 20, 30 and 40 FPS
+give the simulation 15.0, 14.2 and 13.3 ms per tick. The old 526 ms phone
+capture would imply about 35 ms per tick if it also ran 15 ticks per frame
+and spent 5 ms outside those ticks. The capture did not count its ticks.
+Collect the full-cast Android phase census
 with `./scripts/measure/autoprofile_android.sh hall --warmup 40 --duration 45
 --launch-env AMBITION_PROFILE_CENSUS=1`.
 

@@ -2,7 +2,9 @@
 //! 19): id-keyed read-models rebuilt once per sim tick; presentation
 //! animates from these snapshots and never borrows the live clusters.
 
-use bevy::platform::collections::hash_map::EntryRef;
+use std::sync::Arc;
+
+use bevy::platform::collections::HashMap;
 use bevy::prelude::{Query, ResMut, Resource, With};
 
 use ambition_boss_encounter::anim::boss_anim_state_for;
@@ -353,101 +355,102 @@ pub const SMASH_CHARGE_CLIP: &str = "smash_charge";
 // presentation no longer live-queries the actor clusters to bind a sprite. The
 // per-frame ANIM frame below stays a live read until slice B materializes it.
 
-/// Materialized per-frame animation pose for every actor, keyed by
-/// [`FeatureId`] — the MOVING half of the actor read-model. `ActorAnimFrame`
-/// stopped being `Copy` when it gained the active move's clip request
-/// the chain is owned strings, because a materialized read-model
-/// outlives the queries that built it. Presentation reads the pose by id and never borrows the
-/// actor clusters to animate. Because this pose is presentation-ONLY, its
-/// rebuild is registered in the render presentation plugin — NOT the sim
-/// schedule — so a headless / RL build never pays for poses it won't draw.
+/// The actor poses for this tick, indexed by feature ID.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct ActorAnimIndex {
-    frames: bevy::platform::collections::HashMap<String, (ActorAnimFrame, u64)>,
+    rows: Vec<ActorAnimRow>,
+    slots: HashMap<Arc<str>, usize>,
     generation: u64,
 }
 
+#[derive(Clone, Debug)]
+struct ActorAnimRow {
+    id: Arc<str>,
+    frame: ActorAnimFrame,
+    seen: u64,
+}
+
 impl ActorAnimIndex {
-    /// borrowed rather than copied since the frame gained the active
-    /// move's clip chain — the caller draws from it in place and never needs to
-    /// own it, so nothing clones the strings per actor per frame.
     pub fn get(&self, id: &str) -> Option<&ActorAnimFrame> {
-        self.frames.get(id).map(|(frame, _)| frame)
+        self.slots.get(id).map(|&slot| &self.rows[slot].frame)
     }
 
-    /// Every `(id, frame)` row. A presentation pass that acts on "whichever
-    /// actors are doing X right now" walks this instead of asking the sim.
-    ///
-    /// AMBITION_REVIEW(determinism): hash-order iteration is safe here for the
-    /// reason `FeatureViewIndex::iter` gives — this index is DERIVED state,
-    /// rebuilt from the sim every frame, excluded from snapshots and from the
-    /// state hash. Every consumer is presentation, so its order can never enter
-    /// a trajectory.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &ActorAnimFrame)> {
-        self.frames
-            .iter()
-            .map(|(id, (frame, _))| (id.as_str(), frame))
+        self.rows.iter().map(|row| (row.id.as_ref(), &row.frame))
     }
 
-    /// Build a fixture index directly — the same escape hatch
-    /// `FeatureViewIndex` / `ActorRenderIndex` / `BossRenderIndex` offer, for
-    /// the same reason: a consumer's test needs the read-model it consumes, not
-    /// the whole sim that publishes it.
-    ///
-    /// Constructs a NEW index rather than mutating an existing one, so it
-    /// cannot be misused to edit the live one mid-frame. The parameter is
-    /// `entries` to match the siblings.
+    /// Build an index from a list of actor poses.
     pub fn from_rows(entries: impl IntoIterator<Item = (String, ActorAnimFrame)>) -> Self {
         let mut index = Self::default();
         for (id, frame) in entries {
-            index.frames.insert(id, (frame, index.generation));
+            if let Some(&slot) = index.slots.get(id.as_str()) {
+                index.rows[slot].frame = frame;
+            } else {
+                index.insert(&id, frame);
+            }
         }
         index
     }
 
     pub fn len(&self) -> usize {
-        self.frames.len()
+        self.rows.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.frames.is_empty()
+        self.rows.is_empty()
+    }
+
+    pub(crate) fn frame_mut(&mut self, id: &str) -> Option<&mut ActorAnimFrame> {
+        let slot = *self.slots.get(id)?;
+        Some(&mut self.rows[slot].frame)
     }
 
     fn begin_rebuild(&mut self) {
         self.generation = self.generation.wrapping_add(1);
     }
 
+    fn insert(&mut self, id: &str, frame: ActorAnimFrame) -> &mut ActorAnimFrame {
+        let id: Arc<str> = Arc::from(id);
+        let slot = self.rows.len();
+        self.slots.insert(Arc::clone(&id), slot);
+        self.rows.push(ActorAnimRow { id, frame, seen: self.generation });
+        &mut self.rows[slot].frame
+    }
+
     fn end_rebuild(&mut self) {
-        let gen = self.generation;
-        self.frames.retain(|_, (_, g)| *g == gen);
-    }
-
-    /// The frame of `id`, to draw over: a passage replaces the picked row.
-    pub(crate) fn frame_mut(&mut self, id: &str) -> Option<&mut ActorAnimFrame> {
-        self.frames.get_mut(id).map(|(frame, _)| frame)
-    }
-
-    fn publish_at(&mut self, id: &str) -> (&mut ActorAnimFrame, bool) {
-        let generation = self.generation;
-        match self.frames.entry_ref(id) {
-            EntryRef::Occupied(entry) => {
-                let (frame, seen) = entry.into_mut();
-                *seen = generation;
-                (frame, false)
-            }
-            EntryRef::Vacant(entry) => (&mut entry.insert((ActorAnimFrame {
-                anim: CharacterAnim::Idle,
-                conversation_held: false,
-                pos: ae::Vec2::ZERO,
-                facing: 1.0,
-                gravity_dir: ae::DEFAULT_GRAVITY_DIR,
-                clip: None,
-                move_charge: None,
-                passage_look: None,
-                stop: crate::StopClock::default(),
-                turn: crate::TurnClock::default(),
-            }, generation)).0, true),
+        let len = self.rows.len();
+        self.rows.retain(|row| row.seen == self.generation);
+        if len != self.rows.len() {
+            self.slots.clear();
+            self.slots.extend(self.rows.iter().enumerate().map(|(slot, row)| (Arc::clone(&row.id), slot)));
         }
+    }
+
+    fn publish_at(&mut self, position: usize, id: &str) -> (&mut ActorAnimFrame, bool) {
+        // A row in the same position can keep its slot when its ID matches.
+        // An actor that moves to another position still uses its ID's clock.
+        let slot = if self.rows.get(position).is_some_and(|row| row.id.as_ref() == id) {
+            Some(position)
+        } else {
+            self.slots.get(id).copied()
+        };
+        if let Some(slot) = slot {
+            let row = &mut self.rows[slot];
+            row.seen = self.generation;
+            return (&mut row.frame, false);
+        }
+        (self.insert(id, ActorAnimFrame {
+            anim: CharacterAnim::Idle,
+            conversation_held: false,
+            pos: ae::Vec2::ZERO,
+            facing: 1.0,
+            gravity_dir: ae::DEFAULT_GRAVITY_DIR,
+            clip: None,
+            move_charge: None,
+            passage_look: None,
+            stop: crate::StopClock::default(),
+            turn: crate::TurnClock::default(),
+        }), true)
     }
 }
 
@@ -467,7 +470,7 @@ pub fn rebuild_actor_anim_index(
 ) {
     let dt = time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs);
     index.begin_rebuild();
-    for a in &actors {
+    for (position, a) in actors.iter().enumerate() {
         let swing = ambition_combat::moveset::melee_swing_of(a.playback, a.moveset);
         let anim = ambition_character_sprites::pick_actor_anim(
             a.kin,
@@ -510,7 +513,7 @@ pub fn rebuild_actor_anim_index(
         let charge = a
             .playback
             .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
-        let (frame, added) = index.publish_at(a.feature_id.as_str());
+        let (frame, added) = index.publish_at(position, a.feature_id.as_str());
         let facing = ae::mirror_side(a.kin.facing, a.unmirrored);
         if !added {
             frame.stop = frame.stop.next(Some(frame.anim), anim, free, dt);

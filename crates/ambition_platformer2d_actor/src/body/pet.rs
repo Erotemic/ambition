@@ -506,17 +506,23 @@ fn end_pet_beat(commands: &mut Commands, petter: Entity) {
 pub fn project_pet_holds(
     mut commands: Commands,
     beats: Query<&PetBeat>,
+    identities: Query<(&SimId, Option<&InRoomInstance>, Option<&LiveRoomInstance>)>,
     mut bodies: Query<(
         Entity,
         &mut BodyAnimFacts,
-        Option<&SimId>,
-        (Option<&InRoomInstance>, Option<&LiveRoomInstance>),
         Option<&mut ControlHolds>,
     )>,
 ) {
-    for (entity, mut anim, id, (stamp, root), holds) in &mut bodies {
-        let own = beats.get(entity).ok();
-        let petted_by = id.and_then(|id| beats.iter().find(|beat| beat.petted.is(id, stamp, root)));
+    let has_beats = !beats.is_empty();
+    for (entity, mut anim, holds) in &mut bodies {
+        let (own, petted_by) = if has_beats {
+            let petted_by = identities.get(entity).ok().and_then(|(id, stamp, root)| {
+                beats.iter().find(|beat| beat.petted.is(id, stamp, root))
+            });
+            (beats.get(entity).ok(), petted_by)
+        } else {
+            (None, None)
+        };
         let gesture = |beat: Option<&PetBeat>| {
             beat.is_some_and(|beat| matches!(beat.stage, PetStage::Gesture { .. }))
         };

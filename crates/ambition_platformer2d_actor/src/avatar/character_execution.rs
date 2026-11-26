@@ -568,24 +568,32 @@ type WornCharacterBody = (
 /// keeps the persona's shield verb and (as a `Move`) its `special_pressed` alive.
 pub fn sustain_bubble_shield(
     mut bodies: Query<(
+        Entity,
         &ActionSet,
-        Option<&ambition_combat::moveset::MovePlayback>,
         &mut ambition_characters::control::ActorControl,
-        // WHICH SPECIAL THIS PRESS MEANS. See the directional note below.
-        Option<&ambition_combat::moveset::ActorMoveset>,
+    )>,
+    playback: Query<&ambition_combat::moveset::MovePlayback>,
+    aim: Query<(
+        &ambition_combat::moveset::ActorMoveset,
         Option<&ambition_platformer2d_core::BodyKinematics>,
         Option<&ambition_platformer2d_core::BodyGroundState>,
     )>,
 ) {
     use ambition_characters::brain::SpecialActionSpec;
-    for (actions, playback, mut control, moveset, kin, ground) in &mut bodies {
+    for (entity, actions, mut control) in &mut bodies {
         let Some(SpecialActionSpec::Special(key)) = actions.special.as_ref() else {
             continue;
         };
         if key != ambition_characters::brain::action_set::BUBBLE_SHIELD_SPECIAL {
             continue;
         }
-        let playing = playback.is_some_and(|p| p.spec.id == *key);
+        if playback.get(entity).is_ok_and(|playing| playing.spec.id == *key) {
+            control.0.shield_held = true;
+            continue;
+        }
+        if !control.0.special_pressed {
+            continue;
+        }
         // ⛔⛔ A RAW SPECIAL EDGE IS NOT A BUBBLE-SHIELD PRESS, and reading it as
         // one broke every OTHER special the body owns (D253). `player_robot_v3` names `bubble_shield` as its body-kit
         // special AND authors a full directional repertoire — rocket dash,
@@ -606,9 +614,9 @@ pub fn sustain_bubble_shield(
         // ordinary body kit this compatibility layer was written for, where
         // Special means exactly one thing and a direction cannot select
         // anything else.
-        let means_the_bubble = match moveset {
-            None => true,
-            Some(moveset) => {
+        let means_the_bubble = match aim.get(entity) {
+            Err(_) => true,
+            Ok((moveset, kin, ground)) => {
                 let direction = ambition_combat::moveset::attack_dir_from_axis(
                     control.0.attack_axis,
                     kin.map_or(1.0, |kin| kin.facing),
@@ -624,7 +632,7 @@ pub fn sustain_bubble_shield(
                     .is_none_or(|spec| spec.id == *key)
             }
         };
-        if (control.0.special_pressed && means_the_bubble) || playing {
+        if means_the_bubble {
             control.0.shield_held = true;
         }
     }

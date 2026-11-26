@@ -109,6 +109,7 @@ impl Geometry {
 #[derive(PartialEq)]
 struct StepInput {
     dt: u32,
+    grounding: crate::Grounding,
     frame: [[u32; 2]; 5],
     facing: u32,
     control: [[u32; 2]; 3],
@@ -167,6 +168,7 @@ impl StepInput {
         };
         Ok(Self {
             dt: dt.to_bits(),
+            grounding: body.grounding,
             frame: frame_bits(frame),
             facing: facing_intent.to_bits(),
             control: [
@@ -209,7 +211,7 @@ macro_rules! fixed_body_state {
         impl FixedBodyState {
             fn capture(body: &BodyClustersMut<'_>) -> Self {
                 let BodyClustersMut {
-                    $($field,)+ settled: _, carrier: _, sweep: _, env_contact: _,
+                    $($field,)+ settled: _, grounding: _, carrier: _, sweep: _, env_contact: _,
                     resources: _, effects: _,
                 } = body;
                 Self { $($field: **$field),+ }

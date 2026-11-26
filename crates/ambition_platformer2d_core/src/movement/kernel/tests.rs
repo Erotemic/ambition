@@ -46,7 +46,7 @@ fn a_stationary_flyer_reuses_motion_until_terrain_or_input_changes() {
 
     for tick in 0..49 {
         if tick == 8 {
-            assert_eq!(cache.status(), crate::movement::SettledMotionStatus::Events);
+            assert!(cache.reused());
             world.blocks.hide(0);
         }
         if tick == 32 {
@@ -72,24 +72,28 @@ fn a_stationary_flyer_reuses_motion_until_terrain_or_input_changes() {
             recovery_commitment_outstanding: false,
         };
         let (model, mut clusters) = cached.parts();
+        clusters.grounding = Grounding::Airborne;
         clusters.settled = Some(&mut cache);
         clusters.sweep = Some(&mut sample);
         let result = step_motion(model, &mut clusters, ctx);
         let (model, mut clusters) = reference.parts();
         clusters.sweep = Some(&mut reference_sample);
-        let expected = step_motion(model, &mut clusters, ctx);
+        let mut expected = step_motion(model, &mut clusters, ctx);
+        // Compare with the projection after a full step.
+        reference.ground.on_ground = false;
+        expected.events.ground_contact = GroundContactTransition::Unchanged;
 
         assert_eq!(cached, reference, "tick {tick}");
         assert_eq!(sample, reference_sample, "tick {tick}");
         assert_eq!(result.events.contacts, expected.events.contacts, "tick {tick}");
         assert_eq!(result.events.ground_contact, expected.events.ground_contact, "tick {tick}");
         assert_eq!(result.support, expected.support, "tick {tick}");
-        if matches!(tick, 32 | 48) {
+        if (2..8).contains(&tick) {
+            assert!(result.support.is_held(), "tick {tick}");
+        }
+        if matches!(tick, 8 | 32 | 48) {
             assert!(!cache.reused(), "tick {tick}");
         }
-        // The actor driver treats powered flight as airborne at its boundary.
-        cached.ground.on_ground = false;
-        reference.ground.on_ground = false;
     }
 }
 
@@ -185,6 +189,7 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
             assert!(cached.ground.on_ground);
             world.blocks.hide(0);
         }
+        let refill = (80..100).contains(&tick);
         let ctx = MotionStepContext {
             world: &world,
             admission: None,
@@ -197,12 +202,18 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
             recovery_commitment_outstanding: false,
         };
         let (model, mut clusters) = cached.parts();
+        if refill {
+            clusters.grounding = Grounding::RefillAirJumps(1);
+        }
         clusters.settled = Some(&mut cache);
         clusters.sweep = Some(&mut sample);
         let mut result = step_motion(model, &mut clusters, ctx);
         let (model, mut clusters) = reference.parts();
         clusters.sweep = Some(&mut reference_sample);
         let expected = step_motion(model, &mut clusters, ctx);
+        if refill && reference.ground.on_ground {
+            reference.jump.air_jumps_available = 1;
+        }
         assert_eq!(cached, reference, "tick {tick}");
         assert_eq!(sample, reference_sample, "tick {tick}");
         assert_eq!(result.support, expected.support, "tick {tick}");
@@ -216,10 +227,10 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
             result.events.contacts.clear();
         }
         observed_reuse |= cache.reused();
-        if tick == 219 {
-            assert!(cache.reused());
+        if matches!(tick, 79 | 99 | 219) {
+            assert!(cache.reused(), "tick {tick}: {:?}", cache.status());
         }
-        if tick == 110 {
+        if matches!(tick, 80 | 100 | 110) {
             assert!(!cache.reused());
         }
         if tick == 180 {

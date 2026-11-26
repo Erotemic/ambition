@@ -232,6 +232,8 @@ The Test Range shelter needs the roof's bottom edge to draw the passage
 at the same height as its collision clearance.
 The Founders' Plaza café needs the resolved collision bounds. The IntGrid
 set the old awning and balcony eight pixels above the painted tops.
+The Hidden Way uses two sheets for one earth wall. Sample wall textures in
+room coordinates so adjacent sheets can share the same texture at the joint.
 The Tape Room carriage gives its frame size and top anchor in the sprite
 source and again in `platform_looks.ron`. Read these values from the
 published sheet when the platform uses them. Keep the support span an

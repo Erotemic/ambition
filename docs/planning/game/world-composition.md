@@ -97,6 +97,10 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
 - **Cedar Forest:** a fallen cedar connects the ground path to the fourth
   branch and the crows' hoard.
 - **Under:** a loose board in the street (a one-way floor, dropped through; `secret_`) into the hidden way, west to a stone slab in the shrine's floor, shut until the lever under it is pulled.
+- The floor of the Hidden Way leads directly to the shrine lever. The
+  training gallery gives visitors a raised route, with a jump over the
+  nightingale floor below. The savings chest is next to the weapons rack
+  on the east gallery.
 - **Tests:** `game/ambition_app/tests/the_ninja_village.rs`.
 
 ## The primeval trail (the fifth)

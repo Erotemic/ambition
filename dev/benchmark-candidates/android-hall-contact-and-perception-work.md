@@ -1073,6 +1073,36 @@ and focused Smash test passed. The workshop raid stalled while waiting for
 Dennis to arrive. The same stall occurred with the previous observer.
 Device measurements are pending.
 
+### Movement and actor publication
+
+Body integration reads the current tuning by reference. A slow changes the
+axis locomotion parameters. A body with authored tuning uses it directly.
+Uniform gravity needs no body bounds or room lookup when there are no force
+zones, gravity zones, or room turns. Movement feedback reads its recipients
+only for a relevant event. Group behavior reads member state after the
+character form matches a bound tag.
+
+The loaded Hall published 595 actor animation rows. Updating existing rows
+in place took a median of 0.360 ms in the isolated development pass, down from
+0.382 ms. The rows agreed on first publication, while moving and in hitlag,
+and when a body left and returned. Landing, blink, and hazard feedback
+produced the same audio, visual, and camera requests in order.
+
+Four windowed runs used 596 bodies, a 1280 × 800 viewport, Potato quality,
+and the CPU renderer. The run order was reference, candidate, candidate,
+reference.
+
+| Median after 30 s | Reference runs, ms/tick | Candidate runs, ms/tick |
+| --- | ---: | ---: |
+| All measured simulation phases | 15.95, 15.96 | 15.67, 16.02 |
+| Player input | 1.60, 1.58 | 1.51, 1.52 |
+| Movement integration | 1.90, 1.89 | 1.89, 1.95 |
+
+The total tick windows overlapped. These runs do not show a repeatable
+decrease in total tick time. Movement and gravity checks passed. Flock
+steering and room records passed with rewind. The desktop target is
+13.75 ms per tick. Device measurements are pending.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

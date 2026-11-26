@@ -36,7 +36,7 @@ pub(super) fn integrate_home_body(
     frame_out: &mut BodyFrameOutput,
     motion_model: &mut ambition_platformer2d_core::movement::MotionModel,
     motion_frame: ae::MotionFrame,
-    axis_tuning: ae::MovementTuning,
+    axis_tuning: &ae::MovementTuning,
     feel: FeelTuning,
     // The live move's authored motion lock (`MovePlayback::motion_scale_now`;
     // `1.0` with no move playing), applied to this body's steering INTENT — the

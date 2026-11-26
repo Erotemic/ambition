@@ -67,7 +67,7 @@ fn step_as(
         &mut r.frame_out,
         &mut r.model,
         ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
-        ae::DEFAULT_TUNING,
+        &ae::DEFAULT_TUNING,
         FeelTuning::default(),
         // No move playing on a momentum rig: full steering authority.
         1.0,

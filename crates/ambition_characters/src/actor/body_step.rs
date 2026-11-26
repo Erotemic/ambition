@@ -15,7 +15,7 @@ pub fn step_body(
     // only place that knows the freeze is running, and the step after it is the
     // only place that knows it just lifted.
     combat: &mut BodyCombat,
-    axis_tuning: ae::MovementTuning,
+    axis_tuning: &ae::MovementTuning,
     // Out-of-play is enforced here so controller-specific roads cannot define different dead-body motion.
     out_of_play: bool,
     // SOMETHING ELSE OWNS THIS BODY'S POSE — a saddle, a lift, a grab.
@@ -51,11 +51,9 @@ pub fn step_body(
         // The launch now stays staged until a tick nobody else owns the pose.
         ctx.pose_owned_externally = true;
     }
-    // A slowed body (honey, glue) moves on its own tuning, slowed: one rule for
-    // every body, whoever drives it.
-    let axis_tuning = axis_tuning.slowed(combat.move_speed_scale());
     if let ae::movement::MotionModel::AxisSwept(axis) = model {
         axis.params = axis_tuning.axis_swept_params();
+        axis.params.locomotion.scale_speed(combat.move_speed_scale());
     }
     // Clear retained velocity while out of play so it cannot be spent after respawn or reset.
     if out_of_play {

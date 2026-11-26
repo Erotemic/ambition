@@ -55,7 +55,7 @@ a reference for the look, not a layout, and not for its colours.
   stream runs off it into the void. Slabs hang from cranes' cables over the
   void, a jump apart; between them, the outlines of platforms not built yet
   (they are drawings: they do not hold you). Subclause 4(c) paints the sky
-  from a hanging platform. Bugs on the ground.
+  from a hanging platform. A Bug and Feature Creep guard the built ground.
 - **The Site Office** (`unfinished_site_office`), by a door: the gauges of
   GRAVITY, WEATHER and LAYERS, the backlog, and the Placeholder.
 
@@ -67,6 +67,7 @@ a reference for the look, not a layout, and not for its colours.
 | `npc_unfinished_subclause_painter` | Subclause 4(c) | the Draft | Paints the sky: one coat of blue, two of afternoon. |
 | `npc_unfinished_placeholder` | Placeholder | the Site Office | A grey stand-in for "a wise old someone, to be decided", since the second sprint. |
 | `glitch_bug` | Bug | the Draft | A beetle with a missing texture for a shell; a slice of it slips sideways. Known issue. Won't fix. |
+| `feature_creep` | Feature Creep | the Draft | A heavy prototype that strikes with a piston. |
 
 ## Next
 

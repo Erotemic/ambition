@@ -152,7 +152,7 @@ holds the lists and the discovery rule. No interdimensional gate changed.
 
 ### MG-1 — Magical sky and region loop (done 2026-11-14)
 
-`magical_starlight_heights` (generator `magical/make_specs.py`) is the
+`magical_starlight_heights` in `magical.ldtk` is the
 clouds over Starlight Square and the Dune Road's west end, 3840 wide, joined
 two different ways: the beanstalk beside the square's well (a climb, both
 ways), and on the road the star spring hanging over the road (jump on: it
@@ -165,10 +165,10 @@ keys: square, beanstalk, heights, gap, road, spring, heights, beanstalk,
 square, road. The spring hangs 128 px over the road because on the floor it
 threw every body walking east to the castle into the sky.
 
-Left: the heights have no prop art of their own (clouds are the one-way
-platforms; the bg is the sky colour) and no authored shortcut, since the
-loop needed none. A cloud prop sheet and the beanstalk's art go with the
-next Magical prop publish.
+Cloud art marks both climbs to the star rack and the western cloud walk.
+The western walk rejoins the ground near the beanstalk. Signs above the
+two eastern openings show which one leads to the spring and which one
+leads directly to the road.
 
 ### MG-2 — Magical arch travel (done 2026-11-14)
 

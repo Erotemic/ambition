@@ -154,12 +154,11 @@ pub fn drive_departures(
             replay_this_room(&mut departure, &mut replay);
             continue;
         };
-        let Some(arrival) = rooms
+        let Some(destination) = rooms
             .rooms()
             .rooms
             .iter()
             .find(|room| room.id == target)
-            .map(|room| room.world.spawn)
         else {
             bevy::log::warn!(
                 target: "ambition::room_departure",
@@ -186,21 +185,11 @@ pub fn drive_departures(
         };
         let _ = pending.record(
             boundary.as_deref().map_or(0, |boundary| boundary.current),
-            LifecycleIntent::Transition(RoomTransitionIntent {
-                disposition: Default::default(),
-                source_zone: None,
-                initiator: ambition_platformer2d_session::lifecycle_commit::RoomBodyTransfer {
-                    requirement: ambition_platformer2d_session::lifecycle_commit::BodyTransferRequirement::InPlay,
-                    subject: subject,
-                    arrival: ambition_platformer2d_session::lifecycle_commit::RoomArrival::At(arrival),
-                    participant: driver.map(|driver| driver.0),
-                },
-                companions: Vec::new(),
-                target_room: target,
-                // Finishing a level is not walking off the side of a room.
-                edge_exit: false,
-                zone_sfx: None,
-            }),
+            LifecycleIntent::Transition(RoomTransitionIntent::to_room_spawn(
+                subject,
+                driver.map(|driver| driver.0),
+                destination,
+            )),
         );
     }
 }

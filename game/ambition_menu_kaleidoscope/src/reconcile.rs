@@ -15,7 +15,7 @@ use bevy::ecs::system::SystemParam;
 
 use super::page::{
     active_depth, control_disabled, control_focus_key, control_icon_tint, control_plane_depth,
-    control_visual_state, icon_material, plane_depth, rect_layout, solid_material, spawn_node,
+    control_visual_state, icon_material, layered_panel_depth, plane_depth, rect_layout, solid_material, spawn_node,
     text_depth, text_layout, text_styling, thumb_layout, ControlParts, PlaneDepth, RenderedNode, TextWidthLimit,
 };
 use super::*;
@@ -211,20 +211,22 @@ fn patch_node<Action>(
                 rect: old_rect,
                 color: old_color,
                 action: old_action,
+                layer: old_layer,
             },
             MenuNode::Panel {
                 rect,
                 color,
                 action,
+                layer,
             },
         ) => {
             let mut plane = out.commands.entity(entity);
             if old_rect != rect {
                 plane.insert(rect_layout(*rect));
-                let depth = panel_depth(*rect, action.is_some());
-                if depth != panel_depth(*old_rect, old_action.is_some()) {
-                    plane.insert(plane_depth(depth, active));
-                }
+            }
+            let depth = layered_panel_depth(*rect, action.is_some(), *layer);
+            if depth != layered_panel_depth(*old_rect, old_action.is_some(), *old_layer) {
+                plane.insert(plane_depth(depth, active));
             }
             if old_action != action {
                 if let Some(action) = action {
@@ -241,11 +243,6 @@ fn patch_node<Action>(
                 out.commands.entity(entity).insert(KaleidoscopeFade {
                     base_alpha: color.alpha(),
                 });
-                // An actionable panel wears its control colour, which the focus
-                // recolor derives from its visual state; wake it as a spawn would.
-                if action.is_some() {
-                    wake_visual_state(out.commands, live, entity);
-                }
             }
         }
         (
@@ -457,17 +454,6 @@ fn patch_text_style(
                 base_alpha: color.a,
             },
         ));
-    }
-}
-
-/// Re-insert a control's visual state unchanged, so the in-place recolor runs
-/// for it as it would for a freshly spawned control.
-fn wake_visual_state<Action>(commands: &mut Commands, live: &LiveFaceNodes<Action>, entity: Entity)
-where
-    Action: Send + Sync + 'static,
-{
-    if let Ok(state) = live.visuals.get(entity) {
-        commands.entity(entity).insert(*state);
     }
 }
 

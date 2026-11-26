@@ -85,6 +85,8 @@ pub fn install_unified_menu_shared(app: &mut App) {
     if !app.is_plugin_added::<super::build_label::BuildLabelPlugin>() {
         app.add_plugins(super::build_label::BuildLabelPlugin);
     }
+    #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
+    super::map_pointer::install(app);
     // Publish the focused item's verb (Equip/Use) as the inventory's UiCue so
     // the on-screen menu-confirm control reads the real action. Backend-
     // agnostic (reads the shared KaleidoscopeCursor), and self-gates on the
@@ -1100,6 +1102,7 @@ pub(crate) use scrim::*;
 fn kaleidoscope_focus_nav(
     access: ambition_platformer2d::input::ParticipantContextAccess,
     regions: Query<&super::regions::MenuRegion>,
+    map: Option<Res<ambition_platformer2d::menu::map::MapMenuState>>,
     mut menu_frames: ResMut<ambition_platformer2d::input::SeatMenuFrames>,
     // Features C/D: keyboard navigation CLEARS the explicit scroll override so the
     // System window resumes following the selection cursor (the wheel/drag set it).
@@ -1220,6 +1223,11 @@ fn kaleidoscope_focus_nav(
                 // The cube's System face is a closed list — UP/DOWN wrap around.
                 true,
             );
+            continue;
+        }
+
+        if active_page == MenuPage::Map && map.as_ref().is_some_and(|map| !map.rooms.is_empty()) {
+            super::map_page::navigate(menu_entity, &menu, &mut activated);
             continue;
         }
 
@@ -1893,7 +1901,8 @@ pub(crate) fn focus_without_system_model(
         } else {
             MenuFocus::EdgeRight
         }),
-        MenuPageAction::System(_)
+        MenuPageAction::Map(_)
+        | MenuPageAction::System(_)
         | MenuPageAction::SystemStep(_, _)
         | MenuPageAction::SystemOption(_)
         | MenuPageAction::SystemAction(_)
@@ -1989,6 +1998,7 @@ pub(crate) fn focus_for_action(
         MenuPageAction::CloseSystemEntry => system_row(SystemRow::Back),
         // Back publishes it from the keyboard; no control carries it.
         MenuPageAction::CloseMenu => MenuFocus::System(0),
+        MenuPageAction::Map(_) => MenuFocus::EdgeLeft,
     }
 }
 
@@ -2100,6 +2110,9 @@ fn kaleidoscope_sync_focus_visuals(
         let Some(action) = control.action else {
             continue;
         };
+        if matches!(action, MenuPageAction::Map(_)) {
+            continue;
+        }
         // Only the active face highlights; inactive faces always resolve to `false`
         // (and so get reset), never matched against the cursor.
         let focused = on_active_face && focus_for_action(action, active_page, rows) == cursor.focus;

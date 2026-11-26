@@ -251,6 +251,16 @@ fn pointer_over(interaction: PickingInteraction) -> bool {
 #[derive(bevy::prelude::Resource, Default, Clone, Debug)]
 pub struct MenuFont(pub Option<bevy::text::FontSource>);
 
+const PANEL_WIDTH: f32 = 64.0;
+const PANEL_HEIGHT: f32 = 74.0;
+const TAB_HEIGHT: f32 = 44.0;
+
+/// Get the page size in logical pixels for a menu surface.
+pub fn menu_page_size(surface_size: Vec2) -> Vec2 {
+    (surface_size * Vec2::new(PANEL_WIDTH, PANEL_HEIGHT) * 0.01
+        - Vec2::new(0.0, TAB_HEIGHT)).max(Vec2::ONE)
+}
+
 /// Spawn the flat tabbed menu under a fresh [`BevyUiMenuRoot`] and return its
 /// entity.
 ///
@@ -325,8 +335,8 @@ where
     commands.entity(root).with_children(|root| {
         root.spawn((
             Node {
-                width: Val::Percent(64.0),
-                height: Val::Percent(74.0),
+                width: Val::Percent(PANEL_WIDTH),
+                height: Val::Percent(PANEL_HEIGHT),
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
@@ -344,7 +354,7 @@ where
                 .spawn((
                     Node {
                         width: Val::Percent(100.0),
-                        height: Val::Px(44.0),
+                        height: Val::Px(TAB_HEIGHT),
                         flex_direction: FlexDirection::Row,
                         ..default()
                     },
@@ -454,8 +464,8 @@ where
 /// measured 2026-10-09).
 pub(crate) const CONTROL_TEXT_VH: f32 = 20.0 / 7.2;
 
-const LAYER_CONTROL: i32 = 10;
-const LAYER_TEXT: i32 = 20;
+const LAYER_CONTROL: i32 = 10_000;
+const LAYER_TEXT: i32 = 20_000;
 
 /// The scrollbar track's screen rect `(top_y, height)` in logical pixels,
 /// from its `bevy_ui` layout. Scaled by `inverse_scale_factor` to match the

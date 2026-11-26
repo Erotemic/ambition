@@ -43,6 +43,10 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
         OWNER,
         "message.room_replay_requested",
     );
+    registrar.clear_message_on_rollback::<crate::rooms::RoomTravelRequested>(
+        OWNER,
+        "message.room_travel_requested",
+    );
     registrar.clear_message_on_rollback::<crate::checkpoint::RecoverAtCheckpoint>(
         OWNER,
         "message.recover_at_checkpoint",

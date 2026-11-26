@@ -100,6 +100,11 @@ fn find(rooms: &[MapRoomNode], id: &str) -> Option<usize> {
     rooms.iter().position(|room| room.id == id || room.area == id)
 }
 
+pub(super) fn open_edge(from: &MapRoomNode, to: &MapRoomNode) -> bool {
+    let names = |target: &String| *target == to.id || *target == to.area;
+    from.edge_exits.iter().any(names) && !from.secret_exits.iter().any(names)
+}
+
 /// The rooms joined to `start` by edge exits, `start` first. An exit joins
 /// both ways, whichever side names it.
 pub fn region(rooms: &[MapRoomNode], start: usize) -> Vec<usize> {
@@ -166,14 +171,10 @@ pub fn map_view(state: &MapMenuState, current: &str, aspect: f32) -> Option<MapV
     };
     // An edge exit joins both ways, whichever side names it. An open way is
     // one that is not secret.
-    let is = |t: &String, to: usize| *t == rooms[to].id || *t == rooms[to].area;
-    let names = |from: usize, to: usize| {
-        rooms[from].edge_exits.iter().any(|t| is(t, to)) && !rooms[from].secret_exits.iter().any(|t| is(t, to))
-    };
     let shown: Vec<usize> = region_rooms
         .iter()
         .copied()
-        .filter(|&i| visited(i) || region_rooms.iter().any(|&j| visited(j) && (names(j, i) || names(i, j))))
+        .filter(|&i| visited(i) || region_rooms.iter().any(|&j| visited(j) && (open_edge(&rooms[j], &rooms[i]) || open_edge(&rooms[i], &rooms[j]))))
         .collect();
     let lo = shown.iter().map(|&i| rooms[i].world_min).reduce(Vec2::min)?;
     let hi = shown.iter().map(|&i| rooms[i].world_min + rooms[i].world_size).reduce(Vec2::max)?;

@@ -117,6 +117,7 @@ pub enum MenuNode<Action> {
         rect: MenuRect,
         color: MenuColor,
         action: Option<Action>,
+        layer: Option<f32>,
     },
     Text {
         x: f32,
@@ -349,11 +350,12 @@ impl<PageId, Action> MenuPageModel<PageId, Action> {
     }
 
     pub fn panel(&mut self, rect: MenuRect, color: MenuColor, action: Option<Action>) {
-        self.nodes.push(MenuNode::Panel {
-            rect,
-            color,
-            action,
-        });
+        self.nodes.push(MenuNode::Panel { rect, color, action, layer: None });
+    }
+
+    /// Draw an ordered panel. Larger values in the range 0 to 1 draw in front.
+    pub fn layered_panel(&mut self, rect: MenuRect, color: MenuColor, action: Option<Action>, layer: f32) {
+        self.nodes.push(MenuNode::Panel { rect, color, action, layer: Some(layer.clamp(0.0, 1.0)) });
     }
 
     pub fn text(

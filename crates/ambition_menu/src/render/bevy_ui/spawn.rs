@@ -23,13 +23,28 @@ pub(super) fn spawn_node<Action>(
     Action: Clone + Send + Sync + 'static,
 {
     match node {
-        MenuNode::Panel { rect, color, .. } => {
-            body.spawn((
+        MenuNode::Panel { rect, color, action, layer } => {
+            let order = layer.map_or_else(|| panel_layer(rect), |layer| 3 + (layer * 8192.0).round() as i32);
+            let mut panel = body.spawn((
                 node_from_rect(*rect),
                 BackgroundColor(to_color(*color)),
-                ZIndex(panel_layer(rect)),
+                ZIndex(order),
                 Name::new("panel"),
             ));
+            if let Some(action) = action {
+                panel.insert((
+                    crate::MenuSurface(menu),
+                    Button,
+                    PickingInteraction::None,
+                    AmbitionMenuControl {
+                        kind: MenuControlKind::Action,
+                        action: Some(action.clone()),
+                        focus: focus_key_for(*rect),
+                    },
+                ));
+            } else {
+                panel.insert(Pickable::IGNORE);
+            }
         }
         MenuNode::Text {
             x,

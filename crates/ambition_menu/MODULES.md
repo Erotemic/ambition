@@ -16,4 +16,5 @@ _3 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write
 
 ## Notes
 
-_Hand-written notes live here and survive regeneration: the crate's authoritative state, its seams, and anything the module headers cannot say._
+Use [the map browser](src/map/browser.rs) to build and navigate a map hierarchy.
+Use [the region view](src/map/view.rs) for a local map around the active room.

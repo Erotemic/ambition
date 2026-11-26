@@ -27,6 +27,7 @@ pub(crate) fn republish_kaleidoscope_pages(
         &ambition_platformer2d::inventory_ui::InventoryUiState,
     )>,
     map_page: crate::menu::map_page::MapPageSource,
+    map_browsers: Query<&ambition_platformer2d::menu::map::browser::MapBrowser>,
 ) {
     let Some(owned) = owned else {
         return;
@@ -77,8 +78,8 @@ pub(crate) fn republish_kaleidoscope_pages(
             dev: cache.dev.clone(),
             quality: cache.quality,
             // Only while the menu is open: the map is not built behind gameplay.
-            map: if open {
-                map_page.view(body.map(|body| body.entity))
+            map: if open && pages.active == Some(MenuPage::Map) {
+                map_page.view(body.map(|body| body.entity), map_browsers.get(menu_entity).ok(), crate::menu::map_page::MAP_FRAME_ASPECT)
             } else {
                 None
             },
@@ -167,7 +168,7 @@ pub(crate) struct RebuildKey {
     dev: DevSnapshot,
     quality: Option<VisualQualityProfile>,
     /// The Map page's region, by value (`map_page`).
-    map: Option<ambition_platformer2d::menu::map::view::MapView>,
+    map: Option<ambition_platformer2d::menu::map::browser::MapBrowserView>,
 }
 
 impl RebuildKey {

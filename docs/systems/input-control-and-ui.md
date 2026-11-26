@@ -141,6 +141,32 @@ input while its participant's menu is open. Its model and simulation state
 remain intact. Menu pause restores Playing, Dialogue, or Cutscene after the
 last local menu closes. A local menu does not stop a remote shared timeline.
 
+## Map
+
+The Cube and Grid use the same map page and navigation actions. The first level
+shows the dimensions, including the sandbox. Select a dimension or group to open
+it. Select a room to see its map. Back returns to the parent level. Back at the
+first level closes the menu.
+
+Use the map tools to zoom, pan, or fit the level. Drag on the map to pan. Use the
+wheel or vertical touchpad scroll to zoom. Horizontal touchpad scroll pans
+the map. Directional input selects a room or group.
+Press Up when there is no entry above the selection to reach the map tools.
+Previous and Next can select rooms that overlap or are outside the viewport.
+
+A game supplies room data to `ambition_platformer2d::menu::map::browser::MapAtlas`.
+The LDtk adapter supplies room bounds, world IDs, doors, and pins.
+A game can set world titles and room group paths in `MapHierarchy`. Each path
+can contain any number of groups inside the room's world. `MapBrowser` supplies
+the viewport, selection, and actions for one menu. `MapAccess` supplies visits,
+the current room, and permissions. The view uses fractions of the viewport. A renderer uses these fractions and the entry IDs to draw and
+select the same rooms.
+
+Ambition offers Fast Travel on the room detail page in development builds with
+a local timeline. The host sends a `RoomTravelRequested` intent for the menu
+owner's body. The simulation checks the body and room, then sends the intent to
+the room transition loader. The room's spawn point supplies the destination.
+
 ## Touch
 
 `ambition_touch_input` owns the touch HUD lifecycle and folds virtual controls

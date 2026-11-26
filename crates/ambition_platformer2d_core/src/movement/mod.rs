@@ -68,7 +68,7 @@ pub use authority::{
     shift_frozen_body, transit_body, restore_body_pose, ArrivalMomentum, TransitVelocity,
 };
 pub use collision::{hazard_contact_on_path, touching_hazard_aabb, touching_rebound_aabb};
-pub use events::{BlinkEvent, BodyFrameOutput, BodyReset, BodyStepStamp, FrameEvents, GroundContactTransition, ResetCause};
+pub use events::{BlinkEvent, BodyFrameOutput, BodyReset, BodyStepStamp, FrameEvents, GroundContactTransition, ResetCause, StepContacts};
 pub use facts::{claim_pose_hold, claim_pose_hold_on, release_pose_hold, release_pose_hold_on, BodyMotionFacts, LedgeFacts, PoseHold, PoseOwnedExternally};
 pub use input::{ActionEdges, ActionKey, Edge, InputState, MovementAction};
 /// Screen-vertical input → gravity-relative "descend" intent (the vertical
@@ -903,7 +903,7 @@ pub(crate) fn update_body_with_frame_clusters(
         admission,
     );
     if arriving_out_of_a_launch {
-        for contact in &mut sim_events.contacts {
+        for contact in sim_events.contacts.iter_mut() {
             contact.involuntary = true;
         }
     }

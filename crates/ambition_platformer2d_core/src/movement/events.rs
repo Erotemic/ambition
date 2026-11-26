@@ -1,4 +1,7 @@
-use crate::Vec2;
+use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
+
+use crate::{Vec2, collision_semantics::Contact};
 
 use super::MovementOp;
 
@@ -88,6 +91,85 @@ pub struct BlinkEvent {
     pub precision: bool,
 }
 
+/// Ordered contacts from one movement step. A settled result shares its list
+/// with each step that reuses it. A step that edits contacts gets its own list.
+#[derive(Clone, Debug)]
+pub struct StepContacts(ContactStorage);
+
+#[derive(Clone, Debug)]
+enum ContactStorage {
+    Owned(Vec<Contact>),
+    Shared(Arc<Vec<Contact>>),
+}
+
+impl Default for StepContacts {
+    fn default() -> Self {
+        Vec::new().into()
+    }
+}
+
+impl From<Vec<Contact>> for StepContacts {
+    fn from(contacts: Vec<Contact>) -> Self {
+        Self(ContactStorage::Owned(contacts))
+    }
+}
+
+impl PartialEq for StepContacts {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+
+impl Deref for StepContacts {
+    type Target = Vec<Contact>;
+
+    fn deref(&self) -> &Self::Target {
+        match &self.0 {
+            ContactStorage::Owned(contacts) => contacts,
+            ContactStorage::Shared(contacts) => contacts,
+        }
+    }
+}
+
+impl DerefMut for StepContacts {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match &mut self.0 {
+            ContactStorage::Owned(contacts) => contacts,
+            ContactStorage::Shared(contacts) => Arc::make_mut(contacts),
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a StepContacts {
+    type Item = &'a Contact;
+    type IntoIter = std::slice::Iter<'a, Contact>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl StepContacts {
+    pub(super) fn share(&mut self) {
+        if let ContactStorage::Owned(contacts) = &mut self.0 {
+            if !contacts.is_empty() {
+                self.0 = ContactStorage::Shared(Arc::new(std::mem::take(contacts)));
+            }
+        }
+    }
+
+    fn append(&mut self, other: Self) {
+        if self.is_empty() {
+            *self = other;
+        } else if !other.is_empty() {
+            self.extend(match other.0 {
+                ContactStorage::Owned(contacts) => contacts,
+                ContactStorage::Shared(contacts) => Arc::unwrap_or_clone(contacts),
+            });
+        }
+    }
+}
+
 /// Engine events emitted by one player simulation step.
 #[derive(Clone, Debug, Default)]
 pub struct FrameEvents {
@@ -102,7 +184,7 @@ pub struct FrameEvents {
     /// Presentation and gameplay reactions consume this rather than deriving
     /// edges from default-initialized booleans.
     pub ground_contact: GroundContactTransition,
-    pub contacts: Vec<crate::collision_semantics::Contact>,
+    pub contacts: StepContacts,
     /// Axes on which the solids claiming the body admitted NO position this
     /// step — the body is over-constrained (crushed) between two surfaces. At
     /// most one per world axis.
@@ -131,7 +213,7 @@ impl FrameEvents {
         if other.ground_contact != GroundContactTransition::Unchanged {
             self.ground_contact = other.ground_contact;
         }
-        self.contacts.extend(other.contacts);
+        self.contacts.append(other.contacts);
         self.constraint_conflicts.extend(other.constraint_conflicts);
     }
 }

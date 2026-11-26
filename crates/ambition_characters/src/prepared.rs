@@ -2662,6 +2662,11 @@ impl PreparedCharacterRegistry {
         self.generation
     }
 
+    /// Whether both casts share the same retained definitions.
+    pub fn shares_definitions(&self, other: &Self) -> bool {
+        std::ptr::eq(&*self.definitions, &*other.definitions)
+    }
+
     /// Identity of the retained definitions, independent of local publication history.
     pub fn mechanics_digest(&self) -> Result<u64, ambition_platformer2d_core::snapshot::canonical::Error> {
         self.definitions.digest()

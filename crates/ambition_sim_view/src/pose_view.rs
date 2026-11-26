@@ -555,15 +555,14 @@ impl PoseGeometry {
         let Some(worn) = worn else {
             return Self::Settled;
         };
-        let prepared = registry.map(|r| (r.get(worn.id()).is_some(), r.generation()));
-        let settled = match (granted, prepared) {
-            (Some(kit), Some((has, generation))) => {
-                has && kit.id == worn.id() && kit.generation == generation
+        let settled = match granted {
+            // A grant from this cast records that the cast has this character.
+            Some(kit) => {
+                kit.id == worn.id()
+                    && registry.is_none_or(|cast| kit.generation == cast.generation())
             }
-            (Some(kit), None) => kit.id == worn.id(),
-            // Nothing granted: settled only if there is nothing to grant.
-            (None, Some((has, _))) => !has,
-            (None, None) => true,
+            // A body without a grant can use its own geometry when the cast has no kit.
+            None => registry.is_none_or(|cast| cast.get(worn.id()).is_none()),
         };
         if settled {
             Self::Settled

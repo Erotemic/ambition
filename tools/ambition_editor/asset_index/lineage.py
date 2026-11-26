@@ -143,7 +143,7 @@ def attach(repo: Path, out: Path, assets: dict[str, Any], rows: dict[str, dict],
     def lineage(name: str) -> dict:
         if name not in views:
             record = view.lineage_view(name, lineages[name], store=git_dir, cache=cache, blamer=blamer,
-                                       current=current, ledger=ledger, include_attribution=authorship)
+                                       current=current, ledger=ledger, include_attribution=authorship, catalog=join.rows)
             for era in record["eras"]:
                 src = era.get("still")
                 if src:

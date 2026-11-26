@@ -26,6 +26,10 @@ fragments. Code-authored characters register `CharacterDefinition` values.
 Preparation folds the registered definitions and provider fragments into the
 single runtime value. Read a nearby character that uses the features you need.
 
+For a catalog-owned name, edit `display_name` in the catalog row. Sprite
+metadata can identify the actor with `character_id` and set `display_name` to
+null. An art lineage can use the same `character_id` to title its history.
+
 For a game that defines a character entirely in its catalog, a row specifying
 `locomotion` or `locomotion_preset` participates in character construction. A
 host-code character can register intrinsic facts separately. Avoid duplicating

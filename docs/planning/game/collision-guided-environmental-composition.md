@@ -216,6 +216,8 @@ The Celtic Frontier ramp also needs the `SurfaceChain` points. The points
 give the art generator the height of each rail and support on the ramp.
 The Staging Area scaffold is another case. Pass the ledge spans to the art
 generator so each step gets planks and braces at its landing surface.
+Pass climbable bounds too. The Patent Office gallery needs the ladder's
+width and position to leave a gap in its rail.
 The Tape Room carriage gives its frame size and top anchor in the sprite
 source and again in `platform_looks.ron`. Read these values from the
 published sheet when the platform uses them. Keep the support span an

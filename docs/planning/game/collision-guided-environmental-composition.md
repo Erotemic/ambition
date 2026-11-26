@@ -262,6 +262,8 @@ under the raised entrance. Use the ramp points to place the stone edge
 and the rail.
 At Void Bridge, show the Lizard's facing and the range of the talk prompt
 with the nearest chain posts and tea table.
+At Void Rift, show the shard tops and the top of the hazard. Use the
+hazard bounds to place the pool art below the breakable platforms.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

@@ -26,11 +26,8 @@ use ambition_persistence::settings::audio::AudioSettings;
 /// renderer's selection cursor / dispatched action without allocation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SettingsCategoryId {
-    /// Display mode, camera, flashes, colorblind, FPS overlay — and the whole
-    /// shader / post-process stack, appended after the basic rows. Shaders live
-    /// UNDER Video (not a sibling category) so both frontends agree: the pause
-    /// menu drills `Video > Shaders` as a subpage, and the cube's single-level
-    /// System drill surfaces them flat in the Video screen after the basic rows.
+    /// Display, camera, and effects settings. The renderers can place the
+    /// shader controls on a separate page under Video.
     Video,
     Audio,
     Controls,
@@ -411,3 +408,8 @@ mod tests;
 
 pub use apply::{apply_settings_option, close_menu_option};
 pub use build::settings_menu_model;
+
+/// The shader options in the order defined by their controls.
+pub(crate) fn shader_option_ids() -> impl Iterator<Item = SettingsOptionId> {
+    shader_rows::SHADER_ROWS.iter().map(|row| row.id)
+}

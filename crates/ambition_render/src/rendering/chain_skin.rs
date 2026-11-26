@@ -427,6 +427,11 @@ pub struct ChainTurf {
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ChainTurfDressed;
 
+/// One piece of a theme's trim on a [`ChainTurf`] strip: a picture other
+/// views draw as the 2D view does.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct ChainTurfPiece;
+
 /// The pieces of trim on a segment: for each, how far into the pattern it
 /// starts, its length, and where its middle is from the middle of the
 /// segment, along it.
@@ -572,7 +577,7 @@ pub fn dress_chain_turf(
             };
             strip.with_children(|parent| {
                 for (piece, at) in pieces {
-                    parent.spawn((piece, at, Name::new("Chain turf piece")));
+                    parent.spawn((piece, at, ChainTurfPiece, Name::new("Chain turf piece")));
                 }
             });
         });

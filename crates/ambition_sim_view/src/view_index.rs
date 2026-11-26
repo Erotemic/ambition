@@ -382,6 +382,8 @@ pub fn rebuild_feature_view_index(
     // No feel tuning means no hitlag law to measure against: every body reports
     // no strength rather than a number derived from a reference nobody set.
     let hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
+    let default_shield = ae::BodyShieldState::default();
+    let default_combat = ambition_characters::actor::BodyCombat::default();
     for (entity, id, aabb, collected) in &pickups {
         index.insert_if_absent(
             id.as_str(),
@@ -585,6 +587,12 @@ pub fn rebuild_feature_view_index(
                 && ambition_combat::moveset::melee_swing_of(playback, moveset)
                     .is_some_and(|a| a.is_winding_up() || a.is_active()));
         let render_size = kinematics.canonical_size;
+        let invulnerable = health.map_or_else(
+            ambition_characters::actor::Invulnerability::none,
+            |health| health.health.invulnerable,
+        );
+        let shield_state = shield.unwrap_or(&default_shield);
+        let combat_state = combat.unwrap_or(&default_combat);
         index.insert_if_absent(
             id.as_str(),
             FeatureView {
@@ -636,30 +644,26 @@ pub fn rebuild_feature_view_index(
                 armored: playback.is_some_and(|pb| {
                     !matches!(pb.armor_now(), ambition_characters::actor::ArmorPolicy::None)
                 }),
-                hit_strength: ae::hit_response::hit_strength_fraction(
+                hit_strength: crate::defense_view::hit_strength(
+                    entity,
                     combat.map_or(0.0, |c| c.hitstop_timer),
-                    rules
-                        .of(entity)
-                        .map_or(hitlag_reference, |rules| rules.hitlag.reference_s(hitlag_reference)),
+                    &rules,
+                    hitlag_reference,
                 ),
                 // THE DAMAGE RULE ITSELF, inverted — not a second reading of
                 // it. A body missing one of these clusters cannot be protected
                 // by it, so the default stands in.
                 unhittable: !ambition_combat::util::body_vulnerable(
-                    health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
-                        h.health.invulnerable
-                    }),
+                    invulnerable,
                     motion.is_some_and(|m| m.evading()),
-                    &shield.copied().unwrap_or_default(),
-                    &combat.copied().unwrap_or_default(),
+                    shield_state,
+                    combat_state,
                 ),
                 defense_cues: crate::defense_cue_causes(
-                    health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
-                        h.health.invulnerable
-                    }),
+                    invulnerable,
                     motion,
-                    &shield.copied().unwrap_or_default(),
-                    &combat.copied().unwrap_or_default(),
+                    shield_state,
+                    combat_state,
                     respawn_grace,
                 ),
                 sprite_offset: sprite_offset.map(|o| o.0),

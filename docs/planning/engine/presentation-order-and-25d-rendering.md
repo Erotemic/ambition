@@ -683,9 +683,56 @@ shared value preparation are sufficient until source proves otherwise.
    The portal's view of its far side (P5/P6, the window over the play
    plane) is not drawn here.
 
-   Still unrealized in the card view: the portal far-side window (P5/P6), the grass turf
-   pieces on a line (sprites, `ChainTurf`), room dressing props, and the
-   parallax backdrop.
+   **Room scenery (2026-11-26).** A room's props (`PropVisual`) and the
+   trim pieces on its lines (now marked `ChainTurfPiece`) are cards of the
+   cells the 2D view draws, at their 2D places (`realize_card_scenery`).
+   Their order is the 2D view's, band by band:
+   - backdrop props (2D z −12..−10) behind a vessel's back panel
+     (`BACKDROP_DEPTH`, −45);
+   - the turf (2D z 2) just in front of the block skin's layers
+     (`TURF_DEPTH`, −0.4);
+   - scenery props, doors and climbables (2D z 10.55..10.97) in front of
+     the turf and behind the portal line (`SCENERY_DEPTH`, −0.35, plus their
+     2D order);
+   - what 2D draws in front of its bodies (a prop that hides a body, a near
+     lane's turf) one body step in front of the front-most body.
+
+   They use the 2D blend: a prop picture has soft edges, and a mask would
+   make hard cutouts of them. A prop ranked as a body (a bound feature) is
+   left to the bodies. Only a prop's own sprite is drawn: a prop that draws
+   extra art on child sprites shows its root picture alone. Witness
+   `a_rooms_props_and_turf_are_cards_in_the_2d_order` covers each band's
+   depth and the order skin < turf < scenery < portal < bodies. No card is
+   made for a hidden prop, the actor prop is a body, and a despawned prop
+   takes its card with it. Render lib with `card_view,portal_render`: 6
+   card-view tests passed. Capture `intro_fell player --card-view
+   --player-beside npc_fell_sheep`: the hill in the card view now has its
+   grass cap (bare earth before), and the flowering gorse prop stands on
+   the slope at the panel's edge.
+
+   **Parallax backdrop (2026-11-26).** The 2D view draws a room's parallax
+   panels (`ParallaxLayerVisual`) for each view, relative to that view's
+   centre (`sync_parallax_layers`). A flat card behind a turned camera would
+   slide sideways with its depth, so a panel is instead a card facing the
+   view's card camera (`realize_card_backdrop`, `backdrop_card_place`). It
+   stands along the camera's view, 1 500 behind the play plane (further
+   back for a layer further back in 2D), inside the camera's far plane.
+   A foreground layer stands 1 000 in front of the plane. Its offset from
+   the view's centre and its size are the 2D ones times `1 / zoom`, since
+   the card view shows `1 / zoom` of the 2D view's width. So the card view
+   frames the backdrop as the 2D view does. Only the panels the 2D view
+   draws for that view are used (shown, and kept for it or for no view);
+   portal capture copies are left to their capture cameras. Witness
+   `a_parallax_panel_is_a_card_facing_the_card_camera`: a background
+   panel 200 right of the centre is a card at 80 right, 1 516 behind, facing
+   the camera, at scale 0.4, and a foreground one is in front. A panel kept
+   for another view, or hidden, makes no card. Render lib with
+   `card_view,portal_render`: 7 card-view tests passed. The `intro_fell`
+   capture's card view shows the sky, its clouds, the distant hills,
+   windmills and the triangle gate behind the shepherd, the sheep and
+   Scout, where before it was black.
+
+   Still unrealized in the card view: the portal far-side window (P5/P6).
 
 PO1 can proceed before RV1/RV2. The scale-law work can proceed independently;
 both renderers must consume the resulting authoritative material and poses.

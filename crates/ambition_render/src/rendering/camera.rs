@@ -135,6 +135,12 @@ impl PresentedViewFrames {
     pub fn of(&self, view: Entity) -> Option<&PresentedViewFrame> {
         self.0.iter().find(|(entity, _)| *entity == view).map(|(_, frame)| frame)
     }
+
+    /// Frames for a test that has no camera stage.
+    #[cfg(test)]
+    pub(crate) fn of_views(frames: Vec<(Entity, PresentedViewFrame)>) -> Self {
+        Self(frames)
+    }
 }
 
 /// Present the sim-resolved camera snapshot of each view some gameplay camera

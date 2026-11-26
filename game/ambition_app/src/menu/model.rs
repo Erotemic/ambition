@@ -746,7 +746,7 @@ fn system_focus_index(focus: MenuFocus, row_count: usize) -> usize {
 /// one source of truth.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SystemRow {
-    /// A top-level entry row (drill in / fire its action on select).
+    /// An entry row that opens a screen or runs an action.
     Entry(SystemMenuEntryId),
     /// A settings option row inside an open settings screen (apply on select).
     Setting(SettingsOptionId),
@@ -819,6 +819,7 @@ pub fn system_rows_with_quality_prompt(
                 // An Action entry never opens a screen; defensively empty.
                 SystemMenuTarget::Action(_) => Vec::new(),
             };
+            rows.extend(model.children(entry.id).map(|child| SystemRow::Entry(child.id)));
             rows.push(SystemRow::Back);
             rows
         }
@@ -846,7 +847,7 @@ pub fn system_menu_model_with_pending_quality(
 
 /// Look up a settings option's live IR entry by id from the live model.
 fn setting_entry(model: &SystemMenuModel, id: SettingsOptionId) -> Option<SettingsOption> {
-    model.entries.iter().find_map(|e| match &e.target {
+    model.all_entries().find_map(|e| match &e.target {
         SystemMenuTarget::Settings(options) => options.iter().find(|o| o.id == id).cloned(),
         _ => None,
     })

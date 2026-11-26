@@ -60,7 +60,27 @@
 //! between the same two parts here as there; an item placed at no hand (an
 //! absolute 2D depth) is held to its body's own band.
 //!
-//! # Not yet realized (RV3)
+//! # Room scenery
+//!
+//! A room's props ([`PropVisual`]) and the trim pieces on its lines
+//! ([`ChainTurfPiece`]) are cards of the cells the 2D view draws, at their
+//! 2D places, in the 2D view's order: backdrop props behind a vessel's back
+//! panel ([`BACKDROP_DEPTH`]); the turf just in front of the block skin
+//! ([`TURF_DEPTH`]); scenery props in front of the turf and behind the
+//! portal line ([`SCENERY_DEPTH`]), in their 2D order; and what the 2D view
+//! draws in front of its bodies (a prop that hides a body, a near lane's
+//! turf) one [`CARD_BODY_STEP`] in front of the front-most body. A prop
+//! drawn as a body is a body here.
+//!
+//! # The parallax backdrop
+//!
+//! The room's parallax panels ([`ParallaxLayerVisual`]) are drawn for each
+//! view by the 2D view's own rule, relative to the view's centre. Here each
+//! panel the 2D view draws for a view is a card facing that view's card
+//! camera, far behind the play plane (a foreground layer: in front of it),
+//! at its 2D offset from the view's centre scaled as the card view scales
+//! the view (`1 / zoom`). The card view frames the backdrop as the 2D view
+//! does, however its camera turns.
 //!
 //! # Portals
 //!
@@ -72,8 +92,7 @@
 //!
 //! # Not yet realized (RV3)
 //!
-//! The gate cue's scanlines (drawn as its flat tint), a portal's far side,
-//! the grass turf of a line, room dressing props and the parallax backdrop
+//! The gate cue's scanlines (drawn as its flat tint) and a portal's far side
 //! are not drawn in this view.
 
 use std::collections::HashMap;
@@ -98,7 +117,9 @@ use super::hit_flash::PresentedFlash;
 use super::posed_hand::HeldArtOf;
 use super::camera::{PresentedViewFrame, PresentedViewFrames, ViewCameraSet};
 use super::moving_platforms::{PresentedVessels, SeatedInVessel, VesselBox};
-use super::chain_skin::ChainEarth;
+use super::chain_skin::{ChainEarth, ChainTurfPiece};
+use super::parallax::{ParallaxLayerVisual, FOREGROUND_PARALLAX_Z};
+use super::primitives::PropVisual;
 use super::terrain_skin::TerrainSkinMesh;
 
 /// How deep a vessel's bed is, in world units: the pilot cart's authored
@@ -124,6 +145,20 @@ pub const TERRAIN_DEPTH: f32 = -0.5;
 const EARTH_BEHIND_SKIN: f32 = 0.1;
 /// A portal's line of light: in front of the terrain, behind the bodies.
 pub const PORTAL_DEPTH: f32 = -0.25;
+/// A line's turf: in front of the block skin's layers, behind the scenery.
+pub const TURF_DEPTH: f32 = TERRAIN_DEPTH + 0.1;
+/// The back of the scenery props' band: in front of the turf, behind the
+/// portal line. A prop's place in the band is its 2D order.
+pub const SCENERY_DEPTH: f32 = TERRAIN_DEPTH + 0.15;
+/// Backdrop props: behind a vessel's back panel.
+pub const BACKDROP_DEPTH: f32 = -(VESSEL_DEPTH + 5.0);
+/// How much card depth one unit of 2D depth inside a band is.
+const BAND_ORDER_SCALE: f32 = 0.1;
+/// How far behind the play plane, along a card camera's view, the parallax
+/// backdrop stands; a layer further back in 2D is further back here.
+const BACKDROP_DISTANCE: f32 = 1500.0;
+/// How far in front of the play plane a foreground parallax layer stands.
+const FOREGROUND_DISTANCE: f32 = 1000.0;
 /// The width of a portal's line of light, in world units.
 pub const PORTAL_LINE_WIDTH: f32 = 3.0;
 /// The near panel's distance behind the play plane.
@@ -194,6 +229,14 @@ pub struct CardPortal;
 #[derive(Component)]
 pub struct CardSpriteBody;
 
+/// The card of a room prop or a piece of a line's turf.
+#[derive(Component)]
+pub struct CardScenery;
+
+/// The card of one parallax panel for one card camera.
+#[derive(Component)]
+pub struct CardBackdrop;
+
 /// A 2D sprite that draws a whole body from a sheet: a player or an actor.
 type SpriteBodyFilter = (
     With<Sprite>,
@@ -228,6 +271,7 @@ impl Plugin for CardViewPlugin {
                 realize_card_held_art,
                 realize_card_vessels,
                 realize_card_terrain,
+                realize_card_scenery,
             )
                 .chain()
                 .after(ViewCameraSet)
@@ -237,6 +281,12 @@ impl Plugin for CardViewPlugin {
                 .after(super::item_visuals::sync_held_item_visual)
                 .after(super::wielded_item_visuals::sync_wielded_item_visuals)
                 .after(super::moving_platforms::seat_bodies_in_vessels),
+        );
+        app.add_systems(
+            Update,
+            realize_card_backdrop
+                .after(place_card_view_cameras)
+                .after(super::parallax::sync_parallax_layers),
         );
         #[cfg(feature = "portal_render")]
         app.add_systems(
@@ -806,7 +856,7 @@ pub fn realize_card_held_art(
             }
             continue;
         };
-        let (mesh, material) = sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
+        let (mesh, material) = sprite_card(sprite, &frame, page_size, false, &mut meshes, &mut materials, &mut cache);
         let card_place = sprite_card_place(sprite, place, depth + held_art_card_offset(place.translation.z, root_z));
         match by_art.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
             Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
@@ -866,6 +916,7 @@ fn sprite_card(
     sprite: &Sprite,
     frame: &BakedFrame,
     page_size: Vec2,
+    blend: bool,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
     cache: &mut CardMeshes,
@@ -876,7 +927,7 @@ fn sprite_card(
         .or_insert_with(|| meshes.add(baked_quad(frame, page_size)))
         .clone();
     let color = sprite.color.to_srgba().to_u8_array();
-    let blended = color[3] < 255;
+    let blended = blend || color[3] < 255;
     let material = cache
         .materials
         .entry((frame.image.id(), color, blended))
@@ -950,7 +1001,7 @@ pub fn realize_card_sprite_bodies(
             }
             continue;
         };
-        let (mesh, material) = sprite_card(sprite, &frame, page_size, &mut meshes, &mut materials, &mut cache);
+        let (mesh, material) = sprite_card(sprite, &frame, page_size, false, &mut meshes, &mut materials, &mut cache);
         let card_place = sprite_card_place(sprite, place, depth);
         match by_body.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
             Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
@@ -1077,6 +1128,214 @@ pub fn realize_card_terrain(
                     ))
                     .id();
                 by_mesh.insert(entity, card);
+            }
+        }
+    }
+}
+
+/// The card depth of scenery the 2D view draws at `z`, with `front` the
+/// depth just in front of the front-most body.
+fn scenery_depth(z: f32, front: f32) -> f32 {
+    use ambition_platformer2d_core::config::{WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+    if z >= WORLD_Z_PLAYER {
+        front + (z - WORLD_Z_PLAYER) * BAND_ORDER_SCALE
+    } else if z >= WORLD_Z_DUMMY {
+        SCENERY_DEPTH + (z - WORLD_Z_DUMMY) * BAND_ORDER_SCALE
+    } else if z >= WORLD_Z_BLOCK {
+        TURF_DEPTH
+    } else {
+        BACKDROP_DEPTH + (z - WORLD_Z_BLOCK) * BAND_ORDER_SCALE
+    }
+}
+
+/// Realize each room prop and each piece of a line's turf as a card of the
+/// cell it draws, at its 2D place, on the depth its 2D band maps to
+/// ([`scenery_depth`]). A prop ranked as a body is left to the bodies.
+#[allow(clippy::too_many_arguments)]
+pub fn realize_card_scenery(
+    mut commands: Commands,
+    scenery: Query<
+        (Entity, &Sprite, Option<&bevy::sprite::Anchor>, &GlobalTransform, Option<&InheritedVisibility>),
+        (Or<(With<PropVisual>, With<ChainTurfPiece>)>, Without<CardScenery>),
+    >,
+    depths: Res<CardRootDepths>,
+    mut cards: Query<
+        (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut Visibility),
+        (With<CardScenery>, Without<Sprite>),
+    >,
+    images: Option<Res<Assets<Image>>>,
+    meshes: Option<ResMut<Assets<Mesh>>>,
+    materials: Option<ResMut<Assets<StandardMaterial>>>,
+    layouts: Option<Res<Assets<TextureAtlasLayout>>>,
+    mut cache: ResMut<CardMeshes>,
+    mut by_source: Local<HashMap<Entity, Entity>>,
+) {
+    let (Some(images), Some(mut meshes), Some(mut materials)) = (images, meshes, materials) else {
+        return;
+    };
+    by_source.retain(|source, card| {
+        let keep = scenery.contains(*source);
+        if !keep {
+            commands.entity(*card).try_despawn();
+        }
+        keep
+    });
+    let front = depths.0.values().map(|(depth, _)| *depth).fold(0.0, f32::max) + CARD_BODY_STEP;
+    for (entity, sprite, anchor, global, visibility) in &scenery {
+        let shown = visibility.is_none_or(|visibility| visibility.get())
+            && sprite.color.alpha() > 0.0
+            && !depths.0.contains_key(&entity);
+        let Some((frame, page_size)) =
+            sprite_frame(sprite, anchor, &images, layouts.as_deref()).filter(|_| shown)
+        else {
+            if let Some((.., mut card_visibility)) = by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
+                card_visibility.set_if_neq(Visibility::Hidden);
+            }
+            continue;
+        };
+        let (mesh, material) =
+            sprite_card(sprite, &frame, page_size, true, &mut meshes, &mut materials, &mut cache);
+        let (scale, rotation, translation) = global.to_scale_rotation_translation();
+        let card_place = sprite_card_place(
+            sprite,
+            &Transform { translation, rotation, scale },
+            scenery_depth(translation.z, front),
+        );
+        match by_source.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
+            Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
+                if card_mesh.0 != mesh {
+                    card_mesh.0 = mesh;
+                }
+                if card_material.0 != material {
+                    card_material.0 = material;
+                }
+                transform.set_if_neq(card_place);
+                card_visibility.set_if_neq(Visibility::Inherited);
+            }
+            None => {
+                let card = commands
+                    .spawn((
+                        CardScenery,
+                        Mesh3d(mesh),
+                        MeshMaterial3d(material),
+                        card_place,
+                        Visibility::Inherited,
+                        RenderLayers::layer(CARD_VIEW_LAYER),
+                        Name::new("Card scenery"),
+                    ))
+                    .id();
+                by_source.insert(entity, card);
+            }
+        }
+    }
+}
+
+/// Where a parallax panel's card stands for a card camera: facing the
+/// camera, along its view from the view's centre `target`, at the panel's 2D
+/// offset from that centre scaled by `scale`; behind the play plane for a
+/// background layer, in front of it for a foreground one.
+pub fn backdrop_card_place(camera: &Transform, target: Vec2, panel: Vec2, layer_z: f32, scale: f32) -> Transform {
+    let along = if layer_z < FOREGROUND_PARALLAX_Z {
+        -(BACKDROP_DISTANCE - layer_z)
+    } else {
+        FOREGROUND_DISTANCE + (layer_z - FOREGROUND_PARALLAX_Z) * BAND_ORDER_SCALE
+    };
+    let offset = (panel - target) * scale;
+    let rotation = camera.rotation;
+    Transform {
+        translation: target.extend(0.0) + rotation * Vec3::new(offset.x, offset.y, along),
+        rotation,
+        scale: Vec3::new(scale, scale, 1.0),
+    }
+}
+
+/// Realize each parallax panel the 2D view draws for a view as a card facing
+/// that view's card camera ([`backdrop_card_place`]).
+#[allow(clippy::too_many_arguments)]
+pub fn realize_card_backdrop(
+    mut commands: Commands,
+    frames: Res<PresentedViewFrames>,
+    settings: Res<CardViewSettings>,
+    cameras: Query<(Entity, &Transform, &ambition_sim_view::PresentsView), With<CardViewCamera>>,
+    panels: Query<
+        (
+            Entity,
+            &Sprite,
+            Option<&bevy::sprite::Anchor>,
+            &Transform,
+            &ParallaxLayerVisual,
+            &Visibility,
+            Option<&ambition_sim_view::PresentedForView>,
+        ),
+        (Without<CardBackdrop>, Without<super::parallax::PortalCaptureParallaxLayerVisual>),
+    >,
+    mut cards: Query<
+        (&mut Mesh3d, &mut MeshMaterial3d<StandardMaterial>, &mut Transform, &mut Visibility),
+        (With<CardBackdrop>, Without<Sprite>, Without<CardViewCamera>),
+    >,
+    images: Option<Res<Assets<Image>>>,
+    meshes: Option<ResMut<Assets<Mesh>>>,
+    materials: Option<ResMut<Assets<StandardMaterial>>>,
+    layouts: Option<Res<Assets<TextureAtlasLayout>>>,
+    mut cache: ResMut<CardMeshes>,
+    mut by_panel: Local<HashMap<(Entity, Entity), Entity>>,
+) {
+    let (Some(images), Some(mut meshes), Some(mut materials)) = (images, meshes, materials) else {
+        return;
+    };
+    by_panel.retain(|(panel, camera), card| {
+        let keep = panels.contains(*panel) && cameras.contains(*camera);
+        if !keep {
+            commands.entity(*card).try_despawn();
+        }
+        keep
+    });
+    let scale = 1.0 / settings.zoom.max(0.05);
+    for (camera, camera_place, presents) in &cameras {
+        let frame = frames.of(presents.0);
+        for (panel, sprite, anchor, place, layer, visibility, key) in &panels {
+            // The panel the 2D view draws for this camera's view: shown, and
+            // kept for that view (or for no view in particular).
+            let drawn = *visibility != Visibility::Hidden && key.is_none_or(|key| key.0 == presents.0);
+            let made = frame.filter(|_| drawn).and_then(|frame| {
+                Some((frame, sprite_frame(sprite, anchor, &images, layouts.as_deref())?))
+            });
+            let Some((frame, (cell, page_size))) = made else {
+                if let Some((.., mut card_visibility)) =
+                    by_panel.get(&(panel, camera)).and_then(|card| cards.get_mut(*card).ok())
+                {
+                    card_visibility.set_if_neq(Visibility::Hidden);
+                }
+                continue;
+            };
+            let (mesh, material) = sprite_card(sprite, &cell, page_size, true, &mut meshes, &mut materials, &mut cache);
+            let card_place =
+                backdrop_card_place(camera_place, frame.plane_center, place.translation.truncate(), layer.z, scale);
+            match by_panel.get(&(panel, camera)).and_then(|card| cards.get_mut(*card).ok()) {
+                Some((mut card_mesh, mut card_material, mut transform, mut card_visibility)) => {
+                    if card_mesh.0 != mesh {
+                        card_mesh.0 = mesh;
+                    }
+                    if card_material.0 != material {
+                        card_material.0 = material;
+                    }
+                    transform.set_if_neq(card_place);
+                    card_visibility.set_if_neq(Visibility::Inherited);
+                }
+                None => {
+                    let card = commands
+                        .spawn((
+                            CardBackdrop,
+                            Mesh3d(mesh),
+                            MeshMaterial3d(material),
+                            card_place,
+                            Visibility::Inherited,
+                            RenderLayers::layer(CARD_VIEW_LAYER),
+                            Name::new("Card backdrop"),
+                        ))
+                        .id();
+                    by_panel.insert((panel, camera), card);
+                }
             }
         }
     }
@@ -1366,6 +1625,143 @@ mod tests {
         app.world_mut().entity_mut(cap).despawn();
         app.update();
         assert_eq!(shown(&mut app).len(), 1, "a mesh that goes takes its card");
+    }
+
+    /// RV3: a room's props and its turf are cards at their 2D places, in the
+    /// 2D view's order: a backdrop prop behind the cart's back panel, the
+    /// turf in front of the block skin, a scenery prop in front of the turf
+    /// and behind the portal line, and a prop that hides bodies in front of
+    /// the front-most body. A hidden prop shows none, a prop drawn as a body
+    /// is a body, and a prop that goes takes its card with it.
+    #[test]
+    fn a_rooms_props_and_turf_are_cards_in_the_2d_order() {
+        let mut app = App::new();
+        app.init_resource::<Assets<Image>>()
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<Assets<TextureAtlasLayout>>()
+            .init_resource::<CardMeshes>()
+            .init_resource::<CardRootDepths>()
+            .add_systems(Update, (realize_card_bodies, realize_card_sprite_bodies, realize_card_scenery).chain());
+        let image = app.world_mut().resource_mut::<Assets<Image>>().add(Image::default());
+        let sprite = |at: Vec3| {
+            (
+                Sprite { image: image.clone(), custom_size: Some(Vec2::new(16.0, 24.0)), ..default() },
+                Transform::from_translation(at),
+                GlobalTransform::from_translation(at),
+                InheritedVisibility::VISIBLE,
+            )
+        };
+        let prop = || PropVisual {
+            id: "prop".into(),
+            kind: "fence".into(),
+            name: "Fence".into(),
+            size: Vec2::new(16.0, 24.0),
+            draw: Default::default(),
+            flip_y: false,
+        };
+        app.world_mut().spawn((sprite(Vec3::new(0.0, 0.0, 20.0)), PlayerVisual));
+        let scenery = app.world_mut().spawn((sprite(Vec3::new(10.0, 0.0, 10.6)), prop())).id();
+        app.world_mut().spawn((sprite(Vec3::new(20.0, 0.0, 21.75)), prop()));
+        app.world_mut().spawn((sprite(Vec3::new(30.0, 0.0, -11.0)), prop()));
+        app.world_mut().spawn((sprite(Vec3::new(40.0, 0.0, 2.01)), ChainTurfPiece));
+        app.world_mut().spawn((sprite(Vec3::new(50.0, 0.0, 10.7)), prop())).insert(InheritedVisibility::HIDDEN);
+        app.world_mut().spawn((
+            sprite(Vec3::new(60.0, 0.0, 19.0)),
+            prop(),
+            BoundFeatureKind::new(FeatureVisualKind::Actor, Vec2::new(16.0, 24.0)),
+        ));
+        app.update();
+        let shown = |app: &mut App| {
+            let world = app.world_mut();
+            let mut cards = world.query_filtered::<(&Transform, &Visibility), With<CardScenery>>();
+            let mut found: Vec<Vec3> = cards
+                .iter(world)
+                .filter(|(_, visibility)| **visibility != Visibility::Hidden)
+                .map(|(place, _)| place.translation)
+                .collect();
+            found.sort_by(|a, b| a.x.total_cmp(&b.x));
+            found
+        };
+        let found = shown(&mut app);
+        let xs: Vec<f32> = found.iter().map(|at| at.x).collect();
+        assert_eq!(xs, vec![10.0, 20.0, 30.0, 40.0], "no hidden prop, and the actor prop is a body");
+        let depth = |x: f32| found.iter().find(|at| at.x == x).unwrap().z;
+        let front = card_body_depth(false, 1) + CARD_BODY_STEP;
+        let near = |a: f32, b: f32| (a - b).abs() < 1e-4;
+        assert!(near(depth(10.0), SCENERY_DEPTH + 0.06), "scenery in its band: {}", depth(10.0));
+        assert!(near(depth(20.0), front + 0.175), "in front of the front-most body: {}", depth(20.0));
+        assert!(near(depth(30.0), BACKDROP_DEPTH - 1.1), "backdrop: {}", depth(30.0));
+        assert!(near(depth(40.0), TURF_DEPTH), "turf: {}", depth(40.0));
+        assert!(depth(30.0) < -VESSEL_DEPTH, "a backdrop is behind the cart's back panel");
+        assert!(TERRAIN_DEPTH + 0.04 < depth(40.0) && depth(40.0) < depth(10.0) && depth(10.0) < PORTAL_DEPTH,
+            "skin, turf, scenery, then the portal line");
+        assert!(PORTAL_DEPTH < card_body_depth(false, 0), "behind the bodies");
+        let mut bodies = app.world_mut().query_filtered::<(), With<CardSpriteBody>>();
+        assert_eq!(bodies.iter(app.world()).count(), 2, "the player and the actor prop");
+        app.world_mut().entity_mut(scenery).despawn();
+        app.update();
+        assert_eq!(shown(&mut app).len(), 3, "a prop that goes takes its card");
+    }
+
+    /// RV3: a parallax panel the 2D view draws for a view is a card facing
+    /// that view's card camera, far behind the play plane at its 2D offset
+    /// from the view's centre scaled by `1 / zoom`; a foreground layer is in
+    /// front of the play plane. A panel kept for another view, or hidden,
+    /// shows none here.
+    #[test]
+    fn a_parallax_panel_is_a_card_facing_the_card_camera() {
+        let mut app = App::new();
+        app.init_resource::<Assets<Image>>()
+            .init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<Assets<TextureAtlasLayout>>()
+            .init_resource::<CardMeshes>()
+            .init_resource::<CardViewSettings>()
+            .add_systems(Update, realize_card_backdrop);
+        let view = app.world_mut().spawn_empty().id();
+        let other = app.world_mut().spawn_empty().id();
+        let frame = super::super::camera::PresentedViewFrame {
+            room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
+            plane_center: Vec2::new(100.0, 50.0),
+            roll_radians: 0.0,
+            orthographic_scale: 1.0,
+        };
+        app.insert_resource(PresentedViewFrames::of_views(vec![(view, frame)]));
+        let settings = CardViewSettings::default();
+        let camera_place = card_camera_transform(&frame, &settings);
+        app.world_mut().spawn((CardViewCamera, camera_place, ambition_sim_view::PresentsView(view)));
+        let image = app.world_mut().resource_mut::<Assets<Image>>().add(Image::default());
+        let panel = |at: Vec2, z: f32, key: Entity| {
+            (
+                Sprite { image: image.clone(), custom_size: Some(Vec2::splat(900.0)), ..default() },
+                Transform::from_translation(at.extend(z)),
+                ParallaxLayerVisual { factor: Vec2::splat(0.5), z, panel_scale: 1.5, travel: Vec2::ZERO, world_size: Vec2::splat(2000.0) },
+                Visibility::Inherited,
+                ambition_sim_view::PresentedForView(key),
+            )
+        };
+        app.world_mut().spawn(panel(Vec2::new(300.0, 50.0), -16.0, view));
+        app.world_mut().spawn(panel(Vec2::new(100.0, 150.0), 50.0, view));
+        app.world_mut().spawn(panel(Vec2::new(100.0, 50.0), -17.0, other));
+        app.world_mut().spawn(panel(Vec2::new(100.0, 50.0), -18.0, view)).insert(Visibility::Hidden);
+        app.update();
+        let world = app.world_mut();
+        let mut cards = world.query_filtered::<(&Transform, &Visibility), With<CardBackdrop>>();
+        let shown: Vec<Transform> =
+            cards.iter(world).filter(|(_, v)| **v != Visibility::Hidden).map(|(place, _)| *place).collect();
+        assert_eq!(shown.len(), 2, "the two panels drawn for this view: {shown:?}");
+        let target = frame.plane_center.extend(0.0);
+        let rotation = camera_place.rotation;
+        let local = |place: &Transform| rotation.inverse() * (place.translation - target);
+        let back = shown.iter().find(|place| local(place).z < 0.0).expect("a background card");
+        let front = shown.iter().find(|place| local(place).z > 0.0).expect("a foreground card");
+        let scale = 1.0 / settings.zoom;
+        assert!(local(back).distance(Vec3::new(200.0 * scale, 0.0, -(BACKDROP_DISTANCE + 16.0))) < 1e-2, "{:?}", local(back));
+        assert!(local(front).distance(Vec3::new(0.0, 100.0 * scale, FOREGROUND_DISTANCE + 0.5)) < 1e-2, "{:?}", local(front));
+        assert!(back.rotation.angle_between(rotation) < 1e-5, "facing the card camera");
+        assert_eq!(back.scale, Vec3::new(scale, scale, 1.0));
+        assert!(local(back).z.abs() < CAMERA_DISTANCE, "inside the camera's far plane");
     }
 
     /// RV3: a portal is a thin card along its opening at its glow's place

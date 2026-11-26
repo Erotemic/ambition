@@ -179,37 +179,15 @@ fn shaders_screen_reaches_every_shader_option() {
         &RadioSnapshot::default(),
         &DevSnapshot::default(),
     );
-    // Shaders now live UNDER Video (flat, after the basic Video rows) — there
-    // is no separate Shaders entry. Assert every shader option is reachable on
-    // the Video screen, in pause-menu order.
-    let video = model.entry(SystemMenuEntryId::Video).unwrap();
-    let SystemMenuTarget::Settings(options) = &video.target else {
-        panic!("video drills into a settings screen");
+    let shaders = SystemMenuEntryId::Shaders;
+    assert!(!model.entries.iter().any(|entry| entry.id == shaders));
+    assert_eq!(model.children(SystemMenuEntryId::Video).map(|entry| entry.id).collect::<Vec<_>>(), vec![shaders]);
+    let SystemMenuTarget::Settings(options) = &model.entry(shaders).unwrap().target else {
+        panic!("Shaders opens a settings screen");
     };
-    let shader_ids: Vec<_> = options
-        .iter()
-        .map(|o| o.id)
-        .filter(|id| {
-            !matches!(
-                id,
-                SettingsOptionId::DisplayMode
-                    | SettingsOptionId::CameraZoom
-                    | SettingsOptionId::CameraAspect
-                    | SettingsOptionId::CameraFraming
-                    | SettingsOptionId::ViewShape
-                    | SettingsOptionId::LocalViewLayout
-                    | SettingsOptionId::Flashes
-                    | SettingsOptionId::PortalWindows
-                    | SettingsOptionId::Colorblind
-                    | SettingsOptionId::ShowFps
-                    | SettingsOptionId::FramePacing
-                    | SettingsOptionId::Vsync
-                    | SettingsOptionId::VisualQuality
-            )
-        })
-        .collect();
-    // The whole `Video > Shaders` pause-menu subpage is reachable on the cube,
-    // now nested under Video.
+    let shader_ids: Vec<_> = options.iter().map(|option| option.id).collect();
+    let video = screen_ids(&model, SystemMenuEntryId::Video);
+    assert!(shader_ids.iter().all(|id| !video.contains(id)));
     assert_eq!(
         shader_ids,
         vec![
@@ -236,7 +214,7 @@ fn shaders_screen_reaches_every_shader_option() {
         ]
     );
     // Shader rows use the same sliders in both menu backends.
-    for o in options.iter().filter(|option| shader_ids.contains(&option.id)) {
+    for o in options {
         assert!(matches!(o.kind, SettingsOptionKind::Slider { .. }));
     }
 }
@@ -257,7 +235,7 @@ fn system_screens_surface_every_player_facing_setting() {
         &DevSnapshot::default(),
     );
     // Video exposes the complete player-facing display/camera/accessibility/FPS
-    // set; shader rows follow these basic settings.
+    // set.
     let video = screen_ids(&model, SystemMenuEntryId::Video);
     for id in [
         SettingsOptionId::DisplayMode,
@@ -422,7 +400,7 @@ fn every_settings_option_id_reaches_a_screen() {
     // membership test below is over 59 ids once — the linear scan is free and adding
     // a derive to a production enum to satisfy a test would be the tail wagging.
     let mut reachable: Vec<SettingsOptionId> = Vec::new();
-    for entry in &model.entries {
+    for entry in model.all_entries() {
         if let SystemMenuTarget::Settings(options) = &entry.target {
             for option in options {
                 if !reachable.contains(&option.id) {

@@ -33,6 +33,7 @@ pub mod rendering;
 /// capture rigs, the draw population, and Bevy's render-pass diagnostics.
 pub mod runtime_census;
 pub mod screen_effects;
+mod screen_pass;
 pub mod ui_fonts;
 pub mod ui_surface;
 mod texture_mips;

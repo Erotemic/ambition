@@ -604,6 +604,69 @@ wallet shield tests covered the rule, leaving its rooms, and two rooms with
 different rules. These runs used cached host libraries and current system
 source. Full application and phone measurements remain open.
 
+### Actor decision observations
+
+The side contact pass reads the bodies in the contact snapshot. Crowd
+observation reads full body data for living fighters and records deaths
+without storing a row for every living body.
+
+| Isolated desktop pass in the loaded Hall | Before, ms | After, ms |
+| --- | ---: | ---: |
+| Development, 595 actors and one contact box | 0.484–0.487 | 0.038–0.039 |
+| Optimized, same actors and contact box | 0.026 | 0.005 |
+| Development, with 24 hostile actors and contact boxes | 0.784–0.794 | 0.338–0.342 |
+| Optimized, same hostile actors and contact boxes | 0.084 | 0.066–0.068 |
+
+Both versions gave the same liveness, contact normals, nearest neighbours,
+and crowd pressure. The second case set combat and contact state in the
+loaded Hall to test those paths. The system test checks both body
+populations, bystanders, and contacts. Two crowd tests check room scope and
+order. The probe uses cached host libraries. It measures one system pass.
+
+### Fixed actor decisions
+
+An actor with fixed control checks for a complete body and a resolved
+motion frame. It reads the room stamp from the decision query. The pass
+fetches full actor body data when a brain evaluates world state or shares
+perception with its crew. A fixed brain still clears old beliefs. Empty
+memory can keep its last change tick when the actor stays in the room.
+
+| Isolated decision pass in the loaded Hall | Before, ms | After, ms |
+| --- | ---: | ---: |
+| Development, 595 fixed brains | 0.848–0.867 | 0.340–0.352 |
+| Optimized, 595 fixed brains | 0.122–0.126 | 0.042–0.044 |
+| Development, 24 patrols and one module observer | 1.073–1.092 | 0.638–0.651 |
+| Optimized, 24 patrols and one module observer | 0.212–0.215 | 0.140–0.146 |
+
+Both versions produced the same ordered control frames, brain state, and
+memory. The mixed case changed 24 of the same 595 brains to patrol, added
+a module observer, and removed a resolved motion frame from one body.
+The candidate cleared a seeded belief and kept the change tick of the
+empty memory after the room stamp was set. The probe uses cached host
+libraries and measures the decision pass.
+
+### Hitlag views and rest rows
+
+The body pose, feature view, and frame sampler share a hitlag strength
+function. A zero hitstop timer gives zero strength without a room rule
+lookup. The frame sampler calculates jitter when a reaction calls for it.
+The feature view borrows the combat and shield state for both defense
+fields. The rest-row pass indexes the authored rows when the catalog
+changes. The tick lookup searches only entries that declare a rest row.
+
+| Isolated pass in the loaded 596-body Hall | Development before → after, ms | Optimized before → after, ms |
+| --- | ---: | ---: |
+| Body pose per tick | 0.776–0.777 → 0.600–0.630 | 0.261–0.262 → 0.125–0.126 |
+| Rest rows per tick | 0.133 → 0.045–0.046 | 0.119–0.120 → 0.009 |
+| Feature view per frame | 0.409–0.410 → 0.246–0.255 | 0.161–0.163 → 0.067–0.073 |
+| Presented pose per frame with a new tick | 0.175–0.178 → 0.066–0.067 | 0.106 → 0.014 |
+
+The probe measured thread CPU time with cached host libraries. Five of
+636 catalog entries declared rest rows. The pose, feature, and frame
+samples matched in the quiet Hall and with affine hitlag, including a
+paralyzed body and an attacker in hitstop. Three rest-row tests passed.
+The cases include catalog replacement and a separate pin writer.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

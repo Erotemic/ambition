@@ -53,8 +53,9 @@ impl Plugin for RoomTransitionSchedulePlugin {
                     .in_set(RoomTransitionSet::Detect)
                     .after(ambition_platformer2d_session::rooms::detect_room_transition_system),
                 admit_room_travel
-                    .in_set(RoomTransitionSet::Detect)
-                    .after(ambition_platformer2d_session::party_travel::request_party_return),
+                    .in_set(Platformer2dSimulationPhase::RoomTransition)
+                    .after(RoomTransitionSet::Detect)
+                    .before(RoomTransitionSet::Apply),
                 ambition_platformer2d_session::rooms::retire_the_previous_attempt
                     .run_if(ambition_combat::events::a_replay_is_admitted)
                     .in_set(RoomTransitionSet::Reset),

@@ -130,9 +130,19 @@ pub(super) fn refresh_hosted_portal_frames(
         // point at `pivot`, turn about it. `None` when the host is gone.
         let moved = match &portal.host {
             // A portal on a line moves with it and turns as it turns.
-            PortalHost::Line { line, along, lift } => surfaces.line(line).and_then(|chain| {
-                let (point, normal) = point_on_line(&chain, *along)?;
-                Some((point + normal * *lift, normal, chain.velocity, chain.turn, chain.pivot))
+            // A line whose shape changed moves the portal by its own place:
+            // that point's travel and its segment's turn, about that point.
+            // The rigid fit's velocity and turn are not that place's motion.
+            PortalHost::Line { line, segment, fraction, lift } => surfaces.line(line).and_then(|chain| {
+                let segment = *segment as usize;
+                let (point, normal) = point_on_line(&chain, segment, *fraction)?;
+                if !chain.deforms() {
+                    return Some((point + normal * *lift, normal, chain.velocity, chain.turn, chain.pivot));
+                }
+                let (a0, b0) = chain.segment_before(segment);
+                let (a1, b1) = chain.segment(segment);
+                let turn = (b0 - a0).angle_to(b1 - a1);
+                turn.is_finite().then(|| (point + normal * *lift, normal, chain.travel_at(segment, *fraction), turn, point))
             }),
             PortalHost::Face { face, lift } => surfaces.resolve_face(face).map(|anchor| {
                 // The host block's `velocity` is the kernels' surface_velocity
@@ -162,11 +172,10 @@ pub(super) fn refresh_hosted_portal_frames(
 
 /// The line a portal sits on, if it sits on one that faces its way: a
 /// segment whose normal is the portal's, with the portal over it within the
-/// attribution reach. Named by the line's name and how far along it the
-/// portal is.
+/// attribution reach. Named by the line's name and the portal's material
+/// place on it: its segment and how far along that segment.
 fn attribute_line(view: &ae::World, portal: &PlacedPortal) -> Option<PortalHost> {
     for chain in &view.chains {
-        let mut start = 0.0;
         for i in 0..chain.segment_count() {
             let (a, b) = chain.segment(i);
             let t = b - a;
@@ -181,30 +190,30 @@ fn attribute_line(view: &ae::World, portal: &PlacedPortal) -> Option<PortalHost>
                 && (0.0..=len).contains(&along)
                 && (-HOST_ATTRIBUTE_REACH..=HOST_ATTRIBUTE_REACH).contains(&lift)
             {
-                return Some(PortalHost::Line { line: chain.name.clone(), along: start + along, lift });
+                return Some(PortalHost::Line {
+                    line: chain.name.clone(),
+                    segment: i as u32,
+                    fraction: along / len,
+                    lift,
+                });
             }
-            start += len;
         }
     }
     None
 }
 
-/// The point `along` the length of `chain`, and its normal there.
-fn point_on_line(chain: &ae::SurfaceChain, along: f32) -> Option<(Vec2, Vec2)> {
-    let count = chain.segment_count();
-    let mut left = along;
-    for i in 0..count {
-        let (a, b) = chain.segment(i);
-        let t = b - a;
-        let len = t.length();
-        if len <= 1.0e-4 {
-            continue;
-        }
-        if left <= len || i + 1 == count {
-            let n = Vec2::new(t.y, -t.x) / len;
-            return Some((a + t * (left.clamp(0.0, len) / len), n));
-        }
-        left -= len;
+/// The point `fraction` of the way along `segment` of `chain`, and its
+/// normal there. `None` when the line no longer has that segment, or it has
+/// no length: the place is gone, and the portal is not slid to another.
+fn point_on_line(chain: &ae::SurfaceChain, segment: usize, fraction: f32) -> Option<(Vec2, Vec2)> {
+    if segment >= chain.segment_count() {
+        return None;
     }
-    None
+    let (a, b) = chain.segment(segment);
+    let t = b - a;
+    let len = t.length();
+    if len <= 1.0e-4 {
+        return None;
+    }
+    Some((a + t * fraction.clamp(0.0, 1.0), Vec2::new(t.y, -t.x) / len))
 }

@@ -417,6 +417,23 @@ If the opening no longer fits, use admission/refusal or a separately
 authorized close, never slide it to another material place. This is a
 conditional SUP1/P2 obligation; local SUP1 can land first.
 
+**Landed (2026-11-25): a line host binds the material place.**
+`PortalHost::Line` now names `segment` and `fraction`, SUP1's place on a
+line, instead of a world arc distance. On a line whose shape changes
+(`shape_before`), the portal moves by its own point's travel
+(`SurfaceChain::travel_at`), and turns by its segment's change of angle
+about that point, not by the rigid fit. A rigid line keeps the proven
+velocity, turn and pivot path. A segment that no longer exists, or has
+no length, closes the portal as a vanished host does; it is not slid to
+another place. Witness:
+`a_portal_on_a_stretching_line_keeps_its_material_place`. The line goes
+from x 0..100 to 0..200, and the portal at u 0.75 goes from x 75 to x 150,
+with a step of +75 from x 75 and no turn. The spinning-plank host test and
+the three spinning-exit projectile transits still pass. Still open here:
+proposal/admission before the host writer commits (a refused trajectory
+keeps the combined state), and opening fit on a stretch, which the place
+binding does not decide.
+
 ## Shared kinematics, distinct movement policy
 
 At a contact point and time, velocity obeys

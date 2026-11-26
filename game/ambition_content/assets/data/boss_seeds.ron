@@ -77,7 +77,7 @@
             "trex_jaw_grab",  // the T-rex: a low lunge, jaws wide; caught, you are thrashed and flung
             "floor_slam",    // wide flat rect at the feet
             "demonstrate",      // GNU-ton: a fist tracks, locks, falls, and sticks
-            "reaper_projection", // A vertical cut at the target's first position.
+            "reaper_projection", // A low sweep, then a vertical cut through it.
             "demonstrate_pair", // GNU-ton: the second fist falls where you dodged to
             "portal_punch",     // GNU-ton: the giant's fist comes out of a portal by you (down, at a slant, across or up, by where you are), and stays
             "portal_kick",      // GNU-ton: the giant's hoof comes out of a portal by you, along the floor or down on you

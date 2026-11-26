@@ -226,7 +226,14 @@ def main(argv: list[str] | None = None) -> int:
         "--dry-run", action="store_true", help="print planned downloads without writing"
     )
     parser.add_argument("--only-missing", "--missing-only", action="store_true", help="keep existing fonts")
+    parser.add_argument("--loose", action="store_true", help="keep a possibly stale published font bundle")
+    parser.add_argument("--only-possibly-stale", action="store_true", help="rebuild the published bundle on shared-only changes")
+    parser.add_argument("--plan", action="store_true", help="show the publication selection")
+    parser.add_argument("--check", action="store_true", help="check the freshness of published fonts")
+    parser.add_argument("--json", action="store_true", help="print a plan or check as JSON")
     args = parser.parse_args(argv)
+    if any((args.loose, args.only_possibly_stale, args.plan, args.check, args.json)):
+        parser.error("publication options require the selected library; omit --out-dir and --dry-run")
     if args.only_missing and args.force:
         parser.error("--only-missing cannot be combined with --force")
     return grab_fonts(

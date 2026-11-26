@@ -78,6 +78,13 @@ These contracts are also available to native and portable Rust modules.
 An invalid endpoint or an unavailable phase is refused by its domain or by
 module admission. This is not a general component mutation interface.
 
+The [Gram Reaper script](../../game/ambition_content/rhai/gram_reaper.rhai)
+uses `conducted_pose` to hold a position and facing through a strike and its
+recovery. The body solver checks the requested position against the room.
+Send `request("conducted_pose", #{})` to return control to the body controller.
+`boss_guard` controls whether melee and projectile hits can damage the boss.
+`camera_shake` sets the size of a shake in pixels on a confirmed frame.
+
 The status and hit-response aliases can support future mechanics without a
 current game consumer. `status_tick`, `time_scale`, `status_clock`, and
 `in_play` share the body status service. `struck` reports an accepted on-hit

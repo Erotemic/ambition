@@ -1,7 +1,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, AmbitionSim, Platformer2dSimHarness};
-use ambition_platformer2d::boss_encounter::BossConfig;
+use ambition_platformer2d::boss_encounter::{BossConfig, BossEncounter, BossEncounterPhase};
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::brain::{BossAttackProfile, BossAttackState};
 use ambition_platformer2d::combat::strike::{Hitbox, HitboxAnchor};
@@ -19,7 +19,7 @@ struct Region {
     half: Vec2,
 }
 
-fn set_up(room: &str) -> (Platformer2dSimHarness, Entity, Entity) {
+fn enter(room: &str) -> (Platformer2dSimHarness, Entity, Entity) {
     let mut sim =
         Platformer2dSimHarness::new_with_options(crate::common::fixed_60hz_room_options(room))
             .expect("load the Reaper arena");
@@ -38,6 +38,11 @@ fn set_up(room: &str) -> (Platformer2dSimHarness, Entity, Entity) {
             .unwrap();
         (boss, player)
     };
+    (sim, boss, player)
+}
+
+fn set_up(room: &str) -> (Platformer2dSimHarness, Entity, Entity) {
+    let (mut sim, boss, player) = enter(room);
     let at = sim.world().get::<BodyKinematics>(boss).unwrap().pos;
     sim.teleport_player((at.x - 128.0, at.y));
     (sim, boss, player)
@@ -91,6 +96,14 @@ fn check_faults(sim: &Platformer2dSimHarness) {
     assert_eq!(faults.total, 0, "{:?}", faults.recent);
 }
 
+fn health(sim: &Platformer2dSimHarness, body: Entity) -> i32 {
+    sim.world().get::<BodyHealth>(body).unwrap().health.current
+}
+
+fn guarded(sim: &Platformer2dSimHarness, boss: Entity) -> bool {
+    sim.world().get::<BossEncounter>(boss).unwrap().guarded
+}
+
 fn check_volley(sim: &mut Platformer2dSimHarness, boss: Entity) {
     let mut announced = Vec::new();
     let mut order = Vec::new();
@@ -142,13 +155,9 @@ fn the_gram_reaper_sweep_keeps_the_mark_and_releases_one_hitbox_in_both_arenas()
             sim.step(AgentAction::default());
             check_faults(&sim);
             let marks = marks(&sim, boss);
-            let graph_warning = phase_has(
-                &sim.world()
-                    .get::<BossAttackState>(boss)
-                    .unwrap()
-                    .telegraph_profile,
-                "reaper_graph_cut",
-            );
+            let attack = sim.world().get::<BossAttackState>(boss).unwrap();
+            let graph_warning = phase_has(&attack.telegraph_profile, "reaper_graph_cut");
+            let graph_active = phase_has(&attack.active_profile, "reaper_graph_cut");
             let boxes = hitboxes(&mut sim, boss);
             if matches!(marks.as_slice(), [(0, _, false)]) && strike.is_none() {
                 let region = marks[0].1;
@@ -164,6 +173,7 @@ fn the_gram_reaper_sweep_keeps_the_mark_and_releases_one_hitbox_in_both_arenas()
                     ));
                 }
                 assert!(boxes.is_empty(), "the warning hurts in {room}");
+                assert!(guarded(&sim, boss));
             } else if matches!(marks.as_slice(), [(0, _, true)]) {
                 assert_eq!(
                     Some(marks[0].1),
@@ -179,8 +189,10 @@ fn the_gram_reaper_sweep_keeps_the_mark_and_releases_one_hitbox_in_both_arenas()
                 );
             } else if strike.is_some() && marks.is_empty() {
                 assert!(boxes.is_empty(), "damage remains during recovery in {room}");
-                recovered = true;
-                break;
+                if !graph_active && !guarded(&sim, boss) {
+                    recovered = true;
+                    break;
+                }
             } else if graph_warning && warned.is_some() {
                 panic!("the mark disappeared during the warning in {room}");
             }
@@ -195,7 +207,7 @@ fn the_gram_reaper_sweep_keeps_the_mark_and_releases_one_hitbox_in_both_arenas()
                 .unwrap()
                 .health
                 .current,
-            hp - 1
+            hp - 8
         );
         if room == PRACTICE {
             check_volley(&mut sim, boss);
@@ -204,11 +216,74 @@ fn the_gram_reaper_sweep_keeps_the_mark_and_releases_one_hitbox_in_both_arenas()
 }
 
 #[test]
-fn the_gram_reaper_enrage_leaves_the_marked_gap_safe() {
+fn the_gram_reaper_sweep_can_be_jumped_and_punished_with_the_room_entry_kit() {
+    let (mut sim, boss, player) = enter(PRACTICE);
+    let boss_hp = health(&sim, boss);
+    let player_hp = health(&sim, player);
+    let mut jump_tick = None;
+    let mut jumped_the_sweep = false;
+    let mut landed_after_strike = false;
+    let mut strike = false;
+    let mut open_frames = 0;
+    for tick in 0..600 {
+        let obs = sim.observation();
+        let body = sim.world().get::<BodyKinematics>(boss).unwrap();
+        let dx = body.pos.x - obs.player_pos.0;
+        let phase = sim
+            .world()
+            .get::<BossEncounter>(boss)
+            .unwrap()
+            .encounter_phase();
+        let attack = sim.world().get::<BossAttackState>(boss).unwrap();
+        let warning = phase_has(&attack.telegraph_profile, "reaper_graph_cut");
+        strike |= phase_has(&attack.active_profile, "reaper_graph_cut");
+        jumped_the_sweep |= jump_tick.is_some()
+            && !obs.on_ground
+            && marks(&sim, boss).iter().any(|(_, _, active)| *active);
+        let open = strike && !guarded(&sim, boss);
+        if open {
+            open_frames += 1;
+            landed_after_strike |= jump_tick.is_some() && obs.on_ground;
+        }
+        let jump =
+            warning && jump_tick.is_none() && obs.on_ground && attack.telegraph_remaining <= 0.16;
+        if jump {
+            jump_tick = Some(tick);
+        }
+        let action = AgentAction {
+            move_x: if phase == BossEncounterPhase::Dormant
+                || ((jump_tick.is_some() || warning) && (dx.abs() > 53.0 || dx * obs.facing < 0.0))
+            {
+                dx.signum()
+            } else {
+                0.0
+            },
+            jump,
+            jump_held: jump_tick.is_some_and(|started| tick - started <= 36),
+            attack: open && obs.on_ground && tick % 12 == 0,
+            ..Default::default()
+        };
+        sim.step(action);
+        check_faults(&sim);
+        if health(&sim, boss) < boss_hp {
+            assert!(jumped_the_sweep);
+            assert!(landed_after_strike);
+            assert_eq!(health(&sim, player), player_hp);
+            return;
+        }
+        if open_frames > 0 && guarded(&sim, boss) {
+            break;
+        }
+    }
+    panic!("no jumping punish from the room entry: jump={jump_tick:?}, strike={strike}, landing={landed_after_strike}, open_frames={open_frames}, player_hp={}", health(&sim, player));
+}
+
+#[test]
+fn the_gram_reaper_cross_keeps_both_marks_and_leaves_a_safe_route_in_enrage() {
     let (mut sim, boss, player) = set_up(PRACTICE);
     let mut second_phase = false;
-    let mut projection = None;
-    let mut saw_projection_strike = false;
+    let mut projection = Vec::new();
+    let mut order = Vec::new();
     let mut enrage = false;
     let mut safe = None;
     let mut saw_strike = false;
@@ -221,37 +296,50 @@ fn the_gram_reaper_enrage_leaves_the_marked_gap_safe() {
                 .get_mut::<BodyHealth>(boss)
                 .unwrap()
                 .health
-                .current = 26;
+                .current = 10;
             second_phase = true;
         }
-        if let [(0, column, active)] = marks.as_slice() {
-            if column.half.y > column.half.x && !enrage {
-                if *active {
-                    assert_eq!(projection, Some(*column));
-                    saw_projection_strike = true;
-                } else if projection.is_none() {
-                    projection = Some(*column);
-                    let floor = column.center.y + column.half.y;
-                    let half = sim.world().get::<BodyKinematics>(player).unwrap().size().y * 0.5;
-                    sim.teleport_player((column.center.x + column.half.x + 96.0, floor - half));
-                } else {
-                    assert_eq!(projection, Some(*column));
+        if !enrage {
+            if let [(0, sweep, false), (1, column, false)] = marks.as_slice() {
+                assert!(sweep.half.x > sweep.half.y && column.half.y > column.half.x);
+                assert!((column.center.x - sweep.center.x).abs() < sweep.half.x);
+                assert!(hitboxes(&mut sim, boss).is_empty());
+                if projection.is_empty() {
+                    projection.extend([*sweep, *column]);
                 }
             }
-        }
-        if saw_projection_strike && !enrage && marks.is_empty() {
-            sim.world_mut()
-                .get_mut::<BodyHealth>(boss)
-                .unwrap()
-                .health
-                .current = 8;
-            enrage = true;
+            if !projection.is_empty() {
+                for &(slot, region, live) in &marks {
+                    assert_eq!(projection[slot as usize], region);
+                    if live && order.last() != Some(&slot) {
+                        order.push(slot);
+                    }
+                }
+                if let Some((_, region, _)) = marks.iter().find(|(_, _, live)| *live) {
+                    let boxes = hitboxes(&mut sim, boss);
+                    assert_eq!(boxes.len(), 1);
+                    assert_eq!(boxes[0].1, *region);
+                }
+                if !order.is_empty() && marks.is_empty() {
+                    assert_eq!(order, [0, 1]);
+                    sim.world_mut()
+                        .get_mut::<BodyHealth>(boss)
+                        .unwrap()
+                        .health
+                        .current = 4;
+                    enrage = true;
+                }
+            }
+            continue;
         }
         if let [(0, left, false), (1, right, false)] = marks.as_slice() {
             let right_edge = left.center.x + left.half.x;
             let left_edge = right.center.x - right.half.x;
             let height = sim.world().get::<BodyKinematics>(player).unwrap().size().y;
             assert!(left_edge - right_edge > 2.0 * height);
+            let reaper = sim.world().get::<BodyKinematics>(boss).unwrap();
+            assert!(right_edge < reaper.pos.x + reaper.size().x * 0.5);
+            assert!(left_edge > reaper.pos.x - reaper.size().x * 0.5);
             if safe.is_none() {
                 let floor = left.center.y + left.half.y;
                 sim.teleport_player(((right_edge + left_edge) * 0.5, floor - height * 0.5));

@@ -1,11 +1,10 @@
-//! The per-actor POSE index + the per-boss FRAME index (E4 slices 3, 7,
-//! 19): id-keyed read-models rebuilt once per sim tick; presentation
-//! animates from these snapshots and never borrows the live clusters.
+//! The actor and boss animation views.
+//! Actor pose clocks advance each tick. Clip requests use the final pose for the frame.
 
 use std::sync::Arc;
 
 use bevy::platform::collections::HashMap;
-use bevy::prelude::{Query, ResMut, Resource, With};
+use bevy::prelude::{Query, Res, ResMut, Resource, Time, With};
 
 use ambition_boss_encounter::anim::boss_anim_state_for;
 use ambition_characters::actor::ai::ActorStatus;
@@ -33,7 +32,7 @@ pub type ActorSpriteBody = (
 
 /// Movement and action facts used to select an actor's pose.
 #[derive(bevy::ecs::query::QueryData)]
-pub struct ActorSpriteData {
+pub(crate) struct ActorPoseData {
     pub feature_id: &'static FeatureId,
     pub kin: &'static BodyKinematics,
     pub health: &'static ambition_characters::actor::BodyHealth,
@@ -72,18 +71,25 @@ pub struct ActorSpriteData {
     pub anim_override: Option<&'static ActorAnimOverride>,
     /// A rider sits its mount (`crate::pose_view::seated`).
     pub riding: bevy::prelude::Has<ambition_mount::RidingOn>,
-    pub control_holds: Option<&'static ambition_characters::control::ControlHolds>,
-    /// The move this body is playing, so the drawn row can be the one the
-    /// move names. `None` for a body that is not mid-move, which is most of them
-    /// most of the time. See [`ActorAnimFrame::clip`].
     pub playback: Option<&'static ambition_combat::moveset::MovePlayback>,
-    /// A body with no left/right variant is drawn toward `+x` whatever its facing.
     pub unmirrored: bevy::prelude::Has<ae::Unmirrored>,
-    /// A named row content pinned this body to: its clip, ahead of any move's.
-    pub pinned: Option<&'static ambition_sprite_sheet::character::PinnedRow>,
-    /// The foe the body has picked, if any: a body squaring up to one near it
-    /// stands and walks in its guard ([`engaged_clip`]).
-    pub target: Option<&'static ambition_combat::components::ActorTarget>,
+}
+
+#[derive(bevy::ecs::query::QueryData)]
+pub(crate) struct ActorClipData {
+    feature_id: &'static FeatureId,
+    kin: &'static BodyKinematics,
+    combat: &'static ambition_characters::actor::BodyCombat,
+    motion_facts: &'static ae::BodyMotionFacts,
+    frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    ground: &'static ae::BodyGroundState,
+    shield: &'static ae::BodyShieldState,
+    anim: Option<&'static ambition_characters::actor::BodyAnimFacts>,
+    control_holds: Option<&'static ambition_characters::control::ControlHolds>,
+    playback: Option<&'static ambition_combat::moveset::MovePlayback>,
+    anim_override: Option<&'static ActorAnimOverride>,
+    pinned: Option<&'static ambition_sprite_sheet::character::PinnedRow>,
+    target: Option<&'static ambition_combat::components::ActorTarget>,
 }
 
 /// One actor's resolved animation frame for the renderer: the chosen anim plus
@@ -355,7 +361,7 @@ pub const SMASH_CHARGE_CLIP: &str = "smash_charge";
 // presentation no longer live-queries the actor clusters to bind a sprite. The
 // per-frame ANIM frame below stays a live read until slice B materializes it.
 
-/// The actor poses for this tick, indexed by feature ID.
+/// Actor animation data for the frame, indexed by feature ID.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct ActorAnimIndex {
     rows: Vec<ActorAnimRow>,
@@ -368,6 +374,7 @@ struct ActorAnimRow {
     id: Arc<str>,
     frame: ActorAnimFrame,
     seen: u64,
+    passage_clip: Option<&'static [&'static str]>,
 }
 
 impl ActorAnimIndex {
@@ -400,21 +407,36 @@ impl ActorAnimIndex {
         self.rows.is_empty()
     }
 
-    pub(crate) fn frame_mut(&mut self, id: &str) -> Option<&mut ActorAnimFrame> {
-        let slot = *self.slots.get(id)?;
-        Some(&mut self.rows[slot].frame)
+    pub(crate) fn apply_passage(
+        &mut self,
+        id: &str,
+        anim: CharacterAnim,
+        clip: &'static [&'static str],
+        look: crate::PassageLookView,
+    ) {
+        if let Some(&slot) = self.slots.get(id) {
+            let row = &mut self.rows[slot];
+            row.frame.anim = anim;
+            row.frame.passage_look = Some(look);
+            row.passage_clip = Some(clip);
+        }
     }
 
     fn begin_rebuild(&mut self) {
         self.generation = self.generation.wrapping_add(1);
     }
 
-    fn insert(&mut self, id: &str, frame: ActorAnimFrame) -> &mut ActorAnimFrame {
+    fn insert(&mut self, id: &str, frame: ActorAnimFrame) -> &mut ActorAnimRow {
         let id: Arc<str> = Arc::from(id);
         let slot = self.rows.len();
         self.slots.insert(Arc::clone(&id), slot);
-        self.rows.push(ActorAnimRow { id, frame, seen: self.generation });
-        &mut self.rows[slot].frame
+        self.rows.push(ActorAnimRow {
+            id,
+            frame,
+            seen: self.generation,
+            passage_clip: None,
+        });
+        &mut self.rows[slot]
     }
 
     fn end_rebuild(&mut self) {
@@ -426,20 +448,22 @@ impl ActorAnimIndex {
         }
     }
 
-    fn publish_at(&mut self, position: usize, id: &str) -> (&mut ActorAnimFrame, bool) {
-        // A row in the same position can keep its slot when its ID matches.
-        // An actor that moves to another position still uses its ID's clock.
-        let slot = if self.rows.get(position).is_some_and(|row| row.id.as_ref() == id) {
+    fn slot_at(&self, position: usize, id: &str) -> Option<usize> {
+        if self.rows.get(position).is_some_and(|row| row.id.as_ref() == id) {
             Some(position)
         } else {
             self.slots.get(id).copied()
-        };
-        if let Some(slot) = slot {
+        }
+    }
+
+    fn publish_at(&mut self, position: usize, id: &str) -> (&mut ActorAnimFrame, bool) {
+        if let Some(slot) = self.slot_at(position, id) {
             let row = &mut self.rows[slot];
             row.seen = self.generation;
+            row.passage_clip = None;
             return (&mut row.frame, false);
         }
-        (self.insert(id, ActorAnimFrame {
+        (&mut self.insert(id, ActorAnimFrame {
             anim: CharacterAnim::Idle,
             conversation_held: false,
             pos: ae::Vec2::ZERO,
@@ -450,69 +474,22 @@ impl ActorAnimIndex {
             passage_look: None,
             stop: crate::StopClock::default(),
             turn: crate::TurnClock::default(),
-        }), true)
+        }).frame, true)
     }
 }
 
-/// Resolve EVERY brain-driven actor's animation frame from its REAL ECS clusters
-/// — the SAME `Body*` movement/ability clusters, and the SAME picker, the player
-/// uses ([`ambition_character_sprites::pick_actor_anim`] → `body_view_from_body`).
-/// One path, disposition-agnostic: an enemy and an NPC animate from identical
-/// reads. Whatever a brain (or an LLM) drives the actor's clusters into — a dash,
-/// a blink, flight, a shield, a ladder climb, a wall-grab, a dodge-roll, a
-/// crouch/slide, an in-flight swing — animates with no per-archetype branch; the
-/// sheet's anim set decides how richly each pose reads. The picked poses land in
-/// [`ActorAnimIndex`] for the renderer to consume by id.
-pub fn rebuild_actor_anim_index(
+/// Save the pose each tick to detect stops and turns between rendered frames.
+pub(crate) fn advance_actor_anim_poses(
     mut index: ResMut<ActorAnimIndex>,
-    actors: Query<ActorSpriteData, ActorSpriteBody>,
-    time: Option<bevy::prelude::Res<bevy::prelude::Time>>,
+    actors: Query<ActorPoseData, ActorSpriteBody>,
+    time: Option<Res<Time>>,
 ) {
-    let dt = time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs);
+    let dt = time.as_deref().map_or(0.0, Time::delta_secs);
     index.begin_rebuild();
     for (position, a) in actors.iter().enumerate() {
-        let swing = ambition_combat::moveset::melee_swing_of(a.playback, a.moveset);
-        let anim = ambition_character_sprites::pick_actor_anim(
-            a.kin,
-            a.ground,
-            a.motion_facts,
-            a.flight,
-            a.body_mode,
-            a.env_contact,
-            a.abilities,
-            a.shield,
-            swing.as_ref(),
-            ambition_character_sprites::ActorAnimState {
-                alive: a.health.alive(),
-                hit_flash: a.combat.hit_flash > 0.0,
-                // Gravity-free FLIGHT archetype (parrot / shark): the locomotion
-                // tail reads Fly/Idle and the airborne gate is suppressed.
-                aerial: a.config.tuning.is_aerial,
-                // Movement overlays from the shared BodyAnimFacts (None → all off).
-                wall_jump: a.anim.is_some_and(|f| f.wall_jump_anim_timer > 0.0),
-                dash_startup: a.anim.is_some_and(|f| f.dash_startup_timer > 0.0),
-                landing: a
-                    .anim
-                    .filter(|f| f.land_anim_timer > 0.0)
-                    .map(|f| f.land_anim_hard),
-                shooting: a.anim.is_some_and(|f| f.shoot_anim_timer > 0.0),
-                aiming: a.anim.is_some_and(|f| f.aim_anim_active),
-                rolling: a.anim.is_some_and(|f| f.rolling),
-                held: a.anim.is_some_and(|f| f.held),
-            },
-            a.frame.map_or_else(
-                || ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR),
-                |f| f.basis(),
-            ),
-            ambition_character_sprites::MotionSpeeds::of(a.model),
-        );
-        // A content pose PIN wins over the picked pose (e.g. a shelled enemy's
-        // withdraw cycle, which the disposition-agnostic picker cannot infer).
-        let free = a.playback.is_none_or(|playback| playback.settled()) && a.anim_override.is_none();
-        let anim = crate::pose_view::seated(a.anim_override.map(|o| o.0).unwrap_or(anim), a.riding);
-        let charge = a
-            .playback
-            .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
+        let free = free_pose(a.playback, a.anim_override);
+        let anim = a.anim_override.map_or_else(|| pick_actor_pose(&a), |pose| pose.0);
+        let anim = crate::pose_view::seated(anim, a.riding);
         let (frame, added) = index.publish_at(position, a.feature_id.as_str());
         let facing = ae::mirror_side(a.kin.facing, a.unmirrored);
         if !added {
@@ -520,14 +497,79 @@ pub fn rebuild_actor_anim_index(
             frame.turn = frame.turn.next(Some((frame.anim, frame.facing)), anim, facing, free, dt);
         }
         frame.anim = anim;
-        frame.conversation_held = a.control_holds.is_some_and(|h| {
-            h.holds(ambition_characters::control::ControlHold::Conversation)
+        frame.facing = facing;
+        frame.passage_look = None;
+    }
+    index.end_rebuild();
+}
+
+fn pick_actor_pose(a: &ActorPoseDataItem<'_, '_>) -> CharacterAnim {
+    let swing = ambition_combat::moveset::melee_swing_of(a.playback, a.moveset);
+    ambition_character_sprites::pick_actor_anim(
+        a.kin,
+        a.ground,
+        a.motion_facts,
+        a.flight,
+        a.body_mode,
+        a.env_contact,
+        a.abilities,
+        a.shield,
+        swing.as_ref(),
+        ambition_character_sprites::ActorAnimState {
+            alive: a.health.alive(),
+            hit_flash: a.combat.hit_flash > 0.0,
+            // Gravity-free FLIGHT archetype (parrot / shark): the locomotion
+            // tail reads Fly/Idle and the airborne gate is suppressed.
+            aerial: a.config.tuning.is_aerial,
+            // Movement overlays from the shared BodyAnimFacts (None → all off).
+            wall_jump: a.anim.is_some_and(|f| f.wall_jump_anim_timer > 0.0),
+            dash_startup: a.anim.is_some_and(|f| f.dash_startup_timer > 0.0),
+            landing: a
+                .anim
+                .filter(|f| f.land_anim_timer > 0.0)
+                .map(|f| f.land_anim_hard),
+            shooting: a.anim.is_some_and(|f| f.shoot_anim_timer > 0.0),
+            aiming: a.anim.is_some_and(|f| f.aim_anim_active),
+            rolling: a.anim.is_some_and(|f| f.rolling),
+            held: a.anim.is_some_and(|f| f.held),
+        },
+        a.frame.map_or_else(
+            || ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR),
+            |f| f.basis(),
+        ),
+        ambition_character_sprites::MotionSpeeds::of(a.model),
+    )
+}
+
+fn free_pose(
+    playback: Option<&ambition_combat::moveset::MovePlayback>,
+    pose_override: Option<&ActorAnimOverride>,
+) -> bool {
+    playback.is_none_or(|playback| playback.settled()) && pose_override.is_none()
+}
+
+/// Publish the clip and drawing data for the pose at the end of the frame.
+pub(crate) fn rebuild_actor_anim_index(
+    mut index: ResMut<ActorAnimIndex>,
+    actors: Query<ActorClipData, (ActorSpriteBody, With<ActorConfig>)>,
+) {
+    for (position, a) in actors.iter().enumerate() {
+        let Some(slot) = index.slot_at(position, a.feature_id.as_str()) else { continue; };
+        let row = &mut index.rows[slot];
+        let frame = &mut row.frame;
+        let charge = a.playback.and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
+        frame.conversation_held = a.control_holds.is_some_and(|holds| {
+            holds.holds(ambition_characters::control::ControlHold::Conversation)
         });
         frame.pos = a.kin.pos;
-        frame.facing = facing;
         frame.gravity_dir = a.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down());
         frame.move_charge = charge;
-        frame.passage_look = None;
+        if let Some(chain) = row.passage_clip {
+            frame.clip = ClipRequest::from_chain(chain);
+            continue;
+        }
+        let anim = frame.anim;
+        let free = free_pose(a.playback, a.anim_override);
 
         // A charge takes priority over the move and keeps its clip as a fallback.
         let clip = a
@@ -551,10 +593,9 @@ pub fn rebuild_actor_anim_index(
                         // The actor road's own `hit` read
                         // (`ActorAnimState::hit_flash`).
                         recoil: (a.combat.hit_flash > 0.0).then(|| {
-                            let down = a.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down());
                             ambition_character_sprites::Recoil::of(
                                 a.combat.struck_height,
-                                ambition_character_sprites::extent_along(a.kin.size(), down),
+                                ambition_character_sprites::extent_along(a.kin.size(), frame.gravity_dir),
                                 !a.ground.on_ground,
                             )
                         }),
@@ -572,7 +613,79 @@ pub fn rebuild_actor_anim_index(
             .or_else(|| aim_over_legs(a.anim.is_some_and(|f| f.aim_anim_active) && free, anim));
         frame.clip = ClipRequest::with_pin(clip, a.pinned, crate::pose_view::crouched(anim), Some(anim));
     }
-    index.end_rebuild();
+}
+
+#[cfg(test)]
+pub(crate) fn spawn_pose_fixture(app: &mut bevy::prelude::App, id: &str) -> bevy::prelude::Entity {
+    use ambition_characters::actor::{BodyCombat, BodyHealth, Health};
+
+    app.world_mut().spawn((
+        FeatureId::new(id),
+        ActorIdentity::new("test", "Test actor"),
+        ActorStatus { respawn_timer: 0.0 },
+        ActorConfig {
+            tuning: Default::default(),
+            brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
+            preserves_mirror_symmetry: false,
+        },
+        BodyHealth::new(Health::new(10)),
+        BodyCombat::default(),
+        BodyKinematics { facing: 1.0, ..Default::default() },
+        ae::BodyGroundState { on_ground: true, ..Default::default() },
+        ae::BodyMotionFacts::default(),
+        ae::BodyFlightState::default(),
+        ae::BodyModeState::default(),
+        ae::BodyEnvironmentContact::default(),
+        ae::BodyAbilities::default(),
+        ae::BodyShieldState::default(),
+    )).id()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::prelude::{App, FixedUpdate, Update};
+
+    #[test]
+    fn a_stop_between_rendered_frames_uses_its_tick_clock() {
+        let mut app = App::new();
+        let mut time = Time::<()>::default();
+        time.advance_by(std::time::Duration::from_millis(20));
+        app.insert_resource(time)
+            .init_resource::<ActorAnimIndex>()
+            .add_systems(FixedUpdate, advance_actor_anim_poses)
+            .add_systems(Update, rebuild_actor_anim_index);
+        let actor = spawn_pose_fixture(&mut app, "walker");
+        let world = app.world_mut();
+        world.get_mut::<BodyKinematics>(actor).unwrap().vel.x = 100.0;
+        world.run_schedule(FixedUpdate);
+        assert_eq!(world.resource::<ActorAnimIndex>().get("walker").unwrap().anim, CharacterAnim::Walk);
+
+        world.get_mut::<BodyKinematics>(actor).unwrap().vel.x = 0.0;
+        world.run_schedule(FixedUpdate);
+        world.get_mut::<BodyKinematics>(actor).unwrap().pos.x = 20.0;
+        world.run_schedule(FixedUpdate);
+        assert!(world.resource::<ActorAnimIndex>().get("walker").unwrap().clip.is_none());
+
+        world.run_schedule(Update);
+        let frame = world.resource::<ActorAnimIndex>().get("walker").unwrap();
+        assert_eq!(frame.anim, CharacterAnim::Idle);
+        assert_eq!(frame.pos.x, 20.0);
+        let stop = frame.clip.clone().unwrap();
+        assert_eq!(stop.clip, "walk_stop");
+        assert_eq!(frame.stop.secs, 0.02);
+        assert!(matches!(stop.time, Some(ClipTime::Phase(phase)) if phase > 0.0 && phase < 1.0));
+
+        world.run_schedule(Update);
+        assert_eq!(world.resource::<ActorAnimIndex>().get("walker").unwrap().clip.as_ref(), Some(&stop));
+
+        world.get_mut::<BodyKinematics>(actor).unwrap().facing = -1.0;
+        world.run_schedule(FixedUpdate);
+        world.run_schedule(Update);
+        let frame = world.resource::<ActorAnimIndex>().get("walker").unwrap();
+        assert_eq!(frame.facing, -1.0);
+        assert_eq!(frame.clip.as_ref().unwrap().clip, "turnaround");
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

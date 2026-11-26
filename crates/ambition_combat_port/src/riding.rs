@@ -220,6 +220,14 @@ impl Port for CameraShakePort {
     }
 }
 
+ambition_extension_sdk::port_record! {
+    CameraShake {
+        /// The size of the camera shake in pixels.
+        amplitude_px: f32,
+    }
+}
+ambition_extension_sdk::script_port!(CameraShakePort);
+
 #[cfg(test)]
 mod tests {
     use super::*;

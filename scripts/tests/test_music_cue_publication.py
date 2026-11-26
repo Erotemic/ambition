@@ -57,7 +57,7 @@ def music(tmp_path, monkeypatch):
         before = producer.evidence("music", selected, hashes, scope={"cues": cues})
         producer.accept_outputs("music", selected, store, staging, before, hashes, ["--cue", ",".join(cues)])
 
-    return SimpleNamespace(store=store, publish=publish, expected=expected, cache=cache)
+    return SimpleNamespace(store=store, publish=publish, expected=expected, cache=cache, source=source)
 
 
 def test_replacing_one_cue_keeps_another_and_a_stale_render_keeps_the_selection(music):
@@ -178,3 +178,27 @@ def test_only_missing_keeps_an_existing_media_publication(tmp_path, monkeypatch,
     monkeypatch.setattr(producer.subprocess, "call", refuse)
     assert producer.run(family, ["--only-missing"]) == 0
     assert store.selected() == before
+
+
+def test_music_loose_and_possibly_stale_plan_use_the_same_classification(music, capsys):
+    music.publish(["alpha", "beta"], b"current")
+    capsys.readouterr()
+    music.source.write_text("changed shared tool")
+    music.expected["beta"] = "changed cue inputs"
+    assert producer.query("music", ["--plan", "--loose", "--json"]) == 0
+    loose = json.loads(capsys.readouterr().out)
+    assert loose["states"] == {"alpha": "shared", "beta": "stale"}
+    assert loose["would_build"] == ["beta"]
+    assert loose["would_refresh_registry"]
+    assert producer.query("music", ["--plan", "--only-possibly-stale", "--json"]) == 0
+    exact = json.loads(capsys.readouterr().out)
+    assert exact["would_build"] == ["alpha"]
+    assert exact["registry"] == ["stale", "shared"]
+    assert exact["would_refresh_registry"]
+    selection = music.store.selected()
+    cues = {unit: key for unit, key in selection["bundles"].items() if unit != "producer:music:registry"}
+    music.store.publish(cues, selection, replace=True)
+    assert producer.query("music", ["--plan", "--only-possibly-stale", "--json"]) == 0
+    exact = json.loads(capsys.readouterr().out)
+    assert exact["registry"] == ["missing", None]
+    assert not exact["would_refresh_registry"]

@@ -9,14 +9,19 @@ fn declare() {
                 #{ tag: 1, name: "regions", kind: #{ seq: 3, of: beats::box_kind() } },
                 #{ tag: 2, name: "pinned", kind: "bool" },
                 #{ tag: 3, name: "transition", kind: "bool" },
+                #{ tag: 4, name: "anchor", kind: "vec2" },
+                #{ tag: 5, name: "ground_y", kind: "f32" },
+                #{ tag: 6, name: "side", kind: "f32" },
+                #{ tag: 7, name: "held", kind: "bool" },
             ] },
         ],
         entries: [#{
             key: "perform", phase: "boss_conduct",
             trigger: #{ port: "boss_conduct", selector: "gram_reaper_boss" },
             writes: ["gram_reaper.beat", "gram_reaper.cut"],
-            requests: ["attack_mark", "held_damage_box", "drawn_row", "sound", "burst"],
-            limit: 10,
+            requests: ["attack_mark", "held_damage_box", "drawn_row", "conducted_pose",
+                       "boss_guard", "sound", "burst", "camera_shake", "lightning"],
+            limit: 14,
         }],
     }
 }
@@ -26,30 +31,24 @@ fn clamp_x(x, hall, margin) {
     max(hall.left + safe_margin, min(hall.right - safe_margin, x))
 }
 
-fn cuts_for(key, boss) {
-    let x = boss.position[0];
-    let y = boss.position[1];
-    let hall = if boss.hall == () {
-        #{ left: 0.0, right: boss.room[0], floor: y + boss.size[1] * 0.5 }
-    } else { boss.hall };
-    let target_x = if boss.driven || boss.target_body == () { x + boss.side * 120.0 }
-                   else { boss.target_body.position[0] };
-    let side = if target_x < x { -1.0 } else { 1.0 };
-    let floor = if boss.driven { min(hall.floor, y + boss.size[1] * 0.5) } else { hall.floor };
+fn sweep(hall, x, side, reach, height) {
+    let near = x - side * 12.0;
+    let far = x + side * reach;
+    beats::box_between(max(hall.left, min(near, far)), hall.floor - height,
+                       min(hall.right, max(near, far)), hall.floor)
+}
 
+fn cuts_for(key, hall, x, target_x, side) {
+    let floor = hall.floor;
     switch key {
-        "reaper_graph_cut" => {
-            let near = x - side * 18.0;
-            let far = x + side * 238.0;
-            [beats::box_between(max(hall.left, min(near, far)), floor - 52.0,
-                                min(hall.right, max(near, far)), floor)]
-        }
+        "reaper_graph_cut" => [sweep(hall, x, side, 218.0, 36.0)],
         "reaper_projection" => {
-            let axis = clamp_x(target_x, hall, 58.0);
-            [beats::box_between(axis - 52.0, max(0.0, floor - 330.0), axis + 52.0, floor)]
+            let axis = clamp_x(x + side * 118.0, hall, 45.0);
+            [sweep(hall, x, side, 280.0, 44.0),
+             beats::box_between(axis - 45.0, max(0.0, floor - 310.0), axis + 45.0, floor)]
         }
         "reaper_edge_volley" => {
-            let origin = clamp_x(target_x - side * 128.0, hall, 193.0);
+            let origin = clamp_x(target_x - side * 128.0, hall, 183.0);
             let regions = [];
             for i in 0..3 {
                 let lane = origin + side * 126.0 * (i.to_float() - 1.0);
@@ -58,10 +57,10 @@ fn cuts_for(key, boss) {
             regions
         }
         "reaper_null_space" => {
-            let axis = clamp_x(x, hall, 206.0);
+            let axis = clamp_x(x - side * 88.0, hall, 104.0);
             [
-                beats::box_between(hall.left, floor - 58.0, axis - 132.0, floor),
-                beats::box_between(axis + 132.0, floor - 58.0, hall.right, floor),
+                beats::box_between(hall.left, floor - 104.0, axis - 94.0, floor),
+                beats::box_between(axis + 94.0, floor - 104.0, hall.right, floor),
             ]
         }
         _ => [],
@@ -82,19 +81,55 @@ fn row(name, frame_s, strike_frame, recovery_frame, last_frame) {
        recovery_s: frame_s * recovery_frame.to_float(), end_s: frame_s * (last_frame.to_float() + 0.5) }
 }
 
-fn impact(requests, key, center, floor) {
-    let at = [center[0], min(floor - 12.0, center[1] + 18.0)];
-    requests.push(request("burst", #{
-        at: at, count: 11, speed: 195.0, color: [0.82, 0.51, 1.0, 1.0], kind: "spark",
-    }));
+fn impact(key, box, boss_x) {
+    let floor = box.center[1] + box.half[1];
+    let at = if key == "reaper_null_space" { [boss_x, floor - 30.0] }
+             else { [box.center[0], floor - min(34.0, box.half[1])] };
     let cue = switch key {
         "reaper_projection" => "boss.gram_reaper.projection_fire",
         "reaper_edge_volley" => "boss.gram_reaper.edge_fire",
         "reaper_null_space" => "enemy.gram_reaper.notice",
         _ => "enemy.gram_reaper.swing",
     };
-    requests.push(request("sound", #{ cue: cue, at: at }));
+    [
+        request("burst", #{ at: at, count: 15, speed: 220.0,
+                            color: [0.84, 0.55, 1.0, 1.0], kind: "spark" }),
+        request("sound", #{ cue: cue, at: at }),
+        request("camera_shake", #{ amplitude_px: if key == "reaper_null_space" { 8.0 } else { 4.0 } }),
+    ]
+}
+
+fn constellations(frame, regions) {
+    let requests = [];
+    let live = frame.beat.stage == "strike";
+    let glow = if live { [0.78, 0.32, 1.0, 0.75] } else { [0.55, 0.40, 1.0, 0.46] };
+    for i in 0..regions.len() {
+        let box = regions[i];
+        let outward = if i == 0 { -1.0 } else { 1.0 };
+        let edge = box.center[0] - outward * box.half[0];
+        let span = min(144.0, box.half[0] * 1.8);
+        let y = box.center[1] + box.half[1];
+        let inner = [edge + outward * span * 0.12, y - 20.0];
+        let middle = [edge + outward * span * 0.48, y - 78.0];
+        let outer = [edge + outward * span, y - 35.0];
+        requests.push(link("reaper.outer." + i.to_string(), outer, middle, glow));
+        if live || frame.progress >= 0.32 {
+            requests.push(link("reaper.inner." + i.to_string(), middle, inner, glow));
+        }
+    }
     requests
+}
+
+fn link(key, from, to, glow) {
+    request("lightning", #{ key: key, from: #{ world: from }, to: #{ world: to },
+                           glow: glow, look: "spark_gap", hold_s: 0.05 })
+}
+
+fn held_pose(cut, y) {
+    request("conducted_pose", #{
+        pose: #{ position: [cut.anchor[0], y], velocity: [0.0, 0.0] },
+        side: cut.side,
+    })
 }
 
 fn perform() {
@@ -103,46 +138,82 @@ fn perform() {
     let beat = frame.beat;
     let cut = this.state.cut;
     let requests = this.requests;
-    if frame.started {
-        cut.regions = if boss.room == () { [] } else { cuts_for(beat.key, boss) };
+    if frame.started && boss.room != () {
+        let x = boss.position[0];
+        let y = boss.position[1];
+        let feet = y + boss.size[1] * 0.5;
+        let hall = if boss.hall == () { #{ left: 0.0, right: boss.room[0], floor: feet } }
+                   else { boss.hall };
+        let target_x = if boss.driven || boss.target_body == () { x + boss.facing * 120.0 }
+                       else { boss.target_body.position[0] };
+        if boss.driven { hall.floor = min(hall.floor, feet); }
+        cut.anchor = boss.position;
+        cut.ground_y = hall.floor - boss.size[1] * 0.5 - 1.0;
+        cut.side = if target_x < x { -1.0 } else { 1.0 };
+        cut.regions = cuts_for(beat.key, hall, x, target_x, cut.side);
     }
 
     let pose = pose_for(beat.key);
-    if beat.stage == "idle" || pose == () {
-        if boss.alive && boss.awake && !boss.driven && boss.between_phases && !cut.transition {
-            requests.push(request("burst", #{
-                at: boss.position, count: 22, speed: 235.0,
-                color: [0.68, 0.39, 1.0, 1.0], kind: "spark",
-            }));
-        }
-        if cut.pinned { requests.push(beats::pose("", 0.0)); }
-        cut.regions = [];
-        cut.pinned = false;
-    } else if beat.stage == "warning" || beat.stage == "strike" {
-        let live = beat.stage == "strike";
-        let row_time = if live { pose.strike_s + (pose.recovery_s - pose.strike_s) * frame.progress }
+    let warning = beat.stage == "warning";
+    let strike = beat.stage == "strike";
+    let open_s = 0.88;
+    let lift_s = 0.20;
+    let recovering = beat.stage == "recovery" && beat.age < open_s + lift_s;
+    let open = recovering && beat.age < open_s;
+    if boss.alive {
+        requests.push(request("boss_guard", #{ guarded: !boss.driven && !open }));
+    }
+    if pose != () && (warning || strike || recovering) && !boss.driven && boss.room != () {
+        let y = if warning {
+            let descent = min(1.0, frame.progress / 0.50);
+            cut.anchor[1] + (cut.ground_y - cut.anchor[1]) * descent
+        } else if open || strike { cut.ground_y }
+        else { cut.ground_y - 50.0 * min(1.0, (beat.age - open_s) / lift_s) };
+        requests.push(held_pose(cut, y));
+        cut.held = true;
+    } else if cut.held {
+        requests.push(request("conducted_pose", #{}));
+        cut.held = false;
+    }
+
+    if pose != () && (warning || strike) {
+        let row_time = if strike { pose.strike_s + (pose.recovery_s - pose.strike_s) * frame.progress }
                        else { min(pose.strike_s - 0.015, pose.strike_s * frame.progress) };
         requests.push(beats::pose(pose.name, row_time));
         cut.pinned = true;
-        let heavy = beat.key == "reaper_null_space" || beat.key == "reaper_projection";
-        let damage = if heavy || boss.enraged { 2 } else { 1 };
-        let in_order = beat.key == "reaper_edge_volley";
-        let boxes = beats::boxes(frame, cut.regions, in_order, damage, 0.8);
-        requests += boxes.requests;
-        if boxes.fired != () {
-            let box = cut.regions[boxes.fired];
-            let floor_y = box.center[1] + box.half[1];
-            let at = if beat.key == "reaper_null_space" {
-                [boss.position[0], floor_y - 30.0]
-            } else { [box.center[0], floor_y - min(34.0, box.half[1])] };
-            requests = impact(requests, beat.key, at, floor_y);
+        let damage = switch beat.key {
+            "reaper_projection" => 7,
+            "reaper_edge_volley" => 4,
+            "reaper_null_space" => 11,
+            _ => 8,
+        };
+        let in_order = beat.key == "reaper_edge_volley" || beat.key == "reaper_projection";
+        // Clear the sweep area when the blade passes. The pose continues.
+        if !strike || beat.key != "reaper_graph_cut" || beat.age < 0.18 {
+            let boxes = beats::boxes(frame, cut.regions, in_order, damage, 0.8);
+            requests += boxes.requests;
+            if beat.key == "reaper_null_space" {
+                requests += constellations(frame, cut.regions);
+            }
+            if boxes.fired != () {
+                requests += impact(beat.key, cut.regions[boxes.fired], cut.anchor[0]);
+            }
         }
-    } else if beat.age < 0.48 {
-        let elapsed = pose.recovery_s + (pose.end_s - pose.recovery_s) * beat.age / 0.48;
-        requests.push(beats::pose(pose.name, elapsed));
+    } else if pose != () && recovering {
+        let recoil = if beat.key == "reaper_null_space" { pose_for("reaper_graph_cut") } else { pose };
+        let stuck = min(recoil.recovery_s + 0.09, recoil.end_s);
+        let elapsed = if open { stuck }
+                      else { stuck + (recoil.end_s - stuck) * (beat.age - open_s) / lift_s };
+        requests.push(beats::pose(recoil.name, elapsed));
     } else if cut.pinned {
         requests.push(beats::pose("", 0.0));
         cut.pinned = false;
+    }
+    if boss.alive && boss.awake && !boss.driven && boss.between_phases && !cut.transition {
+        requests.push(request("burst", #{
+            at: boss.position, count: 22, speed: 235.0,
+            color: [0.68, 0.39, 1.0, 1.0], kind: "spark",
+        }));
     }
     cut.transition = boss.between_phases;
     this.state.beat = beat;

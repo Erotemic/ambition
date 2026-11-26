@@ -264,6 +264,25 @@ impl Port for ConductedPosePort {
     }
 }
 
+ambition_extension_sdk::port_record! {
+    Pose {
+        /// The center of the body in world coordinates.
+        position: [f32; 2],
+        /// The velocity of the body in world units per second.
+        velocity: [f32; 2],
+    }
+}
+
+ambition_extension_sdk::port_record! {
+    ConductedPose {
+        /// Hold this pose. Omit the pose to release the body to its controller.
+        pose: Option<Pose> = None,
+        /// Set the facing of the body while it is held.
+        side: Option<f32> = None,
+    }
+}
+ambition_extension_sdk::script_port!(ConductedPosePort);
+
 /// The request port marker for a boss's guard: whether its hull turns blows.
 ///
 /// Port card:
@@ -297,6 +316,14 @@ impl Port for BossGuardPort {
         Ok(BossGuard { guarded: r.bool()? })
     }
 }
+
+ambition_extension_sdk::port_record! {
+    BossGuard {
+        /// Refuse damage from melee and projectile hits until the guard changes.
+        guarded: bool,
+    }
+}
+ambition_extension_sdk::script_port!(BossGuardPort);
 
 /// The request port marker for a boss that stone does not hold.
 ///

@@ -1,6 +1,6 @@
 //! Startup comic that plays the published character poses on a UI stage.
 
-use std::{collections::hash_map::RandomState, hash::BuildHasher, time::Duration};
+use std::{collections::hash_map::RandomState, hash::BuildHasher, sync::LazyLock, time::Duration};
 
 use ambition_platformer2d::game_shell::{
     ActiveShellSequence, FrontendOwnedEntity, FrontendPresentationKind, ShellSegmentScopedEntity,
@@ -52,24 +52,24 @@ fn card_is_active(active: Res<ActiveShellSequence>) -> bool {
         .is_some_and(|(_, _, kind)| kind.as_str() == MADE_THIS_MEME_CARD_SEGMENT_KIND)
 }
 
-#[derive(Clone, Copy)]
-enum Gift {
-    Gamepad,
-    ApplePie,
+#[derive(serde::Deserialize)]
+struct GiftArt {
+    path: String,
+    size: [f32; 2],
+    offer_grip: [f32; 2],
+    receive_grip: [f32; 2],
 }
 
-impl Gift {
-    fn asset(self) -> (&'static str, Vec2) {
-        match self {
-            Self::Gamepad => (
-                "content://ambition_shared/sprites/gamepad.png",
-                Vec2::new(72.0, 35.44),
-            ),
-            Self::ApplePie => (
-                "content://ambition_shared/sprites/apple_pie.png",
-                Vec2::new(74.0, 41.11),
-            ),
-        }
+static GIFTS: LazyLock<Vec<GiftArt>> = LazyLock::new(|| {
+    let gifts: Vec<_> = ron::from_str(include_str!("../../assets/data/vanity_gifts.ron"))
+        .expect("Read the vanity card gifts");
+    assert!(!gifts.is_empty(), "The vanity card needs a gift");
+    gifts
+});
+
+impl GiftArt {
+    fn center_at(&self, hand: Vec2, grip: [f32; 2], rotation: Rot2) -> Vec2 {
+        hand - rotation * (Vec2::from(grip) * Vec2::from(self.size))
     }
 }
 
@@ -150,6 +150,37 @@ impl CardActor {
                 .map_or(Vec2::ZERO, |draw| draw.at * self.scale)
     }
 
+    fn palm(&self, offset: Vec2) -> Vec2 {
+        let Some(hand) = self.track("far_hand") else {
+            return self.feet;
+        };
+        self.feet + (hand.at + Rot2::radians(hand.rotation) * (offset * hand.scale)) * self.scale
+    }
+
+    fn close_eyes(&mut self) {
+        let tracks = self.rig.tracks();
+        let Some(idle) = self.rig.clip("idle") else {
+            return;
+        };
+        let Some(closed) = (0..idle.frame_count())
+            .filter_map(|index| self.rig.frame("idle", index))
+            .flatten()
+            .find(|draw| {
+                draw.track
+                    .is_some_and(|track| tracks[usize::from(track)] == "face_blink")
+            })
+        else {
+            return;
+        };
+        if let Some(open) = self.draws.iter_mut().find(|draw| {
+            draw.track
+                .is_some_and(|track| tracks[usize::from(track)] == "face_open")
+        }) {
+            open.part = closed.part;
+            open.track = closed.track;
+        }
+    }
+
     fn tilt_head(&mut self, radians: f32) {
         let Some(head) = self.track("head").copied() else {
             return;
@@ -179,7 +210,7 @@ struct VanityCardRoot {
     robot: CardActor,
     director: CardActor,
     gift: Entity,
-    gift_size: Vec2,
+    gift_art: &'static GiftArt,
     bubble: Entity,
     bubble_text: Entity,
     bubble_tail: Entity,
@@ -221,13 +252,14 @@ fn spawn_vanity_card(
     let mut robot = CardActor::new(robot, content, &assets, 2.00);
     let mut director = CardActor::new(director, content, &assets, 1.94);
 
-    let choice = if RandomState::new().hash_one(activation_id.0) & 1 == 0 {
-        Gift::Gamepad
-    } else {
-        Gift::ApplePie
-    };
-    let (gift_path, gift_size) = choice.asset();
-    let gift_image = load_sheet_image(Some(content), &assets, "vanity-card", gift_path);
+    let choice = RandomState::new().hash_one(activation_id.0) % GIFTS.len() as u64;
+    let gift_art = &GIFTS[choice as usize];
+    let gift_image = load_sheet_image(
+        Some(content),
+        &assets,
+        "vanity-card",
+        gift_art.path.as_str(),
+    );
 
     let root = commands
         .spawn((
@@ -298,6 +330,7 @@ fn spawn_vanity_card(
                     .spawn((
                         absolute_node(),
                         ImageNode::default().with_mode(NodeImageMode::Stretch),
+                        ZIndex::default(),
                         Visibility::Hidden,
                         ChildOf(stage),
                     ))
@@ -345,7 +378,7 @@ fn spawn_vanity_card(
         robot,
         director,
         gift,
-        gift_size,
+        gift_art,
         bubble,
         bubble_text,
         bubble_tail,
@@ -401,7 +434,11 @@ fn pose_robot(robot: &mut CardActor, t: f32) {
     } else {
         robot.sample("idle", t - RETREAT_END);
         robot.blend("walk", 4, ease(t, RETREAT_END, RETREAT_END + 0.17));
-        robot.tilt_head(0.16 * ease(t, DIRECTOR_LINE + 0.3, DIRECTOR_LINE + 0.8));
+        let react = DIRECTOR_LINE + 0.34;
+        if t >= react {
+            robot.close_eyes();
+            robot.tilt_head(0.38 * ease(t, react, react + 0.53));
+        }
     }
 }
 
@@ -417,7 +454,7 @@ fn pose_director(director: &mut CardActor, t: f32) {
         director.sample_frame("receive_low", 0);
         director.blend("idle", 0, ease(t, REACH, TAKE));
     } else {
-        director.sample("item_hold", t - RELEASE);
+        director.sample_frame("present_gift", 0);
         director.blend("receive_low", 0, ease(t, RELEASE, RELEASE + 0.68));
         director.tilt_head(-0.29 * ease(t, RELEASE + 0.3, RETREAT_END + 0.35));
     }
@@ -429,6 +466,7 @@ struct CardNodes<'w, 's> {
     transforms: Query<'w, 's, &'static mut UiTransform>,
     images: Query<'w, 's, &'static mut ImageNode>,
     visibility: Query<'w, 's, &'static mut Visibility>,
+    depth: Query<'w, 's, &'static mut ZIndex>,
 }
 
 impl CardNodes<'_, '_> {
@@ -454,7 +492,7 @@ impl CardNodes<'_, '_> {
         }
     }
 
-    fn draw_actor(&mut self, actor: &CardActor) {
+    fn draw_actor(&mut self, actor: &CardActor, near_hand_in_front: bool) {
         let draws = actor.draws.iter().filter(|draw| {
             // Keep the Director's pen out of the hand that takes the gift.
             draw.track
@@ -462,6 +500,13 @@ impl CardNodes<'_, '_> {
         });
         let mut slots = actor.slots.iter().copied();
         for (draw, slot) in draws.zip(slots.by_ref()) {
+            let front = near_hand_in_front
+                && draw
+                    .track
+                    .is_some_and(|track| actor.rig.tracks()[usize::from(track)] == "near_hand");
+            if let Ok(mut depth) = self.depth.get_mut(slot) {
+                depth.set_if_neq(ZIndex(i32::from(front)));
+            }
             let part = actor.rig.parts[usize::from(draw.part)];
             let rotation = Rot2::radians(draw.rotation);
             let scale = draw.scale * actor.scale;
@@ -503,17 +548,27 @@ fn animate_vanity_card(
     for mut root in &mut roots {
         pose_robot(&mut root.robot, t);
         pose_director(&mut root.director, t);
-        ui.draw_actor(&root.robot);
-        ui.draw_actor(&root.director);
+        ui.draw_actor(&root.robot, false);
+        ui.draw_actor(&root.director, true);
 
         let transfer = ease(t, TAKE, RELEASE);
-        let from = root.robot.point("far_hand") + Vec2::new(22.0, -9.0);
-        let to = root.director.point("far_hand") + Vec2::new(-17.0, 5.0);
+        let rotation = Rot2::radians(-0.08 + 0.16 * transfer);
+        let art = root.gift_art;
+        let from = art.center_at(
+            root.robot.palm(Vec2::new(1.23, 2.01)),
+            art.offer_grip,
+            rotation,
+        );
+        let to = art.center_at(
+            root.director.palm(Vec2::new(-1.51, 5.0)),
+            art.receive_grip,
+            rotation,
+        );
         ui.place(
             root.gift,
             from.lerp(to, transfer),
-            root.gift_size,
-            Rot2::radians(-0.10 + 0.22 * transfer),
+            Vec2::from(art.size),
+            rotation,
         );
 
         let speech = if (ROBOT_LINE..QUESTION).contains(&t) {

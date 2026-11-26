@@ -414,22 +414,17 @@ fusion if it adds an ordering exception or does not show repeatable savings.
 
 #### S7c — Simulation-view publication (measured second candidate)
 
-Source: `crates/ambition_sim_view/src/lib.rs`, `facts.rs`, `pose_view.rs`
-and `view_index.rs`. The `FeatureViewSyncSchedulePlugin` publishes related
-indices, pose and presentation facts from the simulation tail. Inspect
-`rebuild_actor_render_index`, `rebuild_actor_anim_index` and
-`rebuild_body_pose_views` for shared body reads. Fuse only a subset that
-uses one observation cut and has a safe shared input traversal. Keep the
-`FeatureViewSync` phase, the nameplate-after-feature order, the animation
-clock advance before its read, and passage views after body pose and
-animation. Preserve the `ControlPromptRebuilt` and readiness ordering.
+Source: `crates/ambition_sim_view/src/lib.rs`, `facts.rs`, `anim_index.rs`,
+`pose_view.rs` and `view_index.rs`. The `FeatureViewSync` phase advances
+pose history and publishes observations that readers need on each tick.
+Passage views can override the pose after that step. `FrameViewSync`
+publishes drawing data, including actor clips, from the final state for
+the frame. The nameplate view follows the feature view.
 
-**Do not** move these publishers wholesale into rendered-frame `Update`.
-Rollback, a multi-tick rendered frame, a headless consumer or a same-tick
-reader may need each simulation snapshot. Do not hide an expensive body
-query inside one very large exclusive system. Compare input query work,
-active invocations and snapshot contents under rollback and two live rooms.
-If the profiles show small CPU cost, defer this packet.
+Combine publishers only when they read at the same schedule boundary.
+Keep the pose clock, passage view, `ControlPromptRebuilt`, and readiness
+order. Compare query cost, call counts, and view data under rollback and
+with two live rooms.
 
 **Done in part, 2026-10-23: dormancy, no fusion beyond the shield views.**
 The row views whose sources a room may not have (held, ground and world

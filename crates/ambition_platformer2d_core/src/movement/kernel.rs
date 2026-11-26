@@ -147,18 +147,18 @@ pub fn step_motion(
 ) -> MotionStepResult {
     let retained_down = SweepSample::down_or(clusters.sweep.as_deref(), ctx.frame.down());
     if let Some(settled) = clusters.settled.take() {
-        let result = settled.step(model, clusters, ctx, retained_down);
+        let result = settled.step(model, clusters, &ctx, retained_down);
         clusters.settled = Some(settled);
         result
     } else {
-        solve_motion(model, clusters, ctx, retained_down)
+        solve_motion(model, clusters, &ctx, retained_down)
     }
 }
 
 pub(super) fn solve_motion(
     model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
-    ctx: MotionStepContext<'_>,
+    ctx: &MotionStepContext<'_>,
     retained_down: Vec2,
 ) -> MotionStepResult {
     let mut result = admit_motion(model, clusters, ctx, retained_down);
@@ -178,7 +178,7 @@ pub(super) fn solve_motion(
 fn admit_motion(
     model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
-    ctx: MotionStepContext<'_>,
+    ctx: &MotionStepContext<'_>,
     retained_down: Vec2,
 ) -> MotionStepResult {
     // A frame whose gravity response was refused moves nothing: the body
@@ -229,8 +229,8 @@ fn admit_motion(
             } else {
                 crate::PortalRestriction::Closed
             };
-            let retried = MotionStepContext { admission: narrowed, ..ctx };
-            if let Ok(mut result) = try_motion(model, clusters, retried, retained_down) {
+            let retried = MotionStepContext { admission: narrowed, ..*ctx };
+            if let Ok(mut result) = try_motion(model, clusters, &retried, retained_down) {
                 result.events.motion_refusal = Some(refusal);
                 // The travel was accepted under these links only: a later
                 // reader of it (generic transit) must not cross the others.
@@ -256,7 +256,7 @@ fn admit_motion(
 fn try_motion(
     model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
-    ctx: MotionStepContext<'_>,
+    ctx: &MotionStepContext<'_>,
     retained_down: Vec2,
 ) -> Result<MotionStepResult, crate::frame::thread::Refusal> {
     let mut candidate = crate::body_clusters::BodyClusterScratch::candidate(model, clusters);
@@ -328,7 +328,7 @@ fn halt(model: &mut MotionModel, clusters: &mut BodyClustersMut<'_>) {
 fn step_admitted_motion(
     model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
-    ctx: MotionStepContext<'_>,
+    ctx: &MotionStepContext<'_>,
 ) -> MotionStepResult {
     let material = clusters.kinematics.material;
     if material.scale() == 1.0 { return step_world_motion(model, clusters, ctx); }
@@ -366,7 +366,7 @@ fn step_admitted_motion(
 fn step_world_motion(
     model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
-    ctx: MotionStepContext<'_>,
+    ctx: &MotionStepContext<'_>,
 ) -> MotionStepResult {
     let facing_intent = model.project_facing(clusters.kinematics.material, ctx.facing_intent, ctx.frame.side());
     // THE launch drain, and it is here because here is the only gateway.
@@ -398,7 +398,7 @@ fn step_world_motion(
     // pose, which is the tick the body is free to fly.
     if ctx.pose_owned_externally {
         let staged = clusters.flight.pending_launch_state();
-        let tumbles = accept_external_launch(model, clusters, &ctx, staged, LaunchTravel::Deferred);
+        let tumbles = accept_external_launch(model, clusters, ctx, staged, LaunchTravel::Deferred);
         // ⛔⛔ AND AN ABSORBED LAUNCH IS RETIRED RATHER THAN BANKED. Deferring
         // EVERY launch was too broad: a weak hit that flinches a rider and leaves
         // it aboard also staged its travel, and nothing spent it — so the jab sat
@@ -416,7 +416,7 @@ fn step_world_motion(
         }
     } else {
         let launch = clusters.flight.take_launch();
-        accept_external_launch(model, clusters, &ctx, launch, LaunchTravel::Applied);
+        accept_external_launch(model, clusters, ctx, launch, LaunchTravel::Applied);
     }
     let mut result = match model {
         MotionModel::AxisSwept(axis) => {
@@ -681,7 +681,7 @@ fn accept_external_launch(
 fn step_surface_momentum(
     motion: &mut super::SurfaceMomentumMotion,
     clusters: &mut BodyClustersMut<'_>,
-    ctx: MotionStepContext<'_>,
+    ctx: &MotionStepContext<'_>,
     facing_intent: f32,
 ) -> MotionStepResult {
     let sweep_entry = (clusters.kinematics.pos, clusters.kinematics.vel, clusters.kinematics.material);
@@ -772,7 +772,7 @@ fn step_surface_momentum(
 fn step_adhesive_crawler(
     motion: &mut super::AdhesiveCrawlerMotion,
     clusters: &mut BodyClustersMut<'_>,
-    ctx: MotionStepContext<'_>,
+    ctx: &MotionStepContext<'_>,
     facing_intent: f32,
 ) -> MotionStepResult {
     let sweep_entry = (clusters.kinematics.pos, clusters.kinematics.vel, clusters.kinematics.material);

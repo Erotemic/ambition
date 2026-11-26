@@ -20,6 +20,7 @@ from lib.content_libraries import selected_manifest, read_libraries, relative
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools/ambition_sprite2d_renderer"))
+from ambition_sprite2d_renderer.build_selection import BuildMode
 from ambition_sprite2d_renderer.publication_store import Store
 from ambition_sprite2d_renderer.products import Digests, generation
 
@@ -156,16 +157,69 @@ def evidence(family: str, selected, hashes: Digests, parents=None, scope=None) -
 
 
 def current(key: str, family: str, selected, store: Store, hashes: Digests, selection=None) -> bool:
-    bundle = store.bundle(key)
-    recipe = bundle.get("recipe") or {}
-    if recipe.get("owner") != OWNER or recipe.get("producer") != family:
-        return False
-    previous = recipe["generation"]
-    selection = selection or store.selected()
-    parents = {unit: selection["bundles"].get(unit) for unit in previous["parameters"].get("published_parents", {})}
-    expected = evidence(family, selected, hashes, parents, previous["parameters"].get("scope"))
-    return previous["key"] == expected["key"] and not store.integrity(key, hashes=hashes)
+    return published_status(key, family, selected, store, hashes, selection or store.selected())[0] == "current"
 
+
+MISSING_FLAGS = {"--only-missing", "--missing-only"}
+FORCE_FLAGS = {"--force", "--force-render", "--clean"}
+SELECTION_FLAGS = MISSING_FLAGS | FORCE_FLAGS | {"--loose", "--only-possibly-stale"}
+
+
+def build_mode(arguments) -> BuildMode:
+    flags = set(arguments)
+    mode = BuildMode.from_flags(loose="--loose" in flags, missing_only=bool(flags & MISSING_FLAGS),
+                                possibly_stale_only="--only-possibly-stale" in flags, force=bool(flags & FORCE_FLAGS))
+    if "--include-shared" in flags and mode in {BuildMode.LOOSE, BuildMode.POSSIBLY_STALE, BuildMode.MISSING}:
+        raise ValueError(f"--include-shared and --{mode.value} cannot be combined")
+    return mode
+
+
+def published_status(key, family, selected, store, hashes, selection) -> tuple[str, str | None]:
+    """Classify staleness using the recipe saved with the accepted unit."""
+    if not key:
+        return "missing", None
+    defects = store.integrity(key, hashes=hashes)
+    if defects:
+        return ("partial" if any(row["code"] == "missing" for row in defects) else "stale"), "direct"
+    recipe = store.bundle(key).get("recipe") or {}
+    previous = recipe.get("generation")
+    if recipe.get("owner") != OWNER or recipe.get("producer") != family or not previous:
+        return "unknown", None
+    params = previous["parameters"]
+    parents = {unit: selection["bundles"].get(unit) for unit in params.get("published_parents", {})}
+    expected = evidence(family, selected, hashes, parents, params.get("scope"))
+    if previous["key"] == expected["key"]:
+        return "current", None
+    if params != expected["parameters"]:
+        return "stale", "direct"
+    own = set()
+    policy_path = params["config"].get("policy")
+    if policy_path:
+        own.add(os.path.relpath(selected.path.parent / policy_path, ROOT))
+    old_inputs = {row["path"]: row["sha256"] for row in previous["inputs"]}
+    new_inputs = {row["path"]: row["sha256"] for row in expected["inputs"]}
+    changed = {path for path in old_inputs.keys() | new_inputs.keys() if old_inputs.get(path) != new_inputs.get(path)}
+    if family == "backgrounds":
+        own.update(path for path in changed if path.startswith("tools/ambition_background_renderer/") or (
+            path.startswith("tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/")
+            and Path(path).parts[3] in {"backgrounds", "terrain"}
+        ))
+    return "stale", "direct" if changed & own else "shared"
+
+
+def show_selection(family, states, arguments, *, checking=False) -> int:
+    mode = build_mode(arguments)
+    if checking:
+        mode.check()
+    pending = [unit for unit, status in states.items() if mode.includes(*status)]
+    if "--json" in arguments:
+        print(json.dumps({"family": family, "states": {unit: {"state": state, "scope": scope}
+                          for unit, (state, scope) in states.items()}, "would_build": pending}, indent=1))
+    else:
+        for unit, (state, scope) in states.items():
+            print(f"{'*' if unit in pending else ' '} {unit}: {'possibly stale' if scope == 'shared' else state}")
+        print(f"{family}: {len(pending)} selected for generation")
+    return int(checking and bool(pending))
 
 def selected_music_cues(arguments: list[str]) -> list[str]:
     from scripts.regen import regen_music_registry as registry
@@ -233,10 +287,15 @@ def music_query(arguments: list[str], selected, store: Store, hashes: Digests) -
         return 0
     selection = store.selected()
     states = music_cue_states(selected, store, hashes, cues, selection)
+    registry = store_music_registry_status(arguments, selected, store, hashes, selection)
     hashes.save()
-    render = music_render_selection(states, arguments)
+    checking = "--check" in arguments
+    mode = build_mode(arguments).check() if checking else music_build_mode(arguments)
+    render = music_render_selection(states, mode)
+    refresh_registry = refresh_music_registry(mode, registry, bool(render) and not checking)
     if as_json:
-        print(json.dumps({"states": states, "would_render": render}, indent=1, sort_keys=True))
+        print(json.dumps({"states": states, "would_render": render, "would_build": render,
+                          "registry": registry, "would_refresh_registry": refresh_registry}, indent=1, sort_keys=True))
     else:
         width = max((len(cue) for cue in cues), default=0)
         for cue in cues:
@@ -249,28 +308,32 @@ def music_query(arguments: list[str], selected, store: Store, hashes: Digests) -
             if name in states.values():
                 print(f"  {name}: {MUSIC_STATE_WORDS[name]}")
         print(f"a run would render {len(render)} (*)" + ("" if render else ": nothing to do"))
-    if "--check" in arguments:
-        loose = "--loose" in arguments
-        return int(any(state != "current" and not (loose and state == "shared") for state in states.values()))
-    return 0
+        if registry is not None:
+            state, scope = registry
+            print(f"{'*' if refresh_registry else ' '} registry: {'possibly stale' if scope == 'shared' else state}")
+    return int(checking and bool(render or refresh_registry))
 
 
-def music_render_selection(states: dict[str, str], arguments: list[str]) -> list[str]:
-    """The cues a run renders: named ones as asked, else what changed."""
-    if any(arg in {"--force", "--force-render", "--clean"} for arg in arguments) or any(
-            arg == "--cue" or arg.startswith("--cue=") for arg in arguments):
-        return list(states)
-    if any(arg in {"--only-missing", "--missing-only"} for arg in arguments):
-        return [cue for cue, state in states.items() if state == "missing"]
-    wanted = {"missing", "stale", "damaged"} | ({"shared"} if "--include-shared" in arguments else set())
-    return [cue for cue, state in states.items() if state in wanted]
+def music_build_mode(arguments) -> BuildMode:
+    mode = build_mode(arguments)
+    if mode == BuildMode.DEFAULT and "--include-shared" not in arguments:
+        return BuildMode.LOOSE
+    return mode
 
 
-def music_units(cues: list[str]) -> list[str]:
-    units = ["producer:music:cue:" + cue for cue in cues]
-    if cues == selected_music_cues([]):
-        units.append("producer:music:registry")
-    return units
+def music_render_selection(states: dict[str, str], mode: BuildMode) -> list[str]:
+    return [cue for cue, state in states.items()
+            if mode.includes("stale" if state == "shared" else state, "shared" if state == "shared" else None)]
+
+
+def store_music_registry_status(arguments, selected, store, hashes, selection):
+    if any(arg == "--cue" or arg.startswith("--cue=") for arg in arguments):
+        return None
+    return published_status(selection["bundles"].get("producer:music:registry"), "music", selected, store, hashes, selection)
+
+
+def refresh_music_registry(mode: BuildMode, status, rendering: bool) -> bool:
+    return status is not None and (mode.includes(*status) or (rendering and mode != BuildMode.POSSIBLY_STALE))
 
 
 def accept_music(selected, store: Store, files: dict, records: dict, before: dict, hashes: Digests) -> dict:
@@ -299,7 +362,7 @@ def accept_music(selected, store: Store, files: dict, records: dict, before: dic
         scoped = evidence("music", selected, hashes, scope={"cues": [cue]})
         unit = "producer:music:cue:" + cue
         result[unit] = store.accept(unit, members, {"owner": OWNER, "producer": "music", "generation": scoped}, roots=[prefix])
-    if cues == selected_music_cues([]) or before["parameters"]["scope"].get("registry"):
+    if before["parameters"]["scope"].get("registry", cues == selected_music_cues([])):
         scoped = evidence("music", selected, hashes, scope={"cues": []})
         result["producer:music:registry"] = store.accept("producer:music:registry", registry_files,
             {"owner": OWNER, "producer": "music", "generation": scoped}, roots=[registry])
@@ -336,7 +399,8 @@ def validate_owner_products(family: str, dependencies: dict) -> None:
                 raise ValueError(f"SFX cue {cue.cue_id} has no current render. Run generation without --skip-render.")
 
 
-def accept_outputs(family: str, selected, store: Store, staging: Path, before: dict, hashes: Digests, arguments: list[str]) -> None:
+def accept_outputs(family: str, selected, store: Store, staging: Path, before: dict, hashes: Digests,
+                   arguments: list[str], *, variant_units=None) -> None:
     params = before["parameters"]
     validate_owner_products(family, params["owner_dependencies"])
     _INPUTS.clear()
@@ -364,6 +428,13 @@ def accept_outputs(family: str, selected, store: Store, staging: Path, before: d
                 files[f"review/{family}/{logical}"] = (path, "review", role)
     records = {path.relative_to(staging / "provenance").as_posix(): path
                for path in (staging / "provenance").rglob("*.json")}
+    accepted = store.selected()
+    if family == "backgrounds":
+        # A scoped scene bundle owns its selected files. Bulk generation can
+        # refresh the remaining backgrounds without replacing those bundles.
+        files = {logical: item for logical, item in files.items()
+                 if accepted["files"].get(logical, {}).get("unit", "").split(":", 1)[0]
+                 not in {"theme", "skin", "sky"}}
     replacements = {}
     if family == "variants":
         for (role, logical), members in by_variant.items():
@@ -372,8 +443,13 @@ def accept_outputs(family: str, selected, store: Store, staging: Path, before: d
                 raise ValueError(f"No conversion receipt for {logical}")
             members["review/provenance/" + receipt_name] = (records[receipt_name], "review", role)
             unit = f"producer:variants:{role}:{logical}"
-            scoped = evidence(family, selected, hashes, params["published_parents"], {"role": role, "logical": logical})
-            replacements[unit] = store.accept(unit, members, {"owner": OWNER, "producer": family, "generation": scoped}, roots=owned_roots)
+            owner = params["scope"]["sources"][logical]
+            parents = {owner: params["published_parents"][owner]}
+            scoped = evidence(family, selected, hashes, parents, {"role": role, "logical": logical})
+            replacements[unit] = store.accept(unit, members, {"owner": OWNER, "producer": family, "generation": scoped},
+                                              roots=owned_roots, parents=parents)
+        if len(replacements) != len(params["scope"]["sources"]):
+            raise ValueError("Variant worker did not generate all selected outputs")
     elif family == "music":
         replacements = accept_music(selected, store, files, records, before, hashes)
     else:
@@ -383,16 +459,12 @@ def accept_outputs(family: str, selected, store: Store, staging: Path, before: d
             files["review/provenance/" + logical] = (path, "review", "full")
         unit = "producer:" + family
         replacements[unit] = store.accept(unit, files, {"owner": OWNER, "producer": family, "generation": before}, roots=owned_roots)
-    accepted = store.selected()
     bundles = dict(accepted["bundles"])
-    if family == "variants":
-        partial = any(arg in {"--target", "--tier"} or arg.startswith(("--target=", "--tier=")) for arg in arguments)
-        if not partial:
-            bundles = {unit: key for unit, key in bundles.items() if not unit.startswith("producer:variants:")}
+    if variant_units is not None:
+        bundles = {unit: key for unit, key in bundles.items()
+                   if not unit.startswith("producer:variants:") or unit in variant_units}
     if family == "music":
         bundles.pop("producer:music", None)
-    if family == "backgrounds":
-        bundles = {unit: key for unit, key in bundles.items() if not unit.startswith(("theme:", "skin:"))}
     bundles.update(replacements)
     configured = selected.manifest["producers"]
     bundles = {unit: key for unit, key in bundles.items() if not unit.startswith("producer:") or unit.split(":")[1] in configured}
@@ -403,8 +475,159 @@ def accept_outputs(family: str, selected, store: Store, staging: Path, before: d
     print(f"{family}: accepted {len(replacements)} bundle(s)")
 
 
+
+def option_values(arguments, option):
+    values = []
+    for index, argument in enumerate(arguments):
+        if argument == option:
+            if index + 1 == len(arguments) or arguments[index + 1].startswith("--"):
+                raise ValueError(f"{option} requires a value")
+            values.append(arguments[index + 1])
+        elif argument.startswith(option + "="):
+            values.append(argument.split("=", 1)[1])
+    return tuple(values)
+
+
+def parallax_sources(selection):
+    return {name: item for name, item in selection["files"].items()
+            if name.startswith("backgrounds/parallax_layers/") and name.endswith(".png")}
+
+
+def validate_variant_arguments(arguments):
+    one_value = {"--target", "--tier", "--jobs", "--library", "--asset-root", "--source-root"}
+    switches = (SELECTION_FLAGS - {"--force-render"}) | {"--sprites-only", "--backgrounds-only", "--plan", "--check", "--json"}
+    values = iter(arguments)
+    for argument in values:
+        name, equal, value = argument.partition("=")
+        if name in one_value:
+            if not equal:
+                value = next(values, "")
+            if not value or value.startswith("--"):
+                raise ValueError(f"{name} requires a value")
+        elif argument not in switches:
+            raise ValueError(f"unknown variant option: {argument}")
+    if {"--sprites-only", "--backgrounds-only"} <= set(arguments):
+        raise ValueError("--sprites-only and --backgrounds-only cannot be combined")
+
+
+def variant_plan(selection, arguments):
+    from ambition_sprite2d_renderer.quality import resolve_tiers, selects
+    selectors = option_values(arguments, "--target")
+    tiers = resolve_tiers(option_values(arguments, "--tier"))
+    roles = {"0_5x": "half", "0_25x": "quarter", "potato": "potato"}
+    plan = {}
+    for logical, source in parallax_sources(selection).items():
+        name = Path(logical.removeprefix("backgrounds/parallax_layers/")).with_suffix("")
+        if not (selects(name.as_posix(), selectors) or selects(name.name, selectors)):
+            continue
+        for tier in tiers:
+            output = logical.replace("backgrounds/parallax_layers/", f"backgrounds/parallax_layers_{tier.suffix}/", 1)
+            # The full-size producer replaces its native tiers with the source.
+            if selection["files"].get(output, {}).get("unit") == source["unit"]:
+                continue
+            plan[f"producer:variants:{roles[tier.suffix]}:{output}"] = (logical, source, output)
+    return plan
+
+
+def sprite_variant_states(arguments):
+    from ambition_sprite2d_renderer import publication
+    from ambition_sprite2d_renderer.quality import selects
+    selectors = option_values(arguments, "--target")
+    plan = publication.plan("all" if selectors else None)
+    if not plan["complete"]:
+        raise ValueError("Sprite target discovery did not complete")
+    names = {unit["target"] for unit in plan["units"].values()
+             if selects(unit["target"], selectors)
+             or any(selects(Path(path).stem, selectors) or selects(path, selectors) for path in unit["required"])}
+    inventory = publication.inventory(requested=names, include_atlases=not selectors)
+    return {unit: (row["status"]["state"], row["status"]["scope"]) for unit, row in inventory["units"].items()}
+
+
+def variant_states(selected, store, hashes, selection, arguments):
+    validate_variant_arguments(arguments)
+    if option_values(arguments, "--asset-root") or option_values(arguments, "--source-root"):
+        raise ValueError("variant publication queries use the selected library")
+    producers = selected.manifest["producers"]
+    states = {}
+    if "--backgrounds-only" not in arguments and "sprites" in producers:
+        states.update(sprite_variant_states(arguments))
+    if "--sprites-only" not in arguments and "backgrounds" in producers:
+        if not parallax_sources(selection):
+            states["source:backgrounds"] = ("missing", None)
+        for unit in variant_plan(selection, arguments):
+            states[unit] = published_status(selection["bundles"].get(unit), "variants", selected, store, hashes, selection)
+    return states
+
+
+def run_variants(selected, store, hashes, arguments, mode):
+    validate_variant_arguments(arguments)
+    if os.environ.get("AMBITION_QUALITY_VARIANTS") == "0":
+        print("variants: disabled by AMBITION_QUALITY_VARIANTS=0")
+        return 0
+    if option_values(arguments, "--asset-root") or option_values(arguments, "--source-root"):
+        if mode in {BuildMode.LOOSE, BuildMode.POSSIBLY_STALE}:
+            raise ValueError(f"--{mode.value} requires a selected library publication")
+        return subprocess.call([interpreter("variants"), str(ROOT / "scripts/regen/generate_visual_quality_variants.py"), *arguments], cwd=ROOT)
+    producers = selected.manifest["producers"]
+    command = [interpreter("variants"), str(ROOT / "scripts/regen/generate_visual_quality_variants.py")]
+    if "--backgrounds-only" not in arguments and "sprites" in producers:
+        status = subprocess.call([*command, "--sprites-only", *arguments], cwd=ROOT)
+        if status:
+            return status
+    if "--sprites-only" in arguments or "backgrounds" not in producers:
+        return 0
+    selection = store.selected()
+    if not parallax_sources(selection):
+        if mode == BuildMode.POSSIBLY_STALE:
+            return 0
+        status = subprocess.call([str(ROOT / "scripts/regen/backgrounds.sh"),
+                                  *(["--only-missing"] if mode == BuildMode.MISSING else [])], cwd=ROOT,
+                                 env={key: value for key, value in os.environ.items() if key != "AMBITION_PRODUCER_OWNER"})
+        if status:
+            return status
+        selection = store.selected()
+        if not parallax_sources(selection):
+            raise ValueError("Background variants require published parallax sources")
+    plan = variant_plan(selection, arguments)
+    pending = {unit: spec for unit, spec in plan.items()
+               if mode.includes(*published_status(selection["bundles"].get(unit), "variants", selected, store, hashes, selection))}
+    full = not option_values(arguments, "--target") and not option_values(arguments, "--tier")
+    variant_units = set(plan) if full and mode in {BuildMode.DEFAULT, BuildMode.FORCE} else None
+    if not pending:
+        if variant_units is not None:
+            kept = {unit: key for unit, key in selection["bundles"].items()
+                    if not unit.startswith("producer:variants:") or unit in variant_units}
+            if kept != selection["bundles"]:
+                store.publish(kept, selection, replace=True)
+        print("variants: no selected background products need generation")
+        hashes.save()
+        return 0
+    parents = {source["unit"]: source["bundle"] for _, source, _ in pending.values()}
+    scope = {"sources": {output: source["unit"] for _, source, output in pending.values()}}
+    before = evidence("variants", selected, hashes, parents, scope)
+    with tempfile.TemporaryDirectory(prefix="ambition-variants-") as temporary:
+        staging = Path(temporary)
+        source_root = staging / "sources"
+        for logical, source, _ in pending.values():
+            target = source_root / logical
+            if not target.exists():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(store.root / source["path"], target)
+        env = dict(os.environ, AMBITION_PRODUCER_WORKER="variants",
+                   AMBITION_GENERATION_ROOT=str(staging / "runtime/full"),
+                   AMBITION_ART_PROVENANCE_ROOT=str(staging / "provenance"),
+                   AMBITION_QUALITY_OUTPUTS=json.dumps(scope["sources"]),
+                   AMBITION_ART_PUBLISHED_PARENTS=json.dumps(parents))
+        status = subprocess.call([*command, "--backgrounds-only", "--source-root", str(source_root),
+                                  *(["--force"] if mode == BuildMode.FORCE else [])], cwd=ROOT, env=env)
+        if status:
+            return status
+        accept_outputs("variants", selected, store, staging, before, hashes, arguments, variant_units=variant_units)
+    hashes.save()
+    return 0
+
 MUSIC_QUERIES = {"--list", "--plan", "--check"}
-MUSIC_RUN_FLAGS = {"--include-shared", "--loose", "--json"}
+MUSIC_RUN_FLAGS = {"--include-shared", "--loose", "--only-possibly-stale", "--json"}
 
 
 def take_jobs(arguments: list[str]) -> list[str]:
@@ -426,13 +649,26 @@ def take_jobs(arguments: list[str]) -> list[str]:
     return rest
 
 
+def accepted_scenery_status(store, selected, hashes):
+    from ambition_sprite2d_renderer import publication, scenery_publication
+    units = [unit for unit in selected["bundles"] if unit.split(":", 1)[0] in scenery_publication.SCENERY_KINDS]
+    if not units:
+        return {}
+    _, states = scenery_publication.selection(units, store, selected, publication.source_files(),
+                                              publication.toolchain(), hashes)
+    return states
+
+
 def run(family: str, arguments: list[str]) -> int:
     if family == "music":
         arguments = take_jobs(arguments)
-    only_missing = any(arg in {"--only-missing", "--missing-only"} for arg in arguments)
-    if only_missing and any(arg in {"--force", "--force-render", "--clean"} for arg in arguments):
-        raise ValueError("--only-missing cannot be combined with --force or --clean")
-    worker_arguments = [arg for arg in arguments if arg not in {"--only-missing", "--missing-only"}]
+    mode = build_mode(arguments)
+    only_missing = mode == BuildMode.MISSING
+    worker_arguments = [arg for arg in arguments if arg not in MISSING_FLAGS | {"--loose", "--only-possibly-stale"}]
+    if family == "backgrounds":
+        worker_arguments = [arg for arg in worker_arguments if arg != "--force"]
+    elif family == "music":
+        worker_arguments = [arg for arg in worker_arguments if arg not in MUSIC_RUN_FLAGS]
     # The producer discovers its inputs in its tool's tree: a tool checkout
     # behind its pin would publish old products and call new ones present.
     from lib.submodule_pin import behind_pin
@@ -444,8 +680,6 @@ def run(family: str, arguments: list[str]) -> int:
     if stale:
         print(f"{family}: AMBITION_ALLOW_STALE_TOOL=1, so running on old sources; a module or score "
               f"the pin added will be missing: {stale}", file=sys.stderr)
-    if family == "backgrounds" and only_missing:
-        return subprocess.call([str(ROOT / "scripts/regen/backgrounds.sh"), *arguments], cwd=ROOT)
     selected = library()
     if family not in selected.manifest.get("producers", {}):
         raise ValueError(f"The selected library declares no {family} producer")
@@ -453,57 +687,39 @@ def run(family: str, arguments: list[str]) -> int:
         raise ValueError("A generated content library must declare its publication store")
     store = Store(selected.path.parent / relative(selected.manifest["publication"]))
     hashes = Digests(store.root / "producer-inputs.json")
-    parents = {}
-    source_rows = {}
     if family == "variants":
-        if "--asset-root" in arguments or any(arg.startswith("--asset-root=") for arg in arguments):
-            return subprocess.call([interpreter(family), str(ROOT / "scripts/regen/generate_visual_quality_variants.py"), *arguments], cwd=ROOT)
-        if "--backgrounds-only" not in arguments and "sprites" in selected.manifest["producers"]:
-            status = subprocess.call([interpreter(family), str(ROOT / "scripts/regen/generate_visual_quality_variants.py"), "--sprites-only", *arguments], cwd=ROOT)
-            if status:
-                return status
-        if "--sprites-only" in arguments or "backgrounds" not in selected.manifest["producers"]:
-            return 0
-        source_rows = {name: item for name, item in store.selected()["files"].items()
-                       if name.startswith("backgrounds/parallax_layers/") and name.endswith(".png")}
-        if not source_rows:
-            status = subprocess.call([str(ROOT / "scripts/regen/backgrounds.sh"), *(["--only-missing"] if only_missing else [])], cwd=ROOT,
-                                     env={key: value for key, value in os.environ.items() if key != "AMBITION_PRODUCER_OWNER"})
-            if status:
-                return status
-            source_rows = {name: item for name, item in store.selected()["files"].items()
-                           if name.startswith("backgrounds/parallax_layers/") and name.endswith(".png")}
-        if not source_rows:
-            raise ValueError("Background variants require published parallax sources")
-        selection = store.selected()
-        if only_missing and all(name.replace("backgrounds/parallax_layers/", f"backgrounds/parallax_layers_{suffix}/", 1)
-                                in selection["files"] for name in source_rows for suffix in ("0_5x", "0_25x", "potato")):
-            print("variants: no missing background products")
-            return 0
-        parents = {item["unit"]: item["bundle"] for item in source_rows.values()}
+        return run_variants(selected, store, hashes, arguments, mode)
     unit = "producer:" + family
     selection = store.selected()
-    if family == "music" and MUSIC_QUERIES & set(arguments):
-        return music_query(arguments, selected, store, hashes)
-    scope = {"cues": selected_music_cues(arguments)} if family == "music" else None
-    named = family == "music" and any(arg == "--cue" or arg.startswith("--cue=") for arg in arguments)
-    forced = any(arg in {"--force", "--force-render", "--clean"} for arg in arguments)
-    if family == "music" and (only_missing or not (named or forced)):
+    if family == "backgrounds":
+        from ambition_sprite2d_renderer import scenery_publication
+        states = accepted_scenery_status(store, selection, hashes)
+        pending = [uid for uid, status in states.items() if mode.includes(*status)]
+        if pending:
+            scenery_publication.build(pending, force=mode == BuildMode.FORCE,
+                                      loose=mode == BuildMode.LOOSE,
+                                      possibly_stale_only=mode == BuildMode.POSSIBLY_STALE)
+            selection = store.selected()
+    scope = {"cues": selected_music_cues(arguments), "registry": not any(
+        arg == "--cue" or arg.startswith("--cue=") for arg in arguments)} if family == "music" else None
+    if family == "music" and mode != BuildMode.FORCE:
         # Render what changed: a missing cue, or one whose own inputs changed
         # (`--include-shared` adds those only shared inputs made stale), and
         # refresh the registry. `--plan` lists them without rendering.
         states = music_cue_states(selected, store, hashes, scope["cues"], selection)
-        scope["cues"] = music_render_selection(states, arguments)
+        mode = music_build_mode(arguments)
+        scope["cues"] = music_render_selection(states, mode)
         shared = sorted(cue for cue, state in states.items() if state == "shared" and cue not in scope["cues"])
         if shared:
             print(f"music: {len(shared)} cue(s) stale only through shared inputs, kept "
                   "(--include-shared renders them): " + ", ".join(shared))
-        if not scope["cues"] and "producer:music:registry" in selection["bundles"]:
+        registry_status = store_music_registry_status(arguments, selected, store, hashes, selection)
+        scope["registry"] = refresh_music_registry(mode, registry_status, bool(scope["cues"]))
+        if not scope["cues"] and not scope["registry"]:
             print("music: no missing products" if only_missing else "music: no cue needs rendering")
             hashes.save()
             return 0
         print("music: rendering " + (", ".join(scope["cues"]) if scope["cues"] else "the registry only"))
-        scope["registry"] = True
         worker_arguments = []
         skip_value = False
         for arg in arguments:
@@ -515,36 +731,24 @@ def run(family: str, arguments: list[str]) -> int:
             elif not arg.startswith("--cue=") and arg not in {"--only-missing", "--missing-only"} | MUSIC_RUN_FLAGS:
                 worker_arguments.append(arg)
         worker_arguments += ["--cue", ",".join(scope["cues"])]
-    elif only_missing and family in {"fonts", "backgrounds", "sfx"} and unit in selection["bundles"]:
-        print(f"{family}: no missing products")
-        return 0
-    force = any(arg in {"--force", "--clean"} for arg in arguments)
-    units = music_units(scope["cues"]) if family == "music" else [unit]
-    if not only_missing and family in {"fonts", "backgrounds", "music", "sfx"} and not force and all(
-            selection["bundles"].get(name) and current(selection["bundles"][name], family, selected, store, hashes) for name in units):
-        print(f"{family}: accepted products are current")
-        hashes.save()
-        return 0
-    before = evidence(family, selected, hashes, parents, scope)
+    elif family in {"fonts", "backgrounds", "sfx"}:
+        status = published_status(selection["bundles"].get(unit), family, selected, store, hashes, selection)
+        if not mode.includes(*status):
+            print(f"{family}: no selected products need generation")
+            hashes.save()
+            return 0
+    before = evidence(family, selected, hashes, scope=scope)
     with tempfile.TemporaryDirectory(prefix=f"ambition-{family}-") as temporary:
         staging = Path(temporary)
         env = dict(os.environ, AMBITION_PRODUCER_WORKER=family,
                    AMBITION_GENERATION_ROOT=str(staging / "runtime/full"),
                    AMBITION_ART_PROVENANCE_ROOT=str(staging / "provenance"))
         env.pop("AMBITION_MUSIC_PUBLISH_ROOT", None)
-        command = [str(ROOT / SCRIPTS[family]), *(arguments if family == "variants" else worker_arguments)]
+        command = [str(ROOT / SCRIPTS[family]), *worker_arguments]
         if family == "music" and not scope["cues"]:
             command = [sys.executable, str(ROOT / "scripts/regen/regen_music_registry.py")]
         if family == "fonts":
             command.insert(0, sys.executable)
-        if family == "variants":
-            source = staging / "sources"
-            for logical, item in source_rows.items():
-                destination = source / logical
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(store.root / item["path"], destination)
-            env["AMBITION_ART_PUBLISHED_PARENTS"] = json.dumps(parents)
-            command += ["--backgrounds-only", "--source-root", str(source)]
         status = subprocess.call(command, cwd=ROOT, env=env)
         if status:
             return status
@@ -553,40 +757,35 @@ def run(family: str, arguments: list[str]) -> int:
     return 0
 
 
-def check(family: str, arguments=None) -> int:
+def query(family: str, arguments: list[str]) -> int:
     selected = library()
-    if family == "sprites":
-        return subprocess.call([str(ROOT / "scripts/regen/sprites.sh"), "--check"], cwd=ROOT)
-    if family == "variants" and "backgrounds" not in selected.manifest["producers"]:
-        return subprocess.call([sys.executable, str(ROOT / "scripts/checks/check_quality_variants_are_fresh.py")], cwd=ROOT)
-
     store = Store(selected.path.parent / relative(selected.manifest["publication"]))
     hashes = Digests(store.root / "producer-inputs.json")
-    selection = store.selected()
-    keys = {unit: key for unit, key in selection["bundles"].items()
-            if unit == "producer:" + family or unit.startswith("producer:" + family + ":")}
-    expected = set(music_units(selected_music_cues(arguments or []))) if family == "music" else set(keys)
-    failures = [unit for unit, key in keys.items() if unit in expected and not current(key, family, selected, store, hashes, selection)]
     if family == "music":
-        failures += sorted(expected - keys.keys())
-    elif not keys:
-        failures.append("missing producer publication")
+        return music_query(take_jobs(arguments), selected, store, hashes)
+    selection = store.selected()
+    unit = "producer:" + family
     if family == "variants":
-        expected = {f"producer:variants:{role}:{logical.replace('backgrounds/parallax_layers/', 'backgrounds/parallax_layers_' + suffix + '/', 1)}"
-                    for logical in selected.files() if logical.startswith("backgrounds/parallax_layers/") and logical.endswith(".png")
-                    for role, suffix in (("half", "0_5x"), ("quarter", "0_25x"), ("potato", "potato"))}
-        failures += sorted(expected - keys.keys())
-    print(f"{family}: {len(keys)} accepted bundle(s), {len(failures)} missing or stale")
-    for failure in failures[:20]:
-        print("  " + failure)
+        states = variant_states(selected, store, hashes, selection, arguments)
+    else:
+        states = {unit: published_status(selection["bundles"].get(unit), family, selected, store, hashes, selection)}
+        if family == "backgrounds":
+            states.update(accepted_scenery_status(store, selection, hashes))
     hashes.save()
-    return int(bool(failures))
+    return show_selection(family, states, arguments, checking="--check" in arguments)
+
+
+def check(family: str, arguments=None) -> int:
+    arguments = ["--check", *(arguments or [])]
+    if family == "sprites":
+        return subprocess.call([str(ROOT / "scripts/regen/sprites.sh"), *arguments], cwd=ROOT)
+    return query(family, arguments)
 
 
 def main() -> int:
     arguments = sys.argv[1:]
     if not arguments or arguments == ["--help"]:
-        print("generate_library_content.py <fonts|backgrounds|variants|music|sfx> [--only-missing] [options] | --check [family]")
+        print("generate_library_content.py <family> [--plan|--check] [--loose|--only-missing|--only-possibly-stale|--force]")
         return 0
     if arguments[0] in SCRIPTS and any(arg in {"--help", "-h"} for arg in arguments[1:]):
         command = [str(ROOT / SCRIPTS[arguments[0]]), "--help"]
@@ -607,7 +806,17 @@ def main() -> int:
     family = arguments[1] if checking else arguments[0]
     in_owner(family, arguments)
     try:
-        return check(family, arguments[2:]) if checking else run(family, arguments[1:])
+        if checking:
+            return check(family, arguments[2:])
+        flags = arguments[1:]
+        queries = set(flags) & MUSIC_QUERIES
+        if len(queries) > 1:
+            raise ValueError("choose one query from --list, --plan and --check")
+        if queries:
+            if family != "music" and "--list" in flags:
+                raise ValueError("--list is a music cue query; use --plan")
+            return query(family, flags)
+        return run(family, flags)
     except (ValueError, OSError, KeyError) as error:
         print(f"{family}: {error}", file=sys.stderr)
         return 1

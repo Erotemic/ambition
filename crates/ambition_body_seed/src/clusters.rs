@@ -91,6 +91,7 @@ impl<'a> ActorMut<'a> {
     pub fn clusters_mut(&mut self) -> ae::BodyClustersMut<'_> {
         ae::BodyClustersMut {
             settled: self.settled.as_deref_mut(),
+            grounding: ae::Grounding::FromContacts,
             carrier: self.carrier,
             kinematics: &mut *self.kin,
             sweep: self.sweep.as_deref_mut(),

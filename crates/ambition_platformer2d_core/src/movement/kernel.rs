@@ -8,7 +8,7 @@
 
 use crate::collision_semantics::{Contact, ContactKind};
 use crate::frame::thread::MotionAdmission;
-use crate::{BodyClustersMut, MotionFrame, SweepSample, Vec2, World};
+use crate::{BodyClustersMut, Grounding, MotionFrame, SweepSample, Vec2, World};
 
 use super::adhesive_crawler;
 use super::model::MotionModel;
@@ -156,6 +156,26 @@ pub fn step_motion(
 }
 
 pub(super) fn solve_motion(
+    model: &mut MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    ctx: MotionStepContext<'_>,
+    retained_down: Vec2,
+) -> MotionStepResult {
+    let mut result = admit_motion(model, clusters, ctx, retained_down);
+    match clusters.grounding {
+        Grounding::Airborne => {
+            clusters.ground.on_ground = false;
+            result.events.ground_contact = GroundContactTransition::Unchanged;
+        }
+        Grounding::RefillAirJumps(count) if clusters.ground.on_ground => {
+            clusters.jump.air_jumps_available = count;
+        }
+        _ => {}
+    }
+    result
+}
+
+fn admit_motion(
     model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,

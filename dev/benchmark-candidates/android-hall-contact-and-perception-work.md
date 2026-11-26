@@ -931,6 +931,44 @@ quality in reference, candidate, candidate, reference order.
 Host load varied between runs. These runs show lower phase costs and
 overlapping total tick windows. They give no phone FPS result.
 
+### Grounding before step retention
+
+The movement kernel applies the caller's grounding policy before it checks
+for an unchanged step. A caller can keep a flyer airborne for locomotion
+and retain its physical contacts and support normal. A caller can also
+set the air-jump count for a grounded body. Retention compares the policy
+and the published state as well as the other step inputs.
+
+The full Hall ran in the desktop development build with the same 596
+bodies, 1280 × 800 viewport, Potato quality, and CPU renderer. The runs
+used reference, candidate, candidate, reference order.
+
+| Median after 30 s | Reference runs, ms/tick | Candidate runs, ms/tick |
+| --- | ---: | ---: |
+| All measured simulation phases | 18.35, 18.31 | 16.90, 17.00 |
+| Movement integration | 3.51, 3.56 | 2.15, 2.19 |
+
+After 165 headless updates, 589 of 596 bodies reused their step, up from
+549. The 40 new bodies were 28 flyers with physical floor contact and 12
+grounded actors with a jump refill. The 46 NPCs that solved a step in the
+reference build had the same positions, velocities, and ordered movement
+events in both builds.
+
+An optimized kernel fixture used 38 flyers and 558 grounded bodies, with
+40 extra solves in the reference arm. Median cost across two runs fell
+from 0.323–0.344 ms to 0.122–0.130 ms per tick. The movement and contact
+digests matched. Both arms solved every step when all bodies moved and
+their times overlapped. This test measures no phone frame time.
+
+All 943 active core tests passed. The flight test keeps contact with a floor
+then removes it, adds a wall, and applies steering. The grounded test
+compares the air-jump refresh with a full step and changes the policy on a
+settled body.
+
+Reusing the validation of body material axes had no repeatable effect in
+the development fixture with 57 moving and 539 settled bodies. The
+prototype stayed out of the build measured above.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

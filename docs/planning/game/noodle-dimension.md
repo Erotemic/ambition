@@ -52,6 +52,12 @@ dimensions. The narthex lost its ring and got a front door to the stair
 (`noodly_narthex_to_stair`). The narthex is LDtk-owned, so this edit was made
 in the map; the temple's `make_specs.py` writes the same door.
 
+## Narthex
+
+The doors to the central hub, the Pilgrims' Way, and the nave have different
+crests. Ramen-nujan stands in the alcove under the lamp. Two small ledges
+lead to the alms balcony. The Pesto Key opens its seal.
+
 ## Nave
 
 A bell, a wheel, a vessel, and a colander mark the four upper routes.

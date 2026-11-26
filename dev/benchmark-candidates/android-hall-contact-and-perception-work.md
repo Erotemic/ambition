@@ -623,6 +623,28 @@ loaded Hall to test those paths. The system test checks both body
 populations, bystanders, and contacts. Two crowd tests check room scope and
 order. The probe uses cached host libraries. It measures one system pass.
 
+### Fixed actor decisions
+
+An actor with fixed control checks for a complete body and a resolved
+motion frame. It reads the room stamp from the decision query. The pass
+fetches full actor body data when a brain evaluates world state or shares
+perception with its crew. A fixed brain still clears old beliefs. Empty
+memory can keep its last change tick when the actor stays in the room.
+
+| Isolated decision pass in the loaded Hall | Before, ms | After, ms |
+| --- | ---: | ---: |
+| Development, 595 fixed brains | 0.848–0.867 | 0.340–0.352 |
+| Optimized, 595 fixed brains | 0.122–0.126 | 0.042–0.044 |
+| Development, 24 patrols and one module observer | 1.073–1.092 | 0.638–0.651 |
+| Optimized, 24 patrols and one module observer | 0.212–0.215 | 0.140–0.146 |
+
+Both versions produced the same ordered control frames, brain state, and
+memory. The mixed case changed 24 of the same 595 brains to patrol, added
+a module observer, and removed a resolved motion frame from one body.
+The candidate cleared a seeded belief and kept the change tick of the
+empty memory after the room stamp was set. The probe uses cached host
+libraries and measures the decision pass.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

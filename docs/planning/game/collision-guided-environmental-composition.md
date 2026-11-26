@@ -235,6 +235,8 @@ fixture art for vines and ladders.
 At the Fossil Beds, use the same room crop for the current and candidate
 wall art. Include the skull, survey grid, chest, and ladder at the game
 camera scale. Let the preview select candidate art before publication.
+At the Amber Vault, show the background beyond the chamber walls at wide
+camera framing. Use the room's background override in the preview.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

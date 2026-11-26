@@ -5,7 +5,7 @@ use crate::frame::{
     thread::{MotionAdmission, PieceBudget},
 };
 use crate::layered::LayeredIdentity;
-use crate::motion_codec::{put_axis_maneuver_state, same_axis_law};
+use crate::motion_codec::same_axis_motion;
 use crate::snapshot::SnapshotState;
 use crate::world::WorldEdgeMargins;
 use crate::{Block, BodyClustersMut, MotionFrame, SurfaceChain, SweepSample, Vec2, World};
@@ -48,7 +48,7 @@ pub enum ProofMiss {
 }
 
 struct SettledStep {
-    axis_law: Option<crate::AxisSweptParams>,
+    axis_motion: Option<crate::AxisSweptMotion>,
     environment: Geometry,
     input: StepInput,
     result: MotionStepResult,
@@ -180,7 +180,7 @@ fn edge_bits(world: &World) -> [Option<u32>; 3] {
     [Some(fall), side, rise].map(|x| x.map(f32::to_bits))
 }
 
-// Use the snapshot codecs for mutable body state. Check the axis law separately.
+// Compare axis motion in place. Use snapshot bytes for the remaining proof inputs.
 fn encode_body(model: &MotionModel, body: &BodyClustersMut<'_>, out: &mut Vec<u8>) {
     let BodyClustersMut {
         settled: _,
@@ -206,9 +206,8 @@ fn encode_body(model: &MotionModel, body: &BodyClustersMut<'_>, out: &mut Vec<u8
         restart,
     } = body;
     out.clear();
-    match model {
-        MotionModel::AxisSwept(axis) => put_axis_maneuver_state(out, &axis.state),
-        _ => model.encode(out),
+    if !matches!(model, MotionModel::AxisSwept(_)) {
+        model.encode(out);
     }
     abilities.encode(out);
     kinematics.encode(out);
@@ -257,14 +256,14 @@ impl SettledMotion {
                 return solve_motion(model, body, ctx, prior_down);
             }
         };
-        let current_law = axis_law(model);
+        let current_motion = axis_motion(model);
         encode_body(model, body, &mut self.current);
         let miss = if let Some(step) = &self.step {
             if step.input != input {
                 ProofMiss::StepInput
             } else if let Some(changed) = step.environment.changed(ctx.world) {
                 changed
-            } else if self.prior != self.current || !same_law(step.axis_law.as_ref(), current_law) {
+            } else if self.prior != self.current || !same_motion(step.axis_motion.as_ref(), current_motion) {
                 ProofMiss::BodyState
             } else {
                 *body
@@ -277,7 +276,7 @@ impl SettledMotion {
         } else {
             ProofMiss::New
         };
-        let prior_law = current_law.copied();
+        let prior_motion = current_motion.copied();
         self.step = None;
         self.status = SettledMotionStatus::Events;
         let mut observed = ctx.world.clone();
@@ -303,11 +302,11 @@ impl SettledMotion {
             && *body.env_contact == Default::default()
         {
             encode_body(model, body, &mut self.prior);
-            if self.prior == self.current && same_law(prior_law.as_ref(), axis_law(model)) {
+            if self.prior == self.current && same_motion(prior_motion.as_ref(), axis_motion(model)) {
                 result.events.contacts.share();
                 self.status = SettledMotionStatus::Proved(miss);
                 self.step = Some(Box::new(SettledStep {
-                    axis_law: prior_law,
+                    axis_motion: prior_motion,
                     environment: Geometry::capture(&observed),
                     input,
                     result: result.clone(),
@@ -324,16 +323,16 @@ impl SettledMotion {
     }
 }
 
-fn axis_law(model: &MotionModel) -> Option<&crate::AxisSweptParams> {
+fn axis_motion(model: &MotionModel) -> Option<&crate::AxisSweptMotion> {
     match model {
-        MotionModel::AxisSwept(axis) => Some(&axis.params),
+        MotionModel::AxisSwept(axis) => Some(axis),
         _ => None,
     }
 }
 
-fn same_law(a: Option<&crate::AxisSweptParams>, b: Option<&crate::AxisSweptParams>) -> bool {
+fn same_motion(a: Option<&crate::AxisSweptMotion>, b: Option<&crate::AxisSweptMotion>) -> bool {
     match (a, b) {
-        (Some(a), Some(b)) => same_axis_law(a, b),
+        (Some(a), Some(b)) => same_axis_motion(a, b),
         (None, None) => true,
         _ => false,
     }

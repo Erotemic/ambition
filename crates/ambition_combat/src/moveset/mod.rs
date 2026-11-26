@@ -2118,10 +2118,9 @@ pub fn edge_cancel_landing_recovery(
     for (body, ground, mut combat) in &mut bodies {
         // No resolved rules at all is a world outside a match, which declares
         // nothing and changes nothing.
-        if !rules.of(body).is_some_and(|r| r.edge_cancel_recovery) {
-            continue;
-        }
-        if !ground.on_ground && combat.landing_lag_timer > 0.0 {
+        if !ground.on_ground && combat.landing_lag_timer > 0.0
+            && rules.of(body).is_some_and(|r| r.edge_cancel_recovery)
+        {
             combat.landing_lag_timer = 0.0;
         }
     }
@@ -2341,10 +2340,9 @@ pub fn buffer_combat_action_presses(
     )>,
 ) {
     for (entity, control, tuning, mut state, mut resolved, mut buffer, scale, kin, ground) in &mut bodies {
-        // ADR 0011: the owner's own clock, so a dilated body's leniency
-        // dilates with everything else it does.
-        let dt = world_time.entity_dt(ProperTimeScale::dilated(scale.0, scale.1)) * freeze.scale_of(entity);
         if !buffer.is_empty() {
+            // Buffered presses use the body's own clock.
+            let dt = world_time.entity_dt(ProperTimeScale::dilated(scale.0, scale.1)) * freeze.scale_of(entity);
             buffer.tick(dt);
         }
         // An expired window is an expired press, whichever half notices first.
@@ -4408,13 +4406,12 @@ pub fn apply_special_turn_flicks(
     )>,
 ) {
     for (body, mut gesture, control, tuning, mut kin, frame) in &mut bodies {
-        let reverses_drift = combat_rules
-            .of(body)
-            .is_some_and(|rules| rules.special_turn_reverses_drift);
         let sign =
             ambition_characters::actor::attack_gesture::special_turn_stick_sign(control, tuning);
         let flicked = sign != 0.0 && sign != gesture.prev_lateral_sign;
-        gesture.prev_lateral_sign = sign;
+        if sign.to_bits() != gesture.prev_lateral_sign.to_bits() {
+            gesture.prev_lateral_sign = sign;
+        }
         if gesture.special_turn_ticks == 0 {
             continue;
         }
@@ -4429,7 +4426,7 @@ pub fn apply_special_turn_flicks(
         }
         gesture.special_turn_ticks = 0;
         kin.facing = -kin.facing;
-        if reverses_drift {
+        if combat_rules.of(body).is_some_and(|rules| rules.special_turn_reverses_drift) {
             let body_frame = frame
                 .map(|frame| frame.basis())
                 .unwrap_or_else(|| ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));

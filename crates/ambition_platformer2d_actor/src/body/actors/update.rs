@@ -1558,6 +1558,7 @@ pub fn integrate_sim_bodies(
     // Compose before the parallel reads. Every body reads the same entry
     // geometry and contact snapshot; only its own components can change.
     let composed = collision.prepare_physical();
+    let room_scale = freeze.for_bodies();
     let BodyIntegrationBuffers { workers, completed } = &mut *buffers;
     #[cfg(feature = "causal")]
     let record_operations = cues.movement_ops.is_some();
@@ -1621,7 +1622,7 @@ pub fn integrate_sim_bodies(
             // is many ticks long.
             motion_facts.tumbling,
             out_of_play,
-            dt * freeze.scale_of(actor_entity) * action_share,
+            dt * room_scale(actor_entity) * action_share,
             *feel_tuning,
             authored_tuning.map(|t| t.0),
             &mut frame_out,
@@ -1712,7 +1713,7 @@ pub fn integrate_sim_bodies(
             player_feel,
             playback.map_or(1.0, |pb| pb.motion_scale_now()),
             frame_dt,
-            scaled_dt * freeze.scale_of(player_entity) * action_share,
+            scaled_dt * room_scale(player_entity) * action_share,
             // The move itself, not merely whether one is playing: only a
             // RECOVERY postpones helplessness, which is why the derivation reads
             // the spec's gate rather than the component's presence.

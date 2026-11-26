@@ -772,6 +772,32 @@ The total tick results overlap. Focused checks used the built libraries
 to verify talk reach across rooms, death and revival under two room clocks,
 and bark timing and rotation after a catalog replacement.
 
+### Shared room pace and pending combat
+
+Movement and reaction passes check for a local room pace once per pass.
+Shared-pace bodies need no room lookup. Landing recovery, special turns,
+and buffered actions read room rules or clocks when those inputs apply.
+The placement pass checks for a custody or placement record before it
+resolves an authored body's room and feet.
+
+An isolated development probe read 596 clocks in one room. The batch
+reader took about 4 µs per pass with the shared clock. Individual reads
+took 99–101 µs. Both methods used the local reading path during a hold.
+Focused checks covered a held room, rooms at different paces, a room
+hidden for replay, a buffered grab, special turns, and landing recovery.
+
+The four windowed runs used 596 bodies and the same quality, viewport, and
+run order as the previous desktop comparison.
+
+| Median after 30 s | Reference runs, ms/tick | Candidate runs, ms/tick |
+| --- | ---: | ---: |
+| All measured simulation phases | 19.16, 20.70 | 19.34, 20.25 |
+| Combat | 2.36, 2.56 | 2.23, 2.34 |
+| Movement integration | 3.85, 3.96 | 3.82, 4.02 |
+
+The combat reduction was consistent across the four runs. Total time and
+integration varied across the runs.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

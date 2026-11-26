@@ -26,8 +26,9 @@ pub fn advance_body_reactions(
     // A connect's room holds its bodies' recovery too (ISL-1b).
     freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
+    let room_scale = freeze.for_bodies();
     for (entity, mut combat, scale, step) in &mut bodies {
-        let proper_dt = time.entity_dt(ProperTimeScale::or_default(scale)) * freeze.scale_of(entity);
+        let proper_dt = time.entity_dt(ProperTimeScale::or_default(scale)) * room_scale(entity);
         let resolved = BodyActionStep { released: combat.released_action_share(proper_dt, time.wall_dt()) };
         match step {
             Some(mut step) => {

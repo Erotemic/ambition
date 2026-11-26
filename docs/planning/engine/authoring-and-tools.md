@@ -551,7 +551,10 @@ ownership report classified it as hand-edited until the author recorded
 the new fingerprint. The History generator uses `district_kit.make_rooms`
 to record the rooms it generates. `district_kit.run("validate", ...)`
 then records the final fingerprints after entity and IntGrid changes.
-Use the same functions in the Math generator.
+Use the same functions in the Math generator. The Orbital Station generator
+deletes each room before it creates the replacement. Use the shared
+replacement operation so the ownership check can read the existing room
+before the generator writes a replacement.
 
 ## Repeatable scenario and truthful activation result
 

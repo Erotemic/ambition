@@ -12,23 +12,15 @@ use ambition_combat::components::{CenteredAabb, DamageableVolumes};
 pub fn refresh_body_damageable_volumes(
     mut bodies: Query<
         (
+            Entity,
             &CenteredAabb,
             Option<&ambition_characters::actor::BodyHealth>,
-            (
-                bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
-                Option<&ambition_platformer2d_core::DepthPlane>,
-                bevy::prelude::Has<ambition_platformer2d_core::Unmirrored>,
-            ),
-            // Authored hurtboxes override the coarse body envelope.
-            Option<&ambition_combat::hurtbox_resolution::ResolvedHurtboxes>,
+            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            Option<&ambition_platformer2d_core::DepthPlane>,
+            bevy::prelude::Has<ambition_combat::hurtbox_resolution::ResolvedHurtboxes>,
             Option<&ambition_platformer2d_core::BodyKinematics>,
+            Option<&ambition_combat::actor_tuning::ActorPolicy>,
             &mut DamageableVolumes,
-            // A body that fades between its attacks (`ambition_combat::fade`).
-            (
-                Option<&ambition_combat::actor_tuning::ActorPolicy>,
-                ambition_combat::moveset::MeleeSwingQuery,
-                Option<&ambition_characters::actor::BodyCombat>,
-            ),
         ),
         // Bosses and breakables publish their own family-specific volumes.
         (
@@ -36,19 +28,33 @@ pub fn refresh_body_damageable_volumes(
             Without<BreakableFeature>,
         ),
     >,
+    fades: Query<(
+        ambition_combat::moveset::MeleeSwingQuery,
+        Option<&ambition_characters::actor::BodyCombat>,
+    )>,
+    authored: Query<(
+        &ambition_combat::hurtbox_resolution::ResolvedHurtboxes,
+        bevy::prelude::Has<ambition_platformer2d_core::Unmirrored>,
+    )>,
 ) {
-    for (aabb, health, (out_of_play, plane, unmirrored), hurtboxes, kin, mut damageable, (policy, swing, combat),
-    ) in &mut bodies {
+    for (entity, aabb, health, out_of_play, plane, has_hurtboxes, kin, policy, mut damageable) in &mut bodies {
         // Dead, out-of-play and backdrop bodies publish no target volume;
         // disposition does not affect tangibility. Nor does a faded body.
         if ambition_combat::util::body_is_untouchable(health, out_of_play, plane)
-            || policy.is_some_and(|policy| policy.0.tactics.fades
-                && ambition_combat::fade::faded(Some(policy), swing.swing().as_ref(), combat))
+            || policy.is_some_and(|policy| {
+                policy.0.tactics.fades && fades.get(entity).is_ok_and(|(swing, combat)| {
+                    ambition_combat::fade::faded(Some(policy), swing.swing().as_ref(), combat)
+                })
+            })
         {
             DamageableVolumes::clear_if_needed(&mut damageable);
             continue;
         }
-        match authored_body_volumes(hurtboxes, kin, unmirrored) {
+        let volumes = has_hurtboxes
+            .then(|| authored.get(entity).ok())
+            .flatten()
+            .and_then(|(hurtboxes, unmirrored)| authored_body_volumes(Some(hurtboxes), kin, unmirrored));
+        match volumes {
             Some(volumes) => damageable.replace_body_volumes(volumes),
             None => DamageableVolumes::refresh_box(&mut damageable, kin, aabb),
         }

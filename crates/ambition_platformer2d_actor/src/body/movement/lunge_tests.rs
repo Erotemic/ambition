@@ -74,14 +74,13 @@ fn windup_travel(sprite_content: &ambition_sprite_sheet::SpriteContent, melee: M
     for _ in 0..ticks {
         em.update(
             &world,
-            FeatureCombatTuning::default(),
             dt,
             false,
             frame,
             &mut model,
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             Some(&playback),
-            ambition_combat::feel::FeelTuning::default(),
+            ambition_combat::feel::FeelTuning::default().hitstun_control_scale,
             None,
             &mut combat,
             false,

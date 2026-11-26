@@ -1161,6 +1161,29 @@ movement integration at 3.81 ms per tick. That build preceded the
 changes to the settled step for powered flight and ground contact.
 The new frame-address table has no device result yet.
 
+### Placement, bark, and hurtbox reads
+
+Body placement reuses a room spec while consecutive bodies are in the
+same live room. Idle barks reuse the room's clock table and read speech
+details when a clock starts or comes due. Hurtbox publication reads
+authored shapes and fade state for the bodies that use them. Movement
+passes the hitstun scale directly and applies body defaults once.
+
+Four windowed desktop runs used 596 bodies, a 1280 × 800 viewport,
+Potato quality, and the CPU renderer. The run order was reference,
+candidate, candidate, reference.
+
+| Median after 30 s, ms/tick | Reference runs | Candidate runs |
+| --- | ---: | ---: |
+| All measured simulation phases | 15.45, 15.69 | 14.86, 15.48 |
+| Player simulation | 1.66, 1.71 | 1.54, 1.58 |
+| World preparation | 0.33, 0.36 | 0.29, 0.31 |
+
+The total tick windows overlapped. In an isolated test with the same
+596 bodies, the away-from-home scan fell from 93–94 to 27–28 µs per
+tick. Hurtbox publication fell from 69–71 to 49–50 µs per tick. The
+desktop target is 13.75 ms per tick. Device measurements are pending.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

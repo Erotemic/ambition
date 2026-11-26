@@ -606,7 +606,6 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     let mut state = BossPatternState::default();
     let mut attack_intent = BossAttackIntent::default();
     let dt = 1.0 / 60.0;
-    let combat_tuning = FeatureCombatTuning::default();
     for _ in 0..600 {
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         ambition_boss_encounter::pattern::tick_boss_pattern(
@@ -639,7 +638,6 @@ fn boss_motion_respects_world_collision_against_a_wall() {
         // the pipeline collision-resolves against the wall.
         seed.update_for_test(
             &world,
-            combat_tuning,
             dt,
             false,
             frame,

@@ -5,7 +5,6 @@
 
 use super::*;
 use crate::body::SeedActorIntegrationTestExt;
-use ambition_combat::events::{FeatureCombatTuning};
 
 /// Build a peaceful actor (the unified cluster) with a patrol radius and a
 /// player parked far outside the talk radius, plus the catalog Brain that
@@ -160,7 +159,6 @@ fn tick_peaceful(
     let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     seed.update_for_test(
         world,
-        FeatureCombatTuning::default(),
         dt,
         false,
         frame,
@@ -346,7 +344,6 @@ fn aerial_enemy_respects_world_collision_against_a_wall() {
         let mut model = ambition_platformer2d_core::movement::MotionModel::default();
         enemy.update_for_test(
             &world,
-            FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
             frame,
@@ -412,7 +409,6 @@ fn patrol_enemy_respects_world_collision_against_a_wall() {
         let mut model = ambition_platformer2d_core::movement::MotionModel::default();
         enemy.update_for_test(
             &world,
-            FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
             frame,
@@ -474,7 +470,6 @@ fn sideways_wall_contact_is_reported_without_mutating_facing() {
     for _ in 0..240 {
         enemy.update_for_test(
             &world,
-            FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
             frame,
@@ -549,7 +544,6 @@ fn slug_step_on_platform(sprite_content: &ambition_sprite_sheet::SpriteContent, 
     crawler.state = ae::CrawlerState::attached(ae::Vec2::new(0.0, -1.0));
     enemy.update_for_test(
         &world,
-        FeatureCombatTuning::default(),
         1.0 / 60.0,
         false,
         ambition_characters::actor::control::ActorControlFrame::neutral(),
@@ -607,7 +601,6 @@ fn a_normal_actor_surface_normal_tracks_live_gravity() {
         // live frame for every cardinal.
         enemy.update_for_test(
             &world,
-            FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
             ambition_characters::actor::control::ActorControlFrame::neutral(),
@@ -662,7 +655,6 @@ fn movement_integration_does_not_auto_turn_at_a_wall() {
         frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
         body.update_for_test(
             &world,
-            FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
             frame,
@@ -706,7 +698,6 @@ fn stopping_in_open_space_preserves_facing() {
         frame.facing = body.kin.facing;
         body.update_for_test(
             &world,
-            FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
             frame,

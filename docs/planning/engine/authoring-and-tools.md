@@ -310,6 +310,10 @@ and selection are distinct fields, not one success flag. Keep the actual
 recipe snapshot and its source/tool evidence. A later read of current
 selection cannot attribute another concurrent writer's work to this request.
 
+The Tar Pits skin builds in a new store. In the shared store, the background
+bundle still owns its files. Add a way to move one skin to a scoped bundle in
+one publication. Preserve the source records for the parallax variants.
+
 Machine mode returns parseable result data for normal refusal or partial
 failure even when the exit status is nonzero. If a killed or crashed producer
 returns no receipt, report its outcome as unavailable or unconfirmed.

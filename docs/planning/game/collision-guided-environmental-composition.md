@@ -341,6 +341,9 @@ below water and keep its usual ground cover on the bank.
 Show the effective swim impulse in the room preview. In the Smugglers'
 Tunnel, an omitted field used the movement default of 240. The LDtk
 entity definition showed a default value of 760.
+In the Tar Pits, show the liquid surface art with the bank edges. Let
+authors select a liquid material for a region when a room needs both water
+and tar. Use the same swim region for both materials.
 
 The Site Office timber skin needs both published textures and entries in the
 asset catalog. Use the terrain product plan to list the missing catalog

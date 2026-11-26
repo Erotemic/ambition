@@ -89,12 +89,14 @@ fn observe_workshop(
     };
     let bomb_id = SimId::placement(BOMB);
     for hit in hits.read() {
-        let Some(room) = hit.identity.room else { continue };
-        if name_of(room) == Some(WORKSHOP)
-            && cast.get(hit.body).is_ok_and(|form| form.id() == "npc_creator")
-            && hit.attacker_identity.as_ref().and_then(|id| id.id.as_ref()) == Some(&bomb_id)
-            && hit.resolution.damage_applied() > 0
+        if hit.attacker_identity.as_ref().and_then(|id| id.id.as_ref()) != Some(&bomb_id)
+            || hit.resolution.damage_applied() <= 0
+            || !cast.get(hit.body).is_ok_and(|form| form.id() == "npc_creator")
         {
+            continue;
+        }
+        let Some(room) = hit.identity.room else { continue };
+        if name_of(room) == Some(WORKSHOP) {
             record("intro_dennis_wounded", room);
         }
     }
@@ -109,18 +111,23 @@ fn observe_workshop(
     let case = SimId::placement(CASE);
     let breach_bomb = SimId::placement(BREACH_BOMB);
     for (entity, id, custody, restriction) in &objects {
+        let story_item = [&case, &bomb_id, &breach_bomb].contains(&id);
+        if !story_item && restriction.is_none() {
+            continue;
+        }
         let anchor = match custody {
             ItemCustody::Held { holder } => *holder,
             _ => entity,
         };
         let Some(room) = rooms.of(anchor).filter(|room| allowed(Some(*room))) else { continue };
-        let reserve = name_of(room) == Some(WORKSHOP) && [ &case, &bomb_id, &breach_bomb ].contains(&id);
+        let name = name_of(room);
+        let reserve = story_item && name == Some(WORKSHOP);
         if reserve && restriction.is_none() {
             commands.entity(entity).insert(ambition_held_items::ErrandPickupOnly);
         } else if !reserve && restriction.is_some() {
             commands.entity(entity).remove::<ambition_held_items::ErrandPickupOnly>();
         }
-        if *id == case && name_of(room) == Some(SIDING) {
+        if *id == case && name == Some(SIDING) {
             if let ItemCustody::Held { holder } = custody {
                 if drivers.contains(*holder) {
                     if !save.data().flag("intro_creator_notes_recovered") {
@@ -147,11 +154,15 @@ fn observe_workshop(
         return;
     }
     for (entity, form, health, caps) in &beaten {
+        let remaining = health.current();
+        if form.id() != "npc_raid_brute"
+            || remaining <= 0
+            || !caps.beaten_at.is_some_and(|floor| remaining <= floor)
+        {
+            continue;
+        }
         let Some(room) = rooms.of(entity).filter(|room| allowed(Some(*room))) else { continue };
         if name_of(room) == Some(WORKSHOP)
-            && form.id() == "npc_raid_brute"
-            && health.current() > 0
-            && caps.beaten_at.is_some_and(|floor| health.current() <= floor)
             && !active.holds(Some(room.ordinal()))
             && !active.plays_in("intro_brute_takes_the_case", Some(room.ordinal()))
         {

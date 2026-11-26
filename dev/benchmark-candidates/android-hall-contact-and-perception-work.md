@@ -1047,6 +1047,32 @@ run order as the sprite box comparison.
 The actor decision phase took less time in both candidate runs. Total tick
 windows overlapped. Device measurements are pending.
 
+### Work selection before projection
+
+The workshop observer checks story identities before it resolves rooms.
+NPC life plans index presence only for characters named by the active book.
+Ability projection reads the movement state when the effective verbs change.
+When there are no contributions, the effective verbs are the base verbs.
+
+In the loaded Hall, 595 bodies had no ability contributions. An isolated
+development pass took 0.118–0.124 ms before and 0.036–0.038 ms after. Applying
+and clearing an ability limit produced the same effective abilities, jump
+and dash counts, and flight state.
+
+Four windowed runs used 596 bodies, a 1280 × 800 viewport, Potato quality,
+and the CPU renderer. The run order was reference, candidate, candidate,
+reference.
+
+| Median after 30 s | Reference runs, ms/tick | Candidate runs, ms/tick |
+| --- | ---: | ---: |
+| All measured simulation phases | 16.40, 16.52 | 15.43, 15.90 |
+| Cutscene | 0.24, 0.23 | 0.13, 0.14 |
+
+The total tick windows overlapped. The app build, core tests, life tests,
+and focused Smash test passed. The workshop raid stalled while waiting for
+Dennis to arrive. The same stall occurred with the previous observer.
+Device measurements are pending.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

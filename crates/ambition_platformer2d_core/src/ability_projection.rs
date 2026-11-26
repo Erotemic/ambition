@@ -62,6 +62,9 @@ impl AbilityContributions {
 
     /// Access grants lift authored access limits. Physical ceilings still apply.
     pub fn apply(&self, base: AbilitySet) -> AbilitySet {
+        if self.entries.is_empty() {
+            return base;
+        }
         let mut lent = base;
         let mut ceiling = AbilitySet::ALL;
         let mut access = AbilitySet::ALL;
@@ -96,28 +99,25 @@ impl AbilityContributions {
 #[allow(clippy::type_complexity)]
 pub fn project_body_abilities(
     active_tuning: Option<Res<ActiveMovementTuning>>,
-    mut bodies: Query<(
-        &AbilityBase,
-        &AbilityContributions,
-        &mut BodyAbilities,
-        Option<&mut BodyFlightState>,
-        // Required, never optional (ADR 0024 §1): every body that carries
-        // verbs is an integrated body, and integrated bodies carry a model.
+    mut bodies: Query<(Entity, &AbilityBase, &AbilityContributions, &mut BodyAbilities), With<MotionModel>>,
+    mut movement: Query<(
         &mut MotionModel,
+        Option<&mut BodyFlightState>,
         Option<&mut BodyDashState>,
         Option<&mut BodyJumpState>,
         Option<&AuthoredMovementTuning>,
-        // The form's intrinsic gravity response: zero is a body that flies
-        // without being asked (`IntrinsicForm`).
         Option<&ActorSurfaceState>,
     )>,
 ) {
-    for (base, contributions, mut abilities, flight, mut model, dash, jump, authored, surface) in &mut bodies {
+    for (entity, base, contributions, mut abilities) in &mut bodies {
         let desired = contributions.apply(base.abilities);
         let previous = abilities.abilities;
         if previous == desired {
             continue;
         }
+        let (mut model, flight, dash, jump, authored, surface) = movement
+            .get_mut(entity)
+            .expect("an integrated body has a motion model");
         abilities.abilities = desired;
         if let Some(mut flight) = flight {
             if !desired.fly {

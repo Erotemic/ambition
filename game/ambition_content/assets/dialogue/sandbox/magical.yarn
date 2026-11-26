@@ -46,6 +46,19 @@ Mary-O: Robot. Good. You came through the gate. You can be a witness. I'm at a t
     Mary-O: Always. If anyone lands on that switch, it wasn't me.
 ===
 
+title: magical_wanda
+---
+Wanda: Hold still. Oh. You're not a wand.
+-> The wand shop is closed.
+    Wanda: Yes. Every wand that came back from the castle had the same bend. I thought I'd go and see what was bending them.
+-> What's the crescent wrench for?
+    Wanda: Three sizes of moon fitting. The star is the part I never get straight.
+-> Have you seen Mary-O?
+    Wanda: At the keep. I told her to stop hitting things with the delicate end. She says there's no delicate end on a boot.
+-> What are you doing here?
+    Wanda: Checking the lamps on the road. I can fix those. The dark's a different job.
+===
+
 title: magical_void_lizard
 ---
 Void Lizard: Hhhh. A robot. On my bridge. Wipe your feet. The void gets everywhere and I'm the one who sweeps it.

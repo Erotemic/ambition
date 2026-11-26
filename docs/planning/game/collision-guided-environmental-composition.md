@@ -210,6 +210,9 @@ At Lighthouse Point, show the lookout on the oil deck and a standing body
 below it. Use the same view to check both approaches to the lookout.
 At Pirate Cove, show the door threshold and the ladder top in the same view.
 Use the door bounds to place the sail pennant above the door.
+At Pirate Sky Lookout, show the rigging walk in the same view as the
+riders and the floor below it. Show the points where both ladders meet
+the walk.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

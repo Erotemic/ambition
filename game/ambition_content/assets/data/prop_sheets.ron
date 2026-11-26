@@ -1203,6 +1203,7 @@
     "unfinished_scaffold": (),
     "unfinished_spill": (),
     "unfinished_cranes": (),
+    "unfinished_inspection_scaffold": (),
     "unfinished_office_wall": (backdrop: true),
     "unfinished_gauges": (),
     "unfinished_backlog": (),

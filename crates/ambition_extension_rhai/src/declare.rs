@@ -263,7 +263,7 @@ fn kind_text(text: &str, depth: usize) -> Result<FieldKind, String> {
 fn initial_of(value: &Dynamic, kind: &FieldKind) -> Result<Value, String> {
     let wrong = || format!("expected {kind:?}, got {}", value.type_name());
     Ok(match kind {
-        FieldKind::Object => ambition_extension_sdk::script::value_from_script(kind, &crate::from_dynamic(value)?)?,
+        FieldKind::Object => ambition_extension_sdk::script::value_from_script(kind, &crate::from_dynamic(value.clone())?)?,
         FieldKind::Bool => Value::Bool(value.as_bool().map_err(|_| wrong())?),
         FieldKind::U32 => Value::U32(u32::try_from(value.as_int().map_err(|_| wrong())?).map_err(|_| wrong())?),
         FieldKind::I32 => Value::I32(i32::try_from(value.as_int().map_err(|_| wrong())?).map_err(|_| wrong())?),

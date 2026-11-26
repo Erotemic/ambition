@@ -353,6 +353,18 @@ fn a_worn_form_and_a_timed_grant_empower_a_body_independently() {
 
     wear(&mut app, "runner");
     assert!(!untouchable(&app, body), "and the form's reason leaves with the form");
+
+    wear(&mut app, "super_runner");
+    let plain = ambition_characters::actor::definition::CharacterDefinition::new(
+        "super_runner", "Super Runner", "test",
+    );
+    app.world_mut().resource_mut::<PreparedCharacterRegistry>().insert_prepared(
+        ambition_characters::prepared::prepare_and_finalize_for_test(
+            plain, &Default::default(),
+        ).prepared,
+    );
+    app.update();
+    assert!(!untouchable(&app, body) && !harms(&app), "the replaced form grants no traits");
 }
 
 /// A body harms only what it touches in its own live room (OW1). Two live

@@ -1103,6 +1103,35 @@ decrease in total tick time. Movement and gravity checks passed. Flock
 steering and room records passed with rewind. The desktop target is
 13.75 ms per tick. Device measurements are pending.
 
+### Combat, crew sightings, and script values
+
+Move acceptance reads the full body state only for a pending move or press.
+The footstool pass reads jump edges before it gathers geometry. It clears
+expired claims on the same bodies as before. Crew reports read full body
+state only for policies that share sightings and have a memory. Form
+empowerment reads a sparse lookup in the prepared cast. Rhai moves owned
+values through its adapter without copying nested lists and maps.
+
+The headless Hall ran each of the swallow and cloud sheep entries once
+per tick. In 300 measured ticks, their combined backend time per tick fell
+from 0.487 to 0.450 ms. Both runs reported 600 successful calls.
+
+Four windowed runs used 596 bodies, a 1280 × 800 viewport, Potato quality,
+and the CPU renderer. The run order was reference, candidate, candidate,
+reference.
+
+| Median after 30 s | Reference runs, ms/tick | Candidate runs, ms/tick |
+| --- | ---: | ---: |
+| All measured simulation phases | 15.81, 15.67 | 15.38, 15.39 |
+| Combat | 2.16, 2.14 | 2.06, 2.08 |
+| Player input | 1.52, 1.48 | 1.41, 1.41 |
+
+The total tick windows overlapped. The Rhai, footstool, and empowerment
+tests passed. The crew notice and swallow replay checks passed. The Smash
+rapid jab test reached all three jabs and recorded zero loop time with
+both move-start systems. The desktop target is 13.75 ms per tick. Device
+measurements are pending.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

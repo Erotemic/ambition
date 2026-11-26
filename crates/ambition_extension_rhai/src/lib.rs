@@ -121,12 +121,12 @@ fn register_request(engine: &mut Engine, ports: Arc<ScriptPorts>) {
             if entry.role != ambition_extension_sdk::PortRole::Request {
                 return Err(format!("request: `{alias}` is not a request port").into());
             }
-            let checked = from_dynamic(&Dynamic::from_map(value))
+            let checked = from_dynamic(Dynamic::from_map(value))
                 .and_then(|v| (entry.check)(&v))
                 .map_err(|e| format!("request `{alias}`: {e}"))?;
             let mut request = rhai::Map::new();
             request.insert("port".into(), Dynamic::from(alias.to_owned()));
-            request.insert("value".into(), to_dynamic(&checked));
+            request.insert("value".into(), to_dynamic(checked));
             Ok(request)
         },
     );
@@ -369,7 +369,7 @@ impl ModuleBackend for RhaiModules {
             input,
             self.ports.as_ref(),
             |key, inv| {
-                let mut this = to_dynamic(&inv);
+                let mut this = to_dynamic(inv);
                 let options = rhai::CallFnOptions::new()
                     .eval_ast(true)
                     .bind_this_ptr(&mut this);
@@ -377,7 +377,7 @@ impl ModuleBackend for RhaiModules {
                     .engine
                     .call_fn_with_options(options, &mut rhai::Scope::new(), &m.ast, key, ())
                     .map_err(|e| format!("{}: {e}", self.source))?;
-                from_dynamic(&this).map_err(|e| format!("{}: inv: {e}", self.source))
+                from_dynamic(this).map_err(|e| format!("{}: inv: {e}", self.source))
             },
         ))
     }
@@ -397,26 +397,26 @@ pub fn declares_a_module(ast: &AST) -> bool {
 }
 
 /// A script value as a Rhai value.
-pub fn to_dynamic(value: &ScriptValue) -> Dynamic {
+pub fn to_dynamic(value: ScriptValue) -> Dynamic {
     match value {
         ScriptValue::Unit => Dynamic::UNIT,
-        ScriptValue::Bool(v) => Dynamic::from_bool(*v),
-        ScriptValue::Int(v) => Dynamic::from_int(*v as INT),
-        ScriptValue::Num(v) => Dynamic::from_float(*v as FLOAT),
-        ScriptValue::Text(v) => Dynamic::from(v.clone()),
-        ScriptValue::List(items) => Dynamic::from_array(items.iter().map(to_dynamic).collect()),
+        ScriptValue::Bool(v) => Dynamic::from_bool(v),
+        ScriptValue::Int(v) => Dynamic::from_int(v as INT),
+        ScriptValue::Num(v) => Dynamic::from_float(v as FLOAT),
+        ScriptValue::Text(v) => Dynamic::from(v),
+        ScriptValue::List(items) => Dynamic::from_array(items.into_iter().map(to_dynamic).collect()),
         ScriptValue::Map(fields) => Dynamic::from_map(
             fields
-                .iter()
-                .map(|(k, v)| (k.as_str().into(), to_dynamic(v)))
+                .into_iter()
+                .map(|(k, v)| (k.into(), to_dynamic(v)))
                 .collect(),
         ),
     }
 }
 
-/// A Rhai value as a script value. A value of another type (a function
-/// pointer, a custom type) is an error naming it.
-pub fn from_dynamic(value: &Dynamic) -> Result<ScriptValue, String> {
+/// A Rhai value as a script value. An unsupported value gives an error that
+/// identifies its type.
+pub fn from_dynamic(value: Dynamic) -> Result<ScriptValue, String> {
     if value.is_unit() {
         return Ok(ScriptValue::Unit);
     }
@@ -430,27 +430,19 @@ pub fn from_dynamic(value: &Dynamic) -> Result<ScriptValue, String> {
         return Ok(ScriptValue::Num(v as f32));
     }
     if value.is_string() {
-        return Ok(ScriptValue::Text(
-            value
-                .clone()
-                .into_string()
-                .map_err(|t| format!("text: {t}"))?,
-        ));
+        return Ok(ScriptValue::Text(value.into_string().map_err(|t| format!("text: {t}"))?));
     }
     if value.is_array() {
-        let items = value
-            .clone()
-            .into_array()
-            .map_err(|t| format!("list: {t}"))?;
+        let items = value.into_array().map_err(|t| format!("list: {t}"))?;
         return Ok(ScriptValue::List(
-            items.iter().map(from_dynamic).collect::<Result<_, _>>()?,
+            items.into_iter().map(from_dynamic).collect::<Result<_, _>>()?,
         ));
     }
     if value.is_map() {
-        let map = value.clone().cast::<rhai::Map>();
+        let map = value.cast::<rhai::Map>();
         return Ok(ScriptValue::Map(
-            map.iter()
-                .map(|(k, v)| Ok((k.to_string(), from_dynamic(v)?)))
+            map.into_iter()
+                .map(|(k, v)| Ok((k.into(), from_dynamic(v)?)))
                 .collect::<Result<_, String>>()?,
         ));
     }

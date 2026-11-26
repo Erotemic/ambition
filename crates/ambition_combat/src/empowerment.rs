@@ -32,8 +32,8 @@ pub fn empowerment_of(
     cast: Option<&PreparedCharacterRegistry>,
 ) -> Empowerment {
     let form = worn
-        .and_then(|worn| cast?.get(worn.id()))
-        .map_or(Empowerment::none(), |prepared| prepared.empowered);
+        .zip(cast)
+        .map_or(Empowerment::none(), |(worn, cast)| cast.empowerment(worn.id()));
     grant.map_or(form, |grant| form.with(grant.traits))
 }
 

@@ -2616,6 +2616,7 @@ struct CharacterDefinitions {
     // Body lookups use hash keys; the order cache serves sorted iteration.
     by_id: bevy::platform::collections::HashMap<ambition_entity_catalog::CharacterId, PreparedCharacterDefinition>,
     order: Vec<ambition_entity_catalog::CharacterId>,
+    empowerments: bevy::platform::collections::HashMap<ambition_entity_catalog::CharacterId, crate::actor::Empowerment>,
 }
 
 impl serde::Serialize for CharacterDefinitions {
@@ -2674,6 +2675,11 @@ impl PreparedCharacterRegistry {
 
     pub fn get(&self, id: &str) -> Option<&PreparedCharacterDefinition> {
         self.definitions.by_id.get(id)
+    }
+
+    /// The continuous empowerment granted by a prepared form.
+    pub fn empowerment(&self, id: &str) -> crate::actor::Empowerment {
+        self.definitions.empowerments.get(id).copied().unwrap_or_default()
     }
 
     pub fn ids(&self) -> impl ExactSizeIterator<Item = &str> {
@@ -2773,6 +2779,11 @@ impl PreparedCharacterRegistry {
         let definitions = self.definitions.make_mut();
         if let Err(at) = definitions.order.binary_search(&id) {
             definitions.order.insert(at, id.clone());
+        }
+        if prepared.empowered == crate::actor::Empowerment::none() {
+            definitions.empowerments.remove(&id);
+        } else {
+            definitions.empowerments.insert(id.clone(), prepared.empowered);
         }
         match definitions.by_id.insert(id, prepared) {
             Some(previous) => Some(previous.provider),

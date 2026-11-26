@@ -24,7 +24,7 @@
 //! decomposability contract, pinned by the tests below.
 
 use bevy::prelude::{
-    Commands, Component, Entity, Message, MessageWriter, Query, Res, With,
+    Commands, Component, Entity, Local, Message, MessageWriter, ParamSet, Query, Res, With,
 };
 use ambition_platformer2d_core::replay_messages::ReplayMessageReader;
 
@@ -3255,69 +3255,79 @@ pub fn trigger_moveset_moves(
     // turns nobody around.
     // The rules of each body's own live room.
     room_rules: crate::rules::CombatTuningOf,
-    mut bodies: Query<(
-        Entity,
-        &ActorMoveset,
-        &ActorControl,
-        &ResolvedAttackGesture,
-        // The body's per-tick resolved frame (ADR 0024): a move's authored
-        // body-local start impulse rotates through the SAME frame the body's
-        // movement integrated under. `Option` for bare test bodies.
-        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-        // Mutable so a move's authored `start_impulse` (self-motion) lands at
-        // trigger — the move-start seam.
-        &mut ae::BodyKinematics,
-        // Grounded state selects tilt-vs-air variants. Absent on bare test
-        // bodies → treated as grounded (immaterial: such bodies author only
-        // the base `attack`, which every direction resolves to).
-        Option<&ambition_platformer2d_core::BodyGroundState>,
-        // The playing move, if any — the CM4 cancel seam. `None` = the plain
-        // trigger path.
-        Option<&mut MovePlayback>,
-        // What this body is holding. A held item OWNS the Attack press; every
-        // other verb is untouched.
-        Option<&crate::held_items::HeldItem>,
-        // Is this body RUNNING? Read for the dash attack, off the PUBLISHED
-        // fact — ADR 0024's read surface, which is what a consumer outside the
-        // movement kernel is owed.
-        //
-        // The tests passed because they told the selector the body was dashing; none of them could
-        // ask whether a fighter ever is. `running` is ordinary grounded locomotion, which is where
-        // the genre's running attack lives.
-        //
-        // `Option` for bare test bodies, which are treated as standing.
-        Option<&ae::BodyMotionFacts>,
-        // The body's buffered combat presses. This system is the SPEND site:
-        // `buffer_combat_action_presses` re-proposes a press every tick of its
-        // window, and accepting one is what ends the proposal — so a buffered
-        // press starts exactly one move.
-        &mut ae::BodyActionBuffer,
-        // THE WEAPON, and the recharge its ranged action authors. Taken here
-        // rather than by a lookup query because starting a firing move is a
-        // SPEND — the same shape the guard and the recovery budget already use,
-        // and they are looked up only because they are read by other systems in
-        // the same set. `Option` on both: a body with no refire floor and a
-        // body with no ranged action both fire nothing.
-        Option<&mut RangedRefire>,
-        Option<&ambition_characters::brain::action_set::ActionSet>,
-        // THE GESTURE HISTORY, so an accepted special can open its B-reverse
-        // window. Taken here rather than in the gesture system because opening
-        // it is an ACCEPTANCE, and this is the acceptance authority.
-        // ⚠ NESTED, AND ONLY BECAUSE OF ARITY. Bevy's `QueryData` tuple runs out
-        // at sixteen and this query reached it; the gesture pair travels with
-        // the held-fact purely so the outer tuple still fits. No meaning is
-        // implied by the grouping.
-        (
-            Option<&mut AttackGestureState>,
-            Option<&AttackGestureTuning>,
-            // IS SOMETHING ELSE HOLDING THIS BODY — a saddle, a lift, a grab.
-            // Read as a bare fact rather than by asking WHO, because the domains
-            // that hold a body are ones this crate does not depend on and should
-            // not. See `MoveGates::forbidden_while_held`.
-            bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
-            // A body with no left/right variant plays every move toward `+x`.
-            bevy::prelude::Has<ambition_platformer2d_core::Unmirrored>,
-        ),
+    mut bodies: ParamSet<(
+        Query<(
+            Entity,
+            &ActorMoveset,
+            &ActorControl,
+            &ResolvedAttackGesture,
+            &ae::BodyKinematics,
+            &ae::BodyActionBuffer,
+            bevy::prelude::Has<MovePlayback>,
+        )>,
+        Query<(
+            &ActorMoveset,
+            &ActorControl,
+            &ResolvedAttackGesture,
+            // The body's per-tick resolved frame (ADR 0024): a move's authored
+            // body-local start impulse rotates through the SAME frame the body's
+            // movement integrated under. `Option` for bare test bodies.
+            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+            // Mutable so a move's authored `start_impulse` (self-motion) lands at
+            // trigger — the move-start seam.
+            &mut ae::BodyKinematics,
+            // Grounded state selects tilt-vs-air variants. Absent on bare test
+            // bodies → treated as grounded (immaterial: such bodies author only
+            // the base `attack`, which every direction resolves to).
+            Option<&ambition_platformer2d_core::BodyGroundState>,
+            // The playing move, if any — the CM4 cancel seam. `None` = the plain
+            // trigger path.
+            Option<&mut MovePlayback>,
+            // What this body is holding. A held item OWNS the Attack press; every
+            // other verb is untouched.
+            Option<&crate::held_items::HeldItem>,
+            // Is this body RUNNING? Read for the dash attack, off the PUBLISHED
+            // fact — ADR 0024's read surface, which is what a consumer outside the
+            // movement kernel is owed.
+            //
+            // The tests passed because they told the selector the body was dashing; none of them could
+            // ask whether a fighter ever is. `running` is ordinary grounded locomotion, which is where
+            // the genre's running attack lives.
+            //
+            // `Option` for bare test bodies, which are treated as standing.
+            Option<&ae::BodyMotionFacts>,
+            // The body's buffered combat presses. This system is the SPEND site:
+            // `buffer_combat_action_presses` re-proposes a press every tick of its
+            // window, and accepting one is what ends the proposal — so a buffered
+            // press starts exactly one move.
+            &mut ae::BodyActionBuffer,
+            // THE WEAPON, and the recharge its ranged action authors. Taken here
+            // rather than by a lookup query because starting a firing move is a
+            // SPEND — the same shape the guard and the recovery budget already use,
+            // and they are looked up only because they are read by other systems in
+            // the same set. `Option` on both: a body with no refire floor and a
+            // body with no ranged action both fire nothing.
+            Option<&mut RangedRefire>,
+            Option<&ambition_characters::brain::action_set::ActionSet>,
+            // THE GESTURE HISTORY, so an accepted special can open its B-reverse
+            // window. Taken here rather than in the gesture system because opening
+            // it is an ACCEPTANCE, and this is the acceptance authority.
+            // ⚠ NESTED, AND ONLY BECAUSE OF ARITY. Bevy's `QueryData` tuple runs out
+            // at sixteen and this query reached it; the gesture pair travels with
+            // the held-fact purely so the outer tuple still fits. No meaning is
+            // implied by the grouping.
+            (
+                Option<&mut AttackGestureState>,
+                Option<&AttackGestureTuning>,
+                // IS SOMETHING ELSE HOLDING THIS BODY — a saddle, a lift, a grab.
+                // Read as a bare fact rather than by asking WHO, because the domains
+                // that hold a body are ones this crate does not depend on and should
+                // not. See `MoveGates::forbidden_while_held`.
+                bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
+                // A body with no left/right variant plays every move toward `+x`.
+                bevy::prelude::Has<ambition_platformer2d_core::Unmirrored>,
+            ),
+        )>,
     )>,
     // WHO IS HOLDING SOMEBODY. The inverse of `CapturedBy`, and the reason
     // there is no mirrored `Capturing` component to read instead: one authority,
@@ -3387,50 +3397,60 @@ pub fn trigger_moveset_moves(
     steps: (
         Query<&ae::BodyFrameOutput>,
         Option<bevy::prelude::Res<ambition_time::SimTick>>,
+        Local<Vec<Entity>>,
     ),
     #[cfg(feature = "causal")] log: Option<bevy::prelude::ResMut<ambition_causal::CausalRecording>>,
     #[cfg(feature = "causal")] identities: Query<&crate::components::ActorIdentity>,
     #[cfg(feature = "causal")] tick: Option<bevy::prelude::Res<ambition_time::SimTick>>,
 ) {
-    let (steps, step_tick) = steps;
+    let (steps, step_tick, mut candidates) = steps;
     let capture_can_throw = !hold_states.is_empty();
+    candidates.clear();
+    // Read the move state only for bodies with work at this phase.
+    for (entity, _, control, gesture, _, buffer, playing) in &bodies.p0() {
+        let frame = &control.0;
+        if playing
+            || capture_can_throw
+            || gesture.pressed.is_some()
+            || gesture.special.is_some()
+            || frame.grab_pressed
+            || buffer.grab > 0.0
+            || frame.pogo_pressed
+            || buffer.pogo > 0.0
+            || frame.taunt_pressed
+            || frame.fire.is_some()
+        {
+            candidates.push(entity);
+        }
+    }
+    let mut bodies = bodies.p1();
     #[cfg(feature = "causal")]
     let mut log = log;
-    for (
-        entity,
-        moveset,
-        control,
-        gesture,
-        resolved_frame,
-        mut kin,
-        ground,
-        playback,
-        held,
-        motion_facts,
-        mut action_buffer,
-        mut refire,
-        action_set,
-        // ⚠ `body_is_held` is NOT `held` above, which is the item in this body's
-        // HAND. This one is whether the BODY is held.
-        (mut gesture_state, gesture_tuning, body_is_held, unmirrored),
-    ) in &mut bodies
-    {
+    for &entity in candidates.iter() {
+        let Ok((
+            moveset,
+            control,
+            gesture,
+            resolved_frame,
+            mut kin,
+            ground,
+            playback,
+            held,
+            motion_facts,
+            mut action_buffer,
+            mut refire,
+            action_set,
+            // ⚠ `body_is_held` is NOT `held` above, which is the item in this body's
+            // HAND. This one is whether the BODY is held.
+            (mut gesture_state, gesture_tuning, body_is_held, unmirrored),
+        )) = bodies.get_mut(entity)
+        else {
+            continue;
+        };
         let frame = &control.0;
         let grab_pressed = frame.grab_pressed || action_buffer.grab > 0.0;
         let pogo_pressed = frame.pogo_pressed || action_buffer.pogo > 0.0;
         let special_intent = gesture.special;
-        // A move can continue from held input. A capture can throw from its latch.
-        if playback.is_none()
-            && !capture_can_throw
-            && gesture.pressed.is_none()
-            && special_intent.is_none()
-            && !grab_pressed
-            && !pogo_pressed
-            && !frame.taunt_pressed
-            && frame.fire.is_none()
-        {
-            continue;
-        }
         let combat_rules = room_rules.of(entity);
         // The body's weapon shots in flight. Each candidate asks its OWN
         // source's live-shot limit of this count (`emission_source`).

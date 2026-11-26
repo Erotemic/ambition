@@ -151,5 +151,20 @@ impl RoomFreeze<'_, '_> {
         }
         self.scale_in(self.live.of(entity))
     }
+
+    /// Read the pace of many bodies in one pass. A room lookup is necessary
+    /// only when a live room has a hold or uses its own clock scale.
+    pub fn for_bodies(&self) -> impl Fn(Entity) -> f32 + Sync + '_ {
+        let has_local_pace = self.tick.as_deref().is_some_and(|tick| {
+            let separate = rooms_keep_their_own_clocks(self.roots.iter().count());
+            self.paces.iter().any(|(_, pace)| {
+                let scale = pace.at(*tick);
+                scale == 0.0 || (separate && scale != 1.0)
+            })
+        });
+        move |entity| {
+            if has_local_pace { self.scale_of(entity) } else { 1.0 }
+        }
+    }
 }
 

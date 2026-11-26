@@ -106,6 +106,11 @@ pub fn record_placed_bodies(
         std::collections::BTreeMap<ambition_platformer2d_shared_tangle::sim_id::SimId, ambition_platformer2d_core::Vec2>,
     > = std::collections::BTreeMap::new();
     for (entity, sim_id, kinematics, config, origin) in &bodies {
+        let Some(whereabouts @ (OccurrenceWhereabouts::InCustody | OccurrenceWhereabouts::Placed { .. })) =
+            occurrences.whereabouts(sim_id)
+        else {
+            continue;
+        };
         if !keeps_durable_whereabouts(&room_set, config, origin) {
             continue;
         }
@@ -117,12 +122,12 @@ pub fn record_placed_bodies(
             kinematics.pos.x,
             kinematics.pos.y + kinematics.size().y * 0.5,
         );
-        let write = match occurrences.whereabouts(sim_id) {
-            Some(OccurrenceWhereabouts::InCustody) => true,
-            Some(OccurrenceWhereabouts::Placed { room: recorded, at }) => {
+        let write = match whereabouts {
+            OccurrenceWhereabouts::InCustody => true,
+            OccurrenceWhereabouts::Placed { room: recorded, at } => {
                 recorded == room && at.distance(feet) > WHEREABOUTS_REFRESH_DISTANCE
             }
-            None | Some(OccurrenceWhereabouts::Consumed | OccurrenceWhereabouts::Spent) => false,
+            OccurrenceWhereabouts::Consumed | OccurrenceWhereabouts::Spent => false,
         };
         // A row for a family no room can build elsewhere would suppress the
         // body at home and build it nowhere (`keeps_durable_whereabouts`).

@@ -35,7 +35,7 @@ desktop_dev = ["visible", "desktop_platform", "dev_tools", "dialogue"]
 #
 # `portal`        — portal simulation/mechanics + Ambition input/inventory glue.
 # `portal_render` — portal visual sync (needs the `visible` render pipeline).
-# `portal_ldtk`   — portal-authored LDtk entity conversion (needs `ldtk_runtime`).
+# `portal_ldtk`   — portal-authored LDtk entity conversion (project parsing only).
 #                   When `portal_ldtk` is OFF, the LDtk converter fails loudly on
 #                   a `Portal` / `PortalGunSpawn` entity rather than silently
 #                   dropping it.

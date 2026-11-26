@@ -16,6 +16,9 @@ use bevy::window::PrimaryWindow;
 
 use ambition_platformer2d::publication::construction::RoomContentStagingRegistry;
 use ambition_platformer2d::content::hole;
+// The world asset handles are the `bevy_ecs_ldtk` runtime's, which `render`
+// selects; only the loading screen under `render` waits on them.
+#[cfg(feature = "render")]
 use ambition_platformer2d::ldtk_map::LdtkWorldAssets;
 use ambition_platformer2d::platformer::lifecycle::{InitialGameplayReadiness, SessionRoot};
 #[cfg(feature = "render")]

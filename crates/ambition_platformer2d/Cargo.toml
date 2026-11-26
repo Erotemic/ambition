@@ -159,7 +159,7 @@ card_view = ["ambition_render", "ambition_render/card_view"]
 profile = ["ambition_platformer2d_actor/profile"]
 # Allocation and archetype-churn attribution: `ambition_dev_tools::perf_probe`.
 perf_probe = ["ambition_dev_tools/perf_probe"]
-portal_ldtk = ["portal", "ldtk_runtime", "ambition_platformer2d_ldtk/portal_ldtk"]
+portal_ldtk = ["portal", "ambition_platformer2d_ldtk/portal_ldtk"]
 input = [
     "ambition_input/input",
     "ambition_menu?/input",

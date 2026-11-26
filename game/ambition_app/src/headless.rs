@@ -26,8 +26,6 @@ pub struct HeadlessReport {
     pub ticks_run: u32,
     pub active_room: String,
     pub room_count: usize,
-    pub spawned_entities: usize,
-    pub spine_revision: u64,
     /// One-line HUD summary per active or completed quest. Drawn from
     /// `QuestRegistry::quest_log_lines()` at the end of the run so the
     /// headless smoke can verify intro-v1 quest progression without
@@ -44,12 +42,6 @@ impl fmt::Display for HeadlessReport {
         writeln!(f, "headless run completed: {} ticks", self.ticks_run)?;
         writeln!(f, "  active room    : {}", self.active_room)?;
         writeln!(f, "  rooms loaded   : {}", self.room_count)?;
-        writeln!(
-            f,
-            "  ldtk entities  : {} (spawned by bevy_ecs_ldtk)",
-            self.spawned_entities
-        )?;
-        writeln!(f, "  spine revision : {}", self.spine_revision)?;
         writeln!(
             f,
             "  rooms visited  : {}",
@@ -183,10 +175,6 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     let ticks_run = app.world().resource::<FixedStepsTaken>().0;
 
     let world = app.world();
-    let stats = world
-        .resource::<ldtk_world::LdtkRuntimeSpineStats>()
-        .clone();
-    let spine_index = world.resource::<ldtk_world::LdtkRuntimeSpineIndex>();
     let active_room_after =
         ambition_platformer2d::world::rooms::sole_live_room_spec(world)
             .expect("the session's live room")
@@ -210,8 +198,6 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
         ticks_run,
         active_room: active_room_after,
         room_count,
-        spawned_entities: stats.spawned_entities,
-        spine_revision: spine_index.revision,
         quest_log,
         visited_rooms,
     })

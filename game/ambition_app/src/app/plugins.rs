@@ -122,7 +122,10 @@ pub fn add_simulation_plugins(app: &mut App) {
     app.add_plugins(engine);
 
     // This is the composition statement that replaced it; it must come after the group, which is
-    // what sets `SimulationHost` for the rollback registrar.
+    // what sets `SimulationHost` for the rollback registrar. The spine indexes
+    // what `bevy_ecs_ldtk` spawns, which only a render app does, so a
+    // simulation-only build has none (CB4).
+    #[cfg(feature = "ldtk_runtime")]
     app.add_plugins(ambition_platformer2d::runtime::LdtkWorldPlugin);
 
     // The rules of Ambition's own rooms (death replay, heavy hits, landing

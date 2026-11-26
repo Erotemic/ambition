@@ -91,9 +91,10 @@ pub fn init_sandbox_resources(app: &mut App) {
             &music_registry,
             &world_manifest,
         );
+    #[cfg(feature = "ldtk_runtime")]
     app.insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
-        .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default())
-        .insert_resource(music_registry)
+        .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default());
+    app.insert_resource(music_registry)
         .insert_resource(sfx_registry)
         .insert_resource(sandbox_catalog);
     insert_host_resources(app, sandbox_data);
@@ -211,8 +212,9 @@ fn init_host_resources_without_ambition(app: &mut App) {
         );
     app.insert_resource(sandbox_catalog)
         .insert_resource(music_registry)
-        .insert_resource(sfx_registry)
-        .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
+        .insert_resource(sfx_registry);
+    #[cfg(feature = "ldtk_runtime")]
+    app.insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
         .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default());
 }
 

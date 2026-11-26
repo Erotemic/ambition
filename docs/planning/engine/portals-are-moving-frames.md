@@ -591,8 +591,14 @@ waits for entry music this VM has no registry for.
 Still open in M1:
 - binding the history to the simulation tick and the accepted aperture
   snapshot. The sample has no tick stamp, so a body that skips the kernel
-  for a tick (not through an early return) keeps the previous path, and no
-  census of such skips was made;
+  for a tick (not through an early return) keeps the previous path. For
+  players and actors that does not happen inside the step:
+  `ambition_characters::actor::step_body` sends every arm through
+  `step_motion`. Out of play, held in place, collapsing and in hitlag, it
+  runs with `dt` 0, which writes a zero-length sample at the pose. A skip
+  is then a whole-system one (a gated schedule), whose readers are gated
+  with it. Items, projectiles and other bodies with their own steppers were
+  not checked;
 - carrying source-frame contact facts through readers.
 
 ### M2 — Continue the kernel at its actual chart-change events

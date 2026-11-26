@@ -62,7 +62,9 @@
 //!   limb's drawn picture publishes, as wide as the limb there and over it.
 //! * **Replay** — presentation: the view is derived again each tick from the
 //!   module's record, and no simulation system reads it.
-//! * **Result** — submitted is not applied. No acknowledgement port.
+//! * **Result** — submitted is not applied. The observation
+//!   `ambition.portal.held_pairs` replies: each held slot's
+//!   [`HeldPairOutcome`] (open, pending, closed on use, fizzled, refused).
 
 use ambition_extension_sdk::wire::{self, WireError, WireReader};
 use ambition_extension_sdk::{Port, PortKey, PortRole};
@@ -125,12 +127,36 @@ pub struct HeldPortalPairPort;
 /// each slot its modules hold, and whether its ends are open.
 pub struct HeldPortalPairsPort;
 
+ambition_extension_sdk::port_choices! {
+    /// What became of a held slot's ask, as the adapter admitted it: the
+    /// reply a module reads instead of keeping its own books on a spent slot.
+    pub enum HeldPairOutcome {
+        /// Both ends are open and joined: a body can go through.
+        Open = 0 => "open",
+        /// Admitted, but the ends are not joined yet (no channel for the
+        /// pair, or an end is gone): not a way through.
+        Pending = 1 => "pending",
+        /// It closed when a body came out of it (`closes_on_use`). Closed
+        /// while its slot is asked; a new slot opens a new pair.
+        ClosedOnUse = 2 => "closed_on_use",
+        /// An end would overlap a portal, so it never opened or it closed.
+        /// Closed while its slot is asked.
+        Fizzled = 3 => "fizzled",
+        /// Refused: an end is not a valid portal (a non-finite place, a
+        /// zero normal or opening). Asked again, it is judged again.
+        RefusedInvalid = 4 => "refused_invalid",
+        /// Refused: the body has no simulation identity or is in no live
+        /// room. Asked again, it is judged again.
+        RefusedNoRoom = 5 => "refused_no_room",
+    }
+}
+
 /// One held slot.
 #[derive(Clone, Debug, PartialEq)]
 pub struct HeldPairState {
     pub module: String,
     pub slot: u32,
-    pub open: bool,
+    pub outcome: HeldPairOutcome,
 }
 /// Every slot a body's modules hold, by module and slot.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -143,8 +169,8 @@ ambition_extension_sdk::port_record! {
         module: String,
         /// The module's slot.
         slot: u32,
-        /// Its ends are open; false once it closed on use or fizzled.
-        open: bool,
+        /// What became of its ask.
+        outcome: HeldPairOutcome,
     }
 }
 ambition_extension_sdk::port_record! {
@@ -154,7 +180,9 @@ ambition_extension_sdk::port_record! {
     }
 }
 impl Port for HeldPortalPairsPort {
-    const KEY: PortKey = PortKey::new("ambition.portal.held_pairs", 1);
+    /// Version 2 (2026-11-26): each slot's `outcome` replaces `open`, so
+    /// a refusal, a pending join and a fizzle are told apart.
+    const KEY: PortKey = PortKey::new("ambition.portal.held_pairs", 2);
     const ROLE: PortRole = PortRole::Observation;
     type Value = HeldPairs;
     fn encode(v: &HeldPairs, out: &mut Vec<u8>) {

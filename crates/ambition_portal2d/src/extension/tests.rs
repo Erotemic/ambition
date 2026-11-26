@@ -762,8 +762,39 @@ fn an_invalid_second_end_preserves_both_live_ends() {
     app.world_mut().get_mut::<Asks>(owner).unwrap().0 = 9999;
     app.world_mut().run_schedule(Sim);
     assert_eq!(portals(&mut app), before);
-    assert!(!app.world().get::<HeldPortalPairs>(owner).unwrap().0[0].spent);
+    assert_eq!(app.world().get::<HeldPortalPairs>(owner).unwrap().0[0].outcome, ambition_portal_port::HeldPairOutcome::Open);
     app.world_mut().get_mut::<Asks>(owner).unwrap().0 = 200;
     app.world_mut().run_schedule(Sim);
     assert!(portals(&mut app).iter().any(|(_, _, at, _, _)| *at == near_of(200.0)));
+}
+
+/// P1: the held-pairs observation is the module's reply (what became of its
+/// ask), read from admitted state. A body with no identity is refused, and
+/// says so; given an identity, the same ask is judged again and opens; a
+/// pair asked over an open one fizzles; a record whose ends are not joined is
+/// pending, not open.
+#[test]
+fn a_held_slot_reports_what_became_of_its_ask() {
+    use ambition_portal_port::HeldPairOutcome;
+    let mut app = finished_app();
+    app.world_mut().spawn((RoomInstanceRoot, LiveRoomInstance::ACTIVATION));
+    let room = InRoomInstance(LiveRoomInstance::ACTIVATION);
+    let outcome = |app: &App, body: Entity| {
+        held_pairs_of(app.world(), body).unwrap().pairs.iter().map(|pair| pair.outcome).collect::<Vec<_>>()
+    };
+    let body = app.world_mut().spawn((Asks(100), room)).id();
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(outcome(&app, body), [HeldPairOutcome::RefusedNoRoom], "no identity: refused");
+    app.world_mut().entity_mut(body).insert(SimId::placement("a"));
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(outcome(&app, body), [HeldPairOutcome::Open], "asked again, it is judged again and opens");
+
+    // The same record with an end off its channel is not a way through.
+    let end = app.world().get::<HeldPortalPairs>(body).unwrap().0[0].ends[0];
+    app.world_mut().get_mut::<PlacedPortal>(end).unwrap().channel = crate::UNRESOLVED_LINK_CHANNEL;
+    assert_eq!(outcome(&app, body), [HeldPairOutcome::Pending], "a record is not a connection");
+
+    let second = app.world_mut().spawn((Asks(150), SimId::placement("b"), room)).id();
+    app.world_mut().run_schedule(Sim);
+    assert_eq!(outcome(&app, second), [HeldPairOutcome::Fizzled], "asked over an open pair, it fizzles");
 }

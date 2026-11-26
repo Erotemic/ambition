@@ -3737,8 +3737,9 @@ not been reproduced by a new Rust/game run in this review.
 
 **Next action:** P1's first two slices are done (2026-11-22): scoped reset
 and same-position held recast; released-pair cooldown cleanup and held lease
-release on room transfer. Its owner retains those receipts. P1 still needs
-the published accepted/refused reply to the requesting module. P2's first
+release on room transfer. Its owner retains those receipts. P1's third slice
+landed 2026-11-26: the held-pairs observation replies with each slot's
+outcome (open, pending, closed on use, fizzled, refused); P1 is complete. P2's first
 step landed 2026-11-25: generic transit no longer crosses what the kernel's
 refusal recovery closed (`SweepSample::restriction`, schema 545; see
 [the receipt](engine/portals-are-moving-frames.md#refusal-recovery-can-be-overridden-by-later-crossing-discovery)).

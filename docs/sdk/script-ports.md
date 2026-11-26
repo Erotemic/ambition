@@ -844,6 +844,17 @@ Port `ambition.world.create_breakables@4`, request: `this.requests.push(request(
 | `reply` | { request: integer (u32), selector: text } | required |  |
 | `objects` | list of { key: text, label: text or (), at: [x, y], size: [x, y], health: integer (i32), collision: one of: none \| solid \| one_way, trigger: one of: hit \| stand \| either, respawn_after: number or (), pogo_refresh: bool, look: text or (), bindings: list of { key: text, methods: list of { name: text, entry: text }, subscriptions: list of { key: text, source: text, method: text }, references: table of text to one of: an object reference \| #{local: "node_key"}, params: schema-selected data, state: list of { schema: text, value: schema-selected data } } } | required |  |
 
+## `create_mechanism`
+
+Port `ambition.world.create_mechanism@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `reply` | { request: integer (u32), selector: text } | required |  |
+| `lifts` | list of { key: text, at: [x, y], size: [x, y], rise: number, speed: number } | `[]` |  |
+| `doors` | list of { key: text, at: [x, y], size: [x, y], open: bool } | `[]` |  |
+| `switches` | list of { key: text, at: [x, y], size: [x, y], prompt: text, sends: one of: an object reference \| #{local: "node_key"} } | `[]` |  |
+
 ## `action_result`
 
 Port `ambition.actions.result@2`, trigger: read as `this.trigger`.
@@ -1132,9 +1143,9 @@ Port `ambition.portal.held_pair@2`, request: `this.requests.push(request("<alias
 
 ## `held_portal_pairs`
 
-Port `ambition.portal.held_pairs@1`, observation: read as `this.observe.<alias>`.
+Port `ambition.portal.held_pairs@2`, observation: read as `this.observe.<alias>`.
 
 | field | value | meaning |
 |---|---|---|
-| `pairs` | list of { module: text, slot: integer (u32), open: bool } | The held slots, by module and slot. |
+| `pairs` | list of { module: text, slot: integer (u32), outcome: one of: open \| pending \| closed_on_use \| fizzled \| refused_invalid \| refused_no_room } | The held slots, by module and slot. |
 

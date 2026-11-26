@@ -609,6 +609,23 @@ its own room, so a moved caster never edits another room's ends
 (`a_holder_that_changes_rooms_leaves_its_pair_behind_closed`). A pair a body
 still straddles in the old room is kept, unedited, until it is empty.
 
+**Third slice done (2026-11-26): the request's reply.** Submitted is still
+not applied, but the module now reads what became of its ask: each held slot
+in the `ambition.portal.held_pairs` observation (port version 2) carries a
+`HeldPairOutcome` instead of `open`. `open` means both ends exist and are
+joined off the dead channel; an admitted record whose ends are not joined is
+`pending`, so a record is not taken for a connection. `closed_on_use` and
+`fizzled` are held while the slot is asked; `refused_invalid` (an end is not
+a valid portal) and `refused_no_room` (no simulation identity or live room)
+last one lowering, and the next ask is judged again. The adapter record keeps
+the outcome (`HeldPortalPairRecord.outcome`, rolled back with the record).
+Witnesses: `ambition_portal2d extension::tests::a_held_slot_reports_what_became_of_its_ask`
+(refused, then open once the body has an identity, pending when an end is
+moved to the dead channel, fizzled when asked over an open pair) and the
+scripted `app_it scripted_held_portal_pair`, which reads `outcome` from Rhai.
+P1 is complete; geometry-based pair-use matching goes with P2's crossing
+record (close-on-use should consume the accepted crossing, not overlap).
+
 **Remaining:** publish the accepted/refused outcome of a held request to its
 module (a reply port: opened, fizzled, refused for no identity/room), so a
 module stops re-asking a spent slot by its own bookkeeping.
@@ -681,6 +698,21 @@ Retain the no-portal, static and affine cases throughout. Then compile exact
 cell dependencies and admit further relative-motion specializations only
 where their conditions hold. Host-local opening preparation does not itself
 prove that a free body's contact is affine.
+
+**Receipt (2026-11-26, candidate selection).** `MaterialCast::reachable_links`
+no longer excludes a link by its endpoint: a link reached again by another
+path carries that path's new region forward (a revisit is subsumed only
+when an earlier carried box already contains it), and a turning link bounds
+its image by the orbit of the entry reach about the exit pivots rather than
+the two endpoint poses padded by a diagonal. Witnesses in
+`frame/material_cast/tests.rs`:
+`a_link_revisited_by_another_path_carries_its_new_region` (control: without
+the second path the far link is not admitted) and
+`a_turning_link_bounds_its_image_by_the_orbit_not_the_endpoints` (control:
+the same link with no turn). The translation-only case keeps its padding,
+so the no-portal, static and affine selections are unchanged (core lib
+948/948). Still open in P4: the shared projectile source leg, exact cell
+dependencies and further relative-motion specializations.
 
 **Delete:** endpoint-only visited exclusion, duplicate world/recipient source
 cell construction, repeated immutable/root preparation and irrelevant

@@ -273,11 +273,13 @@ establish causality. Name the time of each segment and retain its relation
 sample; test this through the recovery and conducted-limb clients. Preserve
 the port's same-tick consumption and make any changed effect timing explicit.
 
-`held_pairs_of` currently reports `open = !record.spent`. This can report open
-when capacity left the ends on dead channel 255, or when the endpoint entities
-are gone. Its result must describe admitted state, including pending closure
-and refusal. The exact state encoding can remain small. A record's presence
-is not proof of an active connection.
+`held_pairs_of` reports each slot's `HeldPairOutcome` (port
+`ambition.portal.held_pairs@2`, 2026-11-26): `open` only while both ends exist
+and are joined off the dead channel, else `pending`; `closed_on_use` and
+`fizzled` are held while the slot is asked; `refused_invalid` and
+`refused_no_room` last one lowering, and the next ask is judged again. A
+record's presence is not proof of an active connection. Witness:
+`ambition_portal2d extension::tests::a_held_slot_reports_what_became_of_its_ask`.
 
 Close-on-use consumes an outcome naming the exact directed occurrence. Specify
 whether use means root completion or another material event. Do not infer use

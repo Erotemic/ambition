@@ -30,7 +30,7 @@ fn declare() {
 fn end(at, nx) { #{ at: at, normal: [nx, 0.0], half_length: 24.0 } }
 fn state_of(pairs) {
     for pair in pairs {
-        if pair.slot == 7 { return if pair.open { "O" } else { "x" }; }
+        if pair.slot == 7 { return if pair.outcome == "open" { "O" } else { "x" }; }
     }
     "-"
 }

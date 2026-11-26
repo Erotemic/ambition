@@ -61,9 +61,16 @@ pub fn install_for_technique_execution(app: &mut App) {
 /// The slots `scope`'s modules hold (`ambition.portal.held_pairs`): what the
 /// adapter's record says, as of the last lowering.
 fn held_pairs_of(world: &World, scope: Entity) -> Option<ambition_portal_port::HeldPairs> {
+    // ⛔ A record is not a connection: an admitted pair is open only while
+    // both its ends exist and are joined (off the dead channel).
+    let joined = |end: Entity| world.get::<PlacedPortal>(end).is_some_and(|portal| portal.channel != crate::UNRESOLVED_LINK_CHANNEL);
     let mut pairs: Vec<_> = world.get::<HeldPortalPairs>(scope).map_or_else(Vec::new, |held| {
         held.0.iter().map(|record| ambition_portal_port::HeldPairState {
-            module: record.module.to_string(), slot: record.slot, open: !record.spent,
+            module: record.module.to_string(), slot: record.slot,
+            outcome: match record.outcome {
+                HeldPairOutcome::Open if !record.ends.iter().all(|end| joined(*end)) => HeldPairOutcome::Pending,
+                outcome => outcome,
+            },
         }).collect()
     });
     pairs.sort_by(|a, b| (&a.module, a.slot).cmp(&(&b.module, b.slot)));
@@ -170,11 +177,28 @@ pub struct HeldPortalPairRecord {
     pub ends: [Entity; 2],
     /// It closes the first time a body comes out of it.
     pub closes_on_use: bool,
-    /// It was used and closed, or it fizzled (an end would overlap a
-    /// portal). Its ends are gone, so asking for its slot finds nothing to
-    /// move and keeps it closed; it is held, not spawned again, until its
-    /// module stops asking.
-    pub spent: bool,
+    /// What became of the slot's ask. Anything but `Open` has no ends.
+    /// Closed on use or fizzled, it is held closed, not spawned again, until
+    /// its module stops asking; refused, it lasts one lowering and the next
+    /// ask is judged again.
+    pub outcome: HeldPairOutcome,
+}
+
+impl HeldPortalPairRecord {
+    /// A slot that holds no ends: its pair closed, fizzled or was refused.
+    fn spent(&self) -> bool {
+        self.outcome != HeldPairOutcome::Open
+    }
+}
+
+use ambition_portal_port::HeldPairOutcome;
+
+/// Keep `record` as `owner`'s, among the records this lowering adds.
+fn add_record(new: &mut Vec<(Entity, Vec<HeldPortalPairRecord>)>, owner: Entity, record: HeldPortalPairRecord) {
+    match new.iter_mut().find(|(o, _)| *o == owner) {
+        Some((_, records)) => records.push(record),
+        None => new.push((owner, vec![record])),
+    }
 }
 
 impl bevy::ecs::entity::MapEntities for HeldPortalPairs {
@@ -193,7 +217,7 @@ impl ae::snapshot::SnapshotCursor for HeldPortalPairs {
         for record in &self.0 {
             ae::snapshot::put_str(out, &record.module);
             ae::snapshot::put_u32(out, record.slot);
-            ae::snapshot::put_u32(out, u32::from(record.spent));
+            ae::snapshot::put_u32(out, record.outcome as u32);
         }
     }
 }
@@ -275,7 +299,14 @@ fn lower_held_portal_pairs<L: LowersIn>(
     // is the exit end's centroid, and not the end.
     let exits: Vec<_> = transits.read().map(|transit| (live.of(transit.body), transit.transfer.exit.frame.origin)).collect();
     for (owner, mut held) in &mut holders {
-        for record in held.0.iter_mut().filter(|r| r.phase == L::PHASE && r.closes_on_use && !r.spent) {
+        // A refusal is this phase's last answer, not a hold: its slot's next
+        // ask is judged again.
+        let refused = |r: &HeldPortalPairRecord| r.phase == L::PHASE
+            && matches!(r.outcome, HeldPairOutcome::RefusedInvalid | HeldPairOutcome::RefusedNoRoom);
+        if held.0.iter().any(refused) {
+            held.0.retain(|r| !refused(r));
+        }
+        for record in held.0.iter_mut().filter(|kept| kept.phase == L::PHASE && kept.closes_on_use && !kept.spent()) {
             let used = record.ends.iter().any(|end| {
                 portals.get(*end).is_ok_and(|(_, _, portal, _)| {
                     let reach = portal.opening_half_extent();
@@ -293,7 +324,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
                     }
                 }
                 retiring.extend(record.ends);
-                record.spent = true;
+                record.outcome = HeldPairOutcome::ClosedOnUse;
             }
         }
         if held.0.iter().all(|r| r.phase != L::PHASE || asked(owner, r)) {
@@ -365,20 +396,28 @@ fn lower_held_portal_pairs<L: LowersIn>(
     for s in &submitted {
         if !live.allows(s.scope) { continue; }
         let pair = &s.value;
-        let prepared = match as_portals(&pair.ends) {
-            Ok(prepared) => prepared,
-            Err(fault) => {
-                warn!("extension entry {} asked for an invalid portal pair: {fault:?}; refused", s.entry);
-                continue;
-            }
-        };
         let held = holders
             .get(s.scope)
             .ok()
             .and_then(|(_, h)| h.0.iter().find(|r| &*r.module == module_of(&s.entry) && r.slot == pair.slot).cloned());
+        let refusal = |outcome| HeldPortalPairRecord {
+            module: Arc::from(module_of(&s.entry)), slot: pair.slot, phase: L::PHASE,
+            ends: [Entity::PLACEHOLDER; 2], closes_on_use: pair.closes_on_use, outcome,
+        };
+        let prepared = match as_portals(&pair.ends) {
+            Ok(prepared) => prepared,
+            Err(fault) => {
+                warn!("extension entry {} asked for an invalid portal pair: {fault:?}; refused", s.entry);
+                // A held pair keeps its ends; a new ask is answered.
+                if held.is_none() {
+                    add_record(&mut new, s.scope, refusal(HeldPairOutcome::RefusedInvalid));
+                }
+                continue;
+            }
+        };
         if let Some(record) = held {
             // Kept only for a straddler in the room it was left in.
-            if record.spent || foreign(s.scope, &record) {
+            if record.spent() || foreign(s.scope, &record) {
                 continue;
             }
             let room = live.of(s.scope);
@@ -445,6 +484,7 @@ fn lower_held_portal_pairs<L: LowersIn>(
                 "extension entry {} asked for a held portal pair for {:?}, which has no simulation identity or live room; refused",
                 s.entry, s.scope
             );
+            add_record(&mut new, s.scope, refusal(HeldPairOutcome::RefusedNoRoom));
             continue;
         };
         let module = module_of(&s.entry);
@@ -455,12 +495,9 @@ fn lower_held_portal_pairs<L: LowersIn>(
                 phase: L::PHASE,
                 ends: [Entity::PLACEHOLDER; 2],
                 closes_on_use: pair.closes_on_use,
-                spent: true,
+                outcome: HeldPairOutcome::Fizzled,
             };
-            match new.iter_mut().find(|(o, _)| *o == s.scope) {
-                Some((_, records)) => records.push(record),
-                None => new.push((s.scope, vec![record])),
-            }
+            add_record(&mut new, s.scope, record);
             continue;
         }
         let link = held_pair_link(owner_id, module, pair.slot);
@@ -489,17 +526,14 @@ fn lower_held_portal_pairs<L: LowersIn>(
             phase: L::PHASE,
             ends,
             closes_on_use: pair.closes_on_use,
-            spent: false,
+            outcome: HeldPairOutcome::Open,
         };
-        match new.iter_mut().find(|(o, _)| *o == s.scope) {
-            Some((_, records)) => records.push(record),
-            None => new.push((s.scope, vec![record])),
-        }
+        add_record(&mut new, s.scope, record);
     }
     for (owner, module, slot) in fizzled {
         if let Ok((_, mut held)) = holders.get_mut(owner) {
             if let Some(record) = held.0.iter_mut().find(|r| r.module == module && r.slot == slot) {
-                record.spent = true;
+                record.outcome = HeldPairOutcome::Fizzled;
             }
         }
     }

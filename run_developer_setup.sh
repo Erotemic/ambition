@@ -105,7 +105,7 @@ update_checkout() {
     log "updating main from ${upstream#refs/remotes/}"
     git fetch --no-recurse-submodules "$remote"
     before="$(git rev-parse HEAD)"
-    git -c submodule.recurse=false merge --ff-only --no-autostash "$upstream" \
+    git -c submodule.recurse=false merge --ff-only --no-autostash --no-overwrite-ignore "$upstream" \
         || fatal "main could not be fast-forwarded. Resolve the Git state or use --skip-update."
     if [ "$before" != "$(git rev-parse HEAD)" ]; then
         # Read the setup script from the new revision.

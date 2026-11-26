@@ -3622,7 +3622,14 @@ the published accepted/refused reply to the requesting module. P2's first
 step landed 2026-11-25: generic transit no longer crosses what the kernel's
 refusal recovery closed (`SweepSample::restriction`, schema 545; see
 [the receipt](engine/portals-are-moving-frames.md#refusal-recovery-can-be-overridden-by-later-crossing-discovery)).
-Next in P2: a moving exit and retained target trajectory. P4 can independently
+Since landed (2026-11-25, [receipts](engine/portals-are-moving-frames.md)):
+transit continues from the crossing for a moving exit, contact reads the
+legs before and between crossings, an interpolated view and a feature row
+draw a crossing at its time, and a line host binds SUP1's material place.
+Next in P2: M1's completed-step history apart from the next-step seed, M2's
+kernel continuation in the destination chart, host admission before the
+aperture writer commits, and SUP1 through a portal cell (which needs a
+deforming line split, not only a clipped cast). P4 can independently
 prove/fix full-turn bounds and repeated-link candidate exclusion. P3 removes
 static contact-velocity reconstruction and the AABB snag authority after the
 accepted motion contract is in place. P5/P6 complete observer identity,

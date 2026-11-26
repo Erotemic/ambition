@@ -8,6 +8,7 @@ use ambition_combat::components::{
     ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb,
 };
 use ambition_combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+use ambition_combat::brain::fighter::controlled_recovery::{ControlledFlight, RecoveryControl};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Keep actor-like gameplay poses in sync with the authoritative [`CenteredAabb`].
@@ -355,7 +356,7 @@ pub fn tick_actor_brains(
     coverage_source: AuthoredCoverageSource,
     mut decisions: ResMut<ActorDecisionFrames>,
     // Body state for a decision that reads the world or shares a sighting.
-    (bodies, clusters, decision_inputs, crew_policies): (
+    (bodies, clusters, decision_inputs, crew_policies, mounts, reservations): (
         Query<(
             &ae::BodyKinematics,
             bevy::prelude::Has<ae::Unmirrored>,
@@ -376,8 +377,16 @@ pub fn tick_actor_brains(
             Option<&ae::BodyMotionFacts>,
             Option<&ambition_characters::actor::CharacterForm>,
             Option<&ambition_combat::components::ActorRenderSize>,
+            Has<ambition_mount::RideLease>,
         )>,
         Query<(Entity, &ambition_combat::actor_tuning::ActorPolicy), With<ambition_characters::perception::PerceptionMemory>>,
+        Query<(
+            Option<&ambition_mount::MountSlot>,
+            &ambition_mount::Mountable,
+            &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
+            Has<ambition_characters::control::CommandedMove>,
+        ), With<ambition_characters::control::ActorControl>>,
+        Query<&ambition_mount::MountReservedFor>,
     ),
     // ACT1: what the move admission reads that the actor cluster does not
     // carry, so the kit is offered by the trigger's own rule.
@@ -554,6 +563,50 @@ pub fn tick_actor_brains(
                 if !has_frame || driver.is_some() {
                     continue;
                 }
+                let approach = (|| {
+                    let reservation = reservations.get(this_actor_entity).ok()?;
+                    let speed = reservation.entry_speed?;
+                    let carrier = clusters.get(this_actor_entity).ok()?;
+                    let (rider, ..) = bodies.get(reservation.rider).ok()?;
+                    let (motion, ..) = decision_inputs.get(this_actor_entity).ok()?;
+                    if !carrier.health.alive() || !carrier.flight.fly_enabled || !has_control
+                        || rooms.of(this_actor_entity) != rooms.of(reservation.rider)
+                    {
+                        return None;
+                    }
+                    let (_, mountable, _, _) = mounts.get(this_actor_entity).ok()?;
+                    let (_, unmirrored, ..) = bodies.get(this_actor_entity).ok()?;
+                    let saddle = ambition_mount::rider_position_in_saddle(
+                        mountable, carrier.kin, unmirrored, rider,
+                    ).ok()?;
+                    let displacement = rider.pos - saddle;
+                    let lead = (displacement.length() / speed).min(0.1);
+                    let basis = motion.basis();
+                    let catch = carrier.kin.pos + displacement + rider.vel * lead;
+                    let hull = carrier.kin.aabb();
+                    let depth = (carrier.kin.pos - saddle).dot(basis.down).max(0.0)
+                        + hull.gravity_half(basis.down);
+                    let above = catch - basis.down * depth;
+                    // A rider on a floor can be in reach while the ideal
+                    // saddle position puts the mount through the floor.
+                    let target = feature_world.first_body_sweep(
+                        hull.translated(above - carrier.kin.pos),
+                        basis.down * depth,
+                        |block| matches!(block.kind, ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. } | ae::BlockKind::OneWay),
+                    ).map_or(catch, |hit| {
+                        above + basis.down * (hit.time_of_impact * depth - 2.0).max(0.0)
+                    });
+                    let toward = (target - carrier.kin.pos).normalize_or_zero();
+                    let command_speed = carrier.config.tuning.flight_speed(&carrier.policy.0);
+                    let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+                    frame.velocity_target = ae::WorldVec2(toward * command_speed);
+                    frame.facing = (rider.pos - carrier.kin.pos).dot(basis.side).signum();
+                    Some(frame)
+                })();
+                if let Some(frame) = approach {
+                    decisions.frames.push((this_actor_entity, frame));
+                    continue;
+                }
                 if let (None, Some(frame)) = (
                     module_observation.as_deref(),
                     brain.as_deref().and_then(|brain| brain.fixed_control()),
@@ -579,7 +632,7 @@ pub fn tick_actor_brains(
                     };
                     let Ok((
                         resolved_frame, action_set, riding, aggression,
-                        moveset, playback, stale_moves, motion_facts, worn_character, drawn_quad,
+                        moveset, playback, stale_moves, motion_facts, worn_character, drawn_quad, leased,
                     )) = decision_inputs.get(this_actor_entity) else {
                         continue;
                     };
@@ -611,6 +664,53 @@ pub fn tick_actor_brains(
                     {
                         Some((surface, flight)) => steers_in_flight(surface, flight),
                         None => steers_in_flight(body.surface, body.flight),
+                    };
+                    let controlled_flight = (|| {
+                        let riding = riding.filter(|_| leased)?;
+                        let (slot, mountable, motion, commanded) = mounts.get(riding.mount).ok()?;
+                        ambition_mount::active_mount(this_actor_entity, Some(riding), |_| slot.copied())?;
+                        let carrier = clusters.get(riding.mount).ok()?;
+                        if !carrier.health.alive() || !carrier.flight.fly_enabled {
+                            return None;
+                        }
+                        let tuning = &carrier.config.tuning;
+                        let command_speed = tuning.flight_speed(&carrier.policy.0);
+                        let authored = bodies.get(riding.mount).ok()?.2;
+                        let fallback;
+                        let resolved = if let Some(authored) = authored {
+                            &authored.0
+                        } else {
+                            fallback = crate::body::movement::fallback_movement_tuning(tuning, command_speed);
+                            &fallback
+                        };
+                        let basis = motion.basis();
+                        Some(ControlledFlight {
+                            flight: ae::navigation::FlightFacts {
+                                center: carrier.kin.pos,
+                                vel: carrier.kin.vel,
+                                side: basis.side,
+                                down: basis.down,
+                                law: ae::navigation::FlightLaw {
+                                    top_speed: resolved.flight_terminal_speed,
+                                    braking: resolved.flight_accel.min(resolved.flight_drag),
+                                },
+                                arrival_region: None,
+                                in_one_way: false,
+                            },
+                            bounds: carrier.kin.aabb(),
+                            rider_bounds: body.kin.aabb(),
+                            command_speed,
+                            steering_enabled: mountable.rider_controls_travel(commanded),
+                        })
+                    })();
+                    let recovery_control = if let Some(flight) = controlled_flight {
+                        RecoveryControl::Flight(flight)
+                    } else if matches!(brain_ref, ambition_characters::brain::Brain::StateMachine(
+                        ambition_characters::brain::StateMachineCfg::Fighter { state, .. }
+                    ) if state.sustained_recovery.is_some()) && reservations.iter().any(|reservation| reservation.rider == this_actor_entity) {
+                        RecoveryControl::Reserved
+                    } else {
+                        RecoveryControl::Absent
                     };
                     let mut snapshot = build_enemy_brain_snapshot(
                         &body,
@@ -864,6 +964,7 @@ pub fn tick_actor_brains(
                             actions,
                             &snapshot,
                             Some(world_view),
+                            recovery_control,
                             &mut bf,
                         )
                     });
@@ -1421,6 +1522,7 @@ pub fn integrate_sim_bodies(
                 Option<&ambition_time::ClockDilation>,
                 Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
                 Option<&ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity>,
+                Option<&ambition_mount::MountReservedFor>,
             ),
         ),
         (
@@ -1509,7 +1611,7 @@ pub fn integrate_sim_bodies(
         playback,
         authored_tuning,
         envelope,
-        (out_of_play, action_step, dilation, room, session),
+        (out_of_play, action_step, dilation, room, session, reservation),
     )| {
         let Some(mut cq) = clusters else {
             return;
@@ -1522,6 +1624,16 @@ pub fn integrate_sim_bodies(
         };
         let feature_world: &ambition_platformer2d_core::World = &feature_world;
         let mut em = cq.as_actor_mut();
+        let approach = reservation.and_then(|reservation| reservation.entry_speed).map(|speed| {
+            let mut law = authored_tuning.map(|tuning| tuning.0).unwrap_or_else(|| {
+                let tuning = &em.config.tuning;
+                crate::body::movement::fallback_movement_tuning(tuning, tuning.flight_speed(&em.policy.0))
+            });
+            law.flight_terminal_speed = speed;
+            law.flight_accel = 12.0 * speed;
+            law.flight_drag = law.flight_accel;
+            law
+        });
         // Travel spends the gameplay dilation of the body's clock, never its
         // proper-time rate: a relativistic body's coordinate motion is on
         // world time (ADR 0011).
@@ -1552,7 +1664,7 @@ pub fn integrate_sim_bodies(
             out_of_play,
             dt * room_scale(actor_entity) * action_share,
             hitstun_control_scale,
-            authored_tuning.map(|t| &t.0),
+            approach.as_ref().or(authored_tuning.map(|t| &t.0)),
             &mut frame_out,
             #[cfg(feature = "causal")]
             record_operations,

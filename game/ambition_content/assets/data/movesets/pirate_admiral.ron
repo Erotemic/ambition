@@ -1480,7 +1480,8 @@
                                             // once: it waits out its deadline (seconds) and
                                             // leaves, and the admiral loses the up-B.
                                             "board_deadline_s": 1.0,
-                                            "board_radius": 200.0,
+                                            "board_radius": 48.0,
+                                            "entry_speed": 2400.0,
                                             "character_id": "npc_burning_flying_shark",
                                             "half_extents": [
                                                 48.0,

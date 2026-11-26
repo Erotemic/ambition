@@ -200,6 +200,14 @@ pub struct RefusedAttack {
     pub ticks: u32,
 }
 
+/// Progress of an accepted move that gives the fighter movement authority.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SustainedRecovery {
+    Acquiring(u32),
+    Guiding(u32),
+    Released(u32),
+}
+
 /// The mutable half. Every field decides what the brain does next, so every
 /// field is rollback state.
 ///
@@ -240,6 +248,7 @@ pub struct FighterState {
     pub charge_hold_gesture: ambition_entity_catalog::ChargeGesture,
     /// The attack this body pressed last, while it can learn whether it hit.
     pub own_attack: Option<OwnAttack>,
+    pub sustained_recovery: Option<SustainedRecovery>,
     /// The binding it whiffed with, declined for as long as that move plays.
     pub refused: Option<RefusedAttack>,
     /// The tactical intent held across decisions (`intent.rs`), when the
@@ -289,6 +298,7 @@ impl FighterState {
             charge_hold_ticks: 0,
             charge_hold_gesture: ambition_entity_catalog::ChargeGesture::Smash,
             own_attack: None,
+            sustained_recovery: None,
             refused: None,
             intent: None,
             noticed: false,

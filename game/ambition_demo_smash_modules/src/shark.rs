@@ -1,7 +1,7 @@
 //! The shark ride: the pirate summons a burning flying shark and rides it.
 //!
 //! When a move authors `smash.summon_ride`, its fighter summons the move's
-//! character where she is (`ambition.world.summon_ride`), reserved for her
+//! character at the edge of the room (`ambition.world.summon_ride`), reserved for her
 //! to ride for the move's `seconds`. The mount system boards her, steers the
 //! shark by her stick, and ends the ride when its lease runs out; this
 //! module adds the genre's half, with a status on each of the two.
@@ -137,6 +137,7 @@ pub fn ride_of(special: &FighterSpecial) -> Result<SummonRide, Fault> {
         seconds: number("seconds")?,
         board_within: number("board_radius")?,
         board_deadline_s: number("board_deadline_s")?,
+        entry_speed: Some(number("entry_speed")?),
         holds: SUMMONED.into(),
         reply: None,
     })
@@ -248,6 +249,7 @@ mod tests {
             ("health", 40.0),
             ("board_radius", 200.0),
             ("board_deadline_s", 1.0),
+            ("entry_speed", 2400.0),
         ]
         .into_iter()
         .map(|(path, n)| (path.to_string(), SpecialParam::Number(n)))
@@ -272,6 +274,7 @@ mod tests {
                 seconds: 5.0,
                 board_within: 200.0,
                 board_deadline_s: 1.0,
+                entry_speed: Some(2400.0),
                 holds: SUMMONED.into(),
                 reply: None,
             }

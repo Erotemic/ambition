@@ -21,6 +21,7 @@
 //! reader to wonder why the line is where it is.
 
 pub mod charge;
+pub mod controlled_recovery;
 /// The `fighter_brain_ladder` schema this capability owns. Behind `content_pack`:
 /// a game that never validates its content must not link a compiler.
 #[cfg(feature = "content_pack")]

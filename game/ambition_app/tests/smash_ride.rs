@@ -8,6 +8,19 @@
 use ambition_platformer2d::characters::control::DrivingParticipant;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 
+fn jump_before_calling_the_shark(app: &mut bevy::prelude::App) {
+    use ambition_platformer2d::{engine_core::ControlFrame, sim::drive_control_frame};
+
+    for step in 0..13 {
+        drive_control_frame(app.world_mut(), ControlFrame {
+            jump_pressed: step == 0,
+            jump_held: true,
+            ..Default::default()
+        });
+        app.update();
+    }
+}
+
 /// ⭐⭐ THE ADMIRAL CALLS A SHARK, RIDES IT, AND COMES OFF WHEN HE JUMPS.
 ///
 /// D207, end to end through the real composition: an authored effect key on a
@@ -686,14 +699,7 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
          boarding it — the mount died under him, which is what a charge-crash \
          suicide that cannot see its own rider does"
     );
-    // ⛔⛔ AND IT BOARDED WITH ROOM TO SPARE. Measured here because the summon
-    // does NOT get the position it asks for: it names the rider's own centre,
-    // and `actor_spawn_center_for_collision` then preserves the authored BOTTOM
-    // EDGE, so the shark's centre lands 62px away for a body this size. That is
-    // inside `shark_ride.board_radius` and was inside it by 34px before anybody had
-    // measured either number — which is the kind of margin that holds until one
-    // sprite changes. Pinning the gap makes a placement change say so here
-    // rather than in play.
+    // The saddle must keep the rider close after the catch.
     {
         let world = app.world_mut();
         let rider = world
@@ -755,7 +761,10 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
     // strike owned by the rider cannot land on the rider — the first version of
     // this test did exactly that and measured a fighter at full health.
     let rival = crate::common::smash::seat(&mut app, 1);
+    app.world_mut().entity_mut(rival)
+        .insert(ambition_platformer2d::characters::brain::Brain::stand_still());
 
+    jump_before_calling_the_shark(&mut app);
     let up_special = ambition_platformer2d::engine_core::ControlFrame {
         axis_y: -1.0,
         special_pressed: true,
@@ -1048,11 +1057,15 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
     ]));
 
     let seat0 = crate::common::smash::seat(&mut app, 0);
+    let rival = crate::common::smash::seat(&mut app, 1);
+    app.world_mut().entity_mut(rival)
+        .insert(ambition_platformer2d::characters::brain::Brain::stand_still());
     assert!(
         app.world().get::<DrivingParticipant>(seat0).is_some(),
         "seat 0 is not driven, so the press below reaches nobody"
     );
 
+    jump_before_calling_the_shark(&mut app);
     let up_special = ambition_platformer2d::engine_core::ControlFrame {
         axis_y: -1.0,
         special_pressed: true,
@@ -1091,18 +1104,7 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
          the ability is designed around"
     );
 
-    // ⛔⛤ **THE RIDER HOLDS ALTITUDE, AND THAT IS THE MECHANIC RATHER THAN A
-    // CONVENIENCE.** Both loops used to hold NEUTRAL, which let the pair settle
-    // onto the platform — and the arm below has `!grounded` as its PREMISE,
-    // because a pirate who has touched the stage has had his recovery answered
-    // by the floor rather than by the lease. It held only while the rival
-    // admiral was quiet; when `call_the_shark` left the neutral attack menu the
-    // rival started throwing moves that connect, and the drift changed.
-    // Measured 2026-09-20: grounded at the moment the lease expired.
-    //
-    // ⭐ Holding up is what a rider waiting out a lease does — *"effectively
-    // fly around for a limited time using the control stick"* — so this asks
-    // the question the test is named for without standing anybody down.
+    // Keep the rider above the floor so that only the lease can end the ride.
     let fly_up = ambition_platformer2d::engine_core::ControlFrame {
         axis_y: -1.0,
         ..Default::default()
@@ -1425,6 +1427,79 @@ fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
     );
 }
 
+#[test]
+fn an_admiral_cpu_flies_back_to_stage_on_either_side() {
+    use ambition_platformer2d::actor::FighterStocks;
+    use ambition_platformer2d::characters::control::ActorControl;
+    use ambition_platformer2d::engine_core as ae;
+    use ambition_platformer2d::mount::{DismountReason, MountReservedFor, RiderDismounted, RidingOn};
+    use bevy::ecs::message::MessageCursor;
+    use bevy::prelude::Messages;
+
+    let stage = ambition_demo_smash::smash_stage();
+    let floor = stage.world.blocks.iter().next().expect("the flat stage has a platform").aabb;
+    for start_x in [floor.min.x - 300.0, floor.max.x + 300.0] {
+        let mut app = crate::common::smash::live_round(ambition_demo_smash::smash_roster([
+            "npc_pirate_admiral",
+            "npc_pirate_admiral",
+        ]));
+        let cpu = crate::common::smash::seat(&mut app, 1);
+        let mut reservations = app.world_mut().query::<(&MountReservedFor, &ae::BodyKinematics)>();
+        let starting_stocks = app.world().get::<FighterStocks>(cpu).unwrap().remaining;
+        {
+            let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(cpu).unwrap();
+            kin.pos = ae::Vec2::new(start_x, floor.min.y + 220.0);
+            kin.vel = ae::Vec2::ZERO;
+            kin.facing = (ambition_demo_smash::stage_centre().x - start_x).signum();
+        }
+
+        let mut boarded = false;
+        let mut steered = false;
+        let mut landed = false;
+        let mut entry = None;
+        let mut flew_in = false;
+        let mut dismounts = Vec::new();
+        let mut cursor = MessageCursor::<RiderDismounted>::default();
+        for _ in 0..600 {
+            app.update();
+            let world = app.world();
+            dismounts.extend(cursor.read(world.resource::<Messages<RiderDismounted>>())
+                .filter(|event| event.rider == cpu)
+                .map(|event| event.reason));
+            assert_eq!(world.get::<FighterStocks>(cpu).unwrap().remaining, starting_stocks,
+                "the CPU lost a stock from {start_x}, aboard={boarded}, steered={steered}, dismounts={dismounts:?}");
+
+            if let Some((_, mount)) = reservations.iter(world).find(|(held, _)| held.rider == cpu) {
+                let start = *entry.get_or_insert(mount.pos.x);
+                flew_in |= (mount.pos.x - start).abs() > 16.0;
+            }
+
+            if world.get::<RidingOn>(cpu).is_some() {
+                boarded = true;
+                steered |= world.get::<ActorControl>(cpu).unwrap().0.velocity_target.vec().length_squared() > 0.0;
+                continue;
+            }
+            let kin = *world.get::<ae::BodyKinematics>(cpu).unwrap();
+            let feet = kin.pos.y + kin.size().y * 0.5;
+            if boarded && world.get::<ae::BodyGroundState>(cpu).unwrap().on_ground
+                && kin.pos.x > floor.min.x && kin.pos.x < floor.max.x
+                && (feet - floor.min.y).abs() < 2.0
+            {
+                landed = true;
+                break;
+            }
+        }
+
+        assert!(boarded && steered && landed,
+            "from {start_x}, aboard={boarded}, steered={steered}, landed={landed}, dismounts={dismounts:?}");
+        let entry = entry.expect("the shark had a reservation before the catch");
+        assert!(entry < 0.0 || entry > stage.world.size.x, "the shark entered at {entry}");
+        assert!(flew_in, "the shark moved toward the fighter before boarding from {entry}");
+        assert!(dismounts.contains(&DismountReason::LeaseExpired), "dismounts from {start_x}: {dismounts:?}");
+        assert!(!dismounts.contains(&DismountReason::RiderBailed), "dismounts from {start_x}: {dismounts:?}");
+    }
+}
+
 /// ⭐⭐ TWO ADMIRALS, TWO SHARKS, EACH ON ITS OWN.
 ///
 /// Jon: *"If a shark is flying away and the pirate has met all of the conditions
@@ -1514,9 +1589,8 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
     }
     // ⛔⛔ STOPPED AT THE TICK BOTH ARE ABOARD, not at a fixed frame count. This
     // loop used to run 240 frames and sample once at the end, which is a bet
-    // that the CPU's ride is still running then — and the CPU summons on its own
-    // schedule, boards, and can be off again inside twenty frames. Anything that
-    // shifts its timeline by a hair (a movement resource it now keeps, a
+    // that the CPU's ride is still running then. The CPU summons on its own
+    // schedule. Anything that shifts its timeline by a hair (a movement resource it now keeps, a
     // different move chosen one frame earlier) turns "two riders" into "one",
     // and the failure reads as a mount defect rather than a sampling one.
     //
@@ -2602,6 +2676,14 @@ fn a_saddled_body_advances_its_clocks_and_none_of_its_displacement() {
         );
         app.update();
     }
+    // Wait for the catch before sending the mount's steering input.
+    for _ in 0..75 {
+        if app.world().get::<RidingOn>(seat0).is_some() {
+            break;
+        }
+        ambition_platformer2d::sim::drive_control_frame(app.world_mut(), Default::default());
+        app.update();
+    }
     // Steer HARD toward the stage edge for the whole ride: a rider that can
     // catch a ledge it should not is only visible where there is a ledge.
     // ⛔⛔ GUARD HELD, NOT JUMP. Clearing the movement verbs is the half of this
@@ -2698,20 +2780,9 @@ fn a_saddled_body_advances_its_clocks_and_none_of_its_displacement() {
          kernel's own integration surviving into the next tick, which is the \
          second authority `PoseOwnedExternally` exists to remove"
     );
-    // ⛔⛔ THE HANDOFF TICK IS NOT A DEFECT, AND FINDING THAT OUT IS WHY THIS
-    // COUNTS INDICES RATHER THAN OCCURRENCES. The shark appears where the
-    // admiral is standing and the pin takes his pose on that same tick, so on
-    // mounted tick ZERO he is genuinely still on the floor — the constraint is
-    // holding him where he is, which is on it. From tick one the ride has him
-    // and the floor is not an answer any more. A test that simply demanded zero
-    // would be asserting that the handoff is instantaneous, which it is not, and
-    // one that skipped a leading window would be hiding how wide that window is.
-    assert_eq!(
-        ground_ticks,
-        vec![0],
-        "the rider was grounded on mounted ticks {ground_ticks:?}. Tick 0 is the \
-         handoff, where he really is still on the floor; anything else is a body \
-         in a saddle standing on something"
+    assert!(
+        ground_ticks.is_empty(),
+        "the rider was grounded after the catch on mounted ticks {ground_ticks:?}"
     );
     // ⚠ THESE TWO ARE CONSEQUENCES, NOT INDEPENDENT GUARANTEES, and saying so is
     // the point. Poison-checked: restoring the live stick leaves both at zero,

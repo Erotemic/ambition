@@ -2415,7 +2415,7 @@ fn borrowed_and_owned_fighter_world_views_remain_equivalent() {
             let mut from_borrow = ActorControlFrame::neutral();
             let mut from_owned = ActorControlFrame::neutral();
             tick_fighter(&cfg, &mut borrowed, &snapshot, visible.as_ref(), &mut from_borrow);
-            tick_fighter_owned(&cfg, &mut owned, &snapshot, visible, &mut from_owned);
+            tick_fighter_owned(&cfg, &mut owned, &snapshot, visible, RecoveryControl::Absent, &mut from_owned);
             assert_eq!(from_borrow, from_owned, "control mismatch on tick {tick}");
             assert_eq!(
                 format!("{borrowed:?}"),

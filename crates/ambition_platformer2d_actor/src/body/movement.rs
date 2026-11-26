@@ -16,6 +16,21 @@ use ambition_combat::events::{
 /// taking a hit every i-frame window. Feel-tunable.
 const BODY_CONTACT_MIN_KNOCKBACK: f32 = 0.6;
 
+pub(crate) fn fallback_movement_tuning(
+    tuning: &ambition_combat::actor_tuning::ActorTuning,
+    flight_speed: f32,
+) -> ae::MovementTuning {
+    let flight_response = (flight_speed * 3.0).max(900.0);
+    let mut fallback = tuning.movement.body_tuning(tuning.max_run_speed);
+    fallback.flight_terminal_speed = flight_speed;
+    fallback.flight_accel = flight_response;
+    fallback.flight_drag = flight_response;
+    fallback.flight_hover_speed = 0.0;
+    fallback.flight_hover_hz = 0.0;
+    fallback.flight_direct_velocity = tuning.flight_direct_velocity;
+    fallback
+}
+
 /// Simulation behavior layered over the spawn crate's mutable actor view.
 ///
 /// `ambition_body_seed` owns `ActorMut`. This kernel owns its live movement
@@ -273,21 +288,12 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
     ) -> ae::FrameEvents {
         let flying = self.flight.fly_enabled;
         let flight_speed = self.config.tuning.flight_speed(&self.policy.0);
-        let mut fallback;
-        let resolved_tuning = match authored_tuning {
-            Some(tuning) => tuning,
-            None => {
-                let tuning = &self.config.tuning;
-                let flight_response = (flight_speed * 3.0).max(900.0);
-                fallback = tuning.movement.body_tuning(tuning.max_run_speed);
-                fallback.flight_terminal_speed = flight_speed;
-                fallback.flight_accel = flight_response;
-                fallback.flight_drag = flight_response;
-                fallback.flight_hover_speed = 0.0;
-                fallback.flight_hover_hz = 0.0;
-                fallback.flight_direct_velocity = tuning.flight_direct_velocity;
-                &fallback
-            }
+        let fallback;
+        let resolved_tuning = if let Some(tuning) = authored_tuning {
+            tuning
+        } else {
+            fallback = fallback_movement_tuning(&self.config.tuning, flight_speed);
+            &fallback
         };
 
         let mut input = if flying {

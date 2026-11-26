@@ -157,6 +157,11 @@ impl Mountable {
             death_impact: MountDeathImpact::Dismount,
         }
     }
+
+    /// Whether the rider controls travel on this step.
+    pub fn rider_controls_travel(&self, commanded: bool) -> bool {
+        self.control_grant == ControlGrant::Total && !commanded
+    }
 }
 
 /// Attached to a rider (or would-be rider) entity. The set of mount
@@ -870,12 +875,8 @@ pub fn steer_mount_from_rider(
     >,
     // The room the pair flies in, for the rider's clearance. Optional: a
     // fixture without a session steers exactly as before.
-    rooms: Query<
-        &ae::RoomGeometry,
-        With<ambition_platformer2d_shared_tangle::lifecycle::RoomInstanceRoot>,
-    >,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<'_, '_, ae::RoomGeometry>,
 ) {
-    let room = rooms.single().ok();
     for (rider, riding, rider_control, rider_kin) in &riders {
         if active_mount(rider, Some(riding), |mount| slots.get(mount).ok().copied()).is_none() {
             continue;
@@ -886,7 +887,7 @@ pub fn steer_mount_from_rider(
         if mountable.control_grant != ControlGrant::Total {
             continue;
         }
-        if walked {
+        if !mountable.rider_controls_travel(walked) {
             mount_control.0.facing = rider_control.0.facing;
             continue;
         }
@@ -941,7 +942,7 @@ pub fn steer_mount_from_rider(
         //
         // ⚠ Not applied to a rider already inside solid: every sweep from in
         // there reports a hit, and clamping would trap the pair where it is.
-        if let (Some(room), Some(rider_kin)) = (room, rider_kin) {
+        if let (Some(room), Some(rider_kin)) = (rooms.of(riding.mount), rider_kin) {
             let down = mount_motion.map_or(ae::Vec2::new(0.0, 1.0), |motion| motion.basis().down);
             // The rider's collision box, turned to the DOWN of the pair.
             let rider = rider_kin.aabb();
@@ -1096,9 +1097,7 @@ pub fn sync_riders_to_mounts(
         // map: the seat through the mount's (its scale, turn and parity), the
         // soles through the rider's. A combined offset in one body's frame
         // gets an unequal pair wrong (body anchors, A1).
-        let soles = ae::Vec2::new(0.0, desired.canonical_size.y * 0.5);
-        let placed = seat_in_world(mountable.seat, mount_kin, mount_unmirrored)
-            .and_then(|seat| desired.root_placing(soles, seat));
+        let placed = rider_position_in_saddle(mountable, mount_kin, mount_unmirrored, &desired);
         // ADR 0020 saddle pin = the external-constraint authority (ADR 0024):
         // the mount owns the rider's pose while mounted. A map that cannot be
         // evaluated refuses the pose, as the authority's own refusal does.
@@ -1280,6 +1279,8 @@ pub struct MountReservedFor {
     /// way a refusal does, which is what makes the doc line above — *"retires the
     /// reservation either way"* — true instead of aspirational.
     pub expires_in: f32,
+    /// Flight speed on the approach to the rider.
+    pub entry_speed: Option<f32>,
 }
 
 /// Board every reserved mount whose rider is in reach, and retire the
@@ -1297,6 +1298,8 @@ pub fn board_reserved_mounts(
         Entity,
         &mut MountReservedFor,
         &ambition_platformer2d_core::BodyKinematics,
+        Option<&Mountable>,
+        bevy::prelude::Has<ae::Unmirrored>,
     )>,
     riders: Query<&ambition_platformer2d_core::BodyKinematics>,
     mut refused: MessageWriter<RideRefused>,
@@ -1324,7 +1327,7 @@ pub fn board_reserved_mounts(
         Apart(Entity),
     }
     let mut decided: Vec<(Entity, Outcome)> = Vec::new();
-    for (mount, mut reservation, kin) in &mut reserved {
+    for (mount, mut reservation, kin, mountable, unmirrored) in &mut reserved {
         reservation.expires_in -= dt * freeze.scale_of(mount);
         let Ok(rider_kin) = riders.get(reservation.rider) else {
             // A rider with no body has not arrived and never will.
@@ -1338,7 +1341,12 @@ pub fn board_reserved_mounts(
             decided.push((mount, Outcome::Apart(reservation.rider)));
             continue;
         }
-        let gap = kin.pos.distance(rider_kin.pos);
+        let gap = if let (Some(_), Some(mountable)) = (reservation.entry_speed, mountable) {
+            rider_position_in_saddle(mountable, kin, unmirrored, rider_kin)
+                .map_or(f32::INFINITY, |pos| pos.distance(rider_kin.pos))
+        } else {
+            kin.pos.distance(rider_kin.pos)
+        };
         if gap <= reservation.board_within {
             decided.push((mount, Outcome::Board(*reservation)));
             continue;
@@ -2493,6 +2501,18 @@ pub fn seat_in_world(
     mount.material_map()?.point(ae::Vec2::new(seat.x * side, seat.y))
 }
 
+/// Position of the rider when its soles meet the saddle.
+pub fn rider_position_in_saddle(
+    mountable: &Mountable,
+    mount: &ae::BodyKinematics,
+    unmirrored: bool,
+    rider: &ae::BodyKinematics,
+) -> Result<ae::Vec2, ambition_platformer2d_core::frame::NumericFault> {
+    let soles = ae::Vec2::new(0.0, rider.canonical_size.y * 0.5);
+    seat_in_world(mountable.seat, mount, unmirrored)
+        .and_then(|seat| rider.root_placing(soles, seat))
+}
+
 /// The attachments that go with a body when it changes rooms, as
 /// `(attachment, anchor)`: the mount its rider actively rides, and each limb
 /// of a limbed body (REL3).
@@ -2978,7 +2998,7 @@ mod dismount_claim_tests {
             match refuse {
                 "held" => {
                     let other = body(&mut app, 500.0);
-                    app.world_mut().entity_mut(shark).insert(MountReservedFor { rider: other, lease_seconds: 5.0, board_within: 10.0, expires_in: 5.0 });
+                    app.world_mut().entity_mut(shark).insert(MountReservedFor { rider: other, lease_seconds: 5.0, board_within: 10.0, expires_in: 5.0, entry_speed: None });
                 }
                 "dead" => {
                     let mut health = ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
@@ -3136,7 +3156,7 @@ mod dismount_claim_tests {
         let mount = app
             .world_mut()
             .spawn((
-                MountReservedFor { rider, lease_seconds: 5.0, board_within: 200.0, expires_in: 1.0 },
+                MountReservedFor { rider, lease_seconds: 5.0, board_within: 200.0, expires_in: 1.0, entry_speed: None },
                 ambition_platformer2d_core::BodyKinematics::default(),
             ))
             .id();
@@ -3239,7 +3259,7 @@ mod board_law_tests {
             let [here, there] = rooms(&mut app);
             let rider = pilot(&mut app, here);
             let shark = shark(&mut app, here);
-            app.world_mut().entity_mut(shark).insert(MountReservedFor { rider, lease_seconds: 5.0, board_within: 200.0, expires_in: 1.0 });
+            app.world_mut().entity_mut(shark).insert(MountReservedFor { rider, lease_seconds: 5.0, board_within: 200.0, expires_in: 1.0, entry_speed: None });
             if !same_room {
                 app.world_mut().entity_mut(rider).insert(InRoomInstance(there));
             }

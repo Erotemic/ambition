@@ -597,6 +597,19 @@ impl SnapshotCursor for crate::brain::Brain {
                         put_u32(out, refused.ticks);
                     }
                 }
+                use crate::brain::fighter::data::SustainedRecovery;
+                match state.sustained_recovery {
+                    None => put_u8(out, 0),
+                    Some(progress) => {
+                        let (phase, instance) = match progress {
+                            SustainedRecovery::Acquiring(instance) => (1, instance),
+                            SustainedRecovery::Guiding(instance) => (2, instance),
+                            SustainedRecovery::Released(instance) => (3, instance),
+                        };
+                        put_u8(out, phase);
+                        put_u32(out, instance);
+                    }
+                }
                 match &state.intent {
                     None => put_bool(out, false),
                     Some(intent) => {

@@ -21,6 +21,7 @@
 //! grows. Measured under D168 before choosing this home.
 
 use ambition_boss_encounter::pattern::tick_boss_pattern_via_state_machine;
+use ambition_combat::brain::fighter::controlled_recovery::RecoveryControl;
 use ambition_characters::brain::action_set::ActionSet;
 use ambition_characters::brain::state_machine::tick_simple_state_machine;
 use ambition_characters::brain::{Brain, BrainSnapshot, StateMachineCfg};
@@ -48,7 +49,7 @@ pub fn tick_brain_with_actions(
     perception: Option<&WorldView>,
     out: &mut ambition_characters::actor::control::ActorControlFrame,
 ) {
-    tick_brain_with_view(brain, actions, snapshot, perception.map(Cow::Borrowed), out);
+    tick_brain_with_view(brain, actions, snapshot, perception.map(Cow::Borrowed), RecoveryControl::Absent, out);
 }
 
 /// The production actor update already owns its freshly constructed view.
@@ -66,14 +67,15 @@ pub fn tick_brain_with_actions(
 /// `Cow::into_owned`, and delayed-perception history. Keep or revert the
 /// owned path based on that evidence, not on the assumption that fewer clones
 /// necessarily improves frame time.
-pub fn tick_brain_with_actions_owned(
+pub(crate) fn tick_brain_with_actions_owned(
     brain: &mut Brain,
     actions: &ActionSet,
     snapshot: &BrainSnapshot,
     perception: Option<WorldView>,
+    recovery_control: RecoveryControl,
     out: &mut ambition_characters::actor::control::ActorControlFrame,
 ) {
-    tick_brain_with_view(brain, actions, snapshot, perception.map(Cow::Owned), out);
+    tick_brain_with_view(brain, actions, snapshot, perception.map(Cow::Owned), recovery_control, out);
 }
 
 fn tick_brain_with_view(
@@ -81,6 +83,7 @@ fn tick_brain_with_view(
     actions: &ActionSet,
     snapshot: &BrainSnapshot,
     perception: Option<Cow<'_, WorldView>>,
+    recovery_control: RecoveryControl,
     out: &mut ambition_characters::actor::control::ActorControlFrame,
 ) {
     let Brain::StateMachine(sm) = brain;
@@ -105,6 +108,7 @@ fn tick_brain_with_view(
                 state,
                 snapshot,
                 perception.map(Cow::into_owned),
+                recovery_control,
                 out,
             )
         }

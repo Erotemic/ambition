@@ -6,7 +6,7 @@ fn health(max: i32) -> BodyHealth {
 }
 
 fn reservation(rider: Entity) -> MountReservedFor {
-    MountReservedFor { rider, lease_seconds: 5.0, board_within: 200.0, expires_in: 1.0 }
+    MountReservedFor { rider, lease_seconds: 5.0, board_within: 200.0, expires_in: 1.0, entry_speed: None }
 }
 
 /// A rider reads the mount it waits for, the mount it rides and whether that

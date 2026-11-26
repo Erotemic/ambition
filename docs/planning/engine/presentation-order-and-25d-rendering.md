@@ -1,6 +1,6 @@
 # Presentation order and optional 2.5D rendering
 
-**State:** PO1 and PO2 landed 2026-11-25; RV1 and the RV2 cart pilot landed 2026-11-25; RV3 PLANNED. Selected by the maintainer on 2026-11-21. The customers
+**State:** PO1 and PO2 landed 2026-11-25; RV1 and the RV2 cart pilot landed 2026-11-25; RV3 in progress (baked frames, group fades and the hit flash landed 2026-11-25). Selected by the maintainer on 2026-11-21. The customers
 are Scout inside and outside the cart, consistent order for body parts and
 effects, and Bevy 2D and 3D presentation tools that can coexist. Production
 source reviewed: `f41218979625`; planning includes the preceding runtime
@@ -577,9 +577,33 @@ shared value preparation are sufficient until source proves otherwise.
    region and quad, and back on parts one card per draw again. Render lib:
    529 passed (default), 532 with `card_view`.
 
-   Still unrealized in the card view: held and wielded art, the hit flash,
-   group fades, portals (P5/P6), room tiles, and bodies that have no rigged
-   presentation.
+   **Group fades and the hit flash (2026-11-25).** A fading frame faded each
+   part card on its own, so a part showed through the one in front of it. A
+   body the 2D view composites (a fade, a flash, a warp, any reader of it as
+   one image) is now one card of its composited cell, at the root's quad,
+   drawn opaque because the cell already carries the fade: the card view
+   follows the 2D compositing decision instead of making its own. The flash
+   is decided once: `sync_hit_flash_overlays` publishes the cue it chose on
+   the body (`PresentedFlash`: colour and strength), and the card view lays
+   a silhouette over each of the body's cards: black base, the page's alpha,
+   emission in the cue's colour, as opaque as the cue is strong. The gate
+   cue's scanlines are drawn as its flat tint. Witness
+   `a_composited_body_is_one_card_and_its_flash_covers_it`: one card of the
+   atlas page at full opacity, a silhouette card at 0.75 in the cue's colour,
+   then part by part a silhouette per card, and none without a cue. The
+   baked-frame witness now draws its part phase directly. Render lib: 529
+   passed (default), 533 with `card_view`. A capture of `intro_wake_room`
+   with `--card-view` is pixel-identical to the same capture at the parent
+   commit (no body flashes or fades there).
+
+   That capture does not show what the RV2 receipt describes: Scout's feet
+   are above the cart's near panel, not hidden by it. It is the same at the
+   parent commit, and the seated-order witness passes, so it is a mismatch
+   between the live scene and the witness (the camera pitch, the seated
+   fact or the rim height). Not investigated yet.
+
+   Still unrealized in the card view: held and wielded art, portals (P5/P6),
+   room tiles, and bodies that have no rigged presentation.
 
 PO1 can proceed before RV1/RV2. The scale-law work can proceed independently;
 both renderers must consume the resulting authoritative material and poses.

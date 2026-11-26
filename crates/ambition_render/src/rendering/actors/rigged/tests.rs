@@ -2326,6 +2326,9 @@ fn a_baked_frame_is_one_card_at_the_root() {
     let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
     let hybrid = hybrid_raider(&sprite_content, "slash");
     let (mut app, root) = app_with(&sprite_content, true, raider_with(&sprite_content, Some(hybrid)));
+    // Drawn part by part: a composited body is one card of its cell
+    // (`a_composited_body_is_one_card_and_its_flash_covers_it`).
+    app.insert_resource(Composite(false));
     app.init_resource::<Assets<Mesh>>()
         .init_resource::<Assets<StandardMaterial>>()
         .init_resource::<CardMeshes>()
@@ -2376,4 +2379,63 @@ fn a_baked_frame_is_one_card_at_the_root() {
     app.update();
     let sampled = app.world().get::<RiggedLocalSample>(owner).unwrap().draws.len();
     assert_eq!(shown(&mut app).0, sampled, "back to parts");
+}
+
+/// RV3: a body the 2D view composites (here every body is read as one image,
+/// as a flash or a fade asks) is one card of its cell in the card view,
+/// drawn whole: the cell carries the frame's fade, so the parts do not fade
+/// one by one. A flash (`PresentedFlash`) is one silhouette over that card,
+/// in the cue's colour, as strong as the cue; drawn part by part, each card
+/// has its silhouette; with no cue there is none.
+#[cfg(feature = "card_view")]
+#[test]
+fn a_composited_body_is_one_card_and_its_flash_covers_it() {
+    use crate::rendering::card_view::{realize_card_bodies, CardBody, CardMeshes};
+    use crate::rendering::hit_flash::PresentedFlash;
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let (mut app, root) = app_with(&sprite_content, true, raider(&sprite_content, true));
+    app.init_resource::<Assets<Mesh>>()
+        .init_resource::<Assets<StandardMaterial>>()
+        .init_resource::<CardMeshes>()
+        .add_systems(Update, realize_card_bodies.after(RiggedDriveSet));
+    settle(&mut app);
+    app.update();
+    let owner = owner(&app, root);
+    assert!(draws_impostor(&app, root, owner), "the 2D root draws its cell");
+    let cards = |app: &mut App| -> Vec<StandardMaterial> {
+        let world = app.world_mut();
+        let mut bodies = world.query::<&CardBody>();
+        let body = bodies.iter(world).find(|body| body.owner == owner).expect("the body has cards");
+        let materials = world.resource::<Assets<StandardMaterial>>();
+        body.parts
+            .iter()
+            .filter(|card| *world.get::<Visibility>(**card).unwrap() != Visibility::Hidden)
+            .map(|card| materials.get(&world.get::<MeshMaterial3d<StandardMaterial>>(*card).unwrap().0).unwrap().clone())
+            .collect()
+    };
+    let shown = cards(&mut app);
+    assert_eq!(shown.len(), 1, "a composited body is one card");
+    let page = atlas(&app).image.clone();
+    assert_eq!(shown[0].base_color_texture.as_ref(), Some(&page), "the card draws the cell's page");
+    assert_eq!(shown[0].base_color.alpha(), 1.0, "the cell carries the fade");
+
+    let cue = PresentedFlash { intensity: 0.75, tint: Vec3::new(1.0, 0.5, 0.0) };
+    app.world_mut().entity_mut(root).insert(cue);
+    app.update();
+    let shown = cards(&mut app);
+    assert_eq!(shown.len(), 2, "the body and its silhouette");
+    assert_eq!(shown[1].base_color_texture.as_ref(), Some(&page));
+    assert_eq!(shown[1].base_color.alpha(), 0.75, "as strong as the cue");
+    assert_eq!(shown[1].emissive, Color::srgb(1.0, 0.5, 0.0).to_linear(), "in the cue's colour");
+
+    app.insert_resource(Composite(false));
+    for _ in 0..=COMPOSED_HOLD_FRAMES {
+        app.update();
+    }
+    assert!(app.world().get::<RiggedPresentation>(owner).unwrap().impostor.is_none());
+    let sampled = app.world().get::<RiggedLocalSample>(owner).unwrap().draws.len();
+    assert_eq!(cards(&mut app).len(), 2 * sampled, "part by part, a silhouette over each card");
+    app.world_mut().entity_mut(root).insert(PresentedFlash::default());
+    app.update();
+    assert_eq!(cards(&mut app).len(), sampled, "no cue, no silhouette");
 }

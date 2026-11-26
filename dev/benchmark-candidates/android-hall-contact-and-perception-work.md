@@ -1362,6 +1362,23 @@ of that budget on average. This leaves about 10.7 ms for the
 remaining work. Reduce integration and frame preparation with the
 same cast and render quality.
 
+### Movement context copies
+
+The November 26 desktop reference measured 17.02 ms/tick over 71
+settled windows, with all 596 bodies in each window. Body integration
+took 2.10 ms/tick and combat took 2.42 ms/tick. The target is
+13.75 ms/tick.
+
+The retained and full movement paths borrow the step context. They
+make a new context when terrain recording or portal admission requires
+one. In a separate 596-body kernel benchmark, this change reduced
+retired instructions by 0.5% on settled bodies and about 0.1% on moving
+bodies. The movement results and allocation counts matched in each
+comparison. Grouping exact bit comparisons increased instruction count.
+Retaining the projected motion facts gave mixed timings. The reference
+desktop run predates this change. The 455 movement tests and the
+assembled application check passed.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

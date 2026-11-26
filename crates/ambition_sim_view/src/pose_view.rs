@@ -16,7 +16,9 @@
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d_shared_tangle::lifecycle::{PlayerVisual, PosedBody};
 use ambition_sprite_sheet::character::CharacterAnim;
-use bevy::prelude::{Commands, Entity, Or, Query, Res, ResMut, Resource, With};
+use bevy::ecs::query::QueryItem;
+use bevy::prelude::{Commands, Entity, Or, Query, Res, ResMut, Resource, With, Without};
+use bevy::tasks::ComputeTaskPool;
 
 /// How long a body draws its `turnaround` row after its facing flips on the
 /// ground. The row is slaved to this time, so its frames fit it whatever the
@@ -671,6 +673,89 @@ pub fn mark_bodies_the_death_look_took(
     }
 }
 
+const MIN_PARALLEL_POSES: usize = 256;
+// PosedBody also selects subjects that do not use the avatar's visual systems.
+type PosedBodies = Or<(With<PlayerVisual>, With<PosedBody>)>;
+type BodyPoseSources = (
+    (
+        Entity,
+        &'static ambition_platformer2d_core::BodyKinematics,
+        Option<&'static ambition_platformer2d_core::BodyGroundState>,
+        Option<&'static ambition_platformer2d_core::BodyMotionFacts>,
+        Option<&'static ambition_platformer2d_core::BodyFlightState>,
+        Option<&'static BodyCombat>,
+        Option<&'static ambition_characters::actor::BodyAnimFacts>,
+        Option<&'static ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
+        // This body's own resolved basis: the locomotion metric is
+        // measured along ITS run axis and the facing flip follows ITS
+        // gravity. Not `GravityField`, which mirrors the PRIMARY body.
+        Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        // The wall a wall climb holds: the row faces it.
+        Option<&'static ambition_platformer2d_core::BodyWallState>,
+    ),
+    (
+        Option<&'static ambition_platformer2d_core::BodyModeState>,
+        Option<&'static ambition_platformer2d_core::BodyEnvironmentContact>,
+        Option<&'static ambition_platformer2d_core::BodyAbilities>,
+        Option<&'static ambition_platformer2d_core::BodyShieldState>,
+        // With the playback, it gives the swing (`melee_swing_of`).
+        Option<&'static ambition_combat::moveset::ActorMoveset>,
+        Option<&'static ambition_platformer2d_core::BodyBaseSize>,
+        Option<&'static BodyHealth>,
+        Option<&'static ambition_projectiles::PlayerProjectileState>,
+        // The movement policy, for the body's own top speed (the
+        // sprint row).
+        Option<&'static ambition_platformer2d_core::MotionModel>,
+    ),
+    // Art inputs and the pose that this pass writes.
+    (
+        // Content-driven pose PIN — the SAME component the actor path
+        // honours in `rebuild_actor_anim_index`. See the read below.
+        Option<
+            &'static ambition_sprite_sheet::character::ActorAnimOverride,
+        >,
+        // The sheet-authored sprite quad, when this body's geometry is its art.
+        //
+        //  gated on `SpritePosedBody`, NOT on the render size alone.
+        // `ActorRenderSize` is the SHARED sprite-quad component — several
+        // spawn paths insert it from sheet metadata for bodies whose
+        // collision box is still hand-authored. Reading it bare here
+        // would tell the renderer "the sheet authored this geometry"
+        // about every one of them, and hand it a quad that was never
+        // derived from their boxes.
+        Option<&'static ambition_combat::components::ActorRenderSize>,
+        // The quad's PLACEMENT, published beside its size by the same
+        // pass. Gated on `SpritePosedBody` below for the same reason the
+        // size is: several spawn paths insert these from sheet metadata
+        // for bodies whose collision box is still hand-authored.
+        Option<&'static ambition_combat::components::ActorSpriteOffset>,
+        bevy::prelude::Has<
+            ambition_sprite_sheet::character::SpritePosedBody,
+        >,
+        // Match/ruleset respawn protection is a semantic presentation
+        // cause independent of the current Empowered implementation.
+        bevy::prelude::Has<ambition_combat::stocks::RespawnGrace>,
+        // The move this body is playing, so the drawn row can be the
+        // one the move NAMES — the same request the actor path carries
+        // on `ActorAnimFrame::clip` (sprite redirect P0).
+        Option<&'static ambition_combat::moveset::MovePlayback>,
+        // A ledge tether's latched anchor, published by whichever ruleset
+        // owns the mechanic. See `BodyPoseView::line_anchor`.
+        Option<&'static ambition_platformer2d_core::BodyLineAnchor>,
+        // WHO the body is and whose body it was GRANTED — see `PoseGeometry`.
+        Option<&'static ambition_characters::actor::CharacterForm>,
+        Option<&'static ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
+        bevy::prelude::Has<ambition_combat::stocks::KnockedOutOfTheWorld>,
+        bevy::prelude::Has<TakenByDeathLook>,
+        // The stick, for the look-up pose of a body that stands.
+        Option<&'static ambition_characters::control::ActorControl>,
+        // A rider sits its mount: see `seated`.
+        bevy::prelude::Has<ambition_mount::RidingOn>,
+        Option<&'static ambition_sprite_sheet::character::PinnedRow>,
+        Option<&'static mut BodyPoseView>,
+    ),
+);
+
 pub fn rebuild_body_pose_views(
     mut commands: Commands,
     // The reference the hitlag law scales from, so the published strength is a
@@ -687,102 +772,14 @@ pub fn rebuild_body_pose_views(
     time: Option<Res<bevy::prelude::Time>>,
     // Where a charging body's shot is born, so its charge is drawn there.
     landmarks: ambition_combat::body_landmarks::BodyLandmarks,
-    mut bodies: Query<
+    mut bodies: Query<BodyPoseSources, PosedBodies>,
+    unpublished: Query<
+        (),
         (
-            (
-                Entity,
-                &ambition_platformer2d_core::BodyKinematics,
-                Option<&ambition_platformer2d_core::BodyGroundState>,
-                Option<&ambition_platformer2d_core::BodyMotionFacts>,
-                Option<&ambition_platformer2d_core::BodyFlightState>,
-                Option<&BodyCombat>,
-                Option<&ambition_characters::actor::BodyAnimFacts>,
-                Option<&ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
-                // This body's own resolved basis: the locomotion metric is
-                // measured along ITS run axis and the facing flip follows ITS
-                // gravity. Not `GravityField`, which mirrors the PRIMARY body.
-                Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-                // The wall a wall climb holds: the row faces it.
-                Option<&ambition_platformer2d_core::BodyWallState>,
-            ),
-            (
-                Option<&ambition_platformer2d_core::BodyModeState>,
-                Option<&ambition_platformer2d_core::BodyEnvironmentContact>,
-                Option<&ambition_platformer2d_core::BodyAbilities>,
-                Option<&ambition_platformer2d_core::BodyShieldState>,
-                // With the playback, it gives the swing (`melee_swing_of`).
-                Option<&ambition_combat::moveset::ActorMoveset>,
-                Option<&ambition_platformer2d_core::BodyBaseSize>,
-                Option<&BodyHealth>,
-                Option<&ambition_projectiles::PlayerProjectileState>,
-                // The movement policy, for the body's own top speed (the
-                // sprint row).
-                Option<&ambition_platformer2d_core::MotionModel>,
-            ),
-            // ⛔ A THIRD GROUP BECAUSE BEVY'S QUERY TUPLE LIMIT IS FIFTEEN, not
-            // sixteen — the group above reached sixteen and stopped being a
-            // `QueryData` at all. The split is drawn where the SUBJECT changes:
-            // everything below is the ART this body draws with, plus the row
-            // this pass writes.
-            (
-                // Content-driven pose PIN — the SAME component the actor path
-                // honours in `rebuild_actor_anim_index`. See the read below.
-                Option<
-                    &ambition_sprite_sheet::character::ActorAnimOverride,
-                >,
-                // The sheet-authored sprite quad, when this body's geometry is its art.
-                //
-                //  gated on `SpritePosedBody`, NOT on the render size alone.
-                // `ActorRenderSize` is the SHARED sprite-quad component — several
-                // spawn paths insert it from sheet metadata for bodies whose
-                // collision box is still hand-authored. Reading it bare here
-                // would tell the renderer "the sheet authored this geometry"
-                // about every one of them, and hand it a quad that was never
-                // derived from their boxes.
-                Option<&ambition_combat::components::ActorRenderSize>,
-                // The quad's PLACEMENT, published beside its size by the same
-                // pass. Gated on `SpritePosedBody` below for the same reason the
-                // size is: several spawn paths insert these from sheet metadata
-                // for bodies whose collision box is still hand-authored.
-                Option<&ambition_combat::components::ActorSpriteOffset>,
-                bevy::prelude::Has<
-                    ambition_sprite_sheet::character::SpritePosedBody,
-                >,
-                // Match/ruleset respawn protection is a semantic presentation
-                // cause independent of the current Empowered implementation.
-                bevy::prelude::Has<ambition_combat::stocks::RespawnGrace>,
-                // The move this body is playing, so the drawn row can be the
-                // one the move NAMES — the same request the actor path carries
-                // on `ActorAnimFrame::clip` (sprite redirect P0).
-                Option<&ambition_combat::moveset::MovePlayback>,
-                // A ledge tether's latched anchor, published by whichever ruleset
-                // owns the mechanic. See `BodyPoseView::line_anchor`.
-                Option<&ambition_platformer2d_core::BodyLineAnchor>,
-                // WHO the body is and whose body it was GRANTED — see `PoseGeometry`.
-                Option<&ambition_characters::actor::CharacterForm>,
-                Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
-                bevy::prelude::Has<ambition_combat::stocks::KnockedOutOfTheWorld>,
-                bevy::prelude::Has<TakenByDeathLook>,
-                // The stick, for the look-up pose of a body that stands.
-                Option<&ambition_characters::control::ActorControl>,
-                // A rider sits its mount: see `seated`.
-                bevy::prelude::Has<ambition_mount::RidingOn>,
-                Option<&ambition_sprite_sheet::character::PinnedRow>,
-                Option<&mut BodyPoseView>,
-            ),
+            With<ambition_platformer2d_core::BodyKinematics>,
+            PosedBodies,
+            Without<BodyPoseView>,
         ),
-        // ⛔⛔ WIDENED 2026-08-29: `With<PlayerVisual>` ALONE MEANT NO MATCH
-        // FIGHTER EVER GOT A POSE VIEW. That marker is granted in exactly one
-        // production place — the exploration player's avatar — so a seated body
-        // was invisible to this read model, and the moveset inspector
-        // reconstructed pose/clip/frame in JavaScript because the engine never
-        // published it for the bodies it was looking at.
-        //
-        // ⭐ `PosedBody` IS THE OPT-IN, and it is separate from `PlayerVisual`
-        // on purpose: that marker means "the player's own drawn avatar" and
-        // other presentation keys on it, so granting it to every seat would turn
-        // those on too.
-        Or<(With<PlayerVisual>, With<PosedBody>)>,
     >,
 ) {
     // No feel tuning means no hitlag law to measure against: every body reports
@@ -792,7 +789,7 @@ pub fn rebuild_body_pose_views(
     let registry = registry.get();
     let default_shield = ambition_platformer2d_core::BodyShieldState::default();
     let default_combat = BodyCombat::default();
-    for (
+    let publish = |(
         (
             entity,
             kinematics,
@@ -833,8 +830,7 @@ pub fn rebuild_body_pose_views(
             pinned,
             pose,
         ),
-    ) in &mut bodies
-    {
+    ): QueryItem<BodyPoseSources>| {
         let gravity_dir = body_down(body_frame);
         let base = base_size.map_or(kinematics.canonical_size, |b| b.base_size);
         let stance_ratio_y = base_size
@@ -1207,9 +1203,26 @@ pub fn rebuild_body_pose_views(
             geometry: PoseGeometry::of(worn, granted, registry),
         };
         match pose {
-            Some(mut pose) => *pose = next,
-            None => {
-                commands.entity(entity).insert(next);
+            Some(mut pose) => {
+                *pose = next;
+                None
+            }
+            None => Some((entity, next)),
+        }
+    };
+
+    // Publish new components in query order. Updates to existing poses are independent.
+    if bodies.iter().len() >= MIN_PARALLEL_POSES
+        && unpublished.is_empty()
+        && ComputeTaskPool::try_get().is_some_and(|pool| pool.thread_num() > 1)
+    {
+        bodies.par_iter_mut().for_each(|inputs| {
+            let _ = publish(inputs);
+        });
+    } else {
+        for inputs in &mut bodies {
+            if let Some((entity, pose)) = publish(inputs) {
+                commands.entity(entity).insert(pose);
             }
         }
     }

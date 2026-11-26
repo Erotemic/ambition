@@ -836,6 +836,7 @@
     "square_house": (),
     // The gate garden, the Starless Hollow and the dune road (the Magical dimension).
     "garden_hill_low": (),
+    "garden_moon_step": (),
     "garden_hill_high": (),
     "garden_hatch": (),
     "garden_star_tree": (),

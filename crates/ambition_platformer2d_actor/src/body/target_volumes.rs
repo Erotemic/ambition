@@ -42,17 +42,15 @@ pub fn refresh_body_damageable_volumes(
         // Dead, out-of-play and backdrop bodies publish no target volume;
         // disposition does not affect tangibility. Nor does a faded body.
         if ambition_combat::util::body_is_untouchable(health, out_of_play, plane)
-            || ambition_combat::fade::faded(policy, swing.swing().as_ref(), combat)
+            || policy.is_some_and(|policy| policy.0.tactics.fades
+                && ambition_combat::fade::faded(Some(policy), swing.swing().as_ref(), combat))
         {
-            damageable.clear();
+            DamageableVolumes::clear_if_needed(&mut damageable);
             continue;
         }
         match authored_body_volumes(hurtboxes, kin, unmirrored) {
             Some(volumes) => damageable.replace_body_volumes(volumes),
-            None => match kin {
-                Some(kin) => damageable.set_body_box(kin.canonical_size * 0.5),
-                None => damageable.set_world_box(aabb.aabb()),
-            },
+            None => DamageableVolumes::refresh_box(&mut damageable, kin, aabb),
         }
     }
 }

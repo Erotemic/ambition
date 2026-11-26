@@ -174,6 +174,11 @@ impl BodyGeometry {
 
     pub fn clear_straddlers(&mut self) { self.straddling.clear(); }
 
+    /// Whether any body is through a pair.
+    pub fn has_straddlers(&self) -> bool {
+        !self.straddling.is_empty()
+    }
+
     pub fn motion_for(&self, body: Entity, room: Option<LiveRoomInstance>) -> Option<ambition_platformer2d_core::frame::thread::MotionAdmission<'_>> {
         let budget = self.budget_for(Some(body), room);
         Some(ambition_platformer2d_core::frame::thread::MotionAdmission {

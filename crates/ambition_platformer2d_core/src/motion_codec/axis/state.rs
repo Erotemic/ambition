@@ -26,7 +26,7 @@ impl AxisField for crate::Vec2 {
 
     #[inline(always)]
     fn same_bits(&self, other: &Self) -> bool {
-        self.x.same_bits(&other.x) && self.y.same_bits(&other.y)
+        crate::snapshot::ExactState::same_bits(self, other)
     }
 }
 

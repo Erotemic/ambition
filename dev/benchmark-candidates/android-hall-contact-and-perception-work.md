@@ -1243,6 +1243,20 @@ The reference medians were 16.98 and 16.02 ms/tick. The trial medians were
 batch. The trial gave no repeatable reduction in total tick time.
 The engine retains the guest ABI for these calls.
 
+### Desktop reference after the submodule merge
+
+At `adec6e97d`, two native development runs used a 1280 × 800 window, the CPU
+renderer, Potato quality, and all 596 bodies. The median tick costs were
+18.89 and 18.90 ms in 12 and 14 windows after 30 s. The Hall map matched the
+earlier map revision. A comparison that redirected both builds to a frozen
+project had much higher tick costs during both runs. It cannot explain the
+change in the native runs.
+
+Isolated passes over 596 bodies saved 5–7 µs when they reused the reaction
+time and about 48 µs when they built the required movement parameters
+directly. Both probes gave the same results as the reference. The engine
+continues to use the existing code for these passes.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

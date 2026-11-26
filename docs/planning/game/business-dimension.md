@@ -48,11 +48,13 @@ are a reference for the look, not a layout.
     [ Founders' Plaza ] ==== [ Records & Processing ]
 ```
 
-- **Founders' Plaza** (`business_founders_plaza`): the gate and terminal at
-  the west end; The Bottom Line, whose awning is a step up to its balcony and
-  a chest; Dirk Quarterly on his call; the fountain with the Founder on his
-  pedestal (both are steps); Solly Darity's picket line; the portico of the
-  Business College and its door. The east edge goes on to Records.
+- **Founders' Plaza** (`business_founders_plaza`) has a gate and terminal at
+  the west end. The Bottom Line café has a chest on its balcony. Visitors
+  can climb from the west by way of the delivery bench, awning, and window
+  ledge. Service steps connect the fountain rim to the balcony from the
+  east. Dirk Quarterly stays near the fountain. Solly Darity leads the
+  picket line near the Business College entrance. The east edge leads to
+  Records & Processing.
 - **Records & Processing** (`business_records_processing`): the conveyor and
   the APPROVED press on the floor, the shredder's pit (a `HazardBlock` at its
   foot). The service stairs on the east lead to the folder carrier

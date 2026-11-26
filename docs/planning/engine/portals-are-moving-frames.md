@@ -629,6 +629,35 @@ Delete completed-endpoint remapping and chart-change history collapse.
 Include a hosted aperture whose proposed motion makes carried material
 overlap a solid. Admission must reach the host before commit; the refused
 control preserves the combined state and never leaves the aperture behind.
+(The admission half waits on
+[Q187](../awaiting-maintainer-decision.md#q187--when-a-moving-surface-would-carry-a-portal-into-a-place-where-what-is-going-through-it-hits-a-solid-what-gives-way).)
+
+**Size of the remaining error, derived 2026-11-26 (not measured).** Today the
+kernel integrates the whole tick on the entry side. Generic transit then
+carries the rest of it across with `at_crossing_completed`. It maps the
+crossing point, sends the leftover travel through the map's linear part,
+and adds each aperture point's own rate, so a moving or turning pair is
+already continued from the crossing. What it cannot undo is the policy
+the kernel ran after the crossing. For the last fraction `r` of the tick,
+gravity (and drag, input and max-fall clamping) acted in the entry
+chart's frame, and the map then turns that change with everything else.
+The figures below use `GRAVITY` 2 250 px/s² and a 60 Hz tick, for a body
+in free flight (no contact on the exit side in the rest of the tick).
+- **A quarter-turn pair** (floor to wall): the rest of the tick's gravity
+  change in velocity, `g r dt` = 37.5 `r` px/s, comes out sideways instead
+  of down. The error is `√2 × 37.5 r` ≈ 53 `r` px/s (up to 53 px/s for a
+  crossing at the start of the tick). In position it is
+  `√2 × ½ g (r dt)²` ≈ 0.44 `r²` px.
+- **A half-turn pair** (floor to ceiling, mirrored): the change comes out
+  reversed, an error of 75 `r` px/s.
+- **An aligned pair** (same orientation): none.
+
+Contact on the exit side in the rest of the tick is found through the
+admitted cells, but in the entry chart's policy. A support it finds there is
+read as the entry side's ground. The witness the packet asks for needs a
+crossing early in the tick through a quarter-turn pair. Its exact answer
+is the crossing point's map, then free flight under exit-side gravity for
+`r dt`.
 
 ### M3 — Resolve contacts through the complete velocity witness
 

@@ -364,6 +364,14 @@ check to look for a place where a body can stand and use the door. Show
 the support and the obstruction in the report so the author can adjust
 the placement.
 
+### Jump reach in room previews
+
+In Starlight Heights, a held jump reached the first ledge on the west
+route. The east approach had no first step at that height. Give the room
+preview an option to show where the selected body can land from a marked
+takeoff point. Use the body's current movement model and show how the
+result changes when the player releases the jump early.
+
 ### Content diffs need domain-aware comparison (Q62, Q78)
 
 Rulings 2026-10-04 ([`../maintainer-decisions.md`](../maintainer-decisions.md)):

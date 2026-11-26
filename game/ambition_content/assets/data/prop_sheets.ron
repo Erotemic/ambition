@@ -615,6 +615,7 @@
     "biome_gallery_signs": (),
     "gram_reaper_hall_door": (),
     "history_fjord_landings": (),
+    "heights_star_clouds": (),
     "gate_transit_bags": (),
     "gate_ring": (sheet: Some("interdimensional_gate_ring"), frame_sample_inset: 2),
     "gate_portal": (sheet: Some("interdimensional_gate_portal"), frame_sample_inset: 2),

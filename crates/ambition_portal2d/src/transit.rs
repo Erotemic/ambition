@@ -342,6 +342,9 @@ pub struct PortalBodyTransited {
     /// True when held horizontal movement maps to the opposite horizontal
     /// direction under the active portal convention.
     pub input_warp: bool,
+    /// The sim step it crossed in (`SimTick`; 0 in an app that counts none).
+    /// A frame that runs several steps reads the crossings of all of them.
+    pub tick: u64,
 }
 
 /// A root pose and its carried acceleration, checked before one commit.
@@ -422,10 +425,11 @@ pub fn commit_body_transfer(
         remaining:cooldown,pair:prepared.transfer.exit_channel,
     });
     set_crossed(commands,entity,transit,prepared.transfer.exit_channel);
-    let event=PortalBodyTransited {body:entity,transfer:prepared.transfer,input_warp:prepared.input_warp};
+    let (transfer,input_warp)=(prepared.transfer,prepared.input_warp);
     commands.queue(move |world:&mut bevy::prelude::World| {
         if let Some(mut log)=world.get_resource_mut::<ClassBRemapLog>() {log.record(entity,ClassBRemap::PortalTransit);}
-        world.write_message(event);
+        let tick=world.get_resource::<ambition_time::SimTick>().map_or(0,|tick| tick.get());
+        world.write_message(PortalBodyTransited {body:entity,transfer,input_warp,tick});
     });
 }
 

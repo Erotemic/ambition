@@ -492,6 +492,8 @@ pub struct HostCameraPlugin;
 #[cfg(feature = "render")]
 impl Plugin for HostCameraPlugin {
     fn build(&self, app: &mut App) {
+        // The portal camera continuity orders against the camera stage.
+        #[cfg(feature = "portal_render")]
         use ambition_render::rendering::ViewCameraSet;
 
         // Render-owned camera view state, initialized with the presentation half that reads it

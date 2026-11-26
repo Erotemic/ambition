@@ -588,17 +588,37 @@ the chain's arrival (x 300 at 0.75) and the single hop's (x 100 at 0.125).
 `interpolated_draws_a_chain_of_crossings_leg_by_leg` draws x −5, x 125 (in
 A's exit chart) and x 310 at those quarter-tick times.
 
-What still parks at the exit:
-- a crossing in an earlier tick of a multi-tick frame (it left no
-  `CrossedTravel`);
-- a push that spans more than one tick;
-- a chain longer than four legs.
+**Multi-tick frames (2026-11-25).** A frame that runs several ticks reads
+every tick's `PortalBodyTransited`, but `CrossedTravel` holds the last
+tick's only, so a crossing in an earlier tick was declared a plain warp and
+drawn parked at the exit for the whole presented tick. The message now
+carries the step it crossed in (`tick`, stamped from `SimTick` when it is
+written), and `declare_portal_pose_warps` declares an earlier tick's warp
+as such (`DeclaredPoseWarps::declare_before`). The last tick was travel on
+the far side, so the pose interpolates it along the new heading at the
+pace it had (`push_warped_before`). A crossing in the last tick keeps its
+projection however many ticks the push spans: an interpolated view draws
+only the last tick, and the crossing's legs cover exactly that interval.
+Before, a two-tick push dropped it. Witnesses:
+- `interpolated_draws_an_earlier_ticks_warp_travelling_on_the_far_side`:
+  x 494 at phase 0, x 497 at 0.5, against the parked control at x 500;
+- the crossing witness's two-tick case now draws the entry side (x 5 at a
+  quarter).
+
+Sim-view pose tests: 22 pass. Host tests with `portal_render`: two
+integration tests (`every_supported_profile_steps_a_body…`,
+`a_second_session_in_one_process…`) fail on a missing resource with and
+without this change. They are inherited, as is portal2d's
+`the_pair_of_an_entry_that_is_no_longer_admitted_is_released`.
+
+What still parks at the exit: a chain longer than four legs.
 
 Extrapolated views draw past the tick's end, so the crossing is behind
 them. Only position follows the crossing; the body's turn and material still
 change with the tick's pose. No game run was made: the projection is unit
 tested, and the host builds it from fields the M1/M2 receipts measured.
 Still open in M4:
-- an ordered crossing projection for views spanning several ticks, with
-  per-observer cursors and rollback invalidation;
+- per-observer cursors and rollback invalidation. Each view reads the
+  same declared warps once per frame, and a rewind's resimulated ticks
+  are declared again by their messages; no observer keeps a cursor yet;
 - cost measurement on single-leg and chained traffic.

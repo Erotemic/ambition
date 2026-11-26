@@ -155,6 +155,7 @@ fn came_out_at(app: &mut App, body: Entity, at: ae::Vec2) {
         ).unwrap(),
 
         input_warp: false,
+        tick: 0,
     });
     app.update();
 }

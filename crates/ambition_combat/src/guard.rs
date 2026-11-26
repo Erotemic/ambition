@@ -276,6 +276,21 @@ pub fn publish_guard_volumes(
     mut commands: Commands,
     characters: Option<Res<PreparedCharacterRegistry>>,
     landmarks: BodyLandmarks,
+    candidates: Query<
+        Entity,
+        (
+            With<CharacterForm>,
+            With<ae::BodyKinematics>,
+            Or<(
+                With<GuardState>,
+                With<GuardVolumes>,
+                Changed<CharacterForm>,
+                Added<ae::BodyKinematics>,
+            )>,
+        ),
+    >,
+    mut removed_states: RemovedComponents<GuardState>,
+    mut selected: Local<Vec<Entity>>,
     mut bodies: Query<(
         Entity,
         &CharacterForm,
@@ -286,7 +301,20 @@ pub fn publish_guard_volumes(
         Option<&mut GuardVolumes>,
     )>,
 ) {
-    for (body, worn, kin, feet, health, state, volumes) in &mut bodies {
+    selected.clear();
+    // A new cast can give a guard to an existing form.
+    if characters.as_ref().is_some_and(|characters| characters.is_changed()) {
+        selected.extend(bodies.iter().map(|(body, ..)| body));
+        removed_states.clear();
+    } else {
+        selected.extend(candidates.iter());
+        // Recheck a body when a restore removes its guard state.
+        selected.extend(removed_states.read());
+        selected.sort_unstable();
+        selected.dedup();
+    }
+    let mut bodies = bodies.iter_many_mut(selected.iter().copied());
+    while let Some((body, worn, kin, feet, health, state, volumes)) = bodies.fetch_next() {
         let guards = guards_of(characters.as_deref(), Some(worn));
         if guards.is_empty() {
             if let Some(mut volumes) = volumes.filter(|volumes| !volumes.pieces.is_empty()) {

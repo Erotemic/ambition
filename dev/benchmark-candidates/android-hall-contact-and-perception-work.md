@@ -583,6 +583,27 @@ build. A comparison of 4,096 mixed schemes kept the same control frames,
 edge order, and diagnostics. These tests measure the gate and its
 resolver. They do not measure an assembled tick.
 
+### Defense projection
+
+The guard pass reads the full body data for guards that exist, bodies with
+new or changed forms, and bodies that lose guard state. A new cast can add
+guards to forms already in the room. The wallet shield pass checks live
+room rules first and clears existing shields when no room grants the rule.
+Only timed empowerment grants read the clock of a body's room.
+
+| Isolated development pass in the loaded 596-body Hall | Before, ms | After, ms |
+| --- | ---: | ---: |
+| Guard volume projection | 0.085–0.122 | 0.027–0.034 |
+| Wallet shield projection | 0.063–0.066 | 0.002 |
+| Empowerment projection | 0.085–0.086 | 0.075 |
+
+The Hall had one guard, no wallet shields, and no temporary empowerment
+grants. The before and after passes gave the same output. The probe also
+checked guard reconstruction, form changes, and cast replacement. Three
+wallet shield tests covered the rule, leaving its rooms, and two rooms with
+different rules. These runs used cached host libraries and current system
+source. Full application and phone measurements remain open.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

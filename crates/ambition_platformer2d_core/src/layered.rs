@@ -380,7 +380,7 @@ impl<T: Spatial> Layered<T> {
     }
 
     /// Visible base entries with bounds that touch `region`.
-    fn base_near(&self, region: Aabb, swept: bool) -> Vec<u32> {
+    fn base_near(&self, region: Aabb, swept: bool) -> impl Iterator<Item = u32> + '_ {
         self.note_read(|reads| {
             if !region.min.is_finite() || !region.max.is_finite() || !region.min.cmple(region.max).all() {
                 reads.read_all = true;
@@ -398,62 +398,63 @@ impl<T: Spatial> Layered<T> {
             let grid = RangeGrid::build(bounds.iter().copied());
             BoundIndex { bounds, grid }
         });
-        let mut near = index.grid.near(region);
         let hidden = self.hidden();
-        near.retain(|i| hidden.binary_search(i).is_err() && touches(index.bounds[*i as usize], region));
-        near
+        index.grid.near(region)
+            .filter(move |i| hidden.binary_search(i).is_err() && touches(index.bounds[*i as usize], region))
+    }
+
+    fn additions_near(&self, region: Aabb, swept: bool) -> impl Iterator<Item = (usize, &T)> + '_ {
+        self.added().iter().zip(self.added_bounds(swept)).enumerate()
+            .filter_map(move |(i, (value, bounds))| touches(*bounds, region).then_some((i, value)))
+    }
+
+    fn near_items(&self, region: Aabb, swept: bool) -> impl Iterator<Item = &T> + '_ {
+        self.base_near(region, swept).map(|i| &self.base.items[i as usize])
+            .chain(self.additions_near(region, swept).map(|(_, value)| value))
     }
 
     /// The entries whose bounds overlap `region`, in list order. A grid over
     /// the shared base (made once for it) finds them, so it costs what is
     /// near, not what the list holds.
     pub fn near(&self, region: Aabb) -> Vec<&T> {
-        let mut near: Vec<&T> = self.base_near(region,false).into_iter().map(|i| &self.base.items[i as usize]).collect();
-        near.extend(self.added().iter().zip(self.added_bounds(false))
-            .filter_map(|(value, bounds)| touches(*bounds, region).then_some(value)));
-        near
+        self.near_items(region, false).collect()
     }
 
     pub(crate) fn in_region(&self, region: Option<Aabb>) -> impl Iterator<Item = &T> {
-        let nearby = region.map(|area| self.near(area));
+        let nearby = region.map(|area| self.near_items(area, false));
         let all = region.is_none().then(|| self.iter());
         nearby.into_iter().flatten().chain(all.into_iter().flatten())
     }
 
     /// Entries whose bounds meet the region during their published motion.
-    pub fn swept_near(&self, region: Aabb) -> Vec<&T> {
-        let mut near: Vec<&T> = self.base_near(region,true).into_iter().map(|i| &self.base.items[i as usize]).collect();
-        near.extend(self.added().iter().zip(self.added_bounds(true))
-            .filter_map(|(value, bounds)| touches(*bounds, region).then_some(value)));
-        near
+    pub fn swept_near(&self, region: Aabb) -> impl Iterator<Item = &T> + '_ {
+        self.near_items(region, true)
     }
 
     /// Keep the logical index used by contacts and surface routes.
     pub fn indexed_near(&self, region: Aabb) -> Vec<(usize,&T)> {
-        self.indexed_candidates(region, false)
+        self.indexed_candidates(region, false).collect()
     }
 
     /// Keep contact indices while testing the full published motion.
-    pub fn indexed_swept_near(&self, region: Aabb) -> Vec<(usize,&T)> {
+    pub fn indexed_swept_near(&self, region: Aabb) -> impl Iterator<Item = (usize, &T)> + '_ {
         self.indexed_candidates(region, true)
     }
 
-    fn indexed_candidates(&self, region: Aabb, swept: bool) -> Vec<(usize,&T)> {
+    fn indexed_candidates(&self, region: Aabb, swept: bool) -> impl Iterator<Item = (usize, &T)> + '_ {
         let hidden = self.hidden();
-        let mut near = self.base_near(region,swept).into_iter().map(|i| {
+        let near = self.base_near(region, swept).map(move |i| {
             let skipped = hidden.partition_point(|hidden| *hidden < i);
             (i as usize-skipped,&self.base.items[i as usize])
-        }).collect::<Vec<_>>();
+        });
         let base_len = self.base.items.len()-hidden.len();
-        near.extend(self.added().iter().zip(self.added_bounds(swept)).enumerate()
-            .filter_map(|(i,(value,bounds))| touches(*bounds, region).then_some((base_len+i,value))));
-        near
+        near.chain(self.additions_near(region, swept).map(move |(i, value)| (base_len + i, value)))
     }
 
     /// Hide the entries near `region` that `hide` picks.
     pub fn hide_near(&mut self, region: Aabb, mut hide: impl FnMut(&T) -> bool) where T: Clone {
         let picked: Vec<u32> =
-            self.base_near(region,false).into_iter().filter(|i| hide(&self.base.items[*i as usize])).collect();
+            self.base_near(region,false).filter(|i| hide(&self.base.items[*i as usize])).collect();
         if !picked.is_empty() {
             let hidden = &mut self.layer_mut().hidden;
             hidden.extend(picked);
@@ -619,7 +620,7 @@ mod tests {
         }).chain(std::iter::once(At { id: 1000, bounds: UNBOUNDED, swept: UNBOUNDED })).collect();
         // Build both shared grids before a layer hides and adds entries.
         entries.near(UNBOUNDED);
-        entries.swept_near(UNBOUNDED);
+        assert_eq!(entries.swept_near(UNBOUNDED).count(), 1001);
         for index in [999, 500, 0] { entries.hide(index); }
         entries.add(At { id: 1001, bounds: UNBOUNDED, swept: UNBOUNDED });
         entries.add(At { id: 1002, bounds: Aabb { min: Vec2::ZERO, max: Vec2::ZERO }, swept: UNBOUNDED });
@@ -634,7 +635,7 @@ mod tests {
                 let expected: Vec<_> = entries.iter().enumerate()
                     .filter(|(_, entry)| touches(if swept { entry.swept } else { entry.bounds }, region))
                     .map(|(index, entry)| (index, entry.id)).collect();
-                let actual: Vec<_> = entries.indexed_candidates(region, swept).into_iter()
+                let actual: Vec<_> = entries.indexed_candidates(region, swept)
                     .map(|(index, entry)| (index, entry.id)).collect();
                 assert_eq!(actual, expected, "region={region:?}, swept={swept}");
             }
@@ -647,9 +648,9 @@ mod tests {
         let lines: Layered<crate::SurfaceChain> = vec![crate::SurfaceChain::open(
             "thin line", vec![Vec2::new(16_777_216.0, 0.0), end],
         )].into();
-        let found = lines.indexed_swept_near(Aabb { min: end, max: end });
-        assert_eq!(found.len(), 1);
-        assert_eq!(found[0].0, 0);
+        let mut found = lines.indexed_swept_near(Aabb { min: end, max: end });
+        assert_eq!(found.next().map(|(index, _)| index), Some(0));
+        assert!(found.next().is_none());
     }
 
     #[test]

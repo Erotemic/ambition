@@ -1,8 +1,9 @@
 //! Policy controlling whether gameplay traces may write files.
 //!
-//! Automatic OOB/teleport dumps are opt-in; recording and in-memory diagnostics
-//! remain active regardless. Manual dumps are always allowed because they are an
-//! explicit developer request.
+//! Automatic out-of-bounds and teleport dumps require an explicit request.
+//! Manual dumps are always allowed. The player trace can record without
+//! automatic dumps. For all-body history, add `ActorTraceBuffer` or enable
+//! automatic dumps.
 
 use bevy::ecs::resource::Resource;
 

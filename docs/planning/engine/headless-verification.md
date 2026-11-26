@@ -62,7 +62,8 @@ tooling:
 - `ambition_gameplay_trace`: the per-frame feel-trace ring buffer and its
   markdown/JSON dump.
 - `actor_trace`: the out-of-bounds flight recorder over every body's
-  kinematics.
+  kinematics. Set `AMBITION_TRACE_AUTO_DUMP=1` for automatic dumps, or
+  initialize `ActorTraceBuffer` in the test app to record without file writes.
 
 Capture a trace before the cut and diff after. Commit each slice as a
 checkpoint. Jon verifies subjective feel in-game. Ship a feel-sensitive change

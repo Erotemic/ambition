@@ -2183,6 +2183,7 @@ fn a_safe_point_is_remembered_in_the_players_own_live_room() {
 fn the_traces_record_each_body_in_its_own_live_room() {
     use ambition_platformer2d::gameplay_trace::{ActorTraceBuffer, GameplayTraceBuffer};
     let (mut sim, _) = alice_leaves_bob(Some(ambition_platformer2d::characters::control::PlayerSlot(1)));
+    sim.world_mut().init_resource::<ActorTraceBuffer>();
     let rooms = live_rooms(&mut sim);
     assert_eq!(rooms.len(), 2, "precondition: Bob's room did not stay live beside Alice's");
     let hub = rooms.iter().find(|(_, id)| id == HUB).expect("the hub is live").0;

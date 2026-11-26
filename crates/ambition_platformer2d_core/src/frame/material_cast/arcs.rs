@@ -30,6 +30,10 @@ struct Pose {
     spin: f64,
 }
 
+/// How near a line must be to an aperture's plane, relative to its
+/// coordinates, to count as on it for [`Scene::may_split_line`].
+const LINE_ON_PLANE: f64 = 1.0e-5;
+
 #[derive(Debug)]
 pub(super) struct Scene {
     body: CombatVolume,
@@ -152,6 +156,27 @@ pub(super) struct WorldPlanes {
 }
 
 impl Scene {
+    /// Whether a line, at either of its poses, lies on the plane of one of
+    /// this scene's apertures: the only line [`CurveCell::line_parts`]
+    /// splits into pieces. Any other line is seen whole by a cell no portal
+    /// cuts. The tolerance is far wider than the split's own, so a line near
+    /// a plane errs toward the split.
+    pub(super) fn may_split_line(&self, poses: [&[crate::Vec2]; 2]) -> bool {
+        self.links.iter().any(|link| {
+            [link.enter, link.exit].iter().any(|aperture| {
+                let normal = aperture.frame.normal.as_dvec2().normalize();
+                let origin = aperture.frame.origin.as_dvec2();
+                poses.iter().any(|points| {
+                    points.iter().all(|point| {
+                        let point = point.as_dvec2();
+                        normal.dot(point - origin).abs()
+                            <= LINE_ON_PLANE * (1.0 + normal.abs().dot(point.abs() + origin.abs()))
+                    })
+                })
+            })
+        })
+    }
+
     pub(super) fn admission(&self) -> MotionAdmission<'_> {
         MotionAdmission { links: &self.links, first: self.first, budget: self.budget, convention: self.convention }
     }

@@ -567,6 +567,40 @@ mod tests {
         assert!((travel - Vec2::new(10.0, 0.0)).length() < 1e-3, "the surface there goes with its end: {travel:?}");
     }
 
+    /// SUP1 through a portal scene: a pair admitted beside the body gives
+    /// the cast a scene, and the body's uncut cell still meets the stretching
+    /// line when its end arrives. Its plane (x 37) does not hold the line, so
+    /// no cell sees a piece of it. Control: a mouth on the line's own plane
+    /// (y 5) is the case the rigid path splits, and it still reads the
+    /// line's rigid fit, a contact at once.
+    #[test]
+    fn a_stretching_line_beside_a_portal_is_met_when_its_end_arrives() {
+        use crate::frame::{
+            material_cast::MaterialCast,
+            thread::{MaterialPrimitive, MotionAdmission, PieceBudget, PortalLink},
+            MapConvention, PortalAperture, PortalFrame,
+        };
+        let mut world = world_with(vec![Vec2::new(-20.0, 5.0), Vec2::new(30.0, 5.0)]);
+        world.chains[0].shape_before = vec![Vec2::new(-20.0, 5.0), Vec2::new(20.0, 5.0)];
+        world.chains[0].velocity = Vec2::new(5.0, 0.0);
+        let body = crate::BodyKinematics { pos: Vec2::new(30.0, 5.0), canonical_size: Vec2::splat(10.0), ..Default::default() };
+        let domain = body.canonical_box().unwrap();
+        let aperture = |at: Vec2, normal: Vec2| PortalAperture { frame: PortalFrame::fixed(at, normal), half_length: 4.0 };
+        let first = |enter: PortalAperture| {
+            let links = [PortalLink::new(enter, aperture(Vec2::new(30.0, 400.0), Vec2::NEG_Y), 0)];
+            let admission = MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
+            let cells = MaterialCast::new(MaterialPrimitive { domain: &domain, to_world: body.material_map().unwrap() },
+                body.pos, Vec2::ZERO, 0.0..1.0).cells(Some(admission)).unwrap();
+            world.first_material_contact(&cells, |_, _, _| Ok(true)).unwrap().expect("the line reaches the body")
+        };
+        let hit = first(aperture(Vec2::new(37.0, 5.0), Vec2::NEG_X));
+        assert!((hit.contact.world_time - 0.5).abs() < 1e-6, "met when its end arrives: {}", hit.contact.world_time);
+        let travel = hit.collider.displacement_at(hit.contact.world_point, hit.contact.world_time);
+        assert!((travel - Vec2::new(10.0, 0.0)).length() < 1e-3, "the surface there goes with its end: {travel:?}");
+        let on_the_line = first(aperture(Vec2::new(22.0, 5.0), Vec2::Y));
+        assert!(on_the_line.contact.world_time < 1e-6, "the rigid fit: {}", on_the_line.contact.world_time);
+    }
+
     #[test]
     fn unknown_line_motion_refuses_support_until_it_has_a_finite_envelope() {
         let mut world = world_with(vec![Vec2::new(-100.0, 200.0), Vec2::new(100.0, 200.0)]);

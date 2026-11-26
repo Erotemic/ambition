@@ -335,6 +335,25 @@ Still open in M3:
   region's corners reaching the segment, and each moves linearly. Without
   the line split it would change which line pieces a cell sees.
 
+  **Landed (2026-11-26): an uncut root cell under a scene.** `line_parts`
+  splits only a line that lies on an aperture's plane, moving with it (the
+  portal's own host line). For any other line it returns the cell
+  unchanged. So the rigid path under a scene equals the no-portal case for
+  a cell with no path, no planes and no curve. `against_deforming_where`
+  now admits that cell unless the scene may split the line
+  (`Scene::may_split_line`: either pose of the line lies on an enter or exit
+  aperture's plane, within a tolerance far wider than the split's own).
+  Witness `a_stretching_line_beside_a_portal_is_met_when_its_end_arrives`:
+  a pair admitted beside the body gives the cast a scene. The stretching
+  line meets the body at t 0.5, where its end arrives, with that end's
+  travel (+10). Before, it read the rigid fit, a contact at once. Its
+  control, a mouth on the line's own plane, still reads the rigid fit.
+  Core lib (942), runtime with `portal` (306) and the app's portal tests
+  (53) pass.
+  Still open: a cell cut by a portal or beyond one, and a line on an
+  aperture's plane (the portal's own host). Those need the deforming
+  `line_parts` split and the clipped cast described above.
+
 ## Required motion operation
 
 The existing motion owner prepares a bounded sequence of accepted legs.

@@ -379,6 +379,11 @@ preview an option to show where the selected body can land from a marked
 takeoff point. Use the body's current movement model and show how the
 result changes when the player releases the jump early.
 
+In the Void Falls, the robot could hold jump at the foot of the shaft and
+still miss the first ledge. Use the landing preview to check a route from
+the floor to the next exit. Include the one-way ledges and the side of the
+solid ledge that can stop an upward jump.
+
 ### Content diffs need domain-aware comparison (Q62, Q78)
 
 Rulings 2026-10-04 ([`../maintainer-decisions.md`](../maintainer-decisions.md)):

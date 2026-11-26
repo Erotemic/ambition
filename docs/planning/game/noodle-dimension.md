@@ -59,6 +59,13 @@ controls. Blue plates mark gates that open when the wheel is on. Amber
 plates with a bar mark gates that close. The gates control the dry passages
 between the pools.
 
+## Belfry
+
+A landing connects the two service ladders in the shaft. A short ledge
+leads from the lower ladder to the middle bell. Players can also jump up
+the shaft. Each bell has a number that matches its seal in front of the
+Parmesan Key.
+
 ## The soda
 
 A pool of soda is two things in one box. Neither needs a Rust change:

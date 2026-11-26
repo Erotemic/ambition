@@ -244,6 +244,9 @@ explicit value so the art can extend past the walkable edge.
 The Smugglers' Tunnel uses a painted cable over the freight carrier. Give
 the art generator the carrier's travel bounds so the cable stays above the
 carrier across its full path.
+The Noodly Belfry marks the travel of its three moving hazards. Give the
+art generator the paths and the hazard bounds so the marks move when an
+author changes a path.
 
 ### Terrain under water
 

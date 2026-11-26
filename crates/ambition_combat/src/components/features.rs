@@ -64,12 +64,38 @@ impl PersistKey {
 
 /// Published source regions with an explicit coordinate space.
 #[derive(Clone, Debug, PartialEq)]
-pub enum HurtSource {
-    World(Vec<ae::CombatVolume>),
-    Body(Vec<ae::CombatVolume>),
+struct HurtSource {
+    space: HurtSpace,
+    regions: HurtRegions,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
+enum HurtRegions {
+    Empty,
+    // A single box can be copied into a rollback snapshot without an allocation.
+    One(ae::CombatVolume),
+    Many(Vec<ae::CombatVolume>),
+}
+
+impl HurtRegions {
+    fn from_vec(mut regions: Vec<ae::CombatVolume>) -> Self {
+        match regions.len() {
+            0 => Self::Empty,
+            1 => Self::One(regions.pop().expect("one region")),
+            _ => Self::Many(regions),
+        }
+    }
+
+    fn as_slice(&self) -> &[ae::CombatVolume] {
+        match self {
+            Self::Empty => &[],
+            Self::One(region) => std::slice::from_ref(region),
+            Self::Many(regions) => regions,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum HurtSpace {
     World,
     Body,
@@ -99,9 +125,6 @@ impl DamageableVolumes {
     pub fn intangible(&self) -> bool {
         self.published() && self.is_empty()
     }
-    pub fn source(&self) -> Option<&HurtSource> {
-        self.source.as_ref()
-    }
     pub fn len(&self) -> usize {
         self.domains().len()
     }
@@ -110,17 +133,11 @@ impl DamageableVolumes {
     }
 
     fn domains(&self) -> &[ae::CombatVolume] {
-        match &self.source {
-            Some(HurtSource::World(domains) | HurtSource::Body(domains)) => domains,
-            None => &[],
-        }
+        self.source.as_ref().map_or(&[], |source| source.regions.as_slice())
     }
 
     fn space(&self) -> HurtSpace {
-        match self.source {
-            Some(HurtSource::Body(_)) => HurtSpace::Body,
-            _ => HurtSpace::World,
-        }
+        self.source.as_ref().map_or(HurtSpace::World, |source| source.space)
     }
 
     pub fn clear(&mut self) {
@@ -129,19 +146,19 @@ impl DamageableVolumes {
 
     /// Publish an empty world source when no volume can receive damage.
     pub fn clear_if_needed(volumes: &mut bevy::prelude::Mut<'_, Self>) {
-        if !matches!(&volumes.source, Some(HurtSource::World(regions)) if regions.is_empty()) {
+        if !matches!(&volumes.source, Some(HurtSource { space: HurtSpace::World, regions: HurtRegions::Empty })) {
             volumes.clear();
         }
     }
 
     /// Publish fixed regions in room coordinates.
     pub fn publish_world(&mut self, domains: Vec<ae::CombatVolume>) {
-        self.source = Some(HurtSource::World(domains));
+        self.source = Some(HurtSource { space: HurtSpace::World, regions: HurtRegions::from_vec(domains) });
     }
 
     /// Publish regions in canonical body axes. Facing is already applied.
     pub fn publish_body(&mut self, domains: Vec<ae::CombatVolume>) {
-        self.source = Some(HurtSource::Body(domains));
+        self.source = Some(HurtSource { space: HurtSpace::Body, regions: HurtRegions::from_vec(domains) });
     }
 
     /// Replace sampled body regions in their existing storage.
@@ -150,16 +167,22 @@ impl DamageableVolumes {
     }
 
     fn replace_domains(&mut self, space: HurtSpace, domains: impl Iterator<Item = ae::CombatVolume>) {
-        let mut regions = match self.source.take() {
-            None => Vec::new(),
-            Some(HurtSource::World(regions) | HurtSource::Body(regions)) => regions,
+        let mut domains = domains.fuse();
+        let regions = match (domains.next(), domains.next()) {
+            (None, _) => HurtRegions::Empty,
+            (Some(first), None) => HurtRegions::One(first),
+            (Some(first), Some(second)) => {
+                let mut regions = match self.source.take() {
+                    Some(HurtSource { regions: HurtRegions::Many(regions), .. }) => regions,
+                    _ => Vec::new(),
+                };
+                regions.clear();
+                regions.extend([first, second]);
+                regions.extend(domains);
+                HurtRegions::Many(regions)
+            }
         };
-        regions.clear();
-        regions.extend(domains);
-        self.source = Some(match space {
-            HurtSpace::World => HurtSource::World(regions),
-            HurtSpace::Body => HurtSource::Body(regions),
-        });
+        self.source = Some(HurtSource { space, regions });
     }
 
     pub fn set_world_box(&mut self, bounds: ae::Aabb) {

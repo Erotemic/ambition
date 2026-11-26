@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 use bevy::math::DVec2;
+use bevy::platform::collections::HashMap;
 use ambition_combat::components::DamageableVolumes;
 use ambition_platformer2d_core::{self as ae, AabbExt, BodyKinematics, Vec2};
 use ae::frame::{NumericFault, Sim2, material_cast::MaterialCast,
@@ -45,7 +46,6 @@ type Recipients<'w, 's> = Query<'w, 's,
 
 struct Recipient {
     entity: Entity,
-    room: Option<LiveRoomInstance>,
     body: Option<BodyKinematics>,
     motion: Option<ae::SweepSample>,
     hurt: DamageableVolumes,
@@ -87,18 +87,38 @@ pub fn ground_item_physics(
     let geometry = portals.geometry.as_deref();
     #[cfg(not(feature = "portal"))]
     let _ = &portals.marker;
+    // A held item has no flight. Copy recipient state only for rooms with loose items.
+    let solids = {
+        let items = populations.p0();
+        SolidsByRoom::build(&world, items.iter()
+            .filter(|(_, _, _, custody, ..)| custody.in_world())
+            .map(|(entity, ..)| live.of(entity)))
+    };
     #[cfg(feature = "portal")]
-    let placed = ambition_portal2d::PortalsByRoom::collect(portals.placed.iter(), &portals.rooms);
-    let recipients: Vec<_> = populations.p1().iter().filter(|(_, _, health, out, plane, ..)|
-        !ambition_combat::util::body_is_untouchable(Some(*health), *out, *plane))
-        .map(|(entity, bounds, _, _, _, body, hurt, id, motion)| Recipient {
-            entity, room: live.of(entity), body: body.copied(), motion: motion.copied(), position: bounds.aabb().center(),
-            hurt: hurt.filter(|hurt| hurt.published()).cloned().unwrap_or_else(||
-                body.map_or_else(|| DamageableVolumes::world_box(bounds.aabb()), |body|
-                    DamageableVolumes::body_box(body.canonical_size * 0.5))), id: id.cloned(),
-        }).collect();
+    let placed = if solids.0.is_empty() {
+        ambition_portal2d::PortalsByRoom::default()
+    } else {
+        ambition_portal2d::PortalsByRoom::collect(portals.placed.iter(), &portals.rooms)
+    };
+    let mut recipients = HashMap::<Option<LiveRoomInstance>, Vec<Recipient>>::new();
+    if !solids.0.is_empty() {
+        for (entity, bounds, health, out, plane, body, hurt, id, motion) in populations.p1().iter() {
+            if ambition_combat::util::body_is_untouchable(Some(health), out, plane) {
+                continue;
+            }
+            let room = live.of(entity);
+            if solids.raw(room).is_none() {
+                continue;
+            }
+            recipients.entry(room).or_default().push(Recipient {
+                entity, body: body.copied(), motion: motion.copied(), position: bounds.aabb().center(),
+                hurt: hurt.filter(|hurt| hurt.published()).cloned().unwrap_or_else(||
+                    body.map_or_else(|| DamageableVolumes::world_box(bounds.aabb()), |body|
+                        DamageableVolumes::body_box(body.canonical_size * 0.5))), id: id.cloned(),
+            });
+        }
+    }
     let mut items = populations.p0();
-    let solids = SolidsByRoom::build(&world, items.iter().map(|(entity, ..)| live.of(entity)));
     for (entity, mut item, mut sweep, custody, response, settled) in &mut items {
         let dt = shared_dt * freeze.scale_of(entity);
         let before = *item;
@@ -155,17 +175,17 @@ pub fn ground_item_physics(
             let record = if settled { flight.legs.last().map(|leg| leg.sample)
                 .unwrap_or_else(|| ae::SweepSample::at_tick_end(flight.body, down)) }
                 else { ae::SweepSample::at_tick_end(flight.body, down) };
-            let targets: Vec<_> = recipients.iter().filter(|recipient|
-                recipient.entity != entity && recipient.room == room).collect();
+            let room_targets = recipients.get(&room).map_or(&[][..], Vec::as_slice);
+            let targets = || room_targets.iter().filter(|recipient| recipient.entity != entity);
             let mut contacts: Vec<(f64, &Recipient, f32)> = Vec::new();
             for leg in &flight.legs {
-                if targets.iter().all(|target| contacts.iter().any(|(_, hit, _)| hit.entity == target.entity)) {
+                if targets().all(|target| contacts.iter().any(|(_, hit, _)| hit.entity == target.entity)) {
                     break;
                 }
                 let policy = admission.map(|policy| MotionAdmission { first: leg.first, ..policy });
                 let domain = leg.body.canonical_box().map_err(numeric)?;
                 let cells = leg.sample.material_cast(&domain)?.cells(policy)?;
-                for &recipient in &targets {
+                for recipient in targets() {
                     if contacts.iter().any(|(_, hit, _)| hit.entity == recipient.entity) { continue; }
                     let hit = recipient.hurt.swept_body_contact(recipient.entity, recipient.body.as_ref(), recipient.motion.as_ref(),
                         None, geometry, room, &cells)?;

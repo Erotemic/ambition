@@ -42,7 +42,8 @@ pub fn pin_rest_rows(
     tick: Res<SimTick>,
     catalog: Res<CharacterCatalog>,
     mut rest_rows: Local<BTreeMap<String, String>>,
-    mut bodies: Query<(&CharacterForm, Option<&mut PinnedRow>, Entity)>,
+    bodies: Query<(Entity, &CharacterForm, Has<PinnedRow>)>,
+    mut pins: Query<&mut PinnedRow>,
     mut commands: Commands,
 ) {
     if catalog.is_changed() {
@@ -52,8 +53,12 @@ pub fn pin_rest_rows(
         }));
     }
     let elapsed = tick.get() as f32 * TICK_S;
-    for (worn, pinned, entity) in &mut bodies {
-        match (rest_rows.get(worn.id()).map(String::as_str), pinned) {
+    for (entity, worn, has_pin) in &bodies {
+        let row = rest_rows.get(worn.id()).map(String::as_str);
+        if !has_pin && row.is_none() {
+            continue;
+        }
+        match (row, pins.get_mut(entity).ok()) {
             // A body that no conductor draws has no pin yet: it gets one.
             (Some(row), None) => {
                 let mut pin = PinnedRow::default();
@@ -142,6 +147,10 @@ mod tests {
         app.insert_resource(catalog());
         app.update();
         assert_eq!(rows(&app, plain), vec!["armed_rest".to_string()]);
+
+        app.world_mut().entity_mut(plain).remove::<PinnedRow>();
+        app.update();
+        assert_eq!(rows(&app, plain), ["armed_rest"]);
     }
 
     /// A conductor that pins `attack` while the fight asks it to, and clears

@@ -192,7 +192,7 @@ fn page_local_index_matches_reference_per_cell_count() {
     let packed = row("packed", 0, 0, vec![
         rect(0, 0, 8, 8, 0, (0, 0)),
         rect(8, 0, 8, 8, 1, (0, 0)),
-        rect(16, 0, 8, 8, 0, (0, 0)),
+        rect(16, 0, 6, 7, 0, (1, 2)),
         rect(24, 0, 8, 8, 2, (0, 0)),
     ]);
     let mut short = row("short", 1, 1, vec![
@@ -207,6 +207,8 @@ fn page_local_index_matches_reference_per_cell_count() {
         rect(0, 0, 8, 8, 2, (0, 0)),
     ]);
     let rec = record(8, 8, vec![packed, short, grid, invalid]);
+    let prepared = PreparedFrames::new(&rec);
+    assert!(prepared.is_trimmed);
     for ri in 0..rec.rows.len() {
         for f in 0..=rec.rows[ri].frame_count as usize + 2 {
             let bounded = f.min((rec.rows[ri].frame_count as usize).saturating_sub(1));
@@ -216,6 +218,11 @@ fn page_local_index_matches_reference_per_cell_count() {
                 (0..limit).filter(|frame| row.cell_page(*frame) == page).count()
             }).sum::<usize>();
             assert_eq!(rec.flat_index_in_page(ri, f), reference, "row {ri} frame {f} page {page}");
+            if f < rec.rows[ri].frame_count as usize {
+                let address = prepared.get(ri, f).unwrap();
+                assert_eq!((address.page, address.index), (page, reference));
+                assert_eq!(address.trim, rec.frame_trim(ri, f));
+            }
         }
     }
 }

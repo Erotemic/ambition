@@ -16,6 +16,9 @@
 //! each cell to the same page, so a flat index from one addresses the layout
 //! from the other. The tests at the end of this file guard this.
 
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
 use bevy::math::{IVec2, URect, UVec2, Vec2};
 
 use crate::{FrameRect, SheetRecord, SheetRow};
@@ -47,6 +50,56 @@ pub struct FrameTrim {
     pub trimmed: UVec2,
     /// Logical (untrimmed) frame size.
     pub logical: UVec2,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct FrameAddress {
+    pub page: u32,
+    pub index: usize,
+    pub trim: FrameTrim,
+}
+
+/// The frame addresses and trim for a loaded sheet, in row and frame order.
+#[derive(Clone, Debug)]
+pub(crate) struct PreparedFrames {
+    rows: Arc<[Box<[FrameAddress]>]>,
+    pub is_trimmed: bool,
+}
+
+impl PreparedFrames {
+    pub fn new(record: &SheetRecord) -> Self {
+        let logical = UVec2::new(record.frame_width, record.frame_height);
+        let mut page_lengths = BTreeMap::<u32, usize>::new();
+        let rows = record
+            .rows
+            .iter()
+            .map(|row| {
+                let rects = row.explicit_rects();
+                (0..row.frame_count as usize)
+                    .map(|frame| {
+                        let rect = rects.get(frame);
+                        let page = rect.map_or(row.page, |rect| rect.page);
+                        let next = page_lengths.entry(page).or_default();
+                        let address = FrameAddress {
+                            page,
+                            index: *next,
+                            trim: frame_trim(rect, logical),
+                        };
+                        *next += 1;
+                        address
+                    })
+                    .collect()
+            })
+            .collect();
+        Self {
+            rows,
+            is_trimmed: record.is_trimmed(),
+        }
+    }
+
+    pub fn get(&self, row: usize, frame: usize) -> Option<&FrameAddress> {
+        self.rows.get(row)?.get(frame)
+    }
 }
 
 impl FrameTrim {
@@ -103,6 +156,14 @@ impl SheetRow {
                 .all(|r| r.x >= 0 && r.y >= 0 && r.w > 0 && r.h > 0)
     }
 
+    fn explicit_rects(&self) -> &[FrameRect] {
+        if self.uses_explicit_rects() {
+            &self.rects
+        } else {
+            &[]
+        }
+    }
+
     /// True when this row was freely packed — its frames carry per-frame pages
     /// that differ from the row's nominal page. For unpacked (single-page or
     /// unpacked-multipage) rows every frame uses [`SheetRow::page`].
@@ -131,11 +192,7 @@ impl SheetRow {
     /// rows (the packer can scatter one animation across pages for fill); the
     /// row's nominal page otherwise.
     fn cell_page(&self, f: usize) -> u32 {
-        if self.uses_explicit_rects() && self.is_packed() {
-            self.rects.get(f).map(|r| r.page).unwrap_or(self.page)
-        } else {
-            self.page
-        }
+        self.explicit_rects().get(f).map_or(self.page, |rect| rect.page)
     }
 }
 
@@ -157,6 +214,17 @@ fn frame_rect_to_urect(r: &FrameRect) -> URect {
     URect {
         min: UVec2::new(r.x.max(0) as u32, r.y.max(0) as u32),
         max: UVec2::new((r.x + r.w).max(0) as u32, (r.y + r.h).max(0) as u32),
+    }
+}
+
+fn frame_trim(rect: Option<&FrameRect>, logical: UVec2) -> FrameTrim {
+    match rect {
+        Some(r) => FrameTrim {
+            offset: IVec2::new(r.off.0, r.off.1),
+            trimmed: UVec2::new(r.w.max(0) as u32, r.h.max(0) as u32),
+            logical,
+        },
+        None => FrameTrim::identity(logical),
     }
 }
 
@@ -184,8 +252,8 @@ impl SheetRecord {
         for row in &self.rows {
             let count = row.frame_count as usize;
             if row.uses_explicit_rects() {
-                for (f, r) in row.rects.iter().take(count).enumerate() {
-                    if row.cell_page(f) != page {
+                for r in row.rects.iter().take(count) {
+                    if r.page != page {
                         continue;
                     }
                     let cell = frame_rect_to_urect(r);
@@ -246,18 +314,8 @@ impl SheetRecord {
         let Some(row) = self.rows.get(row_idx) else {
             return FrameTrim::identity(logical);
         };
-        if !row.uses_explicit_rects() {
-            return FrameTrim::identity(logical);
-        }
         let f = frame.min((row.frame_count as usize).saturating_sub(1));
-        match row.rects.get(f) {
-            Some(r) => FrameTrim {
-                offset: IVec2::new(r.off.0, r.off.1),
-                trimmed: UVec2::new(r.w.max(0) as u32, r.h.max(0) as u32),
-                logical,
-            },
-            None => FrameTrim::identity(logical),
-        }
+        frame_trim(row.explicit_rects().get(f), logical)
     }
 
     /// True when any frame of this sheet was alpha-trimmed (so a renderer must adjust sprite

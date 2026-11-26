@@ -17,6 +17,7 @@ use bevy::sprite::Anchor;
 
 use super::anim::CharacterAnim;
 use super::CharacterSpriteAsset;
+use crate::frames::PreparedFrames;
 pub use crate::{trimmed_render, FrameTrim};
 use crate::{AtlasPage, NormPoint, SheetRecord};
 
@@ -66,11 +67,9 @@ pub struct CharacterSheetSpec {
     /// instead of flipping it. Empty for a sheet with no mirror rows, which is
     /// every symmetric character.
     mirror_slots: Vec<Option<usize>>,
-    /// The published sheet record: the single source of per-frame rects, page
-    /// assignment, and trim. Every atlas / flat-index / trim query delegates to
-    /// its [`ambition_sprite_sheet`] frame algebra, so the character path shares
-    /// one implementation with the boss, prop, and projectile readers.
+    /// The published sheet record and its frame layout.
     pub(crate) record: SheetRecord,
+    frames: PreparedFrames,
     /// Used only by the fallback in [`sprite_render_size_scaled`], for a sheet
     /// that publishes no body (almost every sheet publishes one).
     ///
@@ -727,6 +726,7 @@ pub(crate) fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> Ch
         anim_rows,
         mirror_slots,
         record: record.clone(),
+        frames: PreparedFrames::new(record),
         collision_scale,
         feet_anchor_x,
         feet_anchor_y,

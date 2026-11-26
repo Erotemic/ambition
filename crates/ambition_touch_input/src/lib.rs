@@ -23,6 +23,9 @@ pub mod menu_bridge;
 #[cfg(feature = "mobile_touch")]
 pub mod virtual_device;
 
+#[cfg(feature = "mobile_touch")]
+pub mod gamepad_toggle;
+
 #[cfg(test)]
 mod tests;
 

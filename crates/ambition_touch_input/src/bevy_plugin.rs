@@ -232,9 +232,18 @@ impl Plugin for TouchControlsPlugin {
             .insert_resource(MenuTouchGestureState::default())
             .insert_resource(TouchButtonEdges::default())
             .insert_resource(TouchControlsVisible::default())
+            .init_resource::<crate::gamepad_toggle::GamepadHiddenByToggle>()
+            .init_resource::<crate::gamepad_toggle::GamepadToggleRect>()
+            .add_systems(
+                Update,
+                (crate::gamepad_toggle::press_gamepad_toggle, crate::gamepad_toggle::place_gamepad_toggle)
+                    .chain()
+                    .before(crate::bevy_plugin::sync_touch_visibility_from_settings),
+            )
             .add_systems(
                 Startup,
                 (
+                    crate::gamepad_toggle::spawn_gamepad_toggle,
                     spawn_touch_buttons,
                     spawn_touch_joysticks,
                     spawn_frame_axis_glyphs,
@@ -683,10 +692,14 @@ pub fn sync_touch_ui_visibility(
 /// same frame. Both default to `true`.
 pub fn sync_touch_visibility_from_settings(
     settings: Res<ambition_persistence::settings::UserSettings>,
+    hidden: Option<Res<crate::gamepad_toggle::GamepadHiddenByToggle>>,
     mut visible: ResMut<TouchControlsVisible>,
 ) {
-    if visible.0 != settings.controls.touch_controls_visible {
-        visible.0 = settings.controls.touch_controls_visible;
+    // The player's toggle hides it too (Q178), and a hidden gamepad stops
+    // reserving its space as the setting's does.
+    let shown = settings.controls.touch_controls_visible && !hidden.is_some_and(|hidden| hidden.0);
+    if visible.0 != shown {
+        visible.0 = shown;
     }
 }
 

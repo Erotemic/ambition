@@ -152,9 +152,12 @@ fn resolve_presentation_environment() -> PresentationEnvironment {
 /// then consumed by framing on the next frame. Hidden hierarchy, `Display::None`, and
 /// zero-size nodes contribute nothing. `ViewVisibility` is not used for Bevy UI nodes.
 /// On-screen controls publish same-frame occupancy separately because their resolver
-/// already owns those rectangles.
+/// already owns those rectangles. A windowless composition measures against its
+/// declared surface, as the resolver does, or a capture would lay out a screen
+/// with no HUD on it.
 pub fn collect_screen_occupancy(
     windows: Query<&Window, With<PrimaryWindow>>,
+    headless: Option<Res<HeadlessDisplaySurface>>,
     occluders: Query<(
         &ambition_platformer2d_shared_tangle::gameplay_presentation::ScreenOccluder,
         Option<&InheritedVisibility>,
@@ -165,13 +168,14 @@ pub fn collect_screen_occupancy(
     mut occupancy: ResMut<ScreenOccupancy>,
 ) {
     occupancy.0.clear();
-    let Ok(window) = windows.single() else {
-        return;
+    let display_px = match windows.single() {
+        Ok(window) => ae::Vec2::new(window.width().max(1.0), window.height().max(1.0)),
+        Err(_) => match headless {
+            Some(surface) => ae::Vec2::new(surface.0.x.max(1.0), surface.0.y.max(1.0)),
+            None => return,
+        },
     };
-    let display = ScreenRect::from_min_size(
-        ae::Vec2::ZERO,
-        ae::Vec2::new(window.width().max(1.0), window.height().max(1.0)),
-    );
+    let display = ScreenRect::from_min_size(ae::Vec2::ZERO, display_px);
 
     for (occluder, inherited, computed, transform, node) in &occluders {
         if !inherited.map(|visible| visible.get()).unwrap_or(true) {

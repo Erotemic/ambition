@@ -176,6 +176,9 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
             cyc!(settings.controls.right_stick_mode, RightStickMode)
         }
         SettingsOptionId::TouchControls => tog!(settings.controls.touch_controls_visible),
+        SettingsOptionId::ToggleGamepadButton => {
+            cyc!(settings.controls.toggle_gamepad_button, ambition_persistence::settings::controls::ToggleGamepadButton)
+        }
         SettingsOptionId::TouchLeftScale => {
             use ambition_persistence::settings::controls::{TOUCH_SCALE_MIN, TOUCH_SCALE_MAX, TOUCH_SCALE_STEP};
             settings.controls.touch_left_scale = (settings.controls.touch_left_scale + s * TOUCH_SCALE_STEP)

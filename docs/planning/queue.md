@@ -2890,11 +2890,28 @@ gameplay/menu transitions.
 
 **Blocked by:** none.
 
-**Next action:** the gamepad toggle and its setting, as ruled above
-(`ambition_touch_input`): the button's placement against the safe area and
-the published `ControlFootprints`, the Auto rule (a menu or touch UI under
-the overlay), and the restore path; witness at 640x360 and 1280x720 with
-`capture_scene --include-ui`. The in-session pause cube is partly done (2026-11-17). Its page is laid in
+**Q178 landed 2026-11-26** (`crates/ambition_touch_input/src/gamepad_toggle.rs`).
+A small drawn-gamepad button hides and restores the virtual gamepad. It sits at
+the safe area's top-left, moved right past whatever the layout already
+holds there (`toggle_corner` reads the resolved occupancy: the HUD, system
+buttons, touch clusters; not dialogue, which comes and goes), and below them
+when that row is full to the middle. Setting **Toggle Gamepad Button**
+(`ControlSettings::toggle_gamepad_button`, Controls page): `auto` (default:
+shown while a menu or dialogue owns the controls), `always visible`, `never
+visible`; a hidden gamepad always shows its button, and choosing never
+brings a hidden gamepad back. Hiding it also stops the overlay reserving its
+space (`TouchControlsVisible`). The press is hit-tested from raw touches
+and the cursor against the rect the button was drawn at, like the overlay's
+own buttons. The hidden state is session-local. Witnesses: the three
+`gamepad_toggle` tests; `capture_scene --route ambition_gameplay OUT
+640x360|1280x720 --press "wait:60,Escape,wait:30" --include-ui` shows it
+beside the HUD over the pause cube, and adding `touch:212x28,wait:20`
+(then `Escape`) shows the gamepad hidden with its button kept, in the menu
+and in play. With it, the headless occupancy collector measures against
+`HeadlessDisplaySurface` as the resolver does: a capture used to lay out a
+screen with no HUD occupancy at all. Open: with the gamepad hidden, the
+overlay's Menu button goes with it, so touch-only pause waits for the
+gamepad's return. The in-session pause cube is partly done (2026-11-17). Its page is laid in
 face-relative units (`Rl`/`Rh`, `game/ambition_menu_kaleidoscope/src/page.rs`),
 so the whole face shrinks with the screen: at 640x360 the six System rows
 read at about 8 px. `InventoryLayout` now carries the System row count with

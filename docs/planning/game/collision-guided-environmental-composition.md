@@ -203,6 +203,8 @@ author can check the relation between the art and the route.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.
+The Observatory moves wall exhibits to the new landings. Show a player at
+each landing in the preview so authors can check the view at playing scale.
 
 ## Follow-up for room art generators
 

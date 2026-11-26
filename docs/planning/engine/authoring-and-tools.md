@@ -310,9 +310,12 @@ and selection are distinct fields, not one success flag. Keep the actual
 recipe snapshot and its source/tool evidence. A later read of current
 selection cannot attribute another concurrent writer's work to this request.
 
-The Tar Pits skin builds in a new store. In the shared store, the background
-bundle still owns its files. Add a way to move one skin to a scoped bundle in
-one publication. Preserve the source records for the parallax variants.
+Scoped publication now moves the Primeval skin out of the background bundle
+(renderer `64f22c9`). The skin check passes in the shared store. All 684
+parallax source images kept the same digests. The variant check marked
+their 2,052 conversions stale when the background bundle key changed.
+Record the digest of each source image in its conversion receipt. A change
+to a different image in the bundle must leave that receipt valid.
 
 Machine mode returns parseable result data for normal refusal or partial
 failure even when the exit status is nonzero. If a killed or crashed producer

@@ -123,6 +123,14 @@ floor between the trays.
 Stone supports and gold edges show the two side balconies. The dark stone
 behind the fight makes the boss and its attacks easier to see.
 
+## Fizzy Flats
+
+A sampling walk crosses the two east springs. Its first step is on the
+dry bank beyond the hermit's spring. Pilgrims can also jump the springs
+from the ground and use the stone in the middle pool. Caps and bubbles
+mark the soda. The hermitage and spring warning have signs with a dark
+background.
+
 ## The soda
 
 A pool of soda is two things in one box. Neither needs a Rust change:

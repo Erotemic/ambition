@@ -233,6 +233,8 @@ In Brothlehem, preview the gate ring and its terminal with the posts of the
 gate court. Show the ring both open and closed to check the space around it.
 For the Curry House, show which shelf edges support a body. Show the udon
 pickup and the tip jar at their authored heights in the same view.
+For the Fizzy Flats, show the water cells, solid banks, and damage volumes
+with the spring art. Use the solid bank edges to place the caps.
 The Noodly Cistern adds pipes and plates for each wheel. Give the art
 generator the switch and gate bounds and the gate conditions. Keep the
 pipe bends in the art so an author can route around labels.

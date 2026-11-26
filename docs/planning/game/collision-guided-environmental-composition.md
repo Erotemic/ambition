@@ -215,6 +215,8 @@ riders and the floor below it. Show the points where both ladders meet
 the walk.
 At the Shadow Dojo, show the practice floor, both steps, and the Duelist.
 Use the floor and step spans to set the tatami and plank edges.
+In the Cedar Forest, pass the gate bough surface points to the cedar art.
+Show where the bough meets the last branch and the trail.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

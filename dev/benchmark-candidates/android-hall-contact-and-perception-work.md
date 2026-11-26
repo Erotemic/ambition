@@ -1392,6 +1392,21 @@ the extension profiler. With the new scripts both entries had zero
 calls over the same interval. In both arms, a defeated sheep produced
 one cloud without a script fault.
 
+Four windowed runs loaded the old and new scripts into the same
+development executable. Each kept all 596 bodies at 1280 × 800 with
+Potato quality and the software renderer. Use windows after 30 s.
+
+| Run order | Scripts | Median total, ms/tick | Median control gate, ms/tick |
+| --- | --- | ---: | ---: |
+| 1 | Old | 49.26 | 3.67 |
+| 2 | New | 22.04 | 1.24 |
+| 3 | New | 16.11 | 0.92 |
+| 4 | Old | 16.42 | 1.51 |
+
+The total tick ranges overlap. The last run refused a live catalog edit
+and kept its active content. Use the headless call counts to verify the
+work removed. Both candidate medians are above 13.75 ms/tick.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

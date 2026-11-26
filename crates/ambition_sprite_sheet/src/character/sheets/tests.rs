@@ -852,7 +852,7 @@ fn the_index_comparison_can_tell_two_tables_apart() {
     assert!(
         same.get("alpha")
             .and_then(|r| r.body_metrics.as_ref())
-            .is_some_and(|m| m.animations.len() >= 5),
+            .is_some_and(|m| m.animations().len() >= 5),
         "the synthetic record did not parse its `animations` map, so this \
          control is back to comparing empty maps — which is what it exists to \
          stop doing"

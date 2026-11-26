@@ -295,17 +295,8 @@ pub struct BodyMetrics {
     /// as the single body.
     #[serde(default)]
     pub body_pixel_parts: Vec<NamedPixelRect>,
-    /// Per-animation hurtbox + hitbox overrides. Keyed by the same
-    /// animation name the spritesheet rows use (`"rest"`,
-    /// `"floor_slam"`, `"side_sweep"`, …). The renderer emits one
-    /// entry per animation in the sheet; consumers look up by the
-    /// boss's currently-playing animation name.
     #[serde(default)]
-    /// A `BTreeMap` because iteration order is simulation state. Several row
-    /// names alias to one `CharacterAnim`, and [`BodyMetrics::pose_body_bbox`]
-    /// picks among them to make a collision box. Sorted order makes that choice
-    /// the same in every process, which rollback requires.
-    pub animations: std::collections::BTreeMap<String, AnimationMetrics>,
+    animations: BodyAnimations,
     #[serde(default)]
     pub feet_pixel: Option<PixelPoint>,
     #[serde(default)]
@@ -316,6 +307,30 @@ pub struct BodyMetrics {
     /// [`SheetTuning::collision_scale`].
     #[serde(default)]
     pub authored_body: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+struct BodyAnimations {
+    rows: std::collections::BTreeMap<String, AnimationMetrics>,
+    pose_boxes: Box<[Option<PixelRect>]>,
+}
+
+impl<'de> Deserialize<'de> for BodyAnimations {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let rows = std::collections::BTreeMap::<String, AnimationMetrics>::deserialize(deserializer)?;
+        let mut pose_boxes = Vec::new();
+        for (name, row) in &rows {
+            let Some(pose) = character::CharacterAnim::from_name(name) else { continue };
+            let Some(bbox) = row.hurtbox.as_ref().and_then(|hurtbox| hurtbox.bbox) else { continue };
+            let slot = pose as usize;
+            if slot >= pose_boxes.len() {
+                pose_boxes.resize(slot + 1, None);
+            }
+            // Use the first row, in name order, that gives the pose a box.
+            pose_boxes[slot].get_or_insert(bbox);
+        }
+        Ok(Self { rows, pose_boxes: pose_boxes.into_boxed_slice() })
+    }
 }
 
 /// Per-animation authored / derived hit + hurt box data. The
@@ -409,29 +424,24 @@ impl AnimationBoxFrame {
 }
 
 impl BodyMetrics {
+    /// Hurt and hit geometry by authored row name, in name order.
+    pub fn animations(&self) -> &std::collections::BTreeMap<String, AnimationMetrics> {
+        &self.animations.rows
+    }
+
     /// The body rectangle for a pose, in sheet-frame pixels.
     ///
     /// A body whose silhouette changes between poses has no single correct
     /// collision rectangle. If the sheet publishes a hurtbox for `anim`, return
     /// it; else fall back to [`Self::body_pixel_bbox`].
     ///
-    /// The `animations` map uses the generator's row names, so matching goes
-    /// through [`CharacterAnim::from_name`], the same alias table that binds
-    /// rows. A rename then cannot desync the hurtbox from its row.
-    ///
-    /// The tie-break is simulation state. Several row names alias to one
-    /// `CharacterAnim` (`rest`, `front_idle`, `side_idle` all mean `Idle`), and
-    /// the result becomes a collision box. The lexicographically first key
-    /// wins. `animations` is a `BTreeMap`, so iteration is already sorted, but
-    /// keep the explicit `min_by`: it states the rule, and a container change
-    /// must not change the answer.
+    /// The first row name with a box determines the box for a shared pose.
     pub fn pose_body_bbox(&self, anim: character::CharacterAnim) -> Option<PixelRect> {
         self.animations
-            .iter()
-            .filter(|(name, _)| character::CharacterAnim::from_name(name) == Some(anim))
-            .filter_map(|(name, metrics)| Some((name, metrics.hurtbox.as_ref()?.bbox?)))
-            .min_by(|(a, _), (b, _)| a.cmp(b))
-            .map(|(_, bbox)| bbox)
+            .pose_boxes
+            .get(anim as usize)
+            .copied()
+            .flatten()
             .or(self.body_pixel_bbox)
             .filter(|bbox| bbox.w > 0 && bbox.h > 0)
     }

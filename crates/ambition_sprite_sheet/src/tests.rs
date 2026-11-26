@@ -115,6 +115,9 @@ fn body_metrics_animations_round_trip_from_renderer_emit() {
         feet_anchor_norm: Some((x: -0.02734375, y: -0.1796875)),
         animations: {
             "rest": (hurtbox: Some((bbox: Some((x: 8, y: 4, w: 106, h: 84))))),
+            "front_idle": (),
+            "idle": (hurtbox: Some((bbox: Some((x: 11, y: 9, w: 80, h: 70))))),
+            "side_walk": (hurtbox: Some((bbox: Some((x: 0, y: 0, w: 0, h: 10))))),
             "floor_slam": (
                 hurtbox: Some((bbox: Some((x: 5, y: 0, w: 111, h: 110)))),
                 hitbox: Some((bbox: Some((x: 4, y: 88, w: 120, h: 30))))
@@ -132,14 +135,19 @@ fn body_metrics_animations_round_trip_from_renderer_emit() {
     let metrics: BodyMetrics =
         ron::from_str(ron_text).expect("BodyMetrics should deserialize from renderer-emitted RON");
 
-    assert_eq!(metrics.animations.len(), 3);
-    let rest = metrics.animations.get("rest").expect("`rest` present");
+    use crate::character::CharacterAnim;
+
+    assert_eq!(metrics.animations().len(), 6);
+    assert_eq!(metrics.pose_body_bbox(CharacterAnim::Idle).unwrap().w, 80);
+    assert_eq!(metrics.pose_body_bbox(CharacterAnim::Walk), None);
+    assert_eq!(metrics.pose_body_bbox(CharacterAnim::Jump), metrics.body_pixel_bbox);
+    let rest = metrics.animations().get("rest").expect("`rest` present");
     let rest_hurt = rest.hurtbox.as_ref().expect("`rest` hurtbox");
     assert!(rest_hurt.bbox.is_some(), "rest hurtbox has bbox");
     assert!(rest.hitbox.is_none(), "rest has no hitbox (idle pose)");
 
     let floor = metrics
-        .animations
+        .animations()
         .get("floor_slam")
         .expect("`floor_slam` present");
     let floor_hit = floor.hitbox.as_ref().expect("`floor_slam` hitbox");
@@ -148,7 +156,7 @@ fn body_metrics_animations_round_trip_from_renderer_emit() {
     assert_eq!(bbox.h, 30);
 
     let sweep = metrics
-        .animations
+        .animations()
         .get("side_sweep")
         .expect("`side_sweep` present");
     let sweep_hit = sweep.hitbox.as_ref().expect("`side_sweep` hitbox");
@@ -182,14 +190,14 @@ fn live_boss_spritesheet_ron_round_trips() {
         .expect("boss record");
     let metrics = record.body_metrics.expect("body_metrics");
     assert!(
-        !metrics.animations.is_empty(),
+        !metrics.animations().is_empty(),
         "expected per-animation metadata in boss_spritesheet.ron — \
          check that the Python renderer emitted `animations:` and that \
          this test is reading the regenerated file"
     );
     // Spot-check the adapter-declared floor_slam hitbox.
     let floor_slam = metrics
-        .animations
+        .animations()
         .get("floor_slam")
         .expect("floor_slam animation present");
     assert!(
@@ -198,7 +206,7 @@ fn live_boss_spritesheet_ron_round_trips() {
     );
     // The boss hurtbox is split into head + body parts so the player must aim at the central body
     // (not extended arms).
-    let rest = metrics.animations.get("rest").expect("rest animation");
+    let rest = metrics.animations().get("rest").expect("rest animation");
     let rest_hurt = rest.hurtbox.as_ref().expect("rest hurtbox");
     assert!(
         !rest_hurt.parts.is_empty(),
@@ -212,7 +220,7 @@ fn live_boss_spritesheet_ron_round_trips() {
     // SideSweep also has head + body hurtbox parts, not one bbox that includes
     // the extended arms.
     let sweep = metrics
-        .animations
+        .animations()
         .get("side_sweep")
         .expect("side_sweep animation");
     let sweep_hurt = sweep.hurtbox.as_ref().expect("side_sweep hurtbox");

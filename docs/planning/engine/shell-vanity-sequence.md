@@ -5,10 +5,11 @@
 
 ## Current shape
 
-Implemented: the timed image-sequence model and playback, the committed
-vanity-card manifest and export path, host composition of the real startup
-card, per-frame missing-asset degradation, and pointer/touch activation for
-shared menus. Do not rebuild these.
+The shell plays timed image sequences and programmatic segments. The Ambition
+startup sequence shows the engine card before the authorship card. The
+authorship card plays the published character parts for the robot and the
+Director. Both cards use the shell skip and completion rules. The shared menus
+accept pointer and touch input.
 
 No launcher content-alpha ramp exists. The only shell presentation fade is the
 vanity card's own (`crates/ambition_game_shell/src/basic_presentation.rs`).

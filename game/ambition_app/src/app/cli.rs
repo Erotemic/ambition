@@ -279,8 +279,8 @@ pub const SHARED_HOST_HEADLESS_TICK_HZ: f64 = 60.0;
 /// run-in has already grown from one card to two, and a hardcoded budget silently
 /// becomes "asserts the host is still on the first card" the moment it does.
 #[cfg(all(not(target_arch = "wasm32"), feature = "render"))]
-pub fn shared_host_startup_ticks(world: &mut World) -> u32 {
-    let seconds = super::shell_host::ambition_startup_duration(world).as_secs_f64();
+pub fn shared_host_startup_ticks(_world: &mut World) -> u32 {
+    let seconds = super::shell_host::ambition_startup_duration().as_secs_f64();
     (seconds * SHARED_HOST_HEADLESS_TICK_HZ).ceil() as u32 + SHARED_HOST_HEADLESS_TICK_HZ as u32
 }
 

@@ -95,7 +95,9 @@
     "sprites/entities/hazard_tile.png",
     "sprites/entities/boss_core.png",
     "audio/sfx.bank",
-    "vanity_card_made_this_meme/vanity_card_parts.png"
+    "sprites/director_parts.png",
+    "sprites/gamepad.png",
+    "sprites/apple_pie.png"
   ],
   "provenance": "generated/asset_provenance"
 }

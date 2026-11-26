@@ -191,7 +191,7 @@ pub const AMBITION_STARTUP_ROUTE: &str = "ambition_startup";
 /// Adding another card is one more entry here — no new state, and every
 /// consumer that cares how long the run-in lasts derives it from
 /// [`ambition_startup_duration`] rather than restating a number.
-fn ambition_startup_segments(world: &mut World) -> Vec<ambition_platformer2d::game_shell::ShellSegmentSpec> {
+fn ambition_startup_segments() -> Vec<ambition_platformer2d::game_shell::ShellSegmentSpec> {
     use ambition_platformer2d::game_shell::{ShellSegmentPolicy, ShellSegmentSpec};
 
     #[cfg_attr(not(feature = "render"), allow(unused_mut))]
@@ -209,18 +209,6 @@ fn ambition_startup_segments(world: &mut World) -> Vec<ambition_platformer2d::ga
     // a persona that draws nothing (the simulation family) composes the text card alone.
     #[cfg(feature = "render")]
     segments.push(
-        // The AUTHORSHIP card — the authored comic beat, DRAWN rather than played back. Its length
-        // is still DERIVED — `made_this_meme_card_duration()` is `frame_ms × frames.len()` off
-        // `vanity_card_made_this_meme.ron` — so re-exporting the animation retimes this segment and
-        // there is nothing to keep in sync by hand.
-        //
-        // that RON is the BAKED RIG, not `vanity_card.ron`. The nine-frame
-        // manifest and its rendered payload are reference art with no reader in
-        // the workspace; naming "the same manifest" here sent
-        // readers to the dead one.
-        //
-        // The id is the punchline because the studio is unnamed. When there IS a
-        // studio name, rename this segment to it.
         ShellSegmentSpec::registered(
             "i_made_this",
             ambition_platformer2d::game_shell::ShellSegmentRole::Vanity,
@@ -228,22 +216,19 @@ fn ambition_startup_segments(world: &mut World) -> Vec<ambition_platformer2d::ga
         )
         .with_policy(ShellSegmentPolicy {
             auto_advance_after: Some(
-                ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration(world),
+                ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration(),
             ),
             ..Default::default()
         })
     );
-    #[cfg(not(feature = "render"))]
-    let _ = world;
     segments
 }
 
 /// How long the composed startup run-in plays if nobody presses confirm.
 ///
-/// Derived from the same segment list the host actually composes, so a retimed card, an added
-/// card, or a re-exported vanity animation cannot leave a caller waiting on a stale constant.
-pub fn ambition_startup_duration(world: &mut World) -> std::time::Duration {
-    ambition_startup_segments(world)
+/// Use the durations of the cards that the host composes.
+pub fn ambition_startup_duration() -> std::time::Duration {
+    ambition_startup_segments()
         .iter()
         .map(|segment| segment.policy.auto_advance_after.unwrap_or_default())
         .sum()
@@ -287,7 +272,7 @@ pub fn compose_ambition_startup_sequence(app: &mut App) {
             ShellRouteSpec::new(AMBITION_STARTUP_ROUTE, AMBITION_STARTUP_EXPERIENCE)
                 .on_complete(ShellCompletionPolicy::GoTo(after_startup)),
         );
-    let segments = ambition_startup_segments(app.world_mut());
+    let segments = ambition_startup_segments();
     app.world_mut()
         .resource_mut::<ShellSequenceCatalog>()
         .register(

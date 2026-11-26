@@ -875,7 +875,8 @@
         old.innerHTML = `<b>The inspector server is older than this page</b>, so saving a review can fail. Stop it and start it again: <code>${esc(s.restart || "./scripts/asset_inspector.py --kill")}</code>`;
         stamp.after(old);
       }
-      const outdated = s.generation !== undefined && s.generation !== (C.inventory?.publication?.generation ?? null);
+      const outdated = (s.generation !== undefined && s.generation !== (C.inventory?.publication?.generation ?? null))
+        || (s.content_fingerprint !== undefined && s.content_fingerprint !== (C.inventory?.profile?.fingerprint ?? null));
       live.className = s.state === "failed" ? "stamp stale" : "stamp";
       if (s.state === "building") {
         live.hidden = false;

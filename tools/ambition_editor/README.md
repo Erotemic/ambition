@@ -19,8 +19,8 @@ Run `./scripts/asset_inspector.py` with no arguments. It opens the last index
 in a browser at once and refreshes it in the background, in a separate process
 at low priority, so the page stays responsive while it runs. The page offers a
 reload when the refresh is done. The first run builds before it opens.
-When an open page detects a new art publication, the server refreshes the
-index and the page shows the Reload button again.
+When an open page detects a new art publication or a change to the game pack's
+sources, the server refreshes the index and the page shows the Reload button.
 The supported launcher is `scripts/asset_inspector.py`.
 
 Only one inspector serves a port (8767 unless `--port`). If one is already

@@ -253,6 +253,8 @@ At the Sail Loft, show the shelf edges, the ladder, and the patch kit
 with the canvas bolts. Check that the flags remain visible below the deck.
 At the Smugglers' Hoard, show the coin pile with its surface chain and
 the chest's support point at the top.
+At the Pirate Port Gate Plaza, show the sling at both stops with the
+crate tops, loading platforms, and balcony.
 The Noodly Cistern adds pipes and plates for each wheel. Give the art
 generator the switch and gate bounds and the gate conditions. Keep the
 pipe bends in the art so an author can route around labels.

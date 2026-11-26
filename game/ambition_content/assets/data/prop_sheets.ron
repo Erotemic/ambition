@@ -664,6 +664,8 @@
     // larger than its box, as a pickup is.
     "port_harbour_house": (),
     "port_freight_booth": (),
+    "port_plaza_loading_walk": (),
+    "port_plaza_cargo_sling": (),
     "port_lamp_post": (),
     "port_waterfront_west": (),
     "port_waterfront_middle": (),

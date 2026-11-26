@@ -710,8 +710,29 @@ shared value preparation are sufficient until source proves otherwise.
    grass cap (bare earth before), and the flowering gorse prop stands on
    the slope at the panel's edge.
 
-   Still unrealized in the card view: the portal far-side window (P5/P6) and
-   the parallax backdrop.
+   **Parallax backdrop (2026-11-26).** The 2D view draws a room's parallax
+   panels (`ParallaxLayerVisual`) for each view, relative to that view's
+   centre (`sync_parallax_layers`). A flat card behind a turned camera would
+   slide sideways with its depth, so a panel is instead a card facing the
+   view's card camera (`realize_card_backdrop`, `backdrop_card_place`). It
+   stands along the camera's view, 1 500 behind the play plane (further
+   back for a layer further back in 2D), inside the camera's far plane.
+   A foreground layer stands 1 000 in front of the plane. Its offset from
+   the view's centre and its size are the 2D ones times `1 / zoom`, since
+   the card view shows `1 / zoom` of the 2D view's width. So the card view
+   frames the backdrop as the 2D view does. Only the panels the 2D view
+   draws for that view are used (shown, and kept for it or for no view);
+   portal capture copies are left to their capture cameras. Witness
+   `a_parallax_panel_is_a_card_facing_the_card_camera`: a background
+   panel 200 right of the centre is a card at 80 right, 1 516 behind, facing
+   the camera, at scale 0.4, and a foreground one is in front. A panel kept
+   for another view, or hidden, makes no card. Render lib with
+   `card_view,portal_render`: 7 card-view tests passed. The `intro_fell`
+   capture's card view shows the sky, its clouds, the distant hills,
+   windmills and the triangle gate behind the shepherd, the sheep and
+   Scout, where before it was black.
+
+   Still unrealized in the card view: the portal far-side window (P5/P6).
 
 PO1 can proceed before RV1/RV2. The scale-law work can proceed independently;
 both renderers must consume the resulting authoritative material and poses.

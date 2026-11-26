@@ -1379,6 +1379,34 @@ Retaining the projected motion facts gave mixed timings. The reference
 desktop run predates this change. The 455 movement tests and the
 assembled application check passed.
 
+### Idle group scripts
+
+Group triggers report idle when all members are alive and free of item
+custody and the room has no ground items. A script can opt out of an idle
+call while its records still have their initial values. Pending state can
+continue to run. The sheep and swallows use the same policy.
+
+In the loaded 596-body Hall, the two entries ran 120 times each over
+120 ticks with the old scripts. They took 1.25 ms/tick together under
+the extension profiler. With the new scripts both entries had zero
+calls over the same interval. In both arms, a defeated sheep produced
+one cloud without a script fault.
+
+Four windowed runs loaded the old and new scripts into the same
+development executable. Each kept all 596 bodies at 1280 × 800 with
+Potato quality and the software renderer. Use windows after 30 s.
+
+| Run order | Scripts | Median total, ms/tick | Median control gate, ms/tick |
+| --- | --- | ---: | ---: |
+| 1 | Old | 49.26 | 3.67 |
+| 2 | New | 22.04 | 1.24 |
+| 3 | New | 16.11 | 0.92 |
+| 4 | Old | 16.42 | 1.51 |
+
+The total tick ranges overlap. The last run refused a live catalog edit
+and kept its active content. Use the headless call counts to verify the
+work removed. Both candidate medians are above 13.75 ms/tick.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

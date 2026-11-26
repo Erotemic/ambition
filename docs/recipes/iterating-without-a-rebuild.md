@@ -115,6 +115,12 @@ keeps the flock's members and goal by reference:
 `a_room_record_keeps_its_flock_by_reference` in
 `game/ambition_app/tests/the_primeval_trail.rs`.
 
+Use `idle: "skip_if_initial"` if the entry has no work when the trigger
+is idle and its records have their initial values. The host continues to
+call the entry while a record holds work. The `group_think` trigger is
+idle when all members are alive, no member holds an item or has a carry
+partner, and the room has no ground items.
+
 ### Room story scripts
 
 The `story_tick` trigger selects a room by its definition id. Each live

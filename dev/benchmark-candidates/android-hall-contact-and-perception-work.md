@@ -832,6 +832,42 @@ windows overlapped. This comparison established no total tick reduction.
 Three focused checks matched feedback and physical contacts, including a
 straddler with contact geometry at the far end of its portal.
 
+### Stationary flight
+
+The movement solver can retain an exact result for a stationary flyer.
+The reuse check still compares the body state, control, forces, and
+terrain. After a step with transient events, the full solver waits for a
+quiet result before it records terrain reads again. A movement test
+compares against the full solve during repeated contact events and checks
+that new terrain and input require a new solve.
+
+An isolated integration pass used the loaded Hall on six compute workers.
+Four idle runs with the default batches took 3.04–3.43 ms per pass.
+Making the participant pass serial took 3.29–5.23 ms. Increasing actor
+batches to at least 128 bodies took 3.73–4.03 ms with that serial pass.
+With velocity given to each body, the default batches took 11.80–13.63 ms.
+Batches of at least 128 took 12.34–15.87 ms. The engine keeps the default
+batching.
+
+An optimized kernel probe used 38 flyers and 558 grounded bodies.
+Median times were 0.265–0.277 ms before and 0.237–0.238 ms after.
+Both versions had the same measured allocations per step and the same
+position, velocity, and contact digests. Moving-body times overlapped.
+
+The loaded Hall had 38 motionless flyers. Ten reused the full step after
+the change. The other 28 still needed full solves. Grounded reuse stayed
+at 539. The windowed desktop development comparison used 596 bodies, a
+1280 × 800 viewport, and the same CPU renderer and quality. The four runs
+used reference, candidate, candidate, reference order.
+
+| Median after 30 s | Reference runs, ms/tick | Candidate runs, ms/tick |
+| --- | ---: | ---: |
+| All measured simulation phases | 18.62, 18.86 | 18.18, 19.10 |
+| Movement integration | 3.89, 3.84 | 3.51, 3.54 |
+
+Total tick windows overlapped. The Android capture for this change is
+pending.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

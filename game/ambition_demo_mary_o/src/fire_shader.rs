@@ -122,6 +122,7 @@ pub fn install(app: &mut App) {
                 .run_if(glow_is_in_budget),
             retire_glows_out_of_budget.run_if(not(glow_is_in_budget)),
         )
+            .after(ambition_platformer2d::sim_view::FrameViewSync)
             .in_set(crate::MaryOPresentationSet),
     );
 }

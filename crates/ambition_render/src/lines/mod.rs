@@ -162,6 +162,7 @@ impl Plugin for LinesPlugin {
             )
                 .chain()
                 .after(Platformer2dSimulationPhase::CoreSimulation)
+                .after(ambition_sim_view::FrameViewSync)
                 // A body end is where its body is drawn this frame.
                 .after(crate::rendering::actors::sync_visuals)
                 .before(FoldedMeshSync)

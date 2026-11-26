@@ -830,6 +830,7 @@ impl Plugin for WorldLabelLayoutPlugin {
             )
                 .chain()
                 .in_set(WorldLabelLayoutSet)
+                .after(ambition_sim_view::FrameViewSync)
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
         // Which camera may draw what the pass placed. Registered here because

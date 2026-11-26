@@ -341,7 +341,13 @@ fn a_hold_is_withdrawn_when_its_attachment_is_no_longer_bound() {
 
     // The status ends: nothing binds the rule, nothing is submitted, and the
     // hold goes anyway.
-    app.world_mut().entity_mut(recipient).remove::<crate::extension::status::BodyStatuses>();
+    use bevy::ecs::entity_disabling::Disabled;
+    app.world_mut().entity_mut(recipient)
+        .remove::<crate::extension::status::BodyStatuses>()
+        .insert(Disabled);
+    super::withdraw_unbound_attachment_claims_of(app.world_mut(), recipient);
+    assert!(claimed(&app, recipient), "the disabled body must keep its claim");
+    app.world_mut().entity_mut(recipient).remove::<Disabled>();
     app.world_mut().run_schedule(Sim);
     assert_eq!(held_by(&app, recipient), None, "the unbound attachment's claim is withdrawn");
     assert!(!claimed(&app, recipient));

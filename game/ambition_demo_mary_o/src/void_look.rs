@@ -53,7 +53,9 @@ pub fn install(app: &mut App) {
     app.add_plugins(VoidFieldPlugin)
         .add_systems(
             Update,
-            (reconcile_void_auras, ward_her_with_the_quasar).in_set(crate::MaryOPresentationSet),
+            (reconcile_void_auras, ward_her_with_the_quasar)
+                .after(ambition_platformer2d::sim_view::FrameViewSync)
+                .in_set(crate::MaryOPresentationSet),
         );
 }
 

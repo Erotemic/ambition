@@ -197,6 +197,7 @@ impl Plugin for PlatformerAssetsPlugin {
             Update,
             sheets::load_the_prop_sheets_in_reach
                 .in_set(sheets::PropSheetDemandSet)
+                .after(ambition_sim_view::FrameViewSync)
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
     }

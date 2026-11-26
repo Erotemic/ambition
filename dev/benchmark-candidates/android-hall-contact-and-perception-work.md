@@ -1243,6 +1243,62 @@ The reference medians were 16.98 and 16.02 ms/tick. The trial medians were
 batch. The trial gave no repeatable reduction in total tick time.
 The engine retains the guest ABI for these calls.
 
+### Desktop reference after the submodule merge
+
+At `adec6e97d`, two native development runs used a 1280 × 800 window, the CPU
+renderer, Potato quality, and all 596 bodies. The median tick costs were
+18.89 and 18.90 ms in 12 and 14 windows after 30 s. The Hall map matched the
+earlier map revision. A comparison that redirected both builds to a frozen
+project had much higher tick costs during both runs. It cannot explain the
+change in the native runs.
+
+Isolated passes over 596 bodies saved 5–7 µs when they reused the reaction
+time and about 48 µs when they built the required movement parameters
+directly. Both probes gave the same results as the reference. The engine
+continues to use the existing code for these passes.
+
+### Contact claim withdrawal
+
+The contact phase keeps its query for hold and pose claims. When a status
+ends, the same ownership check reads just that body. Both paths keep the
+engine's rules for which bodies are visible.
+
+In a development schedule with 596 bodies, 2,956 archetypes, and no claims,
+median update time fell from 62.5 to 13.3 µs across 12 paired batches. This
+measures one maintenance system and its schedule.
+
+The assembled desktop pair kept all 596 bodies. The new build measured
+78.86 ms/tick and the `adec6e97d` reference measured 79.41 ms/tick over
+25 and 20 settled windows. Both runs were much slower than the earlier
+desktop runs across the measured phases. The ranges overlap. This pair
+does not establish a reduction in total Hall tick cost.
+
+### Frame view publication
+
+Publish ten item, gear, projectile, and feature views after the last
+simulation step for the frame. Keep pose transitions and status clocks in
+the simulation. The schedule census showed all ten systems move from
+`GgrsSchedule` to `Update`. The test runs two simulation steps and checks
+the projectile's final position and removal in the frame view.
+
+In the loaded 596-body Hall, the ten systems took a median of 0.047 ms
+for one pass and 0.738 ms for fifteen passes over the same state. This
+single-thread probe used twelve paired batches of 144 frames. It excludes
+simulation steps and rendering.
+
+Three native development runs used all 596 Hall bodies, 1280 × 800,
+software rendering, and Potato quality. The median costs after 30 s were:
+
+| Run | Simulation ms/tick | Feature view phase ms/tick |
+| --- | ---: | ---: |
+| Reference `d2fa3ea7f` | 61.13 | 6.94 |
+| Frame views | 25.62 | 2.59 |
+| Reference `d2fa3ea7f` repeat | 48.90 | 5.71 |
+
+Costs also changed in phases outside this patch. These runs show fewer
+publications per frame. They do not measure an isolated change in total
+tick cost or provide an Android frame time.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

@@ -237,6 +237,22 @@ wall art. Include the skull, survey grid, chest, and ladder at the game
 camera scale. Let the preview select candidate art before publication.
 At the Amber Vault, show the background beyond the chamber walls at wide
 camera framing. Use the room's background override in the preview.
+At Primeval Canopy, show the branch steps and the jump arc from each
+takeoff point. Use the active movement profile and the actual landing
+surfaces to show which steps a player can reach.
+At the Smoking Mountain, show the foothold and each opening beside it.
+Use the solid bounds and the damage region to align the basalt edge and
+the lava surface.
+At the Tyrant's Hall, show a body on each side ledge and on the ground
+under it. Include the return door in the west view.
+At the Treetops station, show the supply ladder and its deck attachment.
+Include the jump from the ladder landing to the arch bridge.
+At the Ranger Station, use the public room connections to draw the trail
+map. Let the author omit secret exits and place the labels on the chart.
+At the Gate Garden, use the same walking-surface anchor to place each
+moonstone and its one-way surface. Show the two stones and both hilltops.
+At Starlight Square, show the ladder and the beanstalk in the same view.
+Pass the climbable bounds to the art generator to place the stalk.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.
@@ -341,6 +357,9 @@ below water and keep its usual ground cover on the bank.
 Show the effective swim impulse in the room preview. In the Smugglers'
 Tunnel, an omitted field used the movement default of 240. The LDtk
 entity definition showed a default value of 760.
+In the Tar Pits, show the liquid surface art with the bank edges. Let
+authors select a liquid material for a region when a room needs both water
+and tar. Use the same swim region for both materials.
 
 The Site Office timber skin needs both published textures and entries in the
 asset catalog. Use the terrain product plan to list the missing catalog

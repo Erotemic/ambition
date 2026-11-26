@@ -52,6 +52,12 @@ dimensions. The narthex lost its ring and got a front door to the stair
 (`noodly_narthex_to_stair`). The narthex is LDtk-owned, so this edit was made
 in the map; the temple's `make_specs.py` writes the same door.
 
+## Nave
+
+A bell, a wheel, a vessel, and a colander mark the four upper routes.
+Stone alcoves mark the doors at the ends of those routes and the door to
+the scullery at the end of the main floor.
+
 ## Cistern controls
 
 The temple cistern has three wheels. Pipes show the gates that each wheel

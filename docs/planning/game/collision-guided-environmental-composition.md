@@ -207,6 +207,8 @@ The Observatory moves wall exhibits to the new landings. Show a player at
 each landing in the preview so authors can check the view at playing scale.
 Lecture Hall 101 also needs a standing player below the first row. Show the
 body and the painted underside at the same scale to check the aisle clearance.
+For the Nave, show the same approach with its lock open and closed. Use the
+flags that open the lock to make both views.
 
 ## Follow-up for room art generators
 

@@ -1499,6 +1499,8 @@ pub fn integrate_sim_bodies(
                 bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
                 Option<&ambition_characters::actor::BodyActionStep>,
                 Option<&ambition_time::ClockDilation>,
+                Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+                Option<&ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity>,
             ),
         ),
         (
@@ -1555,6 +1557,8 @@ pub fn integrate_sim_bodies(
                 // gameplay clock dilation.
                 Option<&ambition_characters::actor::BodyActionStep>,
                 Option<&ambition_time::ClockDilation>,
+                Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+                Option<&ambition_platformer2d_shared_tangle::lifecycle::SessionScopedEntity>,
             ),
         ),
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
@@ -1585,14 +1589,13 @@ pub fn integrate_sim_bodies(
         playback,
         authored_tuning,
         envelope,
-        (out_of_play, action_step, dilation),
+        (out_of_play, action_step, dilation, room, session),
     )| {
         let Some(mut cq) = clusters else {
             return;
         };
         // The walls as they stand for this body: a gate open for it (Q54) is
         // not among them.
-        let room = body_rooms.get(actor_entity).ok();
         let Some(feature_world) = composed.physical_for(&collision, room, actor_entity)
         else {
             return;
@@ -1640,7 +1643,7 @@ pub fn integrate_sim_bodies(
         frame_out.stamp = tick.as_ref().map(|tick| ae::BodyStepStamp {
             tick: tick.0,
             room: room.map(|room| room.0.ordinal()),
-            session: sessions.get(actor_entity).ok().map(|session| session.0.0),
+            session: session.map(|session| session.0.0),
         });
         // Publish the semantic movement facts this step produced (ADR 0024):
         // presentation/combat consumers read THESE, never policy internals.
@@ -1677,7 +1680,7 @@ pub fn integrate_sim_bodies(
         mut motion_facts,
         playback,
         authored_tuning,
-        (out_of_play, pose_owned_externally, action_step, dilation),
+        (out_of_play, pose_owned_externally, action_step, dilation, room, session),
     )| {
         // Per-body feel: an authored protagonist keeps its own tuning; the
         // sandbox protagonist tracks the live inspector sliders. This is the
@@ -1685,7 +1688,6 @@ pub fn integrate_sim_bodies(
         let player_tuning = authored_tuning
             .map(|t| t.0)
             .unwrap_or(editable_player_tuning);
-        let room = body_rooms.get(player_entity).ok();
         let Some(feature_world) = composed.physical_for(&collision, room, player_entity,
         )
         else {
@@ -1730,7 +1732,7 @@ pub fn integrate_sim_bodies(
         frame_out.stamp = tick.as_ref().map(|tick| ae::BodyStepStamp {
             tick: tick.0,
             room: room.map(|room| room.0.ordinal()),
-            session: sessions.get(player_entity).ok().map(|session| session.0.0),
+            session: session.map(|session| session.0.0),
         });
         *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model, clusters.effects);
         // Input-relative facts the model projection can't know: republished

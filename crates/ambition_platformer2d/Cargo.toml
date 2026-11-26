@@ -154,6 +154,8 @@ wasm_modules = ["ambition_platformer2d_runtime/wasm_modules", "dep:ambition_exte
 script_modules = ["ambition_platformer2d_runtime/script_modules"]
 physics_debris = ["ambition_platformer2d_runtime/physics_debris"]
 frame_pacing = ["ambition_render", "ambition_platformer2d_host/frame_pacing"]
+# RV2: the optional 3D card view beside the 2D view.
+card_view = ["ambition_render", "ambition_render/card_view"]
 profile = ["ambition_platformer2d_actor/profile"]
 # Allocation and archetype-churn attribution: `ambition_dev_tools::perf_probe`.
 perf_probe = ["ambition_dev_tools/perf_probe"]

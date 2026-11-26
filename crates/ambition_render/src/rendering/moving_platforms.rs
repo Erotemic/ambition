@@ -213,6 +213,38 @@ struct Vessel {
     rim: f32,
 }
 
+/// The box of one vessel, as seating found it this frame: what another
+/// renderer realizes as the vessel (RV2's card view draws it as a cart).
+/// World units, y down.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct VesselBox {
+    pub room: LiveRoomInstance,
+    pub left: f32,
+    pub right: f32,
+    /// The top of its bed.
+    pub top: f32,
+    /// The height of its near side over the bed.
+    pub rim: f32,
+}
+
+impl From<&Vessel> for VesselBox {
+    fn from(vessel: &Vessel) -> Self {
+        Self {
+            room: vessel.room,
+            left: vessel.left,
+            right: vessel.right,
+            top: vessel.top,
+            rim: vessel.rim,
+        }
+    }
+}
+
+/// This frame's vessels, published by [`seat_bodies_in_vessels`] only when a
+/// renderer that draws them inserted this resource; a 2D-only app pays
+/// nothing for it.
+#[derive(Resource, Default, Debug)]
+pub struct PresentedVessels(pub Vec<VesselBox>);
+
 impl Vessel {
     fn of(room: LiveRoomInstance, platform: &MovingPlatformState, look: &PlatformLook) -> Option<Self> {
         look.front_row.as_ref()?;
@@ -287,6 +319,7 @@ pub fn seat_bodies_in_vessels(
     marked: Query<Entity, With<SeatedInVessel>>,
     mut commands: Commands,
     mut seated: Local<Vec<(usize, Entity)>>,
+    published: Option<ResMut<PresentedVessels>>,
 ) {
     seated.clear();
     let vessels: Vec<Vessel> = looks
@@ -302,6 +335,11 @@ pub fn seat_bodies_in_vessels(
                 .collect()
         })
         .unwrap_or_default();
+    if let Some(mut published) = published {
+        if !published.0.iter().copied().eq(vessels.iter().map(VesselBox::from)) {
+            published.0 = vessels.iter().map(VesselBox::from).collect();
+        }
+    }
     if vessels.is_empty() {
         for entity in &marked {
             commands.entity(entity).try_remove::<SeatedInVessel>();

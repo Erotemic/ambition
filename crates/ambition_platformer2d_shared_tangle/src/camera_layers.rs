@@ -37,6 +37,10 @@ pub const RETIRED_ROOM_RENDER_LAYER: usize = 7;
 /// Only those cameras draw it; the field's quad stands far from any world.
 pub const ROOM_FRONT_FIELD_LAYER: usize = 8;
 
+/// The optional 3D card view's own layer (RV2): its camera draws only its
+/// cards and cart meshes, and no 2D camera draws them.
+pub const CARD_VIEW_LAYER: usize = 9;
+
 /// Base of the private camera namespace. Each ordinal has a local view,
 /// a menu view and a portal carry view. These namespaces do not overlap.
 pub const PRIVATE_VIEW_RENDER_LAYER_BASE: usize = 1024;

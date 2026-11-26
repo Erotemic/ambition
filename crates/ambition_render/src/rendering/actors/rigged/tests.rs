@@ -2242,3 +2242,74 @@ fn the_slots_draw_the_local_sample_and_nothing_else() {
     assert_eq!(trimmed, sampled - 1);
     assert_eq!(drawn, trimmed, "a draw taken out of the sample is not drawn");
 }
+
+/// RV2: the card view and the 2D driver draw one sample. Each sampled draw is
+/// one visible card, at its slot's place in the body and in paint order; the
+/// card body stands where the 2D owner stands. A draw taken out of the sample
+/// before both renderers is gone from both, so neither reads the other.
+#[cfg(feature = "card_view")]
+#[test]
+fn the_cards_and_the_slots_draw_one_sample() {
+    use crate::rendering::card_view::{card_part_local, realize_card_bodies, CardBody, CardMeshes};
+    fn drop_the_last_draw(mut samples: Query<&mut RiggedLocalSample>) {
+        for mut sample in &mut samples {
+            sample.draws.pop();
+        }
+    }
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let shown = |trimmed: bool| {
+        let sheet = raider(&sprite_content, true);
+        let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
+        let (mut app, root) = app_direct(&sprite_content, sheet, Anchor(feet));
+        app.init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .init_resource::<CardMeshes>()
+            .add_systems(Update, realize_card_bodies.after(RiggedDriveSet));
+        if trimmed {
+            app.add_systems(Update, drop_the_last_draw.after(sample_rigged_presentations).before(drive_rigged_presentations));
+        }
+        settle(&mut app);
+        // The card body is spawned on the first frame and filled from the next.
+        app.update();
+        let owner = owner(&app, root);
+        let world = app.world_mut();
+        let sample = world.get::<RiggedLocalSample>(owner).unwrap();
+        assert_eq!(sample.state, LocalSampleState::Parts);
+        let draws = sample.draws.clone();
+        assert!(sample.feet.is_some(), "a sample with parts has its feet");
+        let slots_shown = slots(&app, owner).iter().filter(|(_, visible)| *visible).count();
+        let world = app.world_mut();
+        let mut bodies = world.query::<(&CardBody, &Transform)>();
+        let (body, body_place) = bodies
+            .iter(world)
+            .find(|(body, _)| body.owner == owner)
+            .expect("the sampled body has cards");
+        let cards: Vec<(Transform, bool)> = body
+            .parts
+            .iter()
+            .map(|card| {
+                (
+                    *world.get::<Transform>(*card).unwrap(),
+                    *world.get::<Visibility>(*card).unwrap() != Visibility::Hidden,
+                )
+            })
+            .collect();
+        let owner_place = *world.get::<Transform>(owner).unwrap();
+        let body_place = *body_place;
+        let shown_cards: Vec<Transform> = cards.iter().filter(|(_, visible)| *visible).map(|(t, _)| *t).collect();
+        assert_eq!(shown_cards.len(), draws.len(), "one visible card per sampled draw");
+        for (index, (card, draw)) in shown_cards.iter().zip(&draws).enumerate() {
+            assert_eq!(*card, card_part_local(draw, index), "card {index} is its draw's place in the body");
+        }
+        assert_eq!(body_place.translation.truncate(), owner_place.translation.truncate(), "the cards stand where the 2D owner stands");
+        assert_eq!(body_place.rotation, owner_place.rotation);
+        assert_eq!(body_place.scale, owner_place.scale);
+        (draws.len(), slots_shown, shown_cards.len())
+    };
+    let (sampled, slots_shown, cards_shown) = shown(false);
+    assert!(sampled > 1, "the raider samples its parts");
+    assert_eq!((slots_shown, cards_shown), (sampled, sampled));
+    let (trimmed, slots_shown, cards_shown) = shown(true);
+    assert_eq!(trimmed, sampled - 1);
+    assert_eq!((slots_shown, cards_shown), (trimmed, trimmed), "a draw taken out of the sample is drawn by neither renderer");
+}

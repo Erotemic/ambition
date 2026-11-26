@@ -560,3 +560,37 @@ is asserted here. CPU simulation and GPU capture cost remain separate.
 Completion means root state, material, accepted path, restriction decisions
 and physical contact agree on one tick's events for every mover policy.
 Passing isolated map or crossing tests alone does not establish that result.
+
+**Landed (2026-11-25): an interpolated view crosses at the crossing time.**
+An interpolated view (`CastFramingTuning::interpolate_poses`, Smash's)
+drew a body that a pair carried at its exit for the whole presented tick,
+so the chart change showed before the body had crossed. The host now
+declares a single crossing in the last tick with its projection
+(`PresentedCrossing`), built from the body's `CrossedTravel` leg and the
+transfer's map:
+- the leg up to the crossing, in the chart the body left, over
+  `[start, tau]`;
+- the crossing point carried by the map (`M_tau(x_tau)`), from which the body
+  travelled straight to its end pose over `[tau, 1]`, as generic transit
+  moved it.
+
+`PresentedPose` draws the entry side before `tau` and the exit side from
+`tau`. The witness
+(`interpolated_draws_a_crossing_on_its_side_of_the_crossing_time`) checks
+x 5 at a quarter of the tick, the mapped point at `tau`, and x 505 after it.
+Its control, a plain warp, parks at the exit.
+
+What still parks at the exit:
+- a chain of crossings;
+- a crossing in an earlier tick of a multi-tick frame (it left no
+  `CrossedTravel`);
+- a push that spans more than one tick.
+
+Extrapolated views draw past the tick's end, so the crossing is behind
+them. Only position follows the crossing; the body's turn and material still
+change with the tick's pose. No game run was made: the projection is unit
+tested, and the host builds it from fields the M1/M2 receipts measured.
+Still open in M4:
+- an ordered crossing projection for views spanning several ticks, with
+  per-observer cursors and rollback invalidation;
+- cost measurement on single-leg and chained traffic.

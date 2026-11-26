@@ -20,6 +20,9 @@ default = []
 input = ["ambition_sim_view/input"]
 # The reusable portal renderer the world-sync code installs when portals draw.
 portal_render = ["dep:ambition_portal2d_presentation"]
+# RV2: the optional orthographic 3D card view (`rendering::card_view`). It
+# needs Bevy's PBR meshes and materials, which a 2D-only build does not link.
+card_view = ["bevy/bevy_pbr"]
 
 [dependencies]
 ambition_geometry_observation = { path = "../ambition_geometry_observation" }

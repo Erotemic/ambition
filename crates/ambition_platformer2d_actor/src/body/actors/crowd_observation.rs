@@ -10,16 +10,12 @@
 //! Nothing here touches ECS state, so the derivations are ordinary values a test
 //! can build without an App.
 //!
-//! liveness arrives from TWO populations and that is the seam to watch.
-//! A body's foe is often outside the actor query — a controlled home body carries
-//! no actor cluster — so the caller notes that population separately. That second
-//! source is the visible tip of the split the kernel still has to close: one body
-//! population would make [`Self::note_controlled_liveness`] disappear.
+//! The caller records deaths among actors and controlled home bodies.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance;
 use bevy::prelude::Entity;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use ambition_characters::actor::ActorFaction;
 use ambition_combat::crowd::CrowdKind;
@@ -40,7 +36,7 @@ pub(crate) struct ObservedBody<'a> {
 /// Accumulator for one tick's observation pass.
 #[derive(Default)]
 pub(crate) struct CrowdObservation {
-    alive_by_entity: BTreeMap<Entity, bool>,
+    dead: BTreeSet<Entity>,
     /// One crowd per live room (OW1 cut 5d). Two instances of one room hold
     /// the same actor ids, so an id is a key only inside its own room, and a
     /// body in another room does not crowd this one.
@@ -60,33 +56,12 @@ struct RoomCrowd {
 }
 
 impl CrowdObservation {
-    /// Liveness of a body the actor query cannot see.
-    ///
-    /// See the module note: this exists only because controlled home bodies are
-    /// a second population, and a fighter must be able to perceive that its foe
-    /// has died whichever population the foe belongs to.
-    pub(crate) fn note_controlled_liveness(&mut self, body: Entity, alive: bool) {
-        self.alive_by_entity.insert(body, alive);
+    pub(crate) fn note_dead(&mut self, body: Entity) {
+        self.dead.insert(body);
     }
 
-    /// An actor body, whether or not it is in a fight.
-    ///
-    /// `in_a_fight` decides whether it competes for space: a bystander is alive
-    /// and identifiable but does not crowd anyone.
-    pub(crate) fn note_actor(
-        &mut self,
-        entity: Entity,
-        alive: bool,
-        body: Option<ObservedBody<'_>>,
-        in_a_fight: bool,
-    ) {
-        let Some(body) = body else {
-            return;
-        };
-        self.alive_by_entity.insert(entity, alive);
-        if !in_a_fight || !alive {
-            return;
-        }
+    /// Add a living fighter to its room's crowd.
+    pub(crate) fn note_fighter(&mut self, entity: Entity, body: ObservedBody<'_>) {
         let crowd = self.rooms.entry(body.room).or_default();
         crowd.entity_to_id.insert(entity, body.id.to_string());
         crowd
@@ -104,7 +79,7 @@ impl CrowdObservation {
     /// Derive the facts the decision half reads.
     pub(crate) fn finish(self) -> CrowdFacts {
         let mut facts = CrowdFacts {
-            alive_by_entity: self.alive_by_entity,
+            dead: self.dead,
             ..CrowdFacts::default()
         };
         for crowd in self.rooms.into_values() {
@@ -161,7 +136,7 @@ impl RoomCrowd {
 /// the same ids, and each body reads its own room's answer.
 #[derive(Default)]
 pub(crate) struct CrowdFacts {
-    alive_by_entity: BTreeMap<Entity, bool>,
+    dead: BTreeSet<Entity>,
     neighbor_by_entity: BTreeMap<Entity, ae::Vec2>,
     crowding_by_entity: BTreeMap<Entity, ambition_characters::brain::smash::CrowdingSignal>,
 }
@@ -170,7 +145,7 @@ impl CrowdFacts {
     /// Is this body still alive? Unknown bodies read as alive, which is what a
     /// brain should assume about something it cannot see die.
     pub(crate) fn is_alive(&self, body: Entity) -> bool {
-        self.alive_by_entity.get(&body).copied().unwrap_or(true)
+        !self.dead.contains(&body)
     }
 
     /// Personal-space pressure on this body, if it is in the fight at all.
@@ -224,10 +199,10 @@ mod tests {
             ..body(id, x)
         };
         let mut o = CrowdObservation::default();
-        o.note_actor(entity(1), true, Some(in_room("a", 0.0, first)), true);
-        o.note_actor(entity(2), true, Some(in_room("b", 8.0, first)), true);
-        o.note_actor(entity(3), true, Some(in_room("a", 1000.0, second)), true);
-        o.note_actor(entity(4), true, Some(in_room("b", 1300.0, second)), true);
+        o.note_fighter(entity(1), in_room("a", 0.0, first));
+        o.note_fighter(entity(2), in_room("b", 8.0, first));
+        o.note_fighter(entity(3), in_room("a", 1000.0, second));
+        o.note_fighter(entity(4), in_room("b", 1300.0, second));
         let facts = o.finish();
 
         assert!(
@@ -250,65 +225,6 @@ mod tests {
         );
     }
 
-    /// The observation derives without an App, which is the point of it
-    /// being a value rather than ninety lines inside a Bevy system.
-    ///
-    /// Two same-faction bodies standing on top of each other crowd each other;
-    /// a bystander that is not in a fight is still known to be alive but takes
-    /// no part in the crowd.
-    #[test]
-    fn crowding_counts_fighters_and_ignores_bystanders() {
-        let mut o = CrowdObservation::default();
-        let fighters = [
-            Entity::from_raw_u32(1).expect("a valid test entity id"),
-            Entity::from_raw_u32(2).expect("a valid test entity id"),
-        ];
-        o.note_actor(fighters[0], true, Some(body("a", 0.0)), true);
-        o.note_actor(fighters[1], true, Some(body("b", 8.0)), true);
-        let bystander = Entity::from_raw_u32(3).expect("a valid test entity id");
-        o.note_actor(bystander, true, Some(body("c", 8.0)), false);
-        let facts = o.finish();
-
-        assert!(
-            facts.crowding(fighters[0]).is_some() && facts.crowding(fighters[1]).is_some(),
-            "two fighters sharing a spot must feel each other"
-        );
-        assert!(
-            facts.crowding(bystander).is_none(),
-            "a bystander does not crowd and is not crowded — it is not in the fight"
-        );
-        assert!(
-            facts.is_alive(bystander),
-            "not fighting is not the same as not existing"
-        );
-    }
-
-    /// Liveness answers for both populations through one accessor.
-    ///
-    /// A fighter's foe is often a controlled body, which carries no actor
-    /// cluster and so never reaches `note_actor`. an unknown body reads as
-    /// ALIVE: a brain that has not seen something die must not act as though it
-    /// has.
-    #[test]
-    fn liveness_spans_both_populations_and_defaults_to_alive() {
-        let mut o = CrowdObservation::default();
-        let dead_actor = Entity::from_raw_u32(1).expect("a valid test entity id");
-        o.note_actor(dead_actor, false, Some(body("a", 0.0)), true);
-        let dead_controlled = Entity::from_raw_u32(2).expect("a valid test entity id");
-        o.note_controlled_liveness(dead_controlled, false);
-        let live_controlled = Entity::from_raw_u32(3).expect("a valid test entity id");
-        o.note_controlled_liveness(live_controlled, true);
-        let facts = o.finish();
-
-        assert!(!facts.is_alive(dead_actor));
-        assert!(!facts.is_alive(dead_controlled));
-        assert!(facts.is_alive(live_controlled));
-        assert!(
-            facts.is_alive(Entity::from_raw_u32(99).expect("a valid test entity id")),
-            "a body nobody observed reads as alive"
-        );
-    }
-
     /// Observation order does not reach the derivations.
     ///
     /// Bevy query order is unstable and GGRS entity recreation reshuffles it, so
@@ -324,7 +240,7 @@ mod tests {
             let order: Vec<usize> = if flip { vec![2, 0, 1] } else { vec![0, 1, 2] };
             for i in order {
                 let (id, x) = ids[i];
-                o.note_actor(entity(i as u32 + 1), true, Some(body(id, x)), true);
+                o.note_fighter(entity(i as u32 + 1), body(id, x));
             }
             o.finish()
         };

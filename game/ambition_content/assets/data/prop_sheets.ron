@@ -91,6 +91,8 @@
     "art_film_camera": (),
     "art_directors_chair": (),
     "art_studio_light": (),
+    "art_picture_catwalk": (backdrop: true),
+    "art_picture_orbital_flat": (backdrop: true),
     "art_monolith": (),
     "art_clapperboard": (),
     // The Fertile Crescent of the History dimension

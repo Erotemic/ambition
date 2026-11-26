@@ -5330,6 +5330,14 @@ Percy: QUESTION?
 -> Can you do XOR?
     Percy: NO. Also YES. I am sorry.
 ===
+title: hall_sunk_cost_fallacy
+---
+Sunk Cost Fallacy: I'll break even any day now.
+-> What's in the chest?
+    Sunk Cost Fallacy: Rocks. Very expensive rocks.
+-> Why not leave it here?
+    Sunk Cost Fallacy: Do you have any idea how much it cost to get it this far?
+===
 title: hall_intrusive_thought
 ---
 Intrusive Thought: Did you lock the door?
@@ -5345,6 +5353,14 @@ Attention Head: *its brackets close round you*
     Attention Head: *it attends to one thing at a time. At the moment, the thing is you.*
 -> Look away.
     Attention Head: *it looks at the wall. Then back at you.*
+===
+title: hall_halo_horns_effect
+---
+Halo and Horns Effect: Bless you, dear.
+-> Can I trust you?
+    Halo and Horns Effect: I have a halo. What more do you need to know?
+-> Weren't those horns a moment ago?
+    Halo and Horns Effect: It's the same piece of jewelry.
 ===
 title: hall_npc_frontier_clerk
 ---

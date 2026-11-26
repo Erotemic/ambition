@@ -15,7 +15,8 @@ use crate::snapshot::{ExactState, SnapshotState};
 use crate::world::WorldEdgeMargins;
 use crate::{Block, BodyClustersMut, MotionFrame, SurfaceChain, SweepSample, Vec2, World};
 
-use super::kernel::{MotionStepContext, MotionStepResult, solve_motion};
+use super::events::{FrameEvents, StepContacts};
+use super::kernel::{MotionStepContext, MotionStepResult, SupportFact, solve_motion};
 use super::{GroundContactTransition, InputState, MotionModel};
 
 /// Result of a movement step that left its input state unchanged.
@@ -57,8 +58,21 @@ struct SettledStep {
     axis_motion: Option<crate::AxisSweptMotion>,
     environment: Geometry,
     input: StepInput,
-    result: MotionStepResult,
+    contacts: StepContacts,
+    support: SupportFact,
+    surface_normal: Vec2,
     sample: SweepSample,
+}
+
+impl SettledStep {
+    fn result(&self) -> MotionStepResult {
+        // A settled step has contacts and no motion events.
+        MotionStepResult {
+            events: FrameEvents { contacts: self.contacts.clone(), ..Default::default() },
+            support: self.support,
+            surface_normal: self.surface_normal,
+        }
+    }
 }
 
 struct Geometry {
@@ -289,7 +303,7 @@ impl SettledMotion {
                     .as_deref_mut()
                     .expect("settled step records movement") = step.sample;
                 self.status = SettledMotionStatus::Reused;
-                return step.result.clone();
+                return step.result();
             }
         } else {
             ProofMiss::New
@@ -310,14 +324,22 @@ impl SettledMotion {
             },
             prior_down,
         );
-        let events = &result.events;
+        let FrameEvents {
+            motion_refusal,
+            operations,
+            blinks,
+            reset,
+            ground_contact,
+            contacts: _,
+            constraint_conflicts,
+        } = &result.events;
         if result.support.is_held()
-            && events.motion_refusal.is_none()
-            && events.reset.is_none()
-            && events.operations.is_empty()
-            && events.blinks.is_empty()
-            && events.constraint_conflicts.is_empty()
-            && events.ground_contact == GroundContactTransition::Unchanged
+            && motion_refusal.is_none()
+            && operations.is_empty()
+            && blinks.is_empty()
+            && reset.is_none()
+            && *ground_contact == GroundContactTransition::Unchanged
+            && constraint_conflicts.is_empty()
             && *body.env_contact == Default::default()
         {
             encode_variable_state(model, body, &mut self.prior);
@@ -332,7 +354,9 @@ impl SettledMotion {
                     axis_motion: prior_motion,
                     environment: Geometry::capture(&observed),
                     input,
-                    result: result.clone(),
+                    contacts: result.events.contacts.clone(),
+                    support: result.support,
+                    surface_normal: result.surface_normal,
                     sample: *body
                         .sweep
                         .as_deref()

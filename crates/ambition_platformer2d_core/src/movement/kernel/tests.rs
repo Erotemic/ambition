@@ -141,6 +141,8 @@ fn settled_steps_keep_contact_and_wake_when_support_changes() {
         assert_eq!(cached, reference, "tick {tick}");
         assert_eq!(sample, reference_sample, "tick {tick}");
         assert_eq!(result.support, expected.support, "tick {tick}");
+        assert_eq!(result.supporting_contact(), expected.supporting_contact(), "tick {tick}");
+        assert_eq!(result.surface_normal, expected.surface_normal, "tick {tick}");
         assert_eq!(result.events.contacts, expected.events.contacts, "tick {tick}");
         assert_eq!(result.events.ground_contact, expected.events.ground_contact);
         assert_eq!(result.events.reset, expected.events.reset);
@@ -826,16 +828,10 @@ fn a_wall_graze_never_masquerades_as_support() {
         Vec2::new(0.0, -1.0),
         "support is the FLOOR, not the last lateral contact"
     );
-    match result.support {
-        SupportFact::Supported(contact) => {
-            assert_eq!(
-                contact.kind,
-                crate::collision_semantics::ContactKind::Support
-            );
-            assert_eq!(contact.normal, Vec2::new(0.0, -1.0));
-        }
-        other => panic!("grounded body must be Supported, got {other:?}"),
-    }
+    assert_eq!(result.support, SupportFact::Supported);
+    let contact = result.supporting_contact().unwrap();
+    assert_eq!(contact.kind, ContactKind::Support);
+    assert_eq!(contact.normal, Vec2::new(0.0, -1.0));
 }
 
 /// O5 evidence: an attached crawler publishes an ATTACHMENT support fact whose
@@ -870,12 +866,8 @@ fn attachment_and_airborne_support_facts_are_semantic() {
         frame,
         InputState::default(),
     );
-    match result.support {
-        SupportFact::Attached(contact) => {
-            assert_eq!(contact.normal, Vec2::new(-1.0, 0.0));
-        }
-        other => panic!("attached crawler must publish Attached, got {other:?}"),
-    }
+    assert_eq!(result.support, SupportFact::Attached);
+    assert_eq!(result.supporting_contact().unwrap().normal, Vec2::new(-1.0, 0.0));
     assert_eq!(result.surface_normal, Vec2::new(-1.0, 0.0));
 
     // A free-falling axis body far from any surface: Airborne + frame-up.

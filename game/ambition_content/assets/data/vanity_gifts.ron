@@ -1,0 +1,15 @@
+// Grip coordinates are fractions of the image size from its center. Positive Y is down.
+[
+    (
+        path: "content://ambition_shared/sprites/gamepad.png",
+        size: (72.0, 35.44),
+        offer_grip: (-0.29, 0.27),
+        receive_grip: (0.12, 0.31),
+    ),
+    (
+        path: "content://ambition_shared/sprites/apple_pie.png",
+        size: (74.0, 41.11),
+        offer_grip: (-0.30, 0.29),
+        receive_grip: (0.10, 0.29),
+    ),
+]

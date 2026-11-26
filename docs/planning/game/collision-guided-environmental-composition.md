@@ -231,6 +231,8 @@ For the Durum Terraces, give the art generator the bounds of both stops of
 the grain lift so the rails and the moving deck fit the same shaft.
 In Brothlehem, preview the gate ring and its terminal with the posts of the
 gate court. Show the ring both open and closed to check the space around it.
+For the Curry House, show which shelf edges support a body. Show the udon
+pickup and the tip jar at their authored heights in the same view.
 The Noodly Cistern adds pipes and plates for each wheel. Give the art
 generator the switch and gate bounds and the gate conditions. Keep the
 pipe bends in the art so an author can route around labels.

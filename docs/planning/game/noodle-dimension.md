@@ -59,6 +59,12 @@ market end, the delivery crate, awning, and gallery give access to the
 bell house roof. The route at street level also leads to the market.
 The direction board is next to the gate court.
 
+## Curry House
+
+The hearth and menu mark the serving counter. The bowl of udon is on the
+counter. Service steps at the east wall give access to the spice shelf and
+the tip jar. Marie Curry stands to the left of the counter.
+
 ## Durum Terraces
 
 The grain lift starts in the dry field between the paddies. Stand on the

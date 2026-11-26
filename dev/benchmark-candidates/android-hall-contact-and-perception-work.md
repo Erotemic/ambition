@@ -421,6 +421,26 @@ produced the same state digest. The optimized saving was less than 0.1 ms
 per tick. The batch is an experiment. Compare prepared movement parameters
 before making a change to the codec.
 
+### Contact storage and terrain candidates
+
+When a body reuses its settled step, it shares the contact list. A change
+to the returned list cannot change the retained result. Terrain queries read
+the grid's ordered candidates directly. Position repair uses one contact
+list and copies the boundary identities only when it reports a conflict.
+
+An optimized desktop kernel probe stepped 596 bodies in each test. Reuse
+went from four allocations per body step to one. Moving bodies used eight
+fewer allocations per body step. With one long floor, median moving ticks
+took 3.47–3.68 ms before and 2.95–3.05 ms after. With short floor blocks,
+the medians overlapped at 3.37–3.83 ms before and 3.40–3.46 ms after. Each
+pair produced the same digest of position, velocity, and contact count.
+
+A separate fixed-law probe omitted the axis parameters from the reuse key
+to measure the maximum saving from this change alone. The median optimized
+kernel cost decreased by 0.08–0.12 ms per tick. The development build saved
+1.6–2.1 ms per tick. The engine still checks these parameters on each reuse.
+These measurements do not give the full-room cost or the Android frame rate.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

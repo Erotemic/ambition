@@ -18,6 +18,8 @@ use ambition_extension_sdk::{Port, PortKey, PortRole};
 /// * **Operation** — the members of one room's group decide this tick. The
 ///   selector is a character catalog tag; the members are the room's live
 ///   bodies whose character carries it. A room with no member is not invoked.
+///   The trigger is idle when every member is alive and has no item or
+///   carry partner, and the room has no ground items.
 /// * **Owner** — `ambition_abilities::group`.
 /// * **Time** — `actor_think`: after the brains published their control
 ///   frames, and before the control gate. One invocation for each room, in

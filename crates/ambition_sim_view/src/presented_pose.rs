@@ -470,12 +470,8 @@ impl DeclaredPoseWarps {
     }
 }
 
-/// Roll every body's presented pose forward: extend the history on a new tick,
-/// then resample for THIS frame's phase.
-///
-/// The two facts this needs are `pos` and `vel`, and `rebuild_body_pose_views` copies both from
-/// `BodyKinematics` verbatim, so the player population's numbers are unchanged to the bit while
-/// every other body gains the smoothing it was always meant to have.
+/// Resample each body's position for the current frame.
+/// Add a sample from body kinematics after each new simulation tick.
 pub fn advance_presented_body_poses(
     mut commands: Commands,
     tick: Res<SimTick>,
@@ -509,8 +505,7 @@ pub fn advance_presented_body_poses(
             commands.entity(entity).insert(first);
             continue;
         };
-        // A new pose arrives only on a new tick; `BodyPoseView::pos` is read
-        // here alone, on the frame the sim rebuilt it.
+        // Update the sample only if the simulation tick changed.
         if presented.tick != tick.0 {
             let spanned = tick
                 .0

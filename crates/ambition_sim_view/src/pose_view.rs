@@ -15,9 +15,10 @@
 
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d_shared_tangle::lifecycle::{PlayerVisual, PosedBody};
+use ambition_platformer2d_session::rooms::passage::PassagePose;
 use ambition_sprite_sheet::character::CharacterAnim;
 use bevy::ecs::query::QueryItem;
-use bevy::prelude::{Commands, Entity, Or, Query, Res, ResMut, Resource, With, Without};
+use bevy::prelude::{Changed, Commands, Component, Entity, Or, Query, Res, ResMut, Resource, With, Without};
 use bevy::tasks::ComputeTaskPool;
 
 /// How long a body draws its `turnaround` row after its facing flips on the
@@ -309,9 +310,8 @@ impl ReactionHold {
     }
 }
 
-/// Sim-resolved presentation pose for one player-bodied entity: everything
-/// the renderer needs to place, size, animate, and flash the sprite. Plain
-/// data (Copy, no `Entity`/`Handle` borrows) — snapshot-safe by construction.
+/// Pose for one body. This view supplies the geometry, animation, and damage
+/// cues for the current application frame.
 #[derive(bevy::prelude::Component, Clone, Debug)]
 pub struct BodyPoseView {
     pub pos: ambition_platformer2d_core::Vec2,
@@ -676,95 +676,56 @@ pub fn mark_bodies_the_death_look_took(
 const MIN_PARALLEL_POSES: usize = 256;
 // PosedBody also selects subjects that do not use the avatar's visual systems.
 type PosedBodies = Or<(With<PlayerVisual>, With<PosedBody>)>;
-type BodyPoseSources = (
-    (
-        Entity,
-        &'static ambition_platformer2d_core::BodyKinematics,
-        Option<&'static ambition_platformer2d_core::BodyGroundState>,
-        Option<&'static ambition_platformer2d_core::BodyMotionFacts>,
-        Option<&'static BodyCombat>,
-        Option<&'static ambition_characters::actor::BodyAnimFacts>,
-        bevy::prelude::Has<ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
-        // This body's own resolved basis: the locomotion metric is
-        // measured along ITS run axis and the facing flip follows ITS
-        // gravity. Not `GravityField`, which mirrors the PRIMARY body.
-        Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
-        // The wall a wall climb holds: the row faces it.
-        Option<&'static ambition_platformer2d_core::BodyWallState>,
-    ),
-    (
-        Option<&'static ambition_platformer2d_core::BodyModeState>,
-        Option<&'static ambition_platformer2d_core::BodyShieldState>,
-        Option<&'static ambition_platformer2d_core::BodyBaseSize>,
-        Option<&'static BodyHealth>,
-        Option<&'static ambition_projectiles::PlayerProjectileState>,
-    ),
-    // Art inputs and the pose that this pass writes.
-    (
-        // Content-driven pose PIN — the SAME component the actor path
-        // honours in `rebuild_actor_anim_index`. See the read below.
-        Option<
-            &'static ambition_sprite_sheet::character::ActorAnimOverride,
-        >,
-        // The sheet-authored sprite quad, when this body's geometry is its art.
-        //
-        //  gated on `SpritePosedBody`, NOT on the render size alone.
-        // `ActorRenderSize` is the SHARED sprite-quad component — several
-        // spawn paths insert it from sheet metadata for bodies whose
-        // collision box is still hand-authored. Reading it bare here
-        // would tell the renderer "the sheet authored this geometry"
-        // about every one of them, and hand it a quad that was never
-        // derived from their boxes.
-        Option<&'static ambition_combat::components::ActorRenderSize>,
-        // The quad's PLACEMENT, published beside its size by the same
-        // pass. Gated on `SpritePosedBody` below for the same reason the
-        // size is: several spawn paths insert these from sheet metadata
-        // for bodies whose collision box is still hand-authored.
-        Option<&'static ambition_combat::components::ActorSpriteOffset>,
-        bevy::prelude::Has<
-            ambition_sprite_sheet::character::SpritePosedBody,
-        >,
-        // Match/ruleset respawn protection is a semantic presentation
-        // cause independent of the current Empowered implementation.
-        bevy::prelude::Has<ambition_combat::stocks::RespawnGrace>,
-        // The move this body is playing, so the drawn row can be the
-        // one the move NAMES — the same request the actor path carries
-        // on `ActorAnimFrame::clip` (sprite redirect P0).
-        Option<&'static ambition_combat::moveset::MovePlayback>,
-        // A ledge tether's latched anchor, published by whichever ruleset
-        // owns the mechanic. See `BodyPoseView::line_anchor`.
-        Option<&'static ambition_platformer2d_core::BodyLineAnchor>,
-        // WHO the body is and whose body it was GRANTED — see `PoseGeometry`.
-        Option<&'static ambition_characters::actor::CharacterForm>,
-        Option<&'static ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
-        bevy::prelude::Has<ambition_combat::stocks::KnockedOutOfTheWorld>,
-        bevy::prelude::Has<TakenByDeathLook>,
-        // The stick, for the look-up pose of a body that stands.
-        Option<&'static ambition_characters::control::ActorControl>,
-        // A rider sits its mount: see `seated`.
-        bevy::prelude::Has<ambition_mount::RidingOn>,
-        Option<&'static ambition_sprite_sheet::character::PinnedRow>,
-        Option<&'static mut BodyPoseView>,
-    ),
+/// The animation state that must advance at each simulation tick.
+#[derive(Component)]
+pub(crate) struct BodyPoseHistory {
+    anim: CharacterAnim,
+    facing: f32,
+    legs: Option<CharacterAnim>,
+    free: bool,
+    turn: TurnClock,
+    look_up: f32,
+    crouch: f32,
+    crawl: f32,
+    gaze_secs: f32,
+    stop: StopClock,
+    climb_phase: f32,
+    wall_secs: f32,
+    pub(crate) passage: Option<PassagePose>,
+}
+
+impl BodyPoseHistory {
+    fn effective_anim(&self) -> CharacterAnim {
+        self.passage.map_or(self.anim, |pose| crate::passage_view::row_of(pose).1)
+    }
+}
+
+type BodyPoseInputs = (
+    Entity,
+    &'static ambition_platformer2d_core::BodyKinematics,
+    Option<&'static ambition_platformer2d_core::BodyGroundState>,
+    Option<&'static ambition_platformer2d_core::BodyMotionFacts>,
+    Option<&'static BodyCombat>,
+    Option<&'static ambition_characters::actor::BodyAnimFacts>,
+    Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    Option<&'static ambition_platformer2d_core::BodyModeState>,
+    Option<&'static ambition_platformer2d_core::BodyShieldState>,
 );
 
-pub fn rebuild_body_pose_views(
+type BodyPoseAnimationSources = (
+    BodyPoseInputs,
+    bevy::prelude::Has<ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
+    Option<&'static ambition_platformer2d_core::BodyWallState>,
+    Option<&'static ambition_sprite_sheet::character::ActorAnimOverride>,
+    Option<&'static ambition_combat::moveset::MovePlayback>,
+    Option<&'static ambition_characters::control::ActorControl>,
+    bevy::prelude::Has<ambition_mount::RidingOn>,
+);
+
+pub(crate) fn advance_body_pose_history(
     mut commands: Commands,
-    // The reference the hitlag law scales from, so the published strength is a
-    // fraction rather than a raw freeze presentation would have to interpret.
-    feel: Option<Res<ambition_combat::feel::FeelTuning>>,
-    // The room's hitlag law: under an affine law the reference is that law's
-    // ordinary freeze, not the world's, or a smash would read as a blink.
-    rules: ambition_combat::rules::CombatTuningOf,
-    // The cast a granted body is compared against. See `PoseGeometry`.
-    // The running session's frozen cast, or the published one with no
-    // session (`SessionCast`).
-    registry: ambition_characters::prepared::SessionCast,
-    // The clock of the turn (`BodyPoseView::turn_secs`).
     time: Option<Res<bevy::prelude::Time>>,
-    // Where a charging body's shot is born, so its charge is drawn there.
-    landmarks: ambition_combat::body_landmarks::BodyLandmarks,
-    mut bodies: Query<BodyPoseSources, PosedBodies>,
+    mut bodies: Query<(BodyPoseAnimationSources, Option<&mut BodyPoseHistory>), PosedBodies>,
     animation_inputs: Query<(
         &ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
         &ambition_platformer2d_core::BodyFlightState,
@@ -778,64 +739,24 @@ pub fn rebuild_body_pose_views(
         (
             With<ambition_platformer2d_core::BodyKinematics>,
             PosedBodies,
-            Without<BodyPoseView>,
+            Without<BodyPoseHistory>,
         ),
     >,
 ) {
-    // No feel tuning means no hitlag law to measure against: every body reports
-    // no strength rather than a number derived from a reference nobody set.
-    let world_hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
     let dt = time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs);
-    let registry = registry.get();
-    let default_shield = ambition_platformer2d_core::BodyShieldState::default();
-    let default_combat = BodyCombat::default();
-    let publish = |(
+    let advance = |(
         (
-            entity,
-            kinematics,
-            ground,
-            motion_facts,
-            combat,
-            anim_facts,
+            (entity, kinematics, ground, motion_facts, combat, anim_facts, body_frame, body_mode, shield),
             has_blink_cam,
-            body_frame,
             wall,
-        ),
-        (
-            body_mode,
-            shield,
-            base_size,
-            health,
-            projectile_state,
-        ),
-        (
             anim_override,
-            authored_render,
-            authored_offset,
-            sheet_authored_body,
-            respawn_grace,
             playback,
-            line_anchor,
-            worn,
-            granted,
-            out_of_the_world,
-            taken_by_death_look,
             control,
             riding,
-            pinned,
-            pose,
         ),
-    ): QueryItem<BodyPoseSources>| {
-        let gravity_dir = body_down(body_frame);
-        let base = base_size.map_or(kinematics.canonical_size, |b| b.base_size);
-        let stance_ratio_y = base_size
-            .map(|b| (kinematics.canonical_size.y / b.base_size.y.max(1.0)).clamp(0.1, 1.0))
-            .unwrap_or(1.0);
-        let squash = squash_and_stretch(
-            anim_facts.map_or(0.0, |f| f.land_anim_timer),
-            anim_facts.is_some_and(|f| f.land_anim_hard),
-            motion_facts.is_some_and(|f| f.jump_squatting),
-        );
+        history,
+    ): QueryItem<(BodyPoseAnimationSources, Option<&mut BodyPoseHistory>)>| {
+        let previous = history.as_deref();
         // A partial body uses the idle row and still publishes its transform.
         // Read the extra animation inputs only for a body with a blink state.
         let inputs = if has_blink_cam { animation_inputs.get(entity).ok() } else { None };
@@ -901,17 +822,14 @@ pub fn rebuild_body_pose_views(
         // mid-power-up) is stated by the content that owns the state machine.
         let anim = seated(anim_override.map(|o| o.0).unwrap_or(anim), riding);
         // The first moments on a wall are the landing on it.
-        let wall_secs = match pose.as_deref() {
+        let wall_secs = match previous {
             _ if !on_a_wall(anim) => f32::INFINITY,
-            Some(before) if on_a_wall(before.anim) && before.wall_secs.is_finite() => {
+            Some(before) if on_a_wall(before.effective_anim()) && before.wall_secs.is_finite() => {
                 before.wall_secs + dt
             }
             _ => 0.0,
         };
         let anim = if anim_override.is_none() && wall_secs < WALL_LAND_SECS { CharacterAnim::WallLand } else { anim };
-        let charge = playback
-            .as_deref()
-            .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
         // A move may draw its owner MIRRORED — the crude spin read. Applied to
         // the published pose and nowhere else: the body's own `facing` is
         // untouched, so every rule that reads which way it is looking is
@@ -930,23 +848,20 @@ pub fn rebuild_body_pose_views(
         };
         // The turn: the drawn facing flipped between two poses on the ground.
         let free = playback.is_none_or(|playback| playback.settled()) && anim_override.is_none();
-        let turn = pose
-            .as_deref()
-            .map_or_else(TurnClock::default, |before| TurnClock { secs: before.turn_secs })
+        let turn = previous
+            .map_or_else(TurnClock::default, |before| before.turn)
             .next(
-                pose.as_deref().map(|before| (before.anim, before.facing)),
+                previous.map(|before| (before.effective_anim(), before.facing)),
                 anim,
                 drawn_facing,
                 free,
                 dt,
             );
-        let turn_secs = turn.secs;
-        let turning = turn.turning(anim, free);
         // The look up rises while it is asked for and falls when it is not, as
         // the body stands, walks or runs; a body that does anything else has
         // its head level at once.
         let look_up = if free && looks_up_in(anim) {
-            let before = pose.as_deref().map_or(0.0, |before| before.look_up);
+            let before = previous.map_or(0.0, |before| before.look_up);
             let step = dt / LOOK_UP_SECS;
             if looking_up { (before + step).min(1.0) } else { (before - step).max(0.0) }
         } else {
@@ -955,10 +870,10 @@ pub fn rebuild_body_pose_views(
         // The crawl goes down onto the hands while the crouched body moves,
         // and comes up into the crouch when it stops or stands.
         let crawl = if crawling(anim) {
-            let before = pose.as_deref().map_or(0.0, |before| before.crawl);
+            let before = previous.map_or(0.0, |before| before.crawl);
             if free { (before + dt / CRAWL_SECS).min(1.0) } else { 1.0 }
         } else if free && matches!(anim, CharacterAnim::Crouch | CharacterAnim::Idle) {
-            let before = pose.as_deref().map_or(0.0, |before| before.crawl);
+            let before = previous.map_or(0.0, |before| before.crawl);
             (before - dt / CRAWL_SECS).max(0.0)
         } else {
             0.0
@@ -967,38 +882,207 @@ pub fn rebuild_body_pose_views(
         // stands, after the crawl is up. A move that crouches is in its crouch
         // at once; any other pose is out of it at once.
         let crouch = if crouched(anim) {
-            let before = pose.as_deref().map_or(0.0, |before| before.crouch);
+            let before = previous.map_or(0.0, |before| before.crouch);
             if free { (before + dt / CROUCH_SECS).min(1.0) } else { 1.0 }
         } else if free && anim == CharacterAnim::Idle {
-            let before = pose.as_deref().map_or(0.0, |before| before.crouch);
+            let before = previous.map_or(0.0, |before| before.crouch);
             if crawl > 0.0 { before } else { (before - dt / CROUCH_SECS).max(0.0) }
         } else {
             0.0
         };
         // A still look, up or down, held: the camera pans after a beat.
         let gaze_secs = next_gaze_secs(
-            pose.as_deref().map_or(0.0, |before| before.gaze_secs),
+            previous.map_or(0.0, |before| before.gaze_secs),
             Stillness { anim, free, look_up, crouch, crawl },
             dt,
         );
         // The stop: the body stood after it walked or ran.
-        let stop = pose
-            .as_deref()
+        let stop = previous
             .map_or_else(StopClock::default, |before| before.stop)
-            .next(pose.as_deref().map(|before| before.anim), anim, free, dt);
+            .next(previous.map(BodyPoseHistory::effective_anim), anim, free, dt);
         // The climb row moves with the distance climbed.
         let climb_phase = {
-            let before = pose.as_deref().map_or(0.0, |before| before.climb_phase);
+            let before = previous.map_or(0.0, |before| before.climb_phase);
             if anim == CharacterAnim::LadderClimb {
                 (before + kinematics.vel.length() * dt / CLIMB_CYCLE_PX).fract()
             } else if anim == CharacterAnim::WallClimb {
                 // A climb down plays the row backward, hand under hand.
-                let up = -kinematics.vel.dot(gravity_dir);
+                let up = -kinematics.vel.dot(body_down(body_frame));
                 (before + up * dt / WALL_CLIMB_CYCLE_PX).rem_euclid(1.0)
             } else {
                 before
             }
         };
+        let next = BodyPoseHistory {
+            anim,
+            facing: drawn_facing,
+            legs,
+            free,
+            turn,
+            look_up,
+            crouch,
+            crawl,
+            gaze_secs,
+            stop,
+            climb_phase,
+            wall_secs,
+            passage: None,
+        };
+        match history {
+            Some(mut history) => {
+                *history = next;
+                None
+            }
+            None => Some((entity, next)),
+        }
+    };
+
+    // Insert new histories in query order.
+    if bodies.iter().len() >= MIN_PARALLEL_POSES
+        && unpublished.is_empty()
+        && ComputeTaskPool::try_get().is_some_and(|pool| pool.thread_num() > 1)
+    {
+        bodies.par_iter_mut().for_each(|inputs| {
+            let _ = advance(inputs);
+        });
+    } else {
+        for inputs in &mut bodies {
+            if let Some((entity, history)) = advance(inputs) {
+                commands.entity(entity).insert(history);
+            }
+        }
+    }
+}
+
+type BodyPoseSources = (
+    BodyPoseInputs,
+    (
+        Option<&'static ambition_platformer2d_core::BodyBaseSize>,
+        Option<&'static BodyHealth>,
+        Option<&'static ambition_projectiles::PlayerProjectileState>,
+    ),
+    // Art inputs and the pose that this pass writes.
+    (
+        // The sheet-authored sprite quad, when this body's geometry is its art.
+        //
+        //  gated on `SpritePosedBody`, NOT on the render size alone.
+        // `ActorRenderSize` is the SHARED sprite-quad component — several
+        // spawn paths insert it from sheet metadata for bodies whose
+        // collision box is still hand-authored. Reading it bare here
+        // would tell the renderer "the sheet authored this geometry"
+        // about every one of them, and hand it a quad that was never
+        // derived from their boxes.
+        Option<&'static ambition_combat::components::ActorRenderSize>,
+        // The quad's PLACEMENT, published beside its size by the same
+        // pass. Gated on `SpritePosedBody` below for the same reason the
+        // size is: several spawn paths insert these from sheet metadata
+        // for bodies whose collision box is still hand-authored.
+        Option<&'static ambition_combat::components::ActorSpriteOffset>,
+        bevy::prelude::Has<
+            ambition_sprite_sheet::character::SpritePosedBody,
+        >,
+        // Match/ruleset respawn protection is a semantic presentation
+        // cause independent of the current Empowered implementation.
+        bevy::prelude::Has<ambition_combat::stocks::RespawnGrace>,
+        // The move this body is playing, so the drawn row can be the
+        // one the move NAMES — the same request the actor path carries
+        // on `ActorAnimFrame::clip` (sprite redirect P0).
+        Option<&'static ambition_combat::moveset::MovePlayback>,
+        // A ledge tether's latched anchor, published by whichever ruleset
+        // owns the mechanic. See `BodyPoseView::line_anchor`.
+        Option<&'static ambition_platformer2d_core::BodyLineAnchor>,
+        // WHO the body is and whose body it was GRANTED — see `PoseGeometry`.
+        Option<&'static ambition_characters::actor::CharacterForm>,
+        Option<&'static ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
+        bevy::prelude::Has<ambition_combat::stocks::KnockedOutOfTheWorld>,
+        bevy::prelude::Has<TakenByDeathLook>,
+        Option<&'static ambition_characters::control::ActorControl>,
+        Option<&'static ambition_sprite_sheet::character::PinnedRow>,
+        &'static BodyPoseHistory,
+        Option<&'static mut BodyPoseView>,
+    ),
+);
+
+pub(crate) fn rebuild_body_pose_views(
+    mut commands: Commands,
+    // The reference the hitlag law scales from, so the published strength is a
+    // fraction rather than a raw freeze presentation would have to interpret.
+    feel: Option<Res<ambition_combat::feel::FeelTuning>>,
+    // The room's hitlag law: under an affine law the reference is that law's
+    // ordinary freeze, not the world's, or a smash would read as a blink.
+    rules: ambition_combat::rules::CombatTuningOf,
+    // The cast a granted body is compared against. See `PoseGeometry`.
+    // The running session's frozen cast, or the published one with no
+    // session (`SessionCast`).
+    registry: ambition_characters::prepared::SessionCast,
+    // Where a charging body's shot is born, so its charge is drawn there.
+    landmarks: ambition_combat::body_landmarks::BodyLandmarks,
+    mut bodies: Query<BodyPoseSources, (PosedBodies, Changed<BodyPoseHistory>)>,
+    unpublished: Query<
+        (),
+        (
+            With<BodyPoseHistory>,
+            PosedBodies,
+            Without<BodyPoseView>,
+        ),
+    >,
+) {
+    // No feel tuning means no hitlag law to measure against: every body reports
+    // no strength rather than a number derived from a reference nobody set.
+    let world_hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
+    let registry = registry.get();
+    let default_shield = ambition_platformer2d_core::BodyShieldState::default();
+    let default_combat = BodyCombat::default();
+    let publish = |(
+        (entity, kinematics, ground, motion_facts, combat, anim_facts, body_frame, body_mode, shield),
+        (base_size, health, projectile_state),
+        (
+            authored_render,
+            authored_offset,
+            sheet_authored_body,
+            respawn_grace,
+            playback,
+            line_anchor,
+            worn,
+            granted,
+            out_of_the_world,
+            taken_by_death_look,
+            control,
+            pinned,
+            history,
+            pose,
+        ),
+    ): QueryItem<BodyPoseSources>| {
+        let BodyPoseHistory {
+            anim,
+            facing: drawn_facing,
+            legs,
+            free,
+            turn,
+            look_up,
+            crouch,
+            crawl,
+            gaze_secs,
+            stop,
+            climb_phase,
+            wall_secs,
+            ..
+        } = *history;
+        let turn_secs = turn.secs;
+        let turning = turn.turning(anim, free);
+        let gravity_dir = body_down(body_frame);
+        let base = base_size.map_or(kinematics.canonical_size, |b| b.base_size);
+        let stance_ratio_y = base_size
+            .map(|b| (kinematics.canonical_size.y / b.base_size.y.max(1.0)).clamp(0.1, 1.0))
+            .unwrap_or(1.0);
+        let squash = squash_and_stretch(
+            anim_facts.map_or(0.0, |f| f.land_anim_timer),
+            anim_facts.is_some_and(|f| f.land_anim_hard),
+            motion_facts.is_some_and(|f| f.jump_squatting),
+        );
+        let charge = playback
+            .as_deref()
+            .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
         let charge_tier = projectile_state
             .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold)));
         // The charge hangs where its shot will be born: the fireball of this
@@ -1024,7 +1108,7 @@ pub fn rebuild_body_pose_views(
         let invulnerable = health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| h.health.invulnerable);
         let shield_state = shield.unwrap_or(&default_shield);
         let combat_state = combat.unwrap_or(&default_combat);
-        let next = BodyPoseView {
+        let mut next = BodyPoseView {
             pos: kinematics.pos,
             vel: kinematics.vel,
             size: kinematics.canonical_size,
@@ -1199,6 +1283,11 @@ pub fn rebuild_body_pose_views(
                 .flatten(),
             geometry: PoseGeometry::of(worn, granted, registry),
         };
+        if let Some(passage) = history.passage {
+            let (chain, anim) = crate::passage_view::row_of(passage);
+            next.anim = anim;
+            next.clip = crate::ClipRequest::from_chain(chain);
+        }
         match pose {
             Some(mut pose) => {
                 *pose = next;
@@ -1209,7 +1298,7 @@ pub fn rebuild_body_pose_views(
     };
 
     // Publish new components in query order. Updates to existing poses are independent.
-    if bodies.iter().len() >= MIN_PARALLEL_POSES
+    if bodies.iter().size_hint().1.unwrap_or(0) >= MIN_PARALLEL_POSES
         && unpublished.is_empty()
         && ComputeTaskPool::try_get().is_some_and(|pool| pool.thread_num() > 1)
     {
@@ -1522,6 +1611,40 @@ pub fn rebuild_launched_bodies_view(
 #[cfg(test)]
 mod pose_view_tests {
     use super::*;
+    use bevy::prelude::IntoScheduleConfigs;
+
+    #[test]
+    fn a_turn_advances_on_ticks_between_frames() {
+        use ambition_platformer2d_core::BodyKinematics;
+        use bevy::prelude::{App, FixedUpdate, Time, Update};
+        use std::time::Duration;
+
+        let mut app = App::new();
+        app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
+        let dt = Duration::from_secs_f32(1.0 / 60.0);
+        let mut time = Time::<()>::default();
+        time.advance_by(dt);
+        app.insert_resource(time);
+        app.add_systems(FixedUpdate, advance_body_pose_history);
+        app.add_systems(Update, rebuild_body_pose_views);
+        let world = app.world_mut();
+        let body = world.spawn((PosedBody, BodyKinematics { facing: 1.0, ..Default::default() })).id();
+        world.run_schedule(FixedUpdate);
+        world.get_mut::<BodyKinematics>(body).unwrap().facing = -1.0;
+        world.run_schedule(FixedUpdate);
+        world.run_schedule(FixedUpdate);
+        assert!(world.get::<BodyPoseView>(body).is_none());
+
+        world.run_schedule(Update);
+        let pose = world.get::<BodyPoseView>(body).unwrap();
+        assert_eq!(pose.facing, -1.0);
+        let clip = pose.clip.as_ref().unwrap();
+        assert_eq!(clip.clip, TURNAROUND_CLIP);
+        assert_eq!(clip.time, Some(crate::ClipTime::Phase(dt.as_secs_f32() / TURN_SECS)));
+
+        world.run_schedule(Update);
+        assert_eq!(world.get::<BodyPoseView>(body).unwrap().turn_secs, dt.as_secs_f32());
+    }
 
     /// A run slows through a few walking frames before it stands, and its stop
     /// is still a run's; a walk's stop is a walk's.
@@ -1651,7 +1774,10 @@ mod pose_view_tests {
         use ambition_sprite_sheet::character::PinnedRow;
         let mut app = bevy::prelude::App::new();
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
-        app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
+        app.add_systems(
+            bevy::prelude::Update,
+            (advance_body_pose_history, rebuild_body_pose_views).chain(),
+        );
         let mut pin = PinnedRow::default();
         pin.pin_as("transform_beat", &["transform_small"], 0.7, false);
         let body = app.world_mut().spawn((PosedBody, ambition_platformer2d_core::BodyKinematics::default(), pin)).id();
@@ -1692,7 +1818,10 @@ mod pose_view_tests {
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
         // The primary body's mirror: straight down.
         app.insert_resource(ambition_platformer2d_shared_tangle::gravity::GravityField::default());
-        app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
+        app.add_systems(
+            bevy::prelude::Update,
+            (advance_body_pose_history, rebuild_body_pose_views).chain(),
+        );
         let sideways = ambition_platformer2d_core::Vec2::new(1.0, 0.0);
         let mut frame = ResolvedMotionFrame::default();
         frame.publish_resolved_frame(ambition_platformer2d_core::MotionFrame::from_direction(
@@ -1719,7 +1848,10 @@ mod pose_view_tests {
 
         let mut app = bevy::prelude::App::new();
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
-        app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
+        app.add_systems(
+            bevy::prelude::Update,
+            (advance_body_pose_history, rebuild_body_pose_views).chain(),
+        );
 
         let kin = ambition_platformer2d_core::BodyKinematics { material: Default::default(),
             pos: ambition_platformer2d_core::Vec2::ZERO,
@@ -1795,7 +1927,10 @@ mod pose_view_tests {
 
         let mut app = bevy::prelude::App::new();
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
-        app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
+        app.add_systems(
+            bevy::prelude::Update,
+            (advance_body_pose_history, rebuild_body_pose_views).chain(),
+        );
 
         let kin = ambition_platformer2d_core::BodyKinematics { material: Default::default(),
             pos: ambition_platformer2d_core::Vec2::ZERO,
@@ -1933,7 +2068,10 @@ mod pose_view_tests {
 
         let mut app = bevy::prelude::App::new();
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
-        app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
+        app.add_systems(
+            bevy::prelude::Update,
+            (advance_body_pose_history, rebuild_body_pose_views).chain(),
+        );
 
         let kin = ambition_platformer2d_core::BodyKinematics { material: Default::default(),
             pos: ambition_platformer2d_core::Vec2::ZERO,
@@ -1984,7 +2122,10 @@ mod posed_body_gate_tests {
     fn a_posed_body_gets_a_view_and_an_unmarked_body_does_not() {
         let mut app = App::new();
         app.insert_resource(ambition_sprite_sheet::test_support::shared_sprites());
-        app.add_systems(Update, rebuild_body_pose_views);
+        app.add_systems(
+            Update,
+            (advance_body_pose_history, rebuild_body_pose_views).chain(),
+        );
         let kin = ambition_platformer2d_core::BodyKinematics { material: Default::default(),
             pos: ambition_platformer2d_core::Vec2::new(10.0, 20.0),
             vel: ambition_platformer2d_core::Vec2::ZERO,

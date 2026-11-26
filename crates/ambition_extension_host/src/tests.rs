@@ -1198,6 +1198,53 @@ fn an_idle_trigger_keeps_the_records_a_reset_state_except_entry_names() {
 }
 
 #[test]
+fn idle_triggers_skip_initial_state_and_drain_active_state() {
+    fn countdown(inv: &mut Invocation<'_>) -> Result<(), Fault> {
+        let poke = *inv.trigger::<Poke>()?;
+        let height = *inv.observe::<Height>()?;
+        let record = inv.state(&COUNTER)?;
+        let previous = record.get(COUNT).unwrap().as_u32().unwrap();
+        let count = if poke == 0 { previous.saturating_sub(1) } else { poke };
+        record.set(COUNT, Value::U32(count)).unwrap();
+        inv.submit::<Emit>((poke, count, height))
+    }
+
+    let mut entry = entry("a", vec![]);
+    entry.on_idle = IdlePolicy::SkipIfInitial;
+    entry.run = EntryCode::Native(countdown);
+    let module = module(vec![entry]);
+    let wire = ambition_extension_sdk::abi::describe(std::slice::from_ref(&module));
+    let decoded = ambition_extension_sdk::abi::read_description(&wire).unwrap();
+    assert_eq!(decoded[0].entries[0].on_idle, IdlePolicy::SkipIfInitial);
+    assert_eq!(decoded[0].semantic_bytes(), module.semantic_bytes());
+
+    let mut app = App::new();
+    app.init_schedule(Sim);
+    app.add_plugins(ExtensionHostPlugin::new(Sim))
+        .init_resource::<Lowered>()
+        .init_resource::<SimTick>()
+        .init_resource::<ambition_time::WorldTime>()
+        .install_extension_trigger::<Poke, _>(PHASE, "test", collect_pokes)
+        .install_extension_observation::<Height>(PHASE, "test", height_of)
+        .install_extension_request::<Emit, _>(PHASE, "test", lower_emits)
+        .add_extension_module(module);
+    app.finish();
+    let body = app.world_mut().spawn((Poked(0), Tall(1.0))).id();
+    step(&mut app);
+    assert!(app.world().get::<BodyRecords>(body).is_none());
+
+    for poke in [2, 0, 0, 0, 2] {
+        app.world_mut().get_mut::<Poked>(body).unwrap().0 = poke;
+        step(&mut app);
+    }
+    let requests = &app.world().resource::<Lowered>().0;
+    assert_eq!(
+        requests.iter().map(|(_, _, (poke, count, _))| (*poke, *count)).collect::<Vec<_>>(),
+        [(2, 2), (0, 1), (0, 0), (2, 2)]
+    );
+}
+
+#[test]
 fn keeping_a_record_the_entry_does_not_write_is_refused() {
     let mut m = module(vec![entry("a", vec![])]);
     let other = SchemaKey::new("test", "other", 1);

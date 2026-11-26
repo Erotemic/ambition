@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 import yaml
 
-from . import page, paths, reviews
+from . import page, paths, reviews, sources
 
 #: What the page says when this server runs older code than the page it serves.
 RESTART = "./scripts/asset_inspector.py --kill"
@@ -252,10 +252,10 @@ def kill_server(port: int, log=print) -> bool:
 
 
 def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, build=None,
-          refresh_command=None, kill=False):
+          refresh_command=None, kill=False, profile="ambition", binary=None):
     """Serve the last index while a refresh runs in a separate process.
 
-    Refresh on startup and when an open page sees a new art publication.
+    Refresh on startup and when an open page sees an input change.
     If there is no index, build it before the server starts.
     """
     # A small alias map so the CLI reads like the web bundle tool's. The inspector
@@ -294,7 +294,6 @@ def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, b
                 pass
         return None
 
-    seen_publication = publication_stamp()
     first_build = build is not None and not (out / "index.html").is_file()
     if first_build:
         build(log)
@@ -302,11 +301,20 @@ def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, b
         # The previous index shows until the refresh is done; its page files are
         # this code's, so the page asks this server for the routes it has.
         page.copy(out)
+    content_inputs, fingerprint = sources.content_watch(repo, out, profile) if refresh_command else (set(), None)
+
+    def content_stamps():
+        return {path: sources._stamp(path) for path in content_inputs | {binary or sources.default_binary(repo)}}
+
+    seen_publication = publication_stamp()
+    seen_content = content_stamps() if refresh_command else {}
+    status["content_fingerprint"] = fingerprint
     child_box: list = []
     refresh_lock = threading.Lock()
     nice = shutil.which("nice")
 
     def refresh(has_publication):
+        nonlocal content_inputs, seen_content
         child = None
         try:
             generation = json.loads(publication.read_text())["generation"] if has_publication else None
@@ -321,7 +329,13 @@ def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, b
                 log(line)
             if child.wait():
                 raise RuntimeError("\n".join(lines[-8:]))
-            status.update(state="done", generation=generation)
+            with refresh_lock:
+                content_inputs, fingerprint = sources.content_watch(repo, out, profile)
+                # Keep the previous stamps of inputs read by the build. A change
+                # during the build must start a second refresh.
+                seen_content = {path: seen_content.get(path, stamp) if path in content_inputs else stamp
+                                for path, stamp in content_stamps().items()}
+                status.update(state="done", generation=generation, content_fingerprint=fingerprint)
         except Exception as error:
             status.update(state="failed", step=f"{type(error).__name__}: {str(error).splitlines()[-1] if str(error) else ''}")
             print(f"Ambition Editor: the refresh failed; the page shows the previous index.\n{error}", flush=True)
@@ -330,12 +344,14 @@ def serve(repo: Path, out: Path, *, host="all", port=8767, open_browser=False, b
                 child_box.remove(child)
 
     def refresh_status(force=False):
-        nonlocal seen_publication
+        nonlocal seen_publication, seen_content
         with refresh_lock:
             if refresh_command and status["state"] != "building":
                 current = publication_stamp()
-                if force or current != seen_publication:
+                content = content_stamps()
+                if force or current != seen_publication or content != seen_content:
                     seen_publication = current
+                    seen_content = content
                     status.update(state="building", step="starting")
                     threading.Thread(target=refresh, args=(current is not None,), daemon=True).start()
             return dict(status)

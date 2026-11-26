@@ -271,11 +271,6 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
 
     // G2: probed through the OWNER's stable `SimId`, not by counting carriers.
     registrar
-        .declare_rollback_derived_component::<ambition_sim_view::BodyPoseView>(
-            ENGINE,
-            "derived.body_pose_view",
-            "SimView projection rebuilt every tick",
-        )
         .declare_rollback_derived_component::<ambition_sim_view::ProjectileView>(
             ENGINE,
             "derived.projectile_view",

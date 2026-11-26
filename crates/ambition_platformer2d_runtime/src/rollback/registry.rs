@@ -406,14 +406,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 // tick's whole path across a portal (portal M1).
 // 547 -> 548: stale wall velocity age stops at its freshness limit. The
 // movement kernel can reuse a settled step from the same saved state.
-// 548 -> 549: a body's sweep (`body.sweep_sample`) names the simulation step
+// 548 -> 549: register the body animation history that advances on each tick.
+// 549 -> 550: a body's sweep (`body.sweep_sample`) names the simulation step
 // that made it (`tick`), so a reader can tell a skipped step's record from
 // this step's travel (portal M1a). The codec-shape baseline is re-recorded
 // here; 548 had changed the motion codec's shape without recording it.
-// The readable schema baseline also records two rows that c1b1fe9e9 (the
-// projectile view's description) and 2ddb4ad8d (`RoomTravelRequested`, a
-// message cleared on load) registered without re-recording it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 549;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 550;
 
 pub use ambition_platformer2d_core::rollback_kind::RollbackEntryKind;
 

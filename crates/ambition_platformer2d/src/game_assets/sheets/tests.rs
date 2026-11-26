@@ -217,6 +217,7 @@ fn registered_prop_sheets_load_with_the_first_game_assets() {
             tuning: ambition_sprite_sheet::character::SheetTuning::new(1.0, 2),
             packed: false,
             backdrop: false,
+            repeat_width: None,
         },
     );
 
@@ -275,9 +276,9 @@ fn a_prop_row_draws_its_records_page_or_the_pack() {
     app.init_asset::<Image>();
     app.init_asset::<TextureAtlasLayout>();
     let tuning = ambition_sprite_sheet::character::SheetTuning::new(1.0, 2);
-    app.register_prop_sheet("lab_genesis_vat", PropSheetSource { world_provider: None, target: "genesis_vat".to_string(), tuning, packed: false, backdrop: false });
-    app.register_prop_sheet("intro_cart", PropSheetSource { world_provider: None, target: "intro_cart".to_string(), tuning, packed: true, backdrop: false });
-    app.register_prop_sheet("intro_cart_unpacked", PropSheetSource { world_provider: None, target: "intro_cart".to_string(), tuning, packed: false, backdrop: false });
+    app.register_prop_sheet("lab_genesis_vat", PropSheetSource { world_provider: None, target: "genesis_vat".to_string(), tuning, packed: false, backdrop: false, repeat_width: None });
+    app.register_prop_sheet("intro_cart", PropSheetSource { world_provider: None, target: "intro_cart".to_string(), tuning, packed: true, backdrop: false, repeat_width: None });
+    app.register_prop_sheet("intro_cart_unpacked", PropSheetSource { world_provider: None, target: "intro_cart".to_string(), tuning, packed: false, backdrop: false, repeat_width: None });
 
     let config = GameAssetConfig::default();
     let characters = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
@@ -334,7 +335,7 @@ fn prop_sheets_follow_room_and_live_feature_demand() {
         };
         app.register_prop_sheet(kind, PropSheetSource {
             world_provider: Some(provider.into()),
-            target: "intro_cart".into(), tuning: Default::default(), packed: false, backdrop: false,
+            target: "intro_cart".into(), tuning: Default::default(), packed: false, backdrop: false, repeat_width: None,
         });
     }
     let room = |id| RoomSpec::new(id, ae::World::new(id, ae::Vec2::new(640.0, 480.0), ae::Vec2::ZERO, vec![]));

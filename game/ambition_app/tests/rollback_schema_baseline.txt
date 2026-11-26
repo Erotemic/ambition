@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v549
+ggrs-rollback-schema-v550
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.cooldown	component-clone	AbilityCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -196,7 +196,7 @@ derived.behavior_inbox	derived	BehaviorInbox	The collection cut rebuilds this ma
 derived.body_action_step	derived	BodyActionStep	re-derived from the body's restored reaction timers and the step's clocks at the reaction cut, before any reader
 derived.body_contact_snapshot	derived	BodyContactSnapshot	cleared and refilled from authoritative BodyKinematics before decisions and movement each tick
 derived.body_environment_contact	derived	BodyEnvironmentContact	rewritten every movement step from body geometry and the live world
-derived.body_pose_view	derived	BodyPoseView	SimView projection rebuilt every tick
+derived.body_pose_history	derived	BodyPoseHistory	Body animation history advances each simulation tick
 derived.body_rig_pose	derived	BodyRigPose	resolved from BodyRig plus the move and pose clocks each tick, before any consumer
 derived.boss_animation_frame_sample	derived	BossAnimationFrameSample	republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor
 derived.cast_framing_tuning	derived	CastFramingTuning	camera-only projection of prepared match framing or engine defaults

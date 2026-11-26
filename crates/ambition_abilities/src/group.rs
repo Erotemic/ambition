@@ -65,9 +65,8 @@ type MemberQuery<'a> = (
     Has<DrivingParticipant>,
 );
 
-/// For each bound tag, one invocation for each room that has a member of it,
-/// each tick with a gameplay step: rooms in the order of their instance,
-/// members and items in the order of their identity.
+/// Queue one trigger per bound tag and room that has a member.
+/// Order rooms by instance and order members and items by identity.
 #[allow(clippy::too_many_arguments)]
 pub fn queue_group_thinks(
     admitted: Res<AdmittedExtensions>,
@@ -149,8 +148,10 @@ pub fn queue_group_thinks(
         let root = root_of[&room];
         members.sort_by(|a, b| a.id.cmp(&b.id));
         let items = room_items.get(&room).cloned().unwrap_or_default();
+        let idle = items.is_empty()
+            && members.iter().all(|member| member.alive && member.held.is_none() && member.supporter.is_none());
         let dt = time.sim_dt() * pace.scale_of(root);
-        invocations.trigger::<GroupThinkPort>(&ACTOR_THINK, tag.to_owned(), root, None, false, GroupThink { dt, members, items });
+        invocations.trigger::<GroupThinkPort>(&ACTOR_THINK, tag.to_owned(), root, None, idle, GroupThink { dt, members, items });
     }
 }
 

@@ -69,10 +69,11 @@ pub use local_view::{
     PresentedForView, PresentsView, ResolvedViewSubject, SplitForLiveRoom, ViewParticipant,
     ViewPlacement, ViewSubject, ViewsOnHand,
 };
-pub use passage_view::{rebuild_passage_views, PassageLookView, PassageViews};
+pub use passage_view::{PassageLookView, PassageViews};
+use passage_view::rebuild_passage_views;
 pub use pose_view::{StopClock, TurnClock};
 pub use pose_view::{
-    mark_bodies_the_death_look_took, rebuild_body_pose_views, rebuild_launched_bodies_view, TakenByDeathLook, rebuild_shield_views, BodyPoseView, ReactionHold, GuardBreakFact, GuardBreaksView, PoseGeometry, LaunchedBodiesView,
+    mark_bodies_the_death_look_took, rebuild_launched_bodies_view, TakenByDeathLook, rebuild_shield_views, BodyPoseView, ReactionHold, GuardBreakFact, GuardBreaksView, PoseGeometry, LaunchedBodiesView,
     LaunchedBodyFact, ShieldRingFact, ShieldRingsView, LOOK_UP_CLIP, LOOK_DOWN_CLIP,
 };
 pub use presented_pose::{
@@ -158,6 +159,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
             bevy::prelude::Update,
             (
                 (rebuild_feature_view_index, rebuild_nameplate_index).chain(),
+                pose_view::rebuild_body_pose_views,
                 anim_index::rebuild_actor_anim_index,
                 rebuild_actor_render_index,
                 rebuild_boss_render_index
@@ -190,12 +192,13 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                     anim_index::advance_actor_anim_poses,
                 )
                     .chain(),
-                rebuild_body_pose_views.after(mark_bodies_the_death_look_took),
+                pose_view::advance_body_pose_history
+                    .after(ambition_platformer2d_actor::body::advance_body_anim_overlay_clocks),
                 mark_bodies_the_death_look_took,
                 // A body in a passage draws what its passage says, over the
                 // pose the rebuild picked.
                 rebuild_passage_views
-                    .after(rebuild_body_pose_views)
+                    .after(pose_view::advance_body_pose_history)
                     .after(anim_index::advance_actor_anim_poses),
                 // "What does each control do right now" for the controlled
                 // subject — the touch overlay reads this instead of the sim.

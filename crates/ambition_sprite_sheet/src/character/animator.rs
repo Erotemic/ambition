@@ -74,6 +74,7 @@ pub struct CharacterAnimator {
     /// ([`Self::sample_rect`]). For a piece of built world that touches the
     /// next piece.
     pub samples_inside_frame: bool,
+    sample_x: Option<Vec2>,
     /// The owner of the sprite sized its quad, and a frame does not size it
     /// again: a column that tiles fills its box
     /// (`CharacterSheetSpec::column_slices`), not the trimmed rect of a frame.
@@ -147,6 +148,7 @@ impl CharacterAnimator {
             asked_for: 0.0,
             render_basis: None,
             samples_inside_frame: false,
+            sample_x: None,
             keeps_its_quad: false,
             legs: None,
             left: None,
@@ -170,6 +172,7 @@ impl CharacterAnimator {
             pages: fresh.pages,
             render_basis: fresh.render_basis,
             samples_inside_frame: fresh.samples_inside_frame,
+            sample_x: fresh.sample_x,
             keeps_its_quad: fresh.keeps_its_quad,
             ..self.clone()
         }
@@ -186,16 +189,30 @@ impl CharacterAnimator {
     /// inside the frame, the edge sample is the centre of the frame's own edge
     /// texel.
     ///
-    /// A sheet with a whole-texel inset (`frame_sample_inset`) has moved its
-    /// edge off the padding already, so it has no rect here.
+    /// The atlas cell already excludes any whole-texel inset.
     pub fn sample_rect(&self) -> Option<bevy::math::Rect> {
-        if !self.samples_inside_frame || self.spec.frame_sample_inset > 0 {
+        if !self.samples_inside_frame || (self.sample_x.is_none() && self.spec.frame_sample_inset > 0) {
             return None;
         }
-        let texels = self.spec.frame_trim_at(self.drawn_slot(), self.frame).trimmed.as_vec2();
-        // A frame of one texel has no inside.
-        (texels.x > 1.0 && texels.y > 1.0)
-            .then(|| bevy::math::Rect::new(0.5, 0.5, texels.x - 0.5, texels.y - 0.5))
+        let frame = self.spec.frame_trim_at(self.drawn_slot(), self.frame).trimmed;
+        let cell = crate::frames::inset_rect(URect::from_corners(UVec2::ZERO, frame), self.spec.frame_sample_inset);
+        let size = cell.size().as_vec2();
+        let edge = if cell.min == UVec2::ZERO && size.min_element() > 1.0 {
+            Vec2::splat(0.5)
+        } else {
+            Vec2::ZERO
+        };
+        if let Some(span) = self.sample_x {
+            let width = size.x - 2.0 * edge.x;
+            return Some(bevy::math::Rect::new(edge.x + width * span.x, edge.y, edge.x + width * span.y, size.y - edge.y));
+        }
+        (edge != Vec2::ZERO).then(|| bevy::math::Rect::from_corners(edge, size - edge))
+    }
+
+    /// Sample the fraction of the frame between the start and end in `span`.
+    pub fn crop_frame_x(&mut self, span: Vec2) {
+        self.samples_inside_frame = true;
+        self.sample_x = Some(span);
     }
 
     /// Initialize the full-logical trim basis once.

@@ -1379,6 +1379,89 @@ Retaining the projected motion facts gave mixed timings. The reference
 desktop run predates this change. The 455 movement tests and the
 assembled application check passed.
 
+### Idle group scripts
+
+Group triggers report idle when all members are alive and free of item
+custody and the room has no ground items. A script can opt out of an idle
+call while its records still have their initial values. Pending state can
+continue to run. The sheep and swallows use the same policy.
+
+In the loaded 596-body Hall, the two entries ran 120 times each over
+120 ticks with the old scripts. They took 1.25 ms/tick together under
+the extension profiler. With the new scripts both entries had zero
+calls over the same interval. In both arms, a defeated sheep produced
+one cloud without a script fault.
+
+Four windowed runs loaded the old and new scripts into the same
+development executable. Each kept all 596 bodies at 1280 × 800 with
+Potato quality and the software renderer. Use windows after 30 s.
+
+| Run order | Scripts | Median total, ms/tick | Median control gate, ms/tick |
+| --- | --- | ---: | ---: |
+| 1 | Old | 49.26 | 3.67 |
+| 2 | New | 22.04 | 1.24 |
+| 3 | New | 16.11 | 0.92 |
+| 4 | Old | 16.42 | 1.51 |
+
+The total tick ranges overlap. The last run refused a live catalog edit
+and kept its active content. Use the headless call counts to verify the
+work removed. Both candidate medians are above 13.75 ms/tick.
+
+### Hurt region storage and loose item contacts
+
+Keep one hurt region inline. Keep authored region order and coordinate
+space. Loose items copy recipients in rooms with active items and reuse
+each room's list for all its casts.
+
+In a 596-body probe with four multi-region bodies, a snapshot copy
+allocated 597 times before the change and five times after it. The
+optimized copy took 16–17 µs before and about 2 µs after. The component
+increased from 32 to 48 bytes. The copied regions matched in order.
+
+| Optimized 596-body fixture | Before, µs | After, µs |
+| --- | ---: | ---: |
+| One held item | 85–88 | 12 |
+| One loose item, one local recipient and 595 in another room | 129 | 74–76 |
+| One loose item, all recipients in its room | 380–383 | 271–280 |
+
+The item position, velocity, and impact results matched. These timings
+cover loose-item physics and snapshot copies. The assembled build and
+ten checks for hurt regions, room-local flight, and portal refusal passed.
+The European swallow pair also picked up and released its coconut
+under rollback in the assembled game.
+
+Two windowed runs of the newer development build kept all 596 bodies.
+The catalog and Hall map checksums stayed the same. With a 1280 × 800
+viewport, Potato quality, and software rendering, the medians were
+17.78 and 14.22 ms/tick. The runs had 74 and 72 windows after 30 s.
+The build also includes upstream changes. Use the isolated probes to
+measure this patch. The desktop target remains 13.75 ms/tick.
+
+### Body pose publication
+
+Advance the body animation clocks on each simulation tick. Build the
+complete body pose once for each frame with a new tick. A passage can
+set the animation and clip that the frame displays.
+
+An isolated desktop development comparison used the 596-body Hall.
+All 596 displayed poses matched after one or more ticks. They also
+matched during turns, hit reactions, and changes to pose pins.
+
+| Ticks per frame | Before, ms/frame | After, ms/frame |
+| ---: | ---: | ---: |
+| 1 | 0.197 | 0.288 |
+| 2 | 0.389 | 0.349 |
+| 3 | 0.642 | 0.433 |
+| 15 | 3.049 | 1.640 |
+
+Two windowed development runs used 1280 × 800, Potato quality, and
+llvmpipe. All 596 bodies were present. The map and catalog matched the
+previous runs. After 30 s, 75 and 77 windows gave medians of 13.74 and
+13.59 ms/tick across the measured simulation phases. The
+`FeatureViewSync` medians were 1.25 and 1.22 ms/tick. Both runs met the
+13.75 ms/tick desktop target. The frame medians were 238 and 226 ms
+with software rendering. Measure Android frame time on the device.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

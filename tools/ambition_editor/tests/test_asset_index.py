@@ -50,7 +50,9 @@ def test_no_command_serves_and_opens(monkeypatch, tmp_path):
     assert served["open_browser"] and callable(served["build"])
 
 
-def test_served_index_refreshes_after_new_art_is_published(tmp_path, monkeypatch):
+def test_served_index_refreshes_after_art_or_catalog_changes(tmp_path, monkeypatch):
+    from asset_index.sources import content_cache
+
     monkeypatch.delenv("AMBITION_ART_STORE", raising=False)
     library = tmp_path / "library.json"
     library.write_text('{"publication":"art"}')
@@ -61,43 +63,57 @@ def test_served_index_refreshes_after_new_art_is_published(tmp_path, monkeypatch
     out = tmp_path / "inspector"
     out.mkdir()
     catalog = out / "catalog.js"
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    character_catalog = pack / "cast.ron"
+    character_catalog.write_text("first character")
+    cache = content_cache(out, pack)
     refresh = tmp_path / "refresh.py"
-    refresh.write_text(f"""from pathlib import Path
+    refresh.write_text(f"""import json
+from pathlib import Path
 catalog = Path({str(catalog)!r})
+character = Path({str(character_catalog)!r}).read_text()
+Path({str(cache)!r}).write_text(json.dumps({{'report': {{'sources': [{{'path': 'cast.ron'}}], 'fingerprint': character}}}}))
+index = json.loads(Path({str(publication)!r}).read_text())
+index['character'] = character
 partial = catalog.with_suffix('.partial')
-partial.write_text('window.ART_CATALOG = ' + Path({str(publication)!r}).read_text() + ';')
+partial.write_text('window.ART_CATALOG = ' + json.dumps(index, separators=(',', ':')) + ';')
 partial.replace(catalog)
 """)
     refresh_command = [sys.executable, str(refresh)]
     editor = Path(__file__).resolve().parents[1]
     runner = (f"import sys; sys.path.insert(0, {str(editor)!r}); "
               "from pathlib import Path; from asset_index.server import serve; "
-              f"serve(Path.cwd(), Path.cwd() / 'inspector', host='localhost', port=0, refresh_command={refresh_command!r})")
+              f"serve(Path.cwd(), Path.cwd() / 'inspector', host='localhost', port=0, "
+              f"profile={str(pack)!r}, refresh_command={refresh_command!r})")
     with subprocess.Popen([sys.executable, "-c", runner], cwd=tmp_path, stdout=subprocess.PIPE, text=True) as server:
         try:
             line = server.stdout.readline().strip()
             assert line.startswith("Ambition Editor: http://"), line
             base = line.split()[2].rstrip("/")
 
-            def wait_for_generation(generation):
+            def wait_for_index(generation, character):
                 deadline = time.monotonic() + 10
                 while time.monotonic() < deadline:
                     with urlopen(base + "/api/build-status", timeout=2) as response:
                         status = json.load(response)
                     assert status["state"] != "failed", status
-                    if status["state"] == "done" and status.get("generation") == generation:
+                    if (status["state"] == "done" and status.get("generation") == generation
+                            and status.get("content_fingerprint") == character):
                         return
                     time.sleep(0.05)
-                pytest.fail(f"The server did not finish indexing {generation}: {status}")
+                pytest.fail(f"The server did not finish indexing {generation} and {character}: {status}")
 
-            wait_for_generation("first")
+            wait_for_index("first", "first character")
             staged = publication.with_suffix(".partial")
             staged.write_text('{"generation":"second"}')
             staged.replace(publication)
-            wait_for_generation("second")
+            wait_for_index("second", "first character")
+            character_catalog.write_text("new character")
+            wait_for_index("second", "new character")
             with urlopen(base + "/inspector/catalog.js", timeout=2) as response:
                 assert response.headers["Cache-Control"] == "no-store"
-                assert b'"generation":"second"' in response.read()
+                assert b'"generation":"second","character":"new character"' in response.read()
         finally:
             server.terminate()
             server.wait(timeout=5)

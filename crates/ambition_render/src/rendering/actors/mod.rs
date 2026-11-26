@@ -998,13 +998,13 @@ pub fn refresh_player_sprites_for_resident_quality(
 /// entities, so keeping this as a component overwrite avoids the v4-v6 class of
 /// bugs where a visual refresh accidentally accumulated/despawned active room
 /// content.
-pub fn refresh_prop_sprites_on_game_assets_change(
+pub(crate) fn refresh_prop_sprites_on_game_assets_change(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     // Readiness, not residency — see `texture_is_ready`.
     asset_server: Res<AssetServer>,
     images: Res<Assets<Image>>,
-    props: Query<(Entity, &PropVisual, Option<&BoundSpriteQuality>, Option<&CharacterAnimator>)>,
+    props: Query<(Entity, &PropVisual, Option<&BoundSpriteQuality>, Option<&CharacterAnimator>, Option<&super::world::PropTile>)>,
 ) {
     let Some(assets) = assets else {
         return;
@@ -1014,7 +1014,7 @@ pub fn refresh_prop_sprites_on_game_assets_change(
     // is no `assets.is_changed()` early-out: images decode asynchronously, so
     // the frame `GameAssets` changes is not the frame the texture is ready. The
     // tier comparison is the convergence check, and it is cheap.
-    for (entity, prop, bound_quality, bound_animator) in &props {
+    for (entity, prop, bound_quality, bound_animator, tile) in &props {
         let Some(asset) = assets.characters.prop_asset_for_kind(&prop.kind) else {
             continue;
         };
@@ -1026,6 +1026,9 @@ pub fn refresh_prop_sprites_on_game_assets_change(
         }
         let mut bundle =
             crate::rendering::world::prop_sprite_bundle(prop.draw, prop.flip_y, asset, prop.size);
+        if let Some(tile) = tile {
+            tile.fit(&mut bundle, prop.size);
+        }
         // A prop that was drawn at another tier goes on where it was: a gate's
         // stable loop or a turning wheel does not jump back to frame 0 when
         // the sharper pixels land. Its animator draws the frame this tick: the

@@ -46,21 +46,24 @@ def interpreter(family: str) -> str:
 
 def in_owner(family: str, arguments: list[str]) -> None:
     if os.environ.get("AMBITION_PRODUCER_OWNER") == family:
+        if tool := TOOLS.get(family):
+            # Use the source tree that publication hashes. An editable install
+            # can still point to a build tree that lacks newly added modules.
+            renderer = str(ROOT / "tools" / tool)
+            sys.path.insert(0, renderer)
+            inherited = os.environ.get("PYTHONPATH")
+            os.environ["PYTHONPATH"] = renderer + (os.pathsep + inherited if inherited else "")
         return
     env = dict(os.environ, AMBITION_PRODUCER_OWNER=family)
+    python = interpreter(family)
     if family == "music":
-        renderer = ROOT / "tools" / TOOLS[family]
-        # Use the same renderer files for imports and publication hashes.
         entry = '''
 audio_env="${AMBITION_AUDIO_TOOLS_ROOT:-/data/audio-tools}/env.sh"
 if [ -f "$audio_env" ]; then source "$audio_env"; fi
-export PYTHONPATH="$1${PYTHONPATH:+:$PYTHONPATH}"
-shift
 exec "$@"
 '''
-        os.execvpe("bash", ["bash", "-c", entry, "producer", str(renderer),
-                            interpreter(family), __file__, *arguments], env)
-    os.execve(interpreter(family), [interpreter(family), __file__, *arguments], env)
+        os.execvpe("bash", ["bash", "-c", entry, "producer", python, __file__, *arguments], env)
+    os.execve(python, [python, __file__, *arguments], env)
 
 
 def library():

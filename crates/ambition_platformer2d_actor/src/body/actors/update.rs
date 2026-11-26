@@ -355,7 +355,7 @@ pub fn tick_actor_brains(
     coverage_source: AuthoredCoverageSource,
     mut decisions: ResMut<ActorDecisionFrames>,
     // Body state for a decision that reads the world or shares a sighting.
-    (bodies, clusters, decision_inputs): (
+    (bodies, clusters, decision_inputs, crew_policies): (
         Query<(
             &ae::BodyKinematics,
             bevy::prelude::Has<ae::Unmirrored>,
@@ -377,6 +377,7 @@ pub fn tick_actor_brains(
             Option<&ambition_characters::actor::CharacterForm>,
             Option<&ambition_combat::components::ActorRenderSize>,
         )>,
+        Query<(Entity, &ambition_combat::actor_tuning::ActorPolicy), With<ambition_characters::perception::PerceptionMemory>>,
     ),
     // ACT1: what the move admission reads that the actor cluster does not
     // carry, so the kit is offered by the trigger's own rule.
@@ -453,11 +454,16 @@ pub fn tick_actor_brains(
     let observation_cut = perceived.cut();
     let preceding_cut = observation_cut.checked_sub(1);
     let mut crew_calls = Vec::new();
-    for (entity, _, _, _, _, _, _, policy, faction, memory, _, seated, summoned, stamp) in actors.iter() {
-        if !policy.is_some_and(|policy| policy.0.shares_sightings) {
+    for (entity, policy) in &crew_policies {
+        if !policy.0.shares_sightings {
             continue;
         }
-        let (Ok(body), Some(memory)) = (clusters.get(entity), memory) else {
+        let Ok((_, _, _, _, _, _, _, _, faction, Some(memory), _, seated, summoned, stamp)) =
+            actors.get(entity)
+        else {
+            continue;
+        };
+        let Ok(body) = clusters.get(entity) else {
             continue;
         };
         let Some(perception) = crate::body::perception::perception_of(seated || summoned, extent)

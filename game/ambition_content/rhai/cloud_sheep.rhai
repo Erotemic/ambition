@@ -48,7 +48,8 @@ fn declare() {
         entries: [
             #{ key: "become", phase: "actor_think",
                trigger: #{ port: "group_think", selector: "cloud_sheep" },
-               writes: ["cloud_sheep.flock"], requests: ["create_actors", "story_command"], limit: 2 },
+               writes: ["cloud_sheep.flock"], requests: ["create_actors", "story_command"],
+               limit: 2, idle: "skip_if_initial" },
             #{ key: "made", phase: "actor_think",
                trigger: #{ port: "action_result", selector: "made" } },
             #{ key: "drift", phase: "actor_think",

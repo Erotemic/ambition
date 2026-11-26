@@ -63,7 +63,8 @@ fn declare() {
         entries: [
             #{ key: "fetch", phase: "actor_think",
                trigger: #{ port: "group_think", selector: "swallow" },
-               writes: ["swallows.flight"], requests: ["steer", "take", "release"], limit: 32 },
+               writes: ["swallows.flight"], requests: ["steer", "take", "release"],
+               limit: 32, idle: "skip_if_initial" },
         ],
     }
 }
@@ -318,9 +319,18 @@ fn fetch() {
         }));
     }
 
-    record.birds = birds.map(|bird| bird.id);
-    record.goals = flights.map(|flight| flight.goal);
-    record.phases = flights.map(|flight| flight.phase);
-    record.elapsed = flights.map(|flight| flight.elapsed);
+    record.birds = [];
+    record.goals = [];
+    record.phases = [];
+    record.elapsed = [];
+    for (flight, i) in flights {
+        if type_of(flight.goal) == "()" && flight.phase == global::APPROACH && flight.elapsed == 0.0 {
+            continue;
+        }
+        record.birds.push(birds[i].id);
+        record.goals.push(flight.goal);
+        record.phases.push(flight.phase);
+        record.elapsed.push(flight.elapsed);
+    }
     this.state.flight = record;
 }

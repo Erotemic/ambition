@@ -1,6 +1,6 @@
 # Presentation order and optional 2.5D rendering
 
-**State:** PO1 and PO2 landed 2026-11-25; RV1 landed 2026-11-25 (the shared sample, then view-owned camera application); RV2-RV3 PLANNED. Selected by the maintainer on 2026-11-21. The customers
+**State:** PO1 and PO2 landed 2026-11-25; RV1 and the RV2 cart pilot landed 2026-11-25; RV3 PLANNED. Selected by the maintainer on 2026-11-21. The customers
 are Scout inside and outside the cart, consistent order for body parts and
 effects, and Bevy 2D and 3D presentation tools that can coexist. Production
 source reviewed: `f41218979625`; planning includes the preceding runtime
@@ -508,6 +508,58 @@ shared value preparation are sufficient until source proves otherwise.
    as unlit cards, a simple authored cart mesh and one declared visual-depth
    policy. Draw it beside the 2D view in one App. Preserve the same platform,
    support, actor material, animation clock, held-item facts and input path.
+
+   **The cart pilot (2026-11-25).** `rendering::card_view`, behind the
+   render crate's optional `card_view` feature (Bevy PBR, which a 2D-only
+   build does not link; the facade forwards it, and the capture tools turn
+   it on). `CardViewPlugin` adds a second renderer over the same simulation
+   and the same sample:
+   - **Camera.** One orthographic `Camera3d` per view (`CardViewCamera`, its
+     own `CARD_VIEW_LAYER`), turned 35° and tilted 12°, in a viewport in the
+     lower right of its target, above the gameplay rigs and under the HUD.
+     Its adapter (`place_card_view_cameras`) places it from the view's
+     `PresentedViewFrame`, the frame the 2D adapter reads, so it follows the
+     same camera policy, shake and zoom. The viewport is measured on the
+     camera's own target, and the camera stays inactive until it is.
+   - **Cards.** Each rigged body's sample becomes a `CardBody` of unlit
+     textured quads, one per drawn part, made from the part's page region,
+     pivot, turn, scale and RGBA. The body is placed by its scene placement
+     (the root's transform) times the sample's `feet`. `feet` (the frame's
+     quad: size, anchor, squash, mirror row) moved into `RiggedLocalSample`,
+     and the 2D direct road reads it there too, so neither renderer
+     re-derives it. The atlas road keeps its own cell geometry, which is
+     2D-only.
+   - **Cart.** Seating publishes the vessel boxes it already finds
+     (`PresentedVessels`, only while a renderer asked for them), and each
+     becomes a cart of five boards: floor, back, two sides and the near panel.
+   - **Depth policy.** It is declared once (`card_view` module docs) and does
+     not reuse the 2D z bands. The play plane is 0. A vessel's bed is
+     recessed `VESSEL_DEPTH` (40) behind it. A seated body (`SeatedInVessel`)
+     stands mid-bed, between the back panel and the near panel. Bodies on one
+     depth are ranked by their logical order, 2.5 apart, and a body's parts
+     are 0.05 apart in paint order.
+
+   Witnesses (`--features card_view`):
+   - `the_cards_and_the_slots_draw_one_sample`: each sampled draw is one
+     visible card at its slot's place, and the card body stands where the 2D
+     owner stands. A draw removed from the sample before both renderers is
+     drawn by neither, so neither renderer reads the other.
+   - `a_seated_body_is_between_the_cart_panels_and_others_are_in_front`.
+
+   Capture: `capture_scene intro_wake_room player OUT --card-view --warmup
+   120`. One picture holds both views (the capture adopts the card camera
+   into its image, as it does the pause cube's). Scout stands in the cart's
+   bed behind the near panel, which hides the feet as the rails do in 2D, and
+   Dennis and the ice bag stand on the play plane in front.
+
+   The simulation is untouched: the pilot only reads presentation facts, and
+   the animation is interpreted once for both renderers (one sampler).
+
+   Not drawn in this view, which is RV3's list: baked-frame bodies, held and
+   wielded art, the hit flash, group fades (a fading frame fades each card),
+   portals, room tiles and parallax. Opaque parts use an alpha mask at 0.5,
+   so filtered edges are hard. The view is a pilot that `capture_scene`
+   installs; no game turns it on.
 5. **RV3 — integration for rollout.** Carry logical order and the new
    realization through existing portal P5/P6; then add required group effects,
    capture/UI integration and target profiles. State unsupported capabilities

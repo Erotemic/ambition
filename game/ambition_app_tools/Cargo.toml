@@ -75,6 +75,7 @@ game = [
     "ambition_app/desktop_dev",
     "ambition_platformer2d/all_capabilities",
     "ambition_platformer2d/capture",
+    "ambition_platformer2d/card_view",
     "ambition_sim_harness/capture",
     "dep:ambition_menu_kaleidoscope",
     "dep:ambition_demo_smash",

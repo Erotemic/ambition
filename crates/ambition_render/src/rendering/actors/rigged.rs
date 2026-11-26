@@ -545,6 +545,12 @@ pub struct RiggedLocalSample {
     /// The frame's own opacity (a fading frame is one picture fading).
     pub frame_opacity: f32,
     pub draws: Vec<PartDraw>,
+    /// Where the frame's parts stand in the body's own frame: the feet of
+    /// the frame's quad (its size, anchor, crouch squash and mirror row),
+    /// one unit a sheet pixel, mirrored with the root. A renderer carries it
+    /// by the body's scene placement (the root's transform); `None` with no
+    /// parts.
+    pub feet: Option<Transform>,
 }
 
 impl RiggedLocalSample {
@@ -1229,7 +1235,13 @@ impl BoundParts {
 pub fn sample_rigged_presentations(
     mut owners: Query<(&RiggedPresentationOf, &mut RiggedPresentation, &mut RiggedLocalSample), Without<RiggedPartSlot>>,
     roots: Query<
-        (&CharacterAnimator, Option<&PartPose>, Option<&RiggedTrackMask>),
+        (
+            &CharacterAnimator,
+            Option<&PartPose>,
+            Option<&RiggedTrackMask>,
+            Option<&Sprite>,
+            Option<&Anchor>,
+        ),
         (Without<RiggedPresentation>, Without<RiggedPartSlot>),
     >,
     time: Option<Res<Time>>,
@@ -1241,7 +1253,8 @@ pub fn sample_rigged_presentations(
         sample.row = None;
         sample.frame = 0;
         sample.frame_opacity = 1.0;
-        let Ok((animator, pose, mask)) = roots.get(root) else {
+        sample.feet = None;
+        let Ok((animator, pose, mask, root_sprite, root_anchor)) = roots.get(root) else {
             continue;
         };
         if !presentation.drawing {
@@ -1327,6 +1340,25 @@ pub fn sample_rigged_presentations(
                 sample.state = LocalSampleState::Parts;
             }
             (None, _) => sample.state = LocalSampleState::Baked,
+        }
+        // The frame's quad as the animator drew it on the root, before the
+        // driver replaces the root's image.
+        if let (LocalSampleState::Parts, Some(basis), Some(root_sprite), Some(root_anchor)) =
+            (sample.state, animator.render_basis, root_sprite, root_anchor)
+        {
+            let frame_size = flipbook.frame_size.as_vec2();
+            let margin = impostor_margin(&flipbook);
+            let cell = frame_size.max_element() + 2.0 * margin;
+            let (size, anchor) = body_quad(animator, basis, root_sprite, root_anchor, frame_size, margin, cell);
+            sample.feet = Some(feet_place(
+                &Transform::IDENTITY,
+                &flipbook,
+                size,
+                anchor,
+                cell,
+                margin,
+                root_sprite.flip_x,
+            ));
         }
         presentation.drawn = drawn;
         presentation.posed_draws = posed_draws;
@@ -1560,11 +1592,9 @@ pub fn drive_rigged_presentations(
                 commands.entity(root).try_remove::<FrameInSprite>();
             }
             let root_visible = root_shows(root_visibility);
-            let frame_size = flipbook.frame_size.as_vec2();
-            let margin = impostor_margin(&flipbook);
-            let cell = frame_size.max_element() + 2.0 * margin;
-            let (size, anchor) = body_quad(animator, basis, &root_sprite, &root_anchor, frame_size, margin, cell);
-            let place = feet_place(root_transform, &flipbook, size, anchor, cell, margin, root_sprite.flip_x);
+            // The sample's feet (the body's own frame) carried by the root's
+            // scene placement.
+            let place = sample.feet.map_or(*root_transform, |feet| root_transform.mul_transform(feet));
             if let Some((request, answer)) = asked.as_mut() {
                 part_set::answer(request, answer, &presentation, draws, place);
             }

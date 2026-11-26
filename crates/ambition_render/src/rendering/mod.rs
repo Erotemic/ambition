@@ -107,6 +107,9 @@ pub mod boss_stage;
 pub mod body_cues;
 pub mod bubble_shield;
 pub mod cast_bubble;
+/// RV2: the optional orthographic 3D card view beside the 2D view.
+#[cfg(feature = "card_view")]
+pub mod card_view;
 mod camera;
 pub mod control_legend;
 pub mod debug_viz;

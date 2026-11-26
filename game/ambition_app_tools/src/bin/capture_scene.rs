@@ -208,6 +208,9 @@ struct SceneCaptureConfig {
     /// flash (`--player-flash TICK`), so where its flash is drawn can be
     /// photographed without a blow that lands on it.
     player_flash_from: Option<u64>,
+    /// `--card-view`: draw the orthographic 3D card view (RV2) beside the
+    /// 2D view, in the lower right of the same window.
+    card_view: bool,
     /// The fog in front of the sky of the two-state room look
     /// (`--look-depth FOG,PATCHES`), to tune it with photographs: the numbers
     /// of `RoomLookDepth`, in its field order.
@@ -393,6 +396,8 @@ OPTIONS:
     --player-flash TICK
                         hold the player lit by the damage flash from sim tick
                         TICK on, as a blow that lands lights it
+    --card-view         draw the orthographic 3D card view (RV2) beside the
+                        2D view, in the lower right of the same window
     --player-at X,Y[@TICK][:VX,VY]
                         put the player at world X,Y (its centre) on sim tick
                         TICK [default: 60], at rest or moving at VX,VY px/s;
@@ -1512,6 +1517,9 @@ fn install_room_capture(app: &mut App) {
     if !app.world().resource::<SceneCaptureConfig>().carry {
         app.insert_resource(ambition_platformer2d::portal_presentation::PortalCarrySelection { enabled: false });
     }
+    if app.world().resource::<SceneCaptureConfig>().card_view {
+        app.add_plugins(ambition_platformer2d::render::rendering::card_view::CardViewPlugin);
+    }
     if app.world().resource::<SceneCaptureConfig>().limbs_unseen.is_some() {
         use ambition_platformer2d::render::rendering::actors::rigged::{RiggedDriveSet, follow_limb_twins};
         app.add_systems(
@@ -1591,6 +1599,7 @@ fn install_room_capture(app: &mut App) {
                 .before(ambition_platformer2d::render::rendering::daylight::light_the_world),
             request_capture.after(sync_parallax_layers),
             adopt_menu_camera,
+            adopt_card_view_cameras,
             finish_after_capture,
             fail_after_timeout,
             fail_when_the_shell_refuses_the_route,
@@ -1760,6 +1769,7 @@ impl SceneCaptureConfig {
         let mut boss_hp: Option<f32> = None;
         let mut boss_blows: Vec<(u64, i32)> = Vec::new();
         let mut player_flash_from: Option<u64> = None;
+        let mut card_view = false;
         let mut look_depth: Option<[f32; 2]> = None;
         let mut camera_zoom = None;
         let mut camera_roll = None;
@@ -2048,6 +2058,10 @@ impl SceneCaptureConfig {
                     };
                     boss_blows.push((tick.parse::<u64>().map_err(|_| bad(value))?, hearts));
                     2
+                }
+                "--card-view" => {
+                    card_view = true;
+                    1
                 }
                 "--player-flash" => {
                     let Some(value) = args.get(i + 1) else {
@@ -2467,6 +2481,7 @@ impl SceneCaptureConfig {
                 boss_hp,
                 boss_blows: Vec::new(),
                 player_flash_from: None,
+                card_view: false,
                 look_depth,
                 camera_zoom,
                 camera_roll,
@@ -2528,6 +2543,7 @@ impl SceneCaptureConfig {
             boss_hp,
             boss_blows,
             player_flash_from,
+            card_view,
             look_depth,
             camera_zoom,
             camera_roll,
@@ -3111,6 +3127,33 @@ fn place_player_beside(
         "capture_scene: placed the player beside {id} at {:?} on tick {arrival}",
         clusters.kinematics.pos
     );
+}
+
+/// Point each card-view camera (`--card-view`, RV2) at the capture image, as
+/// [`adopt_menu_camera`] does the cube's, so the one picture holds both
+/// views. Its viewport is measured on its own target, so it follows.
+fn adopt_card_view_cameras(
+    mut commands: Commands,
+    config: Res<SceneCaptureConfig>,
+    target: Option<Res<SceneCaptureTarget>>,
+    mut cameras: Query<
+        (Entity, &mut Projection),
+        (
+            With<ambition_platformer2d::render::rendering::card_view::CardViewCamera>,
+            Without<AdoptedMenuCamera>,
+        ),
+    >,
+) {
+    let (true, Some(target)) = (config.card_view, target) else {
+        return;
+    };
+    let want = RenderTarget::Image(ImageRenderTarget::from(target.image.clone()));
+    for (entity, mut projection) in &mut cameras {
+        projection.set_changed();
+        commands
+            .entity(entity)
+            .insert((want.clone(), Msaa::Off, AdoptedMenuCamera));
+    }
 }
 
 /// A cube camera [`adopt_menu_camera`] has already pointed at the capture.

@@ -441,6 +441,53 @@ kernel cost decreased by 0.08–0.12 ms per tick. The development build saved
 1.6–2.1 ms per tick. The engine still checks these parameters on each reuse.
 These measurements do not give the full-room cost or the Android frame rate.
 
+### Exact axis law comparison
+
+The settled movement check compares retained axis parameters in place.
+The snapshot codec and the comparison use the same field declarations.
+A change from positive to negative zero causes a new solve in the movement
+test. All 12 snapshot fixtures match the previous encoding byte for byte.
+
+The desktop kernel probe stepped 596 bodies on one floor. Each condition
+ran twice in reverse order. Use the median thread CPU time from seven
+32-tick batches in each run.
+
+| Settled pass | Before, ms/tick | After, ms/tick |
+| --- | ---: | ---: |
+| Development (`opt-level=0`) | 8.44–9.35 | 6.05–6.49 |
+| Optimized (`opt-level=3`) | 0.46–0.49 | 0.22–0.30 |
+
+The development probe retired 22.73 billion instructions before and
+14.40 billion after. Both versions reused all 596 steps and produced the
+same digest. A walking probe reused zero steps and also matched the
+digest. The optimized saving was 0.19–0.24 ms per tick for this workload.
+The build volume did not have space for a new full Hall executable.
+Measure the net desktop tick cost and phone frame time in the assembled
+game before assigning a frame rate to this change.
+
+### Inline collision cast storage
+
+A whole material cell retains its bounds inline. Boxes and segments use
+inline vertices in the shared cast and repair code. Partitioned cells and
+larger polygons retain storage sized to their geometry. The admission
+budget, contact order, and closest-point tie rule still apply.
+
+The 596-body floor probe ran each build twice in reverse order. Both
+versions matched the position, velocity, and contact-count digests.
+The tests cover bounds, budget refusals, and portal clips. A separate
+comparison matched contact records from 3,240 casts across shapes and frames.
+
+| Desktop workload | Before, ms/tick | After, ms/tick |
+| --- | ---: | ---: |
+| Development, 57 moving and 539 reusing | 5.80–6.73 | 5.44 |
+| Optimized, 57 moving and 539 reusing | 0.40–0.41 | 0.35–0.39 |
+| Optimized, all moving | 2.84–2.94 | 2.45–2.46 |
+
+Heap allocations per moving body step fell from 47 to 17. In the mixed
+development run the instruction count fell from 18.39 to 17.60–17.61
+billion. The two active populations show how the saving changes with
+movement demand. The phone and full desktop room still need a new capture.
+
 ### Pose publication
 
 The actor pose and appearance queries select the same bodies. They read

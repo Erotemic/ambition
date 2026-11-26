@@ -28,9 +28,10 @@ pub mod portal;
 
 // Only the input bridge + portal continuity order against the sandbox phases.
 #[cfg(any(feature = "input", feature = "portal_render"))]
-use ambition_platformer2d_shared_tangle::schedule::{
-    Platformer2dSimulationPhase, SimScheduleExt as _,
-};
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
+// The input bridge asks whether the sim runs on a fixed tick.
+#[cfg(feature = "input")]
+use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
 /// The windowed-host plugin group (see the crate docs).
 pub struct PlatformerHostPlugins;

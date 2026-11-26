@@ -342,6 +342,9 @@ counter so authors can check the space for a conversation.
 In the Callosum, use the cap bounds to place each synapse and the climbable
 bounds to place the fibre bundle. Show the space to leave the bundle at
 the top of the arch.
+In the Neural Cathedral, use the lift stops and the gallery edge to place
+the fibres behind the deck. Show the deck at both stops and a body at
+each transfer.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

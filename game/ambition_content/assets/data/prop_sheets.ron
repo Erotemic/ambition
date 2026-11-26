@@ -1173,6 +1173,8 @@
     "neural_signpost": (),
     "neural_callosum_caps": (),
     "neural_memory_gallery": (),
+    "neural_cathedral_lift_fibres": (backdrop: true),
+    "neural_cathedral_memory_lift": (),
     "neural_dendrite_tree": (),
     "neural_logic_gates": (),
     "neural_training_bypass": (backdrop: true),

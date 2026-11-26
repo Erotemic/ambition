@@ -708,6 +708,27 @@ The optimized kernel medians for the mixed workload overlapped
 (0.364–0.396 ms before, 0.354–0.385 ms after). The workload measures one
 thread and excludes the desktop host, render, and ECS systems.
 
+### Desktop Hall after the movement and presentation changes
+
+The development build at `34bdc51a25a0` passed the assembled app check.
+Two windowed runs used the same Intel i9-11900K VM, llvmpipe Vulkan,
+Potato quality, and a 1280 × 800 viewport. Each run started in
+`hall_of_characters` with a fresh configuration and no population cap.
+
+```sh
+cargo build -p ambition_app --bin ambition_game_bin -j 4
+AMBITION_PROFILE_CENSUS=1 xvfb-run -a -s '-screen 0 1280x800x24 -nolisten tcp' \
+    target/debug/ambition_game_bin --start-room hall_of_characters
+```
+
+The sum of measured simulation phases had medians of 20.52 and 20.48
+ms/tick for the census window from 30 to 55 seconds. The earlier desktop
+receipt recorded 27.5 ms/tick. Integration used 4.2 ms/tick, combat 2.4 ms,
+player simulation 2.1 ms, and feature view sync 2.0 ms. The headless
+population check on the same build found 596 movement bodies. Of these,
+539 reused their settled movement step on the last tick. The desktop
+target is 13.75 ms/tick.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

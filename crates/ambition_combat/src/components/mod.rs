@@ -166,8 +166,8 @@ impl BodyMovementTuning {
         balance: None,
     };
 
-    /// Build shared engine movement tuning for the body's gravity/run/fall parameters.
-    pub fn spine_tuning(&self, max_run_speed: f32) -> ae::MovementTuning {
+    /// Apply the body's movement settings to the common defaults.
+    pub fn body_tuning(&self, max_run_speed: f32) -> ae::MovementTuning {
         ae::MovementTuning {
             gravity: self.gravity,
             run_accel: self.run_accel,
@@ -177,16 +177,9 @@ impl BodyMovementTuning {
             max_run_speed,
             max_fall_speed: self.max_fall_speed,
             balance: self.balance,
-            ..ae::MovementTuning::default()
-        }
-    }
-
-    /// Extend [`Self::spine_tuning`] with this body's authored jump impulses.
-    pub fn body_tuning(&self, max_run_speed: f32) -> ae::MovementTuning {
-        ae::MovementTuning {
             jump_speed: self.jump_speed,
             double_jump_speed: self.double_jump_speed,
-            ..self.spine_tuning(max_run_speed)
+            ..ae::DEFAULT_TUNING
         }
     }
 }

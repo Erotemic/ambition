@@ -82,6 +82,7 @@ pub fn record_placed_bodies(
             &ambition_platformer2d_core::body_clusters::BodyKinematics,
             &ambition_combat::actor_tuning::ActorConfig,
             Option<&ambition_platformer2d_shared_tangle::construction::SpawnOrigin>,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         (
             With<ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity>,
@@ -105,7 +106,8 @@ pub fn record_placed_bodies(
         String,
         std::collections::BTreeMap<ambition_platformer2d_shared_tangle::sim_id::SimId, ambition_platformer2d_core::Vec2>,
     > = std::collections::BTreeMap::new();
-    for (entity, sim_id, kinematics, config, origin) in &bodies {
+    let mut spec_of = room_set.specs_for_subjects();
+    for (entity, sim_id, kinematics, config, origin, stamp) in &bodies {
         let Some(whereabouts @ (OccurrenceWhereabouts::InCustody | OccurrenceWhereabouts::Placed { .. })) =
             occurrences.whereabouts(sim_id)
         else {
@@ -114,10 +116,10 @@ pub fn record_placed_bodies(
         if !keeps_durable_whereabouts(&room_set, config, origin) {
             continue;
         }
-        let Some(definition) = room_set.definition_of(entity) else {
+        let Some(spec) = spec_of(entity, stamp) else {
             continue;
         };
-        let room = &room_set.rooms().spec(definition).id;
+        let room = &spec.id;
         let feet = ambition_platformer2d_core::Vec2::new(
             kinematics.pos.x,
             kinematics.pos.y + kinematics.size().y * 0.5,
@@ -174,6 +176,7 @@ pub fn record_bodies_away_from_home(
             &ambition_platformer2d_shared_tangle::sim_id::SimId,
             &ambition_combat::actor_tuning::ActorConfig,
             &ambition_platformer2d_shared_tangle::construction::SpawnOrigin,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         (
             With<ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity>,
@@ -187,16 +190,17 @@ pub fn record_bodies_away_from_home(
     };
     let mut now = std::collections::BTreeSet::new();
     if let Some(room_set) = room_set {
-        for (entity, sim_id, config, origin) in &bodies {
+        let mut spec_of = room_set.specs_for_subjects();
+        for (entity, sim_id, config, origin, stamp) in &bodies {
             let ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Authored { source, .. } = origin else {
                 continue;
             };
-            let Some(definition) = room_set.definition_of(entity) else {
+            let Some(spec) = spec_of(entity, stamp) else {
                 continue;
             };
             // At home is the common case and the cheap question, so it is
             // asked first; the durable-whereabouts test scans room records.
-            if &room_set.rooms().spec(definition).id == source {
+            if &spec.id == source {
                 continue;
             }
             // A body with durable whereabouts has a row instead.

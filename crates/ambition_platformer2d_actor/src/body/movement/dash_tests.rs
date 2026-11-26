@@ -63,7 +63,6 @@ fn dash_run(sprite_content: &ambition_sprite_sheet::SpriteContent, can_dash: boo
     for _ in 0..ticks {
         em.update(
             &world,
-            FeatureCombatTuning::default(),
             dt,
             false,
             frame,
@@ -71,7 +70,7 @@ fn dash_run(sprite_content: &ambition_sprite_sheet::SpriteContent, can_dash: boo
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             // No move playing: these fixtures are about movement, not helplessness.
             None,
-            ambition_combat::feel::FeelTuning::default(),
+            ambition_combat::feel::FeelTuning::default().hitstun_control_scale,
             None,
             &mut ambition_characters::actor::BodyCombat::default(),
             // Not tumbling — these fixtures are about the dash, not the floor game.
@@ -130,7 +129,6 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
         let mut em = seed.as_actor_mut();
         em.update(
             &world,
-            FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
             ActorControlFrame::neutral(),
@@ -138,7 +136,7 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
             ae::MotionFrame::from_direction(gravity, ae::GRAVITY),
             // No move playing: these fixtures are about movement, not helplessness.
             None,
-            ambition_combat::feel::FeelTuning::default(),
+            ambition_combat::feel::FeelTuning::default().hitstun_control_scale,
             None,
             &mut ambition_characters::actor::BodyCombat::default(),
             // Not tumbling — these fixtures are about the dash, not the floor game.
@@ -187,7 +185,6 @@ fn walk_run_staggered(sprite_content: &ambition_sprite_sheet::SpriteContent, mut
     for _ in 0..ticks {
         em.update(
             &world,
-            FeatureCombatTuning::default(),
             dt,
             false,
             frame,
@@ -195,7 +192,7 @@ fn walk_run_staggered(sprite_content: &ambition_sprite_sheet::SpriteContent, mut
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             // No move playing: these fixtures are about movement, not helplessness.
             None,
-            ambition_combat::feel::FeelTuning::default(),
+            ambition_combat::feel::FeelTuning::default().hitstun_control_scale,
             None,
             &mut combat,
             // Not tumbling — these fixtures are about the dash, not the floor game.
@@ -288,7 +285,6 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
     frame.burst_pressed = true;
     em.update(
         &world,
-        FeatureCombatTuning::default(),
         1.0 / 60.0,
         false,
         frame,
@@ -296,7 +292,7 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
         ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
         // No move playing: these fixtures are about movement, not helplessness.
         None,
-        ambition_combat::feel::FeelTuning::default(),
+        ambition_combat::feel::FeelTuning::default().hitstun_control_scale,
         None,
         &mut ambition_characters::actor::BodyCombat::default(),
         // Not tumbling — this fixture is not about the floor game.
@@ -347,7 +343,6 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
     for _ in 0..60 {
         em.update(
             &world,
-            FeatureCombatTuning::default(),
             dt,
             false,
             frame,
@@ -355,7 +350,7 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             // No move playing: these fixtures are about movement, not helplessness.
             None,
-            ambition_combat::feel::FeelTuning::default(),
+            ambition_combat::feel::FeelTuning::default().hitstun_control_scale,
             None,
             &mut ambition_characters::actor::BodyCombat::default(),
             // Not tumbling — these fixtures are about the dash, not the floor game.
@@ -437,7 +432,6 @@ fn fly_toggle_run(sprite_content: &ambition_sprite_sheet::SpriteContent, can_fly
         frame.facing = 1.0;
         em.update(
             &world,
-            FeatureCombatTuning::default(),
             dt,
             false,
             frame,
@@ -445,7 +439,7 @@ fn fly_toggle_run(sprite_content: &ambition_sprite_sheet::SpriteContent, can_fly
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             // No move playing: these fixtures are about movement, not helplessness.
             None,
-            ambition_combat::feel::FeelTuning::default(),
+            ambition_combat::feel::FeelTuning::default().hitstun_control_scale,
             None,
             &mut ambition_characters::actor::BodyCombat::default(),
             // Not tumbling — these fixtures are about the dash, not the floor game.

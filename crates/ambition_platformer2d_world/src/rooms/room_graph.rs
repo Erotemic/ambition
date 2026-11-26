@@ -523,7 +523,7 @@ pub struct LiveRoomSpecs<'w, 's> {
     >,
 }
 
-impl LiveRoomSpecs<'_, '_> {
+impl<'w, 's> LiveRoomSpecs<'w, 's> {
     /// Whether the session's room set was replaced since this system last ran.
     pub fn set_is_changed(&self) -> bool {
         use bevy_ecs::change_detection::DetectChanges;
@@ -544,6 +544,26 @@ impl LiveRoomSpecs<'_, '_> {
     /// [`Self::definition_of`] is `None`.
     pub fn spec_of(&self, entity: bevy_ecs::entity::Entity) -> Option<&RoomSpec> {
         self.definition_of(entity).map(|definition| self.rooms.spec(definition))
+    }
+
+    /// Read the specs for a batch of subjects. Reuse the lookup while the
+    /// subjects are in the same live room.
+    pub fn specs_for_subjects<'a>(&'a self) -> impl FnMut(
+        bevy_ecs::entity::Entity,
+        Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
+    ) -> Option<&'a RoomSpec> + use<'a, 'w, 's> {
+        let mut previous_room = None;
+        let mut spec = None;
+        move |entity, stamp| {
+            let room = stamp.map(|stamp| stamp.0).or_else(|| self.live.of(entity));
+            if room != previous_room {
+                previous_room = room;
+                spec = room
+                    .and_then(|room| self.definition_in(room))
+                    .map(|definition| self.rooms.spec(definition));
+            }
+            spec
+        }
     }
 
     /// The session's room set.

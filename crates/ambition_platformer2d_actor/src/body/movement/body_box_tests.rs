@@ -55,14 +55,13 @@ fn step_with_material(
     em.sweep = Some(&mut sample);
     em.update(
         &world,
-        FeatureCombatTuning::default(),
         1.0 / 60.0,
         false,
         ActorControlFrame::neutral(),
         &mut model,
         ae::MotionFrame::from_direction(down, ae::GRAVITY),
         None,
-        ambition_combat::feel::FeelTuning::default(),
+        ambition_combat::feel::FeelTuning::default().hitstun_control_scale,
         None,
         &mut combat,
         false,

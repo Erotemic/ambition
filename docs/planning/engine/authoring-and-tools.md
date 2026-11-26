@@ -407,6 +407,9 @@ The first regeneration of the Weights gave a moved Attention Head a new
 LDtk instance ID. To keep its runtime placement key, move the existing
 spawn before regeneration. Let generators give spawns stable authored keys
 that the tool and the runtime can use.
+The Collider automaton kept its ID with the same method. The move command
+checked the Science file alone and reported valid gate arrivals as errors.
+Use the same world composition for entity moves and room generation.
 
 **What is known about the recurring rewrite (2026-10-04).** Two fixes did not
 stop it: `54d99e7fb` (reuse tileset and rule uids; write only when changed)

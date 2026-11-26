@@ -67,10 +67,12 @@ capital was first built at `LICENSED`; that address is retired.
   baggage hall below: a conveyor of bags from every dimension, the claw,
   and Lou at Lost Baggage. The lift beside the conveyor returns to the
   main floor under the freight catwalk.
-- **Authority Plaza** (`authority_plaza`), east: the arcade with the great
-  clock, stairs up to its balcony, Gatekeeper Imre at the podium; the
-  blossom tree on its planter, benches round it; the notice board; the
-  Manifest Office's door.
+- **Authority Plaza** (`authority_plaza`), east: the street from the
+  Concourse passes under the clock stairs. The stairs lead to Gatekeeper
+  Imre and the raised walk. At the end of the walk, visitors can jump to
+  the blossom bough or drop to the street. A perch connects the planter
+  to the bough. The street leads past the notice board to the Manifest
+  Office.
 - **The Manifest Office** (`authority_manifest_office`), by a door: the
   take-a-number machine, NOW SERVING, the counter, the Registrar, and
   filing cabinets to the ceiling (a chest on top).

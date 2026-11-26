@@ -334,6 +334,8 @@ width and position to leave a gap in its rail.
 For the Draft, use the inspection deck, ladder, and slab bounds to place
 the scaffold and its supports. Show the parallax blocks in the same view
 to check that visitors can tell which edges support a body.
+In Authority Plaza, show a body on the street below the clock stairs.
+Use the one-way ledge bounds to place each tread and the raised walk.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

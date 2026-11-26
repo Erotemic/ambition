@@ -1190,6 +1190,7 @@
     "authority_baggage_lift_shaft": (),
     "authority_baggage_lift": (),
     "authority_clock_arcade": (),
+    "authority_clock_walk": (backdrop: true),
     "authority_blossom_tree": (),
     "authority_notice_board": (),
     "authority_manifest_portico": (),

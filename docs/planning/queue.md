@@ -705,9 +705,10 @@ overlay wrapper and repeated ambiguity reducers as their callers migrate.
 
 ### BUILD-BOUNDARIES — share implementation after typed selection
 
-**State:** PLANNED (source review at `3ed50e318392`, 2026-11-21).
-This is developer-iteration work within the product order above. No new
-compile-time, runtime or binary-size result is claimed.
+**State:** CB1–CB4 cuts LANDED (2026-11-22 to 2026-11-25; the `sim` tools
+link no renderer). Open: CB4's per-command compiler work, which no slice has
+measured, and the conditional curved-search experiment. No compile-time,
+runtime or binary-size result is claimed yet.
 
 **Failure / customer:** the game schema library normally imports the
 aggregate CLI that consumes it; the tool package selects desktop/capture
@@ -749,8 +750,12 @@ area table and `ldtk_runtime` the `bevy_ecs_ldtk` spine, so content's graph
 2026-11-25: the app and the three demo providers select simulation
 capabilities and put their looks under a `render` feature (the app's own
 drawing code is gated on it); `sim` 503 → 496 with no `ambition_render`,
-and `game` resolves the same crates and features. Remaining: `bevy_render`, `wgpu` and
-`bevy_ecs_ldtk` survive in `sim` through the app's `ldtk_runtime` spine.
+and `game` resolves the same crates and features. The `sim` cut
+landed 2026-11-25: the LDtk spine, `bevy_dev_tools` and Avian moved under the
+drawing features, so `sim` (496 → 443) links no `bevy_render`, `wgpu`,
+`bevy_ecs_ldtk` or Avian, `game` resolves the same features, and a headless
+trace is the same under both; `scripts/tests/test_sim_tools_have_no_renderer.py`
+holds it. CB4's command, harness, provider and app cuts are all landed.
 Do not move tool binaries back into app integration-test builds.
 
 **Acceptance:** an independent schema consumer excludes the checker; the

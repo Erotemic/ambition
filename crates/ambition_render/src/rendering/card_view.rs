@@ -62,8 +62,19 @@
 //!
 //! # Not yet realized (RV3)
 //!
-//! The gate cue's scanlines (drawn as its flat tint) and portals are not
-//! drawn in this view, nor the parallax backdrops and room dressing props.
+//! # Portals
+//!
+//! A portal is its line of light here too: a thin card along its opening in
+//! the colour the 2D glow draws its room side in, opening and dissolving as
+//! the glow does ([`ambition_portal2d_presentation::PortalGlow`]), on the
+//! play plane in front of the terrain and behind the bodies. What a portal
+//! shows of its far side is not drawn in this view (P5/P6).
+//!
+//! # Not yet realized (RV3)
+//!
+//! The gate cue's scanlines (drawn as its flat tint), a portal's far side,
+//! the grass turf of a line, room dressing props and the parallax backdrop
+//! are not drawn in this view.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -111,6 +122,10 @@ pub const TERRAIN_DEPTH: f32 = -0.5;
 /// How far the earth under a line is behind the block skin (its 2D band is
 /// under the blocks').
 const EARTH_BEHIND_SKIN: f32 = 0.1;
+/// A portal's line of light: in front of the terrain, behind the bodies.
+pub const PORTAL_DEPTH: f32 = -0.25;
+/// The width of a portal's line of light, in world units.
+pub const PORTAL_LINE_WIDTH: f32 = 3.0;
 /// The near panel's distance behind the play plane.
 const NEAR_PANEL_GAP: f32 = 1.0;
 /// Panel and floor thickness.
@@ -171,6 +186,10 @@ pub struct CardHeldArt;
 #[derive(Component)]
 pub struct CardTerrain;
 
+/// The card of one portal's line of light.
+#[derive(Component)]
+pub struct CardPortal;
+
 /// The card of a body drawn from a sheet (no rigged presentation).
 #[derive(Component)]
 pub struct CardSpriteBody;
@@ -218,6 +237,13 @@ impl Plugin for CardViewPlugin {
                 .after(super::item_visuals::sync_held_item_visual)
                 .after(super::wielded_item_visuals::sync_wielded_item_visuals)
                 .after(super::moving_platforms::seat_bodies_in_vessels),
+        );
+        #[cfg(feature = "portal_render")]
+        app.add_systems(
+            Update,
+            realize_card_portals
+                .after(ViewCameraSet)
+                .after(ambition_portal2d_presentation::sync_portal_glows),
         );
     }
 }
@@ -1056,6 +1082,77 @@ pub fn realize_card_terrain(
     }
 }
 
+/// Realize each portal's line of light ([`ambition_portal2d_presentation::PortalGlow`])
+/// as a thin card along its opening, at the glow's place and turn, in its
+/// look's colour, as opaque as the glow is open and not dissolved.
+#[cfg(feature = "portal_render")]
+pub fn realize_card_portals(
+    mut commands: Commands,
+    glows: Query<(Entity, &ambition_portal2d_presentation::PortalGlow, &Transform), Without<CardPortal>>,
+    mut cards: Query<(&mut MeshMaterial3d<StandardMaterial>, &mut Transform), With<CardPortal>>,
+    meshes: Option<ResMut<Assets<Mesh>>>,
+    materials: Option<ResMut<Assets<StandardMaterial>>>,
+    mut line: Local<Option<Handle<Mesh>>>,
+    mut by_colour: Local<HashMap<[u8; 4], Handle<StandardMaterial>>>,
+    mut by_glow: Local<HashMap<Entity, Entity>>,
+) {
+    let (Some(mut meshes), Some(mut materials)) = (meshes, materials) else {
+        return;
+    };
+    by_glow.retain(|glow, card| {
+        let keep = glows.contains(*glow);
+        if !keep {
+            commands.entity(*card).try_despawn();
+        }
+        keep
+    });
+    let mesh = line.get_or_insert_with(|| meshes.add(Rectangle::new(1.0, 1.0))).clone();
+    for (entity, glow, place) in &glows {
+        let strength = (glow.appear * (1.0 - glow.dissolve)).clamp(0.0, 1.0);
+        let colour = glow.look.display().1.with_alpha(strength);
+        let material = by_colour
+            .entry(colour.to_srgba().to_u8_array())
+            .or_insert_with(|| {
+                materials.add(StandardMaterial {
+                    base_color: colour,
+                    unlit: true,
+                    cull_mode: None,
+                    double_sided: true,
+                    alpha_mode: AlphaMode::Blend,
+                    ..default()
+                })
+            })
+            .clone();
+        let card_place = Transform {
+            translation: place.translation.truncate().extend(PORTAL_DEPTH),
+            rotation: place.rotation,
+            scale: Vec3::new(glow.length, PORTAL_LINE_WIDTH, 1.0),
+        };
+        match by_glow.get(&entity).and_then(|card| cards.get_mut(*card).ok()) {
+            Some((mut card_material, mut transform)) => {
+                if card_material.0 != material {
+                    card_material.0 = material;
+                }
+                transform.set_if_neq(card_place);
+            }
+            None => {
+                let card = commands
+                    .spawn((
+                        CardPortal,
+                        Mesh3d(mesh.clone()),
+                        MeshMaterial3d(material),
+                        card_place,
+                        Visibility::Inherited,
+                        RenderLayers::layer(CARD_VIEW_LAYER),
+                        Name::new("Card portal"),
+                    ))
+                    .id();
+                by_glow.insert(entity, card);
+            }
+        }
+    }
+}
+
 /// Realize each published vessel as a cart: a floor, a back panel, two
 /// sides and a near panel, recessed behind the play plane by the policy.
 pub fn realize_card_vessels(
@@ -1269,6 +1366,48 @@ mod tests {
         app.world_mut().entity_mut(cap).despawn();
         app.update();
         assert_eq!(shown(&mut app).len(), 1, "a mesh that goes takes its card");
+    }
+
+    /// RV3: a portal is a thin card along its opening at its glow's place
+    /// and turn, in its look's colour, as strong as the glow is open; it
+    /// leaves with its glow.
+    #[cfg(feature = "portal_render")]
+    #[test]
+    fn a_portal_is_a_line_of_light_on_the_play_plane() {
+        use ambition_portal2d_presentation::PortalGlow;
+        let mut app = App::new();
+        app.init_resource::<Assets<Mesh>>()
+            .init_resource::<Assets<StandardMaterial>>()
+            .add_systems(Update, realize_card_portals);
+        let look = ambition_portal2d_presentation::PortalChannel::Authored(ambition_portal2d_presentation::PortalChannelColor::Teal);
+        let glow = PortalGlow {
+            portal: None,
+            channel: look,
+            look,
+            room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ACTIVATION,
+            pos: Vec2::new(100.0, 50.0),
+            normal: Vec2::Y,
+            length: 48.0,
+            appear: 0.5,
+            dissolve: 0.0,
+        };
+        let turn = Quat::from_rotation_z(0.3);
+        let place = Transform::from_xyz(-20.0, 30.0, 9.0).with_rotation(turn).with_scale(Vec3::new(80.0, 40.0, 1.0));
+        let source = app.world_mut().spawn((glow, place)).id();
+        app.update();
+        let world = app.world_mut();
+        let mut cards = world.query_filtered::<(&Transform, &MeshMaterial3d<StandardMaterial>), With<CardPortal>>();
+        let (card, material) = cards.single(world).map(|(t, m)| (*t, m.0.clone())).unwrap();
+        assert_eq!(card.translation, Vec3::new(-20.0, 30.0, PORTAL_DEPTH));
+        assert_eq!(card.rotation, turn);
+        assert_eq!(card.scale, Vec3::new(48.0, PORTAL_LINE_WIDTH, 1.0), "the opening, not the glow's halo quad");
+        assert!(PORTAL_DEPTH > TERRAIN_DEPTH && PORTAL_DEPTH < card_body_depth(false, 0));
+        let colour = world.resource::<Assets<StandardMaterial>>().get(&material).unwrap().base_color;
+        assert_eq!(colour, look.display().1.with_alpha(0.5));
+        app.world_mut().entity_mut(source).despawn();
+        app.update();
+        let world = app.world_mut();
+        assert_eq!(world.query_filtered::<(), With<CardPortal>>().iter(world).count(), 0, "it leaves with its glow");
     }
 
     /// The declared depth policy: a seated body is behind the cart's near

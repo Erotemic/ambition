@@ -665,7 +665,25 @@ shared value preparation are sufficient until source proves otherwise.
    `intro_fell` capture now shows the shepherd, the sheep and Scout
    standing on the turf, and the hill's earth rising behind them.
 
-   Still unrealized in the card view: portals (P5/P6), the grass turf
+   **Portals (2026-11-25, `portal_render`).** A portal is a line of light
+   on its host surface. The 2D view draws it as the `PortalGlow` sprite,
+   placed by `sync_portal_glows`. The card view reads the same glow after
+   that system, so it uses the frame's placement, length, channel colour
+   and open/close fade. It draws one unlit card per glow
+   (`realize_card_portals`) on the play plane at `PORTAL_DEPTH` −0.25,
+   between the terrain and the bodies, as wide as the glow's length and 3
+   units thick. Materials are cached by colour. Witness
+   `a_portal_is_a_line_of_light_on_the_play_plane`: the card takes the
+   glow's place, turn, length and channel colour, and leaves with the
+   glow. Render lib with `card_view,portal_render`: 5 card-view tests
+   passed; with `card_view` alone: 4. Capture `intro_fell player
+   --card-view --player-beside npc_fell_sheep` with two upright portals
+   placed beside the sheep (`--portal-at`): the card view shows the cyan
+   and the pink line where the 2D view draws them, behind the shepherd.
+   The portal's view of its far side (P5/P6, the window over the play
+   plane) is not drawn here.
+
+   Still unrealized in the card view: the portal far-side window (P5/P6), the grass turf
    pieces on a line (sprites, `ChainTurf`), room dressing props, and the
    parallax backdrop.
 

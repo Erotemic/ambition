@@ -163,7 +163,7 @@ runtime boundary is what splits.
   `sprite_player_robot_v3` (used only by the `PlayerStart` entity's editor
   tile) was the player's full-resolution runtime sheet, decoded by
   `bevy_ecs_ldtk` at boot; since 2026-11-20 every world points it at the
-  robot's 2048x640 portrait page instead ([Q180](../awaiting-maintainer-decision.md#q180--what-should-the-ldtk-worlds-playerstart-icon-point-at-so-the-player-robot-can-publish-without-a-sheet-page)
+  robot's 2048x640 portrait page instead ([Q180](../maintainer-decisions.md)
   option (a)). An editor product under an editor root is still the cleaner
   home for editor-only tiles. Mary-O's
   `ldtk_editor_art_mary_o.png` feeds auto-layers and may draw at runtime

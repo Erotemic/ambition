@@ -28,7 +28,7 @@ build, not necessarily current HEAD; revalidate before reopening a fix.
 | Hall of Bosses | Verify whether main-game boss copies need conversion to `practice` without changing hall-only bosses' story semantics |
 | GNU-ton | Review remaining presentation, line/limb, arena/practice, tests, tuning and GPU issues against [`gnu-ton-fight-debts.md`](gnu-ton-fight-debts.md) and current phase-3 implementation |
 | Smirking Behemoth / Mode Collapse | Optional eye-beam material/aim tell; bespoke degenerating Mode Collapse music |
-| Supreme Leader | Q182/Q183; his own cue and War Room backdrop; human playtest and tuning |
+| Supreme Leader | His own cue and War Room backdrop; human playtest and tuning (Q182/Q183 ruled: Hall encounter, title only, for now) |
 
 ## The design language
 
@@ -524,9 +524,10 @@ captures, never movement authority.
 The ruler of the Nazi Dimension's regime, from the concept sheet
 `assets/concept_art/misc/Supreme Leader Character Design Sheet.png`. He is
 **not** Wolfenstein, and he is not fought in Castle Godwin (which is not the
-capital). His name, his history and where in the dimension he is fought are
-**open** ([Q182](../awaiting-maintainer-decision.md#q182--where-in-the-nazi-dimension-is-the-supreme-leader-fought),
-[Q183](../awaiting-maintainer-decision.md#q183--who-is-the-supreme-leader)); nothing here settles them.
+capital). Ruled 2026-11-26 ([Q182, Q183](../maintainer-decisions.md)), for now: he
+is called by his title, and he is fought in the existing Hall of Bosses
+encounter; the capital, the story route to him and his history come later
+with that story content.
 The regime fought the Gate Authority to a stalemate; the fight does not
 retell it.
 
@@ -580,7 +581,7 @@ are not fought.
 
 - **The War Room** (`hall_supreme_leader_war_room`, `evil.ldtk`), a room of
   its own at the bottom of the dimension's world file, joined to no other
-  room. Until Q182 is answered its only way in is the **Hall of Bosses**
+  room. Its only way in is the **Hall of Bosses**
   door on the lower floor (`hall_to_supreme_leader_portal`) with its life
   switch. It is his one placement (`hall.supreme_leader`), so it is a real
   encounter, not a practice copy: beating him drops his chest (400) and is
@@ -606,8 +607,9 @@ are not fought.
 
 ### Remaining work and decisions
 
-- Q182 (where he is fought, and the capital) and Q183 (his name and
-  history).
+- Later story content (not a decision gate): the capital, the route to
+  him, and his name and history (Q182/Q183 keep the Hall and the title
+  for now).
 - A cue of his own, and a War Room backdrop of its own.
 - Human playtest and tuning: the uplink's blows, the lines' heights against
   every body, the Mandate's reach.

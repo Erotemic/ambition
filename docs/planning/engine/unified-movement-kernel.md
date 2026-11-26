@@ -285,8 +285,8 @@ with Attack, release; `ball_dash.rs`).
 - **Recommendation for Sanic:** if the roll should be a commitment (the
   momentum this row asks about), give it its own rule as data on the
   `spin_dash` row: a friction factor while `Rolling`, and input that only
-  brakes. It is a change to how a shipped character feels, so it is filed,
-  not made (Q181).
+  brakes. Ruled (a) on 2026-11-26 (Q181): a committed classic roll,
+  distinct from the run; the work is queue SANIC-ROLL.
 - **The frozen ball (2026-11-11) does not reproduce on main.** The old
   route now meets a badnik first. 14 spin dashes from seven start points,
   with the stick held or let go after, never rode at speed without moving.

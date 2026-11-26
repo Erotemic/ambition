@@ -824,7 +824,7 @@ slices 1 to 4 and the decisions.
 
 **Owner:** [part-first publication](engine/part-first-publication.md).
 
-**Next action:** PF0 and PF1 are done, and PF2's module road (2026-11-18: 414 sheets publish page-less by `build_sheet(parts=True)`, all 434 audited against every painted frame, boss art excepted; [state](engine/part-first-publication.md#state-2026-11-18)). Done 2026-11-18: PF3 (`sprites.sh --reference`; the asset inspector plays page-less sheets from parts), the generator road (config sheets recorded once, page-less, tiers derived), and PF2b content (nine boss sheets drawn from their characters' parts; a faceless part-drawn boss flinches whole; a page-less boss sheet resolves by its declared path). Done 2026-11-18: Noether, player_robot_v3 and Mary-O v2 record once and publish page-less (the robot kept its page until the LDtk `PlayerStart` tileset was retargeted, done 2026-11-20). Done 2026-11-18: `sandbag` records once and publishes page-less; GNU-ton's giant mount records its parts before the layer pass and publishes page-less, drawn from parts on the boss road; GNU2, Jeff Hinter armored and Fukuzawa publish page-less too, their rigid pieces composed into one part each (a bone's plates, a segment's armour) instead of drawn one by one. Done 2026-11-19: PF6, the full sprite republish on the agent's VM (1,297 builds in 4,675 s wall at 6 jobs; the store's sprites from 2,587 MB to 1,275 MB, sheet pages from 1,920 MB to 600 MB: [result](engine/part-first-publication.md#state-2026-11-18)). Done 2026-11-20: the LDtk tileset retarget, [Q180](awaiting-maintainer-decision.md#q180--what-should-the-ldtk-worlds-playerstart-icon-point-at-so-the-player-robot-can-publish-without-a-sheet-page) option (a) taken as a reversible assumption: all 20 worlds draw `PlayerStart` from the robot's portrait page, and `player_robot_v3` left `baked_pages`; republished 2026-11-20 (176 s), the store holds its parts, portraits and record at every tier and no sheet page. PF4 is done per target (2026-11-19): an in-between oracle of each rig chose its tweened clips (906 more clips tween in 115 targets; 24 default tweens that misplace limbs step; a mirrored limb no longer tweens through zero width, and a clip played once holds its last frame), declared as `tween_rows` in `sprites.yaml`; the clips of rigs that cannot pose an in-between keep the default ([result](engine/part-first-publication.md#state-2026-11-18)). PF5 is closed by measurement (2026-11-19): the Art cast kit converted to rigid pieces replays every frame exactly but costs 1.1–2.3x the trimmed page at 13–55 draws a frame, so the kit keeps its pages ([result](engine/part-first-publication.md#state-2026-11-18)).
+**Next action:** PF0 and PF1 are done, and PF2's module road (2026-11-18: 414 sheets publish page-less by `build_sheet(parts=True)`, all 434 audited against every painted frame, boss art excepted; [state](engine/part-first-publication.md#state-2026-11-18)). Done 2026-11-18: PF3 (`sprites.sh --reference`; the asset inspector plays page-less sheets from parts), the generator road (config sheets recorded once, page-less, tiers derived), and PF2b content (nine boss sheets drawn from their characters' parts; a faceless part-drawn boss flinches whole; a page-less boss sheet resolves by its declared path). Done 2026-11-18: Noether, player_robot_v3 and Mary-O v2 record once and publish page-less (the robot kept its page until the LDtk `PlayerStart` tileset was retargeted, done 2026-11-20). Done 2026-11-18: `sandbag` records once and publishes page-less; GNU-ton's giant mount records its parts before the layer pass and publishes page-less, drawn from parts on the boss road; GNU2, Jeff Hinter armored and Fukuzawa publish page-less too, their rigid pieces composed into one part each (a bone's plates, a segment's armour) instead of drawn one by one. Done 2026-11-19: PF6, the full sprite republish on the agent's VM (1,297 builds in 4,675 s wall at 6 jobs; the store's sprites from 2,587 MB to 1,275 MB, sheet pages from 1,920 MB to 600 MB: [result](engine/part-first-publication.md#state-2026-11-18)). Done 2026-11-20: the LDtk tileset retarget, [Q180](maintainer-decisions.md) option (a) taken as a reversible assumption: all 20 worlds draw `PlayerStart` from the robot's portrait page, and `player_robot_v3` left `baked_pages`; republished 2026-11-20 (176 s), the store holds its parts, portraits and record at every tier and no sheet page. PF4 is done per target (2026-11-19): an in-between oracle of each rig chose its tweened clips (906 more clips tween in 115 targets; 24 default tweens that misplace limbs step; a mirrored limb no longer tweens through zero width, and a clip played once holds its last frame), declared as `tween_rows` in `sprites.yaml`; the clips of rigs that cannot pose an in-between keep the default ([result](engine/part-first-publication.md#state-2026-11-18)). PF5 is closed by measurement (2026-11-19): the Art cast kit converted to rigid pieces replays every frame exactly but costs 1.1–2.3x the trimmed page at 13–55 draws a frame, so the kit keeps its pages ([result](engine/part-first-publication.md#state-2026-11-18)).
 
 **Acceptance:** the plan's PF1–PF6: no baked pages for a part-drawn character, full reference sheets only on request, the asset inspector animating from parts, and a full regeneration's time and bytes measured before and after.
 
@@ -1055,6 +1055,33 @@ time and velocity. A ledge or frozen rider consumes that same motion.
 Row/facing/availability cuts never become fabricated velocity. Ordinary
 rigid traffic gains no general deformation solve or per-rider shape copy.
 The existing visual play gate remains separate.
+
+### CRUSH — crushing, compression and motion authority (Q187, ruled 2026-11-26)
+
+**Owner:** [crushing, compression and motion authority](engine/crushing-and-obstruction-response.md).
+
+**State:** the architecture is ruled; the numerical model and the
+deterministic fallback for irreconcilable constraints still need design
+(before C4). Nothing is built. The kernel reports `AxisConstraintConflict`
+and nothing consumes it; platforms take no refusal.
+
+**Next action:** C0, pin today's behaviour: a moving block's pinch reports
+one conflict with both sources; Mary-O's moving one-way platform lets a
+player raised into a ceiling fall through (find and name its mechanism); a walk into a still wall is a refusal with
+no conflict. Then C1 (the obstruction fact, including the same pinch
+through a static portal pair) and C2 (policy data whose defaults change
+nothing).
+
+**Acceptance:** the stage tests in the owner page, stage by stage: C3 a
+yielding or limited mover stalls with riders carried by the accepted
+delta; C4 a body with room is displaced, a slow strong press crushes where
+a fast weak plank stalls, an unstoppable driver compresses, damages,
+destroys or ejects by the body's resistance, Mary-O keeps its one-way
+escape; C5 a portal host is a driver like any other (a train keeps its
+schedule), and its portal is not closed by default.
+
+**Blocked by:** none. Portal M1, M2, SUP1's portal cases and P5/P6 do not
+wait on it; only the admission half of driven aperture motion (C5) does.
 
 ### AUTHORED-PATHS — share geometry and retain movement authority
 
@@ -2078,8 +2105,16 @@ acquiesces rather than dies; "until the day he dies, or retires").
 Boss rides **Full Stack**, a giant amp-stack robot with a guitar; the
 dimension `boss` (`boss.ldtk`: lobby, main stage, green room); the hidden
 gate address **LEGACY**; phases "Make No Mistakes", "Manual Override", "The
-Encore"; the end is his retirement, not his death. Q175 (the giant's
-identity) and Q176 (is a resolve bar a voluntary retirement) hold defaults.
+Encore"; the end is his retirement, not his death. Ruled 2026-11-26: Full
+Stack is its own agent (Q175), and an empty resolve bar leads to a final
+noncombat interaction in which he chooses to retire, not a kill-equivalent
+end (Q176).
+
+**Next action (Q176):** read the green room's scene against the ruling and,
+where the end still plays as a defeat, make the empty bar lead into a
+noncombat interaction he ends by retiring. Acceptance: a headless run that
+empties the bar reaches that interaction, with no death beat or kill
+flag on the Boss.
 
 **Built 2026-11-12:** the dimension (`world.boss_ldtk`, map
 `generators/boss_stage/make_specs.py`): `boss_lobby` with the ring
@@ -2224,8 +2259,9 @@ death (Mary-O has one) and a rule for what a death costs: a Hollow Knight
 style penalty undone by going back to where you fell, with a twist; or a
 portal that yoinks you away before you bite it ("You're too valuable to be
 destroyed"); or a lost currency you can win back, with a bigger penalty when
-you cannot pay the safety fee. Q174 holds the rule; its default is the rescue
-portal with a fee.
+you cannot pay the safety fee. Ruled 2026-11-26 (Q174): keep the rescue
+portal and the recoverable insurance fee (50 coins, the recovery cache, the
+debt) for now.
 
 **Built 2026-11-12 (slice 1, the beat drawn):** Ambition's rooms hold a
 death for 1 s (`replay_level_after_death_s`, was 0), so the robot's death row
@@ -2417,7 +2453,8 @@ subagents"). Reports (Jon, 2026-11-12):
    they planted a fuse and ended themselves, the blast came at the kill and
    the fuse-shaped death row played after it. Now the mite snaps, and a
    death's blast comes at the end of its death row (the fuse);
-   `death_effects::run_death_row_finales`. Q177 holds the choice.
+   `death_effects::run_death_row_finales`. Ruled 2026-11-26 (Q177): the fuse
+   starts only on death.
 
 **Acceptance:** each report fixed and seen in a render or a probe; the mites'
 behaviour has a witness.
@@ -2681,7 +2718,42 @@ authored checkpointing dialogue banks its consequences; a single co-op death
 does not roll shared facts behind the survivor; a seen marker grants no reward
 or quest step.
 
-### GROUNDED-ATTACK-MOMENTUM — measure before changing the slide — ✅ DONE 2026-11-19 (Q181 is Jon's)
+### SANIC-ROLL — a committed roll, distinct from the run (Q181, ruled 2026-11-26)
+
+**Owner:** `game/ambition_demo_sanic` and the [unified movement
+kernel](engine/unified-movement-kernel.md).
+
+**State:** the spin dash is the run's law in a ball's box (friction 400
+px/s², the stick drives and brakes it).
+
+**Next action:** give the roll its own law: reduced friction (the classic
+half), and stick input that only brakes or turns weakly, so the roll keeps
+its momentum and is not steered like a run. Two fields on the move, no
+new kernel mode.
+
+**Acceptance:** from the same speed on flat ground, a roll with no input
+coasts farther than the run's hands-off stop; holding forward does not
+accelerate it; holding back brakes it; the existing Sanic lanes stay green.
+
+**Blocked by:** none.
+
+### GATE-LEGAL — `LEGAL` is the capital's public address (Q185, ruled 2026-11-26)
+
+**Owner:** `game/ambition_content/assets/data/gate_network.ron`,
+[gate network](game/gate-network.md), [Central Hub
+dimension](game/central-hub-dimension.md).
+
+**Next action:** move `LEGAL` to the Gate Authority capital's public ring
+(the Concourse), give the developer sandbox hub its own address, and move
+the tests that dial `LEGAL` home with it. Where a new game starts is a
+separate ruling (it starts in the sandbox hub) and does not change here.
+
+**Acceptance:** every terminal's posted `LEGAL` reaches the capital; the
+sandbox hub is reached by its own address; the gate network tests pass.
+
+**Blocked by:** none.
+
+### GROUNDED-ATTACK-MOMENTUM — measure before changing the slide — ✅ DONE 2026-11-19 (Q181 ruled; see SANIC-ROLL)
 
 **Owner:** [unified movement kernel](engine/unified-movement-kernel.md) and
 the moveset (`MoveFrameData::roots_steering`). Ruling: Q169 (filed as Q166,
@@ -2707,8 +2779,8 @@ change recommended.
 his only roll is the spin dash, and it is the run's law in a ball's box
 (friction 400 px/s², the stick drives and brakes it, a jump out of it keeps
 the surface speed and the ball). A roll that commits (Sonic's half friction,
-input that only brakes) is a feel change filed as
-[Q181](awaiting-maintainer-decision.md). The 2026-11-11 frozen ball does not
+input that only brakes) was filed as Q181 and ruled (a) on 2026-11-26:
+SANIC-ROLL below. The 2026-11-11 frozen ball does not
 reproduce on main (14 spin dashes).
 
 **Measured 2026-11-19, Smash** ([table](engine/unified-movement-kernel.md#grounded-attack-momentum-grounded-attack-momentum-q169)):
@@ -2761,13 +2833,24 @@ math_hotel_ballroom player OUT 640x360 --warmup 200 --player-beside
 npc_math_monty --interact-at 90 --include-ui` shows the whole box and its
 four body lines on screen; at 1280x720 the box is unchanged. (A capture on a
 machine without the generated fonts falls back to Bevy's font, which has no
-`·` or `–`.) What still covers the box is the touch action cluster: Q178.
+`·` or `–`.) What still covers the box is the touch action cluster.
 
-**Blocked by:** Q178 for the touch overlay on small menus.
+**Ruled 2026-11-26 (Q178):** the virtual gamepad is not hidden because a
+menu takes direct touch; it stays usable for menu navigation. A small
+toggle button (top-left, clear of other controls and safe areas) hides and
+restores it, under a setting **Toggle Gamepad Button**: Always visible,
+Auto visible (default: shown when the gamepad could conflict with other UI
+or touch controls), Never visible. Hiding the gamepad never removes the way
+back. Cover viewport sizes, a controller connecting or leaving, and the
+gameplay/menu transitions.
 
-**Next action:** the touch overlay waits on
-[Q178](awaiting-maintainer-decision.md#q178--on-a-small-screen-does-the-touch-overlay-give-way-to-a-menu);
-the in-session pause cube is partly done (2026-11-17). Its page is laid in
+**Blocked by:** none.
+
+**Next action:** the gamepad toggle and its setting, as ruled above
+(`ambition_touch_input`): the button's placement against the safe area and
+the published `ControlFootprints`, the Auto rule (a menu or touch UI under
+the overlay), and the restore path; witness at 640x360 and 1280x720 with
+`capture_scene --include-ui`. The in-session pause cube is partly done (2026-11-17). Its page is laid in
 face-relative units (`Rl`/`Rh`, `game/ambition_menu_kaleidoscope/src/page.rs`),
 so the whole face shrinks with the screen: at 640x360 the six System rows
 read at about 8 px. `InventoryLayout` now carries the System row count with

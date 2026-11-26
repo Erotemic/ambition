@@ -371,13 +371,11 @@ end), and its `idle` strum between.
 - His appearance at other places in the game (the brainstorm: a later-game
   reveal).
 
-## Open questions
+## Rulings
 
-- **Q175** — Is the giant one of the named agents (Geppetto, Clause, Wren) or
-  its own (Full Stack)? Answered in part by Jon, 2026-11-13 ("Add Gepetto,
-  Clause and Wren to the fight"): Full Stack stays its own giant, and the
-  three named agents join the fight beside it (Geppetto in phase 2, Clause
-  and Wren at the encore). Open: the spelling, Geppetto (the concept sheets)
-  or Gepetto (Jon's note, the endgame brainstorm); the game uses Geppetto.
-- **Q176** — Is a resolve bar that empties a "voluntary" retirement, or must
-  the win need something other than damage? Default: the bar is his resolve.
+- **Q175** (2026-11-26): Full Stack is its own agent, the giant; the three
+  named agents join the fight beside it (Geppetto in phase 2, Clause and
+  Wren at the encore). The spelling is **Geppetto**.
+- **Q176** (2026-11-26): the bar is his resolve, and emptying it leads to a
+  final noncombat interaction in which he chooses to retire. The end must
+  not play as an ordinary boss kill. Remaining work: queue FINAL-BOSS.

@@ -371,7 +371,7 @@ residents (row 9 there).
 | D3 | A new game starts in the sandbox hub (`worlds.ron` `entry_room: "central_hub_complex"`). Jon confirmed this on 2026-11-17. The hub's door leads to the workshop. Tests of the hub and the robot's full kit name the hub explicitly. | Change `entry_room` when the maintainer requests a different start. |
 | D4 | Oiler is not in level 1. He stays at the Drain Market under the gate stack (canon: the largest town's mechanic). His lines name Hobford. | put his `NpcSpawn` back in a level-1 room |
 | D5 | `drain_alley` and `under_town_pipes` stay as town rooms outside level 1; their ways to the removed rooms are walled. The culvert's raft walk (`across_the_raft`) is deleted with its crossing. | regenerate the old rooms from the previous generator in git history |
-| D6 | The Creator dies (Q173's default). Open: whether something the player does could keep him alive. | a branch in `creator_final_fragment` on a world fact |
+| D6 | The Creator always dies; his death is not preventable (Q173, ruled 2026-11-26). | a branch in `creator_final_fragment` on a world fact |
 | D7 | The conversation or the barn door approach starts the same raid sequence. | Change its request in `intro_training.rhai` or its door trigger in the map. |
 | D8 | The brute carries the case from Dennis' bench. Scout recovers that case at the siding. | Keep its placement identity through pickup, departure, and recovery. |
 | D9 | Alice's message: move the camp off the goblins' trail. Bob returns her chain himself. | rewrite her node |

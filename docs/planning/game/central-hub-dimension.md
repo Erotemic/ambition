@@ -48,9 +48,10 @@ The game's home is the sandbox's central hub (`central_hub_complex`, address
 `LEGAL`): every terminal away from home posts `LEGAL`, and a new game starts
 there. This slice leaves that alone. The Authority's capital is a dimension
 of its own with its own address, `LICENSED`, and the Concourse's terminal
-posts `LEGAL` like every other. Whether home should become the capital
-(`LEGAL` moved to the Concourse, the sandbox hub kept as a developer place)
-is [Q185](../awaiting-maintainer-decision.md#q185--should-legal-the-address-every-terminal-posts-home-reach-the-gate-authoritys-capital).
+posts `LEGAL` like every other. Ruled 2026-11-26
+([Q185](../maintainer-decisions.md)): `LEGAL` becomes the capital's public
+address, and the developer sandbox gets its own address. Not built yet:
+queue GATE-LEGAL.
 
 ## The shape of it
 

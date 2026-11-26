@@ -464,10 +464,12 @@ proposal/admission before the host writer commits (a refused trajectory
 keeps the combined state), and opening fit on a stretch, which the place
 binding does not decide.
 
-Which of the host, the portal and the material gives way on a refusal is
-visible in play. It is filed as
-[Q187](../awaiting-maintainer-decision.md#q187--when-a-moving-surface-would-carry-a-portal-into-a-place-where-what-is-going-through-it-hits-a-solid-what-gives-way)
-(2026-11-26). The admission boundary waits on that ruling.
+Which of the host, the portal and the material gives way on a refusal was
+ruled on 2026-11-26 (Q187): the general [crushing and obstruction
+response](crushing-and-obstruction-response.md), with no crush rules of
+the portal's own. The host's motion authority meets the body's
+resistance; the portal is not closed by default. The admission boundary
+is its stage C5, which needs C1 and C3.
 
 ## Shared kinematics, distinct movement policy
 
@@ -629,8 +631,8 @@ Delete completed-endpoint remapping and chart-change history collapse.
 Include a hosted aperture whose proposed motion makes carried material
 overlap a solid. Admission must reach the host before commit; the refused
 control preserves the combined state and never leaves the aperture behind.
-(The admission half waits on
-[Q187](../awaiting-maintainer-decision.md#q187--when-a-moving-surface-would-carry-a-portal-into-a-place-where-what-is-going-through-it-hits-a-solid-what-gives-way).)
+(The admission half is
+[crushing C5](crushing-and-obstruction-response.md#stages).)
 
 **Size of the remaining error, derived 2026-11-26 (not measured).** Today the
 kernel integrates the whole tick on the entry side. Generic transit then
@@ -658,6 +660,76 @@ read as the entry side's ground. The witness the packet asks for needs a
 crossing early in the tick through a quarter-turn pair. Its exact answer
 is the crossing point's map, then free flight under exit-side gravity for
 `r dt`.
+
+### Staged plans for the large packets (2026-11-26)
+
+Jon (2026-11-26): the large packets get staged plans with regression tests,
+and their size is no reason to leave them untouched. Each stage below lands
+alone, with its test, and keeps the existing portal suites green. Only M2e
+waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#stages)).
+
+**M1 (what remains).**
+- **M1a — stamp the history with its tick.** The `SweepSample` records the
+  simulation tick that wrote it; a reader that wants this tick's path
+  checks the stamp. Test: a body whose stepping system is skipped for a
+  tick keeps an old-stamped sample, and the geometry observer and a
+  mount's ground read no motion from it.
+- **M1b — bind the history to the accepted aperture snapshot.** A crossing
+  records the pair snapshot (revision and pose) it was admitted against.
+  Test: an aperture that moves after the step leaves the crossing's record
+  on the snapshot it crossed; a rewind restores record and snapshot
+  together.
+- **M1c — source-frame contact facts.** A contact keeps the chart it was
+  met in through to its readers. Test: a support met on the exit side
+  reports the exit chart's normal and surface velocity.
+
+**M2 — kernel continuation at chart changes.**
+- **M2a — continue the rest of the tick in the exit chart.** Integrate to
+  the first chart-change event, map, then run the remaining `r dt` under
+  the exit side's policy (gravity, drag, input, max fall). Test: an early
+  crossing through a quarter-turn pair ends at the crossing's map followed
+  by free flight under exit gravity, exactly (the derived 53 `r` px/s
+  error above goes to zero); the aligned pair is unchanged.
+- **M2b — two crossings in one tick.** Test: a body that goes in and out
+  of two static root pairs in one tick ends at the exact composed result.
+- **M2c — the same history for items and projectiles**, each keeping its
+  own response, force and contact budget. Test: a projectile and a loose
+  item through the quarter-turn pair match their analytic continuation.
+- **M2d — delete the old paths.** Completed-endpoint remapping and
+  chart-change history collapse go once M2a–c pass.
+- **M2e — host admission before the aperture writer commits** (crushing
+  C5, after C1 and C3). Test: the refused control keeps host, aperture and
+  material in one combined state.
+
+**SUP1 through a portal cell** ([SUP1](slopes-feet-ride-surfaces.md#sup1--keep-a-changing-supports-material-motion)).
+- **S1 — split a deforming line at an aperture.** The line's material place
+  (segment, fraction) on each side is mapped through the pair. Test: a
+  stretching line cut by a static portal; a body standing across the cut
+  keeps its material place on both sides.
+- **S2 — carry and swept bounds in the cut cell** use the shape motion
+  (`shape_before`) on each side. Test: a rider on the stretching line
+  crosses the portal and keeps its material point; the deforming-segment
+  cast finds the same contact time on either side.
+- **S3 — a curve-carried cell** (a curved support on a moving host)
+  through a portal. Test: the GNU hump's material place survives a crossing.
+
+**P5/P6 — observer and capture** ([view/capture
+contract](portals-one-transit-for-every-mover.md)). Keep the current
+window pixel density, freshness and retained pools; measure CPU and GPU
+separately.
+- **V1 — observer identity.** Each view (a seat, a multiview split, the
+  card view) names its observer, and a window's capture is keyed by it.
+  Test: two same-room views each see the portal window from their own eye.
+- **V2 — rolled viewport clipping.** Test: under a rolled camera the
+  window clips to the rolled viewport (a pixel test and a capture).
+- **V3 — ordered crossing samples.** A body straddling a moving aperture
+  is drawn in both charts at the sample its step used. Test: the two
+  halves meet at the aperture on the frame of a fast crossing.
+- **V4 — demand and ready images.** A window draws only an admitted ready
+  image, from the existing pools. Test: a new portal's first frame draws
+  no stale image.
+- **V5 — the card view's far-side window**, the remaining card-view item
+  ([presentation order](presentation-order-and-25d-rendering.md)).
 
 ### M3 — Resolve contacts through the complete velocity witness
 

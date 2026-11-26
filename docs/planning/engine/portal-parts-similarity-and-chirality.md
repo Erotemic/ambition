@@ -93,9 +93,9 @@ capture and readiness authority. These customers do not create a second
 portal implementation queue.
 
 These packets preserve current overlap contact for melee strikes and guards.
-[Q172](../awaiting-maintainer-decision.md#q172--do-melee-strikes-and-guards-need-swept-continuous-contact)
-still owns whether they need continuous contact. Projectile/item continuous
-contact is in scope; completing these packets does not settle that decision.
+[Q172](../maintainer-decisions.md) (2026-11-26) keeps overlap contact for
+melee until a gameplay need for continuous contact is shown.
+Projectile/item continuous contact is in scope.
 
 ## What is already useful
 

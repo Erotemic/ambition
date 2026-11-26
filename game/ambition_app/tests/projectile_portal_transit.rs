@@ -311,9 +311,14 @@ fn a_projectile_spends_remaining_time_once_after_a_scaled_root_crossing() {
         let transfer=events[0].transfer;
         if moving {assert!(transfer.exit.frame.velocity.length()>100.0,"{transfer:?}");}
         let after=sim.world().get::<ae::BodyKinematics>(shot).expect("the free exit leaves the shot alive");
-        let expected=transfer.exit_pos.as_dvec2()+transfer.exit_vel.as_dvec2()*((1.0-transfer.crossing_time)/60.0);
+        // The tick's kick is spent once, split at the crossing (portal M2c):
+        // the part before it went through the map in `exit_vel`, the rest is
+        // given in the exit's chart by the acceleration as mapped there.
+        let rest=(1.0-transfer.crossing_time) as f32;
+        let kicked=transfer.exit_vel+transfer.map.vector(acceleration).unwrap()*rest/60.0;
+        assert!((after.vel-kicked).length()<1e-3,"the force kick is not repeated: {:?} vs {kicked:?}",after.vel);
+        let expected=transfer.exit_pos.as_dvec2()+after.vel.as_dvec2()*((1.0-transfer.crossing_time)/60.0);
         assert!(after.pos.as_dvec2().distance(expected)<0.001,"{after:?}, expected={expected:?}");
-        assert_eq!(after.vel,transfer.exit_vel,"the force kick is not repeated");
         assert_eq!(after.material,before.material.carried(transfer.map).unwrap());
         assert_eq!(after.material.scale(),exit.half_length/entry.half_length);
         assert_eq!(sim.world().get::<ambition_platformer2d::platformer::frame_env::CarriedAcceleration>(shot).unwrap().0,

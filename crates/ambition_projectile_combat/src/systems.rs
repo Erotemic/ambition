@@ -1384,8 +1384,17 @@ pub fn step_projectiles(
                     && (candidate_game.returns(*acceleration) || selected_body.is_none() && feature_contact.is_none());
                 let prepared=(|| -> Result<_,ae::frame::thread::Refusal> {
                     let Some(crossing)=root_crossing.filter(|_|reaches_root) else {return Ok(None);};
+                    // The tick's change of velocity after the crossing happens
+                    // in the exit's chart (portal M2c): it is taken back here
+                    // and given again there, so a quarter turn does not send
+                    // the rest of the tick's fall sideways.
+                    let rest=(1.0-crossing.root.world_time) as f32;
+                    let rate=candidate_game.velocity_rate(&candidate,*acceleration,gravity_dir).ok_or(
+                        ae::frame::thread::Refusal {path:vec![],link:None,
+                            reason:ae::frame::thread::RefusalReason::Numeric(ae::frame::NumericFault::InvalidScale)})?;
+                    let at_crossing=BodyKinematics {vel:candidate.vel-rate*dt*rest,..candidate};
                     let (prepared, reverse)=ambition_portal2d::prepare_body_crossing(
-                        candidate, Some(acceleration.0), crossing, portals_by_room.in_room(shot_room),
+                        at_crossing, Some(acceleration.0), crossing, portals_by_room.in_room(shot_room),
                         admission, root_count, &portal_tuning)?;
                     Ok(Some((prepared,crossing.root.world_time,reverse)))
                 })();
@@ -1702,6 +1711,10 @@ pub fn step_projectiles(
                     first_override=Some(first);
                     leg_time=time;
                     if leg_time<1.0 {
+                        let exit_down=gravity.dir_for(shot_room,kin.aabb());
+                        if let Some(rate)=game.velocity_rate(&kin,*acceleration,exit_down) {
+                            kin.vel+=rate*dt*(1.0-leg_time) as f32;
+                        }
                         leg_candidate=*kin;
                         match ae::frame::Sim2::IDENTITY.point_from_wide(kin.pos.as_dvec2()
                             +kin.vel.as_dvec2()*(f64::from(dt)*(1.0-leg_time))) {

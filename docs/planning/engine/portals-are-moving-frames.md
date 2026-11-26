@@ -774,6 +774,21 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
 - **M2c — the same history for items and projectiles**, each keeping its
   own response, force and contact budget. Test: a projectile and a loose
   item through the quarter-turn pair match their analytic continuation.
+  *Done 2026-11-26.* Both roads already cut their tick into legs at each
+  root crossing; what they turned with the map was the tick's whole change
+  of velocity, integrated before the first leg. At a crossing each now
+  takes back the change still to come (`rest` of the tick) before
+  `prepare_body_crossing` and gives it again after the transfer, in the
+  exit's chart: an item its fall at its exit scale (`falling`), a
+  projectile its gravity and the acceleration it carries, as mapped there
+  (`ProjectileGameplay::velocity_rate`, which `tick` now uses too). Each
+  keeps its own response and contact budget. Witnesses:
+  `held_items motion::tests::an_item_through_a_turned_pair_falls_down_after_the_crossing`
+  and runtime `a_falling_shot_through_a_turned_pair_falls_down_after_the_crossing`
+  (a floor mouth to a wall exit: the fall before the crossing comes out
+  along +x, the rest of the tick falls down). The app test of a scaled
+  crossing now states the kick split at the crossing instead of all of it
+  mapped (`a_projectile_spends_remaining_time_once_after_a_scaled_root_crossing`).
 - **M2d — delete the old paths.** Completed-endpoint remapping and
   chart-change history collapse go once M2a–c pass.
 - **M2e — host admission before the aperture writer commits** (crushing

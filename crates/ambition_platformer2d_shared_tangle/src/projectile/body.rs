@@ -179,14 +179,21 @@ impl ProjectileGameplay {
         if self.age >= self.max_lifetime {
             return false;
         }
-        let Ok(gravity) = body.material.body_rate(self.gravity) else {
+        let Some(rate) = self.velocity_rate(body, acceleration, gravity_dir) else {
             tracing::warn!("a projectile's material cannot carry its gravity {} — retired", self.gravity);
             return false;
         };
-        let down = projectile_down(gravity_dir);
-        body.vel += (down * gravity + acceleration.0) * dt;
+        body.vel += rate * dt;
         body.pos += body.vel * dt;
         true
+    }
+
+    /// How fast the world changes `body`'s velocity, per second: its gravity
+    /// at its own scale, and the acceleration it carries. `None` when its
+    /// material cannot carry its gravity.
+    pub fn velocity_rate(&self, body: &BodyKinematics, acceleration: CarriedAcceleration, gravity_dir: Vec2) -> Option<Vec2> {
+        let gravity = body.material.body_rate(self.gravity).ok()?;
+        Some(projectile_down(gravity_dir) * gravity + acceleration.0)
     }
 
 

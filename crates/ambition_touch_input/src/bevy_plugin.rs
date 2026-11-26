@@ -714,17 +714,6 @@ struct TouchButtonEdges {
 /// "Jump", "Fly"), not keyboard keys.
 fn spawn_touch_buttons(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
     let ui_fonts = ui_fonts.as_deref();
-    // Right-thumb controls, bottom-right:
-    //
-    //       Blink        Fly        Shot
-    //
-    //                Interact
-    //        Attack              Burst
-    //                  Jump
-    //
-    // The hit-test is circular and matches the drawn circles, so overlapping
-    // square bounds are not ambiguous. It reads `touch_action_layout()`, so
-    // multitouch stays aligned with the overlay.
     cmd.spawn((
         Node {
             width: Val::Px(ACTION_BEZEL_W),
@@ -958,6 +947,11 @@ impl TouchView<'_> {
 const DEFAULT_MENU_CONFIRM: &str = "Select";
 
 fn button_verb(action: InputAction, prompt: &ControlPrompt) -> Option<String> {
+    // The stick selects the move on this button. The neutral move alone
+    // cannot name the button.
+    if action == InputAction::Special {
+        return Some("Special".to_owned());
+    }
     if let Some(slot) = ambition_input::slot_for_action(action) {
         return prompt.label_for(slot).map(str::to_owned);
     }

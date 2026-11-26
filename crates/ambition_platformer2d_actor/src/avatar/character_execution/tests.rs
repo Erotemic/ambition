@@ -670,7 +670,7 @@ fn a_rewear_to_an_unprepared_id_keeps_the_previous_character() {
             })
         )
     };
-    assert_eq!(app.world().get::<Name>(e).unwrap().as_str(), "Pirate Admiral");
+    assert_eq!(app.world().get::<Name>(e).unwrap().as_str(), "R. Badely");
     assert!(has_pistol(&app), "the premise is a body that wears the pirate's pistol");
     let identity = app
         .world()
@@ -694,7 +694,7 @@ fn a_rewear_to_an_unprepared_id_keeps_the_previous_character() {
         "npc_pirate_admiral",
         "the body names a character it does not wear"
     );
-    assert_eq!(world.get::<Name>(e).unwrap().as_str(), "Pirate Admiral");
+    assert_eq!(world.get::<Name>(e).unwrap().as_str(), "R. Badely");
     assert!(has_pistol(&app), "the refused wear took the pirate's pistol");
     let kept = world.get::<ambition_characters::brain::action_set::IdentityKit>(e).unwrap();
     assert!(

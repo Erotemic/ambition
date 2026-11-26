@@ -128,7 +128,7 @@ fn display_name_resolves_for_every_catalog_entry() {
 #[test]
 fn exemplar_barks_resolve_from_catalog() {
     use ambition_characters::actor::character_catalog::BarkSituation;
-    // The Pirate Admiral scaffold exemplar carries an on_hit + provoked +
+    // The R. Badely scaffold exemplar carries an on_hit + provoked +
     // hall pool. Catalog-first resolution must return them (the npcs.rs
     // legacy table is now only a fallback for unmigrated rows).
     assert_eq!(

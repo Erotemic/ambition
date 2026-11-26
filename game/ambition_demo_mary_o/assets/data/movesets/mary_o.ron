@@ -24,7 +24,7 @@
 //
 // (`capture: SmashCaptureRepertoire {`)
 // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
-// transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
+// transitional `None` is gone: capture was proven on George and R. Badely, and
 // the point of proving it was to stop being the only two.
 (
     schema_version: 1,

@@ -40,7 +40,7 @@ fn travel_out_of_play(body: &mut ae::BodyClusterScratch, combat: &mut BodyCombat
             model,
             &mut clusters,
             combat,
-            ae::MovementTuning::default(),
+            &ae::MovementTuning::default(),
             true,
             // This fixture steps a body nothing is holding.
             false,
@@ -71,6 +71,31 @@ fn travel(body: &mut ae::BodyClusterScratch, combat: &mut BodyCombat) -> f32 {
     .length()
 }
 
+#[test]
+fn the_shared_step_applies_and_clears_the_axis_slow() {
+    let mut body = body_travelling();
+    let mut combat = BodyCombat::default();
+    let tuning = ae::MovementTuning::default();
+    let base = tuning.axis_swept_params();
+    let mut slowed = base;
+    slowed.locomotion.max_run_speed *= 0.5;
+    slowed.locomotion.max_air_speed *= 0.5;
+    slowed.locomotion.initial_dash_speed *= 0.5;
+    slowed.locomotion.jump_speed *= 0.75;
+    slowed.locomotion.double_jump_speed *= 0.75;
+
+    combat.slow(0.5, 1.0);
+    for expected in [slowed, base] {
+        stepped(&mut body, &mut combat, tuning, ae::InputState::default());
+        let (model, _) = body.parts();
+        let ae::MotionModel::AxisSwept(axis) = model else {
+            panic!("fixture requires axis-swept movement");
+        };
+        assert_eq!(axis.params, expected);
+        combat.slow_timer = 0.0;
+    }
+}
+
 /// The same step, with the tuning and the input named — for SDI, which is a
 /// property of both.
 fn stepped(
@@ -87,7 +112,7 @@ fn stepped(
             model,
             &mut clusters,
             combat,
-            tuning,
+            &tuning,
             false,
             // This fixture steps a body nothing is holding.
             false,
@@ -523,7 +548,7 @@ fn a_crumple_sags_then_collapses_into_the_floor_game() {
                 model,
                 &mut clusters,
                 combat,
-                tuning,
+                &tuning,
                 false,
                 false,
                 ae::MotionStepContext {

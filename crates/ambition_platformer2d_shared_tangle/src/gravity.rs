@@ -554,6 +554,13 @@ pub struct GravityCtx<'w, 's> {
 }
 
 impl GravityCtx<'_, '_> {
+    /// The common direction when no room turn or gravity zone changes it.
+    pub(crate) fn uniform_direction(&self) -> Option<Vec2> {
+        (self.zones.as_deref().is_none_or(|zones| zones.zones.is_empty())
+            && self.base.as_deref().is_none_or(|base| base.turned.is_empty()))
+            .then_some(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR)
+    }
+
     /// The ambient gravity of `room`; with no room named, of the sole live room.
     fn base_dir(&self, room: Option<crate::lifecycle::LiveRoomInstance>) -> Vec2 {
         let room = room.or_else(|| self.live.sole());

@@ -30,7 +30,7 @@ use ambition_platformer2d_core::{AabbExt, RoomGeometry};
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_platformer2d_world::collision::MovingPlatformSet;
 use ambition_platformer2d_world::platforms::MovingPlatformState;
-use ambition_sim_view::{BodyPoseView, CombatGeometryView, FeatureViewIndex};
+use ambition_sim_view::{BodyPoseView, CombatBodyGeometry, CombatGeometryView, CombatStrikesView, FeatureViewIndex};
 use bevy::gizmos::{config::GizmoConfigGroup, gizmos::GizmoBuffer};
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
@@ -789,7 +789,7 @@ impl Plugin for DebugVizPlugin {
         app.init_resource::<DeveloperRuntimeState>();
         app.init_resource::<DeveloperTools>();
         app.init_resource::<FeatureViewIndex>();
-        app.init_resource::<CombatGeometryView>();
+        app.init_resource::<CombatStrikesView>();
         if !app.is_plugin_added::<super::observed_geometry::ObservedGeometryPlugin>() {
             app.add_plugins(super::observed_geometry::ObservedGeometryPlugin);
         }
@@ -853,18 +853,14 @@ pub(crate) fn features_in(
 
 /// The bodies and strikes physically in live room `room`.
 pub fn combat_rows_in(
-    combat: &CombatGeometryView,
+    bodies: &CombatBodyGeometry,
+    strikes: &CombatStrikesView,
     room: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance,
     room_of: impl Fn(Entity) -> Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
 ) -> CombatGeometryView {
     CombatGeometryView {
-        bodies: combat
-            .bodies
-            .iter()
-            .filter(|row| room_of(row.body) == Some(room))
-            .cloned()
-            .collect(),
-        strikes: combat
+        bodies: bodies.read(|body| room_of(body) == Some(room)).collect(),
+        strikes: strikes
             .strikes
             .iter()
             .filter(|row| room_of(row.strike) == Some(room))
@@ -939,7 +935,8 @@ pub fn draw_debug_viz(
     developer_tools: Res<DeveloperTools>,
     platform_sets: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<MovingPlatformSet>,
     features: Res<FeatureViewIndex>,
-    combat_geometry: Res<CombatGeometryView>,
+    combat_bodies: CombatBodyGeometry,
+    combat_strikes: Res<CombatStrikesView>,
     // Gizmos are drawn through the camera, which moves on the render clock.
     // A box at the raw tick pose is a step function seen by a smooth camera,
     // so it shakes at the tick rate. Sampling the same frame clock as the
@@ -1036,18 +1033,20 @@ pub fn draw_debug_viz(
                     draw_aabb_styled(gizmos, world, aabb, color, &developer_tools);
                 }
             }
-            // A copy of the rows of the shown room. It is made only while the viz is
-            // on, so the cost is a developer's.
-            let combat_here = combat_rows_in(&combat_geometry, room, |body| worlds.room_of(body));
-            draw_combat_geometry_view(
-                gizmos,
-                world,
-                &combat_here,
-                &developer_tools,
-                &presentation_deltas(&combat_here, &presented_bodies),
-            );
-            if developer_tools.show_presented_comparison {
-                draw_tick_against_drawn(gizmos, world, &combat_here, &presented_bodies);
+            if developer_tools.show_feature_hitboxes || developer_tools.show_player_hitbox
+                || developer_tools.show_combat_preview || developer_tools.show_presented_comparison
+            {
+                let combat_here = combat_rows_in(&combat_bodies, &combat_strikes, room, |body| worlds.room_of(body));
+                draw_combat_geometry_view(
+                    gizmos,
+                    world,
+                    &combat_here,
+                    &developer_tools,
+                    &presentation_deltas(&combat_here, &presented_bodies),
+                );
+                if developer_tools.show_presented_comparison {
+                    draw_tick_against_drawn(gizmos, world, &combat_here, &presented_bodies);
+                }
             }
         });
     }
@@ -1268,7 +1267,7 @@ mod room_drawing_tests {
         app.init_resource::<Assets<bevy::gizmos::GizmoAsset>>();
         app.init_resource::<super::super::observed_geometry::ObservedGeometryFrame>();
         app.init_resource::<FeatureViewIndex>();
-        app.init_resource::<CombatGeometryView>();
+        app.init_resource::<CombatStrikesView>();
         app.init_resource::<ambition_sim_view::PresentedFeaturePoses>();
         app.insert_resource(DeveloperRuntimeState {
             debug: true,
@@ -1301,7 +1300,7 @@ mod room_drawing_tests {
         let credit = app.world_mut().spawn(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(rooms[0])).id();
         let strike = app.world_mut().spawn(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance(rooms[1])).id();
         app.world_mut().resource_mut::<DeveloperTools>().show_combat_preview = true;
-        app.world_mut().resource_mut::<CombatGeometryView>().strikes.push(ambition_sim_view::CombatStrikeGeometryView {
+        app.world_mut().resource_mut::<CombatStrikesView>().strikes.push(ambition_sim_view::CombatStrikeGeometryView {
             volume: ae::CombatVolume::Aabb(ae::Aabb::new(ae::Vec2::splat(20.0), ae::Vec2::splat(4.0))),
             pieces: None, geometry_refusal: None, strike, owner: credit, damage: 1, anchored_to_body: false,
             depicted_by_owner: false, ray: None, hit: Vec::new(),

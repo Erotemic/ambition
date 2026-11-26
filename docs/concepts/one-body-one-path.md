@@ -109,7 +109,7 @@ to a boolean.
 are in `ambition_combat::strike`, not in `ambition_vfx`. `HitSide` and the
 `Effect` request vocabulary stay lower because `ambition_projectiles` names
 `Effect` and sits below combat. Presentation does not reach back: the render
-stand-in reads `CombatGeometryView`'s strike rows (strike entity, owner,
+stand-in reads `CombatStrikesView`'s strike rows (strike entity, owner,
 body-anchored flag, and the owner position the volume was resolved against).
 
 **A weapon in hand owns the Attack press.** With a `HeldItem`
@@ -140,9 +140,9 @@ contact. Human input, fighter brains, scripted control, remote control and RL
 keep the facing they chose.
 
 **Observers do not need a privileged protagonist.**
-`ambition_sim_view::CombatGeometryView` projects collision envelope, effective
-hurtboxes and live strike volumes for every combat body. Debug rendering
-consumes it whether zero, one or many bodies are under human control.
+`ambition_sim_view::CombatGeometryView` samples collision envelopes and
+effective hurtboxes for inspection. Frame presentation shares the live
+strike volumes. The same geometry is available for every combat body.
 
 **Precision blink is an input affordance.** Responsive aim during bullet-time is
 `InputState::control_dt`: a human sets it to the real frame dt; a brain leaves it

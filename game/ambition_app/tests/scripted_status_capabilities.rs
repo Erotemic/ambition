@@ -74,7 +74,7 @@ fn scripts_can_compose_status_clocks_credit_and_area_strikes_for_any_controller(
         assert_eq!(record.get(FieldRef(1)).unwrap(), &Value::U64(
             ambition_platformer2d::combat::extension::blast::credit_of_scope(world, body).unwrap()));
         assert_eq!(record.get(FieldRef(2)).unwrap(), &Value::U64(u64::MAX));
-        assert!(world.resource::<ambition_platformer2d::sim_view::CombatGeometryView>().strikes.iter()
+        assert!(world.resource::<ambition_platformer2d::sim_view::CombatStrikesView>().strikes.iter()
             .any(|strike| strike.owner == body), "the token credits the scope body's real strike");
     }
     assert_eq!(sim.world().resource::<ExtensionFaults>().total, 0);

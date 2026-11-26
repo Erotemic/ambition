@@ -639,8 +639,11 @@ probe was deleted.
 
 A chained step costs about 2.2 times a single hop, which is about what two
 hops plus their leg cost. The finding is the first row: a body that crosses
-nothing pays three quarters of a crossing's cost, because the step asks
-every aperture of the room without first rejecting one its swept box
-cannot reach. A conservative bound test ahead of that query is the
-candidate saving. No speedup is claimed: the probe measures the step alone,
+nothing pays three quarters of a crossing's cost. `transit_step_with_tuning`
+asks every usable aperture in turn (sorted, then `MaterialCast::crossing`
+for each in `first_portal_crossing_through`, then the begin test's
+`material_fits` for each), with no bound test of its own; whether
+`MaterialCast::crossing` rejects a distant aperture cheaply inside was not
+read. A conservative swept-box test ahead of those queries is the candidate
+saving. No speedup is claimed: the probe measures the step alone,
 not a tick, and a room has few apertures.

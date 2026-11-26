@@ -180,24 +180,24 @@ impl StepInput {
     }
 }
 
+#[inline]
 fn bits(vector: Vec2) -> [u32; 2] {
-    vector.to_array().map(f32::to_bits)
+    [vector.x.to_bits(), vector.y.to_bits()]
 }
 
 fn frame_bits(frame: MotionFrame) -> [[u32; 2]; 5] {
     [
-        frame.down(),
-        frame.side(),
-        frame.gravity_acceleration(),
-        frame.external_acceleration(),
-        frame.carried_acceleration(),
+        bits(frame.down()),
+        bits(frame.side()),
+        bits(frame.gravity_acceleration()),
+        bits(frame.external_acceleration()),
+        bits(frame.carried_acceleration()),
     ]
-    .map(bits)
 }
 
 fn edge_bits(world: &World) -> [Option<u32>; 3] {
     let WorldEdgeMargins { fall, side, rise } = world.edges;
-    [Some(fall), side, rise].map(|x| x.map(f32::to_bits))
+    [Some(fall.to_bits()), side.map(f32::to_bits), rise.map(f32::to_bits)]
 }
 
 // Retain fixed-size values once per proof. A reuse check reads the live values.

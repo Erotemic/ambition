@@ -117,6 +117,29 @@ impl MaterialCell {
         }
         if self.planes.is_empty() {
             let corners = super::corners(body);
+            if [delta.x.to_bits(), delta.y.to_bits()] == [0, 0]
+                && self.time.start.is_sign_positive()
+                && self.time.end.is_sign_positive()
+            {
+                // With no source travel, the same four mapped corners serve
+                // both ends of the cell's translation.
+                let mut lo = DVec2::splat(f64::INFINITY);
+                let mut hi = DVec2::splat(f64::NEG_INFINITY);
+                for corner in corners {
+                    let point = self.map.point_wide(corner.as_dvec2() + DVec2::ZERO);
+                    if !point.is_finite() { return Err(NumericFault::Overflow); }
+                    lo = lo.min(point);
+                    hi = hi.max(point);
+                }
+                let start = self.travel * self.time.start;
+                let end = self.travel * self.time.end;
+                let lo = lo + start.min(end);
+                let hi = hi + start.max(end);
+                if !start.is_finite() || !end.is_finite() || !lo.is_finite() || !hi.is_finite() {
+                    return Err(NumericFault::Overflow);
+                }
+                return super::enclosing_bounds(lo, hi).map(Some);
+            }
             let vertices: [DVec3; 8] = std::array::from_fn(|index| {
                 let time = if index % 2 == 0 { self.time.start } else { self.time.end };
                 (corners[index / 2].as_dvec2() + delta * time).extend(time)

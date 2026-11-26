@@ -1024,6 +1024,29 @@ publication across workers. The worker pass had no repeatable gain, so
 it stayed out of the build. The Android capture for the prepared boxes is
 pending.
 
+### Actor decision inputs
+
+The decision pass reads move, rider, and combat details only when a brain
+evaluates a decision. Fixed control still checks for an admitted body and
+room and updates belief state. The body and target requirements stay in the
+main query to keep its traversal order.
+
+In an isolated development pass with all 595 Hall actors, the median fell
+from 0.334–0.341 to 0.214–0.216 ms. With 24 patrols and one module observer
+in the same cast, it fell from 0.657–0.669 to 0.572 ms. Both versions kept
+the same ordered control frames, brain state, and beliefs.
+
+Four windowed runs used 596 bodies and the same viewport, quality, and
+run order as the sprite box comparison.
+
+| Median after 30 s | Reference runs, ms/tick | Candidate runs, ms/tick |
+| --- | ---: | ---: |
+| All measured simulation phases | 16.64, 16.59 | 16.22, 16.72 |
+| Actor decisions | 0.49, 0.48 | 0.35, 0.36 |
+
+The actor decision phase took less time in both candidate runs. Total tick
+windows overlapped. Device measurements are pending.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

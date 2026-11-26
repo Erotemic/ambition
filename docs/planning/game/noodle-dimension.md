@@ -69,9 +69,10 @@ Parmesan Key.
 ## Reliquary
 
 Stall steps give access to the high offering platform from both sides of
-the vigil. Players can also cross on the floor between the hazard trays.
-The Colander Key is in a lit recess behind the grille. The last wave
-starts its west knot on the dry floor between the trays.
+the vigil. Players can also cross on the floor and jump the two sauce
+trays. Contact with a tray costs two health. The Colander Key is in a lit
+recess behind the grille. The last wave starts its west knot on the dry
+floor between the trays.
 
 ## The soda
 

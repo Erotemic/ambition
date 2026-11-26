@@ -148,8 +148,8 @@ impl TalkableBodies<'_, '_> {
             .iter()
             .filter(|(entity, aabb, disposition, health, (out_of_play, plane, requires_facing, aggression), _)| {
                 *entity != subject
+                    && reach.can_talk_to(|| self.rooms.of(*entity), aabb, *requires_facing)
                     && ambition_combat::util::talk_refusal(**disposition, *aggression, *health, *out_of_play, *plane).is_none()
-                    && reach.can_talk_to(self.rooms.of(*entity), aabb, *requires_facing)
                     && !InteractReach::a_door_keeps_the_press(door, aabb.center.distance(reach.pos()))
             })
             .filter(|(entity, .., (identity, interaction))| {
@@ -386,7 +386,7 @@ pub fn interact_ecs_actors_and_switches(
                 continue;
             }
             let interactable = &interaction_payload.interactable;
-            if !reach.can_talk_to(live_rooms.of(actor_entity), aabb, requires_facing)
+            if !reach.can_talk_to(|| live_rooms.of(actor_entity), aabb, requires_facing)
                 || InteractReach::a_door_keeps_the_press(door, aabb.center.distance(subject_kin.pos),
                 )
             {

@@ -43,9 +43,12 @@ pub fn advance_death_beats(
     // And the longest kill freeze of each live room, which holds that room.
     let mut freeze_of_rooms = std::collections::BTreeMap::new();
     for (entity, health, mut beat, caps, room) in &mut bodies {
+        let alive = health.alive();
+        if !beat.needs_update(alive) {
+            continue;
+        }
         let was_dead = beat.since_s.is_some();
-        let dt = dt * paces.p0().scale_of(entity);
-        beat.advance(health.alive(), dt, || {
+        beat.advance(alive, || dt * paces.p0().scale_of(entity), || {
             caps.and_then(|caps| caps.corpse)
                 .or_else(|| rules.of(entity).copied())
                 .unwrap_or_default()

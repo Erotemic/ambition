@@ -355,6 +355,15 @@ Artifacts identify source revision, provider, tool version, selected content,
 settings and relevant runtime/frame context. Missing generated data is reported
 as unavailable, not substituted under the requested artifact's name.
 
+### Door support and clearance
+
+The Hall of Bosses door to the Gram Reaper passed the LDtk support check
+because the check found part of a stone column below the door. The column
+also blocked the door and its life switch. Extend the existing support
+check to look for a place where a body can stand and use the door. Show
+the support and the obstruction in the report so the author can adjust
+the placement.
+
 ### Content diffs need domain-aware comparison (Q62, Q78)
 
 Rulings 2026-10-04 ([`../maintainer-decisions.md`](../maintainer-decisions.md)):

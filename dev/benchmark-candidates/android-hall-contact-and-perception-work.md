@@ -441,6 +441,28 @@ kernel cost decreased by 0.08–0.12 ms per tick. The development build saved
 1.6–2.1 ms per tick. The engine still checks these parameters on each reuse.
 These measurements do not give the full-room cost or the Android frame rate.
 
+### Pose publication
+
+The actor pose and appearance queries select the same bodies. They read
+only the components each projection uses. The pose view reads the session
+cast and tick duration once per pass. Overlay clocks update when a timer
+or a dash edge needs them. The death look checks bodies that are out of
+play or still have a death look to clear (`38af7a48b`).
+
+Two full-cast development runs of the local rollback host had
+`FeatureViewSync` medians of 2.48–2.77 ms per tick. With just the body pose,
+actor pose, and passage projections removed in a probe, that phase took
+0.68–0.71 ms. The same 539 bodies reused their movement step in all four
+runs. The probe removes the pose output and only measures its cost. Keep
+the pose and the clocks that track transitions when changing when the view
+is published.
+
+Four runs of the pose and appearance passes used one thread and the same
+settled Hall with 596 bodies. Median thread CPU time was 2.88–2.90 ms per
+update before the change and 2.40–2.61 ms after it. Individual windows
+overlapped. The probe matched the pose counts, clips, position, facing,
+and defense facts. The isolated result does not give a full tick speedup.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

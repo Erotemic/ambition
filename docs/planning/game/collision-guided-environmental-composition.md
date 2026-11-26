@@ -201,6 +201,15 @@ published props over the room geometry. Use the existing publication
 index and prop draw modes. Include doors and climbable surfaces so an
 author can check the relation between the art and the route.
 
+## Follow-up for room art generators
+
+The Library of Endings staircase and the Möbius Mine switch mounts use
+positions from the room layout in a separate art generator. A change to the
+room can move a platform or switch away from its art. Consider giving art
+generators the named bounds of these entities from the authored room. Use
+the positions of the Library's ledges and the Mine's switches to check that
+the same input works for surfaces and controls.
+
 ## Three visual acceptance scenes
 
 Use **the same practical camera compositions before and after**. Source room

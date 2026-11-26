@@ -83,7 +83,7 @@ fn draw_chart(model: &mut MapModel, palette: &MapLook) {
     for column in 1..12 {
         let x = f.x + f.w * column as f32 / 12.0;
         model.layered_panel(
-            MenuRect::new(x - 0.045, f.y, 0.09, f.h),
+            MenuRect::new(x - 0.075, f.y, 0.15, f.h),
             colour(palette.grid),
             None,
             0.025,
@@ -92,7 +92,7 @@ fn draw_chart(model: &mut MapModel, palette: &MapLook) {
     for row in 1..6 {
         let y = f.y + f.h * row as f32 / 6.0;
         model.layered_panel(
-            MenuRect::new(f.x, y - 0.07, f.w, 0.14),
+            MenuRect::new(f.x, y - 0.095, f.w, 0.19),
             colour(palette.grid),
             None,
             0.03,
@@ -163,7 +163,12 @@ fn draw_entries(
             let accent = Rect::from_corners(inner.min, Vec2::new(inner.max.x, inner.min.y + 0.48));
             layer_rect(model, accent, colour(outline), None, layer + stride * 0.66);
         }
-        let font = if group { 2.55 } else { ROOM_LABEL_SIZE };
+        let font = if group {
+            let chars = map_label(&entry.title).chars().count().max(1) as f32;
+            ((inner.width() - 0.8) / ((chars + 0.5) * 0.48)).clamp(1.8, 2.55)
+        } else {
+            ROOM_LABEL_SIZE
+        };
         if view.room_detail
             || !tile.label
             || !entry.visited
@@ -360,11 +365,11 @@ fn draw_footer(model: &mut MapModel, view: &MapBrowserView, palette: &MapLook, m
         };
         if !label.is_empty() {
             model.text(
-                MAP_FRAME.x,
+                50.0,
                 85.0,
                 2.6,
                 label,
-                MenuTextAlign::Left,
+                MenuTextAlign::Center,
                 colour(if entry.here {
                     palette.current
                 } else {
@@ -382,38 +387,41 @@ fn draw_footer(model: &mut MapModel, view: &MapBrowserView, palette: &MapLook, m
             colour(palette.muted_label),
         );
     }
-    let mut x = MAP_FRAME.x;
-    let y = 92.0;
-    for symbol in [Symbol::Door, Symbol::Resident, Symbol::Shrine] {
-        if marks.iter().any(|mark| mark.symbol == symbol) {
-            draw_symbol(
-                model,
-                palette,
-                Landmark {
-                    symbol,
-                    centre: Vec2::new(x + 0.7, y + 1.0),
-                },
-                0.74,
-                0.008,
-                None,
-            );
-            model.text(
-                x + 2.0,
-                y,
-                1.9,
-                line(symbol.key()),
-                MenuTextAlign::Left,
-                colour(palette.muted_label),
-            );
-            x += 11.0;
-        }
-    }
-    if view
+    let symbols: Vec<_> = [Symbol::Door, Symbol::Resident, Symbol::Shrine]
+        .into_iter()
+        .filter(|symbol| marks.iter().any(|mark| mark.symbol == *symbol))
+        .collect();
+    let unvisited = view
         .entries
         .iter()
-        .any(|entry| !entry.visited && !entry.pieces.is_empty())
-    {
-        let sample = MenuRect::new(x + 0.1, y + 0.3, 1.2, 1.4);
+        .any(|entry| !entry.visited && !entry.pieces.is_empty());
+    let count = (symbols.len() + usize::from(unvisited)) as f32;
+    let mut x = 50.0 - 6.0 * (count - 1.0);
+    let y = 92.0;
+    for symbol in symbols {
+        draw_symbol(
+            model,
+            palette,
+            Landmark {
+                symbol,
+                centre: Vec2::new(x - 4.0, y),
+            },
+            0.74,
+            0.008,
+            None,
+        );
+        model.text(
+            x + 1.0,
+            y,
+            1.9,
+            line(symbol.key()),
+            MenuTextAlign::Center,
+            colour(palette.muted_label),
+        );
+        x += 12.0;
+    }
+    if unvisited {
+        let sample = MenuRect::new(x - 4.6, y - 0.7, 1.2, 1.4);
         model.layered_panel(sample, colour(palette.stroke), None, 0.74);
         model.layered_panel(
             sample.inset(0.15),
@@ -422,11 +430,11 @@ fn draw_footer(model: &mut MapModel, view: &MapBrowserView, palette: &MapLook, m
             0.75,
         );
         model.text(
-            x + 2.0,
+            x + 1.0,
             y,
             1.9,
             line("menu.map.legend.unvisited"),
-            MenuTextAlign::Left,
+            MenuTextAlign::Center,
             colour(palette.muted_label),
         );
     }

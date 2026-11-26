@@ -1,10 +1,11 @@
 # Compiler boundaries and build products
 
 **State:** CB1–CB4 cuts LANDED (2026-11-22 to 2026-11-25; receipts in each
-section). Open: CB4's per-command compiler work (the graphs are measured, the
-build work is not) and the conditional curved-search experiment. The original
+section). Open: the conditional curved-search experiment. CB4's per-command build
+work is measured (one sample per row). The original
 review (source `3ed50e318392b9c2aedc7e900a3358f75f716474`) inspected source and
-manifests only; no slice claims a compile-time saving yet.
+manifests only; CB4's per-command build table is the one compile-time
+measurement so far.
 [The queue](../queue.md) selects packets from this owner.
 
 **Related owners:** [project builds](project-build-and-distribution.md),
@@ -532,7 +533,28 @@ timestamps). The LDtk crate builds and its 75 tests pass at `portal_ldtk`
 alone; the four `a_ron_game_installs_no_ldtk_world` tests (the LDtk game
 still installs the spine) pass; the 53 absence contracts hold.
 `scripts/tests/test_sim_tools_have_no_renderer.py` holds the absence, with
-`game`'s renderer as its control. No compile-time result is claimed.
+`game`'s renderer as its control.
+
+**Build work per command (2026-11-25).** `cargo build -p ambition_app_tools
+--no-default-features --features F --bin headless -j 6`, dev profile,
+incremental on, the repo's native linker, each feature in its own empty
+target directory, on the shared 14-core VM with other sessions running. One
+sample each, so read the ratios, not the seconds:
+
+| | `sim` | `game` |
+| --- | --- | --- |
+| Cold build | 455 s, 450 units | 859 s, 672 units |
+| No-op rebuild | 0.9 s | 1.2 s |
+| Edit `ambition_app/src/headless.rs` (append a private fn), rebuild | 5.1 s | 8.6 s |
+| `headless` binary (debug) | 295 MB | 396 MB |
+| Target directory | 8.4 GB | 12.9 GB |
+
+A simulation command's cold build is about half of the capture family's
+and its app-edit rebuild about 60 %, because the app crate and the binary
+it links no longer carry the renderer, the window and the LDtk runtime. The
+warm figure is a private-fn edit only (one edit class); a signature change
+was not measured. Debug binaries carry debug info, so the size row is not a
+shipped-size claim.
 
 **Execution owner:** `ambition_app_tools` command packaging and
 `ambition_sim_harness` dependency selection, coordinated with supported launch

@@ -189,6 +189,7 @@ pub fn install_conduct(app: &mut App) {
         "ambition_boss_encounter",
         crate::conduct::lower_lightning_auras,
     );
+    app.init_resource::<ambition_vfx::vfx::AttackMarks>();
     app.install_extension_submitted_request::<ambition_combat_port::AttackMarkPort, _>(
         BOSS_CONDUCT,
         "ambition_boss_encounter",

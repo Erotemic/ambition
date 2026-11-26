@@ -3,15 +3,13 @@ use std::collections::BTreeMap;
 use ambition_platformer2d_core::config::WORLD_Z_FX;
 use ambition_platformer2d_shared_tangle::body::geometry::PartSource;
 use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, LiveRoomInstance, SessionSpawnScope, SpawnSessionScopedExt,
+    ActiveSessionScope, LiveRoomInstance, LiveRooms, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase;
-use ambition_vfx::vfx::{AttackMarkKey, VfxInRoom, VfxMessage};
+use ambition_vfx::vfx::{AttackMarkKey, AttackMarks};
 use bevy::prelude::*;
 
 use crate::folded_mesh::{Composite, FoldedMesh, FoldedMeshSync, Tris};
-
-const HOLD_S: f32 = 0.05;
 
 pub(crate) struct AttackMarksPlugin;
 
@@ -32,61 +30,58 @@ impl Plugin for AttackMarksPlugin {
 struct LiveMark {
     key: AttackMarkKey,
     room: LiveRoomInstance,
-    remaining: f32,
 }
 
 fn show_marks(
     mut commands: Commands,
-    mut messages: MessageReader<VfxInRoom>,
+    marks: Option<Res<AttackMarks>>,
     session: Option<Res<ActiveSessionScope>>,
-    time: Res<Time>,
-    mut visible: Query<(Entity, &mut LiveMark, &mut FoldedMesh)>,
+    rooms: LiveRooms,
+    mut visible: Query<(Entity, &LiveMark, &mut FoldedMesh)>,
 ) {
-    let mut pending = BTreeMap::new();
-    for message in messages.read() {
-        if let (
-            Some(room),
-            VfxMessage::AttackMark {
-                key,
-                center,
-                half,
-                progress,
-                active,
-            },
-        ) = (message.room, &message.vfx)
-        {
-            pending.insert(key.clone(), (room, *center, *half, *progress, *active));
-        }
-    }
-    for (entity, mut mark, mut mesh) in &mut visible {
-        if let Some((room, center, half, progress, active)) = pending.get(&mark.key).copied() {
-            if mark.room == room {
+    let Some(marks) = marks.filter(|marks| marks.is_changed()) else {
+        return;
+    };
+    let mut pending: BTreeMap<_, _> = marks
+        .0
+        .iter()
+        .filter(|mark| rooms.of(mark.key.owner) == Some(mark.room))
+        .map(|mark| (&mark.key, mark))
+        .collect();
+    for (entity, mark, mut mesh) in &mut visible {
+        if let Some(next) = pending.get(&mark.key) {
+            if mark.room == next.room {
+                *mesh = area_mesh(
+                    mark.key.owner,
+                    next.center,
+                    next.half,
+                    next.progress,
+                    next.active,
+                );
                 pending.remove(&mark.key);
-                mark.remaining = HOLD_S;
-                *mesh = area_mesh(mark.key.owner, center, half, progress, active);
                 continue;
             }
-            commands.entity(entity).despawn();
-            continue;
         }
-        mark.remaining -= time.delta_secs();
-        if mark.remaining <= 0.0 {
-            commands.entity(entity).despawn();
-        }
+        commands.entity(entity).despawn();
     }
     if let Some(scope) = SessionSpawnScope::for_optional_active_session(session.as_deref()) {
-        for (key, (room, center, half, progress, active)) in pending {
-            let mesh = area_mesh(key.owner, center, half, progress, active);
+        for (key, mark) in pending {
+            let mesh = area_mesh(
+                key.owner,
+                mark.center,
+                mark.half,
+                mark.progress,
+                mark.active,
+            );
             commands.spawn_session_scoped(
-                scope.in_room(Some(room)),
+                scope.in_room(Some(mark.room)),
                 (
                     Name::new("Attack mark"),
                     Transform::default(),
                     Visibility::default(),
                     LiveMark {
-                        key,
-                        room,
-                        remaining: HOLD_S,
+                        key: key.clone(),
+                        room: mark.room,
                     },
                     mesh,
                 ),

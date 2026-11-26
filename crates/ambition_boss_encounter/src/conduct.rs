@@ -1063,13 +1063,19 @@ pub fn lower_lightning_auras(
 
 pub fn lower_attack_marks(
     mut outbox: ResMut<ExtensionOutbox>,
-    mut vfx: ambition_vfx::vfx::VfxWriter,
+    mut marks: ResMut<ambition_vfx::vfx::AttackMarks>,
+    time: Res<ambition_time::WorldTime>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
 ) {
     use ambition_combat_port::AttackMarkPort;
-    use ambition_vfx::vfx::{AttackMarkKey, VfxMessage};
+    use ambition_vfx::vfx::{AttackMark, AttackMarkKey};
 
-    for submitted in outbox.drain::<AttackMarkPort>(&ambition_extension_sdk::phases::BOSS_CONDUCT) {
+    let requests = outbox.drain::<AttackMarkPort>(&ambition_extension_sdk::phases::BOSS_CONDUCT);
+    if time.sim_dt() <= 0.0 || (requests.is_empty() && marks.0.is_empty()) {
+        return;
+    }
+    marks.0.clear();
+    for submitted in requests {
         let mark = submitted.value;
         let center = ae::Vec2::from(mark.center);
         let half = ae::Vec2::from(mark.half_extent);
@@ -1081,8 +1087,9 @@ pub fn lower_attack_marks(
         {
             continue;
         }
-        vfx.for_room(Some(room)).write(VfxMessage::AttackMark {
+        marks.0.push(AttackMark {
             key: AttackMarkKey { owner: submitted.scope, entry: submitted.entry, slot: mark.slot },
+            room,
             center,
             half,
             progress: mark.progress.clamp(0.0, 1.0),

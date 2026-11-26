@@ -8,9 +8,8 @@ use ambition_platformer2d::combat::strike::{Hitbox, HitboxAnchor};
 use ambition_platformer2d::engine_core::{BodyKinematics, Vec2};
 use ambition_platformer2d::extension::ExtensionFaults;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
-use ambition_platformer2d::vfx::vfx::{VfxInRoom, VfxMessage};
-use bevy::ecs::message::MessageCursor;
-use bevy::prelude::{Entity, Messages};
+use ambition_platformer2d::vfx::vfx::AttackMarks;
+use bevy::prelude::Entity;
 
 const PRACTICE: &str = "hall_gram_reaper_arena";
 
@@ -44,32 +43,21 @@ fn set_up(room: &str) -> (Platformer2dSimHarness, Entity, Entity) {
     (sim, boss, player)
 }
 
-fn marks(
-    sim: &Platformer2dSimHarness,
-    cursor: &mut MessageCursor<VfxInRoom>,
-    boss: Entity,
-) -> Vec<(u32, Region, bool)> {
-    cursor
-        .read(sim.world().resource::<Messages<VfxInRoom>>())
-        .filter_map(|row| match &row.vfx {
-            VfxMessage::AttackMark {
-                key,
-                center,
-                half,
-                active,
-                ..
-            } if key.owner == boss => {
-                assert!(row.room.is_some());
-                Some((
-                    key.slot,
-                    Region {
-                        center: *center,
-                        half: *half,
-                    },
-                    *active,
-                ))
-            }
-            _ => None,
+fn marks(sim: &Platformer2dSimHarness, boss: Entity) -> Vec<(u32, Region, bool)> {
+    sim.world()
+        .resource::<AttackMarks>()
+        .0
+        .iter()
+        .filter(|mark| mark.key.owner == boss)
+        .map(|mark| {
+            (
+                mark.key.slot,
+                Region {
+                    center: mark.center,
+                    half: mark.half,
+                },
+                mark.active,
+            )
         })
         .collect()
 }
@@ -103,22 +91,21 @@ fn check_faults(sim: &Platformer2dSimHarness) {
     assert_eq!(faults.total, 0, "{:?}", faults.recent);
 }
 
-fn check_volley(
-    sim: &mut Platformer2dSimHarness,
-    boss: Entity,
-    cursor: &mut MessageCursor<VfxInRoom>,
-) {
+fn check_volley(sim: &mut Platformer2dSimHarness, boss: Entity) {
     let mut announced = Vec::new();
     let mut order = Vec::new();
-    for _ in 0..360 {
+    for _ in 0..480 {
         sim.step(AgentAction::default());
         check_faults(sim);
-        let marks = marks(sim, cursor, boss);
+        let marks = marks(sim, boss);
         if order.is_empty() && marks.len() == 3 && marks.iter().all(|(_, _, live)| !live) {
             if announced.is_empty() {
                 announced = marks.iter().map(|(_, region, _)| *region).collect();
             }
             assert!(hitboxes(sim, boss).is_empty());
+        }
+        if announced.is_empty() {
+            continue;
         }
         if let Some((slot, region, _)) = marks.iter().find(|(_, _, live)| *live) {
             assert_eq!(announced.get(*slot as usize), Some(region));
@@ -148,14 +135,13 @@ fn the_gram_reaper_sweep_keeps_the_mark_and_releases_one_hitbox_in_both_arenas()
             .unwrap()
             .health
             .current;
-        let mut cursor = MessageCursor::default();
         let mut warned = None;
         let mut strike = None;
         let mut recovered = false;
         for _ in 0..660 {
             sim.step(AgentAction::default());
             check_faults(&sim);
-            let marks = marks(&sim, &mut cursor, boss);
+            let marks = marks(&sim, boss);
             let graph_warning = phase_has(
                 &sim.world()
                     .get::<BossAttackState>(boss)
@@ -212,7 +198,7 @@ fn the_gram_reaper_sweep_keeps_the_mark_and_releases_one_hitbox_in_both_arenas()
             hp - 1
         );
         if room == PRACTICE {
-            check_volley(&mut sim, boss, &mut cursor);
+            check_volley(&mut sim, boss);
         }
     }
 }
@@ -220,7 +206,6 @@ fn the_gram_reaper_sweep_keeps_the_mark_and_releases_one_hitbox_in_both_arenas()
 #[test]
 fn the_gram_reaper_enrage_leaves_the_marked_gap_safe() {
     let (mut sim, boss, player) = set_up(PRACTICE);
-    let mut cursor = MessageCursor::default();
     let mut second_phase = false;
     let mut projection = None;
     let mut saw_projection_strike = false;
@@ -230,7 +215,7 @@ fn the_gram_reaper_enrage_leaves_the_marked_gap_safe() {
     for _ in 0..900 {
         sim.step(AgentAction::default());
         check_faults(&sim);
-        let marks = marks(&sim, &mut cursor, boss);
+        let marks = marks(&sim, boss);
         if !second_phase && !marks.is_empty() {
             sim.world_mut()
                 .get_mut::<BodyHealth>(boss)

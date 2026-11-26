@@ -1,6 +1,6 @@
 //! Item visuals: ground-item quads, the held-item sprite, and held-projectile
-//! sprites. Pure consumers of the sim-built `sim_view` item snapshots, with no
-//! live item or body queries.
+//! sprites. The item snapshots supply poses. A presentation component on the
+//! holder can select the held item's art.
 
 use ambition_platformer2d_shared_tangle::binding::{
     log_unresolved, Namespace, ReportedOnce, Resolver, UnresolvedRef,
@@ -662,6 +662,7 @@ struct InHand<'a> {
     root: Vec2,
     supported: bool,
     item_id: &'a str,
+    art_id: &'a str,
     /// The hand when the body's art has none: a fixed place on its box.
     hand: Vec2,
     facing: f32,
@@ -683,6 +684,13 @@ const HELD_ITEM_UNDER_HAND: f32 = 0.5e-4;
 #[derive(Component)]
 pub struct HeldItemVisual;
 
+/// Select alternate art for a specific item in this holder's hand.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HeldItemAppearance {
+    pub item_id: &'static str,
+    pub art_id: &'static str,
+}
+
 /// What a held item visual draws: this item in this body's hand, in this live
 /// room. A visual is kept while its holder holds the item there, and moved;
 /// another item, holder or room is a new visual.
@@ -691,6 +699,7 @@ pub struct HeldItemDrawn {
     holder: Entity,
     room: LiveRoomInstance,
     item_id: String,
+    art_id: String,
 }
 
 /// Draw a small quad in the controlled subject's hand for its held item,
@@ -713,6 +722,7 @@ pub fn sync_held_item_visual(
     failed_art: Option<Res<FailedItemArt>>,
     active_session: Option<Res<ActiveSessionScope>>,
     held_view: Res<HeldItemView>,
+    appearances: Query<&HeldItemAppearance>,
     // A living hostile is on the over-hand road. That road draws the items
     // its own catalog has (the gun-swords); an item it does not have is drawn
     // here, from the same art as in any other hand, so that an item is
@@ -749,6 +759,7 @@ pub fn sync_held_item_visual(
             root: held.pos,
             supported: held.support.is_some(),
             item_id: held.item_id.as_str(),
+            art_id: held.item_id.as_str(),
             // In the hand: just in front, at hand height (y-down, so small +y).
             hand: held.support.as_ref().map_or(held.hand_world, |support| support.geometry.anchor),
             facing: held.facing,
@@ -770,6 +781,7 @@ pub fn sync_held_item_visual(
                 root: fact.pos,
                 supported: fact.support.is_some(),
                 item_id: fact.item_id.as_str(),
+                art_id: fact.item_id.as_str(),
                 hand: fact.support.as_ref().map_or(fact.hand_world, |support| support.geometry.anchor),
                 facing: if aim.x >= 0.0 { 1.0 } else { -1.0 },
                 ranged: fact.ranged,
@@ -781,7 +793,7 @@ pub fn sync_held_item_visual(
                 scale: 1.0,
             }
         });
-    for held in in_hand.chain(over_hand) {
+    for mut held in in_hand.chain(over_hand) {
         let facing = if held.facing >= 0.0 { 1.0 } else { -1.0 };
         let hand = held.hand;
         let Some((room, world)) = held.room.and_then(|room| Some((room, rooms.in_room(room)?))) else {
@@ -859,13 +871,20 @@ pub fn sync_held_item_visual(
         let transform = Transform::from_translation(translation).with_rotation(rotation)
             .with_scale(Vec3::new(held.scale, held.scale, 1.0));
         let art_root = hands.root(held.holder);
+        held.art_id = appearances.get(held.holder.body).ok()
+            .filter(|appearance| appearance.item_id == held.item_id)
+            .map(|appearance| appearance.art_id)
+            .filter(|id| art.as_deref().and_then(|art| art.0.get(id)).is_some()
+                && failed_art.as_deref().is_none_or(|failed| !failed.held.contains(*id)))
+            .unwrap_or(held.item_id);
         wanted.push((held, room, transform, flip_x, flip_y, false, art_root));
     }
     for (entity, drawn, mut transform, mut sprite, mut root, art_of) in &mut visuals {
         let kept = (!art_replaced)
             .then(|| {
                 wanted.iter_mut().find(|(held, room, .., taken, _)| {
-                    !*taken && held.holder.body == drawn.holder && *room == drawn.room && held.item_id == drawn.item_id
+                    !*taken && held.holder.body == drawn.holder && *room == drawn.room
+                        && held.item_id == drawn.item_id && held.art_id == drawn.art_id
                 })
             })
             .flatten();
@@ -897,7 +916,7 @@ pub fn sync_held_item_visual(
         let bound = resolve_art(
             art.as_deref().map(|art| &art.0),
             failed_art.as_deref().map(|failed| &failed.held),
-            held.item_id,
+            held.art_id,
             || "held item".to_owned(),
             &mut reported,
             "held item visual",
@@ -930,6 +949,7 @@ pub fn sync_held_item_visual(
                     holder: held.holder.body,
                     room,
                     item_id: held.item_id.to_owned(),
+                    art_id: held.art_id.to_owned(),
                 },
                 sprite,
                 transform,

@@ -669,6 +669,44 @@ fn falling_player_auto_snaps_to_nearby_ledge() {
     assert!(scratch.axis().ledge_grab.is_some());
 }
 
+#[test]
+fn a_ledge_snap_cannot_put_the_body_through_an_open_portal() {
+    use crate::frame::thread::{MotionAdmission, PieceBudget, PortalLink};
+    use crate::frame::{MapConvention, PortalAperture, PortalFrame};
+    use crate::movement::MotionModel;
+
+    let world = world_with(vec![Block::solid(
+        "ledge",
+        Vec2::new(100.0, 100.0),
+        Vec2::new(200.0, 200.0),
+    )]);
+    let entry = PortalAperture {
+        frame: PortalFrame::fixed(Vec2::new(100.0, 125.0), Vec2::NEG_X),
+        half_length: 38.0,
+    };
+    let exit = PortalAperture {
+        frame: PortalFrame::fixed(Vec2::new(400.0, 125.0), Vec2::X),
+        half_length: 38.0,
+    };
+    let links = PortalLink::both_ways(0, (entry, exit));
+    for aperture in [Some(links.as_slice()), None] {
+        let mut scratch = scratch_at(Vec2::new(86.0, 110.0));
+        scratch.abilities.abilities.ledge_grab = true;
+        scratch.kinematics.vel = Vec2::Y * 150.0;
+        let (model, mut clusters) = scratch.parts();
+        let MotionModel::AxisSwept(axis) = model else { unreachable!() };
+        let mut events = crate::movement::FrameEvents::default();
+        let latched = try_start_ledge_grab_clusters_in_frame(
+            &world, &mut clusters, &mut axis.state, InputState::default(),
+            crate::MotionFrame::from_direction(Vec2::Y, 0.0), &axis.params, &mut events,
+            aperture.map(|links| MotionAdmission {
+                links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection,
+            }),
+        );
+        assert_eq!(latched, aperture.is_none());
+    }
+}
+
 /// A loitering player (slow descent, no stick input) should NOT
 /// auto-snap — only an active recovery does. Keeps the snap
 /// from feeling like sticky-wall.

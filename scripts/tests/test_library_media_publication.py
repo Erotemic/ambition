@@ -106,6 +106,31 @@ def test_bank_scope_keeps_authored_audio_and_other_media(tmp_path):
     assert files["audio/sfx_registry.ron"].read_text() == "authored registry"
 
 
+def test_producer_uses_sfx_sources_before_an_old_editable_install(tmp_path):
+    tool = tmp_path / "tools/ambition_sfx_renderer/ambition_sfx_renderer"
+    editable = tmp_path / "build/ambition_sfx_renderer"
+    for package in (tool, editable):
+        package.mkdir(parents=True)
+        (package / "__init__.py").touch()
+    (tool / "prepared.py").write_text("from_checkout = True\n")
+    launcher = tmp_path / "probe.py"
+    launcher.write_text(f"""from pathlib import Path
+import subprocess, sys
+from scripts.regen import generate_library_content as producer
+producer.ROOT = Path({str(tmp_path)!r})
+producer.__file__ = __file__
+producer.interpreter = lambda family: sys.executable
+producer.in_owner('sfx', [])
+from ambition_sfx_renderer.prepared import from_checkout
+assert from_checkout
+subprocess.run([sys.executable, '-c', 'from ambition_sfx_renderer.prepared import from_checkout; assert from_checkout'], check=True)
+""")
+    env = dict(os.environ, PYTHONPATH=os.pathsep.join((str(editable.parent), str(ROOT))))
+    env.pop("AMBITION_PRODUCER_OWNER", None)
+    result = subprocess.run([sys.executable, str(launcher)], cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_all_media_check_refuses_a_source_only_sprite_library():
     (ROOT / ".cache").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="sprite-check-", dir=ROOT / ".cache") as name:

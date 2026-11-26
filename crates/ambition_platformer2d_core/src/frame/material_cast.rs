@@ -557,9 +557,12 @@ impl MaterialCastCells<'_> {
     /// is a point cast with that end's own motion, and a body corner reaching
     /// the segment between its ends is a quadratic in time.
     ///
-    /// A cell cut by a portal or carried on a curve is not admitted here
-    /// (SUP1's portal delivery); it reads the rigid fit `fit` names, as
-    /// every reader did before the shape was published.
+    /// A cell cut by a portal or carried on a curve, a cell beyond a portal,
+    /// and a line on a portal's plane (which the rigid path splits into the
+    /// pieces each cell sees) are not admitted here; they read the rigid fit
+    /// `fit` names, as every reader did before the shape was published. An
+    /// uncut root cell under a portal scene sees any other line whole, as
+    /// with no portal, and is admitted.
     pub(crate) fn against_deforming_where(
         &self, part: &MaterialCell, from: [Vec2; 2], to: [Vec2; 2],
         fit: (Vec2, f32, Vec2), mut accepts: impl FnMut(&MaterialCastHit) -> bool,
@@ -567,7 +570,8 @@ impl MaterialCastCells<'_> {
         if from.iter().chain(&to).any(|point| !point.is_finite()) {
             return Err(numeric_at(part, NumericFault::NonFinite));
         }
-        if part.curve.is_some() || self.scene.is_some() || !part.planes.is_empty() {
+        let split = self.scene.as_ref().is_some_and(|scene| !part.path.is_empty() || scene.may_split_line([&from, &to]));
+        if part.curve.is_some() || split || !part.planes.is_empty() {
             let (displacement, turn, pivot) = fit;
             return self.against_rigid_where(part, &to, displacement, turn, pivot, accepts);
         }

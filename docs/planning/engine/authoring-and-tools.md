@@ -364,6 +364,14 @@ check to look for a place where a body can stand and use the door. Show
 the support and the obstruction in the report so the author can adjust
 the placement.
 
+### Jump reach in room previews
+
+In Starlight Heights, a held jump reached the first ledge on the west
+route. The east approach had no first step at that height. Give the room
+preview an option to show where the selected body can land from a marked
+takeoff point. Use the body's current movement model and show how the
+result changes when the player releases the jump early.
+
 ### Content diffs need domain-aware comparison (Q62, Q78)
 
 Rulings 2026-10-04 ([`../maintainer-decisions.md`](../maintainer-decisions.md)):
@@ -394,6 +402,16 @@ Measured with the tool: `576a8fd` (96,567 raw lines) is two moved
 lines) is five new `DebugLabel` entities, one entity field def and one level
 field def; `056079f` placed one dog in `sandbox.ldtk` and also regenerated the
 Hall (exhibits moved, the exit door `name` overwritten).
+
+The first regeneration of the Weights gave a moved Attention Head a new
+LDtk instance ID. To keep its runtime placement key, move the existing
+spawn before regeneration. Let generators give spawns stable authored keys
+that the tool and the runtime can use.
+The Collider automaton kept its ID with the same method. The move command
+checked the Science file alone and reported valid gate arrivals as errors.
+Use the same world composition for entity moves and room generation.
+The Lab 0 grant chest also needs this ID when it moves. A save uses it to
+record that the chest is open.
 
 **What is known about the recurring rewrite (2026-10-04).** Two fixes did not
 stop it: `54d99e7fb` (reuse tileset and rule uids; write only when changed)
@@ -548,9 +566,20 @@ interchangeable. Preserve the existing LDtk/sprite/audio tool boundaries.
 
 The room generator for Hylbert's Hotel reproduced the lobby, but the LDtk
 ownership report classified it as hand-edited until the author recorded
-the new fingerprint. Give room generators a shared operation that validates
-the final room and records its fingerprint. Call it after all entity and
-IntGrid changes so the next generation can tell which rooms have manual edits.
+the new fingerprint. The History generator uses `district_kit.make_rooms`
+to record the rooms it generates. `district_kit.run("validate", ...)`
+then records the final fingerprints after entity and IntGrid changes.
+Use the same functions in the Math generator. The Orbital Station generator
+deletes each room before it creates the replacement. Use the shared
+replacement operation so the ownership check can read the existing room
+before the generator writes a replacement.
+The Ninja Village generator skips the LDtk-owned Gate Shrine, but it
+still appends the gate interface. This creates a second arrival zone.
+Use the ownership decision for the gate interface and IntGrid edits
+as well as room creation.
+When a generator moves a chest, let the author keep the chest's IID.
+Use the Smugglers' Hoard chest to check this operation. A save from
+before the move must still show an opened chest after the move.
 
 ## Repeatable scenario and truthful activation result
 

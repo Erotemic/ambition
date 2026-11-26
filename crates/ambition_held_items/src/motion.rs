@@ -101,8 +101,13 @@ pub fn ground_item_physics(
     let solids = SolidsByRoom::build(&world, items.iter().map(|(entity, ..)| live.of(entity)));
     for (entity, mut item, mut sweep, custody, response, settled) in &mut items {
         let dt = shared_dt * freeze.scale_of(entity);
-        if dt <= 0.0 { continue; }
         let before = *item;
+        if dt <= 0.0 {
+            // A held room's item makes no step, and its record says so: the
+            // last step it made is not this tick's path.
+            *sweep = ae::SweepSample::at_tick_end(before, Vec2::ZERO);
+            continue;
+        }
         let prior = *sweep;
         *sweep = ae::SweepSample::at_tick_end(before, Vec2::ZERO);
         commands.entity(entity).remove::<(ItemStruckBody, ItemStruckSurface)>();

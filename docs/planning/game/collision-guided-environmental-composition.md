@@ -200,6 +200,49 @@ after the session starts. Consider an option in `room render` that draws
 published props over the room geometry. Use the existing publication
 index and prop draw modes. Include doors and climbable surfaces so an
 author can check the relation between the art and the route.
+At the east end of the waterfront, show the net decks over the facades.
+The preview must use the game draw order where the decks cross the walls.
+At the Pirate Port docks, show the game-drawn rungs over the brig art.
+Use the climbable bounds to keep the shrouds clear of the rungs.
+At Wreckers’ Reef, pass the fallen mast surface points to the art generator.
+Show the mast edge, the decks at both ends, and the two ladders in the same view.
+At Lighthouse Point, show the lookout on the oil deck and a standing body
+below it. Use the same view to check both approaches to the lookout.
+At Pirate Cove, show the door threshold and the ladder top in the same view.
+Use the door bounds to place the sail pennant above the door.
+At Pirate Sky Lookout, show the rigging walk in the same view as the
+riders and the floor below it. Show the points where both ladders meet
+the walk.
+At the Shadow Dojo, show the practice floor, both steps, and the Duelist.
+Use the floor and step spans to set the tatami and plank edges.
+In the Cedar Forest, pass the gate bough surface points to the cedar art.
+Show where the bough meets the last branch and the trail.
+At Ume's Tea House, show the top tread, the loft edge, and both guest rooms.
+Include Tsuru and the chest to check the space between the two interactions.
+At the Mockingbird's shore, show the parked shark and its boarding span
+with the mooring. Use the lift bounds to place the mooring posts.
+In the Mockingbird's sky, show the shark spans when the arrival ferry
+reaches the middle of the room. Include the first jump to each side.
+At Primeval Trailhead, show the survey walk, the two steps, and the path
+under the walk. Use the platform spans to place the plank edges.
+At Primeval Run, use the spine surface points to draw the exposed bone.
+Show the ledges at both ends and the space under the ribs.
+At Primeval Rookery, show Twitchell on the hide deck and a standing
+body on the trail below. Use the deck bounds to place its supports.
+The Site Office shows an outdoor backdrop through windows in an indoor
+wall. Draw the room's selected backdrop under the props so authors can
+check those openings in the preview.
+The Observatory moves wall exhibits to the new landings. Show a player at
+each landing in the preview so authors can check the view at playing scale.
+Lecture Hall 101 also needs a standing player below the first row. Show the
+body and the painted underside at the same scale to check the aisle clearance.
+For the Nave, show the same approach with its lock open and closed. Use the
+flags that open the lock to make both views.
+For the Scullery, draw the pickup sprite and its collection area over the
+pantry art. This lets an author check where to put the light for the key.
+For the Narthex, show the player at each arrival door. Show Ramen-nujan's
+talk prompt so an author can check how the door frame and lamp guide a visit.
+Use the door bounds from the room to set the position of each crest.
 
 ## Follow-up for room art generators
 
@@ -209,8 +252,91 @@ room can move a platform or switch away from its art. Consider giving art
 generators the named bounds of these entities from the authored room. Use
 the positions of the Library's ledges and the Mine's switches to check that
 the same input works for surfaces and controls.
+The Coil Lab rig also uses the positions of both gravity switches. Its
+conduit and control panels must move with those switches.
+The Temple Stair decks need the top of each ledge and the surface below
+each support. Give both heights to the art generator from the room spec.
+For the Durum Terraces, give the art generator the bounds of both stops of
+the grain lift so the rails and the moving deck fit the same shaft.
+In Brothlehem, preview the gate ring and its terminal with the posts of the
+gate court. Show the ring both open and closed to check the space around it.
+For the Curry House, show which shelf edges support a body. Show the udon
+pickup and the tip jar at their authored heights in the same view.
+For the Fizzy Flats, show the water cells, solid banks, and damage volumes
+with the spring art. Use the solid bank edges to place the caps.
+For the Fizzuvius Slopes, show the ladder cells with the ladder art.
+Show where the ladder overlaps the one-way landing at the top.
+For the Caldera, show the corks at both ends of each sweep with the
+fixed stops. Show the top of the bubble lift and the rim in the same view.
+For Ninja Village Street, show the dojo practice platforms with the
+roof edges. Show the jump from the tea house roof to the top platform.
+At the Gate Shrine, show a body under the stone stair. Display the stair
+treads and the low road with the stonework to check the opening.
+At the Village Dojo, show the exam trigger with the red strip. Show each
+wave's spawn points in the same view as the floor and the beam.
+At Bamboo Pass, show the bridge, the waterline, and the ford stones
+with a body on each route. Check the space under the bridge for the body.
+In the Customs Cellars, show the crate tops, barrel rack, and inspection
+decks with their collision and guard spawn points.
+At the Sail Loft, show the shelf edges, the ladder, and the patch kit
+with the canvas bolts. Check that the flags remain visible below the deck.
+At the Smugglers' Hoard, show the coin pile with its surface chain and
+the chest's support point at the top.
+At the Pirate Port Gate Plaza, show the sling at both stops with the
+crate tops, loading platforms, and balcony.
+In the Drowned Compass, pass the gallery and keg step bounds to the
+art generator. Use the climbable bounds to place the ladder at the
+west edge of the gallery. Show these parts together in the room preview.
+The Noodly Cistern adds pipes and plates for each wheel. Give the art
+generator the switch and gate bounds and the gate conditions. Keep the
+pipe bends in the art so an author can route around labels.
 The Celtic Frontier ramp also needs the `SurfaceChain` points. The points
 give the art generator the height of each rail and support on the ramp.
+The Staging Area scaffold is another case. Pass the ledge spans to the art
+generator so each step gets planks and braces at its landing surface.
+Pass climbable bounds too. The Patent Office gallery needs the ladder's
+width and position to leave a gap in its rail.
+The Steam Plant has a ladder at each catwalk. Use the overlaps between the
+ladders and the decks to place the gaps in both rails.
+QED-TV had painted rungs over the themed ladder. Show the themed ladder in
+the room preview so artists can leave that space clear.
+The Test Range shelter needs the roof's bottom edge to draw the passage
+at the same height as its collision clearance.
+The Founders' Plaza café needs the resolved collision bounds. The IntGrid
+set the old awning and balcony eight pixels above the painted tops.
+The Hidden Way uses two sheets for one earth wall. Sample wall textures in
+room coordinates so adjacent sheets can share the same texture at the joint.
+In the Noodly Sanctum, show the boss and the attack effects over the room
+art at the battle camera scale. Use the boss's movement to check the
+contrast at both balconies and in the center. Include the top of the view.
+The boss's eyes can go above it during the fight.
+The Tape Room carriage gives its frame size and top anchor in the sprite
+source and again in `platform_looks.ron`. Read these values from the
+published sheet when the platform uses them. Keep the support span an
+explicit value so the art can extend past the walkable edge.
+The Smugglers' Tunnel uses a painted cable over the freight carrier. Give
+the art generator the carrier's travel bounds so the cable stays above the
+carrier across its full path.
+The Noodly Belfry marks the travel of its three moving hazards. Give the
+art generator the paths and the hazard bounds so the marks move when an
+author changes a path.
+Show encounter spawn boxes with the room hazards in the geometry preview.
+In the Reliquary, the first knot of the last wave started inside a spike
+tray. Its spawn came from the wave file.
+
+### Terrain under water
+
+The Viking North fjord put the same grass and barrels on the channel bed
+as on the banks. Use the water bounds when the terrain system selects
+decoration for a floor. A theme can use bare stone or sediment on the part
+below water and keep its usual ground cover on the bank.
+Show the effective swim impulse in the room preview. In the Smugglers'
+Tunnel, an omitted field used the movement default of 240. The LDtk
+entity definition showed a default value of 760.
+
+The Site Office timber skin needs both published textures and entries in the
+asset catalog. Use the terrain product plan to list the missing catalog
+entries for a new skin.
 
 ## Three visual acceptance scenes
 

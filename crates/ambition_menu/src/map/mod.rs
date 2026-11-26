@@ -12,8 +12,7 @@ use bevy::prelude::*;
 #[derive(Clone, Debug, Default)]
 pub struct MapRoomNode {
     pub id: String,
-    /// The room's area (`activeArea`), which a loading zone's `target_room`
-    /// may name instead of the level.
+    /// The playable room ID. Pieces with the same active area belong to one room.
     pub area: String,
     /// The room's title (its `<id>_title` label), or a name made from its id.
     pub title: String,

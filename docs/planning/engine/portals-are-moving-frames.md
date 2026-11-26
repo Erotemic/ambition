@@ -335,6 +335,25 @@ Still open in M3:
   region's corners reaching the segment, and each moves linearly. Without
   the line split it would change which line pieces a cell sees.
 
+  **Landed (2026-11-26): an uncut root cell under a scene.** `line_parts`
+  splits only a line that lies on an aperture's plane, moving with it (the
+  portal's own host line). For any other line it returns the cell
+  unchanged. So the rigid path under a scene equals the no-portal case for
+  a cell with no path, no planes and no curve. `against_deforming_where`
+  now admits that cell unless the scene may split the line
+  (`Scene::may_split_line`: either pose of the line lies on an enter or exit
+  aperture's plane, within a tolerance far wider than the split's own).
+  Witness `a_stretching_line_beside_a_portal_is_met_when_its_end_arrives`:
+  a pair admitted beside the body gives the cast a scene. The stretching
+  line meets the body at t 0.5, where its end arrives, with that end's
+  travel (+10). Before, it read the rigid fit, a contact at once. Its
+  control, a mouth on the line's own plane, still reads the rigid fit.
+  Core lib (942), runtime with `portal` (306) and the app's portal tests
+  (53) pass.
+  Still open: a cell cut by a portal or beyond one, and a line on an
+  aperture's plane (the portal's own host). Those need the deforming
+  `line_parts` split and the clipped cast described above.
+
 ## Required motion operation
 
 The existing motion owner prepares a bounded sequence of accepted legs.
@@ -445,6 +464,11 @@ proposal/admission before the host writer commits (a refused trajectory
 keeps the combined state), and opening fit on a stretch, which the place
 binding does not decide.
 
+Which of the host, the portal and the material gives way on a refusal is
+visible in play. It is filed as
+[Q187](../awaiting-maintainer-decision.md#q187--when-a-moving-surface-would-carry-a-portal-into-a-place-where-what-is-going-through-it-hits-a-solid-what-gives-way)
+(2026-11-26). The admission boundary waits on that ruling.
+
 ## Shared kinematics, distinct movement policy
 
 At a contact point and time, velocity obeys
@@ -529,6 +553,72 @@ Extend the max-hops-zero fixture through real transit: the recovered body
 must not transfer or emit a crossing. Its admitted control still crosses.
 Delete generic transit's authority to override the accepted restriction set.
 
+The restriction half landed 2026-11-25 (above, "transit keeps the accepted
+restriction").
+
+**History and seed, read 2026-11-26.** The two are already separate
+records:
+- The next step's seed is the body's `BodyKinematics` at phase entry (pos,
+  vel, material).
+- The completed step's history is its `SweepSample`, plus the
+  `CrossedTravel` legs of any crossing:
+  - The kernel writes the sample from phase entry to phase exit on every
+    invocation, early returns included (`write_sweep_sample`), so a stepped
+    body never keeps an older tick's path.
+  - Transit clears the crossing legs every tick before it writes them.
+  - Post-kernel authorities (`carry_body`, `constrain_body_pose`,
+    `reconcile_transit`) extend or collapse the path to where they put the
+    body.
+- An explicit relocation is the remaining case. It leaves `curr` (where
+  the real travel ended) apart from the live `pos`. That gap is the
+  recorded discontinuity: `SweepSample::ending_at(pos)` refuses to place the
+  path at the live pose, so no reader draws a segment across it.
+
+A census of every non-test file that names `SweepSample` (50 files) looked
+for readers of the path's geometry (`prev`, `delta`, `touches`,
+`material_cast`, the end/start boxes) without that guard. Most of those
+reads are guarded, read the record itself (`prev → curr`: the geometry
+observer, the crossing legs, the righting proposal, the kernel's own gate
+in the step that wrote it), or are unrelated methods of the same name.
+One reader placed the step at the live pose unguarded:
+`mount_backs_are_ground` published a mount's ground with velocity
+`curr − prev` wherever the mount now stands. After a relocation that was
+ground travel that never happened, ending at the new place, and a rider
+was carried along it. It now publishes the step only when it
+`ending_at(mount.pos)`, and zero motion otherwise. A probe (deleted) gave a
+stepped mount's ground +10 with and without the guard, and a relocated
+one (sample ending 20 short of the mount) +10 before and 0 after. Mount lib
+(21) and the app's mount tests pass, except
+`smash_ride::a_mounted_launch_carries_the_same_travel_as_an_unmounted_one`.
+It fails on this VM with the change set aside too: the opening ceremony
+waits for entry music this VM has no registry for.
+
+Still open in M1:
+- binding the history to the simulation tick and the accepted aperture
+  snapshot. The sample has no tick stamp, so a body that skips the kernel
+  for a tick (not through an early return) keeps the previous path. For
+  players and actors that does not happen inside the step:
+  `ambition_characters::actor::step_body` sends every arm through
+  `step_motion`. Out of play, held in place, collapsing and in hitlag, it
+  runs with `dt` 0, which writes a zero-length sample at the pose. A skip
+  is then a whole-system one (a gated schedule), whose readers are gated
+  with it. The other steppers (2026-11-26):
+  - Projectiles (`ambition_projectile_combat::systems`) write a sample on
+    every arm. A held room scales `dt` to 0 and still writes. The one exit
+    that writes none is a shot whose room is not live, and that room's
+    readers do not run either.
+  - Loose items (`ground_item_physics`) skipped a held room's item before
+    their reset, and so did the settled-item step. A held item kept its
+    last step as "this tick's" path for as long as the hold lasted. It now
+    records a zero-length sample at its pose, as an actor does at `dt` 0.
+    A probe (deleted) set a held item's sample from x −20 to 80, with the
+    item at 80 and moving at 2 000. After one held tick the sample was
+    80 → 80 with the fix; without it, the 100 px path survived. Held-items
+    lib passes (61; 63 with `portal`).
+
+  What remains is tying the sample to the accepted aperture snapshot;
+- carrying source-frame contact facts through readers.
+
 ### M2 — Continue the kernel at its actual chart-change events
 
 Use the prepared prefix/rebase primitives inside the kernel operation.
@@ -539,6 +629,35 @@ Delete completed-endpoint remapping and chart-change history collapse.
 Include a hosted aperture whose proposed motion makes carried material
 overlap a solid. Admission must reach the host before commit; the refused
 control preserves the combined state and never leaves the aperture behind.
+(The admission half waits on
+[Q187](../awaiting-maintainer-decision.md#q187--when-a-moving-surface-would-carry-a-portal-into-a-place-where-what-is-going-through-it-hits-a-solid-what-gives-way).)
+
+**Size of the remaining error, derived 2026-11-26 (not measured).** Today the
+kernel integrates the whole tick on the entry side. Generic transit then
+carries the rest of it across with `at_crossing_completed`. It maps the
+crossing point, sends the leftover travel through the map's linear part,
+and adds each aperture point's own rate, so a moving or turning pair is
+already continued from the crossing. What it cannot undo is the policy
+the kernel ran after the crossing. For the last fraction `r` of the tick,
+gravity (and drag, input and max-fall clamping) acted in the entry
+chart's frame, and the map then turns that change with everything else.
+The figures below use `GRAVITY` 2 250 px/s² and a 60 Hz tick, for a body
+in free flight (no contact on the exit side in the rest of the tick).
+- **A quarter-turn pair** (floor to wall): the rest of the tick's gravity
+  change in velocity, `g r dt` = 37.5 `r` px/s, comes out sideways instead
+  of down. The error is `√2 × 37.5 r` ≈ 53 `r` px/s (up to 53 px/s for a
+  crossing at the start of the tick). In position it is
+  `√2 × ½ g (r dt)²` ≈ 0.44 `r²` px.
+- **A half-turn pair** (floor to ceiling, mirrored): the change comes out
+  reversed, an error of 75 `r` px/s.
+- **An aligned pair** (same orientation): none.
+
+Contact on the exit side in the rest of the tick is found through the
+admitted cells, but in the entry chart's policy. A support it finds there is
+read as the entry side's ground. The witness the packet asks for needs a
+crossing early in the tick through a quarter-turn pair. Its exact answer
+is the crossing point's map, then free flight under exit-side gravity for
+`r dt`.
 
 ### M3 — Resolve contacts through the complete velocity witness
 
@@ -704,3 +823,35 @@ for each in `first_portal_crossing_through`, then the begin test's
 read. A conservative swept-box test ahead of those queries is the candidate
 saving. No speedup is claimed: the probe measures the step alone,
 not a tick, and a room has few apertures.
+
+**Candidate selection inside the crossing (2026-11-25).** A second probe
+split the cost. Validation was most of it, not the root search.
+`MaterialCast::crossing` validated the aperture step (`sample_wide`, 83 ns
+alone) and the material map (49 ns) before it looked for a root. So an
+aperture whose plane the body moves away from cost 196 ns, and one it
+reaches but misses cost 300 ns. With neither the aperture nor the source
+turning, `first` decides from two numbers: the root's distance to the
+plane at the start, and its rate. `crossing` now computes those first,
+with the same arithmetic as `first`. When no root on the plane can come
+from the front within the interval, it answers none before validating.
+Non-finite numbers do not compare, so they still go on to be refused.
+This is a candidate selection: a far aperture's numeric faults are no
+longer reported to a body that cannot reach its plane. The material
+check now uses `validate_volume_map`, which applies the same checks as
+`map_volume` (tested equal in `thread/tests.rs`) without building the
+mapped volume and discarding it.
+
+Same fixture, release build, median of 7 batches:
+
+| Case | Before | After |
+| --- | --- | --- |
+| Whole step, no crossing | 1 374 ns | 739 ns |
+| An aperture whose plane is not reached | 196 ns | 16 ns |
+| An aperture whose plane is reached off the opening | 300 ns | 297 ns |
+
+A turning aperture or rotating source takes the full path as before.
+Core lib (941), portal2d lib (145), runtime portal tests (26) and the app's
+portal tests (53) pass. The probes were deleted. The swept-box test is no
+longer needed for this case. An aperture whose line the body does reach
+still pays full validation; that would need a per-tick prepared aperture
+step (`PreparedApertureStep`).

@@ -48,11 +48,13 @@ are a reference for the look, not a layout.
     [ Founders' Plaza ] ==== [ Records & Processing ]
 ```
 
-- **Founders' Plaza** (`business_founders_plaza`): the gate and terminal at
-  the west end; The Bottom Line, whose awning is a step up to its balcony and
-  a chest; Dirk Quarterly on his call; the fountain with the Founder on his
-  pedestal (both are steps); Solly Darity's picket line; the portico of the
-  Business College and its door. The east edge goes on to Records.
+- **Founders' Plaza** (`business_founders_plaza`) has a gate and terminal at
+  the west end. The Bottom Line café has a chest on its balcony. Visitors
+  can climb from the west by way of the delivery bench, awning, and window
+  ledge. Service steps connect the fountain rim to the balcony from the
+  east. Dirk Quarterly stays near the fountain. Solly Darity leads the
+  picket line near the Business College entrance. The east edge leads to
+  Records & Processing.
 - **Records & Processing** (`business_records_processing`): the conveyor and
   the APPROVED press on the floor, the shredder's pit (a `HazardBlock` at its
   foot). The service stairs on the east lead to the folder carrier
@@ -61,9 +63,10 @@ are a reference for the look, not a layout.
   chest.
   The background is the records hall: arched bays of binders, brass tubes.
 - **Lecture Hall 101** (`business_college_lecture_hall`): Professor Gail
-  Margin teaching Synergy from the stage; tiers of desks up to the back row,
-  where Zorlack 65536 (`npc_ninja_shadow_oni_leader`) has the best
-  attendance in the class and no interview.
+  Margin teaches Synergy from the stage. Visitors can climb the seating
+  tiers or take the aisle below them and use the rear ladder. Both routes
+  reach Zorlack 65536 (`npc_ninja_shadow_oni_leader`) in the back row. He
+  has the best attendance in the class and no interview.
 
 The Corporate Ladder is in the city's background, rising into the clouds
 with no top in sight. It is a landmark there and not a room yet.

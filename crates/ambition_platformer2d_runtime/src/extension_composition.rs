@@ -324,10 +324,33 @@ impl Plugin for ExtensionCompositionPlugin {
 /// part of the game.
 #[cfg(feature = "script_modules")]
 pub fn add_shipped_script(app: &mut App, artifact: &str, text: &str) {
-    let prepared = PreparedScript::new(
-        artifact, text, script_ports(), ambition_extension_rhai::DEFAULT_MAX_OPERATIONS,
-    ).unwrap_or_else(|e| panic!("the shipped script {artifact} does not load: {e}"));
+    let prepared = prepare_platformer_script(artifact, text, |id| {
+        Err(format!("the bundle has no library {id:?}"))
+    }).unwrap_or_else(|e| panic!("the shipped script {artifact} does not load: {e}"));
     add_prepared_script(app, artifact, &prepared);
+}
+
+/// Prepare a script with the Platformer2D SDK libraries and the host's own sources.
+#[cfg(feature = "script_modules")]
+pub fn prepare_platformer_script(
+    artifact: &str,
+    text: &str,
+    mut read_library: impl FnMut(&str) -> Result<LibrarySource, String>,
+) -> Result<PreparedScript, String> {
+    PreparedScript::with_libraries(
+        artifact,
+        text,
+        script_ports(),
+        ambition_extension_rhai::DEFAULT_MAX_OPERATIONS,
+        LibraryLimits::default(),
+        |id| match id {
+            "ambition/boss_beats.rhai" => Ok(LibrarySource {
+                name: id.to_owned(),
+                text: include_str!("../rhai/boss_beats.rhai").to_owned(),
+            }),
+            _ => read_library(id),
+        },
+    )
 }
 
 /// Install a captured source graph on any target, with no runtime file reads.
@@ -356,6 +379,9 @@ pub fn script_ports() -> ambition_extension_sdk::script::ScriptPorts {
         .add::<ambition_boss_special_port::BossConductPort>("boss_conduct")
         .add::<ambition_boss_special_port::MountViewPort>("mount")
         .add::<ambition_boss_special_port::DrawnRowPort>("drawn_row")
+        .add::<ambition_combat_port::AttackMarkPort>("attack_mark")
+        .add::<ambition_combat_port::HeldDamageBoxPort>("held_damage_box")
+        .add::<ambition_combat_port::BurstPort>("burst")
         .add::<ambition_combat_port::HeldRayPort>("held_ray")
         .add::<ambition_combat_port::LightningPort>("lightning")
         .add::<ambition_combat_port::LightningAuraPort>("lightning_aura")

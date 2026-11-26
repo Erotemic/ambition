@@ -384,14 +384,26 @@ pub fn build_map_page(view: Option<&MapBrowserView>) -> MenuPageModel<MenuPage, 
         Some(MenuPageAction::Map(MapAction::Canvas)),
         0.0,
     );
-    let mut entries: Vec<_> = view
-        .entries
-        .iter()
-        .filter_map(|entry| Some((entry, entry.rect?)))
-        .collect();
-    entries.sort_by_key(|(entry, _)| (entry.selected, entry.here));
-    let count = entries.len().max(1) as f32;
-    for (index, &(entry, rect)) in entries.iter().enumerate() {
+    let mut entries: Vec<_> = view.entries.iter().collect();
+    entries.sort_by_key(|entry| (entry.selected, entry.here));
+    let mut tiles = Vec::new();
+    for entry in entries {
+        let label = entry
+            .pieces
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.area().total_cmp(&b.area()))
+            .map(|(index, _)| index);
+        tiles.extend(
+            entry
+                .pieces
+                .iter()
+                .enumerate()
+                .map(|(index, &piece)| (entry, piece, label == Some(index))),
+        );
+    }
+    let count = tiles.len().max(1) as f32;
+    for (index, &(entry, rect, label)) in tiles.iter().enumerate() {
         let rect = MenuRect::new(
             f.x + rect.min.x * f.w,
             f.y + rect.min.y * f.h,
@@ -419,7 +431,11 @@ pub fn build_map_page(view: Option<&MapBrowserView>) -> MenuPageModel<MenuPage, 
         } else {
             model.layered_panel(inset, colour(fill), action, layer);
         }
-        if entry.visited && inset.w >= MAP_LABEL_MIN_WIDTH && inset.h >= MAP_LABEL_SIZE * 1.6 {
+        if label
+            && entry.visited
+            && inset.w >= MAP_LABEL_MIN_WIDTH
+            && inset.h >= MAP_LABEL_SIZE * 1.6
+        {
             let label = short_title(&entry.title, inset.w);
             let anchor = Vec2::new(inset.x + inset.w * 0.5, inset.y + inset.h * 0.5);
             let half_width = label.chars().count() as f32 * MAP_LABEL_SIZE * 0.72 / 3.0;
@@ -428,9 +444,9 @@ pub fn build_map_page(view: Option<&MapBrowserView>) -> MenuPageModel<MenuPage, 
                 Vec2::new(half_width * 2.0 / f.w, MAP_LABEL_SIZE / f.h),
             );
             // Hide a label where a room in front of it covers the text.
-            if !entries[index + 1..]
+            if !tiles[index + 1..]
                 .iter()
-                .any(|(_, rect)| !rect.intersect(label_rect).is_empty())
+                .any(|(_, rect, _)| !rect.intersect(label_rect).is_empty())
             {
                 model.text(
                     anchor.x,

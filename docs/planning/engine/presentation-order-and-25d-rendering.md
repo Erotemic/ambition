@@ -648,7 +648,91 @@ shared value preparation are sufficient until source proves otherwise.
    same order as in 2D. The same capture with the old `card_view.rs` has no
    sheep there. The rigged shepherd is drawn in both.
 
-   Still unrealized in the card view: portals (P5/P6) and room tiles.
+   **Room terrain (2026-11-25).** The card view drew bodies on nothing.
+   The room's ground is what the 2D view draws for its tiles: the skin of
+   its blocks (`TerrainSkinMesh`, a few textured meshes per room) and the
+   earth under its lines (`ChainEarth`, a hill's fill). These are the same
+   mesh assets here, drawn as cards (`realize_card_terrain`). They sit on
+   the play plane just behind its bodies (`TERRAIN_DEPTH` −0.5, in front
+   of a cart's near panel), with the earth 0.1 behind the block skin and
+   the skin's layers in their 2D order. They use the 2D blend, since a
+   skin picture has clear parts. A seated body is recessed behind the play
+   plane and is behind them, as the depth policy places it. The 2D meshes
+   carry no normals, and the unlit 3D pipeline draws them as they are.
+   Witness `a_rooms_terrain_skin_is_a_card_on_the_play_plane`: the same
+   mesh, layer order kept, none for a hidden mesh, and the card leaves with
+   its mesh. Render lib with `card_view`: 536 passed. The same
+   `intro_fell` capture now shows the shepherd, the sheep and Scout
+   standing on the turf, and the hill's earth rising behind them.
+
+   **Portals (2026-11-25, `portal_render`).** A portal is a line of light
+   on its host surface. The 2D view draws it as the `PortalGlow` sprite,
+   placed by `sync_portal_glows`. The card view reads the same glow after
+   that system, so it uses the frame's placement, length, channel colour
+   and open/close fade. It draws one unlit card per glow
+   (`realize_card_portals`) on the play plane at `PORTAL_DEPTH` −0.25,
+   between the terrain and the bodies, as wide as the glow's length and 3
+   units thick. Materials are cached by colour. Witness
+   `a_portal_is_a_line_of_light_on_the_play_plane`: the card takes the
+   glow's place, turn, length and channel colour, and leaves with the
+   glow. Render lib with `card_view,portal_render`: 5 card-view tests
+   passed; with `card_view` alone: 4. Capture `intro_fell player
+   --card-view --player-beside npc_fell_sheep` with two upright portals
+   placed beside the sheep (`--portal-at`): the card view shows the cyan
+   and the pink line where the 2D view draws them, behind the shepherd.
+   The portal's view of its far side (P5/P6, the window over the play
+   plane) is not drawn here.
+
+   **Room scenery (2026-11-26).** A room's props (`PropVisual`) and the
+   trim pieces on its lines (now marked `ChainTurfPiece`) are cards of the
+   cells the 2D view draws, at their 2D places (`realize_card_scenery`).
+   Their order is the 2D view's, band by band:
+   - backdrop props (2D z −12..−10) behind a vessel's back panel
+     (`BACKDROP_DEPTH`, −45);
+   - the turf (2D z 2) just in front of the block skin's layers
+     (`TURF_DEPTH`, −0.4);
+   - scenery props, doors and climbables (2D z 10.55..10.97) in front of
+     the turf and behind the portal line (`SCENERY_DEPTH`, −0.35, plus their
+     2D order);
+   - what 2D draws in front of its bodies (a prop that hides a body, a near
+     lane's turf) one body step in front of the front-most body.
+
+   They use the 2D blend: a prop picture has soft edges, and a mask would
+   make hard cutouts of them. A prop ranked as a body (a bound feature) is
+   left to the bodies. Only a prop's own sprite is drawn: a prop that draws
+   extra art on child sprites shows its root picture alone. Witness
+   `a_rooms_props_and_turf_are_cards_in_the_2d_order` covers each band's
+   depth and the order skin < turf < scenery < portal < bodies. No card is
+   made for a hidden prop, the actor prop is a body, and a despawned prop
+   takes its card with it. Render lib with `card_view,portal_render`: 6
+   card-view tests passed. Capture `intro_fell player --card-view
+   --player-beside npc_fell_sheep`: the hill in the card view now has its
+   grass cap (bare earth before), and the flowering gorse prop stands on
+   the slope at the panel's edge.
+
+   **Parallax backdrop (2026-11-26).** The 2D view draws a room's parallax
+   panels (`ParallaxLayerVisual`) for each view, relative to that view's
+   centre (`sync_parallax_layers`). A flat card behind a turned camera would
+   slide sideways with its depth, so a panel is instead a card facing the
+   view's card camera (`realize_card_backdrop`, `backdrop_card_place`). It
+   stands along the camera's view, 1 500 behind the play plane (further
+   back for a layer further back in 2D), inside the camera's far plane.
+   A foreground layer stands 1 000 in front of the plane. Its offset from
+   the view's centre and its size are the 2D ones times `1 / zoom`, since
+   the card view shows `1 / zoom` of the 2D view's width. So the card view
+   frames the backdrop as the 2D view does. Only the panels the 2D view
+   draws for that view are used (shown, and kept for it or for no view);
+   portal capture copies are left to their capture cameras. Witness
+   `a_parallax_panel_is_a_card_facing_the_card_camera`: a background
+   panel 200 right of the centre is a card at 80 right, 1 516 behind, facing
+   the camera, at scale 0.4, and a foreground one is in front. A panel kept
+   for another view, or hidden, makes no card. Render lib with
+   `card_view,portal_render`: 7 card-view tests passed. The `intro_fell`
+   capture's card view shows the sky, its clouds, the distant hills,
+   windmills and the triangle gate behind the shepherd, the sheep and
+   Scout, where before it was black.
+
+   Still unrealized in the card view: the portal far-side window (P5/P6).
 
 PO1 can proceed before RV1/RV2. The scale-law work can proceed independently;
 both renderers must consume the resulting authoritative material and poses.

@@ -28,6 +28,7 @@ collections:
 # `data/boss_sheets.ron`); a boss sheet with no such character, or no part
 # flipbook, is here (PF2b, `docs/planning/engine/part-first-publication.md`).
 baked_pages:
+  burning_flying_shark: "The moving platforms in the Mockingbird rooms use the idle row."
   clockwork_warden_boss: "Boss art (boss_art_keys.ron): no character draws its parts (no catalog row)."
   hooded_sentinel_boss: "Boss art (boss_art_keys.ron): no character draws its parts (no catalog row)."
   gnu_ton_scholar_boss: "Boss art (boss_art_keys.ron): publishes no part flipbook."

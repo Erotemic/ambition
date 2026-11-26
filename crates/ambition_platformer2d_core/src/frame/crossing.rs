@@ -47,22 +47,37 @@ impl MaterialCast<'_> {
             return Err(numeric(NumericFault::InvalidFrame));
         }
         let until = until.min(self.until);
-        step.sample_wide(end, self.time.start).map_err(numeric)?;
-        super::thread::map_volume(self.material.domain, &self.material.to_world).map_err(numeric)?;
         let normal = end.frame.normal.as_dvec2().normalize();
         let arm = end.frame.origin.as_dvec2() - end.frame.pivot.as_dvec2();
         let span = self.time.end - self.time.start;
+        let a = self.root.as_dvec2() - end.frame.pivot.as_dvec2()
+            + step.displacement.as_dvec2() * (1.0 - self.time.start);
+        let b = self.delta.as_dvec2() - step.displacement.as_dvec2() * span;
+        let depth = normal.dot(arm);
+        // Candidate selection: with neither the aperture nor the source
+        // turning, the root's distance to the plane is linear, and `first`
+        // reads its answer from these two numbers. A root that never reaches
+        // the plane from the front within the interval crosses nothing, so
+        // the aperture's validation is asked only of planes the body reaches.
+        // Non-finite input does not compare and goes on to be refused.
+        if step.turn == 0.0 && self.rotation.is_none() {
+            let (f0, d0) = (normal.dot(a) - depth, normal.dot(b));
+            if f0.is_finite() && d0.is_finite() && !(f0 == 0.0 && d0 < 0.0)
+                && (until == 0.0 || d0 >= 0.0 || f0 < 0.0 || !(0.0..=until).contains(&(-f0 / d0)))
+            {
+                return Ok(None);
+            }
+        }
+        step.sample_wide(end, self.time.start).map_err(numeric)?;
+        super::thread::validate_volume_map(self.material.domain, &self.material.to_world).map_err(numeric)?;
         if let CombatVolume::Circle { radius, .. } = self.material.domain {
             if f64::from(*radius) * self.material.to_world.scale_wide() > f64::from(end.half_length) {
                 return Ok(None);
             }
         }
         let curve = Curve {
-            cast: self, step, end,
-            a: self.root.as_dvec2() - end.frame.pivot.as_dvec2()
-                + step.displacement.as_dvec2() * (1.0 - self.time.start),
-            b: self.delta.as_dvec2() - step.displacement.as_dvec2() * span,
-            depth: normal.dot(arm), along: perpendicular(normal).dot(arm),
+            cast: self, step, end, a, b,
+            depth, along: perpendicular(normal).dot(arm),
             omega: f64::from(step.turn) * span, until,
         };
         curve.first()

@@ -50,14 +50,18 @@ a reference for the look, not a layout, and not for its colours.
 - **The Staging Area** (`unfinished_staging`): the gate on the first
   ground the agents laid; the site cabin (the Site Office's door); the
   survey post and Subclause 4(b); three trees painted on one side and
-  still a drawing on the other; the scaffold up to a chest.
+  still a drawing on the other. The scaffold gives visitors an upper route
+  past a chest. The west step starts beside the trees. The east steps
+  go down toward the Draft.
 - **The Draft** (`unfinished_draft`), east: the built ground ends and a
   stream runs off it into the void. Slabs hang from cranes' cables over the
   void, a jump apart; between them, the outlines of platforms not built yet
   (they are drawings: they do not hold you). Subclause 4(c) paints the sky
   from a hanging platform. A Bug and Feature Creep guard the built ground.
 - **The Site Office** (`unfinished_site_office`), by a door: the gauges of
-  GRAVITY, WEATHER and LAYERS, the backlog, and the Placeholder.
+  GRAVITY, WEATHER and LAYERS, the backlog, and the Placeholder. Windows
+  look out on the work site. Visitors can jump onto the gauge bench and
+  cross to the records table. The floor between them leads to Placeholder.
 
 ## The people and the things that fight
 

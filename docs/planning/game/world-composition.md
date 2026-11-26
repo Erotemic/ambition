@@ -80,6 +80,9 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
 - **Docks:** ladders connect both banks of each gap to the water. A hatch
   past the brig lets swimmers reach the east end of the pier.
 - **Under:** down the plaza's well into the cellars, east through the arch into the smugglers' tunnel, up the drain into the waterfront's street. The drain's grate is shut until the lever under it is pulled (a shortcut opened from below).
+- The freight carrier crosses the flooded cut in the tunnel. Swimmers can
+  cross below it and climb out at either bank. The quartermaster guards the
+  east loading dock.
 - **Secret:** the plank wall at the tunnel's east end; the hoard behind it.
 - **Reef:** jump from the stern to the bow, or swim across the gap. A ladder
   on each hull connects the water to its deck.
@@ -97,6 +100,10 @@ Jon, 2026-11-04: "we need to make sure we know what data is the truth... What ha
 - **Cedar Forest:** a fallen cedar connects the ground path to the fourth
   branch and the crows' hoard.
 - **Under:** a loose board in the street (a one-way floor, dropped through; `secret_`) into the hidden way, west to a stone slab in the shrine's floor, shut until the lever under it is pulled.
+- The floor of the Hidden Way leads directly to the shrine lever. The
+  training gallery gives visitors a raised route, with a jump over the
+  nightingale floor below. The savings chest is next to the weapons rack
+  on the east gallery.
 - **Tests:** `game/ambition_app/tests/the_ninja_village.rs`.
 
 ## The primeval trail (the fifth)

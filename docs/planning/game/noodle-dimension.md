@@ -31,7 +31,7 @@ central hub's door to the narthex stays.
 | `noodle_village_market` | The drying racks form the high road. A crate and bench give access from the springs road. A cloth awning marks the curry house entrance. | |
 | `noodle_village_curry_house` | Curry udon. | Marie Curry. She tells what the soda is. |
 | `noodle_durum_terraces` | Durum wheat (the wheat of pasta) on terraces, with paddies of broth (clear water). The low field climbs west, and the high field climbs back east. | noodlings |
-| `noodle_temple_stair` | The great stair to the temple's door. | a parrot |
+| `noodle_temple_stair` | The great stair and an overlook route to the temple door. | a parrot |
 | `noodle_fizzy_flats` | Soda springs in a crust of sugar at the foot of the volcano. | The Weird Hermit watches the springs, and he has no mints. |
 | `noodle_fizzuvius_slopes` | Shelves of rock candy, with channels of soda between them. | spaghetti events, a parrot |
 | `noodle_fizzuvius_caldera` | A lake of soda in the crater. Corks drift on it. A bubble lift goes up to the east rim, and the crust goes back west over the lake. The Mint is on the east rim (a chest). | noodlings, a parrot |
@@ -52,6 +52,102 @@ dimensions. The narthex lost its ring and got a front door to the stair
 (`noodly_narthex_to_stair`). The narthex is LDtk-owned, so this edit was made
 in the map; the temple's `make_specs.py` writes the same door.
 
+## Brothlehem gate square
+
+The cart by the bakery gives access to the roofs from the square. At the
+market end, the delivery crate, awning, and gallery give access to the
+bell house roof. The route at street level also leads to the market.
+The direction board is next to the gate court.
+
+## Curry House
+
+The hearth and menu mark the serving counter. The bowl of udon is on the
+counter. Service steps at the east wall give access to the spice shelf and
+the tip jar. Marie Curry stands to the left of the counter.
+
+## Durum Terraces
+
+The grain lift starts in the dry field between the paddies. Stand on the
+lift to go up to the middle terraces. The low fields still lead west to
+the start of the upper route. Stone banks and rows of wheat mark the
+broth paddies. A shelter marks the threshing floor at the temple stair.
+
+## Temple Stair
+
+The overlook route starts at the foot of the stair and joins the stair
+again above the shelter. The shelter has an offering chest. A temple front
+marks the upper door, and an arrow at the foot points to the terraces.
+
+## Narthex
+
+The doors to the central hub, the Pilgrims' Way, and the nave have different
+crests. Ramen-nujan stands in the alcove under the lamp. Two small ledges
+lead to the alms balcony. The Pesto Key opens its seal.
+
+## Nave
+
+A bell, a wheel, a vessel, and a colander mark the four upper routes.
+Stone alcoves mark the doors at the ends of those routes and the door to
+the scullery at the end of the main floor.
+
+## Scullery
+
+The west prep counter gives access to the upper route from the floor.
+The east serving shelf gives access to the larder when its seal is open.
+The Marinara Key is in a lit recess behind the pantry grille.
+
+## Cistern controls
+
+The temple cistern has three wheels. Pipes show the gates that each wheel
+controls. Blue plates mark gates that open when the wheel is on. Amber
+plates with a bar mark gates that close. The gates control the dry passages
+between the pools.
+
+## Belfry
+
+A landing connects the two service ladders in the shaft. A short ledge
+leads from the lower ladder to the middle bell. Players can also jump up
+the shaft. Each bell has a number that matches its seal in front of the
+Parmesan Key.
+
+## Reliquary
+
+Stall steps give access to the high offering platform from both sides of
+the vigil. Players can also cross on the floor and jump the two sauce
+trays. Contact with a tray costs two health. The Colander Key is in a lit
+recess behind the grille. The last wave starts its west knot on the dry
+floor between the trays.
+
+## Sanctum
+
+Stone supports and gold edges show the two side balconies. The dark stone
+behind the fight makes the boss and its attacks easier to see.
+
+## Fizzy Flats
+
+A sampling walk crosses the two east springs. Its first step is on the
+dry bank beyond the hermit's spring. Pilgrims can also jump the springs
+from the ground and use the stone in the middle pool. Caps and bubbles
+mark the soda. The hermitage and spring warning have signs with a dark
+background.
+
+## Fizzuvius Slopes
+
+After the first soda channel, a ladder on the dry shelf leads to two
+landings below the lost thermos. From the thermos, the outcrops lead to
+the rim. The lower trail crosses a second channel on its way to the
+soda tube. Pilgrims can also climb from the tube to the thermos by the
+east outcrops. The parrot starts above the rim trail.
+
+## Fizzuvius Caldera
+
+Two small rock-candy stops let pilgrims wait for the corks and give
+pilgrims a place to land below the rim trail. A bubble lift from the
+east bank rises above the rim. Step east off the lift to reach the
+Mint. The arch over the chest marks the vent it plugged.
+The Noodlings start above the lake near the first stop and the east
+bank. The west bank has room to jump onto the first cork.
+
 ## The soda
 
 A pool of soda is two things in one box. Neither needs a Rust change:
@@ -69,8 +165,7 @@ A pool of soda is two things in one box. Neither needs a Rust change:
   `noodly` theme, and the spike sprite of each `DamageVolume` shows through
   it. A `look` on `DamageVolume` (as `LockWall` and `BreakablePlatform`
   have) or a soda water kind would fix this; both need Rust.
-- The houses in the gate square, the durum terraces, and the volcano still
-  need scenery. The market has art for the drying racks and curry house
-  entrance.
+- The volcano uses the same distant backdrop as the village and temple.
+  Give Mount Fizzuvius a crater backdrop to show the change in elevation.
 - No app test walks the new rooms yet.
 - The Mint is a chest. It opens nothing.

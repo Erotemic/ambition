@@ -72,7 +72,7 @@ impl Tris {
     }
 
     /// Add the convex polygon `poly` as a fan.
-    fn polygon(&mut self, poly: &[(Vec2, [f32; 4])]) {
+    pub(crate) fn polygon(&mut self, poly: &[(Vec2, [f32; 4])]) {
         if poly.len() < 3 {
             return;
         }
@@ -188,7 +188,13 @@ impl Plugin for FoldedMeshPlugin {
         let Some(blended) = app
             .world_mut()
             .get_resource_mut::<Assets<ColorMaterial>>()
-            .map(|mut materials| materials.add(ColorMaterial::from_color(Color::WHITE)))
+            .map(|mut materials| {
+                materials.add(ColorMaterial {
+                    color: Color::WHITE,
+                    alpha_mode: AlphaMode2d::Blend,
+                    ..default()
+                })
+            })
         else {
             return;
         };

@@ -620,7 +620,11 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         // Every mesh built on the CPU is drawn through the portals by the one
         // writer; line effects (rays' looks, lightning decorations) are its
         // first producers.
-        app.add_plugins((crate::folded_mesh::FoldedMeshPlugin, crate::lines::LinesPlugin));
+        app.add_plugins((
+            crate::folded_mesh::FoldedMeshPlugin,
+            crate::lines::LinesPlugin,
+            crate::attack_marks::AttackMarksPlugin,
+        ));
         // The light of the time of day multiplies the world (its material).
         app.add_plugins(crate::rendering::daylight::DaylightPlugin);
         // The darkness of a dark room, summed per pixel at High and Ultra (its material).

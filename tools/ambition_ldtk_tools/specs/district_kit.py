@@ -103,11 +103,16 @@ def water(wid, x, y, w, h):
     return entity("WaterVolume", x, y, w, h, id=wid, name=wid.replace("_", " "))
 
 
-def room(rid, entities, *, at, size, biome, music, bg, title=None, generator, zoom=None, extra="", dangerous=False):
+def room(rid, entities, *, at, size, biome, music, bg, title=None, generator, zoom=None, extra="", dangerous=False,
+         parallax_theme=None):
     """The spec text of a room: its camera and title are added here.
 
     `dangerous`: the room is out of town, where an NPC on the player's side
-    joins the player's fights (`RoomMetadata::dangerous`)."""
+    joins the player's fights (`RoomMetadata::dangerous`).
+
+    Set `parallax_theme` when the room uses a different terrain theme from
+    its biome.
+    """
     world_x, world_y = at
     w, h = size
     cam = {"zoom": zoom} if zoom else {}
@@ -127,7 +132,7 @@ def room(rid, entities, *, at, size, biome, music, bg, title=None, generator, zo
     fill_collision: "empty",
     bg_color: "{bg}",
     biome: "{biome}",
-    parallax_theme: "{biome}",
+    parallax_theme: "{parallax_theme or biome}",
     music_track: "{music}",{danger}{extra}
     entities: [
         {text}
@@ -215,6 +220,7 @@ def add_entities(yaml_text: str, ldtk: Path, scratch: Path, *, unless: str | Non
 
 
 def paint(world: Path, room_id: str, layer: str, value: int, x: int, y: int, w: int, h: int) -> int:
+    """Paint cells before the generator validates the completed world."""
     code, _ = run("intgrid", "paint", "--ldtk", str(world), "--level", room_id, "--layer", layer,
-                  "--value", str(value), "--px", f"{x},{y}", "--size", f"{w},{h}")
+                  "--value", str(value), "--px", f"{x},{y}", "--size", f"{w},{h}", "--no-repair")
     return code

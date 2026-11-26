@@ -72,6 +72,7 @@ pub fn queue_boss_conducts(
         Has<DrivingParticipant>,
     )>,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRoomOf<ae::RoomGeometry>,
+    collision: ambition_platformer2d_world::collision::CollisionWorld,
     captives: Query<&ambition_combat::capture::CapturedBy>,
     mobs: Query<
         (Entity, &ambition_combat::components::EncounterMob, &BodyHealth),
@@ -99,17 +100,19 @@ pub fn queue_boss_conducts(
     if bound.is_empty() {
         return;
     }
+    let mut composed = ambition_platformer2d_world::collision::ComposedRooms::default();
     for (boss, config, attack, kin, health, encounter, target, side, driven) in &bosses {
         if !bound.contains(&config.behavior.id.as_str()) {
             continue;
         }
         // The boss it wakes after, by placement id, in its own live room: its
         // body, or where it was authored when its body is not built.
-        let hall_at = |at: ae::Vec2| {
-            rooms.of(boss).and_then(|geometry| crate::hall::measure_hall(&geometry.0, at)).map(|h| RoomHall {
-                floor: h.floor,
-                left: h.left,
-                right: h.right,
+        let geometry = rooms.of(boss);
+        let key = live_rooms.of(boss).map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
+        let walls = composed.solids(&collision, key.as_ref()).or_else(|| geometry.map(|room| &room.0));
+        let hall_at = |at| {
+            walls.and_then(|world| crate::hall::measure_hall(world, at)).map(|h| RoomHall {
+                floor: h.floor, left: h.left, right: h.right,
             })
         };
         let authored = |after: &str| {
@@ -129,15 +132,7 @@ pub fn queue_boss_conducts(
                 })
             }).or_else(|| authored(after))
         });
-        let geometry = rooms.of(boss);
         let room = geometry.map(|geometry| [geometry.0.size.x, geometry.0.size.y]);
-        let hall = geometry
-            .and_then(|geometry| crate::hall::measure_hall(&geometry.0, kin.pos))
-            .map(|h| RoomHall {
-                floor: h.floor,
-                left: h.left,
-                right: h.right,
-            });
         invocations.trigger::<BossConductPort>(
             &BOSS_CONDUCT,
             config.behavior.id.clone(),
@@ -153,7 +148,7 @@ pub fn queue_boss_conducts(
                 telegraph: live(&attack.telegraph_profile, attack.telegraph_remaining),
                 active: live(&attack.active_profile, attack.active_remaining),
                 target: target.and_then(|t| t.entity.map(|_| [t.pos.x, t.pos.y])),
-                hall,
+                hall: hall_at(kin.pos),
                 driven,
                 enraged: encounter.encounter_phase() == BossEncounterPhase::Enrage,
                 holding: captives.iter().any(|held| held.captor == boss),
@@ -1062,6 +1057,43 @@ pub fn lower_lightning_auras(
             half: ae::Vec2::from(aura.half),
             look,
             hold: aura.hold_s,
+        });
+    }
+}
+
+pub fn lower_attack_marks(
+    mut outbox: ResMut<ExtensionOutbox>,
+    mut marks: ResMut<ambition_vfx::vfx::AttackMarks>,
+    time: Res<ambition_time::WorldTime>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
+) {
+    use ambition_combat_port::AttackMarkPort;
+    use ambition_vfx::vfx::{AttackMark, AttackMarkKey};
+
+    let requests = outbox.drain::<AttackMarkPort>(&ambition_extension_sdk::phases::BOSS_CONDUCT);
+    if time.sim_dt() <= 0.0 || (requests.is_empty() && marks.0.is_empty()) {
+        return;
+    }
+    marks.0.clear();
+    for submitted in requests {
+        let mark = submitted.value;
+        let center = ae::Vec2::from(mark.center);
+        let half = ae::Vec2::from(mark.half_extent);
+        let Some(room) = rooms.of(submitted.scope) else {
+            continue;
+        };
+        if !center.is_finite() || !half.is_finite() || half.min_element() <= 0.0
+            || !mark.progress.is_finite()
+        {
+            continue;
+        }
+        marks.0.push(AttackMark {
+            key: AttackMarkKey { owner: submitted.scope, entry: submitted.entry, slot: mark.slot },
+            room,
+            center,
+            half,
+            progress: mark.progress.clamp(0.0, 1.0),
+            active: mark.active,
         });
     }
 }

@@ -135,7 +135,7 @@ The rooms:
 | `history_ice_age_europe` | `history_ice_age` | (the cave painter, inside) | cave bear, woolly mammoth, cave lion | the door to the painted cave |
 | `history_first_farmers_of_europe` | `history_megalith` | Ötzi the Nice-man | aurochs, steppe wolf | the way down: where the wheat came from |
 | `history_megalith_builders` | `history_megalith` | Not-a-Druid | aurochs, steppe wolf | the sun stone (`history_solstice`) opens the trilithon |
-| `history_celtic_frontier` | `history_northwoods` | Boudic-car | vandal, steppe wolf | the hillfort's ledges |
+| `history_celtic_frontier` | `history_northwoods` | Boudic-car | vandal, steppe wolf | the hillfort has steps on the west and a ramp above the road on the east. Jump to the east landing to climb the ramp. A guard stands on the crest. |
 | `history_viking_north` | `history_northwoods` | Leif Errandson | viking raider | a longship carries you over the fjord |
 | `history_age_of_sail` | `history_sail` | Vasco da Gamer, Christopher Columbust, Captain Cookbook | privateer, scurvy ghost, kraken arm | ships' booms rock over the harbour |
 | `history_industrial_age` | `history_industrial` | Adam Smithy, Karl Marks, General Ludd | steam automaton, soot sprite, robber baron | the boiler in the mill (`history_boiler`) opens the factory gate; a rail wagon carries you over the cutting |

@@ -209,6 +209,8 @@ room can move a platform or switch away from its art. Consider giving art
 generators the named bounds of these entities from the authored room. Use
 the positions of the Library's ledges and the Mine's switches to check that
 the same input works for surfaces and controls.
+The Celtic Frontier ramp also needs the `SurfaceChain` points. The points
+give the art generator the height of each rail and support on the ramp.
 
 ## Three visual acceptance scenes
 

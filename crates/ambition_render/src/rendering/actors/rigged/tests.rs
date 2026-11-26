@@ -132,7 +132,7 @@ fn app_anchored(sprite_content: &ambition_sprite_sheet::SpriteContent, admit: bo
         .init_resource::<ComposedBodyDemand>()
         .insert_resource(Composite(true))
         .insert_resource(RiggedSpriteAdmission { admit })
-        .add_systems(Update, (animate, declare, bind_rigged_presentations, prepare_rigged_slots, drive_rigged_presentations).chain());
+        .add_systems(Update, (animate, declare, bind_rigged_presentations, prepare_rigged_slots, rigged_presentation_drive()).chain());
     let mut assets = GameAssets::default();
     assets.characters.declare("raider");
     assets.characters.publish(&sprite_content, "raider", sheet.clone());
@@ -1274,7 +1274,7 @@ fn a_blink_performed_on_a_body_warps_it_on_the_row_it_draws_and_ends() {
     use ambition_sprite_sheet::character::rigged::PerformedBodyWarp;
     let (_flipbook, mut app, root) = robot(&sprite_content);
     app.init_resource::<Time>();
-    app.add_systems(Update, advance_performed_body_warps.before(drive_rigged_presentations));
+    app.add_systems(Update, advance_performed_body_warps.before(RiggedDriveSet));
     pin_clip(&mut app, root, "walk", 1);
     settle(&mut app);
     assert_eq!(warp_of(&app, root), Vec4::ZERO, "control: a walking body has a warp");
@@ -2074,7 +2074,7 @@ fn a_tracking_glow_keeps_its_geometry_when_the_body_is_composited() {
         app.world_mut().resource_mut::<Composite>().0 = false;
         app.world_mut().entity_mut(root).insert(ActorGlow::player_highlight());
         app.add_systems(Startup, build_actor_glow_picture);
-        app.add_systems(Update, sync_actor_glows.after(drive_rigged_presentations));
+        app.add_systems(Update, sync_actor_glows.after(RiggedDriveSet));
         settle(&mut app);
         let read = |app: &mut App| {
             let (place, sprite) = app.world_mut().query_filtered::<(&Transform, &Sprite), With<ActorGlowVisual>>()
@@ -2206,4 +2206,39 @@ fn an_unchanged_impostor_waits_for_gpu_readiness_before_it_rests() {
     images_ready.mark_prepared(source);
     app.update();
     assert!(!active(&app));
+}
+
+/// RV1: the 2D driver draws the body's local sample and interprets nothing
+/// itself. Every sampled draw shows in a slot, in draw order. A system between
+/// the sampler and the driver that takes the last draw out of the sample takes
+/// it out of the picture: the driver had no other source to draw it from.
+#[test]
+fn the_slots_draw_the_local_sample_and_nothing_else() {
+    fn drop_the_last_draw(mut samples: Query<&mut RiggedLocalSample>) {
+        for mut sample in &mut samples {
+            sample.draws.pop();
+        }
+    }
+    let sprite_content = ambition_sprite_sheet::test_support::shared_sprites();
+    let shown = |trimmed: bool| {
+        let sheet = raider(&sprite_content, true);
+        let feet = Vec2::new(sheet.spec.feet_anchor_x, sheet.spec.feet_anchor_y);
+        let (mut app, root) = app_direct(&sprite_content, sheet, Anchor(feet));
+        if trimmed {
+            app.add_systems(Update, drop_the_last_draw.after(sample_rigged_presentations).before(drive_rigged_presentations));
+        }
+        settle(&mut app);
+        let owner = owner(&app, root);
+        let sample = app.world().get::<RiggedLocalSample>(owner).unwrap();
+        assert_eq!(sample.state, LocalSampleState::Parts);
+        let sampled = sample.draws.len();
+        let drawn = slots(&app, owner).iter().filter(|(_, visible)| *visible).count();
+        (sampled, drawn)
+    };
+    let (sampled, drawn) = shown(false);
+    assert!(sampled > 1, "the raider samples its parts");
+    assert_eq!(drawn, sampled, "each sampled draw shows in a slot");
+    let (trimmed, drawn) = shown(true);
+    assert_eq!(trimmed, sampled - 1);
+    assert_eq!(drawn, trimmed, "a draw taken out of the sample is not drawn");
 }

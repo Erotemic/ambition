@@ -344,7 +344,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // pass, which follows the root's own `Visibility`.
                     body_visibility::sync_body_visibility
                         .in_set(SpriteVisualSync)
-                        .before(actors::rigged::drive_rigged_presentations),
+                        .before(actors::rigged::RiggedDriveSet),
                     // What the stage shows instead of the hidden body. After the
                     // hide, or a door and the body would both show.
                     submerged::sync_trapdoor_visuals.in_set(SpriteVisualSync),
@@ -403,7 +403,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 Update,
                 worn_gear_visuals::sync_worn_gear_visuals
                     .after(actors::sync_visuals)
-                    .after(actors::rigged::drive_rigged_presentations)
+                    .after(actors::rigged::RiggedDriveSet)
                     .run_if(worn_gear_visuals::gear_is_worn_or_was)
                     .run_if(session_presentation_is_ready),
             )
@@ -431,10 +431,10 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // draws; else the item is one frame behind the hand.
                     item_visuals::sync_held_item_visual
                         .after(actors::sync_visuals)
-                        .after(actors::rigged::drive_rigged_presentations)
+                        .after(actors::rigged::RiggedDriveSet)
                         .in_set(posed_hand::HeldItemPresentationSet),
                     posed_hand::ask_holders_for_their_hands.in_set(posed_hand::HeldItemPresentationSet),
-                    supported_carry::sync_strings.after(actors::rigged::drive_rigged_presentations).in_set(BodyOwnedDrawableSync),
+                    supported_carry::sync_strings.after(actors::rigged::RiggedDriveSet).in_set(BodyOwnedDrawableSync),
                     shrine_visuals::sync_shrine_visual
                         .run_if(ambition_sim_view::rows_or_drawn::<ambition_sim_view::ShrinesView, shrine_visuals::ShrineVisualKey>)
                         .after(actors::sync_visuals),
@@ -629,7 +629,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .after(actors::animate_characters)
                 // A rigged body's overlays read its impostor frame, which the
                 // rigged driver sets on the root.
-                .after(actors::rigged::drive_rigged_presentations)
+                .after(actors::rigged::RiggedDriveSet)
                 .before(hit_flash::sync_hit_flash_overlays)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
@@ -722,7 +722,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // Provider-authored over-hand item sprites, from the wielded-item
                 // read model and the app-local visual catalog.
                 wielded_item_visuals::sync_wielded_item_visuals
-                    .after(actors::rigged::drive_rigged_presentations)
+                    .after(actors::rigged::RiggedDriveSet)
                     .in_set(posed_hand::HeldItemPresentationSet),
                 // The fallback runs last, after every family: a body the sim
                 // published that no family claimed gets a marked rectangle. It must
@@ -751,7 +751,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .after(actors::animate_player)
                 .after(actors::animate_characters)
                 .after(passage_visuals::apply_passage_looks)
-                .after(actors::rigged::drive_rigged_presentations)
+                .after(actors::rigged::RiggedDriveSet)
                 .in_set(BodyOwnedDrawableSync)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
@@ -768,7 +768,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 passage_visuals::apply_passage_looks
                     .after(actors::animate_player)
                     .after(actors::animate_characters)
-                    .before(actors::rigged::drive_rigged_presentations),
+                    .before(actors::rigged::RiggedDriveSet),
                 // Do not pin this after room spawning or dressing. This set
                 // runs before RoomTransitionCoverSet, while the room visuals
                 // and their art are presented after that cover. An ordering
@@ -799,7 +799,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         app.configure_sets(
             Update,
             ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet
-                .before(actors::rigged::drive_rigged_presentations)
+                .before(actors::rigged::RiggedDriveSet)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhase::PresentationVisualSync,
                 ),
@@ -842,16 +842,18 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                     .run_if(bevy::prelude::any_with_component::<ambition_sprite_sheet::boss::BossAnimator>)
                     .in_set(ambition_platformer2d_shared_tangle::capability::CapabilityPresentationSet(ambition_platformer2d_shared_tangle::capability::Capability::BossEncounters))
                     .after(actors::BossAnimation)
-                    .before(actors::rigged::drive_rigged_presentations),
-                actors::rigged::advance_performed_body_warps.before(actors::rigged::drive_rigged_presentations),
+                    .before(actors::rigged::RiggedDriveSet),
+                actors::rigged::advance_performed_body_warps.before(actors::rigged::RiggedDriveSet),
                 actors::rigged::prepare_rigged_slots
                     .after(actors::rigged::bind_rigged_presentations)
                     .after(actors::animate_player)
                     .after(actors::animate_characters)
                     .after(actors::BossAnimation)
                     .after(ambition_sprite_sheet::character::rigged::ComposedBodyDemandSet)
-                    .before(actors::rigged::drive_rigged_presentations),
-                actors::rigged::drive_rigged_presentations
+                    .before(actors::rigged::RiggedDriveSet),
+                // The local sample, then the 2D driver that places and draws it
+                // (`RiggedDriveSet`: order against the stage, not one system).
+                actors::rigged::rigged_presentation_drive()
                     .after(actors::animate_player)
                     .after(actors::animate_characters)
                     .after(actors::BossAnimation)

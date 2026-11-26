@@ -1513,13 +1513,13 @@ fn install_room_capture(app: &mut App) {
         app.insert_resource(ambition_platformer2d::portal_presentation::PortalCarrySelection { enabled: false });
     }
     if app.world().resource::<SceneCaptureConfig>().limbs_unseen.is_some() {
-        use ambition_platformer2d::render::rendering::actors::rigged::{drive_rigged_presentations, follow_limb_twins};
+        use ambition_platformer2d::render::rendering::actors::rigged::{RiggedDriveSet, follow_limb_twins};
         app.add_systems(
             Update,
             draw_no_limbs
                 .after(ambition_platformer2d::portal_presentation::PortalObservationSet)
                 .after(follow_limb_twins)
-                .before(drive_rigged_presentations),
+                .before(RiggedDriveSet),
         );
     }
     let sim = app.sim_schedule();

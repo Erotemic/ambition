@@ -42,7 +42,7 @@ use bevy::sprite::Anchor;
 
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_render::rendering::actors::rigged::{
-    add_rigged_impostor_material_plugin, bind_rigged_presentations, drive_rigged_presentations,
+    add_rigged_impostor_material_plugin, bind_rigged_presentations, rigged_presentation_drive,
     RiggedImpostorAtlas, give_back_the_cell_of_a_removed_presentation,
 };
 use ambition_render::rendering::actors::BoundSpriteQuality;
@@ -288,7 +288,7 @@ fn run(snapshot: &LibrarySnapshot, content: &SpriteContent, target: &str, actors
         .insert_resource(RiggedSpriteAdmission { admit: rigged })
         .add_systems(
             Update,
-            (animate, bind_rigged_presentations, drive_rigged_presentations).chain(),
+            (animate, bind_rigged_presentations, rigged_presentation_drive()).chain(),
         );
     let asset = if views.is_some() {
         let world = app.world_mut();

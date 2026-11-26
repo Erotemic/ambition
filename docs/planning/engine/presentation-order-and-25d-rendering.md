@@ -1,6 +1,6 @@
 # Presentation order and optional 2.5D rendering
 
-**State:** PO1 and PO2 landed 2026-11-25; RV1-RV3 PLANNED. Selected by the maintainer on 2026-11-21. The customers
+**State:** PO1 and PO2 landed 2026-11-25; RV1's shared sample landed 2026-11-25 (view ownership open); RV2-RV3 PLANNED. Selected by the maintainer on 2026-11-21. The customers
 are Scout inside and outside the cart, consistent order for body parts and
 effects, and Bevy 2D and 3D presentation tools that can coexist. Production
 source reviewed: `f41218979625`; planning includes the preceding runtime
@@ -440,6 +440,45 @@ shared value preparation are sufficient until source proves otherwise.
    extraction, with the current 2D path as its first consumer. Separate
    camera/application and device roots by view/renderer. Remove the old
    duplicated interpretation; an unused wrapper around it is not completion.
+
+   **The shared sample (2026-11-25).** `RiggedLocalSample`, on each rigged
+   presentation owner, is the body's whole local interpretation at this
+   frame's cut, made once by `sample_rigged_presentations` before any
+   renderer reads it:
+   - the clip frame and its tween, legs, head turn, expression, layer,
+     wounds, the blend from the last row, the follow-through, a `PartPose`,
+     and the track mask, in that order;
+   - each draw's pivot place, scale, rotation, part (its texture region)
+     and full RGBA (`PartDraw`);
+   - the row, frame, the frame's own opacity, and its state (`Parts`,
+     `Baked`, or `Unavailable` when not drawn or not sampled).
+
+   Placement is not in it: each renderer applies placement at its own stage.
+   The blend and follow-through clocks moved with the interpretation that
+   reads them.
+
+   The 2D driver is the first consumer. It places and draws the sample on
+   both roads (direct slots and impostor cells), answers part-set readers
+   from it, and reads the frame opacity from it. Two duplicated
+   interpretations are gone:
+   - the driver's own (`frame_draws` inside the driver);
+   - `posed_reach`, which re-ran the whole interpretation, without blend or
+     follow-through, to decide whether a pose leaves the cell. The cell
+     decision now measures the sample itself, so the bounds and the drawing
+     read the same final sample.
+
+   Both systems run chained in `RiggedDriveSet`
+   (`rigged_presentation_drive()`). Every edge that named the driver names
+   the stage, so a writer of the sample's inputs (the animators, a boss's
+   pose) is ordered before the sampler, not only before the driver.
+
+   The witness is `the_slots_draw_the_local_sample_and_nothing_else`. Every
+   sampled draw shows in a slot. A system between the sampler and the driver
+   that removes the last draw removes it from the picture, so the driver has
+   no other source.
+
+   Still open in RV1: separate the camera/application and device roots by
+   view and renderer.
 4. **RV2 — one orthographic 3D cart view.** Use the same sampled actor parts
    as unlit cards, a simple authored cart mesh and one declared visual-depth
    policy. Draw it beside the 2D view in one App. Preserve the same platform,

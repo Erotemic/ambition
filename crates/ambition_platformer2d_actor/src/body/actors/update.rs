@@ -987,7 +987,7 @@ fn integrate_actor_body(
     // The actor twin of the player loop's `authored_tuning`. Threaded rather
     // than resolved here because the component lives on the entity and this
     // function takes clusters, not a `World`.
-    authored_tuning: Option<ae::MovementTuning>,
+    authored_tuning: Option<&ae::MovementTuning>,
     frame_out: &mut crate::body::BodyFrameOutput,
     #[cfg(feature = "causal")] record_operations: bool,
     // The other solid bodies this one may not walk through, resolved from
@@ -1549,7 +1549,7 @@ pub fn integrate_sim_bodies(
             out_of_play,
             dt * room_scale(actor_entity) * action_share,
             *feel_tuning,
-            authored_tuning.map(|t| t.0),
+            authored_tuning.map(|t| &t.0),
             &mut frame_out,
             #[cfg(feature = "causal")]
             record_operations,
@@ -1578,8 +1578,8 @@ pub fn integrate_sim_bodies(
     // no presentation happen here — those are the home reset-POLICY and
     // PRESENTATION phases, which read the `BodyFrameOutput` this writes.
     // The shared F3 dev tuning is the fallback; a body that authors its own feel
-    // (below) overrides it per-body. Built once, cheaply copied.
-    let editable_player_tuning = active_tuning.0;
+    // (below) overrides it per-body.
+    let editable_player_tuning = &active_tuning.0;
     let player_feel = *feel_tuning;
     let frame_dt = world_time.wall_dt();
     let scaled_dt = world_time.sim_dt();
@@ -1602,7 +1602,7 @@ pub fn integrate_sim_bodies(
         // sandbox protagonist tracks the live inspector sliders. This is the
         // axis-path twin of a SurfaceMomentum body's params escaping the refresh.
         let player_tuning = authored_tuning
-            .map(|t| t.0)
+            .map(|t| &t.0)
             .unwrap_or(editable_player_tuning);
         let Some(feature_world) = composed.physical_for(&collision, room, player_entity,
         )

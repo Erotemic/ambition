@@ -33,7 +33,7 @@ pub(crate) trait ActorMutIntegrationExt {
         motion_frame: ae::MotionFrame,
         playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
         feel: ambition_combat::feel::FeelTuning,
-        authored_tuning: Option<ae::MovementTuning>,
+        authored_tuning: Option<&ae::MovementTuning>,
         combat: &mut ambition_characters::actor::BodyCombat,
         tumbling: bool,
         out_of_play: bool,
@@ -54,7 +54,7 @@ pub(crate) trait ActorMutIntegrationExt {
         motion_frame: ae::MotionFrame,
         playing_a_move: Option<&ambition_combat::moveset::MovePlayback>,
         feel: ambition_combat::feel::FeelTuning,
-        authored_tuning: Option<ae::MovementTuning>,
+        authored_tuning: Option<&ae::MovementTuning>,
         combat: &mut ambition_characters::actor::BodyCombat,
         tumbling: bool,
         out_of_play: bool,
@@ -100,7 +100,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         // SHARED dev tuning every tick, so a seated fighter's authored feel was
         // granted by seating and discarded by movement — the asymmetry the
         // grant site's own comment says it exists to prevent.
-        authored_tuning: Option<ae::MovementTuning>,
+        authored_tuning: Option<&ae::MovementTuning>,
         combat: &mut ambition_characters::actor::BodyCombat,
         // Is this body TUMBLING? Read from the PUBLISHED projection
         // (`BodyMotionFacts::tumbling`) by the driver, which holds it; the
@@ -264,7 +264,7 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         // SHARED dev tuning every tick, so a seated fighter's authored feel was
         // granted by seating and discarded by movement — the asymmetry the
         // grant site's own comment says it exists to prevent.
-        authored_tuning: Option<ae::MovementTuning>,
+        authored_tuning: Option<&ae::MovementTuning>,
         combat: &mut ambition_characters::actor::BodyCombat,
         // See `update`'s own parameter: the published tumble fact, for the
         // tech exemption in the post-hit gate.
@@ -277,23 +277,25 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         portal: Option<ae::frame::thread::MotionAdmission<'_>>,
     ) -> ae::FrameEvents {
         let flying = self.flight.fly_enabled;
-        let mut tuning = self
-            .config
-            .tuning
-            .movement
-            .body_tuning(self.config.tuning.max_run_speed);
-        // Flight tuning from the driver's chase speed: the body flies at its own
-        // speed, steers responsively (matching the old floating accel), and does
-        // NOT idle-bob like the player (hover speed 0) — an AI flyer holds station.
         let flight_speed = self.config.tuning.flight_speed(&self.policy.0);
-        tuning.flight_terminal_speed = flight_speed;
-        tuning.flight_accel = (flight_speed * 3.0).max(900.0);
-        tuning.flight_drag = (flight_speed * 3.0).max(900.0);
-        tuning.flight_hover_speed = 0.0;
-        tuning.flight_hover_hz = 0.0;
-        // Direct-velocity free-movers (bosses) take their commanded velocity verbatim
-        // through the shared flight limb — byte-identical to the old SNAP float (AS4).
-        tuning.flight_direct_velocity = self.config.tuning.flight_direct_velocity;
+        let fallback;
+        let resolved_tuning = match authored_tuning {
+            Some(tuning) => tuning,
+            None => {
+                let tuning = &self.config.tuning;
+                let flight_response = (flight_speed * 3.0).max(900.0);
+                fallback = ae::MovementTuning {
+                    flight_terminal_speed: flight_speed,
+                    flight_accel: flight_response,
+                    flight_drag: flight_response,
+                    flight_hover_speed: 0.0,
+                    flight_hover_hz: 0.0,
+                    flight_direct_velocity: tuning.flight_direct_velocity,
+                    ..tuning.movement.body_tuning(tuning.max_run_speed)
+                };
+                &fallback
+            }
+        };
 
         let mut input = if flying {
             // `velocity_target` (world px/s) → flight stick intent: project onto the
@@ -341,9 +343,6 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         // The move playing may hold this body on its floor at an edge, as on
         // the human road (`body/integration.rs`).
         input.holds_floor_edge = playing_a_move.is_some_and(|playing| playing.spec.gates.stops_at_ledge);
-        // What stays here is what legitimately differs: WHICH tuning this body moves under (its
-        // character's authored feel, else its config's).
-        let resolved_tuning = authored_tuning.unwrap_or(tuning);
         // A crawler's params are refreshed here as `step_body` refreshes the
         // axis params: its pace is its DRIVER's, asked of the live policy like
         // the flight speed above, so a policy a provocation installs paces the

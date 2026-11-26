@@ -21,30 +21,38 @@ pub(crate) fn emit_body_movement_feedback(
     // A request, not the live shake: this runs in the simulation, and a landing
     // a correction erases must not have moved the camera.
     mut shake: MessageWriter<CameraShakeRequest>,
-    mut bodies: Query<(
-        &BodyKinematics,
-        &BodyFrameOutput,
+    bodies: Query<(Entity, &BodyKinematics, &BodyFrameOutput), Changed<BodyFrameOutput>>,
+    mut recipients: Query<(
         Option<&mut BodyAnimFacts>,
         Option<&mut BodyCombat>,
         Option<&mut PlayerBlinkCameraState>,
         Option<&BodyPresentationSource>,
         Option<&InRoomInstance>,
         Has<PrimaryPlayer>,
-    ), Changed<BodyFrameOutput>>,
+    )>,
 ) {
-    for (kin, output, anim, combat, blink_camera, source, room, followed) in &mut bodies {
+    for (entity, kin, output) in &bodies {
         if output.reset.is_some() { continue; }
         let events = &output.events;
         let transition = events.ground_contact;
-        if !events.operations.is_empty() || !events.blinks.is_empty()
-            || transition.landing_impact_speed().is_some()
-            || events.contacts.iter().any(|contact| contact.kind == ambition_platformer2d_core::collision_semantics::ContactKind::Side)
-        {
+        let landing_speed = transition.landing_impact_speed();
+        let changed_ground = transition != ambition_platformer2d_core::GroundContactTransition::Unchanged;
+        let movement_fx = !events.operations.is_empty() || !events.blinks.is_empty()
+            || landing_speed.is_some()
+            || events.contacts.iter().any(|contact| contact.kind == ambition_platformer2d_core::collision_semantics::ContactKind::Side);
+        let hazard = events.reset.is_some_and(ambition_platformer2d_core::ResetCause::is_hazardous);
+        if !(movement_fx || changed_ground || hazard) {
+            continue;
+        }
+        let Ok((anim, combat, blink_camera, source, room, followed)) = recipients.get_mut(entity) else {
+            continue;
+        };
+        if movement_fx {
             emit_movement_fx(&mut sfx, &mut vfx.for_room(room.map(|room| room.0)),
                 events, kin.pos, kin.facing, kin.size(), source.map(BodyPresentationSource::id));
         }
         if let Some(mut anim) = anim {
-            if transition != ambition_platformer2d_core::GroundContactTransition::Unchanged {
+            if changed_ground {
                 arm_ground_contact_anim_overlay(&mut anim, transition);
             }
             if !events.operations.is_empty() {
@@ -59,12 +67,12 @@ pub(crate) fn emit_body_movement_feedback(
             }
         }
         if let Some(mut combat) = combat {
-            if events.reset.is_some_and(ambition_platformer2d_core::ResetCause::is_hazardous) {
+            if hazard {
                 combat.hit_flash = 0.12;
             }
         }
-        if followed && transition.landing_impact_speed().is_some() {
-            let amplitude_px = hard_fall_shake_amplitude(transition.landing_impact_speed());
+        if followed && landing_speed.is_some() {
+            let amplitude_px = hard_fall_shake_amplitude(landing_speed);
             if amplitude_px > 0.0 { shake.write(CameraShakeRequest { amplitude_px, room: room.map(|room| room.0) }); }
         }
     }

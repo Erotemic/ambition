@@ -101,7 +101,7 @@ pub fn resolve_body_motion_frames(
     // never go red.
     let player_response = tuning.gravity;
     for (entity, kin, carried, mut resolved) in &mut players {
-        resolved.publish_resolved_frame(env.resolve_body(kin.aabb(), live.of(entity), player_response, kin.material, carried.copied().unwrap_or_default()));
+        resolved.publish_resolved_frame(env.resolve_body(kin, || live.of(entity), player_response, carried.copied().unwrap_or_default()));
     }
     for (entity, kin, carried, config, authored, surface, health, posed, captive, mut resolved) in &mut actors {
         let response = if posed || captive {
@@ -115,7 +115,7 @@ pub fn resolve_body_motion_frames(
             authored.map_or(config.tuning.movement.gravity, |a| a.0.gravity)
                 * gravity_scale_of(surface, health.is_none_or(|health| health.alive()))
         };
-        resolved.publish_resolved_frame(env.resolve_body(kin.aabb(), live.of(entity), response, kin.material, carried.copied().unwrap_or_default()));
+        resolved.publish_resolved_frame(env.resolve_body(kin, || live.of(entity), response, carried.copied().unwrap_or_default()));
     }
 }
 

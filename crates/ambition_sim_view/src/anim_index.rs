@@ -329,8 +329,7 @@ pub fn engaged_clip(
     target: Option<&ambition_combat::components::ActorTarget>,
 ) -> Option<ClipRequest> {
     use ambition_sprite_sheet::character::CharacterAnim::{Idle, Walk};
-    let near = target.is_some_and(|t| t.entity.is_some() && t.pos.distance(at) <= ENGAGED_RANGE);
-    if !(free && near) {
+    if !free {
         return None;
     }
     let row = match anim {
@@ -338,7 +337,9 @@ pub fn engaged_clip(
         Walk => FIGHT_WALK_CLIP,
         _ => return None,
     };
-    Some(ClipRequest { time: Some(ClipTime::Looping), ..ClipRequest::only(row) })
+    target
+        .is_some_and(|t| t.entity.is_some() && t.pos.distance(at) <= ENGAGED_RANGE)
+        .then(|| ClipRequest { time: Some(ClipTime::Looping), ..ClipRequest::only(row) })
 }
 
 /// The sheet row a body holding a smash charge asks for. Authored on the
@@ -426,16 +427,26 @@ impl ActorAnimIndex {
         self.frames.get_mut(id).map(|(frame, _)| frame)
     }
 
-    fn update(&mut self, id: &str, next: impl FnOnce(Option<&ActorAnimFrame>) -> ActorAnimFrame) {
-        let gen = self.generation;
+    fn publish_at(&mut self, id: &str) -> (&mut ActorAnimFrame, bool) {
+        let generation = self.generation;
         match self.frames.entry_ref(id) {
-            EntryRef::Occupied(mut entry) => {
-                let slot = entry.get_mut();
-                *slot = (next(Some(&slot.0)), gen);
+            EntryRef::Occupied(entry) => {
+                let (frame, seen) = entry.into_mut();
+                *seen = generation;
+                (frame, false)
             }
-            EntryRef::Vacant(entry) => {
-                entry.insert((next(None), gen));
-            }
+            EntryRef::Vacant(entry) => (&mut entry.insert((ActorAnimFrame {
+                anim: CharacterAnim::Idle,
+                conversation_held: false,
+                pos: ae::Vec2::ZERO,
+                facing: 1.0,
+                gravity_dir: ae::DEFAULT_GRAVITY_DIR,
+                clip: None,
+                move_charge: None,
+                passage_look: None,
+                stop: crate::StopClock::default(),
+                turn: crate::TurnClock::default(),
+            }, generation)).0, true),
         }
     }
 }
@@ -499,81 +510,64 @@ pub fn rebuild_actor_anim_index(
         let charge = a
             .playback
             .and_then(ambition_combat::moveset::MovePlayback::smash_charge_fraction);
-        index.update(a.feature_id.as_str(), |before| {
-            let stop = before
-                .map_or_else(crate::StopClock::default, |before| before.stop)
-                .next(before.map(|before| before.anim), anim, free, dt);
-            let facing = ae::mirror_side(a.kin.facing, a.unmirrored);
-            let turn = before
-                .map_or_else(crate::TurnClock::default, |before| before.turn)
-                .next(before.map(|before| (before.anim, before.facing)), anim, facing, free, dt);
-            ActorAnimFrame {
-                anim,
-                conversation_held: a.control_holds.is_some_and(|h| {
-                    h.holds(ambition_characters::control::ControlHold::Conversation)
-                }),
-                pos: a.kin.pos,
-                facing,
-                gravity_dir: a.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down()),
-                // what the ACTIVE MOVE asks to be drawn as. The move's own
-                // timeline is authoritative for presentation as well as
-                // gameplay, so this is the move speaking, not a guess about it.
-                // a MOVE names its row; failing that, a fighter STATE does
-                // (sprite redirect P2 — air dodge, tumble, knockdown, getup).
-                // the move wins: a body that is mid-swing while tumbling is
-                // drawn as its swing, which is what its timeline says it is.
-                move_charge: charge,
-                passage_look: None,
-                stop,
-                turn,
-                // A HELD CHARGE outranks the move's own row, and only while it
-                // is held: the whole point of the beat is that a fighter
-                // winding up looks different from one swinging. It goes AHEAD
-                // of the move's chain rather than replacing it, so a sheet
-                // that authors no charge row draws exactly what it drew before.
-                clip: ClipRequest::with_pin(a
-                    .playback
-                    .filter(|playback| !playback.settled())
-                    .map(|playback| ClipRequest::for_move(&playback.spec.clip, playback.phase()))
-                    .or_else(|| turn.clip(anim, free))
-                    .or_else(|| stop.clip(anim, free))
-                    .or_else(|| {
-                        ClipRequest::from_chain(ambition_character_sprites::body_state_clip(
-                            a.motion_facts,
-                            ambition_character_sprites::FighterClipFacts {
-                                held: a.anim.is_some_and(|f| f.held),
-                                holding: a.anim.is_some_and(|f| f.holding),
-                                guard_break: a
-                                    .shield
-                                    .break_phase()
-                                    .map(ambition_character_sprites::GuardBreakBeat::from_phase),
-                                parrying: a.shield.parrying(),
-                                guard_stunned: a.shield.stun_timer > 0.0,
-                                // The actor road's own `hit` read
-                                // (`ActorAnimState::hit_flash`).
-                                recoil: (a.combat.hit_flash > 0.0).then(|| {
-                                    let down = a.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down());
-                                    ambition_character_sprites::Recoil::of(
-                                        a.combat.struck_height,
-                                        ambition_character_sprites::extent_along(a.kin.size(), down),
-                                        !a.ground.on_ground,
-                                    )
-                                }),
-                                ..Default::default()
-                            }
-                            .with_gestures(a.anim),
-                        )?)
-                    })
-                    .or_else(|| engaged_clip(anim, free, a.kin.pos, a.target))
-                    .map(|chain| match charge {
-                        Some(_) => chain.ahead_of(SMASH_CHARGE_CLIP),
-                        None => chain,
-                    })
-                    .or_else(|| charge.map(|_| ClipRequest::only(SMASH_CHARGE_CLIP)))
-                    .or_else(|| aim_over_legs(a.anim.is_some_and(|f| f.aim_anim_active) && free, anim))
-                    , a.pinned, crate::pose_view::crouched(anim), Some(anim)),
-            }
+        let (frame, added) = index.publish_at(a.feature_id.as_str());
+        let facing = ae::mirror_side(a.kin.facing, a.unmirrored);
+        if !added {
+            frame.stop = frame.stop.next(Some(frame.anim), anim, free, dt);
+            frame.turn = frame.turn.next(Some((frame.anim, frame.facing)), anim, facing, free, dt);
+        }
+        frame.anim = anim;
+        frame.conversation_held = a.control_holds.is_some_and(|h| {
+            h.holds(ambition_characters::control::ControlHold::Conversation)
         });
+        frame.pos = a.kin.pos;
+        frame.facing = facing;
+        frame.gravity_dir = a.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down());
+        frame.move_charge = charge;
+        frame.passage_look = None;
+
+        // A charge takes priority over the move and keeps its clip as a fallback.
+        let clip = a
+            .playback
+            .filter(|playback| !playback.settled())
+            .map(|playback| ClipRequest::for_move(&playback.spec.clip, playback.phase()))
+            .or_else(|| frame.turn.clip(anim, free))
+            .or_else(|| frame.stop.clip(anim, free))
+            .or_else(|| {
+                ClipRequest::from_chain(ambition_character_sprites::body_state_clip(
+                    a.motion_facts,
+                    ambition_character_sprites::FighterClipFacts {
+                        held: a.anim.is_some_and(|f| f.held),
+                        holding: a.anim.is_some_and(|f| f.holding),
+                        guard_break: a
+                            .shield
+                            .break_phase()
+                            .map(ambition_character_sprites::GuardBreakBeat::from_phase),
+                        parrying: a.shield.parrying(),
+                        guard_stunned: a.shield.stun_timer > 0.0,
+                        // The actor road's own `hit` read
+                        // (`ActorAnimState::hit_flash`).
+                        recoil: (a.combat.hit_flash > 0.0).then(|| {
+                            let down = a.frame.map_or(ae::DEFAULT_GRAVITY_DIR, |f| f.down());
+                            ambition_character_sprites::Recoil::of(
+                                a.combat.struck_height,
+                                ambition_character_sprites::extent_along(a.kin.size(), down),
+                                !a.ground.on_ground,
+                            )
+                        }),
+                        ..Default::default()
+                    }
+                    .with_gestures(a.anim),
+                )?)
+            })
+            .or_else(|| engaged_clip(anim, free, a.kin.pos, a.target))
+            .map(|chain| match charge {
+                Some(_) => chain.ahead_of(SMASH_CHARGE_CLIP),
+                None => chain,
+            })
+            .or_else(|| charge.map(|_| ClipRequest::only(SMASH_CHARGE_CLIP)))
+            .or_else(|| aim_over_legs(a.anim.is_some_and(|f| f.aim_anim_active) && free, anim));
+        frame.clip = ClipRequest::with_pin(clip, a.pinned, crate::pose_view::crouched(anim), Some(anim));
     }
     index.end_rebuild();
 }

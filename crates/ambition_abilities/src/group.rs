@@ -56,8 +56,6 @@ pub fn install(app: &mut App) {
 
 /// A body that may be a member, as the trigger reads it.
 type MemberQuery<'a> = (
-    Entity,
-    &'a CharacterForm,
     &'a BodyHealth,
     &'a ae::BodyKinematics,
     &'a SimId,
@@ -77,6 +75,7 @@ pub fn queue_group_thinks(
     // Tags are the assembled catalog's; the install runs this only where one exists.
     catalog: Res<CharacterCatalog>,
     mut invocations: ResMut<ExtensionInvocations>,
+    forms: Query<(Entity, &CharacterForm), (With<BodyHealth>, With<ae::BodyKinematics>, With<SimId>)>,
     bodies: Query<MemberQuery>,
     items: Query<(Entity, &GroundItem, &ae::BodyKinematics, &ItemCustody, &SimId, Has<SettledItem>)>,
     roots: Query<(Entity, &LiveRoomInstance), With<RoomInstanceRoot>>,
@@ -104,8 +103,9 @@ pub fn queue_group_thinks(
     }
     let root_of: BTreeMap<LiveRoomInstance, Entity> = roots.iter().map(|(entity, room)| (*room, entity)).collect();
     let mut groups = BTreeMap::<(&str, LiveRoomInstance), Vec<GroupMember>>::new();
-    for (entity, form, health, kin, id, target, held, support, driven) in &bodies {
+    for (entity, form) in &forms {
         let Some((first, rest)) = bindings.get(form.id()).and_then(|tags| tags.split_first()) else { continue; };
+        let Ok((health, kin, id, target, held, support, driven)) = bodies.get(entity) else { continue; };
         let Some(room) = rooms.of(entity).filter(|room| root_of.contains_key(room)) else { continue; };
         let target = target.and_then(|t| t.entity).and_then(|t| tracked.get(t).ok());
         let member = GroupMember {

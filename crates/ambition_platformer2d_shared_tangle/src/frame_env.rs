@@ -9,7 +9,7 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-use ambition_platformer2d_core::{AabbExt, AccelerationFrame, MotionFrame};
+use ambition_platformer2d_core::{AabbExt, AccelerationFrame, BodyKinematics, MotionFrame};
 
 use crate::gravity::GravityCtx;
 
@@ -176,42 +176,57 @@ impl FrameEnv<'_, '_> {
         gravity_response: f32,
         carried: CarriedAcceleration,
     ) -> MotionFrame {
-        let basis = self.reference_basis(body, room);
-        let gravity_acceleration = basis.down * gravity_response.max(0.0);
-        let external_acceleration = self
-            .forces
-            .as_deref()
-            .map(|forces| forces.accel_for(room, body))
-            .unwrap_or(Vec2::ZERO);
-        MotionFrame::with_accelerations(
-            basis,
-            gravity_acceleration,
-            external_acceleration,
-        ).with_carried_acceleration(carried.0)
+        let (basis, external) = self.environment_at(body, room);
+        compose_frame(basis, external, gravity_response, carried)
     }
 
-    /// The frame of a body of `material` whose canonical gravity response
+    fn environment_at(
+        &self,
+        body: ambition_platformer2d_core::Aabb,
+        room: Option<crate::lifecycle::LiveRoomInstance>,
+    ) -> (AccelerationFrame, Vec2) {
+        let basis = self.reference_basis(body, room);
+        let external = self.forces.as_deref().map_or(Vec2::ZERO, |forces| forces.accel_for(room, body));
+        (basis, external)
+    }
+
+    /// The frame of a body whose canonical gravity response
     /// (authored gravity × its response factor) is `canonical_response`: the
     /// response converts to the body's scale
     /// ([`BodyMaterial::gravity_response`]) and nothing else does. A response
     /// that cannot be derived gives the refused frame
     /// ([`MotionFrame::with_refused_response`]), which the movement kernel
-    /// will not step.
+    /// will not step. Resolve the room only if the environment varies by location.
     ///
     /// [`BodyMaterial::gravity_response`]: ambition_platformer2d_core::frame::BodyMaterial::gravity_response
     pub fn resolve_body(
         &self,
-        body: ambition_platformer2d_core::Aabb,
-        room: Option<crate::lifecycle::LiveRoomInstance>,
+        body: &BodyKinematics,
+        room: impl FnOnce() -> Option<crate::lifecycle::LiveRoomInstance>,
         canonical_response: f32,
-        material: ambition_platformer2d_core::frame::BodyMaterial,
         carried: CarriedAcceleration,
     ) -> MotionFrame {
-        match material.gravity_response(canonical_response) {
-            Ok(response) => self.resolve(body, room, response, carried),
-            Err(_) => self.resolve(body, room, 0.0, carried).with_refused_response(),
+        let uniform = self.gravity.uniform_direction()
+            .filter(|_| self.forces.as_deref().is_none_or(|forces| forces.zones.is_empty()));
+        let (basis, external) = match uniform {
+            Some(down) => (AccelerationFrame::new(down), Vec2::ZERO),
+            None => self.environment_at(body.aabb(), room()),
+        };
+        match body.material.gravity_response(canonical_response) {
+            Ok(response) => compose_frame(basis, external, response, carried),
+            Err(_) => compose_frame(basis, external, 0.0, carried).with_refused_response(),
         }
     }
+}
+
+fn compose_frame(
+    basis: AccelerationFrame,
+    external: Vec2,
+    gravity_response: f32,
+    carried: CarriedAcceleration,
+) -> MotionFrame {
+    MotionFrame::with_accelerations(basis, basis.down * gravity_response.max(0.0), external)
+        .with_carried_acceleration(carried.0)
 }
 
 #[cfg(test)]

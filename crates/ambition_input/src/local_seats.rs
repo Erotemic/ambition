@@ -348,7 +348,9 @@ pub fn assign_local_seat_devices(
         .map_or(0, |topology| topology.players())
         .max(seats.iter().len());
 
-    let plan = frozen.as_ref().and_then(|t| t.declared_channels());
+    // A CPU-only match has no device assignments. The primary input still
+    // needs a controller to operate the session menu.
+    let plan = frozen.as_ref().and_then(|t| t.declared_channels()).filter(|plan| !plan.is_empty());
     // A declared plan outranks the policy. It says who is on the keyboard,
     // including nobody.
     let keyboard_owner = match plan {
@@ -467,6 +469,16 @@ mod tests {
             None => topology.capture(&order),
         }
         app.insert_resource(topology);
+    }
+
+    #[test]
+    fn a_match_with_no_channels_keeps_the_primary_menu_controller() {
+        let mut app = seat_app();
+        let primary = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let pad = app.world_mut().spawn(Gamepad::default()).id();
+        freeze(&mut app, Some(LocalChannelPlan::default()));
+        app.update();
+        assert_eq!(assigned(&app, primary), Some(pad));
     }
 
     #[test]

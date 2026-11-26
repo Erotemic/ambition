@@ -225,6 +225,8 @@ the positions of the Library's ledges and the Mine's switches to check that
 the same input works for surfaces and controls.
 The Coil Lab rig also uses the positions of both gravity switches. Its
 conduit and control panels must move with those switches.
+The Temple Stair decks need the top of each ledge and the surface below
+each support. Give both heights to the art generator from the room spec.
 The Noodly Cistern adds pipes and plates for each wheel. Give the art
 generator the switch and gate bounds and the gate conditions. Keep the
 pipe bends in the art so an author can route around labels.

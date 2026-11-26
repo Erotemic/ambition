@@ -31,7 +31,7 @@ central hub's door to the narthex stays.
 | `noodle_village_market` | The drying racks form the high road. A crate and bench give access from the springs road. A cloth awning marks the curry house entrance. | |
 | `noodle_village_curry_house` | Curry udon. | Marie Curry. She tells what the soda is. |
 | `noodle_durum_terraces` | Durum wheat (the wheat of pasta) on terraces, with paddies of broth (clear water). The low field climbs west, and the high field climbs back east. | noodlings |
-| `noodle_temple_stair` | The great stair to the temple's door. | a parrot |
+| `noodle_temple_stair` | The great stair and an overlook route to the temple door. | a parrot |
 | `noodle_fizzy_flats` | Soda springs in a crust of sugar at the foot of the volcano. | The Weird Hermit watches the springs, and he has no mints. |
 | `noodle_fizzuvius_slopes` | Shelves of rock candy, with channels of soda between them. | spaghetti events, a parrot |
 | `noodle_fizzuvius_caldera` | A lake of soda in the crater. Corks drift on it. A bubble lift goes up to the east rim, and the crust goes back west over the lake. The Mint is on the east rim (a chest). | noodlings, a parrot |
@@ -51,6 +51,12 @@ narthex: the village is the hub, as a gate shrine or a plaza is in the other
 dimensions. The narthex lost its ring and got a front door to the stair
 (`noodly_narthex_to_stair`). The narthex is LDtk-owned, so this edit was made
 in the map; the temple's `make_specs.py` writes the same door.
+
+## Temple Stair
+
+The overlook route starts at the foot of the stair and joins the stair
+again above the shelter. The shelter has an offering chest. A temple front
+marks the upper door, and an arrow at the foot points to the terraces.
 
 ## Narthex
 

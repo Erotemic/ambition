@@ -52,6 +52,13 @@ dimensions. The narthex lost its ring and got a front door to the stair
 (`noodly_narthex_to_stair`). The narthex is LDtk-owned, so this edit was made
 in the map; the temple's `make_specs.py` writes the same door.
 
+## Brothlehem gate square
+
+The cart by the bakery gives access to the roofs from the square. At the
+market end, the delivery crate, awning, and gallery give access to the
+bell house roof. The route at street level also leads to the market.
+The direction board is next to the gate court.
+
 ## Durum Terraces
 
 The grain lift starts in the dry field between the paddies. Stand on the

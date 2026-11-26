@@ -170,6 +170,27 @@ pub fn restore_body_pose(
 /// `BodyKinematics`, including cluster-less projectiles; its Ambition adapter
 /// completes the kernel-body reconciliation with this after the crossing).
 pub fn reconcile_transit(model: &mut MotionModel, clusters: &mut BodyClustersMut<'_>) {
+    release_departure(model, clusters);
+    let pos = clusters.kinematics.pos;
+    if let Some(sweep) = clusters.sweep.as_deref_mut() {
+        // Start a new record in the accepted material chart. Keep the movement
+        // reference until the environment resolves the next step.
+        let (down, tick) = (sweep.down, sweep.tick);
+        *sweep = SweepSample { tick, restriction: Default::default(), turn: None, travel: Default::default(), time: [0.0, 1.0],
+            material: clusters.kinematics.material,
+            prev: pos,
+            curr: pos,
+            vel: clusters.kinematics.vel,
+            half: clusters.kinematics.half_extent(),
+            down,
+        };
+    }
+}
+
+/// The facts of the point a body left through a portal no longer hold: its
+/// contacts are invalidated, wall cling and ledge grab are released, a riding
+/// momentum body goes airborne, an attached crawler detaches.
+pub(crate) fn release_departure(model: &mut MotionModel, clusters: &mut BodyClustersMut<'_>) {
     clusters.ground.invalidate();
     clusters.wall.on_wall = false;
     clusters.wall.wall_normal_x = 0.0;
@@ -186,20 +207,6 @@ pub fn reconcile_transit(model: &mut MotionModel, clusters: &mut BodyClustersMut
             momentum.state = super::surface_momentum::SurfaceMotion::Airborne;
         }
         MotionModel::AdhesiveCrawler(crawler) => crawler.detach(),
-    }
-    let pos = clusters.kinematics.pos;
-    if let Some(sweep) = clusters.sweep.as_deref_mut() {
-        // Start a new record in the accepted material chart. Keep the movement
-        // reference until the environment resolves the next step.
-        let (down, tick) = (sweep.down, sweep.tick);
-        *sweep = SweepSample { tick, restriction: Default::default(), turn: None, travel: Default::default(), time: [0.0, 1.0],
-            material: clusters.kinematics.material,
-            prev: pos,
-            curr: pos,
-            vel: clusters.kinematics.vel,
-            half: clusters.kinematics.half_extent(),
-            down,
-        };
     }
 }
 
@@ -418,7 +425,7 @@ mod translation_tests {
     fn materialization_uses_the_centre_chart_and_carries_velocity_and_payloads() {
         let links = [PortalLink::new(aperture(100.0, 300.0, -Vec2::Y, 40.0),
             aperture(600.0, 100.0, Vec2::Y, 20.0), 0)];
-        let admission = MotionAdmission { links: &links, first: None,
+        let admission = MotionAdmission { span: Default::default(), links: &links, first: None,
             budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
         let desired = crate::BodyKinematics { pos: Vec2::new(100.0, 310.0), vel: Vec2::new(20.0, 200.0),
             canonical_size: Vec2::splat(4.0), ..Default::default() };
@@ -440,7 +447,7 @@ mod translation_tests {
     fn translation_admits_the_wall_stop_before_a_refused_portal_path() {
         let links = [PortalLink::new(aperture(100.0, 300.0, -Vec2::Y, 40.0),
             aperture(600.0, 100.0, Vec2::Y, 40.0), 0)];
-        let admission = Some(MotionAdmission { links: &links, first: Some(0),
+        let admission = Some(MotionAdmission { span: Default::default(), links: &links, first: Some(0),
             budget: PieceBudget { max_hops: 0, ..PieceBudget::COMPOSED },
             convention: MapConvention::Reflection });
         let body = crate::BodyKinematics { pos: Vec2::new(100.0, 270.0),
@@ -482,7 +489,7 @@ mod translation_tests {
                 canonical_size: Vec2::splat(16.0), ..Default::default() };
             let mut sample = SweepSample::at_tick_end(body, Vec2::Y);
             let desired = crate::BodyKinematics { pos: body.pos + Vec2::Y * 200.0, ..body };
-            let admission = (!links.is_empty()).then_some(MotionAdmission {
+            let admission = (!links.is_empty()).then_some(MotionAdmission { span: Default::default(),
                 links: &links, first: Some(0), budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection,
             });
             prepare_body_translation(&world, &body, Some(&sample), desired, admission, &[])

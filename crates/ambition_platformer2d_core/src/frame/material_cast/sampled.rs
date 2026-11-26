@@ -141,7 +141,7 @@ mod tests {
             .with_initial_overlap(super::super::InitialOverlap::Report);
         let target = VolumePiece::whole(CombatVolume::circle(Vec2::new(500.0,-198.0),1.0));
         assert!(make().cells(None).unwrap().against_piece(&target).unwrap().is_none());
-        let cells = make().cells(Some(MotionAdmission { links:&links,first:Some(0),
+        let cells = make().cells(Some(MotionAdmission { span: Default::default(), links:&links,first:Some(0),
             budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection })).unwrap();
         let hit = cells.against_piece(&target).unwrap().unwrap();
         assert!((hit.toi-0.85).abs()<1.0e-8,"{hit:?}");
@@ -166,7 +166,7 @@ mod tests {
         let root=Vec2::new(0.0,-2.0);
         let cells=super::super::MaterialCast::new(MaterialPrimitive {domain:&domain,
             to_world:Sim2::new(1.0,Mat2::IDENTITY,root).unwrap()},root,Vec2::ZERO,1.0..1.0)
-            .cells(Some(MotionAdmission {links:&links,first:Some(0),budget:PieceBudget::COMPOSED,
+            .cells(Some(MotionAdmission { span: Default::default(),links:&links,first:Some(0),budget:PieceBudget::COMPOSED,
                 convention:MapConvention::Reflection})).unwrap();
         let target=VolumePiece::whole(CombatVolume::circle(Vec2::new(500.0,-198.0),0.5));
         let hit=cells.against_piece(&target).unwrap().unwrap();
@@ -192,7 +192,7 @@ mod tests {
         let map=Sim2::new(1.0,Mat2::IDENTITY,root).unwrap();
         let target=VolumePiece::whole(CombatVolume::circle(Vec2::new(500.0,-203.0),0.25));
         let query=|links:&[PortalLink],target:&VolumePiece| super::super::MaterialCast::new(MaterialPrimitive {
-            domain:&domain,to_world:map },root,Vec2::ZERO,0.0..1.0).cells(Some(MotionAdmission {
+            domain:&domain,to_world:map },root,Vec2::ZERO,0.0..1.0).cells(Some(MotionAdmission { span: Default::default(),
                 links,first:Some(0),budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection,
             })).unwrap().against_piece(target);
         assert!(query(&links,&target).unwrap().is_none(),"the matching endpoint poses miss");

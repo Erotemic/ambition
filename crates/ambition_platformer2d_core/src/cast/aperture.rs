@@ -130,7 +130,7 @@ pub fn trace_through_apertures<W: SolidWorldQuery + ?Sized>(
             origin_narrow, delta, 1.0..1.0,
         ).with_initial_overlap(crate::frame::material_cast::InitialOverlap::Report)
             .prefix(if reach == 0.0 { 0.0 } else { leg_end / reach })?;
-        let cells = cast.cells(Some(crate::frame::thread::MotionAdmission {
+        let cells = cast.cells(Some(crate::frame::thread::MotionAdmission { span: Default::default(),
             links, first,
             budget: PieceBudget {
                 max_hops: budget.max_hops.saturating_add(path.len() as u32).min(u32::from(u8::MAX)) as u8,

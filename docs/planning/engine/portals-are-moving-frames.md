@@ -727,8 +727,50 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   crossing through a quarter-turn pair ends at the crossing's map followed
   by free flight under exit gravity, exactly (the derived 53 `r` px/s
   error above goes to zero); the aligned pair is unchanged.
+  *Done 2026-11-26.* The kernel owns the crossing of a body it steps.
+  `MotionAdmission::span` (`StepSpan`) says which part of the tick an
+  operation covers and whether the kernel moves the root (`Reroot`: the
+  links closed to the body, the exit assistance). With it, `try_motion`
+  probes the whole window, finds the first admitted root crossing on the
+  probe's path (`MaterialCast::crossing`, the primitive transit used), steps
+  the window up to it, moves the root at the crossing point with the
+  velocity the policy reached by then (`RootTransfer::through`, moved into
+  core and shared with `PortalTransfer`), releases the departure facts
+  (`release_departure`), and steps the rest of the window in the exit's
+  chart, crossing again up to the hop budget. Each part is an ordinary
+  step over its own window: the material casts and the end-of-step repair
+  read the world and the links at that window's times, and the record
+  (`SweepSample::time`) is the arrival leg. The step reports each crossing
+  (`FrameEvents::chart_changes`: link, pose, time, point, transfer, the leg
+  before). `BodyGeometry` asks for this in the portal app
+  (`set_kernel_reroot`, links of a `PortalBackside` pair closed), and
+  `portal_transit` publishes a kernel body's crossings (latch, straddle,
+  message with `continued`, `CrossedTravel`, carried acceleration) and
+  searches none of that body's travel itself; `reconcile_transited_bodies`
+  skips a continued crossing. Through a pair that mirrors the run, the
+  held run and facing intent are mirrored for the part after the crossing,
+  the rule the seat's `PortalInputWarp` applies from the next tick (caught
+  by `portal_similarity_slice`: unwarped, a held body turned round
+  mid-step). Items and projectiles keep the old road
+  until M2c. Witnesses: `movement::tests::chart_change` (a quarter turn
+  ends where the step up to the crossing, the map and the rest of the tick
+  in the exit chart put it, and falls `g r dt` down there; the aligned
+  pair gives the mapped whole step exactly; with no `Reroot` the kernel
+  crosses nothing) and
+  `body_contract_tests::transit_publishes_the_crossing_the_kernel_took_and_takes_none_of_its_own`.
+  Limits: geometry the kernel reads other than through a cast (a block's
+  box) is at the tick's end in both parts; the frame's carried
+  acceleration is not turned for the part after the crossing; the exit
+  side's frame is the body's frame for the step (pairs are in one room).
 - **M2b — two crossings in one tick.** Test: a body that goes in and out
   of two static root pairs in one tick ends at the exact composed result.
+  *Done 2026-11-26* with M2a: the part after a crossing is itself an
+  interruptible step, up to the admission's hop budget. Witness:
+  `chart_change::a_body_crosses_two_pairs_in_one_step` (A at x 0→100 and
+  B at x 150→300: crossings at τ 0.125 and 0.75, the end 20 px past B's
+  exit; control: A alone, 70 px past its exit). Under a single-hop budget
+  the material cast through A that reaches B's mouth is refused and the
+  existing refusal recovery closes the portals, as before.
 - **M2c — the same history for items and projectiles**, each keeping its
   own response, force and contact budget. Test: a projectile and a loose
   item through the quarter-turn pair match their analytic continuation.

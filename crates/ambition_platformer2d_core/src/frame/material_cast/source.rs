@@ -135,7 +135,7 @@ mod tests {
         let links = [PortalLink::new(
             PortalAperture { frame: PortalFrame::fixed(Vec2::new(4.0,0.0), -Vec2::X), half_length: 10.0 },
             PortalAperture { frame: PortalFrame::fixed(Vec2::new(100.0,0.0), Vec2::X), half_length: 10.0 }, 7)];
-        let admission = MotionAdmission { links: &links, first: None,
+        let admission = MotionAdmission { span: Default::default(), links: &links, first: None,
             budget: PieceBudget { max_hops: 0, ..PieceBudget::COMPOSED }, convention: MapConvention::Reflection };
         let cast = MaterialCast::new(MaterialPrimitive::world(&body), Vec2::ZERO, Vec2::ZERO, 0.0..1.0)
             .rotating_about(Vec2::ZERO, std::f64::consts::TAU, 1.0).unwrap();
@@ -174,7 +174,7 @@ mod tests {
         let body = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::new(10.0,1.0)));
         let cast = MaterialCast::new(MaterialPrimitive::world(&body),Vec2::ZERO,Vec2::ZERO,0.0..1.0)
             .rotating_about(Vec2::ZERO,std::f64::consts::TAU,std::f64::consts::TAU / f64::from(f32::MAX)).unwrap();
-        let admission = MotionAdmission { links: &[], first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
+        let admission = MotionAdmission { span: Default::default(), links: &[], first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
         assert_eq!(admission.admit(cast,Vec2::ZERO,&[]).unwrap_err().reason,
             RefusalReason::Numeric(NumericFault::Overflow));
     }
@@ -238,7 +238,7 @@ mod tests {
         let make = || MaterialCast::new(material,Vec2::ZERO,Vec2::ZERO,0.0..1.0)
             .rotating_about(Vec2::ZERO,std::f64::consts::TAU,1.0).unwrap();
         assert_eq!(make().cells(None).unwrap().parts().len(),1);
-        let admission = MotionAdmission { links: &[],first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+        let admission = MotionAdmission { span: Default::default(), links: &[],first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
         assert!(matches!(make().cells(Some(admission)),Err(refusal) if refusal.reason == RefusalReason::ScaleLimit));
     }
 
@@ -254,7 +254,7 @@ mod tests {
         let mut link = PortalLink::new(enter,exit,7);
         link.exit_step = ApertureStep::ending_at(exit.frame,Vec2::ZERO,2.0 * std::f32::consts::TAU);
         let links = [link];
-        let admission = MotionAdmission { links:&links,first:Some(7),budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+        let admission = MotionAdmission { span: Default::default(), links:&links,first:Some(7),budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
         let cells = MaterialCast::new(MaterialPrimitive::world(&body),root,Vec2::ZERO,0.0..1.0)
             .rotating_about(root,std::f64::consts::TAU,1.0).unwrap().cells(Some(admission)).unwrap();
         let part = cells.parts().iter().find(|part|part.path == [7]).unwrap();
@@ -276,7 +276,7 @@ mod tests {
         let mut link = PortalLink::new(enter,exit,7);
         link.exit_step = ApertureStep::ending_at(exit.frame,Vec2::ZERO,std::f32::consts::TAU);
         let links = [link];
-        let admission = MotionAdmission { links:&links,first:Some(7),budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+        let admission = MotionAdmission { span: Default::default(), links:&links,first:Some(7),budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
         let duration = f64::from(std::f32::consts::TAU) / f64::from(f32::MAX);
         let cast = MaterialCast::new(MaterialPrimitive::world(&body),root,Vec2::ZERO,0.0..1.0)
             .rotating_about(root,f64::from(std::f32::consts::TAU),duration).unwrap();

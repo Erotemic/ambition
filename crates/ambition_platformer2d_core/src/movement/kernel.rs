@@ -252,13 +252,49 @@ fn admit_motion(
     MotionStepResult::from_events(events, ctx.frame)
 }
 
-/// One candidate step and its righting. Commits only when both are admitted.
+/// One step, interrupted where the body's root crosses into another chart
+/// when its admission asks the kernel to move the root (portal M2).
 fn try_motion(
     model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     ctx: &MotionStepContext<'_>,
     retained_down: Vec2,
 ) -> Result<MotionStepResult, crate::frame::thread::Refusal> {
+    match ctx.admission.and_then(|admission| admission.span.reroot.map(|reroot| (admission, reroot)))
+        .filter(|_| !ctx.pose_owned_externally)
+    {
+        Some((admission, reroot)) => continuation::step_through_crossings(
+            model, clusters, ctx, retained_down, admission, reroot, 0),
+        None => try_motion_once(model, clusters, ctx, retained_down).map(|(result, _)| result),
+    }
+}
+
+/// One candidate step and its righting, committed only when both are
+/// admitted. Returns the step's travel record as well.
+fn try_motion_once(
+    model: &mut MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    ctx: &MotionStepContext<'_>,
+    retained_down: Vec2,
+) -> Result<(MotionStepResult, SweepSample), crate::frame::thread::Refusal> {
+    let (candidate, sweep, result) = candidate_motion(model, clusters, ctx, retained_down)?;
+    commit_candidate(candidate, sweep, model, clusters);
+    Ok((result, sweep))
+}
+
+fn commit_candidate(candidate: crate::body_clusters::BodyClusterScratch, sweep: SweepSample,
+    model: &mut MotionModel, clusters: &mut BodyClustersMut<'_>) {
+    candidate.commit(model, clusters);
+    if let Some(target) = clusters.sweep.as_deref_mut() { *target = sweep; }
+}
+
+/// One candidate step and its righting, not committed.
+fn candidate_motion(
+    model: &mut MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    ctx: &MotionStepContext<'_>,
+    retained_down: Vec2,
+) -> Result<(crate::body_clusters::BodyClusterScratch, SweepSample, MotionStepResult), crate::frame::thread::Refusal> {
     let mut candidate = crate::body_clusters::BodyClusterScratch::candidate(model, clusters);
     let mut sweep = SweepSample::at_rest(*clusters.kinematics, retained_down);
     let result = {
@@ -286,9 +322,7 @@ fn try_motion(
     super::admit_body_righting(&mut candidate.kinematics, &mut sweep,
         target, max_step, support_turn, f64::from(ctx.dt), ctx.world, ctx.admission,
         &[ctx.frame.carried_acceleration(), ctx.frame.basis().side * candidate.flight.carried_run], clusters.carrier)?;
-    candidate.commit(model, clusters);
-    if let Some(target) = clusters.sweep.as_deref_mut() { *target = sweep; }
-    Ok(result)
+    Ok((candidate, sweep, result))
 }
 
 /// The links the body's material is through now; empty when none is.
@@ -751,7 +785,7 @@ fn step_surface_momentum(
     motion.occlusions = body.occlusions;
     // Each policy spends the body's effects on its own step clock.
     clusters.effects.spend(ctx.dt);
-    write_sweep_sample(clusters, sweep_entry, body_down);
+    write_sweep_sample(clusters, sweep_entry, body_down, crate::frame::thread::step_window(ctx.admission));
 
     let mut events = FrameEvents {
         contacts: contacts.into(),
@@ -815,7 +849,8 @@ fn step_adhesive_crawler(
         clusters.kinematics.material = material;
         turn
     }));
-    let step_half = write_sweep_sample(clusters, sweep_entry, motion.body_down(ctx.world, ctx.frame));
+    let step_half = write_sweep_sample(clusters, sweep_entry, motion.body_down(ctx.world, ctx.frame),
+        crate::frame::thread::step_window(ctx.admission));
     if let (Some(radians), Some(sweep)) = (turn, clusters.sweep.as_deref_mut()) {
         sweep.turn = Some(crate::SourceTurn { radians, duration: f64::from(ctx.dt) });
     }
@@ -834,13 +869,14 @@ fn step_adhesive_crawler(
 /// returns that box: the arm gives the same value to
 /// [`apply_world_hazard_gate`], so the record, the end test and the path test
 /// are of one box. The record keeps the DOWN for a later transit.
-pub(crate) fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec2, Vec2, crate::frame::BodyMaterial), body_down: Vec2) -> Vec2 {
+pub(crate) fn write_sweep_sample(clusters: &mut BodyClustersMut<'_>, entry: (Vec2, Vec2, crate::frame::BodyMaterial), body_down: Vec2,
+    window: [f64; 2]) -> Vec2 {
     let curr = clusters.kinematics.pos;
     let step_half = clusters.kinematics.half_extent();
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
         // Unstamped: the system that stepped the body names the step
         // (`SweepSample::tick`); a scratch body has no step to name.
-        *sweep = SweepSample { tick: 0, restriction: Default::default(), turn: None, travel: Default::default(), time: [0.0, 1.0],
+        *sweep = SweepSample { tick: 0, restriction: Default::default(), turn: None, travel: Default::default(), time: window,
             material: entry.2,
             prev: entry.0,
             curr,
@@ -961,6 +997,8 @@ fn support_fact(contacts: &[Contact]) -> (SupportFact, Option<&Contact>) {
         (SupportFact::Airborne, None)
     }
 }
+
+mod continuation;
 
 #[cfg(test)]
 mod tests;

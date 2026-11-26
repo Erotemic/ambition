@@ -278,7 +278,7 @@ pub(crate) use similarity::{scale_bound, scale_quantity};
 mod motion;
 pub use motion::ApertureStep;
 mod crossing;
-pub use crossing::RootCrossing;
+pub use crossing::{RootCrossing, RootTransfer};
 pub(crate) use motion::{rotation_at,rotation_ending_at,interval_center,rotation_bound};
 mod material;
 pub use material::{BodyMaterial, BodyMaterialRecord};

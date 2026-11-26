@@ -62,6 +62,13 @@ pub struct BodyGeometry {
     /// Each body in transit, and the link of the pair it straddles: in at the
     /// end whose front its centre is on.
     straddling: Vec<(Entity, PortalLink)>,
+    /// Whether the movement kernel moves a body's root through the links it
+    /// crosses (portal M2), and the exit assistance it gives; `None` leaves
+    /// that to a transit after the step.
+    kernel_reroot: Option<f32>,
+    /// Links closed to a body's root crossing: the pair whose plane it cuts
+    /// from behind.
+    closed: Vec<(Entity, Vec<u32>)>,
 }
 
 #[derive(Clone, Debug)]
@@ -86,7 +93,33 @@ impl BodyGeometry {
             bodies: Vec::new(),
             rooms: Vec::new(),
             straddling: Vec::new(),
+            kernel_reroot: None,
+            closed: Vec::new(),
         }
+    }
+
+    /// Let the movement kernel move a body's root through each admitted link
+    /// it crosses, continuing its step in the exit's chart (portal M2), with
+    /// `min_exit_speed` of exit assistance; `None` leaves the root to transit.
+    pub fn set_kernel_reroot(&mut self, min_exit_speed: Option<f32>) {
+        self.kernel_reroot = min_exit_speed;
+    }
+
+    /// Whether the movement kernel moves bodies' roots through the links.
+    pub fn kernel_reroots(&self) -> bool {
+        self.kernel_reroot.is_some()
+    }
+
+    /// Close `keys` to `body`'s root crossing this step.
+    pub fn close_for(&mut self, body: Entity, keys: Vec<u32>) {
+        match self.closed.iter_mut().find(|(b, _)| *b == body) {
+            Some((_, closed)) => closed.extend(keys),
+            None => self.closed.push((body, keys)),
+        }
+    }
+
+    fn closed_for(&self, body: Entity) -> &[u32] {
+        self.closed.iter().find(|(b, _)| *b == body).map_or(&[], |(_, keys)| keys.as_slice())
     }
 
     /// Replace the current aperture restrictions.
@@ -96,6 +129,7 @@ impl BodyGeometry {
         self.bodies.clear();
         self.rooms.clear();
         self.straddling.clear();
+        self.closed.clear();
     }
 
     /// How far the volumes of every room are cut, unless a room says
@@ -181,9 +215,14 @@ impl BodyGeometry {
 
     pub fn motion_for(&self, body: Entity, room: Option<LiveRoomInstance>) -> Option<ambition_platformer2d_core::frame::thread::MotionAdmission<'_>> {
         let budget = self.budget_for(Some(body), room);
+        use ambition_platformer2d_core::frame::thread::{Reroot, StepSpan};
+        let span = StepSpan {
+            reroot: self.kernel_reroot.map(|min_exit_speed| Reroot { closed: self.closed_for(body), min_exit_speed }),
+            ..StepSpan::WHOLE
+        };
         Some(ambition_platformer2d_core::frame::thread::MotionAdmission {
             links: self.links_in(room), first: self.straddled_by(body).map(|link| link.key),
-            budget, convention: self.convention,
+            budget, convention: self.convention, span,
         })
     }
 

@@ -144,9 +144,10 @@ pub(super) fn sweep_player_axis_clusters(
         use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}};
         let numeric = |fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) };
         let domain = kinematics.canonical_box().map_err(numeric)?;
+        let [start, end] = crate::frame::thread::step_window(*admission);
         let cast = MaterialCast::new(MaterialPrimitive {
             domain: &domain, to_world: kinematics.material_map().map_err(numeric)?,
-        }, kinematics.pos, delta, 0.0..1.0).carried_by(policy.carrier);
+        }, kinematics.pos, delta, start..end).carried_by(policy.carrier);
         *admission = cast.motion_admission(*admission)?;
         let cells = cast.cells(*admission)?;
         let links = *admission;
@@ -270,9 +271,11 @@ fn material_axis_hits<'w>(
     use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}};
     let numeric = |fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) };
     let domain = kinematics.canonical_box().map_err(numeric)?;
+    // At the operation's end: the tick's, or its crossing's (portal M2).
+    let [_, end] = crate::frame::thread::step_window(admission);
     let cells = MaterialCast::new(MaterialPrimitive { domain: &domain,
         to_world: kinematics.material_map().map_err(numeric)? }, kinematics.pos,
-        Vec2::ZERO, 1.0..1.0).carried_by(policy.carrier).cells(admission)?;
+        Vec2::ZERO, end..end).carried_by(policy.carrier).cells(admission)?;
     let hits = world.material_axis_contacts(&cells, axis_vec(axis, 1.0))?;
     let role = axis_role(axis, gravity_dir);
     let mut accepted = Vec::new();
@@ -289,7 +292,7 @@ fn material_axis_hits<'w>(
             crate::world::MaterialCollider::Chain { chain, segment, .. } => {
                 if chain.closed && chain.kind == crate::world::SurfaceKind::Solid { true }
                 else {
-                    let face = match chain.normal_at_time(segment, 1.0) {
+                    let face = match chain.normal_at_time(segment, end) {
                         Ok(face) => face,
                         Err(fault) => return Err(numeric(fault)),
                     };

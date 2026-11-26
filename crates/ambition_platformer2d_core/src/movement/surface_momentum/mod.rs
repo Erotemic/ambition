@@ -1520,7 +1520,8 @@ fn portal_travel_is_clear(
         return false;
     }
     let shape = crate::CombatVolume::circle(center, radius);
-    let cast = MaterialCast::new(MaterialPrimitive::world(&shape), center, delta, 0.0..1.0);
+    let [start, end] = portals.span.window;
+    let cast = MaterialCast::new(MaterialPrimitive::world(&shape), center, delta, start..end);
     let Ok(cells) = cast.cells(Some(portals)) else { return false };
     if !cells.parts().iter().any(|part| !part.path.is_empty()) {
         return false;

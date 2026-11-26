@@ -507,7 +507,7 @@ mod tests {
             delta,
             0.0..1.0,
         );
-        request.cells(Some(MotionAdmission {
+        request.cells(Some(MotionAdmission { span: Default::default(),
             links,
             first: None,
             budget: PieceBudget {
@@ -656,7 +656,7 @@ mod tests {
                 step.displacement += boost;
             }
         }
-        let admission = |links| MotionAdmission {
+        let admission = |links| MotionAdmission { span: Default::default(),
             links,
             first: None,
             budget: PieceBudget::COMPOSED,

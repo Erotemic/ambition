@@ -427,8 +427,9 @@ pub fn settle_on_line(world: &World, kinematics: &crate::BodyKinematics, down: V
     use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}};
     let numeric = |reason| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(reason) };
     let domain = kinematics.canonical_box().map_err(numeric)?;
+    let [_, end] = crate::frame::thread::step_window(admission);
     let cells = MaterialCast::new(MaterialPrimitive { domain: &domain,
-        to_world: kinematics.material_map().map_err(numeric)? }, kinematics.pos, delta, 1.0..1.0).cells(admission)?;
+        to_world: kinematics.material_map().map_err(numeric)? }, kinematics.pos, delta, end..end).cells(admission)?;
     let obstruction = world.first_material_contact(&cells, |collider, _, _| Ok(match collider {
         crate::world::MaterialCollider::Block(block) => crate::collision_semantics::is_full_collision_surface(block.kind),
         crate::world::MaterialCollider::Chain { chain, .. } => chain.closed && chain.kind == crate::world::SurfaceKind::Solid,
@@ -588,7 +589,7 @@ mod tests {
         let aperture = |at: Vec2, normal: Vec2| PortalAperture { frame: PortalFrame::fixed(at, normal), half_length: 4.0 };
         let first = |enter: PortalAperture| {
             let links = [PortalLink::new(enter, aperture(Vec2::new(30.0, 400.0), Vec2::NEG_Y), 0)];
-            let admission = MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
+            let admission = MotionAdmission { span: Default::default(), links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
             let cells = MaterialCast::new(MaterialPrimitive { domain: &domain, to_world: body.material_map().unwrap() },
                 body.pos, Vec2::ZERO, 0.0..1.0).cells(Some(admission)).unwrap();
             world.first_material_contact(&cells, |_, _, _| Ok(true)).unwrap().expect("the line reaches the body")

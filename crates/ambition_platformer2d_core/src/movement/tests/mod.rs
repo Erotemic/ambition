@@ -56,6 +56,7 @@ mod adhesive_crawler;
 mod balance;
 mod blink;
 mod c4_reaction_seams;
+mod chart_change;
 mod classic_platformer;
 mod climbing;
 mod clock;

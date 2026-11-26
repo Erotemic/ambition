@@ -371,7 +371,7 @@ impl<'a> MaterialCast<'a> {
         if dimensions.min_element() < 0.0 {
             return Err(numeric(NumericFault::InvalidScale));
         }
-        let policy = admission.unwrap_or(MotionAdmission { links: &[], first: None,
+        let policy = admission.unwrap_or(MotionAdmission { span: Default::default(), links: &[], first: None,
             budget: super::thread::PieceBudget::COMPOSED, convention: super::MapConvention::Reflection });
         let rotating = self.rotation.is_some_and(|rotation| rotation.turn != 0.0);
         let scene = (!policy.links.is_empty() || self.rotation.is_some())

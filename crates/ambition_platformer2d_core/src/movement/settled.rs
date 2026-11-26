@@ -152,6 +152,7 @@ impl StepInput {
                 first: None,
                 budget,
                 convention,
+                span: _,
             }) => Some((budget, convention)),
             Some(_) => return Err(SettledMotionStatus::Aperture),
         };
@@ -261,6 +262,7 @@ fn can_retain_result(result: &MotionStepResult, body: &BodyClustersMut<'_>) -> b
         ground_contact,
         contacts: _,
         constraint_conflicts,
+        chart_changes,
     } = &result.events;
     (result.support.is_held() || body.flight.fly_enabled)
         && motion_refusal.is_none()
@@ -269,6 +271,7 @@ fn can_retain_result(result: &MotionStepResult, body: &BodyClustersMut<'_>) -> b
         && reset.is_none()
         && *ground_contact == GroundContactTransition::Unchanged
         && constraint_conflicts.is_empty()
+        && chart_changes.is_empty()
         && *body.env_contact == Default::default()
 }
 

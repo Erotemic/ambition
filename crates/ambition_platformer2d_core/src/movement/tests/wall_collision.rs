@@ -1543,7 +1543,7 @@ fn stationary_material_uses_far_side_support_and_repair() {
         let conflict = super::super::collision::sweep_player_axis_clusters(&world,
             &mut body.kinematics, &mut body.ground, &mut body.wall, &body.body_mode,
             &body.env_contact, crate::collision_semantics::Axis::Y, 0.0, 306.0, false,
-            Vec2::Y, &mut contacts, &mut Some(MotionAdmission { links: &links, first: Some(0),
+            Vec2::Y, &mut contacts, &mut Some(MotionAdmission { span: Default::default(), links: &links, first: Some(0),
                 budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }), &mut refusal, None);
         assert!(refusal.is_none(), "{refusal:?}");
         assert!(conflict.is_none(), "{conflict:?}");
@@ -1554,7 +1554,7 @@ fn stationary_material_uses_far_side_support_and_repair() {
         body.ground.invalidate();
         let (_, mut clusters) = body.parts();
         let baseline = super::super::kernel::establish_axis_ground_contact_baseline(&world, &mut clusters,
-            crate::MotionFrame::from_direction(Vec2::Y, 900.0), Some(MotionAdmission { links: &links, first: Some(0),
+            crate::MotionFrame::from_direction(Vec2::Y, 900.0), Some(MotionAdmission { span: Default::default(), links: &links, first: Some(0),
                 budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection })).unwrap();
         assert!(matches!(baseline.transition_to(true), crate::GroundContactTransition::InitializedGrounded),
             "a fresh body on far-side support must not report another landing");
@@ -1576,7 +1576,7 @@ fn an_axis_crossing_keeps_its_source_chart_until_rebase() {
     body.kinematics.canonical_size = Vec2::splat(16.0);
     body.kinematics.vel = Vec2::X * 50.0;
     let mut refusal = None;
-    let mut admission = Some(MotionAdmission { links: &links, first: None,
+    let mut admission = Some(MotionAdmission { span: Default::default(), links: &links, first: None,
         budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection });
     super::super::collision::sweep_player_axis_clusters(&world, &mut body.kinematics,
         &mut body.ground, &mut body.wall, &body.body_mode, &body.env_contact,
@@ -1635,7 +1635,7 @@ fn portal_host_boundaries_do_not_gain_solid_area_after_chart_projection() {
         super::super::collision::sweep_player_axis_clusters(&world, &mut body.kinematics,
             &mut body.ground, &mut body.wall, &body.body_mode, &body.env_contact,
             crate::collision_semantics::Axis::Y, 0.0, 920.0, false, Vec2::Y,
-            &mut contacts, &mut Some(MotionAdmission { links: &links, first: Some(1),
+            &mut contacts, &mut Some(MotionAdmission { span: Default::default(), links: &links, first: Some(1),
                 budget: PieceBudget::COMPOSED, convention: MapConvention::Rotation }), &mut refusal, None);
         assert!(refusal.is_none(), "{refusal:?}");
         assert!(!body.ground.on_ground, "turn {turn}, y {y}: {contacts:?}");
@@ -1645,7 +1645,7 @@ fn portal_host_boundaries_do_not_gain_solid_area_after_chart_projection() {
             domain: &domain, to_world: body.kinematics.material_map().unwrap(),
         }, body.kinematics.pos, Vec2::Y * 0.625, 0.0..1.0);
         for link_count in [2, 3] {
-            let cells = cast.clone().cells(Some(MotionAdmission { links: &links[..link_count], first: Some(1),
+            let cells = cast.clone().cells(Some(MotionAdmission { span: Default::default(), links: &links[..link_count], first: Some(1),
                 budget: PieceBudget::COMPOSED, convention: MapConvention::Rotation })).unwrap();
             let hit = world.first_material_contact(&cells, |_, _, _| Ok(true)).unwrap();
             assert!(hit.is_none(), "links {link_count}, turn {turn}, y {y}: {hit:?}; cells {:?}", cells.parts());
@@ -1672,14 +1672,14 @@ fn an_axis_body_can_cross_a_portal_in_a_ground_line() {
     super::super::collision::sweep_player_axis_clusters(&world, &mut touching.kinematics,
         &mut touching.ground, &mut touching.wall, &touching.body_mode, &touching.env_contact,
         crate::collision_semantics::Axis::Y, 0.0, 300.0, false, Vec2::Y,
-        &mut Vec::new(), &mut Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
+        &mut Vec::new(), &mut Some(MotionAdmission { span: Default::default(), links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
             convention: MapConvention::Reflection }), &mut refusal, None);
     assert!(refusal.is_none(), "{refusal:?}");
     assert!(!touching.ground.on_ground, "the opening is not static support");
     for _ in 0..30 {
         let (model, mut clusters) = body.parts();
         let result = step_motion(model, &mut clusters, MotionStepContext {
-            admission: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
+            admission: Some(MotionAdmission { span: Default::default(), links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
                 convention: MapConvention::Reflection }), world: &world,
             input: InputState::default(), frame: crate::MotionFrame::from_direction(Vec2::Y, 900.0),
             facing_intent: 0.0, dt: 1.0 / 60.0, contact: BodyContactField::NONE,
@@ -1790,7 +1790,7 @@ fn a_drifting_exit_holds_the_material_through_it_at_a_still_wall() {
             let links = links_at(tick);
             let (model, mut clusters) = body.parts();
             let result = step_motion(model, &mut clusters, MotionStepContext {
-                admission: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
+                admission: Some(MotionAdmission { span: Default::default(), links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
                     convention: MapConvention::Reflection }), world: &world,
                 input: InputState::default(), frame: crate::MotionFrame::from_direction(Vec2::Y, 0.0),
                 facing_intent: 0.0, dt: 1.0 / 60.0, contact: BodyContactField::NONE,
@@ -1903,7 +1903,7 @@ fn a_support_met_through_a_turned_pair_keeps_the_exit_charts_facts() {
         for _ in 0..12 {
             let (model, mut clusters) = body.parts();
             let result = step_motion(model, &mut clusters, MotionStepContext {
-                admission: admitted.then_some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
+                admission: admitted.then_some(MotionAdmission { span: Default::default(), links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
                     convention: MapConvention::Reflection }), world: &world,
                 input: InputState::default(), frame: crate::MotionFrame::from_direction(Vec2::Y, 0.0),
                 facing_intent: 0.0, dt: 1.0 / 60.0, contact: BodyContactField::NONE,

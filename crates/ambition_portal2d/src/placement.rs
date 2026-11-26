@@ -242,19 +242,13 @@ pub struct PortalTransfer {
 impl PortalTransfer {
     /// Keep controller motion separate from motion supplied by the world.
     pub fn carried_run(self, source_side: Vec2, destination_side: Vec2, previous: f32) -> Result<f32, ae::frame::NumericFault> {
-        use ae::frame::NumericFault;
-        if !source_side.is_finite() || !destination_side.is_finite() || !previous.is_finite() {
-            return Err(NumericFault::NonFinite);
-        }
-        if (source_side.length_squared() - 1.0).abs() > 2.0e-5
-            || (destination_side.length_squared() - 1.0).abs() > 2.0e-5 { return Err(NumericFault::InvalidFrame); }
-        let controller = self.entry_vel.as_dvec2().dot(source_side.as_dvec2()) - f64::from(previous);
-        let mapped = self.map.vector_from_wide(source_side.as_dvec2() * controller)?;
-        let carried = (self.exit_vel.as_dvec2() - mapped.as_dvec2()).dot(destination_side.as_dvec2());
-        let narrowed = carried as f32;
-        if !narrowed.is_finite() { return Err(NumericFault::Overflow); }
-        if carried != 0.0 && narrowed == 0.0 { return Err(NumericFault::Underflow); }
-        Ok(narrowed)
+        self.root().carried_run(source_side, destination_side, previous)
+    }
+
+    /// The root transfer this is, in the engine's terms.
+    pub fn root(self) -> ae::frame::RootTransfer {
+        ae::frame::RootTransfer { map: self.map, entry_vel: self.entry_vel, exit_pos: self.exit_pos,
+            mapped_vel: self.mapped_vel, exit_vel: self.exit_vel }
     }
 
     /// The transfer of a body of `material` at `center` moving at `velocity`.
@@ -270,41 +264,15 @@ impl PortalTransfer {
             enter.aperture(), exit.aperture(), tuning)
     }
 
-    /// `min_exit_speed` is ordinary exit assistance in the canonical body's
-    /// units (SCALE-FEEL SR2): it is applied at the scale the body leaves at,
-    /// its own scale through the map, so a half-size body is pushed clear of
-    /// the exit at half the speed and covers its own length in the same time.
+    /// The transfer through `entry` to `leaving` at one instant
+    /// ([`ae::frame::RootTransfer::through`]).
     fn from_apertures(
         center: Vec2, velocity: Vec2, material: ae::frame::BodyMaterial,
         entry_channel: PortalChannel, exit_channel: PortalChannel,
         entry: ae::frame::PortalAperture, leaving: ae::frame::PortalAperture, tuning: &PortalTuning,
     ) -> Result<Self, ae::frame::NumericFault> {
-        use ae::frame::{NumericFault, Sim2};
-        let map = Sim2::through(&entry, &leaving, tuning.convention.map_convention())?;
-        let exit_pos = map.point(center)?;
-        let mapped_vel = map.velocity(&entry.frame, &leaving.frame, center, velocity)?;
-        if !tuning.min_exit_speed.is_finite() {
-            return Err(NumericFault::NonFinite);
-        }
-        let frame = leaving.frame;
-        let arm = exit_pos.as_dvec2() - frame.pivot.as_dvec2();
-        let surface = frame.velocity.as_dvec2()
-            + f64::from(frame.spin) * bevy::math::DVec2::new(-arm.y, arm.x);
-        let normal = frame.normal.as_dvec2().normalize();
-        let relative_speed = (mapped_vel.as_dvec2() - surface).dot(normal);
-        let leaving_scale = f64::from(material.scale()) * f64::from(map.scale());
-        let min_exit_speed = f64::from(tuning.min_exit_speed) * leaving_scale;
-        let assisted = mapped_vel.as_dvec2()
-            + normal * (min_exit_speed - relative_speed).max(0.0);
-        let exit_vel = assisted.as_vec2();
-        if !exit_vel.is_finite() {
-            return Err(NumericFault::Overflow);
-        }
-        if (assisted.x != 0.0 && exit_vel.x == 0.0)
-            || (assisted.y != 0.0 && exit_vel.y == 0.0)
-        {
-            return Err(NumericFault::Underflow);
-        }
+        let ae::frame::RootTransfer { map, exit_pos, mapped_vel, exit_vel, .. } = ae::frame::RootTransfer::through(
+            &entry, &leaving, tuning.convention.map_convention(), center, velocity, material, tuning.min_exit_speed)?;
         Ok(Self {
             map, enter: entry, exit: leaving,
             entry_channel, exit_channel,

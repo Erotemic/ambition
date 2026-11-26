@@ -3750,8 +3750,10 @@ draw a crossing at its time, and a line host binds SUP1's material place.
 M1 landed 2026-11-26 (a: the travel record names its step; b: crossings
 use the aperture snapshot the step was admitted against; c: a contact keeps
 the chart it was met in, also for scripts on `ambition.body.contact@4`).
-Next in P2: M2's
-kernel continuation in the destination chart, host admission before the
+M2a/M2b landed 2026-11-26: the kernel interrupts a body's step at each root
+crossing and continues it in the exit's chart; transit publishes the
+kernel's crossings. Next in P2: M2c (items and projectiles on the same
+history), M2d (delete the old completed-endpoint road), host admission before the
 aperture writer commits, and SUP1 through a portal cell (which needs a
 deforming line split, not only a clipped cast). P4's full-turn bounds and repeated-link candidate exclusion landed
 2026-11-26 (receipt in the owner's P4 section); its shared projectile source

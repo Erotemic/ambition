@@ -194,6 +194,27 @@ pub struct FrameEvents {
     /// displacement or crush immunity are the owner's policy. Nothing in the
     /// engine consumes this yet, deliberately.
     pub constraint_conflicts: Vec<crate::collision_semantics::AxisConstraintConflict>,
+    /// Each time the body's root went into another chart this step, in
+    /// order (portal M2). The body ends the step in the last one's exit chart.
+    pub chart_changes: Vec<ChartChange>,
+}
+
+/// The kernel stopped the step where the body's root crossed an admitted
+/// link, moved the root through it and continued the rest of the step in the
+/// exit's chart (portal M2).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChartChange {
+    /// The link the root went in by.
+    pub link: crate::frame::thread::PortalLink,
+    /// Its apertures at the crossing.
+    pub pose: crate::frame::thread::PortalLinkPose,
+    /// When in the world tick the root crossed.
+    pub world_time: f64,
+    /// Where it crossed, in the chart it left.
+    pub point: Vec2,
+    pub transfer: crate::frame::RootTransfer,
+    /// The travel before the crossing, in the chart it left.
+    pub before: crate::SweepSample,
 }
 
 impl FrameEvents {
@@ -215,6 +236,7 @@ impl FrameEvents {
         }
         self.contacts.append(other.contacts);
         self.constraint_conflicts.extend(other.constraint_conflicts);
+        self.chart_changes.extend(other.chart_changes);
     }
 }
 

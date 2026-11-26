@@ -352,6 +352,8 @@ path of a paper label from Stereotyping's muzzle to a body on the floor.
 At Pad Three, use the ledge bounds for the cargo scale, loading walks,
 and service steps. Show the hold entrance and the clerk's window so an
 author can check where both routes start.
+On Dry Dock's Main Street, show the pump walks with the ordinance board
+so an author can check that the pipe and deck leave the text clear.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

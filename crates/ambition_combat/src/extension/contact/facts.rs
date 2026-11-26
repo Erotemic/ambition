@@ -155,7 +155,7 @@ impl ContactPartition {
         for piece in &recipient.pieces {
             let region = piece.volume.bounds();
             match &self.grid {
-                Some(grid) => near.extend(grid.near(region).into_iter().map(|i| &self.material[i as usize])
+                Some(grid) => near.extend(grid.near(region).map(|i| &self.material[i as usize])
                     .filter(|envelope| ae::spatial::touches(envelope.bounds, region)).map(|envelope| envelope.sample)),
                 None => near.extend(self.material.iter()
                     .filter(|envelope| ae::spatial::touches(envelope.bounds, region)).map(|envelope| envelope.sample)),

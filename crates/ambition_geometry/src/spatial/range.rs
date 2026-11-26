@@ -73,11 +73,22 @@ impl RangeGrid {
 
     /// The entries whose cells meet `region`, each once, in list order: a
     /// superset of those that touch it.
-    pub fn near(&self, region: Aabb) -> Vec<u32> {
+    pub fn near(&self, region: Aabb) -> impl Iterator<Item = u32> + '_ {
         let (x0, y0, x1, y1) = self.cells_of(region);
-        if (i64::from(x1) - i64::from(x0) + 1).saturating_mul(i64::from(y1) - i64::from(y0) + 1) > GRID_LARGE_CELLS * 16 {
-            return self.all.clone();
-        }
+        let count = (i64::from(x1) - i64::from(x0) + 1)
+            .saturating_mul(i64::from(y1) - i64::from(y0) + 1);
+        let (stored, merged): (&[u32], Vec<u32>) = if count > GRID_LARGE_CELLS * 16 {
+            (&self.all, Vec::new())
+        } else if x0 == x1 && y0 == y1 && self.large.is_empty() {
+            let cell = self.cells.binary_search_by_key(&(x0, y0), |(key, _)| *key);
+            (cell.map_or(&[], |index| self.cells[index].1.as_slice()), Vec::new())
+        } else {
+            (&[], self.merge_cells(x0, y0, x1, y1))
+        };
+        stored.iter().copied().chain(merged)
+    }
+
+    fn merge_cells(&self, x0: i32, y0: i32, x1: i32, y1: i32) -> Vec<u32> {
         let mut found: Vec<u32> = self.large.clone();
         for x in x0..=x1 {
             let first = self.cells.binary_search_by_key(&(x, y0), |(key, _)| *key);
@@ -113,11 +124,12 @@ mod tests {
     #[test]
     fn the_grid_filtered_by_touch_is_the_scan() {
         let b = |x: f32, y: f32, w: f32, h: f32| Aabb { min: Vec2::new(x, y), max: Vec2::new(x + w, y + h) };
+        let large = b(-5000.0, -5000.0, 10000.0, 10000.0);
         let mut bounds = vec![
             b(0.0, 0.0, 10.0, 10.0),
             b(120.0, 120.0, 20.0, 20.0),
             b(-300.0, 50.0, 600.0, 0.0),
-            b(-5000.0, -5000.0, 10000.0, 10000.0),
+            large,
         ];
         for i in 0..60 {
             let f = i as f32;
@@ -131,9 +143,13 @@ mod tests {
             b(-200.0, -200.0, 400.0, 400.0),
             b(-1.0e6, -1.0e6, 2.0e6, 2.0e6),
         ];
-        for region in regions {
-            let exact: Vec<u32> = grid.near(region).into_iter().filter(|i| touches(bounds[*i as usize], region)).collect();
-            assert_eq!(exact, scan_touching(bounds.iter().copied(), region), "{region:?}");
+        let without_large = bounds.iter().copied().filter(|bound| *bound != large).collect::<Vec<_>>();
+        let local_grid = RangeGrid::build(without_large.iter().copied());
+        for (bounds, grid) in [(bounds.as_slice(), grid), (without_large.as_slice(), local_grid)] {
+            for region in regions {
+                let exact: Vec<u32> = grid.near(region).filter(|i| touches(bounds[*i as usize], region)).collect();
+                assert_eq!(exact, scan_touching(bounds.iter().copied(), region), "{region:?}");
+            }
         }
     }
 }

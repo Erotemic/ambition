@@ -277,7 +277,7 @@ impl SettledMotion {
         let mut observed = ctx.world.clone();
         observed.blocks.record_reads();
         observed.chains.record_reads();
-        let result = solve_motion(
+        let mut result = solve_motion(
             model,
             body,
             MotionStepContext {
@@ -298,6 +298,7 @@ impl SettledMotion {
         {
             encode_body(model, body, &mut self.prior);
             if self.prior == self.current {
+                result.events.contacts.share();
                 self.status = SettledMotionStatus::Proved(miss);
                 self.step = Some(Box::new(SettledStep {
                     environment: Geometry::capture(&observed),

@@ -649,7 +649,10 @@ pub fn mark_bodies_the_death_look_took(
     looks: ambition_platformer2d_world::governing_rules::RulesOf<ambition_combat::death_rules::DeathLook>,
     bodies: Query<
         (Entity, bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>, bevy::prelude::Has<TakenByDeathLook>),
-        Or<(With<PlayerVisual>, With<PosedBody>)>,
+        (
+            Or<(With<PlayerVisual>, With<PosedBody>)>,
+            Or<(With<ambition_combat::death_rules::OutOfPlay>, With<TakenByDeathLook>)>,
+        ),
     >,
     mut out_for: bevy::prelude::Local<std::collections::HashMap<Entity, f32>>,
 ) {
@@ -791,6 +794,10 @@ pub fn rebuild_body_pose_views(
             .of(entity)
             .map_or(world_hitlag_reference, |rules| rules.hitlag.reference_s(world_hitlag_reference))
     };
+    let dt = time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs);
+    let registry = registry.get();
+    let default_shield = ambition_platformer2d_core::BodyShieldState::default();
+    let default_combat = BodyCombat::default();
     for (
         (
             entity,
@@ -910,7 +917,7 @@ pub fn rebuild_body_pose_views(
         let wall_secs = match pose.as_deref() {
             _ if !on_a_wall(anim) => f32::INFINITY,
             Some(before) if on_a_wall(before.anim) && before.wall_secs.is_finite() => {
-                before.wall_secs + time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs)
+                before.wall_secs + dt
             }
             _ => 0.0,
         };
@@ -944,11 +951,10 @@ pub fn rebuild_body_pose_views(
                 anim,
                 drawn_facing,
                 free,
-                time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs),
+                dt,
             );
         let turn_secs = turn.secs;
         let turning = turn.turning(anim, free);
-        let dt = time.as_deref().map_or(0.0, bevy::prelude::Time::delta_secs);
         // The look up rises while it is asked for and falls when it is not, as
         // the body stands, walks or runs; a body that does anything else has
         // its head level at once.
@@ -1028,6 +1034,9 @@ pub fn rebuild_body_pose_views(
                 Err(fault) => { bevy::log::warn!(?fault, "charge visual birth refused"); None }
             }
         });
+        let invulnerable = health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| h.health.invulnerable);
+        let shield_state = shield.unwrap_or(&default_shield);
+        let combat_state = combat.unwrap_or(&default_combat);
         let next = BodyPoseView {
             pos: kinematics.pos,
             vel: kinematics.vel,
@@ -1146,20 +1155,16 @@ pub fn rebuild_body_pose_views(
             // body missing one of these clusters cannot be protected by it, so
             // the default stands in.
             unhittable: !ambition_combat::util::body_vulnerable(
-                health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
-                    h.health.invulnerable
-                }),
+                invulnerable,
                 motion_facts.is_some_and(|m| m.evading()),
-                &shield.copied().unwrap_or_default(),
-                &combat.copied().unwrap_or_default(),
+                shield_state,
+                combat_state,
             ),
             defense_cues: crate::defense_cue_causes(
-                health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
-                    h.health.invulnerable
-                }),
+                invulnerable,
                 motion_facts,
-                &shield.copied().unwrap_or_default(),
-                &combat.copied().unwrap_or_default(),
+                shield_state,
+                combat_state,
                 respawn_grace,
             ),
             hp_current: health.map_or(0, |h| h.current()),
@@ -1203,7 +1208,7 @@ pub fn rebuild_body_pose_views(
             authored_offset: sheet_authored_body
                 .then(|| authored_offset.map(|o| o.0))
                 .flatten(),
-            geometry: PoseGeometry::of(worn, granted, registry.get()),
+            geometry: PoseGeometry::of(worn, granted, registry),
         };
         match pose {
             Some(mut pose) => *pose = next,

@@ -1,6 +1,6 @@
 use crate::Vec2;
 use crate::collision_semantics::{
-    Axis, AxisConstraintConflict, AxisRole, Contact, ContactKind, ContactSource, axis_role,
+    Axis, AxisConstraintConflict, AxisRole, Contact, ContactKind, axis_role,
     is_contact_range_snap, is_full_collision_surface, surface_supports_body_at_rest,
 };
 use crate::geometry::{Aabb, AabbExt};
@@ -321,9 +321,9 @@ fn geometry_moves_near(
     admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) -> bool {
     admission.is_some_and(|admission| admission.links.iter().any(|link| link.moves()))
-        || world.blocks.swept_near(body).iter().any(|block| block.velocity != Vec2::ZERO)
-        || world.chains.indexed_swept_near(body).iter()
-            .any(|(_, chain)| chain.moves() && !(chain.carrier.is_some() && chain.carrier == carrier))
+        || world.blocks.swept_near(body).any(|block| block.velocity != Vec2::ZERO)
+        || world.chains.swept_near(body)
+            .any(|chain| chain.moves() && !(chain.carrier.is_some() && chain.carrier == carrier))
 }
 
 /// Repair and support use the same material cells as continuous contact.
@@ -351,23 +351,21 @@ fn resolve_material_axis_repair(
     hits.sort_by(|(a, x), (b, y)| x.displacement.total_cmp(&y.displacement)
         .then(a.cmp_identity(*b)).then(x.contact.path.cmp(&y.contact.path)));
     let centre = axis_component(kinematics.pos, axis);
-    let mut lower: Option<(f64, ContactSource)> = None;
-    let mut upper: Option<(f64, ContactSource)> = None;
-    let mut accepted = Vec::new();
-    for (collider, hit) in hits {
+    let mut lower: Option<(f64, crate::world::MaterialCollider<'_>)> = None;
+    let mut upper: Option<(f64, crate::world::MaterialCollider<'_>)> = None;
+    for (collider, hit) in &hits {
         let bound = f64::from(centre) + hit.displacement;
         if hit.displacement > 0.0 && lower.as_ref().is_none_or(|(old, _)| bound > *old) {
-            lower = Some((bound, collider.source()));
+            lower = Some((bound, *collider));
         }
         if hit.displacement < 0.0 && upper.as_ref().is_none_or(|(old, _)| bound < *old) {
-            upper = Some((bound, collider.source()));
+            upper = Some((bound, *collider));
         }
-        accepted.push((collider, hit));
     }
     let conflict = match (&lower, &upper) {
         (Some((min, min_source)), Some((max, max_source))) if min > max => Some(AxisConstraintConflict {
             axis, min_center: *min as f32, max_center: *max as f32,
-            min_source: min_source.clone(), max_source: max_source.clone(),
+            min_source: min_source.source(), max_source: max_source.source(),
         }),
         _ => None,
     };
@@ -382,7 +380,7 @@ fn resolve_material_axis_repair(
         }
     }
     if matches!(stage, RepairStage::BeforeSweep) { return conflict; }
-    for (collider, hit) in accepted {
+    for (collider, hit) in hits {
         let normal = hit.contact.normal;
         let kind = if normal.dot(-gravity_dir) > 0.5 {
             ground.on_ground = true;

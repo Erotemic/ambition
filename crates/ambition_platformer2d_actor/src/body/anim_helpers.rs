@@ -19,8 +19,11 @@ pub fn advance_body_anim_overlay_clocks(
     freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let dt = world_time.sim_dt();
+    let ordinary_step = dt.is_finite() && !dt.is_sign_negative();
     for (body, facts, mut anim) in &mut bodies {
-        ambition_characters::actor::advance_body_anim_overlays(facts.dashing, &mut anim, dt * freeze.scale_of(body));
+        if !ordinary_step || anim.overlays_need_advance(facts.dashing) {
+            ambition_characters::actor::advance_body_anim_overlays(facts.dashing, &mut anim, dt * freeze.scale_of(body));
+        }
     }
 }
 
@@ -72,6 +75,26 @@ mod every_player_slot_gets_its_overlays_ticked {
                 ..Default::default()
             },
         )
+    }
+
+    #[test]
+    fn a_quiet_overlay_stays_unchanged_until_a_dash_starts() {
+        use bevy::ecs::change_detection::DetectChanges;
+
+        let mut app = App::new();
+        app.insert_resource(ambition_time::WorldTime::new(DT, DT));
+        app.add_systems(Update, advance_body_anim_overlay_clocks);
+        let body = app.world_mut().spawn((BodyMotionFacts::default(), BodyAnimFacts::default())).id();
+        app.update();
+        let changed = app.world().entity(body).get_ref::<BodyAnimFacts>().unwrap().last_changed();
+        app.update();
+        assert_eq!(app.world().entity(body).get_ref::<BodyAnimFacts>().unwrap().last_changed(), changed);
+
+        app.world_mut().get_mut::<BodyMotionFacts>(body).unwrap().dashing = true;
+        app.update();
+        let anim = app.world().get::<BodyAnimFacts>(body).unwrap();
+        assert!(anim.anim_prev_dashing);
+        assert!(anim.dash_startup_timer > 0.0);
     }
 
     #[test]

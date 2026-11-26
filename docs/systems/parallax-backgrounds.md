@@ -114,6 +114,12 @@ by `game/ambition_map_assets/ambition_content/generators/hall_of_biomes/make_spe
 `capture_scene` or the running game; see
 [headless room verification](../recipes/headless-room-verification.md).
 
+The hall generator creates the doors on both sides of each connection. The
+Central Hub has its own door, `hall_of_biomes_door`, with a different position
+from the generator spec. For a future room-only apply, let the spec refer to
+an existing door by its ID. Check the reciprocal link without changing the
+door in the other room.
+
 Scene imagery, parallax transforms, terrain dressing and motes are distinct
 layers of presentation. A change to one should not require rebuilding its own
 shadow collision or alternative room simulation.

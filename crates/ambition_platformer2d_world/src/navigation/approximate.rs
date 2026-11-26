@@ -190,9 +190,9 @@ impl<'a> Approximate<'a> {
         let broad = Aabb { min: extent.min - Vec2::ONE, max: extent.max + Vec2::ONE };
         work.clearance_queries += 1;
         let blocks = self.world.blocks.near(broad);
-        let chains_near = !self.world.chains.swept_near(extent).is_empty();
+        let chains_near = self.world.chains.swept_near(extent).next().is_some();
         let moving_blocks_near = self.moving_blocks
-            && self.world.blocks.swept_near(extent).iter().any(|block| block.velocity != Vec2::ZERO);
+            && self.world.blocks.swept_near(extent).any(|block| block.velocity != Vec2::ZERO);
         let mut from = first;
         for to in points {
             work.clearance_sweeps += 1;
@@ -225,9 +225,9 @@ impl<'a> Approximate<'a> {
         let body = self.body_at(from);
         let delta = to - from;
         let swept = Aabb { min: body.min.min(body.min + delta), max: body.max.max(body.max + delta) };
-        if (chains_near && !self.world.chains.swept_near(swept).is_empty())
+        if (chains_near && self.world.chains.swept_near(swept).next().is_some())
             || (moving_blocks_near
-                && self.world.blocks.swept_near(swept).iter().any(|block| block.velocity != Vec2::ZERO))
+                && self.world.blocks.swept_near(swept).any(|block| block.velocity != Vec2::ZERO))
             || self.world.water_regions.iter().any(|water| swept.strict_intersects(water.aabb))
             || self.exits.iter().any(|exit| swept.strict_intersects(*exit))
         {

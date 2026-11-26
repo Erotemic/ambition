@@ -838,6 +838,18 @@ pub fn advance_body_anim_overlays(dashing: bool, anim: &mut BodyAnimFacts, frame
 
 
 impl BodyAnimFacts {
+    /// Whether the dash edge or an overlay timer needs a tick.
+    pub fn overlays_need_advance(&self, dashing: bool) -> bool {
+        self.anim_prev_dashing != dashing
+            || (self.slash_anim_timer.to_bits()
+                | self.land_anim_timer.to_bits()
+                | self.dash_startup_timer.to_bits()
+                | self.shoot_anim_timer.to_bits()
+                | self.wall_jump_anim_timer.to_bits()
+                | self.interact_anim_timer.to_bits()
+                | self.death_anim_timer.to_bits()) != 0
+    }
+
     pub fn reset(&mut self) {
         *self = Self::default();
     }

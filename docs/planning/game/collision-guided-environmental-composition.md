@@ -238,6 +238,9 @@ The Tape Room carriage gives its frame size and top anchor in the sprite
 source and again in `platform_looks.ron`. Read these values from the
 published sheet when the platform uses them. Keep the support span an
 explicit value so the art can extend past the walkable edge.
+The Smugglers' Tunnel uses a painted cable over the freight carrier. Give
+the art generator the carrier's travel bounds so the cable stays above the
+carrier across its full path.
 
 ### Terrain under water
 
@@ -245,6 +248,9 @@ The Viking North fjord put the same grass and barrels on the channel bed
 as on the banks. Use the water bounds when the terrain system selects
 decoration for a floor. A theme can use bare stone or sediment on the part
 below water and keep its usual ground cover on the bank.
+Show the effective swim impulse in the room preview. In the Smugglers'
+Tunnel, an omitted field used the movement default of 240. The LDtk
+entity definition showed a default value of 760.
 
 The Site Office timber skin needs both published textures and entries in the
 asset catalog. Use the terrain product plan to list the missing catalog

@@ -32,11 +32,15 @@ struct Layer<T> {
     hidden: Vec<u32>,
     added: Vec<T>,
     bounds: [OnceLock<Vec<Aabb>>; 2],
+    has_motion: OnceLock<bool>,
 }
 
 impl<T: Clone> Clone for Layer<T> {
     fn clone(&self) -> Self {
-        Self { hidden: self.hidden.clone(), added: self.added.clone(), bounds: Default::default() }
+        Self {
+            hidden: self.hidden.clone(), added: self.added.clone(),
+            bounds: Default::default(), has_motion: OnceLock::new(),
+        }
     }
 }
 
@@ -190,8 +194,10 @@ impl<T: Clone> Layered<T> {
     fn layer_mut(&mut self) -> &mut Layer<T> {
         let layer = Arc::make_mut(self.layer.get_or_insert_with(|| Arc::new(Layer {
             hidden: Vec::new(), added: Vec::new(), bounds: Default::default(),
+            has_motion: OnceLock::new(),
         })));
         layer.bounds = Default::default();
+        layer.has_motion = OnceLock::new();
         layer
     }
 
@@ -258,6 +264,7 @@ impl<T: Clone> Layered<T> {
         let base = Arc::make_mut(&mut self.base);
         // What is written may move: the index is made again when asked.
         base.grids = [OnceLock::new(),OnceLock::new()];
+        base.has_motion = OnceLock::new();
         &mut base.items
     }
 
@@ -322,6 +329,7 @@ impl<T: Clone> Layered<T> {
 struct Base<T> {
     items: Vec<T>,
     grids: [OnceLock<BoundIndex>; 2],
+    has_motion: OnceLock<bool>,
 }
 
 struct BoundIndex {
@@ -331,7 +339,7 @@ struct BoundIndex {
 
 impl<T> Base<T> {
     fn new(items: Vec<T>) -> Self {
-        Self { items, grids:[OnceLock::new(),OnceLock::new()] }
+        Self { items, grids:[OnceLock::new(),OnceLock::new()], has_motion: OnceLock::new() }
     }
 }
 
@@ -351,7 +359,30 @@ impl<T> std::ops::Deref for Base<T> {
 
 use ambition_geometry::spatial::{touches, RangeGrid, Spatial};
 
+/// Geometry with a published path in the current step.
+pub(crate) trait SpatialMotion: Spatial {
+    fn moves(&self) -> bool;
+}
+
 impl<T: Spatial> Layered<T> {
+    pub(crate) fn moving_near(&self, region: Aabb, eligible: impl Fn(&T) -> bool) -> bool
+    where
+        T: SpatialMotion,
+    {
+        let base_moves = *self.base.has_motion.get_or_init(|| self.base.iter().any(T::moves));
+        let added_moves = self.layer.as_ref().is_some_and(|layer| {
+            *layer.has_motion.get_or_init(|| layer.added.iter().any(T::moves))
+        });
+        // A new moving entry in this region can invalidate a settled step.
+        if !base_moves {
+            self.note_region_read(region);
+        }
+        (base_moves && self.base_near(region, true)
+            .map(|i| &self.base.items[i as usize]).any(|item| item.moves() && eligible(item)))
+            || (added_moves && self.additions_near(region, true)
+                .any(|(_, item)| item.moves() && eligible(item)))
+    }
+
     pub(crate) fn identity(&self) -> LayeredIdentity<T> {
         let outside_layer = self.reads.as_ref().and_then(|observed| {
             let reads = *observed.lock().expect("terrain read scope");
@@ -379,8 +410,7 @@ impl<T: Spatial> Layered<T> {
         area.is_some_and(|area| self.added_bounds(true).iter().any(|bounds| touches(*bounds, area)))
     }
 
-    /// Visible base entries with bounds that touch `region`.
-    fn base_near(&self, region: Aabb, swept: bool) -> impl Iterator<Item = u32> + '_ {
+    fn note_region_read(&self, region: Aabb) {
         self.note_read(|reads| {
             if !region.min.is_finite() || !region.max.is_finite() || !region.min.cmple(region.max).all() {
                 reads.read_all = true;
@@ -390,6 +420,11 @@ impl<T: Spatial> Layered<T> {
                 min: prior.min.min(region.min), max: prior.max.max(region.max),
             }));
         });
+    }
+
+    /// Visible base entries with bounds that touch `region`.
+    fn base_near(&self, region: Aabb, swept: bool) -> impl Iterator<Item = u32> + '_ {
+        self.note_region_read(region);
         let cache = &self.base.grids[usize::from(swept)];
         let index = cache.get_or_init(|| {
             let bounds: Vec<_> = self.base.items.iter()

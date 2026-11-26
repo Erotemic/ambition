@@ -729,6 +729,29 @@ population check on the same build found 596 movement bodies. Of these,
 539 reused their settled movement step on the last tick. The desktop
 target is 13.75 ms/tick.
 
+### Terrain motion and cast preparation
+
+Each terrain base and overlay records whether it has moving entries. A
+zero-axis step can skip the swept range search for terrain that has no
+motion. It still records the queried region so a new moving entry can
+invalidate a settled step. A whole material cell maps each corner once
+when source travel is zero. The two translations give the swept bounds.
+Settled frames compare the same float bits with direct field reads.
+
+The windowed development comparison used the saved `34bdc51a25a0`
+executable and a new native build in reference, candidate, candidate,
+reference order. All four runs used the same viewport and quality as the
+previous desktop measurement. The census reported 596 bodies in each run.
+
+| Median over census windows after 30 s | Reference runs, ms/tick | Candidate runs, ms/tick |
+| --- | ---: | ---: |
+| All measured simulation phases | 20.07, 20.02 | 19.42, 19.38 |
+| World preparation and movement integration | 4.20, 4.28 | 3.79, 3.89 |
+
+The 942 core tests passed. The movement probe matched positions,
+velocities, contact counts, and support point and normal digests with
+settled, mixed, and moving bodies.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

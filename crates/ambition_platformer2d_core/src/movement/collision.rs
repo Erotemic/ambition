@@ -321,9 +321,8 @@ fn geometry_moves_near(
     admission: Option<crate::frame::thread::MotionAdmission<'_>>,
 ) -> bool {
     admission.is_some_and(|admission| admission.links.iter().any(|link| link.moves()))
-        || world.blocks.swept_near(body).any(|block| block.velocity != Vec2::ZERO)
-        || world.chains.swept_near(body)
-            .any(|chain| chain.moves() && !(chain.carrier.is_some() && chain.carrier == carrier))
+        || world.blocks.moving_near(body, |_| true)
+        || world.chains.moving_near(body, |chain| !(chain.carrier.is_some() && chain.carrier == carrier))
 }
 
 /// Repair and support use the same material cells as continuous contact.
@@ -609,6 +608,28 @@ pub fn touching_rebound_aabb(world: &World, aabb: crate::Aabb) -> Option<Vec2> {
 mod tests {
     use super::*;
     use crate::geometry::aabb_from_min_size;
+
+    #[test]
+    fn a_still_terrain_read_tracks_new_movers() {
+        let wall = crate::Block::solid("wall", Vec2::new(100.0, 0.0), Vec2::splat(10.0));
+        let mut world = World::new("wall", Vec2::splat(300.0), Vec2::ZERO, vec![wall.clone()]);
+        let body = Aabb::new(Vec2::splat(5.0), Vec2::splat(4.0));
+        let mut observed = world.clone();
+        observed.blocks.record_reads();
+        assert!(!geometry_moves_near(&observed, body, None, None));
+        let proof = observed.blocks.identity();
+
+        let mut moving = wall;
+        moving.velocity = Vec2::new(110.0, 0.0);
+        world.blocks.add(moving);
+        assert!(!proof.matches(&world.blocks));
+        assert!(geometry_moves_near(&world, body, None, None));
+
+        world.blocks.hide(1);
+        assert!(!geometry_moves_near(&world, body, None, None));
+        world.blocks[0].velocity = Vec2::new(110.0, 0.0);
+        assert!(geometry_moves_near(&world, body, None, None));
+    }
 
     #[test]
     fn indexed_hazard_and_rebound_contacts_match_a_visible_ordered_scan() {

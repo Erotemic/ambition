@@ -1228,6 +1228,18 @@ impl crate::spatial::Spatial for SurfaceChain {
     }
 }
 
+impl crate::layered::SpatialMotion for Block {
+    fn moves(&self) -> bool {
+        self.velocity != Vec2::ZERO
+    }
+}
+
+impl crate::layered::SpatialMotion for SurfaceChain {
+    fn moves(&self) -> bool {
+        SurfaceChain::moves(self)
+    }
+}
+
 fn surface_swept_bounds(points: &[Vec2], velocity: Vec2, turn: f32, pivot: Vec2) -> Aabb {
     if !velocity.is_finite() || !turn.is_finite() || (turn != 0.0 && !pivot.is_finite()) {
         return crate::layered::UNBOUNDED;

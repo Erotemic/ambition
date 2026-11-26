@@ -48,6 +48,7 @@ pub(crate) fn dispatch_menu_action(
     system: &mut SystemMenuParams,
 ) {
     match action {
+        MenuPageAction::Map(_) => unreachable!("the map handles its own actions"),
         MenuPageAction::Equip(item) | MenuPageAction::Use(item) => {
             let decided =
                 dispatch_item_confirm(owner, item, owned, body_source, requests);
@@ -291,6 +292,10 @@ pub(crate) fn menu_action_activated(
     mut requests: MenuItemRequests,
     mut sfx: SfxWriter,
     mut system: SystemMenuParams,
+    map_page: super::map_page::MapPageSource,
+    regions: Query<&super::regions::MenuRegion>,
+    mut map_travel: super::map_page::MapTravel,
+    mut map_browsers: Query<&mut ambition_platformer2d::menu::map::browser::MapBrowser>,
     #[cfg(feature = "bevy_ui_menu")] mut grids: Query<
         &mut crate::menu::grid_backend::GridMenuTabState,
     >,
@@ -309,6 +314,40 @@ pub(crate) fn menu_action_activated(
             continue;
         };
         if !overlay.visible {
+            continue;
+        }
+        if let MenuPageAction::Map(action) = activation.action {
+            use ambition_platformer2d::menu::map::browser::{MapAction, MapOutcome};
+            if pages.active != Some(MenuPage::Map) {
+                continue;
+            }
+            if let Ok(mut browser) = map_browsers.get_mut(menu_entity) {
+                if action == MapAction::Canvas {
+                    continue;
+                }
+                let body = body_source.read(menu_owner.owner);
+                let aspect = super::map_page::frame_aspect(system.backend(), regions.get(menu_entity).ok());
+                let close = match map_page.apply(&mut browser, body.map(|body| body.entity), action, aspect) {
+                    MapOutcome::Stay => false,
+                    MapOutcome::Close => {
+                        play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_CLOSE);
+                        true
+                    }
+                    MapOutcome::TravelTo(target) => {
+                        let queued = map_travel.request(&map_page, body, target);
+                        play_ui(&mut sfx, if queued {
+                            ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT
+                        } else {
+                            ambition_platformer2d::sfx::ids::UI_MENU_ERROR
+                        });
+                        queued
+                    }
+                };
+                if close {
+                    quality_confirm.cancel();
+                    overlay.close();
+                }
+            }
             continue;
         }
         let mut close_menu = false;

@@ -96,6 +96,9 @@ pub(crate) fn kaleidoscope_pointer_move(
     let Some(action) = control.action else {
         return;
     };
+    if matches!(action, MenuPageAction::Map(_)) {
+        return;
+    }
     let next = match focus_without_system_model(action, active_page) {
         Some(focus) => focus,
         None if cache.rows_are_current_for(system_nav.open_entry)
@@ -152,13 +155,14 @@ pub(crate) fn kaleidoscope_pointer_release(
     }
     for (menu, state, pages, mut interaction, mut cursor, system_nav, quality_confirm) in &mut menus
     {
+        interaction.move_pointer(release.pointer_id, release.pointer_location.position);
         let Some(action) = interaction.release_pointer(release.pointer_id) else {
             continue;
         };
         if !state.visible {
             continue;
         }
-        if let Some(active_page) = pages.active {
+        if let Some(active_page) = pages.active.filter(|_| !matches!(action, MenuPageAction::Map(_))) {
             // Same rule as the hover path: build the settings IR only for the actions
             // whose focus is a System ROW INDEX.
             let next = match focus_without_system_model(action, active_page) {

@@ -355,6 +355,15 @@ Artifacts identify source revision, provider, tool version, selected content,
 settings and relevant runtime/frame context. Missing generated data is reported
 as unavailable, not substituted under the requested artifact's name.
 
+### Door support and clearance
+
+The Hall of Bosses door to the Gram Reaper passed the LDtk support check
+because the check found part of a stone column below the door. The column
+also blocked the door and its life switch. Extend the existing support
+check to look for a place where a body can stand and use the door. Show
+the support and the obstruction in the report so the author can adjust
+the placement.
+
 ### Content diffs need domain-aware comparison (Q62, Q78)
 
 Rulings 2026-10-04 ([`../maintainer-decisions.md`](../maintainer-decisions.md)):
@@ -534,6 +543,14 @@ runs a full workspace suite or restarts a compiler for the host.
 Offline scripts/models may produce artifacts. Live simulation scripts use the
 registered state and deterministic service contract; the two modes are not
 interchangeable. Preserve the existing LDtk/sprite/audio tool boundaries.
+
+### Record a generated room after all authoring steps
+
+The room generator for Hylbert's Hotel reproduced the lobby, but the LDtk
+ownership report classified it as hand-edited until the author recorded
+the new fingerprint. Give room generators a shared operation that validates
+the final room and records its fingerprint. Call it after all entity and
+IntGrid changes so the next generation can tell which rooms have manual edits.
 
 ## Repeatable scenario and truthful activation result
 

@@ -25,18 +25,25 @@ pub(crate) struct MenuWheelInput<'w, 's> {
         ),
         With<InventoryMenu>,
     >,
-    steps: Local<'s, Vec<(Entity, i32)>>,
+    deltas: Local<'s, Vec<MenuWheelDelta>>,
+}
+
+#[cfg(any(feature = "input", feature = "kaleidoscope_menu"))]
+struct MenuWheelDelta {
+    menu: Entity,
+    steps: i32,
+    lines: Vec2,
 }
 
 #[cfg(any(feature = "input", feature = "kaleidoscope_menu"))]
 impl MenuWheelInput<'_, '_> {
     pub(crate) fn clear(&mut self) {
         self.events.clear();
-        self.steps.clear();
+        self.deltas.clear();
     }
 
     pub(crate) fn read(&mut self) {
-        self.steps.clear();
+        self.deltas.clear();
         for event in self.events.read() {
             let Some(position) = self
                 .windows
@@ -65,20 +72,28 @@ impl MenuWheelInput<'_, '_> {
             } else {
                 0
             };
-            if let Some((_, steps)) = self.steps.iter_mut().find(|(owner, _)| *owner == menu) {
-                *steps += delta;
+            let lines = Vec2::new(event.x, event.y) / match event.unit {
+                bevy::input::mouse::MouseScrollUnit::Line => 1.0,
+                bevy::input::mouse::MouseScrollUnit::Pixel => 40.0,
+            };
+            if let Some(wheel) = self.deltas.iter_mut().find(|wheel| wheel.menu == menu) {
+                wheel.steps += delta;
+                wheel.lines += lines;
             } else {
-                self.steps.push((menu, delta));
+                self.deltas.push(MenuWheelDelta { menu, steps: delta, lines });
             }
         }
     }
 
     pub(crate) fn steps_for(&self, menu: Entity) -> i32 {
-        self.steps
-            .iter()
-            .find(|(owner, _)| *owner == menu)
-            .map_or(0, |(_, steps)| *steps)
+        self.deltas.iter().find(|wheel| wheel.menu == menu).map_or(0, |wheel| wheel.steps)
     }
+
+    #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
+    pub(crate) fn lines_for(&self, menu: Entity) -> Vec2 {
+        self.deltas.iter().find(|wheel| wheel.menu == menu).map_or(Vec2::ZERO, |wheel| wheel.lines)
+    }
+
 }
 
 pub(crate) fn resolve_menu_regions(

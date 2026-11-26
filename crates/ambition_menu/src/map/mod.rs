@@ -17,9 +17,7 @@ pub struct MapRoomNode {
     pub area: String,
     /// The room's title (its `<id>_title` label), or a name made from its id.
     pub title: String,
-    /// The world file (dimension) the room belongs to. Each world has its own
-    /// coordinate space, so the map draws only the rooms whose `world` is the
-    /// active room's.
+    /// The world that contains this room. Each world has its own coordinate space.
     pub world: String,
     pub world_min: Vec2,
     pub world_size: Vec2,
@@ -196,6 +194,7 @@ pub fn install_map_menu_systems(app: &mut bevy::prelude::App) {
 
 // Nothing in the simulation calls these; only the runtime's progression
 // schedule and the app's shell host use them.
+pub mod browser;
 mod input;
 mod pointer;
 mod systems;

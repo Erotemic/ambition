@@ -323,6 +323,17 @@ Still open in M3:
   on a deforming line, landed with SUP1). A cell cut by a portal still reads
   the published rigid fit, because the deforming cast does not admit portal
   cells. That is the portal case SUP1's page leaves open under P2/M1/M2.
+  Read 2026-11-25 for its size (`MaterialCast::against_deforming_where`).
+  The fallback is taken whenever the cast has a `scene`, and every
+  admitted link builds one, so even an uncut root cell near a static pair
+  reads the rigid fit. The rigid path does not just clip the cell: for a
+  line obstacle under a scene it splits the line into the pieces each cell
+  may see (`obstacle_scopes`, `CurveCell::line_parts`). The deforming
+  case needs that split for a line whose ends move apart, plus the clipped
+  cast. A clipped cast alone is exact for a polygonal body: the first
+  contact is a segment end on the region's boundary, or one of the
+  region's corners reaching the segment, and each moves linearly. Without
+  the line split it would change which line pieces a cell sees.
 
 ## Required motion operation
 

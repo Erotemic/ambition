@@ -1277,14 +1277,18 @@ fn an_open_grid_map_follows_the_owner_without_a_map_resource_change() {
     crate::menu::test_support::inventory_state_mut(app.world_mut()).visible = true;
     crate::menu::test_support::active_pages_mut(app.world_mut()).active = Some(MenuPage::Map);
     app.update();
+    use ambition_platformer2d::menu::map::browser::MapAction;
+    let dimension = rendered_actions(&mut app).into_iter().find(|action| matches!(action, MenuPageAction::Map(MapAction::Open(_)))).unwrap();
+    let tile = app.world_mut().query::<(Entity, &AmbitionMenuControl<MenuPageAction>)>()
+        .iter(app.world()).find(|(_, control)| control.action == Some(dimension)).unwrap().0;
+    press_interaction(&mut app, tile);
     let text = |app: &mut App| app.world_mut().query::<&Text>().iter(app.world()).map(|text| text.0.clone()).collect::<Vec<_>>();
     let before = text(&mut app);
-    let count = |words: &[String], title: &str| words.iter().filter(|word| word.as_str() == title).count();
-    assert!(count(&before, "ALPHA") > count(&before, "BETA"));
+    assert!(before.iter().any(|text| text == "ALPHA · You are here"), "{before:?}");
     app.world_mut().entity_mut(body).insert(InRoomInstance(rooms[1]));
     app.update();
     let shown = text(&mut app);
-    assert!(count(&shown, "BETA") > count(&shown, "ALPHA"), "shown={shown:?}");
+    assert!(shown.iter().any(|text| text == "BETA · You are here"), "{shown:?}");
 }
 
 #[test]

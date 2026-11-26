@@ -140,6 +140,7 @@ impl Default for GridMenuTabState {
 /// change — re-renders). Mirrors the cube's `last` republish key, flat.
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct ViewKey {
+    map_aspect_bits: u32,
     layout: crate::menu::model::InventoryLayout,
     system_revision: u64,
     tab: usize,
@@ -277,6 +278,9 @@ fn cursor_focus_key(
     open_entry: Option<SystemMenuEntryId>,
     pending_quality: Option<VisualQualityProfile>,
 ) -> Option<MenuFocusKey> {
+    if active_page == MenuPage::Map {
+        return None;
+    }
     // ⛔ BUILT ONCE, OUTSIDE THE LOOP. This asks every actionable node "is your
     // focus the cursor's?", and for a System row the answer is an index into this
     // list. Rebuilding it per node made one cursor lookup cost N list builds — an
@@ -317,6 +321,8 @@ fn seed_cursor_for_tab(active_tab: usize, cursor: &mut KaleidoscopeCursor) {
 pub(crate) fn grid_menu_nav(
     access: ambition_platformer2d::input::ParticipantContextAccess,
     regions: Query<&super::regions::MenuRegion>,
+    map: Option<Res<ambition_platformer2d::menu::map::MapMenuState>>,
+    map_browsers: Query<&ambition_platformer2d::menu::map::browser::MapBrowser>,
     mut menu_frames: ResMut<ambition_platformer2d::input::SeatMenuFrames>,
     mut menus: Query<(
         Entity,
@@ -414,6 +420,16 @@ pub(crate) fn grid_menu_nav(
                 continue;
             }
             // No other input does anything while the tab bar holds focus.
+            continue;
+        }
+
+        if active_page == MenuPage::Map && map.as_ref().is_some_and(|map| !map.rooms.is_empty()) {
+            if dy < 0 && map_browsers.get(menu_entity).is_ok_and(|browser| browser.focused_tool().is_some()) {
+                tab_state.focus_zone = GridFocusZone::Tabs;
+                play_ui(&mut fx.sfx, grid_sfx::TAB_CHANGE);
+            } else {
+                super::map_page::navigate(menu_entity, &menu, &mut activated);
+            }
             continue;
         }
 
@@ -580,6 +596,7 @@ pub(crate) fn grid_menu_republish_view(
     body_source: MenuBodySource,
     backend: Res<InventoryUiBackend>,
     map_page: crate::menu::map_page::MapPageSource,
+    map_browsers: Query<Ref<ambition_platformer2d::menu::map::browser::MapBrowser>>,
     roots: Query<
         (Entity, &ambition_platformer2d::menu::MenuSurface),
         (With<BevyUiMenuRoot>, With<GridMenuRoot>),
@@ -641,7 +658,11 @@ pub(crate) fn grid_menu_republish_view(
         } else {
             0
         };
+        let map_aspect = (active_page == MenuPage::Map).then(|| {
+            super::map_page::frame_aspect(InventoryUiBackend::Grid, regions.get(menu_entity).ok())
+        });
         let key = ViewKey {
+            map_aspect_bits: map_aspect.map_or(0, f32::to_bits),
             layout,
             system_revision: cache.model_builds,
             tab: active_tab_index(&pages),
@@ -664,7 +685,8 @@ pub(crate) fn grid_menu_republish_view(
         let state_changed = tab_state.rendered_font.as_ref() != font
             || owned.is_changed()
             || body_source.items_changed()
-            || map_page.changed();
+            || active_page == MenuPage::Map && (map_page.changed()
+                || map_browsers.get(menu_entity).is_ok_and(|browser| browser.is_changed()));
         if tab_state.last_key == Some(key) && has_root && !state_changed {
             continue;
         }
@@ -680,7 +702,9 @@ pub(crate) fn grid_menu_republish_view(
             window_start,
             system_nav.open_entry,
             quality_confirm.pending(),
-            map_page.page(map_page.view(body.map(|body| body.entity)).as_ref()),
+            map_page.page(map_aspect.and_then(|aspect| {
+                map_page.view(body.map(|body| body.entity), map_browsers.get(menu_entity).ok().as_deref(), aspect)
+            }).as_ref()),
             key.layout,
         );
         let Some(page) = built

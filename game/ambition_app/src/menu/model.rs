@@ -415,6 +415,7 @@ impl MenuFocus {
 /// never mutates item state itself, matching the `crate::menu::effects` seam).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MenuPageAction {
+    Map(ambition_platformer2d::menu::map::browser::MapAction),
     Equip(Item),
     Use(Item),
     ChangePage(MenuPage),

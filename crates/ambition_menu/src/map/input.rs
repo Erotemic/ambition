@@ -1,8 +1,7 @@
 //! Map-screen keyboard/menu-control input: `handle_map_menu_hotkeys` toggles
 //! the map (the bound `menu.map` intent) and the minimap (`N`), the developer
-//! map (`` ` ``, whole dimension, no fog), and drives zoom on `MapMenuState`. Under the cube inventory backend the `menu.map` intent
-//! opens the cube's Map page instead, so it is suppressed here. No-op stub
-//! when the `input` feature is off.
+//! map and changes zoom. The inventory menu handles the map shortcut when its
+//! backend is available.
 
 // both are used only by the `input`-gated system below, so they carry the
 // SAME gate. Without it a build with the feature off warns on two unused
@@ -22,20 +21,11 @@ pub fn handle_map_menu_hotkeys(
     keys: Res<bevy::input::ButtonInput<bevy::input::keyboard::KeyCode>>,
     menu: Res<MenuControlFrame>,
     mut map: ResMut<MapMenuState>,
-    // Fix 3: under the 3D-cube inventory backend, the map key opens the cube on its
-    // Map page (`lunex_kaleidoscope_app::kaleidoscope_menu_open_routing`) instead of this standalone
-    // panel, so suppress the `menu.map` open here. The `N`/zoom keys still drive
-    // the panel directly for users who toggle back to the Grid backend.
-    kaleidoscope_backend: Option<Res<crate::backend::InventoryUiBackend>>,
+    backend: Option<Res<crate::backend::InventoryUiBackend>>,
 ) {
     use bevy::input::keyboard::KeyCode;
-    let kaleidoscope = kaleidoscope_backend
-        .map(|b| b.effective() == crate::backend::InventoryUiBackend::LunexKaleidoscope)
-        .unwrap_or(false);
-    // The `menu.map` intent (bound to Tab) routes to the cube under the Cube
-    // backend. A raw `M` read used to toggle this panel too, and the presets
-    // that bind `M` to a short hop opened the map on every short hop.
-    if menu.map && !kaleidoscope {
+    let unified_menu = backend.is_some_and(|backend| backend.effective().is_available());
+    if menu.map && !unified_menu {
         map.toggle_open();
     }
     if keys.just_pressed(KeyCode::KeyN) {

@@ -689,6 +689,25 @@ cast, restored the published cast, and removed the source and the form.
 These measurements cover individual passes. The assembled desktop tick
 and Android frame rate need a new capture.
 
+### Movement support contacts
+
+The movement result carries the support role and the surface normal.
+Righting reads the selected contact from the same list that the result
+publishes. A settled step retains the shared contacts. It builds the empty
+event fields when a body reuses the step.
+
+In a desktop kernel probe with 596 bodies, each body step used one fewer
+allocation. The run with 539 settled bodies and 57 moving bodies used
+2.54 allocations per body step before the change and 1.54 after it. All
+three workloads matched the positions, velocities, contact counts, and
+support point and normal digests. The core test run passed 941 tests,
+including reuse after an edit to the returned contact list and after
+floor removal.
+
+The optimized kernel medians for the mixed workload overlapped
+(0.364–0.396 ms before, 0.354–0.385 ms after). The workload measures one
+thread and excludes the desktop host, render, and ECS systems.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

@@ -220,6 +220,7 @@ def add_entities(yaml_text: str, ldtk: Path, scratch: Path, *, unless: str | Non
 
 
 def paint(world: Path, room_id: str, layer: str, value: int, x: int, y: int, w: int, h: int) -> int:
+    """Paint cells before the generator validates the completed world."""
     code, _ = run("intgrid", "paint", "--ldtk", str(world), "--level", room_id, "--layer", layer,
-                  "--value", str(value), "--px", f"{x},{y}", "--size", f"{w},{h}")
+                  "--value", str(value), "--px", f"{x},{y}", "--size", f"{w},{h}", "--no-repair")
     return code

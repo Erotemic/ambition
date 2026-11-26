@@ -5346,6 +5346,14 @@ Attention Head: *its brackets close round you*
 -> Look away.
     Attention Head: *it looks at the wall. Then back at you.*
 ===
+title: hall_halo_horns_effect
+---
+Halo and Horns Effect: Bless you, dear.
+-> Can I trust you?
+    Halo and Horns Effect: I have a halo. What more do you need to know?
+-> Weren't those horns a moment ago?
+    Halo and Horns Effect: It's the same piece of jewelry.
+===
 title: hall_npc_frontier_clerk
 ---
 Dolores: Name, origin, cargo.

@@ -489,6 +489,7 @@
     // stage is a golden organ pipe with its note on it, and the chime of the
     // same note opens it.
     "art_chime": (),
+    "art_concert_organ_case": (),
     "art_chord_bar_do": (),
     "art_chord_bar_mi": (),
     "art_chord_bar_sol": (),

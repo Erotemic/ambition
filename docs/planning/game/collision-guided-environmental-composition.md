@@ -205,6 +205,8 @@ wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.
 The Observatory moves wall exhibits to the new landings. Show a player at
 each landing in the preview so authors can check the view at playing scale.
+Lecture Hall 101 also needs a standing player below the first row. Show the
+body and the painted underside at the same scale to check the aisle clearance.
 
 ## Follow-up for room art generators
 

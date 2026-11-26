@@ -61,9 +61,10 @@ are a reference for the look, not a layout.
   chest.
   The background is the records hall: arched bays of binders, brass tubes.
 - **Lecture Hall 101** (`business_college_lecture_hall`): Professor Gail
-  Margin teaching Synergy from the stage; tiers of desks up to the back row,
-  where Zorlack 65536 (`npc_ninja_shadow_oni_leader`) has the best
-  attendance in the class and no interview.
+  Margin teaches Synergy from the stage. Visitors can climb the seating
+  tiers or take the aisle below them and use the rear ladder. Both routes
+  reach Zorlack 65536 (`npc_ninja_shadow_oni_leader`) in the back row. He
+  has the best attendance in the class and no interview.
 
 The Corporate Ladder is in the city's background, rising into the clouds
 with no top in sight. It is a landmark there and not a room yet.

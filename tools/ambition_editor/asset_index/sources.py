@@ -53,6 +53,27 @@ def pack_dir(repo: Path, profile: str) -> Path:
     return (repo / "game/ambition_content/assets") if profile == "ambition" else Path(profile).resolve()
 
 
+def content_cache(out: Path, pack: Path) -> Path:
+    return out / ("content-" + hashlib.sha256(str(pack).encode()).hexdigest()[:16] + ".json")
+
+
+def _read_cache(cache: Path) -> dict:
+    try:
+        return json.loads(cache.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def _pack_inputs(pack: Path, report: dict) -> set[Path]:
+    return {pack / "pack.ron", *(pack / row["path"] for row in report.get("sources", []))}
+
+
+def content_watch(repo: Path, out: Path, profile: str) -> tuple[set[Path], int | str | None]:
+    pack = pack_dir(repo, profile)
+    report = _read_cache(content_cache(out, pack)).get("report", {})
+    return _pack_inputs(pack, report), report.get("fingerprint")
+
+
 def default_binary(repo: Path) -> Path:
     """`AMBITION_ART_CONTENT_BIN`, else the newer of the release and debug builds
     (release when neither exists: that is what the inspector builds)."""
@@ -112,17 +133,14 @@ def content(repo: Path, profile: str, out: Path, binary: Path | None = None, *, 
 def _content(repo: Path, profile: str, out: Path, binary: Path | None = None) -> dict:
     pack = pack_dir(repo, profile)
     binary = binary or default_binary(repo)
-    cache = out / ("content-" + hashlib.sha256(str(pack).encode()).hexdigest()[:16] + ".json")
-    try:
-        old = json.loads(cache.read_text())
-    except (OSError, ValueError):
-        old = {}
+    cache = content_cache(out, pack)
+    old = _read_cache(cache)
     sheet_roots = [r.path for r in roots(repo) if r.name.startswith("sprites") and r.origin == "generated"]
-    files = [pack / "pack.ron", binary]
-    files += [pack / row["path"] for row in old.get("report", {}).get("sources", [])]
+    files = _pack_inputs(pack, old.get("report", {})) | {binary}
     # Page membership and metadata changes invalidate the Rust owner's loose-sheet view.
-    files += [p for root in sheet_roots for p in root.rglob("*") if p.suffix in (".ron", ".png")]
-    signature = [_stamp(p) for p in sorted(set(files))]
+    files.update(p for root in sheet_roots for p in root.rglob("*") if p.suffix in (".ron", ".png"))
+    before = {path: _stamp(path) for path in sorted(files)}
+    signature = list(before.values())
     if old.get("signature") == signature and binary.is_file() and old.get("report", {}).get("schema") == "ambition.art_content.v3":
         return old["report"] | {"cache": "matching-inputs"}
     if not binary.is_file():
@@ -142,11 +160,12 @@ def _content(repo: Path, profile: str, out: Path, binary: Path | None = None) ->
         return {"state": "unavailable", "characters": [], "sheets": {}, "assets": [],
                 "warnings": [f"Content export failed: {error}", *_stale_binary(repo, binary)]}
     report.update(state="available", profile=profile, pack_root=str(pack), cache="refreshed")
-    files += [pack / row["path"] for row in report.get("sources", [])]
-    out.mkdir(parents=True, exist_ok=True)
-    temp = cache.with_suffix(".partial")
-    temp.write_text(json.dumps({"signature": [_stamp(p) for p in sorted(set(files))], "report": report}))
-    temp.replace(cache)
+    after = {path: _stamp(path) for path in sorted(files | _pack_inputs(pack, report))}
+    if all(after[path] == stamp for path, stamp in before.items()):
+        out.mkdir(parents=True, exist_ok=True)
+        temp = cache.with_suffix(".partial")
+        temp.write_text(json.dumps({"signature": list(after.values()), "report": report}))
+        temp.replace(cache)
     return report
 
 

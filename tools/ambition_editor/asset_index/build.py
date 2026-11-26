@@ -480,7 +480,7 @@ def main(argv: list[str] | None = None) -> int:
                    and not o.startswith(("--port=", "--host="))]
         command = [sys.executable, str(repo / "scripts" / "asset_inspector.py"), "build", *options]
         return serve(repo, out, host=args.host, port=args.port, open_browser=args.open, build=run,
-                     refresh_command=command, kill=args.kill)
+                     refresh_command=command, kill=args.kill, profile=args.profile, binary=args.content_binary)
     run()
     if args.open:
         webbrowser.open((out / "index.html").as_uri())

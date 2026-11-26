@@ -236,12 +236,17 @@ pub struct MenuLook {
 #[serde(deny_unknown_fields)]
 pub struct MapLook {
     pub frame: [f32; 4],
+    pub grid: [f32; 4],
+    pub stroke: [f32; 4],
+    pub selection: [f32; 4],
+    pub current: [f32; 4],
+    pub group: [f32; 4],
     pub room: [f32; 4],
     pub room_here: [f32; 4],
     pub room_unvisited: [f32; 4],
     pub door: [f32; 4],
-    pub door_marked: [f32; 4],
     pub label: [f32; 4],
+    pub muted_label: [f32; 4],
     /// The name of the room the player is in, on its gold.
     pub label_here: [f32; 4],
     /// Pins: someone to talk to, a shrine.
@@ -270,12 +275,28 @@ pub struct CubeLook {
 impl MenuLook {
     fn problems(&self) -> Vec<String> {
         let cube = &self.cube;
+        let map = &self.map;
         [
             ("page", self.page),
             ("panel", self.panel),
             ("heading", self.heading),
             ("body", self.body),
             ("placeholder_body", self.placeholder_body),
+            ("map.frame", map.frame),
+            ("map.grid", map.grid),
+            ("map.stroke", map.stroke),
+            ("map.selection", map.selection),
+            ("map.current", map.current),
+            ("map.group", map.group),
+            ("map.room", map.room),
+            ("map.room_here", map.room_here),
+            ("map.room_unvisited", map.room_unvisited),
+            ("map.door", map.door),
+            ("map.label", map.label),
+            ("map.muted_label", map.muted_label),
+            ("map.label_here", map.label_here),
+            ("map.pin_resident", map.pin_resident),
+            ("map.pin_shrine", map.pin_shrine),
             ("cube.selected", cube.selected),
             ("cube.important", cube.important),
             ("cube.item", cube.item),

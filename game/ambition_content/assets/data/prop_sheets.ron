@@ -468,6 +468,7 @@
     // glows, and a street lamp whose post is a quill in a pot of ink.
     "art_book_tower": (),
     "art_library_stair": (),
+    "art_stacks_ladder_case": (backdrop: true),
     "art_lectern": (),
     "art_quill_lamp": (),
     // The Amphitheatre (`targets/props/art_stage_props.py`). Its curtain is

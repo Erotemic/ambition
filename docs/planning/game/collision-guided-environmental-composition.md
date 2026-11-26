@@ -217,6 +217,8 @@ At the Shadow Dojo, show the practice floor, both steps, and the Duelist.
 Use the floor and step spans to set the tatami and plank edges.
 In the Cedar Forest, pass the gate bough surface points to the cedar art.
 Show where the bough meets the last branch and the trail.
+At Ume's Tea House, show the top tread, the loft edge, and both guest rooms.
+Include Tsuru and the chest to check the space between the two interactions.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

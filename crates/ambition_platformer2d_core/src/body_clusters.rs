@@ -10,9 +10,21 @@ use crate::player_state::BodyMode;
 use crate::world::{ClimbableContact, WaterContact};
 use crate::Vec2;
 
+/// The locomotion state to publish after movement admits physical contacts.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Grounding {
+    #[default]
+    FromContacts,
+    /// Keep the body airborne without removing its physical contacts.
+    Airborne,
+    /// Set the available air jumps when the step ends on the ground.
+    RefillAirJumps(u8),
+}
+
 /// Mutable body-cluster view consumed by movement entry points.
 pub struct BodyClustersMut<'a> {
     pub settled: Option<&'a mut crate::movement::SettledMotion>,
+    pub grounding: Grounding,
     /// This body's key for the lines it carries (`SurfaceChain::carrier`):
     /// its entity's bits, or `None` for a scratch body that carries none.
     pub carrier: Option<u64>,
@@ -82,6 +94,7 @@ impl<'w, 's> BodyClusterQueryDataItem<'w, 's> {
     {
         BodyClustersMut {
             settled: self.settled.as_deref_mut(),
+            grounding: Grounding::FromContacts,
             carrier: Some(self.entity.to_bits()),
             abilities: &*self.abilities,
             kinematics: &mut *self.kinematics,
@@ -1619,6 +1632,7 @@ impl BodyClusterScratch {
     pub fn parts(&mut self) -> (&mut crate::movement::MotionModel, BodyClustersMut<'_>) {
         let clusters = BodyClustersMut {
             settled: None,
+            grounding: Grounding::FromContacts,
             carrier: None,
             abilities: &self.abilities,
             kinematics: &mut self.kinematics,
@@ -1667,6 +1681,7 @@ impl BodyClusterScratch {
     pub fn as_mut(&mut self) -> BodyClustersMut<'_> {
         BodyClustersMut {
             settled: None,
+            grounding: Grounding::FromContacts,
             carrier: None,
             abilities: &self.abilities,
             kinematics: &mut self.kinematics,

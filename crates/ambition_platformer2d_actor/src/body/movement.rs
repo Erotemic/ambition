@@ -355,6 +355,11 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
             };
         }
         let mut clusters = self.clusters_mut();
+        clusters.grounding = if flying {
+            ae::Grounding::Airborne
+        } else {
+            ae::Grounding::RefillAirJumps(MAX_ENEMY_AIR_JUMPS)
+        };
         let result = ambition_characters::actor::step_body(
             motion_model,
             &mut clusters,
@@ -406,25 +411,12 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         // anti-down otherwise. This keeps the read-model live for every body
         // (§B2) without any policy-specific branch.
         self.surface.surface_normal = result.surface_normal;
-        let mut events = result.events;
-        // Two actor policies applied on the ONE ground/jump authority: a flying body
-        // is never grounded (the collision sweep can still find support under a
-        // hovering flyer), and a grounded body refreshes its air jumps each tick
-        // (more forgiving than the player's jump-only refresh — an actor tuning).
-        if flying {
-            self.ground.on_ground = false;
-            events.ground_contact = ae::GroundContactTransition::Unchanged;
-        }
-        if self.ground.on_ground {
-            self.jump.air_jumps_available = MAX_ENEMY_AIR_JUMPS;
-        }
-
         // Route progress from the ACCEPTED position, after this step's
         // collision: a body held short by a wall has not arrived.
         if let Some(route) = &mut self.motion.0 {
             route.arrive(self.kin.pos);
         }
-        events
+        result.events
     }
 
     // ---- Consumer-facing geometry / combat helpers (ports of the

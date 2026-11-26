@@ -360,6 +360,19 @@ same position, velocity, and contact-count digest. This probe covers only
 the movement kernel. Measure the warm Hall outside that boundary before
 changing the proof's state encoding.
 
+### Combat geometry requests
+
+Frame presentation shares a view of live strikes. The fallback strike art
+reads the collision envelope and facing of its owner. F1 and headless
+inspection sample hurt geometry for the bodies they request.
+
+With 596 bodies, no live strikes, and no inspector, the median publication
+time in an isolated desktop schedule fell from 1.49 to 0.018 ms per update.
+Each median covers seven batches of 300 updates. In two full-cast headless
+Hall runs on each development build, the median `FeatureViewSync` time
+changed from 6.02–8.25 ms to 4.05–4.89 ms per tick. Use a phone capture to
+measure the effect at the Android frame rate.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

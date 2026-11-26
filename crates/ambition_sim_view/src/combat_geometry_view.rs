@@ -11,7 +11,10 @@ use ambition_combat::components::{CenteredAabb, DamageableVolumes};
 use ambition_combat::hitbox::{Hitbox, HitboxAnchor};
 use ambition_combat::strike::HitboxHits;
 use ambition_platformer2d_core as ae;
-use bevy::prelude::{Query, ResMut, Resource, With};
+use ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry;
+use ambition_platformer2d_shared_tangle::lifecycle::LiveRooms;
+use bevy::ecs::system::SystemParam;
+use bevy::prelude::{Entity, Query, Res, ResMut, Resource, World};
 
 /// What a body's move is doing RIGHT NOW, projected for an observer.
 ///
@@ -200,11 +203,32 @@ pub struct CombatRayView {
     pub look: std::sync::Arc<str>,
 }
 
-/// Presentation-facing snapshot of authoritative combat geometry.
-#[derive(Resource, Clone, Debug, Default, PartialEq)]
+/// Combat geometry sampled for an observer.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct CombatGeometryView {
     pub bodies: Vec<CombatBodyGeometryView>,
     pub strikes: Vec<CombatStrikeGeometryView>,
+}
+
+/// Live strikes shared by frame presentation.
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct CombatStrikesView {
+    pub strikes: Vec<CombatStrikeGeometryView>,
+}
+
+impl CombatGeometryView {
+    /// Read the bodies and the latest published strikes.
+    pub fn capture(world: &mut World) -> Option<Self> {
+        if !world.contains_resource::<CombatStrikesView>() {
+            return None;
+        }
+        world.run_system_cached(
+            |bodies: CombatBodyGeometry, strikes: Res<CombatStrikesView>| Self {
+                bodies: bodies.read(|_| true).collect(),
+                strikes: strikes.strikes.clone(),
+            },
+        ).ok()
+    }
 }
 
 /// The runtime's three-way damageable rule, and WHICH of the three it was.
@@ -229,28 +253,98 @@ fn effective_hurtboxes(
     source
 }
 
-/// Rebuild the combat-geometry observation from current simulation truth.
-///
-/// `BodyCombat` is the participation predicate: human-controlled fighters,
-/// brain-controlled fighters, possessed bodies, and bosses all qualify through
-/// the same component. No `PrimaryPlayerOnly`, controller, or faction marker is
-/// consulted.
-pub fn rebuild_combat_geometry_view(
-    bodies: Query<
+fn cut(result: ae::frame::thread::Partition) -> (Option<Vec<ae::frame::thread::VolumePiece>>, Option<String>) {
+    match result {
+        Ok(pieces) => {
+            let cut = pieces.len() != 1 || pieces.iter().any(|piece|
+                piece.is_carried() || !piece.source_bounds().is_empty());
+            (cut.then_some(pieces), None)
+        }
+        Err(reason) => (Some(Vec::new()), Some(format!("{reason:?}"))),
+    }
+}
+
+/// Read body combat geometry from current simulation state.
+#[derive(SystemParam)]
+pub struct CombatBodyGeometry<'w, 's> {
+    bodies: Query<'w, 's,
         (
-            bevy::prelude::Entity,
-            &CenteredAabb,
-            Option<&DamageableVolumes>,
-            &ambition_characters::actor::BodyCombat,
-            Option<&ambition_characters::actor::BodyHealth>,
-            Option<&ae::BodyKinematics>,
-            Option<&ae::BodyGroundState>,
-            Option<&ae::BodyWallState>,
-            Option<&ambition_combat::moveset::MovePlayback>,
-            Option<&ae::MotionModel>,
+            Entity,
+            &'static CenteredAabb,
+            Option<&'static DamageableVolumes>,
+            &'static ambition_characters::actor::BodyCombat,
+            Option<&'static ambition_characters::actor::BodyHealth>,
+            Option<&'static ae::BodyKinematics>,
+            Option<&'static ae::BodyGroundState>,
+            Option<&'static ae::BodyWallState>,
+            Option<&'static ambition_combat::moveset::MovePlayback>,
+            Option<&'static ae::MotionModel>,
         ),
-        With<ambition_characters::actor::BodyCombat>,
     >,
+    rooms: LiveRooms<'w, 's>,
+    passages: Option<Res<'w, BodyGeometry>>,
+}
+
+impl CombatBodyGeometry<'_, '_> {
+    /// Read one body's collision envelope and facing.
+    pub fn pose(&self, body: Entity) -> Option<(ae::Aabb, f32)> {
+        self.bodies.get(body).ok().map(|(_, bounds, _, _, _, kin, ..)| {
+            (bounds.aabb(), kin.map_or(1.0, |kin| kin.facing))
+        })
+    }
+
+    /// Resolve only bodies selected by the observer.
+    pub fn read<'a>(&'a self, include: impl Fn(Entity) -> bool + 'a) -> impl Iterator<Item = CombatBodyGeometryView> + 'a {
+        self.bodies.iter().filter(move |(body, ..)| include(*body)).map(
+            move |(body, aabb, damageable, combat, health, kin, ground, wall, playback, motion)| {
+                let collision = aabb.aabb();
+                let mut hurtboxes = Vec::new();
+                let hurtbox_source = effective_hurtboxes(collision, damageable, kin, &mut hurtboxes);
+                let (hurt_pieces, hurt_refusal) = self.passages.as_deref().map(|passages| {
+                    cut(ambition_combat::hitbox::hurt_pieces_of(body,
+                        kin,
+                        aabb,
+                        damageable, Some(passages), self.rooms.of(body),
+                    ))
+                }).unwrap_or((None, None));
+                CombatBodyGeometryView {
+                    body,
+                    collision,
+                    hurtboxes,
+                    hurt_pieces,
+                    hurt_refusal,
+                    hurtbox_source,
+                    damage_taken: health.map(|h| h.damage_taken()).unwrap_or(0),
+                    facing: kin.map(|k| k.facing).unwrap_or(1.0),
+                    hitstun_s: combat.hitstun_timer,
+                    hitlag_s: combat.hitstop_timer,
+                    landing_lag_s: combat.landing_lag_timer,
+                    jump_squat_s: motion.map(|m| m.jump_squat_remaining()).unwrap_or(0.0),
+                    velocity: kin.map(|k| k.vel).unwrap_or_default(),
+                    grounded: ground.map(|g| g.on_ground).unwrap_or(false),
+                    on_wall: wall.map(|w| w.on_wall).unwrap_or(false),
+                    wall_normal_x: wall.map(|w| w.wall_normal_x).unwrap_or(0.0),
+                    move_state: playback.map(|pb| CombatMoveView {
+                        id: pb.spec.id.clone(),
+                        phase: pb
+                            .spec
+                            .windows
+                            .iter()
+                            .find(|w| pb.t >= w.start_s && pb.t < w.end_s)
+                            .map(|w| w.tag.clone()),
+                        elapsed_s: pb.t,
+                        duration_s: pb.spec.duration_s,
+                        attack_facing: pb.facing,
+                        landed_hit: pb.landed_hit,
+                        instance: pb.instance,
+                    }),
+                }
+            },
+        )
+    }
+}
+
+pub fn rebuild_combat_strikes_view(
     hitboxes: Query<(
         bevy::prelude::Entity,
         &Hitbox,
@@ -259,73 +353,12 @@ pub fn rebuild_combat_geometry_view(
         Option<&ambition_combat::strike::RayStrike>,
     )>,
     owner_kinematics: Query<&ae::BodyKinematics>,
-    // Where a volume is when a portal pair cuts it: the pieces combat
-    // resolves by. Absent in a composition with no portals.
-    rooms: ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
-    passages: Option<bevy::prelude::Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
-    mut view: ResMut<CombatGeometryView>,
+    rooms: LiveRooms,
+    passages: Option<Res<BodyGeometry>>,
+    mut view: ResMut<CombatStrikesView>,
 ) {
     let passages = passages.as_deref();
-    // A cut that left one whole piece is no cut.
-    let cut = |result: ae::frame::thread::Partition| {
-        match result {
-            Ok(pieces) => ((pieces.len() > 1 || pieces.is_empty() || pieces.iter().any(|piece| piece.is_carried() || !piece.source_bounds().is_empty())).then_some(pieces), None),
-            Err(reason) => (Some(Vec::new()), Some(format!("{reason:?}"))),
-        }
-    };
-    let mut body_count = 0;
     view.strikes.clear();
-
-    for (body, aabb, damageable, combat, health, kin, ground, wall, playback, motion) in &bodies {
-        let collision = aabb.aabb();
-        let mut hurtboxes = view.bodies.get_mut(body_count)
-            .map(|row| std::mem::take(&mut row.hurtboxes)).unwrap_or_default();
-        let hurtbox_source = effective_hurtboxes(collision, damageable, kin, &mut hurtboxes);
-        let (hurt_pieces, hurt_refusal) = passages.map(|passages| {
-            cut(ambition_combat::hitbox::hurt_pieces_of(body,
-                kin,
-                aabb,
-                damageable, Some(passages), rooms.of(body),
-            ))
-        }).unwrap_or((None, None));
-        let row = CombatBodyGeometryView {
-            body,
-            collision,
-            hurtboxes,
-            hurt_pieces,
-            hurt_refusal,
-            hurtbox_source,
-            damage_taken: health.map(|h| h.damage_taken()).unwrap_or(0),
-            facing: kin.map(|k| k.facing).unwrap_or(1.0),
-            hitstun_s: combat.hitstun_timer,
-            hitlag_s: combat.hitstop_timer,
-            landing_lag_s: combat.landing_lag_timer,
-            jump_squat_s: motion.map(|m| m.jump_squat_remaining()).unwrap_or(0.0),
-            velocity: kin.map(|k| k.vel).unwrap_or_default(),
-            grounded: ground.map(|g| g.on_ground).unwrap_or(false),
-            on_wall: wall.map(|w| w.on_wall).unwrap_or(false),
-            wall_normal_x: wall.map(|w| w.wall_normal_x).unwrap_or(0.0),
-            move_state: playback.map(|pb| CombatMoveView {
-                id: pb.spec.id.clone(),
-                phase: pb
-                    .spec
-                    .windows
-                    .iter()
-                    .find(|w| pb.t >= w.start_s && pb.t < w.end_s)
-                    .map(|w| w.tag.clone()),
-                elapsed_s: pb.t,
-                duration_s: pb.spec.duration_s,
-                attack_facing: pb.facing,
-                landed_hit: pb.landed_hit,
-                instance: pb.instance,
-            }),
-        };
-        if body_count == view.bodies.len() { view.bodies.push(row); }
-        else { view.bodies[body_count] = row; }
-        body_count += 1;
-    }
-    view.bodies.truncate(body_count);
-
     for (strike, hitbox, hits, depicted_by_owner, ray) in &hitboxes {
         let owner = owner_kinematics.get(hitbox.owner).ok();
         let Ok(volume) = hitbox.world_volume(owner) else { continue; };
@@ -381,8 +414,8 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
     #[test]
     fn combat_geometry_needs_no_privileged_primary_body() {
         let mut app = App::new();
-        app.init_resource::<CombatGeometryView>();
-        app.add_systems(Update, rebuild_combat_geometry_view);
+        app.init_resource::<CombatStrikesView>();
+        app.add_systems(Update, rebuild_combat_strikes_view);
 
         let body_center = ae::Vec2::new(120.0, 80.0);
         let collision = ae::Aabb::new(body_center, ae::Vec2::new(12.0, 18.0));
@@ -423,7 +456,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
 
         app.update();
 
-        let view = app.world().resource::<CombatGeometryView>();
+        let view = CombatGeometryView::capture(app.world_mut()).unwrap();
         assert_eq!(view.bodies.len(), 1);
         assert_eq!(view.bodies[0].collision, collision);
         assert_eq!(
@@ -440,8 +473,8 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
     #[test]
     fn world_anchored_strike_does_not_need_a_live_owner() {
         let mut app = App::new();
-        app.init_resource::<CombatGeometryView>();
-        app.add_systems(Update, rebuild_combat_geometry_view);
+        app.init_resource::<CombatStrikesView>();
+        app.add_systems(Update, rebuild_combat_strikes_view);
 
         let owner = app.world_mut().spawn_empty().id();
         app.world_mut().despawn(owner);
@@ -466,7 +499,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
 
         app.update();
 
-        let view = app.world().resource::<CombatGeometryView>();
+        let view = CombatGeometryView::capture(app.world_mut()).unwrap();
         assert_eq!(view.strikes.len(), 1);
         assert_eq!(view.strikes[0].volume.bounds().center(), center);
     }
@@ -507,8 +540,8 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
     #[test]
     fn an_intangible_body_is_not_a_body_with_no_geometry() {
         let mut app = App::new();
-        app.init_resource::<CombatGeometryView>();
-        app.add_systems(Update, rebuild_combat_geometry_view);
+        app.init_resource::<CombatStrikesView>();
+        app.add_systems(Update, rebuild_combat_strikes_view);
 
         let collision = ae::Aabb::new(ae::Vec2::new(10.0, 10.0), ae::Vec2::new(6.0, 12.0));
         let mut intangible = DamageableVolumes::default();
@@ -526,7 +559,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
         ));
 
         app.update();
-        let view = app.world().resource::<CombatGeometryView>();
+        let view = CombatGeometryView::capture(app.world_mut()).unwrap();
         let sources: Vec<_> = view.bodies.iter().map(|b| b.hurtbox_source).collect();
         assert!(sources.contains(&HurtboxSource::Intangible));
         assert!(sources.contains(&HurtboxSource::BodyFallback));
@@ -547,8 +580,8 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
     fn a_strike_reports_the_bodies_it_has_actually_connected_with() {
         use ambition_combat::strike::HitboxHits;
         let mut app = App::new();
-        app.init_resource::<CombatGeometryView>();
-        app.add_systems(Update, rebuild_combat_geometry_view);
+        app.init_resource::<CombatStrikesView>();
+        app.add_systems(Update, rebuild_combat_strikes_view);
 
         let owner = app
             .world_mut()
@@ -584,7 +617,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
         ));
 
         app.update();
-        let view = app.world().resource::<CombatGeometryView>();
+        let view = CombatGeometryView::capture(app.world_mut()).unwrap();
         assert_eq!(view.strikes[0].hit, vec![victim]);
     }
 
@@ -593,8 +626,8 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
     #[test]
     fn a_strike_row_carries_its_damage() {
         let mut app = App::new();
-        app.init_resource::<CombatGeometryView>();
-        app.add_systems(Update, rebuild_combat_geometry_view);
+        app.init_resource::<CombatStrikesView>();
+        app.add_systems(Update, rebuild_combat_strikes_view);
 
         let owner = app
             .world_mut()
@@ -624,7 +657,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
         });
 
         app.update();
-        let view = app.world().resource::<CombatGeometryView>();
+        let view = CombatGeometryView::capture(app.world_mut()).unwrap();
         assert_eq!(view.strikes.len(), 1);
         assert_eq!(view.strikes[0].damage, 13);
     }
@@ -639,8 +672,8 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
     #[test]
     fn the_tuning_readout_reaches_a_body_no_human_controls() {
         let mut app = App::new();
-        app.init_resource::<CombatGeometryView>();
-        app.add_systems(Update, rebuild_combat_geometry_view);
+        app.init_resource::<CombatStrikesView>();
+        app.add_systems(Update, rebuild_combat_strikes_view);
 
         let mut spec = ambition_combat::moveset::simple_melee(
             &ambition_combat::moveset::SimpleMeleeParams::default(),
@@ -680,7 +713,7 @@ fn body_box(aabb: ae::CenteredAabb) -> (ae::BodyKinematics, ae::CenteredAabb) {
         ));
 
         app.update();
-        let view = app.world().resource::<CombatGeometryView>();
+        let view = CombatGeometryView::capture(app.world_mut()).unwrap();
         let row = view.bodies.first().expect("the body is observed at all");
 
         assert_eq!(
@@ -746,25 +779,21 @@ mod projection_tests {
     }
 
     #[test]
-    fn moving_publication_retires_geometry_after_despawn_and_intangibility() {
+    fn capture_reads_body_changes_without_an_update() {
         let mut app=App::new();
-        app.init_resource::<CombatGeometryView>();
-        app.add_systems(Update,rebuild_combat_geometry_view);
+        app.init_resource::<CombatStrikesView>();
         let bounds=CenteredAabb::from_center_size(ae::Vec2::new(30.0,40.0),ae::Vec2::new(24.0,36.0));
         let first=app.world_mut().spawn((bounds,ambition_characters::actor::BodyCombat::default())).id();
-        app.update();
-        assert_eq!(app.world().resource::<CombatGeometryView>().bodies[0].hurtboxes.len(),1);
+        assert_eq!(CombatGeometryView::capture(app.world_mut()).unwrap().bodies[0].hurtboxes.len(),1);
         app.world_mut().despawn(first);
         let mut intangible=DamageableVolumes::default();intangible.clear();
         let next=app.world_mut().spawn((bounds,intangible,ambition_characters::actor::BodyCombat::default())).id();
-        app.update();
-        let view=app.world().resource::<CombatGeometryView>();
+        let view=CombatGeometryView::capture(app.world_mut()).unwrap();
         assert_eq!(view.bodies.len(),1);
         assert_eq!(view.bodies[0].body,next);
         assert!(view.bodies[0].hurtboxes.is_empty());
         assert_eq!(view.bodies[0].hurtbox_source,HurtboxSource::Intangible);
         app.world_mut().despawn(next);
-        app.update();
-        assert!(app.world().resource::<CombatGeometryView>().bodies.is_empty());
+        assert!(CombatGeometryView::capture(app.world_mut()).unwrap().bodies.is_empty());
     }
 }

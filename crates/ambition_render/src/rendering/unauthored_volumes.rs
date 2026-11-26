@@ -56,7 +56,7 @@ pub(crate) struct UnauthoredVolumeVisual {
 /// Run condition of [`draw_unauthored_attack_volumes`]: a strike stands, or
 /// a volume drawn for one remains to retire.
 pub(crate) fn a_strike_or_its_volume_stands(
-    combat_geometry: Res<ambition_sim_view::CombatGeometryView>,
+    combat_geometry: Res<ambition_sim_view::CombatStrikesView>,
     drawn: Query<(), With<UnauthoredVolumeVisual>>,
 ) -> bool {
     !combat_geometry.strikes.is_empty() || !drawn.is_empty()
@@ -79,7 +79,8 @@ pub(crate) fn draw_unauthored_attack_volumes(
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     // Read the combat observation, not live strike components.
-    combat_geometry: Res<ambition_sim_view::CombatGeometryView>,
+    combat_geometry: Res<ambition_sim_view::CombatStrikesView>,
+    combat_bodies: ambition_sim_view::CombatBodyGeometry,
     // Owner facts come from the read model. `PresentedPose` is optional
     // because not every owner has one.
     owners: Query<(
@@ -155,10 +156,10 @@ pub(crate) fn draw_unauthored_attack_volumes(
         // presented pose. The debug overlay applies the same delta, so the two
         // agree.
         let to_drawn = presented.map_or(ambition_platformer2d_core::Vec2::ZERO, |p| p.delta());
-        let body = combat_geometry.bodies.iter().find(|body| body.body == strike.owner);
         // A portal pair carries the swing from its body, as it cuts the
         // swing's volume (with no body row: from the volume's centre).
-        let from = body.map_or(strike.volume.bounds().center(), |body| body.collision.center()) + to_drawn;
+        let body = combat_bodies.pose(strike.owner);
+        let from = body.map_or_else(|| strike.volume.bounds().center(), |(bounds, _)| bounds.center()) + to_drawn;
         let already = existing
             .iter()
             .find(|(_, mark)| mark.hitbox == hitbox_entity)
@@ -179,7 +180,7 @@ pub(crate) fn draw_unauthored_attack_volumes(
         let centre = volume.bounds().center() + to_drawn;
         // Direction, from the same read-model row: the body's box and its
         // facing. With no body row, use the flat fill.
-        let reach = body.and_then(|body| strike_reach(body.collision.center(), volume.bounds().center(), body.facing));
+        let reach = body.and_then(|(bounds, facing)| strike_reach(bounds.center(), volume.bounds().center(), facing));
         let Some(mesh) = fan_mesh(volume, volume.bounds().center(), reach) else {
             continue;
         };
@@ -343,7 +344,7 @@ mod tests {
     #[test]
     fn an_ended_swings_volume_is_taken_away() {
         let mut app = App::new();
-        app.init_resource::<ambition_sim_view::CombatGeometryView>();
+        app.init_resource::<ambition_sim_view::CombatStrikesView>();
         app.add_systems(Update, draw_unauthored_attack_volumes.run_if(a_strike_or_its_volume_stands));
         let hitbox = app.world_mut().spawn_empty().id();
         let volume = app.world_mut().spawn((UnauthoredVolumeVisual { hitbox }, Transform::default())).id();

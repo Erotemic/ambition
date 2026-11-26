@@ -13,7 +13,7 @@ use ambition_platformer2d::observation::{
     Aabb, CombatBodyGeometryView, CombatGeometryView, CombatStrikeGeometryView, CombatVolume,
     HurtboxSource, SimId, Vec2,
 };
-use ambition_sim_harness::combat_observation::{CombatObservation, ScenarioRoles};
+use super::{CombatObservation, ScenarioRoles};
 use bevy::prelude::*;
 
 fn body(entity: Entity, at: Vec2, hurt: bool) -> CombatBodyGeometryView {
@@ -70,7 +70,7 @@ fn a_seated_scenario_serializes_roles_identities_and_both_geometries() {
         .spawn(SimId::from_snapshot("strike#1".to_string()))
         .id();
 
-    app.insert_resource(CombatGeometryView {
+    let view = CombatGeometryView {
         bodies: vec![
             body(subject, Vec2::new(100.0, 100.0), true),
             body(target, Vec2::new(130.0, 100.0), true),
@@ -87,13 +87,13 @@ fn a_seated_scenario_serializes_roles_identities_and_both_geometries() {
             // The runtime's own hit-once memory: this strike HAS connected.
             hit: vec![target],
         }],
-    });
+    };
 
     let scenario = ScenarioRoles::from_seats(app.world_mut(), 0, 1);
     assert_eq!(scenario.subject(), Some(subject));
     assert_eq!(scenario.target(), Some(target));
     let roles = scenario.resolve(app.world_mut());
-    let doc = CombatObservation::capture(app.world_mut(), &roles).to_json();
+    let doc = CombatObservation::capture_view(app.world(), &roles, &view).to_json();
 
     let bodies = doc["bodies"].as_array().expect("bodies serialize");
     assert_eq!(bodies.len(), 2);
@@ -145,14 +145,14 @@ fn the_artifact_distinguishes_intangible_from_a_coarse_fallback() {
 
     let mut fallback = body(ordinary, Vec2::new(130.0, 100.0), true);
     fallback.hurtbox_source = HurtboxSource::BodyFallback;
-    app.insert_resource(CombatGeometryView {
+    let view = CombatGeometryView {
         bodies: vec![body(dodging, Vec2::new(100.0, 100.0), false), fallback],
         strikes: Vec::new(),
-    });
+    };
 
     let scenario = ScenarioRoles::from_seats(app.world_mut(), 0, 1);
     let roles = scenario.resolve(app.world_mut());
-    let doc = CombatObservation::capture(app.world_mut(), &roles).to_json();
+    let doc = CombatObservation::capture_view(app.world(), &roles, &view).to_json();
     let bodies = doc["bodies"].as_array().expect("bodies serialize");
     let row = |role: &str| bodies.iter().find(|b| b["role"] == role).expect("role present");
 

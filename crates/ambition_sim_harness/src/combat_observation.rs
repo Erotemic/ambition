@@ -254,7 +254,7 @@ impl CombatObservation {
     /// ⛔ NOTHING HERE MUTATES. An observation that could change the run is not
     /// an observation of it.
     pub fn capture(world: &mut World, roles: &ResolvedRoles) -> Self {
-        let Some(view) = world.get_resource::<CombatGeometryView>().cloned() else {
+        let Some(view) = CombatGeometryView::capture(world) else {
             return Self {
                 bodies: Vec::new(),
                 strikes: Vec::new(),
@@ -262,6 +262,10 @@ impl CombatObservation {
             };
         };
 
+        Self::capture_view(world, roles, &view)
+    }
+
+    fn capture_view(world: &World, roles: &ResolvedRoles, view: &CombatGeometryView) -> Self {
         let bodies = view
             .bodies
             .iter()
@@ -386,7 +390,7 @@ impl CombatObservation {
                     // was intangible, shielded, already struck by this volume,
                     // or on the same team.
                     "overlaps".to_string(),
-                    serde_json::json!(overlapping_victims(world, &view, strike)),
+                    serde_json::json!(overlapping_victims(world, view, strike)),
                 );
                 object.insert(
                     // Whom this strike has already connected with. Its FIRST
@@ -683,3 +687,6 @@ mod tests {
         assert_eq!(rows[0]["id"], "a");
     }
 }
+
+#[cfg(test)]
+mod artifact_tests;

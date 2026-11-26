@@ -209,6 +209,8 @@ Lecture Hall 101 also needs a standing player below the first row. Show the
 body and the painted underside at the same scale to check the aisle clearance.
 For the Nave, show the same approach with its lock open and closed. Use the
 flags that open the lock to make both views.
+For the Scullery, draw the pickup sprite and its collection area over the
+pantry art. This lets an author check where to put the light for the key.
 
 ## Follow-up for room art generators
 

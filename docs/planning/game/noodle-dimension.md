@@ -58,6 +58,12 @@ A bell, a wheel, a vessel, and a colander mark the four upper routes.
 Stone alcoves mark the doors at the ends of those routes and the door to
 the scullery at the end of the main floor.
 
+## Scullery
+
+The west prep counter gives access to the upper route from the floor.
+The east serving shelf gives access to the larder when its seal is open.
+The Marinara Key is in a lit recess behind the pantry grille.
+
 ## Cistern controls
 
 The temple cistern has three wheels. Pipes show the gates that each wheel

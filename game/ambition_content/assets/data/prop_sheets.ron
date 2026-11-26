@@ -36,6 +36,7 @@
     "noodly_reliquary_fixtures": (),
     "noodly_sanctum_fixtures": (),
     "noodly_nave_fixtures": (),
+    "noodly_scullery_fixtures": (),
     "temple_gate_bell": (),
     // The Art dimension (`targets/props/art_props.py`). The keys of its
     // colour gate are jars of the three primaries; each door is a canvas in a

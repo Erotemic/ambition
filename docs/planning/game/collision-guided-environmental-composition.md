@@ -243,6 +243,8 @@ surfaces to show which steps a player can reach.
 At the Smoking Mountain, show the foothold and each opening beside it.
 Use the solid bounds and the damage region to align the basalt edge and
 the lava surface.
+At the Tyrant's Hall, show a body on each side ledge and on the ground
+under it. Include the return door in the west view.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

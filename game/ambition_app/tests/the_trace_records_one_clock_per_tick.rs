@@ -45,6 +45,7 @@ fn every_trace_row_states_the_scale_its_dts_were_stepped_at() {
             .with_timestep(TimestepMode::fixed_60hz()),
         |app, options| {
             ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            app.init_resource::<ActorTraceBuffer>();
             let sim = app.sim_schedule();
             app.add_systems(
                 sim,

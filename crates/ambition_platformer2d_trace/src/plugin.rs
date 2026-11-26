@@ -23,25 +23,22 @@ impl Plugin for TraceSchedulePlugin {
         // adding `PortalPlugin` (e.g. the demo shell).
         #[cfg(feature = "portal")]
         app.add_message::<ambition_portal2d::BodyTeleported>();
-        // Automatic dumps are OFF unless the environment opts in. The recorder
-        // still records — ring buffer, events, OOB detection, on-screen status
-        // are all unaffected — it just stops writing files into `debug_traces/`
-        // that nobody asked for and nothing prunes. Manual F8 dumps are never
-        // gated. See `TraceDumpPolicy`.
-        app.insert_resource(ambition_gameplay_trace::TraceDumpPolicy::from_env())
-            .init_resource::<ambition_gameplay_trace::ActorTraceBuffer>();
-        // Android records no trace. It has no F8 and no environment that opts
-        // in to automatic dumps, so a recorded frame is never read, and the
-        // two recorders cost about 1.2% of all CPU on a phone (2026-10-13).
-        // The buffers stay: other systems write to them.
+        use ambition_gameplay_trace::{ActorTraceBuffer, TraceDumpPolicy};
+        let policy = TraceDumpPolicy::from_env();
+        app.insert_resource(policy);
+        // Install the recorders on hosts that support trace capture.
         if !cfg!(target_os = "android") {
+            // Automatic dumps need the history. Tools can add the buffer to
+            // record history without enabling automatic file writes.
+            if policy.auto_dumps {
+                app.init_resource::<ActorTraceBuffer>();
+            }
             app.add_systems(
                 sim,
                 (
                     super::record_frame_system,
-                    // Non-player-centric OOB recorder: samples every body and
-                    // requests a dump when any character leaves the world.
-                    super::record_actor_oob_frame_system,
+                    super::record_actor_oob_frame_system
+                        .run_if(resource_exists::<ActorTraceBuffer>),
                 )
                     .in_set(Platformer2dSimulationPhase::Trace),
             );
@@ -59,7 +56,10 @@ impl Plugin for TraceSchedulePlugin {
             // reflects corrected truth rather than whichever pass happened first.
             .add_systems(
                 PostUpdate,
-                (super::flush_pending_dump, super::flush_actor_dump).chain(),
+                (
+                    super::flush_pending_dump,
+                    super::flush_actor_dump.run_if(resource_exists::<ActorTraceBuffer>),
+                ).chain(),
             );
     }
 }

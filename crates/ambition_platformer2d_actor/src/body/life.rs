@@ -395,9 +395,9 @@ pub fn place_named(room: &RoomSpec, name: &str, here: ae::Vec2) -> Option<ae::Ve
 /// Who holds what, and who is where, as the executor reads it this tick. It
 /// is updated as each body claims or lets go, so a later body sees an earlier
 /// one's claim on the same tick.
-struct RoomFacts {
+struct RoomFacts<'a> {
     claims: BTreeMap<(Option<LiveRoomInstance>, String), Entity>,
-    present: BTreeSet<(Option<LiveRoomInstance>, String)>,
+    present: &'a dyn Fn(Option<LiveRoomInstance>, &str) -> bool,
     /// Lines spoken this tick: the room, where the bubble goes, the line.
     said: Vec<(Option<LiveRoomInstance>, ae::Vec2, String)>,
     /// The hours an hour away (day * 24 + hour) already has each thing held,
@@ -474,13 +474,13 @@ fn bookings_to_keep(facts: &RoomFacts, now: i64) -> BTreeMap<(String, String, i6
         .collect()
 }
 
-impl RoomFacts {
+impl RoomFacts<'_> {
     fn observe(&self, body: Entity, room: Option<LiveRoomInstance>, observation: &Observation) -> Value {
         match observation {
             Observation::Free(thing) => {
                 Value::Bool(self.claims.get(&(room, thing.clone())).is_none_or(|holder| *holder == body))
             }
-            Observation::Present(character) => Value::Bool(self.present.contains(&(room, character.clone()))),
+            Observation::Present(character) => Value::Bool((self.present)(room, character)),
         }
     }
 
@@ -530,17 +530,28 @@ pub fn live_lives(
 ) {
     // No day, no hours to live by.
     let Some(cycle) = cycle else { return };
-    if clock.day == 0 || cycle.day_length_s <= 0.0 {
+    if clock.day == 0 || cycle.day_length_s <= 0.0
+        || (bodies.is_empty() && ledger.bookings.is_empty() && ledger.room_bookings.is_empty())
+    {
         return;
     }
     let hour = clock.hour(&cycle).floor() as i64;
     let now = f64::from(clock.day) * f64::from(cycle.day_length_s) + f64::from(clock.seconds);
+    // Build the presence lookup on the first observation that needs it.
+    let presence = std::cell::OnceCell::new();
+    let present = |room, character: &str| {
+        presence
+            .get_or_init(|| {
+                characters.iter().map(|(body, worn)| (rooms.of(body), worn.id())).collect::<BTreeSet<_>>()
+            })
+            .contains(&(room, character))
+    };
     let mut facts = RoomFacts {
         claims: bodies
             .iter()
             .filter_map(|(body, life, ..)| life.claim.clone().map(|thing| ((rooms.of(body), thing), body)))
             .collect(),
-        present: characters.iter().map(|(body, worn)| (rooms.of(body), worn.id().to_string())).collect(),
+        present: &present,
         said: Vec::new(),
         booked: booked_from(&ledger.bookings),
         added: Vec::new(),
@@ -1234,13 +1245,56 @@ mod tests {
         }
     }
 
+    #[test]
+    fn an_idle_plan_observes_a_character_arriving_in_its_live_room() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{InRoomInstance, spawn_live_room};
+        use ambition_platformer2d_world::rooms::{LiveRoomDefinition, RoomSet, insert_room_set};
+        use bevy::prelude::{App, Update};
+
+        let mut app = App::new();
+        let cycle = ambition_time::DayCycle {
+            day_length_s: 240.0,
+            morning_at: 6.0,
+            day_at: 9.0,
+            evening_at: 18.0,
+            night_at: 21.0,
+            start_hour: 10.0,
+        };
+        let mut spec = spec();
+        spec.observes = [("visitor_here".into(), Observation::Present("visitor".into()))].into();
+        let life = Life::new(&spec);
+        let mut book = LifeBook::default();
+        book.lives.insert("observer".into(), spec);
+        app.insert_resource(book)
+            .insert_resource(cycle)
+            .insert_resource(ambition_time::DayClock::at_hour(&cycle, cycle.start_hour))
+            .init_resource::<LifeLedger>()
+            .add_message::<ambition_vfx::vfx::VfxInRoom>()
+            .add_systems(Update, live_lives);
+        let room = |id| RoomSpec::new(id, ae::World::new(id, ae::Vec2::splat(1000.0), ae::Vec2::ZERO, Vec::new()));
+        let world = app.world_mut();
+        insert_room_set(world, RoomSet::from_parts_or_panic("first", vec![room("first"), room("second")], Vec::new()));
+        let first = LiveRoomInstance::ACTIVATION;
+        let second = first.next();
+        spawn_live_room(world, second, LiveRoomDefinition::from_index(1));
+        let observer = world.spawn((InRoomInstance(first), CharacterForm::new("observer"), ae::BodyKinematics::default(), life)).id();
+        let visitor = world.spawn((InRoomInstance(second), CharacterForm::new("visitor"))).id();
+
+        let observed = |app: &App| app.world().get::<Life>(observer).unwrap().facts["visitor_here"].clone();
+        app.update();
+        assert_eq!(observed(&app), Value::Bool(false));
+        app.world_mut().entity_mut(visitor).insert(InRoomInstance(first));
+        app.update();
+        assert_eq!(observed(&app), Value::Bool(true));
+    }
+
     /// What each of three bodies catching up one hour does, when a use of
     /// the bench takes `use_hours`.
     fn three_catch_up(use_hours: f32) -> Vec<String> {
         let book = LifeBook { holds: [("use".to_string(), use_hours)].into(), ..Default::default() };
         let spec = spec();
         let mut facts =
-            RoomFacts { claims: BTreeMap::new(), present: BTreeSet::new(), said: Vec::new(), booked: BTreeMap::new(), added: Vec::new() };
+            RoomFacts { claims: BTreeMap::new(), present: &|_, _| false, said: Vec::new(), booked: BTreeMap::new(), added: Vec::new() };
         let look = Look {
             body: Entity::PLACEHOLDER,
             room: None,
@@ -1289,7 +1343,7 @@ mod tests {
     fn a_plan_that_would_overrun_a_thing_is_never_booked() {
         let book = LifeBook { holds: [("use".to_string(), 1.0)].into(), ..Default::default() };
         let mut facts =
-            RoomFacts { claims: BTreeMap::new(), present: BTreeSet::new(), said: Vec::new(), booked: BTreeMap::new(), added: Vec::new() };
+            RoomFacts { claims: BTreeMap::new(), present: &|_, _| false, said: Vec::new(), booked: BTreeMap::new(), added: Vec::new() };
         let observing = spec();
         let blind = LifeSpec { observes: BTreeMap::new(), ..spec() };
         fn plan(planner: &dyn LifePlanner, spec: &LifeSpec, book: &LifeBook, facts: &mut RoomFacts) -> Option<String> {
@@ -1402,7 +1456,7 @@ mod tests {
         let at = 24 + 9;
         let catch_up_on_a_tick = |bookings: &BTreeMap<(String, String, i64), f32>| {
             let mut facts =
-                RoomFacts { claims: BTreeMap::new(), present: BTreeSet::new(), said: Vec::new(), booked: booked_from(bookings), added: Vec::new() };
+                RoomFacts { claims: BTreeMap::new(), present: &|_, _| false, said: Vec::new(), booked: booked_from(bookings), added: Vec::new() };
             let plan = plan_an_hour_away(&Bench, &mut Life::new(&spec), &book, &mut facts, &look, at).expect("a plan");
             (plan[0].task.clone(), bookings_to_keep(&facts, at + 1))
         };
@@ -1415,7 +1469,7 @@ mod tests {
         assert_eq!(control, "claim", "control: with no ledger the second body double-books");
         // An hour no catch-up can reach is forgotten.
         assert!(bookings_to_keep(
-            &RoomFacts { claims: BTreeMap::new(), present: BTreeSet::new(), said: Vec::new(), booked: booked_from(&kept), added: Vec::new() },
+            &RoomFacts { claims: BTreeMap::new(), present: &|_, _| false, said: Vec::new(), booked: booked_from(&kept), added: Vec::new() },
             at + CATCH_UP_HOURS + 2
         )
         .is_empty());

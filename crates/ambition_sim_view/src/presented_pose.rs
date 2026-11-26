@@ -139,8 +139,8 @@ pub struct CrossingLeg {
     pub end: f32,
 }
 
-/// The most crossings one tick's projection holds; a longer chain is drawn
-/// as a plain warp.
+/// The most legs one tick's projection holds, the composed budget's hop
+/// count. A longer chain (a tuning with more hops) keeps its longest legs.
 pub const MAX_CROSSING_LEGS: usize = 4;
 
 /// The portal crossings inside one tick, as presentation draws them (portal
@@ -158,15 +158,47 @@ pub struct PresentedCrossing {
 
 impl PresentedCrossing {
     /// The crossings of `legs` (in order, each ending where the next crossing
-    /// was), arriving at `arrived_at` at `at`. `None` with no leg or more than
-    /// [`MAX_CROSSING_LEGS`].
+    /// was), arriving at `arrived_at` at `at`. `None` with no leg.
+    ///
+    /// More than [`MAX_CROSSING_LEGS`] keeps the longest, in order. Over a
+    /// dropped leg's interval the body is drawn where the next kept leg (or
+    /// the arrival) begins, a point on its path in the chart it is next drawn
+    /// in; a dropped leg is shorter than every kept one, so a frame rarely
+    /// samples it.
     pub fn new(legs: &[CrossingLeg], arrived_at: Vec2, at: f32) -> Option<Self> {
-        if legs.is_empty() || legs.len() > MAX_CROSSING_LEGS {
+        if legs.is_empty() {
             return None;
         }
         let mut held = [CrossingLeg::default(); MAX_CROSSING_LEGS];
-        held[..legs.len()].copy_from_slice(legs);
-        Some(Self { legs: held, count: legs.len() as u8, arrived_at, at })
+        if legs.len() <= MAX_CROSSING_LEGS {
+            held[..legs.len()].copy_from_slice(legs);
+            return Some(Self { legs: held, count: legs.len() as u8, arrived_at, at });
+        }
+        let mut longest = [0usize; MAX_CROSSING_LEGS];
+        let mut kept = 0;
+        for (index, leg) in legs.iter().enumerate() {
+            let span = leg.end - leg.start;
+            if kept < MAX_CROSSING_LEGS {
+                longest[kept] = index;
+                kept += 1;
+                continue;
+            }
+            // Replace the shortest held leg (the earliest on a tie).
+            let shortest = (0..MAX_CROSSING_LEGS)
+                .min_by(|&a, &b| {
+                    let span_of = |slot: usize| legs[longest[slot]].end - legs[longest[slot]].start;
+                    span_of(a).total_cmp(&span_of(b)).then(longest[a].cmp(&longest[b]))
+                })
+                .unwrap_or(0);
+            if span > legs[longest[shortest]].end - legs[longest[shortest]].start {
+                longest[shortest] = index;
+            }
+        }
+        longest.sort_unstable();
+        for (slot, &index) in longest.iter().enumerate() {
+            held[slot] = legs[index];
+        }
+        Some(Self { legs: held, count: MAX_CROSSING_LEGS as u8, arrived_at, at })
     }
 
     pub fn legs(&self) -> &[CrossingLeg] {
@@ -1010,7 +1042,16 @@ mod tests {
         assert_eq!(drawn(0.4375), Vec2::new(125.0, 0.0), "between the pairs, in A's exit chart");
         assert_eq!(drawn(0.875), Vec2::new(310.0, 0.0), "after the second crossing");
         assert!(PresentedCrossing::new(&[], end, 0.5).is_none());
-        assert!(PresentedCrossing::new(&[legs[0]; MAX_CROSSING_LEGS + 1], end, 0.5).is_none());
+        // A chain past the cap keeps its longest legs: the short second leg
+        // goes, and over it the body is drawn where the next kept leg begins.
+        let x = |from: f32, start: f32, end: f32| CrossingLeg {
+            from: Vec2::new(from, 0.0), to: Vec2::new(from + 10.0, 0.0), start, end,
+        };
+        let long = [x(0.0, 0.0, 0.2), x(100.0, 0.2, 0.25), x(200.0, 0.25, 0.4), x(300.0, 0.4, 0.55), x(400.0, 0.55, 0.7)];
+        let kept = PresentedCrossing::new(&long, Vec2::new(500.0, 0.0), 0.7).unwrap();
+        assert_eq!(kept.legs(), &[long[0], long[2], long[3], long[4]]);
+        assert_eq!(kept.position(0.225, end), Vec2::new(200.0, 0.0), "over the dropped leg");
+        assert_eq!(kept.position(0.325, end), Vec2::new(205.0, 0.0));
     }
 
     #[test]

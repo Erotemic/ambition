@@ -611,7 +611,14 @@ integration tests (`every_supported_profile_steps_a_body…`,
 without this change. They are inherited, as is portal2d's
 `the_pair_of_an_entry_that_is_no_longer_admitted_is_released`.
 
-What still parks at the exit: a chain longer than four legs.
+A chain longer than four legs (a tuning past the composed budget's four
+hops; no authored tuning sets `max_hops`) no longer parks at the exit
+(2026-11-25). `PresentedCrossing::new` keeps the four longest legs, in
+order, so the pose stays a fixed-size `Copy` value. Over a dropped leg's
+interval the body is drawn where the next kept leg begins. That point is on
+its path, in the chart it is drawn in next. A dropped leg is shorter than
+every kept one, so a frame rarely samples it. The leg-by-leg witness checks
+that a five-leg chain drops its shortest leg and draws that start point.
 
 Extrapolated views draw past the tick's end, so the crossing is behind
 them. Only position follows the crossing; the body's turn and material still

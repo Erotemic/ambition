@@ -67,6 +67,7 @@
     "art_plaza_open_gallery": (backdrop: true),
     "art_cliffs_fold": (backdrop: true),
     "art_garden_scaffold": (backdrop: true),
+    "art_caverns_cork": (),
     // The look of the palette lifts of the plaza and the cliffs.
     "art_palette_lift": (),
     "art_giant_crayon": (),

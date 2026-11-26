@@ -207,6 +207,9 @@ all ten rooms. To regenerate only the waterfront or the docks, the author
 must call the room builder and repeat the ladder paint step. Consider a
 room selector that runs the build and the selected room's later steps
 together. Use the semantic diff to confirm the scope of the result.
+The Frontier refinery spec puts its ladders in `intgrid.climbable`. Use
+this field for the Pirate Port ladders when the generator can supply all
+ladder positions in the room spec.
 
 ### L4.1 — prepare the complete edit before writing source
 

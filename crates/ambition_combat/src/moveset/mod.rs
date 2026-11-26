@@ -3395,6 +3395,7 @@ pub fn trigger_moveset_moves(
     #[cfg(feature = "causal")] tick: Option<bevy::prelude::Res<ambition_time::SimTick>>,
 ) {
     let (steps, step_tick) = steps;
+    let capture_can_throw = !hold_states.is_empty();
     #[cfg(feature = "causal")]
     let mut log = log;
     for (
@@ -3416,6 +3417,22 @@ pub fn trigger_moveset_moves(
         (mut gesture_state, gesture_tuning, body_is_held, unmirrored),
     ) in &mut bodies
     {
+        let frame = &control.0;
+        let grab_pressed = frame.grab_pressed || action_buffer.grab > 0.0;
+        let pogo_pressed = frame.pogo_pressed || action_buffer.pogo > 0.0;
+        let special_intent = gesture.special;
+        // A move can continue from held input. A capture can throw from its latch.
+        if playback.is_none()
+            && !capture_can_throw
+            && gesture.pressed.is_none()
+            && special_intent.is_none()
+            && !grab_pressed
+            && !pogo_pressed
+            && !frame.taunt_pressed
+            && frame.fire.is_none()
+        {
+            continue;
+        }
         let combat_rules = room_rules.of(entity);
         // The body's weapon shots in flight. Each candidate asks its OWN
         // source's live-shot limit of this count (`emission_source`).
@@ -3424,7 +3441,6 @@ pub fn trigger_moveset_moves(
         let body_frame = resolved_frame
             .map(|frame| frame.basis())
             .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
-        let frame = &control.0;
         let grounded = ground.map(|g| g.on_ground).unwrap_or(true);
         // The stick sign an accepted special will seed its flick memory with —
         // read through the SAME function the post-press recognizer uses, so the
@@ -3539,7 +3555,6 @@ pub fn trigger_moveset_moves(
             guards.get(entity).is_ok_and(|shield| shield.active),
             oos_policy,
         );
-        let grab_pressed = frame.grab_pressed || action_buffer.grab > 0.0;
         // ⭐ ATTACK ON A RAISED GUARD IS A GRAB, and it is the genre's rule:
         // shield + A grabs, and it is how most players grab at all. Jon,
         // 2026-08-23: *"if you are shielding and press a, that should trigger a
@@ -3578,8 +3593,6 @@ pub fn trigger_moveset_moves(
         // THE SPECIAL PRESS, live or replayed, WITH ITS MEANING. ⛔ the bare
         // `action_buffer.special > 0.0` this replaces said only THAT a press was
         // waiting, never what it was — see `SpecialGestureIntent`.
-        let special_intent = gesture.special;
-        let pogo_pressed = frame.pogo_pressed || action_buffer.pogo > 0.0;
         // Set by the arm that resolves a CHARGEABLE gesture — the attack arm on
         // a smash, the special arm on a special. Every other verb leaves it
         // `None` and its move never freezes.

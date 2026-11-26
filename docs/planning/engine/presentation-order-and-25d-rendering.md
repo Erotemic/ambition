@@ -596,11 +596,18 @@ shared value preparation are sufficient until source proves otherwise.
    with `--card-view` is pixel-identical to the same capture at the parent
    commit (no body flashes or fades there).
 
-   That capture does not show what the RV2 receipt describes: Scout's feet
-   are above the cart's near panel, not hidden by it. It is the same at the
-   parent commit, and the seated-order witness passes, so it is a mismatch
-   between the live scene and the witness (the camera pitch, the seated
-   fact or the rim height). Not investigated yet.
+   That capture seemed to contradict the RV2 receipt: Scout's lower body
+   showed above the cart's near panel. Resolved 2026-11-25 (probe, deleted).
+   Scout is seated (depth −20), the bed is at plane y −70, and the near
+   panel is the published rim, 12.7 units (38 art px at the cart's 1/3
+   scale), at z −1 to −4. Pixel columns under Scout in the capture run:
+   body, one or two rows of the panel's top edge, then the panel's wood,
+   with no body pixel on the wood, so the panel occludes him. What shows
+   above it is his legs and hands, not his soles. At the default 12°
+   pitch, the 17.5 units between the seat and the panel lift the body
+   about 3 units against the panel. The card view therefore shows about 3
+   units more of a seated body than the 2D rails do, the declared framing.
+   The RV2 sentence "hides the feet" holds; the legs above them show.
 
    **Held and wielded art (2026-11-25).** Both 2D roads (`sync_held_item_visual`
    and `sync_wielded_item_visuals`) now mark their sprite with the root that

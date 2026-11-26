@@ -699,7 +699,6 @@ fn the_gate_derives_the_scheme_again_only_when_an_authority_changed() {
     app.update();
     assert!(
         derived(&app)
-            .actions
             .iter()
             .any(|a| a.id.as_str() == "spin_dash"),
         "an added technique is on the scheme"

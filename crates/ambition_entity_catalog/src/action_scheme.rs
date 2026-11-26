@@ -199,8 +199,23 @@ impl ActionSpec {
 /// The runtime carries this inside a Bevy component wrapper (in the character
 /// crate); this type is the headless, serializable contract.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(from = "ActionSchemeSource")]
 pub struct ActionSchemeContract {
-    pub actions: Vec<ActionSpec>,
+    actions: Vec<ActionSpec>,
+    #[serde(skip)]
+    positions: [u8; CANONICAL_SLOT_ORDER.len()],
+}
+
+#[derive(Deserialize)]
+#[serde(rename = "ActionSchemeContract")]
+struct ActionSchemeSource {
+    actions: Vec<ActionSpec>,
+}
+
+impl From<ActionSchemeSource> for ActionSchemeContract {
+    fn from(source: ActionSchemeSource) -> Self {
+        Self::new(source.actions)
+    }
 }
 
 impl ActionSchemeContract {
@@ -209,44 +224,31 @@ impl ActionSchemeContract {
     /// wanting override semantics upsert before constructing) — so the invariant
     /// downstream code relies on (`action_for_slot` is unambiguous, a slot is
     /// shown once) holds by construction, not by caller discipline.
-    pub fn new(actions: Vec<ActionSpec>) -> Self {
-        let mut contract = Self { actions }.sorted();
-        let mut seen_slots = Vec::new();
-        contract.actions.retain(|a| {
-            if seen_slots.contains(&a.slot) {
-                false
-            } else {
-                seen_slots.push(a.slot);
-                true
-            }
+    pub fn new(mut actions: Vec<ActionSpec>) -> Self {
+        actions.sort_by_key(|action| {
+            CANONICAL_SLOT_ORDER.iter().position(|slot| *slot == action.slot)
         });
-        contract
+        actions.dedup_by_key(|action| action.slot);
+        let mut positions = [0; CANONICAL_SLOT_ORDER.len()];
+        for (index, action) in actions.iter().enumerate() {
+            // Zero marks a slot without an action.
+            positions[action.slot as usize] = (index + 1) as u8;
+        }
+        Self { actions, positions }
     }
 
     /// The action on a given slot, if the subject claims it.
     pub fn action_for_slot(&self, slot: ControlSlot) -> Option<&ActionSpec> {
-        self.actions.iter().find(|a| a.slot == slot)
+        let position = self.positions[slot as usize];
+        position.checked_sub(1).map(|index| &self.actions[usize::from(index)])
     }
 
     pub fn has_slot(&self, slot: ControlSlot) -> bool {
-        self.actions.iter().any(|a| a.slot == slot)
+        self.positions[slot as usize] != 0
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &ActionSpec> {
         self.actions.iter()
-    }
-
-    /// Reorder the actions into [`CANONICAL_SLOT_ORDER`] so iteration is
-    /// deterministic regardless of how they were assembled. Stable for slots
-    /// sharing a position (there should be at most one per slot).
-    pub fn sorted(mut self) -> Self {
-        self.actions.sort_by_key(|a| {
-            CANONICAL_SLOT_ORDER
-                .iter()
-                .position(|s| *s == a.slot)
-                .unwrap_or(usize::MAX)
-        });
-        self
     }
 
     /// Derive the COMBAT actions (attack / special / ranged) from a moveset.
@@ -467,5 +469,9 @@ mod tests {
                 .count(),
             1
         );
+        let saved = ron::to_string(&scheme).unwrap();
+        let restored: ActionSchemeContract = ron::from_str(&saved).unwrap();
+        assert_eq!(restored.action_for_slot(ControlSlot::Attack).unwrap().id.as_str(), "swipe");
+        assert!(!restored.has_slot(ControlSlot::Special));
     }
 }

@@ -265,11 +265,14 @@ pub fn apply_worn_character_gameplay(sprite_content: Res<ambition_sprite_sheet::
     // is asked again every tick, and it is reported once for each generation.
     // Only the log reads this.
     mut reported: Local<std::collections::HashSet<(Entity, ambition_characters::prepared::CharacterCatalogGeneration)>>,
+    bodies: Query<
+        (Entity, Option<&PersonaBaseline>, Has<ambition_characters::actor::RecharacterizeBody>),
+        WornCharacterBody,
+    >,
     // The repertoire-bearing bodies: the live pair this system does not write
     // is the fold's, and a body without it has nothing for the fold to publish.
     mut worn: Query<
         (
-        Entity,
         // Written only to put back the previous character when a wear is
         // refused.
         &mut CharacterForm,
@@ -295,10 +298,8 @@ pub fn apply_worn_character_gameplay(sprite_content: Res<ambition_sprite_sheet::
         Has<ambition_projectiles::PlayerProjectileState>,
         // What THIS system last applied to this body.
         (
-            Option<&PersonaBaseline>,
             // Which seat this body holds, if it is in a match at all.
             Option<&ambition_match::MatchSeat>,
-            Has<ambition_characters::actor::RecharacterizeBody>,
             // A home body's base abilities, rewritten at a change of form.
             Option<&mut ambition_platformer2d_core::AbilityBase>,
             Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
@@ -314,53 +315,37 @@ pub fn apply_worn_character_gameplay(sprite_content: Res<ambition_sprite_sheet::
             Has<ambition_body_seed::FlightStatedByRole>,
         ),
         ),
-        (With<ActionSet>, With<ActorMoveset>),
+        WornCharacterBody,
     >,
 ) {
     let registry = cast.get();
+    let generation = registry.map(ambition_characters::prepared::PreparedCharacterRegistry::generation).unwrap_or_default();
     let home = active
         .as_deref()
         .and_then(ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::current)
         .and_then(|session| homes.iter().find(|(root, _)| root.0 == session))
         .map(|(_, home)| *home);
-    for (
-        entity,
-        mut character,
-        mut name,
-        mut identity,
-        mut motion_model,
-        mut health,
-        mass,
-        mut combat_tuning,
-        has_projectile_state,
-        (baseline, seat, recharacterize, mut ability_base, is_home_body),
-        (contributions, mut surface, mut config, mut flight, role_flight),
-    ) in &mut worn
-    {
-        let id = character.id();
-        let generation = registry
-            .as_deref()
-            .map(ambition_characters::prepared::PreparedCharacterRegistry::generation)
-            .unwrap_or_default();
-        // Re-derive automatically only when the prepared cast generation changed
-        // or the body lacks a baseline. Identity changes request recharacterization
-        // explicitly rather than relying on Bevy change ticks.
-        let stale_cast = baseline.is_none_or(|baseline| baseline.generation != generation);
-
-        // NOT `character.is_changed()`. A body is re-derived because
-        // somebody ASKED (`RecharacterizeBody`), or because the cast it was
-        // built from no longer exists (`stale_cast`, which is a rollback-state
-        // test rather than a change tick and therefore survives a rewind).
-        //
-        // What the edge DID carry was a hidden dependency on a tick that does not rewind.
-        if recharacterize {
-            // CONSUMED, so a request is one application rather than a
-            // state a body gets stuck re-deriving in.
-            commands
-                .entity(entity)
-                .try_remove::<ambition_characters::actor::RecharacterizeBody>();
+    for (entity, baseline, recharacterize) in &bodies {
+        // The request and the cast generation are part of rollback state.
+        if !recharacterize && baseline.is_some_and(|baseline| baseline.generation == generation) {
+            continue;
         }
-        if recharacterize || stale_cast {
+        if let Ok((
+            mut character,
+            mut name,
+            mut identity,
+            mut motion_model,
+            mut health,
+            mass,
+            mut combat_tuning,
+            has_projectile_state,
+            (seat, mut ability_base, is_home_body),
+            (contributions, mut surface, mut config, mut flight, role_flight),
+        )) = worn.get_mut(entity) {
+            if recharacterize {
+                commands.entity(entity).try_remove::<ambition_characters::actor::RecharacterizeBody>();
+            }
+            let id = character.id();
             let Some(execution) = wear_character(
                 registry,
                 &mut name,
@@ -544,14 +529,19 @@ pub fn apply_worn_character_gameplay(sprite_content: Res<ambition_sprite_sheet::
                 form,
                 death_traits_applied,
             });
-            continue;
         }
     }
 }
 
-
-
-
+/// Bodies with the components a change of character can update.
+type WornCharacterBody = (
+    With<CharacterForm>,
+    With<Name>,
+    With<ambition_characters::brain::action_set::IdentityKit>,
+    With<MotionModel>,
+    With<ActionSet>,
+    With<ActorMoveset>,
+);
 
 /// Raise (and sustain) a `"bubble_shield"` persona's guard through the ONE shield
 /// path (`shield_held` → `resolve_shield`) — so pressing Special actually deploys

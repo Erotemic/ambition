@@ -667,6 +667,28 @@ samples matched in the quiet Hall and with affine hitlag, including a
 paralyzed body and an attacker in hitstop. Three rest-row tests passed.
 The cases include catalog replacement and a separate pin writer.
 
+### Character presentation lookups
+
+The pose and appearance passes read the character and cast generation on
+the body's geometry grant. A body without a grant checks the cast for a
+definition. The audio attribution pass resolves a source when the body
+changes character, its source changes or is absent, or the active cast
+changes. It compares retained cast versions so a replacement with the
+same generation number also refreshes the source.
+
+| Isolated pass in the loaded 596-body Hall | Development before → after, ms | Optimized before → after, ms |
+| --- | ---: | ---: |
+| Body pose per tick | 0.643–0.665 → 0.535–0.548 | 0.127–0.128 → 0.069–0.070 |
+| Actor appearance per frame | 0.185–0.188 → 0.104 | 0.066 → 0.018 |
+| Body audio attribution per tick | 0.070–0.071 → 0.039 | 0.046–0.047 → 0.002 |
+
+The probe used cached host libraries and measured thread CPU time. Pose
+and appearance agreed when a grant was missing and after a character
+change. A focused system test changed the worn character and the active
+cast, restored the published cast, and removed the source and the form.
+These measurements cover individual passes. The assembled desktop tick
+and Android frame rate need a new capture.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

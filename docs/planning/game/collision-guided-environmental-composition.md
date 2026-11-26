@@ -224,6 +224,8 @@ Pass climbable bounds too. The Patent Office gallery needs the ladder's
 width and position to leave a gap in its rail.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
+QED-TV had painted rungs over the themed ladder. Show the themed ladder in
+the room preview so artists can leave that space clear.
 The Test Range shelter needs the roof's bottom edge to draw the passage
 at the same height as its collision clearance.
 The Tape Room carriage gives its frame size and top anchor in the sprite

@@ -125,11 +125,12 @@ pub fn publish_body_presentation_sources(
     // The running session's frozen cast, or the published one with no session
     // (`SessionCast`).
     registry: ambition_characters::prepared::SessionCast,
+    mut previous_cast: Local<Option<PreparedCharacterRegistry>>,
     bodies: Query<
         (
             Entity,
-            Option<&ambition_characters::actor::CharacterForm>,
-            Option<&ambition_sfx::BodyPresentationSource>,
+            Option<Ref<ambition_characters::actor::CharacterForm>>,
+            Option<Ref<ambition_sfx::BodyPresentationSource>>,
         ),
         // Filtered, because this runs on the SIM clock and an all-`Option` tuple
         // matches EVERY entity in the world — every resimulated tick. The three
@@ -148,16 +149,34 @@ pub fn publish_body_presentation_sources(
         )>,
     >,
 ) {
+    let cast = registry.get();
+    let cast_changed = match (cast, previous_cast.as_ref()) {
+        (Some(current), Some(previous)) => !current.shares_definitions(previous),
+        (None, None) => false,
+        _ => true,
+    };
+    if cast_changed {
+        *previous_cast = cast.cloned();
+    }
     for (entity, worn, current) in &bodies {
-        let character_id = worn.map(ambition_characters::actor::CharacterForm::id);
-        let provider = character_id
-            .and_then(|id| provider_of_character(registry.get(), id));
+        let provider = match worn {
+            Some(worn) => {
+                if !cast_changed
+                    && !worn.is_changed()
+                    && current.as_ref().is_some_and(|source| !source.is_changed())
+                {
+                    continue;
+                }
+                provider_of_character(cast, worn.id())
+            }
+            None => None,
+        };
         match provider {
             Some(provider) => {
                 // Change detection: a body's author is stable for the whole session
                 // in every ordinary case, and this runs over every body every tick,
                 // so the id is compared as text and made only for a change.
-                if current.map(|c| c.id().as_str()) != Some(provider) {
+                if current.as_deref().map(|source| source.id().as_str()) != Some(provider) {
                     commands.entity(entity).insert((
                         ambition_sfx::BodyPresentationSource(ambition_sfx::PresentationSourceId::new(provider)),
                         ambition_sfx::DerivedPresentationSource,
@@ -215,5 +234,58 @@ pub fn inherit_projectile_presentation_sources(
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_characters::actor::{CharacterForm, definition::CharacterDefinition};
+    use ambition_characters::prepared::{close_preparation_barrier, stage_authored_character};
+    use ambition_characters::session_cast::ActiveSessionCast;
+    use ambition_sfx::BodyPresentationSource;
+
+    fn cast(first_provider: &str) -> PreparedCharacterRegistry {
+        let mut app = App::new();
+        for (id, name, provider) in [("first", "First", first_provider), ("second", "Second", "other")] {
+            stage_authored_character(
+                &mut app,
+                CharacterDefinition::new(id, name, provider),
+                &Default::default(),
+            )
+            .unwrap();
+        }
+        close_preparation_barrier(app.world_mut());
+        app.world().resource::<PreparedCharacterRegistry>().clone()
+    }
+
+    #[test]
+    fn body_source_tracks_wear_and_session_cast() {
+        let mut app = App::new();
+        let published = cast("published");
+        let frozen = cast("frozen");
+        assert_eq!(published.generation(), frozen.generation());
+        app.insert_resource(published)
+            .add_systems(Update, publish_body_presentation_sources);
+        let body = app.world_mut().spawn(CharacterForm::new("first")).id();
+        let source = |app: &App| app.world().get::<BodyPresentationSource>(body).map(|source| source.id().as_str().to_owned());
+
+        app.update();
+        assert_eq!(source(&app).as_deref(), Some("published"));
+        app.insert_resource(ActiveSessionCast(Some(frozen)));
+        app.update();
+        assert_eq!(source(&app).as_deref(), Some("frozen"));
+        app.world_mut().remove_resource::<ActiveSessionCast>();
+        app.update();
+        assert_eq!(source(&app).as_deref(), Some("published"));
+
+        app.world_mut().entity_mut(body).insert(CharacterForm::new("second"));
+        app.update();
+        assert_eq!(source(&app).as_deref(), Some("other"));
+        app.world_mut().entity_mut(body).remove::<BodyPresentationSource>();
+        app.update();
+        assert_eq!(source(&app).as_deref(), Some("other"));
+        app.world_mut().entity_mut(body).remove::<CharacterForm>();
+        app.update();
+        assert_eq!(source(&app), None);
+    }
+}
 
 

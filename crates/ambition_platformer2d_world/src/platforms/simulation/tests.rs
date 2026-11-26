@@ -401,7 +401,7 @@ fn an_unstoppable_press_keeps_its_schedule() {
 /// holds.
 #[test]
 fn a_limited_press_pushes_to_its_limit_then_holds() {
-    let (mut app, _) = press_app(Some(ae::crush::SurfaceAuthority::Limited { max_overconstraint_px: 4.0, max_force: 1.0 }));
+    let (mut app, _) = press_app(Some(ae::crush::SurfaceAuthority::Limited { max_overconstraint_px: 4.0 }));
     for _ in 0..6 { app.update(); }
     assert!((press(&app).aabb().max.y - 116.0).abs() < 1e-3, "4 px into the body: {:?}", press(&app).aabb());
 }

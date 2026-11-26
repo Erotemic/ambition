@@ -1071,10 +1071,15 @@ room, and riders are carried by the accepted move. C5 (= portal M2e): a
 portal's moving host admits its move against the part of a body pushed
 through the pair.
 
-**Next action:** C4. Design the numerical model and the deterministic
-fallback (owner page, "not decided"), then make the full step report the
-press-on-a-standing-body conflict, then the body responses. C6 authors
-content after C4.
+The numerical model and fallback were decided the same day, and C4's first
+slices landed: the step reports a press closing on a standing body, and
+each pinched body squashes if it can and then answers by its failure
+response (damage, destroy, the fallback's ejection, or rigid by default),
+and recovers once released.
+
+**Next action:** `one_way_yields` as a game input to the step, and the
+app-level witnesses (death at zero health, a rewind replaying a response);
+then C6 content.
 
 **Acceptance:** the stage tests in the owner page, stage by stage: C3 a
 yielding or limited mover stalls with riders carried by the accepted

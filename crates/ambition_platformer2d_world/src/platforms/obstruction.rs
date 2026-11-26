@@ -137,25 +137,25 @@ pub fn accepted_through(delta: Vec2, allowance_px: f32, carried: &[&CarriedObstr
 /// solids, and a one-way support when the push is along gravity onto its
 /// top (a one-way stops nothing from below or the side).
 pub fn pushing_solids(world: &ae::World, delta: Vec2, gravity_dir: Vec2, except: &ae::GeoId) -> Vec<Aabb> {
-    let mut solids = full_solids(world, except);
+    let mut solids = full_solids(world, Some(except));
     if delta.normalize_or_zero().dot(gravity_dir) > 0.5 {
-        solids.extend(one_way_supports(world, except));
+        solids.extend(one_way_supports(world, Some(except)));
     }
     solids
 }
 
 /// The room's full-collision blocks but `except`.
-pub fn full_solids(world: &ae::World, except: &ae::GeoId) -> Vec<Aabb> {
+pub fn full_solids(world: &ae::World, except: Option<&ae::GeoId>) -> Vec<Aabb> {
     world.blocks.iter()
-        .filter(|block| &block.id != except && ae::collision_semantics::is_full_collision_surface(block.kind))
+        .filter(|block| Some(&block.id) != except && ae::collision_semantics::is_full_collision_surface(block.kind))
         .map(|block| block.aabb)
         .collect()
 }
 
 /// The room's one-way supports but `except`.
-pub fn one_way_supports(world: &ae::World, except: &ae::GeoId) -> Vec<Aabb> {
+pub fn one_way_supports(world: &ae::World, except: Option<&ae::GeoId>) -> Vec<Aabb> {
     world.blocks.iter()
-        .filter(|block| &block.id != except && block.kind == ae::BlockKind::OneWay)
+        .filter(|block| Some(&block.id) != except && block.kind == ae::BlockKind::OneWay)
         .map(|block| block.aabb)
         .collect()
 }

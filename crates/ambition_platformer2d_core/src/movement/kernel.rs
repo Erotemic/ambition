@@ -260,13 +260,24 @@ fn try_motion(
     ctx: &MotionStepContext<'_>,
     retained_down: Vec2,
 ) -> Result<MotionStepResult, crate::frame::thread::Refusal> {
-    match ctx.admission.and_then(|admission| admission.span.reroot.map(|reroot| (admission, reroot)))
+    let result = match ctx.admission.and_then(|admission| admission.span.reroot.map(|reroot| (admission, reroot)))
         .filter(|_| !ctx.pose_owned_externally)
     {
         Some((admission, reroot)) => continuation::step_through_crossings(
             model, clusters, ctx, retained_down, admission, reroot, 0),
         None => try_motion_once(model, clusters, ctx, retained_down).map(|(result, _)| result),
-    }
+    };
+    // One pinch is one conflict: the side pass's repair and the gravity
+    // pass's both meet the same empty interval.
+    result.map(|mut result| {
+        let conflicts = &mut result.events.constraint_conflicts;
+        let mut kept = Vec::with_capacity(conflicts.len());
+        for conflict in conflicts.drain(..) {
+            if !kept.contains(&conflict) { kept.push(conflict); }
+        }
+        *conflicts = kept;
+        result
+    })
 }
 
 /// One candidate step and its righting, committed only when both are

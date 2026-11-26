@@ -24,7 +24,11 @@ impl Plugin for PlayerSchedulePlugin {
             .in_set(PlayerSimulationSet::PostPossession));
         // Crushing C1: this tick's obstructions, once bodies have stepped.
         app.init_resource::<crate::obstructions::TickObstructions>();
-        app.add_systems(sim, crate::obstructions::publish_tick_obstructions
+        // C4: each pinched body answers by its resistance (the default,
+        // rigid, takes nothing).
+        app.add_systems(sim, (crate::obstructions::publish_tick_obstructions,
+                crate::obstructions::respond_to_obstructions,
+                crate::obstructions::recover_squashed_bodies).chain()
             .in_set(GameplayGated)
             .in_set(PlayerSimulationSet::PostPossession));
         // The time of day the clock head turns (still without a `DayCycle`).

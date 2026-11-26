@@ -61,7 +61,7 @@ pub(super) fn publish_carried_obstructions(
         // the host proposes its move.
         carried.0.push(CarriedObstruction {
             platform: face.geo.clone(), body: entity, map: [x, y], mapped,
-            solids: full_solids(&solids, &face.geo), one_ways: one_way_supports(&solids, &face.geo),
+            solids: full_solids(&solids, Some(&face.geo)), one_ways: one_way_supports(&solids, Some(&face.geo)),
             gravity_dir: Vec2::Y,
         });
     }

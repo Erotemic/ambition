@@ -15,9 +15,9 @@ pub enum SurfaceAuthority {
     /// It stalls on any obstruction (a cardboard lift, a lift with a safety
     /// stop): it keeps the part of its move that overconstrains no body.
     Yielding,
-    /// It pushes on until the overconstraint reaches `max_overconstraint_px`
-    /// or its force `max_force`, then stalls.
-    Limited { max_overconstraint_px: f32, max_force: f32 },
+    /// It pushes on until the overconstraint reaches `max_overconstraint_px`,
+    /// then stalls.
+    Limited { max_overconstraint_px: f32 },
     /// It keeps its schedule (a train, a crusher); the body takes the whole
     /// response.
     Unstoppable,
@@ -68,6 +68,10 @@ pub struct BodyResistance {
 impl BodyResistance {
     pub const RIGID: Self = Self { compress: None, failure: FailureResponse::Rigid };
 }
+
+/// A body's own resistance, the most specific level of the policy.
+#[derive(bevy_ecs::prelude::Component, Clone, Copy, Debug, PartialEq)]
+pub struct OwnResistance(pub BodyResistance);
 
 /// The game's rule, under every surface and body that says nothing.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -178,9 +182,8 @@ impl SurfaceAuthority {
 
     fn validate(self) -> Result<(), &'static str> {
         match self {
-            Self::Limited { max_overconstraint_px, max_force }
-                if !(max_overconstraint_px.is_finite() && max_overconstraint_px >= 0.0
-                    && max_force.is_finite() && max_force >= 0.0) => Err("limit"),
+            Self::Limited { max_overconstraint_px }
+                if !(max_overconstraint_px.is_finite() && max_overconstraint_px >= 0.0) => Err("limit"),
             _ => Ok(()),
         }
     }
@@ -210,7 +213,7 @@ mod tests {
 
     fn policy() -> CrushPolicy {
         CrushPolicy {
-            game: GameCrushPolicy { default_authority: SurfaceAuthority::Limited { max_overconstraint_px: 4.0, max_force: 10.0 },
+            game: GameCrushPolicy { default_authority: SurfaceAuthority::Limited { max_overconstraint_px: 4.0 },
                 ..GameCrushPolicy::default() },
             surfaces: BTreeMap::from([("lift".to_string(), SurfaceAuthority::Yielding)]),
             bodies: BTreeMap::from([("slime".to_string(), BodyResistance { compress: Some(Compressibility {
@@ -252,7 +255,7 @@ mod tests {
         assert_eq!(policy.validate(["press"], ["slime"]), Err(CrushPolicyError::UnknownSurface("lift".into())));
         assert_eq!(policy.validate(["lift"], ["scout"]), Err(CrushPolicyError::UnknownBody("slime".into())));
         let mut bad = policy.clone();
-        bad.surfaces.insert("lift".into(), SurfaceAuthority::Limited { max_overconstraint_px: f32::NAN, max_force: 1.0 });
+        bad.surfaces.insert("lift".into(), SurfaceAuthority::Limited { max_overconstraint_px: f32::NAN });
         assert!(matches!(bad.validate(["lift"], ["slime"]), Err(CrushPolicyError::Invalid { .. })));
         let mut bad = policy;
         bad.bodies.get_mut("slime").unwrap().compress.as_mut().unwrap().min_scale = 0.0;

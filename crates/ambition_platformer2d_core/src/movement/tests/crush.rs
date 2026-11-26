@@ -33,15 +33,16 @@ fn advance(world: &mut World) {
     }
 }
 
-/// C0: a press that descends onto a body standing on a floor passes
-/// through it, and the full step reports no conflict. The gravity sweep
-/// meets the press as a head contact each tick and the body stays where it
-/// stands, while the overlap grows by the press's step. (Called on one axis
-/// with the gap already closed, the same sweep does report the conflict:
-/// `a_pinch_names_the_claimant_that_closes_on_the_body`.) C1 must produce
-/// the obstruction for this, the commonest crush, before C4 can answer it.
+/// C4's first piece (C0 found it missing): a press that descends onto a body
+/// standing on a floor is one Y conflict per step, whose claimants are the
+/// press and the floor, whose overconstraint is the overlap the press's step
+/// made, and whose driver is the press. The repair met the pinch one side at
+/// a time (the press pushed the body into the floor, the floor pushed it back
+/// under the press) and reported nothing; a one-sided repair that would land
+/// the body in an opposing claimant now reports the pinch and leaves the body
+/// where it stands, for the body's response to act on.
 #[test]
-fn a_press_closing_on_a_standing_body_passes_through_it_unreported() {
+fn a_press_closing_on_a_standing_body_is_one_conflict_of_the_overlap() {
     let floor = Block::solid("floor", Vec2::new(0.0, 300.0), Vec2::new(1600.0, 40.0));
     let probe = body_at(Vec2::ZERO);
     let half = probe.kinematics.aabb().half_size().y;
@@ -54,15 +55,20 @@ fn a_press_closing_on_a_standing_body_passes_through_it_unreported() {
     assert!(body.ground.on_ground, "it stands: {:?}", body.kinematics);
     let stood = body.kinematics.pos;
     world.blocks[1].velocity = Vec2::new(0.0, 6.0);
-    for tick in 1..=5 {
+    for tick in 1..=3 {
         advance(&mut world);
         let events = step_scratch(&world, &mut body, InputState::default());
-        assert!(events.constraint_conflicts.is_empty(), "tick {tick}: {:?}", events.constraint_conflicts);
-        assert!(events.contacts.iter().any(|contact| contact.kind == crate::collision_semantics::ContactKind::Head),
-            "tick {tick}: the press is met as a head contact");
-        assert!((body.kinematics.pos - stood).length() < 0.05, "tick {tick}: it stays: {:?}", body.kinematics.pos);
-        let overlap = world.blocks[1].aabb.max.y - body.kinematics.aabb().min.y;
-        assert!((overlap - (6.0 * tick as f32 - 2.0)).abs() < 0.05, "tick {tick}: the overlap grows: {overlap}");
+        let [conflict] = events.constraint_conflicts.as_slice() else {
+            panic!("tick {tick}: one conflict: {:?}", events.constraint_conflicts)
+        };
+        assert_eq!(conflict.axis, Axis::Y);
+        let sources = [&conflict.min_source, &conflict.max_source];
+        assert!(sources.iter().any(|source| named(*source, "press", world.blocks.iter())), "{conflict:?}");
+        assert!(sources.iter().any(|source| named(*source, "floor", world.blocks.iter())), "{conflict:?}");
+        let overlap = 6.0 * tick as f32 - 2.0;
+        assert!((conflict.overconstraint() - overlap).abs() < 0.05, "tick {tick}: the overlap: {conflict:?}");
+        assert_eq!(conflict.driver(), Some(ConflictSide::Min), "the press closes from above: {conflict:?}");
+        assert!((body.kinematics.pos - stood).length() < 0.05, "tick {tick}: nothing resolves it yet: {:?}", body.kinematics.pos);
     }
 }
 
@@ -70,8 +76,8 @@ fn a_press_closing_on_a_standing_body_passes_through_it_unreported() {
 /// one-way claims a body only while its feet were within the crossing band
 /// over its top (`material_axis_hits`, `prev_feet_coord`); held under the
 /// ceiling, the body stays and the platform rises on past its feet, so its
-/// claim lapses and the body falls through it, and no step reports a
-/// conflict. This is the kernel's rule for every game today (Mary-O's
+/// claim lapses and the body falls through it; a one-way is never a claimant
+/// of a reported pinch (it yields). This is the kernel's rule for every game today (Mary-O's
 /// reported behaviour); C4 names it `one_way_yields`.
 #[test]
 fn a_one_way_that_raises_a_body_into_a_ceiling_drops_it_through() {
@@ -90,7 +96,7 @@ fn a_one_way_that_raises_a_body_into_a_ceiling_drops_it_through() {
     for tick in 0..60 {
         advance(&mut world);
         let events = step_scratch(&world, &mut body, InputState::default());
-        assert!(events.constraint_conflicts.is_empty(), "tick {tick}: {:?}", events.constraint_conflicts);
+        assert!(events.constraint_conflicts.is_empty(), "tick {tick}: the one-way yields: {:?}", events.constraint_conflicts);
         if held.is_none() && body.kinematics.aabb().min.y <= 200.0 + 0.05 {
             held = Some(tick);
         }

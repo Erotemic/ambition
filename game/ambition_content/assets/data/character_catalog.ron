@@ -507,6 +507,11 @@
             melee: Some(Bite(windup_s: 0.2, active_s: 0.08, recover_s: 0.3, damage: 1, reach_px: 30.0)),
             ranged: Some(Rock(speed: 380.0, damage: 1)),
         ),
+        // Sunk Cost Fallacy: lift the chest, swing it forward, reel it back.
+        "sunk_cost_chest_slam": (
+            move_style: WalkHeavy,
+            melee: Some(Lunge(windup_s: 0.80, active_s: 0.32, recover_s: 1.08, damage: 3, reach_px: 70.0, step_px: 0.0, rush_px: 0.0)),
+        ),
         "brush_knight_sweep": (
             move_style: Walk,
             melee: Some(Lunge(windup_s: 0.7, active_s: 0.25, recover_s: 0.8, damage: 3, reach_px: 92.0, step_px: 20.0, rush_px: 0.0)),
@@ -7249,6 +7254,36 @@
             hall: ["Everything in this dimension was ink before it was anything. Some of us did not want to be anything.", "Drip. That was a word. You missed it."],
         ),
         hall_dialogue_id: Some("hall_ink_wisp"),
+        ),
+        "sunk_cost_fallacy": (
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
+            display_name: "Sunk Cost Fallacy",
+            manifest: "sprites/sunk_cost_fallacy_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(72.0),
+            composition: None,
+            default_action_set: "sunk_cost_chest_slam",
+            locomotion: Some((run_speed: 66.0, move_style: WalkHeavy)),
+            autonomous_profile: Some((
+                template: MeleeBrute,
+                aggro_radius: 360.0,
+                attack_range: 68.0,
+                patrol_effort: 0.4,
+                chase_effort: 0.85,
+                attack_cooldown_s: 0.9,
+                tactics: (notice_s: 0.6),
+            )),
+            max_health: Some(8),
+            mass: Some(3.5),
+            tags: ["enemy", "neural", "cognitive_bias", "diver"],
+            barks: (
+                on_hit: ["I paid for that!", "*the chain rattles*"],
+                provoked: ["I've come too far!"],
+                idle: ["Almost paid off.", "Just a little farther."],
+                hall: ["I have a very good feeling about the next expedition."],
+            ),
+            hall_dialogue_id: Some("hall_sunk_cost_fallacy"),
         ),
         // The Neural dimension's enemies. The Intrusive Thought drifts at you
         // through the Cathedral and barges in (an Aerial lunge); the Attention

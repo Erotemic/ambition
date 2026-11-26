@@ -5330,6 +5330,14 @@ Percy: QUESTION?
 -> Can you do XOR?
     Percy: NO. Also YES. I am sorry.
 ===
+title: hall_sunk_cost_fallacy
+---
+Sunk Cost Fallacy: I'll break even any day now.
+-> What's in the chest?
+    Sunk Cost Fallacy: Rocks. Very expensive rocks.
+-> Why not leave it here?
+    Sunk Cost Fallacy: Do you have any idea how much it cost to get it this far?
+===
 title: hall_intrusive_thought
 ---
 Intrusive Thought: Did you lock the door?

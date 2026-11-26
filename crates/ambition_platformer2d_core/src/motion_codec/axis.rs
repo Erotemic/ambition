@@ -41,7 +41,7 @@ mod state;
 pub(super) use state::{axis_maneuver_state, put_axis_maneuver_state};
 
 macro_rules! axis_scalar {
-    ($ty:ty, $put:ident, $get:ident, $key:expr) => {
+    ($ty:ty, $put:ident, $get:ident) => {
         impl AxisField for $ty {
             fn write_axis(&self, out: &mut Vec<u8>) {
                 $put(out, *self);
@@ -53,15 +53,15 @@ macro_rules! axis_scalar {
 
             #[inline(always)]
             fn same_bits(&self, other: &Self) -> bool {
-                $key(*self) == $key(*other)
+                crate::snapshot::ExactState::same_bits(self, other)
             }
         }
     };
 }
 
-axis_scalar!(f32, put_f32, f32, f32::to_bits);
-axis_scalar!(u8, put_u8, u8, std::convert::identity);
-axis_scalar!(bool, put_bool, bool, std::convert::identity);
+axis_scalar!(f32, put_f32, f32);
+axis_scalar!(u8, put_u8, u8);
+axis_scalar!(bool, put_bool, bool);
 
 impl<T: AxisField> AxisField for Option<T> {
     fn write_axis(&self, out: &mut Vec<u8>) {

@@ -31,6 +31,25 @@ impl StateHasher {
     }
 }
 
+/// Compare stored values without changing their floating-point representation.
+pub(crate) trait ExactState {
+    fn same_bits(&self, other: &Self) -> bool;
+}
+
+impl ExactState for f32 {
+    #[inline(always)]
+    fn same_bits(&self, other: &Self) -> bool {
+        self.to_bits() == other.to_bits()
+    }
+}
+
+impl ExactState for bevy_math::Vec2 {
+    #[inline(always)]
+    fn same_bits(&self, other: &Self) -> bool {
+        self.x.same_bits(&other.x) && self.y.same_bits(&other.y)
+    }
+}
+
 /// Canonical full-value encoding used by the GGRS storage strategy and checksum projection.
 pub trait SnapshotState: Send + Sync + 'static {
     fn encode(&self, out: &mut Vec<u8>);
@@ -472,8 +491,19 @@ pub fn paste_put<T: PasteEncode>(out: &mut Vec<u8>, value: T) {
 
 /// A struct whose every field is a `PasteEncode` primitive, read back in the
 /// same order.
+/// Core types can request an exact local comparison with the `exact` option.
 #[macro_export]
 macro_rules! snapshot_pod {
+    ($ty:path { $($field:ident : $get:ident),+ $(,)? }, exact) => {
+        $crate::snapshot_pod!($ty { $($field: $get),+ });
+
+        impl $crate::snapshot::ExactState for $ty {
+            #[inline]
+            fn same_bits(&self, other: &Self) -> bool {
+                $($crate::snapshot::ExactState::same_bits(&self.$field, &other.$field))&&+
+            }
+        }
+    };
     ($ty:path { $($field:ident : $get:ident),+ $(,)? }) => {
         impl $crate::snapshot::SnapshotState for $ty {
             fn encode(&self, out: &mut ::std::vec::Vec<u8>) {

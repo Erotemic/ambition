@@ -1,12 +1,17 @@
 use bevy_ecs::component::Component;
 
+use crate::body_clusters::{
+    BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyDashState, BodyDodgeState,
+    BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics, BodyLedgeState, BodyModeState,
+    BodyRestartLatch, BodyShieldState, BodyWallState,
+};
 use crate::frame::{
     MapConvention,
     thread::{MotionAdmission, PieceBudget},
 };
 use crate::layered::LayeredIdentity;
 use crate::motion_codec::same_axis_motion;
-use crate::snapshot::SnapshotState;
+use crate::snapshot::{ExactState, SnapshotState};
 use crate::world::WorldEdgeMargins;
 use crate::{Block, BodyClustersMut, MotionFrame, SurfaceChain, SweepSample, Vec2, World};
 
@@ -48,6 +53,7 @@ pub enum ProofMiss {
 }
 
 struct SettledStep {
+    body: FixedBodyState,
     axis_motion: Option<crate::AxisSweptMotion>,
     environment: Geometry,
     input: StepInput,
@@ -180,53 +186,62 @@ fn edge_bits(world: &World) -> [Option<u32>; 3] {
     [Some(fall), side, rise].map(|x| x.map(f32::to_bits))
 }
 
-// Compare axis motion in place. Use snapshot bytes for the remaining proof inputs.
-fn encode_body(model: &MotionModel, body: &BodyClustersMut<'_>, out: &mut Vec<u8>) {
-    let BodyClustersMut {
-        settled: _,
-        carrier: _,
-        sweep: _,
-        env_contact: _,
-        abilities,
-        kinematics,
-        base_size,
-        ground,
-        wall,
-        jump,
-        dash,
-        flight,
-        blink,
-        ledge,
-        dodge,
-        shield,
-        body_mode,
-        resources,
-        effects,
-        action_buffer,
-        restart,
-    } = body;
+// Retain fixed-size values once per proof. A reuse check reads the live values.
+macro_rules! fixed_body_state {
+    ($($field:ident: $ty:ty),+ $(,)?) => {
+        struct FixedBodyState { $($field: $ty),+ }
+
+        impl FixedBodyState {
+            fn capture(body: &BodyClustersMut<'_>) -> Self {
+                let BodyClustersMut {
+                    $($field,)+ settled: _, carrier: _, sweep: _, env_contact: _,
+                    resources: _, effects: _,
+                } = body;
+                Self { $($field: **$field),+ }
+            }
+
+            fn matches(&self, body: &BodyClustersMut<'_>) -> bool {
+                $(self.$field.same_bits(body.$field))&&+
+            }
+        }
+    };
+}
+
+fixed_body_state! {
+    abilities: BodyAbilities,
+    kinematics: BodyKinematics,
+    base_size: BodyBaseSize,
+    ground: BodyGroundState,
+    wall: BodyWallState,
+    jump: BodyJumpState,
+    dash: BodyDashState,
+    flight: BodyFlightState,
+    blink: BodyBlinkState,
+    ledge: BodyLedgeState,
+    dodge: BodyDodgeState,
+    shield: BodyShieldState,
+    body_mode: BodyModeState,
+    action_buffer: BodyActionBuffer,
+    restart: BodyRestartLatch,
+}
+
+fn encode_variable_state(model: &MotionModel, body: &BodyClustersMut<'_>, out: &mut Vec<u8>) {
     out.clear();
-    if !matches!(model, MotionModel::AxisSwept(_)) {
+    let encode_model = !matches!(model, MotionModel::AxisSwept(_));
+    let has_effects = !body.effects.is_empty();
+    let has_resources = body.resources.is_some();
+    let fields = u8::from(encode_model) | (u8::from(has_effects) << 1) | (u8::from(has_resources) << 2);
+    if fields == 0 {
+        return;
+    }
+    out.push(fields);
+    if encode_model {
         model.encode(out);
     }
-    abilities.encode(out);
-    kinematics.encode(out);
-    base_size.encode(out);
-    ground.encode(out);
-    wall.encode(out);
-    jump.encode(out);
-    dash.encode(out);
-    flight.encode(out);
-    blink.encode(out);
-    ledge.encode(out);
-    dodge.encode(out);
-    shield.encode(out);
-    body_mode.encode(out);
-    effects.encode(out);
-    action_buffer.encode(out);
-    restart.encode(out);
-    out.push(u8::from(resources.is_some()));
-    if let Some(resources) = resources.as_deref() {
+    if has_effects {
+        body.effects.encode(out);
+    }
+    if let Some(resources) = body.resources.as_deref() {
         resources.encode(out);
     }
 }
@@ -257,13 +272,16 @@ impl SettledMotion {
             }
         };
         let current_motion = axis_motion(model);
-        encode_body(model, body, &mut self.current);
+        encode_variable_state(model, body, &mut self.current);
         let miss = if let Some(step) = &self.step {
             if step.input != input {
                 ProofMiss::StepInput
             } else if let Some(changed) = step.environment.changed(ctx.world) {
                 changed
-            } else if self.prior != self.current || !same_motion(step.axis_motion.as_ref(), current_motion) {
+            } else if !step.body.matches(body)
+                || self.prior != self.current
+                || !same_motion(step.axis_motion.as_ref(), current_motion)
+            {
                 ProofMiss::BodyState
             } else {
                 *body
@@ -276,6 +294,7 @@ impl SettledMotion {
         } else {
             ProofMiss::New
         };
+        let prior_body = FixedBodyState::capture(body);
         let prior_motion = current_motion.copied();
         self.step = None;
         self.status = SettledMotionStatus::Events;
@@ -301,11 +320,15 @@ impl SettledMotion {
             && events.ground_contact == GroundContactTransition::Unchanged
             && *body.env_contact == Default::default()
         {
-            encode_body(model, body, &mut self.prior);
-            if self.prior == self.current && same_motion(prior_motion.as_ref(), axis_motion(model)) {
+            encode_variable_state(model, body, &mut self.prior);
+            if prior_body.matches(body)
+                && self.prior == self.current
+                && same_motion(prior_motion.as_ref(), axis_motion(model))
+            {
                 result.events.contacts.share();
                 self.status = SettledMotionStatus::Proved(miss);
                 self.step = Some(Box::new(SettledStep {
+                    body: prior_body,
                     axis_motion: prior_motion,
                     environment: Geometry::capture(&observed),
                     input,

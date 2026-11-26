@@ -247,6 +247,9 @@ carrier across its full path.
 The Noodly Belfry marks the travel of its three moving hazards. Give the
 art generator the paths and the hazard bounds so the marks move when an
 author changes a path.
+Show encounter spawn boxes with the room hazards in the geometry preview.
+In the Reliquary, the first knot of the last wave started inside a spike
+tray. Its spawn came from the wave file.
 
 ### Terrain under water
 

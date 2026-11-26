@@ -193,7 +193,7 @@
             mobs: [
                 (kind: "combatant", character: Some("npc_fsm_noodling"), spawn: (480.0, 300.0), size: (40.0, 40.0), delay: 0.0),
                 (kind: "combatant", character: Some("npc_fsm_noodling"), spawn: (980.0, 300.0), size: (40.0, 40.0), delay: 0.0),
-                (kind: "medium_striker", character: Some("npc_spaghetti_event"), spawn: (560.0, 580.0), size: (34.0, 56.0), delay: 0.8),
+                (kind: "medium_striker", character: Some("npc_spaghetti_event"), spawn: (624.0, 580.0), size: (34.0, 56.0), delay: 0.8),
                 (kind: "medium_striker", character: Some("npc_spaghetti_event"), spawn: (960.0, 580.0), size: (34.0, 56.0), delay: 0.8),
                 (kind: "combatant", character: Some("npc_fsm_noodling"), spawn: (730.0, 240.0), size: (40.0, 40.0), delay: 2.4),
             ],

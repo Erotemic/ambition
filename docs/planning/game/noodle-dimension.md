@@ -66,6 +66,13 @@ leads from the lower ladder to the middle bell. Players can also jump up
 the shaft. Each bell has a number that matches its seal in front of the
 Parmesan Key.
 
+## Reliquary
+
+Stall steps give access to the high offering platform from both sides of
+the vigil. Players can also cross on the floor between the hazard trays.
+The Colander Key is in a lit recess behind the grille. The last wave
+starts its west knot on the dry floor between the trays.
+
 ## The soda
 
 A pool of soda is two things in one box. Neither needs a Rust change:

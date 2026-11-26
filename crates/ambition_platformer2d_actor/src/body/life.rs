@@ -69,7 +69,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{LiveRoomInstance, LiveRooms};
 use ambition_platformer2d_world::rooms::{LiveRoomSpecs, RoomSpec};
 use bevy::ecs::change_detection::DetectChanges as _;
-use bevy::prelude::{Commands, Component, Entity, Query, Res, ResMut, Resource, Without, World};
+use bevy::prelude::{Commands, Component, Entity, Local, Query, Res, ResMut, Resource, Without, World};
 
 use super::visit::{Visit, VisitOutcome};
 
@@ -527,7 +527,19 @@ pub fn live_lives(
     mut vfx: ambition_vfx::vfx::VfxWriter,
     mut ledger: ResMut<LifeLedger>,
     tick: Option<Res<ambition_time::SimTick>>,
+    mut observed_characters: Local<BTreeSet<String>>,
 ) {
+    if book.is_changed() {
+        observed_characters.clear();
+        observed_characters.extend(
+            book.lives.values().flat_map(|spec| spec.observes.values()).filter_map(|observation| {
+                match observation {
+                    Observation::Present(character) => Some(character.clone()),
+                    Observation::Free(_) => None,
+                }
+            }),
+        );
+    }
     // No day, no hours to live by.
     let Some(cycle) = cycle else { return };
     if clock.day == 0 || cycle.day_length_s <= 0.0
@@ -542,7 +554,11 @@ pub fn live_lives(
     let present = |room, character: &str| {
         presence
             .get_or_init(|| {
-                characters.iter().map(|(body, worn)| (rooms.of(body), worn.id())).collect::<BTreeSet<_>>()
+                characters
+                    .iter()
+                    .filter(|(_, worn)| observed_characters.contains(worn.id()))
+                    .map(|(body, worn)| (rooms.of(body), worn.id()))
+                    .collect::<BTreeSet<_>>()
             })
             .contains(&(room, character))
     };
@@ -1284,6 +1300,19 @@ mod tests {
         app.update();
         assert_eq!(observed(&app), Value::Bool(false));
         app.world_mut().entity_mut(visitor).insert(InRoomInstance(first));
+        app.update();
+        assert_eq!(observed(&app), Value::Bool(true));
+
+        let mut book = app.world().resource::<LifeBook>().clone();
+        book.lives.get_mut("observer").unwrap().observes.insert(
+            "visitor_here".into(),
+            Observation::Present("other_visitor".into()),
+        );
+        app.world_mut().spawn((InRoomInstance(first), CharacterForm::new("other_visitor")));
+        app.world_mut().entity_mut(visitor).insert(InRoomInstance(second));
+        app.world_mut().insert_resource(book);
+        app.world_mut().get_mut::<Life>(observer).unwrap()
+            .facts.insert("visitor_here".into(), Value::Bool(false));
         app.update();
         assert_eq!(observed(&app), Value::Bool(true));
     }

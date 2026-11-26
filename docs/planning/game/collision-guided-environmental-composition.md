@@ -223,6 +223,8 @@ At the Mockingbird's shore, show the parked shark and its boarding span
 with the mooring. Use the lift bounds to place the mooring posts.
 In the Mockingbird's sky, show the shark spans when the arrival ferry
 reaches the middle of the room. Include the first jump to each side.
+At Primeval Trailhead, show the survey walk, the two steps, and the path
+under the walk. Use the platform spans to place the plank edges.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

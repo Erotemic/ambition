@@ -1074,6 +1074,7 @@
     "spur_east": (),
     // The primeval trailhead's ranger hut.
     "jungle_ranger_hut": (),
+    "jungle_survey_walk": (),
     // Hylbert's ballroom: the game show, its goats and its car.
     "math_ballroom_room": (),
     "math_goat": (),

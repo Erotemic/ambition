@@ -570,6 +570,19 @@ reduced the median `Combat` phase from 3.96–4.64 ms to 3.52 ms. Full tick
 timings overlapped. The complete removal is a cost probe. The engine still
 accepts buffered moves, held follow-ups, movement cancels, and throws.
 
+Control admission uses the slot index to clear ungranted verbs. It reads
+declared techniques in canonical slot order to route edges and report
+unsupported bindings. A probe on the older desktop host loaded 596 Hall
+bodies. None had a technique binding. The isolated gate pass went from
+0.758–0.766 to 0.417–0.425 ms, with the same control frames and edges.
+
+A separate 596-body probe used the indexed action scheme. Resolver time
+fell from 0.142–0.150 to 0.031–0.035 ms per pass in the development
+build and from 0.016–0.022 to 0.009–0.014 ms per pass in the optimized
+build. A comparison of 4,096 mixed schemes kept the same control frames,
+edge order, and diagnostics. These tests measure the gate and its
+resolver. They do not measure an assembled tick.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

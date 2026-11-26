@@ -897,6 +897,40 @@ quality in reference, candidate, candidate, reference order.
 
 Total tick windows overlapped. Device performance still needs a capture.
 
+### NPC rally and bark clocks
+
+Rally selects actors with a target or a body grudge before it reads their
+combat state. It checks for prior rallies even after targets clear so
+allies can return to their usual behavior. New rallies check for active
+fights in dangerous live rooms. Bark clocks use direct room stamps and
+hash lookups. Emission keeps the query order.
+
+Five isolated desktop comparisons used the loaded Hall cast. Each row
+shows the range of run times per pass.
+
+| System and fixture | Reference, ms | Candidate, ms |
+| --- | ---: | ---: |
+| Rally with no fight | 0.183–0.197 | 0.021–0.022 |
+| Rally with one active foe and prior rally | 0.324–0.340 | 0.163–0.171 |
+| Ambient bark clocks | 0.194–0.213 | 0.120–0.134 |
+
+The rally commands and ordered bark messages matched. A separate test
+used two dangerous live rooms. A fight with only a body grudge drew in
+an ally in its own room. The other room's ally stayed peaceful. The three
+NPC combat integration cases passed with the desktop application's libraries.
+
+The next four windowed runs used the same 596 bodies, viewport, and
+quality in reference, candidate, candidate, reference order.
+
+| Median after 30 s | Reference runs, ms/tick | Candidate runs, ms/tick |
+| --- | ---: | ---: |
+| All measured simulation phases | 22.03, 18.39 | 22.43, 18.62 |
+| Gameplay effects, including rally | 1.37, 1.12 | 1.11, 0.98 |
+| World preparation, including barks | 0.53, 0.42 | 0.42, 0.36 |
+
+Host load varied between runs. These runs show lower phase costs and
+overlapping total tick windows. They give no phone FPS result.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on

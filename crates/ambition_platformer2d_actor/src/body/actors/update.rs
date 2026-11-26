@@ -2650,9 +2650,9 @@ fn build_enemy_brain_snapshot(
 /// Per-NPC ambient-bark timing (decremented by sim dt; deterministic jitter).
 #[derive(Default)]
 pub struct NpcIdleBarkState {
-    rooms: std::collections::BTreeMap<
+    rooms: bevy::platform::collections::HashMap<
         Option<ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance>,
-        std::collections::BTreeMap<String, BarkClock>,
+        bevy::platform::collections::HashMap<String, BarkClock>,
     >,
 }
 
@@ -2692,6 +2692,7 @@ pub fn tick_npc_idle_barks(
             &ActorDisposition,
             &ambition_characters::actor::BodyHealth,
             &ambition_combat::components::FeatureId,
+            Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
         ),
         (With<FeatureSimEntity>, Without<ambition_characters::control::ControlHolds>),
     >,
@@ -2709,13 +2710,15 @@ pub fn tick_npc_idle_barks(
     }
     let catalog = &*character_catalog;
     use ambition_characters::actor::character_catalog::BarkSituation;
-    for (entity, kin, identity, combat, interaction, disposition, health, feature_id) in &npcs {
+    for (entity, kin, identity, combat, interaction, disposition, health, feature_id, stamp) in &npcs {
         // Structural tangibility gate: a dead body does not
         // present — an intangible corpse says nothing, ambient or otherwise.
         if disposition.is_hostile() || combat.recently_struck() || !health.alive() {
             continue;
         }
-        let room = room_set.as_ref().and_then(|rooms| rooms.live().of(entity));
+        let room = room_set.as_ref().and_then(|rooms| {
+            stamp.map(|room| room.0).or_else(|| rooms.live().of(entity))
+        });
         // Two instances of a room can have the same authored NPC IDs.
         let clocks = state.rooms.entry(room).or_default();
         let mut clock = clocks.get_mut(&identity.id);

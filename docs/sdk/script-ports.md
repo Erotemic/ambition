@@ -101,6 +101,23 @@ Port `ambition.boss.conduct@11`, trigger: read as `this.trigger`.
 | `predecessor` | { position: [x, y], size: [x, y], side: number, alive: bool, hall: { floor: number, left: number, right: number } or () } or () | The predecessor boss in this live room, when available. |
 | `reach` | list of number or () | Free movement distances [left, right, up, down], each capped at REACH_CAP. |
 
+## `conducted_pose`
+
+Port `ambition.boss.conducted_pose@2`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `pose` | { position: [x, y], velocity: [x, y] } or () | `()` | Hold this pose. Omit the pose to release the body to its controller. |
+| `side` | number or () | `()` | Set the facing of the body while it is held. |
+
+## `boss_guard`
+
+Port `ambition.boss.guard@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `guarded` | bool | required | Refuse damage from melee and projectile hits until the guard changes. |
+
 ## `mount`
 
 Port `ambition.boss.mount@5`, observation: read as `this.observe.<alias>`.
@@ -166,6 +183,14 @@ Port `ambition.feedback.burst@1`, request: `this.requests.push(request("<alias>"
 | `speed` | number | required |  |
 | `color` | list of number | required |  |
 | `kind` | text | required |  |
+
+## `camera_shake`
+
+Port `ambition.feedback.camera_shake@1`, request: `this.requests.push(request("<alias>", #{ .. }))`.
+
+| field | value | when absent | meaning |
+|---|---|---|---|
+| `amplitude_px` | number | required | The size of the camera shake in pixels. |
 
 ## `held_ray`
 

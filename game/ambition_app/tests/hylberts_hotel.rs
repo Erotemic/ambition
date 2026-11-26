@@ -90,13 +90,14 @@ fn defeating_the_gram_reaper_opens_the_treasury_and_keeps_it_open() {
     let mut app = a_session_in(REAPER_HALL);
     protect_the_walker(&mut app);
     assert!(standing_walls(&mut app).contains("hylbert_reaper_treasury_seal"));
+    go_to(&mut app, ae::Vec2::new(680.0, 672.0), "the Reaper's reach");
     let mut struck = false;
     for _ in 0..600 {
         let target = {
             let world = app.world_mut();
             let mut q = world.query::<(&BossConfig, &BossEncounter, &ae::BodyKinematics)>();
             q.iter(world).find_map(|(config, status, body)| {
-                (config.id == REAPER && status.encounter.as_ref().is_some_and(|phase| !phase.boss_invulnerable()))
+                (config.id == REAPER && !status.guarded && status.encounter.as_ref().is_some_and(|phase| !phase.boss_invulnerable()))
                     .then_some(body.pos)
             })
         };

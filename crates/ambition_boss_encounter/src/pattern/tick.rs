@@ -68,7 +68,13 @@ pub fn tick_boss_pattern(
     // Advance the chase/engage/retreat macro state before emitting
     // `desired_vel`, so the movement override (Approach chases, Retreat pulls
     // away) matches the current macro state.
-    if cfg.macro_tuning.is_enabled() && ctx.encounter_phase.is_attacking() {
+    // Continue the move and its rest if the target leaves attack range.
+    let on_attack_beat = cfg.macro_tuning.suppress_attacks_while_moving
+        && phase_entered.is_none()
+        && (ctx.live_attack.is_some()
+            || matches!(state.timeline.get(state.step_index), Some(BossPatternStep::Rest { duration })
+                if state.step_elapsed + ctx.dt < *duration));
+    if cfg.macro_tuning.is_enabled() && ctx.encounter_phase.is_attacking() && !on_attack_beat {
         advance_macro_state(cfg, state, ctx);
     }
 

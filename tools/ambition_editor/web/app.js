@@ -69,7 +69,7 @@
   const haystack = new Map();
   for (const a of assetList) {
     const g = gens[a.generator] || {};
-    haystack.set(a.id, [a.id, a.name, a.display, a.family, a.character_id, (a.tags || []).join(" "), a.generator, g.source, g.module,
+    haystack.set(a.id, [a.id, a.name, a.display, a.family, ...(a.character_ids || [a.character_id]), (a.tags || []).join(" "), a.generator, g.source, g.module,
       (a.uses || []).map((u) => u.path + " " + (u.row || "")).join(" "), (a.placements || []).map((p) => p.level + " " + p.field).join(" "),
       JSON.stringify(a.chargen || {}), (a.layout?.rows || []).map(r => r.name).join(" "), a.products.join(" "), (a.lineages || []).map((l) => l.lineage + " " + l.name).join(" "),
       a.authorship ? a.authorship.shares.map((x) => x.who).join(" ") : ""].join(" ").toLowerCase());
@@ -182,7 +182,7 @@
     app.innerHTML = `<div class="detail">
       ${navBar(a)}
       <h1>${esc(a.display)}</h1>
-      <p class="lede">${fam(a.family)} ${chip(a.confidence)} <code>${esc(a.id)}</code>${a.character_id ? ` · character <code>${esc(a.character_id)}</code>` : ""}${a.weakest && a.weakest !== a.confidence ? ` · weakest file: ${chip(a.weakest)}` : ""}${unitChip(a)}</p>
+      <p class="lede">${fam(a.family)} ${chip(a.confidence)} <code>${esc(a.id)}</code>${(a.character_ids || [a.character_id]).filter(Boolean).map(id => ` · character <code>${esc(id)}</code>`).join("")}${a.weakest && a.weakest !== a.confidence ? ` · weakest file: ${chip(a.weakest)}` : ""}${unitChip(a)}</p>
       ${a.description ? `<p class="lede">${esc(a.description)}</p>` : ""}
       ${a.tags && a.tags.length ? `<div class="chips" style="margin-bottom:12px">${a.tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}
       ${a.inspection_unit ? `<p><a href="#inventory/unit/${enc(a.inspection_unit)}">Inventory, coverage, and generation evidence</a></p>` : ""}

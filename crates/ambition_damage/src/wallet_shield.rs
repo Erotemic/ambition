@@ -41,12 +41,21 @@ pub fn project_wallet_shields(
         (Entity, Option<&CharacterForm>, Has<BodyWalletShield>),
         Or<(With<CharacterForm>, With<BodyWalletShield>)>,
     >,
+    shielded_bodies: Query<Entity, With<BodyWalletShield>>,
 ) {
+    // Shields must still clear after the last room with this rule closes.
+    if !rule.any_live_declaration() {
+        for entity in &shielded_bodies {
+            commands.entity(entity).try_remove::<BodyWalletShield>();
+        }
+        return;
+    }
+    let cast = cast.get();
     for (entity, worn, shielded) in &bodies {
         // The character first: most bodies wear no shield, and the room
         // lookup is the dearer question.
         let shields = worn
-            .and_then(|worn| cast.get()?.get(worn.id()))
+            .and_then(|worn| cast?.get(worn.id()))
             .is_some_and(|character| character.wallet_shield)
             && rule.of(entity).is_some();
         match (shields, shielded) {

@@ -59,7 +59,9 @@ a reference for the look, not a layout, and not for its colours.
   (they are drawings: they do not hold you). Subclause 4(c) paints the sky
   from a hanging platform. A Bug and Feature Creep guard the built ground.
 - **The Site Office** (`unfinished_site_office`), by a door: the gauges of
-  GRAVITY, WEATHER and LAYERS, the backlog, and the Placeholder.
+  GRAVITY, WEATHER and LAYERS, the backlog, and the Placeholder. Windows
+  look out on the work site. Visitors can jump onto the gauge bench and
+  cross to the records table. The floor between them leads to Placeholder.
 
 ## The people and the things that fight
 

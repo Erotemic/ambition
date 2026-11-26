@@ -378,3 +378,18 @@ def test_related_assets_join_forms_lineages_generators_and_specs(tmp_path):
     assert bea["Made by townsfolk · Chargen family crew"] == ["sheet:cid"]
     assert any("species human" in g["title"] for g in rows["sheet:bea"]["related"])
     assert rows["sheet:dot"]["related"] == []
+
+
+def test_prepared_names_follow_exact_sheets_without_a_generator():
+    manifest = "sprites/shared_spritesheet.ron"
+    asset = {"id": "sheet:shared", "display": "Old art label", "tags": [], "products": [manifest]}
+    other = {"id": "sheet:other", "display": "Other look", "tags": [], "products": ["sprites/other_spritesheet.ron"]}
+    identities = {name: {"id": name.lower(), "key": name, "display": name, "catalog": {"manifest": manifest}} for name in ("First", "Second")}
+    build._apply_prepared_identities({"shared": asset, "other": other}, {"identities": identities, "units": {}})
+    assert asset["display"] == "First / Second"
+    assert asset["art_label"] == "Old art label"
+    assert asset["identities"] == ["First", "Second"]
+    assert asset["character_ids"] == ["first", "second"]
+    assert identities["First"]["preview"]["asset"] == asset["id"]
+    assert other["display"] == "Other look"
+    assert other["identities"] == []

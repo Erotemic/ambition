@@ -57,6 +57,24 @@ fn an_empty_library_lowers_without_inventing_a_scene() {
     assert!(lowered_cutscenes(&pack).unwrap().is_empty());
 }
 
+
+#[test]
+fn a_dialogue_beat_can_name_its_speaker_by_character_id() {
+    let source = format!("[{}]", script("talk", r#"Dialogue(speaker_character_id: "npc_guard", text: "Hello")"#));
+    let pack = compile(
+        &draft("dialogue_with_character_id", &[("one.ron", &source)]),
+        &registry(),
+        &AssetsUnchecked,
+    ).expect("a character ID can supply the label");
+    let [CutsceneBeat::Dialogue { speaker, speaker_character_id, .. }] =
+        lowered_cutscenes(&pack).unwrap()[0].beats.as_slice()
+    else {
+        panic!("expected a dialogue beat");
+    };
+    assert!(speaker.is_empty());
+    assert_eq!(speaker_character_id, "npc_guard");
+}
+
 fn refusal(name: &str, files: &[(&str, &str)]) -> String {
     let failure = compile(&draft(name, files), &registry(), &AssetsUnchecked)
         .expect_err("these cutscenes must be refused");

@@ -1001,7 +1001,8 @@ pub mod extension {
     /// A module the game ships as a script.
     #[cfg(feature = "script_modules")]
     pub use ambition_platformer2d_runtime::extension_composition::{
-        add_shipped_script, add_prepared_script, LibraryLimits, LibrarySource, PreparedScript, RhaiModules,
+        add_shipped_script, prepare_platformer_script, add_prepared_script,
+        LibraryLimits, LibrarySource, PreparedScript, RhaiModules,
     };
 }
 pub use ambition_platformer2d_shared_tangle as platformer;

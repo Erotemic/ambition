@@ -125,6 +125,12 @@ its own declaration or a linked module selected by stem. No runtime file
 access is required. Native and browser hosts use the same compiler and state
 contracts; their source transport can differ.
 
+The Platformer2D host supplies `ambition/boss_beats.rhai` to shipped scripts
+and to files in `ExtensionModuleFiles`. Hosts that supply their own script
+sources can use `ambition_platformer2d::extension::prepare_platformer_script`
+to use the same SDK library and port table. See the
+[boss authoring recipe](../recipes/scripted-stage-attacks.md#script-an-encounter-pattern).
+
 ## Evidence and cost
 
 The loaded [library fixture](../../game/ambition_app/tests/scripted_libraries.rs)

@@ -15,6 +15,7 @@
 //! * **Result** — submitted is not applied. No acknowledgement port yet.
 
 pub mod attachments;
+mod attack_mark;
 pub mod blast;
 pub mod contact;
 pub mod custody;
@@ -42,6 +43,7 @@ pub mod technique;
 pub mod think;
 pub mod whereabouts;
 pub mod wielded;
+pub use attack_mark::{AttackMark, AttackMarkPort};
 pub use blast::{Blast, BlastPort, CreditPort};
 pub use force::{GravityWell, HeldForce, HeldForcePort};
 pub use reaction::{AnswerParry, AnswerParryPort, Parried, ParriedPort, Struck, StruckPort};
@@ -206,3 +208,19 @@ impl Port for HeldDamageBoxPort {
         })
     }
 }
+
+ambition_extension_sdk::port_record! {
+    HeldDamageBox {
+        /// Slot within this entry and body.
+        slot: u32,
+        /// Change this when a new strike starts in the slot.
+        generation: u32,
+        /// World center of the box, with +Y down.
+        center: [f32; 2],
+        half_extent: [f32; 2],
+        damage: i32,
+        knockback: f32,
+        lifetime_s: f32,
+    }
+}
+ambition_extension_sdk::script_port!(HeldDamageBoxPort);

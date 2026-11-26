@@ -2,8 +2,6 @@
 
 #[cfg(any(feature = "wasm_modules", feature = "script_modules"))]
 use super::remint_session_content;
-#[cfg(feature = "script_modules")]
-use super::script_ports;
 use bevy::prelude::*;
 
 /// The variable that names loaded module files for a developer run.
@@ -209,12 +207,9 @@ fn prepare_script(
 ) -> Result<ambition_extension_rhai::PreparedScript, String> {
     let source = snapshot.read(path, used)?;
     let directory = path.parent().unwrap_or_else(|| std::path::Path::new("."));
-    ambition_extension_rhai::PreparedScript::with_libraries(
+    super::prepare_platformer_script(
         &source.name,
         &source.text,
-        script_ports(),
-        ambition_extension_rhai::DEFAULT_MAX_OPERATIONS,
-        ambition_extension_rhai::LibraryLimits::default(),
         |id| snapshot.read(&directory.join(id), used),
     )
 }

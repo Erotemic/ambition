@@ -456,6 +456,7 @@ pub fn vfx_spawn_messages(sprite_content: bevy::prelude::Res<ambition_sprite_she
             // Drawn by `lines::receive_decorations`, which keeps each lease
             // as one effect.
             VfxMessage::Lightning { .. } | VfxMessage::LightningAura { .. } => {}
+            VfxMessage::AttackMark { .. } => {}
         }
     }
 }

@@ -72,7 +72,7 @@ impl Tris {
     }
 
     /// Add the convex polygon `poly` as a fan.
-    fn polygon(&mut self, poly: &[(Vec2, [f32; 4])]) {
+    pub(crate) fn polygon(&mut self, poly: &[(Vec2, [f32; 4])]) {
         if poly.len() < 3 {
             return;
         }

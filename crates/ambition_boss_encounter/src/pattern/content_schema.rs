@@ -497,6 +497,18 @@ impl ContentSchemaHandler for BossProfilesSchema {
                 );
             }
 
+            if profile.telegraph_speed_scale.is_some_and(|scale| !(0.0..=1.0).contains(&scale)) {
+                out.report(
+                    facet
+                        .diagnostic(
+                            DiagnosticCode::MalformedProviderBinding,
+                            format!("boss `{key}` has a telegraph speed scale outside 0..=1"),
+                        )
+                        .about(id.clone())
+                        .at_field("telegraph_speed_scale"),
+                );
+            }
+
             for (field, value) in [
                 ("attack_cooldown", profile.attack_cooldown),
                 ("attack_windup", profile.attack_windup),

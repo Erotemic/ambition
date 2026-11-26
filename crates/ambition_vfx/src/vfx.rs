@@ -481,6 +481,14 @@ pub enum VfxMessage {
         color: [f32; 4],
         seconds: f32,
     },
+    /// The warning or strike mark for a rectangle in world space.
+    AttackMark {
+        key: AttackMarkKey,
+        center: ae::Vec2,
+        half: ae::Vec2,
+        progress: f32,
+        active: bool,
+    },
     /// A bolt of lightning between two ends, LEASED by `key` for `hold`
     /// seconds: the same key written again renews it and moves its ends. See
     /// [`crate::lightning`].
@@ -509,6 +517,14 @@ pub enum VfxMessage {
         feature_id: String,
         seconds: f32,
     },
+}
+
+/// The identity of a mark in a live room.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct AttackMarkKey {
+    pub owner: Entity,
+    pub entry: std::sync::Arc<str>,
+    pub slot: u32,
 }
 
 /// A reusable effect CUE request: a sim system writes this to ask for an

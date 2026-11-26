@@ -28,7 +28,7 @@ impl Hall {
 /// Read the hall off the room: the floor under `from` and the walls either side
 /// of it.
 pub fn measure_hall(world: &ae::World, from: Vec2) -> Option<Hall> {
-    let solid = |block: &ae::Block| matches!(block.kind, ae::BlockKind::Solid);
+    let solid = |block: &ae::Block| ae::collision_semantics::is_full_collision_surface(block.kind);
     let probe = ae::Aabb::new(from, Vec2::splat(2.0));
     let floor = world.first_body_sweep(probe, Vec2::new(0.0, 4000.0), solid)?.block.aabb.min.y;
     let row = ae::Aabb::new(Vec2::new(from.x, floor - 24.0), Vec2::splat(2.0));

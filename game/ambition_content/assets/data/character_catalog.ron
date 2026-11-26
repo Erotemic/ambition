@@ -2241,7 +2241,7 @@
         // ===== Pirate cove (Pirate Cove faction).
         "npc_pirate_admiral": (
             sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
-            display_name: "Pirate Admiral",
+            display_name: "R. Badely",
             manifest: "sprites/pirate_admiral_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,

@@ -1851,7 +1851,7 @@ mod held_item_view_tests {
     /// asserted the opposite.
     ///
     /// It read *"an autonomous holder drawing its item is a separate question
-    /// about NPC presentation"* — but the Pirate Admiral's side-B draws
+    /// about NPC presentation"* — but R. Badely's side-B draws
     /// `admiral_gun_sword`, an id registered in the IN-HAND art manifest and in no
     /// other, so in a CPU-versus-CPU match neither Admiral's gun-sword was drawn
     /// by any road at all. `DrivingParticipant` was never the question a renderer

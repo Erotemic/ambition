@@ -400,7 +400,7 @@ mod tests {
     #[test]
     fn player_wears_pirate_admiral_identity_and_moveset() {
         // The player box stays (the primary seat, PlayerEntity by type), but it now
-        // reads as the Pirate Admiral: its name and its authored PISTOL — the
+        // reads as R. Badely: its name and its authored PISTOL — the
         // worn character's ActionSet IS the kit (no fallback to the player's
         // bolt). Pin the installed default so the protagonist branch is
         // deterministic regardless of test order.
@@ -413,7 +413,7 @@ mod tests {
             Some(&cast),
             &mut ambition_characters::brain::RangedExecution::ChargedProjectile,
         );
-        assert_eq!(bundle.name.as_str(), "Pirate Admiral");
+        assert_eq!(bundle.name.as_str(), "R. Badely");
         assert_eq!(
             bundle.driver.0,
             PlayerSlot::PRIMARY,

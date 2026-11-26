@@ -11,6 +11,7 @@ struct ScreenEffectSettings {
     grain_and_vignette: vec4<f32>,
     robot: vec4<f32>,
     underwater: vec4<f32>,
+    view: vec4<f32>,
 }
 
 @group(0) @binding(2) var<uniform> settings: ScreenEffectSettings;
@@ -54,7 +55,10 @@ fn stores_srgb() -> bool {
 }
 
 fn sample_screen(uv: vec2<f32>) -> vec4<f32> {
-    let stored = textureSample(screen_texture, texture_sampler, safe_uv(uv));
+    let half_texel = 0.5 / screen_size();
+    let local_uv = clamp(uv, half_texel, vec2<f32>(1.0) - half_texel);
+    let target_uv = settings.view.xy + local_uv * settings.view.zw;
+    let stored = textureSampleLevel(screen_texture, texture_sampler, target_uv, 0.0);
     if stores_srgb() {
         return vec4<f32>(srgb_to_linear(stored.rgb), stored.a);
     }
@@ -62,7 +66,7 @@ fn sample_screen(uv: vec2<f32>) -> vec4<f32> {
 }
 
 fn screen_size() -> vec2<f32> {
-    return vec2<f32>(textureDimensions(screen_texture));
+    return max(vec2<f32>(textureDimensions(screen_texture)) * settings.view.zw, vec2<f32>(1.0));
 }
 
 fn rgb_split(uv: vec2<f32>, chroma: f32) -> vec4<f32> {
@@ -323,14 +327,14 @@ fn apply_film_grain(
     return rgb + noise * amplitude;
 }
 
-fn shade(in: FullscreenVertexOutput) -> vec4<f32> {
+fn shade(view_uv: vec2<f32>) -> vec4<f32> {
     let global_strength = clamp(settings.control.x, 0.0, 1.0);
     let time = settings.control.y;
     let grain_fps = settings.control.z;
     let grain_size = settings.control.w;
 
     if global_strength <= 0.001 {
-        return sample_screen(in.uv);
+        return sample_screen(view_uv);
     }
 
     let crt_strength = clamp(settings.strengths.x, 0.0, 1.0);
@@ -355,7 +359,7 @@ fn shade(in: FullscreenVertexOutput) -> vec4<f32> {
     let underwater_distortion = clamp(settings.underwater.x, 0.0, 1.0);
     let deep_dream_strength = clamp(settings.underwater.y, 0.0, 1.0);
 
-    var uv = in.uv;
+    var uv = view_uv;
     if underwater_strength > 0.001 {
         uv = underwater_uv(uv, time, underwater_strength * underwater_distortion);
     }
@@ -367,7 +371,7 @@ fn shade(in: FullscreenVertexOutput) -> vec4<f32> {
     if crt_strength > 0.001 {
         rgb = crt_color(
             uv,
-            in.uv,
+            view_uv,
             crt_strength,
             crt_scanlines,
             crt_mask,
@@ -393,7 +397,7 @@ fn shade(in: FullscreenVertexOutput) -> vec4<f32> {
     }
 
     let size = screen_size();
-    let pixel = floor(in.uv * size);
+    let pixel = floor(view_uv * size);
 
     if robot_strength > 0.001 {
         rgb = apply_film_grain(
@@ -405,7 +409,7 @@ fn shade(in: FullscreenVertexOutput) -> vec4<f32> {
             24.0,
             0.25
         );
-        rgb = apply_robot_scanlines(rgb, in.uv, robot_scanlines * robot_strength, time);
+        rgb = apply_robot_scanlines(rgb, view_uv, robot_scanlines * robot_strength, time);
 
         let luma = dot(rgb, vec3<f32>(0.299, 0.587, 0.114));
         rgb = mix(rgb, vec3<f32>(luma), robot_desaturate * robot_strength);
@@ -424,7 +428,7 @@ fn shade(in: FullscreenVertexOutput) -> vec4<f32> {
     }
 
     if vignette_strength > 0.001 {
-        rgb = apply_vignette(rgb, in.uv, vignette_strength);
+        rgb = apply_vignette(rgb, view_uv, vignette_strength);
     }
 
     return vec4<f32>(clamp(rgb, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
@@ -432,7 +436,13 @@ fn shade(in: FullscreenVertexOutput) -> vec4<f32> {
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-    let colour = shade(in);
+    let view_uv = (in.uv - settings.view.xy) / settings.view.zw;
+    // A post-process write switches textures for the whole target. Preserve
+    // the pixels outside this camera's viewport.
+    if any(view_uv < vec2<f32>(0.0)) || any(view_uv >= vec2<f32>(1.0)) {
+        return textureLoad(screen_texture, vec2<i32>(in.position.xy), 0);
+    }
+    let colour = shade(view_uv);
     if stores_srgb() {
         return vec4<f32>(linear_to_srgb(colour.rgb), colour.a);
     }

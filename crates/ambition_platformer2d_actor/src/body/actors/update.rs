@@ -361,15 +361,18 @@ pub fn tick_actor_brains(
     // integrator moves it by, for the brain snapshot's movement law.
     //
     // And its guards (`ambition_combat::guard`): the strikes they turned.
-    bodies: Query<(
-        &ae::BodyKinematics,
-        bevy::prelude::Has<ae::Unmirrored>,
-        Option<&ae::AuthoredMovementTuning>,
-        Option<&ambition_combat::guard::GuardState>,
-        // A rider's mount, for whether the pair steers in flight. See
-        // `steers_in_flight`.
-        Option<(&ae::ActorSurfaceState, &ae::BodyFlightState)>,
-    )>,
+    // The complete actor query checks eligibility for fixed control and
+    // supplies body data to decisions that need it.
+    (bodies, clusters): (
+        Query<(
+            &ae::BodyKinematics,
+            bevy::prelude::Has<ae::Unmirrored>,
+            Option<&ae::AuthoredMovementTuning>,
+            Option<&ambition_combat::guard::GuardState>,
+            Option<(&ae::ActorSurfaceState, &ae::BodyFlightState)>,
+        )>,
+        Query<ambition_body_seed::clusters::ActorClusterQueryDataReadOnly>,
+    ),
     // ACT1: what the move admission reads that the actor cluster does not
     // carry, so the kit is offered by the trigger's own rule.
     admission_reads: ambition_combat::moveset::MoveAdmissionReads,
@@ -395,10 +398,7 @@ pub fn tick_actor_brains(
             // `BrainSnapshot::actor_half_width`.
             Option<&ambition_mount::RidingOn>,
             (
-                // The generated read-only view of the COMPLETE actor cluster.
-                // Using the existing cluster shape preserves the old eligibility
-                // contract exactly while removing decision's mutable body authority.
-                Option<ambition_body_seed::clusters::ActorClusterQueryDataReadOnly>,
+                Option<&ambition_combat::actor_tuning::ActorPolicy>,
                 // The brain interprets controller input and perceives "down" through it — never
                 // through a private gravity lookup.
                 Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
@@ -423,6 +423,7 @@ pub fn tick_actor_brains(
                     bevy::prelude::Has<ambition_match::MatchSeat>,
                     bevy::prelude::Has<ambition_combat::components::SummonedToTheFight>,
                 ),
+                Option<&ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance>,
                 // FB4b §13.2: the body's own moveset, so the brain snapshot can
                 // carry the ATTACK KIT. The fighter brain scores real moves with
                 // real frame data and cannot reach a moveset itself —
@@ -527,8 +528,11 @@ pub fn tick_actor_brains(
     let observation_cut = perceived.cut();
     let preceding_cut = observation_cut.checked_sub(1);
     let mut crew_calls = Vec::new();
-    for (entity, .., (body, _, faction, _, memory, _, (seated, summoned), ..)) in actors.iter() {
-        let (Some(body), Some(memory)) = (body, memory) else {
+    for (entity, .., (policy, _, faction, _, memory, _, (seated, summoned), stamp, ..)) in actors.iter() {
+        if !policy.is_some_and(|policy| policy.0.shares_sightings) {
+            continue;
+        }
+        let (Ok(body), Some(memory)) = (clusters.get(entity), memory) else {
             continue;
         };
         let Some(perception) = crate::body::perception::perception_of(seated || summoned, extent)
@@ -538,11 +542,8 @@ pub fn tick_actor_brains(
         // A body that changed live room since it last decided still holds the
         // old room's sightings. Its own tick forgets them below; until then
         // it must not call them out in the new room.
-        let memory_room = rooms
-            .live()
-            .stamped(entity)
-            .map(ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::ordinal);
-        if body.policy.0.shares_sightings && body.health.alive() && memory.0.room() == memory_room {
+        let memory_room = stamp.map(|stamp| stamp.0.ordinal());
+        if body.health.alive() && memory.0.room() == memory_room {
             crate::body::perception::crew_calls(
                 entity,
                 rooms.of(entity),
@@ -569,13 +570,14 @@ pub fn tick_actor_brains(
         action_set,
         riding,
         (
-            body,
+            policy,
             resolved_frame,
             faction,
             aggression,
             mut perception_memory,
             mut module_observation,
             (seated, summoned),
+            stamp,
             moveset,
             playback,
             stale_moves,
@@ -595,14 +597,9 @@ pub fn tick_actor_brains(
         };
         // An actor with no live room (no room loaded) has no world to decide
         // in.
-        let stamp = rooms
-            .live()
-            .stamped(this_actor_entity)
-            .map(ambition_platformer2d_shared_tangle::lifecycle::InRoomInstance);
-        let Some(feature_world) = composed.solids(&collision, stamp.as_ref()) else {
+        let Some(feature_world) = composed.solids(&collision, stamp) else {
             continue;
         };
-        let room = rooms.of(this_actor_entity);
         // Tactical memory is room-local (`WorldMemory::enter_room`). The key is
         // the body's own stamp, not `room`: an unstamped body is put in the
         // sole live room, and that answer changes when a second room goes
@@ -614,75 +611,30 @@ pub fn tick_actor_brains(
                 memory.0.enter_room(memory_room);
             }
         }
-        // This actor's combat-target liveness. `select_actor_targets` already
-        // dropped a dead/absent foe (it only ever targets a LIVE candidate, and a
-        // faction-feud fighter has no target once its foe is gone), so `entity ==
-        // None` here means "no one to fight". The brain can patrol without a target.
-        let target_alive = match target.entity {
-            Some(e) => decision_facts.crowd.is_alive(e),
-            None => false,
-        };
-        // `target.pos` is populated by `select_actor_targets`
-        // (#17.8); it defaults to the actor's spawn-of-game position
-        // when no players exist yet (pre-spawn / post-death-of-all),
-        // and is the primary player's pos in the single-player
-        // production game.
-        let target_pos = target.pos;
         {
-            // A production actor carries the complete read-only decision view.
-            // `Option` keeps incomplete debug/scripted fixtures from being
-            // silently filtered out of the outer query; they simply have no
-            // autonomous decision to evaluate.
-            let Some(body) = body else {
-                continue;
-            };
-            if body.policy.0.shares_sightings && body.health.alive() {
-                if let Some(memory) = perception_memory.as_deref_mut() {
-                    crate::body::perception::hear_crew(
-                        &crew_calls,
-                        this_actor_entity,
-                        perceived.peer(this_actor_entity).map(|peer| peer.id.as_str()),
-                        room,
-                        body.kin.pos,
-                        faction.copied(),
-                        &mut memory.0,
-                    );
+            if !crew_calls.is_empty() && policy.is_some_and(|policy| policy.0.shares_sightings) {
+                if let (Ok(body), Some(memory)) =
+                    (clusters.get(this_actor_entity), perception_memory.as_mut())
+                {
+                    if body.health.alive() {
+                        crate::body::perception::hear_crew(
+                            &crew_calls,
+                            this_actor_entity,
+                            perceived.peer(this_actor_entity).map(|peer| peer.id.as_str()),
+                            rooms.of(this_actor_entity),
+                            body.kin.pos,
+                            faction.copied(),
+                            &mut memory.0,
+                        );
+                    }
                 }
             }
             {
-                // Every brain-attached actor builds its snapshot + world-view and
-                // ticks its brain into an `ActorControlFrame`. The following PUBLISH
-                // phase commits that value to `ActorControl`, which movement and the
-                // EFFECTS consumers (`emit_brain_action_messages` → melee / ranged)
-                // both read. Smash / Patrol / MeleeBrute / Skirmisher /
-                // Sniper / Wanderer all flow through this single path. A body without
-                // a brain gets a neutral frame (production spawns always attach one).
-                //
-                // The body's authoritative per-tick frame (resolved once; the
-                // SAME value integration consumes). A cluster-bearing body
-                // always carries it; absence skips the whole actor, loudly
-                // caught by the reachability suites (like MotionModel).
+                // Both control paths require the resolved motion frame.
                 let Some(resolved_frame) = resolved_frame else {
                     continue;
                 };
-                let enemy_gravity_dir = resolved_frame.down();
-                // A PARTICIPANT'S BODY IS NOT THIS SYSTEM'S TO DECIDE FOR.
-                // A possessed actor carries `DrivingParticipant(slot)`, and its
-                // `ActorControl` is produced a whole phase earlier by
-                // `tick_controlled_brains` — the one seam that turns participant
-                // control into an intent frame, for the home avatar and for this
-                // body by the same rule.
-                //
-                // What this skip DELETES is what a human was paying for to move a
-                // stick: an enemy brain snapshot, a perception policy, a world view
-                // built over the collision world, a believed-target derivation, and
-                // a MUTATION of this body's `PerceptionMemory` — none of which the
-                // player-brain translator reads. It is not free to build them
-                // either: possessing a body would restart its sight memory every
-                // tick from a view nobody consulted.
-                //
-                // Observation and state maintenance already ran for a driven
-                // body; only the autonomous decision is suppressed here.
+                // Participant control is written by `tick_controlled_brains`.
                 if driver.is_some() {
                     continue;
                 }
@@ -690,21 +642,37 @@ pub fn tick_actor_brains(
                     module_observation.as_deref(),
                     brain.as_deref().and_then(|brain| brain.fixed_control()),
                 ) {
+                    if !clusters.contains(this_actor_entity) {
+                        continue;
+                    }
                     super::super::perception::enforce_empty_belief_for_none(
                         ambition_characters::perception::PerceptionRequirement::None,
-                        perception_memory.as_deref_mut(),
+                        perception_memory
+                            .as_mut()
+                            .filter(|memory| !memory.0.is_empty())
+                            .map(|memory| &mut **memory),
                     );
                     if has_control {
                         decisions.frames.push((this_actor_entity, frame));
                     }
                     continue;
                 }
-                let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
+                let brain_frame = if let Some(brain) = brain.as_mut() {
+                    let Ok(body) = clusters.get(this_actor_entity) else {
+                        continue;
+                    };
+                    let brain_ref = &mut **brain;
+                    let enemy_gravity_dir = resolved_frame.down();
+                    let room = rooms.of(this_actor_entity);
+                    let target_alive = target.entity.is_some_and(|entity| {
+                        decision_facts.crowd.is_alive(entity)
+                    });
+                    let target_pos = target.pos;
                     let combat_rules = room_rules.of(this_actor_entity);
                     let dt = dt * rooms.scale_in(room);
                     // Movement queries use the gates open for this body.
                     let open_gates = collision
-                        .room(stamp.as_ref())
+                        .room(stamp)
                         .map(|room| room.gates_open_for(this_actor_entity))
                         .unwrap_or_default();
                     let crowding = decision_facts.crowd.crowding(this_actor_entity);
@@ -982,9 +950,11 @@ pub fn tick_actor_brains(
                     }
                     bf
                 } else {
+                    if !clusters.contains(this_actor_entity) {
+                        continue;
+                    }
                     ambition_characters::actor::control::ActorControlFrame::neutral()
                 };
-                let _ = enemy_gravity_dir;
                 // Decision ends in a plain value. The next phase is the only
                 // autonomous writer of `ActorControl`; movement cannot begin until
                 // that publish has completed. A body with no control component still

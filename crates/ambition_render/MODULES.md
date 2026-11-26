@@ -25,13 +25,14 @@
 | [`rendering`](src/rendering/mod.rs) | Bevy presentation systems that project simulation/view state into visuals. |
 | [`runtime_census`](src/runtime_census.rs) | Profiling-only presentation census: the views, targets and draw population Ambition hands the renderer. |
 | [`screen_effects`](src/screen_effects.rs) | Whole-screen post-processing effects for presentation cameras. |
+| [`screen_pass`](src/screen_pass.rs) | Camera post-processing with a separate pipeline and bindings for each effect. |
 | [`spirit_field`](src/spirit_field.rs) | The field of a spirit: near each spirit the picture ripples, as air over a fire does, and takes the spirit's colour. |
 | [`texture_mips`](src/texture_mips.rs) | Prepare repeating RGBA textures for filtered minification. |
 | [`ui_fonts`](src/ui_fonts.rs) | UI font loading for the presentation layer. |
 | [`ui_surface`](src/ui_surface.rs) | Participant-owned UI regions resolved from the live view layout. |
 | [`void_field`](src/void_field.rs) | The field of the void: the picture loses its colour, and a part of its light, near each void thing. |
 
-_24 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
+_25 crate-root modules. Regenerate: `python scripts/measure/modules_md.py --write`._
 
 <!-- END generated module map -->
 

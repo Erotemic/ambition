@@ -19,21 +19,14 @@
 use bevy::{
     asset::embedded_asset,
     camera::visibility::RenderLayers,
-    core_pipeline::{
-        fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin},
-        schedule::Core2d,
-        tonemapping::tonemapping,
-        Core2dSystems,
-    },
-    ecs::{schedule::ScheduleConfigs, system::BoxedSystem},
     prelude::*,
     render::{extract_component::ExtractComponent, render_resource::ShaderType},
-    shader::ShaderRef,
 };
 
+use crate::screen_pass::{view_in_target, ScreenPass, ScreenPassPlugin, ScreenPassStage};
 use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
 
-use crate::void_field::{drawn_through, nearest, source_in_view, view_in_target};
+use crate::void_field::{drawn_through, nearest, source_in_view};
 
 /// The most auras one camera draws. The nearest to the middle of its view win.
 pub const MAX_SPIRIT_SOURCES: usize = 4;
@@ -62,7 +55,7 @@ pub struct SpiritFieldPlugin;
 impl Plugin for SpiritFieldPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "shaders/spirit_field.wgsl");
-        app.add_plugins(FullscreenMaterialPlugin::<SpiritFieldSettings>::default())
+        app.add_plugins(ScreenPassPlugin::<SpiritFieldSettings>::default())
             .add_systems(
                 PostUpdate,
                 sync_spirit_fields.run_if(an_aura_or_its_field_stands).after(bevy::transform::TransformSystems::Propagate),
@@ -86,20 +79,9 @@ pub struct SpiritFieldSettings {
     pub view: Vec4,
 }
 
-impl FullscreenMaterial for SpiritFieldSettings {
-    fn fragment_shader() -> ShaderRef {
-        "embedded://ambition_render/shaders/spirit_field.wgsl".into()
-    }
-
-    /// Ambition is a 2D game; the default is `Core3d`.
-    fn schedule() -> impl bevy::ecs::schedule::ScheduleLabel + Clone {
-        Core2d
-    }
-
-    /// After tonemapping, with the other screen filters.
-    fn schedule_configs(system: ScheduleConfigs<BoxedSystem>) -> ScheduleConfigs<BoxedSystem> {
-        system.in_set(Core2dSystems::PostProcess).after(tonemapping)
-    }
+impl ScreenPass for SpiritFieldSettings {
+    const SHADER: &'static str = "embedded://ambition_render/shaders/spirit_field.wgsl";
+    const STAGE: ScreenPassStage = ScreenPassStage::Spirit;
 }
 
 /// Pack the sources of one camera, each with its tint: the nearest to the

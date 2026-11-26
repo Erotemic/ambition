@@ -446,7 +446,7 @@ fn system_page_drilled_into_video_shows_curated_options_and_back() {
         })
         .collect();
     // The Video screen leads with the transactional Quality Profile row, then the
-    // basic video rows. Shader rows still ride under Video later in the full list.
+    // basic video rows.
     assert_eq!(
         &options[..3],
         &[
@@ -455,20 +455,21 @@ fn system_page_drilled_into_video_shows_curated_options_and_back() {
             SettingsOptionId::CameraZoom,
         ]
     );
-    // Shaders are reachable under Video: the FULL row list (pre-window) carries
-    // every shader option as a Setting row.
+    // Video opens the Shaders page.
     let sys_model = SystemMenuModel::build(
         &settings,
         &RadioSnapshot::default(),
         &DevSnapshot::default(),
     );
     let all_rows = system_rows(&sys_model, Some(SystemMenuEntryId::Video));
+    assert!(all_rows.contains(&SystemRow::Entry(SystemMenuEntryId::Shaders)));
+    let shader_rows = system_rows(&sys_model, Some(SystemMenuEntryId::Shaders));
     for shader in [
         SettingsOptionId::ShaderStrength,
         SettingsOptionId::ShaderVignetteStrength,
     ] {
         assert!(
-            all_rows.contains(&SystemRow::Setting(shader)),
+            shader_rows.contains(&SystemRow::Setting(shader)),
             "{shader:?} is reachable under Video"
         );
     }
@@ -486,9 +487,7 @@ fn system_page_drilled_into_video_shows_curated_options_and_back() {
         .expect("ShowFps is on the Video screen");
     assert_eq!(fps.value_label, "ON", "FPS Overlay reflects the ON state");
 
-    // A Back row drills out to the entry list. The Video screen now overflows
-    // the visible window (24 rows), so Back is the LAST row in the full list
-    // rather than always on the first window; assert it via the row list.
+    // The screen ends with a Back row.
     assert_eq!(
         all_rows.last(),
         Some(&SystemRow::Back),

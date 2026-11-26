@@ -203,6 +203,8 @@ author can check the relation between the art and the route.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.
+The Observatory moves wall exhibits to the new landings. Show a player at
+each landing in the preview so authors can check the view at playing scale.
 
 ## Follow-up for room art generators
 
@@ -220,6 +222,8 @@ The Staging Area scaffold is another case. Pass the ledge spans to the art
 generator so each step gets planks and braces at its landing surface.
 Pass climbable bounds too. The Patent Office gallery needs the ladder's
 width and position to leave a gap in its rail.
+The Test Range shelter needs the roof's bottom edge to draw the passage
+at the same height as its collision clearance.
 The Tape Room carriage gives its frame size and top anchor in the sprite
 source and again in `platform_looks.ron`. Read these values from the
 published sheet when the platform uses them. Keep the support span an

@@ -7,21 +7,13 @@
 //! cannot.
 
 use bevy::{
-    core_pipeline::{
-        fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin},
-        schedule::Core2d,
-        tonemapping::tonemapping,
-        Core2dSystems,
-    },
-    ecs::{schedule::ScheduleConfigs, system::BoxedSystem},
     prelude::*,
     render::{extract_component::ExtractComponent, render_resource::ShaderType},
-    shader::ShaderRef,
 };
 
 use ambition_persistence::settings::{ScreenShaderSettings, UserSettings};
 
-const SHADER_ASSET_PATH: &str = "embedded://ambition_render/shaders/screen_effects.wgsl";
+use crate::screen_pass::{view_in_target, ScreenPass, ScreenPassPlugin, ScreenPassStage, WHOLE_TARGET};
 
 /// Presentation plugin for camera-local screen filters.
 pub struct ScreenEffectsPlugin;
@@ -29,27 +21,17 @@ pub struct ScreenEffectsPlugin;
 impl Plugin for ScreenEffectsPlugin {
     fn build(&self, app: &mut App) {
         bevy::asset::embedded_asset!(app, "shaders/screen_effects.wgsl");
-        app.add_plugins(FullscreenMaterialPlugin::<ScreenEffectSettings>::default())
-            .add_systems(Update, sync_screen_effect_settings_from_video_settings);
+        app.add_plugins(ScreenPassPlugin::<ScreenEffectSettings>::default())
+            .add_systems(
+                PostUpdate,
+                sync_screen_effect_settings_from_video_settings.after(bevy::camera::CameraUpdateSystems),
+            );
     }
 }
 
-impl FullscreenMaterial for ScreenEffectSettings {
-    fn fragment_shader() -> ShaderRef {
-        SHADER_ASSET_PATH.into()
-    }
-
-    /// Ambition is a 2D game; the default is [`Core3d`](bevy::core_pipeline::schedule::Core3d).
-    fn schedule() -> impl bevy::ecs::schedule::ScheduleLabel + Clone {
-        Core2d
-    }
-
-    /// After tonemapping, inside `PostProcess`, so upscaling still follows. The
-    /// filters are authored against tonemapped, display-referred colour; running
-    /// them earlier would change what every strength value means.
-    fn schedule_configs(system: ScheduleConfigs<BoxedSystem>) -> ScheduleConfigs<BoxedSystem> {
-        system.in_set(Core2dSystems::PostProcess).after(tonemapping)
-    }
+impl ScreenPass for ScreenEffectSettings {
+    const SHADER: &'static str = "embedded://ambition_render/shaders/screen_effects.wgsl";
+    const STAGE: ScreenPassStage = ScreenPassStage::Filter;
 }
 
 /// GPU-facing component attached to cameras that should receive the screen
@@ -74,6 +56,8 @@ pub struct ScreenEffectSettings {
     pub robot: Vec4,
     /// x = underwater distortion, y = full-screen deep-dream strength, z/w = reserved.
     pub underwater: Vec4,
+    /// Origin and size of the viewport as fractions of the render target.
+    pub view: Vec4,
 }
 
 impl Default for ScreenEffectSettings {
@@ -85,10 +69,10 @@ impl Default for ScreenEffectSettings {
 /// Marks a camera that may receive the screen filter.
 ///
 /// Eligibility (this marker) and enrolment ([`ScreenEffectSettings`]) are
-/// separate. Bevy's `FullscreenMaterialPlugin` uses the presence of
+/// separate. The post-process plugin uses the presence of
 /// [`ScreenEffectSettings`] as the enable: without it there is no pipeline,
 /// no bind group, no pass, and no `post_process_write` ping-pong.
-/// [`sync_screen_effect_settings`] adds and removes the settings component,
+/// [`sync_screen_effect_settings_from_video_settings`] adds and removes the settings component,
 /// and uses this marker to know which cameras to add it back to. Nothing
 /// removes this marker, so removing the settings is safe.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -97,7 +81,7 @@ pub struct ScreenEffectCamera;
 /// Whether this configuration would draw anything at all.
 ///
 /// One definition, two readers: the packing below zeroes every strength when
-/// it is false, and [`sync_screen_effect_settings`] does not enrol the camera.
+/// it is false, and [`sync_screen_effect_settings_from_video_settings`] does not enrol the camera.
 fn draws_anything(shaders: &ScreenShaderSettings) -> bool {
     shaders.any_effect_enabled() && shaders.strength.clamp(0.0, 1.0) > 0.001
 }
@@ -153,6 +137,7 @@ impl ScreenEffectSettings {
                 0.0,
                 0.0,
             ),
+            view: WHOLE_TARGET,
         }
     }
 }
@@ -174,7 +159,7 @@ fn sync_screen_effect_settings_from_video_settings(
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     time: Res<Time>,
     mut cameras: Query<
-        (Entity, Option<&mut ScreenEffectSettings>, Option<&bevy::camera::CompositingSpace>),
+        (Entity, Option<&mut ScreenEffectSettings>, Option<&bevy::camera::CompositingSpace>, Option<&Camera>),
         With<ScreenEffectCamera>,
     >,
 ) {
@@ -188,7 +173,7 @@ fn sync_screen_effect_settings_from_video_settings(
     // `screen_shader_scale` to 0.0, and a camera whose effects are all
     // scaled away needs no pass.
     if !draws_anything(&shaders) {
-        for (camera, settings, _) in &cameras {
+        for (camera, settings, _, _) in &cameras {
             if settings.is_some() {
                 commands.entity(camera).remove::<ScreenEffectSettings>();
             }
@@ -197,9 +182,10 @@ fn sync_screen_effect_settings_from_video_settings(
     }
 
     let next = ScreenEffectSettings::for_shader_settings(&shaders, time.elapsed_secs());
-    for (camera, current, space) in &mut cameras {
+    for (camera, current, space, view) in &mut cameras {
         let mut next = next;
         next.grain_and_vignette.w = stores_srgb(space);
+        next.view = view.map_or(WHOLE_TARGET, view_in_target);
         match current {
             Some(mut current) => *current = next,
             None => {

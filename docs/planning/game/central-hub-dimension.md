@@ -74,8 +74,10 @@ capital was first built at `LICENSED`; that address is retired.
   to the bough. The street leads past the notice board to the Manifest
   Office.
 - **The Manifest Office** (`authority_manifest_office`), by a door: the
-  take-a-number machine, NOW SERVING, the counter, the Registrar, and
-  filing cabinets to the ceiling (a chest on top).
+  take-a-number machine, NOW SERVING, and the Registrar at the counter.
+  The floor leads to the Registrar. Visitors can also go from the
+  waiting seats across the sorting counter to the filing cabinets.
+  An open file tray gives them a step to the chest.
 
 The capital is safe: there is nothing to fight in it.
 

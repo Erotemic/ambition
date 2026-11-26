@@ -336,6 +336,9 @@ the scaffold and its supports. Show the parallax blocks in the same view
 to check that visitors can tell which edges support a body.
 In Authority Plaza, show a body on the street below the clock stairs.
 Use the one-way ledge bounds to place each tread and the raised walk.
+In the Manifest Office, use the bounds of the sorting counter and file
+tray to place their tops. Show the Registrar's talk prompt below the
+counter so authors can check the space for a conversation.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

@@ -322,6 +322,11 @@ it. The renderer checkout appeared twice on the import path during the
 build. The check reported a toolchain change because the receipt counted
 the same package more than once. Record each package name and version once.
 
+The Manifest Office art uses the same source file as the Concourse and
+Authority Plaza. A change to the file tray makes those rooms' props stale.
+Give each room its own recipe module so the check can reuse the other
+rooms' accepted props. Keep the common drawing functions in the shared kit.
+
 The Sketchbook Cliffs fold build reported an unknown target when an import
 error prevented discovery. Show the module name and its import error in
 the build result when discovery fails.

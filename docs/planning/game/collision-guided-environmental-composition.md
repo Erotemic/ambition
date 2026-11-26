@@ -237,6 +237,9 @@ wall art. Include the skull, survey grid, chest, and ladder at the game
 camera scale. Let the preview select candidate art before publication.
 At the Amber Vault, show the background beyond the chamber walls at wide
 camera framing. Use the room's background override in the preview.
+At Primeval Canopy, show the branch steps and the jump arc from each
+takeoff point. Use the active movement profile and the actual landing
+surfaces to show which steps a player can reach.
 The Site Office shows an outdoor backdrop through windows in an indoor
 wall. Draw the room's selected backdrop under the props so authors can
 check those openings in the preview.

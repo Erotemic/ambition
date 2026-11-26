@@ -241,6 +241,8 @@ For the Caldera, show the corks at both ends of each sweep with the
 fixed stops. Show the top of the bubble lift and the rim in the same view.
 For Ninja Village Street, show the dojo practice platforms with the
 roof edges. Show the jump from the tea house roof to the top platform.
+At the Gate Shrine, show a body under the stone stair. Display the stair
+treads and the low road with the stonework to check the opening.
 The Noodly Cistern adds pipes and plates for each wheel. Give the art
 generator the switch and gate bounds and the gate conditions. Keep the
 pipe bends in the art so an author can route around labels.

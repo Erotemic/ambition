@@ -691,6 +691,7 @@
     // The Ninja Village's scenery (`targets/props/ninja_village_props.py`).
     "village_shrine_stair": (),
     "village_torii": (),
+    "village_shrine_wayfinding": (),
     "village_shrine_hall": (),
     "village_shrine_small_things": (),
     "village_house_baker": (),

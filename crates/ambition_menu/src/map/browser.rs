@@ -118,6 +118,7 @@ pub struct MapAtlas<'a> {
 }
 
 const ROOT: MapEntryId = MapEntryId(0);
+const MAP_BROWSER_ZOOM_MAX: f32 = 16.0;
 
 impl<'a> MapAtlas<'a> {
     pub fn new(
@@ -199,6 +200,15 @@ impl<'a> MapAtlas<'a> {
             current = self.entries[current.0].parent;
         }
     }
+
+    fn find_room(&self, id: &str) -> Option<MapEntryId> {
+        self.room_ids.get(id).copied().or_else(|| {
+            self.entries
+                .iter()
+                .position(|entry| entry.pieces.iter().any(|piece| piece.id == id))
+                .map(MapEntryId)
+        })
+    }
 }
 
 fn world_title(id: &str) -> String {
@@ -209,17 +219,16 @@ fn world_title(id: &str) -> String {
     title_from_id(id.strip_suffix("_ldtk").unwrap_or(id))
 }
 
-/// Camera, location and selection for one menu. Keep this component with the menu owner.
+/// Camera, location and selection for one menu. A new browser shows the owner's room.
 #[derive(Component, Default)]
 pub struct MapBrowser {
-    location: Location,
+    location: Option<Location>,
     selected: Option<Location>,
     tool: Option<MapAction>,
     centre: Option<Vec2>,
     zoom: Option<f32>,
 }
 
-#[derive(Default)]
 struct Location {
     key: Vec<String>,
     is_room: bool,
@@ -253,15 +262,17 @@ impl MapBrowser {
     }
 
     fn level<'a>(&self, atlas: &'a MapAtlas<'a>, access: MapAccess<'_>) -> Level<'a> {
-        let id = atlas
-            .entries
-            .iter()
-            .position(|entry| self.location.matches(entry))
-            .map_or(ROOT, MapEntryId);
+        let current = access.current_room.and_then(|room| atlas.find_room(room));
+        let id = match &self.location {
+            Some(location) => atlas
+                .entries
+                .iter()
+                .position(|entry| location.matches(entry))
+                .map(MapEntryId),
+            None => current,
+        }
+        .unwrap_or(ROOT);
         let level = &atlas.entries[id.0];
-        let current = access
-            .current_room
-            .and_then(|room| atlas.room_ids.get(room).copied());
         let visited = |room: &MapRoomNode| {
             access.reveal_all
                 || current == atlas.room_ids.get(room_id(room)).copied()
@@ -481,6 +492,36 @@ impl MapBrowser {
         }
     }
 
+    /// Scale the viewport by the change in distance between two touch points.
+    /// Keep the map point at `from` under `to`. Both positions are viewport fractions.
+    pub fn pinch_viewport(
+        &mut self,
+        atlas: &MapAtlas,
+        access: MapAccess<'_>,
+        aspect: f32,
+        from: Vec2,
+        to: Vec2,
+        scale: f32,
+    ) {
+        if !from.is_finite()
+            || !to.is_finite()
+            || !scale.is_finite()
+            || scale <= 0.0
+            || (from == to && scale == 1.0)
+        {
+            return;
+        }
+        let level = self.level(atlas, access);
+        let frame = self.frame(&level, aspect);
+        let zoom = self.zoom.unwrap_or(1.0);
+        let new_zoom = (zoom * scale).clamp(MAP_ZOOM_MIN, MAP_BROWSER_ZOOM_MAX);
+        let extent = frame.size() * (zoom / new_zoom);
+        let anchor = frame.min + frame.size() * from;
+        self.zoom = Some(new_zoom);
+        self.centre = Some(anchor - extent * (to - Vec2::splat(0.5)));
+        self.centre = Some(self.frame(&level, aspect).center());
+    }
+
     fn zoom_level(&mut self, level: &Level, aspect: f32, steps: f32) {
         let frame = self.frame(level, aspect);
         let zoom = self.zoom.unwrap_or(1.0);
@@ -494,7 +535,8 @@ impl MapBrowser {
                 .find(|(id, _, _)| Some(*id) == focus)
                 .map_or(frame.center(), |(_, rect, _)| rect.center()),
         );
-        self.zoom = Some((zoom * MAP_ZOOM_STEP.powf(steps)).clamp(MAP_ZOOM_MIN, 16.0));
+        self.zoom =
+            Some((zoom * MAP_ZOOM_STEP.powf(steps)).clamp(MAP_ZOOM_MIN, MAP_BROWSER_ZOOM_MAX));
     }
 
     fn pan_level(&mut self, level: &Level, aspect: f32, delta: Vec2) {
@@ -585,7 +627,7 @@ impl MapBrowser {
     fn open(&mut self, atlas: &MapAtlas, id: MapEntryId) {
         let entry = &atlas.entries[id.0];
         *self = Self {
-            location: Location::of(entry),
+            location: Some(Location::of(entry)),
             ..Self::default()
         };
     }
@@ -678,6 +720,12 @@ mod tests {
         };
         let view = |browser: &MapBrowser| browser.view(&atlas, access, 1.7);
         let apply = |browser: &mut MapBrowser, action| browser.apply(&atlas, access, 1.7, action);
+        let initial = view(&browser);
+        assert_eq!(initial.title, "home");
+        assert!(initial.room_detail);
+        assert_eq!(apply(&mut browser, MapAction::Up), MapOutcome::Stay);
+        assert_eq!(view(&browser).title, "Sandbox");
+        assert_eq!(apply(&mut browser, MapAction::Up), MapOutcome::Stay);
         assert_eq!(
             view(&browser)
                 .entries
@@ -737,12 +785,16 @@ mod tests {
         let mut browser = MapBrowser::default();
         let visits = BTreeSet::new();
         let access = MapAccess {
-            current_room: Some("hub"),
+            current_room: Some("hub_basement"),
             visited: &visits,
             reveal_all: false,
             can_travel: true,
         };
-        browser.apply(&atlas, access, 1.7, MapAction::Confirm);
+        let detail = browser.view(&atlas, access, 1.7);
+        assert!(detail.room_detail);
+        assert!(detail.entries[0].here);
+        assert_eq!(detail.entries[0].pieces.len(), 2);
+        browser.apply(&atlas, access, 1.7, MapAction::Up);
         let world = browser.view(&atlas, access, 1.7);
         assert_eq!(world.entries.len(), 1);
         assert!(world.entries[0].here);
@@ -774,7 +826,7 @@ mod tests {
             can_travel: false,
         };
         let view = |browser: &MapBrowser| browser.view(&atlas, access, 1.7);
-        for title in ["Dimensions", "Sandbox", "home"] {
+        for title in ["home", "Sandbox", "Dimensions"] {
             let fitted = view(&browser);
             assert_eq!(fitted.title, title);
             browser.apply(&atlas, access, 1.7, MapAction::Zoom(4));
@@ -784,7 +836,44 @@ mod tests {
             assert_ne!(zoomed.entries, view(&browser).entries);
             browser.apply(&atlas, access, 1.7, MapAction::Fit);
             assert_eq!(fitted, view(&browser));
-            browser.apply(&atlas, access, 1.7, MapAction::Confirm);
+            browser.apply(&atlas, access, 1.7, MapAction::Up);
         }
+    }
+
+    #[test]
+    fn pinch_tracks_its_midpoint_and_clamps_zoom() {
+        let rooms = [room("home", "sandbox", Vec2::ZERO)];
+        let atlas = MapAtlas::new(&rooms, None);
+        let visits = BTreeSet::new();
+        let access = MapAccess {
+            current_room: None,
+            visited: &visits,
+            reveal_all: true,
+            can_travel: false,
+        };
+        let mut browser = MapBrowser::default();
+        assert_eq!(browser.view(&atlas, access, 1.7).title, "Dimensions");
+        let access = MapAccess {
+            current_room: Some("home"),
+            ..access
+        };
+        let frame = |browser: &MapBrowser| browser.frame(&browser.level(&atlas, access), 1.7);
+        let from = Vec2::new(0.4, 0.55);
+        let to = Vec2::new(0.65, 0.7);
+        let point = |frame: Rect, at: Vec2| frame.min + frame.size() * at;
+        let initial = frame(&browser);
+        let anchor = point(initial, from);
+
+        browser.pinch_viewport(&atlas, access, 1.7, from, to, 2.0);
+        let zoomed = frame(&browser);
+        assert!((point(zoomed, to) - anchor).length() < 0.01);
+        assert!((zoomed.size() * 2.0 - initial.size()).length() < 0.01);
+
+        browser.pinch_viewport(&atlas, access, 1.7, to, from, 0.5);
+        assert!((frame(&browser).min - initial.min).length() < 0.01);
+        browser.pinch_viewport(&atlas, access, 1.7, from, from, 100.0);
+        assert_eq!(browser.zoom, Some(MAP_BROWSER_ZOOM_MAX));
+        browser.pinch_viewport(&atlas, access, 1.7, from, from, 0.001);
+        assert_eq!(browser.zoom, Some(MAP_ZOOM_MIN));
     }
 }

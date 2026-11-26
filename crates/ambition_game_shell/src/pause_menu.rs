@@ -24,6 +24,7 @@ use ambition_menu::{
 };
 use ambition_platformer2d_shared_tangle::schedule::GameMode;
 use ambition_platformer2d_shared_tangle::lifecycle::{LocalMenuPauseVotes, MenuPauseHold, MenuPauseRoster, NetworkMenuPause, SessionScopeId};
+use ambition_input::ParticipantId;
 use std::collections::BTreeMap;
 use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
 use bevy::ecs::system::SystemParam;
@@ -247,6 +248,12 @@ enum PausePage {
 #[derive(Component)]
 struct ShellPauseMenuRoot;
 
+/// The primary local input can operate a session with no human participants.
+fn local_spectator(roster: &MenuPauseRoster) -> Option<u8> {
+    (roster.scope.is_some() && roster.members.is_empty())
+        .then_some(ParticipantId::PRIMARY.slot())
+}
+
 /// Adds the universal shell/system menu. Rides [`MinimalShellPlugins`], so
 /// every host and standalone demo app gets it.
 pub struct ShellPauseMenuPlugin;
@@ -335,6 +342,7 @@ fn drive_shell_pause_menu(
     seat_frames: Option<Res<ambition_input::SeatMenuFrames>>,
     context: PauseMenuContext,
     roster: Option<Res<MenuPauseRoster>>,
+    network: Option<Res<NetworkMenuPause>>,
     suppressed: Res<ShellPauseMenuSuppressed>,
     // The menu must not open over the launcher. `ShellPauseMenuSuppressed`
     // does not cover this: it tracks Ambition's own session, and the title
@@ -374,10 +382,14 @@ fn drive_shell_pause_menu(
     // Every seat can open or close its own menu even while another is open.
     // The shared presentation displays one seat at a time. Navigation from
     // a paused seat can bring that seat's own cursor to the foreground.
+    let roster = roster.as_deref().filter(|roster| in_session && roster.scope == scope);
+    let spectator = roster.filter(|_| network.is_none()).and_then(local_spectator);
     let permits = |slot| {
-        roster.as_deref().filter(|roster| in_session && roster.scope == scope)
-            .is_none_or(|roster| roster.members.iter().any(|(admitted, _)| *admitted == slot))
-            && access.permits(ambition_input::ParticipantId(slot),
+        roster.is_none_or(|roster| {
+            spectator == Some(slot)
+                || roster.members.iter().any(|(admitted, _)| *admitted == slot)
+        })
+            && access.permits(ParticipantId(slot),
                 ambition_input::ContextClaim::capturing(ambition_input::PAUSE_CONTEXT,
                     ambition_input::participant::context_priority::PAUSE))
     };
@@ -662,8 +674,11 @@ fn aggregate_shell_menu_pause(
         }
     }
     let (Some(mode), Some(mut next)) = (mode, next) else { return; };
-    let open = !suppressed.0 && network.is_none() && roster.as_deref().is_some_and(|roster| roster.scope == scope &&
-        roster.session_pause(|slot| menu.seats.contains_key(&slot)));
+    let open = !suppressed.0 && network.is_none() && roster.as_deref().is_some_and(|roster| {
+        let is_open = |slot| menu.seats.contains_key(&slot);
+        roster.scope == scope
+            && (local_spectator(roster).is_some_and(is_open) || roster.session_pause(is_open))
+    });
     let pending = match &*next {
         NextState::Pending(mode) | NextState::PendingIfNeq(mode) => Some(*mode),
         NextState::Unchanged => None,
@@ -872,6 +887,48 @@ mod tests {
         assert_eq!(app.world().resource::<ShellPauseMenu>().owner(), Some(1));
         seat_intent(&mut app, 1, |f| f.back = true);
         assert!(!app.world().resource::<ShellPauseMenu>().open);
+    }
+
+    #[test]
+    fn a_local_spectator_can_pause_resume_and_leave_the_match() {
+        for entry in [PauseEntry::Abandon, PauseEntry::QuitToTitle] {
+            let mut app = couch_app();
+            app.add_plugins(bevy::state::app::StatesPlugin)
+                .insert_state(GameMode::Playing);
+            with_live_session(&mut app);
+            let scope = app.world().resource::<ActiveGameplaySession>().0.as_ref().unwrap().scope;
+            app.insert_resource(MenuPauseRoster { scope: Some(scope), members: Vec::new() })
+                .insert_resource(ShellAbandonOffer {
+                    label: "Exit Match".into(),
+                    detail: String::new(),
+                });
+
+            seat_intent(&mut app, 1, |frame| frame.start = true);
+            assert!(!app.world().resource::<ShellPauseMenu>().open);
+
+            let primary = ParticipantId::PRIMARY.slot();
+            seat_intent(&mut app, primary, |frame| frame.start = true);
+            app.update();
+            assert_eq!(app.world().resource::<State<GameMode>>().get(), &GameMode::Paused);
+            seat_intent(&mut app, primary, |frame| frame.back = true);
+            app.update();
+            assert_eq!(app.world().resource::<State<GameMode>>().get(), &GameMode::Playing);
+
+            seat_intent(&mut app, primary, |frame| frame.start = true);
+            let offer = app.world().resource::<ShellAbandonOffer>();
+            let row = PauseEntry::rows(true, true, Some(offer))
+                .iter().position(|row| *row == entry).unwrap();
+            for _ in 0..row {
+                seat_intent(&mut app, primary, |frame| frame.down = true);
+            }
+            seat_intent(&mut app, primary, |frame| frame.select = true);
+            assert!(!app.world().resource::<ShellPauseMenu>().open);
+            if entry == PauseEntry::Abandon {
+                assert_eq!(app.world_mut().resource_mut::<Messages<ShellAbandonRequested>>().drain().count(), 1);
+            } else {
+                assert!(app.world_mut().resource_mut::<Messages<ShellCommand>>().drain().any(|command| command == ShellCommand::QuitToHome));
+            }
+        }
     }
 
     /// The Start intent (Escape, controller Start, touch "Menu"). Escape also

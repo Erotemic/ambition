@@ -1300,6 +1300,50 @@ fn project_scrollbar_tracks(
     }
 }
 
+/// Get the screen bounds of a control on the active cube face.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct KaleidoscopeControlGeometry<'w, 's> {
+    cameras: Query<
+        'w,
+        's,
+        (&'static Camera, &'static GlobalTransform, &'static ambition_menu::MenuSurface),
+        With<KaleidoscopePauseCamera>,
+    >,
+    controls: Query<
+        'w,
+        's,
+        (&'static Dimension, &'static GlobalTransform, &'static ambition_menu::MenuSurface),
+        With<KaleidoscopeActiveFaceControl>,
+    >,
+}
+
+impl KaleidoscopeControlGeometry<'_, '_> {
+    /// Return the bounds in logical pixels of the render target.
+    pub fn logical_rect(&self, control: Entity) -> Option<Rect> {
+        let (size, transform, surface) = self.controls.get(control).ok()?;
+        let (camera, camera_transform, _) = self
+            .cameras
+            .iter()
+            .find(|(camera, _, owner)| camera.is_active && owner.0 == surface.0)?;
+        let half = **size * 0.5;
+        if half.min_element() <= 0.0 {
+            return None;
+        }
+        let project = |point: Vec2| {
+            camera
+                .world_to_viewport(
+                    camera_transform,
+                    transform.transform_point(point.extend(0.0)),
+                )
+                .ok()
+        };
+        let diagonal = Vec2::new(half.x, -half.y);
+        let bounds = Rect::from_corners(project(half)?, project(-half)?)
+            .union(Rect::from_corners(project(diagonal)?, project(-diagonal)?));
+        (!bounds.is_empty()).then_some(bounds)
+    }
+}
+
 fn scrollbar_fraction(bar: &MenuScrollbar, pointer_y: f32) -> Option<f32> {
     ambition_menu::scrollbar_fraction_from_rect(bar.track_top_y, bar.track_height, pointer_y)
 }

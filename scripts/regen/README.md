@@ -123,6 +123,8 @@ in review roots. They are not runtime package members.
 ```
 
 `assets.sh` with no arguments runs every declared producer in dependency order.
+It also refreshes music cues that are stale because of shared inputs. Use
+`--jobs 1` to limit each renderer to one worker.
 `run_developer_setup.sh` calls `scripts/setup/generated_content.sh`, which builds
 the validator, runs the producers, and checks accepted products. A required
 producer or freshness failure makes setup fail.

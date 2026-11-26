@@ -24,13 +24,13 @@ use bevy::{
     reflect::TypePath,
     render::render_resource::AsBindGroup,
     shader::ShaderRef,
-    sprite::Anchor,
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
 };
 
 use ambition_platformer2d::characters::actor::CharacterForm;
 use ambition_platformer2d::persistence::settings::ResolvedVisualQuality;
-use ambition_platformer2d::render::rendering::PlayerVisual;
+use ambition_platformer2d::render::rendering::{ActorOverlaySet, PlayerVisual};
+use ambition_platformer2d::sprite_sheet::character::CharacterAnimator;
 
 /// The side of the quad, as a part of the height of her frame.
 const AURA_SIZE: f32 = 1.6;
@@ -117,6 +117,7 @@ pub fn install(app: &mut App) {
         Update,
         light_her_while_she_is_cosmic
             .in_set(crate::MaryOPresentationSet)
+            .in_set(ActorOverlaySet)
             .run_if(resource_exists::<CosmicAuraAssets>)
             .run_if(resource_exists::<Assets<MaryOCosmicAuraMaterial>>),
     );
@@ -142,13 +143,11 @@ fn star_picture(asset_server: &AssetServer) -> Handle<Image> {
 
 /// Where the quad is and how large it is, from her sprite: about the middle
 /// of her body, and a little larger than her frame is high.
-fn aura_transform(sprite: &Sprite, anchor: Option<&Anchor>) -> Option<Transform> {
-    let size = sprite.custom_size?;
-    // The middle of her frame, from the place her anchor puts at her origin.
-    let frame_middle = -anchor.map_or(Vec2::ZERO, |anchor| anchor.0) * size;
+fn aura_transform(size: Vec2, anchor: Vec2) -> Transform {
+    let frame_middle = -anchor * size;
     let middle = frame_middle - Vec2::new(0.0, BODY_UNDER_FRAME_MIDDLE * size.y);
     let side = size.y * AURA_SIZE;
-    Some(Transform::from_xyz(middle.x, middle.y, AURA_Z).with_scale(Vec3::new(side, side, 1.0)))
+    Transform::from_xyz(middle.x, middle.y, AURA_Z).with_scale(Vec3::new(side, side, 1.0))
 }
 
 /// Give her the light while she is in the form and the device has a budget
@@ -160,13 +159,18 @@ fn light_her_while_she_is_cosmic(
     mut materials: ResMut<Assets<MaryOCosmicAuraMaterial>>,
     asset_server: Res<AssetServer>,
     quality: Option<Res<ResolvedVisualQuality>>,
-    bodies: Query<(Entity, &CharacterForm, &Sprite, Option<&Anchor>, Option<&HasCosmicAura>), With<PlayerVisual>>,
+    bodies: Query<(Entity, &CharacterForm, &CharacterAnimator, Option<&HasCosmicAura>), With<PlayerVisual>>,
     mut quads: Query<&mut Transform>,
 ) {
     let in_budget = aura_is_in_budget(quality);
-    for (body, worn, sprite, anchor, has) in &bodies {
+    for (body, worn, animator, has) in &bodies {
         let wanted = in_budget && crate::cosmic::is_cosmic(worn.id());
-        let place = aura_transform(sprite, anchor);
+        // The hit flash replaces the sprite quad with a larger composite.
+        // Read the animation's frame size before the composite.
+        let place = animator
+            .current_render()
+            .or_else(|| animator.render_basis.map(|basis| (basis.render_size, basis.feet_anchor)))
+            .map(|(size, anchor)| aura_transform(size, anchor));
         match (wanted, has, place) {
             (true, None, Some(place)) => {
                 let material = assets
@@ -192,7 +196,7 @@ fn light_her_while_she_is_cosmic(
                 commands.entity(body).try_insert(HasCosmicAura(quad)).add_child(quad);
             }
             (true, Some(has), Some(place)) => {
-                // Her frame changes with her row, so the quad follows it.
+                // Keep the light in the logical frame.
                 if let Ok(mut transform) = quads.get_mut(has.0) {
                     if *transform != place {
                         *transform = place;
@@ -223,13 +227,8 @@ mod tests {
     /// her wings and her star are over her.
     #[test]
     fn the_light_is_about_her_body_and_not_about_her_frame() {
-        let sprite = Sprite {
-            custom_size: Some(Vec2::new(120.0, 140.0)),
-            ..default()
-        };
-        let place = aura_transform(&sprite, None).unwrap();
+        let place = aura_transform(Vec2::new(120.0, 140.0), Vec2::ZERO);
         assert!(place.translation.y < 0.0);
         assert!((place.scale.x - 140.0 * AURA_SIZE).abs() < 1e-3);
-        assert!(aura_transform(&Sprite::default(), None).is_none());
     }
 }

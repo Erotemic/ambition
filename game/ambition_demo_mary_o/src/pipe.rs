@@ -10,10 +10,8 @@
 //!   The ECS wrapper is scheduled after ordinary movement, so the transit's
 //!   authored position wins every frame instead of allowing an unordered
 //!   integrator to displace it after the snap.
-//! * The occlusion is presentation data, not code: the pipe props are authored
-//!   `PropDraw::Structure`, so their art fills the collider a body stands on
-//!   exactly AND draws in front of the cast — which is what lets a pipe swallow a
-//!   body sliding into it instead of pasting that body on top of it.
+//! * Pipe props use `PropDraw::Enclosure`. Their art covers the collider.
+//!   During the slide, the terrain also covers the body at the back of the pipe.
 //! * The body says that its pose is not its own: it has
 //!   [`ae::PoseOwnedExternally`] for each tick of the transit, the fact a
 //!   rider on a mount has. The movement step still runs for it (its clocks
@@ -248,6 +246,19 @@ pub fn step_pipe_transit(transit: PipeTransit, dt: f32) -> TransitEffects {
 /// `3t² − 2t³` on `[0,1]`: zero slope at both ends, so the slide eases in and out.
 fn smoothstep(t: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
+}
+
+/// Put the body and its overlays behind the terrain that covers the back of the pipe.
+#[cfg(feature = "render")]
+pub(crate) fn draw_inside_the_pipe(
+    mut bodies: Query<(&PipeTransit, &mut Transform), With<ambition_platformer2d::render::rendering::PlayerVisual>>,
+) {
+    use ambition_platformer2d::render::rendering::BODY_DEPTH_BAND;
+    for (transit, mut transform) in &mut bodies {
+        if transit.phase != TransitPhase::Centering {
+            transform.translation.z = ae::config::WORLD_Z_BLOCK - BODY_DEPTH_BAND - 0.5;
+        }
+    }
 }
 
 /// The transit, as an ECS system. A thin wrapper over [`step_pipe_transit`]:

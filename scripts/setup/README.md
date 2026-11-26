@@ -29,13 +29,17 @@ thing, or to assemble a lighter setup than the default.
 | `resource_tally.sh` | arms the accounting git hook | — |
 | `python_tools.sh` | a per-machine venv for each authoring tool, plus the `scripts/` environment. `--verify` checks without installing | submodules |
 | `audio_libraries.sh` | sampled instruments + sfizz. `--status` reports what this machine has | system packages |
-| `generated_content.sh` | every runtime asset, plus the `.agent/` navigation index | python tools, audio libraries |
-| `desktop_check.sh` | `cargo fetch --locked` + checks `ambition_app` | rust, native linker, submodules |
+| `generated_content.sh` | update and check all runtime assets, then build the `.agent/` index | python tools, audio libraries |
+| `desktop_check.sh` | build and link `ambition_game_bin` in the Cargo development profile | rust, native linker, runtime assets |
 | `profiling_tools.sh` | ⭐ the ONLY thing the default run leaves out — `--profile` | rust |
 
-The phases follow the dependencies in the last column. The umbrella runs them
-in order because apt takes a machine-wide lock and the asset pipeline uses the
-available CPU capacity.
+Setup first fast-forwards a tracking `main` to its upstream. Use `--skip-update`
+to keep the current superproject revision. Setup then runs the phases in
+dependency order. Use `--assets-only` to run the asset phases without a desktop
+build. After a full build, run `./run_game.sh dev` to use the binary that setup built.
+
+Setup limits the number of workers by the available memory and CPU count. Set
+`AMBITION_SETUP_JOBS=1` to use one worker per build or render phase.
 
 Native x86-64 Linux Cargo builds use `native_linker.sh` to select mold 2.42.1
 by its absolute path. This prevents clang from selecting an older system copy.

@@ -773,6 +773,7 @@
     "eureka_tether_car": (),
     // The Pirate Sky Lookout (PvN, out of town).
     "sky_lookout_deck": (),
+    "mockingbird_shore_mooring": (),
     // The Math gate hall (arrivals).
     "math_hall_west": (),
     "math_hall_east": (),

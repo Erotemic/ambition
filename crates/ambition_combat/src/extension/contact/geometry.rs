@@ -35,6 +35,10 @@ pub(super) fn world_contact(contact: &Contact) -> WorldContact {
         toi: contact.toi, surface_velocity: contact.surface_velocity.to_array(),
         impact_speed: contact.impact_speed, involuntary: contact.involuntary,
         block, chain,
+        met: contact.met.map(|met| MetContact {
+            hops: met.hops, point: met.point.to_array(), normal: met.normal.to_array(),
+            surface_velocity: met.surface_velocity.to_array(),
+        }),
     }
 }
 

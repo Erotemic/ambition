@@ -13,6 +13,7 @@ use bevy::time::{Fixed, Time};
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
 
 mod body_feedback;
+pub mod obstructions;
 mod actor_creation;
 mod object_behaviors;
 mod record_seeds;

@@ -144,9 +144,10 @@ pub(super) fn sweep_player_axis_clusters(
         use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}};
         let numeric = |fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) };
         let domain = kinematics.canonical_box().map_err(numeric)?;
+        let [start, end] = crate::frame::thread::step_window(*admission);
         let cast = MaterialCast::new(MaterialPrimitive {
             domain: &domain, to_world: kinematics.material_map().map_err(numeric)?,
-        }, kinematics.pos, delta, 0.0..1.0).carried_by(policy.carrier);
+        }, kinematics.pos, delta, start..end).carried_by(policy.carrier);
         *admission = cast.motion_admission(*admission)?;
         let cells = cast.cells(*admission)?;
         let links = *admission;
@@ -233,7 +234,8 @@ pub(super) fn sweep_player_axis_clusters(
             ContactKind::Side
         };
         contacts.push(Contact { kind, point: contact.point, normal, toi: contact.toi as f32,
-            surface_velocity, impact_speed: impact, involuntary: false, source: hit.collider.source() });
+            surface_velocity, impact_speed: impact, involuntary: false, source: hit.collider.source(),
+            met: met_through(hit.collider, &contact) });
     } else {
         kinematics.pos += delta;
     }
@@ -244,6 +246,22 @@ pub(super) fn sweep_player_axis_clusters(
 #[derive(Clone, Copy)]
 enum RepairStage { BeforeSweep, AfterSweep }
 
+/// A contact met through a portal, in the chart it was met in (M1c): the
+/// physical point, the normal carried out of the root chart by the path's
+/// map, and the surface's own motion there. `None` for a contact met in the
+/// body's own chart, whose root facts are already where the surface is.
+fn met_through(collider: crate::world::MaterialCollider<'_>, hit: &crate::frame::material_cast::MaterialCastHit)
+    -> Option<crate::collision_semantics::MetThrough> {
+    let link = *hit.path.first()?;
+    Some(crate::collision_semantics::MetThrough {
+        link,
+        hops: u8::try_from(hit.path.len()).unwrap_or(u8::MAX),
+        point: hit.world_point,
+        normal: hit.map.direction(hit.normal),
+        surface_velocity: collider.displacement_at(hit.world_point, hit.world_time),
+    })
+}
+
 #[allow(clippy::too_many_arguments)]
 fn material_axis_hits<'w>(
     world: &'w World, kinematics: &crate::BodyKinematics, policy: BodyCollisionPolicy<'_>,
@@ -253,9 +271,11 @@ fn material_axis_hits<'w>(
     use crate::frame::{material_cast::MaterialCast, thread::{MaterialPrimitive, Refusal, RefusalReason}};
     let numeric = |fault| Refusal { path: vec![], link: None, reason: RefusalReason::Numeric(fault) };
     let domain = kinematics.canonical_box().map_err(numeric)?;
+    // At the operation's end: the tick's, or its crossing's (portal M2).
+    let [_, end] = crate::frame::thread::step_window(admission);
     let cells = MaterialCast::new(MaterialPrimitive { domain: &domain,
         to_world: kinematics.material_map().map_err(numeric)? }, kinematics.pos,
-        Vec2::ZERO, 1.0..1.0).carried_by(policy.carrier).cells(admission)?;
+        Vec2::ZERO, end..end).carried_by(policy.carrier).cells(admission)?;
     let hits = world.material_axis_contacts(&cells, axis_vec(axis, 1.0))?;
     let role = axis_role(axis, gravity_dir);
     let mut accepted = Vec::new();
@@ -272,7 +292,7 @@ fn material_axis_hits<'w>(
             crate::world::MaterialCollider::Chain { chain, segment, .. } => {
                 if chain.closed && chain.kind == crate::world::SurfaceKind::Solid { true }
                 else {
-                    let face = match chain.normal_at_time(segment, 1.0) {
+                    let face = match chain.normal_at_time(segment, end) {
                         Ok(face) => face,
                         Err(fault) => return Err(numeric(fault)),
                     };
@@ -291,6 +311,50 @@ fn material_axis_hits<'w>(
         accepted.push((collider, hit));
     }
     Ok(accepted)
+}
+
+/// The conflict a one-sided repair would make: the body moved to `claim`'s
+/// bound overlaps a claimant pushing it back (past numeric touch).
+/// `None` when the move is free or there is no claim.
+#[allow(clippy::too_many_arguments)]
+fn opposed_after_repair(
+    world: &World, kinematics: &crate::BodyKinematics, policy: BodyCollisionPolicy<'_>,
+    axis: Axis, prev_feet_coord: f32, drop_through: bool, gravity_dir: Vec2,
+    admission: Option<crate::frame::thread::MotionAdmission<'_>>,
+    hits: &[(crate::world::MaterialCollider<'_>, crate::frame::material_cast::PolygonAxisContact)],
+    claim: Option<(f64, usize)>,
+) -> Result<Option<AxisConstraintConflict>, crate::frame::thread::Refusal> {
+    let Some((bound, at)) = claim else { return Ok(None) };
+    let centre = f64::from(axis_component(kinematics.pos, axis));
+    let push = bound - centre;
+    let mut moved = *kinematics;
+    match axis { Axis::X => moved.pos.x = bound as f32, Axis::Y => moved.pos.y = bound as f32 }
+    // A numeric touch is no claim; an overlap of a hundredth of a pixel is.
+    let slop = 0.01;
+    let back = material_axis_hits(world, &moved, policy, axis, prev_feet_coord, drop_through, gravity_dir, admission)?;
+    let Some((other, hit)) = back.into_iter()
+        .filter(|(_, hit)| hit.displacement * push < 0.0 && hit.displacement.abs() > slop)
+        .max_by(|(_, x), (_, y)| x.displacement.abs().total_cmp(&y.displacement.abs())) else { return Ok(None) };
+    let opposed = bound + hit.displacement;
+    let (first, first_hit) = &hits[at];
+    // A one-way support yields (the crush policy's `one_way_yields`, every
+    // game's rule today): it lets go of a body it pinches, which then falls
+    // through it, rather than crushing it.
+    let one_way = |collider: &crate::world::MaterialCollider<'_>| matches!(collider,
+        crate::world::MaterialCollider::Block(block) if block.kind == BlockKind::OneWay);
+    if one_way(first) || one_way(&other) { return Ok(None); }
+    let motion = |collider: &crate::world::MaterialCollider<'_>, contact| collider.step_in_root(contact, admission)
+        .map(|step| axis_component(step, axis));
+    let first_motion = motion(first, &first_hit.contact)?;
+    let other_motion = motion(&other, &hit.contact)?;
+    // `min_center` is the claim pushing toward +axis.
+    Ok(Some(if push > 0.0 {
+        AxisConstraintConflict { axis, min_center: bound as f32, max_center: opposed as f32,
+            min_source: first.source(), max_source: other.source(), min_motion: first_motion, max_motion: other_motion }
+    } else {
+        AxisConstraintConflict { axis, min_center: opposed as f32, max_center: bound as f32,
+            min_source: other.source(), max_source: first.source(), min_motion: other_motion, max_motion: first_motion }
+    }))
 }
 
 /// Sample support with the same geometry and policy as material repair.
@@ -381,6 +445,19 @@ fn resolve_material_axis_repair(
         }
         _ => None,
     };
+    // A claim from one side alone moves the body; a move that lands it in a
+    // claimant on the other side is the same empty interval met one side at
+    // a time (a press over a body on a floor pushed it into the floor, and the
+    // next repair pushed it back under the press, and neither saw a pinch:
+    // crushing C4). It is reported, and the body is not moved.
+    let conflict = match conflict {
+        Some(conflict) => Some(conflict),
+        None => match opposed_after_repair(world, kinematics, policy, axis, prev_feet_coord, drop_through,
+            gravity_dir, admission, &hits, lower.as_ref().or(upper.as_ref()).copied()) {
+            Ok(conflict) => conflict,
+            Err(reason) => { *refusal = Some(reason); return None; }
+        },
+    };
     if conflict.is_none() {
         if let Some((bound, _)) = lower.as_ref().or(upper.as_ref()) {
             let sign = (*bound - f64::from(centre)).signum();
@@ -411,7 +488,8 @@ fn resolve_material_axis_repair(
         let impact_speed = crate::collision_semantics::closing_speed(kinematics.vel, normal);
         zero_axis_vel(kinematics, axis);
         contacts.push(Contact { kind, point: hit.contact.point, normal, toi: 0.0,
-            surface_velocity, impact_speed, involuntary: false, source: collider.source() });
+            surface_velocity, impact_speed, involuntary: false, source: collider.source(),
+            met: met_through(collider, &hit.contact) });
     }
     conflict
 }

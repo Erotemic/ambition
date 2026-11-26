@@ -586,13 +586,22 @@ pub fn carry_or_wake_settled_items(
     // At each item's room's pace (ISL-1b): a held room's items wait.
     freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
-    geometry: Option<Res<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>>,
+    portals: motion::ItemGeometry,
     mut settled: Query<(Entity, &mut BodyKinematics, &mut ae::SweepSample, &ItemCustody, Has<ItemStruckSurface>, Option<&mut HangingItem>), (With<SettledItem>, With<GroundItem>)>,
 ) {
     let live = freeze.live();
     let shared_dt = time.sim_dt();
     if shared_dt <= 0.0 { return; }
+    let geometry = portals.geometry.as_deref();
     let solids = SolidsByRoom::build(&collision, settled.iter().map(|(entity, ..)| live.of(entity)));
+    #[cfg(feature = "portal")]
+    let placed = if solids.0.is_empty() {
+        ambition_portal2d::PortalsByRoom::default()
+    } else {
+        ambition_portal2d::PortalsByRoom::collect(portals.placed.iter(), &portals.rooms)
+    };
+    #[cfg(not(feature = "portal"))]
+    let _ = &portals.marker;
     for (entity, mut item, mut sweep, custody, struck_surface, hanging) in &mut settled {
         let dt = shared_dt * freeze.scale_of(entity);
         if dt <= 0.0 { continue; }
@@ -613,7 +622,7 @@ pub fn carry_or_wake_settled_items(
         }
         let Some(world) = solids.raw(room) else { continue; };
         let down = gravity.dir_for(room, item.aabb());
-        let admission = geometry.as_deref().and_then(|geometry| geometry.motion_for(entity, room));
+        let admission = geometry.and_then(|geometry| geometry.motion_for(entity, room));
         let prepared = (|| -> Result<Option<ae::movement::PreparedBodyPose>, ae::frame::thread::Refusal> {
             let numeric = |reason| ae::frame::thread::Refusal { path: vec![], link: None,
                 reason: ae::frame::thread::RefusalReason::Numeric(reason) };
@@ -632,6 +641,49 @@ pub fn carry_or_wake_settled_items(
                 let mut accepted = before;
                 let mut record = ae::SweepSample::at_rest(before, down);
                 prepared.commit(&mut accepted, Some(&mut record));
+                // A support that carries the item into a pair carries it
+                // through, as a flight does: the item owner takes the
+                // crossing at the point its root reaches the mouth and the
+                // item leaves the exit at the mapped carry. What is left of
+                // the tick it stays at the exit; its support is behind it,
+                // so it wakes into flight next tick.
+                #[cfg(feature = "portal")]
+                let crossed = (|| -> Result<Option<(BodyKinematics, ae::SweepSample, ambition_portal2d::PreparedPortalTransfer)>, ae::frame::thread::Refusal> {
+                    let Some(tuning) = portals.tuning.as_deref() else { return Ok(None); };
+                    let all = placed.in_room(room);
+                    if all.is_empty() { return Ok(None); }
+                    let numeric = |reason| ae::frame::thread::Refusal { path: vec![], link: None,
+                        reason: ae::frame::thread::RefusalReason::Numeric(reason) };
+                    let domain = before.canonical_box().map_err(numeric)?;
+                    let cast = record.material_cast(&domain)?;
+                    let backside = portals.backside.get(entity).ok().copied();
+                    let Some(crossing) = ambition_portal2d::first_portal_crossing_through(&cast, all, backside, 1.0)
+                        .map_err(|refusal| ae::frame::thread::Refusal { path: vec![], link: None, reason: refusal.reason })? else {
+                        return Ok(None);
+                    };
+                    let at = BodyKinematics { pos: crossing.root.point, ..accepted };
+                    let (transfer, _) = ambition_portal2d::prepare_body_crossing(at, None, crossing, all, admission, 0, tuning)?;
+                    let travelled = ae::SweepSample { time: [record.time[0], crossing.root.world_time],
+                        curr: crossing.root.point, ..record };
+                    Ok(Some((*transfer.body(), travelled, transfer)))
+                })();
+                #[cfg(feature = "portal")]
+                match crossed {
+                    Ok(Some((arrived, travelled, transfer))) => {
+                        let cooldown = portals.tuning.as_deref().map_or(0.0, |tuning| tuning.teleport_cooldown_s);
+                        ambition_portal2d::commit_body_transfer(&mut commands, entity, &mut accepted, None, None, transfer, cooldown);
+                        record = ae::SweepSample { time: [travelled.time[1], 1.0], ..ae::SweepSample::at_rest(arrived, down) };
+                    }
+                    Ok(None) => {}
+                    Err(refusal) => {
+                        // The carry would cross a pair it may not: the item
+                        // keeps its place, as a refused support query does.
+                        bevy::log::debug!(target: "ambition_portal::refusal", body=?entity, ?refusal,
+                            "settled item carry refused at a portal");
+                        *sweep = ae::SweepSample::at_tick_end(before, down);
+                        continue;
+                    }
+                }
                 item.set_if_neq(accepted);
                 *sweep = record;
             }

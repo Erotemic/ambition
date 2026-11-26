@@ -44,16 +44,24 @@ brain).
 - **The Callosum** (`neural_callosum`): the gate and terminal on a bridge of
   fibre over the dark, the signpost (MEMORY west, ATTENTION up, BIASES
   east), and the Grandmother Cell, who recognizes exactly one person.
+  The bridge leads to both halves. Three synapse caps lead up to the
+  arch from the west. A bundle of fibres gives visitors a way up and
+  down at the east end of the arch.
 - **The Neural Cathedral** (`neural_cathedral`), west: living arches and
   dendrite branches, synapse caps to climb, a gallery of memories, pools of
   fluid. Intrusive Thoughts drift in. Donna Hebb wires together the
-  neurons that fire together.
+  neurons that fire together. Visitors can cross the pool at floor level
+  or go through the gallery above it. The dendrite branches lead to
+  the east end of the gallery. A lift beside Donna reaches the west end.
 - **The Weights** (`neural_weights`), east: racks of memory and the
   classifier's board. Logic gates cross the training spikes. Ladders at
-  both ends lead to a maintenance tunnel under the spikes. Attention Heads
-  watch from the air. Percy the Perceptron is on the floor.
+  both ends lead to a maintenance tunnel under the spikes. The circuit
+  walk leads from the OR gate past the classifier to the Echo Chamber
+  deck. Attention Heads watch from the air. Percy the Perceptron is on
+  the floor.
 - **The Echo Chamber** (`neural_echo_chamber`), by a door in the Weights: a
-  round room of screens and Echo, who agrees with you.
+  round room of screens. Echo speaks from the floor. Two sets of steps
+  lead to a viewing balcony between the rows of screens.
 
 ## The people and the things that fight
 
@@ -68,7 +76,7 @@ brain).
 | `halo_horns_effect` | Halo and Horns Effect | Cathedral | It charges with its horns after the halo splits. |
 | `anchoring_bias` | Anchoring Bias | Cathedral | It swings an anchor across the memory gallery. |
 | `motor_neuron` | Motor Neuron | Cathedral | It winds up its motor and charges along the floor. |
-| `brainstorm` | Brainstorm | Cathedral | It floats above the nave and fires lightning. |
+| `brainstorm` | Brainstorm | Cathedral | It fires lightning near the top dendrite branch. |
 | `attention_head` | Attention Head | Weights | An eye on rotors that watches and fires at what it looks at. |
 | `stereotyping` | Stereotyping | Weights | It types and shoots paper labels beside the classifier's board. |
 

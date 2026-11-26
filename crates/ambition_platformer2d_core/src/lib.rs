@@ -12,6 +12,7 @@ pub mod carried_component;
 pub mod cast;
 pub mod collision_semantics;
 pub mod config;
+pub mod crush;
 pub mod confirmed_frame;
 pub mod content_epoch;
 pub mod control_frame;

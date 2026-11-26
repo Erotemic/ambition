@@ -65,6 +65,10 @@
     // tall as a door, and a heap of pots of paint.
     "art_easel": (),
     "art_plaza_open_gallery": (backdrop: true),
+    "art_cliffs_fold": (backdrop: true),
+    "art_garden_scaffold": (backdrop: true),
+    "art_caverns_cork": (),
+    "art_gallery_staging": (backdrop: true),
     // The look of the palette lifts of the plaza and the cliffs.
     "art_palette_lift": (),
     "art_giant_crayon": (),
@@ -77,6 +81,7 @@
     "art_crayon_rail": (),
     "art_scribble_wall": (),
     "art_eraser": (),
+    "art_curators_route_map": (backdrop: true),
     // The Picture Palace (`targets/props/art_picture_palace_props.py`). The
     // pod bay door is the door of the space set: MAL-9000 will not open it;
     // pulling its memory module (the lever by the rack) does. A door fills
@@ -86,6 +91,8 @@
     "art_film_camera": (),
     "art_directors_chair": (),
     "art_studio_light": (),
+    "art_picture_catwalk": (backdrop: true),
+    "art_picture_orbital_flat": (backdrop: true),
     "art_monolith": (),
     "art_clapperboard": (),
     // The Fertile Crescent of the History dimension
@@ -464,6 +471,8 @@
     // glows, and a street lamp whose post is a quill in a pot of ink.
     "art_book_tower": (),
     "art_library_stair": (),
+    "art_library_endings": (backdrop: true),
+    "art_stacks_ladder_case": (backdrop: true),
     "art_lectern": (),
     "art_quill_lamp": (),
     // The Amphitheatre (`targets/props/art_stage_props.py`). Its curtain is
@@ -475,11 +484,15 @@
     "art_spotlight": (),
     "art_theatre_masks": (),
     "art_costume_trunk": (),
+    "art_amphi_pit_walkway": (backdrop: true),
+    "art_amphi_east_aisle": (backdrop: true),
+    "art_backstage_costume_rig": (backdrop: true),
     // The Resonant Reach (`targets/props/art_resonance_props.py`). Each of its
     // three chimes is a brass tube on a stand; each door of the Concert Hall's
     // stage is a golden organ pipe with its note on it, and the chime of the
     // same note opens it.
     "art_chime": (),
+    "art_concert_organ_case": (),
     "art_chord_bar_do": (),
     "art_chord_bar_mi": (),
     "art_chord_bar_sol": (),
@@ -487,6 +500,8 @@
     // ticks.
     "art_grand_piano": (),
     "art_metronome": (),
+    "art_tuning_lift": (),
+    "art_tuning_lift_rails": (backdrop: true),
     // The Workshop Deeps (`targets/props/art_forge_props.py`). The bridge the
     // crane swings in over the kiln fire: a row of planks on two ropes (a
     // door: it fills the box of its wall, 224 by 24).
@@ -498,6 +513,8 @@
     "art_potters_wheel": (),
     "art_great_loom": (),
     "art_crane": (),
+    "art_forge_firing_racks": (backdrop: true),
+    "art_loom_drying_rack": (backdrop: true),
     // The Math town. The cradle is the stand a gate ring sits in: a plinth
     // with stairs at each end (walked on zero-speed one-way platforms the
     // room places) and two pylons that hold the ring. The house fronts
@@ -1156,12 +1173,16 @@
     "neural_signpost": (),
     "neural_callosum_caps": (),
     "neural_memory_gallery": (),
+    "neural_cathedral_lift_fibres": (backdrop: true),
+    "neural_cathedral_memory_lift": (),
     "neural_dendrite_tree": (),
     "neural_logic_gates": (),
     "neural_training_bypass": (backdrop: true),
     "neural_red_herring_board": (),
     "neural_weights_racks": (),
+    "neural_weights_circuit_walk": (),
     "neural_echo_screens": (),
+    "neural_echo_viewing_balcony": (),
     // The Central Hub's scenery (`targets/props/authority_props.py`): each
     // piece drawn in its room's coordinates.
     "authority_info_booth": (),
@@ -1173,6 +1194,7 @@
     "authority_baggage_lift_shaft": (),
     "authority_baggage_lift": (),
     "authority_clock_arcade": (),
+    "authority_clock_walk": (backdrop: true),
     "authority_blossom_tree": (),
     "authority_notice_board": (),
     "authority_manifest_portico": (),
@@ -1186,6 +1208,7 @@
     "unfinished_scaffold": (),
     "unfinished_spill": (),
     "unfinished_cranes": (),
+    "unfinished_inspection_scaffold": (),
     "unfinished_office_wall": (backdrop: true),
     "unfinished_gauges": (),
     "unfinished_backlog": (),
@@ -1195,7 +1218,9 @@
     "automaton_waterwheel": (),
     "automaton_block_stairs": (),
     "automaton_clock_tower": (),
+    "automaton_tower_balcony": (),
     "automaton_still_life": (),
+    "automaton_life_relay_ramp": (),
     "automaton_sierpinski_panel": (),
     "automaton_tape": (),
     "automaton_tape_landings": (),
@@ -1203,11 +1228,14 @@
     "automaton_state_table": (),
     "automaton_glider_lift": (),
     "automaton_arena_ring": (),
+    "automaton_arena_viewing_gallery": (backdrop: true),
     "automaton_failure_log": (),
     // The Frontier's scenery (`targets/props/frontier_props.py`): each piece
     // is drawn in its room's coordinates, over the room's walk lines.
     "frontier_pad_booth": (),
     "frontier_pad_cargo": (),
+    "frontier_pad_loading_walk": (),
+    "frontier_pad_service_steps": (),
     "frontier_pad_freighter": (),
     "frontier_saloon_front": (),
     "frontier_store_front": (),

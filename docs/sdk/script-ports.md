@@ -474,7 +474,7 @@ Port `ambition.actor.group_think@2`, trigger: read as `this.trigger`.
 
 ## `body_contact`
 
-Port `ambition.body.contact@3`, trigger: read as `this.trigger`.
+Port `ambition.body.contact@4`, trigger: read as `this.trigger`.
 
 | field | value | meaning |
 |---|---|---|
@@ -489,7 +489,7 @@ Port `ambition.body.contact@3`, trigger: read as `this.trigger`.
 | `incomplete` | bool | At least one same-scope body could not supply accepted geometry. |
 | `refusals` | list of { id: text, reason: text } |  |
 | `refusals_truncated` | bool |  |
-| `world` | list of { role: one of: support \| head \| side \| attachment, point: [x, y], normal: [x, y], toi: number, surface_velocity: [x, y], impact_speed: number, involuntary: bool, block: { geometry: { origin: one of: placement \| tile_layer \| generator \| delta \| anonymous, key: text or (), operation: integer (u32) or (), index: integer (u32) }, material: one of: solid \| one_way \| bonk_only \| blink_wall \| barrier \| hazard \| pogo_orb \| rebound, blink_tier: one of: soft \| hard or (), rebound_impulse: [x, y] or () } or (), chain: { chain: integer (u32), segment: integer (u32) } or () } | Native movement contacts, in solver order. Repeated contacts remain distinct. |
+| `world` | list of { role: one of: support \| head \| side \| attachment, point: [x, y], normal: [x, y], toi: number, surface_velocity: [x, y], impact_speed: number, involuntary: bool, block: { geometry: { origin: one of: placement \| tile_layer \| generator \| delta \| anonymous, key: text or (), operation: integer (u32) or (), index: integer (u32) }, material: one of: solid \| one_way \| bonk_only \| blink_wall \| barrier \| hazard \| pogo_orb \| rebound, blink_tier: one of: soft \| hard or (), rebound_impulse: [x, y] or () } or (), chain: { chain: integer (u32), segment: integer (u32) } or (), met: { hops: integer 0..=255, point: [x, y], normal: [x, y], surface_velocity: [x, y] } or () } | Native movement contacts, in solver order. Repeated contacts remain distinct. |
 | `world_available` | bool | This body published movement output for this exact simulation tick. |
 | `world_truncated` | bool | More world contacts existed than the game's world-contact budget. |
 | `world_refusal` | text or () | The movement solver refused part of this step. Contacts may be partial. |

@@ -24,16 +24,16 @@ fn speed(velocity: DVec2) -> Result<f32, Refusal> {
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ItemGeometry<'w, 's> {
     #[cfg(feature = "portal")]
-    placed: Query<'w, 's, (Entity, &'static ambition_portal2d::PlacedPortal)>,
+    pub(crate) placed: Query<'w, 's, (Entity, &'static ambition_portal2d::PlacedPortal)>,
     #[cfg(feature = "portal")]
-    rooms: ambition_portal2d::PortalRooms<'w, 's>,
+    pub(crate) rooms: ambition_portal2d::PortalRooms<'w, 's>,
     #[cfg(feature = "portal")]
-    tuning: Option<Res<'w, ambition_portal2d::PortalTuning>>,
+    pub(crate) tuning: Option<Res<'w, ambition_portal2d::PortalTuning>>,
     #[cfg(feature = "portal")]
-    backside: Query<'w, 's, &'static ambition_portal2d::PortalBackside>,
-    geometry: Option<Res<'w, BodyGeometry>>,
+    pub(crate) backside: Query<'w, 's, &'static ambition_portal2d::PortalBackside>,
+    pub(crate) geometry: Option<Res<'w, BodyGeometry>>,
     #[cfg(not(feature = "portal"))]
-    marker: Local<'s, ()>,
+    pub(crate) marker: Local<'s, ()>,
 }
 
 type Items<'w, 's> = Query<'w, 's,
@@ -217,8 +217,8 @@ pub fn ground_item_physics(
                 transfer, portals.tuning.as_deref().expect("an admitted crossing has tuning").teleport_cooldown_s);
         }
         *item = flight.body;
-        // Free-flight legs already produced contacts and root transfers.
-        // A support carry keeps its path for the shared transit phase.
+        // Free-flight legs already produced contacts and root transfers, as
+        // a support carry did for its own.
         *sweep = record;
         if !contacts.is_empty() {
             commands.entity(entity).insert(ItemStruckBody {
@@ -326,9 +326,20 @@ fn prepare_flight(world: &ae::World, mut body: BodyKinematics, down: Vec2, dt: f
             #[cfg(feature = "portal")]
             if let Some(crossing) = crossing {
                 let tuning = tuning.ok_or_else(|| numeric(NumericFault::InvalidFrame))?;
+                // The tick's fall after the crossing happens in the exit's
+                // chart (portal M2c), at the item's scale there, so a quarter
+                // turn does not send it sideways. The item drifts at its
+                // velocity at the middle of the tick: the map takes its
+                // velocity at the crossing, and the exit side's fall brings it
+                // back to the middle of the tick (the kernel's continuation).
+                let rest = (1.0 - next_time) as f32;
+                let fall = |body: BodyKinematics, share: f32| falling(BodyKinematics { vel: Vec2::ZERO, ..body }, response, down, dt)
+                    .map(|fallen| fallen.vel * share);
+                body.vel += fall(body, 0.5 - rest)?;
                 let (transfer, reverse) = ambition_portal2d::prepare_body_crossing(body, None, crossing,
                     portals, policy, result.transfers.len() as u8, tuning)?;
                 body = *transfer.body();
+                body.vel += fall(body, rest - 0.5)?;
                 result.transfers.push(transfer);
                 result.first = Some(reverse);
             } else { result.body = body; return Ok(result); }
@@ -427,6 +438,47 @@ mod tests {
         assert_eq!(back.body.material, body.material);
         assert!((back.body.pos.x - 67.0).abs() < 0.001, "{:?}", back.body);
         assert_eq!(back.body.vel, -Vec2::X * 4000.0);
+    }
+
+    /// Portal M2c: a loose item that falls into a floor mouth and out of a
+    /// wall exit a quarter turn away falls DOWN in the exit chart for the rest
+    /// of the tick: its exit velocity is the fall it had at the crossing
+    /// turned onto +x, plus the rest of the tick's fall along down. Before,
+    /// the whole tick's fall was turned with the map and the item left level.
+    #[cfg(feature = "portal")]
+    #[test]
+    fn an_item_through_a_turned_pair_falls_down_after_the_crossing() {
+        use ambition_portal2d::{PlacedPortal, PortalChannel, PortalChannelColor, PortalTuning};
+        let portals = [
+            PlacedPortal::fixed(PortalChannel::Authored(PortalChannelColor::Purple),
+                Vec2::new(100.0, 300.0), -Vec2::Y, 40.0).unwrap(),
+            PlacedPortal::fixed(PortalChannel::Authored(PortalChannelColor::Yellow),
+                Vec2::new(600.0, 100.0), Vec2::X, 40.0).unwrap(),
+        ];
+        let mut geometry = BodyGeometry::new(ae::frame::MapConvention::Reflection);
+        geometry.add_pair(None, (portals[0].aperture(), portals[1].aperture()));
+        let policy = geometry.motion_for(Entity::PLACEHOLDER, None);
+        let tuning = PortalTuning { min_exit_speed: 0.0, convention: ambition_portal2d::PortalConvention::Reflection, ..Default::default() };
+        let world = ae::World::new("open air", Vec2::splat(1000.0), Vec2::ZERO, vec![]);
+        let dt = 1.0 / 60.0;
+        let falls = ItemBody { gravity_scale: 1.0, ..response() };
+        let before = BodyKinematics { pos: Vec2::new(100.0, 298.5), vel: Vec2::Y * 300.0,
+            canonical_size: Vec2::splat(4.0), ..Default::default() };
+        let moving = falling(before, falls, Vec2::Y, dt).unwrap();
+        let tick_fall = moving.vel - before.vel;
+        let result = prepare_flight(&world, moving, Vec2::Y, dt, falls, policy, &portals, None, Some(&tuning)).unwrap();
+        assert_eq!(result.transfers.len(), 1);
+        let [first, ..] = result.legs.as_slice() else { panic!() };
+        let crossed = first.sample.time[0] + (first.sample.time[1] - first.sample.time[0])
+            * match first.sample.travel { ae::LinearTravel::Prefix { until, .. } => until, _ => 1.0 };
+        let rest = (1.0 - crossed) as f32;
+        // It drifts at the middle of the tick's velocity: at the crossing it
+        // is that plus the fall from the middle of the tick to the crossing.
+        let at_crossing = moving.vel + tick_fall * (0.5 - rest);
+        let expected = Vec2::new(at_crossing.y, 0.0) + tick_fall * (rest - 0.5);
+        assert!(rest > 0.5, "the item crosses early in the tick: {crossed}");
+        assert!((result.body.vel - expected).length() < 1e-2,
+            "out of the wall at its fall so far, and falling down for the rest: {:?} vs {expected:?}", result.body.vel);
     }
 
     #[cfg(feature = "portal")]

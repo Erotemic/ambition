@@ -20,7 +20,7 @@ fn an_empty_aperture_search_preserves_contact_and_budget_checks() {
     let cast = MaterialCast::new(
         MaterialPrimitive::world(&shape), Vec2::ZERO, Vec2::new(10.0, 0.0), 0.0..1.0,
     );
-    let mut admission = MotionAdmission {
+    let mut admission = MotionAdmission { span: Default::default(),
         links: &[],
         first: None,
         budget: PieceBudget::COMPOSED,
@@ -46,7 +46,7 @@ fn non_finite_collider_input_refuses_before_a_portal_cut() {
     let links = [PortalLink::new(aperture(1.0, Vec2::NEG_X), aperture(100.0, Vec2::X), 1)];
     let shape = CombatVolume::aabb(Aabb::new(Vec2::ZERO, Vec2::splat(2.0)));
     let cells = MaterialCast::new(MaterialPrimitive::world(&shape), Vec2::ZERO,
-        Vec2::new(2.0, 0.0), 0.0..1.0).cells(Some(MotionAdmission {
+        Vec2::new(2.0, 0.0), 0.0..1.0).cells(Some(MotionAdmission { span: Default::default(),
             links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection,
         })).unwrap();
     let part = cells.parts().iter().find(|part| !part.world_planes.is_empty()).unwrap();
@@ -194,7 +194,7 @@ fn a_curved_collider_hits_the_far_part_with_its_physical_witness() {
         Vec2::ZERO,
         0.0..1.0,
     );
-    let admission=MotionAdmission {links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection};
+    let admission=MotionAdmission { span: Default::default(),links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection};
     let hit=world.first_material_sweep(request,Some(admission),|_,_,_|Ok(true)).unwrap().unwrap();
     assert_eq!(hit.contact.path,[0]);
     assert!(hit.contact.toi>0.0 && hit.contact.toi<0.5,"{hit:?}");
@@ -578,7 +578,7 @@ fn a_moving_obstacle_can_cross_the_far_cell_during_the_body_step() {
         Vec2::new(-20.0,0.0),
         Vec2::new(30.0,0.0),
         0.0..1.0,
-    ),Some(MotionAdmission {links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection}),
+    ),Some(MotionAdmission { span: Default::default(),links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection}),
     |_,part,_|Ok(part.path==[0])).unwrap().unwrap();
     assert!((hit.contact.toi-19.0/45.0).abs()<1.0e-10,"{hit:?}");
     assert_eq!(hit.contact.path,vec![0]);
@@ -596,7 +596,7 @@ fn a_moving_solid_that_only_touches_the_cell_plane_is_not_a_wall() {
             Vec2::new(-6.0,0.0),
             Vec2::new(2.0,0.0),
             0.0..1.0,
-        ).cells(Some(MotionAdmission {links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection})).unwrap();
+        ).cells(Some(MotionAdmission { span: Default::default(),links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection})).unwrap();
         let obstacle=box_at(Vec2::new(99.0,5.0),Vec2::new(1.0,50.0));
         let part=cells.parts().iter().find(|part|part.path==[0]).unwrap();
         assert!(cells.against(part,&obstacle,Vec2::new(0.0,10.0)).unwrap().is_none(),"{shape:?}");
@@ -612,7 +612,7 @@ fn a_circle_meets_a_moving_clipped_corner_at_its_round_edge() {
         Vec2::new(-6.0,0.0),
         Vec2::ZERO,
         0.0..1.0,
-    ).cells(Some(MotionAdmission {links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection})).unwrap();
+    ).cells(Some(MotionAdmission { span: Default::default(),links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection})).unwrap();
     let part=cells.parts().iter().find(|part|part.path==[0]).unwrap();
     let obstacle=box_at(Vec2::new(105.0,-10.0),Vec2::new(20.0,1.0));
     let hit=cells.against(part,&obstacle,Vec2::new(0.0,-20.0)).unwrap().unwrap();
@@ -631,7 +631,7 @@ fn a_solid_enters_an_occupied_cell_before_its_far_edge_meets_the_body() {
             Vec2::new(-6.0,0.0),
             Vec2::ZERO,
             0.0..1.0,
-        ).cells(Some(MotionAdmission {links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection})).unwrap();
+        ).cells(Some(MotionAdmission { span: Default::default(),links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection})).unwrap();
         let part=cells.parts().iter().find(|part|part.path==[0]).unwrap();
         let obstacle=box_at(Vec2::new(110.0,0.0),Vec2::new(1.0,10.0));
         let hit=cells.against(part,&obstacle,Vec2::new(20.0,0.0)).unwrap().unwrap();
@@ -655,7 +655,7 @@ fn a_scaled_far_side_obstacle_stops_material_before_its_root_crosses() {
         Vec2::new(30.0, 0.0),
         0.0..1.0,
     )
-    .cells(Some(MotionAdmission {
+    .cells(Some(MotionAdmission { span: Default::default(),
         links: &links,
         first: None,
         budget: PieceBudget::COMPOSED,
@@ -792,7 +792,7 @@ fn world_contacts_keep_the_source_identity_and_directed_path() {
     a.id = GeoId::placement(PlacementId::new("a"), 0);
     let mut b = a.clone();
     b.id = GeoId::placement(PlacementId::new("b"), 0);
-    let admission = MotionAdmission {
+    let admission = MotionAdmission { span: Default::default(),
         links: &links,
         first: None,
         budget: PieceBudget::COMPOSED,
@@ -892,7 +892,7 @@ fn surface_velocity_returns_through_a_scaled_moving_path() {
     links[0].exit.frame.velocity=Vec2::new(-2.0,5.0);
     links[0].enter.frame.spin=0.2;
     links[0].exit.frame.spin=-0.4;
-    let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+    let admission=MotionAdmission { span: Default::default(), links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
     let source_point=Vec2::new(4.0,2.0);
     let source_velocity=Vec2::new(80.0,17.0);
     let link=links[0]; let map=link.map(admission.convention).unwrap();
@@ -913,7 +913,7 @@ fn portal_hosts_do_not_need_a_box_carve_and_a_near_exit_obstacle_remains_solid()
         Vec2::new(20.0,0.0),
         0.0..1.0,
     );
-    let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+    let admission=MotionAdmission { span: Default::default(), links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
     let mut world=World::new("uncarved hosts",Vec2::splat(1000.0),Vec2::ZERO,vec![
         Block::solid("entry",Vec2::new(0.0,-40.0),Vec2::new(10.0,80.0)),
         Block::solid("exit",Vec2::new(90.0,-40.0),Vec2::new(10.0,80.0)),
@@ -930,7 +930,7 @@ fn portal_hosts_do_not_need_a_box_carve_and_a_near_exit_obstacle_remains_solid()
 fn the_opening_owns_the_first_boundary_touch_at_the_complete_cast_end() {
     use crate::{Block,World};
     let links=through();
-    let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+    let admission=MotionAdmission { span: Default::default(), links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
     let world=World::new("endpoint opening",Vec2::splat(1000.0),Vec2::ZERO,vec![
         Block::solid("entry",Vec2::new(0.0,-100.0),Vec2::new(10.0,200.0)),
         Block::solid("exit",Vec2::new(90.0,-100.0),Vec2::new(10.0,200.0)),
@@ -957,7 +957,7 @@ fn the_opening_owns_the_first_boundary_touch_at_the_complete_cast_end() {
 fn a_boundary_part_can_hit_a_far_obstacle_at_the_complete_cast_end() {
     use crate::{Block,World};
     let links=through();
-    let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+    let admission=MotionAdmission { span: Default::default(), links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
     let world=World::new("far endpoint",Vec2::splat(1000.0),Vec2::ZERO,vec![
         Block::solid("target",Vec2::new(100.0,-100.0),Vec2::new(10.0,200.0)),
     ]);
@@ -981,7 +981,7 @@ fn a_boundary_part_can_hit_a_far_obstacle_at_the_complete_cast_end() {
 fn a_line_opening_keeps_its_endpoint_when_only_a_boundary_stratum_arrives() {
     use crate::{SurfaceChain,World};
     let links=through();
-    let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+    let admission=MotionAdmission { span: Default::default(), links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
     let world=World::new("line endpoint",Vec2::splat(1000.0),Vec2::ZERO,vec![])
         .with_chains(vec![SurfaceChain::open("entry",vec![Vec2::new(0.0,100.0),Vec2::new(0.0,-100.0)])]);
     for shape in [
@@ -1029,7 +1029,7 @@ fn contact_strata_do_not_consume_material_piece_slots_under_scale_parity_and_boo
                         Vec2::new(distance,0.0)+boost,
                         0.0..1.0,
                     );
-                    let admission=MotionAdmission { links:&links,first:None,
+                    let admission=MotionAdmission { span: Default::default(), links:&links,first:None,
                         budget:PieceBudget {max_pieces:1,..PieceBudget::COMPOSED},convention:MapConvention::Reflection };
                     assert!(world.first_material_sweep(request(10.0*scale),Some(admission),|_,_,_|Ok(true)).unwrap().is_none());
                     assert!(matches!(request(11.0*scale).cells(Some(admission)),Err(Refusal {reason:RefusalReason::PieceLimit,..})));
@@ -1045,7 +1045,7 @@ fn a_line_host_keeps_its_finite_portal_ends_solid_for_boxes_and_circles() {
     let links=through();
     let world=World::new("line portal",Vec2::splat(1000.0),Vec2::ZERO,vec![])
         .with_chains(vec![SurfaceChain::open("host",vec![Vec2::new(0.0,100.0),Vec2::new(0.0,-100.0)])]);
-    let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+    let admission=MotionAdmission { span: Default::default(), links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
     for (shape,expected) in [
         (CombatVolume::aabb(Aabb::new(Vec2::ZERO,Vec2::splat(10.0))),0.5),
         (CombatVolume::Circle { center:Vec2::ZERO,radius:10.0 },(20.0-75.0_f64.sqrt())/20.0),
@@ -1069,7 +1069,7 @@ fn a_closed_prefix_keeps_its_clock_and_excludes_later_portal_work() {
     let enter = PortalAperture { frame: PortalFrame::fixed(Vec2::ZERO, Vec2::X), half_length: 10.0 };
     let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(100.0, 0.0), Vec2::X), half_length: 10.0 };
     let links = [PortalLink::new(enter, exit, 0)];
-    let admission = MotionAdmission { links: &links, first: None,
+    let admission = MotionAdmission { span: Default::default(), links: &links, first: None,
         budget: PieceBudget { max_hops: 0, ..PieceBudget::COMPOSED }, convention: MapConvention::Reflection };
     let source = || MaterialCast::new(MaterialPrimitive::world(&body), Vec2::new(20.0, 0.0), Vec2::new(-40.0, 0.0), 0.0..1.0);
     assert_eq!(source().cells(Some(admission)).err().unwrap().reason, RefusalReason::HopLimit);
@@ -1092,7 +1092,7 @@ fn a_closed_prefix_does_not_admit_the_portals_later_turn() {
     let mut link = PortalLink::new(enter, exit, 0);
     link.enter_step = crate::frame::ApertureStep::ending_at(enter.frame, Vec2::ZERO, std::f32::consts::TAU);
     let links = [link];
-    let admission = MotionAdmission { links: &links, first: None,
+    let admission = MotionAdmission { span: Default::default(), links: &links, first: None,
         budget: PieceBudget { max_hops: 0, ..PieceBudget::COMPOSED }, convention: MapConvention::Reflection };
     let source = || MaterialCast::new(MaterialPrimitive::world(&body), Vec2::new(500.0, 470.0), Vec2::ZERO, 0.0..1.0);
     assert_eq!(source().cells(Some(admission)).err().unwrap().reason, RefusalReason::HopLimit);
@@ -1227,7 +1227,7 @@ fn a_moving_exit_carries_its_drift_into_the_contact_frame() {
     let point = Vec2::new(0.0, 2.0);
     let carried = |link: PortalLink| {
         let links = [link];
-        let admission = MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
+        let admission = MotionAdmission { span: Default::default(), links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
         let carried = admission.carry_displacement(&[0], point, delta, 1.0).unwrap();
         let far = link.snapshot_at(1.0).unwrap().map(MapConvention::Reflection).unwrap().point(point).unwrap();
         let back = admission.uncarry_displacement(&[0], far, carried, 1.0).unwrap();
@@ -1259,7 +1259,7 @@ fn a_co_moving_mouth_and_body_have_no_relative_speed_at_any_room_pace() {
     let mut link = PortalLink::new(enter, exit, 0);
     link.enter_step = crate::frame::ApertureStep::ending_at(enter.frame, drift, 0.0);
     let links = [link];
-    let admission = MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
+    let admission = MotionAdmission { span: Default::default(), links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
     let block = crate::world::Block::solid("still block past the exit", Vec2::new(101.0, -5.0), Vec2::new(10.0, 10.0));
     let collider = crate::world::MaterialCollider::Block(&block);
     let world_time = 0.5;
@@ -1288,7 +1288,7 @@ fn a_co_moving_mouth_and_body_have_no_relative_speed_at_any_room_pace() {
 
 /// The links a cast admits, by key.
 fn admitted_keys(cast: &MaterialCast<'_>, links: &[PortalLink], first: Option<u32>) -> Vec<u32> {
-    let policy = MotionAdmission { links, first, budget: PieceBudget::COMPOSED, convention: MapConvention::Rotation };
+    let policy = MotionAdmission { span: Default::default(), links, first, budget: PieceBudget::COMPOSED, convention: MapConvention::Rotation };
     let mut keys: Vec<u32> = cast.reachable_links(policy).unwrap().iter().map(|link| link.key).collect();
     keys.sort();
     keys

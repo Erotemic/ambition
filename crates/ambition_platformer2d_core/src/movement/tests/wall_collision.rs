@@ -1543,7 +1543,7 @@ fn stationary_material_uses_far_side_support_and_repair() {
         let conflict = super::super::collision::sweep_player_axis_clusters(&world,
             &mut body.kinematics, &mut body.ground, &mut body.wall, &body.body_mode,
             &body.env_contact, crate::collision_semantics::Axis::Y, 0.0, 306.0, false,
-            Vec2::Y, &mut contacts, &mut Some(MotionAdmission { links: &links, first: Some(0),
+            Vec2::Y, &mut contacts, &mut Some(MotionAdmission { span: Default::default(), links: &links, first: Some(0),
                 budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }), &mut refusal, None);
         assert!(refusal.is_none(), "{refusal:?}");
         assert!(conflict.is_none(), "{conflict:?}");
@@ -1554,7 +1554,7 @@ fn stationary_material_uses_far_side_support_and_repair() {
         body.ground.invalidate();
         let (_, mut clusters) = body.parts();
         let baseline = super::super::kernel::establish_axis_ground_contact_baseline(&world, &mut clusters,
-            crate::MotionFrame::from_direction(Vec2::Y, 900.0), Some(MotionAdmission { links: &links, first: Some(0),
+            crate::MotionFrame::from_direction(Vec2::Y, 900.0), Some(MotionAdmission { span: Default::default(), links: &links, first: Some(0),
                 budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection })).unwrap();
         assert!(matches!(baseline.transition_to(true), crate::GroundContactTransition::InitializedGrounded),
             "a fresh body on far-side support must not report another landing");
@@ -1576,7 +1576,7 @@ fn an_axis_crossing_keeps_its_source_chart_until_rebase() {
     body.kinematics.canonical_size = Vec2::splat(16.0);
     body.kinematics.vel = Vec2::X * 50.0;
     let mut refusal = None;
-    let mut admission = Some(MotionAdmission { links: &links, first: None,
+    let mut admission = Some(MotionAdmission { span: Default::default(), links: &links, first: None,
         budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection });
     super::super::collision::sweep_player_axis_clusters(&world, &mut body.kinematics,
         &mut body.ground, &mut body.wall, &body.body_mode, &body.env_contact,
@@ -1635,7 +1635,7 @@ fn portal_host_boundaries_do_not_gain_solid_area_after_chart_projection() {
         super::super::collision::sweep_player_axis_clusters(&world, &mut body.kinematics,
             &mut body.ground, &mut body.wall, &body.body_mode, &body.env_contact,
             crate::collision_semantics::Axis::Y, 0.0, 920.0, false, Vec2::Y,
-            &mut contacts, &mut Some(MotionAdmission { links: &links, first: Some(1),
+            &mut contacts, &mut Some(MotionAdmission { span: Default::default(), links: &links, first: Some(1),
                 budget: PieceBudget::COMPOSED, convention: MapConvention::Rotation }), &mut refusal, None);
         assert!(refusal.is_none(), "{refusal:?}");
         assert!(!body.ground.on_ground, "turn {turn}, y {y}: {contacts:?}");
@@ -1645,7 +1645,7 @@ fn portal_host_boundaries_do_not_gain_solid_area_after_chart_projection() {
             domain: &domain, to_world: body.kinematics.material_map().unwrap(),
         }, body.kinematics.pos, Vec2::Y * 0.625, 0.0..1.0);
         for link_count in [2, 3] {
-            let cells = cast.clone().cells(Some(MotionAdmission { links: &links[..link_count], first: Some(1),
+            let cells = cast.clone().cells(Some(MotionAdmission { span: Default::default(), links: &links[..link_count], first: Some(1),
                 budget: PieceBudget::COMPOSED, convention: MapConvention::Rotation })).unwrap();
             let hit = world.first_material_contact(&cells, |_, _, _| Ok(true)).unwrap();
             assert!(hit.is_none(), "links {link_count}, turn {turn}, y {y}: {hit:?}; cells {:?}", cells.parts());
@@ -1672,14 +1672,14 @@ fn an_axis_body_can_cross_a_portal_in_a_ground_line() {
     super::super::collision::sweep_player_axis_clusters(&world, &mut touching.kinematics,
         &mut touching.ground, &mut touching.wall, &touching.body_mode, &touching.env_contact,
         crate::collision_semantics::Axis::Y, 0.0, 300.0, false, Vec2::Y,
-        &mut Vec::new(), &mut Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
+        &mut Vec::new(), &mut Some(MotionAdmission { span: Default::default(), links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
             convention: MapConvention::Reflection }), &mut refusal, None);
     assert!(refusal.is_none(), "{refusal:?}");
     assert!(!touching.ground.on_ground, "the opening is not static support");
     for _ in 0..30 {
         let (model, mut clusters) = body.parts();
         let result = step_motion(model, &mut clusters, MotionStepContext {
-            admission: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
+            admission: Some(MotionAdmission { span: Default::default(), links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
                 convention: MapConvention::Reflection }), world: &world,
             input: InputState::default(), frame: crate::MotionFrame::from_direction(Vec2::Y, 900.0),
             facing_intent: 0.0, dt: 1.0 / 60.0, contact: BodyContactField::NONE,
@@ -1790,7 +1790,7 @@ fn a_drifting_exit_holds_the_material_through_it_at_a_still_wall() {
             let links = links_at(tick);
             let (model, mut clusters) = body.parts();
             let result = step_motion(model, &mut clusters, MotionStepContext {
-                admission: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
+                admission: Some(MotionAdmission { span: Default::default(), links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
                     convention: MapConvention::Reflection }), world: &world,
                 input: InputState::default(), frame: crate::MotionFrame::from_direction(Vec2::Y, 0.0),
                 facing_intent: 0.0, dt: 1.0 / 60.0, contact: BodyContactField::NONE,
@@ -1870,4 +1870,59 @@ fn a_pinch_names_the_claimant_that_closes_on_the_body() {
     let both = conflict(blocks.clone());
     assert_eq!(both.driver(), Some(ConflictSide::Min), "the faster closer drives: {both:?}");
     assert!(named(&both.obstruction().driver.expect("a driver").0, "ceiling", &blocks));
+}
+
+/// Portal M1c (portals-are-moving-frames.md): a contact met through a portal
+/// keeps the chart it was met in. A body sinks into a floor mouth whose exit
+/// is a quarter turn away on a wall. Under the exit is a block sliding along
+/// its own face. The body stands on it through the pair. The response is
+/// solved in the body's root chart, so the root normal faces up. The surface
+/// itself faces back toward the exit, and its motion is the block's own.
+/// Control: the same body on the room floor, met in its own chart, carries
+/// no `met`.
+#[test]
+fn a_support_met_through_a_turned_pair_keeps_the_exit_charts_facts() {
+    use crate::collision_semantics::ContactKind;
+    use crate::frame::{MapConvention, PortalAperture, PortalFrame,
+        thread::{MotionAdmission, PieceBudget, PortalLink}};
+    let entry = PortalAperture { frame: PortalFrame::fixed(Vec2::new(100.0, 300.0), -Vec2::Y), half_length: 40.0 };
+    let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(600.0, 100.0), Vec2::X), half_length: 40.0 };
+    let links = [PortalLink::new(entry, exit, 0), PortalLink::new(exit, entry, 1)];
+    const SLIDE: Vec2 = Vec2::new(0.0, 2.0);
+    let mut block = Block::solid("sliding block beyond the exit", Vec2::new(608.0, 40.0), Vec2::new(80.0, 120.0));
+    block.velocity = SLIDE;
+    let mut world = World::new("turned pair", Vec2::splat(2000.0), Vec2::ZERO, vec![]);
+    world.chains.push(crate::SurfaceChain::open("floor", vec![Vec2::new(0.0, 300.0), Vec2::new(400.0, 300.0)]));
+    world.blocks.push(block);
+    let supports = |admitted: bool| {
+        // 4 px into the mouth, still 0.5 px a tick downward.
+        let mut body = scratch_with(AbilitySet::default(), Vec2::new(100.0, 300.0 - 12.0));
+        body.kinematics.canonical_size = Vec2::splat(32.0);
+        body.kinematics.vel = Vec2::new(0.0, 30.0);
+        let mut found = Vec::new();
+        for _ in 0..12 {
+            let (model, mut clusters) = body.parts();
+            let result = step_motion(model, &mut clusters, MotionStepContext {
+                admission: admitted.then_some(MotionAdmission { span: Default::default(), links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
+                    convention: MapConvention::Reflection }), world: &world,
+                input: InputState::default(), frame: crate::MotionFrame::from_direction(Vec2::Y, 0.0),
+                facing_intent: 0.0, dt: 1.0 / 60.0, contact: BodyContactField::NONE,
+                pose_owned_externally: false, recovery_commitment_outstanding: false,
+            });
+            assert!(result.events.motion_refusal.is_none(), "{:?}", result.events.motion_refusal);
+            found.extend(result.events.contacts.iter().filter(|c| c.kind == ContactKind::Support).cloned());
+        }
+        found
+    };
+    let through = supports(true);
+    let met = through.iter().find_map(|c| c.met.map(|met| (c.clone(), met)));
+    let Some((contact, met)) = met else { panic!("no support met through the pair: {through:?}") };
+    assert!(contact.normal.dot(-Vec2::Y) > 0.99, "the root normal faces up, toward the body: {contact:?}");
+    assert!(met.normal.dot(-Vec2::X) > 0.99, "the surface faces back toward the exit: {met:?}");
+    assert!((met.point.x - 608.0).abs() < 0.5 && (met.point.y - 100.0).abs() < 20.0, "the point is on the block face: {met:?}");
+    assert!((met.surface_velocity - SLIDE).length() < 1e-3, "the surface moves as the block does: {met:?}");
+    assert_eq!((met.link, met.hops), (0, 1), "met through the entry link alone: {met:?}");
+    assert_eq!(contact.physical(), (met.point, met.normal));
+    let own = supports(false);
+    assert!(!own.is_empty() && own.iter().all(|c| c.met.is_none()), "control: the floor is met in the body's own chart: {own:?}");
 }

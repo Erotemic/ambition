@@ -65,12 +65,11 @@ pub use placement::{
     first_portal_crossing, first_portal_crossing_through, host_material_depth, measure_host_depth, portal_fits,
     portal_input_warp_flips_horizontal_for_convention,
     raycast_through_portals, raycast_through_portals_tuned,
-    transit_step, transit_step_with_tuning, PortalCrossing, CrossingRefusal, PortalTransfer, TransitStep,
+    transit_step, transit_step_with_record, PortalCrossing, CrossingRefusal, PortalTransfer, TransitStep,
 };
 pub use passages::{linked_pairs, publish_portal_apertures, publish_portal_passages, AdmittedPortals};
 pub use transit::{
     portal_transit, portals_or_transits, publish_portal_carves, prepare_body_crossing, commit_body_transfer, PreparedPortalTransfer,
-    reconcile_transited_bodies,
     tick_portal_cooldowns, BodyTeleported, PortalBodyTransited, PortalCarves, PortalHole,
     PortalBackside, PortalEmission, PortalInputWarp, PortalTransit,
 };
@@ -97,6 +96,8 @@ mod rollback_registration;
 mod turned_body_tests;
 #[cfg(test)]
 mod body_contract_tests;
+#[cfg(any(test, feature = "test-owner"))]
+pub mod test_owner;
 mod snag;
 pub use snag::{fits_through, snag_push, snag_straddlers};
 pub use rollback_registration::{

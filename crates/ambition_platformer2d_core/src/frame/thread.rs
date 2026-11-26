@@ -706,6 +706,53 @@ pub struct MotionAdmission<'a> {
     pub first: Option<u32>,
     pub budget: PieceBudget,
     pub convention: MapConvention,
+    /// Which part of the tick the operation covers, and whether the movement
+    /// kernel moves the body's root into another chart itself (portal M2).
+    pub span: StepSpan<'a>,
+}
+
+/// The part of the world tick one movement operation covers, and who moves
+/// the body's root through a link it reaches in it (portal M2).
+///
+/// The links' recorded motion and the world's moving geometry are over the
+/// whole tick, `[0, 1]`. A step the kernel interrupts at a crossing covers
+/// the time before the crossing and then the time after it, each as its own
+/// operation over its own `window`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StepSpan<'a> {
+    /// The world-time interval of the operation, within `[0, 1]`.
+    pub window: [f64; 2],
+    /// `Some`: the kernel stops the step where the body's root first crosses
+    /// an admitted link, moves the root through it and continues in the exit
+    /// chart. `None`: the kernel never moves the root, and the caller's
+    /// transit does after the step.
+    pub reroot: Option<Reroot<'a>>,
+}
+
+/// How the movement kernel moves a body's root through a link it reaches.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Reroot<'a> {
+    /// Links closed to a root crossing for this body (the pair whose plane
+    /// it cuts from behind).
+    pub closed: &'a [u32],
+    /// Exit assistance in the canonical body's units
+    /// ([`super::RootTransfer::through`]).
+    pub min_exit_speed: f32,
+}
+
+impl StepSpan<'_> {
+    /// A whole tick whose root a later transit moves.
+    pub const WHOLE: StepSpan<'static> = StepSpan { window: [0.0, 1.0], reroot: None };
+}
+
+impl Default for StepSpan<'_> {
+    fn default() -> Self { StepSpan::WHOLE }
+}
+
+/// The world-time window of an operation under `admission`: the whole tick
+/// without one.
+pub fn step_window(admission: Option<MotionAdmission<'_>>) -> [f64; 2] {
+    admission.map_or(StepSpan::WHOLE.window, |admission| admission.span.window)
 }
 
 impl MotionAdmission<'_> {

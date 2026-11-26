@@ -232,7 +232,7 @@ mod tests {
         let target = CombatVolume::circle(Vec2::ZERO, 2.0);
         let target = MaterialCast::new(MaterialPrimitive { domain: &target,
             to_world: Sim2::IDENTITY.shifted(DVec2::new(0.0, -10.0)).unwrap() },
-            Vec2::new(0.0, -10.0), Vec2::Y*20.0, 0.0..1.0).cells(Some(MotionAdmission {
+            Vec2::new(0.0, -10.0), Vec2::Y*20.0, 0.0..1.0).cells(Some(MotionAdmission { span: Default::default(),
                 links: &links, first: Some(0), budget: PieceBudget::COMPOSED,
                 convention: MapConvention::Reflection,
             })).unwrap();

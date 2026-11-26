@@ -47,6 +47,7 @@ pub fn publish_portal_apertures(
     portals: Query<(Entity, &PlacedPortal)>,
     transits: Query<(Entity, &PortalTransit)>,
     own_policies: Query<(Entity, &MaterialBudget)>,
+    backsides: Query<(Entity, &crate::PortalBackside)>,
     live: PortalRooms,
     tuning: Option<Res<PortalTuning>>,
     mut passages: ResMut<BodyGeometry>,
@@ -92,6 +93,19 @@ pub fn publish_portal_apertures(
         }
     }
     *rings_said = rings;
+    // The kernel moves a body's root through the pair it crosses and goes on
+    // in the exit's chart (portal M2); transit publishes what it did. A body
+    // on the back of a pair does not cross it.
+    passages.set_kernel_reroot(Some(tuning.min_exit_speed));
+    for (body, back) in &backsides {
+        let room = live.of(body);
+        let all = by_room.in_room(room);
+        let ends: Vec<_> = [back.channel, back.channel.partner()].into_iter()
+            .filter_map(|channel| find_portal(all, channel)).map(|portal| portal.aperture()).collect();
+        let keys: Vec<u32> = passages.links_in(room).iter()
+            .filter(|link| ends.contains(&link.enter)).map(|link| link.key).collect();
+        if !keys.is_empty() { passages.close_for(body, keys); }
+    }
     write_straddlers(&mut passages, &by_room, transits.iter().map(|(body, transit)| (body, live.of(body), *transit)).collect());
     commands.insert_resource(AdmittedPortals(by_room));
 }

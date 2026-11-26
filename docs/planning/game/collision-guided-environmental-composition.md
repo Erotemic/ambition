@@ -331,6 +331,27 @@ The Staging Area scaffold is another case. Pass the ledge spans to the art
 generator so each step gets planks and braces at its landing surface.
 Pass climbable bounds too. The Patent Office gallery needs the ladder's
 width and position to leave a gap in its rail.
+For the Draft, use the inspection deck, ladder, and slab bounds to place
+the scaffold and its supports. Show the parallax blocks in the same view
+to check that visitors can tell which edges support a body.
+In Authority Plaza, show a body on the street below the clock stairs.
+Use the one-way ledge bounds to place each tread and the raised walk.
+In the Manifest Office, use the bounds of the sorting counter and file
+tray to place their tops. Show the Registrar's talk prompt below the
+counter so authors can check the space for a conversation.
+In the Callosum, use the cap bounds to place each synapse and the climbable
+bounds to place the fibre bundle. Show the space to leave the bundle at
+the top of the arch.
+In the Neural Cathedral, use the lift stops and the gallery edge to place
+the fibres behind the deck. Show the deck at both stops and a body at
+each transfer.
+In the Echo Chamber, show the balcony, the screens, and the speaking area
+on the floor. Use the ledge bounds to place the balcony trim and the steps.
+In the Weights, use the circuit ledge bounds to place each pad. Show the
+path of a paper label from Stereotyping's muzzle to a body on the floor.
+At Pad Three, use the ledge bounds for the cargo scale, loading walks,
+and service steps. Show the hold entrance and the clerk's window so an
+author can check where both routes start.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in
@@ -358,6 +379,9 @@ author changes a path.
 Show encounter spawn boxes with the room hazards in the geometry preview.
 In the Reliquary, the first knot of the last wave started inside a spike
 tray. Its spawn came from the wave file.
+The Inkfall Caverns and the Workshop Deeps use the same spike art for ink
+and kiln fire. Let an author choose the look of each damage region. Use
+the damage bounds to draw the surface up to the edge of each dry foothold.
 
 ### Terrain under water
 

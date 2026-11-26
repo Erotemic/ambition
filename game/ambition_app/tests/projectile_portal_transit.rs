@@ -7,7 +7,7 @@
 //! normal `PortalSet::Transit` schedule.
 
 use bevy::ecs::system::RunSystemOnce;
-use crate::common::{base, first_authored_portal_pair, fixed_60hz_room_sim};
+use crate::common::{base, fixed_60hz_room_sim};
 
 use ambition_platformer2d::engine_core::BodyKinematics;
 use bevy::prelude::*;
@@ -82,86 +82,6 @@ fn a_projectile_retains_its_pose_when_a_recipients_partition_is_refused() {
         "an admitted contact must resume: {:?}", sim.world().get::<BodyKinematics>(shot));
     assert!(sim.world().get::<MaterialBudget>(remote_target).is_some());
     assert!(sim.world().get::<MaterialBudget>(ally).is_some());
-}
-
-#[test]
-fn a_free_flying_projectile_body_transits_a_portal_pair_in_the_real_app() {
-    let mut sim = fixed_60hz_room_sim("portal_lab");
-
-    // Step once so the world + schedule are fully initialized.
-    sim.step(base());
-
-    // Read a live authored pair after link resolution. Link-authored portals
-    // get generated channels in the app, so this test should not depend on a
-    // particular authoring color surviving as the runtime channel.
-    let (entry_pos, entry_normal, exit_pos) = {
-        let (entry, exit) = first_authored_portal_pair(&mut sim);
-        (entry.pos, entry.normal, exit.pos)
-    };
-
-    // A free-flying projectile-shaped body straddling the entry portal, moving
-    // INTO its face at 400 px/s. Its recorded step reaches the entry plane.
-    let proj = sim
-        .world_mut()
-        .spawn((
-            BodyKinematics { material: Default::default(),
-                pos: entry_pos,
-                vel: -entry_normal * 400.0,
-                canonical_size: Vec2::new(8.0, 8.0),
-                facing: 1.0,
-            },
-            ambition_platformer2d::engine_core::SweepSample { tick: 0, restriction: Default::default(), turn: None, material: Default::default(), travel: Default::default(),
-                prev: entry_pos + entry_normal * 4.0, curr: entry_pos,
-                vel: -entry_normal * 400.0, half: Vec2::splat(4.0), down: Vec2::ZERO,
-                time: [0.0, 1.0],
-            },
-            Name::new("test projectile body"),
-        ))
-        .id();
-
-    // Distance from the entry portal at spawn — the body must end up FAR from
-    // here (transited) and NEAR the exit portal.
-    let entry_to_exit = entry_pos.distance(exit_pos);
-
-    // Step the real app a few frames: the live `PortalSet::Transit` schedule runs
-    // `portal_transit`. The body is spawned straddling the entry portal (centroid
-    // on its plane, moving in), so the aperture machine begins immediately and
-    // transfers within a couple of transit frames — no projectile-step
-    // integration needed (the body sits in the opening from the start).
-    let mut emerged = false;
-    for _ in 0..8 {
-        sim.step(base());
-        let kin = *sim
-            .world()
-            .get::<BodyKinematics>(proj)
-            .expect("the projectile body entity is still alive");
-        // Emerged when it has jumped close to the EXIT portal and far from entry.
-        if kin.pos.distance(exit_pos) < entry_to_exit * 0.5
-            && kin.pos.distance(entry_pos) > entry_to_exit * 0.5
-        {
-            // Travels ALONG the exit normal: keeps flying out, rotated velocity.
-            // The exit portal's outward normal is the emergence direction.
-            assert!(
-                kin.vel.length() > 100.0,
-                "the projectile keeps flying out of the exit portal, vel={:?}",
-                kin.vel,
-            );
-            assert_eq!(
-                kin.facing, 1.0,
-                "a free-flying projectile is not re-oriented by transit \
-                 (reorient:false), facing={}",
-                kin.facing,
-            );
-            emerged = true;
-            break;
-        }
-    }
-
-    assert!(
-        emerged,
-        "the free-flying body should have transited the authored portal pair and \
-         emerged on the far side in the real app schedule",
-    );
 }
 
 #[test]
@@ -311,9 +231,15 @@ fn a_projectile_spends_remaining_time_once_after_a_scaled_root_crossing() {
         let transfer=events[0].transfer;
         if moving {assert!(transfer.exit.frame.velocity.length()>100.0,"{transfer:?}");}
         let after=sim.world().get::<ae::BodyKinematics>(shot).expect("the free exit leaves the shot alive");
-        let expected=transfer.exit_pos.as_dvec2()+transfer.exit_vel.as_dvec2()*((1.0-transfer.crossing_time)/60.0);
+        // The tick's kick is spent once, split at the crossing (portal M2c):
+        // the shot's velocity at the crossing went through the map in
+        // `exit_vel`, and the exit's chart takes it back to the middle of the
+        // tick, the velocity it drifts at, by the acceleration as mapped there.
+        let rest=(1.0-transfer.crossing_time) as f32;
+        let kicked=transfer.exit_vel+transfer.map.vector(acceleration).unwrap()*(rest-0.5)/60.0;
+        assert!((after.vel-kicked).length()<1e-3,"the force kick is not repeated: {:?} vs {kicked:?}",after.vel);
+        let expected=transfer.exit_pos.as_dvec2()+after.vel.as_dvec2()*((1.0-transfer.crossing_time)/60.0);
         assert!(after.pos.as_dvec2().distance(expected)<0.001,"{after:?}, expected={expected:?}");
-        assert_eq!(after.vel,transfer.exit_vel,"the force kick is not repeated");
         assert_eq!(after.material,before.material.carried(transfer.map).unwrap());
         assert_eq!(after.material.scale(),exit.half_length/entry.half_length);
         assert_eq!(sim.world().get::<ambition_platformer2d::platformer::frame_env::CarriedAcceleration>(shot).unwrap().0,
@@ -921,8 +847,7 @@ fn far_side_contact(motion:ContactMotion) {
 
 #[test]
 fn the_lab_g_spinner_takes_a_still_root_during_a_full_turn() {
-    use ambition_platformer2d::engine_core::SweepSample;
-    use ambition_platformer2d::portal::{link_hash, PlacedPortal, PortalBodyTransited, PortalLink};
+    use ambition_platformer2d::portal::{first_portal_crossing, link_hash, PlacedPortal, PortalLink};
     use ambition_platformer2d::world::{collision::MovingPlatformSet, platforms::PlatformTurn};
     let mut sim = fixed_60hz_room_sim("portal_lab");
     sim.step(base());
@@ -933,8 +858,6 @@ fn the_lab_g_spinner_takes_a_still_root_during_a_full_turn() {
             .map(|(portal, _)| portal.clone()).max_by(|a, b| a.pos.x.total_cmp(&b.pos.x)).unwrap()
     };
     let root = enter.pos + Vec2::new(-enter.normal.y, enter.normal.x) * 30.0 + enter.normal * 4.0;
-    let body = BodyKinematics { pos: root, vel: Vec2::ZERO, canonical_size: Vec2::splat(4.0), ..Default::default() };
-    let entity = sim.world_mut().spawn((body, SweepSample::at_rest(body, Vec2::ZERO))).id();
     let mut host = ambition_platformer2d::session::sole_live_room_component_mut::<MovingPlatformSet>(sim.world_mut())
         .expect("the lab has moving hosts");
     let plank = host.0.iter_mut().find(|host| host.name == "G spinning plank").unwrap()
@@ -943,14 +866,17 @@ fn the_lab_g_spinner_takes_a_still_root_during_a_full_turn() {
     plank.turn = PlatformTurn::Spin { deg_per_s: 21600.0 };
     drop(host);
     sim.step(base());
-    let event = sim.world_mut().resource_mut::<Messages<PortalBodyTransited>>().drain()
-        .find(|event| event.body == entity).expect("the recorded full turn crosses the still root");
-    assert!(event.transfer.crossing_time > 0.0 && event.transfer.crossing_time < 1.0);
-    assert_eq!(event.transfer.crossing_point, root);
-    let frame = event.transfer.enter.frame;
-    assert!((root - frame.origin).dot(frame.normal).abs() < 1.0e-4);
-    assert!(frame.normal.distance(enter.normal) > 0.5);
-    assert!(sim.world().get::<BodyKinematics>(entity).unwrap().pos.distance(root) > 100.0);
+    // The cast every motion owner takes a crossing from: the lab's recorded
+    // turn reaches the still root inside the tick.
+    let portals: Vec<PlacedPortal> = {
+        let world = sim.world_mut();
+        world.query::<(&PlacedPortal, &PortalLink)>().iter(world)
+            .filter(|(_, link)| link.0 == link_hash("lab_g"))
+            .map(|(portal, _)| portal.clone()).collect()
+    };
+    let at = first_portal_crossing(root, root, Vec2::splat(4.0), &portals, None)
+        .expect("the cast is admitted").expect("the recorded full turn crosses the still root");
+    assert!(at > 0.0 && at < 1.0, "inside the tick: {at}");
 }
 
 

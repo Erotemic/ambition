@@ -403,7 +403,7 @@ fn an_overlapping_far_part_hits_before_the_shot_can_withdraw() {
     let mut after = before;
     after.pos.x -= 20.0;
     let world = world_with_block(ae::BlockKind::Solid, Vec2::new(102.0, 0.0), Vec2::new(1.0, 20.0));
-    let admission = MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
+    let admission = MotionAdmission { span: Default::default(), links: &links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
     let contact=super::query_world_collision(before, after, shot.game, &world, Vec2::Y, 0.1,
         0.0..1.0, ae::LinearTravel::Complete, Some(admission)).unwrap();
     let response=contact.response().unwrap();
@@ -427,7 +427,7 @@ fn a_projectile_meets_the_far_wall_before_its_root_crosses() {
     let before=shot.kin;
     let mut after=before; after.pos=Vec2::ZERO;
     let world=world_with_block(ae::BlockKind::Solid,Vec2::new(103.0,0.0),Vec2::new(1.0,20.0));
-    let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+    let admission=MotionAdmission { span: Default::default(), links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
     let contact=super::query_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,Some(admission)).unwrap();
     let response=contact.response().unwrap();
     assert!(matches!(response.outcome,WorldHitOutcome::Expired { .. }));
@@ -457,7 +457,7 @@ fn a_far_side_bounce_uses_relative_surface_motion_in_the_root_chart() {
     let before=shot.kin; let mut after=before; after.pos.y=-1.0;
     let mut world=world_with_block(ae::BlockKind::Solid,Vec2::new(102.0,0.0),Vec2::new(1.0,40.0));
     world.blocks[0].velocity=Vec2::X;
-    let admission=MotionAdmission { links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
+    let admission=MotionAdmission { span: Default::default(), links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection };
     let contact=super::query_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,0.0..1.0,ambition_platformer2d_core::LinearTravel::Complete,Some(admission)).unwrap();
     let response=contact.response().unwrap();
     assert!(matches!(response.outcome,WorldHitOutcome::Bounced { .. }),"{response:?}");
@@ -484,7 +484,7 @@ fn a_rebound_must_fit_every_occupied_material_chart() {
         let before=shot.kin;
         let after=BodyKinematics {pos:Vec2::new(0.0,-1.0),..before};
         let world=world_with_block(ae::BlockKind::Solid,Vec2::new(102.0,0.0),Vec2::new(1.0,40.0));
-        let admission=MotionAdmission {links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection};
+        let admission=MotionAdmission { span: Default::default(),links:&links,first:None,budget:PieceBudget::COMPOSED,convention:MapConvention::Reflection};
         let contact=super::query_world_collision(before,after,shot.game,&world,Vec2::Y,0.1,
             0.0..1.0,ae::LinearTravel::Complete,Some(admission)).unwrap();
         assert_eq!(contact.contact.as_ref().unwrap().contact.path,vec![0]);

@@ -18,6 +18,11 @@ pub fn register_rollback_state<R: RollbackRegistrar>(registrar: &mut R) {
             "derived.gated_lock_wall_verdicts",
             "why each authored gated wall stands; rebuilt from the walls' verdicts every gate tick",
         );
+    registrar.declare_rollback_derived_resource::<crate::platforms::obstruction::CarriedObstructions>(
+        OWNER,
+        "derived.carried_obstructions",
+        "the parts of bodies moving portal hosts push through their pairs; cleared and republished every tick before platforms advance (crushing C5)",
+    );
     registrar.declare_rollback_derived_resource::<
         crate::authored_room_commands::AuthoredRoomCommands,
     >(

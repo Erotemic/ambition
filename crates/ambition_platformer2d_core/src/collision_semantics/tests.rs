@@ -160,7 +160,7 @@ fn one_way_landing_is_false_without_gravity() {
 #[test]
 fn contact_tangent_winding_is_consistent() {
     // Floor under down-gravity: normal up (0,-1) -> tangent rightward (1,0).
-    let c = Contact {
+    let c = Contact { met: None,
         impact_speed: 0.0,
         involuntary: false,
         kind: ContactKind::Support,

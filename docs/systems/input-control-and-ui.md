@@ -149,6 +149,10 @@ includes the sandbox. Select a dimension or group to open it. Select a room
 to see its map. Back returns to the parent level. Back at Dimensions closes
 the menu.
 
+The chart uses gold for the current room and a bright blue outline for the
+selected entry. Group cards open the next level. The legend shows the marks
+and unvisited rooms that are visible on the chart.
+
 Use the map tools to zoom, pan, or fit the level. Drag on the map to pan. Use the
 wheel or vertical touchpad scroll to zoom. Horizontal touchpad scroll pans
 the map. Directional input selects a room or group.

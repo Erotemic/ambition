@@ -518,3 +518,71 @@ fn a_portal_is_as_deep_as_the_host_it_rides() {
     assert!(matches!(host, PortalHost::Line { .. }), "{host:?}");
     assert_eq!(depth, 0.0, "nothing is behind a plank");
 }
+
+/// Crushing C5: a host that carries a portal is the driver of a body in that
+/// portal. The body straddles a mouth on the host's right face; its part
+/// through the pair is over a floor exit, 2 px under a ceiling. The host's
+/// move to the right pushes that part up by as much: a yielding host keeps
+/// 2 px of its 4, an unstoppable one its schedule, and once the body leaves
+/// the yielding host moves on. The aperture stays on its host throughout and
+/// the portal is not closed.
+#[test]
+fn a_yielding_host_stalls_on_a_body_whose_far_side_meets_a_solid() {
+    use super::carried::publish_carried_obstructions;
+    use super::hosts::{attach_portal_hosts, refresh_hosted_portal_frames};
+    use ambition_platformer2d_world::collision::MovingPlatformSet;
+    use ambition_platformer2d_world::platforms::obstruction::CarriedObstructions;
+    use ambition_platformer2d_world::platforms::{install_moving_platform_simulation, MovingPlatformState, MovingPlatformStep};
+    use ambition_portal2d::PortalTransit;
+    use ae::crush::SurfaceAuthority;
+
+    let run = |authority: SurfaceAuthority| {
+        let mut app = App::new();
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(
+            app.world_mut(),
+            RoomGeometry(ae::World::new("c5", Vec2::new(2000.0, 1000.0), Vec2::ZERO, vec![
+                // The floor the exit is on, and the ceiling over it.
+                ae::Block::solid("exit floor", Vec2::new(1100.0, 300.0), Vec2::new(200.0, 40.0)),
+                ae::Block::solid("exit ceiling", Vec2::new(1100.0, 249.0), Vec2::new(200.0, 40.0)),
+            ])),
+        );
+        let mut host = MovingPlatformState::from_authored(Vec2::new(400.0, 500.0), Vec2::new(100.0, 100.0), 400.0, 240.0);
+        host.authority = Some(authority);
+        ambition_platformer2d_shared_tangle::lifecycle::insert_live_room_component(app.world_mut(), MovingPlatformSet(vec![host]));
+        app.insert_resource(ambition_time::WorldTime::new(1.0 / 60.0, 1.0 / 60.0));
+        app.init_resource::<CarriedObstructions>();
+        install_moving_platform_simulation(&mut app, Update);
+        app.add_systems(Update, (
+            (attach_portal_hosts, publish_carried_obstructions).chain().before(MovingPlatformStep),
+            refresh_hosted_portal_frames.after(MovingPlatformStep),
+        ));
+        let mouth = app.world_mut().spawn(PlacedPortal::fixed(PURPLE, Vec2::new(452.0, 500.0), Vec2::X,
+            ambition_portal2d::PORTAL_OPENING_HALF).unwrap()).id();
+        app.world_mut().spawn(PlacedPortal::fixed(YELLOW, Vec2::new(1200.0, 300.0), -Vec2::Y,
+            ambition_portal2d::PORTAL_OPENING_HALF).unwrap());
+        // 9 px of the body is behind the mouth's plane.
+        let body = app.world_mut().spawn((
+            BodyKinematics { pos: Vec2::new(455.0, 500.0), canonical_size: Vec2::new(24.0, 48.0), ..Default::default() },
+            PortalTransit { straddling: PURPLE, crossed: false },
+        )).id();
+        let host_x = |app: &App| ambition_platformer2d_shared_tangle::lifecycle::sole_live_room_component::<MovingPlatformSet>(app.world())
+            .unwrap().0[0].pos.x;
+        let start = host_x(&app);
+        app.update();
+        let moved = host_x(&app) - start;
+        let portal = app.world().get::<PlacedPortal>(mouth).expect("the portal is not closed").clone();
+        assert!(matches!(portal.host, PortalHost::Face { .. }), "the mouth is on the host: {:?}", portal.host);
+        assert!((portal.pos.x - (host_x(&app) + 50.0 + 2.0)).abs() < 1.0e-3, "the aperture stays on its host: {portal:?}");
+        let carried = app.world().resource::<CarriedObstructions>();
+        assert_eq!(carried.0.len(), 1, "{carried:?}");
+        app.world_mut().entity_mut(body).remove::<PortalTransit>();
+        let before = host_x(&app);
+        app.update();
+        (moved, host_x(&app) - before)
+    };
+    let (yielding, free) = run(SurfaceAuthority::Yielding);
+    assert!((yielding - 2.0).abs() < 0.1, "the yielding host keeps the 2 px the body has: {yielding}");
+    assert!((free - 4.0).abs() < 0.05, "and moves on once the body leaves: {free}");
+    let (unstoppable, _) = run(SurfaceAuthority::Unstoppable);
+    assert!((unstoppable - 4.0).abs() < 0.05, "an unstoppable host keeps its schedule: {unstoppable}");
+}

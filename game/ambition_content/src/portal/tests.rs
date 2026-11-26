@@ -24,37 +24,34 @@ const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::ORANGE);
 const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
 const YELLOW: PortalChannel = PortalChannel::Authored(PortalChannelColor::Yellow);
 
-/// Step a scratch body one tick through the REAL unified kernel with an
-/// axis-swept policy refreshed from `tuning` (the scratch's own model is
-/// threaded, so maneuver state persists across ticks like a live entity).
-fn step_axis_scratch(
+
+/// One step of the axis-swept model with the pair admitted, as the kernel
+/// steps a body in a room with portals (portal M2): the body crosses in its
+/// step and goes on in the exit's chart. Returns the crossings it took.
+fn step_axis_scratch_through(
     world: &ae::World,
     scratch: &mut ae::BodyClusterScratch,
-    input: ae::InputState,
     dt: f32,
     tuning: ae::movement::MovementTuning,
-) {
+    portals: &[PlacedPortal; 2],
+) -> Vec<ae::movement::ChartChange> {
+    use ae::frame::thread::{MotionAdmission, PieceBudget, PortalLink, Reroot, StepSpan};
+    let portal = ambition_portal2d::PortalTuning::default();
+    let [a, b] = [portals[0].aperture(), portals[1].aperture()];
+    let links = [PortalLink::new(a, b, 0), PortalLink::new(b, a, 1)];
     let frame = ae::MotionFrame::from_direction(ae::DEFAULT_GRAVITY_DIR, tuning.gravity);
     let (model, mut clusters) = scratch.parts();
-    ae::switch_motion_model(
-        model,
-        ae::MotionModelSpec::AxisSwept(tuning.axis_swept_params()),
-    );
-    ae::step_motion(
-        model,
-        &mut clusters,
-        ae::MotionStepContext {
-            admission: None,
-            world,
-            input,
-            frame,
-            facing_intent: input.axes.x,
-            dt,
-            contact: ambition_platformer2d_core::BodyContactField::NONE,
-            pose_owned_externally: false,
-            recovery_commitment_outstanding: false,
-        },
-    );
+    ae::switch_motion_model(model, ae::MotionModelSpec::AxisSwept(tuning.axis_swept_params()));
+    let result = ae::step_motion(model, &mut clusters, ae::MotionStepContext {
+        admission: Some(MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED,
+            convention: portal.convention.map_convention(),
+            span: StepSpan { window: [0.0, 1.0], reroot: Some(Reroot { closed: &[], min_exit_speed: portal.min_exit_speed }) } }),
+        world, input: ae::InputState::default(), frame, facing_intent: 0.0, dt,
+        contact: ambition_platformer2d_core::BodyContactField::NONE,
+        pose_owned_externally: false, recovery_commitment_outstanding: false,
+    });
+    assert!(result.events.motion_refusal.is_none(), "{:?}", result.events.motion_refusal);
+    result.events.chart_changes
 }
 
 fn world_with_two_walls() -> RoomGeometry {
@@ -422,7 +419,7 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
     app.init_resource::<ambition_portal2d::PortalTuning>();
     app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
     // Transit crosses the pairs the step admitted (M1b): publish them first.
-    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, portal_transit).chain());
+    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, ambition_portal2d::test_owner::cross_recorded_steps, portal_transit).chain());
     app.world_mut().spawn(PlacedPortal::fixed(
         BLUE,
         Vec2::new(20.0, 200.0),
@@ -496,24 +493,16 @@ fn n_pairs_transit_routes_to_the_matching_partner() {
     ];
     // A body whose centroid has crossed the PURPLE plane transfers to YELLOW
     // (its partner) — never to the unrelated orange portal.
-    let step = ambition_portal2d::transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(400.0, 305.0), canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::new(0.0, 50.0), ..Default::default() },
-        Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), prev: Vec2::new(400.0, 295.0), vel: Vec2::Y * 50.0, time: [0.0, 1.0], curr: Vec2::new(400.0, 305.0), material: Default::default(), half: Vec2::ZERO }),
-        Some(PortalTransit {
-            straddling: PURPLE,
-            crossed: false,
-        }),
-        None,
-        &portals,
-        &ambition_portal2d::PortalTuning::default(),);
-    match step {
-        TransitStep::Transfer { transfer, .. } => {
-                let exit_channel = transfer.exit_channel;
-                let pos = transfer.exit_pos;
-            assert_eq!(exit_channel, YELLOW, "purple links to yellow");
-            assert!(pos.x > 600.0, "emerges at the yellow portal, got {pos:?}");
-        }
-        other => panic!("expected a transfer to yellow, got {other:?}"),
-    }
+    let body = ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(400.0, 305.0), canonical_size: Vec2::new(24.0, 40.0), vel: Vec2::new(0.0, 50.0), ..Default::default() };
+    let record = ae::SweepSample { prev: Vec2::new(400.0, 295.0), vel: Vec2::Y * 50.0, curr: body.pos, ..ae::SweepSample::at_rest(body, Vec2::Y) };
+    let domain = body.canonical_box().unwrap();
+    let cast = record.material_cast(&domain).unwrap();
+    let hit = ambition_portal2d::first_portal_crossing_through(&cast, &portals, None, 1.0).unwrap()
+        .expect("the centroid crossed the purple plane");
+    let transfer = ambition_portal2d::PortalTransfer::at_crossing(hit, hit.root.point, body.vel, body.material,
+        &ambition_portal2d::PortalTuning::default()).unwrap();
+    assert_eq!(transfer.exit_channel, YELLOW, "purple links to yellow");
+    assert!(transfer.exit_pos.x > 600.0, "emerges at the yellow portal, got {:?}", transfer.exit_pos);
 }
 
 
@@ -590,7 +579,7 @@ fn actors_carry_their_physical_material_through_portals() {
     });
     app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
     // Transit crosses the pairs the step admitted (M1b): publish them first.
-    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, portal_transit).chain());
+    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, ambition_portal2d::test_owner::cross_recorded_steps, portal_transit).chain());
     // The pair reflects the physical material across a floor-to-wall crossing.
     app.world_mut().spawn(PlacedPortal::fixed(
         BLUE,
@@ -643,7 +632,7 @@ fn portal_pair_teleports_player_carrying_momentum() {
     });
     app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
     // Transit crosses the pairs the step admitted (M1b): publish them first.
-    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, portal_transit).chain());
+    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, ambition_portal2d::test_owner::cross_recorded_steps, portal_transit).chain());
     // Blue on the left (facing right), orange on the right (facing left).
     app.world_mut().spawn(PlacedPortal::fixed(
         BLUE,
@@ -706,7 +695,7 @@ fn a_gunless_player_transits_an_authored_pair() {
     app.init_resource::<ambition_portal2d::PortalTuning>();
     app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
     // Transit crosses the pairs the step admitted (M1b): publish them first.
-    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, portal_transit).chain());
+    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, ambition_portal2d::test_owner::cross_recorded_steps, portal_transit).chain());
     let he = ambition_portal2d::PORTAL_OPENING_HALF;
     app.world_mut().spawn(PlacedPortal::fixed(
         PURPLE,
@@ -772,7 +761,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     // (`portal_seat::tests`); this measures the core's gradual crossing.
     app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
     // Transit crosses the pairs the step admitted (M1b): publish them first.
-    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, portal_transit).chain());
+    app.add_systems(Update, (ambition_portal2d::publish_portal_apertures, ambition_portal2d::test_owner::cross_recorded_steps, portal_transit).chain());
     // Two FLOOR portals (normal up): blue at x=200, orange at x=600.
     app.world_mut().spawn(PlacedPortal::fixed(
         BLUE,
@@ -1153,15 +1142,14 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
 
 /// Energy audit for the free-fall bounce between two same-plane floor portals
 /// (the c138/c139 "pop back and forth forever" loop): the REAL player
-/// integrator + the REAL `transit_step` machine, no input. Gravity is
+/// integrator crossing the pair in its own step (portal M2), no input. Gravity is
 /// conservative and the portal map is an isometry, so the crossing speed must
 /// NOT decay across many transfers — any drift here is integrator/transfer
 /// instability, not physics.
 #[test]
 fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
     use ambition_platformer2d_core::body_clusters::BodyClusterScratch;
-    use ambition_platformer2d_core::movement::{InputState, DEFAULT_TUNING};
-    use ambition_portal2d::{transit_step_with_tuning, TransitStep};
+    use ambition_platformer2d_core::movement::DEFAULT_TUNING;
 
     // A floor at y ∈ [880, 920] with the two apertures ALREADY carved (three
     // segments): this isolates the integrator + transfer math from carve
@@ -1199,58 +1187,17 @@ fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
     );
     scratch.ground.on_ground = false;
     scratch.kinematics.vel = Vec2::new(0.0, 300.0); // falling straight down
-    let size = Vec2::new(24.0, 40.0);
+    scratch.kinematics.canonical_size = Vec2::new(24.0, 40.0);
     let dt = 1.0 / 60.0;
 
-    let mut transit: Option<PortalTransit> = None;
-    let mut cooldown: Option<(PortalChannel, f32)> = None;
     let mut crossing_speeds: Vec<f32> = Vec::new();
 
     for _ in 0..4000 {
         if crossing_speeds.len() >= 40 {
             break;
         }
-        let previous = scratch.kinematics;
-        step_axis_scratch(
-            &world,
-            &mut scratch,
-            InputState::default(),
-            dt,
-            DEFAULT_TUNING,
-        );
-        if let Some((_, t)) = cooldown.as_mut() {
-            *t -= dt;
-        }
-        cooldown = cooldown.filter(|(_, t)| *t > 0.0);
-        let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: scratch.kinematics.pos, canonical_size: size, vel: scratch.kinematics.vel, ..Default::default() },
-            Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), prev: previous.pos, vel: previous.vel, time: [0.0, 1.0], curr: scratch.kinematics.pos, material: Default::default(), half: Vec2::ZERO }),
-            transit,
-            cooldown.map(|(c, _)| c),
-            &portals,
-            &ambition_portal2d::PortalTuning::default(),);
-        match step {
-            TransitStep::Begin { channel, .. } => {
-                transit = Some(PortalTransit {
-                    straddling: channel,
-                    crossed: false,
-                });
-            }
-            TransitStep::Transfer { transfer, .. } => {
-                let pos = transfer.exit_pos;
-                let vel = transfer.exit_vel;
-                let exit_channel = transfer.exit_channel;
-                crossing_speeds.push(scratch.kinematics.vel.length());
-                scratch.kinematics.pos = pos;
-                scratch.kinematics.vel = vel;
-                transit = Some(PortalTransit {
-                    straddling: exit_channel,
-                    crossed: true,
-                });
-                cooldown = Some((exit_channel, 0.25));
-            }
-            TransitStep::Clear => transit = None,
-            TransitStep::Idle | TransitStep::Continue => {}
-            TransitStep::Refused { reason, .. } => panic!("unexpected transit refusal: {reason:?}"),
+        for change in step_axis_scratch_through(&world, &mut scratch, dt, DEFAULT_TUNING, &portals) {
+            crossing_speeds.push(change.transfer.entry_vel.length());
         }
         assert!(
             scratch.kinematics.vel.x.abs() < 1e-3,
@@ -1277,14 +1224,12 @@ fn floor_floor_bounce_conserves_crossing_speed_over_many_transfers() {
     );
 }
 
-/// Drive the REAL integrator + transit machine through ONE floor→floor
+/// Drive the REAL integrator, crossing in its step, through ONE floor→floor
 /// round trip from `drop` px above portal A and return the rebound apex
 /// height above the exit portal. Shared harness for the energy round-trip
 /// pins below.
 fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) -> f32 {
     use ambition_platformer2d_core::body_clusters::BodyClusterScratch;
-    use ambition_platformer2d_core::movement::InputState;
-    use ambition_portal2d::{transit_step_with_tuning, TransitStep};
 
     let floor_y = 3000.0;
     let world = ae::World::new(
@@ -1318,46 +1263,18 @@ fn floor_floor_round_trip_apex(drop: f32, tuning: ae::movement::MovementTuning) 
         ambition_platformer2d_core::AbilitySet::default(),
     );
     scratch.ground.on_ground = false;
-    let size = Vec2::new(24.0, 40.0);
+    scratch.kinematics.canonical_size = Vec2::new(24.0, 40.0);
     let dt = 1.0 / 60.0;
 
-    let mut transit: Option<PortalTransit> = None;
     let mut transferred = false;
     let mut apex_y = f32::INFINITY;
     for _ in 0..4000 {
-        let previous = scratch.kinematics;
-        step_axis_scratch(&world, &mut scratch, InputState::default(), dt, tuning);
-        let step = transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: scratch.kinematics.pos, canonical_size: size, vel: scratch.kinematics.vel, ..Default::default() },
-            Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), prev: previous.pos, vel: previous.vel, time: [0.0, 1.0], curr: scratch.kinematics.pos, material: Default::default(), half: Vec2::ZERO }),
-            transit,
-            None,
-            &portals,
-            &ambition_portal2d::PortalTuning::default(),);
-        match step {
-            TransitStep::Begin { channel, .. } => {
-                transit = Some(PortalTransit {
-                    straddling: channel,
-                    crossed: false,
-                });
+        if !step_axis_scratch_through(&world, &mut scratch, dt, tuning, &portals).is_empty() {
+            if transferred {
+                break; // falling back in — the round trip is complete
             }
-            TransitStep::Transfer { transfer, .. } => {
-                let pos = transfer.exit_pos;
-                let vel = transfer.exit_vel;
-                let exit_channel = transfer.exit_channel;
-                if transferred {
-                    break; // falling back in — the round trip is complete
-                }
-                transferred = true;
-                scratch.kinematics.pos = pos;
-                scratch.kinematics.vel = vel;
-                transit = Some(PortalTransit {
-                    straddling: exit_channel,
-                    crossed: true,
-                });
-            }
-            TransitStep::Clear => transit = None,
-            TransitStep::Idle | TransitStep::Continue => {}
-            TransitStep::Refused { reason, .. } => panic!("unexpected transit refusal: {reason:?}"),
+            transferred = true;
+            apex_y = f32::INFINITY;
         }
         if transferred {
             apex_y = apex_y.min(scratch.kinematics.pos.y);

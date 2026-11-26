@@ -68,7 +68,7 @@ pub use authority::{
     shift_frozen_body, transit_body, restore_body_pose, ArrivalMomentum, TransitVelocity,
 };
 pub use collision::{hazard_contact_on_path, touching_hazard_aabb, touching_rebound_aabb};
-pub use events::{BlinkEvent, BodyFrameOutput, BodyReset, BodyStepStamp, FrameEvents, GroundContactTransition, ResetCause, StepContacts};
+pub use events::{BlinkEvent, BodyFrameOutput, BodyReset, BodyStepStamp, ChartChange, FrameEvents, GroundContactTransition, ResetCause, StepContacts};
 pub use facts::{claim_pose_hold, claim_pose_hold_on, release_pose_hold, release_pose_hold_on, BodyMotionFacts, LedgeFacts, PoseHold, PoseOwnedExternally};
 pub use input::{ActionEdges, ActionKey, Edge, InputState, MovementAction};
 /// Screen-vertical input → gravity-relative "descend" intent (the vertical
@@ -326,7 +326,8 @@ pub(crate) fn update_body_simulation_in_frame(
     );
     // The box this arm sweeps is the body's box turned to the frame's DOWN
     // (`aabb_oriented(frame.down())` in every collision of the step).
-    let step_half = kernel::write_sweep_sample(clusters, (entry_pos, entry_vel, entry_material), frame.down());
+    let step_half = kernel::write_sweep_sample(clusters, (entry_pos, entry_vel, entry_material), frame.down(),
+        crate::frame::thread::step_window(admission));
 
     // Hazard / out-of-bounds gate — body flags the cause; the owner applies its policy.
     //

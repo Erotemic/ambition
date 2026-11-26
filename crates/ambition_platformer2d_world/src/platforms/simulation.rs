@@ -40,10 +40,15 @@ fn any_moving_platforms(rooms: Query<&MovingPlatformSet, With<RoomInstanceRoot>>
 /// a held room's platforms hold with the bodies on them). A lift responds to
 /// a grounded body in its room and collision plane, regardless of its
 /// controller.
+///
+/// Each advance is a proposal (crushing C3): a platform that may not push a
+/// body past its clearance keeps the part of its move that does not
+/// ([`super::obstruction`]); an unstoppable one, the default, keeps its
+/// schedule.
 #[allow(clippy::type_complexity)]
 fn advance_moving_platforms(
     time: Res<ambition_time::WorldTime>,
-    mut rooms: Query<(&LiveRoomInstance, &mut MovingPlatformSet), With<RoomInstanceRoot>>,
+    mut rooms: Query<(&LiveRoomInstance, &mut MovingPlatformSet, Option<&ae::RoomGeometry>), With<RoomInstanceRoot>>,
     riders: Query<(
         Entity,
         &ae::BodyKinematics,
@@ -51,16 +56,30 @@ fn advance_moving_platforms(
         Option<&ae::SweepSample>,
         Option<&ae::DepthPlane>,
     )>,
+    bodies: Query<(Entity, &ae::BodyKinematics, Option<&ae::DepthPlane>), Without<ae::BodyInStorage>>,
+    policy: Option<Res<ae::crush::CrushPolicy>>,
+    carried: Option<Res<super::obstruction::CarriedObstructions>>,
     freeze: ambition_platformer2d_shared_tangle::lifecycle::RoomFreeze,
 ) {
     let live = freeze.live();
     let dt = time.sim_dt();
-    for (instance, mut platforms) in &mut rooms {
+    let default_policy = ae::crush::CrushPolicy::default();
+    let policy = policy.as_deref().unwrap_or(&default_policy);
+    for (instance, mut platforms, geometry) in &mut rooms {
         // Empty sets must not receive a change tick: composed walls use it.
         if platforms.0.is_empty() {
             continue;
         }
         let room = Some(*instance);
+        // Only a platform that may stall reads the others; a room of
+        // unstoppable ones (the default) advances as before, building nothing.
+        let any_may_stall = platforms.0.iter()
+            .any(|platform| policy.authority(&platform.name, platform.authority).allowance_px().is_some());
+        let others: Vec<(ae::GeoId, ae::Aabb, bool)> = if !any_may_stall { Vec::new() } else {
+            platforms.0.iter()
+                .map(|platform| { let block = platform.as_collision_block(); (block.id, block.aabb, platform.one_way) })
+                .collect()
+        };
         for platform in &mut platforms.0 {
             if platform.is_lift() {
                 let ridden = riders.iter().any(|(body, kin, ground, sample, depth)| {
@@ -74,7 +93,33 @@ fn advance_moving_platforms(
                 });
                 platform.set_ridden(ridden);
             }
-            platform.update(dt * freeze.scale_in(room));
+            let step = dt * freeze.scale_in(room);
+            let authority = policy.authority(&platform.name, platform.authority);
+            let Some(allowance) = authority.allowance_px() else {
+                platform.update(step);
+                continue;
+            };
+            let before = platform.clone();
+            let delta = platform.update(step);
+            if delta == ae::Vec2::ZERO { continue; }
+            let own = before.as_collision_block().id;
+            let carried_here = carried.as_deref().map_or_else(Vec::new, |carried| carried.of(&own));
+            let obstacles: Vec<super::obstruction::Obstacle> = bodies.iter()
+                .filter(|(body, _, depth)| depth.is_none_or(|depth| depth.is_playable()) && live.of(*body) == room
+                    && !carried_here.iter().any(|through| through.body == *body))
+                .map(|(_, kin, _)| super::obstruction::Obstacle { aabb: kin.aabb() })
+                .collect();
+            let along_gravity = delta.normalize_or_zero().dot(ae::DEFAULT_GRAVITY_DIR) > 0.5;
+            let mut solids = geometry.map_or_else(Vec::new,
+                |geometry| super::obstruction::pushing_solids(&geometry.0, delta, ae::DEFAULT_GRAVITY_DIR, &own));
+            solids.extend(others.iter().filter(|(id, _, one_way)| *id != own && (!*one_way || along_gravity))
+                .map(|(_, aabb, _)| *aabb));
+            let mut accepted = super::obstruction::accepted_fraction(before.aabb(), delta, allowance, &obstacles, &solids);
+            accepted = accepted.min(super::obstruction::accepted_through(delta, allowance, &carried_here));
+            if accepted < 1.0 {
+                *platform = before;
+                platform.update(step * accepted);
+            }
         }
     }
 }

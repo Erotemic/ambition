@@ -94,7 +94,7 @@ fn dropped_at(x: f32) -> (Vec2, f32) {
     app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
     app.add_systems(
         Update,
-        (crate::publish_portal_apertures, fall, crate::snag_straddlers, crate::portal_transit).chain(),
+        (crate::publish_portal_apertures, fall, crate::snag_straddlers, crate::test_owner::cross_recorded_steps, crate::portal_transit).chain(),
     );
     app.world_mut().spawn(floor());
     app.world_mut().spawn(exit());
@@ -164,19 +164,17 @@ fn a_body_walking_past_an_end_in_a_slope_opening_meets_its_side() {
 /// the pair does not take it until it fits.
 #[test]
 fn a_body_that_cuts_the_plane_past_an_end_is_not_taken() {
-    use crate::placement::{transit_step_with_tuning, TransitStep};
+    use crate::placement::{transit_step_with_record, TransitStep};
     let portals = [floor(), exit()];
     let straddling = Some(PortalTransit { straddling: BLUE, crossed: false });
-    let step = |x: f32| {
-        transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(x, 302.0), canonical_size: BODY * 2.0, vel: Vec2::new(0.0, 100.0), ..Default::default() },
-            Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), prev: Vec2::new(x, 298.0), vel: Vec2::Y * 100.0, time: [0.0, 1.0], curr: Vec2::new(x, 302.0), material: Default::default(), half: Vec2::ZERO }),
-            straddling,
-            None,
-            &portals,
-            &crate::PortalTuning::default(),)
-    };
-    assert!(matches!(step(0.0), TransitStep::Transfer { .. }), "control: within the opening it is taken");
-    assert!(matches!(step(28.0), TransitStep::Continue), "past the end it was taken: {:?}", step(28.0));
+    let crosses = |x: f32| crate::first_portal_crossing(Vec2::new(x, 298.0), Vec2::new(x, 302.0), BODY * 2.0, &portals, None)
+        .unwrap().is_some();
+    assert!(crosses(0.0), "control: within the opening it is taken");
+    assert!(!crosses(28.0), "past the end it was taken");
+    let body = ambition_platformer2d_core::BodyKinematics { pos: Vec2::new(28.0, 302.0), canonical_size: BODY * 2.0,
+        vel: Vec2::new(0.0, 100.0), ..Default::default() };
+    let step = transit_step_with_record(body, None, straddling, None, &portals);
+    assert!(matches!(step, TransitStep::Continue), "it stays in the pair it cuts: {step:?}");
 }
 
 /// A body that comes up through a slope from behind, as through a one-way

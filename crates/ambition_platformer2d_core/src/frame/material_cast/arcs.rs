@@ -178,7 +178,7 @@ impl Scene {
     }
 
     pub(super) fn admission(&self) -> MotionAdmission<'_> {
-        MotionAdmission { links: &self.links, first: self.first, budget: self.budget, convention: self.convention }
+        MotionAdmission { span: Default::default(), links: &self.links, first: self.first, budget: self.budget, convention: self.convention }
     }
 
     pub fn new(cast: &MaterialCast<'_>, admission: MotionAdmission<'_>) -> Arc<Self> {
@@ -1600,7 +1600,7 @@ mod tests {
         )
     }
     fn admission(links: &[PortalLink]) -> MotionAdmission<'_> {
-        MotionAdmission {
+        MotionAdmission { span: Default::default(),
             links,
             first: None,
             budget: PieceBudget::COMPOSED,

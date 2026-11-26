@@ -1,11 +1,11 @@
 # Crushing, compression and motion authority
 
 **Status:** Q187 is resolved at the architectural level (Jon, 2026-11-26).
-The design below follows from the ruling. Two things are **not** decided
-and need design work before C4: the numerical model (how authority and
-resistance are measured and compared) and the deterministic fallback for
-constraints that no response can reconcile. Nothing below is built except
-what [the current state](#the-current-state) names. Work: queue CRUSH.
+The design below follows from the ruling; the numerical model and the
+deterministic fallback were decided the same day (below). C0–C3 and C5 landed
+2026-11-26, with C4's pinch report, compression and failure responses (receipts
+under [Stages](#stages)); C4's `one_way_yields` input and app witnesses,
+and C6, are open. Work: queue CRUSH.
 
 ## The ruling
 
@@ -111,18 +111,52 @@ policy.
   driver of the constraints met through it, with the host's authority:
   the train's portal crushes or ejects; a light platform's portal stalls.
 
-## Still to design (before C4)
+## The numerical model and the fallback (decided 2026-11-26)
 
-- **The numerical model.** The units of authority and resistance, how
-  momentum and drive strength combine against mass and durability, and
-  how a stall's accepted prefix is computed for one driver against several
-  bodies. It must be integer- or fixed-order-deterministic for rollback.
-- **The deterministic fallback.** When no response reconciles the
-  constraints (two unstoppable drivers, an incompressible body with no
-  escape and no failure response), the outcome must still be one defined
-  state on every peer. Candidates to evaluate: eject along the least
-  overconstrained free axis, destroy, or hold the body and report; the
-  choice is design work, with a test that hits the case.
+Decided under the autonomous-decision rules
+([autonomous decision-making](../../concepts/autonomous-decision-making.md)),
+because C4 could not start without them and neither changes a ruled
+behaviour.
+
+- **One unit: pixels of overconstraint.** A pinch's size is the conflict's
+  `overconstraint()`, the depth of the empty interval along its axis, read
+  from the step that met it. Authority and resistance are both depths in
+  that unit, so they compare without a mass or a force, and every number is
+  a sum or a minimum taken in a fixed order (bodies by `SimId`, movers in
+  their set's order): the same on every peer.
+- **Authority is the depth a surface will push past a body's room.**
+  `Yielding` is 0, `Limited { max_overconstraint_px }` is its limit,
+  `Unstoppable` has none. Speed never enters: a slow press with a deep
+  limit crushes where a fast plank with a shallow one stalls. The force the
+  first sketch carried (`max_force`) had no quantity to be compared with in
+  this model, so it is gone rather than kept unread.
+- **A stall against several bodies** keeps the smallest accepted fraction
+  of the move over the bodies its leading face meets (C3's
+  `accepted_fraction`, pairwise).
+- **Resistance is spent in order.** A body takes a tick's overconstraint
+  first by displacement when it has room (no pinch is reported then), then
+  by compression up to `(1 - min_scale)` of its extent along the crush axis
+  (less what it is already squashed), then by its failure response:
+  `Damage` deals `per_px` per pixel left, capped at `per_tick_cap`, through
+  the ordinary damage and death path; `Destroy` deals a lethal hit through the same path; `Displace`
+  ejects it (the fallback's search); `Rigid` takes nothing.
+- **Two unstoppable drivers** both keep their schedules; the body between
+  them takes the whole response, as it would from one.
+- **The deterministic fallback.** When the response leaves a body that
+  may move overconstrained (a `Displace` body, a survivable body already at
+  `min_scale`), it is ejected along the pinch's free axis (the axis across
+  the conflict's): the nearest position, searched outward from where it
+  stands in 1 px steps up to its own extent along that axis, the negative
+  side before the positive at each distance, where it overlaps no full
+  solid. If there is none, it is held where it stands and the pinch is
+  reported again next tick, never moved into a solid. A `Rigid` body is
+  held and reported (today's behaviour, and the default's). The search is a
+  fixed sequence of probes against the same world the step read, so a
+  rewind replays it exactly.
+- **`one_way_yields`** stays a game rule: true (today's kernel, Mary-O)
+  keeps a one-way support out of every reported pinch, and the body falls
+  through it; a game that sets it false gets the pinch reported with the
+  one-way as a claimant, and the body's resistance answers it.
 
 ## Design
 
@@ -152,7 +186,7 @@ then game.
 
 ```text
 GameCrushPolicy      default_authority, default_resistance, one_way_yields: bool
-SurfaceAuthority     Yielding | Limited { max_overconstraint_px, max_force } | Unstoppable
+SurfaceAuthority     Yielding | Limited { max_overconstraint_px } | Unstoppable
 BodyResistance       { compress: Option<Compressibility>, failure: FailureResponse }
 Compressibility      { axes, min_scale (e.g. 0.35), recover_per_s, survivable: bool }
 FailureResponse      Damage { per_px, per_tick_cap } | Destroy | Displace | Rigid
@@ -162,8 +196,8 @@ FailureResponse      Damage { per_px, per_tick_cap } | Destroy | Displace | Rigi
   driver stalls on any obstruction.
 - Authority is a force and a mass, not a speed: a slow press is
   `Unstoppable` or a high `Limited`; a fast light plank is `Yielding`.
-- `Limited`: the driver pushes until the overconstraint or its force
-  limit is reached, then stalls.
+- `Limited`: the driver pushes until the overconstraint reaches its
+  limit, then stalls.
 - `Unstoppable` (the train, a crusher): the driver keeps its schedule,
   and the body takes the whole response.
 - A body with `Compressibility` squashes along the crush axis before it
@@ -180,7 +214,7 @@ FailureResponse      Damage { per_px, per_tick_cap } | Destroy | Displace | Rigi
   platform raises a body into a ceiling, the body falls through the
   platform rather than being crushed. Ambition leaves it off.
 
-The **response** is chosen by comparing authority against resistance (a displacement first, when the body has room). The table is the shape of the rule; its numbers are the open numerical model:
+The **response** is chosen by comparing authority against resistance (a displacement first, when the body has room), in the units of [the numerical model](#the-numerical-model-and-the-fallback-decided-2026-11-26):
 
 | Driver | Body can compress | Body cannot compress |
 | --- | --- | --- |
@@ -227,6 +261,19 @@ stages are measured against it:
 - a body walking into a still wall reports a motion refusal and no
   conflict (no driver, no crush).
 
+*Receipt (2026-11-26, core `movement/tests/crush.rs`).* The pins found the
+plan's first claim false for a full step:
+`a_press_closing_on_a_standing_body_passes_through_it_unreported`. A press
+descending 6 px a tick onto a body standing on a floor is met by the
+gravity sweep as a head contact each tick; the body stays where it stands,
+the overlap grows by the press's step (4 px, then 10, … 28 after five
+ticks), and no step reports a conflict. Only the one-axis sweep called with
+the gap already closed reports one (C1's witness). Mary-O's rule holds as
+described: `a_one_way_that_raises_a_body_into_a_ceiling_drops_it_through`
+(the lift raises the body to the ceiling, rises past its feet, and the body
+falls through it; no conflict on any tick). The wall:
+`a_body_walking_into_a_still_wall_reports_no_conflict`.
+
 **C1 — the obstruction fact.** Turn each conflict into an `Obstruction`
 { body, axis, overconstraint, driver source, driver velocity, other
 source }, with the driver chosen by relative motion (the claimant whose
@@ -245,10 +292,37 @@ driver; a tie goes to the min side). Witness:
 `movement/tests/wall_collision.rs`. Still open in C1: per-tick publication in
 identity order, and the across-a-portal pinch witness.
 
+*Receipt (2026-11-26, the rest).* Published per tick: the runtime's
+`TickObstructions` resource, rebuilt after bodies step from every body's
+reported conflicts, ordered by `SimId` (bodies without one last)
+(`obstructions_are_published_in_identity_order`). Across a portal:
+`a_pinch_across_a_portal_pair_is_the_local_pinch` builds the pinch with a
+mouth where the ceiling was and a solid over its exit, and the far-side
+solid claims the body with the local pinch's numbers; the rising platform
+drives. **Still open, found by C0:** a full step does not report the
+commonest crush, a press closing on a standing body (above). The step meets
+the press as a head contact and lets it pass through, so the published list
+is empty for it. C1 is complete for the conflicts the step reports; making
+the step report this one (the press's head claim and the floor's support
+claim as one empty interval) is the first piece of C4, since it is where the
+body's response will act.
+
 **C2 — policy data.** The three policy tables, with content loading and
 validation. Defaults reproduce today exactly (no response). Tests:
 merge order (body over surface over game); a policy that names an
 unknown surface or body is refused at load.
+
+*C2 receipt (2026-11-26, core `crush.rs`).* `SurfaceAuthority`
+(Yielding, Limited, Unstoppable), `BodyResistance` (compressibility and a
+`FailureResponse`), `GameCrushPolicy` and `CrushPolicy` (the game's rule and
+the surfaces and bodies it names), with `authority`/`resistance` merging
+own over named over game, and `validate` refusing an unknown surface or body
+or a number out of range. Defaults reproduce today: unstoppable surfaces,
+rigid bodies, `one_way_yields`. A moving platform's spec and state carry an
+optional own `authority`. Loading the tables from content waits for C6,
+which authors the first ones (the types are serde; the core has no RON).
+Tests: `the_default_policy_changes_nothing`, `the_most_specific_level_wins`,
+`a_policy_naming_an_unknown_surface_or_body_is_refused`.
 
 **C3 — the driver stalls.** Movers gain the proposal step and the
 accepted prefix. `Yielding` and `Limited` movers stall; riders are
@@ -257,10 +331,25 @@ under it, with the rider carried by the accepted delta and the body
 untouched; a limited platform pushes until its limit, then holds; a
 stalled mover resumes when the body leaves; all three under a rewind.
 
+*C3 receipt (2026-11-26, world `platforms/obstruction.rs`,
+`advance_moving_platforms`).* A platform whose authority allows a stall
+proposes its advance: it reads the bodies its leading face would push, each
+body's clearance against the room's solids (and a one-way only when pushed
+onto its top along gravity), and keeps the part of its move that pushes no
+body past its allowance (0 for yielding, the limit for limited, measured as
+a depth so a limit is not spent again each tick). The accepted move is what
+the platform records (`last_delta`), so riders are carried by it. An
+unstoppable platform, the default, advances as before and the room builds
+nothing for it. Pairwise and box-shaped: a body pushed into a body is not
+chained. Tests in `platforms/simulation/tests.rs`:
+`a_yielding_press_stops_on_a_body_under_it`,
+`an_unstoppable_press_keeps_its_schedule`,
+`a_limited_press_pushes_to_its_limit_then_holds`,
+`a_stalled_press_resumes_when_the_body_leaves_and_a_rewind_replays_it`.
+
 **C4 — the body gives way.** Compression (material scale on the crush
 axis, recovery, the squashed state), damage, destruction, displacement,
 and `one_way_yields`. Ambition's defaults turn on physical crushing.
-Needs the numerical model and the fallback (above) designed first.
 Tests: a body with room is displaced out of a closing gap; a slow press
 with high authority crushes where a fast weak plank stalls (velocity is
 not authority); an unstoppable block flattens a compressible body to
@@ -269,6 +358,39 @@ escape meets the deterministic fallback, the same on a rewind; a rigid body take
 to its cap and dies at zero health through the ordinary death path; a
 destroyable prop is destroyed; Mary-O's C0 witness still passes with its
 game policy.
+
+*C4 receipt, first slices (2026-11-26).* **The step reports the pinch.**
+The axis repair met a press over a standing body one side at a time (the
+press pushed the body into the floor; the next repair pushed it back under
+the press) and never saw the empty interval. A one-sided repair whose move
+would land the body in an opposing claimant (past numeric touch) now
+reports the conflict and leaves the body where it stands; a one-way claimant
+yields (`one_way_yields`, today's rule), and one pinch is one conflict per
+step however many passes meet it. Witnesses (core `movement/tests/crush.rs`):
+`a_press_closing_on_a_standing_body_is_one_conflict_of_the_overlap` (the
+press drives, the overconstraint is the overlap, three ticks running) and
+Mary-O's `a_one_way_that_raises_a_body_into_a_ceiling_drops_it_through`,
+unchanged; Mary-O (123), Sanic (48) and the app's platform, lift, press,
+moving and portal tests pass on it. **The responses** (runtime
+`obstructions.rs`, after the publication): each pinched body answers its
+deepest obstruction by its resistance (`OwnResistance`, else the game's):
+damage per pixel capped per tick through the hit path, a lethal hit for
+`Destroy`, the fallback's ejection for `Displace`, nothing for `Rigid` (the
+default). Compression comes first: a compressible body squashes along the
+pinch down to `min_scale` of its rest size, and only what is left reaches
+its failure response (a survivable body is held flat; one that is not takes
+a lethal hit). The squash is the body's canonical size, kept as `Squash`
+(rollback state) with its rest size: the material is a similarity, one
+scale on every axis, so it cannot hold a squash along one axis. Released,
+the body recovers at its rate as far as it has room. Witnesses:
+`a_pinched_body_takes_damage_per_pixel_up_to_its_cap`,
+`a_displaced_body_is_ejected_to_the_nearest_free_place_or_held`,
+`a_compressible_body_flattens_to_its_limit_and_recovers_when_released`.
+`max_force` is removed (the model has no force). **Still open in C4:** a
+game setting `one_way_yields` false (the step has no policy input yet, so
+every game yields today), the policy's per-body names (a body key the
+policy can name), and the app-level witnesses (a rigid body dies at zero
+health through the death path; a rewind replays a response).
 
 **C5 — portal hosts.** `refresh_hosted_portal_frames` becomes a
 proposal: the host's motion is admitted through C3, with the host as
@@ -279,6 +401,21 @@ portal and the far side would overlap a solid; an unstoppable host
 crushes or damages that body by its resistance, exactly as the same
 pinch without a portal would; the aperture never separates from its
 host; the portal is not closed by default.
+
+*C5 receipt (2026-11-26, runtime `portal_world/carried.rs`).* Before
+platforms advance, the portal layer publishes `CarriedObstructions`: for
+each body straddling a portal on a moving face, the part of it behind the
+mouth's plane, mapped to the exit's chart, and the exit room's solids. The
+host's proposal (C3) admits its move against them: the pair's map of the
+host's `-delta` pushes that part, and a host that may stall keeps the part
+of its move that part has room for. Host, aperture and part commit together
+because the aperture follows the host's recorded (accepted) delta in
+`refresh_hosted_portal_frames`. The portal is not closed. Test:
+`a_yielding_host_stalls_on_a_body_whose_far_side_meets_a_solid` (a yielding
+host keeps 2 px of its 4, moves on once the body leaves, and an
+unstoppable host keeps its schedule; the aperture stays on its host).
+Pairwise: only the straddled portal's host drives; an exit host's own motion
+is not read. The unstoppable host crushing or damaging the body is C4's.
 
 **C6 — content.** Author authority and resistance for shipped movers
 and characters: the train (unstoppable), lifts (yielding), Scout

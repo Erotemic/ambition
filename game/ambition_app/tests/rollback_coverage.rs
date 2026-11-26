@@ -1046,6 +1046,14 @@ fn every_component_in_a_live_match_is_registered_derived_or_waived() {
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
+        "ambition_platformer2d_shared_tangle::lifecycle::menu_pause::MenuPauseRoster",
+        "The host's admitted pause roster, republished every frame in PreUpdate from the session's participants; the simulation never writes it, and a pause reaches the simulation only through the game mode it decides.",
+    ),
+    (
+        "ambition_platformer2d_shared_tangle::lifecycle::menu_pause::LocalMenuPauseVotes",
+        "The local presentation's menu requests, written by the shell's pause menu each frame; host input to the pause vote, not simulation state.",
+    ),
+    (
         "ambition_conversation::ui_bridge::PresentedConversation",
         "Which live conversation the one text runner is running: presentation state, set by the dialog projection in Update. A rewind restores ActiveConversation; the projection then attaches the runner to what is live, as it does on any frame.",
     ),

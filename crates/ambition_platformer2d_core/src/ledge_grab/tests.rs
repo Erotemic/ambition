@@ -699,7 +699,7 @@ fn a_ledge_snap_cannot_put_the_body_through_an_open_portal() {
         let latched = try_start_ledge_grab_clusters_in_frame(
             &world, &mut clusters, &mut axis.state, InputState::default(),
             crate::MotionFrame::from_direction(Vec2::Y, 0.0), &axis.params, &mut events,
-            aperture.map(|links| MotionAdmission {
+            aperture.map(|links| MotionAdmission { span: Default::default(),
                 links, first: None, budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection,
             }),
         );

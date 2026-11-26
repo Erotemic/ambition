@@ -22,6 +22,15 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(sim, crate::body_feedback::emit_body_movement_feedback
             .in_set(GameplayGated)
             .in_set(PlayerSimulationSet::PostPossession));
+        // Crushing C1: this tick's obstructions, once bodies have stepped.
+        app.init_resource::<crate::obstructions::TickObstructions>();
+        // C4: each pinched body answers by its resistance (the default,
+        // rigid, takes nothing).
+        app.add_systems(sim, (crate::obstructions::publish_tick_obstructions,
+                crate::obstructions::respond_to_obstructions,
+                crate::obstructions::recover_squashed_bodies).chain()
+            .in_set(GameplayGated)
+            .in_set(PlayerSimulationSet::PostPossession));
         // The time of day the clock head turns (still without a `DayCycle`).
         app.init_resource::<ambition_time::DayClock>();
         app.register_required_components_with::<ambition_platformer2d_shared_tangle::markers::PlayerEntity, ambition_platformer2d_core::CenteredAabb>(

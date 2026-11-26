@@ -1906,7 +1906,7 @@ mod tests {
         frame
             .events
             .contacts
-            .push(ae::collision_semantics::Contact {
+            .push(ae::collision_semantics::Contact { met: None,
                 // A hand-built fixture contact: nothing arrived at this surface.
                 impact_speed: 0.0,
                 involuntary: false,
@@ -1980,7 +1980,7 @@ mod tests {
         frame
             .events
             .contacts
-            .push(ae::collision_semantics::Contact {
+            .push(ae::collision_semantics::Contact { met: None,
                 impact_speed: 0.0,
                 involuntary: false,
                 kind: ContactKind::Head,
@@ -2076,7 +2076,7 @@ mod tests {
         frame
             .events
             .contacts
-            .push(ae::collision_semantics::Contact {
+            .push(ae::collision_semantics::Contact { met: None,
                 // A hand-built fixture contact: nothing arrived at this surface.
                 impact_speed: 0.0,
                 involuntary: false,
@@ -2170,7 +2170,7 @@ mod tests {
         frame
             .events
             .contacts
-            .push(ae::collision_semantics::Contact {
+            .push(ae::collision_semantics::Contact { met: None,
                 // A hand-built fixture contact: nothing arrived at this surface.
                 impact_speed: 0.0,
                 involuntary: false,
@@ -2310,7 +2310,7 @@ mod tests {
         ambition_platformer2d::platformer::sim_id::SimId,
     ) {
         let mut frame = BodyFrameOutput::default();
-        frame.events.contacts.push(ae::collision_semantics::Contact {
+        frame.events.contacts.push(ae::collision_semantics::Contact { met: None,
             // A hand-built fixture contact: nothing arrived at this surface.
             impact_speed: 0.0,
             involuntary: false,
@@ -2401,7 +2401,7 @@ mod tests {
         frame
             .events
             .contacts
-            .push(ae::collision_semantics::Contact {
+            .push(ae::collision_semantics::Contact { met: None,
                 // A hand-built fixture contact: nothing arrived at this surface.
                 impact_speed: 0.0,
                 involuntary: false,

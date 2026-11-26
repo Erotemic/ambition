@@ -2,9 +2,9 @@
 
 use bevy_math::DVec2;
 
-use super::{ApertureStep, NumericFault, PortalAperture, material_cast::MaterialCast};
+use super::{ApertureStep, BodyMaterial, MapConvention, NumericFault, PortalAperture, Sim2, material_cast::MaterialCast};
 use super::thread::RefusalReason;
-use crate::CombatVolume;
+use crate::{CombatVolume, Vec2};
 
 const MAX_INTERVALS: usize = 16_384;
 
@@ -15,6 +15,73 @@ pub struct RootCrossing {
     pub world_time: f64,
     pub point: crate::Vec2,
     pub aperture: PortalAperture,
+}
+
+/// A body's root moved through one pair at one instant: the pair's map,
+/// where the root comes out and how fast. Every road that moves a root
+/// through a portal (the movement kernel's continuation, generic transit,
+/// items and projectiles) takes the same transfer.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RootTransfer {
+    pub map: Sim2,
+    pub entry_vel: Vec2,
+    pub exit_pos: Vec2,
+    /// The velocity after the surface-relative map, before exit assistance.
+    pub mapped_vel: Vec2,
+    pub exit_vel: Vec2,
+}
+
+impl RootTransfer {
+    /// The root at `center` moving at `velocity`, through `enter` to `exit`
+    /// (each at the instant of the crossing).
+    ///
+    /// `min_exit_speed` is ordinary exit assistance in the canonical body's
+    /// units (SCALE-FEEL SR2): it is applied at the scale the body leaves at,
+    /// its own scale through the map, so a half-size body is pushed clear of
+    /// the exit at half the speed and covers its own length in the same time.
+    pub fn through(enter: &PortalAperture, exit: &PortalAperture, convention: MapConvention,
+        center: Vec2, velocity: Vec2, material: BodyMaterial, min_exit_speed: f32,
+    ) -> Result<Self, NumericFault> {
+        let map = Sim2::through(enter, exit, convention)?;
+        let exit_pos = map.point(center)?;
+        let mapped_vel = map.velocity(&enter.frame, &exit.frame, center, velocity)?;
+        if !min_exit_speed.is_finite() {
+            return Err(NumericFault::NonFinite);
+        }
+        let frame = exit.frame;
+        let arm = exit_pos.as_dvec2() - frame.pivot.as_dvec2();
+        let surface = frame.velocity.as_dvec2() + f64::from(frame.spin) * DVec2::new(-arm.y, arm.x);
+        let normal = frame.normal.as_dvec2().normalize();
+        let relative_speed = (mapped_vel.as_dvec2() - surface).dot(normal);
+        let leaving_scale = f64::from(material.scale()) * f64::from(map.scale());
+        let min_exit_speed = f64::from(min_exit_speed) * leaving_scale;
+        let assisted = mapped_vel.as_dvec2() + normal * (min_exit_speed - relative_speed).max(0.0);
+        let exit_vel = assisted.as_vec2();
+        if !exit_vel.is_finite() {
+            return Err(NumericFault::Overflow);
+        }
+        if (assisted.x != 0.0 && exit_vel.x == 0.0) || (assisted.y != 0.0 && exit_vel.y == 0.0) {
+            return Err(NumericFault::Underflow);
+        }
+        Ok(Self { map, entry_vel: velocity, exit_pos, mapped_vel, exit_vel })
+    }
+
+    /// The world-carried part of the run after the crossing: controller
+    /// motion is kept apart from motion supplied by the world.
+    pub fn carried_run(self, source_side: Vec2, destination_side: Vec2, previous: f32) -> Result<f32, NumericFault> {
+        if !source_side.is_finite() || !destination_side.is_finite() || !previous.is_finite() {
+            return Err(NumericFault::NonFinite);
+        }
+        if (source_side.length_squared() - 1.0).abs() > 2.0e-5
+            || (destination_side.length_squared() - 1.0).abs() > 2.0e-5 { return Err(NumericFault::InvalidFrame); }
+        let controller = self.entry_vel.as_dvec2().dot(source_side.as_dvec2()) - f64::from(previous);
+        let mapped = self.map.vector_from_wide(source_side.as_dvec2() * controller)?;
+        let carried = (self.exit_vel.as_dvec2() - mapped.as_dvec2()).dot(destination_side.as_dvec2());
+        let narrowed = carried as f32;
+        if !narrowed.is_finite() { return Err(NumericFault::Overflow); }
+        if carried != 0.0 && narrowed == 0.0 { return Err(NumericFault::Underflow); }
+        Ok(narrowed)
+    }
 }
 
 struct Curve<'a, 'b> {

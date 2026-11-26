@@ -7,6 +7,7 @@
 //! The authoritative state lives here in the world crate; the Bevy visual is a
 //! read-model projection of it.
 
+pub mod obstruction;
 mod simulation;
 pub use simulation::{MovingPlatformStep, install_moving_platform_simulation};
 
@@ -250,6 +251,10 @@ pub struct MovingPlatformSpec {
     /// (`walkable_lines`), and a portal on it rides it.
     #[serde(default)]
     pub line: Option<PlatformTurn>,
+    /// How it meets a body it would overconstrain (crushing C2/C3); `None`
+    /// takes the crush policy's word for it, by name or the game's default.
+    #[serde(default)]
+    pub authority: Option<ae::crush::SurfaceAuthority>,
 }
 
 /// How a plank platform turns about its centre.
@@ -302,6 +307,7 @@ impl MovingPlatformSpec {
             visual: None,
             one_way: false,
             line: None,
+            authority: None,
         }
     }
 
@@ -324,7 +330,7 @@ impl MovingPlatformSpec {
     }
 
     pub fn resolve(self, paths: &[KinematicPathSpec]) -> Result<MovingPlatformState, String> {
-        let (visual, one_way, line) = (self.visual.clone(), self.one_way, self.line);
+        let (visual, one_way, line, authority) = (self.visual.clone(), self.one_way, self.line, self.authority);
         if one_way {
             let climb = match &self.motion {
                 MovingPlatformMotionSpec::VerticalLoop { speed, .. } | MovingPlatformMotionSpec::Lift { speed, .. } => {
@@ -349,6 +355,7 @@ impl MovingPlatformSpec {
             state.visual = visual;
             state.one_way = one_way;
             state.plank = line.map(|turn| Plank { turn, ..Plank::default() });
+            state.authority = authority;
             state
         })
     }
@@ -449,6 +456,9 @@ pub struct MovingPlatformState {
     /// line ([`Self::as_collision_line`]), not a box.
     #[serde(default)]
     pub plank: Option<Plank>,
+    /// Its own crush authority (`MovingPlatformSpec::authority`).
+    #[serde(default)]
+    pub authority: Option<ae::crush::SurfaceAuthority>,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -574,6 +584,7 @@ impl MovingPlatformState {
             visual: None,
             one_way: false,
             plank: None,
+            authority: None,
         }
     }
 
@@ -613,6 +624,7 @@ impl MovingPlatformState {
             visual: None,
             one_way: false,
             plank: None,
+            authority: None,
         }
     }
 
@@ -636,6 +648,7 @@ impl MovingPlatformState {
             visual: None,
             one_way: false,
             plank: None,
+            authority: None,
         })
     }
 
@@ -673,6 +686,7 @@ impl MovingPlatformState {
             visual: None,
             one_way: false,
             plank: None,
+            authority: None,
         }
     }
 
@@ -702,6 +716,7 @@ impl MovingPlatformState {
             visual: None,
             one_way: false,
             plank: None,
+            authority: None,
         }
     }
 
@@ -735,6 +750,7 @@ impl MovingPlatformState {
             visual: None,
             one_way: false,
             plank: None,
+            authority: None,
         }
     }
 

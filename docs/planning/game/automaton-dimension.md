@@ -43,15 +43,17 @@ machine, the busy beaver that writes the most ones before it halts.
 - **The Works** (`automaton_works`): the gate CELLS; the Escapement Cafe,
   its gear sign and its tables; the water wheel; Busy Beaver at the stair of
   blocks he is building (64 a step) up to a chest; the clock tower, whose
-  door is the Tape Room's.
+  door is the Tape Room's. An inspection balcony connects the top block to
+  a ladder beside the tower.
 - **The Life field** (`automaton_life`), east: you come down off the Works'
   edge onto a floor of cells. Pillars of cubes stand up from it, their tops
   lit with live patterns. **Gliders** carry you: a glider is a moving
   platform that runs on a diagonal, its pattern turning through its four
-  phases as it goes (a glider moves one cell diagonally every four
-  generations). Neighbour Moore keeps the block, a still life. Spaceships
-  fly the field. A Replicator starts above the east terrace, near the
-  Sierpinski panel and chest. It splits into smaller copies when defeated.
+  phases as it goes. The floor path passes under the central pillar and
+  climbs the relay ramp to the east terrace. Neighbour Moore keeps the
+  block, a still life. Spaceships fly the field. A Replicator starts above the
+  east terrace, near the Sierpinski panel and chest. It splits into copies
+  when defeated.
 - **The Tape Room** (`automaton_tape_room`), by the clock tower's door: the
   tape along the wall with its ones, the Head on its rail, the table of
   states, and the count. The inspection carriage runs between two raised
@@ -61,12 +63,13 @@ machine, the busy beaver that writes the most ones before it halts.
   come in on a gallery at the terrace's height: the failure log (a row of
   cells per challenger, each ending in a red cell; the bottom row lit and
   empty) and the Imperfect Cellular Automaton, who heckles the log. Steps
-  go down to the ground; the ring stands one jump high on it, its face lit
-  with the four generations of rule 150, a post of cubes at each corner.
-  The PCA waits in the middle (dialogue `automaton_pca`: "Challenge it"
-  plays `glider_gun` and starts the fight). Behind: stands of cubes whose
-  crowd is lit cells, light pylons, and a screen on chains showing Gosper's
-  glider gun with the two gliders it has fired by generation 120.
+  lead to the ground. A jump reaches a viewing deck with a ladder down to
+  the ring apron. The ring stands one jump above the ground. Its face shows
+  the four generations of rule 150. A post of cubes stands at each corner.
+  The PCA waits in the middle. Choose "Let's fight" in `automaton_pca` to
+  play `glider_gun` and start the fight. The stands have a crowd of lit
+  cells. A screen on chains shows Gosper's glider gun and the two gliders
+  it has fired by generation 120.
 
 ## The people and the things that fight
 

@@ -576,6 +576,27 @@ pub struct Contact {
     /// false exactly when it matters.
     pub involuntary: bool,
     pub source: ContactSource,
+    /// Where the surface is, when the body's material met it through a
+    /// portal (portal M1c). `point`, `normal` and `surface_velocity` above
+    /// are in the body's root chart, the frame its response is solved in;
+    /// through a portal that is a place behind the near wall, not the
+    /// surface. `None` when the body met the surface in its own chart.
+    pub met: Option<MetThrough>,
+}
+
+/// A contact's facts in the chart it was met in, through a portal path.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MetThrough {
+    /// The first link of the path, by its key in the step's admission.
+    pub link: u32,
+    /// How many links the material went through to meet the surface.
+    pub hops: u8,
+    /// The contact point where the surface is.
+    pub point: Vec2,
+    /// The surface's outward normal there.
+    pub normal: Vec2,
+    /// The surface's own motion there this step, per tick.
+    pub surface_velocity: Vec2,
 }
 
 /// How fast `velocity` is closing on a surface whose outward normal is
@@ -588,6 +609,13 @@ pub fn closing_speed(velocity: Vec2, normal: Vec2) -> f32 {
 }
 
 impl Contact {
+    /// Where the surface physically is and which way it faces: the chart it
+    /// was met in, which is the body's own unless it met it through a portal.
+    /// A reader that places something on the surface reads this.
+    pub fn physical(&self) -> (Vec2, Vec2) {
+        self.met.map_or((self.point, self.normal), |met| (met.point, met.normal))
+    }
+
     /// Surface tangent, consistently wound: `(-n.y, n.x)`.
     pub fn tangent(&self) -> Vec2 {
         Vec2::new(-self.normal.y, self.normal.x)
@@ -705,7 +733,7 @@ pub fn block_face_contact(
     // resolves the contact — see [`Contact::impact_speed`].
     impact_speed: f32,
 ) -> Contact {
-    Contact {
+    Contact { met: None,
         kind,
         point: face_contact_point(body, block.aabb, normal),
         normal,

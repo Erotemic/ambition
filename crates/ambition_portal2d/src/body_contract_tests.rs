@@ -7,7 +7,6 @@ use bevy::prelude::*;
 use ambition_platformer2d_core::{self as ae, AabbExt, BodyKinematics, SweepSample};
 
 use crate::color::{PortalChannel, PortalGunColor};
-use crate::placement::{transit_step_with_tuning, TransitStep};
 use crate::transit::{PortalTransit};
 use crate::tuning::PortalTuning;
 use crate::types::{PlacedPortal};
@@ -49,7 +48,7 @@ fn transit_app() -> App {
     app.add_message::<crate::PortalBodyTransited>();
     app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
     // Transit crosses the pairs the step admitted (M1b): publish them first.
-    app.add_systems(Update, (crate::publish_portal_apertures, crate::portal_transit).chain());
+    app.add_systems(Update, (crate::publish_portal_apertures, crate::test_owner::cross_recorded_steps, crate::portal_transit).chain());
     app
 }
 
@@ -306,31 +305,18 @@ fn a_posed_body_is_in_the_pair_it_reaches_into_and_is_not_moved() {
     assert!(app.world().get::<BodyKinematics>(body).unwrap().pos.x > 300.0, "control: the body was not taken");
 }
 
-/// Projectile contact limits and root transit select the same crossing.
-/// A body that extends past an opening end keeps its original room leg.
+/// A shot's contact leg ends at a paired opening only where its root
+/// crosses inside it: past an opening's end the shot keeps its room leg.
 #[test]
-fn a_shots_leg_ends_only_where_the_transit_takes_it() {
+fn a_shots_leg_ends_only_inside_an_opening() {
     let blue = PlacedPortal::fixed(BLUE, Vec2::new(20.0, 200.0), Vec2::new(1.0, 0.0), HALF).unwrap();
     let orange = PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 200.0), Vec2::new(-1.0, 0.0), HALF).unwrap();
     let portals = [blue, orange];
     let size = Vec2::splat(16.0);
-    let vel = Vec2::new(-2400.0, 0.0);
-    let taken = |from: Vec2, to: Vec2| {
-        matches!(
-            transit_step_with_tuning(ambition_platformer2d_core::BodyKinematics { pos: to, canonical_size: size, vel: vel, ..Default::default() },
-                Some(ae::SweepSample { tick: 0, restriction: Default::default(), turn: None, down: Vec2::ZERO, travel: Default::default(), time: [0.0, 1.0], prev: from, vel, curr: to, material: Default::default(), half: Vec2::ZERO }),
-                None,
-                None,
-                &portals,
-                &PortalTuning::default(),),
-            TransitStep::Transfer { .. }
-        )
-    };
     for (y, through) in [(200.0, true), (200.0 + HALF - 2.0, false)] {
         let (from, to) = (Vec2::new(40.0, y), Vec2::new(0.0, y));
         let leg = crate::first_portal_crossing(from, to, size, &portals, None);
         assert_eq!(leg.unwrap().is_some(), through, "the leg at y {y} ends at the plane: {leg:?}");
-        assert_eq!(taken(from, to), through, "the transit takes the shot at y {y}");
     }
 }
 
@@ -533,7 +519,7 @@ fn a_root_transfer_carries_scale_axes_and_parity_for_each_convention() {
             app.add_message::<crate::PortalBodyTransited>();
             app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
             // Transit crosses the pairs the step admitted (M1b): publish them first.
-            app.add_systems(Update, (crate::publish_portal_apertures, crate::portal_transit).chain());
+            app.add_systems(Update, (crate::publish_portal_apertures, crate::test_owner::cross_recorded_steps, crate::portal_transit).chain());
             let entry = PlacedPortal::fixed(BLUE, Vec2::new(200.0, 380.0), -Vec2::Y, HALF).unwrap();
             let exit = PlacedPortal::fixed(ORANGE, Vec2::new(380.0, 200.0), -Vec2::X, HALF).unwrap();
             let map = ae::frame::Sim2::through(&entry.aperture(), &exit.aperture(), convention.map_convention()).unwrap();
@@ -583,9 +569,9 @@ fn a_crossing_comes_out_of_the_exit_its_step_was_admitted_against() {
         app.add_message::<crate::PortalBodyTransited>();
         app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
         if moved {
-            app.add_systems(Update, (crate::publish_portal_apertures, raise_orange, crate::portal_transit).chain());
+            app.add_systems(Update, (crate::publish_portal_apertures, raise_orange, crate::test_owner::cross_recorded_steps, crate::portal_transit).chain());
         } else {
-            app.add_systems(Update, (crate::publish_portal_apertures, crate::portal_transit).chain());
+            app.add_systems(Update, (crate::publish_portal_apertures, crate::test_owner::cross_recorded_steps, crate::portal_transit).chain());
         }
         wall_pair(&mut app);
         // Its step began 30 px in front of blue and ends 6 px behind it.
@@ -598,4 +584,69 @@ fn a_crossing_comes_out_of_the_exit_its_step_was_admitted_against() {
     let admitted = arrival(false);
     assert!(admitted.x > 300.0 && (admitted.y - 200.0).abs() < 1.0, "control: the body came out of orange: {admitted:?}");
     assert_eq!(arrival(true), admitted, "the crossing used the exit as it stood after the step, not as admitted");
+}
+
+/// Portal M2a: a body the movement kernel steps crosses in its step, and
+/// transit publishes the crossing the kernel took (the latch, the straddle of
+/// the exit, the message, the travel before it) without moving the body
+/// again. The kernel body's own travel is not searched: the same travel with
+/// no crossing reported by the kernel crosses nothing here, where a body no
+/// kernel steps would have.
+#[test]
+fn transit_publishes_the_crossing_the_kernel_took_and_takes_none_of_its_own() {
+    use ae::frame::{MapConvention, RootTransfer};
+    let run = |reported: bool| {
+        let mut app = App::new();
+        app.init_resource::<PortalTuning>();
+        app.add_message::<crate::PortalBodyEntered>();
+        app.add_message::<crate::PortalBodyTransited>();
+        app.init_resource::<ambition_platformer2d_shared_tangle::body::geometry::BodyGeometry>();
+        app.add_systems(Update, (crate::publish_portal_apertures, crate::test_owner::cross_recorded_steps, crate::portal_transit).chain());
+        let [blue, orange] = wall_pair(&mut app);
+        let (blue, orange) = (app.world().get::<PlacedPortal>(blue).unwrap().aperture(),
+            app.world().get::<PlacedPortal>(orange).unwrap().aperture());
+        // Its step began 30 px in front of blue and crossed it a third of the way in.
+        let link = ae::frame::thread::PortalLink::new(blue, orange, 0);
+        let pose = link.snapshot_at(1.0 / 3.0).unwrap();
+        let start = Vec2::new(50.0, 200.0);
+        let point = Vec2::new(20.0, 200.0);
+        let vel = Vec2::new(-5400.0, 0.0);
+        let transfer = RootTransfer::through(&pose.enter, &pose.exit, MapConvention::default(), point, vel,
+            ae::frame::BodyMaterial::IDENTITY, PortalTuning::default().min_exit_speed).unwrap();
+        let rest = transfer.exit_vel * (2.0 / 3.0) / 60.0;
+        let kin = BodyKinematics { pos: transfer.exit_pos + rest, vel: transfer.exit_vel, canonical_size: Vec2::splat(16.0), ..Default::default() };
+        let before = SweepSample { prev: start, curr: point, time: [0.0, 1.0 / 3.0], ..SweepSample::at_rest(kin, Vec2::Y) };
+        let record = SweepSample { prev: transfer.exit_pos, curr: kin.pos, time: [1.0 / 3.0, 1.0], ..SweepSample::at_rest(kin, Vec2::Y) };
+        let mut output = ae::BodyFrameOutput::default();
+        if reported {
+            output.events.chart_changes.push(ae::movement::ChartChange {
+                link, pose, world_time: 1.0 / 3.0, point, transfer, before,
+            });
+        }
+        // Without the kernel's report, the same travel ends 6 px behind blue.
+        let travel = if reported { record } else {
+            SweepSample { prev: start, curr: Vec2::new(14.0, 200.0), ..SweepSample::at_rest(kin, Vec2::Y) }
+        };
+        let kin = if reported { kin } else { BodyKinematics { pos: travel.curr, ..kin } };
+        let body = app.world_mut().spawn((kin, travel, output)).id();
+        app.update();
+        let messages = app.world().resource::<Messages<crate::PortalBodyTransited>>();
+        let sent: Vec<_> = messages.iter_current_update_messages().copied().collect();
+        (app.world().get::<BodyKinematics>(body).unwrap().pos, kin.pos, sent,
+            app.world().get::<PortalTransit>(body).copied(),
+            app.world().get::<crate::PortalTransitCooldown>(body).is_some(),
+            app.world().get::<ae::CrossedTravel>(body).cloned())
+    };
+    let (pos, stepped, sent, transit, latched, crossed) = run(true);
+    assert_eq!(pos, stepped, "the kernel already moved the body");
+    let [message] = sent.as_slice() else { panic!("one crossing published: {sent:?}") };
+    assert_eq!((message.transfer.entry_channel, message.transfer.exit_channel), (BLUE, ORANGE));
+    assert!((message.transfer.crossing_time - 1.0 / 3.0).abs() < 1e-9);
+    assert!(transit.is_some_and(|t| t.crossed && t.straddling == ORANGE), "{transit:?}");
+    assert!(latched, "the pair is latched");
+    assert_eq!(crossed.map(|c| c.0.len()), Some(1), "the travel before the crossing is kept for contact readers");
+
+    let (pos, stepped, sent, _, _, _) = run(false);
+    assert_eq!(pos, stepped, "transit did not cross a kernel body's travel itself");
+    assert!(sent.is_empty(), "{sent:?}");
 }

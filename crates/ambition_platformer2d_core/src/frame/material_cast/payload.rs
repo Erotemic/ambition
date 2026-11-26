@@ -398,7 +398,7 @@ mod tests {
         link.exit_step =
             ApertureStep::ending_at(link.exit.frame, Vec2::ZERO, std::f32::consts::TAU);
         let links = [link];
-        let admission = MotionAdmission {
+        let admission = MotionAdmission { span: Default::default(),
             links: &links,
             first: Some(0),
             budget: PieceBudget::COMPOSED,
@@ -438,7 +438,7 @@ mod tests {
     #[test]
     fn a_constant_map_accepts_the_largest_finite_payload_component() {
         let links = [PortalLink::new(entry(), exit(), 0)];
-        let admission = MotionAdmission {
+        let admission = MotionAdmission { span: Default::default(),
             links: &links,
             first: Some(0),
             budget: PieceBudget::COMPOSED,

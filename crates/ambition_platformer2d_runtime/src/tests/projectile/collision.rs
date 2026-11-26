@@ -287,6 +287,43 @@ fn a_fast_shot_through_a_portal_reaches_a_body_just_past_the_exit() {
     assert!(app.world().resource::<Struck>().0.contains(&HitTarget::Feature(target)), "the shot passed over the body past the exit");
 }
 
+/// Portal M2c: a shot with gravity that falls into a floor mouth and out of
+/// a wall exit a quarter turn away falls DOWN in the exit chart for the rest
+/// of the tick: its velocity there is the fall it had at the crossing turned
+/// onto +x, plus the rest of the tick's fall along down. Before, the whole
+/// tick's fall was turned with the map and the shot left level.
+#[cfg(feature = "portal")]
+#[test]
+fn a_falling_shot_through_a_turned_pair_falls_down_after_the_crossing() {
+    use ambition_portal2d::{PlacedPortal, PortalChannel, PortalGunColor};
+    let mut app = open_lane_app();
+    with_the_portal_transit(&mut app);
+    app.world_mut().resource_mut::<ambition_portal2d::PortalTuning>().min_exit_speed = 0.0;
+    let shooter = crate::projectile_tests::primary_player_entity(&mut app);
+    for (channel, pos, normal) in [
+        (PortalChannel::Gun(PortalGunColor::BLUE), ae::Vec2::new(600.0, 300.0), ae::Vec2::new(0.0, -1.0)),
+        (PortalChannel::Gun(PortalGunColor::ORANGE), ae::Vec2::new(1200.0, 800.0), ae::Vec2::new(1.0, 0.0)),
+    ] {
+        app.world_mut().spawn(PlacedPortal::fixed(channel, pos, normal, 40.0).unwrap());
+    }
+    // 2 px above the mouth, falling at 600 px/s: it crosses early in the tick.
+    let shot = spawn_owned_shot(&mut app, shooter, ae::Vec2::new(600.0, 298.0));
+    const GRAVITY: f32 = 3000.0;
+    app.world_mut().get_mut::<ae::BodyKinematics>(shot).unwrap().vel = ae::Vec2::new(0.0, 600.0);
+    app.world_mut().get_mut::<ambition_projectiles::ProjectileGameplay>(shot).unwrap().gravity = GRAVITY;
+    advance_time(&mut app, 0.016);
+    app.update();
+    let kin = *app.world().get::<ae::BodyKinematics>(shot).expect("the shot is alive");
+    let tick_fall = GRAVITY * 0.016;
+    assert!(kin.pos.x > 1200.0, "out of the wall exit: {kin:?}");
+    // It drifts at its velocity at the middle of the tick: the fall after
+    // the crossing, less the half tick to the middle, is down.
+    assert!(kin.vel.y > 0.0 && kin.vel.y < 0.5 * tick_fall,
+        "the tick's fall after the crossing is down in the exit chart: {:?}, tick fall {tick_fall}", kin.vel);
+    assert!((kin.vel.x + kin.vel.y - (600.0 + tick_fall)).abs() < 1e-2,
+        "the fall before the crossing comes out along +x, the rest along down: {:?}", kin.vel);
+}
+
 /// OW1: a shot threads only the portals of its own live room. The pair is in
 /// #1. A shot in #1 at the blue comes out at the orange; a shot in #0 at the
 /// same place flies on. Before, the stepper threaded every placed portal.

@@ -322,6 +322,15 @@ it. The renderer checkout appeared twice on the import path during the
 build. The check reported a toolchain change because the receipt counted
 the same package more than once. Record each package name and version once.
 
+The Manifest Office art uses the same source file as the Concourse and
+Authority Plaza. A change to the file tray makes those rooms' props stale.
+Give each room its own recipe module so the check can reuse the other
+rooms' accepted props. Keep the common drawing functions in the shared kit.
+
+The Sketchbook Cliffs fold build reported an unknown target when an import
+error prevented discovery. Show the module name and its import error in
+the build result when discovery fails.
+
 Machine mode returns parseable result data for normal refusal or partial
 failure even when the exit status is nonzero. If a killed or crashed producer
 returns no receipt, report its outcome as unavailable or unconfirmed.
@@ -396,6 +405,45 @@ In the Void Falls, the robot could hold jump at the foot of the shaft and
 still miss the first ledge. Use the landing preview to check a route from
 the floor to the next exit. Include the one-way ledges and the side of the
 solid ledge that can stop an upward jump.
+
+### Ladder landings
+
+In the Works, the balcony's one-way surface stopped descent onto the
+ladder. A ladder beside the balcony let the body climb in both directions.
+Show the ladder contact and the space to enter and leave at each end in
+the room preview.
+
+The Callosum fibre bundle uses ladder art from the Neural theme.
+The vine placeholder covers the local prop with a green rectangle.
+Let themes supply art for vines and climbable walls as they do for ladders.
+
+### Scenery and platform alignment
+
+The Unfinished Gallery staging uses one scenery sprite for six platform
+surfaces. The author entered those positions in LDtk and in the sprite
+recipe. Let the recipe use the authored platform positions. Show the
+sprite bounds and collision surfaces together in the room preview so an
+author can check the deck heights and floor contact.
+
+The Backstage generator placed a 16-pixel one-way platform at y=456.
+The rectangle touched two grid rows. It made two visible decks at y=448
+and y=464. Show the resulting walk surfaces before the author applies a
+one-way rectangle. Warn when one rectangle makes two rows.
+
+The Resonant Reach lift recipe and the platform look have the same frame
+size and deck position. Use the sheet's published frame size and top
+anchor for the look. Add sheet anchors for the left and right deck ends
+so the renderer can align the art with the collision width.
+The Cathedral lift also needs a prop sheet entry for the moving deck.
+Give the platform look the sheet entry so an author enters the kind once.
+
+### Route maps
+
+The Curator's Studio route map gives local names to a set of rooms and
+shows the routes between them. The painted lines and the loading zones
+are separate sources. Let the author choose rooms, names, and positions
+for a route map. Use the loading zones for the connections. Show drops
+and gated shortcuts with different marks.
 
 ### Content diffs need domain-aware comparison (Q62, Q78)
 

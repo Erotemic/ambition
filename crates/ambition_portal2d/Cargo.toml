@@ -11,6 +11,11 @@ description = "Reusable, content-free portal mechanic (portal-gun placement, ape
 # Packaging is the consuming binary's responsibility.
 crate-type = ["rlib"]
 
+[features]
+# A minimal motion owner for portal tests (`test_owner::cross_recorded_steps`):
+# enabled from dev-dependencies only, so it never reaches a shipped build.
+test-owner = []
+
 [dependencies]
 # Only the ECS surface (Component / Resource / Message / Query / Commands /
 # SystemSet via bevy::prelude). No render, audio, windowing, or asset features —

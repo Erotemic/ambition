@@ -69,6 +69,8 @@ fn same_wall_pair_app(who: Body) -> (App, Entity) {
         ..Default::default()
     });
     app.add_plugins(crate::PortalSchedulePlugin);
+    // Transit moves no root: a test body's own step crosses.
+    app.add_systems(Update, ambition_portal2d::test_owner::cross_recorded_steps.before(ambition_portal2d::PortalSet::Transit));
     for (color, y) in [(PortalGunColor::BLUE, 200.0), (PortalGunColor::ORANGE, 600.0)] {
         app.world_mut().spawn(PlacedPortal::fixed(
             PortalChannel::Gun(color),

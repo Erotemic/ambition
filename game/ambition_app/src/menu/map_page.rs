@@ -3,20 +3,18 @@
 use ambition_platformer2d::menu::map::browser::{
     MapAccess, MapAction, MapAtlas, MapBrowser, MapBrowserView, MapHierarchy,
 };
-use ambition_platformer2d::menu::map::view::{map_label, MapPinKind};
 use ambition_platformer2d::menu::map::MapMenuState;
-use ambition_platformer2d::menu::{
-    MenuColor, MenuControlKind, MenuPageModel, MenuRect, MenuTextAlign,
-};
+use ambition_platformer2d::menu::MenuPageModel;
 use std::sync::Arc;
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-use super::model::{add_edge_buttons, line, menu_look, MenuPage, MenuPageAction};
+use super::model::{MenuPage, MenuPageAction};
 
-/// The map's frame on the page, in percent of the page's width and height.
-pub(crate) const MAP_FRAME: MenuRect = MenuRect::new(14.0, 26.0, 72.0, 54.0);
+mod presentation;
+pub use presentation::build_map_page;
+pub(crate) use presentation::MAP_FRAME;
 
 /// The frame's width over its height on screen: the page is 3:2 (the cube's
 /// face, `MenuCubeGeometry::oot_like`), so a percent of width is 1.5 percent
@@ -39,27 +37,6 @@ pub(crate) fn frame_aspect(
         }
     }
     MAP_FRAME_ASPECT
-}
-
-/// A room's name on the map, in percent of the page's height.
-const MAP_LABEL_SIZE: f32 = 2.0;
-
-/// The narrowest room, in percent of the page's width, that shows its name.
-const MAP_LABEL_MIN_WIDTH: f32 = 9.0;
-
-/// A room's title fitted to `width` percent of the page: its name
-/// (`map_label`), cut with an ellipsis when it is still too long. A character
-/// of the label (capitals, the widest) is at most about 0.72 of its height
-/// wide, and a percent of width is 1.5 percent of height on the 3:2 page.
-fn short_title(title: &str, width: f32) -> String {
-    let title = map_label(title);
-    let title = title.as_str();
-    let fits = (width * 1.5 / (MAP_LABEL_SIZE * 0.72)).floor().max(3.0) as usize;
-    if title.chars().count() <= fits {
-        return title.to_string();
-    }
-    let cut: String = title.chars().take(fits.saturating_sub(1)).collect();
-    format!("{}…", cut.trim_end())
 }
 
 /// Build a menu page from the active map level.
@@ -190,7 +167,10 @@ impl MapPageSource<'_, '_> {
         }
     }
 
-    #[cfg(all(feature = "input", any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")))]
+    #[cfg(all(
+        feature = "input",
+        any(feature = "bevy_ui_menu", feature = "kaleidoscope_menu")
+    ))]
     pub(crate) fn pinch_viewport(
         &self,
         browser: &mut MapBrowser,
@@ -357,222 +337,12 @@ impl MapTravel<'_, '_> {
     }
 }
 
-fn colour([r, g, b, a]: [f32; 4]) -> MenuColor {
-    MenuColor::rgba(r, g, b, a)
-}
-
-/// Build the default map page for both menu renderers.
-pub fn build_map_page(view: Option<&MapBrowserView>) -> MenuPageModel<MenuPage, MenuPageAction> {
-    let look = menu_look();
-    let map_look = look.map;
-    let mut model = MenuPageModel::new(MenuPage::Map, line("menu.map.title"), colour(look.page));
-    add_edge_buttons(&mut model, MenuPage::Map);
-    let Some(view) = view else {
-        model.text(
-            50.0,
-            8.0,
-            4.0,
-            line("menu.map.title"),
-            MenuTextAlign::Center,
-            colour(look.heading),
-        );
-        model.text(
-            50.0,
-            50.0,
-            2.4,
-            line("menu.map.unmapped"),
-            MenuTextAlign::Center,
-            colour(look.placeholder_body),
-        );
-        return model;
-    };
-    let title = match &view.parent_title {
-        Some(parent) => format!("{parent} / {}", view.title),
-        None => view.title.clone(),
-    };
-    model.text(
-        50.0,
-        5.0,
-        3.3,
-        title,
-        MenuTextAlign::Center,
-        colour(look.heading),
-    );
-
-    let f = MAP_FRAME;
-    model.layered_panel(
-        f,
-        colour(map_look.frame),
-        Some(MenuPageAction::Map(MapAction::Canvas)),
-        0.0,
-    );
-    let mut entries: Vec<_> = view.entries.iter().collect();
-    entries.sort_by_key(|entry| (entry.selected, entry.here));
-    let mut tiles = Vec::new();
-    for entry in entries {
-        let label = entry
-            .pieces
-            .iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| a.area().total_cmp(&b.area()))
-            .map(|(index, _)| index);
-        tiles.extend(
-            entry
-                .pieces
-                .iter()
-                .enumerate()
-                .map(|(index, &piece)| (entry, piece, label == Some(index))),
-        );
-    }
-    let count = tiles.len().max(1) as f32;
-    for (index, &(entry, rect, label)) in tiles.iter().enumerate() {
-        let rect = MenuRect::new(
-            f.x + rect.min.x * f.w,
-            f.y + rect.min.y * f.h,
-            rect.width() * f.w,
-            rect.height() * f.h,
-        );
-        let fill = if entry.here {
-            map_look.room_here
-        } else if !entry.visited {
-            map_look.room_unvisited
-        } else {
-            map_look.room
-        };
-        let layer = 0.08 + 0.56 * index as f32 / count;
-        let action = (!view.room_detail).then_some(MenuPageAction::Map(MapAction::Open(entry.id)));
-        let inset = MenuRect::new(
-            rect.x + (rect.w * 0.08).min(0.22),
-            rect.y + (rect.h * 0.08).min(0.32),
-            rect.w - (rect.w * 0.16).min(0.44),
-            rect.h - (rect.h * 0.16).min(0.64),
-        );
-        if entry.selected && !view.room_detail {
-            model.layered_panel(rect, colour(look.heading), action, layer);
-            model.layered_panel(inset, colour(fill), action, layer + 0.28 / count);
-        } else {
-            model.layered_panel(inset, colour(fill), action, layer);
-        }
-        if label
-            && entry.visited
-            && inset.w >= MAP_LABEL_MIN_WIDTH
-            && inset.h >= MAP_LABEL_SIZE * 1.6
-        {
-            let label = short_title(&entry.title, inset.w);
-            let anchor = Vec2::new(inset.x + inset.w * 0.5, inset.y + inset.h * 0.5);
-            let half_width = label.chars().count() as f32 * MAP_LABEL_SIZE * 0.72 / 3.0;
-            let label_rect = Rect::from_center_size(
-                Vec2::new((anchor.x - f.x) / f.w, (anchor.y - f.y) / f.h),
-                Vec2::new(half_width * 2.0 / f.w, MAP_LABEL_SIZE / f.h),
-            );
-            // Hide a label where a room in front of it covers the text.
-            if !tiles[index + 1..]
-                .iter()
-                .any(|(_, rect, _)| !rect.intersect(label_rect).is_empty())
-            {
-                model.text(
-                    anchor.x,
-                    anchor.y - MAP_LABEL_SIZE * 0.5,
-                    MAP_LABEL_SIZE,
-                    label,
-                    MenuTextAlign::Center,
-                    colour(if entry.here {
-                        map_look.label_here
-                    } else {
-                        map_look.label
-                    }),
-                );
-            }
-        }
-    }
-    let marks = view
-        .pins
-        .iter()
-        .map(|pin| {
-            let (size, fill) = match pin.kind {
-                MapPinKind::Resident => (0.55, map_look.pin_resident),
-                MapPinKind::Shrine => (0.9, map_look.pin_shrine),
-            };
-            (pin.at, size, fill)
-        })
-        .chain(view.doors.iter().map(|at| (*at, 0.7, map_look.door)));
-    let count = (view.pins.len() + view.doors.len()).max(1) as f32;
-    for (i, (at, w, fill)) in marks.enumerate() {
-        let centre = Vec2::new(f.x + at.x * f.w, f.y + at.y * f.h);
-        let mark = Rect::from_center_size(centre, Vec2::new(w, w * 1.5)).intersect(
-            Rect::from_corners(Vec2::new(f.x, f.y), Vec2::new(f.x + f.w, f.y + f.h)),
-        );
-        if !mark.is_empty() {
-            model.layered_panel(
-                MenuRect::new(mark.min.x, mark.min.y, mark.width(), mark.height()),
-                colour(fill),
-                None,
-                0.7 + 0.3 * i as f32 / count,
-            );
-        }
-    }
-
-    let mut x = f.x;
-    for &tool in &view.tools {
-        let (label, w) = match tool {
-            MapAction::Up => (line("menu.map.back"), 9.0),
-            MapAction::Zoom(-1) => ("−".into(), 5.0),
-            MapAction::Fit => (line("menu.map.fit"), 5.0),
-            MapAction::Zoom(1) => ("+".into(), 5.0),
-            MapAction::Pan(-1, 0) => ("←".into(), 5.0),
-            MapAction::Pan(0, -1) => ("↑".into(), 5.0),
-            MapAction::Pan(0, 1) => ("↓".into(), 5.0),
-            MapAction::Pan(1, 0) => ("→".into(), 5.0),
-            MapAction::Browse(-1) => (line("menu.map.previous"), 8.0),
-            MapAction::Browse(1) => (line("menu.map.next"), 8.0),
-            MapAction::Travel => (line("menu.map.travel"), 16.0),
-            _ => continue,
-        };
-        model.control(
-            MenuRect::new(x, 14.0, w, 8.0),
-            MenuControlKind::Action,
-            label,
-            None,
-            view.focused_tool == Some(tool),
-            tool == MapAction::Travel,
-            Some(MenuPageAction::Map(tool)),
-        );
-        x += w + 1.0;
-    }
-
-    if let Some(entry) = view.entries.iter().find(|entry| entry.selected) {
-        let label = if entry.here {
-            format!("{} · {}", entry.title, line("menu.map.here"))
-        } else {
-            entry.title.clone()
-        };
-        model.text(
-            50.0,
-            84.0,
-            2.6,
-            label,
-            MenuTextAlign::Center,
-            colour(map_look.label),
-        );
-    } else {
-        model.text(
-            50.0,
-            50.0,
-            2.4,
-            line("menu.map.empty"),
-            MenuTextAlign::Center,
-            colour(map_look.label),
-        );
-    }
-    model
-}
-
 #[cfg(test)]
 mod tests {
     use bevy::ecs::system::RunSystemOnce;
     use bevy::prelude::*;
 
-    use super::{short_title, MapPagePresentation, MapPageSource};
+    use super::{presentation::short_title, MapPagePresentation, MapPageSource};
     use crate::menu::model::MenuPage;
     use ambition_platformer2d::menu::{MenuColor, MenuPageModel};
 

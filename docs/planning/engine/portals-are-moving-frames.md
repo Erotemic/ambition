@@ -674,7 +674,7 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   checks the stamp. Test: a body whose stepping system is skipped for a
   tick keeps an old-stamped sample, and the geometry observer and a
   mount's ground read no motion from it.
-  *Done 2026-11-26 (schema 549).* `SweepSample::tick` names the step;
+  *Done 2026-11-26 (schema 550).* `SweepSample::tick` names the step;
   `integrate_sim_bodies` stamps it on both roads beside `BodyStepStamp`
   (the kernel itself writes `0`, so a scratch body names no step), and a
   pose carry keeps the stamp of the record it extends. Readers ask by
@@ -706,6 +706,19 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
 - **M1c — source-frame contact facts.** A contact keeps the chart it was
   met in through to its readers. Test: a support met on the exit side
   reports the exit chart's normal and surface velocity.
+  *Done 2026-11-26.* `Contact::met` (`MetThrough`: first link, hops, and
+  the point, normal and surface motion where the surface is) is written by
+  the kernel's sweep and repair contacts whenever the material met the
+  surface through a path; `point`/`normal`/`surface_velocity` stay the
+  root-chart facts the response is solved in. `Contact::physical()` is the
+  reader for anything placed on the surface: the wall-arrival dust now
+  sits at the wall, not behind the near wall. Scripts read the same facts
+  as `world[i].met` on `ambition.body.contact@4`. Contacts are not
+  rolled back (the step derives them), so no codec change. Witness:
+  `wall_collision::a_support_met_through_a_turned_pair_keeps_the_exit_charts_facts`
+  (a floor mouth to a wall exit a quarter turn away: the root normal faces
+  up, the met normal faces the exit, the met motion is the sliding
+  block's; control: the room floor carries no `met`).
 
 **M2 — kernel continuation at chart changes.**
 - **M2a — continue the rest of the tick in the exit chart.** Integrate to
@@ -714,22 +727,138 @@ waits on other work ([crushing C1 and C3](crushing-and-obstruction-response.md#s
   crossing through a quarter-turn pair ends at the crossing's map followed
   by free flight under exit gravity, exactly (the derived 53 `r` px/s
   error above goes to zero); the aligned pair is unchanged.
+  *Done 2026-11-26.* The kernel owns the crossing of a body it steps.
+  `MotionAdmission::span` (`StepSpan`) says which part of the tick an
+  operation covers and whether the kernel moves the root (`Reroot`: the
+  links closed to the body, the exit assistance). With it, `try_motion`
+  probes the whole window, finds the first admitted root crossing on the
+  probe's path (`MaterialCast::crossing`, the primitive transit used), steps
+  the window up to it, moves the root at the crossing point with the
+  velocity the policy reached by then (`RootTransfer::through`, moved into
+  core and shared with `PortalTransfer`), releases the departure facts
+  (`release_departure`), and steps the rest of the window in the exit's
+  chart, crossing again up to the hop budget. Each part is an ordinary
+  step over its own window: the material casts and the end-of-step repair
+  read the world and the links at that window's times, and the record
+  (`SweepSample::time`) is the arrival leg. The step reports each crossing
+  (`FrameEvents::chart_changes`: link, pose, time, point, transfer, the leg
+  before). `BodyGeometry` asks for this in the portal app
+  (`set_kernel_reroot`, links of a `PortalBackside` pair closed), and
+  `portal_transit` publishes a kernel body's crossings (latch, straddle,
+  message, `CrossedTravel`, carried acceleration) and searches none of that
+  body's travel itself. Through a pair that mirrors the run, the
+  held run and facing intent are mirrored for the part after the crossing,
+  the rule the seat's `PortalInputWarp` applies from the next tick (caught
+  by `portal_similarity_slice`: unwarped, a held body turned round
+  mid-step). Items and projectiles keep the old road
+  until M2c. Witnesses: `movement::tests::chart_change` (a quarter turn
+  ends where the step up to the crossing, the map and the rest of the tick
+  in the exit chart put it, and falls `g r dt` down there; the aligned
+  pair gives the mapped whole step exactly; with no `Reroot` the kernel
+  crosses nothing) and
+  `body_contract_tests::transit_publishes_the_crossing_the_kernel_took_and_takes_none_of_its_own`.
+  Limits: geometry the kernel reads other than through a cast (a block's
+  box) is at the tick's end in both parts; the frame's carried
+  acceleration is not turned for the part after the crossing; the exit
+  side's frame is the body's frame for the step (pairs are in one room).
+  *Corrected 2026-11-26 (with M2d):* a step kicks the velocity, then
+  drifts at it, so the velocity a body keeps is its velocity at the middle
+  of the tick, and each part of an interrupted step ends half a part behind
+  the crossing. Mapped as it was, a floor-to-floor loop lost one tick of
+  gravity (`g dt`) per crossing, and a 400 px drop came back up 378 px:
+  the old road's mapped overshoot had balanced the same loss on average.
+  The kernel now brings the velocity to the crossing before the map (the
+  step's own change per tick, measured by the whole-window probe, over the
+  half tick to go) and back to the middle of the tick after it, by the same
+  change: the body's frame is the same on both sides. A 400 px drop comes
+  back to 400 px. Only a free step is read so: a step the probe found held
+  or touching had its velocity changed by contact, not by an acceleration
+  (read as one, a walk across the lab's slope pair overshot into a refused
+  cast; `portal_lab_usable::a_body_can_return_through_the_authored_slope_portal`). Witnesses: the content energy audits
+  (`floor_floor_bounce_conserves_crossing_speed_over_many_transfers`, the
+  three `floor_floor_round_trip_*`), now run on the kernel's own crossing.
 - **M2b — two crossings in one tick.** Test: a body that goes in and out
   of two static root pairs in one tick ends at the exact composed result.
+  *Done 2026-11-26* with M2a: the part after a crossing is itself an
+  interruptible step, up to the admission's hop budget. Witness:
+  `chart_change::a_body_crosses_two_pairs_in_one_step` (A at x 0→100 and
+  B at x 150→300: crossings at τ 0.125 and 0.75, the end 20 px past B's
+  exit; control: A alone, 70 px past its exit). Under a single-hop budget
+  the material cast through A that reaches B's mouth is refused and the
+  existing refusal recovery closes the portals, as before.
 - **M2c — the same history for items and projectiles**, each keeping its
   own response, force and contact budget. Test: a projectile and a loose
   item through the quarter-turn pair match their analytic continuation.
+  *Done 2026-11-26.* Both roads already cut their tick into legs at each
+  root crossing; what they turned with the map was the tick's whole change
+  of velocity, integrated before the first leg. At a crossing each now
+  takes back the change still to come (`rest` of the tick) before
+  `prepare_body_crossing` and gives it again after the transfer, in the
+  exit's chart: an item its fall at its exit scale (`falling`), a
+  projectile its gravity and the acceleration it carries, as mapped there
+  (`ProjectileGameplay::velocity_rate`, which `tick` now uses too). Each
+  keeps its own response and contact budget. Witnesses:
+  `held_items motion::tests::an_item_through_a_turned_pair_falls_down_after_the_crossing`
+  and runtime `a_falling_shot_through_a_turned_pair_falls_down_after_the_crossing`
+  (a floor mouth to a wall exit: the fall before the crossing comes out
+  along +x, the rest of the tick falls down). The app test of a scaled
+  crossing now states the kick split at the crossing instead of all of it
+  mapped (`a_projectile_spends_remaining_time_once_after_a_scaled_root_crossing`).
+  Both read their velocity as the middle of the tick's, as the kernel does
+  (the M2a correction): the map takes the velocity at the crossing, and the
+  exit side's change brings it back to the middle of the tick.
 - **M2d — delete the old paths.** Completed-endpoint remapping and
   chart-change history collapse go once M2a–c pass.
+  *Done 2026-11-26.* Transit moves no root. The census of bodies whose
+  travel transit still crossed found one shipped user: a settled item its
+  platform carries (`carry_or_wake_settled_items`), which now takes the
+  crossing in its own step as a flying item does (`prepare_body_crossing`,
+  `commit_body_transfer`; the rest of that tick it waits at the exit, and
+  its support being behind it, it wakes into flight). Projectiles and
+  pickups write zero-length records, pose-held bodies take the held road,
+  and every `MotionModel` body is the kernel's. Deleted:
+  `swept_crossing_step`, `continue_after_crossing`, `transfer_step`,
+  `PortalTransfer::at_crossing_completed`, `TransitStep::Transfer`,
+  transit's own commit branch, `reconcile_transited_bodies` and
+  `PortalBodyTransited::continued`. `transit_step_with_record` keeps the
+  straddle machine; the record says only which pairs the step admitted.
+  Tests that drove the old road through bare test bodies run through
+  `test_owner::cross_recorded_steps` (feature `test-owner`, dev only), a
+  motion owner that takes a recorded step's crossing the way items and
+  shots do; tests of crossing detection and transfer math call
+  `first_portal_crossing_through` and `PortalTransfer::at_crossing`; the
+  content energy audits step the real kernel with the pair admitted. Three
+  tests of the old road alone went: a stopped body's entry momentum, a
+  cooldown rescue of a deep crossing, and the two-pair chain (the kernel's
+  `chart_change::a_body_crosses_two_pairs_in_one_step` holds it). In the app
+  suite, the bare body sent through the lab pair with no owner went (shots
+  are witnessed crossing it by the chain and remaining-time tests), and the
+  lab G spinner's full-turn test now asserts the cast every owner takes a
+  crossing from (`first_portal_crossing` over the recorded turn). Witnesses:
+  `placement::tests::transit_takes_no_crossing_from_a_record` and held
+  items `a_settled_item_its_platform_carries_into_a_mouth_comes_out_of_the_exit`.
 - **M2e — host admission before the aperture writer commits** (crushing
   C5, after C1 and C3). Test: the refused control keeps host, aperture and
   material in one combined state.
+  *Done 2026-11-26* as [crushing C5](crushing-and-obstruction-response.md#stages):
+  the portal layer publishes each straddling body's part through the pair
+  before platforms advance, a host that may stall admits its move against
+  it, and the aperture follows the host's accepted delta, so host, aperture
+  and material commit together. Witness:
+  `portal_world::tests::a_yielding_host_stalls_on_a_body_whose_far_side_meets_a_solid`.
 
 **SUP1 through a portal cell** ([SUP1](slopes-feet-ride-surfaces.md#sup1--keep-a-changing-supports-material-motion)).
 - **S1 — split a deforming line at an aperture.** The line's material place
   (segment, fraction) on each side is mapped through the pair. Test: a
   stretching line cut by a static portal; a body standing across the cut
   keeps its material place on both sides.
+  *Split landed 2026-11-26:* `SurfaceChain::without` gave every piece the
+  whole line's `shape_before`, so a piece usually read as rigid (its point
+  count differed) and, when the counts matched, paired its segments with the
+  wrong history. Each piece now carries its own history, the cut points at
+  the same place along the same segment as the tick began
+  (`a_cut_changing_line_keeps_each_pieces_material_history`). The rider test
+  across the cut is still open.
 - **S2 — carry and swept bounds in the cut cell** use the shape motion
   (`shape_before`) on each side. Test: a rider on the stretching line
   crosses the portal and keeps its material point; the deforming-segment

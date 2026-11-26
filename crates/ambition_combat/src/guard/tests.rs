@@ -248,7 +248,7 @@ fn guard_rebound_uses_the_contact_chart_for_scale_parity_and_surface_motion() {
                     link.enter_step = step(entry);
                     link.exit_step = step(exit);
                     let links = [link];
-                    let admission = MotionAdmission { links: &links, first: None, budget: PieceBudget::COMPOSED, convention };
+                    let admission = MotionAdmission { span: Default::default(), links: &links, first: None, budget: PieceBudget::COMPOSED, convention };
                     let source = ae::Vec2::new(0.0, 90.0);
                     let volume = ae::CombatVolume::aabb(ae::Aabb::new(ae::Vec2::new(0.0, 105.0), ae::Vec2::splat(4.0)));
                     let pieces = partition(MaterialPrimitive { domain: &volume, to_world: ae::frame::Sim2::IDENTITY },

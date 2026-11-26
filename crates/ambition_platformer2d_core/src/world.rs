@@ -797,21 +797,36 @@ impl SurfaceChain {
         if self.closed || !self.junctions.is_empty() || !self.depth_lanes.is_empty() || self.points.len() < 2 {
             return vec![self.clone()];
         }
-        let mut pieces: Vec<Vec<Vec2>> = Vec::new();
-        let mut current = vec![self.points[0]];
+        // A changing line's pieces keep their material history: each point of
+        // a piece is where it was at the tick's start, the same place along
+        // the same segment of `shape_before` (SUP1). The whole line's history
+        // on a piece of it paired its segments with the wrong ones.
+        let deforms = self.deforms();
+        let before = |i: usize, t: f32| {
+            let (a, b) = (self.shape_before[i], self.shape_before[i + 1]);
+            a + (b - a) * t
+        };
+        let mut pieces: Vec<(Vec<Vec2>, Vec<Vec2>)> = Vec::new();
+        let mut current = (vec![self.points[0]], Vec::new());
+        if deforms { current.1.push(self.shape_before[0]); }
         let mut cut = false;
-        for pair in self.points.windows(2) {
+        for (i, pair) in self.points.windows(2).enumerate() {
             let (a, b) = (pair[0], pair[1]);
             match hole.clip_segment(a, b) {
-                None => current.push(b),
+                None => {
+                    current.0.push(b);
+                    if deforms { current.1.push(self.shape_before[i + 1]); }
+                }
                 Some((t0, t1)) => {
                     cut = true;
                     if t0 > 0.0 {
-                        current.push(a + (b - a) * t0);
+                        current.0.push(a + (b - a) * t0);
+                        if deforms { current.1.push(before(i, t0)); }
                     }
                     pieces.push(std::mem::take(&mut current));
                     if t1 < 1.0 {
-                        current = vec![a + (b - a) * t1, b];
+                        current = (vec![a + (b - a) * t1, b], Vec::new());
+                        if deforms { current.1 = vec![before(i, t1), self.shape_before[i + 1]]; }
                     }
                 }
             }
@@ -822,9 +837,10 @@ impl SurfaceChain {
         pieces.push(current);
         pieces
             .into_iter()
-            .filter(|points| points.len() >= 2 && points.windows(2).any(|w| (w[1] - w[0]).length() > 1.0e-3))
-            .map(|points| SurfaceChain {
+            .filter(|(points, _)| points.len() >= 2 && points.windows(2).any(|w| (w[1] - w[0]).length() > 1.0e-3))
+            .map(|(points, shape_before)| SurfaceChain {
                 points,
+                shape_before,
                 junctions: Vec::new(),
                 depth_lanes: Vec::new(),
                 earth: Vec::new(),

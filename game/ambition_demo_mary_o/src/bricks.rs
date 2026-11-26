@@ -400,7 +400,7 @@ mod tests {
         frame
             .events
             .contacts
-            .push(ae::collision_semantics::Contact {
+            .push(ae::collision_semantics::Contact { met: None,
                 // A hand-built fixture contact: nothing arrived at this surface.
                 impact_speed: 0.0,
                 involuntary: false,

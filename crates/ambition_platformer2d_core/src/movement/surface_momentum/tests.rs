@@ -143,7 +143,7 @@ fn a_rider_can_enter_a_wall_portal_from_a_floor() {
     let entry = PortalAperture { frame: PortalFrame::fixed(Vec2::new(200.0, 76.0), -Vec2::X), half_length: 64.0 };
     let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(500.0, 76.0), Vec2::X), half_length: 64.0 };
     let links = [PortalLink::new(entry, exit, 0), PortalLink::new(exit, entry, 1)];
-    let portals = MotionAdmission { links: &links, first: None,
+    let portals = MotionAdmission { span: Default::default(), links: &links, first: None,
         budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
     let world = World::new("wall portal", Vec2::splat(1000.0), Vec2::ZERO, vec![
         crate::Block::solid("entry wall", Vec2::new(200.0, 12.0), Vec2::new(48.0, 128.0)),
@@ -166,7 +166,7 @@ fn a_rider_loses_support_at_an_open_floor_portal_without_a_jump() {
     let entry = PortalAperture { frame: PortalFrame::fixed(Vec2::new(400.0, 100.0), -Vec2::Y), half_length: 64.0 };
     let exit = PortalAperture { frame: PortalFrame::fixed(Vec2::new(800.0, 76.0), Vec2::X), half_length: 64.0 };
     let links = [PortalLink::new(entry, exit, 0), PortalLink::new(exit, entry, 1)];
-    let portals = MotionAdmission { links: &links, first: None,
+    let portals = MotionAdmission { span: Default::default(), links: &links, first: None,
         budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection };
     let floor = SurfaceChain::open("road", vec![Vec2::new(0.0, 100.0), Vec2::new(700.0, 100.0)]);
     let world = World::new("floor portal", Vec2::splat(1000.0), Vec2::ZERO, vec![

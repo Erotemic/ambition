@@ -1986,7 +1986,7 @@ fn a_motion_refusal_steps_with_portals_closed_and_does_not_replay_an_old_sweep()
     let mut body = scratch.as_mut();
     body.sweep = Some(&mut sweep);
     let result = step_motion(&mut model, &mut body, MotionStepContext {
-        world: &world, admission: Some(MotionAdmission { links: &links, first: None,
+        world: &world, admission: Some(MotionAdmission { span: Default::default(), links: &links, first: None,
             budget: PieceBudget { max_scale_exponent: 12, max_hops: 0, max_pieces: 1 }, convention: MapConvention::Reflection }),
         input: InputState::default(), frame, facing_intent: 0.0, dt: 1.0 / 30.0,
         contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false,
@@ -2083,7 +2083,7 @@ fn an_unrepresentable_part_velocity_refuses_before_body_commit() {
     let mut model = MotionModel::default();
     let mut clusters = body.as_mut();
     let result = step_motion(&mut model, &mut clusters, MotionStepContext {
-        world: &world, admission: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }),
+        world: &world, admission: Some(MotionAdmission { span: Default::default(), links: &links, first: Some(0), budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }),
         input: InputState::default(), frame: MotionFrame::from_direction(Vec2::Y, 0.0), facing_intent: 0.0, dt: 0.0,
         contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false, recovery_commitment_outstanding: false,
     });
@@ -2115,7 +2115,7 @@ fn carried_acceleration_is_admitted_before_the_source_body_moves() {
             MotionFrame::with_accelerations(crate::AccelerationFrame::new(Vec2::Y), Vec2::ZERO, acceleration)
         };
         let result = step_motion(&mut model, &mut body.as_mut(), MotionStepContext {
-            world: &world, admission: Some(MotionAdmission { links: &links, first: Some(0), budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }),
+            world: &world, admission: Some(MotionAdmission { span: Default::default(), links: &links, first: Some(0), budget: PieceBudget::COMPOSED, convention: MapConvention::Reflection }),
             input: InputState::default(), frame, facing_intent: 0.0, dt: 1.0e-18,
             contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false, recovery_commitment_outstanding: false,
         });
@@ -2198,7 +2198,7 @@ fn a_still_body_refuses_a_portal_that_only_intersects_during_its_turn() {
     let mut model = MotionModel::default();
     let mut clusters = body.as_mut();
     let result = step_motion(&mut model, &mut clusters, MotionStepContext {
-        world: &world, admission: Some(MotionAdmission { links: &links, first: None,
+        world: &world, admission: Some(MotionAdmission { span: Default::default(), links: &links, first: None,
             budget: PieceBudget { max_hops: 0, ..PieceBudget::COMPOSED }, convention: MapConvention::Reflection }),
         input: InputState::default(), frame: MotionFrame::from_direction(Vec2::Y, 0.0), facing_intent: 0.0, dt: 0.0,
         contact: crate::movement::BodyContactField::NONE, pose_owned_externally: false,

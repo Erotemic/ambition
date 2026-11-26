@@ -1279,11 +1279,12 @@ fn an_open_grid_map_follows_the_owner_without_a_map_resource_change() {
     app.update();
     let text = |app: &mut App| app.world_mut().query::<&Text>().iter(app.world()).map(|text| text.0.clone()).collect::<Vec<_>>();
     let before = text(&mut app);
-    assert!(before.iter().any(|text| text == "ALPHA · You are here"), "{before:?}");
+    assert!(before.iter().any(|text| text == "ALPHA"), "{before:?}");
+    assert!(before.iter().any(|text| text == "You are here"), "{before:?}");
     app.world_mut().entity_mut(body).insert(InRoomInstance(rooms[1]));
     app.update();
     let shown = text(&mut app);
-    assert!(shown.iter().any(|text| text == "BETA · You are here"), "{shown:?}");
+    assert!(shown.iter().any(|text| text == "BETA"), "{shown:?}");
 }
 
 #[test]

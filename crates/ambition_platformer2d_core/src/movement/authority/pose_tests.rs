@@ -18,7 +18,7 @@ fn links(scale: f32) -> [PortalLink;1] {
 }
 
 fn admission(links: &[PortalLink], hops: u8) -> MotionAdmission<'_> {
-    MotionAdmission { links,first:None,budget:PieceBudget { max_hops:hops,..PieceBudget::COMPOSED },
+    MotionAdmission { span: Default::default(), links,first:None,budget:PieceBudget { max_hops:hops,..PieceBudget::COMPOSED },
         convention:MapConvention::Reflection }
 }
 

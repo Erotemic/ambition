@@ -1060,19 +1060,26 @@ The existing visual play gate remains separate.
 
 **Owner:** [crushing, compression and motion authority](engine/crushing-and-obstruction-response.md).
 
-**State:** the architecture is ruled; the numerical model and the
-deterministic fallback for irreconcilable constraints still need design
-(before C4). C1's core landed 2026-11-26: each `AxisConstraintConflict`
-carries the root-chart motion of both claimants and answers `obstruction()`
-with the driver chosen by relative motion (receipt in the owner's C1
-stage). Nothing consumes it yet; platforms take no refusal.
+**State:** C0–C3 and C5 landed 2026-11-26 (receipts in the owner's
+stages). C0 pinned today's behaviour and found that a full step does not
+report a press closing on a standing body: the step meets it as a head
+contact and lets it pass through. C1 publishes each tick's obstructions in
+identity order (`TickObstructions`), with the pinch across a portal pair
+reading as the local one. C2 is the policy data with defaults that change
+nothing. C3: a yielding or limited platform stalls on a body that has no
+room, and riders are carried by the accepted move. C5 (= portal M2e): a
+portal's moving host admits its move against the part of a body pushed
+through the pair.
 
-**Next action:** C0, pin today's behaviour: a moving block's pinch reports
-one conflict with both sources; Mary-O's moving one-way platform lets a
-player raised into a ceiling fall through (find and name its mechanism); a walk into a still wall is a refusal with
-no conflict. Then C1 (the obstruction fact, including the same pinch
-through a static portal pair) and C2 (policy data whose defaults change
-nothing).
+The numerical model and fallback were decided the same day, and C4's first
+slices landed: the step reports a press closing on a standing body, and
+each pinched body squashes if it can and then answers by its failure
+response (damage, destroy, the fallback's ejection, or rigid by default),
+and recovers once released.
+
+**Next action:** `one_way_yields` as a game input to the step, and the
+app-level witnesses (death at zero health, a rewind replaying a response);
+then C6 content.
 
 **Acceptance:** the stage tests in the owner page, stage by stage: C3 a
 yielding or limited mover stalls with riders carried by the accepted
@@ -3747,10 +3754,19 @@ Since landed (2026-11-25, [receipts](engine/portals-are-moving-frames.md)):
 transit continues from the crossing for a moving exit, contact reads the
 legs before and between crossings, an interpolated view and a feature row
 draw a crossing at its time, and a line host binds SUP1's material place.
-Next in P2: M1's completed-step history apart from the next-step seed, M2's
-kernel continuation in the destination chart, host admission before the
-aperture writer commits, and SUP1 through a portal cell (which needs a
-deforming line split, not only a clipped cast). P4's full-turn bounds and repeated-link candidate exclusion landed
+M1 landed 2026-11-26 (a: the travel record names its step; b: crossings
+use the aperture snapshot the step was admitted against; c: a contact keeps
+the chart it was met in, also for scripts on `ambition.body.contact@4`).
+M2a/M2b landed 2026-11-26: the kernel interrupts a body's step at each root
+crossing and continues it in the exit's chart; transit publishes the
+kernel's crossings. M2c landed the same day: items and projectiles give
+the rest of the tick's change of velocity in the exit's chart. M2d landed
+the same day: transit moves no root (a settled item's carry crosses in its
+owner), the old completed-endpoint road is deleted, and the crossing reads
+the velocity at mid-tick so a floor-to-floor loop keeps its energy. Next in
+P2: SUP1 through a portal cell (the deforming line split landed 2026-11-26;
+the rider across the cut and S2/S3 remain). Host admission landed the same
+day as crushing C5. P4's full-turn bounds and repeated-link candidate exclusion landed
 2026-11-26 (receipt in the owner's P4 section); its shared projectile source
 leg remains. P3 removes
 static contact-velocity reconstruction and the AABB snag authority after the

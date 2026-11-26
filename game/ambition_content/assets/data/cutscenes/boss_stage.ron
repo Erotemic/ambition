@@ -18,27 +18,22 @@
                 seconds: 1.6,
             ),
             Dialogue(
-                speaker: "bossofthegame",
                 speaker_character_id: "npc_bossofthegame",
                 text: "Okay. Full Stack. Listen carefully.",
             ),
             Dialogue(
-                speaker: "bossofthegame",
                 speaker_character_id: "npc_bossofthegame",
                 text: "Kill the player. Make it right. Make no mistakes.",
             ),
             Dialogue(
-                speaker: "Full Stack",
                 speaker_character_id: "npc_full_stack",
                 text: "Great question! Here is a five-step plan to kill the player:",
             ),
             Dialogue(
-                speaker: "bossofthegame",
                 speaker_character_id: "npc_bossofthegame",
                 text: "No plan. Just do it. I'm going to walk away for a few minutes.",
             ),
             Dialogue(
-                speaker: "bossofthegame",
                 speaker_character_id: "npc_bossofthegame",
                 text: "When I come back the player should be dead. Do not ask me for input.",
             ),
@@ -55,22 +50,18 @@
         id: "boss_retirement",
         beats: [
             Dialogue(
-                speaker: "bossofthegame",
                 speaker_character_id: "npc_bossofthegame",
                 text: "...Okay. Okay. That was a good one.",
             ),
             Dialogue(
-                speaker: "bossofthegame",
                 speaker_character_id: "npc_bossofthegame",
                 text: "I never wanted to be the villain. I wanted to be challenged. And I was. Thanks for that.",
             ),
             Dialogue(
-                speaker: "bossofthegame",
                 speaker_character_id: "npc_bossofthegame",
                 text: "The bossofthegame is the bossofthegame until the day he dies, or retires.",
             ),
             Dialogue(
-                speaker: "bossofthegame",
                 speaker_character_id: "npc_bossofthegame",
                 text: "I'm not dying today. So.",
             ),
@@ -78,17 +69,14 @@
                 seconds: 0.6,
             ),
             Dialogue(
-                speaker: "bossofthegame",
                 speaker_character_id: "npc_bossofthegame",
                 text: "I retire.",
             ),
             Dialogue(
-                speaker: "Full Stack",
                 speaker_character_id: "npc_full_stack",
                 text: "Would you like me to write a retirement speech? I have prepared seven.",
             ),
             Dialogue(
-                speaker: "bossofthegame",
                 speaker_character_id: "npc_bossofthegame",
                 text: "No.",
             ),

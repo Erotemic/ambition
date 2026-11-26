@@ -45,9 +45,11 @@ pub enum CutsceneBeat {
     /// responsible for showing `text` and waiting for the dismiss
     /// button before advancing.
     Dialogue {
+        /// Label for a voice with no character ID or a title for this scene.
+        #[serde(default)]
         speaker: String,
         text: String,
-        /// Stable character identity for portraits. Empty for a voice with no character.
+        /// Character ID for the name, voice, and portrait.
         #[serde(default)]
         speaker_character_id: String,
     },

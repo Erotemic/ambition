@@ -9,6 +9,7 @@
 //! too, when no conversation is shown, so every line is drawn by the same box
 //! with the same controls.
 
+use ambition_characters::prepared::PreparedCharacterRegistry;
 use ambition_dialog::DialogState;
 use bevy::prelude::{Commands, Component, DetectChanges, DetectChangesMut, Entity, Query, Ref, Res, ResMut, Resource};
 
@@ -116,6 +117,7 @@ impl DialogView {
 pub fn rebuild_dialog_view(
     settings: ambition_platformer2d_world::governing_rules::RulesOf<ambition_dialog::DialogSettings>,
     dialogue: Option<Res<DialogState>>,
+    cast: Option<Res<PreparedCharacterRegistry>>,
     conversation: Option<Res<ambition_conversation::ActiveConversation>>,
     // A cutscene's line, and the seat that answers it: the lowest seat in the
     // cutscene's room (`ActiveCutscene::answering_seat`, which the cutscene
@@ -142,7 +144,9 @@ pub fn rebuild_dialog_view(
     if let Some(playing) = line {
         // Written only when it differs: the cutscene republishes its
         // presentation each tick, and a write here rebuilds the box.
-        view.set_if_neq(cutscene_line_view(playing, &settings, &drivers, &rooms, bindings.as_deref(), devices.as_deref()));
+        view.set_if_neq(cutscene_line_view(
+            playing, &settings, &drivers, &rooms, bindings.as_deref(), devices.as_deref(), cast.as_deref(),
+        ));
         return;
     }
     // A cutscene line that ended leaves no conversation behind it.
@@ -176,8 +180,16 @@ fn cutscene_line_view(
     rooms: &ambition_platformer2d_shared_tangle::lifecycle::LiveRooms,
     bindings: Option<&ambition_input::SeatBindings>,
     devices: Option<&ambition_input::SeatActiveDevices>,
+    cast: Option<&PreparedCharacterRegistry>,
 ) -> DialogView {
     let (speaker, text) = playing.line().unwrap_or_default();
+    let character_id = &playing.presentation.speaker_character_id;
+    let speaker = if speaker.is_empty() {
+        cast.and_then(|cast| cast.get(character_id))
+            .map_or("", |character| character.display_name.as_str())
+    } else {
+        speaker
+    };
     let policy = settings.in_live_room(playing.room.map(
         ambition_platformer2d_shared_tangle::lifecycle::LiveRoomInstance::from_ordinal,
     )).copied().unwrap_or_default();
@@ -220,6 +232,7 @@ pub fn rebuild_cutscene_line_views(
     mut commands: Commands,
     settings: ambition_platformer2d_world::governing_rules::RulesOf<ambition_dialog::DialogSettings>,
     dialogue: Option<Res<DialogState>>,
+    cast: Option<Res<PreparedCharacterRegistry>>,
     (cutscene, drivers, rooms): (
         Option<Res<ambition_cutscene::ActiveCutscene>>,
         Query<(&ambition_characters::control::DrivingParticipant, Entity)>,
@@ -242,7 +255,9 @@ pub fn rebuild_cutscene_line_views(
         match lines.iter().position(|playing| playing.room == line.0) {
             Some(at) => {
                 let playing = lines.remove(at);
-                view.set_if_neq(SlotDialogView(cutscene_line_view(playing, &settings, &drivers, &rooms, bindings.as_deref(), devices.as_deref())));
+                view.set_if_neq(SlotDialogView(cutscene_line_view(
+                    playing, &settings, &drivers, &rooms, bindings.as_deref(), devices.as_deref(), cast.as_deref(),
+                )));
             }
             None => commands.entity(entity).despawn(),
         }
@@ -250,7 +265,9 @@ pub fn rebuild_cutscene_line_views(
     for playing in lines {
         commands.spawn((
             CutsceneLineView(playing.room),
-            SlotDialogView(cutscene_line_view(playing, &settings, &drivers, &rooms, bindings.as_deref(), devices.as_deref())),
+            SlotDialogView(cutscene_line_view(
+                playing, &settings, &drivers, &rooms, bindings.as_deref(), devices.as_deref(), cast.as_deref(),
+            )),
             bevy::prelude::Name::new("Cutscene Line View"),
         ));
     }
@@ -441,6 +458,44 @@ mod tests {
         assert!(view.portrait_clip.is_empty());
         assert!(view.speaker_label.is_empty());
         assert!(view.conversation_label.is_empty());
+    }
+
+    #[test]
+    fn a_cutscene_reads_the_prepared_name_and_keeps_a_scene_label() {
+        use ambition_characters::{
+            actor::definition::CharacterDefinition,
+            prepared::{close_preparation_barrier, stage_authored_character, CharacterBindings},
+        };
+        use ambition_cutscene::{ActiveCutscene, CutsceneBeat, CutsceneRuntime, CutsceneScript, PlayingCutscene};
+
+        let mut app = App::new();
+        app.init_resource::<DialogView>();
+        app.add_systems(Update, (rebuild_dialog_view, rebuild_cutscene_line_views));
+        stage_authored_character(
+            &mut app,
+            CharacterDefinition::new("npc_test", "Prepared Name", "test"),
+            &CharacterBindings::default(),
+        ).unwrap();
+        close_preparation_barrier(app.world_mut());
+        let scene = |id, label: &str| CutsceneRuntime::new(CutsceneScript::new(id, vec![
+            CutsceneBeat::Dialogue {
+                speaker: label.into(),
+                speaker_character_id: "npc_test".into(),
+                text: "Hello".into(),
+            },
+        ]));
+        let mut active = ActiveCutscene::playing(scene("named", ""), Some(1));
+        active.start(PlayingCutscene::new(scene("masked", "Foreman"), Some(2)));
+        app.insert_resource(active);
+        app.update();
+
+        let main = app.world().resource::<DialogView>();
+        assert_eq!(main.speaker_character_id, "npc_test");
+        assert_eq!(main.speaker_label, "Prepared Name");
+        let world = app.world_mut();
+        let room = world.query::<&SlotDialogView>().single(world).unwrap();
+        assert_eq!(room.0.speaker_character_id, "npc_test");
+        assert_eq!(room.0.speaker_label, "Foreman");
     }
 
     /// An open dialogue that writes nothing leaves the view unchanged, so the

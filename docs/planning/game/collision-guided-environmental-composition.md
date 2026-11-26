@@ -356,6 +356,8 @@ On Dry Dock's Main Street, show the pump walks with the ordinance board
 so an author can check that the pipe and deck leave the text clear.
 In the Wet Whistle, show the balcony and the bar top with their ledge
 bounds. Show the talk prompt below the bar top from the floor.
+At Bell's Livery, show the ladder cells beside the crate and the loft
+edge. Use the ledge bounds to set where the boards and bales end.
 The Steam Plant has a ladder at each catwalk. Use the overlaps between the
 ladders and the decks to place the gaps in both rails.
 QED-TV had painted rungs over the themed ladder. Show the themed ladder in

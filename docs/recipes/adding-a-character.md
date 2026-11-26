@@ -26,9 +26,10 @@ fragments. Code-authored characters register `CharacterDefinition` values.
 Preparation folds the registered definitions and provider fragments into the
 single runtime value. Read a nearby character that uses the features you need.
 
-For a catalog-owned name, edit `display_name` in the catalog row. Sprite
-metadata can identify the actor with `character_id` and set `display_name` to
-null. An art lineage can use the same `character_id` to title its history.
+Edit `display_name` in the catalog row. Use `character_id` in sprite
+metadata and design history. Give a sprite an `art_label` if its look needs
+a label. A cutscene dialogue beat can use `speaker_character_id` alone. Add
+`speaker` when the scene calls for a title or a voice with no character ID.
 
 For a game that defines a character entirely in its catalog, a row specifying
 `locomotion` or `locomotion_preset` participates in character construction. A
@@ -67,7 +68,7 @@ row:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools:tools/ambition_sprite2d_renderer \
-  python3 -m ambition_ldtk_tools.character_notes --splice --target <target>
+  python3 -m ambition_ldtk_tools.character_notes --splice --target <target> --display-name "Character Name"
 ```
 
 The authored sprite target owns its source and generation inputs. Publish the

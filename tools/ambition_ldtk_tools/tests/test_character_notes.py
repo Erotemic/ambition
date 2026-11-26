@@ -95,7 +95,6 @@ def test_missing_fields_are_named_not_defaulted():
 def test_rendered_ron_escapes_quotes():
     notes = CharacterNotes(
         character_id="npc_x",
-        display_name="X",
         fallback_dialogue=('He said "no".',),
     )
     assert '\\"no\\"' in render_notes_ron(notes)
@@ -134,3 +133,20 @@ def test_splice_refuses_without_a_unique_anchor(tmp_path):
     catalog.write_text("no anchor here\n")
     with pytest.raises(ValueError):
         splice_rows(catalog, {"npc_new": "row\n"})
+
+
+def test_a_new_row_requires_a_catalog_name(tmp_path, monkeypatch, capsys):
+    from ambition_ldtk_tools import character_notes as tool
+
+    catalog = tmp_path / "character_catalog.ron"
+    catalog.write_text(tool.SPLICE_ANCHOR + "\n")
+    monkeypatch.setattr(tool, "load_target_metadata", lambda _: {
+        "actor": {"character_id": "npc_subject", "display_name": "Art label"}
+    })
+    args = ["--splice", "--target", "subject", "--catalog", str(catalog)]
+    assert tool.main(args) == 1
+    assert "--display-name" in capsys.readouterr().err
+    assert tool.main(args + ["--display-name", "Cast name"]) == 0
+    assert tool.main(args) == 0
+    assert 'display_name: "Cast name"' in catalog.read_text()
+    assert "Art label" not in catalog.read_text()

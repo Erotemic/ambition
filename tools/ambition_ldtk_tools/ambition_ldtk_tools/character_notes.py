@@ -49,9 +49,8 @@ PYTHONPATH=tools/ambition_ldtk_tools:tools/ambition_sprite2d_renderer \\
 python -m ambition_ldtk_tools.character_notes --target marie_curry
 ```
 
-Prints a RON fragment for manual splice into `character_catalog.ron`, the same
-posture as `codegen_character_catalog` -- a hand-curated catalog is not
-machine-rewritten, and a human decides where the row lands.
+Prints a RON fragment for `character_catalog.ron`. Supply `--display-name`
+when you draft or insert a new row. The catalog owns that name.
 """
 
 from __future__ import annotations
@@ -113,7 +112,6 @@ class CharacterNotes:
     """The catalog-facing projection of one target's ``ACTOR_METADATA``."""
 
     character_id: str
-    display_name: str
     authoring_description: str = ""
     gameplay_description: str = ""
     fallback_dialogue: tuple[str, ...] = ()
@@ -220,7 +218,6 @@ def notes_from_actor_metadata(metadata: Mapping[str, Any]) -> CharacterNotes:
     body = metadata.get("body") or {}
     return CharacterNotes(
         character_id=str(actor.get("character_id", "")).strip(),
-        display_name=str(actor.get("display_name") or "").strip(),
         authoring_description=flatten_prose(metadata.get("authoring_description")),
         gameplay_description=flatten_prose(metadata.get("gameplay_description")),
         fallback_dialogue=fallback_pool(metadata.get("dialogue_hints")),
@@ -269,6 +266,7 @@ def render_notes_ron(notes: CharacterNotes, indent: str = " " * 12) -> str:
 def render_catalog_row(
     notes: CharacterNotes,
     target: str,
+    display_name: str,
     brain: str = DEFAULT_BRAIN,
     action_set: str = DEFAULT_ACTION_SET,
 ) -> str:
@@ -279,10 +277,12 @@ def render_catalog_row(
     thing to put on a Hall pedestal, and retuning one row afterwards is a
     one-line edit. Getting the character INTO the game is the hard part.
     """
+    if not display_name.strip():
+        raise ValueError("a new catalog row requires a display name")
     tags = ", ".join(_ron_string(t) for t in notes.traits)
     row = [
         f'        "{notes.character_id}": (',
-        f"            display_name: {_ron_string(notes.display_name)},",
+        f"            display_name: {_ron_string(display_name.strip())},",
         f'            manifest: "sprites/{target}_spritesheet.ron",',
         "            tier: MainHall,",
         "            body_kind: Standard,",
@@ -355,10 +355,16 @@ def main(argv: Iterable[str] | None = None) -> int:
         default=Path(DEFAULT_CATALOG),
         help=f"catalog path (default {DEFAULT_CATALOG})",
     )
+    parser.add_argument("--display-name", help="display name for a new catalog row (one target)")
     parser.add_argument("--brain", default=DEFAULT_BRAIN)
     parser.add_argument("--action-set", default=DEFAULT_ACTION_SET)
     args = parser.parse_args(list(argv) if argv is not None else None)
 
+    if (args.splice or args.display_name is not None) and not args.target:
+        parser.error("name the target for a catalog row")
+    if args.display_name is not None and (len(args.target) != 1 or not args.display_name.strip()):
+        parser.error("--display-name requires one target and a nonempty name")
+    catalog = args.catalog.read_text() if args.splice else ""
     targets = args.target or discover_targets()
     status = 0
     rows: dict[str, str] = {}
@@ -375,9 +381,17 @@ def main(argv: Iterable[str] | None = None) -> int:
                 print(f"# {target}: ACTOR_METADATA names no character_id", file=sys.stderr)
                 status = 1
             continue
-        rows[notes.character_id] = render_catalog_row(
-            notes, target, args.brain, args.action_set
-        )
+        if args.splice and f'"{notes.character_id}": (' in catalog:
+            continue
+        if args.display_name is not None:
+            rows[notes.character_id] = render_catalog_row(
+                notes, target, args.display_name, args.brain, args.action_set
+            )
+        elif args.splice:
+            print(f"# {target}: supply --display-name for a new catalog row", file=sys.stderr)
+            status = 1
+        elif fragment := render_notes_ron(notes):
+            print(f"// {notes.character_id}\n{fragment}")
         gaps = notes.missing_fields()
         if gaps:
             print(f"# {target}: no {', '.join(gaps)}", file=sys.stderr)
@@ -387,21 +401,8 @@ def main(argv: Iterable[str] | None = None) -> int:
             print(row, end="")
         return status
 
-    # `--splice` writes only what was ASKED for. A blanket scan over the whole
-    # renderer sweeps up things that are targets but not characters -- variant
-    # rigs (`npc_pirate_heavy`, whose real rows are its three named variants),
-    # candidate art, and `*_v2` experiments -- and the catalog deliberately has
-    # no row for those. Naming the target is the author saying "this one is a
-    # character," which is a judgement no directory listing can make.
-    if not args.target:
-        print(
-            "refusing to splice a whole-renderer scan: name the targets you mean\n"
-            "  (the listing above is a report; not every render target is a character)",
-            file=sys.stderr,
-        )
-        for row in rows.values():
-            print(row, end="")
-        return 1
+    if status:
+        return status
 
     added = splice_rows(args.catalog, rows)
     if added:

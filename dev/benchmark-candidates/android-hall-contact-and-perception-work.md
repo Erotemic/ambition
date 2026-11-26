@@ -1407,6 +1407,36 @@ The total tick ranges overlap. The last run refused a live catalog edit
 and kept its active content. Use the headless call counts to verify the
 work removed. Both candidate medians are above 13.75 ms/tick.
 
+### Hurt region storage and loose item contacts
+
+Keep one hurt region inline. Keep authored region order and coordinate
+space. Loose items copy recipients in rooms with active items and reuse
+each room's list for all its casts.
+
+In a 596-body probe with four multi-region bodies, a snapshot copy
+allocated 597 times before the change and five times after it. The
+optimized copy took 16–17 µs before and about 2 µs after. The component
+increased from 32 to 48 bytes. The copied regions matched in order.
+
+| Optimized 596-body fixture | Before, µs | After, µs |
+| --- | ---: | ---: |
+| One held item | 85–88 | 12 |
+| One loose item, one local recipient and 595 in another room | 129 | 74–76 |
+| One loose item, all recipients in its room | 380–383 | 271–280 |
+
+The item position, velocity, and impact results matched. These timings
+cover loose-item physics and snapshot copies. The assembled build and
+ten checks for hurt regions, room-local flight, and portal refusal passed.
+The European swallow pair also picked up and released its coconut
+under rollback in the assembled game.
+
+Two windowed runs of the newer development build kept all 596 bodies.
+The catalog and Hall map checksums stayed the same. With a 1280 × 800
+viewport, Potato quality, and software rendering, the medians were
+17.78 and 14.22 ms/tick. The runs had 74 and 72 windows after 30 s.
+The build also includes upstream changes. Use the isolated probes to
+measure this patch. The desktop target remains 13.75 ms/tick.
+
 ### Full-cast budget
 
 At 60 simulation ticks per second, a 30 FPS frame needs two ticks on
